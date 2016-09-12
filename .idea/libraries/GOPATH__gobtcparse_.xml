@@ -1,0 +1,43 @@
+<component name="libraryTable">
+  <library name="GOPATH &lt;gobtcparse&gt;">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../btcplex" />
+      <root url="file://$PROJECT_DIR$/../xiuxiuwww" />
+      <root url="file://$PROJECT_DIR$/../sourcegraph.com" />
+      <root url="file://$PROJECT_DIR$/../TestWukong" />
+      <root url="file://$PROJECT_DIR$/../GoJade" />
+      <root url="file://$PROJECT_DIR$/../honnef.co" />
+      <root url="file://$PROJECT_DIR$/../github.com" />
+      <root url="file://$PROJECT_DIR$/../.idea" />
+      <root url="file://$PROJECT_DIR$/../9fans.net" />
+      <root url="file://$PROJECT_DIR$/../testApp" />
+      <root url="file://$PROJECT_DIR$/../allblue-server" />
+      <root url="file://$PROJECT_DIR$/../JmyServer" />
+      <root url="file://$PROJECT_DIR$/../gopkg.in" />
+      <root url="file://$PROJECT_DIR$/../go2o" />
+      <root url="file://$PROJECT_DIR$/../golang.org" />
+      <root url="file://$PROJECT_DIR$/../HelloBeeAdmin" />
+    </CLASSES>
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../btcplex" />
+      <root url="file://$PROJECT_DIR$/../xiuxiuwww" />
+      <root url="file://$PROJECT_DIR$/../sourcegraph.com" />
+      <root url="file://$PROJECT_DIR$/../TestWukong" />
+      <root url="file://$PROJECT_DIR$/../GoJade" />
+      <root url="file://$PROJECT_DIR$/../honnef.co" />
+      <root url="file://$PROJECT_DIR$/../github.com" />
+      <root url="file://$PROJECT_DIR$/../.idea" />
+      <root url="file://$PROJECT_DIR$/../9fans.net" />
+      <root url="file://$PROJECT_DIR$/../testApp" />
+      <root url="file://$PROJECT_DIR$/../allblue-server" />
+      <root url="file://$PROJECT_DIR$/../JmyServer" />
+      <root url="file://$PROJECT_DIR$/../gopkg.in" />
+      <root url="file://$PROJECT_DIR$/../go2o" />
+      <root url="file://$PROJECT_DIR$/../golang.org" />
+      <root url="file://$PROJECT_DIR$/../HelloBeeAdmin" />
+    </SOURCES>
+    <excluded>
+      <root url="file://$PROJECT_DIR$" />
+    </excluded>
+  </library>
+</component>
