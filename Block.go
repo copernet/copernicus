@@ -26,7 +26,7 @@ type Block struct {
 	NextBlock      string
 }
 
-func PasetBlock(raw [] byte) (block *Block, err error) {
+func ParseBlock(raw [] byte) (block *Block, err error) {
 
 	block = new(Block)
 	block.Raw = raw
