@@ -114,7 +114,7 @@ func ParseTranscationOut(rawOut []byte) (txOut*TransactionOut, offset int) {
 
 	}
 	if len(addressHash) != 0 {
-		txOut.Address = addressHash[0].EncodeAddress():
+		txOut.Address = addressHash[0].EncodeAddress()
 
 	} else {
 		txOut.Address = ""
