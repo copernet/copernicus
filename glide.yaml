@@ -1,0 +1,6 @@
+package: btcboost
+import:
+- package: github.com/btcsuite/btcd
+  subpackages:
+  - chaincfg
+  - txscript
