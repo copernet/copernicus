@@ -1,9 +1,10 @@
-package gobtcparse
+package model
 
 import (
 	"encoding/binary"
 	"bytes"
 	"encoding/hex"
+	"btcboost/Utils"
 )
 
 var EmptyByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -30,12 +31,12 @@ func ParseBlock(raw [] byte) (block *Block, err error) {
 
 	block = new(Block)
 	block.Raw = raw
-	block.Hash = ToHash256String(raw[:80])
+	block.Hash = utils.ToHash256String(raw[:80])
 	block.Version = binary.LittleEndian.Uint32(raw[0:4])
 
 	if !bytes.Equal(raw[4:36], EmptyByte) {
 
-		block.PrevBlock = ToHash256String(raw[4:36])
+		block.PrevBlock = utils.ToHash256String(raw[4:36])
 
 	}
 	block.MerkleRoot = hex.EncodeToString(raw[36:68])

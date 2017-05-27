@@ -1,4 +1,4 @@
-package gobtcparse
+package utils
 
 import (
 	"fmt"

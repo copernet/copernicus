@@ -1,4 +1,4 @@
-package gobtcparse
+package model
 
 import (
 	"os"

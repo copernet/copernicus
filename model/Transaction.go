@@ -1,9 +1,10 @@
-package gobtcparse
+package model
 
 import (
 	"encoding/binary"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/chaincfg"
+	"btcboost/Utils"
 )
 
 type Transaction struct {
@@ -31,7 +32,7 @@ type TransactionOut struct {
 
 func ParseTranscations(raws [] byte) (txs []*Transaction, err error) {
 	offset := int(0)
-	txCnt, txCntSize := DecodeVariableLengthInteger(raws[offset:])
+	txCnt, txCntSize := utils.DecodeVariableLengthInteger(raws[offset:])
 	offset += txCntSize
 
 	txs = make([]*Transaction, txCnt)
@@ -39,7 +40,7 @@ func ParseTranscations(raws [] byte) (txs []*Transaction, err error) {
 	txOffset := int(0)
 	for i := range txs {
 		txs[i], txOffset = ParseTranscation(txs[offset:])
-		txs[i].Hash = ToHash256String(raws[offset:offset + txOffset])
+		txs[i].Hash = utils.ToHash256String(raws[offset:offset + txOffset])
 		txs[i].Size = uint32(txOffset)
 		offset += txOffset
 	}
@@ -52,7 +53,7 @@ func ParseTranscation(raw [] byte) (tx *Transaction, offset int) {
 	tx.Version = binary.LittleEndian.Uint32(raw[0:4])
 	offset = 4
 
-	inCnt, inCntSize := DecodeVariableLengthInteger(raw[offset:])
+	inCnt, inCntSize := utils.DecodeVariableLengthInteger(raw[offset:])
 	offset += inCntSize
 
 	tx.TxInCnt = uint32((inCnt))
@@ -65,7 +66,7 @@ func ParseTranscation(raw [] byte) (tx *Transaction, offset int) {
 		offset += txInOffset
 	}
 
-	txOutCnt, txOutCntSize := DecodeVariableLengthInteger(raw[offset:])
+	txOutCnt, txOutCntSize := utils.DecodeVariableLengthInteger(raw[offset:])
 	offset += txOutCntSize
 
 	tx.TxOutCnt = uint32(txOutCnt)
@@ -83,11 +84,11 @@ func ParseTranscation(raw [] byte) (tx *Transaction, offset int) {
 
 func ParseTranscationIn(raw[] byte) (txIn*TransactionIn, offset int) {
 	txIn = new(TransactionIn)
-	txIn.InputHash = ToHash256String(raw[0:32])
+	txIn.InputHash = utils.ToHash256String(raw[0:32])
 	txIn.InputVout = binary.LittleEndian.Uint32(raw[32:36])
 	offset = 36
 
-	scriptSigCnt, scriptSigSzie := DecodeVariableLengthInteger(raw[offset:])
+	scriptSigCnt, scriptSigSzie := utils.DecodeVariableLengthInteger(raw[offset:])
 	offset += scriptSigSzie
 	txIn.ScriptSig = raw[offset:offset + scriptSigCnt]
 	offset += scriptSigCnt
@@ -102,7 +103,7 @@ func ParseTranscationOut(rawOut []byte) (txOut*TransactionOut, offset int) {
 	offset = 8
 	txOut.Value = binary.LittleEndian.Uint64(rawOut[0:offset])
 
-	pkScriptCnt, pkScriptSize := DecodeVariableLengthInteger(rawOut[offset:])
+	pkScriptCnt, pkScriptSize := utils.DecodeVariableLengthInteger(rawOut[offset:])
 	offset += pkScriptSize
 	txOut.PKScript = rawOut[offset:offset + pkScriptCnt]
 	offset += pkScriptCnt
