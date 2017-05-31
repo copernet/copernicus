@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"bytes"
 	"encoding/hex"
-	"btcboost/Utils"
+	"btcboost/utils"
 )
 
 var EmptyByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
