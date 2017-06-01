@@ -20,5 +20,5 @@ type BloomUpdateType uint8
 // why a message was rejected.
 type RejectCode uint8
 
-type uint32Time time.Time
-type int64Time time.Time
+type Uint32Time time.Time
+type Int64Time time.Time
