@@ -73,6 +73,7 @@ func (blockchain *Blockchain)FetchNextBlock() (raw []byte, err error) {
 	_, err = blockchain.CurrentFile.Read(buf[:])
 	if err != nil {
 		return
+
 	}
 	blockSize := uint32(blkSize(buf[:]))
 	raw = make([]byte, blockSize)
