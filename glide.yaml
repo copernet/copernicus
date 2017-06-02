@@ -4,3 +4,7 @@ import:
   subpackages:
   - chaincfg
   - txscript
+- package: github.com/astaxie/beego
+  version: ~1.8.3
+  subpackages:
+  - logs
