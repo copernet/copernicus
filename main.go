@@ -3,10 +3,26 @@ package main
 import (
 	_ "btcboost/log"
 	"github.com/astaxie/beego/logs"
+	"os"
+	"syscall"
 )
 
-func main() {
-	log := logs.NewLogger()
-	log.Info("application is runing")
+var log *logs.BeeLogger
 
+func init() {
+	log = logs.NewLogger()
+	interruptSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+}
+
+func btcMain() error {
+	interruptChan := interruptListener()
+	<-interruptChan
+	return nil
+}
+
+func main() {
+	log.Info("application is runing")
+	if err := btcMain(); err != nil {
+		os.Exit(1)
+	}
 }
