@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/chaincfg"
-	"btcboost/utils"
+	"copernicus/utils"
 )
 
 type Transaction struct {

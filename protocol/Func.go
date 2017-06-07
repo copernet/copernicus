@@ -1,6 +1,6 @@
 package protocol
 
-import "btcboost/crypto"
+import "copernicus/crypto"
 
 type HashFunc func() (hash *crypto.Hash, height int32, err error)
 

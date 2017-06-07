@@ -2,7 +2,7 @@ package peer
 
 import (
 	"net"
-	"btcboost/protocol"
+	"copernicus/protocol"
 )
 
 

@@ -1,6 +1,6 @@
 package peer
 
-import "btcboost/protocol"
+import "copernicus/protocol"
 
 type PeerConfig struct {
 	NewestBlock protocol.HashFunc

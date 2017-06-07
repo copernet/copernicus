@@ -4,8 +4,8 @@ import (
 	"time"
 	"net"
 	"io"
-	"btcboost/protocol"
-	"btcboost/store"
+	"copernicus/protocol"
+	"copernicus/store"
 	"encoding/binary"
 )
 

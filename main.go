@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "btcboost/log"
+	_ "copernicus/log"
 	"github.com/astaxie/beego/logs"
 	"os"
 	"syscall"

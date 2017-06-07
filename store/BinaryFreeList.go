@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"crypto/rand"
 	"time"
-	"btcboost/protocol"
+	"copernicus/protocol"
 	"crypto"
 )
 
