@@ -2,9 +2,11 @@ package main
 
 import (
 	_ "copernicus/log"
+	_ "copernicus/conf"
 	"github.com/astaxie/beego/logs"
 	"os"
 	"syscall"
+
 )
 
 var log *logs.BeeLogger
@@ -22,7 +24,9 @@ func btcMain() error {
 
 func main() {
 	log.Info("application is runing")
+
 	if err := btcMain(); err != nil {
 		os.Exit(1)
 	}
+
 }
