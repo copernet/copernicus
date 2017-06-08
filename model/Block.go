@@ -20,7 +20,6 @@ type Block struct {
 	Bits           uint32
 	Nonce          uint32
 	Size           uint32
-	TransactionCnt uint32
 	TotalBTC       uint64
 	BlockReward    float64
 	PrevBlock      string
@@ -47,6 +46,6 @@ func ParseBlock(raw [] byte) (block *Block, err error) {
 
 	txs, _ := ParseTranscation(raw[80:])
 	block.Transactions = txs
-	block.TransactionCnt = len(txs)
+
 	return
 }

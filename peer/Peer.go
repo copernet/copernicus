@@ -2,14 +2,8 @@ package peer
 
 import (
 	"net"
-	"copernicus/protocol"
 )
 
-
-type PeerConfig struct {
-	NewestBlock protocol.HashFunc
-
-}
 type Peer struct {
 	bytesReceived uint64
 	bytesSent     uint64
@@ -18,8 +12,7 @@ type Peer struct {
 	connected     int32
 	disconnect    int32
 
-	conn          net.Conn
+	conn net.Conn
 
-	address       string
+	address string
 }
-
