@@ -1,12 +1,12 @@
 package main
 
 import (
-	_ "copernicus/log"
 	_ "copernicus/conf"
-	"github.com/astaxie/beego/logs"
+	_ "copernicus/log"
 	"os"
 	"syscall"
 
+	"github.com/astaxie/beego/logs"
 )
 
 var log *logs.BeeLogger
@@ -28,5 +28,4 @@ func main() {
 	if err := btcMain(); err != nil {
 		os.Exit(1)
 	}
-
 }
