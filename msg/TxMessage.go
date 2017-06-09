@@ -1,4 +1,4 @@
-package message
+package msg
 
 type TxMessage struct {
 	Message

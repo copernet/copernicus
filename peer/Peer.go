@@ -6,12 +6,11 @@ import (
 	"github.com/astaxie/beego/logs"
 	"sync"
 	"copernicus/crypto"
-	"copernicus/network"
 	"copernicus/protocol"
 	"time"
 	"sync/atomic"
-	"copernicus/message"
-	"copernicus/store"
+	"copernicus/msg"
+	"copernicus/utils"
 )
 
 type Peer struct {
@@ -29,7 +28,7 @@ type Peer struct {
 	address              string
 	lastDeclareBlock     *crypto.Hash
 	PeerStatusMutex      sync.RWMutex
-	Address              *network.NetAddress
+	Address              *msg.PeerAddress
 	ServiceFlag          protocol.ServiceFlag
 	UserAgent            string
 	PingNonce            uint64
@@ -75,7 +74,7 @@ func (p *Peer) GetPeerID() int32 {
 	return p.Id
 
 }
-func (p *Peer) GetNetAddress() *network.NetAddress {
+func (p *Peer) GetNetAddress() *msg.PeerAddress {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.Address
@@ -104,7 +103,7 @@ func (p*Peer) LastReceived() uint64 {
 	return atomic.LoadUint64(&p.lastReceive)
 }
 
-func (p *Peer) LocalVersionMsg() (*message.VersionMessage, error) {
+func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	var blockNumber int32
 	if p.Config.NewBlock != nil {
 		_, blockNumber, err := p.Config.NewBlock()
@@ -118,7 +117,7 @@ func (p *Peer) LocalVersionMsg() (*message.VersionMessage, error) {
 	if p.Config.Proxy != "" {
 		proxyAddress, _, err := net.SplitHostPort(p.Config.Proxy)
 		if err != nil || p.Address.IP.String() == proxyAddress {
-			remoteAddress = &network.NetAddress{
+			remoteAddress = &msg.PeerAddress{
 				Timestamp: time.Now(),
 				IP:        net.IP([]byte{0, 0, 0, 0}),
 			}
@@ -128,15 +127,23 @@ func (p *Peer) LocalVersionMsg() (*message.VersionMessage, error) {
 	if p.Config.BestAddress != nil {
 		localAddress = p.Config.BestAddress(p.Address)
 	}
-	nonce, err := store.RandomUint64()
+	nonce, err := utils.RandomUint64()
 	if err != nil {
 		return nil, err
 	}
-	msg := message.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
+	msg := msg.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
 	msg.AddUserAgent(p.Config.UserAgent, p.Config.UserAgentVersion)
 	msg.LocalAddress.ServicesFlag = protocol.SF_NODE_NETWORK_AS_FULL_NODE
 	msg.ServiceFlag = p.Config.ServicesFlag
 	msg.ProtocolVersion = p.ProtocolVersion
 	msg.DisableRelayTx = p.Config.DisableRelayTx
 	return msg, nil
+}
+
+func (p *Peer) SendAddrMsg(addresses []*msg.PeerAddress) ([]*msg.PeerAddress, error) {
+
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+	msg :=
 }

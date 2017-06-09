@@ -1,4 +1,4 @@
-package message
+package msg
 
 import (
 	"copernicus/model"

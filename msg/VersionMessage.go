@@ -1,9 +1,9 @@
-package message
+package msg
 
 import (
 	"copernicus/protocol"
 	"time"
-	"copernicus/network"
+
 	"fmt"
 	"strings"
 )
@@ -13,15 +13,15 @@ type VersionMessage struct {
 	ProtocolVersion uint32
 	ServiceFlag     protocol.ServiceFlag
 	Timestamp       time.Time
-	RemoteAddress   *network.NetAddress
-	LocalAddress    *network.NetAddress
+	RemoteAddress   *PeerAddress
+	LocalAddress    *PeerAddress
 	Nonce           uint64
 	UserAgent       string
 	LastBlock       int32
 	DisableRelayTx  bool
 }
 
-func GetNewVersionMessage(localAddr *network.NetAddress, remoteAddr *network.NetAddress, nonce uint64, lastBlock int32) *VersionMessage {
+func GetNewVersionMessage(localAddr *PeerAddress, remoteAddr *PeerAddress, nonce uint64, lastBlock int32) *VersionMessage {
 	versionMessage := VersionMessage{
 		ProtocolVersion: protocol.BITCOIN_PROTOCOL_VERSION,
 		ServiceFlag:     0,
