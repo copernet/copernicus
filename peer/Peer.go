@@ -104,33 +104,39 @@ func (p*Peer) LastReceived() uint64 {
 	return atomic.LoadUint64(&p.lastReceive)
 }
 
-//func (p *Peer) LocalVersionMsg() (*message.VersionMessage, error) {
-//	var blockNumber int32
-//	if p.Config.NewBlock != nil {
-//		_, blockNumber, err := p.Config.NewBlock()
-//		if err != nil {
-//			return nil, err
-//		}
-//
-//	}
-//	peerAddress := p.Address
-//	if p.Config.Proxy != "" {
-//		proxyAddress, _, err := net.SplitHostPort(p.Config.Proxy)
-//		if err != nil || p.Address.IP.String() == proxyAddress {
-//			peerAddress = &network.NetAddress{
-//				Timestamp: time.Now(),
-//				IP:        net.IP([]byte{0, 0, 0, 0}),
-//			}
-//		}
-//	}
-//	localAddress := p.Address
-//	if p.Config.BestAddress != nil {
-//		localAddress = p.Config.BestAddress(p.Address)
-//	}
-//	nonce, err := store.RandomUint64()
-//	if err != nil {
-//		return nil, err
-//	}
-//	msg :=
-//
-//}
+func (p *Peer) LocalVersionMsg() (*message.VersionMessage, error) {
+	var blockNumber int32
+	if p.Config.NewBlock != nil {
+		_, blockNumber, err := p.Config.NewBlock()
+		if err != nil {
+			return nil, err
+		}
+		log.Info("block number:%v", blockNumber)
+
+	}
+	remoteAddress := p.Address
+	if p.Config.Proxy != "" {
+		proxyAddress, _, err := net.SplitHostPort(p.Config.Proxy)
+		if err != nil || p.Address.IP.String() == proxyAddress {
+			remoteAddress = &network.NetAddress{
+				Timestamp: time.Now(),
+				IP:        net.IP([]byte{0, 0, 0, 0}),
+			}
+		}
+	}
+	localAddress := p.Address
+	if p.Config.BestAddress != nil {
+		localAddress = p.Config.BestAddress(p.Address)
+	}
+	nonce, err := store.RandomUint64()
+	if err != nil {
+		return nil, err
+	}
+	msg := message.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
+	msg.AddUserAgent(p.Config.UserAgent, p.Config.UserAgentVersion)
+	msg.LocalAddress.ServicesFlag = protocol.SF_NODE_NETWORK_AS_FULL_NODE
+	msg.ServiceFlag = p.Config.ServicesFlag
+	msg.ProtocolVersion = p.ProtocolVersion
+	msg.DisableRelayTx = p.Config.DisableRelayTx
+	return msg, nil
+}
