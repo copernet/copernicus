@@ -1,3 +1,3 @@
-#We are best Bitcoin developer
+#Copernicus
 
   
