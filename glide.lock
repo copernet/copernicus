@@ -1,12 +1,13 @@
-hash: 2a070844128e564d76457799880cf16b69073b6d374047d6ecfa7792f4fbfbc8
-updated: 2017-06-02T08:18:31.514021915+08:00
+hash: 01e40909238194724aa659e01ea4778f9060e481d39b407f260844eed3713656
+updated: 2017-06-08T07:03:25.361806269+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
   subpackages:
+  - config
   - logs
 - name: github.com/btcsuite/btcd
-  version: 3d0dfed40b879733f608af4a3e155b9086db5368
+  version: ef87de9d8888726bb77cc921a69e0ffddb885740
   subpackages:
   - btcec
   - chaincfg
@@ -16,7 +17,7 @@ imports:
 - name: github.com/btcsuite/btclog
   version: 1dfb68239632ee8c667290e30b31cf294bc3d6ae
 - name: github.com/btcsuite/btcutil
-  version: fac8a9a5820e9f6c21b0d866935b011dbfac9bcb
+  version: 61ec18f9c8a4552c209416ce363592e35e416997
   subpackages:
   - base58
 - name: github.com/btcsuite/seelog

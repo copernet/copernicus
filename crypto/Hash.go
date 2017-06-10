@@ -3,38 +3,39 @@ package crypto
 import (
 	"fmt"
 	"encoding/hex"
-	"sort"
 )
 
 const (
-	HASH_SIZE = 32
+	HASH_SIZE            = 32
 	MAX_HASH_STRING_SIZE = HASH_SIZE * 2
 )
 
 type Hash [HASH_SIZE]byte
 
-func (hash *Hash)ToString() string {
-	sort.Reverse(hash)
+func (hash Hash) ToString() string {
+	for i := 0; i < HASH_SIZE/2; i++ {
+		hash[i], hash[HASH_SIZE-1-i] = hash[HASH_SIZE-1-i], hash[i]
+	}
 	return hex.EncodeToString(hash[:])
 
 }
-func (hash *Hash)GetCloneBytes() []byte {
+func (hash Hash) GetCloneBytes() []byte {
 	bytes := make([]byte, HASH_SIZE)
 	copy(bytes, hash[:])
 	return bytes
 }
-func (hash*Hash)SetBytes(bytes [] byte) error {
+func (hash Hash) SetBytes(bytes [] byte) error {
 
 	length := len(bytes)
 	if length != HASH_SIZE {
 		return fmt.Errorf("invalid hash length of %v , want %v", length, HASH_SIZE)
 
 	}
-	copy(hash[:], length)
+	copy(hash[:], bytes)
 	return nil
 }
-func (hash *Hash)IsEqual(target*Hash) bool {
-	if hash == nil&&target == nil {
+func (hash *Hash) IsEqual(target *Hash) bool {
+	if hash == nil && target == nil {
 		return true
 	}
 	if hash == nil || target == nil {
@@ -47,15 +48,15 @@ func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	if length != HASH_SIZE {
 		return nil, fmt.Errorf("invalid hash length of %v , want %v", length, HASH_SIZE)
 	}
-	hash = bytes
+	hash.SetBytes(bytes)
 	return
 }
-func GetHashFromStr(hashStr string) (hash *Hash, err error) {
+func GetHashFromStr(hashStr string) (hash Hash, err error) {
 	bytes, err := DecodeHash(hashStr)
 	if err != nil {
 		return
 	}
-	hash = bytes
+	hash.SetBytes(bytes)
 	return
 }
 
@@ -65,20 +66,20 @@ func DecodeHash(src string) (bytes []byte, err error) {
 	}
 	var srcBytes []byte
 	var srcLen = len(src)
-	if srcLen % 2 == 0 {
+	if srcLen%2 == 0 {
 		srcBytes = []byte(src)
 	} else {
-		srcBytes = make([]byte, 1 + srcLen)
+		srcBytes = make([]byte, 1+srcLen)
 		srcBytes[0] = '0'
 		copy(srcBytes[1:], src)
 	}
 	var reversedHash []byte
-	_, err = hex.Decode(reversedHash[HASH_SIZE - hex.DecodedLen(len(srcBytes)):], srcBytes)
+	_, err = hex.Decode(reversedHash[HASH_SIZE-hex.DecodedLen(len(srcBytes)):], srcBytes)
 	if err != nil {
 		return
 	}
-	for i, b := range reversedHash[:HASH_SIZE / 2] {
-		bytes[i], bytes[HASH_SIZE - 1 - i] = reversedHash[HASH_SIZE - 1 - i], b
+	for i, b := range reversedHash[:HASH_SIZE/2] {
+		bytes[i], bytes[HASH_SIZE-1-i] = reversedHash[HASH_SIZE-1-i], b
 	}
 	return
 

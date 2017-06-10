@@ -7,7 +7,7 @@ triggers:
   - '**/*.py'
   env:
     DEBUG: "1"
-  cmd: go build && ./btcboost
+  cmd: go build && ./copernicus
   shell: true
   delay: 100ms
   stop_timeout: 500ms
