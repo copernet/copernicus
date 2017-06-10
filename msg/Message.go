@@ -10,7 +10,7 @@ const (
 	// Bitcoin network (magic) 4 bytes + command 12 bytes + payload length 4 bytes +
 	// checksum 4 bytes.
 	MESSAGE_HEADER_SIZE = 24
-	MAX_SIZE            = 0x02000000
+
 )
 
 type Message struct {

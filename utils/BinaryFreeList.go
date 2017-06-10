@@ -8,6 +8,7 @@ import (
 
 const (
 	IO_MAX_SIZE = 1024
+	MAX_SIZE            = 0x02000000
 )
 
 type BinaryFreeList chan []byte

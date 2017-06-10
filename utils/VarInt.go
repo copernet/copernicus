@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 	"fmt"
+	"math"
 )
 
 var errVarIntDesc = "non-rule varint %x - discriminant %x must encode a value greater than %x "
@@ -52,4 +53,45 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 
 	}
 	return result, nil
+}
+
+func WriteVarInt(w io.Writer, size uint32, val uint64) error {
+	if val < 0xfd {
+		return binarySerializer.PutUint8(w, uint8(val))
+	}
+	if val < math.MaxUint16 {
+		err := binarySerializer.PutUint8(w, 0xfd)
+		if err != nil {
+			return err
+		}
+		return binarySerializer.PutUint16(w, binary.LittleEndian, uint16(val))
+
+	}
+	if val <= math.MaxUint32 {
+		err := binarySerializer.PutUint8(w, 0xfe)
+		if err != nil {
+			return err
+		}
+		return binarySerializer.PutUint32(w, binary.LittleEndian, uint32(val))
+	}
+	err := binarySerializer.PutUint8(w, 0xff)
+	if err != nil {
+		return err
+	}
+	return binarySerializer.PutUint64(w, binary.LittleEndian, val)
+
+}
+
+func VarIntSerializeSize(val uint64) int {
+	if val < 0xfd {
+		return 1
+	}
+	if val <= math.MaxUint16 {
+		return 3
+	}
+	if val <= math.MaxUint32 {
+		return 5
+	}
+	return 9
+
 }
