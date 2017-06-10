@@ -140,10 +140,10 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	return msg, nil
 }
 
-func (p *Peer) SendAddrMsg(addresses []*msg.PeerAddress) ([]*msg.PeerAddress, error) {
-
-	if len(addresses) == 0 {
-		return nil, nil
-	}
-	msg :=
-}
+//func (p *Peer) SendAddrMsg(addresses []*msg.PeerAddress) ([]*msg.PeerAddress, error) {
+//
+//	if len(addresses) == 0 {
+//		return nil, nil
+//	}
+//	msg :=
+//}

@@ -8,9 +8,10 @@ import (
 const (
 	COPERNICUS                          = "0.0.1"
 	BITCOIN_PROTOCOL_VERSION     uint32 = 70012
-	NET_ADDRESS_TIME_VERSION     uint32 = 31402
+	PEER_ADDRESS_TIME_VERSION    uint32 = 31402
 	MAX_USER_AGENT_LEN                  = 256
 	SF_NODE_NETWORK_AS_FULL_NODE        = 1 << iota
+	MULTILE_ADDRESS_VERSION      uint32 = 209
 )
 
 var LocalUserAgent string

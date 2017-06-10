@@ -8,7 +8,7 @@ import (
 type PeerConfig struct {
 	NewBlock    protocol.HashFunc
 	HostToAdd   protocol.HostToNetAddrFunc
-	BestAddress msg.NetAddressFunc
+	BestAddress msg.PeerAddressFunc
 
 	Proxy            string
 	UserAgent        string

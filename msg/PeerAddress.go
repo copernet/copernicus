@@ -5,8 +5,8 @@ import (
 	"net"
 	"io"
 	"copernicus/protocol"
-	"copernicus/store"
 	"encoding/binary"
+	"copernicus/utils"
 )
 
 type PeerAddress struct {
@@ -15,7 +15,7 @@ type PeerAddress struct {
 	IP           net.IP
 	Port         uint16
 }
-type NetAddressFunc func(remoteAddr *PeerAddress) *PeerAddress
+type PeerAddressFunc func(remoteAddr *PeerAddress) *PeerAddress
 
 func (na *PeerAddress) EqualService(serviceFlag uint64) bool {
 	return na.ServicesFlag&serviceFlag == serviceFlag
@@ -24,11 +24,11 @@ func (na *PeerAddress) EqualService(serviceFlag uint64) bool {
 func (na *PeerAddress) AddService(serviceFlag uint64) {
 	na.ServicesFlag |= serviceFlag
 }
-func InitNetAddressIPPort(serviceFlag uint64, ip net.IP, port uint16) *PeerAddress {
-	return InitNetAddress(time.Now(), serviceFlag, ip, port)
+func InitPeerAddressIPPort(serviceFlag uint64, ip net.IP, port uint16) *PeerAddress {
+	return InitPeerAddress(time.Now(), serviceFlag, ip, port)
 }
 
-func InitNetAddress(timestamp time.Time, serviceFlag uint64, ip net.IP, port uint16) *PeerAddress {
+func InitPeerAddress(timestamp time.Time, serviceFlag uint64, ip net.IP, port uint16) *PeerAddress {
 	na := PeerAddress{
 		Timestamp:    time.Unix(timestamp.Unix(), 0),
 		ServicesFlag: serviceFlag,
@@ -37,24 +37,24 @@ func InitNetAddress(timestamp time.Time, serviceFlag uint64, ip net.IP, port uin
 	}
 	return &na
 }
-func InItNetAddress(addr *net.TCPAddr, serviceFlag uint64) *PeerAddress {
+func NEWPeerAddress(addr *net.TCPAddr, serviceFlag uint64) *PeerAddress {
 
-	return InitNetAddressIPPort(serviceFlag, addr.IP, addr.Port)
+	return InitPeerAddressIPPort(serviceFlag, addr.IP, addr.Port)
 }
-func ReadNetAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
+func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	var ip [16]byte
-	if ts && pver >= protocol.NET_ADDRESS_TIME_VERSION {
-		err := store.ReadElement(r, (protocol.Uint32Time)(&na.Timestamp))
+	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
+		err := utils.ReadElement(r, (protocol.Uint32Time)(&na.Timestamp))
 		if err != nil {
 			return err
 		}
 	}
-	err := store.ReadElements(r, &na.ServicesFlag, &ip)
+	err := utils.ReadElements(r, &na.ServicesFlag, &ip)
 	if err != nil {
 		return err
 	}
 	var port uint16
-	err = store.ReadElement(r, &port)
+	err = utils.ReadElement(r, &port)
 	if err != nil {
 		return err
 	}
@@ -67,9 +67,9 @@ func ReadNetAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	return nil
 
 }
-func WriteNetAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err error) {
-	if ts && pver >= protocol.NET_ADDRESS_TIME_VERSION {
-		err = store.WriteElement(w, uint32(na.Timestamp.Unix()))
+func WritePeerAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err error) {
+	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
+		err = utils.WriteElement(w, uint32(na.Timestamp.Unix()))
 		if err != nil {
 			return err
 		}
@@ -78,10 +78,18 @@ func WriteNetAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err er
 	if na.IP != nil {
 		copy(ip[:], na.IP.To16())
 	}
-	err = store.WriteElements(w, na.ServicesFlag, ip)
+	err = utils.WriteElements(w, na.ServicesFlag, ip)
 	if err != nil {
 		return
 	}
 	return binary.Write(w, binary.BigEndian, na.Port)
 
+}
+
+func MaxPeerAddressPayload(version uint32) uint32 {
+	len := uint32(26)
+	if version >= protocol.PEER_ADDRESS_TIME_VERSION {
+		len += 4
+	}
+	return len
 }
