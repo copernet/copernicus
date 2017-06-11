@@ -13,12 +13,12 @@ const (
 	MAX_VAR_INT_PAYLOAD = 9
 )
 
-type AddressMesage struct {
+type AddressMessage struct {
 	Message
 	AddressList []*PeerAddress
 }
 
-func (addressMsg *AddressMesage) AddPeerAddress(peerAddress *PeerAddress) error {
+func (addressMsg *AddressMessage) AddPeerAddress(peerAddress *PeerAddress) error {
 	if len(addressMsg.AddressList) > MAX_ADDRESSES_COUNT {
 		str := fmt.Sprintf("has too many addresses in message ,count is %v ", MAX_ADDRESSES_COUNT)
 		return errors.New(str)
@@ -27,7 +27,7 @@ func (addressMsg *AddressMesage) AddPeerAddress(peerAddress *PeerAddress) error 
 	return nil
 }
 
-func (addressMsg *AddressMesage) AddPeerAddresses(peerAddresses ...*PeerAddress) (err error) {
+func (addressMsg *AddressMessage) AddPeerAddresses(peerAddresses ...*PeerAddress) (err error) {
 	for _, peerAddress := range peerAddresses {
 		err = addressMsg.AddPeerAddress(peerAddress)
 		if err != nil {
@@ -37,11 +37,11 @@ func (addressMsg *AddressMesage) AddPeerAddresses(peerAddresses ...*PeerAddress)
 	return nil
 }
 
-func (addressMsg *AddressMesage) ClearAddresses() {
+func (addressMsg *AddressMessage) ClearAddresses() {
 	addressMsg.AddressList = []*PeerAddress{}
 }
 
-func (msg*AddressMesage) BitcoinParse(reader io.Reader, size uint32) error {
+func (msg*AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 	count, err := utils.ReadVarInt(reader, size)
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func (msg*AddressMesage) BitcoinParse(reader io.Reader, size uint32) error {
 
 }
 
-func (addressMessage*AddressMesage) BitcoinSerialize(w io.Writer, size uint32) error {
+func (addressMessage*AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 	count := len(addressMessage.AddressList)
 	if size < protocol.MULTILE_ADDRESS_VERSION && count > 1 {
 		str := fmt.Sprintf("too many address for message of protocol version %v count %v ", size, count)
@@ -89,9 +89,14 @@ func (addressMessage*AddressMesage) BitcoinSerialize(w io.Writer, size uint32) e
 
 }
 
-func (addressMesage *AddressMesage) MaxPayloadLength(version uint32) uint32 {
+func (addressMesage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
 	if version < protocol.MULTILE_ADDRESS_VERSION {
 		return MAX_VAR_INT_PAYLOAD + MaxPeerAddressPayload(version)
 	}
 	return MAX_VAR_INT_PAYLOAD + (MAX_ADDRESSES_COUNT * MaxPeerAddressPayload(version))
+}
+
+func NewAddressMessage() *AddressMessage {
+	addressMessage := AddressMessage{AddressList: make([]*PeerAddress, 0, MAX_ADDRESSES_COUNT)}
+	return &addressMessage
 }
