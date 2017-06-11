@@ -46,6 +46,10 @@ type Peer struct {
 	SendHeadersPreferred bool
 	OutputQueue          chan msg.OutMessage
 	SendQueue            chan msg.OutMessage
+
+	GetBlocksLock  sync.Mutex
+	GetBlocksBegin *crypto.Hash
+	GetBlocksStop  *crypto.Hash
 }
 
 var log = logs.NewLogger()
@@ -175,5 +179,35 @@ func (p *Peer) SendAddrMessage(addresses []*msg.PeerAddress) ([]*msg.PeerAddress
 }
 func (p *Peer) Connected() bool {
 	return atomic.LoadInt32(&p.connected) != 0 && atomic.LoadInt32(&p.disconnect) == 0
+
+}
+
+func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) error {
+	var beginHash *crypto.Hash
+	if len(locator) > 0 {
+		beginHash = locator[0]
+	}
+	p.GetBlocksLock.Lock()
+	isDuplicate := p.GetBlocksStop != nil && p.GetBlocksBegin != nil && beginHash != nil && stopHash.IsEqual(p.GetBlocksStop) && beginHash.IsEqual(p.GetBlocksBegin)
+	if isDuplicate {
+		log.Warn("duplicate getblocks with  %v -> %v", beginHash, stopHash)
+		return nil
+	}
+	p.GetBlocksLock.Unlock()
+
+	getBlocksMessage := msg.NewGetBlocksMessage(stopHash)
+	for _, hash := range locator {
+		err := getBlocksMessage.AddBlockHash(hash)
+		if err != nil {
+			return err
+		}
+	}
+	p.SendMessage(getBlocksMessage, nil)
+	p.GetBlocksLock.Lock()
+
+	p.GetBlocksBegin = beginHash
+	p.GetBlocksStop = stopHash
+	p.GetBlocksLock.Unlock()
+	return nil
 
 }
