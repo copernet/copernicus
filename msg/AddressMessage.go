@@ -95,8 +95,3 @@ func (addressMesage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
 	}
 	return MAX_VAR_INT_PAYLOAD + (MAX_ADDRESSES_COUNT * MaxPeerAddressPayload(version))
 }
-
-func NewAddressMessage() *AddressMessage {
-	addressMessage := AddressMessage{AddressList: make([]*PeerAddress, 0, MAX_ADDRESSES_COUNT)}
-	return &addressMessage
-}

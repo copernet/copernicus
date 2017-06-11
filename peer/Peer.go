@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"copernicus/msg"
 	"copernicus/utils"
+	"math/rand"
 )
 
 type Peer struct {
@@ -43,6 +44,8 @@ type Peer struct {
 	TimeOffset           int64
 	StartingHeight       int32
 	SendHeadersPreferred bool
+	OutputQueue          chan msg.OutMessage
+	SendQueue            chan msg.OutMessage
 }
 
 var log = logs.NewLogger()
@@ -140,10 +143,37 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	return msg, nil
 }
 
-//func (p *Peer) SendAddrMsg(addresses []*msg.PeerAddress) ([]*msg.PeerAddress, error) {
-//
-//	if len(addresses) == 0 {
-//		return nil, nil
-//	}
-//	msg :=
-//}
+func (p*Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
+	if !p.Connected() {
+		if doneChan != nil {
+			go func() {
+				doneChan <- struct{}{}
+			}()
+		}
+		return
+	}
+	p.OutputQueue <- msg.OutMessage{Message: msg, Done: doneChan}
+}
+func (p *Peer) SendAddrMessage(addresses []*msg.PeerAddress) ([]*msg.PeerAddress, error) {
+
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+	length := len(addresses)
+	addressMessage := msg.AddressMessage{AddressList: make([]*msg.PeerAddress, 0, length)}
+	if len(addressMessage.AddressList) > msg.MAX_ADDRESSES_COUNT {
+		for i := range addressMessage.AddressList {
+			j := rand.Intn(i + 1)
+			addressMessage.AddressList[i], addressMessage.AddressList[j] = addressMessage.AddressList[j], addressMessage.AddressList[i]
+
+		}
+		addressMessage.AddressList = addressMessage.AddressList[:msg.MAX_ADDRESSES_COUNT]
+	}
+	p.SendMessage(addressMessage, nil)
+	return addressMessage.AddressList, nil
+
+}
+func (p *Peer) Connected() bool {
+	return atomic.LoadInt32(&p.connected) != 0 && atomic.LoadInt32(&p.disconnect) == 0
+
+}
