@@ -19,8 +19,8 @@ type LRUCache struct {
 func NewLRUCache(length int) (*LRUCache) {
 
 	return &LRUCache{Length: length,
-		dataList:        list.New(),
-		cacheMap:        make(map[interface{}]*list.Element),
+		dataList:            list.New(),
+		cacheMap:            make(map[interface{}]*list.Element),
 	}
 }
 func (lru *LRUCache) Size() (int) {
@@ -81,6 +81,15 @@ func (lru *LRUCache) Remove(k interface{}) (bool) {
 		delete(lru.cacheMap, k)
 		return true
 
+	}
+	return false
+}
+
+func (lru *LRUCache) Exists(nonce uint64) bool {
+	lru.lock.Lock()
+	defer lru.lock.Unlock()
+	if _, exists := lru.cacheMap[nonce]; exists {
+		return true
 	}
 	return false
 }

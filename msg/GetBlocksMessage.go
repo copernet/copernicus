@@ -11,13 +11,13 @@ import (
 
 const MAX_GETBLOCKS_COUNT = 500
 
-type GetBlockMessage struct {
+type GetBlocksMessage struct {
 	ProtocolVersion uint32
 	BlockHashes     []*crypto.Hash
 	HashStop        *crypto.Hash
 }
 
-func (getBlockMessage *GetBlockMessage) AddBlockHash(hash *crypto.Hash) error {
+func (getBlockMessage *GetBlocksMessage) AddBlockHash(hash *crypto.Hash) error {
 	if len(getBlockMessage.BlockHashes) > MAX_ADDRESSES_COUNT-1 {
 		str := fmt.Sprintf("block hashes is too many %v", MAX_ADDRESSES_COUNT)
 		return errors.New(str)
@@ -25,7 +25,7 @@ func (getBlockMessage *GetBlockMessage) AddBlockHash(hash *crypto.Hash) error {
 	getBlockMessage.BlockHashes = append(getBlockMessage.BlockHashes, hash)
 	return nil
 }
-func (getBlockMessage *GetBlockMessage) BitcoinParse(reader io.Reader, size uint32) error {
+func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uint32) error {
 	err := utils.ReadElement(reader, &getBlockMessage.ProtocolVersion)
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (getBlockMessage *GetBlockMessage) BitcoinParse(reader io.Reader, size uint
 
 }
 
-func (getBlockMessage*GetBlockMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+func (getBlockMessage*GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 
 	count := len(getBlockMessage.BlockHashes)
 	if count > MAX_GETBLOCKS_COUNT {
@@ -84,12 +84,12 @@ func (getBlockMessage*GetBlockMessage) BitcoinSerialize(w io.Writer, size uint32
 	}
 	return nil
 }
-func (getBlocksMessage *GetBlockMessage) MaxPayloadLength(size uint32) uint32 {
+func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
 	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * crypto.HASH_SIZE) + crypto.HASH_SIZE
 }
 
-func NewGetBlocksMessage(hashStop *crypto.Hash) *GetBlockMessage {
-	getBlockMessage := GetBlockMessage{
+func NewGetBlocksMessage(hashStop *crypto.Hash) *GetBlocksMessage {
+	getBlockMessage := GetBlocksMessage{
 		ProtocolVersion: protocol.BITCOIN_PROTOCOL_VERSION,
 		BlockHashes:     make([]*crypto.Hash, 0, MAX_BLOCK_SIZE),
 		HashStop:        hashStop,

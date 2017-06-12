@@ -11,7 +11,7 @@ import (
 type GetHeadersMessage struct {
 	ProtocolVersion uint32
 	BlockHashes     []*crypto.Hash
-	HashStop        crypto.Hash
+	HashStop        *crypto.Hash
 }
 
 func (getHeadersMessage *GetHeadersMessage) AddBlockHash(hash *crypto.Hash) error {

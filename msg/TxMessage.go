@@ -1,5 +1,7 @@
 package msg
 
+import "copernicus/model"
+
 type TxMessage struct {
-	Message
+	Tx model.Transaction
 }

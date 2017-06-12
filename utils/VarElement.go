@@ -99,12 +99,12 @@ func ReadElement(r io.Reader, element interface{}) (error) {
 		}
 		*e = protocol.ServiceFlag(rv)
 		return nil
-	case *protocol.InvType:
+	case *protocol.InventoryType:
 		rv, err := binarySerializer.Uint32(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
-		*e = protocol.InvType(rv)
+		*e = protocol.InventoryType(rv)
 		return nil
 	case *protocol.BitcoinNet:
 		rv, err := binarySerializer.Uint32(r, binary.LittleEndian)
@@ -214,7 +214,7 @@ func WriteElement(w io.Writer, element interface{}) error {
 			return err
 		}
 		return nil
-	case protocol.InvType:
+	case protocol.InventoryType:
 		err := binarySerializer.PutUint32(w, binary.LittleEndian, uint32(e))
 		if err != nil {
 			return err

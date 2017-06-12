@@ -23,6 +23,7 @@ type LogConfig struct {
 	MaxSize  int    `json:"maxsize,omitempty"`
 }
 
+
 func init() {
 	mlog = logs.NewLogger()
 	mlog.EnableFuncCallDepth(true)
