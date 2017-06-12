@@ -50,6 +50,10 @@ type Peer struct {
 	GetBlocksLock  sync.Mutex
 	GetBlocksBegin *crypto.Hash
 	GetBlocksStop  *crypto.Hash
+
+	GetHeadersLock  sync.Mutex
+	GetHeadersBegin *crypto.Hash
+	GetHeadersStop  *crypto.Hash
 }
 
 var log = logs.NewLogger()
@@ -86,13 +90,13 @@ func (p *Peer) GetNetAddress() *msg.PeerAddress {
 	defer p.PeerStatusMutex.Unlock()
 	return p.Address
 }
-func (p*Peer) GetServiceFlag() protocol.ServiceFlag {
+func (p *Peer) GetServiceFlag() protocol.ServiceFlag {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.ServiceFlag
 
 }
-func (p*Peer) GetUserAgent() string {
+func (p *Peer) GetUserAgent() string {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.UserAgent
@@ -103,10 +107,10 @@ func (p *Peer) GetLastDeclareBlock() *crypto.Hash {
 	defer p.PeerStatusMutex.Unlock()
 	return p.lastDeclareBlock
 }
-func (p*Peer) LastSent() uint64 {
+func (p *Peer) LastSent() uint64 {
 	return atomic.LoadUint64(&p.lastSent)
 }
-func (p*Peer) LastReceived() uint64 {
+func (p *Peer) LastReceived() uint64 {
 	return atomic.LoadUint64(&p.lastReceive)
 }
 
@@ -147,7 +151,7 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	return msg, nil
 }
 
-func (p*Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
+func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
 	if !p.Connected() {
 		if doneChan != nil {
 			go func() {
@@ -211,3 +215,34 @@ func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) erro
 	return nil
 
 }
+
+func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Hash) error {
+	var beginHash *crypto.Hash
+	if len(locator) > 0 {
+		beginHash = locator[0]
+	}
+	p.GetHeadersLock.Lock()
+	isDuplicate := p.GetHeadersStop != nil && p.GetHeadersBegin != nil && beginHash != nil && stopHash.IsEqual(p.GetHeadersStop) && beginHash.IsEqual(p.GetHeadersBegin)
+	p.GetHeadersLock.Unlock()
+	if isDuplicate {
+		log.Warn("duplicate  getheaders with begin hash %v", beginHash)
+		return nil
+	}
+
+	message := msg.NewGetHeadersMessage()
+	message.HashStop = *stopHash
+	for _, hash := range locator {
+		err := message.AddBlockHash(hash)
+		if err != nil {
+			return err
+		}
+	}
+	p.SendMessage(message, nil)
+	p.GetHeadersLock.Lock()
+	p.GetHeadersBegin = beginHash
+	p.GetHeadersStop = stopHash
+	p.GetHeadersLock.Unlock()
+	return nil
+
+}
+
