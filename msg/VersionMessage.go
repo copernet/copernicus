@@ -152,3 +152,6 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 func (versionMessage *VersionMessage) MaxPayloadLength(pver uint32) uint32 {
 	return 33 + (MaxPeerAddressPayload(pver) * 2) + MAX_VAR_INT_PAYLOAD + MAX_USERAGENT_LEN
 }
+func (versionMessage *VersionMessage) Command() string {
+	return COMMAND_VERSION
+}

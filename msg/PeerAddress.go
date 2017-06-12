@@ -37,7 +37,7 @@ func InitPeerAddress(timestamp time.Time, serviceFlag uint64, ip net.IP, port ui
 	}
 	return &na
 }
-func NEWPeerAddress(addr *net.TCPAddr, serviceFlag uint64) *PeerAddress {
+func NewPeerAddress(addr *net.TCPAddr, serviceFlag uint64) *PeerAddress {
 
 	return InitPeerAddressIPPort(serviceFlag, addr.IP, addr.Port)
 }

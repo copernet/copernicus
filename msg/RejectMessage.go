@@ -46,10 +46,10 @@ func (code RejectCode) ToString() string {
 }
 
 type RejectMessage struct {
-	Command string
-	Code    RejectCode
-	Reason  string
-	Hash    *crypto.Hash
+	Cmd    string
+	Code   RejectCode
+	Reason string
+	Hash   *crypto.Hash
 }
 
 func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) error {
@@ -62,14 +62,14 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 	if err != nil {
 		return err
 	}
-	rejectMessage.Command = command
+	rejectMessage.Cmd = command
 	err = utils.ReadElement(reader, &rejectMessage.Code)
 	if err != nil {
 		return err
 	}
 	reason, err := utils.ReadVarString(reader, pver)
 	rejectMessage.Reason = reason
-	if rejectMessage.Command == COMMAND_TX || rejectMessage.Command == COMMAND_BLOCK {
+	if rejectMessage.Cmd == COMMAND_TX || rejectMessage.Cmd == COMMAND_BLOCK {
 		err := utils.ReadElement(reader, rejectMessage.Hash)
 		if err != nil {
 			return err
@@ -84,7 +84,7 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
 		return errors.New(str)
 	}
-	err := utils.WriteVarString(w, pver, rejectMessage.Command)
+	err := utils.WriteVarString(w, pver, rejectMessage.Cmd)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 	if err != nil {
 		return err
 	}
-	if rejectMessage.Command == COMMAND_BLOCK || rejectMessage.Command == COMMAND_TX {
+	if rejectMessage.Cmd == COMMAND_BLOCK || rejectMessage.Cmd == COMMAND_TX {
 		err := utils.WriteElement(w, rejectMessage.Hash)
 		if err != nil {
 			return err
@@ -112,12 +112,15 @@ func (rejectMessage *RejectMessage) MaxPayloadLength(pver uint32) uint32 {
 	}
 	return plen
 }
+func (rejectMessage *RejectMessage) Command() string {
+	return COMMAND_REJECT
+}
 
 func NewRejectMessage(command string, code RejectCode, reason string) *RejectMessage {
 	rejectMessage := RejectMessage{
-		Command: command,
-		Code:    code,
-		Reason:  reason,
+		Cmd:    command,
+		Code:   code,
+		Reason: reason,
 	}
 	return &rejectMessage
 }

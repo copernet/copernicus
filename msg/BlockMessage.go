@@ -28,3 +28,4 @@ func (msg *BlockMessage) ClearTxs() {
 func (msg *BlockMessage) BitcoinParse(reader io.Reader, size uint32) {
 
 }
+

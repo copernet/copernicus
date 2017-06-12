@@ -11,15 +11,15 @@ import (
 const (
 	MAX_ADDRESSES_COUNT = 1024
 	MAX_VAR_INT_PAYLOAD = 9
-	MAX_USERAGENT_LEN=256
+	MAX_USERAGENT_LEN   = 256
 )
 
-type AddressMessage struct {
+type PeerAddressMessage struct {
 	Message
 	AddressList []*PeerAddress
 }
 
-func (addressMsg *AddressMessage) AddPeerAddress(peerAddress *PeerAddress) error {
+func (addressMsg *PeerAddressMessage) AddPeerAddress(peerAddress *PeerAddress) error {
 	if len(addressMsg.AddressList) > MAX_ADDRESSES_COUNT {
 		str := fmt.Sprintf("has too many addresses in message ,count is %v ", MAX_ADDRESSES_COUNT)
 		return errors.New(str)
@@ -28,7 +28,7 @@ func (addressMsg *AddressMessage) AddPeerAddress(peerAddress *PeerAddress) error
 	return nil
 }
 
-func (addressMsg *AddressMessage) AddPeerAddresses(peerAddresses ...*PeerAddress) (err error) {
+func (addressMsg *PeerAddressMessage) AddPeerAddresses(peerAddresses ...*PeerAddress) (err error) {
 	for _, peerAddress := range peerAddresses {
 		err = addressMsg.AddPeerAddress(peerAddress)
 		if err != nil {
@@ -38,11 +38,11 @@ func (addressMsg *AddressMessage) AddPeerAddresses(peerAddresses ...*PeerAddress
 	return nil
 }
 
-func (addressMsg *AddressMessage) ClearAddresses() {
+func (addressMsg *PeerAddressMessage) ClearAddresses() {
 	addressMsg.AddressList = []*PeerAddress{}
 }
 
-func (msg*AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
+func (msg *PeerAddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 	count, err := utils.ReadVarInt(reader, size)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func (msg*AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 
 }
 
-func (addressMessage*AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+func (addressMessage *PeerAddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 	count := len(addressMessage.AddressList)
 	if size < protocol.MULTIPLE_ADDRESS_VERSION && count > 1 {
 		str := fmt.Sprintf("too many address for message of protocol version %v count %v ", size, count)
@@ -90,9 +90,13 @@ func (addressMessage*AddressMessage) BitcoinSerialize(w io.Writer, size uint32) 
 
 }
 
-func (addressMesage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
+func (addressMesage *PeerAddressMessage) MaxPayloadLength(version uint32) uint32 {
 	if version < protocol.MULTIPLE_ADDRESS_VERSION {
 		return MAX_VAR_INT_PAYLOAD + MaxPeerAddressPayload(version)
 	}
 	return MAX_VAR_INT_PAYLOAD + (MAX_ADDRESSES_COUNT * MaxPeerAddressPayload(version))
+}
+
+func (addressMesage *PeerAddressMessage) Command() string {
+	return COMMAND_GET_ADDRESS
 }

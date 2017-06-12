@@ -12,6 +12,11 @@ import (
 	"copernicus/msg"
 	"copernicus/utils"
 	"math/rand"
+	"copernicus/algorithm"
+	"github.com/pkg/errors"
+	log2 "copernicus/log"
+	"bytes"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type Peer struct {
@@ -56,7 +61,11 @@ type Peer struct {
 	GetHeadersStop  *crypto.Hash
 }
 
-var log = logs.NewLogger()
+var (
+	log       = logs.NewLogger()
+	sentNoces = algorithm.NewLRUCache(50)
+	nodeCount int32
+)
 
 func (p *Peer) ToString() string {
 	directionString := "Inbound"
@@ -142,6 +151,7 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	sentNoces.Add(nonce, nonce)
 	msg := msg.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
 	msg.AddUserAgent(p.Config.UserAgent, p.Config.UserAgentVersion)
 	msg.LocalAddress.ServicesFlag = protocol.SF_NODE_NETWORK_AS_FULL_NODE
@@ -151,12 +161,69 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	return msg, nil
 }
 
-//func (p *Peer)RemoteVersionMessage(versionMessage *msg.VersionMessage)error{
-//
-//
-//}
+func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) error {
+	if sentNoces.Exists(versionMessage.Nonce) {
+		return errors.New("disconnecting peer connected to self")
+	}
+	if versionMessage.ProtocolVersion < uint32(protocol.MULTIPLE_ADDRESS_VERSION) {
 
+		str := fmt.Sprintf("protocol version must be %d or greater", protocol.MULTIPLE_ADDRESS_VERSION)
+		rejectMessage := msg.NewRejectMessage(msg.COMMAND_VERSION, msg.REJECT_OBSOLETE, str)
+		err := p.WriteMessage(rejectMessage)
+		return err
 
+	}
+	p.BlockStatusMutex.Lock()
+	p.LastBlock = versionMessage.LastBlock
+	p.StartingHeight = versionMessage.LastBlock
+	p.TimeOffset = versionMessage.Timestamp.Unix() - time.Now().Unix()
+	p.BlockStatusMutex.Unlock()
+
+	p.PeerStatusMutex.Lock()
+	p.ProtocolVersion = algorithm.MinUint32(p.ProtocolVersion, uint32(versionMessage.ProtocolVersion))
+	p.VersionKnown = true
+	log.Debug("Negotiated protocol version %d for peer %s", p.ProtocolVersion, p)
+	p.Id = atomic.AddInt32(&nodeCount, 1)
+	p.ServiceFlag = versionMessage.ServiceFlag
+	p.UserAgent = versionMessage.UserAgent
+	p.PeerStatusMutex.Unlock()
+	return nil
+}
+
+func (p *Peer) WriteMessage(message msg.Message) error {
+	if atomic.LoadInt32(&p.disconnect) != 0 {
+		return nil
+	}
+	//todo func()string
+	log.Debug("%v", log2.InitLogClosure(func() string {
+		summary := msg.MessageSummary(message)
+		if len(summary) > 0 {
+			summary = fmt.Sprintf("(%s)", summary)
+		}
+		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p)
+
+	}))
+	log.Debug("%v", log2.InitLogClosure(func() string {
+		return spew.Sdump(message)
+	}))
+	log.Debug("%v", log2.InitLogClosure(func() string {
+		var buf bytes.Buffer
+		_, err := msg.WriteMessage(&buf, message, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
+		if err != nil {
+			return err.Error()
+		}
+		//todo what is mean spew
+		return spew.Sdump(buf.Bytes())
+
+	}))
+	n, err := msg.WriteMessage(p.conn, msg, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
+	atomic.AddUint64(&p.lastSent, uint64(n))
+	if p.Config.Listener.OnWrite != nil {
+		p.Config.Listener.OnWrite(p, n, message, err)
+	}
+	return err
+
+}
 func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
 	if !p.Connected() {
 		if doneChan != nil {
@@ -174,7 +241,7 @@ func (p *Peer) SendAddrMessage(addresses []*msg.PeerAddress) ([]*msg.PeerAddress
 		return nil, nil
 	}
 	length := len(addresses)
-	addressMessage := msg.AddressMessage{AddressList: make([]*msg.PeerAddress, 0, length)}
+	addressMessage := msg.PeerAddressMessage{AddressList: make([]*msg.PeerAddress, 0, length)}
 	if len(addressMessage.AddressList) > msg.MAX_ADDRESSES_COUNT {
 		for i := range addressMessage.AddressList {
 			j := rand.Intn(i + 1)
@@ -236,7 +303,7 @@ func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Ha
 	}
 
 	message := msg.NewGetHeadersMessage()
-	message.HashStop = *stopHash
+	message.HashStop = stopHash
 	for _, hash := range locator {
 		err := message.AddBlockHash(hash)
 		if err != nil {
@@ -274,4 +341,3 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	<-doneChan
 
 }
-

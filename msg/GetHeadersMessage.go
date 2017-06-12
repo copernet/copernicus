@@ -80,6 +80,9 @@ func (getHeadersMessage *GetHeadersMessage) BitcoinSerialize(w io.Writer, size u
 func (getHeadersMessage *GetHeadersMessage) MaxPayloadLength(size uint32) uint32 {
 	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * crypto.HASH_SIZE) + crypto.HASH_SIZE
 }
+func (getHeadersMessage *GetHeadersMessage) Command() string {
+	return COMMAND_GET_HEADERS
+}
 func NewGetHeadersMessage() *GetHeadersMessage {
 	getHeadersMessage := GetHeadersMessage{BlockHashes: make([]*crypto.Hash, 0, MAX_GETBLOCKS_COUNT)}
 	return &getHeadersMessage

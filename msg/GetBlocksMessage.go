@@ -57,7 +57,7 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 
 }
 
-func (getBlockMessage*GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 
 	count := len(getBlockMessage.BlockHashes)
 	if count > MAX_GETBLOCKS_COUNT {
@@ -86,6 +86,9 @@ func (getBlockMessage*GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint3
 }
 func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
 	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * crypto.HASH_SIZE) + crypto.HASH_SIZE
+}
+func (getBlocksMessage *GetBlocksMessage) Command() string {
+	return COMMAND_GET_BLOCKS
 }
 
 func NewGetBlocksMessage(hashStop *crypto.Hash) *GetBlocksMessage {

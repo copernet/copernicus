@@ -1,7 +1,6 @@
 package msg
 
 import (
-	"copernicus/protocol"
 	"io"
 	"fmt"
 	"time"
@@ -13,17 +12,18 @@ const (
 	// MessageHeaderSize is the number of bytes in a bitcoin msg header.
 	// Bitcoin network (magic) 4 bytes + command 12 bytes + payload length 4 bytes +
 	// checksum 4 bytes.
-	COMMADN_SIZE          = 12
+	COMMAND_SIZE          = 12
 	MAX_REJECT_REASON_LEN = 250
-	MESSAGE_HEADER_SIZE   = 24
-	LOCK_TIME_THRESHOLD   = 5E8 // Tue Nov 5 00:53:20 1985 UTC
-	SAFE_CHARS            = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@"
+
+	LOCK_TIME_THRESHOLD = 5E8 // Tue Nov 5 00:53:20 1985 UTC
+	SAFE_CHARS          = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@"
 )
 
 const (
 	COMMAND_VERSION      = "version"
 	COMMAND_VERSION_ACK  = "verack"
 	COMMAND_GET_ADDRESS  = "getaddr"
+	COMMMAND_ADDRESS     = "addr"
 	COMMAND_GET_BLOCKS   = "getblocks"
 	COMMAND_INV          = "inv"
 	COMMAND_GET_DATA     = "getdata"
@@ -49,13 +49,6 @@ type Message interface {
 	BitcoinSerialize(writer io.Writer, size uint32) error
 	MaxPayloadLength(version uint32) uint32
 	Command() string
-}
-
-type messageHeader struct {
-	Net      protocol.BitcoinNet // 4 bytes
-	Command  string              // 12 bytes
-	Length   uint32              // 4 bytes
-	Checksum [4]byte             // 4 bytes
 }
 
 func InventorySummary(invList []*InventoryVector) string {
@@ -89,7 +82,7 @@ func MessageSummary(msg Message) string {
 	case *VersionMessage:
 		return fmt.Sprintf("agent %s, pver %d, block %d",
 			msgType.UserAgent, msgType.ProtocolVersion, msgType.LastBlock)
-	case *AddressMessage:
+	case *PeerAddressMessage:
 		return fmt.Sprintf("%d address", len(msgType.AddressList))
 	case *TxMessage:
 		return fmt.Sprintf("tx hash %s,%d inputs,%d outputs ,lock %s", msgType.Tx.Hash,
@@ -108,7 +101,7 @@ func MessageSummary(msg Message) string {
 	case *HeadersMessage:
 		return fmt.Sprintf("num %d", len(msgType.Blocks))
 	case *RejectMessage:
-		rejCommand := SanitizeString(msgType.Command, COMMADN_SIZE)
+		rejCommand := SanitizeString(msgType.Command(), COMMAND_SIZE)
 		rejReason := SanitizeString(msgType.Reason, MAX_REJECT_REASON_LEN)
 		summary := fmt.Sprintf("command %v, code %v,reason %v", rejCommand, msgType.Code, rejReason)
 		if rejCommand == COMMAND_TX || rejCommand == COMMAND_BLOCK {
@@ -138,4 +131,27 @@ func LockTimeToString(lockTime uint32) string {
 		return fmt.Sprintf("height %d", lockTime)
 	}
 	return time.Unix(int64(lockTime), 0).String()
+}
+
+//todo add other message
+func makeEmptyMessage(command string) (Message, error) {
+	var message Message
+	switch command {
+	case COMMAND_VERSION:
+		message = &VersionMessage{}
+	case COMMMAND_ADDRESS:
+		message = &PeerAddressMessage{}
+		//todo getBlocks and getBlock
+	case COMMAND_GET_BLOCKS:
+		message = &GetBlocksMessage{}
+	case COMMAND_GET_HEADERS:
+		message = &GetHeadersMessage{}
+	case COMMAND_REJECT:
+		message = &RejectMessage{}
+
+	default:
+		return nil, fmt.Errorf("unkonwn command %s", command)
+
+	}
+	return message, nil
 }

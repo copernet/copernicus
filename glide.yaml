@@ -9,3 +9,7 @@ import:
   subpackages:
   - logs
   - config
+- package: github.com/davecgh/go-spew
+  version: v1.1.0
+  subpackages:
+  - spew
