@@ -15,6 +15,7 @@ const (
 	MULTILE_ADDRESS_VERSION      uint32 = 209
 
 	REJECT_VERSION uint32 = 70002
+	BIP0037_VERSION uint32 =70001
 )
 
 var LocalUserAgent string

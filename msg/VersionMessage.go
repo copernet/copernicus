@@ -6,6 +6,9 @@ import (
 
 	"fmt"
 	"strings"
+	"io"
+	"bytes"
+	"copernicus/utils"
 )
 
 type VersionMessage struct {
@@ -47,4 +50,105 @@ func (msg *VersionMessage) AddUserAgent(name string, version string, notes ...st
 	msg.UserAgent = userAgent
 	return nil
 
+}
+func (versionMessage *VersionMessage) HasService(serviceFlag protocol.ServiceFlag) bool {
+	return versionMessage.ServiceFlag&serviceFlag == serviceFlag
+}
+
+func (versionMessage *VersionMessage) AddService(serviceFlag protocol.ServiceFlag) {
+
+	versionMessage.ServiceFlag |= serviceFlag
+}
+func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32) error {
+	buf, ok := reader.(*bytes.Buffer)
+	if !ok {
+		return fmt.Errorf("version message bitcoin parse reader is not a *bytes.Buffer")
+
+	}
+	err := utils.ReadElements(buf, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, (*protocol.Int64Time)(versionMessage.Timestamp))
+	if err != nil {
+		return err
+	}
+	err = ReadPeerAddress(buf, pver, versionMessage.RemoteAddress, false)
+	if err != nil {
+		return err
+	}
+	if buf.Len() > 0 {
+		err = ReadPeerAddress(buf, pver, versionMessage.LocalAddress, false)
+		if err != nil {
+			return err
+		}
+	}
+	if buf.Len() > 0 {
+		err := utils.ReadElement(buf, versionMessage.Nonce)
+		if err != nil {
+			return err
+		}
+
+	}
+	if buf.Len() > 0 {
+		userAgent, err := utils.ReadVarString(buf, pver)
+		if err != nil {
+			return err
+		}
+		err = protocol.ValidateUserAgent(userAgent)
+		if err != nil {
+			return err
+		}
+		versionMessage.UserAgent = userAgent
+	}
+	if buf.Len() > 0 {
+		err = utils.ReadElement(buf, versionMessage.LastBlock)
+		if err != nil {
+			return err
+		}
+	}
+	if buf.Len() > 0 {
+		var relayTx bool
+		utils.ReadElement(reader, &relayTx)
+		versionMessage.DisableRelayTx = !relayTx
+	}
+	return nil
+}
+
+func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+	err := protocol.ValidateUserAgent(versionMessage.UserAgent)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteElements(w, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, versionMessage.Timestamp.Unix())
+	if err != nil {
+		return err
+	}
+	err = WritePeerAddress(w, size, versionMessage.RemoteAddress, false)
+	if err != nil {
+		return err
+	}
+	err = WritePeerAddress(w, size, versionMessage.LocalAddress, false)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteElement(w, versionMessage.Nonce)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteVarString(w, size, versionMessage.UserAgent)
+	if err != nil {
+		return err
+	}
+	err = utils.WriteElement(w, versionMessage.LastBlock)
+	if err != nil {
+		return err
+	}
+	if size >= protocol.BIP0037_VERSION {
+		err = utils.WriteElement(w, !versionMessage.DisableRelayTx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (versionMessage *VersionMessage) MaxPayloadLength(pver uint32) uint32 {
+	return 33 + (MaxPeerAddressPayload(pver) * 2) + MAX_VAR_INT_PAYLOAD + MAX_USERAGENT_LEN
 }

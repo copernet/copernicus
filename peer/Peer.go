@@ -151,6 +151,12 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	return msg, nil
 }
 
+//func (p *Peer)RemoteVersionMessage(versionMessage *msg.VersionMessage)error{
+//
+//
+//}
+
+
 func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
 	if !p.Connected() {
 		if doneChan != nil {
@@ -268,3 +274,4 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	<-doneChan
 
 }
+

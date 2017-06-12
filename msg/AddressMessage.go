@@ -11,6 +11,7 @@ import (
 const (
 	MAX_ADDRESSES_COUNT = 1024
 	MAX_VAR_INT_PAYLOAD = 9
+	MAX_USERAGENT_LEN=256
 )
 
 type AddressMessage struct {
