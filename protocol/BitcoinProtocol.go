@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+const MAX_MESSAGE_PAYLOAD=1024 * 1024 * 32
 const (
 	COPERNICUS                          = "0.0.1"
 	BITCOIN_PROTOCOL_VERSION     uint32 = 70012
@@ -12,6 +13,8 @@ const (
 	MAX_USER_AGENT_LEN                  = 256
 	SF_NODE_NETWORK_AS_FULL_NODE        = 1 << iota
 	MULTILE_ADDRESS_VERSION      uint32 = 209
+
+	REJECT_VERSION uint32 = 70002
 )
 
 var LocalUserAgent string

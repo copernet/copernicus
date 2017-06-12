@@ -246,3 +246,25 @@ func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Ha
 
 }
 
+func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason string, hash *crypto.Hash, wait bool) {
+	if p.VersionKnown && p.ProtocolVersion < protocol.REJECT_VERSION {
+		return
+	}
+	var zeroHash crypto.Hash
+	rejectMessage := msg.NewRejectMessage(command, code, reason)
+	if command == msg.COMMAND_TX || command == msg.COMMAND_BLOCK {
+		if hash == nil {
+			log.Warn("sending a reject message for command type %v which should have specified a hash ", command)
+			hash = &zeroHash
+		}
+		rejectMessage.Hash = hash
+	}
+	if !wait {
+		p.SendMessage(rejectMessage, nil)
+		return
+	}
+	doneChan := make(chan struct{}, 1)
+	p.SendMessage(rejectMessage, doneChan)
+	<-doneChan
+
+}
