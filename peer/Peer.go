@@ -17,13 +17,17 @@ import (
 	log2 "copernicus/log"
 	"bytes"
 	"github.com/davecgh/go-spew/spew"
+	"io"
+	"container/list"
 )
 
 type Peer struct {
 	Config           *PeerConfig
 	Id               int32
-	lastReceive      uint64
-	lastSent         uint64
+	bytesReceived    uint64
+	bytesSent        uint64
+	lastReceive      int64
+	lastSent         int64
 	lastReceiveTime  time.Time
 	lastSendTime     time.Time
 	connected        int32
@@ -45,6 +49,8 @@ type Peer struct {
 	SentVerAck   bool
 	GotVerAck    bool
 
+	StallControl chan StallControlMessage
+
 	ProtocolVersion      uint32
 	LastBlock            int32
 	ConnectedTime        time.Time
@@ -62,8 +68,18 @@ type Peer struct {
 	GetHeadersBegin *crypto.Hash
 	GetHeadersStop  *crypto.Hash
 
-	quit chan struct{}
+	quit      chan struct{}
+	inQuit    chan struct{}
+	queueQuit chan struct{}
+	outQuit   chan struct{}
 }
+
+const (
+	STALL_RESPONSE_TIMEOUT = 30 * time.Second
+	STALL_TICK_INTERVAL    = 15 * time.Second
+	IDLE_TIMEOUT           = 5 * time.Minute
+	TRICKLE_TIMEOUT        = 10 * time.Second
+)
 
 var (
 	log       = logs.NewLogger()
@@ -121,10 +137,10 @@ func (p *Peer) GetLastDeclareBlock() *crypto.Hash {
 	return p.lastDeclareBlock
 }
 func (p *Peer) LastSent() uint64 {
-	return atomic.LoadUint64(&p.lastSent)
+	return atomic.LoadUint64(&p.bytesSent)
 }
 func (p *Peer) LastReceived() uint64 {
-	return atomic.LoadUint64(&p.lastReceive)
+	return atomic.LoadUint64(&p.bytesReceived)
 }
 
 func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
@@ -221,7 +237,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 
 	}))
 	n, err := msg.WriteMessage(p.conn, msg, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
-	atomic.AddUint64(&p.lastSent, uint64(n))
+	atomic.AddUint64(&p.bytesSent, uint64(n))
 	if p.Config.Listener.OnWrite != nil {
 		p.Config.Listener.OnWrite(p, n, message, err)
 	}
@@ -387,7 +403,7 @@ func (p *Peer) Disconnect() {
 
 func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 	n, message, buf, err := msg.ReadMessage(p.conn, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
-	atomic.AddUint64(&p.lastReceive, uint64(n))
+	atomic.AddUint64(&p.bytesReceived, uint64(n))
 	if p.Config.Listener.OnRead != nil {
 		p.Config.Listener.OnRead(p, n, msg, err)
 	}
@@ -410,5 +426,194 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 		return spew.Sdump(buf)
 	}))
 	return msg, buf, nil
+
+}
+func (p *Peer) IsAllowedReadError(err error) bool {
+	if p.Config.ChainParams.BitcoinNet != protocol.TEST_NET {
+		return false
+	}
+	host, _, err := net.SplitHostPort(p.address)
+	if err != nil {
+		return false
+	}
+	if host != "127.0.0.1" && host != "localhost" {
+		return false
+	}
+	return true
+
+}
+func (p *Peer) shouldHandleReadError(err error) bool {
+	if atomic.LoadInt32(&p.disconnect) != 0 {
+		return false
+	}
+	if err == io.EOF {
+		return false
+	}
+	if opErr, ok := err.(*net.OpError); ok && !opErr.Temporary() {
+		return false
+	}
+	return true
+
+}
+func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, command string) {
+	deadLine := time.Now().Add(STALL_RESPONSE_TIMEOUT)
+	switch command {
+	case msg.COMMAND_VERSION:
+		pendingResponses[msg.COMMAND_VERSION_ACK] = deadLine
+	case msg.COMMAND_MEMPOOL:
+		pendingResponses[msg.COMMAND_INV] = deadLine
+	case msg.COMMAND_GET_BLOCKS:
+		pendingResponses[msg.COMMAND_INV] = deadLine
+	case msg.COMMAND_GET_DATA:
+		pendingResponses[msg.COMMAND_BLOCK] = deadLine
+		pendingResponses[msg.COMMAND_TX] = deadLine
+		pendingResponses[msg.COMMAND_NOT_FOUND] = deadLine
+	case msg.COMMAND_GET_HEADERS:
+		deadLine = time.Now().Add(STALL_RESPONSE_TIMEOUT * 3)
+		pendingResponses[msg.COMMAND_HEADERS] = deadLine
+
+	}
+
+}
+func (p *Peer) stallHandler() {
+	var handlerActive bool
+	var handlerStartTime time.Time
+	var deadlineOffset time.Duration
+	pendingResponses := make(map[string]time.Time)
+	stallTicker := time.NewTicker(STALL_TICK_INTERVAL)
+	defer stallTicker.Stop()
+	var ioStopped bool
+out:
+	for {
+		select {
+		case stall := <-p.StallControl:
+			switch stall.Command {
+			case SccSendMessage:
+				p.maybeAddDeadline(pendingResponses, stall.Message.Command())
+			case SccReceiveMessage:
+				switch messageCommand := stall.Message.Command(); messageCommand {
+				case msg.COMMAND_BLOCK:
+					fallthrough
+				case msg.COMMAND_TX:
+					fallthrough
+				case msg.COMMAND_NOT_FOUND:
+					delete(pendingResponses, msg.COMMAND_BLOCK)
+					delete(pendingResponses, msg.COMMAND_TX)
+					delete(pendingResponses, msg.COMMAND_NOT_FOUND)
+				default:
+					delete(pendingResponses, messageCommand)
+				}
+			case SccHandlerStart:
+				if handlerActive {
+					log.Warn("Received handler start control command while a handler is already active")
+					continue
+				}
+				handlerActive = true
+				handlerStartTime = time.Now()
+			case SccHandlerDone:
+				if !handlerActive {
+					log.Warn("Recevied handler done control command when a handler is not already active")
+					continue
+				}
+
+				duration := time.Now().Sub(handlerStartTime)
+				deadlineOffset += duration
+				handlerActive = false
+			default:
+				log.Warn("unsupported message command %v", stall.Command)
+
+			}
+		case <-stallTicker.C:
+			now := time.Now()
+			offset := deadlineOffset
+			if handlerActive {
+				offset += now.Sub(handlerStartTime)
+
+			}
+			for command, deadline := range pendingResponses {
+				if now.Before(deadline.Add(offset)) {
+					continue
+				}
+				log.Debug("peer %s appears to be stalled or misbehaving,%s timeout -- disconnecting",
+					p, command)
+				p.Disconnect()
+				break
+			}
+			deadlineOffset = 0
+		case <-p.inQuit:
+			if ioStopped {
+				break out
+			}
+			ioStopped = true
+		case <-p.outQuit:
+			if ioStopped {
+				break out
+			}
+			ioStopped = true
+
+		}
+	}
+
+cleanup:
+	for {
+		select {
+		case <-p.StallControl:
+		default:
+			break cleanup
+		}
+	}
+	log.Trace("Peer stall handler done for %s", p)
+
+}
+func (p *Peer) inHandler() {
+	idleTimer := time.AfterFunc(IDLE_TIMEOUT, func() {
+		log.Warn("Peer %s no answer for %s --disconnectind", p, IDLE_TIMEOUT)
+		p.Disconnect()
+	})
+out:
+	for atomic.LoadInt32(&p.disconnect) == 0 {
+		readMessage, buf, err := p.ReadMessage()
+		fmt.Println(buf)
+		idleTimer.Stop()
+		if err != nil {
+			if p.IsAllowedReadError(err) {
+				log.Error("Allowed test error from %s :%v", p, err)
+				idleTimer.Reset(IDLE_TIMEOUT)
+				continue
+			}
+			if p.shouldHandleReadError(err) {
+				errMessage := fmt.Sprintf("Can't read message from %s: %v", p, err)
+				log.Error(errMessage)
+				p.SendRejectMessage("malformed", msg.REJECT_MALFORMED, errMessage, nil, true)
+
+			}
+			break out
+		}
+		atomic.StoreInt64(&p.lastReceive, time.Now().Unix())
+		p.StallControl <- StallControlMessage{SccReceiveMessage, readMessage}
+		p.StallControl <- StallControlMessage{SccHandlerStart, readMessage}
+		//todo add other message
+		switch message := readMessage.(type) {
+		case *msg.VersionMessage:
+			p.SendRejectMessage(message.Command(), msg.REJECT_DUPLICATE, "duplicate version message", nil, true)
+			break out
+		case *msg.PingMessage:
+			p.HandlePingMessage(message)
+		case *msg.PongMessage:
+			p.HandlePongMessage(message)
+
+		default:
+			log.Debug("Recevied unhandled message of type %v from %v", readMessage.Command(), p)
+
+		}
+
+		p.StallControl <- StallControlMessage{SccHandlerDone, readMessage}
+		idleTimer.Reset(IDLE_TIMEOUT)
+
+	}
+	idleTimer.Stop()
+	close(p.inQuit)
+
+	log.Trace("Peer input handler done for %s", p)
 
 }
