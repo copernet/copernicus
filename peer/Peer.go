@@ -59,6 +59,8 @@ type Peer struct {
 	GetHeadersLock  sync.Mutex
 	GetHeadersBegin *crypto.Hash
 	GetHeadersStop  *crypto.Hash
+
+	quit chan struct{}
 }
 
 var (
@@ -340,4 +342,28 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	p.SendMessage(rejectMessage, doneChan)
 	<-doneChan
 
+}
+func (p *Peer) IsValidBIP0111(command string) bool {
+	if p.ServiceFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
+		if p.ProtocolVersion >= protocol.BIP0111_VERSION {
+			log.Debug("%s sent an unsupported %s request --disconnecting", p, command)
+			p.Disconnect()
+
+		} else {
+			log.Debug("Ignoring %s request from %s -- bloom support is disabled", command, p)
+
+		}
+		return false
+	}
+	return true
+}
+func (p *Peer) Disconnect() {
+	if atomic.AddInt32(&p.disconnect, 1) != 1 {
+		return
+	}
+	log.Trace("Disconnecting %s", p)
+	if atomic.LoadInt32(&p.connected) != 0 {
+		p.conn.Close()
+	}
+	close(p.quit)
 }
