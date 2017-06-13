@@ -49,6 +49,8 @@ type Peer struct {
 	SentVerAck   bool
 	GotVerAck    bool
 
+	knownInventory *algorithm.LRUCache
+
 	StallControl chan StallControlMessage
 
 	ProtocolVersion      uint32
@@ -68,17 +70,20 @@ type Peer struct {
 	GetHeadersBegin *crypto.Hash
 	GetHeadersStop  *crypto.Hash
 
-	quit      chan struct{}
-	inQuit    chan struct{}
-	queueQuit chan struct{}
-	outQuit   chan struct{}
+	quit          chan struct{}
+	inQuit        chan struct{}
+	queueQuit     chan struct{}
+	outQuit       chan struct{}
+	sendDoneQueue chan struct{}
+	outputInvChan chan *msg.InventoryVector
 }
 
 const (
-	STALL_RESPONSE_TIMEOUT = 30 * time.Second
-	STALL_TICK_INTERVAL    = 15 * time.Second
-	IDLE_TIMEOUT           = 5 * time.Minute
-	TRICKLE_TIMEOUT        = 10 * time.Second
+	MAX_INVENTORY_TICKLE_SIZE = 1000
+	STALL_RESPONSE_TIMEOUT    = 30 * time.Second
+	STALL_TICK_INTERVAL       = 15 * time.Second
+	IDLE_TIMEOUT              = 5 * time.Minute
+	TRICKLE_TIMEOUT           = 10 * time.Second
 )
 
 var (
@@ -616,4 +621,90 @@ out:
 
 	log.Trace("Peer input handler done for %s", p)
 
+}
+
+func (p *Peer) queueHandler() {
+	pendingMessages := list.New()
+	invSendQueue := list.New()
+	trickleTicker := time.NewTicker(TRICKLE_TIMEOUT)
+	defer trickleTicker.Stop()
+	waiting := false
+	queuePacket := func(outMsg msg.OutMessage, list *list.List, waiting bool) bool {
+		if !waiting {
+			p.SendQueue <- outMsg
+		} else {
+			list.PushBack(outMsg)
+		}
+		return true
+	}
+out:
+	for {
+		select {
+		case message := <-p.OutputQueue:
+			waiting = queuePacket(message, pendingMessages, waiting)
+		case <-p.sendDoneQueue:
+			next := pendingMessages.Front()
+			if next == nil {
+				waiting = false
+				continue
+			}
+			val := pendingMessages.Remove(next)
+			p.SendQueue <- val.(msg.OutMessage)
+		case iv := <-p.outputInvChan:
+			if p.VersionKnown {
+				invSendQueue.PushBack(iv)
+			}
+		case <-trickleTicker.C:
+			if atomic.LoadInt32(&p.disconnect) != 0 || invSendQueue.Len() == 0 {
+				continue
+			}
+			inventoryMessage := msg.InitMessageInvSizeHint(uint(invSendQueue.Len()))
+			for e := invSendQueue.Front(); e != nil; e = invSendQueue.Front() {
+				iv := invSendQueue.Remove(e).(*msg.InventoryVector)
+				if p.knownInventory.Exists(iv) {
+					continue
+				}
+				inventoryMessage.AddInventoryVector(iv)
+				if len(inventoryMessage.InventoryList) >= MAX_INVENTORY_TICKLE_SIZE {
+					waiting = queuePacket(
+						msg.OutMessage{Message: inventoryMessage},
+						pendingMessages, waiting,
+					)
+					inventoryMessage = msg.InitMessageInvSizeHint(uint(invSendQueue.Len()))
+				}
+				p.knownInventory.Add(iv, iv)
+
+			}
+			if len(inventoryMessage.InventoryList) > 0 {
+				waiting = queuePacket(
+					msg.OutMessage{Message: inventoryMessage},
+					pendingMessages, waiting)
+
+			}
+		case <-p.quit:
+			break out
+		}
+
+	}
+	for e := pendingMessages.Front(); e != nil; e = pendingMessages.Front() {
+		val := pendingMessages.Remove(e)
+		message := val.(msg.OutMessage)
+		if message.Done != nil {
+			message.Done <- struct{}{}
+		}
+	}
+cleanup:
+	for {
+		select {
+		case message := <-p.OutputQueue:
+			if message.Done != nil {
+				message.Done <- struct{}{}
+			}
+		case <-p.outputInvChan:
+		default:
+			break cleanup
+		}
+	}
+	close(p.queueQuit)
+	log.Trace("Peer queue handler done for %s", p)
 }

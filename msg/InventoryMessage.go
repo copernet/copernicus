@@ -75,7 +75,7 @@ func InitMessageInventory() *InventoryMessage {
 	return &inventoryMessage
 }
 
-func InitMessageInvSizeHine(sizeHint uint) *InventoryMessage {
+func InitMessageInvSizeHint(sizeHint uint) *InventoryMessage {
 	if sizeHint > MAX_INVENTORY_MESSAGE {
 		sizeHint = MAX_INVENTORY_MESSAGE
 	}

@@ -85,10 +85,10 @@ func (lru *LRUCache) Remove(k interface{}) (bool) {
 	return false
 }
 
-func (lru *LRUCache) Exists(nonce uint64) bool {
+func (lru *LRUCache) Exists(k interface{}) bool {
 	lru.lock.Lock()
 	defer lru.lock.Unlock()
-	if _, exists := lru.cacheMap[nonce]; exists {
+	if _, exists := lru.cacheMap[k]; exists {
 		return true
 	}
 	return false
