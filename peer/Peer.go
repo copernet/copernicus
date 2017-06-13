@@ -385,7 +385,30 @@ func (p *Peer) Disconnect() {
 	close(p.quit)
 }
 
-//
-//func (p *Peer)ReadMessage()(msg.Message,[]byte,error){
-//
-//}
+func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
+	n, message, buf, err := msg.ReadMessage(p.conn, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
+	atomic.AddUint64(&p.lastReceive, uint64(n))
+	if p.Config.Listener.OnRead != nil {
+		p.Config.Listener.OnRead(p, n, msg, err)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	log.Debug("%v", log2.InitLogClosure(func() string {
+		summary := msg.MessageSummary(message)
+		if len(summary) > 0 {
+			summary = fmt.Sprintf("(%s)", summary)
+		}
+		return fmt.Sprintf("Received %v %v from %s", message.Command(), summary, p)
+
+	}))
+	log.Trace("%v", log2.InitLogClosure(func() string {
+		return spew.Sdump(msg)
+	}))
+	log.Trace("%v", log2.InitLogClosure(func() string {
+
+		return spew.Sdump(buf)
+	}))
+	return msg, buf, nil
+
+}
