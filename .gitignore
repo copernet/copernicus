@@ -27,3 +27,6 @@ vendor
 btcboost
 *.log
 copernicus
+
+# vim swap
+*.swp

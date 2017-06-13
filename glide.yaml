@@ -13,3 +13,9 @@ import:
   version: v1.1.0
   subpackages:
   - spew
+- package: github.com/siddontang/ledisdb
+  version: ^0.5.0
+  subpackages:
+  - ledis
+- package: github.com/BurntSushi/toml
+  version: ^0.3.0

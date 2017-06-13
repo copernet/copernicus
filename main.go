@@ -3,6 +3,7 @@ package main
 import (
 	_ "copernicus/conf"
 	_ "copernicus/log"
+	_ "copernicus/storage"
 	"os"
 	"syscall"
 
