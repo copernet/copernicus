@@ -20,29 +20,31 @@ import (
 )
 
 type Peer struct {
-	Config               *PeerConfig
-	Id                   int32
-	lastReceive          uint64
-	lastSent             uint64
-	lastReceiveTime      time.Time
-	lastSendTime         time.Time
-	connected            int32
-	disconnect           int32
-	Inbound              bool
-	BlockStatusMutex     sync.RWMutex
-	conn                 net.Conn
-	address              string
-	lastDeclareBlock     *crypto.Hash
-	PeerStatusMutex      sync.RWMutex
-	Address              *msg.PeerAddress
-	ServiceFlag          protocol.ServiceFlag
-	UserAgent            string
-	PingNonce            uint64
-	PingTime             time.Time
-	PingMicros           int64
-	VersionKnown         bool
-	SentVerAck           bool
-	GotVerAck            bool
+	Config           *PeerConfig
+	Id               int32
+	lastReceive      uint64
+	lastSent         uint64
+	lastReceiveTime  time.Time
+	lastSendTime     time.Time
+	connected        int32
+	disconnect       int32
+	Inbound          bool
+	BlockStatusMutex sync.RWMutex
+	conn             net.Conn
+	address          string
+	lastDeclareBlock *crypto.Hash
+	PeerStatusMutex  sync.RWMutex
+	Address          *msg.PeerAddress
+	ServiceFlag      protocol.ServiceFlag
+
+	UserAgent    string
+	PingNonce    uint64
+	PingTime     time.Time
+	PingMicros   int64
+	VersionKnown bool
+	SentVerAck   bool
+	GotVerAck    bool
+
 	ProtocolVersion      uint32
 	LastBlock            int32
 	ConnectedTime        time.Time
@@ -357,6 +359,21 @@ func (p *Peer) IsValidBIP0111(command string) bool {
 	}
 	return true
 }
+func (p *Peer) HandlePingMessage(pingMessage *msg.PingMessage) {
+	if p.ProtocolVersion > protocol.BIP0031_VERSION {
+		pongMessage := msg.InitPondMessage(pingMessage.Nonce)
+		p.SendMessage(pongMessage, nil)
+	}
+}
+func (p *Peer) HandlePongMessage(pongMessage *msg.PongMessage) {
+	p.PeerStatusMutex.Lock()
+	defer p.PeerStatusMutex.Unlock()
+	if p.ProtocolVersion > protocol.BIP0031_VERSION && p.PingNonce != 0 && pongMessage.Nonce == p.PingNonce {
+		p.PingMicros = (time.Now().Sub(p.PingTime).Nanoseconds()) / 1000
+		p.PingNonce = 0
+	}
+
+}
 func (p *Peer) Disconnect() {
 	if atomic.AddInt32(&p.disconnect, 1) != 1 {
 		return
@@ -367,3 +384,8 @@ func (p *Peer) Disconnect() {
 	}
 	close(p.quit)
 }
+
+//
+//func (p *Peer)ReadMessage()(msg.Message,[]byte,error){
+//
+//}

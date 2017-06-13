@@ -34,10 +34,15 @@ func (pongMessage *PongMessage) BitcoinSerialize(w io.Writer, pver uint32) error
 func (pongMessage *PongMessage) Command() string {
 	return COMMAND_PONG
 }
+
 func (pongMessage *PongMessage) MaxPayloadLength(pver uint32) uint32 {
 	payloadLength := uint32(0)
 	if pver > protocol.BIP0031_VERSION {
 		payloadLength += 8
 	}
 	return payloadLength
+}
+func InitPondMessage(nonce uint64) *PongMessage {
+	pongMessage := PongMessage{Nonce: nonce}
+	return &pongMessage
 }
