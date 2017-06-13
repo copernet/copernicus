@@ -15,7 +15,8 @@ const (
 
 	REJECT_VERSION  uint32 = 70002
 	BIP0037_VERSION uint32 = 70001
-	BIP0111_VERSION uint32 =70011
+	BIP0031_VERSION uint32 = 60000
+	BIP0111_VERSION uint32 = 70011
 )
 const (
 	SF_NODE_NETWORK_AS_FULL_NODE = 1 << iota
@@ -23,11 +24,8 @@ const (
 	SF_NODE_BLOOM_FILTER
 )
 
-
-
 // InventoryType represents the allowed types of inventory vectors.  See InvVect.
 type InventoryType uint32
-
 
 // BloomUpdateType specifies how the filter is updated when a match is found
 type BloomUpdateType uint8
