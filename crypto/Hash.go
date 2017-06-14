@@ -51,7 +51,7 @@ func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	hash.SetBytes(bytes)
 	return
 }
-func GetHashFromStr(hashStr string) (hash Hash, err error) {
+func GetHashFromStr(hashStr string) (hash *Hash, err error) {
 	bytes, err := DecodeHash(hashStr)
 	if err != nil {
 		return

@@ -1,8 +1,8 @@
 package model
 
-import "crypto"
+import "copernicus/crypto"
 
 type Checkpoint struct {
 	Height int32
-	Hash crypto.Hash
+	Hash *crypto.Hash
 }

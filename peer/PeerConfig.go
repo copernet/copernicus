@@ -21,5 +21,5 @@ type PeerConfig struct {
 	ProtocolVersion uint32
 	DisableRelayTx  bool
 	Listener        MessageListener
-	ChainParams *protocol.Params
+	ChainParams *protocol.BitcoinParams
 }
