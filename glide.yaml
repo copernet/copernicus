@@ -19,3 +19,6 @@ import:
   - ledis
 - package: github.com/BurntSushi/toml
   version: ^0.3.0
+- package: github.com/btcsuite/go-socks
+  subpackages:
+  - socks

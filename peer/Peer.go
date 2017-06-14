@@ -21,6 +21,10 @@ import (
 	"container/list"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 type Peer struct {
 	Config           *PeerConfig
 	Id               int32
@@ -38,7 +42,7 @@ type Peer struct {
 	address          string
 	lastDeclareBlock *crypto.Hash
 	PeerStatusMutex  sync.RWMutex
-	Address          *msg.PeerAddress
+	PeerAddress      *msg.PeerAddress
 	ServiceFlag      protocol.ServiceFlag
 
 	UserAgent    string
@@ -48,6 +52,9 @@ type Peer struct {
 	VersionKnown bool
 	SentVerAck   bool
 	GotVerAck    bool
+
+	versionSent    bool
+	verAckReceived bool
 
 	knownInventory *algorithm.LRUCache
 
@@ -85,6 +92,7 @@ const (
 	IDLE_TIMEOUT              = 5 * time.Minute
 	TRICKLE_TIMEOUT           = 10 * time.Second
 	PING_INTERVAL             = 2 * time.Minute
+	NEGOTIATE_TIMEOUT         = 30 * time.Second
 )
 
 var (
@@ -123,7 +131,7 @@ func (p *Peer) GetPeerID() int32 {
 func (p *Peer) GetNetAddress() *msg.PeerAddress {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
-	return p.Address
+	return p.PeerAddress
 }
 func (p *Peer) GetServiceFlag() protocol.ServiceFlag {
 	p.PeerStatusMutex.Lock()
@@ -159,19 +167,19 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 		log.Info("block number:%v", blockNumber)
 
 	}
-	remoteAddress := p.Address
+	remoteAddress := p.PeerAddress
 	if p.Config.Proxy != "" {
 		proxyAddress, _, err := net.SplitHostPort(p.Config.Proxy)
-		if err != nil || p.Address.IP.String() == proxyAddress {
+		if err != nil || p.PeerAddress.IP.String() == proxyAddress {
 			remoteAddress = &msg.PeerAddress{
 				Timestamp: time.Now(),
 				IP:        net.IP([]byte{0, 0, 0, 0}),
 			}
 		}
 	}
-	localAddress := p.Address
+	localAddress := p.PeerAddress
 	if p.Config.BestAddress != nil {
-		localAddress = p.Config.BestAddress(p.Address)
+		localAddress = p.Config.BestAddress(p.PeerAddress)
 	}
 	nonce, err := utils.RandomUint64()
 	if err != nil {
@@ -371,7 +379,7 @@ func (p *Peer) IsValidBIP0111(command string) bool {
 	if p.ServiceFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
 		if p.ProtocolVersion >= protocol.BIP0111_VERSION {
 			log.Debug("%s sent an unsupported %s request --disconnecting", p, command)
-			p.Disconnect()
+			p.Stop()
 
 		} else {
 			log.Debug("Ignoring %s request from %s -- bloom support is disabled", command, p)
@@ -395,16 +403,6 @@ func (p *Peer) HandlePongMessage(pongMessage *msg.PongMessage) {
 		p.PingNonce = 0
 	}
 
-}
-func (p *Peer) Disconnect() {
-	if atomic.AddInt32(&p.disconnect, 1) != 1 {
-		return
-	}
-	log.Trace("Disconnecting %s", p)
-	if atomic.LoadInt32(&p.connected) != 0 {
-		p.conn.Close()
-	}
-	close(p.quit)
 }
 
 func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
@@ -542,7 +540,7 @@ out:
 				}
 				log.Debug("peer %s appears to be stalled or misbehaving,%s timeout -- disconnecting",
 					p, command)
-				p.Disconnect()
+				p.Stop()
 				break
 			}
 			deadlineOffset = 0
@@ -574,7 +572,7 @@ cleanup:
 func (p *Peer) inHandler() {
 	idleTimer := time.AfterFunc(IDLE_TIMEOUT, func() {
 		log.Warn("Peer %s no answer for %s --disconnectind", p, IDLE_TIMEOUT)
-		p.Disconnect()
+		p.Stop()
 	})
 out:
 	for atomic.LoadInt32(&p.disconnect) == 0 {
@@ -728,7 +726,7 @@ out:
 			p.StallControl <- StallControlMessage{SccSendMessage, message.Message}
 			err := p.WriteMessage(message.Message)
 			if err != nil {
-				p.Disconnect()
+				p.Stop()
 				if p.shouldHandleReadError(err) {
 					log.Error("failed to send message to %s :%v", p, err)
 				}
@@ -771,4 +769,143 @@ cleanup:
 	close(p.outQuit)
 	log.Trace("peer output handler done for %s", p)
 
+}
+func (p *Peer) QueueInventory(inventoryVector *msg.InventoryVector) {
+	if p.knownInventory.Exists(inventoryVector) {
+		return
+	}
+	if !p.Connected() {
+		return
+	}
+	p.outputInvChan <- inventoryVector
+
+}
+
+func (p *Peer) Connect(conn net.Conn) {
+	if !atomic.CompareAndSwapInt32(&p.connected, 0, 1) {
+		return
+	}
+	p.conn = conn
+	p.ConnectedTime = time.Now()
+	if p.Inbound {
+		p.address = p.conn.RemoteAddr().String()
+		peerAddress, err := msg.InitPeerAddressWithNetAddr(p.conn.RemoteAddr(), p.ServiceFlag)
+		if err != nil {
+			log.Error("Cannot create remote net address :%v", err)
+			p.Stop()
+			return
+		}
+		p.PeerAddress = peerAddress
+	}
+	go func() {
+		err := p.start()
+		if err != nil {
+			log.Warn("Can note start perr %v , err :%v", p, err)
+			p.Stop()
+		}
+
+	}()
+
+}
+func (p *Peer) writeLocalVersionMessage() error {
+	localVersion, err := p.LocalVersionMsg()
+	if err != nil {
+		return err
+	}
+	err = p.WriteMessage(localVersion)
+	if err != nil {
+		return err
+	}
+	p.PeerStatusMutex.Lock()
+	p.versionSent = true
+	p.PeerStatusMutex.Unlock()
+	return nil
+
+}
+func (p *Peer) readRemoteVersionMessage() error {
+	message, _, err := p.ReadMessage()
+	if err != nil {
+		return err
+	}
+	remoteVersionMessage, ok := message.(*msg.VersionMessage)
+	if !ok {
+		errStr := "A version message must precede all  others"
+		log.Error(errStr)
+		rejectMessage := msg.NewRejectMessage(message.Command(), msg.REJECT_MALFORMED, errStr)
+		err := p.WriteMessage(rejectMessage)
+		if err != nil {
+			return err
+		}
+	}
+	err = p.HandleRemoteVersionMessage(remoteVersionMessage)
+	if err != nil {
+		return err
+	}
+	if p.Config.Listener.OnVersionMessage != nil {
+		p.Config.Listener.OnVersionMessage(p, remoteVersionMessage)
+	}
+	return nil
+}
+
+func (p *Peer) negotiateInboundProtocol() error {
+
+	err := p.readRemoteVersionMessage()
+	if err != nil {
+		return err
+	}
+	err = p.writeLocalVersionMessage()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (p *Peer) negotiateOutboundProtocol() error {
+	err := p.writeLocalVersionMessage()
+	if err != nil {
+		return err
+	}
+	err = p.readRemoteVersionMessage()
+	return err
+
+}
+func (p *Peer) start() error {
+	log.Trace("start peer %s ", p)
+	negotiateErr := make(chan error)
+	go func() {
+		if p.Inbound {
+			negotiateErr <- p.negotiateInboundProtocol()
+		} else {
+			negotiateErr <- p.negotiateOutboundProtocol()
+		}
+	}()
+	select {
+	case err := <-negotiateErr:
+		if err != nil {
+			return err
+		}
+	case <-time.After(NEGOTIATE_TIMEOUT):
+		return errors.New("protocol negotiation timeout ")
+	}
+	log.Debug("Connected to %s", p.address)
+	go p.stallHandler()
+	go p.inHandler()
+	go p.queueHandler()
+	go p.outHandler()
+	p.SendMessage(msg.VersionACKMessage{}, nil)
+	return nil
+}
+
+func (p *Peer) WaitForDisconnect() {
+	<-p.quit
+}
+
+func (p *Peer) Stop() {
+	if atomic.AddInt32(&p.disconnect, 1) != 1 {
+		return
+	}
+	log.Trace("Disconnecting %s", p)
+	if atomic.LoadInt32(&p.connected) != 0 {
+		p.conn.Close()
+	}
+	close(p.quit)
 }

@@ -1,9 +1,9 @@
 package peer
 
-import msg2 "copernicus/msg"
+import "copernicus/msg"
 
 type MessageListener struct {
-
-	OnRead    func(p *Peer, bytesRead int, msg msg2.Message, err error)
-	OnWrite   func(p *Peer, bytesWritten int, msg msg2.Message, err error)
+	OnRead           func(p *Peer, bytesRead int, message msg.Message, err error)
+	OnWrite          func(p *Peer, bytesWritten int, message msg.Message, err error)
+	OnVersionMessage func(p *Peer, versionMessage *msg.VersionMessage)
 }

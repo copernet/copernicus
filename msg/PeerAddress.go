@@ -7,28 +7,30 @@ import (
 	"copernicus/protocol"
 	"encoding/binary"
 	"copernicus/utils"
+	"github.com/btcsuite/go-socks/socks"
+	"strconv"
 )
 
 type PeerAddress struct {
 	Timestamp    time.Time
-	ServicesFlag uint64
+	ServicesFlag protocol.ServiceFlag
 	IP           net.IP
 	Port         uint16
 }
 type PeerAddressFunc func(remoteAddr *PeerAddress) *PeerAddress
 
-func (na *PeerAddress) EqualService(serviceFlag uint64) bool {
+func (na *PeerAddress) EqualService(serviceFlag protocol.ServiceFlag) bool {
 	return na.ServicesFlag&serviceFlag == serviceFlag
 }
 
-func (na *PeerAddress) AddService(serviceFlag uint64) {
+func (na *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
 	na.ServicesFlag |= serviceFlag
 }
-func InitPeerAddressIPPort(serviceFlag uint64, ip net.IP, port uint16) *PeerAddress {
+func InitPeerAddressIPPort(serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
 	return InitPeerAddress(time.Now(), serviceFlag, ip, port)
 }
 
-func InitPeerAddress(timestamp time.Time, serviceFlag uint64, ip net.IP, port uint16) *PeerAddress {
+func InitPeerAddress(timestamp time.Time, serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
 	na := PeerAddress{
 		Timestamp:    time.Unix(timestamp.Unix(), 0),
 		ServicesFlag: serviceFlag,
@@ -37,9 +39,9 @@ func InitPeerAddress(timestamp time.Time, serviceFlag uint64, ip net.IP, port ui
 	}
 	return &na
 }
-func NewPeerAddress(addr *net.TCPAddr, serviceFlag uint64) *PeerAddress {
+func NewPeerAddress(addr *net.TCPAddr, serviceFlag protocol.ServiceFlag) *PeerAddress {
 
-	return InitPeerAddressIPPort(serviceFlag, addr.IP, addr.Port)
+	return InitPeerAddressIPPort(serviceFlag, addr.IP, uint16(addr.Port))
 }
 func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	var ip [16]byte
@@ -93,3 +95,34 @@ func MaxPeerAddressPayload(version uint32) uint32 {
 	}
 	return len
 }
+
+func InitPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceFlag) (*PeerAddress, error) {
+	if tcpAddress, ok := address.(*net.TCPAddr); ok {
+
+		netAddress := NewPeerAddress(tcpAddress, servicesFlag)
+		return netAddress, nil
+
+	}
+	if proxiedAddr, ok := address.(*socks.ProxiedAddr); ok {
+		ip := net.ParseIP(proxiedAddr.Host)
+		if ip == nil {
+
+			ip = net.ParseIP("0.0.0.0")
+		}
+		port := uint16(proxiedAddr.Port)
+		peerAddress := InitPeerAddressIPPort(servicesFlag, ip, port)
+		return peerAddress, nil
+	}
+	host, portStr, err := net.SplitHostPort(address.String())
+	if err != nil {
+		return nil, err
+	}
+	ip := net.ParseIP(host)
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return nil, err
+	}
+	peerAddress := InitPeerAddressIPPort(servicesFlag, ip, uint16(port))
+	return peerAddress, nil
+}
+
