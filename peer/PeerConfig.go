@@ -6,9 +6,9 @@ import (
 )
 
 type PeerConfig struct {
-	NewBlock    protocol.HashFunc
-	HostToAdd   protocol.HostToNetAddrFunc
-	BestAddress msg.PeerAddressFunc
+	NewBlock          protocol.HashFunc
+	HostToAddressFunc protocol.HostToNetAddrFunc
+	BestAddress       msg.PeerAddressFunc
 
 	Proxy            string
 	UserAgent        string

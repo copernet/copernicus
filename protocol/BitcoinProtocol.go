@@ -17,6 +17,8 @@ const (
 	BIP0037_VERSION           uint32 = 70001
 	BIP0031_VERSION           uint32 = 60000
 	BIP0111_VERSION           uint32 = 70011
+
+	MAX_KNOWN_INVENTORY=1000
 )
 const (
 	SF_NODE_NETWORK_AS_FULL_NODE = 1 << iota

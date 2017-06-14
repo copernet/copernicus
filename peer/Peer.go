@@ -19,6 +19,18 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"io"
 	"container/list"
+	"strconv"
+)
+
+const (
+	MAX_INVENTORY_TICKLE_SIZE = 1000
+	STALL_RESPONSE_TIMEOUT    = 30 * time.Second
+	STALL_TICK_INTERVAL       = 15 * time.Second
+	IDLE_TIMEOUT              = 5 * time.Minute
+	TRICKLE_TIMEOUT           = 10 * time.Second
+	PING_INTERVAL             = 2 * time.Minute
+	NEGOTIATE_TIMEOUT         = 30 * time.Second
+	OUT_PUT_BUFFER_SIZE       = 50
 )
 
 func init() {
@@ -39,7 +51,7 @@ type Peer struct {
 	Inbound          bool
 	BlockStatusMutex sync.RWMutex
 	conn             net.Conn
-	address          string
+	AddressString    string
 	lastDeclareBlock *crypto.Hash
 	PeerStatusMutex  sync.RWMutex
 	PeerAddress      *msg.PeerAddress
@@ -85,16 +97,6 @@ type Peer struct {
 	outputInvChan chan *msg.InventoryVector
 }
 
-const (
-	MAX_INVENTORY_TICKLE_SIZE = 1000
-	STALL_RESPONSE_TIMEOUT    = 30 * time.Second
-	STALL_TICK_INTERVAL       = 15 * time.Second
-	IDLE_TIMEOUT              = 5 * time.Minute
-	TRICKLE_TIMEOUT           = 10 * time.Second
-	PING_INTERVAL             = 2 * time.Minute
-	NEGOTIATE_TIMEOUT         = 30 * time.Second
-)
-
 var (
 	log       = logs.NewLogger()
 	sentNoces = algorithm.NewLRUCache(50)
@@ -106,17 +108,17 @@ func (p *Peer) ToString() string {
 	if !p.Inbound {
 		directionString = "outbound"
 	}
-	return fmt.Sprintf("%s (%s)", p.address, directionString)
+	return fmt.Sprintf("%s (%s)", p.AddressString, directionString)
 }
 func (p *Peer) UpdateBlockHeight(newHeight int32) {
 	p.BlockStatusMutex.Lock()
-	log.Trace("Updating last block heighy of peer %v from %v to %v", p.address, p.LastBlock, newHeight)
+	log.Trace("Updating last block heighy of peer %v from %v to %v", p.AddressString, p.LastBlock, newHeight)
 	p.LastBlock = newHeight
 	p.BlockStatusMutex.Unlock()
 }
 
 func (p *Peer) UpdateDeclareBlock(blackHash *crypto.Hash) {
-	log.Trace("Updating last block:%v form peer %v", blackHash, p.address)
+	log.Trace("Updating last block:%v form peer %v", blackHash, p.AddressString)
 	p.BlockStatusMutex.Lock()
 	p.lastDeclareBlock = blackHash
 	p.BlockStatusMutex.Unlock()
@@ -436,7 +438,7 @@ func (p *Peer) IsAllowedReadError(err error) bool {
 	if p.Config.ChainParams.BitcoinNet != protocol.TEST_NET {
 		return false
 	}
-	host, _, err := net.SplitHostPort(p.address)
+	host, _, err := net.SplitHostPort(p.AddressString)
 	if err != nil {
 		return false
 	}
@@ -788,10 +790,10 @@ func (p *Peer) Connect(conn net.Conn) {
 	p.conn = conn
 	p.ConnectedTime = time.Now()
 	if p.Inbound {
-		p.address = p.conn.RemoteAddr().String()
+		p.AddressString = p.conn.RemoteAddr().String()
 		peerAddress, err := msg.InitPeerAddressWithNetAddr(p.conn.RemoteAddr(), p.ServiceFlag)
 		if err != nil {
-			log.Error("Cannot create remote net address :%v", err)
+			log.Error("Cannot create remote net AddressString :%v", err)
 			p.Stop()
 			return
 		}
@@ -886,7 +888,7 @@ func (p *Peer) start() error {
 	case <-time.After(NEGOTIATE_TIMEOUT):
 		return errors.New("protocol negotiation timeout ")
 	}
-	log.Debug("Connected to %s", p.address)
+	log.Debug("Connected to %s", p.AddressString)
 	go p.stallHandler()
 	go p.inHandler()
 	go p.queueHandler()
@@ -908,4 +910,57 @@ func (p *Peer) Stop() {
 		p.conn.Close()
 	}
 	close(p.quit)
+}
+
+func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
+	protocolVersion := uint32(protocol.MAX_PROTOCOL_VERSION)
+	if peerConfig.ProtocolVersion != 0 {
+		protocolVersion = peerConfig.ProtocolVersion
+	}
+	if peerConfig.ChainParams == nil {
+		peerConfig.ChainParams = &protocol.TestNet3Params
+	}
+	perr := Peer{
+		Inbound:         inbound,
+		knownInventory:  algorithm.NewLRUCache(protocol.MAX_KNOWN_INVENTORY),
+		StallControl:    make(chan StallControlMessage, 1),
+		OutputQueue:     make(chan msg.OutMessage, OUT_PUT_BUFFER_SIZE),
+		SendQueue:       make(chan msg.OutMessage, 1),
+		outputInvChan:   make(chan *msg.InventoryVector, OUT_PUT_BUFFER_SIZE),
+		inQuit:          make(chan struct{}),
+		queueQuit:       make(chan struct{}),
+		outQuit:         make(chan struct{}),
+		quit:            make(chan struct{}),
+		Config:          peerConfig,
+		ServiceFlag:     peerConfig.ServicesFlag,
+		ProtocolVersion: protocolVersion,
+
+	}
+	return &perr
+}
+func NewInboundPeer(peerConfig *PeerConfig) *Peer {
+	return newPeer(peerConfig, true)
+}
+func NewOutboundPeer(peerConfig *PeerConfig, addressString string) (*Peer, error) {
+	p := newPeer(peerConfig, false)
+	p.AddressString = addressString
+	host, portStr, err := net.SplitHostPort(addressString)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return nil, err
+	}
+	if peerConfig.HostToAddressFunc != nil {
+		peerAddress, err := peerConfig.HostToAddressFunc(host, uint16(port), peerConfig.ServicesFlag)
+		if err != nil {
+			return nil, err
+		}
+		p.PeerAddress = peerAddress
+
+	} else {
+		p.PeerAddress = msg.InitPeerAddressIPPort(peerConfig.ServicesFlag, net.ParseIP(host), uint16(port))
+	}
+	return p, nil
 }
