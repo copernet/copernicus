@@ -84,6 +84,7 @@ const (
 	STALL_TICK_INTERVAL       = 15 * time.Second
 	IDLE_TIMEOUT              = 5 * time.Minute
 	TRICKLE_TIMEOUT           = 10 * time.Second
+	PING_INTERVAL             = 2 * time.Minute
 )
 
 var (
@@ -707,4 +708,67 @@ cleanup:
 	}
 	close(p.queueQuit)
 	log.Trace("Peer queue handler done for %s", p)
+}
+
+func (p *Peer) outHandler() {
+	pingTicker := time.NewTicker(PING_INTERVAL)
+out:
+	for {
+		select {
+		case message := <-p.SendQueue:
+			switch m := message.Message.(type) {
+			case *msg.PingMessage:
+				if p.ProtocolVersion > protocol.BIP0031_VERSION {
+					p.PeerStatusMutex.Lock()
+					p.PingNonce = m.Nonce
+					p.PingTime = time.Now()
+					p.PeerStatusMutex.Unlock()
+				}
+			}
+			p.StallControl <- StallControlMessage{SccSendMessage, message.Message}
+			err := p.WriteMessage(message.Message)
+			if err != nil {
+				p.Disconnect()
+				if p.shouldHandleReadError(err) {
+					log.Error("failed to send message to %s :%v", p, err)
+				}
+				if message.Done != nil {
+					message.Done <- struct{}{}
+				}
+				continue
+			}
+			atomic.StoreInt64(&p.lastSent, time.Now().Unix())
+			if message.Done != nil {
+				message.Done <- struct{}{}
+			}
+			p.sendDoneQueue <- struct{}{}
+
+		case <-pingTicker.C:
+			nonce, err := utils.RandomUint64()
+			if err != nil {
+				log.Error("Not sending ping to %s :%v", p, err)
+				continue
+			}
+			p.SendMessage(msg.InitPingMessage(nonce), nil)
+		case <-p.quit:
+			break out
+
+		}
+
+	}
+	<-p.queueQuit
+cleanup:
+	for {
+		select {
+		case message := <-p.SendQueue:
+			if message.Done != nil {
+				message.Done <- struct{}{}
+			}
+		default:
+			break cleanup
+		}
+	}
+	close(p.outQuit)
+	log.Trace("peer output handler done for %s", p)
+
 }
