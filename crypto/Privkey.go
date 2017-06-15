@@ -1,4 +1,4 @@
-package ecc
+package crypto
 
 import (
 	"github.com/btccom/secp256k1-go/secp256k1"

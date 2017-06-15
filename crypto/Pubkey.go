@@ -1,4 +1,4 @@
-package ecc
+package crypto
 
 import (
 	"github.com/pkg/errors"
