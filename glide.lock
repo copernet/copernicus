@@ -1,5 +1,5 @@
-hash: a319bc23d2f7198e2eed14f8f6b110d0a36988ed9d9de730b07982f77f743013
-updated: 2017-06-14T15:01:15.800802243+08:00
+hash: eba486d2eea4aae103484e32f2bb7729238a941fb5d94a32d2b1fde45506edd9
+updated: 2017-06-15T08:47:48.256245574+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -8,8 +8,12 @@ imports:
   - logs
 - name: github.com/boltdb/bolt
   version: b8dbe1101d74c30e817227a99716591e3e6e6bc4
+- name: github.com/btccom/secp256k1-go
+  version: 6f54695c1aeaf76bf80b6d67aac4c1de3f2a262d
+  subpackages:
+  - secp256k1
 - name: github.com/btcsuite/btcd
-  version: 1bdb71328511a5225d6300c3c08a79172f667996
+  version: ef87de9d8888726bb77cc921a69e0ffddb885740
   subpackages:
   - chaincfg
   - txscript

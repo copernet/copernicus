@@ -4,6 +4,7 @@ import (
 	_ "copernicus/conf"
 	_ "copernicus/log"
 	_ "copernicus/storage"
+	_ "copernicus/ecc"
 	"os"
 	"syscall"
 
