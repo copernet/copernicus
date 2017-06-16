@@ -9,6 +9,7 @@ import (
 	"copernicus/utils"
 	"github.com/btcsuite/go-socks/socks"
 	"strconv"
+	"fmt"
 )
 
 type PeerAddress struct {
@@ -34,11 +35,130 @@ func (peerAddress *PeerAddress) IsLocal() bool {
 // used by bitcoin to support Tor (fd87:d87e:eb43::/48).  Note that this range
 // is the same range used by OnionCat, which is part of the RFC4193 unique local
 // IPv6 range.
-
 func (peerAddress *PeerAddress) IsOnionCatTor() bool {
 	return OnionCatNet.Contains(peerAddress.IP)
 
 }
+func (peerAddress *PeerAddress) IsRFC2544() bool {
+	return rfc2544NeT.Contains(peerAddress.IP)
+}
+
+// IsRFC1918 returns whether or not the passed address is part of the IPv4
+// private network address space as defined by RFC1918 (10.0.0.0/8,
+// 172.16.0.0/12, or 192.168.0.0/16).
+func (peerAddress *PeerAddress) IsRFC1918() bool {
+	for _, rfc := range rfc1918Nets {
+		if rfc.Contains(peerAddress.IP) {
+			return true
+		}
+	}
+	return false
+}
+
+func (peerAddress *PeerAddress) IsRFC3849() bool {
+	return rfc3849Net.Contains(peerAddress.IP)
+}
+func (peerAddress *PeerAddress) IsRFC3927() bool {
+	return rfc3927Net.Contains(peerAddress.IP)
+}
+
+func (peeraddress *PeerAddress) IsRFC3964() bool {
+	return rfc3964Net.Contains(peeraddress.IP)
+}
+
+func (peerAddrss *PeerAddress) IsRFC4193() bool {
+	return rfc4193Net.Contains(peerAddrss.IP)
+}
+func (peerAddrss *PeerAddress) IsRFC4380() bool {
+	return rfc4380Net.Contains(peerAddrss.IP)
+}
+func (peerAddrss *PeerAddress) IsRFC4843() bool {
+	return rfc4380Net.Contains(peerAddrss.IP)
+}
+func (peerAddrss *PeerAddress) IsRFC4862() bool {
+	return rfc4862Net.Contains(peerAddrss.IP)
+}
+
+func (peerAddrss *PeerAddress) IsRFC5737() bool {
+	for _, rfc := range rfc5737Net {
+		if rfc.Contains(peerAddrss.IP) {
+			return true
+		}
+	}
+
+	return false
+}
+func (peerAddrss *PeerAddress) IsRFC6052() bool {
+	return rfc6052Net.Contains(peerAddrss.IP)
+}
+func (peerAddrss *PeerAddress) IsRFC6145() bool {
+	return rfc6145Net.Contains(peerAddrss.IP)
+}
+func (peerAddrss *PeerAddress) IsRFC6598() bool {
+	return rfc6598Net.Contains(peerAddrss.IP)
+}
+
+func (peerAddress *PeerAddress) IsValid() bool {
+	return peerAddress.IP != nil &&
+		!(peerAddress.IP.IsUnspecified() ||
+			peerAddress.IP.Equal(net.IPv4bcast))
+}
+
+// IsRoutable returns whether or not the passed address is routable over
+// the public internet.  This is true as long as the address is valid and is not
+// in any reserved ranges.
+func (peerAddress *PeerAddress) IsRoutable() bool {
+	return peerAddress.IsValid() && !(peerAddress.IsRFC1918() || peerAddress.IsRFC2544() ||
+		peerAddress.IsRFC3927() || peerAddress.IsRFC4862() || peerAddress.IsRFC3849() ||
+		peerAddress.IsRFC4843() || peerAddress.IsRFC5737() || peerAddress.IsRFC6598() ||
+		peerAddress.IsLocal() || (peerAddress.IsRFC4193() && !peerAddress.IsOnionCatTor()))
+}
+
+func (peerAddress *PeerAddress) GroupKey() string {
+	if peerAddress.IsLocal() {
+		return "local"
+	}
+	if !peerAddress.IsRoutable() {
+		return "unroutable"
+	}
+	if peerAddress.IsIPv4() {
+		return peerAddress.IP.Mask(net.CIDRMask(16, 32)).String()
+	}
+	if peerAddress.IsRFC6145() || peerAddress.IsRFC6052() {
+		ip := peerAddress.IP[12:16]
+		return ip.Mask(net.CIDRMask(16, 32)).String()
+	}
+
+	if peerAddress.IsRFC3964() {
+		ip := peerAddress.IP[2:6]
+		return ip.Mask(net.CIDRMask(16, 32)).String()
+
+	}
+	if peerAddress.IsRFC4380() {
+		// teredo tunnels have the last 4 bytes as the v4 address XOR
+		// 0xff.
+		ip := net.IP(make([]byte, 4))
+		for i, byte := range peerAddress.IP[12:16] {
+			ip[i] = byte ^ 0xff
+		}
+		return ip.Mask(net.CIDRMask(16, 32)).String()
+	}
+	if peerAddress.IsOnionCatTor() {
+		// group is keyed off the first 4 bits of the actual onion key.
+		return fmt.Sprintf("tor:%d", peerAddress.IP[6]&((1<<4)-1))
+	}
+
+	// OK, so now we know ourselves to be a IPv6 address.
+	// bitcoind uses /32 for everything, except for Hurricane Electric's
+	// (he.net) IP range, which it uses /36 for.
+	bits := 32
+	if HeNet.Contains(peerAddress.IP) {
+		bits = 36
+	}
+
+	return peerAddress.IP.Mask(net.CIDRMask(bits, 128)).String()
+}
+
 func (na *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
 	na.ServicesFlag |= serviceFlag
 }

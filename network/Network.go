@@ -16,7 +16,7 @@ var (
 	}
 	// rfc2544Net specifies the the IPv4 block as defined by RFC2544
 	// (198.18.0.0/15)
-	rfc2544nET = ipNet("198.18.0.0", 15, 32)
+	rfc2544NeT = ipNet("198.18.0.0", 15, 32)
 	rfc3849Net = ipNet("2001:DB8::", 32, 128)
 	// rfc3927Net specifies the IPv4 auto configuration address block as
 	// defined by RFC3927 (169.254.0.0/16).
