@@ -1,4 +1,4 @@
-package msg
+package network
 
 import (
 	"time"
@@ -22,7 +22,23 @@ type PeerAddressFunc func(remoteAddr *PeerAddress) *PeerAddress
 func (na *PeerAddress) EqualService(serviceFlag protocol.ServiceFlag) bool {
 	return na.ServicesFlag&serviceFlag == serviceFlag
 }
+func (peerAddrss *PeerAddress) IsIPv4() bool {
+	return peerAddrss.IP.To4() != nil
+}
+func (peerAddress *PeerAddress) IsLocal() bool {
 
+	return peerAddress.IP.IsLoopback() || Zero4Net.Contains(peerAddress.IP)
+}
+
+// IsOnionCatTor returns whether or not the passed address is in the IPv6 range
+// used by bitcoin to support Tor (fd87:d87e:eb43::/48).  Note that this range
+// is the same range used by OnionCat, which is part of the RFC4193 unique local
+// IPv6 range.
+
+func (peerAddress *PeerAddress) IsOnionCatTor() bool {
+	return OnionCatNet.Contains(peerAddress.IP)
+
+}
 func (na *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
 	na.ServicesFlag |= serviceFlag
 }
@@ -125,4 +141,3 @@ func InitPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceF
 	peerAddress := InitPeerAddressIPPort(servicesFlag, ip, uint16(port))
 	return peerAddress, nil
 }
-
