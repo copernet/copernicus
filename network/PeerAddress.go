@@ -10,6 +10,8 @@ import (
 	"github.com/btcsuite/go-socks/socks"
 	"strconv"
 	"fmt"
+	"encoding/base32"
+	"strings"
 )
 
 type PeerAddress struct {
@@ -260,4 +262,16 @@ func InitPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceF
 	}
 	peerAddress := InitPeerAddressIPPort(servicesFlag, ip, uint16(port))
 	return peerAddress, nil
+}
+func (peerAddress *PeerAddress) NetAddressKey() string {
+	port := strconv.FormatUint(uint64(peerAddress.Port), 10)
+	return net.JoinHostPort(peerAddress.IpString(), port)
+}
+
+func (peerAddress *PeerAddress) IpString() string {
+	if peerAddress.IsOnionCatTor() {
+		base32String := base32.StdEncoding.EncodeToString(peerAddress.IP[6:])
+		return strings.ToLower(base32String) + ".onion"
+	}
+	return peerAddress.IP.String()
 }

@@ -1,13 +1,12 @@
 package network
 
 import (
-	"copernicus/msg"
 	"time"
 )
 
 type KnownAddress struct {
-	NetAddress  *msg.PeerAddress
-	SrcAddress  *msg.PeerAddress
+	NetAddress  *PeerAddress
+	SrcAddress  *PeerAddress
 	attempts    int
 	LastAttempt time.Time
 	lastSuccess time.Time
