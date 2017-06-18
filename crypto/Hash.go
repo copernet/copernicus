@@ -1,8 +1,8 @@
 package crypto
 
 import (
-	"fmt"
 	"encoding/hex"
+	"fmt"
 )
 
 const (
@@ -17,23 +17,23 @@ func (hash Hash) ToString() string {
 		hash[i], hash[HASH_SIZE-1-i] = hash[HASH_SIZE-1-i], hash[i]
 	}
 	return hex.EncodeToString(hash[:])
-
 }
+
 func (hash Hash) GetCloneBytes() []byte {
 	bytes := make([]byte, HASH_SIZE)
 	copy(bytes, hash[:])
 	return bytes
 }
-func (hash Hash) SetBytes(bytes [] byte) error {
 
+func (hash Hash) SetBytes(bytes []byte) error {
 	length := len(bytes)
 	if length != HASH_SIZE {
 		return fmt.Errorf("invalid hash length of %v , want %v", length, HASH_SIZE)
-
 	}
 	copy(hash[:], bytes)
 	return nil
 }
+
 func (hash *Hash) IsEqual(target *Hash) bool {
 	if hash == nil && target == nil {
 		return true
@@ -43,6 +43,7 @@ func (hash *Hash) IsEqual(target *Hash) bool {
 	}
 	return *hash == *target
 }
+
 func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	length := len(bytes)
 	if length != HASH_SIZE {
@@ -51,6 +52,7 @@ func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	hash.SetBytes(bytes)
 	return
 }
+
 func GetHashFromStr(hashStr string) (hash *Hash, err error) {
 	bytes, err := DecodeHash(hashStr)
 	if err != nil {
@@ -82,5 +84,4 @@ func DecodeHash(src string) (bytes []byte, err error) {
 		bytes[i], bytes[HASH_SIZE-1-i] = reversedHash[HASH_SIZE-1-i], b
 	}
 	return
-
 }

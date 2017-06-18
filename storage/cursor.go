@@ -27,29 +27,3 @@ type Cursor interface {
 	// Value returns the current value the cursor is pointing to.
 	Value() []byte
 }
-
-// Bucket represents a collection of key/value pairs.
-type Bucket interface {
-	ForEach(func(k, v []byte) error) error
-
-	Cursor() Cursor
-
-	Writable() bool
-
-	Put(key, value []byte) error
-
-	Get(key []byte) []byte
-
-	Delete(key []byte) error
-}
-
-// MetaData represents a collection of Bucket
-type MetaData interface {
-	Create(key []byte) (Bucket, error)
-
-	CreateIfNotExists(key []byte) (Bucket, error)
-
-	Get(key []byte) Bucket
-
-	Delete(key []byte) error
-}
