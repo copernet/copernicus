@@ -11,6 +11,11 @@ import (
 	"time"
 	"os"
 	"encoding/json"
+	"strconv"
+	"copernicus/protocol"
+	"encoding/base32"
+	"strings"
+	"fmt"
 )
 
 const (
@@ -220,10 +225,43 @@ out:
 	addressManager.waitGroup.Done()
 	log.Trace("address handler done ")
 }
-func(addressManager *NetAddressManager)loadPeers(){
+func (addressManager *NetAddressManager) loadPeers() {
 	addressManager.lock.Lock()
 	defer addressManager.lock.Unlock()
 
+}
+
+func (addressManager *NetAddressManager) DeserializeNetAddress(addressString string) (*PeerAddress, error) {
+	host, portStr, err := net.SplitHostPort(addressString)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return nil, err
+	}
+	return addressManager.HostToNetAddress(host, uint16(port), protocol.SF_NODE_NETWORK_AS_FULL_NODE)
+}
+func (addressManager *NetAddressManager) HostToNetAddress(host string, port uint16, servicesFlag protocol.ServiceFlag) (*PeerAddress, error) {
+	var ip net.IP
+	if len(host) == 22 && host[16:] == ".onion" {
+		data, err := base32.StdEncoding.DecodeString(strings.ToUpper(host[:16]))
+		if err != nil {
+			return nil, err
+		}
+		prefix := []byte{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43}
+		ip := net.IP(append(prefix, data...))
+	} else if ip = net.ParseIP(host); ip == nil {
+		ips, err := addressManager.lookupFunc(host)
+		if err != nil {
+			return nil, err
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("no addresses found for %s", host)
+		}
+		ip = ips[0]
+	}
+	return InitPeerAddressIPPort(servicesFlag, ip, port), nil
 }
 func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddress) int {
 	// bitcoind:
