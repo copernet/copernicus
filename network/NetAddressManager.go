@@ -7,7 +7,6 @@ import (
 	"container/list"
 	"copernicus/crypto"
 	"encoding/binary"
-	"github.com/siddontang/go/log"
 	"time"
 	"os"
 	"encoding/json"
@@ -16,6 +15,8 @@ import (
 	"encoding/base32"
 	"strings"
 	"fmt"
+	"sync/atomic"
+	"github.com/astaxie/beego/logs"
 )
 
 const (
@@ -31,7 +32,10 @@ const (
 	NEW_BUCKET_SIZE          = 64
 	DUMP_ADDRESS_INTERVAL    = time.Minute * 10
 	SERIALISATION_VERSION    = 1
+	NEED_ADDRESS_THRESHOLD   = 1000
 )
+
+var log = logs.NewLogger()
 
 type NetAddressManager struct {
 	lock         sync.Mutex
@@ -198,14 +202,14 @@ func (addressManager *NetAddressManager) savePeers() {
 	}
 	w, err := os.Create(addressManager.peersFile)
 	if err != nil {
-		log.Errorf("Error opening file %s :%v", addressManager.peersFile, err)
+		log.Error("Error opening file %s :%v", addressManager.peersFile, err)
 		return
 	}
 	newEncoder := json.NewEncoder(w)
 	defer w.Close()
 
 	if err := newEncoder.Encode(&serializedAddressManager); err != nil {
-		log.Errorf("Failed to encode file %s :%v", addressManager.peersFile, err)
+		log.Error("Failed to encode file %s :%v", addressManager.peersFile, err)
 	}
 }
 func (addressManager *NetAddressManager) addressHandler() {
@@ -251,6 +255,7 @@ func (addressManager *NetAddressManager) HostToNetAddress(host string, port uint
 		}
 		prefix := []byte{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43}
 		ip := net.IP(append(prefix, data...))
+		log.Debug("%s", ip)
 	} else if ip = net.ParseIP(host); ip == nil {
 		ips, err := addressManager.lookupFunc(host)
 		if err != nil {
@@ -283,7 +288,65 @@ func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddre
 	return int(binary.LittleEndian.Uint64(hashSecond) % NEW_BUCKET_COUNT)
 
 }
+func (addressManager *NetAddressManager) Start() {
+	if atomic.AddInt32(&addressManager.started, 1) != 1 {
+		return
+	}
+	log.Trace("Starting address manager")
+	addressManager.loadPeers()
+	addressManager.waitGroup.Add(1)
+	go addressManager.addressHandler()
+}
 
+func (addressManager *NetAddressManager) Stop() error {
+	if atomic.AddInt32(&addressManager.shutdown, 1) != 1 {
+		log.Warn("address manager is alerady in the process of shutting down ")
+		return nil
+	}
+	log.Info("address manger shutting down")
+	close(addressManager.quit)
+	addressManager.waitGroup.Wait()
+	return nil
+}
+func (addressManager *NetAddressManager) AddPeerAddresses(addresses []*PeerAddress, srcAddress *PeerAddress) {
+	addressManager.lock.Unlock()
+	defer addressManager.lock.Unlock()
+	for _, peeraddress := range addresses {
+		addressManager.updateAddress(peeraddress, srcAddress)
+	}
+}
+func (addressManager *NetAddressManager) AddAddress(addr, srcAddr *PeerAddress) {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	addressManager.updateAddress(addr, srcAddr)
+}
+func (addressManager *NetAddressManager) AddAddressByIP(addressIP string) error {
+	addr, porStr, err := net.SplitHostPort(addressIP)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return fmt.Errorf("invalid ip address %s", addr)
+	}
+	port, err := strconv.ParseUint(porStr, 10, 0)
+	if err != nil {
+		return fmt.Errorf("invalid port %s:%v", porStr, err)
+	}
+	peerAddress := InitPeerAddressIPPort(0, ip, uint16(port))
+	addressManager.AddAddress(peerAddress, peerAddress)
+	return nil
+}
+func (addressManage *NetAddressManager) Numaddresses() int {
+	addressManage.lock.Lock()
+	defer addressManage.lock.Unlock()
+	return addressManage.Numaddresses()
+}
+func (addressManger *NetAddressManager) NeedMoreAddresses() bool {
+	addressManger.lock.Lock()
+	defer addressManger.lock.Unlock()
+	return addressManger.Numaddresses() < NEED_ADDRESS_THRESHOLD
+}
 func (a *NetAddressManager) find(peerAddress *PeerAddress) *KnownAddress {
 	return a.addressIndex[peerAddress.NetAddressKey()]
 }
