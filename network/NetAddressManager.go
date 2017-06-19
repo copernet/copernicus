@@ -3,20 +3,23 @@ package network
 import (
 	"sync"
 	"net"
-	"math/rand"
-	"container/list"
-	"copernicus/crypto"
-	"encoding/binary"
 	"time"
+	"github.com/astaxie/beego/logs"
+	"container/list"
 	"os"
 	"encoding/json"
 	"strconv"
 	"copernicus/protocol"
-	"encoding/base32"
 	"strings"
-	"fmt"
 	"sync/atomic"
-	"github.com/astaxie/beego/logs"
+	"math/rand"
+	"copernicus/crypto"
+	"encoding/binary"
+	"encoding/base32"
+	"fmt"
+	"io"
+	crand "crypto/rand"
+	"btcd/addrmgr"
 )
 
 const (
@@ -33,6 +36,8 @@ const (
 	DUMP_ADDRESS_INTERVAL    = time.Minute * 10
 	SERIALISATION_VERSION    = 1
 	NEED_ADDRESS_THRESHOLD   = 1000
+	GET_ADDRESS_PERCENT      = 23
+	GET_ADDRESS_MAX          = 2500
 )
 
 var log = logs.NewLogger()
@@ -349,4 +354,38 @@ func (addressManger *NetAddressManager) NeedMoreAddresses() bool {
 }
 func (a *NetAddressManager) find(peerAddress *PeerAddress) *KnownAddress {
 	return a.addressIndex[peerAddress.NetAddressKey()]
+}
+func (addressManager *NetAddressManager) AddressCache() []*PeerAddress {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	addressIndexLen := len(addressManager.addressIndex)
+	if addressIndexLen == 0 {
+		return nil
+	}
+	allAddress := make([]*PeerAddress, 0, addressIndexLen)
+	for _, v := range addressManager.addressIndex {
+		allAddress = append(allAddress, v.NetAddress)
+	}
+	numAddresses := addressIndexLen * GET_ADDRESS_PERCENT / 100
+	if numAddresses > GET_ADDRESS_MAX {
+		numAddresses = GET_ADDRESS_MAX
+	}
+	for i := 0; i < numAddresses; i++ {
+		j := rand.Intn(addressIndexLen-i) + i
+		allAddress[i], allAddress[j] = allAddress[j], allAddress[i]
+
+	}
+	return allAddress[0:numAddresses]
+
+}
+func (addressManageer *NetAddressManager) reset() {
+	addressManageer.addressIndex = make(map[string]*KnownAddress)
+	io.ReadFull(crand.Reader, addressManageer.key[:])
+	for i := range addressManageer.addressNew {
+		addressManageer.addressNew[i] = make(map[string]*KnownAddress)
+	}
+	for i := range addressManageer.addressTried {
+		addressManageer.addressTried[i] = list.New()
+	}
+
 }
