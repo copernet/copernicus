@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	crand "crypto/rand"
-	"btcd/addrmgr"
 )
 
 const (
@@ -388,4 +387,80 @@ func (addressManageer *NetAddressManager) reset() {
 		addressManageer.addressTried[i] = list.New()
 	}
 
+}
+func (addressManager *NetAddressManager) GetAddress() *KnownAddress {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	if addressManager.Numaddresses() == 0 {
+		return nil
+	}
+	if addressManager.numTried > 0 && (addressManager.numNew == 0 || addressManager.rand.Intn(2) == 0) {
+		large := 1 << 30
+		factor := 1.0
+		for {
+			bucket := addressManager.rand.Intn(len(addressManager.addressTried))
+			if addressManager.addressTried[bucket].Len() == 0 {
+				continue
+			}
+			e := addressManager.addressTried[bucket].Front()
+			for i := addressManager.rand.Int63n(int64(addressManager.addressTried[bucket].Len())); i > 0; i-- {
+				e = e.Next()
+			}
+			knownAddress := e.Value.(*KnownAddress)
+			randVal := addressManager.rand.Intn(large)
+			if float64(randVal) < (factor * knownAddress.Chance() * float64(large)) {
+				log.Trace("selected %v from tried bucket ", knownAddress.NetAddress.NetAddressKey())
+			}
+		}
+	} else {
+		large := 1 << 30
+		factor := 1.0
+		for {
+			bucket := addressManager.rand.Intn(len(addressManager.addressNew))
+			if len(addressManager.addressNew[bucket]) == 0 {
+				continue
+			}
+			var knownAddress *KnownAddress
+			nth := addressManager.rand.Intn(len(addressManager.addressNew[bucket]))
+			for _, value := range addressManager.addressNew[bucket] {
+				if nth == 0 {
+					knownAddress = value
+				}
+				nth--
+			}
+			randval := addressManager.rand.Intn(large)
+			if float64(randval) < (factor * knownAddress.Chance() * float64(large)) {
+				log.Trace("selected %v from new bucket", knownAddress.NetAddress.NetAddressKey())
+				return knownAddress
+			}
+			factor *= 1.2
+
+		}
+
+	}
+
+}
+func (addrssManager *NetAddressManager) Attempt(peerAddress *PeerAddress) {
+	addrssManager.lock.Lock()
+	defer addrssManager.lock.Unlock()
+	knownAddress := addrssManager.find(peerAddress)
+	if knownAddress == nil {
+		return
+	}
+	knownAddress.attempts++
+	knownAddress.LastAttempt = time.Now()
+}
+func (addressManager *NetAddressManager) Connected(peerAddress *PeerAddress) {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	knownAddress := addressManager.find(peerAddress)
+	if knownAddress == nil {
+		return
+	}
+	now := time.Now()
+	if now.After(knownAddress.NetAddress.Timestamp.Add(time.Minute * 20)) {
+		peerAddressCopy := knownAddress.NetAddress
+		peerAddressCopy.Timestamp = time.Now()
+		knownAddress.NetAddress = peerAddressCopy
+	}
 }
