@@ -32,12 +32,12 @@ func (p *PrivateKey) PubKey() *PublicKey {
 	return (*PublicKey)(&p.PublicKey)
 }
 
-func (p *PrivateKey) Sign(hash []byte) (*secp256k1.EcdsaSignature, error) {
+func (p *PrivateKey) Sign(hash []byte) (*Signature, error) {
 	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, p.D.Bytes())
-	return signature, err
+	return (*Signature)(signature), err
 }
 
-func (p *PrivateKey) Serivalize() []byte {
+func (p *PrivateKey) Serialize() []byte {
 	b := make([]byte, 0, PrivateKeyBytesLen)
 	return paddedAppend(PrivateKeyBytesLen, b, p.D.Bytes())
 }
