@@ -3,12 +3,13 @@ package msg
 import (
 	"copernicus/protocol"
 	"time"
-
+	
 	"fmt"
 	"strings"
 	"io"
 	"bytes"
 	"copernicus/utils"
+	"copernicus/network"
 )
 
 type VersionMessage struct {
@@ -16,15 +17,15 @@ type VersionMessage struct {
 	ProtocolVersion uint32
 	ServiceFlag     protocol.ServiceFlag
 	Timestamp       time.Time
-	RemoteAddress   *PeerAddress
-	LocalAddress    *PeerAddress
+	RemoteAddress   *network.PeerAddress
+	LocalAddress    *network.PeerAddress
 	Nonce           uint64
 	UserAgent       string
 	LastBlock       int32
 	DisableRelayTx  bool
 }
 
-func GetNewVersionMessage(localAddr *PeerAddress, remoteAddr *PeerAddress, nonce uint64, lastBlock int32) *VersionMessage {
+func GetNewVersionMessage(localAddr *network.PeerAddress, remoteAddr *network.PeerAddress, nonce uint64, lastBlock int32) *VersionMessage {
 	versionMessage := VersionMessage{
 		ProtocolVersion: protocol.BITCOIN_PROTOCOL_VERSION,
 		ServiceFlag:     0,
@@ -49,32 +50,32 @@ func (msg *VersionMessage) AddUserAgent(name string, version string, notes ...st
 	}
 	msg.UserAgent = userAgent
 	return nil
-
+	
 }
 func (versionMessage *VersionMessage) HasService(serviceFlag protocol.ServiceFlag) bool {
 	return versionMessage.ServiceFlag&serviceFlag == serviceFlag
 }
 
 func (versionMessage *VersionMessage) AddService(serviceFlag protocol.ServiceFlag) {
-
+	
 	versionMessage.ServiceFlag |= serviceFlag
 }
 func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32) error {
 	buf, ok := reader.(*bytes.Buffer)
 	if !ok {
 		return fmt.Errorf("version message bitcoin parse reader is not a *bytes.Buffer")
-
+		
 	}
 	err := utils.ReadElements(buf, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, (*protocol.Int64Time)(versionMessage.Timestamp))
 	if err != nil {
 		return err
 	}
-	err = ReadPeerAddress(buf, pver, versionMessage.RemoteAddress, false)
+	err = network.ReadPeerAddress(buf, pver, versionMessage.RemoteAddress, false)
 	if err != nil {
 		return err
 	}
 	if buf.Len() > 0 {
-		err = ReadPeerAddress(buf, pver, versionMessage.LocalAddress, false)
+		err = network.ReadPeerAddress(buf, pver, versionMessage.LocalAddress, false)
 		if err != nil {
 			return err
 		}
@@ -84,7 +85,7 @@ func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32
 		if err != nil {
 			return err
 		}
-
+		
 	}
 	if buf.Len() > 0 {
 		userAgent, err := utils.ReadVarString(buf, pver)
@@ -120,11 +121,11 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if err != nil {
 		return err
 	}
-	err = WritePeerAddress(w, size, versionMessage.RemoteAddress, false)
+	err = network.WritePeerAddress(w, size, versionMessage.RemoteAddress, false)
 	if err != nil {
 		return err
 	}
-	err = WritePeerAddress(w, size, versionMessage.LocalAddress, false)
+	err = network.WritePeerAddress(w, size, versionMessage.LocalAddress, false)
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 }
 
 func (versionMessage *VersionMessage) MaxPayloadLength(pver uint32) uint32 {
-	return 33 + (MaxPeerAddressPayload(pver) * 2) + MAX_VAR_INT_PAYLOAD + MAX_USERAGENT_LEN
+	return 33 + (network.MaxPeerAddressPayload(pver) * 2) + MAX_VAR_INT_PAYLOAD + MAX_USERAGENT_LEN
 }
 func (versionMessage *VersionMessage) Command() string {
 	return COMMAND_VERSION

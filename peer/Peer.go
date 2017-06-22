@@ -277,7 +277,7 @@ func (p *Peer) SendAddrMessage(addresses []*msg.PeerAddress) ([]*msg.PeerAddress
 		return nil, nil
 	}
 	length := len(addresses)
-	addressMessage := msg.PeerAddressMessage{AddressList: make([]*msg.PeerAddress, 0, length)}
+	addressMessage := msg.AddressMessage{AddressList: make([]*msg.PeerAddress, 0, length)}
 	if len(addressMessage.AddressList) > msg.MAX_ADDRESSES_COUNT {
 		for i := range addressMessage.AddressList {
 			j := rand.Intn(i + 1)

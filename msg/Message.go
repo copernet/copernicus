@@ -82,7 +82,7 @@ func MessageSummary(msg Message) string {
 	case *VersionMessage:
 		return fmt.Sprintf("agent %s, pver %d, block %d",
 			msgType.UserAgent, msgType.ProtocolVersion, msgType.LastBlock)
-	case *PeerAddressMessage:
+	case *AddressMessage:
 		return fmt.Sprintf("%d address", len(msgType.AddressList))
 	case *TxMessage:
 		return fmt.Sprintf("tx hash %s,%d inputs,%d outputs ,lock %s", msgType.Tx.Hash,
@@ -140,7 +140,7 @@ func makeEmptyMessage(command string) (Message, error) {
 	case COMMAND_VERSION:
 		message = &VersionMessage{}
 	case COMMMAND_ADDRESS:
-		message = &PeerAddressMessage{}
+		message = &AddressMessage{}
 		//todo getBlocks and getBlock
 	case COMMAND_GET_BLOCKS:
 		message = &GetBlocksMessage{}

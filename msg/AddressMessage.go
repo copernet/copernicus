@@ -6,6 +6,7 @@ import (
 	"io"
 	"copernicus/utils"
 	"copernicus/protocol"
+	"copernicus/network"
 )
 
 const (
@@ -14,12 +15,12 @@ const (
 	MAX_USERAGENT_LEN   = 256
 )
 
-type PeerAddressMessage struct {
+type AddressMessage struct {
 	Message
-	AddressList []*PeerAddress
+	AddressList []*network.PeerAddress
 }
 
-func (addressMsg *PeerAddressMessage) AddPeerAddress(peerAddress *PeerAddress) error {
+func (addressMsg *AddressMessage) AddPeerAddress(peerAddress *network.PeerAddress) error {
 	if len(addressMsg.AddressList) > MAX_ADDRESSES_COUNT {
 		str := fmt.Sprintf("has too many addresses in message ,count is %v ", MAX_ADDRESSES_COUNT)
 		return errors.New(str)
@@ -28,7 +29,7 @@ func (addressMsg *PeerAddressMessage) AddPeerAddress(peerAddress *PeerAddress) e
 	return nil
 }
 
-func (addressMsg *PeerAddressMessage) AddPeerAddresses(peerAddresses ...*PeerAddress) (err error) {
+func (addressMsg *AddressMessage) AddPeerAddresses(peerAddresses ...*network.PeerAddress) (err error) {
 	for _, peerAddress := range peerAddresses {
 		err = addressMsg.AddPeerAddress(peerAddress)
 		if err != nil {
@@ -38,11 +39,11 @@ func (addressMsg *PeerAddressMessage) AddPeerAddresses(peerAddresses ...*PeerAdd
 	return nil
 }
 
-func (addressMsg *PeerAddressMessage) ClearAddresses() {
-	addressMsg.AddressList = []*PeerAddress{}
+func (addressMsg *AddressMessage) ClearAddresses() {
+	addressMsg.AddressList = []*network.PeerAddress{}
 }
 
-func (msg *PeerAddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
+func (msg *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 	count, err := utils.ReadVarInt(reader, size)
 	if err != nil {
 		return err
@@ -51,21 +52,21 @@ func (msg *PeerAddressMessage) BitcoinParse(reader io.Reader, size uint32) error
 		str := fmt.Sprintf("too many addresses for message count %v ,max %v", count, MAX_ADDRESSES_COUNT)
 		return errors.New(str)
 	}
-	addrList := make([]*PeerAddress, count)
-	msg.AddressList = make([]*PeerAddress, 0, count)
+	addrList := make([]*network.PeerAddress, count)
+	msg.AddressList = make([]*network.PeerAddress, 0, count)
 	for i := uint64(0); i < count; i++ {
 		peerAddress := addrList[i]
-		err := ReadPeerAddress(reader, size, peerAddress, true)
+		err := network.ReadPeerAddress(reader, size, peerAddress, true)
 		if err != nil {
 			return err
 		}
 		msg.AddPeerAddress(peerAddress)
 	}
 	return nil
-
+	
 }
 
-func (addressMessage *PeerAddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 	count := len(addressMessage.AddressList)
 	if size < protocol.MULTIPLE_ADDRESS_VERSION && count > 1 {
 		str := fmt.Sprintf("too many address for message of protocol version %v count %v ", size, count)
@@ -74,29 +75,29 @@ func (addressMessage *PeerAddressMessage) BitcoinSerialize(w io.Writer, size uin
 	if count > MAX_ADDRESSES_COUNT {
 		str := fmt.Sprintf("too many addresses for message count %v,max %v", count, MAX_ADDRESSES_COUNT)
 		return errors.New(str)
-
+		
 	}
 	err := utils.WriteVarInt(w, size, uint64(count))
 	if err != nil {
 		return err
 	}
 	for _, peerAddress := range addressMessage.AddressList {
-		err := WritePeerAddress(w, size, peerAddress, true)
+		err := network.WritePeerAddress(w, size, peerAddress, true)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-
+	
 }
 
-func (addressMesage *PeerAddressMessage) MaxPayloadLength(version uint32) uint32 {
+func (addressMesage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
 	if version < protocol.MULTIPLE_ADDRESS_VERSION {
-		return MAX_VAR_INT_PAYLOAD + MaxPeerAddressPayload(version)
+		return MAX_VAR_INT_PAYLOAD + network.MaxPeerAddressPayload(version)
 	}
-	return MAX_VAR_INT_PAYLOAD + (MAX_ADDRESSES_COUNT * MaxPeerAddressPayload(version))
+	return MAX_VAR_INT_PAYLOAD + (MAX_ADDRESSES_COUNT * network.MaxPeerAddressPayload(version))
 }
 
-func (addressMesage *PeerAddressMessage) Command() string {
-	return COMMAND_GET_ADDRESS
+func (addressMesage *AddressMessage) Command() string {
+	return COMMMAND_ADDRESS
 }
