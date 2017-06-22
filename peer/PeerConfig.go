@@ -2,13 +2,13 @@ package peer
 
 import (
 	"copernicus/protocol"
-	"copernicus/msg"
+	"copernicus/network"
 )
 
 type PeerConfig struct {
 	NewBlock          protocol.HashFunc
 	HostToAddressFunc protocol.HostToNetAddrFunc
-	BestAddress       msg.PeerAddressFunc
+	BestAddress       network.PeerAddressFunc
 
 	Proxy            string
 	UserAgent        string

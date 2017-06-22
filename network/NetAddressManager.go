@@ -37,27 +37,28 @@ const (
 	NEED_ADDRESS_THRESHOLD   = 1000
 	GET_ADDRESS_PERCENT      = 23
 	GET_ADDRESS_MAX          = 2500
+	TRIED_BUCKET_SIZE        = 256
 )
 
 var log = logs.NewLogger()
 
 type NetAddressManager struct {
-	lock         sync.Mutex
-	peersFile    string
-	lookupFunc   func(string) ([]net.IP, error)
-	rand         *rand.Rand
-	key          [32]byte
-	addressIndex map[string]*KnownAddress
-	addressNew   [NEW_BUCKET_COUNT]map[string]*KnownAddress
-	addressTried [TRIED_BUCKET_COUNT]*list.List
-	started      int32
-	shutdown     int32
-	waitGroup    sync.WaitGroup
-	quit         chan struct{}
-	numTried     int
-	numNew       int
-	lamtx        sync.Mutex
-	localAddress map[string]*LocalAddress
+	lock           sync.Mutex
+	peersFile      string
+	lookupFunc     func(string) ([]net.IP, error)
+	rand           *rand.Rand
+	key            [32]byte
+	addressIndex   map[string]*KnownAddress
+	addressNew     [NEW_BUCKET_COUNT]map[string]*KnownAddress
+	addressTried   [TRIED_BUCKET_COUNT]*list.List
+	started        int32
+	shutdown       int32
+	waitGroup      sync.WaitGroup
+	quit           chan struct{}
+	numTried       int
+	numNew         int
+	lamtx          sync.Mutex
+	localAddresses map[string]*LocalAddress
 }
 
 func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *PeerAddress) {
@@ -463,4 +464,79 @@ func (addressManager *NetAddressManager) Connected(peerAddress *PeerAddress) {
 		peerAddressCopy.Timestamp = time.Now()
 		knownAddress.NetAddress = peerAddressCopy
 	}
+}
+
+func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	knownAddress := addressManager.find(address)
+	if knownAddress == nil {
+		return
+	}
+	now := time.Now()
+	knownAddress.lastSuccess = now
+	knownAddress.LastAttempt = now
+	knownAddress.attempts = 0
+	if knownAddress.tried {
+		return
+	}
+	addressKey := address.NetAddressKey()
+	oldBucket := 1
+	for i := range addressManager.addressNew {
+		if _, ok := addressManager.addressNew[i][addressKey]; ok {
+			delete(addressManager.addressNew[i], addressKey)
+			knownAddress.refs--
+			if oldBucket == -1 {
+				oldBucket = i
+			}
+		}
+	}
+	addressManager.numNew--
+	if oldBucket == -1 {
+		return
+	}
+	bucket := addressManager.getTriedBucket(knownAddress.NetAddress)
+	if addressManager.addressTried[bucket].Len() < TRIED_BUCKET_SIZE {
+		knownAddress.tried = true
+		addressManager.addressTried[bucket].PushBack(knownAddress)
+		addressManager.numTried++
+		return
+	}
+	entry := addressManager.pickTried(bucket)
+	rmKnownAddress := entry.Value.(*KnownAddress)
+	newBucket := addressManager.getNewBucket(rmKnownAddress.NetAddress, rmKnownAddress.SrcAddress)
+	if len(addressManager.addressNew[newBucket]) >= NEW_BUCKET_SIZE {
+		newBucket = oldBucket
+	}
+	knownAddress.tried = true
+	entry.Value = knownAddress
+	rmKnownAddress.tried = false
+	rmKnownAddress.refs++
+	addressManager.numNew++
+
+	rmKey := rmKnownAddress.NetAddress.NetAddressKey()
+	log.Trace("Replaceing %s with %s in tried", rmKey, addressKey)
+	addressManager.addressNew[newBucket][rmKey] = rmKnownAddress
+
+}
+
+func (addressManager *NetAddressManager) AddLocalAddress(peerAddress *PeerAddress, priority AddressPriority) error {
+	if !peerAddress.IsRoutable() {
+		return fmt.Errorf("addrss :%s is not routable ", peerAddress.IP)
+	}
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	addressKey := peerAddress.NetAddressKey()
+	localAddress, ok := addressManager.localAddresses[addressKey]
+	if !ok || localAddress.score < priority {
+		if ok {
+			localAddress.score = priority + 1
+		} else {
+			addressManager.localAddresses[addressKey] = &LocalAddress{
+				PeerAddress: peerAddress,
+				score:       priority,
+			}
+		}
+	}
+	return nil
 }

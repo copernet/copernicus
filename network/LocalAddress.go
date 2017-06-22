@@ -1,8 +1,6 @@
 package network
 
-import "copernicus/msg"
-
 type LocalAddress struct {
-	PeerAddress *msg.PeerAddress
+	PeerAddress *PeerAddress
 	score       AddressPriority
 }
