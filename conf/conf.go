@@ -5,9 +5,21 @@ import (
 
 	"github.com/astaxie/beego/config"
 	"github.com/astaxie/beego/logs"
+	"net"
+	"strings"
+	"fmt"
+	"copernicus/network"
 )
 
-var appConf config.Configer
+var AppConf *AppConfig
+
+type AppConfig struct {
+	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
+	ShowVersion        bool `short:"v" long:"version" description "Disaplay version in"`
+	NoPeerBloomFilters bool `long:"nopeerbloomfilters" descriptopn"Disable bloom filtering support"`
+	MaxPeers             int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
+	lookup             network.LookupFunc
+}
 
 func init() {
 	log := logs.NewLogger()
@@ -24,4 +36,21 @@ func init() {
 	if err := mlog.InitLogger(logDir, logLevel); err != nil {
 		log.Error(err.Error())
 	}
+	AppConf, _ = loadConfig()
+}
+
+func loadConfig() (*AppConfig, error) {
+	appConfig := AppConfig{
+		ShowVersion:        true,
+		NoPeerBloomFilters: true,
+		DataDir:            "copernicus"}
+	return &appConfig, nil
+
+}
+
+func AppLookup(host string) ([]net.IP, error) {
+	if strings.HasSuffix(host, ".onion") {
+		return nil, fmt.Errorf("attempt to resolve tor address %s", host)
+	}
+	return AppConf.lookup(host)
 }

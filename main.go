@@ -7,7 +7,7 @@ import (
 	_ "copernicus/crypto"
 	"os"
 	"syscall"
-
+	
 	"github.com/astaxie/beego/logs"
 )
 
@@ -26,8 +26,13 @@ func btcMain() error {
 
 func main() {
 	log.Info("application is runing")
-
+	startBitcoin()
+	
 	if err := btcMain(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func startBitcoin() error {
+	return nil
 }
