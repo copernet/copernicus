@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+
 type KnownAddress struct {
 	NetAddress  *PeerAddress
 	SrcAddress  *PeerAddress

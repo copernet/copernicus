@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	crand "crypto/rand"
+	"path/filepath"
 )
 
 const (
@@ -40,12 +41,14 @@ const (
 	TRIED_BUCKET_SIZE        = 256
 )
 
+type LookupFunc func(string) ([]net.IP, error)
+
 var log = logs.NewLogger()
 
 type NetAddressManager struct {
 	lock           sync.Mutex
 	peersFile      string
-	lookupFunc     func(string) ([]net.IP, error)
+	lookupFunc     LookupFunc
 	rand           *rand.Rand
 	key            [32]byte
 	addressIndex   map[string]*KnownAddress
@@ -57,7 +60,6 @@ type NetAddressManager struct {
 	quit           chan struct{}
 	numTried       int
 	numNew         int
-	lamtx          sync.Mutex
 	localAddresses map[string]*LocalAddress
 }
 
@@ -539,4 +541,47 @@ func (addressManager *NetAddressManager) AddLocalAddress(peerAddress *PeerAddres
 		}
 	}
 	return nil
+}
+
+func (addressManager *NetAddressManager) GetBestLocalAddress(remoteAddress *PeerAddress) *PeerAddress {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	var bestReachability Reachability
+	var bestScore AddressPriority
+	var bestAddress *PeerAddress
+	for _, localAddress := range addressManager.localAddresses {
+		reachability := GetReachabilityFrom(localAddress.PeerAddress, remoteAddress)
+		if reachability > bestReachability || (reachability == bestReachability && localAddress.score > bestScore) {
+			bestReachability = reachability
+			bestScore = localAddress.score
+			bestAddress = localAddress.PeerAddress
+
+		}
+	}
+	if bestAddress != nil {
+		log.Debug("suggesting address %s:%d for %s:%d", bestAddress.IP, bestAddress.Port, remoteAddress.IP, remoteAddress.Port)
+
+	} else {
+		log.Debug("No worthy address for %s:%d", remoteAddress.IP, remoteAddress.Port)
+		var ip net.IP
+		if !remoteAddress.IsIPv4() && !remoteAddress.IsOnionCatTor() {
+			ip = net.IPv6zero
+		} else {
+			ip = net.IPv4zero
+		}
+		bestAddress = InitPeerAddressIPPort(protocol.SF_NODE_NETWORK_AS_FULL_NODE, ip, 0)
+
+	}
+	return bestAddress
+}
+func NewNetAddressManager(dataDir string, lookupFunc LookupFunc) *NetAddressManager {
+	addressManager := NetAddressManager{
+		peersFile:      filepath.Join(dataDir, "peer.json"),
+		lookupFunc:     lookupFunc,
+		rand:           rand.New(rand.NewSource(time.Now().UnixNano())),
+		quit:           make(chan struct{}),
+		localAddresses: make(map[string]*LocalAddress),
+	}
+	addressManager.reset()
+	return &addressManager
 }
