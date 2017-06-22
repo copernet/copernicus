@@ -26,10 +26,15 @@ type MessageListener struct {
 	
 	OnGetData func(p *Peer, msg *msg.GetDataMessage)
 	
-	OnGetBlocks func(p *Peer, msg *msg.GetBlocksMessage)
+	OnGetBlocks  func(p *Peer, msg *msg.GetBlocksMessage)
 	OnGetHeaders func(p *Peer, msg *msg.GetHeadersMessage)
 	
-	OnFilterAdd func(p *Peer, msg *msg.FilterAddMessage)
-	OnFilterClear func(p *Peer, msg *wire.MsgFilterClear)
+	OnFilterAdd   func(p *Peer, msg *msg.FilterAddMessage)
+	OnFilterClear func(p *Peer, msg *msg.FilterClearMessage)
+	OnFilterLoad  func(p *Peer, msg *msg.FilterLoadMessage)
+	OnMerkleBlock func(p *Peer, msg *msg.MerkleBlockMessage)
 	
+	OnVerAck      func(p *Peer, msg *msg.VersionACKMessage)
+	OnReject      func(p *Peer, msg msg.RejectMessage)
+	OnSendHeaders func(p *Peer, msg *msg.SendHeadersMessage)
 }
