@@ -12,7 +12,7 @@ type BlockManager struct {
 	server          *peer.PeerManager //todo mutual reference
 	started         int32
 	shutdown        int32
-	chain           *model.Blockchain
+	Chain           *model.Blockchain
 	rejectedTxns    map[crypto.Hash]struct{}
 	requestedTxns   map[crypto.Hash]struct{}
 	requestedBlocks map[crypto.Hash]struct{}

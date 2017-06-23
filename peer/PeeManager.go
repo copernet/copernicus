@@ -25,7 +25,7 @@ type PeerManager struct {
 	chainParams          *protocol.BitcoinParams
 	netAddressManager    *network.NetAddressManager
 	connectManager       *connect.ConnectManager
-	blockManager         *manager.BlockManager
+	BlockManager         *manager.BlockManager
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *ServerPeer
 	banPeers             chan *ServerPeer
@@ -80,6 +80,10 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 	//}
 	return &peerManager, nil
 	
+}
+
+func (peerManage *PeerManager) BanPeer(serverPeer *ServerPeer) {
+	peerManage.banPeers <- serverPeer
 }
 
 //func (s *PeerManager) inboundPeerConnected(conn net.Conn) {

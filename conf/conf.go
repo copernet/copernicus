@@ -2,13 +2,14 @@ package conf
 
 import (
 	mlog "copernicus/log"
-
+	
 	"github.com/astaxie/beego/config"
 	"github.com/astaxie/beego/logs"
 	"net"
 	"strings"
 	"fmt"
 	"copernicus/network"
+	"time"
 )
 
 var AppConf *AppConfig
@@ -17,7 +18,10 @@ type AppConfig struct {
 	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
 	ShowVersion        bool `short:"v" long:"version" description "Disaplay version in"`
 	NoPeerBloomFilters bool `long:"nopeerbloomfilters" descriptopn"Disable bloom filtering support"`
-	MaxPeers             int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
+	MaxPeers           int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
+	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`
+	BanDuration          time.Duration `long:"banduration" description:"How long to ban misbehaving peers.  Valid time units are {s, m, h}.  Minimum 1 second"`
+	BanThreshold         uint32        `long:"banthreshold" description:"Maximum allowed ban score before disconnecting and banning misbehaving peers."`
 	lookup             network.LookupFunc
 }
 
@@ -45,7 +49,7 @@ func loadConfig() (*AppConfig, error) {
 		NoPeerBloomFilters: true,
 		DataDir:            "copernicus"}
 	return &appConfig, nil
-
+	
 }
 
 func AppLookup(host string) ([]net.IP, error) {

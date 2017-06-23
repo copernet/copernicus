@@ -273,7 +273,7 @@ func (addressManager *NetAddressManager) HostToNetAddress(host string, port uint
 		}
 		ip = ips[0]
 	}
-	return InitPeerAddressIPPort(servicesFlag, ip, port), nil
+	return NewPeerAddressIPPort(servicesFlag, ip, port), nil
 }
 func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddress) int {
 	// bitcoind:
@@ -340,7 +340,7 @@ func (addressManager *NetAddressManager) AddAddressByIP(addressIP string) error 
 	if err != nil {
 		return fmt.Errorf("invalid port %s:%v", porStr, err)
 	}
-	peerAddress := InitPeerAddressIPPort(0, ip, uint16(port))
+	peerAddress := NewPeerAddressIPPort(0, ip, uint16(port))
 	addressManager.AddAddress(peerAddress, peerAddress)
 	return nil
 }
@@ -569,7 +569,7 @@ func (addressManager *NetAddressManager) GetBestLocalAddress(remoteAddress *Peer
 		} else {
 			ip = net.IPv4zero
 		}
-		bestAddress = InitPeerAddressIPPort(protocol.SF_NODE_NETWORK_AS_FULL_NODE, ip, 0)
+		bestAddress = NewPeerAddressIPPort(protocol.SF_NODE_NETWORK_AS_FULL_NODE, ip, 0)
 
 	}
 	return bestAddress

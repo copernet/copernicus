@@ -164,7 +164,7 @@ func (peerAddress *PeerAddress) GroupKey() string {
 func (na *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
 	na.ServicesFlag |= serviceFlag
 }
-func InitPeerAddressIPPort(serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
+func NewPeerAddressIPPort(serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
 	return InitPeerAddress(time.Now(), serviceFlag, ip, port)
 }
 
@@ -179,7 +179,7 @@ func InitPeerAddress(timestamp time.Time, serviceFlag protocol.ServiceFlag, ip n
 }
 func NewPeerAddress(addr *net.TCPAddr, serviceFlag protocol.ServiceFlag) *PeerAddress {
 
-	return InitPeerAddressIPPort(serviceFlag, addr.IP, uint16(addr.Port))
+	return NewPeerAddressIPPort(serviceFlag, addr.IP, uint16(addr.Port))
 }
 func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	var ip [16]byte
@@ -234,7 +234,7 @@ func MaxPeerAddressPayload(version uint32) uint32 {
 	return len
 }
 
-func InitPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceFlag) (*PeerAddress, error) {
+func NewPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceFlag) (*PeerAddress, error) {
 	if tcpAddress, ok := address.(*net.TCPAddr); ok {
 
 		netAddress := NewPeerAddress(tcpAddress, servicesFlag)
@@ -248,7 +248,7 @@ func InitPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceF
 			ip = net.ParseIP("0.0.0.0")
 		}
 		port := uint16(proxiedAddr.Port)
-		peerAddress := InitPeerAddressIPPort(servicesFlag, ip, port)
+		peerAddress := NewPeerAddressIPPort(servicesFlag, ip, port)
 		return peerAddress, nil
 	}
 	host, portStr, err := net.SplitHostPort(address.String())
@@ -260,7 +260,7 @@ func InitPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceF
 	if err != nil {
 		return nil, err
 	}
-	peerAddress := InitPeerAddressIPPort(servicesFlag, ip, uint16(port))
+	peerAddress := NewPeerAddressIPPort(servicesFlag, ip, uint16(port))
 	return peerAddress, nil
 }
 func (peerAddress *PeerAddress) NetAddressKey() string {

@@ -20,6 +20,7 @@ import (
 	"io"
 	"container/list"
 	"strconv"
+	"copernicus/network"
 )
 
 const (
@@ -54,9 +55,9 @@ type Peer struct {
 	AddressString    string
 	lastDeclareBlock *crypto.Hash
 	PeerStatusMutex  sync.RWMutex
-	PeerAddress      *msg.PeerAddress
+	PeerAddress      *network.PeerAddress
 	ServiceFlag      protocol.ServiceFlag
-
+	
 	UserAgent    string
 	PingNonce    uint64
 	PingTime     time.Time
@@ -64,14 +65,14 @@ type Peer struct {
 	VersionKnown bool
 	SentVerAck   bool
 	GotVerAck    bool
-
+	
 	versionSent    bool
 	verAckReceived bool
-
+	
 	knownInventory *algorithm.LRUCache
-
+	
 	StallControl chan StallControlMessage
-
+	
 	ProtocolVersion      uint32
 	LastBlock            int32
 	ConnectedTime        time.Time
@@ -80,15 +81,15 @@ type Peer struct {
 	SendHeadersPreferred bool
 	OutputQueue          chan msg.OutMessage
 	SendQueue            chan msg.OutMessage
-
+	
 	GetBlocksLock  sync.Mutex
 	GetBlocksBegin *crypto.Hash
 	GetBlocksStop  *crypto.Hash
-
+	
 	GetHeadersLock  sync.Mutex
 	GetHeadersBegin *crypto.Hash
 	GetHeadersStop  *crypto.Hash
-
+	
 	quit          chan struct{}
 	inQuit        chan struct{}
 	queueQuit     chan struct{}
@@ -97,8 +98,8 @@ type Peer struct {
 	outputInvChan chan *msg.InventoryVector
 }
 
+var log = logs.NewLogger()
 var (
-	log       = logs.NewLogger()
 	sentNoces = algorithm.NewLRUCache(50)
 	nodeCount int32
 )
@@ -122,15 +123,15 @@ func (p *Peer) UpdateDeclareBlock(blackHash *crypto.Hash) {
 	p.BlockStatusMutex.Lock()
 	p.lastDeclareBlock = blackHash
 	p.BlockStatusMutex.Unlock()
-
+	
 }
 func (p *Peer) GetPeerID() int32 {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.Id
-
+	
 }
-func (p *Peer) GetNetAddress() *msg.PeerAddress {
+func (p *Peer) GetNetAddress() *network.PeerAddress {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.PeerAddress
@@ -139,7 +140,7 @@ func (p *Peer) GetServiceFlag() protocol.ServiceFlag {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.ServiceFlag
-
+	
 }
 func (p *Peer) GetUserAgent() string {
 	p.PeerStatusMutex.Lock()
@@ -147,7 +148,7 @@ func (p *Peer) GetUserAgent() string {
 	return p.UserAgent
 }
 func (p *Peer) GetLastDeclareBlock() *crypto.Hash {
-
+	
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.lastDeclareBlock
@@ -167,13 +168,13 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 			return nil, err
 		}
 		log.Info("block number:%v", blockNumber)
-
+		
 	}
 	remoteAddress := p.PeerAddress
 	if p.Config.Proxy != "" {
 		proxyAddress, _, err := net.SplitHostPort(p.Config.Proxy)
 		if err != nil || p.PeerAddress.IP.String() == proxyAddress {
-			remoteAddress = &msg.PeerAddress{
+			remoteAddress = &network.PeerAddress{
 				Timestamp: time.Now(),
 				IP:        net.IP([]byte{0, 0, 0, 0}),
 			}
@@ -202,19 +203,19 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 		return errors.New("disconnecting peer connected to self")
 	}
 	if versionMessage.ProtocolVersion < uint32(protocol.MULTIPLE_ADDRESS_VERSION) {
-
+		
 		str := fmt.Sprintf("protocol version must be %d or greater", protocol.MULTIPLE_ADDRESS_VERSION)
 		rejectMessage := msg.NewRejectMessage(msg.COMMAND_VERSION, msg.REJECT_OBSOLETE, str)
 		err := p.WriteMessage(rejectMessage)
 		return err
-
+		
 	}
 	p.BlockStatusMutex.Lock()
 	p.LastBlock = versionMessage.LastBlock
 	p.StartingHeight = versionMessage.LastBlock
 	p.TimeOffset = versionMessage.Timestamp.Unix() - time.Now().Unix()
 	p.BlockStatusMutex.Unlock()
-
+	
 	p.PeerStatusMutex.Lock()
 	p.ProtocolVersion = algorithm.MinUint32(p.ProtocolVersion, uint32(versionMessage.ProtocolVersion))
 	p.VersionKnown = true
@@ -237,7 +238,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 			summary = fmt.Sprintf("(%s)", summary)
 		}
 		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p)
-
+		
 	}))
 	log.Debug("%v", log2.InitLogClosure(func() string {
 		return spew.Sdump(message)
@@ -250,7 +251,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		}
 		//todo what is mean spew
 		return spew.Sdump(buf.Bytes())
-
+		
 	}))
 	n, err := msg.WriteMessage(p.conn, msg, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
 	atomic.AddUint64(&p.bytesSent, uint64(n))
@@ -258,7 +259,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		p.Config.Listener.OnWrite(p, n, message, err)
 	}
 	return err
-
+	
 }
 func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
 	if !p.Connected() {
@@ -271,28 +272,28 @@ func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
 	}
 	p.OutputQueue <- msg.OutMessage{Message: msg, Done: doneChan}
 }
-func (p *Peer) SendAddrMessage(addresses []*msg.PeerAddress) ([]*msg.PeerAddress, error) {
-
+func (p *Peer) SendAddrMessage(addresses []*network.PeerAddress) ([]*network.PeerAddress, error) {
+	
 	if len(addresses) == 0 {
 		return nil, nil
 	}
 	length := len(addresses)
-	addressMessage := msg.AddressMessage{AddressList: make([]*msg.PeerAddress, 0, length)}
+	addressMessage := msg.AddressMessage{AddressList: make([]*network.PeerAddress, 0, length)}
 	if len(addressMessage.AddressList) > msg.MAX_ADDRESSES_COUNT {
 		for i := range addressMessage.AddressList {
 			j := rand.Intn(i + 1)
 			addressMessage.AddressList[i], addressMessage.AddressList[j] = addressMessage.AddressList[j], addressMessage.AddressList[i]
-
+			
 		}
 		addressMessage.AddressList = addressMessage.AddressList[:msg.MAX_ADDRESSES_COUNT]
 	}
 	p.SendMessage(addressMessage, nil)
 	return addressMessage.AddressList, nil
-
+	
 }
 func (p *Peer) Connected() bool {
 	return atomic.LoadInt32(&p.connected) != 0 && atomic.LoadInt32(&p.disconnect) == 0
-
+	
 }
 
 func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) error {
@@ -307,7 +308,7 @@ func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) erro
 		return nil
 	}
 	p.GetBlocksLock.Unlock()
-
+	
 	getBlocksMessage := msg.NewGetBlocksMessage(stopHash)
 	for _, hash := range locator {
 		err := getBlocksMessage.AddBlockHash(hash)
@@ -317,12 +318,12 @@ func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) erro
 	}
 	p.SendMessage(getBlocksMessage, nil)
 	p.GetBlocksLock.Lock()
-
+	
 	p.GetBlocksBegin = beginHash
 	p.GetBlocksStop = stopHash
 	p.GetBlocksLock.Unlock()
 	return nil
-
+	
 }
 
 func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Hash) error {
@@ -337,7 +338,7 @@ func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Ha
 		log.Warn("duplicate  getheaders with begin hash %v", beginHash)
 		return nil
 	}
-
+	
 	message := msg.NewGetHeadersMessage()
 	message.HashStop = stopHash
 	for _, hash := range locator {
@@ -352,7 +353,7 @@ func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Ha
 	p.GetHeadersStop = stopHash
 	p.GetHeadersLock.Unlock()
 	return nil
-
+	
 }
 
 func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason string, hash *crypto.Hash, wait bool) {
@@ -375,17 +376,17 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	doneChan := make(chan struct{}, 1)
 	p.SendMessage(rejectMessage, doneChan)
 	<-doneChan
-
+	
 }
 func (p *Peer) IsValidBIP0111(command string) bool {
 	if p.ServiceFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
 		if p.ProtocolVersion >= protocol.BIP0111_VERSION {
 			log.Debug("%s sent an unsupported %s request --disconnecting", p, command)
 			p.Stop()
-
+			
 		} else {
 			log.Debug("Ignoring %s request from %s -- bloom support is disabled", command, p)
-
+			
 		}
 		return false
 	}
@@ -404,7 +405,7 @@ func (p *Peer) HandlePongMessage(pongMessage *msg.PongMessage) {
 		p.PingMicros = (time.Now().Sub(p.PingTime).Nanoseconds()) / 1000
 		p.PingNonce = 0
 	}
-
+	
 }
 
 func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
@@ -422,17 +423,17 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 			summary = fmt.Sprintf("(%s)", summary)
 		}
 		return fmt.Sprintf("Received %v %v from %s", message.Command(), summary, p)
-
+		
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
-
+		
 		return spew.Sdump(buf)
 	}))
 	return msg, buf, nil
-
+	
 }
 func (p *Peer) IsAllowedReadError(err error) bool {
 	if p.Config.ChainParams.BitcoinNet != protocol.TEST_NET {
@@ -446,7 +447,7 @@ func (p *Peer) IsAllowedReadError(err error) bool {
 		return false
 	}
 	return true
-
+	
 }
 func (p *Peer) shouldHandleReadError(err error) bool {
 	if atomic.LoadInt32(&p.disconnect) != 0 {
@@ -459,7 +460,7 @@ func (p *Peer) shouldHandleReadError(err error) bool {
 		return false
 	}
 	return true
-
+	
 }
 func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, command string) {
 	deadLine := time.Now().Add(STALL_RESPONSE_TIMEOUT)
@@ -477,9 +478,9 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, command s
 	case msg.COMMAND_GET_HEADERS:
 		deadLine = time.Now().Add(STALL_RESPONSE_TIMEOUT * 3)
 		pendingResponses[msg.COMMAND_HEADERS] = deadLine
-
+		
 	}
-
+	
 }
 func (p *Peer) stallHandler() {
 	var handlerActive bool
@@ -521,20 +522,20 @@ out:
 					log.Warn("Recevied handler done control command when a handler is not already active")
 					continue
 				}
-
+				
 				duration := time.Now().Sub(handlerStartTime)
 				deadlineOffset += duration
 				handlerActive = false
 			default:
 				log.Warn("unsupported message command %v", stall.Command)
-
+				
 			}
 		case <-stallTicker.C:
 			now := time.Now()
 			offset := deadlineOffset
 			if handlerActive {
 				offset += now.Sub(handlerStartTime)
-
+				
 			}
 			for command, deadline := range pendingResponses {
 				if now.Before(deadline.Add(offset)) {
@@ -556,7 +557,7 @@ out:
 				break out
 			}
 			ioStopped = true
-
+			
 		}
 	}
 
@@ -569,7 +570,7 @@ cleanup:
 		}
 	}
 	log.Trace("Peer stall handler done for %s", p)
-
+	
 }
 func (p *Peer) inHandler() {
 	idleTimer := time.AfterFunc(IDLE_TIMEOUT, func() {
@@ -591,7 +592,7 @@ out:
 				errMessage := fmt.Sprintf("Can't read message from %s: %v", p, err)
 				log.Error(errMessage)
 				p.SendRejectMessage("malformed", msg.REJECT_MALFORMED, errMessage, nil, true)
-
+				
 			}
 			break out
 		}
@@ -607,21 +608,21 @@ out:
 			p.HandlePingMessage(message)
 		case *msg.PongMessage:
 			p.HandlePongMessage(message)
-
+		
 		default:
 			log.Debug("Recevied unhandled message of type %v from %v", readMessage.Command(), p)
-
+			
 		}
-
+		
 		p.StallControl <- StallControlMessage{SccHandlerDone, readMessage}
 		idleTimer.Reset(IDLE_TIMEOUT)
-
+		
 	}
 	idleTimer.Stop()
 	close(p.inQuit)
-
+	
 	log.Trace("Peer input handler done for %s", p)
-
+	
 }
 
 func (p *Peer) queueHandler() {
@@ -674,18 +675,18 @@ out:
 					inventoryMessage = msg.InitMessageInvSizeHint(uint(invSendQueue.Len()))
 				}
 				p.knownInventory.Add(iv, iv)
-
+				
 			}
 			if len(inventoryMessage.InventoryList) > 0 {
 				waiting = queuePacket(
 					msg.OutMessage{Message: inventoryMessage},
 					pendingMessages, waiting)
-
+				
 			}
 		case <-p.quit:
 			break out
 		}
-
+		
 	}
 	for e := pendingMessages.Front(); e != nil; e = pendingMessages.Front() {
 		val := pendingMessages.Remove(e)
@@ -742,7 +743,7 @@ out:
 				message.Done <- struct{}{}
 			}
 			p.sendDoneQueue <- struct{}{}
-
+		
 		case <-pingTicker.C:
 			nonce, err := utils.RandomUint64()
 			if err != nil {
@@ -752,9 +753,9 @@ out:
 			p.SendMessage(msg.InitPingMessage(nonce), nil)
 		case <-p.quit:
 			break out
-
+			
 		}
-
+		
 	}
 	<-p.queueQuit
 cleanup:
@@ -770,7 +771,7 @@ cleanup:
 	}
 	close(p.outQuit)
 	log.Trace("peer output handler done for %s", p)
-
+	
 }
 func (p *Peer) QueueInventory(inventoryVector *msg.InventoryVector) {
 	if p.knownInventory.Exists(inventoryVector) {
@@ -780,7 +781,7 @@ func (p *Peer) QueueInventory(inventoryVector *msg.InventoryVector) {
 		return
 	}
 	p.outputInvChan <- inventoryVector
-
+	
 }
 
 func (p *Peer) Connect(conn net.Conn) {
@@ -791,7 +792,8 @@ func (p *Peer) Connect(conn net.Conn) {
 	p.ConnectedTime = time.Now()
 	if p.Inbound {
 		p.AddressString = p.conn.RemoteAddr().String()
-		peerAddress, err := msg.InitPeerAddressWithNetAddr(p.conn.RemoteAddr(), p.ServiceFlag)
+		
+		peerAddress, err := network.NewPeerAddressWithNetAddr(p.conn.RemoteAddr(), p.ServiceFlag)
 		if err != nil {
 			log.Error("Cannot create remote net AddressString :%v", err)
 			p.Stop()
@@ -805,9 +807,19 @@ func (p *Peer) Connect(conn net.Conn) {
 			log.Warn("Can note start perr %v , err :%v", p, err)
 			p.Stop()
 		}
-
+		
 	}()
-
+	
+}
+func (peer *Peer) Disconnect() {
+	if atomic.AddInt32(&peer.disconnect, 1) != 1 {
+		return
+	}
+	log.Trace("disconnecting %s", peer)
+	if atomic.LoadInt32(&peer.connected) != 0 {
+		peer.conn.Close()
+	}
+	close(peer.quit)
 }
 func (p *Peer) writeLocalVersionMessage() error {
 	localVersion, err := p.LocalVersionMsg()
@@ -822,7 +834,7 @@ func (p *Peer) writeLocalVersionMessage() error {
 	p.versionSent = true
 	p.PeerStatusMutex.Unlock()
 	return nil
-
+	
 }
 func (p *Peer) readRemoteVersionMessage() error {
 	message, _, err := p.ReadMessage()
@@ -850,7 +862,7 @@ func (p *Peer) readRemoteVersionMessage() error {
 }
 
 func (p *Peer) negotiateInboundProtocol() error {
-
+	
 	err := p.readRemoteVersionMessage()
 	if err != nil {
 		return err
@@ -868,7 +880,7 @@ func (p *Peer) negotiateOutboundProtocol() error {
 	}
 	err = p.readRemoteVersionMessage()
 	return err
-
+	
 }
 func (p *Peer) start() error {
 	log.Trace("start peer %s ", p)
@@ -934,7 +946,7 @@ func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
 		Config:          peerConfig,
 		ServiceFlag:     peerConfig.ServicesFlag,
 		ProtocolVersion: protocolVersion,
-
+		
 	}
 	return &perr
 }
@@ -958,9 +970,9 @@ func NewOutboundPeer(peerConfig *PeerConfig, addressString string) (*Peer, error
 			return nil, err
 		}
 		p.PeerAddress = peerAddress
-
+		
 	} else {
-		p.PeerAddress = msg.InitPeerAddressIPPort(peerConfig.ServicesFlag, net.ParseIP(host), uint16(port))
+		p.PeerAddress = network.NewPeerAddressIPPort(peerConfig.ServicesFlag, net.ParseIP(host), uint16(port))
 	}
 	return p, nil
 }

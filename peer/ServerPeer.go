@@ -7,6 +7,8 @@ import (
 	"copernicus/msg"
 	"github.com/btcsuite/btcutil/bloom"
 	"copernicus/algorithm"
+	"copernicus/network"
+	"copernicus/conf"
 )
 
 type ServerPeer struct {
@@ -46,3 +48,72 @@ func NewServerPeer(peerManager *PeerManager, isPersistent bool) (*ServerPeer) {
 	return &serverPeer
 }
 
+func (serverPeer *ServerPeer) newestBlock() (crypto.Hash, int32, error) {
+	return serverPeer.peerManager.BlockManager.Chain.BestBlockHash()
+}
+
+func (serverPeer *ServerPeer) addKnownAddress(addresses []*network.PeerAddress) {
+	for _, peerAddress := range addresses {
+		serverPeer.knownAddress[peerAddress.NetAddressKey()] = struct{}{}
+	}
+}
+
+func (serverPeer *ServerPeer) addressKnown(peerAddress *network.PeerAddress) bool {
+	_, exists := serverPeer.knownAddress[peerAddress.NetAddressKey()]
+	return exists
+}
+
+func (serverPeer *ServerPeer) RelayTxDisabled() bool {
+	serverPeer.relayLock.Lock()
+	defer serverPeer.relayLock.Unlock()
+	return serverPeer.disableRelayTx
+}
+func (serverPeer *ServerPeer) SetDisableRelayTx(disable bool) {
+	serverPeer.relayLock.Lock()
+	defer serverPeer.relayLock.Unlock()
+	serverPeer.disableRelayTx = disable
+}
+
+func (serverPeer *ServerPeer) pushAddressMessage(peerAddresses []*network.PeerAddress) {
+	addresses := make([]*network.PeerAddress, 0, len(peerAddresses))
+	for _, address := range addresses {
+		if !serverPeer.addressKnown(address) {
+			addresses = append(addresses, address)
+		}
+		
+	}
+	knownes, err := serverPeer.SendAddrMessage(addresses)
+	if err != nil {
+		log.Error("can't send address message to %s :%v", serverPeer.Peer, err)
+		serverPeer.Disconnect()
+		return
+	}
+	serverPeer.addKnownAddress(knownes)
+	
+}
+
+func (serverPeer *ServerPeer) addBanScore(persistent, transient uint32, reason string) {
+	if conf.AppConf.DisableBanning {
+		return
+	}
+	warnThreshold := conf.AppConf.BanThreshold >> 1
+	if transient == 0 && persistent == 0 {
+		score := serverPeer.banScore.Int()
+		if score > warnThreshold {
+			log.Warn("misbehaving peer %s :%s --ban score is %d it was not increased this time",
+				serverPeer, reason, score)
+		}
+		return
+	}
+	score := serverPeer.banScore.Increase(persistent, transient)
+	if score > warnThreshold {
+		log.Warn("misbehaving peer %s :%s -- ban scote increased to %d",
+			serverPeer, reason, score)
+		if score > conf.AppConf.BanThreshold {
+			log.Warn("misbehaving peer %s --banning and isconnecting ", serverPeer)
+			serverPeer.peerManager.BanPeer(serverPeer)
+			serverPeer.Disconnect()
+		}
+	}
+	
+}
