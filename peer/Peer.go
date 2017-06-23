@@ -855,8 +855,8 @@ func (p *Peer) readRemoteVersionMessage() error {
 	if err != nil {
 		return err
 	}
-	if p.Config.Listener.OnVersionMessage != nil {
-		p.Config.Listener.OnVersionMessage(p, remoteVersionMessage)
+	if p.Config.Listener.OnVersion != nil {
+		p.Config.Listener.OnVersion(p, remoteVersionMessage)
 	}
 	return nil
 }

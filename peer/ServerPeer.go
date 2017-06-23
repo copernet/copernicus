@@ -9,6 +9,7 @@ import (
 	"copernicus/algorithm"
 	"copernicus/network"
 	"copernicus/conf"
+	"copernicus/protocol"
 )
 
 type ServerPeer struct {
@@ -115,5 +116,41 @@ func (serverPeer *ServerPeer) addBanScore(persistent, transient uint32, reason s
 			serverPeer.Disconnect()
 		}
 	}
+	
+}
+func (serverPeer *ServerPeer) OnVersion(p *Peer, versionMessage *msg.VersionMessage) {
+	serverPeer.peerManager.timeSource.AddTimeSample(serverPeer.AddressString, versionMessage.Timestamp)
+	serverPeer.peerManager.BlockManager.NewPeer(serverPeer)
+	serverPeer.SetDisableRelayTx(versionMessage.DisableRelayTx)
+	if conf.AppConf.SimNet {
+		netAddressManager := serverPeer.peerManager.netAddressManager
+		if !serverPeer.Inbound {
+			if !conf.AppConf.DisableListen {
+				localAddress := netAddressManager.GetBestLocalAddress(serverPeer.GetNetAddress())
+				if localAddress.IsRoutable() {
+					addresses := []*network.PeerAddress{localAddress}
+					serverPeer.pushAddressMessage(addresses)
+					
+				}
+			}
+			hatTimestamp := serverPeer.ProtocolVersion >= protocol.PEER_ADDRESS_TIME_VERSION
+			if netAddressManager.NeedMoreAddresses() && hatTimestamp {
+				serverPeer.SendMessage(msg.NewGetAddressMessage(), nil)
+			}
+			netAddressManager.MarkGood(serverPeer.GetNetAddress())
+		}
+	}
+	serverPeer.peerManager.AddPeer(serverPeer)
+	
+}
+
+func (serverPeer *ServerPeer) OnMemPool(p *Peer, msg *msg.MempoolMessage) {
+	if serverPeer.peerManager.servicesFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
+		log.Debug("peer %v sent mempool request with bloom filtering disable --disconnecting", serverPeer)
+		serverPeer.Disconnect()
+		return
+	}
+	serverPeer.addBanScore(0,33,"mempool")
+	
 	
 }

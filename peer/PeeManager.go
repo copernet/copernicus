@@ -86,6 +86,10 @@ func (peerManage *PeerManager) BanPeer(serverPeer *ServerPeer) {
 	peerManage.banPeers <- serverPeer
 }
 
+func (peerManager *PeerManager) AddPeer(serverPeer *ServerPeer) {
+	peerManager.newPeers <- serverPeer
+}
+
 //func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
 //	sp := NewServerPeer(s, false)
 //	sp.Peer = peer.NewInboundPeer(InitPe(sp))

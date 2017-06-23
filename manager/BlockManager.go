@@ -6,6 +6,7 @@ import (
 	"copernicus/crypto"
 	"sync"
 	"container/list"
+	"sync/atomic"
 )
 
 type BlockManager struct {
@@ -26,4 +27,12 @@ type BlockManager struct {
 	headerList       *list.List
 	startHeader      *list.Element
 	netCheckPoint    *model.Checkpoint
+}
+
+func (blockManager *BlockManager) NewPeer(serverPeer *peer.ServerPeer) {
+	if atomic.LoadInt32(&blockManager.shutdown) != 0 {
+		return
+	}
+	blockManager.messageChan <- &NewPeerMessage{serverPeer: serverPeer}
+	
 }

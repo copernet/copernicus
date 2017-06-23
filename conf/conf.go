@@ -22,6 +22,15 @@ type AppConfig struct {
 	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`
 	BanDuration          time.Duration `long:"banduration" description:"How long to ban misbehaving peers.  Valid time units are {s, m, h}.  Minimum 1 second"`
 	BanThreshold         uint32        `long:"banthreshold" description:"Maximum allowed ban score before disconnecting and banning misbehaving peers."`
+	
+	NoOnion              bool          `long:"noonion" description:"Disable connecting to tor hidden services"`
+	TorIsolation         bool          `long:"torisolation" description:"Enable Tor stream isolation by randomizing user credentials for each connection."`
+	TestNet3             bool          `long:"testnet" description:"Use the test network"`
+	RegressionTest       bool          `long:"regtest" description:"Use the regression test network"`
+	SimNet               bool          `long:"simnet" description:"Use the simulation test network"`
+	
+	DisableListen        bool          `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --connect or --proxy options are used without also specifying listen interfaces via --listen"`
+	
 	lookup             network.LookupFunc
 }
 

@@ -17,7 +17,10 @@ func (getAddressMessage *GetAddressMessage) Command() string {
 	return COMMAND_GET_ADDRESS
 }
 
-
 func (getAddressMessage *GetAddressMessage) MaxPayloadLength(size uint32) uint32 {
 	return 0
+}
+
+func NewGetAddressMessage() *GetAddressMessage {
+	return &GetAddressMessage{}
 }
