@@ -6,13 +6,14 @@ import (
 	"io"
 	"copernicus/protocol"
 	"encoding/binary"
-	"copernicus/utils"
 	"github.com/btcsuite/go-socks/socks"
 	"strconv"
 	"fmt"
 	"encoding/base32"
 	"strings"
 )
+
+type HostToNetAddrFunc func(host string, port uint16, serviceFlag protocol.ServiceFlag) (*PeerAddress, error)
 
 type PeerAddress struct {
 	Timestamp    time.Time
@@ -184,17 +185,17 @@ func NewPeerAddress(addr *net.TCPAddr, serviceFlag protocol.ServiceFlag) *PeerAd
 func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	var ip [16]byte
 	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
-		err := utils.ReadElement(r, (protocol.Uint32Time)(&na.Timestamp))
+		err := protocol.ReadElement(r, (protocol.Uint32Time)(&na.Timestamp))
 		if err != nil {
 			return err
 		}
 	}
-	err := utils.ReadElements(r, &na.ServicesFlag, &ip)
+	err := protocol.ReadElements(r, &na.ServicesFlag, &ip)
 	if err != nil {
 		return err
 	}
 	var port uint16
-	err = utils.ReadElement(r, &port)
+	err = protocol.ReadElement(r, &port)
 	if err != nil {
 		return err
 	}
@@ -209,7 +210,7 @@ func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 }
 func WritePeerAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err error) {
 	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
-		err = utils.WriteElement(w, uint32(na.Timestamp.Unix()))
+		err = protocol.WriteElement(w, uint32(na.Timestamp.Unix()))
 		if err != nil {
 			return err
 		}
@@ -218,7 +219,7 @@ func WritePeerAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err e
 	if na.IP != nil {
 		copy(ip[:], na.IP.To16())
 	}
-	err = utils.WriteElements(w, na.ServicesFlag, ip)
+	err = protocol.WriteElements(w, na.ServicesFlag, ip)
 	if err != nil {
 		return
 	}

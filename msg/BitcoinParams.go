@@ -1,4 +1,4 @@
-package btcutil
+package msg
 
 import (
 	"math/big"

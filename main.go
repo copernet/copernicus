@@ -3,12 +3,15 @@ package main
 import (
 	_ "copernicus/conf"
 	_ "copernicus/log"
-	//_ "copernicus/storage"
+	_ "copernicus/storage"
 	_ "copernicus/crypto"
 	"os"
 	"syscall"
 	
 	"github.com/astaxie/beego/logs"
+	_"copernicus/protocol"
+	_"copernicus/utils"
+	_"copernicus/btcutil"
 )
 
 var log *logs.BeeLogger
