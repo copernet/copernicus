@@ -79,11 +79,17 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 		
 		
 	}
-	//connectListener :=connect.ConnectListener{
-	//	listeners:listeners,
-	//	OnAccept:peerManager.in
-	//
-	//}
+	
+	connectListener := connect.ConnectListener{
+	
+	
+	}
+	
+	connectManager, err := connect.NewConnectManager(&connectListener)
+	if err != nil {
+		return nil, err
+	}
+	peerManager.connectManager = connectManager
 	return &peerManager, nil
 	
 }

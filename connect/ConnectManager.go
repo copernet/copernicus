@@ -243,6 +243,7 @@ func NewConnectManager(listener *ConnectListener) (*ConnectManager, error) {
 		listener: listener,
 		requests: make(chan interface{}),
 		quit:     make(chan struct{}),
+		
 	}
 	return &connectManager, nil
 }
