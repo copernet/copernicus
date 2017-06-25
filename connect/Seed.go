@@ -53,5 +53,4 @@ func SeedFromDNS(chainParams *msg.BitcoinParams, servicesFlag protocol.ServiceFl
 			onSeed(addresses)
 		}(host)
 	}
-	
 }

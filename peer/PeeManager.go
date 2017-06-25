@@ -58,7 +58,7 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 		services &^= protocol.SF_NODE_BLOOM_FILTER
 	}
 	netAddressManager := network.NewNetAddressManager(conf.AppConf.DataDir, conf.AppLookup)
-	//var listeners []net.Listener
+	var listeners []net.Listener
 	var natListener network.NATInterface
 	peerManager := PeerManager{
 		chainParams:          bitcoinParam,
@@ -81,6 +81,8 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 	}
 	
 	connectListener := connect.ConnectListener{
+		Listeners:listeners,
+		Dial:conf.AppDial,
 	
 	
 	}
@@ -142,7 +144,8 @@ func (peerManager *PeerManager) peerHandler() {
 	}
 	if !conf.AppConf.DisableDNSSeed {
 		connect.SeedFromDNS(msg.ActiveNetParams, DEFAULT_REQUIRED_SERVICES, conf.AppLookup, func(addresses []*network.PeerAddress) {
-			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
+		log.Warn(addresses[0].IP.String())
+				peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
 		})
 		
 	}

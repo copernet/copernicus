@@ -200,7 +200,7 @@ func (connectManager *ConnectManager) Start() {
 	connectManager.waitGroup.Add(1)
 	go connectManager.connectHandler()
 	if connectManager.listener.OnAccept != nil {
-		for _, listener := range connectManager.listener.listeners {
+		for _, listener := range connectManager.listener.Listeners {
 			connectManager.waitGroup.Add(1)
 			go connectManager.listenHandler(listener)
 		}
@@ -220,7 +220,7 @@ func (connectManager *ConnectManager) Stop() {
 		log.Warn("connection manager already stopped")
 		return
 	}
-	for _, listener := range connectManager.listener.listeners {
+	for _, listener := range connectManager.listener.Listeners {
 		_ = listener.Close()
 	}
 	close(connectManager.quit)

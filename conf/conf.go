@@ -12,6 +12,10 @@ import (
 
 var AppConf *AppConfig
 
+const (
+	DEFAULT_CONNECT_TIMEOU = time.Second * 30
+)
+
 type AppConfig struct {
 	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
 	ShowVersion        bool `short:"v" long:"version" description "Disaplay version in"`
@@ -33,6 +37,9 @@ type AppConfig struct {
 	
 	lookup         utils.LookupFunc
 	DisableDNSSeed bool          `long:"nodnsseed" description:"Disable DNS seeding for peers"`
+	
+	oniondial func(string, string, time.Duration) (net.Conn, error)
+	dial      func(string, string, time.Duration) (net.Conn, error)
 }
 
 func init() {
@@ -52,6 +59,7 @@ func init() {
 	//	log.Error(err.Error())
 	//}
 	AppConf, _ = loadConfig()
+	
 }
 
 func loadConfig() (*AppConfig, error) {
@@ -59,6 +67,10 @@ func loadConfig() (*AppConfig, error) {
 		ShowVersion:        true,
 		NoPeerBloomFilters: true,
 		DataDir:            "copernicus"}
+	
+	appConfig.dial = net.DialTimeout
+	appConfig.lookup = net.LookupIP
+	
 	return &appConfig, nil
 	
 }
@@ -68,4 +80,10 @@ func AppLookup(host string) ([]net.IP, error) {
 		return nil, fmt.Errorf("attempt to resolve tor address %s", host)
 	}
 	return AppConf.lookup(host)
+}
+func AppDial(address net.Addr) (net.Conn, error) {
+	if strings.Contains(address.String(), ".onion:") {
+		return AppConf.oniondial(address.Network(), address.String(), DEFAULT_CONNECT_TIMEOU)
+	}
+	return AppConf.dial(address.Network(), address.String(), DEFAULT_CONNECT_TIMEOU)
 }

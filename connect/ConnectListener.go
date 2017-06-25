@@ -6,7 +6,7 @@ import (
 )
 
 type ConnectListener struct {
-	listeners       []net.Listener
+	Listeners       []net.Listener
 	OnAccept        func(conn net.Conn)
 	TargetOutbound  uint32
 	RetryDuration   time.Duration
