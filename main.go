@@ -12,6 +12,9 @@ import (
 	_"copernicus/protocol"
 	_"copernicus/utils"
 	_"copernicus/btcutil"
+	_"copernicus/msg"
+	
+	
 )
 
 var log *logs.BeeLogger

@@ -3,7 +3,6 @@ package msg
 import (
 	"copernicus/protocol"
 	"fmt"
-	"copernicus/crypto"
 	"io"
 	"copernicus/utils"
 )
@@ -21,10 +20,10 @@ const (
 
 type InventoryVector struct {
 	Type protocol.InventoryType
-	Hash *crypto.Hash
+	Hash *utils.Hash
 }
 
-func NewInventoryVecror(typ protocol.InventoryType, hash *crypto.Hash) *InventoryVector {
+func NewInventoryVecror(typ protocol.InventoryType, hash *utils.Hash) *InventoryVector {
 	inventoryVector := InventoryVector{Type: typ, Hash: hash}
 	return &inventoryVector
 }
@@ -45,8 +44,8 @@ func InventoryTypeToString(inventoryType protocol.InventoryType) string {
 }
 
 func ReadInventoryVector(r io.Reader, pver uint32, iv *InventoryVector) error {
-	return utils.ReadElements(r, &iv.Type, &iv.Hash)
+	return protocol.ReadElements(r, &iv.Type, &iv.Hash)
 }
 func WriteInvVect(w io.Writer, pver uint32, iv *InventoryVector) error {
-	return utils.WriteElements(w, iv.Type, iv.Hash)
+	return protocol.WriteElements(w, iv.Type, iv.Hash)
 }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"bytes"
 	"errors"
-	"copernicus/crypto"
 	"sync"
+	"copernicus/utils"
 )
 
 type Blockchain struct {
@@ -109,7 +109,7 @@ func blkSize(buf []byte) (size uint64) {
 	}
 	return
 }
-func (blockChain *Blockchain) BestBlockHash() (crypto.Hash, int32, error) {
+func (blockChain *Blockchain) BestBlockHash() (utils.Hash, int32, error) {
 	blockChain.Lock.Lock()
 	defer blockChain.Lock.Unlock()
 	return blockChain.LastBlock.Hash, blockChain.LastBlock.Height, nil

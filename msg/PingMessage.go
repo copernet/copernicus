@@ -3,7 +3,6 @@ package msg
 import (
 	"io"
 	"copernicus/protocol"
-	"copernicus/utils"
 )
 
 type PingMessage struct {
@@ -12,7 +11,7 @@ type PingMessage struct {
 
 func (pingMessage *PingMessage) BitcoinParse(reader io.Reader, pver uint32) error {
 	if pver > protocol.BIP0031_VERSION {
-		err := utils.ReadElement(reader, &pingMessage.Nonce)
+		err := protocol.ReadElement(reader, &pingMessage.Nonce)
 		if err != nil {
 			return err
 		}
@@ -21,7 +20,7 @@ func (pingMessage *PingMessage) BitcoinParse(reader io.Reader, pver uint32) erro
 }
 func (pingMessage *PingMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
 	if pver > protocol.BIP0031_VERSION {
-		err := utils.WriteElements(w, pingMessage.Nonce)
+		err := protocol.WriteElements(w, pingMessage.Nonce)
 		if err != nil {
 			return err
 		}

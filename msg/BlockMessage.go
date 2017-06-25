@@ -25,7 +25,19 @@ func (msg *BlockMessage) AddTx(tx *TxMessage) error {
 func (msg *BlockMessage) ClearTxs() {
 	msg.Txs = make([]*TxMessage, 0, 2048)
 }
-func (msg *BlockMessage) BitcoinParse(reader io.Reader, size uint32) {
 
+func (blockMessage *BlockMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+	return nil
 }
 
+func (blockMessage *BlockMessage) BitcoinParse(reader io.Reader, size uint32) error {
+	return nil
+}
+
+func (blockMessage *BlockMessage) Command() string {
+	return COMMAND_BLOCK
+}
+
+func (blockMessage *BlockMessage) MaxPayloadLength(size uint32) uint32 {
+	return 0
+}

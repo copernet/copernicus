@@ -575,7 +575,7 @@ func (addressManager *NetAddressManager) GetBestLocalAddress(remoteAddress *Peer
 	}
 	return bestAddress
 }
-func NewNetAddressManager(dataDir string, lookupFunc LookupFunc) *NetAddressManager {
+func NewNetAddressManager(dataDir string, lookupFunc utils.LookupFunc) *NetAddressManager {
 	addressManager := NetAddressManager{
 		peersFile:      filepath.Join(dataDir, "peer.json"),
 		lookupFunc:     lookupFunc,

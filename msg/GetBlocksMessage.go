@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"copernicus/utils"
-	"copernicus/crypto"
 	"copernicus/protocol"
 )
 
@@ -13,11 +12,11 @@ const MAX_GETBLOCKS_COUNT = 500
 
 type GetBlocksMessage struct {
 	ProtocolVersion uint32
-	BlockHashes     []*crypto.Hash
-	HashStop        *crypto.Hash
+	BlockHashes     []*utils.Hash
+	HashStop        *utils.Hash
 }
 
-func (getBlockMessage *GetBlocksMessage) AddBlockHash(hash *crypto.Hash) error {
+func (getBlockMessage *GetBlocksMessage) AddBlockHash(hash *utils.Hash) error {
 	if len(getBlockMessage.BlockHashes) > MAX_ADDRESSES_COUNT-1 {
 		str := fmt.Sprintf("block hashes is too many %v", MAX_ADDRESSES_COUNT)
 		return errors.New(str)
@@ -26,7 +25,7 @@ func (getBlockMessage *GetBlocksMessage) AddBlockHash(hash *crypto.Hash) error {
 	return nil
 }
 func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uint32) error {
-	err := utils.ReadElement(reader, &getBlockMessage.ProtocolVersion)
+	err := protocol.ReadElement(reader, &getBlockMessage.ProtocolVersion)
 	if err != nil {
 		return err
 	}
@@ -40,31 +39,31 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 	}
 	// Create a contiguous slice of hashes to deserialize into in order to
 	// reduce the number of allocations.
-	hashes := make([]*crypto.Hash, 0, count)
+	hashes := make([]*utils.Hash, 0, count)
 	for i := uint64(0); i < count; i++ {
 		hash := hashes[i]
-		err = utils.ReadElement(reader, hash)
+		err = protocol.ReadElement(reader, hash)
 		if err != nil {
 			return err
 		}
 		getBlockMessage.AddBlockHash(hash)
 	}
-	err = utils.ReadElement(reader, getBlockMessage.HashStop)
+	err = protocol.ReadElement(reader, getBlockMessage.HashStop)
 	if err != nil {
 		return err
 	}
 	return nil
-
+	
 }
 
 func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
-
+	
 	count := len(getBlockMessage.BlockHashes)
 	if count > MAX_GETBLOCKS_COUNT {
 		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MAX_GETBLOCKS_COUNT)
 		return errors.New(str)
 	}
-	err := utils.WriteElement(w, getBlockMessage.ProtocolVersion)
+	err := protocol.WriteElement(w, getBlockMessage.ProtocolVersion)
 	if err != nil {
 		return err
 	}
@@ -73,28 +72,28 @@ func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint
 		return err
 	}
 	for _, hash := range getBlockMessage.BlockHashes {
-		err = utils.WriteElement(w, hash)
+		err = protocol.WriteElement(w, hash)
 		if err != nil {
 			return err
 		}
 	}
-	err = utils.WriteElement(w, &getBlockMessage.HashStop)
+	err = protocol.WriteElement(w, &getBlockMessage.HashStop)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
-	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * crypto.HASH_SIZE) + crypto.HASH_SIZE
+	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * utils.HASH_SIZE) + utils.HASH_SIZE
 }
 func (getBlocksMessage *GetBlocksMessage) Command() string {
 	return COMMAND_GET_BLOCKS
 }
 
-func NewGetBlocksMessage(hashStop *crypto.Hash) *GetBlocksMessage {
+func NewGetBlocksMessage(hashStop *utils.Hash) *GetBlocksMessage {
 	getBlockMessage := GetBlocksMessage{
 		ProtocolVersion: protocol.BITCOIN_PROTOCOL_VERSION,
-		BlockHashes:     make([]*crypto.Hash, 0, MAX_BLOCK_SIZE),
+		BlockHashes:     make([]*utils.Hash, 0, MAX_BLOCK_SIZE),
 		HashStop:        hashStop,
 	}
 	return &getBlockMessage

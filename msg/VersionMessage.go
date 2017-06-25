@@ -66,7 +66,7 @@ func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32
 		return fmt.Errorf("version message bitcoin parse reader is not a *bytes.Buffer")
 		
 	}
-	err := utils.ReadElements(buf, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, (*protocol.Int64Time)(versionMessage.Timestamp))
+	err := protocol.ReadElements(buf, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, (protocol.Int64Time)(versionMessage.Timestamp))
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32
 		}
 	}
 	if buf.Len() > 0 {
-		err := utils.ReadElement(buf, versionMessage.Nonce)
+		err := protocol.ReadElement(buf, versionMessage.Nonce)
 		if err != nil {
 			return err
 		}
@@ -99,14 +99,14 @@ func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32
 		versionMessage.UserAgent = userAgent
 	}
 	if buf.Len() > 0 {
-		err = utils.ReadElement(buf, versionMessage.LastBlock)
+		err = protocol.ReadElement(buf, versionMessage.LastBlock)
 		if err != nil {
 			return err
 		}
 	}
 	if buf.Len() > 0 {
 		var relayTx bool
-		utils.ReadElement(reader, &relayTx)
+		protocol.ReadElement(reader, &relayTx)
 		versionMessage.DisableRelayTx = !relayTx
 	}
 	return nil
@@ -117,7 +117,7 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if err != nil {
 		return err
 	}
-	err = utils.WriteElements(w, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, versionMessage.Timestamp.Unix())
+	err = protocol.WriteElements(w, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, versionMessage.Timestamp.Unix())
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if err != nil {
 		return err
 	}
-	err = utils.WriteElement(w, versionMessage.Nonce)
+	err = protocol.WriteElement(w, versionMessage.Nonce)
 	if err != nil {
 		return err
 	}
@@ -137,12 +137,12 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if err != nil {
 		return err
 	}
-	err = utils.WriteElement(w, versionMessage.LastBlock)
+	err = protocol.WriteElement(w, versionMessage.LastBlock)
 	if err != nil {
 		return err
 	}
 	if size >= protocol.BIP0037_VERSION {
-		err = utils.WriteElement(w, !versionMessage.DisableRelayTx)
+		err = protocol.WriteElement(w, !versionMessage.DisableRelayTx)
 		if err != nil {
 			return err
 		}

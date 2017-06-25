@@ -2,11 +2,11 @@ package msg
 
 import (
 	"math/big"
-	"copernicus/msg"
-	"copernicus/crypto"
 	"time"
 	"copernicus/model"
 	"github.com/pkg/errors"
+	"copernicus/utils"
+	"copernicus/btcutil"
 )
 
 var ActiveNetParams = &MainNetParams
@@ -23,11 +23,11 @@ var (
 
 type BitcoinParams struct {
 	Name                     string
-	BitcoinNet               BitcoinNet
+	BitcoinNet               btcutil.BitcoinNet
 	DefaultPort              string
-	DNSSeeds                 []DNSSeed
-	GenesisBlock             *msg.BlockMessage
-	GenesisHash              *crypto.Hash
+	DNSSeeds                 []btcutil.DNSSeed
+	GenesisBlock             *BlockMessage
+	GenesisHash              *utils.Hash
 	PowLimit                 *big.Int
 	PowLimitBits             uint32
 	CoinbaseMaturity         uint16
@@ -63,9 +63,9 @@ type BitcoinParams struct {
 
 var MainNetParams = BitcoinParams{
 	Name:        "mainnet",
-	BitcoinNet:  MAIN_NET,
+	BitcoinNet:  btcutil.MAIN_NET,
 	DefaultPort: "8333",
-	DNSSeeds: []DNSSeed{
+	DNSSeeds: []btcutil.DNSSeed{
 		{"seed.bitcoin.sipa.be", true},  // Pieter Wuille
 		{"dnsseed.bluematt.me", true},   // Matt Corallo
 		{"seed.bitcoinstats.com", true}, // Chris Decker
@@ -73,10 +73,10 @@ var MainNetParams = BitcoinParams{
 		{"seed.bitcoinstats.com", true},
 		{"seed.bitnodes.io", false},
 	},
-	GenesisBlock:             &model.GenesisBlock,
-	GenesisHash:              &model.GenesisHash,
+	GenesisBlock:             &GenesisBlock,
+	GenesisHash:              &GenesisHash,
 	PowLimit:                 mainPowLimit,
-	PowLimitBits:             model.GenesisBlock.Block.Bits,
+	PowLimitBits:             GenesisBlock.Block.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -128,13 +128,13 @@ var MainNetParams = BitcoinParams{
 }
 var RegressionNetParams = BitcoinParams{
 	Name:                     "regtest",
-	BitcoinNet:               TEST_NET,
+	BitcoinNet:               btcutil.TEST_NET,
 	DefaultPort:              "18444",
-	DNSSeeds:                 []DNSSeed{},
-	GenesisBlock:             &model.RegressionTestGenesisBlock,
-	GenesisHash:              &model.RegressionTestGenesisHash,
+	DNSSeeds:                 []btcutil.DNSSeed{},
+	GenesisBlock:             &RegressionTestGenesisBlock,
+	GenesisHash:              &RegressionTestGenesisHash,
 	PowLimit:                 regressingPowLimit,
-	PowLimitBits:             model.RegressionTestGenesisBlock.Block.Bits,
+	PowLimitBits:             RegressionTestGenesisBlock.Block.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 150,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -168,17 +168,17 @@ var RegressionNetParams = BitcoinParams{
 
 var TestNet3Params = BitcoinParams{
 	Name:        "testnet3",
-	BitcoinNet:  TEST_NET_3,
+	BitcoinNet:  btcutil.TEST_NET_3,
 	DefaultPort: "18333",
-	DNSSeeds: []DNSSeed{
+	DNSSeeds: []btcutil.DNSSeed{
 		{"testnet-seed.bitcoin.schildbach.de", false},
 		{"testnet-seed.bitcoin.petertodd.org", true},
 		{"testnet-seed.bluematt.me", false},
 	},
-	GenesisBlock:             &model.TestNet3GenesisBlock,
-	GenesisHash:              &model.TestNet3GenesisHash,
+	GenesisBlock:             &TestNet3GenesisBlock,
+	GenesisHash:              &TestNet3GenesisHash,
 	PowLimit:                 testNet3PowLimit,
-	PowLimitBits:             model.GenesisBlock.Block.Bits,
+	PowLimitBits:             GenesisBlock.Block.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -213,13 +213,13 @@ var TestNet3Params = BitcoinParams{
 }
 var SimNetParams = BitcoinParams{
 	Name:                     "simnet",
-	BitcoinNet:               SIM_NET,
+	BitcoinNet:               btcutil.SIM_NET,
 	DefaultPort:              "18555",
-	DNSSeeds:                 []DNSSeed{},
-	GenesisBlock:             &model.SimNetGenesisBlock,
-	GenesisHash:              &model.SimNetGenesisHash,
+	DNSSeeds:                 []btcutil.DNSSeed{},
+	GenesisBlock:             &SimNetGenesisBlock,
+	GenesisHash:              &SimNetGenesisHash,
 	PowLimit:                 simNetPowlimit,
-	PowLimitBits:             model.SimNetGenesisBlock.Block.Bits,
+	PowLimitBits:             SimNetGenesisBlock.Block.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -251,7 +251,7 @@ var SimNetParams = BitcoinParams{
 	HDCoinType: 115,
 }
 var (
-	RegisteredNets          = make(map[BitcoinNet]struct{})
+	RegisteredNets          = make(map[btcutil.BitcoinNet]struct{})
 	PubKeyHashAddressIDs    = make(map[byte]struct{})
 	ScriptHashAddressIDs    = make(map[byte]struct{})
 	HDPrivateToPublicKeyIDs = make(map[[4]byte][]byte)
@@ -264,8 +264,8 @@ func init() {
 	mustRegister(&SimNetParams)
 }
 
-func hashFromString(hexString string) *crypto.Hash {
-	hash, err := crypto.GetHashFromStr(hexString)
+func hashFromString(hexString string) *utils.Hash {
+	hash, err := utils.GetHashFromStr(hexString)
 	if err != nil {
 		panic(err)
 	}

@@ -6,7 +6,6 @@ import (
 	"copernicus/protocol"
 	"github.com/pkg/errors"
 	"copernicus/utils"
-	"copernicus/crypto"
 )
 
 type RejectCode uint8
@@ -23,7 +22,7 @@ const (
 )
 
 func (code RejectCode) ToString() string {
-
+	
 	switch code {
 	case REJECT_CHECKPOINT:
 		return "reject_check_point"
@@ -49,11 +48,11 @@ type RejectMessage struct {
 	Cmd    string
 	Code   RejectCode
 	Reason string
-	Hash   *crypto.Hash
+	Hash   *utils.Hash
 }
 
 func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) error {
-
+	
 	if pver < protocol.REJECT_VERSION {
 		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
 		return errors.New(str)
@@ -63,21 +62,21 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 		return err
 	}
 	rejectMessage.Cmd = command
-	err = utils.ReadElement(reader, &rejectMessage.Code)
+	err = protocol.ReadElement(reader, &rejectMessage.Code)
 	if err != nil {
 		return err
 	}
 	reason, err := utils.ReadVarString(reader, pver)
 	rejectMessage.Reason = reason
 	if rejectMessage.Cmd == COMMAND_TX || rejectMessage.Cmd == COMMAND_BLOCK {
-		err := utils.ReadElement(reader, rejectMessage.Hash)
+		err := protocol.ReadElement(reader, rejectMessage.Hash)
 		if err != nil {
 			return err
 		}
-
+		
 	}
 	return nil
-
+	
 }
 func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
 	if pver < protocol.REJECT_VERSION {
@@ -88,7 +87,7 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 	if err != nil {
 		return err
 	}
-	err = utils.WriteElement(w, rejectMessage.Code)
+	err = protocol.WriteElement(w, rejectMessage.Code)
 	if err != nil {
 		return err
 	}
@@ -97,7 +96,7 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 		return err
 	}
 	if rejectMessage.Cmd == COMMAND_BLOCK || rejectMessage.Cmd == COMMAND_TX {
-		err := utils.WriteElement(w, rejectMessage.Hash)
+		err := protocol.WriteElement(w, rejectMessage.Hash)
 		if err != nil {
 			return err
 		}

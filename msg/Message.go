@@ -4,8 +4,8 @@ import (
 	"io"
 	"fmt"
 	"time"
-	"copernicus/crypto"
 	"strings"
+	"copernicus/utils"
 )
 
 const (
@@ -70,7 +70,7 @@ func InventorySummary(invList []*InventoryVector) string {
 	}
 	return fmt.Sprintf("size %d", invLen)
 }
-func LocatorSummary(locator []*crypto.Hash, stopHash *crypto.Hash) string {
+func LocatorSummary(locator []*utils.Hash, stopHash *utils.Hash) string {
 	if len(locator) > 0 {
 		return fmt.Sprintf("locator %s , stop %s", locator[0], stopHash)
 	}

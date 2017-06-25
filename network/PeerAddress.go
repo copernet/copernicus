@@ -185,7 +185,7 @@ func NewPeerAddress(addr *net.TCPAddr, serviceFlag protocol.ServiceFlag) *PeerAd
 func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	var ip [16]byte
 	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
-		err := protocol.ReadElement(r, (protocol.Uint32Time)(&na.Timestamp))
+		err := protocol.ReadElement(r, (protocol.Uint32Time)(na.Timestamp))
 		if err != nil {
 			return err
 		}

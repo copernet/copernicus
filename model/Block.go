@@ -6,15 +6,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"time"
-	
-	"copernicus/crypto"
 )
 
 var EmptyByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 type Block struct {
 	Raw          []byte
-	Hash         crypto.Hash
+	Hash         utils.Hash
 	Height       int32
 	Transactions []*Transaction
 	Version      uint32
@@ -32,7 +30,9 @@ type Block struct {
 func ParseBlock(raw []byte) (block *Block, err error) {
 	block = new(Block)
 	block.Raw = raw
-	block.Hash = crypto.Hash(raw[:80])
+	hash := utils.Hash{}
+	hash.SetBytes(raw[:80])
+	block.Hash = hash
 	block.Version = binary.LittleEndian.Uint32(raw[0:4])
 	if !bytes.Equal(raw[4:36], EmptyByte) {
 		block.PrevBlock = utils.ToHash256String(raw[4:36])

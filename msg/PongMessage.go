@@ -5,7 +5,6 @@ import (
 	"copernicus/protocol"
 	"fmt"
 	"github.com/pkg/errors"
-	"copernicus/utils"
 )
 
 type PongMessage struct {
@@ -17,7 +16,7 @@ func (pongMessage *PongMessage) BitcoinParse(reader io.Reader, pver uint32) erro
 		str := fmt.Sprintf("pong message invalid for protocol version %d", pver)
 		return errors.New(str)
 	}
-	err := utils.ReadElement(reader, &pongMessage.Nonce)
+	err := protocol.ReadElement(reader, &pongMessage.Nonce)
 	return err
 }
 
@@ -25,9 +24,9 @@ func (pongMessage *PongMessage) BitcoinSerialize(w io.Writer, pver uint32) error
 	if pver <= protocol.BIP0031_VERSION {
 		str := fmt.Sprintf("pong message invalid for protocol version %d", pver)
 		return errors.New(str)
-
+		
 	}
-	err := utils.WriteElement(w, pongMessage.Nonce)
+	err := protocol.WriteElement(w, pongMessage.Nonce)
 	return err
 }
 
