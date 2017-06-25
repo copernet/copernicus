@@ -1,15 +1,13 @@
 package conf
 
 import (
-	mlog "copernicus/log"
-	
 	"github.com/astaxie/beego/config"
 	"github.com/astaxie/beego/logs"
 	"net"
 	"strings"
 	"fmt"
-	"copernicus/network"
 	"time"
+	"copernicus/utils"
 )
 
 var AppConf *AppConfig
@@ -20,21 +18,21 @@ type AppConfig struct {
 	NoPeerBloomFilters bool `long:"nopeerbloomfilters" descriptopn"Disable bloom filtering support"`
 	MaxPeers           int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
 	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`
-	BanDuration          time.Duration `long:"banduration" description:"How long to ban misbehaving peers.  Valid time units are {s, m, h}.  Minimum 1 second"`
-	BanThreshold         uint32        `long:"banthreshold" description:"Maximum allowed ban score before disconnecting and banning misbehaving peers."`
+	BanDuration        time.Duration `long:"banduration" description:"How long to ban misbehaving peers.  Valid time units are {s, m, h}.  Minimum 1 second"`
+	BanThreshold       uint32        `long:"banthreshold" description:"Maximum allowed ban score before disconnecting and banning misbehaving peers."`
 	
-	Listeners            []string      `long:"listen" description:"Add an interface/port to listen for connections (default all interfaces port: 8333, testnet: 18333)"`
+	Listeners []string      `long:"listen" description:"Add an interface/port to listen for connections (default all interfaces port: 8333, testnet: 18333)"`
 	
-	NoOnion              bool          `long:"noonion" description:"Disable connecting to tor hidden services"`
-	TorIsolation         bool          `long:"torisolation" description:"Enable Tor stream isolation by randomizing user credentials for each connection."`
-	TestNet3             bool          `long:"testnet" description:"Use the test network"`
-	RegressionTest       bool          `long:"regtest" description:"Use the regression test network"`
-	SimNet               bool          `long:"simnet" description:"Use the simulation test network"`
+	NoOnion        bool          `long:"noonion" description:"Disable connecting to tor hidden services"`
+	TorIsolation   bool          `long:"torisolation" description:"Enable Tor stream isolation by randomizing user credentials for each connection."`
+	TestNet3       bool          `long:"testnet" description:"Use the test network"`
+	RegressionTest bool          `long:"regtest" description:"Use the regression test network"`
+	SimNet         bool          `long:"simnet" description:"Use the simulation test network"`
 	
-	DisableListen        bool          `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --connect or --proxy options are used without also specifying listen interfaces via --listen"`
+	DisableListen bool          `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --connect or --proxy options are used without also specifying listen interfaces via --listen"`
 	
-	lookup             network.LookupFunc
-	DisableDNSSeed       bool          `long:"nodnsseed" description:"Disable DNS seeding for peers"`
+	lookup         utils.LookupFunc
+	DisableDNSSeed bool          `long:"nodnsseed" description:"Disable DNS seeding for peers"`
 }
 
 func init() {
@@ -49,9 +47,10 @@ func init() {
 	log.Info("log dir is %s", logDir)
 	logLevel := appConf.String("Log::level")
 	log.Info("log dir is %s", logLevel)
-	if err := mlog.InitLogger(logDir, logLevel); err != nil {
-		log.Error(err.Error())
-	}
+	
+	//if err := log.InitLogger(logDir, logLevel); err != nil {
+	//	log.Error(err.Error())
+	//}
 	AppConf, _ = loadConfig()
 }
 

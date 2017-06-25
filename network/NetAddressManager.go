@@ -20,6 +20,7 @@ import (
 	"io"
 	crand "crypto/rand"
 	"path/filepath"
+	"copernicus/utils"
 )
 
 const (
@@ -41,14 +42,14 @@ const (
 	TRIED_BUCKET_SIZE        = 256
 )
 
-type LookupFunc func(string) ([]net.IP, error)
+
 
 var log = logs.NewLogger()
 
 type NetAddressManager struct {
 	lock           sync.Mutex
 	peersFile      string
-	lookupFunc     LookupFunc
+	lookupFunc     utils.LookupFunc
 	rand           *rand.Rand
 	key            [32]byte
 	addressIndex   map[string]*KnownAddress

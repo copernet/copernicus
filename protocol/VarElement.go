@@ -1,11 +1,12 @@
-package utils
+package protocol
 
 import (
-	"copernicus/protocol"
+	
 	"encoding/binary"
 	"time"
 	"io"
 	"copernicus/crypto"
+	"copernicus/utils"
 )
 
 const COMMANG_SIZE = 12
@@ -14,42 +15,42 @@ func ReadElement(r io.Reader, element interface{}) (error) {
 
 	switch e := element.(type) {
 	case *uint16:
-		rv, err := binarySerializer.Uint16(r, binary.LittleEndian)
+		rv, err := utils.BinaryFreeList.Uint16(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
 		*e = uint16(rv)
 		return nil
 	case *int32:
-		rv, err := binarySerializer.Uint32(r, binary.LittleEndian)
+		rv, err := utils.BinaryFreeList.Uint32(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
 		*e = int32(rv)
 		return nil
 	case *uint32:
-		rv, err := binarySerializer.Uint32(r, binary.LittleEndian)
+		rv, err := utils.BinaryFreeList.Uint32(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
 		*e = rv
 		return nil
 	case *int64:
-		rv, err := binarySerializer.Uint64(r, binary.LittleEndian)
+		rv, err := utils.BinaryFreeList.Uint64(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
 		*e = int64(rv)
 		return nil
 	case *uint64:
-		rv, err := binarySerializer.Uint64(r, binary.LittleEndian)
+		rv, err := utils.BinaryFreeList.Uint64(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
 		*e = rv
 		return nil
 	case *bool:
-		rv, err := binarySerializer.Uint8(r)
+		rv, err := utils.BinaryFreeList.Uint8(r)
 		if err != nil {
 			return err
 		}
@@ -59,19 +60,19 @@ func ReadElement(r io.Reader, element interface{}) (error) {
 			*e = true
 		}
 		return nil
-	case *protocol.Uint32Time:
-		rv, err := binarySerializer.Uint64(r, binary.LittleEndian)
+	case *Uint32Time:
+		rv, err := utils.BinaryFreeList.Uint64(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
-		*e = protocol.Uint32Time(time.Unix(int64(rv), 0))
+		*e = Uint32Time(time.Unix(int64(rv), 0))
 		return nil
-	case *protocol.Int64Time:
-		rv, err := binarySerializer.Uint64(r, binary.LittleEndian)
+	case *Int64Time:
+		rv, err := utils.BinaryFreeList.Uint64(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
-		*e = protocol.Int64Time(time.Unix(int64(rv), 0))
+		*e = Int64Time(time.Unix(int64(rv), 0))
 		return nil
 		// Message header checksum.
 	case *[4]byte:
@@ -92,41 +93,41 @@ func ReadElement(r io.Reader, element interface{}) (error) {
 			return err
 		}
 		return nil
-	case *protocol.ServiceFlag:
-		rv, err := binarySerializer.Uint64(r, binary.LittleEndian)
+	case *ServiceFlag:
+		rv, err := utils.BinaryFreeList.Uint64(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
-		*e = protocol.ServiceFlag(rv)
+		*e = ServiceFlag(rv)
 		return nil
-	case *protocol.InventoryType:
-		rv, err := binarySerializer.Uint32(r, binary.LittleEndian)
+	case *InventoryType:
+		rv, err := utils.BinaryFreeList.Uint32(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
-		*e = protocol.InventoryType(rv)
+		*e = InventoryType(rv)
 		return nil
-	case *protocol.BitcoinNet:
-		rv, err := binarySerializer.Uint32(r, binary.LittleEndian)
+	case *BitcoinNet:
+		rv, err := utils.BinaryFreeList.Uint32(r, binary.LittleEndian)
 		if err != nil {
 			return err
 		}
-		*e = protocol.BitcoinNet(rv)
+		*e = BitcoinNet(rv)
 		return nil
 
-	case *protocol.BloomUpdateType:
-		rv, err := binarySerializer.Uint8(r)
+	case *BloomUpdateType:
+		rv, err := utils.BinaryFreeList.Uint8(r)
 		if err != nil {
 			return err
 		}
-		*e = protocol.BloomUpdateType(rv)
+		*e = BloomUpdateType(rv)
 		return nil
-	case *protocol.RejectCode:
-		rv, err := binarySerializer.Uint8(r)
+	case *RejectCode:
+		rv, err := utils.BinaryFreeList.Uint8(r)
 		if err != nil {
 			return err
 		}
-		*e = protocol.RejectCode(rv)
+		*e = RejectCode(rv)
 		return nil
 
 	}
@@ -147,26 +148,26 @@ func WriteElement(w io.Writer, element interface{}) error {
 	switch e := element.(type) {
 
 	case int32:
-		err := binarySerializer.PutUint32(w, binary.LittleEndian, uint32(e))
+		err := utils.BinaryFreeList.PutUint32(w, binary.LittleEndian, uint32(e))
 		if err != nil {
 			return err
 		}
 		return nil
 	case uint32:
-		err := binarySerializer.PutUint32(w, binary.LittleEndian, e)
+		err := utils.BinaryFreeList.PutUint32(w, binary.LittleEndian, e)
 		if err != nil {
 			return err
 		}
 		return nil
 
 	case int64:
-		err := binarySerializer.PutUint64(w, binary.LittleEndian, uint64(e))
+		err := utils.BinaryFreeList.PutUint64(w, binary.LittleEndian, uint64(e))
 		if err != nil {
 			return err
 		}
 		return nil
 	case uint64:
-		err := binarySerializer.PutUint64(w, binary.LittleEndian, e)
+		err := utils.BinaryFreeList.PutUint64(w, binary.LittleEndian, e)
 		if err != nil {
 			return err
 		}
@@ -174,10 +175,10 @@ func WriteElement(w io.Writer, element interface{}) error {
 	case bool:
 		var err error
 		if e {
-			err = binarySerializer.PutUint8(w, 0x01)
+			err = utils.BinaryFreeList.PutUint8(w, 0x01)
 
 		} else {
-			err = binarySerializer.PutUint8(w, 0x00)
+			err = utils.BinaryFreeList.PutUint8(w, 0x00)
 		}
 		if err != nil {
 			return err
@@ -208,32 +209,32 @@ func WriteElement(w io.Writer, element interface{}) error {
 			return err
 		}
 		return nil
-	case protocol.ServiceFlag:
-		err := binarySerializer.PutUint64(w, binary.LittleEndian, uint64(e))
+	case ServiceFlag:
+		err := utils.BinaryFreeList.PutUint64(w, binary.LittleEndian, uint64(e))
 		if err != nil {
 			return err
 		}
 		return nil
-	case protocol.InventoryType:
-		err := binarySerializer.PutUint32(w, binary.LittleEndian, uint32(e))
+	case InventoryType:
+		err := utils.BinaryFreeList.PutUint32(w, binary.LittleEndian, uint32(e))
 		if err != nil {
 			return err
 		}
 		return nil
-	case protocol.BitcoinNet:
-		err := binarySerializer.PutUint32(w, binary.LittleEndian, uint32(e))
+	case BitcoinNet:
+		err := utils.BinaryFreeList.PutUint32(w, binary.LittleEndian, uint32(e))
 		if err != nil {
 			return err
 		}
 		return nil
-	case protocol.BloomUpdateType:
-		err := binarySerializer.PutUint8(w, uint8(e))
+	case BloomUpdateType:
+		err := utils.BinaryFreeList.PutUint8(w, uint8(e))
 		if err != nil {
 			return err
 		}
 		return nil
-	case protocol.RejectCode:
-		err := binarySerializer.PutUint8(w, uint8(e))
+	case RejectCode:
+		err := utils.BinaryFreeList.PutUint8(w, uint8(e))
 		if err != nil {
 			return err
 		}

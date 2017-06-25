@@ -1,7 +1,7 @@
 package main
 
 import (
-	//_ "copernicus/conf"
+	_ "copernicus/conf"
 	_ "copernicus/log"
 	//_ "copernicus/storage"
 	_ "copernicus/crypto"

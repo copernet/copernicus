@@ -13,7 +13,7 @@ const (
 
 type BinaryFreeList chan []byte
 
-var binarySerializer BinaryFreeList = make(chan []byte, IO_MAX_SIZE)
+var BinarySerializer BinaryFreeList = make(chan []byte, IO_MAX_SIZE)
 
 func (l BinaryFreeList) BorrowFront8() (buf []byte) {
 	select {
@@ -107,7 +107,7 @@ func (b BinaryFreeList) PutUint64(w io.Writer, byteOrder binary.ByteOrder, val u
 }
 
 func GetUint64FromReder(r io.Reader) (uint64, error) {
-	rv, err := binarySerializer.Uint64(r, binary.BigEndian)
+	rv, err := BinarySerializer.Uint64(r, binary.BigEndian)
 	if err != nil {
 		return 0, err
 	}
