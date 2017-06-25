@@ -21,6 +21,8 @@ import (
 	crand "crypto/rand"
 	"path/filepath"
 	"copernicus/utils"
+	
+	beegoUtils "github.com/astaxie/beego/utils"
 )
 
 const (
@@ -50,7 +52,7 @@ type NetAddressManager struct {
 	lookupFunc     utils.LookupFunc
 	rand           *rand.Rand
 	key            [32]byte
-	addressIndex   map[string]*KnownAddress
+	addressIndex   *beegoUtils.BeeMap
 	addressNew     [NEW_BUCKET_COUNT]map[string]*KnownAddress
 	addressTried   [TRIED_BUCKET_COUNT]*list.List
 	started        int32
@@ -84,14 +86,14 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 			return
 		}
 		factor := int32(2 * knownAddress.refs)
-		if addressManager.rand.Int31n(factor) != 0 {
+		if factor > 0 && addressManager.rand.Int31n(factor) != 0 {
 			return
 		}
 		
 	} else {
 		netaddressCopy := *netAddress
 		knownAddress = &KnownAddress{NetAddress: &netaddressCopy, SrcAddress: srcAddress}
-		addressManager.addressIndex[addressString] = knownAddress
+		addressManager.addressIndex.Set(addressString, knownAddress)
 		addressManager.numNew++
 	}
 	bucket := addressManager.getNewBucket(netAddress, srcAddress)
@@ -117,7 +119,7 @@ func (addressManager *NetAddressManager) expireNew(bucket int) {
 			v.refs--
 			if v.refs == 0 {
 				addressManager.numNew--
-				delete(addressManager.addressIndex, k)
+				addressManager.addressIndex.Delete(k)
 			}
 			
 			continue
@@ -135,7 +137,7 @@ func (addressManager *NetAddressManager) expireNew(bucket int) {
 		oldest.refs--
 		if oldest.refs == 0 {
 			addressManager.numNew--
-			delete(addressManager.addressIndex, key)
+			addressManager.addressIndex.Delete(key)
 			
 		}
 		
@@ -177,18 +179,18 @@ func (addressManager *NetAddressManager) savePeers() {
 	serializedAddressManager := new(SerializedAddressManager)
 	serializedAddressManager.Version = SERIALISATION_VERSION
 	copy(serializedAddressManager.Key[:], addressManager.key[:])
-	serializedAddressManager.Addresses = make([]*SerializedKnownAddress, len(addressManager.addressIndex))
-	i := 0
-	for k, v := range addressManager.addressIndex {
-		serializedKnownAddress := new(SerializedKnownAddress)
-		serializedKnownAddress.AddressString = k
-		serializedKnownAddress.TimeStamp = v.NetAddress.Timestamp.Unix()
-		serializedKnownAddress.Source = v.SrcAddress.NetAddressKey()
-		serializedKnownAddress.LastAttempt = v.LastAttempt.Unix()
-		serializedKnownAddress.LastSuccess = v.lastSuccess.Unix()
-		serializedAddressManager.Addresses[i] = serializedKnownAddress
-		i++
-	}
+	//serializedAddressManager.Addresses = make([]*SerializedKnownAddress, len(addressManager.addressIndex))
+	//i := 0
+	//for k, v := range addressManager.addressIndex {
+	//	serializedKnownAddress := new(SerializedKnownAddress)
+	//	serializedKnownAddress.AddressString = k
+	//	serializedKnownAddress.TimeStamp = v.NetAddress.Timestamp.Unix()
+	//	serializedKnownAddress.Source = v.SrcAddress.NetAddressKey()
+	//	serializedKnownAddress.LastAttempt = v.LastAttempt.Unix()
+	//	serializedKnownAddress.LastSuccess = v.lastSuccess.Unix()
+	//	serializedAddressManager.Addresses[i] = serializedKnownAddress
+	//	i++
+	//}
 	for i := range addressManager.addressNew {
 		serializedAddressManager.NewBuckets[i] = make([]string, len(addressManager.addressNew[i]))
 		j := 0
@@ -344,29 +346,35 @@ func (addressManager *NetAddressManager) AddAddressByIP(addressIP string) error 
 	return nil
 }
 func (addressManage *NetAddressManager) Numaddresses() int {
-	addressManage.lock.Lock()
-	defer addressManage.lock.Unlock()
+	//addressManage.lock.Lock()
+	//defer addressManage.lock.Unlock()
 	return addressManage.Numaddresses()
 }
 func (addressManger *NetAddressManager) NeedMoreAddresses() bool {
-	addressManger.lock.Lock()
-	defer addressManger.lock.Unlock()
+	//addressManger.lock.Lock()
+	//defer addressManger.lock.Unlock()
 	return addressManger.Numaddresses() < NEED_ADDRESS_THRESHOLD
 }
 func (a *NetAddressManager) find(peerAddress *PeerAddress) *KnownAddress {
-	return a.addressIndex[peerAddress.NetAddressKey()]
+	//a.lock.Lock()
+	//defer a.lock.Unlock()
+	value := a.addressIndex.Get(peerAddress.NetAddressKey())
+	if value == nil {
+		return nil
+	}
+	return a.addressIndex.Get(peerAddress.NetAddressKey()).(*KnownAddress)
 }
 func (addressManager *NetAddressManager) AddressCache() []*PeerAddress {
-	addressManager.lock.Lock()
-	defer addressManager.lock.Unlock()
-	addressIndexLen := len(addressManager.addressIndex)
+	//addressManager.lock.Lock()
+	//defer addressManager.lock.Unlock()
+	addressIndexLen := addressManager.addressIndex.Count()
 	if addressIndexLen == 0 {
 		return nil
 	}
 	allAddress := make([]*PeerAddress, 0, addressIndexLen)
-	for _, v := range addressManager.addressIndex {
-		allAddress = append(allAddress, v.NetAddress)
-	}
+	//for _, v := range addressManager.addressIndex {
+	//	allAddress = append(allAddress, v.NetAddress)
+	//}
 	numAddresses := addressIndexLen * GET_ADDRESS_PERCENT / 100
 	if numAddresses > GET_ADDRESS_MAX {
 		numAddresses = GET_ADDRESS_MAX
@@ -380,7 +388,7 @@ func (addressManager *NetAddressManager) AddressCache() []*PeerAddress {
 	
 }
 func (addressManageer *NetAddressManager) reset() {
-	addressManageer.addressIndex = make(map[string]*KnownAddress)
+	addressManageer.addressIndex = beegoUtils.NewBeeMap()
 	io.ReadFull(crand.Reader, addressManageer.key[:])
 	for i := range addressManageer.addressNew {
 		addressManageer.addressNew[i] = make(map[string]*KnownAddress)
