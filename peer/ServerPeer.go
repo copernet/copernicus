@@ -4,12 +4,13 @@ import (
 	"copernicus/connect"
 	"copernicus/crypto"
 	"sync"
-	"copernicus/msg"
 	"github.com/btcsuite/btcutil/bloom"
 	"copernicus/algorithm"
 	"copernicus/network"
 	"copernicus/conf"
 	"copernicus/protocol"
+	
+	"copernicus/msg"
 )
 
 type ServerPeer struct {
@@ -144,13 +145,97 @@ func (serverPeer *ServerPeer) OnVersion(p *Peer, versionMessage *msg.VersionMess
 	
 }
 
+func (serverPeer *ServerPeer) OnRead(p *Peer, bytesRead int, message msg.Message, err error) {
+
+}
+func (serverPeer *ServerPeer) OnWrite(p *Peer, bytesWritten int, message msg.Message, err error) {
+
+}
+
+func (serverPeer *ServerPeer) OnGetAddr(p *Peer, msg *msg.GetAddressMessage) {
+
+}
+func (serverPeer *ServerPeer) OnAddr(p *Peer, msg *msg.AddressMessage) {
+
+}
+
+func (serverPeer *ServerPeer) OnPing(p *Peer, msg *msg.PingMessage) {
+
+}
+func (serverPeer *ServerPeer) OnPong(p *Peer, msg *msg.PongMessage) {
+
+}
+
+func (serverPeer *ServerPeer) OnAlert(p *Peer, msg *msg.AlertMessage) {
+
+}
+
 func (serverPeer *ServerPeer) OnMemPool(p *Peer, msg *msg.MempoolMessage) {
 	if serverPeer.peerManager.servicesFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
 		log.Debug("peer %v sent mempool request with bloom filtering disable --disconnecting", serverPeer)
 		serverPeer.Disconnect()
 		return
 	}
-	serverPeer.addBanScore(0,33,"mempool")
+	serverPeer.addBanScore(0, 33, "mempool")
+	//txMempool :=serverPeer.peerManager.txMemPool
+	//txDescs :=txMempool.TxDescs()
+	//inventoryMessage :=msg.NewInventoryMessageSizeHint(uint(len(txDescs)))
+	//for _,teDesc := range txDescs{
+	//	if !serverPeer.filter.IsLoaded()|| serverPeer.filter.MatchTxAndUpdate(teDesc.Tx){
+	//
+	//			inventory:=msg.NewInventoryVecror(msg.INVENTORY_TYPE_TX,txDesc.Tx.Hash())
+	//
+	//
+	//	}
+	//}
 	
-	
+}
+func (serverPeer *ServerPeer) OnTx(p *Peer, msg *msg.TxMessage) {
+
+}
+func (serverPeer *ServerPeer) OnBlock(p *Peer, msg *msg.BlockMessage, buf []byte) {
+
+}
+
+func (serverPeer *ServerPeer) OnInv(p *Peer, msg *msg.InventoryMessage) {
+
+}
+
+func (serverPeer *ServerPeer) OnHeaders(p *Peer, msg *msg.HeadersMessage) {
+
+}
+func (serverPeer *ServerPeer) OnNotFound(p *Peer, msg *msg.NotFoundMessage) {
+
+}
+
+func (serverPeer *ServerPeer) OnGetData(p *Peer, msg *msg.GetDataMessage) {
+
+}
+
+func (serverPeer *ServerPeer) OnGetBlocks(p *Peer, msg *msg.GetBlocksMessage) {
+
+}
+func (serverPeer *ServerPeer) OnGetHeaders(p *Peer, msg *msg.GetHeadersMessage) {
+
+}
+
+func (serverPeer *ServerPeer) OnFilterAdd(p *Peer, msg *msg.FilterAddMessage) {
+
+}
+func (serverPeer *ServerPeer) OnFilterClear(p *Peer, msg *msg.FilterClearMessage) {
+
+}
+func (serverPeer *ServerPeer) OnFilterLoad(p *Peer, msg *msg.FilterLoadMessage) {
+
+}
+func (serverPeer *ServerPeer) OnMerkleBlock(p *Peer, msg *msg.MerkleBlockMessage) {}
+
+func (serverPeer *ServerPeer) OnVerAck(p *Peer, msg *msg.VersionACKMessage) {
+
+}
+func (serverPeer *ServerPeer) OnReject(p *Peer, msg msg.RejectMessage) {
+
+}
+func (serverPeer *ServerPeer) OnSendHeaders(p *Peer, msg *msg.SendHeadersMessage) {
+
 }

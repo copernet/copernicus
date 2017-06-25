@@ -2,9 +2,9 @@ package msg
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"copernicus/utils"
+	"errors"
 )
 
 const DEFAULT_INVENTORY_LIST_ALLOC = 1000
@@ -70,12 +70,12 @@ func (message *InventoryMessage) Command() string {
 func (message *InventoryMessage) MaxPayloadLength(pver uint32) uint32 {
 	return MAX_VAR_INT_PAYLOAD + (MAX_INVENTORY_MESSAGE + MAX_INVENTORY_PAYLOAD)
 }
-func InitMessageInventory() *InventoryMessage {
+func NewMessageInventory() *InventoryMessage {
 	inventoryMessage := InventoryMessage{InventoryList: make([]*InventoryVector, 0, DEFAULT_INVENTORY_LIST_ALLOC)}
 	return &inventoryMessage
 }
 
-func InitMessageInvSizeHint(sizeHint uint) *InventoryMessage {
+func NewInventoryMessageSizeHint(sizeHint uint) *InventoryMessage {
 	if sizeHint > MAX_INVENTORY_MESSAGE {
 		sizeHint = MAX_INVENTORY_MESSAGE
 	}

@@ -9,6 +9,7 @@ import (
 	"copernicus/connect"
 	"sync"
 	"copernicus/blockchain"
+	"copernicus/mempool"
 )
 
 const (
@@ -37,6 +38,7 @@ type PeerManager struct {
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
 	
+	txMemPool    *mempool.TxPool
 	nat          network.NATInterface
 	storage      storage.Storage
 	timeSource   blockchain.IMedianTimeSource

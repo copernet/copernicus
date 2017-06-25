@@ -660,7 +660,7 @@ out:
 			if atomic.LoadInt32(&p.disconnect) != 0 || invSendQueue.Len() == 0 {
 				continue
 			}
-			inventoryMessage := msg.InitMessageInvSizeHint(uint(invSendQueue.Len()))
+			inventoryMessage := msg.NewInventoryMessageSizeHint(uint(invSendQueue.Len()))
 			for e := invSendQueue.Front(); e != nil; e = invSendQueue.Front() {
 				iv := invSendQueue.Remove(e).(*msg.InventoryVector)
 				if p.knownInventory.Exists(iv) {
@@ -672,7 +672,7 @@ out:
 						msg.OutMessage{Message: inventoryMessage},
 						pendingMessages, waiting,
 					)
-					inventoryMessage = msg.InitMessageInvSizeHint(uint(invSendQueue.Len()))
+					inventoryMessage = msg.NewInventoryMessageSizeHint(uint(invSendQueue.Len()))
 				}
 				p.knownInventory.Add(iv, iv)
 				
