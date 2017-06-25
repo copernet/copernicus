@@ -1,5 +1,5 @@
 hash: 83c708904ad633e29e39181ca6e16bbc33d43af3adc099fa5f4e27efe553b7c3
-updated: 2017-06-25T18:12:15.594349109+08:00
+updated: 2017-06-25T18:15:45.18347424+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -80,7 +80,7 @@ imports:
   subpackages:
   - snappy
 - name: golang.org/x/crypto
-  version: adbae1b6b6fb4b02448a0fc0dbbc9ba2b95b294d
+  version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
   - ripemd160
 testImports: []
