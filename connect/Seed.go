@@ -7,6 +7,8 @@ import (
 	mrand "math/rand"
 	"time"
 	"strconv"
+	"copernicus/msg"
+	"copernicus/utils"
 )
 
 const (
@@ -16,8 +18,8 @@ const (
 
 type OnSeed func(addresses []*network.PeerAddress)
 
-func SeedFromDNS(chainParams *protocol.BitcoinParams, servicesFlag protocol.ServiceFlag,
-	lookupFunc network.LookupFunc, onSeed OnSeed) {
+func SeedFromDNS(chainParams *msg.BitcoinParams, servicesFlag protocol.ServiceFlag,
+	lookupFunc utils.LookupFunc, onSeed OnSeed) {
 	for _, dnsSeed := range chainParams.DNSSeeds {
 		var host string
 		if !dnsSeed.HasFiltering || servicesFlag == protocol.SF_NODE_NETWORK_AS_FULL_NODE {

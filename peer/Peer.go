@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/astaxie/beego/logs"
 	"sync"
-	"copernicus/crypto"
 	"copernicus/protocol"
 	"time"
 	"sync/atomic"
@@ -21,6 +20,7 @@ import (
 	"container/list"
 	"strconv"
 	"copernicus/network"
+	"copernicus/btcutil"
 )
 
 const (
@@ -53,7 +53,7 @@ type Peer struct {
 	BlockStatusMutex sync.RWMutex
 	conn             net.Conn
 	AddressString    string
-	lastDeclareBlock *crypto.Hash
+	lastDeclareBlock *utils.Hash
 	PeerStatusMutex  sync.RWMutex
 	PeerAddress      *network.PeerAddress
 	ServiceFlag      protocol.ServiceFlag
@@ -83,12 +83,12 @@ type Peer struct {
 	SendQueue            chan msg.OutMessage
 	
 	GetBlocksLock  sync.Mutex
-	GetBlocksBegin *crypto.Hash
-	GetBlocksStop  *crypto.Hash
+	GetBlocksBegin *utils.Hash
+	GetBlocksStop  *utils.Hash
 	
 	GetHeadersLock  sync.Mutex
-	GetHeadersBegin *crypto.Hash
-	GetHeadersStop  *crypto.Hash
+	GetHeadersBegin *utils.Hash
+	GetHeadersStop  *utils.Hash
 	
 	quit          chan struct{}
 	inQuit        chan struct{}
@@ -118,7 +118,7 @@ func (p *Peer) UpdateBlockHeight(newHeight int32) {
 	p.BlockStatusMutex.Unlock()
 }
 
-func (p *Peer) UpdateDeclareBlock(blackHash *crypto.Hash) {
+func (p *Peer) UpdateDeclareBlock(blackHash *utils.Hash) {
 	log.Trace("Updating last block:%v form peer %v", blackHash, p.AddressString)
 	p.BlockStatusMutex.Lock()
 	p.lastDeclareBlock = blackHash
@@ -147,7 +147,7 @@ func (p *Peer) GetUserAgent() string {
 	defer p.PeerStatusMutex.Unlock()
 	return p.UserAgent
 }
-func (p *Peer) GetLastDeclareBlock() *crypto.Hash {
+func (p *Peer) GetLastDeclareBlock() *utils.Hash {
 	
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
@@ -253,7 +253,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		return spew.Sdump(buf.Bytes())
 		
 	}))
-	n, err := msg.WriteMessage(p.conn, msg, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
+	n, err := msg.WriteMessage(p.conn, message, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
 	atomic.AddUint64(&p.bytesSent, uint64(n))
 	if p.Config.Listener.OnWrite != nil {
 		p.Config.Listener.OnWrite(p, n, message, err)
@@ -261,7 +261,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 	return err
 	
 }
-func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
+func (p *Peer) SendMessage(message msg.Message, doneChan chan<- struct{}) {
 	if !p.Connected() {
 		if doneChan != nil {
 			go func() {
@@ -270,7 +270,7 @@ func (p *Peer) SendMessage(msg msg.Message, doneChan chan<- struct{}) {
 		}
 		return
 	}
-	p.OutputQueue <- msg.OutMessage{Message: msg, Done: doneChan}
+	p.OutputQueue <- msg.OutMessage{Message: message, Done: doneChan}
 }
 func (p *Peer) SendAddrMessage(addresses []*network.PeerAddress) ([]*network.PeerAddress, error) {
 	
@@ -287,7 +287,7 @@ func (p *Peer) SendAddrMessage(addresses []*network.PeerAddress) ([]*network.Pee
 		}
 		addressMessage.AddressList = addressMessage.AddressList[:msg.MAX_ADDRESSES_COUNT]
 	}
-	p.SendMessage(addressMessage, nil)
+	p.SendMessage(&addressMessage, nil)
 	return addressMessage.AddressList, nil
 	
 }
@@ -296,8 +296,8 @@ func (p *Peer) Connected() bool {
 	
 }
 
-func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) error {
-	var beginHash *crypto.Hash
+func (p *Peer) SendGetBlocks(locator []*utils.Hash, stopHash *utils.Hash) error {
+	var beginHash *utils.Hash
 	if len(locator) > 0 {
 		beginHash = locator[0]
 	}
@@ -326,8 +326,8 @@ func (p *Peer) SendGetBlocks(locator []*crypto.Hash, stopHash *crypto.Hash) erro
 	
 }
 
-func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Hash) error {
-	var beginHash *crypto.Hash
+func (p *Peer) SendGetHeadersMessage(locator []*utils.Hash, stopHash *utils.Hash) error {
+	var beginHash *utils.Hash
 	if len(locator) > 0 {
 		beginHash = locator[0]
 	}
@@ -356,11 +356,11 @@ func (p *Peer) SendGetHeadersMessage(locator []*crypto.Hash, stopHash *crypto.Ha
 	
 }
 
-func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason string, hash *crypto.Hash, wait bool) {
+func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason string, hash *utils.Hash, wait bool) {
 	if p.VersionKnown && p.ProtocolVersion < protocol.REJECT_VERSION {
 		return
 	}
-	var zeroHash crypto.Hash
+	var zeroHash utils.Hash
 	rejectMessage := msg.NewRejectMessage(command, code, reason)
 	if command == msg.COMMAND_TX || command == msg.COMMAND_BLOCK {
 		if hash == nil {
@@ -412,7 +412,7 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 	n, message, buf, err := msg.ReadMessage(p.conn, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
 	atomic.AddUint64(&p.bytesReceived, uint64(n))
 	if p.Config.Listener.OnRead != nil {
-		p.Config.Listener.OnRead(p, n, msg, err)
+		p.Config.Listener.OnRead(p, n, message, err)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -426,17 +426,17 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 		
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
-		return spew.Sdump(msg)
+		return spew.Sdump(message)
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
 		
 		return spew.Sdump(buf)
 	}))
-	return msg, buf, nil
+	return message, buf, nil
 	
 }
 func (p *Peer) IsAllowedReadError(err error) bool {
-	if p.Config.ChainParams.BitcoinNet != protocol.TEST_NET {
+	if p.Config.ChainParams.BitcoinNet != btcutil.TEST_NET {
 		return false
 	}
 	host, _, err := net.SplitHostPort(p.AddressString)
@@ -905,7 +905,7 @@ func (p *Peer) start() error {
 	go p.inHandler()
 	go p.queueHandler()
 	go p.outHandler()
-	p.SendMessage(msg.VersionACKMessage{}, nil)
+	p.SendMessage(&msg.VersionACKMessage{}, nil)
 	return nil
 }
 
@@ -930,7 +930,7 @@ func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
 		protocolVersion = peerConfig.ProtocolVersion
 	}
 	if peerConfig.ChainParams == nil {
-		peerConfig.ChainParams = &protocol.TestNet3Params
+		peerConfig.ChainParams = &msg.TestNet3Params
 	}
 	perr := Peer{
 		Inbound:         inbound,

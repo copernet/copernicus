@@ -1,24 +1,24 @@
-package manager
+package peer
 
 import (
-	"copernicus/peer"
+	
 	"copernicus/model"
-	"copernicus/crypto"
 	"sync"
 	"container/list"
 	"sync/atomic"
+	"copernicus/utils"
 )
 
 type BlockManager struct {
-	server          *peer.PeerManager //todo mutual reference
+	server          *PeerManager //todo mutual reference
 	started         int32
 	shutdown        int32
 	Chain           *model.Blockchain
-	rejectedTxns    map[crypto.Hash]struct{}
-	requestedTxns   map[crypto.Hash]struct{}
-	requestedBlocks map[crypto.Hash]struct{}
+	rejectedTxns    map[utils.Hash]struct{}
+	requestedTxns   map[utils.Hash]struct{}
+	requestedBlocks map[utils.Hash]struct{}
 	progressLogger  *BlockProgressLogger //todo do't need?
-	syncPeer        *peer.ServerPeer     //todo mutual reference
+	syncPeer        *ServerPeer     //todo mutual reference
 	
 	messageChan      chan interface{}
 	waitGroup        sync.WaitGroup
@@ -29,7 +29,7 @@ type BlockManager struct {
 	netCheckPoint    *model.Checkpoint
 }
 
-func (blockManager *BlockManager) NewPeer(serverPeer *peer.ServerPeer) {
+func (blockManager *BlockManager) NewPeer(serverPeer *ServerPeer) {
 	if atomic.LoadInt32(&blockManager.shutdown) != 0 {
 		return
 	}

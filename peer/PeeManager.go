@@ -5,7 +5,6 @@ import (
 	"copernicus/storage"
 	"copernicus/conf"
 	"copernicus/network"
-	"copernicus/manager"
 	"copernicus/connect"
 	"sync"
 	"copernicus/blockchain"
@@ -13,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 	"net"
+	"copernicus/msg"
 )
 
 const (
@@ -27,10 +27,10 @@ type PeerManager struct {
 	shutdown      int32
 	shutdownSched int32
 	
-	chainParams          *protocol.BitcoinParams
+	chainParams          *msg.BitcoinParams
 	netAddressManager    *network.NetAddressManager
 	connectManager       *connect.ConnectManager
-	BlockManager         *manager.BlockManager
+	BlockManager         *BlockManager
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *ServerPeer
 	banPeers             chan *ServerPeer
@@ -52,7 +52,7 @@ type PeerManager struct {
 	//addrIndex *indexers.AddrIndex
 }
 
-func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam *protocol.BitcoinParams) (*PeerManager, error) {
+func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
 	services := DEFAULT_SERVICES
 	if conf.AppConf.NoPeerBloomFilters {
 		services &^= protocol.SF_NODE_BLOOM_FILTER
@@ -135,7 +135,7 @@ func (peerManager *PeerManager) peerHandler() {
 		outboundGroups:  make(map[string]int),
 	}
 	if !conf.AppConf.DisableDNSSeed {
-		connect.SeedFromDNS(protocol.ActiveNetParams, DEFAULT_REQUIRED_SERVICES, conf.AppLookup, func(addresses []*network.PeerAddress) {
+		connect.SeedFromDNS(msg.ActiveNetParams, DEFAULT_REQUIRED_SERVICES, conf.AppLookup, func(addresses []*network.PeerAddress) {
 			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
 		})
 		

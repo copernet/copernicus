@@ -13,6 +13,7 @@ import (
 	_"copernicus/utils"
 	_"copernicus/btcutil"
 	_"copernicus/msg"
+	_"copernicus/peer"
 	
 	
 )

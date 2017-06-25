@@ -1,9 +1,8 @@
-package manager
+package peer
 
 import (
 	"time"
 	"sync"
-	"github.com/astaxie/beego/logs"
 	"copernicus/model"
 )
 
@@ -15,7 +14,6 @@ type BlockProgressLogger struct {
 	lock              sync.Mutex
 }
 
-var log = logs.NewLogger()
 
 func newBlockProgressLogger(progressMessage string) *BlockProgressLogger {
 	blockProgressLogger := BlockProgressLogger{

@@ -1,12 +1,12 @@
 package mempool
 
 import (
-	"copernicus/protocol"
+	"copernicus/msg"
 )
 
 type MempoolConfig struct {
 	MempoolPolicy MempoolPolicy
-	BitcoinParams *protocol.BitcoinParams
+	BitcoinParams *msg.BitcoinParams
 //	FetchUTXOViewfunc func(transaction model.Transaction)()
 	
 }

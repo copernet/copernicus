@@ -2,7 +2,6 @@ package peer
 
 import (
 	"copernicus/connect"
-	"copernicus/crypto"
 	"sync"
 	
 	"copernicus/algorithm"
@@ -11,6 +10,7 @@ import (
 	"copernicus/protocol"
 	
 	"copernicus/msg"
+	"copernicus/utils"
 )
 
 type ServerPeer struct {
@@ -19,38 +19,38 @@ type ServerPeer struct {
 	connectRequest  *connect.ConnectRequest
 	peerManager     *PeerManager
 	persistent      bool
-	continueHash    *crypto.Hash
+	continueHash    *utils.Hash
 	relayLock       sync.Mutex
 	disableRelayTx  bool
 	setAddress      bool
 	requestQueue    [] *msg.InventoryVector
-	requestedTxns   map[crypto.Hash]struct{}
-	requestedBlocks map[crypto.Hash]struct{}
+	requestedTxns   map[utils.Hash]struct{}
+	requestedBlocks map[utils.Hash]struct{}
 	//filter          *bloom.Filter
-	knownAddress    map[string]struct{}
-	banScore        algorithm.DynamicBanScore
-	quit            chan struct{}
-	txProcessed     chan struct{}
-	blockProcessed  chan struct{}
+	knownAddress   map[string]struct{}
+	banScore       algorithm.DynamicBanScore
+	quit           chan struct{}
+	txProcessed    chan struct{}
+	blockProcessed chan struct{}
 }
 
 func NewServerPeer(peerManager *PeerManager, isPersistent bool) (*ServerPeer) {
 	serverPeer := ServerPeer{
 		peerManager:     peerManager,
 		persistent:      isPersistent,
-		requestedTxns:   make(map[crypto.Hash]struct{}),
-		requestedBlocks: make(map[crypto.Hash]struct{}),
-	//	filter:          bloom.LoadFilter(nil),
-		knownAddress:    make(map[string]struct{}),
-		quit:            make(chan struct{}),
-		txProcessed:     make(chan struct{}, 1),
-		blockProcessed:  make(chan struct{}, 1),
+		requestedTxns:   make(map[utils.Hash]struct{}),
+		requestedBlocks: make(map[utils.Hash]struct{}),
+		//	filter:          bloom.LoadFilter(nil),
+		knownAddress:   make(map[string]struct{}),
+		quit:           make(chan struct{}),
+		txProcessed:    make(chan struct{}, 1),
+		blockProcessed: make(chan struct{}, 1),
 		
 	}
 	return &serverPeer
 }
 
-func (serverPeer *ServerPeer) newestBlock() (crypto.Hash, int32, error) {
+func (serverPeer *ServerPeer) newestBlock() (utils.Hash, int32, error) {
 	return serverPeer.peerManager.BlockManager.Chain.BestBlockHash()
 }
 

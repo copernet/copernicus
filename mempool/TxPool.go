@@ -2,17 +2,17 @@ package mempool
 
 import (
 	"sync"
-	"copernicus/crypto"
 	"copernicus/model"
+	"copernicus/utils"
 )
 
 type TxPool struct {
 	lastUpdate    uint64
 	lock          sync.RWMutex
 	mempoolConfig MempoolConfig
-	pool          map[crypto.Hash]*TxDesc
-	orghans       map[crypto.Hash]*model.Transaction
-	orphansByPrev map[crypto.Hash]map[crypto.Hash]*model.Transaction
+	pool          map[utils.Hash]*TxDesc
+	orghans       map[utils.Hash]*model.Transaction
+	orphansByPrev map[utils.Hash]map[utils.Hash]*model.Transaction
 	pennyTotal    float64
 	lastPennyUnix int64
 }

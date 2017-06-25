@@ -43,7 +43,7 @@ func (addressMsg *AddressMessage) ClearAddresses() {
 	addressMsg.AddressList = []*network.PeerAddress{}
 }
 
-func (msg *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
+func (message *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 	count, err := utils.ReadVarInt(reader, size)
 	if err != nil {
 		return err
@@ -53,14 +53,14 @@ func (msg *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 		return errors.New(str)
 	}
 	addrList := make([]*network.PeerAddress, count)
-	msg.AddressList = make([]*network.PeerAddress, 0, count)
+	message.AddressList = make([]*network.PeerAddress, 0, count)
 	for i := uint64(0); i < count; i++ {
 		peerAddress := addrList[i]
 		err := network.ReadPeerAddress(reader, size, peerAddress, true)
 		if err != nil {
 			return err
 		}
-		msg.AddPeerAddress(peerAddress)
+		message.AddPeerAddress(peerAddress)
 	}
 	return nil
 	
