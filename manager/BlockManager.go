@@ -39,3 +39,6 @@ func (blockManager *BlockManager) NewPeer(serverPeer *peer.ServerPeer) {
 func (blockManager *BlockManager) Start() {
 	//todo
 }
+func (blockmanager *BlockManager)Stop(){
+
+}

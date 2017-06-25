@@ -4,8 +4,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	crypto2 "copernicus/crypto"
 )
 
 const (
@@ -13,7 +12,8 @@ const (
 	//  [4:8]  File offset (4 bytes)
 	//  [8:12] Block length (4 bytes)
 	BLOCK_LOCATION_SIZE = 12
-	BLOCK_HEADER_SIZE   = 16 + crypto.MAX_HASH_STRING_SIZE
+	BLOCK_HEADER_SIZE   = 16 + crypto2.MAX_HASH_STRING_SIZE
+	
 )
 
 type pendingBlock struct {
@@ -79,7 +79,7 @@ func (tx *transaction) HasBlocks(hashes []crypto.Hash) ([]bool, error) {
 }
 
 //todo implement the blockIdxBucket
-func (tx *transaction) fetchBlockRow(hash *chainhash.Hash) ([]byte, error) {
+func (tx *transaction) fetchBlockRow(hash *crypto.Hash) ([]byte, error) {
 	//blockRow := tx.blockIdxBucket.Get(hash[:])
 	blockRow := nil
 	if blockRow == nil {
@@ -88,7 +88,7 @@ func (tx *transaction) fetchBlockRow(hash *chainhash.Hash) ([]byte, error) {
 	return blockRow, nil
 }
 
-func (tx *transaction) FetchBlockHeader(hash *chainhash.Hash) ([]byte, error) {
+func (tx *transaction) FetchBlockHeader(hash *crypto2.Hash) ([]byte, error) {
 	if err := tx.checkClosed(); err != nil {
 		return nil, err
 	}

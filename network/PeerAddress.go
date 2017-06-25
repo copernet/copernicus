@@ -165,10 +165,10 @@ func (na *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
 	na.ServicesFlag |= serviceFlag
 }
 func NewPeerAddressIPPort(serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
-	return InitPeerAddress(time.Now(), serviceFlag, ip, port)
+	return NewPeerAddressTimestamp(time.Now(), serviceFlag, ip, port)
 }
 
-func InitPeerAddress(timestamp time.Time, serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
+func NewPeerAddressTimestamp(timestamp time.Time, serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
 	na := PeerAddress{
 		Timestamp:    time.Unix(timestamp.Unix(), 0),
 		ServicesFlag: serviceFlag,

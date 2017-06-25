@@ -11,10 +11,13 @@ import (
 	"copernicus/blockchain"
 	"copernicus/mempool"
 	"sync/atomic"
+	"time"
+	"net"
 )
 
 const (
-	DEFAULT_SERVICES = protocol.SF_NODE_NETWORK_AS_FULL_NODE | protocol.SF_NODE_BLOOM_FILTER
+	DEFAULT_SERVICES          = protocol.SF_NODE_NETWORK_AS_FULL_NODE | protocol.SF_NODE_BLOOM_FILTER
+	DEFAULT_REQUIRED_SERVICES = protocol.SF_NODE_NETWORK_AS_FULL_NODE
 )
 
 type PeerManager struct {
@@ -113,7 +116,7 @@ func (peerManger *PeerManager) Start() {
 	log.Trace("Satarting server")
 	peerManger.waitGroup.Add(1)
 	go peerManger.peerHandler()
-	if peerManger.nat!=nil{
+	if peerManger.nat != nil {
 		peerManger.waitGroup.Add(1)
 		go peerManger.upnpUpdateThread()
 	}
@@ -122,12 +125,105 @@ func (peerManger *PeerManager) Start() {
 
 func (peerManager *PeerManager) peerHandler() {
 	peerManager.netAddressManager.Start()
+	peerManager.BlockManager.Start()
+	log.Trace("Starting peer handler")
+	peerState := &PeerState{
+		inboundPeers:    make(map[int32]*ServerPeer),
+		persistentPeers: make(map[int32]*ServerPeer),
+		outboundPeers:   make(map[int32]*ServerPeer),
+		banned:          make(map[string]time.Time),
+		outboundGroups:  make(map[string]int),
+	}
+	if !conf.AppConf.DisableDNSSeed {
+		connect.SeedFromDNS(protocol.ActiveNetParams, DEFAULT_REQUIRED_SERVICES, conf.AppLookup, func(addresses []*network.PeerAddress) {
+			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
+		})
+		
+	}
+	go peerManager.connectManager.Start()
+
+out:
+	for {
+		select {
+		case peer := <-peerManager.newPeers:
+			peerManager.handleAddPeerMsg(peerState, peer)
+		case <-peerManager.quit:
+			peerState.forAllPeers(func(serverPeer *ServerPeer) {
+				log.Trace("Shutdown peer %s", serverPeer)
+				serverPeer.Disconnect()
+			})
+			break out
+		}
+		
+	}
+	peerManager.connectManager.Stop()
+	peerManager.BlockManager.Stop()
+	peerManager.netAddressManager.Stop()
+	
+}
+
+func (s *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPeer *ServerPeer) bool {
+	if serverPeer == nil {
+		return false
+	}
+	
+	// Ignore new peers if we're shutting down.
+	if atomic.LoadInt32(&s.shutdown) != 0 {
+		log.Info("New peer %s ignored - server is shutting down", serverPeer)
+		serverPeer.Disconnect()
+		return false
+	}
+	
+	// Disconnect banned peers.
+	host, _, err := net.SplitHostPort(serverPeer.AddressString)
+	if err != nil {
+		log.Debug("can't split hostport %v", err)
+		serverPeer.Disconnect()
+		return false
+	}
+	if banEnd, ok := peerState.banned[host]; ok {
+		if time.Now().Before(banEnd) {
+			log.Debug("Peer %s is banned for another %v - disconnecting",
+				host, banEnd.Sub(time.Now()))
+			serverPeer.Disconnect()
+			return false
+		}
+		
+		log.Info("Peer %s is no longer banned", host)
+		delete(peerState.banned, host)
+	}
+	
+	// TODO: Check for max peers from a single IP.
+	
+	// Limit max number of total peers.
+	if peerState.Count() >= conf.AppConf.MaxPeers {
+		log.Info("Max peers reached [%d] - disconnecting peer %s",
+			conf.AppConf.MaxPeers, serverPeer)
+		serverPeer.Disconnect()
+		// TODO: how to handle permanent peers here?
+		// they should be rescheduled.
+		return false
+	}
+	
+	// Add the new peer and start it.
+	log.Debug("New peer %s", serverPeer)
+	if serverPeer.Inbound {
+		peerState.inboundPeers[serverPeer.Id] = serverPeer
+	} else {
+		peerState.outboundGroups[serverPeer.PeerAddress.GroupKey()]++
+		if serverPeer.persistent {
+			peerState.persistentPeers[serverPeer.Id] = serverPeer
+		} else {
+			peerState.outboundPeers[serverPeer.Id] = serverPeer
+		}
+	}
+	
+	return true
+}
+func (peerManager *PeerManager) upnpUpdateThread() {
 
 }
 
-func (peerManager *PeerManager)upnpUpdateThread(){
-
-}
 //func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
 //	sp := NewServerPeer(s, false)
 //	sp.Peer = peer.NewInboundPeer(InitPe(sp))

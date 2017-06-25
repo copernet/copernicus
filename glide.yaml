@@ -1,4 +1,4 @@
-package: btcboost
+package: copernicus
 import:
 - package: github.com/btcsuite/btcd
   subpackages:

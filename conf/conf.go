@@ -34,6 +34,7 @@ type AppConfig struct {
 	DisableListen        bool          `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --connect or --proxy options are used without also specifying listen interfaces via --listen"`
 	
 	lookup             network.LookupFunc
+	DisableDNSSeed       bool          `long:"nodnsseed" description:"Disable DNS seeding for peers"`
 }
 
 func init() {

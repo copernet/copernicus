@@ -8,6 +8,7 @@ import (
 	"copernicus/model"
 	"github.com/pkg/errors"
 )
+
 var ActiveNetParams = &MainNetParams
 
 var (
@@ -24,7 +25,7 @@ type BitcoinParams struct {
 	Name                     string
 	BitcoinNet               BitcoinNet
 	DefaultPort              string
-	DNSSeeds                 []string
+	DNSSeeds                 []DNSSeed
 	GenesisBlock             *msg.BlockMessage
 	GenesisHash              *crypto.Hash
 	PowLimit                 *big.Int
@@ -38,20 +39,20 @@ type BitcoinParams struct {
 	MinDiffReductionTime     time.Duration
 	GenerateSupported        bool
 	Checkpoints              []*model.Checkpoint
-
+	
 	// Enforce current block version once network has
 	// upgraded.  This is part of BIP0034.
 	BlockEnforceNumRequired uint64
-
+	
 	// Reject previous block versions once network has
 	// upgraded.  This is part of BIP0034.
 	BlockRejectNumRequired uint64
-
+	
 	// The number of nodes to check.  This is part of BIP0034.
 	BlockUpgradeNumToCheck uint64
-
+	
 	RelayNonStdTxs bool
-
+	
 	PubKeyHashAddressID byte
 	ScriptHashAddressID byte
 	PrivatekeyId        byte
@@ -64,13 +65,13 @@ var MainNetParams = BitcoinParams{
 	Name:        "mainnet",
 	BitcoinNet:  MAIN_NET,
 	DefaultPort: "8333",
-	DNSSeeds: []string{
-		"seed.bitcoin.sipa.be",  // Pieter Wuille
-		"dnsseed.bluematt.me",   // Matt Corallo
-		"seed.bitcoinstats.com", // Chris Decker
-		"bitseed.xf2.org",
-		"seed.bitcoinstats.com",
-		"seed.bitnodes.io",
+	DNSSeeds: []DNSSeed{
+		{"seed.bitcoin.sipa.be", true},  // Pieter Wuille
+		{"dnsseed.bluematt.me", true},   // Matt Corallo
+		{"seed.bitcoinstats.com", true}, // Chris Decker
+		{"bitseed.xf2.org", true},
+		{"seed.bitcoinstats.com", true},
+		{"seed.bitnodes.io", false},
 	},
 	GenesisBlock:             &model.GenesisBlock,
 	GenesisHash:              &model.GenesisHash,
@@ -113,7 +114,7 @@ var MainNetParams = BitcoinParams{
 	BlockEnforceNumRequired: 750,
 	BlockRejectNumRequired:  950,
 	BlockUpgradeNumToCheck:  1000,
-
+	
 	RelayNonStdTxs:      false,
 	PubKeyHashAddressID: 0x00, // starts with 1
 	ScriptHashAddressID: 0x05, // starts with 3
@@ -129,7 +130,7 @@ var RegressionNetParams = BitcoinParams{
 	Name:                     "regtest",
 	BitcoinNet:               TEST_NET,
 	DefaultPort:              "18444",
-	DNSSeeds:                 []string{},
+	DNSSeeds:                 []DNSSeed{},
 	GenesisBlock:             &model.RegressionTestGenesisBlock,
 	GenesisHash:              &model.RegressionTestGenesisHash,
 	PowLimit:                 regressingPowLimit,
@@ -152,7 +153,7 @@ var RegressionNetParams = BitcoinParams{
 	BlockEnforceNumRequired: 750,
 	BlockRejectNumRequired:  950,
 	BlockUpgradeNumToCheck:  1000,
-
+	
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x6f, // starts with m or n
 	ScriptHashAddressID: 0xc4, // starts with 2
@@ -169,10 +170,10 @@ var TestNet3Params = BitcoinParams{
 	Name:        "testnet3",
 	BitcoinNet:  TEST_NET_3,
 	DefaultPort: "18333",
-	DNSSeeds: []string{
-		"testnet-seed.bitcoin.schildbach.de",
-		"testnet-seed.bitcoin.petertodd.org",
-		"testnet-seed.bluematt.me",
+	DNSSeeds: []DNSSeed{
+		{"testnet-seed.bitcoin.schildbach.de", false},
+		{"testnet-seed.bitcoin.petertodd.org", true},
+		{"testnet-seed.bluematt.me", false},
 	},
 	GenesisBlock:             &model.TestNet3GenesisBlock,
 	GenesisHash:              &model.TestNet3GenesisHash,
@@ -198,7 +199,7 @@ var TestNet3Params = BitcoinParams{
 	BlockEnforceNumRequired: 51,
 	BlockRejectNumRequired:  75,
 	BlockUpgradeNumToCheck:  100,
-
+	
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x6f, // starts with 1
 	ScriptHashAddressID: 0xc4, // starts with 3
@@ -214,7 +215,7 @@ var SimNetParams = BitcoinParams{
 	Name:                     "simnet",
 	BitcoinNet:               SIM_NET,
 	DefaultPort:              "18555",
-	DNSSeeds:                 []string{},
+	DNSSeeds:                 []DNSSeed{},
 	GenesisBlock:             &model.SimNetGenesisBlock,
 	GenesisHash:              &model.SimNetGenesisHash,
 	PowLimit:                 simNetPowlimit,
@@ -237,7 +238,7 @@ var SimNetParams = BitcoinParams{
 	BlockEnforceNumRequired: 51,
 	BlockRejectNumRequired:  75,
 	BlockUpgradeNumToCheck:  100,
-
+	
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x3f, // starts with 1
 	ScriptHashAddressID: 0x7b, // starts with 3
@@ -297,7 +298,7 @@ func HDPrivateKeyToPublicKeyID(id []byte) ([]byte, error) {
 	pubBytes, ok := HDPrivateToPublicKeyIDs[key]
 	if !ok {
 		return nil, errors.New("unkown hd private extended key bytes")
-
+		
 	}
 	return pubBytes, nil
 }
