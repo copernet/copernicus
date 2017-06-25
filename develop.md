@@ -67,3 +67,14 @@ run `fswatch` in directory in project:
 fswatch
 ```
 So , You've been using hot compilation
+
+
+### bulid c-secp256k1
+```
+cd secp256k1/c-secp256k1 
+
+./autogen.sh
+./configure --enable-experimental --enable-module-ecdh --enable-module-recovery 
+make -j4 
+
+```

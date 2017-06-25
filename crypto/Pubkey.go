@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/pkg/errors"
-	"github.com/btccom/secp256k1-go/secp256k1"
+	"copernicus/secp256k1/secp256k1"
 )
 
 var (
@@ -15,6 +15,7 @@ func ParsePubKey(pubKeyStr []byte) (*PublicKey, error) {
 }
 
 type PublicKey secp256k1.PublicKey
+
 
 func (p *PublicKey) ToSecp256k() *secp256k1.PublicKey {
 	return (*secp256k1.PublicKey)(p)

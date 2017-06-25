@@ -4,7 +4,7 @@ import (
 	//_ "copernicus/conf"
 	_ "copernicus/log"
 	//_ "copernicus/storage"
-	//_ "copernicus/crypto"
+	_ "copernicus/crypto"
 	"os"
 	"syscall"
 	

@@ -19,4 +19,3 @@ import:
 - package: github.com/btcsuite/go-socks
   subpackages:
   - socks
-- package: github.com/btccom/secp256k1-go

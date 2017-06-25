@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/btccom/secp256k1-go/secp256k1"
+	"copernicus/secp256k1/secp256k1"
 	"math/big"
 )
 
