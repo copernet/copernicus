@@ -10,6 +10,7 @@ import (
 	"sync"
 	"copernicus/blockchain"
 	"copernicus/mempool"
+	"sync/atomic"
 )
 
 const (
@@ -92,6 +93,41 @@ func (peerManager *PeerManager) AddPeer(serverPeer *ServerPeer) {
 	peerManager.newPeers <- serverPeer
 }
 
+func (peerManager *PeerManager) Stop() error {
+	if atomic.AddInt32(&peerManager.shutdown, 1) != 1 {
+		log.Info("PeerManager is aleray in the process of shtting down")
+		return nil
+	}
+	log.Info("PeerManager shtting down")
+	close(peerManager.quit)
+	return nil
+}
+func (peerManager *PeerManager) WaitForShutdown() {
+	peerManager.waitGroup.Wait()
+}
+
+func (peerManger *PeerManager) Start() {
+	if atomic.AddInt32(&peerManger.started, 1) != 1 {
+		return
+	}
+	log.Trace("Satarting server")
+	peerManger.waitGroup.Add(1)
+	go peerManger.peerHandler()
+	if peerManger.nat!=nil{
+		peerManger.waitGroup.Add(1)
+		go peerManger.upnpUpdateThread()
+	}
+	
+}
+
+func (peerManager *PeerManager) peerHandler() {
+	peerManager.netAddressManager.Start()
+
+}
+
+func (peerManager *PeerManager)upnpUpdateThread(){
+
+}
 //func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
 //	sp := NewServerPeer(s, false)
 //	sp.Peer = peer.NewInboundPeer(InitPe(sp))

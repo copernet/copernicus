@@ -8,6 +8,7 @@ import (
 	"copernicus/model"
 	"github.com/pkg/errors"
 )
+var ActiveNetParams = &MainNetParams
 
 var (
 	bigOne = big.NewInt(1)

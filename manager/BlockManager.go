@@ -36,3 +36,6 @@ func (blockManager *BlockManager) NewPeer(serverPeer *peer.ServerPeer) {
 	blockManager.messageChan <- &NewPeerMessage{serverPeer: serverPeer}
 	
 }
+func (blockManager *BlockManager) Start() {
+	//todo
+}
