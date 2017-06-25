@@ -12,17 +12,17 @@ interface. The functions are only exported while the tests are being run.
 package btcutil
 
 import (
-	"github.com/btcsuite/btcd/btcec"
-	"btcutil/base58"
+	"copernicus/btcec"
+	"copernicus/btcutil/base58"
 	"golang.org/x/crypto/ripemd160"
 )
 
 // SetBlockBytes sets the internal serialized block byte buffer to the passed
 // buffer.  It is used to inject errors and is only available to the test
 // package.
-func (b *Block) SetBlockBytes(buf []byte) {
-	b.serializedBlock = buf
-}
+//func (b *Block) SetBlockBytes(buf []byte) {
+//	b.serializedBlock = buf
+//}
 
 // TstAppDataDir makes the internal appDataDir function available to the test
 // package.
@@ -34,7 +34,7 @@ func TstAppDataDir(goos, appName string, roaming bool) string {
 // unexported fields with the parameters hash and netID.
 func TstAddressPubKeyHash(hash [ripemd160.Size]byte,
 	netID byte) *AddressPubKeyHash {
-
+	
 	return &AddressPubKeyHash{
 		hash:  hash,
 		netID: netID,
@@ -45,7 +45,7 @@ func TstAddressPubKeyHash(hash [ripemd160.Size]byte,
 // unexported fields with the parameters hash and netID.
 func TstAddressScriptHash(hash [ripemd160.Size]byte,
 	netID byte) *AddressScriptHash {
-
+	
 	return &AddressScriptHash{
 		hash:  hash,
 		netID: netID,
@@ -56,7 +56,7 @@ func TstAddressScriptHash(hash [ripemd160.Size]byte,
 // the parameters.
 func TstAddressPubKey(serializedPubKey []byte, pubKeyFormat PubKeyFormat,
 	netID byte) *AddressPubKey {
-
+	
 	pubKey, _ := btcec.ParsePubKey(serializedPubKey, btcec.S256())
 	return &AddressPubKey{
 		pubKeyFormat: pubKeyFormat,
@@ -69,5 +69,5 @@ func TstAddressPubKey(serializedPubKey []byte, pubKeyFormat PubKeyFormat,
 // P2PKH and P2SH bitcoin addresses.
 func TstAddressSAddr(addr string) []byte {
 	decoded := base58.Decode(addr)
-	return decoded[1 : 1+ripemd160.Size]
+	return decoded[1: 1+ripemd160.Size]
 }

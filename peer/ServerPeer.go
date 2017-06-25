@@ -4,7 +4,7 @@ import (
 	"copernicus/connect"
 	"copernicus/crypto"
 	"sync"
-	"github.com/btcsuite/btcutil/bloom"
+	
 	"copernicus/algorithm"
 	"copernicus/network"
 	"copernicus/conf"
@@ -26,7 +26,7 @@ type ServerPeer struct {
 	requestQueue    [] *msg.InventoryVector
 	requestedTxns   map[crypto.Hash]struct{}
 	requestedBlocks map[crypto.Hash]struct{}
-	filter          *bloom.Filter
+	//filter          *bloom.Filter
 	knownAddress    map[string]struct{}
 	banScore        algorithm.DynamicBanScore
 	quit            chan struct{}
@@ -40,7 +40,7 @@ func NewServerPeer(peerManager *PeerManager, isPersistent bool) (*ServerPeer) {
 		persistent:      isPersistent,
 		requestedTxns:   make(map[crypto.Hash]struct{}),
 		requestedBlocks: make(map[crypto.Hash]struct{}),
-		filter:          bloom.LoadFilter(nil),
+	//	filter:          bloom.LoadFilter(nil),
 		knownAddress:    make(map[string]struct{}),
 		quit:            make(chan struct{}),
 		txProcessed:     make(chan struct{}, 1),

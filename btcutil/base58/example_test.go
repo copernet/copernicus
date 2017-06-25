@@ -7,7 +7,7 @@ package base58_test
 import (
 	"fmt"
 
-	"btcutil/base58"
+	"copernicus/btcutil/base58"
 )
 
 // This example demonstrates how to decode modified base58 encoded data.

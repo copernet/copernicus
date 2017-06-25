@@ -6,8 +6,8 @@ package base58_test
 
 import (
 	"testing"
-
-	"btcutil/base58"
+	
+	"copernicus/btcutil/base58"
 )
 
 var checkEncodingStringTests = []struct {
@@ -34,7 +34,7 @@ func TestBase58Check(t *testing.T) {
 		if res := base58.CheckEncode([]byte(test.in), test.version); res != test.out {
 			t.Errorf("CheckEncode test #%d failed: got %s, want: %s", x, res, test.out)
 		}
-
+		
 		// test decoding
 		res, version, err := base58.CheckDecode(test.out)
 		if err != nil {
@@ -45,7 +45,7 @@ func TestBase58Check(t *testing.T) {
 			t.Errorf("CheckDecode test #%d failed: got: %s want: %s", x, res, test.in)
 		}
 	}
-
+	
 	// test the two decoding failure cases
 	// case 1: checksum error
 	_, _, err := base58.CheckDecode("3MNQE1Y")
@@ -62,5 +62,5 @@ func TestBase58Check(t *testing.T) {
 			t.Error("Checkdecode test failed, expected ErrInvalidFormat")
 		}
 	}
-
+	
 }

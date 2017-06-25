@@ -1,4 +1,4 @@
-package protocol
+package btcutil
 
 type DNSSeed struct {
 	Host         string

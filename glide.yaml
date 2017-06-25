@@ -1,9 +1,6 @@
 package: copernicus
 import:
-- package: github.com/btcsuite/btcd
-  subpackages:
-  - chaincfg
-  - txscript
+
 - package: github.com/astaxie/beego
   version: ~1.8.3
   subpackages:

@@ -1,7 +1,5 @@
 package mempool
 
-import "btcutil"
-
 type MempoolPolicy struct {
 	DisableRelayPriority bool
 	RelayNonStandard     bool
@@ -9,5 +7,5 @@ type MempoolPolicy struct {
 	MaxOrphanTxs         int
 	MaxOrphanTxSize      int
 	MaxSigOpsPerTx       int
-	MinRealyTxFee        btcutil.Amount
+	//MinRealyTxFee        btcutil.Amount
 }
