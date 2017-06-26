@@ -123,15 +123,17 @@ func (connectManager *ConnectManager) listenHandler(listener net.Listener) {
 }
 
 func (connectManager *ConnectManager) NewConnectRequest() {
-	if atomic.LoadInt32(&connectManager.stop) != 0 {
-		return
-	}
-	if connectManager.listener.GetNewAddress != nil {
+	//if atomic.LoadInt32(&connectManager.stop) != 0 {
+	//	return
+	//}
+	log.Debug("NewConnectRequest ")
+	if connectManager.listener.GetNewAddress == nil {
 		return
 	}
 	connectRequest := &ConnectRequest{}
 	atomic.StoreUint64(&connectRequest.id, atomic.AddUint64(&connectManager.connRequestCount, 1))
 	address, err := connectManager.listener.GetNewAddress()
+	log.Debug("NewConnectRequest :%s", address)
 	if err != nil {
 		connectManager.requests <- handleFailed{connectRequest, err}
 		return
@@ -194,11 +196,13 @@ out:
 
 func (connectManager *ConnectManager) Start() {
 	if atomic.AddInt32(&connectManager.start, 1) != 1 {
+		log.Trace("Connection manager return")
 		return
 	}
 	log.Trace("Connection manager started")
 	connectManager.waitGroup.Add(1)
 	go connectManager.connectHandler()
+	log.Trace("Connection manager connectHandler")
 	if connectManager.listener.OnAccept != nil {
 		for _, listener := range connectManager.listener.Listeners {
 			connectManager.waitGroup.Add(1)
@@ -206,6 +210,7 @@ func (connectManager *ConnectManager) Start() {
 		}
 	}
 	for i := atomic.LoadUint64(&connectManager.connRequestCount); i < uint64(connectManager.listener.TargetOutbound); i++ {
+		log.Trace("Connection manager NewConnectRequest")
 		go connectManager.NewConnectRequest()
 	}
 	

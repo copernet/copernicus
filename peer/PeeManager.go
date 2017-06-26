@@ -13,6 +13,9 @@ import (
 	"time"
 	"net"
 	"copernicus/msg"
+	"errors"
+	"fmt"
+	"strconv"
 )
 
 const (
@@ -52,6 +55,11 @@ type PeerManager struct {
 	//addrIndex *indexers.AddrIndex
 }
 
+type getOutboundGroup struct {
+	key   string
+	reply chan int
+}
+
 func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
 	services := DEFAULT_SERVICES
 	if conf.AppConf.NoPeerBloomFilters {
@@ -81,10 +89,10 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 	}
 	
 	connectListener := connect.ConnectListener{
-		Listeners:listeners,
-		Dial:conf.AppDial,
-	
-	
+		Listeners:     listeners,
+		Dial:          conf.AppDial,
+		GetNewAddress: peerManager.newAddressFunc,
+		
 	}
 	
 	connectManager, err := connect.NewConnectManager(&connectListener)
@@ -94,6 +102,85 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 	peerManager.connectManager = connectManager
 	return &peerManager, nil
 	
+}
+func (s *PeerManager) OutboundGroupCount(key string) int {
+	replyChan := make(chan int)
+	s.query <- getOutboundGroup{key: key, reply: replyChan}
+	return <-replyChan
+}
+
+func (peermanager *PeerManager) newAddressFunc() (net.Addr, error) {
+	for tries := 0; tries < 100; tries++ {
+		address := peermanager.netAddressManager.GetAddress()
+		
+		log.Debug(" newAddressFunc ")
+		if address == nil {
+			log.Debug(" newAddressFunc address is nil")
+			break
+		}
+		key := peermanager.netAddressManager.GetAddress().NetAddress.NetAddressKey()
+		if peermanager.OutboundGroupCount(key) != 0 {
+			log.Debug("peermanager OutboundGroupCount :%s", key)
+			continue
+		}
+		
+		//if tries < 30 && time.Since(address.LastAttempt) < 10*time.Minute {
+		//	continue
+		//}
+		//port := fmt.Sprintf("%d", address.NetAddress.Port)
+		//if tries < 50 && port != msg.ActiveNetParams.DefaultPort {
+		//	continue
+		//}
+		addressString := peermanager.netAddressManager.GetAddress().NetAddress.NetAddressKey()
+		log.Debug("get address :%s", addressString)
+		return addrStringToNetAddr(addressString)
+		
+	}
+	return nil, errors.New("no valid connect address")
+}
+
+func addrStringToNetAddr(addr string) (net.Addr, error) {
+	host, strPort, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	
+	port, err := strconv.Atoi(strPort)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Skip if host is already an IP address.
+	if ip := net.ParseIP(host); ip != nil {
+		return &net.TCPAddr{
+			IP:   ip,
+			Port: port,
+		}, nil
+	}
+	
+	// Tor addresses cannot be resolved to an IP, so just return an onion
+	// address instead.
+	//if strings.HasSuffix(host, ".onion") {
+	//	if cfg.NoOnion {
+	//		return nil, errors.New("tor has been disabled")
+	//	}
+	//
+	//	return &onionAddr{addr: addr}, nil
+	//}
+	//
+	// Attempt to look up an IP address associated with the parsed host.
+	ips, err := conf.AppLookup(host)
+	if err != nil {
+		return nil, err
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("no addresses found for %s", host)
+	}
+	
+	return &net.TCPAddr{
+		IP:   ips[0],
+		Port: port,
+	}, nil
 }
 
 func (peerManage *PeerManager) BanPeer(serverPeer *ServerPeer) {
@@ -144,8 +231,8 @@ func (peerManager *PeerManager) peerHandler() {
 	}
 	if !conf.AppConf.DisableDNSSeed {
 		connect.SeedFromDNS(msg.ActiveNetParams, DEFAULT_REQUIRED_SERVICES, conf.AppLookup, func(addresses []*network.PeerAddress) {
-		log.Warn(addresses[0].IP.String())
-				peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
+			log.Warn(addresses[0].IP.String())
+			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
 		})
 		
 	}

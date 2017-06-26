@@ -66,7 +66,8 @@ func loadConfig() (*AppConfig, error) {
 	appConfig := AppConfig{
 		ShowVersion:        true,
 		NoPeerBloomFilters: true,
-		DataDir:            "copernicus"}
+		DataDir:            "copernicus",
+	}
 	
 	appConfig.dial = net.DialTimeout
 	appConfig.lookup = net.LookupIP

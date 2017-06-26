@@ -348,7 +348,7 @@ func (addressManager *NetAddressManager) AddAddressByIP(addressIP string) error 
 func (addressManage *NetAddressManager) Numaddresses() int {
 	//addressManage.lock.Lock()
 	//defer addressManage.lock.Unlock()
-	return addressManage.Numaddresses()
+	return addressManage.addressIndex.Count()
 }
 func (addressManger *NetAddressManager) NeedMoreAddresses() bool {
 	//addressManger.lock.Lock()
