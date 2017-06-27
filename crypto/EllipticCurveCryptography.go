@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/btccom/copernicus/secp256k1/secp256k1"
+	"github.com/btccom/secp256k1-go/secp256k1"
 	"github.com/astaxie/beego/logs"
 )
 

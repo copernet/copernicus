@@ -1,3 +1,0 @@
-[submodule "secp256k1"]
-	path = secp256k1
-	url = git@github.com:btccom/secp256k1-go.git
