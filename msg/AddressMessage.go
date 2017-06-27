@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
-	"copernicus/utils"
-	"copernicus/protocol"
-	"copernicus/network"
+	"github.com/btccom/copernicus/utils"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/network"
 )
 
 const (

@@ -3,9 +3,9 @@ package msg
 import (
 	"fmt"
 	"io"
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/protocol"
 	"github.com/pkg/errors"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 type RejectCode uint8

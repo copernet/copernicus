@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"copernicus/secp256k1/secp256k1"
+	"github.com/btccom/copernicus/secp256k1/secp256k1"
 )
 
 type Signature secp256k1.EcdsaSignature

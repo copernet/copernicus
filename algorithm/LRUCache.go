@@ -17,7 +17,7 @@ type LRUCache struct {
 }
 
 func NewLRUCache(length int) (*LRUCache) {
-
+	
 	return &LRUCache{Length: length,
 		dataList:            list.New(),
 		cacheMap:            make(map[interface{}]*list.Element),
@@ -27,13 +27,13 @@ func (lru *LRUCache) Size() (int) {
 	lru.lock.Lock()
 	defer lru.lock.Unlock()
 	return lru.dataList.Len()
-
+	
 }
 
 func (lru *LRUCache) Add(k, v interface{}) (error) {
 	lru.lock.Lock()
 	defer lru.lock.Unlock()
-
+	
 	if lru.dataList == nil {
 		return errors.New("lurCache is nil")
 	}
@@ -51,10 +51,10 @@ func (lru *LRUCache) Add(k, v interface{}) (error) {
 		}
 		delete(lru.cacheMap, k)
 		lru.dataList.Remove(lastElement)
-
+		
 	}
 	return nil
-
+	
 }
 
 func (lru *LRUCache) Get(k interface{}) (interface{}, bool, error) {
@@ -80,7 +80,7 @@ func (lru *LRUCache) Remove(k interface{}) (bool) {
 		lru.dataList.Remove(element)
 		delete(lru.cacheMap, k)
 		return true
-
+		
 	}
 	return false
 }

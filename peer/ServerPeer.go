@@ -1,16 +1,16 @@
 package peer
 
 import (
-	"copernicus/connect"
+	"github.com/btccom/copernicus/connect"
 	"sync"
 	
-	"copernicus/algorithm"
-	"copernicus/network"
-	"copernicus/conf"
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/algorithm"
+	"github.com/btccom/copernicus/network"
+	"github.com/btccom/copernicus/conf"
+	"github.com/btccom/copernicus/protocol"
 	
-	"copernicus/msg"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/msg"
+	"github.com/btccom/copernicus/utils"
 )
 
 type ServerPeer struct {

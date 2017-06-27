@@ -1,6 +1,6 @@
 package peer
 
-import "copernicus/msg"
+import "github.com/btccom/copernicus/msg"
 
 type StallControlCommand uint8
 

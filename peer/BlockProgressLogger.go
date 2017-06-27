@@ -3,7 +3,7 @@ package peer
 import (
 	"time"
 	"sync"
-	"copernicus/model"
+	"github.com/btccom/copernicus/model"
 )
 
 type BlockProgressLogger struct {

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 type Checkpoint struct {

@@ -1,10 +1,10 @@
 package peer
 
 import (
-	"copernicus/protocol"
-	"copernicus/network"
-	"copernicus/utils"
-	"copernicus/msg"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/network"
+	"github.com/btccom/copernicus/utils"
+	"github.com/btccom/copernicus/msg"
 )
 
 type PeerConfig struct {

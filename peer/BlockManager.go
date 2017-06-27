@@ -2,11 +2,11 @@ package peer
 
 import (
 	
-	"copernicus/model"
+	"github.com/btccom/copernicus/model"
 	"sync"
 	"container/list"
 	"sync/atomic"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 type BlockManager struct {

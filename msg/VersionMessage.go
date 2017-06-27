@@ -1,15 +1,15 @@
 package msg
 
 import (
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/protocol"
 	"time"
 	
 	"fmt"
 	"strings"
 	"io"
 	"bytes"
-	"copernicus/utils"
-	"copernicus/network"
+	"github.com/btccom/copernicus/utils"
+	"github.com/btccom/copernicus/network"
 )
 
 type VersionMessage struct {

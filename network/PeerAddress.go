@@ -4,7 +4,7 @@ import (
 	"time"
 	"net"
 	"io"
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/protocol"
 	"encoding/binary"
 	"github.com/btcsuite/go-socks/socks"
 	"strconv"

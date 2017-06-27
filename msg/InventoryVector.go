@@ -1,10 +1,10 @@
 package msg
 
 import (
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/protocol"
 	"fmt"
 	"io"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 const (

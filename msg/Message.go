@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 	"strings"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 const (

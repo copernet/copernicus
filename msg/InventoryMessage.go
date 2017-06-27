@@ -3,7 +3,7 @@ package msg
 import (
 	"fmt"
 	"io"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 	"errors"
 )
 

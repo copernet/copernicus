@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"sync"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 type Blockchain struct {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"fmt"
 	"time"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 var AppConf *AppConfig

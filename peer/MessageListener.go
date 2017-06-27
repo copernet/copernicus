@@ -1,6 +1,6 @@
 package peer
 
-import "copernicus/msg"
+import "github.com/btccom/copernicus/msg"
 
 type MessageListener struct {
 	OnRead  func(p *Peer, bytesRead int, message msg.Message, err error)

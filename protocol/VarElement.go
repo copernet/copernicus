@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"time"
 	"io"
-	"copernicus/utils"
-	"copernicus/btcutil"
+	"github.com/btccom/copernicus/utils"
+	"github.com/btccom/copernicus/btcutil"
 )
 
 const COMMANG_SIZE = 12

@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	crypto2 "copernicus/crypto"
+	crypto2 "github.com/btccom/copernicus/crypto"
 )
 
 const (

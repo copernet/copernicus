@@ -1,14 +1,14 @@
 package msg
 
 import (
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/protocol"
 	"io"
 	"bytes"
 	"fmt"
 	"github.com/pkg/errors"
-	"copernicus/crypto"
+	"github.com/btccom/copernicus/crypto"
 	"unicode/utf8"
-	"copernicus/btcutil"
+	"github.com/btccom/copernicus/btcutil"
 )
 
 const (

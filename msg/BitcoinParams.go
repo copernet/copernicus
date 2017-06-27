@@ -3,10 +3,10 @@ package msg
 import (
 	"math/big"
 	"time"
-	"copernicus/model"
+	"github.com/btccom/copernicus/model"
 	"github.com/pkg/errors"
-	"copernicus/utils"
-	"copernicus/btcutil"
+	"github.com/btccom/copernicus/utils"
+	"github.com/btccom/copernicus/btcutil"
 )
 
 var ActiveNetParams = &MainNetParams

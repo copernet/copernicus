@@ -2,9 +2,9 @@ package msg
 
 import (
 	"time"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 	
-	"copernicus/model"
+	"github.com/btccom/copernicus/model"
 )
 
 var GenesisCoinbasTx = model.Transaction{}

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 	"sort"
-	"copernicus/algorithm"
+	"github.com/btccom/copernicus/algorithm"
 	
 	"math"
 	"github.com/astaxie/beego/logs"

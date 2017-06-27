@@ -1,7 +1,7 @@
 package mempool
 
 import (
-	"copernicus/msg"
+	"github.com/btccom/copernicus/msg"
 )
 
 type MempoolConfig struct {

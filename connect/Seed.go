@@ -1,14 +1,14 @@
 package connect
 
 import (
-	"copernicus/protocol"
-	"copernicus/network"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/network"
 	"fmt"
 	mrand "math/rand"
 	"time"
 	"strconv"
-	"copernicus/msg"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/msg"
+	"github.com/btccom/copernicus/utils"
 )
 
 const (

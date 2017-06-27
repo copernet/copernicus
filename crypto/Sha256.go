@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/btcsuite/fastsha256"
-	"copernicus/utils"
+	"github.com/btccom/copernicus/utils"
 )
 
 func Sha256Bytes(b []byte) []byte {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
-	"copernicus/utils"
-	"copernicus/protocol"
+	"github.com/btccom/copernicus/utils"
+	"github.com/btccom/copernicus/protocol"
 )
 
 const MAX_GETBLOCKS_COUNT = 500

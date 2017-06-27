@@ -2,7 +2,7 @@ package crypto
 
 import (
 	"github.com/pkg/errors"
-	"copernicus/secp256k1/secp256k1"
+	"github.com/btccom/copernicus/secp256k1/secp256k1"
 )
 
 var (

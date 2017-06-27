@@ -1,7 +1,7 @@
 package msg
 
 import (
-	"copernicus/model"
+	"github.com/btccom/copernicus/model"
 	"io"
 )
 
