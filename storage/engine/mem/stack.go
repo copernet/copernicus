@@ -5,6 +5,10 @@ const (
 	NODE_FIELDS_SIZE = 72
 )
 
+var (
+	emptySlice = make([]byte, 0)
+)
+
 type Node struct {
 	key      []byte
 	value    []byte
