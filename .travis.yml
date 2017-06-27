@@ -14,3 +14,7 @@ install:
 script:
   - export PATH=$PATH:$HOME/gopath/bin
   - ./clean.sh
+addons:
+  ssh_known_hosts:
+  - github.com
+  - ssh.github.com
