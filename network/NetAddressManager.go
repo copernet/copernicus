@@ -53,7 +53,7 @@ type NetAddressManager struct {
 	rand           *rand.Rand
 	key            [32]byte
 	addressIndex   *beegoUtils.BeeMap
-	addressNew     [NEW_BUCKET_COUNT]map[string]*KnownAddress
+	addressNew     [NEW_BUCKET_COUNT]*beegoUtils.BeeMap
 	addressTried   [TRIED_BUCKET_COUNT]*list.List
 	started        int32
 	shutdown       int32
@@ -97,27 +97,28 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 		addressManager.numNew++
 	}
 	bucket := addressManager.getNewBucket(netAddress, srcAddress)
-	_, ok := addressManager.addressNew[bucket][addressString]
+	ok := addressManager.addressNew[bucket].Check(addressString)
 	if ok {
 		return
 	}
-	if len(addressManager.addressNew[bucket]) > NEW_BUCKET_SIZE {
+	if addressManager.addressNew[bucket].Count() > NEW_BUCKET_SIZE {
 		log.Trace("new bucket is full ,expiring old")
 		addressManager.expireNew(bucket)
 		
 	}
 	knownAddress.refs++
-	addressManager.addressNew[bucket][addressString] = knownAddress
+	addressManager.addressNew[bucket].Set(addressString, knownAddress)
 	log.Trace("Added new address %s for a total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
 }
 func (addressManager *NetAddressManager) expireNew(bucket int) {
 	var oldest *KnownAddress
-	for k, v := range addressManager.addressNew[bucket] {
-		if v.IsBad() {
+	for k, v := range addressManager.addressNew[bucket].Items() {
+		knownAddrssValue := v.(*KnownAddress)
+		if knownAddrssValue.IsBad() {
 			log.Trace("expiring bad address %v", k)
-			delete(addressManager.addressNew[bucket], k)
-			v.refs--
-			if v.refs == 0 {
+			addressManager.addressNew[bucket].Delete(k)
+			knownAddrssValue.refs--
+			if knownAddrssValue.refs == 0 {
 				addressManager.numNew--
 				addressManager.addressIndex.Delete(k)
 			}
@@ -125,15 +126,15 @@ func (addressManager *NetAddressManager) expireNew(bucket int) {
 			continue
 		}
 		if oldest == nil {
-			oldest = v
-		} else if !v.NetAddress.Timestamp.After(oldest.NetAddress.Timestamp) {
-			oldest = v
+			oldest = knownAddrssValue
+		} else if !knownAddrssValue.NetAddress.Timestamp.After(oldest.NetAddress.Timestamp) {
+			oldest = knownAddrssValue
 		}
 	}
 	if oldest != nil {
 		key := oldest.NetAddress.NetAddressKey()
 		log.Trace("expiring oldest address %v", key)
-		delete(addressManager.addressNew[bucket], key)
+		addressManager.addressNew[bucket].Delete(key)
 		oldest.refs--
 		if oldest.refs == 0 {
 			addressManager.numNew--
@@ -192,10 +193,10 @@ func (addressManager *NetAddressManager) savePeers() {
 	//	i++
 	//}
 	for i := range addressManager.addressNew {
-		serializedAddressManager.NewBuckets[i] = make([]string, len(addressManager.addressNew[i]))
+		serializedAddressManager.NewBuckets[i] = make([]string, addressManager.addressNew[i].Count())
 		j := 0
-		for k := range addressManager.addressNew[i] {
-			serializedAddressManager.NewBuckets[i][j] = k
+		for k, _ := range addressManager.addressNew[i].Items() {
+			serializedAddressManager.NewBuckets[i][j] = k.(string)
 			j++
 		}
 	}
@@ -391,7 +392,7 @@ func (addressManageer *NetAddressManager) reset() {
 	addressManageer.addressIndex = beegoUtils.NewBeeMap()
 	io.ReadFull(crand.Reader, addressManageer.key[:])
 	for i := range addressManageer.addressNew {
-		addressManageer.addressNew[i] = make(map[string]*KnownAddress)
+		addressManageer.addressNew[i] = beegoUtils.NewBeeMap()
 	}
 	for i := range addressManageer.addressTried {
 		addressManageer.addressTried[i] = list.New()
@@ -427,14 +428,14 @@ func (addressManager *NetAddressManager) GetAddress() *KnownAddress {
 		factor := 1.0
 		for {
 			bucket := addressManager.rand.Intn(len(addressManager.addressNew))
-			if len(addressManager.addressNew[bucket]) == 0 {
+			if addressManager.addressNew[bucket].Count() == 0 {
 				continue
 			}
 			var knownAddress *KnownAddress
-			nth := addressManager.rand.Intn(len(addressManager.addressNew[bucket]))
-			for _, value := range addressManager.addressNew[bucket] {
+			nth := addressManager.rand.Intn(addressManager.addressNew[bucket].Count())
+			for _, value := range addressManager.addressNew[bucket].Items() {
 				if nth == 0 {
-					knownAddress = value
+					knownAddress = value.(*KnownAddress)
 				}
 				nth--
 			}
@@ -492,8 +493,9 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 	addressKey := address.NetAddressKey()
 	oldBucket := 1
 	for i := range addressManager.addressNew {
-		if _, ok := addressManager.addressNew[i][addressKey]; ok {
-			delete(addressManager.addressNew[i], addressKey)
+		ok := addressManager.addressNew[i].Check(addressKey)
+		if ok {
+			addressManager.addressNew[i].Delete(addressKey)
 			knownAddress.refs--
 			if oldBucket == -1 {
 				oldBucket = i
@@ -514,7 +516,7 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 	entry := addressManager.pickTried(bucket)
 	rmKnownAddress := entry.Value.(*KnownAddress)
 	newBucket := addressManager.getNewBucket(rmKnownAddress.NetAddress, rmKnownAddress.SrcAddress)
-	if len(addressManager.addressNew[newBucket]) >= NEW_BUCKET_SIZE {
+	if addressManager.addressNew[newBucket].Count() >= NEW_BUCKET_SIZE {
 		newBucket = oldBucket
 	}
 	knownAddress.tried = true
@@ -525,7 +527,7 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 	
 	rmKey := rmKnownAddress.NetAddress.NetAddressKey()
 	log.Trace("Replaceing %s with %s in tried", rmKey, addressKey)
-	addressManager.addressNew[newBucket][rmKey] = rmKnownAddress
+	addressManager.addressNew[newBucket].Set(rmKey, rmKnownAddress)
 	
 }
 
