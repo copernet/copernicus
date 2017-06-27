@@ -12,8 +12,7 @@ interface. The functions are only exported while the tests are being run.
 package btcutil
 
 import (
-	"copernicus/btcec"
-	"copernicus/btcutil/base58"
+	"github.com/btccom/copernicus/btcutil/base58"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -28,41 +27,6 @@ import (
 // package.
 func TstAppDataDir(goos, appName string, roaming bool) string {
 	return appDataDir(goos, appName, roaming)
-}
-
-// TstAddressPubKeyHash makes an AddressPubKeyHash, setting the
-// unexported fields with the parameters hash and netID.
-func TstAddressPubKeyHash(hash [ripemd160.Size]byte,
-	netID byte) *AddressPubKeyHash {
-	
-	return &AddressPubKeyHash{
-		hash:  hash,
-		netID: netID,
-	}
-}
-
-// TstAddressScriptHash makes an AddressScriptHash, setting the
-// unexported fields with the parameters hash and netID.
-func TstAddressScriptHash(hash [ripemd160.Size]byte,
-	netID byte) *AddressScriptHash {
-	
-	return &AddressScriptHash{
-		hash:  hash,
-		netID: netID,
-	}
-}
-
-// TstAddressPubKey makes an AddressPubKey, setting the unexported fields with
-// the parameters.
-func TstAddressPubKey(serializedPubKey []byte, pubKeyFormat PubKeyFormat,
-	netID byte) *AddressPubKey {
-	
-	pubKey, _ := btcec.ParsePubKey(serializedPubKey, btcec.S256())
-	return &AddressPubKey{
-		pubKeyFormat: pubKeyFormat,
-		pubKey:       (*btcec.PublicKey)(pubKey),
-		pubKeyHashID: netID,
-	}
 }
 
 // TstAddressSAddr returns the expected script address bytes for

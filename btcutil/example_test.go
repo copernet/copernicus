@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 	
-	"copernicus/btcutil"
+	"github.com/btccom/copernicus/btcutil"
 )
 
 func ExampleAmount() {

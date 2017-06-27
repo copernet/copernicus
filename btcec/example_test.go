@@ -8,9 +8,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	
-	"copernicus/btcec"
+	"github.com/btccom/copernicus/btcec"
 	
-	"copernicus/crypto"
+	"github.com/btccom/copernicus/crypto"
 )
 
 // This example demonstrates signing a message with a secp256k1 private key that
