@@ -13,8 +13,27 @@ type Node struct {
 	right    *node
 }
 
-func (m *Node) size() uint64 {
+func NewNode(key, value []byte, priority int) *Node {
+	node := &Node{
+		key:      key,
+		value:    value,
+		priority: priority,
+	}
+	return node
+}
+func (m *Node) Size() uint64 {
 	return NODE_FIELDS_SIZE + uint64(len(m.key)+len(node.value))
+}
+
+func (m *Node) CLone() *Node {
+	node := &Node{
+		key:      m.key,
+		value:    m.value,
+		priority: m.priority,
+		left:     m.left,
+		right:    m.right,
+	}
+	return node
 }
 
 type Stack struct {
