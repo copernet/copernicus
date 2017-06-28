@@ -63,7 +63,7 @@ type BitcoinParams struct {
 
 var MainNetParams = BitcoinParams{
 	Name:        "mainnet",
-	BitcoinNet:  btcutil.MAIN_NET,
+	BitcoinNet:  btcutil.MainNet,
 	DefaultPort: "8333",
 	DNSSeeds: []btcutil.DNSSeed{
 		{"seed.bitcoin.sipa.be", true},  // Pieter Wuille
@@ -128,7 +128,7 @@ var MainNetParams = BitcoinParams{
 }
 var RegressionNetParams = BitcoinParams{
 	Name:                     "regtest",
-	BitcoinNet:               btcutil.TEST_NET,
+	BitcoinNet:               btcutil.TestNet,
 	DefaultPort:              "18444",
 	DNSSeeds:                 []btcutil.DNSSeed{},
 	GenesisBlock:             &RegressionTestGenesisBlock,
@@ -168,7 +168,7 @@ var RegressionNetParams = BitcoinParams{
 
 var TestNet3Params = BitcoinParams{
 	Name:        "testnet3",
-	BitcoinNet:  btcutil.TEST_NET_3,
+	BitcoinNet:  btcutil.TestNet3,
 	DefaultPort: "18333",
 	DNSSeeds: []btcutil.DNSSeed{
 		{"testnet-seed.bitcoin.schildbach.de", false},
@@ -213,7 +213,7 @@ var TestNet3Params = BitcoinParams{
 }
 var SimNetParams = BitcoinParams{
 	Name:                     "simnet",
-	BitcoinNet:               btcutil.SIM_NET,
+	BitcoinNet:               btcutil.SimNet,
 	DefaultPort:              "18555",
 	DNSSeeds:                 []btcutil.DNSSeed{},
 	GenesisBlock:             &SimNetGenesisBlock,

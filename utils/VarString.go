@@ -11,8 +11,8 @@ func ReadVarString(r io.Reader, size uint32) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if count > MAX_SIZE {
-		str := fmt.Sprintf("variable length sring is too long count %d ,max %d", count, MAX_SIZE)
+	if count > MaxSize {
+		str := fmt.Sprintf("variable length sring is too long count %d ,max %d", count, MaxSize)
 		return "", errors.New(str)
 
 	}

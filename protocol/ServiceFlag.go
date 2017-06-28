@@ -9,14 +9,14 @@ type ServiceFlag uint64
 
 func (f ServiceFlag) ToString() string {
 	var orderedSFString = []ServiceFlag{
-		SF_NODE_NETWORK_AS_FULL_NODE,
-		SF_NODE_GET_UTXO,
-		SF_NODE_BLOOM_FILTER,
+		SFNodeNetworkAsFullNode,
+		SFNodeGetUtxo,
+		SFNodeBloomFilter,
 	}
 	var sfStrings = map[ServiceFlag]string{
-		SF_NODE_NETWORK_AS_FULL_NODE: "SFNodeNetwork",
-		SF_NODE_BLOOM_FILTER:         "SFNodeBloom",
-		SF_NODE_GET_UTXO:             "SFNodeGetUTXO",
+		SFNodeNetworkAsFullNode: "SFNodeNetwork",
+		SFNodeBloomFilter:       "SFNodeBloom",
+		SFNodeGetUtxo:           "SFNodeGetUTXO",
 	}
 	if f == 0 {
 		return "0x0"

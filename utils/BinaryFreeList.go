@@ -7,20 +7,20 @@ import (
 )
 
 const (
-	IO_MAX_SIZE = 1024
-	MAX_SIZE            = 0x02000000
+	IoMaxSize = 1024
+	MaxSize   = 0x02000000
 )
 
 type BinaryFreeList chan []byte
 
-var BinarySerializer BinaryFreeList = make(chan []byte, IO_MAX_SIZE)
+var BinarySerializer BinaryFreeList = make(chan []byte, IoMaxSize)
 
 func (l BinaryFreeList) BorrowFront8() (buf []byte) {
 	select {
 	case buf = <-l:
 	default:
 		buf = make([]byte, 8)
-
+		
 	}
 	return buf[:8]
 }
@@ -73,7 +73,7 @@ func (b BinaryFreeList) Uint64(r io.Reader, byteOrder binary.ByteOrder) (uint64,
 	rv := byteOrder.Uint64(buf)
 	b.Return(buf)
 	return rv, nil
-
+	
 }
 func (b BinaryFreeList) PutUint8(w io.Writer, val uint8) error {
 	buf := b.BorrowFront8()[:1]
@@ -91,7 +91,7 @@ func (b BinaryFreeList) PutUint16(w io.Writer, byteOrder binary.ByteOrder, val u
 	return err
 }
 func (b BinaryFreeList) PutUint32(w io.Writer, byteOrder binary.ByteOrder, val uint32) error {
-
+	
 	buf := b.BorrowFront8()[:4]
 	byteOrder.PutUint32(buf, val)
 	_, err := w.Write(buf)

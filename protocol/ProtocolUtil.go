@@ -6,8 +6,8 @@ import (
 )
 
 func ValidateUserAgent(useAgent string) error {
-	if len(useAgent) > MAX_USER_AGENT_LEN {
-		str := fmt.Sprintf("userAgent len : %v,max : %v", len(useAgent), MAX_USER_AGENT_LEN)
+	if len(useAgent) > MaxUserAgentLen {
+		str := fmt.Sprintf("userAgent len : %v,max : %v", len(useAgent), MaxUserAgentLen)
 		return errors.New(str)
 
 	}

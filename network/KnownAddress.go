@@ -41,13 +41,13 @@ func (knownAddress *KnownAddress) IsBad() bool {
 	if knownAddress.NetAddress.Timestamp.After(time.Now().Add(10 * time.Minute)) {
 		return true
 	}
-	if knownAddress.NetAddress.Timestamp.Before(time.Now().Add(-1 * NUM_MISSING_DAYS * time.Hour * 24)) {
+	if knownAddress.NetAddress.Timestamp.Before(time.Now().Add(-1 * NumMissingDays * time.Hour * 24)) {
 		return true
 	}
-	if knownAddress.lastSuccess.IsZero() && knownAddress.attempts >= NUMRETIES {
+	if knownAddress.lastSuccess.IsZero() && knownAddress.attempts >= NumReties {
 		return true
 	}
-	if !knownAddress.lastSuccess.After(time.Now().Add(-1 * MIN_BAD_DAYS * time.Hour * 24)) && knownAddress.attempts >= MAX_FAILURES {
+	if !knownAddress.lastSuccess.After(time.Now().Add(-1 * MinBadDays * time.Hour * 24)) && knownAddress.attempts >= MaxFailures {
 		return true
 	}
 	return false

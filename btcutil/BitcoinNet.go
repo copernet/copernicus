@@ -6,18 +6,18 @@ import "fmt"
 type BitcoinNet uint32
 
 const (
-	MAIN_NET   BitcoinNet = 0xd9b4bef9
-	TEST_NET   BitcoinNet = 0xdab5bffa
-	TEST_NET_3 BitcoinNet = 0x0709110b
-	SIM_NET    BitcoinNet = 0x12141c16
+	MainNet  BitcoinNet = 0xd9b4bef9
+	TestNet  BitcoinNet = 0xdab5bffa
+	TestNet3 BitcoinNet = 0x0709110b
+	SimNet   BitcoinNet = 0x12141c16
 )
 
 func (n BitcoinNet) ToString() string {
 	var bnStrings = map[BitcoinNet]string{
-		MAIN_NET:   "MainNet",
-		TEST_NET:   "TestNet",
-		TEST_NET_3: "TestNet3",
-		SIM_NET:    "SimNet",
+		MainNet:  "MainNet",
+		TestNet:  "TestNet",
+		TestNet3: "TestNet3",
+		SimNet:   "SimNet",
 	}
 	result, exist := bnStrings[n]
 	if exist {

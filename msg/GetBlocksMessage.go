@@ -8,7 +8,7 @@ import (
 	"github.com/btccom/copernicus/protocol"
 )
 
-const MAX_GETBLOCKS_COUNT = 500
+const MaxGetBlocksCount = 500
 
 type GetBlocksMessage struct {
 	ProtocolVersion uint32
@@ -17,8 +17,8 @@ type GetBlocksMessage struct {
 }
 
 func (getBlockMessage *GetBlocksMessage) AddBlockHash(hash *utils.Hash) error {
-	if len(getBlockMessage.BlockHashes) > MAX_ADDRESSES_COUNT-1 {
-		str := fmt.Sprintf("block hashes is too many %v", MAX_ADDRESSES_COUNT)
+	if len(getBlockMessage.BlockHashes) > MaxAddressesCount-1 {
+		str := fmt.Sprintf("block hashes is too many %v", MaxAddressesCount)
 		return errors.New(str)
 	}
 	getBlockMessage.BlockHashes = append(getBlockMessage.BlockHashes, hash)
@@ -33,8 +33,8 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 	if err != nil {
 		return err
 	}
-	if count > MAX_ADDRESSES_COUNT {
-		str := fmt.Sprintf("block hashes is too many %v ,max %v", count, MAX_ADDRESSES_COUNT)
+	if count > MaxAddressesCount {
+		str := fmt.Sprintf("block hashes is too many %v ,max %v", count, MaxAddressesCount)
 		return errors.New(str)
 	}
 	// Create a contiguous slice of hashes to deserialize into in order to
@@ -56,8 +56,8 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 	
 	count := len(getBlockMessage.BlockHashes)
-	if count > MAX_GETBLOCKS_COUNT {
-		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MAX_GETBLOCKS_COUNT)
+	if count > MaxGetBlocksCount {
+		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MaxGetBlocksCount)
 		return errors.New(str)
 	}
 	err := protocol.WriteElement(w, getBlockMessage.ProtocolVersion)
@@ -79,16 +79,16 @@ func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint
 	
 }
 func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
-	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * utils.HASH_SIZE) + utils.HASH_SIZE
+	return 4 + MaxVarIntPayload + (MaxGetBlocksCount * utils.HashSize) + utils.HashSize
 }
 func (getBlocksMessage *GetBlocksMessage) Command() string {
-	return COMMAND_GET_BLOCKS
+	return CommandGetBlocks
 }
 
 func NewGetBlocksMessage(hashStop *utils.Hash) *GetBlocksMessage {
 	getBlockMessage := GetBlocksMessage{
-		ProtocolVersion: protocol.BITCOIN_PROTOCOL_VERSION,
-		BlockHashes:     make([]*utils.Hash, 0, MAX_BLOCK_SIZE),
+		ProtocolVersion: protocol.BitcoinProtocolVersion,
+		BlockHashes:     make([]*utils.Hash, 0, MaxBlockSize),
 		HashStop:        hashStop,
 	}
 	return &getBlockMessage

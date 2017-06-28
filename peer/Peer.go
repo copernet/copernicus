@@ -24,14 +24,14 @@ import (
 )
 
 const (
-	MAX_INVENTORY_TICKLE_SIZE = 1000
-	STALL_RESPONSE_TIMEOUT    = 30 * time.Second
-	STALL_TICK_INTERVAL       = 15 * time.Second
-	IDLE_TIMEOUT              = 5 * time.Minute
-	TRICKLE_TIMEOUT           = 10 * time.Second
-	PING_INTERVAL             = 2 * time.Minute
-	NEGOTIATE_TIMEOUT         = 30 * time.Second
-	OUT_PUT_BUFFER_SIZE       = 50
+	MaxInventoryTickleSize = 1000
+	StallResponseTimeout   = 30 * time.Second
+	StallTickInterval      = 15 * time.Second
+	IdleTimeout            = 5 * time.Minute
+	TrickleTimeout         = 10 * time.Second
+	PingInterval           = 2 * time.Minute
+	NegotiateTimeOut       = 30 * time.Second
+	OutPutBufferSize       = 50
 )
 
 func init() {
@@ -191,7 +191,7 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 	sentNoces.Add(nonce, nonce)
 	msg := msg.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
 	msg.AddUserAgent(p.Config.UserAgent, p.Config.UserAgentVersion)
-	msg.LocalAddress.ServicesFlag = protocol.SF_NODE_NETWORK_AS_FULL_NODE
+	msg.LocalAddress.ServicesFlag = protocol.SFNodeNetworkAsFullNode
 	msg.ServiceFlag = p.Config.ServicesFlag
 	msg.ProtocolVersion = p.ProtocolVersion
 	msg.DisableRelayTx = p.Config.DisableRelayTx
@@ -202,10 +202,10 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 	if sentNoces.Exists(versionMessage.Nonce) {
 		return errors.New("disconnecting peer connected to self")
 	}
-	if versionMessage.ProtocolVersion < protocol.MULTIPLE_ADDRESS_VERSION {
+	if versionMessage.ProtocolVersion < protocol.MultipleAddressVersion {
 		
-		str := fmt.Sprintf("protocol version must be %d or greater", protocol.MULTIPLE_ADDRESS_VERSION)
-		rejectMessage := msg.NewRejectMessage(msg.COMMAND_VERSION, msg.REJECT_OBSOLETE, str)
+		str := fmt.Sprintf("protocol version must be %d or greater", protocol.MultipleAddressVersion)
+		rejectMessage := msg.NewRejectMessage(msg.CommandVersion, msg.RejectObsolete, str)
 		err := p.WriteMessage(rejectMessage)
 		return err
 		
@@ -279,13 +279,13 @@ func (p *Peer) SendAddrMessage(addresses []*network.PeerAddress) ([]*network.Pee
 	}
 	length := len(addresses)
 	addressMessage := msg.AddressMessage{AddressList: make([]*network.PeerAddress, 0, length)}
-	if len(addressMessage.AddressList) > msg.MAX_ADDRESSES_COUNT {
+	if len(addressMessage.AddressList) > msg.MaxAddressesCount {
 		for i := range addressMessage.AddressList {
 			j := rand.Intn(i + 1)
 			addressMessage.AddressList[i], addressMessage.AddressList[j] = addressMessage.AddressList[j], addressMessage.AddressList[i]
 			
 		}
-		addressMessage.AddressList = addressMessage.AddressList[:msg.MAX_ADDRESSES_COUNT]
+		addressMessage.AddressList = addressMessage.AddressList[:msg.MaxAddressesCount]
 	}
 	p.SendMessage(&addressMessage, nil)
 	return addressMessage.AddressList, nil
@@ -357,12 +357,12 @@ func (p *Peer) SendGetHeadersMessage(locator []*utils.Hash, stopHash *utils.Hash
 }
 
 func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason string, hash *utils.Hash, wait bool) {
-	if p.VersionKnown && p.ProtocolVersion < protocol.REJECT_VERSION {
+	if p.VersionKnown && p.ProtocolVersion < protocol.RejectVersion {
 		return
 	}
 	var zeroHash utils.Hash
 	rejectMessage := msg.NewRejectMessage(command, code, reason)
-	if command == msg.COMMAND_TX || command == msg.COMMAND_BLOCK {
+	if command == msg.CommandTx || command == msg.CommandBlock {
 		if hash == nil {
 			log.Warn("sending a reject message for command type %v which should have specified a hash ", command)
 			hash = &zeroHash
@@ -379,8 +379,8 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	
 }
 func (p *Peer) IsValidBIP0111(command string) bool {
-	if p.ServiceFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
-		if p.ProtocolVersion >= protocol.BIP0111_VERSION {
+	if p.ServiceFlag&protocol.SFNodeBloomFilter != protocol.SFNodeBloomFilter {
+		if p.ProtocolVersion >= protocol.Bip0111Version {
 			log.Debug("%s sent an unsupported %s request --disconnecting", p, command)
 			p.Stop()
 			
@@ -393,7 +393,7 @@ func (p *Peer) IsValidBIP0111(command string) bool {
 	return true
 }
 func (p *Peer) HandlePingMessage(pingMessage *msg.PingMessage) {
-	if p.ProtocolVersion > protocol.BIP0031_VERSION {
+	if p.ProtocolVersion > protocol.Bip0031Version {
 		pongMessage := msg.InitPondMessage(pingMessage.Nonce)
 		p.SendMessage(pongMessage, nil)
 	}
@@ -401,7 +401,7 @@ func (p *Peer) HandlePingMessage(pingMessage *msg.PingMessage) {
 func (p *Peer) HandlePongMessage(pongMessage *msg.PongMessage) {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
-	if p.ProtocolVersion > protocol.BIP0031_VERSION && p.PingNonce != 0 && pongMessage.Nonce == p.PingNonce {
+	if p.ProtocolVersion > protocol.Bip0031Version && p.PingNonce != 0 && pongMessage.Nonce == p.PingNonce {
 		p.PingMicros = (time.Now().Sub(p.PingTime).Nanoseconds()) / 1000
 		p.PingNonce = 0
 	}
@@ -437,7 +437,7 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 	
 }
 func (p *Peer) IsAllowedReadError(err error) bool {
-	if p.Config.ChainParams.BitcoinNet != btcutil.TEST_NET {
+	if p.Config.ChainParams.BitcoinNet != btcutil.TestNet {
 		return false
 	}
 	host, _, err := net.SplitHostPort(p.AddressString)
@@ -464,21 +464,21 @@ func (p *Peer) shouldHandleReadError(err error) bool {
 	
 }
 func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, command string) {
-	deadLine := time.Now().Add(STALL_RESPONSE_TIMEOUT)
+	deadLine := time.Now().Add(StallResponseTimeout)
 	switch command {
-	case msg.COMMAND_VERSION:
-		pendingResponses[msg.COMMAND_VERSION_ACK] = deadLine
-	case msg.COMMAND_MEMPOOL:
-		pendingResponses[msg.COMMAND_INV] = deadLine
-	case msg.COMMAND_GET_BLOCKS:
-		pendingResponses[msg.COMMAND_INV] = deadLine
-	case msg.COMMAND_GET_DATA:
-		pendingResponses[msg.COMMAND_BLOCK] = deadLine
-		pendingResponses[msg.COMMAND_TX] = deadLine
-		pendingResponses[msg.COMMAND_NOT_FOUND] = deadLine
-	case msg.COMMAND_GET_HEADERS:
-		deadLine = time.Now().Add(STALL_RESPONSE_TIMEOUT * 3)
-		pendingResponses[msg.COMMAND_HEADERS] = deadLine
+	case msg.CommandVersion:
+		pendingResponses[msg.CommandVersionAck] = deadLine
+	case msg.CommandMempool:
+		pendingResponses[msg.CommandInv] = deadLine
+	case msg.CommandGetBlocks:
+		pendingResponses[msg.CommandInv] = deadLine
+	case msg.CommandGetData:
+		pendingResponses[msg.CommandBlock] = deadLine
+		pendingResponses[msg.CommandTx] = deadLine
+		pendingResponses[msg.CommandNotFound] = deadLine
+	case msg.CommandGetHeaders:
+		deadLine = time.Now().Add(StallResponseTimeout * 3)
+		pendingResponses[msg.CommandHeaders] = deadLine
 		
 	}
 	
@@ -488,7 +488,7 @@ func (p *Peer) stallHandler() {
 	var handlerStartTime time.Time
 	var deadlineOffset time.Duration
 	pendingResponses := make(map[string]time.Time)
-	stallTicker := time.NewTicker(STALL_TICK_INTERVAL)
+	stallTicker := time.NewTicker(StallTickInterval)
 	defer stallTicker.Stop()
 	var ioStopped bool
 out:
@@ -500,14 +500,14 @@ out:
 				p.maybeAddDeadline(pendingResponses, stall.Message.Command())
 			case SccReceiveMessage:
 				switch messageCommand := stall.Message.Command(); messageCommand {
-				case msg.COMMAND_BLOCK:
+				case msg.CommandBlock:
 					fallthrough
-				case msg.COMMAND_TX:
+				case msg.CommandTx:
 					fallthrough
-				case msg.COMMAND_NOT_FOUND:
-					delete(pendingResponses, msg.COMMAND_BLOCK)
-					delete(pendingResponses, msg.COMMAND_TX)
-					delete(pendingResponses, msg.COMMAND_NOT_FOUND)
+				case msg.CommandNotFound:
+					delete(pendingResponses, msg.CommandBlock)
+					delete(pendingResponses, msg.CommandTx)
+					delete(pendingResponses, msg.CommandNotFound)
 				default:
 					delete(pendingResponses, messageCommand)
 				}
@@ -574,8 +574,8 @@ cleanup:
 	
 }
 func (p *Peer) inHandler() {
-	idleTimer := time.AfterFunc(IDLE_TIMEOUT, func() {
-		log.Warn("Peer %s no answer for %s --disconnectind", p, IDLE_TIMEOUT)
+	idleTimer := time.AfterFunc(IdleTimeout, func() {
+		log.Warn("Peer %s no answer for %s --disconnectind", p, IdleTimeout)
 		p.Stop()
 	})
 out:
@@ -586,13 +586,13 @@ out:
 		if err != nil {
 			if p.IsAllowedReadError(err) {
 				log.Error("Allowed test error from %s :%v", p, err)
-				idleTimer.Reset(IDLE_TIMEOUT)
+				idleTimer.Reset(IdleTimeout)
 				continue
 			}
 			if p.shouldHandleReadError(err) {
 				errMessage := fmt.Sprintf("Can't read message from %s: %v", p.String(), err)
 				log.Error(errMessage)
-				p.SendRejectMessage("malformed", msg.REJECT_MALFORMED, errMessage, nil, true)
+				p.SendRejectMessage("malformed", msg.RejectMalformed, errMessage, nil, true)
 				
 			}
 			break out
@@ -603,7 +603,7 @@ out:
 		//todo add other message
 		switch message := readMessage.(type) {
 		case *msg.VersionMessage:
-			p.SendRejectMessage(message.Command(), msg.REJECT_DUPLICATE, "duplicate version message", nil, true)
+			p.SendRejectMessage(message.Command(), msg.RejectDuplicate, "duplicate version message", nil, true)
 			break out
 		case *msg.PingMessage:
 			p.HandlePingMessage(message)
@@ -616,7 +616,7 @@ out:
 		}
 		
 		p.StallControl <- StallControlMessage{SccHandlerDone, readMessage}
-		idleTimer.Reset(IDLE_TIMEOUT)
+		idleTimer.Reset(IdleTimeout)
 		
 	}
 	idleTimer.Stop()
@@ -629,7 +629,7 @@ out:
 func (p *Peer) queueHandler() {
 	pendingMessages := list.New()
 	invSendQueue := list.New()
-	trickleTicker := time.NewTicker(TRICKLE_TIMEOUT)
+	trickleTicker := time.NewTicker(TrickleTimeout)
 	defer trickleTicker.Stop()
 	waiting := false
 	queuePacket := func(outMsg msg.OutMessage, list *list.List, waiting bool) bool {
@@ -668,7 +668,7 @@ out:
 					continue
 				}
 				inventoryMessage.AddInventoryVector(iv)
-				if len(inventoryMessage.InventoryList) >= MAX_INVENTORY_TICKLE_SIZE {
+				if len(inventoryMessage.InventoryList) >= MaxInventoryTickleSize {
 					waiting = queuePacket(
 						msg.OutMessage{Message: inventoryMessage},
 						pendingMessages, waiting,
@@ -713,14 +713,14 @@ cleanup:
 }
 
 func (p *Peer) outHandler() {
-	pingTicker := time.NewTicker(PING_INTERVAL)
+	pingTicker := time.NewTicker(PingInterval)
 out:
 	for {
 		select {
 		case message := <-p.SendQueue:
 			switch m := message.Message.(type) {
 			case *msg.PingMessage:
-				if p.ProtocolVersion > protocol.BIP0031_VERSION {
+				if p.ProtocolVersion > protocol.Bip0031Version {
 					p.PeerStatusMutex.Lock()
 					p.PingNonce = m.Nonce
 					p.PingTime = time.Now()
@@ -846,7 +846,7 @@ func (p *Peer) readRemoteVersionMessage() error {
 	if !ok {
 		errStr := "A version message must precede all  others"
 		log.Error(errStr)
-		rejectMessage := msg.NewRejectMessage(message.Command(), msg.REJECT_MALFORMED, errStr)
+		rejectMessage := msg.NewRejectMessage(message.Command(), msg.RejectMalformed, errStr)
 		err := p.WriteMessage(rejectMessage)
 		if err != nil {
 			return err
@@ -898,7 +898,7 @@ func (p *Peer) start() error {
 		if err != nil {
 			return err
 		}
-	case <-time.After(NEGOTIATE_TIMEOUT):
+	case <-time.After(NegotiateTimeOut):
 		return errors.New("protocol negotiation timeout ")
 	}
 	log.Debug("Connected to %s", p.AddressString)
@@ -926,7 +926,7 @@ func (p *Peer) Stop() {
 }
 
 func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
-	protocolVersion := protocol.MAX_PROTOCOL_VERSION
+	protocolVersion := protocol.MaxProtocolVersion
 	if peerConfig.ProtocolVersion != 0 {
 		protocolVersion = peerConfig.ProtocolVersion
 	}
@@ -935,11 +935,11 @@ func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
 	}
 	perr := Peer{
 		Inbound:         inbound,
-		knownInventory:  algorithm.NewLRUCache(protocol.MAX_KNOWN_INVENTORY),
+		knownInventory:  algorithm.NewLRUCache(protocol.MaxKnownInventory),
 		StallControl:    make(chan StallControlMessage, 1),
-		OutputQueue:     make(chan msg.OutMessage, OUT_PUT_BUFFER_SIZE),
+		OutputQueue:     make(chan msg.OutMessage, OutPutBufferSize),
 		SendQueue:       make(chan msg.OutMessage, 1),
-		outputInvChan:   make(chan *msg.InventoryVector, OUT_PUT_BUFFER_SIZE),
+		outputInvChan:   make(chan *msg.InventoryVector, OutPutBufferSize),
 		inQuit:          make(chan struct{}),
 		queueQuit:       make(chan struct{}),
 		outQuit:         make(chan struct{}),

@@ -26,22 +26,22 @@ import (
 )
 
 const (
-	NEW_BUCKET_COUNT         = 1024
-	TRIED_BUCKET_COUNT       = 64
-	TRIED_BUCKETS_PEER_GROUP = 8
-	NUM_MISSING_DAYS         = 30
-	NUMRETIES                = 3
-	MIN_BAD_DAYS             = 7
-	MAX_FAILURES             = 10
-	NEW_BUCKETS_PEER_ADDRESS = 8
-	NEW_BUCKETS_PEER_GROUP   = 64
-	NEW_BUCKET_SIZE          = 64
-	DUMP_ADDRESS_INTERVAL    = time.Minute * 10
-	SERIALISATION_VERSION    = 1
-	NEED_ADDRESS_THRESHOLD   = 1000
-	GET_ADDRESS_PERCENT      = 23
-	GET_ADDRESS_MAX          = 2500
-	TRIED_BUCKET_SIZE        = 256
+	BucketCount           = 1024
+	TriedBucketCount      = 64
+	TriedBucketsPeerGroup = 8
+	NumMissingDays        = 30
+	NumReties             = 3
+	MinBadDays            = 7
+	MaxFailures           = 10
+	BucketsPeerAddress    = 8
+	NewBucketsPeerGroup   = 64
+	NewBucketSize         = 64
+	DumpAddressInterval   = time.Minute * 10
+	SerialisationVersion  = 1
+	NeedAddressThreshold  = 1000
+	AddressPercent        = 23
+	AddressMax            = 2500
+	TriedBucketSize       = 256
 )
 
 var log = logs.NewLogger()
@@ -53,8 +53,8 @@ type NetAddressManager struct {
 	rand           *rand.Rand
 	key            [32]byte
 	addressIndex   *beegoUtils.BeeMap
-	addressNew     [NEW_BUCKET_COUNT]*beegoUtils.BeeMap
-	addressTried   [TRIED_BUCKET_COUNT]*list.List
+	addressNew     [BucketCount]*beegoUtils.BeeMap
+	addressTried   [TriedBucketCount]*list.List
 	started        int32
 	shutdown       int32
 	waitGroup      sync.WaitGroup
@@ -82,7 +82,7 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 		if knownAddress.tried {
 			return
 		}
-		if knownAddress.refs == NEW_BUCKETS_PEER_ADDRESS {
+		if knownAddress.refs == BucketsPeerAddress {
 			return
 		}
 		factor := int32(2 * knownAddress.refs)
@@ -101,7 +101,7 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 	if ok {
 		return
 	}
-	if addressManager.addressNew[bucket].Count() > NEW_BUCKET_SIZE {
+	if addressManager.addressNew[bucket].Count() > NewBucketSize {
 		log.Trace("new bucket is full ,expiring old")
 		addressManager.expireNew(bucket)
 		
@@ -163,7 +163,7 @@ func (addressManager *NetAddressManager) getTriedBucket(netAddress *PeerAddress)
 	dataFrist = append(dataFrist, []byte(netAddress.NetAddressKey())...)
 	hashFrist := crypto.DoubleSha256Bytes(dataFrist)
 	hash64 := binary.LittleEndian.Uint64(hashFrist)
-	hash64 %= TRIED_BUCKETS_PEER_GROUP
+	hash64 %= TriedBucketsPeerGroup
 	var hashBuf [8]byte
 	binary.LittleEndian.PutUint64(hashBuf[:], hash64)
 	dataSecond := []byte{}
@@ -171,14 +171,14 @@ func (addressManager *NetAddressManager) getTriedBucket(netAddress *PeerAddress)
 	dataSecond = append(dataSecond, netAddress.GroupKey()...)
 	dataSecond = append(dataSecond, hashBuf[:]...)
 	hashSecond := crypto.DoubleSha256Bytes(dataSecond)
-	return int(binary.LittleEndian.Uint64(hashSecond) % TRIED_BUCKET_COUNT)
+	return int(binary.LittleEndian.Uint64(hashSecond) % TriedBucketCount)
 	
 }
 func (addressManager *NetAddressManager) savePeers() {
 	addressManager.lock.Lock()
 	defer addressManager.lock.Unlock()
 	serializedAddressManager := new(SerializedAddressManager)
-	serializedAddressManager.Version = SERIALISATION_VERSION
+	serializedAddressManager.Version = SerialisationVersion
 	copy(serializedAddressManager.Key[:], addressManager.key[:])
 	//serializedAddressManager.Addresses = make([]*SerializedKnownAddress, len(addressManager.addressIndex))
 	//i := 0
@@ -222,7 +222,7 @@ func (addressManager *NetAddressManager) savePeers() {
 	}
 }
 func (addressManager *NetAddressManager) addressHandler() {
-	dumpAddressTicker := time.NewTicker(DUMP_ADDRESS_INTERVAL)
+	dumpAddressTicker := time.NewTicker(DumpAddressInterval)
 	defer dumpAddressTicker.Stop()
 out:
 	for {
@@ -253,7 +253,7 @@ func (addressManager *NetAddressManager) DeserializeNetAddress(addressString str
 	if err != nil {
 		return nil, err
 	}
-	return addressManager.HostToNetAddress(host, uint16(port), protocol.SF_NODE_NETWORK_AS_FULL_NODE)
+	return addressManager.HostToNetAddress(host, uint16(port), protocol.SFNodeNetworkAsFullNode)
 }
 func (addressManager *NetAddressManager) HostToNetAddress(host string, port uint16, servicesFlag protocol.ServiceFlag) (*PeerAddress, error) {
 	var ip net.IP
@@ -286,7 +286,7 @@ func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddre
 	dataFirst = append(dataFirst, []byte(srcAddr.GroupKey())...)
 	hashFirst := crypto.DoubleSha256Bytes(dataFirst)
 	hash64 := binary.LittleEndian.Uint64(hashFirst)
-	hash64 %= NEW_BUCKETS_PEER_GROUP
+	hash64 %= NewBucketsPeerGroup
 	var hashbuf [8]byte
 	binary.LittleEndian.PutUint64(hashbuf[:], hash64)
 	dataSecond := []byte{}
@@ -294,7 +294,7 @@ func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddre
 	dataSecond = append(dataSecond, srcAddr.GroupKey()...)
 	dataSecond = append(dataSecond, hashbuf[:]...)
 	hashSecond := crypto.DoubleSha256Bytes(dataSecond)
-	return int(binary.LittleEndian.Uint64(hashSecond) % NEW_BUCKET_COUNT)
+	return int(binary.LittleEndian.Uint64(hashSecond) % BucketCount)
 	
 }
 func (addressManager *NetAddressManager) Start() {
@@ -354,7 +354,7 @@ func (addressManage *NetAddressManager) Numaddresses() int {
 func (addressManger *NetAddressManager) NeedMoreAddresses() bool {
 	//addressManger.lock.Lock()
 	//defer addressManger.lock.Unlock()
-	return addressManger.Numaddresses() < NEED_ADDRESS_THRESHOLD
+	return addressManger.Numaddresses() < NeedAddressThreshold
 }
 func (a *NetAddressManager) find(peerAddress *PeerAddress) *KnownAddress {
 	//a.lock.Lock()
@@ -376,9 +376,9 @@ func (addressManager *NetAddressManager) AddressCache() []*PeerAddress {
 	//for _, v := range addressManager.addressIndex {
 	//	allAddress = append(allAddress, v.NetAddress)
 	//}
-	numAddresses := addressIndexLen * GET_ADDRESS_PERCENT / 100
-	if numAddresses > GET_ADDRESS_MAX {
-		numAddresses = GET_ADDRESS_MAX
+	numAddresses := addressIndexLen * AddressPercent / 100
+	if numAddresses > AddressMax {
+		numAddresses = AddressMax
 	}
 	for i := 0; i < numAddresses; i++ {
 		j := rand.Intn(addressIndexLen-i) + i
@@ -507,7 +507,7 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 		return
 	}
 	bucket := addressManager.getTriedBucket(knownAddress.NetAddress)
-	if addressManager.addressTried[bucket].Len() < TRIED_BUCKET_SIZE {
+	if addressManager.addressTried[bucket].Len() < TriedBucketSize {
 		knownAddress.tried = true
 		addressManager.addressTried[bucket].PushBack(knownAddress)
 		addressManager.numTried++
@@ -516,7 +516,7 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 	entry := addressManager.pickTried(bucket)
 	rmKnownAddress := entry.Value.(*KnownAddress)
 	newBucket := addressManager.getNewBucket(rmKnownAddress.NetAddress, rmKnownAddress.SrcAddress)
-	if addressManager.addressNew[newBucket].Count() >= NEW_BUCKET_SIZE {
+	if addressManager.addressNew[newBucket].Count() >= NewBucketSize {
 		newBucket = oldBucket
 	}
 	knownAddress.tried = true
@@ -578,7 +578,7 @@ func (addressManager *NetAddressManager) GetBestLocalAddress(remoteAddress *Peer
 		} else {
 			ip = net.IPv4zero
 		}
-		bestAddress = NewPeerAddressIPPort(protocol.SF_NODE_NETWORK_AS_FULL_NODE, ip, 0)
+		bestAddress = NewPeerAddressIPPort(protocol.SFNodeNetworkAsFullNode, ip, 0)
 		
 	}
 	return bestAddress

@@ -14,7 +14,7 @@ func (getAddressMessage *GetAddressMessage) BitcoinParse(reader io.Reader, size 
 }
 
 func (getAddressMessage *GetAddressMessage) Command() string {
-	return COMMAND_GET_ADDRESS
+	return CommandGetAddress
 }
 
 func (getAddressMessage *GetAddressMessage) MaxPayloadLength(size uint32) uint32 {

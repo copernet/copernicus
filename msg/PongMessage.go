@@ -12,7 +12,7 @@ type PongMessage struct {
 }
 
 func (pongMessage *PongMessage) BitcoinParse(reader io.Reader, pver uint32) error {
-	if pver <= protocol.BIP0031_VERSION {
+	if pver <= protocol.Bip0031Version {
 		str := fmt.Sprintf("pong message invalid for protocol version %d", pver)
 		return errors.New(str)
 	}
@@ -21,7 +21,7 @@ func (pongMessage *PongMessage) BitcoinParse(reader io.Reader, pver uint32) erro
 }
 
 func (pongMessage *PongMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
-	if pver <= protocol.BIP0031_VERSION {
+	if pver <= protocol.Bip0031Version {
 		str := fmt.Sprintf("pong message invalid for protocol version %d", pver)
 		return errors.New(str)
 		
@@ -31,12 +31,12 @@ func (pongMessage *PongMessage) BitcoinSerialize(w io.Writer, pver uint32) error
 }
 
 func (pongMessage *PongMessage) Command() string {
-	return COMMAND_PONG
+	return CommandPong
 }
 
 func (pongMessage *PongMessage) MaxPayloadLength(pver uint32) uint32 {
 	payloadLength := uint32(0)
-	if pver > protocol.BIP0031_VERSION {
+	if pver > protocol.Bip0031Version {
 		payloadLength += 8
 	}
 	return payloadLength

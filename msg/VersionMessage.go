@@ -27,7 +27,7 @@ type VersionMessage struct {
 
 func GetNewVersionMessage(localAddr *network.PeerAddress, remoteAddr *network.PeerAddress, nonce uint64, lastBlock int32) *VersionMessage {
 	versionMessage := VersionMessage{
-		ProtocolVersion: protocol.BITCOIN_PROTOCOL_VERSION,
+		ProtocolVersion: protocol.BitcoinProtocolVersion,
 		ServiceFlag:     0,
 		Timestamp:       time.Unix(time.Now().Unix(), 0),
 		RemoteAddress:   remoteAddr,
@@ -141,7 +141,7 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if err != nil {
 		return err
 	}
-	if size >= protocol.BIP0037_VERSION {
+	if size >= protocol.Bip0037Version {
 		err = protocol.WriteElement(w, !versionMessage.DisableRelayTx)
 		if err != nil {
 			return err
@@ -151,8 +151,8 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 }
 
 func (versionMessage *VersionMessage) MaxPayloadLength(pver uint32) uint32 {
-	return 33 + (network.MaxPeerAddressPayload(pver) * 2) + MAX_VAR_INT_PAYLOAD + MAX_USERAGENT_LEN
+	return 33 + (network.MaxPeerAddressPayload(pver) * 2) + MaxVarIntPayload + MaxUseragentLen
 }
 func (versionMessage *VersionMessage) Command() string {
-	return COMMAND_VERSION
+	return CommandVersion
 }

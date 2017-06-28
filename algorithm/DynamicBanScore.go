@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	LIFE_TIME       = 1800
-	PRECOMPUTED_LEN = 64
-	HALF_LIFE       = 60
-	LAMBDA          = math.Ln2 / HALF_LIFE
+	LifeTime       = 1800
+	PrecomputedLen = 64
+	HalfLife       = 60
+	Lambda         = math.Ln2 / HalfLife
 )
 
 type DynamicBanScore struct {
@@ -21,19 +21,19 @@ type DynamicBanScore struct {
 	lock       sync.Mutex
 }
 
-var precomputedFactor [PRECOMPUTED_LEN]float64
+var precomputedFactor [PrecomputedLen]float64
 
 func init() {
 	for i := range precomputedFactor {
-		precomputedFactor[i] = math.Exp(-1.0 * float64(i) * LAMBDA)
+		precomputedFactor[i] = math.Exp(-1.0 * float64(i) * Lambda)
 	}
 }
 func decayFactor(t int64) float64 {
-	if t < PRECOMPUTED_LEN {
+	if t < PrecomputedLen {
 		return precomputedFactor[t]
-
+		
 	}
-	return math.Exp(-1.0 * float64(t) * LAMBDA)
+	return math.Exp(-1.0 * float64(t) * Lambda)
 }
 
 func (dynamicBanScore *DynamicBanScore) String() string {
@@ -43,7 +43,7 @@ func (dynamicBanScore *DynamicBanScore) String() string {
 }
 func (dynamicBanScore *DynamicBanScore) persistentInt(t time.Time) uint32 {
 	dt := t.Unix() - dynamicBanScore.lastUnix
-	if dynamicBanScore.transient < 1 || dt < 0 || LIFE_TIME < dt {
+	if dynamicBanScore.transient < 1 || dt < 0 || LifeTime < dt {
 		return dynamicBanScore.persistent
 	}
 	return dynamicBanScore.persistent + uint32(dynamicBanScore.transient*decayFactor(dt))
@@ -52,7 +52,7 @@ func (dynamicBanScore *DynamicBanScore) Int() uint32 {
 	dynamicBanScore.lock.Lock()
 	defer dynamicBanScore.lock.Unlock()
 	return dynamicBanScore.persistentInt(time.Now())
-
+	
 }
 
 func (dynamicBanScore *DynamicBanScore) increase(persistent, transient uint32, t time.Time) uint32 {
@@ -60,7 +60,7 @@ func (dynamicBanScore *DynamicBanScore) increase(persistent, transient uint32, t
 	timeUnix := t.Unix()
 	dt := timeUnix - dynamicBanScore.lastUnix
 	if transient > 0 {
-		if LIFE_TIME < dt {
+		if LifeTime < dt {
 			dynamicBanScore.transient = 0
 		} else if dynamicBanScore.transient > 1 && dt > 0 {
 			dynamicBanScore.transient += float64(transient)

@@ -13,7 +13,7 @@ import (
 var AppConf *AppConfig
 
 const (
-	DEFAULT_CONNECT_TIMEOU = time.Second * 30
+	DefaultConnectTimeout = time.Second * 30
 )
 
 type AppConfig struct {
@@ -84,7 +84,7 @@ func AppLookup(host string) ([]net.IP, error) {
 }
 func AppDial(address net.Addr) (net.Conn, error) {
 	if strings.Contains(address.String(), ".onion:") {
-		return AppConf.oniondial(address.Network(), address.String(), DEFAULT_CONNECT_TIMEOU)
+		return AppConf.oniondial(address.Network(), address.String(), DefaultConnectTimeout)
 	}
-	return AppConf.dial(address.Network(), address.String(), DEFAULT_CONNECT_TIMEOU)
+	return AppConf.dial(address.Network(), address.String(), DefaultConnectTimeout)
 }

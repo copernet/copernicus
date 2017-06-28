@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	SECONDS_IN_3_DAYS int32 = 3 * 24 * 60 * 60
-	SECONDS_IN_4_DAYS int32 = 4 * 24 * 60 * 60
+	SecondsIn3Days int32 = 3 * 24 * 60 * 60
+	SecondsIn4Days int32 = 4 * 24 * 60 * 60
 )
 
 type OnSeed func(addresses []*network.PeerAddress)
@@ -22,7 +22,7 @@ func SeedFromDNS(chainParams *msg.BitcoinParams, servicesFlag protocol.ServiceFl
 	lookupFunc utils.LookupFunc, onSeed OnSeed) {
 	for _, dnsSeed := range chainParams.DNSSeeds {
 		var host string
-		if !dnsSeed.HasFiltering || servicesFlag == protocol.SF_NODE_NETWORK_AS_FULL_NODE {
+		if !dnsSeed.HasFiltering || servicesFlag == protocol.SFNodeNetworkAsFullNode {
 			host = dnsSeed.Host
 		} else {
 			host = fmt.Sprintf("x%x.%s", uint64(servicesFlag), dnsSeed.Host)
@@ -45,8 +45,8 @@ func SeedFromDNS(chainParams *msg.BitcoinParams, servicesFlag protocol.ServiceFl
 					// bitcoind seeds with addresses from
 					// a time randomly selected between 3
 					// and 7 days ago.
-					time.Now().Add(-1 * time.Second* time.Duration(SECONDS_IN_3_DAYS+
-						randSource.Int31n(SECONDS_IN_4_DAYS))),
+					time.Now().Add(-1 * time.Second* time.Duration(SecondsIn3Days+
+						randSource.Int31n(SecondsIn4Days))),
 					0, peer, uint16(intPort))
 				
 			}

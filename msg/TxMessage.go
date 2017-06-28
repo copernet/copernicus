@@ -18,7 +18,7 @@ func (txMessage *TxMessage) BitcoinParse(reader io.Reader, size uint32) error {
 }
 
 func (txMessage *TxMessage) Command() string {
-	return COMMAND_TX
+	return CommandTx
 }
 
 func (txMessage *TxMessage) MaxPayloadLength(size uint32) uint32 {

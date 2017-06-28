@@ -14,7 +14,7 @@ func (getDataMessage *GetDataMessage) BitcoinParse(reader io.Reader, size uint32
 }
 
 func (getDataMessage *GetDataMessage) Command() string {
-	return COMMAND_GET_DATA
+	return CommandGetData
 }
 
 

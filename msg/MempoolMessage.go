@@ -14,7 +14,7 @@ func (mempoolMessage *MempoolMessage) BitcoinParse(reader io.Reader, size uint32
 }
 
 func (mempoolMessage *MempoolMessage) Command() string {
-	return COMMAND_MEMPOOL
+	return CommandMempool
 }
 
 func (mempoolMessage *MempoolMessage) MaxPayloadLength(size uint32) uint32 {

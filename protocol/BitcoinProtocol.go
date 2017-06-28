@@ -5,25 +5,25 @@ import (
 	"fmt"
 )
 
-const MAX_MESSAGE_PAYLOAD = 1024 * 1024 * 32
+const MaxMessagePayload = 1024 * 1024 * 32
 const (
-	COPERNICUS                       = "0.0.1"
-	BITCOIN_PROTOCOL_VERSION  uint32 = 70012
-	PEER_ADDRESS_TIME_VERSION uint32 = 31402
-	MAX_USER_AGENT_LEN               = 256
-	MULTIPLE_ADDRESS_VERSION  uint32 = 209
-	MAX_PROTOCOL_VERSION      uint32 = 70012
-	REJECT_VERSION            uint32 = 70002
-	BIP0037_VERSION           uint32 = 70001
-	BIP0031_VERSION           uint32 = 60000
-	BIP0111_VERSION           uint32 = 70011
-
-	MAX_KNOWN_INVENTORY=1000
+	Copernicus                    = "0.0.1"
+	BitcoinProtocolVersion uint32 = 70012
+	PeerAddressTimeVersion uint32 = 31402
+	MaxUserAgentLen               = 256
+	MultipleAddressVersion uint32 = 209
+	MaxProtocolVersion     uint32 = 70012
+	RejectVersion          uint32 = 70002
+	Bip0037Version         uint32 = 70001
+	Bip0031Version         uint32 = 60000
+	Bip0111Version         uint32 = 70011
+	
+	MaxKnownInventory = 1000
 )
 const (
-	SF_NODE_NETWORK_AS_FULL_NODE = 1 << iota
-	SF_NODE_GET_UTXO
-	SF_NODE_BLOOM_FILTER
+	SFNodeNetworkAsFullNode = 1 << iota
+	SFNodeGetUtxo
+	SFNodeBloomFilter
 )
 
 // InventoryType represents the allowed types of inventory vectors.  See InvVect.
@@ -43,8 +43,8 @@ var LocalUserAgent string
 
 func init() {
 	LocalUserAgent = getLocalUserAgent()
-
+	
 }
 func getLocalUserAgent() string {
-	return fmt.Sprintf("/copernicus%s/", COPERNICUS)
+	return fmt.Sprintf("/Copernicus%s/", Copernicus)
 }

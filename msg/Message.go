@@ -12,36 +12,36 @@ const (
 	// MessageHeaderSize is the number of bytes in a bitcoin msg header.
 	// Bitcoin network (magic) 4 bytes + command 12 bytes + payload length 4 bytes +
 	// checksum 4 bytes.
-	COMMAND_SIZE          = 12
-	MAX_REJECT_REASON_LEN = 250
-
-	LOCK_TIME_THRESHOLD = 5E8 // Tue Nov 5 00:53:20 1985 UTC
-	SAFE_CHARS          = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@"
+	CommandSize        = 12
+	MaxRejectReasonLen = 250
+	
+	LockTimeTHreshold = 5E8 // Tue Nov 5 00:53:20 1985 UTC
+	SafeChars         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@"
 )
 
 const (
-	COMMAND_VERSION      = "version"
-	COMMAND_VERSION_ACK  = "verack"
-	COMMAND_GET_ADDRESS  = "getaddr"
-	COMMMAND_ADDRESS     = "addr"
-	COMMAND_GET_BLOCKS   = "getblocks"
-	COMMAND_INV          = "inv"
-	COMMAND_GET_DATA     = "getdata"
-	COMMAND_NOT_FOUND    = "notfound"
-	COMMAND_BLOCK        = "block"
-	COMMAND_TX           = "tx"
-	COMMAND_GET_HEADERS  = "getheaders"
-	COMMAND_HEADERS      = "headers"
-	COMMAND_PING         = "ping"
-	COMMAND_PONG         = "pong"
-	COMMAND_ALERT        = "alert"
-	COMMAND_MEMPOOL      = "mempool"
-	COMMAND_FILTER_ADD   = "filteradd"
-	COMMAND_FILTER_CLEAR = "filterclear"
-	COMMAND_FILTER_LOAD  = "filterrload"
-	COMMAND_MERKLE_BLOCK = "merkleblock"
-	COMMAND_REJECT       = "reject"
-	COMMAND_SEND_HEADERS = "sendheaders"
+	CommandVersion     = "version"
+	CommandVersionAck  = "verack"
+	CommandGetAddress  = "getaddr"
+	CommandAddress     = "addr"
+	CommandGetBlocks   = "getblocks"
+	CommandInv         = "inv"
+	CommandGetData     = "getdata"
+	CommandNotFound    = "notfound"
+	CommandBlock       = "block"
+	CommandTx          = "tx"
+	CommandGetHeaders  = "getheaders"
+	CommandHeaders     = "headers"
+	CommandPing        = "ping"
+	CommandPong        = "pong"
+	CommandAlert       = "alert"
+	CommandMempool     = "mempool"
+	CommandFilterAdd   = "filteradd"
+	CommandFilterClear = "filterclear"
+	CommandFilterLoad  = "filterrload"
+	CommandMerkleBlock = "merkleblock"
+	CommandReject      = "reject"
+	CommandSendHeaders = "sendheaders"
 )
 
 type Message interface {
@@ -59,13 +59,13 @@ func InventorySummary(invList []*InventoryVector) string {
 	if invLen == 1 {
 		iv := invList[0]
 		switch iv.Type {
-		case INVENTORY_TYPE_ERROR:
+		case InventoryTypeError:
 			return fmt.Sprintf("error %s", iv.Hash)
-		case INVENTORY_TYPE_BLOCK:
+		case InventoryTypeBlock:
 			return fmt.Sprintf("block %s", iv.Hash)
-		case INVENTORY_TYPE_TX:
+		case InventoryTypeTx:
 			return fmt.Sprintf("unkonwn %d ,%s", uint32(iv.Type), iv.Hash)
-
+			
 		}
 	}
 	return fmt.Sprintf("size %d", invLen)
@@ -101,10 +101,10 @@ func MessageSummary(msg Message) string {
 	case *HeadersMessage:
 		return fmt.Sprintf("num %d", len(msgType.Blocks))
 	case *RejectMessage:
-		rejCommand := SanitizeString(msgType.Command(), COMMAND_SIZE)
-		rejReason := SanitizeString(msgType.Reason, MAX_REJECT_REASON_LEN)
+		rejCommand := SanitizeString(msgType.Command(), CommandSize)
+		rejReason := SanitizeString(msgType.Reason, MaxRejectReasonLen)
 		summary := fmt.Sprintf("command %v, code %v,reason %v", rejCommand, msgType.Code, rejReason)
-		if rejCommand == COMMAND_TX || rejCommand == COMMAND_BLOCK {
+		if rejCommand == CommandTx || rejCommand == CommandBlock {
 			summary = fmt.Sprintf("%s, hash %v", summary, msgType.Hash)
 		}
 		return summary
@@ -114,7 +114,7 @@ func MessageSummary(msg Message) string {
 
 func SanitizeString(str string, maxLength uint) string {
 	str = strings.Map(func(r rune) rune {
-		if strings.IndexRune(SAFE_CHARS, r) >= 0 {
+		if strings.IndexRune(SafeChars, r) >= 0 {
 			return r
 		}
 		return -1
@@ -124,10 +124,10 @@ func SanitizeString(str string, maxLength uint) string {
 		str = str + "..."
 	}
 	return str
-
+	
 }
 func LockTimeToString(lockTime uint32) string {
-	if lockTime < LOCK_TIME_THRESHOLD {
+	if lockTime < LockTimeTHreshold {
 		return fmt.Sprintf("height %d", lockTime)
 	}
 	return time.Unix(int64(lockTime), 0).String()
@@ -137,21 +137,21 @@ func LockTimeToString(lockTime uint32) string {
 func makeEmptyMessage(command string) (Message, error) {
 	var message Message
 	switch command {
-	case COMMAND_VERSION:
+	case CommandVersion:
 		message = &VersionMessage{}
-	case COMMMAND_ADDRESS:
+	case CommandAddress:
 		message = &AddressMessage{}
 		//todo getBlocks and getBlock
-	case COMMAND_GET_BLOCKS:
+	case CommandGetBlocks:
 		message = &GetBlocksMessage{}
-	case COMMAND_GET_HEADERS:
+	case CommandGetHeaders:
 		message = &GetHeadersMessage{}
-	case COMMAND_REJECT:
+	case CommandReject:
 		message = &RejectMessage{}
-
+	
 	default:
 		return nil, fmt.Errorf("unkonwn command %s", command)
-
+		
 	}
 	return message, nil
 }

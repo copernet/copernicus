@@ -14,7 +14,7 @@ func (alertMessage *AlertMessage) BitcoinParse(reader io.Reader, size uint32) er
 }
 
 func (alertMessage *AlertMessage) Command() string {
-	return COMMAND_ALERT
+	return CommandAlert
 }
 
 func (alertMessage *AlertMessage) MaxPayloadLength(size uint32) uint32 {

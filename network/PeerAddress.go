@@ -184,7 +184,7 @@ func NewPeerAddress(addr *net.TCPAddr, serviceFlag protocol.ServiceFlag) *PeerAd
 }
 func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 	var ip [16]byte
-	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
+	if ts && pver >= protocol.PeerAddressTimeVersion {
 		err := protocol.ReadElement(r, (protocol.Uint32Time)(na.Timestamp))
 		if err != nil {
 			return err
@@ -209,7 +209,7 @@ func ReadPeerAddress(r io.Reader, pver uint32, na *PeerAddress, ts bool) error {
 
 }
 func WritePeerAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err error) {
-	if ts && pver >= protocol.PEER_ADDRESS_TIME_VERSION {
+	if ts && pver >= protocol.PeerAddressTimeVersion {
 		err = protocol.WriteElement(w, uint32(na.Timestamp.Unix()))
 		if err != nil {
 			return err
@@ -229,7 +229,7 @@ func WritePeerAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err e
 
 func MaxPeerAddressPayload(version uint32) uint32 {
 	len := uint32(26)
-	if version >= protocol.PEER_ADDRESS_TIME_VERSION {
+	if version >= protocol.PeerAddressTimeVersion {
 		len += 4
 	}
 	return len

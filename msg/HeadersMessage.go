@@ -18,7 +18,7 @@ func (headersMessage *HeadersMessage) BitcoinParse(reader io.Reader, size uint32
 }
 
 func (headersMessage *HeadersMessage) Command() string {
-	return COMMAND_HEADERS
+	return CommandHeaders
 }
 
 func (headersMessage *HeadersMessage) MaxPayloadLength(size uint32) uint32 {

@@ -11,8 +11,8 @@ const (
 	//  [0:4]  Block file (4 bytes)
 	//  [4:8]  File offset (4 bytes)
 	//  [8:12] Block length (4 bytes)
-	BLOCK_LOCATION_SIZE = 12
-	BLOCK_HEADER_SIZE   = 16 + utils.MAX_HASH_STRING_SIZE
+	BlockLocationSize = 12
+	BlockHeaderSize   = 16 + utils.MaxHashStringSize
 )
 
 type pendingBlock struct {
@@ -93,12 +93,12 @@ func (tx *transaction) FetchBlockHeader(hash *utils.Hash) ([]byte, error) {
 	}
 	if idx, exists := tx.pendingBlocks[*hash]; exists {
 		blockBytes := tx.pendingBlockData[idx].bytes
-		return blockBytes[0:BLOCK_HEADER_SIZE:BLOCK_HEADER_SIZE], nil
+		return blockBytes[0:BlockHeaderSize:BlockHeaderSize], nil
 	}
 	blockRow, err := tx.fetchBlockRow(hash)
 	if err != nil {
 		return nil, err
 	}
-	endOffset := BLOCK_LOCATION_SIZE + BLOCK_HEADER_SIZE
-	return blockRow[BLOCK_LOCATION_SIZE:endOffset:endOffset], nil
+	endOffset := BlockLocationSize + BlockHeaderSize
+	return blockRow[BlockLocationSize:endOffset:endOffset], nil
 }

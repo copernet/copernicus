@@ -13,7 +13,7 @@ func (versionACKMessage *VersionACKMessage) BitcoinParse(reader io.Reader, size 
 	return nil
 }
 func (versionACKMessage *VersionACKMessage) Command() string {
-	return COMMAND_VERSION_ACK
+	return CommandVersionAck
 }
 func (versionACKMessage *VersionACKMessage) MaxPayloadLength(size uint32) uint32 {
 	return 0

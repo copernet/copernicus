@@ -14,7 +14,7 @@ func (filterClearMessage *FilterClearMessage) BitcoinParse(reader io.Reader, siz
 }
 
 func (filterClearMessage *FilterClearMessage) Command() string {
-	return COMMAND_FILTER_ADD
+	return CommandFilterAdd
 }
 
 func (filterClearMessage *FilterClearMessage) MaxPayloadLength(size uint32) uint32 {

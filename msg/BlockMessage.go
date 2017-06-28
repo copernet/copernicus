@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	HEADER_SIZE        = 80
-	ALLOWED_TIME_DRIFT = 2 * 60 * 60
-	MAX_BLOCK_SIZE     = 1 * 1000 * 1000
+	HeaderSize       = 80
+	AllowedTimeDrift = 2 * 60 * 60
+	MaxBlockSize     = 1 * 1000 * 1000
 )
 
 type BlockMessage struct {
@@ -35,7 +35,7 @@ func (blockMessage *BlockMessage) BitcoinParse(reader io.Reader, size uint32) er
 }
 
 func (blockMessage *BlockMessage) Command() string {
-	return COMMAND_BLOCK
+	return CommandBlock
 }
 
 func (blockMessage *BlockMessage) MaxPayloadLength(size uint32) uint32 {

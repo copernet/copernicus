@@ -7,15 +7,15 @@ import (
 	"errors"
 )
 
-const DEFAULT_INVENTORY_LIST_ALLOC = 1000
+const DefaultInventoryListAlloc = 1000
 
 type InventoryMessage struct {
 	InventoryList []*InventoryVector
 }
 
 func (message *InventoryMessage) AddInventoryVector(iv *InventoryVector) error {
-	if len(message.InventoryList)+1 > MAX_INVENTORY_MESSAGE {
-		str := fmt.Sprintf("too many invvect in message max %v", MAX_INVENTORY_MESSAGE)
+	if len(message.InventoryList)+1 > MaxInventoryMessage {
+		str := fmt.Sprintf("too many invvect in message max %v", MaxInventoryMessage)
 		return errors.New(str)
 	}
 	message.InventoryList = append(message.InventoryList, iv)
@@ -27,7 +27,7 @@ func (message *InventoryMessage) BitcoinParse(reader io.Reader, pver uint32) err
 	if err != nil {
 		return err
 	}
-	if count > MAX_INVENTORY_MESSAGE {
+	if count > MaxInventoryMessage {
 		str := fmt.Sprintf("too many inventory in message %v", count)
 		return errors.New(str)
 	}
@@ -47,7 +47,7 @@ func (message *InventoryMessage) BitcoinParse(reader io.Reader, pver uint32) err
 }
 func (message *InventoryMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
 	count := len(message.InventoryList)
-	if count > MAX_INVENTORY_MESSAGE {
+	if count > MaxInventoryMessage {
 		str := fmt.Sprintf("too many inventory in message %v", count)
 		return errors.New(str)
 	}
@@ -65,19 +65,19 @@ func (message *InventoryMessage) BitcoinSerialize(w io.Writer, pver uint32) erro
 }
 
 func (message *InventoryMessage) Command() string {
-	return COMMAND_INV
+	return CommandInv
 }
 func (message *InventoryMessage) MaxPayloadLength(pver uint32) uint32 {
-	return MAX_VAR_INT_PAYLOAD + (MAX_INVENTORY_MESSAGE + MAX_INVENTORY_PAYLOAD)
+	return MaxVarIntPayload + (MaxInventoryMessage + MaxInventoryPayload)
 }
 func NewMessageInventory() *InventoryMessage {
-	inventoryMessage := InventoryMessage{InventoryList: make([]*InventoryVector, 0, DEFAULT_INVENTORY_LIST_ALLOC)}
+	inventoryMessage := InventoryMessage{InventoryList: make([]*InventoryVector, 0, DefaultInventoryListAlloc)}
 	return &inventoryMessage
 }
 
 func NewInventoryMessageSizeHint(sizeHint uint) *InventoryMessage {
-	if sizeHint > MAX_INVENTORY_MESSAGE {
-		sizeHint = MAX_INVENTORY_MESSAGE
+	if sizeHint > MaxInventoryMessage {
+		sizeHint = MaxInventoryMessage
 	}
 	inventoryMessage := InventoryMessage{InventoryList: make([]*InventoryVector, 0, sizeHint)}
 	return &inventoryMessage

@@ -3,9 +3,9 @@ package blockchain
 import "time"
 
 const (
-	MAX_ALLOWED_OFFSET_SECS = 70 * 60
-	SIMILAR_TIME_SECS       = 5 * 60
-	MAX_MEDIAN_TIME_ENTRIES = 200
+	MaxAllowedOffsetSecs = 70 * 60
+	SimilarTimeSecs      = 5 * 60
+	MaxMedianTimeRntries = 200
 )
 
 type IMedianTimeSource interface {
@@ -13,4 +13,3 @@ type IMedianTimeSource interface {
 	AddTimeSample(id string, timeVal time.Time)
 	Offset() time.Duration
 }
-

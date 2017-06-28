@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	MAX_INVENTORY_MESSAGE = 50000
-	MAX_INVENTORY_PAYLOAD = 4 + HEADER_SIZE
+	MaxInventoryMessage = 50000
+	MaxInventoryPayload = 4 + HeaderSize
 )
 const (
-	INVENTORY_TYPE_ERROR          protocol.InventoryType = 0
-	INVENTORY_TYPE_TX             protocol.InventoryType = 1
-	INVENTORY_TYPE_BLOCK          protocol.InventoryType = 2
-	INVENTORY_TYPE_FILTERED_BLOCK protocol.InventoryType = 3
+	InventoryTypeError         protocol.InventoryType = 0
+	InventoryTypeTx            protocol.InventoryType = 1
+	InventoryTypeBlock         protocol.InventoryType = 2
+	InventoryTypeFilteredBlock protocol.InventoryType = 3
 )
 
 type InventoryVector struct {
@@ -30,13 +30,13 @@ func NewInventoryVecror(typ protocol.InventoryType, hash *utils.Hash) *Inventory
 
 func InventoryTypeToString(inventoryType protocol.InventoryType) string {
 	switch inventoryType {
-	case INVENTORY_TYPE_BLOCK:
+	case InventoryTypeBlock:
 		return "msg_block"
-	case INVENTORY_TYPE_ERROR:
+	case InventoryTypeError:
 		return "error"
-	case INVENTORY_TYPE_FILTERED_BLOCK:
+	case InventoryTypeFilteredBlock:
 		return "msg_filtered_block"
-	case INVENTORY_TYPE_TX:
+	case InventoryTypeTx:
 		return "msg_filtered_block"
 	}
 	return fmt.Sprintf("Unkonwn Inventory type (%d)", uint32(inventoryType))

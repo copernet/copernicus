@@ -15,7 +15,7 @@ func (merkleBlockMessage *MerkleBlockMessage) BitcoinParse(reader io.Reader, siz
 }
 
 func (merkleBlockMessage *MerkleBlockMessage) Command() string {
-	return COMMAND_FILTER_ADD
+	return CommandFilterAdd
 }
 
 func (merkleBlockMessage *MerkleBlockMessage) MaxPayloadLength(size uint32) uint32 {

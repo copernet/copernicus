@@ -15,7 +15,7 @@ func (notFoundMessage *NotFoundMessage) BitcoinParse(reader io.Reader, size uint
 }
 
 func (notFoundMessage *NotFoundMessage) Command() string {
-	return COMMAND_NOT_FOUND
+	return CommandNotFound
 }
 
 func (notFoundMessage *NotFoundMessage) MaxPayloadLength(size uint32) uint32 {

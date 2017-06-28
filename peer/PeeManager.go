@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	DEFAULT_SERVICES          = protocol.SF_NODE_NETWORK_AS_FULL_NODE | protocol.SF_NODE_BLOOM_FILTER
-	DEFAULT_REQUIRED_SERVICES = protocol.SF_NODE_NETWORK_AS_FULL_NODE
+	DefaultServices         = protocol.SFNodeNetworkAsFullNode | protocol.SFNodeBloomFilter
+	DefaultRequiredServices = protocol.SFNodeNetworkAsFullNode
 )
 
 type PeerManager struct {
@@ -61,9 +61,9 @@ type getOutboundGroup struct {
 }
 
 func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
-	services := DEFAULT_SERVICES
+	services := DefaultServices
 	if conf.AppConf.NoPeerBloomFilters {
-		services &^= protocol.SF_NODE_BLOOM_FILTER
+		services &^= protocol.SFNodeBloomFilter
 	}
 	netAddressManager := network.NewNetAddressManager(conf.AppConf.DataDir, conf.AppLookup)
 	var listeners []net.Listener
@@ -230,7 +230,7 @@ func (peerManager *PeerManager) peerHandler() {
 		outboundGroups:  make(map[string]int),
 	}
 	if !conf.AppConf.DisableDNSSeed {
-		connect.SeedFromDNS(msg.ActiveNetParams, DEFAULT_REQUIRED_SERVICES, conf.AppLookup, func(addresses []*network.PeerAddress) {
+		connect.SeedFromDNS(msg.ActiveNetParams, DefaultRequiredServices, conf.AppLookup, func(addresses []*network.PeerAddress) {
 			log.Warn(addresses[0].IP.String())
 			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
 		})

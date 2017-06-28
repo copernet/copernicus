@@ -39,7 +39,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 	now := time.Unix(time.Now().Unix(), 0)
 	offsetSecs := int64(timeVal.Sub(now).Seconds())
 	numOffsets := len(medianTime.offsets)
-	if numOffsets == MAX_MEDIAN_TIME_ENTRIES && MAX_MEDIAN_TIME_ENTRIES > 0 {
+	if numOffsets == MaxMedianTimeRntries && MaxMedianTimeRntries > 0 {
 		medianTime.offsets = medianTime.offsets[1:]
 		numOffsets--
 	}
@@ -56,7 +56,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 		return
 	}
 	median := sortedOffsets[numOffsets/2]
-	if math.Abs(float64(median)) < MAX_ALLOWED_OFFSET_SECS {
+	if math.Abs(float64(median)) < MaxAllowedOffsetSecs {
 		medianTime.offsetsSecs = median
 	} else {
 		medianTime.offsetsSecs = 0
@@ -64,7 +64,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 			medianTime.invalidTimeChecked = true
 			var removeHasCloseTime bool
 			for _, offset := range sortedOffsets {
-				if math.Abs(float64(offset)) < SIMILAR_TIME_SECS {
+				if math.Abs(float64(offset)) < SimilarTimeSecs {
 					removeHasCloseTime = true
 					break
 				}
@@ -84,7 +84,7 @@ func (medianTime *MedianTime) Offset() time.Duration {
 func NewMedianTime() IMedianTimeSource {
 	medianTime := MedianTime{
 		knowIDs: make(map[string]struct{}),
-		offsets: make([]int64, 0, MAX_MEDIAN_TIME_ENTRIES),
+		offsets: make([]int64, 0, MaxMedianTimeRntries),
 	}
 	return &medianTime
 }

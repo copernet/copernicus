@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	MESSAGE_HEADER_SIZE = 24
+	MessageHeaderSize = 24
 )
 
 type MessageHeader struct {
@@ -23,14 +23,14 @@ type MessageHeader struct {
 }
 
 func ReadMessageHeader(reader io.Reader) (int, *MessageHeader, error) {
-	var headerBytes [MESSAGE_HEADER_SIZE]byte
+	var headerBytes [MessageHeaderSize]byte
 	n, err := io.ReadFull(reader, headerBytes[:])
 	if err != nil {
 		return n, nil, err
 	}
 	header := bytes.NewReader(headerBytes[:])
 	hdr := MessageHeader{}
-	var command [COMMAND_SIZE]byte
+	var command [CommandSize]byte
 	protocol.ReadElements(header, &hdr.Net, &command, &hdr.Length, &hdr.Checksum)
 	hdr.Command = string(bytes.TrimRight(command[:], string(0)))
 	return n, &hdr, nil
@@ -54,10 +54,10 @@ func DiscardInput(reader io.Reader, n uint32) {
 }
 func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.BitcoinNet) (int, error) {
 	totalBytes := 0
-	var command [COMMAND_SIZE]byte
+	var command [CommandSize]byte
 	cmd := message.Command()
-	if len(cmd) > COMMAND_SIZE {
-		str := fmt.Sprintf("command %s is too long max %v", cmd, COMMAND_SIZE)
+	if len(cmd) > CommandSize {
+		str := fmt.Sprintf("command %s is too long max %v", cmd, CommandSize)
 		return totalBytes, errors.New(str)
 		
 	}
@@ -69,9 +69,9 @@ func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.Bitcoin
 	}
 	payload := buf.Bytes()
 	payloadLength := len(payload)
-	if payloadLength > protocol.MAX_MESSAGE_PAYLOAD {
+	if payloadLength > protocol.MaxMessagePayload {
 		errStr := fmt.Sprintf("message payload is too large -encoed %d bytes ,but maximum message payload is %d bytes",
-			payloadLength, protocol.MAX_MESSAGE_PAYLOAD)
+			payloadLength, protocol.MaxMessagePayload)
 		return totalBytes, errors.New(errStr)
 	}
 	maxPayloadLength := message.MaxPayloadLength(pver)
@@ -82,7 +82,7 @@ func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.Bitcoin
 	}
 	messageHeader := MessageHeader{Net: net, Command: cmd, Length: uint32(payloadLength)}
 	copy(messageHeader.Checksum[:], crypto.DoubleSha256Bytes(payload)[0:4])
-	headerBuf := bytes.NewBuffer(make([]byte, 0, MESSAGE_HEADER_SIZE))
+	headerBuf := bytes.NewBuffer(make([]byte, 0, MessageHeaderSize))
 	protocol.WriteElements(headerBuf, messageHeader.Net, command, messageHeader.Length, messageHeader.Checksum)
 	n, err := w.Write(headerBuf.Bytes())
 	totalBytes += n
@@ -104,9 +104,9 @@ func ReadMessage(reader io.Reader, pver uint32, bitcoinNet btcutil.BitcoinNet) (
 	if err != nil {
 		return totalBytes, nil, nil, err
 	}
-	if messageHeader.Length > protocol.MAX_MESSAGE_PAYLOAD {
+	if messageHeader.Length > protocol.MaxMessagePayload {
 		str := fmt.Sprintf("message payload is too large -header indicates %d bytes, but max message payload is %d bytes ",
-			messageHeader.Length, protocol.MAX_MESSAGE_PAYLOAD)
+			messageHeader.Length, protocol.MaxMessagePayload)
 		return totalBytes, nil, nil, errors.New(str)
 		
 	}

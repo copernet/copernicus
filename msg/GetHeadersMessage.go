@@ -15,8 +15,8 @@ type GetHeadersMessage struct {
 }
 
 func (getHeadersMessage *GetHeadersMessage) AddBlockHash(hash *utils.Hash) error {
-	if len(getHeadersMessage.BlockHashes) > MAX_GETBLOCKS_COUNT {
-		str := fmt.Sprintf("too many block hashes for message max %v", MAX_GETBLOCKS_COUNT)
+	if len(getHeadersMessage.BlockHashes) > MaxGetBlocksCount {
+		str := fmt.Sprintf("too many block hashes for message max %v", MaxGetBlocksCount)
 		return errors.New(str)
 
 	}
@@ -34,8 +34,8 @@ func (getHeadersMessage *GetHeadersMessage) BitcoinParse(reader io.Reader, size 
 	if err != nil {
 		return err
 	}
-	if count > MAX_GETBLOCKS_COUNT {
-		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MAX_GETBLOCKS_COUNT)
+	if count > MaxGetBlocksCount {
+		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MaxGetBlocksCount)
 		return errors.New(str)
 	}
 	hashes := make([]*utils.Hash, count)
@@ -54,8 +54,8 @@ func (getHeadersMessage *GetHeadersMessage) BitcoinParse(reader io.Reader, size 
 
 func (getHeadersMessage *GetHeadersMessage) BitcoinSerialize(w io.Writer, size uint32) error {
 	count := len(getHeadersMessage.BlockHashes)
-	if count > MAX_GETBLOCKS_COUNT {
-		str := fmt.Sprintf("too many block hashes for message count %v,max %v", count, MAX_GETBLOCKS_COUNT)
+	if count > MaxGetBlocksCount {
+		str := fmt.Sprintf("too many block hashes for message count %v,max %v", count, MaxGetBlocksCount)
 		return errors.New(str)
 	}
 	err := protocol.WriteElement(w, getHeadersMessage.ProtocolVersion)
@@ -78,12 +78,12 @@ func (getHeadersMessage *GetHeadersMessage) BitcoinSerialize(w io.Writer, size u
 }
 
 func (getHeadersMessage *GetHeadersMessage) MaxPayloadLength(size uint32) uint32 {
-	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * utils.HASH_SIZE) + utils.HASH_SIZE
+	return 4 + MaxVarIntPayload + (MaxGetBlocksCount * utils.HashSize) + utils.HashSize
 }
 func (getHeadersMessage *GetHeadersMessage) Command() string {
-	return COMMAND_GET_HEADERS
+	return CommandGetHeaders
 }
 func NewGetHeadersMessage() *GetHeadersMessage {
-	getHeadersMessage := GetHeadersMessage{BlockHashes: make([]*utils.Hash, 0, MAX_GETBLOCKS_COUNT)}
+	getHeadersMessage := GetHeadersMessage{BlockHashes: make([]*utils.Hash, 0, MaxGetBlocksCount)}
 	return &getHeadersMessage
 }

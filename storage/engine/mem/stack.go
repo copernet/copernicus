@@ -1,8 +1,8 @@
 package mem
 
 const (
-	STATIC_DEPTH     = 128
-	NODE_FIELDS_SIZE = 72
+	StaticDepth    = 128
+	NodeFieldsSize = 72
 )
 
 var (
@@ -26,7 +26,7 @@ var (
 //	return node
 //}
 //func (m *Node) Size() uint64 {
-//	return NODE_FIELDS_SIZE + uint64(len(m.key)+len(node.value))
+//	return NodeFieldsSize + uint64(len(m.key)+len(node.value))
 //}
 //
 //func (m *Node) CLone() *Node {
@@ -42,7 +42,7 @@ var (
 //
 //type Stack struct {
 //	index    int
-//	items    [STATIC_DEPTH]*Node
+//	items    [StaticDepth]*Node
 //	overflow []*Node
 //}
 //
@@ -55,10 +55,10 @@ var (
 //	if index < 0 {
 //		return nil
 //	}
-//	if index < STATIC_DEPTH {
+//	if index < StaticDepth {
 //		return s.items[index]
 //	}
-//	return s.overflow[index-STATIC_DEPTH]
+//	return s.overflow[index-StaticDepth]
 //}
 //
 //func (m *Stack) Pop() *Node {
@@ -66,23 +66,23 @@ var (
 //		return nil
 //	}
 //	s.index--
-//	if s.index < STATIC_DEPTH {
+//	if s.index < StaticDepth {
 //		node = s.items[s.index]
 //		s.items[s.index] = nil
 //		return node
 //	}
-//	node := s.overflow[s.index-STATIC_DEPTH]
-//	s.overflow[s.index-STATIC_DEPTH] = nil
+//	node := s.overflow[s.index-StaticDepth]
+//	s.overflow[s.index-StaticDepth] = nil
 //	return node
 //}
 //
 //func (m *Stack) Push(node *Node) {
-//	if m.index < STATIC_DEPTH {
+//	if m.index < StaticDepth {
 //		m.items[s.index] = node
 //		m.index++
 //		return
 //	}
-//	index := m.index - STATIC_DEPTH
+//	index := m.index - StaticDepth
 //	if index+1 > cap(m.overflow) {
 //		overflow := make([]*Node, index+1)
 //		copy(overflow, m.overflow)

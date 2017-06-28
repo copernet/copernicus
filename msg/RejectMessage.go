@@ -11,34 +11,34 @@ import (
 type RejectCode uint8
 
 const (
-	REJECT_MALFORMED        RejectCode = 0x01
-	REJECT_INVALID          RejectCode = 0x10
-	REJECT_OBSOLETE         RejectCode = 0X11
-	REJECT_DUPLICATE        RejectCode = 0x12
-	REJECT_NONSTANDARD      RejectCode = 0x40
-	REJECT_DUST             RejectCode = 0x41
-	REJECT_INSUFFICIENT_FEE RejectCode = 0x42
-	REJECT_CHECKPOINT       RejectCode = 0X43
+	RejectMalformed       RejectCode = 0x01
+	RejectInvalid         RejectCode = 0x10
+	RejectObsolete        RejectCode = 0X11
+	RejectDuplicate       RejectCode = 0x12
+	RejectNonstandard     RejectCode = 0x40
+	RejectDust            RejectCode = 0x41
+	RejectInsufficientFee RejectCode = 0x42
+	RejectCheckpoint      RejectCode = 0X43
 )
 
 func (code RejectCode) ToString() string {
 	
 	switch code {
-	case REJECT_CHECKPOINT:
+	case RejectCheckpoint:
 		return "reject_check_point"
-	case REJECT_DUPLICATE:
+	case RejectDuplicate:
 		return "reject_duplicate"
-	case REJECT_DUST:
+	case RejectDust:
 		return "reject_dust"
-	case REJECT_INSUFFICIENT_FEE:
+	case RejectInsufficientFee:
 		return "reject_insufficient_fee"
-	case REJECT_INVALID:
+	case RejectInvalid:
 		return "reject_invalid"
-	case REJECT_MALFORMED:
+	case RejectMalformed:
 		return "reject_malformed"
-	case REJECT_OBSOLETE:
+	case RejectObsolete:
 		return "reject_obsolete"
-	case REJECT_NONSTANDARD:
+	case RejectNonstandard:
 		return "reject_nonstandard"
 	}
 	return fmt.Sprintf("Unkown RejectCode (%d)", uint8(code))
@@ -53,7 +53,7 @@ type RejectMessage struct {
 
 func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) error {
 	
-	if pver < protocol.REJECT_VERSION {
+	if pver < protocol.RejectVersion {
 		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
 		return errors.New(str)
 	}
@@ -68,7 +68,7 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 	}
 	reason, err := utils.ReadVarString(reader, pver)
 	rejectMessage.Reason = reason
-	if rejectMessage.Cmd == COMMAND_TX || rejectMessage.Cmd == COMMAND_BLOCK {
+	if rejectMessage.Cmd == CommandTx || rejectMessage.Cmd == CommandBlock {
 		err := protocol.ReadElement(reader, rejectMessage.Hash)
 		if err != nil {
 			return err
@@ -79,7 +79,7 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 	
 }
 func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
-	if pver < protocol.REJECT_VERSION {
+	if pver < protocol.RejectVersion {
 		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
 		return errors.New(str)
 	}
@@ -95,7 +95,7 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 	if err != nil {
 		return err
 	}
-	if rejectMessage.Cmd == COMMAND_BLOCK || rejectMessage.Cmd == COMMAND_TX {
+	if rejectMessage.Cmd == CommandBlock || rejectMessage.Cmd == CommandTx {
 		err := protocol.WriteElement(w, rejectMessage.Hash)
 		if err != nil {
 			return err
@@ -106,13 +106,13 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 
 func (rejectMessage *RejectMessage) MaxPayloadLength(pver uint32) uint32 {
 	plen := uint32(0)
-	if pver >= protocol.REJECT_VERSION {
-		plen = protocol.MAX_MESSAGE_PAYLOAD
+	if pver >= protocol.RejectVersion {
+		plen = protocol.MaxMessagePayload
 	}
 	return plen
 }
 func (rejectMessage *RejectMessage) Command() string {
-	return COMMAND_REJECT
+	return CommandReject
 }
 
 func NewRejectMessage(command string, code RejectCode, reason string) *RejectMessage {

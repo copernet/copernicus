@@ -10,7 +10,7 @@ type PingMessage struct {
 }
 
 func (pingMessage *PingMessage) BitcoinParse(reader io.Reader, pver uint32) error {
-	if pver > protocol.BIP0031_VERSION {
+	if pver > protocol.Bip0031Version {
 		err := protocol.ReadElement(reader, &pingMessage.Nonce)
 		if err != nil {
 			return err
@@ -19,7 +19,7 @@ func (pingMessage *PingMessage) BitcoinParse(reader io.Reader, pver uint32) erro
 	return nil
 }
 func (pingMessage *PingMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
-	if pver > protocol.BIP0031_VERSION {
+	if pver > protocol.Bip0031Version {
 		err := protocol.WriteElements(w, pingMessage.Nonce)
 		if err != nil {
 			return err
@@ -28,11 +28,11 @@ func (pingMessage *PingMessage) BitcoinSerialize(w io.Writer, pver uint32) error
 	return nil
 }
 func (pingMessage *PingMessage) Command() string {
-	return COMMAND_PING
+	return CommandPing
 }
 func (pingMessage *PingMessage) MaxPayloadLength(pver uint32) uint32 {
 	payloadLength := uint32(0)
-	if pver > protocol.BIP0031_VERSION {
+	if pver > protocol.Bip0031Version {
 		payloadLength += 8
 	}
 	return payloadLength

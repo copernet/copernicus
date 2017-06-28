@@ -134,7 +134,7 @@ func (serverPeer *ServerPeer) OnVersion(p *Peer, versionMessage *msg.VersionMess
 					
 				}
 			}
-			hatTimestamp := serverPeer.ProtocolVersion >= protocol.PEER_ADDRESS_TIME_VERSION
+			hatTimestamp := serverPeer.ProtocolVersion >= protocol.PeerAddressTimeVersion
 			if netAddressManager.NeedMoreAddresses() && hatTimestamp {
 				serverPeer.SendMessage(msg.NewGetAddressMessage(), nil)
 			}
@@ -171,7 +171,7 @@ func (serverPeer *ServerPeer) OnAlert(p *Peer, msg *msg.AlertMessage) {
 }
 
 func (serverPeer *ServerPeer) OnMemPool(p *Peer, msg *msg.MempoolMessage) {
-	if serverPeer.peerManager.servicesFlag&protocol.SF_NODE_BLOOM_FILTER != protocol.SF_NODE_BLOOM_FILTER {
+	if serverPeer.peerManager.servicesFlag&protocol.SFNodeBloomFilter != protocol.SFNodeBloomFilter {
 		log.Debug("peer %v sent mempool request with bloom filtering disable --disconnecting", serverPeer)
 		serverPeer.Disconnect()
 		return
