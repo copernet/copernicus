@@ -18,8 +18,8 @@ const (
 
 type AppConfig struct {
 	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
-	ShowVersion        bool 		 `short:"v" long:"version" description "Disaplay version in"`
-	NoPeerBloomFilters bool          `long:"nopeerbloomfilters" descriptopn"Disable bloom filtering support"`
+	ShowVersion        bool         `short:"v" long:"version" description:"Disaplay version in"`
+	NoPeerBloomFilters bool          `long:"nopeerbloomfilters" description:"Disable bloom filtering support"`
 	MaxPeers           int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
 	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`
 	BanDuration        time.Duration `long:"banduration" description:"How long to ban misbehaving peers.  Valid time units are {s, m, h}.  Minimum 1 second"`
