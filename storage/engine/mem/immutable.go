@@ -1,61 +1,57 @@
 package mem
 
-import (
-	"bytes"
-)
-
 type Immutable struct {
-	root      *Node
+	//root      *Node
 	count     int
 	totalSize uint64
 }
 
-func NewImmutable() *Immutable {
-	return &Immutable{}
-}
-
-func newImmutable(root *Node, count int, totalSize uint64) *Immutable {
-	table := &Immutable{
-		root:      root,
-		count:     count,
-		totalSize: totalSize,
-	}
-	return table
-}
-
-func (m *Immutable) Len() int {
-	return m.count
-}
-
-func (m *Immutable) Size() uint64 {
-	return m.totalSize
-}
-
-func (m *Immutable) Has(key []byte) bool {
-	if node := m.Get(key); node != nil {
-		return true
-	}
-	return false
-}
-
-func (m *Immutable) Get(key []byte) []byte {
-	for node := m.root; node != nil; {
-		// Traverse left or right depending on the result of the
-		// comparison.
-		compareResult := bytes.Compare(key, node.key)
-		if compareResult < 0 {
-			node = node.left
-			continue
-		}
-		if compareResult > 0 {
-			node = node.right
-			continue
-		}
-		return node.value
-	}
-	// A nil node was reached which means the key does not exist.
-	return nil
-}
+//func NewImmutable() *Immutable {
+//	return &Immutable{}
+//}
+//
+//func newImmutable(root *Node, count int, totalSize uint64) *Immutable {
+//	table := &Immutable{
+//		root:      root,
+//		count:     count,
+//		totalSize: totalSize,
+//	}
+//	return table
+//}
+//
+//func (m *Immutable) Len() int {
+//	return m.count
+//}
+//
+//func (m *Immutable) Size() uint64 {
+//	return m.totalSize
+//}
+//
+//func (m *Immutable) Has(key []byte) bool {
+//	if node := m.Get(key); node != nil {
+//		return true
+//	}
+//	return false
+//}
+//
+//func (m *Immutable) Get(key []byte) []byte {
+//	for node := m.root; node != nil; {
+//		// Traverse left or right depending on the result of the
+//		// comparison.
+//		compareResult := bytes.Compare(key, node.key)
+//		if compareResult < 0 {
+//			node = node.left
+//			continue
+//		}
+//		if compareResult > 0 {
+//			node = node.right
+//			continue
+//		}
+//		return node.value
+//	}
+//	// A nil node was reached which means the key does not exist.
+//	return nil
+//}
 
 //func (m *Immutable) Put(key, value []byte) *Immutable {
 //	// Use an empty byte slice for the value when none was provided.  This

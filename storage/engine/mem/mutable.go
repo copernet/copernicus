@@ -1,11 +1,7 @@
 package mem
 
-import (
-	"bytes"
-)
-
 type Mutable struct {
-	root      *Node
+	//root      *Node
 	count     int
 	totalSize uint64
 }
@@ -22,50 +18,50 @@ func (m *Mutable) Size() uint64 {
 	return m.totalSize
 }
 
-func (m *Mutable) get(key []byte) (*Node, *Node) {
-	var parent *Node
-	for node := m.root; node != nil; {
-		compareResult := bytes.Compare(key, node.key)
-		if compareResult < 0 {
-			parent = node
-			node = node.left
-			continue
-		}
-		if compareResult > 0 {
-			parent = node
-			node = node.right
-			continue
-		}
-		return node, parent
-	}
-	return nil, nil
-}
-
-func (m *Mutable) Has(key []byte) bool {
-	if node, _ := m.get(key); node != nil {
-		return true
-	}
-	return false
-}
-
-func (m *Mutable) Get(key []byte) []byte {
-	if node, _ := m.get(key); node != nil {
-		return node.value
-	}
-	return nil
-}
-
-func (m *Mutable) relinkGrandparent(node, parent, grandparent *Node) {
-	if grandparent == nil {
-		m.root = node
-		return
-	}
-	if grandparent.left == parent {
-		grandparent.left = node
-	} else {
-		grandparent.right = node
-	}
-}
+//func (m *Mutable) get(key []byte) (*Node, *Node) {
+//	var parent *Node
+//	for node := m.root; node != nil; {
+//		compareResult := bytes.Compare(key, node.key)
+//		if compareResult < 0 {
+//			parent = node
+//			node = node.left
+//			continue
+//		}
+//		if compareResult > 0 {
+//			parent = node
+//			node = node.right
+//			continue
+//		}
+//		return node, parent
+//	}
+//	return nil, nil
+//}
+//
+//func (m *Mutable) Has(key []byte) bool {
+//	if node, _ := m.get(key); node != nil {
+//		return true
+//	}
+//	return false
+//}
+//
+//func (m *Mutable) Get(key []byte) []byte {
+//	if node, _ := m.get(key); node != nil {
+//		return node.value
+//	}
+//	return nil
+//}
+//
+//func (m *Mutable) relinkGrandparent(node, parent, grandparent *Node) {
+//	if grandparent == nil {
+//		m.root = node
+//		return
+//	}
+//	if grandparent.left == parent {
+//		grandparent.left = node
+//	} else {
+//		grandparent.right = node
+//	}
+//}
 
 //func (m *Mutable) Put(key, value []byte) {
 //	if value == nil {
@@ -164,24 +160,24 @@ func (m *Mutable) relinkGrandparent(node, parent, grandparent *Node) {
 //	m.totalSize -= node.Size()
 //}
 
-func (m *Mutable) ForEach(fn func(k, v []byte) bool) {
-	var parents Stack
-	for node := m.root; node != nil; node = node.left {
-		parents.Push(node)
-	}
-	for parents.Len() > 0 {
-		node := parents.Pop()
-		if !fn(node.key, node.value) {
-			return
-		}
-		for node := node.right; node != nil; node = node.left {
-			parents.Push(node)
-		}
-	}
-}
-
-func (m *Mutable) Reset() {
-	m.count = 0
-	m.totalSize = 0
-	m.root = nil
-}
+//func (m *Mutable) ForEach(fn func(k, v []byte) bool) {
+//	var parents Stack
+//	for node := m.root; node != nil; node = node.left {
+//		parents.Push(node)
+//	}
+//	for parents.Len() > 0 {
+//		node := parents.Pop()
+//		if !fn(node.key, node.value) {
+//			return
+//		}
+//		for node := node.right; node != nil; node = node.left {
+//			parents.Push(node)
+//		}
+//	}
+//}
+//
+//func (m *Mutable) Reset() {
+//	m.count = 0
+//	m.totalSize = 0
+//	m.root = nil
+//}
