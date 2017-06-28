@@ -16,20 +16,19 @@ const (
 
 func PrivateKeyFromBytes(privateKeyBytes []byte) (*PrivateKey, *PublicKey) {
 	_, publicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKeyBytes)
-	if err != nil{
+	if err != nil {
 		return nil, nil
 	}
 	privateKey := PrivateKey{
 		PublicKey: (PublicKey)(*publicKey),
-		D: new(big.Int).SetBytes(privateKeyBytes),
+		D:         new(big.Int).SetBytes(privateKeyBytes),
 	}
-
+	
 	return &privateKey, &privateKey.PublicKey
 }
 
 func (p *PrivateKey) PubKey() *PublicKey {
-
-	return (*PublicKey)(&p.PublicKey)
+	return &p.PublicKey
 }
 
 func (p *PrivateKey) Sign(hash []byte) (*Signature, error) {

@@ -104,7 +104,7 @@ var (
 	nodeCount int32
 )
 
-func (p *Peer) ToString() string {
+func (p *Peer) String() string {
 	directionString := "Inbound"
 	if !p.Inbound {
 		directionString = "outbound"
@@ -202,7 +202,7 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 	if sentNoces.Exists(versionMessage.Nonce) {
 		return errors.New("disconnecting peer connected to self")
 	}
-	if versionMessage.ProtocolVersion < uint32(protocol.MULTIPLE_ADDRESS_VERSION) {
+	if versionMessage.ProtocolVersion < protocol.MULTIPLE_ADDRESS_VERSION {
 		
 		str := fmt.Sprintf("protocol version must be %d or greater", protocol.MULTIPLE_ADDRESS_VERSION)
 		rejectMessage := msg.NewRejectMessage(msg.COMMAND_VERSION, msg.REJECT_OBSOLETE, str)
@@ -217,7 +217,7 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 	p.BlockStatusMutex.Unlock()
 	
 	p.PeerStatusMutex.Lock()
-	p.ProtocolVersion = algorithm.MinUint32(p.ProtocolVersion, uint32(versionMessage.ProtocolVersion))
+	p.ProtocolVersion = algorithm.MinUint32(p.ProtocolVersion, versionMessage.ProtocolVersion)
 	p.VersionKnown = true
 	log.Debug("Negotiated protocol version %d for peer %s", p.ProtocolVersion, p)
 	p.Id = atomic.AddInt32(&nodeCount, 1)
@@ -237,7 +237,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		if len(summary) > 0 {
 			summary = fmt.Sprintf("(%s)", summary)
 		}
-		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p)
+		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p.String())
 		
 	}))
 	log.Debug("%v", log2.InitLogClosure(func() string {
@@ -422,7 +422,8 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 		if len(summary) > 0 {
 			summary = fmt.Sprintf("(%s)", summary)
 		}
-		return fmt.Sprintf("Received %v %v from %s", message.Command(), summary, p)
+		return fmt.Sprintf("Received %v %v from %s",
+			message.Command(), summary, p.String())
 		
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
@@ -589,7 +590,7 @@ out:
 				continue
 			}
 			if p.shouldHandleReadError(err) {
-				errMessage := fmt.Sprintf("Can't read message from %s: %v", p, err)
+				errMessage := fmt.Sprintf("Can't read message from %s: %v", p.String(), err)
 				log.Error(errMessage)
 				p.SendRejectMessage("malformed", msg.REJECT_MALFORMED, errMessage, nil, true)
 				
@@ -925,7 +926,7 @@ func (p *Peer) Stop() {
 }
 
 func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
-	protocolVersion := uint32(protocol.MAX_PROTOCOL_VERSION)
+	protocolVersion := protocol.MAX_PROTOCOL_VERSION
 	if peerConfig.ProtocolVersion != 0 {
 		protocolVersion = peerConfig.ProtocolVersion
 	}

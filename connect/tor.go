@@ -25,4 +25,3 @@ var torStatusErrors = map[byte]error{
 	TOR_CMD_NOT_SUPPORTED:     errors.New("tor command not supported"),
 	TOR_ADDRESS_NOT_SUPPORTED: errors.New("tor address type not supported"),
 }
-

@@ -11,7 +11,7 @@ install:
   - gometalinter --install
 script:
   - export PATH=$PATH:$HOME/gopath/bin
-  - ./clean.sh
+  - ./check.sh
 addons:
   ssh_known_hosts:
   - github.com

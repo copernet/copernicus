@@ -49,10 +49,7 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 		getBlockMessage.AddBlockHash(hash)
 	}
 	err = protocol.ReadElement(reader, getBlockMessage.HashStop)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 	
 }
 
@@ -78,10 +75,8 @@ func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint
 		}
 	}
 	err = protocol.WriteElement(w, &getBlockMessage.HashStop)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
+	
 }
 func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
 	return 4 + MAX_VAR_INT_PAYLOAD + (MAX_GETBLOCKS_COUNT * utils.HASH_SIZE) + utils.HASH_SIZE

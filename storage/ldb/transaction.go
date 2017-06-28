@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	crypto2 "github.com/btccom/copernicus/crypto"
+	"github.com/btccom/copernicus/utils"
 )
 
 const (
@@ -12,8 +12,7 @@ const (
 	//  [4:8]  File offset (4 bytes)
 	//  [8:12] Block length (4 bytes)
 	BLOCK_LOCATION_SIZE = 12
-	BLOCK_HEADER_SIZE   = 16 + crypto2.MAX_HASH_STRING_SIZE
-	
+	BLOCK_HEADER_SIZE   = 16 + utils.MAX_HASH_STRING_SIZE
 )
 
 type pendingBlock struct {
@@ -33,7 +32,7 @@ type transaction struct {
 	managed          bool
 	closed           bool
 	writable         bool
-	pendingBlocks    map[crypto.Hash]int
+	pendingBlocks    map[utils.Hash]int
 	pendingBlockData []pendingBlock
 }
 
@@ -53,21 +52,21 @@ func (tx *transaction) hasKey(_ []byte) bool {
 	return true
 }
 
-func (tx *transaction) hasBlock(hash *crypto.Hash) bool {
+func (tx *transaction) hasBlock(hash *utils.Hash) bool {
 	if _, exists := tx.pendingBlocks[*hash]; exists {
 		return true
 	}
 	return tx.hasKey(bucketizedKey(blockIdxBucketID, hash[:]))
 }
 
-func (tx *transaction) HasBlock(hash *crypto.Hash) (bool, error) {
+func (tx *transaction) HasBlock(hash *utils.Hash) (bool, error) {
 	if err := tx.checkClosed(); err != nil {
 		return false, err
 	}
 	return tx.hasBlock(hash), nil
 }
 
-func (tx *transaction) HasBlocks(hashes []crypto.Hash) ([]bool, error) {
+func (tx *transaction) HasBlocks(hashes []utils.Hash) ([]bool, error) {
 	if err := tx.checkClosed(); err != nil {
 		return nil, err
 	}
@@ -79,16 +78,16 @@ func (tx *transaction) HasBlocks(hashes []crypto.Hash) ([]bool, error) {
 }
 
 //todo implement the blockIdxBucket
-func (tx *transaction) fetchBlockRow(hash *crypto.Hash) ([]byte, error) {
+func (tx *transaction) fetchBlockRow(hash *utils.Hash) ([]byte, error) {
 	//blockRow := tx.blockIdxBucket.Get(hash[:])
-	blockRow := nil
+	var blockRow []byte
 	if blockRow == nil {
 		return blockRow, fmt.Errorf("block %s does not exist", hash)
 	}
 	return blockRow, nil
 }
 
-func (tx *transaction) FetchBlockHeader(hash *crypto2.Hash) ([]byte, error) {
+func (tx *transaction) FetchBlockHeader(hash *utils.Hash) ([]byte, error) {
 	if err := tx.checkClosed(); err != nil {
 		return nil, err
 	}
