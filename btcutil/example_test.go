@@ -5,9 +5,10 @@ import (
 	"math"
 	
 	"github.com/btccom/copernicus/btcutil"
+	"testing"
 )
 
-func ExampleAmount() {
+func TestExampleAmount(t *testing.T) {
 	
 	a := btcutil.Amount(0)
 	fmt.Println("Zero Satoshi:", a)
@@ -23,7 +24,7 @@ func ExampleAmount() {
 	// 100,000 Satoshis: 0.001 BTC
 }
 
-func ExampleNewAmount() {
+func TestExampleNewAmount(t *testing.T) {
 	amountOne, err := btcutil.NewAmount(1)
 	if err != nil {
 		fmt.Println(err)
@@ -58,7 +59,7 @@ func ExampleNewAmount() {
 	// invalid bitcoin amount
 }
 
-func ExampleAmount_unitConversions() {
+func TestExampleAmount_unitConversions(t *testing.T) {
 	amount := btcutil.Amount(44433322211100)
 	
 	fmt.Println("Satoshi to kBTC:", amount.Format(btcutil.AmountKiloBTC))
