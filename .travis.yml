@@ -4,10 +4,9 @@ go:
   - 1.8.x
 sudo: false
 install:
-  - GLIDE_VERSION=V0.12.3
-  - GLIDE_DOWNLOAD="https://github.com/Masterminds/glide/releases/download/$GLIDE_TAG/glide-$GLIDE_TAG-linux-amd64.tar.gz"
+  - go get -v github.com/Masterminds/glide
   - curl -L $GLIDE_DOWNLOAD | tar -xvz
-  - export PATH=$PATH:$PWD/linux-amd64/
+  - cd $GOPATH/src/github.com/Masterminds/glide && git checkout e73500c735917e39a8b782e0632418ab70250341 && go install && cd -
   - glide install
   - go get -v github.com/alecthomas/gometalinter
   - gometalinter --install
