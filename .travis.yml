@@ -12,7 +12,3 @@ install:
 script:
   - export PATH=$PATH:$HOME/gopath/bin
   - ./check.sh
-addons:
-  ssh_known_hosts:
-  - github.com
-  - ssh.github.com
