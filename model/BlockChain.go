@@ -9,7 +9,7 @@ import (
 	"github.com/btccom/copernicus/utils"
 )
 
-type Blockchain struct {
+type BlockChain struct {
 	Path        string
 	Magic       [4]byte
 	CurrentFile *os.File
@@ -18,8 +18,8 @@ type Blockchain struct {
 	Lock        sync.Mutex
 }
 
-func ParseBlockchain(path string, magic [4] byte) (blockchain *Blockchain, err error) {
-	blockchain = new(Blockchain)
+func ParseBlockchain(path string, magic [4] byte) (blockchain *BlockChain, err error) {
+	blockchain = new(BlockChain)
 	blockchain.Path = path
 	blockchain.Magic = magic
 	blockchain.CurrentId = 0
@@ -30,24 +30,24 @@ func ParseBlockchain(path string, magic [4] byte) (blockchain *Blockchain, err e
 	blockchain.CurrentFile = f
 	return
 }
-func (blockchain *Blockchain) NextBlock() (block *Block, err error) {
+func (blockChain *BlockChain) NextBlock() (block *Block, err error) {
 	
-	rawBlock, err := blockchain.FetchNextBlock()
+	rawBlock, err := blockChain.FetchNextBlock()
 	if err != nil {
-		newBlkFile, err2 := os.Open(blkFileName(blockchain.Path, blockchain.CurrentId+1))
+		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentId+1))
 		if err2 != nil {
 			return nil, err2
 		}
-		blockchain.CurrentId++
-		blockchain.CurrentFile.Close()
-		blockchain.CurrentFile = newBlkFile
-		rawBlock, err = blockchain.FetchNextBlock()
+		blockChain.CurrentId++
+		blockChain.CurrentFile.Close()
+		blockChain.CurrentFile = newBlkFile
+		rawBlock, err = blockChain.FetchNextBlock()
 	}
 	block, err = ParseBlock(rawBlock)
 	return
 	
 }
-func (blockchain *Blockchain) SkipBlock() (err error) {
+func (blockchain *BlockChain) SkipBlock() (err error) {
 	
 	_, err = blockchain.FetchNextBlock()
 	if err != nil {
@@ -63,7 +63,7 @@ func (blockchain *Blockchain) SkipBlock() (err error) {
 	return
 }
 
-func (blockchain *Blockchain) FetchNextBlock() (raw []byte, err error) {
+func (blockchain *BlockChain) FetchNextBlock() (raw []byte, err error) {
 	
 	buf := [4]byte{}
 	_, err = blockchain.CurrentFile.Read(buf[:])
@@ -86,7 +86,7 @@ func (blockchain *Blockchain) FetchNextBlock() (raw []byte, err error) {
 	return
 }
 
-func (blockchain *Blockchain) SkipTo(blkId uint32, offset int64) (err error) {
+func (blockchain *BlockChain) SkipTo(blkId uint32, offset int64) (err error) {
 	
 	blockchain.CurrentId = blkId
 	f, err := os.Open(blkFileName(blockchain.Path, blkId))
@@ -109,7 +109,7 @@ func blkSize(buf []byte) (size uint64) {
 	}
 	return
 }
-func (blockChain *Blockchain) BestBlockHash() (utils.Hash, int32, error) {
+func (blockChain *BlockChain) BestBlockHash() (utils.Hash, int32, error) {
 	blockChain.Lock.Lock()
 	defer blockChain.Lock.Unlock()
 	return blockChain.LastBlock.Hash, blockChain.LastBlock.Height, nil

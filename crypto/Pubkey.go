@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	errPublicKeySerialize  = errors.New("spcp256k1 public key serialize error")
+	errPublicKeySerialize = errors.New("spcp256k1 public key serialize error")
 )
 
 func ParsePubKey(pubKeyStr []byte) (*PublicKey, error) {
@@ -16,9 +16,8 @@ func ParsePubKey(pubKeyStr []byte) (*PublicKey, error) {
 
 type PublicKey secp256k1.PublicKey
 
-
 func (p *PublicKey) ToSecp256k() *secp256k1.PublicKey {
-	return (*secp256k1.PublicKey)(p)
+	return p.ToSecp256k()
 }
 
 func (pubKey *PublicKey) SerializeUncompressed() []byte {
