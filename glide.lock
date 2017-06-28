@@ -1,13 +1,18 @@
-hash: a9b1170fd701ec52c1faa698d30d7777bc7ac6ee26b159831af73f302be43003
-updated: 2017-06-25T20:00:36.789271759+08:00
+hash: 7bb4fd38b7037234022118275cbb1b81565ed9cdf91361416918a125f1749a6a
+updated: 2017-06-28T10:47:37.769129423+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
   subpackages:
   - config
   - logs
+  - utils
 - name: github.com/boltdb/bolt
   version: b8dbe1101d74c30e817227a99716591e3e6e6bc4
+- name: github.com/btccom/secp256k1-go
+  version: 6f54695c1aeaf76bf80b6d67aac4c1de3f2a262d
+  subpackages:
+  - secp256k1
 - name: github.com/btcsuite/fastsha256
   version: 637e656429416087660c84436a2a035d69d54e2e
 - name: github.com/btcsuite/go-socks
@@ -15,7 +20,7 @@ imports:
   subpackages:
   - socks
 - name: github.com/BurntSushi/toml
-  version: 2ceedfee35ad3848e49308ab0c9a4f640cfb5fb2
+  version: b26d9c308763d68093482582cea63d69be07a0f0
 - name: github.com/cupcake/rdb
   version: 3454dcabd33cb8ea8261ffd6a45f4d836eb504cc
   subpackages:
@@ -56,10 +61,6 @@ imports:
   - vendor/gomdb
 - name: github.com/siddontang/rdb
   version: fc89ed2e418d27e3ea76e708e54276d2b44ae9cf
-- name: github.com/stretchr/testify
-  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
-  subpackages:
-  - assert
 - name: github.com/syndtr/goleveldb
   version: e9e2c8f6d3b9c313fb4acaac5ab06285bcf30b04
   subpackages:
@@ -86,7 +87,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
-- name: github.com/pmezard/go-difflib
-  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
-  - difflib
+  - assert
