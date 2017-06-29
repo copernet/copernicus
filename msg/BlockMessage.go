@@ -17,13 +17,13 @@ type BlockMessage struct {
 	Txs   []*TxMessage
 }
 
-func (msg *BlockMessage) AddTx(tx *TxMessage) error {
-	msg.Txs = append(msg.Txs, tx)
+func (blockMessage *BlockMessage) AddTx(tx *TxMessage) error {
+	blockMessage.Txs = append(blockMessage.Txs, tx)
 	return nil
 }
 
-func (msg *BlockMessage) ClearTxs() {
-	msg.Txs = make([]*TxMessage, 0, 2048)
+func (blockMessage *BlockMessage) ClearTxs() {
+	blockMessage.Txs = make([]*TxMessage, 0, 2048)
 }
 
 func (blockMessage *BlockMessage) BitcoinSerialize(w io.Writer, size uint32) error {

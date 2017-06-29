@@ -16,16 +16,16 @@ type GetBlocksMessage struct {
 	HashStop        *utils.Hash
 }
 
-func (getBlockMessage *GetBlocksMessage) AddBlockHash(hash *utils.Hash) error {
-	if len(getBlockMessage.BlockHashes) > MaxAddressesCount-1 {
+func (getBlocksMessage *GetBlocksMessage) AddBlockHash(hash *utils.Hash) error {
+	if len(getBlocksMessage.BlockHashes) > MaxAddressesCount-1 {
 		str := fmt.Sprintf("block hashes is too many %v", MaxAddressesCount)
 		return errors.New(str)
 	}
-	getBlockMessage.BlockHashes = append(getBlockMessage.BlockHashes, hash)
+	getBlocksMessage.BlockHashes = append(getBlocksMessage.BlockHashes, hash)
 	return nil
 }
-func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uint32) error {
-	err := protocol.ReadElement(reader, &getBlockMessage.ProtocolVersion)
+func (getBlocksMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uint32) error {
+	err := protocol.ReadElement(reader, &getBlocksMessage.ProtocolVersion)
 	if err != nil {
 		return err
 	}
@@ -46,21 +46,21 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 		if err != nil {
 			return err
 		}
-		getBlockMessage.AddBlockHash(hash)
+		getBlocksMessage.AddBlockHash(hash)
 	}
-	err = protocol.ReadElement(reader, getBlockMessage.HashStop)
+	err = protocol.ReadElement(reader, getBlocksMessage.HashStop)
 	return err
-
+	
 }
 
-func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
-
-	count := len(getBlockMessage.BlockHashes)
+func (getBlocksMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
+	
+	count := len(getBlocksMessage.BlockHashes)
 	if count > MaxGetBlocksCount {
 		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MaxGetBlocksCount)
 		return errors.New(str)
 	}
-	err := protocol.WriteElement(w, getBlockMessage.ProtocolVersion)
+	err := protocol.WriteElement(w, getBlocksMessage.ProtocolVersion)
 	if err != nil {
 		return err
 	}
@@ -68,15 +68,15 @@ func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint
 	if err != nil {
 		return err
 	}
-	for _, hash := range getBlockMessage.BlockHashes {
+	for _, hash := range getBlocksMessage.BlockHashes {
 		err = protocol.WriteElement(w, hash)
 		if err != nil {
 			return err
 		}
 	}
-	err = protocol.WriteElement(w, &getBlockMessage.HashStop)
+	err = protocol.WriteElement(w, &getBlocksMessage.HashStop)
 	return err
-
+	
 }
 func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
 	return 4 + MaxVarIntPayload + (MaxGetBlocksCount * utils.HashSize) + utils.HashSize

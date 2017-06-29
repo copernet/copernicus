@@ -47,54 +47,54 @@ func (blockChain *BlockChain) NextBlock() (block *Block, err error) {
 	return
 
 }
-func (blockchain *BlockChain) SkipBlock() (err error) {
+func (blockChain *BlockChain) SkipBlock() (err error) {
 
-	_, err = blockchain.FetchNextBlock()
+	_, err = blockChain.FetchNextBlock()
 	if err != nil {
-		newBlkFile, err2 := os.Open(blkFileName(blockchain.Path, blockchain.CurrentId+1))
+		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentId+1))
 		if err2 != nil {
 			return err2
 		}
-		blockchain.CurrentId++
-		blockchain.CurrentFile.Close()
-		blockchain.CurrentFile = newBlkFile
-		_, err = blockchain.FetchNextBlock()
+		blockChain.CurrentId++
+		blockChain.CurrentFile.Close()
+		blockChain.CurrentFile = newBlkFile
+		_, err = blockChain.FetchNextBlock()
 	}
 	return
 }
 
-func (blockchain *BlockChain) FetchNextBlock() (raw []byte, err error) {
+func (blockChain *BlockChain) FetchNextBlock() (raw []byte, err error) {
 
 	buf := [4]byte{}
-	_, err = blockchain.CurrentFile.Read(buf[:])
+	_, err = blockChain.CurrentFile.Read(buf[:])
 	if err != nil {
 		return
 	}
-	if !bytes.Equal(buf[:], blockchain.Magic[:]) {
+	if !bytes.Equal(buf[:], blockChain.Magic[:]) {
 		err = errors.New("Bas magic")
 		return
 	}
-	_, err = blockchain.CurrentFile.Read(buf[:])
+	_, err = blockChain.CurrentFile.Read(buf[:])
 	if err != nil {
 		return
 
 	}
 	blockSize := uint32(blkSize(buf[:]))
 	raw = make([]byte, blockSize)
-	_, err = blockchain.CurrentFile.Read(raw[:])
-	_, err = blockchain.CurrentFile.Read(raw[:])
+	_, err = blockChain.CurrentFile.Read(raw[:])
+	_, err = blockChain.CurrentFile.Read(raw[:])
 	return
 }
 
-func (blockchain *BlockChain) SkipTo(blkId uint32, offset int64) (err error) {
+func (blockChain *BlockChain) SkipTo(blkId uint32, offset int64) (err error) {
 
-	blockchain.CurrentId = blkId
-	f, err := os.Open(blkFileName(blockchain.Path, blkId))
+	blockChain.CurrentId = blkId
+	f, err := os.Open(blkFileName(blockChain.Path, blkId))
 	if err != nil {
 		return
 	}
-	blockchain.CurrentFile = f
-	_, err = blockchain.CurrentFile.Seek(offset, 0)
+	blockChain.CurrentFile = f
+	_, err = blockChain.CurrentFile.Seek(offset, 0)
 	return
 }
 

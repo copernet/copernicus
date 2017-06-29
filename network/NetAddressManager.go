@@ -108,7 +108,7 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 	}
 	knownAddress.refs++
 	addressManager.addressNew[bucket].Set(addressString, knownAddress)
-	log.Trace("Added new address %s for a total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
+	log.Trace("Added new address %s for addressManager total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
 }
 func (addressManager *NetAddressManager) expireNew(bucket int) {
 	var oldest *KnownAddress
@@ -277,11 +277,11 @@ func (addressManager *NetAddressManager) HostToNetAddress(host string, port uint
 	}
 	return NewPeerAddressIPPort(servicesFlag, ip, port), nil
 }
-func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddress) int {
+func (addressManager *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddress) int {
 	// bitcoind:
 	// doublesha256(key + sourcegroup + int64(doublesha256(key + group + sourcegroup))%bucket_per_source_group) % num_new_buckets
 	dataFirst := []byte{}
-	dataFirst = append(dataFirst, addressManger.key[:]...)
+	dataFirst = append(dataFirst, addressManager.key[:]...)
 	dataFirst = append(dataFirst, []byte(netAddr.GroupKey())...)
 	dataFirst = append(dataFirst, []byte(srcAddr.GroupKey())...)
 	hashFirst := crypto.DoubleSha256Bytes(dataFirst)
@@ -290,7 +290,7 @@ func (addressManger *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddre
 	var hashbuf [8]byte
 	binary.LittleEndian.PutUint64(hashbuf[:], hash64)
 	dataSecond := []byte{}
-	dataSecond = append(dataSecond, addressManger.key[:]...)
+	dataSecond = append(dataSecond, addressManager.key[:]...)
 	dataSecond = append(dataSecond, srcAddr.GroupKey()...)
 	dataSecond = append(dataSecond, hashbuf[:]...)
 	hashSecond := crypto.DoubleSha256Bytes(dataSecond)
@@ -346,24 +346,24 @@ func (addressManager *NetAddressManager) AddAddressByIP(addressIP string) error 
 	addressManager.AddAddress(peerAddress, peerAddress)
 	return nil
 }
-func (addressManage *NetAddressManager) Numaddresses() int {
-	//addressManage.lock.Lock()
-	//defer addressManage.lock.Unlock()
-	return addressManage.addressIndex.Count()
+func (addressManager *NetAddressManager) Numaddresses() int {
+	//addressManager.lock.Lock()
+	//defer addressManager.lock.Unlock()
+	return addressManager.addressIndex.Count()
 }
-func (addressManger *NetAddressManager) NeedMoreAddresses() bool {
-	//addressManger.lock.Lock()
-	//defer addressManger.lock.Unlock()
-	return addressManger.Numaddresses() < NeedAddressThreshold
+func (addressManager *NetAddressManager) NeedMoreAddresses() bool {
+	//addressManager.lock.Lock()
+	//defer addressManager.lock.Unlock()
+	return addressManager.Numaddresses() < NeedAddressThreshold
 }
-func (a *NetAddressManager) find(peerAddress *PeerAddress) *KnownAddress {
-	//a.lock.Lock()
-	//defer a.lock.Unlock()
-	value := a.addressIndex.Get(peerAddress.NetAddressKey())
+func (addressManager *NetAddressManager) find(peerAddress *PeerAddress) *KnownAddress {
+	//addressManager.lock.Lock()
+	//defer addressManager.lock.Unlock()
+	value := addressManager.addressIndex.Get(peerAddress.NetAddressKey())
 	if value == nil {
 		return nil
 	}
-	return a.addressIndex.Get(peerAddress.NetAddressKey()).(*KnownAddress)
+	return addressManager.addressIndex.Get(peerAddress.NetAddressKey()).(*KnownAddress)
 }
 func (addressManager *NetAddressManager) AddressCache() []*PeerAddress {
 	//addressManager.lock.Lock()
@@ -388,14 +388,14 @@ func (addressManager *NetAddressManager) AddressCache() []*PeerAddress {
 	return allAddress[0:numAddresses]
 
 }
-func (addressManageer *NetAddressManager) reset() {
-	addressManageer.addressIndex = beegoUtils.NewBeeMap()
-	io.ReadFull(crand.Reader, addressManageer.key[:])
-	for i := range addressManageer.addressNew {
-		addressManageer.addressNew[i] = beegoUtils.NewBeeMap()
+func (addressManager *NetAddressManager) reset() {
+	addressManager.addressIndex = beegoUtils.NewBeeMap()
+	io.ReadFull(crand.Reader, addressManager.key[:])
+	for i := range addressManager.addressNew {
+		addressManager.addressNew[i] = beegoUtils.NewBeeMap()
 	}
-	for i := range addressManageer.addressTried {
-		addressManageer.addressTried[i] = list.New()
+	for i := range addressManager.addressTried {
+		addressManager.addressTried[i] = list.New()
 	}
 
 }
@@ -451,10 +451,10 @@ func (addressManager *NetAddressManager) GetAddress() *KnownAddress {
 	}
 
 }
-func (addrssManager *NetAddressManager) Attempt(peerAddress *PeerAddress) {
-	addrssManager.lock.Lock()
-	defer addrssManager.lock.Unlock()
-	knownAddress := addrssManager.find(peerAddress)
+func (addressManager *NetAddressManager) Attempt(peerAddress *PeerAddress) {
+	addressManager.lock.Lock()
+	defer addressManager.lock.Unlock()
+	knownAddress := addressManager.find(peerAddress)
 	if knownAddress == nil {
 		return
 	}

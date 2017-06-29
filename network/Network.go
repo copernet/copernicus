@@ -60,7 +60,7 @@ var (
 	rfc6598Net = ipNet("100.64.0.0", 10, 32)
 
 	// onionCatNet defines the IPv6 address block used to support Tor.
-	// bitcoind encodes a .onion address as a 16 byte number by decoding the
+	// bitcoind encodes addressManager .onion address as addressManager 16 byte number by decoding the
 	// address prior to the .onion (i.e. the key hash) base32 into a ten
 	// byte number. It then stores the first 6 bytes of the address as
 	// 0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43.

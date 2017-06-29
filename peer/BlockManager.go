@@ -18,7 +18,7 @@ type BlockManager struct {
 	requestedBlocks map[utils.Hash]struct{}
 	progressLogger  *BlockProgressLogger //todo do't need?
 	syncPeer        *ServerPeer          //todo mutual reference
-
+	
 	messageChan      chan interface{}
 	waitGroup        sync.WaitGroup
 	quit             chan struct{}
@@ -33,11 +33,11 @@ func (blockManager *BlockManager) NewPeer(serverPeer *ServerPeer) {
 		return
 	}
 	blockManager.messageChan <- &NewPeerMessage{serverPeer: serverPeer}
-
+	
 }
 func (blockManager *BlockManager) Start() {
 	//todo
 }
-func (blockmanager *BlockManager) Stop() {
+func (blockManager *BlockManager) Stop() {
 
 }

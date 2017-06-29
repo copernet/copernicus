@@ -15,9 +15,9 @@ type BinaryFreeList chan []byte
 
 var BinarySerializer BinaryFreeList = make(chan []byte, IoMaxSize)
 
-func (l BinaryFreeList) BorrowFront8() (buf []byte) {
+func (b BinaryFreeList) BorrowFront8() (buf []byte) {
 	select {
-	case buf = <-l:
+	case buf = <-b:
 	default:
 		buf = make([]byte, 8)
 

@@ -12,7 +12,7 @@ import (
 const (
 	MaxAddressesCount = 1024
 	MaxVarIntPayload  = 9
-	MaxUseragentLen   = 256
+	MaxUserAgentLen   = 256
 )
 
 type AddressMessage struct {
@@ -20,18 +20,18 @@ type AddressMessage struct {
 	AddressList []*network.PeerAddress
 }
 
-func (addressMsg *AddressMessage) AddPeerAddress(peerAddress *network.PeerAddress) error {
-	if len(addressMsg.AddressList) > MaxAddressesCount {
+func (addressMessage *AddressMessage) AddPeerAddress(peerAddress *network.PeerAddress) error {
+	if len(addressMessage.AddressList) > MaxAddressesCount {
 		str := fmt.Sprintf("has too many addresses in message ,count is %v ", MaxAddressesCount)
 		return errors.New(str)
 	}
-	addressMsg.AddressList = append(addressMsg.AddressList, peerAddress)
+	addressMessage.AddressList = append(addressMessage.AddressList, peerAddress)
 	return nil
 }
 
-func (addressMsg *AddressMessage) AddPeerAddresses(peerAddresses ...*network.PeerAddress) (err error) {
+func (addressMessage *AddressMessage) AddPeerAddresses(peerAddresses ...*network.PeerAddress) (err error) {
 	for _, peerAddress := range peerAddresses {
-		err = addressMsg.AddPeerAddress(peerAddress)
+		err = addressMessage.AddPeerAddress(peerAddress)
 		if err != nil {
 			return err
 		}
@@ -39,11 +39,11 @@ func (addressMsg *AddressMessage) AddPeerAddresses(peerAddresses ...*network.Pee
 	return nil
 }
 
-func (addressMsg *AddressMessage) ClearAddresses() {
-	addressMsg.AddressList = []*network.PeerAddress{}
+func (addressMessage *AddressMessage) ClearAddresses() {
+	addressMessage.AddressList = []*network.PeerAddress{}
 }
 
-func (message *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
+func (addressMessage *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
 	count, err := utils.ReadVarInt(reader, size)
 	if err != nil {
 		return err
@@ -53,17 +53,17 @@ func (message *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error
 		return errors.New(str)
 	}
 	addrList := make([]*network.PeerAddress, count)
-	message.AddressList = make([]*network.PeerAddress, 0, count)
+	addressMessage.AddressList = make([]*network.PeerAddress, 0, count)
 	for i := uint64(0); i < count; i++ {
 		peerAddress := addrList[i]
 		err := network.ReadPeerAddress(reader, size, peerAddress, true)
 		if err != nil {
 			return err
 		}
-		message.AddPeerAddress(peerAddress)
+		addressMessage.AddPeerAddress(peerAddress)
 	}
 	return nil
-
+	
 }
 
 func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
@@ -75,7 +75,7 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if count > MaxAddressesCount {
 		str := fmt.Sprintf("too many addresses for message count %v,max %v", count, MaxAddressesCount)
 		return errors.New(str)
-
+		
 	}
 	err := utils.WriteVarInt(w, size, uint64(count))
 	if err != nil {
@@ -88,16 +88,16 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 		}
 	}
 	return nil
-
+	
 }
 
-func (addressMesage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
+func (addressMessage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
 	if version < protocol.MultipleAddressVersion {
 		return MaxVarIntPayload + network.MaxPeerAddressPayload(version)
 	}
 	return MaxVarIntPayload + (MaxAddressesCount * network.MaxPeerAddressPayload(version))
 }
 
-func (addressMesage *AddressMessage) Command() string {
+func (addressMessage *AddressMessage) Command() string {
 	return CommandAddress
 }

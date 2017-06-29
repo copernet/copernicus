@@ -23,11 +23,11 @@ type PeerAddress struct {
 }
 type PeerAddressFunc func(remoteAddr *PeerAddress) *PeerAddress
 
-func (na *PeerAddress) EqualService(serviceFlag protocol.ServiceFlag) bool {
-	return na.ServicesFlag&serviceFlag == serviceFlag
+func (peerAddress *PeerAddress) EqualService(serviceFlag protocol.ServiceFlag) bool {
+	return peerAddress.ServicesFlag&serviceFlag == serviceFlag
 }
-func (peerAddrss *PeerAddress) IsIPv4() bool {
-	return peerAddrss.IP.To4() != nil
+func (peerAddress *PeerAddress) IsIPv4() bool {
+	return peerAddress.IP.To4() != nil
 }
 func (peerAddress *PeerAddress) IsLocal() bool {
 
@@ -65,40 +65,40 @@ func (peerAddress *PeerAddress) IsRFC3927() bool {
 	return rfc3927Net.Contains(peerAddress.IP)
 }
 
-func (peeraddress *PeerAddress) IsRFC3964() bool {
-	return rfc3964Net.Contains(peeraddress.IP)
+func (peerAddress *PeerAddress) IsRFC3964() bool {
+	return rfc3964Net.Contains(peerAddress.IP)
 }
 
-func (peerAddrss *PeerAddress) IsRFC4193() bool {
-	return rfc4193Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC4193() bool {
+	return rfc4193Net.Contains(peerAddress.IP)
 }
-func (peerAddrss *PeerAddress) IsRFC4380() bool {
-	return rfc4380Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC4380() bool {
+	return rfc4380Net.Contains(peerAddress.IP)
 }
-func (peerAddrss *PeerAddress) IsRFC4843() bool {
-	return rfc4380Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC4843() bool {
+	return rfc4380Net.Contains(peerAddress.IP)
 }
-func (peerAddrss *PeerAddress) IsRFC4862() bool {
-	return rfc4862Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC4862() bool {
+	return rfc4862Net.Contains(peerAddress.IP)
 }
 
-func (peerAddrss *PeerAddress) IsRFC5737() bool {
+func (peerAddress *PeerAddress) IsRFC5737() bool {
 	for _, rfc := range rfc5737Net {
-		if rfc.Contains(peerAddrss.IP) {
+		if rfc.Contains(peerAddress.IP) {
 			return true
 		}
 	}
 
 	return false
 }
-func (peerAddrss *PeerAddress) IsRFC6052() bool {
-	return rfc6052Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC6052() bool {
+	return rfc6052Net.Contains(peerAddress.IP)
 }
-func (peerAddrss *PeerAddress) IsRFC6145() bool {
-	return rfc6145Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC6145() bool {
+	return rfc6145Net.Contains(peerAddress.IP)
 }
-func (peerAddrss *PeerAddress) IsRFC6598() bool {
-	return rfc6598Net.Contains(peerAddrss.IP)
+func (peerAddress *PeerAddress) IsRFC6598() bool {
+	return rfc6598Net.Contains(peerAddress.IP)
 }
 
 func (peerAddress *PeerAddress) IsValid() bool {
@@ -151,7 +151,7 @@ func (peerAddress *PeerAddress) GroupKey() string {
 		return fmt.Sprintf("tor:%d", peerAddress.IP[6]&((1<<4)-1))
 	}
 
-	// OK, so now we know ourselves to be a IPv6 address.
+	// OK, so now we know ourselves to be addressManager IPv6 address.
 	// bitcoind uses /32 for everything, except for Hurricane Electric's
 	// (he.net) IP range, which it uses /36 for.
 	bits := 32
@@ -162,8 +162,8 @@ func (peerAddress *PeerAddress) GroupKey() string {
 	return peerAddress.IP.Mask(net.CIDRMask(bits, 128)).String()
 }
 
-func (na *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
-	na.ServicesFlag |= serviceFlag
+func (peerAddress *PeerAddress) AddService(serviceFlag protocol.ServiceFlag) {
+	peerAddress.ServicesFlag |= serviceFlag
 }
 func NewPeerAddressIPPort(serviceFlag protocol.ServiceFlag, ip net.IP, port uint16) *PeerAddress {
 	return NewPeerAddressTimestamp(time.Now(), serviceFlag, ip, port)
