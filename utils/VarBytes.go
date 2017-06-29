@@ -11,7 +11,7 @@ func ReadVarBytes(r io.Reader, size uint32, maxAllowed uint32, fieldName string)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if count > uint64(maxAllowed) {
 		str := fmt.Sprintf("%s is larger that the max allowed size count %d,max %d", fieldName, count, maxAllowed)
 		return nil, errors.New(str)
@@ -31,8 +31,5 @@ func WriteVarBytes(w io.Writer, size uint32, bytes [] byte) error {
 		return err
 	}
 	_, err = w.Write(bytes)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

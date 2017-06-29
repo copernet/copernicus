@@ -869,10 +869,7 @@ func (p *Peer) negotiateInboundProtocol() error {
 		return err
 	}
 	err = p.writeLocalVersionMessage()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 func (p *Peer) negotiateOutboundProtocol() error {
 	err := p.writeLocalVersionMessage()
