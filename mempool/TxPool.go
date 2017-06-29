@@ -9,7 +9,7 @@ import (
 type TxPool struct {
 	lastUpdate    uint64
 	lock          sync.RWMutex
-	mempoolConfig MempoolConfig
+	mempoolConfig TxPoolConfig
 	pool          map[utils.Hash]*TxDesc
 	orghans       map[utils.Hash]*model.Transaction
 	orphansByPrev map[utils.Hash]map[utils.Hash]*model.Transaction

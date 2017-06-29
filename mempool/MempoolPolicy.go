@@ -1,6 +1,6 @@
 package mempool
 
-type MempoolPolicy struct {
+type PoolPolicy struct {
 	DisableRelayPriority bool
 	RelayNonStandard     bool
 	FreeTxRelayLimit     float64

@@ -585,7 +585,7 @@ func (addressManager *NetAddressManager) GetBestLocalAddress(remoteAddress *Peer
 }
 func NewNetAddressManager(dataDir string, lookupFunc utils.LookupFunc) *NetAddressManager {
 	addressManager := NetAddressManager{
-		peersFile:      filepath.Join(dataDir, "peer.json"),
+		peersFile:      filepath.Join(dataDir, "p2p.json"),
 		lookupFunc:     lookupFunc,
 		rand:           rand.New(rand.NewSource(time.Now().UnixNano())),
 		quit:           make(chan struct{}),

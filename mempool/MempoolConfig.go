@@ -4,8 +4,8 @@ import (
 	"github.com/btccom/copernicus/msg"
 )
 
-type MempoolConfig struct {
-	MempoolPolicy MempoolPolicy
+type TxPoolConfig struct {
+	MempoolPolicy PoolPolicy
 	BitcoinParams *msg.BitcoinParams
 	//	FetchUTXOViewfunc func(transaction model.Transaction)()
 

@@ -33,7 +33,7 @@ type AppConfig struct {
 	RegressionTest bool `long:"regtest" description:"Use the regression test network"`
 	SimNet         bool `long:"simnet" description:"Use the simulation test network"`
 
-	DisableListen bool `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --connect or --proxy options are used without also specifying listen interfaces via --listen"`
+	DisableListen bool `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --conn or --proxy options are used without also specifying listen interfaces via --listen"`
 
 	lookup         utils.LookupFunc
 	DisableDNSSeed bool `long:"nodnsseed" description:"Disable DNS seeding for peers"`
@@ -51,12 +51,12 @@ func init() {
 	contentTimeout := appConf.String("Timeout::connectTimeout")
 	log.Info("read conf timeout is  %s", contentTimeout)
 	logDir := appConf.String("Log::dir")
-	log.Info("log dir is %s", logDir)
+	log.Info("logger dir is %s", logDir)
 	logLevel := appConf.String("Log::level")
-	log.Info("log dir is %s", logLevel)
+	log.Info("logger dir is %s", logLevel)
 
-	//if err := log.InitLogger(logDir, logLevel); err != nil {
-	//	log.Error(err.Error())
+	//if err := logger.InitLogger(logDir, logLevel); err != nil {
+	//	logger.Error(err.Error())
 	//}
 	AppConf, _ = loadConfig()
 

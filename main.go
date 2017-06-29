@@ -4,7 +4,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/btccom/copernicus/conf"
 	"github.com/btccom/copernicus/msg"
-	"github.com/btccom/copernicus/peer"
+	"github.com/btccom/copernicus/p2p"
 	"os"
 	"syscall"
 )
@@ -33,7 +33,7 @@ func main() {
 
 func startBitcoin() error {
 
-	peerManager, err := peer.NewPeerManager(conf.AppConf.Listeners, nil, msg.ActiveNetParams)
+	peerManager, err := p2p.NewPeerManager(conf.AppConf.Listeners, nil, msg.ActiveNetParams)
 	if err != nil {
 		log.Error("unable to start server on %v:%v", conf.AppConf.Listeners, err)
 		return err

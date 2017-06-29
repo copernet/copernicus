@@ -32,7 +32,7 @@ type InventoryType uint32
 // BloomUpdateType specifies how the filter is updated when a match is found
 type BloomUpdateType uint8
 
-// RejectCode represents a numeric value by which a remote peer indicates
+// RejectCode represents a numeric value by which a remote p2p indicates
 // why a msg was rejected.
 type RejectCode uint8
 
