@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"math"
 )
@@ -25,9 +24,9 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 		result = sv
 		min := uint64(0x100000000)
 		if result < min {
-			return 0, errors.New(fmt.Sprintf(errVarIntDesc, result, discriminant, min))
+			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
 		}
-
+	
 	case 0xfe:
 		sv, err := BinarySerializer.Uint32(r, binary.LittleEndian)
 		if err != nil {
@@ -36,7 +35,7 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 		result = uint64(sv)
 		min := uint64(0x10000)
 		if result < min {
-			return 0, errors.New(fmt.Sprintf(errVarIntDesc, result, discriminant, min))
+			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
 		}
 	case 0xfd:
 		sv, err := BinarySerializer.Uint16(r, binary.LittleEndian)
@@ -46,11 +45,11 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 		result = uint64(sv)
 		min := uint64(0xfd)
 		if result < min {
-			return 0, errors.New(fmt.Sprintf(errVarIntDesc, result, discriminant, min))
+			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
 		}
 	default:
 		result = uint64(discriminant)
-
+		
 	}
 	return result, nil
 }
@@ -65,7 +64,7 @@ func WriteVarInt(w io.Writer, size uint32, val uint64) error {
 			return err
 		}
 		return BinarySerializer.PutUint16(w, binary.LittleEndian, uint16(val))
-
+		
 	}
 	if val <= math.MaxUint32 {
 		err := BinarySerializer.PutUint8(w, 0xfe)
@@ -79,7 +78,7 @@ func WriteVarInt(w io.Writer, size uint32, val uint64) error {
 		return err
 	}
 	return BinarySerializer.PutUint64(w, binary.LittleEndian, val)
-
+	
 }
 
 func VarIntSerializeSize(val uint64) int {
@@ -93,5 +92,5 @@ func VarIntSerializeSize(val uint64) int {
 		return 5
 	}
 	return 9
-
+	
 }
