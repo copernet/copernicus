@@ -1,10 +1,10 @@
 package msg
 
 import (
-	"io"
-	"github.com/btccom/copernicus/protocol"
 	"fmt"
+	"github.com/btccom/copernicus/protocol"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type PongMessage struct {
@@ -24,7 +24,7 @@ func (pongMessage *PongMessage) BitcoinSerialize(w io.Writer, pver uint32) error
 	if pver <= protocol.Bip0031Version {
 		str := fmt.Sprintf("pong message invalid for protocol version %d", pver)
 		return errors.New(str)
-		
+
 	}
 	err := protocol.WriteElement(w, pongMessage.Nonce)
 	return err

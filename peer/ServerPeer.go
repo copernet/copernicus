@@ -3,18 +3,18 @@ package peer
 import (
 	"github.com/btccom/copernicus/connect"
 	"sync"
-	
+
 	"github.com/btccom/copernicus/algorithm"
-	"github.com/btccom/copernicus/network"
 	"github.com/btccom/copernicus/conf"
+	"github.com/btccom/copernicus/network"
 	"github.com/btccom/copernicus/protocol"
-	
+
 	"github.com/btccom/copernicus/msg"
 	"github.com/btccom/copernicus/utils"
 )
 
 type ServerPeer struct {
-	feeFilter       int64
+	feeFilter int64
 	*Peer
 	connectRequest  *connect.ConnectRequest
 	peerManager     *PeerManager
@@ -23,7 +23,7 @@ type ServerPeer struct {
 	relayLock       sync.Mutex
 	disableRelayTx  bool
 	setAddress      bool
-	requestQueue    [] *msg.InventoryVector
+	requestQueue    []*msg.InventoryVector
 	requestedTxns   map[utils.Hash]struct{}
 	requestedBlocks map[utils.Hash]struct{}
 	//filter          *bloom.Filter
@@ -34,7 +34,7 @@ type ServerPeer struct {
 	blockProcessed chan struct{}
 }
 
-func NewServerPeer(peerManager *PeerManager, isPersistent bool) (*ServerPeer) {
+func NewServerPeer(peerManager *PeerManager, isPersistent bool) *ServerPeer {
 	serverPeer := ServerPeer{
 		peerManager:     peerManager,
 		persistent:      isPersistent,
@@ -45,7 +45,6 @@ func NewServerPeer(peerManager *PeerManager, isPersistent bool) (*ServerPeer) {
 		quit:           make(chan struct{}),
 		txProcessed:    make(chan struct{}, 1),
 		blockProcessed: make(chan struct{}, 1),
-		
 	}
 	return &serverPeer
 }
@@ -82,7 +81,7 @@ func (serverPeer *ServerPeer) pushAddressMessage(peerAddresses []*network.PeerAd
 		if !serverPeer.addressKnown(address) {
 			addresses = append(addresses, address)
 		}
-		
+
 	}
 	knownes, err := serverPeer.SendAddrMessage(addresses)
 	if err != nil {
@@ -91,7 +90,7 @@ func (serverPeer *ServerPeer) pushAddressMessage(peerAddresses []*network.PeerAd
 		return
 	}
 	serverPeer.addKnownAddress(knownes)
-	
+
 }
 
 func (serverPeer *ServerPeer) addBanScore(persistent, transient uint32, reason string) {
@@ -117,7 +116,7 @@ func (serverPeer *ServerPeer) addBanScore(persistent, transient uint32, reason s
 			serverPeer.Disconnect()
 		}
 	}
-	
+
 }
 func (serverPeer *ServerPeer) OnVersion(p *Peer, versionMessage *msg.VersionMessage) {
 	serverPeer.peerManager.timeSource.AddTimeSample(serverPeer.AddressString, versionMessage.Timestamp)
@@ -131,7 +130,7 @@ func (serverPeer *ServerPeer) OnVersion(p *Peer, versionMessage *msg.VersionMess
 				if localAddress.IsRoutable() {
 					addresses := []*network.PeerAddress{localAddress}
 					serverPeer.pushAddressMessage(addresses)
-					
+
 				}
 			}
 			hatTimestamp := serverPeer.ProtocolVersion >= protocol.PeerAddressTimeVersion
@@ -142,7 +141,7 @@ func (serverPeer *ServerPeer) OnVersion(p *Peer, versionMessage *msg.VersionMess
 		}
 	}
 	serverPeer.peerManager.AddPeer(serverPeer)
-	
+
 }
 
 func (serverPeer *ServerPeer) OnRead(p *Peer, bytesRead int, message msg.Message, err error) {
@@ -188,7 +187,7 @@ func (serverPeer *ServerPeer) OnMemPool(p *Peer, msg *msg.MempoolMessage) {
 	//
 	//	}
 	//}
-	
+
 }
 func (serverPeer *ServerPeer) OnTx(p *Peer, msg *msg.TxMessage) {
 

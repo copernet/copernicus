@@ -17,7 +17,6 @@ func (getDataMessage *GetDataMessage) Command() string {
 	return CommandGetData
 }
 
-
 func (getDataMessage *GetDataMessage) MaxPayloadLength(size uint32) uint32 {
 	return 0
 }

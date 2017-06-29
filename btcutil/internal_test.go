@@ -33,5 +33,5 @@ func TstAppDataDir(goos, appName string, roaming bool) string {
 // P2PKH and P2SH bitcoin addresses.
 func TstAddressSAddr(addr string) []byte {
 	decoded := base58.Decode(addr)
-	return decoded[1: 1+ripemd160.Size]
+	return decoded[1 : 1+ripemd160.Size]
 }

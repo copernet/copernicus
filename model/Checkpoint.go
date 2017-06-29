@@ -6,5 +6,5 @@ import (
 
 type Checkpoint struct {
 	Height int32
-	Hash *utils.Hash
+	Hash   *utils.Hash
 }

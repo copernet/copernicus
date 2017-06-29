@@ -1,12 +1,12 @@
 package model
 
 import (
-	"os"
-	"fmt"
 	"bytes"
 	"errors"
-	"sync"
+	"fmt"
 	"github.com/btccom/copernicus/utils"
+	"os"
+	"sync"
 )
 
 type BlockChain struct {
@@ -18,7 +18,7 @@ type BlockChain struct {
 	Lock        sync.Mutex
 }
 
-func ParseBlockchain(path string, magic [4] byte) (blockchain *BlockChain, err error) {
+func ParseBlockchain(path string, magic [4]byte) (blockchain *BlockChain, err error) {
 	blockchain = new(BlockChain)
 	blockchain.Path = path
 	blockchain.Magic = magic
@@ -31,7 +31,7 @@ func ParseBlockchain(path string, magic [4] byte) (blockchain *BlockChain, err e
 	return
 }
 func (blockChain *BlockChain) NextBlock() (block *Block, err error) {
-	
+
 	rawBlock, err := blockChain.FetchNextBlock()
 	if err != nil {
 		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentId+1))
@@ -45,10 +45,10 @@ func (blockChain *BlockChain) NextBlock() (block *Block, err error) {
 	}
 	block, err = ParseBlock(rawBlock)
 	return
-	
+
 }
 func (blockchain *BlockChain) SkipBlock() (err error) {
-	
+
 	_, err = blockchain.FetchNextBlock()
 	if err != nil {
 		newBlkFile, err2 := os.Open(blkFileName(blockchain.Path, blockchain.CurrentId+1))
@@ -64,7 +64,7 @@ func (blockchain *BlockChain) SkipBlock() (err error) {
 }
 
 func (blockchain *BlockChain) FetchNextBlock() (raw []byte, err error) {
-	
+
 	buf := [4]byte{}
 	_, err = blockchain.CurrentFile.Read(buf[:])
 	if err != nil {
@@ -77,7 +77,7 @@ func (blockchain *BlockChain) FetchNextBlock() (raw []byte, err error) {
 	_, err = blockchain.CurrentFile.Read(buf[:])
 	if err != nil {
 		return
-		
+
 	}
 	blockSize := uint32(blkSize(buf[:]))
 	raw = make([]byte, blockSize)
@@ -87,7 +87,7 @@ func (blockchain *BlockChain) FetchNextBlock() (raw []byte, err error) {
 }
 
 func (blockchain *BlockChain) SkipTo(blkId uint32, offset int64) (err error) {
-	
+
 	blockchain.CurrentId = blkId
 	f, err := os.Open(blkFileName(blockchain.Path, blkId))
 	if err != nil {
@@ -103,7 +103,7 @@ func blkFileName(path string, id uint32) string {
 }
 
 func blkSize(buf []byte) (size uint64) {
-	
+
 	for i := 0; i < len(buf); i++ {
 		size |= (uint64(buf[i]) << uint(i*8))
 	}
@@ -113,5 +113,5 @@ func (blockChain *BlockChain) BestBlockHash() (utils.Hash, int32, error) {
 	blockChain.Lock.Lock()
 	defer blockChain.Lock.Unlock()
 	return blockChain.LastBlock.Hash, blockChain.LastBlock.Height, nil
-	
+
 }

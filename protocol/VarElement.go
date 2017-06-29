@@ -2,15 +2,15 @@ package protocol
 
 import (
 	"encoding/binary"
-	"time"
-	"io"
-	"github.com/btccom/copernicus/utils"
 	"github.com/btccom/copernicus/btcutil"
+	"github.com/btccom/copernicus/utils"
+	"io"
+	"time"
 )
 
 const CommandSize = 12
 
-func ReadElement(reader io.Reader, element interface{}) (error) {
+func ReadElement(reader io.Reader, element interface{}) error {
 	switch e := element.(type) {
 	case *uint16:
 		rv, err := utils.BinarySerializer.Uint16(reader, binary.LittleEndian)
@@ -112,7 +112,7 @@ func ReadElement(reader io.Reader, element interface{}) (error) {
 		}
 		*e = btcutil.BitcoinNet(rv)
 		return nil
-	
+
 	case *BloomUpdateType:
 		rv, err := utils.BinarySerializer.Uint8(reader)
 		if err != nil {
@@ -127,10 +127,10 @@ func ReadElement(reader io.Reader, element interface{}) (error) {
 		}
 		*e = RejectCode(rv)
 		return nil
-		
+
 	}
 	return binary.Read(reader, binary.LittleEndian, element)
-	
+
 }
 
 func ReadElements(r io.Reader, elements ...interface{}) error {
@@ -144,7 +144,7 @@ func ReadElements(r io.Reader, elements ...interface{}) error {
 }
 func WriteElement(w io.Writer, element interface{}) error {
 	switch e := element.(type) {
-	
+
 	case int32:
 		err := utils.BinarySerializer.PutUint32(w, binary.LittleEndian, uint32(e))
 		if err != nil {
@@ -157,7 +157,7 @@ func WriteElement(w io.Writer, element interface{}) error {
 			return err
 		}
 		return nil
-	
+
 	case int64:
 		err := utils.BinarySerializer.PutUint64(w, binary.LittleEndian, uint64(e))
 		if err != nil {
@@ -174,7 +174,7 @@ func WriteElement(w io.Writer, element interface{}) error {
 		var err error
 		if e {
 			err = utils.BinarySerializer.PutUint8(w, 0x01)
-			
+
 		} else {
 			err = utils.BinarySerializer.PutUint8(w, 0x00)
 		}
@@ -237,10 +237,10 @@ func WriteElement(w io.Writer, element interface{}) error {
 			return err
 		}
 		return nil
-		
+
 	}
 	return binary.Write(w, binary.LittleEndian, element)
-	
+
 }
 func WriteElements(w io.Writer, elements ...interface{}) error {
 	for _, element := range elements {

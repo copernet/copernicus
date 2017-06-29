@@ -2,10 +2,10 @@ package msg
 
 import (
 	"fmt"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/utils"
 	"github.com/pkg/errors"
 	"io"
-	"github.com/btccom/copernicus/utils"
-	"github.com/btccom/copernicus/protocol"
 )
 
 type GetHeadersMessage struct {

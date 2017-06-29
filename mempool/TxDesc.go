@@ -2,7 +2,6 @@ package mempool
 
 import (
 	"time"
-	
 )
 
 type TxDesc struct {

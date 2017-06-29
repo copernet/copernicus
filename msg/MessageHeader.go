@@ -1,14 +1,14 @@
 package msg
 
 import (
-	"github.com/btccom/copernicus/protocol"
-	"io"
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/btccom/copernicus/crypto"
-	"unicode/utf8"
 	"github.com/btccom/copernicus/btcutil"
+	"github.com/btccom/copernicus/crypto"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/pkg/errors"
+	"io"
+	"unicode/utf8"
 )
 
 const (
@@ -34,7 +34,7 @@ func ReadMessageHeader(reader io.Reader) (int, *MessageHeader, error) {
 	protocol.ReadElements(header, &hdr.Net, &command, &hdr.Length, &hdr.Checksum)
 	hdr.Command = string(bytes.TrimRight(command[:], string(0)))
 	return n, &hdr, nil
-	
+
 }
 func DiscardInput(reader io.Reader, n uint32) {
 	maxSize := uint32(10 * 1024)
@@ -50,7 +50,7 @@ func DiscardInput(reader io.Reader, n uint32) {
 		buf := make([]byte, bytesRemaining)
 		io.ReadFull(reader, buf)
 	}
-	
+
 }
 func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.BitcoinNet) (int, error) {
 	totalBytes := 0
@@ -59,7 +59,7 @@ func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.Bitcoin
 	if len(cmd) > CommandSize {
 		str := fmt.Sprintf("command %s is too long max %v", cmd, CommandSize)
 		return totalBytes, errors.New(str)
-		
+
 	}
 	copy(command[:], []byte(cmd))
 	var buf bytes.Buffer
@@ -105,7 +105,7 @@ func ReadMessage(reader io.Reader, pver uint32, bitcoinNet btcutil.BitcoinNet) (
 		str := fmt.Sprintf("message payload is too large -header indicates %d bytes, but max message payload is %d bytes ",
 			messageHeader.Length, protocol.MaxMessagePayload)
 		return totalBytes, nil, nil, errors.New(str)
-		
+
 	}
 	if messageHeader.Net != bitcoinNet {
 		DiscardInput(reader, messageHeader.Length)
@@ -149,5 +149,5 @@ func ReadMessage(reader io.Reader, pver uint32, bitcoinNet btcutil.BitcoinNet) (
 		return totalBytes, nil, nil, err
 	}
 	return totalBytes, message, payload, nil
-	
+
 }

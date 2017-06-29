@@ -1,9 +1,9 @@
 package mempool
 
 import (
-	"sync"
 	"github.com/btccom/copernicus/model"
 	"github.com/btccom/copernicus/utils"
+	"sync"
 )
 
 type TxPool struct {

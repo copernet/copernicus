@@ -16,24 +16,24 @@ type LRUCache struct {
 	cacheMap map[interface{}]*list.Element
 }
 
-func NewLRUCache(length int) (*LRUCache) {
-	
+func NewLRUCache(length int) *LRUCache {
+
 	return &LRUCache{Length: length,
-		dataList:            list.New(),
-		cacheMap:            make(map[interface{}]*list.Element),
+		dataList: list.New(),
+		cacheMap: make(map[interface{}]*list.Element),
 	}
 }
-func (lru *LRUCache) Size() (int) {
+func (lru *LRUCache) Size() int {
 	lru.lock.Lock()
 	defer lru.lock.Unlock()
 	return lru.dataList.Len()
-	
+
 }
 
-func (lru *LRUCache) Add(k, v interface{}) (error) {
+func (lru *LRUCache) Add(k, v interface{}) error {
 	lru.lock.Lock()
 	defer lru.lock.Unlock()
-	
+
 	if lru.dataList == nil {
 		return errors.New("lurCache is nil")
 	}
@@ -51,10 +51,10 @@ func (lru *LRUCache) Add(k, v interface{}) (error) {
 		}
 		delete(lru.cacheMap, k)
 		lru.dataList.Remove(lastElement)
-		
+
 	}
 	return nil
-	
+
 }
 
 func (lru *LRUCache) Get(k interface{}) (interface{}, bool, error) {
@@ -70,7 +70,7 @@ func (lru *LRUCache) Get(k interface{}) (interface{}, bool, error) {
 	return nil, false, nil
 }
 
-func (lru *LRUCache) Remove(k interface{}) (bool) {
+func (lru *LRUCache) Remove(k interface{}) bool {
 	lru.lock.Lock()
 	defer lru.lock.Unlock()
 	if lru.cacheMap == nil {
@@ -80,7 +80,7 @@ func (lru *LRUCache) Remove(k interface{}) (bool) {
 		lru.dataList.Remove(element)
 		delete(lru.cacheMap, k)
 		return true
-		
+
 	}
 	return false
 }

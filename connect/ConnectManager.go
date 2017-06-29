@@ -1,11 +1,11 @@
 package connect
 
 import (
-	"sync"
-	"net"
-	"sync/atomic"
 	"github.com/astaxie/beego/logs"
 	"github.com/pkg/errors"
+	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -58,7 +58,7 @@ func (connectManager *ConnectManager) handleFailedConnect(connectRequest *Connec
 		time.AfterFunc(duration, func() {
 			connectManager.Connect(connectRequest)
 		})
-		
+
 	} else if connectManager.listener.GetNewAddress != nil {
 		connectManager.failedAttempts++
 		if connectManager.failedAttempts >= maxFailedAttempts {
@@ -70,7 +70,7 @@ func (connectManager *ConnectManager) handleFailedConnect(connectRequest *Connec
 		} else {
 			go connectManager.NewConnectRequest()
 		}
-		
+
 	}
 }
 
@@ -80,7 +80,7 @@ func (connectManager *ConnectManager) Connect(connectRequest *ConnectRequest) {
 	}
 	if atomic.LoadUint64(&connectRequest.id) == 0 {
 		atomic.StoreUint64(&connectRequest.id, atomic.AddUint64(&connectManager.connRequestCount, 1))
-		
+
 	}
 	log.Debug("attempting to connect to %v ", connectRequest)
 	conn, err := connectManager.listener.Dial(connectRequest.Address)
@@ -89,7 +89,7 @@ func (connectManager *ConnectManager) Connect(connectRequest *ConnectRequest) {
 	} else {
 		connectManager.requests <- handleConnected{connectRequest, conn}
 	}
-	
+
 }
 
 func (connectManager *ConnectManager) Disconnect(id uint64) {
@@ -140,7 +140,7 @@ func (connectManager *ConnectManager) NewConnectRequest() {
 	}
 	connectRequest.Address = address
 	connectManager.Connect(connectRequest)
-	
+
 }
 
 func (connectManager *ConnectManager) connectHandler() {
@@ -178,20 +178,20 @@ out:
 				} else {
 					log.Error("unknown connectiong :%d", msg.id)
 				}
-			
+
 			case handleFailed:
 				connectRequest := msg.connectRequest
 				connectRequest.updateState(ConnectFailed)
 				log.Debug("failed to connect to %v :%v", connectRequest, msg.err)
 				connectManager.handleFailedConnect(connectRequest)
-				
+
 			}
 		case <-connectManager.quit:
 			break out
-			
+
 		}
 	}
-	
+
 }
 
 func (connectManager *ConnectManager) Start() {
@@ -213,7 +213,7 @@ func (connectManager *ConnectManager) Start() {
 		log.Trace("Connection manager NewConnectRequest")
 		go connectManager.NewConnectRequest()
 	}
-	
+
 }
 
 func (connectManager *ConnectManager) Wait() {
@@ -238,17 +238,16 @@ func NewConnectManager(listener *ConnectListener) (*ConnectManager, error) {
 	}
 	if listener.RetryDuration <= 0 {
 		listener.RetryDuration = defaultRetryDuration
-		
+
 	}
 	if listener.TargetOutbound == 0 {
 		listener.TargetOutbound = defaultTargetOutbound
-		
+
 	}
 	connectManager := ConnectManager{
 		listener: listener,
 		requests: make(chan interface{}),
 		quit:     make(chan struct{}),
-		
 	}
 	return &connectManager, nil
 }

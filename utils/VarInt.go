@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"io"
 	"encoding/binary"
-	"github.com/pkg/errors"
 	"fmt"
+	"github.com/pkg/errors"
+	"io"
 	"math"
 )
 

@@ -1,10 +1,10 @@
 package msg
 
 import (
-	"fmt"
-	"io"
-	"github.com/btccom/copernicus/utils"
 	"errors"
+	"fmt"
+	"github.com/btccom/copernicus/utils"
+	"io"
 )
 
 const DefaultInventoryListAlloc = 1000

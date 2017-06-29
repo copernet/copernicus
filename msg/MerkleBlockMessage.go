@@ -1,6 +1,5 @@
 package msg
 
-
 import "io"
 
 type MerkleBlockMessage struct {

@@ -1,13 +1,13 @@
 package blockchain
 
 import (
+	"github.com/btccom/copernicus/algorithm"
+	"sort"
 	"sync"
 	"time"
-	"sort"
-	"github.com/btccom/copernicus/algorithm"
-	
-	"math"
+
 	"github.com/astaxie/beego/logs"
+	"math"
 )
 
 var log = logs.NewLogger()
@@ -15,7 +15,7 @@ var log = logs.NewLogger()
 type MedianTime struct {
 	lock               sync.Mutex
 	knowIDs            map[string]struct{}
-	offsets            [] int64
+	offsets            []int64
 	offsetsSecs        int64
 	invalidTimeChecked bool
 }
@@ -35,7 +35,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 		return
 	}
 	medianTime.knowIDs[sourceID] = struct{}{}
-	
+
 	now := time.Unix(time.Now().Unix(), 0)
 	offsetSecs := int64(timeVal.Sub(now).Seconds())
 	numOffsets := len(medianTime.offsets)
@@ -51,7 +51,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 	sort.Sort(int64Sorter)
 	offsetDuration := time.Duration(offsetSecs) * time.Second
 	log.Debug("added time sample of %v (total:%v)", offsetDuration, numOffsets)
-	
+
 	if numOffsets < 5 || numOffsets&0x01 != 1 {
 		return
 	}
@@ -74,7 +74,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 			}
 		}
 	}
-	
+
 }
 func (medianTime *MedianTime) Offset() time.Duration {
 	medianTime.lock.Lock()

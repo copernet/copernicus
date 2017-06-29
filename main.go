@@ -1,12 +1,12 @@
 package main
 
 import (
+	"github.com/astaxie/beego/logs"
 	"github.com/btccom/copernicus/conf"
+	"github.com/btccom/copernicus/msg"
+	"github.com/btccom/copernicus/peer"
 	"os"
 	"syscall"
-	"github.com/astaxie/beego/logs"
-	"github.com/btccom/copernicus/peer"
-	"github.com/btccom/copernicus/msg"
 )
 
 var log *logs.BeeLogger
@@ -25,14 +25,14 @@ func btcMain() error {
 func main() {
 	log.Info("application is runing")
 	startBitcoin()
-	
+
 	if err := btcMain(); err != nil {
 		os.Exit(1)
 	}
 }
 
 func startBitcoin() error {
-	
+
 	peerManager, err := peer.NewPeerManager(conf.AppConf.Listeners, nil, msg.ActiveNetParams)
 	if err != nil {
 		log.Error("unable to start server on %v:%v", conf.AppConf.Listeners, err)

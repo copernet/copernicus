@@ -1,10 +1,10 @@
 package msg
 
 import (
-	"github.com/btccom/copernicus/protocol"
 	"fmt"
-	"io"
+	"github.com/btccom/copernicus/protocol"
 	"github.com/btccom/copernicus/utils"
+	"io"
 )
 
 const (
@@ -40,7 +40,7 @@ func InventoryTypeToString(inventoryType protocol.InventoryType) string {
 		return "msg_filtered_block"
 	}
 	return fmt.Sprintf("Unkonwn Inventory type (%d)", uint32(inventoryType))
-	
+
 }
 
 func ReadInventoryVector(r io.Reader, pver uint32, iv *InventoryVector) error {

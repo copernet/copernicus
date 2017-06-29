@@ -2,9 +2,9 @@ package model
 
 import (
 	"bytes"
-	"github.com/btccom/copernicus/utils"
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/btccom/copernicus/utils"
 	"time"
 )
 

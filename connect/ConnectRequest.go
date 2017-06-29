@@ -1,10 +1,10 @@
 package connect
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
-	"fmt"
 )
 
 type ConnectRequest struct {
@@ -37,4 +37,3 @@ func (connectRequest *ConnectRequest) String() string {
 	}
 	return fmt.Sprintf("%s (reqid %d)", connectRequest.Address, atomic.LoadUint64(&connectRequest.id))
 }
-

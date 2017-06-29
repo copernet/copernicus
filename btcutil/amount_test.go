@@ -7,7 +7,7 @@ package btcutil_test
 import (
 	"math"
 	"testing"
-	
+
 	. "github.com/btccom/copernicus/btcutil"
 )
 
@@ -73,7 +73,7 @@ func TestAmountCreation(t *testing.T) {
 			valid:    true,
 			expected: 55 * SatoshiPerBitcoin,
 		},
-		
+
 		// Negative tests.
 		{
 			name:   "not-a-number",
@@ -91,7 +91,7 @@ func TestAmountCreation(t *testing.T) {
 			valid:  false,
 		},
 	}
-	
+
 	for _, test := range tests {
 		a, err := NewAmount(test.amount)
 		switch {
@@ -102,7 +102,7 @@ func TestAmountCreation(t *testing.T) {
 			t.Errorf("%v: Negative test Amount creation succeeded (value %v) when should fail", test.name, a)
 			continue
 		}
-		
+
 		if a != test.expected {
 			t.Errorf("%v: Created amount %v does not match expected %v", test.name, a, test.expected)
 			continue
@@ -147,7 +147,7 @@ func TestAmountUnitConversions(t *testing.T) {
 			s:         "444333222.111 mBTC",
 		},
 		{
-			
+
 			name:      "μBTC",
 			amount:    44433322211100,
 			unit:      AmountMicroBTC,
@@ -155,7 +155,7 @@ func TestAmountUnitConversions(t *testing.T) {
 			s:         "444333222111 μBTC",
 		},
 		{
-			
+
 			name:      "satoshi",
 			amount:    44433322211100,
 			unit:      AmountSatoshi,
@@ -163,7 +163,7 @@ func TestAmountUnitConversions(t *testing.T) {
 			s:         "44433322211100 Satoshi",
 		},
 		{
-			
+
 			name:      "non-standard unit",
 			amount:    44433322211100,
 			unit:      AmountUnit(-1),
@@ -171,27 +171,27 @@ func TestAmountUnitConversions(t *testing.T) {
 			s:         "4443332.22111 1e-1 BTC",
 		},
 	}
-	
+
 	for _, test := range tests {
 		f := test.amount.ToUnit(test.unit)
 		if f != test.converted {
 			t.Errorf("%v: converted value %v does not match expected %v", test.name, f, test.converted)
 			continue
 		}
-		
+
 		s := test.amount.Format(test.unit)
 		if s != test.s {
 			t.Errorf("%v: format '%v' does not match expected '%v'", test.name, s, test.s)
 			continue
 		}
-		
+
 		// Verify that Amount.ToBTC works as advertised.
 		f1 := test.amount.ToUnit(AmountBTC)
 		f2 := test.amount.ToBTC()
 		if f1 != f2 {
 			t.Errorf("%v: ToBTC does not match ToUnit(AmountBTC): %v != %v", test.name, f1, f2)
 		}
-		
+
 		// Verify that Amount.String works as advertised.
 		s1 := test.amount.Format(AmountBTC)
 		s2 := test.amount.String()
@@ -299,7 +299,7 @@ func TestAmountMulF64(t *testing.T) {
 			res:  67, // 67 Satoshis
 		},
 	}
-	
+
 	for _, test := range tests {
 		a := test.amt.MulF64(test.mul)
 		if a != test.res {

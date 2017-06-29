@@ -7,21 +7,22 @@ type Transaction struct {
 	Version  uint32
 	TxInCnt  uint32
 	TxOutCnt uint32
-	Ins      [] *TransactionIn
-	Outs     [] *TransactionOut
+	Ins      []*TransactionIn
+	Outs     []*TransactionOut
 }
 type TransactionIn struct {
 	InputHash string
 	InputVout uint32
-	ScriptSig [] byte
+	ScriptSig []byte
 	Sequence  uint32
 }
 
 type TransactionOut struct {
 	Address  string
 	Value    uint64
-	PKScript [] byte
+	PKScript []byte
 }
+
 //
 //func ParseTranscations(raws [] byte) (txs []*Transaction, err error) {
 //	offset := int(0)

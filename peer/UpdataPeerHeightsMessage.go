@@ -5,7 +5,7 @@ import (
 )
 
 type UpdatePeerHeightsMessage struct {
-	newHash *crypto.Hash
-	newHeight int32
+	newHash    *crypto.Hash
+	newHeight  int32
 	originPeer *ServerPeer
 }

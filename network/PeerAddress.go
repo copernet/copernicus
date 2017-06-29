@@ -1,16 +1,16 @@
 package network
 
 import (
-	"time"
-	"net"
-	"io"
-	"github.com/btccom/copernicus/protocol"
-	"encoding/binary"
-	"github.com/btcsuite/go-socks/socks"
-	"strconv"
-	"fmt"
 	"encoding/base32"
+	"encoding/binary"
+	"fmt"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btcsuite/go-socks/socks"
+	"io"
+	"net"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type HostToNetAddrFunc func(host string, port uint16, serviceFlag protocol.ServiceFlag) (*PeerAddress, error)
@@ -276,4 +276,3 @@ func (peerAddress *PeerAddress) IpString() string {
 	}
 	return peerAddress.IP.String()
 }
-

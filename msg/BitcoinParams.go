@@ -1,12 +1,12 @@
 package msg
 
 import (
+	"github.com/btccom/copernicus/btcutil"
+	"github.com/btccom/copernicus/model"
+	"github.com/btccom/copernicus/utils"
+	"github.com/pkg/errors"
 	"math/big"
 	"time"
-	"github.com/btccom/copernicus/model"
-	"github.com/pkg/errors"
-	"github.com/btccom/copernicus/utils"
-	"github.com/btccom/copernicus/btcutil"
 )
 
 var ActiveNetParams = &MainNetParams
@@ -39,20 +39,20 @@ type BitcoinParams struct {
 	MinDiffReductionTime     time.Duration
 	GenerateSupported        bool
 	Checkpoints              []*model.Checkpoint
-	
+
 	// Enforce current block version once network has
 	// upgraded.  This is part of BIP0034.
 	BlockEnforceNumRequired uint64
-	
+
 	// Reject previous block versions once network has
 	// upgraded.  This is part of BIP0034.
 	BlockRejectNumRequired uint64
-	
+
 	// The number of nodes to check.  This is part of BIP0034.
 	BlockUpgradeNumToCheck uint64
-	
+
 	RelayNonStdTxs bool
-	
+
 	PubKeyHashAddressID byte
 	ScriptHashAddressID byte
 	PrivatekeyId        byte
@@ -114,7 +114,7 @@ var MainNetParams = BitcoinParams{
 	BlockEnforceNumRequired: 750,
 	BlockRejectNumRequired:  950,
 	BlockUpgradeNumToCheck:  1000,
-	
+
 	RelayNonStdTxs:      false,
 	PubKeyHashAddressID: 0x00, // starts with 1
 	ScriptHashAddressID: 0x05, // starts with 3
@@ -153,7 +153,7 @@ var RegressionNetParams = BitcoinParams{
 	BlockEnforceNumRequired: 750,
 	BlockRejectNumRequired:  950,
 	BlockUpgradeNumToCheck:  1000,
-	
+
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x6f, // starts with m or n
 	ScriptHashAddressID: 0xc4, // starts with 2
@@ -199,7 +199,7 @@ var TestNet3Params = BitcoinParams{
 	BlockEnforceNumRequired: 51,
 	BlockRejectNumRequired:  75,
 	BlockUpgradeNumToCheck:  100,
-	
+
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x6f, // starts with 1
 	ScriptHashAddressID: 0xc4, // starts with 3
@@ -238,7 +238,7 @@ var SimNetParams = BitcoinParams{
 	BlockEnforceNumRequired: 51,
 	BlockRejectNumRequired:  75,
 	BlockUpgradeNumToCheck:  100,
-	
+
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x3f, // starts with 1
 	ScriptHashAddressID: 0x7b, // starts with 3
@@ -291,7 +291,7 @@ func HDPrivateKeyToPublicKeyID(id []byte) ([]byte, error) {
 	pubBytes, ok := HDPrivateToPublicKeyIDs[key]
 	if !ok {
 		return nil, errors.New("unkown hd private extended key bytes")
-		
+
 	}
 	return pubBytes, nil
 }

@@ -1,6 +1,6 @@
 package algorithm
 
-type Int64Sorter [] int64
+type Int64Sorter []int64
 
 func (sorter Int64Sorter) Len() int {
 	return len(sorter)

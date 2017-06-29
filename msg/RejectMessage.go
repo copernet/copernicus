@@ -2,10 +2,10 @@ package msg
 
 import (
 	"fmt"
-	"io"
 	"github.com/btccom/copernicus/protocol"
-	"github.com/pkg/errors"
 	"github.com/btccom/copernicus/utils"
+	"github.com/pkg/errors"
+	"io"
 )
 
 type RejectCode uint8
@@ -22,7 +22,7 @@ const (
 )
 
 func (code RejectCode) ToString() string {
-	
+
 	switch code {
 	case RejectCheckpoint:
 		return "reject_check_point"
@@ -52,7 +52,7 @@ type RejectMessage struct {
 }
 
 func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) error {
-	
+
 	if pver < protocol.RejectVersion {
 		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
 		return errors.New(str)
@@ -73,10 +73,10 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 		if err != nil {
 			return err
 		}
-		
+
 	}
 	return nil
-	
+
 }
 func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
 	if pver < protocol.RejectVersion {

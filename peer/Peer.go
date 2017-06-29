@@ -1,26 +1,26 @@
 package peer
 
 import (
-	"net"
+	"bytes"
+	"container/list"
 	"fmt"
 	"github.com/astaxie/beego/logs"
-	"sync"
-	"github.com/btccom/copernicus/protocol"
-	"time"
-	"sync/atomic"
-	"github.com/btccom/copernicus/msg"
-	"github.com/btccom/copernicus/utils"
-	"math/rand"
 	"github.com/btccom/copernicus/algorithm"
-	"github.com/pkg/errors"
-	log2 "github.com/btccom/copernicus/log"
-	"bytes"
-	"github.com/davecgh/go-spew/spew"
-	"io"
-	"container/list"
-	"strconv"
-	"github.com/btccom/copernicus/network"
 	"github.com/btccom/copernicus/btcutil"
+	log2 "github.com/btccom/copernicus/log"
+	"github.com/btccom/copernicus/msg"
+	"github.com/btccom/copernicus/network"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/utils"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/pkg/errors"
+	"io"
+	"math/rand"
+	"net"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -57,7 +57,7 @@ type Peer struct {
 	PeerStatusMutex  sync.RWMutex
 	PeerAddress      *network.PeerAddress
 	ServiceFlag      protocol.ServiceFlag
-	
+
 	UserAgent    string
 	PingNonce    uint64
 	PingTime     time.Time
@@ -65,14 +65,14 @@ type Peer struct {
 	VersionKnown bool
 	SentVerAck   bool
 	GotVerAck    bool
-	
+
 	versionSent    bool
 	verAckReceived bool
-	
+
 	knownInventory *algorithm.LRUCache
-	
+
 	StallControl chan StallControlMessage
-	
+
 	ProtocolVersion      uint32
 	LastBlock            int32
 	ConnectedTime        time.Time
@@ -81,15 +81,15 @@ type Peer struct {
 	SendHeadersPreferred bool
 	OutputQueue          chan msg.OutMessage
 	SendQueue            chan msg.OutMessage
-	
+
 	GetBlocksLock  sync.Mutex
 	GetBlocksBegin *utils.Hash
 	GetBlocksStop  *utils.Hash
-	
+
 	GetHeadersLock  sync.Mutex
 	GetHeadersBegin *utils.Hash
 	GetHeadersStop  *utils.Hash
-	
+
 	quit          chan struct{}
 	inQuit        chan struct{}
 	queueQuit     chan struct{}
@@ -123,13 +123,13 @@ func (p *Peer) UpdateDeclareBlock(blackHash *utils.Hash) {
 	p.BlockStatusMutex.Lock()
 	p.lastDeclareBlock = blackHash
 	p.BlockStatusMutex.Unlock()
-	
+
 }
 func (p *Peer) GetPeerID() int32 {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.Id
-	
+
 }
 func (p *Peer) GetNetAddress() *network.PeerAddress {
 	p.PeerStatusMutex.Lock()
@@ -140,7 +140,7 @@ func (p *Peer) GetServiceFlag() protocol.ServiceFlag {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.ServiceFlag
-	
+
 }
 func (p *Peer) GetUserAgent() string {
 	p.PeerStatusMutex.Lock()
@@ -148,7 +148,7 @@ func (p *Peer) GetUserAgent() string {
 	return p.UserAgent
 }
 func (p *Peer) GetLastDeclareBlock() *utils.Hash {
-	
+
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	return p.lastDeclareBlock
@@ -168,7 +168,7 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 			return nil, err
 		}
 		log.Info("block number:%v", blockNumber)
-		
+
 	}
 	remoteAddress := p.PeerAddress
 	if p.Config.Proxy != "" {
@@ -203,19 +203,19 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 		return errors.New("disconnecting peer connected to self")
 	}
 	if versionMessage.ProtocolVersion < protocol.MultipleAddressVersion {
-		
+
 		str := fmt.Sprintf("protocol version must be %d or greater", protocol.MultipleAddressVersion)
 		rejectMessage := msg.NewRejectMessage(msg.CommandVersion, msg.RejectObsolete, str)
 		err := p.WriteMessage(rejectMessage)
 		return err
-		
+
 	}
 	p.BlockStatusMutex.Lock()
 	p.LastBlock = versionMessage.LastBlock
 	p.StartingHeight = versionMessage.LastBlock
 	p.TimeOffset = versionMessage.Timestamp.Unix() - time.Now().Unix()
 	p.BlockStatusMutex.Unlock()
-	
+
 	p.PeerStatusMutex.Lock()
 	p.ProtocolVersion = algorithm.MinUint32(p.ProtocolVersion, versionMessage.ProtocolVersion)
 	p.VersionKnown = true
@@ -238,7 +238,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 			summary = fmt.Sprintf("(%s)", summary)
 		}
 		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p.String())
-		
+
 	}))
 	log.Debug("%v", log2.InitLogClosure(func() string {
 		return spew.Sdump(message)
@@ -251,7 +251,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		}
 		//todo what is mean spew
 		return spew.Sdump(buf.Bytes())
-		
+
 	}))
 	n, err := msg.WriteMessage(p.conn, message, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
 	atomic.AddUint64(&p.bytesSent, uint64(n))
@@ -259,7 +259,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		p.Config.Listener.OnWrite(p, n, message, err)
 	}
 	return err
-	
+
 }
 func (p *Peer) SendMessage(message msg.Message, doneChan chan<- struct{}) {
 	if !p.Connected() {
@@ -273,7 +273,7 @@ func (p *Peer) SendMessage(message msg.Message, doneChan chan<- struct{}) {
 	p.OutputQueue <- msg.OutMessage{Message: message, Done: doneChan}
 }
 func (p *Peer) SendAddrMessage(addresses []*network.PeerAddress) ([]*network.PeerAddress, error) {
-	
+
 	if len(addresses) == 0 {
 		return nil, nil
 	}
@@ -283,17 +283,17 @@ func (p *Peer) SendAddrMessage(addresses []*network.PeerAddress) ([]*network.Pee
 		for i := range addressMessage.AddressList {
 			j := rand.Intn(i + 1)
 			addressMessage.AddressList[i], addressMessage.AddressList[j] = addressMessage.AddressList[j], addressMessage.AddressList[i]
-			
+
 		}
 		addressMessage.AddressList = addressMessage.AddressList[:msg.MaxAddressesCount]
 	}
 	p.SendMessage(&addressMessage, nil)
 	return addressMessage.AddressList, nil
-	
+
 }
 func (p *Peer) Connected() bool {
 	return atomic.LoadInt32(&p.connected) != 0 && atomic.LoadInt32(&p.disconnect) == 0
-	
+
 }
 
 func (p *Peer) SendGetBlocks(locator []*utils.Hash, stopHash *utils.Hash) error {
@@ -308,7 +308,7 @@ func (p *Peer) SendGetBlocks(locator []*utils.Hash, stopHash *utils.Hash) error 
 		return nil
 	}
 	p.GetBlocksLock.Unlock()
-	
+
 	getBlocksMessage := msg.NewGetBlocksMessage(stopHash)
 	for _, hash := range locator {
 		err := getBlocksMessage.AddBlockHash(hash)
@@ -318,12 +318,12 @@ func (p *Peer) SendGetBlocks(locator []*utils.Hash, stopHash *utils.Hash) error 
 	}
 	p.SendMessage(getBlocksMessage, nil)
 	p.GetBlocksLock.Lock()
-	
+
 	p.GetBlocksBegin = beginHash
 	p.GetBlocksStop = stopHash
 	p.GetBlocksLock.Unlock()
 	return nil
-	
+
 }
 
 func (p *Peer) SendGetHeadersMessage(locator []*utils.Hash, stopHash *utils.Hash) error {
@@ -338,7 +338,7 @@ func (p *Peer) SendGetHeadersMessage(locator []*utils.Hash, stopHash *utils.Hash
 		log.Warn("duplicate  getheaders with begin hash %v", beginHash)
 		return nil
 	}
-	
+
 	message := msg.NewGetHeadersMessage()
 	message.HashStop = stopHash
 	for _, hash := range locator {
@@ -353,7 +353,7 @@ func (p *Peer) SendGetHeadersMessage(locator []*utils.Hash, stopHash *utils.Hash
 	p.GetHeadersStop = stopHash
 	p.GetHeadersLock.Unlock()
 	return nil
-	
+
 }
 
 func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason string, hash *utils.Hash, wait bool) {
@@ -376,17 +376,17 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	doneChan := make(chan struct{}, 1)
 	p.SendMessage(rejectMessage, doneChan)
 	<-doneChan
-	
+
 }
 func (p *Peer) IsValidBIP0111(command string) bool {
 	if p.ServiceFlag&protocol.SFNodeBloomFilter != protocol.SFNodeBloomFilter {
 		if p.ProtocolVersion >= protocol.Bip0111Version {
 			log.Debug("%s sent an unsupported %s request --disconnecting", p, command)
 			p.Stop()
-			
+
 		} else {
 			log.Debug("Ignoring %s request from %s -- bloom support is disabled", command, p)
-			
+
 		}
 		return false
 	}
@@ -405,7 +405,7 @@ func (p *Peer) HandlePongMessage(pongMessage *msg.PongMessage) {
 		p.PingMicros = (time.Now().Sub(p.PingTime).Nanoseconds()) / 1000
 		p.PingNonce = 0
 	}
-	
+
 }
 
 func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
@@ -424,17 +424,17 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 		}
 		return fmt.Sprintf("Received %v %v from %s",
 			message.Command(), summary, p.String())
-		
+
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
 		return spew.Sdump(message)
 	}))
 	log.Trace("%v", log2.InitLogClosure(func() string {
-		
+
 		return spew.Sdump(buf)
 	}))
 	return message, buf, nil
-	
+
 }
 func (p *Peer) IsAllowedReadError(err error) bool {
 	if p.Config.ChainParams.BitcoinNet != btcutil.TestNet {
@@ -448,7 +448,7 @@ func (p *Peer) IsAllowedReadError(err error) bool {
 		return false
 	}
 	return true
-	
+
 }
 func (p *Peer) shouldHandleReadError(err error) bool {
 	if atomic.LoadInt32(&p.disconnect) != 0 {
@@ -461,7 +461,7 @@ func (p *Peer) shouldHandleReadError(err error) bool {
 		return false
 	}
 	return true
-	
+
 }
 func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, command string) {
 	deadLine := time.Now().Add(StallResponseTimeout)
@@ -479,9 +479,9 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, command s
 	case msg.CommandGetHeaders:
 		deadLine = time.Now().Add(StallResponseTimeout * 3)
 		pendingResponses[msg.CommandHeaders] = deadLine
-		
+
 	}
-	
+
 }
 func (p *Peer) stallHandler() {
 	var handlerActive bool
@@ -523,20 +523,20 @@ out:
 					log.Warn("Recevied handler done control command when a handler is not already active")
 					continue
 				}
-				
+
 				duration := time.Now().Sub(handlerStartTime)
 				deadlineOffset += duration
 				handlerActive = false
 			default:
 				log.Warn("unsupported message command %v", stall.Command)
-				
+
 			}
 		case <-stallTicker.C:
 			now := time.Now()
 			offset := deadlineOffset
 			if handlerActive {
 				offset += now.Sub(handlerStartTime)
-				
+
 			}
 			for command, deadline := range pendingResponses {
 				if now.Before(deadline.Add(offset)) {
@@ -558,7 +558,7 @@ out:
 				break out
 			}
 			ioStopped = true
-			
+
 		}
 	}
 
@@ -571,7 +571,7 @@ cleanup:
 		}
 	}
 	log.Trace("Peer stall handler done for %s", p)
-	
+
 }
 func (p *Peer) inHandler() {
 	idleTimer := time.AfterFunc(IdleTimeout, func() {
@@ -593,7 +593,7 @@ out:
 				errMessage := fmt.Sprintf("Can't read message from %s: %v", p.String(), err)
 				log.Error(errMessage)
 				p.SendRejectMessage("malformed", msg.RejectMalformed, errMessage, nil, true)
-				
+
 			}
 			break out
 		}
@@ -609,21 +609,21 @@ out:
 			p.HandlePingMessage(message)
 		case *msg.PongMessage:
 			p.HandlePongMessage(message)
-		
+
 		default:
 			log.Debug("Recevied unhandled message of type %v from %v", readMessage.Command(), p)
-			
+
 		}
-		
+
 		p.StallControl <- StallControlMessage{SccHandlerDone, readMessage}
 		idleTimer.Reset(IdleTimeout)
-		
+
 	}
 	idleTimer.Stop()
 	close(p.inQuit)
-	
+
 	log.Trace("Peer input handler done for %s", p)
-	
+
 }
 
 func (p *Peer) queueHandler() {
@@ -676,18 +676,18 @@ out:
 					inventoryMessage = msg.NewInventoryMessageSizeHint(uint(invSendQueue.Len()))
 				}
 				p.knownInventory.Add(iv, iv)
-				
+
 			}
 			if len(inventoryMessage.InventoryList) > 0 {
 				waiting = queuePacket(
 					msg.OutMessage{Message: inventoryMessage},
 					pendingMessages, waiting)
-				
+
 			}
 		case <-p.quit:
 			break out
 		}
-		
+
 	}
 	for e := pendingMessages.Front(); e != nil; e = pendingMessages.Front() {
 		val := pendingMessages.Remove(e)
@@ -744,7 +744,7 @@ out:
 				message.Done <- struct{}{}
 			}
 			p.sendDoneQueue <- struct{}{}
-		
+
 		case <-pingTicker.C:
 			nonce, err := utils.RandomUint64()
 			if err != nil {
@@ -754,9 +754,9 @@ out:
 			p.SendMessage(msg.InitPingMessage(nonce), nil)
 		case <-p.quit:
 			break out
-			
+
 		}
-		
+
 	}
 	<-p.queueQuit
 cleanup:
@@ -772,7 +772,7 @@ cleanup:
 	}
 	close(p.outQuit)
 	log.Trace("peer output handler done for %s", p)
-	
+
 }
 func (p *Peer) QueueInventory(inventoryVector *msg.InventoryVector) {
 	if p.knownInventory.Exists(inventoryVector) {
@@ -782,7 +782,7 @@ func (p *Peer) QueueInventory(inventoryVector *msg.InventoryVector) {
 		return
 	}
 	p.outputInvChan <- inventoryVector
-	
+
 }
 
 func (p *Peer) Connect(conn net.Conn) {
@@ -793,7 +793,7 @@ func (p *Peer) Connect(conn net.Conn) {
 	p.ConnectedTime = time.Now()
 	if p.Inbound {
 		p.AddressString = p.conn.RemoteAddr().String()
-		
+
 		peerAddress, err := network.NewPeerAddressWithNetAddr(p.conn.RemoteAddr(), p.ServiceFlag)
 		if err != nil {
 			log.Error("Cannot create remote net AddressString :%v", err)
@@ -808,9 +808,9 @@ func (p *Peer) Connect(conn net.Conn) {
 			log.Warn("Can note start perr %v , err :%v", p, err)
 			p.Stop()
 		}
-		
+
 	}()
-	
+
 }
 func (peer *Peer) Disconnect() {
 	if atomic.AddInt32(&peer.disconnect, 1) != 1 {
@@ -835,7 +835,7 @@ func (p *Peer) writeLocalVersionMessage() error {
 	p.versionSent = true
 	p.PeerStatusMutex.Unlock()
 	return nil
-	
+
 }
 func (p *Peer) readRemoteVersionMessage() error {
 	message, _, err := p.ReadMessage()
@@ -863,7 +863,7 @@ func (p *Peer) readRemoteVersionMessage() error {
 }
 
 func (p *Peer) negotiateInboundProtocol() error {
-	
+
 	err := p.readRemoteVersionMessage()
 	if err != nil {
 		return err
@@ -878,7 +878,7 @@ func (p *Peer) negotiateOutboundProtocol() error {
 	}
 	err = p.readRemoteVersionMessage()
 	return err
-	
+
 }
 func (p *Peer) start() error {
 	log.Trace("start peer %s ", p)
@@ -944,7 +944,6 @@ func newPeer(peerConfig *PeerConfig, inbound bool) *Peer {
 		Config:          peerConfig,
 		ServiceFlag:     peerConfig.ServicesFlag,
 		ProtocolVersion: protocolVersion,
-		
 	}
 	return &perr
 }
@@ -968,7 +967,7 @@ func NewOutboundPeer(peerConfig *PeerConfig, addressString string) (*Peer, error
 			return nil, err
 		}
 		p.PeerAddress = peerAddress
-		
+
 	} else {
 		p.PeerAddress = network.NewPeerAddressIPPort(peerConfig.ServicesFlag, net.ParseIP(host), uint16(port))
 	}

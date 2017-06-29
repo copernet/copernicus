@@ -1,9 +1,9 @@
 package msg
 
 import (
-	"time"
 	"github.com/btccom/copernicus/utils"
-	
+	"time"
+
 	"github.com/btccom/copernicus/model"
 )
 
@@ -33,7 +33,6 @@ var GenesisBlock = BlockMessage{
 		Nonce:        0x7c2bac1d,               // 2083236893
 		Transactions: []*model.Transaction{&GenesisCoinbasTx},
 	},
-	
 }
 var RegressionTestGenesisHash = utils.Hash([utils.HashSize]byte{
 	0x06, 0x22, 0x6e, 0x46, 0x11, 0x1a, 0x0b, 0x59,
@@ -54,7 +53,6 @@ var RegressionTestGenesisBlock = BlockMessage{
 		Nonce:        2,
 		Transactions: []*model.Transaction{&GenesisCoinbasTx},
 	},
-	
 }
 
 var TestNet3GenesisHash = utils.Hash([utils.HashSize]byte{
@@ -76,7 +74,6 @@ var TestNet3GenesisBlock = BlockMessage{
 		Nonce:        0x18aea41a,               // 414098458
 		Transactions: []*model.Transaction{&GenesisCoinbasTx},
 	},
-	
 }
 
 var SimNetGenesisHash = utils.Hash([utils.HashSize]byte{
@@ -96,5 +93,4 @@ var SimNetGenesisBlock = BlockMessage{
 		Nonce:        2,
 		Transactions: []*model.Transaction{&GenesisCoinbasTx},
 	},
-	
 }

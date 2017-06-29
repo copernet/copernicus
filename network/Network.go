@@ -2,7 +2,6 @@ package network
 
 import (
 	"net"
-
 )
 
 var (
@@ -12,7 +11,6 @@ var (
 		ipNet("10.0.0.0", 8, 32),
 		ipNet("172.16.0.0", 12, 32),
 		ipNet("192.168.0.0", 16, 32),
-
 	}
 	// rfc2544Net specifies the the IPv4 block as defined by RFC2544
 	// (198.18.0.0/15)
@@ -85,4 +83,3 @@ var (
 func ipNet(ip string, ones, bits int) net.IPNet {
 	return net.IPNet{IP: net.ParseIP(ip), Mask: net.CIDRMask(ones, bits)}
 }
-

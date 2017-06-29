@@ -1,9 +1,9 @@
 package peer
 
 import (
-	"time"
-	"sync"
 	"github.com/btccom/copernicus/model"
+	"sync"
+	"time"
 )
 
 type BlockProgressLogger struct {
@@ -13,7 +13,6 @@ type BlockProgressLogger struct {
 	progressAction    string
 	lock              sync.Mutex
 }
-
 
 func newBlockProgressLogger(progressMessage string) *BlockProgressLogger {
 	blockProgressLogger := BlockProgressLogger{
@@ -53,5 +52,5 @@ func (blockLog *BlockProgressLogger) LogBlockHeight(block *model.Block) {
 	blockLog.receivedLogBlocks = 0
 	blockLog.receivedLogTx = 0
 	blockLog.LastBlockLogTime = now
-	
+
 }

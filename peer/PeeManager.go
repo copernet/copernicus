@@ -1,21 +1,21 @@
 package peer
 
 import (
-	"github.com/btccom/copernicus/protocol"
-	"github.com/btccom/copernicus/storage"
-	"github.com/btccom/copernicus/conf"
-	"github.com/btccom/copernicus/network"
-	"github.com/btccom/copernicus/connect"
-	"sync"
-	"github.com/btccom/copernicus/blockchain"
-	"github.com/btccom/copernicus/mempool"
-	"sync/atomic"
-	"time"
-	"net"
-	"github.com/btccom/copernicus/msg"
 	"errors"
 	"fmt"
+	"github.com/btccom/copernicus/blockchain"
+	"github.com/btccom/copernicus/conf"
+	"github.com/btccom/copernicus/connect"
+	"github.com/btccom/copernicus/mempool"
+	"github.com/btccom/copernicus/msg"
+	"github.com/btccom/copernicus/network"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/storage"
+	"net"
 	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -29,7 +29,7 @@ type PeerManager struct {
 	started       int32
 	shutdown      int32
 	shutdownSched int32
-	
+
 	chainParams          *msg.BitcoinParams
 	netAddressManager    *network.NetAddressManager
 	connectManager       *connect.ConnectManager
@@ -44,13 +44,13 @@ type PeerManager struct {
 	peerHeightsUpdate    chan UpdatePeerHeightsMessage
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
-	
+
 	txMemPool    *mempool.TxPool
 	nat          network.NATInterface
 	storage      storage.Storage
 	timeSource   blockchain.IMedianTimeSource
 	servicesFlag protocol.ServiceFlag
-	
+
 	//txIndex   *indexers.TxIndex
 	//addrIndex *indexers.AddrIndex
 }
@@ -60,7 +60,7 @@ type getOutboundGroup struct {
 	reply chan int
 }
 
-func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
+func NewPeerManager(listenAddrs []string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
 	services := DefaultServices
 	if conf.AppConf.NoPeerBloomFilters {
 		services &^= protocol.SFNodeBloomFilter
@@ -84,24 +84,21 @@ func NewPeerManager(listenAddrs [] string, storage storage.Storage, bitcoinParam
 		storage:              storage,
 		timeSource:           blockchain.NewMedianTime(),
 		servicesFlag:         protocol.ServiceFlag(services),
-		
-		
 	}
-	
+
 	connectListener := connect.ConnectListener{
 		Listeners:     listeners,
 		Dial:          conf.AppDial,
 		GetNewAddress: peerManager.newAddressFunc,
-		
 	}
-	
+
 	connectManager, err := connect.NewConnectManager(&connectListener)
 	if err != nil {
 		return nil, err
 	}
 	peerManager.connectManager = connectManager
 	return &peerManager, nil
-	
+
 }
 func (s *PeerManager) OutboundGroupCount(key string) int {
 	replyChan := make(chan int)
@@ -112,7 +109,7 @@ func (s *PeerManager) OutboundGroupCount(key string) int {
 func (peermanager *PeerManager) newAddressFunc() (net.Addr, error) {
 	for tries := 0; tries < 100; tries++ {
 		address := peermanager.netAddressManager.GetAddress()
-		
+
 		log.Debug(" newAddressFunc ")
 		if address == nil {
 			log.Debug(" newAddressFunc address is nil")
@@ -123,7 +120,7 @@ func (peermanager *PeerManager) newAddressFunc() (net.Addr, error) {
 			log.Debug("peermanager OutboundGroupCount :%s", key)
 			continue
 		}
-		
+
 		//if tries < 30 && time.Since(address.LastAttempt) < 10*time.Minute {
 		//	continue
 		//}
@@ -134,7 +131,7 @@ func (peermanager *PeerManager) newAddressFunc() (net.Addr, error) {
 		addressString := peermanager.netAddressManager.GetAddress().NetAddress.NetAddressKey()
 		log.Debug("get address :%s", addressString)
 		return addrStringToNetAddr(addressString)
-		
+
 	}
 	return nil, errors.New("no valid connect address")
 }
@@ -144,12 +141,12 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	port, err := strconv.Atoi(strPort)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Skip if host is already an IP address.
 	if ip := net.ParseIP(host); ip != nil {
 		return &net.TCPAddr{
@@ -157,7 +154,7 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 			Port: port,
 		}, nil
 	}
-	
+
 	// Tor addresses cannot be resolved to an IP, so just return an onion
 	// address instead.
 	//if strings.HasSuffix(host, ".onion") {
@@ -176,7 +173,7 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 	if len(ips) == 0 {
 		return nil, fmt.Errorf("no addresses found for %s", host)
 	}
-	
+
 	return &net.TCPAddr{
 		IP:   ips[0],
 		Port: port,
@@ -215,7 +212,7 @@ func (peerManger *PeerManager) Start() {
 		peerManger.waitGroup.Add(1)
 		go peerManger.upnpUpdateThread()
 	}
-	
+
 }
 
 func (peerManager *PeerManager) peerHandler() {
@@ -234,7 +231,7 @@ func (peerManager *PeerManager) peerHandler() {
 			log.Warn(addresses[0].IP.String())
 			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
 		})
-		
+
 	}
 	go peerManager.connectManager.Start()
 
@@ -250,26 +247,26 @@ out:
 			})
 			break out
 		}
-		
+
 	}
 	peerManager.connectManager.Stop()
 	peerManager.BlockManager.Stop()
 	peerManager.netAddressManager.Stop()
-	
+
 }
 
 func (s *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPeer *ServerPeer) bool {
 	if serverPeer == nil {
 		return false
 	}
-	
+
 	// Ignore new peers if we're shutting down.
 	if atomic.LoadInt32(&s.shutdown) != 0 {
 		log.Info("New peer %s ignored - server is shutting down", serverPeer)
 		serverPeer.Disconnect()
 		return false
 	}
-	
+
 	// Disconnect banned peers.
 	host, _, err := net.SplitHostPort(serverPeer.AddressString)
 	if err != nil {
@@ -284,13 +281,13 @@ func (s *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPeer *ServerP
 			serverPeer.Disconnect()
 			return false
 		}
-		
+
 		log.Info("Peer %s is no longer banned", host)
 		delete(peerState.banned, host)
 	}
-	
+
 	// TODO: Check for max peers from a single IP.
-	
+
 	// Limit max number of total peers.
 	if peerState.Count() >= conf.AppConf.MaxPeers {
 		log.Info("Max peers reached [%d] - disconnecting peer %s",
@@ -300,7 +297,7 @@ func (s *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPeer *ServerP
 		// they should be rescheduled.
 		return false
 	}
-	
+
 	// Add the new peer and start it.
 	log.Debug("New peer %s", serverPeer)
 	if serverPeer.Inbound {
@@ -313,7 +310,7 @@ func (s *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPeer *ServerP
 			peerState.outboundPeers[serverPeer.Id] = serverPeer
 		}
 	}
-	
+
 	return true
 }
 func (peerManager *PeerManager) upnpUpdateThread() {

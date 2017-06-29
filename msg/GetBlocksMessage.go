@@ -2,10 +2,10 @@ package msg
 
 import (
 	"fmt"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/utils"
 	"github.com/pkg/errors"
 	"io"
-	"github.com/btccom/copernicus/utils"
-	"github.com/btccom/copernicus/protocol"
 )
 
 const MaxGetBlocksCount = 500
@@ -50,11 +50,11 @@ func (getBlockMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size uin
 	}
 	err = protocol.ReadElement(reader, getBlockMessage.HashStop)
 	return err
-	
+
 }
 
 func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint32) error {
-	
+
 	count := len(getBlockMessage.BlockHashes)
 	if count > MaxGetBlocksCount {
 		str := fmt.Sprintf("too many block hashes for message count:%v,max %v", count, MaxGetBlocksCount)
@@ -76,7 +76,7 @@ func (getBlockMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uint
 	}
 	err = protocol.WriteElement(w, &getBlockMessage.HashStop)
 	return err
-	
+
 }
 func (getBlocksMessage *GetBlocksMessage) MaxPayloadLength(size uint32) uint32 {
 	return 4 + MaxVarIntPayload + (MaxGetBlocksCount * utils.HashSize) + utils.HashSize

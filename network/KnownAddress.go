@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-
 type KnownAddress struct {
 	NetAddress  *PeerAddress
 	SrcAddress  *PeerAddress
@@ -47,7 +46,7 @@ func (knownAddress *KnownAddress) IsBad() bool {
 	if knownAddress.lastSuccess.IsZero() && knownAddress.attempts >= NumReties {
 		return true
 	}
-	if !knownAddress.lastSuccess.After(time.Now().Add(-1 * MinBadDays * time.Hour * 24)) && knownAddress.attempts >= MaxFailures {
+	if !knownAddress.lastSuccess.After(time.Now().Add(-1*MinBadDays*time.Hour*24)) && knownAddress.attempts >= MaxFailures {
 		return true
 	}
 	return false

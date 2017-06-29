@@ -1,10 +1,10 @@
 package algorithm
 
 import (
-	"sync"
 	"fmt"
-	"time"
 	"math"
+	"sync"
+	"time"
 )
 
 const (
@@ -31,7 +31,7 @@ func init() {
 func decayFactor(t int64) float64 {
 	if t < PrecomputedLen {
 		return precomputedFactor[t]
-		
+
 	}
 	return math.Exp(-1.0 * float64(t) * Lambda)
 }
@@ -52,7 +52,7 @@ func (dynamicBanScore *DynamicBanScore) Int() uint32 {
 	dynamicBanScore.lock.Lock()
 	defer dynamicBanScore.lock.Unlock()
 	return dynamicBanScore.persistentInt(time.Now())
-	
+
 }
 
 func (dynamicBanScore *DynamicBanScore) increase(persistent, transient uint32, t time.Time) uint32 {

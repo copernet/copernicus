@@ -1,14 +1,14 @@
 package connect
 
 import (
-	"github.com/btccom/copernicus/protocol"
-	"github.com/btccom/copernicus/network"
 	"fmt"
-	mrand "math/rand"
-	"time"
-	"strconv"
 	"github.com/btccom/copernicus/msg"
+	"github.com/btccom/copernicus/network"
+	"github.com/btccom/copernicus/protocol"
 	"github.com/btccom/copernicus/utils"
+	mrand "math/rand"
+	"strconv"
+	"time"
 )
 
 const (
@@ -45,10 +45,10 @@ func SeedFromDNS(chainParams *msg.BitcoinParams, servicesFlag protocol.ServiceFl
 					// bitcoind seeds with addresses from
 					// a time randomly selected between 3
 					// and 7 days ago.
-					time.Now().Add(-1 * time.Second* time.Duration(SecondsIn3Days+
+					time.Now().Add(-1*time.Second*time.Duration(SecondsIn3Days+
 						randSource.Int31n(SecondsIn4Days))),
 					0, peer, uint16(intPort))
-				
+
 			}
 			onSeed(addresses)
 		}(host)

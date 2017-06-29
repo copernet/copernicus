@@ -1,8 +1,8 @@
 package protocol
 
 import (
-	"time"
 	"fmt"
+	"time"
 )
 
 const MaxMessagePayload = 1024 * 1024 * 32
@@ -17,7 +17,7 @@ const (
 	Bip0037Version         uint32 = 70001
 	Bip0031Version         uint32 = 60000
 	Bip0111Version         uint32 = 70011
-	
+
 	MaxKnownInventory = 1000
 )
 const (
@@ -43,7 +43,7 @@ var LocalUserAgent string
 
 func init() {
 	LocalUserAgent = getLocalUserAgent()
-	
+
 }
 func getLocalUserAgent() string {
 	return fmt.Sprintf("/Copernicus%s/", Copernicus)

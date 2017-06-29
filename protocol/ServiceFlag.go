@@ -1,8 +1,8 @@
 package protocol
 
 import (
-	"strings"
 	"strconv"
+	"strings"
 )
 
 type ServiceFlag uint64

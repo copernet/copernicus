@@ -1,12 +1,11 @@
 package peer
 
 import (
-	
-	"github.com/btccom/copernicus/model"
-	"sync"
 	"container/list"
-	"sync/atomic"
+	"github.com/btccom/copernicus/model"
 	"github.com/btccom/copernicus/utils"
+	"sync"
+	"sync/atomic"
 )
 
 type BlockManager struct {
@@ -18,8 +17,8 @@ type BlockManager struct {
 	requestedTxns   map[utils.Hash]struct{}
 	requestedBlocks map[utils.Hash]struct{}
 	progressLogger  *BlockProgressLogger //todo do't need?
-	syncPeer        *ServerPeer     //todo mutual reference
-	
+	syncPeer        *ServerPeer          //todo mutual reference
+
 	messageChan      chan interface{}
 	waitGroup        sync.WaitGroup
 	quit             chan struct{}
@@ -34,11 +33,11 @@ func (blockManager *BlockManager) NewPeer(serverPeer *ServerPeer) {
 		return
 	}
 	blockManager.messageChan <- &NewPeerMessage{serverPeer: serverPeer}
-	
+
 }
 func (blockManager *BlockManager) Start() {
 	//todo
 }
-func (blockmanager *BlockManager)Stop(){
+func (blockmanager *BlockManager) Stop() {
 
 }
