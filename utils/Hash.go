@@ -76,9 +76,7 @@ func DecodeHash(src string) (bytes []byte, err error) {
 		srcBytes[0] = '0'
 		copy(srcBytes[1:], src)
 	}
-	var reversedHash []byte
-	reversedHash = make([]byte, HashSize)
-
+	var reversedHash = make([]byte, HashSize)
 	_, err = hex.Decode(reversedHash[HashSize-hex.DecodedLen(len(srcBytes)):], srcBytes)
 	if err != nil {
 		return

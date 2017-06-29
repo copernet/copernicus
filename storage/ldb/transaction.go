@@ -46,10 +46,7 @@ func (tx *transaction) checkClosed() error {
 
 //todo implement ths haskey flow
 func (tx *transaction) hasKey(_ []byte) bool {
-	if tx.writable {
-		return false
-	}
-	return true
+	return !tx.writable
 }
 
 func (tx *transaction) hasBlock(hash *utils.Hash) bool {

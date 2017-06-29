@@ -14,7 +14,7 @@ const (
 	// checksum 4 bytes.
 	CommandSize        = 12
 	MaxRejectReasonLen = 250
-
+	
 	LockTimeTHreshold = 5E8 // Tue Nov 5 00:53:20 1985 UTC
 	SafeChars         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@"
 )
@@ -65,7 +65,7 @@ func InventorySummary(invList []*InventoryVector) string {
 			return fmt.Sprintf("block %s", iv.Hash)
 		case InventoryTypeTx:
 			return fmt.Sprintf("unkonwn %d ,%s", uint32(iv.Type), iv.Hash)
-
+			
 		}
 	}
 	return fmt.Sprintf("size %d", invLen)
@@ -114,7 +114,7 @@ func MessageSummary(msg Message) string {
 
 func SanitizeString(str string, maxLength uint) string {
 	str = strings.Map(func(r rune) rune {
-		if strings.IndexRune(SafeChars, r) >= 0 {
+		if strings.ContainsRune(SafeChars, r) {
 			return r
 		}
 		return -1
@@ -124,7 +124,7 @@ func SanitizeString(str string, maxLength uint) string {
 		str = str + "..."
 	}
 	return str
-
+	
 }
 func LockTimeToString(lockTime uint32) string {
 	if lockTime < LockTimeTHreshold {
@@ -148,10 +148,10 @@ func makeEmptyMessage(command string) (Message, error) {
 		message = &GetHeadersMessage{}
 	case CommandReject:
 		message = &RejectMessage{}
-
+	
 	default:
 		return nil, fmt.Errorf("unkonwn command %s", command)
-
+		
 	}
 	return message, nil
 }

@@ -402,7 +402,7 @@ func (p *Peer) HandlePongMessage(pongMessage *msg.PongMessage) {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
 	if p.ProtocolVersion > protocol.Bip0031Version && p.PingNonce != 0 && pongMessage.Nonce == p.PingNonce {
-		p.PingMicros = (time.Now().Sub(p.PingTime).Nanoseconds()) / 1000
+		p.PingMicros = (time.Since(p.PingTime).Nanoseconds()) / 1000
 		p.PingNonce = 0
 	}
 
@@ -524,7 +524,7 @@ out:
 					continue
 				}
 
-				duration := time.Now().Sub(handlerStartTime)
+				duration := time.Since(handlerStartTime)
 				deadlineOffset += duration
 				handlerActive = false
 			default:
