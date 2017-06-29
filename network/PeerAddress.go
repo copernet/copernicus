@@ -266,10 +266,10 @@ func NewPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceFl
 }
 func (peerAddress *PeerAddress) NetAddressKey() string {
 	port := strconv.FormatUint(uint64(peerAddress.Port), 10)
-	return net.JoinHostPort(peerAddress.IpString(), port)
+	return net.JoinHostPort(peerAddress.IPString(), port)
 }
 
-func (peerAddress *PeerAddress) IpString() string {
+func (peerAddress *PeerAddress) IPString() string {
 	if peerAddress.IsOnionCatTor() {
 		base32String := base32.StdEncoding.EncodeToString(peerAddress.IP[6:])
 		return strings.ToLower(base32String) + ".onion"

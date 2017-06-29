@@ -17,7 +17,7 @@ func ReadElement(reader io.Reader, element interface{}) error {
 		if err != nil {
 			return err
 		}
-		*e = uint16(rv)
+		*e = rv
 		return nil
 	case int32:
 		rv, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)

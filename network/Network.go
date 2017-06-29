@@ -59,7 +59,7 @@ var (
 	// rfc6598Net specifies the IPv4 block as defined by RFC6598 (100.64.0.0/10)
 	rfc6598Net = ipNet("100.64.0.0", 10, 32)
 
-	// onionCatNet defines the IPv6 address block used to support Tor.
+	// OnionCatNet defines the IPv6 address block used to support Tor.
 	// bitcoind encodes addressManager .onion address as addressManager 16 byte number by decoding the
 	// address prior to the .onion (i.e. the key hash) base32 into a ten
 	// byte number. It then stores the first 6 bytes of the address as
@@ -72,11 +72,11 @@ var (
 	// { magic 6 bytes, 10 bytes base32 decode of key hash }
 	OnionCatNet = ipNet("fd87:d87e:eb43::", 48, 128)
 
-	// zero4Net defines the IPv4 address block for address staring with 0
+	// Zero4Net defines the IPv4 address block for address staring with 0
 	// (0.0.0.0/8).
 	Zero4Net = ipNet("0.0.0.0", 8, 32)
 
-	// heNet defines the Hurricane Electric IPv6 address block.
+	// HeNet defines the Hurricane Electric IPv6 address block.
 	HeNet = ipNet("2001:470::", 32, 128)
 )
 

@@ -277,7 +277,7 @@ func (peerManager *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPee
 	if banEnd, ok := peerState.banned[host]; ok {
 		if time.Now().Before(banEnd) {
 			log.Debug("Peer %s is banned for another %v - disconnecting",
-				host, banEnd.Sub(time.Now()))
+				host, time.Until(banEnd))
 			serverPeer.Disconnect()
 			return false
 		}
@@ -301,13 +301,13 @@ func (peerManager *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPee
 	// Add the new p2p and start it.
 	log.Debug("New p2p %s", serverPeer)
 	if serverPeer.Inbound {
-		peerState.inboundPeers[serverPeer.Id] = serverPeer
+		peerState.inboundPeers[serverPeer.ID] = serverPeer
 	} else {
 		peerState.outboundGroups[serverPeer.PeerAddress.GroupKey()]++
 		if serverPeer.persistent {
-			peerState.persistentPeers[serverPeer.Id] = serverPeer
+			peerState.persistentPeers[serverPeer.ID] = serverPeer
 		} else {
-			peerState.outboundPeers[serverPeer.Id] = serverPeer
+			peerState.outboundPeers[serverPeer.ID] = serverPeer
 		}
 	}
 

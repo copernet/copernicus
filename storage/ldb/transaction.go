@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	//  [0:4]  Block file (4 bytes)
+	//BlockLocationSize  [0:4]  Block file (4 bytes)
 	//  [4:8]  File offset (4 bytes)
 	//  [8:12] Block length (4 bytes)
 	BlockLocationSize = 12

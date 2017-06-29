@@ -40,7 +40,7 @@ func init() {
 
 type Peer struct {
 	Config           *PeerConfig
-	Id               int32
+	ID               int32
 	bytesReceived    uint64
 	bytesSent        uint64
 	lastReceive      int64
@@ -128,7 +128,7 @@ func (p *Peer) UpdateDeclareBlock(blackHash *utils.Hash) {
 func (p *Peer) GetPeerID() int32 {
 	p.PeerStatusMutex.Lock()
 	defer p.PeerStatusMutex.Unlock()
-	return p.Id
+	return p.ID
 
 }
 func (p *Peer) GetNetAddress() *network.PeerAddress {
@@ -220,7 +220,7 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 	p.ProtocolVersion = algorithm.MinUint32(p.ProtocolVersion, versionMessage.ProtocolVersion)
 	p.VersionKnown = true
 	log.Debug("Negotiated protocol version %d for p2p %s", p.ProtocolVersion, p)
-	p.Id = atomic.AddInt32(&nodeCount, 1)
+	p.ID = atomic.AddInt32(&nodeCount, 1)
 	p.ServiceFlag = versionMessage.ServiceFlag
 	p.UserAgent = versionMessage.UserAgent
 	p.PeerStatusMutex.Unlock()

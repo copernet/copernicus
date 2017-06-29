@@ -180,22 +180,23 @@ func (addressManager *NetAddressManager) savePeers() {
 	serializedAddressManager := new(SerializedAddressManager)
 	serializedAddressManager.Version = SerialisationVersion
 	copy(serializedAddressManager.Key[:], addressManager.key[:])
-	//serializedAddressManager.Addresses = make([]*SerializedKnownAddress, len(addressManager.addressIndex))
-	//i := 0
-	//for k, v := range addressManager.addressIndex {
-	//	serializedKnownAddress := new(SerializedKnownAddress)
-	//	serializedKnownAddress.AddressString = k
-	//	serializedKnownAddress.TimeStamp = v.NetAddress.Timestamp.Unix()
-	//	serializedKnownAddress.Source = v.SrcAddress.NetAddressKey()
-	//	serializedKnownAddress.LastAttempt = v.LastAttempt.Unix()
-	//	serializedKnownAddress.LastSuccess = v.lastSuccess.Unix()
-	//	serializedAddressManager.Addresses[i] = serializedKnownAddress
-	//	i++
-	//}
+	serializedAddressManager.Addresses = make([]*SerializedKnownAddress, addressManager.addressIndex.Count())
+	i := 0
+	for k, v := range addressManager.addressIndex.Items() {
+		serializedKnownAddress := new(SerializedKnownAddress)
+		serializedKnownAddress.AddressString = k.(string)
+		valueAddress := v.(*KnownAddress)
+		serializedKnownAddress.TimeStamp = valueAddress.NetAddress.Timestamp.Unix()
+		serializedKnownAddress.Source = valueAddress.SrcAddress.NetAddressKey()
+		serializedKnownAddress.LastAttempt = valueAddress.LastAttempt.Unix()
+		serializedKnownAddress.LastSuccess = valueAddress.lastSuccess.Unix()
+		serializedAddressManager.Addresses[i] = serializedKnownAddress
+		i++
+	}
 	for i := range addressManager.addressNew {
 		serializedAddressManager.NewBuckets[i] = make([]string, addressManager.addressNew[i].Count())
 		j := 0
-		for k, _ := range addressManager.addressNew[i].Items() {
+		for k := range addressManager.addressNew[i].Items() {
 			serializedAddressManager.NewBuckets[i][j] = k.(string)
 			j++
 		}

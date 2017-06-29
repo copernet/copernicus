@@ -55,7 +55,7 @@ type BitcoinParams struct {
 
 	PubKeyHashAddressID byte
 	ScriptHashAddressID byte
-	PrivatekeyId        byte
+	PrivatekeyID        byte
 	HDPrivateKeyID      [4]byte
 	HDPublicKeyID       [4]byte
 	HDCoinType          uint32
@@ -118,7 +118,7 @@ var MainNetParams = BitcoinParams{
 	RelayNonStdTxs:      false,
 	PubKeyHashAddressID: 0x00, // starts with 1
 	ScriptHashAddressID: 0x05, // starts with 3
-	PrivatekeyId:        0x80, // starts with 5 (uncompressed) or K (compressed)
+	PrivatekeyID:        0x80, // starts with 5 (uncompressed) or K (compressed)
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x88, 0xad, 0xe4}, // starts with xprv
 	HDPublicKeyID:  [4]byte{0x04, 0x88, 0xb2, 0x1e}, // starts with xpub
@@ -157,7 +157,7 @@ var RegressionNetParams = BitcoinParams{
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x6f, // starts with m or n
 	ScriptHashAddressID: 0xc4, // starts with 2
-	PrivatekeyId:        0xef, // starts with 9 (uncompressed) or c (compressed)
+	PrivatekeyID:        0xef, // starts with 9 (uncompressed) or c (compressed)
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x35, 0x83, 0x94}, // starts with xprv
 	HDPublicKeyID:  [4]byte{0x04, 0x35, 0x87, 0xcf}, // starts with xpub
@@ -203,7 +203,7 @@ var TestNet3Params = BitcoinParams{
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x6f, // starts with 1
 	ScriptHashAddressID: 0xc4, // starts with 3
-	PrivatekeyId:        0xef, // starts with 5 (uncompressed) or K (compressed)
+	PrivatekeyID:        0xef, // starts with 5 (uncompressed) or K (compressed)
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x35, 0x83, 0x94}, // starts with xprv
 	HDPublicKeyID:  [4]byte{0x04, 0x35, 0x87, 0xcf}, // starts with xpub
@@ -242,7 +242,7 @@ var SimNetParams = BitcoinParams{
 	RelayNonStdTxs:      true,
 	PubKeyHashAddressID: 0x3f, // starts with 1
 	ScriptHashAddressID: 0x7b, // starts with 3
-	PrivatekeyId:        0x64, // starts with 5 (uncompressed) or K (compressed)
+	PrivatekeyID:        0x64, // starts with 5 (uncompressed) or K (compressed)
 	// BIP32 hierarchical deterministic extended key magics
 	HDPrivateKeyID: [4]byte{0x04, 0x20, 0xb9, 0x00}, // starts with xprv
 	HDPublicKeyID:  [4]byte{0x04, 0x20, 0xbd, 0x3a}, // starts with xpub

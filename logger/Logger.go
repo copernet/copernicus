@@ -29,9 +29,9 @@ func init() {
 	logs.Async()
 }
 
-func validLogLevel(str_level string) (level int, ok bool) {
+func validLogLevel(strLevel string) (level int, ok bool) {
 	ok = true
-	switch str_level {
+	switch strLevel {
 	case "emergecy":
 		level = logs.LevelEmergency
 	case "alert":

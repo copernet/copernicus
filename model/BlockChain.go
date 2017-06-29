@@ -13,7 +13,7 @@ type BlockChain struct {
 	Path        string
 	Magic       [4]byte
 	CurrentFile *os.File
-	CurrentId   uint32
+	CurrentID   uint32
 	LastBlock   *Block
 	Lock        sync.Mutex
 }
@@ -22,7 +22,7 @@ func ParseBlockchain(path string, magic [4]byte) (blockchain *BlockChain, err er
 	blockchain = new(BlockChain)
 	blockchain.Path = path
 	blockchain.Magic = magic
-	blockchain.CurrentId = 0
+	blockchain.CurrentID = 0
 	f, err := os.Open(blkFileName(path, 0))
 	if err != nil {
 		return
@@ -34,11 +34,11 @@ func (blockChain *BlockChain) NextBlock() (block *Block, err error) {
 
 	rawBlock, err := blockChain.FetchNextBlock()
 	if err != nil {
-		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentId+1))
+		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentID+1))
 		if err2 != nil {
 			return nil, err2
 		}
-		blockChain.CurrentId++
+		blockChain.CurrentID++
 		blockChain.CurrentFile.Close()
 		blockChain.CurrentFile = newBlkFile
 		rawBlock, err = blockChain.FetchNextBlock()
@@ -51,11 +51,11 @@ func (blockChain *BlockChain) SkipBlock() (err error) {
 
 	_, err = blockChain.FetchNextBlock()
 	if err != nil {
-		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentId+1))
+		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentID+1))
 		if err2 != nil {
 			return err2
 		}
-		blockChain.CurrentId++
+		blockChain.CurrentID++
 		blockChain.CurrentFile.Close()
 		blockChain.CurrentFile = newBlkFile
 		_, err = blockChain.FetchNextBlock()
@@ -86,10 +86,10 @@ func (blockChain *BlockChain) FetchNextBlock() (raw []byte, err error) {
 	return
 }
 
-func (blockChain *BlockChain) SkipTo(blkId uint32, offset int64) (err error) {
+func (blockChain *BlockChain) SkipTo(blkID uint32, offset int64) (err error) {
 
-	blockChain.CurrentId = blkId
-	f, err := os.Open(blkFileName(blockChain.Path, blkId))
+	blockChain.CurrentID = blkID
+	f, err := os.Open(blkFileName(blockChain.Path, blkID))
 	if err != nil {
 		return
 	}
