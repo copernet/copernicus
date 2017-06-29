@@ -91,10 +91,7 @@ func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.Bitcoin
 	}
 	n, err = w.Write(payload)
 	totalBytes += n
-	if err != nil {
-		return totalBytes, err
-	}
-	return totalBytes, nil
+	return totalBytes, err
 }
 
 func ReadMessage(reader io.Reader, pver uint32, bitcoinNet btcutil.BitcoinNet) (int, Message, []byte, error) {
