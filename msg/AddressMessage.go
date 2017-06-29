@@ -63,7 +63,7 @@ func (addressMessage *AddressMessage) BitcoinParse(reader io.Reader, size uint32
 		addressMessage.AddPeerAddress(peerAddress)
 	}
 	return nil
-	
+
 }
 
 func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
@@ -75,7 +75,7 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if count > MaxAddressesCount {
 		str := fmt.Sprintf("too many addresses for message count %v,max %v", count, MaxAddressesCount)
 		return errors.New(str)
-		
+
 	}
 	err := utils.WriteVarInt(w, size, uint64(count))
 	if err != nil {
@@ -88,7 +88,7 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 		}
 	}
 	return nil
-	
+
 }
 
 func (addressMessage *AddressMessage) MaxPayloadLength(version uint32) uint32 {

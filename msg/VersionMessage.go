@@ -3,7 +3,7 @@ package msg
 import (
 	"github.com/btccom/copernicus/protocol"
 	"time"
-	
+
 	"bytes"
 	"fmt"
 	"github.com/btccom/copernicus/network"
@@ -50,21 +50,21 @@ func (versionMessage *VersionMessage) AddUserAgent(name string, version string, 
 	}
 	versionMessage.UserAgent = userAgent
 	return nil
-	
+
 }
 func (versionMessage *VersionMessage) HasService(serviceFlag protocol.ServiceFlag) bool {
 	return versionMessage.ServiceFlag&serviceFlag == serviceFlag
 }
 
 func (versionMessage *VersionMessage) AddService(serviceFlag protocol.ServiceFlag) {
-	
+
 	versionMessage.ServiceFlag |= serviceFlag
 }
 func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32) error {
 	buf, ok := reader.(*bytes.Buffer)
 	if !ok {
 		return fmt.Errorf("version message bitcoin parse reader is not a *bytes.Buffer")
-		
+
 	}
 	err := protocol.ReadElements(buf, versionMessage.ProtocolVersion, versionMessage.ServiceFlag, (protocol.Int64Time)(versionMessage.Timestamp))
 	if err != nil {
@@ -85,7 +85,7 @@ func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32
 		if err != nil {
 			return err
 		}
-		
+
 	}
 	if buf.Len() > 0 {
 		userAgent, err := utils.ReadVarString(buf, pver)

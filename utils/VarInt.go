@@ -26,7 +26,7 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 		if result < min {
 			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
 		}
-	
+
 	case 0xfe:
 		sv, err := BinarySerializer.Uint32(r, binary.LittleEndian)
 		if err != nil {
@@ -49,7 +49,7 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 		}
 	default:
 		result = uint64(discriminant)
-		
+
 	}
 	return result, nil
 }
@@ -64,7 +64,7 @@ func WriteVarInt(w io.Writer, size uint32, val uint64) error {
 			return err
 		}
 		return BinarySerializer.PutUint16(w, binary.LittleEndian, uint16(val))
-		
+
 	}
 	if val <= math.MaxUint32 {
 		err := BinarySerializer.PutUint8(w, 0xfe)
@@ -78,7 +78,7 @@ func WriteVarInt(w io.Writer, size uint32, val uint64) error {
 		return err
 	}
 	return BinarySerializer.PutUint64(w, binary.LittleEndian, val)
-	
+
 }
 
 func VarIntSerializeSize(val uint64) int {
@@ -92,5 +92,5 @@ func VarIntSerializeSize(val uint64) int {
 		return 5
 	}
 	return 9
-	
+
 }
