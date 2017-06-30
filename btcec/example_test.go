@@ -7,10 +7,7 @@ package btcec_test
 import (
 	"encoding/hex"
 	"fmt"
-
 	"github.com/btccom/copernicus/btcec"
-
-	"github.com/btccom/copernicus/crypto"
 )
 
 // This example demonstrates signing a message with a secp256k1 private key that
@@ -27,7 +24,7 @@ func Example_signMessage() {
 
 	// Sign a message using the private key.
 	message := "test message"
-	messageHash := crypto.DoubleSha256Bytes([]byte(message))
+	messageHash := btcec.DoubleSha256Bytes([]byte(message))
 	signature, err := privKey.Sign(messageHash)
 	if err != nil {
 		fmt.Println(err)
@@ -80,7 +77,7 @@ func Example_verifySignature() {
 
 	// Verify the signature for the message using the public key.
 	message := "test message"
-	messageHash := crypto.DoubleSha256Bytes([]byte(message))
+	messageHash := btcec.DoubleSha256Bytes([]byte(message))
 	verified := signature.Verify(messageHash, pubKey)
 	fmt.Println("Signature Verified?", verified)
 

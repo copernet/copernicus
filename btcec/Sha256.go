@@ -1,4 +1,4 @@
-package crypto
+package btcec
 
 import (
 	"github.com/btccom/copernicus/utils"
