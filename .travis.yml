@@ -2,7 +2,7 @@ language: go
 go:
   - 1.7.x
   - 1.8.x
-sudo: true
+sudo: false
 before_install:
   - git clone https://github.com/bitcoin-core/secp256k1.git /tmp/secp256k1
   - pushd /tmp/secp256k1
