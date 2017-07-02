@@ -1,4 +1,4 @@
-package crypto
+package core
 
 //type Signature secp256k1.EcdsaSignature
 //

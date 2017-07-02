@@ -21,7 +21,9 @@ import:
 - package: github.com/pkg/errors
   version: ^0.8.0
 - package: gopkg.in/yaml.v2
-- package: github.com/btccom/secp256k1-go
+- package: github.com/btcsuite/fastsha256
+- package: github.com/jjz/secp256k1-go
+  version: 190d296ec79175b19b428b1a5808f44272bdcdba
 testImport:
 - package: github.com/stretchr/testify
   version: ^1.1.4

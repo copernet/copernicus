@@ -1,4 +1,4 @@
-package crypto
+package core
 
 //func TestPrivKeys(t *testing.T) {
 //	tests := []struct {
