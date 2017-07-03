@@ -1,5 +1,5 @@
 hash: 226b569b5b9cc05b732aba86088c92d2cfc2e3f7c809aee39af37e4de6d2749f
-updated: 2017-07-03T10:13:43.773535696+08:00
+updated: 2017-07-03T10:18:54.792541764+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -29,7 +29,7 @@ imports:
 - name: github.com/edsrzf/mmap-go
   version: 6c75090c55983bef2e129e173681b20d24871ef8
 - name: github.com/jjz/secp256k1-go
-  version: 190d296ec79175b19b428b1a5808f44272bdcdba
+  version: d4ffa1ba4382eea88658aef44997b36ad7f5541b
   repo: http://github.com/jjz/secp256k1-go.git
   vcs: git
   subpackages:
