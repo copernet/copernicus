@@ -10,7 +10,7 @@ install:
   - ./autogen.sh
   - ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
   - make -j4
-  - sudo make install
+  - sudo make install && cd -
   - go get -v github.com/Masterminds/glide
   - cd $GOPATH/src/github.com/Masterminds/glide  && go install && cd -
   - glide install
