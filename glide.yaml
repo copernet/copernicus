@@ -23,7 +23,7 @@ import:
 - package: gopkg.in/yaml.v2
 - package: github.com/btcsuite/fastsha256
 - package: github.com/jjz/secp256k1-go
-  version: 5badc31735bf5453489f7c9fa96c2fc9b363a7ab
+  version: 6451fd888c7b6d4c285510452f045680aec199d1
   repo: http://github.com/jjz/secp256k1-go.git
   vcs: git
 testImport:
