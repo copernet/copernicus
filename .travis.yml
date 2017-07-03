@@ -12,7 +12,7 @@ install:
   - make -j4
   - sudo make install && cd -
   - go get -v github.com/Masterminds/glide
-  - cd $GOPATH/src/github.com/Masterminds/glide  && go install && cd -
+  - cd $GOPATH/src/github.com/Masterminds/glide && git checkout e73500c735917e39a8b782e0632418ab70250341 && go install && cd -
   - glide install
   - go get -v github.com/alecthomas/gometalinter
   - gometalinter --install

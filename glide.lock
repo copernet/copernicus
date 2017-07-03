@@ -1,5 +1,5 @@
-hash: 987d253bd8e8e65da89c7640e6b7b0d32ea47b3f9c9b7b98c87af2123881e7ed
-updated: 2017-07-03T07:30:51.439645808+08:00
+hash: 226b569b5b9cc05b732aba86088c92d2cfc2e3f7c809aee39af37e4de6d2749f
+updated: 2017-07-03T10:13:43.773535696+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -30,6 +30,8 @@ imports:
   version: 6c75090c55983bef2e129e173681b20d24871ef8
 - name: github.com/jjz/secp256k1-go
   version: 190d296ec79175b19b428b1a5808f44272bdcdba
+  repo: http://github.com/jjz/secp256k1-go.git
+  vcs: git
   subpackages:
   - secp256k1
 - name: github.com/pkg/errors
