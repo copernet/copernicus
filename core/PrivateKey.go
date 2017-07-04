@@ -6,39 +6,39 @@ import (
 )
 
 type PrivateKey struct {
-	PublicKey
-	D *big.Int
+	PublicKey *PublicKey
+	D         *big.Int
 }
 
 const (
 	PrivateKeyBytesLen = 32
 )
 
-func PrivateKeyFromBytes(privateKeyBytes []byte) (*PrivateKey, *PublicKey) {
-	_, publicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKeyBytes)
+func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
+	_, secp256k1PublicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKeyBytes)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 	privateKey := PrivateKey{
-		PublicKey: (PublicKey)(*publicKey),
+		PublicKey: (*PublicKey)(secp256k1PublicKey),
 		D:         new(big.Int).SetBytes(privateKeyBytes),
 	}
 
-	return &privateKey, &privateKey.PublicKey
+	return &privateKey
 }
 
-func (p *PrivateKey) PubKey() *PublicKey {
-	return &p.PublicKey
+func (privateKey *PrivateKey) PubKey() *PublicKey {
+	return privateKey.PublicKey
 }
 
-func (p *PrivateKey) Sign(hash []byte) (*Signature, error) {
-	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, p.D.Bytes())
+func (privateKey *PrivateKey) Sign(hash []byte) (*Signature, error) {
+	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privateKey.D.Bytes())
 	return (*Signature)(signature), err
 }
 
-func (p *PrivateKey) Serialize() []byte {
+func (privateKey *PrivateKey) Serialize() []byte {
 	b := make([]byte, 0, PrivateKeyBytesLen)
-	return paddedAppend(PrivateKeyBytesLen, b, p.D.Bytes())
+	return paddedAppend(PrivateKeyBytesLen, b, privateKey.D.Bytes())
 }
 
 func paddedAppend(size uint, dst, src []byte) []byte {

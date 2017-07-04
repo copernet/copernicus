@@ -22,27 +22,27 @@ func TestPrivKeys(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		priv, pub := PrivateKeyFromBytes(test.key)
+		privateKey := PrivateKeyFromBytes(test.key)
 
-		_, err := ParsePubKey(pub.SerializeUncompressed())
+		_, err := ParsePubKey(privateKey.PublicKey.SerializeUncompressed())
 		if err != nil {
 			t.Errorf("%s privkey: %v", test.name, err)
 			continue
 		}
 
 		hash := [32]byte{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9}
-		sig, err := priv.Sign(hash[:])
+		sig, err := privateKey.Sign(hash[:])
 		if err != nil {
 			t.Errorf("%s could not sign: %v", test.name, err)
 			continue
 		}
 
-		if !sig.Verify(hash[:], pub) {
+		if !sig.Verify(hash[:], privateKey.PublicKey) {
 			t.Errorf("%s could not verify: %v", test.name, err)
 			continue
 		}
 
-		serializedKey := priv.Serialize()
+		serializedKey := privateKey.Serialize()
 		if !bytes.Equal(serializedKey, test.key) {
 			t.Errorf("%s unexpected serialized bytes - got: %x, "+
 				"want: %x", test.name, serializedKey, test.key)
