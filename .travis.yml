@@ -22,3 +22,8 @@ install:
 script:
   - export PATH=$PATH:$HOME/gopath/bin
   - ./check.sh
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always
