@@ -11,6 +11,10 @@ type Tx struct {
 	Outs     []*TxOut
 }
 
+const (
+	MaxTxInSequenceNum uint32 = 0xffffffff
+)
+
 //
 //func ParseTranscations(raws [] byte) (txs []*Tx, err error) {
 //	offset := int(0)
@@ -87,10 +91,10 @@ type Tx struct {
 //
 //	pkScriptCnt, pkScriptSize := utils.DecodeVariableLengthInteger(rawOut[offset:])
 //	offset += pkScriptSize
-//	txOut.PKScript = rawOut[offset:offset + pkScriptCnt]
+//	txOut.OutScript = rawOut[offset:offset + pkScriptCnt]
 //	offset += pkScriptCnt
 //
-//	_, addressHash, _, err := txscript.ExtractPkScriptAddrs(txOut.PKScript, &chaincfg.MainNetParams)
+//	_, addressHash, _, err := txscript.ExtractPkScriptAddrs(txOut.OutScript, &chaincfg.MainNetParams)
 //
 //	if err != nil {
 //		return
