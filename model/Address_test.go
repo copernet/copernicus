@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 )
 
@@ -21,12 +20,12 @@ func TestPublicKeyToAddress(t *testing.T) {
 	hash160 := make([]byte, 20)
 	copy(hash160[:], address.hash160[:])
 	hash160Hex := hex.EncodeToString(hash160)
-	fmt.Println(hash160Hex)
-	if address.addressStr == "1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV" {
-		t.Log("address is check")
-	} else {
+	if hash160Hex != "9a1c78a507689f6f54b847ad1cef1e614ee23f1e" {
+		t.Errorf("hash160Hex is wrong 9a1c78a507689f6f54b847ad1cef1e614ee23f1e  --  %s", hash160Hex)
+		return
+	}
+	if address.addressStr != "1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV" {
 		t.Errorf("address is wrong 1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV  --  %s", address.addressStr)
 		return
 	}
-
 }

@@ -33,7 +33,6 @@ func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 	if len(decodes) != AddressBytesLength {
 		err = errors.Errorf("addressStr length is %d ,not %d", len(decodes), AddressBytesLength)
 		return
-
 	}
 	checkBytes := core.DoubleSha256Bytes(decodes[0:21])
 	if !bytes.Equal(checkBytes[:4], decodes[21:25]) {
@@ -77,7 +76,6 @@ func AddressFromHash160(hash160 []byte, version byte) (address *Address, err err
 		addressStr: str,
 	}
 	return
-
 }
 func Hash160ToAddressStr(hash160 []byte, version byte) (str string, err error) {
 	if len(hash160) != Hash160BytesLength {
