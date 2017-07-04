@@ -7,7 +7,7 @@ import (
 	"github.com/btccom/copernicus/model"
 )
 
-var GenesisCoinbasTx = model.Transaction{}
+var GenesisCoinbasTx = model.Tx{}
 
 var GenesisHash = utils.Hash([utils.HashSize]byte{
 	0x6f, 0xe2, 0x8c, 0x0a, 0xb6, 0xf1, 0xb3, 0x72,
@@ -31,7 +31,7 @@ var GenesisBlock = BlockMessage{
 		BlockTime:    time.Unix(0x495fab29, 0), //2009-01-03 18:15:05 +0000 UTC
 		Bits:         0x1d00ffff,               //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
 		Nonce:        0x7c2bac1d,               // 2083236893
-		Transactions: []*model.Transaction{&GenesisCoinbasTx},
+		Transactions: []*model.Tx{&GenesisCoinbasTx},
 	},
 }
 var RegressionTestGenesisHash = utils.Hash([utils.HashSize]byte{
@@ -51,7 +51,7 @@ var RegressionTestGenesisBlock = BlockMessage{
 		BlockTime:    time.Unix(1296688602, 0), // 2011-02-02 23:16:42 +0000 UTC
 		Bits:         0x207fffff,               // 545259519 [7fffff0000000000000000000000000000000000000000000000000000000000]
 		Nonce:        2,
-		Transactions: []*model.Transaction{&GenesisCoinbasTx},
+		Transactions: []*model.Tx{&GenesisCoinbasTx},
 	},
 }
 
@@ -72,7 +72,7 @@ var TestNet3GenesisBlock = BlockMessage{
 		BlockTime:    time.Unix(1296688602, 0), //2011-02-02 23:16:42 +0000 UTC
 		Bits:         0x1d00ffff,               //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
 		Nonce:        0x18aea41a,               // 414098458
-		Transactions: []*model.Transaction{&GenesisCoinbasTx},
+		Transactions: []*model.Tx{&GenesisCoinbasTx},
 	},
 }
 
@@ -91,6 +91,6 @@ var SimNetGenesisBlock = BlockMessage{
 		BlockTime:    time.Unix(1401292357, 0), // 2014-05-28 15:52:37 +0000 UTC
 		Bits:         0x207fffff,               //545259519 [7fffff0000000000000000000000000000000000000000000000000000000000]
 		Nonce:        2,
-		Transactions: []*model.Transaction{&GenesisCoinbasTx},
+		Transactions: []*model.Tx{&GenesisCoinbasTx},
 	},
 }

@@ -11,8 +11,8 @@ type TxPool struct {
 	lock          sync.RWMutex
 	mempoolConfig TxPoolConfig
 	pool          map[utils.Hash]*TxDesc
-	orghans       map[utils.Hash]*model.Transaction
-	orphansByPrev map[utils.Hash]map[utils.Hash]*model.Transaction
+	orghans       map[utils.Hash]*model.Tx
+	orphansByPrev map[utils.Hash]map[utils.Hash]*model.Tx
 	pennyTotal    float64
 	lastPennyUnix int64
 }

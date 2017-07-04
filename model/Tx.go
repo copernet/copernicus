@@ -1,35 +1,23 @@
 package model
 
-type Transaction struct {
+type Tx struct {
 	Hash     string
 	Size     uint32
 	LockTime uint32
 	Version  uint32
 	TxInCnt  uint32
 	TxOutCnt uint32
-	Ins      []*TransactionIn
-	Outs     []*TransactionOut
-}
-type TransactionIn struct {
-	InputHash string
-	InputVout uint32
-	ScriptSig []byte
-	Sequence  uint32
-}
-
-type TransactionOut struct {
-	Address  string
-	Value    uint64
-	PKScript []byte
+	Ins      []*TxIn
+	Outs     []*TxOut
 }
 
 //
-//func ParseTranscations(raws [] byte) (txs []*Transaction, err error) {
+//func ParseTranscations(raws [] byte) (txs []*Tx, err error) {
 //	offset := int(0)
 //	txCnt, txCntSize := utils.DecodeVariableLengthInteger(raws[offset:])
 //	offset += txCntSize
 //
-//	txs = make([]*Transaction, txCnt)
+//	txs = make([]*Tx, txCnt)
 //
 //	txOffset := int(0)
 //	for i := range txs {
@@ -42,8 +30,8 @@ type TransactionOut struct {
 //
 //}
 //
-//func ParseTranscation(raw [] byte) (txs *[]Transaction, offset int) {
-//	tx = new(Transaction)
+//func ParseTranscation(raw [] byte) (txs *[]Tx, offset int) {
+//	tx = new(Tx)
 //	tx.Version = binary.LittleEndian.Uint32(raw[0:4])
 //	offset = 4
 //
@@ -51,7 +39,7 @@ type TransactionOut struct {
 //	offset += inCntSize
 //
 //	tx.TxInCnt = uint32((inCnt))
-//	tx.Ins = make([]*TransactionIn, inCnt)
+//	tx.Ins = make([]*TxIn, inCnt)
 //
 //	txInOffset := int(0)
 //
@@ -64,7 +52,7 @@ type TransactionOut struct {
 //	offset += txOutCntSize
 //
 //	tx.TxOutCnt = uint32(txOutCnt)
-//	tx.Outs = make([]*TransactionOut, txOutCnt)
+//	tx.Outs = make([]*TxOut, txOutCnt)
 //
 //	txOutOffset := int(0)
 //	for i := range tx.Outs {
@@ -76,8 +64,8 @@ type TransactionOut struct {
 //	return
 //}
 //
-//func ParseTranscationIn(raw[] byte) (txIn*TransactionIn, offset int) {
-//	txIn = new(TransactionIn)
+//func ParseTranscationIn(raw[] byte) (txIn*TxIn, offset int) {
+//	txIn = new(TxIn)
 //	txIn.InputHash = utils.ToHash256String(raw[0:32])
 //	txIn.InputVout = binary.LittleEndian.Uint32(raw[32:36])
 //	offset = 36
@@ -91,9 +79,9 @@ type TransactionOut struct {
 //	offset + 4
 //	return
 //}
-//func ParseTranscationOut(rawOut []byte) (txOut*TransactionOut, offset int) {
+//func ParseTranscationOut(rawOut []byte) (txOut*TxOut, offset int) {
 //
-//	txOut = new(TransactionOut)
+//	txOut = new(TxOut)
 //	offset = 8
 //	txOut.Value = binary.LittleEndian.Uint64(rawOut[0:offset])
 //

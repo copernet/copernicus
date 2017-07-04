@@ -14,7 +14,7 @@ type Block struct {
 	Raw          []byte
 	Hash         utils.Hash
 	Height       int32
-	Transactions []*Transaction
+	Transactions []*Tx
 	Version      uint32
 	MerkleRoot   string
 	BlockTime    time.Time
