@@ -3,8 +3,8 @@ package msg
 import (
 	"bytes"
 	"fmt"
-	"github.com/btccom/copernicus/btcec"
 	"github.com/btccom/copernicus/btcutil"
+	"github.com/btccom/copernicus/core"
 	"github.com/btccom/copernicus/protocol"
 	"github.com/pkg/errors"
 	"io"
@@ -81,7 +81,7 @@ func WriteMessage(w io.Writer, message Message, pver uint32, net btcutil.Bitcoin
 		return totalBytes, errors.New(errStr)
 	}
 	messageHeader := MessageHeader{Net: net, Command: cmd, Length: uint32(payloadLength)}
-	copy(messageHeader.Checksum[:], btcec.DoubleSha256Bytes(payload)[0:4])
+	copy(messageHeader.Checksum[:], core.DoubleSha256Bytes(payload)[0:4])
 	headerBuf := bytes.NewBuffer(make([]byte, 0, MessageHeaderSize))
 	protocol.WriteElements(headerBuf, messageHeader.Net, command, messageHeader.Length, messageHeader.Checksum)
 	n, err := w.Write(headerBuf.Bytes())
@@ -137,7 +137,7 @@ func ReadMessage(reader io.Reader, pver uint32, bitcoinNet btcutil.BitcoinNet) (
 	if err != nil {
 		return totalBytes, nil, nil, err
 	}
-	checksum := btcec.DoubleSha256Bytes(payload)[0:4]
+	checksum := core.DoubleSha256Bytes(payload)[0:4]
 	if !bytes.Equal(checksum[:], messageHeader.Checksum[:]) {
 		str := fmt.Sprintf("payload checksum failed header indicates %v ,but actual checksum is %v",
 			messageHeader.Checksum, checksum)

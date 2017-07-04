@@ -23,7 +23,6 @@ func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
 		PublicKey: (*PublicKey)(secp256k1PublicKey),
 		D:         new(big.Int).SetBytes(privateKeyBytes),
 	}
-
 	return &privateKey
 }
 

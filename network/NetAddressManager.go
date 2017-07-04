@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/astaxie/beego/logs"
-	"github.com/btccom/copernicus/btcec"
 	"github.com/btccom/copernicus/protocol"
 	"github.com/btccom/copernicus/utils"
 	"io"
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	beegoUtils "github.com/astaxie/beego/utils"
+	"github.com/btccom/copernicus/core"
 )
 
 const (
@@ -161,7 +161,7 @@ func (addressManager *NetAddressManager) getTriedBucket(netAddress *PeerAddress)
 	dataFrist := []byte{}
 	dataFrist = append(dataFrist, addressManager.key[:]...)
 	dataFrist = append(dataFrist, []byte(netAddress.NetAddressKey())...)
-	hashFrist := btcec.DoubleSha256Bytes(dataFrist)
+	hashFrist := core.DoubleSha256Bytes(dataFrist)
 	hash64 := binary.LittleEndian.Uint64(hashFrist)
 	hash64 %= TriedBucketsPeerGroup
 	var hashBuf [8]byte
@@ -170,7 +170,7 @@ func (addressManager *NetAddressManager) getTriedBucket(netAddress *PeerAddress)
 	dataSecond = append(dataSecond, addressManager.key[:]...)
 	dataSecond = append(dataSecond, netAddress.GroupKey()...)
 	dataSecond = append(dataSecond, hashBuf[:]...)
-	hashSecond := btcec.DoubleSha256Bytes(dataSecond)
+	hashSecond := core.DoubleSha256Bytes(dataSecond)
 	return int(binary.LittleEndian.Uint64(hashSecond) % TriedBucketCount)
 
 }
@@ -285,7 +285,7 @@ func (addressManager *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddr
 	dataFirst = append(dataFirst, addressManager.key[:]...)
 	dataFirst = append(dataFirst, []byte(netAddr.GroupKey())...)
 	dataFirst = append(dataFirst, []byte(srcAddr.GroupKey())...)
-	hashFirst := btcec.DoubleSha256Bytes(dataFirst)
+	hashFirst := core.DoubleSha256Bytes(dataFirst)
 	hash64 := binary.LittleEndian.Uint64(hashFirst)
 	hash64 %= NewBucketsPeerGroup
 	var hashbuf [8]byte
@@ -294,7 +294,7 @@ func (addressManager *NetAddressManager) getNewBucket(netAddr, srcAddr *PeerAddr
 	dataSecond = append(dataSecond, addressManager.key[:]...)
 	dataSecond = append(dataSecond, srcAddr.GroupKey()...)
 	dataSecond = append(dataSecond, hashbuf[:]...)
-	hashSecond := btcec.DoubleSha256Bytes(dataSecond)
+	hashSecond := core.DoubleSha256Bytes(dataSecond)
 	return int(binary.LittleEndian.Uint64(hashSecond) % BucketCount)
 
 }
