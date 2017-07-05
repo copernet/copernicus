@@ -1,6 +1,11 @@
 package model
 
-import "github.com/btccom/copernicus/utils"
+import (
+	"encoding/binary"
+	"github.com/btccom/copernicus/protocol"
+	"github.com/btccom/copernicus/utils"
+	"io"
+)
 
 type TxOut struct {
 	Address   string
@@ -17,4 +22,20 @@ func NewTxOut(value int64, pkScript []byte) *TxOut {
 		OutScript: pkScript,
 	}
 	return &txOut
+}
+func (txOut *TxOut) ReadTxOut(reader io.Reader, pver uint32, version int32) error {
+	err := protocol.ReadElement(reader, &txOut.Value)
+	if err != nil {
+		return err
+	}
+	txOut.OutScript, err = ReadScript(reader, pver, MaxmessagePayload, "tx output script")
+	return err
+}
+func (txOut *TxOut) WriteTxOut(writer io.Writer, pver uint32, version int32) error {
+	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.Value))
+	if err != nil {
+		return err
+	}
+	return utils.WriteVarBytes(writer, pver, txOut.OutScript)
+
 }
