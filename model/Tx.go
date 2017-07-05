@@ -1,111 +1,153 @@
 package model
 
+import (
+	"encoding/binary"
+	"github.com/btccom/copernicus/utils"
+	"github.com/pkg/errors"
+	"io"
+)
+
 type Tx struct {
-	Hash     string
-	Size     uint32
+	Hash utils.Hash
+
 	LockTime uint32
-	Version  uint32
-	TxInCnt  uint32
-	TxOutCnt uint32
+	Version  int32
 	Ins      []*TxIn
 	Outs     []*TxOut
 }
 
 const (
 	MaxTxInSequenceNum uint32 = 0xffffffff
+	FreeListMaxItems          = 12500
+	MaxMessagePayload         = 32 * 1024 * 1024
+	MinTxInPayload            = 9 + utils.HashSize
+	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
 )
 
-//
-//func ParseTranscations(raws [] byte) (txs []*Tx, err error) {
-//	offset := int(0)
-//	txCnt, txCntSize := utils.DecodeVariableLengthInteger(raws[offset:])
-//	offset += txCntSize
-//
-//	txs = make([]*Tx, txCnt)
-//
-//	txOffset := int(0)
-//	for i := range txs {
-//		txs[i], txOffset = ParseTranscation(txs[offset:])
-//		txs[i].Hash = utils.ToHash256String(raws[offset:offset + txOffset])
-//		txs[i].Size = uint32(txOffset)
-//		offset += txOffset
-//	}
-//	return
-//
-//}
-//
-//func ParseTranscation(raw [] byte) (txs *[]Tx, offset int) {
-//	tx = new(Tx)
-//	tx.Version = binary.LittleEndian.Uint32(raw[0:4])
-//	offset = 4
-//
-//	inCnt, inCntSize := utils.DecodeVariableLengthInteger(raw[offset:])
-//	offset += inCntSize
-//
-//	tx.TxInCnt = uint32((inCnt))
-//	tx.Ins = make([]*TxIn, inCnt)
-//
-//	txInOffset := int(0)
-//
-//	for i := range tx.Ins {
-//		tx.Ins[i], txInOffset = ParseTranscationIn(raw[offset:])
-//		offset += txInOffset
-//	}
-//
-//	txOutCnt, txOutCntSize := utils.DecodeVariableLengthInteger(raw[offset:])
-//	offset += txOutCntSize
-//
-//	tx.TxOutCnt = uint32(txOutCnt)
-//	tx.Outs = make([]*TxOut, txOutCnt)
-//
-//	txOutOffset := int(0)
-//	for i := range tx.Outs {
-//		tx.Outs[i], txOutOffset = ParseTranscationOut(raw[offset:])
-//		offset += txOutOffset
-//	}
-//	tx.LockTime = binary.LittleEndian.Uint32(raw[offset:offset + 4])
-//	offset += 4
-//	return
-//}
-//
-//func ParseTranscationIn(raw[] byte) (txIn*TxIn, offset int) {
-//	txIn = new(TxIn)
-//	txIn.InputHash = utils.ToHash256String(raw[0:32])
-//	txIn.InputVout = binary.LittleEndian.Uint32(raw[32:36])
-//	offset = 36
-//
-//	scriptSigCnt, scriptSigSzie := utils.DecodeVariableLengthInteger(raw[offset:])
-//	offset += scriptSigSzie
-//	txIn.ScriptSig = raw[offset:offset + scriptSigCnt]
-//	offset += scriptSigCnt
-//
-//	txIn.Sequence = binary.LittleEndian.Uint32(raw[offset:offset + 4])
-//	offset + 4
-//	return
-//}
-//func ParseTranscationOut(rawOut []byte) (txOut*TxOut, offset int) {
-//
-//	txOut = new(TxOut)
-//	offset = 8
-//	txOut.Value = binary.LittleEndian.Uint64(rawOut[0:offset])
-//
-//	pkScriptCnt, pkScriptSize := utils.DecodeVariableLengthInteger(rawOut[offset:])
-//	offset += pkScriptSize
-//	txOut.OutScript = rawOut[offset:offset + pkScriptCnt]
-//	offset += pkScriptCnt
-//
-//	_, addressHash, _, err := txscript.ExtractPkScriptAddrs(txOut.OutScript, &chaincfg.MainNetParams)
-//
-//	if err != nil {
-//		return
-//
-//	}
-//	if len(addressHash) != 0 {
-//		txOut.Address = addressHash[0].EncodeAddress()
-//
-//	} else {
-//		txOut.Address = ""
-//	}
-//	return
-//
-//}
+var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
+
+func (tx *Tx) AddTxIn(txIn *TxIn) {
+	tx.Ins = append(tx.Ins, txIn)
+}
+
+func (tx *Tx) AddTxOut(txOut *TxOut) {
+	tx.Outs = append(tx.Outs, txOut)
+}
+
+func (tx *Tx) SerializeSize() int {
+	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
+	// number of transaction inputs and outputs.
+	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.Outs)))
+	for _, txIn := range tx.Ins {
+		n += txIn.SerializeSize()
+	}
+	for _, txOut := range tx.Outs {
+		n += txOut.SerializeSize()
+	}
+	return n
+}
+
+func (tx *Tx) Serialize(writer io.Writer, pver uint32) error {
+	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(tx.Version))
+	if err != nil {
+		return err
+	}
+	count := uint64(len(tx.Ins))
+	err = utils.WriteVarInt(writer, pver, count)
+	if err != nil {
+		return err
+	}
+	for _, ti := range tx.Ins {
+		err := ti.WriteTxIn(writer, pver, tx.Version)
+		if err != nil {
+			return err
+		}
+	}
+	count = uint64(len(tx.Outs))
+	err = utils.WriteVarInt(writer, pver, count)
+	if err != nil {
+		return err
+	}
+	for _, txOut := range tx.Outs {
+		err := txOut.WriteTxOut(writer, pver, tx.Version)
+		if err != nil {
+			return err
+		}
+	}
+	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.LockTime)
+
+}
+
+func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
+	version, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	if err != nil {
+		return err
+	}
+	tx.Version = int32(version)
+	count, err := utils.ReadVarInt(reader, pver)
+	if err != nil {
+		return err
+	}
+	if count > uint64(MaxTxInPerMessage) {
+		err = errors.Errorf("too many input tx to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
+		return
+	}
+	var totalScriptSize uint64
+
+	txIns := make([]TxIn, count)
+	tx.Ins = make([]*TxIn, count)
+	for i := uint64(0); i < count; i++ {
+		txIn := &txIns[i]
+		tx.Ins[i] = txIn
+		err = txIn.ReadTxIn(reader, pver, tx.Version)
+		if err != nil {
+			tx.returnScriptBuffers()
+			return
+		}
+		totalScriptSize += uint64(len(txIn.ScriptSig))
+	}
+	count, err = utils.ReadVarInt(reader, pver)
+	if err != nil {
+		tx.returnScriptBuffers()
+		return
+	}
+
+	txOuts := make([]TxOut, count)
+	tx.Outs = make([]*TxOut, count)
+	for i := uint64(0); i < count; i++ {
+		// The pointer is set now in case a script buffer is borrowed
+		// and needs to be returned to the pool on error.
+		txOut := &txOuts[i]
+		tx.Outs[i] = txOut
+		err = txOut.ReadTxOut(reader, pver, tx.Version)
+		if err != nil {
+			tx.returnScriptBuffers()
+			return
+		}
+		totalScriptSize += uint64(len(txOut.OutScript))
+	}
+
+	tx.LockTime, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	if err != nil {
+		tx.returnScriptBuffers()
+		return
+	}
+	tx.returnScriptBuffers()
+	return
+
+}
+
+func (tx *Tx) returnScriptBuffers() {
+	for _, txIn := range tx.Ins {
+		if txIn == nil || txIn.ScriptSig == nil {
+			continue
+		}
+		scriptPool.Return(txIn.ScriptSig)
+	}
+	for _, txOut := range tx.Outs {
+		if txOut == nil || txOut.OutScript == nil {
+			continue
+		}
+		scriptPool.Return(txOut.OutScript)
+	}
+}

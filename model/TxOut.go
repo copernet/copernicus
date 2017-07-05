@@ -28,7 +28,7 @@ func (txOut *TxOut) ReadTxOut(reader io.Reader, pver uint32, version int32) erro
 	if err != nil {
 		return err
 	}
-	txOut.OutScript, err = ReadScript(reader, pver, MaxmessagePayload, "tx output script")
+	txOut.OutScript, err = ReadScript(reader, pver, MaxMessagePayload, "tx output script")
 	return err
 }
 func (txOut *TxOut) WriteTxOut(writer io.Writer, pver uint32, version int32) error {

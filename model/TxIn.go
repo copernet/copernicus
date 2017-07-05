@@ -31,7 +31,7 @@ func (txIn *TxIn) ReadTxIn(reader io.Reader, pver uint32, version int32) error {
 	if err != nil {
 		return err
 	}
-	txIn.ScriptSig, err = ReadScript(reader, pver, MaxmessagePayload, "tx input signature script")
+	txIn.ScriptSig, err = ReadScript(reader, pver, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return err
 	}
