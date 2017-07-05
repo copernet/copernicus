@@ -1,7 +1,9 @@
 package model
 
 import (
+	"encoding/binary"
 	"github.com/btccom/copernicus/utils"
+	"io"
 	"strconv"
 )
 
@@ -30,4 +32,20 @@ func (outPoint *OutPoint) String() string {
 	buf[2*utils.HashSize] = ':'
 	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
 	return string(buf)
+}
+
+func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, pver uint32, version int32) (err error) {
+	_, err = io.ReadFull(reader, outPoint.Hash[:])
+	if err != nil {
+		return
+	}
+	outPoint.Index, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	return
+}
+func (outPoint *OutPoint) WriteOutPoint(writer io.Writer, pver uint32, version int32) error {
+	_, err := writer.Write(outPoint.Hash[:])
+	if err != nil {
+		return err
+	}
+	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
 }
