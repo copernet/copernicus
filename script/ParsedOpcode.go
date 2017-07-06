@@ -101,7 +101,6 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 					parsedOpCode.name)
 			}
 		}
-
 	} else if dataLen <= 75 {
 		if int(opcode) != dataLen {
 			return errors.Errorf(
@@ -110,9 +109,9 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 		}
 	} else if dataLen <= 255 {
 		if opcode != OP_PUSHDATA1 {
-			return errors.Errorf(""+
-				"data push of %d bytes encoded with opcode %s instead of OP_PUSHDATA1",
-				dataLen, parsedOpCode.name, dataLen)
+			return errors.Errorf(
+				" data push of %d bytes encoded with opcode %s instead of OP_PUSHDATA1",
+				dataLen, parsedOpCode.name)
 		}
 	} else if dataLen <= 65535 {
 		if opcode != OP_PUSHDATA2 {
