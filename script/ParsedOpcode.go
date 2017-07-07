@@ -1,6 +1,7 @@
 package script
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 )
@@ -153,4 +154,48 @@ func (parsedOpCode *ParsedOpCode) print(oneline bool) string {
 	}
 	return fmt.Sprintf("%s 0x%02x", retString, parsedOpCode.data)
 
+}
+
+func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
+	var retBytes []byte
+	if parsedOpCode.length > 0 {
+		retBytes = make([]byte, 1, parsedOpCode.length)
+	} else {
+		retBytes = make([]byte, 1, 1+len(parsedOpCode.data)-parsedOpCode.length)
+	}
+	retBytes[0] = parsedOpCode.opValue
+	if parsedOpCode.length == 1 {
+		if len(parsedOpCode.data) != 0 {
+			return nil, errors.Errorf(
+				"internal consistency error parsed opcode %s has data length %d when %d was expected",
+				parsedOpCode.name, len(parsedOpCode.data), 0)
+		}
+		return retBytes, nil
+	}
+	nBytes := parsedOpCode.length
+	if parsedOpCode.length < 0 {
+		l := len(parsedOpCode.data)
+		switch parsedOpCode.length {
+		case -1:
+			retBytes = append(retBytes, byte(l))
+			nBytes = int(retBytes[1]) + len(retBytes)
+		case -2:
+			retBytes = append(retBytes, byte(l&0xff), byte(l>>8&0xff))
+			nBytes = int(binary.LittleEndian.Uint16(retBytes[1:])) + len(retBytes)
+		case -4:
+			retBytes = append(retBytes, byte(l&0xff),
+				byte((l>>8)&0xff), byte((l>>16)&0xff),
+				byte((l>>24)&0xff))
+			nBytes = int(binary.LittleEndian.Uint32(retBytes[1:])) +
+				len(retBytes)
+
+		}
+	}
+	retBytes = append(retBytes, parsedOpCode.data...)
+	if len(retBytes) != nBytes {
+		return nil, errors.Errorf(
+			"internal consistency error - parsed opcode %s has data length %d when %d was expected",
+			parsedOpCode.name, len(retBytes), nBytes)
+	}
+	return retBytes, nil
 }
