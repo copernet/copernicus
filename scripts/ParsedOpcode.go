@@ -2,7 +2,6 @@ package scripts
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/pkg/errors"
 )
 
@@ -11,7 +10,6 @@ type ParsedOpCode struct {
 	name    string
 	length  int
 	data    []byte
-	opFunc  OpFunc
 }
 
 // isDisabled returns whether or not the opcode is disabled and thus is always
@@ -125,35 +123,6 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 		}
 	}
 	return nil
-}
-
-func (parsedOpCode *ParsedOpCode) print(oneline bool) string {
-	opcodeName := parsedOpCode.name
-	if oneline {
-		if replName, ok := OpcodeOnelineRepls[opcodeName]; ok {
-			opcodeName = replName
-		}
-		if parsedOpCode.length == 1 {
-			return opcodeName
-		}
-		return fmt.Sprintf("%x", parsedOpCode.data)
-	}
-	// Nothing more to do for non-data push opcodes.
-	if parsedOpCode.length == 1 {
-		return opcodeName
-	}
-	// Add length for the OP_PUSHDATA# opcodes.
-	retString := opcodeName
-	switch parsedOpCode.length {
-	case -1:
-		retString += fmt.Sprintf(" 0x%02x", len(parsedOpCode.data))
-	case -2:
-		retString += fmt.Sprintf(" 0x%04x", len(parsedOpCode.data))
-	case -4:
-		retString += fmt.Sprintf(" 0x%08x", len(parsedOpCode.data))
-	}
-	return fmt.Sprintf("%s 0x%02x", retString, parsedOpCode.data)
-
 }
 
 func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
