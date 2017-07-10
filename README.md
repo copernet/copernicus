@@ -5,5 +5,5 @@ Copernicus is an alternative implementation of the Bitcoin protocol , written in
 We are developing now , We expect more developers to join the development of Bitcoin , to contribute to the Bitcoin Community .
   
 # Acknowledgments
-* Thanks [btcd](https://github.com/btcsuite/btcd) for the parsing and development of bitcoin protocols
+* Thanks [btcd](https://github.com/btcsuite/btcd) for full node bitcoin implementation with Go
 * Thanks [secp256k1-go](https://github.com/btccom/secp256k1-go) for bindings to lib-secp256k1 for golang
