@@ -1,5 +1,5 @@
 package scripts
 
-type Engine struct {
+type ScriptBuilder struct {
 	scripts [][]ParsedOpCode
 }
