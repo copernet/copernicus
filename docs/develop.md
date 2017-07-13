@@ -1,3 +1,5 @@
+
+
 ## glide Package Management 
 [glide](https://github.com/Masterminds/glide) is Package Management of Golang
 
@@ -59,7 +61,7 @@ go get -u -v github.com/codeskyblue/fswatch
 #### config of fswatch
 use `.fsw.yml` as config of `fswatch` , When Go file changes , the fswatch will run a command
 ```
-go build && ./btcboost
+go build && ./copernicus
 ```
 #### run 
 run `fswatch` in directory in project:
@@ -68,13 +70,3 @@ fswatch
 ```
 So , You've been using hot compilation
 
-
-### bulid c-secp256k1
-```
-cd secp256k1/c-secp256k1 
-
-./autogen.sh
-./configure --enable-experimental --enable-module-ecdh --enable-module-recovery 
-make -j4 
-
-```
