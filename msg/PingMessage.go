@@ -1,7 +1,7 @@
 package msg
 
 import (
-	"github.com/btccom/copernicus/protocol"
+	"github.com/btcboost/copernicus/protocol"
 	"io"
 )
 

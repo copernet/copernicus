@@ -2,7 +2,7 @@ package msg
 
 import (
 	"fmt"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 	"io"
 	"strings"
 	"time"

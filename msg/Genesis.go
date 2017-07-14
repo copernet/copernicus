@@ -1,10 +1,10 @@
 package msg
 
 import (
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 	"time"
 
-	"github.com/btccom/copernicus/model"
+	"github.com/btcboost/copernicus/model"
 )
 
 var GenesisCoinbasTx = model.Tx{}

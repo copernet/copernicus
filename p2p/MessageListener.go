@@ -1,6 +1,6 @@
 package p2p
 
-import "github.com/btccom/copernicus/msg"
+import "github.com/btcboost/copernicus/msg"
 
 type MessageListener struct {
 	OnRead  func(p *Peer, bytesRead int, message msg.Message, err error)

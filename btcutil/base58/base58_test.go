@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/btccom/copernicus/btcutil/base58"
+	"github.com/btcboost/copernicus/btcutil/base58"
 )
 
 var stringTests = []struct {

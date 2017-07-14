@@ -1,7 +1,7 @@
 package mempool
 
 import (
-	"github.com/btccom/copernicus/msg"
+	"github.com/btcboost/copernicus/msg"
 )
 
 type TxPoolConfig struct {

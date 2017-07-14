@@ -1,6 +1,6 @@
 package p2p
 
-import "github.com/btccom/copernicus/msg"
+import "github.com/btcboost/copernicus/msg"
 
 type StallControlCommand uint8
 

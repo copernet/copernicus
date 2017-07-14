@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/astaxie/beego/logs"
-	"github.com/btccom/copernicus/protocol"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcboost/copernicus/utils"
 	"io"
 	"math/rand"
 	"net"
@@ -22,7 +22,7 @@ import (
 	"time"
 
 	beegoUtils "github.com/astaxie/beego/utils"
-	"github.com/btccom/copernicus/core"
+	"github.com/btcboost/copernicus/core"
 )
 
 const (

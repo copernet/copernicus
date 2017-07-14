@@ -1,9 +1,9 @@
 package msg
 
 import (
-	"github.com/btccom/copernicus/btcutil"
-	"github.com/btccom/copernicus/model"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"math/big"
 	"time"

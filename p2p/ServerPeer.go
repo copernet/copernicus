@@ -1,16 +1,16 @@
 package p2p
 
 import (
-	"github.com/btccom/copernicus/conn"
+	"github.com/btcboost/copernicus/conn"
 	"sync"
 
-	"github.com/btccom/copernicus/algorithm"
-	"github.com/btccom/copernicus/conf"
-	"github.com/btccom/copernicus/network"
-	"github.com/btccom/copernicus/protocol"
+	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/network"
+	"github.com/btcboost/copernicus/protocol"
 
-	"github.com/btccom/copernicus/msg"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/utils"
 )
 
 type ServerPeer struct {

@@ -4,7 +4,7 @@ import (
 	"encoding/base32"
 	"encoding/binary"
 	"fmt"
-	"github.com/btccom/copernicus/protocol"
+	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcsuite/go-socks/socks"
 	"io"
 	"net"

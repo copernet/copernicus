@@ -2,8 +2,8 @@ package model
 
 import (
 	"encoding/binary"
-	"github.com/btccom/copernicus/protocol"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcboost/copernicus/utils"
 	"io"
 )
 

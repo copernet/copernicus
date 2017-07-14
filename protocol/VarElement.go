@@ -2,8 +2,8 @@ package protocol
 
 import (
 	"encoding/binary"
-	"github.com/btccom/copernicus/btcutil"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/utils"
 	"io"
 	"time"
 )

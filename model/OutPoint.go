@@ -2,7 +2,7 @@ package model
 
 import (
 	"encoding/binary"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 	"io"
 	"strconv"
 )

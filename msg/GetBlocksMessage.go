@@ -2,8 +2,8 @@ package msg
 
 import (
 	"fmt"
-	"github.com/btccom/copernicus/protocol"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"io"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/astaxie/beego/config"
 	"github.com/astaxie/beego/logs"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 	"net"
 	"strings"
 	"time"

@@ -1,8 +1,8 @@
 package mempool
 
 import (
-	"github.com/btccom/copernicus/model"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utils"
 	"sync"
 )
 

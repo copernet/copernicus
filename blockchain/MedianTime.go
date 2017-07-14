@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"github.com/btccom/copernicus/algorithm"
+	"github.com/btcboost/copernicus/algorithm"
 	"sort"
 	"sync"
 	"time"

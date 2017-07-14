@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 )
 
 const (

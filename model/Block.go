@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 	"time"
 )
 

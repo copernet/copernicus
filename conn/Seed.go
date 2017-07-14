@@ -2,10 +2,10 @@ package conn
 
 import (
 	"fmt"
-	"github.com/btccom/copernicus/msg"
-	"github.com/btccom/copernicus/network"
-	"github.com/btccom/copernicus/protocol"
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/network"
+	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcboost/copernicus/utils"
 	mrand "math/rand"
 	"strconv"
 	"time"

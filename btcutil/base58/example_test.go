@@ -7,7 +7,7 @@ package base58_test
 import (
 	"fmt"
 
-	"github.com/btccom/copernicus/btcutil/base58"
+	"github.com/btcboost/copernicus/btcutil/base58"
 	"testing"
 )
 

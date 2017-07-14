@@ -7,7 +7,7 @@ package base58_test
 import (
 	"testing"
 
-	"github.com/btccom/copernicus/btcutil/base58"
+	"github.com/btcboost/copernicus/btcutil/base58"
 )
 
 var checkEncodingStringTests = []struct {

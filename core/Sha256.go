@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/btccom/copernicus/utils"
+	"github.com/btcboost/copernicus/utils"
 	"github.com/btcsuite/fastsha256"
 )
 

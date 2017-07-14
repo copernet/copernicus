@@ -2,9 +2,9 @@ package model
 
 import (
 	"bytes"
-	"github.com/btccom/copernicus/btcutil"
-	"github.com/btccom/copernicus/btcutil/base58"
-	"github.com/btccom/copernicus/core"
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/btcutil/base58"
+	"github.com/btcboost/copernicus/core"
 	"github.com/pkg/errors"
 )
 

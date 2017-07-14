@@ -2,7 +2,7 @@ package msg
 
 import (
 	"fmt"
-	"github.com/btccom/copernicus/protocol"
+	"github.com/btcboost/copernicus/protocol"
 	"github.com/pkg/errors"
 	"io"
 )

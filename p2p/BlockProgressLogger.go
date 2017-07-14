@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"github.com/btccom/copernicus/model"
+	"github.com/btcboost/copernicus/model"
 	"sync"
 	"time"
 )

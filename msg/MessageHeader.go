@@ -3,9 +3,9 @@ package msg
 import (
 	"bytes"
 	"fmt"
-	"github.com/btccom/copernicus/btcutil"
-	"github.com/btccom/copernicus/core"
-	"github.com/btccom/copernicus/protocol"
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/protocol"
 	"github.com/pkg/errors"
 	"io"
 	"unicode/utf8"

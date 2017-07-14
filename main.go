@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/astaxie/beego/logs"
-	"github.com/btccom/copernicus/conf"
-	"github.com/btccom/copernicus/msg"
-	"github.com/btccom/copernicus/p2p"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/p2p"
 	"os"
 	"syscall"
 )
