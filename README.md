@@ -2,6 +2,21 @@
 
 Copernicus is an alternative implementation of the Bitcoin protocol , written in Golang .
 
+Why we would choose to use Go ? This is because Go has the following advantages:
+
+* Multi-platform compilation
+* Simple deployment , ditect compilation to promote machine code
+* High performance
+* Built-in support for high concurrency
+* GC
+* Rich standard library
+* Static type
+* Type judgment
+* For C support friendly 
+* From a project perspective , Go is a well-designed programming language , eg: Code Style , Tool Chain ...
+* the code of Go is clean code
+* ...
+
 We are developing now , We expect more developers to join the development of Bitcoin , to contribute to the Bitcoin Community .
 ## Quick Start
   Read the [Quick Start](/docs/QUICKSTART.md) 
