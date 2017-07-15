@@ -1,6 +1,6 @@
 package core
 
-import "github.com/jjz/secp256k1-go/secp256k1"
+import "github.com/btcboost/secp256k1-go/secp256k1"
 
 type Signature secp256k1.EcdsaSignature
 
