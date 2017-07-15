@@ -1,5 +1,5 @@
-hash: 226b569b5b9cc05b732aba86088c92d2cfc2e3f7c809aee39af37e4de6d2749f
-updated: 2017-07-03T10:18:54.792541764+08:00
+hash: 2047376d82607649582ad4a29cef2edc82c8e3990225566441508f9b9a5c8826
+updated: 2017-07-15T13:30:46.023875285+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -9,6 +9,10 @@ imports:
   - utils
 - name: github.com/boltdb/bolt
   version: b8dbe1101d74c30e817227a99716591e3e6e6bc4
+- name: github.com/btcboost/secp256k1-go
+  version: 6451fd888c7b6d4c285510452f045680aec199d1
+  subpackages:
+  - secp256k1
 - name: github.com/btcsuite/fastsha256
   version: 637e656429416087660c84436a2a035d69d54e2e
 - name: github.com/btcsuite/go-socks
@@ -28,12 +32,6 @@ imports:
   - spew
 - name: github.com/edsrzf/mmap-go
   version: 6c75090c55983bef2e129e173681b20d24871ef8
-- name: github.com/jjz/secp256k1-go
-  version: d4ffa1ba4382eea88658aef44997b36ad7f5541b
-  repo: http://github.com/jjz/secp256k1-go.git
-  vcs: git
-  subpackages:
-  - secp256k1
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/siddontang/go
