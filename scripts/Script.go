@@ -13,10 +13,10 @@ func (script *Script) deSerialize() {
 
 }
 
-func (script *Script) Check() (bool) {
+func (script *Script) Check() bool {
 	return false
 }
 
-func Construct(bytes []byte) (*Script) {
+func Construct(bytes []byte) *Script {
 	return nil
 }
