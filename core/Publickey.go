@@ -42,3 +42,32 @@ func (publicKey *PublicKey) IsEqual(otherPublicKey *PublicKey) bool {
 	otherBytes := otherPublicKey.SerializeUncompressed()
 	return reflect.DeepEqual(publicKeyBytes, otherBytes)
 }
+
+func IsCompressedOrUncompressedPubKey(bytes []byte) bool {
+	if len(bytes) < 33 {
+		return false
+	}
+	if bytes[0] == 0x04 {
+		if len(bytes) != 65 {
+			return false
+		}
+	} else if bytes[0] == 0x02 || bytes[0] == 0x03 {
+		if len(bytes) != 33 {
+			return false
+		}
+	} else {
+		return false
+	}
+	return true
+
+}
+
+func IsCompressedPubKey(bytes []byte) bool {
+	if len(bytes) != 33 {
+		return false
+	}
+	if bytes[0] != 0x02 && bytes[0] != 0x03 {
+		return false
+	}
+	return true
+}
