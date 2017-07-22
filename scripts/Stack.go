@@ -11,3 +11,7 @@ func (stack *Stack) Push() bool {
 func (stack *Stack) Pop() bool {
 	return false
 }
+
+func NewStack() *Stack {
+	return nil
+}

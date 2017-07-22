@@ -7,6 +7,11 @@ type Interpreter struct {
 func (interpreter *Interpreter) Verify() bool {
 	return false
 }
-func (interpreter *Interpreter) Exec() bool {
+
+func (interpreter *Interpreter) Exec(script *Script) bool {
 	return false
+}
+
+func NewInterpreter() *Interpreter {
+	return nil
 }
