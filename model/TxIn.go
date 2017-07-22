@@ -15,18 +15,13 @@ type TxIn struct {
 
 func (txIn *TxIn) SerializeSize() int {
 	// Outpoint Hash 32 bytes + Outpoint Index 4 bytes + Sequence 4 bytes +
-	// serialized varint size for the length of SignatureScript +
+	// serialized VarInt size for the length of SignatureScript +
 	// SignatureScript bytes.
 	return 40 + utils.VarIntSerializeSize(uint64(len(txIn.ScriptSig))) + len(txIn.ScriptSig)
 
 }
 
-func NewTxIn(prevOut *OutPoint, pkScript []byte) *TxIn {
-	txIn := TxIn{PreviousOutPoint: prevOut, ScriptSig: pkScript, Sequence: MaxTxInSequenceNum}
-	return &txIn
-}
-
-func (txIn *TxIn) ReadTxIn(reader io.Reader, pver uint32, version int32) error {
+func (txIn *TxIn) Deserialize(reader io.Reader, pver uint32, version int32) error {
 	err := txIn.PreviousOutPoint.ReadOutPoint(reader, pver, version)
 	if err != nil {
 		return err
@@ -38,7 +33,7 @@ func (txIn *TxIn) ReadTxIn(reader io.Reader, pver uint32, version int32) error {
 	return protocol.ReadElement(reader, &txIn.Sequence)
 
 }
-func (txIn *TxIn) WriteTxIn(writer io.Writer, pver uint32, version int32) error {
+func (txIn *TxIn) Serialize(writer io.Writer, pver uint32, version int32) error {
 	err := txIn.PreviousOutPoint.WriteOutPoint(writer, pver, version)
 	if err != nil {
 		return err
@@ -49,4 +44,13 @@ func (txIn *TxIn) WriteTxIn(writer io.Writer, pver uint32, version int32) error 
 	}
 
 	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
+}
+
+func (txIn *TxIn) Check() bool {
+	return true
+}
+
+func NewTxIn(prevOut *OutPoint, pkScript []byte) *TxIn {
+	txIn := TxIn{PreviousOutPoint: prevOut, ScriptSig: pkScript, Sequence: MaxTxInSequenceNum}
+	return &txIn
 }

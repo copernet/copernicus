@@ -8,8 +8,7 @@ import (
 )
 
 type Tx struct {
-	Hash utils.Hash
-
+	Hash     utils.Hash
 	LockTime uint32
 	Version  int32
 	Ins      []*TxIn
@@ -22,6 +21,7 @@ const (
 	MaxMessagePayload         = 32 * 1024 * 1024
 	MinTxInPayload            = 9 + utils.HashSize
 	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
+	TxVersion                 = 1
 )
 
 var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
@@ -32,6 +32,14 @@ func (tx *Tx) AddTxIn(txIn *TxIn) {
 
 func (tx *Tx) AddTxOut(txOut *TxOut) {
 	tx.Outs = append(tx.Outs, txOut)
+}
+
+func (tx *Tx) RemoveTxIn(txIn *TxIn) {
+
+}
+
+func (tx *Tx) RemoveTxOut(txOut *TxOut) {
+
 }
 
 func (tx *Tx) SerializeSize() int {
@@ -58,7 +66,7 @@ func (tx *Tx) Serialize(writer io.Writer, pver uint32) error {
 		return err
 	}
 	for _, ti := range tx.Ins {
-		err := ti.WriteTxIn(writer, pver, tx.Version)
+		err := ti.Serialize(writer, pver, tx.Version)
 		if err != nil {
 			return err
 		}
@@ -69,7 +77,7 @@ func (tx *Tx) Serialize(writer io.Writer, pver uint32) error {
 		return err
 	}
 	for _, txOut := range tx.Outs {
-		err := txOut.WriteTxOut(writer, pver, tx.Version)
+		err := txOut.Serialize(writer, pver, tx.Version)
 		if err != nil {
 			return err
 		}
@@ -99,7 +107,7 @@ func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
 	for i := uint64(0); i < count; i++ {
 		txIn := &txIns[i]
 		tx.Ins[i] = txIn
-		err = txIn.ReadTxIn(reader, pver, tx.Version)
+		err = txIn.Deserialize(reader, pver, tx.Version)
 		if err != nil {
 			tx.returnScriptBuffers()
 			return
@@ -119,7 +127,7 @@ func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
 		// and needs to be returned to the pool on error.
 		txOut := &txOuts[i]
 		tx.Outs[i] = txOut
-		err = txOut.ReadTxOut(reader, pver, tx.Version)
+		err = txOut.Deserialize(reader, pver, tx.Version)
 		if err != nil {
 			tx.returnScriptBuffers()
 			return
@@ -136,6 +144,9 @@ func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
 	return
 
 }
+func (tx *Tx) Check() bool {
+	return true
+}
 
 func (tx *Tx) returnScriptBuffers() {
 	for _, txIn := range tx.Ins {
@@ -150,4 +161,8 @@ func (tx *Tx) returnScriptBuffers() {
 		}
 		scriptPool.Return(txOut.OutScript)
 	}
+}
+
+func NewTx() *Tx {
+	return &Tx{LockTime: 0, Version: TxVersion}
 }
