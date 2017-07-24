@@ -62,6 +62,39 @@ func IsCompressedOrUncompressedPubKey(bytes []byte) bool {
 
 }
 
+//func ECDSASignatureParseDerLax(inputs []byte, inputsLen int) int {
+//	var rpos, rlen, spos, slen, lenBytes, pos int
+//	tmpsig := make([]byte, 64)
+//	overFlow := 0
+//
+//}
+
+func IsLowDERSignature(vchSig []byte) (bool, error) {
+	if !IsValidSignatureEncoding(vchSig) {
+		return false, ScriptErr(SCRIPT_ERR_SIG_DER)
+	}
+	var vchCopy []byte
+	copy(vchCopy[:], vchSig[:])
+	ret := CheckLowS(vchCopy)
+	if !ret {
+		return false, ScriptErr(SCRIPT_ERR_SIG_HIGH_S)
+	}
+
+	return true, nil
+
+}
+
+func CheckLowS(vchSig []byte) bool {
+	ret, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, vchSig)
+	if ret != 1 || err != nil {
+		return false
+	}
+	ret, err = secp256k1.EcdsaSignatureNormalize(secp256k1Context, nil, sig)
+	if ret != 1 || err != nil {
+		return false
+	}
+	return true
+}
 func IsCompressedPubKey(bytes []byte) bool {
 	if len(bytes) != 33 {
 		return false

@@ -1,5 +1,5 @@
-hash: 2047376d82607649582ad4a29cef2edc82c8e3990225566441508f9b9a5c8826
-updated: 2017-07-15T13:30:46.023875285+08:00
+hash: a8e0a06933249e685c3e19089ada3112b018e42f0415f51269645b9677df4d4a
+updated: 2017-07-24T18:20:26.198102526+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -10,7 +10,7 @@ imports:
 - name: github.com/boltdb/bolt
   version: b8dbe1101d74c30e817227a99716591e3e6e6bc4
 - name: github.com/btcboost/secp256k1-go
-  version: 6451fd888c7b6d4c285510452f045680aec199d1
+  version: d1d3521a2faf654cee837aad57713ec4c814791f
   subpackages:
   - secp256k1
 - name: github.com/btcsuite/fastsha256

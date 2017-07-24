@@ -1,4 +1,6 @@
-package scripts
+package core
+
+import "github.com/pkg/errors"
 
 type ScriptError int
 
@@ -156,4 +158,9 @@ func ScriptErrorString(scriptError ScriptError) string {
 	}
 	return "unknown error"
 
+}
+
+func ScriptErr(scriptError ScriptError) error {
+	str := ScriptErrorString(scriptError)
+	return errors.Errorf("script error :%s code:%d", str, scriptError)
 }

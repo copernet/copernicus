@@ -23,6 +23,7 @@ import:
 - package: gopkg.in/yaml.v2
 - package: github.com/btcsuite/fastsha256
 - package: github.com/btcboost/secp256k1-go
+  version: d1d3521a2faf654cee837aad57713ec4c814791f
 testImport:
 - package: github.com/stretchr/testify
   version: ^1.1.4
