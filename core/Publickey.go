@@ -62,12 +62,16 @@ func IsCompressedOrUncompressedPubKey(bytes []byte) bool {
 
 }
 
-//func ECDSASignatureParseDerLax(inputs []byte, inputsLen int) int {
-//	var rpos, rlen, spos, slen, lenBytes, pos int
-//	tmpsig := make([]byte, 64)
-//	overFlow := 0
-//
-//}
+func IsDefineHashtypeSignature(vchSig []byte) bool {
+	if len(vchSig) == 0 {
+		return false
+	}
+	nHashType := vchSig[len(vchSig)-1] & (^byte(SIGHASH_ANYONECANPAY))
+	if nHashType < SIGHASH_ALL || nHashType > SIGHASH_SINGLE {
+		return false
+	}
+	return true
+}
 
 func IsLowDERSignature(vchSig []byte) (bool, error) {
 	if !IsValidSignatureEncoding(vchSig) {

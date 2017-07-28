@@ -2,6 +2,13 @@ package core
 
 import "github.com/btcboost/secp256k1-go/secp256k1"
 
+const (
+	SIGHASH_ALL          = 1
+	SIGHASH_NONE         = 2
+	SIGHASH_SINGLE       = 3
+	SIGHASH_ANYONECANPAY = 128
+)
+
 type Signature secp256k1.EcdsaSignature
 
 func (sig *Signature) toLibEcdsaSignature() *secp256k1.EcdsaSignature {
