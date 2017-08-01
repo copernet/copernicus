@@ -71,3 +71,16 @@ func IsCompressedPubKey(bytes []byte) bool {
 	}
 	return true
 }
+
+func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) (bool, error) {
+	if flags&SCRIPT_VERIFY_STRICTENC != 0 && !IsCompressedOrUncompressedPubKey(vchPubKey) {
+		return false, ScriptErr(SCRIPT_ERR_PUBKEYTYPE)
+
+	}
+	// Only compressed keys are accepted when
+	// SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE is enabled.
+	if flags&SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE == 1 && !IsCompressedPubKey(vchPubKey) {
+		return false, ScriptErr(SCRIPT_ERR_NONCOMPRESSED_PUBKEY)
+	}
+	return true, nil
+}

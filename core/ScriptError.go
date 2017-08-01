@@ -69,6 +69,10 @@ const (
 	SCRIPT_ERR_WITNESS_PUBKEYTYPE
 
 	SCRIPT_ERR_ERROR_COUNT
+
+	/* misc */
+
+	SCRIPT_ERR_NONCOMPRESSED_PUBKEY
 )
 
 func ScriptErrorString(scriptError ScriptError) string {
