@@ -106,3 +106,23 @@ func (script *CScript) ParseScript() (stk [][]byte, err error) {
 	return
 
 }
+
+func DecodeOPN(opcode int) (int, error) {
+	if opcode < OP_0 || opcode > OP_16 {
+		return 0, errors.New(" DecodeOPN opcode is out of bounds")
+	}
+	if opcode == OP_0 {
+		return 0, nil
+	}
+	return opcode - (OP_1 - 1), nil
+}
+
+func EncodeOPN(n int) (int, error) {
+	if n < 0 || n > 16 {
+		return 0, errors.New("EncodeOPN n is out of bounds")
+	}
+	if n == 0 {
+		return OP_0, nil
+	}
+	return OP_1 + n - 1, nil
+}
