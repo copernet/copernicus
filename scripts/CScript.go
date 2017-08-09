@@ -58,3 +58,51 @@ func (script *CScript) PushData(data []byte) {
 	}
 	script.bytes = append(script.bytes, data...)
 }
+
+func (script *CScript) ParseScript() (stk [][]byte, err error) {
+	stk = make([][]byte, 0, len(script.bytes))
+	scriptLen := len(script.bytes)
+
+	for i := 0; i < scriptLen; {
+		var nSize int
+		opcode := script.bytes[i]
+		opcodeArray := make([]byte, 0, 1)
+		opcodeArray = append(opcodeArray, opcode)
+		stk = append(stk, opcodeArray)
+		var opdata []byte
+		if opcode < OP_PUSHDATA1 {
+			nSize = int(opcode)
+			opcodeArray = script.bytes[i : i+nSize]
+		} else if opcode == OP_PUSHDATA1 {
+			if scriptLen-i < 1 {
+				err = errors.New("OP_PUSHDATA1 has no enough data")
+				return
+			}
+			nSize = i + 1
+		} else if opcode == OP_PUSHDATA2 {
+			if scriptLen-i < 2 {
+				err = errors.New("OP_PUSHDATA2 has no enough data")
+				return
+			}
+			nSize = int(binary.LittleEndian.Uint16(script.bytes[:0]))
+			opcodeArray = script.bytes[i+2 : i+2+nSize]
+			i += 2
+		} else if opcode == OP_PUSHDATA4 {
+			if scriptLen-i < 4 {
+				err = errors.New("OP_PUSHDATA4 has no enough data")
+				return
+			}
+			opcodeArray = script.bytes[i+4 : i+4+nSize]
+			nSize = int(binary.LittleEndian.Uint32(script.bytes[:0]))
+			i += 4
+		}
+		stk = append(stk, opdata)
+		if scriptLen-i < 0 || (scriptLen-i) < nSize {
+			err = errors.New("size is wrong")
+			return
+		}
+		i += nSize
+	}
+	return
+
+}
