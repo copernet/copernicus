@@ -120,6 +120,30 @@ func (script *CScript) Find(opcode int) bool {
 	return false
 }
 
+func (script *CScript) IsPayToScriptHash() bool {
+	// Extra-fast test for pay-to-script-hash CScripts:
+	return (len(script.bytes) == 23) &&
+		(script.bytes[0] == OP_HASH160) &&
+		(script.bytes[1] == 0x14) &&
+		(script.bytes[22] == OP_EQUAL)
+}
+func (script *CScript) IsPushOnly() bool {
+	stk, err := script.ParseScript()
+	if err != nil {
+		return false
+	}
+	if len(stk) == 0 {
+		return false
+	}
+	for i := 0; i < len(stk); i++ {
+		if stk[i][0] > OP_16 {
+			return false
+		}
+	}
+	return true
+
+}
+
 func DecodeOPN(opcode int) (int, error) {
 	if opcode < OP_0 || opcode > OP_16 {
 		return 0, errors.New(" DecodeOPN opcode is out of bounds")
