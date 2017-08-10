@@ -107,6 +107,19 @@ func (script *CScript) ParseScript() (stk [][]byte, err error) {
 
 }
 
+func (script *CScript) Find(opcode int) bool {
+	stk, err := script.ParseScript()
+	if err != nil {
+		return false
+	}
+	for i := 0; i < len(stk); i++ {
+		if int(stk[i][0]) == opcode {
+			return true
+		}
+	}
+	return false
+}
+
 func DecodeOPN(opcode int) (int, error) {
 	if opcode < OP_0 || opcode > OP_16 {
 		return 0, errors.New(" DecodeOPN opcode is out of bounds")
