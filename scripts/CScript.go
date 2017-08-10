@@ -7,6 +7,9 @@ import (
 
 const (
 	DEFAULT_SIZE = 28
+
+	// MAX_PUBKEYS_PER_MULTISIG :  Maximum number of public keys per multisig
+	MAX_PUBKEYS_PER_MULTISIG = 20
 )
 
 type CScript struct {
@@ -142,6 +145,34 @@ func (script *CScript) IsPushOnly() bool {
 	}
 	return true
 
+}
+
+func (script *CScript) GetSigOpCount(accurate bool) (int, error) {
+	n := 0
+	stk, err := script.ParseScript()
+	if err != nil {
+		return n, err
+	}
+	var lastOpcode int
+	for i := 0; i < len(stk); i++ {
+		opcode := stk[i][0]
+		if opcode == OP_CHECKSIG || opcode == OP_CHECKSIGVERIFY {
+			n++
+		} else if opcode == OP_CHECKMULTISIG || opcode == OP_CHECKMULTISIGVERIFY {
+			if accurate && lastOpcode >= OP_1 && lastOpcode <= OP_16 {
+				opn, err := DecodeOPN(lastOpcode)
+				if err != nil {
+					return 0, err
+
+				}
+				n += opn
+			} else {
+				n += MAX_PUBKEYS_PER_MULTISIG
+			}
+		}
+		lastOpcode = int(opcode)
+	}
+	return n, nil
 }
 
 func DecodeOPN(opcode int) (int, error) {
