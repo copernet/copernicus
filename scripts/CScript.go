@@ -146,8 +146,27 @@ func (script *CScript) IsPushOnly() bool {
 	return true
 
 }
+func (script *CScript) GetSigOpCount() (int, error) {
+	if !script.IsPayToScriptHash() {
+		return script.GetSigOpCountWithAccurate(true)
+	}
+	stk, err := script.ParseScript()
+	if err != nil {
+		return 0, err
+	}
+	if len(stk) == 0 {
+		return 0, nil
+	}
+	for i := 0; i < len(stk); i++ {
+		opcode := stk[i][0]
+		if opcode == OP_16 {
+			return 0, nil
+		}
+	}
+	return script.GetSigOpCountWithAccurate(true)
+}
 
-func (script *CScript) GetSigOpCount(accurate bool) (int, error) {
+func (script *CScript) GetSigOpCountWithAccurate(accurate bool) (int, error) {
 	n := 0
 	stk, err := script.ParseScript()
 	if err != nil {
