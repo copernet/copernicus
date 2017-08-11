@@ -162,6 +162,41 @@ func (tx *Tx) returnScriptBuffers() {
 		scriptPool.Return(txOut.OutScript)
 	}
 }
+func (tx *Tx) Copy() *Tx {
+	newTx := Tx{
+		Version:  tx.Version,
+		LockTime: tx.LockTime,
+		Ins:      make([]*TxIn, 0, len(tx.Ins)),
+		Outs:     make([]*TxOut, 0, len(tx.Outs)),
+	}
+	for _, txOut := range tx.Outs {
+		scriptLen := len(txOut.OutScript)
+		newOutScript := make([]byte, scriptLen)
+		copy(newOutScript, txOut.OutScript[:scriptLen])
+
+		newTxOut := TxOut{
+			Value:     txOut.Value,
+			OutScript: newOutScript,
+		}
+		tx.Outs = append(tx.Outs, &newTxOut)
+	}
+	for _, txIn := range tx.Ins {
+		newOutPoint := OutPoint{}
+		newOutPoint.Hash.SetBytes(txIn.PreviousOutPoint.Hash[:])
+		newOutPoint.Index = txIn.PreviousOutPoint.Index
+		scriptLen := len(txIn.ScriptSig)
+		newScript := make([]byte, scriptLen)
+		copy(newScript, txIn.ScriptSig[:scriptLen])
+		newTx := TxIn{
+			Sequence:         txIn.Sequence,
+			PreviousOutPoint: &newOutPoint,
+			ScriptSig:        newScript,
+		}
+		tx.Ins = append(tx.Ins, &newTx)
+	}
+	return &newTx
+
+}
 
 func NewTx() *Tx {
 	return &Tx{LockTime: 0, Version: TxVersion}
