@@ -10,6 +10,10 @@ const (
 
 	// MAX_PUBKEYS_PER_MULTISIG :  Maximum number of public keys per multisig
 	MAX_PUBKEYS_PER_MULTISIG = 20
+
+	// LOCKTIME_THRESHOLD Threshold for nLockTime: below this value it is interpreted as block number,
+	// otherwise as UNIX timestamp. Thresold is Tue Nov 5 00:53:20 1985 UTC
+	LOCKTIME_THRESHOLD = 500000000
 )
 
 type CScript struct {
