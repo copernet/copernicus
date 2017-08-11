@@ -14,6 +14,10 @@ const (
 	// LOCKTIME_THRESHOLD Threshold for nLockTime: below this value it is interpreted as block number,
 	// otherwise as UNIX timestamp. Thresold is Tue Nov 5 00:53:20 1985 UTC
 	LOCKTIME_THRESHOLD = 500000000
+
+	// SEQUENCE_FINAL Setting nSequence to this value for every input in a transaction
+	// disables nLockTime.
+	SEQUENCE_FINAL = 0xffffffff
 )
 
 type CScript struct {
