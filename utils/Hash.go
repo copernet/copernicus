@@ -12,6 +12,9 @@ const (
 
 type Hash [HashSize]byte
 
+var HashZero = Hash{}
+var HashOne = Hash{0x0000000000000000000000000000000000000000000000000000000000000001}
+
 func (hash *Hash) ToString() string {
 	for i := 0; i < HashSize/2; i++ {
 		hash[i], hash[HashSize-1-i] = hash[HashSize-1-i], hash[i]

@@ -51,3 +51,29 @@ func GetOutputsHash(tx *model.Tx) (utils.Hash, error) {
 	return core.DoubleSha256Hash(buf.Bytes()), nil
 
 }
+func GetScriptBytes(script *CScript) (bytes []byte, err error) {
+	stk, err := script.ParseScript()
+	if err != nil {
+		return
+	}
+	bytes = make([]byte, 0, len(stk))
+	for i := 0; i < len(stk); i++ {
+		/** Serialize the passed scriptCode, skipping OP_CODESEPARATORs */
+		if stk[i][0] == OP_CODESEPARATOR {
+
+		} else {
+			bytes = append(bytes, stk[i]...)
+		}
+
+	}
+	return
+}
+
+func SignatureHash(tx *model.Tx, script *CScript, hashType int, nIn int) (result utils.Hash, err error) {
+	if (hashType&0x1f == core.SIGHASH_SINGLE) &&
+		nIn >= len(tx.Outs) {
+		return utils.HashOne, nil
+	}
+
+	return
+}
