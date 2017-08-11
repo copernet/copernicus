@@ -74,6 +74,44 @@ func SignatureHash(tx *model.Tx, script *CScript, hashType int, nIn int) (result
 		nIn >= len(tx.Outs) {
 		return utils.HashOne, nil
 	}
+	txCopy := tx.Copy()
+	for i := range tx.Ins {
+		if i == nIn {
+			scriptBytes, _ := GetScriptBytes(script)
+			txCopy.Ins[i].ScriptSig = scriptBytes
+		} else {
+			txCopy.Ins[i].ScriptSig = nil
+		}
+	}
+	switch hashType & 0x1f {
+	case core.SIGHASH_NONE:
+		txCopy.Outs = make([]*model.TxOut, 0)
+		for i := range txCopy.Ins {
+			if nIn != i {
+				txCopy.Ins[i].Sequence = 0
+			}
+		}
+	case core.SIGHASH_SINGLE:
+		txCopy.Outs = txCopy.Outs[:nIn+1]
+		for i := 0; i < nIn; i++ {
+			txCopy.Outs[i].Value = -1
+			txCopy.Outs[i].OutScript = nil
+		}
+		for i := range txCopy.Ins {
+			if i != nIn {
+				txCopy.Ins[i].Sequence = 0
+			}
+		}
+	case core.SIGHASH_ALL:
 
+	}
+	if hashType&core.SIGHASH_ANYONECANPAY != 0 {
+		txCopy.Ins = tx.Ins[nIn : nIn+1]
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
+	txCopy.Serialize(buf, 0)
+	binary.Write(buf, binary.LittleEndian, hashType)
+	result = core.Sha256Hash(buf.Bytes())
 	return
 }
