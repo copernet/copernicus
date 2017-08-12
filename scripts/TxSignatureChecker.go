@@ -113,3 +113,7 @@ func CheckSequence(sequence int64, txToSequence int64, version int32) bool {
 	}
 	return true
 }
+
+//func VerifyScript()  {
+//
+//}
