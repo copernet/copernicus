@@ -70,20 +70,18 @@ func (script *CScript) PushData(data []byte) {
 	script.bytes = append(script.bytes, data...)
 }
 
-func (script *CScript) ParseScript() (stk [][]byte, err error) {
-	stk = make([][]byte, 0, len(script.bytes))
+func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
+	stk = make([]ParsedOpCode, 0, len(script.bytes))
 	scriptLen := len(script.bytes)
 
 	for i := 0; i < scriptLen; {
 		var nSize int
 		opcode := script.bytes[i]
-		opcodeArray := make([]byte, 0, 1)
-		opcodeArray = append(opcodeArray, opcode)
-		stk = append(stk, opcodeArray)
-		var opdata []byte
+		parsedopCode := ParsedOpCode{opValue: opcode}
+		stk = append(stk, parsedopCode)
 		if opcode < OP_PUSHDATA1 {
 			nSize = int(opcode)
-			opcodeArray = script.bytes[i : i+nSize]
+			parsedopCode.data = script.bytes[i : i+nSize]
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				err = errors.New("OP_PUSHDATA1 has no enough data")
@@ -96,18 +94,17 @@ func (script *CScript) ParseScript() (stk [][]byte, err error) {
 				return
 			}
 			nSize = int(binary.LittleEndian.Uint16(script.bytes[:0]))
-			opcodeArray = script.bytes[i+2 : i+2+nSize]
+			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
 			i += 2
 		} else if opcode == OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
 				err = errors.New("OP_PUSHDATA4 has no enough data")
 				return
 			}
-			opcodeArray = script.bytes[i+4 : i+4+nSize]
+			parsedopCode.data = script.bytes[i+4 : i+4+nSize]
 			nSize = int(binary.LittleEndian.Uint32(script.bytes[:0]))
 			i += 4
 		}
-		stk = append(stk, opdata)
 		if scriptLen-i < 0 || (scriptLen-i) < nSize {
 			err = errors.New("size is wrong")
 			return
@@ -124,7 +121,7 @@ func (script *CScript) Find(opcode int) bool {
 		return false
 	}
 	for i := 0; i < len(stk); i++ {
-		if int(stk[i][0]) == opcode {
+		if int(stk[i].opValue) == opcode {
 			return true
 		}
 	}
@@ -147,7 +144,7 @@ func (script *CScript) IsPushOnly() bool {
 		return false
 	}
 	for i := 0; i < len(stk); i++ {
-		if stk[i][0] > OP_16 {
+		if stk[i].opValue > OP_16 {
 			return false
 		}
 	}
@@ -166,7 +163,7 @@ func (script *CScript) GetSigOpCount() (int, error) {
 		return 0, nil
 	}
 	for i := 0; i < len(stk); i++ {
-		opcode := stk[i][0]
+		opcode := stk[i].opValue
 		if opcode == OP_16 {
 			return 0, nil
 		}
@@ -182,7 +179,7 @@ func (script *CScript) GetSigOpCountWithAccurate(accurate bool) (int, error) {
 	}
 	var lastOpcode int
 	for i := 0; i < len(stk); i++ {
-		opcode := stk[i][0]
+		opcode := stk[i].opValue
 		if opcode == OP_CHECKSIG || opcode == OP_CHECKSIGVERIFY {
 			n++
 		} else if opcode == OP_CHECKMULTISIG || opcode == OP_CHECKMULTISIGVERIFY {

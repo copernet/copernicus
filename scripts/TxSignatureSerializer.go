@@ -59,10 +59,12 @@ func GetScriptBytes(script *CScript) (bytes []byte, err error) {
 	bytes = make([]byte, 0, len(stk))
 	for i := 0; i < len(stk); i++ {
 		/** Serialize the passed scriptCode, skipping OP_CODESEPARATORs */
-		if stk[i][0] == OP_CODESEPARATOR {
+		parsedOpcode := stk[i]
+		if parsedOpcode.opValue == OP_CODESEPARATOR {
 
 		} else {
-			bytes = append(bytes, stk[i]...)
+			bytes = append(bytes, parsedOpcode.opValue)
+			bytes = append(bytes, parsedOpcode.data...)
 		}
 
 	}
