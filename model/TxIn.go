@@ -9,7 +9,7 @@ import (
 
 type TxIn struct {
 	PreviousOutPoint *OutPoint
-	ScriptSig        []byte
+	Script           []byte
 	Sequence         uint32 //todo ?
 }
 
@@ -17,28 +17,28 @@ func (txIn *TxIn) SerializeSize() int {
 	// Outpoint Hash 32 bytes + Outpoint Index 4 bytes + Sequence 4 bytes +
 	// serialized VarInt size for the length of SignatureScript +
 	// SignatureScript bytes.
-	return 40 + utils.VarIntSerializeSize(uint64(len(txIn.ScriptSig))) + len(txIn.ScriptSig)
+	return 40 + utils.VarIntSerializeSize(uint64(len(txIn.Script))) + len(txIn.Script)
 
 }
 
-func (txIn *TxIn) Deserialize(reader io.Reader, pver uint32, version int32) error {
-	err := txIn.PreviousOutPoint.ReadOutPoint(reader, pver, version)
+func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
+	err := txIn.PreviousOutPoint.ReadOutPoint(reader, version)
 	if err != nil {
 		return err
 	}
-	txIn.ScriptSig, err = ReadScript(reader, pver, MaxMessagePayload, "tx input signature script")
+	txIn.Script, err = ReadScript(reader, 0, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return err
 	}
 	return protocol.ReadElement(reader, &txIn.Sequence)
 
 }
-func (txIn *TxIn) Serialize(writer io.Writer, pver uint32, version int32) error {
-	err := txIn.PreviousOutPoint.WriteOutPoint(writer, pver, version)
+func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
+	err := txIn.PreviousOutPoint.WriteOutPoint(writer, 0, version)
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, pver, txIn.ScriptSig)
+	err = utils.WriteVarBytes(writer, 0, txIn.Script)
 	if err != nil {
 		return err
 	}
@@ -51,6 +51,6 @@ func (txIn *TxIn) Check() bool {
 }
 
 func NewTxIn(prevOut *OutPoint, pkScript []byte) *TxIn {
-	txIn := TxIn{PreviousOutPoint: prevOut, ScriptSig: pkScript, Sequence: MaxTxInSequenceNum}
+	txIn := TxIn{PreviousOutPoint: prevOut, Script: pkScript, Sequence: MaxTxInSequenceNum}
 	return &txIn
 }

@@ -34,7 +34,7 @@ func (outPoint *OutPoint) String() string {
 	return string(buf)
 }
 
-func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, pver uint32, version int32) (err error) {
+func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, version int32) (err error) {
 	_, err = io.ReadFull(reader, outPoint.Hash[:])
 	if err != nil {
 		return

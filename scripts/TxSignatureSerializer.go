@@ -46,7 +46,7 @@ func GetOutputsHash(tx *model.Tx) (utils.Hash, error) {
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, size))
 	for i := 0; i < len(tx.Ins); i++ {
-		tx.Outs[i].Serialize(buf, 0, 1) //todo pver and version
+		tx.Outs[i].Serialize(buf, 1) //todo pver and version
 	}
 	return core.DoubleSha256Hash(buf.Bytes()), nil
 
@@ -80,9 +80,9 @@ func SignatureHash(tx *model.Tx, script *CScript, hashType int, nIn int) (result
 	for i := range tx.Ins {
 		if i == nIn {
 			scriptBytes, _ := GetScriptBytes(script)
-			txCopy.Ins[i].ScriptSig = scriptBytes
+			txCopy.Ins[i].Script = scriptBytes
 		} else {
-			txCopy.Ins[i].ScriptSig = nil
+			txCopy.Ins[i].Script = nil
 		}
 	}
 	switch hashType & 0x1f {
@@ -97,7 +97,7 @@ func SignatureHash(tx *model.Tx, script *CScript, hashType int, nIn int) (result
 		txCopy.Outs = txCopy.Outs[:nIn+1]
 		for i := 0; i < nIn; i++ {
 			txCopy.Outs[i].Value = -1
-			txCopy.Outs[i].OutScript = nil
+			txCopy.Outs[i].Script = nil
 		}
 		for i := range txCopy.Ins {
 			if i != nIn {
@@ -112,7 +112,7 @@ func SignatureHash(tx *model.Tx, script *CScript, hashType int, nIn int) (result
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
-	txCopy.Serialize(buf, 0)
+	txCopy.Serialize(buf)
 	binary.Write(buf, binary.LittleEndian, hashType)
 	result = core.Sha256Hash(buf.Bytes())
 	return

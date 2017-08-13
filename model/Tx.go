@@ -71,29 +71,29 @@ func (tx *Tx) SerializeSize() int {
 	return n
 }
 
-func (tx *Tx) Serialize(writer io.Writer, pver uint32) error {
+func (tx *Tx) Serialize(writer io.Writer) error {
 	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(tx.Version))
 	if err != nil {
 		return err
 	}
 	count := uint64(len(tx.Ins))
-	err = utils.WriteVarInt(writer, pver, count)
+	err = utils.WriteVarInt(writer, 0, count)
 	if err != nil {
 		return err
 	}
 	for _, ti := range tx.Ins {
-		err := ti.Serialize(writer, pver, tx.Version)
+		err := ti.Serialize(writer, tx.Version)
 		if err != nil {
 			return err
 		}
 	}
 	count = uint64(len(tx.Outs))
-	err = utils.WriteVarInt(writer, pver, count)
+	err = utils.WriteVarInt(writer, 0, count)
 	if err != nil {
 		return err
 	}
 	for _, txOut := range tx.Outs {
-		err := txOut.Serialize(writer, pver, tx.Version)
+		err := txOut.Serialize(writer, tx.Version)
 		if err != nil {
 			return err
 		}
@@ -102,13 +102,13 @@ func (tx *Tx) Serialize(writer io.Writer, pver uint32) error {
 
 }
 
-func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
+func (tx *Tx) Deserialize(reader io.Reader) (err error) {
 	version, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
 		return err
 	}
 	tx.Version = int32(version)
-	count, err := utils.ReadVarInt(reader, pver)
+	count, err := utils.ReadVarInt(reader, 0)
 	if err != nil {
 		return err
 	}
@@ -123,14 +123,14 @@ func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
 	for i := uint64(0); i < count; i++ {
 		txIn := &txIns[i]
 		tx.Ins[i] = txIn
-		err = txIn.Deserialize(reader, pver, tx.Version)
+		err = txIn.Deserialize(reader, tx.Version)
 		if err != nil {
 			tx.returnScriptBuffers()
 			return
 		}
-		totalScriptSize += uint64(len(txIn.ScriptSig))
+		totalScriptSize += uint64(len(txIn.Script))
 	}
-	count, err = utils.ReadVarInt(reader, pver)
+	count, err = utils.ReadVarInt(reader, 0)
 	if err != nil {
 		tx.returnScriptBuffers()
 		return
@@ -143,12 +143,12 @@ func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
 		// and needs to be returned to the pool on error.
 		txOut := &txOuts[i]
 		tx.Outs[i] = txOut
-		err = txOut.Deserialize(reader, pver, tx.Version)
+		err = txOut.Deserialize(reader, tx.Version)
 		if err != nil {
 			tx.returnScriptBuffers()
 			return
 		}
-		totalScriptSize += uint64(len(txOut.OutScript))
+		totalScriptSize += uint64(len(txOut.Script))
 	}
 
 	tx.LockTime, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
@@ -160,22 +160,28 @@ func (tx *Tx) Deserialize(reader io.Reader, pver uint32) (err error) {
 	return
 
 }
+
+func (tx *Tx) IsCoinBase() bool {
+	return (len(tx.Ins) == 1 && tx.Ins[0].PreviousOutPoint == nil)
+}
+
 func (tx *Tx) Check() bool {
+
 	return true
 }
 
 func (tx *Tx) returnScriptBuffers() {
 	for _, txIn := range tx.Ins {
-		if txIn == nil || txIn.ScriptSig == nil {
+		if txIn == nil || txIn.Script == nil {
 			continue
 		}
-		scriptPool.Return(txIn.ScriptSig)
+		scriptPool.Return(txIn.Script)
 	}
 	for _, txOut := range tx.Outs {
-		if txOut == nil || txOut.OutScript == nil {
+		if txOut == nil || txOut.Script == nil {
 			continue
 		}
-		scriptPool.Return(txOut.OutScript)
+		scriptPool.Return(txOut.Script)
 	}
 }
 func (tx *Tx) Copy() *Tx {
@@ -186,13 +192,13 @@ func (tx *Tx) Copy() *Tx {
 		Outs:     make([]*TxOut, 0, len(tx.Outs)),
 	}
 	for _, txOut := range tx.Outs {
-		scriptLen := len(txOut.OutScript)
+		scriptLen := len(txOut.Script)
 		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.OutScript[:scriptLen])
+		copy(newOutScript, txOut.Script[:scriptLen])
 
 		newTxOut := TxOut{
-			Value:     txOut.Value,
-			OutScript: newOutScript,
+			Value:  txOut.Value,
+			Script: newOutScript,
 		}
 		tx.Outs = append(tx.Outs, &newTxOut)
 	}
@@ -200,13 +206,13 @@ func (tx *Tx) Copy() *Tx {
 		newOutPoint := OutPoint{}
 		newOutPoint.Hash.SetBytes(txIn.PreviousOutPoint.Hash[:])
 		newOutPoint.Index = txIn.PreviousOutPoint.Index
-		scriptLen := len(txIn.ScriptSig)
+		scriptLen := len(txIn.Script)
 		newScript := make([]byte, scriptLen)
-		copy(newScript, txIn.ScriptSig[:scriptLen])
+		copy(newScript, txIn.Script[:scriptLen])
 		newTx := TxIn{
 			Sequence:         txIn.Sequence,
 			PreviousOutPoint: &newOutPoint,
-			ScriptSig:        newScript,
+			Script:           newScript,
 		}
 		tx.Ins = append(tx.Ins, &newTx)
 	}
