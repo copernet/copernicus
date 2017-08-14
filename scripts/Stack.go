@@ -21,6 +21,9 @@ func (s *Stack) PopStack() ([]byte, []byte) {
 
 	return so, nil
 }
+func (s *Stack) PushBack(data []byte) {
+
+}
 
 func (s *Stack) Last() []byte {
 	return s.stk[len(s.stk)-1]

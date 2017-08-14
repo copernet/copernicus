@@ -18,6 +18,11 @@ const (
 	// SEQUENCE_FINAL Setting nSequence to this value for every input in a transaction
 	// disables nLockTime.
 	SEQUENCE_FINAL = 0xffffffff
+
+	MAX_SCRIPT_SIZE         = 10000
+	MAX_SCRIPT_ELEMENT_SIZE = 520
+	MAX_SCRIPT_OPCODES      = 201
+	MAX_OPS_PER_SCRIPT      = 201
 )
 
 type CScript struct {
@@ -207,6 +212,10 @@ func DecodeOPN(opcode int) (int, error) {
 		return 0, nil
 	}
 	return opcode - (OP_1 - 1), nil
+}
+
+func (script *CScript) Size() int {
+	return len(script.bytes)
 }
 
 func EncodeOPN(n int) (int, error) {

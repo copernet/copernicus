@@ -94,6 +94,60 @@ func (interpreter *Interpreter) Verify(scriptSig *CScript, scriptPubKey *CScript
 }
 
 func (interpreter *Interpreter) Exec(stack *Stack, script *CScript, flags int32) (result bool, err error) {
+	//bnZero := NewCScriptNum(0)
+	//bnOne := NewCScriptNum(1)
+	//bnFalse := NewCScriptNum(0)
+	//bnTrue := NewCScriptNum(1)
+	//vchFalse := []byte{0}
+	//vchZero := []byte{0}
+	//vchTrue := []byte{1, 1}
+	var vchPushValue []byte
+	var vfExec []bool
+	//var altstack *Stack
+
+	if script.Size() > MAX_SCRIPT_SIZE {
+		return false, core.ScriptErr(core.SCRIPT_ERR_SCRIPT_SIZE)
+	}
+	parsedOpcodes, err := script.ParseScript()
+	if err != nil {
+		return false, err
+	}
+	nOpCount := 0
+	fRequireMinimal := (flags & core.SCRIPT_VERIFY_MINIMALDATA) != 0
+	for i := 0; i < len(parsedOpcodes); i++ {
+		parsedOpcode := parsedOpcodes[i]
+		fExec := CountEqualElement(vfExec, false) == 0
+		if len(vchPushValue) > MAX_SCRIPT_ELEMENT_SIZE {
+			return false, core.ScriptErr(core.SCRIPT_ERR_PUSH_SIZE)
+		}
+		nOpCount++
+		// Note how OP_RESERVED does not count towards the opcode limit.
+		if parsedOpcode.opValue > OP_16 && nOpCount > MAX_OPS_PER_SCRIPT {
+			return false, core.ScriptErr(core.SCRIPT_ERR_OP_COUNT)
+		}
+
+		if parsedOpcode.opValue == OP_CAT || parsedOpcode.opValue == OP_SUBSTR || parsedOpcode.opValue == OP_LEFT ||
+			parsedOpcode.opValue == OP_RIGHT || parsedOpcode.opValue == OP_INVERT || parsedOpcode.opValue == OP_AND ||
+			parsedOpcode.opValue == OP_OR || parsedOpcode.opValue == OP_XOR || parsedOpcode.opValue == OP_2MUL ||
+			parsedOpcode.opValue == OP_2DIV || parsedOpcode.opValue == OP_MUL || parsedOpcode.opValue == OP_DIV ||
+			parsedOpcode.opValue == OP_MOD || parsedOpcode.opValue == OP_LSHIFT ||
+			parsedOpcode.opValue == OP_RSHIFT {
+			// Disabled opcodes.
+			return false, core.ScriptErr(core.SCRIPT_ERR_DISABLED_OPCODE)
+		}
+
+		if fExec && 0 <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_PUSHDATA4 {
+			if fRequireMinimal &&
+				!CheckMinimalPush(vchPushValue, int32(parsedOpcode.opValue)) {
+				return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALDATA)
+			}
+			stack.PushBack(vchPushValue)
+		} else if fExec || (OP_IF <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_ENDIF) {
+			switch parsedOpcode.opValue {
+
+			}
+		}
+	}
 
 	return
 }
@@ -109,7 +163,15 @@ func CastToBool(vch []byte) bool {
 	}
 	return false
 }
-
+func CountEqualElement(list []bool, value bool) int {
+	count := 0
+	for i := 0; i < len(list); i++ {
+		if list[i] == value {
+			count++
+		}
+	}
+	return count
+}
 func NewInterpreter() *Interpreter {
 	return nil
 }
