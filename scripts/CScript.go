@@ -218,3 +218,9 @@ func EncodeOPN(n int) (int, error) {
 	}
 	return OP_1 + n - 1, nil
 }
+
+func NewScriptWithRaw(bytes []byte) *CScript {
+	script := CScript{bytes: bytes}
+	//script.ConvertOPS()
+	return &script
+}

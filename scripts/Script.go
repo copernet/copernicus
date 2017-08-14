@@ -58,12 +58,6 @@ func CheckMinimalPush(data []byte, opcode int32) bool {
 
 }
 
-func NewScriptWithRaw(bytes []byte) *Script {
-	script := Script{raw: bytes}
-	script.ConvertOPS()
-	return &script
-}
-
 func NewScript(bytes [][]byte) *Script {
 	script := Script{opsWords: bytes}
 	script.ConvertRaw()
