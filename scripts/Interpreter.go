@@ -265,8 +265,22 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 					}
 					break
 				}
-			}
+			case OP_NOP1:
+			case OP_NOP4:
+			case OP_NOP5:
+			case OP_NOP6:
+			case OP_NOP7:
+			case OP_NOP8:
+			case OP_NOP9:
+			case OP_NOP10:
+				{
+					if flags&core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
+						return false, core.ScriptErr(core.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+					}
+					break
+				}
 
+			}
 		}
 	}
 
