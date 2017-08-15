@@ -180,50 +180,91 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 			case OP_NOP:
 				break
 			case OP_CHECKLOCKTIMEVERIFY:
-				if flags&core.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY == 0 {
-					// not enabled; treat as a NOP2
-					if flags&core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS ==
-						core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
-						return false, core.ScriptErr(core.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+				{
+					if flags&core.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY == 0 {
+						// not enabled; treat as a NOP2
+						if flags&core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS ==
+							core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
+							return false, core.ScriptErr(core.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+
+						}
+						break
 
 					}
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					// Note that elsewhere numeric opcodes are limited to
+					// operands in the range -2**31+1 to 2**31-1, however it
+					// is legal for opcodes to produce results exceeding
+					// that range. This limitation is implemented by
+					// CScriptNum's default 4-byte limit.
+					//
+					// If we kept to that limit we'd have a year 2038
+					// problem, even though the nLockTime field in
+					// transactions themselves is uint32 which only becomes
+					// meaningless after the year 2106.
+					//
+					// Thus as a special case we tell CScriptNum to accept
+					// up to 5-byte bignums, which are good until 2**39-1,
+					// well beyond the 2**32-1 limit of the nLockTime field
+					// itself.
+					nLocktime, err := GetCScriptNum(stack.StackTop(-1), fRequireMinimal, 5)
+					if err != nil {
+						return false, err
+					}
+					// In the rare event that the argument may be < 0 due to
+					// some arithmetic being done first, you can always use
+					// 0 MAX CHECKLOCKTIMEVERIFY.
+					if nLocktime.Value < 0 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_NEGATIVE_LOCKTIME)
+					}
+					// Actually compare the specified lock time with the
+					// transaction.
+					if !CheckLockTime(nLocktime.Value, int64(tx.LockTime), tx.Ins[nIn].Sequence) {
+						return false, core.ScriptErr(core.SCRIPT_ERR_UNSATISFIED_LOCKTIME)
+					}
 					break
+				}
+			case OP_CHECKSEQUENCEVERIFY:
+				{
+					if flags&core.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY != core.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY {
+						// not enabled; treat as a NOP3
+						if flags&core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
+							return false, core.ScriptErr(core.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
 
-				}
-				if stack.Size() < 1 {
-					return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
-				}
-				// Note that elsewhere numeric opcodes are limited to
-				// operands in the range -2**31+1 to 2**31-1, however it
-				// is legal for opcodes to produce results exceeding
-				// that range. This limitation is implemented by
-				// CScriptNum's default 4-byte limit.
-				//
-				// If we kept to that limit we'd have a year 2038
-				// problem, even though the nLockTime field in
-				// transactions themselves is uint32 which only becomes
-				// meaningless after the year 2106.
-				//
-				// Thus as a special case we tell CScriptNum to accept
-				// up to 5-byte bignums, which are good until 2**39-1,
-				// well beyond the 2**32-1 limit of the nLockTime field
-				// itself.
-				nLocktime, err := GetCScriptNum(stack.StackTop(-1), fRequireMinimal, 5)
-				if err != nil {
-					return false, err
-				}
-				// In the rare event that the argument may be < 0 due to
-				// some arithmetic being done first, you can always use
-				// 0 MAX CHECKLOCKTIMEVERIFY.
-				if nLocktime.Value < 0 {
-					return false, core.ScriptErr(core.SCRIPT_ERR_NEGATIVE_LOCKTIME)
-				}
-				// Actually compare the specified lock time with the
-				// transaction.
-				if !CheckLockTime(nLocktime.Value, int64(tx.LockTime), tx.Ins[nIn].Sequence) {
-					return false, core.ScriptErr(core.SCRIPT_ERR_UNSATISFIED_LOCKTIME)
-				}
+						}
+						break
+					}
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
 
+					// nSequence, like nLockTime, is a 32-bit unsigned
+					// integer field. See the comment in CHECKLOCKTIMEVERIFY
+					// regarding 5-byte numeric operands.
+					nSequence, err := GetCScriptNum(stack.StackTop(-1), fRequireMinimal, 5)
+					if err != nil {
+						return false, err
+					}
+					// In the rare event that the argument may be < 0 due to
+					// some arithmetic being done first, you can always use
+					// 0 MAX CHECKSEQUENCEVERIFY.
+					if nSequence.Value < 0 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_NEGATIVE_LOCKTIME)
+					}
+
+					// To provide for future soft-fork extensibility, if the
+					// operand has the disabled lock-time flag set,
+					// CHECKSEQUENCEVERIFY behaves as a NOP.
+					if nSequence.Value&model.SEQUENCE_LOCKTIME_DISABLE_FLAG == model.SEQUENCE_LOCKTIME_DISABLE_FLAG {
+						break
+					}
+					if !CheckSequence(nSequence.Value, int64(tx.Ins[nIn].Sequence), tx.Version) {
+						return false, core.ScriptErr(core.SCRIPT_ERR_UNSATISFIED_LOCKTIME)
+					}
+					break
+				}
 			}
 
 		}
