@@ -2,20 +2,21 @@ package scripts
 
 import (
 	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/model"
 )
 
 type Interpreter struct {
 	stack *Stack
 }
 
-func (interpreter *Interpreter) Verify(scriptSig *CScript, scriptPubKey *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript, scriptPubKey *CScript, flags int32) (result bool, err error) {
 	if flags&core.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
 		err = core.ScriptErr(core.SCRIPT_ERR_SIG_PUSHONLY)
 		return
 	}
 
 	var stack, stackCopy Stack
-	result, err = interpreter.Exec(&stack, scriptSig, flags)
+	result, err = interpreter.Exec(tx, nIn, &stack, scriptSig, flags)
 	if err != nil {
 		return
 	}
@@ -25,7 +26,7 @@ func (interpreter *Interpreter) Verify(scriptSig *CScript, scriptPubKey *CScript
 	if flags&core.SCRIPT_VERIFY_P2SH != 0 {
 		stackCopy = stack
 	}
-	result, err = interpreter.Exec(&stack, scriptPubKey, flags)
+	result, err = interpreter.Exec(tx, nIn, &stack, scriptPubKey, flags)
 	if err != nil {
 		return
 	}
@@ -56,7 +57,7 @@ func (interpreter *Interpreter) Verify(scriptSig *CScript, scriptPubKey *CScript
 		pubKey2 := NewScriptWithRaw(pubKeySerialized)
 
 		stack.PopStack()
-		result, err = interpreter.Exec(&stack, pubKey2, flags)
+		result, err = interpreter.Exec(tx, nIn, &stack, pubKey2, flags)
 		if err != nil {
 			return
 		}
@@ -93,7 +94,7 @@ func (interpreter *Interpreter) Verify(scriptSig *CScript, scriptPubKey *CScript
 	return
 }
 
-func (interpreter *Interpreter) Exec(stack *Stack, script *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script *CScript, flags int32) (result bool, err error) {
 	//bnZero := NewCScriptNum(0)
 	//bnOne := NewCScriptNum(1)
 	//bnFalse := NewCScriptNum(0)
@@ -144,8 +145,87 @@ func (interpreter *Interpreter) Exec(stack *Stack, script *CScript, flags int32)
 			stack.PushBack(vchPushValue)
 		} else if fExec || (OP_IF <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_ENDIF) {
 			switch parsedOpcode.opValue {
+			//
+			// Push value
+			//
+			case OP_1NEGATE:
+			case OP_1:
+			case OP_2:
+			case OP_3:
+			case OP_4:
+			case OP_5:
+			case OP_6:
+			case OP_7:
+			case OP_8:
+			case OP_9:
+			case OP_10:
+			case OP_11:
+			case OP_12:
+			case OP_13:
+			case OP_14:
+			case OP_15:
+			case OP_16:
+				{
+					// ( -- value)
+					bn := NewCScriptNum(int64(parsedOpcode.opValue) - int64(OP_1-1))
+					stack.PushBack(bn.Serialize())
+					// The result of these opcodes should always be the
+					// minimal way to push the data they push, so no need
+					// for a CheckMinimalPush here.
+					break
+				}
+				//
+				// Control
+				//
+			case OP_NOP:
+				break
+			case OP_CHECKLOCKTIMEVERIFY:
+				if flags&core.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY == 0 {
+					// not enabled; treat as a NOP2
+					if flags&core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS ==
+						core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
+						return false, core.ScriptErr(core.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+
+					}
+					break
+
+				}
+				if stack.Size() < 1 {
+					return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+				}
+				// Note that elsewhere numeric opcodes are limited to
+				// operands in the range -2**31+1 to 2**31-1, however it
+				// is legal for opcodes to produce results exceeding
+				// that range. This limitation is implemented by
+				// CScriptNum's default 4-byte limit.
+				//
+				// If we kept to that limit we'd have a year 2038
+				// problem, even though the nLockTime field in
+				// transactions themselves is uint32 which only becomes
+				// meaningless after the year 2106.
+				//
+				// Thus as a special case we tell CScriptNum to accept
+				// up to 5-byte bignums, which are good until 2**39-1,
+				// well beyond the 2**32-1 limit of the nLockTime field
+				// itself.
+				nLocktime, err := GetCScriptNum(stack.StackTop(-1), fRequireMinimal, 5)
+				if err != nil {
+					return false, err
+				}
+				// In the rare event that the argument may be < 0 due to
+				// some arithmetic being done first, you can always use
+				// 0 MAX CHECKLOCKTIMEVERIFY.
+				if nLocktime.Value < 0 {
+					return false, core.ScriptErr(core.SCRIPT_ERR_NEGATIVE_LOCKTIME)
+				}
+				// Actually compare the specified lock time with the
+				// transaction.
+				if !CheckLockTime(nLocktime.Value, int64(tx.LockTime), tx.Ins[nIn].Sequence) {
+					return false, core.ScriptErr(core.SCRIPT_ERR_UNSATISFIED_LOCKTIME)
+				}
 
 			}
+
 		}
 	}
 

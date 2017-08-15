@@ -45,7 +45,7 @@ func GetHashType(vchSig []byte) byte {
 	return vchSig[len(vchSig)-1]
 }
 
-func CheckLockTime(lockTime int64, txLockTime int64, sequence int) bool {
+func CheckLockTime(lockTime int64, txLockTime int64, sequence uint32) bool {
 	// There are two kinds of nLockTime: lock-by-blockheight and
 	// lock-by-blocktime, distinguished by whether nLockTime <
 	// LOCKTIME_THRESHOLD.

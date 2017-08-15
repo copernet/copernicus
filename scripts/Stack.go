@@ -36,6 +36,9 @@ func (s *Stack) Empty() bool {
 func (s *Stack) Size() int {
 	return len(s.stk)
 }
+func (s *Stack) StackTop(i int) []byte {
+	return s.stk[s.Size()+i]
+}
 
 func Swap(stack *Stack, other *Stack) {
 	for i := 0; i < len(stack.stk); i++ {
