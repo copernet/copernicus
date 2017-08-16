@@ -63,5 +63,6 @@ func Swap(s *Stack, other *Stack) {
 
 }
 func NewStack() *Stack {
-	return &Stack{}
+	array := make([]interface{}, 0)
+	return &Stack{array}
 }
