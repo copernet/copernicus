@@ -279,7 +279,36 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 					}
 					break
 				}
+			case OP_IF:
+			case OP_NOTIF:
+				{
+					// <expression> if [statements] [else [statements]]
+					// endif
+					fValue := false
+					if fExec {
+						if stack.Size() < 1 {
+							return false, core.ScriptErr(core.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
+						}
+						vch := stack.StackTop(-1)
+						if flags&core.SCRIPT_VERIFY_MINIMALIF == core.SCRIPT_VERIFY_MINIMALIF {
+							if len(vch) > 1 {
+								return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALIF)
+							}
+							if len(vch) == 1 && vch[0] != 1 {
+								return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALIF)
+							}
 
+						}
+						fValue = CastToBool(vch)
+						if parsedOpcode.opValue == OP_NOTIF {
+							fValue = !fValue
+						}
+						stack.PopStack()
+
+					}
+					vfExec[len(vfExec)-1] = fValue
+					break
+				}
 			}
 		}
 	}
