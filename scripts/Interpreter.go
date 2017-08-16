@@ -47,7 +47,7 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 		if !scriptSig.IsPushOnly() {
 			return false, core.ScriptErr(core.SCRIPT_ERR_SIG_PUSHONLY)
 		}
-		algorithm.Swap(&stack, &stackCopy)
+		algorithm.SwapStack(&stack, &stackCopy)
 		// stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
 		// scriptPubKey would be evaluated with an empty stack and the
 		// EvalScript above would return false.

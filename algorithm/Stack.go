@@ -33,13 +33,13 @@ func (s *Stack) PopStack() (interface{}, error) {
 
 }
 func (s *Stack) Last() interface{} {
-	if len(s.array) == 0 {
+	if s.Size() == 0 {
 		return nil
 	}
-	return s.array[len(s.array)-1]
+	return s.array[s.Size()-1]
 }
 func (s *Stack) StackTop(i int) (interface{}, error) {
-	stackLen := len(s.array)
+	stackLen := s.Size()
 	if stackLen+i > stackLen-1 {
 		return nil, errors.Errorf("the index exceeds the boundary :%d", stackLen+i)
 
@@ -47,17 +47,17 @@ func (s *Stack) StackTop(i int) (interface{}, error) {
 	return s.array[stackLen+i], nil
 }
 
-func Swap(s *Stack, other *Stack) {
+func SwapStack(s *Stack, other *Stack) {
 	if s.Size() == 0 && other.Size() == 0 {
 		return
 	}
 	if other.Size() == 0 {
 		other.array = s.array[:s.Size()]
-		s.array = nil
+		s.array = make([]interface{}, 0)
 	}
 	if s.Size() == 0 {
 		s.array = other.array[:other.Size()]
-		other.array = nil
+		other.array = make([]interface{}, 0)
 	}
 	s.array, other.array = other.array, s.array
 
