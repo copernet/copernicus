@@ -1,12 +1,13 @@
 package scripts
 
 import (
+	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
 )
 
 type Interpreter struct {
-	stack *Stack
+	stack *algorithm.Stack
 }
 
 func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript, scriptPubKey *CScript, flags int32) (result bool, err error) {
@@ -15,7 +16,7 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 		return
 	}
 
-	var stack, stackCopy Stack
+	var stack, stackCopy algorithm.Stack
 	result, err = interpreter.Exec(tx, nIn, &stack, scriptSig, flags)
 	if err != nil {
 		return
@@ -36,7 +37,7 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 	if stack.Empty() {
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
-	if !CastToBool(stack.Last()) {
+	if !CastToBool(stack.Last().([]byte)) {
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
 	// Additional validation for spend-to-script-hash transactions:
@@ -46,14 +47,14 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 		if !scriptSig.IsPushOnly() {
 			return false, core.ScriptErr(core.SCRIPT_ERR_SIG_PUSHONLY)
 		}
-		Swap(&stack, &stackCopy)
+		algorithm.Swap(&stack, &stackCopy)
 		// stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
 		// scriptPubKey would be evaluated with an empty stack and the
 		// EvalScript above would return false.
 		if stack.Empty() {
 			return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 		}
-		pubKeySerialized := stack.Last()
+		pubKeySerialized := stack.Last().([]byte)
 		pubKey2 := NewScriptWithRaw(pubKeySerialized)
 
 		stack.PopStack()
@@ -67,7 +68,7 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 		if stack.Empty() {
 			return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 		}
-		if !CastToBool(stack.Last()) {
+		if !CastToBool(stack.Last().([]byte)) {
 			return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 		}
 
@@ -94,7 +95,7 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 	return
 }
 
-func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Stack, script *CScript, flags int32) (result bool, err error) {
 	//bnZero := NewCScriptNum(0)
 	//bnOne := NewCScriptNum(1)
 	//bnFalse := NewCScriptNum(0)
@@ -142,7 +143,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 				!CheckMinimalPush(vchPushValue, int32(parsedOpcode.opValue)) {
 				return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALDATA)
 			}
-			stack.PushBack(vchPushValue)
+			stack.PushStack(vchPushValue)
 		} else if fExec || (OP_IF <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_ENDIF) {
 			switch parsedOpcode.opValue {
 			//
@@ -168,7 +169,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 				{
 					// ( -- value)
 					bn := NewCScriptNum(int64(parsedOpcode.opValue) - int64(OP_1-1))
-					stack.PushBack(bn.Serialize())
+					stack.PushStack(bn.Serialize())
 					// The result of these opcodes should always be the
 					// minimal way to push the data they push, so no need
 					// for a CheckMinimalPush here.
@@ -209,7 +210,11 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 					// up to 5-byte bignums, which are good until 2**39-1,
 					// well beyond the 2**32-1 limit of the nLockTime field
 					// itself.
-					nLocktime, err := GetCScriptNum(stack.StackTop(-1), fRequireMinimal, 5)
+					topBytes, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					nLocktime, err := GetCScriptNum(topBytes.([]byte), fRequireMinimal, 5)
 					if err != nil {
 						return false, err
 					}
@@ -243,7 +248,11 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 					// nSequence, like nLockTime, is a 32-bit unsigned
 					// integer field. See the comment in CHECKLOCKTIMEVERIFY
 					// regarding 5-byte numeric operands.
-					nSequence, err := GetCScriptNum(stack.StackTop(-1), fRequireMinimal, 5)
+					topBytes, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					nSequence, err := GetCScriptNum(topBytes.([]byte), fRequireMinimal, 5)
 					if err != nil {
 						return false, err
 					}
@@ -289,17 +298,21 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 						if stack.Size() < 1 {
 							return false, core.ScriptErr(core.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
 						}
-						vch := stack.StackTop(-1)
+						vch, err := stack.StackTop(-1)
+						if err != nil {
+							return false, err
+						}
+						vchBytes := vch.([]byte)
 						if flags&core.SCRIPT_VERIFY_MINIMALIF == core.SCRIPT_VERIFY_MINIMALIF {
-							if len(vch) > 1 {
+							if len(vchBytes) > 1 {
 								return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALIF)
 							}
-							if len(vch) == 1 && vch[0] != 1 {
+							if len(vchBytes) == 1 && vchBytes[0] != 1 {
 								return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALIF)
 							}
 
 						}
-						fValue = CastToBool(vch)
+						fValue = CastToBool(vchBytes)
 						if parsedOpcode.opValue == OP_NOTIF {
 							fValue = !fValue
 						}
@@ -308,6 +321,10 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *Stack, script
 					}
 					vfExec[len(vfExec)-1] = fValue
 					break
+				}
+			case OP_ELSE:
+				{
+
 				}
 			}
 		}

@@ -47,6 +47,21 @@ func (s *Stack) StackTop(i int) (interface{}, error) {
 	return s.array[stackLen+i], nil
 }
 
+func Swap(s *Stack, other *Stack) {
+	if s.Size() == 0 && other.Size() == 0 {
+		return
+	}
+	if other.Size() == 0 {
+		other.array = s.array[:s.Size()]
+		s.array = nil
+	}
+	if s.Size() == 0 {
+		s.array = other.array[:other.Size()]
+		other.array = nil
+	}
+	s.array, other.array = other.array, s.array
+
+}
 func NewStack() *Stack {
 	return &Stack{}
 }
