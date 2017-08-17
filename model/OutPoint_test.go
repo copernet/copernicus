@@ -30,7 +30,6 @@ func TestOutPoint_WriteOutPoint(t *testing.T) {
 	}
 	defer file.Close()
 
-	//4. write news In file
 	err = testOutPoint.WriteOutPoint(file, 10, 1)
 	if err != nil {
 		t.Log(err)
