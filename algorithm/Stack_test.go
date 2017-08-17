@@ -1,6 +1,8 @@
 package algorithm
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestStack(t *testing.T) {
 
@@ -46,6 +48,37 @@ func TestStack(t *testing.T) {
 	}
 	if value != nil {
 		t.Errorf("PopStack failed ,Got %d ,expected 4", value)
+	}
+
+}
+
+func TestSwapStack(t *testing.T) {
+	stack := NewStack()
+	stack.PushStack(1)
+	stack.PushStack(2)
+
+	stackTest := NewStack()
+	stackTest.PushStack(1)
+	stackTest.PushStack(2)
+
+	stackOther := NewStack()
+	stackOther.PushStack(3)
+	stackOther.PushStack(4)
+
+	stackOtherTest := NewStack()
+	stackOtherTest.PushStack(3)
+	stackOtherTest.PushStack(4)
+
+	SwapStack(stack, stackOther)
+	if !stack.Equal(stackOtherTest) || !stackOther.Equal(stackTest) {
+		t.Errorf("swap stack failed")
+	}
+	stackOther.PopStack()
+	stackOther.PopStack()
+
+	SwapStack(stack, stackOther)
+	if !stack.Empty() || !stackOther.Equal(stackOtherTest) {
+		t.Errorf("swap empty stacl failed")
 	}
 
 }

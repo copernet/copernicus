@@ -28,9 +28,11 @@ func (v *Vector) PopBack() (interface{}, error) {
 func (v *Vector) Begin() int {
 	return 0
 }
+
 func (v *Vector) End() int {
 	return v.Size() - 1
 }
+
 func (v *Vector) Front() interface{} {
 
 	return v.array[0]
@@ -58,16 +60,32 @@ func (v *Vector) RemoveAt(index int) error {
 	return nil
 
 }
+
 func (v *Vector) Clear() {
 	v.array = make([]interface{}, 0)
 
 }
+
 func (v *Vector) Size() int {
 	return len(v.array)
 }
+
 func (v *Vector) Empty() bool {
 	return v.Size() == 0
 }
+
+func (v *Vector) Equal(other *Vector) bool {
+	if v.Size() != other.Size() {
+		return false
+	}
+	for i := 0; i < v.Size(); i++ {
+		if v.array[i] != other.array[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func SwapVector(v *Vector, other *Vector) {
 	if v.Size() == 0 && other.Size() == 0 {
 		return
@@ -82,6 +100,7 @@ func SwapVector(v *Vector, other *Vector) {
 	}
 
 }
+
 func NewVector() *Vector {
 	array := make([]interface{}, 0)
 	return &Vector{array}
