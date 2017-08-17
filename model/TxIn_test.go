@@ -1,46 +1,50 @@
 package model
 
 import (
-	"io"
 	"os"
 	"testing"
 
 	"github.com/btcboost/copernicus/utils"
 )
 
+var testTxIn *TxIn
+
 func TestNewTxIn(t *testing.T) {
 
-	//1. create OutPoint object
 	var buf utils.Hash
 	for i := 0; i < utils.HashSize; i++ {
 		buf[i] = byte(i * 20)
 	}
-	myOutPut := NewOutPoint(&buf, 10)
+	testOutPut := NewOutPoint(&buf, 10)
 
-	//2. create Txin object
 	myString := "hwd7yduncue0qe01ie8dhuscb3etde21gdahsbchqbw1y278"
 	mySigscript := make([]byte, len(myString))
 	copy(mySigscript, myString)
-	myTxIn := NewTxIn(myOutPut, mySigscript)
+	testTxIn = NewTxIn(testOutPut, mySigscript)
+}
 
-	//3. create a file to store The News
+func TestTxIn_Serialize(t *testing.T) {
+	file, err := os.OpenFile("txIn.txt", os.O_RDWR|os.O_CREATE, 0666)
+	checkErr(err)
+	defer file.Close()
+	err = testTxIn.Serialize(file, 1)
+	checkErr(err)
+}
+
+func TestTxIn_Deserialize(t *testing.T) {
+
 	file, err := os.OpenFile("txIn.txt", os.O_RDWR|os.O_CREATE, 0666)
 	checkErr(err)
 	defer file.Close()
 
-	//4. write The transaction input into file with seria News
-	err = myTxIn.Serialize(file, 1)
-	checkErr(err)
-
-	//5. get The size for Transaction Input with serial News
-	t.Log("Size : ", myTxIn.SerializeSize())
-
-	//6. seek The fileIo in origin
-	_, err = file.Seek(0, io.SeekStart)
-	checkErr(err)
-
-	//7. read The news from fileIO
-	myTxInNew := &TxIn{PreviousOutPoint: myOutPut}
+	testOutPut := &OutPoint{}
+	testOutPut.Hash = new(utils.Hash)
+	myTxInNew := &TxIn{PreviousOutPoint: testOutPut}
 	myTxInNew.Deserialize(file, 1)
 	t.Log(myTxInNew)
+}
+
+func TestTxIn_SerializeSize(t *testing.T) {
+	t.Log("Size : ", testTxIn.SerializeSize())
+
 }

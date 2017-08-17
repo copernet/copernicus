@@ -16,33 +16,36 @@ func checkErr(err error) {
 	}
 }
 
-//func NewTxOut(value int64, pkScript []byte) *TxOut {
-func TestSerializeSize(t *testing.T) {
+var testTxout *TxOut
+
+func TestNewTxOut(t *testing.T) {
 	myString := "asdqwhihnciwiqd827w7e6123cdsnvh43yt892ufimjf27rufian2yr8sacmejfgu3489utwej"
 	outScript := make([]byte, len(myString))
 	copy(outScript, myString)
 
-	//1. create Transaction Out
-	txOut := NewTxOut(999, outScript[:])
-	fmt.Println(txOut.Value, " : ", string(txOut.Script))
+	testTxout = NewTxOut(999, outScript[:])
+	t.Log(testTxout.Value, " : ", string(testTxout.Script))
+}
 
-	//2. write transaction Out in use fileIO
-	file, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer file.Close()
-	err = txOut.Serialize(file, 1)
-	checkErr(err)
+func TestSerialize(t *testing.T) {
 
-	//3. read transaction In in use fileIO
+	testFile, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
+	checkErr(err)
+	defer testFile.Close()
+	err = testTxout.Serialize(testFile, 1)
+	checkErr(err)
+}
+
+func TestDeserialize(t *testing.T) {
 	txOutRead := &TxOut{}
-	_, err = file.Seek(0, io.SeekStart)
+	testFile, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
 	checkErr(err)
-	err = txOutRead.Deserialize(file, 1)
+	defer testFile.Close()
+	err = txOutRead.Deserialize(testFile, 1)
 	checkErr(err)
+	t.Log(txOutRead.Value, " : ", string(txOutRead.Script))
+}
 
-	fmt.Println((*txOutRead).Value, " : ", string(txOutRead.Script))
-
-	//4. get The transaction Out news Serialize Size
-	fmt.Println("size : ", txOutRead.SerializeSize())
-
+func TestSerializeSize(t *testing.T) {
+	t.Log("size : ", testTxout.SerializeSize())
 }

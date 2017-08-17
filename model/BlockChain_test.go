@@ -6,5 +6,5 @@ import (
 
 func TestBlkFileName(t *testing.T) {
 
-	t.Log("assemble FilePath : ", blkFileName("yyx/", 8))
+	t.Log("assemble FilePath : ", blkFileName("yyx", 8))
 }
