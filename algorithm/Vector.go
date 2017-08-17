@@ -99,6 +99,7 @@ func SwapVector(v *Vector, other *Vector) {
 		other.array = make([]interface{}, 0)
 	}
 
+	v.array, other.array = other.array, v.array
 }
 
 func NewVector() *Vector {
