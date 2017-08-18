@@ -339,6 +339,30 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					vfExec.PopBack()
 					break
 				}
+			case OP_VERIF:
+				{
+					// (true -- ) or
+					// (false -- false) and return
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					vchBytes := vch.([]byte)
+					fValue := CastToBool(vchBytes)
+					if fValue {
+						stack.PopStack()
+					} else {
+						return false, core.ScriptErr(core.SCRIPT_ERR_VERIFY)
+					}
+					break
+				}
+			case OP_RETURN:
+				{
+					return false, core.ScriptErr(core.SCRIPT_ERR_OP_RETURN)
+				}
 
 			}
 		}

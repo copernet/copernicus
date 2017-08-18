@@ -31,3 +31,4 @@ copernicus
 # vim swap
 *.swp
 var
+*.txt
