@@ -105,7 +105,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 	//vchTrue := []byte{1, 1}
 	var vchPushValue []byte
 	vfExec := algorithm.NewVector()
-	//var altstack *Stack
+	altstack := algorithm.NewStack()
 
 	if script.Size() > MAX_SCRIPT_SIZE {
 		return false, core.ScriptErr(core.SCRIPT_ERR_SCRIPT_SIZE)
@@ -363,8 +363,118 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 				{
 					return false, core.ScriptErr(core.SCRIPT_ERR_OP_RETURN)
 				}
+				//
+				// Stack ops
+				//
+			case OP_TOALTSTACK:
+				{
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					altTop, err := altstack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					stack.PushStack(altTop)
+					altstack.PopStack()
+					break
+				}
+			case OP_2DROP:
+				{
+					// (x1 x2 -- )
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					stack.PopStack()
+					stack.PopStack()
+					break
+				}
+			case OP_2DUP:
+				{
+					// (x1 x2 -- x1 x2 x1 x2)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_ALTSTACK_OPERATION)
+					}
+					vch1, err := stack.StackTop(-2)
+					if err != nil {
+						return false, err
+					}
+					vch2, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					stack.PushStack(vch1)
+					stack.PushStack(vch2)
+					break
+				}
+			case OP_3DUP:
+				{
+					// (x1 x2 x3 -- x1 x2 x3 x1 x2 x3)
+					if stack.Size() < 3 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch1, err := stack.StackTop(-3)
+					if err != nil {
+						return false, err
+					}
+					vch2, err := stack.StackTop(-2)
+					if err != nil {
+						return false, err
+					}
+					vch3, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					stack.PushStack(vch1)
+					stack.PushStack(vch2)
+					stack.PushStack(vch3)
+					break
+				}
+			case OP_2OVER:
+				{
+					// (x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2)
+					if stack.Size() < 4 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch1, err := stack.StackTop(-4)
+					if err != nil {
+						return false, err
+					}
+					vch2, err := stack.StackTop(-3)
+					if err != nil {
+						return false, err
+					}
+					stack.PushStack(vch1)
+					stack.PushStack(vch2)
+					break
+				}
+			case OP_2ROT:
+				{
+					// (x1 x2 x3 x4 x5 x6 -- x3 x4 x5 x6 x1 x2)
+					if stack.Size() < 6 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch1, err := stack.StackTop(-6)
+					if err != nil {
+						return false, err
+					}
+					vch2, err := stack.StackTop(-5)
+					if err != nil {
+						return false, err
+					}
+					stack.Erase(stack.Size()-6, stack.Size()-4)
+					stack.PushStack(vch1)
+					stack.PushStack(vch2)
+					break
+				}
+			case OP_2SWAP:
+				// (x1 x2 x3 x4 -- x3 x4 x1 x2)
+				if stack.Size() < 4 {
+					return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+				}
 
 			}
+
 		}
 	}
 

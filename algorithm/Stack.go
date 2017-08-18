@@ -33,12 +33,29 @@ func (s *Stack) PopStack() (interface{}, error) {
 	return nil, errors.New("value is nil")
 
 }
+func (s *Stack) RemoveAt(index int) error {
+	if index > s.Size()-1 || index < 0 {
+		return errors.Errorf("vector index(%d) is error", index)
+	}
+	s.array = append(s.array[:index], s.array[index+1:])
+	return nil
+}
 
 func (s *Stack) Last() interface{} {
 	if s.Size() == 0 {
 		return nil
 	}
 	return s.array[s.Size()-1]
+}
+func (s *Stack) Erase(begin int, end int) error {
+	for i := begin; i < end; i++ {
+		err := s.RemoveAt(i)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 
 func (s *Stack) StackTop(i int) (interface{}, error) {
