@@ -45,6 +45,9 @@ func (v *Vector) Back() interface{} {
 	return v.array[v.Size()-1]
 }
 
+func (v *Vector) SetBack(value interface{}) {
+	v.array[v.Size()-1] = value
+}
 func (v *Vector) At(index int) (interface{}, error) {
 	if index > v.Size()-1 || index < 0 {
 		return nil, errors.Errorf("vector index(%d) is error", index)
@@ -86,6 +89,15 @@ func (v *Vector) Equal(other *Vector) bool {
 	return true
 }
 
+func (v *Vector) CountEqualElement(value bool) int {
+	count := 0
+	for i := 0; i < len(v.array); i++ {
+		if v.array[i].(bool) == value {
+			count++
+		}
+	}
+	return count
+}
 func SwapVector(v *Vector, other *Vector) {
 	if v.Size() == 0 && other.Size() == 0 {
 		return

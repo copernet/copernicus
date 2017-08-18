@@ -104,7 +104,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 	//vchZero := []byte{0}
 	//vchTrue := []byte{1, 1}
 	var vchPushValue []byte
-	var vfExec []bool
+	vfExec := algorithm.NewVector()
 	//var altstack *Stack
 
 	if script.Size() > MAX_SCRIPT_SIZE {
@@ -118,7 +118,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 	fRequireMinimal := (flags & core.SCRIPT_VERIFY_MINIMALDATA) != 0
 	for i := 0; i < len(parsedOpcodes); i++ {
 		parsedOpcode := parsedOpcodes[i]
-		fExec := CountEqualElement(vfExec, false) == 0
+		fExec := vfExec.CountEqualElement(false) == 0
 		if len(vchPushValue) > MAX_SCRIPT_ELEMENT_SIZE {
 			return false, core.ScriptErr(core.SCRIPT_ERR_PUSH_SIZE)
 		}
@@ -319,13 +319,27 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 						stack.PopStack()
 
 					}
-					vfExec[len(vfExec)-1] = fValue
+					vfExec.PushBack(fValue)
 					break
 				}
 			case OP_ELSE:
 				{
-
+					if vfExec.Empty() {
+						return false, core.ScriptErr(core.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
+					}
+					vfBack := !vfExec.Back().(bool)
+					vfExec.SetBack(vfBack)
+					break
 				}
+			case OP_ENDIF:
+				{
+					if vfExec.Empty() {
+						return false, core.ScriptErr(core.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
+					}
+					vfExec.PopBack()
+					break
+				}
+
 			}
 		}
 	}
@@ -344,15 +358,7 @@ func CastToBool(vch []byte) bool {
 	}
 	return false
 }
-func CountEqualElement(list []bool, value bool) int {
-	count := 0
-	for i := 0; i < len(list); i++ {
-		if list[i] == value {
-			count++
-		}
-	}
-	return count
-}
+
 func NewInterpreter() *Interpreter {
 	return nil
 }
