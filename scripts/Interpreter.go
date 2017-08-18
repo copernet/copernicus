@@ -613,6 +613,21 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					}
 					break
 				}
+			case OP_SIZE:
+				{
+					// (in -- in size)
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					size := len(vch.([]byte))
+					bn := NewCScriptNum(int64(size))
+					stack.PushStack(bn.Serialize())
+					break
+				}
 
 			}
 
