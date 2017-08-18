@@ -543,6 +543,76 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					stack.PushStack(vch)
 					break
 				}
+			case OP_PICK:
+			case OP_ROLL:
+				{
+					// (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
+					// (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					scriptNum, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					if err != nil {
+						return false, err
+
+					}
+					n := scriptNum.Int32()
+					stack.PopStack()
+					if n < 0 || n >= int32(stack.Size()) {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vchn, err := stack.StackTop(int(-n - 1))
+					if err != nil {
+						return false, err
+					}
+					if parsedOpcode.opValue == OP_ROLL {
+						stack.RemoveAt(stack.Size() - int(n) - 1)
+					}
+					stack.PushStack(vchn)
+					break
+				}
+			case OP_ROT:
+				{
+					// (x1 x2 x3 -- x2 x3 x1)
+					//  x2 x1 x3  after first swap
+					//  x2 x3 x1  after second swap
+					if stack.Size() < 3 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					stack.Swap(stack.Size()-3, stack.Size()-2)
+					stack.Swap(stack.Size()-2, stack.Size()-1)
+					break
+				}
+			case OP_SWAP:
+				{
+					// (x1 x2 -- x2 x1)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					stack.Swap(stack.Size()-2, stack.Size()-1)
+					break
+
+				}
+			case OP_TUCK:
+				{
+					// (x1 x2 -- x2 x1 x2)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					err = stack.Insert(stack.Size()-2, vch)
+					if err != nil {
+						return false, err
+					}
+					break
+				}
 
 			}
 

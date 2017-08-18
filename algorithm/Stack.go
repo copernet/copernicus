@@ -68,6 +68,17 @@ func (s *Stack) Erase(begin int, end int) error {
 	return nil
 
 }
+func (s *Stack) Insert(index int, value interface{}) error {
+	if index > s.Size()-1 || index < 0 {
+		return errors.Errorf("stack index(%d) is error", index)
+	}
+	lastArray := s.array[index+1:]
+	s.array = append(s.array[:index], value)
+	if len(lastArray) > 0 {
+		s.array = append(s.array, lastArray...)
+	}
+	return nil
+}
 
 func (s *Stack) StackTop(i int) (interface{}, error) {
 	stackLen := s.Size()
