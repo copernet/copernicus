@@ -468,9 +468,80 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					break
 				}
 			case OP_2SWAP:
-				// (x1 x2 x3 x4 -- x3 x4 x1 x2)
-				if stack.Size() < 4 {
-					return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+				{
+					// (x1 x2 x3 x4 -- x3 x4 x1 x2)
+					if stack.Size() < 4 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					stack.Swap(stack.Size()-4, stack.Size()-2)
+					stack.Swap(stack.Size()-3, stack.Size()-1)
+					break
+				}
+			case OP_IFDUP:
+				{
+					// (x - 0 | x x)
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					vchBytes := vch.([]byte)
+					if CastToBool(vchBytes) {
+						stack.PushStack(vch)
+					}
+				}
+			case OP_DEPTH:
+				{
+					// -- stacksize
+					bn := NewCScriptNum(int64(stack.Size()))
+					stack.PushStack(bn.Serialize())
+					break
+				}
+			case OP_DROP:
+				{
+					// (x -- )
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					stack.PopStack()
+					break
+				}
+			case OP_DUP:
+				{
+					// (x -- x x)
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					stack.PushStack(vch)
+					break
+				}
+			case OP_NIP:
+				{
+					// (x1 x2 -- x2)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					stack.RemoveAt(stack.Size() - 2)
+					break
+				}
+			case OP_OVER:
+				{
+					// (x1 x2 -- x1 x2 x1)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-2)
+					if err != nil {
+						return false, err
+					}
+					stack.PushStack(vch)
+					break
 				}
 
 			}

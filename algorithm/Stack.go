@@ -20,6 +20,17 @@ func (s *Stack) PushStack(value interface{}) {
 	s.array = append(s.array, value)
 }
 
+func (s *Stack) Swap(i int, j int) error {
+	if i > s.Size()-1 || i < 0 {
+		return errors.Errorf("stack index(%d) is error", i)
+	}
+	if j > s.Size()-1 || j < 0 {
+		return errors.Errorf("stack index(%d) is error", j)
+	}
+	s.array[i], s.array[j] = s.array[j], s.array[i]
+	return nil
+
+}
 func (s *Stack) PopStack() (interface{}, error) {
 	stackLen := len(s.array)
 	if stackLen == 0 {
@@ -35,7 +46,7 @@ func (s *Stack) PopStack() (interface{}, error) {
 }
 func (s *Stack) RemoveAt(index int) error {
 	if index > s.Size()-1 || index < 0 {
-		return errors.Errorf("vector index(%d) is error", index)
+		return errors.Errorf("stack index(%d) is error", index)
 	}
 	s.array = append(s.array[:index], s.array[index+1:])
 	return nil
