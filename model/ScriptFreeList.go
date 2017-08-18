@@ -48,7 +48,8 @@ func ReadScript(reader io.Reader, pver uint32, maxAllowed uint32, fieldName stri
 	_, err = io.ReadFull(reader, buf)
 	if err != nil {
 		scriptPool.Return(buf)
+		return
 	}
-	return
+	return buf, nil
 
 }
