@@ -680,48 +680,171 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 			case OP_ABS:
 			case OP_NOT:
 			case OP_0NOTEQUAL:
-
 				{
-					{
-						// (in -- out)
-						if stack.Size() < 1 {
-							return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
-						}
-						vch, err := stack.StackTop(-1)
-						if err != nil {
-							return false, err
-						}
-						bn, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
-						if err != nil {
-							return false, err
-						}
-						switch parsedOpcode.opValue {
-						case OP_1ADD:
-							bn.Value = bn.Value + bnOne.Value
-						case OP_1SUB:
-							bn.Value = bn.Value - bnOne.Value
-						case OP_NEGATE:
+					// (in -- out)
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					bn, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					if err != nil {
+						return false, err
+					}
+					switch parsedOpcode.opValue {
+					case OP_1ADD:
+						bn.Value = bn.Value + bnOne.Value
+					case OP_1SUB:
+						bn.Value = bn.Value - bnOne.Value
+					case OP_NEGATE:
+						bn.Value = -bn.Value
+					case OP_ABS:
+						if bn.Value < bnZero.Value {
 							bn.Value = -bn.Value
-						case OP_ABS:
-							if bn.Value < bnZero.Value {
-								bn.Value = -bn.Value
-							}
-						case OP_NOT:
-							if bn.Value == bnZero.Value {
-								bn.Value = bnOne.Value
-							} else {
-								bn.Value = bnZero.Value
-							}
-						case OP_0NOTEQUAL:
-							if bn.Value != bnZero.Value {
-								bn.Value = bnOne.Value
-							} else {
-								bn.Value = bnZero.Value
-							}
-						default:
-							return false, errors.New("invalid opcode")
 						}
+					case OP_NOT:
+						if bn.Value == bnZero.Value {
+							bn.Value = bnOne.Value
+						} else {
+							bn.Value = bnZero.Value
+						}
+					case OP_0NOTEQUAL:
+						if bn.Value != bnZero.Value {
+							bn.Value = bnOne.Value
+						} else {
+							bn.Value = bnZero.Value
+						}
+					default:
+						return false, errors.New("invalid opcode")
+					}
+					stack.PopStack()
+					stack.PushStack(bn.Serialize())
 
+				}
+			case OP_ADD:
+			case OP_SUB:
+			case OP_BOOLAND:
+			case OP_BOOLOR:
+			case OP_NUMEQUAL:
+			case OP_NUMEQUALVERIFY:
+			case OP_NUMNOTEQUAL:
+			case OP_LESSTHAN:
+			case OP_GREATERTHAN:
+			case OP_LESSTHANOREQUAL:
+			case OP_GREATERTHANOREQUAL:
+			case OP_MIN:
+			case OP_MAX:
+				{
+					// (x1 x2 -- out)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch1, err := stack.StackTop(-2)
+					if err != nil {
+						return false, err
+					}
+					vch2, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					bn1, err := GetCScriptNum(vch1.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					if err != nil {
+						return false, err
+					}
+					bn2, err := GetCScriptNum(vch2.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					if err != nil {
+						return false, err
+					}
+					bn := NewCScriptNum(0)
+					switch parsedOpcode.opValue {
+					case OP_ADD:
+						bn.Value = bn1.Value + bn2.Value
+					case OP_SUB:
+						bn.Value = bn1.Value - bn2.Value
+					case OP_BOOLAND:
+						if bn1.Value != bnZero.Value && bn2.Value != bnZero.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_BOOLOR:
+						if bn1.Value != bnZero.Value || bn2.Value != bnZero.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_NUMEQUAL:
+						if bn1.Value == bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_NUMEQUALVERIFY:
+						if bn1.Value == bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_NUMNOTEQUAL:
+						if bn1.Value != bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_LESSTHAN:
+						if bn1.Value < bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_GREATERTHAN:
+						if bn1.Value > bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_LESSTHANOREQUAL:
+						if bn1.Value <= bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_GREATERTHANOREQUAL:
+						if bn1.Value >= bn2.Value {
+							bn.Value = 1
+						} else {
+							bn.Value = 0
+						}
+					case OP_MIN:
+						if bn1.Value < bn2.Value {
+							bn = bn1
+						} else {
+							bn = bn2
+						}
+					case OP_MAX:
+						if bn1.Value > bn2.Value {
+							bn = bn1
+						} else {
+							bn = bn2
+						}
+					default:
+						return false, errors.New("invalid opcode")
+					}
+					stack.PopStack()
+					stack.PopStack()
+					stack.PushStack(bn.Serialize())
+					if parsedOpcode.opValue == OP_NUMEQUALVERIFY {
+						vch, err := stack.StackTop(-2)
+						if err != nil {
+							return false, err
+						}
+						if CastToBool(vch.([]byte)) {
+							stack.PopStack()
+						} else {
+							return false, core.ScriptErr(core.SCRIPT_ERR_NUMEQUALVERIFY)
+						}
 					}
 				}
 
