@@ -4,6 +4,8 @@ import (
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
+	"github.com/pkg/errors"
+	"reflect"
 )
 
 type Interpreter struct {
@@ -96,13 +98,13 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 }
 
 func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Stack, script *CScript, flags int32) (result bool, err error) {
-	//bnZero := NewCScriptNum(0)
-	//bnOne := NewCScriptNum(1)
+	bnZero := NewCScriptNum(0)
+	bnOne := NewCScriptNum(1)
 	//bnFalse := NewCScriptNum(0)
 	//bnTrue := NewCScriptNum(1)
-	//vchFalse := []byte{0}
+	vchFalse := []byte{0}
 	//vchZero := []byte{0}
-	//vchTrue := []byte{1, 1}
+	vchTrue := []byte{1, 1}
 	var vchPushValue []byte
 	vfExec := algorithm.NewVector()
 	altstack := algorithm.NewStack()
@@ -628,12 +630,104 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					stack.PushStack(bn.Serialize())
 					break
 				}
+				//
+				// Bitwise logic
+				//
+			case OP_EQUAL:
+			case OP_EQUALVERIFY:
+				// case OP_NOTEQUAL: // use OP_NUMNOTEQUAL
+				{
+					// (x1 x2 - bool)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch1, err := stack.StackTop(-2)
+					if err != nil {
+						return false, err
+					}
+					vch2, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					fEqual := reflect.DeepEqual(vch2, vch1)
+					// OP_NOTEQUAL is disabled because it would be too
+					// easy to say something like n != 1 and have some
+					// wiseguy pass in 1 with extra zero bytes after it
+					// (numerically, 0x01 == 0x0001 == 0x000001)
+					// if (opcode == OP_NOTEQUAL)
+					//    fEqual = !fEqual;
+					stack.PopStack()
+					stack.PopStack()
+					if fEqual {
+						stack.PushStack(vchTrue)
+					} else {
+						stack.PushStack(vchFalse)
+					}
+					if parsedOpcode.opValue == OP_EQUALVERIFY {
+						if fEqual {
+							stack.PopStack()
+						} else {
+							return false, core.ScriptErr(core.SCRIPT_ERR_EQUALVERIFY)
+						}
+					}
+					break
+
+				}
+				//Numeric
+			case OP_1ADD:
+			case OP_1SUB:
+			case OP_NEGATE:
+			case OP_ABS:
+			case OP_NOT:
+			case OP_0NOTEQUAL:
+
+				{
+					{
+						// (in -- out)
+						if stack.Size() < 1 {
+							return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						}
+						vch, err := stack.StackTop(-1)
+						if err != nil {
+							return false, err
+						}
+						bn, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+						if err != nil {
+							return false, err
+						}
+						switch parsedOpcode.opValue {
+						case OP_1ADD:
+							bn.Value = bn.Value + bnOne.Value
+						case OP_1SUB:
+							bn.Value = bn.Value - bnOne.Value
+						case OP_NEGATE:
+							bn.Value = -bn.Value
+						case OP_ABS:
+							if bn.Value < bnZero.Value {
+								bn.Value = -bn.Value
+							}
+						case OP_NOT:
+							if bn.Value == bnZero.Value {
+								bn.Value = bnOne.Value
+							} else {
+								bn.Value = bnZero.Value
+							}
+						case OP_0NOTEQUAL:
+							if bn.Value != bnZero.Value {
+								bn.Value = bnOne.Value
+							} else {
+								bn.Value = bnZero.Value
+							}
+						default:
+							return false, errors.New("invalid opcode")
+						}
+
+					}
+				}
 
 			}
-
 		}
 	}
-
 	return
 }
 func CastToBool(vch []byte) bool {
