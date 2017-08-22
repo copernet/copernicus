@@ -64,9 +64,6 @@ func WriteContentInFile(block *BlockChain) error {
 	}
 
 	_, err = block.CurrentFile.Write(block.LastBlock.Raw)
-	if err != nil {
-		return err
-	}
 
 	return err
 }
@@ -152,9 +149,6 @@ func WriteNextFile() error {
 	defer testBlcokChain.CurrentFile.Close()
 
 	err = WriteContentInFile(testBlcokChain)
-	if err != nil {
-		return err
-	}
 
 	return err
 }
