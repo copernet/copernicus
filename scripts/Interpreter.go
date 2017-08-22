@@ -1,6 +1,7 @@
 package scripts
 
 import (
+	"fmt"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
@@ -109,6 +110,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 	var vchPushValue []byte
 	vfExec := algorithm.NewVector()
 	altstack := algorithm.NewStack()
+	var pbegincodehash int
 
 	if script.Size() > MAX_SCRIPT_SIZE {
 		return false, core.ScriptErr(core.SCRIPT_ERR_SCRIPT_SIZE)
@@ -883,6 +885,69 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					stack.PushStack(vchHash)
 
 				}
+			case OP_CODESEPARATOR:
+				{
+					// Hash starts after the code separator
+					pbegincodehash = i
+
+				}
+			case OP_CHECKSIG:
+			case OP_CHECKSIGVERIFY:
+				{
+					// (sig pubkey -- bool)
+					if stack.Size() < 2 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vchSig, err := stack.StackTop(-2)
+					if err != nil {
+						return false, err
+					}
+					vchPubkey, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					checkSig, err := core.CheckSignatureEncoding(vchSig.([]byte), uint32(flags))
+					if err != nil {
+						return false, err
+					}
+					checkPubKey, err := core.CheckPubKeyEncoding(vchPubkey.([]byte), uint32(flags))
+					if err != nil {
+						return false, err
+					}
+					if !checkPubKey || !checkSig {
+						return false, errors.New("check public key or sig failed")
+					}
+					// Subset of script starting at the most recent
+					// codeseparator
+					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
+					fmt.Print(scriptCode)
+					txHash, err := SignatureHash(tx, scriptCode, int(flags), nIn)
+					if err != nil {
+						return false, err
+					}
+					fSuccess, err := CheckSig(txHash, vchSig.([]byte), vchPubkey.([]byte))
+					if !fSuccess &&
+						(flags&core.SCRIPT_VERIFY_NULLFAIL == core.SCRIPT_VERIFY_NULLFAIL) &&
+						len(vchSig.([]byte)) > 0 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_SIG_NULLFAIL)
+
+					}
+					stack.PopStack()
+					stack.PopStack()
+					if fSuccess {
+						stack.PushStack(vchTrue)
+					} else {
+						stack.PushStack(vchFalse)
+					}
+					if parsedOpcode.opValue == OP_CHECKSIGVERIFY {
+						if fSuccess {
+							stack.PopStack()
+						} else {
+							return false, core.ScriptErr(core.SCRIPT_ERR_CHECKSIGVERIFY)
+						}
+					}
+				}
+
 			}
 		}
 	}
