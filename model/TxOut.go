@@ -8,8 +8,9 @@ import (
 )
 
 type TxOut struct {
-	Value  int64
-	Script []byte
+	Value      int64
+	SigOpCount int
+	Script     []byte
 }
 
 func (txOut *TxOut) SerializeSize() int {

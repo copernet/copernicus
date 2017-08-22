@@ -21,6 +21,16 @@ const (
 	// SEQUENCE_LOCKTIME_MASK If CTxIn::nSequence encodes a relative lock-time, this mask is
 	// applied to extract that lock-time from the sequence field.
 	SEQUENCE_LOCKTIME_MASK = 0x0000ffff
+
+	ONE_MEGABYTE = 1000000
+	/** The maximum allowed size for a transaction, in bytes */
+
+	MAX_TX_SIZE = ONE_MEGABYTE
+
+	// MAX_TX_SIGOPS_COUNT The maximum allowed number of signature check operations per transaction (network rule)
+	MAX_TX_SIGOPS_COUNT = 20000
+
+	MAX_MONOY = 21000000
 )
 
 type Tx struct {
@@ -166,12 +176,52 @@ func (tx *Tx) Deserialize(reader io.Reader) (err error) {
 }
 
 func (tx *Tx) IsCoinBase() bool {
-	return (len(tx.Ins) == 1 && tx.Ins[0].PreviousOutPoint == nil)
+	return len(tx.Ins) == 1 && tx.Ins[0].PreviousOutPoint == nil
 }
 
-func (tx *Tx) Check() bool {
+func (tx *Tx) CheckSelf() (bool, error) {
+	if len(tx.Ins) == 0 || len(tx.Outs) == 0 {
+		return false, errors.New("no inputs or outputs")
+	}
+	size := tx.SerializeSize()
+	if size > MAX_TX_SIZE {
+		return false, errors.Errorf("tx size %d > max size %d", size, MAX_TX_SIZE)
+	}
 
-	return true
+	TotalOutValue := int64(0)
+	TotalSigOpCount := int64(0)
+	TxOutsLen := len(tx.Outs)
+	for i := 0; i < TxOutsLen; i++ {
+		txOut := tx.Outs[i]
+		if txOut.Value < 0 {
+			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
+		}
+		if txOut.Value > MAX_MONOY {
+			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
+		}
+
+		TotalOutValue += txOut.Value
+		if TotalOutValue > MAX_MONOY {
+			return false, errors.Errorf("tx outs' total value:%d from 0 to %d is too large", TotalOutValue, i)
+		}
+
+		TotalSigOpCount += int64(txOut.SigOpCount)
+		if TotalSigOpCount > MAX_TX_SIGOPS_COUNT {
+			return false, errors.Errorf("tx outs' total SigOpCount:%d from 0 to %d is too large", TotalSigOpCount, i)
+		}
+	}
+
+	//todo: check ins' preout duplicate
+	TxInsLen := len(tx.Ins)
+	for i := 0; i < TxInsLen; i++ {
+		txIn := tx.Ins[i]
+		TotalSigOpCount += int64(txIn.SigOpCount)
+		if TotalSigOpCount > MAX_TX_SIGOPS_COUNT {
+			return false, errors.Errorf("tx total SigOpCount:%d of all Outs and partial Ins from 0 to %d is too large", TotalSigOpCount, i)
+		}
+
+	}
+	return true, nil
 }
 
 func (tx *Tx) returnScriptBuffers() {
