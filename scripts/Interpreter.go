@@ -2,6 +2,7 @@ package scripts
 
 import (
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
 	"github.com/pkg/errors"
@@ -848,6 +849,40 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					}
 				}
 
+				// Crypto
+
+			case OP_RIPEMD160:
+			case OP_SHA1:
+			case OP_SHA256:
+			case OP_HASH160:
+			case OP_HASH256:
+				{
+					// (in -- hash)
+					var vchHash []byte
+					if stack.Size() < 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err := stack.StackTop(-1)
+					if err != nil {
+						return false, err
+					}
+					switch parsedOpcode.opValue {
+					case OP_RIPEMD160:
+						vchHash = btcutil.Ripemd160(vch.([]byte))
+					case OP_SHA1:
+						result := btcutil.Sha1(vch.([]byte))
+						copy(vchHash[:], result[:])
+					case OP_SHA256:
+						vchHash = core.Sha256Bytes(vch.([]byte))
+					case OP_HASH160:
+						vchHash = btcutil.Hash160(vch.([]byte))
+					case OP_HASH256:
+						vchHash = core.Sha256Bytes(vch.([]byte))
+					}
+					stack.PopStack()
+					stack.PushStack(vchHash)
+
+				}
 			}
 		}
 	}
