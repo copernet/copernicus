@@ -77,7 +77,7 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 		return err
 	}
 	count := uint64(len(tx.Ins))
-	err = utils.WriteVarInt(writer, 0, count)
+	err = utils.WriteVarInt(writer, count)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 		}
 	}
 	count = uint64(len(tx.Outs))
-	err = utils.WriteVarInt(writer, 0, count)
+	err = utils.WriteVarInt(writer, count)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (tx *Tx) Deserialize(reader io.Reader) (err error) {
 		return err
 	}
 	tx.Version = int32(version)
-	count, err := utils.ReadVarInt(reader, 0)
+	count, err := utils.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (tx *Tx) Deserialize(reader io.Reader) (err error) {
 		}
 		totalScriptSize += uint64(len(txIn.Script))
 	}
-	count, err = utils.ReadVarInt(reader, 0)
+	count, err = utils.ReadVarInt(reader)
 	if err != nil {
 		tx.returnScriptBuffers()
 		return

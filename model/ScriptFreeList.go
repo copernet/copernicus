@@ -35,8 +35,8 @@ func (scriptFreeList ScriptFreeList) Return(buf []byte) {
 
 }
 
-func ReadScript(reader io.Reader, pver uint32, maxAllowed uint32, fieldName string) (signScript []byte, err error) {
-	count, err := utils.ReadVarInt(reader, pver)
+func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (signScript []byte, err error) {
+	count, err := utils.ReadVarInt(reader)
 	if err != nil {
 		return
 	}

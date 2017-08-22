@@ -21,7 +21,7 @@ func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
 	if err != nil {
 		return err
 	}
-	txOut.Script, err = ReadScript(reader, 0, MaxMessagePayload, "tx output script")
+	txOut.Script, err = ReadScript(reader, MaxMessagePayload, "tx output script")
 	return err
 }
 func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
@@ -29,7 +29,7 @@ func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	return utils.WriteVarBytes(writer, 0, txOut.Script)
+	return utils.WriteVarBytes(writer, txOut.Script)
 
 }
 func (txOut *TxOut) Check() bool {

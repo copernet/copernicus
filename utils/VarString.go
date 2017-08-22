@@ -6,8 +6,8 @@ import (
 	"io"
 )
 
-func ReadVarString(r io.Reader, size uint32) (string, error) {
-	count, err := ReadVarInt(r, size)
+func ReadVarString(r io.Reader) (string, error) {
+	count, err := ReadVarInt(r)
 	if err != nil {
 		return "", err
 	}
@@ -25,8 +25,8 @@ func ReadVarString(r io.Reader, size uint32) (string, error) {
 	return string(buf), nil
 
 }
-func WriteVarString(w io.Writer, size uint32, str string) error {
-	err := WriteVarInt(w, size, uint64(len(str)))
+func WriteVarString(w io.Writer, str string) error {
+	err := WriteVarInt(w, uint64(len(str)))
 	if err != nil {
 		return err
 	}

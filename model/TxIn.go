@@ -26,7 +26,7 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 	if err != nil {
 		return err
 	}
-	txIn.Script, err = ReadScript(reader, 0, MaxMessagePayload, "tx input signature script")
+	txIn.Script, err = ReadScript(reader, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, 0, txIn.Script)
+	err = utils.WriteVarBytes(writer, txIn.Script)
 	if err != nil {
 		return err
 	}

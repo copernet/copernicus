@@ -51,13 +51,13 @@ type RejectMessage struct {
 	Hash   *utils.Hash
 }
 
-func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) error {
+func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, version uint32) error {
 
-	if pver < protocol.RejectVersion {
-		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
+	if version < protocol.RejectVersion {
+		str := fmt.Sprintf("reject message invalid for protocol version ")
 		return errors.New(str)
 	}
-	command, err := utils.ReadVarString(reader, pver)
+	command, err := utils.ReadVarString(reader)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 	if err != nil {
 		return err
 	}
-	reason, err := utils.ReadVarString(reader, pver)
+	reason, err := utils.ReadVarString(reader)
 	rejectMessage.Reason = reason
 	if rejectMessage.Cmd == CommandTx || rejectMessage.Cmd == CommandBlock {
 		err := protocol.ReadElement(reader, rejectMessage.Hash)
@@ -78,12 +78,12 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, pver uint32) 
 	return nil
 
 }
-func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
-	if pver < protocol.RejectVersion {
-		str := fmt.Sprintf("reject message invalid for protocol version %d", pver)
+func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, version uint32) error {
+	if version < protocol.RejectVersion {
+		str := fmt.Sprintf("reject message invalid for protocol version %d", version)
 		return errors.New(str)
 	}
-	err := utils.WriteVarString(w, pver, rejectMessage.Cmd)
+	err := utils.WriteVarString(w, rejectMessage.Cmd)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (rejectMessage *RejectMessage) BitcoinSerialize(w io.Writer, pver uint32) e
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarString(w, pver, rejectMessage.Reason)
+	err = utils.WriteVarString(w, rejectMessage.Reason)
 	if err != nil {
 		return err
 	}

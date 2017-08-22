@@ -9,7 +9,7 @@ import (
 
 var errVarIntDesc = "non-rule varint %x - discriminant %x must encode a value greater than %x "
 
-func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
+func ReadVarInt(r io.Reader) (uint64, error) {
 	discriminant, err := BinarySerializer.Uint8(r)
 	if err != nil {
 		return 0, err
@@ -54,7 +54,7 @@ func ReadVarInt(r io.Reader, size uint32) (uint64, error) {
 	return result, nil
 }
 
-func WriteVarInt(w io.Writer, size uint32, val uint64) error {
+func WriteVarInt(w io.Writer, val uint64) error {
 	if val < 0xfd {
 		return BinarySerializer.PutUint8(w, uint8(val))
 	}

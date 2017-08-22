@@ -43,9 +43,9 @@ func InventoryTypeToString(inventoryType protocol.InventoryType) string {
 
 }
 
-func ReadInventoryVector(r io.Reader, pver uint32, iv *InventoryVector) error {
+func ReadInventoryVector(r io.Reader, iv *InventoryVector) error {
 	return protocol.ReadElements(r, &iv.Type, &iv.Hash)
 }
-func WriteInvVect(w io.Writer, pver uint32, iv *InventoryVector) error {
+func WriteInvVect(w io.Writer, iv *InventoryVector) error {
 	return protocol.WriteElements(w, iv.Type, iv.Hash)
 }

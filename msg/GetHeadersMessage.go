@@ -30,7 +30,7 @@ func (getHeadersMessage *GetHeadersMessage) BitcoinParse(reader io.Reader, size 
 	if err != nil {
 		return err
 	}
-	count, err := utils.ReadVarInt(reader, size)
+	count, err := utils.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (getHeadersMessage *GetHeadersMessage) BitcoinSerialize(w io.Writer, size u
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarInt(w, size, uint64(count))
+	err = utils.WriteVarInt(w, uint64(count))
 	if err != nil {
 		return err
 	}

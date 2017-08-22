@@ -22,8 +22,8 @@ func (message *InventoryMessage) AddInventoryVector(iv *InventoryVector) error {
 	return nil
 }
 
-func (message *InventoryMessage) BitcoinParse(reader io.Reader, pver uint32) error {
-	count, err := utils.ReadVarInt(reader, pver)
+func (message *InventoryMessage) BitcoinParse(reader io.Reader, size uint32) error {
+	count, err := utils.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (message *InventoryMessage) BitcoinParse(reader io.Reader, pver uint32) err
 	message.InventoryList = make([]*InventoryVector, 0, count)
 	for i := uint64(0); i < count; i++ {
 		iv := &inventoryList[i]
-		err := ReadInventoryVector(reader, pver, iv)
+		err := ReadInventoryVector(reader, iv)
 		if err != nil {
 			return err
 		}
@@ -45,18 +45,18 @@ func (message *InventoryMessage) BitcoinParse(reader io.Reader, pver uint32) err
 	return nil
 
 }
-func (message *InventoryMessage) BitcoinSerialize(w io.Writer, pver uint32) error {
+func (message *InventoryMessage) BitcoinSerialize(w io.Writer, version uint32) error {
 	count := len(message.InventoryList)
 	if count > MaxInventoryMessage {
 		str := fmt.Sprintf("too many inventory in message %v", count)
 		return errors.New(str)
 	}
-	err := utils.WriteVarInt(w, pver, uint64(count))
+	err := utils.WriteVarInt(w, uint64(count))
 	if err != nil {
 		return err
 	}
 	for _, iv := range message.InventoryList {
-		err := WriteInvVect(w, pver, iv)
+		err := WriteInvVect(w, iv)
 		if err != nil {
 			return err
 		}

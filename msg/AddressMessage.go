@@ -44,7 +44,7 @@ func (addressMessage *AddressMessage) ClearAddresses() {
 }
 
 func (addressMessage *AddressMessage) BitcoinParse(reader io.Reader, size uint32) error {
-	count, err := utils.ReadVarInt(reader, size)
+	count, err := utils.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 		return errors.New(str)
 
 	}
-	err := utils.WriteVarInt(w, size, uint64(count))
+	err := utils.WriteVarInt(w, uint64(count))
 	if err != nil {
 		return err
 	}

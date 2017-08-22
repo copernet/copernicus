@@ -6,8 +6,8 @@ import (
 	"io"
 )
 
-func ReadVarBytes(r io.Reader, size uint32, maxAllowed uint32, fieldName string) ([]byte, error) {
-	count, err := ReadVarInt(r, size)
+func ReadVarBytes(r io.Reader, maxAllowed uint32, fieldName string) ([]byte, error) {
+	count, err := ReadVarInt(r)
 	if err != nil {
 		return nil, err
 	}
@@ -24,9 +24,9 @@ func ReadVarBytes(r io.Reader, size uint32, maxAllowed uint32, fieldName string)
 	return b, nil
 }
 
-func WriteVarBytes(w io.Writer, size uint32, bytes []byte) error {
+func WriteVarBytes(w io.Writer, bytes []byte) error {
 	slen := uint64(len(bytes))
-	err := WriteVarInt(w, size, slen)
+	err := WriteVarInt(w, slen)
 	if err != nil {
 		return err
 	}

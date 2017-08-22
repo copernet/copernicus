@@ -88,7 +88,7 @@ func (versionMessage *VersionMessage) BitcoinParse(reader io.Reader, pver uint32
 
 	}
 	if buf.Len() > 0 {
-		userAgent, err := utils.ReadVarString(buf, pver)
+		userAgent, err := utils.ReadVarString(buf)
 		if err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ func (versionMessage *VersionMessage) BitcoinSerialize(w io.Writer, size uint32)
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarString(w, size, versionMessage.UserAgent)
+	err = utils.WriteVarString(w, versionMessage.UserAgent)
 	if err != nil {
 		return err
 	}

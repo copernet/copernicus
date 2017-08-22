@@ -29,7 +29,7 @@ func (getBlocksMessage *GetBlocksMessage) BitcoinParse(reader io.Reader, size ui
 	if err != nil {
 		return err
 	}
-	count, err := utils.ReadVarInt(reader, size)
+	count, err := utils.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (getBlocksMessage *GetBlocksMessage) BitcoinSerialize(w io.Writer, size uin
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarInt(w, size, uint64(count))
+	err = utils.WriteVarInt(w, uint64(count))
 	if err != nil {
 		return err
 	}
