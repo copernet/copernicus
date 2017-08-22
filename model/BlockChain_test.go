@@ -68,7 +68,7 @@ func WriteContentInFile(block *BlockChain) error {
 		return err
 	}
 
-	return nil
+	return err
 }
 
 func creatBlockChiain() (*BlockChain, error) {
@@ -156,7 +156,7 @@ func WriteNextFile() error {
 		return err
 	}
 
-	return nil
+	return err
 }
 
 func TestBlockChain_NextBlock(t *testing.T) {
