@@ -11,6 +11,7 @@ type TxIn struct {
 	PreviousOutPoint *OutPoint
 	Script           []byte
 	Sequence         uint32 //todo ?
+	SigOpCount       int
 }
 
 func (txIn *TxIn) SerializeSize() int {

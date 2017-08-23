@@ -947,6 +947,50 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 						}
 					}
 				}
+			case OP_CHECKMULTISIG:
+			case OP_CHECKMULTISIGVERIFY:
+				{
+					// ([sig ...] num_of_signatures [pubkey ...]
+					// num_of_pubkeys -- bool)
+					i := 1
+					if stack.Size() < i {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+
+					vch, err := stack.StackTop(-i)
+					if err != nil {
+						return false, err
+					}
+					nKeysNum, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					if err != nil {
+						return false, err
+					}
+					nKeysCount := nKeysNum.Int32()
+					if nKeysCount < 0 || nKeysCount > MAX_OPS_PER_SCRIPT {
+						return false, core.ScriptErr(core.SCRIPT_ERR_OP_COUNT)
+					}
+					i++
+					//iKey := i
+					//// ikey2 is the position of last non-signature item in
+					//// the stack. Top stack item = 1. With
+					//// SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
+					//// operation fails.
+					//iKey2 := nKeysCount + 2
+					//i += int(nKeysCount)
+					//if stack.Size() < i {
+					//	return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					//}
+					//sigsVch, err := stack.StackTop(-i)
+					//if err != nil {
+					//	return false, err
+					//}
+					//nSigsNum,err :=GetCScriptNum(sigsVch.([]byte),fRequireMinimal,DEFAULT_MAX_NUM_SIZE)
+					//if err != nil {
+					//	return false,err
+					//}
+					//nSigsCount:=nSigsNum.Int32()
+					//if nSigsCount<0||nSigsCount
+				}
 
 			}
 		}
