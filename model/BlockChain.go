@@ -82,7 +82,7 @@ func (blockChain *BlockChain) FetchNextBlock() (raw []byte, err error) {
 	blockSize := uint32(blkSize(buf[:]))
 	raw = make([]byte, blockSize)
 	_, err = blockChain.CurrentFile.Read(raw[:])
-	_, err = blockChain.CurrentFile.Read(raw[:])
+
 	return
 }
 
@@ -92,6 +92,10 @@ func (blockChain *BlockChain) SkipTo(blkID uint32, offset int64) (err error) {
 	f, err := os.Open(blkFileName(blockChain.Path, blkID))
 	if err != nil {
 		return
+	}
+
+	if blockChain.CurrentFile != nil {
+		blockChain.CurrentFile.Close()
 	}
 	blockChain.CurrentFile = f
 	_, err = blockChain.CurrentFile.Seek(offset, 0)
