@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -28,20 +29,15 @@ func TestNewTxOut(t *testing.T) {
 }
 
 func TestSerialize(t *testing.T) {
-
-	testFile, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer testFile.Close()
-	err = testTxout.Serialize(testFile, 1)
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
+	err := testTxout.Serialize(buf, 1)
 	checkErr(err)
 }
 
 func TestDeserialize(t *testing.T) {
 	txOutRead := &TxOut{}
-	testFile, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer testFile.Close()
-	err = txOutRead.Deserialize(testFile, 1)
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
+	err := txOutRead.Deserialize(buf, 1)
 	checkErr(err)
 	t.Log(txOutRead.Value, " : ", string(txOutRead.Script))
 }
