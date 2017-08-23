@@ -2,9 +2,9 @@ package model
 
 import (
 	"io"
-	"os"
 	"testing"
 
+	"bytes"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -23,14 +23,8 @@ func TestNewOutPoint(t *testing.T) {
 
 func TestOutPoint_WriteOutPoint(t *testing.T) {
 
-	file, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		t.Log(err)
-		return
-	}
-	defer file.Close()
-
-	err = testOutPoint.WriteOutPoint(file, 10, 1)
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
+	err := testOutPoint.WriteOutPoint(buf, 10, 1)
 	if err != nil {
 		t.Log(err)
 		return
@@ -38,17 +32,11 @@ func TestOutPoint_WriteOutPoint(t *testing.T) {
 }
 
 func TestOutPoint_ReadOutPoint(t *testing.T) {
-
-	file, err := os.OpenFile("txOut.txt", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		t.Log(err)
-		return
-	}
-	defer file.Close()
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
 
 	txOutRead := &OutPoint{}
 	txOutRead.Hash = new(utils.Hash)
-	err = txOutRead.ReadOutPoint(file, 1)
+	err := txOutRead.ReadOutPoint(buf, 1)
 	if err != nil {
 		if err != io.EOF {
 			t.Log(err)

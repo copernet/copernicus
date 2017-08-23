@@ -1,10 +1,10 @@
 package model
 
 import (
-	"os"
-	"testing"
-
+	"bytes"
 	"github.com/btcboost/copernicus/utils"
+
+	"testing"
 )
 
 var testNewTx *Tx
@@ -50,18 +50,13 @@ func TestTx_Copy(t *testing.T) {
 
 func TestTx_Serialize(t *testing.T) {
 
-	file, err := os.OpenFile("tx.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer file.Close()
-
-	err = testNewTx.Serialize(file)
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
+	err := testNewTx.Serialize(buf)
 	checkErr(err)
 }
 
 func TestTx_Deserialize(t *testing.T) {
 
-	file, err := os.OpenFile("tx.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer file.Close()
-	testNewTx.Deserialize(file)
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
+	testNewTx.Deserialize(buf)
 }

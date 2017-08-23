@@ -1,10 +1,10 @@
 package model
 
 import (
-	"os"
+	"github.com/btcboost/copernicus/utils"
 	"testing"
 
-	"github.com/btcboost/copernicus/utils"
+	"bytes"
 )
 
 var testTxIn *TxIn
@@ -24,27 +24,22 @@ func TestNewTxIn(t *testing.T) {
 }
 
 func TestTxIn_Serialize(t *testing.T) {
-	file, err := os.OpenFile("txIn.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer file.Close()
-	err = testTxIn.Serialize(file, 1)
+
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
+	err := testTxIn.Serialize(buf, 1)
 	checkErr(err)
 }
 
 func TestTxIn_Deserialize(t *testing.T) {
 
-	file, err := os.OpenFile("txIn.txt", os.O_RDWR|os.O_CREATE, 0666)
-	checkErr(err)
-	defer file.Close()
-
+	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
 	testOutPut := &OutPoint{}
 	testOutPut.Hash = new(utils.Hash)
 	myTxInNew := &TxIn{PreviousOutPoint: testOutPut}
-	myTxInNew.Deserialize(file, 1)
+	myTxInNew.Deserialize(buf, 1)
 	t.Log(myTxInNew)
 }
 
 func TestTxIn_SerializeSize(t *testing.T) {
 	t.Log("Size : ", testTxIn.SerializeSize())
-
 }
