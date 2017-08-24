@@ -128,6 +128,9 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 	return
 
 }
+func (script *CScript) FindAndDelete(b *CScript) bool {
+	return false
+}
 
 func (script *CScript) Find(opcode int) bool {
 	stk, err := script.ParseScript()

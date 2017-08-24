@@ -970,33 +970,159 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 						return false, core.ScriptErr(core.SCRIPT_ERR_OP_COUNT)
 					}
 					i++
-					//iKey := i
-					//// ikey2 is the position of last non-signature item in
-					//// the stack. Top stack item = 1. With
-					//// SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
-					//// operation fails.
-					//iKey2 := nKeysCount + 2
-					//i += int(nKeysCount)
-					//if stack.Size() < i {
-					//	return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
-					//}
-					//sigsVch, err := stack.StackTop(-i)
-					//if err != nil {
-					//	return false, err
-					//}
-					//nSigsNum,err :=GetCScriptNum(sigsVch.([]byte),fRequireMinimal,DEFAULT_MAX_NUM_SIZE)
-					//if err != nil {
-					//	return false,err
-					//}
-					//nSigsCount:=nSigsNum.Int32()
-					//if nSigsCount<0||nSigsCount
+					iKey := i
+					// ikey2 is the position of last non-signature item in
+					// the stack. Top stack item = 1. With
+					// SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
+					// operation fails.
+					iKey2 := nKeysCount + 2
+					i += int(nKeysCount)
+					if stack.Size() < i {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					sigsVch, err := stack.StackTop(-i)
+					if err != nil {
+						return false, err
+					}
+					nSigsNum, err := GetCScriptNum(sigsVch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					if err != nil {
+						return false, err
+					}
+					nSigsCount := nSigsNum.Int32()
+					if nSigsCount < 0 || nSigsCount > nKeysCount {
+						return false, core.ScriptErr(core.SCRIPT_ERR_SIG_COUNT)
+					}
+					i++
+					isig := i
+					i += int(nSigsCount)
+					if stack.Size() < i {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+
+					// Subset of script starting at the most recent
+					// codeseparator
+					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
+
+					// Drop the signature in pre-segwit scripts but not
+					// segwit scripts
+					for k := 0; k < int(nSigsCount); k++ {
+						vchSig, err := stack.StackTop(-isig - k)
+						if err != nil {
+							return false, err
+						}
+						CleanupScriptCode(scriptCode, vchSig.([]byte), flags)
+					}
+					fSuccess := true
+					for fSuccess && nSigsCount > 0 {
+						vchSig, err := stack.StackTop(-isig)
+						if err != nil {
+							return false, err
+						}
+						vchPubkey, err := stack.StackTop(-iKey)
+						if err != nil {
+							return false, err
+						}
+						// Note how this makes the exact order of
+						// pubkey/signature evaluation distinguishable by
+						// CHECKMULTISIG NOT if the STRICTENC flag is set.
+						// See the script_(in)valid tests for details.
+						checkSig, err := core.CheckSignatureEncoding(vchSig.([]byte), uint32(flags))
+						if err != nil {
+							return false, err
+						}
+						checkPubKey, err := core.CheckPubKeyEncoding(vchPubkey.([]byte), uint32(flags))
+						if err != nil {
+							return false, err
+						}
+						if !checkSig || !checkPubKey {
+							return false, errors.New("check sig or public key failed")
+						}
+						txHash, err := SignatureHash(tx, scriptCode, int(flags), nIn)
+						if err != nil {
+							return false, err
+						}
+						fOk, err := CheckSig(txHash, vchSig.([]byte), vchPubkey.([]byte))
+						if err != nil {
+							return false, err
+						}
+						if fOk {
+							isig++
+							nSigsCount--
+						}
+						iKey++
+						nKeysCount--
+						// If there are more signatures left than keys left,
+						// then too many signatures have failed. Exit early,
+						// without checking any further signatures.
+						if nSigsCount > nKeysCount {
+							fSuccess = false
+						}
+					}
+					// Clean up stack of actual arguments
+
+					for i > 1 {
+						vch, err := stack.StackTop(-isig)
+						if err != nil {
+							return false, err
+						}
+						if !fSuccess &&
+							(flags&core.SCRIPT_VERIFY_NULLFAIL == core.SCRIPT_VERIFY_NULLFAIL) &&
+							iKey2 == 0 && len(vch.([]byte)) > 0 {
+							return false, core.ScriptErr(core.SCRIPT_ERR_SIG_NULLFAIL)
+
+						}
+						if iKey2 > 0 {
+							iKey2--
+						}
+						stack.PopStack()
+						i--
+					}
+					// A bug causes CHECKMULTISIG to consume one extra
+					// argument whose contents were not checked in any way.
+					//
+					// Unfortunately this is a potential source of
+					// mutability, so optionally verify it is exactly equal
+					// to zero prior to removing it from the stack.
+					if stack.Size() > 1 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
+					}
+					vch, err = stack.StackTop(-isig)
+					if err != nil {
+						return false, err
+					}
+					if flags&core.SCRIPT_VERIFY_NULLFAIL == core.SCRIPT_VERIFY_NULLFAIL && len(vch.([]byte)) > 0 {
+						return false, err
+					}
+					stack.PopStack()
+					if fSuccess {
+						stack.PushStack(vchTrue)
+					} else {
+						stack.PushStack(vchFalse)
+					}
+					if parsedOpcode.opValue == OP_CHECKMULTISIGVERIFY {
+						if fSuccess {
+							stack.PopStack()
+						} else {
+							return false, core.ScriptErr(core.SCRIPT_ERR_CHECKMULTISIGVERIFY)
+						}
+					}
+					if stack.Size()+altstack.Size() > 1000 {
+						return false, core.ScriptErr(core.SCRIPT_ERR_STACK_SIZE)
+					}
 				}
 
 			}
 		}
 	}
-	return
+	return true, nil
 }
+
+func CleanupScriptCode(scriptCode *CScript, vchSig []byte, flags int32) {
+	nHashType := GetHashType(vchSig)
+	fmt.Print(nHashType)
+	scriptCode.FindAndDelete(scriptCode)
+}
+
 func CastToBool(vch []byte) bool {
 	for i := 0; i < len(vch); i++ {
 		if vch[i] != 0 {
