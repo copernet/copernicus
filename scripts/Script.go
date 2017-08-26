@@ -3,8 +3,8 @@ package scripts
 //todo as the same assign values
 
 type Script struct {
-	raw      []byte
-	opsWords [][]byte
+	Raw      []byte
+	OpsWords [][]byte
 	//todo add IsPayToScriptHash,IsPayToWitnessScriptHash
 }
 
@@ -16,15 +16,19 @@ func (script *Script) ConvertOPS() {
 
 }
 
+func (script *Script) Size() int {
+	return 0
+}
+
 func (script *Script) Check() bool {
 	return false
 }
 func (script *Script) IsPayToScriptHash() bool {
-	size := len(script.raw)
+	size := len(script.Raw)
 	return size == 23 &&
-		script.raw[0] == OP_HASH160 &&
-		script.raw[1] == 0x14 &&
-		script.raw[22] == OP_EQUAL
+		script.Raw[0] == OP_HASH160 &&
+		script.Raw[1] == 0x14 &&
+		script.Raw[22] == OP_EQUAL
 
 }
 
@@ -58,8 +62,17 @@ func CheckMinimalPush(data []byte, opcode int32) bool {
 
 }
 
+func (script *Script) IsPushOnly() bool {
+	return true
+}
+
 func NewScript(bytes [][]byte) *Script {
-	script := Script{opsWords: bytes}
+	script := Script{OpsWords: bytes}
 	script.ConvertRaw()
+	return &script
+}
+func NewScriptRaw(bytes []byte) *Script {
+	script := Script{Raw: bytes}
+	script.ConvertOPS()
 	return &script
 }

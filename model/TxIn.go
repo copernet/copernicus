@@ -3,13 +3,14 @@ package model
 import (
 	"encoding/binary"
 	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcboost/copernicus/scripts"
 	"github.com/btcboost/copernicus/utils"
 	"io"
 )
 
 type TxIn struct {
 	PreviousOutPoint *OutPoint
-	Script           []byte
+	Script           *scripts.Script
 	Sequence         uint32 //todo ?
 	SigOpCount       int
 }
@@ -18,7 +19,7 @@ func (txIn *TxIn) SerializeSize() int {
 	// Outpoint Hash 32 bytes + Outpoint Index 4 bytes + Sequence 4 bytes +
 	// serialized VarInt size for the length of SignatureScript +
 	// SignatureScript bytes.
-	return 40 + utils.VarIntSerializeSize(uint64(len(txIn.Script))) + len(txIn.Script)
+	return 40 + utils.VarIntSerializeSize(uint64(txIn.Script.Size())) + txIn.Script.Size()
 
 }
 
@@ -27,10 +28,11 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 	if err != nil {
 		return err
 	}
-	txIn.Script, err = ReadScript(reader, MaxMessagePayload, "tx input signature script")
+	bytes, err := ReadScript(reader, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return err
 	}
+	txIn.Script = scripts.NewScriptRaw(bytes)
 	return protocol.ReadElement(reader, &txIn.Sequence)
 
 }
@@ -39,7 +41,7 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, txIn.Script)
+	err = utils.WriteVarBytes(writer, txIn.Script.Raw)
 	if err != nil {
 		return err
 	}
@@ -52,6 +54,6 @@ func (txIn *TxIn) Check() bool {
 }
 
 func NewTxIn(prevOut *OutPoint, pkScript []byte) *TxIn {
-	txIn := TxIn{PreviousOutPoint: prevOut, Script: pkScript, Sequence: MaxTxInSequenceNum}
+	txIn := TxIn{PreviousOutPoint: prevOut, Script: scripts.NewScriptRaw(pkScript), Sequence: MaxTxInSequenceNum}
 	return &txIn
 }

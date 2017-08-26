@@ -1,6 +1,7 @@
 package scripts
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -17,14 +18,13 @@ var p2SHScript = [23]byte{
 func TestNewScriptWithRaw(t *testing.T) {
 	cScript := NewScriptWithRaw(p2SHScript[:])
 	t.Logf("whether is P2SH script : %v\n", cScript.IsPayToScriptHash())
-	/*
-		num, err := cScript.GetSigOpCount()
-		if err != nil {
-			t.Error("Error : cScript.GetSigOpCount()")
-			return
-		}
-		t.Logf("getOpCount : %d\n", num)
-	*/
-	//stk, err := cScript.ParseScript()
-	//fmt.Println(stk, err)
+
+	num, err := cScript.GetSigOpCount()
+	if err != nil {
+		t.Error("Error : cScript.GetSigOpCount()")
+		return
+	}
+	t.Logf("getOpCount : %d\n", num)
+	stk, err := cScript.ParseScript()
+	fmt.Println(stk, err)
 }

@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/binary"
+	"github.com/btcboost/copernicus/scripts"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"io"
@@ -31,6 +32,15 @@ const (
 	MAX_TX_SIGOPS_COUNT = 20000
 
 	MAX_MONOY = 21000000
+
+	MAX_STANDARD_VERSION = 2
+
+	MaxTxInSequenceNum uint32 = 0xffffffff
+	FreeListMaxItems          = 12500
+	MaxMessagePayload         = 32 * 1024 * 1024
+	MinTxInPayload            = 9 + utils.HashSize
+	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
+	TxVersion                 = 1
 )
 
 type Tx struct {
@@ -39,16 +49,8 @@ type Tx struct {
 	Version  int32
 	Ins      []*TxIn
 	Outs     []*TxOut
+	ValState int
 }
-
-const (
-	MaxTxInSequenceNum uint32 = 0xffffffff
-	FreeListMaxItems          = 12500
-	MaxMessagePayload         = 32 * 1024 * 1024
-	MinTxInPayload            = 9 + utils.HashSize
-	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
-	TxVersion                 = 1
-)
 
 var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
 
@@ -141,7 +143,7 @@ func (tx *Tx) Deserialize(reader io.Reader) (err error) {
 			tx.returnScriptBuffers()
 			return
 		}
-		totalScriptSize += uint64(len(txIn.Script))
+		totalScriptSize += uint64(txIn.Script.Size())
 	}
 	count, err = utils.ReadVarInt(reader)
 	if err != nil {
@@ -180,6 +182,9 @@ func (tx *Tx) IsCoinBase() bool {
 }
 
 func (tx *Tx) CheckSelf() (bool, error) {
+	if tx.Version > MAX_STANDARD_VERSION || tx.Version < 1 {
+		return false, errors.New("error version")
+	}
 	if len(tx.Ins) == 0 || len(tx.Outs) == 0 {
 		return false, errors.New("no inputs or outputs")
 	}
@@ -191,6 +196,7 @@ func (tx *Tx) CheckSelf() (bool, error) {
 	TotalOutValue := int64(0)
 	TotalSigOpCount := int64(0)
 	TxOutsLen := len(tx.Outs)
+	//to do: check txOut's script is
 	for i := 0; i < TxOutsLen; i++ {
 		txOut := tx.Outs[i]
 		if txOut.Value < 0 {
@@ -211,7 +217,7 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		}
 	}
 
-	//todo: check ins' preout duplicate
+	//todo: check ins' preout duplicate at the same time
 	TxInsLen := len(tx.Ins)
 	for i := 0; i < TxInsLen; i++ {
 		txIn := tx.Ins[i]
@@ -219,9 +225,45 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		if TotalSigOpCount > MAX_TX_SIGOPS_COUNT {
 			return false, errors.Errorf("tx total SigOpCount:%d of all Outs and partial Ins from 0 to %d is too large", TotalSigOpCount, i)
 		}
-
+		if txIn.Script.Size() > 1650 {
+			return false, errors.Errorf("txIn %d has too long script", i)
+		}
+		if !txIn.Script.IsPushOnly() {
+			return false, errors.Errorf("txIn %d's script is not push script", i)
+		}
 	}
 	return true, nil
+}
+
+func (tx *Tx) CheckChain() (int, error) {
+	//TxInsLen := len(tx.Ins)
+	//for i := 0; i < TxInsLen; i++ {
+	//	PreTx := mempool.GetTx(tx.Ins[i].PreviousOutPoint.Hash)
+	//	if PreTx {
+	//		if PreTx.ValState == TX_ORPHAN {
+	//			return TX_ORPHAN, error.new("previous TX is orphan")
+	//		}
+	//		PreTxsOutTotalMoney += PreTx.Outs[tx.Ins[i].PreviousOutPoint.Index].Value
+	//	} else {
+	//		PreTx = UTXO.GetTx(tx.Ins[i].PreviousOutPoint.Hash)
+	//		if !PreTx {
+	//			return TX_ORPHAN, error.new("UTXO has no previous tx")
+	//		}
+	//		PreTxsOutTotalMoney += PreTx.Outs[tx.Ins[i].PreviousOutPoint.Index].Value
+	//	}
+	//}
+	//TxOutsLen := len(tx.Outs)
+	//for j := 0; j < TxOutsLen; j++ {
+	//	TotalOutsMoney += tx.Outs[j].Value
+	//}
+	//if PreTxsOutTotalMoney < TotalOutsMoney {
+	//	return TX_INVALID, error.new("Ins' money < outs' money")
+	//}
+	//
+	//for k := 0; k < TxInsLen; k++ {
+	//	tx.Ins[k].Script.Eval()
+	//}
+	return 0, nil
 }
 
 func (tx *Tx) returnScriptBuffers() {
@@ -229,7 +271,7 @@ func (tx *Tx) returnScriptBuffers() {
 		if txIn == nil || txIn.Script == nil {
 			continue
 		}
-		scriptPool.Return(txIn.Script)
+		scriptPool.Return(txIn.Script.Raw)
 	}
 	for _, txOut := range tx.Outs {
 		if txOut == nil || txOut.Script == nil {
@@ -263,13 +305,13 @@ func (tx *Tx) Copy() *Tx {
 		newOutPoint := OutPoint{Hash: &buf}
 		newOutPoint.Hash.SetBytes(txIn.PreviousOutPoint.Hash[:])
 		newOutPoint.Index = txIn.PreviousOutPoint.Index
-		scriptLen := len(txIn.Script)
+		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
-		copy(newScript, txIn.Script[:scriptLen])
+		copy(newScript[:], txIn.Script.Raw[:scriptLen])
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
 			PreviousOutPoint: &newOutPoint,
-			Script:           newScript,
+			Script:           scripts.NewScriptRaw(newScript),
 		}
 		newTx.Ins = append(newTx.Ins, &newTxTmp)
 	}
