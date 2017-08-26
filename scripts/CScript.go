@@ -3,7 +3,6 @@ package scripts
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 )
 
 const (
@@ -85,21 +84,18 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 		opcode := script.bytes[i]
 		parsedopCode := ParsedOpCode{opValue: opcode}
 		stk = append(stk, parsedopCode)
-		fmt.Println("----------- opcode : ", opcode, "  01------------")
 		if opcode < OP_PUSHDATA1 {
 			nSize = int(opcode)
 			parsedopCode.data = script.bytes[i : i+nSize]
-			fmt.Println("----------- opcode : ", opcode, "  02------------", parsedopCode.data)
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				err = errors.New("OP_PUSHDATA1 has no enough data")
 				return
 			}
-			nSize = i + 1                  //modify  2017-08-23
-			i += 1                         // add 2017-08-23
-			nSize = int(script.bytes[i+1]) // add 2017-08-23
+			nSize = i + 1
+			i++
+			nSize = int(script.bytes[i+1])
 			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
-			fmt.Println("----------- opcode : ", opcode, "  03------------", parsedopCode.data)
 		} else if opcode == OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
 				err = errors.New("OP_PUSHDATA2 has no enough data")
@@ -108,7 +104,6 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 			nSize = int(binary.LittleEndian.Uint16(script.bytes[:0]))
 			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
 			i += 2
-			fmt.Println("----------- opcode : ", opcode, "  04------------", parsedopCode.data)
 		} else if opcode == OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
 				err = errors.New("OP_PUSHDATA4 has no enough data")
@@ -117,7 +112,6 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 			parsedopCode.data = script.bytes[i+4 : i+4+nSize]
 			nSize = int(binary.LittleEndian.Uint32(script.bytes[:0]))
 			i += 4
-			fmt.Println("----------- opcode : ", opcode, "  05------------", parsedopCode.data)
 		}
 		if scriptLen-i < 0 || (scriptLen-i) < nSize {
 			err = errors.New("size is wrong")
