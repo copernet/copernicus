@@ -93,6 +93,9 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 				return
 			}
 			nSize = i + 1
+			i++
+			nSize = int(script.bytes[i+1])
+			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
 		} else if opcode == OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
 				err = errors.New("OP_PUSHDATA2 has no enough data")

@@ -205,4 +205,18 @@ func TestBlockChain_SkipBlock(t *testing.T) {
 		t.Error(err)
 		return
 	}
+
+	path := os.Getenv("GOPATH")
+	path += "/src/github.com/btcboost/copernicus/model"
+	err = os.Remove(blkFileName(path, testBlcokChain.CurrentID))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = os.Remove(blkFileName(path, testBlcokChain.CurrentID+1))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 }
