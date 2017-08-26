@@ -119,8 +119,33 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 	return
 
 }
-func (script *CScript) FindAndDelete(b *CScript) bool {
-	return false
+func (script *CScript) FindAndDelete(b *CScript) (bool, error) {
+	orginalParseCodes, err := script.ParseScript()
+	if err != nil {
+		return false, err
+	}
+	paramScript, err := b.ParseScript()
+	if err != nil {
+		return false, err
+	}
+	script.bytes = make([]byte, 0)
+
+	for i := 0; i < len(orginalParseCodes); i++ {
+		isDelete := false
+		parseCode := orginalParseCodes[i]
+		for j := 0; j < len(paramScript); j++ {
+			parseCodeOther := paramScript[j]
+			if parseCode.opValue == parseCodeOther.opValue {
+				isDelete = true
+			}
+		}
+		if !isDelete {
+			script.bytes = append(script.bytes, parseCode.opValue)
+			script.bytes = append(script.bytes, parseCode.data...)
+		}
+	}
+
+	return true, nil
 }
 
 func (script *CScript) Find(opcode int) bool {
