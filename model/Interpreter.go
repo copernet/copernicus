@@ -1,11 +1,10 @@
-package scripts
+package model
 
 import (
 	"fmt"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/model"
 	"github.com/pkg/errors"
 	"reflect"
 )
@@ -14,7 +13,7 @@ type Interpreter struct {
 	stack *algorithm.Stack
 }
 
-func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript, scriptPubKey *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *CScript, scriptPubKey *CScript, flags int32) (result bool, err error) {
 	if flags&core.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
 		err = core.ScriptErr(core.SCRIPT_ERR_SIG_PUSHONLY)
 		return
@@ -99,7 +98,7 @@ func (interpreter *Interpreter) Verify(tx *model.Tx, nIn int, scriptSig *CScript
 	return
 }
 
-func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Stack, script *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, script *CScript, flags int32) (result bool, err error) {
 	bnZero := NewCScriptNum(0)
 	bnOne := NewCScriptNum(1)
 	//bnFalse := NewCScriptNum(0)
@@ -271,7 +270,7 @@ func (interpreter *Interpreter) Exec(tx *model.Tx, nIn int, stack *algorithm.Sta
 					// To provide for future soft-fork extensibility, if the
 					// operand has the disabled lock-time flag set,
 					// CHECKSEQUENCEVERIFY behaves as a NOP.
-					if nSequence.Value&model.SEQUENCE_LOCKTIME_DISABLE_FLAG == model.SEQUENCE_LOCKTIME_DISABLE_FLAG {
+					if nSequence.Value&SEQUENCE_LOCKTIME_DISABLE_FLAG == SEQUENCE_LOCKTIME_DISABLE_FLAG {
 						break
 					}
 					if !CheckSequence(nSequence.Value, int64(tx.Ins[nIn].Sequence), tx.Version) {

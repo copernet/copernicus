@@ -1,8 +1,7 @@
-package scripts
+package model
 
 import (
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
@@ -88,12 +87,12 @@ func CheckSequence(sequence int64, txToSequence int64, version int32) bool {
 	// constrained. Testing that the transaction's sequence number do not have
 	// this bit set prevents using this property to get around a
 	// CHECKSEQUENCEVERIFY check.
-	if txToSequence&model.SEQUENCE_LOCKTIME_DISABLE_FLAG == 1 {
+	if txToSequence&SEQUENCE_LOCKTIME_DISABLE_FLAG == 1 {
 		return false
 	}
 	// Mask off any bits that do not have consensus-enforced meaning before
 	// doing the integer comparisons
-	nLockTimeMask := model.SEQUENCE_LOCKTIME_TYPE_FLAG | model.SEQUENCE_LOCKTIME_MASK
+	nLockTimeMask := SEQUENCE_LOCKTIME_TYPE_FLAG | SEQUENCE_LOCKTIME_MASK
 	txToSequenceMasked := txToSequence & int64(nLockTimeMask)
 	nSequenceMasked := sequence & int64(nLockTimeMask)
 
@@ -104,8 +103,8 @@ func CheckSequence(sequence int64, txToSequence int64, version int32) bool {
 	// We want to compare apples to apples, so fail the script unless the type
 	// of nSequenceMasked being tested is the same as the nSequenceMasked in the
 	// transaction.
-	if !(txToSequenceMasked < model.SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked < model.SEQUENCE_LOCKTIME_TYPE_FLAG) ||
-		(txToSequenceMasked >= model.SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= model.SEQUENCE_LOCKTIME_TYPE_FLAG) {
+	if !(txToSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG) ||
+		(txToSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG) {
 		return false
 	}
 	if nSequenceMasked > txToSequenceMasked {

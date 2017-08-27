@@ -1,8 +1,9 @@
-package scripts
+package model
 
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -79,7 +80,8 @@ func (script *CScript) ParseScript() (stk []ParsedOpCode, err error) {
 	stk = make([]ParsedOpCode, 0, len(script.bytes))
 	scriptLen := len(script.bytes)
 
-	for i := 0; i < scriptLen; {
+	for i := 0; i < scriptLen; i++ {
+		fmt.Print(i)
 		var nSize int
 		opcode := script.bytes[i]
 		parsedopCode := ParsedOpCode{opValue: opcode}

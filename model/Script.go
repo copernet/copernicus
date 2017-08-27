@@ -1,4 +1,4 @@
-package scripts
+package model
 
 //todo as the same assign values
 

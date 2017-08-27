@@ -3,14 +3,13 @@ package model
 import (
 	"encoding/binary"
 	"github.com/btcboost/copernicus/protocol"
-	"github.com/btcboost/copernicus/scripts"
 	"github.com/btcboost/copernicus/utils"
 	"io"
 )
 
 type TxIn struct {
 	PreviousOutPoint *OutPoint
-	Script           *scripts.Script
+	Script           *Script
 	Sequence         uint32 //todo ?
 	SigOpCount       int
 }
@@ -32,7 +31,7 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 	if err != nil {
 		return err
 	}
-	txIn.Script = scripts.NewScriptRaw(bytes)
+	txIn.Script = NewScriptRaw(bytes)
 	return protocol.ReadElement(reader, &txIn.Sequence)
 
 }
@@ -54,6 +53,6 @@ func (txIn *TxIn) Check() bool {
 }
 
 func NewTxIn(prevOut *OutPoint, pkScript []byte) *TxIn {
-	txIn := TxIn{PreviousOutPoint: prevOut, Script: scripts.NewScriptRaw(pkScript), Sequence: MaxTxInSequenceNum}
+	txIn := TxIn{PreviousOutPoint: prevOut, Script: NewScriptRaw(pkScript), Sequence: MaxTxInSequenceNum}
 	return &txIn
 }

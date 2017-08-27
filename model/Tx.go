@@ -2,7 +2,7 @@ package model
 
 import (
 	"encoding/binary"
-	"github.com/btcboost/copernicus/scripts"
+
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"io"
@@ -311,7 +311,7 @@ func (tx *Tx) Copy() *Tx {
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
 			PreviousOutPoint: &newOutPoint,
-			Script:           scripts.NewScriptRaw(newScript),
+			Script:           NewScriptRaw(newScript),
 		}
 		newTx.Ins = append(newTx.Ins, &newTxTmp)
 	}

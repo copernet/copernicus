@@ -1,4 +1,4 @@
-package scripts
+package model
 
 const (
 	OP_0         = 0x00
