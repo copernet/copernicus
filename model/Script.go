@@ -124,7 +124,7 @@ func (script *Script) PushScriptNum(scriptNum *CScriptNum) {
 func (script *Script) PushData(data []byte) {
 	dataLen := len(data)
 	if dataLen < OP_PUSHDATA1 {
-		data[dataLen-1] = byte(dataLen)
+		script.bytes = append(script.bytes, byte(dataLen))
 	} else if dataLen <= 0xff {
 		script.bytes = append(script.bytes, OP_PUSHDATA1)
 		script.bytes = append(script.bytes, byte(dataLen))

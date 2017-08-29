@@ -1,11 +1,9 @@
 package model
 
-/*
 import (
 	"bytes"
 	"testing"
 )
-
 
 var p2SHScript = [23]byte{
 	OP_HASH160,
@@ -128,4 +126,3 @@ func TestCScript_PushData(t *testing.T) {
 		t.Error("The Two []byte should be equal")
 	}
 }
-*/
