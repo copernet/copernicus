@@ -55,7 +55,7 @@ func (b BinaryFreeList) Uint16(r io.Reader, byteOrder binary.ByteOrder) (uint16,
 	return rv, nil
 }
 func (b BinaryFreeList) Uint32(r io.Reader, byteOrder binary.ByteOrder) (uint32, error) {
-	buf := b.BorrowFront8()
+	buf := b.BorrowFront8()[:4]
 	if _, err := io.ReadFull(r, buf); err != nil {
 		b.Return(buf)
 		return 0, err
