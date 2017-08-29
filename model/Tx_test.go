@@ -1,62 +1,83 @@
 package model
 
-/*
 import (
-	"bytes"
 	"github.com/btcboost/copernicus/utils"
 
+	"bytes"
+	"os"
 	"testing"
 )
 
 var testNewTx *Tx
 
-func TestNewTx(t *testing.T) {
-	testNewTx = NewTx()
-	t.Log(testNewTx)
-
-}
-
 func TestTx_AddTxIn(t *testing.T) {
-	var buf utils.Hash
-	copy(buf[:], "adbasg7wy7yswdwiuyc78sayxchwuniuhy")
+	var buf = utils.Hash{
+		0x60, 0x46, 0x21, 0xeb, 0x7b, 0x9c, 0xcf, 0x44,
+		0xb2, 0x12, 0xe6, 0x7b, 0x1c, 0x04, 0x80, 0x32,
+		0x58, 0x6c, 0xe0, 0xcf, 0x5b, 0x36, 0xb8, 0x0b,
+		0xe6, 0x01, 0x09, 0xae, 0x3b, 0xb6, 0xb5, 0x58,
+	}
+
+	testNewTx = NewTx()
 	testNewTx.Hash = buf
 
-	myOutPut := NewOutPoint(&buf, 10)
-	myString := "hwd7yduncue0qe01ie8dhuscb3etde21gdahsbchqbw1y278"
-	mySigscript := make([]byte, len(myString))
-	copy(mySigscript, myString)
-	myTxIn := NewTxIn(myOutPut, mySigscript)
+	myOutPut := NewOutPoint(&buf, 1)
+	myScriptSig := []byte{0x16, 0x00, 0x14, 0xc3, 0xe2, 0x27, 0x9d,
+		0x2a, 0xc7, 0x30, 0xbd, 0x33, 0xc4, 0x61, 0x74,
+		0x4d, 0x8e, 0xd8, 0xe8, 0x11, 0xf8, 0x05, 0xdb}
+
+	myTxIn := NewTxIn(myOutPut, myScriptSig)
 
 	testNewTx.AddTxIn(myTxIn)
 }
 
 func TestTx_AddTxOut(t *testing.T) {
-
-	outScript := make([]byte, 90)
-	txOut := NewTxOut(999, outScript[:])
-
+	script := [...]byte{0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
+	txOut := NewTxOut(9, script[:])
 	testNewTx.AddTxOut(txOut)
-	t.Log(testNewTx.SerializeSize())
-	t.Log(testNewTx)
 }
 
 func TestTx_Copy(t *testing.T) {
 
 	copyTx := testNewTx.Copy()
-	t.Log("copyTx : ", copyTx.SerializeSize())
-	t.Log("copyTx : ", copyTx)
+	if len(copyTx.Ins) != 1 {
+		t.Error("should have 1 input")
+	}
+	if len(copyTx.Outs) != 1 {
+		t.Error("should have 1 outPut")
+	}
 }
 
 func TestTx_Serialize(t *testing.T) {
 
-	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
-	err := testNewTx.Serialize(buf)
-	checkErr(err)
-}
+	file, err := os.OpenFile("tmp.txt", os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		t.Error(err)
+	}
 
-func TestTx_Deserialize(t *testing.T) {
+	err = testNewTx.Serialize(file)
+	if err != nil {
+		t.Error(err)
+	}
 
-	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
-	testNewTx.Deserialize(buf)
+	file.Seek(0, 0)
+
+	txDeseria := &Tx{}
+	txDeseria.Deserialize(file)
+	if len(txDeseria.Outs) != 1 {
+		t.Error("should have 1 output")
+	}
+	if !bytes.Equal(txDeseria.Ins[0].Script.bytes, testNewTx.Ins[0].Script.bytes) {
+		t.Error("The two []byte should be equal")
+	}
+	if txDeseria.Ins[0].PreviousOutPoint.Index != testNewTx.Ins[0].PreviousOutPoint.Index {
+		t.Error("the two index should be equal")
+	}
+
+	err = os.Remove("tmp.txt")
+	if err != nil {
+		t.Error(err)
+	}
+
 }
-*/

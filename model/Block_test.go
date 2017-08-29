@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -24,8 +25,15 @@ func TestParseBlock(t *testing.T) {
 	blockHeadFirst, err := ParseBlock(rawByte[:])
 	if err != nil {
 		t.Error(err)
-		return
 	}
-	t.Logf("Tish Block Hash : %v, block.version : %d, block.PrevBlock : %s, block.MerkleRoot : %s, block.Nonce : %d, block.Bits ： %d\n",
-		blockHeadFirst.Hash, blockHeadFirst.Version, blockHeadFirst.PrevBlock, blockHeadFirst.MerkleRoot, blockHeadFirst.Nonce, blockHeadFirst.Bits)
+	if !bytes.Equal(blockHeadFirst.Raw, rawByte[:]) {
+		t.Error("The two slice should be equal ")
+	}
+
+	if blockHeadFirst.Version != 1 {
+		t.Error("err : the version should be 1")
+	}
+	if blockHeadFirst.Size != uint32(len(rawByte)) {
+		t.Error("The size should be equal")
+	}
 }
