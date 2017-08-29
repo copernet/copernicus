@@ -40,7 +40,7 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, txIn.Script.Raw)
+	err = utils.WriteVarBytes(writer, txIn.Script.bytes)
 	if err != nil {
 		return err
 	}

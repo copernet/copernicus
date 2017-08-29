@@ -13,7 +13,7 @@ type Interpreter struct {
 	stack *algorithm.Stack
 }
 
-func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *CScript, scriptPubKey *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scriptPubKey *Script, flags int32) (result bool, err error) {
 	if flags&core.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
 		err = core.ScriptErr(core.SCRIPT_ERR_SIG_PUSHONLY)
 		return
@@ -98,7 +98,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *CScript, scri
 	return
 }
 
-func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, script *CScript, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, script *Script, flags int32) (result bool, err error) {
 	bnZero := NewCScriptNum(0)
 	bnOne := NewCScriptNum(1)
 	//bnFalse := NewCScriptNum(0)
@@ -1116,7 +1116,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 	return true, nil
 }
 
-func CleanupScriptCode(scriptCode *CScript, vchSig []byte, flags int32) {
+func CleanupScriptCode(scriptCode *Script, vchSig []byte, flags int32) {
 	nHashType := GetHashType(vchSig)
 	fmt.Print(nHashType)
 	scriptCode.FindAndDelete(scriptCode)

@@ -9,7 +9,7 @@ import (
 
 type TxSignatureSerializer struct {
 	txTo       *Tx
-	script     *CScript
+	script     *Script
 	nIn        int
 	hashSingle bool
 	hashNone   bool
@@ -50,7 +50,7 @@ func GetOutputsHash(tx *Tx) (utils.Hash, error) {
 	return core.DoubleSha256Hash(buf.Bytes()), nil
 
 }
-func GetScriptBytes(script *CScript) (bytes []byte, err error) {
+func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	stk, err := script.ParseScript()
 	if err != nil {
 		return
@@ -70,7 +70,7 @@ func GetScriptBytes(script *CScript) (bytes []byte, err error) {
 	return
 }
 
-func SignatureHash(tx *Tx, script *CScript, hashType int, nIn int) (result *utils.Hash, err error) {
+func SignatureHash(tx *Tx, script *Script, hashType int, nIn int) (result *utils.Hash, err error) {
 	if (hashType&0x1f == core.SIGHASH_SINGLE) &&
 		nIn >= len(tx.Outs) {
 		return &utils.HashOne, nil

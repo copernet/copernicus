@@ -271,7 +271,7 @@ func (tx *Tx) returnScriptBuffers() {
 		if txIn == nil || txIn.Script == nil {
 			continue
 		}
-		scriptPool.Return(txIn.Script.Raw)
+		scriptPool.Return(txIn.Script.bytes)
 	}
 	for _, txOut := range tx.Outs {
 		if txOut == nil || txOut.Script == nil {
@@ -307,7 +307,7 @@ func (tx *Tx) Copy() *Tx {
 		newOutPoint.Index = txIn.PreviousOutPoint.Index
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
-		copy(newScript[:], txIn.Script.Raw[:scriptLen])
+		copy(newScript[:], txIn.Script.bytes[:scriptLen])
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
 			PreviousOutPoint: &newOutPoint,
