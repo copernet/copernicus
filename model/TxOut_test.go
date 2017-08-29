@@ -9,13 +9,14 @@ import (
 var testTxout *TxOut
 
 func TestNewTxOut(t *testing.T) {
-	script := [...]byte{0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+
+	script := [...]byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
 	testTxout = NewTxOut(9, script[:])
 	if testTxout.Value != 9 {
 		t.Error("The value should be 9 instead of ", testTxout.Value)
 	}
-	if !bytes.Equal(testTxout.Script, script[:]) {
+	if !bytes.Equal(testTxout.Script.bytes, script[:]) {
 		t.Error("this data should be equal")
 	}
 }
@@ -43,11 +44,11 @@ func TestSerialize(t *testing.T) {
 		t.Error("The value should be equal", txOutRead.Value, " : ", testTxout.Value)
 	}
 
-	if !bytes.Equal(txOutRead.Script, testTxout.Script) {
+	if !bytes.Equal(txOutRead.Script.bytes, testTxout.Script.bytes) {
 		t.Error("The two []byte data should be equal ", txOutRead.Script, " : ", testTxout.Script)
 	}
 
-	if testTxout.SerializeSize() != 29 {
+	if testTxout.SerializeSize() != 30 {
 		t.Error("the serialSize should be 29 instead of ", testTxout.SerializeSize())
 	}
 
@@ -55,4 +56,5 @@ func TestSerialize(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
 }

@@ -164,7 +164,7 @@ func (tx *Tx) Deserialize(reader io.Reader) (err error) {
 			tx.returnScriptBuffers()
 			return
 		}
-		totalScriptSize += uint64(len(txOut.Script))
+		totalScriptSize += uint64(txOut.Script.Size())
 	}
 
 	tx.LockTime, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
@@ -277,7 +277,7 @@ func (tx *Tx) returnScriptBuffers() {
 		if txOut == nil || txOut.Script == nil {
 			continue
 		}
-		scriptPool.Return(txOut.Script)
+		scriptPool.Return(txOut.Script.bytes)
 	}
 }
 func (tx *Tx) Copy() *Tx {
@@ -290,13 +290,13 @@ func (tx *Tx) Copy() *Tx {
 	newTx.Hash = tx.Hash
 
 	for _, txOut := range tx.Outs {
-		scriptLen := len(txOut.Script)
+		scriptLen := len(txOut.Script.bytes)
 		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.Script[:scriptLen])
+		copy(newOutScript, txOut.Script.bytes[:scriptLen])
 
 		newTxOut := TxOut{
 			Value:  txOut.Value,
-			Script: newOutScript,
+			Script: NewScriptRaw(newOutScript),
 		}
 		newTx.Outs = append(newTx.Outs, &newTxOut)
 	}

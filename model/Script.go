@@ -155,6 +155,7 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 		if opcode < OP_PUSHDATA1 {
 			nSize = int(opcode)
 			parsedopCode.data = script.bytes[i+1 : i+1+nSize]
+
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				err = errors.New("OP_PUSHDATA1 has no enough data")
@@ -163,6 +164,7 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 			nSize = int(script.bytes[i+1])
 			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
 			i++
+
 		} else if opcode == OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
 				err = errors.New("OP_PUSHDATA2 has no enough data")

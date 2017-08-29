@@ -32,14 +32,14 @@ func TestTx_AddTxIn(t *testing.T) {
 }
 
 func TestTx_AddTxOut(t *testing.T) {
-	script := [...]byte{0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+	script := [...]byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
 	txOut := NewTxOut(9, script[:])
 	testNewTx.AddTxOut(txOut)
+
 }
 
 func TestTx_Copy(t *testing.T) {
-
 	copyTx := testNewTx.Copy()
 	if len(copyTx.Ins) != 1 {
 		t.Error("should have 1 input")
@@ -47,6 +47,7 @@ func TestTx_Copy(t *testing.T) {
 	if len(copyTx.Outs) != 1 {
 		t.Error("should have 1 outPut")
 	}
+
 }
 
 func TestTx_Serialize(t *testing.T) {
@@ -79,5 +80,4 @@ func TestTx_Serialize(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 }
