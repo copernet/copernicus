@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -16,15 +15,19 @@ var p2SHScript = [23]byte{
 }
 
 func TestNewScriptWithRaw(t *testing.T) {
-	cScript := NewScriptWithRaw(p2SHScript[:])
-	t.Logf("whether is P2SH script : %v\n", cScript.IsPayToScriptHash())
-
-	num, err := cScript.GetSigOpCount()
-	if err != nil {
-		t.Error("Error : cScript.GetSigOpCount()")
-		return
+	script := NewScriptWithRaw(p2SHScript[:])
+	if !script.IsPayToScriptHash() {
+		t.Errorf("whether is P2SH script : %v\n", script.IsPayToScriptHash())
 	}
-	t.Logf("getOpCount : %d\n", num)
-	stk, err := cScript.ParseScript()
-	fmt.Println(stk, err)
+	num, err := script.GetSigOpCount()
+	if err != nil {
+		t.Error("Error : CScript.GetSigOpCount failed")
+	}
+	if num != 0 {
+		t.Errorf("Error: num is %d not 0 ", num)
+	}
+	//stk, err := script.ParseScript()
+	//if len(stk) != 2 {
+	//	t.Errorf("Error: ParseScript is %d not 2 ", len(stk))
+	//}
 }
