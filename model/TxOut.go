@@ -10,11 +10,11 @@ import (
 type TxOut struct {
 	Value      int64
 	SigOpCount int
-	Script     []byte
+	Script     *Script
 }
 
 func (txOut *TxOut) SerializeSize() int {
-	return 8 + utils.VarIntSerializeSize(uint64(len(txOut.Script))) + len(txOut.Script)
+	return 8 + utils.VarIntSerializeSize(uint64(txOut.Script.Size())) + txOut.Script.Size()
 }
 
 func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
@@ -22,7 +22,8 @@ func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
 	if err != nil {
 		return err
 	}
-	txOut.Script, err = ReadScript(reader, MaxMessagePayload, "tx output script")
+	bytes, err := ReadScript(reader, MaxMessagePayload, "tx output script")
+	txOut.Script = NewScriptRaw(bytes)
 	return err
 }
 func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
@@ -30,7 +31,7 @@ func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	return utils.WriteVarBytes(writer, txOut.Script)
+	return utils.WriteVarBytes(writer, txOut.Script.bytes)
 
 }
 func (txOut *TxOut) Check() bool {
@@ -40,7 +41,7 @@ func (txOut *TxOut) Check() bool {
 func NewTxOut(value int64, pkScript []byte) *TxOut {
 	txOut := TxOut{
 		Value:  value,
-		Script: pkScript,
+		Script: NewScriptRaw(pkScript),
 	}
 	return &txOut
 }
