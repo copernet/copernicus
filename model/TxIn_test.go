@@ -17,9 +17,9 @@ func TestNewTxIn(t *testing.T) {
 	}
 	testOutPut := NewOutPoint(&buf, 10)
 
-	myString := "hwd7yduncue0qe01ie8dhuscb3etde21gdahsbchqbw1y278"
-	mySigscript := make([]byte, len(myString))
-	copy(mySigscript, myString)
+	sigScript := []byte{0x04, 0x31, 0xdc, 0x00, 0x1b, 0x01, 0x62}
+	mySigscript := make([]byte, len(sigScript))
+	copy(mySigscript, sigScript)
 	testTxIn = NewTxIn(testOutPut, mySigscript)
 }
 

@@ -3,22 +3,23 @@ package model
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const (
 	DEFAULT_SIZE = 28
-	
+
 	// MAX_PUBKEYS_PER_MULTISIG :  Maximum number of public keys per multisig
 	MAX_PUBKEYS_PER_MULTISIG = 20
-	
+
 	// LOCKTIME_THRESHOLD Threshold for nLockTime: below this value it is interpreted as block number,
 	// otherwise as UNIX timestamp. Thresold is Tue Nov 5 00:53:20 1985 UTC
 	LOCKTIME_THRESHOLD = 500000000
-	
+
 	// SEQUENCE_FINAL Setting nSequence to this value for every input in a transaction
 	// disables nLockTime.
 	SEQUENCE_FINAL = 0xffffffff
-	
+
 	MAX_SCRIPT_SIZE         = 10000
 	MAX_SCRIPT_ELEMENT_SIZE = 520
 	MAX_SCRIPT_OPCODES      = 201
@@ -37,7 +38,7 @@ func (script *Script) ConvertRaw() {
 		script.bytes = append(script.bytes, parsedOpcode.opValue)
 		script.bytes = append(script.bytes, parsedOpcode.data...)
 	}
-	
+
 }
 
 func (script *Script) ConvertOPS() error {
@@ -58,7 +59,7 @@ func (script *Script) IsPayToScriptHash() bool {
 		script.bytes[0] == OP_HASH160 &&
 		script.bytes[1] == 0x14 &&
 		script.bytes[22] == OP_EQUAL
-	
+
 }
 
 func CheckMinimalPush(data []byte, opcode int32) bool {
@@ -88,7 +89,7 @@ func CheckMinimalPush(data []byte, opcode int32) bool {
 		return opcode == OP_PUSHDATA2
 	}
 	return true
-	
+
 }
 
 func NewScriptRaw(bytes []byte) *Script {
@@ -98,7 +99,7 @@ func NewScriptRaw(bytes []byte) *Script {
 }
 
 func (script *Script) PushInt64(n int64) {
-	
+
 	if n == -1 || (n >= 1 && n <= 16) {
 		script.bytes[len(script.bytes)-1] = byte(n + (OP_1 - 1))
 	} else if n == 0 {
@@ -133,7 +134,7 @@ func (script *Script) PushData(data []byte) {
 		buf := make([]byte, 2)
 		binary.LittleEndian.PutUint16(buf, uint16(dataLen))
 		script.bytes = append(script.bytes, buf...)
-		
+
 	} else {
 		script.bytes = append(script.bytes, OP_PUSHDATA4)
 		buf := make([]byte, 4)
@@ -146,7 +147,7 @@ func (script *Script) PushData(data []byte) {
 func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 	stk = make([]ParsedOpCode, 0)
 	scriptLen := len(script.bytes)
-	
+
 	for i := 0; i < scriptLen; i++ {
 		var nSize int
 		opcode := script.bytes[i]
@@ -154,7 +155,9 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 		stk = append(stk, parsedopCode)
 		if opcode < OP_PUSHDATA1 {
 			nSize = int(opcode)
-			parsedopCode.data = script.bytes[i: i+nSize]
+			fmt.Println(i, i+nSize, len(script.bytes))
+			parsedopCode.data = script.bytes[i : i+nSize]
+
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				err = errors.New("OP_PUSHDATA1 has no enough data")
@@ -163,21 +166,21 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 			nSize = i + 1
 			i++
 			nSize = int(script.bytes[i+1])
-			parsedopCode.data = script.bytes[i+2: i+2+nSize]
+			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
 		} else if opcode == OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
 				err = errors.New("OP_PUSHDATA2 has no enough data")
 				return
 			}
 			nSize = int(binary.LittleEndian.Uint16(script.bytes[:0]))
-			parsedopCode.data = script.bytes[i+2: i+2+nSize]
+			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
 			i += 2
 		} else if opcode == OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
 				err = errors.New("OP_PUSHDATA4 has no enough data")
 				return
 			}
-			parsedopCode.data = script.bytes[i+4: i+4+nSize]
+			parsedopCode.data = script.bytes[i+4 : i+4+nSize]
 			nSize = int(binary.LittleEndian.Uint32(script.bytes[:0]))
 			i += 4
 		}
@@ -188,7 +191,7 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 		i += nSize
 	}
 	return
-	
+
 }
 func (script *Script) FindAndDelete(b *Script) (bool, error) {
 	orginalParseCodes, err := script.ParseScript()
@@ -200,7 +203,7 @@ func (script *Script) FindAndDelete(b *Script) (bool, error) {
 		return false, err
 	}
 	script.bytes = make([]byte, 0)
-	
+
 	for i := 0; i < len(orginalParseCodes); i++ {
 		isDelete := false
 		parseCode := orginalParseCodes[i]
@@ -215,7 +218,7 @@ func (script *Script) FindAndDelete(b *Script) (bool, error) {
 			script.bytes = append(script.bytes, parseCode.data...)
 		}
 	}
-	
+
 	return true, nil
 }
 
@@ -246,7 +249,7 @@ func (script *Script) IsPushOnly() bool {
 		}
 	}
 	return true
-	
+
 }
 func (script *Script) GetSigOpCount() (int, error) {
 	if !script.IsPayToScriptHash() {
@@ -284,7 +287,7 @@ func (script *Script) GetSigOpCountWithAccurate(accurate bool) (int, error) {
 				opn, err := DecodeOPN(lastOpcode)
 				if err != nil {
 					return 0, err
-					
+
 				}
 				n += opn
 			} else {
