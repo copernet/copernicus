@@ -63,11 +63,23 @@ func (tx *Tx) AddTxOut(txOut *TxOut) {
 }
 
 func (tx *Tx) RemoveTxIn(txIn *TxIn) {
-
+	ret := tx.Ins[:0]
+	for _, e := range tx.Ins {
+		if e != txIn {
+			ret = append(ret, e)
+		}
+	}
+	tx.Ins = ret
 }
 
 func (tx *Tx) RemoveTxOut(txOut *TxOut) {
-
+	ret := tx.Outs[:0]
+	for _, e := range tx.Outs {
+		if e != txOut {
+			ret = append(ret, e)
+		}
+	}
+	tx.Outs = ret
 }
 
 func (tx *Tx) SerializeSize() int {
