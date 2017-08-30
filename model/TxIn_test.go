@@ -28,18 +28,20 @@ func TestNewTxIn(t *testing.T) {
 
 	testTxIn = NewTxIn(outPut, sigScript)
 	if !bytes.Equal(testTxIn.Script.bytes, myScriptSig) {
-		t.Error("the two slice should be equal")
+		t.Errorf("NewTxIn() assignment txInputScript data %v "+
+			"should be origin scriptSig data %v", testTxIn.Script.bytes, myScriptSig)
 	}
 	if testTxIn.PreviousOutPoint.Index != 1 {
 		t.Error("The preOut index should be 1 instead of ", testTxIn.PreviousOutPoint.Index)
 	}
 	if !bytes.Equal(testTxIn.PreviousOutPoint.Hash[:], preHash[:]) {
-		t.Error("The two slice should be equal")
+		t.Errorf("NewTxIn() assignment PreOutputHash data %v "+
+			"should be origin preHash data %v", testTxIn.PreviousOutPoint.Hash, preHash)
 	}
 
 }
 
-func TestTxIn_Serialize(t *testing.T) {
+func TestTxInSerialize(t *testing.T) {
 
 	file, err := os.OpenFile("tmp1.txt", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -66,13 +68,16 @@ func TestTxIn_Serialize(t *testing.T) {
 	}
 
 	if !bytes.Equal(txInRead.Script.bytes, testTxIn.Script.bytes) {
-		t.Error("The two slice should be equal")
+		t.Errorf("Deserialize() return the script data %v "+
+			"should be equal origin srcipt data %", txInRead.Script.bytes, testTxIn.Script.bytes)
 	}
 	if txInRead.PreviousOutPoint.Index != testTxIn.PreviousOutPoint.Index {
-		t.Error("The two index should be equal")
+		t.Errorf("Deserialize() return the index data %d "+
+			"should be equal origin index data %d", txInRead.PreviousOutPoint.Index, testTxIn.PreviousOutPoint.Index)
 	}
 	if !bytes.Equal(txInRead.PreviousOutPoint.Hash[:], testTxIn.PreviousOutPoint.Hash[:]) {
-		t.Error("The two slice should be equal")
+		t.Errorf("Deserialize() return the preOutputHash data %v "+
+			"should be equal origin hash data %", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
 	}
 
 	err = os.Remove("tmp1.txt")
@@ -80,18 +85,4 @@ func TestTxIn_Serialize(t *testing.T) {
 		t.Error(err)
 	}
 
-}
-
-func TestTxIn_Deserialize(t *testing.T) {
-
-	buf := bytes.NewBuffer(make([]byte, MaxMessagePayload))
-	testOutPut := &OutPoint{}
-	testOutPut.Hash = new(utils.Hash)
-	myTxInNew := &TxIn{PreviousOutPoint: testOutPut}
-	myTxInNew.Deserialize(buf, 1)
-	t.Log(myTxInNew)
-}
-
-func TestTxIn_SerializeSize(t *testing.T) {
-	t.Log("Size : ", testTxIn.SerializeSize())
 }

@@ -27,19 +27,19 @@ var p2PKHScript = [...]byte{
 	OP_CHECKSIG,
 }
 
-func TestScript_ParseScript(t *testing.T) {
+func TestScriptParseScript(t *testing.T) {
 	p2shScript := NewScriptWithRaw(p2SHScript[:])
 	if !p2shScript.IsPayToScriptHash() {
-		t.Error("should be true instead of false")
+		t.Errorf("the script is P2SH should be true instead of false")
 	}
 
 	stk, err := p2shScript.ParseScript()
 	if len(stk) != 3 || err != nil {
-		t.Error("should have 3 ParsedOpCode , The err : ", err)
+		t.Errorf("the P2SH script should have 3 ParsedOpCode struct instead of %d"+
+			" The err : %v", len(stk), err)
 	}
 
 	for i, parseCode := range stk {
-		//t.Errorf("parse index %d  : 0x%x, dataLenth  be  %d ", i, parseCode.opValue, len(stk[i].data))
 		if i == 0 {
 			if stk[i].opValue != OP_HASH160 || len(stk[i].data) != 0 {
 				t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
@@ -62,12 +62,13 @@ func TestScript_ParseScript(t *testing.T) {
 
 	p2pkhScript := NewScriptWithRaw(p2PKHScript[:])
 	if p2pkhScript.IsPayToScriptHash() {
-		t.Error("should be false, The script is P2PKH")
+		t.Error("script is P2PKH should be false instead of true")
 	}
 
 	stk, err = p2pkhScript.ParseScript()
 	if len(stk) != 5 || err != nil {
-		t.Error("should have 5 ParsedOpCode , The err : ", err)
+		t.Errorf("the P2PKH script should have 5 ParsedOpCode struct instead of %d"+
+			" The err : %v", len(stk), err)
 	}
 
 	for i, parseCode := range stk {
@@ -101,7 +102,7 @@ func TestScript_ParseScript(t *testing.T) {
 
 }
 
-func TestCScript_PushData(t *testing.T) {
+func TestCScriptPushData(t *testing.T) {
 	script := NewScriptWithRaw(make([]byte, 0))
 
 	err := script.PushOpCode(OP_HASH160)
@@ -123,6 +124,7 @@ func TestCScript_PushData(t *testing.T) {
 	}
 
 	if !bytes.Equal(script.bytes, p2SHScript[:]) {
-		t.Error("The Two []byte should be equal")
+		t.Errorf("push data and OpCode composition script %v "+
+			"should be equal origin script data %v", script.bytes, p2SHScript)
 	}
 }

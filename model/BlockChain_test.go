@@ -25,7 +25,8 @@ func TestParseBlockchain(t *testing.T) {
 		t.Error("The file Not Open")
 	}
 	if !bytes.Equal(testBlcokChain.Magic[:], magic[:]) {
-		t.Error("The two slice should be equal")
+		t.Errorf("ParseBlockchain() assignment magic data %v"+
+			"should be equal the origin magic data %v", testBlcokChain.Magic, magic)
 	}
 }
 
@@ -76,7 +77,7 @@ func creatBlockChiain() (*BlockChain, error) {
 	return testBlcokChain, nil
 }
 
-func TestBlockChain_FetchNextBlock(t *testing.T) {
+func TestBlockChainFetchNextBlock(t *testing.T) {
 
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
@@ -110,11 +111,12 @@ func TestBlockChain_FetchNextBlock(t *testing.T) {
 	}
 
 	if !bytes.Equal(raw, rawByte[:]) {
-		t.Errorf(" FetchNextBlock() return raw Not equal origin raw data")
+		t.Errorf(" FetchNextBlock() return raw data %v "+
+			"should be equal origin raw data : %v", raw, rawByte)
 	}
 }
 
-func TestBlockChain_SkipTo(t *testing.T) {
+func TestBlockChainSkipTo(t *testing.T) {
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)
@@ -148,9 +150,9 @@ func WriteNextFile() error {
 	return err
 }
 
-func TestBlockChain_NextBlock(t *testing.T) {
+func TestBlockChainNextBlock(t *testing.T) {
 	err := WriteNextFile()
-	if err != nil{
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -166,12 +168,13 @@ func TestBlockChain_NextBlock(t *testing.T) {
 	}
 
 	if !bytes.Equal(block.Raw[:], rawByte[:]) {
-		t.Error("the two slice should be equal")
+		t.Errorf("NextBlock return the raw data %v"+
+			"should be equal origin raw data %v", block.Raw, rawByte)
 	}
 
 }
 
-func TestBlockChain_BestBlockHash(t *testing.T) {
+func TestBlockChainBestBlockHash(t *testing.T) {
 
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
@@ -193,15 +196,17 @@ func TestBlockChain_BestBlockHash(t *testing.T) {
 	}
 
 	if !bytes.Equal(hash[:], testBlcokChain.LastBlock.Hash[:]) {
-		t.Error("The two slice should be eqaul")
+		t.Errorf("BestBlockHash() return the hash %v "+
+			"should be eqaul origin hash data %v", hash, testBlcokChain.LastBlock.Hash)
 	}
 	if testBlcokChain.LastBlock.Height != height {
-		t.Error("the two height should be equal")
+		t.Errorf("BestBlockHash() return the height %d"+
+			"should be equal origin height %d", height, testBlcokChain.LastBlock.Height)
 	}
 
 }
 
-func TestBlockChain_SkipBlock(t *testing.T) {
+func TestBlockChainSkipBlock(t *testing.T) {
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)

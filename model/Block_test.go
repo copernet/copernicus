@@ -27,13 +27,15 @@ func TestParseBlock(t *testing.T) {
 		t.Error(err)
 	}
 	if !bytes.Equal(blockHeadFirst.Raw, rawByte[:]) {
-		t.Error("The two slice should be equal ")
+		t.Errorf("ParseBlock() return the raw data %v"+
+			" should be equal origin raw data %v ", blockHeadFirst.Raw, rawByte)
 	}
 
 	if blockHeadFirst.Version != 1 {
-		t.Error("err : the version should be 1")
+		t.Errorf("ParseBlock() return the version data %d should be equal 1", blockHeadFirst.Version)
 	}
 	if blockHeadFirst.Size != uint32(len(rawByte)) {
-		t.Error("The size should be equal")
+		t.Errorf("ParseBlock() return the size data %d "+
+			"should be equal origin raw data lenth %d", blockHeadFirst.Size, len(rawByte))
 	}
 }

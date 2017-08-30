@@ -20,15 +20,16 @@ func TestNewOutPoint(t *testing.T) {
 
 	testOutPoint = NewOutPoint(&preHash, 1)
 	if testOutPoint.Index != 1 {
-		t.Error("The index should be 1 instead of ", testOutPoint.Index)
+		t.Errorf("NewOutPoint() assignment index data %d should be equal 1 ", testOutPoint.Index)
 	}
 	if !bytes.Equal(testOutPoint.Hash[:], preHash[:]) {
-		t.Error("The two slice should be equal")
+		t.Errorf("NewOutPoint() assignment hash data %v "+
+			"should be equal origin hash data %v", testOutPoint.Hash, preHash)
 	}
 
 }
 
-func TestOutPoint_WriteOutPoint(t *testing.T) {
+func TestOutPointWriteOutPoint(t *testing.T) {
 	file, err := os.OpenFile("tmp.txt", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		t.Error(err)
@@ -49,11 +50,13 @@ func TestOutPoint_WriteOutPoint(t *testing.T) {
 	}
 
 	if txOutRead.Index != testOutPoint.Index {
-		t.Error("The two index should be equal")
+		t.Errorf("ReadOutPoint() return the index data %d "+
+			"should be equal origin index data %d", txOutRead.Index, testOutPoint.Index)
 	}
 
 	if !bytes.Equal(txOutRead.Hash[:], testOutPoint.Hash[:]) {
-		t.Error("The two slice should be equal")
+		t.Errorf("ReadOutPoint() return the hash data %v"+
+			"should be equal origin hash data %v", txOutRead.Hash, testOutPoint.Hash)
 	}
 
 	err = os.Remove("tmp.txt")
