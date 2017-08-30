@@ -6,7 +6,6 @@ import (
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/conn"
-	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/network"
 	"github.com/btcboost/copernicus/protocol"
@@ -45,7 +44,7 @@ type PeerManager struct {
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
 
-	txMemPool    *mempool.TxPool
+	//txMemPool    *mempool.TxPool
 	nat          network.NATInterface
 	storage      storage.Storage
 	timeSource   blockchain.IMedianTimeSource
