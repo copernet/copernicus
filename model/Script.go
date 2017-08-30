@@ -3,7 +3,6 @@ package model
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 )
 
 const (
@@ -125,7 +124,7 @@ func (script *Script) PushScriptNum(scriptNum *CScriptNum) {
 func (script *Script) PushData(data []byte) {
 	dataLen := len(data)
 	if dataLen < OP_PUSHDATA1 {
-		data[dataLen-1] = byte(dataLen)
+		script.bytes = append(script.bytes, byte(dataLen))
 	} else if dataLen <= 0xff {
 		script.bytes = append(script.bytes, OP_PUSHDATA1)
 		script.bytes = append(script.bytes, byte(dataLen))
@@ -152,47 +151,49 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 		var nSize int
 		opcode := script.bytes[i]
 		parsedopCode := ParsedOpCode{opValue: opcode}
-		stk = append(stk, parsedopCode)
+
 		if opcode < OP_PUSHDATA1 {
 			nSize = int(opcode)
-			fmt.Println(i, i+nSize, len(script.bytes))
-			parsedopCode.data = script.bytes[i : i+nSize]
+			parsedopCode.data = script.bytes[i+1 : i+1+nSize]
 
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				err = errors.New("OP_PUSHDATA1 has no enough data")
 				return
 			}
-			nSize = i + 1
-			i++
 			nSize = int(script.bytes[i+1])
 			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
+			i++
+
 		} else if opcode == OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
 				err = errors.New("OP_PUSHDATA2 has no enough data")
 				return
 			}
-			nSize = int(binary.LittleEndian.Uint16(script.bytes[:0]))
-			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
+			nSize = int(binary.LittleEndian.Uint16(script.bytes[i+1 : i+3]))
+			parsedopCode.data = script.bytes[i+3 : i+3+nSize]
 			i += 2
 		} else if opcode == OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
 				err = errors.New("OP_PUSHDATA4 has no enough data")
 				return
 			}
-			parsedopCode.data = script.bytes[i+4 : i+4+nSize]
-			nSize = int(binary.LittleEndian.Uint32(script.bytes[:0]))
+			nSize = int(binary.LittleEndian.Uint32(script.bytes[i+1 : i+5]))
+			parsedopCode.data = script.bytes[i+5 : i+5+nSize]
 			i += 4
 		}
 		if scriptLen-i < 0 || (scriptLen-i) < nSize {
 			err = errors.New("size is wrong")
 			return
 		}
+
+		stk = append(stk, parsedopCode)
 		i += nSize
 	}
 	return
 
 }
+
 func (script *Script) FindAndDelete(b *Script) (bool, error) {
 	orginalParseCodes, err := script.ParseScript()
 	if err != nil {

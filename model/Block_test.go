@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -24,8 +25,17 @@ func TestParseBlock(t *testing.T) {
 	blockHeadFirst, err := ParseBlock(rawByte[:])
 	if err != nil {
 		t.Error(err)
-		return
 	}
-	t.Logf("Tish Block Hash : %v, block.version : %d, block.PrevBlock : %s, block.MerkleRoot : %s, block.Nonce : %d, block.Bits ： %d\n",
-		blockHeadFirst.Hash, blockHeadFirst.Version, blockHeadFirst.PrevBlock, blockHeadFirst.MerkleRoot, blockHeadFirst.Nonce, blockHeadFirst.Bits)
+	if !bytes.Equal(blockHeadFirst.Raw, rawByte[:]) {
+		t.Errorf("ParseBlock() return the raw data %v"+
+			" should be equal origin raw data %v ", blockHeadFirst.Raw, rawByte)
+	}
+
+	if blockHeadFirst.Version != 1 {
+		t.Errorf("ParseBlock() return the version data %d should be equal 1", blockHeadFirst.Version)
+	}
+	if blockHeadFirst.Size != uint32(len(rawByte)) {
+		t.Errorf("ParseBlock() return the size data %d "+
+			"should be equal origin raw data lenth %d", blockHeadFirst.Size, len(rawByte))
+	}
 }
