@@ -69,7 +69,7 @@ func TestTxInSerialize(t *testing.T) {
 
 	if !bytes.Equal(txInRead.Script.bytes, testTxIn.Script.bytes) {
 		t.Errorf("Deserialize() return the script data %v "+
-			"should be equal origin srcipt data %", txInRead.Script.bytes, testTxIn.Script.bytes)
+			"should be equal origin srcipt data %v", txInRead.Script.bytes, testTxIn.Script.bytes)
 	}
 	if txInRead.PreviousOutPoint.Index != testTxIn.PreviousOutPoint.Index {
 		t.Errorf("Deserialize() return the index data %d "+
@@ -77,7 +77,7 @@ func TestTxInSerialize(t *testing.T) {
 	}
 	if !bytes.Equal(txInRead.PreviousOutPoint.Hash[:], testTxIn.PreviousOutPoint.Hash[:]) {
 		t.Errorf("Deserialize() return the preOutputHash data %v "+
-			"should be equal origin hash data %", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
+			"should be equal origin hash data %v", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
 	}
 
 	err = os.Remove("tmp1.txt")
