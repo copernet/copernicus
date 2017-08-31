@@ -167,13 +167,13 @@ func TestTxAddTxOut(t *testing.T) {
 }
 
 func TestTxCopy(t *testing.T) {
-	testNewTx := NewTx()
-	copyTx := testNewTx.Copy()
+	tx := tests[1].tx
+	copyTx := tx.Copy()
 	if len(copyTx.Ins) != 1 {
 		t.Error("should have 1 input")
 	}
-	if len(copyTx.Outs) != 1 {
-		t.Error("should have 1 outPut")
+	if len(copyTx.Outs) != 2 {
+		t.Error("should have 2 outPut")
 	}
 
 }
