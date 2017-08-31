@@ -4,13 +4,14 @@ import (
 	"encoding/base32"
 	"encoding/binary"
 	"fmt"
-	"github.com/btcboost/copernicus/protocol"
-	"github.com/btcsuite/go-socks/socks"
 	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcsuite/go-socks/socks"
 )
 
 type HostToNetAddrFunc func(host string, port uint16, serviceFlag protocol.ServiceFlag) (*PeerAddress, error)

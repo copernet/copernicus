@@ -1,8 +1,9 @@
 package msg
 
 import (
-	"github.com/btcboost/copernicus/model"
 	"io"
+
+	"github.com/btcboost/copernicus/model"
 )
 
 type TxMessage struct {

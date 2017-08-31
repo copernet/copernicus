@@ -1,9 +1,10 @@
 package model
 
 import (
+	"io"
+
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type ScriptFreeList chan []byte

@@ -9,6 +9,7 @@ import (
 	"hash"
 
 	"crypto/sha1"
+
 	"golang.org/x/crypto/ripemd160"
 )
 

@@ -2,13 +2,14 @@ package conn
 
 import (
 	"fmt"
+	mrand "math/rand"
+	"strconv"
+	"time"
+
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/network"
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"
-	mrand "math/rand"
-	"strconv"
-	"time"
 )
 
 const (

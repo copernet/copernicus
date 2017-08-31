@@ -3,9 +3,10 @@ package model
 import (
 	"encoding/binary"
 
+	"io"
+
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	"io"
 )
 
 const (

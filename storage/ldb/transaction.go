@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+
 	"github.com/btcboost/copernicus/utils"
 )
 

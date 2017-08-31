@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
+
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )

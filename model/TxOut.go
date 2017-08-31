@@ -2,9 +2,10 @@ package model
 
 import (
 	"encoding/binary"
+	"io"
+
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"
-	"io"
 )
 
 type TxOut struct {

@@ -3,12 +3,13 @@ package msg
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"unicode/utf8"
+
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/pkg/errors"
-	"io"
-	"unicode/utf8"
 )
 
 const (

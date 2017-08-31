@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/binary"
+
 	"github.com/pkg/errors"
 )
 

@@ -2,10 +2,11 @@ package protocol
 
 import (
 	"encoding/binary"
-	"github.com/btcboost/copernicus/btcutil"
-	"github.com/btcboost/copernicus/utils"
 	"io"
 	"time"
+
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/utils"
 )
 
 const CommandSize = 12

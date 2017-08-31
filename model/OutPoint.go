@@ -2,9 +2,10 @@ package model
 
 import (
 	"encoding/binary"
-	"github.com/btcboost/copernicus/utils"
 	"io"
 	"strconv"
+
+	"github.com/btcboost/copernicus/utils"
 )
 
 type OutPoint struct {

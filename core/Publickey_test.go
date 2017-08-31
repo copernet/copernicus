@@ -2,8 +2,9 @@ package core
 
 import (
 	"bytes"
-	"github.com/davecgh/go-spew/spew"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type pubKeyTest struct {

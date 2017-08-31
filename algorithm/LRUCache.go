@@ -2,8 +2,9 @@ package algorithm
 
 import (
 	"container/list"
-	"github.com/pkg/errors"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 type KeyValue struct {

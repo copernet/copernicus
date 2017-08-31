@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/btcboost/copernicus/utils"
 	"os"
 	"sync"
+
+	"github.com/btcboost/copernicus/utils"
 )
 
 type BlockChain struct {

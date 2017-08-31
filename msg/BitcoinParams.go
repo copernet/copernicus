@@ -1,12 +1,13 @@
 package msg
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	"math/big"
-	"time"
 )
 
 var ActiveNetParams = &MainNetParams

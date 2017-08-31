@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/btcboost/copernicus/btcutil"
 	"testing"
+
+	"github.com/btcboost/copernicus/btcutil"
 )
 
 func TestExampleAmount(t *testing.T) {

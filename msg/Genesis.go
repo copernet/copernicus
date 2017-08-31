@@ -1,8 +1,9 @@
 package msg
 
 import (
-	"github.com/btcboost/copernicus/utils"
 	"time"
+
+	"github.com/btcboost/copernicus/utils"
 
 	"github.com/btcboost/copernicus/model"
 )

@@ -2,9 +2,10 @@ package msg
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/pkg/errors"
-	"io"
 )
 
 type PongMessage struct {

@@ -1,9 +1,10 @@
 package core
 
 import (
+	"reflect"
+
 	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 var (

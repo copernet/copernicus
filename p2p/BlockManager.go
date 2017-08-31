@@ -2,10 +2,11 @@ package p2p
 
 import (
 	"container/list"
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/utils"
 	"sync"
 	"sync/atomic"
+
+	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utils"
 )
 
 type BlockManager struct {

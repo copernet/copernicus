@@ -7,9 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/protocol"
-	"github.com/btcboost/copernicus/utils"
 	"io"
 	"math/rand"
 	"net"
@@ -20,6 +17,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/protocol"
+	"github.com/btcboost/copernicus/utils"
 
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/core"

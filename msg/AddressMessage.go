@@ -2,11 +2,12 @@ package msg
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/btcboost/copernicus/network"
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	"io"
 )
 
 const (

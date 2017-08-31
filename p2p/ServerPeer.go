@@ -1,8 +1,9 @@
 package p2p
 
 import (
-	"github.com/btcboost/copernicus/conn"
 	"sync"
+
+	"github.com/btcboost/copernicus/conn"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/conf"

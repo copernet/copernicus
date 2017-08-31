@@ -7,8 +7,9 @@ package base58_test
 import (
 	"fmt"
 
-	"github.com/btcboost/copernicus/btcutil/base58"
 	"testing"
+
+	"github.com/btcboost/copernicus/btcutil/base58"
 )
 
 // This example demonstrates how to decode modified base58 encoded data.

@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"bytes"
-	"github.com/btcboost/copernicus/utils"
 	"os"
+
+	"github.com/btcboost/copernicus/utils"
 )
 
 var testOutPoint *OutPoint

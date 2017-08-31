@@ -4,6 +4,14 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
+	"io"
+	"math/rand"
+	"net"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -14,13 +22,6 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
-	"io"
-	"math/rand"
-	"net"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (

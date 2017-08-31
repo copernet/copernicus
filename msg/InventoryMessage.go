@@ -3,8 +3,9 @@ package msg
 import (
 	"errors"
 	"fmt"
-	"github.com/btcboost/copernicus/utils"
 	"io"
+
+	"github.com/btcboost/copernicus/utils"
 )
 
 const DefaultInventoryListAlloc = 1000

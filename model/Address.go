@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/btcutil/base58"
 	"github.com/btcboost/copernicus/core"

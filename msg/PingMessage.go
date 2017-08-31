@@ -1,8 +1,9 @@
 package msg
 
 import (
-	"github.com/btcboost/copernicus/protocol"
 	"io"
+
+	"github.com/btcboost/copernicus/protocol"
 )
 
 type PingMessage struct {

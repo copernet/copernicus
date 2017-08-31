@@ -2,11 +2,12 @@ package model
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 type Interpreter struct {

@@ -1,9 +1,10 @@
 package p2p
 
 import (
-	"github.com/btcboost/copernicus/model"
 	"sync"
 	"time"
+
+	"github.com/btcboost/copernicus/model"
 )
 
 type BlockProgressLogger struct {

@@ -1,12 +1,13 @@
 package conn
 
 import (
-	"github.com/astaxie/beego/logs"
-	"github.com/pkg/errors"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/astaxie/beego/logs"
+	"github.com/pkg/errors"
 )
 
 const (

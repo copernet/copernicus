@@ -2,12 +2,13 @@ package conf
 
 import (
 	"fmt"
-	"github.com/astaxie/beego/config"
-	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/utils"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/astaxie/beego/config"
+	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/utils"
 )
 
 var AppConf *AppConfig

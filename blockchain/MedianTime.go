@@ -1,13 +1,15 @@
 package blockchain
 
 import (
-	"github.com/btcboost/copernicus/algorithm"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/algorithm"
+
 	"math"
+
+	"github.com/astaxie/beego/logs"
 )
 
 var log = logs.NewLogger()
