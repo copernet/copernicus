@@ -10,6 +10,11 @@ import (
 )
 
 const (
+	TX_ORPHAN int = iota
+	TX_INVALID
+)
+
+const (
 	// SEQUENCE_LOCKTIME_DISABLE_FLAG Below flags apply in the context of BIP 68*/
 	// If this flag set, CTxIn::nSequence is NOT interpreted as a
 	// relative lock-time. */
@@ -246,37 +251,6 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		}
 	}
 	return true, nil
-}
-
-func (tx *Tx) CheckChain() (int, error) {
-	//TxInsLen := len(tx.Ins)
-	//for i := 0; i < TxInsLen; i++ {
-	//	PreTx := mempool.GetTx(tx.Ins[i].PreviousOutPoint.Hash)
-	//	if PreTx {
-	//		if PreTx.ValState == TX_ORPHAN {
-	//			return TX_ORPHAN, error.new("previous TX is orphan")
-	//		}
-	//		PreTxsOutTotalMoney += PreTx.Outs[tx.Ins[i].PreviousOutPoint.Index].Value
-	//	} else {
-	//		PreTx = UTXO.GetTx(tx.Ins[i].PreviousOutPoint.Hash)
-	//		if !PreTx {
-	//			return TX_ORPHAN, error.new("UTXO has no previous tx")
-	//		}
-	//		PreTxsOutTotalMoney += PreTx.Outs[tx.Ins[i].PreviousOutPoint.Index].Value
-	//	}
-	//}
-	//TxOutsLen := len(tx.Outs)
-	//for j := 0; j < TxOutsLen; j++ {
-	//	TotalOutsMoney += tx.Outs[j].Value
-	//}
-	//if PreTxsOutTotalMoney < TotalOutsMoney {
-	//	return TX_INVALID, error.new("Ins' money < outs' money")
-	//}
-	//
-	//for k := 0; k < TxInsLen; k++ {
-	//	tx.Ins[k].Script.Eval()
-	//}
-	return 0, nil
 }
 
 func (tx *Tx) returnScriptBuffers() {

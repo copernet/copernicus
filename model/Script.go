@@ -30,6 +30,10 @@ type Script struct {
 	ParsedOpCodes []ParsedOpCode
 }
 
+func (script *Script) Eval() {
+
+}
+
 func (script *Script) ConvertRaw() {
 	script.bytes = make([]byte, 0)
 	for i := 0; i < len(script.ParsedOpCodes); i++ {
