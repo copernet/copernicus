@@ -37,7 +37,7 @@ func TxCheckChain(tx *model.Tx) (int, error) {
 
 	for k := 0; k < TxInsLen; k++ {
 		ret, error := tx.Ins[k].Script.Eval()
-		if ret {
+		if ret != 0 {
 			return ret, error
 		}
 	}
