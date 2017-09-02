@@ -45,4 +45,15 @@ type BlockIndex struct {
 	//! block and all its parents are available. Change to 64-bit type when
 	//! necessary; won't happen before 2030
 	ChainTx int
+
+	Status uint32
+
+	// block header
+	Version        int
+	HashMerkleRoot *utils.Hash
+	Time           int
+	Bits           uint32
+	Nonce          int
+
+	SequenceID int32
 }
