@@ -41,7 +41,7 @@ func TestCheckSig(t *testing.T) {
 		copy(hash[:], bytes)
 	*/
 
-	_, err = CheckSig(&hash, vchSig, vchPubKey)
+	_, err = CheckSig(hash, vchSig, vchPubKey)
 
 }
 

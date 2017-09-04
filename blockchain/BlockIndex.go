@@ -3,6 +3,7 @@ package blockchain
 import (
 	"math/big"
 
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -14,7 +15,7 @@ import (
  */
 
 type BlockIndex struct {
-	PHashBlock *utils.Hash
+	PHashBlock utils.Hash
 	PPrev      *BlockIndex
 
 	//! pointer to the index of some further predecessor of this block
@@ -49,20 +50,20 @@ type BlockIndex struct {
 	Status uint32
 
 	// block header
-	Version        int
-	HashMerkleRoot *utils.Hash
-	Time           int
-	Bits           uint32
-	Nonce          int
+	Version    uint32
+	MerkleRoot utils.Hash
+	Time       uint32
+	Bits       uint32
+	Nonce      uint32
 
 	SequenceID int32
 }
 
 func (blockIndex *BlockIndex) SetNull() {
-	blockIndex.PHashBlock = nil
+	blockIndex.PHashBlock = utils.Hash{}
 	blockIndex.PPrev = nil
 	blockIndex.PSkip = nil
-	blockIndex.HashMerkleRoot = nil
+	blockIndex.MerkleRoot = utils.Hash{}
 
 	blockIndex.Height = 0
 	blockIndex.File = 0
@@ -80,3 +81,13 @@ func (blockIndex *BlockIndex) SetNull() {
 
 }
 
+func NewBlockIndex(block *model.Block) *BlockIndex {
+	blockIndex := new(BlockIndex)
+	blockIndex.Version = block.Version
+	blockIndex.MerkleRoot = block.MerkleRoot
+	blockIndex.Time = block.BlockTime
+	blockIndex.Bits = block.Bits
+	blockIndex.Nonce = block.Nonce
+	return blockIndex
+
+}
