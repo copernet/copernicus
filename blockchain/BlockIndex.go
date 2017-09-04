@@ -57,3 +57,26 @@ type BlockIndex struct {
 
 	SequenceID int32
 }
+
+func (blockIndex *BlockIndex) SetNull() {
+	blockIndex.PHashBlock = nil
+	blockIndex.PPrev = nil
+	blockIndex.PSkip = nil
+	blockIndex.HashMerkleRoot = nil
+
+	blockIndex.Height = 0
+	blockIndex.File = 0
+	blockIndex.DataPosition = 0
+	blockIndex.UndoPosition = 0
+	blockIndex.ChainWork = big.Int{}
+	blockIndex.Txs = 0
+	blockIndex.Status = 0
+	blockIndex.Version = 0
+	blockIndex.Time = 0
+	blockIndex.Bits = 0
+	blockIndex.Nonce = 0
+	blockIndex.SequenceID = 0
+	blockIndex.Bits = 0
+
+}
+
