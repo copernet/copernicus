@@ -80,7 +80,7 @@ func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) (bool, error) {
 	}
 	// Only compressed keys are accepted when
 	// SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE is enabled.
-	if flags&SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE == 1 && !IsCompressedPubKey(vchPubKey) {
+	if flags&SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE != 0 && !IsCompressedPubKey(vchPubKey) {
 		return false, ScriptErr(SCRIPT_ERR_NONCOMPRESSED_PUBKEY)
 	}
 	return true, nil

@@ -2,12 +2,11 @@ package model
 
 import (
 	"fmt"
-	"reflect"
-
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/pkg/errors"
+	"reflect"
 )
 
 type Interpreter struct {
@@ -107,7 +106,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 	vchFalse := []byte{0}
 	//vchZero := []byte{0}
 	vchTrue := []byte{1, 1}
-	var vchPushValue []byte
+	//var vchPushValue []byte
 	vfExec := algorithm.NewVector()
 	altstack := algorithm.NewStack()
 	var pbegincodehash int
@@ -124,7 +123,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 	for i := 0; i < len(parsedOpcodes); i++ {
 		parsedOpcode := parsedOpcodes[i]
 		fExec := vfExec.CountEqualElement(false) == 0
-		if len(vchPushValue) > MAX_SCRIPT_ELEMENT_SIZE {
+		if len(parsedOpcode.data) > MAX_SCRIPT_ELEMENT_SIZE {
 			return false, core.ScriptErr(core.SCRIPT_ERR_PUSH_SIZE)
 		}
 		nOpCount++
@@ -145,10 +144,10 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 
 		if fExec && 0 <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_PUSHDATA4 {
 			if fRequireMinimal &&
-				!CheckMinimalPush(vchPushValue, int32(parsedOpcode.opValue)) {
+				!CheckMinimalPush(parsedOpcode.data, int32(parsedOpcode.opValue)) {
 				return false, core.ScriptErr(core.SCRIPT_ERR_MINIMALDATA)
 			}
-			stack.PushStack(vchPushValue)
+			stack.PushStack(parsedOpcode.data)
 		} else if fExec || (OP_IF <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_ENDIF) {
 			switch parsedOpcode.opValue {
 			//
@@ -280,12 +279,19 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					break
 				}
 			case OP_NOP1:
+				fallthrough
 			case OP_NOP4:
+				fallthrough
 			case OP_NOP5:
+				fallthrough
 			case OP_NOP6:
+				fallthrough
 			case OP_NOP7:
+				fallthrough
 			case OP_NOP8:
+				fallthrough
 			case OP_NOP9:
+				fallthrough
 			case OP_NOP10:
 				{
 					if flags&core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
@@ -294,6 +300,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					break
 				}
 			case OP_IF:
+				fallthrough
 			case OP_NOTIF:
 				{
 					// <expression> if [statements] [else [statements]]
@@ -344,7 +351,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					vfExec.PopBack()
 					break
 				}
-			case OP_VERIF:
+			case OP_VERIFY:
 				{
 					// (true -- ) or
 					// (false -- false) and return
@@ -376,12 +383,12 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if stack.Size() < 1 {
 						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
 					}
-					altTop, err := altstack.StackTop(-1)
+					vch, err := stack.StackTop(-1)
 					if err != nil {
 						return false, err
 					}
-					stack.PushStack(altTop)
-					altstack.PopStack()
+					altstack.PushStack(vch)
+					stack.PopStack()
 					break
 				}
 			case OP_2DROP:
@@ -549,6 +556,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					break
 				}
 			case OP_PICK:
+				fallthrough
 			case OP_ROLL:
 				{
 					// (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
@@ -637,6 +645,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 				// Bitwise logic
 				//
 			case OP_EQUAL:
+				fallthrough
 			case OP_EQUALVERIFY:
 				// case OP_NOTEQUAL: // use OP_NUMNOTEQUAL
 				{
@@ -678,10 +687,15 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 				}
 				//Numeric
 			case OP_1ADD:
+				fallthrough
 			case OP_1SUB:
+				fallthrough
 			case OP_NEGATE:
+				fallthrough
 			case OP_ABS:
+				fallthrough
 			case OP_NOT:
+				fallthrough
 			case OP_0NOTEQUAL:
 				{
 					// (in -- out)
@@ -727,17 +741,29 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 
 				}
 			case OP_ADD:
+				fallthrough
 			case OP_SUB:
+				fallthrough
 			case OP_BOOLAND:
+				fallthrough
 			case OP_BOOLOR:
+				fallthrough
 			case OP_NUMEQUAL:
+				fallthrough
 			case OP_NUMEQUALVERIFY:
+				fallthrough
 			case OP_NUMNOTEQUAL:
+				fallthrough
 			case OP_LESSTHAN:
+				fallthrough
 			case OP_GREATERTHAN:
+				fallthrough
 			case OP_LESSTHANOREQUAL:
+				fallthrough
 			case OP_GREATERTHANOREQUAL:
+				fallthrough
 			case OP_MIN:
+				fallthrough
 			case OP_MAX:
 				{
 					// (x1 x2 -- out)
@@ -838,8 +864,9 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					stack.PopStack()
 					stack.PopStack()
 					stack.PushStack(bn.Serialize())
+
 					if parsedOpcode.opValue == OP_NUMEQUALVERIFY {
-						vch, err := stack.StackTop(-2)
+						vch, err := stack.StackTop(-1)
 						if err != nil {
 							return false, err
 						}
@@ -854,9 +881,13 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 				// Crypto
 
 			case OP_RIPEMD160:
+				fallthrough
 			case OP_SHA1:
+				fallthrough
 			case OP_SHA256:
+				fallthrough
 			case OP_HASH160:
+				fallthrough
 			case OP_HASH256:
 				{
 					// (in -- hash)
@@ -873,7 +904,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 						vchHash = btcutil.Ripemd160(vch.([]byte))
 					case OP_SHA1:
 						result := btcutil.Sha1(vch.([]byte))
-						copy(vchHash[:], result[:])
+						vchHash = append(vchHash, result[:]...)
 					case OP_SHA256:
 						vchHash = core.Sha256Bytes(vch.([]byte))
 					case OP_HASH160:
@@ -892,6 +923,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 
 				}
 			case OP_CHECKSIG:
+				fallthrough
 			case OP_CHECKSIGVERIFY:
 				{
 					// (sig pubkey -- bool)
@@ -906,7 +938,10 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if err != nil {
 						return false, err
 					}
-					checkSig, err := core.CheckSignatureEncoding(vchSig.([]byte), uint32(flags))
+					vchByte := vchSig.([]byte)
+					hashType := vchByte[len(vchByte)-1]
+					vchByte = vchByte[:len(vchByte)-1]
+					checkSig, err := core.CheckSignatureEncoding(vchByte, uint32(flags))
 					if err != nil {
 						return false, err
 					}
@@ -917,26 +952,28 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if !checkPubKey || !checkSig {
 						return false, errors.New("check public key or sig failed")
 					}
+
 					// Subset of script starting at the most recent
 					// codeseparator
 					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
-					fmt.Print(scriptCode)
-					txHash, err := SignatureHash(tx, scriptCode, int(flags), nIn)
+					txHash, err := SignatureHash(tx, scriptCode, int(hashType), nIn)
 					if err != nil {
 						return false, err
 					}
-					fSuccess, err := CheckSig(txHash, vchSig.([]byte), vchPubkey.([]byte))
+					fSuccess, err := CheckSig(txHash, vchByte, vchPubkey.([]byte))
 					if !fSuccess &&
 						(flags&core.SCRIPT_VERIFY_NULLFAIL == core.SCRIPT_VERIFY_NULLFAIL) &&
 						len(vchSig.([]byte)) > 0 {
 						return false, core.ScriptErr(core.SCRIPT_ERR_SIG_NULLFAIL)
 
 					}
+
 					stack.PopStack()
 					stack.PopStack()
 					if fSuccess {
 						stack.PushStack(vchTrue)
 					} else {
+						fmt.Println("CheckSig() err : ", err)
 						stack.PushStack(vchFalse)
 					}
 					if parsedOpcode.opValue == OP_CHECKSIGVERIFY {
@@ -948,6 +985,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					}
 				}
 			case OP_CHECKMULTISIG:
+				fallthrough
 			case OP_CHECKMULTISIGVERIFY:
 				{
 					// ([sig ...] num_of_signatures [pubkey ...]
