@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -44,4 +45,12 @@ func ToHexString(data []byte) string {
 	}
 	return str
 
+}
+
+func HexToBytes(str string) []byte {
+	bytes, err := hex.DecodeString(str)
+	if err != nil {
+		return nil
+	}
+	return bytes
 }

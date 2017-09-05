@@ -8,7 +8,7 @@ import (
 	"github.com/btcboost/copernicus/core"
 )
 
-func TestCheckSig(t *testing.T) {
+func TestCheckSequence(t *testing.T) {
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f8720ee63e502ee2869afab7de234b80c")
 	if err != nil {
 		t.Error(err)
@@ -29,7 +29,7 @@ func TestCheckSig(t *testing.T) {
 
 	hash := core.DoubleSha256Hash(message)
 
-	ret, err := CheckSig(&hash, vchSign, privateKey.PublicKey.SerializeCompressed())
+	ret, err := CheckSig(hash, vchSign, privateKey.PublicKey.SerializeCompressed())
 	if err != nil {
 		t.Error(err)
 	} else {

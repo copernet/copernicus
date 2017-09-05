@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func VerfySinature(vchSig []byte, pubkey *core.PublicKey, sigHash *utils.Hash) (bool, error) {
+func VerfySinature(vchSig []byte, pubkey *core.PublicKey, sigHash utils.Hash) (bool, error) {
 	sign, err := core.ParseDERSignature(vchSig)
 	if err != nil {
 		return false, err
@@ -15,7 +15,7 @@ func VerfySinature(vchSig []byte, pubkey *core.PublicKey, sigHash *utils.Hash) (
 	return result, nil
 }
 
-func CheckSig(signHash *utils.Hash, vchSigIn []byte, vchPubKey []byte) (bool, error) {
+func CheckSig(signHash utils.Hash, vchSigIn []byte, vchPubKey []byte) (bool, error) {
 	if len(vchPubKey) == 0 {
 		return false, errors.New("public key is nil")
 	}

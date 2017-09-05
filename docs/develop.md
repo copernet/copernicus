@@ -18,7 +18,9 @@
     sudo apt-get update
     sudo apt-get install glide
    ```
-   
+ 4. On windows
+    go get github.com/Masterminds/glide
+
 #### install go dependency
 ```
  glide install

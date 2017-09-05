@@ -8,7 +8,7 @@ import (
 	"github.com/btcboost/copernicus/utxo"
 )
 
-func CheckChain(tx *model.Tx) (int, error) {
+func TxCheckChain(tx *model.Tx) (int, error) {
 	TxInsLen := len(tx.Ins)
 	var PreTxsOutTotalMoney int64
 	for i := 0; i < TxInsLen; i++ {
@@ -36,7 +36,10 @@ func CheckChain(tx *model.Tx) (int, error) {
 	}
 
 	for k := 0; k < TxInsLen; k++ {
-		tx.Ins[k].Script.Eval()
+		ret, error := tx.Ins[k].Script.Eval()
+		if ret != 0 {
+			return ret, error
+		}
 	}
 	return 0, nil
 }

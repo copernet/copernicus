@@ -3,8 +3,6 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
-	"time"
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
@@ -18,15 +16,15 @@ type Block struct {
 	Height       int32
 	Transactions []*Tx
 	Version      uint32
-	MerkleRoot   string
-	BlockTime    time.Time
+	MerkleRoot   utils.Hash
+	BlockTime    uint32
 	Bits         uint32
 	Nonce        uint32
 	Size         uint32
 	TotalBTC     uint64
 	BlockReward  float64
-	PrevBlock    string
-	NextBlock    string
+	PrevBlock    utils.Hash
+	NextBlock    utils.Hash
 }
 
 func ParseBlock(raw []byte) (block *Block, err error) {
@@ -35,9 +33,9 @@ func ParseBlock(raw []byte) (block *Block, err error) {
 	block.Hash = core.DoubleSha256Hash(raw[:80])
 	block.Version = binary.LittleEndian.Uint32(raw[0:4])
 	if !bytes.Equal(raw[4:36], EmptyByte) {
-		block.PrevBlock = utils.ToHash256String(raw[4:36])
+		block.PrevBlock = core.DoubleSha256Hash(raw[4:36])
 	}
-	block.MerkleRoot = hex.EncodeToString(raw[36:68])
+	block.MerkleRoot = core.DoubleSha256Hash(raw[36:68])
 	//block.BlockTime = binary.LittleEndian.Uint32(raw[68:72])
 	block.Bits = binary.LittleEndian.Uint32(raw[72:76])
 	block.Nonce = binary.LittleEndian.Uint32(raw[76:80])

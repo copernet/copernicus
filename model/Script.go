@@ -30,8 +30,8 @@ type Script struct {
 	ParsedOpCodes []ParsedOpCode
 }
 
-func (script *Script) Eval() {
-
+func (script *Script) Eval() (int, error) {
+	return 0, nil
 }
 
 func (script *Script) ConvertRaw() {

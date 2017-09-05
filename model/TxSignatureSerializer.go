@@ -71,10 +71,10 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	return
 }
 
-func SignatureHash(tx *Tx, script *Script, hashType int, nIn int) (result *utils.Hash, err error) {
+func SignatureHash(tx *Tx, script *Script, hashType int, nIn int) (result utils.Hash, err error) {
 	if (hashType&0x1f == core.SIGHASH_SINGLE) &&
 		nIn >= len(tx.Outs) {
-		return &utils.HashOne, nil
+		return utils.HashOne, nil
 	}
 	txCopy := tx.Copy()
 	for i := range tx.Ins {
@@ -115,6 +115,6 @@ func SignatureHash(tx *Tx, script *Script, hashType int, nIn int) (result *utils
 	txCopy.Serialize(buf)
 	binary.Write(buf, binary.LittleEndian, hashType)
 	sha256 := core.Sha256Hash(buf.Bytes())
-	result = &sha256
+	result = sha256
 	return
 }
