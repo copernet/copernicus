@@ -229,7 +229,7 @@ func IsLowDERSignature(vchSig []byte) (bool, error) {
 		return false, ScriptErr(SCRIPT_ERR_SIG_DER)
 	}
 	var vchCopy []byte
-	copy(vchCopy[:], vchSig[:])
+	vchCopy = append(vchCopy, vchSig...)
 	ret := CheckLowS(vchCopy)
 	if !ret {
 		return false, ScriptErr(SCRIPT_ERR_SIG_HIGH_S)
@@ -275,6 +275,15 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
 		return false, errors.New("is valid signature encoding")
 
 	}
+	if (flags & SCRIPT_VERIFY_LOW_S) != 0 {
+		ret, err := IsLowDERSignature(vchSig)
+		if err != nil {
+			return false, err
+		} else if !ret {
+			return false, err
+		}
+	}
+
 	if (flags & SCRIPT_VERIFY_STRICTENC) != 0 {
 		if !IsDefineHashtypeSignature(vchSig) {
 			return false, ScriptErr(SCRIPT_ERR_SIG_HASHTYPE)

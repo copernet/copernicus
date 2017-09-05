@@ -87,7 +87,7 @@ func CheckSequence(sequence int64, txToSequence int64, version int32) bool {
 	// constrained. Testing that the transaction's sequence number do not have
 	// this bit set prevents using this property to get around a
 	// CHECKSEQUENCEVERIFY check.
-	if txToSequence&SEQUENCE_LOCKTIME_DISABLE_FLAG == 1 {
+	if txToSequence&SEQUENCE_LOCKTIME_DISABLE_FLAG == SEQUENCE_LOCKTIME_DISABLE_FLAG {
 		return false
 	}
 	// Mask off any bits that do not have consensus-enforced meaning before
@@ -103,8 +103,8 @@ func CheckSequence(sequence int64, txToSequence int64, version int32) bool {
 	// We want to compare apples to apples, so fail the script unless the type
 	// of nSequenceMasked being tested is the same as the nSequenceMasked in the
 	// transaction.
-	if !(txToSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG) ||
-		(txToSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG) {
+	if !((txToSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked < SEQUENCE_LOCKTIME_TYPE_FLAG) ||
+		(txToSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG && nSequenceMasked >= SEQUENCE_LOCKTIME_TYPE_FLAG)) {
 		return false
 	}
 	if nSequenceMasked > txToSequenceMasked {
