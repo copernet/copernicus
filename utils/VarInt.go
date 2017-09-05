@@ -58,7 +58,7 @@ func WriteVarInt(w io.Writer, val uint64) error {
 	if val < 0xfd {
 		return BinarySerializer.PutUint8(w, uint8(val))
 	}
-	if val < math.MaxUint16 {
+	if val <= math.MaxUint16 {
 		err := BinarySerializer.PutUint8(w, 0xfd)
 		if err != nil {
 			return err
