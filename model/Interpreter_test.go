@@ -1,10 +1,14 @@
 package model
 
 import (
-	"github.com/btcboost/copernicus/algorithm"
+	"testing"
+
+	"fmt"
+
+	"bytes"
+
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
-	"testing"
 )
 
 var testsTx = []struct {
@@ -49,7 +53,6 @@ var testsTx = []struct {
 							0x1f, 0x63, 0x3f, 0x25, 0xf8, 0x7c, 0x16, 0x1b,
 							0xc6, 0xf8, 0xa6, 0x30, 0x12, 0x1d, 0xf2, 0xb3,
 							0xd3, // 65-byte pubkey
-
 						},
 					},
 					Sequence: 0xffffffff,
@@ -102,24 +105,52 @@ var scriptPubkey = Script{
 	},
 }
 
-func TestInterpreterVerify(t *testing.T) {
-	interpreter := Interpreter{
-		stack: algorithm.NewStack(),
-	}
-
-	flag := core.SCRIPT_VERIFY_SIGPUSHONLY
+func TestSignatureHash(t *testing.T) {
 	for _, test := range testsTx {
 		tx := test.tx
-		interpreter.Verify(&tx, 0, tx.Ins[0].Script, &scriptPubkey, int32(flag))
-		/*
+		for i, in := range tx.Ins {
+			hash, err := SignatureHash(&tx, in.Script, core.SIGHASH_SINGLE, i)
 			if err != nil {
 				t.Error(err)
-			} else {
-				if !ret {
-					t.Errorf("Tx Verify() fail")
-				}
 			}
-		*/
+			fmt.Println(hash.ToString())
+		}
 	}
+
+}
+
+func TestTxHash(t *testing.T) {
+	for _, test := range testsTx {
+		tx := test.tx
+		buf := new(bytes.Buffer)
+		err := tx.Serialize(buf)
+		if err != nil {
+			t.Error(err)
+		}
+		txHash := core.DoubleSha256Hash(buf.Bytes())
+		testHash := utils.HashFromString(test.hash)
+		if !txHash.IsEqual(testHash) {
+			t.Errorf(" tx hash (%s) error , is not %s", txHash.ToString(), test.hash)
+		}
+	}
+}
+
+func TestInterpreterVerify(t *testing.T) {
+	//interpreter := Interpreter{
+	//	stack: algorithm.NewStack(),
+	//}
+	//flag := core.SCRIPT_VERIFY_SIGPUSHONLY
+	//for _, test := range testsTx {
+	//	tx := test.tx
+	//	ret, err := interpreter.Verify(&tx, 0, tx.Ins[0].Script, &scriptPubkey, int32(flag))
+	//	if err != nil {
+	//		t.Error(err)
+	//	} else {
+	//		if !ret {
+	//			t.Errorf("Tx Verify() fail")
+	//		}
+	//	}
+	//
+	//}
 
 }
