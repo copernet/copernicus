@@ -109,7 +109,7 @@ func TestSignatureHash(t *testing.T) {
 	for _, test := range testsTx {
 		tx := test.tx
 		for i, in := range tx.Ins {
-			hash, err := SignatureHash(&tx, in.Script, core.SIGHASH_SINGLE, i)
+			hash, err := SignatureHash(&tx, in.Script, core.SIGHASH_ALL, i)
 			if err != nil {
 				t.Error(err)
 			}
@@ -135,11 +135,23 @@ func TestTxHash(t *testing.T) {
 	}
 }
 
+func TestParseOpCode(t *testing.T) {
+
+}
+
+func TestSig(t *testing.T) {
+
+}
+
+func TestPublicKey(t *testing.T) {
+
+}
+
 func TestInterpreterVerify(t *testing.T) {
 	//interpreter := Interpreter{
 	//	stack: algorithm.NewStack(),
 	//}
-	//flag := core.SCRIPT_VERIFY_SIGPUSHONLY
+	//flag := core.SIGHASH_ALL
 	//for _, test := range testsTx {
 	//	tx := test.tx
 	//	ret, err := interpreter.Verify(&tx, 0, tx.Ins[0].Script, &scriptPubkey, int32(flag))
