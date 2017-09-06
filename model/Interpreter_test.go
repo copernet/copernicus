@@ -136,15 +136,29 @@ func TestTxHash(t *testing.T) {
 }
 
 func TestParseOpCode(t *testing.T) {
+	for _, test := range testsTx {
+		tx := test.tx
+		for _, out := range tx.Outs {
+			stk, err := out.Script.ParseScript()
+			if err != nil {
+				t.Error(err)
+			}
+			if len(stk) != 5 {
+				t.Errorf("parse opcode is error , count is %d", len(stk))
+			}
 
-}
+		}
+		for _, in := range tx.Ins {
+			stk, err := in.Script.ParseScript()
+			if err != nil {
+				t.Error(err)
+			}
+			if len(stk) != 2 {
+				t.Errorf("parse opcode is error , count is %d", len(stk))
+			}
 
-func TestSig(t *testing.T) {
-
-}
-
-func TestPublicKey(t *testing.T) {
-
+		}
+	}
 }
 
 func TestInterpreterVerify(t *testing.T) {
