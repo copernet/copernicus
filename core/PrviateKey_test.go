@@ -24,7 +24,7 @@ func TestPrivKeys(t *testing.T) {
 	for _, test := range tests {
 		privateKey := PrivateKeyFromBytes(test.key)
 
-		_, err := ParsePubKey(privateKey.PublicKey.SerializeUncompressed())
+		_, err := ParsePubKey(privateKey.PubKey().SerializeUncompressed())
 		if err != nil {
 			t.Errorf("%s privkey: %v", test.name, err)
 			continue
@@ -37,7 +37,7 @@ func TestPrivKeys(t *testing.T) {
 			continue
 		}
 
-		if !sig.Verify(hash[:], privateKey.PublicKey) {
+		if !sig.Verify(hash[:], privateKey.PubKey()) {
 			t.Errorf("%s could not verify: %v", test.name, err)
 			continue
 		}

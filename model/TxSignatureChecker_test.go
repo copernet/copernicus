@@ -29,7 +29,7 @@ func TestCheckSequence(t *testing.T) {
 
 	hash := core.DoubleSha256Hash(message)
 
-	ret, err := CheckSig(hash, vchSign, privateKey.PublicKey.SerializeCompressed())
+	ret, err := CheckSig(hash, vchSign, privateKey.PubKey().SerializeCompressed())
 	if err != nil {
 		t.Error(err)
 	} else {

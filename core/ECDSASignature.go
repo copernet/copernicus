@@ -115,7 +115,7 @@ func (sig *Signature) Serialize() []byte {
 
 func (sig *Signature) Verify(hash []byte, pubKey *PublicKey) bool {
 	correct, _ := secp256k1.EcdsaVerify(secp256k1Context, sig.toLibEcdsaSignature(),
-		hash, (*secp256k1.PublicKey)(pubKey))
+		hash, pubKey.SecpPubKey)
 	return correct == 1
 }
 
@@ -136,7 +136,7 @@ func ParseSignature(signature []byte) (*Signature, error) {
 }
 
 func Sign(privKey *PrivateKey, hash []byte) ([]byte, error) {
-	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privKey.D.Bytes())
+	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privKey.bytes)
 	if err != nil {
 		return nil, err
 	}

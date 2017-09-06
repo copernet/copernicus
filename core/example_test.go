@@ -35,7 +35,7 @@ func TestSignMessage(t *testing.T) {
 	fmt.Printf("Serialized Signature: %x\n", signature.Serialize())
 
 	// Verify the signature for the message using the public key.
-	verified := signature.Verify(messageHash, privateKey.PublicKey)
+	verified := signature.Verify(messageHash, privateKey.PubKey())
 	fmt.Printf("Signature Verified? %v\n", verified)
 
 	// Output:
