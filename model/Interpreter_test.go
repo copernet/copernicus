@@ -1,10 +1,11 @@
 package model
 
 import (
+	"testing"
+
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
-	"testing"
 )
 
 var testsTx = []struct {

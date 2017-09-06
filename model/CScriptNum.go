@@ -36,25 +36,25 @@ func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *
 				err = errors.New("non-minimally encoded script number")
 			}
 		}
-
-		if vchLen == 0 {
-			scriptNum = NewCScriptNum(0)
-			return
-		}
-		var v int64
-		for i := 0; i < vchLen; i++ {
-			v |= int64(vch[i]) << uint8(8*i)
-		}
-		// If the input vector's most significant byte is 0x80, remove it from
-		// the result's msb and return a negative.
-		if vch[vchLen-1]&0x80 != 0 {
-			v &= ^(int64(0x80) << uint8(8*(vchLen-1)))
-			scriptNum = NewCScriptNum(-v)
-			return
-		}
-		scriptNum = NewCScriptNum(v)
-
 	}
+
+	if vchLen == 0 {
+		scriptNum = NewCScriptNum(0)
+		return
+	}
+	var v int64
+	for i := 0; i < vchLen; i++ {
+		v |= int64(vch[i]) << uint8(8*i)
+	}
+	// If the input vector's most significant byte is 0x80, remove it from
+	// the result's msb and return a negative.
+	if vch[vchLen-1]&0x80 != 0 {
+		v &= ^(int64(0x80) << uint8(8*(vchLen-1)))
+		scriptNum = NewCScriptNum(-v)
+		return
+	}
+	scriptNum = NewCScriptNum(v)
+
 	return
 }
 func (scriptNum *CScriptNum) Int32() int32 {
