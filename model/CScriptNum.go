@@ -14,8 +14,9 @@ type CScriptNum struct {
 
 func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *CScriptNum, err error) {
 	vchLen := len(vch)
-	if vchLen > DEFAULT_MAX_NUM_SIZE {
+	if vchLen > maxNumSize {
 		err = errors.New("script number overflow")
+		scriptNum = NewCScriptNum(0)
 		return
 	}
 	if requireMinimal && vchLen > 0 {
@@ -32,31 +33,33 @@ func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *
 			// it would conflict with the sign bit. An example of this case
 			// is +-255, which encode to 0xff00 and 0xff80 respectively.
 			// (big-endian).
-			if vchLen <= 1 || (vch[vchLen-2]&0x80) == 0 {
+			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
 				err = errors.New("non-minimally encoded script number")
+				scriptNum = NewCScriptNum(0)
+				return
 			}
 		}
-
-		var v int64
-		for i := 0; i < vchLen; i++ {
-			v |= int64(vch[i]) << uint8(8*i)
-		}
-		// If the input vector's most significant byte is 0x80, remove it from
-		// the result's msb and return a negative.
-		if vch[vchLen-1]&0x80 != 0 {
-			v &= ^(int64(0x80) << uint8(8*(vchLen-1)))
-			scriptNum = NewCScriptNum(-v)
-			return
-		}
-		scriptNum = NewCScriptNum(v)
-
 	}
 	if vchLen == 0 {
 		scriptNum = NewCScriptNum(0)
 		return
 	}
+
+	var v int64
+	for i := 0; i < vchLen; i++ {
+		v |= int64(vch[i]) << uint8(8*i)
+	}
+	// If the input vector's most significant byte is 0x80, remove it from
+	// the result's msb and return a negative.
+	if vch[vchLen-1]&0x80 != 0 {
+		v &= ^(int64(0x80) << uint8(8*(vchLen-1)))
+		scriptNum = NewCScriptNum(-v)
+		return
+	}
+	scriptNum = NewCScriptNum(v)
 	return
 }
+
 func (scriptNum *CScriptNum) Int32() int32 {
 	if scriptNum.Value > MaxInt32 {
 		return MaxInt32
