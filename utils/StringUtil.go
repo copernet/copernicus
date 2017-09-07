@@ -54,3 +54,20 @@ func HexToBytes(str string) []byte {
 	}
 	return bytes
 }
+
+func SplitHex(str string, split string) (string, error) {
+	bytes, err := hex.DecodeString(str)
+	if err != nil {
+		return "", err
+	}
+	result := ""
+	for i := 0; i < len(bytes); i++ {
+		if i == 0 {
+			result = fmt.Sprintf("%s0x%02x", result, bytes[i])
+		} else {
+			result = fmt.Sprintf("%s%s0x%02x", result, split, bytes[i])
+		}
+	}
+	return result, nil
+
+}
