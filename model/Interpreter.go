@@ -958,7 +958,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					// Subset of script starting at the most recent
 					// codeseparator
 					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
-					txHash, err := SignatureHash(tx, scriptCode, hashType, nIn)
+					txHash, err := SignatureHash(tx, scriptCode, uint32(hashType), nIn)
 					if err != nil {
 						return false, err
 					}
