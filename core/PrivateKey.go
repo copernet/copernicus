@@ -8,7 +8,7 @@ import (
 )
 
 type PrivateKey struct {
-	version    int
+	version    byte
 	compressed bool
 	bytes      []byte
 }
@@ -42,23 +42,28 @@ func (privateKey *PrivateKey) Sign(hash []byte) (*Signature, error) {
 	return (*Signature)(signature), err
 }
 
-func (privateKey *PrivateKey) Serialize() []byte {
-	b := make([]byte, 0, PrivateKeyBytesLen)
-	return paddedAppend(PrivateKeyBytesLen, b, privateKey.bytes)
+func (privateKey *PrivateKey) Encode() []byte {
+
+	if !privateKey.compressed {
+		return privateKey.bytes
+	}
+	bytes := make([]byte, 0)
+	bytes = append(bytes, privateKey.bytes...)
+	bytes = append(bytes, 1)
+	return bytes
+
 }
 
 func (privateKey *PrivateKey) ToString() string {
-	addressBytes := make([]byte, 1+PrivateKeyBytesLen+4)
-	addressBytes[0] = byte(privateKey.version)
-	privateKeyBytes := privateKey.Serialize()
-	copy(addressBytes[1:], privateKeyBytes[:])
-	check := DoubleSha256Bytes(privateKeyBytes)
-	copy(addressBytes[1+PrivateKeyBytesLen:], check[:4])
-	return base58.Encode(addressBytes)
+
+	privateKeyBytes := privateKey.Encode()
+
+	privateKeyString := base58.CheckEncode(privateKeyBytes, privateKey.version)
+	return privateKeyString
 
 }
 
-func DecodePrivatKey(encoded string) (*PrivateKey, error) {
+func DecodePrivateKey(encoded string) (*PrivateKey, error) {
 	bytes, version, err := base58.CheckDecode(encoded)
 	if err != nil {
 		return nil, err
@@ -76,14 +81,7 @@ func DecodePrivatKey(encoded string) (*PrivateKey, error) {
 	} else {
 		return nil, errors.New("Wrong number of bytes a private key , not 32 or 33")
 	}
-	privatetKey := PrivateKey{version: int(version), bytes: bytes, compressed: compressed}
-	return &privatetKey, nil
+	privateKey := PrivateKey{version: version, bytes: bytes, compressed: compressed}
+	return &privateKey, nil
 
-}
-
-func paddedAppend(size uint, dst, src []byte) []byte {
-	for i := 0; i < int(size)-len(src); i++ {
-		dst = append(dst, 0)
-	}
-	return append(dst, src...)
 }
