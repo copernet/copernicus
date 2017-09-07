@@ -44,7 +44,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	if !CastToBool(stack.Last().([]byte)) {
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
-	// Additional validation for spend-to-script-hash transactions:
+	// Additional validation for spend-to-script-txHash transactions:
 	if (flags&core.SCRIPT_VERIFY_P2SH == core.SCRIPT_VERIFY_P2SH) &&
 		scriptPubKey.IsPayToScriptHash() {
 		// scriptSig must be literals-only or validation fails
@@ -891,7 +891,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 				fallthrough
 			case OP_HASH256:
 				{
-					// (in -- hash)
+					// (in -- txHash)
 					var vchHash []byte
 					if stack.Size() < 1 {
 						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)

@@ -111,8 +111,8 @@ func TestBlockChainFetchNextBlock(t *testing.T) {
 	}
 
 	if !bytes.Equal(raw, rawByte[:]) {
-		t.Errorf(" FetchNextBlock() return raw data %v "+
-			"should be equal origin raw data : %v", raw, rawByte)
+		t.Errorf(" FetchNextBlock() return txRaw data %v "+
+			"should be equal origin txRaw data : %v", raw, rawByte)
 	}
 }
 
@@ -168,8 +168,8 @@ func TestBlockChainNextBlock(t *testing.T) {
 	}
 
 	if !bytes.Equal(block.Raw[:], rawByte[:]) {
-		t.Errorf("NextBlock return the raw data %v"+
-			"should be equal origin raw data %v", block.Raw, rawByte)
+		t.Errorf("NextBlock return the txRaw data %v"+
+			"should be equal origin txRaw data %v", block.Raw, rawByte)
 	}
 
 }
