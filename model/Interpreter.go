@@ -939,9 +939,8 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if err != nil {
 						return false, err
 					}
+
 					vchByte := vchSig.([]byte)
-					hashType := vchByte[len(vchByte)-1]
-					vchByte = vchByte[:len(vchByte)-1]
 					checkSig, err := core.CheckSignatureEncoding(vchByte, uint32(flags))
 					if err != nil {
 						return false, err
@@ -954,6 +953,8 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 						return false, errors.New("check public key or sig failed")
 					}
 
+					hashType := vchByte[len(vchByte)-1]
+					vchByte = vchByte[:vchByte[1]+2]
 					// Subset of script starting at the most recent
 					// codeseparator
 					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])

@@ -26,6 +26,9 @@ func TestCheckSequence(t *testing.T) {
 		t.Error(err)
 	}
 	vchSign := signature.Serialize()
+	if vchSign[0] != 0x30 {
+		t.Error("the signature serialize error, ", vchSign)
+	}
 
 	hash := core.DoubleSha256Hash(message)
 

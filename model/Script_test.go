@@ -128,3 +128,33 @@ func TestCScriptPushData(t *testing.T) {
 			"should be equal origin script data %v", script.bytes, p2SHScript)
 	}
 }
+
+func TestScript_PushInt64(t *testing.T) {
+	var script Script
+	script.PushInt64(3)
+	if len(script.bytes) != 1 {
+		t.Error("func PushInt64() error: should have one element")
+	}
+	if script.bytes[0] != OP_3 {
+		t.Error("func PushInt64() error: the element should be 83 instead of : ", script.bytes[0])
+	}
+
+	script.bytes = make([]byte, 0)
+	script.PushInt64(35)
+	if len(script.bytes) != 1 {
+		t.Error("func PushInt64() error: should have one element")
+	}
+	if script.bytes[0] != 35 {
+		t.Error("func PushInt64() error: the element should be 35 instead of : ", script.bytes[0])
+	}
+
+	script.bytes = make([]byte, 0)
+	script.PushInt64(235)
+	if len(script.bytes) != 2 {
+		t.Errorf("func PushInt64() error: should have two element instead of %d element", len(script.bytes))
+	}
+	if script.bytes[0] != 235 && script.bytes[1] != 0 {
+		t.Errorf("func PushInt64() error: the element should be 235 instead of : %d", script.bytes[0])
+	}
+
+}
