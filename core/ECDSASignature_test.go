@@ -36,13 +36,13 @@ func TestCheckSignatureEncoding(t *testing.T) {
 	flags := SCRIPT_VERIFY_STRICTENC
 	ret, err := CheckSignatureEncoding(validSig, uint32(flags))
 	if err != nil || !ret {
-		t.Error("the test signature is valid")
+		t.Error("the test signature is valid, ", err)
 	}
 
 	flags = SCRIPT_VERIFY_DERSIG
 	ret, err = CheckSignatureEncoding(validSig, uint32(flags))
 	if err != nil || !ret {
-		t.Error("the test signature is valid")
+		t.Error("the test signature is valid, ", err)
 	}
 }
 

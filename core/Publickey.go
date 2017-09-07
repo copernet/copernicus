@@ -3,6 +3,8 @@ package core
 import (
 	"reflect"
 
+	"encoding/hex"
+
 	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
 )
@@ -11,15 +13,32 @@ var (
 	errPublicKeySerialize = errors.New("secp256k1 public key serialize error")
 )
 
-type PublicKey secp256k1.PublicKey
+type PublicKey struct {
+	SecpPubKey *secp256k1.PublicKey
+	Compressed bool
+}
 
 func ParsePubKey(pubKeyStr []byte) (*PublicKey, error) {
 	_, pubKey, err := secp256k1.EcPubkeyParse(secp256k1Context, pubKeyStr)
-	return (*PublicKey)(pubKey), err
+	publicKey := PublicKey{SecpPubKey: pubKey}
+	return &publicKey, err
 }
 
 func (publicKey *PublicKey) ToSecp256k() *secp256k1.PublicKey {
-	return (*secp256k1.PublicKey)(publicKey)
+	return publicKey.SecpPubKey
+}
+
+func (publicKey *PublicKey) ToHexString() string {
+	bytes := publicKey.ToBytes()
+	return hex.EncodeToString(bytes)
+
+}
+func (publicKey *PublicKey) ToBytes() []byte {
+	if publicKey.Compressed {
+		return publicKey.SerializeCompressed()
+	}
+	return publicKey.SerializeUncompressed()
+
 }
 
 func (publicKey *PublicKey) SerializeUncompressed() []byte {

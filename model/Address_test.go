@@ -12,7 +12,7 @@ func TestPublicKeyToAddress(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	address, err := AddressFromPublicKey(bytes, AddressVerPubKey(false))
+	address, err := AddressFromPublicKey(bytes)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -28,4 +28,23 @@ func TestPublicKeyToAddress(t *testing.T) {
 		t.Errorf("address is wrong 1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV  --  %s", address.addressStr)
 		return
 	}
+}
+
+func TestPrivateKeyToAddress(t *testing.T) {
+	address, err := AddressFromPrivateKey("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss")
+	if err != nil {
+		t.Error(err)
+	}
+	if address.addressStr != "1HZwkjkeaoZfTSaJxDw6aKkxp45agDiEzN" {
+		t.Errorf("address (%s) is error", address.addressStr)
+	}
+
+	address, err = AddressFromPrivateKey("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1")
+	if err != nil {
+		t.Error(err)
+	}
+	if address.addressStr != "1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV" {
+		t.Errorf("address (%s) is error", address.addressStr)
+	}
+
 }

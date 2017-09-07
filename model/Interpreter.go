@@ -14,7 +14,7 @@ type Interpreter struct {
 	stack *algorithm.Stack
 }
 
-func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scriptPubKey *Script, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scriptPubKey *Script, flags uint32) (result bool, err error) {
 	if flags&core.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
 		err = core.ScriptErr(core.SCRIPT_ERR_SIG_PUSHONLY)
 		return
@@ -44,7 +44,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	if !CastToBool(stack.Last().([]byte)) {
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
-	// Additional validation for spend-to-script-hash transactions:
+	// Additional validation for spend-to-script-txHash transactions:
 	if (flags&core.SCRIPT_VERIFY_P2SH == core.SCRIPT_VERIFY_P2SH) &&
 		scriptPubKey.IsPayToScriptHash() {
 		// scriptSig must be literals-only or validation fails
@@ -99,7 +99,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	return
 }
 
-func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, script *Script, flags int32) (result bool, err error) {
+func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, script *Script, flags uint32) (result bool, err error) {
 	bnZero := NewCScriptNum(0)
 	bnOne := NewCScriptNum(1)
 	//bnFalse := NewCScriptNum(0)
@@ -891,7 +891,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 				fallthrough
 			case OP_HASH256:
 				{
-					// (in -- hash)
+					// (in -- txHash)
 					var vchHash []byte
 					if stack.Size() < 1 {
 						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
@@ -945,7 +945,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if err != nil {
 						return false, err
 					}
-					checkPubKey, err := core.CheckPubKeyEncoding(vchPubkey.([]byte), uint32(flags))
+					checkPubKey, err := core.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 					if err != nil {
 						return false, err
 					}
@@ -958,7 +958,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					// Subset of script starting at the most recent
 					// codeseparator
 					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
-					txHash, err := SignatureHash(tx, scriptCode, int(hashType), nIn)
+					txHash, err := SignatureHash(tx, scriptCode, hashType, nIn)
 					if err != nil {
 						return false, err
 					}
@@ -1066,18 +1066,18 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 						// pubkey/signature evaluation distinguishable by
 						// CHECKMULTISIG NOT if the STRICTENC flag is set.
 						// See the script_(in)valid tests for details.
-						checkSig, err := core.CheckSignatureEncoding(vchSig.([]byte), uint32(flags))
+						checkSig, err := core.CheckSignatureEncoding(vchSig.([]byte), flags)
 						if err != nil {
 							return false, err
 						}
-						checkPubKey, err := core.CheckPubKeyEncoding(vchPubkey.([]byte), uint32(flags))
+						checkPubKey, err := core.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 						if err != nil {
 							return false, err
 						}
 						if !checkSig || !checkPubKey {
 							return false, errors.New("check sig or public key failed")
 						}
-						txHash, err := SignatureHash(tx, scriptCode, int(flags), nIn)
+						txHash, err := SignatureHash(tx, scriptCode, flags, nIn)
 						if err != nil {
 							return false, err
 						}
@@ -1157,7 +1157,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 	return true, nil
 }
 
-func CleanupScriptCode(scriptCode *Script, vchSig []byte, flags int32) {
+func CleanupScriptCode(scriptCode *Script, vchSig []byte, flags uint32) {
 	nHashType := GetHashType(vchSig)
 	fmt.Print(nHashType)
 	scriptCode.FindAndDelete(scriptCode)

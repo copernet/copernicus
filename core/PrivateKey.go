@@ -1,49 +1,87 @@
 package core
 
 import (
-	"math/big"
+	"btcutil/base58"
 
 	"github.com/btcboost/secp256k1-go/secp256k1"
+	"github.com/pkg/errors"
 )
 
 type PrivateKey struct {
-	PublicKey *PublicKey
-	D         *big.Int
+	version    byte
+	compressed bool
+	bytes      []byte
 }
 
 const (
-	PrivateKeyBytesLen = 32
+	PrivateKeyBytesLen      = 32
+	DumpedPrivateKeyVersion = 128
 )
 
 func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
-	_, secp256k1PublicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKeyBytes)
-	if err != nil {
-		return nil
-	}
+
 	privateKey := PrivateKey{
-		PublicKey: (*PublicKey)(secp256k1PublicKey),
-		D:         new(big.Int).SetBytes(privateKeyBytes),
+		//D:         new(big.Int).SetBytes(privateKeyBytes),
+		bytes:   privateKeyBytes,
+		version: DumpedPrivateKeyVersion,
 	}
 	return &privateKey
 }
 
 func (privateKey *PrivateKey) PubKey() *PublicKey {
-	return privateKey.PublicKey
+	_, secp256k1PublicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKey.bytes)
+	if err != nil {
+		return nil
+	}
+	publicKey := PublicKey{SecpPubKey: secp256k1PublicKey, Compressed: privateKey.compressed}
+	return &publicKey
 }
 
 func (privateKey *PrivateKey) Sign(hash []byte) (*Signature, error) {
-	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privateKey.D.Bytes())
+	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privateKey.bytes)
 	return (*Signature)(signature), err
 }
 
-func (privateKey *PrivateKey) Serialize() []byte {
-	b := make([]byte, 0, PrivateKeyBytesLen)
-	return paddedAppend(PrivateKeyBytesLen, b, privateKey.D.Bytes())
+func (privateKey *PrivateKey) Encode() []byte {
+
+	if !privateKey.compressed {
+		return privateKey.bytes
+	}
+	bytes := make([]byte, 0)
+	bytes = append(bytes, privateKey.bytes...)
+	bytes = append(bytes, 1)
+	return bytes
+
 }
 
-func paddedAppend(size uint, dst, src []byte) []byte {
-	for i := 0; i < int(size)-len(src); i++ {
-		dst = append(dst, 0)
+func (privateKey *PrivateKey) ToString() string {
+
+	privateKeyBytes := privateKey.Encode()
+
+	privateKeyString := base58.CheckEncode(privateKeyBytes, privateKey.version)
+	return privateKeyString
+
+}
+
+func DecodePrivateKey(encoded string) (*PrivateKey, error) {
+	bytes, version, err := base58.CheckDecode(encoded)
+	if err != nil {
+		return nil, err
 	}
-	return append(dst, src...)
+	if version != DumpedPrivateKeyVersion {
+		return nil, errors.Errorf("Mismatched version number ,trying to cross network , got version is %d", version)
+	}
+	var compressed bool
+	if len(bytes) == PrivateKeyBytesLen+1 && bytes[PrivateKeyBytesLen] == 1 {
+		compressed = true
+		bytes = bytes[:PrivateKeyBytesLen]
+	} else if len(bytes) == PrivateKeyBytesLen {
+		compressed = false
+
+	} else {
+		return nil, errors.New("Wrong number of bytes a private key , not 32 or 33")
+	}
+	privateKey := PrivateKey{version: version, bytes: bytes, compressed: compressed}
+	return &privateKey, nil
+
 }

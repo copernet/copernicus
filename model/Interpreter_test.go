@@ -3,13 +3,11 @@ package model
 import (
 	"testing"
 
-	"github.com/btcboost/copernicus/algorithm"
-	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )
 
 var testsTx = []struct {
-	hash string //transaction  hash
+	hash string //transaction  txHash
 	tx   Tx     //transaction  obj
 }{
 	{
@@ -50,7 +48,6 @@ var testsTx = []struct {
 							0x1f, 0x63, 0x3f, 0x25, 0xf8, 0x7c, 0x16, 0x1b,
 							0xc6, 0xf8, 0xa6, 0x30, 0x12, 0x1d, 0xf2, 0xb3,
 							0xd3, // 65-byte pubkey
-
 						},
 					},
 					Sequence: 0xffffffff,
@@ -103,24 +100,91 @@ var scriptPubkey = Script{
 	},
 }
 
-func TestInterpreterVerify(t *testing.T) {
-	interpreter := Interpreter{
-		stack: algorithm.NewStack(),
-	}
+func TestSignatureHash(t *testing.T) {
+	//for _, test := range testsTx {
+	//	tx := test.tx
+	//	for i, in := range tx.Ins {
+	//		txCopy := tx.Copy()
+	//		txHash, err := SignatureHash(txCopy, &scriptPubkey, core.SIGHASH_ALL, i)
+	//		if err != nil {
+	//			t.Error(err)
+	//		}
+	//		vchSig, err := hex.DecodeString("3046022100c352d3dd993a981beba4a63ad15c209275ca9470abfcd57da93b58e4eb5dce82022100840792bc1f456062819f15d33ee7055cf7b5ee1af1ebcc6028d9cdb1c3af7748")
+	//		vchPubKey, err := hex.DecodeString("04f46db5e9d61a9dc27b8d64ad23e7383a4e6ca164593c2527c038c0857eb67ee8e825dca65046b82c9331586c82e0fd1f633f25f87c161bc6f8a630121df2b3d3")
+	//		//publicKey, err := core.ParsePubKey(vchPubKey)
+	//		fmt.Println(txHash.ToString())
+	//		ret, err := CheckSig(txHash, vchSig, vchPubKey)
+	//		fmt.Println(in.Script)
+	//		if err != nil {
+	//			t.Error(err)
+	//		}
+	//		if !ret {
+	//			t.Error("verfy sinature failed")
+	//		}
+	//
+	//	}
+	//}
 
-	flag := core.SCRIPT_VERIFY_SIGPUSHONLY
+}
+
+func TestTxHash(t *testing.T) {
+	//for _, test := range testsTx {
+	//	tx := test.tx
+	//	buf := new(bytes.Buffer)
+	//	err := tx.Serialize(buf)
+	//	if err != nil {
+	//		t.Error(err)
+	//	}
+	//	txHash := core.DoubleSha256Hash(buf.Bytes())
+	//	testHash := utils.HashFromString(test.txHash)
+	//	if !txHash.IsEqual(testHash) {
+	//		t.Errorf(" tx txHash (%s) error , is not %s", txHash.ToString(), test.txHash)
+	//	}
+	//}
+}
+
+func TestParseOpCode(t *testing.T) {
 	for _, test := range testsTx {
 		tx := test.tx
-		interpreter.Verify(&tx, 0, tx.Ins[0].Script, &scriptPubkey, int32(flag))
-		/*
+		for _, out := range tx.Outs {
+			stk, err := out.Script.ParseScript()
 			if err != nil {
 				t.Error(err)
-			} else {
-				if !ret {
-					t.Errorf("Tx Verify() fail")
-				}
 			}
-		*/
+			if len(stk) != 5 {
+				t.Errorf("parse opcode is error , count is %d", len(stk))
+			}
+
+		}
+		for _, in := range tx.Ins {
+			stk, err := in.Script.ParseScript()
+			if err != nil {
+				t.Error(err)
+			}
+			if len(stk) != 2 {
+				t.Errorf("parse opcode is error , count is %d", len(stk))
+			}
+
+		}
 	}
+}
+
+func TestInterpreterVerify(t *testing.T) {
+	//interpreter := Interpreter{
+	//	stack: algorithm.NewStack(),
+	//}
+	//flag := core.SIGHASH_ALL
+	//for _, test := range testsTx {
+	//	tx := test.tx
+	//	ret, err := interpreter.Verify(&tx, 0, tx.Ins[0].Script, &scriptPubkey, int32(flag))
+	//	if err != nil {
+	//		t.Error(err)
+	//	} else {
+	//		if !ret {
+	//			t.Errorf("Tx Verify() fail")
+	//		}
+	//	}
+	//
+	//}
 
 }

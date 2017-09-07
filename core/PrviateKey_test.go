@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 )
 
@@ -24,7 +25,7 @@ func TestPrivKeys(t *testing.T) {
 	for _, test := range tests {
 		privateKey := PrivateKeyFromBytes(test.key)
 
-		_, err := ParsePubKey(privateKey.PublicKey.SerializeUncompressed())
+		_, err := ParsePubKey(privateKey.PubKey().SerializeUncompressed())
 		if err != nil {
 			t.Errorf("%s privkey: %v", test.name, err)
 			continue
@@ -37,15 +38,55 @@ func TestPrivKeys(t *testing.T) {
 			continue
 		}
 
-		if !sig.Verify(hash[:], privateKey.PublicKey) {
+		if !sig.Verify(hash[:], privateKey.PubKey()) {
 			t.Errorf("%s could not verify: %v", test.name, err)
 			continue
 		}
 
-		serializedKey := privateKey.Serialize()
+		serializedKey := privateKey.Encode()
 		if !bytes.Equal(serializedKey, test.key) {
 			t.Errorf("%s unexpected serialized bytes - got: %x, "+
 				"want: %x", test.name, serializedKey, test.key)
 		}
 	}
+}
+
+func TestEncodePrivateKey(t *testing.T) {
+	originalKey, err := DecodePrivateKey("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss")
+	if err != nil {
+		t.Error(err)
+	}
+	if originalKey.compressed {
+		t.Errorf("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss is UnCompreeed key")
+	}
+	if "5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss" != originalKey.ToString() {
+		t.Errorf("private key toString is err  : %s", originalKey.ToString())
+	}
+	privKeyHex := hex.EncodeToString(originalKey.bytes)
+	if privKeyHex != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Errorf("hex(%s) of private key is error", privKeyHex)
+	}
+	pubKey := originalKey.PubKey()
+	if pubKey.ToHexString() !=
+		"04a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd5b8dec5235a0fa8722476c7709c02559e3aa73aa03918ba2d492eea75abea235" {
+		t.Errorf("public key hex is error(%s)", pubKey.ToHexString())
+	}
+
+	originalKey.compressed = true
+	if "L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1" != originalKey.ToString() {
+		t.Errorf("private key toString is err  : %s", originalKey.ToString())
+	}
+	privKeyHex = hex.EncodeToString(originalKey.bytes)
+	if privKeyHex != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Errorf("hex(%s) of private key is error", privKeyHex)
+	}
+	if !originalKey.compressed {
+		t.Errorf("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1 is Compreeed key")
+	}
+	pubKey = originalKey.PubKey()
+	if pubKey.ToHexString() !=
+		"03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd" {
+		t.Errorf("public key hex is error(%s)", pubKey.ToHexString())
+	}
+
 }
