@@ -18,7 +18,10 @@ const (
 	ScriptToAddress          = 5
 )
 
+var IsTestNetwork = false
+
 type Address struct {
+	key        *core.PrivateKey
 	version    byte
 	publicKey  []byte
 	addressStr string
@@ -50,15 +53,15 @@ func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 	return
 }
 
-func AddressVerPubKey(isTest bool) byte {
-	if isTest {
+func AddressVerPubKey() byte {
+	if IsTestNetwork {
 		return PublicKeyToAddressInTest
 	}
 	return PublicKeyToAddress
 }
 
-func AddressVerScript(isTest bool) byte {
-	if isTest {
+func AddressVerScript() byte {
+	if IsTestNetwork {
 		return ScriptToAddressInTest
 	}
 	return ScriptToAddress
@@ -92,7 +95,23 @@ func Hash160ToAddressStr(hash160 []byte, version byte) (str string, err error) {
 	return
 }
 
-func AddressFromPublicKey(publicKey []byte, version byte) (address *Address, err error) {
+func AddressFromPrivateKey(priKeyStr string) (*Address, error) {
+	priKey, err := core.DecodePrivateKey(priKeyStr)
+	if err != nil {
+		return nil, err
+	}
+	pubKey := priKey.PubKey()
+	address, err := AddressFromPublicKey(pubKey.ToBytes())
+	if err != nil {
+		return nil, err
+	}
+	address.key = priKey
+	return address, nil
+
+}
+
+func AddressFromPublicKey(publicKey []byte) (address *Address, err error) {
+	version := AddressVerPubKey()
 	address = new(Address)
 	address.publicKey = make([]byte, len(publicKey))
 	copy(address.publicKey[:], publicKey[:])
@@ -101,4 +120,18 @@ func AddressFromPublicKey(publicKey []byte, version byte) (address *Address, err
 	copy(address.hash160[:], hash160[:])
 	address.addressStr, err = Hash160ToAddressStr(hash160, version)
 	return
+}
+
+func AddressFromScriptHash(script []byte) (*Address, error) {
+	version := AddressVerScript()
+	address := new(Address)
+	address.publicKey = make([]byte, len(script))
+	copy(address.publicKey[:], script[:])
+	address.version = version
+	hash160 := btcutil.Hash160(script)
+	copy(address.hash160[:], hash160[:])
+	addressStr, err := Hash160ToAddressStr(hash160, version)
+	address.addressStr = addressStr
+	return address, err
+
 }

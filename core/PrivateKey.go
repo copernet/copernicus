@@ -72,9 +72,9 @@ func DecodePrivateKey(encoded string) (*PrivateKey, error) {
 		return nil, errors.Errorf("Mismatched version number ,trying to cross network , got version is %d", version)
 	}
 	var compressed bool
-	if len(bytes) == PrivateKeyBytesLen+1 && bytes[0] == 1 {
+	if len(bytes) == PrivateKeyBytesLen+1 && bytes[PrivateKeyBytesLen] == 1 {
 		compressed = true
-		bytes = bytes[1:]
+		bytes = bytes[:PrivateKeyBytesLen]
 	} else if len(bytes) == PrivateKeyBytesLen {
 		compressed = false
 
