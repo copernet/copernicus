@@ -19,6 +19,9 @@ func (txIn *TxIn) SerializeSize() int {
 	// Outpoint Hash 32 bytes + Outpoint Index 4 bytes + Sequence 4 bytes +
 	// serialized VarInt size for the length of SignatureScript +
 	// SignatureScript bytes.
+	if txIn.Script == nil {
+		return 40
+	}
 	return 40 + utils.VarIntSerializeSize(uint64(txIn.Script.Size())) + txIn.Script.Size()
 
 }
@@ -41,12 +44,17 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, txIn.Script.bytes)
-	if err != nil {
-		return err
+	if txIn.Script != nil {
+		err = utils.WriteVarBytes(writer, txIn.Script.bytes)
+		if err != nil {
+			return err
+		}
+		err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
+		if err != nil {
+			return err
+		}
 	}
-
-	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
+	return nil
 }
 
 func (txIn *TxIn) Check() bool {
