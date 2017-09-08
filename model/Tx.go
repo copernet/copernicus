@@ -132,15 +132,16 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 
 }
 
-func (tx *Tx) Deserialize(reader io.Reader) (err error) {
+func DeserializeTx(reader io.Reader) (tx *Tx, err error) {
+	tx = new(Tx)
 	version, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
-		return err
+		return tx, err
 	}
 	tx.Version = int32(version)
 	count, err := utils.ReadVarInt(reader)
 	if err != nil {
-		return err
+		return tx, err
 	}
 	if count > uint64(MaxTxInPerMessage) {
 		err = errors.Errorf("too many input tx to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
@@ -267,6 +268,7 @@ func (tx *Tx) returnScriptBuffers() {
 		scriptPool.Return(txOut.Script.bytes)
 	}
 }
+
 func (tx *Tx) Copy() *Tx {
 	newTx := Tx{
 		Version:  tx.Version,
