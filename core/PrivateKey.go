@@ -1,8 +1,7 @@
 package core
 
 import (
-	"btcutil/base58"
-
+	"github.com/btcboost/copernicus/btcutil/base58"
 	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
 )
