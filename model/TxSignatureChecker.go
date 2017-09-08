@@ -26,6 +26,7 @@ func CheckSig(signHash utils.Hash, vchSigIn []byte, vchPubKey []byte) (bool, err
 	if err != nil {
 		return false, err
 	}
+
 	ret, err := VerfySinature(vchSigIn, publicKey, signHash)
 	if err != nil {
 		return false, err

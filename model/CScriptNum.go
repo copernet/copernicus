@@ -40,6 +40,7 @@ func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *
 			}
 		}
 	}
+
 	if vchLen == 0 {
 		scriptNum = NewCScriptNum(0)
 		return
@@ -57,6 +58,7 @@ func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *
 		return
 	}
 	scriptNum = NewCScriptNum(v)
+
 	return
 }
 
