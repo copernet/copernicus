@@ -67,12 +67,12 @@ var MainNetParams = BitcoinParams{
 	BitcoinNet:  btcutil.MainNet,
 	DefaultPort: "8333",
 	DNSSeeds: []btcutil.DNSSeed{
-		{"seed.bitcoin.sipa.be", true},  // Pieter Wuille
-		{"dnsseed.bluematt.me", true},   // Matt Corallo
-		{"seed.bitcoinstats.com", true}, // Chris Decker
-		{"bitseed.xf2.org", true},
-		{"seed.bitcoinstats.com", true},
-		{"seed.bitnodes.io", false},
+		{Host: "seed.bitcoin.sipa.be", HasFiltering: true},  // Pieter Wuille
+		{Host: "dnsseed.bluematt.me", HasFiltering: true},   // Matt Corallo
+		{Host: "seed.bitcoinstats.com", HasFiltering: true}, // Chris Decker
+		{Host: "bitseed.xf2.org", HasFiltering: true},
+		{Host: "seed.bitcoinstats.com", HasFiltering: true},
+		{Host: "seed.bitnodes.io", HasFiltering: false},
 	},
 	GenesisBlock:             &GenesisBlock,
 	GenesisHash:              &GenesisHash,
@@ -172,9 +172,9 @@ var TestNet3Params = BitcoinParams{
 	BitcoinNet:  btcutil.TestNet3,
 	DefaultPort: "18333",
 	DNSSeeds: []btcutil.DNSSeed{
-		{"testnet-seed.bitcoin.schildbach.de", false},
-		{"testnet-seed.bitcoin.petertodd.org", true},
-		{"testnet-seed.bluematt.me", false},
+		{Host: "testnet-seed.bitcoin.schildbach.de", HasFiltering: false},
+		{Host: "testnet-seed.bitcoin.petertodd.org", HasFiltering: true},
+		{Host: "testnet-seed.bluematt.me", HasFiltering: false},
 	},
 	GenesisBlock:             &TestNet3GenesisBlock,
 	GenesisHash:              &TestNet3GenesisHash,

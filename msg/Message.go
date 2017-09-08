@@ -57,11 +57,11 @@ func InventorySummary(invList []*InventoryVector) string {
 		iv := invList[0]
 		switch iv.Type {
 		case InventoryTypeError:
-			return fmt.Sprintf("error %s", iv.Hash)
+			return fmt.Sprintf("error %v", iv.Hash)
 		case InventoryTypeBlock:
-			return fmt.Sprintf("block %s", iv.Hash)
+			return fmt.Sprintf("block %v", iv.Hash)
 		case InventoryTypeTx:
-			return fmt.Sprintf("unkonwn %d ,%s", uint32(iv.Type), iv.Hash)
+			return fmt.Sprintf("unkonwn %d ,%v", uint32(iv.Type), iv.Hash)
 
 		}
 	}
@@ -69,9 +69,9 @@ func InventorySummary(invList []*InventoryVector) string {
 }
 func LocatorSummary(locator []*utils.Hash, stopHash *utils.Hash) string {
 	if len(locator) > 0 {
-		return fmt.Sprintf("locator %s , stop %s", locator[0], stopHash)
+		return fmt.Sprintf("locator %v , stop %v", locator[0], stopHash)
 	}
-	return fmt.Sprintf("no locator , stop %s", stopHash)
+	return fmt.Sprintf("no locator , stop %v", stopHash)
 }
 
 func MessageSummary(msg Message) string {

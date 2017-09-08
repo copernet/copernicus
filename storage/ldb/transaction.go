@@ -80,7 +80,7 @@ func (tx *transaction) fetchBlockRow(hash *utils.Hash) ([]byte, error) {
 	//blockRow := tx.blockIdxBucket.Get(hash[:])
 	var blockRow []byte
 	if blockRow == nil {
-		return blockRow, fmt.Errorf("block %s does not exist", hash)
+		return blockRow, fmt.Errorf("block %v does not exist", hash)
 	}
 	return blockRow, nil
 }

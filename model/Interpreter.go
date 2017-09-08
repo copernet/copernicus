@@ -941,7 +941,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					}
 
 					vchByte := vchSig.([]byte)
-					checkSig, err := core.CheckSignatureEncoding(vchByte, uint32(flags))
+					checkSig, err := core.CheckSignatureEncoding(vchByte, flags)
 					if err != nil {
 						return false, err
 					}
