@@ -8,19 +8,21 @@ import (
 )
 
 func TestParseBlockchain(t *testing.T) {
-	path := os.Getenv("GOPATH")
-	path += "/src/github.com/btcboost/copernicus/model"
+	path := os.TempDir()
 	err := creatFile(path, uint32(0))
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
-	var magic = [4]byte{1, 2, 3, 4}
+	var magic = [4]byte{1, 0, 0, 0}
 	testBlcokChain, err := ParseBlockchain(path, magic)
 	if err != nil {
 		t.Error(err)
+		return
 	}
 	defer testBlcokChain.CurrentFile.Close()
+
 	if testBlcokChain.CurrentFile == nil {
 		t.Error("The file Not Open")
 	}
@@ -31,24 +33,22 @@ func TestParseBlockchain(t *testing.T) {
 }
 
 func creatFile(path string, id uint32) error {
-
 	file, err := os.Create(blkFileName(path, id))
 	defer file.Close()
 	return err
 }
 
-func CreatNextFile(block *BlockChain) {
-	creatFile(block.Path, block.CurrentID+1)
+func creatNextFile(block *BlockChain) error {
+	err := creatFile(block.Path, block.CurrentID+1)
+	return err
 }
 
 func WriteContentInFile(blockChain *BlockChain) error {
-
-	blockTmp, err := ParseBlock(rawByte[:])
+	blockTmp, err := ParseBlock(blockHead[:])
 	if err != nil {
 		return err
 	}
 	blockChain.LastBlock = blockTmp
-
 	_, err = blockChain.CurrentFile.Write(blockChain.Magic[:])
 	if err != nil {
 		return err
@@ -60,16 +60,13 @@ func WriteContentInFile(blockChain *BlockChain) error {
 	if err != nil {
 		return err
 	}
-
 	_, err = blockChain.CurrentFile.Write(blockChain.LastBlock.Raw)
-
 	return err
 }
 
 func creatBlockChiain() (*BlockChain, error) {
-	path := os.Getenv("GOPATH")
-	path += "/src/github.com/btcboost/copernicus/model"
-	var magic = [4]byte{1, 2, 3, 4}
+	path := os.TempDir()
+	var magic = [4]byte{1, 0, 0, 0}
 	testBlcokChain, err := ParseBlockchain(path, magic)
 	if err != nil {
 		return nil, err
@@ -78,7 +75,6 @@ func creatBlockChiain() (*BlockChain, error) {
 }
 
 func TestBlockChainFetchNextBlock(t *testing.T) {
-
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)
@@ -104,15 +100,15 @@ func TestBlockChainFetchNextBlock(t *testing.T) {
 		return
 	}
 
-	raw, err := testBlcokChain.FetchNextBlock()
+	newBlockHead, err := testBlcokChain.FetchNextBlock()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if !bytes.Equal(raw, rawByte[:]) {
+	if !bytes.Equal(newBlockHead, blockHead[:]) {
 		t.Errorf(" FetchNextBlock() return txRaw data %v "+
-			"should be equal origin txRaw data : %v", raw, rawByte)
+			"should be equal origin txRaw data : %v", newBlockHead, blockHead)
 	}
 }
 
@@ -123,7 +119,11 @@ func TestBlockChainSkipTo(t *testing.T) {
 		return
 	}
 	testBlcokChain.CurrentFile.Close()
-	CreatNextFile(testBlcokChain)
+	err = creatNextFile(testBlcokChain)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	err = testBlcokChain.SkipTo(1, 0)
 	if err != nil {
@@ -132,7 +132,6 @@ func TestBlockChainSkipTo(t *testing.T) {
 }
 
 func WriteNextFile() error {
-
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
 		return err
@@ -146,7 +145,6 @@ func WriteNextFile() error {
 	defer testBlcokChain.CurrentFile.Close()
 
 	err = WriteContentInFile(testBlcokChain)
-
 	return err
 }
 
@@ -154,10 +152,12 @@ func TestBlockChainNextBlock(t *testing.T) {
 	err := WriteNextFile()
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
+		t.Error(err)
 		return
 	}
 	defer testBlcokChain.CurrentFile.Close()
@@ -165,24 +165,22 @@ func TestBlockChainNextBlock(t *testing.T) {
 	block, err := testBlcokChain.NextBlock()
 	if err != nil {
 		t.Error(err)
+		return
 	}
-
-	if !bytes.Equal(block.Raw[:], rawByte[:]) {
+	if !bytes.Equal(block.Raw[:], blockHead[:]) {
 		t.Errorf("NextBlock return the txRaw data %v"+
-			"should be equal origin txRaw data %v", block.Raw, rawByte)
+			"should be equal origin txRaw data %v", block.Raw, blockHead)
 	}
-
 }
 
 func TestBlockChainBestBlockHash(t *testing.T) {
-
 	testBlcokChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	blockTmp, err := ParseBlock(rawByte[:])
+	blockTmp, err := ParseBlock(blockHead[:])
 	if err != nil {
 		t.Error(err)
 		return
@@ -219,8 +217,7 @@ func TestBlockChainSkipBlock(t *testing.T) {
 		return
 	}
 
-	path := os.Getenv("GOPATH")
-	path += "/src/github.com/btcboost/copernicus/model"
+	path := os.TempDir()
 	err = os.Remove(blkFileName(path, testBlcokChain.CurrentID))
 	if err != nil {
 		t.Error(err)
@@ -229,5 +226,4 @@ func TestBlockChainSkipBlock(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 }

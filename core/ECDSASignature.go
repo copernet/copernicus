@@ -229,7 +229,7 @@ func IsLowDERSignature(vchSig []byte) (bool, error) {
 		return false, ScriptErr(SCRIPT_ERR_SIG_DER)
 	}
 	var vchCopy []byte
-	vchCopy = append(vchCopy, vchSig[:len(vchSig)-1]...)
+	vchCopy = append(vchCopy, vchSig[:]...)
 	ret := CheckLowS(vchCopy)
 	if !ret {
 		return false, ScriptErr(SCRIPT_ERR_SIG_HIGH_S)
@@ -239,7 +239,7 @@ func IsLowDERSignature(vchSig []byte) (bool, error) {
 }
 
 func CheckLowS(vchSig []byte) bool {
-	ret, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, vchSig)
+	ret, sig, err := secp256k1.EcdsaSignatureParseDer(secp256k1Context, vchSig)
 	if ret != 1 || err != nil {
 		return false
 	}

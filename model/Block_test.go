@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var rawByte = [80]byte{
+var blockHead = [80]byte{
 	0x01, 0x00, 0x00, 0x00, // Version 1
 	0x6f, 0xe2, 0x8c, 0x0a, 0xb6, 0xf1, 0xb3, 0x72,
 	0xc1, 0xa6, 0xa2, 0x46, 0xae, 0x63, 0xf7, 0x4f,
@@ -22,20 +22,20 @@ var rawByte = [80]byte{
 
 func TestParseBlock(t *testing.T) {
 
-	blockHeadFirst, err := ParseBlock(rawByte[:])
+	blockHeadFirst, err := ParseBlock(blockHead[:])
 	if err != nil {
 		t.Error(err)
 	}
-	if !bytes.Equal(blockHeadFirst.Raw, rawByte[:]) {
-		t.Errorf("ParseBlock() return the raw data %v"+
-			" should be equal origin raw data %v ", blockHeadFirst.Raw, rawByte)
+	if !bytes.Equal(blockHeadFirst.Raw, blockHead[:]) {
+		t.Errorf("ParseBlock() return the blockHead data %v"+
+			" should be equal origin blockHead data %v ", blockHeadFirst.Raw, blockHead)
 	}
 
 	if blockHeadFirst.Version != 1 {
 		t.Errorf("ParseBlock() return the version data %d should be equal 1", blockHeadFirst.Version)
 	}
-	if blockHeadFirst.Size != uint32(len(rawByte)) {
+	if blockHeadFirst.Size != uint32(len(blockHead)) {
 		t.Errorf("ParseBlock() return the size data %d "+
-			"should be equal origin raw data lenth %d", blockHeadFirst.Size, len(rawByte))
+			"should be equal origin blockHead data lenth %d", blockHeadFirst.Size, len(blockHead))
 	}
 }

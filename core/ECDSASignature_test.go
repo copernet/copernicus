@@ -1,10 +1,11 @@
 package core
 
 import (
+	"bytes"
 	"testing"
 )
 
-//the sigScript from Tx : fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4
+//the sigScript from TxID : fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4
 var validSig = []byte{
 	0x30,
 	0x46, //sigLenth
@@ -30,6 +31,7 @@ func TestIsValidSignatureEncoding(t *testing.T) {
 	if !ret {
 		t.Error("the test signature hashType is valid")
 	}
+
 }
 
 func TestCheckSignatureEncoding(t *testing.T) {
@@ -48,8 +50,13 @@ func TestCheckSignatureEncoding(t *testing.T) {
 
 func TestParseSignature(t *testing.T) {
 	sig := validSig[:len(validSig)-1]
-	_, err := ParseDERSignature(sig)
+	signature, err := ParseDERSignature(sig)
 	if err != nil {
 		t.Error(err)
+	}
+
+	sigByte := signature.Serialize()
+	if !bytes.Equal(sigByte, sig) {
+		t.Errorf("the new serialize signature %v should be equal origin sig %v: ", sigByte, sig)
 	}
 }
