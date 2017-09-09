@@ -114,7 +114,8 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
 	txCopy.Serialize(buf)
 	binary.Write(buf, binary.LittleEndian, hashType) //todo can't write int
-	sha256 := core.Sha256Hash(buf.Bytes())
-	result = sha256
+	sha256 := core.DoubleSha256Bytes(buf.Bytes())
+	result = utils.Hash{}
+	result.SetBytes(sha256)
 	return
 }

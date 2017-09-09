@@ -12,12 +12,12 @@ import (
 var tests = []struct {
 	txHash string
 	txRaw  string
-	tx     Tx
+	tx     *Tx
 }{
 	{
 		txHash: "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
 		txRaw:  "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff08044c86041b020602ffffffff0100f2052a010000004341041b0e8c2567c12536aa13357b79a073dc4444acb83c4ec7a0e2f99dd7457516c5817242da796924ca4e99947d087fedf9ce467cb9f7c6287078f801df276fdf84ac00000000",
-		tx: Tx{
+		tx: &Tx{
 			Version: 1,
 			Ins: []*TxIn{
 				{
@@ -58,7 +58,7 @@ var tests = []struct {
 	{
 		txHash: "fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4",
 		txRaw:  "0100000001032e38e9c0a84c6046d687d10556dcacc41d275ec55fc00779ac88fdf357a187000000008c493046022100c352d3dd993a981beba4a63ad15c209275ca9470abfcd57da93b58e4eb5dce82022100840792bc1f456062819f15d33ee7055cf7b5ee1af1ebcc6028d9cdb1c3af7748014104f46db5e9d61a9dc27b8d64ad23e7383a4e6ca164593c2527c038c0857eb67ee8e825dca65046b82c9331586c82e0fd1f633f25f87c161bc6f8a630121df2b3d3ffffffff0200e32321000000001976a914c398efa9c392ba6013c5e04ee729755ef7f58b3288ac000fe208010000001976a914948c765a6914d43f2a7ac177da2c2f6b52de3d7c88ac00000000",
-		tx: Tx{
+		tx: &Tx{
 			Version: 1,
 			Ins: []*TxIn{
 				{
@@ -94,7 +94,6 @@ var tests = []struct {
 							0x1f, 0x63, 0x3f, 0x25, 0xf8, 0x7c, 0x16, 0x1b,
 							0xc6, 0xf8, 0xa6, 0x30, 0x12, 0x1d, 0xf2, 0xb3,
 							0xd3, // 65-byte pubkey
-
 						},
 					},
 					Sequence: 0xffffffff,
@@ -158,9 +157,11 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		if _, err := buf.Write(b); err != nil {
 			t.Errorf("write to buf :%v\n", err)
 		}
-		if err := e.tx.Deserialize(buf); err != nil {
+		tx, err := DeserializeTx(buf)
+		if err != nil {
 			t.Errorf("Deserialize error :%v\n", err)
 		}
+		e.tx = tx
 		buf.Reset()
 		if err := e.tx.Serialize(buf); err != nil {
 			t.Errorf("failed Serialize tx %d tx: %v\n", i, err)

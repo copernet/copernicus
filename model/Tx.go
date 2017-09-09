@@ -5,6 +5,8 @@ import (
 
 	"io"
 
+	"fmt"
+
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
@@ -92,7 +94,16 @@ func (tx *Tx) SerializeSize() int {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
 	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.Outs)))
+	if tx == nil {
+		fmt.Println("tx is nil")
+	}
+	if tx.Ins == nil {
+		fmt.Println("tx.Ins is nil")
+	}
 	for _, txIn := range tx.Ins {
+		if txIn == nil {
+			fmt.Println("txIn ins is nil")
+		}
 		n += txIn.SerializeSize()
 	}
 	for _, txOut := range tx.Outs {
@@ -111,8 +122,8 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	for _, ti := range tx.Ins {
-		err := ti.Serialize(writer, tx.Version)
+	for _, txIn := range tx.Ins {
+		err := txIn.Serialize(writer, tx.Version)
 		if err != nil {
 			return err
 		}
@@ -132,15 +143,16 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 
 }
 
-func (tx *Tx) Deserialize(reader io.Reader) (err error) {
+func DeserializeTx(reader io.Reader) (tx *Tx, err error) {
+	tx = new(Tx)
 	version, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
-		return err
+		return tx, err
 	}
 	tx.Version = int32(version)
 	count, err := utils.ReadVarInt(reader)
 	if err != nil {
-		return err
+		return tx, err
 	}
 	if count > uint64(MaxTxInPerMessage) {
 		err = errors.Errorf("too many input tx to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
@@ -267,6 +279,7 @@ func (tx *Tx) returnScriptBuffers() {
 		scriptPool.Return(txOut.Script.bytes)
 	}
 }
+
 func (tx *Tx) Copy() *Tx {
 	newTx := Tx{
 		Version:  tx.Version,
