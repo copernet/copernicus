@@ -5,6 +5,8 @@ import (
 	"io"
 	"strconv"
 
+	"fmt"
+
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -21,7 +23,7 @@ func NewOutPoint(hash *utils.Hash, index uint32) *OutPoint {
 	return &outPoint
 }
 
-func (outPoint *OutPoint) String() string {
+func (outPoint *OutPoint) Serialize() string {
 	// Allocate enough for hash string, colon, and 10 digits.  Although
 	// at the time of writing, the number of digits can be no greater than
 	// the length of the decimal representation of maxTxOutPerMessage, the
@@ -43,10 +45,16 @@ func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, version int32) (err err
 	outPoint.Index, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	return
 }
+
 func (outPoint *OutPoint) WriteOutPoint(writer io.Writer, pver uint32, version int32) error {
 	_, err := writer.Write(outPoint.Hash[:])
 	if err != nil {
 		return err
 	}
 	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
+}
+
+func (outPoint *OutPoint) String() string {
+	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.ToString(), outPoint.Index)
+
 }

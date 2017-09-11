@@ -4,6 +4,9 @@ import (
 	"encoding/binary"
 	"io"
 
+	"encoding/hex"
+	"fmt"
+
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -57,6 +60,10 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	return nil
 }
 
+func (txIn *TxIn) String() string {
+	str := fmt.Sprintf("PreviousOutPoint: %s ", txIn.PreviousOutPoint.String())
+	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.Script.bytes), txIn.Sequence)
+}
 func (txIn *TxIn) Check() bool {
 	return true
 }

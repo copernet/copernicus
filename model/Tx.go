@@ -319,6 +319,20 @@ func (tx *Tx) Copy() *Tx {
 
 }
 
+func (tx *Tx) String() string {
+	str := ""
+	str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.Ins), len(tx.Outs))
+	inStr := "ins:\n"
+	for i, in := range tx.Ins {
+		inStr = fmt.Sprintf("  %s %d , %s\n", inStr, i, in.String())
+	}
+	outStr := "outs:\n"
+	for i, out := range tx.Outs {
+		outStr = fmt.Sprintf("  %s %d , %s\n", outStr, i, out.String())
+	}
+	return fmt.Sprintf("%s%s%s", str, inStr, outStr)
+}
+
 func NewTx() *Tx {
 	return &Tx{LockTime: 0, Version: TxVersion}
 }

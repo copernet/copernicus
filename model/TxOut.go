@@ -4,6 +4,9 @@ import (
 	"encoding/binary"
 	"io"
 
+	"encoding/hex"
+	"fmt"
+
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -42,6 +45,11 @@ func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
 }
 func (txOut *TxOut) Check() bool {
 	return true
+}
+
+func (txOut *TxOut) String() string {
+	return fmt.Sprintf("Value :%d Script:%s", txOut.Value, hex.EncodeToString(txOut.Script.bytes))
+
 }
 
 func NewTxOut(value int64, pkScript []byte) *TxOut {

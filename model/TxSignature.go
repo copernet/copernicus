@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"encoding/hex"
+	"fmt"
+
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -114,7 +117,14 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
 	txCopy.Serialize(buf)
 	binary.Write(buf, binary.LittleEndian, hashType) //todo can't write int
+	for i, in := range tx.Ins {
+		fmt.Printf("in: %d , %s , %s \n", i, hex.EncodeToString(in.Script.bytes), hex.EncodeToString(in.PreviousOutPoint.Hash.GetCloneBytes()))
+	}
+	fmt.Printf("tx :%s\n", tx)
+	fmt.Printf("tx string :%s\n", tx.String())
+	fmt.Printf("tx :%s\n", hex.EncodeToString(buf.Bytes()))
 	sha256 := core.DoubleSha256Bytes(buf.Bytes())
+	fmt.Printf("tx hash :%s\n", hex.EncodeToString(sha256))
 	result = utils.Hash{}
 	result.SetBytes(sha256)
 	return
