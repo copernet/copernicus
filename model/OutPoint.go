@@ -47,7 +47,7 @@ func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, version int32) (err err
 }
 
 func (outPoint *OutPoint) WriteOutPoint(writer io.Writer, pver uint32, version int32) error {
-	_, err := writer.Write(outPoint.Hash[:])
+	_, err := writer.Write(outPoint.Hash.GetCloneBytes())
 	if err != nil {
 		return err
 	}

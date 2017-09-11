@@ -47,22 +47,22 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	if err != nil {
 		return err
 	}
-	if txIn.Script != nil {
-		err = utils.WriteVarBytes(writer, txIn.Script.bytes)
-		if err != nil {
-			return err
-		}
-		err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
-		if err != nil {
-			return err
-		}
+	err = utils.WriteVarBytes(writer, txIn.Script.bytes)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
+	return err
 }
 
 func (txIn *TxIn) String() string {
 	str := fmt.Sprintf("PreviousOutPoint: %s ", txIn.PreviousOutPoint.String())
+	if txIn.Script == nil {
+		return fmt.Sprintf("%s , script:  , Sequence:%d ", str, txIn.Sequence)
+	}
 	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.Script.bytes), txIn.Sequence)
+
 }
 func (txIn *TxIn) Check() bool {
 	return true

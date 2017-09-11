@@ -161,9 +161,9 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		if err != nil {
 			t.Errorf("Deserialize error :%v\n", err)
 		}
-		e.tx = tx
+		//e.tx = tx
 		buf.Reset()
-		if err := e.tx.Serialize(buf); err != nil {
+		if err := tx.Serialize(buf); err != nil {
 			t.Errorf("failed Serialize tx %d tx: %v\n", i, err)
 		}
 		h := core.DoubleSha256Hash(buf.Bytes())

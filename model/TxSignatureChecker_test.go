@@ -5,8 +5,6 @@ import (
 
 	"testing"
 
-	"fmt"
-
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -169,7 +167,7 @@ var testTxs = []struct {
 	},
 }
 
-//address : 1HZwkjkeaoZfTSaJxDw6aKkxp45agDiEzN PrivateKey : L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1
+//address : 1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV PrivateKey : L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1
 
 func TestCheckSequence(t *testing.T) {
 	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f8720ee63e502ee2869afab7de234b80c")
@@ -204,22 +202,22 @@ func TestCheckSequence(t *testing.T) {
 
 }
 
-func TestSignHash(t *testing.T) {
-	privateKey, err := core.DecodePrivateKey("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1")
-	if err != nil {
-		t.Error(err)
-	}
-	preTestTx := testTxs[0]
-	testTx := testTxs[1]
-	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, core.SIGHASH_ALL, 0)
-	signature, err := privateKey.Sign(txHash.GetCloneBytes())
-	fmt.Println(hex.EncodeToString(signature.Serialize()))
-	ret, err := CheckSig(txHash, signature.Serialize(), privateKey.PubKey().ToBytes())
-	if err != nil {
-		t.Error(err)
-	}
-	if !ret {
-		t.Error("chec signature failed")
-	}
-
-}
+//func TestSignHash(t *testing.T) {
+//	privateKey, err := core.DecodePrivateKey("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1")
+//	if err != nil {
+//		t.Error(err)
+//	}
+//	preTestTx := testTxs[0]
+//	testTx := testTxs[1]
+//	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, core.SIGHASH_ALL, 0)
+//	signature, err := privateKey.Sign(txHash.GetCloneBytes())
+//	fmt.Println(hex.EncodeToString(signature.Serialize()))
+//	ret, err := CheckSig(txHash, signature.Serialize(), privateKey.PubKey().ToBytes())
+//	if err != nil {
+//		t.Error(err)
+//	}
+//	if !ret {
+//		t.Error("chec signature failed")
+//	}
+//
+//}

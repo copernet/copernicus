@@ -3,7 +3,6 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
-
 	"encoding/hex"
 	"fmt"
 
@@ -74,22 +73,27 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	return
 }
 
+var NilScript = NewScriptRaw(make([]byte, 0))
+
 func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result utils.Hash, err error) {
 	if (hashType&0x1f == core.SIGHASH_SINGLE) &&
 		nIn >= len(tx.Outs) {
 		return utils.HashOne, nil
 	}
+
 	txCopy := tx.Copy()
 	for i := range tx.Ins {
 		if i == nIn {
 			scriptBytes, _ := GetScriptBytes(script)
 			txCopy.Ins[i].Script = NewScriptRaw(scriptBytes)
 		} else {
-			txCopy.Ins[i].Script = nil
+
+			txCopy.Ins[i].Script = NilScript
 		}
 	}
 	switch hashType & 0x1f {
 	case core.SIGHASH_NONE:
+		fmt.Println("SIGHASH_NONE")
 		txCopy.Outs = make([]*TxOut, 0)
 		for i := range txCopy.Ins {
 			if nIn != i {
@@ -97,10 +101,11 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 			}
 		}
 	case core.SIGHASH_SINGLE:
+		fmt.Println("SIGHASH_SINGLE")
 		txCopy.Outs = txCopy.Outs[:nIn+1]
 		for i := 0; i < nIn; i++ {
 			txCopy.Outs[i].Value = -1
-			txCopy.Outs[i].Script = nil
+			txCopy.Outs[i].Script = NilScript
 		}
 		for i := range txCopy.Ins {
 			if i != nIn {
@@ -108,23 +113,21 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 			}
 		}
 	case core.SIGHASH_ALL:
-
+		fmt.Println("SIGHASH_ALL")
 	}
 	if hashType&core.SIGHASH_ANYONECANPAY != 0 {
+		fmt.Println("SIGHASH_ANYONECANPAY")
 		txCopy.Ins = tx.Ins[nIn : nIn+1]
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
 	txCopy.Serialize(buf)
 	binary.Write(buf, binary.LittleEndian, hashType) //todo can't write int
-	for i, in := range tx.Ins {
-		fmt.Printf("in: %d , %s , %s \n", i, hex.EncodeToString(in.Script.bytes), hex.EncodeToString(in.PreviousOutPoint.Hash.GetCloneBytes()))
-	}
-	fmt.Printf("tx :%s\n", tx)
-	fmt.Printf("tx string :%s\n", tx.String())
-	fmt.Printf("tx :%s\n", hex.EncodeToString(buf.Bytes()))
+
+	fmt.Println("txCopy  bytes:" + hex.EncodeToString(buf.Bytes()))
+	//fmt.Printf("txCopy string :%s\n", txCopy.String())
+	//fmt.Printf("txCopy :%s\n", hex.EncodeToString(buf.Bytes()))
 	sha256 := core.DoubleSha256Bytes(buf.Bytes())
-	fmt.Printf("tx hash :%s\n", hex.EncodeToString(sha256))
 	result = utils.Hash{}
 	result.SetBytes(sha256)
 	return

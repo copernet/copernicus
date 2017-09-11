@@ -16,10 +16,11 @@ var HashZero = Hash{}
 var HashOne = Hash{0x0000000000000000000000000000000000000000000000000000000000000001}
 
 func (hash *Hash) ToString() string {
+	bytes := hash.GetCloneBytes()
 	for i := 0; i < HashSize/2; i++ {
-		hash[i], hash[HashSize-1-i] = hash[HashSize-1-i], hash[i]
+		bytes[i], bytes[HashSize-1-i] = bytes[HashSize-1-i], bytes[i]
 	}
-	return hex.EncodeToString(hash[:])
+	return hex.EncodeToString(bytes[:])
 }
 
 func (hash *Hash) GetCloneBytes() []byte {

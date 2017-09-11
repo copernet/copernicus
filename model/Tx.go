@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"encoding/hex"
+
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
@@ -289,6 +291,8 @@ func (tx *Tx) Copy() *Tx {
 	}
 	newTx.Hash = tx.Hash
 
+	fmt.Println("copy")
+
 	for _, txOut := range tx.Outs {
 		scriptLen := len(txOut.Script.bytes)
 		newOutScript := make([]byte, scriptLen)
@@ -301,10 +305,16 @@ func (tx *Tx) Copy() *Tx {
 		newTx.Outs = append(newTx.Outs, &newTxOut)
 	}
 	for _, txIn := range tx.Ins {
-		var buf utils.Hash
-		newOutPoint := OutPoint{Hash: &buf}
-		newOutPoint.Hash.SetBytes(txIn.PreviousOutPoint.Hash[:])
-		newOutPoint.Index = txIn.PreviousOutPoint.Index
+		fmt.Println("copy in")
+		fmt.Println("orginial hash :" + hex.EncodeToString(txIn.PreviousOutPoint.Hash[:]))
+		var hashBytes [32]byte
+		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
+		preHash := new(utils.Hash)
+		preHash.SetBytes(hashBytes[:])
+		newOutPoint := OutPoint{Hash: preHash, Index: txIn.PreviousOutPoint.Index}
+
+		fmt.Println("hash copy", hex.EncodeToString(txIn.PreviousOutPoint.Hash.GetCloneBytes()), hex.EncodeToString(newOutPoint.Hash.GetCloneBytes()))
+
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
 		copy(newScript[:], txIn.Script.bytes[:scriptLen])
@@ -324,7 +334,11 @@ func (tx *Tx) String() string {
 	str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.Ins), len(tx.Outs))
 	inStr := "ins:\n"
 	for i, in := range tx.Ins {
-		inStr = fmt.Sprintf("  %s %d , %s\n", inStr, i, in.String())
+		if in == nil {
+			inStr = fmt.Sprintf("  %s %d , nil \n", inStr, i)
+		} else {
+			inStr = fmt.Sprintf("  %s %d , %s\n", inStr, i, in.String())
+		}
 	}
 	outStr := "outs:\n"
 	for i, out := range tx.Outs {
