@@ -3,7 +3,6 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/btcboost/copernicus/core"
@@ -117,16 +116,11 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 	}
 	if hashType&core.SIGHASH_ANYONECANPAY != 0 {
 		fmt.Println("SIGHASH_ANYONECANPAY")
-		txCopy.Ins = tx.Ins[nIn : nIn+1]
+		txCopy.Ins = txCopy.Ins[nIn : nIn+1]
 	}
-
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
 	txCopy.Serialize(buf)
 	binary.Write(buf, binary.LittleEndian, hashType) //todo can't write int
-
-	fmt.Println("txCopy  bytes:" + hex.EncodeToString(buf.Bytes()))
-	//fmt.Printf("txCopy string :%s\n", txCopy.String())
-	//fmt.Printf("txCopy :%s\n", hex.EncodeToString(buf.Bytes()))
 	sha256 := core.DoubleSha256Bytes(buf.Bytes())
 	result = utils.Hash{}
 	result.SetBytes(sha256)

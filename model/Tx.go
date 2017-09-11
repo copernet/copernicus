@@ -7,8 +7,6 @@ import (
 
 	"fmt"
 
-	"encoding/hex"
-
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
@@ -305,16 +303,11 @@ func (tx *Tx) Copy() *Tx {
 		newTx.Outs = append(newTx.Outs, &newTxOut)
 	}
 	for _, txIn := range tx.Ins {
-		fmt.Println("copy in")
-		fmt.Println("orginial hash :" + hex.EncodeToString(txIn.PreviousOutPoint.Hash[:]))
 		var hashBytes [32]byte
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
 		preHash := new(utils.Hash)
 		preHash.SetBytes(hashBytes[:])
 		newOutPoint := OutPoint{Hash: preHash, Index: txIn.PreviousOutPoint.Index}
-
-		fmt.Println("hash copy", hex.EncodeToString(txIn.PreviousOutPoint.Hash.GetCloneBytes()), hex.EncodeToString(newOutPoint.Hash.GetCloneBytes()))
-
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
 		copy(newScript[:], txIn.Script.bytes[:scriptLen])

@@ -129,7 +129,7 @@ func TestCScriptPushData(t *testing.T) {
 	}
 }
 
-func TestScript_PushInt64(t *testing.T) {
+func TestScriptPushInt64(t *testing.T) {
 	var script Script
 	script.PushInt64(3)
 	if len(script.bytes) != 1 {
