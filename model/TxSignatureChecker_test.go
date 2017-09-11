@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"testing"
 
@@ -202,22 +203,22 @@ func TestCheckSequence(t *testing.T) {
 
 }
 
-//func TestSignHash(t *testing.T) {
-//	privateKey, err := core.DecodePrivateKey("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1")
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	preTestTx := testTxs[0]
-//	testTx := testTxs[1]
-//	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, core.SIGHASH_ALL, 0)
-//	signature, err := privateKey.Sign(txHash.GetCloneBytes())
-//	fmt.Println(hex.EncodeToString(signature.Serialize()))
-//	ret, err := CheckSig(txHash, signature.Serialize(), privateKey.PubKey().ToBytes())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !ret {
-//		t.Error("chec signature failed")
-//	}
-//
-//}
+func TestSignHash(t *testing.T) {
+	privateKey, err := core.DecodePrivateKey("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1")
+	if err != nil {
+		t.Error(err)
+	}
+	preTestTx := testTxs[0]
+	testTx := testTxs[1]
+	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, core.SIGHASH_ALL, 0)
+	signature, err := privateKey.Sign(txHash.GetCloneBytes())
+	fmt.Println(hex.EncodeToString(signature.Serialize()))
+	ret, err := CheckSig(txHash, signature.Serialize(), privateKey.PubKey().ToBytes())
+	if err != nil {
+		t.Error(err)
+	}
+	if !ret {
+		t.Error("chec signature failed")
+	}
+
+}
