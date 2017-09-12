@@ -28,3 +28,12 @@ type TxMempoolEntry struct {
 	ModFeesWithDescendants  int64
 	SigOpCoungWithAncestors int64
 }
+
+func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
+	entryPriority float64, entryHeight int, inChainInputValue int64, spendCoinbase bool,
+	sigOpsCount int64, lockPoints LockPoints) *TxMempoolEntry {
+	txMempoolEntry := TxMempoolEntry{}
+	txMempoolEntry.TxSize = txRef.SerializeSize()
+
+	return &txMempoolEntry
+}

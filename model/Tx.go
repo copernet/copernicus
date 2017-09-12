@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"math"
+
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
@@ -319,6 +321,34 @@ func (tx *Tx) Copy() *Tx {
 		newTx.Ins = append(newTx.Ins, &newTxTmp)
 	}
 	return &newTx
+
+}
+
+func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
+	txModifiedSize := tx.CalculateModifiedSize()
+	if txModifiedSize == 0 {
+		return 0
+	}
+	return priorityInputs / float64(txModifiedSize)
+
+}
+
+func (tx *Tx) CalculateModifiedSize() int {
+	// In order to avoid disincentivizing cleaning up the UTXO set we don't
+	// count the constant overhead for each txin and up to 110 bytes of
+	// scriptSig (which is enough to cover a compressed pubkey p2sh redemption)
+	// for priority. Providing any more cleanup incentive than making additional
+	// inputs free would risk encouraging people to create junk outputs to
+	// redeem later.
+	txSize := tx.SerializeSize()
+	for _, in := range tx.Ins {
+		inScriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
+		offset := 41 + int(inScriptModifiedSize)
+		if txSize > offset {
+			txSize -= offset
+		}
+	}
+	return txSize
 
 }
 
