@@ -12,6 +12,12 @@ import (
 	"github.com/astaxie/beego/logs"
 )
 
+const (
+	MaxAllowedOffsetSecs = 70 * 60
+	SimilarTimeSecs      = 5 * 60
+	MaxMedianTimeRntries = 200
+)
+
 var log = logs.NewLogger()
 
 type MedianTime struct {
@@ -22,7 +28,7 @@ type MedianTime struct {
 	invalidTimeChecked bool
 }
 
-var _ IMedianTimeSource = (*MedianTime)(nil)
+var _ MedianTime
 
 func (medianTime *MedianTime) AdjustedTime() time.Time {
 	medianTime.lock.Lock()
@@ -83,7 +89,7 @@ func (medianTime *MedianTime) Offset() time.Duration {
 	defer medianTime.lock.Unlock()
 	return time.Duration(medianTime.offsetsSecs) * time.Second
 }
-func NewMedianTime() IMedianTimeSource {
+func NewMedianTime() *MedianTime {
 	medianTime := MedianTime{
 		knowIDs: make(map[string]struct{}),
 		offsets: make([]int64, 0, MaxMedianTimeRntries),

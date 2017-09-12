@@ -48,7 +48,7 @@ type PeerManager struct {
 	//txMemPool    *mempool.TxPool
 	nat          network.NATInterface
 	storage      storage.Storage
-	timeSource   blockchain.IMedianTimeSource
+	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
 
 	//txIndex   *indexers.TxIndex
