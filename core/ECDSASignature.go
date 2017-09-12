@@ -239,7 +239,7 @@ func IsLowDERSignature(vchSig []byte) (bool, error) {
 }
 
 func CheckLowS(vchSig []byte) bool {
-	ret, sig, err := secp256k1.EcdsaSignatureParseDer(secp256k1Context, vchSig)
+	ret, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, vchSig)
 	if ret != 1 || err != nil {
 		return false
 	}
