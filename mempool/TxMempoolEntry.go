@@ -32,8 +32,17 @@ type TxMempoolEntry struct {
 
 func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 	entryPriority float64, entryHeight int, inChainInputValue int64, spendCoinbase bool,
-	sigOpsCount int64, lockPoints LockPoints) *TxMempoolEntry {
+	sigOpsCount int64, lockPoints *LockPoints) *TxMempoolEntry {
 	txMempoolEntry := TxMempoolEntry{}
+
+	txMempoolEntry.TxRef = txRef
+	txMempoolEntry.Fee = fee
+	txMempoolEntry.EntryPriority = entryPriority
+	txMempoolEntry.EntryHeight = entryHeight
+	txMempoolEntry.InChainInputValue = inChainInputValue
+	txMempoolEntry.SpendsCoinbase = spendCoinbase
+	txMempoolEntry.SigOpCount = sigOpsCount
+	txMempoolEntry.LockPoints = lockPoints
 
 	txMempoolEntry.TxSize = txRef.SerializeSize()
 	txMempoolEntry.ModSize = txRef.CalculateModifiedSize()
@@ -41,6 +50,17 @@ func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 
 	txMempoolEntry.CountWithDescendants = 1
 	txMempoolEntry.SizeWithDescendants = uint64(txMempoolEntry.TxSize)
+	txMempoolEntry.ModFeesWithDescendants = fee
+	valueIn := txRef.GetValueOut()
+
+	if inChainInputValue > valueIn {
+		panic("error inChainInputValue > valueIn ")
+	}
+	txMempoolEntry.FeeDelta = 0
+	txMempoolEntry.CountWithDescendants = 1
+	txMempoolEntry.SizeWithDescendants = uint64(txMempoolEntry.TxSize)
+	txMempoolEntry.ModFeesWithDescendants = fee
+	txMempoolEntry.SigOpCoungWithAncestors = sigOpsCount
 
 	return &txMempoolEntry
 }

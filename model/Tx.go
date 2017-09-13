@@ -281,6 +281,15 @@ func (tx *Tx) returnScriptBuffers() {
 		scriptPool.Return(txOut.Script.bytes)
 	}
 }
+func (tx *Tx) GetValueOut() int64 {
+	var valueOut int64
+	for _, out := range tx.Outs {
+		if !utils.MoneyRange(out.Value) || !utils.MoneyRange(valueOut) {
+			panic("value out of range")
+		}
+	}
+	return valueOut
+}
 
 func (tx *Tx) Copy() *Tx {
 	newTx := Tx{
