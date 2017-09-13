@@ -8,7 +8,7 @@ import (
 )
 
 type FeeRate struct {
-	SataoshiaPerK int64
+	SataoshisPerK int64
 }
 
 func (feeRate *FeeRate) GetFee(bytes int) int64 {
@@ -16,12 +16,12 @@ func (feeRate *FeeRate) GetFee(bytes int) int64 {
 		panic("bytes is  greater than MaxInt64")
 	}
 	size := int64(bytes)
-	fee := feeRate.SataoshiaPerK * size / 1000
+	fee := feeRate.SataoshisPerK * size / 1000
 	if fee == 0 && size != 0 {
-		if feeRate.SataoshiaPerK > 0 {
+		if feeRate.SataoshisPerK > 0 {
 			fee = 1
 		}
-		if feeRate.SataoshiaPerK < 0 {
+		if feeRate.SataoshisPerK < 0 {
 			fee = -1
 		}
 	}
@@ -30,12 +30,12 @@ func (feeRate *FeeRate) GetFee(bytes int) int64 {
 
 func (feeRate *FeeRate) String() string {
 	return fmt.Sprintf("%d.%08d %s/kb",
-		feeRate.SataoshiaPerK/COIN,
-		feeRate.SataoshiaPerK%COIN,
+		feeRate.SataoshisPerK/COIN,
+		feeRate.SataoshisPerK%COIN,
 		CURRENCY_UNIT)
 }
 func NewFeeRate(amount int64) *FeeRate {
-	feeRate := FeeRate{SataoshiaPerK: amount}
+	feeRate := FeeRate{SataoshisPerK: amount}
 	return &feeRate
 
 }
@@ -45,7 +45,7 @@ func (feeRate *FeeRate) SerializeSize() int {
 }
 
 func (feeRate *FeeRate) Serialize(writer io.Writer) error {
-	return binary.Write(writer, binary.LittleEndian, feeRate.SataoshiaPerK)
+	return binary.Write(writer, binary.LittleEndian, feeRate.SataoshisPerK)
 
 }
 
@@ -56,7 +56,7 @@ func Deserialize(reader io.Reader) (*FeeRate, error) {
 	if err != nil {
 		return feeRate, err
 	}
-	feeRate.SataoshiaPerK = sataoshiaPerK
+	feeRate.SataoshisPerK = sataoshiaPerK
 	return feeRate, nil
 
 }
