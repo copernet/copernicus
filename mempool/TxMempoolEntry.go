@@ -30,6 +30,19 @@ type TxMempoolEntry struct {
 	SigOpCoungWithAncestors int64
 }
 
+func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight int) float64 {
+	deltaPriority := float64(currentHeight-txMempoolEntry.EntryHeight) / float64(txMempoolEntry.ModSize)
+	result := txMempoolEntry.EntryPriority + deltaPriority
+	if result < 0 {
+		result = 0
+	}
+	return result
+}
+
+func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
+	txMempoolEntry.LockPoints = lockPoint
+}
+
 func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 	entryPriority float64, entryHeight int, inChainInputValue int64, spendCoinbase bool,
 	sigOpsCount int64, lockPoints *LockPoints) *TxMempoolEntry {
