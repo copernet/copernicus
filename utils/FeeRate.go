@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 )
 
@@ -35,6 +37,27 @@ func (feeRate *FeeRate) String() string {
 func NewFeeRate(amount int64) *FeeRate {
 	feeRate := FeeRate{SataoshiaPerK: amount}
 	return &feeRate
+
+}
+
+func (feeRate *FeeRate) SerializeSize() int {
+	return 8
+}
+
+func (feeRate *FeeRate) Serialize(writer io.Writer) error {
+	return binary.Write(writer, binary.LittleEndian, feeRate.SataoshiaPerK)
+
+}
+
+func Deserialize(reader io.Reader) (*FeeRate, error) {
+	feeRate := new(FeeRate)
+	var sataoshiaPerK int64
+	err := binary.Read(reader, binary.LittleEndian, &sataoshiaPerK)
+	if err != nil {
+		return feeRate, err
+	}
+	feeRate.SataoshiaPerK = sataoshiaPerK
+	return feeRate, nil
 
 }
 
