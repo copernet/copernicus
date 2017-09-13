@@ -1,6 +1,10 @@
 package mempool
 
-import "github.com/btcboost/copernicus/model"
+import (
+	beegoUtils "github.com/astaxie/beego/utils"
+	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utils"
+)
 
 type TxMempoolEntry struct {
 	TxRef         *model.Tx
@@ -41,6 +45,13 @@ func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight int) float64 {
 
 func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
 	txMempoolEntry.LockPoints = lockPoint
+}
+
+// Update the given tx for any in-mempool descendants.
+// Assumes that setMemPoolChildren is correct for the given tx and all
+// descendants.
+func (txMempoolEntry *TxMempoolEntry) UpdateForDescendatas(txPool *beegoUtils.BeeMap, cachedDescendants *beegoUtils.BeeMap, setExclude []utils.Hash) {
+
 }
 
 func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,

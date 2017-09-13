@@ -14,7 +14,10 @@ const (
 )
 
 type Mempool struct {
-	CheckFrequency int32
+	CheckFrequency uint32
+	TransactionsUpdated int
+	
+	
 }
 
 func GetTxFromMemPool(hash *utils.Hash) *model.Tx {
