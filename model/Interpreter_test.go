@@ -3,8 +3,6 @@ package model
 import (
 	"testing"
 
-	"encoding/hex"
-	"fmt"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
@@ -16,6 +14,7 @@ var testsTx = []struct {
 	txRaw  string
 	tx     Tx
 }{
+
 	{
 		txHash: "d8441d9535608c347341a161754a22c546d516923111b0a44670618640be7d0b",
 		txRaw:  "01000000018ef0a4665b62f74b24a2627cf6722066f4afe97f6262812eb8546d9c89e49819040000006b483045022100f056cfc363f139b1bf43b3be6190b28c459dc3ac1e52d71b144565779499142102206b23309ae0966f3dc9f8f59562a53e510531e98351545b48547878d0a78568f30121029bbfd642696c538e36bbb09e1221e45535e7a33d3387bb15304d72a7086c084dffffffff0236042003000000001976a914491020f6d1431203a75a291c4c432d27a27ea8be88ac5f2a1a01000000001976a9149a1c78a507689f6f54b847ad1cef1e614ee23f1e88ac00000000",
@@ -25,9 +24,9 @@ var testsTx = []struct {
 				{
 					PreviousOutPoint: &OutPoint{
 						Hash: &utils.Hash{
-							0x19, 0x98, 0xe4, 0x89, 0x9c, 0x6d, 0x54, 0xb8, 0x2e, 0x81, 0x62, 0x62, 0x7f,
-							0xe9, 0xaf, 0xf4, 0x66, 0x20, 0x72, 0xf6, 0x7c, 0x62, 0xa2, 0x24, 0x4b, 0xf7,
-							0x62, 0x5b, 0x66, 0xa4, 0xf0, 0x8e,
+							0x8e, 0xf0, 0xa4, 0x66, 0x5b, 0x62, 0xf7, 0x4b, 0x24, 0xa2, 0x62,
+							0x7c, 0xf6, 0x72, 0x20, 0x66, 0xf4, 0xaf, 0xe9, 0x7f, 0x62, 0x62,
+							0x81, 0x2e, 0xb8, 0x54, 0x6d, 0x9c, 0x89, 0xe4, 0x98, 0x19,
 						},
 						Index: 4,
 					},
@@ -86,9 +85,10 @@ var testsTx = []struct {
 				{
 					PreviousOutPoint: &OutPoint{
 						Hash: &utils.Hash{
-							0xd8, 0x44, 0x1d, 0x95, 0x35, 0x60, 0x8c, 0x34, 0x73, 0x41, 0xa1, 0x61,
-							0x75, 0x4a, 0x22, 0xc5, 0x46, 0xd5, 0x16, 0x92, 0x31, 0x11, 0xb0, 0xa4,
-							0x46, 0x70, 0x61, 0x86, 0x40, 0xbe, 0x7d, 0x0b,
+							0x0b, 0x7d, 0xbe, 0x40, 0x86, 0x61, 0x70, 0x46, 0xa4, 0xb0,
+							0x11, 0x31, 0x92, 0x16, 0xd5, 0x46, 0xc5, 0x22, 0x4a, 0x75,
+							0x61, 0xa1, 0x41, 0x73, 0x34, 0x8c, 0x60, 0x35, 0x95, 0x1d,
+							0x44, 0xd8,
 						},
 						Index: 1,
 					},
@@ -127,22 +127,6 @@ var testsTx = []struct {
 	},
 }
 
-func TestTxHash(t *testing.T) {
-	//for _, test := range testsTx {
-	//	tx := test.tx
-	//	buf := new(bytes.Buffer)
-	//	err := tx.Serialize(buf)
-	//	if err != nil {
-	//		t.Error(err)
-	//	}
-	//	txHash := core.DoubleSha256Hash(buf.Bytes())
-	//	testHash := utils.HashFromString(test.txHash)
-	//	if !txHash.IsEqual(testHash) {
-	//		t.Errorf(" tx txHash (%s) error , is not %s", txHash.ToString(), test.txHash)
-	//	}
-	//}
-}
-
 func TestParseOpCode(t *testing.T) {
 	for _, test := range testsTx {
 		tx := test.tx
@@ -170,16 +154,12 @@ func TestParseOpCode(t *testing.T) {
 }
 
 func TestInterpreterVerify(t *testing.T) {
-
 	interpreter := Interpreter{
 		stack: algorithm.NewStack(),
 	}
-
 	preTestTx := testsTx[0].tx
 	testTx := testsTx[1].tx
-
 	flag := core.SIGHASH_ALL
-	fmt.Printf("***********   preTestTx.Outs[1].Script : %v ***********\n", hex.EncodeToString(preTestTx.Outs[1].Script.bytes))
 	ret, err := interpreter.Verify(&testTx, 0, testTx.Ins[0].Script, preTestTx.Outs[1].Script, uint32(flag))
 	if err != nil {
 		t.Error(err)
@@ -187,5 +167,4 @@ func TestInterpreterVerify(t *testing.T) {
 	if !ret {
 		t.Errorf("Tx Verify() fail")
 	}
-
 }

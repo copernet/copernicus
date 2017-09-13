@@ -291,8 +291,6 @@ func (tx *Tx) Copy() *Tx {
 	}
 	newTx.Hash = tx.Hash
 
-	fmt.Println("copy")
-
 	for _, txOut := range tx.Outs {
 		scriptLen := len(txOut.Script.bytes)
 		newOutScript := make([]byte, scriptLen)

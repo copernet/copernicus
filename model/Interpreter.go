@@ -975,7 +975,6 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if fSuccess {
 						stack.PushStack(vchTrue)
 					} else {
-						fmt.Println("CheckSig() err : ", err)
 						stack.PushStack(vchFalse)
 					}
 					if parsedOpcode.opValue == OP_CHECKSIGVERIFY {

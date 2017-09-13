@@ -3,7 +3,6 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
@@ -92,7 +91,6 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 	}
 	switch hashType & 0x1f {
 	case core.SIGHASH_NONE:
-		fmt.Println("SIGHASH_NONE")
 		txCopy.Outs = make([]*TxOut, 0)
 		for i := range txCopy.Ins {
 			if nIn != i {
@@ -100,7 +98,6 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 			}
 		}
 	case core.SIGHASH_SINGLE:
-		fmt.Println("SIGHASH_SINGLE")
 		txCopy.Outs = txCopy.Outs[:nIn+1]
 		for i := 0; i < nIn; i++ {
 			txCopy.Outs[i].Value = -1
@@ -112,10 +109,8 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 			}
 		}
 	case core.SIGHASH_ALL:
-		fmt.Println("SIGHASH_ALL")
 	}
 	if hashType&core.SIGHASH_ANYONECANPAY != 0 {
-		fmt.Println("SIGHASH_ANYONECANPAY")
 		txCopy.Ins = txCopy.Ins[nIn : nIn+1]
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
