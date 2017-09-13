@@ -47,7 +47,7 @@ func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
 	txMempoolEntry.LockPoints = lockPoint
 }
 
-// Update the given tx for any in-mempool descendants.
+// UpdateForDescendatas Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
 // descendants.
 func (txMempoolEntry *TxMempoolEntry) UpdateForDescendatas(txPool *beegoUtils.BeeMap, cachedDescendants *beegoUtils.BeeMap, setExclude []utils.Hash) {
