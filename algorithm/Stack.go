@@ -117,6 +117,27 @@ func SwapStack(s *Stack, other *Stack) {
 
 }
 
+func CopyStackByteType(des *Stack, src *Stack) {
+	if src.Size() == 0 {
+		return
+	}
+
+	for _, v := range src.array {
+		switch element := v.(type) {
+		case []byte:
+			{
+				lenth := len(element)
+				tmpSlice := make([]byte, lenth)
+				copy(tmpSlice, element)
+				des.array = append(des.array, tmpSlice)
+			}
+		default:
+
+		}
+	}
+
+}
+
 func NewStack() *Stack {
 	array := make([]interface{}, 0)
 	return &Stack{array}

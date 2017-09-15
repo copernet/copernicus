@@ -3,6 +3,10 @@ package model
 import (
 	"testing"
 
+	"bytes"
+	"encoding/hex"
+	"fmt"
+
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
@@ -167,4 +171,43 @@ func TestInterpreterVerify(t *testing.T) {
 	if !ret {
 		t.Errorf("Tx Verify() fail")
 	}
+}
+
+func TestMultiSigScript(t *testing.T) {
+	//TxData from TxID : 8a2bc89d336cc3b6e285be55fa0e13ed35e929f35e20159753c1dace98ba1823
+	txRawData := "0100000002c0b6ee52a5b2e8f73d772f9ec50be0d8010de4b07012bdbaff854351787420bd55000000fdfe0000483045022100d6148e16525140d56198c8421d958c4d084e8df94df58491b95b1d408f2eede40220691e189459cd36c99a5860785e53da5c579291386ce3e4ef740be7515396aea101483045022100ae47baeff7aa65c1205ac0d258067a678852c90b00986260cd0bdc1fcc11107c02207cbfd5cc4a8a46182ff2a2af8df4984805859d29c0bad526e3ed2fd45eb28d56014c695221036287850ad4184be9d5a6a26a9aba838455bce5f36c5a26a365c206e7216af27921022966bebc71211b843b8aa08a03f8bae874e1984332b60b41913559d72ff396342102a1e1483c3658b43016ad3b911a3fd439fd7d35b5b9e49b3c51dc5eec6447bc6653aeffffffff16dfd6c699124aff405e7729c21be6356eab2eb61cc11ce155ca88e08b03461308000000fdfd000047304402205eac2e77b0ab7c0439da5426c47a94070db0a48fc4b7d2b8ee6292ff26a4c91e02205ec162f1da86995cf2f64696b6c7209a8e81aef695b4dd60353bbe0f2143c3bb01483045022100ff5339e3cc1c0dc06f35aa1388781a9468541d9a414cc720447e57e1f513439c022032b5fea48fa0a3e82a537f4961e1839fc7cfe8c5f8c75196f3c5753cbf4b4715014c695221025638a131239abea7d79b5b8e96cf02acd963f39e0fad5d734693e86ceba7242a210281c3e2c15589043088ad3648def70c9ffbb72393d7fc39dbe8399c7f4a425bfd2103acfa87898ca1a09c542007902a59e87ee1e8d10bf52fe07e0d2ce16010a8c49353aeffffffff02ae4671480600000017a91436e7511762967e993f73254fb122bdb533b96aaa8754e7e100000000001976a914197c7d334338386469b25b7b1de06203189998eb88ac00000000"
+	txRawDataByte, err := hex.DecodeString(txRawData)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	buf := bytes.NewBuffer(nil)
+	buf.Write(txRawDataByte)
+	testTx, err := DeserializeTx(buf)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	pubScript := "a914722ad96d2d4dac77162fb4027e0feb385bf06c0787"
+	pubScriptByte, err := hex.DecodeString(pubScript)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	prePubScript := NewScriptWithRaw(pubScriptByte)
+	fmt.Printf("prePubScript opcode number : %d \n", len(prePubScript.ParsedOpCodes))
+
+	interpreter := Interpreter{
+		stack: algorithm.NewStack(),
+	}
+	flag := OP_CHECKMULTISIG
+	ret, err := interpreter.Verify(testTx, 0, testTx.Ins[0].Script, prePubScript, uint32(flag))
+	if err != nil {
+		t.Error(err)
+	}
+	if !ret {
+		t.Errorf("Tx Verify() fail")
+	}
+
 }

@@ -29,7 +29,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 		return
 	}
 	if flags&core.SCRIPT_VERIFY_P2SH != 0 {
-		stackCopy = stack
+		algorithm.CopyStackByteType(&stackCopy, &stack)
 	}
 	result, err = interpreter.Exec(tx, nIn, &stack, scriptPubKey, flags)
 	if err != nil {
