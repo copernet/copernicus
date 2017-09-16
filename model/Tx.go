@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"encoding/binary"
 
 	"io"
@@ -9,6 +10,7 @@ import (
 
 	"math"
 
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
@@ -375,6 +377,12 @@ func (tx *Tx) String() string {
 		outStr = fmt.Sprintf("  %s %d , %s\n", outStr, i, out.String())
 	}
 	return fmt.Sprintf("%s%s%s", str, inStr, outStr)
+}
+
+func (tx *Tx) TxHash() utils.Hash {
+	buf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()))
+	_ = tx.Serialize(buf)
+	return core.DoubleSha256Hash(buf.Bytes())
 }
 
 func NewTx() *Tx {

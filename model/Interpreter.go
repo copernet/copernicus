@@ -23,6 +23,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	var stack, stackCopy algorithm.Stack
 	result, err = interpreter.Exec(tx, nIn, &stack, scriptSig, flags)
 	if err != nil {
+		fmt.Printf("sig script err: %v\n", err)
 		return
 	}
 	if !result {
@@ -33,15 +34,18 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	}
 	result, err = interpreter.Exec(tx, nIn, &stack, scriptPubKey, flags)
 	if err != nil {
+		fmt.Printf("pubkey script err: %v\n", err)
 		return
 	}
 	if !result {
 		return
 	}
 	if stack.Empty() {
+		fmt.Printf("after pubkey, stack empty\n")
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
 	if !CastToBool(stack.Last().([]byte)) {
+		fmt.Printf("after pubkey, top of stack false\n")
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
 	// Additional validation for spend-to-script-txHash transactions:

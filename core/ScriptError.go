@@ -1,6 +1,8 @@
 package core
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+)
 
 type ScriptError int
 
@@ -164,7 +166,19 @@ func ScriptErrorString(scriptError ScriptError) string {
 
 }
 
+type ErrDesc struct {
+	Code ScriptError
+	Desc string
+}
+
+func (e *ErrDesc) Error() string {
+	return fmt.Sprintf("script error :%s code:%d", e.Desc, e.Code)
+}
+
 func ScriptErr(scriptError ScriptError) error {
 	str := ScriptErrorString(scriptError)
-	return errors.Errorf("script error :%s code:%d", str, scriptError)
+	return &ErrDesc{
+		Code: scriptError,
+		Desc: str,
+	}
 }
