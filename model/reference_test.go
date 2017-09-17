@@ -84,7 +84,6 @@ func genTestName(test []interface{}) (string, error) {
 	var witnessOffset int
 	if _, ok := test[0].([]interface{}); ok {
 		witnessOffset++
-		fmt.Println("---------- 0 ----------- 0 ------")
 	}
 
 	// In addition to the optional leading witness data, the test must
