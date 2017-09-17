@@ -74,7 +74,7 @@ func (scriptNum *CScriptNum) Int32() int32 {
 }
 func (scriptNum *CScriptNum) Serialize() (bytes []byte) {
 	if scriptNum.Value == 0 {
-		return
+		return nil
 	}
 	negative := scriptNum.Value < 0
 	absoluteValue := scriptNum.Value

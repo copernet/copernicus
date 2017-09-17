@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -83,6 +84,7 @@ func genTestName(test []interface{}) (string, error) {
 	var witnessOffset int
 	if _, ok := test[0].([]interface{}); ok {
 		witnessOffset++
+		fmt.Println("---------- 0 ----------- 0 ------")
 	}
 
 	// In addition to the optional leading witness data, the test must
@@ -98,10 +100,11 @@ func genTestName(test []interface{}) (string, error) {
 	var name string
 	if len(test) == witnessOffset+5 {
 		name = fmt.Sprintf("test (%s)", test[witnessOffset+4])
-	} else {
+	} else { //len(test) == 4
 		name = fmt.Sprintf("test ([%s, %s, %s])", test[witnessOffset],
 			test[witnessOffset+1], test[witnessOffset+2])
 	}
+
 	return name, nil
 }
 
@@ -130,7 +133,7 @@ var shortFormOps map[string]byte
 //   - Anything else is an error
 func parseShortForm(script string) ([]byte, error) {
 	// Only create the short form opcode map once.
-	fmt.Printf("got script=%q\n", script)
+	//fmt.Printf("got script=%q\n", script)
 	if shortFormOps == nil {
 		shortFormOps = make(map[string]byte)
 		for i := 0; i <= OP_NOP10; i++ {
@@ -150,12 +153,10 @@ func parseShortForm(script string) ([]byte, error) {
 			fmt.Printf("k=%v,  v=%v\n", k, v)
 		}
 	*/
-
 	// Split only does one separator so convert all \n and tab into  space.
 	script = strings.Replace(script, "\n", " ", -1)
 	script = strings.Replace(script, "\t", " ", -1)
 	tokens := strings.Split(script, " ")
-	//builder := NewScriptBuilder()
 	scr := NewScriptRaw(nil)
 
 	for _, tok := range tokens {
@@ -182,6 +183,7 @@ func parseShortForm(script string) ([]byte, error) {
 		}
 
 	}
+
 	return scr.bytes, nil
 }
 
@@ -224,7 +226,6 @@ func createSpendingTx(sigScript, pkScript []byte) *Tx {
 	outPoint = NewOutPoint(&coinbaseTxHash, 0)
 	txIn = NewTxIn(outPoint, sigScript)
 	txOut = NewTxOut(0, nil)
-
 	spendingTx.AddTxIn(txIn)
 	spendingTx.AddTxOut(txOut)
 
@@ -247,8 +248,7 @@ func testScripts(t *testing.T, tests [][]interface{}, useSigCache bool) {
 			continue
 		}
 
-		// Construct a name for the test based on the comment and test
-		// data.
+		// Construct a name for the test based on the comment and test data.
 		name, err := genTestName(test)
 		if err != nil {
 			t.Errorf("TestScripts: invalid test #%d: %v", i, err)
@@ -261,7 +261,6 @@ func testScripts(t *testing.T, tests [][]interface{}, useSigCache bool) {
 		witnessData, ok := test[0].([]interface{})
 		if ok {
 			witnessOffset++
-
 		}
 		_ = witnessData // Unused for now until segwit code lands
 
@@ -277,7 +276,7 @@ func testScripts(t *testing.T, tests [][]interface{}, useSigCache bool) {
 				err)
 			continue
 		}
-		t.Logf("scriptSig = % 02x \n", scriptSig)
+		t.Logf("scriptSig = %v, scriptSigStr : %s \n", scriptSig, scriptSigStr)
 
 		// Extract and parse the public key script from the test fields.
 		scriptPubKeyStr, ok := test[witnessOffset+1].(string)
@@ -312,7 +311,6 @@ func testScripts(t *testing.T, tests [][]interface{}, useSigCache bool) {
 		}
 		//code, ok := parseExpectedResult(resultStr)
 		code, ok := scriptErrorDesc[resultStr]
-
 		if !ok {
 			t.Errorf("%s: %v", name, "not found")
 			continue
@@ -322,8 +320,9 @@ func testScripts(t *testing.T, tests [][]interface{}, useSigCache bool) {
 		interpreter := Interpreter{
 			stack: algorithm.NewStack(),
 		}
+
 		result, err := interpreter.Verify(tx, 0, NewScriptRaw(scriptSig), NewScriptRaw(scriptPubKey), flags)
-		fmt.Printf("result = %v, err = %v\n", result, err)
+
 		if result && code != core.SCRIPT_ERR_OK {
 			t.Errorf("%s failed to verify: %v", name, err)
 			continue
@@ -743,3 +742,58 @@ func TestCalcSignatureHash(t *testing.T) {
 	}
 }
 */
+
+func TestNewScriptWithRaw(t *testing.T) {
+	parseScriptTmp()
+}
+
+func parseScriptTmp() (stk []ParsedOpCode, err error) {
+	stk = make([]ParsedOpCode, 0)
+	scriptLen := 3
+	script := NewScriptWithRaw([]byte{116, 0, 135})
+
+	for i := 0; i < scriptLen; i++ {
+		var nSize int
+		opcode := script.bytes[i]
+		parsedopCode := ParsedOpCode{opValue: opcode}
+
+		if opcode < OP_PUSHDATA1 {
+			nSize = int(opcode)
+			parsedopCode.data = script.bytes[i+1 : i+1+nSize]
+		} else if opcode == OP_PUSHDATA1 {
+			if scriptLen-i < 1 {
+				err = errors.New("OP_PUSHDATA1 has no enough data")
+				return
+			}
+			nSize = int(script.bytes[i+1])
+			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
+			i++
+
+		} else if opcode == OP_PUSHDATA2 {
+			if scriptLen-i < 2 {
+				err = errors.New("OP_PUSHDATA2 has no enough data")
+				return
+			}
+			nSize = int(binary.LittleEndian.Uint16(script.bytes[i+1 : i+3]))
+			parsedopCode.data = script.bytes[i+3 : i+3+nSize]
+			i += 2
+		} else if opcode == OP_PUSHDATA4 {
+			if scriptLen-i < 4 {
+				err = errors.New("OP_PUSHDATA4 has no enough data")
+				return
+			}
+			nSize = int(binary.LittleEndian.Uint32(script.bytes[i+1 : i+5]))
+			parsedopCode.data = script.bytes[i+5 : i+5+nSize]
+			i += 4
+		}
+		if scriptLen-i < 0 || (scriptLen-i) < nSize {
+			err = errors.New("size is wrong")
+			return
+		}
+
+		stk = append(stk, parsedopCode)
+		i += nSize
+	}
+	return
+
+}

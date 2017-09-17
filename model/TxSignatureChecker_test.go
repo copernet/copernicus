@@ -1,9 +1,6 @@
 package model
 
 import (
-	"encoding/hex"
-	"fmt"
-
 	"testing"
 
 	"github.com/btcboost/copernicus/core"
@@ -24,10 +21,12 @@ var testTxs = []struct {
 				{
 					PreviousOutPoint: &OutPoint{
 						Hash: &utils.Hash{
-							0x57, 0xe5, 0x1e, 0x1f, 0xfc, 0xcf, 0x3e, 0x44, 0x28,
-							0x89, 0x20, 0x9c, 0x61, 0x2f, 0xd6, 0x99, 0x92, 0x85,
-							0x4a, 0x74, 0x85, 0xb0, 0x6a, 0x49, 0x7f, 0x67, 0x9e,
-							0x8c, 0x63, 0x77, 0xc3, 0x0f,
+							0x0f, 0xc3, 0x77, 0x63, 0x8c, 0x9e,
+							0x67, 0x7f, 0x49, 0x6a, 0xb0, 0x85,
+							0x74, 0x4a, 0x85, 0x92, 0x99, 0xd6,
+							0x2f, 0x61, 0x9c, 0x20, 0x89, 0x28,
+							0x44, 0x3e, 0xcf, 0xfc, 0x1f, 0x1e,
+							0xe5, 0x57,
 						},
 						Index: 0,
 					},
@@ -94,12 +93,12 @@ var testTxs = []struct {
 				{
 					PreviousOutPoint: &OutPoint{
 						Hash: &utils.Hash{
-							0x2a, 0x6c, 0x6f, 0x76, 0x47, 0x05,
-							0x40, 0xa3, 0xda, 0xf9, 0xc2, 0x62,
-							0x54, 0x4d, 0x40, 0x36, 0x4d, 0x4a,
-							0xaf, 0x11, 0x27, 0x5d, 0x58, 0x8e,
-							0x54, 0xf9, 0x06, 0xab, 0xc7, 0x0e,
-							0xb4, 0xcd,
+							0xcd, 0xb4, 0x0e, 0xc7, 0xab, 0x06,
+							0xf9, 0x54, 0x8e, 0x58, 0x5d, 0x27,
+							0x11, 0xaf, 0x4a, 0x4d, 0x36, 0x40,
+							0x4d, 0x54, 0x62, 0xc2, 0xf9, 0xda,
+							0xa3, 0x40, 0x05, 0x47, 0x76, 0x6f,
+							0x6c, 0x2a,
 						},
 						Index: 0,
 					},
@@ -169,40 +168,6 @@ var testTxs = []struct {
 }
 
 //address : 1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV PrivateKey : L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1
-
-func TestCheckSequence(t *testing.T) {
-	pkBytes, err := hex.DecodeString("22a47fa09a223f2aa079edf85a7c2d4f8720ee63e502ee2869afab7de234b80c")
-	if err != nil {
-		t.Error(err)
-	}
-	privateKey := core.PrivateKeyFromBytes(pkBytes)
-	if privateKey == nil {
-		t.Error("create privateKey fail")
-		return
-	}
-
-	message := []byte{1, 2, 3, 4, 5, 6, 7}
-	messageHash := core.DoubleSha256Bytes(message)
-	signature, err := privateKey.Sign(messageHash)
-	if err != nil {
-		t.Error(err)
-	}
-	vchSign := signature.Serialize()
-	if vchSign[0] != 0x30 {
-		t.Error("the signature serialize error, ", vchSign)
-	}
-	hash := core.DoubleSha256Hash(message)
-	ret, err := CheckSig(hash, vchSign, privateKey.PubKey().SerializeCompressed())
-	if err != nil {
-		t.Error(err)
-	} else {
-		if !ret {
-			t.Error("Error CheckSig() fail")
-		}
-	}
-
-}
-
 func TestSignHash(t *testing.T) {
 	privateKey, err := core.DecodePrivateKey("L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1")
 	if err != nil {
@@ -212,7 +177,6 @@ func TestSignHash(t *testing.T) {
 	testTx := testTxs[1]
 	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, core.SIGHASH_ALL, 0)
 	signature, err := privateKey.Sign(txHash.GetCloneBytes())
-	fmt.Println(hex.EncodeToString(signature.Serialize()))
 	ret, err := CheckSig(txHash, signature.Serialize(), privateKey.PubKey().ToBytes())
 	if err != nil {
 		t.Error(err)

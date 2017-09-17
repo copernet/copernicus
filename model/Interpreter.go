@@ -1,8 +1,7 @@
 package model
 
 import (
-	"fmt"
-	"reflect"
+	"bytes"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -23,7 +22,6 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	var stack, stackCopy algorithm.Stack
 	result, err = interpreter.Exec(tx, nIn, &stack, scriptSig, flags)
 	if err != nil {
-		fmt.Printf("sig script err: %v\n", err)
 		return
 	}
 	if !result {
@@ -32,20 +30,18 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	if flags&core.SCRIPT_VERIFY_P2SH != 0 {
 		algorithm.CopyStackByteType(&stackCopy, &stack)
 	}
+
 	result, err = interpreter.Exec(tx, nIn, &stack, scriptPubKey, flags)
 	if err != nil {
-		fmt.Printf("pubkey script err: %v\n", err)
 		return
 	}
 	if !result {
 		return
 	}
 	if stack.Empty() {
-		fmt.Printf("after pubkey, stack empty\n")
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
 	if !CastToBool(stack.Last().([]byte)) {
-		fmt.Printf("after pubkey, top of stack false\n")
 		return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 	}
 	// Additional validation for spend-to-script-txHash transactions:
@@ -123,6 +119,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 	if err != nil {
 		return false, err
 	}
+
 	nOpCount := 0
 	fRequireMinimal := (flags & core.SCRIPT_VERIFY_MINIMALDATA) != 0
 	for i := 0; i < len(parsedOpcodes); i++ {
@@ -658,6 +655,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if stack.Size() < 2 {
 						return false, core.ScriptErr(core.SCRIPT_ERR_INVALID_STACK_OPERATION)
 					}
+
 					vch1, err := stack.StackTop(-2)
 					if err != nil {
 						return false, err
@@ -666,7 +664,9 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if err != nil {
 						return false, err
 					}
-					fEqual := reflect.DeepEqual(vch2, vch1)
+
+					fEqual := bytes.Equal(vch1.([]byte), vch2.([]byte))
+					//fEqual := reflect.DeepEqual(vch1, vch2)
 					// OP_NOTEQUAL is disabled because it would be too
 					// easy to say something like n != 1 and have some
 					// wiseguy pass in 1 with extra zero bytes after it
@@ -1161,8 +1161,6 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 }
 
 func CleanupScriptCode(scriptCode *Script, vchSig []byte, flags uint32) {
-	nHashType := GetHashType(vchSig)
-	fmt.Print(nHashType)
 	scriptCode.FindAndDelete(scriptCode)
 }
 
