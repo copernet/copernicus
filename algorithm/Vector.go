@@ -98,6 +98,7 @@ func (v *Vector) CountEqualElement(value bool) int {
 	}
 	return count
 }
+
 func SwapVector(v *Vector, other *Vector) {
 	if v.Size() == 0 && other.Size() == 0 {
 		return
