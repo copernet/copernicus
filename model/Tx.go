@@ -3,11 +3,8 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
-
-	"io"
-
 	"fmt"
-
+	"io"
 	"math"
 
 	"github.com/btcboost/copernicus/core"
@@ -18,6 +15,7 @@ import (
 const (
 	TX_ORPHAN int = iota
 	TX_INVALID
+	COIN = 100000000
 )
 
 const (
@@ -43,7 +41,7 @@ const (
 	// MAX_TX_SIGOPS_COUNT The maximum allowed number of signature check operations per transaction (network rule)
 	MAX_TX_SIGOPS_COUNT = 20000
 
-	MAX_MONOY = 21000000
+	MAX_MONEY = 21000000 * COIN
 
 	MAX_STANDARD_VERSION = 2
 
@@ -215,6 +213,89 @@ func (tx *Tx) IsCoinBase() bool {
 	return len(tx.Ins) == 1 && tx.Ins[0].PreviousOutPoint == nil
 }
 
+func (tx *Tx) GetSigOpCountWithoutP2SH() int {
+	n := 0
+	for _, in := range tx.Ins {
+		if c, err := in.Script.GetSigOpCountWithAccurate(false); err == nil {
+			n += c
+		}
+	}
+	for _, out := range tx.Outs {
+		if c, err := out.Script.GetSigOpCountWithAccurate(false); err == nil {
+			n += c
+		}
+	}
+	return n
+}
+
+func (tx *Tx) CheckCoinbase(state *ValidationState, checkDupInput bool) bool {
+	if !tx.IsCoinBase() {
+		return state.Dos(100, false, REJECT_INVALID, "bad-cb-missing", false,
+			"first tx is not coinbase")
+	}
+	if !tx.CheckTransactionCommon(state, checkDupInput) {
+		return false
+	}
+	if tx.Ins[0].Script.Size() < 2 || tx.Ins[0].Script.Size() > 100 {
+		return state.Dos(100, false, REJECT_INVALID, "bad-cb-length", false, "")
+	}
+	return true
+}
+
+func (tx *Tx) CheckRegularTransaction(state *ValidationState, checkDupInput bool) bool {
+	if tx.IsCoinBase() {
+		return state.Dos(100, false, REJECT_INVALID, "bad-tx-coinbase", false, "")
+	}
+	if !tx.CheckTransactionCommon(state, checkDupInput) {
+		return false
+	}
+	for _, in := range tx.Ins {
+		if in.PreviousOutPoint.IsNull() {
+			return state.Dos(10, false, REJECT_INVALID, "bad-txns-prevout-null", false, "")
+		}
+	}
+	return true
+}
+
+func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool) bool {
+	if len(tx.Ins) == 0 {
+		return state.Dos(10, false, REJECT_INVALID, "bad-txns-vin-empty", false, "")
+	}
+	if len(tx.Outs) == 0 {
+		return state.Dos(10, false, REJECT_INVALID, "bad-txns-vout-empty", false, "")
+	}
+	if tx.SerializeSize() > MAX_TX_SIZE {
+		return state.Dos(100, false, REJECT_INVALID, "bad-txns-oversize", false, "")
+	}
+	totalOut := int64(0)
+	for _, out := range tx.Outs {
+		if out.Value < 0 {
+			return state.Dos(100, false, REJECT_INVALID, "bad-txns-vout-negative", false, "")
+		}
+		if out.Value > MAX_MONEY {
+			return state.Dos(100, false, REJECT_INVALID, "bad-txns-vout-toolarge", false, "")
+		}
+		totalOut += out.Value
+		if totalOut < 0 || totalOut > MAX_MONEY {
+			return state.Dos(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge", false, "")
+		}
+	}
+	if tx.GetSigOpCountWithoutP2SH() > 100 {
+		return state.Dos(100, false, REJECT_INVALID, "bad-txn-sigops", false, "")
+	}
+	if checkDupInput {
+		outPointSet := make(map[*OutPoint]struct{})
+		for _, in := range tx.Ins {
+			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
+				outPointSet[in.PreviousOutPoint] = struct{}{}
+			} else {
+				return state.Dos(100, false, REJECT_INVALID, "bad-txns-inputs-duplicate", false, "")
+			}
+		}
+	}
+	return true
+}
+
 func (tx *Tx) CheckSelf() (bool, error) {
 	if tx.Version > MAX_STANDARD_VERSION || tx.Version < 1 {
 		return false, errors.New("error version")
@@ -236,12 +317,12 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		if txOut.Value < 0 {
 			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
 		}
-		if txOut.Value > MAX_MONOY {
+		if txOut.Value > MAX_MONEY {
 			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
 		}
 
 		TotalOutValue += txOut.Value
-		if TotalOutValue > MAX_MONOY {
+		if TotalOutValue > MAX_MONEY {
 			return false, errors.Errorf("tx outs' total value:%d from 0 to %d is too large", TotalOutValue, i)
 		}
 

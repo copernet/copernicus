@@ -58,3 +58,13 @@ func (outPoint *OutPoint) String() string {
 	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.ToString(), outPoint.Index)
 
 }
+
+func (outPoint *OutPoint) IsNull() bool {
+	if outPoint == nil {
+		return true
+	}
+	if outPoint.Index != 0xffffffff {
+		return false
+	}
+	return outPoint.Hash == nil || outPoint.Hash.IsEqual(&utils.HashZero)
+}
