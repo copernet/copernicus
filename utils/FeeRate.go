@@ -28,6 +28,10 @@ func (feeRate *FeeRate) GetFee(bytes int) int64 {
 	return fee
 }
 
+func (feeRate *FeeRate) GetFeePerK() int64 {
+	return feeRate.GetFee(1000)
+}
+
 func (feeRate *FeeRate) String() string {
 	return fmt.Sprintf("%d.%08d %s/kb",
 		feeRate.SataoshisPerK/COIN,

@@ -5,20 +5,20 @@ import (
 )
 
 type Vector struct {
-	array []interface{}
+	Array []interface{}
 }
 
 func (v *Vector) PushBack(value interface{}) {
-	v.array = append(v.array, value)
+	v.Array = append(v.Array, value)
 }
 
 func (v *Vector) PopBack() (interface{}, error) {
-	stackLen := len(v.array)
+	stackLen := len(v.Array)
 	if stackLen == 0 {
 		return nil, errors.New("stack is empty")
 	}
-	e := v.array[stackLen-1]
-	v.array = v.array[:stackLen-1]
+	e := v.Array[stackLen-1]
+	v.Array = v.Array[:stackLen-1]
 	if e != nil {
 		return e, nil
 	}
@@ -35,42 +35,42 @@ func (v *Vector) End() int {
 
 func (v *Vector) Front() interface{} {
 
-	return v.array[0]
+	return v.Array[0]
 }
 
 func (v *Vector) Back() interface{} {
 	if v.Size() == 0 {
 		return nil
 	}
-	return v.array[v.Size()-1]
+	return v.Array[v.Size()-1]
 }
 
 func (v *Vector) SetBack(value interface{}) {
-	v.array[v.Size()-1] = value
+	v.Array[v.Size()-1] = value
 }
 func (v *Vector) At(index int) (interface{}, error) {
 	if index > v.Size()-1 || index < 0 {
 		return nil, errors.Errorf("vector index(%d) is error", index)
 	}
-	return v.array[index], nil
+	return v.Array[index], nil
 }
 
 func (v *Vector) RemoveAt(index int) error {
 	if index > v.Size()-1 || index < 0 {
 		return errors.Errorf("vector index(%d) is error", index)
 	}
-	v.array = append(v.array[:index], v.array[index+1:]...)
+	v.Array = append(v.Array[:index], v.Array[index+1:]...)
 	return nil
 
 }
 
 func (v *Vector) Clear() {
-	v.array = make([]interface{}, 0)
+	v.Array = make([]interface{}, 0)
 
 }
 
 func (v *Vector) Size() int {
-	return len(v.array)
+	return len(v.Array)
 }
 
 func (v *Vector) Empty() bool {
@@ -82,7 +82,7 @@ func (v *Vector) Equal(other *Vector) bool {
 		return false
 	}
 	for i := 0; i < v.Size(); i++ {
-		if v.array[i] != other.array[i] {
+		if v.Array[i] != other.Array[i] {
 			return false
 		}
 	}
@@ -91,8 +91,8 @@ func (v *Vector) Equal(other *Vector) bool {
 
 func (v *Vector) CountEqualElement(value bool) int {
 	count := 0
-	for i := 0; i < len(v.array); i++ {
-		if v.array[i].(bool) == value {
+	for i := 0; i < len(v.Array); i++ {
+		if v.Array[i].(bool) == value {
 			count++
 		}
 	}
@@ -104,15 +104,24 @@ func SwapVector(v *Vector, other *Vector) {
 		return
 	}
 	if other.Size() == 0 {
-		other.array = v.array[:v.Size()]
-		v.array = make([]interface{}, 0)
+		other.Array = v.Array[:v.Size()]
+		v.Array = make([]interface{}, 0)
 	}
 	if v.Size() == 0 {
-		v.array = other.array[:other.Size()]
-		other.array = make([]interface{}, 0)
+		v.Array = other.Array[:other.Size()]
+		other.Array = make([]interface{}, 0)
 	}
 
-	v.array, other.array = other.array, v.array
+	v.Array, other.Array = other.Array, v.Array
+}
+
+func (v *Vector) SetValueByIndex(index int, value interface{}) error {
+	if v.Size() <= index || index < 0 {
+		return errors.Errorf("vector index (%d) is error, the vector have %d element", index, v.Size())
+	}
+
+	v.Array[index] = value
+	return nil
 }
 
 func NewVector() *Vector {
