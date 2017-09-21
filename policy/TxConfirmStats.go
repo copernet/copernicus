@@ -1,8 +1,13 @@
 package policy
 
 import (
+	"encoding/binary"
+	"io"
+
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/utils"
+	"github.com/pkg/errors"
 )
 
 /**
@@ -93,69 +98,69 @@ func NewTxConfirmStats(defaultBuckets algorithm.Vector, maxConfirms int, decay f
 	return &txConfirmStats
 }
 
-func (txCOnfirmStats *TxConfirmStats) ClearCurrent(blockHeight uint) {
-	for j := 0; j < txCOnfirmStats.buckets.Size(); j++ {
+func (txConfirmStats *TxConfirmStats) ClearCurrent(blockHeight uint) {
+	for j := 0; j < txConfirmStats.buckets.Size(); j++ {
 
-		oldUnconfTxNum := txCOnfirmStats.oldUnconfTxs.Array[j].(int)
-		unconfTxVec := txCOnfirmStats.unconfTxs.Array[int(blockHeight)%txCOnfirmStats.unconfTxs.Size()].(*algorithm.Vector)
+		oldUnconfTxNum := txConfirmStats.oldUnconfTxs.Array[j].(int)
+		unconfTxVec := txConfirmStats.unconfTxs.Array[int(blockHeight)%txConfirmStats.unconfTxs.Size()].(*algorithm.Vector)
 		unconfNum := unconfTxVec.Array[j].(int)
-		txCOnfirmStats.oldUnconfTxs.SetValueByIndex(j, oldUnconfTxNum+unconfNum)
+		txConfirmStats.oldUnconfTxs.SetValueByIndex(j, oldUnconfTxNum+unconfNum)
 		unconfTxVec.SetValueByIndex(j, 0)
 
-		for i := 0; i < txCOnfirmStats.curBlockConf.Size(); i++ {
-			curBlockTmp := txCOnfirmStats.curBlockConf.Array[i].(*algorithm.Vector)
+		for i := 0; i < txConfirmStats.curBlockConf.Size(); i++ {
+			curBlockTmp := txConfirmStats.curBlockConf.Array[i].(*algorithm.Vector)
 			curBlockTmp.SetValueByIndex(j, 0)
 		}
 
-		txCOnfirmStats.curBlockVal.SetValueByIndex(j, 0)
-		txCOnfirmStats.curBlockTxCt.SetValueByIndex(j, 0)
+		txConfirmStats.curBlockVal.SetValueByIndex(j, 0)
+		txConfirmStats.curBlockTxCt.SetValueByIndex(j, 0)
 	}
 }
 
-func (txCOnfirmStats *TxConfirmStats) Record(blocksToConfirm int, val float64) {
+func (txConfirmStats *TxConfirmStats) Record(blocksToConfirm int, val float64) {
 	if blocksToConfirm < 1 {
 		return
 	}
 
-	bucketindex := txCOnfirmStats.bucketMap.Get(val).(uint)
-	for i := blocksToConfirm; i <= txCOnfirmStats.curBlockConf.Size(); i++ {
-		curBlockConfTmp := txCOnfirmStats.curBlockConf.Array[i-1].(*algorithm.Vector)
+	bucketindex := txConfirmStats.bucketMap.Get(val).(uint)
+	for i := blocksToConfirm; i <= txConfirmStats.curBlockConf.Size(); i++ {
+		curBlockConfTmp := txConfirmStats.curBlockConf.Array[i-1].(*algorithm.Vector)
 		num := curBlockConfTmp.Array[bucketindex].(int)
 		curBlockConfTmp.SetValueByIndex(int(bucketindex), num+1)
 	}
 
-	curTxCt := txCOnfirmStats.curBlockTxCt.Array[bucketindex].(int)
-	txCOnfirmStats.curBlockTxCt.SetValueByIndex(int(bucketindex), curTxCt+1)
-	curVal := txCOnfirmStats.curBlockVal.Array[bucketindex].(float64)
-	txCOnfirmStats.curBlockTxCt.SetValueByIndex(int(bucketindex), curVal+val)
+	curTxCt := txConfirmStats.curBlockTxCt.Array[bucketindex].(int)
+	txConfirmStats.curBlockTxCt.SetValueByIndex(int(bucketindex), curTxCt+1)
+	curVal := txConfirmStats.curBlockVal.Array[bucketindex].(float64)
+	txConfirmStats.curBlockTxCt.SetValueByIndex(int(bucketindex), curVal+val)
 }
 
-func (txCOnfirmStats *TxConfirmStats) UpdateMovingAverages() {
-	for j := 0; j < txCOnfirmStats.buckets.Size(); j++ {
-		for i := 0; i < txCOnfirmStats.confAvg.Size(); i++ {
-			confAvgVecTmp := txCOnfirmStats.confAvg.Array[i].(*algorithm.Vector)
+func (txConfirmStats *TxConfirmStats) UpdateMovingAverages() {
+	for j := 0; j < txConfirmStats.buckets.Size(); j++ {
+		for i := 0; i < txConfirmStats.confAvg.Size(); i++ {
+			confAvgVecTmp := txConfirmStats.confAvg.Array[i].(*algorithm.Vector)
 			confAvgNum := confAvgVecTmp.Array[j].(float64)
-			curConfVecTmp := txCOnfirmStats.curBlockConf.Array[i].(*algorithm.Vector)
+			curConfVecTmp := txConfirmStats.curBlockConf.Array[i].(*algorithm.Vector)
 			curConfNum := curConfVecTmp.Array[j].(int)
 
-			confAvgVecTmp.SetValueByIndex(j, confAvgNum*txCOnfirmStats.decay+float64(curConfNum))
+			confAvgVecTmp.SetValueByIndex(j, confAvgNum*txConfirmStats.decay+float64(curConfNum))
 		}
-		curValNum := txCOnfirmStats.curBlockTxCt.Array[j].(int)
-		avgNum := txCOnfirmStats.avg.Array[j].(float64)
-		txCOnfirmStats.avg.SetValueByIndex(j, avgNum*txCOnfirmStats.decay+float64(curValNum))
+		curValNum := txConfirmStats.curBlockTxCt.Array[j].(int)
+		avgNum := txConfirmStats.avg.Array[j].(float64)
+		txConfirmStats.avg.SetValueByIndex(j, avgNum*txConfirmStats.decay+float64(curValNum))
 
-		curTxCtNum := txCOnfirmStats.curBlockTxCt.Array[j].(int)
-		txCtAvgNum := txCOnfirmStats.txCtAvg.Array[j].(float64)
-		txCOnfirmStats.txCtAvg.SetValueByIndex(j, txCtAvgNum*txCOnfirmStats.decay+float64(curTxCtNum))
+		curTxCtNum := txConfirmStats.curBlockTxCt.Array[j].(int)
+		txCtAvgNum := txConfirmStats.txCtAvg.Array[j].(float64)
+		txConfirmStats.txCtAvg.SetValueByIndex(j, txCtAvgNum*txConfirmStats.decay+float64(curTxCtNum))
 	}
 }
 
-func (txCOnfirmStats *TxConfirmStats) GetMaxConfirms() int {
-	return txCOnfirmStats.confAvg.Size()
+func (txConfirmStats *TxConfirmStats) GetMaxConfirms() int {
+	return txConfirmStats.confAvg.Size()
 }
 
 //EstimateMedianVal returns -1 on error conditions
-func (txCOnfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficientTxVal,
+func (txConfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficientTxVal,
 	successBreakPoint float64, requireGreater bool, nBlockHeight uint) float64 {
 
 	// Counters for a bucket (or range of buckets)，Number of tx's confirmed within the confTarget
@@ -164,7 +169,7 @@ func (txCOnfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficie
 	totalNum := 0.0
 	// Number of tx's still in mempool for confTarget or longer
 	extraNum := 0
-	maxBucketInex := txCOnfirmStats.buckets.Size() - 1
+	maxBucketInex := txConfirmStats.buckets.Size() - 1
 	startBucket := uint(0)
 	step := 1
 
@@ -178,7 +183,7 @@ func (txCOnfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficie
 	curFarBucket := startBucket
 	bestFarBucket := startBucket
 	foundAnswer := false
-	bins := uint(txCOnfirmStats.unconfTxs.Size())
+	bins := uint(txConfirmStats.unconfTxs.Size())
 
 	// requireGreater means we are looking for the lowest feerate such that all
 	// higher values pass, so we start at maxbucketindex (highest feerate) and
@@ -192,22 +197,22 @@ func (txCOnfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficie
 
 	for bucket := startBucket; bucket >= 0 && bucket <= uint(maxBucketInex); bucket += uint(step) {
 		curFarBucket = bucket
-		confAvgVecTmp := txCOnfirmStats.confAvg.Array[confTarget-1].(*algorithm.Vector)
+		confAvgVecTmp := txConfirmStats.confAvg.Array[confTarget-1].(*algorithm.Vector)
 		nConf += confAvgVecTmp.Array[bucket].(float64)
-		totalNum += txCOnfirmStats.txCtAvg.Array[bucket].(float64)
+		totalNum += txConfirmStats.txCtAvg.Array[bucket].(float64)
 
 		confct := uint(confTarget)
-		for ; confct < uint(txCOnfirmStats.GetMaxConfirms()); confct++ {
-			unconfTxsVecTmp := txCOnfirmStats.unconfTxs.Array[(nBlockHeight-confct)%bins].(*algorithm.Vector)
+		for ; confct < uint(txConfirmStats.GetMaxConfirms()); confct++ {
+			unconfTxsVecTmp := txConfirmStats.unconfTxs.Array[(nBlockHeight-confct)%bins].(*algorithm.Vector)
 			extraNum += unconfTxsVecTmp.Array[bucket].(int)
 		}
-		extraNum += txCOnfirmStats.oldUnconfTxs.Array[bucket].(int)
+		extraNum += txConfirmStats.oldUnconfTxs.Array[bucket].(int)
 
 		// If we have enough transaction data points in this range of buckets,
 		// we can test for success (Only count the confirmed data points, so
 		// that each confirmation count will be looking at the same amount of
 		// data and same bucket breaks)
-		if totalNum >= sufficientTxVal/(1-txCOnfirmStats.decay) {
+		if totalNum >= sufficientTxVal/(1-txConfirmStats.decay) {
 			curPct := nConf / (totalNum + float64(extraNum))
 
 			// Check to see if we are no longer getting confirmed at the success rate
@@ -247,20 +252,201 @@ func (txCOnfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficie
 	}
 
 	for i := minBucket; i <= maxBucket; i++ {
-		txSum += txCOnfirmStats.txCtAvg.Array[i].(float64)
+		txSum += txConfirmStats.txCtAvg.Array[i].(float64)
 	}
 
 	if foundAnswer && txSum != 0 {
 		txSum = txSum / 2
 		for j := minBucket; j <= maxBucket; j++ {
-			if txCOnfirmStats.txCtAvg.Array[j].(float64) < txSum {
-				txSum -= txCOnfirmStats.txCtAvg.Array[j].(float64)
+			if txConfirmStats.txCtAvg.Array[j].(float64) < txSum {
+				txSum -= txConfirmStats.txCtAvg.Array[j].(float64)
 			} else {
-				median = txCOnfirmStats.avg.Array[j].(float64) / txCOnfirmStats.txCtAvg.Array[j].(float64)
+				median = txConfirmStats.avg.Array[j].(float64) / txConfirmStats.txCtAvg.Array[j].(float64)
 				break
 			}
 		}
 	}
 
 	return median
+}
+
+func (txConfirmStats *TxConfirmStats) NewTx(nBlockHeight uint, val float64) uint {
+	bucketIndex := txConfirmStats.bucketMap.Get(val).(uint)
+	blockINdex := nBlockHeight % uint(txConfirmStats.unconfTxs.Size())
+	unconfxVecTmp := txConfirmStats.unconfTxs.Array[blockINdex].(*algorithm.Vector)
+	unconfxVecTmp.SetValueByIndex(int(bucketIndex), unconfxVecTmp.Array[bucketIndex].(int)+1)
+	return bucketIndex
+
+}
+
+func (txConfirmStats *TxConfirmStats) RemoveTx(entryHeight, nBestSeenHeight, bucketIndex uint) {
+	// nBestSeenHeight is not updated yet for the new block
+	blocksAgo := int(nBestSeenHeight - entryHeight)
+	if nBestSeenHeight == 0 {
+		blocksAgo = 0
+	}
+	if blocksAgo < 0 {
+		return
+	}
+
+	if blocksAgo >= txConfirmStats.unconfTxs.Size() {
+		if txConfirmStats.oldUnconfTxs.Array[bucketIndex].(int) > 0 {
+			txConfirmStats.oldUnconfTxs.Array[bucketIndex] = txConfirmStats.oldUnconfTxs.Array[bucketIndex].(int) - 1
+		}
+	} else {
+		blockIndex := entryHeight % uint(txConfirmStats.unconfTxs.Size())
+		unconfTxVecTmp := txConfirmStats.unconfTxs.Array[blockIndex].(*algorithm.Vector)
+		if unconfTxVecTmp.Array[bucketIndex].(int) > 0 {
+			unconfTxVecTmp.Array[bucketIndex] = unconfTxVecTmp.Array[bucketIndex].(int) - 1
+		}
+	}
+}
+
+func writeForVector(writer io.Writer, vector *algorithm.Vector) error {
+	utils.WriteVarInt(writer, uint64(vector.Size()))
+	for _, v := range vector.Array {
+		err := binary.Write(writer, binary.LittleEndian, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (txConfirmStats *TxConfirmStats) Serialize(writer io.Writer) error {
+	err := binary.Write(writer, binary.LittleEndian, txConfirmStats.decay)
+	if err != nil {
+		return err
+	}
+
+	err = writeForVector(writer, txConfirmStats.buckets)
+	if err != nil {
+		return err
+	}
+	err = writeForVector(writer, txConfirmStats.avg)
+	if err != nil {
+		return err
+	}
+	err = writeForVector(writer, txConfirmStats.txCtAvg)
+	if err != nil {
+		return err
+	}
+
+	utils.WriteVarInt(writer, uint64(txConfirmStats.confAvg.Size()))
+	for _, v := range txConfirmStats.confAvg.Array {
+		err = writeForVector(writer, v.(*algorithm.Vector))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func readForVector(reader io.Reader, vector *algorithm.Vector) error {
+	size, err := utils.ReadVarInt(reader)
+	if err != nil {
+		return err
+	}
+	var element float64
+	for i := uint64(0); i < size; i++ {
+		err = binary.Read(reader, binary.LittleEndian, &element)
+		if err != nil {
+			return err
+		}
+		vector.PushBack(element)
+	}
+	return nil
+}
+
+func (txConfirmStats *TxConfirmStats) Deserialize(reader io.Reader) error {
+	var fileDecay float64
+	fileBuckets := algorithm.NewVector()
+	fileAvg := algorithm.NewVector()
+	fileTxCtAvg := algorithm.NewVector()
+	fileConfAvg := algorithm.NewVector()
+
+	// Read data file into temporary variables and do some very basic sanity
+	// checking
+	err := binary.Read(reader, binary.LittleEndian, &fileDecay)
+	if err != nil {
+		return err
+	}
+	if fileDecay <= 0 || fileDecay >= 1 {
+		return errors.New("Corrupt estimates file. Decay must be between 0 and 1 (non-inclusive)")
+	}
+
+	err = readForVector(reader, fileBuckets)
+	if err != nil {
+		return err
+	}
+	numBuckets := fileBuckets.Size()
+	if numBuckets <= 1 || numBuckets > 1000 {
+		return errors.New("Corrupt estimates file. Must have between 2 and 1000 feerate buckets")
+	}
+
+	err = readForVector(reader, fileAvg)
+	if err != nil {
+		return err
+	}
+	if fileAvg.Size() != numBuckets {
+		return errors.New("Corrupt estimates file. Mismatch in feerate average bucket count")
+	}
+
+	err = readForVector(reader, fileTxCtAvg)
+	if err != nil {
+		return err
+	}
+	if fileTxCtAvg.Size() != numBuckets {
+		return errors.New("Corrupt estimates file. Mismatch in tx count bucket count")
+	}
+
+	size, err := utils.ReadVarInt(reader)
+	if err != nil {
+		return err
+	}
+	for i := uint64(0); i < size; i++ {
+		tmpVector := algorithm.NewVector()
+		err = readForVector(reader, tmpVector)
+		if err != nil {
+			return err
+		}
+		fileConfAvg.PushBack(tmpVector)
+	}
+	maxConfirms := fileConfAvg.Size()
+	if maxConfirms <= 0 || maxConfirms > 6*24*7 {
+		return errors.New("Corrupt estimates file.  Must maintain" +
+			"estimates for between 1 and 1008 (one week) confirms")
+	}
+
+	for i := 0; i < maxConfirms; i++ {
+		if fileConfAvg.Array[i].(*algorithm.Vector).Size() != numBuckets {
+			return errors.New("Corrupt estimates file. Mismatch in feerate conf average bucket count")
+		}
+	}
+
+	// Now that we've processed the entire feerate estimate data file and not
+	// thrown any errors, we can copy it to our data structures
+	txConfirmStats.decay = fileDecay
+	txConfirmStats.buckets = fileBuckets
+	txConfirmStats.avg = fileAvg
+	txConfirmStats.confAvg = fileConfAvg
+	txConfirmStats.txCtAvg = fileTxCtAvg
+	txConfirmStats.bucketMap = beegoUtils.BeeMap{}
+
+	// Resize the current block variables which aren't stored in the data file
+	// to match the number of confirms and buckets
+	txConfirmStats.curBlockConf = algorithm.NewVector()
+	txConfirmStats.unconfTxs = algorithm.NewVector()
+	for i := 0; i < maxConfirms; i++ {
+		txConfirmStats.curBlockConf.PushBack(algorithm.NewVector())
+		txConfirmStats.unconfTxs.PushBack(algorithm.NewVector())
+	}
+	txConfirmStats.curBlockTxCt = algorithm.NewVector()
+	txConfirmStats.curBlockVal = algorithm.NewVector()
+	txConfirmStats.oldUnconfTxs = algorithm.NewVector()
+	for i := 0; i < txConfirmStats.buckets.Size(); i++ {
+		txConfirmStats.bucketMap.Set(txConfirmStats.buckets.Array[i], i)
+	}
+
+	return nil
 }
