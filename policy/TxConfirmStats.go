@@ -27,7 +27,7 @@ type TxConfirmStats struct {
 	buckets *algorithm.Vector
 
 	// Map of bucket upper-bound to index into all vectors by bucket
-	bucketMap beegoUtils.BeeMap
+	bucketMap *beegoUtils.BeeMap
 
 	// For each bucket X:
 	// Count the total # of txs in each bucket
@@ -72,10 +72,11 @@ type TxConfirmStats struct {
 	oldUnconfTxs *algorithm.Vector
 }
 
-func NewTxConfirmStats(defaultBuckets algorithm.Vector, maxConfirms int, decay float64) *TxConfirmStats {
+func NewTxConfirmStats(defaultBuckets algorithm.Vector, maxConfirms uint, decay float64) *TxConfirmStats {
 	txConfirmStats := TxConfirmStats{}
 	txConfirmStats.decay = decay
 	txConfirmStats.buckets = algorithm.NewVector()
+	txConfirmStats.bucketMap = beegoUtils.NewBeeMap()
 	for i := 0; i < defaultBuckets.Size(); i++ {
 		bucket, _ := defaultBuckets.At(i)
 		txConfirmStats.buckets.PushBack(bucket)
@@ -84,7 +85,7 @@ func NewTxConfirmStats(defaultBuckets algorithm.Vector, maxConfirms int, decay f
 	txConfirmStats.confAvg = algorithm.NewVector()
 	txConfirmStats.curBlockConf = algorithm.NewVector()
 	txConfirmStats.unconfTxs = algorithm.NewVector()
-	for j := 0; j < maxConfirms; j++ {
+	for j := uint(0); j < maxConfirms; j++ {
 		txConfirmStats.confAvg.PushBack(algorithm.NewVector())
 		txConfirmStats.curBlockConf.PushBack(algorithm.NewVector())
 		txConfirmStats.unconfTxs.PushBack(algorithm.NewVector())
@@ -431,7 +432,7 @@ func (txConfirmStats *TxConfirmStats) Deserialize(reader io.Reader) error {
 	txConfirmStats.avg = fileAvg
 	txConfirmStats.confAvg = fileConfAvg
 	txConfirmStats.txCtAvg = fileTxCtAvg
-	txConfirmStats.bucketMap = beegoUtils.BeeMap{}
+	txConfirmStats.bucketMap = beegoUtils.NewBeeMap()
 
 	// Resize the current block variables which aren't stored in the data file
 	// to match the number of confirms and buckets

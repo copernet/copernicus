@@ -7,6 +7,27 @@ import (
 	"math"
 )
 
+const (
+	//MIN_FEERATE Minimum and Maximum values for tracking feerates
+	MIN_FEERATE  int64   = 10
+	MAX_FEERATE  int64   = 1e7
+	INF_FEERATE  int64   = MAX_MONEY
+	INF_PRIORITY float64 = 1e9 * float64(MAX_MONEY)
+
+	//FEE_SPACING We have to lump transactions into buckets based on feerate, but we want to be
+	// able to give accurate estimates over a large range of potential feerates.
+	// Therefore it makes sense to exponentially space the buckets
+	FEE_SPACING float64 = 1.1
+)
+
+const (
+	/*MAX_BLOCK_CONFIRMS Track confirm delays up to 25 blocks, can't estimate beyond that */
+	MAX_BLOCK_CONFIRMS uint = 25
+
+	/*DEFAULT_DECAY Decay of .998 is a half-life of 346 blocks or about 2.4 days */
+	DEFAULT_DECAY float64 = .998
+)
+
 type FeeRate struct {
 	SataoshisPerK int64
 }
