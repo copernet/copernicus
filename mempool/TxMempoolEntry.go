@@ -1,9 +1,7 @@
 package mempool
 
 import (
-	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/utils"
 )
 
 /* TxMempoolEntry stores data about the corresponding transaction, as well as
@@ -46,6 +44,7 @@ type TxMempoolEntry struct {
 	CountWithDescendants    uint64
 	SizeWithDescendants     uint64
 	ModFeesWithDescendants  int64
+	ModFeesWithAncestors    int64
 	SigOpCoungWithAncestors int64
 }
 
@@ -62,10 +61,10 @@ func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
 	txMempoolEntry.LockPoints = lockPoint
 }
 
-// UpdateForDescendatas Update the given tx for any in-mempool descendants.
-// Assumes that setMemPoolChildren is correct for the given tx and all
-// descendants.
-func (txMempoolEntry *TxMempoolEntry) UpdateForDescendatas(txPool *beegoUtils.BeeMap, cachedDescendants *beegoUtils.BeeMap, setExclude []utils.Hash) {
+func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
+	txMempoolEntry.ModFeesWithDescendants = txMempoolEntry.ModFeesWithDescendants + newFeeDelta - txMempoolEntry.FeeDelta
+	txMempoolEntry.ModFeesWithAncestors = txMempoolEntry.ModFeesWithAncestors + newFeeDelta - txMempoolEntry.FeeDelta
+	txMempoolEntry.FeeDelta = newFeeDelta
 
 }
 
