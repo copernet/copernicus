@@ -27,7 +27,7 @@ type TxConfirmStats struct {
 	buckets *algorithm.Vector
 
 	// Map of bucket upper-bound to index into all vectors by bucket
-	bucketMap *beegoUtils.BeeMap
+	bucketMap beegoUtils.BeeMap
 
 	// For each bucket X:
 	// Count the total # of txs in each bucket
@@ -76,7 +76,7 @@ func NewTxConfirmStats(defaultBuckets algorithm.Vector, maxConfirms uint, decay 
 	txConfirmStats := TxConfirmStats{}
 	txConfirmStats.decay = decay
 	txConfirmStats.buckets = algorithm.NewVector()
-	txConfirmStats.bucketMap = beegoUtils.NewBeeMap()
+	txConfirmStats.bucketMap = *beegoUtils.NewBeeMap()
 	for i := 0; i < defaultBuckets.Size(); i++ {
 		bucket, _ := defaultBuckets.At(i)
 		txConfirmStats.buckets.PushBack(bucket)
@@ -156,8 +156,8 @@ func (txConfirmStats *TxConfirmStats) UpdateMovingAverages() {
 	}
 }
 
-func (txConfirmStats *TxConfirmStats) GetMaxConfirms() int {
-	return txConfirmStats.confAvg.Size()
+func (txConfirmStats *TxConfirmStats) GetMaxConfirms() uint {
+	return uint(txConfirmStats.confAvg.Size())
 }
 
 //EstimateMedianVal returns -1 on error conditions
@@ -203,7 +203,7 @@ func (txConfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficie
 		totalNum += txConfirmStats.txCtAvg.Array[bucket].(float64)
 
 		confct := uint(confTarget)
-		for ; confct < uint(txConfirmStats.GetMaxConfirms()); confct++ {
+		for ; confct < txConfirmStats.GetMaxConfirms(); confct++ {
 			unconfTxsVecTmp := txConfirmStats.unconfTxs.Array[(nBlockHeight-confct)%bins].(*algorithm.Vector)
 			extraNum += unconfTxsVecTmp.Array[bucket].(int)
 		}
@@ -432,7 +432,7 @@ func (txConfirmStats *TxConfirmStats) Deserialize(reader io.Reader) error {
 	txConfirmStats.avg = fileAvg
 	txConfirmStats.confAvg = fileConfAvg
 	txConfirmStats.txCtAvg = fileTxCtAvg
-	txConfirmStats.bucketMap = beegoUtils.NewBeeMap()
+	txConfirmStats.bucketMap = *beegoUtils.NewBeeMap()
 
 	// Resize the current block variables which aren't stored in the data file
 	// to match the number of confirms and buckets

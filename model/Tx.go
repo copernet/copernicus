@@ -367,6 +367,7 @@ func (tx *Tx) returnScriptBuffers() {
 func (tx *Tx) GetValueOut() int64 {
 	var valueOut int64
 	for _, out := range tx.Outs {
+		valueOut += out.Value
 		if !utils.MoneyRange(out.Value) || !utils.MoneyRange(valueOut) {
 			panic("value out of range")
 		}

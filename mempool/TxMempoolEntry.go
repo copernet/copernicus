@@ -6,6 +6,21 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
+/* TxMempoolEntry stores data about the corresponding transaction, as well as
+ * data about all in-mempool transactions that depend on the transaction
+ * ("descendant" transactions).
+ *
+ * When a new entry is added to the mempool, we update the descendant state
+ * (nCountWithDescendants, nSizeWithDescendants, and nModFeesWithDescendants)
+ * for all ancestors of the newly added transaction.
+ *
+ * If updating the descendant state is skipped, we can mark the entry as
+ * "dirty", and set nSizeWithDescendants/nModFeesWithDescendants to equal
+ * nTxSize/nFee+feeDelta. (This can potentially happen during a reorg, where we
+ * limit the amount of work we're willing to do to avoid consuming too much
+ * CPU.)
+ */
+
 type TxMempoolEntry struct {
 	TxRef         *model.Tx
 	Fee           int64
@@ -14,7 +29,7 @@ type TxMempoolEntry struct {
 	UsageSize     int
 	LocalTime     int64
 	EntryPriority float64
-	EntryHeight   int
+	EntryHeight   uint
 	//!< Sum of all txin values that are already in blockchain
 	InChainInputValue int64
 	SpendsCoinbase    bool
@@ -34,7 +49,7 @@ type TxMempoolEntry struct {
 	SigOpCoungWithAncestors int64
 }
 
-func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight int) float64 {
+func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
 	deltaPriority := float64(currentHeight-txMempoolEntry.EntryHeight) / float64(txMempoolEntry.ModSize)
 	result := txMempoolEntry.EntryPriority + deltaPriority
 	if result < 0 {
@@ -55,7 +70,7 @@ func (txMempoolEntry *TxMempoolEntry) UpdateForDescendatas(txPool *beegoUtils.Be
 }
 
 func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
-	entryPriority float64, entryHeight int, inChainInputValue int64, spendCoinbase bool,
+	entryPriority float64, entryHeight uint, inChainInputValue int64, spendCoinbase bool,
 	sigOpsCount int64, lockPoints *LockPoints) *TxMempoolEntry {
 	txMempoolEntry := TxMempoolEntry{}
 
@@ -75,7 +90,7 @@ func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 	txMempoolEntry.CountWithDescendants = 1
 	txMempoolEntry.SizeWithDescendants = uint64(txMempoolEntry.TxSize)
 	txMempoolEntry.ModFeesWithDescendants = fee
-	valueIn := txRef.GetValueOut()
+	valueIn := txRef.GetValueOut() + fee
 
 	if inChainInputValue > valueIn {
 		panic("error inChainInputValue > valueIn ")

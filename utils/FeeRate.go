@@ -26,6 +26,14 @@ const (
 
 	/*DEFAULT_DECAY Decay of .998 is a half-life of 346 blocks or about 2.4 days */
 	DEFAULT_DECAY float64 = .998
+
+	/*MIN_SUCCESS_PCT Require greater than 95% of X feerate transactions to be confirmed within Y
+	 * blocks for X to be big enough */
+	MIN_SUCCESS_PCT float64 = .95
+
+	/*SUFFICIENT_FEETXS Require an avg of 1 tx in the combined feerate bucket per block to have stat
+	 * significance */
+	SUFFICIENT_FEETXS float64 = 1
 )
 
 type FeeRate struct {

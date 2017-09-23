@@ -27,6 +27,10 @@ func AllowFreeThreshold() float64 {
 
 }
 
+func (mempool *Mempool) GetMinFee(sizeLimit uint) utils.FeeRate {
+	return utils.FeeRate{SataoshisPerK: 0}
+}
+
 func AllowFee(priority float64) bool {
 	// Large (in bytes) low-priority (new, small-coin) transactions need a fee.
 	return priority > AllowFreeThreshold()

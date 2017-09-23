@@ -1,8 +1,8 @@
 package policy
 
 type TxStatsInfo struct {
-	BlockHeight int
-	BucketIndex int
+	BlockHeight uint
+	BucketIndex uint
 }
 
 func NewTxStatsInfo() *TxStatsInfo {
