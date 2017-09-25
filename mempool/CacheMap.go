@@ -55,6 +55,20 @@ func (cacheMap *CacheMap) Get(key ISortKey) interface{} {
 	return cacheMap.m[key]
 }
 
+func (cacheMap *CacheMap) First() interface{} {
+	if cacheMap.Len() == 0 {
+		return nil
+	}
+	return cacheMap.m[cacheMap.keys[0]]
+}
+
+func (cacheMap *CacheMap) Last() interface{} {
+	if cacheMap.Len() == 0 {
+		return nil
+	}
+	return cacheMap.m[cacheMap.keys[cacheMap.Len()-1]]
+}
+
 func (cacheMap *CacheMap) String() string {
 	len := cacheMap.Len()
 	if len == 0 {
@@ -71,4 +85,11 @@ func (cacheMap *CacheMap) String() string {
 
 func (cacheMap *CacheMap) GetAllKeys() []ISortKey {
 	return cacheMap.keys
+}
+
+func NewCacheMap() *CacheMap {
+	m := make(map[ISortKey]interface{})
+	keys := make([]ISortKey, 0)
+	cacheMap := CacheMap{m: m, keys: keys}
+	return &cacheMap
 }
