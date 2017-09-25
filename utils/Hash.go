@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
 )
 
 const (
@@ -28,7 +29,21 @@ func (hash *Hash) GetCloneBytes() []byte {
 	copy(bytes, hash[:])
 	return bytes
 }
+func (hash *Hash) ToBigInt() *big.Int {
+	return new(big.Int).SetBytes(hash.GetCloneBytes())
+}
 
+func (hash *Hash) Cmp(other *Hash) int {
+
+	if hash == nil || other == nil {
+		return 0
+	} else if hash == nil {
+		return -1
+	} else if other == nil {
+		return 1
+	}
+	return hash.ToBigInt().Cmp(other.ToBigInt())
+}
 func (hash *Hash) SetBytes(bytes []byte) error {
 	length := len(bytes)
 	if length != HashSize {
