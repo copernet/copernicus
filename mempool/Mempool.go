@@ -1,7 +1,10 @@
 package mempool
 
 import (
+	"fmt"
+
 	beeUtils "github.com/astaxie/beego/utils"
+	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -25,12 +28,42 @@ type Mempool struct {
 	BlockSinceLatRollingFeeBump bool
 	RollingMinimumFeeRate       float64
 	MapTx                       *beeUtils.BeeMap
+	MapLinks                    *beeUtils.BeeMap //<TxMempoolEntry,Txlinks>
 }
 
-// Update the given tx for any in-mempool descendants.
+// UpdateForDescendants : Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
 // descendants.
-//func (mempool *Mempool)UpdateForDescendants(updateIt *TxMempoolEntry,)
+func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *beeUtils.BeeMap, setExclude algorithm.Vector) {
+
+	var stageEntries algorithm.Vector
+	var setAllDescendants algorithm.Vector
+
+	for !stageEntries.Empty() {
+		cit, _ := stageEntries.At(0)
+		setAllDescendants.PushBack(cit)
+		stageEntries.RemoveAt(0)
+		txMempoolEntry := cit.(TxMempoolEntry)
+		setChildren := mempool.GetMempoolChildren(&txMempoolEntry)
+
+		for _, childEntry := range setChildren.Array {
+			cacheIt := cachedDescendants.Get(childEntry)
+			fmt.Println(cacheIt)
+
+		}
+
+	}
+}
+
+func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vector {
+	result := mempool.MapLinks.Get(entry)
+	return result.(TxLinks).Children
+}
+
+func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *algorithm.Vector {
+	result := mempool.MapLinks.Get(entry)
+	return result.(TxLinks).Parents
+}
 
 func (mempool *Mempool) GetMinFee(sizeLimit uint) utils.FeeRate {
 	return utils.FeeRate{SataoshisPerK: 0}
