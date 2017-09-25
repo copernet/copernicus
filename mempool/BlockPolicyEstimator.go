@@ -1,4 +1,4 @@
-package policy
+package mempool
 
 import (
 	"io"
@@ -8,7 +8,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
-	"github.com/btcboost/copernicus/mempool"
+	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -17,39 +17,16 @@ var log = logs.NewLogger()
 type BlockPolicyEstimator struct {
 	minTrackedFee  utils.FeeRate
 	bestSeenHeight uint
-	txStatsInfo    TxStatsInfo
+	txStatsInfo    policy.TxStatsInfo
 
 	/** Classes to track historical data on transaction confirmations*/
 	mapMemPoolTxs beegoUtils.BeeMap
-	feeStats      TxConfirmStats
+	feeStats      policy.TxConfirmStats
 	trackedTxs    uint
 	untranckedTxs uint
 }
 
-func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
-	blockPolicyEstimator := BlockPolicyEstimator{}
-
-	if utils.MIN_FEERATE < 0 {
-		panic("Min feerate must be nonzero")
-	}
-	blockPolicyEstimator.bestSeenHeight = 0
-	blockPolicyEstimator.trackedTxs = 0
-	blockPolicyEstimator.untranckedTxs = 0
-	if rate.SataoshisPerK < utils.MIN_FEERATE {
-		blockPolicyEstimator.minTrackedFee.SataoshisPerK = utils.MIN_FEERATE
-	}
-	blockPolicyEstimator.minTrackedFee.SataoshisPerK = rate.SataoshisPerK
-	vfeeList := algorithm.NewVector()
-	for bucketBoundary := float64(blockPolicyEstimator.minTrackedFee.GetFeePerK()); bucketBoundary <= float64(utils.MAX_FEERATE); bucketBoundary *= utils.FEE_SPACING {
-		vfeeList.PushBack(bucketBoundary)
-	}
-	vfeeList.PushBack(float64(utils.INF_FEERATE))
-	blockPolicyEstimator.feeStats = *NewTxConfirmStats(*vfeeList, utils.MAX_BLOCK_CONFIRMS, utils.DEFAULT_DECAY)
-
-	return &blockPolicyEstimator
-}
-
-func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *mempool.TxMempoolEntry, validFeeEstimate bool) {
+func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMempoolEntry, validFeeEstimate bool) {
 	txHeight := entry.EntryHeight
 	txID := entry.TxRef.Hash
 	if blockPolicyEstimator.mapMemPoolTxs.Get(txID) != nil {
@@ -78,12 +55,12 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *memp
 	feeRate := utils.NewFeeRateWithSize(entry.Fee, entry.TxSize)
 
 	bucketIndex := blockPolicyEstimator.feeStats.NewTx(txHeight, float64(feeRate.GetFeePerK()))
-	txStatsInfo := TxStatsInfo{txHeight, bucketIndex}
+	txStatsInfo := policy.TxStatsInfo{txHeight, bucketIndex}
 	blockPolicyEstimator.mapMemPoolTxs.Set(txID, txStatsInfo)
 
 }
 
-func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlockTx(blockHeight uint, entry *mempool.TxMempoolEntry) bool {
+func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlockTx(blockHeight uint, entry *TxMempoolEntry) bool {
 
 	if !blockPolicyEstimator.RemoveTx(entry.TxRef.Hash) {
 		// This transaction wasn't being tracked for fee estimation；
@@ -127,7 +104,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 	countedTxs := uint(0)
 	// Repopulate the current block states
 	for i := 0; i < entry.Size(); i++ {
-		if blockPolicyEstimator.ProcessBlockTx(blockHeight, entry.Array[i].(*mempool.TxMempoolEntry)) {
+		if blockPolicyEstimator.ProcessBlockTx(blockHeight, entry.Array[i].(*TxMempoolEntry)) {
 			countedTxs++
 		}
 	}
@@ -159,7 +136,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateFee(confTarget int) ut
 	return utils.FeeRate{SataoshisPerK: int64(median)}
 }
 
-func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget int, answerFoundAtTarget *int, pool *mempool.Mempool) utils.FeeRate {
+func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget int, answerFoundAtTarget *int, pool *Mempool) utils.FeeRate {
 
 	if answerFoundAtTarget != nil {
 		*answerFoundAtTarget = confTarget
@@ -188,7 +165,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	// If mempool is limiting txs , return at least the min feerate from the
 	// mempool
-	minPoolFeeTmp := pool.GetMinFee(uint(utils.GetArg("-maxmempool", int64(DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000))
+	minPoolFeeTmp := pool.GetMinFee(uint(utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000))
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 && float64(minPoolFee) > median {
@@ -207,13 +184,13 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimatePriority(confTarget in
 	return -1
 }
 
-func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartPriority(confTarget int, answerFoundAtTarget *int, pool *mempool.Mempool) float64 {
+func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartPriority(confTarget int, answerFoundAtTarget *int, pool *Mempool) float64 {
 	if answerFoundAtTarget != nil {
 		*answerFoundAtTarget = confTarget
 	}
 
 	// If mempool is limiting txs, no priority txs are allowed
-	minPoolFeeTmp := pool.GetMinFee(uint(utils.GetArg("-maxmempool", int64(DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000))
+	minPoolFeeTmp := pool.GetMinFee(uint(utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000))
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 {
@@ -245,7 +222,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) Deserialize(reader io.Reader, 
 	blockPolicyEstimator.bestSeenHeight = fileBestSeenHeight
 
 	if fileVersion < 139900 {
-		priStats := TxConfirmStats{}
+		priStats := policy.TxConfirmStats{}
 		err = priStats.Deserialize(reader)
 	}
 	return err
@@ -257,9 +234,32 @@ func (blockPolicyEstimator *BlockPolicyEstimator) RemoveTx(hash utils.Hash) bool
 	if value == nil {
 		return false
 	}
-	txStatsInfo := value.(TxStatsInfo)
+	txStatsInfo := value.(policy.TxStatsInfo)
 	blockPolicyEstimator.feeStats.RemoveTx(txStatsInfo.BlockHeight, blockPolicyEstimator.bestSeenHeight, txStatsInfo.BucketIndex)
 	blockPolicyEstimator.mapMemPoolTxs.Delete(hash)
 	return true
 
+}
+
+func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
+	blockPolicyEstimator := BlockPolicyEstimator{}
+
+	if utils.MIN_FEERATE < 0 {
+		panic("Min feerate must be nonzero")
+	}
+	blockPolicyEstimator.bestSeenHeight = 0
+	blockPolicyEstimator.trackedTxs = 0
+	blockPolicyEstimator.untranckedTxs = 0
+	if rate.SataoshisPerK < utils.MIN_FEERATE {
+		blockPolicyEstimator.minTrackedFee.SataoshisPerK = utils.MIN_FEERATE
+	}
+	blockPolicyEstimator.minTrackedFee.SataoshisPerK = rate.SataoshisPerK
+	vfeeList := algorithm.NewVector()
+	for bucketBoundary := float64(blockPolicyEstimator.minTrackedFee.GetFeePerK()); bucketBoundary <= float64(utils.MAX_FEERATE); bucketBoundary *= utils.FEE_SPACING {
+		vfeeList.PushBack(bucketBoundary)
+	}
+	vfeeList.PushBack(float64(utils.INF_FEERATE))
+	blockPolicyEstimator.feeStats = *policy.NewTxConfirmStats(*vfeeList, utils.MAX_BLOCK_CONFIRMS, utils.DEFAULT_DECAY)
+
+	return &blockPolicyEstimator
 }
