@@ -1,5 +1,5 @@
-hash: a8e0a06933249e685c3e19089ada3112b018e42f0415f51269645b9677df4d4a
-updated: 2017-09-24T06:46:06.637396892+08:00
+hash: 63abd9a4593be62e605125e8899f8cf54bfbc2dfd4db2f6c481fd4ab4a3b727b
+updated: 2017-09-26T11:23:25.364558775+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -84,6 +84,8 @@ imports:
   version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
   - ripemd160
+- name: gopkg.in/fatih/set.v0
+  version: 27c40922c40b43fe04554d8223a402af3ea333f3
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:

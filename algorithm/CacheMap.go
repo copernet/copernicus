@@ -1,4 +1,4 @@
-package mempool
+package algorithm
 
 import (
 	"fmt"
@@ -52,6 +52,10 @@ func (cacheMap *CacheMap) Del(key ISortKey) {
 
 }
 
+func (cacheMap *CacheMap) GetMap() map[ISortKey]interface{} {
+	return cacheMap.m
+
+}
 func (cacheMap *CacheMap) Get(key ISortKey) interface{} {
 	return cacheMap.m[key]
 }

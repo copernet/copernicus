@@ -1,12 +1,11 @@
 package mempool
 
 import (
-	"fmt"
-
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
+	"gopkg.in/fatih/set.v0"
 )
 
 /**
@@ -34,27 +33,55 @@ type Mempool struct {
 // UpdateForDescendants : Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
 // descendants.
-func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *CacheMap, setExclude algorithm.Vector) {
+func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *algorithm.CacheMap, setExclude set.Set) {
 
-	var stageEntries algorithm.Vector
-	var setAllDescendants algorithm.Vector
-	stageEntries = *mempool.GetMempoolChildren(updateIt)
+	stageEntries := set.New()
+	setAllDescendants := set.New()
 
-	for !stageEntries.Empty() {
-		cit, _ := stageEntries.At(0)
-		setAllDescendants.PushBack(cit)
-		stageEntries.RemoveAt(0)
+	for !stageEntries.IsEmpty() {
+		cit := stageEntries.List()[0]
+		setAllDescendants.Add(cit)
+		stageEntries.Remove(cit)
 		txMempoolEntry := cit.(TxMempoolEntry)
 		setChildren := mempool.GetMempoolChildren(&txMempoolEntry)
 
 		for _, childEntry := range setChildren.Array {
 			childTx := childEntry.(TxMempoolEntry)
-			//cacheIt := cachedDescendants.Get()
-			fmt.Println(childTx)
+			cacheIt := cachedDescendants.Get(childTx)
+			cacheItVector := cacheIt.(algorithm.Vector)
+			if cacheIt != cachedDescendants.Last() {
+				// We've already calculated this one, just add the entries for
+				// this set but don't traverse again.
+				for _, cacheEntry := range cacheItVector.Array {
+					setAllDescendants.Add(cacheEntry)
+
+				}
+			} else if !setAllDescendants.Has(childEntry) {
+				// Schedule for later processing
+				stageEntries.Add(childEntry)
+			}
 
 		}
 
 	}
+	// setAllDescendants now contains all in-mempool descendants of updateIt.
+	// Update and add to cached descendant map
+	modifySize := 0
+	modifyFee := 0
+	modifyCount := 0
+
+	for _, cit := range setAllDescendants.List() {
+		txCit := cit.(TxMempoolEntry)
+		if !setExclude.Has(txCit.TxRef.Hash) {
+			modifySize = modifySize + txCit.TxSize
+			modifyFee = modifyFee + txCit.ModSize
+			modifyCount++
+			cachedSet := cachedDescendants.Get(updateIt).(set.Set)
+			cachedSet.Add(txCit)
+			// todo Update ancestor state for each descendant
+		}
+	}
+	//todo Update descendant
 }
 
 func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vector {
