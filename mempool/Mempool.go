@@ -34,7 +34,7 @@ type Mempool struct {
 // UpdateForDescendants : Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
 // descendants.
-func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *beeUtils.BeeMap, setExclude algorithm.Vector) {
+func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *CacheMap, setExclude algorithm.Vector) {
 
 	var stageEntries algorithm.Vector
 	var setAllDescendants algorithm.Vector
@@ -48,8 +48,9 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 		setChildren := mempool.GetMempoolChildren(&txMempoolEntry)
 
 		for _, childEntry := range setChildren.Array {
-			cacheIt := cachedDescendants.Get(childEntry)
-			fmt.Println(cacheIt)
+			childTx := childEntry.(TxMempoolEntry)
+			//cacheIt := cachedDescendants.Get()
+			fmt.Println(childTx)
 
 		}
 

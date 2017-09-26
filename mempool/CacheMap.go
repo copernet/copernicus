@@ -8,6 +8,7 @@ import (
 type ISortKey interface {
 	Cmp(other ISortKey) int
 }
+
 type CacheMap struct {
 	m    map[ISortKey]interface{}
 	keys []ISortKey
