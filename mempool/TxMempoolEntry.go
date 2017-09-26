@@ -45,7 +45,7 @@ type TxMempoolEntry struct {
 	SizeWithDescendants    uint64
 	ModFeesWithDescendants int64
 
-	// Analogous statistics for ancestor transactions  祖先交易的类似统计
+	// Analogous statistics for ancestor transactions
 	nCountWithAncestors     uint64
 	sizeWithAncestors       uint64
 	ModFeesWithAncestors    int64
