@@ -87,7 +87,7 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 	//todo Update descendant
 }
 
-// vHashesToUpdate is the set of transaction hashes from a disconnected block
+// UpdateTransactionsFromBlock : vHashesToUpdate is the set of transaction hashes from a disconnected block
 // which has been re-added to the mempool. For each entry, look for descendants
 // that are outside hashesToUpdate, and add fee/size information for such
 // descendants to the parent. For each such descendant, also update the ancestor
