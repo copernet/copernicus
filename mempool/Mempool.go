@@ -38,6 +38,7 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 
 	var stageEntries algorithm.Vector
 	var setAllDescendants algorithm.Vector
+	stageEntries = *mempool.GetMempoolChildren(updateIt)
 
 	for !stageEntries.Empty() {
 		cit, _ := stageEntries.At(0)
@@ -57,11 +58,17 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 
 func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vector {
 	result := mempool.MapLinks.Get(entry)
+	if result == nil {
+		panic("No have children In mempool for this TxmempoolEntry")
+	}
 	return result.(TxLinks).Children
 }
 
 func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *algorithm.Vector {
 	result := mempool.MapLinks.Get(entry)
+	if result == nil {
+		panic("No have parant In mempool for this TxmempoolEntry")
+	}
 	return result.(TxLinks).Parents
 }
 

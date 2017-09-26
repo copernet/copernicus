@@ -41,15 +41,19 @@ type TxMempoolEntry struct {
 	// dirty, and nSizeWithDescendants and nModFeesWithDescendants will not be
 	// correct.
 	//!< number of descendant transactions
-	CountWithDescendants    uint64
-	SizeWithDescendants     uint64
-	ModFeesWithDescendants  int64
+	CountWithDescendants   uint64
+	SizeWithDescendants    uint64
+	ModFeesWithDescendants int64
+
+	// Analogous statistics for ancestor transactions  祖先交易的类似统计
+	nCountWithAncestors     uint64
+	sizeWithAncestors       uint64
 	ModFeesWithAncestors    int64
 	SigOpCoungWithAncestors int64
 }
 
 func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
-	deltaPriority := float64(currentHeight-txMempoolEntry.EntryHeight) / float64(txMempoolEntry.ModSize)
+	deltaPriority := (float64(currentHeight-txMempoolEntry.EntryHeight) * float64(txMempoolEntry.InChainInputValue)) / float64(txMempoolEntry.ModSize)
 	result := txMempoolEntry.EntryPriority + deltaPriority
 	if result < 0 {
 		result = 0
@@ -59,6 +63,10 @@ func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
 
 func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
 	txMempoolEntry.LockPoints = lockPoint
+}
+
+func (txMempoolEntry *TxMempoolEntry) GetModifiedFee() int64 {
+	return txMempoolEntry.Fee + txMempoolEntry.FeeDelta
 }
 
 func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
@@ -95,9 +103,9 @@ func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 		panic("error inChainInputValue > valueIn ")
 	}
 	txMempoolEntry.FeeDelta = 0
-	txMempoolEntry.CountWithDescendants = 1
-	txMempoolEntry.SizeWithDescendants = uint64(txMempoolEntry.TxSize)
-	txMempoolEntry.ModFeesWithDescendants = fee
+	txMempoolEntry.nCountWithAncestors = 1
+	txMempoolEntry.sizeWithAncestors = uint64(txMempoolEntry.TxSize)
+	txMempoolEntry.ModFeesWithAncestors = fee
 	txMempoolEntry.SigOpCoungWithAncestors = sigOpsCount
 
 	return &txMempoolEntry

@@ -14,6 +14,13 @@ import (
 
 var log = logs.NewLogger()
 
+/*
+ * BlockPolicyEstimator We want to be able to estimate feerates that are needed on tx's to be
+ * included in a certain number of blocks.  Every time a block is added to the
+ * best chain, this class records stats on the transactions included in that
+ * block.
+ */
+
 type BlockPolicyEstimator struct {
 	minTrackedFee  utils.FeeRate
 	bestSeenHeight uint
