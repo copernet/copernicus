@@ -99,6 +99,14 @@ func (v *Vector) CountEqualElement(value bool) int {
 	return count
 }
 
+func (v *Vector) ReverseArray() []interface{} {
+	reverseArray := make([]interface{}, 0)
+	for i := len(v.Array) - 1; i >= 0; i-- {
+		reverseArray = append(reverseArray, v.Array[i])
+	}
+	return reverseArray
+
+}
 func SwapVector(v *Vector, other *Vector) {
 	if v.Size() == 0 && other.Size() == 0 {
 		return

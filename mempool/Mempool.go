@@ -1,6 +1,8 @@
 package mempool
 
 import (
+	"sync"
+
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/model"
@@ -28,6 +30,7 @@ type Mempool struct {
 	RollingMinimumFeeRate       float64
 	MapTx                       *beeUtils.BeeMap
 	MapLinks                    *beeUtils.BeeMap //<TxMempoolEntry,Txlinks>
+	mtx                         sync.RWMutex
 }
 
 // UpdateForDescendants : Update the given tx for any in-mempool descendants.
@@ -82,6 +85,33 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 		}
 	}
 	//todo Update descendant
+}
+
+// vHashesToUpdate is the set of transaction hashes from a disconnected block
+// which has been re-added to the mempool. For each entry, look for descendants
+// that are outside hashesToUpdate, and add fee/size information for such
+// descendants to the parent. For each such descendant, also update the ancestor
+// state to include the parent.
+func (mempool *Mempool) UpdateTransactionsFromBlock(hashesToUpdate algorithm.Vector) {
+	mempool.mtx.Lock()
+	//var mapMemPoolDescendantsToUpdate algorithm.CacheMap
+	//setAlreadyIncluded := set.New(hashesToUpdate.Array...)
+	//
+	//// Iterate in reverse, so that whenever we are looking at at a transaction
+	//// we are sure that all in-mempool descendants have already been processed.
+	//// This maximizes the benefit of the descendant cache and guarantees that
+	//// setMemPoolChildren will be updated, an assumption made in
+	//// UpdateForDescendants.
+	//hashesToUpdateReverse := hashesToUpdate.ReverseArray()
+	//for _, hash := range hashesToUpdateReverse {
+	//	setChildren := set.New()
+	//	txiter := mempool.MapTx.Get(hash)
+	//
+	//
+	//
+	//
+	//}
+	mempool.mtx.Unlock()
 }
 
 func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vector {
