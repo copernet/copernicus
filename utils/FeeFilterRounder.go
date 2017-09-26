@@ -5,20 +5,6 @@ import (
 	"sync"
 )
 
-type ListFloat []float64
-
-func (list ListFloat) Len() int {
-	return len(list)
-}
-
-func (list ListFloat) Less(i, j int) bool {
-	return list[i] < list[j]
-}
-
-func (list ListFloat) Swap(i, j int) {
-	list[i], list[j] = list[j], list[i]
-}
-
 type Set struct {
 	mVal map[float64]bool
 	sync.Mutex
@@ -40,10 +26,10 @@ func (s *Set) Remove(item float64) {
 	delete(s.mVal, item)
 }
 
-func (s *Set) GetSortList() ListFloat {
+func (s *Set) GetSortList() sort.Float64Slice {
 	s.Lock()
 	defer s.Unlock()
-	list := ListFloat{}
+	list := sort.Float64Slice{}
 	for item := range s.mVal {
 		list = append(list, item)
 	}
@@ -57,7 +43,7 @@ type FeeFilterRounder struct {
 	insecureRand FastRandomContext
 }
 
-func NewFeeFilterRounder(minIncrementalFee FeeRate) *FeeFilterRounder {
+func NewFeeFilterRounder(minIncrementalFee FeeRate, fDeterministic bool) *FeeFilterRounder {
 	feeFilterRounder := FeeFilterRounder{feeSet: *NewSet()}
 	var minFeeLimit int64
 	minIncFee := minIncrementalFee.GetFeePerK() / 2
@@ -71,18 +57,14 @@ func NewFeeFilterRounder(minIncrementalFee FeeRate) *FeeFilterRounder {
 		feeFilterRounder.feeSet.Add(bucketBoundary)
 	}
 
+	feeFilterRounder.insecureRand = *NewFastRandomContext(fDeterministic)
 	return &feeFilterRounder
 }
 
 func (feeFilterRounder *FeeFilterRounder) Round(currentMinFee int64) int64 {
 	list := feeFilterRounder.feeSet.GetSortList()
+	index := list.Search(float64(currentMinFee))
 
-	var index int
-	for i, v := range list {
-		if v >= float64(currentMinFee) {
-			index = i
-		}
-	}
 	if index != 0 && feeFilterRounder.insecureRand.Rand32()%3 != 0 {
 		index--
 	}
