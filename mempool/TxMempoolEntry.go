@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/model"
 )
 
@@ -110,10 +109,4 @@ func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 	txMempoolEntry.SigOpCoungWithAncestors = sigOpsCount
 
 	return &txMempoolEntry
-}
-
-func (txMempoolEntry TxMempoolEntry) Cmp(other algorithm.ISortKey) int {
-	txEntry := other.(TxMempoolEntry)
-	return txMempoolEntry.TxRef.Hash.Cmp(&txEntry.TxRef.Hash)
-
 }

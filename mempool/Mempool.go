@@ -30,6 +30,7 @@ type Mempool struct {
 	RollingMinimumFeeRate       float64
 	MapTx                       *beeUtils.BeeMap
 	MapLinks                    *beeUtils.BeeMap //<TxMempoolEntry,Txlinks>
+	MapNextTx                   *algorithm.CacheMap
 	mtx                         sync.RWMutex
 }
 
@@ -107,13 +108,13 @@ func (mempool *Mempool) UpdateTransactionsFromBlock(hashesToUpdate algorithm.Vec
 	//	setChildren := set.New()
 	//	txiter := mempool.MapTx.Get(hash)
 	//
-	//
-	//
-	//
 	//}
 	mempool.mtx.Unlock()
 }
 
+func (mempool *Mempool) UpdateChild(entry *TxMempoolEntry, entryChild *TxMempoolEntry, add bool) {
+
+}
 func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vector {
 	result := mempool.MapLinks.Get(entry)
 	if result == nil {

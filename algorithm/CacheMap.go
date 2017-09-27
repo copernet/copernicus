@@ -5,13 +5,12 @@ import (
 	"sort"
 )
 
-type ISortKey interface {
-	Cmp(other ISortKey) int
-}
+type CmpFunc func(a interface{}, b interface{}) bool
 
 type CacheMap struct {
-	m    map[ISortKey]interface{}
-	keys []ISortKey
+	m       map[interface{}]interface{}
+	keys    []interface{}
+	camFunc CmpFunc
 }
 
 func (cacheMap *CacheMap) Len() int {
@@ -19,7 +18,7 @@ func (cacheMap *CacheMap) Len() int {
 }
 
 func (cacheMap *CacheMap) Less(i, j int) bool {
-	return cacheMap.keys[i].Cmp(cacheMap.keys[j]) > 0
+	return cacheMap.camFunc(cacheMap.keys[i], cacheMap.keys[j])
 }
 
 func (cacheMap *CacheMap) Swap(i, j int) {
@@ -27,21 +26,21 @@ func (cacheMap *CacheMap) Swap(i, j int) {
 
 }
 
-func (cacheMap *CacheMap) Add(key ISortKey, value interface{}) {
+func (cacheMap *CacheMap) Add(key interface{}, value interface{}) {
 	cacheMap.keys = append(cacheMap.keys, key)
 	cacheMap.m[key] = value
 	sort.Sort(cacheMap)
 }
 
-func (cacheMap *CacheMap) Del(key ISortKey) {
-	keys := make([]ISortKey, 0)
+func (cacheMap *CacheMap) Del(key interface{}) {
+	keys := make([]interface{}, 0)
 	for _, cacheKey := range cacheMap.keys {
 		if cacheKey != key {
 			keys = append(keys, cacheKey)
 		}
 	}
 	cacheMap.keys = keys
-	m := make(map[ISortKey]interface{})
+	m := make(map[interface{}]interface{})
 	for k, v := range cacheMap.m {
 		if k != key {
 			m[k] = v
@@ -52,11 +51,11 @@ func (cacheMap *CacheMap) Del(key ISortKey) {
 
 }
 
-func (cacheMap *CacheMap) GetMap() map[ISortKey]interface{} {
+func (cacheMap *CacheMap) GetMap() map[interface{}]interface{} {
 	return cacheMap.m
 
 }
-func (cacheMap *CacheMap) Get(key ISortKey) interface{} {
+func (cacheMap *CacheMap) Get(key interface{}) interface{} {
 	return cacheMap.m[key]
 }
 
@@ -88,13 +87,13 @@ func (cacheMap *CacheMap) String() string {
 
 }
 
-func (cacheMap *CacheMap) GetAllKeys() []ISortKey {
+func (cacheMap *CacheMap) GetAllKeys() []interface{} {
 	return cacheMap.keys
 }
 
-func NewCacheMap() *CacheMap {
-	m := make(map[ISortKey]interface{})
-	keys := make([]ISortKey, 0)
-	cacheMap := CacheMap{m: m, keys: keys}
+func NewCacheMap(camFunc CmpFunc) *CacheMap {
+	m := make(map[interface{}]interface{})
+	keys := make([]interface{}, 0)
+	cacheMap := CacheMap{m: m, keys: keys, camFunc: camFunc}
 	return &cacheMap
 }
