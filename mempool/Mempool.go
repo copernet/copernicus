@@ -49,7 +49,7 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 		txMempoolEntry := cit.(TxMempoolEntry)
 		setChildren := mempool.GetMempoolChildren(&txMempoolEntry)
 
-		for _, childEntry := range setChildren.Array {
+		for _, childEntry := range setChildren.List() {
 			childTx := childEntry.(TxMempoolEntry)
 			cacheIt := cachedDescendants.Get(childTx)
 			cacheItVector := cacheIt.(algorithm.Vector)
@@ -113,9 +113,19 @@ func (mempool *Mempool) UpdateTransactionsFromBlock(hashesToUpdate algorithm.Vec
 }
 
 func (mempool *Mempool) UpdateChild(entry *TxMempoolEntry, entryChild *TxMempoolEntry, add bool) {
-
+	s := set.New()
+	txLinks := mempool.MapLinks.Get(entry).(TxLinks)
+	children := txLinks.Children
+	if add {
+		children.Add(entryChild)
+		mempool.CachedInnerUsage += uint64(IncrementalDynamicUsageTxMempoolEntry(s))
+	} else {
+		children.Remove(entryChild)
+		mempool.CachedInnerUsage -= uint64(IncrementalDynamicUsageTxMempoolEntry(s))
+	}
 }
-func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vector {
+
+func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *set.Set {
 	result := mempool.MapLinks.Get(entry)
 	if result == nil {
 		panic("No have children In mempool for this TxmempoolEntry")
@@ -123,7 +133,7 @@ func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *algorithm.Vec
 	return result.(TxLinks).Children
 }
 
-func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *algorithm.Vector {
+func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *set.Set {
 	result := mempool.MapLinks.Get(entry)
 	if result == nil {
 		panic("No have parant In mempool for this TxmempoolEntry")

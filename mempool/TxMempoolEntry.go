@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"github.com/btcboost/copernicus/model"
+	"gopkg.in/fatih/set.v0"
 )
 
 /* TxMempoolEntry stores data about the corresponding transaction, as well as
@@ -76,6 +77,14 @@ func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
 
 }
 
+func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int {
+	size := 0
+	for _, entry := range s.List() {
+		txEntry := entry.(TxMempoolEntry)
+		size += txEntry.TxSize
+	}
+	return size
+}
 func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 	entryPriority float64, entryHeight uint, inChainInputValue int64, spendCoinbase bool,
 	sigOpsCount int64, lockPoints *LockPoints) *TxMempoolEntry {

@@ -1,8 +1,10 @@
 package mempool
 
-import "github.com/btcboost/copernicus/algorithm"
+import (
+	"gopkg.in/fatih/set.v0"
+)
 
 type TxLinks struct {
-	Parents  *algorithm.Vector
-	Children *algorithm.Vector
+	Parents  *set.Set
+	Children *set.Set
 }
