@@ -24,6 +24,28 @@ func (txOut *TxOut) SerializeSize() int {
 	return 8 + utils.VarIntSerializeSize(uint64(txOut.Script.Size())) + txOut.Script.Size()
 }
 
+func (txOut *TxOut) IsDust(minRelayTxFee utils.FeeRate) bool {
+	return txOut.Value < txOut.GetDustThreshold(minRelayTxFee)
+}
+
+func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
+	// "Dust" is defined in terms of CTransaction::minRelayTxFee, which has
+	// units satoshis-per-kilobyte. If you'd pay more than 1/3 in fees to
+	// spend something, then we consider it dust. A typical spendable
+	// non-segwit txout is 34 bytes big, and will need a CTxIn of at least
+	// 148 bytes to spend: so dust is a spendable txout less than
+	// 546*minRelayTxFee/1000 (in satoshis). A typical spendable segwit
+	// txout is 31 bytes big, and will need a CTxIn of at least 67 bytes to
+	// spend: so dust is a spendable txout less than 294*minRelayTxFee/1000
+	// (in satoshis).
+	if txOut.Script.IsUnspendable() {
+		return 0
+	}
+	size := txOut.SerializeSize()
+	size += (32 + 4 + 1 + 107 + 4)
+	return 3 * minRelayTxFee.GetFee(size)
+}
+
 func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
 	err := protocol.ReadElement(reader, &txOut.Value)
 	if err != nil {

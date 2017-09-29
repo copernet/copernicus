@@ -62,7 +62,17 @@ func (script *Script) IsPayToScriptHash() bool {
 		script.bytes[0] == OP_HASH160 &&
 		script.bytes[1] == 0x14 &&
 		script.bytes[22] == OP_EQUAL
+}
 
+func (script *Script) IsUnspendable() bool {
+	err := script.ConvertOPS()
+	if err != nil {
+		return false
+	}
+
+	return script.Size() > 0 &&
+		script.ParsedOpCodes[0].opValue == OP_RETURN ||
+		script.Size() > MAX_SCRIPT_SIZE
 }
 
 func CheckMinimalPush(data []byte, opcode int32) bool {
@@ -99,6 +109,60 @@ func NewScriptRaw(bytes []byte) *Script {
 	script := Script{bytes: bytes}
 	script.ConvertOPS()
 	return &script
+}
+
+func (script *Script) GetOp(index *int, opCode *byte, data *[]byte) bool {
+
+	opcode := byte(OP_INVALIDOPCODE)
+	tmpIndex := *index
+	tmpData := make([]byte, 0)
+	if tmpIndex >= script.Size() {
+		return false
+	}
+
+	// Read instruction
+	if script.Size()-tmpIndex < 1 {
+		return false
+	}
+
+	opcode = script.bytes[tmpIndex]
+	tmpIndex++
+
+	// Immediate operand
+	if opcode <= OP_PUSHDATA4 {
+		nSize := 0
+		if opcode < OP_PUSHDATA1 {
+			nSize = int(opcode)
+		} else if opcode == OP_PUSHDATA1 {
+			if script.Size()-tmpIndex < 1 {
+				return false
+			}
+			nSize = int(script.bytes[*index])
+			tmpIndex++
+		} else if opcode == OP_PUSHDATA2 {
+			if script.Size()-tmpIndex < 2 {
+				return false
+			}
+			nSize = int(binary.LittleEndian.Uint16(script.bytes[tmpIndex : tmpIndex+2]))
+			tmpIndex += 2
+		} else if opcode == OP_PUSHDATA4 {
+			if script.Size()-tmpIndex < 4 {
+				return false
+			}
+			nSize = int(binary.LittleEndian.Uint32(script.bytes[tmpIndex : tmpIndex+4]))
+			tmpIndex += 4
+		}
+		if script.Size()-tmpIndex < 0 || script.Size()-tmpIndex < nSize {
+			return false
+		}
+		tmpData = append(tmpData, script.bytes[tmpIndex:tmpIndex+nSize]...)
+		tmpIndex += nSize
+	}
+
+	*data = tmpData
+	*opCode = opcode
+	*index = tmpIndex
+	return true
 }
 
 func (script *Script) PushInt64(n int64) {
@@ -274,6 +338,12 @@ func (script *Script) GetSigOpCount() (int, error) {
 		}
 	}
 	return script.GetSigOpCountWithAccurate(true)
+}
+
+func (script *Script) GetScriptByte() []byte {
+	scriptByte := make([]byte, 0)
+	scriptByte = append(scriptByte, script.bytes...)
+	return scriptByte
 }
 
 func (script *Script) GetSigOpCountWithAccurate(accurate bool) (int, error) {

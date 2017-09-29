@@ -9,6 +9,7 @@ import (
 const (
 	HashSize          = 32
 	MaxHashStringSize = HashSize * 2
+	Hash160           = 20
 )
 
 type Hash [HashSize]byte
