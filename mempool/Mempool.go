@@ -37,7 +37,14 @@ type Mempool struct {
 	MapTx                       *beeUtils.BeeMap
 	MapLinks                    *beeUtils.BeeMap //<TxMempoolEntry,Txlinks>
 	MapNextTx                   *algorithm.CacheMap
-	mtx                         sync.RWMutex
+
+	mtx sync.RWMutex
+}
+
+func (mempool *Mempool) RemoveRecursive(origTx model.Tx, reason int) {
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+
 }
 
 // UpdateForDescendants : Update the given tx for any in-mempool descendants.
@@ -205,4 +212,42 @@ func GetTxFromMemPool(hash *utils.Hash) *model.Tx {
 func AllowFreeThreshold() float64 {
 	return (float64(utils.COIN) * 144) / 250
 
+}
+
+func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setEntries *set.Set,
+	limitAncestorCount, limitAncestorSize, limitDescendantCount,
+	limitDescendantSize uint64, fSearchForParents bool) error {
+
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+	//parentHashes := set.New()
+	tx := *entry.TxRef
+
+	if fSearchForParents {
+		// Get parents of this transaction that are in the mempool  获取该交易在池中的父交易
+		// GetMemPoolParents() is only valid for entries in the mempool, so we
+		// iterate mapTx to find parents.
+		for i := 0; i < len(tx.Ins); i++ {
+
+		}
+	}
+
+	return nil
+}
+
+func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, validFeeEstimate bool) bool {
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+	setAncestors := set.New()
+	nNoLimit := uint64(math.MaxUint64)
+
+	err := mempool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
+	if err != nil {
+		return false
+	}
+	return mempool.AddUncheckedWithAncestors(hash, entry, setAncestors, validFeeEstimate)
+}
+
+func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMempoolEntry, setAncestors *set.Set, validFeeEstimate bool) bool {
+	return false
 }
