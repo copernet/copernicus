@@ -125,6 +125,19 @@ func (mempool *Mempool) UpdateChild(entry *TxMempoolEntry, entryChild *TxMempool
 	}
 }
 
+func (mempool *Mempool) UpdateParent(entry, entryParent *TxMempoolEntry, add bool) {
+	s := set.New()
+	txLinks := mempool.MapLinks.Get(entry).(TxLinks)
+	parents := txLinks.Parents
+	if add {
+		parents.Add(entryParent)
+		mempool.CachedInnerUsage += uint64(IncrementalDynamicUsageTxMempoolEntry(s))
+	} else {
+		parents.Remove(entryParent)
+		mempool.CachedInnerUsage -= uint64(IncrementalDynamicUsageTxMempoolEntry(s))
+	}
+}
+
 func (mempool *Mempool) GetMempoolChildren(entry *TxMempoolEntry) *set.Set {
 	result := mempool.MapLinks.Get(entry)
 	if result == nil {
