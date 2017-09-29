@@ -184,7 +184,7 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 
 	}
 	result := int64(math.Max(mempool.RollingMinimumFeeRate, float64(IncrementalRelayFee.SataoshisPerK)))
-	return utils.NewFeeRate(int64(result))
+	return utils.NewFeeRate(result)
 }
 
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
