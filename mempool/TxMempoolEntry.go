@@ -1,6 +1,8 @@
 package mempool
 
 import (
+	"unsafe"
+
 	"github.com/btcboost/copernicus/model"
 	"gopkg.in/fatih/set.v0"
 )
@@ -77,11 +79,10 @@ func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
 
 }
 
-func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int {
-	size := 0
+func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
+	var size int64
 	for _, entry := range s.List() {
-		txEntry := entry.(TxMempoolEntry)
-		size += txEntry.TxSize
+		size += int64(unsafe.Sizeof(entry))
 	}
 	return size
 }

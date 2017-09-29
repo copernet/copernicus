@@ -3,6 +3,10 @@ package mempool
 import (
 	"sync"
 
+	"unsafe"
+
+	"math"
+
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/model"
@@ -18,6 +22,8 @@ const (
 	MEMPOOL_HEIGHT       = 0x7FFFFFFF
 	ROLLING_FEE_HALFLIFE = 60 * 60 * 12
 )
+
+var IncrementalRelayFee utils.FeeRate
 
 type Mempool struct {
 	CheckFrequency              uint32
@@ -154,8 +160,37 @@ func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *set.Set {
 	return result.(TxLinks).Parents
 }
 
-func (mempool *Mempool) GetMinFee(sizeLimit uint) utils.FeeRate {
-	return utils.FeeRate{SataoshisPerK: 0}
+func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
+	defer mempool.mtx.Lock()
+	if mempool.BlockSinceLatRollingFeeBump || mempool.RollingMinimumFeeRate == 0 {
+		return utils.NewFeeRate(int64(mempool.RollingMinimumFeeRate))
+	}
+	time := utils.GetMockTime()
+	if time > mempool.LastRollingFeeUpdate+10 {
+		halfLife := ROLLING_FEE_HALFLIFE
+		mempoolUsage := mempool.DynamicMemoryUsage()
+		if mempoolUsage < sizeLimit/4 {
+			halfLife = halfLife / 4
+		} else if mempoolUsage < sizeLimit/2 {
+			halfLife = halfLife / 2
+		}
+
+		mempool.RollingMinimumFeeRate = mempool.RollingMinimumFeeRate / math.Pow(2.0, float64(time-mempool.LastRollingFeeUpdate)/float64(halfLife))
+		mempool.LastRollingFeeUpdate = time
+		if mempool.RollingMinimumFeeRate < float64(IncrementalRelayFee.SataoshisPerK)/2 {
+			mempool.RollingMinimumFeeRate = 0
+			return utils.NewFeeRate(0)
+		}
+
+	}
+	result := int64(math.Max(mempool.RollingMinimumFeeRate, float64(IncrementalRelayFee.SataoshisPerK)))
+	return utils.NewFeeRate(int64(result))
+}
+
+func (mempool *Mempool) DynamicMemoryUsage() int64 {
+	defer mempool.mtx.Lock()
+	return int64(unsafe.Sizeof(mempool.MapTx)) + int64(unsafe.Sizeof(mempool.MapNextTx)) + int64(mempool.CachedInnerUsage)
+
 }
 
 func AllowFee(priority float64) bool {

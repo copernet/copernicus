@@ -143,7 +143,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateFee(confTarget int) ut
 	return utils.FeeRate{SataoshisPerK: int64(median)}
 }
 
-func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget int, answerFoundAtTarget *int, pool *Mempool) utils.FeeRate {
+func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget int, answerFoundAtTarget *int, pool *Mempool) *utils.FeeRate {
 
 	if answerFoundAtTarget != nil {
 		*answerFoundAtTarget = confTarget
@@ -151,7 +151,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	// Return failure if trying to analyze a target we're not tracking
 	if confTarget <= 0 || uint(confTarget) > blockPolicyEstimator.feeStats.GetMaxConfirms() {
-		return utils.FeeRate{SataoshisPerK: 0}
+		return utils.NewFeeRate(0)
 	}
 
 	// It's not possible to get reasonable estimates for confTarget of 1
@@ -172,18 +172,17 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	// If mempool is limiting txs , return at least the min feerate from the
 	// mempool
-	minPoolFeeTmp := pool.GetMinFee(uint(utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000))
+	maxMempool := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+	minPoolFeeTmp := pool.GetMinFee(maxMempool)
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 && float64(minPoolFee) > median {
-		return utils.FeeRate{SataoshisPerK: minPoolFee}
+		return utils.NewFeeRate(minPoolFee)
 	}
-
 	if median < 0 {
-		return utils.FeeRate{SataoshisPerK: 0}
+		median = 0
 	}
-
-	return utils.FeeRate{SataoshisPerK: int64(median)}
+	return utils.NewFeeRate(int64(median))
 }
 
 func (blockPolicyEstimator *BlockPolicyEstimator) EstimatePriority(confTarget int) float64 {
@@ -197,7 +196,8 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartPriority(confTarg
 	}
 
 	// If mempool is limiting txs, no priority txs are allowed
-	minPoolFeeTmp := pool.GetMinFee(uint(utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000))
+	maxMempool := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+	minPoolFeeTmp := pool.GetMinFee(maxMempool)
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 {
