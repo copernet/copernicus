@@ -3,6 +3,7 @@ package mempool
 import (
 	"unsafe"
 
+	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
 	"gopkg.in/fatih/set.v0"
 )
@@ -24,7 +25,7 @@ import (
 
 type TxMempoolEntry struct {
 	TxRef         *model.Tx
-	Fee           int64
+	Fee           btcutil.Amount
 	TxSize        int
 	ModSize       int
 	UsageSize     int
@@ -32,7 +33,7 @@ type TxMempoolEntry struct {
 	EntryPriority float64
 	EntryHeight   uint
 	//!< Sum of all txin values that are already in blockchain
-	InChainInputValue int64
+	InChainInputValue btcutil.Amount
 	SpendsCoinbase    bool
 	SigOpCount        int64
 	FeeDelta          int64
@@ -46,13 +47,15 @@ type TxMempoolEntry struct {
 	//!< number of descendant transactions
 	CountWithDescendants   uint64
 	SizeWithDescendants    uint64
-	ModFeesWithDescendants int64
+	ModFeesWithDescendants btcutil.Amount
 
 	// Analogous statistics for ancestor transactions
 	nCountWithAncestors     uint64
 	sizeWithAncestors       uint64
-	ModFeesWithAncestors    int64
+	ModFeesWithAncestors    btcutil.Amount
 	SigOpCoungWithAncestors int64
+	//Index in mempool's vTxHashes
+	TxHashesIdx int
 }
 
 func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
@@ -69,12 +72,12 @@ func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
 }
 
 func (txMempoolEntry *TxMempoolEntry) GetModifiedFee() int64 {
-	return txMempoolEntry.Fee + txMempoolEntry.FeeDelta
+	return int64(txMempoolEntry.Fee) + txMempoolEntry.FeeDelta
 }
 
 func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
-	txMempoolEntry.ModFeesWithDescendants = txMempoolEntry.ModFeesWithDescendants + newFeeDelta - txMempoolEntry.FeeDelta
-	txMempoolEntry.ModFeesWithAncestors = txMempoolEntry.ModFeesWithAncestors + newFeeDelta - txMempoolEntry.FeeDelta
+	txMempoolEntry.ModFeesWithDescendants = txMempoolEntry.ModFeesWithDescendants + btcutil.Amount(newFeeDelta-txMempoolEntry.FeeDelta)
+	txMempoolEntry.ModFeesWithAncestors = txMempoolEntry.ModFeesWithAncestors + btcutil.Amount(newFeeDelta-txMempoolEntry.FeeDelta)
 	txMempoolEntry.FeeDelta = newFeeDelta
 
 }
@@ -86,8 +89,8 @@ func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
 	}
 	return size
 }
-func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
-	entryPriority float64, entryHeight uint, inChainInputValue int64, spendCoinbase bool,
+func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
+	entryPriority float64, entryHeight uint, inChainInputValue btcutil.Amount, spendCoinbase bool,
 	sigOpsCount int64, lockPoints *LockPoints) *TxMempoolEntry {
 	txMempoolEntry := TxMempoolEntry{}
 
@@ -107,7 +110,7 @@ func NewTxMempoolEntry(txRef *model.Tx, fee int64, time int64,
 	txMempoolEntry.CountWithDescendants = 1
 	txMempoolEntry.SizeWithDescendants = uint64(txMempoolEntry.TxSize)
 	txMempoolEntry.ModFeesWithDescendants = fee
-	valueIn := txRef.GetValueOut() + fee
+	valueIn := btcutil.Amount(txRef.GetValueOut()) + fee
 
 	if inChainInputValue > valueIn {
 		panic("error inChainInputValue > valueIn ")

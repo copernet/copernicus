@@ -9,6 +9,7 @@ import (
 
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
@@ -35,10 +36,22 @@ type Mempool struct {
 	LastRollingFeeUpdate        int64
 	BlockSinceLatRollingFeeBump bool
 	RollingMinimumFeeRate       float64
-	MapTx                       *beeUtils.BeeMap
-	MapLinks                    *beeUtils.BeeMap //<TxMempoolEntry,Txlinks>
-	MapNextTx                   *algorithm.CacheMap
+	MapTx                       *beeUtils.BeeMap    //map[hash]TxmempoolEntry
+	MapLinks                    *beeUtils.BeeMap    //map[*TxMempoolEntry]Txlinks
+	MapNextTx                   *algorithm.CacheMap //map[txPreOut]tx
+	MapDeltas                   map[utils.Hash]PrioriFeeDelta
+	vTxHashes                   []vTxhash
 	mtx                         sync.RWMutex
+}
+
+type vTxhash struct {
+	hash  utils.Hash
+	txRef *TxMempoolEntry
+}
+
+type PrioriFeeDelta struct {
+	dPriorityDelta float64
+	fee            btcutil.Amount
 }
 
 func (mempool *Mempool) RemoveRecursive(origTx model.Tx, reason int) {
@@ -239,7 +252,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	} else {
 		// If we're not searching for parents, we require this to be an entry in
 		// the mempool already.
-		tx := mempool.MapTx.Get(entry)
+		tx := mempool.MapTx.Get(entry.TxRef.Hash)
 		if tx == nil {
 			return errors.New("pass the entry is not in mempool")
 		}
@@ -303,5 +316,69 @@ func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, va
 }
 
 func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMempoolEntry, setAncestors *set.Set, validFeeEstimate bool) bool {
-	return false
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+
+	//todo: add signal/slot In where for passes entry
+
+	// Add to memory pool without checking anything.
+	// Used by AcceptToMemoryPool(), which DOES do all the appropriate checks.
+	mempool.MapTx.Set(*hash, *entry)
+	mempool.MapLinks.Set(entry, TxLinks{})
+
+	// Update transaction for any feeDelta created by PrioritiseTransaction mapTx
+	if prioriFeeDelta, ok := mempool.MapDeltas[*hash]; ok {
+		if prioriFeeDelta.fee > 0 {
+			txEntry := mempool.MapTx.Get(*hash).(TxMempoolEntry)
+			txEntry.UpdateFeeDelta(int64(prioriFeeDelta.fee))
+			mempool.MapTx.Set(*hash, txEntry)
+		}
+	}
+
+	// Update cachedInnerUsage to include contained transaction's usage.
+	// (When we update the entry for in-mempool parents, memory usage will be
+	// further updated.)
+	mempool.CachedInnerUsage += uint64(entry.UsageSize)
+
+	setParentTransactions := set.New()
+	for i := 0; i < len(entry.TxRef.Ins); i++ {
+		mempool.MapNextTx.Add(entry.TxRef.Ins[i].PreviousOutPoint, entry.TxRef)
+		setParentTransactions.Add(*(entry.TxRef.Ins[i].PreviousOutPoint.Hash))
+	}
+
+	// Don't bother worrying about child transactions of this one. Normal case
+	// of a new transaction arriving is that there can't be any children,
+	// because such children would be orphans. An exception to that is if a
+	// transaction enters that used to be in a block. In that case, our
+	// disconnect block logic will call UpdateTransactionsFromBlock to clean up
+	// the mess we're leaving here.
+
+	// Update ancestors with information about this tx
+	setParentTransactions.Each(func(item interface{}) bool {
+		hash := item.(utils.Hash)
+		tx := mempool.MapTx.Get(hash)
+		if tx != nil {
+			parentTx := tx.(TxMempoolEntry)
+			mempool.UpdateParent(entry, &parentTx, true)
+		}
+		return true
+	})
+	mempool.UpdateAncestorsOf(true, entry, setAncestors)
+	mempool.UpdateEntryForAncestors(entry, setAncestors)
+
+	mempool.TransactionsUpdated++
+	mempool.totalTxSize += uint64(entry.TxSize)
+	mempool.MinerPolicyEstimator.ProcessTransaction(entry, validFeeEstimate)
+	mempool.vTxHashes = append(mempool.vTxHashes, vTxhash{entry.TxRef.Hash, entry})
+	entry.TxHashesIdx = len(mempool.vTxHashes) - 1
+
+	return true
+}
+
+func (mempool *Mempool) UpdateAncestorsOf(add bool, entry *TxMempoolEntry, setAncestors *set.Set) {
+
+}
+
+func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncestors *set.Set) {
+
 }
