@@ -11,6 +11,7 @@ import (
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -37,8 +38,7 @@ type Mempool struct {
 	MapTx                       *beeUtils.BeeMap
 	MapLinks                    *beeUtils.BeeMap //<TxMempoolEntry,Txlinks>
 	MapNextTx                   *algorithm.CacheMap
-
-	mtx sync.RWMutex
+	mtx                         sync.RWMutex
 }
 
 func (mempool *Mempool) RemoveRecursive(origTx model.Tx, reason int) {
@@ -214,13 +214,13 @@ func AllowFreeThreshold() float64 {
 
 }
 
-func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setEntries *set.Set,
+func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAncestors *set.Set,
 	limitAncestorCount, limitAncestorSize, limitDescendantCount,
 	limitDescendantSize uint64, fSearchForParents bool) error {
 
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
-	//parentHashes := set.New()
+	parentHashes := set.New()
 	tx := *entry.TxRef
 
 	if fSearchForParents {
@@ -228,8 +228,62 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setEntr
 		// GetMemPoolParents() is only valid for entries in the mempool, so we
 		// iterate mapTx to find parents.
 		for i := 0; i < len(tx.Ins); i++ {
-
+			tx := mempool.MapTx.Get(tx.Ins[i].PreviousOutPoint.Hash)
+			if tx != nil {
+				parentHashes.Add(tx)
+				if uint64(parentHashes.Size()+1) > limitAncestorCount {
+					return errors.Errorf("too many unconfirmed parents [limit: %d]", limitAncestorCount)
+				}
+			}
 		}
+	} else {
+		// If we're not searching for parents, we require this to be an entry in
+		// the mempool already.
+		tx := mempool.MapTx.Get(entry)
+		if tx == nil {
+			return errors.New("pass the entry is not in mempool")
+		}
+		parentHashes = mempool.GetMemPoolParents(tx.(*TxMempoolEntry))
+	}
+	totalSizeWithAncestors := entry.TxSize
+	parentList := parentHashes.List()
+
+	for len(parentList) > 0 {
+		stageit := parentList[0].(*TxMempoolEntry)
+		setAncestors.Add(stageit)
+		parentList = parentList[1:]
+		totalSizeWithAncestors = stageit.TxSize
+
+		if stageit.SizeWithDescendants+uint64(entry.TxSize) > limitDescendantSize {
+			return errors.Errorf(
+				"exceeds descendant size limit for tx %s [limit: %d]",
+				stageit.TxRef.Hash.ToString(), limitDescendantSize)
+		} else if stageit.CountWithDescendants+1 > limitDescendantCount {
+			return errors.Errorf(
+				"too many descendants for tx %s [limit: %d]",
+				stageit.TxRef.Hash.ToString(), limitDescendantCount)
+		} else if uint64(totalSizeWithAncestors) > limitAncestorSize {
+			return errors.Errorf(
+				"exceeds ancestor size limit [limit: %d]",
+				limitAncestorSize)
+		}
+
+		setMemPoolParents := mempool.GetMemPoolParents(stageit)
+		setMemPoolParents.Each(func(item interface{}) bool {
+			if !setAncestors.Has(item) {
+				parentList = append(parentList, item)
+			}
+			if uint64(len(parentList)+setAncestors.Size()+1) > limitAncestorCount {
+				return false
+			}
+			return true
+		})
+
+		if uint64(len(parentList)+setAncestors.Size()+1) > limitAncestorCount {
+			return errors.Errorf(
+				"too many unconfirmed ancestors [limit: %d]", limitAncestorCount)
+		}
+
 	}
 
 	return nil
