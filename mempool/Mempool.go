@@ -227,6 +227,10 @@ func AllowFreeThreshold() float64 {
 
 }
 
+//CalculateMemPoolAncestors try to calculate all in-mempool ancestors of entry.
+// (these are all calculated including the tx itself)
+// fSearchForParents = whether to search a tx's vin for in-mempool parents,
+// or look up parents from mapLinks. Must be true for entries not in the mempool
 func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAncestors *set.Set,
 	limitAncestorCount, limitAncestorSize, limitDescendantCount,
 	limitDescendantSize uint64, fSearchForParents bool) error {
@@ -243,7 +247,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		for i := 0; i < len(tx.Ins); i++ {
 			tx := mempool.MapTx.Get(tx.Ins[i].PreviousOutPoint.Hash)
 			if tx != nil {
-				parentHashes.Add(tx)
+				parentHashes.Add(&tx)
 				if uint64(parentHashes.Size()+1) > limitAncestorCount {
 					return errors.Errorf("too many unconfirmed parents [limit: %d]", limitAncestorCount)
 				}
@@ -302,6 +306,10 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	return nil
 }
 
+//AddUnchecked addUnchecked must updated state for all ancestors of a given transaction,
+// to track size/count of descendant transactions. First version of
+// addUnchecked can be used to have it call CalculateMemPoolAncestors(), and
+// then invoke the second version.
 func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, validFeeEstimate bool) bool {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
@@ -375,10 +383,51 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 	return true
 }
 
+/*UpdateAncestorsOf Update ancestors of hash to add/remove it as a descendant transaction.*/
 func (mempool *Mempool) UpdateAncestorsOf(add bool, entry *TxMempoolEntry, setAncestors *set.Set) {
+	parentIters := mempool.GetMemPoolParents(entry)
+	// add or remove this tx as a child of each parent
+	parentIters.Each(func(item interface{}) bool {
+		piter := item.(*TxMempoolEntry)
+		mempool.UpdateChild(piter, entry, add)
+		return true
+	})
+
+	updateCount := 1
+	if !add {
+		updateCount = -1
+	}
+	updateSize := updateCount * entry.TxSize
+	updateFee := int64(updateCount) * entry.GetModifiedFee()
+
+	setAncestors.Each(func(item interface{}) bool {
+		ancestorIt := item.(*TxMempoolEntry)
+		txEntry := mempool.MapTx.Get(ancestorIt.TxRef.Hash).(TxMempoolEntry)
+		txEntry.SizeWithDescendants += uint64(updateSize)
+		txEntry.UpdateDescendantState(int64(updateSize), btcutil.Amount(updateFee), int64(updateCount))
+		mempool.MapTx.Set(ancestorIt.TxRef.Hash, txEntry)
+
+		return true
+	})
 
 }
 
+/*UpdateEntryForAncestors Set ancestor state for an entry */
 func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncestors *set.Set) {
+	updateCount := setAncestors.Size()
+	updateSize := int64(0)
+	updateFee := btcutil.Amount(0)
+	updateSigOpsCount := int64(0)
+
+	setAncestors.Each(func(item interface{}) bool {
+		ancestorIt := item.(*TxMempoolEntry)
+		updateSize += int64(ancestorIt.TxSize)
+		updateFee += btcutil.Amount(ancestorIt.GetModifiedFee())
+		updateSigOpsCount += ancestorIt.SigOpCoungWithAncestors
+
+		return true
+	})
+
+	entry.UpdateAncestorState(updateSize, int64(updateCount), updateSigOpsCount, updateFee)
 
 }

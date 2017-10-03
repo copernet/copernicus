@@ -82,6 +82,53 @@ func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
 
 }
 
+func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCount, modifySigOps int64, modifyFee btcutil.Amount) {
+	if modifySize < 0 && uint64(-modifySize) > txMempoolEntry.sizeWithAncestors {
+		panic("the Ancestors's object size should not be negative")
+	}
+	if modifyCount < 0 && uint64(-modifyCount) > txMempoolEntry.nCountWithAncestors {
+		panic("the Ancestors's number should not be negative")
+	}
+
+	if modifySize < 0 {
+		txMempoolEntry.sizeWithAncestors -= uint64(-modifySize)
+	} else {
+		txMempoolEntry.sizeWithAncestors += uint64(modifySize)
+	}
+	if modifyCount < 0 {
+		txMempoolEntry.nCountWithAncestors -= uint64(-modifyCount)
+	} else {
+		txMempoolEntry.nCountWithAncestors += uint64(modifyCount)
+	}
+	txMempoolEntry.ModFeesWithDescendants += modifyFee
+	txMempoolEntry.SigOpCoungWithAncestors += modifySigOps
+	if txMempoolEntry.SigOpCoungWithAncestors < 0 {
+		panic("the Ancestors's sigOpCode Number should not be negative")
+	}
+}
+
+func (txMempoolEntry *TxMempoolEntry) UpdateDescendantState(modifySize int64, modifyFee btcutil.Amount, modifyCount int64) {
+	if modifySize < 0 && uint64(-modifySize) > txMempoolEntry.SizeWithDescendants {
+		panic("the Descendants's object size should not be negative")
+	}
+	if modifyCount < 0 && uint64(-modifyCount) > txMempoolEntry.CountWithDescendants {
+		panic("the Descendants's number should not be negative")
+	}
+	if modifySize < 0 {
+		txMempoolEntry.SizeWithDescendants -= uint64(-modifySize)
+	} else {
+		txMempoolEntry.SizeWithDescendants += uint64(modifySize)
+	}
+
+	if modifyCount < 0 {
+		txMempoolEntry.CountWithDescendants -= uint64(-modifyCount)
+	} else {
+		txMempoolEntry.CountWithDescendants += uint64(modifyCount)
+	}
+	txMempoolEntry.ModFeesWithDescendants += modifyFee
+
+}
+
 func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
 	var size int64
 	for _, entry := range s.List() {
