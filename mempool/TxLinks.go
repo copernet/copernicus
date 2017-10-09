@@ -6,5 +6,5 @@ import (
 
 type TxLinks struct {
 	Parents  *set.Set
-	Children *set.Set
+	Children *set.Set //The set element type : *TxMempoolEntry
 }

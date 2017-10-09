@@ -55,7 +55,7 @@ type TxMempoolEntry struct {
 	ModFeesWithAncestors    btcutil.Amount
 	SigOpCoungWithAncestors int64
 	//Index in mempool's vTxHashes
-	TxHashesIdx int
+	vTxHashesIdx int
 }
 
 func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
@@ -71,8 +71,8 @@ func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
 	txMempoolEntry.LockPoints = lockPoint
 }
 
-func (txMempoolEntry *TxMempoolEntry) GetModifiedFee() int64 {
-	return int64(txMempoolEntry.Fee) + txMempoolEntry.FeeDelta
+func (txMempoolEntry *TxMempoolEntry) GetModifiedFee() btcutil.Amount {
+	return txMempoolEntry.Fee + btcutil.Amount(txMempoolEntry.FeeDelta)
 }
 
 func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
