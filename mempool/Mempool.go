@@ -521,7 +521,6 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	parentList := parentHashes.List()
 
 	for len(parentList) > 0 {
-		fmt.Println("------========000000000000=========---------")
 		stageit := parentList[0].(*TxMempoolEntry)
 		setAncestors.Add(stageit)
 		parentList = parentList[1:]
@@ -558,7 +557,6 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		}
 
 	}
-	fmt.Println("------========111111111111=========---------")
 	return nil
 }
 
