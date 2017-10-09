@@ -29,7 +29,7 @@ type TxMempoolEntry struct {
 	TxSize        int
 	ModSize       int
 	UsageSize     int
-	LocalTime     int64
+	Time          int64
 	EntryPriority float64
 	EntryHeight   uint
 	//!< Sum of all txin values that are already in blockchain

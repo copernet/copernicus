@@ -700,6 +700,25 @@ func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncest
 
 }
 
+func (mempool *Mempool) Expire(time int64) int {
+	defer mempool.mtx.RLock()
+	toremove := set.New()
+	for _, it := range mempool.MapTx.Items() {
+		txMempoolEntry := it.(TxMempoolEntry)
+		if txMempoolEntry.Time < time {
+			toremove.Add(txMempoolEntry)
+		}
+	}
+	stage := set.New()
+	for _, txiter := range toremove.List() {
+		txMempoolEntry := txiter.(TxMempoolEntry)
+		mempool.CalculateDescendants(&txMempoolEntry, stage)
+	}
+	mempool.RemoveStaged(stage, false, EXPIRY)
+
+	return stage.Size()
+
+}
 func (mempool *Mempool) TransactionWithinChainLimit(txid *utils.Hash, chainLimit uint64) bool {
 	defer mempool.mtx.RLock()
 	it := mempool.MapTx.Get(txid)
