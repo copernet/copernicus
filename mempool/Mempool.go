@@ -219,6 +219,10 @@ func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *set.Set {
 	return result.(TxLinks).Parents
 }
 
+func (mempool *Mempool) CalculateDescendants() {
+
+}
+
 func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 	defer mempool.mtx.Lock()
 	if mempool.BlockSinceLatRollingFeeBump || mempool.RollingMinimumFeeRate == 0 {
@@ -244,6 +248,24 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 	}
 	result := int64(math.Max(mempool.RollingMinimumFeeRate, float64(IncrementalRelayFee.SataoshisPerK)))
 	return utils.NewFeeRate(result)
+}
+
+func (mempool *Mempool) TrackPackageRemoved(rate *utils.FeeRate) {
+	defer mempool.mtx.Lock()
+	if float64(rate.SataoshisPerK) > mempool.RollingMinimumFeeRate {
+		mempool.RollingMinimumFeeRate = float64(rate.GetFeePerK())
+		mempool.BlockSinceLatRollingFeeBump = false
+	}
+}
+
+func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorithm.Vector) {
+	defer mempool.mtx.Lock()
+	//txnRemoved := 0
+	//maxFeeRateRemoved := utils.NewFeeRate(0)
+	for mempool.MapTx.Count() > 0 && mempool.DynamicMemoryUsage() > sizeLimit {
+
+	}
+
 }
 
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
