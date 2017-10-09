@@ -1,9 +1,8 @@
 package mempool
 
 import (
-	"io"
-
 	"encoding/binary"
+	"io"
 
 	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
@@ -250,23 +249,21 @@ func (blockPolicyEstimator *BlockPolicyEstimator) RemoveTx(hash utils.Hash) bool
 
 func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
 	blockPolicyEstimator := BlockPolicyEstimator{}
-
 	if utils.MIN_FEERATE < 0 {
 		panic("Min feerate must be nonzero")
 	}
 	blockPolicyEstimator.bestSeenHeight = 0
 	blockPolicyEstimator.trackedTxs = 0
 	blockPolicyEstimator.untranckedTxs = 0
+	blockPolicyEstimator.minTrackedFee.SataoshisPerK = rate.SataoshisPerK
 	if rate.SataoshisPerK < utils.MIN_FEERATE {
 		blockPolicyEstimator.minTrackedFee.SataoshisPerK = utils.MIN_FEERATE
 	}
-	blockPolicyEstimator.minTrackedFee.SataoshisPerK = rate.SataoshisPerK
 	vfeeList := algorithm.NewVector()
 	for bucketBoundary := float64(blockPolicyEstimator.minTrackedFee.GetFeePerK()); bucketBoundary <= float64(utils.MAX_FEERATE); bucketBoundary *= utils.FEE_SPACING {
 		vfeeList.PushBack(bucketBoundary)
 	}
 	vfeeList.PushBack(float64(utils.INF_FEERATE))
 	blockPolicyEstimator.feeStats = *policy.NewTxConfirmStats(*vfeeList, utils.MAX_BLOCK_CONFIRMS, utils.DEFAULT_DECAY)
-
 	return &blockPolicyEstimator
 }

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/astaxie/beego/config"
-	"github.com/astaxie/beego/logs"
+	//"github.com/astaxie/beego/config"
+	//"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -43,6 +43,7 @@ type AppConfig struct {
 	dial      func(string, string, time.Duration) (net.Conn, error)
 }
 
+/*
 func init() {
 	log := logs.NewLogger()
 	appConf, err := config.NewConfig("ini", "init.conf")
@@ -55,13 +56,13 @@ func init() {
 	log.Info("logger dir is %s", logDir)
 	logLevel := appConf.String("Log::level")
 	log.Info("logger dir is %s", logLevel)
-
 	//if err := logger.InitLogger(logDir, logLevel); err != nil {
 	//	logger.Error(err.Error())
 	//}
 	AppConf, _ = loadConfig()
 
 }
+*/
 
 func loadConfig() (*AppConfig, error) {
 	appConfig := AppConfig{
@@ -69,12 +70,9 @@ func loadConfig() (*AppConfig, error) {
 		NoPeerBloomFilters: true,
 		DataDir:            "copernicus",
 	}
-
 	appConfig.dial = net.DialTimeout
 	appConfig.lookup = net.LookupIP
-
 	return &appConfig, nil
-
 }
 
 func AppLookup(host string) ([]net.IP, error) {

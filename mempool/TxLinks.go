@@ -5,6 +5,6 @@ import (
 )
 
 type TxLinks struct {
-	Parents  *set.Set
+	Parents  *set.Set //The set element type : TxMempoolEntry
 	Children *set.Set //The set element type : *TxMempoolEntry
 }

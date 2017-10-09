@@ -76,8 +76,8 @@ func (txMempoolEntry *TxMempoolEntry) GetModifiedFee() btcutil.Amount {
 }
 
 func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
-	txMempoolEntry.ModFeesWithDescendants = txMempoolEntry.ModFeesWithDescendants + btcutil.Amount(newFeeDelta-txMempoolEntry.FeeDelta)
-	txMempoolEntry.ModFeesWithAncestors = txMempoolEntry.ModFeesWithAncestors + btcutil.Amount(newFeeDelta-txMempoolEntry.FeeDelta)
+	txMempoolEntry.ModFeesWithDescendants += btcutil.Amount(newFeeDelta - txMempoolEntry.FeeDelta)
+	txMempoolEntry.ModFeesWithAncestors += btcutil.Amount(newFeeDelta - txMempoolEntry.FeeDelta)
 	txMempoolEntry.FeeDelta = newFeeDelta
 
 }

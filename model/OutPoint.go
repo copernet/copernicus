@@ -59,6 +59,16 @@ func (outPoint *OutPoint) String() string {
 
 }
 
+func CompareOutPoint(a, b interface{}) bool {
+	comA := a.(*OutPoint)
+	comB := b.(*OutPoint)
+	cmp := comA.Hash.Cmp(comB.Hash)
+	if cmp < 0 || (cmp == 0 && comA.Index < comB.Index) {
+		return true
+	}
+	return false
+}
+
 func (outPoint *OutPoint) IsNull() bool {
 	if outPoint == nil {
 		return true

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"fmt"
+
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -55,7 +57,6 @@ type PrioriFeeDelta struct {
 func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
-
 	txToRemove := set.New()
 	origit := mempool.MapTx.Get(origTx.Hash)
 	if origit != nil {
@@ -79,16 +80,13 @@ func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 			txToRemove.Add(tmpTxmemPoolEntry)
 		}
 	}
-
 	setAllRemoves := set.New() //the set element type : *TxMempoolEntry
 	txToRemove.Each(func(item interface{}) bool {
 		tmpTxmemPoolEntry := item.(TxMempoolEntry)
 		mempool.CalculateDescendants(&tmpTxmemPoolEntry, setAllRemoves)
 		return true
 	})
-
 	mempool.RemoveStaged(setAllRemoves, false, reason)
-
 }
 
 // CalculateDescendants calculates descendants of entry that are not already in setDescendants, and
@@ -128,9 +126,6 @@ func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescend
 // updateDescendants to true when removing a tx that was in a block, so that
 // any in-mempool descendants have their ancestor state updated.
 func (mempool *Mempool) RemoveStaged(stage *set.Set, updateDescendants bool, reason int) {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
-
 	mempool.UpdateForRemoveFromMempool(stage, updateDescendants)
 	stage.Each(func(item interface{}) bool {
 		tmpTxMempoolEntryPtr := item.(*TxMempoolEntry)
@@ -441,10 +436,8 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	limitAncestorCount, limitAncestorSize, limitDescendantCount,
 	limitDescendantSize uint64, fSearchForParents bool) error {
 
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
 	parentHashes := set.New()
-	tx := *entry.TxRef
+	tx := entry.TxRef
 
 	if fSearchForParents {
 		// Get parents of this transaction that are in the mempool  获取该交易在池中的父交易
@@ -453,7 +446,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		for i := 0; i < len(tx.Ins); i++ {
 			tx := mempool.MapTx.Get(tx.Ins[i].PreviousOutPoint.Hash)
 			if tx != nil {
-				parentHashes.Add(&tx)
+				parentHashes.Add(tx)
 				if uint64(parentHashes.Size()+1) > limitAncestorCount {
 					return errors.Errorf("too many unconfirmed parents [limit: %d]", limitAncestorCount)
 				}
@@ -462,16 +455,18 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	} else {
 		// If we're not searching for parents, we require this to be an entry in
 		// the mempool already.
-		tx := mempool.MapTx.Get(entry.TxRef.Hash)
-		if tx == nil {
+		hasTx := mempool.MapTx.Get(entry.TxRef.Hash)
+		if hasTx == nil {
 			return errors.New("pass the entry is not in mempool")
 		}
-		parentHashes = mempool.GetMemPoolParents(tx.(*TxMempoolEntry))
+		parentHashes = mempool.GetMemPoolParents(hasTx.(*TxMempoolEntry))
 	}
-	totalSizeWithAncestors := entry.TxSize
+
+	totalSizeWithAncestors := entry.TxRef.SerializeSize()
 	parentList := parentHashes.List()
 
 	for len(parentList) > 0 {
+		fmt.Println("------========000000000000=========---------")
 		stageit := parentList[0].(*TxMempoolEntry)
 		setAncestors.Add(stageit)
 		parentList = parentList[1:]
@@ -508,7 +503,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		}
 
 	}
-
+	fmt.Println("------========111111111111=========---------")
 	return nil
 }
 
@@ -522,7 +517,7 @@ func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, va
 	setAncestors := set.New()
 	nNoLimit := uint64(math.MaxUint64)
 
-	err := mempool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
+	err := mempool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
 	if err != nil {
 		return false
 	}
@@ -530,15 +525,13 @@ func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, va
 }
 
 func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMempoolEntry, setAncestors *set.Set, validFeeEstimate bool) bool {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
 
 	//todo: add signal/slot In where for passed entry
 
 	// Add to memory pool without checking anything.
 	// Used by AcceptToMemoryPool(), which DOES do all the appropriate checks.
 	mempool.MapTx.Set(*hash, *entry)
-	mempool.MapLinks.Set(entry, TxLinks{})
+	mempool.MapLinks.Set(entry, TxLinks{set.New(), set.New()})
 
 	// Update transaction for any feeDelta created by PrioritiseTransaction mapTx
 	if prioriFeeDelta, ok := mempool.MapDeltas[*hash]; ok {
@@ -556,7 +549,7 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 
 	setParentTransactions := set.New()
 	for i := 0; i < len(entry.TxRef.Ins); i++ {
-		mempool.MapNextTx.Add(entry.TxRef.Ins[i].PreviousOutPoint, entry.TxRef)
+		mempool.MapNextTx.Add(entry.TxRef.Ins[i].PreviousOutPoint, *entry.TxRef)
 		setParentTransactions.Add(*(entry.TxRef.Ins[i].PreviousOutPoint.Hash))
 	}
 
@@ -636,4 +629,59 @@ func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncest
 
 	entry.UpdateAncestorState(updateSize, int64(updateCount), updateSigOpsCount, updateFee)
 
+}
+
+func (mempool *Mempool) Size() int {
+	mempool.mtx.RLock()
+	size := mempool.MapTx.Count()
+	mempool.mtx.RUnlock()
+	return size
+}
+
+func (mempool *Mempool) GetTotalTxSize() uint64 {
+	mempool.mtx.RLock()
+	size := mempool.totalTxSize
+	mempool.mtx.RUnlock()
+	return size
+}
+func (mempool *Mempool) Exists(hash utils.Hash) bool {
+	mempool.mtx.RLock()
+	has := mempool.MapTx.Get(hash)
+	mempool.mtx.RUnlock()
+
+	return has != nil
+}
+
+func (mempool *Mempool) HasNoInputsOf(tx *model.Tx) bool {
+	for i := 0; i < len(tx.Ins); i++ {
+		if has := mempool.Exists(*tx.Ins[i].PreviousOutPoint.Hash); has {
+			return false
+		}
+	}
+	return true
+}
+
+func clear(mempool *Mempool) {
+	mempool.MapLinks = beeUtils.NewBeeMap()
+	mempool.MapTx = beeUtils.NewBeeMap()
+	mempool.MapNextTx = algorithm.NewCacheMap(model.CompareOutPoint)
+	mempool.vTxHashes = make([]vTxhash, 0)
+	mempool.totalTxSize = 0
+	mempool.CachedInnerUsage = 0
+	mempool.LastRollingFeeUpdate = utils.GetMockTime()
+	mempool.BlockSinceLatRollingFeeBump = false
+	mempool.RollingMinimumFeeRate = 0
+	mempool.TransactionsUpdated++
+}
+
+func NewMemPool(minReasonableRelayFee utils.FeeRate) *Mempool {
+	mempool := Mempool{}
+	mempool.TransactionsUpdated = 0
+	clear(&mempool)
+	// Sanity checks off by default for performance, because otherwise accepting
+	// transactions becomes O(N^2) where N is the number of transactions in the
+	// pool
+	mempool.CheckFrequency = 0
+	mempool.MinerPolicyEstimator = NewBlockPolicyEstmator(minReasonableRelayFee)
+	return &mempool
 }
