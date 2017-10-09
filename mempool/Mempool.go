@@ -219,10 +219,6 @@ func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *set.Set {
 	return result.(TxLinks).Parents
 }
 
-func (mempool *Mempool) CalculateDescendants() {
-
-}
-
 func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 	defer mempool.mtx.Lock()
 	if mempool.BlockSinceLatRollingFeeBump || mempool.RollingMinimumFeeRate == 0 {
