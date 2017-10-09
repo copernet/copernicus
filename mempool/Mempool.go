@@ -699,3 +699,10 @@ func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncest
 	entry.UpdateAncestorState(updateSize, int64(updateCount), updateSigOpsCount, updateFee)
 
 }
+
+func (mempool *Mempool) TransactionWithinChainLimit(txid *utils.Hash, chainLimit uint64) bool {
+	defer mempool.mtx.RLock()
+	it := mempool.MapTx.Get(txid)
+	txMempoolEntry := it.(TxMempoolEntry)
+	return txMempoolEntry.CountWithDescendants < chainLimit && txMempoolEntry.CountWithAncestors < chainLimit
+}

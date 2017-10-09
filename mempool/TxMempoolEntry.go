@@ -50,7 +50,7 @@ type TxMempoolEntry struct {
 	ModFeesWithDescendants btcutil.Amount
 
 	// Analogous statistics for ancestor transactions
-	nCountWithAncestors     uint64
+	CountWithAncestors      uint64
 	sizeWithAncestors       uint64
 	ModFeesWithAncestors    btcutil.Amount
 	SigOpCoungWithAncestors int64
@@ -86,7 +86,7 @@ func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCoun
 	if modifySize < 0 && uint64(-modifySize) > txMempoolEntry.sizeWithAncestors {
 		panic("the Ancestors's object size should not be negative")
 	}
-	if modifyCount < 0 && uint64(-modifyCount) > txMempoolEntry.nCountWithAncestors {
+	if modifyCount < 0 && uint64(-modifyCount) > txMempoolEntry.CountWithAncestors {
 		panic("the Ancestors's number should not be negative")
 	}
 
@@ -96,9 +96,9 @@ func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCoun
 		txMempoolEntry.sizeWithAncestors += uint64(modifySize)
 	}
 	if modifyCount < 0 {
-		txMempoolEntry.nCountWithAncestors -= uint64(-modifyCount)
+		txMempoolEntry.CountWithAncestors -= uint64(-modifyCount)
 	} else {
-		txMempoolEntry.nCountWithAncestors += uint64(modifyCount)
+		txMempoolEntry.CountWithAncestors += uint64(modifyCount)
 	}
 	txMempoolEntry.ModFeesWithDescendants += modifyFee
 	txMempoolEntry.SigOpCoungWithAncestors += modifySigOps
@@ -163,7 +163,7 @@ func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
 		panic("error inChainInputValue > valueIn ")
 	}
 	txMempoolEntry.FeeDelta = 0
-	txMempoolEntry.nCountWithAncestors = 1
+	txMempoolEntry.CountWithAncestors = 1
 	txMempoolEntry.sizeWithAncestors = uint64(txMempoolEntry.TxSize)
 	txMempoolEntry.ModFeesWithAncestors = fee
 	txMempoolEntry.SigOpCoungWithAncestors = sigOpsCount
