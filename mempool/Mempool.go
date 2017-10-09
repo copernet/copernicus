@@ -1,11 +1,9 @@
 package mempool
 
 import (
-	"sync"
-
-	"unsafe"
-
 	"math"
+	"sync"
+	"unsafe"
 
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
@@ -54,9 +52,50 @@ type PrioriFeeDelta struct {
 	fee            btcutil.Amount
 }
 
-func (mempool *Mempool) RemoveRecursive(origTx model.Tx, reason int) {
+func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
+
+	txToRemove := set.New()
+	origit := mempool.MapTx.Get(origTx.Hash)
+	if origit != nil {
+		txToRemove.Add(origit)
+	} else {
+		// When recursively removing but origTx isn't in the mempool be sure
+		// to remove any children that are in the pool. This can happen
+		// during chain re-orgs if origTx isn't re-accepted into the mempool
+		// for any reason.
+		for i := range origTx.Outs {
+			outPoint := model.NewOutPoint(&origTx.Hash, uint32(i))
+			hasTx := mempool.MapNextTx.Get(*outPoint)
+			if hasTx == nil {
+				continue
+			}
+			tx := hasTx.(model.Tx)
+			tmpTxmemPoolEntry := mempool.MapTx.Get(tx.Hash)
+			if tmpTxmemPoolEntry == nil {
+				panic("the hasTxmemPoolEntry should not be equal nil")
+			}
+			txToRemove.Add(tmpTxmemPoolEntry)
+		}
+	}
+
+	setAllRemoves := set.New()
+	txToRemove.Each(func(item interface{}) bool {
+		tmpTxmemPoolEntry := item.(TxMempoolEntry)
+		mempool.CalculateDescendants(&tmpTxmemPoolEntry, setAllRemoves)
+		return true
+	})
+
+	mempool.RemoveStaged(setAllRemoves, false, reason)
+
+}
+
+func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescendants *set.Set) {
+
+}
+
+func (mempool *Mempool) RemoveStaged(stage *set.Set, updateDescendants bool, reason int) {
 
 }
 
