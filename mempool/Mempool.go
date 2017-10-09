@@ -39,19 +39,9 @@ type Mempool struct {
 	MapTx                       *beeUtils.BeeMap    //map[hash]TxmempoolEntry
 	MapLinks                    *beeUtils.BeeMap    //map[*TxMempoolEntry]Txlinks
 	MapNextTx                   *algorithm.CacheMap //map[*OutPoint]tx
-	MapDeltas                   map[utils.Hash]PrioriFeeDelta
-	vTxHashes                   []vTxhash
+	MapDeltas                   map[utils.Hash]PriorityFeeDelta
+	vTxHashes                   []TxHash
 	mtx                         sync.RWMutex
-}
-
-type vTxhash struct {
-	hash  utils.Hash
-	entry *TxMempoolEntry
-}
-
-type PrioriFeeDelta struct {
-	dPriorityDelta float64
-	fee            btcutil.Amount
 }
 
 func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
@@ -224,6 +214,11 @@ func (mempool *Mempool) UpdateChildrenForRemoval(entry *TxMempoolEntry) {
 	})
 }
 
+func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
+	mempool.mtx.RLock()
+	delete(mempool.MapDeltas, *hash)
+}
+
 func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	//todo: add signal/slot In where for passed entry
 
@@ -236,7 +231,7 @@ func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 		mempool.vTxHashes[entry.vTxHashesIdx].entry.vTxHashesIdx = entry.vTxHashesIdx
 		mempool.vTxHashes = mempool.vTxHashes[:len(mempool.vTxHashes)-1]
 	} else {
-		mempool.vTxHashes = make([]vTxhash, 0)
+		mempool.vTxHashes = make([]TxHash, 0)
 	}
 
 	mempool.totalTxSize -= uint64(entry.TxSize)
@@ -645,7 +640,7 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 	mempool.TransactionsUpdated++
 	mempool.totalTxSize += uint64(entry.TxSize)
 	mempool.MinerPolicyEstimator.ProcessTransaction(entry, validFeeEstimate)
-	mempool.vTxHashes = append(mempool.vTxHashes, vTxhash{entry.TxRef.Hash, entry})
+	mempool.vTxHashes = append(mempool.vTxHashes, TxHash{entry.TxRef.Hash, entry})
 	entry.vTxHashesIdx = len(mempool.vTxHashes) - 1
 
 	return true
