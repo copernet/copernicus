@@ -395,6 +395,24 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 	return utils.NewFeeRate(result)
 }
 
+func (mempool *Mempool) TrackPackageRemoved(rate *utils.FeeRate) {
+	defer mempool.mtx.Lock()
+	if float64(rate.SataoshisPerK) > mempool.RollingMinimumFeeRate {
+		mempool.RollingMinimumFeeRate = float64(rate.GetFeePerK())
+		mempool.BlockSinceLatRollingFeeBump = false
+	}
+}
+
+func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorithm.Vector) {
+	defer mempool.mtx.Lock()
+	//txnRemoved := 0
+	//maxFeeRateRemoved := utils.NewFeeRate(0)
+	for mempool.MapTx.Count() > 0 && mempool.DynamicMemoryUsage() > sizeLimit {
+
+	}
+
+}
+
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
 	defer mempool.mtx.Lock()
 	return int64(unsafe.Sizeof(mempool.MapTx)) + int64(unsafe.Sizeof(mempool.MapNextTx)) + int64(mempool.CachedInnerUsage)
