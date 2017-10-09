@@ -5,6 +5,8 @@ import (
 	"sync"
 	"unsafe"
 
+	"fmt"
+
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -405,10 +407,55 @@ func (mempool *Mempool) TrackPackageRemoved(rate *utils.FeeRate) {
 
 func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorithm.Vector) {
 	defer mempool.mtx.Lock()
-	//txnRemoved := 0
-	//maxFeeRateRemoved := utils.NewFeeRate(0)
-	for mempool.MapTx.Count() > 0 && mempool.DynamicMemoryUsage() > sizeLimit {
+	txNRemoved := 0
+	maxFeeRateRemoved := utils.NewFeeRate(0)
+	for _, it := range mempool.MapTx.Items() {
+		if mempool.DynamicMemoryUsage() > sizeLimit {
+			return
+		}
+		// We set the new mempool min fee to the feerate of the removed set,
+		// plus the "minimum reasonable fee rate" (ie some value under which we
+		// consider txn to have 0 fee). This way, we don't allow txn to enter
+		// mempool with feerate equal to txn which were removed with no block in
+		// between.
+		txMempoolEntry := it.(TxMempoolEntry)
+		removed := utils.NewFeeRateWithSize(int64(txMempoolEntry.ModFeesWithDescendants), int(txMempoolEntry.SizeWithDescendants))
+		removed = utils.NewFeeRate(removed.SataoshisPerK + IncrementalRelayFee.SataoshisPerK)
+		mempool.TrackPackageRemoved(removed)
+		if removed.SataoshisPerK > maxFeeRateRemoved.SataoshisPerK {
+			maxFeeRateRemoved = removed
+		}
+		stage := set.New()
+		mempool.CalculateDescendants(&txMempoolEntry, stage)
+		txNRemoved += stage.Size()
+		txn := algorithm.NewVector()
+		if pvNoSpendsRemaining != nil {
+			txn.ReverseArray()
+			for _, iter := range stage.List() {
+				txMempoolEntryIter := iter.(TxMempoolEntry)
+				txn.PushBack(txMempoolEntryIter.TxRef)
+			}
+		}
+		mempool.RemoveStaged(stage, false, SIZELIMIT)
+		if pvNoSpendsRemaining != nil {
+			for _, t := range txn.Array {
+				tx := t.(model.Tx)
+				for _, txin := range tx.Ins {
+					if mempool.ExistsHash(txin.PreviousOutPoint.Hash) {
+						continue
+					}
+					if mempool.MapNextTx.Get(txin.PreviousOutPoint) != nil {
+						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
+					}
 
+				}
+
+			}
+		}
+
+	}
+	if maxFeeRateRemoved.SataoshisPerK > 0 {
+		fmt.Println("mempool", "removed %u txn , rolling minimum fee bumped tp %s ", txNRemoved, maxFeeRateRemoved.String())
 	}
 
 }
@@ -417,6 +464,21 @@ func (mempool *Mempool) DynamicMemoryUsage() int64 {
 	defer mempool.mtx.Lock()
 	return int64(unsafe.Sizeof(mempool.MapTx)) + int64(unsafe.Sizeof(mempool.MapNextTx)) + int64(mempool.CachedInnerUsage)
 
+}
+
+func (mempool *Mempool) ExistsHash(hash *utils.Hash) bool {
+	defer mempool.mtx.RLock()
+	return mempool.MapTx.Get(hash) != nil
+}
+
+func (mempool *Mempool) ExistsOutPoint(outpoint *model.OutPoint) bool {
+	defer mempool.mtx.RLock()
+	v := mempool.MapTx.Get(outpoint.Hash)
+	if v == nil {
+		return false
+	}
+	txMempoolEntry := v.(TxMempoolEntry)
+	return int(outpoint.Index) < len(txMempoolEntry.TxRef.Outs)
 }
 
 func AllowFee(priority float64) bool {
