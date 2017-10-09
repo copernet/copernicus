@@ -207,6 +207,15 @@ func (mempool *Mempool) UpdateChildrenForRemoval(entry *TxMempoolEntry) {
 	})
 }
 
+func (mempool *Mempool) ApplyDeltas(hash utils.Hash, priorityDelta float64, feeDelta int64) (float64, int64) {
+	defer mempool.mtx.RLock()
+	deltas := mempool.MapDeltas[hash]
+	priorityDelta += deltas.priorityDelta
+	feeDelta += int64(deltas.fee)
+	return priorityDelta, feeDelta
+
+}
+
 func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
 	mempool.mtx.RLock()
 	delete(mempool.MapDeltas, *hash)
