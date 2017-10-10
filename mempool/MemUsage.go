@@ -1,9 +1,10 @@
 package mempool
 
 import (
+	"unsafe"
+
 	"github.com/btcboost/copernicus/model"
 	"gopkg.in/fatih/set.v0"
-	"unsafe"
 )
 
 // RecursiveDynamicUsage todo need to dynamically calculate the memory footprint of the object , haven't figured out
@@ -35,8 +36,7 @@ func DynamicUsage(Item interface{}) int {
 	return size
 }
 
-/**
- * Compute the memory used for dynamically allocated but owned data structures.
+/*MallocUsage Compute the memory used for dynamically allocated but owned data structures.
  * For generic data types, this is *not* recursive.
  * DynamicUsage(vector<vector<int>>) will compute the memory used for the
  * vector<int>'s, but not for the ints inside. This is for efficiency reasons,
@@ -53,7 +53,7 @@ func MallocUsage(alloc int) int {
 		return ((alloc + 31) >> 4) << 4
 	} else if unsafe.Sizeof(tmp) == 4 {
 		return ((alloc + 15) >> 3) << 3
-	} else {
-		panic("the platForm is not supported !!!")
 	}
+	panic("the platForm is not supported !!!")
+
 }
