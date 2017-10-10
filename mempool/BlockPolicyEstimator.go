@@ -137,7 +137,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateFee(confTarget int) ut
 	return utils.FeeRate{SataoshisPerK: int64(median)}
 }
 
-func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget int, answerFoundAtTarget *int, pool *Mempool) *utils.FeeRate {
+func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget int, answerFoundAtTarget *int, pool *Mempool) utils.FeeRate {
 
 	if answerFoundAtTarget != nil {
 		*answerFoundAtTarget = confTarget
@@ -145,7 +145,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	// Return failure if trying to analyze a target we're not tracking
 	if confTarget <= 0 || uint(confTarget) > blockPolicyEstimator.feeStats.GetMaxConfirms() {
-		return utils.NewFeeRate(0)
+		return utils.FeeRate{0}
 	}
 
 	// It's not possible to get reasonable estimates for confTarget of 1
@@ -171,12 +171,12 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 && float64(minPoolFee) > median {
-		return utils.NewFeeRate(minPoolFee)
+		return utils.FeeRate{minPoolFee}
 	}
 	if median < 0 {
 		median = 0
 	}
-	return utils.NewFeeRate(int64(median))
+	return utils.FeeRate{int64(median)}
 }
 
 func (blockPolicyEstimator *BlockPolicyEstimator) EstimatePriority(confTarget int) float64 {

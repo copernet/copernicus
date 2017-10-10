@@ -808,3 +808,13 @@ func (mempool *Mempool) EstimatePriority(blocks int) float64 {
 	defer mempool.mtx.RLock()
 	return mempool.MinerPolicyEstimator.EstimatePriority(blocks)
 }
+
+func (mempool *Mempool) EstimateSmartFee(blocks int, answerFoundAtBlocks int) utils.FeeRate {
+	defer mempool.mtx.RLock()
+	return mempool.MinerPolicyEstimator.EstimateSmartFee(blocks, &answerFoundAtBlocks, mempool)
+}
+
+func (mempool *Mempool) EstimateFee(blocks int) utils.FeeRate {
+	defer mempool.mtx.RLock()
+	return mempool.MinerPolicyEstimator.EstimateFee(blocks)
+}
