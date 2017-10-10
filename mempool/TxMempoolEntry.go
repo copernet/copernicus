@@ -5,6 +5,7 @@ import (
 
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utils"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -80,6 +81,14 @@ func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
 	txMempoolEntry.ModFeesWithAncestors += btcutil.Amount(newFeeDelta - txMempoolEntry.FeeDelta)
 	txMempoolEntry.FeeDelta = newFeeDelta
 
+}
+
+func (txMempoolEntry *TxMempoolEntry) GetFeeRate() *utils.FeeRate {
+	return utils.NewFeeRateWithSize(int64(txMempoolEntry.Fee), txMempoolEntry.TxSize)
+}
+
+func (txMempoolEntry *TxMempoolEntry) GetFeeDelta() int64 {
+	return int64(txMempoolEntry.GetModifiedFee()) - int64(txMempoolEntry.Fee)
 }
 
 func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCount, modifySigOps int64, modifyFee btcutil.Amount) {
