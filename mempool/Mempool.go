@@ -797,3 +797,14 @@ func (mempool *Mempool) TransactionWithinChainLimit(txid utils.Hash, chainLimit 
 	txMempoolEntry := mempool.MapTx[txid]
 	return txMempoolEntry.CountWithDescendants < chainLimit && txMempoolEntry.CountWithAncestors < chainLimit
 }
+
+func (mempool *Mempool) EstimateSmartPriority(blocks int, answerFoundAtBlocks int) float64 {
+	defer mempool.mtx.RLock()
+	return mempool.MinerPolicyEstimator.EstimateSmartPriority(blocks, &answerFoundAtBlocks, mempool)
+
+}
+
+func (mempool *Mempool) EstimatePriority(blocks int) float64 {
+	defer mempool.mtx.RLock()
+	return mempool.MinerPolicyEstimator.EstimatePriority(blocks)
+}
