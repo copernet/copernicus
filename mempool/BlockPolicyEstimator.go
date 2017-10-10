@@ -26,7 +26,7 @@ type BlockPolicyEstimator struct {
 	txStatsInfo    policy.TxStatsInfo
 
 	/** Classes to track historical data on transaction confirmations*/
-	mapMemPoolTxs beegoUtils.BeeMap
+	mapMemPoolTxs *beegoUtils.BeeMap
 	feeStats      policy.TxConfirmStats
 	trackedTxs    uint
 	untranckedTxs uint
@@ -35,11 +35,10 @@ type BlockPolicyEstimator struct {
 func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMempoolEntry, validFeeEstimate bool) {
 	txHeight := entry.EntryHeight
 	txID := entry.TxRef.Hash
-	if blockPolicyEstimator.mapMemPoolTxs.Get(txID) != nil {
-		log.Error("estimatefee Blockpolicy error mempool tx %s already being tracked\n", txID.ToString())
+	if has := blockPolicyEstimator.mapMemPoolTxs.Get(txID); has != nil {
+		log.Debug("estimatefee Blockpolicy error mempool tx %s already being tracked\n", txID.ToString())
 		return
 	}
-
 	if txHeight != blockPolicyEstimator.bestSeenHeight {
 		// Ignore side chains and re-orgs; assuming they are random they don't
 		// affect the estimate. We'll potentially double count transactions in
@@ -48,7 +47,6 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMe
 		// processed.
 		return
 	}
-
 	// Only want to be updating estimates when our blockchain is synced,
 	// otherwise we'll miscalculate how many blocks its taking to get included.
 	if !validFeeEstimate {
@@ -56,14 +54,11 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMe
 		return
 	}
 	blockPolicyEstimator.trackedTxs++
-
 	// Feerates are stored and reported as BCC-per-kb:
 	feeRate := utils.NewFeeRateWithSize(int64(entry.Fee), entry.TxSize)
-
 	bucketIndex := blockPolicyEstimator.feeStats.NewTx(txHeight, float64(feeRate.GetFeePerK()))
 	txStatsInfo := policy.TxStatsInfo{txHeight, bucketIndex}
 	blockPolicyEstimator.mapMemPoolTxs.Set(txID, txStatsInfo)
-
 }
 
 func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlockTx(blockHeight uint, entry *TxMempoolEntry) bool {
@@ -252,6 +247,7 @@ func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
 	if utils.MIN_FEERATE < 0 {
 		panic("Min feerate must be nonzero")
 	}
+	blockPolicyEstimator.mapMemPoolTxs = beegoUtils.NewBeeMap()
 	blockPolicyEstimator.bestSeenHeight = 0
 	blockPolicyEstimator.trackedTxs = 0
 	blockPolicyEstimator.untranckedTxs = 0

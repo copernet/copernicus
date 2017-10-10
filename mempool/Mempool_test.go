@@ -30,6 +30,7 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	parentBuf := bytes.NewBuffer(nil)
 	txParentPtr.Serialize(parentBuf)
 	parentHash := core.DoubleSha256Hash(parentBuf.Bytes())
+	txParentPtr.Hash = parentHash
 	var txChild [3]model.Tx
 	for i := 0; i < 3; i++ {
 		txChild[i].Ins = make([]*model.TxIn, 1)
@@ -40,34 +41,53 @@ func TestMempoolAddUnchecked(t *testing.T) {
 
 	var txGrandChild [3]model.Tx
 	for i := 0; i < 3; i++ {
-		childBuf := bytes.NewBuffer(nil)
-		txChild[i].Serialize(childBuf)
-		txChildID := core.DoubleSha256Hash(childBuf.Bytes())
+		buf := bytes.NewBuffer(nil)
+		txChild[i].Serialize(buf)
+		txChildID := core.DoubleSha256Hash(buf.Bytes())
+		txChild[i].Hash = txChildID
 		txGrandChild[i].Ins = make([]*model.TxIn, 1)
 		txGrandChild[i].Ins[0] = model.NewTxIn(model.NewOutPoint(&txChildID, 0), []byte{model.OP_11})
 		txGrandChild[i].Outs = make([]*model.TxOut, 1)
 		txGrandChild[i].Outs[0] = model.NewTxOut(11000, []byte{model.OP_11, model.OP_EQUAL})
+		buf.Reset()
+		txGrandChild[i].Serialize(buf)
+		txGrandID := core.DoubleSha256Hash(buf.Bytes())
+		txGrandChild[i].Hash = txGrandID
 	}
-	testPool := NewMemPool(utils.FeeRate{0})
 
+	testPool := NewMemPool(utils.FeeRate{0})
 	//Nothing in pool, remove should do nothing:
 	poolSize := testPool.Size()
+
 	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize {
-		t.Errorf("current poolSize : %d, except the mempoolSize : %d\n",
+		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize)
 	}
 
+	//Just add the parent:
+	testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true)
+	poolSize = testPool.Size()
+	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	if testPool.Size() != poolSize-1 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
+			testPool.Size(), poolSize-1)
+	}
+
+	// Parent, children, grandchildren:
+	testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true)
+	for i := 0; i < 3; i++ {
+		testPool.AddUnchecked(&txChild[i].Hash, fromTx(&txChild[i], nil), true)
+		testPool.AddUnchecked(&txGrandChild[i].Hash, fromTx(&txGrandChild[i], nil), true)
+	}
+	poolSize = testPool.Size()
+	if poolSize != 7 {
+		t.Errorf("current poolSize : %d, except the poolSize 7 ", poolSize)
+	}
 	/*
-		//Just the parent:
-		testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true)
-		poolSize = testPool.Size()
-		fmt.Println("---------- 6 ----------- poolSize : ", poolSize)
-		testPool.RemoveRecursive(txParentPtr, UNKNOWN)
-		fmt.Println("----------  7-----------")
-		if testPool.Size() != poolSize-1 {
-			t.Errorf("current poolSize : %d, except the mempoolSize : %d\n",
-				testPool.Size(), poolSize-1)
+		testPool.RemoveRecursive(&txChild[0], UNKNOWN)
+		if poolSize -2!= testPool.Size() {
+			t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize-2)
 		}
 	*/
 }
