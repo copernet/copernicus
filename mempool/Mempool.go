@@ -818,3 +818,26 @@ func (mempool *Mempool) EstimateFee(blocks int) utils.FeeRate {
 	defer mempool.mtx.RLock()
 	return mempool.MinerPolicyEstimator.EstimateFee(blocks)
 }
+
+func (mempool *Mempool) InfoAll() []*TxMempoolEntry {
+	defer mempool.mtx.RLock()
+	iters := mempool.GetSortedDepthAndScore()
+	ret := make([]*TxMempoolEntry, 0)
+	ret = append(ret, iters...)
+	return ret
+}
+
+func (mempool *Mempool) QueryHashs() []*utils.Hash {
+	defer mempool.mtx.RLock()
+	iters := mempool.GetSortedDepthAndScore()
+	ret := make([]*utils.Hash, 0)
+	for _, it := range iters {
+		ret = append(ret, &it.TxRef.Hash)
+	}
+	return ret
+
+}
+
+func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
+	return nil
+}
