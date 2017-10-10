@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	beeUtils "github.com/astaxie/beego/utils"
+	"github.com/bradfitz/slice"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
@@ -839,5 +840,14 @@ func (mempool *Mempool) QueryHashs() []*utils.Hash {
 }
 
 func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
-	return nil
+	iters := make([]*TxMempoolEntry, 0)
+	for _, it := range mempool.MapTx {
+		iters = append(iters, it)
+	}
+	slice.Sort(iters[:], func(i, j int) bool {
+		return DepthAndScoreComparator(iters[i], iters[j])
+
+	})
+
+	return iters
 }

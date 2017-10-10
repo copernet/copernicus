@@ -138,6 +138,26 @@ func (txMempoolEntry *TxMempoolEntry) UpdateDescendantState(modifySize int64, mo
 
 }
 
+func DepthAndScoreComparator(a *TxMempoolEntry, b *TxMempoolEntry) bool {
+	counta := a.CountWithAncestors
+	countb := b.CountWithAncestors
+	if counta == countb {
+		return CompareTxMempoolEntryByScore(a, b)
+	}
+	return counta < countb
+
+}
+
+// CompareTxMempoolEntryByScore Sort by score of entry ((fee+delta)/size) in descending order
+func CompareTxMempoolEntryByScore(a *TxMempoolEntry, b *TxMempoolEntry) bool {
+	f1 := float64(a.GetModifiedFee()) * float64(b.TxSize)
+	f2 := float64(b.GetModifiedFee()) * float64(a.TxSize)
+	if f1 == f2 {
+		return a.TxRef.Hash.ToBigInt().Cmp(b.TxRef.Hash.ToBigInt()) > 0
+	}
+	return f1 > f2
+}
+
 func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
 	var size int64
 	for _, entry := range s.List() {
