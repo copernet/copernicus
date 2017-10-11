@@ -107,6 +107,30 @@ func (v *Vector) ReverseArray() []interface{} {
 	return reverseArray
 
 }
+
+func (v *Vector) Copy() *Vector {
+	newVec := NewVector()
+	newVec.Array = append(newVec.Array, v.Array...)
+	return newVec
+}
+
+func (v *Vector) Has(Item interface{}) bool {
+	for _, val := range v.Array {
+		if val == Item {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *Vector) Each(f func(item interface{}) bool) {
+	for _, v := range v.Array {
+		if !f(v) {
+			break
+		}
+	}
+}
+
 func SwapVector(v *Vector, other *Vector) {
 	if v.Size() == 0 && other.Size() == 0 {
 		return
