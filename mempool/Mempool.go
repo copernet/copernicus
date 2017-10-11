@@ -278,7 +278,7 @@ func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 // UpdateForDescendants : Update the given tx for any in-mempool descendants.
 // Assumes that setMemPoolChildren is correct for the given tx and all
 // descendants.
-func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *algorithm.CacheMap, setExclude set.Set) {
+func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *algorithm.CacheMap, setExclude *set.Set) {
 
 	stageEntries := mempool.GetMempoolChildren(updateIt)
 	setAllDescendants := set.New()
@@ -338,21 +338,50 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 // state to include the parent.
 func (mempool *Mempool) UpdateTransactionsFromBlock(hashesToUpdate algorithm.Vector) {
 	mempool.mtx.Lock()
-	//var mapMemPoolDescendantsToUpdate algorithm.CacheMap
-	//setAlreadyIncluded := set.New(hashesToUpdate.Array...)
-	//
-	//// Iterate in reverse, so that whenever we are looking at at a transaction
-	//// we are sure that all in-mempool descendants have already been processed.
-	//// This maximizes the benefit of the descendant cache and guarantees that
-	//// setMemPoolChildren will be updated, an assumption made in
-	//// UpdateForDescendants.
-	//hashesToUpdateReverse := hashesToUpdate.ReverseArray()
-	//for _, hash := range hashesToUpdateReverse {
-	//	setChildren := set.New()
-	//	txiter := mempool.MapTx.Get(hash)
-	//
-	//}
-	mempool.mtx.Unlock()
+	defer mempool.mtx.Unlock()
+	// For each entry in vHashesToUpdate, store the set of in-mempool, but not
+	// in-vHashesToUpdate transactions, so that we don't have to recalculate
+	// descendants when we come across a previously seen entry.
+	mapMemPoolDescendantsToUpdate := algorithm.NewCacheMap(utils.CompareByHash)
+	setAlreadyIncluded := set.New()
+	hashesToUpdate.Each(func(item interface{}) bool {
+		setAlreadyIncluded.Add(item)
+		return true
+	})
+
+	// Iterate in reverse, so that whenever we are looking at at a transaction
+	// we are sure that all in-mempool descendants have already been processed.
+	// This maximizes the benefit of the descendant cache and guarantees that
+	// setMemPoolChildren will be updated, an assumption made in
+	// UpdateForDescendants.
+	reverseArray := hashesToUpdate.ReverseArray()
+	for _, v := range reverseArray {
+		setChildren := set.New()
+		txHash := v.(utils.Hash)
+
+		if txEntry, ok := mempool.MapTx[txHash]; ok {
+			allKeys := mempool.MapNextTx.GetAllKeys()
+			for _, key := range allKeys {
+				if model.CompareOutPoint(key, model.NewOutPoint(&txHash, 0)) {
+					continue
+				}
+				outPointPtr := key.(*model.OutPoint)
+				if !outPointPtr.Hash.IsEqual(&txHash) {
+					continue
+				}
+				childTx := mempool.MapNextTx.Get(key).(model.Tx)
+				childTxHash := childTx.Hash
+				if childTxPtr, ok := mempool.MapTx[childTxHash]; ok {
+					setChildren.Add(childTxPtr)
+					if has := setAlreadyIncluded.Has(childTxHash); !has {
+						mempool.UpdateChild(txEntry, childTxPtr, true)
+						mempool.UpdateParent(childTxPtr, txEntry, true)
+					}
+				}
+			}
+			mempool.UpdateForDescendants(txEntry, mapMemPoolDescendantsToUpdate, setAlreadyIncluded)
+		}
+	}
 }
 
 func (mempool *Mempool) UpdateChild(entry *TxMempoolEntry, entryChild *TxMempoolEntry, add bool) {

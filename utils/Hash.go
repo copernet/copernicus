@@ -108,6 +108,13 @@ func DecodeHash(src string) (bytes []byte, err error) {
 	return
 }
 
+func CompareByHash(a, b interface{}) bool {
+	comA := a.(Hash)
+	comB := b.(Hash)
+	ret := comA.Cmp(&comB)
+	return ret > 0
+}
+
 func HashFromString(hexString string) *Hash {
 	hash, err := GetHashFromStr(hexString)
 	if err != nil {
