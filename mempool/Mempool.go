@@ -323,10 +323,10 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 			modifyCount++
 			cachedSet := cachedDescendants.Get(updateIt).(set.Set)
 			cachedSet.Add(txCit)
-			// todo Update ancestor state for each descendant
+			updateIt.UpdateAncestorState(int64(updateIt.TxSize), 1, updateIt.SigOpCount, updateIt.GetModifiedFee())
 		}
 	}
-	//todo Update descendant
+	updateIt.UpdateDescendantState(int64(modifySize), btcutil.Amount(modifyFee), int64(modifyCount))
 }
 
 // UpdateTransactionsFromBlock : vHashesToUpdate is the set of transaction hashes from a disconnected block
@@ -485,9 +485,7 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 }
 
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
-
 	size := int64(unsafe.Sizeof(mempool.MapTx)) + int64(unsafe.Sizeof(mempool.MapNextTx)) + int64(mempool.CachedInnerUsage)
-
 	return size
 
 }
