@@ -27,9 +27,13 @@ func (cacheMap *CacheMap) Swap(i, j int) {
 }
 
 func (cacheMap *CacheMap) Add(key interface{}, value interface{}) {
-	cacheMap.keys = append(cacheMap.keys, key)
-	cacheMap.m[key] = value
-	sort.Sort(cacheMap)
+	if _, ok := cacheMap.m[key]; !ok {
+		cacheMap.keys = append(cacheMap.keys, key)
+		cacheMap.m[key] = value
+		sort.Sort(cacheMap)
+	} else {
+		cacheMap.m[key] = value
+	}
 }
 
 func (cacheMap *CacheMap) Del(key interface{}) {
@@ -89,6 +93,10 @@ func (cacheMap *CacheMap) String() string {
 
 func (cacheMap *CacheMap) GetAllKeys() []interface{} {
 	return cacheMap.keys
+}
+
+func (cacheMap *CacheMap) Size() int {
+	return len(cacheMap.keys)
 }
 
 func NewCacheMap(camFunc CmpFunc) *CacheMap {

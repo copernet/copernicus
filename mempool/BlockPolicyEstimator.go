@@ -26,7 +26,7 @@ type BlockPolicyEstimator struct {
 	txStatsInfo    policy.TxStatsInfo
 
 	/** Classes to track historical data on transaction confirmations*/
-	mapMemPoolTxs *beegoUtils.BeeMap
+	mapMemPoolTxs *beegoUtils.BeeMap //map[utils.Hash]TxStatsInfo
 	feeStats      policy.TxConfirmStats
 	trackedTxs    uint
 	untranckedTxs uint
