@@ -267,8 +267,8 @@ func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	}
 	mempool.totalTxSize -= uint64(entry.TxSize)
 	mempool.CachedInnerUsage -= uint64(mempool.DynamicMemoryUsage())
-	//todo add all memusage function
-	//mempool.CachedInnerUsage -= DynamicUsage
+	//tmpTxLink := mempool.MapLinks.Get(entry).(TxLinks)
+	//mempool.CachedInnerUsage -= uint64(DynamicUsage(tmpTxLink.Children) + DynamicUsage(tmpTxLink.Parents))
 	mempool.MapLinks.Delete(entry)
 	delete(mempool.MapTx, entry.TxRef.Hash)
 	mempool.TransactionsUpdated++
@@ -280,7 +280,7 @@ func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 // descendants.
 func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDescendants *algorithm.CacheMap, setExclude set.Set) {
 
-	stageEntries := set.New()
+	stageEntries := mempool.GetMempoolChildren(updateIt)
 	setAllDescendants := set.New()
 
 	for !stageEntries.IsEmpty() {
@@ -323,10 +323,12 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 			modifyCount++
 			cachedSet := cachedDescendants.Get(updateIt).(set.Set)
 			cachedSet.Add(txCit)
-			// todo Update ancestor state for each descendant
+			tmpTx := mempool.MapTx[txCit.TxRef.Hash]
+			tmpTx.UpdateAncestorState(int64(updateIt.TxSize), 1, updateIt.SigOpCount, updateIt.Fee+btcutil.Amount(updateIt.FeeDelta))
 		}
 	}
-	//todo Update descendant
+	tmpTx := mempool.MapTx[updateIt.TxRef.Hash]
+	tmpTx.UpdateDescendantState(int64(modifySize), btcutil.Amount(modifyFee), int64(modifyCount))
 }
 
 // UpdateTransactionsFromBlock : vHashesToUpdate is the set of transaction hashes from a disconnected block

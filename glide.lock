@@ -1,5 +1,5 @@
-hash: 52db5a04bc00b14af72ba44edce37599662db981a5c8b897283479391d2b252e
-updated: 2017-10-10T20:26:28.367590779+08:00
+hash: a7c934a1078eef4aca55f437748613698def542501c2da9e51386bd6072b2d9f
+updated: 2017-10-11T09:18:13.919522702+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -82,6 +82,10 @@ imports:
   version: ce8acff4829e0c2458a67ead32390ac0a381c862
   subpackages:
   - snappy
+- name: go4.org
+  version: 034d17a462f7b2dcd1a4a73553ec5357ff6e6c6e
+  subpackages:
+  - reflectutil
 - name: golang.org/x/crypto
   version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
