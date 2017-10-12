@@ -206,7 +206,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) Serialize(writer io.Writer) er
 	if err != nil {
 		return err
 	}
-	err = blockPolicyEstimator.Serialize(writer)
+	err = blockPolicyEstimator.feeStats.Serialize(writer)
 	return err
 }
 

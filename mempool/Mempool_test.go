@@ -127,3 +127,48 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	}
 
 }
+
+func TestMempoolClear(t *testing.T) {
+	txParentPtr := model.NewTx()
+	txParentPtr.Ins = make([]*model.TxIn, 1)
+	txParentPtr.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_11})
+	txParentPtr.Outs = make([]*model.TxOut, 3)
+	for i := 0; i < 3; i++ {
+		txParentPtr.Outs[i] = model.NewTxOut(33000, []byte{model.OP_11, model.OP_EQUAL})
+	}
+	testPool := NewMemPool(utils.FeeRate{0})
+
+	// Nothing in pool, clear should do nothing:
+	testPool.Clear()
+	if testPool.Size() != 0 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 0)
+	}
+
+	// Add the transaction
+	testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true)
+	if testPool.Size() != 1 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 1)
+	}
+	if testPool.MapNextTx.Size() != 1 {
+		t.Errorf("current testPool.MapNextTx : %d, except the poolSize : %d", testPool.MapNextTx.Size(), 1)
+	}
+	if len(testPool.vTxHashes) != 1 {
+		t.Errorf("current testPool.vTxHashes : %d, except the poolSize : %d", len(testPool.vTxHashes), 1)
+	}
+
+	// CTxMemPool's members should be empty after a clear
+	testPool.Clear()
+	if testPool.Size() != 0 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 0)
+	}
+	if testPool.MapNextTx.Size() != 0 {
+		t.Errorf("current testPool.MapNextTx : %d, except the poolSize : %d", testPool.MapNextTx.Size(), 0)
+	}
+	if len(testPool.vTxHashes) != 0 {
+		t.Errorf("current testPool.vTxHashes : %d, except the poolSize : %d", len(testPool.vTxHashes), 0)
+	}
+}
+
+func TestMempoolEstimatePriority(t *testing.T) {
+
+}

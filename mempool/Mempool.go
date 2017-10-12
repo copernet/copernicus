@@ -7,6 +7,9 @@ import (
 
 	"fmt"
 
+	"encoding/binary"
+	"io"
+
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/bradfitz/slice"
 	"github.com/btcboost/copernicus/algorithm"
@@ -254,6 +257,13 @@ func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
 	delete(mempool.MapDeltas, *hash)
 }
 
+/* removeUnchecked Before calling removeUnchecked for a given transaction,
+ * UpdateForRemoveFromMempool must be called on the entire (dependent) set
+ * of transactions being removed at the same time. We use each
+ * CTxMemPoolEntry's setMemPoolParents in order to walk ancestors of a given
+ * transaction that is removed, so we can't remove intermediate transactions
+ * in a chain before we've updated all the state for the removal.
+ */
 func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	//todo: add signal/slot In where for passed entry
 	txid := entry.TxRef.Hash
@@ -708,21 +718,7 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 	mempool.MinerPolicyEstimator.ProcessTransaction(entry, validFeeEstimate)
 	mempool.vTxHashes = append(mempool.vTxHashes, TxHash{entry.TxRef.Hash, entry})
 	entry.vTxHashesIdx = len(mempool.vTxHashes) - 1
-	/*
-		fmt.Printf("------------------------------ MapLinks.Size() : %d\n", mempool.MapLinks.Count())
-		tmpLinks := mempool.MapLinks.Get(entry.TxRef.Hash).(*TxLinks)
-		fmt.Printf("parentSize : %d, childrenSize : %d\n", tmpLinks.Parents.Size(), tmpLinks.Children.Size())
-		fmt.Printf("", )
-		if tmpLinks.Parents.Size() > 0 {
-			tmpLinks := mempool.MapLinks.Get(tmpLinks.Parents.Pop().(*TxMempoolEntry).TxRef.Hash).(*TxLinks)
-			fmt.Printf("parentSize : %d, childrenSize : %d\n", tmpLinks.Parents.Size(), tmpLinks.Children.Size())
-			if tmpLinks.Parents.Size() > 0 {
-				tmpLinks := mempool.MapLinks.Get(tmpLinks.Parents.Pop().(*TxMempoolEntry).TxRef.Hash).(*TxLinks)
-				fmt.Printf("parentSize : %d, childrenSize : %d\n", tmpLinks.Parents.Size(), tmpLinks.Children.Size())
-			}
-		}
-		fmt.Printf("MapNextTx.Size() : %d\n", mempool.MapNextTx.Size())
-	*/
+
 	return true
 }
 
@@ -801,6 +797,96 @@ func (mempool *Mempool) HasNoInputsOf(tx *model.Tx) bool {
 	return true
 }
 
+func (mempool *Mempool) RemoveConflicts(tx *model.Tx) {
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+
+	for _, txIn := range tx.Ins {
+		hasTx := mempool.MapNextTx.Get(refOutPoint{*txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index})
+		if hasTx != nil {
+			txConflict := hasTx.(model.Tx)
+			if !txConflict.Equal(tx) {
+				mempool.ClearPrioritisation(&txConflict.Hash)
+				mempool.RemoveRecursive(&txConflict, CONFLICT)
+			}
+		}
+	}
+}
+
+func (mempool *Mempool) QueryHashes(vtxid *algorithm.Vector) {
+	mempool.mtx.RLock()
+	defer mempool.mtx.RUnlock()
+
+	iters := mempool.GetSortedDepthAndScore()
+	vtxid.Clear()
+	for _, entry := range iters {
+		vtxid.PushBack(entry.TxRef.Hash)
+	}
+}
+
+func (mempool *Mempool) WriteFeeEstimates(writer io.Writer) error {
+	mempool.mtx.RLock()
+	defer mempool.mtx.RUnlock()
+	// version required to read: 0.13.99 or later
+	err := binary.Write(writer, binary.LittleEndian, int(139900))
+	if err != nil {
+		return err
+	}
+	//todo write version that wrote the file
+	err = mempool.MinerPolicyEstimator.Serialize(writer)
+	return err
+}
+
+func (mempool *Mempool) ReadFeeEstimates(reader io.Reader) error {
+	mempool.mtx.RLock()
+	defer mempool.mtx.RUnlock()
+	var versionRequired, versionThatWrote int
+	err := binary.Read(reader, binary.LittleEndian, versionRequired)
+	if err != nil {
+		return err
+	}
+
+	//todo read version that read the file
+	err = mempool.MinerPolicyEstimator.Deserialize(reader, versionThatWrote)
+	return err
+}
+
+/*RemoveForBlock Called when a block is connected. Removes from mempool and updates the miner
+ *fee estimator.*/
+func (mempool *Mempool) RemoveForBlock(vtx *algorithm.Vector, blockHeight uint) {
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+
+	entries := algorithm.NewVector()
+	vtx.Each(func(item interface{}) bool {
+		txid := item.(*model.Tx).Hash
+		if entry, ok := mempool.MapTx[txid]; ok {
+			entries.PushBack(entry)
+		}
+
+		return true
+	})
+
+	// Before the txs in the new block have been removed from the mempool,
+	// update policy estimates
+	mempool.MinerPolicyEstimator.ProcessBlock(blockHeight, entries)
+	vtx.Each(func(item interface{}) bool {
+		txPtr := item.(*model.Tx)
+		if entryPtr, ok := mempool.MapTx[txPtr.Hash]; ok {
+			stage := set.New()
+			stage.Add(entryPtr)
+			mempool.RemoveStaged(stage, true, BLOCK)
+		}
+		mempool.RemoveConflicts(txPtr)
+		mempool.ClearPrioritisation(&txPtr.Hash)
+
+		return true
+	})
+
+	mempool.LastRollingFeeUpdate = utils.GetMockTime()
+	mempool.BlockSinceLatRollingFeeBump = true
+}
+
 func CompareByRefOutPoint(a, b interface{}) bool {
 	comA := a.(refOutPoint)
 	comB := b.(refOutPoint)
@@ -823,6 +909,13 @@ func clear(mempool *Mempool) {
 	mempool.BlockSinceLatRollingFeeBump = false
 	mempool.RollingMinimumFeeRate = 0
 	mempool.TransactionsUpdated++
+}
+
+func (mempool *Mempool) Clear() {
+	mempool.mtx.Lock()
+	defer mempool.mtx.Unlock()
+	clear(mempool)
+
 }
 
 func NewMemPool(minReasonableRelayFee utils.FeeRate) *Mempool {

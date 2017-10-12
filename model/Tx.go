@@ -415,6 +415,16 @@ func (tx *Tx) Copy() *Tx {
 
 }
 
+func (tx *Tx) Equal(dstTx *Tx) bool {
+	originBuf := bytes.NewBuffer(nil)
+	tx.Serialize(originBuf)
+
+	dstBuf := bytes.NewBuffer(nil)
+	dstTx.Serialize(dstBuf)
+
+	return bytes.Equal(originBuf.Bytes(), dstBuf.Bytes())
+}
+
 func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	txModifiedSize := tx.CalculateModifiedSize()
 	if txModifiedSize == 0 {
