@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"fmt"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
@@ -87,8 +86,7 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	if poolSize != 7 {
 		t.Errorf("current poolSize : %d, except the poolSize 7 ", poolSize)
 	}
-	fmt.Printf("txChild[0].Hash : %v\n", txChild[0].Hash)
-	fmt.Printf("txGrandChild[0].Hash : %v\n", txGrandChild[0].Hash)
+
 	// Remove Child[0], GrandChild[0] should be removed:
 	testPool.RemoveRecursive(&txChild[0], UNKNOWN)
 	if poolSize-2 != testPool.Size() {
@@ -106,8 +104,6 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
 	}
-
-	fmt.Printf("********* [][][] mempool Size : %d ************\n", testPool.Size())
 
 	// Remove parent, all children/grandchildren should go:
 	poolSize = testPool.Size()

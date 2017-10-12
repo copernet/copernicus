@@ -53,11 +53,9 @@ type refOutPoint struct {
 func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
-	fmt.Println("--- RemoveRecursive() begin ")
 	txToRemove := set.New()
 	origit := mempool.MapTx[origTx.Hash]
 	if origit != nil {
-		fmt.Println("should be enter ....")
 		txToRemove.Add(origit)
 	} else {
 		// When recursively removing but origTx isn't in the mempool be sure
@@ -77,16 +75,12 @@ func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 			txToRemove.Add(tmpTxmemPoolEntry)
 		}
 	}
-	setAllRemoves := set.New()                                                            //the set element type : *TxMempoolEntry
-	fmt.Printf("--------- 1 ------------;  txToRemove.Size() : %d \n", txToRemove.Size()) //txToRemove此时只包含将要删除的交易
+	setAllRemoves := set.New() //the set element type : *TxMempoolEntry
 	txToRemove.Each(func(item interface{}) bool {
 		tmpTxmemPoolEntry := item.(*TxMempoolEntry)
-		fmt.Println("--------- 2 ------------")
-		mempool.CalculateDescendants(tmpTxmemPoolEntry, setAllRemoves) //计算该父交易的所有后代交易，集合元素应该有五个，包含它自己。
-		fmt.Printf("--------- 3 ------------, setAllRemoves.Size() : %d\n", setAllRemoves.Size())
+		mempool.CalculateDescendants(tmpTxmemPoolEntry, setAllRemoves)
 		return true
 	})
-	fmt.Println("--- RemoveRecursive() CalculateDescendants late !!!")
 	mempool.RemoveStaged(setAllRemoves, false, reason)
 }
 
@@ -101,7 +95,6 @@ func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescend
 	if has := setDescendants.Has(txEntry); !has {
 		stage.Add(txEntry)
 	}
-	fmt.Printf("=== CalculateDescendants, setDescendants.Size() : %d, stage.Size() : %d\n ", setDescendants.Size(), stage.Size())
 	// Traverse down the children of entry, only adding children that are not
 	// accounted for in setDescendants already (because those children have
 	// either already been walked, or will be walked in this iteration).
@@ -111,17 +104,13 @@ func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescend
 		setDescendants.Add(txEntryPtr)
 		stageList = stageList[1:]
 		setChildren := mempool.GetMempoolChildren(txEntryPtr)
-		fmt.Printf("=== CalculateDescendants setDescendants.Size() : %d, setChildren.Size() : %d \n", setDescendants.Size(), setChildren.Size())
 		setChildren.Each(func(item interface{}) bool {
 			if has := setDescendants.Has(item); !has {
 				stageList = append(stageList, item)
 			}
 			return true
 		})
-
-		fmt.Println("*************** 000 ****************")
 	}
-	fmt.Printf("=== CalculateDescendants ===== end ....\n")
 }
 
 // RemoveStaged Remove a set of transactions from the mempool. If a transaction is in
@@ -131,7 +120,6 @@ func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescend
 // any in-mempool descendants have their ancestor state updated.
 func (mempool *Mempool) RemoveStaged(stage *set.Set, updateDescendants bool, reason int) {
 	mempool.UpdateForRemoveFromMempool(stage, updateDescendants)
-	fmt.Println("RemoveStaged()  stage.Size() : ", stage.Size())
 	stage.Each(func(item interface{}) bool {
 		tmpTxMempoolEntryPtr := item.(*TxMempoolEntry)
 		mempool.removeUnchecked(tmpTxMempoolEntryPtr, reason)
@@ -147,7 +135,6 @@ func (mempool *Mempool) UpdateForRemoveFromMempool(entriesToRemove *set.Set, upd
 	// with this transaction.
 	nNoLimit := uint64(math.MaxUint64)
 	if updateDescendants {
-		fmt.Printf("---- UpdateForRemoveFromMempool() delete Tx should not enter ....\n")
 		// updateDescendants should be true whenever we're not recursively
 		// removing a tx and all its descendants, eg when a transaction is
 		// confirmed in a block. Here we only update statistics and not data in
@@ -171,7 +158,6 @@ func (mempool *Mempool) UpdateForRemoveFromMempool(entriesToRemove *set.Set, upd
 			return true
 		})
 	}
-	fmt.Printf("-----**** 0000 ****-------, entriesToRemove.Size() : %d \n", entriesToRemove.Size())
 	entriesToRemove.Each(func(item interface{}) bool {
 		entry := item.(*TxMempoolEntry)
 		setAncestors := set.New()
@@ -192,11 +178,8 @@ func (mempool *Mempool) UpdateForRemoveFromMempool(entriesToRemove *set.Set, upd
 		// parents we'd calculate by searching, and it's important that we use
 		// the mapLinks[] notion of ancestor transactions as the set of things
 		// to update for removal.
-		fmt.Printf("removeTx hash : %v\n", entry.TxRef.Hash)
 		mempool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit,
 			nNoLimit, nNoLimit, nNoLimit, false)
-		fmt.Printf("---- UpdateForRemoveFromMempool() setAncestors.Size() : %d\n",
-			setAncestors.Size())
 
 		// Note that UpdateAncestorsOf severs the child links that point to
 		// removeIt in the entries for the parents of removeIt.
@@ -277,7 +260,7 @@ func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	for _, txin := range entry.TxRef.Ins {
 		mempool.MapNextTx.Del(refOutPoint{*txin.PreviousOutPoint.Hash, txin.PreviousOutPoint.Index})
 	}
-	fmt.Println("removeUnchecked()  mempool.vTxHashes size : ", len(mempool.vTxHashes))
+
 	if len(mempool.vTxHashes) > 1 {
 		mempool.vTxHashes[entry.vTxHashesIdx] = mempool.vTxHashes[len(mempool.vTxHashes)-1]
 		mempool.vTxHashes[entry.vTxHashesIdx].entry.vTxHashesIdx = entry.vTxHashesIdx
@@ -616,7 +599,6 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 
 	totalSizeWithAncestors := entry.TxRef.SerializeSize()
 	parentList := parentHashes.List()
-	fmt.Printf("--- CalculateMemPoolAncestors() parentHashes.Size() : : %d ;  should be 1 or 2  !!!!!!\n", parentHashes.Size())
 	for len(parentList) > 0 {
 		stageit := parentList[0].(*TxMempoolEntry)
 		setAncestors.Add(stageit)
@@ -638,7 +620,6 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		}
 
 		setMemPoolParents := mempool.GetMemPoolParents(stageit)
-		fmt.Printf("--- CalculateMemPoolAncestors() setMemPoolParents.Size() parent's parentSet element Number : %d ......\n", setMemPoolParents.Size())
 		setMemPoolParents.Each(func(item interface{}) bool {
 			if !setAncestors.Has(item) {
 				parentList = append(parentList, item)
@@ -672,7 +653,6 @@ func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, va
 	if err != nil {
 		return false
 	}
-	fmt.Printf("----------- setAncestors.Size() : %d -------------\n", setAncestors.Size())
 	return mempool.AddUncheckedWithAncestors(hash, entry, setAncestors, validFeeEstimate)
 }
 
@@ -684,8 +664,7 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 	// Used by AcceptToMemoryPool(), which DOES do all the appropriate checks.
 	mempool.MapTx[*hash] = entry
 	mempool.MapLinks.Set(entry.TxRef.Hash, &TxLinks{set.New(), set.New()})
-	fmt.Printf("add New Tx, current, The mempool.MapTx.Count() : %d, mempool.MapLinks.Count() : %d\n",
-		len(mempool.MapTx), mempool.MapLinks.Count())
+
 	// Update transaction for any feeDelta created by PrioritiseTransaction mapTx
 	if prioriFeeDelta, ok := mempool.MapDeltas[*hash]; ok {
 		if prioriFeeDelta.fee > 0 {
@@ -704,9 +683,6 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 		mempool.MapNextTx.Add(refOutPoint{*txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index}, *entry.TxRef)
 		setParentTransactions.Add(*txIn.PreviousOutPoint.Hash)
 	}
-
-	fmt.Printf("AddUncheckedWithAncestors() addNew Tx Number :  setParentTransactions.Size() : %d, mempool.MapNextTx.Len() : %d\n",
-		setParentTransactions.Size(), mempool.MapNextTx.Len())
 
 	// Don't bother worrying about child transactions of this one. Normal case
 	// of a new transaction arriving is that there can't be any children,
@@ -753,8 +729,7 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 /*UpdateAncestorsOf Update ancestors of hash to add/remove it as a descendant transaction.*/
 func (mempool *Mempool) UpdateAncestorsOf(add bool, entry *TxMempoolEntry, setAncestors *set.Set) {
 	parentIters := mempool.GetMemPoolParents(entry)
-	fmt.Printf("the parentIters.Size() Now have %d element Number,  setAncestors.Size() : %d element Number \n",
-		parentIters.Size(), setAncestors.Size())
+
 	// add or remove this tx as a child of each parent
 	parentIters.Each(func(item interface{}) bool {
 		piter := item.(*TxMempoolEntry)
