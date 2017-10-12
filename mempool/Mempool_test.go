@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"fmt"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
@@ -56,9 +57,9 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	}
 
 	testPool := NewMemPool(utils.FeeRate{0})
-	//Nothing in pool, remove should do nothing:
 	poolSize := testPool.Size()
 
+	//Nothing in pool, remove should do nothing:
 	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
@@ -69,63 +70,64 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	if !testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true) {
 		t.Error("add Tx failure ...")
 	}
-	testPool.AddUnchecked(&txChild[0].Hash, fromTx(&txChild[0], nil), true)
-	testPool.AddUnchecked(&txChild[1].Hash, fromTx(&txChild[1], nil), true)
 	poolSize = testPool.Size()
-	/*
-		testPool.RemoveRecursive(txParentPtr, UNKNOWN)
-		if testPool.Size() != poolSize-1 {
-			t.Errorf("current poolSize : %d, except the poolSize : %d\n",
-				testPool.Size(), poolSize-1)
-		}
-		// Parent, children, grandchildren:
-		testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true)
-		for i := 0; i < 3; i++ {
-			testPool.AddUnchecked(&txChild[i].Hash, fromTx(&txChild[i], nil), true)
-			testPool.AddUnchecked(&txGrandChild[i].Hash, fromTx(&txGrandChild[i], nil), true)
-		}
-		poolSize = testPool.Size()
-		if poolSize != 7 {
-			t.Errorf("current poolSize : %d, except the poolSize 7 ", poolSize)
-		}
+	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	if testPool.Size() != poolSize-1 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
+			testPool.Size(), poolSize-1)
+	}
 
-		// Remove Child[0], GrandChild[0] should be removed:
-		testPool.RemoveRecursive(&txChild[0], UNKNOWN)
-		if poolSize-2 != testPool.Size() {
-			t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize-2)
-		}
+	// Parent, children, grandchildren:
+	testPool.AddUnchecked(&txParentPtr.Hash, fromTx(txParentPtr, nil), true)
+	for i := 0; i < 3; i++ {
+		testPool.AddUnchecked(&txChild[i].Hash, fromTx(&txChild[i], nil), true)
+		testPool.AddUnchecked(&txGrandChild[i].Hash, fromTx(&txGrandChild[i], nil), true)
+	}
+	poolSize = testPool.Size()
+	if poolSize != 7 {
+		t.Errorf("current poolSize : %d, except the poolSize 7 ", poolSize)
+	}
+	fmt.Printf("txChild[0].Hash : %v\n", txChild[0].Hash)
+	fmt.Printf("txGrandChild[0].Hash : %v\n", txGrandChild[0].Hash)
+	// Remove Child[0], GrandChild[0] should be removed:
+	testPool.RemoveRecursive(&txChild[0], UNKNOWN)
+	if poolSize-2 != testPool.Size() {
+		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize-2)
+	}
 
-		// ... make sure grandchild and child are gone:
-		poolSize = testPool.Size()
-		testPool.RemoveRecursive(&txGrandChild[0], UNKNOWN)
-		if testPool.Size() != poolSize {
-			t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
-		}
-		poolSize = testPool.Size()
-		testPool.RemoveRecursive(&txChild[0], UNKNOWN)
-		if testPool.Size() != poolSize {
-			t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
-		}
+	// ... make sure grandchild and child are gone:
+	poolSize = testPool.Size()
+	testPool.RemoveRecursive(&txGrandChild[0], UNKNOWN)
+	if testPool.Size() != poolSize {
+		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
+	}
+	poolSize = testPool.Size()
+	testPool.RemoveRecursive(&txChild[0], UNKNOWN)
+	if testPool.Size() != poolSize {
+		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
+	}
 
-		// Remove parent, all children/grandchildren should go:
-		poolSize = testPool.Size()
-		testPool.RemoveRecursive(txParentPtr, UNKNOWN)
-		if testPool.Size() != poolSize-5 {
-			t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-1)
-		}
+	fmt.Printf("********* [][][] mempool Size : %d ************\n", testPool.Size())
 
-		// Add children and grandchildren, but NOT the parent (simulate the parent
-		// being in a block)
-		for i := 0; i < 3; i++ {
-			testPool.AddUnchecked(&txChild[i].Hash, fromTx(&txChild[i], nil), true)
-			testPool.AddUnchecked(&txGrandChild[i].Hash, fromTx(&txGrandChild[i], nil), true)
-		}
-		// Now remove the parent, as might happen if a block-re-org occurs but the
-		// parent cannot be put into the mempool (maybe because it is non-standard):
-		poolSize = testPool.Size()
-		testPool.RemoveRecursive(txParentPtr, UNKNOWN)
-		if testPool.Size() != poolSize-6 {
-			t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-1)
-		}
-	*/
+	// Remove parent, all children/grandchildren should go:
+	poolSize = testPool.Size()
+	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	if testPool.Size() != poolSize-5 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-5)
+	}
+
+	// Add children and grandchildren, but NOT the parent (simulate the parent
+	// being in a block)
+	for i := 0; i < 3; i++ {
+		testPool.AddUnchecked(&txChild[i].Hash, fromTx(&txChild[i], nil), true)
+		testPool.AddUnchecked(&txGrandChild[i].Hash, fromTx(&txGrandChild[i], nil), true)
+	}
+	// Now remove the parent, as might happen if a block-re-org occurs but the
+	// parent cannot be put into the mempool (maybe because it is non-standard):
+	poolSize = testPool.Size()
+	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	if testPool.Size() != poolSize-6 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-6)
+	}
+
 }

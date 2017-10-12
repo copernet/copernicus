@@ -18,14 +18,15 @@ func DynamicUsage(Item interface{}) int {
 	switch typeOf := Item.(type) {
 	case *set.Set:
 		num := typeOf.Size()
-		switch v := typeOf.List()[0].(type) {
-		case TxMempoolEntry:
-			size = num * int(unsafe.Sizeof(v))
-		case *TxMempoolEntry:
-			size = num * int(unsafe.Sizeof(v))
-		case int:
-			size = num * int(unsafe.Sizeof(v))
-
+		if num > 0 {
+			switch v := typeOf.List()[0].(type) {
+			case TxMempoolEntry:
+				size = num * int(unsafe.Sizeof(v))
+			case *TxMempoolEntry:
+				size = num * int(unsafe.Sizeof(v))
+			case int:
+				size = num * int(unsafe.Sizeof(v))
+			}
 		}
 	case TxMempoolEntry:
 		size = int(unsafe.Sizeof(typeOf))
