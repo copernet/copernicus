@@ -46,7 +46,7 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
 	return 3 * minRelayTxFee.GetFee(size)
 }
 
-func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
+func (txOut *TxOut) Deserialize(reader io.Reader) error {
 	err := protocol.ReadElement(reader, &txOut.Value)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
 	return err
 }
 
-func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
+func (txOut *TxOut) Serialize(writer io.Writer) error {
 	if txOut.Script == nil {
 		return nil
 	}

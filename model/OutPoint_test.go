@@ -36,7 +36,7 @@ func TestOutPointWriteOutPoint(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testOutPoint.WriteOutPoint(file, 10, 1)
+	err = testOutPoint.WriteOutPoint(file)
 	if err != nil {
 		t.Error(err)
 	}
@@ -45,18 +45,18 @@ func TestOutPointWriteOutPoint(t *testing.T) {
 	txOutRead := &OutPoint{}
 	txOutRead.Hash = new(utils.Hash)
 
-	err = txOutRead.ReadOutPoint(file, 1)
+	err = txOutRead.Deserialize(file)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if txOutRead.Index != testOutPoint.Index {
-		t.Errorf("ReadOutPoint() return the index data %d "+
+		t.Errorf("Deserialize() return the index data %d "+
 			"should be equal origin index data %d", txOutRead.Index, testOutPoint.Index)
 	}
 
 	if !bytes.Equal(txOutRead.Hash[:], testOutPoint.Hash[:]) {
-		t.Errorf("ReadOutPoint() return the hash data %v"+
+		t.Errorf("Deserialize() return the hash data %v"+
 			"should be equal origin hash data %v", txOutRead.Hash, testOutPoint.Hash)
 	}
 
