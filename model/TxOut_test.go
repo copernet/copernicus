@@ -28,14 +28,14 @@ func TestSerialize(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testTxout.Serialize(file, 1)
+	err = testTxout.Serialize(file)
 	if err != nil {
 		t.Error(err)
 	}
 
 	txOutRead := &TxOut{}
 	file.Seek(0, 0)
-	err = txOutRead.Deserialize(file, 1)
+	err = txOutRead.Deserialize(file)
 	if err != nil {
 		t.Error(err)
 	}

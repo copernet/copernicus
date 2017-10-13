@@ -46,7 +46,7 @@ func GetOutputsHash(tx *Tx) (utils.Hash, error) {
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, size))
 	for i := 0; i < len(tx.Ins); i++ {
-		tx.Outs[i].Serialize(buf, 1) //todo pver and version
+		tx.Outs[i].Serialize(buf)
 	}
 	return core.DoubleSha256Hash(buf.Bytes()), nil
 

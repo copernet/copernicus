@@ -133,7 +133,7 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 		return err
 	}
 	for _, txOut := range tx.Outs {
-		err := txOut.Serialize(writer, tx.Version)
+		err := txOut.Serialize(writer)
 		if err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ func DeserializeTx(reader io.Reader) (tx *Tx, err error) {
 
 		txOut := &txOuts[i]
 		tx.Outs[i] = txOut
-		err = txOut.Deserialize(reader, tx.Version)
+		err = txOut.Deserialize(reader)
 		if err != nil {
 			tx.returnScriptBuffers()
 			return

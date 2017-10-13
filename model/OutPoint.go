@@ -37,7 +37,7 @@ func (outPoint *OutPoint) Serialize() string {
 	return string(buf)
 }
 
-func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, version int32) (err error) {
+func (outPoint *OutPoint) Deserialize(reader io.Reader) (err error) {
 	_, err = io.ReadFull(reader, outPoint.Hash[:])
 	if err != nil {
 		return
@@ -46,7 +46,7 @@ func (outPoint *OutPoint) ReadOutPoint(reader io.Reader, version int32) (err err
 	return
 }
 
-func (outPoint *OutPoint) WriteOutPoint(writer io.Writer, pver uint32, version int32) error {
+func (outPoint *OutPoint) WriteOutPoint(writer io.Writer) error {
 	_, err := writer.Write(outPoint.Hash.GetCloneBytes())
 	if err != nil {
 		return err

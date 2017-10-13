@@ -1,7 +1,12 @@
 package utxo
 
 import (
+	"io"
+
+	"encoding/binary"
+
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utils"
 )
 
 type Coin struct {
@@ -24,4 +29,29 @@ func (coin *Coin) IsSpent() bool {
 func (coin *Coin) Clear() {
 	coin.TxOut.SetNull()
 	coin.HeightAndIsCoinBase = 0
+}
+
+func (coin *Coin) Serialize(writer io.Writer) error {
+	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, coin.HeightAndIsCoinBase)
+	if err != nil {
+		return err
+	}
+	return coin.TxOut.Serialize(writer)
+}
+
+func (coin *Coin) Deserialize(reader io.Reader) error {
+	heightAndIsCoinBase, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	coin.HeightAndIsCoinBase = heightAndIsCoinBase
+	if err != nil {
+		return err
+	}
+	txOut := model.TxOut{}
+	err = txOut.Deserialize(reader)
+	coin.TxOut = &txOut
+	return err
+}
+
+func NewCoin() *Coin {
+	coin := Coin{}
+	return &coin
 }

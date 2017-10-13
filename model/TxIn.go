@@ -30,7 +30,7 @@ func (txIn *TxIn) SerializeSize() int {
 }
 
 func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
-	err := txIn.PreviousOutPoint.ReadOutPoint(reader, version)
+	err := txIn.PreviousOutPoint.Deserialize(reader)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 
 }
 func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
-	err := txIn.PreviousOutPoint.WriteOutPoint(writer, 0, version)
+	err := txIn.PreviousOutPoint.WriteOutPoint(writer)
 	if err != nil {
 		return err
 	}
