@@ -138,6 +138,43 @@ func (txMempoolEntry *TxMempoolEntry) UpdateDescendantState(modifySize int64, mo
 
 }
 
+func CompareTxMemPoolEntryByDescendantScore(a, b *TxMempoolEntry) bool {
+	UseADescendants := useDescendantScore(a)
+	UseBDescendants := useDescendantScore(b)
+
+	var aModFee, bModFee uint64
+	var aSize, bSize uint64
+	if UseADescendants {
+		aModFee = uint64(a.ModFeesWithDescendants)
+		aSize = a.SizeWithDescendants
+	} else {
+		aModFee = uint64(a.GetModifiedFee())
+		aSize = uint64(a.TxSize)
+	}
+
+	if UseBDescendants {
+		bModFee = uint64(b.ModFeesWithDescendants)
+		bSize = b.SizeWithDescendants
+	} else {
+		bModFee = uint64(b.GetModifiedFee())
+		bSize = uint64(b.TxSize)
+	}
+
+	// Avoid division by rewriting (a/b > c/d) as (a*d > c*b).
+	f1 := aModFee * bSize
+	f2 := aSize * bModFee
+	if f1 == f2 {
+		return a.Time >= b.Time
+	}
+	return f1 < f2
+}
+
+func useDescendantScore(a *TxMempoolEntry) bool {
+	f1 := uint64(a.GetModifiedFee()) * a.SizeWithDescendants
+	f2 := uint64(a.ModFeesWithDescendants) * uint64(a.TxSize)
+	return f2 > f1
+}
+
 func DepthAndScoreComparator(a *TxMempoolEntry, b *TxMempoolEntry) bool {
 	counta := a.CountWithAncestors
 	countb := b.CountWithAncestors
@@ -146,6 +183,28 @@ func DepthAndScoreComparator(a *TxMempoolEntry, b *TxMempoolEntry) bool {
 	}
 	return counta < countb
 
+}
+
+func CompareTxMemPoolEntryByAncestorFee(a, b *TxMempoolEntry) bool {
+	aFees := uint64(a.ModFeesWithAncestors)
+	aSize := a.sizeWithAncestors
+
+	bFees := uint64(b.ModFeesWithAncestors)
+	bSize := b.sizeWithAncestors
+
+	// Avoid division by rewriting (a/b > c/d) as (a*d > c*b).
+	f1 := aFees * bSize
+	f2 := aSize * bFees
+
+	if f1 == f2 {
+		return a.TxRef.Hash.ToBigInt().Cmp(b.TxRef.Hash.ToBigInt()) < 0
+	}
+
+	return f1 > f2
+}
+
+func CompareTxMemPoolEntryByEntryTime(a *TxMempoolEntry, b *TxMempoolEntry) bool {
+	return a.Time < b.Time
 }
 
 // CompareTxMempoolEntryByScore Sort by score of entry ((fee+delta)/size) in descending order

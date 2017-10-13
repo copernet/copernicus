@@ -99,9 +99,6 @@ func (tx *Tx) SerializeSize() int {
 	if tx == nil {
 		fmt.Println("tx is nil")
 	}
-	if tx.Ins == nil {
-		fmt.Println("tx.Ins is nil")
-	}
 	for _, txIn := range tx.Ins {
 		if txIn == nil {
 			fmt.Println("txIn ins is nil")
