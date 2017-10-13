@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"testing"
 
-	//"github.com/btcboost/copernicus/algorithm"
 	"sort"
 
+	//"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
+	//"math"
 )
 
 func fromTxToEntry(tx *model.Tx, fee btcutil.Amount, time int64, priority float64, pool *Mempool) *TxMempoolEntry {
@@ -539,4 +540,208 @@ func TestMempoolApplyDeltas(t *testing.T) {
 	tmpSort[0] = tx7.Hash
 	tmpSort = append(tmpSort, sortedOrder[:]...)
 	checkSort(testPool, tmpSort)
+}
+
+func TestMempoolEstimateFee(t *testing.T) {
+	testPool := NewMemPool(utils.FeeRate{1000})
+	tx1 := model.NewTx()
+	tx1.Ins = make([]*model.TxIn, 1)
+	tx1.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_1})
+	tx1.Outs = make([]*model.TxOut, 1)
+	tx1.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_1, model.OP_EQUAL})
+	tx1.Hash = tx1.TxHash()
+	testPool.AddUnchecked(&tx1.Hash, fromTxToEntry(tx1, 10000, 0, 10.0, testPool), true)
+	/*
+		fmt.Println("---------- ******** 000 ******* -------------")
+		tx2 := model.NewTx()
+		tx2.Ins = make([]*model.TxIn, 1)
+		tx2.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_2})
+		tx2.Outs = make([]*model.TxOut, 1)
+		tx2.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_2, model.OP_EQUAL})
+		tx2.Hash = tx2.TxHash()
+		testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 5000, 0, 10.0, testPool), true)
+		fmt.Println("---------- 0 -------------")
+		// should do nothing
+		testPool.TrimToSize(testPool.DynamicMemoryUsage(), nil)
+		if !testPool.Exists(tx1.Hash) {
+			t.Errorf("tx1 should be In Mempool ...")
+		}
+		if !testPool.Exists(tx2.Hash) {
+			t.Errorf("tx2 should be In Mempool ...")
+		}
+		fmt.Println("---------- 1 -------------")
+		// should remove the lower-feerate transaction
+		testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
+		if !testPool.Exists(tx1.Hash) {
+			t.Errorf("tx1 should be In Mempool ...")
+		}
+		if testPool.Exists(tx2.Hash) {
+			t.Errorf("tx2 should be Not In Mempool ...")
+		}
+		testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 0, 0, 10.0, testPool), true)
+
+		tx3 := model.NewTx()
+		tx3.Ins = make([]*model.TxIn, 1)
+		tx3.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx2.Hash, 0), []byte{model.OP_2})
+		tx3.Outs = make([]*model.TxOut, 1)
+		tx3.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_3, model.OP_EQUAL})
+		tx3.Hash = tx3.TxHash()
+		testPool.AddUnchecked(&tx3.Hash, fromTxToEntry(tx3, 20000, 0, 10.0, testPool), true)
+
+		// tx3 should pay for tx2 (CPFP)
+		testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
+		if testPool.Exists(tx1.Hash) {
+			t.Errorf("tx1 should be Not In Mempool ...")
+		}
+		if !testPool.Exists(tx2.Hash) {
+			t.Errorf("tx2 should be In Mempool ...")
+		}
+		if !testPool.Exists(tx3.Hash) {
+			t.Errorf("tx3 should be In Mempool ...")
+		}
+
+		// mempool is limited to tx1's size in memory usage, so nothing fits
+		testPool.TrimToSize(int64(tx1.SerializeSize()), nil)
+		if testPool.Exists(tx1.Hash) {
+			t.Errorf("tx1 should Not be Not In Mempool ...")
+		}
+		if testPool.Exists(tx2.Hash) {
+			t.Errorf("tx2 should Not be In Mempool ...")
+		}
+		if testPool.Exists(tx3.Hash) {
+			t.Errorf("tx3 should Not be In Mempool ...")
+		}
+
+		maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, tx3.SerializeSize()+tx2.SerializeSize())
+		if testPool.GetMinFee(1).GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
+		}
+
+		tx4 := model.NewTx()
+		tx4.Ins = make([]*model.TxIn, 2)
+		tx4.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_4})
+		tx4.Ins[1] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_4})
+		tx4.Outs = make([]*model.TxOut, 2)
+		tx4.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_4, model.OP_EQUAL})
+		tx4.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_4, model.OP_EQUAL})
+		tx4.Hash = tx4.TxHash()
+
+		tx5 := model.NewTx()
+		tx5.Ins = make([]*model.TxIn, 2)
+		tx5.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx4.Hash, 0), []byte{model.OP_4})
+		tx5.Ins[1] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_5})
+		tx5.Outs = make([]*model.TxOut, 2)
+		tx5.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_5, model.OP_EQUAL})
+		tx5.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_5, model.OP_EQUAL})
+		tx5.Hash = tx5.TxHash()
+
+		tx6 := model.NewTx()
+		tx6.Ins = make([]*model.TxIn, 2)
+		tx6.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx4.Hash, 1), []byte{model.OP_4})
+		tx6.Ins[1] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_6})
+		tx6.Outs = make([]*model.TxOut, 2)
+		tx6.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_6, model.OP_EQUAL})
+		tx6.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_6, model.OP_EQUAL})
+		tx6.Hash = tx6.TxHash()
+
+		tx7 := model.NewTx()
+		tx7.Ins = make([]*model.TxIn, 2)
+		tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx5.Hash, 0), []byte{model.OP_5})
+		tx7.Ins[1] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_6})
+		tx7.Outs = make([]*model.TxOut, 2)
+		tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_7, model.OP_EQUAL})
+		tx7.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_7, model.OP_EQUAL})
+		tx7.Hash = tx7.TxHash()
+
+		testPool.AddUnchecked(&tx4.Hash, fromTxToEntry(tx4, 7000, 0, 10.0, testPool), true)
+		testPool.AddUnchecked(&tx5.Hash, fromTxToEntry(tx5, 1000, 0, 10.0, testPool), true)
+		testPool.AddUnchecked(&tx6.Hash, fromTxToEntry(tx6, 1100, 0, 10.0, testPool), true)
+		testPool.AddUnchecked(&tx7.Hash, fromTxToEntry(tx7, 9000, 0, 10.0, testPool), true)
+
+		// we only require this remove, at max, 2 txn, because its not clear what
+		// we're really optimizing for aside from that
+		testPool.TrimToSize(testPool.DynamicMemoryUsage()-1, nil)
+		if !testPool.Exists(tx4.Hash) {
+			t.Errorf("tx4 should  be In Mempool ...")
+		}
+		if !testPool.Exists(tx6.Hash) {
+			t.Errorf("tx6 should  be In Mempool ...")
+		}
+		if testPool.Exists(tx7.Hash) {
+			t.Errorf("tx7 should  Not be In Mempool ...")
+		}
+
+		if testPool.Exists(tx5.Hash) {
+			testPool.AddUnchecked(&tx5.Hash, fromTxToEntry(tx5, 1000, 0, 10.0, testPool), true)
+		}
+		testPool.AddUnchecked(&tx7.Hash, fromTxToEntry(tx7, 9000, 0, 10.0, testPool), true)
+
+		// should maximize mempool size by only removing 5/7
+		testPool.TrimToSize(testPool.DynamicMemoryUsage()/2, nil)
+		if !testPool.Exists(tx4.Hash) {
+			t.Errorf("tx4 should  be In Mempool ...")
+		}
+		if testPool.Exists(tx5.Hash) {
+			t.Errorf("tx5 should Not be In Mempool ...")
+		}
+		if !testPool.Exists(tx6.Hash) {
+			t.Errorf("tx6 should be In Mempool ...")
+		}
+		if testPool.Exists(tx7.Hash) {
+			t.Errorf("tx7 should  Not be In Mempool ...")
+		}
+
+		testPool.AddUnchecked(&tx5.Hash, fromTxToEntry(tx5, 1000, 0, 10.0, testPool), true)
+		testPool.AddUnchecked(&tx7.Hash, fromTxToEntry(tx7, 9000, 0, 10.0, testPool), true)
+
+		vtx := algorithm.NewVector()
+		utils.SetMockTime(42)
+		utils.SetMockTime(42 + ROLLING_FEE_HALFLIFE)
+		if testPool.GetMinFee(1).GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
+		}
+		// ... we should keep the same min fee until we get a block
+		testPool.RemoveForBlock(vtx, 1)
+		utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE)
+		if testPool.GetMinFee(1).GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/2 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(1).GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/2)
+		}
+		// ... then feerate should drop 1/2 each halflife
+
+		utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2)
+		if testPool.GetMinFee(testPool.DynamicMemoryUsage()*5/2).GetFeePerK() !=
+			(maxFeeRateRemoved.GetFeePerK()+1000)/4 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(testPool.DynamicMemoryUsage()*5/2).GetFeePerK(),
+				(maxFeeRateRemoved.GetFeePerK()+1000)/4)
+		}
+		// ... with a 1/2 halflife when mempool is < 1/2 its target size
+
+		utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
+		if testPool.GetMinFee(testPool.DynamicMemoryUsage()*9/2).GetFeePerK() !=
+			(maxFeeRateRemoved.GetFeePerK()+1000)/8 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(testPool.DynamicMemoryUsage()*9/2).GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/8)
+		}
+		// ... with a 1/4 halflife when mempool is < 1/4 its target size
+
+		utils.SetMockTime(42 + 7*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
+		if testPool.GetMinFee(1).GetFeePerK() != 1000 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(1).GetFeePerK(), 1000)
+		}
+		// ... but feerate should never drop below 1000
+
+		utils.SetMockTime(42 + 8*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
+		if testPool.GetMinFee(1).GetFeePerK() != 0 {
+			t.Errorf("current FeePerk : %d, except FeePerk : %d",
+				testPool.GetMinFee(1).GetFeePerK(), 0)
+		}
+		// ... unless it has gone all the way to 0 (after getting past 1000/2)
+
+		utils.SetMockTime(0)
+	*/
 }
