@@ -55,6 +55,7 @@ func (txOut *TxOut) Deserialize(reader io.Reader, version int32) error {
 	txOut.Script = NewScriptRaw(bytes)
 	return err
 }
+
 func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
 	if txOut.Script == nil {
 		return nil
@@ -65,8 +66,18 @@ func (txOut *TxOut) Serialize(writer io.Writer, version int32) error {
 	}
 	return utils.WriteVarBytes(writer, txOut.Script.bytes)
 }
+
 func (txOut *TxOut) Check() bool {
 	return true
+}
+
+func (txOut *TxOut) SetNull() {
+	txOut.Value = -1
+	txOut.Script = nil
+}
+
+func (txOut *TxOut) IsNull() bool {
+	return txOut.Value == -1
 }
 
 func (txOut *TxOut) String() string {
