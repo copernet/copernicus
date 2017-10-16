@@ -17,6 +17,7 @@ func (cacheMap *CacheMap) Len() int {
 	return len(cacheMap.m)
 }
 
+/*
 func (cacheMap *CacheMap) Less(i, j int) bool {
 	return cacheMap.camFunc(cacheMap.keys[i], cacheMap.keys[j])
 }
@@ -25,12 +26,15 @@ func (cacheMap *CacheMap) Swap(i, j int) {
 	cacheMap.keys[i], cacheMap.keys[j] = cacheMap.keys[j], cacheMap.keys[i]
 
 }
+*/
 
 func (cacheMap *CacheMap) Add(key interface{}, value interface{}) {
 	if _, ok := cacheMap.m[key]; !ok {
 		cacheMap.keys = append(cacheMap.keys, key)
 		cacheMap.m[key] = value
-		sort.Sort(cacheMap)
+		sort.SliceStable(cacheMap.keys, func(i, j int) bool {
+			return cacheMap.camFunc(cacheMap.keys[i], cacheMap.keys[j])
+		})
 	} else {
 		cacheMap.m[key] = value
 	}
@@ -42,7 +46,9 @@ func (cacheMap *CacheMap) AddElementToSlice(key interface{}, value interface{}) 
 		valueSlice = append(valueSlice, value)
 		cacheMap.m[key] = valueSlice
 		cacheMap.keys = append(cacheMap.keys, key)
-		sort.Sort(cacheMap)
+		sort.SliceStable(cacheMap.keys, func(i, j int) bool {
+			return cacheMap.camFunc(cacheMap.keys[i], cacheMap.keys[j])
+		})
 	} else {
 		valueSlice := v.([]interface{})
 		valueSlice = append(valueSlice, value)
@@ -65,7 +71,9 @@ func (cacheMap *CacheMap) Del(key interface{}) {
 		}
 	}
 	cacheMap.m = m
-	sort.Sort(cacheMap)
+	sort.SliceStable(cacheMap.keys, func(i, j int) bool {
+		return cacheMap.camFunc(cacheMap.keys[i], cacheMap.keys[j])
+	})
 
 }
 

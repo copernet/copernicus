@@ -1,6 +1,8 @@
 package mempool
 
 import (
+	"fmt"
+
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -33,6 +35,11 @@ func (multiIndex *MultiIndex) AddElement(hash utils.Hash, txEntry *TxMempoolEntr
 	multiIndex.poolNode[hash] = txEntry
 	multiIndex.byScoreSort.Add(txEntry, hash)
 	multiIndex.byDescendantScoreSort.Add(txEntry, hash)
+	for i, v := range multiIndex.byDescendantScoreSort.GetAllKeys() {
+		txEntry := v.(*TxMempoolEntry)
+		fmt.Printf("index : %v, hash : %v\n ", i, txEntry.TxRef.Hash.ToString())
+	}
+	fmt.Println("--------------------------------------------------------------")
 	multiIndex.byEntryTimeSort.Add(txEntry, hash)
 	multiIndex.byAncestorFeeSort.Add(txEntry, hash)
 }
@@ -57,8 +64,8 @@ func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
 	}
 }
 
-//GetByDescendantScoreSortTxEntryPtr : return the sort slice by cendantScore
-func (multiIndex *MultiIndex) GetByDescendantScoreSortTxEntryPtr() []interface{} {
+//GetByDescendantScoreSort : return the sort slice by cendantScore
+func (multiIndex *MultiIndex) GetByDescendantScoreSort() []interface{} {
 	keys := multiIndex.byDescendantScoreSort.GetAllKeys()
 	retKey := make([]interface{}, len(keys))
 	copy(retKey, keys)
@@ -73,7 +80,7 @@ func (multiIndex *MultiIndex) GetByDescendantScoreSortBegin() interface{} {
 	return nil
 }
 
-func (multiIndex *MultiIndex) GetbyScoreSortTxEntryPtr() []interface{} {
+func (multiIndex *MultiIndex) GetbyScoreSort() []interface{} {
 	keys := multiIndex.byScoreSort.GetAllKeys()
 	retKey := make([]interface{}, len(keys))
 	copy(retKey, keys)
@@ -88,7 +95,7 @@ func (multiIndex *MultiIndex) GetbyScoreSortBegin() interface{} {
 	return nil
 }
 
-func (multiIndex *MultiIndex) GetbyEntryTimeSortTxEntryPtr() []interface{} {
+func (multiIndex *MultiIndex) GetbyEntryTimeSort() []interface{} {
 	keys := multiIndex.byEntryTimeSort.GetAllKeys()
 	retKey := make([]interface{}, len(keys))
 	copy(retKey, keys)
@@ -103,7 +110,7 @@ func (multiIndex *MultiIndex) GetbyEntryTimeSortBegin() interface{} {
 	return nil
 }
 
-func (multiIndex *MultiIndex) GetbyAncestorFeeSortTxEntryPtr() []interface{} {
+func (multiIndex *MultiIndex) GetbyAncestorFeeSort() []interface{} {
 	keys := multiIndex.byAncestorFeeSort.GetAllKeys()
 	retKey := make([]interface{}, len(keys))
 	copy(retKey, keys)
