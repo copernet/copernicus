@@ -2,9 +2,8 @@ package mempool
 
 import (
 	"bytes"
-	"testing"
-
 	"sort"
+	"testing"
 
 	//"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -13,7 +12,6 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
-	//"math"
 )
 
 func fromTxToEntry(tx *model.Tx, fee btcutil.Amount, time int64, priority float64, pool *Mempool) *TxMempoolEntry {
@@ -182,9 +180,10 @@ func checkSort(pool *Mempool, sortedOrder []utils.Hash) error {
 		return errors.Errorf("current pool Size() : %d, sortSlice SIze() : %d, the two size should be equal",
 			pool.Size(), len(sortedOrder))
 	}
+
 	sort.SliceStable(sortedOrder, func(i, j int) bool {
-		tx1 := pool.MapTx[sortedOrder[i]]
-		tx2 := pool.MapTx[sortedOrder[j]]
+		tx1 := pool.MapTx.GetEntryByHash(sortedOrder[i])
+		tx2 := pool.MapTx.GetEntryByHash(sortedOrder[j])
 		return CompareTxMemPoolEntryByDescendantScore(tx1, tx2)
 	})
 
@@ -264,7 +263,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	checkSort(testPool, sortedOrder)
 
 	setAncestors := set.New()
-	setAncestors.Add(testPool.MapTx[tx6.Hash])
+	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx6.Hash))
 	tx7 := model.NewTx()
 	tx7.Ins = make([]*model.TxIn, 1)
 	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
@@ -302,7 +301,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tx8.Outs = make([]*model.TxOut, 1)
 	tx8.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx8.Hash = tx8.TxHash()
-	setAncestors.Add(testPool.MapTx[tx7.Hash])
+	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx7.Hash))
 	testPool.AddUncheckedWithAncestors(&tx8.Hash, fromTxToEntry(tx8, 0, 2, 0, nil), setAncestors, true)
 
 	// Now tx8 should be sorted low, but tx6/tx both high
@@ -333,8 +332,8 @@ func TestMempoolEstimatePriority(t *testing.T) {
 
 	snapshotOrder := make([]utils.Hash, 9)
 	copy(snapshotOrder, sortedOrder)
-	setAncestors.Add(testPool.MapTx[tx8.Hash])
-	setAncestors.Add(testPool.MapTx[tx9.Hash])
+	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx8.Hash))
+	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx9.Hash))
 
 	/* tx10 depends on tx8 and tx9 and has a high fee*/
 	tx10 := model.NewTx()
@@ -387,11 +386,11 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	}
 
 	// Now try removing tx10 and verify the sort order returns to normal
-	testPool.RemoveRecursive(testPool.MapTx[tx10.Hash].TxRef, UNKNOWN)
+	testPool.RemoveRecursive(testPool.MapTx.GetEntryByHash(tx10.Hash).TxRef, UNKNOWN)
 	checkSort(testPool, snapshotOrder)
 
-	testPool.RemoveRecursive(testPool.MapTx[tx9.Hash].TxRef, UNKNOWN)
-	testPool.RemoveRecursive(testPool.MapTx[tx8.Hash].TxRef, UNKNOWN)
+	testPool.RemoveRecursive(testPool.MapTx.GetEntryByHash(tx9.Hash).TxRef, UNKNOWN)
+	testPool.RemoveRecursive(testPool.MapTx.GetEntryByHash(tx8.Hash).TxRef, UNKNOWN)
 	/* Now check the sort on the mining score index.
 	 * Final order should be:
 	 * tx7 (2M)

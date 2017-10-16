@@ -36,6 +36,20 @@ func (cacheMap *CacheMap) Add(key interface{}, value interface{}) {
 	}
 }
 
+func (cacheMap *CacheMap) AddElementToSlice(key interface{}, value interface{}) {
+	if v, ok := cacheMap.m[key]; !ok {
+		valueSlice := make([]interface{}, 0)
+		valueSlice = append(valueSlice, value)
+		cacheMap.m[key] = valueSlice
+		cacheMap.keys = append(cacheMap.keys, key)
+		sort.Sort(cacheMap)
+	} else {
+		valueSlice := v.([]interface{})
+		valueSlice = append(valueSlice, value)
+		cacheMap.m[key] = valueSlice
+	}
+}
+
 func (cacheMap *CacheMap) Del(key interface{}) {
 	keys := make([]interface{}, 0)
 	for _, cacheKey := range cacheMap.keys {
@@ -53,6 +67,16 @@ func (cacheMap *CacheMap) Del(key interface{}) {
 	cacheMap.m = m
 	sort.Sort(cacheMap)
 
+}
+
+func (cacheMap *CacheMap) GetLowerBoundKey(key interface{}) interface{} {
+	i := sort.Search(len(cacheMap.keys), func(i int) bool {
+		return cacheMap.camFunc(cacheMap.keys[1], key)
+	})
+	if i >= len(cacheMap.keys) {
+		return nil
+	}
+	return cacheMap.keys[i]
 }
 
 func (cacheMap *CacheMap) GetMap() map[interface{}]interface{} {

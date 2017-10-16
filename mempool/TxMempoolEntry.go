@@ -138,7 +138,9 @@ func (txMempoolEntry *TxMempoolEntry) UpdateDescendantState(modifySize int64, mo
 
 }
 
-func CompareTxMemPoolEntryByDescendantScore(a, b *TxMempoolEntry) bool {
+func CompareTxMemPoolEntryByDescendantScore(src, dst interface{}) bool {
+	a := src.(*TxMempoolEntry)
+	b := dst.(*TxMempoolEntry)
 	UseADescendants := useDescendantScore(a)
 	UseBDescendants := useDescendantScore(b)
 
@@ -185,7 +187,9 @@ func DepthAndScoreComparator(a *TxMempoolEntry, b *TxMempoolEntry) bool {
 
 }
 
-func CompareTxMemPoolEntryByAncestorFee(a, b *TxMempoolEntry) bool {
+func CompareTxMemPoolEntryByAncestorFee(src, dst interface{}) bool {
+	a := src.(*TxMempoolEntry)
+	b := dst.(*TxMempoolEntry)
 	aFees := uint64(a.ModFeesWithAncestors)
 	aSize := a.sizeWithAncestors
 
@@ -203,12 +207,16 @@ func CompareTxMemPoolEntryByAncestorFee(a, b *TxMempoolEntry) bool {
 	return f1 > f2
 }
 
-func CompareTxMemPoolEntryByEntryTime(a *TxMempoolEntry, b *TxMempoolEntry) bool {
+func CompareTxMemPoolEntryByEntryTime(src, dst interface{}) bool {
+	a := src.(*TxMempoolEntry)
+	b := dst.(*TxMempoolEntry)
 	return a.Time < b.Time
 }
 
 // CompareTxMempoolEntryByScore Sort by score of entry ((fee+delta)/size) in descending order
-func CompareTxMempoolEntryByScore(a *TxMempoolEntry, b *TxMempoolEntry) bool {
+func CompareTxMempoolEntryByScore(src, dst interface{}) bool {
+	a := src.(*TxMempoolEntry)
+	b := dst.(*TxMempoolEntry)
 	f1 := float64(a.GetModifiedFee()) * float64(b.TxSize)
 	f2 := float64(b.GetModifiedFee()) * float64(a.TxSize)
 	if f1 == f2 {

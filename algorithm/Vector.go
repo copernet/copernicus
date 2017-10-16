@@ -104,6 +104,7 @@ func (v *Vector) ReverseArray() []interface{} {
 	for i := len(v.Array) - 1; i >= 0; i-- {
 		reverseArray = append(reverseArray, v.Array[i])
 	}
+	v.Array = reverseArray
 	return reverseArray
 
 }
