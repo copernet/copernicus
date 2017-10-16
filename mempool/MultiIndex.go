@@ -5,7 +5,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-//the struct for support mempool store node, to implement MultiIndex sort
+//MultiIndex the struct for support mempool store node, to implement MultiIndex sort
 type MultiIndex struct {
 	poolNode              map[utils.Hash]*TxMempoolEntry //unique
 	byDescendantScoreSort *algorithm.CacheMap            //ordered_non_unique; keys : TxMempoolEntry; m : map[byDescendantScore]([]Hash)
@@ -40,11 +40,10 @@ func (multiIndex *MultiIndex) AddElement(hash utils.Hash, txEntry *TxMempoolEntr
 //GetEntryByHash : return the key correspond value In multiIndex;
 //And modify The return value will be Influence the multiIndex;
 func (multiIndex *MultiIndex) GetEntryByHash(hash utils.Hash) *TxMempoolEntry {
-	if v, ok := multiIndex.poolNode[hash]; !ok {
-		return nil
-	} else {
+	if v, ok := multiIndex.poolNode[hash]; ok {
 		return v
 	}
+	return nil
 }
 
 //DelEntryByHash : delete the key correspond value In multiIndex;
@@ -58,7 +57,7 @@ func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
 	}
 }
 
-//GetByDescendantScoreSortTxEntry : return the sort slice by cendantScore
+//GetByDescendantScoreSortTxEntryPtr : return the sort slice by cendantScore
 func (multiIndex *MultiIndex) GetByDescendantScoreSortTxEntryPtr() []interface{} {
 	keys := multiIndex.byDescendantScoreSort.GetAllKeys()
 	retKey := make([]interface{}, len(keys))
@@ -70,9 +69,8 @@ func (multiIndex *MultiIndex) GetByDescendantScoreSortBegin() interface{} {
 	keys := multiIndex.byDescendantScoreSort.GetAllKeys()
 	if len(keys) > 0 {
 		return keys[0]
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (multiIndex *MultiIndex) GetbyScoreSortTxEntryPtr() []interface{} {
@@ -86,9 +84,8 @@ func (multiIndex *MultiIndex) GetbyScoreSortBegin() interface{} {
 	keys := multiIndex.byScoreSort.GetAllKeys()
 	if len(keys) > 0 {
 		return keys[0]
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (multiIndex *MultiIndex) GetbyEntryTimeSortTxEntryPtr() []interface{} {
@@ -102,9 +99,8 @@ func (multiIndex *MultiIndex) GetbyEntryTimeSortBegin() interface{} {
 	keys := multiIndex.byEntryTimeSort.GetAllKeys()
 	if len(keys) > 0 {
 		return keys[0]
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (multiIndex *MultiIndex) GetbyAncestorFeeSortTxEntryPtr() []interface{} {
@@ -118,9 +114,8 @@ func (multiIndex *MultiIndex) GetbyAncestorFeeSortBegin() interface{} {
 	keys := multiIndex.byAncestorFeeSort.GetAllKeys()
 	if len(keys) > 0 {
 		return keys[0]
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (multiIndex *MultiIndex) Size() int {
