@@ -51,7 +51,13 @@ func (coin *Coin) Deserialize(reader io.Reader) error {
 	return err
 }
 
-func NewCoin() *Coin {
-	coin := Coin{}
-	return &coin
+func NewCoin(out *model.TxOut, height uint32, isCoinBase bool) *Coin {
+	var bit uint32
+	if isCoinBase {
+		bit = 1
+	}
+	return &Coin{
+		TxOut:               out,
+		HeightAndIsCoinBase: (height << 1) | bit,
+	}
 }
