@@ -3,6 +3,8 @@ package mempool
 import (
 	"unsafe"
 
+	"fmt"
+
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
@@ -166,8 +168,14 @@ func CompareTxMemPoolEntryByDescendantScore(src, dst interface{}) bool {
 	f1 := aModFee * bSize
 	f2 := aSize * bModFee
 	if f1 == f2 {
+		fmt.Printf("&&&&&&&&&&&&&&&&&&&&&&\n  origin Hash : %v; \n  dst Hash : %v; \n  "+
+			"compare : %v \n",
+			a.TxRef.Hash.ToString(), b.TxRef.Hash.ToString(), a.Time >= b.Time)
 		return a.Time >= b.Time
 	}
+	//fmt.Printf("============== oriHash : %v,\n dstHash : %v,\n  compare : %v \n",
+	//	a.TxRef.Hash.ToString(), b.TxRef.Hash.ToString(), f1 < f2)
+
 	return f1 < f2
 }
 

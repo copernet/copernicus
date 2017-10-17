@@ -1,18 +1,19 @@
 package mempool
 
 import (
-	//"bytes"
+	"bytes"
 	"testing"
 
-	//"github.com/btcboost/copernicus/algorithm"
 	"fmt"
+	//"github.com/btcboost/copernicus/algorithm"
 
 	"github.com/btcboost/copernicus/btcutil"
-	//"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	//"gopkg.in/fatih/set.v0"
+	"gopkg.in/fatih/set.v0"
+	//"math"
 )
 
 func fromTxToEntry(tx *model.Tx, fee btcutil.Amount, time int64, priority float64, pool *Mempool) *TxMempoolEntry {
@@ -24,7 +25,6 @@ func fromTxToEntry(tx *model.Tx, fee btcutil.Amount, time int64, priority float6
 	return entry
 }
 
-/*
 func TestMempoolAddUnchecked(t *testing.T) {
 	txParentPtr := model.NewTx()
 	txParentPtr.Ins = make([]*model.TxIn, 1)
@@ -174,12 +174,6 @@ func TestMempoolClear(t *testing.T) {
 		t.Errorf("current testPool.vTxHashes : %d, except the poolSize : %d", len(testPool.vTxHashes), 0)
 	}
 }
-*/
-const (
-	DESCENDANTSCORE = iota
-	MININGSCORE
-	ANCESTORSCORE
-)
 
 //there to be compare mempool store tx sorted And manual sorted, their sort should be the same
 func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
@@ -188,9 +182,9 @@ func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
 			pool.Size(), len(sortedOrder))
 	}
 
-	processFunc := func(keys []interface{}) error {
+	processFunc := func(keys []*TxMempoolEntry) error {
 		for i, v := range keys {
-			txEntry := v.(*TxMempoolEntry)
+			txEntry := v
 			oriHash := txEntry.TxRef.Hash
 			dstHash := sortedOrder[i]
 			if !(&oriHash).IsEqual(&dstHash) {
@@ -200,14 +194,14 @@ func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
 		}
 		return nil
 	}
-	printSlice := func(keys []interface{}) {
+	printSlice := func(keys []*TxMempoolEntry) {
 		for i, v := range keys {
-			fmt.Printf("******** pool txentry index : %d, element : %v\n", i, v.(*TxMempoolEntry).TxRef.Hash.ToString())
+			fmt.Printf("******** pool txentry index : %d, element : %v\n", i, v.TxRef.Hash.ToString())
 		}
 	}
 	printSort := func(sortSlice []utils.Hash) {
 		for i, v := range sortSlice {
-			fmt.Printf("-------- except txentry index : %d, element : %v\n", i, v.ToString())
+			fmt.Printf("-------- expect txentry index : %d, element : %v\n", i, v.ToString())
 		}
 	}
 	printSort(sortedOrder)
@@ -249,7 +243,8 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tx2.Outs = make([]*model.TxOut, 1)
 	tx2.Outs[0] = model.NewTxOut(2*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx2.Hash = tx2.TxHash()
-	testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 20000, 0, 9.0, nil), true)
+	txentry2 := fromTxToEntry(tx2, 20000, 0, 9.0, nil)
+	testPool.AddUnchecked(&tx2.Hash, txentry2, true)
 
 	// lowest fee
 	tx3 := model.NewTx()
@@ -259,10 +254,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tx3.Hash = tx3.TxHash()
 	txentry3 := fromTxToEntry(tx3, 0, 0, 100.0, nil)
 	testPool.AddUnchecked(&tx3.Hash, txentry3, true)
-	fmt.Printf("add child tx ago txentry3.ModFeesWithDescendants : %v, txentry3.SizeWithDescendants : %v, "+
-		"txentry3.CountWithDescendants : %v,  txentry3.GetModifiedFee() : %v, txentry3.EntryPriority : %v\n",
-		txentry3.ModFeesWithDescendants, txentry3.SizeWithDescendants, txentry3.CountWithDescendants, txentry3.GetModifiedFee(),
-		txentry3.EntryPriority)
+
 	// 2nd highest fee
 	tx4 := model.NewTx()
 	tx4.Ins = make([]*model.TxIn, 0)
@@ -277,7 +269,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tx5.Outs = make([]*model.TxOut, 1)
 	tx5.Outs[0] = model.NewTxOut(11*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx5.Hash = tx5.TxHash()
-	txentry5 := fromTxToEntry(tx5, 10000, 0, 1.0, nil)
+	txentry5 := fromTxToEntry(tx5, 10000, 1, 10.0, nil)
 	testPool.AddUnchecked(&tx5.Hash, txentry5, true)
 	if testPool.Size() != 5 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 5)
@@ -302,27 +294,12 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tx6.Outs = make([]*model.TxOut, 1)
 	tx6.Outs[0] = model.NewTxOut(20*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx6.Hash = tx6.TxHash()
-	txentry6 := fromTxToEntry(tx6, 0, 0, 0, nil)
-	fmt.Printf("add child tx ago txentry5.ModFeesWithDescendants : %v, txentry5.SizeWithDescendants : %v, "+
-		"txentry5.CountWithDescendants : %v,  txentry5.GetModifiedFee() : %v, txentry5.EntryPriority : %v\n",
-		txentry5.ModFeesWithDescendants, txentry5.SizeWithDescendants, txentry5.CountWithDescendants, txentry5.GetModifiedFee(),
-		txentry5.EntryPriority)
-	fmt.Printf("add child tx ago txentry1.ModFeesWithDescendants : %v, txentry1.SizeWithDescendants : %v, "+
-		"txentry1.CountWithDescendants : %v,  txentry1.GetModifiedFee() : %v, txentry1.EntryPriority : %v \n",
-		txentry1.ModFeesWithDescendants, txentry1.SizeWithDescendants, txentry1.CountWithDescendants, txentry1.GetModifiedFee(),
-		txentry1.EntryPriority)
+	txentry6 := fromTxToEntry(tx6, 0, 1, 10.0, nil)
 	testPool.AddUnchecked(&tx6.Hash, txentry6, true)
-	fmt.Printf("add child tx late txentry5.ModFeesWithDescendants : %v, txentry5.SizeWithDescendants : %v, "+
-		"txentry5.CountWithDescendants : %v,  txentry5.GetModifiedFee() : %v, txentry5.EntryPriority : %v\n",
-		txentry5.ModFeesWithDescendants, txentry5.SizeWithDescendants, txentry5.CountWithDescendants, txentry5.GetModifiedFee(),
-		txentry5.EntryPriority)
-	fmt.Printf("add child tx late txentry1.ModFeesWithDescendants : %v, txentry1.SizeWithDescendants : %v, "+
-		"txentry1.CountWithDescendants : %v,  txentry1.GetModifiedFee() : %v, txentry1.EntryPriority : %v\n",
-		txentry1.ModFeesWithDescendants, txentry1.SizeWithDescendants, txentry1.CountWithDescendants, txentry1.GetModifiedFee(),
-		txentry1.EntryPriority)
 	if testPool.Size() != 6 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 6)
 	}
+
 	// Check that at this point, tx6 is sorted low
 	tmpSorted := make([]utils.Hash, 6)
 	tmpSorted[0] = tx6.Hash
@@ -330,80 +307,84 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	sortedOrder = tmpSorted
 	fmt.Println("===============  00 ------------------")
 	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	if err != nil {
+		t.Error(err)
+		fmt.Println("===============  01 ------------------")
+		return
+	}
+
+	setAncestors := set.New()
+	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx6.Hash))
+	tx7 := model.NewTx()
+	tx7.Ins = make([]*model.TxIn, 1)
+	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
+	tx7.Outs = make([]*model.TxOut, 2)
+	tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx7.Outs[1] = model.NewTxOut(1*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx7.Hash = tx7.TxHash()
+
+	setAncestorsCalculated := set.New()
+	testPool.CalculateMemPoolAncestors(fromTxToEntry(tx7, 2000000, 1, 10.0, nil), setAncestorsCalculated,
+		100, 1000000, 1000, 1000000, true)
+	if !setAncestorsCalculated.IsEqual(setAncestors) {
+		t.Errorf("setAncestorsCalculated.Size() : %d, setAncestors.Size() : %d, their should be equal"+
+			"\n setAncestorsCalculated : %v,\n setAncestors : %v \n setAncestorsCalculated : %v, setAncestors : %v",
+			setAncestorsCalculated.Size(), setAncestors.Size(), setAncestorsCalculated.List()[0], setAncestors.List()[0],
+			setAncestorsCalculated.List(), setAncestors.List())
+	}
+	txentry7 := fromTxToEntry(tx7, 2000000, 1, 10.0, nil)
+	testPool.AddUncheckedWithAncestors(&tx7.Hash, txentry7, setAncestors, true)
+	if testPool.Size() != 7 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 7)
+	}
+
+	// Now tx6 should be sorted higher (high fee child): tx7, tx6, tx2, ...
+	tmpSorted = make([]utils.Hash, 7)
+	copy(tmpSorted, sortedOrder[1:])
+	tmpSorted[5] = tx6.Hash
+	tmpSorted[6] = tx7.Hash
+	sortedOrder = tmpSorted
+	fmt.Println("===============  02 ------------------")
+	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	if err != nil {
+		t.Error(err)
+		fmt.Println("===============  03 ------------------")
+		return
+	}
+
+	// low fee child of tx7
+	tx8 := model.NewTx()
+	tx8.Ins = make([]*model.TxIn, 1)
+	tx8.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx7.Hash, 0), []byte{model.OP_11})
+	tx8.Outs = make([]*model.TxOut, 1)
+	tx8.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx8.Hash = tx8.TxHash()
+	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx7.Hash))
+	fmt.Printf("tx8 Ancestors Number size : %v\n", setAncestors.Size())
+	txentry8 := fromTxToEntry(tx8, 0, 2, 0, nil)
+	//testPool.AddUncheckedWithAncestors(&tx8.Hash, txentry8, setAncestors, true)
+	testPool.AddUnchecked(&tx8.Hash, txentry8, true)
+	// Now tx8 should be sorted low, but tx6/tx both high
+	tmpSorted = make([]utils.Hash, 8)
+	tmpSorted[0] = tx8.Hash
+	copy(tmpSorted[1:], sortedOrder)
+	sortedOrder = tmpSorted
+	fmt.Println("===============  04 ------------------")
+	fmt.Printf("add child tx late txentry8.GetModifiedFee : %d, txentry8.SizeWithDescendants : %v, "+
+		"txentry8.CountWithDescendants : %v,  txentry8.ModFeesWithDescendants() : %d, TxSize : %v, useDescendantScore() : %v;"+
+		" txentry8 And txentry3 : %v, should be true\n",
+		txentry8.GetModifiedFee(), txentry8.SizeWithDescendants, txentry8.CountWithDescendants,
+		txentry8.ModFeesWithDescendants, txentry8.TxSize, useDescendantScore(txentry8),
+		CompareTxMemPoolEntryByDescendantScore(txentry8, txentry3))
+	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	err = nil
+	if err != nil {
+		t.Error(tx8.Hash.ToString())
+		t.Error(err)
+		fmt.Println("===============  05 ------------------")
+		return
+	}
 	/*
-		if err != nil {
-			t.Error(err)
-			fmt.Println("===============  01 ------------------")
-			return
-		}
-
-		setAncestors := set.New()
-		setAncestors.Add(testPool.MapTx.GetEntryByHash(tx6.Hash))
-		tx7 := model.NewTx()
-		tx7.Ins = make([]*model.TxIn, 1)
-		tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
-		tx7.Outs = make([]*model.TxOut, 2)
-		tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx7.Outs[1] = model.NewTxOut(1*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx7.Hash = tx7.TxHash()
-
-		setAncestorsCalculated := set.New()
-		testPool.CalculateMemPoolAncestors(fromTxToEntry(tx7, 2000000, 0, 1.0, nil), setAncestorsCalculated,
-			100, 1000000, 1000, 1000000, true)
-		if !setAncestorsCalculated.IsEqual(setAncestors) {
-			t.Errorf("setAncestorsCalculated.Size() : %d, setAncestors.Size() : %d, their should be equal"+
-				"\n setAncestorsCalculated : %v,\n setAncestors : %v \n setAncestorsCalculated : %v, setAncestors : %v",
-				setAncestorsCalculated.Size(), setAncestors.Size(), setAncestorsCalculated.List()[0], setAncestors.List()[0],
-				setAncestorsCalculated.List(), setAncestors.List())
-		}
-
-		fmt.Printf("add child tx ago txentry6.ModFeesWithDescendants : %v, txentry6.SizeWithDescendants : %v, "+
-			"txentry6.CountWithDescendants : %v,  txentry6.GetModifiedFee() : %v\n",
-			txentry6.ModFeesWithDescendants, txentry6.SizeWithDescendants, txentry6.CountWithDescendants, txentry6.GetModifiedFee())
-		txentry7 := fromTxToEntry(tx7, 2000000, 0, 1.0, nil)
-		testPool.AddUncheckedWithAncestors(&tx7.Hash, txentry7, setAncestors, true)
-		if testPool.Size() != 7 {
-			t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 7)
-		}
-		fmt.Printf("add child tx late txentry6.ModFeesWithDescendants : %v, txentry6.SizeWithDescendants : %v, "+
-			"txentry6.CountWithDescendants : %v,  txentry6.GetModifiedFee() : %v\n",
-			txentry6.ModFeesWithDescendants, txentry6.SizeWithDescendants, txentry6.CountWithDescendants, txentry6.GetModifiedFee())
-		// Now tx6 should be sorted higher (high fee child): tx7, tx6, tx2, ...
-		tmpSorted = make([]utils.Hash, 7)
-		copy(tmpSorted, sortedOrder[1:])
-		tmpSorted[5] = tx6.Hash
-		tmpSorted[6] = tx7.Hash
-
-		sortedOrder = tmpSorted
-		fmt.Println("===============  02 ------------------")
-		err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
-		if err != nil {
-			t.Error(err)
-			fmt.Println("===============  03 ------------------")
-			return
-		}
-
-		// low fee child of tx7
-		tx8 := model.NewTx()
-		tx8.Ins = make([]*model.TxIn, 1)
-		tx8.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx7.Hash, 0), []byte{model.OP_11})
-		tx8.Outs = make([]*model.TxOut, 1)
-		tx8.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx8.Hash = tx8.TxHash()
-		setAncestors.Add(testPool.MapTx.GetEntryByHash(tx7.Hash))
-		testPool.AddUncheckedWithAncestors(&tx8.Hash, fromTxToEntry(tx8, 0, 2, 0, nil), setAncestors, true)
-
-		// Now tx8 should be sorted low, but tx6/tx both high
-		tmpSorted = make([]utils.Hash, 0, 8)
-		tmpSorted = append(tmpSorted, tx8.Hash)
-		tmpSorted = append(tmpSorted, sortedOrder...)
-		sortedOrder = tmpSorted
-		err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
 		// low fee child of tx7
 		tx9 := model.NewTx()
 		tx9.Ins = make([]*model.TxIn, 1)
@@ -417,9 +398,9 @@ func TestMempoolEstimatePriority(t *testing.T) {
 		if testPool.Size() != 9 {
 			t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 9)
 		}
-		tmpSorted = make([]utils.Hash, 0, 9)
-		tmpSorted = append(tmpSorted, tx9.Hash)
-		tmpSorted = append(tmpSorted, sortedOrder...)
+		tmpSorted = make([]utils.Hash, 9)
+		tmpSorted[0] = tx9.Hash
+		copy(tmpSorted[1:], sortedOrder)
 		sortedOrder = tmpSorted
 		err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
 		if err != nil {
@@ -450,33 +431,30 @@ func TestMempoolEstimatePriority(t *testing.T) {
 				setAncestorsCalculated.List(), setAncestors.List())
 		}
 		testPool.AddUncheckedWithAncestors(&tx10.Hash, fromTxToEntry(tx10, 0, 0, 0, nil), setAncestors, true)
-	*/
-	/*
-	*  tx8 and tx9 should both now be sorted higher
-	*  Final order after tx10 is added:
-	*
-	*  tx3 = 0 (1)
-	*  tx5 = 10000 (1)
-	*  tx1 = 10000 (1)
-	*  tx4 = 15000 (1)
-	*  tx2 = 20000 (1)
-	*  tx9 = 200k (2 txs)
-	*  tx8 = 200k (2 txs)
-	*  tx10 = 200k (1 tx)
-	*  tx6 = 2.2M (5 txs)
-	*  tx7 = 2.2M (4 txs)
-	 */
 
-	// take out tx9, tx8 from the beginning
-	/*
+		//*  tx8 and tx9 should both now be sorted higher
+		//*  Final order after tx10 is added:
+		//*
+		//*  tx3 = 0 (1)
+		//*  tx5 = 10000 (1)
+		//*  tx1 = 10000 (1)
+		//*  tx4 = 15000 (1)
+		//*  tx2 = 20000 (1)
+		//*  tx9 = 200k (2 txs)
+		//*  tx8 = 200k (2 txs)
+		//*  tx10 = 200k (1 tx)
+		//*  tx6 = 2.2M (5 txs)
+		//*  tx7 = 2.2M (4 txs)
+
+		// take out tx9, tx8 from the beginning
 		t.Log("sortedOrder.Size() : ", len(sortedOrder))
-		tmpSorted = make([]utils.Hash, 0, 10)
-		copy(tmpSorted, sortedOrder[2:5]) //3
-		tmpSorted = append(tmpSorted, tx9.Hash)
-		tmpSorted = append(tmpSorted, tx8.Hash) //5
+		tmpSorted = make([]utils.Hash, 10)
+		tmpSorted[5] = tx9.Hash
+		tmpSorted[6] = tx8.Hash
+		copy(tmpSorted[:5], sortedOrder[2:7])
+		copy(tmpSorted[8:], sortedOrder[7:])
 		// tx10 is just before tx6
-		tmpSorted = append(tmpSorted, tx10.Hash)
-		tmpSorted = append(tmpSorted, sortedOrder[5:]...)
+		tmpSorted[7] = tx10.Hash
 		t.Log("tmpSorted.Size() : ", len(tmpSorted))
 		err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
 		if err != nil {
@@ -499,17 +477,16 @@ func TestMempoolEstimatePriority(t *testing.T) {
 
 		testPool.RemoveRecursive(testPool.MapTx.GetEntryByHash(tx9.Hash).TxRef, UNKNOWN)
 		testPool.RemoveRecursive(testPool.MapTx.GetEntryByHash(tx8.Hash).TxRef, UNKNOWN)
-	*/
-	/* Now check the sort on the mining score index.
-	 * Final order should be:
-	 * tx7 (2M)
-	 * tx2 (20k)
-	 * tx4 (15000)
-	 * tx1/tx5 (10000)
-	 * tx3/6 (0)
-	 * (Ties resolved by hash)
-	 */
-	/*
+
+		// * Now check the sort on the mining score index.
+		// * Final order should be:
+		// * tx7 (2M)
+		// * tx2 (20k)
+		// * tx4 (15000)
+		// * tx1/tx5 (10000)
+		// * tx3/6 (0)
+		// * (Ties resolved by hash)
+		// *
 		sortedOrder = make([]utils.Hash, 0)
 		sortedOrder = append(sortedOrder, tx7.Hash)
 		sortedOrder = append(sortedOrder, tx2.Hash)
@@ -528,7 +505,6 @@ func TestMempoolEstimatePriority(t *testing.T) {
 			sortedOrder = append(sortedOrder, tx3.Hash)
 			sortedOrder = append(sortedOrder, tx6.Hash)
 		}
-		//todo sort for mempool element
 		err = checkSort(testPool, snapshotOrder, MININGSCORE)
 		if err != nil {
 			t.Error(err)
@@ -537,7 +513,6 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	*/
 }
 
-/*
 func TestMempoolApplyDeltas(t *testing.T) {
 	testPool := NewMemPool(utils.FeeRate{0})
 
@@ -577,7 +552,7 @@ func TestMempoolApplyDeltas(t *testing.T) {
 	tx5.Hash = tx5.TxHash()
 	testPool.AddUnchecked(&tx5.Hash, fromTxToEntry(tx5, 10000, 0, 1.0, nil), true)
 
-	sortedOrder := make([]utils.Hash, 7)
+	sortedOrder := make([]utils.Hash, 5)
 	sortedOrder[0] = tx2.Hash
 	sortedOrder[1] = tx4.Hash
 	// tx1 and tx5 are both 10000
@@ -591,7 +566,11 @@ func TestMempoolApplyDeltas(t *testing.T) {
 		sortedOrder[3] = tx1.Hash
 	}
 	sortedOrder[4] = tx3.Hash
-	checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	err := checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	// low fee parent with high fee child
 	// tx6 (0) -> tx7 (high)
@@ -605,13 +584,20 @@ func TestMempoolApplyDeltas(t *testing.T) {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 6)
 	}
 	// Ties are broken by hash
+	tmpSorted := make([]utils.Hash, 6)
+	copy(tmpSorted[:5], sortedOrder)
+	sortedOrder = tmpSorted
 	if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
 		sortedOrder[5] = tx6.Hash
 	} else {
 		sortedOrder[4] = tx6.Hash
 		sortedOrder[5] = tx3.Hash
 	}
-	checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	err = checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	tx7 := model.NewTx()
 	tx7.Ins = make([]*model.TxIn, 1)
@@ -633,31 +619,38 @@ func TestMempoolApplyDeltas(t *testing.T) {
 	tmpSort[0] = sortedOrder[0]
 	tmpSort[1] = tx7.Hash
 	copy(tmpSort[2:], sortedOrder[1:])
-	checkSort(testPool, tmpSort, ANCESTORSCORE)
-
-		//after tx6 is mined, tx7 should move up in the sort
-		//vtx := algorithm.NewVector()
-		//vtx.PushBack(tx6)
-		//testPool.RemoveForBlock(vtx, 1)
-
-
-	sortedOrder = sortedOrder[:len(sortedOrder)-1]
-	// Ties are broken by hash
-	if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
-		sortedOrder = sortedOrder[:len(sortedOrder)-1]
-	} else {
-		tmp := make([]utils.Hash, 0)
-		tmp = append(tmp, sortedOrder[:len(sortedOrder)-2]...)
-		tmp = append(tmp, sortedOrder[len(sortedOrder)-1])
-		sortedOrder = tmp
+	err = checkSort(testPool, tmpSort, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
 	}
-	tmpSort = make([]utils.Hash, 1)
-	tmpSort[0] = tx7.Hash
-	tmpSort = append(tmpSort, sortedOrder[:]...)
-	checkSort(testPool, tmpSort, ANCESTORSCORE)
+	/*
+		//after tx6 is mined, tx7 should move up in the sort
+		vtx := algorithm.NewVector()
+		vtx.PushBack(tx6)
+		testPool.RemoveForBlock(vtx, 1)
+
+		sortedOrder = sortedOrder[:len(sortedOrder)-1]
+		// Ties are broken by hash
+		if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
+			sortedOrder = sortedOrder[:len(sortedOrder)-1]
+		} else {
+			tmp := make([]utils.Hash, 0)
+			tmp = append(tmp, sortedOrder[:len(sortedOrder)-2]...)
+			tmp = append(tmp, sortedOrder[len(sortedOrder)-1])
+			sortedOrder = tmp
+		}
+		tmpSort = make([]utils.Hash, 1)
+		tmpSort[0] = tx7.Hash
+		tmpSort = append(tmpSort, sortedOrder[:]...)
+		err = checkSort(testPool, tmpSort, ANCESTORSCORE)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	*/
 }
-*/
-/*
+
 func TestMempoolEstimateFee(t *testing.T) {
 	testPool := NewMemPool(utils.FeeRate{1000})
 	tx1 := model.NewTx()
@@ -667,34 +660,38 @@ func TestMempoolEstimateFee(t *testing.T) {
 	tx1.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_1, model.OP_EQUAL})
 	tx1.Hash = tx1.TxHash()
 	testPool.AddUnchecked(&tx1.Hash, fromTxToEntry(tx1, 10000, 0, 10.0, testPool), true)
+
+	tx2 := model.NewTx()
+	tx2.Ins = make([]*model.TxIn, 1)
+	tx2.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_2})
+	tx2.Outs = make([]*model.TxOut, 1)
+	tx2.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_2, model.OP_EQUAL})
+	tx2.Hash = tx2.TxHash()
+	testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 5000, 0, 10.0, testPool), true)
+	fmt.Println("---------- 0 -------------")
+	// should do nothing
+	testPool.TrimToSize(testPool.DynamicMemoryUsage(), nil)
+	if !testPool.Exists(tx1.Hash) {
+		t.Errorf("tx1 should be In Mempool ...")
+		return
+	}
+	if !testPool.Exists(tx2.Hash) {
+		t.Errorf("tx2 should be In Mempool ...")
+		return
+	}
+	fmt.Println("---------- 1 -------------")
 	/*
-		fmt.Println("---------- ******** 000 ******* -------------")
-		tx2 := model.NewTx()
-		tx2.Ins = make([]*model.TxIn, 1)
-		tx2.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_2})
-		tx2.Outs = make([]*model.TxOut, 1)
-		tx2.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_2, model.OP_EQUAL})
-		tx2.Hash = tx2.TxHash()
-		testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 5000, 0, 10.0, testPool), true)
-		fmt.Println("---------- 0 -------------")
-		// should do nothing
-		testPool.TrimToSize(testPool.DynamicMemoryUsage(), nil)
-		if !testPool.Exists(tx1.Hash) {
-			t.Errorf("tx1 should be In Mempool ...")
-		}
-		if !testPool.Exists(tx2.Hash) {
-			t.Errorf("tx2 should be In Mempool ...")
-		}
-		fmt.Println("---------- 1 -------------")
 		// should remove the lower-feerate transaction
 		testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
 		if !testPool.Exists(tx1.Hash) {
 			t.Errorf("tx1 should be In Mempool ...")
+			return
 		}
 		if testPool.Exists(tx2.Hash) {
 			t.Errorf("tx2 should be Not In Mempool ...")
+			return
 		}
-		testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 0, 0, 10.0, testPool), true)
+		testPool.AddUnchecked(&tx2.Hash, fromTxToEntry(tx2, 5000, 0, 10.0, testPool), true)
 
 		tx3 := model.NewTx()
 		tx3.Ins = make([]*model.TxIn, 1)
@@ -708,24 +705,30 @@ func TestMempoolEstimateFee(t *testing.T) {
 		testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
 		if testPool.Exists(tx1.Hash) {
 			t.Errorf("tx1 should be Not In Mempool ...")
+			return
 		}
 		if !testPool.Exists(tx2.Hash) {
 			t.Errorf("tx2 should be In Mempool ...")
+			return
 		}
 		if !testPool.Exists(tx3.Hash) {
 			t.Errorf("tx3 should be In Mempool ...")
+			return
 		}
 
 		// mempool is limited to tx1's size in memory usage, so nothing fits
 		testPool.TrimToSize(int64(tx1.SerializeSize()), nil)
 		if testPool.Exists(tx1.Hash) {
 			t.Errorf("tx1 should Not be Not In Mempool ...")
+			return
 		}
 		if testPool.Exists(tx2.Hash) {
 			t.Errorf("tx2 should Not be In Mempool ...")
+			return
 		}
 		if testPool.Exists(tx3.Hash) {
 			t.Errorf("tx3 should Not be In Mempool ...")
+			return
 		}
 
 		maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, tx3.SerializeSize()+tx2.SerializeSize())
@@ -818,6 +821,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 			t.Errorf("current FeePerk : %d, except FeePerk : %d",
 				testPool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
 		}
+
 		// ... we should keep the same min fee until we get a block
 		testPool.RemoveForBlock(vtx, 1)
 		utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE)
@@ -859,6 +863,5 @@ func TestMempoolEstimateFee(t *testing.T) {
 		// ... unless it has gone all the way to 0 (after getting past 1000/2)
 
 		utils.SetMockTime(0)
-
+	*/
 }
-*/

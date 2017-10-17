@@ -48,11 +48,6 @@ type Mempool struct {
 	mtx                         sync.RWMutex
 }
 
-type refOutPoint struct {
-	Hash  utils.Hash
-	Index uint32
-}
-
 func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
@@ -547,11 +542,15 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 }
 
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
-
-	size := int64(unsafe.Sizeof(mempool.MapTx)) + int64(unsafe.Sizeof(mempool.MapNextTx)) + int64(mempool.CachedInnerUsage)
+	entry := TxMempoolEntry{}
+	size := int64(unsafe.Sizeof(&entry)+unsafe.Sizeof(utils.HashOne))*int64(mempool.MapTx.Size()) +
+		int64(len(mempool.vTxHashes)*int(unsafe.Sizeof(TxHash{}))) +
+		int64(mempool.MapNextTx.Size()*int(unsafe.Sizeof(refOutPoint{})+unsafe.Sizeof(&entry))) +
+		int64(len(mempool.MapDeltas)*int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(PriorityFeeDelta{}))) +
+		int64(mempool.MapLinks.Count()*int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(&entry))) +
+		int64(mempool.CachedInnerUsage)
 
 	return size
-
 }
 
 func (mempool *Mempool) ExistsHash(hash utils.Hash) bool {
@@ -790,6 +789,7 @@ func (mempool *Mempool) GetTotalTxSize() uint64 {
 	mempool.mtx.RUnlock()
 	return size
 }
+
 func (mempool *Mempool) Exists(hash utils.Hash) bool {
 	mempool.mtx.RLock()
 	has := mempool.MapTx.GetEntryByHash(hash)
@@ -895,16 +895,6 @@ func (mempool *Mempool) RemoveForBlock(vtx *algorithm.Vector, blockHeight uint) 
 
 	mempool.LastRollingFeeUpdate = utils.GetMockTime()
 	mempool.BlockSinceLatRollingFeeBump = true
-}
-
-func CompareByRefOutPoint(a, b interface{}) bool {
-	comA := a.(refOutPoint)
-	comB := b.(refOutPoint)
-	cmp := comA.Hash.Cmp(&comB.Hash)
-	if cmp < 0 || (cmp == 0 && comA.Index < comB.Index) {
-		return true
-	}
-	return false
 }
 
 func clear(mempool *Mempool) {
