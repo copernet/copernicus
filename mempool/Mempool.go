@@ -14,6 +14,7 @@ import (
 	"github.com/bradfitz/slice"
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
@@ -500,7 +501,9 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 		// mempool with feerate equal to txn which were removed with no block in
 		// between.
 		removed := utils.NewFeeRateWithSize(int64(it.ModFeesWithDescendants), int(it.SizeWithDescendants))
-		removed = utils.NewFeeRate(removed.SataoshisPerK + IncrementalRelayFee.SataoshisPerK)
+		fmt.Println("------- TrimToSize() : remove Fee : ", removed)
+		removed.SataoshisPerK += conf.GlobalValueInstance.GetIncrementalRelayFee().SataoshisPerK
+		fmt.Println("------- TrimToSize() : remove Fee add late : ", removed)
 		mempool.TrackPackageRemoved(removed)
 		if removed.SataoshisPerK > maxFeeRateRemoved.SataoshisPerK {
 			maxFeeRateRemoved = removed
@@ -515,6 +518,7 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 				txn.PushBack(txMempoolEntryIter.TxRef)
 			}
 		}
+		fmt.Printf("=========== TrimToSize() remove tx number %d\n", stage.Size())
 		mempool.RemoveStaged(stage, false, SIZELIMIT)
 		if pvNoSpendsRemaining != nil {
 			for _, t := range txn.Array {
@@ -536,20 +540,29 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 
 	}
 	if maxFeeRateRemoved.SataoshisPerK > 0 {
-		fmt.Println("mempool", "removed %u txn , rolling minimum fee bumped tp %s ", txNRemoved, maxFeeRateRemoved.String())
+		fmt.Printf("mempool removed %v txn , rolling minimum fee bumped tp %s \n", txNRemoved, maxFeeRateRemoved.String())
 	}
 
 }
 
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
 	entry := TxMempoolEntry{}
+
 	size := int64(unsafe.Sizeof(&entry)+unsafe.Sizeof(utils.HashOne))*int64(mempool.MapTx.Size()) +
 		int64(len(mempool.vTxHashes)*int(unsafe.Sizeof(TxHash{}))) +
 		int64(mempool.MapNextTx.Size()*int(unsafe.Sizeof(refOutPoint{})+unsafe.Sizeof(&entry))) +
 		int64(len(mempool.MapDeltas)*int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(PriorityFeeDelta{}))) +
 		int64(mempool.MapLinks.Count()*int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(&entry))) +
 		int64(mempool.CachedInnerUsage)
-
+	fmt.Printf("================= mempool size : %d ===============\n", size)
+	mapTxSize := int64(unsafe.Sizeof(&entry)+unsafe.Sizeof(utils.HashOne)) * int64(mempool.MapTx.Size())
+	vTxHashSize := int64(len(mempool.vTxHashes) * int(unsafe.Sizeof(TxHash{})))
+	mapNextTxSize := int64(mempool.MapNextTx.Size() * int(unsafe.Sizeof(refOutPoint{})+unsafe.Sizeof(&entry)))
+	mapDeltaSize := int64(len(mempool.MapDeltas) * int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(PriorityFeeDelta{})))
+	mapLinkSize := int64(mempool.MapLinks.Count() * int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(&entry)))
+	fmt.Printf("=========== mapTxSize : %d, vTxHashSize : %d, mapNextTxSize : %d, mapDeltaSize : %d"+
+		", mapLinkSize : %d,  CachedInnerUsage : %d \n",
+		mapTxSize, vTxHashSize, mapNextTxSize, mapDeltaSize, mapLinkSize, mempool.CachedInnerUsage)
 	return size
 }
 

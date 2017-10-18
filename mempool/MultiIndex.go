@@ -83,7 +83,7 @@ func (multiIndex *MultiIndex) GetByDescendantScoreSort() []*TxMempoolEntry {
 func (multiIndex *MultiIndex) GetByDescendantScoreSortBegin() interface{} {
 	multiIndex.updateSort(DESCENDANTSCORE)
 	if len(multiIndex.byDescendantScoreSort) > 0 {
-		return multiIndex.byDescendantScoreSort[len(multiIndex.byDescendantScoreSort)-1]
+		return multiIndex.byDescendantScoreSort[0]
 	}
 	return nil
 }
