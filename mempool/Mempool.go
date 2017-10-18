@@ -808,8 +808,6 @@ func (mempool *Mempool) HasNoInputsOf(tx *model.Tx) bool {
 }
 
 func (mempool *Mempool) RemoveConflicts(tx *model.Tx) {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
 	// Remove transactions which depend on inputs of tx, recursively
 	for _, txIn := range tx.Ins {
 		hasTx := mempool.MapNextTx.Get(refOutPoint{*txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index})
@@ -867,6 +865,7 @@ func (mempool *Mempool) RemoveForBlock(vtx *algorithm.Vector, blockHeight uint) 
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
 
+	//entries element Type : *TxMempoolEntry;
 	entries := algorithm.NewVector()
 	vtx.Each(func(item interface{}) bool {
 		txid := item.(*model.Tx).Hash
@@ -889,7 +888,6 @@ func (mempool *Mempool) RemoveForBlock(vtx *algorithm.Vector, blockHeight uint) 
 		}
 		mempool.RemoveConflicts(txPtr)
 		mempool.ClearPrioritisation(&txPtr.Hash)
-
 		return true
 	})
 

@@ -157,6 +157,11 @@ func (v *Vector) SetValueByIndex(index int, value interface{}) error {
 	return nil
 }
 
+func NewVectorWithSize(size uint) *Vector {
+	array := make([]interface{}, size)
+	return &Vector{array}
+}
+
 func NewVector() *Vector {
 	array := make([]interface{}, 0)
 	return &Vector{array}

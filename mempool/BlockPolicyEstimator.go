@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 
+	"fmt"
 	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
@@ -98,9 +99,10 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 	// removeTx (via processBlockTx) correctly calculate age of unconfirmed txs
 	// to remove from tracking.
 	blockPolicyEstimator.bestSeenHeight = blockHeight
-
+	fmt.Println("****** ProcessBlock() ClearCurrent() begin ******* ")
 	// Clear the current block state and update unconfirmed circular buffer
 	blockPolicyEstimator.feeStats.ClearCurrent(blockHeight)
+	fmt.Println("****** ProcessBlock() ClearCurrent() OK ******* ")
 
 	countedTxs := uint(0)
 	// Repopulate the current block states
@@ -260,6 +262,6 @@ func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
 		vfeeList.PushBack(bucketBoundary)
 	}
 	vfeeList.PushBack(float64(utils.INF_FEERATE))
-	blockPolicyEstimator.feeStats = *policy.NewTxConfirmStats(*vfeeList, utils.MAX_BLOCK_CONFIRMS, utils.DEFAULT_DECAY)
+	blockPolicyEstimator.feeStats = *policy.NewTxConfirmStats(vfeeList, utils.MAX_BLOCK_CONFIRMS, utils.DEFAULT_DECAY)
 	return &blockPolicyEstimator
 }
