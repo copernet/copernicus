@@ -43,3 +43,17 @@ func (coinView *CoinView) AddCoin(outpoint *model.OutPoint, coin *Coin, possible
 	coinView.cachedCoinsUsage += it.Coin.DynamicMemoryUsage()
 
 }
+
+func AddCoins(cache *CoinView, tx *model.Tx, height int) {
+	isCoinbase := tx.IsCoinBase()
+	txid := tx.Hash
+	for i, out := range tx.Outs {
+		// Pass fCoinbase as the possible_overwrite flag to AddCoin, in order to
+		// correctly deal with the pre-BIP30 occurrances of duplicate coinbase
+		// transactions.
+		outPoint := model.NewOutPoint(&txid, uint32(i))
+		coin := NewCoin(out, uint32(height), isCoinbase)
+		cache.AddCoin(outPoint, coin, isCoinbase)
+	}
+
+}
