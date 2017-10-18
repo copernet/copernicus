@@ -5,6 +5,8 @@ import (
 
 	"encoding/binary"
 
+	"unsafe"
+
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -37,6 +39,10 @@ func (coin *Coin) Serialize(writer io.Writer) error {
 		return err
 	}
 	return coin.TxOut.Serialize(writer)
+}
+
+func (coin *Coin) DynamicMemoryUsage() int64 {
+	return int64(unsafe.Sizeof(coin.TxOut.Script.ParsedOpCodes))
 }
 
 func (coin *Coin) Deserialize(reader io.Reader) error {
