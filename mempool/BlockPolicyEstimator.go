@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"fmt"
+
 	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"

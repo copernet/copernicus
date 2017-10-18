@@ -77,8 +77,7 @@ const (
 	VECTORPTRTYPE
 )
 
-/*
- * NewTxConfirmStats Initialize the data structures. This is called by BlockPolicyEstimator's
+/*NewTxConfirmStats Initialize the data structures. This is called by BlockPolicyEstimator's
  * constructor with default values.
  * @param defaultBuckets contains the upper limits for the bucket boundaries
  * @param maxConfirms max number of confirms to track
