@@ -1,9 +1,9 @@
 package mempool
 
 import (
-	"unsafe"
-
 	"fmt"
+
+	"unsafe"
 
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
@@ -111,7 +111,7 @@ func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCoun
 	} else {
 		txMempoolEntry.CountWithAncestors += uint64(modifyCount)
 	}
-	txMempoolEntry.ModFeesWithDescendants += modifyFee
+	txMempoolEntry.ModFeesWithAncestors += modifyFee
 	txMempoolEntry.SigOpCoungWithAncestors += modifySigOps
 	if txMempoolEntry.SigOpCoungWithAncestors < 0 {
 		panic("the Ancestors's sigOpCode Number should not be negative")
@@ -234,10 +234,7 @@ func CompareTxMempoolEntryByScore(src, dst interface{}) bool {
 }
 
 func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
-	var size int64
-	for _, entry := range s.List() {
-		size += int64(unsafe.Sizeof(entry))
-	}
+	size := int64(MallocUsage(int(unsafe.Sizeof(s))))
 	return size
 }
 func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
