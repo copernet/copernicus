@@ -4,8 +4,14 @@ go:
   - 1.9.x
 before_install:
   - export GOROOT=$(go env GOROOT)
-
-
+  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+  - sudo apt-get update -qq
+  - sudo apt-get install gcc-6 g++-6 libsnappy-dev zlib1g-dev libbz2-dev -qq
+  - export CXX="g++-6" CC="gcc-6"
+  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags2_2.0-1.1ubuntu1_amd64.deb
+  - sudo dpkg -i libgflags2_2.0-1.1ubuntu1_amd64.deb
+  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags-dev_2.0-1.1ubuntu1_amd64.deb
+  - sudo dpkg -i libgflags-dev_2.0-1.1ubuntu1_amd64.deb
 
 install:
   - git clone https://github.com/bitcoin-core/secp256k1.git /tmp/secp256k1
@@ -15,6 +21,15 @@ install:
   - make -j4
   - sudo make install
   - cd -
+
+  - git clone https://github.com/facebook/rocksdb.git /tmp/rocksdb
+  - pushd /tmp/rocksdb
+  - make clean
+  - make shared_lib
+  - sudo cp --preserve=links ./librocksdb.* /usr/lib/
+  - sudo cp -r ./include/rocksdb/ /usr/include/
+  - popd
+
   - go get -v github.com/Masterminds/glide
   - cd $GOPATH/src/github.com/Masterminds/glide && git checkout e73500c735917e39a8b782e0632418ab70250341 && go install && cd -
   - glide install
