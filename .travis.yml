@@ -18,14 +18,14 @@ install:
   - pushd /tmp/secp256k1
   - ./autogen.sh
   - ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
-  - make -j4
+  - make -j16
   - sudo make install
   - cd -
 
   - git clone https://github.com/facebook/rocksdb.git /tmp/rocksdb
   - pushd /tmp/rocksdb
   - make clean
-  - make shared_lib
+  - make shared_lib -j16
   - sudo cp --preserve=links ./librocksdb.* /usr/lib/
   - sudo cp -r ./include/rocksdb/ /usr/include/
   - popd
