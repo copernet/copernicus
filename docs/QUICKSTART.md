@@ -9,6 +9,18 @@ make -j4
 make install
 ```
 
+## build rocksdb v5.5+
+
+build and install rocksdb, according doc: (https://github.com/facebook/rocksdb/blob/master/INSTALL.md), then
+install  gorocksdb.
+
+```
+cd vendor/github.com/tecbot/gorocksdb/
+CGO_CFLAGS="-I/usr/local/include/rocksdb" \
+CGO_LDFLAGS="-L/usr/local/lib -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -lzstd" \
+go install
+```
+
 ## glide Package Management 
 [glide](https://github.com/Masterminds/glide) is Package Management of Golang
 
