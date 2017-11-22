@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/hex"
 	"testing"
+	"github.com/btcboost/copernicus/btcutil"
 )
 
 func TestPublicKeyToAddress(t *testing.T) {
@@ -26,6 +27,27 @@ func TestPublicKeyToAddress(t *testing.T) {
 	}
 	if address.addressStr != "1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV" {
 		t.Errorf("address is wrong 1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV  --  %s", address.addressStr)
+		return
+	}
+}
+func TestHash160ToAddress(t*testing.T) {
+	data, err := hex.DecodeString("0014a4b4ca48de0b3fffc15404a1acdc8dbaae226955")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	hash160 := btcutil.Hash160(data)
+	if hex.EncodeToString(hash160) != "2928f43af18d2d60e8a843540d8086b305341339" {
+		t.Error(err)
+		return
+	}
+	address, err := Hash160ToAddressStr(hash160, ScriptToAddress)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if address != "35SegwitPieWKVHieXd97mnurNi8o6CM73" {
+		t.Error("address is worng ,", address)
 		return
 	}
 }
