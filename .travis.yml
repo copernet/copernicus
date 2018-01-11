@@ -4,6 +4,15 @@ go:
   - 1.9.x
 
 
+cache:
+  directories:
+  - $HOME/.glide/cache
+  - _venv
+  - /tmp/secp256k1
+  - /tmp/rocksdb
+before_cache:  # glide touches ORIG_HEAD on `glide install`
+  - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
+
 before_install:
   - export GOROOT=$(go env GOROOT)
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
