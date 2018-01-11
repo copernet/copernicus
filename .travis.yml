@@ -2,6 +2,8 @@ language: go
 go:
   - 1.8.x
   - 1.9.x
+
+
 before_install:
   - export GOROOT=$(go env GOROOT)
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test

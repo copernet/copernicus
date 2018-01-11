@@ -1,5 +1,5 @@
 hash: bf6a77c849e53ec0e962cc496096286c744d0a463e40f3be4d7d575c83c164da
-updated: 2017-10-19T17:37:42.523289811+08:00
+updated: 2018-01-11T11:34:59.327473+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -7,8 +7,6 @@ imports:
   - config
   - logs
   - utils
-- name: github.com/boltdb/bolt
-  version: b8dbe1101d74c30e817227a99716591e3e6e6bc4
 - name: github.com/bradfitz/slice
   version: d9036e2120b5ddfa53f3ebccd618c4af275f47da
 - name: github.com/btcboost/secp256k1-go
@@ -34,12 +32,13 @@ imports:
   - spew
 - name: github.com/edsrzf/mmap-go
   version: 6c75090c55983bef2e129e173681b20d24871ef8
+- name: github.com/pelletier/go-toml
+  version: 0131db6d737cfbbfb678f8b7d92e55e27ce46224
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/siddontang/go
   version: c2b33271306fcb7c6532efceac33ec45ee2439e0
   subpackages:
-  - bson
   - filelock
   - hack
   - ioutil2
@@ -48,19 +47,16 @@ imports:
   - snappy
   - sync2
 - name: github.com/siddontang/ledisdb
-  version: 68932326409a78e10ae6bf8b809b556940e0eb4a
+  version: 56900470a899883f691bcdf6bea4ac547f2a9a6f
   subpackages:
   - config
   - ledis
   - rpl
   - store
-  - store/boltdb
   - store/driver
   - store/goleveldb
   - store/leveldb
-  - store/mdb
   - store/rocksdb
-  - vendor/gomdb
 - name: github.com/siddontang/rdb
   version: fc89ed2e418d27e3ea76e708e54276d2b44ae9cf
 - name: github.com/syndtr/goleveldb
@@ -83,21 +79,25 @@ imports:
   subpackages:
   - snappy
 - name: github.com/tecbot/gorocksdb
-  version: b9cb0d30eca790f5bcf524dd3beb715d6c8d1923
+  version: 15d5431583170b15f738a3e67ade13749f458058
 - name: go4.org
-  version: 034d17a462f7b2dcd1a4a73553ec5357ff6e6c6e
+  version: fba789b7e39ba524b9e60c45c37a50fae63a2a09
   subpackages:
   - reflectutil
 - name: golang.org/x/crypto
   version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
   - ripemd160
+- name: golang.org/x/net
+  version: ab555f366c4508dbe0802550b1b20c46c5c18aa0
+  subpackages:
+  - context
 - name: gopkg.in/fatih/set.v0
   version: 27c40922c40b43fe04554d8223a402af3ea333f3
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
 - name: github.com/stretchr/testify
-  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  version: b91bfb9ebec76498946beb6af7c0230c7cc7ba6c
   subpackages:
   - assert
