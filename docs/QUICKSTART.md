@@ -31,7 +31,7 @@ go install
  ```
 2. On Mac OSX install the latest release via Homebrew
  ```
- brew install gulde
+ brew install glide
  ```
  3. On ubuntu install from PPA
 ```
