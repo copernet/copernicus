@@ -16,11 +16,11 @@ type KnownAddress struct {
 
 func (knownAddress *KnownAddress) Chance() float64 {
 	now := time.Now()
-	lastSeen := now.Sub(knownAddress.NetAddress.Timestamp)
+	//lastSeen := now.Sub(knownAddress.NetAddress.Timestamp)
 	lastAttempt := now.Sub(knownAddress.LastAttempt)
-	if lastSeen < 0 {
-		lastSeen = 0
-	}
+	//if lastSeen < 0 {
+	//	lastSeen = 0
+	//}
 	if lastAttempt < 0 {
 		lastAttempt = 0
 	}

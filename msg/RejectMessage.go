@@ -67,7 +67,7 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, version uint3
 	if err != nil {
 		return err
 	}
-	reason, err := utils.ReadVarString(reader)
+	reason, _ := utils.ReadVarString(reader)
 	rejectMessage.Reason = reason
 	if rejectMessage.Cmd == CommandTx || rejectMessage.Cmd == CommandBlock {
 		err := protocol.ReadElement(reader, rejectMessage.Hash)

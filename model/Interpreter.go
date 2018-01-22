@@ -966,7 +966,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					if err != nil {
 						return false, err
 					}
-					fSuccess, err := CheckSig(txHash, vchByte, vchPubkey.([]byte))
+					fSuccess, _ := CheckSig(txHash, vchByte, vchPubkey.([]byte))
 					if !fSuccess &&
 						(flags&core.SCRIPT_VERIFY_NULLFAIL == core.SCRIPT_VERIFY_NULLFAIL) &&
 						len(vchSig.([]byte)) > 0 {
