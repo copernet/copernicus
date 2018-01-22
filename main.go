@@ -24,7 +24,7 @@ func btcMain() error {
 }
 
 func main() {
-	log.Info("application is runing")
+	log.Info("application is running")
 	startBitcoin()
 
 	if err := btcMain(); err != nil {
@@ -40,10 +40,10 @@ func startBitcoin() error {
 		return err
 	}
 	defer func() {
-		log.Info("gracefully shtting down the server ....")
+		log.Info("gracefully shutting down the server ....")
 		peerManager.Stop()
 		peerManager.WaitForShutdown()
-		log.Info("server shtdown compltete")
+		log.Info("server shutdown complete")
 	}()
 	peerManager.Start()
 	return nil

@@ -56,7 +56,7 @@ type TxMempoolEntry struct {
 	CountWithAncestors      uint64
 	sizeWithAncestors       uint64
 	ModFeesWithAncestors    btcutil.Amount
-	SigOpCoungWithAncestors int64
+	SigOpCountWithAncestors int64
 	//Index in mempool's vTxHashes
 	vTxHashesIdx int
 }
@@ -112,8 +112,8 @@ func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCoun
 		txMempoolEntry.CountWithAncestors += uint64(modifyCount)
 	}
 	txMempoolEntry.ModFeesWithAncestors += modifyFee
-	txMempoolEntry.SigOpCoungWithAncestors += modifySigOps
-	if txMempoolEntry.SigOpCoungWithAncestors < 0 {
+	txMempoolEntry.SigOpCountWithAncestors += modifySigOps
+	if txMempoolEntry.SigOpCountWithAncestors < 0 {
 		panic("the Ancestors's sigOpCode Number should not be negative")
 	}
 }
@@ -267,7 +267,7 @@ func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
 	txMempoolEntry.CountWithAncestors = 1
 	txMempoolEntry.sizeWithAncestors = uint64(txMempoolEntry.TxSize)
 	txMempoolEntry.ModFeesWithAncestors = fee
-	txMempoolEntry.SigOpCoungWithAncestors = sigOpsCount
+	txMempoolEntry.SigOpCountWithAncestors = sigOpsCount
 
 	return &txMempoolEntry
 }

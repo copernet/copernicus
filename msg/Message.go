@@ -12,7 +12,7 @@ import (
 const (
 	CommandSize        = 12
 	MaxRejectReasonLen = 250
-	LockTimeTHreshold  = 5E8 // Tue Nov 5 00:53:20 1985 UTC
+	LockTimeThreshold  = 5E8 // Tue Nov 5 00:53:20 1985 UTC
 	SafeChars          = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@"
 )
 
@@ -61,7 +61,7 @@ func InventorySummary(invList []*InventoryVector) string {
 		case InventoryTypeBlock:
 			return fmt.Sprintf("block %v", iv.Hash)
 		case InventoryTypeTx:
-			return fmt.Sprintf("unkonwn %d ,%v", uint32(iv.Type), iv.Hash)
+			return fmt.Sprintf("unknown %d ,%v", uint32(iv.Type), iv.Hash)
 
 		}
 	}
@@ -124,7 +124,7 @@ func SanitizeString(str string, maxLength uint) string {
 
 }
 func LockTimeToString(lockTime uint32) string {
-	if lockTime < LockTimeTHreshold {
+	if lockTime < LockTimeThreshold {
 		return fmt.Sprintf("height %d", lockTime)
 	}
 	return time.Unix(int64(lockTime), 0).String()
@@ -147,7 +147,7 @@ func makeEmptyMessage(command string) (Message, error) {
 		message = &RejectMessage{}
 
 	default:
-		return nil, fmt.Errorf("unkonwn command %s", command)
+		return nil, fmt.Errorf("unknown command %s", command)
 
 	}
 	return message, nil

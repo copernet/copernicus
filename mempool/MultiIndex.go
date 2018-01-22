@@ -74,7 +74,7 @@ func (multiIndex *MultiIndex) Size() int {
 	return len(multiIndex.poolNode)
 }
 
-//GetByDescendantScoreSort : return the sort slice by cendantScore
+//GetByDescendantScoreSort : return the sort slice by descendantScore
 func (multiIndex *MultiIndex) GetByDescendantScoreSort() []*TxMempoolEntry {
 	multiIndex.updateSort(DESCENDANTSCORE)
 	return multiIndex.byDescendantScoreSort

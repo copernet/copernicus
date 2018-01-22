@@ -113,38 +113,38 @@ func TestBlockChainFetchNextBlock(t *testing.T) {
 }
 
 func TestBlockChainSkipTo(t *testing.T) {
-	testBlcokChain, err := creatBlockChiain()
+	testBlockChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	testBlcokChain.CurrentFile.Close()
-	err = creatNextFile(testBlcokChain)
+	testBlockChain.CurrentFile.Close()
+	err = creatNextFile(testBlockChain)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	err = testBlcokChain.SkipTo(1, 0)
+	err = testBlockChain.SkipTo(1, 0)
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func WriteNextFile() error {
-	testBlcokChain, err := creatBlockChiain()
+	testBlockChain, err := creatBlockChiain()
 	if err != nil {
 		return err
 	}
-	testBlcokChain.CurrentFile.Close()
+	testBlockChain.CurrentFile.Close()
 
-	testBlcokChain.CurrentFile, err = os.OpenFile(blkFileName(testBlcokChain.Path, testBlcokChain.CurrentID+1), os.O_RDWR, 0666)
+	testBlockChain.CurrentFile, err = os.OpenFile(blkFileName(testBlockChain.Path, testBlockChain.CurrentID+1), os.O_RDWR, 0666)
 	if err != nil {
 		return err
 	}
-	defer testBlcokChain.CurrentFile.Close()
+	defer testBlockChain.CurrentFile.Close()
 
-	err = WriteContentInFile(testBlcokChain)
+	err = WriteContentInFile(testBlockChain)
 	return err
 }
 
@@ -155,14 +155,14 @@ func TestBlockChainNextBlock(t *testing.T) {
 		return
 	}
 
-	testBlcokChain, err := creatBlockChiain()
+	testBlockChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer testBlcokChain.CurrentFile.Close()
+	defer testBlockChain.CurrentFile.Close()
 
-	block, err := testBlcokChain.NextBlock()
+	block, err := testBlockChain.NextBlock()
 	if err != nil {
 		t.Error(err)
 		return
@@ -205,24 +205,24 @@ func TestBlockChainBestBlockHash(t *testing.T) {
 }
 
 func TestBlockChainSkipBlock(t *testing.T) {
-	testBlcokChain, err := creatBlockChiain()
+	testBlockChain, err := creatBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	err = testBlcokChain.SkipBlock()
+	err = testBlockChain.SkipBlock()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	path := os.TempDir()
-	err = os.Remove(blkFileName(path, testBlcokChain.CurrentID))
+	err = os.Remove(blkFileName(path, testBlockChain.CurrentID))
 	if err != nil {
 		t.Error(err)
 	}
-	err = os.Remove(blkFileName(path, testBlcokChain.CurrentID+1))
+	err = os.Remove(blkFileName(path, testBlockChain.CurrentID+1))
 	if err != nil {
 		t.Error(err)
 	}

@@ -333,8 +333,8 @@ func (txConfirmStats *TxConfirmStats) EstimateMedianVal(confTarget int, sufficie
 //NewTx Record a new transaction entering the mempool
 func (txConfirmStats *TxConfirmStats) NewTx(nBlockHeight uint, val float64) uint {
 	bucketIndex := txConfirmStats.bucketMap.GetLowerBoundByfloat64(val).(uint)
-	blockINdex := nBlockHeight % uint(txConfirmStats.unconfTxs.Size())
-	unconfxVecTmp := txConfirmStats.unconfTxs.Array[blockINdex].(*algorithm.Vector)
+	blockIndex := nBlockHeight % uint(txConfirmStats.unconfTxs.Size())
+	unconfxVecTmp := txConfirmStats.unconfTxs.Array[blockIndex].(*algorithm.Vector)
 	unconfxVecTmp.SetValueByIndex(int(bucketIndex), unconfxVecTmp.Array[bucketIndex].(int)+1)
 	return bucketIndex
 

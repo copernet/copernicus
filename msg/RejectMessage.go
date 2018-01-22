@@ -42,7 +42,7 @@ func (code RejectCode) ToString() string {
 	case RejectNonstandard:
 		return "reject_nonstandard"
 	}
-	return fmt.Sprintf("Unkown RejectCode (%d)", uint8(code))
+	return fmt.Sprintf("Unknown RejectCode (%d)", uint8(code))
 }
 
 type RejectMessage struct {

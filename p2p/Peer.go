@@ -114,7 +114,7 @@ func (p *Peer) String() string {
 }
 func (p *Peer) UpdateBlockHeight(newHeight int32) {
 	p.BlockStatusMutex.Lock()
-	log.Trace("Updating last block heighy of p2p %v from %v to %v", p.AddressString, p.LastBlock, newHeight)
+	log.Trace("Updating last block height of p2p %v from %v to %v", p.AddressString, p.LastBlock, newHeight)
 	p.LastBlock = newHeight
 	p.BlockStatusMutex.Unlock()
 }
@@ -521,7 +521,7 @@ out:
 				handlerStartTime = time.Now()
 			case SccHandlerDone:
 				if !handlerActive {
-					log.Warn("Recevied handler done control command when a handler is not already active")
+					log.Warn("Received handler done control command when a handler is not already active")
 					continue
 				}
 
@@ -576,7 +576,7 @@ cleanup:
 }
 func (p *Peer) inHandler() {
 	idleTimer := time.AfterFunc(IdleTimeout, func() {
-		log.Warn("Peer %s no answer for %s --disconnectind", p, IdleTimeout)
+		log.Warn("Peer %s no answer for %s --disconnected", p, IdleTimeout)
 		p.Stop()
 	})
 out:
@@ -612,7 +612,7 @@ out:
 			p.HandlePongMessage(message)
 
 		default:
-			log.Debug("Recevied unhandled message of type %v from %v", readMessage.Command(), p)
+			log.Debug("Received unhandled message of type %v from %v", readMessage.Command(), p)
 
 		}
 
@@ -806,7 +806,7 @@ func (p *Peer) Connect(conn net.Conn) {
 	go func() {
 		err := p.start()
 		if err != nil {
-			log.Warn("Can note start perr %v , err :%v", p, err)
+			log.Warn("Can note start peer %v , err :%v", p, err)
 			p.Stop()
 		}
 
