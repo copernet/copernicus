@@ -190,13 +190,13 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 		return nil, err
 	}
 	sentNoces.Add(nonce, nonce)
-	msg := msg.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
-	msg.AddUserAgent(p.Config.UserAgent, p.Config.UserAgentVersion)
-	msg.LocalAddress.ServicesFlag = protocol.SFNodeNetworkAsFullNode
-	msg.ServiceFlag = p.Config.ServicesFlag
-	msg.ProtocolVersion = p.ProtocolVersion
-	msg.DisableRelayTx = p.Config.DisableRelayTx
-	return msg, nil
+	message := msg.GetNewVersionMessage(localAddress, remoteAddress, nonce, blockNumber)
+	message.AddUserAgent(p.Config.UserAgent, p.Config.UserAgentVersion)
+	message.LocalAddress.ServicesFlag = protocol.SFNodeNetworkAsFullNode
+	message.ServiceFlag = p.Config.ServicesFlag
+	message.ProtocolVersion = p.ProtocolVersion
+	message.DisableRelayTx = p.Config.DisableRelayTx
+	return message, nil
 }
 
 func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) error {
