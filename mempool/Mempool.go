@@ -800,7 +800,7 @@ func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncest
 		ancestorIt := item.(*TxMempoolEntry)
 		updateSize += int64(ancestorIt.TxSize)
 		updateFee += ancestorIt.GetModifiedFee()
-		updateSigOpsCount += ancestorIt.SigOpCoungWithAncestors
+		updateSigOpsCount += ancestorIt.SigOpCountWithAncestors
 
 		return true
 	})

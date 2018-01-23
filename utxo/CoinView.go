@@ -49,7 +49,7 @@ func AddCoins(cache *CoinView, tx *model.Tx, height int) {
 	txid := tx.Hash
 	for i, out := range tx.Outs {
 		// Pass fCoinbase as the possible_overwrite flag to AddCoin, in order to
-		// correctly deal with the pre-BIP30 occurrances of duplicate coinbase
+		// correctly deal with the pre-BIP30 occurrences of duplicate coinbase
 		// transactions.
 		outPoint := model.NewOutPoint(&txid, uint32(i))
 		coin := NewCoin(out, uint32(height), isCoinbase)

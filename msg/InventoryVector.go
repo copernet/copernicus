@@ -40,7 +40,7 @@ func InventoryTypeToString(inventoryType protocol.InventoryType) string {
 	case InventoryTypeTx:
 		return "msg_filtered_block"
 	}
-	return fmt.Sprintf("Unkonwn Inventory type (%d)", uint32(inventoryType))
+	return fmt.Sprintf("Unknown Inventory type (%d)", uint32(inventoryType))
 
 }
 

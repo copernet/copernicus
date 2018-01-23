@@ -42,7 +42,7 @@ func (code RejectCode) ToString() string {
 	case RejectNonstandard:
 		return "reject_nonstandard"
 	}
-	return fmt.Sprintf("Unkown RejectCode (%d)", uint8(code))
+	return fmt.Sprintf("Unknown RejectCode (%d)", uint8(code))
 }
 
 type RejectMessage struct {
@@ -67,7 +67,7 @@ func (rejectMessage *RejectMessage) BitcoinParse(reader io.Reader, version uint3
 	if err != nil {
 		return err
 	}
-	reason, err := utils.ReadVarString(reader)
+	reason, _ := utils.ReadVarString(reader)
 	rejectMessage.Reason = reason
 	if rejectMessage.Cmd == CommandTx || rejectMessage.Cmd == CommandBlock {
 		err := protocol.ReadElement(reader, rejectMessage.Hash)

@@ -159,11 +159,11 @@ func (addressManager *NetAddressManager) pickTried(bucket int) *list.Element {
 	return oldestElem
 }
 func (addressManager *NetAddressManager) getTriedBucket(netAddress *PeerAddress) int {
-	dataFrist := []byte{}
-	dataFrist = append(dataFrist, addressManager.key[:]...)
-	dataFrist = append(dataFrist, []byte(netAddress.NetAddressKey())...)
-	hashFrist := core.DoubleSha256Bytes(dataFrist)
-	hash64 := binary.LittleEndian.Uint64(hashFrist)
+	dataFirst := []byte{}
+	dataFirst = append(dataFirst, addressManager.key[:]...)
+	dataFirst = append(dataFirst, []byte(netAddress.NetAddressKey())...)
+	hashFirst := core.DoubleSha256Bytes(dataFirst)
+	hash64 := binary.LittleEndian.Uint64(hashFirst)
 	hash64 %= TriedBucketsPeerGroup
 	var hashBuf [8]byte
 	binary.LittleEndian.PutUint64(hashBuf[:], hash64)
@@ -311,7 +311,7 @@ func (addressManager *NetAddressManager) Start() {
 
 func (addressManager *NetAddressManager) Stop() error {
 	if atomic.AddInt32(&addressManager.shutdown, 1) != 1 {
-		log.Warn("address manager is alerady in the process of shutting down ")
+		log.Warn("address manager is already in the process of shutting down ")
 		return nil
 	}
 	log.Info("address manger shutting down")
@@ -528,7 +528,7 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 	addressManager.numNew++
 
 	rmKey := rmKnownAddress.NetAddress.NetAddressKey()
-	log.Trace("Replaceing %s with %s in tried", rmKey, addressKey)
+	log.Trace("Replacing %s with %s in tried", rmKey, addressKey)
 	addressManager.addressNew[newBucket].Set(rmKey, rmKnownAddress)
 
 }

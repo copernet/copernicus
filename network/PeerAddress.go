@@ -229,11 +229,11 @@ func WritePeerAddress(w io.Writer, pver uint32, na *PeerAddress, ts bool) (err e
 }
 
 func MaxPeerAddressPayload(version uint32) uint32 {
-	len := uint32(26)
+	length := uint32(26)
 	if version >= protocol.PeerAddressTimeVersion {
-		len += 4
+		length += 4
 	}
-	return len
+	return length
 }
 
 func NewPeerAddressWithNetAddr(address net.Addr, servicesFlag protocol.ServiceFlag) (*PeerAddress, error) {

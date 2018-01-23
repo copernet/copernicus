@@ -190,10 +190,10 @@ func (peerManager *PeerManager) AddPeer(serverPeer *ServerPeer) {
 
 func (peerManager *PeerManager) Stop() error {
 	if atomic.AddInt32(&peerManager.shutdown, 1) != 1 {
-		log.Info("PeerManager is aleray in the process of shtting down")
+		log.Info("PeerManager is already in the process of shutting down")
 		return nil
 	}
-	log.Info("PeerManager shtting down")
+	log.Info("PeerManager shutting down")
 	close(peerManager.quit)
 	return nil
 }
@@ -205,7 +205,7 @@ func (peerManager *PeerManager) Start() {
 	if atomic.AddInt32(&peerManager.started, 1) != 1 {
 		return
 	}
-	log.Trace("Satarting server")
+	log.Trace("starting server")
 	peerManager.waitGroup.Add(1)
 	go peerManager.peerHandler()
 	if peerManager.nat != nil {

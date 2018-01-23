@@ -291,7 +291,7 @@ func HDPrivateKeyToPublicKeyID(id []byte) ([]byte, error) {
 	copy(key[:], id)
 	pubBytes, ok := HDPrivateToPublicKeyIDs[key]
 	if !ok {
-		return nil, errors.New("unkown hd private extended key bytes")
+		return nil, errors.New("unknown hd private extended key bytes")
 
 	}
 	return pubBytes, nil

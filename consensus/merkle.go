@@ -35,7 +35,7 @@ func merkleComputation(leaves []utils.Hash, root *utils.Hash, pmutated *bool, br
 	// First process all leaves into 'inner' values.
 	for int(count) < len(leaves) {
 		h := leaves[count]
-		matchh := count == branchpos
+		match := count == branchpos
 		count++
 		level := 0
 		// For each of the lower bits in count that are 0, do 1 step. Each
@@ -43,11 +43,11 @@ func merkleComputation(leaves []utils.Hash, root *utils.Hash, pmutated *bool, br
 		// current leaf, and each needs a hash to combine it.
 		for ; (count & (uint32(1) << uint(level))) == 0; level++ {
 			if pbranch != nil {
-				if matchh {
+				if match {
 					*pbranch = append(*pbranch, inner[level])
 				} else if matchlevel == level {
 					*pbranch = append(*pbranch, h)
-					matchh = true
+					match = true
 				}
 			}
 			if inner[level].IsEqual(&h) {
@@ -59,13 +59,13 @@ func merkleComputation(leaves []utils.Hash, root *utils.Hash, pmutated *bool, br
 			h = core.DoubleSha256Hash(tmp)
 		}
 		inner[level] = h
-		if matchh {
+		if match {
 			matchlevel = level
 		}
 	}
 	// Do a final 'sweep' over the rightmost branch of the tree to process
 	// odd levels, and reduce everything to a single top value.
-	// Level is the level (counted from the bottom) up to which we've sweeped.
+	// Level is the level (counted from the bottom) up to which we've swept.
 	level := 0
 	// As long as bit number level in count is zero, skip it. It means there
 	// is nothing left at this level.

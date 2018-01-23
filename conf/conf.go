@@ -19,7 +19,7 @@ const (
 
 type AppConfig struct {
 	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
-	ShowVersion        bool          `short:"v" long:"version" description:"Disaplay version in"`
+	ShowVersion        bool          `short:"v" long:"version" description:"Display version in"`
 	NoPeerBloomFilters bool          `long:"nopeerbloomfilters" description:"Disable bloom filtering support"`
 	MaxPeers           int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
 	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`

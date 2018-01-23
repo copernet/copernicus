@@ -71,7 +71,7 @@ const (
  */
 func IsStandardTx(tx *model.Tx, reason *string) bool {
 	if tx.Version > model.MAX_STANDARD_VERSION || tx.Version < 1 {
-		*reason = "Versiom"
+		*reason = "Version"
 		return false
 	}
 
