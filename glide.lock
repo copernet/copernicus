@@ -1,5 +1,5 @@
-hash: a7c934a1078eef4aca55f437748613698def542501c2da9e51386bd6072b2d9f
-updated: 2018-01-25T17:04:47.386615+08:00
+hash: c0e051b69a624276aaea0384a0df5629648fa0110519d7b5e63291021d4fa48c
+updated: 2018-01-25T17:16:10.388303+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -7,6 +7,8 @@ imports:
   - config
   - logs
   - utils
+- name: github.com/boltdb/bolt
+  version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
 - name: github.com/bradfitz/slice
   version: d9036e2120b5ddfa53f3ebccd618c4af275f47da
 - name: github.com/btcboost/secp256k1-go
