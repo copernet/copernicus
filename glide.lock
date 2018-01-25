@@ -1,5 +1,5 @@
-hash: bf6a77c849e53ec0e962cc496096286c744d0a463e40f3be4d7d575c83c164da
-updated: 2018-01-11T11:34:59.327473+08:00
+hash: a7c934a1078eef4aca55f437748613698def542501c2da9e51386bd6072b2d9f
+updated: 2018-01-25T17:04:47.386615+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -78,8 +78,6 @@ imports:
   version: ce8acff4829e0c2458a67ead32390ac0a381c862
   subpackages:
   - snappy
-- name: github.com/tecbot/gorocksdb
-  version: 15d5431583170b15f738a3e67ade13749f458058
 - name: go4.org
   version: fba789b7e39ba524b9e60c45c37a50fae63a2a09
   subpackages:
