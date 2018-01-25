@@ -1,10 +1,10 @@
-package storage
+package db
 
 import (
 	"crypto"
 )
 
-type Transaction interface {
+type DBTx interface {
 	// Metadata returns the top-most bucket for all metadata storage.
 	Metadata() MetaData
 

@@ -1,4 +1,4 @@
-package storage
+package db
 
 // Bucket represents a collection of key/value pairs.
 type Bucket interface {
