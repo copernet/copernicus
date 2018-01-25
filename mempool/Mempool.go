@@ -30,8 +30,6 @@ const (
 	ROLLING_FEE_HALFLIFE = 60 * 60 * 12
 )
 
-var IncrementalRelayFee utils.FeeRate
-
 type Mempool struct {
 	CheckFrequency              uint32
 	TransactionsUpdated         int
@@ -118,17 +116,12 @@ func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescend
 // updateDescendants to true when removing a tx that was in a block, so that
 // any in-mempool descendants have their ancestor state updated.
 func (mempool *Mempool) RemoveStaged(stage *set.Set, updateDescendants bool, reason int) {
-	fmt.Println("*******01******* mempool.CachedInnerUsage : ", mempool.CachedInnerUsage)
 	mempool.UpdateForRemoveFromMempool(stage, updateDescendants)
-	fmt.Printf("*******02******* mempool.CachedInnerUsage : %d, set Size : %d\n", mempool.CachedInnerUsage, stage.Size())
 	stage.Each(func(item interface{}) bool {
 		tmpTxMempoolEntryPtr := item.(*TxMempoolEntry)
-		fmt.Println("*******03******* mempool.CachedInnerUsage : ", mempool.CachedInnerUsage)
 		mempool.removeUnchecked(tmpTxMempoolEntryPtr, reason)
-		fmt.Println("*******04******* mempool.CachedInnerUsage : ", mempool.CachedInnerUsage)
 		return true
 	})
-	fmt.Println("*******05******* mempool.CachedInnerUsage : ", mempool.CachedInnerUsage)
 }
 
 // UpdateForRemoveFromMempool For each transaction being removed, update ancestors
@@ -241,10 +234,7 @@ func (mempool *Mempool) PrioritiseTransaction(hash utils.Hash, strHash string, p
 			txMempoolEntry := txiter.(*TxMempoolEntry)
 			txMempoolEntry.UpdateAncestorState(0, 0, 0, btcutil.Amount(feeDelta))
 		}
-
 	}
-	fmt.Printf("prioritise transcation :%s priority +=%f ,fee += %s \n", strHash, priorityDelta, btcutil.Amount(feeDelta).String())
-
 }
 
 func (mempool *Mempool) ApplyDeltas(hash utils.Hash, priorityDelta float64, feeDelta int64) (float64, int64) {
@@ -271,7 +261,6 @@ func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
  */
 func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	//todo: add signal/slot In where for passed entry
-	txid := entry.TxRef.Hash
 	for _, txin := range entry.TxRef.Ins {
 		mempool.MapNextTx.Del(refOutPoint{*txin.PreviousOutPoint.Hash, txin.PreviousOutPoint.Index})
 	}
@@ -285,12 +274,13 @@ func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	}
 	mempool.totalTxSize -= uint64(entry.TxSize)
 	mempool.CachedInnerUsage -= uint64(entry.UsageSize)
+	s := set.New()
 	tmpTxLink := mempool.MapLinks.Get(entry.TxRef.Hash).(*TxLinks)
-	mempool.CachedInnerUsage -= uint64(DynamicUsage(tmpTxLink.Children) + DynamicUsage(tmpTxLink.Parents))
+	mempool.CachedInnerUsage -= uint64(int64(tmpTxLink.Children.Size())*IncrementalDynamicUsageTxMempoolEntry(s) + int64(tmpTxLink.Parents.Size())*IncrementalDynamicUsageTxMempoolEntry(s))
 	mempool.MapLinks.Delete(entry.TxRef.Hash)
 	mempool.MapTx.DelEntryByHash(entry.TxRef.Hash)
 	mempool.TransactionsUpdated++
-	mempool.MinerPolicyEstimator.RemoveTx(txid)
+	mempool.MinerPolicyEstimator.RemoveTx(entry.TxRef.Hash)
 }
 
 // UpdateForDescendants : Update the given tx for any in-mempool descendants.
@@ -311,13 +301,12 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 		for _, childEntry := range setChildren.List() {
 			childTx := childEntry.(*TxMempoolEntry)
 			cacheIt := cachedDescendants.Get(childTx)
-			cacheItVector := cacheIt.(algorithm.Vector)
-			if cacheIt != cachedDescendants.Last() {
+			if cacheIt != nil {
+				cacheItVector := cacheIt.(algorithm.Vector)
 				// We've already calculated this one, just add the entries for
 				// this set but don't traverse again.
 				for _, cacheEntry := range cacheItVector.Array {
 					setAllDescendants.Add(cacheEntry)
-
 				}
 			} else if !setAllDescendants.Has(childEntry) {
 				// Schedule for later processing
@@ -339,8 +328,8 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 			modifySize = modifySize + txCit.TxSize
 			modifyFee = modifyFee + txCit.ModSize
 			modifyCount++
-			cachedSet := cachedDescendants.Get(updateIt).(set.Set)
-			cachedSet.Add(txCit)
+			cachedSet := cachedDescendants.Get(updateIt).(algorithm.Vector)
+			cachedSet.PushBack(txCit)
 			tmpTx := mempool.MapTx.GetEntryByHash(txCit.TxRef.Hash)
 			tmpTx.UpdateAncestorState(int64(updateIt.TxSize), 1, updateIt.SigOpCount, updateIt.Fee+btcutil.Amount(updateIt.FeeDelta))
 		}
@@ -349,7 +338,7 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 	tmpTx.UpdateDescendantState(int64(modifySize), btcutil.Amount(modifyFee), int64(modifyCount))
 }
 
-// UpdateTransactionsFromBlock : vHashesToUpdate is the set of transaction hashes from a disconnected block
+// UpdateTransactionsFromBlock : hashesToUpdate is the set of transaction hashes from a disconnected block
 // which has been re-added to the mempool. For each entry, look for descendants
 // that are outside hashesToUpdate, and add fee/size information for such
 // descendants to the parent. For each such descendant, also update the ancestor
@@ -357,8 +346,8 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 func (mempool *Mempool) UpdateTransactionsFromBlock(hashesToUpdate algorithm.Vector) {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
-	// For each entry in vHashesToUpdate, store the set of in-mempool, but not
-	// in-vHashesToUpdate transactions, so that we don't have to recalculate
+	// For each entry in hashesToUpdate, store the set of in-mempool, but not
+	// in-hashesToUpdate transactions, so that we don't have to recalculate
 	// descendants when we come across a previously seen entry.
 	mapMemPoolDescendantsToUpdate := algorithm.NewCacheMap(utils.CompareByHash)
 	setAlreadyIncluded := set.New()
@@ -462,6 +451,7 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 		return utils.NewFeeRate(int64(mempool.RollingMinimumFeeRate))
 	}
 
+	increRelFee := conf.GlobalValueInstance.GetIncrementalRelayFee()
 	time := utils.GetMockTime()
 	if time > mempool.LastRollingFeeUpdate+10 {
 		halfLife := ROLLING_FEE_HALFLIFE
@@ -474,13 +464,14 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 
 		mempool.RollingMinimumFeeRate = mempool.RollingMinimumFeeRate / math.Pow(2.0, float64(time-mempool.LastRollingFeeUpdate)/float64(halfLife))
 		mempool.LastRollingFeeUpdate = time
-		if mempool.RollingMinimumFeeRate < float64(IncrementalRelayFee.GetFeePerK())/2 {
+		//if mempool.RollingMinimumFeeRate < float64(IncrementalRelayFee.GetFeePerK())/2 {
+		if mempool.RollingMinimumFeeRate < float64(increRelFee.GetFeePerK())/2 {
 			mempool.RollingMinimumFeeRate = 0
 			return utils.NewFeeRate(0)
 		}
 
 	}
-	result := int64(math.Max(mempool.RollingMinimumFeeRate, float64(IncrementalRelayFee.SataoshisPerK)))
+	result := int64(math.Max(mempool.RollingMinimumFeeRate, float64(increRelFee.SataoshisPerK)))
 	return utils.NewFeeRate(result)
 }
 
@@ -496,25 +487,20 @@ func (mempool *Mempool) TrackPackageRemoved(rate *utils.FeeRate) {
 * of outpoints which are not in mempool which no longer have any spends in
 * this mempool.
  */
-func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorithm.Vector) {
+func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorithm.Vector) error {
 	mempool.mtx.Lock()
 	defer mempool.mtx.Unlock()
 	txNRemoved := 0
 	maxFeeRateRemoved := utils.NewFeeRate(0)
-	fmt.Println("==============================  0011 ============================== sizeLimit : ", sizeLimit)
 	for mempool.MapTx.Size() > 0 && mempool.DynamicMemoryUsage() > sizeLimit {
 		it := mempool.MapTx.GetByDescendantScoreSortBegin().(*TxMempoolEntry)
-		fmt.Println("==============================  0022 ============================== ")
 		// We set the new mempool min fee to the feerate of the removed set,
 		// plus the "minimum reasonable fee rate" (ie some value under which we
 		// consider txn to have 0 fee). This way, we don't allow txn to enter
 		// mempool with feerate equal to txn which were removed with no block in
 		// between.
 		removed := utils.NewFeeRateWithSize(int64(it.ModFeesWithDescendants), int(it.SizeWithDescendants))
-		fmt.Printf("=====01====== TrimToSize() : remove Fee : %v, ModFeesWithDescendants : %d, SizeWithDescendants : %d \n",
-			removed, it.ModFeesWithDescendants, it.SizeWithDescendants)
 		removed.SataoshisPerK += conf.GlobalValueInstance.GetIncrementalRelayFee().SataoshisPerK
-		fmt.Println("=====02====== TrimToSize() : remove Fee add late : ", removed)
 		mempool.TrackPackageRemoved(removed)
 		if removed.SataoshisPerK > maxFeeRateRemoved.SataoshisPerK {
 			maxFeeRateRemoved = removed
@@ -529,10 +515,8 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 				txn.PushBack(txMempoolEntryIter.TxRef)
 			}
 		}
-		fmt.Printf("=====03====== TrimToSize() remove tx number %d, mempool.CachedInnerUsage : %d\n",
-			stage.Size(), mempool.CachedInnerUsage)
+
 		mempool.RemoveStaged(stage, false, SIZELIMIT)
-		fmt.Printf("=====04====== TrimToSize()  mempool.CachedInnerUsage : %d\n", mempool.CachedInnerUsage)
 		if pvNoSpendsRemaining != nil {
 			for _, t := range txn.Array {
 				tx := t.(*model.Tx)
@@ -553,32 +537,21 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 
 	}
 
-	fmt.Println("==============================  0033 ============================== ")
 	if maxFeeRateRemoved.SataoshisPerK > 0 {
-		fmt.Printf("mempool removed %v txn , rolling minimum fee bumped tp %s \n", txNRemoved, maxFeeRateRemoved.String())
+		return errors.Errorf("mempool removed %v txn , rolling minimum fee bumped tp %s \n", txNRemoved, maxFeeRateRemoved.String())
 	}
-
+	return nil
 }
 
 func (mempool *Mempool) DynamicMemoryUsage() int64 {
 	entry := TxMempoolEntry{}
 
-	size := int64(unsafe.Sizeof(&entry)+unsafe.Sizeof(utils.HashOne))*int64(mempool.MapTx.Size()) +
+	return MallocUsage(int64(unsafe.Sizeof(&entry)+unsafe.Sizeof(utils.HashOne)))*int64(mempool.MapTx.Size()) +
 		int64(len(mempool.vTxHashes)*int(unsafe.Sizeof(TxHash{}))) +
 		int64(mempool.MapNextTx.Size()*int(unsafe.Sizeof(refOutPoint{})+unsafe.Sizeof(&entry))) +
 		int64(len(mempool.MapDeltas)*int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(PriorityFeeDelta{}))) +
 		int64(mempool.MapLinks.Count()*int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(&entry))) +
 		int64(mempool.CachedInnerUsage)
-	fmt.Printf("================= mempool size : %d ===============\n", size)
-	mapTxSize := int64(unsafe.Sizeof(&entry)+unsafe.Sizeof(utils.HashOne)) * int64(mempool.MapTx.Size())
-	vTxHashSize := int64(len(mempool.vTxHashes) * int(unsafe.Sizeof(TxHash{})))
-	mapNextTxSize := int64(mempool.MapNextTx.Size() * int(unsafe.Sizeof(refOutPoint{})+unsafe.Sizeof(&entry)))
-	mapDeltaSize := int64(len(mempool.MapDeltas) * int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(PriorityFeeDelta{})))
-	mapLinkSize := int64(mempool.MapLinks.Count() * int(unsafe.Sizeof(utils.HashOne)+unsafe.Sizeof(&entry)))
-	fmt.Printf("=========== mapTxSize : %d, vTxHashSize : %d, mapNextTxSize : %d, mapDeltaSize : %d"+
-		", mapLinkSize : %d,  CachedInnerUsage : %d \n",
-		mapTxSize, vTxHashSize, mapNextTxSize, mapDeltaSize, mapLinkSize, mempool.CachedInnerUsage)
-	return size
 }
 
 func (mempool *Mempool) ExistsHash(hash utils.Hash) bool {
@@ -623,7 +596,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	tx := entry.TxRef
 
 	if fSearchForParents {
-		// Get parents of this transaction that are in the mempool  获取该交易在池中的父交易
+		// Get parents of this transaction that are in the mempool
 		// GetMemPoolParents() is only valid for entries in the mempool, so we
 		// iterate mapTx to find parents.
 		for _, txIn := range tx.Ins {
@@ -650,7 +623,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		stageit := parentList[0].(*TxMempoolEntry)
 		setAncestors.Add(stageit)
 		parentList = parentList[1:]
-		totalSizeWithAncestors = stageit.TxSize
+		totalSizeWithAncestors += stageit.TxSize
 
 		if stageit.SizeWithDescendants+uint64(entry.TxSize) > limitDescendantSize {
 			return errors.Errorf(
@@ -695,11 +668,11 @@ func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, va
 	defer mempool.mtx.Unlock()
 	setAncestors := set.New()
 	nNoLimit := uint64(math.MaxUint64)
-
 	err := mempool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
 	if err != nil {
 		return false
 	}
+
 	return mempool.AddUncheckedWithAncestors(hash, entry, setAncestors, validFeeEstimate)
 }
 
@@ -714,7 +687,7 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 
 	// Update transaction for any feeDelta created by PrioritiseTransaction mapTx
 	if prioriFeeDelta, ok := mempool.MapDeltas[*hash]; ok {
-		if prioriFeeDelta.fee > 0 {
+		if prioriFeeDelta.fee != 0 {
 			txEntry := mempool.MapTx.GetEntryByHash(*hash)
 			txEntry.UpdateFeeDelta(int64(prioriFeeDelta.fee))
 		}
@@ -746,13 +719,8 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 
 		return true
 	})
-	fmt.Printf("begin UpdateAncestoesOf UsageSize : %d, tx Size : %d\n", entry.UsageSize, entry.TxRef.SerializeSize())
 	mempool.UpdateAncestorsOf(true, entry, setAncestors)
-	fmt.Printf("mempool.CachedInnerUsage : %d, ModFeesWithDescendants : %d, UsageSize : %d \n",
-		mempool.CachedInnerUsage, entry.ModFeesWithDescendants, entry.UsageSize)
 	mempool.UpdateEntryForAncestors(entry, setAncestors)
-	fmt.Printf("three exit mempool.CachedInnerUsage : %d, ModFeesWithDescendants : %d, UsageSize : %d \n",
-		mempool.CachedInnerUsage, entry.ModFeesWithDescendants, entry.UsageSize)
 	mempool.TransactionsUpdated++
 	mempool.totalTxSize += uint64(entry.TxSize)
 	mempool.MinerPolicyEstimator.ProcessTransaction(entry, validFeeEstimate)
@@ -765,8 +733,6 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 /*UpdateAncestorsOf Update ancestors of hash to add/remove it as a descendant transaction.*/
 func (mempool *Mempool) UpdateAncestorsOf(add bool, entry *TxMempoolEntry, setAncestors *set.Set) {
 	parentIters := mempool.GetMemPoolParents(entry)
-	fmt.Printf("UpdateAncestorsOf() mempool.CachedInnerUsage : %d , parentIters.Size() : %d\n",
-		mempool.CachedInnerUsage, parentIters.Size())
 	// add or remove this tx as a child of each parent
 	parentIters.Each(func(item interface{}) bool {
 		piter := item.(*TxMempoolEntry)
@@ -963,6 +929,7 @@ func NewMemPool(minReasonableRelayFee utils.FeeRate) *Mempool {
 func (mempool *Mempool) Expire(time int64) int {
 	mempool.mtx.RLock()
 	defer mempool.mtx.RUnlock()
+	//toremove element type is *TxMempoolEntry
 	toremove := set.New()
 	for _, txMempoolEntry := range mempool.MapTx.poolNode {
 		if txMempoolEntry.Time < time {
@@ -971,13 +938,12 @@ func (mempool *Mempool) Expire(time int64) int {
 	}
 	stage := set.New()
 	for _, txiter := range toremove.List() {
-		txMempoolEntry := txiter.(TxMempoolEntry)
-		mempool.CalculateDescendants(&txMempoolEntry, stage)
+		txMempoolEntry := txiter.(*TxMempoolEntry)
+		mempool.CalculateDescendants(txMempoolEntry, stage)
 	}
 	mempool.RemoveStaged(stage, false, EXPIRY)
 
 	return stage.Size()
-
 }
 
 func (mempool *Mempool) TransactionWithinChainLimit(txid utils.Hash, chainLimit uint64) bool {

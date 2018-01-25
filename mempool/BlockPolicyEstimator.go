@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 
-	"fmt"
-
 	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/algorithm"
@@ -59,7 +57,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMe
 	// Feerates are stored and reported as BCC-per-kb:
 	feeRate := utils.NewFeeRateWithSize(int64(entry.Fee), entry.TxSize)
 	bucketIndex := blockPolicyEstimator.feeStats.NewTx(txHeight, float64(feeRate.GetFeePerK()))
-	txStatsInfo := policy.TxStatsInfo{txHeight, bucketIndex}
+	txStatsInfo := policy.TxStatsInfo{BlockHeight: txHeight, BucketIndex: bucketIndex}
 	blockPolicyEstimator.mapMemPoolTxs.Set(txID, txStatsInfo)
 }
 
@@ -100,10 +98,8 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 	// removeTx (via processBlockTx) correctly calculate age of unconfirmed txs
 	// to remove from tracking.
 	blockPolicyEstimator.bestSeenHeight = blockHeight
-	fmt.Println("****** ProcessBlock() ClearCurrent() begin ******* ")
 	// Clear the current block state and update unconfirmed circular buffer
 	blockPolicyEstimator.feeStats.ClearCurrent(blockHeight)
-	fmt.Println("****** ProcessBlock() ClearCurrent() OK ******* ")
 
 	countedTxs := uint(0)
 	// Repopulate the current block states
@@ -124,7 +120,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 }
 
 func (blockPolicyEstimator *BlockPolicyEstimator) EstimateFee(confTarget int) utils.FeeRate {
-	feeRate := utils.FeeRate{0}
+	feeRate := utils.FeeRate{SataoshisPerK: 0}
 	// Return failure if trying to analyze a target we're not tracking
 	// It's not possible to get reasonable estimates for confTarget of 1
 	if confTarget <= 1 || uint(confTarget) > blockPolicyEstimator.feeStats.GetMaxConfirms() {
@@ -148,7 +144,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	// Return failure if trying to analyze a target we're not tracking
 	if confTarget <= 0 || uint(confTarget) > blockPolicyEstimator.feeStats.GetMaxConfirms() {
-		return utils.FeeRate{0}
+		return utils.FeeRate{SataoshisPerK: 0}
 	}
 
 	// It's not possible to get reasonable estimates for confTarget of 1
@@ -174,12 +170,12 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 && float64(minPoolFee) > median {
-		return utils.FeeRate{minPoolFee}
+		return utils.FeeRate{SataoshisPerK: minPoolFee}
 	}
 	if median < 0 {
 		median = 0
 	}
-	return utils.FeeRate{int64(median)}
+	return utils.FeeRate{SataoshisPerK: int64(median)}
 }
 
 func (blockPolicyEstimator *BlockPolicyEstimator) EstimatePriority(confTarget int) float64 {

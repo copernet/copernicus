@@ -48,13 +48,10 @@ func (multiIndex *MultiIndex) AddElement(hash utils.Hash, txEntry *TxMempoolEntr
 func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
 	if _, ok := multiIndex.poolNode[hash]; ok {
 		delete(multiIndex.poolNode, hash)
-		tmpNode := make([]*TxMempoolEntry, len(multiIndex.nodeKey)-1)
 		for i, v := range multiIndex.nodeKey {
 			oriHash := v.TxRef.Hash
 			if (&oriHash).IsEqual(&hash) {
-				copy(tmpNode[:i], multiIndex.nodeKey[:i])
-				copy(tmpNode[i:], multiIndex.nodeKey[i+1:])
-				multiIndex.nodeKey = tmpNode
+				multiIndex.nodeKey = append(multiIndex.nodeKey[:i], multiIndex.nodeKey[i+1:]...)
 				break
 			}
 		}

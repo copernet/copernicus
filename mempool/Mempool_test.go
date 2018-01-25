@@ -1,13 +1,13 @@
 package mempool
 
 import (
-	//"bytes"
-	"fmt"
+	"bytes"
+	"math"
 	"testing"
 
-	//"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
-	//"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
@@ -75,7 +75,6 @@ func (helper *TestMemPoolEntryHelper) FromTxToEntry(tx *model.Tx, pool *Mempool)
 	return entry
 }
 
-/*
 func TestMempoolAddUnchecked(t *testing.T) {
 	entry := NewTestMemPoolEntryHelper()
 
@@ -114,7 +113,7 @@ func TestMempoolAddUnchecked(t *testing.T) {
 		txGrandChild[i].Hash = txGrandID
 	}
 
-	testPool := NewMemPool(utils.FeeRate{0})
+	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 0})
 	poolSize := testPool.Size()
 
 	//Nothing in pool, remove should do nothing:
@@ -197,7 +196,7 @@ func TestMempoolClear(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		txParentPtr.Outs[i] = model.NewTxOut(33000, []byte{model.OP_11, model.OP_EQUAL})
 	}
-	testPool := NewMemPool(utils.FeeRate{0})
+	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 0})
 
 	// Nothing in pool, clear should do nothing:
 	testPool.Clear()
@@ -229,7 +228,7 @@ func TestMempoolClear(t *testing.T) {
 		t.Errorf("current testPool.vTxHashes : %d, except the poolSize : %d", len(testPool.vTxHashes), 0)
 	}
 }
-*/
+
 //there to be compare mempool store tx sorted And manual sorted, their sort should be the same
 func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
 	if pool.Size() != len(sortedOrder) {
@@ -249,32 +248,18 @@ func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
 		}
 		return nil
 	}
-	printSlice := func(keys []*TxMempoolEntry) {
-		for i, v := range keys {
-			fmt.Printf("******** pool txentry index : %d, element : %v\n", i, v.TxRef.Hash.ToString())
-		}
-	}
-	printSort := func(sortSlice []utils.Hash) {
-		for i, v := range sortSlice {
-			fmt.Printf("-------- expect txentry index : %d, element : %v\n", i, v.ToString())
-		}
-	}
-	printSort(sortedOrder)
 
 	var err error
 	switch typeName {
 	case DESCENDANTSCORE:
 		keys := pool.MapTx.GetByDescendantScoreSort()
 		err = processFunc(keys)
-		printSlice(keys)
 	case ANCESTORSCORE:
 		keys := pool.MapTx.GetbyAncestorFeeSort()
 		err = processFunc(keys)
-		printSlice(keys)
 	case MININGSCORE:
 		keys := pool.MapTx.GetbyScoreSort()
 		err = processFunc(keys)
-		printSlice(keys)
 	}
 
 	return err
@@ -282,7 +267,7 @@ func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
 
 func TestMempoolEstimatePriority(t *testing.T) {
 
-	testPool := NewMemPool(utils.FeeRate{0})
+	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 0})
 	entry := NewTestMemPoolEntryHelper()
 	// 3rd highest fee
 	tx1 := model.NewTx()
@@ -414,7 +399,6 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tx8.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx8.Hash = tx8.TxHash()
 	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx7.Hash))
-	fmt.Printf("tx8 Ancestors Number size : %v\n", setAncestors.Size())
 	txentry8 := entry.SetFee(0).SetTime(2).FromTxToEntry(tx8, nil)
 	testPool.AddUncheckedWithAncestors(&tx8.Hash, txentry8, setAncestors, true)
 
@@ -559,156 +543,146 @@ func TestMempoolEstimatePriority(t *testing.T) {
 }
 
 func TestMempoolApplyDeltas(t *testing.T) {
-	/*
-		testPool := NewMemPool(utils.FeeRate{0})
-		entry := NewTestMemPoolEntryHelper()
 
-		//3rd highest fee
-		tx1 := model.NewTx()
-		tx1.Outs = make([]*model.TxOut, 1)
-		tx1.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx1.Hash = tx1.TxHash()
-		fmt.Println("tx1 hash : ", tx1.Hash.ToString())
-		testPool.AddUnchecked(&tx1.Hash, entry.SetFee(10000).SetPriority(10.0).FromTxToEntry(tx1, nil), true)
+	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 0})
+	entry := NewTestMemPoolEntryHelper()
 
-		// highest fee
-		tx2 := model.NewTx()
-		tx2.Outs = make([]*model.TxOut, 1)
-		tx2.Outs[0] = model.NewTxOut(2*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx2.Hash = tx2.TxHash()
-		fmt.Println("tx2 hash : ", tx2.Hash.ToString())
-		testPool.AddUnchecked(&tx2.Hash, entry.SetFee(20000).SetPriority(9.0).FromTxToEntry(tx2, nil), true)
-		tx2Size := tx2.SerializeSize()
+	//3rd highest fee
+	tx1 := model.NewTx()
+	tx1.Outs = make([]*model.TxOut, 1)
+	tx1.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx1.Hash = tx1.TxHash()
+	testPool.AddUnchecked(&tx1.Hash, entry.SetFee(10000).SetPriority(10.0).FromTxToEntry(tx1, nil), true)
 
-		// lowest fee
-		tx3 := model.NewTx()
-		tx3.Outs = make([]*model.TxOut, 1)
-		tx3.Outs[0] = model.NewTxOut(5*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx3.Hash = tx3.TxHash()
-		fmt.Println("tx3 hash : ", tx3.Hash.ToString())
-		testPool.AddUnchecked(&tx3.Hash, entry.SetFee(0).SetPriority(100.0).FromTxToEntry(tx3, nil), true)
+	// highest fee
+	tx2 := model.NewTx()
+	tx2.Outs = make([]*model.TxOut, 1)
+	tx2.Outs[0] = model.NewTxOut(2*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx2.Hash = tx2.TxHash()
+	testPool.AddUnchecked(&tx2.Hash, entry.SetFee(20000).SetPriority(9.0).FromTxToEntry(tx2, nil), true)
+	tx2Size := tx2.SerializeSize()
 
-		// 2nd highest fee
-		tx4 := model.NewTx()
-		tx4.Outs = make([]*model.TxOut, 1)
-		tx4.Outs[0] = model.NewTxOut(6*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx4.Hash = tx4.TxHash()
-		fmt.Println("tx4 hash : ", tx4.Hash.ToString())
-		testPool.AddUnchecked(&tx4.Hash, entry.SetFee(15000).SetPriority(1.0).FromTxToEntry(tx4, nil), true)
+	// lowest fee
+	tx3 := model.NewTx()
+	tx3.Outs = make([]*model.TxOut, 1)
+	tx3.Outs[0] = model.NewTxOut(5*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx3.Hash = tx3.TxHash()
+	testPool.AddUnchecked(&tx3.Hash, entry.SetFee(0).SetPriority(100.0).FromTxToEntry(tx3, nil), true)
 
-		// equal fee rate to tx1, but newer
-		tx5 := model.NewTx()
-		tx5.Outs = make([]*model.TxOut, 1)
-		tx5.Outs[0] = model.NewTxOut(11*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx5.Hash = tx5.TxHash()
-		fmt.Println("tx5 hash : ", tx5.Hash.ToString())
-		testPool.AddUnchecked(&tx5.Hash, entry.SetFee(10000).FromTxToEntry(tx5, nil), true)
+	// 2nd highest fee
+	tx4 := model.NewTx()
+	tx4.Outs = make([]*model.TxOut, 1)
+	tx4.Outs[0] = model.NewTxOut(6*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx4.Hash = tx4.TxHash()
+	testPool.AddUnchecked(&tx4.Hash, entry.SetFee(15000).SetPriority(1.0).FromTxToEntry(tx4, nil), true)
 
-		sortedOrder := make([]utils.Hash, 5)
-		sortedOrder[0] = tx2.Hash
-		sortedOrder[1] = tx4.Hash
-		// tx1 and tx5 are both 10000
-		// Ties are broken by hash, not timestamp, so determine which hash comes
-		// first.
-		if tx1.Hash.ToBigInt().Cmp(tx5.Hash.ToBigInt()) < 0 {
-			sortedOrder[2] = tx1.Hash
-			sortedOrder[3] = tx5.Hash
-		} else {
-			sortedOrder[2] = tx5.Hash
-			sortedOrder[3] = tx1.Hash
-		}
-		sortedOrder[4] = tx3.Hash
-		err := checkSort(testPool, sortedOrder, ANCESTORSCORE)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	// equal fee rate to tx1, but newer
+	tx5 := model.NewTx()
+	tx5.Outs = make([]*model.TxOut, 1)
+	tx5.Outs[0] = model.NewTxOut(11*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx5.Hash = tx5.TxHash()
+	testPool.AddUnchecked(&tx5.Hash, entry.SetFee(10000).FromTxToEntry(tx5, nil), true)
 
-		// low fee parent with high fee child
-		// tx6 (0) -> tx7 (high)
-		tx6 := model.NewTx()
-		tx6.Outs = make([]*model.TxOut, 1)
-		tx6.Outs[0] = model.NewTxOut(20*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx6.Hash = tx6.TxHash()
-		fmt.Println("tx6 hash : ", tx6.Hash.ToString())
-		testPool.AddUnchecked(&tx6.Hash, entry.SetFee(0).FromTxToEntry(tx6, nil), true)
-		tx6Size := tx6.SerializeSize()
-		if testPool.Size() != 6 {
-			t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 6)
-		}
-		// Ties are broken by hash
-		tmpSorted := make([]utils.Hash, 6)
-		copy(tmpSorted[:5], sortedOrder)
-		sortedOrder = tmpSorted
-		if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
-			sortedOrder[5] = tx6.Hash
-		} else {
-			sortedOrder[4] = tx6.Hash
-			sortedOrder[5] = tx3.Hash
-		}
-		err = checkSort(testPool, sortedOrder, ANCESTORSCORE)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	sortedOrder := make([]utils.Hash, 5)
+	sortedOrder[0] = tx2.Hash
+	sortedOrder[1] = tx4.Hash
+	// tx1 and tx5 are both 10000
+	// Ties are broken by hash, not timestamp, so determine which hash comes
+	// first.
+	if tx1.Hash.ToBigInt().Cmp(tx5.Hash.ToBigInt()) < 0 {
+		sortedOrder[2] = tx1.Hash
+		sortedOrder[3] = tx5.Hash
+	} else {
+		sortedOrder[2] = tx5.Hash
+		sortedOrder[3] = tx1.Hash
+	}
+	sortedOrder[4] = tx3.Hash
+	err := checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-		tx7 := model.NewTx()
-		tx7.Ins = make([]*model.TxIn, 1)
-		tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
-		tx7.Outs = make([]*model.TxOut, 1)
-		tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
-		tx7.Hash = tx7.TxHash()
-		fmt.Println("tx7 hash : ", tx7.Hash.ToString())
-		tx7Size := tx7.SerializeSize()
+	// low fee parent with high fee child
+	// tx6 (0) -> tx7 (high)
+	tx6 := model.NewTx()
+	tx6.Outs = make([]*model.TxOut, 1)
+	tx6.Outs[0] = model.NewTxOut(20*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx6.Hash = tx6.TxHash()
+	testPool.AddUnchecked(&tx6.Hash, entry.SetFee(0).FromTxToEntry(tx6, nil), true)
+	tx6Size := tx6.SerializeSize()
+	if testPool.Size() != 6 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 6)
+	}
+	// Ties are broken by hash
+	tmpSorted := make([]utils.Hash, 6)
+	copy(tmpSorted[:5], sortedOrder)
+	sortedOrder = tmpSorted
+	if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
+		sortedOrder[5] = tx6.Hash
+	} else {
+		sortedOrder[4] = tx6.Hash
+		sortedOrder[5] = tx3.Hash
+	}
+	err = checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-		// set the fee to just below tx2's feerate when including ancestor
-		fee := btcutil.Amount((20000/tx2Size)*(tx7Size+tx6Size) - 1)
+	tx7 := model.NewTx()
+	tx7.Ins = make([]*model.TxIn, 1)
+	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
+	tx7.Outs = make([]*model.TxOut, 1)
+	tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
+	tx7.Hash = tx7.TxHash()
+	tx7Size := tx7.SerializeSize()
 
-		// CTxMemPoolEntry entry7(tx7, fee, 2, 10.0, 1, true);
-		testPool.AddUnchecked(&tx7.Hash, entry.SetFee(fee).FromTxToEntry(tx7, nil), true)
-		if testPool.Size() != 7 {
-			t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 7)
-		}
-		tmpSort := make([]utils.Hash, 7)
-		tmpSort[0] = sortedOrder[0]
-		tmpSort[1] = tx7.Hash
-		copy(tmpSort[2:], sortedOrder[1:])
-		err = checkSort(testPool, tmpSort, ANCESTORSCORE)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+	// set the fee to just below tx2's feerate when including ancestor
+	fee := btcutil.Amount((20000/tx2Size)*(tx7Size+tx6Size) - 1)
 
-		//after tx6 is mined, tx7 should move up in the sort
-		vtx := algorithm.NewVector()
-		vtx.PushBack(tx6)
-		testPool.RemoveForBlock(vtx, 1)
+	// CTxMemPoolEntry entry7(tx7, fee, 2, 10.0, 1, true);
+	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(fee).FromTxToEntry(tx7, nil), true)
+	if testPool.Size() != 7 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), 7)
+	}
+	tmpSort := make([]utils.Hash, 7)
+	tmpSort[0] = sortedOrder[0]
+	tmpSort[1] = tx7.Hash
+	copy(tmpSort[2:], sortedOrder[1:])
+	err = checkSort(testPool, tmpSort, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-		// Ties are broken by hash
-		if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
-			sortedOrder = sortedOrder[:len(sortedOrder)-1]
-		} else {
-			tmp := make([]utils.Hash, 0)
-			tmp = append(tmp, sortedOrder[:len(sortedOrder)-2]...)
-			tmp = append(tmp, sortedOrder[len(sortedOrder)-1])
-			sortedOrder = tmp
-		}
-		tmpSort = make([]utils.Hash, 1)
-		tmpSort[0] = tx7.Hash
-		tmpSort = append(tmpSort, sortedOrder...)
-		err = checkSort(testPool, tmpSort, ANCESTORSCORE)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-	*/
+	//after tx6 is mined, tx7 should move up in the sort
+	vtx := algorithm.NewVector()
+	vtx.PushBack(tx6)
+	testPool.RemoveForBlock(vtx, 1)
+
+	// Ties are broken by hash
+	if tx3.Hash.ToBigInt().Cmp(tx6.Hash.ToBigInt()) < 0 {
+		sortedOrder = sortedOrder[:len(sortedOrder)-1]
+	} else {
+		tmp := make([]utils.Hash, 0)
+		tmp = append(tmp, sortedOrder[:len(sortedOrder)-2]...)
+		tmp = append(tmp, sortedOrder[len(sortedOrder)-1])
+		sortedOrder = tmp
+	}
+	tmpSort = make([]utils.Hash, 1)
+	tmpSort[0] = tx7.Hash
+	tmpSort = append(tmpSort, sortedOrder...)
+	err = checkSort(testPool, tmpSort, ANCESTORSCORE)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 }
-
-/*
 
 func TestMempoolEstimateFee(t *testing.T) {
 
-	testPool := NewMemPool(utils.FeeRate{1000})
+	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 1000})
 	entry := NewTestMemPoolEntryHelper()
 	entry.SetPriority(10.0)
 
@@ -719,6 +693,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	tx1.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_1, model.OP_EQUAL})
 	tx1.Hash = tx1.TxHash()
 	testPool.AddUnchecked(&tx1.Hash, entry.SetFee(10000).FromTxToEntry(tx1, testPool), true)
+	testPool.DynamicMemoryUsage()
 
 	tx2 := model.NewTx()
 	tx2.Ins = make([]*model.TxIn, 1)
@@ -727,6 +702,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	tx2.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_2, model.OP_EQUAL})
 	tx2.Hash = tx2.TxHash()
 	testPool.AddUnchecked(&tx2.Hash, entry.SetFee(5000).FromTxToEntry(tx2, testPool), true)
+	testPool.DynamicMemoryUsage()
 
 	// should do nothing
 	testPool.TrimToSize(testPool.DynamicMemoryUsage(), nil)
@@ -744,7 +720,6 @@ func TestMempoolEstimateFee(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("begin remove one tx, --------------============== \n\n\n")
 	// should remove the lower-feerate transaction;
 	// tx2 should be remove;
 	testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
@@ -757,6 +732,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 		return
 	}
 
+	//add tx2 And tx3 In pool, so the pool have 3 tx.
 	testPool.AddUnchecked(&tx2.Hash, entry.FromTxToEntry(tx2, testPool), true)
 	tx3 := model.NewTx()
 	tx3.Ins = make([]*model.TxIn, 1)
@@ -791,7 +767,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	// remove all tx from mempool
 	testPool.TrimToSize(int64(tx1.SerializeSize()), nil)
 	if testPool.Exists(tx1.Hash) {
-		t.Errorf("tx1 should Not be Not In Mempool ...")
+		t.Errorf("tx1 should Not be In Mempool ...")
 		return
 	}
 
@@ -803,6 +779,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 		t.Errorf("tx3 should Not be In Mempool ...")
 		return
 	}
+	testPool.DynamicMemoryUsage()
 
 	maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, tx3.SerializeSize()+tx2.SerializeSize())
 	if testPool.GetMinFee(1).GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
@@ -847,11 +824,10 @@ func TestMempoolEstimateFee(t *testing.T) {
 	tx7.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_7, model.OP_EQUAL})
 	tx7.Hash = tx7.TxHash()
 
-	testPool.AddUnchecked(&tx4.Hash, entry.SetFee(7000).FromTxToEntry(tx4, testPool), true)
-	testPool.AddUnchecked(&tx5.Hash, entry.SetFee(1000).FromTxToEntry(tx5, testPool), true)
-	testPool.AddUnchecked(&tx6.Hash, entry.SetFee(1100).FromTxToEntry(tx6, testPool), true)
-	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(9000).FromTxToEntry(tx7, testPool), true)
-	fmt.Printf("****************** tx7 999 CachedInnerUsage : %d ----------------\n", testPool.CachedInnerUsage)
+	testPool.AddUnchecked(&tx4.Hash, entry.SetFee(7000).SetTime(15).FromTxToEntry(tx4, testPool), true)
+	testPool.AddUnchecked(&tx5.Hash, entry.SetFee(1000).SetTime(9).FromTxToEntry(tx5, testPool), true)
+	testPool.AddUnchecked(&tx6.Hash, entry.SetFee(1100).SetTime(3).FromTxToEntry(tx6, testPool), true)
+	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(9000).SetTime(4).FromTxToEntry(tx7, testPool), true)
 
 	// we only require this remove, at max, 2 txn, because its not clear what
 	// we're really optimizing for aside from that
@@ -886,15 +862,15 @@ func TestMempoolEstimateFee(t *testing.T) {
 	}
 	if !testPool.Exists(tx6.Hash) {
 		t.Errorf("tx6 should be In Mempool ...")
-		return
+		//return
 	}
 	if testPool.Exists(tx7.Hash) {
 		t.Errorf("tx7 should  Not be In Mempool ...")
 		return
 	}
 
-	testPool.AddUnchecked(&tx5.Hash, entry.SetFee(1000).FromTxToEntry(tx5, testPool), true)
-	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(9000).FromTxToEntry(tx7, testPool), true)
+	testPool.AddUnchecked(&tx5.Hash, entry.SetFee(1000).SetTime(3).FromTxToEntry(tx5, testPool), true)
+	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(9000).SetTime(4).FromTxToEntry(tx7, testPool), true)
 
 	vtx := algorithm.NewVector()
 	utils.SetMockTime(42)
@@ -951,7 +927,12 @@ func TestMempoolEstimateFee(t *testing.T) {
 	// ... unless it has gone all the way to 0 (after getting past 1000/2)
 
 	utils.SetMockTime(0)
-
+	if testPool.Size() != 4 {
+		t.Errorf("current pool have txNumber : %d, expect tx Number : %d\n", testPool.Size(), 4)
+		return
+	}
+	testPool.Expire(10)
+	if testPool.Size() != 1 {
+		t.Errorf("current pool have txNumber : %d, expect tx Number : %d\n", testPool.Size(), 1)
+	}
 }
-
-*/
