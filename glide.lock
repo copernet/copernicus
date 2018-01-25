@@ -1,5 +1,5 @@
-hash: bf6a77c849e53ec0e962cc496096286c744d0a463e40f3be4d7d575c83c164da
-updated: 2018-01-11T11:34:59.327473+08:00
+hash: c0e051b69a624276aaea0384a0df5629648fa0110519d7b5e63291021d4fa48c
+updated: 2018-01-25T17:16:10.388303+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -7,6 +7,8 @@ imports:
   - config
   - logs
   - utils
+- name: github.com/boltdb/bolt
+  version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
 - name: github.com/bradfitz/slice
   version: d9036e2120b5ddfa53f3ebccd618c4af275f47da
 - name: github.com/btcboost/secp256k1-go
@@ -78,8 +80,6 @@ imports:
   version: ce8acff4829e0c2458a67ead32390ac0a381c862
   subpackages:
   - snappy
-- name: github.com/tecbot/gorocksdb
-  version: 15d5431583170b15f738a3e67ade13749f458058
 - name: go4.org
   version: fba789b7e39ba524b9e60c45c37a50fae63a2a09
   subpackages:

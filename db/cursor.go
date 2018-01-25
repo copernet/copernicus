@@ -1,4 +1,4 @@
-package storage
+package db
 
 // Cursor represents a cursor over key/value pairs
 type Cursor interface {

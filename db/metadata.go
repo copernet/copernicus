@@ -1,4 +1,4 @@
-package storage
+package db
 
 // MetaData represents a collection of Bucket
 type MetaData interface {
