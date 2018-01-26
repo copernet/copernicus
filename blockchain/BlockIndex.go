@@ -50,7 +50,7 @@ type BlockIndex struct {
 	Status uint32
 
 	// block header
-	Version    uint32
+	Version    int32
 	MerkleRoot utils.Hash
 	Time       uint32
 	Bits       uint32
@@ -83,11 +83,11 @@ func (blockIndex *BlockIndex) SetNull() {
 
 func NewBlockIndex(block *model.Block) *BlockIndex {
 	blockIndex := new(BlockIndex)
-	blockIndex.Version = block.Version
-	blockIndex.MerkleRoot = block.MerkleRoot
-	blockIndex.Time = block.BlockTime
-	blockIndex.Bits = block.Bits
-	blockIndex.Nonce = block.Nonce
+	blockIndex.Version = block.BlockHeader.Version
+	blockIndex.MerkleRoot = block.BlockHeader.HashMerkleRoot
+	blockIndex.Time = block.BlockHeader.Time
+	blockIndex.Bits = block.BlockHeader.Bits
+	blockIndex.Nonce = block.BlockHeader.Nonce
 	return blockIndex
 
 }

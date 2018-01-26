@@ -56,7 +56,6 @@ func (outPoint *OutPoint) WriteOutPoint(writer io.Writer) error {
 
 func (outPoint *OutPoint) String() string {
 	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.ToString(), outPoint.Index)
-
 }
 
 func (outPoint *OutPoint) IsNull() bool {
