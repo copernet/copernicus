@@ -4,7 +4,7 @@ import (
 	"crypto"
 )
 
-type DBTx interface {
+type Transaction interface {
 	// Metadata returns the top-most bucket for all metadata storage.
 	Metadata() MetaData
 

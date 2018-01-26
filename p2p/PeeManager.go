@@ -15,7 +15,8 @@ import (
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/network"
 	"github.com/btcboost/copernicus/protocol"
-	"github.com/btcboost/copernicus/storage"
+
+	"github.com/btcboost/copernicus/db"
 )
 
 const (
@@ -47,7 +48,7 @@ type PeerManager struct {
 
 	//txMemPool    *mempool.TxPool
 	nat          network.NATInterface
-	storage      storage.Storage
+	storage      db.DB
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
 
@@ -60,7 +61,7 @@ type getOutboundGroup struct {
 	reply chan int
 }
 
-func NewPeerManager(listenAddrs []string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
+func NewPeerManager(listenAddrs []string, db db.DB, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
 	services := DefaultServices
 	if conf.AppConf.NoPeerBloomFilters {
 		services &^= protocol.SFNodeBloomFilter
@@ -81,7 +82,7 @@ func NewPeerManager(listenAddrs []string, storage storage.Storage, bitcoinParam 
 		modifyRebroadcastInv: make(chan interface{}),
 		peerHeightsUpdate:    make(chan UpdatePeerHeightsMessage),
 		nat:                  natListener,
-		storage:              storage,
+		storage:              db,
 		timeSource:           blockchain.NewMedianTime(),
 		servicesFlag:         protocol.ServiceFlag(services),
 	}
