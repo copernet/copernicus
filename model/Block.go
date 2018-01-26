@@ -70,9 +70,8 @@ func (bl *Block) Deserialize(r io.Reader) error {
 	bl.BlockHeader.Deserialize(r)
 	for i := uint32(0); i < bl.txNum; i++ {
 		if tx, err := DeserializeTx(r); err != nil {
-			return err
-		} else {
 			bl.Transactions = append(bl.Transactions, tx)
+			return err
 		}
 	}
 

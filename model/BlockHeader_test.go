@@ -69,7 +69,7 @@ func TestBlockHeaderGetHash(t *testing.T) {
 		t.Errorf("Deserialize late Nonce : %d, expect Nonce : %d", tmpBlk.Nonce, blHe.Nonce)
 		return
 	}
-	if err, blkHash := blHe.GetHash(); err != nil {
+	if blkHash, err := blHe.GetHash(); err != nil {
 		t.Errorf(err.Error())
 	} else {
 		if !bytes.Equal(blkHash[:], firstBlockHash[:]) {

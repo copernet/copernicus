@@ -34,10 +34,10 @@ func (blHe *BlockHeader) GetBlockTime() uint32 {
 	return blHe.Time
 }
 
-func (blHe *BlockHeader) GetHash() (error, utils.Hash) {
+func (blHe *BlockHeader) GetHash() (utils.Hash, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLenth))
 	err := blHe.Serialize(buf)
-	return err, core.DoubleSha256Hash(buf.Bytes())
+	return core.DoubleSha256Hash(buf.Bytes()), err
 }
 
 func (blHe *BlockHeader) SetNull() {
@@ -59,13 +59,13 @@ func (blHe *BlockHeader) Serialize(writer io.Writer) error {
 	if _, err := writer.Write(blHe.HashMerkleRoot.GetCloneBytes()); err != nil {
 		return err
 	}
-	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(blHe.Time)); err != nil {
+	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Time); err != nil {
 		return err
 	}
-	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(blHe.Bits)); err != nil {
+	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Bits); err != nil {
 		return err
 	}
-	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(blHe.Nonce)); err != nil {
+	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Nonce); err != nil {
 		return err
 	}
 	return nil

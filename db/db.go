@@ -6,7 +6,7 @@ type DB interface {
 
 	Begin(writable bool) (Transaction, error)
 
-	View(fn func(tx Transaction) error) errorgit stat
+	View(fn func(tx Transaction) error) error
 
 	Update(fn func(tx Transaction) error) error
 
