@@ -1,13 +1,13 @@
 package boltdb
 
 import (
-	"github.com/btcboost/copernicus/orm"
 	"github.com/boltdb/bolt"
+	"github.com/btcboost/copernicus/orm"
 )
 
 type bucket struct {
 	orm.Bucket
-	boltBucket bolt.Bucket
+	boltBucket *bolt.Bucket
 }
 
 func (bucket *bucket) ForEach(func(k, v []byte) error) error {
@@ -30,6 +30,6 @@ func (bucket *bucket) Get(key []byte) []byte {
 	return nil
 }
 
-func (bucket *bucket) Delete(key [] byte) error {
+func (bucket *bucket) Delete(key []byte) error {
 	return nil
 }
