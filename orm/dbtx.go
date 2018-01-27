@@ -4,11 +4,8 @@ import (
 	"crypto"
 )
 
-type Transaction interface {
-	// Metadata returns the top-most bucket for all metadata storage.
+type DBTx interface {
 	Metadata() MetaData
-
-	//	StoreBlock(block *model.Block) error
 
 	HasBlock(hash *crypto.Hash) (bool, error)
 
