@@ -22,16 +22,16 @@ func (boltdb *BoltDB) Type() string {
 	return "boltdb"
 }
 
-func (boltdb *BoltDB) Begin(writable bool) (orm.DBTx, error) {
+func (boltdb *BoltDB) Begin(writable bool) (orm.Bucket, error) {
 	return nil, nil
 
 }
 
-func (boltdb *BoltDB) View(fn func(tx orm.DBTx) error) error {
+func (boltdb *BoltDB) View(fn func(tx orm.Bucket) error) error {
 	return nil
 }
 
-func (boltdb *BoltDB) Update(fn func(tx orm.DBTx) error) error {
+func (boltdb *BoltDB) Update(fn func(tx orm.Bucket) error) error {
 	return nil
 }
 
