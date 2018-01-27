@@ -1,4 +1,4 @@
-package db
+package orm
 
 // MetaData represents a collection of Bucket
 type MetaData interface {

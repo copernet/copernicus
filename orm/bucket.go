@@ -1,4 +1,4 @@
-package db
+package orm
 
 // Bucket represents a collection of key/value pairs.
 type Bucket interface {

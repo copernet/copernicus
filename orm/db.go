@@ -1,6 +1,6 @@
-package db
+package orm
 
-type DB interface {
+type DBBase interface {
 	// Type returns the database driver type the current database instance
 	Type() string
 
