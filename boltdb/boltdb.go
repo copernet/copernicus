@@ -2,7 +2,7 @@ package boltdb
 
 import (
 	"time"
-
+	
 	"github.com/boltdb/bolt"
 	"github.com/btcboost/copernicus/orm"
 )
@@ -20,11 +20,6 @@ func NewBlotDB() orm.DBBase {
 
 func (boltdb *BoltDB) Type() string {
 	return "boltdb"
-}
-
-func (boltdb *BoltDB) Begin(writable bool) (orm.Bucket, error) {
-	return nil, nil
-
 }
 
 func (boltdb *BoltDB) View(fn func(tx orm.Bucket) error) error {
