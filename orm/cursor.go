@@ -1,4 +1,4 @@
-package db
+package orm
 
 // Cursor represents a cursor over key/value pairs
 type Cursor interface {

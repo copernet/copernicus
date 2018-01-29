@@ -1,6 +1,5 @@
-package db
+package orm
 
-// Bucket represents a collection of key/value pairs.
 type Bucket interface {
 	ForEach(func(k, v []byte) error) error
 

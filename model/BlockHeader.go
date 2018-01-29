@@ -66,10 +66,8 @@ func (blHe *BlockHeader) Serialize(writer io.Writer) error {
 	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Bits); err != nil {
 		return err
 	}
-	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Nonce); err != nil {
-		return err
-	}
-	return nil
+	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Nonce)
+	return err
 }
 
 func (blHe *BlockHeader) Deserialize(r io.Reader) error {
@@ -88,11 +86,8 @@ func (blHe *BlockHeader) Deserialize(r io.Reader) error {
 	if err := binary.Read(r, binary.LittleEndian, &blHe.Bits); err != nil {
 		return err
 	}
-	if err := binary.Read(r, binary.LittleEndian, &blHe.Nonce); err != nil {
-		return err
-	}
-
-	return nil
+	err := binary.Read(r, binary.LittleEndian, &blHe.Nonce)
+	return err
 }
 
 func (blHe *BlockHeader) ToString() string {
