@@ -84,7 +84,6 @@ func (boltdb *BoltDB) CreateIfNotExists(key []byte) (orm.Bucket, error) {
 	}
 	bucket := new(bucket)
 	bucket.boltBucket = blotBucket
-
 	return bucket, nil
 }
 
