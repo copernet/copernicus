@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
-	
+
 	"github.com/boltdb/bolt"
 	"github.com/btcboost/copernicus/orm"
 )
@@ -51,7 +51,7 @@ func TestCreateBucket(t *testing.T) {
 	if err := os.Remove(path); err != nil {
 		t.Error(err)
 	}
-	
+
 }
 
 func TestPutKV(t *testing.T) {
@@ -67,7 +67,7 @@ func TestPutKV(t *testing.T) {
 	}
 	key := "key1"
 	value := "value1"
-	
+
 	err = bolddb.Update([]byte(bucketKey), func(bucket orm.Bucket) error {
 		err := bucket.Put([]byte(key), []byte(value))
 		return err
@@ -85,7 +85,7 @@ func TestPutKV(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	
+
 }
 
 func TestDeleteKV(t *testing.T) {
@@ -122,7 +122,7 @@ func TestDeleteKV(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	
+
 	err = bolddb.View([]byte(bucketKey), func(bucket orm.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if v != nil {
