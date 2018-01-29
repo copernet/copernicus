@@ -13,9 +13,14 @@ type BoltDB struct {
 	filePath string
 }
 
-func NewBlotDB() orm.DBBase {
+func NewBlotDB(filepath string) (orm.DBBase, error) {
 	boltdb := new(BoltDB)
-	return boltdb
+	boltdb.filePath = filepath
+	err := boltdb.Open()
+	if err != nil {
+		return nil, err
+	}
+	return boltdb, nil
 }
 
 func (boltdb *BoltDB) Type() string {

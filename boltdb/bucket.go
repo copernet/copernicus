@@ -30,20 +30,20 @@ func (bucket *bucket) Cursor() orm.Cursor {
 }
 
 func (bucket *bucket) Writable() bool {
-	return bucket.Bucket.Writable()
+	return bucket.boltBucket.Writable()
 }
 
 func (bucket *bucket) Put(key, value []byte) error {
-	err := bucket.Bucket.Put(key, value)
+	err := bucket.boltBucket.Put(key, value)
 	return err
 }
 
 func (bucket *bucket) Get(key []byte) []byte {
-	return bucket.Bucket.Get(key)
+	return bucket.boltBucket.Get(key)
 
 }
 
 func (bucket *bucket) Delete(key []byte) error {
-	err := bucket.Bucket.Delete(key)
+	err := bucket.boltBucket.Delete(key)
 	return err
 }

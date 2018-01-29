@@ -1,9 +1,10 @@
 package boltdb
 
 import (
-	"testing"
 	"io/ioutil"
 	"os"
+	"testing"
+
 	"github.com/boltdb/bolt"
 )
 
@@ -24,6 +25,29 @@ func TestOpen(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Error(err)
 	}
+	if err := os.Remove(path); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCreateBucket(t *testing.T) {
+	bucketKey := "test-bolt"
+	path, err := TempFile("db-bucket-")
+	if err != nil {
+		t.Error(err)
+	}
+	boltdb, err := NewBlotDB(path)
+	if err != nil {
+		t.Error(err)
+	}
+	bucket, err := boltdb.Create([]byte(bucketKey))
+	if err != nil {
+		t.Error(err)
+	}
+	if !bucket.Writable() {
+		t.Error("bucket is not writable")
+	}
+
 }
 
 func TempFile(prefix string) (string, error) {
