@@ -4,16 +4,16 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	"github.com/btcboost/copernicus/orm"
+	"github.com/btcboost/copernicus/orm/database"
 )
 
 type BoltDB struct {
-	orm.DBBase
+	database.DBBase
 	*bolt.DB
 	filePath string
 }
 
-func NewBlotDB(filepath string) (orm.DBBase, error) {
+func NewBlotDB(filepath string) (database.DBBase, error) {
 	boltdb := new(BoltDB)
 	boltdb.filePath = filepath
 	err := boltdb.Open()
@@ -27,7 +27,7 @@ func (boltdb *BoltDB) Type() string {
 	return "boltdb"
 }
 
-func (boltdb *BoltDB) View(key []byte, fn func(bucket orm.Bucket) error) error {
+func (boltdb *BoltDB) View(key []byte, fn func(bucket database.Bucket) error) error {
 	err := boltdb.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(key)
 		bucket := new(bucket)
@@ -38,7 +38,7 @@ func (boltdb *BoltDB) View(key []byte, fn func(bucket orm.Bucket) error) error {
 	return err
 }
 
-func (boltdb *BoltDB) Update(key []byte, fn func(bucket orm.Bucket) error) error {
+func (boltdb *BoltDB) Update(key []byte, fn func(bucket database.Bucket) error) error {
 	err := boltdb.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(key)
 		bucket := new(bucket)
@@ -49,7 +49,7 @@ func (boltdb *BoltDB) Update(key []byte, fn func(bucket orm.Bucket) error) error
 	return err
 }
 
-func (boltdb *BoltDB) Create(key []byte) (orm.Bucket, error) {
+func (boltdb *BoltDB) Create(key []byte) (database.Bucket, error) {
 	tx, err := boltdb.DB.Begin(true)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (boltdb *BoltDB) Create(key []byte) (orm.Bucket, error) {
 	return bucket, nil
 }
 
-func (boltdb *BoltDB) CreateIfNotExists(key []byte) (orm.Bucket, error) {
+func (boltdb *BoltDB) CreateIfNotExists(key []byte) (database.Bucket, error) {
 	tx, err := boltdb.DB.Begin(true)
 	if err != nil {
 		return nil, err

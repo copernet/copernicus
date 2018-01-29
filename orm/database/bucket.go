@@ -1,4 +1,4 @@
-package orm
+package database
 
 type Bucket interface {
 	ForEach(func(k, v []byte) error) error

@@ -2,16 +2,16 @@ package boltdb
 
 import (
 	"github.com/boltdb/bolt"
-	"github.com/btcboost/copernicus/orm"
+	"github.com/btcboost/copernicus/orm/database"
 )
 
 type cursor struct {
-	orm.Cursor
-	bucket     orm.Bucket
+	database.Cursor
+	bucket     database.Bucket
 	boltCursor *bolt.Cursor
 }
 
-func (cursor *cursor) Bucket() orm.Bucket {
+func (cursor *cursor) Bucket() database.Bucket {
 	return cursor.bucket
 }
 

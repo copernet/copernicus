@@ -1,18 +1,22 @@
 package orm
 
-type DBBase interface {
-	// Type returns the database driver type the current database instance
-	Type() string
+import (
+	"github.com/btcboost/copernicus/orm/boltdb"
+	"github.com/btcboost/copernicus/orm/database"
+)
 
-	View(key []byte, fn func(bucket Bucket) error) error
+type DriverType int
 
-	Update(key []byte, fn func(bucket Bucket) error) error
+const (
+	_ DriverType = iota
+	DBBolt
+)
 
-	Create(key []byte) (Bucket, error)
-
-	CreateIfNotExists(key []byte) (Bucket, error)
-
-	Delete(key []byte) error
-
-	Close() error
+func InitDB(driverType DriverType, path string) (database.DBBase, error) {
+	var db database.DBBase
+	if driverType == DBBolt {
+		db, err := boltdb.NewBlotDB(path)
+		return db, err
+	}
+	return db, nil
 }

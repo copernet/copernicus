@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/boltdb/bolt"
-	"github.com/btcboost/copernicus/orm"
+	"github.com/btcboost/copernicus/orm/database"
 )
 
 func TestOpen(t *testing.T) {
-	path, err := TempFile("db-")
+	path, err := TempFile("database-")
 	if err != nil {
 		t.Error(err)
 	}
@@ -18,10 +18,10 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	} else if db == nil {
-		t.Error("db is nil")
+		t.Error("database is nil")
 	}
 	if s := db.Path(); s != path {
-		t.Errorf("db path(%s) is not path(%s)", db.Path(), s)
+		t.Errorf("database path(%s) is not path(%s)", db.Path(), s)
 	}
 	if err := db.Close(); err != nil {
 		t.Error(err)
@@ -33,7 +33,7 @@ func TestOpen(t *testing.T) {
 
 func TestCreateBucket(t *testing.T) {
 	bucketKey := "test-bolt"
-	path, err := TempFile("db-bucket-")
+	path, err := TempFile("database-bucket-")
 	if err != nil {
 		t.Error(err)
 	}
@@ -56,7 +56,7 @@ func TestCreateBucket(t *testing.T) {
 
 func TestPutKV(t *testing.T) {
 	bucketKey := "test-bolt"
-	path, err := TempFile("db-bucket-")
+	path, err := TempFile("database-bucket-")
 	if err != nil {
 		t.Error(err)
 	}
@@ -68,17 +68,17 @@ func TestPutKV(t *testing.T) {
 	key := "key1"
 	value := "value1"
 
-	err = bolddb.Update([]byte(bucketKey), func(bucket orm.Bucket) error {
+	err = bolddb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
 		err := bucket.Put([]byte(key), []byte(value))
 		return err
 	})
 	if err != nil {
 		t.Error(err)
 	}
-	err = bolddb.View([]byte(bucketKey), func(bucket orm.Bucket) error {
+	err = bolddb.View([]byte(bucketKey), func(bucket database.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if string(v) != value {
-			t.Errorf("get v(%s) from db is wrong", string(v))
+			t.Errorf("get v(%s) from database is wrong", string(v))
 		}
 		return nil
 	})
@@ -90,7 +90,7 @@ func TestPutKV(t *testing.T) {
 
 func TestDeleteKV(t *testing.T) {
 	bucketKey := "test-bolt"
-	path, err := TempFile("db-bucket-")
+	path, err := TempFile("database-bucket-")
 	if err != nil {
 		t.Error(err)
 	}
@@ -101,21 +101,21 @@ func TestDeleteKV(t *testing.T) {
 	}
 	key := "key1"
 	value := "value1"
-	err = bolddb.Update([]byte(bucketKey), func(bucket orm.Bucket) error {
+	err = bolddb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
 		err := bucket.Put([]byte(key), []byte(value))
 		return err
 	})
 	if err != nil {
 		t.Error(err)
 	}
-	err = bolddb.View([]byte(bucketKey), func(bucket orm.Bucket) error {
+	err = bolddb.View([]byte(bucketKey), func(bucket database.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if v == nil {
 			t.Error("put KV is wrong")
 		}
 		return nil
 	})
-	err = bolddb.Update([]byte(bucketKey), func(bucket orm.Bucket) error {
+	err = bolddb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
 		err := bucket.Delete([]byte(key))
 		return err
 	})
@@ -123,7 +123,7 @@ func TestDeleteKV(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = bolddb.View([]byte(bucketKey), func(bucket orm.Bucket) error {
+	err = bolddb.View([]byte(bucketKey), func(bucket database.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if v != nil {
 			t.Error("delete KV is wrong")

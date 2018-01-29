@@ -2,11 +2,11 @@ package boltdb
 
 import (
 	"github.com/boltdb/bolt"
-	"github.com/btcboost/copernicus/orm"
+	"github.com/btcboost/copernicus/orm/database"
 )
 
 type bucket struct {
-	orm.Bucket
+	database.Bucket
 	boltBucket *bolt.Bucket
 }
 
@@ -21,7 +21,7 @@ func (bucket *bucket) ForEach(fn func(key, value []byte) error) error {
 	return nil
 }
 
-func (bucket *bucket) Cursor() orm.Cursor {
+func (bucket *bucket) Cursor() database.Cursor {
 	c := bucket.boltBucket.Cursor()
 	cursor := new(cursor)
 	cursor.boltCursor = c
