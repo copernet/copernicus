@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 
 	"github.com/btcboost/copernicus/core"
@@ -92,4 +93,15 @@ func (blHe *BlockHeader) Deserialize(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func (blHe *BlockHeader) ToString() string {
+	var hash utils.Hash
+	var err error
+	if hash, err = blHe.GetHash(); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Block version : %d, hashPrevBlock : %s, hashMerkleRoot : %s,"+
+		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", blHe.Version, blHe.HashPrevBlock.ToString(),
+		blHe.HashMerkleRoot.ToString(), blHe.Time, blHe.Bits, blHe.Nonce, hash.ToString())
 }
