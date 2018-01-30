@@ -3,6 +3,8 @@ package utxo
 import (
 	"io"
 
+	"bytes"
+
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -47,4 +49,17 @@ func DeserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
 	coinEntry.outpoint.Hash.SetBytes(bytes)
 	coinEntry.outpoint.Index = uint32(n)
 	return
+}
+
+func (coinEntry *CoinEntry) GetSerKey() []byte {
+	buf := bytes.NewBuffer(nil)
+	coinEntry.Serialize(buf)
+	return buf.Bytes()
+}
+
+func NewCoinEntry(outPoint *model.OutPoint) *CoinEntry {
+	coinEntry := new(CoinEntry)
+	coinEntry.outpoint = outPoint
+	coinEntry.key = DB_COIN
+	return coinEntry
 }

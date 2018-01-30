@@ -12,4 +12,6 @@ type Bucket interface {
 	Get(key []byte) []byte
 
 	Delete(key []byte) error
+
+	Exists(key []byte) bool
 }

@@ -43,6 +43,12 @@ func (bucket *bucket) Get(key []byte) []byte {
 
 }
 
+func (bucket *bucket) Exists(key []byte) bool {
+	v := bucket.boltBucket.Get(key)
+	return v != nil
+
+}
+
 func (bucket *bucket) Delete(key []byte) error {
 	err := bucket.boltBucket.Delete(key)
 	return err
