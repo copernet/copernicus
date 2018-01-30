@@ -175,7 +175,8 @@ func (blIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 
 func (blIndex *BlockIndex) BuildSkip() {
 	if blIndex.PPrev != nil {
-		blIndex.PSkip = blIndex.PPrev.GetAncestor(blIndex.Height)
+		fmt.Println("BuildSkip height : ", blIndex.Height, ", blIndex.PPrev.height : ", blIndex.PPrev.Height)
+		blIndex.PSkip = blIndex.PPrev.GetAncestor(getSkipHeight(blIndex.Height))
 	}
 }
 
@@ -194,12 +195,14 @@ func getSkipHeight(height int) int {
 	return invertLowestOne(height)
 }
 
+//GetAncestor Efficiently find an ancestor of this block.
 func (blIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
+	fmt.Println("height : ", height, ", blIndex.Height : ", blIndex.Height)
 	if height > blIndex.Height || height < 0 {
 		return nil
 	}
 	pindexWalk := blIndex
-	heightWalk := height
+	heightWalk := blIndex.Height
 	for heightWalk > height {
 		heightSkip := getSkipHeight(heightWalk)
 		heightSkipPrev := getSkipHeight(heightWalk - 1)

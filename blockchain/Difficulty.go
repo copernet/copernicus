@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -152,7 +153,7 @@ func GetBlockProof(blIn *BlockIndex) *big.Int {
 	return new(big.Int).Div(oneLsh256, denominator)
 }
 
-func GetBlockProofEquivalentTime(to, from, tip *BlockIndex) int64 {
+func GetBlockProofEquivalentTime(to, from, tip *BlockIndex, params msg.BitcoinParams) int64 {
 	ret := new(big.Int)
 	sign := int64(1)
 	if to.ChainWork.Cmp(&from.ChainWork) > 0 {
@@ -161,9 +162,8 @@ func GetBlockProofEquivalentTime(to, from, tip *BlockIndex) int64 {
 		ret.Sub(&from.ChainWork, &to.ChainWork)
 		sign = -1
 	}
-	// todo, add sencond paramer for the function, the param is chainparam's news.
-	tmp := new(big.Int)
-	ret = tmp.Mul(ret, nil).Div(tmp, GetBlockProof(tip))
+
+	ret.Mul(ret, big.NewInt(int64(params.TargetTimespan))).Div(ret, GetBlockProof(tip))
 	if ret.Int64() > 63 {
 		return sign * (math.MaxUint64 / 2)
 	}
