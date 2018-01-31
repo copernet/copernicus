@@ -130,18 +130,20 @@ func (blIndex *BlockIndex) GetBlockTimeMax() uint32 {
 }
 
 func (blIndex *BlockIndex) GetMedianTimePast() int64 {
-	pmedian := make([]int64, medianTimeSpan)
+	pmedian := make([]int64, 0, medianTimeSpan)
 	pindex := blIndex
 	numNodes := 0
-	for i := 0; i >= 0 && pindex != nil; i-- {
-		pmedian[i] = int64(pindex.GetBlockTime())
+	for i := 0; i >= 0 && pindex != nil; i++ {
+		pmedian = append(pmedian, int64(pindex.GetBlockTime()))
+		//fmt.Println("GetMedianTimePast index : ", i, ", time : ", pmedian[i])
 		pindex = pindex.PPrev
 		numNodes++
 	}
 	pmedian = pmedian[:numNodes]
 	sort.Slice(pmedian, func(i, j int) bool {
-		return i < j
+		return pmedian[i] < pmedian[j]
 	})
+
 	return pmedian[numNodes/2]
 }
 
@@ -175,7 +177,7 @@ func (blIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 
 func (blIndex *BlockIndex) BuildSkip() {
 	if blIndex.PPrev != nil {
-		fmt.Println("BuildSkip height : ", blIndex.Height, ", blIndex.PPrev.height : ", blIndex.PPrev.Height)
+		//fmt.Println("BuildSkip height : ", blIndex.Height, ", blIndex.PPrev.height : ", blIndex.PPrev.Height)
 		blIndex.PSkip = blIndex.PPrev.GetAncestor(getSkipHeight(blIndex.Height))
 	}
 }
@@ -197,7 +199,7 @@ func getSkipHeight(height int) int {
 
 //GetAncestor Efficiently find an ancestor of this block.
 func (blIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
-	fmt.Println("height : ", height, ", blIndex.Height : ", blIndex.Height)
+	//fmt.Println("height : ", height, ", blIndex.Height : ", blIndex.Height)
 	if height > blIndex.Height || height < 0 {
 		return nil
 	}

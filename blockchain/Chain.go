@@ -71,12 +71,12 @@ func (chain *Chain) SetTip(pindex *BlockIndex) {
 		return
 	}
 
-	if len(chain.vChain) == pindex.Height {
-		chain.vChain = append(chain.vChain, pindex)
-		for pindex != nil && chain.vChain[pindex.Height-1] != pindex.PPrev {
-			chain.vChain = append(chain.vChain, pindex.PPrev)
-			pindex = pindex.PPrev
-		}
+	tmp := make([]*BlockIndex, pindex.Height + 1)
+	copy(tmp, chain.vChain)
+	chain.vChain = tmp
+	for pindex != nil && chain.vChain[pindex.Height] != pindex{
+		chain.vChain[pindex.Height] = pindex
+		pindex = pindex.PPrev
 	}
 }
 
@@ -107,8 +107,9 @@ func (chain *Chain) FindEarliestAtLeast(time int64) *BlockIndex {
 	i := sort.Search(len(chain.vChain), func(i int) bool {
 		return int64(chain.vChain[i].GetBlockTimeMax()) > time
 	})
-	if i == len(chain.vChain)-1 && int64(chain.vChain[i].GetBlockTimeMax()) < time {
+	if i == len(chain.vChain) {
 		return nil
 	}
+
 	return chain.vChain[i]
 }

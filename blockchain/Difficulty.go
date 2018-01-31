@@ -153,6 +153,9 @@ func GetBlockProof(blIn *BlockIndex) *big.Int {
 	return new(big.Int).Div(oneLsh256, denominator)
 }
 
+// GetBlockProofEquivalentTime Return the time it would take to redo the work difference
+// between from and to, assuming the current hashrate corresponds to the difficulty
+// at tip, in seconds.
 func GetBlockProofEquivalentTime(to, from, tip *BlockIndex, params msg.BitcoinParams) int64 {
 	ret := new(big.Int)
 	sign := int64(1)
