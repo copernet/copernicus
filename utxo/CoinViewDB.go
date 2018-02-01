@@ -2,14 +2,15 @@ package utxo
 
 import (
 	"bytes"
-	
+
 	"fmt"
-	
+
+	"path/filepath"
+
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
-	"path/filepath"
 )
 
 type CoinViewDB struct {
@@ -40,11 +41,11 @@ func (coinViewDB *CoinViewDB) HaveCoin(outpoint *model.OutPoint) bool {
 		return nil
 	})
 	if err != nil {
-		fmt.Errorf(err.Error())
+		fmt.Println(err.Error())
 		return false
 	}
 	return v
-	
+
 }
 
 func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheEntry) (bool, error) {
@@ -78,11 +79,11 @@ func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheE
 			delete(mapCoins, k)
 		}
 		count++
-		
+
 	}
 	fmt.Println("coin", "committed %d changed transcation outputs (out of %d) to coin databse", changed, count)
 	return true, nil
-	
+
 }
 
 func (coinViewDB *CoinViewDB) EstimateSize() uint16 {
@@ -102,7 +103,7 @@ func NewCoinViewDB() *CoinViewDB {
 	}
 	coinViewDB.DBBase = db
 	coinViewDB.bucketKey = "chainstate"
-	
+
 	return coinViewDB
-	
+
 }

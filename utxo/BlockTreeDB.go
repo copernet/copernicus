@@ -1,10 +1,11 @@
 package utxo
 
 import (
-	"github.com/btcboost/copernicus/orm/database"
-	"github.com/btcboost/copernicus/conf"
 	"path/filepath"
+
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/orm"
+	"github.com/btcboost/copernicus/orm/database"
 )
 
 type BlockTreeDB struct {
