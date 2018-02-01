@@ -70,7 +70,7 @@ func TestBlockIndexGetAncestor(t *testing.T) {
 func TestBlockIndexBuildSkip(t *testing.T) {
 	vHashMain := make([]*big.Int, 10000)
 	vBlocksMain := make([]BlockIndex, 10000)
-	tmpRand := utils.NewFastRandomContext( false)
+	tmpRand := utils.NewFastRandomContext(false)
 
 	for i := 0; i < cap(vBlocksMain); i++ {
 		// Set the hash equal to the height
@@ -111,32 +111,32 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 	chain.SetTip(&vBlocksMain[len(vBlocksMain)-1])
 
 	// Verify that FindEarliestAtLeast is correct
-	for _, v:= range chain.vChain{
+	for _, v := range chain.vChain {
 		_ = v.Height
 	}
-	for i:= 0; i < len(vBlocksMain); i++{
+	for i := 0; i < len(vBlocksMain); i++ {
 		// Pick a random element in vBlocksMain.
 		r := tmpRand.Rand32() % uint32(len(vBlocksMain))
 		testTime := vBlocksMain[r].Time
 		ret := chain.FindEarliestAtLeast(int64(testTime))
-		if ret == nil{
+		if ret == nil {
 			continue
 		}
-		if ret.TimeMax < testTime{
+		if ret.TimeMax < testTime {
 			t.Errorf("ret addr : %p, ret.TimeMax : %d, should greater or equal testTime : %d",
-				ret, ret.TimeMax, testTime )
+				ret, ret.TimeMax, testTime)
 			return
 		}
 		if ret.PPrev != nil && ret.PPrev.TimeMax > testTime {
-			t.Errorf("ret.pprev : %p should be nil or ret.pprev.TimeMax : %d should be " +
-				"less testTime : %d", ret.PPrev, ret.PPrev.TimeMax, testTime )
+			t.Errorf("ret.pprev : %p should be nil or ret.pprev.TimeMax : %d should be "+
+				"less testTime : %d", ret.PPrev, ret.PPrev.TimeMax, testTime)
 			return
 		}
-		if r < uint32(ret.Height){
+		if r < uint32(ret.Height) {
 			continue
 		}
-		if vBlocksMain[r].GetAncestor(ret.Height) != ret{
-			t.Errorf("GetAncestor() return value : %p should be equal ret : %p, " +
+		if vBlocksMain[r].GetAncestor(ret.Height) != ret {
+			t.Errorf("GetAncestor() return value : %p should be equal ret : %p, "+
 				"the find height : %d, r : %d", vBlocksMain[r].GetAncestor(ret.Height), ret, ret.Height, r)
 			return
 		}

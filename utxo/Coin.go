@@ -2,11 +2,13 @@ package utxo
 
 import (
 	"io"
-
+	
 	"encoding/binary"
-
+	
 	"unsafe"
-
+	
+	"bytes"
+	
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -39,6 +41,12 @@ func (coin *Coin) Serialize(writer io.Writer) error {
 		return err
 	}
 	return coin.TxOut.Serialize(writer)
+}
+
+func (coin *Coin) GetSerialize() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	err := coin.Serialize(buf)
+	return buf.Bytes(), err
 }
 
 func (coin *Coin) DynamicMemoryUsage() int64 {

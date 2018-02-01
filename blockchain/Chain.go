@@ -71,10 +71,10 @@ func (chain *Chain) SetTip(pindex *BlockIndex) {
 		return
 	}
 
-	tmp := make([]*BlockIndex, pindex.Height + 1)
+	tmp := make([]*BlockIndex, pindex.Height+1)
 	copy(tmp, chain.vChain)
 	chain.vChain = tmp
-	for pindex != nil && chain.vChain[pindex.Height] != pindex{
+	for pindex != nil && chain.vChain[pindex.Height] != pindex {
 		chain.vChain[pindex.Height] = pindex
 		pindex = pindex.PPrev
 	}
