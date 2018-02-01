@@ -9,19 +9,23 @@ import (
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
-	"github.com/btcboost/copernicus/utils"
+	"path/filepath"
 )
 
 type CoinViewDB struct {
 	database.DBBase
-	database.Bucket
+	bucketKey string
 }
 
 func (coinViewDB *CoinViewDB) GetCoin(outpoint *model.OutPoint) (coin *Coin) {
 	coinEntry := NewCoinEntry(outpoint)
-	v := coinViewDB.Bucket.Get(coinEntry.GetSerKey())
+	var v []byte
+	err := coinViewDB.DBBase.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+		v = bucket.Get(coinEntry.GetSerKey())
+		return nil
+	})
 	buf := bytes.NewBuffer(v)
-	coin, err := DeserializeCoin(buf)
+	coin, err = DeserializeCoin(buf)
 	if err != nil {
 		return nil
 	}
@@ -30,24 +34,42 @@ func (coinViewDB *CoinViewDB) GetCoin(outpoint *model.OutPoint) (coin *Coin) {
 
 func (coinViewDB *CoinViewDB) HaveCoin(outpoint *model.OutPoint) bool {
 	coinEntry := NewCoinEntry(outpoint)
-	return coinViewDB.Bucket.Exists(coinEntry.GetSerKey())
+	var v bool
+	err := coinViewDB.DBBase.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+		v = bucket.Exists(coinEntry.GetSerKey())
+		return nil
+	})
+	if err != nil {
+		fmt.Errorf(err.Error())
+		return false
+	}
+	return v
 	
 }
 
-func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheEntry, blockHash utils.Hash) (bool, error) {
+func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheEntry) (bool, error) {
 	count := 0
 	changed := 0
 	for k, v := range mapCoins {
 		if v.Flags&COIN_ENTRY_DIRTY == COIN_ENTRY_DIRTY {
 			coinEntry := NewCoinEntry(&k)
 			if v.Coin.IsSpent() {
-				coinViewDB.Bucket.Delete(coinEntry.GetSerKey())
+				err := coinViewDB.DBBase.Update([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+					err := bucket.Delete(coinEntry.GetSerKey())
+					return err
+				})
+				if err != nil {
+					return false, err
+				}
 			} else {
 				bytes, err := v.Coin.GetSerialize()
 				if err != nil {
 					return false, err
 				}
-				err = coinViewDB.Bucket.Put(coinEntry.GetSerKey(), bytes)
+				err = coinViewDB.DBBase.Update([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+					err := bucket.Put(coinEntry.GetSerKey(), bytes)
+					return err
+				})
 				if err != nil {
 					return false, err
 				}
@@ -63,19 +85,23 @@ func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheE
 	
 }
 
+func (coinViewDB *CoinViewDB) EstimateSize() uint16 {
+	return 0
+}
+
 func NewCoinViewDB() *CoinViewDB {
 	coinViewDB := new(CoinViewDB)
-	path := conf.AppConf.DataDir + "/chainstate"
+	path := conf.AppConf.DataDir + string(filepath.Separator) + "chainstate"
 	db, err := orm.InitDB(orm.DBBolt, path)
 	if err != nil {
 		panic(err)
 	}
-	bucket, err := db.CreateIfNotExists([]byte("chainstate"))
+	_, err = db.CreateIfNotExists([]byte("chainstate"))
 	if err != nil {
 		panic(err)
 	}
 	coinViewDB.DBBase = db
-	coinViewDB.Bucket = bucket
+	coinViewDB.bucketKey = "chainstate"
 	
 	return coinViewDB
 	
