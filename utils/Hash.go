@@ -65,6 +65,15 @@ func (hash *Hash) IsEqual(target *Hash) bool {
 	return *hash == *target
 }
 
+func (hash *Hash) IsNull() bool {
+	for _, item := range hash {
+		if item == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	length := len(bytes)
 	if length != HashSize {
