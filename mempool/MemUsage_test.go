@@ -37,8 +37,8 @@ func TestDynamicUsage(t *testing.T) {
 			size, 168*4, setEntry.Size())
 	}
 
-	size = MallocUsage(10)
-	if size != 32 {
-		t.Errorf("current Size : %d, except Size : %d ", size, 32)
+	sizeTwo := MallocUsage(10)
+	if sizeTwo != 32 {
+		t.Errorf("current Size : %d, except Size : %d ", sizeTwo, 32)
 	}
 }

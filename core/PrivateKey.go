@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/btcboost/copernicus/btcutil/base58"
 	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
@@ -30,6 +32,7 @@ func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
 func (privateKey *PrivateKey) PubKey() *PublicKey {
 	_, secp256k1PublicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKey.bytes)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil
 	}
 	publicKey := PublicKey{SecpPubKey: secp256k1PublicKey, Compressed: privateKey.compressed}

@@ -1,8 +1,6 @@
 package mempool
 
 import (
-	"fmt"
-
 	"unsafe"
 
 	"github.com/btcboost/copernicus/btcutil"
@@ -56,7 +54,7 @@ type TxMempoolEntry struct {
 	CountWithAncestors      uint64
 	sizeWithAncestors       uint64
 	ModFeesWithAncestors    btcutil.Amount
-	SigOpCoungWithAncestors int64
+	SigOpCountWithAncestors int64
 	//Index in mempool's vTxHashes
 	vTxHashesIdx int
 }
@@ -112,8 +110,8 @@ func (txMempoolEntry *TxMempoolEntry) UpdateAncestorState(modifySize, modifyCoun
 		txMempoolEntry.CountWithAncestors += uint64(modifyCount)
 	}
 	txMempoolEntry.ModFeesWithAncestors += modifyFee
-	txMempoolEntry.SigOpCoungWithAncestors += modifySigOps
-	if txMempoolEntry.SigOpCoungWithAncestors < 0 {
+	txMempoolEntry.SigOpCountWithAncestors += modifySigOps
+	if txMempoolEntry.SigOpCountWithAncestors < 0 {
 		panic("the Ancestors's sigOpCode Number should not be negative")
 	}
 }
@@ -125,12 +123,12 @@ func (txMempoolEntry *TxMempoolEntry) UpdateDescendantState(modifySize int64, mo
 	if modifyCount < 0 && uint64(-modifyCount) > txMempoolEntry.CountWithDescendants {
 		panic("the Descendants's number should not be negative")
 	}
+
 	if modifySize < 0 {
 		txMempoolEntry.SizeWithDescendants -= uint64(-modifySize)
 	} else {
 		txMempoolEntry.SizeWithDescendants += uint64(modifySize)
 	}
-
 	if modifyCount < 0 {
 		txMempoolEntry.CountWithDescendants -= uint64(-modifyCount)
 	} else {
@@ -168,13 +166,8 @@ func CompareTxMemPoolEntryByDescendantScore(src, dst interface{}) bool {
 	f1 := aModFee * bSize
 	f2 := aSize * bModFee
 	if f1 == f2 {
-		fmt.Printf("&&&&&&&&&&&&&&&&&&&&&&\n  origin Hash : %v; \n  dst Hash : %v; \n  "+
-			"compare : %v \n",
-			a.TxRef.Hash.ToString(), b.TxRef.Hash.ToString(), a.Time >= b.Time)
 		return a.Time >= b.Time
 	}
-	//fmt.Printf("============== oriHash : %v,\n dstHash : %v,\n  compare : %v \n",
-	//	a.TxRef.Hash.ToString(), b.TxRef.Hash.ToString(), f1 < f2)
 
 	return f1 < f2
 }
@@ -234,8 +227,7 @@ func CompareTxMempoolEntryByScore(src, dst interface{}) bool {
 }
 
 func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
-	size := int64(MallocUsage(int(unsafe.Sizeof(s))))
-	return size
+	return MallocUsage(int64(unsafe.Sizeof(s)))
 }
 func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
 	entryPriority float64, entryHeight uint, inChainInputValue btcutil.Amount, spendCoinbase bool,
@@ -250,7 +242,7 @@ func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
 	txMempoolEntry.SpendsCoinbase = spendCoinbase
 	txMempoolEntry.SigOpCount = sigOpsCount
 	txMempoolEntry.LockPoints = lockPoints
-
+	txMempoolEntry.Time = time
 	txMempoolEntry.TxSize = txRef.SerializeSize()
 	txMempoolEntry.ModSize = txRef.CalculateModifiedSize()
 	txMempoolEntry.UsageSize = RecursiveDynamicUsage(txRef)
@@ -267,7 +259,7 @@ func NewTxMempoolEntry(txRef *model.Tx, fee btcutil.Amount, time int64,
 	txMempoolEntry.CountWithAncestors = 1
 	txMempoolEntry.sizeWithAncestors = uint64(txMempoolEntry.TxSize)
 	txMempoolEntry.ModFeesWithAncestors = fee
-	txMempoolEntry.SigOpCoungWithAncestors = sigOpsCount
+	txMempoolEntry.SigOpCountWithAncestors = sigOpsCount
 
 	return &txMempoolEntry
 }

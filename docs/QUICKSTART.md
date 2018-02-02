@@ -45,6 +45,12 @@ go install
  glide install
 ```
 
+#### gometalinter
+```bash
+go get -u github.com/alecthomas/gometalinter
+gometalinter --install
+```
+
 ## run copernicus
 
 ```

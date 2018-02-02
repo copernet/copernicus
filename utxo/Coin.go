@@ -7,6 +7,8 @@ import (
 
 	"unsafe"
 
+	"bytes"
+
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -41,20 +43,27 @@ func (coin *Coin) Serialize(writer io.Writer) error {
 	return coin.TxOut.Serialize(writer)
 }
 
+func (coin *Coin) GetSerialize() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	err := coin.Serialize(buf)
+	return buf.Bytes(), err
+}
+
 func (coin *Coin) DynamicMemoryUsage() int64 {
 	return int64(unsafe.Sizeof(coin.TxOut.Script.ParsedOpCodes))
 }
 
-func (coin *Coin) Deserialize(reader io.Reader) error {
+func DeserializeCoin(reader io.Reader) (*Coin, error) {
+	coin := new(Coin)
 	heightAndIsCoinBase, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	coin.HeightAndIsCoinBase = heightAndIsCoinBase
 	if err != nil {
-		return err
+		return nil, err
 	}
 	txOut := model.TxOut{}
 	err = txOut.Deserialize(reader)
 	coin.TxOut = &txOut
-	return err
+	return coin, err
 }
 
 func NewCoin(out *model.TxOut, height uint32, isCoinBase bool) *Coin {

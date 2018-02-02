@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/hex"
 	"testing"
+
 	"github.com/btcboost/copernicus/btcutil"
 )
 
@@ -30,7 +31,7 @@ func TestPublicKeyToAddress(t *testing.T) {
 		return
 	}
 }
-func TestHash160ToAddress(t*testing.T) {
+func TestHash160ToAddress(t *testing.T) {
 	data, err := hex.DecodeString("0014a4b4ca48de0b3fffc15404a1acdc8dbaae226955")
 	if err != nil {
 		t.Error(err)
@@ -69,4 +70,22 @@ func TestPrivateKeyToAddress(t *testing.T) {
 		t.Errorf("address (%s) is error", address.addressStr)
 	}
 
+}
+
+func TestPrivateKeyFromHex(t *testing.T) {
+
+	//str1 := "3714c34e68f8481d"
+	//str2 := "9e3647445d5ca65e"
+	//str3 := "9d150ddb24d2182a"
+	//str4 := "6ac12143f1293835"
+	//pri := core.PrivateKeyFromBytes(hexToBytes(str1 + str2 + str3 + str4))
+	//if pri == nil {
+	//	t.Error("pri is nil")
+	//}
+	//pub := pri.PubKey()
+	//pub.Compressed = true
+	//address, err := AddressFromPublicKey(pub.ToBytes())
+	//if err != nil {
+	//	t.Error(err.Error())
+	//}
 }

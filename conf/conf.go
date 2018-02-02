@@ -8,6 +8,10 @@ import (
 
 	//"github.com/astaxie/beego/config"
 	//"github.com/astaxie/beego/logs"
+	"path/filepath"
+
+	"github.com/astaxie/beego/config"
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -19,7 +23,7 @@ const (
 
 type AppConfig struct {
 	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
-	ShowVersion        bool          `short:"v" long:"version" description:"Disaplay version in"`
+	ShowVersion        bool          `short:"v" long:"version" description:"Display version in"`
 	NoPeerBloomFilters bool          `long:"nopeerbloomfilters" description:"Disable bloom filtering support"`
 	MaxPeers           int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
 	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`
@@ -43,36 +47,45 @@ type AppConfig struct {
 	dial      func(string, string, time.Duration) (net.Conn, error)
 }
 
-/*
 func init() {
 	log := logs.NewLogger()
-	appConf, err := config.NewConfig("ini", "init.conf")
+	_, err := config.NewConfig("ini", "init.conf")
 	if err != nil {
 		log.Error(err.Error())
 	}
-	contentTimeout := appConf.String("Timeout::connectTimeout")
-	log.Info("read conf timeout is  %s", contentTimeout)
-	logDir := appConf.String("Log::dir")
-	log.Info("logger dir is %s", logDir)
-	logLevel := appConf.String("Log::level")
-	log.Info("logger dir is %s", logLevel)
-	//if err := logger.InitLogger(logDir, logLevel); err != nil {
-	//	logger.Error(err.Error())
+	//todo unable to pass in unit test
+	//if appConf != nil {
+	//	contentTimeout := appConf.String("Timeout::connectTimeout")
+	//	log.Info("read conf timeout is  %s", contentTimeout)
+	//	logDir := appConf.String("Log::dir")
+	//	log.Info("logger dir is %s", logDir)
+	//	logLevel := appConf.String("Log::level")
+	//	log.Info("logger dir is %s", logLevel)
 	//}
-	AppConf, _ = loadConfig()
+	AppConf = loadConfig()
 
 }
-*/
 
-func loadConfig() (*AppConfig, error) {
+func loadConfig() *AppConfig {
 	appConfig := AppConfig{
 		ShowVersion:        true,
 		NoPeerBloomFilters: true,
-		DataDir:            "copernicus",
+		DataDir:            GetDataPath(),
 	}
 	appConfig.dial = net.DialTimeout
 	appConfig.lookup = net.LookupIP
-	return &appConfig, nil
+	return &appConfig
+}
+
+func GetDataPath() string {
+	dataPath := filepath.Clean(utils.MergePath("cp"))
+	if utils.PathExists(dataPath) {
+		err := utils.MakePath(dataPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return dataPath
 }
 
 func AppLookup(host string) ([]net.IP, error) {

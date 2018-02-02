@@ -45,7 +45,7 @@ func DynamicUsage(Item interface{}) int {
  * require more accurate inner accounting, they should iterate themselves, or
  * use more efficient caching + updating on modification.
  */
-func MallocUsage(alloc int) int {
+func MallocUsage(alloc int64) int64 {
 	tmp := new(int)
 	// Measured on libc6 2.19 on Linux
 	if alloc == 0 {

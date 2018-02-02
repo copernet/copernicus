@@ -1,6 +1,5 @@
-package storage
+package database
 
-// Bucket represents a collection of key/value pairs.
 type Bucket interface {
 	ForEach(func(k, v []byte) error) error
 
@@ -13,4 +12,6 @@ type Bucket interface {
 	Get(key []byte) []byte
 
 	Delete(key []byte) error
+
+	Exists(key []byte) bool
 }

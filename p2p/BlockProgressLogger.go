@@ -49,7 +49,7 @@ func (blockLog *BlockProgressLogger) LogBlockHeight(block *model.Block) {
 		blockStr,
 		timeDuration,
 		blockLog.receivedLogTx,
-		txStr, block.Height, block.BlockTime)
+		txStr, block.Height, block.BlockHeader.Time)
 	blockLog.receivedLogBlocks = 0
 	blockLog.receivedLogTx = 0
 	blockLog.LastBlockLogTime = now

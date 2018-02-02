@@ -32,7 +32,7 @@ func CheckSig(signHash utils.Hash, vchSigIn []byte, vchPubKey []byte) (bool, err
 		return false, err
 	}
 	if !ret {
-		return false, errors.New("VerfySinature is failed")
+		return false, errors.New("VerifySignature is failed")
 	}
 	return true, nil
 

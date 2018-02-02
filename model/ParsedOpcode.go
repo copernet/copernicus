@@ -100,7 +100,7 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 		} else if data[0] == 0x81 {
 			if opcode != OP_1NEGATE {
 				return errors.Errorf(
-					"data push of the value -1 encoded with opcode %d instend of OP_1NEGATE",
+					"data push of the value -1 encoded with opcode %d instead of OP_1NEGATE",
 					parsedOpCode.opValue)
 			}
 		}

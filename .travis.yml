@@ -2,6 +2,16 @@ language: go
 go:
   - 1.8.x
   - 1.9.x
+
+
+cache:
+  directories:
+  - $HOME/.glide/cache
+  - _venv
+ # - /tmp/secp256k1
+before_cache:  # glide touches ORIG_HEAD on `glide install`
+  - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
+
 before_install:
   - export GOROOT=$(go env GOROOT)
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
@@ -21,14 +31,6 @@ install:
   - make -j16
   - sudo make install
   - cd -
-
-  - git clone https://github.com/facebook/rocksdb.git /tmp/rocksdb
-  - pushd /tmp/rocksdb
-  - make clean
-  - make shared_lib -j16
-  - sudo cp --preserve=links ./librocksdb.* /usr/lib/
-  - sudo cp -r ./include/rocksdb/ /usr/include/
-  - popd
 
   - go get -v github.com/Masterminds/glide
   - cd $GOPATH/src/github.com/Masterminds/glide && git checkout e73500c735917e39a8b782e0632418ab70250341 && go install && cd -

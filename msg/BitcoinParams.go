@@ -77,7 +77,7 @@ var MainNetParams = BitcoinParams{
 	GenesisBlock:             &GenesisBlock,
 	GenesisHash:              &GenesisHash,
 	PowLimit:                 mainPowLimit,
-	PowLimitBits:             GenesisBlock.Block.Bits,
+	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -135,7 +135,7 @@ var RegressionNetParams = BitcoinParams{
 	GenesisBlock:             &RegressionTestGenesisBlock,
 	GenesisHash:              &RegressionTestGenesisHash,
 	PowLimit:                 regressingPowLimit,
-	PowLimitBits:             RegressionTestGenesisBlock.Block.Bits,
+	PowLimitBits:             RegressionTestGenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 150,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -179,7 +179,7 @@ var TestNet3Params = BitcoinParams{
 	GenesisBlock:             &TestNet3GenesisBlock,
 	GenesisHash:              &TestNet3GenesisHash,
 	PowLimit:                 testNet3PowLimit,
-	PowLimitBits:             GenesisBlock.Block.Bits,
+	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -220,7 +220,7 @@ var SimNetParams = BitcoinParams{
 	GenesisBlock:             &SimNetGenesisBlock,
 	GenesisHash:              &SimNetGenesisHash,
 	PowLimit:                 simNetPowlimit,
-	PowLimitBits:             SimNetGenesisBlock.Block.Bits,
+	PowLimitBits:             SimNetGenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
 	TargetTimespan:           time.Hour * 24 * 14,
@@ -291,7 +291,7 @@ func HDPrivateKeyToPublicKeyID(id []byte) ([]byte, error) {
 	copy(key[:], id)
 	pubBytes, ok := HDPrivateToPublicKeyIDs[key]
 	if !ok {
-		return nil, errors.New("unkown hd private extended key bytes")
+		return nil, errors.New("unknown hd private extended key bytes")
 
 	}
 	return pubBytes, nil

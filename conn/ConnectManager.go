@@ -63,7 +63,7 @@ func (connectManager *ConnectManager) handleFailedConnect(connectRequest *Connec
 	} else if connectManager.listener.GetNewAddress != nil {
 		connectManager.failedAttempts++
 		if connectManager.failedAttempts >= maxFailedAttempts {
-			log.Debug("max failed connection attemps reached :[%d]--retyeing connection in:%v",
+			log.Debug("max failed connection attempts reached :[%d]--retrying connection in:%v",
 				maxFailedAttempts, connectManager.listener.RetryDuration)
 			time.AfterFunc(connectManager.listener.RetryDuration, func() {
 				connectManager.NewConnectRequest()
@@ -141,7 +141,6 @@ func (connectManager *ConnectManager) NewConnectRequest() {
 	}
 	connectRequest.Address = address
 	connectManager.Connect(connectRequest)
-
 }
 
 func (connectManager *ConnectManager) connectHandler() {
@@ -177,7 +176,7 @@ out:
 						connectManager.handleFailedConnect(connectRequest)
 					}
 				} else {
-					log.Error("unknown connectiong :%d", msg.id)
+					log.Error("unknown connecting :%d", msg.id)
 				}
 
 			case handleFailed:

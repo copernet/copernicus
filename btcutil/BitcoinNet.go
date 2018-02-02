@@ -23,5 +23,5 @@ func (n BitcoinNet) ToString() string {
 	if exist {
 		return result
 	}
-	return fmt.Sprintf("Unkonwn BitcoinNet %d", uint32(n))
+	return fmt.Sprintf("Unknown BitcoinNet %d", uint32(n))
 }

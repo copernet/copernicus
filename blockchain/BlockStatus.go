@@ -12,11 +12,11 @@ const (
 	// previous , checkpoint , Implies all parents are also at least TREE
 	BLOCK_VALID_TREE uint32 = 2
 
-	// BLOCK_VALID_TRANSCATIONS : Only first tx is coinbase, 2 <= coinbase input script length <= 100,
+	// BLOCK_VALID_TRANSACTIONS : Only first tx is coinbase, 2 <= coinbase input script length <= 100,
 	// transactions valid, no duplicate txids , sigops , size , merkle root .
-	// Implies all parents are at least TREE but not necessarily TRANSCATIONS.
+	// Implies all parents are at least TREE but not necessarily TRANSACTIONS.
 	// When all parent blocks also have TRANSACTIONS , CBlockIndex ::nChainTx wll be set
-	BLOCK_VALID_TRANSCATIONS uint32 = 3
+	BLOCK_VALID_TRANSACTIONS uint32 = 3
 
 	// BLOCK_VALID_CHAIN : Outputs do not overspend inputs , no double spends , coinbase output ok
 	// no immature coinbase spends , BIP30.
@@ -29,7 +29,7 @@ const (
 	// BLOCK_VALID_MASK : All validity bits
 	BLOCK_VALID_MASK uint32 = BLOCK_VALID_HEADER |
 		BLOCK_VALID_TREE |
-		BLOCK_VALID_TRANSCATIONS |
+		BLOCK_VALID_TRANSACTIONS |
 		BLOCK_VALID_CHAIN |
 		BLOCK_VALID_SCRIPTS
 

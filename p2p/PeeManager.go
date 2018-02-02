@@ -15,7 +15,8 @@ import (
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/network"
 	"github.com/btcboost/copernicus/protocol"
-	"github.com/btcboost/copernicus/storage"
+
+	"github.com/btcboost/copernicus/orm/database"
 )
 
 const (
@@ -47,7 +48,7 @@ type PeerManager struct {
 
 	//txMemPool    *mempool.TxPool
 	nat          network.NATInterface
-	storage      storage.Storage
+	storage      database.DBBase
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
 
@@ -60,7 +61,7 @@ type getOutboundGroup struct {
 	reply chan int
 }
 
-func NewPeerManager(listenAddrs []string, storage storage.Storage, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
+func NewPeerManager(listenAddrs []string, db database.DBBase, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
 	services := DefaultServices
 	if conf.AppConf.NoPeerBloomFilters {
 		services &^= protocol.SFNodeBloomFilter
@@ -81,7 +82,7 @@ func NewPeerManager(listenAddrs []string, storage storage.Storage, bitcoinParam 
 		modifyRebroadcastInv: make(chan interface{}),
 		peerHeightsUpdate:    make(chan UpdatePeerHeightsMessage),
 		nat:                  natListener,
-		storage:              storage,
+		storage:              db,
 		timeSource:           blockchain.NewMedianTime(),
 		servicesFlag:         protocol.ServiceFlag(services),
 	}
@@ -190,10 +191,10 @@ func (peerManager *PeerManager) AddPeer(serverPeer *ServerPeer) {
 
 func (peerManager *PeerManager) Stop() error {
 	if atomic.AddInt32(&peerManager.shutdown, 1) != 1 {
-		log.Info("PeerManager is aleray in the process of shtting down")
+		log.Info("PeerManager is already in the process of shutting down")
 		return nil
 	}
-	log.Info("PeerManager shtting down")
+	log.Info("PeerManager shutting down")
 	close(peerManager.quit)
 	return nil
 }
@@ -205,7 +206,7 @@ func (peerManager *PeerManager) Start() {
 	if atomic.AddInt32(&peerManager.started, 1) != 1 {
 		return
 	}
-	log.Trace("Satarting server")
+	log.Trace("starting server")
 	peerManager.waitGroup.Add(1)
 	go peerManager.peerHandler()
 	if peerManager.nat != nil {
