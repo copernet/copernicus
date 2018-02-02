@@ -4,9 +4,9 @@ import (
 	"testing"
 	"unsafe"
 
+	"gopkg.in/fatih/set.v0"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
-	"gopkg.in/fatih/set.v0"
 	"github.com/siddontang/go/log"
 )
 
@@ -14,8 +14,8 @@ const NUM_SIMULATION_ITERATIONS = 40000
 
 type CoinsViewTest struct {
 	hashBestBlock  utils.Hash
-	coinMap        map[OutPoint]*Coin // 一个map
-	coinsViewCache CoinsViewCache     // 内部有一个map
+	coinMap        map[OutPoint]*Coin
+	coinsViewCache CoinsViewCache
 }
 
 func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *OutPoint, coin *Coin) bool {
@@ -24,13 +24,12 @@ func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *OutPoint, coin *Coin) bool
 		return false
 	}
 	coin = c
-	if coin.IsSpent() && !utils.InsecureRandBool() { // 如果coin.IsSpent()为false一定会返回false
+	if coin.IsSpent() && !utils.InsecureRandBool() {
 		return false
 	}
 	return true
 }
 
-// not used
 func (coinsViewTest *CoinsViewTest) HaveCoin(point *OutPoint) bool {
 	entry := coinsViewTest.coinsViewCache.FetchCoin(point)
 	return entry != nil && !entry.Coin.IsSpent()
@@ -78,18 +77,18 @@ type undoTx struct {
 var utxoData map[OutPoint]undoTx
 
 func (coinsViewCacheTest *CoinsViewCacheTest) FetchCoin(point *OutPoint) *CoinsCacheEntry {
-	entry, ok := coinsViewCacheTest.coinsViewTest.coinsViewCache.cacheCoins[*point] // 获得*CoinsCacheEntry
+	entry, ok := coinsViewCacheTest.coinsViewTest.coinsViewCache.cacheCoins[*point]
 	if ok {
-		return entry // cacheCoins已经存在对应的point，则直接返回true，没有修改任何内容
+		return entry
 	}
 
 	tmp := NewEmptyCoin()
-	if !coinsViewCacheTest.base.GetCoin(point, tmp) { // coinMap  map[OutPoint]*Coin中如果找到了这个元素，则会修改tmp
+	if !coinsViewCacheTest.base.GetCoin(point, tmp) {
 		return nil
 	}
 
 	newEntry := NewCoinsCacheEntry(tmp)
-	coinsViewCacheTest.coinsViewTest.coinsViewCache.cacheCoins[*point] = newEntry // 在这个地方增加了cacheCoins map元素
+	coinsViewCacheTest.coinsViewTest.coinsViewCache.cacheCoins[*point] = newEntry
 	if newEntry.Coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
 		// our version as fresh.
@@ -126,7 +125,7 @@ func newCoinsViewCacheTest() *CoinsViewCacheTest {
 	}
 
 	coinsViewCache := CoinsViewCache{base: &coinViewTest, cacheCoins: make(map[OutPoint]*CoinsCacheEntry)}
-	coinViewTest.coinsViewCache = coinsViewCache //指针实现了接口，只能通过指针赋值
+	coinViewTest.coinsViewCache = coinsViewCache
 	var coinsViewCacheTest CoinsViewCacheTest
 	coinsViewCacheTest.base = &coinsViewCache
 	coinsViewCacheTest.coinsViewTest = coinViewTest
@@ -218,7 +217,7 @@ func newSelfCoinsViewCacheTest() *CoinsViewCacheTest {
 
 	coinsViewCache := CoinsViewCache{cacheCoins: make(map[OutPoint]*CoinsCacheEntry)}
 	coinsViewCache.base = &coinsViewCache
-	coinViewTest.coinsViewCache = coinsViewCache //指针实现了接口，只能通过指针赋值
+	coinViewTest.coinsViewCache = coinsViewCache
 	var coinsViewCacheTest CoinsViewCacheTest
 	coinsViewCacheTest.base = &coinsViewCache
 	coinsViewCacheTest.coinsViewTest = coinViewTest
