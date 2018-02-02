@@ -60,6 +60,24 @@ type BitcoinParams struct {
 	HDPrivateKeyID      [4]byte
 	HDPublicKeyID       [4]byte
 	HDCoinType          uint32
+
+	//Block height and hash at which BIP34 becomes active
+	BIP34Height int
+	BIP34Hash   utils.Hash
+
+	//Block height at which BIP65 becomes active
+	BIP65Height int
+	//Block height at which BIP66 becomes active
+	BIP66Height int
+	//Block height at which UAHF kicks in
+	UAHFHeight int
+	//Activation time at which the cash HF kicks in.
+	CashHardForkActivationTime int64
+	//Block height at which OP_RETURN replay protection stops
+	AntiReplayOpReturnSunsetHeight int
+	AntiReplayOpReturnCommitment   []byte
+	RuleChangeActivationThreshold  uint32
+	MinerConfirmationWindow        uint32
 }
 
 var MainNetParams = BitcoinParams{

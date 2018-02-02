@@ -447,6 +447,31 @@ func (tx *Tx) CalculateModifiedSize() int {
 
 }
 
+func (tx *Tx) IsFinalTx(Height int, time int64) bool {
+	if tx.LockTime == 0 {
+		return true
+	}
+
+	lockTimeLimit := int64(0)
+	if tx.LockTime < LOCKTIME_THRESHOLD {
+		lockTimeLimit = int64(Height)
+	} else {
+		lockTimeLimit = time
+	}
+
+	if int64(tx.LockTime) < lockTimeLimit {
+		return true
+	}
+
+	for _, txin := range tx.Ins {
+		if txin.Sequence != SEQUENCE_FINAL {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (tx *Tx) String() string {
 	str := ""
 	str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.Ins), len(tx.Outs))
