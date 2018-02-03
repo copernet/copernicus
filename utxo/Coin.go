@@ -76,3 +76,10 @@ func NewCoin(out *model.TxOut, height uint32, isCoinBase bool) *Coin {
 		HeightAndIsCoinBase: (height << 1) | bit,
 	}
 }
+
+func NewEmptyCoin() *Coin {
+	return &Coin{
+		HeightAndIsCoinBase: 0,
+		TxOut:               model.NewTxOut(-1, []byte{}),
+	}
+}
