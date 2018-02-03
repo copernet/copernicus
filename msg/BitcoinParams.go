@@ -23,23 +23,26 @@ var (
 )
 
 type BitcoinParams struct {
-	Name                     string
-	BitcoinNet               btcutil.BitcoinNet
-	DefaultPort              string
-	DNSSeeds                 []btcutil.DNSSeed
-	GenesisBlock             *BlockMessage
-	GenesisHash              *utils.Hash
-	PowLimit                 *big.Int
-	PowLimitBits             uint32
-	CoinbaseMaturity         uint16
-	SubsidyReductionInterval int32
-	TargetTimespan           time.Duration
-	TargetTimePerBlock       time.Duration
-	RetargetAdjustmentFactor int64
-	ReduceMinDifficulty      bool
-	MinDiffReductionTime     time.Duration
-	GenerateSupported        bool
-	Checkpoints              []*model.Checkpoint
+	Name                         string
+	BitcoinNet                   btcutil.BitcoinNet
+	DefaultPort                  string
+	DNSSeeds                     []btcutil.DNSSeed
+	GenesisBlock                 *BlockMessage
+	GenesisHash                  *utils.Hash
+	PowLimit                     *big.Int
+	PowLimitBits                 uint32
+	CoinbaseMaturity             uint16
+	SubsidyReductionInterval     int32
+	TargetTimespan               time.Duration
+	TargetTimePerBlock           time.Duration
+	RetargetAdjustmentFactor     int64
+	ReduceMinDifficulty          bool
+	MinDiffReductionTime         time.Duration
+	GenerateSupported            bool
+	Checkpoints                  []*model.Checkpoint
+	FPowNoRetargeting            bool
+	FPowAllowMinDifficultyBlocks bool
+	PowTargetSpacing             int64
 
 	// Enforce current block version once network has
 	// upgraded.  This is part of BIP0034.
@@ -319,4 +322,8 @@ func mustRegister(bitcoinParams *BitcoinParams) {
 	if err != nil {
 		panic("failed to register network :" + err.Error())
 	}
+}
+
+func (param *BitcoinParams) DifficultyAdjustmentInterval() int64 {
+	return int64(param.TargetTimespan) / param.PowTargetSpacing
 }
