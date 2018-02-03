@@ -4,9 +4,9 @@ import (
 	"net"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/btcboost/copernicus/network"
 	"github.com/btcboost/copernicus/protocol"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestAddressMessage_AddPeerAddress(t *testing.T) {
