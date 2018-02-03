@@ -1,10 +1,12 @@
 package utxo
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math"
-	"math/rand"
 	"testing"
 	"unsafe"
 
@@ -12,7 +14,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-const NumSimulationIterations = 40000
+const NumSimulationIterations = 4000
 
 type CoinsViewCacheTest struct {
 	CoinsViewCache
@@ -43,7 +45,9 @@ func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *OutPoint, coin *Coin) bool
 	if !ok {
 		return false
 	}
-	coin = c
+	tmp := DeepCopyCoin(c)
+	coin.TxOut = tmp.TxOut
+	coin.HeightAndIsCoinBase = tmp.HeightAndIsCoinBase
 	if coin.IsSpent() && InsecureRandBool() {
 		return false
 	}
@@ -64,26 +68,27 @@ func (coinsViewTest *CoinsViewTest) EstimateSize() uint64 {
 
 func (coinsViewTest *CoinsViewTest) BatchWrite(cacheCoins CacheCoins, hashBlock *utils.Hash) bool {
 	for outPoint, entry := range cacheCoins {
-		if entry.Flags&uint8(COIN_ENTRY_DIRTY) != 0 {
+		if entry.Flags&COIN_ENTRY_DIRTY != 0 {
 			// Same optimization used in CCoinsViewDB is to only write dirty entries.
-			coinsViewTest.coinMap[outPoint] = entry.Coin
-			if entry.Coin.IsSpent() && InsecureRandRange(3) == 0 {
+			tmp := DeepCopyCoin(entry.Coin)
+			coinsViewTest.coinMap[outPoint] = &tmp
+			if entry.Coin.IsSpent() && InsecureRand32()%3 == 0 {
 				// Randomly delete empty entries on write.
 				delete(coinsViewTest.coinMap, outPoint)
 			}
 		}
-		delete(cacheCoins, outPoint)
 	}
-	if !hashBlock.IsEqual(&utils.HashZero) {
+	cacheCoins = make(CacheCoins)
+	if !hashBlock.IsNull() {
 		coinsViewTest.hashBestBlock = *hashBlock
 	}
+
 	return true
 }
 
 func (coinsViewCacheTest *CoinsViewCacheTest) SelfTest() {
 	// Manually recompute the dynamic usage of the whole data, and compare it.
 	ret := int64(unsafe.Sizeof(coinsViewCacheTest.cacheCoins))
-	//ret := int64(0)
 	var count int
 	for _, entry := range coinsViewCacheTest.cacheCoins {
 		ret += entry.Coin.DynamicMemoryUsage()
@@ -93,7 +98,6 @@ func (coinsViewCacheTest *CoinsViewCacheTest) SelfTest() {
 		panic("count error")
 	}
 
-	//fmt.Println(coinsViewCacheTest.coinsViewTest.coinsViewCache.cachedCoinsUsage, ret)
 	if coinsViewCacheTest.cachedCoinsUsage != ret {
 		panic("calculate memory usage error")
 	}
@@ -128,79 +132,252 @@ func IsEqualTxOut(o1 *model.TxOut, o2 *model.TxOut) bool {
 	return false
 }
 
-func bytesToInt64(buf []byte) int64 {
-	return int64(binary.BigEndian.Uint64(buf))
+func TestCoinsCacheSimulation(t *testing.T) {
+	// Various coverage trackers.
+	removedAllCaches := false
+	reached4Caches := false
+	addedAnEntry := false
+	addedAnUnspendableEntry := false
+	removedAnEntry := false
+	updatedAnEntry := false
+	foundAnEntry := false
+	missedAnEntry := false
+	unCachedAnEntry := false
+
+	// A simple map to track what we expect the cache stack to represent.
+	result := make(map[OutPoint]*Coin)
+
+	// The cache stack.
+	// A stack of CCoinsViewCaches on top.
+	stack := make([]*CoinsViewCacheTest, 0)
+	// A backed store instance
+	backed := newCoinsViewTest()
+	// Start with one cache.
+	item := newCoinsViewCacheTest()
+	item.base = backed
+	stack = append(stack, item)
+
+	// Use a limited set of random transaction ids, so we do test overwriting entries.
+	var txids [NumSimulationIterations / 8]utils.Hash
+	for i := 0; i < NumSimulationIterations/8; i++ {
+		txids[i] = *GetRandHash()
+	}
+
+	for i := 0; i < NumSimulationIterations; i++ {
+		// Do a random modification.
+		{
+			randomNum := InsecureRandRange(uint64(len(txids) - 1))
+			txid := txids[randomNum] // txid we're going to modify in this iteration.
+			coin, ok := result[OutPoint{Hash: txid, Index: 0}]
+
+			if !ok {
+				coin = NewEmptyCoin()
+				result[OutPoint{Hash: txid, Index: 0}] = coin
+			}
+
+			randNum := InsecureRandRange(50)
+			var entry *Coin
+			if randNum == 0 {
+				entry = AccessByTxid(&stack[len(stack)-1].CoinsViewCache, &txid)
+			} else {
+				entry = stack[len(stack)-1].AccessCoin(&OutPoint{Hash: txid, Index: 0})
+			}
+
+			if !IsEqualCoin(entry, coin) {
+				t.Error("the coin should be equal to entry from cacheCoins or coinMap")
+			}
+
+			if InsecureRandRange(5) == 0 || coin.IsSpent() {
+				var newTxOut model.TxOut
+				newTxOut.Value = int64(InsecureRand32())
+				if InsecureRandRange(16) == 0 && coin.IsSpent() {
+					newTxOut.Script = model.NewScriptRaw(bytes.Repeat([]byte{byte(model.OP_RETURN)}, int(InsecureRandBits(6)+1)))
+					if !newTxOut.Script.IsUnspendable() {
+						t.Error("error IsUnspendable")
+					}
+					addedAnUnspendableEntry = true
+				} else {
+					randomBytes := bytes.Repeat([]byte{0}, int(InsecureRandBits(6)+1))
+
+					newTxOut.Script = model.NewScriptRaw(randomBytes)
+					if coin.IsSpent() {
+						addedAnEntry = true
+					} else {
+						updatedAnEntry = true
+					}
+					*result[OutPoint{Hash: txid, Index: 0}] = DeepCopyCoin(&Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2})
+				}
+				newCoin := Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2}
+				newnewCoin := DeepCopyCoin(&newCoin)
+				stack[len(stack)-1].AddCoin(&OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
+			} else {
+				removedAnEntry = true
+				//result[OutPoint{Hash: txid, Index: 0}].Clear()
+			}
+		}
+
+		// One every 10 iterations, remove a random entry from the cache
+		if InsecureRandRange(11) != 0 {
+			cacheID := int(InsecureRand32()) % (len(stack))
+			hashID := int(InsecureRand32()) % len(txids)
+			out := OutPoint{Hash: txids[hashID], Index: 0}
+			stack[cacheID].UnCache(&out)
+			if !stack[cacheID].HaveCoinInCache(&out) {
+				unCachedAnEntry = true
+			}
+		}
+
+		// Once every 1000 iterations and at the end, verify the full cache.
+		//if InsecureRandRange(2) == 1 || i == NumSimulationIterations-1 {
+		if i == 200 || i == NumSimulationIterations-1 {
+			for out, entry := range result {
+				have := stack[len(stack)-1].HaveCoin(&out)
+				coin := stack[len(stack)-1].AccessCoin(&out)
+				if have == coin.IsSpent() {
+					t.Error("the coin should be different from have in IsSpent")
+				}
+
+				if !IsEqualCoin(coin, entry) {
+					t.Error("the coin should be equal to entry from cacheCoins or coinMap")
+				}
+				if coin.IsSpent() {
+					missedAnEntry = true
+				} else {
+					if !stack[len(stack)-1].HaveCoinInCache(&out) {
+						t.Error("error HaveCoinInCache")
+					}
+					foundAnEntry = true
+				}
+			}
+			//for _, test := range stack {
+			//	test.SelfTest()
+			//}
+		}
+
+		if InsecureRandRange(100) == 1000 {
+			// Every 100 iterations, flush an intermediate cache
+			if len(stack) > 1 && InsecureRandBool() {
+				flushIndex := InsecureRandRange(uint64(len(stack) - 1))
+				for out, item := range stack[0].cacheCoins {
+					fmt.Println(out.Hash.ToString(), item.Coin.TxOut.Value, item.Coin.HeightAndIsCoinBase, item.Flags)
+				}
+				stack[flushIndex].Flush()
+			}
+		}
+
+		if InsecureRandRange(100) == 0 {
+			// Every 100 iterations, change the cache stack.
+			length := len(stack)
+			if length > 0 && InsecureRandBool() {
+				//Remove the top cache
+				stack[len(stack)-1].Flush()
+				stack = stack[:length-1]
+			}
+
+			if len(stack) == 0 || len(stack) < 4 && InsecureRandBool() {
+				//Add a new cache
+				tip := newCoinsViewCacheTest()
+				if len(stack) > 0 {
+					tip.base = stack[len(stack)-1]
+				} else {
+					tip.base = backed
+					removedAllCaches = true
+				}
+
+				stack = append(stack, tip)
+				if len(stack) == 4 {
+					reached4Caches = true
+				}
+			}
+		}
+	}
+
+	// Clean up the stack.
+	stack = nil
+
+	// Verify coverage.
+	if !removedAllCaches {
+		t.Error("removedAllCaches should be true")
+	}
+	if !reached4Caches {
+		t.Error("reached4Caches should be true")
+	}
+	if !addedAnEntry {
+		t.Error("addedAnEntry should be true")
+	}
+	if !addedAnUnspendableEntry {
+		t.Error("addedAnUnspendableEntry should be true")
+	}
+	if !removedAnEntry {
+		t.Error("removedAnEntry should be true")
+	}
+	if !updatedAnEntry {
+		t.Error("updatedAnEntry should be true")
+	}
+	if !foundAnEntry {
+		t.Error("foundAnEntry should be true")
+	}
+	if !missedAnEntry {
+		t.Error("missedAnEntry should be true")
+	}
+	if !unCachedAnEntry {
+		t.Error("uncachedAnEntry should be true")
+	}
 }
 
-// new a insecure rand creator from random seed
-func newInsecureRand() *rand.Rand {
-	randomHash := GetRandHash()[:]
-	source := rand.NewSource(bytesToInt64(randomHash))
-	return rand.New(source)
+// new a insecure rand creator from timestamp seed
+func newInsecureRand() []byte {
+	randByte := make([]byte, 32)
+	_, err := rand.Read(randByte)
+	if err != nil {
+		panic("init rand number creator failed...")
+	}
+	return randByte
 }
 
 // GetRandHash create a random Hash(utils.Hash)
 func GetRandHash() *utils.Hash {
-	seed := make([]byte, 32)
-	rand.Read(seed)
-	tmpStr := hex.EncodeToString(seed)
+	tmpStr := hex.EncodeToString(newInsecureRand())
 	return utils.HashFromString(tmpStr)
 }
 
-// InsecureRandRange create a random number in [0, limit)
-func InsecureRandRange(limit int64) uint64 {
+// InsecureRandRange create a random number in [0, limit]
+func InsecureRandRange(limit uint64) uint64 {
 	if limit == 0 {
+		fmt.Println("param 0 will be insignificant")
 		return 0
 	}
 	r := newInsecureRand()
-	return uint64(abs(r.Int63n(limit)).(int64))
+	return binary.LittleEndian.Uint64(r) % (limit + 1)
 }
 
-// InsecureRand32 create a random number in [0 math.MaxUint32)
+// InsecureRand32 create a random number in [0 math.MaxUint32]
 func InsecureRand32() uint32 {
 	r := newInsecureRand()
-	return uint32(abs(r.Int31n(math.MaxInt32)).(int32)) + uint32(abs(r.Int31n(math.MaxInt32)).(int32))
+	return binary.LittleEndian.Uint32(r)
 }
 
 // InsecureRandBits create a random number following  specified bit count
 func InsecureRandBits(bit uint8) uint64 {
 	r := newInsecureRand()
-	maxNum := int64(((1<<(bit-1))-1)*2 + 1)
-	return uint64(abs(r.Int63n(maxNum)).(int64))
+	maxNum := uint64(((1<<(bit-1))-1)*2 + 1 + 1)
+	return binary.LittleEndian.Uint64(r) % maxNum
 }
 
 // InsecureRandBool create true or false randomly
 func InsecureRandBool() bool {
 	r := newInsecureRand()
-	tmpInt := r.Intn(2)
-	return tmpInt == 1
+	remainder := binary.LittleEndian.Uint16(r) % 2
+	return remainder == 1
 }
 
-func abs(i interface{}) interface{} {
-	switch i.(type) {
-	case int64:
-		tmp := i.(int64)
-		if tmp < 0 {
-			return -tmp
-		}
-		return tmp
-	case int32:
-		tmp := i.(int32)
-		if tmp < 0 {
-			return -tmp
-		}
-		return tmp
-	}
-	return nil
-}
-
-func TestRandom(t *testing.T) {
+func TestRandomFunction(t *testing.T) {
 	trueCount := 0
 	falseCount := 0
 
 	for i := 0; i < 10000; i++ {
-		NumUint64 := InsecureRandRange(1000000)
-		if NumUint64 > 1000000 {
+		NumUint64 := InsecureRandRange(100)
+		if NumUint64 > 100 {
 			t.Error("InsecureRandRange() create a random number bigger than 10000")
 		}
 
