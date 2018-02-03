@@ -1,4 +1,4 @@
-package utxo
+package db
 
 import (
 	"path/filepath"
