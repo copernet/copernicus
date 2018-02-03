@@ -44,6 +44,24 @@ func (script *Script) ConvertRaw() {
 
 }
 
+func (script *Script) IsCommitment(data []byte) bool {
+	if len(data) > 64 || script.Size() != len(data)+2 {
+		return false
+	}
+
+	if script.bytes[0] != OP_RETURN || int(script.bytes[1]) != len(data) {
+		return false
+	}
+
+	for i := 0; i < len(data); i++ {
+		if script.bytes[i+2] != data[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (script *Script) ConvertOPS() error {
 	stk, err := script.ParseScript()
 	if err != nil {

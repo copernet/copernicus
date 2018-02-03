@@ -22,7 +22,7 @@ type Block struct {
 	TotalBTC     uint64
 	BlockReward  float64
 	NextBlock    utils.Hash
-	fChecked     bool
+	FChecked     bool
 }
 
 func ParseBlock(raw []byte) (block *Block, err error) {
@@ -50,7 +50,7 @@ func (bl *Block) GetBlockHeader() BlockHeader {
 func (bl *Block) SetNull() {
 	bl.BlockHeader.SetNull()
 	bl.Transactions = nil
-	bl.fChecked = false
+	bl.FChecked = false
 }
 
 func (bl *Block) Serialize(w io.Writer) error {

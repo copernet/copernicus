@@ -17,6 +17,7 @@ const (
 	/*CoinbaseMaturity  Coinbase transaction outputs can only be spent after this number of new
 	blocks (network rule) */
 	CoinbaseMaturity = 100
+	//Interpret sequence numbers as relative lock-time constraints.
 )
 
 const (
