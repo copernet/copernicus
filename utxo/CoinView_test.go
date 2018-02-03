@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"testing"
-	"unsafe"
 
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
@@ -88,7 +87,7 @@ func (coinsViewTest *CoinsViewTest) BatchWrite(cacheCoins CacheCoins, hashBlock 
 
 func (coinsViewCacheTest *CoinsViewCacheTest) SelfTest() {
 	// Manually recompute the dynamic usage of the whole data, and compare it.
-	ret := int64(unsafe.Sizeof(coinsViewCacheTest.cacheCoins))
+	var ret int64
 	var count int
 	for _, entry := range coinsViewCacheTest.cacheCoins {
 		ret += entry.Coin.DynamicMemoryUsage()
@@ -132,6 +131,15 @@ func IsEqualTxOut(o1 *model.TxOut, o2 *model.TxOut) bool {
 	return false
 }
 
+// This is a large randomized insert/remove simulation test on a variable-size
+// stack of caches on top of CCoinsViewTest.
+//
+// It will randomly create/update/delete Coin entries to a tip of caches, with
+// txids picked from a limited list of random 256-bit hashes. Occasionally, a
+// new tip is added to the stack of caches, or the tip is flushed and removed.
+//
+// During the process, booleans are kept to make sure that the randomized
+// operation hits all branches.
 func TestCoinsCacheSimulation(t *testing.T) {
 	// Various coverage trackers.
 	removedAllCaches := false
@@ -152,9 +160,10 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	stack := make([]*CoinsViewCacheTest, 0)
 	// A backed store instance
 	backed := newCoinsViewTest()
-	// Start with one cache.
+	// A stack of CCoinsViewCaches on top.
 	item := newCoinsViewCacheTest()
 	item.base = backed
+	// Start with one cache.
 	stack = append(stack, item)
 
 	// Use a limited set of random transaction ids, so we do test overwriting entries.
@@ -167,7 +176,8 @@ func TestCoinsCacheSimulation(t *testing.T) {
 		// Do a random modification.
 		{
 			randomNum := InsecureRandRange(uint64(len(txids) - 1))
-			txid := txids[randomNum] // txid we're going to modify in this iteration.
+			// txid we're going to modify in this iteration.
+			txid := txids[randomNum]
 			coin, ok := result[OutPoint{Hash: txid, Index: 0}]
 
 			if !ok {
@@ -197,8 +207,8 @@ func TestCoinsCacheSimulation(t *testing.T) {
 					}
 					addedAnUnspendableEntry = true
 				} else {
+					// Random sizes so we can test memory usage accounting
 					randomBytes := bytes.Repeat([]byte{0}, int(InsecureRandBits(6)+1))
-
 					newTxOut.Script = model.NewScriptRaw(randomBytes)
 					if coin.IsSpent() {
 						addedAnEntry = true
@@ -212,7 +222,8 @@ func TestCoinsCacheSimulation(t *testing.T) {
 				stack[len(stack)-1].AddCoin(&OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
 			} else {
 				removedAnEntry = true
-				//result[OutPoint{Hash: txid, Index: 0}].Clear()
+				result[OutPoint{Hash: txid, Index: 0}].Clear()
+				stack[len(stack)-1].SpendCoin(&OutPoint{Hash: txid, Index: 0}, nil)
 			}
 		}
 
@@ -249,11 +260,12 @@ func TestCoinsCacheSimulation(t *testing.T) {
 					foundAnEntry = true
 				}
 			}
-			//for _, test := range stack {
-			//	test.SelfTest()
-			//}
+			for _, test := range stack {
+				test.SelfTest()
+			}
 		}
 
+		// Every 100 iterations, flush an intermediate cache
 		if InsecureRandRange(100) == 1000 {
 			// Every 100 iterations, flush an intermediate cache
 			if len(stack) > 1 && InsecureRandBool() {
@@ -325,7 +337,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	}
 }
 
-// new a insecure rand creator from timestamp seed
+// new a insecure rand creator from crypto/rand seed
 func newInsecureRand() []byte {
 	randByte := make([]byte, 32)
 	_, err := rand.Read(randByte)

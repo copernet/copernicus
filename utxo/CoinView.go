@@ -176,12 +176,13 @@ func (coinsViewCache *CoinsViewCache) SpendCoin(point *OutPoint, coin *Coin) boo
 	if entry == nil {
 		return false
 	}
-	coinsViewCache.cachedCoinsUsage -= entry.Coin.DynamicMemoryUsage()
+
 	if coin != nil {
 		coin = entry.Coin
 	}
 	if entry.Flags&COIN_ENTRY_FRESH != 0 {
 		delete(coinsViewCache.cacheCoins, *point)
+		coinsViewCache.cachedCoinsUsage -= entry.Coin.DynamicMemoryUsage()
 	} else {
 		entry.Flags |= COIN_ENTRY_DIRTY
 		entry.Coin.Clear()
