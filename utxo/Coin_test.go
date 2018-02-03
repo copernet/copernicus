@@ -3,8 +3,8 @@ package utxo
 import (
 	"testing"
 
-	"gopkg.in/fatih/set.v0"
 	"github.com/btcboost/copernicus/model"
+	"gopkg.in/fatih/set.v0"
 )
 
 // Store of all necessary tx and undo data for next test
@@ -21,7 +21,7 @@ func lowerBound(a OutPoint, b OutPoint) bool {
 	return tmp < 0 || (tmp == 0 && a.Index < b.Index)
 }
 
-func FindRandomFrom(utxoSet *set.Set) (OutPoint, undoTx) {
+func findRandomFrom(utxoSet *set.Set) (OutPoint, undoTx) {
 	if utxoSet.Size() == 0 {
 		panic("utxoSet is empty")
 	}
@@ -39,13 +39,11 @@ func FindRandomFrom(utxoSet *set.Set) (OutPoint, undoTx) {
 	if &utxoSetIt.Hash == nil {
 		utxoSetIt = utxoList[0].(OutPoint)
 	}
-	utxoDataIt, ok := utxoData[utxoSetIt]
-	if !ok {
-		panic("this utxoSetIt should  be in utxoData")
+
+	if utxoDataIt, ok := utxoData[utxoSetIt]; ok {
+		return utxoSetIt, utxoDataIt
 	}
-
-	return utxoSetIt, utxoDataIt
-
+	panic("this utxoSetIt should  be in utxoData")
 }
 
 func UpdateCoins(tx model.Tx, inputs CoinsViewCache, txUndo undoTx, nHeight int) {
@@ -67,7 +65,7 @@ func UpdateCoins(tx model.Tx, inputs CoinsViewCache, txUndo undoTx, nHeight int)
 type DisconnectResult int
 
 const (
-	DISCONNECT_OK      DisconnectResult = iota
+	DISCONNECT_OK DisconnectResult = iota
 	DISCONNECT_UNCLEAN
 	DISCONNECT_FAILED
 )
@@ -88,9 +86,9 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *OutPoint) DisconnectRe
 	view.AddCoin(out, *undo, undo.IsCoinBase())
 	if fClean {
 		return DISCONNECT_OK
-	} else {
-		return DISCONNECT_UNCLEAN
 	}
+
+	return DISCONNECT_UNCLEAN
 }
 
 type Amount int64
