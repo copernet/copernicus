@@ -21,6 +21,12 @@ type AddressMessage struct {
 	AddressList []*network.PeerAddress
 }
 
+func NewAddressMessage() *AddressMessage {
+	return &AddressMessage{
+		AddressList: make([]*network.PeerAddress, 0, MaxAddressesCount),
+	}
+}
+
 func (addressMessage *AddressMessage) AddPeerAddress(peerAddress *network.PeerAddress) error {
 	if len(addressMessage.AddressList) > MaxAddressesCount {
 		str := fmt.Sprintf("has too many addresses in message ,count is %v ", MaxAddressesCount)
