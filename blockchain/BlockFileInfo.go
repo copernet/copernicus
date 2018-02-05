@@ -86,3 +86,19 @@ func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
 	return blockFileInfo, nil
 
 }
+
+func (blockFileInfo *BlockFileInfo) AddBlock(nHeightIn uint32, timeIn uint64) {
+	if blockFileInfo.Blocks == 0 || blockFileInfo.HeightFirst > nHeightIn {
+		blockFileInfo.HeightFirst = nHeightIn
+	}
+	if blockFileInfo.Blocks == 0 || blockFileInfo.timeFirst > timeIn {
+		blockFileInfo.timeFirst = timeIn
+	}
+	blockFileInfo.Blocks++
+	if nHeightIn > blockFileInfo.HeightLast {
+		blockFileInfo.HeightLast = nHeightIn
+	}
+	if timeIn > blockFileInfo.timeLast {
+		blockFileInfo.timeLast = timeIn
+	}
+}
