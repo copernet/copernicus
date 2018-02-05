@@ -9,6 +9,16 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
+var (
+	// bigOne is 1 represented as a big.Int.  It is defined here to avoid
+	// the overhead of creating it multiple times.
+	bigOne = big.NewInt(1)
+
+	// oneLsh256 is 1 shifted left 256 bits.  It is defined here to avoid
+	// the overhead of creating it multiple times.
+	oneLsh256 = new(big.Int).Lsh(bigOne, 256)
+)
+
 type Pow struct{}
 
 func (pow *Pow) GetNextWorkRequired(pindexPrev *blockchain.BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
@@ -45,13 +55,11 @@ func (pow *Pow) CalculateNextWorkRequired(pindexPrev *blockchain.BlockIndex, fir
 
 	// Retarget
 	bnNew := blockchain.CompactToBig(pindexPrev.Bits)
-	bnNew.Mul(bnNew, blockchain.CompactToBig(nActualTimespan))
-	bnNew.Div(bnNew, blockchain.CompactToBig(uint32(params.TargetTimespan)))
-
+	bnNew.Mul(bnNew, big.NewInt(int64(nActualTimespan)))
+	bnNew.Div(bnNew, big.NewInt(int64(params.TargetTimespan)))
 	if bnNew.Cmp(params.PowLimit) > 0 {
 		bnNew = params.PowLimit
 	}
-
 	return blockchain.BigToCompact(bnNew)
 }
 
@@ -70,7 +78,7 @@ func (pow *Pow) GetNextCashWorkRequired(pindexPrev *blockchain.BlockIndex, blHea
 	// Special difficulty rule for testnet:
 	// If the new block's timestamp is more than 2* 10 minutes then allow
 	// mining of a min-difficulty block.
-	if params.FPowAllowMinDifficultyBlocks && (blHeader.GetBlockTime() > pindexPrev.GetBlockTime()+uint32(2*params.PowTargetSpacing)) {
+	if params.FPowAllowMinDifficultyBlocks && (blHeader.GetBlockTime() > pindexPrev.GetBlockTime()+uint32(2*params.TargetTimePerBlock)) {
 		return blockchain.BigToCompact(params.PowLimit)
 	}
 
@@ -127,10 +135,9 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *blockchain.BlockIndex, pblock
 		// Special difficulty rule for testnet:
 		// If the new block's timestamp is more than 2* 10 minutes then allow
 		// mining of a min-difficulty block.
-		if pblock.GetBlockTime() > pindexPrev.GetBlockTime()+2*uint32(params.PowTargetSpacing) {
+		if pblock.GetBlockTime() > pindexPrev.GetBlockTime()+2*uint32(params.TargetTimePerBlock) {
 			return nProofOfWorkLimit
 		}
-
 		// Return the last non-special-min-difficulty-rules-block
 		pindex := pindexPrev
 		for pindex.PPrev != nil && int64(pindex.Height)%params.DifficultyAdjustmentInterval() != 0 &&
@@ -162,7 +169,7 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *blockchain.BlockIndex, pblock
 	// target by 1/4 (which reduces the difficulty by 20%). This ensure the
 	// chain do not get stuck in case we lose hashrate abruptly.
 	nPow := blockchain.CompactToBig(bits)
-	nPow.Add(nPow, nPow.Div(nPow, blockchain.CompactToBig(4)))
+	nPow.Add(nPow, big.NewInt(0).Div(nPow, big.NewInt(4)))
 
 	// Make sure we do not go bellow allowed values.
 	if nPow.Cmp(params.PowLimit) > 0 {
@@ -184,9 +191,8 @@ func (pow *Pow) computeTarget(pindexFirst, pindexLast *blockchain.BlockIndex, pa
 	* we can deduce how much work we expect to be produced in the targeted time
 	* between blocks.
 	 */
-	work := new(big.Int)
-	work.Sub(&pindexLast.ChainWork, &pindexFirst.ChainWork)
-	work = blockchain.CompactToBig(blockchain.BigToCompact(work) * uint32(params.PowTargetSpacing))
+	work := new(big.Int).Sub(&pindexLast.ChainWork, &pindexFirst.ChainWork)
+	work.Mul(work, big.NewInt(int64(params.TargetTimePerBlock)))
 
 	// In order to avoid difficulty cliffs, we bound the amplitude of the
 	// adjustement we are going to do.
@@ -194,15 +200,19 @@ func (pow *Pow) computeTarget(pindexFirst, pindexLast *blockchain.BlockIndex, pa
 		panic("pindexLast time should greater than pindexFirst time ")
 	}
 	actualTimeSpan := pindexLast.Time - pindexFirst.Time
-	if actualTimeSpan > uint32(288*params.PowTargetSpacing) {
-		actualTimeSpan = uint32(288 * params.PowTargetSpacing)
-	} else if actualTimeSpan < uint32(72*params.PowTargetSpacing) {
-		actualTimeSpan = 72 * uint32(params.PowTargetSpacing)
+	if actualTimeSpan > uint32(288*params.TargetTimePerBlock) {
+		actualTimeSpan = uint32(288 * params.TargetTimePerBlock)
+	} else if actualTimeSpan < uint32(72*params.TargetTimePerBlock) {
+		actualTimeSpan = 72 * uint32(params.TargetTimePerBlock)
 	}
 
-	work = blockchain.CompactToBig(blockchain.BigToCompact(work) / actualTimeSpan)
-
-	return nil
+	work.Div(work, big.NewInt(int64(actualTimeSpan)))
+	/**
+	 * We need to compute T = (2^256 / W) - 1 but 2^256 doesn't fit in 256 bits.
+	 * By expressing 1 as W / W, we get (2^256 - W) / W, and we can compute
+	 * 2^256 - W as the complement of W.
+	 */
+	return new(big.Int).Sub(new(big.Int).Div(oneLsh256, work), big.NewInt(1))
 }
 
 func (pow *Pow) getSuitableBlock(pindex *blockchain.BlockIndex) *blockchain.BlockIndex {

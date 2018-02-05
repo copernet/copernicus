@@ -144,6 +144,7 @@ func GetBlockProof(blIn *BlockIndex) *big.Int {
 	// a negative number. Note this should not happen in practice with valid
 	// blocks, but an invalid block could trigger it
 	difficultyNum := CompactToBig(blIn.Bits)
+	//difficultyNum := CompactToBig(blIn.Bits)
 	if difficultyNum.Sign() <= 0 {
 		return big.NewInt(0)
 	}
@@ -156,7 +157,7 @@ func GetBlockProof(blIn *BlockIndex) *big.Int {
 // GetBlockProofEquivalentTime Return the time it would take to redo the work difference
 // between from and to, assuming the current hashrate corresponds to the difficulty
 // at tip, in seconds.
-func GetBlockProofEquivalentTime(to, from, tip *BlockIndex, params msg.BitcoinParams) int64 {
+func GetBlockProofEquivalentTime(to, from, tip *BlockIndex, params *msg.BitcoinParams) int64 {
 	ret := new(big.Int)
 	sign := int64(1)
 	if to.ChainWork.Cmp(&from.ChainWork) > 0 {

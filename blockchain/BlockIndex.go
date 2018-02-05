@@ -133,9 +133,9 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 	pmedian := make([]int64, 0, medianTimeSpan)
 	pindex := blIndex
 	numNodes := 0
-	for i := 0; i >= 0 && pindex != nil; i++ {
+	for i := 0; i < medianTimeSpan && pindex != nil; i++ {
 		pmedian = append(pmedian, int64(pindex.GetBlockTime()))
-		//fmt.Println("GetMedianTimePast index : ", i, ", time : ", pmedian[i])
+		//fmt.Println("GetMedianTimePast index : ", i, ", time : ", pmedian[i], ", pindex.height : ", pindex.Height)
 		pindex = pindex.PPrev
 		numNodes++
 	}
@@ -143,6 +143,7 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 	sort.Slice(pmedian, func(i, j int) bool {
 		return pmedian[i] < pmedian[j]
 	})
+	//fmt.Println("\n\n\n")
 
 	return pmedian[numNodes/2]
 }
