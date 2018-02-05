@@ -14,7 +14,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-const NumSimulationIterations = 4000
+const NumSimulationIterations = 40000
 
 type CoinsViewCacheTest struct {
 	CoinsViewCache
@@ -489,6 +489,74 @@ func TestCoinSpeed(t *testing.T) {
 	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
 	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
 	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+}
+
+func CheckAddCoinBase(baseValue btcutil.Amount, cacheValue btcutil.Amount, modifyValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
+	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, int(cacheFlags))
+
+	var resultValue btcutil.Amount
+	var resultFlags int
+	defer func() {
+		if r := recover(); r != nil {
+			resultValue = TEST_FAIL
+			resultFlags = TEST_NO_ENTRY
+			if resultValue != expectedValue {
+				panic("expectedValue should be equal to resultValue")
+			}
+			if resultFlags != expectedFlags {
+				panic("expectedFlags should be equal to resultFlags")
+			}
+		} else {
+			if resultValue != expectedValue {
+				panic("expectedValue should be equal to resultValue")
+			}
+			if resultFlags != expectedFlags {
+				panic("expectedFlags should be equal to resultFlags")
+			}
+		}
+	}()
+
+	txOut := model.NewTxOut(int64(modifyValue), []byte{})
+	coin := NewCoin(txOut, 1, isCoinbase)
+	singleEntryCacheTest.cache.AddCoin(&TestOutPoint, *coin, isCoinbase)
+	singleEntryCacheTest.cache.SelfTest()
+	resultValue, resultFlags = GetCoinMapEntryTest(singleEntryCacheTest.cache.cacheCoins)
+}
+
+func CheckAddCoin(cacheValue btcutil.Amount, modifyValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
+	for _, arg := range [3]btcutil.Amount{TEST_ABSENT, TEST_PRUNED, TEST_VALUE1} {
+		CheckAddCoinBase(arg, cacheValue, modifyValue, expectedValue, cacheFlags, expectedFlags, isCoinbase)
+	}
+}
+
+func TestCoinAdd(t *testing.T) {
+	/**
+	 * Check AddCoin behavior, requesting a new coin from a cache view, writing
+	 * a modification to the coin, and then checking the resulting entry in the
+	 * cache after the modification. Verify behavior with the with the AddCoin
+	 * potential_overwrite argument set to false, and to true.
+	 *
+	 * Cache   Write   Result  Cache        Result       potential_overwrite
+	 * Value   Value   Value   Flags        Flags
+	 */
+	CheckAddCoin(TEST_ABSENT, TEST_VALUE3, TEST_VALUE3, TEST_NO_ENTRY, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, false)
+	CheckAddCoin(TEST_ABSENT, TEST_VALUE3, TEST_VALUE3, TEST_NO_ENTRY, COIN_ENTRY_DIRTY, true)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, 0, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, false)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, 0, COIN_ENTRY_DIRTY, true)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_FRESH, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, false)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_FRESH, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, true)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY, false)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY, true)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, false)
+	CheckAddCoin(TEST_PRUNED, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, true)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_FAIL, 0, TEST_NO_ENTRY, false)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_VALUE3, 0, COIN_ENTRY_DIRTY, true)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_FAIL, COIN_ENTRY_FRESH, TEST_NO_ENTRY, false)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_FRESH, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, true)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_FAIL, COIN_ENTRY_DIRTY, TEST_NO_ENTRY, false)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY, true)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_FAIL, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY, false)
+	CheckAddCoin(TEST_VALUE2, TEST_VALUE3, TEST_VALUE3, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, true)
 }
 
 // new a insecure rand creator from crypto/rand seed
