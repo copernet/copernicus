@@ -166,9 +166,8 @@ type VersionBitsTester struct {
 func (versionBitsTester *VersionBitsTester) Tip() *BlockIndex {
 	if len(versionBitsTester.block) == 0 {
 		return nil
-	} else {
-		return versionBitsTester.block[len(versionBitsTester.block)-1]
 	}
+	return versionBitsTester.block[len(versionBitsTester.block)-1]
 }
 
 func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
