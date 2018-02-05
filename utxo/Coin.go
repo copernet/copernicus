@@ -83,3 +83,27 @@ func NewEmptyCoin() *Coin {
 		TxOut:               model.NewTxOut(-1, []byte{}),
 	}
 }
+
+func DeepCopyCoin(coin *Coin) Coin {
+	dst := Coin{
+		TxOut: &model.TxOut{
+			Script: model.NewScriptRaw([]byte{}),
+		},
+	}
+
+	dst.HeightAndIsCoinBase = coin.HeightAndIsCoinBase
+	if coin.TxOut != nil {
+		dst.TxOut.Value = coin.TxOut.Value
+		dst.TxOut.SigOpCount = coin.TxOut.SigOpCount
+		if coin.TxOut.Script != nil {
+			tmp := coin.TxOut.Script.GetScriptByte()
+			dst.TxOut.Script = model.NewScriptRaw(tmp)
+		} else {
+			dst.TxOut.Script = nil
+		}
+	} else {
+		dst.TxOut = nil
+	}
+
+	return dst
+}
