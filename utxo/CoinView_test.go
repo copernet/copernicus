@@ -16,7 +16,10 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-const NumSimulationIterations = 4000
+const (
+	NumSimulationIterations = 40000
+	NumSimulationIteration  = 4000
+)
 
 type CoinsViewCacheTest struct {
 	CoinsViewCache
@@ -400,7 +403,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 	duplicateCoins := set.New()
 	utxoSet := set.New()
 
-	for i := 0; i < NumSimulationIterations; i++ {
+	for i := 0; i < NumSimulationIteration; i++ {
 		randiter := InsecureRand32()
 		//19/20 txs add a new transaction
 		if (randiter % 20) < 19 {
@@ -529,7 +532,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		}
 
 		//Once every 1000 iterations and at the end, verify the full cache.
-		if (InsecureRandRange(1000) == 1) || (i == NumSimulationIterations-1) {
+		if (InsecureRandRange(1000) == 1) || (i == NumSimulationIteration-1) {
 			for itKey, itValue := range result {
 				have := stack[len(stack)-1].CoinsViewCache.HaveCoin(&itKey)
 				coin := stack[len(stack)-1].CoinsViewCache.AccessCoin(&itKey)
