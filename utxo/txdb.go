@@ -9,6 +9,8 @@ const (
 	DB_COIN    = 'C'
 	DB_COINS   = 'c'
 	DB_TXINDEX = 't'
+
+	DB_BEST_BLOCK = 'B'
 )
 
 func GetTxFromUTXO(hash *utils.Hash) *model.Tx {
