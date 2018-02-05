@@ -316,7 +316,7 @@ const (
 
 var OUTPOINT = OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
 
-func SetCoinValueTest(value Amount, coin *Coin) {
+func SetCoinValue(value Amount, coin *Coin) {
 	if value == ABSENT {
 		panic("input value should not be equal to ABSENT")
 	}
@@ -330,7 +330,7 @@ func SetCoinValueTest(value Amount, coin *Coin) {
 	}
 }
 
-func InsertCoinMapEntryTest(cacheCoins CacheCoins, value Amount, flags int) int64 {
+func InsertCoinMapEntry(cacheCoins CacheCoins, value Amount, flags int) int64 {
 	if value == ABSENT {
 		if flags != NO_ENTRY {
 			panic("input flags should be NO_ENTRY")
@@ -341,7 +341,7 @@ func InsertCoinMapEntryTest(cacheCoins CacheCoins, value Amount, flags int) int6
 		panic("input flags should not be NO_ENTRY")
 	}
 	coin := NewEmptyCoin()
-	SetCoinValueTest(value, coin)
+	SetCoinValue(value, coin)
 	coinsCacheEntry := NewCoinsCacheEntry(coin)
 	coinsCacheEntry.Flags = uint8(flags)
 	_, ok := cacheCoins[OUTPOINT]
@@ -375,12 +375,12 @@ func GetCoinMapEntry(cacheCoins CacheCoins) (Amount, int) {
 
 func WriteCoinViewEntry(view CoinsView, value Amount, flags int) {
 	cacheCoins := make(CacheCoins)
-	InsertCoinMapEntryTest(cacheCoins, value, flags)
+	InsertCoinMapEntry(cacheCoins, value, flags)
 	view.BatchWrite(cacheCoins, &utils.Hash{})
 }
 
 func CheckAccessCoin(baseValue Amount, cacheValue Amount, expectedValue Amount, cacheFlags int, expectedFlags int) {
-	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, cacheFlags)
+	singleEntryCacheTest := NewSingleEntryCache(baseValue, cacheValue, cacheFlags)
 	var (
 		resultValue Amount
 		resultFlags int
@@ -428,13 +428,13 @@ func TestCoinAccess(t *testing.T) {
 	CheckAccessCoin(VALUE1, VALUE2, VALUE2, DIRTY|FRESH, DIRTY|FRESH)
 }
 
-type SingleEntryCacheTest struct {
+type SingleEntryCache struct {
 	root  CoinsView
 	base  *CoinsViewCacheTest
 	cache *CoinsViewCacheTest
 }
 
-func NewSingleEntryCacheTest(baseValue Amount, cacheValue Amount, cacheFlags int) *SingleEntryCacheTest {
+func NewSingleEntryCache(baseValue Amount, cacheValue Amount, cacheFlags int) *SingleEntryCache {
 	root := newCoinsViewTest()
 	base := newCoinsViewCacheTest()
 	base.base = root
@@ -445,8 +445,8 @@ func NewSingleEntryCacheTest(baseValue Amount, cacheValue Amount, cacheFlags int
 	} else {
 		WriteCoinViewEntry(base, baseValue, COIN_ENTRY_DIRTY)
 	}
-	cache.cachedCoinsUsage += InsertCoinMapEntryTest(cache.cacheCoins, cacheValue, cacheFlags)
-	return &SingleEntryCacheTest{
+	cache.cachedCoinsUsage += InsertCoinMapEntry(cache.cacheCoins, cacheValue, cacheFlags)
+	return &SingleEntryCache{
 		root:  root,
 		base:  base,
 		cache: cache,
@@ -454,7 +454,7 @@ func NewSingleEntryCacheTest(baseValue Amount, cacheValue Amount, cacheFlags int
 }
 
 func CheckWriteCoin(parentValue Amount, childValue Amount, expectedValue Amount, parentFlags int, childFlags int, expectedFlags int) {
-	singleEntryCacheTest := NewSingleEntryCacheTest(ABSENT, parentValue, parentFlags)
+	singleEntryCacheTest := NewSingleEntryCache(ABSENT, parentValue, parentFlags)
 	var (
 		resultValue Amount
 		resultFlags int
@@ -536,26 +536,4 @@ func TestWriteCoin(t *testing.T) {
 	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY, DIRTY|FRESH, NO_ENTRY)
 	CheckWriteCoin(VALUE1, VALUE2, VALUE2, DIRTY|FRESH, DIRTY, DIRTY|FRESH)
 	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY|FRESH, DIRTY|FRESH, NO_ENTRY)
-
-	//The checks above omit cases where the child flags are not DIRTY, since
-	//they would be too repetitive (the parent cache is never updated in these
-	//cases). The loop below covers these cases and makes sure the parent cache
-	//is always left unchanged.
-
-	//for parentValue := range [3]Amount{ABSENT, PRUNED, VALUE1} {
-	//	for childValue := range [3]Amount{ABSENT, PRUNED, VALUE2} {
-	//		if parentValue == int(ABSENT) {
-	//			parentFlags := [1]int{NO_ENTRY}
-	//			if childValue == int(ABSENT) {
-	//				childFlags := [1]int{NO_ENTRY}
-	//				CheckWriteCoin(Amount(parentValue), Amount(childValue), Amount(parentValue), parentFlags, childFlags, parentFlags)
-	//			} else {
-	//				childFlags :=
-	//			}
-	//		} else {
-	//			childFlags :=
-	//		}
-	//	}
-	//}
-
 }
