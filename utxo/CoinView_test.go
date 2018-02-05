@@ -9,6 +9,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -335,6 +336,159 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	if !unCachedAnEntry {
 		t.Error("uncachedAnEntry should be true")
 	}
+}
+
+var TestOutPoint = OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
+
+const (
+	TEST_PRUNED   btcutil.Amount = -1
+	TEST_ABSENT   btcutil.Amount = -2
+	TEST_FAIL     btcutil.Amount = -3
+	TEST_VALUE1   btcutil.Amount = 100
+	TEST_VALUE2   btcutil.Amount = 200
+	TEST_VALUE3   btcutil.Amount = 300
+	TEST_NO_ENTRY int            = -1
+)
+
+type SingleEntryCacheTest struct {
+	root  CoinsView
+	base  *CoinsViewCacheTest
+	cache *CoinsViewCacheTest
+}
+
+func NewSingleEntryCacheTest(baseValue btcutil.Amount, cacheValue btcutil.Amount, cacheFlags int) *SingleEntryCacheTest {
+	root := newCoinsViewTest()
+	base := newCoinsViewCacheTest()
+	base.base = root
+	cache := newCoinsViewCacheTest()
+	cache.base = base
+	if baseValue == TEST_ABSENT {
+		WriteCoinViewEntryTest(base, baseValue, TEST_NO_ENTRY)
+	} else {
+		WriteCoinViewEntryTest(base, baseValue, COIN_ENTRY_DIRTY)
+	}
+	cache.cachedCoinsUsage += InsertCoinMapEntryTest(cache.cacheCoins, cacheValue, cacheFlags)
+	return &SingleEntryCacheTest{
+		root:  root,
+		base:  base,
+		cache: cache,
+	}
+}
+
+func WriteCoinViewEntryTest(view CoinsView, value btcutil.Amount, flags int) {
+	cacheCoins := make(CacheCoins)
+	InsertCoinMapEntryTest(cacheCoins, value, flags)
+	view.BatchWrite(cacheCoins, &utils.Hash{})
+}
+
+func InsertCoinMapEntryTest(cacheCoins CacheCoins, value btcutil.Amount, flags int) int64 {
+	if value == TEST_ABSENT {
+		if flags != TEST_NO_ENTRY {
+			panic("input flags should be NO_ENTRY")
+		}
+		return 0
+	}
+	if flags == TEST_NO_ENTRY {
+		panic("input flags should not be NO_ENTRY")
+	}
+	coin := NewEmptyCoin()
+	SetCoinValueTest(value, coin)
+	coinsCacheEntry := NewCoinsCacheEntry(coin)
+	coinsCacheEntry.Flags = uint8(flags)
+	_, ok := cacheCoins[TestOutPoint]
+	if ok {
+		panic("add CoinsCacheEntry should success")
+	}
+	cacheCoins[TestOutPoint] = coinsCacheEntry
+	return coinsCacheEntry.Coin.DynamicMemoryUsage()
+}
+
+func SetCoinValueTest(value btcutil.Amount, coin *Coin) {
+	if value == TEST_ABSENT {
+		panic("input value should not be equal to ABSENT")
+	}
+	coin.Clear()
+	if !coin.IsSpent() {
+		panic("coin should have spent after calling Clear() function")
+	}
+	if value != TEST_PRUNED {
+		coin.TxOut = &model.TxOut{Value: int64(value)}
+		coin.HeightAndIsCoinBase = (1 << 1) | 0
+	}
+}
+
+func GetCoinMapEntryTest(cacheCoins CacheCoins) (btcutil.Amount, int) {
+	entry, ok := cacheCoins[TestOutPoint]
+	var resultValue btcutil.Amount
+	var resultFlags int
+	if !ok {
+		resultValue = TEST_ABSENT
+		resultFlags = TEST_NO_ENTRY
+	} else {
+		if entry.Coin.IsSpent() {
+			resultValue = TEST_PRUNED
+		} else {
+			resultValue = btcutil.Amount(entry.Coin.TxOut.Value)
+		}
+		resultFlags = int(entry.Flags)
+		if resultFlags == TEST_NO_ENTRY {
+			panic("result_flags should not be equal to NO_ENTRY")
+		}
+	}
+	return resultValue, resultFlags
+}
+
+func CheckSpendCoin(baseValue btcutil.Amount, cacheValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int) {
+	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, int(cacheFlags))
+	singleEntryCacheTest.cache.SpendCoin(&TestOutPoint, nil)
+	singleEntryCacheTest.cache.SelfTest()
+
+	resultValue, resultFlags := GetCoinMapEntryTest(singleEntryCacheTest.cache.cacheCoins)
+	if expectedValue != resultValue {
+		panic("expectedValue should be equal to resultValue")
+	}
+	if expectedFlags != resultFlags {
+		panic("expectedFlags should be equal to resultFlags")
+	}
+}
+
+func TestCoinSpeed(t *testing.T) {
+	/**
+	 * Check SpendCoin behavior, requesting a coin from a cache view layered on
+	 * top of a base view, spending, and then checking the resulting entry in
+	 * the cache after the modification.
+	 *
+	 *              Base    	Cache   	Result  		Cache        Result
+	 *              Value   	Value   	Value   		Flags        Flags
+	 */
+
+	CheckSpendCoin(TEST_ABSENT, TEST_ABSENT, TEST_ABSENT, TEST_NO_ENTRY, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_ABSENT, TEST_PRUNED, TEST_PRUNED, 0, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_ABSENT, TEST_PRUNED, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_ABSENT, TEST_PRUNED, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_ABSENT, TEST_PRUNED, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_ABSENT, TEST_VALUE2, TEST_PRUNED, 0, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_ABSENT, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_ABSENT, TEST_VALUE2, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_ABSENT, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_PRUNED, TEST_ABSENT, TEST_ABSENT, TEST_NO_ENTRY, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_PRUNED, TEST_PRUNED, TEST_PRUNED, 0, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_PRUNED, TEST_PRUNED, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_PRUNED, TEST_PRUNED, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_PRUNED, TEST_PRUNED, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_PRUNED, TEST_VALUE2, TEST_PRUNED, 0, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_PRUNED, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_PRUNED, TEST_VALUE2, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_PRUNED, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_VALUE1, TEST_ABSENT, TEST_PRUNED, TEST_NO_ENTRY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_VALUE1, TEST_PRUNED, TEST_PRUNED, 0, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_VALUE1, TEST_PRUNED, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_VALUE1, TEST_PRUNED, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_VALUE1, TEST_PRUNED, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_PRUNED, 0, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_FRESH, TEST_NO_ENTRY)
+	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_PRUNED, COIN_ENTRY_DIRTY, COIN_ENTRY_DIRTY)
+	CheckSpendCoin(TEST_VALUE1, TEST_VALUE2, TEST_ABSENT, COIN_ENTRY_DIRTY|COIN_ENTRY_FRESH, TEST_NO_ENTRY)
 }
 
 // new a insecure rand creator from crypto/rand seed
