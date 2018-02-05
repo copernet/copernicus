@@ -14,7 +14,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-const NumSimulationIterations = 4000
+const NumSimulationIterations = 40000
 
 type CoinsViewCacheTest struct {
 	CoinsViewCache
