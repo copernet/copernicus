@@ -42,7 +42,6 @@ type BitcoinParams struct {
 	Checkpoints                  []*model.Checkpoint
 	FPowNoRetargeting            bool
 	FPowAllowMinDifficultyBlocks bool
-	PowTargetSpacing             int64
 
 	// Enforce current block version once network has
 	// upgraded.  This is part of BIP0034.
@@ -101,8 +100,8 @@ var MainNetParams = BitcoinParams{
 	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	TargetTimespan:           time.Hour * 24 * 14,
-	TargetTimePerBlock:       time.Minute * 10,
+	TargetTimespan:           60 * 60 * 24 * 14,
+	TargetTimePerBlock:       60 * 10,
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      false,
 	MinDiffReductionTime:     0,
@@ -147,7 +146,12 @@ var MainNetParams = BitcoinParams{
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType: 0,
+
+	FPowNoRetargeting:          false,
+	CashHardForkActivationTime: 1510600000,
+	UAHFHeight:                 478559,
 }
+
 var RegressionNetParams = BitcoinParams{
 	Name:                     "regtest",
 	BitcoinNet:               btcutil.TestNet,
@@ -159,8 +163,8 @@ var RegressionNetParams = BitcoinParams{
 	PowLimitBits:             RegressionTestGenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 150,
-	TargetTimespan:           time.Hour * 24 * 14,
-	TargetTimePerBlock:       time.Minute * 10,
+	TargetTimespan:           60 * 60 * 24 * 14,
+	TargetTimePerBlock:       60 * 10,
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
@@ -203,8 +207,8 @@ var TestNet3Params = BitcoinParams{
 	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	TargetTimespan:           time.Hour * 24 * 14,
-	TargetTimePerBlock:       time.Minute * 10,
+	TargetTimespan:           60 * 60 * 24 * 14,
+	TargetTimePerBlock:       60 * 10,
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
@@ -233,6 +237,7 @@ var TestNet3Params = BitcoinParams{
 	// address generation.
 	HDCoinType: 1,
 }
+
 var SimNetParams = BitcoinParams{
 	Name:                     "simnet",
 	BitcoinNet:               btcutil.SimNet,
@@ -244,8 +249,8 @@ var SimNetParams = BitcoinParams{
 	PowLimitBits:             SimNetGenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	TargetTimespan:           time.Hour * 24 * 14,
-	TargetTimePerBlock:       time.Minute * 10,
+	TargetTimespan:           60 * 60 * 24 * 14,
+	TargetTimePerBlock:       60 * 10,
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
@@ -272,6 +277,7 @@ var SimNetParams = BitcoinParams{
 	// address generation.
 	HDCoinType: 115,
 }
+
 var (
 	RegisteredNets          = make(map[btcutil.BitcoinNet]struct{})
 	PubKeyHashAddressIDs    = make(map[byte]struct{})
@@ -325,5 +331,5 @@ func mustRegister(bitcoinParams *BitcoinParams) {
 }
 
 func (param *BitcoinParams) DifficultyAdjustmentInterval() int64 {
-	return int64(param.TargetTimespan) / param.PowTargetSpacing
+	return int64(param.TargetTimespan / param.TargetTimePerBlock)
 }
