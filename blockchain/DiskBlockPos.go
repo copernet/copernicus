@@ -3,6 +3,7 @@ package blockchain
 import (
 	"fmt"
 	"io"
+
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -25,7 +26,7 @@ func DeserializeDiskBlock(reader io.Reader) (*DiskBlockPos, error) {
 		return nil, err
 	}
 	pos, err := utils.ReadVarInt(reader)
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +41,7 @@ func (diskBlockPos *DiskBlockPos) SetNull() {
 
 func (diskBlockPos *DiskBlockPos) Equal(other *DiskBlockPos) bool {
 	return diskBlockPos.Pos == other.Pos && diskBlockPos.File == other.File
-	
+
 }
 
 func (diskBlockPos *DiskBlockPos) IsNull() bool {
@@ -48,7 +49,7 @@ func (diskBlockPos *DiskBlockPos) IsNull() bool {
 }
 
 func (diskBlockPos *DiskBlockPos) ToString() string {
-	return fmt.Sprintf("BlcokDiskPos(File=%i, Pos=%i)", diskBlockPos.File, diskBlockPos.Pos)
+	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
 }
 
 func NewDiskBlockPos(file int, pos int) *DiskBlockPos {

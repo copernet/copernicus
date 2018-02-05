@@ -11,6 +11,7 @@ import (
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
+	"github.com/btcboost/copernicus/utils"
 )
 
 type CoinViewDB struct {
@@ -46,6 +47,30 @@ func (coinViewDB *CoinViewDB) HaveCoin(outpoint *model.OutPoint) bool {
 	}
 	return v
 
+}
+
+func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
+	err := coinViewDB.DBBase.Update([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+		err := bucket.Put([]byte{DB_BEST_BLOCK}, hash.GetCloneBytes())
+		return err
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+}
+
+func (coinViewDB *CoinViewDB) GetBestBlock() *utils.Hash {
+	var v []byte
+	hash := new(utils.Hash)
+	err := coinViewDB.DBBase.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+		v = bucket.Get([]byte{DB_BEST_BLOCK})
+		return nil
+	})
+	if err != nil || v == nil {
+		return hash
+	}
+	hash.SetBytes(v)
+	return hash
 }
 
 func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheEntry) (bool, error) {
