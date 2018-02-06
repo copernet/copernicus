@@ -11,11 +11,11 @@ import (
 )
 
 type OutPoint struct {
-	Hash  *utils.Hash
+	Hash  utils.Hash
 	Index uint32
 }
 
-func NewOutPoint(hash *utils.Hash, index uint32) *OutPoint {
+func NewOutPoint(hash utils.Hash, index uint32) *OutPoint {
 	outPoint := OutPoint{
 		Hash:  hash,
 		Index: index,
@@ -65,5 +65,5 @@ func (outPoint *OutPoint) IsNull() bool {
 	if outPoint.Index != 0xffffffff {
 		return false
 	}
-	return outPoint.Hash == nil || outPoint.Hash.IsEqual(&utils.HashZero)
+	return outPoint.Hash.IsEqual(&utils.HashZero)
 }

@@ -162,7 +162,7 @@ func DeserializeTx(reader io.Reader) (tx *Tx, err error) {
 	tx.Ins = make([]*TxIn, count)
 	for i := uint64(0); i < count; i++ {
 		txIns[i].PreviousOutPoint = new(OutPoint)
-		txIns[i].PreviousOutPoint.Hash = new(utils.Hash)
+		txIns[i].PreviousOutPoint.Hash = *new(utils.Hash)
 
 		txIn := &txIns[i]
 		tx.Ins[i] = txIn
@@ -394,7 +394,7 @@ func (tx *Tx) Copy() *Tx {
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
 		preHash := new(utils.Hash)
 		preHash.SetBytes(hashBytes[:])
-		newOutPoint := OutPoint{Hash: preHash, Index: txIn.PreviousOutPoint.Index}
+		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
 		copy(newScript[:], txIn.Script.bytes[:scriptLen])

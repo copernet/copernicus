@@ -31,7 +31,7 @@ func (coinEntry *CoinEntry) Serialize(writer io.Writer) error {
 
 func DeserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
 	coinEntry = new(CoinEntry)
-	coinEntry.outpoint.Hash = &utils.Hash{}
+	coinEntry.outpoint.Hash = utils.Hash{}
 	keys := make([]byte, 1)
 	_, err = io.ReadFull(reader, keys)
 	if err != nil {

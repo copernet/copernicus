@@ -22,7 +22,7 @@ var tests = []struct {
 			Ins: []*TxIn{
 				{
 					PreviousOutPoint: &OutPoint{
-						Hash:  &utils.Hash{},
+						Hash:  utils.Hash{},
 						Index: 0xffffffff,
 					},
 					Script: &Script{
@@ -63,7 +63,7 @@ var tests = []struct {
 			Ins: []*TxIn{
 				{
 					PreviousOutPoint: &OutPoint{
-						Hash: &utils.Hash{
+						Hash: utils.Hash{
 							0x03, 0x2e, 0x38, 0xe9, 0xc0, 0xa8, 0x4c, 0x60,
 							0x46, 0xd6, 0x87, 0xd1, 0x05, 0x56, 0xdc, 0xac,
 							0xc4, 0x1d, 0x27, 0x5e, 0xc5, 0x5f, 0xc0, 0x07,

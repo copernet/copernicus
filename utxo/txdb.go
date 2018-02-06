@@ -5,6 +5,6 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-func GetTxFromUTXO(hash *utils.Hash) *model.Tx {
+func GetTxFromUTXO(hash utils.Hash) *model.Tx {
 	return new(model.Tx)
 }

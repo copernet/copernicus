@@ -208,7 +208,7 @@ func (coinsViewCache *CoinsViewCache) DynamicMemoryUsage() int64 {
 
 func (coinsViewCache *CoinsViewCache) GetOutputFor(tx *model.TxIn) *model.TxOut {
 	point := OutPoint{
-		Hash:  *tx.PreviousOutPoint.Hash,
+		Hash:  tx.PreviousOutPoint.Hash,
 		Index: tx.PreviousOutPoint.Index,
 	}
 	coin := coinsViewCache.AccessCoin(&point)
@@ -236,7 +236,7 @@ func (coinsViewCache *CoinsViewCache) HaveInputs(tx model.Tx) bool {
 	}
 	point := OutPoint{}
 	for _, item := range tx.Ins {
-		point.Hash = *item.PreviousOutPoint.Hash
+		point.Hash = item.PreviousOutPoint.Hash
 		point.Index = item.PreviousOutPoint.Index
 		if !coinsViewCache.HaveCoin(&point) {
 			return false
@@ -252,7 +252,7 @@ func (coinsViewCache *CoinsViewCache) GetPriority(tx *model.Tx, height uint32, c
 	var result float64
 	point := OutPoint{}
 	for _, item := range tx.Ins {
-		point.Hash = *item.PreviousOutPoint.Hash
+		point.Hash = item.PreviousOutPoint.Hash
 		point.Index = item.PreviousOutPoint.Index
 		coin := coinsViewCache.AccessCoin(&point)
 		if coin.IsSpent() {

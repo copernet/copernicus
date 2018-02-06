@@ -262,7 +262,7 @@ func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
 func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
 	//todo: add signal/slot In where for passed entry
 	for _, txin := range entry.TxRef.Ins {
-		mempool.MapNextTx.Del(refOutPoint{*txin.PreviousOutPoint.Hash, txin.PreviousOutPoint.Index})
+		mempool.MapNextTx.Del(refOutPoint{txin.PreviousOutPoint.Hash, txin.PreviousOutPoint.Index})
 	}
 
 	if len(mempool.vTxHashes) > 1 {
@@ -521,13 +521,13 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 			for _, t := range txn.Array {
 				tx := t.(*model.Tx)
 				for _, txin := range tx.Ins {
-					if mempool.ExistsHash(*txin.PreviousOutPoint.Hash) {
+					if mempool.ExistsHash(txin.PreviousOutPoint.Hash) {
 						continue
 					}
-					iter := mempool.MapNextTx.GetLowerBoundKey(refOutPoint{*txin.PreviousOutPoint.Hash, 0})
+					iter := mempool.MapNextTx.GetLowerBoundKey(refOutPoint{txin.PreviousOutPoint.Hash, 0})
 					if iter == nil {
 						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
-					} else if oriHash := (iter.(refOutPoint).Hash); !(&oriHash).IsEqual(txin.PreviousOutPoint.Hash) {
+					} else if oriHash := (iter.(refOutPoint).Hash); !(&oriHash).IsEqual(&txin.PreviousOutPoint.Hash) {
 						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
 					}
 				}
@@ -562,7 +562,7 @@ func (mempool *Mempool) ExistsOutPoint(outpoint *model.OutPoint) bool {
 	mempool.mtx.RLock()
 	defer mempool.mtx.RUnlock()
 
-	txMempoolEntry := mempool.MapTx.GetEntryByHash(*outpoint.Hash)
+	txMempoolEntry := mempool.MapTx.GetEntryByHash(outpoint.Hash)
 	if txMempoolEntry == nil {
 		return false
 	}
@@ -574,7 +574,7 @@ func AllowFee(priority float64) bool {
 	return priority > AllowFreeThreshold()
 }
 
-func GetTxFromMemPool(hash *utils.Hash) *model.Tx {
+func GetTxFromMemPool(hash utils.Hash) *model.Tx {
 	return new(model.Tx)
 }
 
@@ -600,7 +600,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		// GetMemPoolParents() is only valid for entries in the mempool, so we
 		// iterate mapTx to find parents.
 		for _, txIn := range tx.Ins {
-			if tx := mempool.MapTx.GetEntryByHash(*txIn.PreviousOutPoint.Hash); tx != nil {
+			if tx := mempool.MapTx.GetEntryByHash(txIn.PreviousOutPoint.Hash); tx != nil {
 				parentHashes.AddItem(tx)
 				if uint64(parentHashes.Size()+1) > limitAncestorCount {
 					return errors.Errorf("too many unconfirmed parents [limit: %d]", limitAncestorCount)
@@ -699,8 +699,8 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 	mempool.CachedInnerUsage += uint64(entry.UsageSize)
 	setParentTransactions := set.New()
 	for _, txIn := range entry.TxRef.Ins {
-		mempool.MapNextTx.Add(refOutPoint{*txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index}, *entry.TxRef)
-		setParentTransactions.Add(*txIn.PreviousOutPoint.Hash)
+		mempool.MapNextTx.Add(refOutPoint{txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index}, *entry.TxRef)
+		setParentTransactions.Add(txIn.PreviousOutPoint.Hash)
 	}
 
 	// Don't bother worrying about child transactions of this one. Normal case
@@ -798,7 +798,7 @@ func (mempool *Mempool) Exists(hash utils.Hash) bool {
 
 func (mempool *Mempool) HasNoInputsOf(tx *model.Tx) bool {
 	for i := 0; i < len(tx.Ins); i++ {
-		if has := mempool.Exists(*tx.Ins[i].PreviousOutPoint.Hash); has {
+		if has := mempool.Exists(tx.Ins[i].PreviousOutPoint.Hash); has {
 			return false
 		}
 	}
@@ -808,7 +808,7 @@ func (mempool *Mempool) HasNoInputsOf(tx *model.Tx) bool {
 func (mempool *Mempool) RemoveConflicts(tx *model.Tx) {
 	// Remove transactions which depend on inputs of tx, recursively
 	for _, txIn := range tx.Ins {
-		hasTx := mempool.MapNextTx.Get(refOutPoint{*txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index})
+		hasTx := mempool.MapNextTx.Get(refOutPoint{txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index})
 		if hasTx != nil {
 			txConflict := hasTx.(model.Tx)
 			if !txConflict.Equal(tx) {

@@ -80,7 +80,7 @@ func TestMempoolAddUnchecked(t *testing.T) {
 
 	txParentPtr := model.NewTx()
 	txParentPtr.Ins = make([]*model.TxIn, 1)
-	txParentPtr.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_11})
+	txParentPtr.Ins[0] = model.NewTxIn(model.NewOutPoint(utils.HashOne, 0), []byte{model.OP_11})
 	txParentPtr.Outs = make([]*model.TxOut, 3)
 	for i := 0; i < 3; i++ {
 		txParentPtr.Outs[i] = model.NewTxOut(33000, []byte{model.OP_11, model.OP_EQUAL})
@@ -92,7 +92,7 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	var txChild [3]model.Tx
 	for i := 0; i < 3; i++ {
 		txChild[i].Ins = make([]*model.TxIn, 1)
-		txChild[i].Ins[0] = model.NewTxIn(model.NewOutPoint(&parentHash, uint32(i)), []byte{model.OP_11})
+		txChild[i].Ins[0] = model.NewTxIn(model.NewOutPoint(parentHash, uint32(i)), []byte{model.OP_11})
 		txChild[i].Outs = make([]*model.TxOut, 1)
 		txChild[i].Outs[0] = model.NewTxOut(11000, []byte{model.OP_11, model.OP_EQUAL})
 	}
@@ -104,7 +104,7 @@ func TestMempoolAddUnchecked(t *testing.T) {
 		txChildID := core.DoubleSha256Hash(buf.Bytes())
 		txChild[i].Hash = txChildID
 		txGrandChild[i].Ins = make([]*model.TxIn, 1)
-		txGrandChild[i].Ins[0] = model.NewTxIn(model.NewOutPoint(&txChildID, 0), []byte{model.OP_11})
+		txGrandChild[i].Ins[0] = model.NewTxIn(model.NewOutPoint(txChildID, 0), []byte{model.OP_11})
 		txGrandChild[i].Outs = make([]*model.TxOut, 1)
 		txGrandChild[i].Outs[0] = model.NewTxOut(11000, []byte{model.OP_11, model.OP_EQUAL})
 		buf.Reset()
@@ -191,7 +191,7 @@ func TestMempoolClear(t *testing.T) {
 
 	txParentPtr := model.NewTx()
 	txParentPtr.Ins = make([]*model.TxIn, 1)
-	txParentPtr.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_11})
+	txParentPtr.Ins[0] = model.NewTxIn(model.NewOutPoint(utils.HashOne, 0), []byte{model.OP_11})
 	txParentPtr.Outs = make([]*model.TxOut, 3)
 	for i := 0; i < 3; i++ {
 		txParentPtr.Outs[i] = model.NewTxOut(33000, []byte{model.OP_11, model.OP_EQUAL})
@@ -356,7 +356,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	setAncestors.Add(testPool.MapTx.GetEntryByHash(tx6.Hash))
 	tx7 := model.NewTx()
 	tx7.Ins = make([]*model.TxIn, 1)
-	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
+	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(tx6.Hash, 0), []byte{model.OP_11})
 	tx7.Outs = make([]*model.TxOut, 2)
 	tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx7.Outs[1] = model.NewTxOut(1*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
@@ -394,7 +394,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	// low fee child of tx7
 	tx8 := model.NewTx()
 	tx8.Ins = make([]*model.TxIn, 1)
-	tx8.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx7.Hash, 0), []byte{model.OP_11})
+	tx8.Ins[0] = model.NewTxIn(model.NewOutPoint(tx7.Hash, 0), []byte{model.OP_11})
 	tx8.Outs = make([]*model.TxOut, 1)
 	tx8.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx8.Hash = tx8.TxHash()
@@ -417,7 +417,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	// low fee child of tx7
 	tx9 := model.NewTx()
 	tx9.Ins = make([]*model.TxIn, 1)
-	tx9.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx7.Hash, 1), []byte{model.OP_11})
+	tx9.Ins[0] = model.NewTxIn(model.NewOutPoint(tx7.Hash, 1), []byte{model.OP_11})
 	tx9.Outs = make([]*model.TxOut, 1)
 	tx9.Outs[0] = model.NewTxOut(1*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx9.Hash = tx9.TxHash()
@@ -445,8 +445,8 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	// tx10 depends on tx8 and tx9 and has a high fee
 	tx10 := model.NewTx()
 	tx10.Ins = make([]*model.TxIn, 2)
-	tx10.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx8.Hash, 0), []byte{model.OP_11})
-	tx10.Ins[1] = model.NewTxIn(model.NewOutPoint(&tx9.Hash, 0), []byte{model.OP_11})
+	tx10.Ins[0] = model.NewTxIn(model.NewOutPoint(tx8.Hash, 0), []byte{model.OP_11})
+	tx10.Ins[1] = model.NewTxIn(model.NewOutPoint(tx9.Hash, 0), []byte{model.OP_11})
 	tx10.Outs = make([]*model.TxOut, 1)
 	tx10.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx10.Hash = tx10.TxHash()
@@ -632,7 +632,7 @@ func TestMempoolApplyDeltas(t *testing.T) {
 
 	tx7 := model.NewTx()
 	tx7.Ins = make([]*model.TxIn, 1)
-	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_11})
+	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(tx6.Hash, 0), []byte{model.OP_11})
 	tx7.Outs = make([]*model.TxOut, 1)
 	tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_11, model.OP_EQUAL})
 	tx7.Hash = tx7.TxHash()
@@ -688,7 +688,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	tx1 := model.NewTx()
 	tx1.Ins = make([]*model.TxIn, 1)
-	tx1.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_1})
+	tx1.Ins[0] = model.NewTxIn(model.NewOutPoint(utils.HashOne, 0), []byte{model.OP_1})
 	tx1.Outs = make([]*model.TxOut, 1)
 	tx1.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_1, model.OP_EQUAL})
 	tx1.Hash = tx1.TxHash()
@@ -697,7 +697,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	tx2 := model.NewTx()
 	tx2.Ins = make([]*model.TxIn, 1)
-	tx2.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashOne, 0), []byte{model.OP_2})
+	tx2.Ins[0] = model.NewTxIn(model.NewOutPoint(utils.HashOne, 0), []byte{model.OP_2})
 	tx2.Outs = make([]*model.TxOut, 1)
 	tx2.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_2, model.OP_EQUAL})
 	tx2.Hash = tx2.TxHash()
@@ -736,7 +736,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	testPool.AddUnchecked(&tx2.Hash, entry.FromTxToEntry(tx2, testPool), true)
 	tx3 := model.NewTx()
 	tx3.Ins = make([]*model.TxIn, 1)
-	tx3.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx2.Hash, 0), []byte{model.OP_2})
+	tx3.Ins[0] = model.NewTxIn(model.NewOutPoint(tx2.Hash, 0), []byte{model.OP_2})
 	tx3.Outs = make([]*model.TxOut, 1)
 	tx3.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_3, model.OP_EQUAL})
 	tx3.Hash = tx3.TxHash()
@@ -790,8 +790,8 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	tx4 := model.NewTx()
 	tx4.Ins = make([]*model.TxIn, 2)
-	tx4.Ins[0] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_4})
-	tx4.Ins[1] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_4})
+	tx4.Ins[0] = model.NewTxIn(model.NewOutPoint(utils.HashZero, math.MaxUint32), []byte{model.OP_4})
+	tx4.Ins[1] = model.NewTxIn(model.NewOutPoint(utils.HashZero, math.MaxUint32), []byte{model.OP_4})
 	tx4.Outs = make([]*model.TxOut, 2)
 	tx4.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_4, model.OP_EQUAL})
 	tx4.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_4, model.OP_EQUAL})
@@ -799,8 +799,8 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	tx5 := model.NewTx()
 	tx5.Ins = make([]*model.TxIn, 2)
-	tx5.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx4.Hash, 0), []byte{model.OP_4})
-	tx5.Ins[1] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_5})
+	tx5.Ins[0] = model.NewTxIn(model.NewOutPoint(tx4.Hash, 0), []byte{model.OP_4})
+	tx5.Ins[1] = model.NewTxIn(model.NewOutPoint(utils.HashZero, math.MaxUint32), []byte{model.OP_5})
 	tx5.Outs = make([]*model.TxOut, 2)
 	tx5.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_5, model.OP_EQUAL})
 	tx5.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_5, model.OP_EQUAL})
@@ -808,8 +808,8 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	tx6 := model.NewTx()
 	tx6.Ins = make([]*model.TxIn, 2)
-	tx6.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx4.Hash, 1), []byte{model.OP_4})
-	tx6.Ins[1] = model.NewTxIn(model.NewOutPoint(&utils.HashZero, math.MaxUint32), []byte{model.OP_6})
+	tx6.Ins[0] = model.NewTxIn(model.NewOutPoint(tx4.Hash, 1), []byte{model.OP_4})
+	tx6.Ins[1] = model.NewTxIn(model.NewOutPoint(utils.HashZero, math.MaxUint32), []byte{model.OP_6})
 	tx6.Outs = make([]*model.TxOut, 2)
 	tx6.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_6, model.OP_EQUAL})
 	tx6.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_6, model.OP_EQUAL})
@@ -817,8 +817,8 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	tx7 := model.NewTx()
 	tx7.Ins = make([]*model.TxIn, 2)
-	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(&tx5.Hash, 0), []byte{model.OP_5})
-	tx7.Ins[1] = model.NewTxIn(model.NewOutPoint(&tx6.Hash, 0), []byte{model.OP_6})
+	tx7.Ins[0] = model.NewTxIn(model.NewOutPoint(tx5.Hash, 0), []byte{model.OP_5})
+	tx7.Ins[1] = model.NewTxIn(model.NewOutPoint(tx6.Hash, 0), []byte{model.OP_6})
 	tx7.Outs = make([]*model.TxOut, 2)
 	tx7.Outs[0] = model.NewTxOut(10*utils.COIN, []byte{model.OP_7, model.OP_EQUAL})
 	tx7.Outs[1] = model.NewTxOut(10*utils.COIN, []byte{model.OP_7, model.OP_EQUAL})

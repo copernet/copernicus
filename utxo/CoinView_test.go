@@ -368,7 +368,7 @@ func findRandomFrom(utxoSet *set.Set) (OutPoint, undoTx) {
 	var utxoSetIt OutPoint
 	for _, it := range utxoList {
 		out := it.(*model.OutPoint)
-		outpoint := OutPoint{Hash: *out.Hash, Index: out.Index}
+		outpoint := OutPoint{Hash: out.Hash, Index: out.Index}
 		if !lowerBound(outpoint, randOutPoint) {
 			break
 		}
@@ -409,7 +409,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		if (randiter % 20) < 19 {
 			tx1 := model.NewTx()
 			tx1.Ins = make([]*model.TxIn, 0)
-			outpoint := model.OutPoint{Hash: GetRandHash(), Index: 0}
+			outpoint := model.OutPoint{Hash: *GetRandHash(), Index: 0}
 			tx1.Ins = append(tx1.Ins, &model.TxIn{PreviousOutPoint: &outpoint})
 			tx1.Outs = make([]*model.TxOut, 1)
 			tx1.Outs[0] = model.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
@@ -425,7 +425,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					disconnectedCoins.Remove(outKey)
 					duplicateCoins.Add(outKey)
 				} else {
-					out := &model.OutPoint{Hash: &tx1.Hash, Index: 0}
+					out := &model.OutPoint{Hash: tx1.Hash, Index: 0}
 					coinBaseCoins.Add(out)
 				}
 				if tx1.IsCoinBase() {
@@ -438,7 +438,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 				if (randiter%20 == 2) && (disconnectedCoins.Size() > 0) {
 					out, _ := findRandomFrom(disconnectedCoins)
 					tmp := tx1.Ins[0].PreviousOutPoint
-					prevOut.Hash = *tmp.Hash
+					prevOut.Hash = tmp.Hash
 					prevOut.Index = tmp.Index
 					if !tx1.IsCoinBase() && !utxoSet.Has(prevOut) {
 						disconnectedCoins.Remove(out)
@@ -458,7 +458,8 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					// 16/20 times create a regular tx
 					out, _ := findRandomFrom(utxoSet)
 					prevOut = out
-					tx1.Ins[0] = model.NewTxIn(&model.OutPoint{Hash: &out.Hash, Index: out.Index}, []byte{0})
+					outpoint := model.NewOutPoint(out.Hash, out.Index)
+					tx1.Ins[0] = model.NewTxIn(outpoint, []byte{0})
 					if tx1.IsCoinBase() {
 						log.Error("tx1 can't is coinBase...")
 					}
@@ -480,10 +481,10 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			if len(tx1.Outs) != 1 {
 				log.Error("the tx out size isn't 1 .")
 			}
-			outPoint := model.NewOutPoint(&tx1.Hash, 0)
+			outPoint := model.NewOutPoint(tx1.Hash, 0)
 			tx1.Outs = make([]*model.TxOut, 0)
 			tx1.Outs = append(tx1.Outs, model.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F)))
-			result[OutPoint{Hash: *outPoint.Hash, Index: outPoint.Index}] = NewCoin(tx1.Outs[0], height, tx1.IsCoinBase())
+			result[OutPoint{Hash: outPoint.Hash, Index: outPoint.Index}] = NewCoin(tx1.Outs[0], height, tx1.IsCoinBase())
 
 			// Update the utxo set for future spends
 			utxoSet.Add(outPoint)
@@ -496,14 +497,16 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 
 			tx1 := &utxoData.tx
 			tx1.Ins = make([]*model.TxIn, 0)
-			tx1.Ins = append(tx1.Ins, model.NewTxIn(&model.OutPoint{Hash: &outKey.Hash, Index: outKey.Index}, []byte{0}))
-			tx1.Ins[0] = model.NewTxIn(&model.OutPoint{Hash: &outKey.Hash, Index: outKey.Index}, []byte{0})
+			outpoint := model.NewOutPoint(outKey.Hash, outKey.Index)
+			tx1.Ins = append(tx1.Ins, model.NewTxIn(outpoint, []byte{0}))
+			outpoint0 := model.NewOutPoint(outKey.Hash, outKey.Index)
+			tx1.Ins[0] = model.NewTxIn(outpoint0, []byte{0})
 			origCoin := &utxoData.coin
 
 			// If not coinbase restore prevout
 			if !(tx1.IsCoinBase()) {
 				tmp := tx1.Ins[0].PreviousOutPoint
-				outKey.Hash = *tmp.Hash
+				outKey.Hash = tmp.Hash
 				outKey.Index = tmp.Index
 				result[outKey] = origCoin
 			}
@@ -515,13 +518,13 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			// restore inputs
 			if !(tx1.IsCoinBase()) {
 				tmp := tx1.Ins[0].PreviousOutPoint
-				outKey.Hash = *tmp.Hash
+				outKey.Hash = tmp.Hash
 				outKey.Index = tmp.Index
 
 				//UndoCoinSpend(nil, &stack[len(stack)-1].CoinsViewCache, &outKey)
 			}
 			// Store as a candidate for reconnection
-			tmp := model.OutPoint{Hash: &outKey.Hash, Index: outKey.Index}
+			tmp := model.NewOutPoint(outKey.Hash, outKey.Index)
 			disconnectedCoins.Add(&tmp)
 
 			// Update the utxoset
@@ -621,7 +624,7 @@ func UpdateCoins(tx model.Tx, inputs CoinsViewCache, txUndo undoTx, nHeight int)
 		for _, txin := range tx.Ins {
 			var out OutPoint
 			tmp := txin.PreviousOutPoint
-			out.Hash = *tmp.Hash
+			out.Hash = tmp.Hash
 			out.Index = tmp.Index
 			isSpent := inputs.SpendCoin(&out, nil)
 			if isSpent {
