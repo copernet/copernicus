@@ -144,6 +144,35 @@ func IsEqualTxOut(o1 *model.TxOut, o2 *model.TxOut) bool {
 	return false
 }
 
+// test whether get the expected item by OutPoint struct with a pointer
+// in it or not
+func TestGetCoinByPointerOrValue(t *testing.T) {
+	type OutPoint struct {
+		Hash  *utils.Hash
+		Index int
+	}
+
+	map1 := make(map[model.OutPoint]*Coin)
+	hash1 := utils.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	outpoint1 := model.OutPoint{Hash: *hash1, Index: 0}
+	// store one item
+	map1[outpoint1] = &Coin{}
+	hash11 := utils.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	if _, ok := map1[model.OutPoint{Hash: *hash11, Index: 0}]; !ok {
+		t.Error("the key without pointer should point to a exist value")
+	}
+
+	map2 := make(map[OutPoint]*Coin)
+	hash2 := utils.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	outpoint2 := OutPoint{Hash: hash2, Index: 0}
+	//store one item
+	map2[outpoint2] = &Coin{}
+	hash22 := utils.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	if _, ok := map2[OutPoint{Hash: hash22, Index: 0}]; ok {
+		t.Error("there should not be a item as the different pointer value in the struct")
+	}
+}
+
 // This is a large randomized insert/remove simulation test on a variable-size
 // stack of caches on top of CCoinsViewTest.
 //
