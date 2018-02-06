@@ -12,6 +12,17 @@ const (
 	DBBolt
 )
 
+const (
+	DB_COIN    = 'C'
+	DB_COINS   = 'c'
+	DB_TXINDEX = 't'
+
+	DB_BEST_BLOCK  = 'B'
+	DB_BLOCK_FILES = 'f'
+
+	DB_REINDEX_FLAG = 'R'
+)
+
 func InitDB(driverType DriverType, path string) (database.DBBase, error) {
 	var db database.DBBase
 	if driverType == DBBolt {

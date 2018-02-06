@@ -6,6 +6,7 @@ import (
 	"bytes"
 
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -60,6 +61,6 @@ func (coinEntry *CoinEntry) GetSerKey() []byte {
 func NewCoinEntry(outPoint *model.OutPoint) *CoinEntry {
 	coinEntry := new(CoinEntry)
 	coinEntry.outpoint = outPoint
-	coinEntry.key = DB_COIN
+	coinEntry.key = orm.DB_COIN
 	return coinEntry
 }

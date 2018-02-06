@@ -51,7 +51,7 @@ func (coinViewDB *CoinViewDB) HaveCoin(outpoint *model.OutPoint) bool {
 
 func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
 	err := coinViewDB.DBBase.Update([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
-		err := bucket.Put([]byte{DB_BEST_BLOCK}, hash.GetCloneBytes())
+		err := bucket.Put([]byte{orm.DB_BEST_BLOCK}, hash.GetCloneBytes())
 		return err
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func (coinViewDB *CoinViewDB) GetBestBlock() *utils.Hash {
 	var v []byte
 	hash := new(utils.Hash)
 	err := coinViewDB.DBBase.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
-		v = bucket.Get([]byte{DB_BEST_BLOCK})
+		v = bucket.Get([]byte{orm.DB_BEST_BLOCK})
 		return nil
 	})
 	if err != nil || v == nil {
