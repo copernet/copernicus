@@ -8,16 +8,11 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-type CacheCoins map[OutPoint]*CoinsCacheEntry
-
-type OutPoint struct {
-	Hash  utils.Hash
-	Index uint32
-}
+type CacheCoins map[model.OutPoint]*CoinsCacheEntry
 
 type CoinsView interface {
-	GetCoin(point *OutPoint, coin *Coin) bool
-	HaveCoin(point *OutPoint) bool
+	GetCoin(point *model.OutPoint, coin *Coin) bool
+	HaveCoin(point *model.OutPoint) bool
 	GetBestBlock() utils.Hash
 	BatchWrite(coinsMap CacheCoins, hash *utils.Hash) bool
 	EstimateSize() uint64
@@ -30,7 +25,7 @@ type CoinsViewCache struct {
 	cachedCoinsUsage int64
 }
 
-func (coinsViewCache *CoinsViewCache) AccessCoin(point *OutPoint) *Coin {
+func (coinsViewCache *CoinsViewCache) AccessCoin(point *model.OutPoint) *Coin {
 	entry := coinsViewCache.FetchCoin(point)
 	if entry == nil {
 		return NewEmptyCoin()
@@ -38,7 +33,7 @@ func (coinsViewCache *CoinsViewCache) AccessCoin(point *OutPoint) *Coin {
 	return entry.Coin
 }
 
-func (coinsViewCache *CoinsViewCache) FetchCoin(point *OutPoint) *CoinsCacheEntry {
+func (coinsViewCache *CoinsViewCache) FetchCoin(point *model.OutPoint) *CoinsCacheEntry {
 	entry, ok := coinsViewCache.cacheCoins[*point]
 	if ok {
 		return entry
@@ -60,7 +55,7 @@ func (coinsViewCache *CoinsViewCache) FetchCoin(point *OutPoint) *CoinsCacheEntr
 	return newEntry
 }
 
-func (coinsViewCache *CoinsViewCache) GetCoin(point *OutPoint, coin *Coin) bool {
+func (coinsViewCache *CoinsViewCache) GetCoin(point *model.OutPoint, coin *Coin) bool {
 	entry := coinsViewCache.FetchCoin(point)
 	if entry == nil {
 		return false
@@ -71,12 +66,12 @@ func (coinsViewCache *CoinsViewCache) GetCoin(point *OutPoint, coin *Coin) bool 
 	return true
 }
 
-func (coinsViewCache *CoinsViewCache) HaveCoin(point *OutPoint) bool {
+func (coinsViewCache *CoinsViewCache) HaveCoin(point *model.OutPoint) bool {
 	entry := coinsViewCache.FetchCoin(point)
 	return entry != nil && !entry.Coin.IsSpent()
 }
 
-func (coinsViewCache *CoinsViewCache) HaveCoinInCache(point *OutPoint) bool {
+func (coinsViewCache *CoinsViewCache) HaveCoinInCache(point *model.OutPoint) bool {
 	_, ok := coinsViewCache.cacheCoins[*point]
 	return ok
 }
@@ -139,7 +134,7 @@ func (coinsViewCache *CoinsViewCache) Flush() bool {
 	return ok
 }
 
-func (coinsViewCache *CoinsViewCache) AddCoin(point *OutPoint, coin Coin, possibleOverwrite bool) {
+func (coinsViewCache *CoinsViewCache) AddCoin(point *model.OutPoint, coin Coin, possibleOverwrite bool) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
@@ -171,7 +166,7 @@ func (coinsViewCache *CoinsViewCache) AddCoin(point *OutPoint, coin Coin, possib
 	coinsViewCache.cachedCoinsUsage += coinsViewCache.cacheCoins[*point].Coin.DynamicMemoryUsage()
 }
 
-func (coinsViewCache *CoinsViewCache) SpendCoin(point *OutPoint, coin *Coin) bool {
+func (coinsViewCache *CoinsViewCache) SpendCoin(point *model.OutPoint, coin *Coin) bool {
 	entry := coinsViewCache.FetchCoin(point)
 	if entry == nil {
 		return false
@@ -190,7 +185,7 @@ func (coinsViewCache *CoinsViewCache) SpendCoin(point *OutPoint, coin *Coin) boo
 	return true
 }
 
-func (coinsViewCache *CoinsViewCache) UnCache(point *OutPoint) {
+func (coinsViewCache *CoinsViewCache) UnCache(point *model.OutPoint) {
 	tmpEntry, ok := coinsViewCache.cacheCoins[*point]
 	if ok && tmpEntry.Flags == 0 {
 		coinsViewCache.cachedCoinsUsage -= tmpEntry.Coin.DynamicMemoryUsage()
@@ -207,7 +202,7 @@ func (coinsViewCache *CoinsViewCache) DynamicMemoryUsage() int64 {
 }
 
 func (coinsViewCache *CoinsViewCache) GetOutputFor(tx *model.TxIn) *model.TxOut {
-	point := OutPoint{
+	point := model.OutPoint{
 		Hash:  tx.PreviousOutPoint.Hash,
 		Index: tx.PreviousOutPoint.Index,
 	}
@@ -234,7 +229,7 @@ func (coinsViewCache *CoinsViewCache) HaveInputs(tx model.Tx) bool {
 	if tx.IsCoinBase() {
 		return true
 	}
-	point := OutPoint{}
+	point := model.OutPoint{}
 	for _, item := range tx.Ins {
 		point.Hash = item.PreviousOutPoint.Hash
 		point.Index = item.PreviousOutPoint.Index
@@ -250,7 +245,7 @@ func (coinsViewCache *CoinsViewCache) GetPriority(tx *model.Tx, height uint32, c
 		return 0.0
 	}
 	var result float64
-	point := OutPoint{}
+	point := model.OutPoint{}
 	for _, item := range tx.Ins {
 		point.Hash = item.PreviousOutPoint.Hash
 		point.Index = item.PreviousOutPoint.Index
@@ -273,14 +268,14 @@ func AddCoins(cache CoinsViewCache, tx model.Tx, height int, check bool) {
 		// Pass fCoinbase as the possible_overwrite flag to AddCoin, in order to
 		// correctly deal with the pre-BIP30 occurrences of duplicate coinbase
 		// transactions.
-		point := OutPoint{Hash: txid, Index: uint32(i)}
+		point := model.OutPoint{Hash: txid, Index: uint32(i)}
 		coin := NewCoin(out, uint32(height), isCoinbase)
 		cache.AddCoin(&point, *coin, isCoinbase)
 	}
 }
 
 func AccessByTxid(coinsViewCache *CoinsViewCache, hash *utils.Hash) *Coin {
-	out := OutPoint{Hash: *hash, Index: 0}
+	out := model.OutPoint{Hash: *hash, Index: 0}
 	for int(out.Index) < 11000 { // todo modify to be precise
 		alternate := coinsViewCache.AccessCoin(&out)
 		if !alternate.IsSpent() {
