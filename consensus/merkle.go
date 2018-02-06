@@ -143,18 +143,18 @@ func ComputeMerkleRootFromBranch(leaf *utils.Hash, branch []utils.Hash, index ui
 	return hash
 }
 
-func BlockMerkleRoot(block *model.Block, mutated *bool) {
+func BlockMerkleRoot(block *model.Block, mutated *bool) utils.Hash {
 	leaves := make([]utils.Hash, len(block.Transactions))
 	for i := 0; i < len(block.Transactions); i++ {
 		leaves[i] = block.Transactions[i].TxHash()
 	}
-	ComputeMerkleRoot(leaves, mutated)
+	return ComputeMerkleRoot(leaves, mutated)
 }
 
-func BlockMerkleBranch(block *model.Block, position uint32) {
+func BlockMerkleBranch(block *model.Block, position uint32) []utils.Hash {
 	leaves := make([]utils.Hash, len(block.Transactions))
 	for i := 0; i < len(block.Transactions); i++ {
 		leaves[i] = block.Transactions[i].TxHash()
 	}
-	ComputeMerkleBranch(leaves, position)
+	return ComputeMerkleBranch(leaves, position)
 }
