@@ -1,6 +1,8 @@
 package blockchain
 
 import (
+	"sync"
+
 	"github.com/btcboost/copernicus/msg"
 )
 
@@ -51,30 +53,33 @@ type AbstractThresholdConditionChecker interface {
 	Threshold(params *msg.BitcoinParams) int
 }
 
-type VersionBitsCache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
+type VersionBitsCache struct {
+	sync.RWMutex
+	cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
+}
 
-var vbc VersionBitsCache
-
-func init() {
+func newVersionBitsCache() *VersionBitsCache {
+	var cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
-		vbc[i] = make(ThresholdConditionCache)
+		cache[i] = make(ThresholdConditionCache)
 	}
+	return &VersionBitsCache{cache: cache}
 }
 
 func (vbc *VersionBitsCache) Clear() {
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
-		vbc[i] = make(ThresholdConditionCache)
+		vbc.cache[i] = make(ThresholdConditionCache)
 	}
 }
 
-func VersionBitsState(indexPrev *BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, cache *VersionBitsCache) ThresholdState {
+func VersionBitsState(indexPrev *BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
 	vc := &VersionBitsConditionChecker{id: pos}
-	return GetStateFor(vc, indexPrev, params, cache[pos])
+	return GetStateFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsStateSinceHeight(indexPrev *BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, cache *VersionBitsCache) int {
+func VersionBitsStateSinceHeight(indexPrev *BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) int {
 	vc := &VersionBitsConditionChecker{id: pos}
-	return GetStateSinceHeightFor(vc, indexPrev, params, cache[pos])
+	return GetStateSinceHeightFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
 func VersionBitsMask(params *msg.BitcoinParams, pos msg.DeploymentPos) uint32 {

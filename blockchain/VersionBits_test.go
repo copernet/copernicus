@@ -3,13 +3,11 @@ package blockchain
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"testing"
 	//"testing"
 
 	"github.com/btcboost/copernicus/msg"
-	"github.com/btcboost/copernicus/utils"
 )
 
 var paramsDummy = msg.BitcoinParams{}
@@ -123,7 +121,7 @@ func (versionBitsTester *VersionBitsTester) TestStateSinceHeight(height int) *Ve
 			}
 
 			if tmpHeight == height {
-				fmt.Printf("Test %d for StateSinceHeight", versionBitsTester.num)
+				fmt.Printf("Test %d for StateSinceHeight\n", versionBitsTester.num)
 			}
 		}
 	}
@@ -142,7 +140,7 @@ func (versionBitsTester *VersionBitsTester) TestDefined() *VersionBitsTester {
 			}
 
 			if tmpThreshold != THRESHOLD_DEFINED {
-				fmt.Printf("Test %d for DEFINED", versionBitsTester.num)
+				fmt.Printf("Test %d for DEFINED\n", versionBitsTester.num)
 			}
 		}
 	}
@@ -161,7 +159,7 @@ func (versionBitsTester *VersionBitsTester) TestStarted() *VersionBitsTester {
 			}
 
 			if tmpThreshold != THRESHOLD_STARTED {
-				fmt.Printf("Test %d for STARTED", versionBitsTester.num)
+				fmt.Printf("Test %d for STARTED\n", versionBitsTester.num)
 			}
 		}
 	}
@@ -180,7 +178,7 @@ func (versionBitsTester *VersionBitsTester) TestLockedIn() *VersionBitsTester {
 			}
 
 			if tmpThreshold != THRESHOLD_LOCKED_IN {
-				fmt.Printf("Test %d for LOCKED_IN", versionBitsTester.num)
+				fmt.Printf("Test %d for LOCKED_IN\n", versionBitsTester.num)
 			}
 		}
 	}
@@ -199,7 +197,7 @@ func (versionBitsTester *VersionBitsTester) TestActive() *VersionBitsTester {
 			}
 
 			if tmpThreshold != THRESHOLD_ACTIVE {
-				fmt.Printf("Test %d for ACTIVE", versionBitsTester.num)
+				fmt.Printf("Test %d for ACTIVE\n", versionBitsTester.num)
 			}
 		}
 	}
@@ -218,58 +216,12 @@ func (versionBitsTester *VersionBitsTester) TestFailed() *VersionBitsTester {
 			}
 
 			if tmpThreshold != THRESHOLD_FAILED {
-				fmt.Printf("Test %d for ACTIVE", versionBitsTester.num)
+				fmt.Printf("Test %d for ACTIVE\n", versionBitsTester.num)
 			}
 		}
 	}
 	versionBitsTester.num++
 	return versionBitsTester
-}
-
-// new a insecure rand creator from crypto/rand seed
-func newInsecureRand() []byte {
-	randByte := make([]byte, 32)
-	_, err := rand.Read(randByte)
-	if err != nil {
-		panic("init rand number creator failed...")
-	}
-	return randByte
-}
-
-// GetRandHash create a random Hash(utils.Hash)
-func GetRandHash() *utils.Hash {
-	tmpStr := hex.EncodeToString(newInsecureRand())
-	return utils.HashFromString(tmpStr)
-}
-
-// InsecureRandRange create a random number in [0, limit]
-func InsecureRandRange(limit uint64) uint64 {
-	if limit == 0 {
-		fmt.Println("param 0 will be insignificant")
-		return 0
-	}
-	r := newInsecureRand()
-	return binary.LittleEndian.Uint64(r) % (limit + 1)
-}
-
-// InsecureRand32 create a random number in [0 math.MaxUint32]
-func InsecureRand32() uint32 {
-	r := newInsecureRand()
-	return binary.LittleEndian.Uint32(r)
-}
-
-// InsecureRandBits create a random number following  specified bit count
-func InsecureRandBits(bit uint8) uint64 {
-	r := newInsecureRand()
-	maxNum := uint64(((1<<(bit-1))-1)*2 + 1 + 1)
-	return binary.LittleEndian.Uint64(r) % maxNum
-}
-
-// InsecureRandBool create true or false randomly
-func InsecureRandBool() bool {
-	r := newInsecureRand()
-	remainder := binary.LittleEndian.Uint16(r) % 2
-	return remainder == 1
 }
 
 func TestVersionBits(t *testing.T) {
@@ -472,4 +424,160 @@ func TestVersionBits(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestVersionBitsComputeBlockVersion(t *testing.T) {
+	vbc := newVersionBitsCache()
+
+	// Check that ComputeBlockVersion will set the appropriate bit correctly on mainnet.
+	mainnetParams := msg.MainNetParams
+
+	// Use the TESTDUMMY deployment for testing purposes.
+	bit := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].Bit
+	startTime := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].StartTime
+	timeout := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].Timeout
+
+	if startTime >= timeout {
+		panic("startTime should be less than timeout value")
+	}
+
+	// In the first chain, test that the bit is set by CBV until it has failed.
+	// In the second chain, test the bit is set by CBV while STARTED and
+	// LOCKED-IN, and then no longer set while ACTIVE.
+	firstChain := newVersionBitsTester()
+	secondChain := newVersionBitsTester()
+
+	// Start generating blocks before nStartTime
+	Time := startTime - 1
+
+	// Before MedianTimePast of the chain has crossed nStartTime, the bit
+	// should not be set.
+	lastBlock := firstChain.Mine(2016, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
+		t.Error("the bit has set error")
+	}
+
+	// Mine 2011 more blocks at the old time, and check that CBV isn't setting
+	// the bit yet.
+	for i := 1; i < 2012; i++ {
+		lastBlock = firstChain.Mine(2016+i, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+
+		// This works because VERSIONBITS_LAST_OLD_BLOCK_VERSION happens to be
+		// 4, and the bit we're testing happens to be bit 28.
+		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
+			t.Error("error")
+		}
+	}
+
+	// Now mine 5 more blocks at the start time -- MTP should not have passed
+	// yet, so CBV should still not yet set the bit.
+	Time = startTime
+	for i := 2012; i < 2016; i++ {
+		lastBlock = firstChain.Mine(2016+i, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
+			t.Error("error")
+		}
+	}
+
+	// Advance to the next period and transition to STARTED,
+	lastBlock = firstChain.Mine(6048, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+
+	// so ComputeBlockVersion should now set the bit,
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
+		t.Error("the bit should have been set")
+	}
+
+	// and should also be using the VERSIONBITS_TOP_BITS.
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+		t.Error("the bit should be using VERSIONBITS_TOP_BITS")
+	}
+
+	// Check that ComputeBlockVersion will set the bit until nTimeout
+	Time += 600
+	// test blocks for up to 2 time periods
+	blocksToMine := 4032
+	Height := 6048
+	// These blocks are all before nTimeout is reached.
+	for Time < timeout && blocksToMine > 0 {
+		lastBlock = firstChain.Mine(Height+1, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
+			//t.Error("error")
+		}
+		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+			t.Error("error")
+		}
+		blocksToMine--
+		Time += 600
+		Height++
+	}
+
+	Time = timeout
+	// FAILED is only triggered at the end of a period, so CBV should be setting
+	// the bit until the period transition.
+	for i := 0; i < 2015; i++ {
+		lastBlock = firstChain.Mine(Height+1, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		if (ComputeBlockVersion(lastBlock, &mainnetParams, vbc) & (1 << uint(bit))) == 0 {
+			t.Error("error")
+		}
+		Height++
+	}
+
+	// The next block should trigger no longer setting the bit.
+	lastBlock = firstChain.Mine(Height+1, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
+		t.Error("error")
+	}
+
+	// On a new chain:
+	// verify that the bit will be set after lock-in, and then stop being set
+	// after activation.
+	Time = startTime
+
+	// Mine one period worth of blocks, and check that the bit will be on for
+	// the next period.
+	lastBlock = secondChain.Mine(2016, startTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
+		t.Error("error")
+	}
+
+	// Mine another period worth of blocks, signaling the new bit.
+	lastBlock = secondChain.Mine(4032, startTime, VERSIONBITS_TOP_BITS|(1<<uint(bit))).Tip()
+	// After one period of setting the bit on each block, it should have locked
+	// in.
+	// We keep setting the bit for one more period though, until activation.
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
+		t.Error("error")
+	}
+
+	// Now check that we keep mining the block until the end of this period, and
+	// then stop at the beginning of the next period.
+	lastBlock = secondChain.Mine(6047, startTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
+		t.Error("error")
+	}
+	lastBlock = secondChain.Mine(6048, startTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
+		t.Error("error")
+	}
+
+	// Finally, verify that after a soft fork has activated, CBV no longer uses
+	// VERSIONBITS_LAST_OLD_BLOCK_VERSION.
+	// BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) &
+	// VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
+}
+
+// new a insecure rand creator from crypto/rand seed
+func newInsecureRand() []byte {
+	randByte := make([]byte, 32)
+	_, err := rand.Read(randByte)
+	if err != nil {
+		panic("init rand number creator failed...")
+	}
+	return randByte
+}
+
+// InsecureRand32 create a random number in [0 math.MaxUint32]
+func InsecureRand32() uint32 {
+	r := newInsecureRand()
+	return binary.LittleEndian.Uint32(r)
 }

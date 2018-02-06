@@ -101,22 +101,20 @@ func CheckBlock(params *msg.BitcoinParams, block *model.Block, state *model.Vali
 	return true
 }
 
-func ComputeBlockVersion(indexPrev *BlockIndex, params *msg.BitcoinParams, t VersionBitsCache) int {
+func ComputeBlockVersion(indexPrev *BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
 	version := VERSIONBITS_TOP_BITS
 
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
-		state := VersionBitsState(indexPrev, params, msg.DeploymentPos(i), &t)
+		state := func() ThresholdState {
+			t.Lock()
+			defer t.Unlock()
+			return VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
+		}()
 
 		if state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED {
 			version |= int(VersionBitsMask(params, msg.DeploymentPos(i)))
 		}
 	}
 
-	vbc.Clear()
 	return version
-}
-
-func test() {
-	//var a [CHECKERS]testConditionChecker
-
 }
