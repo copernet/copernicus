@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const ANTI_REPLAY_COMMITMENT = "Bitcoin: A Peer-to-Peer Electronic Cash System"
+
 var ActiveNetParams = &MainNetParams
 
 var (
@@ -21,6 +23,27 @@ var (
 	testNet3PowLimit   = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
 	simNetPowlimit     = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 225), bigOne)
 )
+
+type DeploymentPos int
+
+const (
+	DEPLOYMENT_TESTDUMMY DeploymentPos = iota
+	// DEPLOYMENT_CSV Deployment of BIP68, BIP112, and BIP113.
+	DEPLOYMENT_CSV
+	// MAX_VERSION_BITS_DEPLOYMENTS NOTE: Also add new deployments to VersionBitsDeploymentInfo in
+	// versionbits.cpp
+	MAX_VERSION_BITS_DEPLOYMENTS
+)
+
+type BIP9Deployment struct {
+	/** Bit position to select the particular bit in nVersion. */
+	Bit int
+	/** Start MedianTime for version bits miner confirmation. Can be a date in
+	 * the past */
+	StartTime int64
+	/** Timeout/expiry MedianTime for the deployment attempt. */
+	Timeout int64
+}
 
 type BitcoinParams struct {
 	Name                         string
@@ -80,6 +103,7 @@ type BitcoinParams struct {
 	AntiReplayOpReturnCommitment   []byte
 	RuleChangeActivationThreshold  uint32
 	MinerConfirmationWindow        uint32
+	Deployments                    [MAX_VERSION_BITS_DEPLOYMENTS]BIP9Deployment
 }
 
 var MainNetParams = BitcoinParams{
@@ -100,6 +124,18 @@ var MainNetParams = BitcoinParams{
 	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
+	BIP34Height:              227931,
+	//BIP34Hash:                      utils.Hash{0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8},
+	BIP65Height:                    388381,
+	BIP66Height:                    363725,
+	AntiReplayOpReturnSunsetHeight: 530000,
+	RuleChangeActivationThreshold:  1916,
+	MinerConfirmationWindow:        2016,
+	AntiReplayOpReturnCommitment:   []byte(ANTI_REPLAY_COMMITMENT),
+	Deployments: [MAX_VERSION_BITS_DEPLOYMENTS]BIP9Deployment{
+		DEPLOYMENT_TESTDUMMY: {28, 1199145601, 1230767999},
+		DEPLOYMENT_CSV:       {0, 1462060800, 1493596800},
+	},
 	TargetTimespan:           60 * 60 * 24 * 14,
 	TargetTimePerBlock:       60 * 10,
 	RetargetAdjustmentFactor: 4,
