@@ -43,16 +43,16 @@ type undoTx struct {
 // backed store
 type CoinsViewTest struct {
 	hashBestBlock utils.Hash
-	coinMap       map[OutPoint]*Coin
+	coinMap       map[model.OutPoint]*Coin
 }
 
 func newCoinsViewTest() *CoinsViewTest {
 	return &CoinsViewTest{
-		coinMap: make(map[OutPoint]*Coin),
+		coinMap: make(map[model.OutPoint]*Coin),
 	}
 }
 
-func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *OutPoint, coin *Coin) bool {
+func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *model.OutPoint, coin *Coin) bool {
 	c, ok := coinsViewTest.coinMap[*outPoint]
 	if !ok {
 		return false
@@ -66,7 +66,7 @@ func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *OutPoint, coin *Coin) bool
 	return true
 }
 
-func (coinsViewTest *CoinsViewTest) HaveCoin(point *OutPoint) bool {
+func (coinsViewTest *CoinsViewTest) HaveCoin(point *model.OutPoint) bool {
 	var coin *Coin
 	return coinsViewTest.GetCoin(point, coin)
 }
@@ -166,7 +166,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	unCachedAnEntry := false
 
 	// A simple map to track what we expect the cache stack to represent.
-	result := make(map[OutPoint]*Coin)
+	result := make(map[model.OutPoint]*Coin)
 
 	// The cache stack.
 	// A stack of CCoinsViewCaches on top.
@@ -191,11 +191,11 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			randomNum := InsecureRandRange(uint64(len(txids) - 1))
 			// txid we're going to modify in this iteration.
 			txid := txids[randomNum]
-			coin, ok := result[OutPoint{Hash: txid, Index: 0}]
+			coin, ok := result[model.OutPoint{Hash: txid, Index: 0}]
 
 			if !ok {
 				coin = NewEmptyCoin()
-				result[OutPoint{Hash: txid, Index: 0}] = coin
+				result[model.OutPoint{Hash: txid, Index: 0}] = coin
 			}
 
 			randNum := InsecureRandRange(50)
@@ -203,7 +203,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			if randNum == 0 {
 				entry = AccessByTxid(&stack[len(stack)-1].CoinsViewCache, &txid)
 			} else {
-				entry = stack[len(stack)-1].AccessCoin(&OutPoint{Hash: txid, Index: 0})
+				entry = stack[len(stack)-1].AccessCoin(&model.OutPoint{Hash: txid, Index: 0})
 			}
 
 			if !IsEqualCoin(entry, coin) {
@@ -228,15 +228,15 @@ func TestCoinsCacheSimulation(t *testing.T) {
 					} else {
 						updatedAnEntry = true
 					}
-					*result[OutPoint{Hash: txid, Index: 0}] = DeepCopyCoin(&Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2})
+					*result[model.OutPoint{Hash: txid, Index: 0}] = DeepCopyCoin(&Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2})
 				}
 				newCoin := Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2}
 				newnewCoin := DeepCopyCoin(&newCoin)
-				stack[len(stack)-1].AddCoin(&OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
+				stack[len(stack)-1].AddCoin(&model.OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
 			} else {
 				removedAnEntry = true
-				result[OutPoint{Hash: txid, Index: 0}].Clear()
-				stack[len(stack)-1].SpendCoin(&OutPoint{Hash: txid, Index: 0}, nil)
+				result[model.OutPoint{Hash: txid, Index: 0}].Clear()
+				stack[len(stack)-1].SpendCoin(&model.OutPoint{Hash: txid, Index: 0}, nil)
 			}
 		}
 
@@ -244,7 +244,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 		if InsecureRandRange(11) != 0 {
 			cacheID := int(InsecureRand32()) % (len(stack))
 			hashID := int(InsecureRand32()) % len(txids)
-			out := OutPoint{Hash: txids[hashID], Index: 0}
+			out := model.OutPoint{Hash: txids[hashID], Index: 0}
 			stack[cacheID].UnCache(&out)
 			if !stack[cacheID].HaveCoinInCache(&out) {
 				unCachedAnEntry = true
@@ -350,31 +350,31 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	}
 }
 
-var utxoData map[OutPoint]undoTx
+var utxoData map[model.OutPoint]undoTx
 
-func lowerBound(a OutPoint, b OutPoint) bool {
+func lowerBound(a model.OutPoint, b model.OutPoint) bool {
 	tmp := a.Hash.Cmp(&b.Hash)
 	return tmp < 0 || (tmp == 0 && a.Index < b.Index)
 }
 
-func findRandomFrom(utxoSet *set.Set) (OutPoint, undoTx) {
+func findRandomFrom(utxoSet *set.Set) (model.OutPoint, undoTx) {
 	if utxoSet.Size() == 0 {
 		panic("utxoSet is empty")
 	}
 
-	randOutPoint := OutPoint{Hash: *GetRandHash(), Index: 0}
+	randOutPoint := model.OutPoint{Hash: *GetRandHash(), Index: 0}
 	utxoList := utxoSet.List()
 
-	var utxoSetIt OutPoint
+	var utxoSetIt model.OutPoint
 	for _, it := range utxoList {
 		out := it.(*model.OutPoint)
-		outpoint := OutPoint{Hash: *out.Hash, Index: out.Index}
-		if !lowerBound(outpoint, randOutPoint) {
+		outpoint := model.NewOutPoint(out.Hash, out.Index)
+		if !lowerBound(*outpoint, randOutPoint) {
 			break
 		}
 	}
 	if &utxoSetIt.Hash == nil {
-		utxoSetIt = utxoList[0].(OutPoint)
+		utxoSetIt = utxoList[0].(model.OutPoint)
 	}
 	utxoDataIt, ok := utxoData[utxoSetIt]
 	if ok {
@@ -388,7 +388,7 @@ var log = logs.NewLogger()
 func TestUpdateCoinsSimulation(t *testing.T) {
 	spentDuplicateCoinbase := false
 	//A simple map to track what we expect the cache stack to represent.
-	result := make(map[OutPoint]*Coin)
+	result := make(map[model.OutPoint]*Coin)
 
 	stack := make([]*CoinsViewCacheTest, 0)
 	backed := newCoinsViewTest()
@@ -409,7 +409,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		if (randiter % 20) < 19 {
 			tx1 := model.NewTx()
 			tx1.Ins = make([]*model.TxIn, 0)
-			outpoint := model.OutPoint{Hash: GetRandHash(), Index: 0}
+			outpoint := model.OutPoint{Hash: *GetRandHash(), Index: 0}
 			tx1.Ins = append(tx1.Ins, &model.TxIn{PreviousOutPoint: &outpoint})
 			tx1.Outs = make([]*model.TxOut, 1)
 			tx1.Outs[0] = model.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
@@ -425,7 +425,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					disconnectedCoins.Remove(outKey)
 					duplicateCoins.Add(outKey)
 				} else {
-					out := &model.OutPoint{Hash: &tx1.Hash, Index: 0}
+					out := &model.OutPoint{Hash: tx1.Hash, Index: 0}
 					coinBaseCoins.Add(out)
 				}
 				if tx1.IsCoinBase() {
@@ -434,11 +434,11 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			} else {
 				// 17/20 times reconnect previous or add a regular tx
 				// 1/20 times reconnect a previously disconnected tx
-				var prevOut OutPoint
+				var prevOut model.OutPoint
 				if (randiter%20 == 2) && (disconnectedCoins.Size() > 0) {
 					out, _ := findRandomFrom(disconnectedCoins)
 					tmp := tx1.Ins[0].PreviousOutPoint
-					prevOut.Hash = *tmp.Hash
+					prevOut.Hash = tmp.Hash
 					prevOut.Index = tmp.Index
 					if !tx1.IsCoinBase() && !utxoSet.Has(prevOut) {
 						disconnectedCoins.Remove(out)
@@ -458,7 +458,8 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					// 16/20 times create a regular tx
 					out, _ := findRandomFrom(utxoSet)
 					prevOut = out
-					tx1.Ins[0] = model.NewTxIn(&model.OutPoint{Hash: &out.Hash, Index: out.Index}, []byte{0})
+					outpoint := model.NewOutPoint(out.Hash, out.Index)
+					tx1.Ins[0] = model.NewTxIn(outpoint, []byte{0})
 					if tx1.IsCoinBase() {
 						log.Error("tx1 can't is coinBase...")
 					}
@@ -480,10 +481,10 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			if len(tx1.Outs) != 1 {
 				log.Error("the tx out size isn't 1 .")
 			}
-			outPoint := model.NewOutPoint(&tx1.Hash, 0)
+			outPoint := model.NewOutPoint(tx1.Hash, 0)
 			tx1.Outs = make([]*model.TxOut, 0)
 			tx1.Outs = append(tx1.Outs, model.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F)))
-			result[OutPoint{Hash: *outPoint.Hash, Index: outPoint.Index}] = NewCoin(tx1.Outs[0], height, tx1.IsCoinBase())
+			result[model.OutPoint{Hash: outPoint.Hash, Index: outPoint.Index}] = NewCoin(tx1.Outs[0], height, tx1.IsCoinBase())
 
 			// Update the utxo set for future spends
 			utxoSet.Add(outPoint)
@@ -496,14 +497,16 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 
 			tx1 := &utxoData.tx
 			tx1.Ins = make([]*model.TxIn, 0)
-			tx1.Ins = append(tx1.Ins, model.NewTxIn(&model.OutPoint{Hash: &outKey.Hash, Index: outKey.Index}, []byte{0}))
-			tx1.Ins[0] = model.NewTxIn(&model.OutPoint{Hash: &outKey.Hash, Index: outKey.Index}, []byte{0})
+			outpoint := model.NewOutPoint(outKey.Hash, outKey.Index)
+			tx1.Ins = append(tx1.Ins, model.NewTxIn(outpoint, []byte{0}))
+			outpoint0 := model.NewOutPoint(outKey.Hash, outKey.Index)
+			tx1.Ins[0] = model.NewTxIn(outpoint0, []byte{0})
 			origCoin := &utxoData.coin
 
 			// If not coinbase restore prevout
 			if !(tx1.IsCoinBase()) {
 				tmp := tx1.Ins[0].PreviousOutPoint
-				outKey.Hash = *tmp.Hash
+				outKey.Hash = tmp.Hash
 				outKey.Index = tmp.Index
 				result[outKey] = origCoin
 			}
@@ -515,14 +518,14 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			// restore inputs
 			if !(tx1.IsCoinBase()) {
 				tmp := tx1.Ins[0].PreviousOutPoint
-				outKey.Hash = *tmp.Hash
+				outKey.Hash = tmp.Hash
 				outKey.Index = tmp.Index
 
 				//UndoCoinSpend(nil, &stack[len(stack)-1].CoinsViewCache, &outKey)
 			}
 			// Store as a candidate for reconnection
-			tmp := model.OutPoint{Hash: &outKey.Hash, Index: outKey.Index}
-			disconnectedCoins.Add(&tmp)
+			tmp := model.NewOutPoint(outKey.Hash, outKey.Index)
+			disconnectedCoins.Add(tmp)
 
 			// Update the utxoset
 			utxoSet.Remove(outKey)
@@ -597,7 +600,7 @@ const (
 	DISCONNECT_FAILED
 )
 
-func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *OutPoint) DisconnectResult {
+func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *model.OutPoint) DisconnectResult {
 	fClean := true
 	if view.HaveCoin(out) {
 		fClean = false
@@ -619,9 +622,9 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *OutPoint) DisconnectRe
 func UpdateCoins(tx model.Tx, inputs CoinsViewCache, txUndo undoTx, nHeight int) {
 	if !(tx.IsCoinBase()) {
 		for _, txin := range tx.Ins {
-			var out OutPoint
+			var out model.OutPoint
 			tmp := txin.PreviousOutPoint
-			out.Hash = *tmp.Hash
+			out.Hash = tmp.Hash
 			out.Index = tmp.Index
 			isSpent := inputs.SpendCoin(&out, nil)
 			if isSpent {
@@ -632,7 +635,7 @@ func UpdateCoins(tx model.Tx, inputs CoinsViewCache, txUndo undoTx, nHeight int)
 	AddCoins(inputs, tx, nHeight, true)
 }
 
-var OUTPOINT = OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
+var OUTPOINT = model.OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
 
 const (
 	PRUNED   btcutil.Amount = -1

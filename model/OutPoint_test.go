@@ -19,7 +19,7 @@ func TestNewOutPoint(t *testing.T) {
 		0x34, 0x4e, 0x50, 0x21, 0xbb, 0x07, 0xcc, 0xbe,
 	}
 
-	testOutPoint = NewOutPoint(&preHash, 1)
+	testOutPoint = NewOutPoint(preHash, 1)
 	if testOutPoint.Index != 1 {
 		t.Errorf("NewOutPoint() assignment index data %d should be equal 1 ", testOutPoint.Index)
 	}
@@ -43,7 +43,7 @@ func TestOutPointWriteOutPoint(t *testing.T) {
 
 	file.Seek(0, 0)
 	txOutRead := &OutPoint{}
-	txOutRead.Hash = new(utils.Hash)
+	txOutRead.Hash = utils.Hash{}
 
 	err = txOutRead.Deserialize(file)
 	if err != nil {

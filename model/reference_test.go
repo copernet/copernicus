@@ -214,7 +214,7 @@ func parseExpectedResult(expected string) core.ScriptError {
 func createSpendingTx(sigScript, pkScript []byte) *Tx {
 	coinbaseTx := NewTx()
 
-	outPoint := NewOutPoint(&utils.Hash{}, ^uint32(0))
+	outPoint := NewOutPoint(utils.Hash{}, ^uint32(0))
 	txIn := NewTxIn(outPoint, []byte{OP_0, OP_0})
 	txOut := NewTxOut(0, pkScript)
 	coinbaseTx.AddTxIn(txIn)
@@ -222,7 +222,7 @@ func createSpendingTx(sigScript, pkScript []byte) *Tx {
 
 	spendingTx := NewTx()
 	coinbaseTxHash := coinbaseTx.TxHash()
-	outPoint = NewOutPoint(&coinbaseTxHash, 0)
+	outPoint = NewOutPoint(coinbaseTxHash, 0)
 	txIn = NewTxIn(outPoint, sigScript)
 	txOut = NewTxOut(0, nil)
 	spendingTx.AddTxIn(txIn)

@@ -19,7 +19,7 @@ func TestNewTxIn(t *testing.T) {
 		0x6e, 0xda, 0x9d, 0x95, 0x7c, 0x5e, 0x03, 0xfa,
 		0x34, 0x4e, 0x50, 0x21, 0xbb, 0x07, 0xcc, 0xbe,
 	}
-	outPut := NewOutPoint(&preHash, 1)
+	outPut := NewOutPoint(preHash, 1)
 
 	myScriptSig := []byte{0x16, 0x00, 0x14, 0xc3, 0xe2, 0x27, 0x9d,
 		0x2a, 0xc7, 0x30, 0xbd, 0x33, 0xc4, 0x61, 0x74,
@@ -60,7 +60,7 @@ func TestTxInSerialize(t *testing.T) {
 	}
 	txInRead := &TxIn{}
 	txInRead.PreviousOutPoint = new(OutPoint)
-	txInRead.PreviousOutPoint.Hash = new(utils.Hash)
+	txInRead.PreviousOutPoint.Hash = utils.Hash{}
 	txInRead.Script = new(Script)
 
 	err = txInRead.Deserialize(file, 1)
