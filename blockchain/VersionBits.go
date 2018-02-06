@@ -114,18 +114,24 @@ func (vc *VersionBitsConditionChecker) GetStateFor(indexPrev *BlockIndex, params
 	// Walk backwards in steps of nPeriod to find a pindexPrev whose information
 	// is known
 	toCompute := make([]*BlockIndex, 0)
-	_, ok := cache[indexPrev]
-	if !ok {
-		switch {
-		case indexPrev == nil:
-			cache[indexPrev] = THRESHOLD_DEFINED
-		case indexPrev.GetMedianTimePast() < nTimeStart:
-			// Optimization: don't recompute down further, as we know every
-			// earlier block will be before the start time
-			cache[indexPrev] = THRESHOLD_DEFINED
-		default:
+
+	for {
+		if _, ok := cache[indexPrev]; !ok {
+			if indexPrev == nil {
+				// The genesis block is by definition defined.
+				cache[indexPrev] = THRESHOLD_DEFINED
+				break
+			}
+			if indexPrev.GetMedianTimePast() < nTimeStart {
+				// Optimization: don't recompute down further, as we know every
+				// earlier block will be before the start time
+				cache[indexPrev] = THRESHOLD_DEFINED
+				break
+			}
 			toCompute = append(toCompute, indexPrev)
 			indexPrev = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
+		} else {
+			break
 		}
 	}
 
@@ -154,8 +160,8 @@ func (vc *VersionBitsConditionChecker) GetStateFor(indexPrev *BlockIndex, params
 			{
 				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
 					stateNext = THRESHOLD_FAILED
+					break
 				}
-
 				// We need to count
 				indexCount := indexPrev
 				count := 0
