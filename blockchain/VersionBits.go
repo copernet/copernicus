@@ -49,20 +49,18 @@ type AbstractThresholdConditionChecker interface {
 	EndTime(params *consensus.Params) int64
 	Period(params *consensus.Params) int
 	Threshold(params *consensus.Params) int
-	GetStateFor(indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) ThresholdState
-	GetStateSinceHeightFor(indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) ThresholdState
 }
 
 type VersionBitsCache [consensus.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
 
 func VersionBitsState(indexPrev *BlockIndex, params *consensus.Params, pos consensus.DeploymentPos, cache *VersionBitsCache) ThresholdState {
-	vc := VersionBitsConditionChecker{id: pos}
-	return vc.GetStateFor(indexPrev, params, cache[pos])
+	vc := &VersionBitsConditionChecker{id: pos}
+	return GetStateFor(vc, indexPrev, params, cache[pos])
 }
 
 func VersionBitsStateSinceHeight(indexPrev *BlockIndex, params *consensus.Params, pos consensus.DeploymentPos, cache *VersionBitsCache) int {
-	vc := VersionBitsConditionChecker{id: pos}
-	return vc.GetStateSinceHeightFor(indexPrev, params, cache[pos])
+	vc := &VersionBitsConditionChecker{id: pos}
+	return GetStateSinceHeightFor(vc, indexPrev, params, cache[pos])
 }
 
 func VersionBitsMask(params *consensus.Params, pos consensus.DeploymentPos) uint32 {
@@ -98,7 +96,7 @@ func (vc *VersionBitsConditionChecker) Mask(params *consensus.Params) int32 {
 	return int32(1) << uint(params.Deployments[vc.id].Bit)
 }
 
-func (vc *VersionBitsConditionChecker) GetStateFor(indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) ThresholdState {
+func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) ThresholdState {
 	nPeriod := vc.Period(params)
 	nThreshold := vc.Threshold(params)
 	nTimeStart := vc.BeginTime(params)
@@ -192,8 +190,8 @@ func (vc *VersionBitsConditionChecker) GetStateFor(indexPrev *BlockIndex, params
 	return state
 }
 
-func (vc *VersionBitsConditionChecker) GetStateSinceHeightFor(indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) int {
-	initialState := vc.GetStateFor(indexPrev, params, cache)
+func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) int {
+	initialState := GetStateFor(vc, indexPrev, params, cache)
 	// BIP 9 about state DEFINED: "The genesis block is by definition in this
 	// state for each deployment."
 	if initialState == THRESHOLD_DEFINED {
@@ -213,7 +211,7 @@ func (vc *VersionBitsConditionChecker) GetStateSinceHeightFor(indexPrev *BlockIn
 	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
 	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
 
-	for previousPeriodParent != nil && vc.GetStateFor(previousPeriodParent, params, cache) == initialState {
+	for previousPeriodParent != nil && GetStateFor(vc, previousPeriodParent, params, cache) == initialState {
 		indexPrev = previousPeriodParent
 		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
 	}

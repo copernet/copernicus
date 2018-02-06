@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	//"testing"
 
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/utils"
@@ -37,129 +38,26 @@ func (tc *testConditionChecker) Condition(index *BlockIndex, params *consensus.P
 	return index.Version&0x100 != 0
 }
 
-func (tc *testConditionChecker) GetStateFor(indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) ThresholdState {
-	nPeriod := tc.Period(params)
-	nThreshold := tc.Threshold(params)
-	nTimeStart := tc.BeginTime(params)
-	nTimeTimeout := tc.EndTime(params)
-
-	// A block's state is always the same as that of the first of its period, so
-	// it is computed based on a pindexPretcwhose height equals a multiple of
-	// nPeriod - 1.
-	if indexPrev != nil {
-		indexPrev = indexPrev.GetAncestor(indexPrev.Height - (indexPrev.Height+1)%nPeriod)
-	}
-
-	// Walk backwards in steps of nPeriod to find a pindexPretcwhose information
-	// is known
-	toCompute := make([]*BlockIndex, 0)
-	_, ok := cache[indexPrev]
-	if !ok {
-		switch {
-		case indexPrev == nil:
-			cache[indexPrev] = THRESHOLD_DEFINED
-		case indexPrev.GetMedianTimePast() < nTimeStart:
-			// Optimization: don't recompute down further, as we know every
-			// earlier block will be before the start time
-			cache[indexPrev] = THRESHOLD_DEFINED
-		default:
-			toCompute = append(toCompute, indexPrev)
-			indexPrev = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
-		}
-	}
-
-	// At this point, cache[pindexPrev] is known
-	state, ok := cache[indexPrev]
-	if !ok {
-		panic("there should be a element in cache")
-	}
-
-	// Now walk forward and compute the state of descendants of pindexPrev
-	for n := 0; n < len(toCompute); n++ {
-		stateNext := state
-		indexPrev = toCompute[len(toCompute)-1]
-		toCompute = toCompute[:(len(toCompute) - 1)]
-
-		switch state {
-		case THRESHOLD_DEFINED:
-			{
-				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
-					stateNext = THRESHOLD_FAILED
-				} else if indexPrev.GetMedianTimePast() >= nTimeStart {
-					stateNext = THRESHOLD_STARTED
-				}
-			}
-		case THRESHOLD_STARTED:
-			{
-				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
-					stateNext = THRESHOLD_FAILED
-				}
-
-				// We need to count
-				indexCount := indexPrev
-				count := 0
-				for i := 0; i < nPeriod; i++ {
-					if tc.Condition(indexCount, params) {
-						count++
-					}
-					indexCount = indexCount.PPrev
-				}
-				if count >= nThreshold {
-					stateNext = THRESHOLD_LOCKED_IN
-				}
-			}
-		case THRESHOLD_LOCKED_IN:
-			{
-				// Always progresses into ACTIVE.
-				stateNext = THRESHOLD_ACTIVE
-			}
-		case THRESHOLD_FAILED:
-		case THRESHOLD_ACTIVE:
-			{
-				// Nothing happens, these are terminal states.
-			}
-		}
-		state = stateNext
-		cache[indexPrev] = state
-	}
-	return state
+func (tc *testConditionChecker) GetStateFor(indexPrev *BlockIndex) ThresholdState {
+	return GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 }
 
-func (tc *testConditionChecker) GetStateSinceHeightFor(indexPrev *BlockIndex, params *consensus.Params, cache ThresholdConditionCache) int {
-	initialState := tc.GetStateFor(indexPrev, params, cache)
-	// BIP 9 about state DEFINED: "The genesis block is by definition in this
-	// state for each deployment."
-	if initialState == THRESHOLD_DEFINED {
-		return 0
-	}
-
-	nPeriod := tc.Period(params)
-	// A block's state is always the same as that of the first of its period, so
-	// it is computed based on a pindexPretcwhose height equals a multiple of
-	// nPeriod - 1. To ease understanding of the following height calculation,
-	// it helps to remember that right now pindexPretcpoints to the block prior
-	// to the block that we are computing for, thus: if we are computing for the
-	// last block of a period, then pindexPretcpoints to the second to last
-	// block of the period, and if we are computing for the first block of a
-	// period, then pindexPretcpoints to the last block of the previous period.
-	// The parent of the genesis block is represented by nullptr.
-	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
-	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
-
-	for previousPeriodParent != nil && tc.GetStateFor(previousPeriodParent, params, cache) == initialState {
-		indexPrev = previousPeriodParent
-		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
-	}
-
-	// Adjust the result because right now we point to the parent block.
-	return indexPrev.Height + 1
+func (tc *testConditionChecker) GetStateSinceHeightFor(indexPrev *BlockIndex) int {
+	return GetStateSinceHeightFor(tc, indexPrev, &paramsDummy, tc.cache)
 }
 
 const CHECKERS = 6
 
 type VersionBitsTester struct {
-	num     int
-	block   []*BlockIndex
+	// Test counter (to identify failures)
+	num int
+	// A fake blockchain
+	block []*BlockIndex
+	// 6 independent checkers for the same bit.
+	// The first one performs all checks, the second only 50%, the third only
+	// 25%, etc...
+	// This is to test whether lack of cached information leads to the same
+	// results.
 	checker [CHECKERS]testConditionChecker
 }
 
@@ -174,7 +72,9 @@ func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
 	versionBitsTester.block = make([]*BlockIndex, 0)
 	for i := 0; i < CHECKERS; i++ {
 		versionBitsTester.checker[i] = testConditionChecker{}
+		versionBitsTester.checker[i].cache = make(ThresholdConditionCache)
 	}
+
 	return versionBitsTester
 }
 
@@ -183,11 +83,9 @@ func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int32, nVersi
 		index := &BlockIndex{}
 		index.SetNull()
 		index.Height = len(versionBitsTester.block)
-
+		index.PPrev = nil
 		if len(versionBitsTester.block) > 0 {
 			index.PPrev = versionBitsTester.block[len(versionBitsTester.block)-1]
-		} else {
-			index.PPrev = nil
 		}
 		index.Time = uint32(nTime)
 		index.Version = nVersion
@@ -202,17 +100,14 @@ func (versionBitsTester *VersionBitsTester) TestStateSinceHeight(height int) *Ve
 		if (InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpHeight int
 			if len(versionBitsTester.block) == 0 {
-				tmpHeight = versionBitsTester.checker[i].GetStateSinceHeightFor(nil, &paramsDummy, ThresholdConditionCache{})
+				tmpHeight = versionBitsTester.checker[i].GetStateSinceHeightFor(nil)
 			} else {
-				tmpHeight = versionBitsTester.checker[i].GetStateSinceHeightFor(versionBitsTester.block[len(versionBitsTester.block)-1], &paramsDummy, ThresholdConditionCache{})
+				tmpHeight = versionBitsTester.checker[i].GetStateSinceHeightFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
 			if tmpHeight == height {
 				fmt.Printf("Test %d for StateSinceHeight", versionBitsTester.num)
-			} else {
-				panic("height should be equal each other")
 			}
-
 		}
 	}
 	versionBitsTester.num++
@@ -224,15 +119,13 @@ func (versionBitsTester *VersionBitsTester) TestDefined() *VersionBitsTester {
 		if (InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil, &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1], &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold == THRESHOLD_DEFINED {
+			if tmpThreshold != THRESHOLD_DEFINED {
 				fmt.Printf("Test %d for DEFINED", versionBitsTester.num)
-			} else {
-				panic("threshold should be equal each other")
 			}
 		}
 	}
@@ -245,15 +138,13 @@ func (versionBitsTester *VersionBitsTester) TestStarted() *VersionBitsTester {
 		if (InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil, &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1], &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold == THRESHOLD_STARTED {
+			if tmpThreshold != THRESHOLD_STARTED {
 				fmt.Printf("Test %d for STARTED", versionBitsTester.num)
-			} else {
-				panic("threshold should be equal each other")
 			}
 		}
 	}
@@ -266,15 +157,13 @@ func (versionBitsTester *VersionBitsTester) TestLockedIn() *VersionBitsTester {
 		if (InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil, &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1], &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold == THRESHOLD_LOCKED_IN {
+			if tmpThreshold != THRESHOLD_LOCKED_IN {
 				fmt.Printf("Test %d for LOCKED_IN", versionBitsTester.num)
-			} else {
-				panic("threshold should be equal each other")
 			}
 		}
 	}
@@ -287,15 +176,13 @@ func (versionBitsTester *VersionBitsTester) TestActive() *VersionBitsTester {
 		if (InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil, &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1], &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold == THRESHOLD_ACTIVE {
+			if tmpThreshold != THRESHOLD_ACTIVE {
 				fmt.Printf("Test %d for ACTIVE", versionBitsTester.num)
-			} else {
-				panic("threshold should be equal each other")
 			}
 		}
 	}
@@ -308,15 +195,13 @@ func (versionBitsTester *VersionBitsTester) TestFailed() *VersionBitsTester {
 		if (InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil, &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
-				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1], &paramsDummy, ThresholdConditionCache{})
+				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold == THRESHOLD_FAILED {
+			if tmpThreshold != THRESHOLD_FAILED {
 				fmt.Printf("Test %d for ACTIVE", versionBitsTester.num)
-			} else {
-				panic("threshold should be equal each other")
 			}
 		}
 	}
@@ -369,3 +254,35 @@ func InsecureRandBool() bool {
 	remainder := binary.LittleEndian.Uint16(r) % 2
 	return remainder == 1
 }
+
+/*
+func TestVersionBitsState(t *testing.T) {
+	for i:= 0; i < 64; i++{
+		v := VersionBitsTester{num:0}
+		v.TestDefined().
+			TestStateSinceHeight(0).
+				Mine(1, int32(testTime(1)), 0x100).
+					TestDefined().TestStateSinceHeight(0).
+						Mine(11, int32(testTime(11)), 0x100).
+							TestDefined().TestStateSinceHeight(0).
+								Mine(989, int32(testTime(989)),0x100).
+									TestDefined().TestStateSinceHeight(0).
+										Mine(999, int32(testTime(20000)), 0x100).
+											TestDefined().TestStateSinceHeight(0).
+												Mine(1000, int32(testTime(20000)), 0x100).
+													TestFailed().TestStateSinceHeight(1000).
+														Mine(1999, int32(testTime(30001)), 0x100).
+															TestFailed().TestStateSinceHeight(1000).
+																Mine(2000, int32(testTime(30002)), 0x100).
+																	TestFailed().TestStateSinceHeight(1000).
+																		Mine(2001, int32(testTime(30003)), 0x100).
+																			TestFailed().TestStateSinceHeight(1000).
+																				Mine(2999, int32(testTime(30004)), 0x100).
+																					TestFailed().TestStateSinceHeight(1000).
+																						Mine(3000, int32(testTime(30005)), 0x100).
+																							TestFailed().TestStateSinceHeight(1000)
+
+	}
+
+}
+*/
