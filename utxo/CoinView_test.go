@@ -678,6 +678,12 @@ const (
 	NO_ENTRY                = -1
 )
 
+var (
+	FLAGS        = []int{0, FRESH, DIRTY, DIRTY | FRESH}
+	CLEAN_FLAGS  = []int{0, FRESH}
+	ABSENT_FLAGS = []int{NO_ENTRY}
+)
+
 type SingleEntryCacheTest struct {
 	root  CoinsView
 	base  *CoinsViewCacheTest
@@ -961,6 +967,7 @@ func CheckWriteCoin(parentValue btcutil.Amount, childValue btcutil.Amount, expec
 			}
 		}
 	}()
+
 	WriteCoinViewEntry(singleEntryCacheTest.cache, childValue, childFlags)
 	singleEntryCacheTest.cache.SelfTest()
 	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
@@ -1019,6 +1026,36 @@ func TestWriteCoin(t *testing.T) {
 	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY, DIRTY|FRESH, NO_ENTRY)
 	CheckWriteCoin(VALUE1, VALUE2, VALUE2, DIRTY|FRESH, DIRTY, DIRTY|FRESH)
 	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY|FRESH, DIRTY|FRESH, NO_ENTRY)
+
+	// The checks above omit cases where the child flags are not DIRTY, since
+	// they would be too repetitive (the parent cache is never updated in these
+	// cases). The loop below covers these cases and makes sure the parent cache
+	// is always left unchanged.
+	for parentValue := range [...]btcutil.Amount{ABSENT, PRUNED, VALUE1} {
+		for childValue := range [...]btcutil.Amount{ABSENT, PRUNED, VALUE2} {
+
+			var parentFlags []int
+			if parentValue == int(ABSENT) {
+				parentFlags = ABSENT_FLAGS
+			} else {
+				parentFlags = FLAGS
+			}
+
+			for _, parentFlag := range parentFlags {
+
+				var childFlags []int
+				if childValue == int(ABSENT) {
+					childFlags = ABSENT_FLAGS
+				} else {
+					childFlags = CLEAN_FLAGS
+				}
+
+				for _, childFlag := range childFlags {
+					CheckWriteCoin(btcutil.Amount(parentValue), btcutil.Amount(childValue), btcutil.Amount(parentValue), parentFlag, childFlag, parentFlag)
+				}
+			}
+		}
+	}
 }
 
 // new a insecure rand creator from crypto/rand seed
