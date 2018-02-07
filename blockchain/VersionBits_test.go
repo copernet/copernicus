@@ -438,7 +438,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	timeout := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].Timeout
 
 	if startTime >= timeout {
-		panic("startTime should be less than timeout value")
+		t.Error("startTime should be less than timeout value")
 	}
 
 	// In the first chain, test that the bit is set by CBV until it has failed.
