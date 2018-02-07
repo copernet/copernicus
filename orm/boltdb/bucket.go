@@ -53,3 +53,7 @@ func (bucket *bucket) Delete(key []byte) error {
 	err := bucket.boltBucket.Delete(key)
 	return err
 }
+
+func (bucket *bucket) EstimateSize() int {
+	return 0
+}

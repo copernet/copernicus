@@ -14,4 +14,6 @@ type Bucket interface {
 	Delete(key []byte) error
 
 	Exists(key []byte) bool
+
+	EstimateSize() int
 }

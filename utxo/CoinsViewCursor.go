@@ -1,11 +1,12 @@
 package utxo
 
 import (
+	"bytes"
+
 	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
-	"bytes"
+	"github.com/btcboost/copernicus/utils"
 )
 
 type CoinsViewCursor struct {
@@ -45,7 +46,7 @@ func (coinsViewCursor *CoinsViewCursor) Next() {
 	//todo CDBIterator logic
 	coinEntry := NewCoinEntry(coinsViewCursor.keyTmp.outPoint)
 	coinsViewCursor.keyTmp.key = coinEntry.key
-	
+
 }
 
 func (coinsViewCursor *CoinsViewCursor) GetValueSize() int {
@@ -56,7 +57,7 @@ func (coinsViewCursor *CoinsViewCursor) GetBestBlock() utils.Hash {
 	return coinsViewCursor.hashBlock
 }
 
-func NewCoinsViewCursor(hash utils.Hash) *CoinsViewCursor {
+func NewCoinsViewCursor(cursor database.Cursor, hash utils.Hash) *CoinsViewCursor {
 	coinsViewCursor := new(CoinsViewCursor)
 	coinsViewCursor.hashBlock = hash
 	return coinsViewCursor
