@@ -484,7 +484,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					coinBaseCoins.Add(out)
 				}
 				if !tx1.IsCoinBase() {
-					panic("the tx1 should be coinBase")
+					t.Error("the tx1 should be coinBase")
 				}
 			} else {
 				// 17/20 times reconnect previous or add a regular tx
@@ -501,10 +501,10 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					// If this tx is already IN the UTXO, then it must be a coinBase, and it must be a duplicate
 					if utxoSet.Has(out) {
 						if !tx1.IsCoinBase() {
-							panic("the tx1 should be coinBase")
+							t.Error("the tx1 should be coinBase")
 						}
 						if !duplicateCoins.Has(out) {
-							panic("duplicate coins should have this specific outpoint")
+							t.Error("duplicate coins should have this specific outpoint")
 						}
 						disconnectedCoins.Remove(out)
 					}
@@ -517,7 +517,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					tx1.Ins[0].PreviousOutPoint = &prevOut
 					tx1.Ins[0].PreviousOutPoint.Index = 0
 					if tx1.IsCoinBase() {
-						panic("the tx1 should not be coinBase")
+						t.Error("the tx1 should not be coinBase")
 					}
 				}
 				// In this simple test coins only have two states, spent or
@@ -544,7 +544,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			}
 			// Update the expected result to know about the new output coins
 			if len(tx1.Outs) != 1 {
-				panic("the volume of the tx1 should not be one")
+				t.Error("the volume of the tx1 should not be one")
 			}
 			OutPoint := model.NewOutPoint(tx1.Hash, 0)
 			//tx1.Outs = make([]*model.TxOut, 0)
