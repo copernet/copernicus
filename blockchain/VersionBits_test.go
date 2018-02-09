@@ -279,23 +279,23 @@ func TestVersionBits(t *testing.T) {
 			Mine(1, testTime(1), 0).
 			TestDefined(t).
 			TestStateSinceHeight(0, t).
-			Mine(1000, testTime(10000)-1, 0x100).		//挖1000个块，1-999，时间为 beginTime - 1, 版本号为0x100
+			Mine(1000, testTime(10000)-1, 0x100).
 			TestDefined(t).
 			// One second more and it would be defined
 			TestStateSinceHeight(0, t).
-			Mine(2000, testTime(10000), 0x100).		//再挖1000个块，从1000 - 1999，时间为beginTime，版本号被设置
+			Mine(2000, testTime(10000), 0x100).
 			TestStarted(t).
 			// So that's what happens the next period
 			TestStateSinceHeight(2000, t).
-			Mine(2051, testTime(10010), 0).			//继续挖51个块，从2000 - 2050版本号未设置。
+			Mine(2051, testTime(10010), 0).
 			TestStarted(t).
 			// 51 old blocks
 			TestStateSinceHeight(2000, t).
-			Mine(2950, testTime(10020), 0x100).		//继续挖899个块，从2051 - 2949， 版本号被设置
+			Mine(2950, testTime(10020), 0x100).
 			TestStarted(t).
 			// 899 new blocks
 			TestStateSinceHeight(2000, t).
-			Mine(3000, testTime(20000), 0).			//继续挖50个块，从2950 - 2999， 版本号为设置
+			Mine(3000, testTime(20000), 0).
 			TestFailed(t)
 
 
@@ -563,12 +563,6 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
 		t.Error("the bit should be set, because the state is started")
 	}
-	fmt.Println("lastBlock.Time : ", lastBlock.Time, ", lastBlock.Version : ", lastBlock.Version,
-		", lastBlock.Height : ", lastBlock.Height, ", time : ", Time)
-	//for k, v := range vbc.cache[msg.DEPLOYMENT_TESTDUMMY]{
-	//	fmt.Println("....blockIndex.Height : ", k.Height, ", state : ", v)
-	//}
-	fmt.Println("ComputeBlockVersion(lastBlock, &mainnetParams, vbc) : ", ComputeBlockVersion(lastBlock, &mainnetParams, vbc))
 
 	// Mine another period worth of blocks, signaling the new bit.
 	lastBlock = secondChain.Mine(4032, startTime, VERSIONBITS_TOP_BITS|(1<<uint(bit))).Tip()
