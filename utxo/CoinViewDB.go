@@ -59,9 +59,9 @@ func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
 	}
 }
 
-func (coinViewDB *CoinViewDB) GetBestBlock() *utils.Hash {
+func (coinViewDB *CoinViewDB) GetBestBlock() utils.Hash {
 	var v []byte
-	hash := new(utils.Hash)
+	hash := utils.Hash{}
 	err := coinViewDB.DBBase.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
 		v = bucket.Get([]byte{orm.DB_BEST_BLOCK})
 		return nil
@@ -111,8 +111,35 @@ func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheE
 
 }
 
-func (coinViewDB *CoinViewDB) EstimateSize() uint16 {
-	return 0
+func (coinViewDB *CoinViewDB) EstimateSize() int {
+	var size int
+	err := coinViewDB.DBBase.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+		size = bucket.EstimateSize()
+		return nil
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		return 0
+	}
+	return size
+}
+
+func (coinViewDB *CoinViewDB) Cursor() *CoinsViewCursor {
+	var cursor database.Cursor
+	//todo CCoinsViewDB Cursor
+	coinViewDB.View([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
+
+		for i := bucket.Cursor(); i.Last(); i.Next() {
+			if i.Seek([]byte{orm.DB_COIN}) {
+				cursor = i
+			}
+		}
+		return nil
+
+	})
+	coinsViewCursor := NewCoinsViewCursor(cursor, coinViewDB.GetBestBlock())
+	return coinsViewCursor
+
 }
 
 func NewCoinViewDB() *CoinViewDB {
