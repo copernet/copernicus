@@ -18,7 +18,7 @@ type Hash [HashSize]byte
 var HashZero = Hash{}
 var HashOne = Hash{0x0000000000000000000000000000000000000000000000000000000000000001}
 
-func (hash *Hash) ToString() string {
+func (hash Hash) ToString() string {
 	bytes := hash.GetCloneBytes()
 	for i := 0; i < HashSize/2; i++ {
 		bytes[i], bytes[HashSize-1-i] = bytes[HashSize-1-i], bytes[i]

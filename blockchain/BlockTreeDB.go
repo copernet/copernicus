@@ -2,14 +2,15 @@ package blockchain
 
 import (
 	"path/filepath"
-	
+
 	"bytes"
 	"fmt"
-	
+
+	"strconv"
+
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
-	"strconv"
 )
 
 type BlockTreeDB struct {
@@ -37,7 +38,7 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) *BlockFileInfo {
 		return nil
 	}
 	return blockFileInfo
-	
+
 }
 
 func (blockTreeDB *BlockTreeDB) WriteReindexing(reindexing bool) bool {
@@ -51,7 +52,7 @@ func (blockTreeDB *BlockTreeDB) WriteReindexing(reindexing bool) bool {
 		return err
 	})
 	return err == nil
-	
+
 }
 
 func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
@@ -87,16 +88,16 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFil
 				return err
 			}
 			bucket.Put([]byte(key), buf.Bytes())
-			
+
 		}
 		return nil
-		
+
 	})
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 	return err == nil
-	
+
 }
 
 func NewBlockTreeDB() *BlockTreeDB {

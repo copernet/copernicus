@@ -1,8 +1,9 @@
 package blockchain
 
 import (
-	"github.com/btcboost/copernicus/utils"
 	"io"
+
+	"github.com/btcboost/copernicus/utils"
 )
 
 type DiskBlockIndex struct {
