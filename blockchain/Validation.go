@@ -3,6 +3,8 @@ package blockchain
 import (
 	"bytes"
 
+	//"fmt"
+
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
@@ -108,7 +110,9 @@ func ComputeBlockVersion(indexPrev *BlockIndex, params *msg.BitcoinParams, t *Ve
 		state := func() ThresholdState {
 			t.Lock()
 			defer t.Unlock()
-			return VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
+			v := VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
+			//fmt.Println("------ ComputeBlockVersion state : ", v )
+			return v
 		}()
 
 		if state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED {

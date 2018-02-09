@@ -143,7 +143,6 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 	sort.Slice(pmedian, func(i, j int) bool {
 		return pmedian[i] < pmedian[j]
 	})
-	//fmt.Println("\n\n\n")
 
 	return pmedian[numNodes/2]
 }

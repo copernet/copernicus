@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/btcboost/copernicus/msg"
@@ -131,7 +132,6 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *BlockIndex, pa
 	// Walk backwards in steps of nPeriod to find a pindexPrev whose information
 	// is known
 	toCompute := make([]*BlockIndex, 0)
-
 	for {
 		if _, ok := cache[indexPrev]; !ok {
 			if indexPrev == nil {
@@ -176,8 +176,13 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *BlockIndex, pa
 		case THRESHOLD_STARTED:
 			{
 				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
+					fmt.Println("********* height : ", indexPrev.Height)
+					//panic("jjjjjjj")
 					stateNext = THRESHOLD_FAILED
 					break
+				}
+				if indexPrev.Height == 2999 {
+					fmt.Println("GetStateFor time : ", indexPrev.GetMedianTimePast())
 				}
 				// We need to count
 				indexCount := indexPrev
@@ -229,7 +234,9 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *Blo
 	// The parent of the genesis block is represented by nullptr.
 	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
 	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
-
+	if indexPrev.Height == 2999 {
+		fmt.Println("initialState : ", initialState)
+	}
 	for previousPeriodParent != nil && GetStateFor(vc, previousPeriodParent, params, cache) == initialState {
 		indexPrev = previousPeriodParent
 		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - nPeriod)

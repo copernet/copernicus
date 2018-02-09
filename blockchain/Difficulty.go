@@ -161,16 +161,30 @@ func GetBlockProofEquivalentTime(to, from, tip *BlockIndex, params *msg.BitcoinP
 	ret := new(big.Int)
 	sign := int64(1)
 	if to.ChainWork.Cmp(&from.ChainWork) > 0 {
-		ret.Sub(&to.ChainWork, &from.ChainWork)
+		ret = ret.Sub(&to.ChainWork, &from.ChainWork)
 	} else {
-		ret.Sub(&from.ChainWork, &to.ChainWork)
+		ret = ret.Sub(&from.ChainWork, &to.ChainWork)
 		sign = -1
 	}
-
-	ret.Mul(ret, big.NewInt(int64(params.TargetTimespan))).Div(ret, GetBlockProof(tip))
-	if ret.Int64() > 63 {
-		return sign * (math.MaxUint64 / 2)
+	ret.Mul(ret, big.NewInt(int64(params.TargetTimePerBlock))).Div(ret, GetBlockProof(tip))
+	if bits(ret.Bits()) > 63 {
+		return sign * (math.MaxInt64)
 	}
 
 	return sign * ret.Int64()
+}
+
+func bits(w []big.Word) uint {
+	lenth := len(w)
+	for pos := lenth - 1; pos >= 0; pos-- {
+		if w[pos] != 0 {
+			for bs := 31; bs > 0; bs-- {
+				if w[pos]&(1<<uint(bs)) != 0 {
+					return uint(32*pos + bs + 1)
+				}
+			}
+			return uint(32*pos + 1)
+		}
+	}
+	return 0
 }
