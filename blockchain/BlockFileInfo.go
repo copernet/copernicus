@@ -3,7 +3,7 @@ package blockchain
 import (
 	"encoding/binary"
 	"io"
-
+	
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -15,6 +15,8 @@ type BlockFileInfo struct {
 	HeightLast  uint32
 	timeFirst   uint64
 	timeLast    uint64
+	
+	index uint32
 }
 
 func (blockFileInfo *BlockFileInfo) Serialize(writer io.Writer) error {
@@ -67,7 +69,7 @@ func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	timeFirst, err := utils.BinarySerializer.Uint64(reader, binary.LittleEndian)
 	if err != nil {
 		return nil, err
@@ -84,7 +86,7 @@ func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
 	blockFileInfo.timeFirst = timeFirst
 	blockFileInfo.timeLast = timeLast
 	return blockFileInfo, nil
-
+	
 }
 
 func (blockFileInfo *BlockFileInfo) AddBlock(nHeightIn uint32, timeIn uint64) {
