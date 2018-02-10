@@ -89,3 +89,15 @@ func (vs *ValidationState) RejectReason() string {
 func (vs *ValidationState) DebugMessage() string {
 	return vs.debugMessage
 }
+
+func (vs *ValidationState) GetRejectCode() byte {
+	return vs.rejectCode
+}
+
+func (vs *ValidationState) GetRejectReason() string {
+	return vs.rejectReason
+}
+
+func (vs *ValidationState) GetDebugMessage() string {
+	return vs.debugMessage
+}

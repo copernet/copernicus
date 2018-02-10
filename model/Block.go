@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"unsafe"
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
@@ -76,6 +77,14 @@ func (bl *Block) Deserialize(r io.Reader) error {
 	}
 
 	return nil
+}
+
+func (bl *Block) SerializeSize() int {
+	size := int(unsafe.Sizeof(BlockHeader{}))
+	for _, tx := range bl.Transactions {
+		size += tx.SerializeSize()
+	}
+	return size
 }
 
 func NewBlock() *Block {

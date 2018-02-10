@@ -229,7 +229,7 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *Blo
 	// it helps to remember that right now pindexPrev points to the block prior
 	// to the block that we are computing for, thus: if we are computing for the
 	// last block of a period, then pindexPrev points to the second to last
-	// block of the period, and if we are computing for the first block of a
+	// block of thev period, and if we are computing for the first block of a
 	// period, then pindexPrev points to the last block of the previous period.
 	// The parent of the genesis block is represented by nullptr.
 	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
