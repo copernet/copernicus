@@ -18,6 +18,7 @@ const (
 	DB_TXINDEX = 't'
 
 	DB_BEST_BLOCK  = 'B'
+	DB_BLOCK_INDEX = 'b'
 	DB_BLOCK_FILES = 'f'
 
 	DB_REINDEX_FLAG = 'R'

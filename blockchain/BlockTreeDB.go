@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"strconv"
+
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
@@ -63,6 +65,39 @@ func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 		return false
 	}
 	return v != nil
+}
+
+func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFile int, blockIndexes []*BlockIndex) bool {
+	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
+		for _, f := range fileInfo {
+			key := fmt.Sprintf("%s%d", orm.DB_BLOCK_FILES, f.index)
+			buf := bytes.NewBuffer(nil)
+			err := f.Serialize(buf)
+			if err != nil {
+				return err
+			}
+			bucket.Put([]byte(key), buf.Bytes())
+		}
+		bucket.Put([]byte{orm.DB_BLOCK_FILES}, []byte(strconv.Itoa(latFile)))
+		for _, b := range blockIndexes {
+			key := fmt.Sprintf("%s%s", orm.DB_BLOCK_INDEX, b.GetBlockHash().ToString())
+			buf := bytes.NewBuffer(nil)
+			diskBlock := NewDiskBlockIndex(b)
+			err := diskBlock.Serialize(buf)
+			if err != nil {
+				return err
+			}
+			bucket.Put([]byte(key), buf.Bytes())
+
+		}
+		return nil
+
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	return err == nil
+
 }
 
 func NewBlockTreeDB() *BlockTreeDB {

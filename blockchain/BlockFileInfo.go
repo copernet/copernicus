@@ -15,6 +15,8 @@ type BlockFileInfo struct {
 	HeightLast  uint32
 	timeFirst   uint64
 	timeLast    uint64
+
+	index uint32
 }
 
 func (blockFileInfo *BlockFileInfo) Serialize(writer io.Writer) error {
