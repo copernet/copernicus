@@ -1,10 +1,9 @@
 package model
 
 import (
-	"testing"
-
 	"bytes"
 	"os"
+	"testing"
 
 	"github.com/btcboost/copernicus/utils"
 )

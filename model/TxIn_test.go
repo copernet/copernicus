@@ -1,12 +1,11 @@
 package model
 
 import (
+	"bytes"
+	"os"
 	"testing"
 
 	"github.com/btcboost/copernicus/utils"
-
-	"bytes"
-	"os"
 )
 
 var testTxIn *TxIn

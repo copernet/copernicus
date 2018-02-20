@@ -2,10 +2,9 @@ package model
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"strconv"
-
-	"fmt"
 
 	"github.com/btcboost/copernicus/utils"
 )

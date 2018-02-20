@@ -126,8 +126,8 @@ func CopyStackByteType(des *Stack, src *Stack) {
 		switch element := v.(type) {
 		case []byte:
 			{
-				lenth := len(element)
-				tmpSlice := make([]byte, lenth)
+				length := len(element)
+				tmpSlice := make([]byte, length)
 				copy(tmpSlice, element)
 				des.array = append(des.array, tmpSlice)
 			}
