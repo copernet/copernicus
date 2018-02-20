@@ -9,7 +9,7 @@ import (
 )
 
 type DiskBlockIndex struct {
-	BlockIndex
+	*BlockIndex
 	hashPrev utils.Hash
 }
 
@@ -48,7 +48,7 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = writer.Write(diskBlockIndex.PPrev.PHashBlock.GetCloneBytes())
+	_, err = writer.Write(diskBlockIndex.hashPrev.GetCloneBytes())
 	if err != nil {
 		return err
 	}
@@ -71,10 +71,18 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 func (diskBlockIndex *DiskBlockIndex) ToString(writer io.Writer) string {
 	str := "DiskBlockIndex("
 	str += diskBlockIndex.BlockIndex.ToString()
-	str += fmt.Sprintf("\n\thashBlock=%s, hashPrev=%s)", diskBlockIndex.PHashBlock.ToString(), diskBlockIndex.PPrev.PHashBlock.ToString())
+	str += fmt.Sprintf("\n\thashBlock=%s, hashPrev=%s)", diskBlockIndex.PHashBlock.ToString(), diskBlockIndex.hashPrev.ToString())
 	return str
 }
 
-func NewDiskBlockIndex(pindex *BlockIndex) *DiskBlockIndex {
+func NewDiskBlockIndex(bl *BlockIndex) *DiskBlockIndex {
+	dbi := DiskBlockIndex{
+		BlockIndex: bl,
+	}
+	if bl.PPrev == nil {
+		dbi.hashPrev = utils.HashZero
+	} else {
+		dbi.hashPrev = bl.PPrev.GetBlockHash()
+	}
 	return nil
 }
