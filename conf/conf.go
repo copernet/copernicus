@@ -3,12 +3,9 @@ package conf
 import (
 	"fmt"
 	"net"
+	"path/filepath"
 	"strings"
 	"time"
-
-	//"github.com/astaxie/beego/config"
-	//"github.com/astaxie/beego/logs"
-	"path/filepath"
 
 	"github.com/astaxie/beego/config"
 	"github.com/astaxie/beego/logs"

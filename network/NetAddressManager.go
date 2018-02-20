@@ -114,12 +114,12 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 func (addressManager *NetAddressManager) expireNew(bucket int) {
 	var oldest *KnownAddress
 	for k, v := range addressManager.addressNew[bucket].Items() {
-		knownAddrssValue := v.(*KnownAddress)
-		if knownAddrssValue.IsBad() {
+		knownAddressValue := v.(*KnownAddress)
+		if knownAddressValue.IsBad() {
 			log.Trace("expiring bad address %v", k)
 			addressManager.addressNew[bucket].Delete(k)
-			knownAddrssValue.refs--
-			if knownAddrssValue.refs == 0 {
+			knownAddressValue.refs--
+			if knownAddressValue.refs == 0 {
 				addressManager.numNew--
 				addressManager.addressIndex.Delete(k)
 			}
@@ -127,9 +127,9 @@ func (addressManager *NetAddressManager) expireNew(bucket int) {
 			continue
 		}
 		if oldest == nil {
-			oldest = knownAddrssValue
-		} else if !knownAddrssValue.NetAddress.Timestamp.After(oldest.NetAddress.Timestamp) {
-			oldest = knownAddrssValue
+			oldest = knownAddressValue
+		} else if !knownAddressValue.NetAddress.Timestamp.After(oldest.NetAddress.Timestamp) {
+			oldest = knownAddressValue
 		}
 	}
 	if oldest != nil {

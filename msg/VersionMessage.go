@@ -1,16 +1,14 @@
 package msg
 
 import (
-	"time"
-
-	"github.com/btcboost/copernicus/protocol"
-
 	"bytes"
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/btcboost/copernicus/network"
+	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"
 )
 

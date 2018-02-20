@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	//"fmt"
-
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
@@ -15,7 +13,7 @@ import (
 )
 
 const (
-	/*DEFAULT_PERMIT_BAREMULTISIG  Default for -permitbaremultisig */
+	// DEFAULT_PERMIT_BAREMULTISIG  Default for -permitbaremultisig
 	DEFAULT_PERMIT_BAREMULTISIG bool = true
 	DEFAULT_CHECKPOINTS_ENABLED bool = true
 	DEFAULT_TXINDEX             bool = false
@@ -54,9 +52,10 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *
 		nHeight = 0
 	}
 
-	//！todo : Add VersionBitsState() test in here
 	nLockTimeFlags := 0
-	//if version
+	if VersionBitsState(pindexPrev, params, msg.DEPLOYMENT_CSV, &versionBitsCache) == THRESHOLD_ACTIVE {
+		nLockTimeFlags |= consensus.LocktimeMedianTimePast
+	}
 
 	medianTimePast := pindexPrev.GetMedianTimePast()
 	if pindexPrev == nil {

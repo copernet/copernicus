@@ -11,9 +11,9 @@ func TestVector(t *testing.T) {
 	vector.PushBack(3)
 	vector.PushBack(4)
 	vector.PushBack(5)
-	len := vector.Size()
-	if len != 5 {
-		t.Errorf("get vector size  failed , Got %d ,ecpected 5", len)
+	length := vector.Size()
+	if length != 5 {
+		t.Errorf("get vector size  failed , Got %d ,ecpected 5", length)
 	}
 	value, err := vector.PopBack()
 	if err != nil {
@@ -22,9 +22,9 @@ func TestVector(t *testing.T) {
 	if value.(int) != 5 {
 		t.Errorf("PopStack failed ,Got %d ,expected 5", value)
 	}
-	len = vector.Size()
-	if len != 4 {
-		t.Errorf("get vector size  failed , Got %d ,ecpected 4", len)
+	length = vector.Size()
+	if length != 4 {
+		t.Errorf("get vector size  failed , Got %d ,ecpected 4", length)
 	}
 
 	value, err = vector.PopBack()

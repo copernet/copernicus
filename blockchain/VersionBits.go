@@ -54,6 +54,8 @@ type AbstractThresholdConditionChecker interface {
 	Threshold(params *msg.BitcoinParams) int
 }
 
+var versionBitsCache VersionBitsCache // todo waring: there is a global variable(used as cache)
+
 type VersionBitsCache struct {
 	sync.RWMutex
 	cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache

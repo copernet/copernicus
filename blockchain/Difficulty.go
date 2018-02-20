@@ -175,8 +175,8 @@ func GetBlockProofEquivalentTime(to, from, tip *BlockIndex, params *msg.BitcoinP
 }
 
 func bits(w []big.Word) uint {
-	lenth := len(w)
-	for pos := lenth - 1; pos >= 0; pos-- {
+	length := len(w)
+	for pos := length - 1; pos >= 0; pos-- {
 		if w[pos] != 0 {
 			for bs := 31; bs > 0; bs-- {
 				if w[pos]&(1<<uint(bs)) != 0 {

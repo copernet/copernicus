@@ -1,11 +1,9 @@
 package blockchain
 
 import (
-	"path/filepath"
-
 	"bytes"
 	"fmt"
-
+	"path/filepath"
 	"strconv"
 
 	"github.com/btcboost/copernicus/conf"
