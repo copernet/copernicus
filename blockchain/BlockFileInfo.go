@@ -8,13 +8,13 @@ import (
 )
 
 type BlockFileInfo struct {
-	Blocks      uint32
-	Size        uint32
-	UndoSize    uint32
-	HeightFirst uint32
-	HeightLast  uint32
-	timeFirst   uint64
-	timeLast    uint64
+	Blocks      uint32 // number of blocks stored in file
+	Size        uint32 // number of used bytes of block file
+	UndoSize    uint32 // number of used bytes in the undo file
+	HeightFirst uint32 // lowest height of block in file
+	HeightLast  uint32 // highest height of block in file
+	timeFirst   uint64 // earliest time of block in file
+	timeLast    uint64 // latest time of block in file
 
 	index uint32
 }
