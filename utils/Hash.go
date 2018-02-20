@@ -67,7 +67,7 @@ func (hash *Hash) IsEqual(target *Hash) bool {
 
 func (hash *Hash) IsNull() bool {
 	for _, item := range hash {
-		if item == 0 {
+		if item != 0 {
 			return false
 		}
 	}
