@@ -1,14 +1,12 @@
 package mempool
 
 import (
+	"encoding/binary"
+	"fmt"
+	"io"
 	"math"
 	"sync"
 	"unsafe"
-
-	"fmt"
-
-	"encoding/binary"
-	"io"
 
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/bradfitz/slice"

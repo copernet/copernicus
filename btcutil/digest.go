@@ -5,10 +5,9 @@
 package btcutil
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
 	"hash"
-
-	"crypto/sha1"
 
 	"golang.org/x/crypto/ripemd160"
 )

@@ -2,10 +2,9 @@ package model
 
 import (
 	"encoding/binary"
-	"io"
-
 	"encoding/hex"
 	"fmt"
+	"io"
 
 	"github.com/btcboost/copernicus/protocol"
 	"github.com/btcboost/copernicus/utils"

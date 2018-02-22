@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/btcutil"
-	//"github.com/davecgh/go-spew/spew"
 )
 
 // TestNewTLSCertPair ensures the NewTLSCertPair function works as expected.

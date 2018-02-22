@@ -3,7 +3,6 @@ package btcutil_test
 import (
 	"fmt"
 	"math"
-
 	"testing"
 
 	"github.com/btcboost/copernicus/btcutil"

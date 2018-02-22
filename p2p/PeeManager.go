@@ -14,9 +14,8 @@ import (
 	"github.com/btcboost/copernicus/conn"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/network"
-	"github.com/btcboost/copernicus/protocol"
-
 	"github.com/btcboost/copernicus/orm/database"
+	"github.com/btcboost/copernicus/protocol"
 )
 
 const (

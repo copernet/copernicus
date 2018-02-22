@@ -2,9 +2,7 @@ package utxo
 
 import (
 	"bytes"
-
 	"fmt"
-
 	"path/filepath"
 
 	"github.com/btcboost/copernicus/conf"
@@ -88,12 +86,12 @@ func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[model.OutPoint]CoinsCacheE
 					return false, err
 				}
 			} else {
-				bytes, err := v.Coin.GetSerialize()
+				b, err := v.Coin.GetSerialize()
 				if err != nil {
 					return false, err
 				}
 				err = coinViewDB.DBBase.Update([]byte(coinViewDB.bucketKey), func(bucket database.Bucket) error {
-					err := bucket.Put(coinEntry.GetSerKey(), bytes)
+					err := bucket.Put(coinEntry.GetSerKey(), b)
 					return err
 				})
 				if err != nil {

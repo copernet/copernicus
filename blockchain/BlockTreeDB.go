@@ -1,11 +1,9 @@
 package blockchain
 
 import (
-	"path/filepath"
-
 	"bytes"
 	"fmt"
-
+	"path/filepath"
 	"strconv"
 
 	"github.com/btcboost/copernicus/conf"
@@ -19,7 +17,7 @@ type BlockTreeDB struct {
 }
 
 func GetFileKey(file int) []byte {
-	key := fmt.Sprintf("%s%d", orm.DB_BLOCK_FILES, file)
+	key := fmt.Sprintf("%c%d", orm.DB_BLOCK_FILES, file)
 	return []byte(key)
 }
 
@@ -70,7 +68,7 @@ func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFile int, blockIndexes []*BlockIndex) bool {
 	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
 		for _, f := range fileInfo {
-			key := fmt.Sprintf("%s%d", orm.DB_BLOCK_FILES, f.index)
+			key := fmt.Sprintf("%c%d", orm.DB_BLOCK_FILES, f.index)
 			buf := bytes.NewBuffer(nil)
 			err := f.Serialize(buf)
 			if err != nil {
@@ -80,7 +78,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFil
 		}
 		bucket.Put([]byte{orm.DB_BLOCK_FILES}, []byte(strconv.Itoa(latFile)))
 		for _, b := range blockIndexes {
-			key := fmt.Sprintf("%s%s", orm.DB_BLOCK_INDEX, b.GetBlockHash().ToString())
+			key := fmt.Sprintf("%c%s", orm.DB_BLOCK_INDEX, b.GetBlockHash().ToString())
 			buf := bytes.NewBuffer(nil)
 			diskBlock := NewDiskBlockIndex(b)
 			err := diskBlock.Serialize(buf)

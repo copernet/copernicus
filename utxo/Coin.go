@@ -1,13 +1,10 @@
 package utxo
 
 import (
-	"io"
-
-	"encoding/binary"
-
-	"unsafe"
-
 	"bytes"
+	"encoding/binary"
+	"io"
+	"unsafe"
 
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"

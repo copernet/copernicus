@@ -1,9 +1,8 @@
 package utxo
 
 import (
-	"io"
-
 	"bytes"
+	"io"
 
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/orm"
@@ -38,7 +37,7 @@ func DeserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
 		return
 	}
 
-	bytes, err := utils.ReadVarBytes(reader, 32, "hash")
+	b, err := utils.ReadVarBytes(reader, 32, "hash")
 	if err != nil {
 		return
 	}
@@ -47,7 +46,7 @@ func DeserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
 		return
 	}
 	coinEntry.key = keys[0]
-	coinEntry.outpoint.Hash.SetBytes(bytes)
+	coinEntry.outpoint.Hash.SetBytes(b)
 	coinEntry.outpoint.Index = uint32(n)
 	return
 }

@@ -1,13 +1,12 @@
 package blockchain
 
 import (
+	"math"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/btcboost/copernicus/algorithm"
-
-	"math"
 
 	"github.com/astaxie/beego/logs"
 )
@@ -15,8 +14,9 @@ import (
 const (
 	MaxAllowedOffsetSecs = 70 * 60
 	SimilarTimeSecs      = 5 * 60
-	MaxMedianTimeRntries = 200
 )
+
+var MaxMedianTimeRetries = 200
 
 var log = logs.NewLogger()
 
@@ -47,7 +47,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 	now := time.Unix(time.Now().Unix(), 0)
 	offsetSecs := int64(timeVal.Sub(now).Seconds())
 	numOffsets := len(medianTime.offsets)
-	if numOffsets == MaxMedianTimeRntries && MaxMedianTimeRntries > 0 {
+	if numOffsets == MaxMedianTimeRetries && MaxMedianTimeRetries > 0 {
 		medianTime.offsets = medianTime.offsets[1:]
 		numOffsets--
 	}
@@ -92,7 +92,7 @@ func (medianTime *MedianTime) Offset() time.Duration {
 func NewMedianTime() *MedianTime {
 	medianTime := MedianTime{
 		knowIDs: make(map[string]struct{}),
-		offsets: make([]int64, 0, MaxMedianTimeRntries),
+		offsets: make([]int64, 0, MaxMedianTimeRetries),
 	}
 	return &medianTime
 }

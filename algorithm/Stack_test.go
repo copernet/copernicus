@@ -12,9 +12,9 @@ func TestStack(t *testing.T) {
 	stack.PushStack(3)
 	stack.PushStack(4)
 	stack.PushStack(5)
-	len := stack.Size()
-	if len != 5 {
-		t.Errorf("get stack size  failed , Got %d ,ecpected 5", len)
+	length := stack.Size()
+	if length != 5 {
+		t.Errorf("get stack size  failed , Got %d ,ecpected 5", length)
 	}
 	value, err := stack.PopStack()
 	if err != nil {
@@ -23,9 +23,9 @@ func TestStack(t *testing.T) {
 	if value.(int) != 5 {
 		t.Errorf("PopStack failed ,Got %d ,expected 5", value)
 	}
-	len = stack.Size()
-	if len != 4 {
-		t.Errorf("get stack size  failed , Got %d ,ecpected 4", len)
+	length = stack.Size()
+	if length != 4 {
+		t.Errorf("get stack size  failed , Got %d ,ecpected 4", length)
 	}
 
 	value, err = stack.PopStack()

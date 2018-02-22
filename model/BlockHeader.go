@@ -19,7 +19,7 @@ type BlockHeader struct {
 	Nonce          uint32
 }
 
-const blockHeaderLenth = 16 + utils.HashSize*32
+const blockHeaderLength = 16 + utils.HashSize*32
 
 func NewBlockHeader() *BlockHeader {
 	blHe := BlockHeader{}
@@ -36,7 +36,7 @@ func (blHe *BlockHeader) GetBlockTime() uint32 {
 }
 
 func (blHe *BlockHeader) GetHash() (utils.Hash, error) {
-	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLenth))
+	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
 	err := blHe.Serialize(buf)
 	return core.DoubleSha256Hash(buf.Bytes()), err
 }

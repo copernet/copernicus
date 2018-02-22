@@ -60,22 +60,22 @@ func TestPutKV(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	bolddb, err := NewBlotDB(path)
-	_, err = bolddb.CreateIfNotExists([]byte(bucketKey))
+	boltdb, err := NewBlotDB(path)
+	_, err = boltdb.CreateIfNotExists([]byte(bucketKey))
 	if err != nil {
 		t.Error(err)
 	}
 	key := "key1"
 	value := "value1"
 
-	err = bolddb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
+	err = boltdb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
 		err := bucket.Put([]byte(key), []byte(value))
 		return err
 	})
 	if err != nil {
 		t.Error(err)
 	}
-	err = bolddb.View([]byte(bucketKey), func(bucket database.Bucket) error {
+	err = boltdb.View([]byte(bucketKey), func(bucket database.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if string(v) != value {
 			t.Errorf("get v(%s) from database is wrong", string(v))
@@ -94,28 +94,28 @@ func TestDeleteKV(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	bolddb, err := NewBlotDB(path)
-	_, err = bolddb.CreateIfNotExists([]byte(bucketKey))
+	boltdb, err := NewBlotDB(path)
+	_, err = boltdb.CreateIfNotExists([]byte(bucketKey))
 	if err != nil {
 		t.Error(err)
 	}
 	key := "key1"
 	value := "value1"
-	err = bolddb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
+	err = boltdb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
 		err := bucket.Put([]byte(key), []byte(value))
 		return err
 	})
 	if err != nil {
 		t.Error(err)
 	}
-	err = bolddb.View([]byte(bucketKey), func(bucket database.Bucket) error {
+	err = boltdb.View([]byte(bucketKey), func(bucket database.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if v == nil {
 			t.Error("put KV is wrong")
 		}
 		return nil
 	})
-	err = bolddb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
+	err = boltdb.Update([]byte(bucketKey), func(bucket database.Bucket) error {
 		err := bucket.Delete([]byte(key))
 		return err
 	})
@@ -123,7 +123,7 @@ func TestDeleteKV(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = bolddb.View([]byte(bucketKey), func(bucket database.Bucket) error {
+	err = boltdb.View([]byte(bucketKey), func(bucket database.Bucket) error {
 		v := bucket.Get([]byte(key))
 		if v != nil {
 			t.Error("delete KV is wrong")
