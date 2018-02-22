@@ -14,8 +14,9 @@ import (
 const (
 	MaxAllowedOffsetSecs = 70 * 60
 	SimilarTimeSecs      = 5 * 60
-	MaxMedianTimeRetries = 200
 )
+
+var MaxMedianTimeRetries = 200
 
 var log = logs.NewLogger()
 
