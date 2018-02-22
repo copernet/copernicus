@@ -1,23 +1,22 @@
-package pow
+package blockchain
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
 	nLastRetargetTime := int64(1261130161) // Block #30240
-	var pindexLast blockchain.BlockIndex
+	var pindexLast BlockIndex
 	pindexLast.Height = 32255
 	pindexLast.Time = 1262152739 // Block #32255
 	pindexLast.Bits = 0x1d00ffff
 
 	pow := Pow{}
-	work := pow.CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	work := pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00d86a {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00d86a, work)
 		return
@@ -27,7 +26,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	pindexLast.Height = 2015
 	pindexLast.Time = 1233061996
 	pindexLast.Bits = 0x1d00ffff
-	work = pow.CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	work = pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00ffff {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00ffff, work)
 		return
@@ -37,7 +36,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	pindexLast.Height = 68543
 	pindexLast.Time = 1279297671
 	pindexLast.Bits = 0x1c05a3f4
-	work = pow.CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	work = pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1c0168fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1c0168fd, work)
 		return
@@ -47,36 +46,36 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	pindexLast.Height = 46367
 	pindexLast.Time = 1269211443
 	pindexLast.Bits = 0x1c387f6f
-	work = pow.CalculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	work = pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00e1fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00e1fd, work)
 		return
 	}
 }
 
-func getBlockIndex(pindexPrev *blockchain.BlockIndex, timeInterval int64, bits uint32) *blockchain.BlockIndex {
-	block := new(blockchain.BlockIndex)
+func getBlockIndex(pindexPrev *BlockIndex, timeInterval int64, bits uint32) *BlockIndex {
+	block := new(BlockIndex)
 	block.PPrev = pindexPrev
 	block.Height = pindexPrev.Height + 1
 	block.Time = pindexPrev.Time + uint32(timeInterval)
 	block.Bits = bits
-	block.ChainWork = *big.NewInt(0).Add(&pindexPrev.ChainWork, blockchain.GetBlockProof(block))
+	block.ChainWork = *big.NewInt(0).Add(&pindexPrev.ChainWork, GetBlockProof(block))
 	return block
 }
 
 func TestPowGetNextWorkRequired(t *testing.T) {
-	blocks := make([]*blockchain.BlockIndex, 115)
+	blocks := make([]*BlockIndex, 115)
 	currentPow := big.NewInt(0).Rsh(msg.ActiveNetParams.PowLimit, 1)
-	initialBits := blockchain.BigToCompact(currentPow)
+	initialBits := BigToCompact(currentPow)
 	pow := Pow{}
 
 	// Genesis block.
-	blocks[0] = new(blockchain.BlockIndex)
+	blocks[0] = new(BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
 	blocks[0].Time = 1269211443
 	blocks[0].Bits = initialBits
-	blocks[0].ChainWork = *blockchain.GetBlockProof(blocks[0])
+	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
 	// Pile up some blocks.
 	for i := 1; i < 100; i++ {
@@ -101,78 +100,78 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 
 	// Now we expect the difficulty to decrease.
 	blocks[110] = getBlockIndex(blocks[109], 2*3600, initialBits)
-	currentPow = blockchain.CompactToBig(blockchain.BigToCompact(currentPow))
+	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, big.NewInt(0).Rsh(currentPow, 2))
 	acValue := pow.GetNextWorkRequired(blocks[110], &blkHeaderDummy, msg.ActiveNetParams)
-	if acValue != blockchain.BigToCompact(currentPow) {
+	if acValue != BigToCompact(currentPow) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			blockchain.BigToCompact(currentPow), acValue)
+			BigToCompact(currentPow), acValue)
 		return
 	}
 
 	// As we continue with 2h blocks, difficulty continue to decrease.
-	blocks[111] = getBlockIndex(blocks[110], 2*3600, blockchain.BigToCompact(currentPow))
-	currentPow = blockchain.CompactToBig(blockchain.BigToCompact(currentPow))
+	blocks[111] = getBlockIndex(blocks[110], 2*3600, BigToCompact(currentPow))
+	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, new(big.Int).Rsh(currentPow, 2))
 	acValue = pow.GetNextWorkRequired(blocks[111], &blkHeaderDummy, msg.ActiveNetParams)
-	if acValue != blockchain.BigToCompact(currentPow) {
+	if acValue != BigToCompact(currentPow) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			blockchain.BigToCompact(currentPow), acValue)
+			BigToCompact(currentPow), acValue)
 		return
 	}
 
 	// We decrease again.
-	blocks[112] = getBlockIndex(blocks[111], 2*3600, blockchain.BigToCompact(currentPow))
-	currentPow = blockchain.CompactToBig(blockchain.BigToCompact(currentPow))
+	blocks[112] = getBlockIndex(blocks[111], 2*3600, BigToCompact(currentPow))
+	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, big.NewInt(0).Rsh(currentPow, 2))
 	acValue = pow.GetNextWorkRequired(blocks[112], &blkHeaderDummy, msg.ActiveNetParams)
-	if acValue != blockchain.BigToCompact(currentPow) {
+	if acValue != BigToCompact(currentPow) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			blockchain.BigToCompact(currentPow), acValue)
+			BigToCompact(currentPow), acValue)
 		return
 	}
 
 	// We check that we do not go below the minimal difficulty.
-	blocks[113] = getBlockIndex(blocks[112], 2*3600, blockchain.BigToCompact(currentPow))
-	currentPow = blockchain.CompactToBig(blockchain.BigToCompact(currentPow))
+	blocks[113] = getBlockIndex(blocks[112], 2*3600, BigToCompact(currentPow))
+	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, big.NewInt(0).Rsh(currentPow, 2))
-	if blockchain.BigToCompact(msg.ActiveNetParams.PowLimit) == blockchain.BigToCompact(currentPow) {
+	if BigToCompact(msg.ActiveNetParams.PowLimit) == BigToCompact(currentPow) {
 		t.Errorf("the two value should not equal ")
 		return
 	}
 	acValue = pow.GetNextWorkRequired(blocks[113], &blkHeaderDummy, msg.ActiveNetParams)
-	if acValue != blockchain.BigToCompact(msg.ActiveNetParams.PowLimit) {
+	if acValue != BigToCompact(msg.ActiveNetParams.PowLimit) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			blockchain.BigToCompact(msg.ActiveNetParams.PowLimit), acValue)
+			BigToCompact(msg.ActiveNetParams.PowLimit), acValue)
 		return
 	}
 
 	// Once we reached the minimal difficulty, we stick with it.
-	blocks[114] = getBlockIndex(blocks[113], 2*3600, blockchain.BigToCompact(currentPow))
-	if blockchain.BigToCompact(msg.ActiveNetParams.PowLimit) == blockchain.BigToCompact(currentPow) {
+	blocks[114] = getBlockIndex(blocks[113], 2*3600, BigToCompact(currentPow))
+	if BigToCompact(msg.ActiveNetParams.PowLimit) == BigToCompact(currentPow) {
 		t.Errorf("the two value should not equal ")
 		return
 	}
 	acValue = pow.GetNextWorkRequired(blocks[114], &blkHeaderDummy, msg.ActiveNetParams)
-	if acValue != blockchain.BigToCompact(msg.ActiveNetParams.PowLimit) {
+	if acValue != BigToCompact(msg.ActiveNetParams.PowLimit) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			blockchain.BigToCompact(msg.ActiveNetParams.PowLimit), acValue)
+			BigToCompact(msg.ActiveNetParams.PowLimit), acValue)
 		return
 	}
 }
 
 func TestPowGetNextCashWorkRequired(t *testing.T) {
-	blocks := make([]*blockchain.BlockIndex, 3000)
+	blocks := make([]*BlockIndex, 3000)
 	currentPow := big.NewInt(0).Rsh(msg.ActiveNetParams.PowLimit, 4)
-	initialBits := blockchain.BigToCompact(currentPow)
+	initialBits := BigToCompact(currentPow)
 
 	// Genesis block.
-	blocks[0] = new(blockchain.BlockIndex)
+	blocks[0] = new(BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
 	blocks[0].Time = 1269211443
 	blocks[0].Bits = initialBits
-	blocks[0].ChainWork = *blockchain.GetBlockProof(blocks[0])
+	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
 	// Block counter.
 	i := 0
@@ -184,12 +183,12 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 
 	blkHeaderDummy := model.BlockHeader{}
 	pow := Pow{}
-	bits := pow.GetNextCashWorkRequired(blocks[2049], &blkHeaderDummy, msg.ActiveNetParams)
+	bits := pow.getNextCashWorkRequired(blocks[2049], &blkHeaderDummy, msg.ActiveNetParams)
 
 	// Difficulty stays the same as long as we produce a block every 10 mins.
 	for j := 0; j < 10; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, bits)
-		work := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		work := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 		if work != bits {
 			t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 				bits, work)
@@ -202,7 +201,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// a block that is far in the future, and then produce a block with the
 	// expected timestamp.
 	blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-	work := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+	work := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 	if work != bits {
 		t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 			bits, work)
@@ -210,7 +209,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	}
 	i++
 	blocks[i] = getBlockIndex(blocks[i-1], 2*600-6000, bits)
-	work = pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+	work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 	if work != bits {
 		t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 			bits, work)
@@ -222,7 +221,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// timestamps.
 	for j := 0; j < 20; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, bits)
-		work = pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 		if work != bits {
 			t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 				bits, work)
@@ -233,7 +232,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 
 	// We start emitting blocks slightly faster. The first block has no impact.
 	blocks[i] = getBlockIndex(blocks[i-1], 550, bits)
-	work = pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+	work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 	if work != bits {
 		t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 			bits, work)
@@ -244,12 +243,12 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// Now we should see difficulty increase slowly.
 	for j := 0; j < 10; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 550, bits)
-		nextBits := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
-		currentTarget := blockchain.CompactToBig(bits)
-		nextTarget := blockchain.CompactToBig(nextBits)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		currentTarget := CompactToBig(bits)
+		nextTarget := CompactToBig(nextBits)
 		if nextTarget.Cmp(currentTarget) >= 0 {
 			t.Errorf("the next work : %d should less current work : %d",
-				blockchain.BigToCompact(nextTarget), blockchain.BigToCompact(currentTarget))
+				BigToCompact(nextTarget), BigToCompact(currentTarget))
 			return
 		}
 
@@ -271,13 +270,13 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// If we dramatically shorten block production, difficulty increases faster.
 	for j := 0; j < 20; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 10, bits)
-		nextBits := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
-		currentTarget := blockchain.CompactToBig(bits)
-		nextTarget := blockchain.CompactToBig(nextBits)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		currentTarget := CompactToBig(bits)
+		nextTarget := CompactToBig(nextBits)
 		// Make sure that difficulty increases faster.
 		if nextTarget.Cmp(currentTarget) >= 0 {
 			t.Errorf("the next work : %d should less current work : %d",
-				blockchain.BigToCompact(nextTarget), blockchain.BigToCompact(currentTarget))
+				BigToCompact(nextTarget), BigToCompact(currentTarget))
 			return
 		}
 		if big.NewInt(0).Sub(currentTarget, nextTarget).Cmp(big.NewInt(0).Div(currentTarget, big.NewInt(16))) >= 0 {
@@ -299,7 +298,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// We start to emit blocks significantly slower. The first block has no
 	// impact.
 	blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-	bits = pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+	bits = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 	i++
 
 	// Check the actual value.
@@ -311,13 +310,13 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// If we dramatically slow down block production, difficulty decreases.
 	for j := 0; j < 93; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-		nextBits := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
-		currentTarget := blockchain.CompactToBig(bits)
-		nextTarget := blockchain.CompactToBig(nextBits)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		currentTarget := CompactToBig(bits)
+		nextTarget := CompactToBig(nextBits)
 		// Check the difficulty decreases.
 		if nextTarget.Cmp(msg.ActiveNetParams.PowLimit) > 0 {
 			t.Errorf("nextTarget value : %d should less or equal powLimit : %d",
-				nextBits, blockchain.BigToCompact(msg.ActiveNetParams.PowLimit))
+				nextBits, BigToCompact(msg.ActiveNetParams.PowLimit))
 			return
 		}
 		if nextTarget.Cmp(currentTarget) <= 0 {
@@ -343,7 +342,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// Due to the window of time being bounded, next block's difficulty actually
 	// gets harder.
 	blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-	bits = pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+	bits = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 	i++
 	if bits != 0x1c2ee9bf {
 		t.Errorf("the bits value : %d should equal %d \n", bits, 0x1c2ee9bf)
@@ -354,14 +353,14 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// the skewed block causes 2 blocks to get out of the window.
 	for j := 0; j < 192; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-		nextBits := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
-		currentTarget := blockchain.CompactToBig(bits)
-		nextTarget := blockchain.CompactToBig(nextBits)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		currentTarget := CompactToBig(bits)
+		nextTarget := CompactToBig(nextBits)
 
 		// Check the difficulty decreases.
 		if nextTarget.Cmp(msg.ActiveNetParams.PowLimit) > 0 {
 			t.Errorf("nextTarget value : %d should less or equal powLimit : %d",
-				nextBits, blockchain.BigToCompact(msg.ActiveNetParams.PowLimit))
+				nextBits, BigToCompact(msg.ActiveNetParams.PowLimit))
 			return
 		}
 		if nextTarget.Cmp(currentTarget) <= 0 {
@@ -388,11 +387,11 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// easier.
 	for j := 0; j < 5; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-		nextBits := pow.GetNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, msg.ActiveNetParams)
 		// Check the difficulty stays constant.
-		if nextBits != blockchain.BigToCompact(msg.ActiveNetParams.PowLimit) {
+		if nextBits != BigToCompact(msg.ActiveNetParams.PowLimit) {
 			t.Errorf("the nextbits : %d should equal powLimit value : %d",
-				nextBits, blockchain.BigToCompact(msg.ActiveNetParams.PowLimit))
+				nextBits, BigToCompact(msg.ActiveNetParams.PowLimit))
 			return
 		}
 		i++

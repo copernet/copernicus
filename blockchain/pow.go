@@ -1,29 +1,18 @@
-package pow
+package blockchain
 
 import (
 	"math/big"
 
-	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/utils"
 )
 
-var (
-	// bigOne is 1 represented as a big.Int.  It is defined here to avoid
-	// the overhead of creating it multiple times.
-	bigOne = big.NewInt(1)
-
-	// oneLsh256 is 1 shifted left 256 bits.  It is defined here to avoid
-	// the overhead of creating it multiple times.
-	oneLsh256 = new(big.Int).Lsh(bigOne, 256)
-)
-
 type Pow struct{}
 
-func (pow *Pow) GetNextWorkRequired(pindexPrev *blockchain.BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) GetNextWorkRequired(pindexPrev *BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
 	if pindexPrev == nil {
-		return blockchain.BigToCompact(params.PowLimit)
+		return BigToCompact(params.PowLimit)
 	}
 
 	// Special rule for regtest: we never retarget.
@@ -32,13 +21,13 @@ func (pow *Pow) GetNextWorkRequired(pindexPrev *blockchain.BlockIndex, blHeader 
 	}
 
 	if pindexPrev.GetMedianTimePast() >= params.CashHardForkActivationTime {
-		return pow.GetNextCashWorkRequired(pindexPrev, blHeader, params)
+		return pow.getNextCashWorkRequired(pindexPrev, blHeader, params)
 	}
 
 	return pow.getNextEDAWorkRequired(pindexPrev, blHeader, params)
 }
 
-func (pow *Pow) CalculateNextWorkRequired(pindexPrev *blockchain.BlockIndex, firstBlockTime int64, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) calculateNextWorkRequired(pindexPrev *BlockIndex, firstBlockTime int64, params *msg.BitcoinParams) uint32 {
 	if params.FPowNoRetargeting {
 		return pindexPrev.Bits
 	}
@@ -54,13 +43,13 @@ func (pow *Pow) CalculateNextWorkRequired(pindexPrev *blockchain.BlockIndex, fir
 	}
 
 	// Retarget
-	bnNew := blockchain.CompactToBig(pindexPrev.Bits)
+	bnNew := CompactToBig(pindexPrev.Bits)
 	bnNew.Mul(bnNew, big.NewInt(int64(nActualTimespan)))
 	bnNew.Div(bnNew, big.NewInt(int64(params.TargetTimespan)))
 	if bnNew.Cmp(params.PowLimit) > 0 {
 		bnNew = params.PowLimit
 	}
-	return blockchain.BigToCompact(bnNew)
+	return BigToCompact(bnNew)
 }
 
 //GetNextCashWorkRequired Compute the next required proof of work using a weighted
@@ -70,7 +59,7 @@ func (pow *Pow) CalculateNextWorkRequired(pindexPrev *blockchain.BlockIndex, fir
 //most of the calculation - except for the timestamp of the first and last
 //block. Because timestamps are the least trustworthy information we have as
 //input, this ensures the algorithm is more resistant to malicious inputs.
-func (pow *Pow) GetNextCashWorkRequired(pindexPrev *blockchain.BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) getNextCashWorkRequired(pindexPrev *BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
 	if pindexPrev == nil {
 		panic("This cannot handle the genesis block and early blocks in general.")
 	}
@@ -79,7 +68,7 @@ func (pow *Pow) GetNextCashWorkRequired(pindexPrev *blockchain.BlockIndex, blHea
 	// If the new block's timestamp is more than 2* 10 minutes then allow
 	// mining of a min-difficulty block.
 	if params.FPowAllowMinDifficultyBlocks && (blHeader.GetBlockTime() > pindexPrev.GetBlockTime()+uint32(2*params.TargetTimePerBlock)) {
-		return blockchain.BigToCompact(params.PowLimit)
+		return BigToCompact(params.PowLimit)
 	}
 
 	// Compute the difficulty based on the full adjustement interval.
@@ -103,15 +92,15 @@ func (pow *Pow) GetNextCashWorkRequired(pindexPrev *blockchain.BlockIndex, blHea
 	// Compute the target based on time and work done during the interval.
 	nextTarget := pow.computeTarget(pindexFirst, pindeLast, params)
 	if nextTarget.Cmp(params.PowLimit) > 0 {
-		return blockchain.BigToCompact(params.PowLimit)
+		return BigToCompact(params.PowLimit)
 	}
 
-	return blockchain.BigToCompact(nextTarget)
+	return BigToCompact(nextTarget)
 }
 
 // getNextEDAWorkRequired Compute the next required proof of work using the
 // legacy Bitcoin difficulty adjustement + Emergency Difficulty Adjustement (EDA).
-func (pow *Pow) getNextEDAWorkRequired(pindexPrev *blockchain.BlockIndex, pblock *model.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) getNextEDAWorkRequired(pindexPrev *BlockIndex, pblock *model.BlockHeader, params *msg.BitcoinParams) uint32 {
 
 	// Only change once per difficulty adjustment interval
 	nHeight := pindexPrev.Height + 1
@@ -127,10 +116,10 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *blockchain.BlockIndex, pblock
 			panic("the blockIndex should not equal nil")
 		}
 
-		return pow.CalculateNextWorkRequired(pindexPrev, int64(pindexFirst.GetBlockTime()), params)
+		return pow.calculateNextWorkRequired(pindexPrev, int64(pindexFirst.GetBlockTime()), params)
 	}
 
-	nProofOfWorkLimit := blockchain.BigToCompact(params.PowLimit)
+	nProofOfWorkLimit := BigToCompact(params.PowLimit)
 	if params.FPowAllowMinDifficultyBlocks {
 		// Special difficulty rule for testnet:
 		// If the new block's timestamp is more than 2* 10 minutes then allow
@@ -168,7 +157,7 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *blockchain.BlockIndex, pblock
 	// If producing the last 6 block took more than 12h, increase the difficulty
 	// target by 1/4 (which reduces the difficulty by 20%). This ensure the
 	// chain do not get stuck in case we lose hashrate abruptly.
-	nPow := blockchain.CompactToBig(bits)
+	nPow := CompactToBig(bits)
 	nPow.Add(nPow, big.NewInt(0).Div(nPow, big.NewInt(4)))
 
 	// Make sure we do not go bellow allowed values.
@@ -176,12 +165,12 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *blockchain.BlockIndex, pblock
 		nPow = params.PowLimit
 	}
 
-	return blockchain.BigToCompact(nPow)
+	return BigToCompact(nPow)
 }
 
 // computeTarget Compute the a target based on the work done between 2 blocks and the time
 // required to produce that work.
-func (pow *Pow) computeTarget(pindexFirst, pindexLast *blockchain.BlockIndex, params *msg.BitcoinParams) *big.Int {
+func (pow *Pow) computeTarget(pindexFirst, pindexLast *BlockIndex, params *msg.BitcoinParams) *big.Int {
 	if pindexLast.Height <= pindexFirst.Height {
 		panic("pindexLast height should greater the pindexFirst height ")
 	}
@@ -215,7 +204,7 @@ func (pow *Pow) computeTarget(pindexFirst, pindexLast *blockchain.BlockIndex, pa
 	return new(big.Int).Sub(new(big.Int).Div(oneLsh256, work), big.NewInt(1))
 }
 
-func (pow *Pow) getSuitableBlock(pindex *blockchain.BlockIndex) *blockchain.BlockIndex {
+func (pow *Pow) getSuitableBlock(pindex *BlockIndex) *BlockIndex {
 	if pindex.Height < 3 {
 		panic("This block height should not less than 3")
 	}
@@ -223,7 +212,7 @@ func (pow *Pow) getSuitableBlock(pindex *blockchain.BlockIndex) *blockchain.Bloc
 	//In order to avoid a block is a very skewed timestamp to have too much
 	//influence, we select the median of the 3 top most blocks as a starting
 	//point.
-	blocks := make([]*blockchain.BlockIndex, 3)
+	blocks := make([]*BlockIndex, 3)
 	blocks[2] = pindex
 	blocks[1] = pindex.PPrev
 	blocks[0] = blocks[1].PPrev
@@ -246,9 +235,9 @@ func (pow *Pow) getSuitableBlock(pindex *blockchain.BlockIndex) *blockchain.Bloc
 }
 
 func (pow *Pow) CheckProofOfWork(hash *utils.Hash, bits uint32, params *msg.BitcoinParams) bool {
-	target := blockchain.CompactToBig(bits)
+	target := CompactToBig(bits)
 	if target.Sign() <= 0 || target.Cmp(params.PowLimit) > 0 ||
-		blockchain.HashToBig(hash).Cmp(target) > 0 {
+		HashToBig(hash).Cmp(target) > 0 {
 		return false
 	}
 

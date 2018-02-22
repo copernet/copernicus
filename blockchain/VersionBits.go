@@ -59,6 +59,12 @@ type VersionBitsCache struct {
 	cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
 }
 
+var Gversionbitscache VersionBitsCache
+
+func init() {
+	Gversionbitscache.Clear()
+}
+
 func newVersionBitsCache() *VersionBitsCache {
 	var cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {

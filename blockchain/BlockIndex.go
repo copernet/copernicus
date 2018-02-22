@@ -231,13 +231,13 @@ func (blIndex *BlockIndex) ToString() string {
 		blIndex.Height, blIndex.MerkleRoot.ToString(), hash.ToString())
 }
 
-func NewBlockIndex(block *model.Block) *BlockIndex {
+func NewBlockIndex(blkHeader *model.BlockHeader) *BlockIndex {
 	blockIndex := new(BlockIndex)
 	blockIndex.SetNull()
-	blockIndex.Version = block.BlockHeader.Version
-	blockIndex.MerkleRoot = block.BlockHeader.HashMerkleRoot
-	blockIndex.Time = block.BlockHeader.Time
-	blockIndex.Bits = block.BlockHeader.Bits
-	blockIndex.Nonce = block.BlockHeader.Nonce
+	blockIndex.Version = blkHeader.Version
+	blockIndex.MerkleRoot = blkHeader.HashMerkleRoot
+	blockIndex.Time = blkHeader.Time
+	blockIndex.Bits = blkHeader.Bits
+	blockIndex.Nonce = blkHeader.Nonce
 	return blockIndex
 }

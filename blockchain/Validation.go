@@ -3,9 +3,11 @@ package blockchain
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"math/big"
+	"runtime"
 
-	//"fmt"
-
+	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
@@ -21,6 +23,12 @@ const (
 	DEFAULT_TXINDEX             bool = false
 	DEFAULT_BANSCORE_THRESHOLD  uint = 100
 )
+
+var gsetDirtyBlockIndex *algorithm.Set
+
+func init() {
+	gsetDirtyBlockIndex = algorithm.NewSet()
+}
 
 //IsUAHFenabled Check is UAHF has activated.
 func IsUAHFenabled(params *msg.BitcoinParams, height int) bool {
@@ -54,9 +62,10 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *
 		nHeight = 0
 	}
 
-	//！todo : Add VersionBitsState() test in here
 	nLockTimeFlags := 0
-	//if version
+	if VersionBitsState(pindexPrev, params, msg.DEPLOYMENT_CSV, &Gversionbitscache) == THRESHOLD_ACTIVE {
+		nLockTimeFlags |= consensus.LocktimeMedianTimePast
+	}
 
 	medianTimePast := pindexPrev.GetMedianTimePast()
 	if pindexPrev == nil {
@@ -88,8 +97,13 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *
 	return true
 }
 
-func CheckBlockHeader(block *model.Block, state *model.ValidationState, params *msg.BitcoinParams, fCheckPOW bool) bool {
+func CheckBlockHeader(blockHeader *model.BlockHeader, state *model.ValidationState, params *msg.BitcoinParams, fCheckPOW bool) bool {
 	// Check proof of work matches claimed amount
+	mpow := Pow{}
+	blkHash, _ := blockHeader.GetHash()
+	if fCheckPOW && !mpow.CheckProofOfWork(&blkHash, blockHeader.Bits, params) {
+		return state.Dos(50, false, model.REJECT_INVALID, "high-hash", false, "proof of work failed")
+	}
 
 	return true
 }
@@ -102,7 +116,7 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 
 	//Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
-	if !CheckBlockHeader(pblock, state, params, fCheckPOW) {
+	if !CheckBlockHeader(&pblock.BlockHeader, state, params, fCheckPOW) {
 		return false
 	}
 
@@ -196,12 +210,6 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	return true
 }
 
-// todo !!! will remove the Global status，And reconstruction package structure.
-
-type BlockMap map[utils.Hash]*BlockIndex
-
-var mapBlockIndex BlockMap
-
 // AcceptBlock Store block on disk. If dbp is non-null, the file is known
 // to already reside on disk.
 func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState, ppindex **BlockIndex, fRequested bool, dbp *DiskBlockPos, fNewBlock *bool) bool {
@@ -222,6 +230,14 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	return true
 }
 
+func TraceLog() string {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	runtime.Callers(2, pc)
+	f := runtime.FuncForPC(pc[0])
+	file, line := f.FileLine(pc[0])
+	return fmt.Sprintf("%s:%d %s\n", file, line, f.Name())
+}
+
 func CheckBlockIndex(param *msg.BitcoinParams) {
 
 }
@@ -231,10 +247,150 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 	return false
 }
 
-func AcceptBlockHeader(param *msg.BitcoinParams, pblock *model.BlockHeader, state *model.ValidationState, ppindex **BlockIndex) bool {
+func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader, state *model.ValidationState, ppindex **BlockIndex) bool {
 
 	// Check for duplicate
+	var pindex *BlockIndex
+	hash, err := pblkHeader.GetHash()
+	if err != nil {
+		return false
+	}
+	if !hash.IsEqual(param.GenesisHash) {
+		if pindex, ok := GChainState.MapBlockIndex.Data[hash]; ok {
+			// Block header is already known.
+			if ppindex != nil {
+				*ppindex = pindex
+			}
+			if pindex.Status&BLOCK_FAILED_MASK != 0 {
+				return state.Invalid(state.Error(fmt.Sprintf("block %s is marked invalid", hash.ToString())), 0, "duplicate", "")
+			}
+			return true
+		}
 
+		// todo !! Add log, when return false
+		if !CheckBlockHeader(pblkHeader, state, param, true) {
+			return false
+		}
+
+		// Get prev block index
+		var pindexPrev *BlockIndex
+		v, ok := GChainState.MapBlockIndex.Data[pblkHeader.HashPrevBlock]
+		if !ok {
+			return state.Dos(10, false, 0, "bad-prevblk", false, "")
+		}
+		pindexPrev = v
+
+		if pindexPrev.Status&BLOCK_FAILED_MASK == BLOCK_FAILED_MASK {
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-prevblk", false, "")
+		}
+
+		if pindexPrev == nil {
+			panic("the pindexPrev should not be nil")
+		}
+
+		if GCheckpointsEnabled && !checkIndexAgainstCheckpoint(pindexPrev, state, param, &hash) {
+			return false
+		}
+
+		// todo !! Add time param in the function
+		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, 0) {
+			return false
+		}
+	}
+
+	if pindex == nil {
+		pindex = AddToBlockIndex(pblkHeader)
+	}
+
+	if ppindex != nil {
+		*ppindex = pindex
+	}
+
+	CheckBlockIndex(param)
+	return true
+}
+
+func AddToBlockIndex(pblkHeader *model.BlockHeader) *BlockIndex {
+	// Check for duplicate
+	hash, _ := pblkHeader.GetHash()
+	if v, ok := GChainState.MapBlockIndex.Data[hash]; ok {
+		return v
+	}
+
+	// Construct new block index object
+	pindexNew := NewBlockIndex(pblkHeader)
+	if pindexNew == nil {
+		panic("the pindexNew should not equal nil")
+	}
+
+	// We assign the sequence id to blocks only when the full data is available,
+	// to avoid miners withholding blocks but broadcasting headers, to get a
+	// competitive advantage.
+	pindexNew.SequenceID = 0
+	GChainState.MapBlockIndex.Data[hash] = pindexNew
+	pindexNew.PHashBlock = hash
+
+	if miPrev, ok := GChainState.MapBlockIndex.Data[pblkHeader.HashPrevBlock]; ok {
+		pindexNew.PPrev = miPrev
+		pindexNew.Height = pindexNew.PPrev.Height + 1
+		pindexNew.BuildSkip()
+	}
+
+	if pindexNew.PPrev != nil {
+		pindexNew.TimeMax = uint32(math.Max(float64(pindexNew.PPrev.TimeMax), float64(pindexNew.Time)))
+		pindexNew.ChainWork = pindexNew.PPrev.ChainWork
+	} else {
+		pindexNew.TimeMax = pindexNew.Time
+		pindexNew.ChainWork = *big.NewInt(0)
+	}
+
+	pindexNew.RaiseValidity(BLOCK_VALID_TREE)
+	if GindexBestHeader == nil || GindexBestHeader.ChainWork.Cmp(&pindexNew.ChainWork) < 0 {
+		GindexBestHeader = pindexNew
+	}
+
+	gsetDirtyBlockIndex.AddItem(pindexNew)
+	return pindexNew
+}
+
+func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.ValidationState, param *msg.BitcoinParams, pindexPrev *BlockIndex, adjustedTime int) bool {
+	nHeight := 0
+	if pindexPrev != nil {
+		nHeight = pindexPrev.Height + 1
+	}
+
+	pow := Pow{}
+	// Check proof of work
+	if pblkHead.Bits != pow.GetNextWorkRequired(pindexPrev, pblkHead, param) {
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work")
+	}
+
+	// Check timestamp against prev
+	if int64(pblkHead.GetBlockTime()) <= pindexPrev.GetMedianTimePast() {
+		return state.Invalid(false, model.REJECT_INVALID, "time-too-old",
+			"block's timestamp is too early")
+	}
+
+	// Check timestamp
+	if int(pblkHead.GetBlockTime()) >= adjustedTime+2*60*60 {
+		return state.Invalid(false, model.REJECT_INVALID, "time-too-new",
+			"block's timestamp is too far in the future")
+	}
+
+	// Reject outdated version blocks when 95% (75% on testnet) of the network
+	// has upgraded:
+	// check for version 2, 3 and 4 upgrades
+	if pblkHead.Version < 2 && nHeight >= param.BIP34Height ||
+		pblkHead.Version < 3 && nHeight >= param.BIP66Height ||
+		pblkHead.Version < 4 && nHeight >= param.BIP65Height {
+		return state.Invalid(false, model.REJECT_INVALID, fmt.Sprintf("bad-version(0x%08x)", pblkHead.Version),
+			fmt.Sprintf("rejected nVersion=0x%08x block", pblkHead.Version))
+	}
+
+	return true
+}
+
+func checkIndexAgainstCheckpoint(pindexPrev *BlockIndex, state *model.ValidationState, param *msg.BitcoinParams, hash *utils.Hash) bool {
 	return true
 }
 
@@ -255,7 +411,7 @@ func ProcessNewBlock(param *msg.BitcoinParams, pblock *model.Block, fForceProces
 
 	CheckBlockIndex(param)
 	if !ret {
-		//	!todo add asynchronous notification
+		//todo !!! add asynchronous notification
 		return false, errors.Errorf(" AcceptBlock FAILED ")
 	}
 
@@ -386,8 +542,4 @@ func MoneyRange(money int64) bool {
 
 func notifyHeaderTip() {
 
-}
-
-func init() {
-	mapBlockIndex = make(BlockMap)
 }
