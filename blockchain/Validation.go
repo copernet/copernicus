@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"runtime"
+	"strconv"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/consensus"
@@ -227,6 +228,7 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 		return false
 	}
 
+
 	return true
 }
 
@@ -238,8 +240,397 @@ func TraceLog() string {
 	return fmt.Sprintf("%s:%d %s\n", file, line, f.Name())
 }
 
-func CheckBlockIndex(param *msg.BitcoinParams) {
+func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 
+	if !GfCheckBlockIndex {
+		return
+	}
+
+	//todo !! consider mutex here
+	// During a reindex, we read the genesis block and call CheckBlockIndex
+	// before ActivateBestChain, so we have the genesis block in mapBlockIndex
+	// but no active chain. (A few of the tests when iterating the block tree
+	// require that chainActive has been initialized.)
+	if GChainState.ChainAcTive.Height() < 0 {
+		if len(GChainState.MapBlockIndex.Data) > 1 {
+			panic("because the activeChain height less 0, so the global status should have less 1 element")
+		}
+		return
+	}
+
+	// Build forward-pointing map of the entire block tree.
+	forward := make(map[*BlockIndex][]*BlockIndex)
+	for _, v := range GChainState.MapBlockIndex.Data {
+		forward[v.PPrev] = append(forward[v.PPrev], v)
+	}
+	if len(forward) != len(GChainState.MapBlockIndex.Data) {
+		panic("the two map size should be equal")
+	}
+
+	rangeGenesis := forward[nil]
+	pindex := rangeGenesis[0]
+	// There is only one index entry with parent nullptr.
+	if len(rangeGenesis) != 1 {
+		panic("There is only one index entry with parent nullptr.")
+	}
+
+	// Iterate over the entire block tree, using depth-first search.
+	// Along the way, remember whether there are blocks on the path from genesis
+	// block being explored which are the first to have certain properties.
+	nNode := 0
+	nHeight := 0
+	// Oldest ancestor of pindex which is invalid.
+	var pindexFirstInvalid *BlockIndex
+	// Oldest ancestor of pindex which does not have BLOCK_HAVE_DATA.
+	var pindexFirstMissing *BlockIndex
+	// Oldest ancestor of pindex for which nTx == 0.
+	var pindexFirstNeverProcessed *BlockIndex
+	// Oldest ancestor of pindex which does not have BLOCK_VALID_TREE
+	// (regardless of being valid or not).
+	var pindexFirstNotTreeValid *BlockIndex
+	// Oldest ancestor of pindex which does not have BLOCK_VALID_TRANSACTIONS
+	// (regardless of being valid or not).
+	var pindexFirstNotTransactionsValid *BlockIndex
+	// Oldest ancestor of pindex which does not have BLOCK_VALID_CHAIN
+	// (regardless of being valid or not).
+	var pindexFirstNotChainValid *BlockIndex
+	// Oldest ancestor of pindex which does not have BLOCK_VALID_SCRIPTS
+	// (regardless of being valid or not).
+	var pindexFirstNotScriptsValid *BlockIndex
+	for pindex != nil {
+		nNode++
+		if pindexFirstInvalid == nil && pindex.Status&BLOCK_FAILED_VALID != 0 {
+			pindexFirstInvalid = pindex
+		}
+		if pindexFirstMissing == nil && !(pindex.Status&BLOCK_HAVE_DATA != 0) {
+			pindexFirstMissing = pindex
+		}
+		if pindexFirstNeverProcessed == nil && pindex.Txs == 0 {
+			pindexFirstNeverProcessed = pindex
+		}
+		if pindex.PPrev != nil && pindexFirstNotTreeValid == nil &&
+			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_TREE {
+			pindexFirstNotTreeValid = pindex
+		}
+		if pindex.PPrev != nil && pindexFirstNotTransactionsValid == nil &&
+			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_TRANSACTIONS {
+			pindexFirstNotTransactionsValid = pindex
+		}
+		if pindex.PPrev != nil && pindexFirstNotChainValid == nil &&
+			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_CHAIN {
+			pindexFirstNotChainValid = pindex
+		}
+		if pindex.PPrev != nil && pindexFirstNotScriptsValid == nil &&
+			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_SCRIPTS {
+			pindexFirstNotScriptsValid = pindex
+		}
+
+		// Begin: actual consistency checks.
+		if pindex.PPrev == nil {
+			// Genesis block checks.
+			// Genesis block's hash must match.
+			if pindex.PHashBlock.Cmp(param.GenesisHash) != 0 {
+				panic("the genesis block's hash incorrect")
+			}
+			// The current active chain's genesis block must be this block.
+			if pindex != GChainState.ChainAcTive.Genesis() {
+				panic("The current active chain's genesis block must be this block.")
+			}
+		}
+		if pindex.ChainTx == 0 {
+			// nSequenceId can't be set positive for blocks that aren't linked
+			// (negative is used for preciousblock)
+			if pindex.SequenceID > 0 {
+				panic("nSequenceId can't be set positive for blocks that aren't linked")
+			}
+		}
+		// VALID_TRANSACTIONS is equivalent to nTx > 0 for all nodes (whether or
+		// not pruning has occurred). HAVE_DATA is only equivalent to nTx > 0
+		// (or VALID_TRANSACTIONS) if no pruning has occurred.
+		if !GfHavePruned {
+			// If we've never pruned, then HAVE_DATA should be equivalent to nTx
+			// > 0
+			if !(pindex.Status&BLOCK_HAVE_DATA == BLOCK_HAVE_DATA) !=
+				(pindex.Txs == 0) {
+				panic("never pruned, then HAVE_DATA should be equivalent to nTx > 0")
+			}
+			if pindexFirstMissing != pindexFirstNeverProcessed {
+				panic("never pruned, then HAVE_DATA should be equivalent to nTx > 0")
+			}
+		} else {
+			// If we have pruned, then we can only say that HAVE_DATA implies
+			// nTx > 0
+			if pindex.Status&BLOCK_HAVE_DATA != 0 {
+				if pindex.Txs <= 0 {
+					panic("block status is BLOCK_HAVE_DATA, so the nTx > 0")
+				}
+			}
+		}
+		if pindex.Status&BLOCK_HAVE_UNDO != 0 {
+			if pindex.Status&BLOCK_HAVE_DATA == 0 {
+				panic("the block data should be had store the blk*dat file, so the " +
+					"blkindex' status & BLOCK_HAVE_DATA should != 0")
+			}
+		}
+		// This is pruning-independent.
+		if (pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_TRANSACTIONS) !=
+			(pindex.Txs > 0) {
+			panic("the blockindex TRANSACTIONS status should equivalent Txs > 0 ")
+		}
+		// All parents having had data (at some point) is equivalent to all
+		// parents being VALID_TRANSACTIONS, which is equivalent to nChainTx
+		// being set.
+		// nChainTx != 0 is used to signal that all parent blocks have been
+		// processed (but may have been pruned).
+		if (pindexFirstNeverProcessed != nil) !=
+			(pindex.ChainTx == 0) {
+			panic("the block status is not equivalent ChainTx")
+		}
+		if pindexFirstNotTransactionsValid != nil !=
+			(pindex.ChainTx == 0) {
+			panic("the block status is not equivalent ChainTx")
+		}
+		// nHeight must be consistent.
+		if pindex.Height != nHeight {
+			panic("the blockIndex height is incorrect")
+		}
+		// For every block except the genesis block, the chainwork must be
+		// larger than the parent's.
+		if pindex.PPrev != nil && pindex.ChainWork.Cmp(&pindex.PPrev.ChainWork) < 0 {
+			panic("For every block except the genesis block, the chainwork must be " +
+				"larger than the parent's.")
+		}
+		// The pskip pointer must point back for all but the first 2 blocks.
+		if pindex.Height >= 2 && (pindex.PSkip == nil || pindex.PSkip.Height >= nHeight) {
+			panic(" The pskip pointer must point back for all but the first 2 blocks.")
+		}
+		// All mapBlockIndex entries must at least be TREE valid
+		if pindexFirstNotTreeValid != nil {
+			panic("All mapBlockIndex entries must at least be TREE valid")
+		}
+		if pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_TREE {
+			// TREE valid implies all parents are TREE valid
+			if pindexFirstNotTreeValid != nil {
+				panic("status TREE valid implies all parents are TREE valid")
+			}
+		}
+		if pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_CHAIN {
+			// CHAIN valid implies all parents are CHAIN valid
+			if pindexFirstNotChainValid != nil {
+				panic("status CHAIN valid implies all parents are CHAIN valid")
+			}
+		}
+		if pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_SCRIPTS {
+			// SCRIPTS valid implies all parents are SCRIPTS valid
+			if pindexFirstNotScriptsValid != nil {
+				panic("status SCRIPTS valid implies all parents are SCRIPTS valid")
+			}
+		}
+		if pindexFirstInvalid == nil {
+			// Checks for not-invalid blocks.
+			// The failed mask cannot be set for blocks without invalid parents.
+			if pindex.Status&BLOCK_FAILED_MASK != 0 {
+				panic("The failed mask cannot be set for blocks without invalid parents.")
+			}
+		}
+		if !blockIndexWorkComparator(pindex, GChainState.ChainAcTive.Tip()) &&
+			pindexFirstNeverProcessed == nil {
+			if pindexFirstInvalid == nil {
+				// If this block sorts at least as good as the current tip and
+				// is valid and we have all data for its parents, it must be in
+				// setBlockIndexCandidates. chainActive.Tip() must also be there
+				// even if some data has been pruned.
+				if pindexFirstMissing == nil || pindex == GChainState.ChainAcTive.Tip() {
+					if !c.setBlockIndexCandidates.HasItem(pindex) {
+						panic("the setBlockIndexCandidates should have the pindex ")
+					}
+				}
+				// If some parent is missing, then it could be that this block
+				// was in setBlockIndexCandidates but had to be removed because
+				// of the missing data. In this case it must be in
+				// mapBlocksUnlinked -- see test below.
+			}
+		} else {
+			// If this block sorts worse than the current tip or some ancestor's
+			// block has never been seen, it cannot be in
+			// setBlockIndexCandidates.
+			if c.setBlockIndexCandidates.HasItem(pindex) {
+				panic("the blockindex should not be in setBlockIndexCandidates")
+			}
+		}
+		// Check whether this block is in mapBlocksUnlinked.
+		foundInUnlinked := false
+		if rangeUnlinked, ok := GChainState.MapBlocksUnlinked[pindex.PPrev]; ok {
+			for i := 0; i < len(rangeUnlinked); i++ {
+				if rangeUnlinked[i] == pindex {
+					foundInUnlinked = true
+					break
+				}
+			}
+		}
+		if pindex.PPrev != nil && (pindex.Status&BLOCK_HAVE_DATA != 0) &&
+			pindexFirstNeverProcessed != nil && pindexFirstInvalid == nil {
+			// If this block has block data available, some parent was never
+			// received, and has no invalid parents, it must be in
+			// mapBlocksUnlinked.
+			if !foundInUnlinked {
+				panic("the block must be in mapBlocksUnlinked")
+			}
+		}
+
+		if !(pindex.Status&BLOCK_HAVE_DATA != 0) {
+			// Can't be in mapBlocksUnlinked if we don't HAVE_DATA
+			if foundInUnlinked {
+				panic("the block can't be in mapBlocksUnlinked")
+			}
+		}
+		if pindexFirstMissing == nil {
+			// We aren't missing data for any parent -- cannot be in
+			// mapBlocksUnlinked.
+			if foundInUnlinked {
+				panic("the block can't be in mapBlocksUnlinked")
+			}
+		}
+		if pindex.PPrev != nil && (pindex.Status&BLOCK_HAVE_DATA != 0) &&
+			pindexFirstNeverProcessed == nil && pindexFirstMissing != nil {
+			// We HAVE_DATA for this block, have received data for all parents
+			// at some point, but we're currently missing data for some parent.
+			// We must have pruned.
+			if !GfHavePruned {
+				panic("We must have pruned.")
+			}
+			// This block may have entered mapBlocksUnlinked if:
+			//  - it has a descendant that at some point had more work than the
+			//    tip, and
+			//  - we tried switching to that descendant but were missing
+			//    data for some intermediate block between chainActive and the
+			//    tip.
+			// So if this block is itself better than chainActive.Tip() and it
+			// wasn't in
+			// setBlockIndexCandidates, then it must be in mapBlocksUnlinked.
+			if blockIndexWorkComparator(pindex, GChainState.ChainAcTive.Tip()) &&
+				!GChainState.setBlockIndexCandidates.HasItem(pindex) {
+				if pindexFirstInvalid == nil {
+					if !foundInUnlinked {
+						panic("the block must be in mapBlocksUnlinked")
+					}
+				}
+			}
+		}
+
+		// Try descending into the first subnode.
+		if ran, ok := forward[pindex]; ok {
+			// A subnode was found.
+			pindex = ran[0]
+			nHeight++
+			continue
+		}
+		// This is a leaf node. Move upwards until we reach a node of which we
+		// have not yet visited the last child.
+		for pindex != nil {
+			// We are going to either move to a parent or a sibling of pindex.
+			// If pindex was the first with a certain property, unset the
+			// corresponding variable.
+			if pindex == pindexFirstInvalid {
+				pindexFirstInvalid = nil
+			}
+			if pindex == pindexFirstMissing {
+				pindexFirstMissing = nil
+			}
+			if pindex == pindexFirstNeverProcessed {
+				pindexFirstNeverProcessed = nil
+			}
+			if pindex == pindexFirstNotTreeValid {
+				pindexFirstNotTreeValid = nil
+			}
+			if pindex == pindexFirstNotTransactionsValid {
+				pindexFirstNotTransactionsValid = nil
+			}
+			if pindex == pindexFirstNotChainValid {
+				pindexFirstNotChainValid = nil
+			}
+			if pindex == pindexFirstNotScriptsValid {
+				pindexFirstNotScriptsValid = nil
+			}
+			// Find our parent.
+			pindexPar := pindex.PPrev
+			// Find which child we just visited.
+			if rangePar, ok := forward[pindexPar]; ok {
+				tmp := rangePar[0]
+				for pindex != tmp {
+					// Our parent must have at least the node we're coming from as
+					// child.
+					if len(rangePar) == 0 {
+						panic("")
+					}
+					rangePar = rangePar[1:]
+					tmp = rangePar[0]
+				}
+				// Proceed to the next one.
+				rangePar = rangePar[1:]
+				if len(rangePar) > 0 {
+					// Move to the sibling.
+					pindex = rangePar[0]
+					break
+				} else {
+					// Move up further.
+					pindex = pindexPar
+					nHeight--
+					continue
+				}
+
+			}
+		}
+	}
+
+	// Check that we actually traversed the entire map.
+	if nNode != len(forward) {
+		panic("the node number should equivalent forward element")
+	}
+}
+
+func BlockIndexWorkComparator(pa, pb interface{}) bool {
+	a := pa.(*BlockIndex)
+	b := pb.(*BlockIndex)
+	return blockIndexWorkComparator(a, b)
+}
+
+func blockIndexWorkComparator(pa, pb *BlockIndex) bool {
+	// First sort by most total work, ...
+	if pa.ChainWork.Cmp(&pb.ChainWork) > 0 {
+		return false
+	}
+	if pa.ChainWork.Cmp(&pb.ChainWork) < 0 {
+		return true
+	}
+
+	// ... then by earliest time received, ...
+	if pa.SequenceID < pb.SequenceID {
+		return false
+	}
+	if pa.SequenceID > pb.SequenceID {
+		return true
+	}
+
+	// Use pointer address as tie breaker (should only happen with blocks
+	// loaded from disk, as those all have id 0).
+	a, err := strconv.ParseUint(fmt.Sprintf("%x", pa), 16, 0)
+	if err != nil {
+		panic("convert hex string to uint failed")
+	}
+	b, err := strconv.ParseUint(fmt.Sprintf("%x", pb), 16, 0)
+	if err != nil {
+		panic("convert hex string to uint failed")
+	}
+	if a < b {
+		return false
+	}
+	if a > b {
+		return true
+	}
+
+	// Identical blocks.
+	return false
 }
 
 func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, pblock *model.Block) bool {
@@ -288,7 +679,7 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader, 
 			panic("the pindexPrev should not be nil")
 		}
 
-		if GCheckpointsEnabled && !checkIndexAgainstCheckpoint(pindexPrev, state, param, &hash) {
+		if GfCheckpointsEnabled && !checkIndexAgainstCheckpoint(pindexPrev, state, param, &hash) {
 			return false
 		}
 
@@ -306,7 +697,7 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader, 
 		*ppindex = pindex
 	}
 
-	CheckBlockIndex(param)
+	GChainState.CheckBlockIndex(param)
 	return true
 }
 
@@ -409,7 +800,7 @@ func ProcessNewBlock(param *msg.BitcoinParams, pblock *model.Block, fForceProces
 		ret = AcceptBlock(param, pblock, &state, &pindex, fForceProcessing, nil, fNewBlock)
 	}
 
-	CheckBlockIndex(param)
+	GChainState.CheckBlockIndex(param)
 	if !ret {
 		//todo !!! add asynchronous notification
 		return false, errors.Errorf(" AcceptBlock FAILED ")
