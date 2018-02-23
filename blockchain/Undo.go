@@ -15,11 +15,11 @@ const MaxInputPerTx = model.MaxTxInPerMessage
 type DisconnectResult int
 
 const (
-	// DISCONNECT_OK: All good.
+	// DisconnectOk All good.
 	DisconnectOk DisconnectResult = iota
-	// Rolled back, but UTXO set was inconsistent with block.
+	// DisconnectUnclean Rolled back, but UTXO set was inconsistent with block.
 	DisconnectUnclean
-	// DISCONNECT_FAILED: Something else went wrong.
+	// DisconnectFailed Something else went wrong.
 	DisconnectFailed
 )
 
@@ -49,7 +49,7 @@ func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 	for {
 		coin, err := utxo.DeserializeCoin(r)
 		if err == io.EOF {
-			return tu, nil
+			return tu, io.EOF
 		}
 		if err != nil && err != io.EOF {
 			return nil, err
@@ -83,9 +83,8 @@ func UndoCoinSpend(coin *utxo.Coin, cache utxo.CoinsViewCache, out *model.OutPoi
 	cache.AddCoin(out, *coin, coin.IsCoinBase())
 	if clean {
 		return DisconnectOk
-	} else {
-		return DisconnectUnclean
 	}
+	return DisconnectUnclean
 }
 
 type BlockUndo struct {
@@ -109,6 +108,9 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 	}
 	for {
 		tu, err := DeserializeTxUndo(r)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -119,13 +121,13 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 
 func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cache utxo.CoinsViewCache) DisconnectResult {
 	clean := true
-	if uint32(len(undo.txundo)+1) != block.TxNum {
+	if len(undo.txundo)+1 != len(block.Transactions) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
 		return DisconnectFailed
 	}
 
 	// Undo transactions in reverse order.
-	i := block.TxNum
+	i := len(block.Transactions)
 	for i > 0 {
 		tx := block.Transactions[i]
 		txid := tx.Hash
@@ -176,7 +178,6 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cach
 
 	if clean {
 		return DisconnectOk
-	} else {
-		return DisconnectUnclean
 	}
+	return DisconnectUnclean
 }

@@ -18,7 +18,7 @@ type Block struct {
 	BlockHeader  BlockHeader
 	Height       int32
 	Transactions []*Tx
-	TxNum        uint32
+	txNum        uint32
 	Size         uint32
 	TotalBTC     uint64
 	BlockReward  float64
@@ -69,7 +69,7 @@ func (bl *Block) Serialize(w io.Writer) error {
 
 func (bl *Block) Deserialize(r io.Reader) error {
 	bl.BlockHeader.Deserialize(r)
-	for i := uint32(0); i < bl.TxNum; i++ {
+	for i := uint32(0); i < bl.txNum; i++ {
 		if tx, err := DeserializeTx(r); err != nil {
 			bl.Transactions = append(bl.Transactions, tx)
 			return err
