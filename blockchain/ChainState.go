@@ -26,22 +26,24 @@ type ChainState struct {
 }
 
 // Global status for blockchain
+var (
+	//GChainState Global unique variables
+	GChainState          ChainState
+	GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
+	GfCheckBlockIndex    = false
+	GfRequireStandard    = true
+	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
+)
 
-//GChainState Global unique variables
-var GChainState ChainState
-var GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
-var GfCheckBlockIndex = false
-var GfRequireStandard = true
-var GfIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG
-
-// GfHavePruned Pruning-related variables and constants, True if any block files have ever been pruned.
-var GfHavePruned = false
-var GfPruneMode = false
-var GfTxIndex = false
-var GfReIndex = false
-
-// GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
-var GindexBestHeader *BlockIndex
+var (
+	// GfHavePruned Pruning-related variables and constants, True if any block files have ever been pruned.
+	GfHavePruned = false
+	GfPruneMode  = false
+	GfTxIndex    = false
+	GfReIndex    = false
+	//GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
+	GindexBestHeader *BlockIndex
+)
 
 func init() {
 	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*BlockIndex)
