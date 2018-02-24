@@ -16,6 +16,9 @@ import (
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
+	"github.com/btcboost/copernicus/conf"
+	"gopkg.in/fatih/set.v0"
+	"os"
 )
 
 const (
@@ -24,21 +27,26 @@ const (
 	DEFAULT_CHECKPOINTS_ENABLED bool = true
 	DEFAULT_TXINDEX             bool = false
 	DEFAULT_BANSCORE_THRESHOLD  uint = 100
+	MIN_BLOCKS_TO_KEEP          int  = 288
+	//BLOCKFILE_CHUNK_SIZE pre-allocation chunk size for blk?????.dat files (since 0.8)
+	BLOCKFILE_CHUNK_SIZE int = 0x1000000 //16MiB
+	//UNDOFILE_CHUNK_SIZE pre-allocation chunk size for rev?????.dat files (since 0.8)
+	UNDOFILE_CHUNK_SIZE int = 0x100000 // 1 MiB
 )
 
 var (
 	gsetDirtyBlockIndex *algorithm.Set
 	//HashAssumeValid is Block hash whose ancestors we will assume to have valid scripts without checking them.
-	HashAssumeValid  utils.Hash
-	MapBlockIndex    BlockMap
-	pindexBestHeader *BlockIndex
-	infoBlockFile    = make([]BlockFileInfo, 0)
+	HashAssumeValid utils.Hash
+	MapBlockIndex   BlockMap
+	vinfoBlockFile  = make([]BlockFileInfo, 0)
+	lastBlockFile   int
 )
 
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -46,6 +54,13 @@ const (
 
 func init() {
 	gsetDirtyBlockIndex = algorithm.NewSet()
+}
+
+func FormatStateMessage(state *model.ValidationState) string {
+	if state.GetDebugMessage() == "" {
+		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
+	}
+	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
 }
 
 //IsUAHFenabled Check is UAHF has activated.
@@ -1037,7 +1052,7 @@ func GetBlockScriptFlags(pindex *BlockIndex, param *msg.BitcoinParams) uint32 {
 //CalculateCurrentUsage Calculate the amount of disk space the block & undo files currently use
 func CalculateCurrentUsage() uint64 {
 	var retval uint64
-	for _, file := range infoBlockFile {
+	for _, file := range vinfoBlockFile {
 		retval += uint64(file.Size + file.UndoSize)
 	}
 	return retval
@@ -1081,9 +1096,121 @@ func PruneOneBlockFile(fileNumber int) {
 		}
 	}
 
-	infoBlockFile[fileNumber].SetNull()
+	vinfoBlockFile[fileNumber].SetNull()
 	gsetDirtyBlockIndex.AddItem(fileNumber)
 }
+
+func GetBlockPosFilename(pos *DiskBlockPos, prefix string) string {
+	path := conf.GetDataPath() + "/" + "blocks" + "/" + fmt.Sprintf("%s%05u.dat", prefix, pos.File)
+	return path
+}
+
+func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
+	lists := setFilesToPrune.List()
+	for key, value := range lists {
+		v := value.(int)
+		pos := &DiskBlockPos{
+			File: v,
+			Pos:  0,
+		}
+		os.Remove(GetBlockPosFilename(pos, "blk"))
+		os.Remove(GetBlockPosFilename(pos, "rev"))
+		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
+	}
+}
+
+func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
+	if GfPruneMode && manualPruneHeight <= 0 {
+		panic("the GfPruneMode is false and manualPruneHeight equal zero")
+	}
+
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+
+	if GChainActive.Tip() == nil {
+		return
+	}
+
+	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(GChainActive.Tip().Height-MIN_BLOCKS_TO_KEEP))
+	count := 0
+	for fileNumber := 0; fileNumber < lastBlockFile; fileNumber++ {
+		if vinfoBlockFile[fileNumber].Size == 0 || int(vinfoBlockFile[fileNumber].HeightLast) > lastBlockFile {
+			continue
+		}
+		PruneOneBlockFile(fileNumber)
+		setFilesToPrune.Add(fileNumber)
+		count++
+	}
+	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+}
+
+// PruneBlockFilesManual is called from the RPC code for pruneblockchain */
+func PruneBlockFilesManual(nManualPruneHeight int) {
+	var state *model.ValidationState
+	FlushStateToDisk(state, FLUSH_STATE_NONE, nManualPruneHeight)
+}
+
+//FindFilesToPrune calculate the block/rev files that should be deleted to remain under target*/
+func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+	if GChainActive.Tip() == nil || GPruneTarget == 0 {
+		return
+	}
+
+	if uint64(GChainActive.Tip().Height) <= nPruneAfterHeight {
+		return
+	}
+
+	nLastBlockWeCanPrune := GChainActive.Tip().Height - MIN_BLOCKS_TO_KEEP
+	nCurrentUsage := CalculateCurrentUsage()
+	// We don't check to prune until after we've allocated new space for files,
+	// so we should leave a buffer under our target to account for another
+	// allocation before the next pruning.
+	nBuffer := uint64(BLOCKFILE_CHUNK_SIZE + UNDOFILE_CHUNK_SIZE)
+	count := 0
+	if nCurrentUsage+nBuffer >= GPruneTarget {
+		for fileNumber := 0; fileNumber < lastBlockFile; fileNumber++ {
+			nBytesToPrune := uint64(vinfoBlockFile[fileNumber].Size + vinfoBlockFile[fileNumber].UndoSize)
+
+			if vinfoBlockFile[fileNumber].Size == 0 {
+				continue
+			}
+
+			// are we below our target?
+			if nCurrentUsage+nBuffer < GPruneTarget {
+				break
+			}
+
+			// don't prune files that could have a block within
+			// MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
+			if int(vinfoBlockFile[fileNumber].HeightLast) > nLastBlockWeCanPrune {
+				continue
+			}
+
+			PruneOneBlockFile(fileNumber)
+			// Queue up the files for removal
+			setFilesToPrune.Add(fileNumber)
+			nCurrentUsage -= nBytesToPrune
+			count++
+		}
+	}
+
+	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
+}
+
+func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) bool {
+	//TODO
+	return true
+}
+
+//**************************** CBlock and CBlockIndex ****************************//
 
 var (
 	nTimeCheck     int64
@@ -1094,10 +1221,3 @@ var (
 	nTimeCallbacks int64
 	nTimeTotal     int64
 )
-
-func FormatStateMessage(state *model.ValidationState) string {
-	if state.GetDebugMessage() == "" {
-		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
-	}
-	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
-}
