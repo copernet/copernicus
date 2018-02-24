@@ -10,8 +10,6 @@ import (
 	"github.com/btcboost/copernicus/utxo"
 )
 
-const MaxInputPerTx = model.MaxTxInPerMessage
-
 type DisconnectResult int
 
 const (
@@ -58,7 +56,7 @@ func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 	}
 }
 
-func UndoCoinSpend(coin *utxo.Coin, cache utxo.CoinsViewCache, out *model.OutPoint) DisconnectResult {
+func UndoCoinSpend(coin *utxo.Coin, cache *utxo.CoinsViewCache, out *model.OutPoint) DisconnectResult {
 	clean := true
 	if cache.HaveCoin(out) {
 		// Overwriting transaction output.
@@ -69,7 +67,7 @@ func UndoCoinSpend(coin *utxo.Coin, cache utxo.CoinsViewCache, out *model.OutPoi
 		// this information only in undo records for the last spend of a
 		// transactions' outputs. This implies that it must be present for some
 		// other output of the same tx.
-		alternate := utxo.AccessByTxid(&cache, &out.Hash)
+		alternate := utxo.AccessByTxid(cache, &out.Hash)
 		if alternate.IsSpent() {
 			// Adding output for transaction without known metadata
 			return DisconnectFailed
@@ -119,7 +117,7 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 	return bu, nil
 }
 
-func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cache utxo.CoinsViewCache) DisconnectResult {
+func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cache *utxo.CoinsViewCache) DisconnectResult {
 	clean := true
 	if len(undo.txundo)+1 != len(block.Transactions) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
@@ -129,6 +127,7 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cach
 	// Undo transactions in reverse order.
 	i := len(block.Transactions)
 	for i > 0 {
+		i--
 		tx := block.Transactions[i]
 		txid := tx.Hash
 
@@ -159,10 +158,10 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cach
 				return DisconnectFailed
 			}
 
-			for m := len(tx.Ins); m > 0; m-- {
-				j--
-				outpoint := tx.Ins[m].PreviousOutPoint
-				c := txundo.prevout[j]
+			for k := len(tx.Ins); k > 0; {
+				k--
+				outpoint := tx.Ins[k].PreviousOutPoint
+				c := txundo.prevout[k]
 				res := UndoCoinSpend(c, cache, outpoint)
 				if res == DisconnectFailed {
 					return DisconnectFailed
@@ -170,7 +169,6 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cach
 				clean = clean && (res != DisconnectUnclean)
 			}
 		}
-		i--
 	}
 
 	// Move best block pointer to previous block.
@@ -180,4 +178,27 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *BlockIndex, cach
 		return DisconnectOk
 	}
 	return DisconnectUnclean
+}
+
+func UpdateCoins(tx *model.Tx, inputs *utxo.CoinsViewCache, undo *TxUndo, height int) {
+	// Mark inputs spent.
+	if !(tx.IsCoinBase()) {
+		for _, txin := range tx.Ins {
+			undo.prevout = append(undo.prevout, utxo.NewEmptyCoin())
+
+			isSpent := inputs.SpendCoin(txin.PreviousOutPoint, undo.prevout[len(undo.prevout)-1])
+			if !isSpent {
+				panic("the coin is spent ..")
+			}
+		}
+	}
+
+	// Add outputs.
+	utxo.AddCoins(*inputs, *tx, height)
+}
+
+func newTxUndo() *TxUndo {
+	return &TxUndo{
+		prevout: make([]*utxo.Coin, 0),
+	}
 }

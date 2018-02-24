@@ -27,7 +27,7 @@ type CoinsViewCacheTest struct {
 func newCoinsViewCacheTest() *CoinsViewCacheTest {
 	return &CoinsViewCacheTest{
 		CoinsViewCache: CoinsViewCache{
-			cacheCoins: make(CacheCoins),
+			CacheCoins: make(CacheCoins),
 		},
 	}
 }
@@ -101,11 +101,11 @@ func (coinsViewCacheTest *CoinsViewCacheTest) SelfTest() {
 	// Manually recompute the dynamic usage of the whole data, and compare it.
 	var ret int64
 	var count int
-	for _, entry := range coinsViewCacheTest.cacheCoins {
+	for _, entry := range coinsViewCacheTest.CacheCoins {
 		ret += entry.Coin.DynamicMemoryUsage()
 		count++
 	}
-	if len(coinsViewCacheTest.cacheCoins) != count {
+	if len(coinsViewCacheTest.CacheCoins) != count {
 		panic("count error")
 	}
 
@@ -203,7 +203,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	backed := newCoinsViewTest()
 	// A stack of CCoinsViewCaches on top.
 	item := newCoinsViewCacheTest()
-	item.base = backed
+	item.Base = backed
 	// Start with one cache.
 	stack = append(stack, item)
 
@@ -311,7 +311,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			// Every 100 iterations, flush an intermediate cache
 			if len(stack) > 1 && InsecureRandBool() {
 				flushIndex := InsecureRandRange(uint64(len(stack) - 1))
-				for out, item := range stack[0].cacheCoins {
+				for out, item := range stack[0].CacheCoins {
 					fmt.Println(out.Hash.ToString(), item.Coin.TxOut.Value, item.Coin.HeightAndIsCoinBase, item.Flags)
 				}
 				stack[flushIndex].Flush()
@@ -331,9 +331,9 @@ func TestCoinsCacheSimulation(t *testing.T) {
 				//Add a new cache
 				tip := newCoinsViewCacheTest()
 				if len(stack) > 0 {
-					tip.base = stack[len(stack)-1]
+					tip.Base = stack[len(stack)-1]
 				} else {
-					tip.base = backed
+					tip.Base = backed
 					removedAllCaches = true
 				}
 
@@ -447,7 +447,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 	backed := newCoinsViewTest()
 	// A stack of CCoinsViewCaches on top.
 	item := newCoinsViewCacheTest()
-	item.base = backed
+	item.Base = backed
 	// Start with one cache.
 	stack = append(stack, item)
 
@@ -647,9 +647,9 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 				tip := newCoinsViewCacheTest()
 
 				if len(stack) > 0 {
-					tip.base = stack[len(stack)-1]
+					tip.Base = stack[len(stack)-1]
 				} else {
-					tip.base = backed
+					tip.Base = backed
 				}
 
 				stack = append(stack, tip)
@@ -708,11 +708,6 @@ func UpdateCoins(tx model.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
 		for _, txin := range tx.Ins {
 			ud = append(ud, *NewEmptyCoin())
 
-			var out model.OutPoint
-			tmp := txin.PreviousOutPoint
-			out.Hash = tmp.Hash
-			out.Index = tmp.Index
-
 			isSpent := inputs.SpendCoin(txin.PreviousOutPoint, &ud[len(ud)-1])
 			if isSpent {
 				panic("the coin is spent ..")
@@ -720,7 +715,7 @@ func UpdateCoins(tx model.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
 		}
 	}
 	// Add outputs.
-	AddCoins(inputs, tx, nHeight, true)
+	AddCoins(inputs, tx, nHeight)
 }
 
 var OUTPOINT = model.OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
@@ -752,15 +747,15 @@ type SingleEntryCacheTest struct {
 func NewSingleEntryCacheTest(baseValue btcutil.Amount, cacheValue btcutil.Amount, cacheFlags int) *SingleEntryCacheTest {
 	root := newCoinsViewTest()
 	base := newCoinsViewCacheTest()
-	base.base = root
+	base.Base = root
 	cache := newCoinsViewCacheTest()
-	cache.base = base
+	cache.Base = base
 	if baseValue == ABSENT {
 		WriteCoinViewEntry(base, baseValue, NO_ENTRY)
 	} else {
 		WriteCoinViewEntry(base, baseValue, DIRTY)
 	}
-	cache.cachedCoinsUsage += InsertCoinMapEntry(cache.cacheCoins, cacheValue, cacheFlags)
+	cache.cachedCoinsUsage += InsertCoinMapEntry(cache.CacheCoins, cacheValue, cacheFlags)
 	return &SingleEntryCacheTest{
 		root:  root,
 		base:  base,
@@ -839,7 +834,7 @@ func CheckAccessCoin(baseValue btcutil.Amount, cacheValue btcutil.Amount, expect
 	)
 	singleEntryCacheTest.cache.AccessCoin(&OUTPOINT)
 	singleEntryCacheTest.cache.SelfTest()
-	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
+	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
 
 	if resultValue != expectedValue {
 		panic("expectedValue should be equal to resultValue")
@@ -885,7 +880,7 @@ func CheckSpendCoin(baseValue btcutil.Amount, cacheValue btcutil.Amount, expecte
 	singleEntryCacheTest.cache.SpendCoin(&OUTPOINT, nil)
 	singleEntryCacheTest.cache.SelfTest()
 
-	resultValue, resultFlags := GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
+	resultValue, resultFlags := GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
 	if expectedValue != resultValue {
 		panic("expectedValue should be equal to resultValue")
 	}
@@ -962,7 +957,7 @@ func CheckAddCoinBase(baseValue btcutil.Amount, cacheValue btcutil.Amount, modif
 	coin := NewCoin(txOut, 1, isCoinbase)
 	singleEntryCacheTest.cache.AddCoin(&OUTPOINT, *coin, isCoinbase)
 	singleEntryCacheTest.cache.SelfTest()
-	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
+	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
 }
 
 func CheckAddCoin(cacheValue btcutil.Amount, modifyValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
@@ -1029,7 +1024,7 @@ func CheckWriteCoin(parentValue btcutil.Amount, childValue btcutil.Amount, expec
 
 	WriteCoinViewEntry(singleEntryCacheTest.cache, childValue, childFlags)
 	singleEntryCacheTest.cache.SelfTest()
-	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
+	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
 }
 
 func TestWriteCoin(t *testing.T) {
