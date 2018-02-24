@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"runtime"
+	"time"
 
 	"github.com/astaxie/beego/logs"
 )
@@ -75,4 +77,19 @@ func InitLogger(dir, strLevel string) (err error) {
 
 func GetLogger() *logs.BeeLogger {
 	return mlog
+}
+
+func ErrorLog(reason string) bool {
+	t := time.Now().Format(time.RFC3339)
+	reason = t + " " + reason
+	mlog.Error(reason)
+	return false
+}
+
+func TraceLog() string {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	runtime.Callers(2, pc)
+	f := runtime.FuncForPC(pc[0])
+	_, line := f.FileLine(pc[0])
+	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
 }

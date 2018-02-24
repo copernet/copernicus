@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"runtime"
+	"os"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/consensus"
+
 	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/policy"
@@ -20,10 +25,15 @@ import (
 
 const (
 	// DEFAULT_PERMIT_BAREMULTISIG  Default for -permitbaremultisig
-	DEFAULT_PERMIT_BAREMULTISIG bool = true
-	DEFAULT_CHECKPOINTS_ENABLED bool = true
-	DEFAULT_TXINDEX             bool = false
+	DEFAULT_PERMIT_BAREMULTISIG      = true
+	DEFAULT_CHECKPOINTS_ENABLED      = true
+	DEFAULT_TXINDEX                  = false
 	DEFAULT_BANSCORE_THRESHOLD  uint = 100
+	// MIN_BLOCKS_TO_KEEP Block files containing a block-height within
+	// MIN_BLOCKS_TO_KEEP of chainActive.Tip() will not be pruned.
+	MIN_BLOCKS_TO_KEEP    = 288
+	DEFAULT_MAX_TIP_AGE   = 24 * 60 * 60
+	DEFAULT_RELAYPRIORITY = true
 )
 
 var (
@@ -32,7 +42,13 @@ var (
 	HashAssumeValid  utils.Hash
 	MapBlockIndex    BlockMap
 	pindexBestHeader *BlockIndex
-	infoBlockFile    = make([]BlockFileInfo, 0)
+	ginfoBlockFile   = make([]*BlockFileInfo, 0)
+	gLastBlockFile   int
+	//setDirtyFileInfo  Dirty block file entries.
+	gsetDirtyFileInfo *algorithm.Set
+	glatchToFalse     atomic.Value
+	//gnBlockSequenceID Blocks loaded from disk are assigned id 0, so start the counter at 1.
+	gnBlockSequenceID int32
 )
 
 type FlushStateMode int
@@ -46,6 +62,9 @@ const (
 
 func init() {
 	gsetDirtyBlockIndex = algorithm.NewSet()
+	gsetDirtyFileInfo = algorithm.NewSet()
+	glatchToFalse = atomic.Value{}
+	gnBlockSequenceID = 1
 }
 
 //IsUAHFenabled Check is UAHF has activated.
@@ -245,15 +264,297 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 		return false
 	}
 
+	// Try to process all requested blocks that we don't have, but only
+	// process an unrequested block if it's new and has enough work to
+	// advance our tip, and isn't too many blocks ahead.
+	fAlreadyHave := pindex.Status&BLOCK_HAVE_DATA != 0
+	fHasMoreWork := true
+	tip := GChainState.ChainAcTive.Tip()
+	if tip != nil {
+		fHasMoreWork = pindex.ChainWork.Cmp(&tip.ChainWork) > 0
+	}
+	// Blocks that are too out-of-order needlessly limit the effectiveness of
+	// pruning, because pruning will not delete block files that contain any
+	// blocks which are too close in height to the tip.  Apply this test
+	// regardless of whether pruning is enabled; it should generally be safe to
+	// not process unrequested blocks.
+	fTooFarAhead := pindex.Height > GChainState.ChainAcTive.Height()+MIN_BLOCKS_TO_KEEP
+
+	// TODO: Decouple this function from the block download logic by removing
+	// fRequested
+	// This requires some new chain datastructure to efficiently look up if a
+	// block is in a chain leading to a candidate for best tip, despite not
+	// being such a candidate itself.
+
+	// TODO: deal better with return value and error conditions for duplicate
+	// and unrequested blocks.
+	if fAlreadyHave {
+		return true
+	}
+
+	// If we didn't ask for it:
+	if !fRequested {
+		// This is a previously-processed block that was pruned.
+		if pindex.Txs != 0 {
+			return true
+		}
+		// Don't process less-work chains.
+		if !fHasMoreWork {
+			return true
+		}
+		// Block height is too high.
+		if fTooFarAhead {
+			return true
+		}
+	}
+
+	if fNewBlock != nil {
+		*fNewBlock = true
+	}
+
+	if !CheckBlock(param, pblock, state, true, true) ||
+		!ContextualCheckBlock(param, pblock, state, pindex.PPrev) {
+		if state.IsInvalid() && !state.CorruptionPossible() {
+			pindex.Status |= BLOCK_FAILED_VALID
+			gsetDirtyBlockIndex.AddItem(pindex)
+		}
+		return logger.ErrorLog(fmt.Sprintf("%s: %s (block %s)", logger.TraceLog(), state.FormatStateMessage(),
+			pblock.Hash.ToString()))
+	}
+
+	// Header is valid/has work, merkle tree and segwit merkle tree are
+	// good...RELAY NOW (but if it does not build on our best tip, let the
+	// SendMessages loop relay it)
+	if !IsInitialBlockDownload() && GChainState.ChainAcTive.Tip() == pindex.PPrev {
+		//	todo !!! send signal, we find a new valid block
+	}
+
+	nHeight := pindex.Height
+	// Write block to history file
+	nBlockSize := pblock.SerializeSize()
+	var blockPos DiskBlockPos
+	if dbp != nil {
+		blockPos = *dbp
+	}
+	if !FindBlockPos(state, &blockPos, uint(nBlockSize+8), uint(nHeight), uint64(pblock.BlockHeader.GetBlockTime()), dbp != nil) {
+		return logger.ErrorLog("AcceptBlock(): FindBlockPos failed")
+	}
+	if dbp == nil {
+		if !WriteBlockToDisk(pblock, &blockPos, param.BitcoinNet) {
+			AbortNode(state, "Failed to write block.", "")
+		}
+	}
+	if !ReceivedBlockTransactions(pblock, state, pindex, &blockPos) {
+		return logger.ErrorLog("AcceptBlock(): ReceivedBlockTransactions failed")
+	}
+
+	//todo !!! find C++ code throw exception place
+	//if len(reason) != 0 {
+	//	return AbortNode(state, fmt.Sprintf("System error: ", reason, ""))
+	//}
+
+	if GfCheckForPruning {
+		// we just allocated more disk space for block files.
+		FlushStateToDisk(state, FLUSH_STATE_NONE, 0)
+	}
+
 	return true
 }
 
-func TraceLog() string {
-	pc := make([]uintptr, 10) // at least 1 entry needed
-	runtime.Callers(2, pc)
-	f := runtime.FuncForPC(pc[0])
-	file, line := f.FileLine(pc[0])
-	return fmt.Sprintf("%s:%d %s\n", file, line, f.Name())
+func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) bool {
+	return true
+}
+
+//ReceivedBlockTransactions Mark a block as having its data received and checked (up to
+//* BLOCK_VALID_TRANSACTIONS).
+func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState, pindexNew *BlockIndex, pos *DiskBlockPos) bool {
+
+	pindexNew.Txs = len(pblock.Transactions)
+	pindexNew.ChainTx = 0
+	pindexNew.File = pos.File
+	pindexNew.DataPosition = pos.Pos
+	pindexNew.UndoPosition = 0
+	pindexNew.Status |= BLOCK_HAVE_DATA
+	pindexNew.RaiseValidity(BLOCK_VALID_TRANSACTIONS)
+	gsetDirtyBlockIndex.AddItem(pindexNew)
+
+	if pindexNew.PPrev == nil || pindexNew.PPrev.ChainTx != 0 {
+		// If pindexNew is the genesis block or all parents are
+		// BLOCK_VALID_TRANSACTIONS.
+		vIndex := make([]*BlockIndex, 0)
+		vIndex = append(vIndex, pindexNew)
+
+		// Recursively process any descendant blocks that now may be eligible to
+		// be connected.
+		for len(vIndex) > 0 {
+			pindex := vIndex[0]
+			vIndex = vIndex[1:]
+			if pindex.PPrev != nil {
+				pindex.ChainTx += pindex.PPrev.ChainTx
+			} else {
+				pindex.ChainTx += 0
+			}
+			{
+				//	todo !!! add sync.lock cs_nBlockSequenceId
+				pindex.SequenceID = gnBlockSequenceID
+				gnBlockSequenceID++
+			}
+			if GChainState.ChainAcTive.Tip() == nil ||
+				!blockIndexWorkComparator(pindex, GChainState.ChainAcTive.Tip()) {
+				GChainState.setBlockIndexCandidates.AddInterm(pindex)
+			}
+			rangs, ok := GChainState.MapBlocksUnlinked[pindex]
+			if ok {
+				tmpRang := make([]*BlockIndex, len(rangs))
+				copy(tmpRang, rangs)
+				for len(tmpRang) > 0 {
+					vIndex = append(vIndex, tmpRang[0])
+					tmpRang = tmpRang[1:]
+				}
+				delete(GChainState.MapBlocksUnlinked, pindex)
+			}
+		}
+	} else {
+		if pindexNew.PPrev != nil && pindexNew.PPrev.IsValid(BLOCK_VALID_TREE) {
+			GChainState.MapBlocksUnlinked[pindexNew.PPrev] = append(GChainState.MapBlocksUnlinked[pindexNew.PPrev], pindexNew)
+		}
+	}
+
+	return true
+}
+
+func AbortNode(state *model.ValidationState, reason, userMessage string) bool {
+
+	return state.Error(reason)
+}
+
+func WriteBlockToDisk(pblock *model.Block, pos *DiskBlockPos, messageStart btcutil.BitcoinNet) bool {
+
+	return true
+}
+
+//IsInitialBlockDownload Check whether we are doing an initial block download
+//(synchronizing from disk or network)
+func IsInitialBlockDownload() bool {
+	// Once this function has returned false, it must remain false.
+	glatchToFalse.Store(false)
+	// Optimization: pre-test latch before taking the lock.
+	if glatchToFalse.Load().(bool) {
+		return false
+	}
+
+	//todo !!! add cs_main sync.lock in here
+	if glatchToFalse.Load().(bool) {
+		return false
+	}
+	if GfImporting.Load().(bool) || GfReindex.Load().(bool) {
+		return true
+	}
+	if GChainState.ChainAcTive.Tip() == nil {
+		return true
+	}
+	if GChainState.ChainAcTive.Tip().ChainWork.Cmp(&msg.ActiveNetParams.MinimumChainWork) < 0 {
+		return true
+	}
+	if int64(GChainState.ChainAcTive.Tip().GetBlockTime()) < utils.GetMockTime()-GMaxTipAge {
+		return true
+	}
+	glatchToFalse.Store(true)
+
+	return false
+}
+
+func FindBlockPos(state *model.ValidationState, pos *DiskBlockPos, nAddSize uint,
+	nHeight uint, nTime uint64, fKnown bool) bool {
+
+	//	todo !!! Add sync.Lock in the later, because the concurrency goroutine
+	nFile := pos.File
+	if !fKnown {
+		nFile = gLastBlockFile
+	}
+
+	if !fKnown {
+		for uint(ginfoBlockFile[nFile].Size)+nAddSize >= MAX_BLOCKFILE_SIZE {
+			nFile++
+		}
+		pos.File = nFile
+		pos.Pos = int(ginfoBlockFile[nFile].Size)
+	}
+
+	if nFile != gLastBlockFile {
+		if !fKnown {
+			logger.GetLogger().Info(fmt.Sprintf("Leaving block file %d: %s\n", gLastBlockFile,
+				ginfoBlockFile[gLastBlockFile].ToString()))
+		}
+		FlushBlockFile(!fKnown)
+		gLastBlockFile = nFile
+	}
+
+	ginfoBlockFile[nFile].AddBlock(uint32(nHeight), nTime)
+	if fKnown {
+		ginfoBlockFile[nFile].Size = uint32(math.Max(float64(pos.Pos+int(nAddSize)), float64(ginfoBlockFile[nFile].Size)))
+	} else {
+		ginfoBlockFile[nFile].Size += uint32(nAddSize)
+	}
+
+	if !fKnown {
+		nOldChunks := (pos.Pos + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE
+		nNewChunks := (ginfoBlockFile[nFile].Size + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE
+		if nNewChunks > uint32(nOldChunks) {
+			if GfPruneMode {
+				GfCheckForPruning = true
+				if CheckDiskSpace(nNewChunks*BLOCKFILE_CHUNK_SIZE - uint32(pos.Pos)) {
+					pfile := OpenBlockFile(pos, false)
+					if pfile != nil {
+						logger.GetLogger().Info("Pre-allocating up to position 0x%x in blk%05u.dat\n",
+							nNewChunks*BLOCKFILE_CHUNK_SIZE, pos.File)
+						AllocateFileRange(pfile, pos.Pos, nNewChunks*BLOCKFILE_CHUNK_SIZE-uint32(pos.Pos))
+						pfile.Close()
+					}
+				} else {
+					return state.Error("out of disk space")
+				}
+			}
+		}
+	}
+
+	gsetDirtyFileInfo.AddItem(nFile)
+	return true
+}
+
+func AllocateFileRange(file *os.File, offset int, lenth uint32) {
+
+}
+
+func CheckDiskSpace(nAdditionalBytes uint32) bool {
+	return true
+}
+
+func FlushBlockFile(fFinalize bool) {
+	// todo !!! add file sync.lock,
+	//posOld := NewDiskBlockPos(gLastBlockFile, 0)
+
+}
+
+func OpenBlockFile(pos *DiskBlockPos, fReadOnly bool) *os.File {
+	return OpenDiskFile(*pos, "blk", fReadOnly)
+}
+
+func OpenUndoFile(pos DiskBlockPos, fReadOnly bool) *os.File {
+	return OpenDiskFile(pos, "rev", fReadOnly)
+}
+
+func OpenDiskFile(pos DiskBlockPos, prefix string, fReadOnly bool) *os.File {
+	if pos.IsNull() {
+		return nil
+	}
+	path := GetBlockPosFilename(pos, prefix)
+	utils.MakePath(path)
+	return nil
+}
+
+func GetBlockPosFilename(pos DiskBlockPos, prefix string) string {
+	return conf.GetDataPath() + "/blocks/" + fmt.Sprintf("%s%05d.dat", prefix, pos.File)
 }
 
 func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
@@ -1037,7 +1338,7 @@ func GetBlockScriptFlags(pindex *BlockIndex, param *msg.BitcoinParams) uint32 {
 //CalculateCurrentUsage Calculate the amount of disk space the block & undo files currently use
 func CalculateCurrentUsage() uint64 {
 	var retval uint64
-	for _, file := range infoBlockFile {
+	for _, file := range ginfoBlockFile {
 		retval += uint64(file.Size + file.UndoSize)
 	}
 	return retval
@@ -1081,7 +1382,7 @@ func PruneOneBlockFile(fileNumber int) {
 		}
 	}
 
-	infoBlockFile[fileNumber].SetNull()
+	ginfoBlockFile[fileNumber].SetNull()
 	gsetDirtyBlockIndex.AddItem(fileNumber)
 }
 

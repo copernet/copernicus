@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -45,10 +45,16 @@ func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 	tu := &TxUndo{
 		prevout: make([]*utxo.Coin, 0),
 	}
-	utils.BinarySerializer.Uint64(r, binary.LittleEndian)
+	num, err := utils.ReadVarInt(r)
+	if err != nil {
+		return nil, err
+	}
 	for {
 		coin, err := utxo.DeserializeCoin(r)
 		if err == io.EOF {
+			if len(tu.prevout) != int(num) {
+				return nil, errors.New("the coins number incorrect")
+			}
 			return tu, io.EOF
 		}
 		if err != nil && err != io.EOF {
