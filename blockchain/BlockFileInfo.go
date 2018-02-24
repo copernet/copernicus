@@ -19,6 +19,16 @@ type BlockFileInfo struct {
 	index uint32
 }
 
+func (blockFileInfo *BlockFileInfo) SetNull() {
+	blockFileInfo.Blocks = 0
+	blockFileInfo.Size = 0
+	blockFileInfo.UndoSize = 0
+	blockFileInfo.HeightFirst = 0
+	blockFileInfo.HeightLast = 0
+	blockFileInfo.timeFirst = 0
+	blockFileInfo.timeLast = 0
+}
+
 func (blockFileInfo *BlockFileInfo) Serialize(writer io.Writer) error {
 	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blockFileInfo.Blocks)
 	if err != nil {
