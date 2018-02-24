@@ -8,7 +8,10 @@ import (
 	"runtime"
 	"strconv"
 
+	"os"
+
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
@@ -16,9 +19,7 @@ import (
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	"github.com/btcboost/copernicus/conf"
 	"gopkg.in/fatih/set.v0"
-	"os"
 )
 
 const (
@@ -46,7 +47,7 @@ var (
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -1101,7 +1102,7 @@ func PruneOneBlockFile(fileNumber int) {
 }
 
 func GetBlockPosFilename(pos *DiskBlockPos, prefix string) string {
-	path := conf.GetDataPath() + "/" + "blocks" + "/" + fmt.Sprintf("%s%05u.dat", prefix, pos.File)
+	path := conf.GetDataPath() + "/" + "blocks" + "/" + fmt.Sprintf("%s%d.dat", prefix, pos.File)
 	return path
 }
 
