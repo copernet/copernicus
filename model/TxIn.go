@@ -42,9 +42,12 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 
 }
 func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
-	err := txIn.PreviousOutPoint.WriteOutPoint(writer)
-	if err != nil {
-		return err
+	var err error
+	if txIn.PreviousOutPoint != nil {
+		err = txIn.PreviousOutPoint.WriteOutPoint(writer)
+		if err != nil {
+			return err
+		}
 	}
 	err = utils.WriteVarBytes(writer, txIn.Script.bytes)
 	if err != nil {
