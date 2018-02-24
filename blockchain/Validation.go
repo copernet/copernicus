@@ -228,7 +228,6 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 		return false
 	}
 
-
 	return true
 }
 
