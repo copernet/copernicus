@@ -10,6 +10,7 @@ import (
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/consensus"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/policy"
@@ -25,7 +26,23 @@ const (
 	DEFAULT_BANSCORE_THRESHOLD  uint = 100
 )
 
-var gsetDirtyBlockIndex *algorithm.Set
+var (
+	gsetDirtyBlockIndex *algorithm.Set
+	//HashAssumeValid is Block hash whose ancestors we will assume to have valid scripts without checking them.
+	HashAssumeValid  utils.Hash
+	MapBlockIndex    BlockMap
+	pindexBestHeader *BlockIndex
+	infoBlockFile    = make([]BlockFileInfo, 0)
+)
+
+type FlushStateMode int
+
+const (
+	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_IF_NEEDED
+	FLUSH_STATE_PERIODIC
+	FLUSH_STATE_ALWAYS
+)
 
 func init() {
 	gsetDirtyBlockIndex = algorithm.NewSet()
@@ -932,4 +949,155 @@ func MoneyRange(money int64) bool {
 
 func notifyHeaderTip() {
 
+}
+
+/**
+ * BeginTime:Threshold condition checker that triggers when unknown versionbits are seen
+ * on the network.
+ */
+
+func BeginTime(params *msg.BitcoinParams) int64 {
+	return 0
+}
+
+func EndTime(params *msg.BitcoinParams) int64 {
+	return math.MaxInt64
+}
+
+func Period(params *msg.BitcoinParams) int {
+	return int(params.MinerConfirmationWindow)
+}
+
+func Threshold(params *msg.BitcoinParams) int {
+	return int(params.RuleChangeActivationThreshold)
+}
+
+func Condition(pindex *BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) bool {
+	return (int(pindex.Version)&VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS && (pindex.Version)&1 != 0 && (ComputeBlockVersion(pindex.PPrev, params, t)&1) == 0
+}
+
+var warningcache [VERSIONBITS_NUM_BITS]ThresholdConditionCache
+
+// GetBlockScriptFlags Returns the script flags which should be checked for a given block
+func GetBlockScriptFlags(pindex *BlockIndex, param *msg.BitcoinParams) uint32 {
+	//TODO: AssertLockHeld(cs_main);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+
+	// BIP16 didn't become active until Apr 1 2012
+	nBIP16SwitchTime := 1333238400
+	fStrictPayToScriptHash := int(pindex.GetBlockTime()) >= nBIP16SwitchTime
+
+	var flags uint32
+
+	if fStrictPayToScriptHash {
+		flags = core.SCRIPT_VERIFY_P2SH
+	} else {
+		flags = core.SCRIPT_VERIFY_NONE
+	}
+
+	// Start enforcing the DERSIG (BIP66) rule
+	if pindex.Height >= param.BIP66Height {
+		flags |= core.SCRIPT_VERIFY_DERSIG
+	}
+
+	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
+	if pindex.Height >= param.BIP65Height {
+		flags |= core.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY
+	}
+
+	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
+	if VersionBitsState(pindex.PPrev, param, msg.DEPLOYMENT_CSV, &versionBitsCache) == THRESHOLD_ACTIVE {
+		flags |= core.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY
+	}
+
+	// If the UAHF is enabled, we start accepting replay protected txns
+	if IsUAHFenabled(param, pindex.Height) {
+		flags |= core.SCRIPT_VERIFY_STRICTENC
+		flags |= core.SCRIPT_ENABLE_SIGHASH_FORKID
+	}
+
+	// If the Cash HF is enabled, we start rejecting transaction that use a high
+	// s in their signature. We also make sure that signature that are supposed
+	// to fail (for instance in multisig or other forms of smart contracts) are
+	// null.
+	if IsCashHFEnabled(param, pindex.GetMedianTimePast()) {
+		flags |= core.SCRIPT_VERIFY_LOW_S
+		flags |= core.SCRIPT_VERIFY_NULLFAIL
+	}
+
+	return flags
+}
+
+/**
+ * BLOCK PRUNING CODE
+ */
+
+//CalculateCurrentUsage Calculate the amount of disk space the block & undo files currently use
+func CalculateCurrentUsage() uint64 {
+	var retval uint64
+	for _, file := range infoBlockFile {
+		retval += uint64(file.Size + file.UndoSize)
+	}
+	return retval
+}
+
+//PruneOneBlockFile Prune a block file (modify associated database entries)
+func PruneOneBlockFile(fileNumber int) {
+	bm := &BlockMap{
+		Data: make(map[utils.Hash]*BlockIndex),
+	}
+	for _, value := range bm.Data {
+		pindex := value
+		if pindex.File == fileNumber {
+			pindex.Status &= ^BLOCK_HAVE_DATA
+			pindex.Status &= ^BLOCK_HAVE_UNDO
+			pindex.File = 0
+			pindex.DataPosition = 0
+			pindex.UndoPosition = 0
+			gsetDirtyBlockIndex.AddItem(pindex)
+
+			// Prune from mapBlocksUnlinked -- any block we prune would have
+			// to be downloaded again in order to consider its chain, at which
+			// point it would be considered as a candidate for
+			// mapBlocksUnlinked or setBlockIndexCandidates.
+			ranges := GChainState.MapBlocksUnlinked[pindex.PPrev]
+			tmpRange := make([]*BlockIndex, len(ranges))
+			copy(tmpRange, ranges)
+			for len(tmpRange) > 0 {
+				v := tmpRange[0]
+				tmpRange = tmpRange[1:]
+				if v == pindex {
+					tmp := make([]*BlockIndex, len(ranges)-1)
+					for _, val := range tmpRange {
+						if val != v {
+							tmp = append(tmp, val)
+						}
+					}
+					GChainState.MapBlocksUnlinked[pindex.PPrev] = tmp
+				}
+			}
+		}
+	}
+
+	infoBlockFile[fileNumber].SetNull()
+	gsetDirtyBlockIndex.AddItem(fileNumber)
+}
+
+var (
+	nTimeCheck     int64
+	nTimeForks     int64
+	nTimeVerify    int64
+	nTimeConnect   int64
+	nTimeIndex     int64
+	nTimeCallbacks int64
+	nTimeTotal     int64
+)
+
+func FormatStateMessage(state *model.ValidationState) string {
+	if state.GetDebugMessage() == "" {
+		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
+	}
+	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
 }
