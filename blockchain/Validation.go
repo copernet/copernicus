@@ -9,18 +9,19 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/pkg/errors"
+	"gopkg.in/fatih/set.v0"
+
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/consensus"
-
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -29,7 +30,6 @@ const (
 	DEFAULT_CHECKPOINTS_ENABLED      = true
 	DEFAULT_TXINDEX                  = false
 	DEFAULT_BANSCORE_THRESHOLD  uint = 100
-	// MIN_BLOCKS_TO_KEEP Block files containing a block-height within
 	// MIN_BLOCKS_TO_KEEP of chainActive.Tip() will not be pruned.
 	MIN_BLOCKS_TO_KEEP    = 288
 	DEFAULT_MAX_TIP_AGE   = 24 * 60 * 60
@@ -65,6 +65,13 @@ func init() {
 	gsetDirtyFileInfo = algorithm.NewSet()
 	glatchToFalse = atomic.Value{}
 	gnBlockSequenceID = 1
+}
+
+func FormatStateMessage(state *model.ValidationState) string {
+	if state.GetDebugMessage() == "" {
+		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
+	}
+	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
 }
 
 //IsUAHFenabled Check is UAHF has activated.
@@ -358,10 +365,6 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 		FlushStateToDisk(state, FLUSH_STATE_NONE, 0)
 	}
 
-	return true
-}
-
-func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) bool {
 	return true
 }
 
@@ -1386,6 +1389,113 @@ func PruneOneBlockFile(fileNumber int) {
 	gsetDirtyBlockIndex.AddItem(fileNumber)
 }
 
+func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
+	lists := setFilesToPrune.List()
+	for key, value := range lists {
+		v := value.(int)
+		pos := &DiskBlockPos{
+			File: v,
+			Pos:  0,
+		}
+		os.Remove(GetBlockPosFilename(*pos, "blk"))
+		os.Remove(GetBlockPosFilename(*pos, "rev"))
+		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
+	}
+}
+
+func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
+	if GfPruneMode && manualPruneHeight <= 0 {
+		panic("the GfPruneMode is false and manualPruneHeight equal zero")
+	}
+
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+
+	if GChainActive.Tip() == nil {
+		return
+	}
+
+	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(GChainActive.Tip().Height-MIN_BLOCKS_TO_KEEP))
+	count := 0
+	for fileNumber := 0; fileNumber < gLastBlockFile; fileNumber++ {
+		if ginfoBlockFile[fileNumber].Size == 0 || int(ginfoBlockFile[fileNumber].HeightLast) > gLastBlockFile {
+			continue
+		}
+		PruneOneBlockFile(fileNumber)
+		setFilesToPrune.Add(fileNumber)
+		count++
+	}
+	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+}
+
+// PruneBlockFilesManual is called from the RPC code for pruneblockchain */
+func PruneBlockFilesManual(nManualPruneHeight int) {
+	var state *model.ValidationState
+	FlushStateToDisk(state, FLUSH_STATE_NONE, nManualPruneHeight)
+}
+
+//FindFilesToPrune calculate the block/rev files that should be deleted to remain under target*/
+func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+	if GChainActive.Tip() == nil || GPruneTarget == 0 {
+		return
+	}
+
+	if uint64(GChainActive.Tip().Height) <= nPruneAfterHeight {
+		return
+	}
+
+	nLastBlockWeCanPrune := GChainActive.Tip().Height - MIN_BLOCKS_TO_KEEP
+	nCurrentUsage := CalculateCurrentUsage()
+	// We don't check to prune until after we've allocated new space for files,
+	// so we should leave a buffer under our target to account for another
+	// allocation before the next pruning.
+	nBuffer := uint64(BLOCKFILE_CHUNK_SIZE + UNDOFILE_CHUNK_SIZE)
+	count := 0
+	if nCurrentUsage+nBuffer >= GPruneTarget {
+		for fileNumber := 0; fileNumber < gLastBlockFile; fileNumber++ {
+			nBytesToPrune := uint64(ginfoBlockFile[fileNumber].Size + ginfoBlockFile[fileNumber].UndoSize)
+
+			if ginfoBlockFile[fileNumber].Size == 0 {
+				continue
+			}
+
+			// are we below our target?
+			if nCurrentUsage+nBuffer < GPruneTarget {
+				break
+			}
+
+			// don't prune files that could have a block within
+			// MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
+			if int(ginfoBlockFile[fileNumber].HeightLast) > nLastBlockWeCanPrune {
+				continue
+			}
+
+			PruneOneBlockFile(fileNumber)
+			// Queue up the files for removal
+			setFilesToPrune.Add(fileNumber)
+			nCurrentUsage -= nBytesToPrune
+			count++
+		}
+	}
+
+	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
+}
+
+func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) bool {
+	//TODO
+	return true
+}
+
+//**************************** CBlock and CBlockIndex ****************************//
+
 var (
 	nTimeCheck     int64
 	nTimeForks     int64
@@ -1395,10 +1505,3 @@ var (
 	nTimeCallbacks int64
 	nTimeTotal     int64
 )
-
-func FormatStateMessage(state *model.ValidationState) string {
-	if state.GetDebugMessage() == "" {
-		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
-	}
-	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
-}

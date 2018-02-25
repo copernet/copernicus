@@ -48,6 +48,9 @@ var (
 
 	//GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
 	GindexBestHeader *BlockIndex
+	//GChainActive currently-connected chain of blocks (protected by cs_main).
+	GChainActive Chain
+	GPruneTarget uint64
 
 	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
 	//* that should be deleted. Set on startup or if we allocate more file space when
