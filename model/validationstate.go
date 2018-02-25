@@ -1,5 +1,7 @@
 package model
 
+import "fmt"
+
 const (
 	REJECT_MALFORMED       byte = 0x01
 	REJECT_INVALID              = 0x10
@@ -100,4 +102,14 @@ func (vs *ValidationState) GetRejectReason() string {
 
 func (vs *ValidationState) GetDebugMessage() string {
 	return vs.debugMessage
+}
+
+func (vs *ValidationState) FormatStateMessage() string {
+	debug := ""
+	if len(vs.GetDebugMessage()) != 0 {
+		debug = ", " + vs.GetDebugMessage()
+	}
+
+	return fmt.Sprintf("%s%s (code %d)", vs.GetRejectReason(),
+		debug, vs.GetRejectCode())
 }

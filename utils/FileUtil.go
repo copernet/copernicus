@@ -38,7 +38,7 @@ func MergePath(args ...string) string {
 
 func PathExists(path string) bool {
 	_, err := os.Stat(path)
-	if err != nil {
+	if err == nil {
 		return true
 	}
 	if os.IsNotExist(err) {

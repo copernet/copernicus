@@ -2,7 +2,9 @@ package blockchain
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
+	"time"
 
 	"github.com/btcboost/copernicus/utils"
 )
@@ -19,42 +21,42 @@ type BlockFileInfo struct {
 	index uint32
 }
 
-func (blockFileInfo *BlockFileInfo) SetNull() {
-	blockFileInfo.Blocks = 0
-	blockFileInfo.Size = 0
-	blockFileInfo.UndoSize = 0
-	blockFileInfo.HeightFirst = 0
-	blockFileInfo.HeightLast = 0
-	blockFileInfo.timeFirst = 0
-	blockFileInfo.timeLast = 0
+func (bfi *BlockFileInfo) SetNull() {
+	bfi.Size = 0
+	bfi.timeFirst = 0
+	bfi.UndoSize = 0
+	bfi.timeLast = 0
+	bfi.HeightLast = 0
+	bfi.HeightFirst = 0
+	bfi.Blocks = 0
 }
 
-func (blockFileInfo *BlockFileInfo) Serialize(writer io.Writer) error {
-	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blockFileInfo.Blocks)
+func (bfi *BlockFileInfo) Serialize(writer io.Writer) error {
+	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bfi.Blocks)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blockFileInfo.Size)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bfi.Size)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blockFileInfo.UndoSize)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bfi.UndoSize)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, blockFileInfo.timeFirst)
+	err = utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, bfi.timeFirst)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blockFileInfo.HeightFirst)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bfi.HeightFirst)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blockFileInfo.HeightLast)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bfi.HeightLast)
 	if err != nil {
 		return err
 	}
-	return utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, blockFileInfo.timeLast)
+	return utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, bfi.timeLast)
 }
 
 func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
@@ -99,18 +101,30 @@ func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
 
 }
 
-func (blockFileInfo *BlockFileInfo) AddBlock(nHeightIn uint32, timeIn uint64) {
-	if blockFileInfo.Blocks == 0 || blockFileInfo.HeightFirst > nHeightIn {
-		blockFileInfo.HeightFirst = nHeightIn
+func (bfi *BlockFileInfo) AddBlock(nHeightIn uint32, timeIn uint64) {
+	if bfi.Blocks == 0 || bfi.HeightFirst > nHeightIn {
+		bfi.HeightFirst = nHeightIn
 	}
-	if blockFileInfo.Blocks == 0 || blockFileInfo.timeFirst > timeIn {
-		blockFileInfo.timeFirst = timeIn
+	if bfi.Blocks == 0 || bfi.timeFirst > timeIn {
+		bfi.timeFirst = timeIn
 	}
-	blockFileInfo.Blocks++
-	if nHeightIn > blockFileInfo.HeightLast {
-		blockFileInfo.HeightLast = nHeightIn
+	bfi.Blocks++
+	if nHeightIn > bfi.HeightLast {
+		bfi.HeightLast = nHeightIn
 	}
-	if timeIn > blockFileInfo.timeLast {
-		blockFileInfo.timeLast = timeIn
+	if timeIn > bfi.timeLast {
+		bfi.timeLast = timeIn
 	}
+}
+
+func (bfi *BlockFileInfo) ToString() string {
+	return fmt.Sprintf("CBlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%s...%s)",
+		bfi.Blocks, bfi.Size, bfi.HeightFirst, bfi.HeightLast,
+		time.Unix(int64(bfi.timeFirst), 0).Format(time.RFC3339),
+		time.Unix(int64(bfi.timeLast), 0).Format(time.RFC3339))
+}
+
+func NewBlockFileInfo() *BlockFileInfo {
+	bfi := new(BlockFileInfo)
+	return bfi
 }

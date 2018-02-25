@@ -103,6 +103,10 @@ type BitcoinParams struct {
 	RuleChangeActivationThreshold  uint32
 	MinerConfirmationWindow        uint32
 	Deployments                    [MAX_VERSION_BITS_DEPLOYMENTS]BIP9Deployment
+	// The best chain should have at least this much work.
+	MinimumChainWork big.Int
+	// By default assume that the signatures in ancestors of this block are valid.
+	DefaultAssumeValid big.Int
 }
 
 var MainNetParams = BitcoinParams{
@@ -325,6 +329,7 @@ func init() {
 	mustRegister(&TestNet3Params)
 	mustRegister(&RegressionNetParams)
 	mustRegister(&SimNetParams)
+
 }
 
 func Register(bitcoinParams *BitcoinParams) error {
@@ -363,6 +368,16 @@ func mustRegister(bitcoinParams *BitcoinParams) {
 	if err != nil {
 		panic("failed to register network :" + err.Error())
 	}
+	work, ok := big.NewInt(0).SetString("000000000000000000000000000000000000000000796b6d5908f8db26c3cf44", 16)
+	if !ok {
+		panic("error")
+	}
+	bitcoinParams.MinimumChainWork = *work
+	work, ok = big.NewInt(0).SetString("000000000000000004694d6c74b532faf99fc072181f870bfb4a6c9930f7440c", 16)
+	if !ok {
+		panic("err")
+	}
+	bitcoinParams.DefaultAssumeValid = *work
 }
 
 func (param *BitcoinParams) DifficultyAdjustmentInterval() int64 {

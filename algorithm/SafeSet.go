@@ -25,17 +25,25 @@ func NewSet() *Set {
 
 // AddItems includes the specified items (one or more) to the set. The underlying
 // Set s is modified. If passed nothing it silently returns.
-func (s *Set) AddItems(items ...interface{}) {
+func (s *Set) AddItems(items ...interface{}) bool {
 	if len(items) == 0 {
-		return
+		return false
 	}
 
 	s.l.Lock()
 	defer s.l.Unlock()
 
 	for _, item := range items {
+		if _, ok := s.m[item]; ok {
+			return false
+		}
+	}
+
+	for _, item := range items {
 		s.m[item] = keyExists
 	}
+
+	return true
 }
 
 func (s *Set) AddItem(item interface{}) bool {
