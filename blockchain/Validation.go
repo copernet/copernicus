@@ -12,12 +12,17 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
 
+	"time"
+
+	"encoding/binary"
+
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/logger"
+	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/policy"
@@ -34,6 +39,8 @@ const (
 	MIN_BLOCKS_TO_KEEP    = 288
 	DEFAULT_MAX_TIP_AGE   = 24 * 60 * 60
 	DEFAULT_RELAYPRIORITY = true
+
+	DefaultMinRelayTxFee = btcutil.Amount(1000)
 )
 
 var (
@@ -49,6 +56,9 @@ var (
 	glatchToFalse     atomic.Value
 	//gnBlockSequenceID Blocks loaded from disk are assigned id 0, so start the counter at 1.
 	gnBlockSequenceID int32
+
+	minRelayTxFee = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
+	mpool         = mempool.NewMemPool(*minRelayTxFee)
 )
 
 type FlushStateMode int
@@ -1505,3 +1515,84 @@ var (
 	nTimeCallbacks int64
 	nTimeTotal     int64
 )
+
+func DumpMempool() {
+	start := time.Now().Second()
+
+	mapDeltas := make(map[utils.Hash]btcutil.Amount)
+	var info []*mempool.TxMempoolInfo
+
+	{
+		mpool.Mtx.Lock()
+		for hash, feeDelta := range mpool.MapDeltas {
+			mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
+		}
+		info = mpool.InfoAll()
+		mpool.Mtx.Unlock()
+	}
+
+	mid := time.Now().Second()
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Failed to dump mempool:", r, " . Continuing anyway.")
+		}
+	}()
+
+	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat.new", os.O_WRONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer fileStr.Close() // guarantee closing the opened file
+
+	err = utils.BinarySerializer.PutUint64(fileStr, binary.LittleEndian, uint64(len(info)))
+	if err != nil {
+		panic(err)
+	}
+
+	for _, item := range info {
+		err = item.Serialize(fileStr)
+		if err != nil {
+			panic(err)
+		}
+		delete(mapDeltas, item.Tx.TxHash())
+	}
+
+	for hash, amount := range mapDeltas {
+		_, err = fileStr.Write(hash.GetCloneBytes())
+		if err != nil {
+			panic(err)
+		}
+
+		err = utils.BinarySerializer.PutUint64(fileStr, binary.LittleEndian, uint64(amount))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = os.Rename(conf.GetDataPath()+"/mempool.dat.new", conf.GetDataPath()+"/mempool.dat")
+	if err != nil {
+		panic(err)
+	}
+	last := time.Now().Second()
+	fmt.Printf("Dumped mempool: %ds to copy, %ds to dump\n", mid-start, last-mid)
+}
+
+// GuessVerificationProgress Guess how far we are in the verification process at the given block index
+func GuessVerificationProgress(data *msg.ChainTxData, index *BlockIndex) float64 {
+	if index == nil {
+		return float64(0)
+	}
+
+	now := time.Now()
+
+	var txTotal float64
+	// todo confirm time precise
+	if int64(index.ChainTx) <= data.TxCount {
+		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
+	} else {
+		txTotal = float64(index.ChainTx) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
+	}
+
+	return float64(index.ChainTx) / txTotal
+}

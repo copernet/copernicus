@@ -102,7 +102,7 @@ func GetID(tx *model.Tx) utils.Hash {
 }
 
 func TestConnectUtxoExtBlock(t *testing.T) {
-	chainparams := msg.MainNetParams
+	chainparams := msg.ActiveNetParams
 	block := model.NewBlock()
 
 	coinsDummy := newCoinsViewTest()
@@ -156,7 +156,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		txundo: make([]*TxUndo, 0),
 	}
 
-	UpdateUTXOSet(block, &cache, undo, &chainparams, 123456)
+	UpdateUTXOSet(block, &cache, undo, chainparams, 123456)
 
 	if cache.GetBestBlock() != block.Hash {
 		t.Error("this block should have been stored in the cache")
@@ -171,7 +171,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		t.Error("this transaction should be not spendable")
 	}
 
-	UndoBlock(block, &cache, undo, &chainparams, 123456)
+	UndoBlock(block, &cache, undo, chainparams, 123456)
 
 	if cache.GetBestBlock() != block.BlockHeader.HashPrevBlock {
 		t.Error("this block should have been stored in the cache")

@@ -35,6 +35,12 @@ const (
 	MAX_VERSION_BITS_DEPLOYMENTS
 )
 
+type ChainTxData struct {
+	Time    time.Time
+	TxCount int64
+	TxRate  float64
+}
+
 type BIP9Deployment struct {
 	/** Bit position to select the particular bit in nVersion. */
 	Bit int
