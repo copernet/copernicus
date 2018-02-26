@@ -450,7 +450,7 @@ func IsInitialBlockDownload() bool {
 	if glatchToFalse.Load().(bool) {
 		return false
 	}
-	if GfImporting.Load().(bool) || GfReindex.Load().(bool) {
+	if GfImporting.Load().(bool) || GfReindex {
 		return true
 	}
 	if GChainState.ChainAcTive.Tip() == nil {

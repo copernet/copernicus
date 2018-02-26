@@ -36,7 +36,7 @@ var (
 	GfRequireStandard    = true
 	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
 	GfImporting          atomic.Value
-	GfReindex            atomic.Value
+	GfReindex            = false
 	GMaxTipAge           int64
 )
 
@@ -71,7 +71,6 @@ func init() {
 	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*BlockIndex)
 	GChainState.MapBlocksUnlinked = make(map[*BlockIndex][]*BlockIndex)
 	GChainState.setBlockIndexCandidates = algorithm.NewCustomSet(BlockIndexWorkComparator)
-	GfReindex.Store(false)
 	GfImporting.Store(false)
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE
 }
