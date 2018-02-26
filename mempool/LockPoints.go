@@ -1,6 +1,6 @@
 package mempool
 
-import "github.com/btcboost/copernicus/blockchain"
+//import "github.com/btcboost/copernicus/blockchain"
 
 type LockPoints struct {
 	// Will be set to the blockchain height and median time past values that
@@ -8,7 +8,7 @@ type LockPoints struct {
 	// of this tx given our view of block chain history
 	Height        int
 	Time          int64
-	maxInputBlock *blockchain.BlockIndex
+	// maxInputBlock *blockchain.BlockIndex
 }
 
 func NewLockPoints() *LockPoints {
