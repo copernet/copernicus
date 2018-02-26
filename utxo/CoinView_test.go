@@ -15,10 +15,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-const (
-	NumSimulationIterations = 40000
-	NumSimulationIteration  = 4000
-)
+const NumSimulationIterations = 40000
 
 type CoinsViewCacheTest struct {
 	CoinsViewCache
@@ -602,7 +599,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		}
 
 		//Once every 1000 iterations and at the end, verify the full cache.
-		if (InsecureRandRange(1000) == 1) || (i == NumSimulationIteration-1) {
+		if (InsecureRandRange(1000) == 1) || (i == NumSimulationIterations-1) {
 			for itKey, itValue := range result {
 				have := stack[len(stack)-1].HaveCoin(&itKey)
 				coin := stack[len(stack)-1].AccessCoin(&itKey)

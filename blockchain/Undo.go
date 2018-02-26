@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"errors"
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -9,6 +9,8 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
+
+const MaxInputPerTx = model.MaxTxInPerMessage
 
 type DisconnectResult int
 
@@ -43,20 +45,19 @@ func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 	tu := &TxUndo{
 		prevout: make([]*utxo.Coin, 0),
 	}
-	num, err := utils.ReadVarInt(r)
-	if err != nil {
-		return nil, err
-	}
+	utils.BinarySerializer.Uint64(r, binary.LittleEndian)
+	var count int
 	for {
 		coin, err := utxo.DeserializeCoin(r)
 		if err == io.EOF {
-			if len(tu.prevout) != int(num) {
-				return nil, errors.New("the coins number incorrect")
-			}
 			return tu, io.EOF
 		}
 		if err != nil && err != io.EOF {
 			return nil, err
+		}
+		count++
+		if count > MaxInputPerTx {
+			panic("Too many input undo records")
 		}
 		tu.prevout = append(tu.prevout, coin)
 	}
