@@ -107,6 +107,7 @@ type BitcoinParams struct {
 	MinimumChainWork big.Int
 	// By default assume that the signatures in ancestors of this block are valid.
 	DefaultAssumeValid big.Int
+	PruneAfterHeight   int
 }
 
 var MainNetParams = BitcoinParams{
