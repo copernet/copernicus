@@ -2,19 +2,19 @@ package blockchain
 
 import (
 	"bytes"
+	"container/list"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"os"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
-
-	"time"
-
-	"encoding/binary"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -27,6 +27,7 @@ import (
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/utxo"
 )
 
 const (
@@ -41,7 +42,17 @@ const (
 	DEFAULT_RELAYPRIORITY = true
 
 	DefaultMinRelayTxFee = btcutil.Amount(1000)
+	DefaultMempoolExpiry = 336
+	MempoolDumpVersion   = 1
 )
+
+type Config interface {
+	SetMaxBlockSize(uint64) bool
+	GetMaxBlockSize() uint64
+	SetBlockPriorityPercentage(int64)
+	GetBlockPriorityPercentage() uint8
+	GetChainParams() *msg.BitcoinParams
+}
 
 var (
 	gsetDirtyBlockIndex *algorithm.Set
@@ -57,9 +68,22 @@ var (
 	//gnBlockSequenceID Blocks loaded from disk are assigned id 0, so start the counter at 1.
 	gnBlockSequenceID int32
 
+	coinsTip = utxo.CoinsViewCache{}
+
 	minRelayTxFee = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
 	mpool         = mempool.NewMemPool(*minRelayTxFee)
+
+	RequestShutdown  atomic.Value
+	DumpMempoolLater atomic.Value
 )
+
+func StartShutdown() {
+	RequestShutdown.Store(true)
+}
+
+func ShutdownRequested() bool {
+	return RequestShutdown.Load().(bool)
+}
 
 type FlushStateMode int
 
@@ -1516,6 +1540,121 @@ var (
 	nTimeTotal     int64
 )
 
+func AcceptToMemoryPoolWorker(config *Config, pool *mempool.Mempool, state *model.ValidationState,
+	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
+	overrideMempoolLimit bool, absurdFee btcutil.Amount, coinsToUncache []*model.OutPoint) bool {
+
+	return true
+}
+
+func AcceptToMemoryPoolWithTime(config *Config, mpool *mempool.Mempool, state *model.ValidationState,
+	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
+	overrideMempoolLimit bool, absurdFee btcutil.Amount) bool {
+
+	coinsToUncache := make([]*model.OutPoint, 0)
+	res := AcceptToMemoryPoolWorker(config, mpool, state, tx, limitFree, missingInputs, acceptTime,
+		txReplaced, overrideMempoolLimit, absurdFee, coinsToUncache)
+
+	if !res {
+		for _, outpoint := range coinsToUncache {
+			coinsTip.UnCache(outpoint)
+		}
+	}
+
+	stateDummy := &model.ValidationState{}
+	FlushStateToDisk(stateDummy, FLUSH_STATE_PERIODIC, 0)
+	return res
+
+}
+func LoadMempool(config *Config) bool {
+	expiryTimeout := (utils.GetArg("-mempoolexpiry", DefaultMempoolExpiry)) * 60 * 60
+
+	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat", os.O_RDONLY, 0666)
+	if err != nil {
+		fmt.Println("Failed to open mempool file from disk. Continuing anyway")
+		return false
+	}
+	defer fileStr.Close()
+
+	now := time.Now() // todo C++:nMockTime
+	var count int
+	var failed int
+	var skipped int
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Failed to deserialize mempool data on disk:", err, ". Continuing anyway.")
+		}
+	}()
+
+	// read version firstly
+	version, err := utils.BinarySerializer.Uint32(fileStr, binary.LittleEndian)
+	if err != nil {
+		panic(err)
+	}
+	if version != MempoolDumpVersion {
+		return false
+	}
+
+	num, err := utils.ReadVarInt(fileStr)
+	if err != nil {
+		panic(err)
+	}
+
+	var priorityDummy float64
+	for num > 0 {
+		num--
+		txPoolInfo, err := mempool.DeserializeInfo(fileStr)
+		if err != nil {
+			panic(err)
+		}
+
+		amountDelta := txPoolInfo.FeeDelta
+		if amountDelta != 0 {
+			mpool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), txPoolInfo.Tx.TxHash().ToString(), priorityDummy, amountDelta)
+		}
+
+		vs := &model.ValidationState{}
+		if txPoolInfo.Time+expiryTimeout > int64(now.Second()) {
+			// todo LOCK(cs_main)
+			AcceptToMemoryPoolWithTime(config, mpool, vs, txPoolInfo.Tx, true, nil,
+				txPoolInfo.Time, nil, false, 0)
+
+			if vs.IsValid() {
+				count++
+			} else {
+				failed++
+			}
+		} else {
+			// timeout
+			skipped++
+		}
+
+		if ShutdownRequested() { // get shutdown signal
+			return false
+		}
+
+		var hash utils.Hash
+		_, err = io.ReadFull(fileStr, hash[:])
+		if err != nil {
+			panic(err)
+		}
+
+		amount, err := utils.BinarySerializer.Uint64(fileStr, binary.LittleEndian)
+		if err != nil {
+			panic(err)
+		}
+		mapDeltas := make(map[utils.Hash]btcutil.Amount)
+		mapDeltas[hash] = btcutil.Amount(amount)
+		for hash, amount := range mapDeltas {
+			mpool.PrioritiseTransaction(hash, hash.ToString(), priorityDummy, int64(amount))
+		}
+	}
+
+	fmt.Printf("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
+	return true
+}
+
 func DumpMempool() {
 	start := time.Now().Second()
 
@@ -1545,7 +1684,12 @@ func DumpMempool() {
 	}
 	defer fileStr.Close() // guarantee closing the opened file
 
-	err = utils.BinarySerializer.PutUint64(fileStr, binary.LittleEndian, uint64(len(info)))
+	err = utils.BinarySerializer.PutUint32(fileStr, binary.LittleEndian, uint32(MempoolDumpVersion))
+	if err != nil {
+		panic(err)
+	}
+
+	err = utils.WriteVarInt(fileStr, uint64(len(info)))
 	if err != nil {
 		panic(err)
 	}

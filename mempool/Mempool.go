@@ -50,6 +50,29 @@ func (info *TxMempoolInfo) Serialize(w io.Writer) error {
 	return err
 }
 
+func DeserializeInfo(r io.Reader) (*TxMempoolInfo, error) {
+	tx, err := model.DeserializeTx(r)
+	if err != nil {
+		return nil, err
+	}
+
+	Time, err := utils.BinarySerializer.Uint64(r, binary.LittleEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	FeeDelta, err := utils.BinarySerializer.Uint64(r, binary.LittleEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxMempoolInfo{
+		Tx:       tx,
+		Time:     int64(Time),
+		FeeDelta: int64(FeeDelta),
+	}, nil
+}
+
 type Mempool struct {
 	CheckFrequency              uint32
 	TransactionsUpdated         int
