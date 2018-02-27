@@ -35,6 +35,12 @@ const (
 	MAX_VERSION_BITS_DEPLOYMENTS
 )
 
+type ChainTxData struct {
+	Time    time.Time
+	TxCount int64
+	TxRate  float64
+}
+
 type BIP9Deployment struct {
 	/** Bit position to select the particular bit in nVersion. */
 	Bit int
@@ -107,6 +113,7 @@ type BitcoinParams struct {
 	MinimumChainWork big.Int
 	// By default assume that the signatures in ancestors of this block are valid.
 	DefaultAssumeValid big.Int
+	PruneAfterHeight   int
 }
 
 var MainNetParams = BitcoinParams{

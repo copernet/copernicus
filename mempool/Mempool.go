@@ -29,6 +29,51 @@ const (
 	ROLLING_FEE_HALFLIFE = 60 * 60 * 12
 )
 
+type TxMempoolInfo struct {
+	Tx       *model.Tx      // The transaction itself
+	Time     int64          // Time the transaction entered the mempool
+	FeeRate  *utils.FeeRate // Feerate of the transaction
+	FeeDelta int64          // The fee delta
+}
+
+func (info *TxMempoolInfo) Serialize(w io.Writer) error {
+	err := info.Tx.Serialize(w)
+	if err != nil {
+		return err
+	}
+
+	err = utils.BinarySerializer.PutUint64(w, binary.LittleEndian, uint64(info.Time))
+	if err != nil {
+		return err
+	}
+
+	err = utils.BinarySerializer.PutUint64(w, binary.LittleEndian, uint64(info.FeeDelta))
+	return err
+}
+
+func DeserializeInfo(r io.Reader) (*TxMempoolInfo, error) {
+	tx, err := model.DeserializeTx(r)
+	if err != nil {
+		return nil, err
+	}
+
+	Time, err := utils.BinarySerializer.Uint64(r, binary.LittleEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	FeeDelta, err := utils.BinarySerializer.Uint64(r, binary.LittleEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TxMempoolInfo{
+		Tx:       tx,
+		Time:     int64(Time),
+		FeeDelta: int64(FeeDelta),
+	}, nil
+}
+
 type Mempool struct {
 	CheckFrequency              uint32
 	TransactionsUpdated         int
@@ -43,12 +88,12 @@ type Mempool struct {
 	MapNextTx                   *algorithm.CacheMap //map[refOutPoint]tx
 	MapDeltas                   map[utils.Hash]PriorityFeeDelta
 	vTxHashes                   []TxHash
-	mtx                         sync.RWMutex
+	Mtx                         sync.RWMutex
 }
 
 func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
 	txToRemove := set.New()
 	origit := mempool.MapTx.GetEntryByHash(origTx.Hash)
 	if origit != nil {
@@ -210,14 +255,14 @@ func (mempool *Mempool) UpdateChildrenForRemoval(entry *TxMempoolEntry) {
 }
 
 func (mempool *Mempool) PrioritiseTransaction(hash utils.Hash, strHash string, priorityDelta float64, feeDelta int64) {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	deltas := mempool.MapDeltas[hash]
-	deltas.priorityDelta += priorityDelta
-	deltas.fee += btcutil.Amount(feeDelta)
+	deltas.PriorityDelta += priorityDelta
+	deltas.Fee += btcutil.Amount(feeDelta)
 	it := mempool.MapTx.GetEntryByHash(hash)
 	if it != nil {
-		it.UpdateFeeDelta(int64(deltas.fee))
+		it.UpdateFeeDelta(int64(deltas.Fee))
 
 		// Now update all ancestors' modified fees with descendants
 		setAncestors := set.New()
@@ -242,11 +287,11 @@ func (mempool *Mempool) PrioritiseTransaction(hash utils.Hash, strHash string, p
 }
 
 func (mempool *Mempool) ApplyDeltas(hash utils.Hash, priorityDelta float64, feeDelta int64) (float64, int64) {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	if deltas, ok := mempool.MapDeltas[hash]; ok {
-		priorityDelta += deltas.priorityDelta
-		feeDelta += int64(deltas.fee)
+		priorityDelta += deltas.PriorityDelta
+		feeDelta += int64(deltas.Fee)
 	}
 
 	return priorityDelta, feeDelta
@@ -348,8 +393,8 @@ func (mempool *Mempool) UpdateForDescendants(updateIt *TxMempoolEntry, cachedDes
 // descendants to the parent. For each such descendant, also update the ancestor
 // state to include the parent.
 func (mempool *Mempool) UpdateTransactionsFromBlock(hashesToUpdate algorithm.Vector) {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
 	// For each entry in hashesToUpdate, store the set of in-mempool, but not
 	// in-hashesToUpdate transactions, so that we don't have to recalculate
 	// descendants when we come across a previously seen entry.
@@ -449,8 +494,8 @@ func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *algorithm.Set 
 }
 
 func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	if !mempool.BlockSinceLatRollingFeeBump || mempool.RollingMinimumFeeRate == 0 {
 		return utils.NewFeeRate(int64(mempool.RollingMinimumFeeRate))
 	}
@@ -492,8 +537,8 @@ func (mempool *Mempool) TrackPackageRemoved(rate *utils.FeeRate) {
 * this mempool.
  */
 func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorithm.Vector) error {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
 	txNRemoved := 0
 	maxFeeRateRemoved := utils.NewFeeRate(0)
 	for mempool.MapTx.Size() > 0 && mempool.DynamicMemoryUsage() > sizeLimit {
@@ -563,8 +608,8 @@ func (mempool *Mempool) ExistsHash(hash utils.Hash) bool {
 }
 
 func (mempool *Mempool) ExistsOutPoint(outpoint *model.OutPoint) bool {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 
 	txMempoolEntry := mempool.MapTx.GetEntryByHash(outpoint.Hash)
 	if txMempoolEntry == nil {
@@ -587,9 +632,9 @@ func AllowFreeThreshold() float64 {
 }
 
 func (mempool *Mempool) AddTransactionsUpdated(n int) {
-	mempool.mtx.Lock()
+	mempool.Mtx.Lock()
 	mempool.TransactionsUpdated += n
-	mempool.mtx.Unlock()
+	mempool.Mtx.Unlock()
 }
 
 //CalculateMemPoolAncestors try to calculate all in-mempool ancestors of entry.
@@ -674,8 +719,8 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 // addUnchecked can be used to have it call CalculateMemPoolAncestors(), and
 // then invoke the second version.
 func (mempool *Mempool) AddUnchecked(hash *utils.Hash, entry *TxMempoolEntry, validFeeEstimate bool) bool {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
 	setAncestors := set.New()
 	nNoLimit := uint64(math.MaxUint64)
 	err := mempool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
@@ -697,9 +742,9 @@ func (mempool *Mempool) AddUncheckedWithAncestors(hash *utils.Hash, entry *TxMem
 
 	// Update transaction for any feeDelta created by PrioritiseTransaction mapTx
 	if prioriFeeDelta, ok := mempool.MapDeltas[*hash]; ok {
-		if prioriFeeDelta.fee != 0 {
+		if prioriFeeDelta.Fee != 0 {
 			txEntry := mempool.MapTx.GetEntryByHash(*hash)
-			txEntry.UpdateFeeDelta(int64(prioriFeeDelta.fee))
+			txEntry.UpdateFeeDelta(int64(prioriFeeDelta.Fee))
 		}
 	}
 
@@ -785,23 +830,23 @@ func (mempool *Mempool) UpdateEntryForAncestors(entry *TxMempoolEntry, setAncest
 }
 
 func (mempool *Mempool) Size() int {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	size := mempool.MapTx.Size()
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 	return size
 }
 
 func (mempool *Mempool) GetTotalTxSize() uint64 {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	size := mempool.totalTxSize
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 	return size
 }
 
 func (mempool *Mempool) Exists(hash utils.Hash) bool {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	has := mempool.MapTx.GetEntryByHash(hash)
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 
 	return has != nil
 }
@@ -830,8 +875,8 @@ func (mempool *Mempool) RemoveConflicts(tx *model.Tx) {
 }
 
 func (mempool *Mempool) QueryHashes(vtxid *algorithm.Vector) {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 
 	iters := mempool.GetSortedDepthAndScore()
 	vtxid.Clear()
@@ -841,8 +886,8 @@ func (mempool *Mempool) QueryHashes(vtxid *algorithm.Vector) {
 }
 
 func (mempool *Mempool) WriteFeeEstimates(writer io.Writer) error {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	// version required to read: 0.13.99 or later
 	err := binary.Write(writer, binary.LittleEndian, int(139900))
 	if err != nil {
@@ -854,8 +899,8 @@ func (mempool *Mempool) WriteFeeEstimates(writer io.Writer) error {
 }
 
 func (mempool *Mempool) ReadFeeEstimates(reader io.Reader) error {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	var versionRequired, versionThatWrote int
 	err := binary.Read(reader, binary.LittleEndian, versionRequired)
 	if err != nil {
@@ -874,9 +919,8 @@ func (mempool *Mempool) Check(pcoins *utxo.CoinsViewCache) {
 /*RemoveForBlock Called when a block is connected. Removes from mempool and updates the miner
  *fee estimator.*/
 func (mempool *Mempool) RemoveForBlock(vtx []*model.Tx, blockHeight uint) {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
-
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
 	entries := make([]*TxMempoolEntry, 0)
 	//entries element Type : *TxMempoolEntry;
 	for _, tx := range vtx {
@@ -917,8 +961,8 @@ func clear(mempool *Mempool) {
 }
 
 func (mempool *Mempool) Clear() {
-	mempool.mtx.Lock()
-	defer mempool.mtx.Unlock()
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
 	clear(mempool)
 
 }
@@ -936,8 +980,8 @@ func NewMemPool(minReasonableRelayFee utils.FeeRate) *Mempool {
 }
 
 func (mempool *Mempool) Expire(time int64) int {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	//toremove element type is *TxMempoolEntry
 	toremove := set.New()
 	for _, txMempoolEntry := range mempool.MapTx.poolNode {
@@ -956,54 +1000,57 @@ func (mempool *Mempool) Expire(time int64) int {
 }
 
 func (mempool *Mempool) TransactionWithinChainLimit(txid utils.Hash, chainLimit uint64) bool {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	txMempoolEntry := mempool.MapTx.GetEntryByHash(txid)
 	ret := txMempoolEntry.CountWithDescendants < chainLimit && txMempoolEntry.CountWithAncestors < chainLimit
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 
 	return ret
 }
 
 func (mempool *Mempool) EstimateSmartPriority(blocks int, answerFoundAtBlocks int) float64 {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	ret := mempool.MinerPolicyEstimator.EstimateSmartPriority(blocks, &answerFoundAtBlocks, mempool)
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 	return ret
 }
 
 func (mempool *Mempool) EstimatePriority(blocks int) float64 {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	ret := mempool.MinerPolicyEstimator.EstimatePriority(blocks)
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 	return ret
 }
 
 func (mempool *Mempool) EstimateSmartFee(blocks int, answerFoundAtBlocks int) utils.FeeRate {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	ret := mempool.MinerPolicyEstimator.EstimateSmartFee(blocks, &answerFoundAtBlocks, mempool)
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 	return ret
 }
 
 func (mempool *Mempool) EstimateFee(blocks int) utils.FeeRate {
-	mempool.mtx.RLock()
+	mempool.Mtx.RLock()
 	ret := mempool.MinerPolicyEstimator.EstimateFee(blocks)
-	mempool.mtx.RUnlock()
+	mempool.Mtx.RUnlock()
 	return ret
 }
 
-func (mempool *Mempool) InfoAll() []*TxMempoolEntry {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
-	iters := mempool.GetSortedDepthAndScore()
-	ret := make([]*TxMempoolEntry, 0)
-	ret = append(ret, iters...)
+func (mempool *Mempool) InfoAll() []*TxMempoolInfo {
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
+	mEntries := mempool.GetSortedDepthAndScore()
+	length := len(mEntries)
+	ret := make([]*TxMempoolInfo, length)
+	for i := 0; i < length; i++ {
+		ret[i] = mEntries[i].GetInfo()
+	}
 	return ret
 }
 
 func (mempool *Mempool) QueryHashs() []*utils.Hash {
-	mempool.mtx.RLock()
-	defer mempool.mtx.RUnlock()
+	mempool.Mtx.RLock()
+	defer mempool.Mtx.RUnlock()
 	iters := mempool.GetSortedDepthAndScore()
 	ret := make([]*utils.Hash, 0)
 	for _, it := range iters {

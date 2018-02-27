@@ -54,7 +54,7 @@ const (
 )
 
 type Tx struct {
-	Hash     utils.Hash
+	Hash     utils.Hash // Cached transaction hash	todo defined a pointer will be the optimization
 	LockTime uint32
 	Version  int32
 	Ins      []*TxIn
@@ -491,9 +491,16 @@ func (tx *Tx) String() string {
 }
 
 func (tx *Tx) TxHash() utils.Hash {
+	// cache hash
+	if !tx.Hash.IsNull() {
+		return tx.Hash
+	}
+
 	buf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()))
 	_ = tx.Serialize(buf)
-	return core.DoubleSha256Hash(buf.Bytes())
+	hash := core.DoubleSha256Hash(buf.Bytes())
+	tx.Hash = hash
+	return hash
 }
 
 func NewTx() *Tx {

@@ -3,12 +3,17 @@ package blockchain
 import (
 	"bytes"
 	"container/list"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"os"
 	"strconv"
 	"sync/atomic"
+	"time"
+
+	"gopkg.in/fatih/set.v0"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -30,7 +35,6 @@ const (
 	DEFAULT_CHECKPOINTS_ENABLED      = true
 	DEFAULT_TXINDEX                  = false
 	DEFAULT_BANSCORE_THRESHOLD  uint = 100
-	// MIN_BLOCKS_TO_KEEP Block files containing a block-height within
 	// MIN_BLOCKS_TO_KEEP of chainActive.Tip() will not be pruned.
 	MIN_BLOCKS_TO_KEEP    = 288
 	DEFAULT_MAX_TIP_AGE   = 24 * 60 * 60
@@ -38,7 +42,18 @@ const (
 	// DEFAULT_MEMPOOL_EXPIRY Default for -mempoolexpiry, expiration time
 	// for mempool transactions in hours
 	DEFAULT_MEMPOOL_EXPIRY uint = 336
+	DefaultMinRelayTxFee        = btcutil.Amount(1000)
+	DefaultMempoolExpiry        = 336
+	MempoolDumpVersion          = 1
 )
+
+type Config interface {
+	SetMaxBlockSize(uint64) bool
+	GetMaxBlockSize() uint64
+	SetBlockPriorityPercentage(int64)
+	GetBlockPriorityPercentage() uint8
+	GetChainParams() *msg.BitcoinParams
+}
 
 var (
 	gsetDirtyBlockIndex *algorithm.Set
@@ -68,7 +83,23 @@ var (
 	gnTimeIndex        int64
 	gnTimeCallbacks    int64
 	gnTimeTotal        int64
+	gcoinsTip          = utxo.CoinsViewCache{}
+	gminRelayTxFee     = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
+	gmpool             = mempool.NewMemPool(*gminRelayTxFee)
+	GRequestShutdown   atomic.Value
+	GDumpMempoolLater  atomic.Value
+	glastFlush         int
+	glastSetChain      int
+	glastWrite         int
 )
+
+func StartShutdown() {
+	GRequestShutdown.Store(true)
+}
+
+func ShutdownRequested() bool {
+	return GRequestShutdown.Load().(bool)
+}
 
 type FlushStateMode int
 
@@ -84,6 +115,13 @@ func init() {
 	gsetDirtyFileInfo = algorithm.NewSet()
 	glatchToFalse = atomic.Value{}
 	gnBlockSequenceID = 1
+}
+
+func FormatStateMessage(state *model.ValidationState) string {
+	if state.GetDebugMessage() == "" {
+		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
+	}
+	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
 }
 
 //IsUAHFenabled Check is UAHF has activated.
@@ -380,10 +418,6 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	return true
 }
 
-func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) bool {
-	return true
-}
-
 //ReceivedBlockTransactions Mark a block as having its data received and checked (up to
 //* BLOCK_VALID_TRANSACTIONS).
 func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState, pindexNew *BlockIndex, pos *DiskBlockPos) bool {
@@ -466,7 +500,7 @@ func IsInitialBlockDownload() bool {
 	if glatchToFalse.Load().(bool) {
 		return false
 	}
-	if GfImporting.Load().(bool) || GfReindex.Load().(bool) {
+	if GfImporting.Load().(bool) || GfReindex {
 		return true
 	}
 	if GChainState.ChainAcTive.Tip() == nil {
@@ -1966,9 +2000,468 @@ func PruneOneBlockFile(fileNumber int) {
 	gsetDirtyBlockIndex.AddItem(fileNumber)
 }
 
-func FormatStateMessage(state *model.ValidationState) string {
-	if state.GetDebugMessage() == "" {
-		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
+func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
+	lists := setFilesToPrune.List()
+	for key, value := range lists {
+		v := value.(int)
+		pos := &DiskBlockPos{
+			File: v,
+			Pos:  0,
+		}
+		os.Remove(GetBlockPosFilename(*pos, "blk"))
+		os.Remove(GetBlockPosFilename(*pos, "rev"))
+		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
 	}
-	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
+}
+
+func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
+	if GfPruneMode && manualPruneHeight <= 0 {
+		panic("the GfPruneMode is false and manualPruneHeight equal zero")
+	}
+
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+
+	if GChainActive.Tip() == nil {
+		return
+	}
+
+	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(GChainActive.Tip().Height-MIN_BLOCKS_TO_KEEP))
+	count := 0
+	for fileNumber := 0; fileNumber < gLastBlockFile; fileNumber++ {
+		if ginfoBlockFile[fileNumber].Size == 0 || int(ginfoBlockFile[fileNumber].HeightLast) > gLastBlockFile {
+			continue
+		}
+		PruneOneBlockFile(fileNumber)
+		setFilesToPrune.Add(fileNumber)
+		count++
+	}
+	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+}
+
+// PruneBlockFilesManual is called from the RPC code for pruneblockchain */
+func PruneBlockFilesManual(nManualPruneHeight int) {
+	var state *model.ValidationState
+	FlushStateToDisk(state, FLUSH_STATE_NONE, nManualPruneHeight)
+}
+
+//FindFilesToPrune calculate the block/rev files that should be deleted to remain under target*/
+func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+	if GChainActive.Tip() == nil || GPruneTarget == 0 {
+		return
+	}
+
+	if uint64(GChainActive.Tip().Height) <= nPruneAfterHeight {
+		return
+	}
+
+	nLastBlockWeCanPrune := GChainActive.Tip().Height - MIN_BLOCKS_TO_KEEP
+	nCurrentUsage := CalculateCurrentUsage()
+	// We don't check to prune until after we've allocated new space for files,
+	// so we should leave a buffer under our target to account for another
+	// allocation before the next pruning.
+	nBuffer := uint64(BLOCKFILE_CHUNK_SIZE + UNDOFILE_CHUNK_SIZE)
+	count := 0
+	if nCurrentUsage+nBuffer >= GPruneTarget {
+		for fileNumber := 0; fileNumber < gLastBlockFile; fileNumber++ {
+			nBytesToPrune := uint64(ginfoBlockFile[fileNumber].Size + ginfoBlockFile[fileNumber].UndoSize)
+
+			if ginfoBlockFile[fileNumber].Size == 0 {
+				continue
+			}
+
+			// are we below our target?
+			if nCurrentUsage+nBuffer < GPruneTarget {
+				break
+			}
+
+			// don't prune files that could have a block within
+			// MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
+			if int(ginfoBlockFile[fileNumber].HeightLast) > nLastBlockWeCanPrune {
+				continue
+			}
+
+			PruneOneBlockFile(fileNumber)
+			// Queue up the files for removal
+			setFilesToPrune.Add(fileNumber)
+			nCurrentUsage -= nBytesToPrune
+			count++
+		}
+	}
+
+	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
+}
+
+func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
+	ret = true
+	var params *msg.BitcoinParams
+
+	mempoolUsage := gmpool.DynamicMemoryUsage()
+
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+
+	var setFilesToPrune *set.Set
+	fFlushForPrune := false
+
+	defer func() {
+		if r := recover(); r != nil {
+			ret = AbortNode(state, "System error while flushing:", "")
+		}
+	}()
+	if GfPruneMode && (GfCheckForPruning || nManualPruneHeight > 0) && !GfReindex {
+		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
+	} else {
+		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
+		GfCheckForPruning = false
+	}
+	if !setFilesToPrune.IsEmpty() {
+		fFlushForPrune = true
+		if !GfHavePruned {
+			//TODO: pblocktree.WriteFlag("prunedblockfiles", true)
+			GfHavePruned = true
+		}
+	}
+	nNow := utils.GetMockTimeInMicros()
+	// Avoid writing/flushing immediately after startup.
+	if glastWrite == 0 {
+		glastWrite = int(nNow)
+	}
+	if glastFlush == 0 {
+		glastFlush = int(nNow)
+	}
+	if glastSetChain == 0 {
+		glastSetChain = int(nNow)
+	}
+
+	nMempoolSizeMax := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+	cacheSize := GpcoinsTip.DynamicMemoryUsage() * DB_PEAK_USAGE_FACTOR
+	nTotalSpace := float64(GnCoinCacheUsage) + math.Max(float64(nMempoolSizeMax-mempoolUsage), 0)
+	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
+	// of the limit, but we have time now (not in the middle of a block processing).
+	x := math.Max(nTotalSpace/2, nTotalSpace-MIN_BLOCK_COINSDB_USAGE*1024*1024)
+	y := math.Max(9*nTotalSpace/10, nTotalSpace-MAX_BLOCK_COINSDB_USAGE*1024*1024)
+	fCacheLarge := mode == FLUSH_STATE_PERIODIC && float64(cacheSize) > math.Min(x, y)
+	// The cache is over the limit, we have to write now.
+	fCacheCritical := mode == FLUSH_STATE_IF_NEEDED && float64(cacheSize) > nTotalSpace
+	// It's been a while since we wrote the block index to disk. Do this
+	// frequently, so we don't need to redownload after a crash.
+	fPeriodicWrite := mode == FLUSH_STATE_PERIODIC && int(nNow) > glastWrite+DATABASE_WRITE_INTERVAL*1000000
+	// It's been very long since we flushed the cache. Do this infrequently,
+	// to optimize cache usage.
+	fPeriodicFlush := mode == FLUSH_STATE_PERIODIC && int(nNow) > glastFlush+DATABASE_FLUSH_INTERVAL*1000000
+	// Combine all conditions that result in a full cache flush.
+	fDoFullFlush := mode == FLUSH_STATE_ALWAYS || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
+	// Write blocks and block index to disk.
+	if fDoFullFlush || fPeriodicWrite {
+		// Depend on nMinDiskSpace to ensure we can write block index
+		if !CheckDiskSpace(0) {
+			ret = state.Error("out of disk space")
+		}
+		// First make sure all block and undo data is flushed to disk.
+		FlushBlockFile(false)
+		// Then update all block file information (which may refer to block and undo files).
+
+		type Files struct {
+			key   []int
+			value []*BlockFileInfo
+		}
+
+		files := Files{
+			key:   make([]int, 0),
+			value: make([]*BlockFileInfo, 0),
+		}
+
+		lists := gsetDirtyFileInfo.List()
+		for _, value := range lists {
+			v := value.(int)
+			files.key = append(files.key, v)
+			files.value = append(files.value, ginfoBlockFile[v])
+			gsetDirtyFileInfo.RemoveItem(v)
+		}
+
+		var blocks = make([]*BlockIndex, 0)
+		list := gsetDirtyBlockIndex.List()
+		for _, value := range list {
+			v := value.(*BlockIndex)
+			blocks = append(blocks, v)
+			gsetDirtyBlockIndex.RemoveItem(value)
+		}
+
+		if !Gpblocktree.WriteBatchSync(files.value, gLastBlockFile, blocks) {
+			ret = AbortNode(state, "Failed to write to block index database", "")
+		}
+
+		// Finally remove any pruned files
+		if fFlushForPrune {
+			UnlinkPrunedFiles(setFilesToPrune)
+		}
+		glastWrite = int(nNow)
+
+	}
+
+	// Flush best chain related state. This can only be done if the blocks /
+	// block index write was also done.
+	if fDoFullFlush {
+		// Typical Coin structures on disk are around 48 bytes in size.
+		// Pushing a new one to the database can cause it to be written
+		// twice (once in the log, and once in the tables). This is already
+		// an overestimation, as most will delete an existing entry or
+		// overwrite one. Still, use a conservative safety factor of 2.
+		if !CheckDiskSpace(uint32(48 * 2 * 2 * GpcoinsTip.GetCacheSize())) {
+			ret = state.Error("out of disk space")
+		}
+		// Flush the chainState (which may refer to block index entries).
+		if !GpcoinsTip.Flush() {
+			ret = AbortNode(state, "Failed to write to coin database", "")
+		}
+		glastFlush = int(nNow)
+	}
+	if fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && int(nNow) > glastSetChain+DATABASE_WRITE_INTERVAL*1000000) {
+		// Update best block in wallet (so we can detect restored wallets).
+		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
+		glastSetChain = int(nNow)
+	}
+
+	return
+}
+
+//**************************** CBlock and CBlockIndex ****************************//
+
+var (
+	nTimeCheck     int64
+	nTimeForks     int64
+	nTimeVerify    int64
+	nTimeConnect   int64
+	nTimeIndex     int64
+	nTimeCallbacks int64
+	nTimeTotal     int64
+)
+
+func AcceptToMemoryPoolWorker(config *Config, pool *mempool.Mempool, state *model.ValidationState,
+	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
+	overrideMempoolLimit bool, absurdFee btcutil.Amount, coinsToUncache []*model.OutPoint) bool {
+
+	return true
+}
+
+func AcceptToMemoryPoolWithTime(config *Config, mpool *mempool.Mempool, state *model.ValidationState,
+	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
+	overrideMempoolLimit bool, absurdFee btcutil.Amount) bool {
+
+	coinsToUncache := make([]*model.OutPoint, 0)
+	res := AcceptToMemoryPoolWorker(config, mpool, state, tx, limitFree, missingInputs, acceptTime,
+		txReplaced, overrideMempoolLimit, absurdFee, coinsToUncache)
+
+	if !res {
+		for _, outpoint := range coinsToUncache {
+			gcoinsTip.UnCache(outpoint)
+		}
+	}
+
+	stateDummy := &model.ValidationState{}
+	FlushStateToDisk(stateDummy, FLUSH_STATE_PERIODIC, 0)
+	return res
+
+}
+func LoadMempool(config *Config) bool {
+	expiryTimeout := (utils.GetArg("-mempoolexpiry", DefaultMempoolExpiry)) * 60 * 60
+
+	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat", os.O_RDONLY, 0666)
+	if err != nil {
+		fmt.Println("Failed to open mempool file from disk. Continuing anyway")
+		return false
+	}
+	defer fileStr.Close()
+
+	now := time.Now() // todo C++:nMockTime
+	var count int
+	var failed int
+	var skipped int
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Failed to deserialize mempool data on disk:", err, ". Continuing anyway.")
+		}
+	}()
+
+	// read version firstly
+	version, err := utils.BinarySerializer.Uint32(fileStr, binary.LittleEndian)
+	if err != nil {
+		panic(err)
+	}
+	if version != MempoolDumpVersion {
+		return false
+	}
+
+	num, err := utils.ReadVarInt(fileStr)
+	if err != nil {
+		panic(err)
+	}
+
+	var priorityDummy float64
+	for num > 0 {
+		num--
+		txPoolInfo, err := mempool.DeserializeInfo(fileStr)
+		if err != nil {
+			panic(err)
+		}
+
+		amountDelta := txPoolInfo.FeeDelta
+		if amountDelta != 0 {
+			hashA := txPoolInfo.Tx.TxHash()
+			gmpool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), hashA.ToString(), priorityDummy, amountDelta)
+		}
+
+		vs := &model.ValidationState{}
+		if txPoolInfo.Time+expiryTimeout > int64(now.Second()) {
+			// todo LOCK(cs_main)
+			AcceptToMemoryPoolWithTime(config, gmpool, vs, txPoolInfo.Tx, true, nil,
+				txPoolInfo.Time, nil, false, 0)
+
+			if vs.IsValid() {
+				count++
+			} else {
+				failed++
+			}
+		} else {
+			// timeout
+			skipped++
+		}
+
+		if ShutdownRequested() { // get shutdown signal
+			return false
+		}
+
+		size, err := utils.ReadVarInt(fileStr)
+		if err != nil {
+			panic(err)
+		}
+
+		var hash utils.Hash
+		mapDeltas := make(map[utils.Hash]btcutil.Amount)
+		for i := uint64(0); i < size; i++ {
+			_, err = io.ReadFull(fileStr, hash[:])
+			if err != nil {
+				panic(err)
+			}
+
+			amount, err := utils.BinarySerializer.Uint64(fileStr, binary.LittleEndian)
+			if err != nil {
+				panic(err)
+			}
+			var hashCopy utils.Hash
+			copy(hashCopy[:], hash[:])
+			mapDeltas[hashCopy] = btcutil.Amount(amount)
+		}
+
+		for hash, amount := range mapDeltas {
+			gmpool.PrioritiseTransaction(hash, hash.ToString(), priorityDummy, int64(amount))
+		}
+	}
+
+	fmt.Printf("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
+	return true
+}
+
+func DumpMempool() {
+	start := time.Now().Second()
+
+	mapDeltas := make(map[utils.Hash]btcutil.Amount)
+	var info []*mempool.TxMempoolInfo
+
+	{
+		gmpool.Mtx.Lock()
+		for hash, feeDelta := range gmpool.MapDeltas {
+			mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
+		}
+		info = gmpool.InfoAll()
+		gmpool.Mtx.Unlock()
+	}
+
+	mid := time.Now().Second()
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Failed to dump mempool:", r, " . Continuing anyway.")
+		}
+	}()
+
+	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat.new", os.O_WRONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer fileStr.Close() // guarantee closing the opened file
+
+	err = utils.BinarySerializer.PutUint32(fileStr, binary.LittleEndian, uint32(MempoolDumpVersion))
+	if err != nil {
+		panic(err)
+	}
+
+	err = utils.WriteVarInt(fileStr, uint64(len(info)))
+	if err != nil {
+		panic(err)
+	}
+
+	for _, item := range info {
+		err = item.Serialize(fileStr)
+		if err != nil {
+			panic(err)
+		}
+		delete(mapDeltas, item.Tx.TxHash())
+	}
+
+	// write the size
+	err = utils.WriteVarInt(fileStr, uint64(len(mapDeltas)))
+	if err != nil {
+		panic(err)
+	}
+	// write all members one by one within loop
+	for hash, amount := range mapDeltas {
+		_, err = fileStr.Write(hash.GetCloneBytes())
+		if err != nil {
+			panic(err)
+		}
+
+		err = utils.BinarySerializer.PutUint64(fileStr, binary.LittleEndian, uint64(amount))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = os.Rename(conf.GetDataPath()+"/mempool.dat.new", conf.GetDataPath()+"/mempool.dat")
+	if err != nil {
+		panic(err)
+	}
+	last := time.Now().Second()
+	fmt.Printf("Dumped mempool: %ds to copy, %ds to dump\n", mid-start, last-mid)
+}
+
+// GuessVerificationProgress Guess how far we are in the verification process at the given block index
+func GuessVerificationProgress(data *msg.ChainTxData, index *BlockIndex) float64 {
+	if index == nil {
+		return float64(0)
+	}
+
+	now := time.Now()
+
+	var txTotal float64
+	// todo confirm time precise
+	if int64(index.ChainTx) <= data.TxCount {
+		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
+	} else {
+		txTotal = float64(index.ChainTx) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
+	}
+
+	return float64(index.ChainTx) / txTotal
 }
