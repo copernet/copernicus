@@ -75,6 +75,9 @@ var (
 
 	GRequestShutdown  atomic.Value
 	GDumpMempoolLater atomic.Value
+	glastFlush        int
+	glastSetChain     int
+	glastWrite        int
 )
 
 func StartShutdown() {
@@ -1523,9 +1526,140 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
 }
 
-func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) bool {
-	//TODO
-	return true
+func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
+	ret = true
+	var params *msg.BitcoinParams
+
+	mempoolUsage := gmpool.DynamicMemoryUsage()
+
+	//TODO: LOCK2(cs_main, cs_LastBlockFile);
+	//var sc sync.RWMutex
+	//sc.Lock()
+	//defer sc.Unlock()
+
+	var setFilesToPrune *set.Set
+	fFlushForPrune := false
+
+	defer func() {
+		if r := recover(); r != nil {
+			ret = AbortNode(state, "System error while flushing:", "")
+		}
+	}()
+	if GfPruneMode && (GfCheckForPruning || nManualPruneHeight > 0) && !GfReindex {
+		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
+	} else {
+		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
+		GfCheckForPruning = false
+	}
+	if !setFilesToPrune.IsEmpty() {
+		fFlushForPrune = true
+		if !GfHavePruned {
+			//TODO: pblocktree.WriteFlag("prunedblockfiles", true)
+			GfHavePruned = true
+		}
+	}
+	nNow := utils.GetMockTimeInMicros()
+	// Avoid writing/flushing immediately after startup.
+	if glastWrite == 0 {
+		glastWrite = int(nNow)
+	}
+	if glastFlush == 0 {
+		glastFlush = int(nNow)
+	}
+	if glastSetChain == 0 {
+		glastSetChain = int(nNow)
+	}
+
+	nMempoolSizeMax := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+	cacheSize := GpcoinsTip.DynamicMemoryUsage() * DB_PEAK_USAGE_FACTOR
+	nTotalSpace := float64(GnCoinCacheUsage) + math.Max(float64(nMempoolSizeMax-mempoolUsage), 0)
+	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
+	// of the limit, but we have time now (not in the middle of a block processing).
+	x := math.Max(nTotalSpace/2, nTotalSpace-MIN_BLOCK_COINSDB_USAGE*1024*1024)
+	y := math.Max(9*nTotalSpace/10, nTotalSpace-MAX_BLOCK_COINSDB_USAGE*1024*1024)
+	fCacheLarge := mode == FLUSH_STATE_PERIODIC && float64(cacheSize) > math.Min(x, y)
+	// The cache is over the limit, we have to write now.
+	fCacheCritical := mode == FLUSH_STATE_IF_NEEDED && float64(cacheSize) > nTotalSpace
+	// It's been a while since we wrote the block index to disk. Do this
+	// frequently, so we don't need to redownload after a crash.
+	fPeriodicWrite := mode == FLUSH_STATE_PERIODIC && int(nNow) > glastWrite+DATABASE_WRITE_INTERVAL*1000000
+	// It's been very long since we flushed the cache. Do this infrequently,
+	// to optimize cache usage.
+	fPeriodicFlush := mode == FLUSH_STATE_PERIODIC && int(nNow) > glastFlush+DATABASE_FLUSH_INTERVAL*1000000
+	// Combine all conditions that result in a full cache flush.
+	fDoFullFlush := mode == FLUSH_STATE_ALWAYS || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
+	// Write blocks and block index to disk.
+	if fDoFullFlush || fPeriodicWrite {
+		// Depend on nMinDiskSpace to ensure we can write block index
+		if !CheckDiskSpace(0) {
+			ret = state.Error("out of disk space")
+		}
+		// First make sure all block and undo data is flushed to disk.
+		FlushBlockFile(false)
+		// Then update all block file information (which may refer to block and undo files).
+
+		type Files struct {
+			key   []int
+			value []*BlockFileInfo
+		}
+
+		files := Files{
+			key:   make([]int, 0),
+			value: make([]*BlockFileInfo, 0),
+		}
+
+		lists := gsetDirtyFileInfo.List()
+		for _, value := range lists {
+			v := value.(int)
+			files.key = append(files.key, v)
+			files.value = append(files.value, ginfoBlockFile[v])
+			gsetDirtyFileInfo.RemoveItem(v)
+		}
+
+		var blocks = make([]*BlockIndex, 0)
+		list := gsetDirtyBlockIndex.List()
+		for _, value := range list {
+			v := value.(*BlockIndex)
+			blocks = append(blocks, v)
+			gsetDirtyBlockIndex.RemoveItem(value)
+		}
+
+		if !Gpblocktree.WriteBatchSync(files.value, gLastBlockFile, blocks) {
+			ret = AbortNode(state, "Failed to write to block index database", "")
+		}
+
+		// Finally remove any pruned files
+		if fFlushForPrune {
+			UnlinkPrunedFiles(setFilesToPrune)
+		}
+		glastWrite = int(nNow)
+
+	}
+
+	// Flush best chain related state. This can only be done if the blocks /
+	// block index write was also done.
+	if fDoFullFlush {
+		// Typical Coin structures on disk are around 48 bytes in size.
+		// Pushing a new one to the database can cause it to be written
+		// twice (once in the log, and once in the tables). This is already
+		// an overestimation, as most will delete an existing entry or
+		// overwrite one. Still, use a conservative safety factor of 2.
+		if !CheckDiskSpace(uint32(48 * 2 * 2 * GpcoinsTip.GetCacheSize())) {
+			ret = state.Error("out of disk space")
+		}
+		// Flush the chainState (which may refer to block index entries).
+		if !GpcoinsTip.Flush() {
+			ret = AbortNode(state, "Failed to write to coin database", "")
+		}
+		glastFlush = int(nNow)
+	}
+	if fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && int(nNow) > glastSetChain+DATABASE_WRITE_INTERVAL*1000000) {
+		// Update best block in wallet (so we can detect restored wallets).
+		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
+		glastSetChain = int(nNow)
+	}
+
+	return
 }
 
 //**************************** CBlock and CBlockIndex ****************************//

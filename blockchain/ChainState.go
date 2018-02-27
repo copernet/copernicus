@@ -5,6 +5,7 @@ import (
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/utxo"
 )
 
 type BlockMap struct {
@@ -38,6 +39,7 @@ var (
 	GfImporting          atomic.Value
 	GfReindex            = false
 	GMaxTipAge           int64
+	GnCoinCacheUsage     = 5000 * 300
 )
 
 var (
@@ -56,6 +58,8 @@ var (
 	//* that should be deleted. Set on startup or if we allocate more file space when
 	//* we're in prune mode.
 	GfCheckForPruning = false
+	GpcoinsTip        *utxo.CoinsViewCache
+	Gpblocktree       *BlockTreeDB
 )
 
 const (
@@ -65,6 +69,16 @@ const (
 	BLOCKFILE_CHUNK_SIZE = 0x1000000
 	// UNDOFILE_CHUNK_SIZE The pre-allocation chunk size for rev?????.dat files (since 0.8) // 1 MiB
 	UNDOFILE_CHUNK_SIZE = 0x100000
+	// DB_PEAK_USAGE_FACTOR compensate for extra memory peak (x1.5-x1.9) at flush time.
+	DB_PEAK_USAGE_FACTOR = 2
+	// MAX_BLOCK_COINSDB_USAGE no need to periodic flush if at least this much space still available.
+	MAX_BLOCK_COINSDB_USAGE = 200 * DB_PEAK_USAGE_FACTOR
+	// MIN_BLOCK_COINSDB_USAGE always periodic flush if less than this much space still available.
+	MIN_BLOCK_COINSDB_USAGE = 50 * DB_PEAK_USAGE_FACTOR
+	// DATABASE_WRITE_INTERVAL time to wait (in seconds) between writing blocks/block index to disk.
+	DATABASE_WRITE_INTERVAL = 60 * 60
+	// DATABASE_FLUSH_INTERVAL time to wait (in seconds) between flushing chainstate to disk.
+	DATABASE_FLUSH_INTERVAL = 24 * 60 * 60
 )
 
 func init() {
