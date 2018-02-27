@@ -5,7 +5,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
@@ -657,8 +656,8 @@ func TestMempoolApplyDeltas(t *testing.T) {
 	}
 
 	//after tx6 is mined, tx7 should move up in the sort
-	vtx := algorithm.NewVector()
-	vtx.PushBack(tx6)
+	vtx := make([]*model.Tx, 0)
+	vtx = append(vtx, tx6)
 	testPool.RemoveForBlock(vtx, 1)
 
 	// Ties are broken by hash
@@ -872,7 +871,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	testPool.AddUnchecked(&tx5.Hash, entry.SetFee(1000).SetTime(3).FromTxToEntry(tx5, testPool), true)
 	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(9000).SetTime(4).FromTxToEntry(tx7, testPool), true)
 
-	vtx := algorithm.NewVector()
+	vtx := make([]*model.Tx, 0)
 	utils.SetMockTime(42)
 	utils.SetMockTime(42 + ROLLING_FEE_HALFLIFE)
 	if testPool.GetMinFee(1).GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {

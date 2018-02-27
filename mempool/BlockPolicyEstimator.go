@@ -84,7 +84,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlockTx(blockHeight uin
 	return true
 }
 
-func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint, entry *algorithm.Vector) {
+func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint, entry []*TxMempoolEntry) {
 
 	if blockHeight <= blockPolicyEstimator.bestSeenHeight {
 		// Ignore side chains and re-orgs; assuming they are random they don't
@@ -103,8 +103,8 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 
 	countedTxs := uint(0)
 	// Repopulate the current block states
-	for i := 0; i < entry.Size(); i++ {
-		if blockPolicyEstimator.ProcessBlockTx(blockHeight, entry.Array[i].(*TxMempoolEntry)) {
+	for i := 0; i < len(entry); i++ {
+		if blockPolicyEstimator.ProcessBlockTx(blockHeight, entry[i]) {
 			countedTxs++
 		}
 	}
@@ -112,7 +112,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 	blockPolicyEstimator.feeStats.UpdateMovingAverages()
 
 	log.Trace("estimatefee Blockpolicy after updating estimates for %u of %u txs in block, since last"+
-		" block %u of %u tracked, new mempool map size %u", countedTxs, entry.Size(), blockPolicyEstimator.trackedTxs,
+		" block %u of %u tracked, new mempool map size %u", countedTxs, len(entry), blockPolicyEstimator.trackedTxs,
 		blockPolicyEstimator.trackedTxs+blockPolicyEstimator.untranckedTxs, blockPolicyEstimator.mapMemPoolTxs.Count())
 
 	blockPolicyEstimator.trackedTxs = 0

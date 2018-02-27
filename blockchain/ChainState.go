@@ -3,8 +3,12 @@ package blockchain
 import (
 	"sync/atomic"
 
+	"MyCode/copernicus/btcutil"
+
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/utxo"
 )
 
 type BlockMap struct {
@@ -30,14 +34,14 @@ type ChainState struct {
 // Global status for blockchain
 var (
 	//GChainState Global unique variables
-	GChainState          ChainState
-	GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
-	GfCheckBlockIndex    = false
-	GfRequireStandard    = true
-	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
-	GfImporting          atomic.Value
-	GfReindex            atomic.Value
-	GMaxTipAge           int64
+	GChainState    ChainState
+	GfImporting    atomic.Value
+	GfReindex      atomic.Value
+	GMaxTipAge     int64
+	Gmempool       *mempool.Mempool
+	GpcoinsTip     *utxo.CoinsViewCache
+	Gpblocktree    *BlockTreeDB
+	GminRelayTxFee utils.FeeRate
 )
 
 var (
@@ -52,7 +56,11 @@ var (
 	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
 	//* that should be deleted. Set on startup or if we allocate more file space when
 	//* we're in prune mode.
-	GfCheckForPruning = false
+	GfCheckForPruning    = false
+	GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
+	GfCheckBlockIndex    = false
+	GfRequireStandard    = true
+	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
 )
 
 const (
@@ -61,7 +69,8 @@ const (
 	// BLOCKFILE_CHUNK_SIZE The pre-allocation chunk size for blk?????.dat files (since 0.8)  // 16 MiB
 	BLOCKFILE_CHUNK_SIZE = 0x1000000
 	// UNDOFILE_CHUNK_SIZE The pre-allocation chunk size for rev?????.dat files (since 0.8) // 1 MiB
-	UNDOFILE_CHUNK_SIZE = 0x100000
+	UNDOFILE_CHUNK_SIZE                     = 0x100000
+	DEFAULT_MIN_RELAY_TX_FEE btcutil.Amount = 1000
 )
 
 func init() {
@@ -71,4 +80,6 @@ func init() {
 	GfReindex.Store(false)
 	GfImporting.Store(false)
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE
+	GminRelayTxFee.SataoshisPerK = int64(DEFAULT_MIN_RELAY_TX_FEE)
+	Gmempool = mempool.NewMemPool(GminRelayTxFee)
 }

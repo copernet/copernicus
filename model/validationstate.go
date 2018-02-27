@@ -113,3 +113,12 @@ func (vs *ValidationState) FormatStateMessage() string {
 	return fmt.Sprintf("%s%s (code %d)", vs.GetRejectReason(),
 		debug, vs.GetRejectCode())
 }
+
+func NewValidationState() *ValidationState {
+	v := new(ValidationState)
+	v.mode = MODE_VALID
+	v.dos = 0
+	v.rejectCode = 0
+	v.corruptionPossible = false
+	return v
+}

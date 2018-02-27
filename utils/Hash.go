@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 )
 
@@ -18,12 +19,28 @@ type Hash [HashSize]byte
 var HashZero = Hash{}
 var HashOne = Hash{0x0000000000000000000000000000000000000000000000000000000000000001}
 
-func (hash Hash) ToString() string {
+func (hash *Hash) ToString() string {
 	bytes := hash.GetCloneBytes()
 	for i := 0; i < HashSize/2; i++ {
 		bytes[i], bytes[HashSize-1-i] = bytes[HashSize-1-i], bytes[i]
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (hash *Hash) Serialize(w io.Writer) bool {
+	lenth, err := w.Write(hash[:])
+	if lenth != HashSize || err != nil {
+		return false
+	}
+	return true
+}
+
+func (hash *Hash) Deserialize(r io.Reader) bool {
+	lenth, err := io.ReadFull(r, hash[:])
+	if lenth != HashSize || err != nil {
+		return false
+	}
+	return true
 }
 
 func (hash *Hash) GetCloneBytes() []byte {
