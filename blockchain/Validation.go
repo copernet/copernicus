@@ -68,21 +68,21 @@ var (
 	//gnBlockSequenceID Blocks loaded from disk are assigned id 0, so start the counter at 1.
 	gnBlockSequenceID int32
 
-	coinsTip = utxo.CoinsViewCache{}
+	gcoinsTip = utxo.CoinsViewCache{}
 
-	minRelayTxFee = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
-	mpool         = mempool.NewMemPool(*minRelayTxFee)
+	gminRelayTxFee = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
+	gmpool         = mempool.NewMemPool(*gminRelayTxFee)
 
-	RequestShutdown  atomic.Value
-	DumpMempoolLater atomic.Value
+	GRequestShutdown  atomic.Value
+	GDumpMempoolLater atomic.Value
 )
 
 func StartShutdown() {
-	RequestShutdown.Store(true)
+	GRequestShutdown.Store(true)
 }
 
 func ShutdownRequested() bool {
-	return RequestShutdown.Load().(bool)
+	return GRequestShutdown.Load().(bool)
 }
 
 type FlushStateMode int
@@ -1557,7 +1557,7 @@ func AcceptToMemoryPoolWithTime(config *Config, mpool *mempool.Mempool, state *m
 
 	if !res {
 		for _, outpoint := range coinsToUncache {
-			coinsTip.UnCache(outpoint)
+			gcoinsTip.UnCache(outpoint)
 		}
 	}
 
@@ -1611,13 +1611,13 @@ func LoadMempool(config *Config) bool {
 
 		amountDelta := txPoolInfo.FeeDelta
 		if amountDelta != 0 {
-			mpool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), txPoolInfo.Tx.TxHash().ToString(), priorityDummy, amountDelta)
+			gmpool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), txPoolInfo.Tx.TxHash().ToString(), priorityDummy, amountDelta)
 		}
 
 		vs := &model.ValidationState{}
 		if txPoolInfo.Time+expiryTimeout > int64(now.Second()) {
 			// todo LOCK(cs_main)
-			AcceptToMemoryPoolWithTime(config, mpool, vs, txPoolInfo.Tx, true, nil,
+			AcceptToMemoryPoolWithTime(config, gmpool, vs, txPoolInfo.Tx, true, nil,
 				txPoolInfo.Time, nil, false, 0)
 
 			if vs.IsValid() {
@@ -1634,20 +1634,30 @@ func LoadMempool(config *Config) bool {
 			return false
 		}
 
-		var hash utils.Hash
-		_, err = io.ReadFull(fileStr, hash[:])
+		size, err := utils.ReadVarInt(fileStr)
 		if err != nil {
 			panic(err)
 		}
 
-		amount, err := utils.BinarySerializer.Uint64(fileStr, binary.LittleEndian)
-		if err != nil {
-			panic(err)
-		}
+		var hash utils.Hash
 		mapDeltas := make(map[utils.Hash]btcutil.Amount)
-		mapDeltas[hash] = btcutil.Amount(amount)
+		for i := uint64(0); i < size; i++ {
+			_, err = io.ReadFull(fileStr, hash[:])
+			if err != nil {
+				panic(err)
+			}
+
+			amount, err := utils.BinarySerializer.Uint64(fileStr, binary.LittleEndian)
+			if err != nil {
+				panic(err)
+			}
+			var hashCopy utils.Hash
+			copy(hashCopy[:], hash[:])
+			mapDeltas[hashCopy] = btcutil.Amount(amount)
+		}
+
 		for hash, amount := range mapDeltas {
-			mpool.PrioritiseTransaction(hash, hash.ToString(), priorityDummy, int64(amount))
+			gmpool.PrioritiseTransaction(hash, hash.ToString(), priorityDummy, int64(amount))
 		}
 	}
 
@@ -1662,12 +1672,12 @@ func DumpMempool() {
 	var info []*mempool.TxMempoolInfo
 
 	{
-		mpool.Mtx.Lock()
-		for hash, feeDelta := range mpool.MapDeltas {
+		gmpool.Mtx.Lock()
+		for hash, feeDelta := range gmpool.MapDeltas {
 			mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
 		}
-		info = mpool.InfoAll()
-		mpool.Mtx.Unlock()
+		info = gmpool.InfoAll()
+		gmpool.Mtx.Unlock()
 	}
 
 	mid := time.Now().Second()
@@ -1702,6 +1712,12 @@ func DumpMempool() {
 		delete(mapDeltas, item.Tx.TxHash())
 	}
 
+	// write the size
+	err = utils.WriteVarInt(fileStr, uint64(len(mapDeltas)))
+	if err != nil {
+		panic(err)
+	}
+	// write all members one by one within loop
 	for hash, amount := range mapDeltas {
 		_, err = fileStr.Write(hash.GetCloneBytes())
 		if err != nil {
