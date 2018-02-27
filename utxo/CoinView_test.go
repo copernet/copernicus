@@ -925,7 +925,9 @@ func TestCoinSpeed(t *testing.T) {
 	CheckSpendCoin(VALUE1, VALUE2, ABSENT, DIRTY|FRESH, NO_ENTRY)
 }
 
-func CheckAddCoinBase(baseValue btcutil.Amount, cacheValue btcutil.Amount, modifyValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
+func CheckAddCoinBase(baseValue btcutil.Amount, cacheValue btcutil.Amount, modifyValue btcutil.Amount,
+	expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
+
 	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, int(cacheFlags))
 
 	var resultValue btcutil.Amount
