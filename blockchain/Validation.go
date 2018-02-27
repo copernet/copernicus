@@ -75,6 +75,9 @@ var (
 
 	GRequestShutdown  atomic.Value
 	GDumpMempoolLater atomic.Value
+	glastFlush        int
+	glastSetChain     int
+	glastWrite        int
 )
 
 func StartShutdown() {
@@ -1533,9 +1536,6 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 	//var sc sync.RWMutex
 	//sc.Lock()
 	//defer sc.Unlock()
-	nLastWrite := 0
-	nLastFlush := 0
-	nLastSetChain := 0
 
 	var setFilesToPrune *set.Set
 	fFlushForPrune := false
@@ -1560,14 +1560,14 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 	}
 	nNow := utils.GetMockTimeInMicros()
 	// Avoid writing/flushing immediately after startup.
-	if nLastWrite == 0 {
-		nLastWrite = int(nNow)
+	if glastWrite == 0 {
+		glastWrite = int(nNow)
 	}
-	if nLastFlush == 0 {
-		nLastFlush = int(nNow)
+	if glastFlush == 0 {
+		glastFlush = int(nNow)
 	}
-	if nLastSetChain == 0 {
-		nLastSetChain = int(nNow)
+	if glastSetChain == 0 {
+		glastSetChain = int(nNow)
 	}
 
 	nMempoolSizeMax := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
@@ -1582,10 +1582,10 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 	fCacheCritical := mode == FLUSH_STATE_IF_NEEDED && float64(cacheSize) > nTotalSpace
 	// It's been a while since we wrote the block index to disk. Do this
 	// frequently, so we don't need to redownload after a crash.
-	fPeriodicWrite := mode == FLUSH_STATE_PERIODIC && int(nNow) > nLastWrite+DATABASE_WRITE_INTERVAL*1000000
+	fPeriodicWrite := mode == FLUSH_STATE_PERIODIC && int(nNow) > glastWrite+DATABASE_WRITE_INTERVAL*1000000
 	// It's been very long since we flushed the cache. Do this infrequently,
 	// to optimize cache usage.
-	fPeriodicFlush := mode == FLUSH_STATE_PERIODIC && int(nNow) > nLastFlush+DATABASE_FLUSH_INTERVAL*1000000
+	fPeriodicFlush := mode == FLUSH_STATE_PERIODIC && int(nNow) > glastFlush+DATABASE_FLUSH_INTERVAL*1000000
 	// Combine all conditions that result in a full cache flush.
 	fDoFullFlush := mode == FLUSH_STATE_ALWAYS || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
 	// Write blocks and block index to disk.
@@ -1624,7 +1624,7 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 		if fFlushForPrune {
 			UnlinkPrunedFiles(setFilesToPrune)
 		}
-		nLastWrite = int(nNow)
+		glastWrite = int(nNow)
 
 	}
 
@@ -1643,12 +1643,12 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 		if !GpcoinsTip.Flush() {
 			ret = AbortNode(state, "Failed to write to coin database", "")
 		}
-		nLastFlush = int(nNow)
+		glastFlush = int(nNow)
 	}
-	if fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && int(nNow) > nLastSetChain+DATABASE_WRITE_INTERVAL*1000000) {
+	if fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && int(nNow) > glastSetChain+DATABASE_WRITE_INTERVAL*1000000) {
 		// Update best block in wallet (so we can detect restored wallets).
 		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
-		nLastSetChain = int(nNow)
+		glastSetChain = int(nNow)
 	}
 
 	return
