@@ -59,6 +59,15 @@ type TxMempoolEntry struct {
 	vTxHashesIdx int
 }
 
+func (txMempoolEntry *TxMempoolEntry) GetInfo() *TxMempoolInfo {
+	return &TxMempoolInfo{
+		Tx:       txMempoolEntry.TxRef,
+		Time:     txMempoolEntry.Time,
+		FeeRate:  txMempoolEntry.GetFeeRate(),
+		FeeDelta: txMempoolEntry.FeeDelta,
+	}
+}
+
 func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
 	deltaPriority := (float64(currentHeight-txMempoolEntry.EntryHeight) * float64(txMempoolEntry.InChainInputValue)) / float64(txMempoolEntry.ModSize)
 	result := txMempoolEntry.EntryPriority + deltaPriority
