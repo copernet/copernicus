@@ -1598,13 +1598,24 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 		FlushBlockFile(false)
 		// Then update all block file information (which may refer to block and undo files).
 
-		var files map[int]*BlockFileInfo
+		type Files struct {
+			key   []int
+			value []*BlockFileInfo
+		}
+
+		files := Files{
+			key:   make([]int, 0),
+			value: make([]*BlockFileInfo, 0),
+		}
+
 		lists := gsetDirtyFileInfo.List()
 		for _, value := range lists {
 			v := value.(int)
-			files[v] = ginfoBlockFile[v]
+			files.key = append(files.key, v)
+			files.value = append(files.value, ginfoBlockFile[v])
 			gsetDirtyFileInfo.RemoveItem(v)
 		}
+
 		var blocks = make([]*BlockIndex, 0)
 		list := gsetDirtyBlockIndex.List()
 		for _, value := range list {
@@ -1612,11 +1623,8 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 			blocks = append(blocks, v)
 			gsetDirtyBlockIndex.RemoveItem(value)
 		}
-		var fileInfo = make([]*BlockFileInfo, 0)
-		for _, value := range files {
-			fileInfo = append(fileInfo, value)
-		}
-		if !Gpblocktree.WriteBatchSync(fileInfo, gLastBlockFile, blocks) {
+
+		if !Gpblocktree.WriteBatchSync(files.value, gLastBlockFile, blocks) {
 			ret = AbortNode(state, "Failed to write to block index database", "")
 		}
 
