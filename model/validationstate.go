@@ -23,12 +23,12 @@ type ValidationState struct {
 	mode               int
 	dos                int
 	rejectReason       string
-	rejectCode         byte
+	rejectCode         uint
 	corruptionPossible bool
 	debugMessage       string
 }
 
-func (vs *ValidationState) Dos(lvl int, ret bool, rejectCode byte, rejectReason string, corruption bool, dbgMsg string) bool {
+func (vs *ValidationState) Dos(lvl int, ret bool, rejectCode uint, rejectReason string, corruption bool, dbgMsg string) bool {
 	vs.rejectCode = rejectCode
 	vs.rejectReason = rejectReason
 	vs.corruptionPossible = corruption
@@ -41,7 +41,7 @@ func (vs *ValidationState) Dos(lvl int, ret bool, rejectCode byte, rejectReason 
 	return ret
 }
 
-func (vs *ValidationState) Invalid(ret bool, rejectCode byte, rejectReason string, dbgMsg string) bool {
+func (vs *ValidationState) Invalid(ret bool, rejectCode uint, rejectReason string, dbgMsg string) bool {
 	return vs.Dos(0, ret, rejectCode, rejectReason, false, dbgMsg)
 }
 
@@ -80,7 +80,7 @@ func (vs *ValidationState) SetCorruptionPossible() {
 	vs.corruptionPossible = true
 }
 
-func (vs *ValidationState) RejectCode() byte {
+func (vs *ValidationState) RejectCode() uint {
 	return vs.rejectCode
 }
 
@@ -92,7 +92,7 @@ func (vs *ValidationState) DebugMessage() string {
 	return vs.debugMessage
 }
 
-func (vs *ValidationState) GetRejectCode() byte {
+func (vs *ValidationState) GetRejectCode() uint {
 	return vs.rejectCode
 }
 

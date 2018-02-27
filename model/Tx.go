@@ -506,3 +506,22 @@ func (tx *Tx) TxHash() utils.Hash {
 func NewTx() *Tx {
 	return &Tx{LockTime: 0, Version: TxVersion}
 }
+
+// PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing
+type PrecomputedTransactionData struct {
+	HashPrevout  *utils.Hash
+	HashSequence *utils.Hash
+	HashOutputs  *utils.Hash
+}
+
+func NewPrecomputedTransactionData(tx *Tx) *PrecomputedTransactionData {
+	hashPrevout, _ := GetPrevoutHash(tx)
+	hashSequence, _ := GetSequenceHash(tx)
+	hashOutputs, _ := GetOutputsHash(tx)
+
+	return &PrecomputedTransactionData{
+		HashPrevout:  &hashPrevout,
+		HashSequence: &hashSequence,
+		HashOutputs:  &hashOutputs,
+	}
+}
