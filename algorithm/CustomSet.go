@@ -88,6 +88,20 @@ func (c *CustomSet) GetItemIndex(item interface{}) int {
 	return n
 }
 
+func (c *CustomSet) Begin() interface{} {
+	if len(c.sortData) > 0 {
+		return c.sortData[0]
+	}
+	return nil
+}
+
+func (c *CustomSet) End() interface{} {
+	if len(c.sortData) > 0 {
+		return c.sortData[len(c.sortData)-1]
+	}
+	return nil
+}
+
 func (c *CustomSet) HasItem(item interface{}) bool {
 	if _, ok := c.data[item]; ok {
 		return ok

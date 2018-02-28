@@ -4,6 +4,8 @@ import (
 	"sync/atomic"
 
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
@@ -31,15 +33,15 @@ type ChainState struct {
 // Global status for blockchain
 var (
 	//GChainState Global unique variables
-	GChainState          ChainState
-	GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
-	GfCheckBlockIndex    = false
-	GfRequireStandard    = true
-	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
-	GfImporting          atomic.Value
-	GfReindex            = false
-	GMaxTipAge           int64
-	GnCoinCacheUsage     = 5000 * 300
+	GChainState      ChainState
+	GfImporting      atomic.Value
+	GMaxTipAge       int64
+	Gmempool         *mempool.Mempool
+	GpcoinsTip       *utxo.CoinsViewCache
+	Gpblocktree      *BlockTreeDB
+	GminRelayTxFee   utils.FeeRate
+	GfReindex        = false
+	GnCoinCacheUsage = 5000 * 300
 )
 
 var (
@@ -57,9 +59,11 @@ var (
 	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
 	//* that should be deleted. Set on startup or if we allocate more file space when
 	//* we're in prune mode.
-	GfCheckForPruning = false
-	GpcoinsTip        *utxo.CoinsViewCache
-	Gpblocktree       *BlockTreeDB
+	GfCheckForPruning    = false
+	GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
+	GfCheckBlockIndex    = false
+	GfRequireStandard    = true
+	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
 )
 
 const (
@@ -68,7 +72,10 @@ const (
 	// BLOCKFILE_CHUNK_SIZE The pre-allocation chunk size for blk?????.dat files (since 0.8)  // 16 MiB
 	BLOCKFILE_CHUNK_SIZE = 0x1000000
 	// UNDOFILE_CHUNK_SIZE The pre-allocation chunk size for rev?????.dat files (since 0.8) // 1 MiB
-	UNDOFILE_CHUNK_SIZE = 0x100000
+
+	UNDOFILE_CHUNK_SIZE                     = 0x100000
+	DEFAULT_MIN_RELAY_TX_FEE btcutil.Amount = 1000
+
 	// DB_PEAK_USAGE_FACTOR compensate for extra memory peak (x1.5-x1.9) at flush time.
 	DB_PEAK_USAGE_FACTOR = 2
 	// MAX_BLOCK_COINSDB_USAGE no need to periodic flush if at least this much space still available.
@@ -79,6 +86,8 @@ const (
 	DATABASE_WRITE_INTERVAL = 60 * 60
 	// DATABASE_FLUSH_INTERVAL time to wait (in seconds) between flushing chainstate to disk.
 	DATABASE_FLUSH_INTERVAL = 24 * 60 * 60
+
+//>>>>>>> c102ab0391df9b7fbc5d67a1efaaa5e76c7efc1c
 )
 
 func init() {
@@ -87,4 +96,6 @@ func init() {
 	GChainState.setBlockIndexCandidates = algorithm.NewCustomSet(BlockIndexWorkComparator)
 	GfImporting.Store(false)
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE
+	GminRelayTxFee.SataoshisPerK = int64(DEFAULT_MIN_RELAY_TX_FEE)
+	Gmempool = mempool.NewMemPool(GminRelayTxFee)
 }

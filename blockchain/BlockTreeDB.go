@@ -78,7 +78,8 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFil
 		}
 		bucket.Put([]byte{orm.DB_BLOCK_FILES}, []byte(strconv.Itoa(latFile)))
 		for _, b := range blockIndexes {
-			key := fmt.Sprintf("%c%s", orm.DB_BLOCK_INDEX, b.GetBlockHash().ToString())
+			hashA := b.GetBlockHash()
+			key := fmt.Sprintf("%c%s", orm.DB_BLOCK_INDEX, hashA.ToString())
 			buf := bytes.NewBuffer(nil)
 			diskBlock := NewDiskBlockIndex(b)
 			err := diskBlock.Serialize(buf)

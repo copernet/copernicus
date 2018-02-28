@@ -125,6 +125,11 @@ func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 	mempool.RemoveStaged(setAllRemoves, false, reason)
 }
 
+func (mempool *Mempool) RemoveForReorg(pcoins *utxo.CoinsViewCache, nMemPoolHeight uint, flags int) {
+	// Remove transactions spending a coinbase which are now immature and
+	// no-longer-final transactions
+}
+
 // CalculateDescendants calculates descendants of entry that are not already in setDescendants, and
 // adds to setDescendants. Assumes entryit is already a tx in the mempool and
 // setMemPoolChildren is correct for tx and all descendants. Also assumes that
@@ -626,6 +631,12 @@ func AllowFreeThreshold() float64 {
 	return (float64(utils.COIN) * 144) / 250
 }
 
+func (mempool *Mempool) AddTransactionsUpdated(n int) {
+	mempool.Mtx.Lock()
+	mempool.TransactionsUpdated += n
+	mempool.Mtx.Unlock()
+}
+
 //CalculateMemPoolAncestors try to calculate all in-mempool ancestors of entry.
 // (these are all calculated including the tx itself)
 // fSearchForParents = whether to search a tx's vin for in-mempool parents,
@@ -901,37 +912,35 @@ func (mempool *Mempool) ReadFeeEstimates(reader io.Reader) error {
 	return err
 }
 
+func (mempool *Mempool) Check(pcoins *utxo.CoinsViewCache) {
+
+}
+
 /*RemoveForBlock Called when a block is connected. Removes from mempool and updates the miner
  *fee estimator.*/
-func (mempool *Mempool) RemoveForBlock(vtx *algorithm.Vector, blockHeight uint) {
+func (mempool *Mempool) RemoveForBlock(vtx []*model.Tx, blockHeight uint) {
 	mempool.Mtx.Lock()
 	defer mempool.Mtx.Unlock()
-
+	entries := make([]*TxMempoolEntry, 0)
 	//entries element Type : *TxMempoolEntry;
-	entries := algorithm.NewVector()
-	vtx.Each(func(item interface{}) bool {
-		txid := item.(*model.Tx).Hash
-		if entry := mempool.MapTx.GetEntryByHash(txid); entry != nil {
-			entries.PushBack(entry)
+	for _, tx := range vtx {
+		if entry := mempool.MapTx.GetEntryByHash(tx.Hash); entry != nil {
+			entries = append(entries, entry)
 		}
-
-		return true
-	})
+	}
 
 	// Before the txs in the new block have been removed from the mempool,
 	// update policy estimates
 	mempool.MinerPolicyEstimator.ProcessBlock(blockHeight, entries)
-	vtx.Each(func(item interface{}) bool {
-		txPtr := item.(*model.Tx)
-		if entryPtr := mempool.MapTx.GetEntryByHash(txPtr.Hash); entryPtr != nil {
+	for _, tx := range vtx {
+		if entryPtr := mempool.MapTx.GetEntryByHash(tx.Hash); entryPtr != nil {
 			stage := set.New()
 			stage.Add(entryPtr)
 			mempool.RemoveStaged(stage, true, BLOCK)
 		}
-		mempool.RemoveConflicts(txPtr)
-		mempool.ClearPrioritisation(&txPtr.Hash)
-		return true
-	})
+		mempool.RemoveConflicts(tx)
+		mempool.ClearPrioritisation(&tx.Hash)
+	}
 
 	mempool.LastRollingFeeUpdate = utils.GetMockTime()
 	mempool.BlockSinceLatRollingFeeBump = true

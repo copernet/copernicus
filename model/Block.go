@@ -51,6 +51,7 @@ func (bl *Block) GetBlockHeader() BlockHeader {
 func (bl *Block) SetNull() {
 	bl.BlockHeader.SetNull()
 	bl.Transactions = nil
+	bl.Hash = utils.HashZero
 	bl.FChecked = false
 }
 
@@ -75,7 +76,11 @@ func (bl *Block) Deserialize(r io.Reader) error {
 			return err
 		}
 	}
-
+	hash, err := bl.BlockHeader.GetHash()
+	if err != nil {
+		return err
+	}
+	bl.Hash = hash
 	return nil
 }
 

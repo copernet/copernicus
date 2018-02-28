@@ -25,6 +25,13 @@ type CoinsViewCache struct {
 	cachedCoinsUsage int64
 }
 
+func NewCoinViewCacheByCoinview(view CoinsView) *CoinsViewCache {
+	c := new(CoinsViewCache)
+	c.Base = view
+	c.cachedCoinsUsage = 0
+	return c
+}
+
 func (coinsViewCache *CoinsViewCache) AccessCoin(point *model.OutPoint) *Coin {
 	entry := coinsViewCache.FetchCoin(point)
 	if entry == nil {
