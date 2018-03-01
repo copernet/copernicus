@@ -4,10 +4,6 @@ import (
 	"sort"
 )
 
-var chainActive = Chain{
-	vChain: make([]*BlockIndex, 0),
-}
-
 // Chain An in-memory indexed chain of blocks.
 type Chain struct {
 	vChain []*BlockIndex

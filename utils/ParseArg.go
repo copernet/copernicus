@@ -89,3 +89,12 @@ func GetArg(strArg string, deFault int64) int64 {
 
 	return deFault
 }
+
+func GetBoolArg(strArg string, deFault bool) bool {
+	lock.Lock()
+	defer lock.Unlock()
+	if v, ok := MapArgs[strArg]; ok {
+		return InterpretBool(v)
+	}
+	return deFault
+}

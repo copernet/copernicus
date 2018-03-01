@@ -358,6 +358,36 @@ func (script *Script) GetSigOpCount() (int, error) {
 	return script.GetSigOpCountWithAccurate(true)
 }
 
+func (script *Script) GetSigOpCountFor(scriptSig *Script) (int, error) {
+	if !script.IsPayToScriptHash() {
+		return script.GetSigOpCountWithAccurate(true)
+	}
+
+	// This is a pay-to-script-hash scriptPubKey;
+	// get the last item that the scriptSig
+	// pushes onto the stack:
+	var n = 0
+	stk, err := scriptSig.ParseScript()
+	if err != nil {
+		return n, err
+	}
+
+	data := make([]byte, 0)
+	for i := 0; i < len(stk); i++ {
+		var opcode *byte
+		if !scriptSig.GetOp(&i, opcode, &data) {
+			return 0, nil
+		}
+
+		if *opcode > OP_16 {
+			return 0, nil
+		}
+	}
+
+	subScript := NewScriptRaw(data)
+	return subScript.GetSigOpCountWithAccurate(true)
+}
+
 func (script *Script) GetScriptByte() []byte {
 	scriptByte := make([]byte, 0)
 	scriptByte = append(scriptByte, script.bytes...)

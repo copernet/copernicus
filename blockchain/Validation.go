@@ -15,8 +15,6 @@ import (
 
 	"gopkg.in/fatih/set.v0"
 
-	"sync"
-
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/conf"
@@ -104,6 +102,9 @@ var (
 	glastFlush         int
 	glastSetChain      int
 	glastWrite         int
+
+	gfreeCount float64
+	glastTime  int
 )
 
 // StartShutdown Thread management and startup/shutdown:
@@ -205,7 +206,10 @@ func ContextualCheckTransaction(params *msg.BitcoinParams, tx *model.Tx, state *
 func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *model.ValidationState,
 	pindexPrev *BlockIndex) bool {
 
-	nHeight := pindexPrev.Height + 1
+	var nHeight int
+	if pindexPrev != nil {
+		nHeight = pindexPrev.Height + 1
+	}
 	if pindexPrev == nil {
 		nHeight = 0
 	}
@@ -2346,7 +2350,7 @@ func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.Valida
 	// is used. Thus if we want to know if a transaction can be part of the
 	// *next* block, we need to call ContextualCheckTransaction() with one more
 	// than chainActive.Height().
-	blockHeight := len(chainActive.vChain) + 1
+	blockHeight := len(GChainActive.vChain) + 1
 
 	// BIP113 will require that time-locked transactions have nLockTime set to
 	// less than the median time of the previous block they're contained in.
@@ -2355,9 +2359,9 @@ func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.Valida
 	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
 	var lockTimeCutoff int64
 	if flags&consensus.LocktimeMedianTimePast != 0 {
-		lockTimeCutoff = chainActive.Tip().GetMedianTimePast()
+		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
 	} else {
-		lockTimeCutoff = timeSet.GetAdjustedTime()
+		lockTimeCutoff = utils.GetAdjustedTime()
 	}
 
 	return ContextualCheckTransaction(params, tx, state, blockHeight, lockTimeCutoff)
@@ -2372,6 +2376,11 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 
 	ptx := tx
 	txid := ptx.TxHash()
+
+	// nil pointer
+	if missingInputs == nil {
+		return false
+	}
 	if *missingInputs {
 		*missingInputs = false
 	}
@@ -2408,7 +2417,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	}
 
 	// Check for conflicts with in-memory transactions
-	defer func() {
+	func() {
 		// Protect pool.mapNextTx
 		pool.Mtx.RLock() // todo confirm lock on read process
 		defer pool.Mtx.RUnlock()
@@ -2428,7 +2437,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 
 	var valueIn btcutil.Amount
 	lp := mempool.LockPoints{}
-	defer func() {
+	func() {
 		pool.Mtx.Lock()
 		defer pool.Mtx.Unlock()
 		viewMemPool := mempool.NewCoinsViewMemPool(&gcoinsTip, pool)
@@ -2508,7 +2517,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	pool.ApplyDeltas(txid, priorityDummy, modifiedFees)
 
 	var inChainInputValue btcutil.Amount
-	priority := cache.GetPriority(ptx, uint32(chainActive.Height()), &inChainInputValue)
+	priority := cache.GetPriority(ptx, uint32(GChainActive.Height()), &inChainInputValue)
 
 	// Keep track of transactions that spend a coinbase, which we re-scan
 	// during reorgs to ensure COINBASE_MATURITY is still met.
@@ -2521,7 +2530,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		}
 	}
 
-	entry := mempool.NewTxMempoolEntry(tx, btcutil.Amount(fees), acceptTime, priority, uint(chainActive.Height()),
+	entry := mempool.NewTxMempoolEntry(tx, btcutil.Amount(fees), acceptTime, priority, uint(GChainActive.Height()),
 		inChainInputValue, spendsCoinbase, int64(sigOpsCount), &lp)
 
 	size := entry.TxSize
@@ -2537,16 +2546,10 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		return
 	}
 
-	var defaultRelaypriority int64
-	if DEFAULT_RELAYPRIORITY {
-		defaultRelaypriority = 1
-	} else {
-		defaultRelaypriority = 0
-	}
-	relaypriority := utils.GetArg("-relaypriority", defaultRelaypriority)
+	relaypriority := utils.GetBoolArg("-relaypriority", DEFAULT_RELAYPRIORITY)
 	minFeeRate := gminRelayTxFee.GetFee(size)
-	allow := mempool.AllowFree(entry.GetPriority(uint(chainActive.Height() + 1)))
-	if relaypriority != 0 && modifiedFees < minFeeRate && !allow {
+	allow := mempool.AllowFree(entry.GetPriority(uint(GChainActive.Height() + 1)))
+	if relaypriority && modifiedFees < minFeeRate && !allow {
 		// Require that free transactions have sufficient priority to be
 		// mined in the next block.
 		ret = state.Dos(0, false, model.REJECT_INSUFFICIENTFEE, "insufficient priority",
@@ -2559,26 +2562,24 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// transactions just to be annoying or make others' transactions take
 	// longer to confirm.
 	if limitFree && modifiedFees < minFeeRate {
-		var freeCount float64
-		var lastTime int
 		now := time.Now().Second()
 
 		// todo LOCK(csFreeLimiter)
 		// Use an exponentially decaying ~10-minute window:
-		freeCount *= math.Pow(1.0-1.0/600.0, float64(now-lastTime))
-		lastTime = now
+		gfreeCount *= math.Pow(1.0-1.0/600.0, float64(now-glastTime))
+		glastTime = now
 		// -limitfreerelay unit is thousand-bytes-per-minute
 		// At default rate it would take over a month to fill 1GB
 		limitfreerelay := utils.GetArg("-limitfreerelay", DefaultLimitfreerelay)
-		if freeCount+float64(size) >= float64(limitfreerelay*10*1000) {
+		if gfreeCount+float64(size) >= float64(limitfreerelay*10*1000) {
 			ret = state.Dos(0, false, model.REJECT_INSUFFICIENTFEE,
 				"rate limited free transaction", false, "")
 			return
 		}
 
 		// todo log file
-		fmt.Printf("mempool Rate limit dFreeCount: %f => %f\n", freeCount, freeCount+float64(size))
-		freeCount += float64(size)
+		fmt.Printf("mempool Rate limit dFreeCount: %f => %f\n", gfreeCount, gfreeCount+float64(size))
+		gfreeCount += float64(size)
 	}
 
 	if absurdFee != 0 && fees > int64(absurdFee) {
@@ -2602,7 +2603,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	}
 
 	var scriptVerifyFlags = int64(policy.STANDARD_SCRIPT_VERIFY_FLAGS)
-	if msg.ActiveNetParams.RequireStandard {
+	if !msg.ActiveNetParams.RequireStandard {
 		scriptVerifyFlags = utils.GetArg("-promiscuousmempoolflags", int64(policy.STANDARD_SCRIPT_VERIFY_FLAGS))
 	}
 
@@ -2631,8 +2632,8 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// There is a similar check in CreateNewBlock() to prevent creating
 	// invalid blocks (using TestBlockValidity), however allowing such
 	// transactions into the mempool can be exploited as a DoS attack.
-	currentBlockScriptVerifyFlags := GetBlockScriptFlags(chainActive.Tip(), params) // todo confirm params
-	if !CheckInputsFromMempoolAndCache(ptx, state, &cache, pool, currentBlockScriptVerifyFlags, true, ptx) {
+	currentBlockScriptVerifyFlags := GetBlockScriptFlags(GChainActive.Tip(), params) // todo confirm params
+	if !CheckInputsFromMempoolAndCache(ptx, state, &cache, pool, currentBlockScriptVerifyFlags, true, txData) {
 		// If we're using promiscuousmempoolflags, we may hit this normally.
 		// Check if current block has some flags that scriptVerifyFlags does
 		// not before printing an ominous warning.
@@ -2684,7 +2685,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 }
 
 func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
-	expired := pool.Expire(int64(GetTime()) - age)
+	expired := pool.Expire(utils.GetMockTime() - age)
 	if expired != 0 {
 		// todo write log
 		fmt.Printf("mempool Expired %d transactions from the memory pool\n", expired)
@@ -2702,7 +2703,7 @@ func IsCurrentForFeeEstimation() bool {
 	if IsInitialBlockDownload() {
 		return false
 	}
-	if int(chainActive.Tip().GetBlockTime()) < GetTime()-MaxFeeEstimationTipAge {
+	if int64(GChainActive.Tip().GetBlockTime()) < utils.GetMockTime()-MaxFeeEstimationTipAge {
 		return false
 	}
 	return true
@@ -2711,7 +2712,7 @@ func IsCurrentForFeeEstimation() bool {
 // CheckInputsFromMempoolAndCache Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
 func CheckInputsFromMempoolAndCache(tx *model.Tx, state *model.ValidationState, cache *utxo.CoinsViewCache,
-	mpool *mempool.Mempool, flags uint32, cacheSigStore bool, tx2 *model.Tx) bool {
+	mpool *mempool.Mempool, flags uint32, cacheSigStore bool, txData *model.PrecomputedTransactionData) bool {
 
 	return true
 }
@@ -2781,7 +2782,7 @@ func GetP2SHSigOpCount(tx *model.Tx, cache *utxo.CoinsViewCache) int {
 	for _, txin := range tx.Ins {
 		prevout := cache.GetOutputFor(txin)
 		if prevout.Script.IsPayToScriptHash() {
-			count, _ := prevout.Script.GetSigOpCount()
+			count, _ := prevout.Script.GetSigOpCountFor(txin.Script)
 			sigOps += count
 		}
 	}
@@ -2805,8 +2806,8 @@ func AcceptToMemoryPoolWithTime(params *msg.BitcoinParams, mpool *mempool.Mempoo
 
 	stateDummy := &model.ValidationState{}
 	FlushStateToDisk(stateDummy, FLUSH_STATE_PERIODIC, 0)
-	return res
 
+	return res
 }
 
 // LoadMempool Load the mempool from disk
@@ -3001,36 +3002,4 @@ func GuessVerificationProgress(data *msg.ChainTxData, index *BlockIndex) float64
 	}
 
 	return float64(index.ChainTx) / txTotal
-}
-
-// c++ timedata.cpp
-var mockTime = 0
-var timeSet = TimeSet{}
-
-type TimeSet struct {
-	TimeOffset int64
-	sync.Mutex
-}
-
-// GetTimeOffset "Never go to sea with two chronometers; take one or three."
-// Our three time sources are:
-//  - System clock
-//  - Median of other nodes clocks
-//  - The user (asking the user to fix the system clock if the first two disagree)
-func (t *TimeSet) GetTimeOffset() int64 {
-	t.Lock()
-	defer t.Unlock()
-
-	return atomic.LoadInt64(&t.TimeOffset)
-}
-
-func (t *TimeSet) GetAdjustedTime() int64 {
-	return int64(GetTime()) + t.GetTimeOffset()
-}
-
-func GetTime() int {
-	if mockTime != 0 {
-		return mockTime
-	}
-	return time.Now().Second()
 }

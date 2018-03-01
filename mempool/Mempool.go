@@ -1103,7 +1103,7 @@ func (m *CoinsViewMemPool) GetCoin(point *model.OutPoint, coin *utxo.Coin) bool 
 	return m.Base.GetCoin(point, coin) && !coin.IsSpent()
 }
 func (m *CoinsViewMemPool) HaveCoin(point *model.OutPoint) bool {
-	return m.Mpool.Exists(point.Hash) || m.Base.HaveCoin(point)
+	return m.Mpool.ExistsOutPoint(point) || m.Base.HaveCoin(point)
 }
 
 func (m *CoinsViewMemPool) GetBestBlock() utils.Hash {
