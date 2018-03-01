@@ -42,6 +42,8 @@ type AppConfig struct {
 
 	oniondial func(string, string, time.Duration) (net.Conn, error)
 	dial      func(string, string, time.Duration) (net.Conn, error)
+
+	LogModule []string
 }
 
 func init() {

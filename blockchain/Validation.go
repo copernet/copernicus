@@ -443,8 +443,8 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 			pindex.Status |= BLOCK_FAILED_VALID
 			gsetDirtyBlockIndex.AddItem(pindex)
 		}
-		return logger.ErrorLog(fmt.Sprintf("%s: %s (block %s)", logger.TraceLog(), state.FormatStateMessage(),
-			pblock.Hash.ToString()))
+		return logger.ErrorLog("%s: %s (block %s)", logger.TraceLog(), state.FormatStateMessage(),
+			pblock.Hash.ToString())
 	}
 
 	// Header is valid/has work, merkle tree and segwit merkle tree are
@@ -545,7 +545,7 @@ func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState
 }
 
 func AbortNodes(reason, userMessage string) bool {
-	log.Info("*** %s\n", reason)
+	logger.GetLogger().Debug("*** %s\n", reason)
 
 	//todo:
 	if len(userMessage) == 0 {
@@ -641,8 +641,8 @@ func FindBlockPos(state *model.ValidationState, pos *DiskBlockPos, nAddSize uint
 
 	if nFile != gLastBlockFile {
 		if !fKnown {
-			logger.GetLogger().Info(fmt.Sprintf("Leaving block file %d: %s\n", gLastBlockFile,
-				ginfoBlockFile[gLastBlockFile].ToString()))
+			logger.GetLogger().Debug("Leaving block file %d: %s\n", gLastBlockFile,
+				ginfoBlockFile[gLastBlockFile].ToString())
 		}
 		FlushBlockFile(!fKnown)
 		gLastBlockFile = nFile
@@ -664,7 +664,7 @@ func FindBlockPos(state *model.ValidationState, pos *DiskBlockPos, nAddSize uint
 				if CheckDiskSpace(nNewChunks*BLOCKFILE_CHUNK_SIZE - uint32(pos.Pos)) {
 					pfile := OpenBlockFile(pos, false)
 					if pfile != nil {
-						logger.GetLogger().Info("Pre-allocating up to position 0x%x in blk%05u.dat\n",
+						logger.GetLogger().Debug("Pre-allocating up to position 0x%x in blk%05u.dat\n",
 							nNewChunks*BLOCKFILE_CHUNK_SIZE, pos.File)
 						AllocateFileRange(pfile, pos.Pos, nNewChunks*BLOCKFILE_CHUNK_SIZE-uint32(pos.Pos))
 						pfile.Close()
@@ -766,7 +766,7 @@ func OpenDiskFile(pos DiskBlockPos, prefix string, fReadOnly bool) *os.File {
 	}
 	if pos.Pos > 0 {
 		if _, err := file.Seek(0, 1); err != nil {
-			log.Info("Unable to seek to position %u of %s\n", pos.Pos, path)
+			log.Debug("Unable to seek to position %u of %s\n", pos.Pos, path)
 			file.Close()
 			return nil
 		}
@@ -1498,28 +1498,25 @@ func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNe
 			InvalidBlockFound(pindexNew, state)
 		}
 		hash := pindexNew.GetBlockHash()
-		return logger.ErrorLog(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", hash.ToString()))
+		return logger.ErrorLog("ConnectTip(): ConnectBlock %s failed", hash.ToString())
 	}
 	nTime3 := utils.GetMicrosTime()
 	gnTimeConnectTotal += nTime3 - nTime2
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Connect total: %.2fms [%.2fs]\n", float64(nTime3-nTime2)*0.001, float64(gnTimeConnectTotal)*0.000001)
+	logger.LogPrint("bench", "debug", "- Connect total: %.2fms [%.2fs]\n", float64(nTime3-nTime2)*0.001, float64(gnTimeConnectTotal)*0.000001)
 	flushed := view.Flush()
 	if !flushed {
 		panic("here should be true when view flush state")
 	}
 	nTime4 := utils.GetMicrosTime()
 	gnTimeFlush += nTime4 - nTime3
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Flush: %.2fms [%.2fs]\n", float64(nTime4-nTime3)*0.001, float64(gnTimeFlush)*0.000001)
+	logger.LogPrint("bench", "debug", "- Flush: %.2fms [%.2fs]\n", float64(nTime4-nTime3)*0.001, float64(gnTimeFlush)*0.000001)
 	// Write the chain state to disk, if necessary.
 	if !FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED, 0) {
 		return false
 	}
 	nTime5 := utils.GetMicrosTime()
 	gnTimeChainState += nTime5 - nTime4
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Writing chainstate: %.2fms [%.2fs]\n", float64(nTime5-nTime4)*0.001, float64(gnTimeChainState)*0.000001)
+	logger.LogPrint("bench", "debug", "- Writing chainstate: %.2fms [%.2fs]\n", float64(nTime5-nTime4)*0.001, float64(gnTimeChainState)*0.000001)
 	// Remove conflicting transactions from the mempool.;
 	Gmempool.RemoveForBlock(blockConnecting.Transactions, uint(pindexNew.Height))
 	// Update chainActive & related variables.
@@ -1527,9 +1524,8 @@ func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNe
 	nTime6 := utils.GetMicrosTime()
 	gnTimePostConnect += nTime6 - nTime1
 	gnTimeTotal += nTime6 - nTime1
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Connect postprocess: %.2fms [%.2fs]\n", float64(nTime6-nTime5)*0.001, float64(gnTimePostConnect)*0.000001)
-	fmt.Printf("bench- Connect block: %.2fms [%.2fs]\n", float64(nTime6-nTime1)*0.001, float64(gnTimeTotal)*0.000001)
+	logger.LogPrint("bench", "debug", "- Connect postprocess: %.2fms [%.2fs]\n", float64(nTime6-nTime5)*0.001, float64(gnTimePostConnect)*0.000001)
+	logger.LogPrint("bench", "debug", "- Connect block: %.2fms [%.2fs]\n", float64(nTime6-nTime1)*0.001, float64(gnTimeTotal)*0.000001)
 
 	return true
 }
@@ -1564,7 +1560,7 @@ func DisconnectTip(param *msg.BitcoinParams, state *model.ValidationState, fBare
 		view := utxo.NewCoinViewCacheByCoinview(GpcoinsTip)
 		hash := pindexDelete.GetBlockHash()
 		if DisconnectBlock(&block, pindexDelete, view) != DisconnectOk {
-			return logger.ErrorLog(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.ToString()))
+			return logger.ErrorLog("DisconnectTip(): DisconnectBlock %s failed ", hash.ToString())
 		}
 		flushed := view.Flush()
 		if !flushed {
@@ -1572,7 +1568,7 @@ func DisconnectTip(param *msg.BitcoinParams, state *model.ValidationState, fBare
 		}
 	}
 	// replace implement with LogPrint(in C++).
-	logger.GetLogger().Info("bench - Disconnect block : %.2fms\n", float64(utils.GetMicrosTime()-nStart)*0.001)
+	logger.GetLogger().Debug("bench - Disconnect block : %.2fms\n", float64(utils.GetMicrosTime()-nStart)*0.001)
 
 	// Write the chain state to disk, if necessary.
 	if !FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED, 0) {
@@ -1663,7 +1659,7 @@ func UndoReadFromDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashblock utils.H
 	}()
 	file := OpenUndoFile(*pos, true)
 	if file == nil {
-		return logger.ErrorLog(fmt.Sprintf("%s: OpenUndoFile failed", logger.TraceLog()))
+		return logger.ErrorLog("%s: OpenUndoFile failed", logger.TraceLog())
 	}
 
 	// Read block
@@ -1691,8 +1687,8 @@ func ReadBlockFromDisk(pblock *model.Block, pindex *BlockIndex, param *msg.Bitco
 	hash := pindex.GetBlockHash()
 	pos := pindex.GetBlockPos()
 	if bytes.Equal(pblock.Hash[:], hash[:]) {
-		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
-			"doesn't match index for %s at %s", pindex.ToString(), pos.ToString()))
+		return logger.ErrorLog("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
+			"doesn't match index for %s at %s", pindex.ToString(), pos.ToString())
 	}
 	return true
 }
@@ -1703,19 +1699,19 @@ func ReadBlockFromDiskByPos(pblock *model.Block, pos DiskBlockPos, param *msg.Bi
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
 	if file == nil {
-		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString()))
+		return logger.ErrorLog("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString())
 	}
 
 	// Read block
 	if err := pblock.Deserialize(file); err != nil {
-		return logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error - %v at %s", logger.TraceLog(),
-			err, pos.ToString()))
+		return logger.ErrorLog("%s: Deserialize or I/O error - %v at %s", logger.TraceLog(),
+			err, pos.ToString())
 	}
 
 	// Check the header
 	pow := Pow{}
 	if !pow.CheckProofOfWork(&pblock.Hash, pblock.BlockHeader.Bits, param) {
-		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.ToString()))
+		return logger.ErrorLog("ReadBlockFromDisk: Errors in block header at %s", pos.ToString())
 	}
 	return true
 }
@@ -2191,7 +2187,7 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 		}
 		os.Remove(GetBlockPosFilename(*pos, "blk"))
 		os.Remove(GetBlockPosFilename(*pos, "rev"))
-		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
+		log.Debug("Prune: %s deleted blk/rev (%05u)\n", key)
 	}
 }
 
@@ -2277,7 +2273,7 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 		}
 	}
 
-	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+	logger.LogPrint("prune", "debug", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
 		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
 }
 
@@ -2675,8 +2671,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 			return
 		}
 
-		// todo log file
-		fmt.Printf("mempool Rate limit dFreeCount: %f => %f\n", gfreeCount, gfreeCount+float64(size))
+		logger.LogPrint("mempool:", "debug", "Rate limit dFreeCount: %f => %f\n", gfreeCount, gfreeCount+float64(size))
 		gfreeCount += float64(size)
 	}
 
@@ -2736,8 +2731,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		// Check if current block has some flags that scriptVerifyFlags does
 		// not before printing an ominous warning.
 		if ^scriptVerifyFlags&int64(currentBlockScriptVerifyFlags) == 0 {
-			// todo log write
-			fmt.Printf("ERROR: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY"+
+			logger.ErrorLog("ERROR: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY"+
 				" but not STANDARD flags %s, %s", txid.ToString(), FormatStateMessage(state))
 			ret = false
 			return
@@ -2745,13 +2739,13 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 
 		if !CheckInputs(ptx, state, &cache, true, policy.MANDATORY_SCRIPT_VERIFY_FLAGS,
 			true, false, txData, nil) {
-			fmt.Printf(": ConnectInputs failed against MANDATORY but not STANDARD flags due to "+
+			logger.ErrorLog(": ConnectInputs failed against MANDATORY but not STANDARD flags due to "+
 				"promiscuous mempool %s, %s", txid.ToString(), FormatStateMessage(state))
 			ret = false
 			return
 		}
 
-		fmt.Println("Warning: -promiscuousmempool flags set to not include currently enforced soft forks," +
+		logger.GetLogger().Debug("Warning: -promiscuousmempool flags set to not include currently enforced soft forks," +
 			" this may break mining or otherwise cause instability!")
 	}
 
@@ -2785,8 +2779,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
 	expired := pool.Expire(utils.GetMockTime() - age)
 	if expired != 0 {
-		// todo write log
-		fmt.Printf("mempool Expired %d transactions from the memory pool\n", expired)
+		logger.LogPrint("mempool", "debug", "mempool Expired %d transactions from the memory pool\n", expired)
 	}
 	noSpendsRemaining := algorithm.NewVector()
 	pool.TrimToSize(limit, noSpendsRemaining)
@@ -2914,7 +2907,7 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 
 	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat", os.O_RDONLY, 0666)
 	if err != nil {
-		fmt.Println("Failed to open mempool file from disk. Continuing anyway")
+		logger.GetLogger().Debug("Failed to open mempool file from disk. Continuing anyway")
 		return false
 	}
 	defer fileStr.Close()
@@ -2926,7 +2919,7 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Failed to deserialize mempool data on disk:", err, ". Continuing anyway.")
+			logger.GetLogger().Debug("Failed to deserialize mempool data on disk:", err, ". Continuing anyway.")
 		}
 	}()
 
@@ -3005,7 +2998,7 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 		}
 	}
 
-	fmt.Printf("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
+	logger.GetLogger().Debug("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
 	return true
 }
 
@@ -3029,7 +3022,7 @@ func DumpMempool() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Failed to dump mempool:", r, " . Continuing anyway.")
+			logger.GetLogger().Debug("Failed to dump mempool:", r, " . Continuing anyway.")
 		}
 	}()
 
@@ -3080,7 +3073,7 @@ func DumpMempool() {
 		panic(err)
 	}
 	last := time.Now().Second()
-	fmt.Printf("Dumped mempool: %ds to copy, %ds to dump\n", mid-start, last-mid)
+	logger.GetLogger().Debug("Dumped mempool: %ds to copy, %ds to dump\n", mid-start, last-mid)
 }
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
