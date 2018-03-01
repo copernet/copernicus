@@ -108,7 +108,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
