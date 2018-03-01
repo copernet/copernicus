@@ -21,11 +21,15 @@ const (
 )
 
 const (
-	/*LocktimeVerifySequence ,  Interpret sequence numbers as relative lock-time constraints. */
+	// LocktimeVerifySequence ,  Interpret sequence numbers as relative lock-time constraints.
 	LocktimeVerifySequence = (1 << iota)
 
-	/*LocktimeMedianTimePast , Use GetMedianTimePast() instead of nTime for end point timestamp. */
+	// LocktimeMedianTimePast , Use GetMedianTimePast() instead of nTime for end point timestamp.
 	LocktimeMedianTimePast
+
+	// StandardLocktimeVerifyFlags used as the flags parameter to sequence and nLocktime checks in
+	// non-consensus code.
+	StandardLocktimeVerifyFlags = LocktimeVerifySequence | LocktimeMedianTimePast
 )
 
 //GetMaxBlockSigOpsCount Compute the maximum number of sigops operation that can contained in a block

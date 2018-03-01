@@ -83,6 +83,7 @@ type BitcoinParams struct {
 	// The number of nodes to check.  This is part of BIP0034.
 	BlockUpgradeNumToCheck uint64
 
+	RequireStandard     bool
 	RelayNonStdTxs      bool
 	PubKeyHashAddressID byte
 	ScriptHashAddressID byte

@@ -618,7 +618,7 @@ func (mempool *Mempool) ExistsOutPoint(outpoint *model.OutPoint) bool {
 	return int(outpoint.Index) < len(txMempoolEntry.TxRef.Outs)
 }
 
-func AllowFee(priority float64) bool {
+func AllowFree(priority float64) bool {
 	// Large (in bytes) low-priority (new, small-coin) transactions need a fee.
 	return priority > AllowFreeThreshold()
 }
@@ -1071,4 +1071,56 @@ func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
 	})
 
 	return iters
+}
+func (mempool *Mempool) Get(hash *utils.Hash) *model.Tx {
+	mempool.Mtx.Lock()
+	entry, ok := mempool.MapTx.poolNode[*hash]
+	if !ok {
+		return nil
+	}
+	return entry.TxRef
+}
+
+type CoinsViewMemPool struct {
+	Base  utxo.CoinsView
+	Mpool *Mempool
+}
+
+func (m *CoinsViewMemPool) GetCoin(point *model.OutPoint, coin *utxo.Coin) bool {
+	// If an entry in the mempool exists, always return that one, as it's
+	// guaranteed to never conflict with the underlying cache, and it cannot
+	// have pruned entries (as it contains full) transactions. First checking
+	// the underlying cache risks returning a pruned entry instead.
+	ptx := m.Mpool.Get(&point.Hash)
+	if ptx != nil {
+		if int(point.Index) < len(ptx.Outs) {
+			*coin = *utxo.NewCoin(ptx.Outs[point.Index], MEMPOOL_HEIGHT, false)
+			return true
+		}
+		return false
+	}
+
+	return m.Base.GetCoin(point, coin) && !coin.IsSpent()
+}
+func (m *CoinsViewMemPool) HaveCoin(point *model.OutPoint) bool {
+	return m.Mpool.ExistsOutPoint(point) || m.Base.HaveCoin(point)
+}
+
+func (m *CoinsViewMemPool) GetBestBlock() utils.Hash {
+	return utils.Hash{}
+}
+
+func (m *CoinsViewMemPool) BatchWrite(coinsMap utxo.CacheCoins, hash *utils.Hash) bool {
+	return true
+}
+
+func (m *CoinsViewMemPool) EstimateSize() uint64 {
+	return 0
+}
+
+func NewCoinsViewMemPool(base utxo.CoinsView, mempool *Mempool) *CoinsViewMemPool {
+	return &CoinsViewMemPool{
+		Base:  base,
+		Mpool: mempool,
+	}
 }

@@ -65,6 +65,15 @@ const (
 	/*STANDARD_LOCKTIME_VERIFY_FLAGS Used as the flags parameter to sequence and nLocktime checks in
 	 * non-consensus code. */
 	STANDARD_LOCKTIME_VERIFY_FLAGS uint = consensus.LocktimeVerifySequence | consensus.LocktimeMedianTimePast
+
+	// MANDATORY_SCRIPT_VERIFY_FLAGS Mandatory script verification flags that all new blocks must comply with for
+	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
+	// but in the future other flags may be added, such as a soft-fork to enforce
+	// strict DER encoding.
+	//
+	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
+	// details.
+	MANDATORY_SCRIPT_VERIFY_FLAGS = core.SCRIPT_VERIFY_P2SH | core.SCRIPT_VERIFY_STRICTENC | core.SCRIPT_ENABLE_SIGHASH_FORKID
 )
 
 /*IsStandardTx Check for standard transaction types

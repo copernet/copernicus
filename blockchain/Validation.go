@@ -11,11 +11,10 @@ import (
 	"os"
 	"strconv"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"gopkg.in/fatih/set.v0"
-
-	"syscall"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -41,23 +40,34 @@ const (
 	MIN_BLOCKS_TO_KEEP    = 288
 	DEFAULT_MAX_TIP_AGE   = 24 * 60 * 60
 	DEFAULT_RELAYPRIORITY = true
-	// DEFAULT_MEMPOOL_EXPIRY Default for -mempoolexpiry, expiration time
+
+	DefaultMinRelayTxFee = btcutil.Amount(1000)
+	// DefaultMempoolExpiry Default for -mempoolexpiry, expiration time
 	// for mempool transactions in hours
-	DEFAULT_MEMPOOL_EXPIRY uint = 336
-	DefaultMinRelayTxFee        = btcutil.Amount(1000)
-	DefaultMempoolExpiry        = 336
-	MempoolDumpVersion          = 1
+	DefaultMempoolExpiry       = 336
+	MempoolDumpVersion         = 1
+	DefaultLimitfreerelay      = 0
+	DefaultAncestorLimit       = 25
+	DefaultAncestorSizeLimit   = 101
+	DefaultDescendantLimit     = 25
+	DefaultDescendantSizeLimit = 101
+	MaxFeeEstimationTipAge     = 3 * 60 * 60
 	// gminDiskSpace: Minimum disk space required - used in CheckDiskSpace()
 	gminDiskSpace = 52428800
 )
 
-type Config interface {
-	SetMaxBlockSize(uint64) bool
-	GetMaxBlockSize() uint64
-	SetBlockPriorityPercentage(int64)
-	GetBlockPriorityPercentage() uint8
-	GetChainParams() *msg.BitcoinParams
-}
+// Reject codes greater or equal to this can be returned by AcceptToMemPool for
+// transactions, to signal internal conditions. They cannot and should not be
+// sent over the P2P network.
+const (
+	REJECT_INTERNAL = 0x100
+	// REJECT_HIGHFEE Too high fee. Can not be triggered by P2P transactions
+	REJECT_HIGHFEE = 0x100
+	// REJECT_ALREADY_KNOWN Transaction is already known (either in mempool or blockchain)
+	REJECT_ALREADY_KNOWN = 0x101
+	// REJECT_CONFLICT Transaction conflicts with a transaction already known
+	REJECT_CONFLICT = 0x102
+)
 
 var (
 	gsetDirtyBlockIndex *algorithm.Set
@@ -95,8 +105,30 @@ var (
 	glastFlush         int
 	glastSetChain      int
 	glastWrite         int
+
+	gfreeCount float64
+	glastTime  int
 )
 
+// StartShutdown Thread management and startup/shutdown:
+//
+// The network-processing threads are all part of a thread group created by
+// AppInit() or the Qt main() function.
+//
+// A clean exit happens when StartShutdown() or the SIGTERM signal handler sets
+// fRequestShutdown, which triggers the DetectShutdownThread(), which interrupts
+// the main thread group. DetectShutdownThread() then exits, which causes
+// AppInit() to continue (it .joins the shutdown thread). Shutdown() is then
+// called to clean up database connections, and stop other threads that should
+// only be stopped after the main network-processing threads have exited.
+//
+// Note that if running -daemon the parent process returns from AppInit2 before
+// adding any threads to the threadGroup, so .join_all() returns immediately and
+// the parent exits from main().
+//
+// Shutdown for Qt is very similar, only it uses a QTimer to detect
+// fRequestShutdown getting set, and then does the normal Qt shutdown thing.
+//
 func StartShutdown() {
 	GRequestShutdown.Store(true)
 }
@@ -121,6 +153,23 @@ func init() {
 	gnBlockSequenceID = 1
 }
 
+// ScriptCheck Closure representing one script verification.
+// Note that this stores references to the spending transaction.
+type ScriptCheck struct {
+	scriptPubKey model.Script
+	amount       btcutil.Amount
+	txTo         model.Tx
+	ins          int
+	flags        uint32
+	cacheStore   bool
+	err          core.ScriptError
+	txData       model.PrecomputedTransactionData
+}
+
+func (sc *ScriptCheck) GetScriptError() core.ScriptError {
+	return sc.err
+}
+
 func FormatStateMessage(state *model.ValidationState) string {
 	if state.GetDebugMessage() == "" {
 		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
@@ -137,16 +186,19 @@ func IsCashHFEnabled(params *msg.BitcoinParams, medianTimePast int64) bool {
 	return params.CashHardForkActivationTime <= medianTimePast
 }
 
-func ContextualCheckTransaction(params *msg.BitcoinParams, tx *model.Tx, state *model.ValidationState, height int, lockTimeCutoff int64) bool {
+func ContextualCheckTransaction(params *msg.BitcoinParams, tx *model.Tx, state *model.ValidationState,
+	height int, lockTimeCutoff int64) bool {
 
 	if !tx.IsFinalTx(height, lockTimeCutoff) {
-		return state.Dos(10, false, model.REJECT_INVALID, "bad-txns-nonfinal", false, "non-final transaction")
+		return state.Dos(10, false, model.REJECT_INVALID, "bad-txns-nonfinal",
+			false, "non-final transaction")
 	}
 
 	if IsUAHFenabled(params, height) && height <= params.AntiReplayOpReturnSunsetHeight {
 		for _, txo := range tx.Outs {
 			if txo.Script.IsCommitment(params.AntiReplayOpReturnCommitment) {
-				return state.Dos(10, false, model.REJECT_INVALID, "bad-txn-replay", false, "non playable transaction")
+				return state.Dos(10, false, model.REJECT_INVALID, "bad-txn-replay",
+					false, "non playable transaction")
 			}
 		}
 	}
@@ -154,10 +206,12 @@ func ContextualCheckTransaction(params *msg.BitcoinParams, tx *model.Tx, state *
 	return true
 }
 
-func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *model.ValidationState, pindexPrev *BlockIndex) bool {
-	nHeight := pindexPrev.Height + 1
-	if pindexPrev == nil {
-		nHeight = 0
+func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *model.ValidationState,
+	pindexPrev *BlockIndex) bool {
+
+	var nHeight int
+	if pindexPrev != nil {
+		nHeight = pindexPrev.Height + 1
 	}
 
 	nLockTimeFlags := 0
@@ -188,7 +242,8 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *
 		expect.PushInt64(int64(nHeight))
 		if block.Transactions[0].Ins[0].Script.Size() < expect.Size() ||
 			bytes.Equal(expect.GetScriptByte(), block.Transactions[0].Ins[0].Script.GetScriptByte()[:len(expect.GetScriptByte())]) {
-			return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-height", false, "block height mismatch in coinbase")
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-height",
+				false, "block height mismatch in coinbase")
 		}
 	}
 
@@ -200,13 +255,16 @@ func CheckBlockHeader(blockHeader *model.BlockHeader, state *model.ValidationSta
 	mpow := Pow{}
 	blkHash, _ := blockHeader.GetHash()
 	if fCheckPOW && !mpow.CheckProofOfWork(&blkHash, blockHeader.Bits, params) {
-		return state.Dos(50, false, model.REJECT_INVALID, "high-hash", false, "proof of work failed")
+		return state.Dos(50, false, model.REJECT_INVALID, "high-hash",
+			false, "proof of work failed")
 	}
 
 	return true
 }
 
-func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState, fCheckPOW, fCheckMerkleRoot bool) bool {
+func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState,
+	fCheckPOW, fCheckMerkleRoot bool) bool {
+
 	//These are checks that are independent of context.
 	if pblock.FChecked {
 		return true
@@ -223,14 +281,16 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 		mutated := false
 		hashMerkleRoot2 := consensus.BlockMerkleRoot(pblock, &mutated)
 		if !pblock.BlockHeader.HashMerkleRoot.IsEqual(&hashMerkleRoot2) {
-			return state.Dos(100, false, model.REJECT_INVALID, "bad-txnmrklroot", true, "hashMerkleRoot mismatch")
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-txnmrklroot",
+				true, "hashMerkleRoot mismatch")
 		}
 
 		// Check for merkle tree malleability (CVE-2012-2459): repeating
 		// sequences of transactions in a block without affecting the merkle
 		// root of a block, while still invalidating it.
 		if mutated {
-			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction")
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-duplicate",
+				true, "duplicate transaction")
 		}
 	}
 
@@ -240,7 +300,8 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 
 	// First transaction must be coinbase.
 	if len(pblock.Transactions) == 0 {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-missing",
+			false, "first tx is not coinbase")
 	}
 
 	//size limits
@@ -249,12 +310,14 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := model.NewTx().SerializeSize()
 	if len(pblock.Transactions)*minTransactionSize > int(nMaxBlockSize) {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-blk-length", false, "size limits failed")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-blk-length",
+			false, "size limits failed")
 	}
 
 	currentBlockSize := pblock.SerializeSize()
 	if currentBlockSize > int(nMaxBlockSize) {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-blk-length", false, "size limits failed")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-blk-length",
+			false, "size limits failed")
 	}
 
 	// And a valid coinbase.
@@ -310,7 +373,8 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 
 // AcceptBlock Store block on disk. If dbp is non-null, the file is known
 // to already reside on disk.
-func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState, ppindex **BlockIndex, fRequested bool, dbp *DiskBlockPos, fNewBlock *bool) bool {
+func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState,
+	ppindex **BlockIndex, fRequested bool, dbp *DiskBlockPos, fNewBlock *bool) bool {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
@@ -1216,7 +1280,8 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 	return ok
 }
 
-func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader, state *model.ValidationState, ppindex **BlockIndex) bool {
+func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
+	state *model.ValidationState, ppindex **BlockIndex) bool {
 
 	// Check for duplicate
 	var pindex *BlockIndex
@@ -1231,7 +1296,8 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader, 
 				*ppindex = pindex
 			}
 			if pindex.Status&BLOCK_FAILED_MASK != 0 {
-				return state.Invalid(state.Error(fmt.Sprintf("block %s is marked invalid", hash.ToString())), 0, "duplicate", "")
+				return state.Invalid(state.Error(fmt.Sprintf("block %s is marked invalid",
+					hash.ToString())), 0, "duplicate", "")
 			}
 			return true
 		}
@@ -1361,7 +1427,7 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationStat
 	if fBlocksDisconnected {
 		Gmempool.RemoveForReorg(GpcoinsTip, uint(GChainState.ChainAcTive.Tip().Height+1), int(policy.STANDARD_LOCKTIME_VERIFY_FLAGS))
 		LimitMempoolSize(Gmempool, utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE))*1000000,
-			utils.GetArg("-mempoolexpiry", int64(DEFAULT_MEMPOOL_EXPIRY))*60*60)
+			utils.GetArg("-mempoolexpiry", int64(DefaultMempoolExpiry))*60*60)
 	}
 	Gmempool.Check(GpcoinsTip)
 
@@ -1381,10 +1447,6 @@ func InvalidChainFound(pindexNew *BlockIndex) {
 // PruneBlockIndexCandidates Delete all entries in setBlockIndexCandidates that
 // are worse than the current tip.
 func PruneBlockIndexCandidates() {
-
-}
-
-func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
 
 }
 
@@ -1763,7 +1825,8 @@ func AddToBlockIndex(pblkHeader *model.BlockHeader) *BlockIndex {
 	return pindexNew
 }
 
-func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.ValidationState, param *msg.BitcoinParams, pindexPrev *BlockIndex, adjustedTime int) bool {
+func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.ValidationState,
+	param *msg.BitcoinParams, pindexPrev *BlockIndex, adjustedTime int) bool {
 	nHeight := 0
 	if pindexPrev != nil {
 		nHeight = pindexPrev.Height + 1
@@ -1772,7 +1835,8 @@ func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.Valida
 	pow := Pow{}
 	// Check proof of work
 	if pblkHead.Bits != pow.GetNextWorkRequired(pindexPrev, pblkHead, param) {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-diffbits",
+			false, "incorrect proof of work")
 	}
 
 	// Check timestamp against prev
@@ -1800,7 +1864,8 @@ func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.Valida
 	return true
 }
 
-func checkIndexAgainstCheckpoint(pindexPrev *BlockIndex, state *model.ValidationState, param *msg.BitcoinParams, hash *utils.Hash) bool {
+func checkIndexAgainstCheckpoint(pindexPrev *BlockIndex, state *model.ValidationState,
+	param *msg.BitcoinParams, hash *utils.Hash) bool {
 	return true
 }
 
@@ -1857,7 +1922,8 @@ func ComputeBlockVersion(indexPrev *BlockIndex, params *msg.BitcoinParams, t *Ve
 func CheckCoinbase(tx *model.Tx, state *model.ValidationState, fCheckDuplicateInputs bool) bool {
 
 	if !tx.IsCoinBase() {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-missing",
+			false, "first tx is not coinbase")
 	}
 
 	if !CheckTransactionCommon(tx, state, fCheckDuplicateInputs) {
@@ -1865,7 +1931,8 @@ func CheckCoinbase(tx *model.Tx, state *model.ValidationState, fCheckDuplicateIn
 	}
 
 	if tx.Ins[0].Script.Size() < 2 || tx.Ins[0].Script.Size() > 100 {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-length", false, "")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-cb-length",
+			false, "")
 	}
 
 	return true
@@ -1897,37 +1964,44 @@ func CheckRegularTransaction(tx *model.Tx, state *model.ValidationState, fCheckD
 func CheckTransactionCommon(tx *model.Tx, state *model.ValidationState, fCheckDuplicateInputs bool) bool {
 	// Basic checks that don't depend on any context
 	if len(tx.Ins) == 0 {
-		return state.Dos(10, false, model.REJECT_INVALID, "bad-txns-vin-empty", false, "")
+		return state.Dos(10, false, model.REJECT_INVALID, "bad-txns-vin-empty",
+			false, "")
 	}
 
 	if len(tx.Outs) == 0 {
-		return state.Dos(10, false, model.REJECT_INVALID, "bad-txns-vout-empty", false, "")
+		return state.Dos(10, false, model.REJECT_INVALID, "bad-txns-vout-empty",
+			false, "")
 	}
 
 	// Size limit
 	if tx.SerializeSize() > model.MAX_TX_SIZE {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-oversize", false, "")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-oversize",
+			false, "")
 	}
 
 	// Check for negative or overflow output values
 	nValueOut := int64(0)
 	for _, txout := range tx.Outs {
 		if txout.Value < 0 {
-			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-vout-negative", false, "")
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-vout-negative",
+				false, "")
 		}
 
 		if txout.Value > model.MAX_MONEY {
-			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-vout-toolarge", false, "")
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-vout-toolarge",
+				false, "")
 		}
 
 		nValueOut += txout.Value
 		if !MoneyRange(nValueOut) {
-			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-txouttotal-toolarge", false, "")
+			return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-txouttotal-toolarge",
+				false, "")
 		}
 	}
 
 	if tx.GetSigOpCountWithoutP2SH() > model.MAX_TX_SIGOPS_COUNT {
-		return state.Dos(100, false, model.REJECT_INVALID, "bad-txn-sigops", false, "")
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-txn-sigops",
+			false, "")
 	}
 
 	// Check for duplicate inputs - note that this check is slow so we skip it
@@ -1938,7 +2012,8 @@ func CheckTransactionCommon(tx *model.Tx, state *model.ValidationState, fCheckDu
 			if _, ok := vInOutPoints[*txIn.PreviousOutPoint]; !ok {
 				vInOutPoints[*txIn.PreviousOutPoint] = struct{}{}
 			} else {
-				return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-inputs-duplicate", false, "")
+				return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-inputs-duplicate",
+					false, "")
 			}
 		}
 	}
@@ -1993,7 +2068,8 @@ func Threshold(params *msg.BitcoinParams) int {
 }
 
 func Condition(pindex *BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) bool {
-	return (int(pindex.Version)&VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS && (pindex.Version)&1 != 0 && (ComputeBlockVersion(pindex.PPrev, params, t)&1) == 0
+	return (int(pindex.Version)&VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS &&
+		(pindex.Version)&1 != 0 && (ComputeBlockVersion(pindex.PPrev, params, t)&1) == 0
 }
 
 var warningcache [VERSIONBITS_NUM_BITS]ThresholdConditionCache
@@ -2332,7 +2408,8 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 		}
 		glastFlush = int(nNow)
 	}
-	if fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && int(nNow) > glastSetChain+DATABASE_WRITE_INTERVAL*1000000) {
+	if fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) &&
+		int(nNow) > glastSetChain+DATABASE_WRITE_INTERVAL*1000000) {
 		// Update best block in wallet (so we can detect restored wallets).
 		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
 		glastSetChain = int(nNow)
@@ -2353,19 +2430,470 @@ var (
 	nTimeTotal     int64
 )
 
-func AcceptToMemoryPoolWorker(config *Config, pool *mempool.Mempool, state *model.ValidationState,
+// ContextualCheckTransactionForCurrentBlock This is a variant of ContextualCheckTransaction which computes the contextual
+// check for a transaction based on the chain tip.
+func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.ValidationState,
+	params *msg.BitcoinParams, flags uint) bool {
+
+	// todo AssertLockHeld(cs_main);
+
+	// By convention a negative value for flags indicates that the current
+	// network-enforced consensus rules should be used. In a future soft-fork
+	// scenario that would mean checking which rules would be enforced for the
+	// next block and setting the appropriate flags. At the present time no
+	// soft-forks are scheduled, so no flags are set.
+	if flags < 0 {
+		flags = 0
+	}
+	// ContextualCheckTransactionForCurrentBlock() uses chainActive.Height()+1
+	// to evaluate nLockTime because when IsFinalTx() is called within
+	// CBlock::AcceptBlock(), the height of the block *being* evaluated is what
+	// is used. Thus if we want to know if a transaction can be part of the
+	// *next* block, we need to call ContextualCheckTransaction() with one more
+	// than chainActive.Height().
+	blockHeight := len(GChainActive.vChain) + 1
+
+	// BIP113 will require that time-locked transactions have nLockTime set to
+	// less than the median time of the previous block they're contained in.
+	// When the next block is created its previous block will be the current
+	// chain tip, so we use that to calculate the median time passed to
+	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
+	var lockTimeCutoff int64
+	if flags&consensus.LocktimeMedianTimePast != 0 {
+		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
+	} else {
+		lockTimeCutoff = utils.GetAdjustedTime()
+	}
+
+	return ContextualCheckTransaction(params, tx, state, blockHeight, lockTimeCutoff)
+}
+
+func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, state *model.ValidationState,
 	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
-	overrideMempoolLimit bool, absurdFee btcutil.Amount, coinsToUncache []*model.OutPoint) bool {
+	overrideMempoolLimit bool, absurdFee btcutil.Amount, coinsToUncache []*model.OutPoint) (ret bool) {
+
+	//! notice missingInputs acts as a pointer to boolean type
+	// todo AssertLockHeld(cs_main)
+
+	ptx := tx
+	txid := ptx.TxHash()
+
+	// nil pointer
+	if missingInputs != nil {
+		*missingInputs = false
+	}
+
+	// Coinbase is only valid in a block, not as a loose transaction.
+	if !CheckRegularTransaction(ptx, state, true) {
+		// state filled in by CheckRegularTransaction.
+		return
+	}
+
+	// Rather not work on nonstandard transactions (unless -testnet/-regtest)
+	var reason string
+	if GfRequireStandard && !policy.IsStandardTx(ptx, &reason) {
+		ret = state.Dos(0, false, model.REJECT_NONSTANDARD, reason, false, "")
+		return
+	}
+
+	// Only accept nLockTime-using transactions that can be mined in the next
+	// block; we don't want our mempool filled up with transactions that can't
+	// be mined yet.
+	vs := model.ValidationState{}
+	if !ContextualCheckTransactionForCurrentBlock(ptx, &vs, params, policy.STANDARD_LOCKTIME_VERIFY_FLAGS) {
+		// We copy the state from a dummy to ensure we don't increase the
+		// ban score of peer for transaction that could be valid in the future.
+		ret = state.Dos(0, false, model.REJECT_NONSTANDARD, vs.GetRejectReason(),
+			vs.CorruptionPossible(), vs.GetDebugMessage())
+		return
+	}
+
+	// Is it already in the memory pool?
+	if pool.Exists(txid) {
+		ret = state.Invalid(false, REJECT_ALREADY_KNOWN, "txn-already-in-mempool", "")
+		return
+	}
+
+	// Check for conflicts with in-memory transactions
+	func() {
+		// Protect pool.mapNextTx
+		pool.Mtx.RLock() // todo confirm lock on read process
+		defer pool.Mtx.RUnlock()
+
+		for _, txin := range ptx.Ins {
+			itConflicting := pool.MapNextTx.Get(txin.PreviousOutPoint)
+			if itConflicting != nil { // todo confirm this condition judgement
+				ret = state.Invalid(false, REJECT_CONFLICT, "txn-mempool-conflict", "")
+			}
+		}
+	}()
+
+	// dummy backed store
+	backed := utxo.CoinsViewCache{}
+	cache := utxo.CoinsViewCache{}
+	cache.Base = &backed
+
+	var valueIn btcutil.Amount
+	lp := mempool.LockPoints{}
+	func() {
+		pool.Mtx.Lock()
+		defer pool.Mtx.Unlock()
+		viewMemPool := mempool.NewCoinsViewMemPool(&gcoinsTip, pool)
+		cache.Base = viewMemPool
+
+		// Do we already have it?
+		length := len(ptx.Outs)
+		for i := 0; i < length; i++ {
+			outpoint := model.NewOutPoint(txid, uint32(i))
+			haveCoinInCache := gcoinsTip.HaveCoinInCache(outpoint)
+			if cache.HaveCoin(outpoint) {
+				if !haveCoinInCache {
+					coinsToUncache = append(coinsToUncache, outpoint)
+				}
+
+				ret = state.Invalid(false, REJECT_ALREADY_KNOWN, "txn-already-known", "")
+				return
+			}
+		}
+
+		// Do all inputs exist?
+		for _, txin := range ptx.Ins {
+			if !gcoinsTip.HaveCoinInCache(txin.PreviousOutPoint) {
+				coinsToUncache = append(coinsToUncache, txin.PreviousOutPoint)
+			}
+
+			if !cache.HaveCoin(txin.PreviousOutPoint) {
+				if missingInputs != nil {
+					*missingInputs = true
+				}
+
+				// fMissingInputs and !state.IsInvalid() is used to detect
+				// this condition, don't set state.Invalid()
+				ret = false
+				return
+			}
+		}
+
+		// Are the actual inputs available?
+		if !cache.HaveInputs(*ptx) {
+			ret = state.Invalid(false, model.REJECT_DUPLICATE, "bad-txns-inputs-spent", "")
+			return
+		}
+
+		// Bring the best block into scope.
+		cache.GetBestBlock()
+		valueIn = cache.GetValueIn(ptx)
+
+		// We have all inputs cached now, so switch back to dummy, so we
+		// don't need to keep lock on mempool.
+		cache.Base = &backed
+
+		// Only accept BIP68 sequence locked transactions that can be mined
+		// in the next block; we don't want our mempool filled up with
+		// transactions that can't be mined yet. Must keep pool.cs for this
+		// unless we change CheckSequenceLocks to take a CoinsViewCache
+		// instead of create its own.
+		if !CheckSequenceLocks(ptx, consensus.StandardLocktimeVerifyFlags, &lp, false) {
+			ret = state.Dos(0, false, model.REJECT_NONSTANDARD, "non-BIP68-final", false, "")
+			return
+		}
+	}()
+
+	// Check for non-standard pay-to-script-hash in inputs
+	if GfRequireStandard && !AreInputsStandard(ptx, &cache) {
+		ret = state.Invalid(false, model.REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs", "")
+		return
+	}
+
+	sigOpsCount := GetTransactionSigOpCount(tx, &cache, policy.STANDARD_SCRIPT_VERIFY_FLAGS)
+
+	valueOut := ptx.GetValueOut()
+	fees := int64(valueIn) - valueOut
+	// nModifiedFees includes any fee deltas from PrioritiseTransaction
+	modifiedFees := fees
+	priorityDummy := float64(0)
+	pool.ApplyDeltas(txid, priorityDummy, modifiedFees)
+
+	var inChainInputValue btcutil.Amount
+	priority := cache.GetPriority(ptx, uint32(GChainActive.Height()), &inChainInputValue)
+
+	// Keep track of transactions that spend a coinbase, which we re-scan
+	// during reorgs to ensure COINBASE_MATURITY is still met.
+	spendsCoinbase := false
+	for _, txin := range ptx.Ins {
+		coin := cache.AccessCoin(txin.PreviousOutPoint)
+		if coin.IsCoinBase() {
+			spendsCoinbase = true
+			break
+		}
+	}
+
+	entry := mempool.NewTxMempoolEntry(tx, btcutil.Amount(fees), acceptTime, priority, uint(GChainActive.Height()),
+		inChainInputValue, spendsCoinbase, int64(sigOpsCount), &lp)
+
+	size := entry.TxSize
+
+	// Check that the transaction doesn't have an excessive number of
+	// sigops, making it impossible to mine. Since the coinbase transaction
+	// itself can contain sigops MAX_STANDARD_TX_SIGOPS is less than
+	// MAX_BLOCK_SIGOPS_PER_MB; we still consider this an invalid rather
+	// than merely non-standard transaction.
+	if uint(sigOpsCount) > policy.MAX_STANDARD_TX_SIGOPS {
+		ret = state.Dos(0, false, model.REJECT_NONSTANDARD, "bad-txns-too-many-sigops",
+			false, strconv.Itoa(sigOpsCount))
+		return
+	}
+
+	relaypriority := utils.GetBoolArg("-relaypriority", DEFAULT_RELAYPRIORITY)
+	minFeeRate := gminRelayTxFee.GetFee(size)
+	allow := mempool.AllowFree(entry.GetPriority(uint(GChainActive.Height() + 1)))
+	if relaypriority && modifiedFees < minFeeRate && !allow {
+		// Require that free transactions have sufficient priority to be
+		// mined in the next block.
+		ret = state.Dos(0, false, model.REJECT_INSUFFICIENTFEE, "insufficient priority",
+			false, "")
+		return
+	}
+
+	// Continuously rate-limit free (really, very-low-fee) transactions.
+	// This mitigates 'penny-flooding' -- sending thousands of free
+	// transactions just to be annoying or make others' transactions take
+	// longer to confirm.
+	if limitFree && modifiedFees < minFeeRate {
+		now := time.Now().Second()
+
+		// todo LOCK(csFreeLimiter)
+		// Use an exponentially decaying ~10-minute window:
+		gfreeCount *= math.Pow(1.0-1.0/600.0, float64(now-glastTime))
+		glastTime = now
+		// -limitfreerelay unit is thousand-bytes-per-minute
+		// At default rate it would take over a month to fill 1GB
+		limitfreerelay := utils.GetArg("-limitfreerelay", DefaultLimitfreerelay)
+		if gfreeCount+float64(size) >= float64(limitfreerelay*10*1000) {
+			ret = state.Dos(0, false, model.REJECT_INSUFFICIENTFEE,
+				"rate limited free transaction", false, "")
+			return
+		}
+
+		// todo log file
+		fmt.Printf("mempool Rate limit dFreeCount: %f => %f\n", gfreeCount, gfreeCount+float64(size))
+		gfreeCount += float64(size)
+	}
+
+	if absurdFee != 0 && fees > int64(absurdFee) {
+		ret = state.Invalid(false, REJECT_HIGHFEE, "absurdly-high-fee",
+			fmt.Sprintf("%d > %d", fees, int64(absurdFee)))
+		return
+	}
+
+	// Calculate in-mempool ancestors, up to a limit.
+	limitAncestors := utils.GetArg("-limitancestorcount", DefaultAncestorLimit)
+	limitAncestorSize := utils.GetArg("-limitancestorsize", DefaultAncestorSizeLimit) * 1000
+	limitDescendants := utils.GetArg("-limitdescendantcount", DefaultDescendantLimit)
+	limitDescendantSize := utils.GetArg("-limitdescendantsize", DefaultDescendantSizeLimit) * 1000
+	setAncestors := set.New()
+
+	if err := pool.CalculateMemPoolAncestors(entry, setAncestors, uint64(limitAncestors), uint64(limitAncestorSize),
+		uint64(limitDescendants), uint64(limitDescendantSize), true); err != nil {
+		ret = state.Dos(0, false, model.REJECT_NONSTANDARD, "too-long-mempool-chain",
+			false, err.Error())
+		return
+	}
+
+	var scriptVerifyFlags = int64(policy.STANDARD_SCRIPT_VERIFY_FLAGS)
+	if !msg.ActiveNetParams.RequireStandard {
+		scriptVerifyFlags = utils.GetArg("-promiscuousmempoolflags", int64(policy.STANDARD_SCRIPT_VERIFY_FLAGS))
+	}
+
+	// Check against previous transactions. This is done last to help
+	// prevent CPU exhaustion denial-of-service attacks.
+	txData := model.NewPrecomputedTransactionData(ptx)
+	if !CheckInputs(ptx, state, &cache, true, uint32(scriptVerifyFlags), true,
+		false, txData, nil) {
+		// State filled in by CheckInputs.
+		ret = false
+		return
+	}
+
+	// Check again against the current block tip's script verification flags
+	// to cache our script execution flags. This is, of course, useless if
+	// the next block has different script flags from the previous one, but
+	// because the cache tracks script flags for us it will auto-invalidate
+	// and we'll just have a few blocks of extra misses on soft-fork
+	// activation.
+	//
+	// This is also useful in case of bugs in the standard flags that cause
+	// transactions to pass as valid when they're actually invalid. For
+	// instance the STRICTENC flag was incorrectly allowing certain CHECKSIG
+	// NOT scripts to pass, even though they were invalid.
+	//
+	// There is a similar check in CreateNewBlock() to prevent creating
+	// invalid blocks (using TestBlockValidity), however allowing such
+	// transactions into the mempool can be exploited as a DoS attack.
+	currentBlockScriptVerifyFlags := GetBlockScriptFlags(GChainActive.Tip(), params) // todo confirm params
+	if !CheckInputsFromMempoolAndCache(ptx, state, &cache, pool, currentBlockScriptVerifyFlags, true, txData) {
+		// If we're using promiscuousmempoolflags, we may hit this normally.
+		// Check if current block has some flags that scriptVerifyFlags does
+		// not before printing an ominous warning.
+		if ^scriptVerifyFlags&int64(currentBlockScriptVerifyFlags) == 0 {
+			// todo log write
+			fmt.Printf("ERROR: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY"+
+				" but not STANDARD flags %s, %s", txid.ToString(), FormatStateMessage(state))
+			ret = false
+			return
+		}
+
+		if !CheckInputs(ptx, state, &cache, true, policy.MANDATORY_SCRIPT_VERIFY_FLAGS,
+			true, false, txData, nil) {
+			fmt.Printf(": ConnectInputs failed against MANDATORY but not STANDARD flags due to "+
+				"promiscuous mempool %s, %s", txid.ToString(), FormatStateMessage(state))
+			ret = false
+			return
+		}
+
+		fmt.Println("Warning: -promiscuousmempool flags set to not include currently enforced soft forks," +
+			" this may break mining or otherwise cause instability!")
+	}
+
+	// This transaction should only count for fee estimation if
+	// the node is not behind and it is not dependent on any other
+	// transactions in the mempool.
+	validForFeeEstimation := IsCurrentForFeeEstimation() && pool.HasNoInputsOf(ptx)
+	// Store transaction in memory.
+	// todo argument number
+	pool.AddUncheckedWithAncestors(&txid, entry, setAncestors, validForFeeEstimation)
+
+	// Trim mempool and check if tx was trimmed.
+	if !overrideMempoolLimit {
+		maxmempool := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+		mempoolExpiry := utils.GetArg("-mempoolexpiry", DefaultMempoolExpiry) * 60 * 60
+		LimitMempoolSize(pool, maxmempool, mempoolExpiry)
+
+		if !pool.Exists(txid) {
+			ret = state.Dos(0, false, model.REJECT_INSUFFICIENTFEE, "mempool full", false, "")
+			return
+		}
+	}
+
+	// todo signal deal
+	// GetMainSignals().SyncTransaction(tx, nullptr, CMainSignals::SYNC_TRANSACTION_NOT_IN_BLOCK);
+
+	ret = true
+	return
+}
+
+func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
+	expired := pool.Expire(utils.GetMockTime() - age)
+	if expired != 0 {
+		// todo write log
+		fmt.Printf("mempool Expired %d transactions from the memory pool\n", expired)
+	}
+	noSpendsRemaining := algorithm.NewVector()
+	pool.TrimToSize(limit, noSpendsRemaining)
+	for _, outpoint := range noSpendsRemaining.Array {
+		gcoinsTip.UnCache(outpoint.(*model.OutPoint))
+	}
+
+}
+
+func IsCurrentForFeeEstimation() bool {
+	// todo AssertLockHeld(cs_main)
+	if IsInitialBlockDownload() {
+		return false
+	}
+	if int64(GChainActive.Tip().GetBlockTime()) < utils.GetMockTime()-MaxFeeEstimationTipAge {
+		return false
+	}
+	return true
+}
+
+// CheckInputsFromMempoolAndCache Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
+// were somehow broken and returning the wrong scriptPubKeys
+func CheckInputsFromMempoolAndCache(tx *model.Tx, state *model.ValidationState, cache *utxo.CoinsViewCache,
+	mpool *mempool.Mempool, flags uint32, cacheSigStore bool, txData *model.PrecomputedTransactionData) bool {
 
 	return true
 }
 
-func AcceptToMemoryPoolWithTime(config *Config, mpool *mempool.Mempool, state *model.ValidationState,
+// CheckInputs Check whether all inputs of this transaction are valid (no double spends,
+// scripts & sigs, amounts). This does not modify the UTXO set.
+//
+// If pvChecks is not nullptr, script checks are pushed onto it instead of being
+// performed inline. Any script checks which are not necessary (eg due to script
+// execution cache hits) are, obviously, not pushed onto pvChecks/run.
+//
+// Setting sigCacheStore/scriptCacheStore to false will remove elements from the
+// corresponding cache which are matched. This is useful for checking blocks
+// where we will likely never need the cache entry again.
+func CheckInputs(tx *model.Tx, state *model.ValidationState, cache *utxo.CoinsViewCache, scriptChecks bool, flags uint32,
+	sigCacheStore bool, scirptCacheStore bool, txData *model.PrecomputedTransactionData, checks []*ScriptCheck) bool {
+
+	return true
+}
+
+// CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
+//
+// Simulates calling SequenceLocks() with data from the tip of the current
+// active chain. Optionally stores in LockPoints the resulting height and time
+// calculated and the hash of the block needed for calculation or skips the
+// calculation and uses the LockPoints passed in for evaluation. The LockPoints
+// should not be considered valid if CheckSequenceLocks returns false.
+//
+// See consensus/consensus.h for flag definitions.
+func CheckSequenceLocks(tx *model.Tx, flags int, lp *mempool.LockPoints, useExistingLockPoints bool) bool {
+	return true
+}
+
+// AreInputsStandard Check for standard transaction types
+// cache Map of previous transactions that have outputs we're spending
+func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
+	return true
+}
+
+// GetTransactionSigOpCount Compute total signature operation of a transaction.
+// @param[in] tx     Transaction for which we are computing the cost
+// @param[in] cache Map of previous transactions that have outputs we're spending
+// @param[out] flags Script verification flags
+// @return Total signature operation cost of tx
+func GetTransactionSigOpCount(tx *model.Tx, cache *utxo.CoinsViewCache, flags uint) int {
+	sigOps := tx.GetSigOpCountWithoutP2SH()
+	if tx.IsCoinBase() {
+		return sigOps
+	}
+
+	if flags&core.SCRIPT_VERIFY_P2SH != 0 {
+		sigOps += GetP2SHSigOpCount(tx, cache)
+	}
+
+	return sigOps
+}
+
+// GetP2SHSigOpCount Count ECDSA signature operations in pay-to-script-hash inputs
+// cache Map of previous transactions that have outputs we're spending
+// return number of sigops required to validate this transaction's inputs
+func GetP2SHSigOpCount(tx *model.Tx, cache *utxo.CoinsViewCache) int {
+	if tx.IsCoinBase() {
+		return 0
+	}
+
+	sigOps := 0
+	for _, txin := range tx.Ins {
+		prevout := cache.GetOutputFor(txin)
+		if prevout.Script.IsPayToScriptHash() {
+			count, _ := prevout.Script.GetSigOpCountFor(txin.Script)
+			sigOps += count
+		}
+	}
+
+	return sigOps
+}
+
+func AcceptToMemoryPoolWithTime(params *msg.BitcoinParams, mpool *mempool.Mempool, state *model.ValidationState,
 	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
 	overrideMempoolLimit bool, absurdFee btcutil.Amount) bool {
 
 	coinsToUncache := make([]*model.OutPoint, 0)
-	res := AcceptToMemoryPoolWorker(config, mpool, state, tx, limitFree, missingInputs, acceptTime,
+	res := AcceptToMemoryPoolWorker(params, mpool, state, tx, limitFree, missingInputs, acceptTime,
 		txReplaced, overrideMempoolLimit, absurdFee, coinsToUncache)
 
 	if !res {
@@ -2376,10 +2904,12 @@ func AcceptToMemoryPoolWithTime(config *Config, mpool *mempool.Mempool, state *m
 
 	stateDummy := &model.ValidationState{}
 	FlushStateToDisk(stateDummy, FLUSH_STATE_PERIODIC, 0)
-	return res
 
+	return res
 }
-func LoadMempool(config *Config) bool {
+
+// LoadMempool Load the mempool from disk
+func LoadMempool(params *msg.BitcoinParams) bool {
 	expiryTimeout := (utils.GetArg("-mempoolexpiry", DefaultMempoolExpiry)) * 60 * 60
 
 	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat", os.O_RDONLY, 0666)
@@ -2431,7 +2961,8 @@ func LoadMempool(config *Config) bool {
 		vs := &model.ValidationState{}
 		if txPoolInfo.Time+expiryTimeout > int64(now.Second()) {
 			// todo LOCK(cs_main)
-			AcceptToMemoryPoolWithTime(config, gmpool, vs, txPoolInfo.Tx, true, nil,
+
+			AcceptToMemoryPoolWithTime(params, gmpool, vs, txPoolInfo.Tx, true, nil,
 				txPoolInfo.Time, nil, false, 0)
 
 			if vs.IsValid() {
@@ -2465,9 +2996,8 @@ func LoadMempool(config *Config) bool {
 			if err != nil {
 				panic(err)
 			}
-			var hashCopy utils.Hash
-			copy(hashCopy[:], hash[:])
-			mapDeltas[hashCopy] = btcutil.Amount(amount)
+
+			mapDeltas[hash] = btcutil.Amount(amount)
 		}
 
 		for hash, amount := range mapDeltas {
@@ -2479,6 +3009,7 @@ func LoadMempool(config *Config) bool {
 	return true
 }
 
+// DumpMempool Dump the mempool to disk
 func DumpMempool() {
 	start := time.Now().Second()
 
