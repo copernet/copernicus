@@ -2468,6 +2468,92 @@ func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.Valida
 	return ContextualCheckTransaction(params, tx, state, blockHeight, lockTimeCutoff)
 }
 
+func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
+	//todo:not finish
+	return true
+}
+
+func RewindBlockIndex(params *msg.BitcoinParams) bool {
+	//TODO:LOCK(cs_main);
+	nHeight := GChainActive.Height() + 1
+	// nHeight is now the height of the first insufficiently-validated block, or tipHeight + 1
+	var state *model.ValidationState
+	pindex := GChainActive.Tip()
+	for GChainActive.Height() >= nHeight {
+		if GfPruneMode && (GChainActive.Tip().Status&BLOCK_HAVE_DATA) != 0 {
+			// If pruning, don't try rewinding past the HAVE_DATA point; since
+			// older blocks can't be served anyway, there's no need to walk
+			// further, and trying to DisconnectTip() will fail (and require a
+			// needless reindex/redownload of the blockchain).
+			break
+		}
+		if !(DisconnectTip(params, state, true)) {
+			log.Error("RewindBlockIndex: unable to disconnect block at height %d", pindex.Height)
+		}
+		// Occasionally flush state to disk.
+		if !FlushStateToDisk(state, FLUSH_STATE_PERIODIC, 0) {
+			return false
+		}
+	}
+
+	// Reduce validity flag and have-data flags.
+	// We do this after actual disconnecting, otherwise we'll end up writing the
+	// lack of data to disk before writing the chainstate, resulting in a
+	// failure to continue if interrupted.
+	var chainState *ChainState
+	for _, value := range MapBlockIndex.Data {
+		pindexIter := value
+
+		if pindexIter.IsValid(BLOCK_VALID_TRANSACTIONS) && pindexIter.ChainTx > 0 {
+			chainState.setBlockIndexCandidates.AddInterm(pindexIter)
+		}
+	}
+
+	PruneBlockIndexCandidates()
+	chainState.CheckBlockIndex(params)
+
+	if !FlushStateToDisk(state, FLUSH_STATE_ALWAYS, 0) {
+		return false
+	}
+	return true
+}
+
+// UnloadBlockIndex may not be used after any connections are up as much of the peer-processing
+// logic assumes a consistent block index state
+func UnloadBlockIndex() {
+	//TODO:LOCK(cs_main);
+	var c *ChainState
+	c.setBlockIndexCandidates.End()
+	GChainActive.SetTip(nil)
+	gpindexBestInvalid = nil
+	gpindexBestHeader = nil
+	gmpool.Clear()
+	c.MapBlocksUnlinked = nil
+	ginfoBlockFile = nil
+	gLastBlockFile = 0
+	gnBlockSequenceID = 1
+	gsetDirtyFileInfo.Clear()
+	gsetDirtyBlockIndex.Clear()
+	versionBitsCache.Clear()
+	for b := 0; b < VERSIONBITS_NUM_BITS; b++ {
+		warningcache[b] = nil
+	}
+
+	for entry := range MapBlockIndex.Data {
+		delete(MapBlockIndex.Data, entry)
+	}
+	MapBlockIndex.Data = nil
+	GfHavePruned = false
+}
+
+func LoadBlockIndex(params *msg.BitcoinParams) bool {
+	// Load block index from databases
+	if !GfReindex && !LoadBlockIndexDB(params) {
+		return false
+	}
+	return true
+}
+
 func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, state *model.ValidationState,
 	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
 	overrideMempoolLimit bool, absurdFee btcutil.Amount, coinsToUncache []*model.OutPoint) (ret bool) {
