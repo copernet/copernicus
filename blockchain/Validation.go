@@ -140,7 +140,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -2512,10 +2512,7 @@ func RewindBlockIndex(params *msg.BitcoinParams) bool {
 	PruneBlockIndexCandidates()
 	chainState.CheckBlockIndex(params)
 
-	if !FlushStateToDisk(state, FLUSH_STATE_ALWAYS, 0) {
-		return false
-	}
-	return true
+	return FlushStateToDisk(state, FLUSH_STATE_ALWAYS, 0)
 }
 
 // UnloadBlockIndex may not be used after any connections are up as much of the peer-processing
