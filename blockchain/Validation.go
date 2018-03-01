@@ -210,9 +210,6 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *
 	if pindexPrev != nil {
 		nHeight = pindexPrev.Height + 1
 	}
-	if pindexPrev == nil {
-		nHeight = 0
-	}
 
 	nLockTimeFlags := 0
 	if VersionBitsState(pindexPrev, params, msg.DEPLOYMENT_CSV, &Gversionbitscache) == THRESHOLD_ACTIVE {
@@ -2378,10 +2375,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	txid := ptx.TxHash()
 
 	// nil pointer
-	if missingInputs == nil {
-		return false
-	}
-	if *missingInputs {
+	if missingInputs != nil {
 		*missingInputs = false
 	}
 
@@ -2465,7 +2459,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 			}
 
 			if !cache.HaveCoin(txin.PreviousOutPoint) {
-				if *missingInputs {
+				if missingInputs != nil {
 					*missingInputs = true
 				}
 
