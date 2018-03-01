@@ -108,7 +108,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -502,7 +502,7 @@ func WriteBlockToDisk(block *model.Block, pos *DiskBlockPos, messageStart btcuti
 	// Open history file to append
 	fileOut := OpenBlockFile(pos, false)
 	if fileOut == nil {
-		panic("WriteBlockToDisk: OpenBlockFile failed")
+		logger.ErrorLog("WriteBlockToDisk: OpenBlockFile failed")
 	}
 
 	// Write index header
@@ -511,14 +511,14 @@ func WriteBlockToDisk(block *model.Block, pos *DiskBlockPos, messageStart btcuti
 	//4 bytes
 	err := utils.BinarySerializer.PutUint32(fileOut, binary.LittleEndian, uint32(messageStart))
 	if err != nil {
-		panic("the messageStart write failed")
+		logger.ErrorLog("the messageStart write failed")
 	}
 	utils.WriteVarInt(fileOut, uint64(size))
 
 	// Write block
 	fileOutPos, err := fileOut.Seek(0, 1)
 	if fileOutPos < 0 || err != nil {
-		panic("WriteBlockToDisk: ftell failed")
+		logger.ErrorLog("WriteBlockToDisk: ftell failed")
 	}
 
 	pos.Pos = int(fileOutPos)
@@ -636,7 +636,12 @@ func AllocateFileRange(file *os.File, offset int, length uint32) {
 }
 
 func CheckDiskSpace(nAdditionalBytes uint32) bool {
+	path := conf.GetDataPath()
 	fs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &fs)
+	if err != nil {
+		return logger.ErrorLog("can not get disk info")
+	}
 	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
 
 	// Check for nMinDiskSpace bytes (currently 50MB)
