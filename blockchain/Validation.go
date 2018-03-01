@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"gopkg.in/fatih/set.v0"
@@ -51,6 +52,8 @@ const (
 	DefaultDescendantLimit     = 25
 	DefaultDescendantSizeLimit = 101
 	MaxFeeEstimationTipAge     = 3 * 60 * 60
+	// gminDiskSpace: Minimum disk space required - used in CheckDiskSpace()
+	gminDiskSpace = 52428800
 )
 
 // Reject codes greater or equal to this can be returned by AcceptToMemPool for
@@ -541,12 +544,49 @@ func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState
 	return true
 }
 
-func AbortNode(state *model.ValidationState, reason, userMessage string) bool {
+func AbortNodes(reason, userMessage string) bool {
+	log.Info("*** %s\n", reason)
 
+	//todo:
+	if len(userMessage) == 0 {
+		panic("Error: A fatal internal error occurred, see debug.log for details")
+	} else {
+
+	}
+	StartShutdown()
+	return false
+}
+
+func AbortNode(state *model.ValidationState, reason, userMessage string) bool {
+	AbortNodes(reason, userMessage)
 	return state.Error(reason)
 }
 
-func WriteBlockToDisk(pblock *model.Block, pos *DiskBlockPos, messageStart btcutil.BitcoinNet) bool {
+func WriteBlockToDisk(block *model.Block, pos *DiskBlockPos, messageStart btcutil.BitcoinNet) bool {
+	// Open history file to append
+	fileOut := OpenBlockFile(pos, false)
+	if fileOut == nil {
+		logger.ErrorLog("WriteBlockToDisk: OpenBlockFile failed")
+	}
+
+	// Write index header
+	size := block.SerializeSize()
+
+	//4 bytes
+	err := utils.BinarySerializer.PutUint32(fileOut, binary.LittleEndian, uint32(messageStart))
+	if err != nil {
+		logger.ErrorLog("the messageStart write failed")
+	}
+	utils.WriteVarInt(fileOut, uint64(size))
+
+	// Write block
+	fileOutPos, err := fileOut.Seek(0, 1)
+	if fileOutPos < 0 || err != nil {
+		logger.ErrorLog("WriteBlockToDisk: ftell failed")
+	}
+
+	pos.Pos = int(fileOutPos)
+	block.Serialize(fileOut)
 
 	return true
 }
@@ -640,18 +680,62 @@ func FindBlockPos(state *model.ValidationState, pos *DiskBlockPos, nAddSize uint
 	return true
 }
 
-func AllocateFileRange(file *os.File, offset int, lenth uint32) {
-
+func AllocateFileRange(file *os.File, offset int, length uint32) {
+	// Fallback version
+	// TODO: just write one byte per block
+	var buf [65536]byte
+	file.Seek(int64(offset), 0)
+	for length > 0 {
+		now := 65536
+		if int(length) < now {
+			now = int(length)
+		}
+		// Allowed to fail; this function is advisory anyway.
+		_, err := file.Write(buf[:])
+		if err != nil {
+			panic("the file write failed.")
+		}
+		length -= uint32(now)
+	}
 }
 
 func CheckDiskSpace(nAdditionalBytes uint32) bool {
+	path := conf.GetDataPath()
+	fs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &fs)
+	if err != nil {
+		return logger.ErrorLog("can not get disk info")
+	}
+	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
+
+	// Check for nMinDiskSpace bytes (currently 50MB)
+	if int(nFreeBytesAvailable) < gminDiskSpace+int(nAdditionalBytes) {
+		return AbortNodes("Disk space is low!", "Error: Disk space is low!")
+	}
 	return true
 }
 
 func FlushBlockFile(fFinalize bool) {
-	// todo !!! add file sync.lock,
-	//posOld := NewDiskBlockPos(gLastBlockFile, 0)
+	// todo !!! add file sync.lock, LOCK(cs_LastBlockFile);
+	posOld := NewDiskBlockPos(gLastBlockFile, 0)
 
+	fileOld := OpenBlockFile(posOld, false)
+	if fileOld != nil {
+		if fFinalize {
+			os.Truncate(fileOld.Name(), int64(ginfoBlockFile[gLastBlockFile].Size))
+			fileOld.Sync()
+			fileOld.Close()
+		}
+	}
+
+	fileOld = OpenUndoFile(*posOld, false)
+	if fileOld != nil {
+		if fFinalize {
+			os.Truncate(fileOld.Name(), int64(ginfoBlockFile[gLastBlockFile].UndoSize))
+			fileOld.Sync()
+			fileOld.Close()
+		}
+	}
 }
 
 func OpenBlockFile(pos *DiskBlockPos, fReadOnly bool) *os.File {
@@ -668,7 +752,27 @@ func OpenDiskFile(pos DiskBlockPos, prefix string, fReadOnly bool) *os.File {
 	}
 	path := GetBlockPosFilename(pos, prefix)
 	utils.MakePath(path)
-	return nil
+
+	file, err := os.Open(path + "rb+")
+	if file == nil && !fReadOnly || err != nil {
+		file, err = os.Open(path + "wb+")
+		if err == nil {
+			panic("open wb+ file failed ")
+		}
+	}
+	if file == nil {
+		log.Info("Unable to open file %s\n", path)
+		return nil
+	}
+	if pos.Pos > 0 {
+		if _, err := file.Seek(0, 1); err != nil {
+			log.Info("Unable to seek to position %u of %s\n", pos.Pos, path)
+			file.Close()
+			return nil
+		}
+	}
+
+	return file
 }
 
 func GetBlockPosFilename(pos DiskBlockPos, prefix string) string {
