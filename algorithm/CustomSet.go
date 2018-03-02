@@ -108,3 +108,8 @@ func (c *CustomSet) HasItem(item interface{}) bool {
 	}
 	return false
 }
+
+func (c *CustomSet) Clear() {
+	c.sortData = make([]interface{}, 0)
+	c.data = make(map[interface{}]struct{})
+}

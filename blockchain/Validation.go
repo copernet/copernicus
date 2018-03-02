@@ -151,9 +151,9 @@ func ContextualCheckTransaction(params *msg.BitcoinParams, tx *model.Tx, state *
 }
 
 func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *model.ValidationState, pindexPrev *BlockIndex) bool {
-	nHeight := pindexPrev.Height + 1
-	if pindexPrev == nil {
-		nHeight = 0
+	nHeight := 0
+	if pindexPrev != nil {
+		nHeight = pindexPrev.Height + 1
 	}
 
 	nLockTimeFlags := 0
@@ -1040,7 +1040,8 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 			// might cause an outside process to abandon a transaction and
 			// then have it inadvertantly cleared by the notification that
 			// the conflicted transaction was evicted.
-
+			mrt := mempool.NewMempoolConflictRemoveTrack(Gmempool)
+			_ = mrt
 			pindexOldTip := GChainState.ChainAcTive.Tip()
 			if pindexMostWork == nil {
 				pindexMostWork = FindMostWorkChain()
@@ -1157,7 +1158,8 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader, 
 		}
 
 		// todo !! Add time param in the function
-		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, 0) {
+		mTime := MedianTime{}
+		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, mTime.AdjustedTime().Second()) {
 			return false
 		}
 	}
