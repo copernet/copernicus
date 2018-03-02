@@ -1550,8 +1550,7 @@ func GetBlockSubsidy(height int, params msg.BitcoinParams) btcutil.Amount {
 		return 0
 	}
 
-	var nSubsidy btcutil.Amount
-	nSubsidy = btcutil.Amount(50 * utils.COIN)
+	nSubsidy := btcutil.Amount(50 * utils.COIN)
 	// Subsidy is cut in half every 210,000 blocks which will occur
 	// approximately every 4 years.
 	return btcutil.Amount(uint(nSubsidy) >> uint(halvings))
@@ -1568,11 +1567,11 @@ func FindUndoPos(state *model.ValidationState, nFile int, pos *DiskBlockPos, nAd
 	nOldChunks := (pos.Pos + UNDOFILE_CHUNK_SIZE - 1) / UNDOFILE_CHUNK_SIZE
 	nNewChunks := (nNewSize + UNDOFILE_CHUNK_SIZE - 1) / UNDOFILE_CHUNK_SIZE
 
-	if int(nNewChunks) > nOldChunks {
+	if nNewChunks > uint32(nOldChunks) {
 		if GfPruneMode {
 			GfCheckForPruning = true
 		}
-		if CheckDiskSpace(uint32(nNewChunks*UNDOFILE_CHUNK_SIZE) - uint32(pos.Pos)) {
+		if CheckDiskSpace(nNewChunks*UNDOFILE_CHUNK_SIZE - uint32(pos.Pos)) {
 			file := OpenUndoFile(*pos, false)
 			if file != nil {
 				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks*UNDOFILE_CHUNK_SIZE, pos.File)
@@ -1681,8 +1680,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	// further duplicate transactions descending from the known pairs either. If
 	// we're on the known chain at height greater than where BIP34 activated, we
 	// can save the db accesses needed for the BIP30 check.
-	var pindexBIP34height *BlockIndex
-	pindexBIP34height = pindex.PPrev.GetAncestor(param.BIP34Height)
+	pindexBIP34height := pindex.PPrev.GetAncestor(param.BIP34Height)
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
 	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil || !(pindexBIP34height.GetBlockHash() == param.BIP34Hash))
@@ -1799,8 +1797,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 		log.Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gnTimeConnect)*0.000001)
 	}
 
-	var blockReward btcutil.Amount
-	blockReward = nFees + GetBlockSubsidy(pindex.Height, *param)
+	blockReward := nFees + GetBlockSubsidy(pindex.Height, *param)
 
 	if pblock.Transactions[0].GetValueOut() > int64(blockReward) {
 		return state.Dos(100, logger.ErrorLog("ConnectBlock(): coinbase pays too much "), model.REJECT_INVALID, "bad-cb-amount", false, "")
