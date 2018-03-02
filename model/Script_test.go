@@ -156,5 +156,4 @@ func TestScriptPushInt64(t *testing.T) {
 	if script.bytes[0] != 235 && script.bytes[1] != 0 {
 		t.Errorf("func PushInt64() error: the element should be 235 instead of : %d", script.bytes[0])
 	}
-
 }

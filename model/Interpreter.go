@@ -1178,5 +1178,40 @@ func CastToBool(vch []byte) bool {
 }
 
 func NewInterpreter() *Interpreter {
-	return nil
+	return &Interpreter{
+		stack: algorithm.NewStack(),
+	}
+}
+
+type TxSignatureChecker struct {
+	txTo   *Tx
+	in     int
+	amount btcutil.Amount
+	txData *PrecomputedTransactionData
+}
+
+func VerifyScript(scriptSig *Script, scriptPubKey *Script, flags uint32, checker *TxSignatureChecker,
+	err *core.ScriptError) bool {
+
+	SetError(err, core.SCRIPT_ERR_UNKNOWN_ERROR)
+
+	// If FORKID is enabled, we also ensure strict encoding.
+	if flags&core.SCRIPT_ENABLE_SIGHASH_FORKID != 0 {
+		flags |= core.SCRIPT_VERIFY_STRICTENC
+	}
+
+	if flags&core.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
+		return SetError(err, core.SCRIPT_ERR_SIG_PUSHONLY)
+	}
+
+	// todo complete
+
+	return true
+}
+
+func SetError(ret *core.ScriptError, serror core.ScriptError) bool {
+	if ret != nil {
+		*ret = serror
+	}
+	return false
 }
