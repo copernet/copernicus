@@ -2519,13 +2519,12 @@ func RewindBlockIndex(params *msg.BitcoinParams) bool {
 // logic assumes a consistent block index state
 func UnloadBlockIndex() {
 	//TODO:LOCK(cs_main);
-	var c *ChainState
-	c.setBlockIndexCandidates.End()
+	GChainState.setBlockIndexCandidates.End()
 	GChainActive.SetTip(nil)
 	gpindexBestInvalid = nil
 	gpindexBestHeader = nil
 	gmpool.Clear()
-	c.MapBlocksUnlinked = nil
+	GChainState.MapBlocksUnlinked = nil
 	ginfoBlockFile = nil
 	gLastBlockFile = 0
 	gnBlockSequenceID = 1
@@ -2533,13 +2532,10 @@ func UnloadBlockIndex() {
 	gsetDirtyBlockIndex.Clear()
 	versionBitsCache.Clear()
 	for b := 0; b < VERSIONBITS_NUM_BITS; b++ {
-		warningcache[b] = nil
+		warningcache[b] = make(ThresholdConditionCache)
 	}
 
-	for entry := range MapBlockIndex.Data {
-		delete(MapBlockIndex.Data, entry)
-	}
-	MapBlockIndex.Data = nil
+	MapBlockIndex.Data = make(map[utils.Hash]*BlockIndex)
 	GfHavePruned = false
 }
 
