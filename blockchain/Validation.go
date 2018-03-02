@@ -1571,11 +1571,11 @@ func FindUndoPos(state *model.ValidationState, nFile int, pos *DiskBlockPos, nAd
 		if GfPruneMode {
 			GfCheckForPruning = true
 		}
-		if CheckDiskSpace(nNewChunks*uint32(UNDOFILE_CHUNK_SIZE) - uint32(pos.Pos)) {
+		if CheckDiskSpace(nNewChunks*UNDOFILE_CHUNK_SIZE - uint32(pos.Pos)) {
 			file := OpenUndoFile(*pos, false)
 			if file != nil {
 				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks*UNDOFILE_CHUNK_SIZE, pos.File)
-				AllocateFileRange(file, pos.Pos, uint32(nNewChunks*UNDOFILE_CHUNK_SIZE)-uint32(pos.Pos))
+				AllocateFileRange(file, pos.Pos, nNewChunks*UNDOFILE_CHUNK_SIZE-uint32(pos.Pos))
 				file.Close()
 			}
 		} else {
