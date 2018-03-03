@@ -1752,7 +1752,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 		tx := pblock.Transactions[i]
 		nInputs += len(tx.Ins)
 		if !tx.IsCoinBase() {
-			if !view.HaveInputs(*tx) {
+			if !view.HaveInputs(tx) {
 				return state.Dos(100, logger.ErrorLog("ConnectBlock(): inputs missing/spent"), model.REJECT_INVALID, "bad-txns-inputs-missingorspent", false, "")
 			}
 
@@ -3006,7 +3006,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		}
 
 		// Are the actual inputs available?
-		if !view.HaveInputs(*ptx) {
+		if !view.HaveInputs(ptx) {
 			ret = state.Invalid(false, model.REJECT_DUPLICATE, "bad-txns-inputs-spent", "")
 			return
 		}
@@ -3429,7 +3429,7 @@ func GetSpendHeight(view *utxo.CoinsViewCache) int {
 func CheckTxInputs(tx *model.Tx, state *model.ValidationState, view *utxo.CoinsViewCache, spendHeight int) bool {
 	// This doesn't trigger the DoS code on purpose; if it did, it would make it
 	// easier for an attacker to attempt to split the network.
-	if !view.HaveInputs(*tx) {
+	if !view.HaveInputs(tx) {
 		return state.Invalid(false, 0, "", "Inputs unavailable")
 	}
 
