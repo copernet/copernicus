@@ -5,10 +5,7 @@ import (
 )
 
 func com(a, b interface{}) bool {
-	if a.(int) > b.(int) {
-		return true
-	}
-	return false
+	return a.(int) > b.(int)
 }
 
 func TestCustomSetAddInterm(t *testing.T) {

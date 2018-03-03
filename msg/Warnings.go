@@ -111,5 +111,4 @@ func GetWarnings(strFor string) string {
 	}
 
 	panic("GetWarnings(): invalid parameter")
-	return "error"
 }

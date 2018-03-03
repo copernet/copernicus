@@ -3,7 +3,7 @@ package mempool
 import (
 	"testing"
 
-	"gopkg.in/fatih/set.v0"
+	set "gopkg.in/fatih/set.v0"
 )
 
 func TestDynamicUsage(t *testing.T) {

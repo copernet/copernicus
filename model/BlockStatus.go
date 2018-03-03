@@ -1,4 +1,4 @@
-package blockchain
+package model
 
 const (
 	// BLOCK_VALID_UNKNOWN : Unused.

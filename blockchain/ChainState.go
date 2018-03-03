@@ -6,19 +6,20 @@ import (
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/mempool"
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
 
 type BlockMap struct {
-	Data map[utils.Hash]*BlockIndex
+	Data map[utils.Hash]*model.BlockIndex
 }
 
 // ChainState store the blockchain global state
 type ChainState struct {
-	ChainAcTive       Chain
+	ChainAcTive       model.Chain
 	MapBlockIndex     BlockMap
-	PindexBestInvalid *BlockIndex
+	PindexBestInvalid *model.BlockIndex
 
 	//* The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself
 	//* and all ancestors) and as good as our current tip or better. Entries may be
@@ -27,7 +28,7 @@ type ChainState struct {
 
 	// All pairs A->B, where A (or one of its ancestors) misses transactions, but B
 	// has transactions. Pruned nodes may have entries where B is missing data.
-	MapBlocksUnlinked map[*BlockIndex][]*BlockIndex
+	MapBlocksUnlinked map[*model.BlockIndex][]*model.BlockIndex
 }
 
 // Global status for blockchain
@@ -53,9 +54,9 @@ var (
 	GfTxIndex    = false
 
 	//GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
-	GindexBestHeader *BlockIndex
+	GindexBestHeader *model.BlockIndex
 	//GChainActive currently-connected chain of blocks (protected by cs_main).
-	GChainActive Chain
+	GChainActive model.Chain
 	GPruneTarget uint64
 
 	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
@@ -91,8 +92,8 @@ const (
 )
 
 func init() {
-	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*BlockIndex)
-	GChainState.MapBlocksUnlinked = make(map[*BlockIndex][]*BlockIndex)
+	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*model.BlockIndex)
+	GChainState.MapBlocksUnlinked = make(map[*model.BlockIndex][]*model.BlockIndex)
 	GChainState.setBlockIndexCandidates = algorithm.NewCustomSet(BlockIndexWorkComparator)
 	GfImporting.Store(false)
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE

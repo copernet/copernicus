@@ -11,16 +11,13 @@ import (
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/bradfitz/slice"
 	"github.com/btcboost/copernicus/algorithm"
-	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/pkg/errors"
-	"gopkg.in/fatih/set.v0"
+	set "gopkg.in/fatih/set.v0"
 )
 
 /**
@@ -126,53 +123,6 @@ func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 		return true
 	})
 	mempool.RemoveStaged(setAllRemoves, false, reason)
-}
-
-func (mempool *Mempool) RemoveForReorg(pcoins *utxo.CoinsViewCache, nMemPoolHeight uint, flags int) {
-	// Remove transactions spending a coinbase which are now immature and
-	// no-longer-final transactions
-	mempool.Mtx.Lock()
-	defer mempool.Mtx.Unlock()
-	txToRemove := set.New()
-	for _, entry := range mempool.MapTx.poolNode {
-		lp := entry.LockPoints
-		validLP := blockchain.TestLockPointValidity(lp)
-		param := msg.ActiveNetParams
-		var state model.ValidationState
-		if !blockchain.ContextualCheckTransactionForCurrentBlock(entry.TxRef, &state, param, uint(flags)) ||
-			!blockchain.CheckSequenceLocks(entry.TxRef, flags, lp, validLP) {
-			// Note if CheckSequenceLocks fails the LockPoints may still be
-			// invalid. So it's critical that we remove the tx and not depend on
-			// the LockPoints.
-			txToRemove.Add(entry)
-		} else if entry.SpendsCoinbase {
-			for _, txin := range entry.TxRef.Ins {
-				it2 := mempool.MapTx.GetEntryByHash(txin.PreviousOutPoint.Hash)
-				if it2 != nil {
-					continue
-				}
-				coin := blockchain.GpcoinsTip.AccessCoin(txin.PreviousOutPoint)
-				if mempool.CheckFrequency != 0 {
-					if coin.IsSpent() {
-						panic("the coin should not be spent ")
-					}
-				}
-				if coin.IsSpent() || (coin.IsCoinBase() && nMemPoolHeight-uint(coin.GetHeight()) < consensus.CoinbaseMaturity) {
-					txToRemove.Add(entry)
-					break
-				}
-			}
-		}
-		if !validLP {
-			entry.LockPoints = lp
-		}
-	}
-	setAllRemoves := set.New()
-	for _, it := range txToRemove.List() {
-		entry := it.(*TxMempoolEntry)
-		mempool.CalculateDescendants(entry, setAllRemoves)
-	}
-	mempool.RemoveStaged(setAllRemoves, false, REORG)
 }
 
 // CalculateDescendants calculates descendants of entry that are not already in setDescendants, and
@@ -1029,7 +979,7 @@ func (mempool *Mempool) Expire(time int64) int {
 	defer mempool.Mtx.RUnlock()
 	//toremove element type is *TxMempoolEntry
 	toremove := set.New()
-	for _, txMempoolEntry := range mempool.MapTx.poolNode {
+	for _, txMempoolEntry := range mempool.MapTx.PoolNode {
 		if txMempoolEntry.Time < time {
 			toremove.Add(txMempoolEntry)
 		}
@@ -1107,7 +1057,7 @@ func (mempool *Mempool) QueryHashs() []*utils.Hash {
 
 func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
 	iters := make([]*TxMempoolEntry, 0)
-	for _, it := range mempool.MapTx.poolNode {
+	for _, it := range mempool.MapTx.PoolNode {
 		iters = append(iters, it)
 	}
 	slice.Sort(iters[:], func(i, j int) bool {
@@ -1119,7 +1069,7 @@ func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
 }
 func (mempool *Mempool) Get(hash *utils.Hash) *model.Tx {
 	mempool.Mtx.Lock()
-	entry, ok := mempool.MapTx.poolNode[*hash]
+	entry, ok := mempool.MapTx.PoolNode[*hash]
 	if !ok {
 		return nil
 	}

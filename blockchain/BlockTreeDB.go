@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
 )
@@ -65,7 +66,7 @@ func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 	return v != nil
 }
 
-func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFile int, blockIndexes []*BlockIndex) bool {
+func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFile int, blockIndexes []*model.BlockIndex) bool {
 	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
 		for _, f := range fileInfo {
 			key := fmt.Sprintf("%c%d", orm.DB_BLOCK_FILES, f.index)

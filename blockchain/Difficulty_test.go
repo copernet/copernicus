@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -54,9 +55,9 @@ func TestCompactToBig(t *testing.T) {
 }
 
 func TestGetBlockProofEquivalentTime(t *testing.T) {
-	blocks := make([]*BlockIndex, 10000)
+	blocks := make([]*model.BlockIndex, 10000)
 	for i := uint32(0); i < 10000; i++ {
-		blocks[i] = &BlockIndex{}
+		blocks[i] = &model.BlockIndex{}
 		if i > 0 {
 			blocks[i].PPrev = blocks[i-1]
 		}

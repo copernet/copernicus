@@ -2,9 +2,9 @@ package blockchain
 
 import (
 	"fmt"
-	//"fmt"
 	"testing"
 
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -34,11 +34,11 @@ func (tc *ConditionChecker) Period(params *msg.BitcoinParams) int {
 func (tc *ConditionChecker) Threshold(params *msg.BitcoinParams) int {
 	return 900
 }
-func (tc *ConditionChecker) Condition(index *BlockIndex, params *msg.BitcoinParams) bool {
+func (tc *ConditionChecker) Condition(index *model.BlockIndex, params *msg.BitcoinParams) bool {
 	return index.Version&0x100 != 0
 }
 
-func (tc *ConditionChecker) GetStateFor(indexPrev *BlockIndex) ThresholdState {
+func (tc *ConditionChecker) GetStateFor(indexPrev *model.BlockIndex) ThresholdState {
 	v := GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 	if indexPrev != nil && indexPrev.Height == 2999 {
 		fmt.Println("state : ", v)
@@ -46,7 +46,7 @@ func (tc *ConditionChecker) GetStateFor(indexPrev *BlockIndex) ThresholdState {
 	return v
 }
 
-func (tc *ConditionChecker) GetStateSinceHeightFor(indexPrev *BlockIndex) int {
+func (tc *ConditionChecker) GetStateSinceHeightFor(indexPrev *model.BlockIndex) int {
 	return GetStateSinceHeightFor(tc, indexPrev, &paramsDummy, tc.cache)
 }
 
@@ -56,7 +56,7 @@ type VersionBitsTester struct {
 	// Test counter (to identify failures)
 	num int
 	// A fake blockchain
-	block []*BlockIndex
+	block []*model.BlockIndex
 	// 6 independent checkers for the same bit.
 	// The first one performs all checks, the second only 50%, the third only
 	// 25%, etc...
@@ -68,7 +68,7 @@ type VersionBitsTester struct {
 func newVersionBitsTester() *VersionBitsTester {
 	vt := VersionBitsTester{
 		num:   0,
-		block: make([]*BlockIndex, 0),
+		block: make([]*model.BlockIndex, 0),
 	}
 
 	var checker [CHECKERS]ConditionChecker
@@ -79,7 +79,7 @@ func newVersionBitsTester() *VersionBitsTester {
 	return &vt
 }
 
-func (versionBitsTester *VersionBitsTester) Tip() *BlockIndex {
+func (versionBitsTester *VersionBitsTester) Tip() *model.BlockIndex {
 	if len(versionBitsTester.block) == 0 {
 		return nil
 	}
@@ -87,7 +87,7 @@ func (versionBitsTester *VersionBitsTester) Tip() *BlockIndex {
 }
 
 func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
-	versionBitsTester.block = make([]*BlockIndex, 0)
+	versionBitsTester.block = make([]*model.BlockIndex, 0)
 	for i := 0; i < CHECKERS; i++ {
 		versionBitsTester.checker[i] = ConditionChecker{}
 		versionBitsTester.checker[i].cache = make(ThresholdConditionCache)
@@ -99,7 +99,7 @@ func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
 //Mine the block, util the blockChain height equal height - 1.
 func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersion int32) *VersionBitsTester {
 	for len(versionBitsTester.block) < height {
-		index := &BlockIndex{}
+		index := &model.BlockIndex{}
 		index.SetNull()
 		index.Height = len(versionBitsTester.block)
 		index.PPrev = nil
@@ -509,7 +509,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	}
 
 	// and should also be using the VERSIONBITS_TOP_BITS.
-	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+	if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
 		t.Error("the bit should be set VERSIONBITS_TOP_BITS")
 		return
 	}
@@ -526,7 +526,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 			t.Error("the bit should be set 1<<28")
 			return
 		}
-		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+		if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
 			t.Error("the bit should be set VERSIONBITS_TOP_BITS")
 			return
 		}
@@ -590,7 +590,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	// VERSIONBITS_LAST_OLD_BLOCK_VERSION.
 	// BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) &
 	// VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
-	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+	if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
 		t.Errorf("when state eqaul active, the bit should not be set ")
 	}
 
