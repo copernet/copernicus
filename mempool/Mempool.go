@@ -11,9 +11,12 @@ import (
 	beeUtils "github.com/astaxie/beego/utils"
 	"github.com/bradfitz/slice"
 	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/msg"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/pkg/errors"
@@ -128,6 +131,48 @@ func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 func (mempool *Mempool) RemoveForReorg(pcoins *utxo.CoinsViewCache, nMemPoolHeight uint, flags int) {
 	// Remove transactions spending a coinbase which are now immature and
 	// no-longer-final transactions
+	mempool.Mtx.Lock()
+	defer mempool.Mtx.Unlock()
+	txToRemove := set.New()
+	for _, entry := range mempool.MapTx.poolNode {
+		lp := entry.LockPoints
+		validLP := blockchain.TestLockPointValidity(lp)
+		param := msg.ActiveNetParams
+		var state model.ValidationState
+		if !blockchain.ContextualCheckTransactionForCurrentBlock(entry.TxRef, &state, param, uint(flags)) ||
+			!blockchain.CheckSequenceLocks(entry.TxRef, flags, lp, validLP) {
+			// Note if CheckSequenceLocks fails the LockPoints may still be
+			// invalid. So it's critical that we remove the tx and not depend on
+			// the LockPoints.
+			txToRemove.Add(entry)
+		} else if entry.SpendsCoinbase {
+			for _, txin := range entry.TxRef.Ins {
+				it2 := mempool.MapTx.GetEntryByHash(txin.PreviousOutPoint.Hash)
+				if it2 != nil {
+					continue
+				}
+				coin := blockchain.GpcoinsTip.AccessCoin(txin.PreviousOutPoint)
+				if mempool.CheckFrequency != 0 {
+					if coin.IsSpent() {
+						panic("the coin should not be spent ")
+					}
+				}
+				if coin.IsSpent() || (coin.IsCoinBase() && nMemPoolHeight-uint(coin.GetHeight()) < consensus.CoinbaseMaturity) {
+					txToRemove.Add(entry)
+					break
+				}
+			}
+		}
+		if !validLP {
+			entry.LockPoints = lp
+		}
+	}
+	setAllRemoves := set.New()
+	for _, it := range txToRemove.List() {
+		entry := it.(*TxMempoolEntry)
+		mempool.CalculateDescendants(entry, setAllRemoves)
+	}
+	mempool.RemoveStaged(setAllRemoves, false, REORG)
 }
 
 // CalculateDescendants calculates descendants of entry that are not already in setDescendants, and
@@ -576,7 +621,7 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 					iter := mempool.MapNextTx.GetLowerBoundKey(refOutPoint{txin.PreviousOutPoint.Hash, 0})
 					if iter == nil {
 						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
-					} else if oriHash := (iter.(refOutPoint).Hash); !(&oriHash).IsEqual(&txin.PreviousOutPoint.Hash) {
+					} else if oriHash := iter.(refOutPoint).Hash; !(&oriHash).IsEqual(&txin.PreviousOutPoint.Hash) {
 						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
 					}
 				}
@@ -618,7 +663,7 @@ func (mempool *Mempool) ExistsOutPoint(outpoint *model.OutPoint) bool {
 	return int(outpoint.Index) < len(txMempoolEntry.TxRef.Outs)
 }
 
-func AllowFee(priority float64) bool {
+func AllowFree(priority float64) bool {
 	// Large (in bytes) low-priority (new, small-coin) transactions need a fee.
 	return priority > AllowFreeThreshold()
 }
@@ -1071,4 +1116,56 @@ func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
 	})
 
 	return iters
+}
+func (mempool *Mempool) Get(hash *utils.Hash) *model.Tx {
+	mempool.Mtx.Lock()
+	entry, ok := mempool.MapTx.poolNode[*hash]
+	if !ok {
+		return nil
+	}
+	return entry.TxRef
+}
+
+type CoinsViewMemPool struct {
+	Base  utxo.CoinsView
+	Mpool *Mempool
+}
+
+func (m *CoinsViewMemPool) GetCoin(point *model.OutPoint, coin *utxo.Coin) bool {
+	// If an entry in the mempool exists, always return that one, as it's
+	// guaranteed to never conflict with the underlying cache, and it cannot
+	// have pruned entries (as it contains full) transactions. First checking
+	// the underlying cache risks returning a pruned entry instead.
+	ptx := m.Mpool.Get(&point.Hash)
+	if ptx != nil {
+		if int(point.Index) < len(ptx.Outs) {
+			*coin = *utxo.NewCoin(ptx.Outs[point.Index], MEMPOOL_HEIGHT, false)
+			return true
+		}
+		return false
+	}
+
+	return m.Base.GetCoin(point, coin) && !coin.IsSpent()
+}
+func (m *CoinsViewMemPool) HaveCoin(point *model.OutPoint) bool {
+	return m.Mpool.ExistsOutPoint(point) || m.Base.HaveCoin(point)
+}
+
+func (m *CoinsViewMemPool) GetBestBlock() utils.Hash {
+	return m.Base.GetBestBlock()
+}
+
+func (m *CoinsViewMemPool) BatchWrite(coinsMap utxo.CacheCoins, hash *utils.Hash) bool {
+	return m.Base.BatchWrite(coinsMap, hash)
+}
+
+func (m *CoinsViewMemPool) EstimateSize() uint64 {
+	return m.Base.EstimateSize()
+}
+
+func NewCoinsViewMemPool(base utxo.CoinsView, mempool *Mempool) *CoinsViewMemPool {
+	return &CoinsViewMemPool{
+		Base:  base,
+		Mpool: mempool,
+	}
 }

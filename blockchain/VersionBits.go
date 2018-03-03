@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/btcboost/copernicus/msg"
@@ -61,13 +62,7 @@ type VersionBitsCache struct {
 	cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
 }
 
-var Gversionbitscache VersionBitsCache
-
-func init() {
-	Gversionbitscache.Clear()
-}
-
-func newVersionBitsCache() *VersionBitsCache {
+func NewVersionBitsCache() *VersionBitsCache {
 	var cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
 		cache[i] = make(ThresholdConditionCache)
@@ -79,6 +74,16 @@ func (vbc *VersionBitsCache) Clear() {
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
 		vbc.cache[i] = make(ThresholdConditionCache)
 	}
+}
+
+func NewWarnBitsCache(bitNum int) []ThresholdConditionCache {
+	w := make([]ThresholdConditionCache, 0)
+	for i := 0; i < bitNum; i++ {
+		thres := make(ThresholdConditionCache)
+		w = append(w, thres)
+	}
+
+	return w
 }
 
 func VersionBitsState(indexPrev *BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
@@ -252,4 +257,56 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *Blo
 
 	// Adjust the result because right now we point to the parent block.
 	return indexPrev.Height + 1
+}
+
+type WarningBitsConditionChecker struct {
+	bit int
+}
+
+func NewWarningBitsConChecker(bitIn int) *WarningBitsConditionChecker {
+	w := new(WarningBitsConditionChecker)
+	w.bit = bitIn
+	return w
+}
+
+func (w *WarningBitsConditionChecker) BeginTime(params *msg.BitcoinParams) int64 {
+	return 0
+}
+
+func (w *WarningBitsConditionChecker) EndTime(params *msg.BitcoinParams) int64 {
+	return math.MaxInt64
+}
+
+func (w *WarningBitsConditionChecker) Period(params *msg.BitcoinParams) int {
+	return int(params.MinerConfirmationWindow)
+}
+
+func (w *WarningBitsConditionChecker) Threshold(params *msg.BitcoinParams) int {
+	return int(params.RuleChangeActivationThreshold)
+}
+
+func (w *WarningBitsConditionChecker) Condition(index *BlockIndex, params *msg.BitcoinParams) bool {
+
+	return index.Version&VERSIONBITS_TOP_MASK == VERSIONBITS_TOP_BITS &&
+		((index.Version)>>uint(w.bit))&1 != 0 &&
+		(ComputeBlockVersion(index.PPrev, params, Gversionbitscache)>>uint(w.bit))&1 == 0
+}
+
+func ComputeBlockVersion(indexPrev *BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
+	version := VERSIONBITS_TOP_BITS
+
+	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
+		state := func() ThresholdState {
+			t.Lock()
+			defer t.Unlock()
+			v := VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
+			return v
+		}()
+
+		if state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED {
+			version |= int(VersionBitsMask(params, msg.DeploymentPos(i)))
+		}
+	}
+
+	return version
 }

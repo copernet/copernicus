@@ -446,7 +446,7 @@ func TestVersionBits(t *testing.T) {
 }
 
 func TestVersionBitsComputeBlockVersion(t *testing.T) {
-	vbc := newVersionBitsCache()
+	vbc := NewVersionBitsCache()
 
 	// Check that ComputeBlockVersion will set the appropriate bit correctly on mainnet.
 	mainnetParams := msg.MainNetParams

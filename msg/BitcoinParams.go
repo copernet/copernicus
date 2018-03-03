@@ -83,6 +83,7 @@ type BitcoinParams struct {
 	// The number of nodes to check.  This is part of BIP0034.
 	BlockUpgradeNumToCheck uint64
 
+	RequireStandard     bool
 	RelayNonStdTxs      bool
 	PubKeyHashAddressID byte
 	ScriptHashAddressID byte
@@ -114,6 +115,11 @@ type BitcoinParams struct {
 	// By default assume that the signatures in ancestors of this block are valid.
 	DefaultAssumeValid big.Int
 	PruneAfterHeight   int
+	chainTxData        ChainTxData
+}
+
+func (param *BitcoinParams) TxData() ChainTxData {
+	return param.chainTxData
 }
 
 var MainNetParams = BitcoinParams{

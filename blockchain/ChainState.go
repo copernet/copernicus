@@ -33,15 +33,17 @@ type ChainState struct {
 // Global status for blockchain
 var (
 	//GChainState Global unique variables
-	GChainState      ChainState
-	GfImporting      atomic.Value
-	GMaxTipAge       int64
-	Gmempool         *mempool.Mempool
-	GpcoinsTip       *utxo.CoinsViewCache
-	Gpblocktree      *BlockTreeDB
-	GminRelayTxFee   utils.FeeRate
-	GfReindex        = false
-	GnCoinCacheUsage = 5000 * 300
+	GChainState       ChainState
+	GfImporting       atomic.Value
+	GMaxTipAge        int64
+	Gmempool          *mempool.Mempool
+	GpcoinsTip        *utxo.CoinsViewCache
+	Gpblocktree       *BlockTreeDB
+	GminRelayTxFee    utils.FeeRate
+	GfReindex         = false
+	GnCoinCacheUsage  = 5000 * 300
+	Gwarningcache     []ThresholdConditionCache
+	Gversionbitscache *VersionBitsCache
 )
 
 var (
@@ -86,8 +88,6 @@ const (
 	DATABASE_WRITE_INTERVAL = 60 * 60
 	// DATABASE_FLUSH_INTERVAL time to wait (in seconds) between flushing chainstate to disk.
 	DATABASE_FLUSH_INTERVAL = 24 * 60 * 60
-
-//>>>>>>> c102ab0391df9b7fbc5d67a1efaaa5e76c7efc1c
 )
 
 func init() {
@@ -98,4 +98,6 @@ func init() {
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE
 	GminRelayTxFee.SataoshisPerK = int64(DEFAULT_MIN_RELAY_TX_FEE)
 	Gmempool = mempool.NewMemPool(GminRelayTxFee)
+	Gwarningcache = NewWarnBitsCache(VERSIONBITS_NUM_BITS)
+	Gversionbitscache = NewVersionBitsCache()
 }

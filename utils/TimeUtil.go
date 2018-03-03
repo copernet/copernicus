@@ -1,8 +1,12 @@
 package utils
 
-import "time"
+import (
+	"sync/atomic"
+	"time"
+)
 
 var mockTime int64
+var timeOffset int64
 
 func GetMockTime() int64 {
 	if mockTime > 0 {
@@ -32,4 +36,12 @@ func GetMockTimeInMicros() int64 {
 		return mockTime * 1000 * 1000
 	}
 	return GetMicrosTime()
+}
+
+func GetAdjustedTime() int64 {
+	return GetMockTime() + GetTimeOffset()
+}
+
+func GetTimeOffset() int64 {
+	return atomic.LoadInt64(&timeOffset)
 }
