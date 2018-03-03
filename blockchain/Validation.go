@@ -136,7 +136,14 @@ func StartShutdown() {
 }
 
 func ShutdownRequested() bool {
-	return GRequestShutdown.Load().(bool)
+	// Load() will return nil if Store() has not been called
+	// if GRequestShutdown is nil, following will happens:
+	// panic: interface conversion: interface {} is nil, not bool
+	value, ok := GRequestShutdown.Load().(bool)
+	if ok {
+		return value
+	}
+	return false
 }
 
 type FlushStateMode int
