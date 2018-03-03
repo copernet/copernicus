@@ -1749,10 +1749,10 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	var vPos map[utils.Hash]DiskTxPos
 	for i := 0; i < len(pblock.Transactions); i++ {
-		tx := *pblock.Transactions[i]
+		tx := pblock.Transactions[i]
 		nInputs += len(tx.Ins)
 		if !tx.IsCoinBase() {
-			if !view.HaveInputs(tx) {
+			if !view.HaveInputs(*tx) {
 				return state.Dos(100, logger.ErrorLog("ConnectBlock(): inputs missing/spent"), model.REJECT_INVALID, "bad-txns-inputs-missingorspent", false, "")
 			}
 
@@ -1763,14 +1763,14 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 				prevheights[j] = int(view.AccessCoin(tx.Ins[j].PreviousOutPoint).GetHeight())
 			}
 
-			if !SequenceLocks(&tx, nLockTimeFlags, prevheights, pindex) {
+			if !SequenceLocks(tx, nLockTimeFlags, prevheights, pindex) {
 				return state.Dos(100, logger.ErrorLog("contains a non-BIP68-final transaction"), model.REJECT_INVALID, "bad-txns-nonfinal", false, "")
 			}
 		}
 		// GetTransactionSigOpCount counts 2 types of sigops:
 		// * legacy (always)
 		// * p2sh (when P2SH enabled in flags and excludes coinbase)
-		txSigOpsCount := GetTransactionSigOpCount(&tx, view, uint(flags))
+		txSigOpsCount := GetTransactionSigOpCount(tx, view, uint(flags))
 		if txSigOpsCount > model.MAX_TX_SIGOPS_COUNT {
 			return state.Dos(100, false, model.REJECT_INVALID, "bad-txn-sigops", false, "")
 		}
@@ -1781,12 +1781,12 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 		}
 
 		if !tx.IsCoinBase() {
-			fee := view.GetValueIn(&tx) - btcutil.Amount(tx.GetValueOut())
+			fee := view.GetValueIn(tx) - btcutil.Amount(tx.GetValueOut())
 			nFees += fee
 			// Don't cache results if we're actually connecting blocks (still consult the cache, though).
 			fCacheResults := fJustCheck
 			vChecks := make([]*ScriptCheck, 0)
-			if !CheckInputs(&tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, model.NewPrecomputedTransactionData(&tx), vChecks) {
+			if !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, model.NewPrecomputedTransactionData(tx), vChecks) {
 				return logger.ErrorLog(fmt.Sprintf("ConnectBlock(): CheckInputs on %s failed with %s", tx.TxHash(), FormatStateMessage(state)))
 			}
 
@@ -1798,9 +1798,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 			blockundo.txundo = append(blockundo.txundo, newTxUndo())
 		}
 		if i == 0 {
-			UpdateCoins(&tx, view, &undoDummy, pindex.Height)
+			UpdateCoins(tx, view, &undoDummy, pindex.Height)
 		} else {
-			UpdateCoins(&tx, view, blockundo.txundo[len(blockundo.txundo)-1], pindex.Height)
+			UpdateCoins(tx, view, blockundo.txundo[len(blockundo.txundo)-1], pindex.Height)
 		}
 
 		vPos[tx.Hash] = *txPos
@@ -3006,7 +3006,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		}
 
 		// Are the actual inputs available?
-		if !view.HaveInputs(ptx) {
+		if !view.HaveInputs(*ptx) {
 			ret = state.Invalid(false, model.REJECT_DUPLICATE, "bad-txns-inputs-spent", "")
 			return
 		}
@@ -3429,7 +3429,7 @@ func GetSpendHeight(view *utxo.CoinsViewCache) int {
 func CheckTxInputs(tx *model.Tx, state *model.ValidationState, view *utxo.CoinsViewCache, spendHeight int) bool {
 	// This doesn't trigger the DoS code on purpose; if it did, it would make it
 	// easier for an attacker to attempt to split the network.
-	if !view.HaveInputs(tx) {
+	if !view.HaveInputs(*tx) {
 		return state.Invalid(false, 0, "", "Inputs unavailable")
 	}
 
