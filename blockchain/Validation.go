@@ -141,7 +141,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -546,7 +546,7 @@ func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState
 }
 
 func AbortNodes(reason, userMessage string) bool {
-	log.Info("*** %s\n", reason)
+	logger.GetLogger().Info("*** %s\n", reason)
 
 	//todo:
 	if len(userMessage) == 0 {
@@ -762,12 +762,12 @@ func OpenDiskFile(pos DiskBlockPos, prefix string, fReadOnly bool) *os.File {
 		}
 	}
 	if file == nil {
-		log.Info("Unable to open file %s\n", path)
+		logger.GetLogger().Info("Unable to open file %s\n", path)
 		return nil
 	}
 	if pos.Pos > 0 {
 		if _, err := file.Seek(0, 1); err != nil {
-			log.Info("Unable to seek to position %u of %s\n", pos.Pos, path)
+			logger.GetLogger().Info("Unable to seek to position %u of %s\n", pos.Pos, path)
 			file.Close()
 			return nil
 		}
@@ -1574,7 +1574,7 @@ func FindUndoPos(state *model.ValidationState, nFile int, pos *DiskBlockPos, nAd
 		if CheckDiskSpace(nNewChunks*UNDOFILE_CHUNK_SIZE - uint32(pos.Pos)) {
 			file := OpenUndoFile(*pos, false)
 			if file != nil {
-				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks*UNDOFILE_CHUNK_SIZE, pos.File)
+				logger.GetLogger().Info("Pre-allocating up to position 0x%x in rev%05u.dat\n", nNewChunks*UNDOFILE_CHUNK_SIZE, pos.File)
 				AllocateFileRange(file, pos.Pos, nNewChunks*UNDOFILE_CHUNK_SIZE-uint32(pos.Pos))
 				file.Close()
 			}
@@ -1594,20 +1594,15 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	//sc.Lock()
 	//defer sc.Unlock()
 
-	nTimeStart := utils.GetMockTimeInMicros()
+	nTimeStart := utils.GetMicrosTime()
 
 	// Check it again in case a previous version let a bad block in
 	if !CheckBlock(param, pblock, state, !fJustCheck, !fJustCheck) {
-		log.Error("CheckBlock: %s", FormatStateMessage(state))
+		return logger.ErrorLog(fmt.Sprintf("CheckBlock: %s", FormatStateMessage(state)))
 	}
 
 	// Verify that the view's current state corresponds to the previous block
-	var hashPrevBlock utils.Hash
-	if pindex.PPrev == nil {
-		hashPrevBlock = utils.Hash{}
-	} else {
-		hashPrevBlock = pindex.PPrev.GetBlockHash()
-	}
+	hashPrevBlock := pindex.PPrev.GetBlockHash()
 
 	if hashPrevBlock != view.GetBestBlock() {
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
@@ -1615,7 +1610,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	// Special case for the genesis block, skipping connection of its
 	// transactions (its coinbase is unspendable)
-	if &pblock.Hash == param.GenesisHash {
+	if pblock.Hash.IsEqual(param.GenesisHash) {
 		if !fJustCheck {
 			view.SetBestBlock(pindex.GetBlockHash())
 		}
@@ -1623,7 +1618,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	}
 
 	fScriptChecks := true
-	if &HashAssumeValid != nil {
+	if HashAssumeValid != utils.HashZero {
 		// We've been configured with the hash of a block which has been
 		// externally verified to have a valid history. A suitable default value
 		// is included with the software and updated from time to time. Because
@@ -1631,29 +1626,31 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 		// defaults can be easily reviewed. This setting doesn't force the
 		// selection of any particular chain but makes validating some faster by
 		// effectively caching the result of part of the verification.
-		it := MapBlockIndex.Data[HashAssumeValid]
-		if it.GetAncestor(pindex.Height) == pindex && gpindexBestHeader.GetAncestor(pindex.Height) == pindex &&
-			gpindexBestHeader.ChainWork.Cmp(&param.MinimumChainWork) > 0 {
-			// This block is a member of the assumed verified chain and an
-			// ancestor of the best header. The equivalent time check
-			// discourages hashpower from extorting the network via DOS
-			// attack into accepting an invalid block through telling users
-			// they must manually set assumevalid. Requiring a software
-			// change or burying the invalid block, regardless of the
-			// setting, makes it hard to hide the implication of the demand.
-			// This also avoids having release candidates that are hardly
-			// doing any signature verification at all in testing without
-			// having to artificially set the default assumed verified block
-			// further back. The test against nMinimumChainWork prevents the
-			// skipping when denied access to any chain at least as good as
-			// the expected chain.
-			fScriptChecks = (GetBlockProofEquivalentTime(gpindexBestHeader, pindex, gpindexBestHeader, param)) <= 60*60*24*7*2
+		if MapBlockIndex.Data[HashAssumeValid] != nil {
+			it := MapBlockIndex.Data[HashAssumeValid]
+			if it.GetAncestor(pindex.Height) == pindex && gpindexBestHeader.GetAncestor(pindex.Height) == pindex &&
+				gpindexBestHeader.ChainWork.Cmp(&param.MinimumChainWork) > 0 {
+				// This block is a member of the assumed verified chain and an
+				// ancestor of the best header. The equivalent time check
+				// discourages hashpower from extorting the network via DOS
+				// attack into accepting an invalid block through telling users
+				// they must manually set assumevalid. Requiring a software
+				// change or burying the invalid block, regardless of the
+				// setting, makes it hard to hide the implication of the demand.
+				// This also avoids having release candidates that are hardly
+				// doing any signature verification at all in testing without
+				// having to artificially set the default assumed verified block
+				// further back. The test against nMinimumChainWork prevents the
+				// skipping when denied access to any chain at least as good as
+				// the expected chain.
+				fScriptChecks = (GetBlockProofEquivalentTime(gpindexBestHeader, pindex, gpindexBestHeader, param)) <= 60*60*24*7*2
+			}
 		}
 	}
 
-	nTime1 := utils.GetMockTimeInMicros()
+	nTime1 := utils.GetMicrosTime()
 	gnTimeCheck += nTime1 - nTimeStart
-	log.Info("bench", "    - Sanity checks: %.2fms [%.2fs]\n", 0.001*float64(nTime1-nTimeStart), float64(gnTimeCheck)*0.000001)
+	logger.GetLogger().Info("bench", "    - Sanity checks: %.2fms [%.2fs]\n", 0.001*float64(nTime1-nTimeStart), float64(gnTimeCheck)*0.000001)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
 	// transactions, unless those are already completely spent. If such
@@ -1668,7 +1665,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	// applied to all blocks except the two in the chain that violate it. This
 	// prevents exploiting the issue against nodes during their initial block
 	// download.
-	fEnforceBIP30 := (&pindex.PHashBlock == nil) || !(pindex.Height == 91842 && pindex.GetBlockHash() == *utils.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec")) ||
+	fEnforceBIP30 := (pindex.PHashBlock != utils.HashZero) || !(pindex.Height == 91842 && pindex.GetBlockHash() == *utils.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec")) ||
 		pindex.GetBlockHash() == *utils.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
 
 	// Once BIP34 activated it was not possible to create new duplicate
@@ -1706,9 +1703,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	}
 
 	flags := GetBlockScriptFlags(pindex, param)
-	nTime2 := utils.GetMockTimeInMicros()
+	nTime2 := utils.GetMicrosTime()
 	gnTimeForks += nTime2 - nTime1
-	log.Info("bench", "    - Fork checks: %.2fms [%.2fs]\n", 0.001*float64(nTime2-nTime1), float64(gnTimeForks)*0.000001)
+	logger.GetLogger().Info("bench", "    - Fork checks: %.2fms [%.2fs]\n", 0.001*float64(nTime2-nTime1), float64(gnTimeForks)*0.000001)
 
 	var blockundo *BlockUndo
 	// TODO:not finish
@@ -1769,7 +1766,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 			fCacheResults := fJustCheck
 			vChecks := make([]*ScriptCheck, 0)
 			if !CheckInputs(&tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, model.NewPrecomputedTransactionData(&tx), vChecks) {
-				log.Error("ConnectBlock(): CheckInputs on %s failed with %s", tx.TxHash(), FormatStateMessage(state))
+				return logger.ErrorLog(fmt.Sprintf("ConnectBlock(): CheckInputs on %s failed with %s", tx.TxHash(), FormatStateMessage(state)))
 			}
 
 			//todo:control.add(vChecks)
@@ -1792,9 +1789,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	nTime3 := utils.GetMicrosTime()
 	gnTimeConnect += nTime3 - nTime2
 	if nInputs <= 1 {
-		log.Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0, float64(gnTimeConnect)*0.000001)
+		logger.GetLogger().Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0, float64(gnTimeConnect)*0.000001)
 	} else {
-		log.Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gnTimeConnect)*0.000001)
+		logger.GetLogger().Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gnTimeConnect)*0.000001)
 	}
 
 	blockReward := nFees + GetBlockSubsidy(pindex.Height, *param)
@@ -1809,9 +1806,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	gnTimeVerify += nTime4 - nTime2
 
 	if nInputs <= 1 {
-		log.Info("bench", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0, float64(gnTimeVerify)*0.000001)
+		logger.GetLogger().Info("bench", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0, float64(gnTimeVerify)*0.000001)
 	} else {
-		log.Info("bench", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0.001*float64(nTime4-nTime2)/float64(nInputs-1), float64(gnTimeVerify)*0.000001)
+		logger.GetLogger().Info("bench", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0.001*float64(nTime4-nTime2)/float64(nInputs-1), float64(gnTimeVerify)*0.000001)
 	}
 
 	if fJustCheck {
@@ -1822,12 +1819,12 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	tmpUndoPos := pindex.GetUndoPos()
 	if tmpUndoPos.IsNull() || !pindex.IsValid(BLOCK_VALID_SCRIPTS) {
 		if tmpUndoPos.IsNull() {
-			var pos *DiskBlockPos
+			var pos DiskBlockPos
 			//todo：SerializeSize
 			//if !FindUndoPos(state, pindex.File, pos, len(blockundo.)) {
 			//	logger.ErrorLog("ConnectBlock(): FindUndoPos failed")
 			//}
-			if !UndoWriteToDisk(blockundo, pos, pindex.PPrev.GetBlockHash(), param.BitcoinNet) {
+			if !UndoWriteToDisk(blockundo, &pos, pindex.PPrev.GetBlockHash(), param.BitcoinNet) {
 				return AbortNode(state, "Failed to write undo data", "")
 			}
 
@@ -1849,7 +1846,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	nTime5 := utils.GetMicrosTime()
 	gnTimeIndex += nTime5 - nTime4
-	log.Info("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001*float64(nTime5-nTime4), float64(gnTimeIndex)*0.000001)
+	logger.GetLogger().Info("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001*float64(nTime5-nTime4), float64(gnTimeIndex)*0.000001)
 
 	// Watch for changes to the previous coinbase transaction.
 	//todo:GetMainSignals().UpdatedTransaction(hashPrevBestCoinBase);
@@ -1857,7 +1854,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	nTime6 := utils.GetMicrosTime()
 	gnTimeCallbacks += nTime6 - nTime5
-	log.Info("bench", "    - Callbacks: %.2fms [%.2fs]\n", 0.001*float64(nTime6-nTime5), float64(gnTimeCallbacks)*0.000001)
+	logger.GetLogger().Info("bench", "    - Callbacks: %.2fms [%.2fs]\n", 0.001*float64(nTime6-nTime5), float64(gnTimeCallbacks)*0.000001)
 	return true
 }
 
@@ -1978,7 +1975,7 @@ func UndoWriteToDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashBlock utils.Ha
 	}
 
 	// Write index header
-	nSize := 0
+	nSize := 0 //todo:nSize = GetSerializeSize(fileout, block);
 	err := utils.BinarySerializer.PutUint32(fileout, binary.LittleEndian, uint32(messageStart))
 	if err != nil {
 		logger.ErrorLog("the messageStart write failed")
@@ -1988,7 +1985,7 @@ func UndoWriteToDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashBlock utils.Ha
 	// Write undo data
 	fileOutPos, err := fileout.Seek(0, 1)
 	if fileOutPos < 0 || err != nil {
-		logger.ErrorLog("UndoWriteToDisk: ftell failed")
+		return logger.ErrorLog("UndoWriteToDisk: ftell failed")
 	}
 	pos.Pos = int(fileOutPos)
 	blockundo.Serialize(fileout)
@@ -2537,7 +2534,7 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 		}
 		os.Remove(GetBlockPosFilename(*pos, "blk"))
 		os.Remove(GetBlockPosFilename(*pos, "rev"))
-		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
+		logger.GetLogger().Info("Prune: %s deleted blk/rev (%05u)\n", key)
 	}
 }
 
@@ -2566,7 +2563,7 @@ func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 		setFilesToPrune.Add(fileNumber)
 		count++
 	}
-	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+	logger.GetLogger().Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
 }
 
 // PruneBlockFilesManual is called from the RPC code for pruneblockchain */
@@ -2623,7 +2620,7 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 		}
 	}
 
-	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+	logger.GetLogger().Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
 		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
 }
 
@@ -2822,7 +2819,7 @@ func RewindBlockIndex(params *msg.BitcoinParams) bool {
 			break
 		}
 		if !(DisconnectTip(params, state, true)) {
-			log.Error("RewindBlockIndex: unable to disconnect block at height %d", pindex.Height)
+			return logger.ErrorLog(fmt.Sprintf("RewindBlockIndex: unable to disconnect block at height %d", pindex.Height))
 		}
 		// Occasionally flush state to disk.
 		if !FlushStateToDisk(state, FLUSH_STATE_PERIODIC, 0) {
@@ -3260,7 +3257,7 @@ func CalculateSequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *B
 	// tx.nVersion is signed integer so requires cast to unsigned otherwise
 	// we would be doing a signed comparison and half the range of nVersion
 	// wouldn't support BIP 68.
-	fEnforceBIP68 := tx.Version >= 2 && flags != 0&consensus.LocktimeVerifySequence
+	fEnforceBIP68 := tx.Version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
 
 	// Do not enforce sequence numbers as a relative lock time
 	// unless we have been instructed to
@@ -3276,14 +3273,14 @@ func CalculateSequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *B
 		// Sequence numbers with the most significant bit set are not
 		// treated as relative lock-times, nor are they given any
 		// consensus-enforced meaning at this point.
-		if txin.Sequence != 0&model.SEQUENCE_LOCKTIME_DISABLE_FLAG {
+		if (txin.Sequence & model.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0 {
 			// The height of this input is not relevant for sequence locks
 			prevHeights[txinIndex] = 0
 			continue
 		}
 		nCoinHeight := prevHeights[txinIndex]
 
-		if txin.Sequence != 0&model.SEQUENCE_LOCKTIME_DISABLE_FLAG {
+		if (txin.Sequence & model.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0 {
 			nCoinTime := block.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
 			// BIP 68 relative lock times have the semantics of calculating the
