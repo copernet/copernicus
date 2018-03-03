@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"path"
 	"runtime"
-	"time"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/conf"
 )
 
 var mlog *logs.BeeLogger
@@ -79,10 +79,8 @@ func GetLogger() *logs.BeeLogger {
 	return mlog
 }
 
-func ErrorLog(reason string) bool {
-	t := time.Now().Format(time.RFC3339)
-	reason = t + " " + reason
-	mlog.Error(reason)
+func ErrorLog(reason string, v ...interface{}) bool {
+	mlog.Error(reason, v)
 	return false
 }
 
@@ -92,4 +90,36 @@ func TraceLog() string {
 	f := runtime.FuncForPC(pc[0])
 	_, line := f.FileLine(pc[0])
 	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
+}
+
+func LogPrint(module string, level string, format string, reason ...interface{}) {
+	if IsIncludeModule(module) {
+		switch level {
+		case "emergecy":
+			mlog.Emergency(format, reason)
+		case "alert":
+			mlog.Alert(format, reason)
+		case "critical":
+			mlog.Critical(format, reason)
+		case "error":
+			mlog.Error(format, reason)
+		case "warn":
+			mlog.Warn(format, reason)
+		case "info":
+			mlog.Info(format, reason)
+		case "debug":
+			mlog.Debug(format, reason)
+		case "notice":
+			mlog.Notice(format, reason)
+		}
+	}
+}
+
+func IsIncludeModule(module string) bool {
+	for _, item := range conf.AppConf.LogModule {
+		if item == module {
+			return true
+		}
+	}
+	return false
 }
