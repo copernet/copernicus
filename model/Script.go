@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 )
@@ -434,6 +435,14 @@ func DecodeOPN(opcode int) (int, error) {
 
 func (script *Script) Size() int {
 	return len(script.bytes)
+}
+
+func (script *Script) IsEqual(script2 *Script) bool {
+	if script.Size() != script2.Size() {
+		return false
+	}
+
+	return bytes.Equal(script.bytes, script2.bytes)
 }
 
 func EncodeOPN(n int) (int, error) {

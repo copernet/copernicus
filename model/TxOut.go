@@ -81,7 +81,14 @@ func (txOut *TxOut) IsNull() bool {
 
 func (txOut *TxOut) String() string {
 	return fmt.Sprintf("Value :%d Script:%s", txOut.Value, hex.EncodeToString(txOut.Script.bytes))
+}
 
+func (txOut *TxOut) IsEqual(out *TxOut) bool {
+	if txOut.Value != out.Value {
+		return false
+	}
+
+	return txOut.Script.IsEqual(out.Script)
 }
 
 func NewTxOut(value int64, pkScript []byte) *TxOut {

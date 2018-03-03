@@ -232,7 +232,7 @@ func (coinsViewCache *CoinsViewCache) GetValueIn(tx *model.Tx) btcutil.Amount {
 	return btcutil.Amount(result)
 }
 
-func (coinsViewCache *CoinsViewCache) HaveInputs(tx model.Tx) bool {
+func (coinsViewCache *CoinsViewCache) HaveInputs(tx *model.Tx) bool {
 	if tx.IsCoinBase() {
 		return true
 	}

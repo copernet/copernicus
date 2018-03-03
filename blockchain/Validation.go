@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"gopkg.in/fatih/set.v0"
 
@@ -156,14 +157,35 @@ func init() {
 // ScriptCheck Closure representing one script verification.
 // Note that this stores references to the spending transaction.
 type ScriptCheck struct {
-	scriptPubKey model.Script
+	scriptPubKey *model.Script
 	amount       btcutil.Amount
-	txTo         model.Tx
+	txTo         *model.Tx
 	ins          int
 	flags        uint32
 	cacheStore   bool
 	err          core.ScriptError
-	txData       model.PrecomputedTransactionData
+	txData       *model.PrecomputedTransactionData
+}
+
+func NewScriptCheck(script *model.Script, amount btcutil.Amount, tx *model.Tx, ins int, flags uint32,
+	cacheStore bool, txData *model.PrecomputedTransactionData) *ScriptCheck {
+	return &ScriptCheck{
+		scriptPubKey: script,
+		amount:       amount,
+		txTo:         tx,
+		ins:          ins,
+		flags:        flags,
+		cacheStore:   cacheStore,
+		txData:       txData,
+	}
+}
+
+func (sc *ScriptCheck) check() bool {
+	//scriptSig := sc.txTo.Ins[sc.ins].Script
+	//if !model.VerifyScript(scriptSig, sc.scriptPubKey, sc.flags,, sc.err) { // todo new a CachingTransactionSignatureChecker
+	//	return false
+	//}
+	return true
 }
 
 func (sc *ScriptCheck) GetScriptError() core.ScriptError {
@@ -2526,8 +2548,8 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 
 	// dummy backed store
 	backed := utxo.CoinsViewCache{}
-	cache := utxo.CoinsViewCache{}
-	cache.Base = &backed
+	view := utxo.CoinsViewCache{}
+	view.Base = &backed
 
 	var valueIn btcutil.Amount
 	lp := mempool.LockPoints{}
@@ -2535,14 +2557,14 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		pool.Mtx.Lock()
 		defer pool.Mtx.Unlock()
 		viewMemPool := mempool.NewCoinsViewMemPool(&gcoinsTip, pool)
-		cache.Base = viewMemPool
+		view.Base = viewMemPool
 
 		// Do we already have it?
 		length := len(ptx.Outs)
 		for i := 0; i < length; i++ {
 			outpoint := model.NewOutPoint(txid, uint32(i))
 			haveCoinInCache := gcoinsTip.HaveCoinInCache(outpoint)
-			if cache.HaveCoin(outpoint) {
+			if view.HaveCoin(outpoint) {
 				if !haveCoinInCache {
 					coinsToUncache = append(coinsToUncache, outpoint)
 				}
@@ -2558,7 +2580,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 				coinsToUncache = append(coinsToUncache, txin.PreviousOutPoint)
 			}
 
-			if !cache.HaveCoin(txin.PreviousOutPoint) {
+			if !view.HaveCoin(txin.PreviousOutPoint) {
 				if missingInputs != nil {
 					*missingInputs = true
 				}
@@ -2571,18 +2593,18 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		}
 
 		// Are the actual inputs available?
-		if !cache.HaveInputs(*ptx) {
+		if !view.HaveInputs(ptx) {
 			ret = state.Invalid(false, model.REJECT_DUPLICATE, "bad-txns-inputs-spent", "")
 			return
 		}
 
 		// Bring the best block into scope.
-		cache.GetBestBlock()
-		valueIn = cache.GetValueIn(ptx)
+		view.GetBestBlock()
+		valueIn = view.GetValueIn(ptx)
 
 		// We have all inputs cached now, so switch back to dummy, so we
 		// don't need to keep lock on mempool.
-		cache.Base = &backed
+		view.Base = &backed
 
 		// Only accept BIP68 sequence locked transactions that can be mined
 		// in the next block; we don't want our mempool filled up with
@@ -2596,12 +2618,12 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	}()
 
 	// Check for non-standard pay-to-script-hash in inputs
-	if GfRequireStandard && !AreInputsStandard(ptx, &cache) {
+	if GfRequireStandard && !policy.AreInputsStandard(ptx, &view) {
 		ret = state.Invalid(false, model.REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs", "")
 		return
 	}
 
-	sigOpsCount := GetTransactionSigOpCount(tx, &cache, policy.STANDARD_SCRIPT_VERIFY_FLAGS)
+	sigOpsCount := GetTransactionSigOpCount(tx, &view, policy.STANDARD_SCRIPT_VERIFY_FLAGS)
 
 	valueOut := ptx.GetValueOut()
 	fees := int64(valueIn) - valueOut
@@ -2611,13 +2633,13 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	pool.ApplyDeltas(txid, priorityDummy, modifiedFees)
 
 	var inChainInputValue btcutil.Amount
-	priority := cache.GetPriority(ptx, uint32(GChainActive.Height()), &inChainInputValue)
+	priority := view.GetPriority(ptx, uint32(GChainActive.Height()), &inChainInputValue)
 
 	// Keep track of transactions that spend a coinbase, which we re-scan
 	// during reorgs to ensure COINBASE_MATURITY is still met.
 	spendsCoinbase := false
 	for _, txin := range ptx.Ins {
-		coin := cache.AccessCoin(txin.PreviousOutPoint)
+		coin := view.AccessCoin(txin.PreviousOutPoint)
 		if coin.IsCoinBase() {
 			spendsCoinbase = true
 			break
@@ -2703,7 +2725,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// Check against previous transactions. This is done last to help
 	// prevent CPU exhaustion denial-of-service attacks.
 	txData := model.NewPrecomputedTransactionData(ptx)
-	if !CheckInputs(ptx, state, &cache, true, uint32(scriptVerifyFlags), true,
+	if !CheckInputs(ptx, state, &view, true, uint32(scriptVerifyFlags), true,
 		false, txData, nil) {
 		// State filled in by CheckInputs.
 		ret = false
@@ -2726,7 +2748,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// invalid blocks (using TestBlockValidity), however allowing such
 	// transactions into the mempool can be exploited as a DoS attack.
 	currentBlockScriptVerifyFlags := GetBlockScriptFlags(GChainActive.Tip(), params) // todo confirm params
-	if !CheckInputsFromMempoolAndCache(ptx, state, &cache, pool, currentBlockScriptVerifyFlags, true, txData) {
+	if !CheckInputsFromMempoolAndCache(ptx, state, &view, pool, currentBlockScriptVerifyFlags, true, txData) {
 		// If we're using promiscuousmempoolflags, we may hit this normally.
 		// Check if current block has some flags that scriptVerifyFlags does
 		// not before printing an ominous warning.
@@ -2737,7 +2759,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 			return
 		}
 
-		if !CheckInputs(ptx, state, &cache, true, policy.MANDATORY_SCRIPT_VERIFY_FLAGS,
+		if !CheckInputs(ptx, state, &view, true, policy.MANDATORY_SCRIPT_VERIFY_FLAGS,
 			true, false, txData, nil) {
 			logger.ErrorLog(": ConnectInputs failed against MANDATORY but not STANDARD flags due to "+
 				"promiscuous mempool %s, %s", txid.ToString(), FormatStateMessage(state))
@@ -2802,10 +2824,53 @@ func IsCurrentForFeeEstimation() bool {
 
 // CheckInputsFromMempoolAndCache Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
-func CheckInputsFromMempoolAndCache(tx *model.Tx, state *model.ValidationState, cache *utxo.CoinsViewCache,
+func CheckInputsFromMempoolAndCache(tx *model.Tx, state *model.ValidationState, view *utxo.CoinsViewCache,
 	mpool *mempool.Mempool, flags uint32, cacheSigStore bool, txData *model.PrecomputedTransactionData) bool {
 
-	return true
+	// todo AssertLockHeld(cs_main)
+	// pool.cs should be locked already, but go ahead and re-take the lock here
+	// to enforce that mempool doesn't change between when we check the view and
+	// when we actually call through to CheckInputs
+	mpool.Mtx.Lock()
+	defer mpool.Mtx.Unlock()
+
+	if tx.IsCoinBase() {
+		panic("critical error")
+	}
+	for _, txin := range tx.Ins {
+		coin := view.AccessCoin(txin.PreviousOutPoint)
+
+		// At this point we haven't actually checked if the coins are all
+		// available (or shouldn't assume we have, since CheckInputs does). So
+		// we just return failure if the inputs are not available here, and then
+		// only have to check equivalence for available inputs.
+		if coin.IsSpent() {
+			return false
+		}
+
+		txFrom := mpool.Get(&txin.PreviousOutPoint.Hash)
+		if txFrom != nil {
+			if txFrom.TxHash() != txin.PreviousOutPoint.Hash {
+				panic("critical error")
+			}
+			if len(txFrom.Outs) <= int(txin.PreviousOutPoint.Index) {
+				panic("critical error")
+			}
+			if txFrom.Outs[txin.PreviousOutPoint.Index].IsEqual(coin.TxOut) {
+				panic("critical error")
+			}
+		} else {
+			coinFromDisk := gcoinsTip.AccessCoin(txin.PreviousOutPoint)
+			if coinFromDisk.IsSpent() {
+				panic("critical error ")
+			}
+			if !coinFromDisk.TxOut.IsEqual(coin.TxOut) {
+				panic("critical error")
+			}
+		}
+	}
+
+	return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txData, nil)
 }
 
 // CheckInputs Check whether all inputs of this transaction are valid (no double spends,
@@ -2818,8 +2883,184 @@ func CheckInputsFromMempoolAndCache(tx *model.Tx, state *model.ValidationState, 
 // Setting sigCacheStore/scriptCacheStore to false will remove elements from the
 // corresponding cache which are matched. This is useful for checking blocks
 // where we will likely never need the cache entry again.
-func CheckInputs(tx *model.Tx, state *model.ValidationState, cache *utxo.CoinsViewCache, scriptChecks bool, flags uint32,
-	sigCacheStore bool, scirptCacheStore bool, txData *model.PrecomputedTransactionData, checks []*ScriptCheck) bool {
+func CheckInputs(tx *model.Tx, state *model.ValidationState, view *utxo.CoinsViewCache, scriptChecks bool, flags uint32,
+	sigCacheStore bool, scriptCacheStore bool, txData *model.PrecomputedTransactionData, checks []*ScriptCheck) bool {
+
+	if tx.IsCoinBase() {
+		panic("critical error")
+	}
+	if !CheckTxInputs(tx, state, view, GetSpendHeight(view)) {
+		return false
+	}
+
+	// The first loop above does all the inexpensive checks. Only if ALL inputs
+	// pass do we perform expensive ECDSA signature checks. Helps prevent CPU
+	// exhaustion attacks.
+
+	// Skip script verification when connecting blocks under the assumedvalid
+	// block. Assuming the assumedvalid block is valid this is safe because
+	// block merkle hashes are still computed and checked, of course, if an
+	// assumed valid block is invalid due to false scriptSigs this optimization
+	// would allow an invalid chain to be accepted.
+	if !scriptChecks {
+		return true
+	}
+
+	// First check if script executions have been cached with the same flags.
+	// Note that this assumes that the inputs provided are correct (ie that the
+	// transaction hash which is in tx's prevouts properly commits to the
+	// scriptPubKey in the inputs view of that transaction).
+	hashCacheEntry := GetScriptCacheKey(tx, flags)
+	if IsKeyInScriptCache(hashCacheEntry, !scriptCacheStore) {
+		return true
+	}
+
+	for index, vin := range tx.Ins {
+		prevout := vin.PreviousOutPoint
+		coin := view.AccessCoin(prevout)
+		if coin.IsSpent() {
+			panic("critical error")
+		}
+
+		// We very carefully only pass in things to CScriptCheck which are
+		// clearly committed to by tx' witness hash. This provides a sanity
+		// check that our caching is not introducing consensus failures through
+		// additional data in, eg, the coins being spent being checked as a part
+		// of CScriptCheck.
+		scriptPubkey := coin.TxOut.Script
+		amount := coin.TxOut.Value
+
+		// Verify signature
+		check := NewScriptCheck(scriptPubkey, btcutil.Amount(amount), tx, index,
+			flags, sigCacheStore, txData)
+
+		if checks != nil {
+			checks = append(checks, check)
+		} else if !check.check() {
+			if flags&uint32(policy.STANDARD_NOT_MANDATORY_VERIFY_FLAGS) != 0 {
+				// Check whether the failure was caused by a non-mandatory
+				// script verification check, such as non-standard DER encodings
+				// or non-null dummy arguments; if so, don't trigger DoS
+				// protection to avoid splitting the network between upgraded
+				// and non-upgraded nodes.
+				check2 := NewScriptCheck(scriptPubkey, btcutil.Amount(amount), tx, index,
+					flags&(^uint32(policy.STANDARD_NOT_MANDATORY_VERIFY_FLAGS)), sigCacheStore, txData)
+
+				if check2.check() {
+					return state.Invalid(false, model.REJECT_NONSTANDARD,
+						fmt.Sprintf("non-mandatory-script-verify-flag (%s)",
+							core.ScriptErrorString(check.err)), "")
+				}
+			}
+			// Failures of other flags indicate a transaction that is invalid in
+			// new blocks, e.g. a invalid P2SH. We DoS ban such nodes as they
+			// are not following the protocol. That said during an upgrade
+			// careful thought should be taken as to the correct behavior - we
+			// may want to continue peering with non-upgraded nodes even after
+			// soft-fork super-majority signaling has occurred.
+			return state.Dos(100, false, model.REJECT_INVALID,
+				fmt.Sprintf("mandatory-script-verify-flag-failed (%s)",
+					core.ScriptErrorString(check.err)), false, "")
+		}
+	}
+
+	if scriptCacheStore && checks == nil {
+		// We executed all of the provided scripts, and were told to cache the
+		// result. Do so now.
+		AddKeyInScriptCache(hashCacheEntry) // todo define
+	}
+
+	return true
+}
+
+func AddKeyInScriptCache(hash *utils.Hash) { // todo move to model/script.go
+
+}
+
+func IsKeyInScriptCache(key *utils.Hash, erase bool) bool { // todo move to model/script.go
+	return true
+}
+
+func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
+	// We only use the first 19 bytes of nonce to avoid a second SHA round -
+	// giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
+	if 55-unsafe.Sizeof(flags)-32 < 128/8 {
+		// compile error
+		panic("Want at least 128 bits of nonce for script execution cache")
+	}
+
+	b := make([]byte, 0)
+
+	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
+
+	txHash := tx.TxHash()
+	b = append(b, txHash[:]...)
+
+	buf := make([]byte, unsafe.Sizeof(flags))
+	binary.LittleEndian.PutUint32(buf, flags)
+	b = append(b, buf...)
+
+	hash := core.Sha256Hash(b)
+	return &hash
+}
+
+func GetSpendHeight(view *utxo.CoinsViewCache) int {
+	// todo lock cs_main
+	indexPrev := MapBlockIndex.Data[view.GetBestBlock()]
+	return indexPrev.Height + 1
+}
+
+func CheckTxInputs(tx *model.Tx, state *model.ValidationState, view *utxo.CoinsViewCache, spendHeight int) bool {
+	// This doesn't trigger the DoS code on purpose; if it did, it would make it
+	// easier for an attacker to attempt to split the network.
+	if !view.HaveInputs(tx) {
+		return state.Invalid(false, 0, "", "Inputs unavailable")
+	}
+
+	valueIn := btcutil.Amount(0)
+	fees := btcutil.Amount(0)
+	length := len(tx.Ins)
+	for i := 0; i < length; i++ {
+		prevout := tx.Ins[i].PreviousOutPoint
+		coin := view.AccessCoin(prevout)
+		if coin.IsSpent() {
+			panic("critical error")
+		}
+
+		// If prev is coinbase, check that it's matured
+		if coin.IsCoinBase() {
+			sub := spendHeight - int(coin.GetHeight())
+			if sub < consensus.CoinbaseMaturity {
+				return state.Invalid(false, model.REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
+					"tried to spend coinbase at depth"+strconv.Itoa(sub))
+			}
+		}
+
+		// Check for negative or overflow input values
+		valueIn += btcutil.Amount(coin.TxOut.Value)
+		if !MoneyRange(coin.TxOut.Value) || !MoneyRange(int64(valueIn)) {
+			return state.Dos(100, false, model.REJECT_INVALID,
+				"bad-txns-inputvalues-outofrange", false, "")
+		}
+	}
+
+	if int64(valueIn) < tx.GetValueOut() {
+		return state.Dos(100, false, model.REJECT_INVALID, "bad-txns-in-belowout", false,
+			fmt.Sprintf("value in (%s) < value out (%s)", valueIn.String(), btcutil.Amount(tx.GetValueOut()).String()))
+	}
+
+	// Tally transaction fees
+	txFee := int64(valueIn) - tx.GetValueOut()
+	if txFee < 0 {
+		return state.Dos(100, false, model.REJECT_INVALID,
+			"bad-txns-fee-negative", false, "")
+	}
+
+	fees += btcutil.Amount(txFee)
+	if !MoneyRange(int64(fees)) {
+		return state.Dos(100, false, model.REJECT_INVALID,
+			"bad-txns-fee-outofrange", false, "")
+	}
 
 	return true
 }
@@ -2837,25 +3078,19 @@ func CheckSequenceLocks(tx *model.Tx, flags int, lp *mempool.LockPoints, useExis
 	return true
 }
 
-// AreInputsStandard Check for standard transaction types
-// cache Map of previous transactions that have outputs we're spending
-func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
-	return true
-}
-
 // GetTransactionSigOpCount Compute total signature operation of a transaction.
 // @param[in] tx     Transaction for which we are computing the cost
 // @param[in] cache Map of previous transactions that have outputs we're spending
 // @param[out] flags Script verification flags
 // @return Total signature operation cost of tx
-func GetTransactionSigOpCount(tx *model.Tx, cache *utxo.CoinsViewCache, flags uint) int {
+func GetTransactionSigOpCount(tx *model.Tx, view *utxo.CoinsViewCache, flags uint) int {
 	sigOps := tx.GetSigOpCountWithoutP2SH()
 	if tx.IsCoinBase() {
 		return sigOps
 	}
 
 	if flags&core.SCRIPT_VERIFY_P2SH != 0 {
-		sigOps += GetP2SHSigOpCount(tx, cache)
+		sigOps += GetP2SHSigOpCount(tx, view)
 	}
 
 	return sigOps
@@ -2864,14 +3099,14 @@ func GetTransactionSigOpCount(tx *model.Tx, cache *utxo.CoinsViewCache, flags ui
 // GetP2SHSigOpCount Count ECDSA signature operations in pay-to-script-hash inputs
 // cache Map of previous transactions that have outputs we're spending
 // return number of sigops required to validate this transaction's inputs
-func GetP2SHSigOpCount(tx *model.Tx, cache *utxo.CoinsViewCache) int {
+func GetP2SHSigOpCount(tx *model.Tx, view *utxo.CoinsViewCache) int {
 	if tx.IsCoinBase() {
 		return 0
 	}
 
 	sigOps := 0
 	for _, txin := range tx.Ins {
-		prevout := cache.GetOutputFor(txin)
+		prevout := view.GetOutputFor(txin)
 		if prevout.Script.IsPayToScriptHash() {
 			count, _ := prevout.Script.GetSigOpCountFor(txin.Script)
 			sigOps += count
