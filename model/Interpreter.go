@@ -59,7 +59,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 			return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 		}
 		pubKeySerialized := stack.Last().([]byte)
-		pubKey2 := NewScriptWithRaw(pubKeySerialized)
+		pubKey2 := NewScriptRaw(pubKeySerialized)
 
 		stack.PopStack()
 		result, err = interpreter.Exec(tx, nIn, &stack, pubKey2, flags)
@@ -961,7 +961,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					vchByte = vchByte[:vchByte[1]+2]
 					// Subset of script starting at the most recent
 					// codeseparator
-					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
+					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
 					txHash, err := SignatureHash(tx, scriptCode, uint32(hashType), nIn)
 					if err != nil {
 						return false, err
@@ -1044,7 +1044,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 
 					// Subset of script starting at the most recent
 					// codeseparator
-					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
+					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
 
 					// Drop the signature in pre-segwit scripts but not
 					// segwit scripts
