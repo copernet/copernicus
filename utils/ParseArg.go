@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-var lock sync.Mutex
+var lock sync.RWMutex
 var MapArgs map[string]string
 var MapMultiArgs map[string][]string
 
@@ -76,8 +76,8 @@ func InterpretNegativeSetting(keySTr, valueStr *string) {
 }
 
 func GetArg(strArg string, deFault int64) int64 {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 	if v, ok := MapArgs[strArg]; ok {
 		tmpV, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
@@ -90,9 +90,18 @@ func GetArg(strArg string, deFault int64) int64 {
 	return deFault
 }
 
+func GetArgString(strArg string, deFault string) string {
+	lock.RLock()
+	defer lock.RUnlock()
+	if v, ok := MapArgs[strArg]; ok {
+		return v
+	}
+	return deFault
+}
+
 func GetBoolArg(strArg string, deFault bool) bool {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 	if v, ok := MapArgs[strArg]; ok {
 		return InterpretBool(v)
 	}

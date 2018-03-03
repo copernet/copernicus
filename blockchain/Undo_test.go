@@ -56,7 +56,7 @@ func UpdateUTXOSet(block *model.Block, cache *utxo.CoinsViewCache, undo *BlockUn
 
 func UndoBlock(block *model.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, params *msg.BitcoinParams, height int) {
 	header := model.NewBlockHeader()
-	index := NewBlockIndex(header)
+	index := model.NewBlockIndex(header)
 	index.Height = height
 	ApplyBlockUndo(undo, block, index, cache)
 }

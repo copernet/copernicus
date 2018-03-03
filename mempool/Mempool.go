@@ -17,7 +17,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/pkg/errors"
-	"gopkg.in/fatih/set.v0"
+	set "gopkg.in/fatih/set.v0"
 )
 
 /**
@@ -123,11 +123,6 @@ func (mempool *Mempool) RemoveRecursive(origTx *model.Tx, reason int) {
 		return true
 	})
 	mempool.RemoveStaged(setAllRemoves, false, reason)
-}
-
-func (mempool *Mempool) RemoveForReorg(pcoins *utxo.CoinsViewCache, nMemPoolHeight uint, flags int) {
-	// Remove transactions spending a coinbase which are now immature and
-	// no-longer-final transactions
 }
 
 // CalculateDescendants calculates descendants of entry that are not already in setDescendants, and
@@ -576,7 +571,7 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *algorit
 					iter := mempool.MapNextTx.GetLowerBoundKey(refOutPoint{txin.PreviousOutPoint.Hash, 0})
 					if iter == nil {
 						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
-					} else if oriHash := (iter.(refOutPoint).Hash); !(&oriHash).IsEqual(&txin.PreviousOutPoint.Hash) {
+					} else if oriHash := iter.(refOutPoint).Hash; !(&oriHash).IsEqual(&txin.PreviousOutPoint.Hash) {
 						pvNoSpendsRemaining.PushBack(txin.PreviousOutPoint)
 					}
 				}
@@ -984,7 +979,7 @@ func (mempool *Mempool) Expire(time int64) int {
 	defer mempool.Mtx.RUnlock()
 	//toremove element type is *TxMempoolEntry
 	toremove := set.New()
-	for _, txMempoolEntry := range mempool.MapTx.poolNode {
+	for _, txMempoolEntry := range mempool.MapTx.PoolNode {
 		if txMempoolEntry.Time < time {
 			toremove.Add(txMempoolEntry)
 		}
@@ -1062,7 +1057,7 @@ func (mempool *Mempool) QueryHashs() []*utils.Hash {
 
 func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
 	iters := make([]*TxMempoolEntry, 0)
-	for _, it := range mempool.MapTx.poolNode {
+	for _, it := range mempool.MapTx.PoolNode {
 		iters = append(iters, it)
 	}
 	slice.Sort(iters[:], func(i, j int) bool {
@@ -1074,7 +1069,7 @@ func (mempool *Mempool) GetSortedDepthAndScore() []*TxMempoolEntry {
 }
 func (mempool *Mempool) Get(hash *utils.Hash) *model.Tx {
 	mempool.Mtx.Lock()
-	entry, ok := mempool.MapTx.poolNode[*hash]
+	entry, ok := mempool.MapTx.PoolNode[*hash]
 	if !ok {
 		return nil
 	}
@@ -1107,15 +1102,15 @@ func (m *CoinsViewMemPool) HaveCoin(point *model.OutPoint) bool {
 }
 
 func (m *CoinsViewMemPool) GetBestBlock() utils.Hash {
-	return utils.Hash{}
+	return m.Base.GetBestBlock()
 }
 
 func (m *CoinsViewMemPool) BatchWrite(coinsMap utxo.CacheCoins, hash *utils.Hash) bool {
-	return true
+	return m.Base.BatchWrite(coinsMap, hash)
 }
 
 func (m *CoinsViewMemPool) EstimateSize() uint64 {
-	return 0
+	return m.Base.EstimateSize()
 }
 
 func NewCoinsViewMemPool(base utxo.CoinsView, mempool *Mempool) *CoinsViewMemPool {

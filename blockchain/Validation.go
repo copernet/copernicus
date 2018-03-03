@@ -9,13 +9,13 @@ import (
 	"math"
 	"math/big"
 	"os"
+
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
-
-	"gopkg.in/fatih/set.v0"
 
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
@@ -29,6 +29,7 @@ import (
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
+	"gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -82,31 +83,33 @@ var (
 	gsetDirtyFileInfo *algorithm.Set
 	glatchToFalse     atomic.Value
 	//gnBlockSequenceID Blocks loaded from disk are assigned id 0, so start the counter at 1.
-	gnBlockSequenceID  int32
-	gpindexHeaderOld   *BlockIndex
-	gpindexBestHeader  *BlockIndex
-	gpindexBestInvalid *BlockIndex
-	gfWarned           bool
-	gnTimeReadFromDisk int64
-	gnTimeConnectTotal int64
-	gnTimeFlush        int64
-	gnTimeChainState   int64
-	gnTimePostConnect  int64
-	gnTimeCheck        int64
-	gnTimeForks        int64
-	gnTimeVerify       int64
-	gnTimeConnect      int64
-	gnTimeIndex        int64
-	gnTimeCallbacks    int64
-	gnTimeTotal        int64
-	gcoinsTip          = utxo.CoinsViewCache{}
-	gminRelayTxFee     = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
-	gmpool             = mempool.NewMemPool(*gminRelayTxFee)
-	GRequestShutdown   atomic.Value
-	GDumpMempoolLater  atomic.Value
-	glastFlush         int
-	glastSetChain      int
-	glastWrite         int
+	gnBlockSequenceID   int32
+	gpindexHeaderOld    *model.BlockIndex
+	gpindexBestHeader   *model.BlockIndex
+	gpindexBestInvalid  *model.BlockIndex
+	gpindexBestForkTip  *model.BlockIndex
+	gpindexBestForkBase *model.BlockIndex
+	gfWarned            bool
+	gnTimeReadFromDisk  int64
+	gnTimeConnectTotal  int64
+	gnTimeFlush         int64
+	gnTimeChainState    int64
+	gnTimePostConnect   int64
+	gnTimeCheck         int64
+	gnTimeForks         int64
+	gnTimeVerify        int64
+	gnTimeConnect       int64
+	gnTimeIndex         int64
+	gnTimeCallbacks     int64
+	gnTimeTotal         int64
+	gcoinsTip           = utxo.CoinsViewCache{}
+	gminRelayTxFee      = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
+	gmpool              = mempool.NewMemPool(*gminRelayTxFee)
+	GRequestShutdown    atomic.Value
+	GDumpMempoolLater   atomic.Value
+	glastFlush          int
+	glastSetChain       int
+	glastWrite          int
 
 	gfreeCount float64
 	glastTime  int
@@ -237,7 +240,7 @@ func ContextualCheckTransaction(params *msg.BitcoinParams, tx *model.Tx, state *
 }
 
 func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *model.ValidationState,
-	pindexPrev *BlockIndex) bool {
+	pindexPrev *model.BlockIndex) bool {
 
 	var nHeight int
 	if pindexPrev != nil {
@@ -245,7 +248,7 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *model.Block, state *
 	}
 
 	nLockTimeFlags := 0
-	if VersionBitsState(pindexPrev, params, msg.DEPLOYMENT_CSV, &Gversionbitscache) == THRESHOLD_ACTIVE {
+	if VersionBitsState(pindexPrev, params, msg.DEPLOYMENT_CSV, Gversionbitscache) == THRESHOLD_ACTIVE {
 		nLockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
 
@@ -351,7 +354,7 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	}
 
 	// And a valid coinbase.
-	if !CheckCoinbase(pblock.Transactions[0], state, false) {
+	if !pblock.Transactions[0].CheckCoinbase(state, false) {
 		hs := pblock.Transactions[0].TxHash()
 		return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
 			fmt.Sprintf("Coinbase check failed (txid %s) %s", hs.ToString(), state.GetDebugMessage()))
@@ -387,7 +390,7 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 		// the coinbase, the loos is arranged such as this only runs after at
 		// least one increment.
 		tx := pblock.Transactions[i]
-		if !CheckRegularTransaction(tx, state, false) {
+		if !tx.CheckRegularTransaction(state, false) {
 			hs := tx.TxHash()
 			return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
 				fmt.Sprintf("Transaction check failed (txid %s) %s", hs.ToString(), state.GetDebugMessage()))
@@ -404,13 +407,13 @@ func CheckBlock(params *msg.BitcoinParams, pblock *model.Block, state *model.Val
 // AcceptBlock Store block on disk. If dbp is non-null, the file is known
 // to already reside on disk.
 func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState,
-	ppindex **BlockIndex, fRequested bool, dbp *DiskBlockPos, fNewBlock *bool) bool {
+	ppindex **model.BlockIndex, fRequested bool, dbp *model.DiskBlockPos, fNewBlock *bool) bool {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
 	}
 
-	var pindex *BlockIndex
+	var pindex *model.BlockIndex
 	if ppindex != nil {
 		pindex = *ppindex
 	}
@@ -422,7 +425,7 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	// Try to process all requested blocks that we don't have, but only
 	// process an unrequested block if it's new and has enough work to
 	// advance our tip, and isn't too many blocks ahead.
-	fAlreadyHave := pindex.Status&BLOCK_HAVE_DATA != 0
+	fAlreadyHave := pindex.Status&model.BLOCK_HAVE_DATA != 0
 	fHasMoreWork := true
 	tip := GChainState.ChainAcTive.Tip()
 	if tip != nil {
@@ -470,7 +473,7 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	if !CheckBlock(param, pblock, state, true, true) ||
 		!ContextualCheckBlock(param, pblock, state, pindex.PPrev) {
 		if state.IsInvalid() && !state.CorruptionPossible() {
-			pindex.Status |= BLOCK_FAILED_VALID
+			pindex.Status |= model.BLOCK_FAILED_VALID
 			gsetDirtyBlockIndex.AddItem(pindex)
 		}
 		return logger.ErrorLog(fmt.Sprintf("%s: %s (block %s)", logger.TraceLog(), state.FormatStateMessage(),
@@ -487,7 +490,7 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 	nHeight := pindex.Height
 	// Write block to history file
 	nBlockSize := pblock.SerializeSize()
-	var blockPos DiskBlockPos
+	var blockPos model.DiskBlockPos
 	if dbp != nil {
 		blockPos = *dbp
 	}
@@ -518,21 +521,21 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Val
 
 //ReceivedBlockTransactions Mark a block as having its data received and checked (up to
 //* BLOCK_VALID_TRANSACTIONS).
-func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState, pindexNew *BlockIndex, pos *DiskBlockPos) bool {
+func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState, pindexNew *model.BlockIndex, pos *model.DiskBlockPos) bool {
 
 	pindexNew.Txs = len(pblock.Transactions)
 	pindexNew.ChainTx = 0
 	pindexNew.File = pos.File
 	pindexNew.DataPosition = pos.Pos
 	pindexNew.UndoPosition = 0
-	pindexNew.Status |= BLOCK_HAVE_DATA
-	pindexNew.RaiseValidity(BLOCK_VALID_TRANSACTIONS)
+	pindexNew.Status |= model.BLOCK_HAVE_DATA
+	pindexNew.RaiseValidity(model.BLOCK_VALID_TRANSACTIONS)
 	gsetDirtyBlockIndex.AddItem(pindexNew)
 
 	if pindexNew.PPrev == nil || pindexNew.PPrev.ChainTx != 0 {
 		// If pindexNew is the genesis block or all parents are
 		// BLOCK_VALID_TRANSACTIONS.
-		vIndex := make([]*BlockIndex, 0)
+		vIndex := make([]*model.BlockIndex, 0)
 		vIndex = append(vIndex, pindexNew)
 
 		// Recursively process any descendant blocks that now may be eligible to
@@ -556,7 +559,7 @@ func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState
 			}
 			rangs, ok := GChainState.MapBlocksUnlinked[pindex]
 			if ok {
-				tmpRang := make([]*BlockIndex, len(rangs))
+				tmpRang := make([]*model.BlockIndex, len(rangs))
 				copy(tmpRang, rangs)
 				for len(tmpRang) > 0 {
 					vIndex = append(vIndex, tmpRang[0])
@@ -566,7 +569,7 @@ func ReceivedBlockTransactions(pblock *model.Block, state *model.ValidationState
 			}
 		}
 	} else {
-		if pindexNew.PPrev != nil && pindexNew.PPrev.IsValid(BLOCK_VALID_TREE) {
+		if pindexNew.PPrev != nil && pindexNew.PPrev.IsValid(model.BLOCK_VALID_TREE) {
 			GChainState.MapBlocksUnlinked[pindexNew.PPrev] = append(GChainState.MapBlocksUnlinked[pindexNew.PPrev], pindexNew)
 		}
 	}
@@ -592,7 +595,7 @@ func AbortNode(state *model.ValidationState, reason, userMessage string) bool {
 	return state.Error(reason)
 }
 
-func WriteBlockToDisk(block *model.Block, pos *DiskBlockPos, messageStart btcutil.BitcoinNet) bool {
+func WriteBlockToDisk(block *model.Block, pos *model.DiskBlockPos, messageStart btcutil.BitcoinNet) bool {
 	// Open history file to append
 	fileOut := OpenBlockFile(pos, false)
 	if fileOut == nil {
@@ -652,7 +655,7 @@ func IsInitialBlockDownload() bool {
 	return false
 }
 
-func FindBlockPos(state *model.ValidationState, pos *DiskBlockPos, nAddSize uint,
+func FindBlockPos(state *model.ValidationState, pos *model.DiskBlockPos, nAddSize uint,
 	nHeight uint, nTime uint64, fKnown bool) bool {
 
 	//	todo !!! Add sync.Lock in the later, because the concurrency goroutine
@@ -747,7 +750,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 
 func FlushBlockFile(fFinalize bool) {
 	// todo !!! add file sync.lock, LOCK(cs_LastBlockFile);
-	posOld := NewDiskBlockPos(gLastBlockFile, 0)
+	posOld := model.NewDiskBlockPos(gLastBlockFile, 0)
 
 	fileOld := OpenBlockFile(posOld, false)
 	if fileOld != nil {
@@ -768,15 +771,15 @@ func FlushBlockFile(fFinalize bool) {
 	}
 }
 
-func OpenBlockFile(pos *DiskBlockPos, fReadOnly bool) *os.File {
+func OpenBlockFile(pos *model.DiskBlockPos, fReadOnly bool) *os.File {
 	return OpenDiskFile(*pos, "blk", fReadOnly)
 }
 
-func OpenUndoFile(pos DiskBlockPos, fReadOnly bool) *os.File {
+func OpenUndoFile(pos model.DiskBlockPos, fReadOnly bool) *os.File {
 	return OpenDiskFile(pos, "rev", fReadOnly)
 }
 
-func OpenDiskFile(pos DiskBlockPos, prefix string, fReadOnly bool) *os.File {
+func OpenDiskFile(pos model.DiskBlockPos, prefix string, fReadOnly bool) *os.File {
 	if pos.IsNull() {
 		return nil
 	}
@@ -805,7 +808,7 @@ func OpenDiskFile(pos DiskBlockPos, prefix string, fReadOnly bool) *os.File {
 	return file
 }
 
-func GetBlockPosFilename(pos DiskBlockPos, prefix string) string {
+func GetBlockPosFilename(pos model.DiskBlockPos, prefix string) string {
 	return conf.GetDataPath() + "/blocks/" + fmt.Sprintf("%s%05d.dat", prefix, pos.File)
 }
 
@@ -832,7 +835,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 	}
 
 	// Build forward-pointing map of the entire block tree.
-	forward := make(map[*BlockIndex][]*BlockIndex)
+	forward := make(map[*model.BlockIndex][]*model.BlockIndex)
 	for _, v := range GChainState.MapBlockIndex.Data {
 		forward[v.PPrev] = append(forward[v.PPrev], v)
 	}
@@ -853,48 +856,48 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 	nNode := 0
 	nHeight := 0
 	// Oldest ancestor of pindex which is invalid.
-	var pindexFirstInvalid *BlockIndex
+	var pindexFirstInvalid *model.BlockIndex
 	// Oldest ancestor of pindex which does not have BLOCK_HAVE_DATA.
-	var pindexFirstMissing *BlockIndex
+	var pindexFirstMissing *model.BlockIndex
 	// Oldest ancestor of pindex for which nTx == 0.
-	var pindexFirstNeverProcessed *BlockIndex
+	var pindexFirstNeverProcessed *model.BlockIndex
 	// Oldest ancestor of pindex which does not have BLOCK_VALID_TREE
 	// (regardless of being valid or not).
-	var pindexFirstNotTreeValid *BlockIndex
+	var pindexFirstNotTreeValid *model.BlockIndex
 	// Oldest ancestor of pindex which does not have BLOCK_VALID_TRANSACTIONS
 	// (regardless of being valid or not).
-	var pindexFirstNotTransactionsValid *BlockIndex
+	var pindexFirstNotTransactionsValid *model.BlockIndex
 	// Oldest ancestor of pindex which does not have BLOCK_VALID_CHAIN
 	// (regardless of being valid or not).
-	var pindexFirstNotChainValid *BlockIndex
+	var pindexFirstNotChainValid *model.BlockIndex
 	// Oldest ancestor of pindex which does not have BLOCK_VALID_SCRIPTS
 	// (regardless of being valid or not).
-	var pindexFirstNotScriptsValid *BlockIndex
+	var pindexFirstNotScriptsValid *model.BlockIndex
 	for pindex != nil {
 		nNode++
-		if pindexFirstInvalid == nil && pindex.Status&BLOCK_FAILED_VALID != 0 {
+		if pindexFirstInvalid == nil && pindex.Status&model.BLOCK_FAILED_VALID != 0 {
 			pindexFirstInvalid = pindex
 		}
-		if pindexFirstMissing == nil && !(pindex.Status&BLOCK_HAVE_DATA != 0) {
+		if pindexFirstMissing == nil && !(pindex.Status&model.BLOCK_HAVE_DATA != 0) {
 			pindexFirstMissing = pindex
 		}
 		if pindexFirstNeverProcessed == nil && pindex.Txs == 0 {
 			pindexFirstNeverProcessed = pindex
 		}
 		if pindex.PPrev != nil && pindexFirstNotTreeValid == nil &&
-			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_TREE {
+			(pindex.Status&model.BLOCK_VALID_MASK) < model.BLOCK_VALID_TREE {
 			pindexFirstNotTreeValid = pindex
 		}
 		if pindex.PPrev != nil && pindexFirstNotTransactionsValid == nil &&
-			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_TRANSACTIONS {
+			(pindex.Status&model.BLOCK_VALID_MASK) < model.BLOCK_VALID_TRANSACTIONS {
 			pindexFirstNotTransactionsValid = pindex
 		}
 		if pindex.PPrev != nil && pindexFirstNotChainValid == nil &&
-			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_CHAIN {
+			(pindex.Status&model.BLOCK_VALID_MASK) < model.BLOCK_VALID_CHAIN {
 			pindexFirstNotChainValid = pindex
 		}
 		if pindex.PPrev != nil && pindexFirstNotScriptsValid == nil &&
-			(pindex.Status&BLOCK_VALID_MASK) < BLOCK_VALID_SCRIPTS {
+			(pindex.Status&model.BLOCK_VALID_MASK) < model.BLOCK_VALID_SCRIPTS {
 			pindexFirstNotScriptsValid = pindex
 		}
 
@@ -923,7 +926,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		if !GfHavePruned {
 			// If we've never pruned, then HAVE_DATA should be equivalent to nTx
 			// > 0
-			if !(pindex.Status&BLOCK_HAVE_DATA == BLOCK_HAVE_DATA) !=
+			if !(pindex.Status&model.BLOCK_HAVE_DATA == model.BLOCK_HAVE_DATA) !=
 				(pindex.Txs == 0) {
 				panic("never pruned, then HAVE_DATA should be equivalent to nTx > 0")
 			}
@@ -933,20 +936,20 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		} else {
 			// If we have pruned, then we can only say that HAVE_DATA implies
 			// nTx > 0
-			if pindex.Status&BLOCK_HAVE_DATA != 0 {
+			if pindex.Status&model.BLOCK_HAVE_DATA != 0 {
 				if pindex.Txs <= 0 {
 					panic("block status is BLOCK_HAVE_DATA, so the nTx > 0")
 				}
 			}
 		}
-		if pindex.Status&BLOCK_HAVE_UNDO != 0 {
-			if pindex.Status&BLOCK_HAVE_DATA == 0 {
+		if pindex.Status&model.BLOCK_HAVE_UNDO != 0 {
+			if pindex.Status&model.BLOCK_HAVE_DATA == 0 {
 				panic("the block data should be had store the blk*dat file, so the " +
 					"blkindex' status & BLOCK_HAVE_DATA should != 0")
 			}
 		}
 		// This is pruning-independent.
-		if (pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_TRANSACTIONS) !=
+		if (pindex.Status&model.BLOCK_VALID_MASK >= model.BLOCK_VALID_TRANSACTIONS) !=
 			(pindex.Txs > 0) {
 			panic("the blockindex TRANSACTIONS status should equivalent Txs > 0 ")
 		}
@@ -981,19 +984,19 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		if pindexFirstNotTreeValid != nil {
 			panic("All mapBlockIndex entries must at least be TREE valid")
 		}
-		if pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_TREE {
+		if pindex.Status&model.BLOCK_VALID_MASK >= model.BLOCK_VALID_TREE {
 			// TREE valid implies all parents are TREE valid
 			if pindexFirstNotTreeValid != nil {
 				panic("status TREE valid implies all parents are TREE valid")
 			}
 		}
-		if pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_CHAIN {
+		if pindex.Status&model.BLOCK_VALID_MASK >= model.BLOCK_VALID_CHAIN {
 			// CHAIN valid implies all parents are CHAIN valid
 			if pindexFirstNotChainValid != nil {
 				panic("status CHAIN valid implies all parents are CHAIN valid")
 			}
 		}
-		if pindex.Status&BLOCK_VALID_MASK >= BLOCK_VALID_SCRIPTS {
+		if pindex.Status&model.BLOCK_VALID_MASK >= model.BLOCK_VALID_SCRIPTS {
 			// SCRIPTS valid implies all parents are SCRIPTS valid
 			if pindexFirstNotScriptsValid != nil {
 				panic("status SCRIPTS valid implies all parents are SCRIPTS valid")
@@ -1002,7 +1005,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		if pindexFirstInvalid == nil {
 			// Checks for not-invalid blocks.
 			// The failed mask cannot be set for blocks without invalid parents.
-			if pindex.Status&BLOCK_FAILED_MASK != 0 {
+			if pindex.Status&model.BLOCK_FAILED_MASK != 0 {
 				panic("The failed mask cannot be set for blocks without invalid parents.")
 			}
 		}
@@ -1041,7 +1044,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 				}
 			}
 		}
-		if pindex.PPrev != nil && (pindex.Status&BLOCK_HAVE_DATA != 0) &&
+		if pindex.PPrev != nil && (pindex.Status&model.BLOCK_HAVE_DATA != 0) &&
 			pindexFirstNeverProcessed != nil && pindexFirstInvalid == nil {
 			// If this block has block data available, some parent was never
 			// received, and has no invalid parents, it must be in
@@ -1051,7 +1054,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 			}
 		}
 
-		if !(pindex.Status&BLOCK_HAVE_DATA != 0) {
+		if !(pindex.Status&model.BLOCK_HAVE_DATA != 0) {
 			// Can't be in mapBlocksUnlinked if we don't HAVE_DATA
 			if foundInUnlinked {
 				panic("the block can't be in mapBlocksUnlinked")
@@ -1064,7 +1067,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 				panic("the block can't be in mapBlocksUnlinked")
 			}
 		}
-		if pindex.PPrev != nil && (pindex.Status&BLOCK_HAVE_DATA != 0) &&
+		if pindex.PPrev != nil && (pindex.Status&model.BLOCK_HAVE_DATA != 0) &&
 			pindexFirstNeverProcessed == nil && pindexFirstMissing != nil {
 			// We HAVE_DATA for this block, have received data for all parents
 			// at some point, but we're currently missing data for some parent.
@@ -1163,12 +1166,12 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 }
 
 func BlockIndexWorkComparator(pa, pb interface{}) bool {
-	a := pa.(*BlockIndex)
-	b := pb.(*BlockIndex)
+	a := pa.(*model.BlockIndex)
+	b := pb.(*model.BlockIndex)
 	return blockIndexWorkComparator(a, b)
 }
 
-func blockIndexWorkComparator(pa, pb *BlockIndex) bool {
+func blockIndexWorkComparator(pa, pb *model.BlockIndex) bool {
 	// First sort by most total work, ...
 	if pa.ChainWork.Cmp(&pb.ChainWork) > 0 {
 		return false
@@ -1207,7 +1210,7 @@ func blockIndexWorkComparator(pa, pb *BlockIndex) bool {
 }
 
 type TraceEle struct {
-	pindex *BlockIndex
+	pindex *model.BlockIndex
 	pblock *model.Block
 }
 
@@ -1225,12 +1228,12 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 	// us in the middle of ProcessNewBlock - do not assume pblock is set
 	// sanely for performance or correctness!
 	var (
-		pindexMostWork *BlockIndex
-		pindexNewTip   *BlockIndex
+		pindexMostWork *model.BlockIndex
+		pindexNewTip   *model.BlockIndex
 	)
 	for {
 		//	todo, Add channel for receive interruption from P2P/RPC
-		var pindexFork *BlockIndex
+		var pindexFork *model.BlockIndex
 		var connectTrace ConnectTrace
 		fInitialDownload := false
 		{
@@ -1243,7 +1246,8 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 			// might cause an outside process to abandon a transaction and
 			// then have it inadvertantly cleared by the notification that
 			// the conflicted transaction was evicted.
-
+			mrt := mempool.NewMempoolConflictRemoveTrack(Gmempool)
+			_ = mrt
 			pindexOldTip := GChainState.ChainAcTive.Tip()
 			if pindexMostWork == nil {
 				pindexMostWork = FindMostWorkChain()
@@ -1315,10 +1319,10 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 }
 
 func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
-	state *model.ValidationState, ppindex **BlockIndex) bool {
+	state *model.ValidationState, ppindex **model.BlockIndex) bool {
 
 	// Check for duplicate
-	var pindex *BlockIndex
+	var pindex *model.BlockIndex
 	hash, err := pblkHeader.GetHash()
 	if err != nil {
 		return false
@@ -1329,7 +1333,7 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
 			if ppindex != nil {
 				*ppindex = pindex
 			}
-			if pindex.Status&BLOCK_FAILED_MASK != 0 {
+			if pindex.Status&model.BLOCK_FAILED_MASK != 0 {
 				return state.Invalid(state.Error(fmt.Sprintf("block %s is marked invalid",
 					hash.ToString())), 0, "duplicate", "")
 			}
@@ -1342,14 +1346,14 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
 		}
 
 		// Get prev block index
-		var pindexPrev *BlockIndex
+		var pindexPrev *model.BlockIndex
 		v, ok := GChainState.MapBlockIndex.Data[pblkHeader.HashPrevBlock]
 		if !ok {
 			return state.Dos(10, false, 0, "bad-prevblk", false, "")
 		}
 		pindexPrev = v
 
-		if pindexPrev.Status&BLOCK_FAILED_MASK == BLOCK_FAILED_MASK {
+		if pindexPrev.Status&model.BLOCK_FAILED_MASK != 0 {
 			return state.Dos(100, false, model.REJECT_INVALID, "bad-prevblk", false, "")
 		}
 
@@ -1362,7 +1366,8 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
 		}
 
 		// todo !! Add time param in the function
-		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, 0) {
+		mTime := MedianTime{}
+		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, mTime.AdjustedTime().Second()) {
 			return false
 		}
 	}
@@ -1382,7 +1387,7 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
 // ActivateBestChainStep Try to make some progress towards making pindexMostWork
 // the active block. pblock is either nullptr or a pointer to a CBlock corresponding to
 // pindexMostWork.
-func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationState, pindexMostWork *BlockIndex,
+func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationState, pindexMostWork *model.BlockIndex,
 	pblock *model.Block, fInvalidFound *bool, connectTrace *ConnectTrace) bool {
 
 	//todo !!! add sync.mutex lock; cs_main
@@ -1399,7 +1404,7 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationStat
 	}
 
 	// Build list of new blocks to connect.
-	vpindexToConnect := make([]*BlockIndex, 0)
+	vpindexToConnect := make([]*model.BlockIndex, 0)
 	fContinue := true
 	nHeight := -1
 	if pindexFork != nil {
@@ -1412,7 +1417,7 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationStat
 		if nHeight+32 < pindexMostWork.Height {
 			nTargetHeight = nHeight + 32
 		}
-		vpindexToConnect = make([]*BlockIndex, 0)
+		vpindexToConnect = make([]*model.BlockIndex, 0)
 		pindexIter := pindexMostWork.GetAncestor(nTargetHeight)
 		for pindexIter != nil && pindexIter.Height != nHeight {
 			vpindexToConnect = append(vpindexToConnect, pindexIter)
@@ -1421,7 +1426,7 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationStat
 		nHeight = nTargetHeight
 
 		// Connect new blocks.
-		var pindexConnect *BlockIndex
+		var pindexConnect *model.BlockIndex
 		if len(vpindexToConnect) > 0 {
 			pindexConnect = vpindexToConnect[len(vpindexToConnect)-1]
 		}
@@ -1459,7 +1464,7 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationStat
 	}
 
 	if fBlocksDisconnected {
-		Gmempool.RemoveForReorg(GpcoinsTip, uint(GChainState.ChainAcTive.Tip().Height+1), int(policy.STANDARD_LOCKTIME_VERIFY_FLAGS))
+		RemoveForReorg(GpcoinsTip, Gmempool, uint(GChainState.ChainAcTive.Tip().Height+1), int(policy.STANDARD_LOCKTIME_VERIFY_FLAGS))
 		LimitMempoolSize(Gmempool, utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE))*1000000,
 			utils.GetArg("-mempoolexpiry", int64(DefaultMempoolExpiry))*60*60)
 	}
@@ -1474,22 +1479,115 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *model.ValidationStat
 	return true
 }
 
-func InvalidChainFound(pindexNew *BlockIndex) {
+func InvalidChainFound(pindexNew *model.BlockIndex) {
+	if gpindexBestInvalid == nil || pindexNew.ChainWork.Cmp(&gpindexBestInvalid.ChainWork) > 0 {
+		gpindexBestInvalid = pindexNew
+	}
+	logger.GetLogger().Info("%s: invalid block=%s  height=%d  work=%.8d  date=%s\n",
+		logger.TraceLog(), pindexNew.PHashBlock.ToString(), pindexNew.Height,
+		pindexNew.ChainWork.String(), time.Unix(int64(pindexNew.GetBlockTime()), 0).String())
+	tip := GChainState.ChainAcTive.Tip()
+	if tip == nil {
+		panic("Now, the chain Tip should not equal nil")
+	}
+	logger.GetLogger().Debug("%s:  current best=%s  height=%d  log2_work=%.8g  date=%s\n",
+		logger.TraceLog(), tip.PHashBlock.ToString(), GChainState.ChainAcTive.Height(),
+		time.Unix(int64(tip.GetBlockTime()), 0).String())
 
+	CheckForkWarningConditions()
 }
 
 // PruneBlockIndexCandidates Delete all entries in setBlockIndexCandidates that
 // are worse than the current tip.
 func PruneBlockIndexCandidates() {
-
+	// Note that we can't delete the current block itself, as we may need to
+	// return to it later in case a reorganization to a better block fails.
+	for i := 0; i < GChainState.setBlockIndexCandidates.Size(); i++ {
+		pindex := GChainState.setBlockIndexCandidates.GetItemByIndex(i).(*model.BlockIndex)
+		if blockIndexWorkComparator(pindex, GChainState.ChainAcTive.Tip()) {
+			GChainState.setBlockIndexCandidates.DelItem(pindex)
+		}
+	}
+	// Either the current tip or a successor of it we're working towards is left
+	// in setBlockIndexCandidates.
+	if GChainState.setBlockIndexCandidates.Size() > 0 {
+		panic("the set should have element, ")
+	}
 }
 
-func CheckForkWarningConditionsOnNewFork(pindexNewForkTip *BlockIndex) {
+func CheckForkWarningConditionsOnNewFork(pindexNewForkTip *model.BlockIndex) {
+	//todo !!! add sync.mutex lock; cs_main
+	// If we are on a fork that is sufficiently large, set a warning flag
+	pfork := pindexNewForkTip
+	plonger := GChainState.ChainAcTive.Tip()
+	for pfork != nil && pfork != plonger {
+		for plonger != nil && plonger.Height > pfork.Height {
+			plonger = plonger.PPrev
+		}
+		if pfork == plonger {
+			break
+		}
+		pfork = pfork.PPrev
+	}
 
+	// We define a condition where we should warn the user about as a fork of at
+	// least 7 blocks with a tip within 72 blocks (+/- 12 hours if no one mines
+	// it) of ours. We use 7 blocks rather arbitrarily as it represents just
+	// under 10% of sustained network hash rate operating on the fork, or a
+	// chain that is entirely longer than ours and invalid (note that this
+	// should be detected by both). We define it this way because it allows us
+	// to only store the highest fork tip (+ base) which meets the 7-block
+	// condition and from this always have the most-likely-to-cause-warning fork
+	if pfork != nil &&
+		(pindexNewForkTip == nil || (pindexNewForkTip != nil && pindexNewForkTip.Height > gpindexBestForkTip.Height)) {
+		gpindexBestForkTip = pindexNewForkTip
+		gpindexBestForkBase = pfork
+	}
+	CheckForkWarningConditions()
 }
 
 func CheckForkWarningConditions() {
+	//todo !!! add sync.lock, cs_main
+	// Before we get past initial download, we cannot reliably alert about forks
+	// (we assume we don't get stuck on a fork before finishing our initial
+	// sync)
+	if IsInitialBlockDownload() {
+		return
+	}
 
+	// If our best fork is no longer within 72 blocks (+/- 12 hours if no one
+	// mines it) of our head, drop it
+	if gpindexBestForkTip != nil &&
+		GChainState.ChainAcTive.Height()-gpindexBestForkTip.Height >= 72 {
+		gpindexBestForkTip = nil
+	}
+
+	tmpWork := big.NewInt(0).Add(&GChainState.ChainAcTive.Tip().ChainWork, big.NewInt(0).Mul(GetBlockProof(GChainState.ChainAcTive.Tip()), big.NewInt(6)))
+	if gpindexBestForkTip != nil || (gpindexBestInvalid != nil &&
+		gpindexBestInvalid.ChainWork.Cmp(tmpWork) > 0) {
+		if !msg.GetfLargeWorkForkFound() && gpindexBestForkBase != nil {
+			waring := "'Warning: Large-work fork detected, forking after block " +
+				gpindexBestForkBase.PHashBlock.ToString() + "'"
+			AlertNotify(waring)
+		}
+
+		if gpindexBestForkTip != nil && gpindexBestForkBase != nil {
+			logger.GetLogger().Debug("%s: Warning: Large valid fork found forking the "+
+				"chain at height %d (%s) lasting to height %d (%s).\n"+
+				"Chain state database corruption likely.\n", logger.TraceLog(), gpindexBestForkBase.Height,
+				gpindexBestForkBase.PHashBlock.ToString(), gpindexBestForkTip.Height,
+				gpindexBestForkTip.PHashBlock.ToString())
+			msg.SetfLargeWorkForkFound(true)
+		} else {
+			logger.GetLogger().Debug("%s: Warning: Found invalid chain at least ~6 blocks "+
+				"longer than our best chain.\nChain state database "+
+				"corruption likely.\n", logger.TraceLog())
+			msg.SetfLargeWorkInvalidChainFound(true)
+		}
+	} else {
+		msg.SetfLargeWorkForkFound(false)
+		msg.SetfLargeWorkInvalidChainFound(false)
+	}
 }
 
 // ConnectTip Connect a new block to chainActive. pblock is either nullptr or a pointer to
@@ -1497,7 +1595,7 @@ func CheckForkWarningConditions() {
 // The block is always added to connectTrace (either after loading from disk or
 // by copying pblock) - if that is not intended, care must be taken to remove
 // the last entry in blocksConnected in case of failure.
-func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNew *BlockIndex,
+func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNew *model.BlockIndex,
 	pblock *model.Block, connectTrace *ConnectTrace) bool {
 
 	if pindexNew.PPrev != GChainState.ChainAcTive.Tip() {
@@ -1568,7 +1666,7 @@ func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNe
 	return true
 }
 
-func InvalidBlockFound(pindex *BlockIndex, state *model.ValidationState) {
+func InvalidBlockFound(pindex *model.BlockIndex, state *model.ValidationState) {
 
 }
 
@@ -1585,7 +1683,7 @@ func GetBlockSubsidy(height int, params msg.BitcoinParams) btcutil.Amount {
 	return btcutil.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
-func FindUndoPos(state *model.ValidationState, nFile int, pos *DiskBlockPos, nAddSize int) bool {
+func FindUndoPos(state *model.ValidationState, nFile int, pos *model.DiskBlockPos, nAddSize int) bool {
 	pos.File = nFile
 	//TODO:LOCK(cs_LastBlockFile);
 	pos.Pos = int(ginfoBlockFile[nFile].UndoSize)
@@ -1616,7 +1714,7 @@ func FindUndoPos(state *model.ValidationState, nFile int, pos *DiskBlockPos, nAd
 }
 
 func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState,
-	pindex *BlockIndex, view *utxo.CoinsViewCache, fJustCheck bool) bool {
+	pindex *model.BlockIndex, view *utxo.CoinsViewCache, fJustCheck bool) bool {
 
 	//TODO: AssertLockHeld(cs_main);
 	//var sc sync.RWMutex
@@ -1749,12 +1847,12 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	nMaxSigOpsCount := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 
 	tmpBlockPos := pindex.GetBlockPos()
-	txPos := &DiskTxPos{
+	txPos := &model.DiskTxPos{
 		BlockIn:    &tmpBlockPos,
 		TxOffsetIn: len(pblock.Transactions),
 	}
 
-	var vPos map[utils.Hash]DiskTxPos
+	var vPos map[utils.Hash]model.DiskTxPos
 	for i := 0; i < len(pblock.Transactions); i++ {
 		tx := pblock.Transactions[i]
 		nInputs += len(tx.Ins)
@@ -1845,9 +1943,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	// Write undo information to disk
 	tmpUndoPos := pindex.GetUndoPos()
-	if tmpUndoPos.IsNull() || !pindex.IsValid(BLOCK_VALID_SCRIPTS) {
+	if tmpUndoPos.IsNull() || !pindex.IsValid(model.BLOCK_VALID_SCRIPTS) {
 		if tmpUndoPos.IsNull() {
-			var pos DiskBlockPos
+			var pos model.DiskBlockPos
 			//todo：SerializeSize
 			//if !FindUndoPos(state, pindex.File, pos, len(blockundo.)) {
 			//	logger.ErrorLog("ConnectBlock(): FindUndoPos failed")
@@ -1858,10 +1956,10 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 			// update nUndoPos in block index
 			pindex.UndoPosition = pos.Pos
-			pindex.Status |= BLOCK_HAVE_UNDO
+			pindex.Status |= model.BLOCK_HAVE_UNDO
 		}
 
-		pindex.RaiseValidity(BLOCK_VALID_SCRIPTS)
+		pindex.RaiseValidity(model.BLOCK_VALID_SCRIPTS)
 		gsetDirtyBlockIndex.AddItem(pindex)
 	}
 
@@ -1954,12 +2052,83 @@ func DisconnectTip(param *msg.BitcoinParams, state *model.ValidationState, fBare
 }
 
 // UpdateTip Update chainActive and related internal data structures.
-func UpdateTip(param *msg.BitcoinParams, pindexNew *BlockIndex) {
+func UpdateTip(param *msg.BitcoinParams, pindexNew *model.BlockIndex) {
 	GChainState.ChainAcTive.SetTip(pindexNew)
 	// New best block
 	Gmempool.AddTransactionsUpdated(1)
 
 	//	TODO !!! add Parallel Programming boost::condition_variable
+	warningMessages := make([]string, 0)
+	if !IsInitialBlockDownload() {
+		nUpgraded := 0
+		pindex := GChainState.ChainAcTive.Tip()
+		for bit := 0; bit < VERSIONBITS_NUM_BITS; bit++ {
+			checker := NewWarningBitsConChecker(bit)
+			state := GetStateFor(checker, pindex, param, Gwarningcache[bit])
+			if state == THRESHOLD_ACTIVE || state == THRESHOLD_LOCKED_IN {
+				if state == THRESHOLD_ACTIVE {
+					strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
+					msg.SetMiscWarning(strWaring)
+					if !gfWarned {
+						AlertNotify(strWaring)
+						gfWarned = true
+					}
+				} else {
+					warningMessages = append(warningMessages,
+						fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
+				}
+			}
+		}
+		// Check the version of the last 100 blocks to see if we need to
+		// upgrade:
+		for i := 0; i < 100 && pindex != nil; i++ {
+			nExpectedVersion := ComputeBlockVersion(pindex.PPrev, param, Gversionbitscache)
+			if pindex.Version > VERSIONBITS_LAST_OLD_BLOCK_VERSION &&
+				(int(pindex.Version)&(^nExpectedVersion) != 0) {
+				nUpgraded++
+				pindex = pindex.PPrev
+			}
+		}
+		if nUpgraded > 0 {
+			warningMessages = append(warningMessages,
+				fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
+		}
+		if nUpgraded > 100/2 {
+			strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
+				" It's possible unknown rules are in effect")
+			// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
+			// the user:
+			msg.SetMiscWarning(strWarning)
+			if !gfWarned {
+				AlertNotify(strWarning)
+
+				gfWarned = true
+			}
+		}
+	}
+	txdata := param.TxData()
+	logger.GetLogger().Info("%s: new best=%s height=%d version=0x%08x work=%.8g tx=%lu "+
+		"date='%s' progress=%f cache=%.1f(%utxo)", logger.TraceLog(), GChainState.ChainAcTive.Tip().PHashBlock.ToString(),
+		GChainState.ChainAcTive.Height(), GChainState.ChainAcTive.Tip().Version,
+		GChainState.ChainAcTive.Tip().ChainWork.String(), GChainState.ChainAcTive.Tip().ChainTx,
+		time.Unix(int64(GChainState.ChainAcTive.Tip().Time), 0).String(),
+		GuessVerificationProgress(&txdata, GChainState.ChainAcTive.Tip()),
+		GpcoinsTip.DynamicMemoryUsage(), GpcoinsTip.GetCacheSize())
+	if len(warningMessages) != 0 {
+		logger.GetLogger().Info("waring= %s", strings.Join(warningMessages, ","))
+	}
+}
+
+func AlertNotify(strMessage string) {
+	//todo !!! uiInterface.NotifyAlertChanged();
+	strCmd := utils.GetArgString("-alertnotify", "")
+	if len(strCmd) == 0 {
+		return
+	}
+
+	// Alert text should be plain ascii coming from a trusted source, but to be
+	// safe we first strip anything not in safeChars, then add single quotes
+	// around the whole string before passing it to the shell:
 
 }
 
@@ -1973,7 +2142,7 @@ func AcceptToMemoryPool(param *msg.BitcoinParams, pool *mempool.Mempool, state *
 // DisconnectBlock Undo the effects of this block (with given index) on the UTXO
 // set represented by coins. When UNCLEAN or FAILED is returned, view is left in an
 // indeterminate state.
-func DisconnectBlock(pblock *model.Block, pindex *BlockIndex, view *utxo.CoinsViewCache) DisconnectResult {
+func DisconnectBlock(pblock *model.Block, pindex *model.BlockIndex, view *utxo.CoinsViewCache) DisconnectResult {
 
 	hashA := pindex.GetBlockHash()
 	hashB := view.GetBestBlock()
@@ -1995,7 +2164,7 @@ func DisconnectBlock(pblock *model.Block, pindex *BlockIndex, view *utxo.CoinsVi
 	return ApplyBlockUndo(&blockUndo, pblock, pindex, view)
 }
 
-func UndoWriteToDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashBlock utils.Hash, messageStart btcutil.BitcoinNet) bool {
+func UndoWriteToDisk(blockundo *BlockUndo, pos *model.DiskBlockPos, hashBlock utils.Hash, messageStart btcutil.BitcoinNet) bool {
 	// Open history file to append
 	fileout := OpenUndoFile(*pos, false)
 	if fileout == nil {
@@ -2023,8 +2192,7 @@ func UndoWriteToDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashBlock utils.Ha
 	return true
 }
 
-func UndoReadFromDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashblock utils.Hash) (ret bool) {
-
+func UndoReadFromDisk(blockundo *BlockUndo, pos *model.DiskBlockPos, hashblock utils.Hash) (ret bool) {
 	ret = true
 	defer func() {
 		if err := recover(); err != nil {
@@ -2055,7 +2223,7 @@ func UndoReadFromDisk(blockundo *BlockUndo, pos *DiskBlockPos, hashblock utils.H
 	return ok
 }
 
-func ReadBlockFromDisk(pblock *model.Block, pindex *BlockIndex, param *msg.BitcoinParams) bool {
+func ReadBlockFromDisk(pblock *model.Block, pindex *model.BlockIndex, param *msg.BitcoinParams) bool {
 	if !ReadBlockFromDiskByPos(pblock, pindex.GetBlockPos(), param) {
 		return false
 	}
@@ -2068,7 +2236,7 @@ func ReadBlockFromDisk(pblock *model.Block, pindex *BlockIndex, param *msg.Bitco
 	return true
 }
 
-func ReadBlockFromDiskByPos(pblock *model.Block, pos DiskBlockPos, param *msg.BitcoinParams) bool {
+func ReadBlockFromDiskByPos(pblock *model.Block, pos model.DiskBlockPos, param *msg.BitcoinParams) bool {
 	pblock.SetNull()
 
 	// Open history file to read
@@ -2093,16 +2261,16 @@ func ReadBlockFromDiskByPos(pblock *model.Block, pos DiskBlockPos, param *msg.Bi
 
 // FindMostWorkChain Return the tip of the chain with the most work in it, that isn't
 // known to be invalid (it's however far from certain to be valid).
-func FindMostWorkChain() *BlockIndex {
+func FindMostWorkChain() *model.BlockIndex {
 	for {
-		var pindexNew *BlockIndex
+		var pindexNew *model.BlockIndex
 
 		// Find the best candidate header.
 		it := GChainState.setBlockIndexCandidates.End()
 		if GChainState.setBlockIndexCandidates.Size() == 0 {
 			return nil
 		}
-		pindexNew = it.(*BlockIndex)
+		pindexNew = it.(*model.BlockIndex)
 
 		// Check whether all blocks on the path between the currently active
 		// chain and the candidate are valid. Just going until the active chain
@@ -2118,8 +2286,8 @@ func FindMostWorkChain() *BlockIndex {
 			// which block files have been deleted. Remove those as candidates
 			// for the most work chain if we come across them; we can't switch
 			// to a chain unless we have all the non-active-chain parent blocks.
-			fFailedChain := (pindexTest.Status & BLOCK_FAILED_MASK) != 0
-			fMissingData := !(pindexTest.Status&BLOCK_HAVE_DATA != 0)
+			fFailedChain := (pindexTest.Status & model.BLOCK_FAILED_MASK) != 0
+			fMissingData := !(pindexTest.Status&model.BLOCK_HAVE_DATA != 0)
 			if fFailedChain || fMissingData {
 				// Candidate chain is not usable (either invalid or missing data)
 				if fFailedChain && (gpindexBestInvalid == nil ||
@@ -2130,7 +2298,7 @@ func FindMostWorkChain() *BlockIndex {
 				// Remove the entire chain from the set.
 				for pindexTest != pindexFailed {
 					if fFailedChain {
-						pindexFailed.Status |= BLOCK_FAILED_CHILD
+						pindexFailed.Status |= model.BLOCK_FAILED_CHILD
 					} else if fMissingData {
 						// If we're missing data, then add back to
 						// mapBlocksUnlinked, so that if the block arrives in
@@ -2153,7 +2321,7 @@ func FindMostWorkChain() *BlockIndex {
 	}
 }
 
-func AddToBlockIndex(pblkHeader *model.BlockHeader) *BlockIndex {
+func AddToBlockIndex(pblkHeader *model.BlockHeader) *model.BlockIndex {
 	// Check for duplicate
 	hash, _ := pblkHeader.GetHash()
 	if v, ok := GChainState.MapBlockIndex.Data[hash]; ok {
@@ -2161,7 +2329,7 @@ func AddToBlockIndex(pblkHeader *model.BlockHeader) *BlockIndex {
 	}
 
 	// Construct new block index object
-	pindexNew := NewBlockIndex(pblkHeader)
+	pindexNew := model.NewBlockIndex(pblkHeader)
 	if pindexNew == nil {
 		panic("the pindexNew should not equal nil")
 	}
@@ -2187,7 +2355,7 @@ func AddToBlockIndex(pblkHeader *model.BlockHeader) *BlockIndex {
 		pindexNew.ChainWork = *big.NewInt(0)
 	}
 
-	pindexNew.RaiseValidity(BLOCK_VALID_TREE)
+	pindexNew.RaiseValidity(model.BLOCK_VALID_TREE)
 	if GindexBestHeader == nil || GindexBestHeader.ChainWork.Cmp(&pindexNew.ChainWork) < 0 {
 		GindexBestHeader = pindexNew
 	}
@@ -2197,7 +2365,7 @@ func AddToBlockIndex(pblkHeader *model.BlockHeader) *BlockIndex {
 }
 
 func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.ValidationState,
-	param *msg.BitcoinParams, pindexPrev *BlockIndex, adjustedTime int) bool {
+	param *msg.BitcoinParams, pindexPrev *model.BlockIndex, adjustedTime int) bool {
 	nHeight := 0
 	if pindexPrev != nil {
 		nHeight = pindexPrev.Height + 1
@@ -2235,7 +2403,7 @@ func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.Valida
 	return true
 }
 
-func checkIndexAgainstCheckpoint(pindexPrev *BlockIndex, state *model.ValidationState,
+func checkIndexAgainstCheckpoint(pindexPrev *model.BlockIndex, state *model.ValidationState,
 	param *msg.BitcoinParams, hash *utils.Hash) bool {
 	return true
 }
@@ -2250,7 +2418,7 @@ func ProcessNewBlock(param *msg.BitcoinParams, pblock *model.Block, fForceProces
 	// belt-and-suspenders.
 	ret := CheckBlock(param, pblock, &state, true, true)
 
-	var pindex *BlockIndex
+	var pindex *model.BlockIndex
 	if ret {
 		ret = AcceptBlock(param, pblock, &state, &pindex, fForceProcessing, nil, fNewBlock)
 	}
@@ -2269,25 +2437,6 @@ func ProcessNewBlock(param *msg.BitcoinParams, pblock *model.Block, fForceProces
 	}
 
 	return true
-}
-
-func ComputeBlockVersion(indexPrev *BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
-	version := VERSIONBITS_TOP_BITS
-
-	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
-		state := func() ThresholdState {
-			t.Lock()
-			defer t.Unlock()
-			v := VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
-			return v
-		}()
-
-		if state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED {
-			version |= int(VersionBitsMask(params, msg.DeploymentPos(i)))
-		}
-	}
-
-	return version
 }
 
 func CheckCoinbase(tx *model.Tx, state *model.ValidationState, fCheckDuplicateInputs bool) bool {
@@ -2399,7 +2548,7 @@ func MoneyRange(money int64) bool {
 func notifyHeaderTip() {
 	fNotify := false
 	fInitialBlockDownload := false
-	var pindexHeader *BlockIndex
+	var pindexHeader *model.BlockIndex
 	{
 		//	todo !!! and sync.mutux in here, cs_main
 		pindexHeader = gpindexBestHeader
@@ -2438,15 +2587,15 @@ func Threshold(params *msg.BitcoinParams) int {
 	return int(params.RuleChangeActivationThreshold)
 }
 
-func Condition(pindex *BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) bool {
-	return (int(pindex.Version)&VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS &&
+func Condition(pindex *model.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) bool {
+	return (int64(pindex.Version)&VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS &&
 		(pindex.Version)&1 != 0 && (ComputeBlockVersion(pindex.PPrev, params, t)&1) == 0
 }
 
 var warningcache [VERSIONBITS_NUM_BITS]ThresholdConditionCache
 
 // GetBlockScriptFlags Returns the script flags which should be checked for a given block
-func GetBlockScriptFlags(pindex *BlockIndex, param *msg.BitcoinParams) uint32 {
+func GetBlockScriptFlags(pindex *model.BlockIndex, param *msg.BitcoinParams) uint32 {
 	//TODO: AssertLockHeld(cs_main);
 	//var sc sync.RWMutex
 	//sc.Lock()
@@ -2513,13 +2662,13 @@ func CalculateCurrentUsage() uint64 {
 //PruneOneBlockFile Prune a block file (modify associated database entries)
 func PruneOneBlockFile(fileNumber int) {
 	bm := &BlockMap{
-		Data: make(map[utils.Hash]*BlockIndex),
+		Data: make(map[utils.Hash]*model.BlockIndex),
 	}
 	for _, value := range bm.Data {
 		pindex := value
 		if pindex.File == fileNumber {
-			pindex.Status &= ^BLOCK_HAVE_DATA
-			pindex.Status &= ^BLOCK_HAVE_UNDO
+			pindex.Status &= ^model.BLOCK_HAVE_DATA
+			pindex.Status &= ^model.BLOCK_HAVE_UNDO
 			pindex.File = 0
 			pindex.DataPosition = 0
 			pindex.UndoPosition = 0
@@ -2530,13 +2679,13 @@ func PruneOneBlockFile(fileNumber int) {
 			// point it would be considered as a candidate for
 			// mapBlocksUnlinked or setBlockIndexCandidates.
 			ranges := GChainState.MapBlocksUnlinked[pindex.PPrev]
-			tmpRange := make([]*BlockIndex, len(ranges))
+			tmpRange := make([]*model.BlockIndex, len(ranges))
 			copy(tmpRange, ranges)
 			for len(tmpRange) > 0 {
 				v := tmpRange[0]
 				tmpRange = tmpRange[1:]
 				if v == pindex {
-					tmp := make([]*BlockIndex, len(ranges)-1)
+					tmp := make([]*model.BlockIndex, len(ranges)-1)
 					for _, val := range tmpRange {
 						if val != v {
 							tmp = append(tmp, val)
@@ -2556,7 +2705,7 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 	lists := setFilesToPrune.List()
 	for key, value := range lists {
 		v := value.(int)
-		pos := &DiskBlockPos{
+		pos := &model.DiskBlockPos{
 			File: v,
 			Pos:  0,
 		}
@@ -2742,10 +2891,10 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 			gsetDirtyFileInfo.RemoveItem(v)
 		}
 
-		var blocks = make([]*BlockIndex, 0)
+		var blocks = make([]*model.BlockIndex, 0)
 		list := gsetDirtyBlockIndex.List()
 		for _, value := range list {
-			v := value.(*BlockIndex)
+			v := value.(*model.BlockIndex)
 			blocks = append(blocks, v)
 			gsetDirtyBlockIndex.RemoveItem(value)
 		}
@@ -2810,7 +2959,7 @@ func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.Valida
 	// is used. Thus if we want to know if a transaction can be part of the
 	// *next* block, we need to call ContextualCheckTransaction() with one more
 	// than chainActive.Height().
-	blockHeight := len(GChainActive.vChain) + 1
+	blockHeight := GChainActive.Height() + 1
 
 	// BIP113 will require that time-locked transactions have nLockTime set to
 	// less than the median time of the previous block they're contained in.
@@ -2827,6 +2976,53 @@ func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.Valida
 	return ContextualCheckTransaction(params, tx, state, blockHeight, lockTimeCutoff)
 }
 
+func RemoveForReorg(pcoins *utxo.CoinsViewCache, pool *mempool.Mempool, nMemPoolHeight uint, flags int) {
+	// Remove transactions spending a coinbase which are now immature and
+	// no-longer-final transactions
+	pool.Mtx.Lock()
+	defer pool.Mtx.Unlock()
+	txToRemove := set.New()
+	for _, entry := range pool.MapTx.PoolNode {
+		lp := entry.LockPoints
+		validLP := TestLockPointValidity(lp)
+		param := msg.ActiveNetParams
+		var state model.ValidationState
+		if !ContextualCheckTransactionForCurrentBlock(entry.TxRef, &state, param, uint(flags)) ||
+			!CheckSequenceLocks(entry.TxRef, flags, lp, validLP) {
+			// Note if CheckSequenceLocks fails the LockPoints may still be
+			// invalid. So it's critical that we remove the tx and not depend on
+			// the LockPoints.
+			txToRemove.Add(entry)
+		} else if entry.SpendsCoinbase {
+			for _, txin := range entry.TxRef.Ins {
+				it2 := pool.MapTx.GetEntryByHash(txin.PreviousOutPoint.Hash)
+				if it2 != nil {
+					continue
+				}
+				coin := GpcoinsTip.AccessCoin(txin.PreviousOutPoint)
+				if pool.CheckFrequency != 0 {
+					if coin.IsSpent() {
+						panic("the coin should not be spent ")
+					}
+				}
+				if coin.IsSpent() || (coin.IsCoinBase() && nMemPoolHeight-uint(coin.GetHeight()) < consensus.CoinbaseMaturity) {
+					txToRemove.Add(entry)
+					break
+				}
+			}
+		}
+		if !validLP {
+			entry.LockPoints = lp
+		}
+	}
+	setAllRemoves := set.New()
+	for _, it := range txToRemove.List() {
+		entry := it.(*mempool.TxMempoolEntry)
+		pool.CalculateDescendants(entry, setAllRemoves)
+	}
+	pool.RemoveStaged(setAllRemoves, false, mempool.REORG)
+}
+
 func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	//todo:not finish
 	return true
@@ -2839,7 +3035,7 @@ func RewindBlockIndex(params *msg.BitcoinParams) bool {
 	var state *model.ValidationState
 	pindex := GChainActive.Tip()
 	for GChainActive.Height() >= nHeight {
-		if GfPruneMode && (GChainActive.Tip().Status&BLOCK_HAVE_DATA) != 0 {
+		if GfPruneMode && (GChainActive.Tip().Status&model.BLOCK_HAVE_DATA) != 0 {
 			// If pruning, don't try rewinding past the HAVE_DATA point; since
 			// older blocks can't be served anyway, there's no need to walk
 			// further, and trying to DisconnectTip() will fail (and require a
@@ -2863,7 +3059,7 @@ func RewindBlockIndex(params *msg.BitcoinParams) bool {
 	for _, value := range MapBlockIndex.Data {
 		pindexIter := value
 
-		if pindexIter.IsValid(BLOCK_VALID_TRANSACTIONS) && pindexIter.ChainTx > 0 {
+		if pindexIter.IsValid(model.BLOCK_VALID_TRANSACTIONS) && pindexIter.ChainTx > 0 {
 			chainState.setBlockIndexCandidates.AddInterm(pindexIter)
 		}
 	}
@@ -2894,7 +3090,7 @@ func UnloadBlockIndex() {
 		warningcache[b] = make(ThresholdConditionCache)
 	}
 
-	MapBlockIndex.Data = make(map[utils.Hash]*BlockIndex)
+	MapBlockIndex.Data = make(map[utils.Hash]*model.BlockIndex)
 	GfHavePruned = false
 }
 
@@ -3488,7 +3684,7 @@ func CheckTxInputs(tx *model.Tx, state *model.ValidationState, view *utxo.CoinsV
 	return true
 }
 
-func CalculateSequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *BlockIndex) map[int]int64 {
+func CalculateSequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *model.BlockIndex) map[int]int64 {
 	if len(prevHeights) != len(tx.Ins) {
 		panic("the prevHeights size mot equal txIns size")
 	}
@@ -3564,7 +3760,7 @@ func CheckSequenceLocks(tx *model.Tx, flags int, lp *mempool.LockPoints, useExis
 
 	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
 	tip := GChainActive.Tip()
-	var index *BlockIndex
+	var index *model.BlockIndex
 	index.PPrev = tip
 	// CheckSequenceLocks() uses chainActive.Height()+1 to evaluate height based
 	// locks because when SequenceLocks() is called within ConnectBlock(), the
@@ -3630,7 +3826,7 @@ func CheckSequenceLocks(tx *model.Tx, flags int, lp *mempool.LockPoints, useExis
 	return EvaluateSequenceLocks(index, lockPair)
 }
 
-func EvaluateSequenceLocks(block *BlockIndex, lockPair map[int]int64) bool {
+func EvaluateSequenceLocks(block *model.BlockIndex, lockPair map[int]int64) bool {
 	if block.PPrev == nil {
 		panic("the block's pprev is nil, Please check.")
 	}
@@ -3643,7 +3839,7 @@ func EvaluateSequenceLocks(block *BlockIndex, lockPair map[int]int64) bool {
 	return true
 }
 
-func SequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *BlockIndex) bool {
+func SequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *model.BlockIndex) bool {
 	return EvaluateSequenceLocks(block, CalculateSequenceLocks(tx, flags, prevHeights, block))
 }
 
@@ -3669,6 +3865,19 @@ func GetTransactionSigOpCount(tx *model.Tx, view *utxo.CoinsViewCache, flags uin
 	}
 
 	return sigOps
+}
+
+// TestLockPointValidity Test whether the LockPoints height and time are still
+// valid on the current chain.
+func TestLockPointValidity(lp *mempool.LockPoints) bool {
+	//todo add sync.lock cs_main
+	if lp == nil {
+		panic("the parament should not equal nil")
+	}
+	// If there are relative lock times then the maxInputBlock will be set
+	// If there are no relative lock times, the LockPoints don't depend on the
+	// chain
+	return true
 }
 
 // GetP2SHSigOpCount Count ECDSA signature operations in pay-to-script-hash inputs
@@ -3887,7 +4096,7 @@ func DumpMempool() {
 }
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
-func GuessVerificationProgress(data *msg.ChainTxData, index *BlockIndex) float64 {
+func GuessVerificationProgress(data *msg.ChainTxData, index *model.BlockIndex) float64 {
 	if index == nil {
 		return float64(0)
 	}

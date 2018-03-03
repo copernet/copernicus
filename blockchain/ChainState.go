@@ -6,19 +6,20 @@ import (
 	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/mempool"
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
 
 type BlockMap struct {
-	Data map[utils.Hash]*BlockIndex
+	Data map[utils.Hash]*model.BlockIndex
 }
 
 // ChainState store the blockchain global state
 type ChainState struct {
-	ChainAcTive       Chain
+	ChainAcTive       model.Chain
 	MapBlockIndex     BlockMap
-	PindexBestInvalid *BlockIndex
+	PindexBestInvalid *model.BlockIndex
 
 	//* The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself
 	//* and all ancestors) and as good as our current tip or better. Entries may be
@@ -27,21 +28,23 @@ type ChainState struct {
 
 	// All pairs A->B, where A (or one of its ancestors) misses transactions, but B
 	// has transactions. Pruned nodes may have entries where B is missing data.
-	MapBlocksUnlinked map[*BlockIndex][]*BlockIndex
+	MapBlocksUnlinked map[*model.BlockIndex][]*model.BlockIndex
 }
 
 // Global status for blockchain
 var (
 	//GChainState Global unique variables
-	GChainState      ChainState
-	GfImporting      atomic.Value
-	GMaxTipAge       int64
-	Gmempool         *mempool.Mempool
-	GpcoinsTip       *utxo.CoinsViewCache
-	Gpblocktree      *BlockTreeDB
-	GminRelayTxFee   utils.FeeRate
-	GfReindex        = false
-	GnCoinCacheUsage = 5000 * 300
+	GChainState       ChainState
+	GfImporting       atomic.Value
+	GMaxTipAge        int64
+	Gmempool          *mempool.Mempool
+	GpcoinsTip        *utxo.CoinsViewCache
+	Gpblocktree       *BlockTreeDB
+	GminRelayTxFee    utils.FeeRate
+	GfReindex         = false
+	GnCoinCacheUsage  = 5000 * 300
+	Gwarningcache     []ThresholdConditionCache
+	Gversionbitscache *VersionBitsCache
 )
 
 var (
@@ -51,9 +54,9 @@ var (
 	GfTxIndex    = false
 
 	//GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
-	GindexBestHeader *BlockIndex
+	GindexBestHeader *model.BlockIndex
 	//GChainActive currently-connected chain of blocks (protected by cs_main).
-	GChainActive Chain
+	GChainActive model.Chain
 	GPruneTarget uint64
 
 	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
@@ -86,16 +89,16 @@ const (
 	DATABASE_WRITE_INTERVAL = 60 * 60
 	// DATABASE_FLUSH_INTERVAL time to wait (in seconds) between flushing chainstate to disk.
 	DATABASE_FLUSH_INTERVAL = 24 * 60 * 60
-
-//>>>>>>> c102ab0391df9b7fbc5d67a1efaaa5e76c7efc1c
 )
 
 func init() {
-	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*BlockIndex)
-	GChainState.MapBlocksUnlinked = make(map[*BlockIndex][]*BlockIndex)
+	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*model.BlockIndex)
+	GChainState.MapBlocksUnlinked = make(map[*model.BlockIndex][]*model.BlockIndex)
 	GChainState.setBlockIndexCandidates = algorithm.NewCustomSet(BlockIndexWorkComparator)
 	GfImporting.Store(false)
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE
 	GminRelayTxFee.SataoshisPerK = int64(DEFAULT_MIN_RELAY_TX_FEE)
 	Gmempool = mempool.NewMemPool(GminRelayTxFee)
+	Gwarningcache = NewWarnBitsCache(VERSIONBITS_NUM_BITS)
+	Gversionbitscache = NewVersionBitsCache()
 }

@@ -1,11 +1,10 @@
-package blockchain
+package model
 
 import (
 	"fmt"
 	"math/big"
 	"sort"
 
-	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -104,8 +103,8 @@ func (blIndex *BlockIndex) GetUndoPos() DiskBlockPos {
 	return ret
 }
 
-func (blIndex *BlockIndex) GetBlockHeader() model.BlockHeader {
-	bl := model.BlockHeader{}
+func (blIndex *BlockIndex) GetBlockHeader() BlockHeader {
+	bl := BlockHeader{}
 	bl.Version = blIndex.Version
 	if blIndex.PPrev != nil {
 		bl.HashPrevBlock = blIndex.PPrev.GetBlockHash()
@@ -231,7 +230,7 @@ func (blIndex *BlockIndex) ToString() string {
 		blIndex.Height, blIndex.MerkleRoot.ToString(), hash.ToString())
 }
 
-func NewBlockIndex(blkHeader *model.BlockHeader) *BlockIndex {
+func NewBlockIndex(blkHeader *BlockHeader) *BlockIndex {
 	blockIndex := new(BlockIndex)
 	blockIndex.SetNull()
 	blockIndex.Version = blkHeader.Version

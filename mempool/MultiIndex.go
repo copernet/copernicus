@@ -15,7 +15,7 @@ const (
 
 //MultiIndex the struct for support mempool store node, to implement MultiIndex sort
 type MultiIndex struct {
-	poolNode              map[utils.Hash]*TxMempoolEntry //unique
+	PoolNode              map[utils.Hash]*TxMempoolEntry //unique
 	nodeKey               []*TxMempoolEntry
 	byDescendantScoreSort []*TxMempoolEntry //ordered_non_unique;
 	byEntryTimeSort       []*TxMempoolEntry //ordered_non_unique;
@@ -25,7 +25,7 @@ type MultiIndex struct {
 
 func NewMultiIndex() *MultiIndex {
 	multi := MultiIndex{}
-	multi.poolNode = make(map[utils.Hash]*TxMempoolEntry)
+	multi.PoolNode = make(map[utils.Hash]*TxMempoolEntry)
 	multi.byDescendantScoreSort = make([]*TxMempoolEntry, 0)
 	multi.byEntryTimeSort = make([]*TxMempoolEntry, 0)
 	multi.byScoreSort = make([]*TxMempoolEntry, 0)
@@ -37,17 +37,17 @@ func NewMultiIndex() *MultiIndex {
 
 //AddElement add the element to the multiIndex; the element must meet multiIndex's keys various criterions;
 func (multiIndex *MultiIndex) AddElement(hash utils.Hash, txEntry *TxMempoolEntry) {
-	if _, has := multiIndex.poolNode[hash]; has {
+	if _, has := multiIndex.PoolNode[hash]; has {
 		return
 	}
-	multiIndex.poolNode[hash] = txEntry
+	multiIndex.PoolNode[hash] = txEntry
 	multiIndex.nodeKey = append(multiIndex.nodeKey, txEntry)
 }
 
 //DelEntryByHash : delete the key correspond value In multiIndex;
 func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
-	if _, ok := multiIndex.poolNode[hash]; ok {
-		delete(multiIndex.poolNode, hash)
+	if _, ok := multiIndex.PoolNode[hash]; ok {
+		delete(multiIndex.PoolNode, hash)
 		for i, v := range multiIndex.nodeKey {
 			oriHash := v.TxRef.Hash
 			if (&oriHash).IsEqual(&hash) {
@@ -61,14 +61,14 @@ func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
 //GetEntryByHash : return the key correspond value In multiIndex;
 //And modify The return value will be Influence the multiIndex;
 func (multiIndex *MultiIndex) GetEntryByHash(hash utils.Hash) *TxMempoolEntry {
-	if v, ok := multiIndex.poolNode[hash]; ok {
+	if v, ok := multiIndex.PoolNode[hash]; ok {
 		return v
 	}
 	return nil
 }
 
 func (multiIndex *MultiIndex) Size() int {
-	return len(multiIndex.poolNode)
+	return len(multiIndex.PoolNode)
 }
 
 //GetByDescendantScoreSort : return the sort slice by descendantScore

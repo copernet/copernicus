@@ -10,7 +10,7 @@ import (
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
 	nLastRetargetTime := int64(1261130161) // Block #30240
-	var pindexLast BlockIndex
+	var pindexLast model.BlockIndex
 	pindexLast.Height = 32255
 	pindexLast.Time = 1262152739 // Block #32255
 	pindexLast.Bits = 0x1d00ffff
@@ -53,8 +53,8 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	}
 }
 
-func getBlockIndex(pindexPrev *BlockIndex, timeInterval int64, bits uint32) *BlockIndex {
-	block := new(BlockIndex)
+func getBlockIndex(pindexPrev *model.BlockIndex, timeInterval int64, bits uint32) *model.BlockIndex {
+	block := new(model.BlockIndex)
 	block.PPrev = pindexPrev
 	block.Height = pindexPrev.Height + 1
 	block.Time = pindexPrev.Time + uint32(timeInterval)
@@ -64,13 +64,13 @@ func getBlockIndex(pindexPrev *BlockIndex, timeInterval int64, bits uint32) *Blo
 }
 
 func TestPowGetNextWorkRequired(t *testing.T) {
-	blocks := make([]*BlockIndex, 115)
+	blocks := make([]*model.BlockIndex, 115)
 	currentPow := big.NewInt(0).Rsh(msg.ActiveNetParams.PowLimit, 1)
 	initialBits := BigToCompact(currentPow)
 	pow := Pow{}
 
 	// Genesis block.
-	blocks[0] = new(BlockIndex)
+	blocks[0] = new(model.BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
 	blocks[0].Time = 1269211443
@@ -161,12 +161,12 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 }
 
 func TestPowGetNextCashWorkRequired(t *testing.T) {
-	blocks := make([]*BlockIndex, 3000)
+	blocks := make([]*model.BlockIndex, 3000)
 	currentPow := big.NewInt(0).Rsh(msg.ActiveNetParams.PowLimit, 4)
 	initialBits := BigToCompact(currentPow)
 
 	// Genesis block.
-	blocks[0] = new(BlockIndex)
+	blocks[0] = new(model.BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
 	blocks[0].Time = 1269211443

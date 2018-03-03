@@ -12,7 +12,7 @@ import (
 	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
-	"gopkg.in/fatih/set.v0"
+	set "gopkg.in/fatih/set.v0"
 )
 
 const NumSimulationIterations = 40000
