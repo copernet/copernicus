@@ -12,6 +12,14 @@ type DiskBlockPos struct {
 	Pos  int
 }
 
+type DiskTxPos struct {
+	BlockIn    *DiskBlockPos
+	TxOffsetIn int
+}
+
+// TxOffset is after header
+var TxOffset int
+
 func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
 	err := utils.WriteVarInt(writer, uint64(diskBlockPos.File))
 	if err != nil {
@@ -55,4 +63,17 @@ func (diskBlockPos *DiskBlockPos) ToString() string {
 func NewDiskBlockPos(file int, pos int) *DiskBlockPos {
 	diskBlockPos := DiskBlockPos{File: file, Pos: pos}
 	return &diskBlockPos
+}
+
+func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn int) *DiskTxPos {
+	diskTxPos := &DiskTxPos{
+		BlockIn:    blockIn,
+		TxOffsetIn: offsetIn,
+	}
+	return diskTxPos
+}
+func SetNull() {
+	var blockPos *DiskBlockPos
+	blockPos.SetNull()
+	TxOffset = 0
 }
