@@ -1626,8 +1626,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 		// defaults can be easily reviewed. This setting doesn't force the
 		// selection of any particular chain but makes validating some faster by
 		// effectively caching the result of part of the verification.
-		if MapBlockIndex.Data[HashAssumeValid] != nil {
-			it := MapBlockIndex.Data[HashAssumeValid]
+		if it, ok := MapBlockIndex.Data[HashAssumeValid]; ok {
 			if it.GetAncestor(pindex.Height) == pindex && gpindexBestHeader.GetAncestor(pindex.Height) == pindex &&
 				gpindexBestHeader.ChainWork.Cmp(&param.MinimumChainWork) > 0 {
 				// This block is a member of the assumed verified chain and an
