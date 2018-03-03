@@ -6,6 +6,7 @@ import (
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/utxo"
 )
 
 const (
@@ -60,7 +61,7 @@ const (
 		core.SCRIPT_VERIFY_LOW_S | core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM
 
 	/*STANDARD_NOT_MANDATORY_VERIFY_FLAGS For convenience, standard but not mandatory verify flags. */
-	STANDARD_NOT_MANDATORY_VERIFY_FLAGS int = int(STANDARD_SCRIPT_VERIFY_FLAGS) & (^core.SCRIPT_VERIFY_P2SH)
+	STANDARD_NOT_MANDATORY_VERIFY_FLAGS int = int(STANDARD_SCRIPT_VERIFY_FLAGS) & (^MANDATORY_SCRIPT_VERIFY_FLAGS)
 
 	/*STANDARD_LOCKTIME_VERIFY_FLAGS Used as the flags parameter to sequence and nLocktime checks in
 	 * non-consensus code. */
@@ -173,4 +174,53 @@ func IsStandard(scriptPubKey *model.Script, whichType *int) bool {
 		return false
 	}
 	return *whichType != model.TX_NONSTANDARD
+}
+
+// AreInputsStandard Check for standard transaction types
+// cache Map of previous transactions that have outputs we're spending
+func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
+	if tx.IsCoinBase() {
+		// Coinbases don't use vin normally
+		return true
+	}
+
+	for _, vin := range tx.Ins {
+		prev := cache.GetOutputFor(vin)
+
+		solutions := algorithm.NewVector()
+		var whichType int
+		// get the scriptPubKey corresponding to this input:
+		prevScript := prev.Script
+		if !model.Solver(prevScript, &whichType, solutions) {
+			return false
+		}
+
+		if whichType == model.TX_SCRIPTHASH {
+			stack := algorithm.NewVector()
+			//i := model.NewInterpreter()
+
+			//convert the scriptSig into a stack, so we can inspect the
+			//redeemScript
+
+			//if i.Verify(tx, len(tx.Ins), vin.Script, core.SCRIPT_VERIFY_NONE) {		// todo complete
+			//	return false
+			//}
+
+			if stack.Size() == 0 {
+				return false
+			}
+
+			b := make([]byte, 0)
+			for _, item := range stack.Array {
+				b = append(b, item.(byte))
+			}
+			subscript := model.NewScriptRaw(b)
+			count, _ := subscript.GetSigOpCount()
+			if uint(count) > MAX_P2SH_SIGOPS {
+				return false
+			}
+
+		}
+	}
+	return true
 }
