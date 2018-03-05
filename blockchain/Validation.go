@@ -3891,12 +3891,6 @@ func SequenceLocks(tx *model.Tx, flags int, prevHeights []int, block *model.Bloc
 	return EvaluateSequenceLocks(block, CalculateSequenceLocks(tx, flags, prevHeights, block))
 }
 
-// AreInputsStandard Check for standard transaction types
-// cache Map of previous transactions that have outputs we're spending
-func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
-	return true
-}
-
 // GetTransactionSigOpCount Compute total signature operation of a transaction.
 // @param[in] tx     Transaction for which we are computing the cost
 // @param[in] cache Map of previous transactions that have outputs we're spending
