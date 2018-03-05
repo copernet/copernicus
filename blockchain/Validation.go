@@ -145,7 +145,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -1627,24 +1627,21 @@ func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNe
 	}
 	nTime3 := utils.GetMicrosTime()
 	gnTimeConnectTotal += nTime3 - nTime2
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Connect total: %.2fms [%.2fs]\n", float64(nTime3-nTime2)*0.001, float64(gnTimeConnectTotal)*0.000001)
+	logger.LogPrint("bench", "debug", " - Connect total: %.2fms [%.2fs]\n", float64(nTime3-nTime2)*0.001, float64(gnTimeConnectTotal)*0.000001)
 	flushed := view.Flush()
 	if !flushed {
 		panic("here should be true when view flush state")
 	}
 	nTime4 := utils.GetMicrosTime()
 	gnTimeFlush += nTime4 - nTime3
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Flush: %.2fms [%.2fs]\n", float64(nTime4-nTime3)*0.001, float64(gnTimeFlush)*0.000001)
+	logger.LogPrint("bench", "debug", " - Flush: %.2fms [%.2fs]\n", float64(nTime4-nTime3)*0.001, float64(gnTimeFlush)*0.000001)
 	// Write the chain state to disk, if necessary.
 	if !FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED, 0) {
 		return false
 	}
 	nTime5 := utils.GetMicrosTime()
 	gnTimeChainState += nTime5 - nTime4
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Writing chainstate: %.2fms [%.2fs]\n", float64(nTime5-nTime4)*0.001, float64(gnTimeChainState)*0.000001)
+	logger.LogPrint("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n", float64(nTime5-nTime4)*0.001, float64(gnTimeChainState)*0.000001)
 	// Remove conflicting transactions from the mempool.;
 	Gmempool.RemoveForBlock(blockConnecting.Transactions, uint(pindexNew.Height))
 	// Update chainActive & related variables.
@@ -1652,9 +1649,8 @@ func ConnectTip(param *msg.BitcoinParams, state *model.ValidationState, pindexNe
 	nTime6 := utils.GetMicrosTime()
 	gnTimePostConnect += nTime6 - nTime1
 	gnTimeTotal += nTime6 - nTime1
-	// todo replace the fmt.printf() with logger
-	fmt.Printf("bench  - Connect postprocess: %.2fms [%.2fs]\n", float64(nTime6-nTime5)*0.001, float64(gnTimePostConnect)*0.000001)
-	fmt.Printf("bench- Connect block: %.2fms [%.2fs]\n", float64(nTime6-nTime1)*0.001, float64(gnTimeTotal)*0.000001)
+	logger.LogPrint("bench", "debug", " - Connect postprocess: %.2fms [%.2fs]\n", float64(nTime6-nTime5)*0.001, float64(gnTimePostConnect)*0.000001)
+	logger.LogPrint("bench", "debug", " - Connect block: %.2fms [%.2fs]\n", float64(nTime6-nTime1)*0.001, float64(gnTimeTotal)*0.000001)
 
 	return true
 }
@@ -1769,7 +1765,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	nTime1 := utils.GetMicrosTime()
 	gnTimeCheck += nTime1 - nTimeStart
-	logger.GetLogger().Info("bench", "    - Sanity checks: %.2fms [%.2fs]\n", 0.001*float64(nTime1-nTimeStart), float64(gnTimeCheck)*0.000001)
+	logger.LogPrint("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n", 0.001*float64(nTime1-nTimeStart), float64(gnTimeCheck)*0.000001)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
 	// transactions, unless those are already completely spent. If such
@@ -1824,7 +1820,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	flags := GetBlockScriptFlags(pindex, param)
 	nTime2 := utils.GetMicrosTime()
 	gnTimeForks += nTime2 - nTime1
-	logger.GetLogger().Info("bench", "    - Fork checks: %.2fms [%.2fs]\n", 0.001*float64(nTime2-nTime1), float64(gnTimeForks)*0.000001)
+	logger.LogPrint("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n", 0.001*float64(nTime2-nTime1), float64(gnTimeForks)*0.000001)
 
 	var blockundo *BlockUndo
 	// TODO:not finish
@@ -1908,9 +1904,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	nTime3 := utils.GetMicrosTime()
 	gnTimeConnect += nTime3 - nTime2
 	if nInputs <= 1 {
-		logger.GetLogger().Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0, float64(gnTimeConnect)*0.000001)
+		logger.LogPrint("bench", "debug", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0, float64(gnTimeConnect)*0.000001)
 	} else {
-		logger.GetLogger().Info("bench", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gnTimeConnect)*0.000001)
+		logger.LogPrint("bench", "debug", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", len(pblock.Transactions), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Transactions)), 0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gnTimeConnect)*0.000001)
 	}
 
 	blockReward := nFees + GetBlockSubsidy(pindex.Height, *param)
@@ -1925,9 +1921,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	gnTimeVerify += nTime4 - nTime2
 
 	if nInputs <= 1 {
-		logger.GetLogger().Info("bench", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0, float64(gnTimeVerify)*0.000001)
+		logger.LogPrint("bench", "debug", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0, float64(gnTimeVerify)*0.000001)
 	} else {
-		logger.GetLogger().Info("bench", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0.001*float64(nTime4-nTime2)/float64(nInputs-1), float64(gnTimeVerify)*0.000001)
+		logger.LogPrint("bench", "debug", " - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs-1, 0.001*float64(nTime4-nTime2), 0.001*float64(nTime4-nTime2)/float64(nInputs-1), float64(gnTimeVerify)*0.000001)
 	}
 
 	if fJustCheck {
@@ -1965,7 +1961,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	nTime5 := utils.GetMicrosTime()
 	gnTimeIndex += nTime5 - nTime4
-	logger.GetLogger().Info("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001*float64(nTime5-nTime4), float64(gnTimeIndex)*0.000001)
+	logger.LogPrint("bench", "debug", " - Index writing: %.2fms [%.2fs]\n", 0.001*float64(nTime5-nTime4), float64(gnTimeIndex)*0.000001)
 
 	// Watch for changes to the previous coinbase transaction.
 	//todo:GetMainSignals().UpdatedTransaction(hashPrevBestCoinBase);
@@ -1973,7 +1969,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 
 	nTime6 := utils.GetMicrosTime()
 	gnTimeCallbacks += nTime6 - nTime5
-	logger.GetLogger().Info("bench", "    - Callbacks: %.2fms [%.2fs]\n", 0.001*float64(nTime6-nTime5), float64(gnTimeCallbacks)*0.000001)
+	logger.LogPrint("bench", "debug", " - Callbacks: %.2fms [%.2fs]\n", 0.001*float64(nTime6-nTime5), float64(gnTimeCallbacks)*0.000001)
 	return true
 }
 
@@ -2006,7 +2002,7 @@ func DisconnectTip(param *msg.BitcoinParams, state *model.ValidationState, fBare
 		}
 	}
 	// replace implement with LogPrint(in C++).
-	logger.GetLogger().Info("bench - Disconnect block : %.2fms\n", float64(utils.GetMicrosTime()-nStart)*0.001)
+	logger.LogPrint("bench", "debug", " - Disconnect block : %.2fms\n", float64(utils.GetMicrosTime()-nStart)*0.001)
 
 	// Write the chain state to disk, if necessary.
 	if !FlushStateToDisk(state, FLUSH_STATE_IF_NEEDED, 0) {
@@ -2398,6 +2394,18 @@ func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.Valida
 
 func checkIndexAgainstCheckpoint(pindexPrev *model.BlockIndex, state *model.ValidationState,
 	param *msg.BitcoinParams, hash *utils.Hash) bool {
+	if pindexPrev.PHashBlock == *param.GenesisHash {
+		return true
+	}
+
+	nHeight := pindexPrev.Height + 1
+	// Don't accept any forks from the main chain prior to last checkpoint
+	pcheckpoint := model.GetLastCheckpoint(param.Checkpoints)
+
+	if pcheckpoint != nil && nHeight < pcheckpoint.Height {
+		return state.Dos(100, false, model.REJECT_INVALID, "CheckIndexAgainstCheckpoint: forked chain older than last checkpoint ", false, "")
+	}
+
 	return true
 }
 
@@ -3095,6 +3103,54 @@ func LoadBlockIndex(params *msg.BitcoinParams) bool {
 	return true
 }
 
+func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
+	// todo:LOCK(cs_main);
+
+	// Check whether we're already initialized
+	if GChainActive.Genesis() != nil {
+		return true
+	}
+
+	// Use the provided setting for -txindex in the new database
+	GfTxIndex = utils.GetBoolArg("-txindex", DEFAULT_TXINDEX)
+	// todo:pblocktree->WriteFlag("txindex", fTxIndex)
+	logger.GetLogger().Info("Initializing databases...")
+
+	// Only add the genesis block if not reindexing (in which case we reuse the
+	// one already on disk)
+	if !GfReindex {
+		ret = true
+		defer func() {
+			if err := recover(); err != nil {
+				logger.ErrorLog(fmt.Sprintf("LoadBlockIndex(): failed to initialize block database: %s", err))
+				ret = false
+			}
+		}()
+
+		block := param.GenesisBlock.Block
+		// Start new block file
+		nBlockSize := block.SerializeSize()
+		var (
+			blockPos *model.DiskBlockPos
+			state    *model.ValidationState
+		)
+		if !FindBlockPos(state, blockPos, uint(nBlockSize+8), 0, uint64(block.BlockHeader.GetBlockTime()), false) {
+			return logger.ErrorLog("LoadBlockIndex(): FindBlockPos failed")
+		}
+		if !WriteBlockToDisk(block, blockPos, param.BitcoinNet) {
+			return logger.ErrorLog("LoadBlockIndex(): writing genesis block to disk failed")
+		}
+		pindex := AddToBlockIndex(&block.BlockHeader)
+		if !ReceivedBlockTransactions(block, state, pindex, blockPos) {
+			return logger.ErrorLog("LoadBlockIndex(): genesis block not accepted")
+		}
+		// Force a chainstate write so that when we VerifyDB in a moment, it
+		// doesn't check stale data
+		return FlushStateToDisk(state, FLUSH_STATE_ALWAYS, 0)
+	}
+	return true
+}
+
 func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, state *model.ValidationState,
 	tx *model.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
 	overrideMempoolLimit bool, absurdFee btcutil.Amount, coinsToUncache []*model.OutPoint) (ret bool) {
@@ -3603,7 +3659,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
