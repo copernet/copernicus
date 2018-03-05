@@ -152,7 +152,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -3571,7 +3571,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
@@ -3780,8 +3780,7 @@ func CheckSequenceLocks(tx *model.Tx, flags int, lp *mempool.LockPoints, useExis
 					maxInputHeight = int(math.Max(float64(maxInputHeight), float64(height)))
 				}
 			}
-			//todo:mempool not define maxInputBlock: lp.maxInputBlock=tip.GetAncestor(maxInputHeight)
-			tip.GetAncestor(maxInputHeight)
+			lp.MaxInputBlock = tip.GetAncestor(maxInputHeight)
 		}
 	}
 	return EvaluateSequenceLocks(index, lockPair)
@@ -3838,6 +3837,14 @@ func TestLockPointValidity(lp *mempool.LockPoints) bool {
 	// If there are relative lock times then the maxInputBlock will be set
 	// If there are no relative lock times, the LockPoints don't depend on the
 	// chain
+	if lp.MaxInputBlock != nil {
+		// Check whether chainActive is an extension of the block at which the
+		// LockPoints
+		// calculation was valid.  If not LockPoints are no longer valid
+		if !GChainActive.Contains(lp.MaxInputBlock) {
+			return false
+		}
+	}
 	return true
 }
 

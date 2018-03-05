@@ -8,7 +8,7 @@ type LockPoints struct {
 	// of this tx given our view of block chain history
 	Height        int
 	Time          int64
-	maxInputBlock *model.BlockIndex
+	MaxInputBlock *model.BlockIndex
 }
 
 func NewLockPoints() *LockPoints {
