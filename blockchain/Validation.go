@@ -102,7 +102,6 @@ var (
 	gnTimeIndex         int64
 	gnTimeCallbacks     int64
 	gnTimeTotal         int64
-	gcoinsTip           = utxo.CoinsViewCache{}
 	gminRelayTxFee      = utils.NewFeeRate(int64(DefaultMinRelayTxFee))
 	gmpool              = mempool.NewMemPool(*gminRelayTxFee)
 	GRequestShutdown    atomic.Value
@@ -113,6 +112,8 @@ var (
 
 	gfreeCount float64
 	glastTime  int
+
+	gMapBlocksUnknownParent = make(map[utils.Hash][]*model.DiskBlockPos)
 )
 
 // StartShutdown Thread management and startup/shutdown:
@@ -152,7 +153,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -1691,7 +1692,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	}
 
 	// Verify that the view's current state corresponds to the previous block
-	hashPrevBlock := pindex.PPrev.GetBlockHash()
+	hashPrevBlock := *pindex.PPrev.GetBlockHash()
 
 	if hashPrevBlock != view.GetBestBlock() {
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
@@ -1701,7 +1702,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	// transactions (its coinbase is unspendable)
 	if pblock.Hash.IsEqual(param.GenesisHash) {
 		if !fJustCheck {
-			view.SetBestBlock(pindex.GetBlockHash())
+			view.SetBestBlock(*pindex.GetBlockHash())
 		}
 		return true
 	}
@@ -1753,8 +1754,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	// applied to all blocks except the two in the chain that violate it. This
 	// prevents exploiting the issue against nodes during their initial block
 	// download.
-	fEnforceBIP30 := (pindex.PHashBlock != utils.HashZero) || !(pindex.Height == 91842 && pindex.GetBlockHash() == *utils.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec")) ||
-		pindex.GetBlockHash() == *utils.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
+	fEnforceBIP30 := (pindex.PHashBlock != utils.HashZero) || !(pindex.Height == 91842 &&
+		*pindex.GetBlockHash() == *utils.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec")) ||
+		*pindex.GetBlockHash() == *utils.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
 
 	// Once BIP34 activated it was not possible to create new duplicate
 	// coinbases and thus other than starting with the 2 existing duplicate
@@ -1768,7 +1770,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	pindexBIP34height := pindex.PPrev.GetAncestor(param.BIP34Height)
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
-	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil || !(pindexBIP34height.GetBlockHash() == param.BIP34Hash))
+	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil || !(*pindexBIP34height.GetBlockHash() == param.BIP34Hash))
 
 	if fEnforceBIP30 {
 		for _, tx := range pblock.Transactions {
@@ -1912,7 +1914,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 			//if !FindUndoPos(state, pindex.File, pos, len(blockundo.)) {
 			//	logger.ErrorLog("ConnectBlock(): FindUndoPos failed")
 			//}
-			if !UndoWriteToDisk(blockundo, &pos, pindex.PPrev.GetBlockHash(), param.BitcoinNet) {
+			if !UndoWriteToDisk(blockundo, &pos, *pindex.PPrev.GetBlockHash(), param.BitcoinNet) {
 				return AbortNode(state, "Failed to write undo data", "")
 			}
 
@@ -1930,7 +1932,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.Va
 	}
 
 	// add this block to the view's block chain
-	view.SetBestBlock(pindex.GetBlockHash())
+	view.SetBestBlock(*pindex.GetBlockHash())
 
 	nTime5 := utils.GetMicrosTime()
 	gnTimeIndex += nTime5 - nTime4
@@ -2118,7 +2120,7 @@ func DisconnectBlock(pblock *model.Block, pindex *model.BlockIndex, view *utxo.C
 		return DisconnectFailed
 	}
 
-	if !UndoReadFromDisk(&blockUndo, &pos, pindex.PPrev.GetBlockHash()) {
+	if !UndoReadFromDisk(&blockUndo, &pos, *pindex.PPrev.GetBlockHash()) {
 		logger.ErrorLog("DisconnectBlock(): failure reading undo data")
 		return DisconnectFailed
 	}
@@ -2218,6 +2220,158 @@ func ReadBlockFromDiskByPos(pblock *model.Block, pos model.DiskBlockPos, param *
 	if !pow.CheckProofOfWork(&pblock.Hash, pblock.BlockHeader.Bits, param) {
 		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.ToString()))
 	}
+	return true
+}
+
+func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, checkDepth int) bool {
+	// todo Lock(cs_main)
+
+	if GChainActive.Tip() == nil || GChainActive.Tip().PPrev == nil {
+		return true
+	}
+
+	// Verify blocks in the best chain
+	if checkDepth <= 0 {
+		// suffices until the year 19000
+		checkDepth = 1000000000
+	}
+	if checkDepth > GChainActive.Height() {
+		checkDepth = GChainActive.Height()
+	}
+
+	// to calculate min(checkLevel, 4)
+	tmpNum := utils.Min(4, checkLevel)
+
+	// to calculate max(0, min(checkLevel, 4))
+	checkLevel = utils.Max(0, tmpNum)
+
+	logger.GetLogger().Debug("Verifying last %d blocks at level %d", checkDepth, checkLevel)
+
+	coins := utxo.NewCoinViewCacheByCoinview(*view)
+	indexState := GChainActive.Tip()
+	var indexFailure *model.BlockIndex
+	var goodTransactions uint32
+	state := model.NewValidationState()
+	var reportDone int
+	logger.GetLogger().Debug("[0%%]...")
+	for index := GChainActive.Tip(); index != nil && index.PPrev != nil; index = index.PPrev {
+		// todo boost::this_thread::interruption_point()
+
+		var tmp int
+		if checkLevel >= 4 {
+			tmp = 50
+		} else {
+			tmp = 100
+		}
+		percentageDone := utils.Max(1, utils.Min(99,
+			int(float64(GChainActive.Height()-index.Height)/float64(checkDepth))*tmp))
+
+		if reportDone < percentageDone/10 {
+			// report every 10% step
+			logger.GetLogger().Debug("[%d%%]...", percentageDone)
+			reportDone = percentageDone / 10
+		}
+
+		// gui notify
+		// uiInterface.ShowProgress(_("Verifying blocks..."), percentageDone);
+		if index.Height < GChainActive.Height()-checkDepth {
+			break
+		}
+
+		if GfPruneMode && (index.Status&model.BLOCK_HAVE_DATA) == 0 {
+			// If pruning, only go back as far as we have data.
+			logger.GetLogger().Debug("VerifyDB(): block verification stopping at height"+
+				" %d (pruning, no data)", index.Height)
+			break
+		}
+
+		block := model.NewBlock()
+		// check level 0: read from disk
+		if !ReadBlockFromDisk(block, index, params) {
+			return logger.ErrorLog("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s",
+				index.Height, index.GetBlockHash().ToString())
+		}
+
+		// check level 1: verify block validity
+		if checkLevel > 1 && !CheckBlock(params, block, state, true, true) {
+			return logger.ErrorLog("VerifyDB(): *** found bad block at %d, hash=%s (%s)\n",
+				index.Height, index.GetBlockHash().ToString(), state.FormatStateMessage())
+		}
+
+		// check level 2: verify undo validity
+		if checkLevel >= 2 && index != nil {
+			undo := NewBlockUndo()
+			pos := index.GetUndoPos()
+			if !pos.IsNull() {
+				if !UndoReadFromDisk(undo, &pos, *index.PPrev.GetBlockHash()) {
+					return logger.ErrorLog("VerifyDB(): *** found bad undo data at %d, hash=%s",
+						index.Height, index.GetBlockHash().ToString())
+				}
+			}
+		}
+
+		// check level 3: check for inconsistencies during memory-only
+		// disconnect of tip blocks
+		if checkLevel >= 3 && index == indexState &&
+			(coins.DynamicMemoryUsage()+GpcoinsTip.DynamicMemoryUsage()) <= int64(GnCoinCacheUsage) {
+
+			res := DisconnectBlock(block, index, coins)
+			if res == DisconnectFailed {
+				return logger.ErrorLog("VerifyDB(): *** irrecoverable inconsistency in "+
+					"block data at %d, hash=%s", index.Height, index.GetBlockHash().ToString())
+			}
+
+			indexState = index.PPrev
+			if res == DisconnectUnclean {
+				goodTransactions = 0
+				indexFailure = index
+			} else {
+				goodTransactions += block.TxNum
+			}
+		}
+
+		if ShutdownRequested() {
+			return true
+		}
+	}
+
+	if indexFailure != nil {
+		return logger.ErrorLog("VerifyDB(): *** coin database inconsistencies found "+
+			"(last %d blocks, %d good transactions before that)",
+			GChainActive.Height()-indexFailure.Height+1, goodTransactions)
+	}
+
+	// check level 4: try reconnecting blocks
+	if checkLevel >= 4 {
+		index := indexState
+		for index != GChainActive.Tip() {
+			// todo boost::this_thread::interruption_point()
+
+			// gui show progress
+			//uiInterface.ShowProgress(
+			//	_("Verifying blocks..."),
+			//	std::max(
+			//	1, std::min(99, 100 - (int)(((double)(chainActive.Height() -
+			//	pindex->nHeight)) /
+			//	(double)nCheckDepth * 50))))
+
+			index = GChainActive.Next(index)
+			block := model.NewBlock()
+			if !ReadBlockFromDisk(block, index, params) {
+				return logger.ErrorLog("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s",
+					index.Height, index.GetBlockHash().ToString())
+			}
+			if !ConnectBlock(params, block, state, index, coins, false) {
+				return logger.ErrorLog("VerifyDB(): *** found unconnectable block at %d, hash=%s",
+					index.Height, index.GetBlockHash().ToString())
+			}
+		}
+	}
+
+	logger.GetLogger().Debug("[DONE].")
+	logger.GetLogger().Debug("No coin database inconsistencies in last %d blocks (%d "+
+		"transactions)", GChainActive.Height()-indexState.Height, goodTransactions)
+
 	return true
 }
 
@@ -3134,14 +3288,14 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	func() {
 		pool.Mtx.Lock()
 		defer pool.Mtx.Unlock()
-		viewMemPool := mempool.NewCoinsViewMemPool(&gcoinsTip, pool)
+		viewMemPool := mempool.NewCoinsViewMemPool(GpcoinsTip, pool)
 		view.Base = viewMemPool
 
 		// Do we already have it?
 		length := len(ptx.Outs)
 		for i := 0; i < length; i++ {
 			outpoint := model.NewOutPoint(txid, uint32(i))
-			haveCoinInCache := gcoinsTip.HaveCoinInCache(outpoint)
+			haveCoinInCache := GpcoinsTip.HaveCoinInCache(outpoint)
 			if view.HaveCoin(outpoint) {
 				if !haveCoinInCache {
 					coinsToUncache = append(coinsToUncache, outpoint)
@@ -3154,7 +3308,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 
 		// Do all inputs exist?
 		for _, txin := range ptx.Ins {
-			if !gcoinsTip.HaveCoinInCache(txin.PreviousOutPoint) {
+			if !GpcoinsTip.HaveCoinInCache(txin.PreviousOutPoint) {
 				coinsToUncache = append(coinsToUncache, txin.PreviousOutPoint)
 			}
 
@@ -3387,7 +3541,7 @@ func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
 	noSpendsRemaining := algorithm.NewVector()
 	pool.TrimToSize(limit, noSpendsRemaining)
 	for _, outpoint := range noSpendsRemaining.Array {
-		gcoinsTip.UnCache(outpoint.(*model.OutPoint))
+		GpcoinsTip.UnCache(outpoint.(*model.OutPoint))
 	}
 }
 
@@ -3440,7 +3594,7 @@ func CheckInputsFromMempoolAndCache(tx *model.Tx, state *model.ValidationState, 
 				panic("critical error")
 			}
 		} else {
-			coinFromDisk := gcoinsTip.AccessCoin(txin.PreviousOutPoint)
+			coinFromDisk := GpcoinsTip.AccessCoin(txin.PreviousOutPoint)
 			if coinFromDisk.IsSpent() {
 				panic("critical error ")
 			}
@@ -3571,7 +3725,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
@@ -3878,7 +4032,7 @@ func AcceptToMemoryPoolWithTime(params *msg.BitcoinParams, mpool *mempool.Mempoo
 
 	if !res {
 		for _, outpoint := range coinsToUncache {
-			gcoinsTip.UnCache(outpoint)
+			GpcoinsTip.UnCache(outpoint)
 		}
 	}
 

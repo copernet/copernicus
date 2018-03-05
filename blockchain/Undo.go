@@ -96,6 +96,12 @@ type BlockUndo struct {
 	txundo []*TxUndo
 }
 
+func NewBlockUndo() *BlockUndo {
+	return &BlockUndo{
+		txundo: make([]*TxUndo, 0),
+	}
+}
+
 func (bu *BlockUndo) Serialize(w io.Writer) error {
 	var err error
 	for _, txundo := range bu.txundo {
