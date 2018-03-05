@@ -1185,12 +1185,6 @@ func (interpreter *Interpreter) List() []interface{} {
 	return interpreter.stack.List()
 }
 
-func (interpreter *Interpreter) Copy() *Interpreter {
-	return &Interpreter{
-		stack: interpreter.stack.Copy(),
-	}
-}
-
 func NewInterpreter() *Interpreter {
 	return &Interpreter{
 		stack: algorithm.NewStack(),

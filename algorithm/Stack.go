@@ -21,7 +21,7 @@ func (s *Stack) List() []interface{} {
 }
 
 func (s *Stack) Copy() *Stack {
-	bak := make([]interface{}, 0, s.Size())
+	bak := make([]interface{}, s.Size())
 	copy(bak, s.array)
 
 	return &Stack{

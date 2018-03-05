@@ -136,7 +136,7 @@ func VerifyScript(tx *Tx, index int, scriptSig *Script, scriptPubKey *Script, fl
 	}
 
 	if flags&core.SCRIPT_VERIFY_P2SH != 0 {
-		copyIP = ip.Copy()
+		copyIP.stack = ip.stack.Copy()
 	}
 	ret, e = ip.Verify(tx, index, scriptSig, scriptPubKey, flags) // todo confirm
 	if e != nil || !ret {

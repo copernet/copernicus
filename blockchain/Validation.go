@@ -1330,7 +1330,7 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
 
 		// todo !! Add time param in the function
 		mTime := MedianTime{}
-		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, mTime.AdjustedTime().Second()) {
+		if !ContextualCheckBlockHeader(pblkHeader, state, param, pindexPrev, int64(mTime.AdjustedTime().Second())) {
 			return false
 		}
 	}
@@ -2317,7 +2317,7 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 		}
 
 		// check level 1: verify block validity
-		if checkLevel > 1 && !CheckBlock(params, block, state, true, true) {
+		if checkLevel >= 1 && !CheckBlock(params, block, state, true, true) {
 			return logger.ErrorLog("VerifyDB(): *** found bad block at %d, hash=%s (%s)\n",
 				index.Height, index.GetBlockHash().ToString(), state.FormatStateMessage())
 		}
@@ -2505,7 +2505,7 @@ func AddToBlockIndex(pblkHeader *model.BlockHeader) *model.BlockIndex {
 }
 
 func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.ValidationState,
-	param *msg.BitcoinParams, pindexPrev *model.BlockIndex, adjustedTime int) bool {
+	param *msg.BitcoinParams, pindexPrev *model.BlockIndex, adjustedTime int64) bool {
 	nHeight := 0
 	if pindexPrev != nil {
 		nHeight = pindexPrev.Height + 1
@@ -2525,7 +2525,7 @@ func ContextualCheckBlockHeader(pblkHead *model.BlockHeader, state *model.Valida
 	}
 
 	// Check timestamp
-	if int(pblkHead.GetBlockTime()) >= adjustedTime+2*60*60 {
+	if int64(pblkHead.GetBlockTime()) >= adjustedTime+2*60*60 {
 		return state.Invalid(false, model.REJECT_INVALID, "time-too-new",
 			"block's timestamp is too far in the future")
 	}
@@ -2784,6 +2784,45 @@ func GetBlockScriptFlags(pindex *model.BlockIndex, param *msg.BitcoinParams) uin
 	}
 
 	return flags
+}
+
+func TestBlockValidity(params *msg.BitcoinParams, state *model.ValidationState, block *model.Block,
+	indexPrev *model.BlockIndex, checkPOW bool, checkMerkleRoot bool) bool {
+	// todo AssertLockHeld(cs_main)
+	if !(indexPrev != nil && indexPrev == GChainActive.Tip()) {
+		panic("error")
+	}
+
+	if GfCheckpointsEnabled && !checkIndexAgainstCheckpoint(indexPrev, state, params, &block.Hash) {
+		return logger.ErrorLog(": CheckIndexAgainstCheckpoint(): %s", state.GetRejectReason())
+	}
+
+	viewNew := utxo.NewCoinViewCacheByCoinview(GpcoinsTip)
+	indexDummy := model.NewBlockIndex(&block.BlockHeader)
+	indexDummy.PPrev = indexPrev
+	indexDummy.Height = indexPrev.Height + 1
+
+	// NOTE: CheckBlockHeader is called by CheckBlock
+	if !ContextualCheckBlockHeader(&block.BlockHeader, state, params, indexPrev, utils.GetAdjustedTime()) {
+		return logger.ErrorLog("TestBlockValidity(): Consensus::ContextualCheckBlockHeader: %s", state.FormatStateMessage())
+	}
+
+	if !CheckBlock(params, block, state, checkPOW, checkMerkleRoot) {
+		return logger.ErrorLog("TestBlockValidity(): Consensus::CheckBlock: %s", state.FormatStateMessage())
+	}
+
+	if !ContextualCheckBlock(params, block, state, indexPrev) {
+		return logger.ErrorLog("TestBlockValidity(): Consensus::ContextualCheckBlock: %s", state.FormatStateMessage())
+	}
+
+	if !ConnectBlock(params, block, state, indexDummy, viewNew, true) {
+		return false
+	}
+
+	if !state.IsValid() {
+		panic("error")
+	}
+	return true
 }
 
 /**
