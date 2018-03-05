@@ -165,44 +165,6 @@ func init() {
 	gnBlockSequenceID = 1
 }
 
-// ScriptCheck Closure representing one script verification.
-// Note that this stores references to the spending transaction.
-type ScriptCheck struct {
-	scriptPubKey *model.Script
-	amount       btcutil.Amount
-	txTo         *model.Tx
-	ins          int
-	flags        uint32
-	cacheStore   bool
-	err          core.ScriptError
-	txData       *model.PrecomputedTransactionData
-}
-
-func NewScriptCheck(script *model.Script, amount btcutil.Amount, tx *model.Tx, ins int, flags uint32,
-	cacheStore bool, txData *model.PrecomputedTransactionData) *ScriptCheck {
-	return &ScriptCheck{
-		scriptPubKey: script,
-		amount:       amount,
-		txTo:         tx,
-		ins:          ins,
-		flags:        flags,
-		cacheStore:   cacheStore,
-		txData:       txData,
-	}
-}
-
-func (sc *ScriptCheck) check() bool {
-	//scriptSig := sc.txTo.Ins[sc.ins].Script
-	//if !model.VerifyScript(scriptSig, sc.scriptPubKey, sc.flags,, sc.err) { // todo new a CachingTransactionSignatureChecker
-	//	return false
-	//}
-	return true
-}
-
-func (sc *ScriptCheck) GetScriptError() core.ScriptError {
-	return sc.err
-}
-
 func FormatStateMessage(state *model.ValidationState) string {
 	if state.GetDebugMessage() == "" {
 		return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), "", state.GetRejectCode())
@@ -3427,7 +3389,6 @@ func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
 	for _, outpoint := range noSpendsRemaining.Array {
 		gcoinsTip.UnCache(outpoint.(*model.OutPoint))
 	}
-
 }
 
 func IsCurrentForFeeEstimation() bool {
