@@ -1347,6 +1347,30 @@ func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
 	return true
 }
 
+func InsertBlockIndex(hash utils.Hash) *model.BlockIndex {
+	if hash.IsNull() {
+		return nil
+	}
+
+	// Return existing
+	mi, ok := MapBlockIndex.Data[hash]
+	if ok {
+		return mi
+	}
+
+	// Create new
+	index := &model.BlockIndex{}
+	index.SetNull()
+	if index == nil {
+		panic("new CBlockIndex failed")
+	}
+
+	MapBlockIndex.Data[hash] = index
+	index.PHashBlock = hash
+
+	return index
+}
+
 // ActivateBestChainStep Try to make some progress towards making pindexMostWork
 // the active block. pblock is either nullptr or a pointer to a CBlock corresponding to
 // pindexMostWork.
