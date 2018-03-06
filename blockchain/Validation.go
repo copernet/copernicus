@@ -115,8 +115,8 @@ var (
 	//chainwork for the last block that preciousblock has been applied to.
 	gLastPreciousChainwork big.Int
 	//Decreasing counter (used by subsequent preciousblock calls).
-	gBlockReverseSequenceId = -1
 	gMapBlocksUnknownParent = make(map[utils.Hash][]*model.DiskBlockPos)
+	gBlockReverseSequenceID = -1
 )
 
 // StartShutdown Thread management and startup/shutdown:
@@ -1310,15 +1310,15 @@ func PreciousBlock(param *msg.BitcoinParams, state *model.ValidationState, pinde
 	if GChainActive.Tip().ChainWork.Cmp(&gLastPreciousChainwork) > 0 {
 		// The chain has been extended since the last call, reset the
 		// counter.
-		gBlockReverseSequenceId = -1
+		gBlockReverseSequenceID = -1
 	}
 	gLastPreciousChainwork = GChainActive.Tip().ChainWork
 	gsetDirtyBlockIndex.RemoveItem(pindex)
 	pindex.SequenceID = gnBlockSequenceID
-	if gBlockReverseSequenceId > math.MinInt64 {
+	if gBlockReverseSequenceID > math.MinInt64 {
 		// We can't keep reducing the counter if somebody really wants to
 		// call preciousblock 2**31-1 times on the same set of tips...
-		gBlockReverseSequenceId--
+		gBlockReverseSequenceID--
 	}
 	if pindex.IsValid(model.BLOCK_VALID_TRANSACTIONS) && pindex.ChainTx > 0 {
 		gsetDirtyBlockIndex.AddItem(pindex)
@@ -1740,6 +1740,11 @@ func FindUndoPos(state *model.ValidationState, nFile int, pos *model.DiskBlockPo
 	}
 
 	return true
+}
+
+func ThreadScriptCheck() {
+	//todo: RenameThread("bitcoin-scriptch")
+	//		scriptcheckqueue.Thread()
 }
 
 func ConnectBlock(param *msg.BitcoinParams, pblock *model.Block, state *model.ValidationState,
@@ -2167,6 +2172,65 @@ func AcceptToMemoryPool(param *msg.BitcoinParams, pool *mempool.Mempool, state *
 	fOverrideMempoolLimit bool, nAbsurdFee btcutil.Amount) bool {
 
 	return true
+}
+
+func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *model.Tx, hashBlock *utils.Hash, fAllowSlow bool) (ret bool) {
+	var pindexSlow *model.BlockIndex
+	//todo:LOCK(cs_main)
+
+	ptx := mempool.GetTxFromMemPool(*txid)
+	if ptx != nil {
+		txOut = ptx
+		return true
+	}
+
+	if GfTxIndex {
+		var postx model.DiskTxPos
+		if Gpblocktree.ReadTxIndex(txid, &postx) {
+			file := OpenBlockFile(postx.BlockIn, true)
+			if file == nil {
+				return logger.ErrorLog("GetTransaction:OpenBlockFile failed")
+			}
+			ret = true
+			if err := recover(); err != nil {
+				logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error -%s", logger.TraceLog(), err))
+				ret = false
+			}
+			var header model.BlockHeader
+			header.Serialize(file)
+			file.Seek(0, 1)
+			txOut.Serialize(file)
+			var err error
+			*hashBlock, err = header.GetHash()
+			if txOut.TxHash() != *txid && err != nil {
+				return logger.ErrorLog(fmt.Sprintf("%s: txid mismatch", logger.TraceLog()))
+			}
+			return true
+		}
+	}
+
+	// use coin database to locate block that contains transaction, and scan it
+	if fAllowSlow {
+		coin := utxo.AccessByTxid(GpcoinsTip, txid)
+		if !coin.IsSpent() {
+			pindexSlow = GChainActive.VChain[coin.GetHeight()]
+		}
+	}
+
+	if pindexSlow != nil {
+		var block model.Block
+		if ReadBlockFromDisk(&block, pindexSlow, param) {
+			for _, tx := range block.Transactions {
+				if tx.TxHash() == *txid {
+					txOut = tx
+					hashBlock = pindexSlow.GetBlockHash()
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // DisconnectBlock Undo the effects of this block (with given index) on the UTXO

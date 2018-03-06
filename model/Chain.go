@@ -6,14 +6,14 @@ import (
 
 // Chain An in-memory indexed chain of blocks.
 type Chain struct {
-	vChain []*BlockIndex
+	VChain []*BlockIndex
 }
 
 // Genesis Returns the index entry for the genesis block of this chain,
 // or nullptr if none.
 func (chain *Chain) Genesis() *BlockIndex {
-	if len(chain.vChain) > 0 {
-		return chain.vChain[0]
+	if len(chain.VChain) > 0 {
+		return chain.VChain[0]
 	}
 
 	return nil
@@ -21,8 +21,8 @@ func (chain *Chain) Genesis() *BlockIndex {
 
 // Tip Returns the index entry for the tip of this chain, or nullptr if none.
 func (chain *Chain) Tip() *BlockIndex {
-	if len(chain.vChain) > 0 {
-		return chain.vChain[len(chain.vChain)-1]
+	if len(chain.VChain) > 0 {
+		return chain.VChain[len(chain.VChain)-1]
 	}
 
 	return nil
@@ -31,17 +31,17 @@ func (chain *Chain) Tip() *BlockIndex {
 // GetSpecIndex Returns the index entry at a particular height in this chain, or nullptr
 // if no such height exists.
 func (chain *Chain) GetSpecIndex(height int) *BlockIndex {
-	if height < 0 || height >= len(chain.vChain) {
+	if height < 0 || height >= len(chain.VChain) {
 		return nil
 	}
 
-	return chain.vChain[height]
+	return chain.VChain[height]
 }
 
 // Equal Compare two chains efficiently.
 func (chain *Chain) Equal(dst *Chain) bool {
-	return len(chain.vChain) == len(dst.vChain) &&
-		chain.vChain[len(chain.vChain)-1] == dst.vChain[len(dst.vChain)-1]
+	return len(chain.VChain) == len(dst.VChain) &&
+		chain.VChain[len(chain.VChain)-1] == dst.VChain[len(dst.VChain)-1]
 }
 
 // Contains /** Efficiently check whether a block is present in this chain
@@ -61,21 +61,21 @@ func (chain *Chain) Next(pindex *BlockIndex) *BlockIndex {
 //Height Return the maximal height in the chain. Is equal to chain.Tip() ?
 // chain.Tip()->nHeight : -1.
 func (chain *Chain) Height() int {
-	return len(chain.vChain) - 1
+	return len(chain.VChain) - 1
 }
 
 //SetTip Set/initialize a chain with a given tip.
 func (chain *Chain) SetTip(pindex *BlockIndex) {
 	if pindex == nil {
-		chain.vChain = []*BlockIndex{}
+		chain.VChain = []*BlockIndex{}
 		return
 	}
 
 	tmp := make([]*BlockIndex, pindex.Height+1)
-	copy(tmp, chain.vChain)
-	chain.vChain = tmp
-	for pindex != nil && chain.vChain[pindex.Height] != pindex {
-		chain.vChain[pindex.Height] = pindex
+	copy(tmp, chain.VChain)
+	chain.VChain = tmp
+	for pindex != nil && chain.VChain[pindex.Height] != pindex {
+		chain.VChain[pindex.Height] = pindex
 		pindex = pindex.PPrev
 	}
 }
@@ -104,12 +104,12 @@ func (chain *Chain) FindFork(pindex *BlockIndex) *BlockIndex {
 
 //FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
 func (chain *Chain) FindEarliestAtLeast(time int64) *BlockIndex {
-	i := sort.Search(len(chain.vChain), func(i int) bool {
-		return int64(chain.vChain[i].GetBlockTimeMax()) > time
+	i := sort.Search(len(chain.VChain), func(i int) bool {
+		return int64(chain.VChain[i].GetBlockTimeMax()) > time
 	})
-	if i == len(chain.vChain) {
+	if i == len(chain.VChain) {
 		return nil
 	}
 
-	return chain.vChain[i]
+	return chain.VChain[i]
 }
