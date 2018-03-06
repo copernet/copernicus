@@ -145,7 +145,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -182,6 +182,24 @@ func NewScriptCheck(script *model.Script, amount btcutil.Amount, tx *model.Tx, i
 		cacheStore:   cacheStore,
 		txData:       txData,
 	}
+}
+
+func FindForkInGlobalIndex(chain *model.Chain, locator *BlockLocator) *model.BlockIndex {
+	// Find the first block the caller has in the main chain
+	for _, hash := range locator.vHave {
+		mi, ok := MapBlockIndex.Data[hash]
+		if ok {
+			pindex := mi.PPrev
+			if chain.Contains(pindex) {
+				return pindex
+			}
+			if pindex.GetAncestor(chain.Height()) == chain.Tip() {
+				return chain.Tip()
+			}
+		}
+	}
+
+	return chain.Genesis()
 }
 
 func (sc *ScriptCheck) check() bool {
@@ -3659,7 +3677,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
