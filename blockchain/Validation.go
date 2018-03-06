@@ -156,7 +156,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -1146,6 +1146,20 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 	if nNode != len(forward) {
 		panic("the node number should equivalent forward element")
 	}
+}
+
+func GetBlockFileInfo(n int) *BlockFileInfo {
+	return ginfoBlockFile[n]
+}
+
+func VersionBitsTipState(param *msg.BitcoinParams, pos msg.DeploymentPos) ThresholdState {
+	//todo:LOCK(cs_main)
+	return VersionBitsState(GChainActive.Tip(), param, pos, &versionBitsCache)
+}
+
+func VersionBitsTipStateSinceHeight(params *msg.BitcoinParams, pos msg.DeploymentPos) int {
+	//todo:LOCK(cs_main)
+	return VersionBitsStateSinceHeight(GChainActive.Tip(), params, pos, &versionBitsCache)
 }
 
 func BlockIndexWorkComparator(pa, pb interface{}) bool {
@@ -3959,7 +3973,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
@@ -4462,4 +4476,12 @@ func GuessVerificationProgress(data *msg.ChainTxData, index *model.BlockIndex) f
 	}
 
 	return float64(index.ChainTx) / txTotal
+}
+
+func MainCleanup() {
+	// block headers
+	for i := range MapBlockIndex.Data {
+		delete(MapBlockIndex.Data, i)
+	}
+	MapBlockIndex.Data = nil
 }
