@@ -113,6 +113,10 @@ var (
 
 	gfreeCount float64
 	glastTime  int
+	//chainwork for the last block that preciousblock has been applied to.
+	gLastPreciousChainwork big.Int
+	//Decreasing counter (used by subsequent preciousblock calls).
+	gBlockReverseSequenceId = -1
 )
 
 // StartShutdown Thread management and startup/shutdown:
@@ -1326,6 +1330,32 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 	// Write changes periodically to disk, after relay.
 	ok := FlushStateToDisk(state, FLUSH_STATE_PERIODIC, 0)
 	return ok
+}
+
+func PreciousBlock(param *msg.BitcoinParams, state *model.ValidationState, pindex *model.BlockIndex) bool {
+	//todo:LOCK(cs_main)
+	if pindex.ChainWork.Cmp(&GChainActive.Tip().ChainWork) > 0 {
+		// Nothing to do, this block is not at the tip.
+		return true
+	}
+	if GChainActive.Tip().ChainWork.Cmp(&gLastPreciousChainwork) > 0 {
+		// The chain has been extended since the last call, reset the
+		// counter.
+		gBlockReverseSequenceId = -1
+	}
+	gLastPreciousChainwork = GChainActive.Tip().ChainWork
+	gsetDirtyBlockIndex.RemoveItem(pindex)
+	pindex.SequenceID = gnBlockSequenceID
+	if gBlockReverseSequenceId > math.MinInt64 {
+		// We can't keep reducing the counter if somebody really wants to
+		// call preciousblock 2**31-1 times on the same set of tips...
+		gBlockReverseSequenceId--
+	}
+	if pindex.IsValid(model.BLOCK_VALID_TRANSACTIONS) && pindex.ChainTx > 0 {
+		gsetDirtyBlockIndex.AddItem(pindex)
+		PruneBlockIndexCandidates()
+	}
+	return ActivateBestChain(param, state, nil)
 }
 
 func AcceptBlockHeader(param *msg.BitcoinParams, pblkHeader *model.BlockHeader,
