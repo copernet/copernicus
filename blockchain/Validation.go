@@ -145,7 +145,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -189,10 +189,10 @@ func FindForkInGlobalIndex(chain *model.Chain, locator *BlockLocator) *model.Blo
 	for _, hash := range locator.vHave {
 		mi, ok := MapBlockIndex.Data[hash]
 		if ok {
-			if chain.Contains(mi.PPrev) {
-				return mi.PPrev
+			if chain.Contains(mi) {
+				return mi
 			}
-			if mi.PPrev.GetAncestor(chain.Height()) == chain.Tip() {
+			if mi.GetAncestor(chain.Height()) == chain.Tip() {
 				return chain.Tip()
 			}
 		}
@@ -2956,6 +2956,11 @@ func FlushStateToDisk(state *model.ValidationState, mode FlushStateMode, nManual
 	return
 }
 
+func PruneAndFlush() {
+	var state model.ValidationState
+	FlushStateToDisk(&state, FLUSH_STATE_NONE, 0)
+}
+
 // ContextualCheckTransactionForCurrentBlock This is a variant of ContextualCheckTransaction which computes the contextual
 // check for a transaction based on the chain tip.
 func ContextualCheckTransactionForCurrentBlock(tx *model.Tx, state *model.ValidationState,
@@ -3676,7 +3681,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
