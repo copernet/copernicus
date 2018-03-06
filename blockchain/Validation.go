@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bufio"
 	"bytes"
 	"container/list"
 	"encoding/binary"
@@ -4297,4 +4298,308 @@ func GuessVerificationProgress(data *msg.ChainTxData, index *model.BlockIndex) f
 	}
 
 	return float64(index.ChainTx) / txTotal
+}
+
+func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *model.DiskBlockPos) (ret bool) {
+	// Map of disk positions for blocks with unknown parent (only used for
+	// reindex)
+	mapBlocksUnknownParent := make(map[utils.Hash][]model.DiskBlockPos)
+	nStart := utils.GetMillisTimee()
+	nLoaded := 0
+
+	defer func() {
+		if err := recover(); err != nil {
+			ret = nLoaded > 0
+			AbortNodes("System error: ", "error, file IO")
+		}
+	}()
+	// This takes over fileIn and calls fclose() on it in the CBufferedFile
+	// destructor. Make sure we have at least 2*MAX_TX_SIZE space in there
+	// so any transaction can fit in the buffer.
+	reader := bufio.NewReader(file)
+
+	for {
+		//todo !!! boost::this_thread::interruption_point();
+		nSize := uint64(0)
+
+		defer func() {
+			ret = nLoaded > 0
+		}()
+		// Locate a header.
+		buf := make([]byte, 4)
+		message := []byte(param.BitcoinNet.ToString())
+		lenth, err := reader.Read(buf)
+		if lenth < 4 || err == io.EOF {
+			break
+		}
+
+		if bytes.Equal(buf, message) {
+			continue
+		}
+
+		nSize, err = utils.ReadVarInt(reader)
+		if err == io.EOF {
+			break
+		}
+		if nSize < 80 {
+			continue
+		}
+		defer func() {
+			if err := recover(); err != nil {
+				logger.GetLogger().Debug("%s: Deserialize or I/O error - %v\n", logger.TraceLog(), err)
+				ret = nLoaded > 0
+			}
+		}()
+		// read block
+		block := model.Block{}
+		block.Serialize(file)
+		//todo !!! modify the dbp.pos value
+		if dbp != nil {
+			dbp.Pos = lenth
+		}
+
+		// detect out of order blocks, and store them for later
+		hash := block.Hash
+		if hash != *param.GenesisHash {
+			if _, ok := MapBlockIndex.Data[block.BlockHeader.HashPrevBlock]; !ok {
+				logger.LogPrint("reindex", "10", "%s: Out of order block %s, parent %s not known\n",
+					logger.TraceLog(), hash.ToString(), block.BlockHeader.HashPrevBlock.ToString())
+				if dbp != nil {
+					mapBlocksUnknownParent[hash] = append(mapBlocksUnknownParent[hash], *dbp)
+				}
+				continue
+			}
+		}
+
+		// process in case the block isn't known yet
+		pindex, ok := MapBlockIndex.Data[hash]
+		if !ok || (pindex.Status&model.BLOCK_HAVE_DATA != 0) {
+			//todo LOCK(cs_main);
+			state := model.NewValidationState()
+			if AcceptBlock(param, &block, state, nil, true, dbp, nil) {
+				nLoaded++
+			}
+			if state.IsError() {
+				break
+			}
+		} else if hash != *param.GenesisHash && MapBlockIndex.Data[hash].Height%1000 == 0 {
+			logger.LogPrint("reindex", "10", "Block Import: already had block %s at height %d",
+				hash.ToString(), MapBlockIndex.Data[hash].Height)
+		}
+
+		// Activate the genesis block so normal node progress can continue
+		if hash != *param.GenesisHash {
+			state := model.NewValidationState()
+			if !ActivateBestChain(param, state, nil) {
+				break
+			}
+		}
+		notifyHeaderTip()
+		// Recursively process earlier encountered successors of this
+		// block
+		queue := make([]utils.Hash, 0)
+		queue = append(queue, hash)
+		for len(queue) > 0 {
+			head := queue[0]
+			queue = queue[1:]
+			ranges, ok := mapBlocksUnknownParent[head]
+			if ok {
+				pblockrecursive := model.Block{}
+				disPos := ranges[0]
+				if ReadBlockFromDiskByPos(&pblockrecursive, disPos, param) {
+					logger.LogPrint("reindex", "10", "%s: Processing out of order child %s of %s\n",
+						logger.TraceLog(), pblockrecursive.Hash.ToString(), head.ToString())
+					//	todo  LOCK(cs_main);
+					dummy := model.NewValidationState()
+					if AcceptBlock(param, &pblockrecursive, dummy, nil, true, &disPos, nil) {
+						nLoaded++
+						queue = append(queue, pblockrecursive.Hash)
+					}
+				}
+				ranges = ranges[1:]
+				notifyHeaderTip()
+			}
+		}
+	}
+	if nLoaded > 0 {
+		logger.GetLogger().Debug("Loaded %d blocks from external file in %dms",
+			nLoaded, utils.GetMillisTimee()-nStart)
+	}
+
+	return nLoaded > 0
+}
+
+func CheckMempool(pool *mempool.Mempool, pcoins *utxo.CoinsViewCache) {
+	if pool.CheckFrequency == 0 {
+		return
+	}
+
+	if utils.GetRand(uint64(math.MaxUint32)) >= uint64(pool.CheckFrequency) {
+		return
+	}
+
+	logger.GetLogger().Info("mempool : Checking mempool with %d transactions and %d inputs ",
+		pool.MapTx.Size(), pool.MapNextTx.Size())
+	checkTotal := 0
+	innerUsage := 0
+	nSpendHeight := GetSpendHeight(pcoins)
+
+	// todo LOCK(cs);
+	waitingOnDependants := list.New()
+	for hash, entry := range pool.MapTx.PoolNode {
+		i := 0
+		checkTotal += entry.TxSize
+		innerUsage += entry.UsageSize
+		linksiter := pool.MapLinks.Get(hash)
+		if linksiter == nil {
+			panic("current , the tx must be in mempool")
+		}
+		links := linksiter.(*mempool.TxLinks)
+		innerUsage += mempool.DynamicUsage(links.Parents) + mempool.DynamicUsage(links.Children)
+		fDependsWait := false
+		setParentCheck := algorithm.NewSet()
+		parentSizes := 0
+		parentSigOpCount := 0
+		tx := entry.TxRef
+
+		for _, txin := range tx.Ins {
+			// Check that every mempool transaction's inputs refer to available
+			// coins, or other mempool tx's.
+			if txEntry, ok := pool.MapTx.PoolNode[txin.PreviousOutPoint.Hash]; ok {
+				tx2 := txEntry.TxRef
+				if !(len(tx2.Outs) > int(txin.PreviousOutPoint.Index) &&
+					!tx2.Outs[txin.PreviousOutPoint.Index].IsNull()) {
+					panic("the tx index error")
+				}
+				fDependsWait = true
+				if setParentCheck.AddItem(txEntry) {
+					parentSizes += txEntry.TxSize
+					parentSigOpCount += int(txEntry.SigOpCount)
+				}
+			} else {
+				if !pcoins.HaveCoin(txin.PreviousOutPoint) {
+					panic("the utxo should have the outpoint")
+				}
+			}
+			// Check whether its inputs are marked in mapNextTx.
+			it3 := pool.MapNextTx.Get(*txin.PreviousOutPoint)
+			if it3 == nil {
+				panic("the mempool should have the prePoint")
+			}
+			tx3 := it3.(*model.Tx)
+			if tx3 != tx {
+				panic("the two tx should equal")
+			}
+			i++
+		}
+		if setParentCheck != pool.GetMemPoolParents(entry) {
+			panic("the set should equal")
+		}
+		// Verify ancestor state is correct.
+		setAncestors := set.New()
+		nNoLimit := uint64(math.MaxUint64)
+		pool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
+		nCountCheck := setAncestors.Size() + 1
+		nSizeCheck := entry.TxSize
+		nFeesCheck := entry.GetModifiedFee()
+		nSigOpCheck := entry.SigOpCount
+		setAncestors.Each(func(item interface{}) bool {
+			txEntry := item.(*mempool.TxMempoolEntry)
+			nSizeCheck += txEntry.TxSize
+			nFeesCheck += txEntry.GetModifiedFee()
+			nSigOpCheck += txEntry.SigOpCount
+			return true
+		})
+
+		if !(entry.CountWithAncestors == uint64(nCountCheck)) {
+			panic("the number with ancestors should be equal")
+		}
+		if !(entry.GetsizeWithAncestors() == uint64(nSizeCheck)) {
+			panic("the size with ancestors should be equal")
+		}
+		if !(entry.SigOpCountWithAncestors == nSigOpCheck) {
+			panic("the sigOpCount with ancestors should be equal")
+		}
+		if !(entry.ModFeesWithAncestors == nFeesCheck) {
+			panic("error: the size with ancestors should be equal")
+		}
+		// Check children against mapNextTx
+		setChildrenCheck := algorithm.NewSet()
+		childSize := 0
+		allKeys := pool.MapNextTx.GetAllKeys()
+		for _, key := range allKeys {
+			if mempool.CompareByRefOutPoint(key, model.OutPoint{Hash: hash, Index: 0}) {
+				continue
+			}
+			childSizes := 0
+			prePoint := key.(model.OutPoint)
+			childEntry, ok := pool.MapTx.PoolNode[prePoint.Hash]
+			if !ok {
+				panic("the tx must in mempool")
+			}
+			if setChildrenCheck.AddItem(childEntry) {
+				childSizes += childEntry.TxSize
+			}
+		}
+		if !setChildrenCheck.IsEqual(pool.GetMempoolChildren(entry)) {
+			panic("the two set should have same element ")
+		}
+
+		// Also check to make sure size is greater than sum with immediate
+		// children. Just a sanity check, not definitive that this calc is
+		// correct...
+		if !(entry.SizeWithDescendants >= uint64(childSize+entry.TxSize)) {
+			panic("the size with descendants should not less than the childsize")
+		}
+		if fDependsWait {
+			waitingOnDependants.PushBack(entry)
+		} else {
+			state := model.NewValidationState()
+			fCheckResult := tx.IsCoinBase() || CheckTxInputs(tx, state, pcoins, nSpendHeight)
+			if !fCheckResult {
+				panic("the tx check should be true")
+			}
+			txundo := TxUndo{}
+			UpdateCoins(tx, pcoins, &txundo, 1000000)
+		}
+	}
+	stepsSinceLastRemove := 0
+	for waitingOnDependants.Len() > 0 {
+		entry := waitingOnDependants.Front().Value.(*mempool.TxMempoolEntry)
+		waitingOnDependants.Remove(waitingOnDependants.Front())
+		state := model.NewValidationState()
+		if !pcoins.HaveInputs(entry.TxRef) {
+			waitingOnDependants.PushBack(entry)
+			stepsSinceLastRemove++
+			if stepsSinceLastRemove >= waitingOnDependants.Len() {
+				panic("the element number should less list size")
+			}
+		} else {
+			fCheckResult := entry.TxRef.IsCoinBase() || CheckTxInputs(entry.TxRef, state, pcoins, nSpendHeight)
+			if !fCheckResult {
+				panic("the tx check should be true.")
+			}
+			txundo := TxUndo{}
+			UpdateCoins(entry.TxRef, pcoins, &txundo, 1000000)
+			stepsSinceLastRemove = 0
+		}
+	}
+	tmpValue := pool.MapNextTx.GetMap()
+	for _, tx := range tmpValue {
+		txid := tx.(*model.Tx).Hash
+		it2, ok := pool.MapTx.PoolNode[txid]
+		if !ok {
+			panic("the tx should be in mempool")
+		}
+		tx2 := it2.TxRef
+		if tx2 != tx.(*model.Tx) {
+			panic("the two tx should refrence the same one tx")
+		}
+	}
+	if pool.GetTotalTxSize() != uint64(checkTotal) {
+		panic("the size should be equal")
+	}
+	if uint64(innerUsage) != pool.CachedInnerUsage {
+		panic("the usage should be equal")
+	}
 }
