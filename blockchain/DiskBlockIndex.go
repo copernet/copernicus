@@ -83,7 +83,7 @@ func NewDiskBlockIndex(bl *model.BlockIndex) *DiskBlockIndex {
 	if bl.PPrev == nil {
 		dbi.hashPrev = utils.HashZero
 	} else {
-		dbi.hashPrev = bl.PPrev.GetBlockHash()
+		dbi.hashPrev = *bl.PPrev.GetBlockHash()
 	}
 	return nil
 }

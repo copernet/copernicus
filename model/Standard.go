@@ -29,18 +29,18 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *algorithm.Vector)
 	if len(mTemplates) == 0 {
 		// Standard tx, sender provides pubkey, receiver adds signature[]byte{byte(model.OP_PUBKEY), byte(model.OP_CHECKSIG)
 		scriptBytes := []byte{byte(OP_PUBKEY), byte(OP_CHECKSIG)}
-		mTemplates[TX_PUBKEY] = *NewScriptWithRaw(scriptBytes)
+		mTemplates[TX_PUBKEY] = *NewScriptRaw(scriptBytes)
 
 		// Bitcoin address tx, sender provides hash of pubkey, receiver provides
 		// signature and pubkey
 		scriptBytes = []byte{byte(OP_DUP), byte(OP_HASH160), byte(OP_PUBKEYHASH),
 			byte(OP_EQUALVERIFY), byte(OP_CHECKSIG)}
-		mTemplates[TX_PUBKEYHASH] = *NewScriptWithRaw(scriptBytes)
+		mTemplates[TX_PUBKEYHASH] = *NewScriptRaw(scriptBytes)
 
 		// Sender provides N pubkeys, receivers provides M signatures
 		scriptBytes = []byte{byte(OP_SMALLINTEGER), byte(OP_PUBKEYS),
 			byte(OP_SMALLINTEGER), byte(OP_CHECKMULTISIG)}
-		mTemplates[TX_MULTISIG] = *NewScriptWithRaw(scriptBytes)
+		mTemplates[TX_MULTISIG] = *NewScriptRaw(scriptBytes)
 	}
 
 	vSolutionsRet.Clear()
@@ -62,7 +62,7 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *algorithm.Vector)
 	// So long as script passes the IsUnspendable() test and all but the first
 	// byte passes the IsPushOnly() test we don't care what exactly is in the
 	// script.
-	tmpScriptPubkey := NewScriptWithRaw(scriptByte[1:])
+	tmpScriptPubkey := NewScriptRaw(scriptByte[1:])
 	if scriptPubKey.Size() >= 1 && scriptByte[0] == OP_RETURN && tmpScriptPubkey.IsPushOnly() {
 		*typeRet = TX_NULL_DATA
 		return true

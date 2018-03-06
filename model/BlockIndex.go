@@ -107,7 +107,7 @@ func (blIndex *BlockIndex) GetBlockHeader() BlockHeader {
 	bl := BlockHeader{}
 	bl.Version = blIndex.Version
 	if blIndex.PPrev != nil {
-		bl.HashPrevBlock = blIndex.PPrev.GetBlockHash()
+		bl.HashPrevBlock = *blIndex.PPrev.GetBlockHash()
 	}
 	bl.HashMerkleRoot = blIndex.MerkleRoot
 	bl.Time = blIndex.Time
@@ -116,8 +116,9 @@ func (blIndex *BlockIndex) GetBlockHeader() BlockHeader {
 	return bl
 }
 
-func (blIndex *BlockIndex) GetBlockHash() utils.Hash {
-	return blIndex.PHashBlock
+func (blIndex *BlockIndex) GetBlockHash() *utils.Hash {
+	// return a pointer: index.GetBlockHash().ToString() works
+	return &blIndex.PHashBlock
 }
 
 func (blIndex *BlockIndex) GetBlockTime() uint32 {

@@ -59,7 +59,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 			return false, core.ScriptErr(core.SCRIPT_ERR_EVAL_FALSE)
 		}
 		pubKeySerialized := stack.Last().([]byte)
-		pubKey2 := NewScriptWithRaw(pubKeySerialized)
+		pubKey2 := NewScriptRaw(pubKeySerialized)
 
 		stack.PopStack()
 		result, err = interpreter.Exec(tx, nIn, &stack, pubKey2, flags)
@@ -961,7 +961,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 					vchByte = vchByte[:vchByte[1]+2]
 					// Subset of script starting at the most recent
 					// codeseparator
-					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
+					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
 					txHash, err := SignatureHash(tx, scriptCode, uint32(hashType), nIn)
 					if err != nil {
 						return false, err
@@ -1044,7 +1044,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *algorithm.Stack, sc
 
 					// Subset of script starting at the most recent
 					// codeseparator
-					scriptCode := NewScriptWithRaw(script.bytes[pbegincodehash:])
+					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
 
 					// Drop the signature in pre-segwit scripts but not
 					// segwit scripts
@@ -1177,41 +1177,16 @@ func CastToBool(vch []byte) bool {
 	return false
 }
 
+func (interpreter *Interpreter) IsEmpty() bool {
+	return interpreter.stack.Empty()
+}
+
+func (interpreter *Interpreter) List() []interface{} {
+	return interpreter.stack.List()
+}
+
 func NewInterpreter() *Interpreter {
 	return &Interpreter{
 		stack: algorithm.NewStack(),
 	}
-}
-
-type TxSignatureChecker struct {
-	txTo   *Tx
-	in     int
-	amount btcutil.Amount
-	txData *PrecomputedTransactionData
-}
-
-func VerifyScript(scriptSig *Script, scriptPubKey *Script, flags uint32, checker *TxSignatureChecker,
-	err *core.ScriptError) bool {
-
-	SetError(err, core.SCRIPT_ERR_UNKNOWN_ERROR)
-
-	// If FORKID is enabled, we also ensure strict encoding.
-	if flags&core.SCRIPT_ENABLE_SIGHASH_FORKID != 0 {
-		flags |= core.SCRIPT_VERIFY_STRICTENC
-	}
-
-	if flags&core.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
-		return SetError(err, core.SCRIPT_ERR_SIG_PUSHONLY)
-	}
-
-	// todo complete
-
-	return true
-}
-
-func SetError(ret *core.ScriptError, serror core.ScriptError) bool {
-	if ret != nil {
-		*ret = serror
-	}
-	return false
 }

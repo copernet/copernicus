@@ -749,7 +749,7 @@ func TestNewScriptWithRaw(t *testing.T) {
 func parseScriptTmp() (stk []ParsedOpCode, err error) {
 	stk = make([]ParsedOpCode, 0)
 	scriptLen := 3
-	script := NewScriptWithRaw([]byte{116, 0, 135})
+	script := NewScriptRaw([]byte{116, 0, 135})
 
 	for i := 0; i < scriptLen; i++ {
 		var nSize int
