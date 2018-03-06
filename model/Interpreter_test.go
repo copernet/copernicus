@@ -194,7 +194,7 @@ func TestMultiSigScript(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	prePubScript := NewScriptWithRaw(pubScriptByte)
+	prePubScript := NewScriptRaw(pubScriptByte)
 
 	interpreter := Interpreter{
 		stack: algorithm.NewStack(),

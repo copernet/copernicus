@@ -16,6 +16,19 @@ func (s *Stack) Empty() bool {
 	return len(s.array) == 0
 }
 
+func (s *Stack) List() []interface{} {
+	return s.array
+}
+
+func (s *Stack) Copy() *Stack {
+	bak := make([]interface{}, s.Size())
+	copy(bak, s.array)
+
+	return &Stack{
+		array: bak,
+	}
+}
+
 func (s *Stack) PushStack(value interface{}) {
 	s.array = append(s.array, value)
 }

@@ -184,7 +184,7 @@ func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
 		return true
 	}
 
-	for _, vin := range tx.Ins {
+	for index, vin := range tx.Ins {
 		prev := cache.GetOutputFor(vin)
 
 		solutions := algorithm.NewVector()
@@ -196,30 +196,37 @@ func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
 		}
 
 		if whichType == model.TX_SCRIPTHASH {
-			stack := algorithm.NewVector()
-			//i := model.NewInterpreter()
+			interpreter := model.NewInterpreter()
 
 			//convert the scriptSig into a stack, so we can inspect the
 			//redeemScript
+			coin := utxo.NewEmptyCoin()
+			exist := cache.GetCoin(vin.PreviousOutPoint, coin)
+			if exist {
+				ret, err := interpreter.Verify(tx, index, vin.Script, coin.TxOut.Script, core.SCRIPT_VERIFY_NONE)
+				if err != nil || !ret {
+					return false
+				}
+			}
 
-			//if i.Verify(tx, len(tx.Ins), vin.Script, core.SCRIPT_VERIFY_NONE) {		// todo complete
-			//	return false
-			//}
-
-			if stack.Size() == 0 {
+			if interpreter.IsEmpty() {
 				return false
 			}
 
 			b := make([]byte, 0)
-			for _, item := range stack.Array {
-				b = append(b, item.(byte))
+			list := interpreter.List()
+			for _, item := range list {
+				byteFromStack, ok := item.([]byte)
+				if !ok {
+					panic("not []byte")
+				}
+				b = append(b, byteFromStack...)
 			}
 			subscript := model.NewScriptRaw(b)
-			count, _ := subscript.GetSigOpCount()
+			count, _ := subscript.GetSigOpCountWithAccurate(true)
 			if uint(count) > MAX_P2SH_SIGOPS {
 				return false
 			}
-
 		}
 	}
 	return true

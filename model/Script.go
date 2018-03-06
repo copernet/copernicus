@@ -121,7 +121,6 @@ func CheckMinimalPush(data []byte, opcode int32) bool {
 		return opcode == OP_PUSHDATA2
 	}
 	return true
-
 }
 
 func NewScriptRaw(bytes []byte) *Script {
@@ -453,12 +452,6 @@ func EncodeOPN(n int) (int, error) {
 		return OP_0, nil
 	}
 	return OP_1 + n - 1, nil
-}
-
-func NewScriptWithRaw(bytes []byte) *Script {
-	script := Script{bytes: bytes}
-	script.ConvertOPS()
-	return &script
 }
 
 func NewScript(parsedOpCodes []ParsedOpCode) *Script {

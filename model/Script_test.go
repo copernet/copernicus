@@ -28,7 +28,7 @@ var p2PKHScript = [...]byte{
 }
 
 func TestScriptParseScript(t *testing.T) {
-	p2shScript := NewScriptWithRaw(p2SHScript[:])
+	p2shScript := NewScriptRaw(p2SHScript[:])
 	if !p2shScript.IsPayToScriptHash() {
 		t.Errorf("the script is P2SH should be true instead of false")
 	}
@@ -60,7 +60,7 @@ func TestScriptParseScript(t *testing.T) {
 		t.Errorf("Error : P2SH script have 0 OpCode instead of %d\n", num)
 	}
 
-	p2pkhScript := NewScriptWithRaw(p2PKHScript[:])
+	p2pkhScript := NewScriptRaw(p2PKHScript[:])
 	if p2pkhScript.IsPayToScriptHash() {
 		t.Error("script is P2PKH should be false instead of true")
 	}
@@ -103,7 +103,7 @@ func TestScriptParseScript(t *testing.T) {
 }
 
 func TestCScriptPushData(t *testing.T) {
-	script := NewScriptWithRaw(make([]byte, 0))
+	script := NewScriptRaw(make([]byte, 0))
 
 	err := script.PushOpCode(OP_HASH160)
 	if err != nil {
