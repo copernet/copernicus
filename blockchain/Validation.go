@@ -4317,6 +4317,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *model.D
 	// destructor. Make sure we have at least 2*MAX_TX_SIZE space in there
 	// so any transaction can fit in the buffer.
 	reader := bufio.NewReader(file)
+	totalLenth := 0
 
 	for {
 		//todo !!! boost::this_thread::interruption_point();
@@ -4332,6 +4333,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *model.D
 		if lenth < 4 || err == io.EOF {
 			break
 		}
+		totalLenth += lenth
 
 		if bytes.Equal(buf, message) {
 			continue
@@ -4344,6 +4346,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *model.D
 		if nSize < 80 {
 			continue
 		}
+		totalLenth += utils.VarIntSerializeSize(nSize)
 		defer func() {
 			if err := recover(); err != nil {
 				logger.GetLogger().Debug("%s: Deserialize or I/O error - %v\n", logger.TraceLog(), err)
@@ -4353,9 +4356,10 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *model.D
 		// read block
 		block := model.Block{}
 		block.Serialize(file)
+		totalLenth += int(block.Size)
 		//todo !!! modify the dbp.pos value
 		if dbp != nil {
-			dbp.Pos = lenth
+			dbp.Pos = totalLenth
 		}
 
 		// detect out of order blocks, and store them for later
