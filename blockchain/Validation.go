@@ -145,7 +145,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -189,11 +189,10 @@ func FindForkInGlobalIndex(chain *model.Chain, locator *BlockLocator) *model.Blo
 	for _, hash := range locator.vHave {
 		mi, ok := MapBlockIndex.Data[hash]
 		if ok {
-			pindex := mi.PPrev
-			if chain.Contains(pindex) {
-				return pindex
+			if chain.Contains(mi.PPrev) {
+				return mi.PPrev
 			}
-			if pindex.GetAncestor(chain.Height()) == chain.Tip() {
+			if mi.PPrev.GetAncestor(chain.Height()) == chain.Tip() {
 				return chain.Tip()
 			}
 		}
@@ -3149,22 +3148,22 @@ func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
 		// Start new block file
 		nBlockSize := block.SerializeSize()
 		var (
-			blockPos *model.DiskBlockPos
-			state    *model.ValidationState
+			blockPos model.DiskBlockPos
+			state    model.ValidationState
 		)
-		if !FindBlockPos(state, blockPos, uint(nBlockSize+8), 0, uint64(block.BlockHeader.GetBlockTime()), false) {
+		if !FindBlockPos(&state, &blockPos, uint(nBlockSize+8), 0, uint64(block.BlockHeader.GetBlockTime()), false) {
 			return logger.ErrorLog("LoadBlockIndex(): FindBlockPos failed")
 		}
-		if !WriteBlockToDisk(block, blockPos, param.BitcoinNet) {
+		if !WriteBlockToDisk(block, &blockPos, param.BitcoinNet) {
 			return logger.ErrorLog("LoadBlockIndex(): writing genesis block to disk failed")
 		}
 		pindex := AddToBlockIndex(&block.BlockHeader)
-		if !ReceivedBlockTransactions(block, state, pindex, blockPos) {
+		if !ReceivedBlockTransactions(block, &state, pindex, &blockPos) {
 			return logger.ErrorLog("LoadBlockIndex(): genesis block not accepted")
 		}
 		// Force a chainstate write so that when we VerifyDB in a moment, it
 		// doesn't check stale data
-		return FlushStateToDisk(state, FLUSH_STATE_ALWAYS, 0)
+		return FlushStateToDisk(&state, FLUSH_STATE_ALWAYS, 0)
 	}
 	return true
 }
@@ -3677,7 +3676,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
