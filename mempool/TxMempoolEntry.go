@@ -59,6 +59,10 @@ type TxMempoolEntry struct {
 	vTxHashesIdx int
 }
 
+func (txMempoolEntry *TxMempoolEntry) GetsizeWithAncestors() uint64 {
+	return txMempoolEntry.sizeWithAncestors
+}
+
 func (txMempoolEntry *TxMempoolEntry) GetInfo() *TxMempoolInfo {
 	return &TxMempoolInfo{
 		Tx:       txMempoolEntry.TxRef,
