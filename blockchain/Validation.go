@@ -157,7 +157,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE      FlushStateMode = iota
+	FLUSH_STATE_NONE FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -1318,7 +1318,7 @@ func ActivateBestChain(param *msg.BitcoinParams, state *model.ValidationState, p
 
 func PreciousBlock(param *msg.BitcoinParams, state *model.ValidationState, pindex *model.BlockIndex) bool {
 	//todo:LOCK(cs_main)
-	if pindex.ChainWork.Cmp(&GChainActive.Tip().ChainWork) > 0 {
+	if pindex.ChainWork.Cmp(&GChainActive.Tip().ChainWork) < 0 {
 		// Nothing to do, this block is not at the tip.
 		return true
 	}
@@ -2207,13 +2207,15 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *model.Tx,
 				return logger.ErrorLog("GetTransaction:OpenBlockFile failed")
 			}
 			ret = true
-			if err := recover(); err != nil {
-				logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error -%s", logger.TraceLog(), err))
-				ret = false
-			}
+			defer func() {
+				if err := recover(); err != nil {
+					logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error -%s", logger.TraceLog(), err))
+					ret = false
+				}
+			}()
 			var header model.BlockHeader
 			header.Serialize(file)
-			file.Seek(0, 1)
+			file.Seek(int64(postx.TxOffsetIn), 0)
 			txOut.Serialize(file)
 			var err error
 			*hashBlock, err = header.GetHash()
@@ -3974,7 +3976,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
