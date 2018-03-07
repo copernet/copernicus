@@ -374,19 +374,19 @@ func ResetBlockFailureFlags(index *model.BlockIndex) bool {
 	// todo AssertLockHeld(cs_main)
 	height := index.Height
 	// Remove the invalidity flag from this block and all its descendants.
-	for _, index := range MapBlockIndex.Data {
-		if !index.IsValid(model.BLOCK_VALID_TRANSACTIONS) && index.GetAncestor(height) == index {
-			index.Status &= (^model.BLOCK_FAILED_MASK)
-			gsetDirtyBlockIndex.AddItem(index)
-			if index.IsValid(model.BLOCK_VALID_TRANSACTIONS) && index.ChainTx != 0 &&
-				BlockIndexWorkComparator(GChainActive.Tip(), index) {
-				gsetBlockIndexCandidates.AddItem(index)
+	for _, bl := range MapBlockIndex.Data {
+		if !bl.IsValid(model.BLOCK_VALID_TRANSACTIONS) && bl.GetAncestor(height) == index {
+			bl.Status &= (^model.BLOCK_FAILED_MASK)
+			gsetDirtyBlockIndex.AddItem(bl)
+			if bl.IsValid(model.BLOCK_VALID_TRANSACTIONS) && bl.ChainTx != 0 &&
+				BlockIndexWorkComparator(GChainActive.Tip(), bl) {
+				gsetBlockIndexCandidates.AddItem(bl)
 			}
-		}
-		if index == gpindexBestInvalid {
-			// Reset invalid block marker if it was pointing to one of
-			// those.
-			gpindexBestInvalid = nil
+			if bl == gpindexBestInvalid {
+				// Reset invalid block marker if it was pointing to one of
+				// those.
+				gpindexBestInvalid = nil
+			}
 		}
 	}
 
@@ -2618,6 +2618,12 @@ func ProcessNewBlockHeaders(params *msg.BitcoinParams, headers []*model.BlockHea
 	return true
 }
 
+func PruneAndFlush() {
+	state := model.NewValidationState()
+	GfCheckForPruning = true
+	FlushStateToDisk(state, FLUSH_STATE_NONE, 0)
+}
+
 func ProcessNewBlock(param *msg.BitcoinParams, pblock *model.Block, fForceProcessing bool, fNewBlock *bool) bool {
 
 	if fNewBlock != nil {
@@ -3278,13 +3284,19 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	}
 
 	// todo boost::this_thread::interruption_point()
-	sortedByHeight := make([]model.BlockHeight, 0)
+	type BlockHeight struct {
+		Height int
+		Index  *model.BlockIndex
+	}
+	sortedByHeight := make([]BlockHeight, 0)
 	for _, index := range MapBlockIndex.Data {
 		indexTmp := index
-		sortedByHeight = append(sortedByHeight, model.BlockHeight{Height: indexTmp.Height, Index: indexTmp})
+		sortedByHeight = append(sortedByHeight, BlockHeight{Height: indexTmp.Height, Index: indexTmp})
 	}
 
-	sort.Sort(model.SortBlockByHeight(sortedByHeight))
+	sort.SliceStable(sortedByHeight, func(i, j int) bool {
+		return sortedByHeight[i].Height > sortedByHeight[j].Height
+	})
 	for _, item := range sortedByHeight {
 		index := item.Index
 		if index.PPrev != nil {
@@ -3315,7 +3327,7 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 		}
 
 		if index.IsValid(model.BLOCK_VALID_TRANSACTIONS) &&
-			(index.ChainTx != 0) || index.PPrev == nil {
+			(index.ChainTx != 0 || index.PPrev == nil) {
 			gsetBlockIndexCandidates.AddItem(index)
 		}
 
@@ -3361,15 +3373,16 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 
 	l := setBlkDataFiles.List()
 	for _, item := range l {
-		_ = model.DiskBlockPos{
+		pos := &model.DiskBlockPos{
 			File: item.(int),
 			Pos:  0,
 		}
 
-		// todo
-		//if (CAutoFile(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION).IsNull()) {
-		//	return false;
-		//}
+		file := OpenBlockFile(pos, true)
+		if file == nil {
+			return false
+		}
+		file.Close()
 	}
 
 	// Check whether we have ever pruned block & undo files

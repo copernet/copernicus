@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/logger"
 	"github.com/pkg/errors"
 )
 
@@ -17,7 +18,7 @@ const (
 	maxFailedAttempts     = 25
 )
 
-var log = logs.NewLogger()
+var log *logs.BeeLogger
 
 type ConnectManager struct {
 	connRequestCount uint64
@@ -250,4 +251,8 @@ func NewConnectManager(listener *ConnectListener) (*ConnectManager, error) {
 		quit:     make(chan struct{}),
 	}
 	return &connectManager, nil
+}
+
+func init() {
+	log = logger.GetLogger()
 }
