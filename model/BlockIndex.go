@@ -241,3 +241,22 @@ func NewBlockIndex(blkHeader *BlockHeader) *BlockIndex {
 	blockIndex.Nonce = blkHeader.Nonce
 	return blockIndex
 }
+
+type BlockHeight struct {
+	Height int
+	Index  *BlockIndex
+}
+
+type SortBlockByHeight []BlockHeight
+
+func (s SortBlockByHeight) Len() int {
+	return len(s)
+}
+
+func (s SortBlockByHeight) Swap(i int, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s SortBlockByHeight) Less(i int, j int) bool {
+	return s[i].Height > s[i].Height
+}

@@ -118,8 +118,8 @@ type BitcoinParams struct {
 	chainTxData        ChainTxData
 }
 
-func (param *BitcoinParams) TxData() ChainTxData {
-	return param.chainTxData
+func (param *BitcoinParams) TxData() *ChainTxData {
+	return &param.chainTxData
 }
 
 var MainNetParams = BitcoinParams{
