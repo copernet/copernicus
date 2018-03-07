@@ -2215,7 +2215,7 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *model.Tx,
 			}()
 			var header model.BlockHeader
 			header.Serialize(file)
-			file.Seek(int64(postx.TxOffsetIn), 0)
+			file.Seek(int64(postx.TxOffsetIn), 1)
 			txOut.Serialize(file)
 			var err error
 			*hashBlock, err = header.GetHash()
