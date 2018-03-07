@@ -3338,12 +3338,11 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	Gpblocktree.ReadLastBlockFile(&gLastBlockFile)
 	logger.GetLogger().Debug("LoadBlockIndexDB(): last block file = %d", gLastBlockFile)
 	for file := 0; file <= gLastBlockFile; file++ {
-		Gpblocktree.ReadBlockFileInfo(file) // todo ReadBlockFileInfo() is different from c++
+		ginfoBlockFile[file] = Gpblocktree.ReadBlockFileInfo(file)
 	}
 	logger.GetLogger().Debug("LoadBlockIndexDB(): last block file info: %s\n", ginfoBlockFile[gLastBlockFile].ToString())
 	for file := gLastBlockFile + 1; true; file++ {
-		info := NewBlockFileInfo()
-		if Gpblocktree.ReadBlockFileInfo(file) != nil {
+		if info := Gpblocktree.ReadBlockFileInfo(file); info != nil {
 			ginfoBlockFile = append(ginfoBlockFile, info)
 		} else {
 			break
