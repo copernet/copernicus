@@ -157,7 +157,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FLUSH_STATE_NONE FlushStateMode = iota
+	FLUSH_STATE_NONE      FlushStateMode = iota
 	FLUSH_STATE_IF_NEEDED
 	FLUSH_STATE_PERIODIC
 	FLUSH_STATE_ALWAYS
@@ -3974,7 +3974,7 @@ func GetScriptCacheKey(tx *model.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, model.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
+	b = append(b, model.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)
@@ -4788,10 +4788,5 @@ func CheckMempool(pool *mempool.Mempool, pcoins *utxo.CoinsViewCache) {
 }
 
 func MainCleanup() {
-	// block headers
-	for i := range MapBlockIndex.Data {
-		delete(MapBlockIndex.Data, i)
-	}
-	MapBlockIndex.Data = nil
-
+	MapBlockIndex.Data = make(map[utils.Hash]*model.BlockIndex)
 }
