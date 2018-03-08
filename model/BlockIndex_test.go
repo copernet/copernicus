@@ -111,7 +111,7 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 	chain.SetTip(&vBlocksMain[len(vBlocksMain)-1])
 
 	// Verify that FindEarliestAtLeast is correct
-	for _, v := range chain.vChain {
+	for _, v := range chain.VChain {
 		_ = v.Height
 	}
 	for i := 0; i < len(vBlocksMain); i++ {

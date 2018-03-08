@@ -10,6 +10,7 @@ import (
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/orm"
 	"github.com/btcboost/copernicus/orm/database"
+	"github.com/btcboost/copernicus/utils"
 )
 
 type BlockTreeDB struct {
@@ -38,6 +39,11 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) *BlockFileInfo {
 	}
 	return blockFileInfo
 
+}
+
+func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *utils.Hash, pos *model.DiskTxPos) bool {
+	// todo: not finish
+	return true
 }
 
 func (blockTreeDB *BlockTreeDB) WriteReindexing(reindexing bool) bool {
