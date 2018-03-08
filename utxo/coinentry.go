@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/orm"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/database"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type CoinEntry struct {
-	outpoint *model.OutPoint
+	outpoint *core.OutPoint
 	key      byte
 }
 
@@ -57,9 +57,9 @@ func (coinEntry *CoinEntry) GetSerKey() []byte {
 	return buf.Bytes()
 }
 
-func NewCoinEntry(outPoint *model.OutPoint) *CoinEntry {
+func NewCoinEntry(outPoint *core.OutPoint) *CoinEntry {
 	coinEntry := new(CoinEntry)
 	coinEntry.outpoint = outPoint
-	coinEntry.key = orm.DB_COIN
+	coinEntry.key = database.DB_COIN
 	return coinEntry
 }

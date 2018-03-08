@@ -1,35 +1,60 @@
 package utils
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"math/big"
+
+	"crypto/sha1"
+
+	"golang.org/x/crypto/ripemd160"
 )
 
 const (
-	HashSize          = 32
-	MaxHashStringSize = HashSize * 2
-	Hash160           = 20
+	Hash256Size       = 32
+	MaxHashStringSize = Hash256Size * 2
+	Hash160Size       = 20
 )
 
-type Hash [HashSize]byte
+type Hash [Hash256Size]byte
 
 var HashZero = Hash{}
 var HashOne = Hash{0x0000000000000000000000000000000000000000000000000000000000000001}
 
+// Calculate the hash of hasher over buf.
+func calcHash(buf []byte, hasher hash.Hash) []byte {
+	hasher.Write(buf)
+	return hasher.Sum(nil)
+}
+
+// Hash160 calculates the hash ripemd160(sha256(b)).
+func Hash160(buf []byte) []byte {
+	return calcHash(calcHash(buf, sha256.New()), ripemd160.New())
+}
+
+func Ripemd160(buf []byte) []byte {
+	return calcHash(buf, ripemd160.New())
+}
+
+func Sha1(buf []byte) [20]byte {
+	return sha1.Sum(buf)
+}
+
 func (hash *Hash) ToString() string {
 	bytes := hash.GetCloneBytes()
-	for i := 0; i < HashSize/2; i++ {
-		bytes[i], bytes[HashSize-1-i] = bytes[HashSize-1-i], bytes[i]
+	for i := 0; i < Hash256Size/2; i++ {
+		bytes[i], bytes[Hash256Size-1-i] = bytes[Hash256Size-1-i], bytes[i]
 	}
 	return hex.EncodeToString(bytes[:])
 }
 
 func (hash *Hash) Serialize(w io.Writer) bool {
 	lenth, err := w.Write(hash[:])
-	if lenth != HashSize || err != nil {
+	if lenth != Hash256Size || err != nil {
 		return false
 	}
 	return true
@@ -37,14 +62,14 @@ func (hash *Hash) Serialize(w io.Writer) bool {
 
 func (hash *Hash) Deserialize(r io.Reader) bool {
 	lenth, err := io.ReadFull(r, hash[:])
-	if lenth != HashSize || err != nil {
+	if lenth != Hash256Size || err != nil {
 		return false
 	}
 	return true
 }
 
 func (hash *Hash) GetCloneBytes() []byte {
-	bytes := make([]byte, HashSize)
+	bytes := make([]byte, Hash256Size)
 	copy(bytes, hash[:])
 	return bytes
 }
@@ -65,8 +90,8 @@ func (hash *Hash) Cmp(other *Hash) int {
 }
 func (hash *Hash) SetBytes(bytes []byte) error {
 	length := len(bytes)
-	if length != HashSize {
-		return fmt.Errorf("invalid hash length of %v , want %v", length, HashSize)
+	if length != Hash256Size {
+		return fmt.Errorf("invalid hash length of %v , want %v", length, Hash256Size)
 	}
 	copy(hash[:], bytes)
 	return nil
@@ -93,8 +118,8 @@ func (hash *Hash) IsNull() bool {
 
 func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	length := len(bytes)
-	if length != HashSize {
-		return nil, fmt.Errorf("invalid hash length of %v , want %v", length, HashSize)
+	if length != Hash256Size {
+		return nil, fmt.Errorf("invalid hash length of %v , want %v", length, Hash256Size)
 	}
 	hash.SetBytes(bytes)
 	return
@@ -123,14 +148,14 @@ func DecodeHash(src string) (bytes []byte, err error) {
 		srcBytes[0] = '0'
 		copy(srcBytes[1:], src)
 	}
-	var reversedHash = make([]byte, HashSize)
-	_, err = hex.Decode(reversedHash[HashSize-hex.DecodedLen(len(srcBytes)):], srcBytes)
+	var reversedHash = make([]byte, Hash256Size)
+	_, err = hex.Decode(reversedHash[Hash256Size-hex.DecodedLen(len(srcBytes)):], srcBytes)
 	if err != nil {
 		return
 	}
-	bytes = make([]byte, HashSize)
-	for i, b := range reversedHash[:HashSize/2] {
-		bytes[i], bytes[HashSize-1-i] = reversedHash[HashSize-1-i], b
+	bytes = make([]byte, Hash256Size)
+	for i, b := range reversedHash[:Hash256Size/2] {
+		bytes[i], bytes[Hash256Size-1-i] = reversedHash[Hash256Size-1-i], b
 	}
 	return
 }

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
 
-const MaxInputPerTx = model.MaxTxInPerMessage
+const MaxInputPerTx = core.MaxTxInPerMessage
 
 type DisconnectResult int
 
@@ -63,7 +63,7 @@ func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 	}
 }
 
-func UndoCoinSpend(coin *utxo.Coin, cache *utxo.CoinsViewCache, out *model.OutPoint) DisconnectResult {
+func UndoCoinSpend(coin *utxo.Coin, cache *utxo.CoinsViewCache, out *core.OutPoint) DisconnectResult {
 	clean := true
 	if cache.HaveCoin(out) {
 		// Overwriting transaction output.
@@ -130,7 +130,7 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 	return bu, nil
 }
 
-func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *model.BlockIndex, cache *utxo.CoinsViewCache) DisconnectResult {
+func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, cache *utxo.CoinsViewCache) DisconnectResult {
 	clean := true
 	if len(undo.txundo)+1 != len(block.Transactions) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
@@ -151,7 +151,7 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *model.BlockIndex
 				continue
 			}
 
-			out := model.NewOutPoint(txid, uint32(j))
+			out := core.NewOutPoint(txid, uint32(j))
 			coin := utxo.NewEmptyCoin()
 			isSpent := cache.SpendCoin(out, coin)
 			if !isSpent || tx.Outs[0] != coin.TxOut {
@@ -193,7 +193,7 @@ func ApplyBlockUndo(undo *BlockUndo, block *model.Block, index *model.BlockIndex
 	return DisconnectUnclean
 }
 
-func UpdateCoins(tx *model.Tx, inputs *utxo.CoinsViewCache, undo *TxUndo, height int) {
+func UpdateCoins(tx *core.Tx, inputs *utxo.CoinsViewCache, undo *TxUndo, height int) {
 	// Mark inputs spent.
 	if !(tx.IsCoinBase()) {
 		for _, txin := range tx.Ins {

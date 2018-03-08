@@ -1,8 +1,8 @@
 package mempool
 
-import "github.com/btcboost/copernicus/btcutil"
+import "github.com/btcboost/copernicus/utils"
 
 type PriorityFeeDelta struct {
 	PriorityDelta float64
-	Fee           btcutil.Amount
+	Fee           utils.Amount
 }

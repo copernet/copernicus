@@ -6,7 +6,7 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
-	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -254,7 +254,7 @@ func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
 	if rate.SataoshisPerK < utils.MIN_FEERATE {
 		blockPolicyEstimator.minTrackedFee.SataoshisPerK = utils.MIN_FEERATE
 	}
-	vfeeList := algorithm.NewVector()
+	vfeeList := container.NewVector()
 	for bucketBoundary := float64(blockPolicyEstimator.minTrackedFee.GetFeePerK()); bucketBoundary <= float64(utils.MAX_FEERATE); bucketBoundary *= utils.FEE_SPACING {
 		vfeeList.PushBack(bucketBoundary)
 	}

@@ -7,9 +7,9 @@ import (
 	"github.com/astaxie/beego/logs"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/msg"
-	"github.com/btcboost/copernicus/orm"
-	"github.com/btcboost/copernicus/p2p"
+	"github.com/btcboost/copernicus/database"
+	"github.com/btcboost/copernicus/net/msg"
+	"github.com/btcboost/copernicus/net/p2p"
 )
 
 var log *logs.BeeLogger
@@ -34,7 +34,7 @@ func main() {
 }
 
 func startBitcoin() error {
-	db, err := orm.InitDB(orm.DBBolt, conf.AppConf.DataDir+"/peer-")
+	db, err := database.InitDB(database.DBBolt, conf.AppConf.DataDir+"/peer-")
 	if err != nil {
 		log.Error("InitDB:", err.Error())
 		return err

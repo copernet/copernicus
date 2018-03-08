@@ -1,11 +1,10 @@
 package policy
 
 import (
-	"github.com/btcboost/copernicus/algorithm"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/consensus"
+	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utxo"
 )
 
@@ -53,19 +52,19 @@ const (
 	 * with. However scripts violating these flags may still be present in valid
 	 * blocks and we must accept those blocks.
 	 */
-	STANDARD_SCRIPT_VERIFY_FLAGS uint = core.SCRIPT_VERIFY_P2SH | core.SCRIPT_VERIFY_DERSIG |
-		core.SCRIPT_VERIFY_STRICTENC | core.SCRIPT_VERIFY_MINIMALDATA |
-		core.SCRIPT_VERIFY_NULLDUMMY | core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
-		core.SCRIPT_VERIFY_CLEANSTACK | core.SCRIPT_VERIFY_NULLFAIL |
-		core.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | core.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY |
-		core.SCRIPT_VERIFY_LOW_S | core.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM
+	STANDARD_SCRIPT_VERIFY_FLAGS uint = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_DERSIG |
+		crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_VERIFY_MINIMALDATA |
+		crypto.SCRIPT_VERIFY_NULLDUMMY | crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
+		crypto.SCRIPT_VERIFY_CLEANSTACK | crypto.SCRIPT_VERIFY_NULLFAIL |
+		crypto.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | crypto.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY |
+		crypto.SCRIPT_VERIFY_LOW_S | crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM
 
 	/*STANDARD_NOT_MANDATORY_VERIFY_FLAGS For convenience, standard but not mandatory verify flags. */
 	STANDARD_NOT_MANDATORY_VERIFY_FLAGS int = int(STANDARD_SCRIPT_VERIFY_FLAGS) & (^MANDATORY_SCRIPT_VERIFY_FLAGS)
 
 	/*STANDARD_LOCKTIME_VERIFY_FLAGS Used as the flags parameter to sequence and nLocktime checks in
-	 * non-consensus code. */
-	STANDARD_LOCKTIME_VERIFY_FLAGS uint = consensus.LocktimeVerifySequence | consensus.LocktimeMedianTimePast
+	 * non-core code. */
+	STANDARD_LOCKTIME_VERIFY_FLAGS uint = core.LocktimeVerifySequence | core.LocktimeMedianTimePast
 
 	// MANDATORY_SCRIPT_VERIFY_FLAGS Mandatory script verification flags that all new blocks must comply with for
 	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
@@ -74,15 +73,15 @@ const (
 	//
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MANDATORY_SCRIPT_VERIFY_FLAGS = core.SCRIPT_VERIFY_P2SH | core.SCRIPT_VERIFY_STRICTENC | core.SCRIPT_ENABLE_SIGHASH_FORKID
+	MANDATORY_SCRIPT_VERIFY_FLAGS = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_ENABLE_SIGHASH_FORKID
 )
 
 /*IsStandardTx Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction
  * forms
  */
-func IsStandardTx(tx *model.Tx, reason *string) bool {
-	if tx.Version > model.MAX_STANDARD_VERSION || tx.Version < 1 {
+func IsStandardTx(tx *core.Tx, reason *string) bool {
+	if tx.Version > core.MAX_STANDARD_VERSION || tx.Version < 1 {
 		*reason = "Version"
 		return false
 	}
@@ -121,9 +120,9 @@ func IsStandardTx(tx *model.Tx, reason *string) bool {
 			return false
 		}
 
-		if whichType == model.TX_NULL_DATA {
+		if whichType == core.TX_NULL_DATA {
 			nDataOut++
-		} else if whichType == model.TX_MULTISIG && !conf.GlobalValueInstance.GetIsBareMultisigStd() {
+		} else if whichType == core.TX_MULTISIG && !conf.GlobalValueInstance.GetIsBareMultisigStd() {
 			*reason = "bare-multisig"
 			return false
 		} else if txOut.IsDust(conf.GlobalValueInstance.GetDustRelayFee()) {
@@ -152,15 +151,15 @@ func IsStandardTx(tx *model.Tx, reason *string) bool {
  * expensive-to-check-upon-redemption script like:
  *   DUP CHECKSIG DROP ... repeated 100 times... OP_1
  */
-func IsStandard(scriptPubKey *model.Script, whichType *int) bool {
-	vSolutions := algorithm.NewVector()
-	if !model.Solver(scriptPubKey, whichType, vSolutions) {
+func IsStandard(scriptPubKey *core.Script, whichType *int) bool {
+	vSolutions := container.NewVector()
+	if !core.Solver(scriptPubKey, whichType, vSolutions) {
 		return false
 	}
 
-	if *whichType == model.TX_MULTISIG {
-		m := vSolutions.Array[0].(algorithm.Vector).Array[0].(byte)
-		n := vSolutions.Array[0].(algorithm.Vector).Array[0].(byte)
+	if *whichType == core.TX_MULTISIG {
+		m := vSolutions.Array[0].(container.Vector).Array[0].(byte)
+		n := vSolutions.Array[0].(container.Vector).Array[0].(byte)
 		// Support up to x-of-3 multisig txns as standard
 		if n < 1 || n > 3 {
 			return false
@@ -168,17 +167,17 @@ func IsStandard(scriptPubKey *model.Script, whichType *int) bool {
 		if m < 1 || m > n {
 			return false
 		}
-	} else if *whichType == model.TX_NULL_DATA &&
+	} else if *whichType == core.TX_NULL_DATA &&
 		(!conf.GlobalValueInstance.GetAcceptDatacarrier() ||
 			uint(scriptPubKey.Size()) > conf.GlobalValueInstance.GetMaxDatacarrierBytes()) {
 		return false
 	}
-	return *whichType != model.TX_NONSTANDARD
+	return *whichType != core.TX_NONSTANDARD
 }
 
 // AreInputsStandard Check for standard transaction types
 // cache Map of previous transactions that have outputs we're spending
-func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
+func AreInputsStandard(tx *core.Tx, cache *utxo.CoinsViewCache) bool {
 	if tx.IsCoinBase() {
 		// Coinbases don't use vin normally
 		return true
@@ -187,23 +186,23 @@ func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
 	for index, vin := range tx.Ins {
 		prev := cache.GetOutputFor(vin)
 
-		solutions := algorithm.NewVector()
+		solutions := container.NewVector()
 		var whichType int
 		// get the scriptPubKey corresponding to this input:
 		prevScript := prev.Script
-		if !model.Solver(prevScript, &whichType, solutions) {
+		if !core.Solver(prevScript, &whichType, solutions) {
 			return false
 		}
 
-		if whichType == model.TX_SCRIPTHASH {
-			interpreter := model.NewInterpreter()
+		if whichType == core.TX_SCRIPTHASH {
+			interpreter := core.NewInterpreter()
 
 			//convert the scriptSig into a stack, so we can inspect the
 			//redeemScript
 			coin := utxo.NewEmptyCoin()
 			exist := cache.GetCoin(vin.PreviousOutPoint, coin)
 			if exist {
-				ret, err := interpreter.Verify(tx, index, vin.Script, coin.TxOut.Script, core.SCRIPT_VERIFY_NONE)
+				ret, err := interpreter.Verify(tx, index, vin.Script, coin.TxOut.Script, crypto.SCRIPT_VERIFY_NONE)
 				if err != nil || !ret {
 					return false
 				}
@@ -222,7 +221,7 @@ func AreInputsStandard(tx *model.Tx, cache *utxo.CoinsViewCache) bool {
 				}
 				b = append(b, byteFromStack...)
 			}
-			subscript := model.NewScriptRaw(b)
+			subscript := core.NewScriptRaw(b)
 			count, _ := subscript.GetSigOpCountWithAccurate(true)
 			if uint(count) > MAX_P2SH_SIGOPS {
 				return false

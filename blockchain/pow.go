@@ -3,14 +3,14 @@ package blockchain
 import (
 	"math/big"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type Pow struct{}
 
-func (pow *Pow) GetNextWorkRequired(pindexPrev *model.BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) GetNextWorkRequired(pindexPrev *core.BlockIndex, blHeader *core.BlockHeader, params *msg.BitcoinParams) uint32 {
 	if pindexPrev == nil {
 		return BigToCompact(params.PowLimit)
 	}
@@ -27,7 +27,7 @@ func (pow *Pow) GetNextWorkRequired(pindexPrev *model.BlockIndex, blHeader *mode
 	return pow.getNextEDAWorkRequired(pindexPrev, blHeader, params)
 }
 
-func (pow *Pow) calculateNextWorkRequired(pindexPrev *model.BlockIndex, firstBlockTime int64, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) calculateNextWorkRequired(pindexPrev *core.BlockIndex, firstBlockTime int64, params *msg.BitcoinParams) uint32 {
 	if params.FPowNoRetargeting {
 		return pindexPrev.Bits
 	}
@@ -59,7 +59,7 @@ func (pow *Pow) calculateNextWorkRequired(pindexPrev *model.BlockIndex, firstBlo
 //most of the calculation - except for the timestamp of the first and last
 //block. Because timestamps are the least trustworthy information we have as
 //input, this ensures the algorithm is more resistant to malicious inputs.
-func (pow *Pow) getNextCashWorkRequired(pindexPrev *model.BlockIndex, blHeader *model.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) getNextCashWorkRequired(pindexPrev *core.BlockIndex, blHeader *core.BlockHeader, params *msg.BitcoinParams) uint32 {
 	if pindexPrev == nil {
 		panic("This cannot handle the genesis block and early blocks in general.")
 	}
@@ -100,7 +100,7 @@ func (pow *Pow) getNextCashWorkRequired(pindexPrev *model.BlockIndex, blHeader *
 
 // getNextEDAWorkRequired Compute the next required proof of work using the
 // legacy Bitcoin difficulty adjustement + Emergency Difficulty Adjustement (EDA).
-func (pow *Pow) getNextEDAWorkRequired(pindexPrev *model.BlockIndex, pblock *model.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) getNextEDAWorkRequired(pindexPrev *core.BlockIndex, pblock *core.BlockHeader, params *msg.BitcoinParams) uint32 {
 
 	// Only change once per difficulty adjustment interval
 	nHeight := pindexPrev.Height + 1
@@ -170,7 +170,7 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *model.BlockIndex, pblock *mod
 
 // computeTarget Compute the a target based on the work done between 2 blocks and the time
 // required to produce that work.
-func (pow *Pow) computeTarget(pindexFirst, pindexLast *model.BlockIndex, params *msg.BitcoinParams) *big.Int {
+func (pow *Pow) computeTarget(pindexFirst, pindexLast *core.BlockIndex, params *msg.BitcoinParams) *big.Int {
 	if pindexLast.Height <= pindexFirst.Height {
 		panic("pindexLast height should greater the pindexFirst height ")
 	}
@@ -204,7 +204,7 @@ func (pow *Pow) computeTarget(pindexFirst, pindexLast *model.BlockIndex, params 
 	return new(big.Int).Sub(new(big.Int).Div(oneLsh256, work), big.NewInt(1))
 }
 
-func (pow *Pow) getSuitableBlock(pindex *model.BlockIndex) *model.BlockIndex {
+func (pow *Pow) getSuitableBlock(pindex *core.BlockIndex) *core.BlockIndex {
 	if pindex.Height < 3 {
 		panic("This block height should not less than 3")
 	}
@@ -212,7 +212,7 @@ func (pow *Pow) getSuitableBlock(pindex *model.BlockIndex) *model.BlockIndex {
 	//In order to avoid a block is a very skewed timestamp to have too much
 	//influence, we select the median of the 3 top most blocks as a starting
 	//point.
-	blocks := make([]*model.BlockIndex, 3)
+	blocks := make([]*core.BlockIndex, 3)
 	blocks[2] = pindex
 	blocks[1] = pindex.PPrev
 	blocks[0] = blocks[1].PPrev

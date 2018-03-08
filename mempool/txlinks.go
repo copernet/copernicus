@@ -1,10 +1,10 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/container"
 )
 
 type TxLinks struct {
-	Parents  *algorithm.Set //The set element type : *TxMempoolEntry
-	Children *algorithm.Set //The set element type : *TxMempoolEntry
+	Parents  *container.Set //The set element type : *TxMempoolEntry
+	Children *container.Set //The set element type : *TxMempoolEntry
 }

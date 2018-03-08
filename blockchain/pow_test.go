@@ -4,13 +4,13 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/net/msg"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
 	nLastRetargetTime := int64(1261130161) // Block #30240
-	var pindexLast model.BlockIndex
+	var pindexLast core.BlockIndex
 	pindexLast.Height = 32255
 	pindexLast.Time = 1262152739 // Block #32255
 	pindexLast.Bits = 0x1d00ffff
@@ -53,8 +53,8 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	}
 }
 
-func getBlockIndex(pindexPrev *model.BlockIndex, timeInterval int64, bits uint32) *model.BlockIndex {
-	block := new(model.BlockIndex)
+func getBlockIndex(pindexPrev *core.BlockIndex, timeInterval int64, bits uint32) *core.BlockIndex {
+	block := new(core.BlockIndex)
 	block.PPrev = pindexPrev
 	block.Height = pindexPrev.Height + 1
 	block.Time = pindexPrev.Time + uint32(timeInterval)
@@ -64,13 +64,13 @@ func getBlockIndex(pindexPrev *model.BlockIndex, timeInterval int64, bits uint32
 }
 
 func TestPowGetNextWorkRequired(t *testing.T) {
-	blocks := make([]*model.BlockIndex, 115)
+	blocks := make([]*core.BlockIndex, 115)
 	currentPow := big.NewInt(0).Rsh(msg.ActiveNetParams.PowLimit, 1)
 	initialBits := BigToCompact(currentPow)
 	pow := Pow{}
 
 	// Genesis block.
-	blocks[0] = new(model.BlockIndex)
+	blocks[0] = new(core.BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
 	blocks[0].Time = 1269211443
@@ -82,7 +82,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 		blocks[i] = getBlockIndex(blocks[i-1], int64(msg.ActiveNetParams.TargetTimePerBlock), initialBits)
 	}
 
-	blkHeaderDummy := model.BlockHeader{}
+	blkHeaderDummy := core.BlockHeader{}
 	// We start getting 2h blocks time. For the first 5 blocks, it doesn't
 	// matter as the MTP is not affected. For the next 5 block, MTP difference
 	// increases but stays below 12h.
@@ -161,12 +161,12 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 }
 
 func TestPowGetNextCashWorkRequired(t *testing.T) {
-	blocks := make([]*model.BlockIndex, 3000)
+	blocks := make([]*core.BlockIndex, 3000)
 	currentPow := big.NewInt(0).Rsh(msg.ActiveNetParams.PowLimit, 4)
 	initialBits := BigToCompact(currentPow)
 
 	// Genesis block.
-	blocks[0] = new(model.BlockIndex)
+	blocks[0] = new(core.BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
 	blocks[0].Time = 1269211443
@@ -181,7 +181,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, initialBits)
 	}
 
-	blkHeaderDummy := model.BlockHeader{}
+	blkHeaderDummy := core.BlockHeader{}
 	pow := Pow{}
 	bits := pow.getNextCashWorkRequired(blocks[2049], &blkHeaderDummy, msg.ActiveNetParams)
 

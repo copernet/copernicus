@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcboost/copernicus/algorithm"
+	"github.com/btcboost/copernicus/container"
 
 	"github.com/astaxie/beego/logs"
 )
@@ -55,7 +55,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 	numOffsets++
 	sortedOffsets := make([]int64, numOffsets)
 	copy(sortedOffsets, medianTime.offsets)
-	int64Sorter := algorithm.Int64Sorter(sortedOffsets)
+	int64Sorter := container.Int64Sorter(sortedOffsets)
 	sort.Sort(int64Sorter)
 	offsetDuration := time.Duration(offsetSecs) * time.Second
 	log.Debug("added time sample of %v (total:%v)", offsetDuration, numOffsets)
