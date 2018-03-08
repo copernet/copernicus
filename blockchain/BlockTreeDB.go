@@ -103,7 +103,23 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFil
 		fmt.Println(err.Error())
 	}
 	return err == nil
+}
 
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *model.BlockIndex) bool {
+	return true // todo complete
+}
+
+func (blockTreeDB *BlockTreeDB) ReadLastBlockFile(file *int) bool {
+	//todo return Read(DB_LAST_BLOCK, nFile)
+	return true // todo complete
+}
+
+func (blockTreeDB *BlockTreeDB) ReadFlag(name string, value bool) bool {
+	// todo complete
+	//char ch
+	//if (!Read(std::make_pair(DB_FLAG, name), ch)) return false
+	//fValue = ch == '1'
+	return true
 }
 
 func NewBlockTreeDB() *BlockTreeDB {
