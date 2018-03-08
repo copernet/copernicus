@@ -41,6 +41,11 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) *BlockFileInfo {
 
 }
 
+func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *utils.Hash, pos *model.DiskTxPos) bool {
+	// todo: not finish
+	return true
+}
+
 func (blockTreeDB *BlockTreeDB) WriteReindexing(reindexing bool) bool {
 	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
 		var err error
