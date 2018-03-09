@@ -1219,14 +1219,15 @@ func blockIndexWorkComparator(pa, pb *core.BlockIndex) bool {
 
 	// Use pointer address as tie breaker (should only happen with blocks
 	// loaded from disk, as those all have id 0).
-	a, err := strconv.ParseUint(fmt.Sprintf("%x", pa), 16, 0)
+	a, err := strconv.ParseUint(fmt.Sprintf("%p", pa), 16, 0)
 	if err != nil {
 		panic("convert hex string to uint failed")
 	}
-	b, err := strconv.ParseUint(fmt.Sprintf("%x", pb), 16, 0)
+	b, err := strconv.ParseUint(fmt.Sprintf("%p", pb), 16, 0)
 	if err != nil {
 		panic("convert hex string to uint failed")
 	}
+
 	if a < b {
 		return false
 	}
