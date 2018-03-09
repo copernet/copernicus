@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"time"
-
+	
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -17,7 +17,7 @@ type BlockFileInfo struct {
 	HeightLast  uint32 // highest height of block in file
 	timeFirst   uint64 // earliest time of block in file
 	timeLast    uint64 // latest time of block in file
-
+	
 	index uint32
 }
 
@@ -81,7 +81,7 @@ func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	timeFirst, err := utils.BinarySerializer.Uint64(reader, binary.LittleEndian)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func DeserializeBlockFileInfo(reader io.Reader) (*BlockFileInfo, error) {
 	blockFileInfo.timeFirst = timeFirst
 	blockFileInfo.timeLast = timeLast
 	return blockFileInfo, nil
-
+	
 }
 
 func (bfi *BlockFileInfo) AddBlock(nHeightIn uint32, timeIn uint64) {
