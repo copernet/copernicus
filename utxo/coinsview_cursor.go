@@ -3,29 +3,29 @@ package utxo
 import (
 	"bytes"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/orm"
-	"github.com/btcboost/copernicus/orm/database"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/database"
+	"github.com/btcboost/copernicus/database/boltdb"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type CoinsViewCursor struct {
 	hashBlock utils.Hash
 	keyTmp    KeyTmp
-	cursor    database.Cursor
+	cursor    boltdb.Cursor
 }
 
 type KeyTmp struct {
 	key      byte
-	outPoint *model.OutPoint
+	outPoint *core.OutPoint
 }
 
 func (coinsViewCursor *CoinsViewCursor) Valid() bool {
-	return coinsViewCursor.keyTmp.key == orm.DB_COIN
+	return coinsViewCursor.keyTmp.key == database.DB_COIN
 }
 
-func (coinsViewCursor *CoinsViewCursor) GetKey() *model.OutPoint {
-	if coinsViewCursor.keyTmp.key == orm.DB_COIN {
+func (coinsViewCursor *CoinsViewCursor) GetKey() *core.OutPoint {
+	if coinsViewCursor.keyTmp.key == database.DB_COIN {
 		return coinsViewCursor.keyTmp.outPoint
 	}
 	return nil
@@ -57,7 +57,7 @@ func (coinsViewCursor *CoinsViewCursor) GetBestBlock() utils.Hash {
 	return coinsViewCursor.hashBlock
 }
 
-func NewCoinsViewCursor(cursor database.Cursor, hash utils.Hash) *CoinsViewCursor {
+func NewCoinsViewCursor(cursor boltdb.Cursor, hash utils.Hash) *CoinsViewCursor {
 	coinsViewCursor := new(CoinsViewCursor)
 	coinsViewCursor.hashBlock = hash
 	return coinsViewCursor

@@ -9,8 +9,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/btcboost/copernicus/btcutil"
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	set "gopkg.in/fatih/set.v0"
 )
@@ -31,7 +30,7 @@ func newCoinsViewCacheTest() *CoinsViewCacheTest {
 
 // Store of all necessary tx and undo data for next test
 type undoTx struct {
-	tx   model.Tx
+	tx   core.Tx
 	undo []Coin // undo information for all txins
 	coin Coin
 }
@@ -39,16 +38,16 @@ type undoTx struct {
 // backed store
 type CoinsViewTest struct {
 	hashBestBlock utils.Hash
-	coinMap       map[model.OutPoint]*Coin
+	coinMap       map[core.OutPoint]*Coin
 }
 
 func newCoinsViewTest() *CoinsViewTest {
 	return &CoinsViewTest{
-		coinMap: make(map[model.OutPoint]*Coin),
+		coinMap: make(map[core.OutPoint]*Coin),
 	}
 }
 
-func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *model.OutPoint, coin *Coin) bool {
+func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *core.OutPoint, coin *Coin) bool {
 	c, ok := coinsViewTest.coinMap[*outPoint]
 	if !ok {
 		return false
@@ -62,7 +61,7 @@ func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *model.OutPoint, coin *Coin
 	return true
 }
 
-func (coinsViewTest *CoinsViewTest) HaveCoin(point *model.OutPoint) bool {
+func (coinsViewTest *CoinsViewTest) HaveCoin(point *core.OutPoint) bool {
 	var coin *Coin
 	return coinsViewTest.GetCoin(point, coin)
 }
@@ -118,7 +117,7 @@ func IsEqualCoin(c1 *Coin, c2 *Coin) bool {
 	return c1.HeightAndIsCoinBase == c2.HeightAndIsCoinBase && IsEqualTxOut(c1.TxOut, c2.TxOut)
 }
 
-func IsEqualTxOut(o1 *model.TxOut, o2 *model.TxOut) bool {
+func IsEqualTxOut(o1 *core.TxOut, o2 *core.TxOut) bool {
 	if o1.Script == nil && o2.Script == nil {
 		return o1.Value == o2.Value
 	}
@@ -148,13 +147,13 @@ func TestGetCoinByPointerOrValue(t *testing.T) {
 		Index int
 	}
 
-	map1 := make(map[model.OutPoint]*Coin)
+	map1 := make(map[core.OutPoint]*Coin)
 	hash1 := utils.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
-	outpoint1 := model.OutPoint{Hash: *hash1, Index: 0}
+	outpoint1 := core.OutPoint{Hash: *hash1, Index: 0}
 	// store one item
 	map1[outpoint1] = &Coin{}
 	hash11 := utils.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
-	if _, ok := map1[model.OutPoint{Hash: *hash11, Index: 0}]; !ok {
+	if _, ok := map1[core.OutPoint{Hash: *hash11, Index: 0}]; !ok {
 		t.Error("the key without pointer should point to a exist value")
 	}
 
@@ -191,7 +190,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 	unCachedAnEntry := false
 
 	// A simple map to track what we expect the cache stack to represent.
-	result := make(map[model.OutPoint]*Coin)
+	result := make(map[core.OutPoint]*Coin)
 
 	// The cache stack.
 	// A stack of CCoinsViewCaches on top.
@@ -216,11 +215,11 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			randomNum := InsecureRandRange(uint64(len(txids) - 1))
 			// txid we're going to modify in this iteration.
 			txid := txids[randomNum]
-			coin, ok := result[model.OutPoint{Hash: txid, Index: 0}]
+			coin, ok := result[core.OutPoint{Hash: txid, Index: 0}]
 
 			if !ok {
 				coin = NewEmptyCoin()
-				result[model.OutPoint{Hash: txid, Index: 0}] = coin
+				result[core.OutPoint{Hash: txid, Index: 0}] = coin
 			}
 
 			randNum := InsecureRandRange(50)
@@ -228,7 +227,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			if randNum == 0 {
 				entry = AccessByTxid(&stack[len(stack)-1].CoinsViewCache, &txid)
 			} else {
-				entry = stack[len(stack)-1].AccessCoin(&model.OutPoint{Hash: txid, Index: 0})
+				entry = stack[len(stack)-1].AccessCoin(&core.OutPoint{Hash: txid, Index: 0})
 			}
 
 			if !IsEqualCoin(entry, coin) {
@@ -236,10 +235,10 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			}
 
 			if InsecureRandRange(5) == 0 || coin.IsSpent() {
-				var newTxOut model.TxOut
+				var newTxOut core.TxOut
 				newTxOut.Value = int64(InsecureRand32())
 				if InsecureRandRange(16) == 0 && coin.IsSpent() {
-					newTxOut.Script = model.NewScriptRaw(bytes.Repeat([]byte{byte(model.OP_RETURN)}, int(InsecureRandBits(6)+1)))
+					newTxOut.Script = core.NewScriptRaw(bytes.Repeat([]byte{byte(core.OP_RETURN)}, int(InsecureRandBits(6)+1)))
 					if !newTxOut.Script.IsUnspendable() {
 						t.Error("error IsUnspendable")
 					}
@@ -247,21 +246,21 @@ func TestCoinsCacheSimulation(t *testing.T) {
 				} else {
 					// Random sizes so we can test memory usage accounting
 					randomBytes := bytes.Repeat([]byte{0}, int(InsecureRandBits(6)+1))
-					newTxOut.Script = model.NewScriptRaw(randomBytes)
+					newTxOut.Script = core.NewScriptRaw(randomBytes)
 					if coin.IsSpent() {
 						addedAnEntry = true
 					} else {
 						updatedAnEntry = true
 					}
-					*result[model.OutPoint{Hash: txid, Index: 0}] = DeepCopyCoin(&Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2})
+					*result[core.OutPoint{Hash: txid, Index: 0}] = DeepCopyCoin(&Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2})
 				}
 				newCoin := Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2}
 				newnewCoin := DeepCopyCoin(&newCoin)
-				stack[len(stack)-1].AddCoin(&model.OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
+				stack[len(stack)-1].AddCoin(&core.OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
 			} else {
 				removedAnEntry = true
-				result[model.OutPoint{Hash: txid, Index: 0}].Clear()
-				stack[len(stack)-1].SpendCoin(&model.OutPoint{Hash: txid, Index: 0}, nil)
+				result[core.OutPoint{Hash: txid, Index: 0}].Clear()
+				stack[len(stack)-1].SpendCoin(&core.OutPoint{Hash: txid, Index: 0}, nil)
 			}
 		}
 
@@ -269,7 +268,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 		if InsecureRandRange(11) != 0 {
 			cacheID := int(InsecureRand32()) % (len(stack))
 			hashID := int(InsecureRand32()) % len(txids)
-			out := model.OutPoint{Hash: txids[hashID], Index: 0}
+			out := core.OutPoint{Hash: txids[hashID], Index: 0}
 			stack[cacheID].UnCache(&out)
 			if !stack[cacheID].HaveCoinInCache(&out) {
 				unCachedAnEntry = true
@@ -376,9 +375,9 @@ func TestCoinsCacheSimulation(t *testing.T) {
 }
 
 // Store of all necessary tx and undo data for next test
-var utxoData = make(map[model.OutPoint]undoTx)
+var utxoData = make(map[core.OutPoint]undoTx)
 
-func newUndoTx(tx model.Tx, coins []Coin, coin Coin) undoTx {
+func newUndoTx(tx core.Tx, coins []Coin, coin Coin) undoTx {
 	if coins == nil {
 		return undoTx{
 			tx:   tx,
@@ -394,31 +393,31 @@ func newUndoTx(tx model.Tx, coins []Coin, coin Coin) undoTx {
 	}
 }
 
-func lowerBound(a *model.OutPoint, b *model.OutPoint) bool {
+func lowerBound(a *core.OutPoint, b *core.OutPoint) bool {
 	tmp := a.Hash.Cmp(&b.Hash)
 	return tmp >= 0 || (tmp == 0 && a.Index >= b.Index)
 }
 
-func findRandomFrom(utxoSet *set.Set) (model.OutPoint, undoTx) {
+func findRandomFrom(utxoSet *set.Set) (core.OutPoint, undoTx) {
 	if utxoSet.Size() == 0 {
 		panic("utxoSet is empty")
 	}
 
-	randOutPoint := model.OutPoint{Hash: *GetRandHash(), Index: 0}
+	randOutPoint := core.OutPoint{Hash: *GetRandHash(), Index: 0}
 	utxoList := utxoSet.List()
 
-	var outPoint model.OutPoint
+	var outPoint core.OutPoint
 	var found bool
 	for _, it := range utxoList {
-		out := it.(model.OutPoint) // pointer
-		outpoint := model.NewOutPoint(out.Hash, out.Index)
+		out := it.(core.OutPoint) // pointer
+		outpoint := core.NewOutPoint(out.Hash, out.Index)
 		if lowerBound(outpoint, &randOutPoint) {
 			found = true
 			break
 		}
 	}
 	if found { // warning: do not use utxoSetIt == utils.HashZero
-		outPoint = utxoList[0].(model.OutPoint)
+		outPoint = utxoList[0].(core.OutPoint)
 	}
 	utxoDataIt, ok := utxoData[outPoint]
 	if !ok {
@@ -435,7 +434,7 @@ func findRandomFrom(utxoSet *set.Set) (model.OutPoint, undoTx) {
 func TestUpdateCoinsSimulation(t *testing.T) {
 	spentDuplicateCoinbase := false
 	//A simple map to track what we expect the cache stack to represent.
-	result := make(map[model.OutPoint]*Coin)
+	result := make(map[core.OutPoint]*Coin)
 
 	stack := make([]*CoinsViewCacheTest, 0)
 
@@ -458,12 +457,12 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		randiter := InsecureRand32()
 		//19/20 txs add a new transaction
 		if (randiter % 20) < 19 {
-			tx1 := model.NewTx()
-			tx1.Ins = make([]*model.TxIn, 0)
+			tx1 := core.NewTx()
+			tx1.Ins = make([]*core.TxIn, 0)
 
-			tx1.Ins = append(tx1.Ins, model.NewTxIn(nil, []byte{}))
-			tx1.Outs = make([]*model.TxOut, 1)
-			tx1.Outs[0] = model.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
+			tx1.Ins = append(tx1.Ins, core.NewTxIn(nil, []byte{}))
+			tx1.Outs = make([]*core.TxOut, 1)
+			tx1.Outs[0] = core.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
 
 			height := InsecureRand32()
 			var oldCoin = NewEmptyCoin()
@@ -477,7 +476,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 					disconnectedCoins.Remove(outKey)
 					duplicateCoins.Add(outKey)
 				} else {
-					out := model.OutPoint{Hash: tx1.Hash, Index: 0} // repair add pointer
+					out := core.OutPoint{Hash: tx1.Hash, Index: 0} // repair add pointer
 					coinBaseCoins.Add(out)
 				}
 				if !tx1.IsCoinBase() {
@@ -485,7 +484,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 				}
 			} else {
 				// 17/20 times reconnect previous or add a regular tx
-				var prevOut model.OutPoint
+				var prevOut core.OutPoint
 				// 1/20 times reconnect a previously disconnected tx
 				if (randiter%20 == 2) && (disconnectedCoins.Size() > 0) {
 					out, undoData := findRandomFrom(disconnectedCoins)
@@ -528,7 +527,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 
 				// Update the expected result of prevouthash to know these coins
 				// are spent
-				result = make(map[model.OutPoint]*Coin)
+				result = make(map[core.OutPoint]*Coin)
 
 				utxoSet.Remove(prevOut)
 
@@ -543,9 +542,9 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 			if len(tx1.Outs) != 1 {
 				t.Error("the volume of the tx1 should not be one")
 			}
-			OutPoint := model.NewOutPoint(tx1.Hash, 0)
-			//tx1.Outs = make([]*model.TxOut, 0)
-			//tx1.Outs = append(tx1.Outs, model.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F)))
+			OutPoint := core.NewOutPoint(tx1.Hash, 0)
+			//tx1.Outs = make([]*core.TxOut, 0)
+			//tx1.Outs = append(tx1.Outs, core.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F)))
 			result[*OutPoint] = NewCoin(tx1.Outs[0], height, tx1.IsCoinBase())
 
 			// Call UpdateCoins on the top cache
@@ -670,7 +669,7 @@ const (
 	DISCONNECT_FAILED
 )
 
-func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *model.OutPoint) DisconnectResult {
+func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *core.OutPoint) DisconnectResult {
 	fClean := true
 	if view.HaveCoin(out) {
 		// Overwriting transaction output.
@@ -699,7 +698,7 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *model.OutPoint) Discon
 	return DISCONNECT_UNCLEAN
 }
 
-func UpdateCoins(tx model.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
+func UpdateCoins(tx core.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
 	// Mark inputs spent.
 	if !(tx.IsCoinBase()) {
 		for _, txin := range tx.Ins {
@@ -715,18 +714,18 @@ func UpdateCoins(tx model.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
 	AddCoins(inputs, tx, nHeight)
 }
 
-var OUTPOINT = model.OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
+var OUTPOINT = core.OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
 
 const (
-	PRUNED   btcutil.Amount = -1
-	ABSENT   btcutil.Amount = -2
-	FAIL     btcutil.Amount = -3
-	VALUE1   btcutil.Amount = 100
-	VALUE2   btcutil.Amount = 200
-	VALUE3   btcutil.Amount = 300
-	DIRTY                   = COIN_ENTRY_DIRTY
-	FRESH                   = COIN_ENTRY_FRESH
-	NO_ENTRY                = -1
+	PRUNED   utils.Amount = -1
+	ABSENT   utils.Amount = -2
+	FAIL     utils.Amount = -3
+	VALUE1   utils.Amount = 100
+	VALUE2   utils.Amount = 200
+	VALUE3   utils.Amount = 300
+	DIRTY                 = COIN_ENTRY_DIRTY
+	FRESH                 = COIN_ENTRY_FRESH
+	NO_ENTRY              = -1
 )
 
 var (
@@ -741,7 +740,7 @@ type SingleEntryCacheTest struct {
 	cache *CoinsViewCacheTest
 }
 
-func NewSingleEntryCacheTest(baseValue btcutil.Amount, cacheValue btcutil.Amount, cacheFlags int) *SingleEntryCacheTest {
+func NewSingleEntryCacheTest(baseValue utils.Amount, cacheValue utils.Amount, cacheFlags int) *SingleEntryCacheTest {
 	root := newCoinsViewTest()
 	base := newCoinsViewCacheTest()
 	base.Base = root
@@ -760,13 +759,13 @@ func NewSingleEntryCacheTest(baseValue btcutil.Amount, cacheValue btcutil.Amount
 	}
 }
 
-func WriteCoinViewEntry(view CoinsView, value btcutil.Amount, flags int) {
+func WriteCoinViewEntry(view CoinsView, value utils.Amount, flags int) {
 	cacheCoins := make(CacheCoins)
 	InsertCoinMapEntry(cacheCoins, value, flags)
 	view.BatchWrite(cacheCoins, &utils.Hash{})
 }
 
-func InsertCoinMapEntry(cacheCoins CacheCoins, value btcutil.Amount, flags int) int64 {
+func InsertCoinMapEntry(cacheCoins CacheCoins, value utils.Amount, flags int) int64 {
 	if value == ABSENT {
 		if flags != NO_ENTRY {
 			panic("input flags should be NO_ENTRY")
@@ -788,7 +787,7 @@ func InsertCoinMapEntry(cacheCoins CacheCoins, value btcutil.Amount, flags int) 
 	return coinsCacheEntry.Coin.DynamicMemoryUsage()
 }
 
-func SetCoinValue(value btcutil.Amount, coin *Coin) {
+func SetCoinValue(value utils.Amount, coin *Coin) {
 	if value == ABSENT {
 		panic("input value should not be equal to ABSENT")
 	}
@@ -797,14 +796,14 @@ func SetCoinValue(value btcutil.Amount, coin *Coin) {
 		panic("coin should have spent after calling Clear() function")
 	}
 	if value != PRUNED {
-		coin.TxOut = &model.TxOut{Value: int64(value)}
+		coin.TxOut = &core.TxOut{Value: int64(value)}
 		coin.HeightAndIsCoinBase = (1 << 1) | 0
 	}
 }
 
-func GetCoinMapEntry(cacheCoins CacheCoins) (btcutil.Amount, int) {
+func GetCoinMapEntry(cacheCoins CacheCoins) (utils.Amount, int) {
 	entry, ok := cacheCoins[OUTPOINT]
-	var resultValue btcutil.Amount
+	var resultValue utils.Amount
 	var resultFlags int
 	if !ok {
 		resultValue = ABSENT
@@ -813,7 +812,7 @@ func GetCoinMapEntry(cacheCoins CacheCoins) (btcutil.Amount, int) {
 		if entry.Coin.IsSpent() {
 			resultValue = PRUNED
 		} else {
-			resultValue = btcutil.Amount(entry.Coin.TxOut.Value)
+			resultValue = utils.Amount(entry.Coin.TxOut.Value)
 		}
 		resultFlags = int(entry.Flags)
 		if resultFlags == NO_ENTRY {
@@ -823,10 +822,10 @@ func GetCoinMapEntry(cacheCoins CacheCoins) (btcutil.Amount, int) {
 	return resultValue, resultFlags
 }
 
-func CheckAccessCoin(baseValue btcutil.Amount, cacheValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int) {
+func CheckAccessCoin(baseValue utils.Amount, cacheValue utils.Amount, expectedValue utils.Amount, cacheFlags int, expectedFlags int) {
 	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, cacheFlags)
 	var (
-		resultValue btcutil.Amount
+		resultValue utils.Amount
 		resultFlags int
 	)
 	singleEntryCacheTest.cache.AccessCoin(&OUTPOINT)
@@ -872,7 +871,7 @@ func TestCoinAccess(t *testing.T) {
 	CheckAccessCoin(VALUE1, VALUE2, VALUE2, DIRTY|FRESH, DIRTY|FRESH)
 }
 
-func CheckSpendCoin(baseValue btcutil.Amount, cacheValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int) {
+func CheckSpendCoin(baseValue utils.Amount, cacheValue utils.Amount, expectedValue utils.Amount, cacheFlags int, expectedFlags int) {
 	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, int(cacheFlags))
 	singleEntryCacheTest.cache.SpendCoin(&OUTPOINT, nil)
 	singleEntryCacheTest.cache.SelfTest()
@@ -925,12 +924,12 @@ func TestCoinSpeed(t *testing.T) {
 	CheckSpendCoin(VALUE1, VALUE2, ABSENT, DIRTY|FRESH, NO_ENTRY)
 }
 
-func CheckAddCoinBase(baseValue btcutil.Amount, cacheValue btcutil.Amount, modifyValue btcutil.Amount,
-	expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
+func CheckAddCoinBase(baseValue utils.Amount, cacheValue utils.Amount, modifyValue utils.Amount,
+	expectedValue utils.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
 
 	singleEntryCacheTest := NewSingleEntryCacheTest(baseValue, cacheValue, int(cacheFlags))
 
-	var resultValue btcutil.Amount
+	var resultValue utils.Amount
 	var resultFlags int
 	defer func() {
 		if r := recover(); r != nil {
@@ -952,15 +951,15 @@ func CheckAddCoinBase(baseValue btcutil.Amount, cacheValue btcutil.Amount, modif
 		}
 	}()
 
-	txOut := model.NewTxOut(int64(modifyValue), []byte{})
+	txOut := core.NewTxOut(int64(modifyValue), []byte{})
 	coin := NewCoin(txOut, 1, isCoinbase)
 	singleEntryCacheTest.cache.AddCoin(&OUTPOINT, *coin, isCoinbase)
 	singleEntryCacheTest.cache.SelfTest()
 	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
 }
 
-func CheckAddCoin(cacheValue btcutil.Amount, modifyValue btcutil.Amount, expectedValue btcutil.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
-	for _, arg := range [3]btcutil.Amount{ABSENT, PRUNED, VALUE1} {
+func CheckAddCoin(cacheValue utils.Amount, modifyValue utils.Amount, expectedValue utils.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
+	for _, arg := range [3]utils.Amount{ABSENT, PRUNED, VALUE1} {
 		CheckAddCoinBase(arg, cacheValue, modifyValue, expectedValue, cacheFlags, expectedFlags, isCoinbase)
 	}
 }
@@ -995,10 +994,10 @@ func TestCoinAdd(t *testing.T) {
 	CheckAddCoin(VALUE2, VALUE3, VALUE3, DIRTY|FRESH, DIRTY|FRESH, true)
 }
 
-func CheckWriteCoin(parentValue btcutil.Amount, childValue btcutil.Amount, expectedValue btcutil.Amount, parentFlags int, childFlags int, expectedFlags int) {
+func CheckWriteCoin(parentValue utils.Amount, childValue utils.Amount, expectedValue utils.Amount, parentFlags int, childFlags int, expectedFlags int) {
 	singleEntryCacheTest := NewSingleEntryCacheTest(ABSENT, parentValue, parentFlags)
 	var (
-		resultValue btcutil.Amount
+		resultValue utils.Amount
 		resultFlags int
 	)
 	defer func() {
@@ -1084,8 +1083,8 @@ func TestWriteCoin(t *testing.T) {
 	// they would be too repetitive (the parent cache is never updated in these
 	// cases). The loop below covers these cases and makes sure the parent cache
 	// is always left unchanged.
-	for parentValue := range [...]btcutil.Amount{ABSENT, PRUNED, VALUE1} {
-		for childValue := range [...]btcutil.Amount{ABSENT, PRUNED, VALUE2} {
+	for parentValue := range [...]utils.Amount{ABSENT, PRUNED, VALUE1} {
+		for childValue := range [...]utils.Amount{ABSENT, PRUNED, VALUE2} {
 
 			var parentFlags []int
 			if parentValue == int(ABSENT) {
@@ -1104,7 +1103,7 @@ func TestWriteCoin(t *testing.T) {
 				}
 
 				for _, childFlag := range childFlags {
-					CheckWriteCoin(btcutil.Amount(parentValue), btcutil.Amount(childValue), btcutil.Amount(parentValue), parentFlag, childFlag, parentFlag)
+					CheckWriteCoin(utils.Amount(parentValue), utils.Amount(childValue), utils.Amount(parentValue), parentFlag, childFlag, parentFlag)
 				}
 			}
 		}

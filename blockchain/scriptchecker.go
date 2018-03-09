@@ -1,26 +1,26 @@
 package blockchain
 
 import (
-	"github.com/btcboost/copernicus/btcutil"
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/utils"
 )
 
 // ScriptCheck Closure representing one script verification.
 // Note that this stores references to the spending transaction.
 type ScriptCheck struct {
-	scriptPubKey *model.Script
-	amount       btcutil.Amount
-	txTo         *model.Tx
+	scriptPubKey *core.Script
+	amount       utils.Amount
+	txTo         *core.Tx
 	ins          int
 	flags        uint32
 	cacheStore   bool
-	err          core.ScriptError
-	txData       *model.PrecomputedTransactionData
+	err          crypto.ScriptError
+	txData       *core.PrecomputedTransactionData
 }
 
-func NewScriptCheck(script *model.Script, amount btcutil.Amount, tx *model.Tx, ins int, flags uint32,
-	cacheStore bool, txData *model.PrecomputedTransactionData) *ScriptCheck {
+func NewScriptCheck(script *core.Script, amount utils.Amount, tx *core.Tx, ins int, flags uint32,
+	cacheStore bool, txData *core.PrecomputedTransactionData) *ScriptCheck {
 	return &ScriptCheck{
 		scriptPubKey: script,
 		amount:       amount,
@@ -34,12 +34,12 @@ func NewScriptCheck(script *model.Script, amount btcutil.Amount, tx *model.Tx, i
 
 func (sc *ScriptCheck) check() bool {
 	//scriptSig := sc.txTo.Ins[sc.ins].Script
-	//if !model.VerifyScript(scriptSig, sc.scriptPubKey, sc.flags,, sc.err) { // todo new a CachingTransactionSignatureChecker
+	//if !core.VerifyScript(scriptSig, sc.scriptPubKey, sc.flags,, sc.err) { // todo new a CachingTransactionSignatureChecker
 	//	return false
 	//}
 	return true
 }
 
-func (sc *ScriptCheck) GetScriptError() core.ScriptError {
+func (sc *ScriptCheck) GetScriptError() crypto.ScriptError {
 	return sc.err
 }

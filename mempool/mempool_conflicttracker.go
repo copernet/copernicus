@@ -1,21 +1,21 @@
 package mempool
 
-import "github.com/btcboost/copernicus/model"
+import "github.com/btcboost/copernicus/core"
 
 type PoolConflictRemovalTracker struct {
 	mpool         *Mempool
-	conflictedTxs []*model.Tx
+	conflictedTxs []*core.Tx
 }
 
 func NewMempoolConflictRemoveTrack(pool *Mempool) *PoolConflictRemovalTracker {
 	m := new(PoolConflictRemovalTracker)
 	m.mpool = pool
-	m.conflictedTxs = make([]*model.Tx, 0)
+	m.conflictedTxs = make([]*core.Tx, 0)
 	//todo !!! register signal.
 	return m
 }
 
-func (m *PoolConflictRemovalTracker) NotifyEntryRemoved(txRemove *model.Tx, reason int) {
+func (m *PoolConflictRemovalTracker) NotifyEntryRemoved(txRemove *core.Tx, reason int) {
 	if reason == CONFLICT {
 		m.conflictedTxs = append(m.conflictedTxs, txRemove)
 	}

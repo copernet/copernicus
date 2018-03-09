@@ -3,32 +3,31 @@ package blockchain
 import (
 	"sync/atomic"
 
-	"github.com/btcboost/copernicus/algorithm"
-	"github.com/btcboost/copernicus/btcutil"
+	"github.com/btcboost/copernicus/container"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/mempool"
-	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
 
 type BlockMap struct {
-	Data map[utils.Hash]*model.BlockIndex
+	Data map[utils.Hash]*core.BlockIndex
 }
 
 // ChainState store the blockchain global state
 type ChainState struct {
-	ChainAcTive       model.Chain
+	ChainAcTive       core.Chain
 	MapBlockIndex     BlockMap
-	PindexBestInvalid *model.BlockIndex
+	PindexBestInvalid *core.BlockIndex
 
 	//* The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself
 	//* and all ancestors) and as good as our current tip or better. Entries may be
 	//* failed, though, and pruning nodes may be missing the data for the block.
-	setBlockIndexCandidates *algorithm.CustomSet
+	setBlockIndexCandidates *container.CustomSet
 
 	// All pairs A->B, where A (or one of its ancestors) misses transactions, but B
 	// has transactions. Pruned nodes may have entries where B is missing data.
-	MapBlocksUnlinked map[*model.BlockIndex][]*model.BlockIndex
+	MapBlocksUnlinked map[*core.BlockIndex][]*core.BlockIndex
 }
 
 // Global status for blockchain
@@ -54,9 +53,9 @@ var (
 	GfTxIndex    = false
 
 	//GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
-	GindexBestHeader *model.BlockIndex
+	GindexBestHeader *core.BlockIndex
 	//GChainActive currently-connected chain of blocks (protected by cs_main).
-	GChainActive model.Chain
+	GChainActive core.Chain
 	GPruneTarget uint64
 
 	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
@@ -76,8 +75,8 @@ const (
 	BLOCKFILE_CHUNK_SIZE = 0x1000000
 	// UNDOFILE_CHUNK_SIZE The pre-allocation chunk size for rev?????.dat files (since 0.8) // 1 MiB
 
-	UNDOFILE_CHUNK_SIZE                     = 0x100000
-	DEFAULT_MIN_RELAY_TX_FEE btcutil.Amount = 1000
+	UNDOFILE_CHUNK_SIZE                   = 0x100000
+	DEFAULT_MIN_RELAY_TX_FEE utils.Amount = 1000
 
 	// DB_PEAK_USAGE_FACTOR compensate for extra memory peak (x1.5-x1.9) at flush time.
 	DB_PEAK_USAGE_FACTOR = 2
@@ -92,9 +91,9 @@ const (
 )
 
 func init() {
-	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*model.BlockIndex)
-	GChainState.MapBlocksUnlinked = make(map[*model.BlockIndex][]*model.BlockIndex)
-	GChainState.setBlockIndexCandidates = algorithm.NewCustomSet(BlockIndexWorkComparator)
+	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*core.BlockIndex)
+	GChainState.MapBlocksUnlinked = make(map[*core.BlockIndex][]*core.BlockIndex)
+	GChainState.setBlockIndexCandidates = container.NewCustomSet(BlockIndexWorkComparator)
 	GfImporting.Store(false)
 	GMaxTipAge = DEFAULT_MAX_TIP_AGE
 	GminRelayTxFee.SataoshisPerK = int64(DEFAULT_MIN_RELAY_TX_FEE)

@@ -6,12 +6,12 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type Coin struct {
-	TxOut               *model.TxOut
+	TxOut               *core.TxOut
 	HeightAndIsCoinBase uint32
 }
 
@@ -57,13 +57,13 @@ func DeserializeCoin(reader io.Reader) (*Coin, error) {
 	if err != nil {
 		return nil, err
 	}
-	txOut := model.TxOut{}
+	txOut := core.TxOut{}
 	err = txOut.Deserialize(reader)
 	coin.TxOut = &txOut
 	return coin, err
 }
 
-func NewCoin(out *model.TxOut, height uint32, isCoinBase bool) *Coin {
+func NewCoin(out *core.TxOut, height uint32, isCoinBase bool) *Coin {
 	var bit uint32
 	if isCoinBase {
 		bit = 1
@@ -77,14 +77,14 @@ func NewCoin(out *model.TxOut, height uint32, isCoinBase bool) *Coin {
 func NewEmptyCoin() *Coin {
 	return &Coin{
 		HeightAndIsCoinBase: 0,
-		TxOut:               model.NewTxOut(-1, []byte{}),
+		TxOut:               core.NewTxOut(-1, []byte{}),
 	}
 }
 
 func DeepCopyCoin(coin *Coin) Coin {
 	dst := Coin{
-		TxOut: &model.TxOut{
-			Script: model.NewScriptRaw([]byte{}),
+		TxOut: &core.TxOut{
+			Script: core.NewScriptRaw([]byte{}),
 		},
 	}
 
@@ -94,7 +94,7 @@ func DeepCopyCoin(coin *Coin) Coin {
 		dst.TxOut.SigOpCount = coin.TxOut.SigOpCount
 		if coin.TxOut.Script != nil {
 			tmp := coin.TxOut.Script.GetScriptByte()
-			dst.TxOut.Script = model.NewScriptRaw(tmp)
+			dst.TxOut.Script = core.NewScriptRaw(tmp)
 		} else {
 			dst.TxOut.Script = nil
 		}

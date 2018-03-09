@@ -8,8 +8,8 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -140,7 +140,7 @@ func BigToCompact(n *big.Int) uint32 {
 // accumulated must be the inverse of the difficulty.  Also, in order to avoid
 // potential division by zero and really small floating point numbers, the
 // result adds 1 to the denominator and multiplies the numerator by 2^256.
-func GetBlockProof(blIn *model.BlockIndex) *big.Int {
+func GetBlockProof(blIn *core.BlockIndex) *big.Int {
 	// Return a work value of zero if the passed difficulty bits represent
 	// a negative number. Note this should not happen in practice with valid
 	// blocks, but an invalid block could trigger it
@@ -158,7 +158,7 @@ func GetBlockProof(blIn *model.BlockIndex) *big.Int {
 // GetBlockProofEquivalentTime Return the time it would take to redo the work difference
 // between from and to, assuming the current hashrate corresponds to the difficulty
 // at tip, in seconds.
-func GetBlockProofEquivalentTime(to, from, tip *model.BlockIndex, params *msg.BitcoinParams) int64 {
+func GetBlockProofEquivalentTime(to, from, tip *core.BlockIndex, params *msg.BitcoinParams) int64 {
 	ret := new(big.Int)
 	sign := int64(1)
 	if to.ChainWork.Cmp(&from.ChainWork) > 0 {

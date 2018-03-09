@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/msg"
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 )
@@ -19,11 +19,11 @@ func newCoinsViewTest() *CoinsViewTest {
 	return &CoinsViewTest{}
 }
 
-func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *model.OutPoint, coin *utxo.Coin) bool {
+func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *core.OutPoint, coin *utxo.Coin) bool {
 	return true
 }
 
-func (coinsViewTest *CoinsViewTest) HaveCoin(point *model.OutPoint) bool {
+func (coinsViewTest *CoinsViewTest) HaveCoin(point *core.OutPoint) bool {
 	return true
 }
 
@@ -38,7 +38,7 @@ func (coinsViewTest *CoinsViewTest) BatchWrite(cacheCoins utxo.CacheCoins, hashB
 	return true
 }
 
-func UpdateUTXOSet(block *model.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, param *msg.BitcoinParams, height int) {
+func UpdateUTXOSet(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, param *msg.BitcoinParams, height int) {
 	coinbaseTx := block.Transactions[0]
 	UpdateCoins(coinbaseTx, cache, nil, height)
 
@@ -54,40 +54,40 @@ func UpdateUTXOSet(block *model.Block, cache *utxo.CoinsViewCache, undo *BlockUn
 
 }
 
-func UndoBlock(block *model.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, params *msg.BitcoinParams, height int) {
-	header := model.NewBlockHeader()
-	index := model.NewBlockIndex(header)
+func UndoBlock(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, params *msg.BitcoinParams, height int) {
+	header := core.NewBlockHeader()
+	index := core.NewBlockIndex(header)
 	index.Height = height
 	ApplyBlockUndo(undo, block, index, cache)
 }
 
 func HasSpendableCoin(cache *utxo.CoinsViewCache, txid *utils.Hash) bool {
-	return !cache.AccessCoin(model.NewOutPoint(*txid, 0)).IsSpent()
+	return !cache.AccessCoin(core.NewOutPoint(*txid, 0)).IsSpent()
 }
 
-func copyTx(tx *model.Tx) *model.Tx {
+func copyTx(tx *core.Tx) *core.Tx {
 	result := *tx
 	ins := len(tx.Ins)
 	outs := len(tx.Outs)
-	result.Ins = make([]*model.TxIn, ins)
-	result.Outs = make([]*model.TxOut, outs)
+	result.Ins = make([]*core.TxIn, ins)
+	result.Outs = make([]*core.TxOut, outs)
 	for i := 0; i < ins; i++ {
-		var in *model.TxIn
+		var in *core.TxIn
 		if tx.IsCoinBase() {
-			in := model.NewTxIn(nil, tx.Ins[i].Script.GetScriptByte())
+			in := core.NewTxIn(nil, tx.Ins[i].Script.GetScriptByte())
 			in.Sequence = tx.Ins[i].Sequence
 			in.SigOpCount = tx.Ins[i].SigOpCount
 			result.Ins[i] = in
 			continue
 		}
-		in = model.NewTxIn(model.NewOutPoint(tx.Ins[i].PreviousOutPoint.Hash, tx.Ins[i].PreviousOutPoint.Index), tx.Ins[i].Script.GetScriptByte())
+		in = core.NewTxIn(core.NewOutPoint(tx.Ins[i].PreviousOutPoint.Hash, tx.Ins[i].PreviousOutPoint.Index), tx.Ins[i].Script.GetScriptByte())
 		in.Sequence = tx.Ins[i].Sequence
 		in.SigOpCount = tx.Ins[i].SigOpCount
 		result.Ins[i] = in
 	}
 
 	for j := 0; j < outs; j++ {
-		out := model.NewTxOut(tx.Outs[j].Value, tx.Outs[j].Script.GetScriptByte())
+		out := core.NewTxOut(tx.Outs[j].Value, tx.Outs[j].Script.GetScriptByte())
 		out.SigOpCount = tx.Outs[j].SigOpCount
 		result.Outs[j] = out
 	}
@@ -95,15 +95,15 @@ func copyTx(tx *model.Tx) *model.Tx {
 	return &result
 }
 
-func GetID(tx *model.Tx) utils.Hash {
+func GetID(tx *core.Tx) utils.Hash {
 	buf := bytes.NewBuffer(nil)
 	tx.Serialize(buf)
-	return core.DoubleSha256Hash(buf.Bytes())
+	return crypto.DoubleSha256Hash(buf.Bytes())
 }
 
 func TestConnectUtxoExtBlock(t *testing.T) {
 	chainparams := msg.ActiveNetParams
-	block := model.NewBlock()
+	block := core.NewBlock()
 
 	coinsDummy := newCoinsViewTest()
 
@@ -116,24 +116,24 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	block.BlockHeader.HashPrevBlock = randomHash
 	cache.SetBestBlock(randomHash)
 
-	tx := model.NewTx()
+	tx := core.NewTx()
 	// Create a block with coinbase and resolution transaction.
-	tx.Ins = make([]*model.TxIn, 1)
-	tx.Outs = make([]*model.TxOut, 1)
+	tx.Ins = make([]*core.TxIn, 1)
+	tx.Outs = make([]*core.TxOut, 1)
 
-	tx.Ins[0] = model.NewTxIn(nil, bytes.Repeat([]byte{}, 10))
-	tx.Outs[0] = model.NewTxOut(42, []byte{})
+	tx.Ins[0] = core.NewTxIn(nil, bytes.Repeat([]byte{}, 10))
+	tx.Outs[0] = core.NewTxOut(42, []byte{})
 	tx.Hash = GetID(tx)
 
 	coinbaseTx := copyTx(tx)
 
-	block.Transactions = make([]*model.Tx, 2)
+	block.Transactions = make([]*core.Tx, 2)
 	block.Transactions[0] = copyTx(tx)
 
-	tx.Outs[0].Script = model.NewScriptRaw([]byte{model.OP_TRUE})
-	tx.Ins[0].PreviousOutPoint = model.NewOutPoint(*utils.GetRandHash(), 0)
-	tx.Ins[0].Sequence = model.SEQUENCE_FINAL
-	tx.Ins[0].Script = model.NewScriptRaw([]byte{})
+	tx.Outs[0].Script = core.NewScriptRaw([]byte{core.OP_TRUE})
+	tx.Ins[0].PreviousOutPoint = core.NewOutPoint(*utils.GetRandHash(), 0)
+	tx.Ins[0].Sequence = core.SEQUENCE_FINAL
+	tx.Ins[0].Script = core.NewScriptRaw([]byte{})
 	tx.Version = 2
 	tx.Hash = GetID(tx)
 
@@ -149,7 +149,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	buf := bytes.NewBuffer(nil)
 	block.Serialize(buf)
-	block.Hash = core.DoubleSha256Hash(buf.Bytes()[:80])
+	block.Hash = crypto.DoubleSha256Hash(buf.Bytes()[:80])
 
 	// Now update hte UTXO set
 	undo := &BlockUndo{

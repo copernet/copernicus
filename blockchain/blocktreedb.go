@@ -7,25 +7,25 @@ import (
 	"strconv"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/orm"
-	"github.com/btcboost/copernicus/orm/database"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/database"
+	"github.com/btcboost/copernicus/database/boltdb"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type BlockTreeDB struct {
-	database.DBBase
+	boltdb.DBBase
 	bucketKey string
 }
 
 func GetFileKey(file int) []byte {
-	key := fmt.Sprintf("%c%d", orm.DB_BLOCK_FILES, file)
+	key := fmt.Sprintf("%c%d", database.DB_BLOCK_FILES, file)
 	return []byte(key)
 }
 
 func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) *BlockFileInfo {
 	var v []byte
-	err := blockTreeDB.DBBase.View([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
+	err := blockTreeDB.DBBase.View([]byte(blockTreeDB.bucketKey), func(bucket boltdb.Bucket) error {
 		v = bucket.Get(GetFileKey(file))
 		return nil
 	})
@@ -41,18 +41,18 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) *BlockFileInfo {
 
 }
 
-func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *utils.Hash, pos *model.DiskTxPos) bool {
+func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *utils.Hash, pos *core.DiskTxPos) bool {
 	// todo: not finish
 	return true
 }
 
 func (blockTreeDB *BlockTreeDB) WriteReindexing(reindexing bool) bool {
-	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
+	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket boltdb.Bucket) error {
 		var err error
 		if reindexing {
-			err = bucket.Put([]byte{orm.DB_REINDEX_FLAG}, []byte{'1'})
+			err = bucket.Put([]byte{database.DB_REINDEX_FLAG}, []byte{'1'})
 		} else {
-			err = bucket.Delete([]byte{orm.DB_REINDEX_FLAG})
+			err = bucket.Delete([]byte{database.DB_REINDEX_FLAG})
 		}
 		return err
 	})
@@ -62,8 +62,8 @@ func (blockTreeDB *BlockTreeDB) WriteReindexing(reindexing bool) bool {
 
 func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 	var v []byte
-	err := blockTreeDB.DBBase.View([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
-		v = bucket.Get([]byte{orm.DB_REINDEX_FLAG})
+	err := blockTreeDB.DBBase.View([]byte(blockTreeDB.bucketKey), func(bucket boltdb.Bucket) error {
+		v = bucket.Get([]byte{database.DB_REINDEX_FLAG})
 		return nil
 	})
 	if err != nil {
@@ -72,10 +72,10 @@ func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 	return v != nil
 }
 
-func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFile int, blockIndexes []*model.BlockIndex) bool {
-	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket database.Bucket) error {
+func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFile int, blockIndexes []*core.BlockIndex) bool {
+	err := blockTreeDB.DBBase.Update([]byte(blockTreeDB.bucketKey), func(bucket boltdb.Bucket) error {
 		for _, f := range fileInfo {
-			key := fmt.Sprintf("%c%d", orm.DB_BLOCK_FILES, f.index)
+			key := fmt.Sprintf("%c%d", database.DB_BLOCK_FILES, f.index)
 			buf := bytes.NewBuffer(nil)
 			err := f.Serialize(buf)
 			if err != nil {
@@ -83,10 +83,10 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFil
 			}
 			bucket.Put([]byte(key), buf.Bytes())
 		}
-		bucket.Put([]byte{orm.DB_BLOCK_FILES}, []byte(strconv.Itoa(latFile)))
+		bucket.Put([]byte{database.DB_BLOCK_FILES}, []byte(strconv.Itoa(latFile)))
 		for _, b := range blockIndexes {
 			hashA := b.GetBlockHash()
-			key := fmt.Sprintf("%c%s", orm.DB_BLOCK_INDEX, hashA.ToString())
+			key := fmt.Sprintf("%c%s", database.DB_BLOCK_INDEX, hashA.ToString())
 			buf := bytes.NewBuffer(nil)
 			diskBlock := NewDiskBlockIndex(b)
 			err := diskBlock.Serialize(buf)
@@ -105,7 +105,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfo []*BlockFileInfo, latFil
 	return err == nil
 }
 
-func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *model.BlockIndex) bool {
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *core.BlockIndex) bool {
 	return true // todo complete
 }
 
@@ -125,7 +125,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string, value bool) bool {
 func NewBlockTreeDB() *BlockTreeDB {
 	blockTreeDB := new(BlockTreeDB)
 	path := conf.AppConf.DataDir + string(filepath.Separator) + "blocks" + string(filepath.Separator) + "index"
-	db, err := orm.InitDB(orm.DBBolt, path)
+	db, err := database.InitDB(database.DBBolt, path)
 	if err != nil {
 		panic(err)
 	}

@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type DiskBlockIndex struct {
-	*model.BlockIndex
+	*core.BlockIndex
 	hashPrev utils.Hash
 }
 
@@ -27,19 +27,19 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if diskBlockIndex.Status&(model.BLOCK_HAVE_DATA|model.BLOCK_HAVE_UNDO) != 0 {
+	if diskBlockIndex.Status&(core.BLOCK_HAVE_DATA|core.BLOCK_HAVE_UNDO) != 0 {
 		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.File))
 		if err != nil {
 			return err
 		}
 	}
-	if diskBlockIndex.Status&model.BLOCK_HAVE_DATA != 0 {
+	if diskBlockIndex.Status&core.BLOCK_HAVE_DATA != 0 {
 		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.DataPosition))
 		if err != nil {
 			return err
 		}
 	}
-	if diskBlockIndex.Status&model.BLOCK_HAVE_UNDO != 0 {
+	if diskBlockIndex.Status&core.BLOCK_HAVE_UNDO != 0 {
 		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.UndoPosition))
 		if err != nil {
 			return err
@@ -76,7 +76,7 @@ func (diskBlockIndex *DiskBlockIndex) ToString(writer io.Writer) string {
 	return str
 }
 
-func NewDiskBlockIndex(bl *model.BlockIndex) *DiskBlockIndex {
+func NewDiskBlockIndex(bl *core.BlockIndex) *DiskBlockIndex {
 	dbi := DiskBlockIndex{
 		BlockIndex: bl,
 	}
