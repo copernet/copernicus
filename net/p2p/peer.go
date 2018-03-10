@@ -581,6 +581,7 @@ func (p *Peer) inHandler() {
 out:
 	for atomic.LoadInt32(&p.disconnect) == 0 {
 		readMessage, buf, err := p.ReadMessage()
+		fmt.Println("readeMessage from other peer:")
 		fmt.Println(buf)
 		idleTimer.Stop()
 		if err != nil {

@@ -70,7 +70,6 @@ func (addressMessage *AddressMessage) BitcoinParse(reader io.Reader, size uint32
 		addressMessage.AddPeerAddress(peerAddress)
 	}
 	return nil
-
 }
 
 func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
@@ -95,7 +94,6 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 		}
 	}
 	return nil
-
 }
 
 func (addressMessage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
