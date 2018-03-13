@@ -3,12 +3,6 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	"net"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
-
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/database/boltdb"
@@ -16,6 +10,11 @@ import (
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/network"
 	"github.com/btcboost/copernicus/net/protocol"
+	"net"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 const (
