@@ -6,10 +6,12 @@ import (
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/database/boltdb"
+	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/net/conn"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/network"
 	"github.com/btcboost/copernicus/net/protocol"
+	"github.com/btcboost/copernicus/utils"
 	"net"
 	"strconv"
 	"sync"
@@ -35,6 +37,7 @@ type PeerManager struct {
 	netAddressManager    *network.NetAddressManager
 	connectManager       *conn.ConnectManager
 	BlockManager         *BlockManager
+	Mempool              mempool.Mempool
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *ServerPeer
 	banPeers             chan *ServerPeer
@@ -336,4 +339,21 @@ func (peerManager *PeerManager) RemoveRebroadcastInventory(iv *msg.InventoryVect
 		return
 	}
 	peerManager.modifyRebroadcastInv <- BroadcastInventoryDel(iv)
+}
+
+func (peerManager *PeerManager) PushTxMsg(serverPeer *ServerPeer, hash *utils.Hash, doneChan, waitChan chan struct{}) error {
+	tx := peerManager.Mempool.Get(hash)
+	if tx == nil {
+		log.Trace("Unable to fetch tx %v from transaction pool", hash)
+		if doneChan != nil {
+			doneChan <- struct{}{}
+		}
+		return errors.New("tx is nil")
+	}
+	if waitChan != nil {
+		<-waitChan
+	}
+	txMsg := msg.TxMessage{Tx: tx}
+	serverPeer.Peer.SendMessage(&txMsg, doneChan)
+	return nil
 }
