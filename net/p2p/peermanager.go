@@ -357,3 +357,47 @@ func (peerManager *PeerManager) PushTxMsg(serverPeer *ServerPeer, hash *utils.Ha
 	serverPeer.Peer.SendMessage(&txMsg, doneChan)
 	return nil
 }
+
+func (peerManager *PeerManager) PushBlockMsg(serverPeer *ServerPeer, hash *utils.Hash, doneChan, waitChan chan struct{}) error {
+	blk := peerManager.BlockManager.Chain.FetchBlockByHash(hash)
+	if blk == nil {
+		log.Trace("Unable to get requested block hash:%v", hash)
+		if doneChan != nil {
+			doneChan <- struct{}{}
+		}
+		return errors.New("block is nil")
+	}
+	if waitChan != nil {
+		<-waitChan
+	}
+
+	//We only send the channel for this message  if we aren't sending
+	//any inv straight after
+	var dc chan struct{}
+	continueHash := serverPeer.continueHash
+	sendInv := continueHash != nil && continueHash.IsEqual(hash)
+	if !sendInv {
+		dc = doneChan
+	}
+	blkMsg := msg.BlockMessage{Block: blk}
+	serverPeer.Peer.SendMessage(&blkMsg, dc)
+
+	//When the peer requests the final block that was advertised in response to a getblcoks message
+	//Which requested more blocks than would fit into a single message, send it a new inventory message
+	//to trigger it to issue another getblocks message for the next batch of inventory
+	if sendInv {
+		bestHash, _, err := peerManager.BlockManager.Chain.BestBlockHash()
+		if err != nil {
+			if doneChan != nil {
+				doneChan <- struct{}{}
+			} else {
+				ivnMsg := msg.NewInventoryMessageSizeHint(1)
+				iv := msg.NewInventoryVecror(msg.InventoryTypeBlock, &bestHash)
+				ivnMsg.AddInventoryVector(iv)
+				serverPeer.SendMessage(ivnMsg, doneChan)
+				serverPeer.continueHash = nil
+			}
+		}
+	}
+	return nil
+}
