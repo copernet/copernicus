@@ -22,6 +22,9 @@ const (
 	DefaultRequiredServices = protocol.SFNodeNetworkAsFullNode
 )
 
+type BroadcastInventoryAdd msg.RelayInvVectMsg
+type BroadcastInventoryDel *msg.InventoryVector
+
 type PeerManager struct {
 	bytesReceived        uint64
 	bytesSend            uint64
@@ -320,3 +323,17 @@ func (peerManager *PeerManager) upnpUpdateThread() {
 //	sp.AssociateConnection(conn)
 //	go s.peerDoneHandler(sp)
 //}
+
+func (peerManager *PeerManager) AddRebroadcastInventory(iv *msg.InventoryVector, data interface{}) {
+	if atomic.LoadInt32(&peerManager.shutdown) != 0 {
+		return
+	}
+	peerManager.modifyRebroadcastInv <- BroadcastInventoryAdd{iv, data}
+}
+
+func (peerManager *PeerManager) RemoveRebroadcastInventory(iv *msg.InventoryVector) {
+	if atomic.LoadInt32(&peerManager.shutdown) != 0 {
+		return
+	}
+	peerManager.modifyRebroadcastInv <- BroadcastInventoryDel(iv)
+}

@@ -19,6 +19,11 @@ const (
 	InventoryTypeFilteredBlock protocol.InventoryType = 3
 )
 
+type RelayInvVectMsg struct {
+	*InventoryVector
+	Data interface{}
+}
+
 type InventoryVector struct {
 	Type protocol.InventoryType
 	Hash *utils.Hash
