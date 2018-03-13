@@ -13,7 +13,6 @@ const (
 )
 
 type BlockMessage struct {
-	Message
 	Block *core.Block
 	Txs   []*TxMessage
 }

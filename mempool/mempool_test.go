@@ -9,7 +9,7 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	set "gopkg.in/fatih/set.v0"
+	"gopkg.in/fatih/set.v0"
 )
 
 type TestMemPoolEntryHelper struct {

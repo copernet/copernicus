@@ -4,7 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/btcboost/copernicus/core"
-	set "gopkg.in/fatih/set.v0"
+	"gopkg.in/fatih/set.v0"
 )
 
 // RecursiveDynamicUsage todo need to dynamically calculate the memory footprint of the object , haven't figured out

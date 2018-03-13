@@ -7,7 +7,7 @@ import (
 )
 
 type TxMessage struct {
-	Tx core.Tx
+	Tx *core.Tx
 }
 
 func (txMessage *TxMessage) BitcoinSerialize(w io.Writer, size uint32) error {

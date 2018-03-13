@@ -3,19 +3,20 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"github.com/btcboost/copernicus/blockchain"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/database/boltdb"
+	"github.com/btcboost/copernicus/mempool"
+	"github.com/btcboost/copernicus/net/conn"
+	"github.com/btcboost/copernicus/net/msg"
+	"github.com/btcboost/copernicus/net/network"
+	"github.com/btcboost/copernicus/net/protocol"
+	"github.com/btcboost/copernicus/utils"
 	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/btcboost/copernicus/blockchain"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/database/boltdb"
-	"github.com/btcboost/copernicus/net/conn"
-	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/net/network"
-	"github.com/btcboost/copernicus/net/protocol"
 )
 
 const (
@@ -23,17 +24,20 @@ const (
 	DefaultRequiredServices = protocol.SFNodeNetworkAsFullNode
 )
 
-type PeerManager struct {
-	bytesReceived uint64
-	bytesSend     uint64
-	started       int32
-	shutdown      int32
-	shutdownSched int32
+type BroadcastInventoryAdd msg.RelayInvVectMsg
+type BroadcastInventoryDel *msg.InventoryVector
 
+type PeerManager struct {
+	bytesReceived        uint64
+	bytesSend            uint64
+	started              int32
+	shutdown             int32
+	shutdownSched        int32
 	chainParams          *msg.BitcoinParams
 	netAddressManager    *network.NetAddressManager
 	connectManager       *conn.ConnectManager
 	BlockManager         *BlockManager
+	Mempool              mempool.Mempool
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *ServerPeer
 	banPeers             chan *ServerPeer
@@ -44,13 +48,11 @@ type PeerManager struct {
 	peerHeightsUpdate    chan UpdatePeerHeightsMessage
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
-
 	//txMemPool    *mempool.TxPool
 	nat          network.NATInterface
 	storage      boltdb.DBBase
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
-
 	//txIndex   *indexers.TxIndex
 	//addrIndex *indexers.AddrIndex
 }
@@ -100,6 +102,7 @@ func NewPeerManager(listenAddrs []string, db boltdb.DBBase, bitcoinParam *msg.Bi
 	return &peerManager, nil
 
 }
+
 func (peerManager *PeerManager) OutboundGroupCount(key string) int {
 	replyChan := make(chan int)
 	peerManager.query <- getOutboundGroup{key: key, reply: replyChan}
@@ -323,3 +326,78 @@ func (peerManager *PeerManager) upnpUpdateThread() {
 //	sp.AssociateConnection(conn)
 //	go s.peerDoneHandler(sp)
 //}
+
+func (peerManager *PeerManager) AddRebroadcastInventory(iv *msg.InventoryVector, data interface{}) {
+	if atomic.LoadInt32(&peerManager.shutdown) != 0 {
+		return
+	}
+	peerManager.modifyRebroadcastInv <- BroadcastInventoryAdd{iv, data}
+}
+
+func (peerManager *PeerManager) RemoveRebroadcastInventory(iv *msg.InventoryVector) {
+	if atomic.LoadInt32(&peerManager.shutdown) != 0 {
+		return
+	}
+	peerManager.modifyRebroadcastInv <- BroadcastInventoryDel(iv)
+}
+
+func (peerManager *PeerManager) PushTxMsg(serverPeer *ServerPeer, hash *utils.Hash, doneChan, waitChan chan struct{}) error {
+	tx := peerManager.Mempool.Get(hash)
+	if tx == nil {
+		log.Trace("Unable to fetch tx %v from transaction pool", hash)
+		if doneChan != nil {
+			doneChan <- struct{}{}
+		}
+		return errors.New("tx is nil")
+	}
+	if waitChan != nil {
+		<-waitChan
+	}
+	txMsg := msg.TxMessage{Tx: tx}
+	serverPeer.Peer.SendMessage(&txMsg, doneChan)
+	return nil
+}
+
+func (peerManager *PeerManager) PushBlockMsg(serverPeer *ServerPeer, hash *utils.Hash, doneChan, waitChan chan struct{}) error {
+	blk := peerManager.BlockManager.Chain.FetchBlockByHash(hash)
+	if blk == nil {
+		log.Trace("Unable to get requested block hash:%v", hash)
+		if doneChan != nil {
+			doneChan <- struct{}{}
+		}
+		return errors.New("block is nil")
+	}
+	if waitChan != nil {
+		<-waitChan
+	}
+
+	//We only send the channel for this message  if we aren't sending
+	//any inv straight after
+	var dc chan struct{}
+	continueHash := serverPeer.continueHash
+	sendInv := continueHash != nil && continueHash.IsEqual(hash)
+	if !sendInv {
+		dc = doneChan
+	}
+	blkMsg := msg.BlockMessage{Block: blk}
+	serverPeer.Peer.SendMessage(&blkMsg, dc)
+
+	//When the peer requests the final block that was advertised in response to a getblcoks message
+	//Which requested more blocks than would fit into a single message, send it a new inventory message
+	//to trigger it to issue another getblocks message for the next batch of inventory
+	if sendInv {
+		bestHash, _, err := peerManager.BlockManager.Chain.BestBlockHash()
+		if err != nil {
+			if doneChan != nil {
+				doneChan <- struct{}{}
+			} else {
+				ivnMsg := msg.NewInventoryMessageSizeHint(1)
+				iv := msg.NewInventoryVecror(msg.InventoryTypeBlock, &bestHash)
+				ivnMsg.AddInventoryVector(iv)
+				serverPeer.SendMessage(ivnMsg, doneChan)
+				serverPeer.continueHash = nil
+			}
+		}
+	}
+	return nil
+}

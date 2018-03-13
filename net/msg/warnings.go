@@ -73,7 +73,7 @@ func GetWarnings(strFor string) string {
 	// Misc warnings like out of disk space and clock is wrong
 	if gstrMiscWarning != "" {
 		strStatusBar = gstrMiscWarning
-		strGUI += "" + gstrMiscWarning
+		strGUI += gstrMiscWarning
 		if len(strGUI) != 0 {
 			strGUI += "\n " + gstrMiscWarning
 		}
@@ -94,7 +94,7 @@ func GetWarnings(strFor string) string {
 			"our peers! You may need to upgrade, or other " +
 			"nodes may need to upgrade."
 		strStatusBar = strRPC
-		strGUI += "" + "Warning: We do not appear to fully agree with our peers! You " +
+		strGUI += "Warning: We do not appear to fully agree with our peers! You " +
 			"may need to upgrade, or other nodes may need to upgrade."
 		if len(strGUI) != 0 {
 			strGUI += "\n " + "Warning: We do not appear to fully agree with our peers! You " +

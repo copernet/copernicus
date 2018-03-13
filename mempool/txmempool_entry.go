@@ -5,7 +5,7 @@ import (
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
-	set "gopkg.in/fatih/set.v0"
+	"gopkg.in/fatih/set.v0"
 )
 
 /* TxMempoolEntry stores data about the corresponding transaction, as well as

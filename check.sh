@@ -11,7 +11,7 @@ if [ ! -x "$(type -p gometalinter)" ]; then
 fi
 
 linter_targets=$(glide novendor)
-find . -name "*.go" -not -path "./vendor/*" -not -path "./git/*" | xargs goimports -w
+
 find . -name "*.go" -not -path "./vendor/*" -not -path "./git/*" | xargs gofmt -w
 
 

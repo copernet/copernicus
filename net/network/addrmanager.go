@@ -109,7 +109,7 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 	}
 	knownAddress.refs++
 	addressManager.addressNew[bucket].Set(addressString, knownAddress)
-	log.Trace("Added new address %s for addressManager total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
+	log.Trace("sAdded new address %s for addressManager total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
 }
 func (addressManager *NetAddressManager) expireNew(bucket int) {
 	var oldest *KnownAddress

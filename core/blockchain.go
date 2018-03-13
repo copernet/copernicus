@@ -120,3 +120,7 @@ func (blockChain *BlockChain) BestBlockHash() (utils.Hash, int32, error) {
 	return blockChain.LastBlock.Hash, blockChain.LastBlock.Height, nil
 
 }
+
+func (blockChain *BlockChain) FetchBlockByHash(hash *utils.Hash) *Block {
+	return nil
+}

@@ -15,8 +15,8 @@ import (
 )
 
 type ServerPeer struct {
-	feeFilter int64
 	*Peer
+	feeFilter       int64
 	connectRequest  *conn.ConnectRequest
 	peerManager     *PeerManager
 	persistent      bool

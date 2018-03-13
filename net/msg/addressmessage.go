@@ -2,12 +2,11 @@ package msg
 
 import (
 	"fmt"
-	"io"
-
 	"github.com/btcboost/copernicus/net/network"
 	"github.com/btcboost/copernicus/net/protocol"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
+	"io"
 )
 
 const (
@@ -70,7 +69,6 @@ func (addressMessage *AddressMessage) BitcoinParse(reader io.Reader, size uint32
 		addressMessage.AddPeerAddress(peerAddress)
 	}
 	return nil
-
 }
 
 func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32) error {
@@ -79,15 +77,17 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 		str := fmt.Sprintf("too many address for message of protocol version %v count %v ", size, count)
 		return errors.New(str)
 	}
+
 	if count > MaxAddressesCount {
 		str := fmt.Sprintf("too many addresses for message count %v,max %v", count, MaxAddressesCount)
 		return errors.New(str)
-
 	}
+
 	err := utils.WriteVarInt(w, uint64(count))
 	if err != nil {
 		return err
 	}
+
 	for _, peerAddress := range addressMessage.AddressList {
 		err := network.WritePeerAddress(w, size, peerAddress, true)
 		if err != nil {
@@ -95,7 +95,6 @@ func (addressMessage *AddressMessage) BitcoinSerialize(w io.Writer, size uint32)
 		}
 	}
 	return nil
-
 }
 
 func (addressMessage *AddressMessage) MaxPayloadLength(version uint32) uint32 {
