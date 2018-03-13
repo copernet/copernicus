@@ -23,12 +23,11 @@ const (
 )
 
 type PeerManager struct {
-	bytesReceived uint64
-	bytesSend     uint64
-	started       int32
-	shutdown      int32
-	shutdownSched int32
-
+	bytesReceived        uint64
+	bytesSend            uint64
+	started              int32
+	shutdown             int32
+	shutdownSched        int32
 	chainParams          *msg.BitcoinParams
 	netAddressManager    *network.NetAddressManager
 	connectManager       *conn.ConnectManager
@@ -43,13 +42,11 @@ type PeerManager struct {
 	peerHeightsUpdate    chan UpdatePeerHeightsMessage
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
-
 	//txMemPool    *mempool.TxPool
 	nat          network.NATInterface
 	storage      boltdb.DBBase
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
-
 	//txIndex   *indexers.TxIndex
 	//addrIndex *indexers.AddrIndex
 }
@@ -99,6 +96,7 @@ func NewPeerManager(listenAddrs []string, db boltdb.DBBase, bitcoinParam *msg.Bi
 	return &peerManager, nil
 
 }
+
 func (peerManager *PeerManager) OutboundGroupCount(key string) int {
 	replyChan := make(chan int)
 	peerManager.query <- getOutboundGroup{key: key, reply: replyChan}
