@@ -95,7 +95,7 @@ func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
 
 }
 
-func (txMempoolEntry *TxMempoolEntry) GetFeeRate() *utils.FeeRate {
+func (txMempoolEntry *TxMempoolEntry) GetFeeRate() utils.FeeRate {
 	return utils.NewFeeRateWithSize(int64(txMempoolEntry.Fee), txMempoolEntry.TxSize)
 }
 

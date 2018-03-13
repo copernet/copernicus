@@ -1,5 +1,5 @@
-hash: c0e051b69a624276aaea0384a0df5629648fa0110519d7b5e63291021d4fa48c
-updated: 2018-02-09T15:30:21.929648+08:00
+hash: 5ddec11c33de555d60a4f350792d67f9b08d49629350a5b011169cf24faefd8a
+updated: 2018-03-13T10:47:17.600880415+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -27,6 +27,8 @@ imports:
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
+- name: github.com/google/btree
+  version: e89373fe6b4a7413d7acd6da1725b83ef713e6e4
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/siddontang/ledisdb

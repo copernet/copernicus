@@ -29,10 +29,10 @@ const (
 )
 
 type TxMempoolInfo struct {
-	Tx       *core.Tx       // The transaction itself
-	Time     int64          // Time the transaction entered the mempool
-	FeeRate  *utils.FeeRate // Feerate of the transaction
-	FeeDelta int64          // The fee delta
+	Tx       *core.Tx      // The transaction itself
+	Time     int64         // Time the transaction entered the mempool
+	FeeRate  utils.FeeRate // Feerate of the transaction
+	FeeDelta int64         // The fee delta
 }
 
 func (info *TxMempoolInfo) Serialize(w io.Writer) error {
@@ -487,7 +487,7 @@ func (mempool *Mempool) GetMemPoolParents(entry *TxMempoolEntry) *container.Set 
 	return result.(*TxLinks).Parents
 }
 
-func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
+func (mempool *Mempool) GetMinFee(sizeLimit int64) utils.FeeRate {
 	mempool.Mtx.RLock()
 	defer mempool.Mtx.RUnlock()
 	if !mempool.BlockSinceLatRollingFeeBump || mempool.RollingMinimumFeeRate == 0 {
@@ -518,7 +518,7 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) *utils.FeeRate {
 	return utils.NewFeeRate(result)
 }
 
-func (mempool *Mempool) TrackPackageRemoved(rate *utils.FeeRate) {
+func (mempool *Mempool) TrackPackageRemoved(rate utils.FeeRate) {
 	if float64(rate.GetFeePerK()) > mempool.RollingMinimumFeeRate {
 		mempool.RollingMinimumFeeRate = float64(rate.GetFeePerK())
 		mempool.BlockSinceLatRollingFeeBump = false

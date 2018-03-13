@@ -780,9 +780,10 @@ func TestMempoolEstimateFee(t *testing.T) {
 	testPool.DynamicMemoryUsage()
 
 	maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, tx3.SerializeSize()+tx2.SerializeSize())
-	if testPool.GetMinFee(1).GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
+	f := testPool.GetMinFee(1)
+	if f.GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
+			f.GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
 		return
 	}
 
@@ -873,53 +874,56 @@ func TestMempoolEstimateFee(t *testing.T) {
 	vtx := make([]*core.Tx, 0)
 	utils.SetMockTime(42)
 	utils.SetMockTime(42 + ROLLING_FEE_HALFLIFE)
-	if testPool.GetMinFee(1).GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
+	f = testPool.GetMinFee(1)
+	if f.GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
+			f.GetFeePerK(), maxFeeRateRemoved.GetFeePerK()+1000)
 		return
 	}
 
 	// ... we should keep the same min fee until we get a block
 	testPool.RemoveForBlock(vtx, 1)
 	utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE)
-	if testPool.GetMinFee(1).GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/2 {
+	f = testPool.GetMinFee(1)
+	if f.GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/2 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(1).GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/2)
+			f.GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/2)
 		return
 	}
 	// ... then feerate should drop 1/2 each halflife
 
 	utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2)
-	if testPool.GetMinFee(testPool.DynamicMemoryUsage()*5/2).GetFeePerK() !=
-		(maxFeeRateRemoved.GetFeePerK()+1000)/4 {
+	f = testPool.GetMinFee(testPool.DynamicMemoryUsage() * 5 / 2)
+	if f.GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/4 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(testPool.DynamicMemoryUsage()*5/2).GetFeePerK(),
-			(maxFeeRateRemoved.GetFeePerK()+1000)/4)
+			f.GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/4)
 		return
 	}
 	// ... with a 1/2 halflife when mempool is < 1/2 its target size
 
 	utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
-	if testPool.GetMinFee(testPool.DynamicMemoryUsage()*9/2).GetFeePerK() !=
-		(maxFeeRateRemoved.GetFeePerK()+1000)/8 {
+	f = testPool.GetMinFee(testPool.DynamicMemoryUsage() * 9 / 2)
+	if f.GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/8 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(testPool.DynamicMemoryUsage()*9/2).GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/8)
+			f.GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/8)
 		return
 	}
 	// ... with a 1/4 halflife when mempool is < 1/4 its target size
 
 	utils.SetMockTime(42 + 7*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
-	if testPool.GetMinFee(1).GetFeePerK() != 1000 {
+	f = testPool.GetMinFee(1)
+	if f.GetFeePerK() != 1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(1).GetFeePerK(), 1000)
+			f.GetFeePerK(), 1000)
 		return
 	}
 	// ... but feerate should never drop below 1000
 
 	utils.SetMockTime(42 + 8*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
-	if testPool.GetMinFee(1).GetFeePerK() != 0 {
+	f = testPool.GetMinFee(1)
+	if f.GetFeePerK() != 0 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
-			testPool.GetMinFee(1).GetFeePerK(), 0)
+			f.GetFeePerK(), 0)
 		return
 	}
 	// ... unless it has gone all the way to 0 (after getting past 1000/2)

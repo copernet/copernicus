@@ -29,7 +29,7 @@ const (
 	COIN          int64 = 100000000
 	CENT          int64 = 1000000
 	MAX_MONEY     int64 = 21000000 * COIN
-	CURRENCY_UNIT       = "BTC"
+	CURRENCY_UNIT       = "BCH"
 )
 
 // String returns the unit as a string.  For recognized units, the SI

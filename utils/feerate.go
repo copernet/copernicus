@@ -36,10 +36,12 @@ const (
 	SUFFICIENT_FEETXS float64 = 1
 )
 
+// FeeRate : Fee rate in satoshis per kilobyte: Amount / kB
 type FeeRate struct {
 	SataoshisPerK int64
 }
 
+// GetFee : Return the fee in satoshis for the given size in bytes.
 func (feeRate *FeeRate) GetFee(bytes int) int64 {
 	if bytes > math.MaxInt64 {
 		panic("bytes is  greater than MaxInt64")
@@ -57,6 +59,7 @@ func (feeRate *FeeRate) GetFee(bytes int) int64 {
 	return fee
 }
 
+// GetFeePerK : Return the fee in satoshis for a size of 1000 bytes
 func (feeRate *FeeRate) GetFeePerK() int64 {
 	return feeRate.GetFee(1000)
 }
@@ -67,11 +70,6 @@ func (feeRate *FeeRate) String() string {
 		feeRate.SataoshisPerK%COIN,
 		CURRENCY_UNIT)
 }
-func NewFeeRate(amount int64) *FeeRate {
-	feeRate := FeeRate{SataoshisPerK: amount}
-	return &feeRate
-
-}
 
 func (feeRate *FeeRate) SerializeSize() int {
 	return 8
@@ -79,7 +77,6 @@ func (feeRate *FeeRate) SerializeSize() int {
 
 func (feeRate *FeeRate) Serialize(writer io.Writer) error {
 	return binary.Write(writer, binary.LittleEndian, feeRate.SataoshisPerK)
-
 }
 
 func Deserialize(reader io.Reader) (*FeeRate, error) {
@@ -91,10 +88,18 @@ func Deserialize(reader io.Reader) (*FeeRate, error) {
 	}
 	feeRate.SataoshisPerK = sataoshiaPerK
 	return feeRate, nil
-
 }
 
-func NewFeeRateWithSize(feePaid int64, bytes int) *FeeRate {
+func (feeRate *FeeRate) Less(b FeeRate) bool {
+	return feeRate.SataoshisPerK < b.SataoshisPerK
+}
+
+func NewFeeRate(amount int64) FeeRate {
+	feeRate := FeeRate{SataoshisPerK: amount}
+	return feeRate
+}
+
+func NewFeeRateWithSize(feePaid int64, bytes int) FeeRate {
 	if bytes > math.MaxInt64 {
 		panic("bytes is  greater than MaxInt64")
 	}
