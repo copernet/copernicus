@@ -14,75 +14,72 @@ type BlockChain struct {
 	Path        string
 	Magic       [4]byte
 	CurrentFile *os.File
-	CurrentID   uint32
+	CurrentID   uint32 // todo what
 	LastBlock   *Block
 	Lock        sync.Mutex
 }
 
-func ParseBlockchain(path string, magic [4]byte) (blockchain *BlockChain, err error) {
-	blockchain = new(BlockChain)
-	blockchain.Path = path
-	blockchain.Magic = magic
-	blockchain.CurrentID = 0
+func ParseBlockchain(path string, magic [4]byte) (bc *BlockChain, err error) {
+	bc.Path = path
+	bc.Magic = magic
+	bc.CurrentID = 0
 	f, err := os.Open(blkFileName(path, 0))
 	if err != nil {
 		return
 	}
-	blockchain.CurrentFile = f
+	bc.CurrentFile = f
 	return
 }
-func (blockChain *BlockChain) NextBlock() (block *Block, err error) {
-
-	rawBlock, err := blockChain.FetchNextBlock()
+func (bc *BlockChain) NextBlock() (*Block, error) {
+	rawBlock, err := bc.FetchNextBlock()
 	if err != nil {
-		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentID+1))
+		newBlkFile, err2 := os.Open(blkFileName(bc.Path, bc.CurrentID+1))
 		if err2 != nil {
 			return nil, err2
 		}
-		blockChain.CurrentID++
-		blockChain.CurrentFile.Close()
-		blockChain.CurrentFile = newBlkFile
-		rawBlock, err = blockChain.FetchNextBlock()
+		bc.CurrentID++
+		bc.CurrentFile.Close()
+		bc.CurrentFile = newBlkFile
+		rawBlock, err = bc.FetchNextBlock()
 	}
-	block, err = ParseBlock(rawBlock)
-	return
+	block, err := ParseBlock(rawBlock)
 
+	return block, err
 }
-func (blockChain *BlockChain) SkipBlock() (err error) {
 
-	_, err = blockChain.FetchNextBlock()
+func (bc *BlockChain) SkipBlock() (err error) {
+	_, err = bc.FetchNextBlock()
 	if err != nil {
-		newBlkFile, err2 := os.Open(blkFileName(blockChain.Path, blockChain.CurrentID+1))
+		newBlkFile, err2 := os.Open(blkFileName(bc.Path, bc.CurrentID+1))
 		if err2 != nil {
 			return err2
 		}
-		blockChain.CurrentID++
-		blockChain.CurrentFile.Close()
-		blockChain.CurrentFile = newBlkFile
-		_, err = blockChain.FetchNextBlock()
+		bc.CurrentID++
+		bc.CurrentFile.Close()
+		bc.CurrentFile = newBlkFile
+		_, err = bc.FetchNextBlock()
 	}
 	return
 }
 
-func (blockChain *BlockChain) FetchNextBlock() (raw []byte, err error) {
-
+func (bc *BlockChain) FetchNextBlock() (raw []byte, err error) {
 	buf := [4]byte{}
-	_, err = blockChain.CurrentFile.Read(buf[:])
+	_, err = bc.CurrentFile.Read(buf[:])
 	if err != nil {
 		return
 	}
-	if !bytes.Equal(buf[:], blockChain.Magic[:]) {
-		err = errors.New("Bas magic")
+	if !bytes.Equal(buf[:], bc.Magic[:]) {
+		err = errors.New("Bad magic")
 		return
 	}
-	_, err = blockChain.CurrentFile.Read(buf[:])
+	_, err = bc.CurrentFile.Read(buf[:])
 	if err != nil {
 		return
 
 	}
 	blockSize := uint32(blkSize(buf[:]))
 	raw = make([]byte, blockSize)
-	_, err = blockChain.CurrentFile.Read(raw[:])
+	_, err = bc.CurrentFile.Read(raw[:])
 
 	return
 }

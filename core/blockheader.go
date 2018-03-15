@@ -11,92 +11,90 @@ import (
 )
 
 type BlockHeader struct {
-	Version        int32
-	HashPrevBlock  utils.Hash
-	HashMerkleRoot utils.Hash
-	Time           uint32
-	Bits           uint32
-	Nonce          uint32
+	Version       int32
+	HashPrevBlock utils.Hash
+	MerkleRoot    utils.Hash
+	TimeStamp     uint32
+	Bits          uint32
+	Nonce         uint32
 }
 
-const blockHeaderLength = 16 + utils.Hash256Size*32
+const blockHeaderLength = 16 + utils.Hash256Size*2
 
 func NewBlockHeader() *BlockHeader {
-	blHe := BlockHeader{}
-	blHe.SetNull()
-	return &blHe
+	bh := BlockHeader{}
+	bh.SetNull()
+	return &bh
 }
 
-func (blHe *BlockHeader) IsNull() bool {
-	return blHe.Bits == 0
+func (bh *BlockHeader) IsNull() bool {
+	return bh.Bits == 0
 }
 
-func (blHe *BlockHeader) GetBlockTime() uint32 {
-	return blHe.Time
+func (bh *BlockHeader) GetBlockTime() uint32 {
+	return bh.TimeStamp
 }
 
-func (blHe *BlockHeader) GetHash() (utils.Hash, error) {
+func (bh *BlockHeader) GetHash() (utils.Hash, error) {
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
-	err := blHe.Serialize(buf)
+	err := bh.Serialize(buf)
 	return crypto.DoubleSha256Hash(buf.Bytes()), err
 }
 
-func (blHe *BlockHeader) SetNull() {
-	blHe.Version = 0
-	blHe.HashPrevBlock = utils.HashZero
-	blHe.HashMerkleRoot = utils.HashZero
-	blHe.Time = 0
-	blHe.Bits = 0
-	blHe.Nonce = 0
+func (bh *BlockHeader) SetNull() {
+	bh.Version = 0
+	bh.TimeStamp = 0
+	bh.Bits = 0
+	bh.Nonce = 0
 }
 
-func (blHe *BlockHeader) Serialize(writer io.Writer) error {
-	if err := binary.Write(writer, binary.LittleEndian, blHe.Version); err != nil {
-		return err
+func (bh *BlockHeader) Serialize(writer io.Writer) (err error) {
+	if err = binary.Write(writer, binary.LittleEndian, bh.Version); err != nil {
+		return
 	}
-	if _, err := writer.Write(blHe.HashPrevBlock.GetCloneBytes()); err != nil {
-		return err
+	if _, err = writer.Write(bh.HashPrevBlock.GetCloneBytes()); err != nil {
+		return
 	}
-	if _, err := writer.Write(blHe.HashMerkleRoot.GetCloneBytes()); err != nil {
-		return err
+	if _, err = writer.Write(bh.MerkleRoot.GetCloneBytes()); err != nil {
+		return
 	}
-	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Time); err != nil {
-		return err
+	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.TimeStamp); err != nil {
+		return
 	}
-	if err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Bits); err != nil {
-		return err
+	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Bits); err != nil {
+		return
 	}
-	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, blHe.Nonce)
-	return err
+	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Nonce)
 }
 
-func (blHe *BlockHeader) Deserialize(r io.Reader) error {
-	if err := binary.Read(r, binary.LittleEndian, &blHe.Version); err != nil {
-		return err
+func (bh *BlockHeader) Deserialize(r io.Reader) (err error) {
+	if err = binary.Read(r, binary.LittleEndian, &bh.Version); err != nil {
+		return
 	}
-	if _, err := io.ReadFull(r, blHe.HashPrevBlock[:]); err != nil {
-		return err
+	if _, err = io.ReadFull(r, bh.HashPrevBlock[:]); err != nil {
+		return
 	}
-	if _, err := io.ReadFull(r, blHe.HashMerkleRoot[:]); err != nil {
-		return err
+	if _, err = io.ReadFull(r, bh.MerkleRoot[:]); err != nil {
+		return
 	}
-	if err := binary.Read(r, binary.LittleEndian, &blHe.Time); err != nil {
-		return err
+	if bh.TimeStamp, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
+		return
 	}
-	if err := binary.Read(r, binary.LittleEndian, &blHe.Bits); err != nil {
-		return err
+	if bh.Bits, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
+		return
 	}
-	err := binary.Read(r, binary.LittleEndian, &blHe.Nonce)
-	return err
+	bh.Nonce, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian)
+
+	return
 }
 
-func (blHe *BlockHeader) ToString() string {
+func (bh *BlockHeader) ToString() string {
 	var hash utils.Hash
 	var err error
-	if hash, err = blHe.GetHash(); err != nil {
+	if hash, err = bh.GetHash(); err != nil {
 		return ""
 	}
 	return fmt.Sprintf("Block version : %d, hashPrevBlock : %s, hashMerkleRoot : %s,"+
-		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", blHe.Version, blHe.HashPrevBlock.ToString(),
-		blHe.HashMerkleRoot.ToString(), blHe.Time, blHe.Bits, blHe.Nonce, hash.ToString())
+		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock.ToString(),
+		bh.MerkleRoot.ToString(), bh.TimeStamp, bh.Bits, bh.Nonce, hash.ToString())
 }

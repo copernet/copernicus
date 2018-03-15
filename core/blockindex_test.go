@@ -16,29 +16,29 @@ func TestBlockIndexGetAncestor(t *testing.T) {
 	for i := 0; i < SKIPLIST_LENGTH; i++ {
 		vIndex[i].Height = i
 		if i == 0 {
-			vIndex[i].PPrev = nil
+			vIndex[i].Prev = nil
 		} else {
-			vIndex[i].PPrev = &vIndex[i-1]
+			vIndex[i].Prev = &vIndex[i-1]
 		}
 		vIndex[i].BuildSkip()
 	}
 
 	for i := 0; i < SKIPLIST_LENGTH; i++ {
 		if i > 0 {
-			if vIndex[i].PSkip != &vIndex[vIndex[i].PSkip.Height] {
+			if vIndex[i].Skip != &vIndex[vIndex[i].Skip.Height] {
 				t.Errorf("the two element addr should be equal, expect %p, but get value : %p",
-					vIndex[i].PSkip, &vIndex[vIndex[i].PSkip.Height])
+					vIndex[i].Skip, &vIndex[vIndex[i].Skip.Height])
 				return
 			}
-			if vIndex[i].PSkip.Height > i {
+			if vIndex[i].Skip.Height > i {
 				t.Errorf("the skip height : %d should be less the index : %d",
-					vIndex[i].PSkip.Height, i)
+					vIndex[i].Skip.Height, i)
 				return
 			}
 		} else {
-			if vIndex[i].PSkip != nil {
+			if vIndex[i].Skip != nil {
 				t.Errorf("the index : %d pskip should be equal nil, but the actual : %p",
-					i, vIndex[i].PSkip)
+					i, vIndex[i].Skip)
 				return
 			}
 		}
@@ -77,28 +77,28 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 		vHashMain[i] = big.NewInt(int64(i))
 		vBlocksMain[i].Height = i
 		if i > 0 {
-			vBlocksMain[i].PPrev = &vBlocksMain[i-1]
+			vBlocksMain[i].Prev = &vBlocksMain[i-1]
 		} else {
-			vBlocksMain[i].PPrev = nil
+			vBlocksMain[i].Prev = nil
 		}
 
 		vBlocksMain[i].BuildSkip()
 		if i < 10 {
 			vBlocksMain[i].TimeMax = uint32(i)
-			vBlocksMain[i].Time = uint32(i)
+			vBlocksMain[i].TimeStamp = uint32(i)
 		} else {
 			// randomly choose something in the range [MTP, MTP*2]
 			medianTimePast := uint32(vBlocksMain[i].GetMedianTimePast())
 			r := tmpRand.Rand32() % medianTimePast
-			vBlocksMain[i].Time = r + medianTimePast
-			vBlocksMain[i].TimeMax = uint32(math.Max(float64(vBlocksMain[i].Time), float64(vBlocksMain[i-1].TimeMax)))
+			vBlocksMain[i].TimeStamp = r + medianTimePast
+			vBlocksMain[i].TimeMax = uint32(math.Max(float64(vBlocksMain[i].TimeStamp), float64(vBlocksMain[i-1].TimeMax)))
 		}
 	}
 
 	//Check that we set nTimeMax up correctly.
 	curTimeMax := uint32(0)
 	for i := 0; i < len(vBlocksMain); i++ {
-		curTimeMax = uint32(math.Max(float64(curTimeMax), float64(vBlocksMain[i].Time)))
+		curTimeMax = uint32(math.Max(float64(curTimeMax), float64(vBlocksMain[i].TimeStamp)))
 		if curTimeMax != vBlocksMain[i].TimeMax {
 			t.Errorf("the two element should be equal, left value : %d, right value : %d",
 				curTimeMax, vBlocksMain[i].TimeMax)
@@ -117,7 +117,7 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 	for i := 0; i < len(vBlocksMain); i++ {
 		// Pick a random element in vBlocksMain.
 		r := tmpRand.Rand32() % uint32(len(vBlocksMain))
-		testTime := vBlocksMain[r].Time
+		testTime := vBlocksMain[r].TimeStamp
 		ret := chain.FindEarliestAtLeast(int64(testTime))
 		if ret == nil {
 			continue
@@ -127,9 +127,9 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 				ret, ret.TimeMax, testTime)
 			return
 		}
-		if ret.PPrev != nil && ret.PPrev.TimeMax > testTime {
+		if ret.Prev != nil && ret.Prev.TimeMax > testTime {
 			t.Errorf("ret.pprev : %p should be nil or ret.pprev.TimeMax : %d should be "+
-				"less testTime : %d", ret.PPrev, ret.PPrev.TimeMax, testTime)
+				"less testTime : %d", ret.Prev, ret.Prev.TimeMax, testTime)
 			return
 		}
 		if r < uint32(ret.Height) {
