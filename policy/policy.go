@@ -9,74 +9,74 @@ import (
 )
 
 const (
-	/*MAX_TX_SIGOPS_COUNT allowed number of signature check operations per transaction. */
-	MAX_TX_SIGOPS_COUNT uint64 = 20000
-	/*ONE_MEGABYTE 1MB */
-	ONE_MEGABYTE uint64 = 1000000
+	/*MaxTxSigOpsCount allowed number of signature check operations per transaction. */
+	MaxTxSigOpsCount uint64 = 20000
+	/*OneMegaByte 1MB */
+	OneMegaByte uint64 = 1000000
 
-	/*DEFAULT_MAX_GENERATED_BLOCK_SIZE Default for -blockmaxsize, which controls the maximum size of block the
+	/*DefaultMaxGeneratedBlockSize default for -blockMaxsize, which controls the maximum size of block the
 	 * mining code will create **/
-	DEFAULT_MAX_GENERATED_BLOCK_SIZE uint64 = 2 * ONE_MEGABYTE
+	DefaultMaxGeneratedBlockSize uint64 = 2 * OneMegaByte
 
-	DEFAULT_MAX_BLOCK_SIZE = 8 * ONE_MEGABYTE
+	DefaultMaxBlockSize = 8 * OneMegaByte
 
-	/*DEFAULT_BLOCK_PRIORITY_SIZE Default for -blockprioritysize, maximum space for zero/low-fee transactions*/
-	DEFAULT_BLOCK_PRIORITY_SIZE uint64 = 0
+	/*DefaultBlockPrioritySize default for -blockPrioritySize, maximum space for zero/low-fee transactions*/
+	DefaultBlockPrioritySize uint64 = 0
 
-	/*DEFAULT_BLOCK_MIN_TX_FEE Default for -blockmintxfee, which sets the minimum feerate for a transaction
+	/*DefaultBlockMinTxFee default for -blockMinTxFee, which sets the minimum feeRate for a transaction
 	 * in blocks created by mining code **/
-	DEFAULT_BLOCK_MIN_TX_FEE uint = 1000
+	DefaultBlockMinTxFee uint = 1000
 
-	/*MAX_STANDARD_TX_SIZE The maximum size for transactions we're willing to relay/mine */
-	MAX_STANDARD_TX_SIZE uint = 100000
+	/*MaxStandardTxSize the maximum size for transactions we're willing to relay/mine */
+	MaxStandardTxSize uint = 100000
 
-	/*MAX_P2SH_SIGOPS Maximum number of signature check operations in an IsStandard() P2SH script*/
-	MAX_P2SH_SIGOPS uint = 15
+	/*MaxP2SHSigOps maximum number of signature check operations in an IsStandard() P2SH script*/
+	MaxP2SHSigOps uint = 15
 
-	/*MAX_STANDARD_TX_SIGOPS The maximum number of sigops we're willing to relay/mine in a single tx */
-	MAX_STANDARD_TX_SIGOPS uint = uint(MAX_TX_SIGOPS_COUNT / 5)
+	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
+	MaxStandardTxSigOps uint = uint(MaxTxSigOpsCount / 5)
 
-	/*DEFAULT_MAX_MEMPOOL_SIZE Default for -maxmempool, maximum megabytes of mempool memory usage */
-	DEFAULT_MAX_MEMPOOL_SIZE uint = 300
+	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
+	DefaultMaxMemPoolSize uint = 300
 
-	/*MAX_STANDARD_P2WSH_STACK_ITEMS The maximum number of witness stack items in a standard P2WSH script */
-	MAX_STANDARD_P2WSH_STACK_ITEMS uint = 100
+	/*MaxStandardP2WSHStackItems the maximum number of witness stack items in a standard P2WSH script */
+	MaxStandardP2WSHStackItems uint = 100
 
-	/*MAX_STANDARD_P2WSH_STACK_ITEM_SIZE The maximum size of each witness stack item in a standard P2WSH script */
-	MAX_STANDARD_P2WSH_STACK_ITEM_SIZE uint = 80
+	/*MaxStandardP2WSHStackItemSize the maximum size of each witness stack item in a standard P2WSH script */
+	MaxStandardP2WSHStackItemSize uint = 80
 
-	/*MAX_STANDARD_P2WSH_SCRIPT_SIZE The maximum size of a standard witnessScript */
-	MAX_STANDARD_P2WSH_SCRIPT_SIZE uint = 3600
+	/*MaxStandardP2WSHScriptSize the maximum size of a standard witnessScript */
+	MaxStandardP2WSHScriptSize uint = 3600
 
-	/*STANDARD_SCRIPT_VERIFY_FLAGS Standard script verification flags that standard transactions will comply
+	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
 	 * with. However scripts violating these flags may still be present in valid
 	 * blocks and we must accept those blocks.
 	 */
-	STANDARD_SCRIPT_VERIFY_FLAGS uint = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_DERSIG |
+	StandardScriptVerifyFlags uint = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_DERSIG |
 		crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_VERIFY_MINIMALDATA |
 		crypto.SCRIPT_VERIFY_NULLDUMMY | crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
 		crypto.SCRIPT_VERIFY_CLEANSTACK | crypto.SCRIPT_VERIFY_NULLFAIL |
 		crypto.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | crypto.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY |
 		crypto.SCRIPT_VERIFY_LOW_S | crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM
 
-	/*STANDARD_NOT_MANDATORY_VERIFY_FLAGS For convenience, standard but not mandatory verify flags. */
-	STANDARD_NOT_MANDATORY_VERIFY_FLAGS int = int(STANDARD_SCRIPT_VERIFY_FLAGS) & (^MANDATORY_SCRIPT_VERIFY_FLAGS)
+	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
+	StandardNotMandatoryVerifyFlags int = int(StandardScriptVerifyFlags) & (^MandatoryScriptVerifyFlags)
 
-	/*STANDARD_LOCKTIME_VERIFY_FLAGS Used as the flags parameter to sequence and nLocktime checks in
+	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
 	 * non-core code. */
-	STANDARD_LOCKTIME_VERIFY_FLAGS uint = core.LocktimeVerifySequence | core.LocktimeMedianTimePast
+	StandardLockTimeVerifyFlags uint = core.LocktimeVerifySequence | core.LocktimeMedianTimePast
 
-	// MANDATORY_SCRIPT_VERIFY_FLAGS Mandatory script verification flags that all new blocks must comply with for
+	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
 	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
 	// but in the future other flags may be added, such as a soft-fork to enforce
 	// strict DER encoding.
 	//
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MANDATORY_SCRIPT_VERIFY_FLAGS = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_ENABLE_SIGHASH_FORKID
+	MandatoryScriptVerifyFlags = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_ENABLE_SIGHASH_FORKID
 )
 
-/*IsStandardTx Check for standard transaction types
+/*IsStandardTx check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction
  * forms
  */
@@ -90,7 +90,7 @@ func IsStandardTx(tx *core.Tx, reason *string) bool {
 	// almost as much to process as they cost the sender in fees, because
 	// computing signature hashes is O(ninputs*txsize). Limiting transactions
 	// to MAX_STANDARD_TX_SIZE mitigates CPU exhaustion attacks.
-	if uint(tx.SerializeSize()) > MAX_STANDARD_TX_SIZE {
+	if uint(tx.SerializeSize()) > MaxStandardTxSize {
 		*reason = "Tx-size"
 		return false
 	}
@@ -223,7 +223,7 @@ func AreInputsStandard(tx *core.Tx, cache *utxo.CoinsViewCache) bool {
 			}
 			subscript := core.NewScriptRaw(b)
 			count, _ := subscript.GetSigOpCountWithAccurate(true)
-			if uint(count) > MAX_P2SH_SIGOPS {
+			if uint(count) > MaxP2SHSigOps {
 				return false
 			}
 		}

@@ -145,7 +145,7 @@ func (versionBitsTester *VersionBitsTester) TestDefined(t *testing.T) *VersionBi
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold != THRESHOLD_DEFINED {
+			if tmpThreshold != ThresholdDefined {
 				t.Errorf("Test %d for DEFINED, actual state : %d, expect state : THRESHOLD_DEFINED\n",
 					versionBitsTester.num, tmpThreshold)
 			}
@@ -165,7 +165,7 @@ func (versionBitsTester *VersionBitsTester) TestStarted(t *testing.T) *VersionBi
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold != THRESHOLD_STARTED {
+			if tmpThreshold != ThresholdStarted {
 				t.Errorf("Test %d for STARTED, actual state : %d, expect state : THRESHOLD_STARTED\n",
 					versionBitsTester.num, tmpThreshold)
 			}
@@ -185,7 +185,7 @@ func (versionBitsTester *VersionBitsTester) TestLockedIn(t *testing.T) *VersionB
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold != THRESHOLD_LOCKED_IN {
+			if tmpThreshold != ThresholdLockedIn {
 				t.Errorf("Test %d for LOCKED_IN, actual state : %d, expect state : THRESHOLD_LOCKED_IN\n",
 					versionBitsTester.num, tmpThreshold)
 			}
@@ -205,7 +205,7 @@ func (versionBitsTester *VersionBitsTester) TestActive(t *testing.T) *VersionBit
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
-			if tmpThreshold != THRESHOLD_ACTIVE {
+			if tmpThreshold != ThresholdActive {
 				t.Errorf("Test %d for ACTIVE, actual state : %d, expect state : THRESHOLD_ACTIVE\n", versionBitsTester.num, tmpThreshold)
 			}
 		}
@@ -226,7 +226,7 @@ func (versionBitsTester *VersionBitsTester) TestFailed(t *testing.T) *VersionBit
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 			//fmt.Println("tmpThreshold : ", tmpThreshold)
-			if tmpThreshold != THRESHOLD_FAILED {
+			if tmpThreshold != ThresholdFailed {
 				t.Errorf("Test %d for FAILED, actual state : %d, expect state : THRESHOLD_FAILED\n", versionBitsTester.num, tmpThreshold)
 			}
 		}
@@ -471,7 +471,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 
 	// Before MedianTimePast of the chain has crossed nStartTime, the bit
 	// should not be set.
-	lastBlock := firstChain.Mine(2016, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	lastBlock := firstChain.Mine(2016, Time, VersionBitsLastOldBlockVersion).Tip()
 	if (ComputeBlockVersion(lastBlock, &mainnetParams, vbc) & (1 << uint(bit))) != 0 {
 		t.Error("expect the next block version & (1<<uint(bit) is 0")
 		return
@@ -481,7 +481,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	// Mine 2011 more blocks at the old time, and check that CBV isn't setting
 	// the bit yet.
 	for i := 1; i < 2012; i++ {
-		lastBlock = firstChain.Mine(2016+i, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		lastBlock = firstChain.Mine(2016+i, Time, VersionBitsLastOldBlockVersion).Tip()
 		// This works because VERSIONBITS_LAST_OLD_BLOCK_VERSION happens to be
 		// 4, and the bit we're testing happens to be bit 28.
 		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
@@ -494,7 +494,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	// yet, so CBV should still not yet set the bit.
 	Time = startTime
 	for i := 2012; i < 2016; i++ {
-		lastBlock = firstChain.Mine(2016+i, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		lastBlock = firstChain.Mine(2016+i, Time, VersionBitsLastOldBlockVersion).Tip()
 		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
 			t.Error("expect the next block version & (1<<uint(bit) is 0")
 			return
@@ -502,14 +502,14 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	}
 
 	// Advance to the next period and transition to STARTED,
-	lastBlock = firstChain.Mine(6048, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	lastBlock = firstChain.Mine(6048, Time, VersionBitsLastOldBlockVersion).Tip()
 	// so ComputeBlockVersion should now set the bit,
 	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
 		t.Error("the bit should have been set")
 	}
 
 	// and should also be using the VERSIONBITS_TOP_BITS.
-	if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+	if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VersionBitsTopMask != VersionBitsTopBits {
 		t.Error("the bit should be set VERSIONBITS_TOP_BITS")
 		return
 	}
@@ -521,12 +521,12 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	Height := 6048
 	// These blocks are all before nTimeout is reached.
 	for Time < timeout && blocksToMine > 0 {
-		lastBlock = firstChain.Mine(Height+1, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		lastBlock = firstChain.Mine(Height+1, Time, VersionBitsLastOldBlockVersion).Tip()
 		if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
 			t.Error("the bit should be set 1<<28")
 			return
 		}
-		if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+		if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VersionBitsTopMask != VersionBitsTopBits {
 			t.Error("the bit should be set VERSIONBITS_TOP_BITS")
 			return
 		}
@@ -539,7 +539,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	// FAILED is only triggered at the end of a period, so CBV should be setting
 	// the bit until the period transition.
 	for i := 0; i < 2015; i++ {
-		lastBlock = firstChain.Mine(Height+1, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+		lastBlock = firstChain.Mine(Height+1, Time, VersionBitsLastOldBlockVersion).Tip()
 		if (ComputeBlockVersion(lastBlock, &mainnetParams, vbc) & (1 << uint(bit))) == 0 {
 			t.Error("error")
 		}
@@ -547,7 +547,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	}
 
 	// The next block should trigger no longer setting the bit.
-	lastBlock = firstChain.Mine(Height+1, Time, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	lastBlock = firstChain.Mine(Height+1, Time, VersionBitsLastOldBlockVersion).Tip()
 	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
 		t.Error("the bit should not set")
 	}
@@ -559,13 +559,13 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 
 	// Mine one period worth of blocks, and check that the bit will be on for
 	// the next period.
-	lastBlock = secondChain.Mine(2016, startTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	lastBlock = secondChain.Mine(2016, startTime, VersionBitsLastOldBlockVersion).Tip()
 	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
 		t.Error("the bit should be set, because the state is started")
 	}
 
 	// Mine another period worth of blocks, signaling the new bit.
-	lastBlock = secondChain.Mine(4032, startTime, VERSIONBITS_TOP_BITS|(1<<uint(bit))).Tip()
+	lastBlock = secondChain.Mine(4032, startTime, VersionBitsTopBits|(1<<uint(bit))).Tip()
 	// After one period of setting the bit on each block, it should have locked
 	// in.
 	// We keep setting the bit for one more period though, until activation.
@@ -576,12 +576,12 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 
 	// Now check that we keep mining the block until the end of this period, and
 	// then stop at the beginning of the next period.
-	lastBlock = secondChain.Mine(6047, startTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	lastBlock = secondChain.Mine(6047, startTime, VersionBitsLastOldBlockVersion).Tip()
 	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) == 0 {
 		t.Error("Now the bit statr is active, so the bit should be set in next Block ")
 		return
 	}
-	lastBlock = secondChain.Mine(6048, startTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip()
+	lastBlock = secondChain.Mine(6048, startTime, VersionBitsLastOldBlockVersion).Tip()
 	if ComputeBlockVersion(lastBlock, &mainnetParams, vbc)&(1<<uint(bit)) != 0 {
 		t.Error("error")
 	}
@@ -590,7 +590,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	// VERSIONBITS_LAST_OLD_BLOCK_VERSION.
 	// BOOST_CHECK_EQUAL(ComputeBlockVersion(lastBlock, mainnetParams) &
 	// VERSIONBITS_TOP_MASK, VERSIONBITS_TOP_BITS);
-	if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VERSIONBITS_TOP_MASK != VERSIONBITS_TOP_BITS {
+	if int64(ComputeBlockVersion(lastBlock, &mainnetParams, vbc))&VersionBitsTopMask != VersionBitsTopBits {
 		t.Errorf("when state eqaul active, the bit should not be set ")
 	}
 
