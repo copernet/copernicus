@@ -37,6 +37,7 @@ var (
 	GfImporting       atomic.Value
 	GMaxTipAge        int64
 	Gmempool          *mempool.Mempool
+	Pool              *mempool.TxMempool
 	GpcoinsTip        *utxo.CoinsViewCache
 	Gpblocktree       *BlockTreeDB
 	GminRelayTxFee    utils.FeeRate

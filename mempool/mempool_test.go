@@ -19,7 +19,7 @@ type TestMemPoolEntryHelper struct {
 	Height         uint
 	SpendsCoinbase bool
 	SigOpCost      int64
-	lp             *LockPoints
+	lp             *core.LockPoints
 }
 
 func NewTestMemPoolEntryHelper() *TestMemPoolEntryHelper {

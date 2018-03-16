@@ -29,8 +29,24 @@ type TxEntry struct {
 	usageSize int64
 	// childTx the tx's all Descendants transaction
 	childTx map[*TxEntry]struct{}
-	// childTx the tx's all Ancestors transaction
+	// parentTx the tx's all Ancestors transaction
 	parentTx map[*TxEntry]struct{}
+	//lp Track the height and time at which tx was final
+	lp core.LockPoints
+	//spendsCoinbase keep track of transactions that spend a coinbase
+	spendsCoinbase bool
+}
+
+func (t *TxEntry) GetTxFromTxEntry() *core.Tx {
+	return t.tx
+}
+
+func (t *TxEntry) SetLockPointFromTxEntry(lp core.LockPoints) {
+	t.lp = lp
+}
+
+func (t *TxEntry) GetLockPointFromTxEntry() core.LockPoints {
+	return t.lp
 }
 
 func (t *TxEntry) Less(c *TxEntry) bool {
@@ -43,6 +59,10 @@ func (t *TxEntry) UpdateForDescendants(addTx *TxEntry) {
 
 func (t *TxEntry) UpdateEntryForAncestors() {
 
+}
+
+func (t *TxEntry) GetSpendsCoinbase() bool {
+	return t.spendsCoinbase
 }
 
 //UpdateParent update the tx's parent transaction.

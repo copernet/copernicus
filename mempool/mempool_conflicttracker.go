@@ -15,7 +15,7 @@ func NewMempoolConflictRemoveTrack(pool *Mempool) *PoolConflictRemovalTracker {
 	return m
 }
 
-func (m *PoolConflictRemovalTracker) NotifyEntryRemoved(txRemove *core.Tx, reason int) {
+func (m *PoolConflictRemovalTracker) NotifyEntryRemoved(txRemove *core.Tx, reason PoolRemovalReason) {
 	if reason == CONFLICT {
 		m.conflictedTxs = append(m.conflictedTxs, txRemove)
 	}
