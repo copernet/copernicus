@@ -6,6 +6,7 @@ import (
 	"time"
 	"unsafe"
 
+	"btree"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -18,11 +19,14 @@ type TxEntry struct {
 	txFee     int64
 	txFeeRate utils.FeeRate
 	// sumTxCount is this tx and all Descendants transaction's number.
-	sumTxCount uint64
+	sumTxCountWithDescendants uint64
 	// sumFee is calculated by this tx and all Descendants transaction;
-	sumFee int64
+	sumFeeWithDescendants int64
 	// sumSize size calculated by this tx and all Descendants transaction;
-	sumSize uint64
+	sumSizeWithDescendants     uint64
+	sumTxCountWithAncestors    uint64
+	sumSizeWitAncestors        uint64
+	sumSigOpCountWithAncestors uint64
 	// time Local time when entering the mempool
 	time int64
 	// usageSize and total memory usage
@@ -49,10 +53,6 @@ func (t *TxEntry) GetLockPointFromTxEntry() core.LockPoints {
 	return t.lp
 }
 
-func (t *TxEntry) Less(c *TxEntry) bool {
-	return t.txFeeRate.Less(c.txFeeRate)
-}
-
 func (t *TxEntry) UpdateForDescendants(addTx *TxEntry) {
 
 }
@@ -71,6 +71,10 @@ func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
 		t.parentTx[parent] = struct{}{}
 	}
 	delete(t.parentTx, parent)
+}
+
+func (t *TxEntry) Less(than btree.Item) bool {
+	return t.time < than.(*TxEntry).time
 }
 
 func NewTxentry(tx *core.Tx, txFee int64) *TxEntry {
