@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"btree"
-	"errors"
 	"fmt"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/logger"
@@ -83,8 +82,8 @@ func (m *TxMempool) AddTx(tx *core.Tx, txFee int64) bool {
 	//todo; send signal to all interesting the caller.
 	m.Lock()
 	defer m.Unlock()
-
-	ancestors := m.CalculateMemPoolAncestors(tx, true)
+	nNoLimit := uint64(math.MaxUint64)
+	ancestors, _ := m.CalculateMemPoolAncestors(tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
 
 	// insert new txentry to the mempool; and update the mempool's memory consume.
 	newTxEntry := NewTxentry(tx, txFee)
@@ -207,8 +206,12 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache) {
 
 func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
 
+	nNoLimit := uint64(math.MaxUint64)
 	for removeIt := range entriesToRemove {
-		ancestors := m.CalculateMemPoolAncestors(removeIt.tx, false)
+		ancestors, err := m.CalculateMemPoolAncestors(removeIt.tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
+		if err != nil {
+			return
+		}
 		m.updateAncestorsOf(false, removeIt, ancestors)
 	}
 
@@ -316,7 +319,7 @@ func (m *TxMempool) updateDescendant(add bool, ancestor *TxEntry, entry *TxEntry
 	ancestor.sumSizeWithDescendants -= uint64(entry.txSize)
 }
 
-// calculateMemPoolAncestors get tx all ancestors transaction in mempool.
+// CalculateMemPoolAncestors get tx all ancestors transaction in mempool.
 // when the find is false: the tx must in mempool, so directly get his parent.
 func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount uint64,
 	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64,
@@ -329,7 +332,8 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 			if entry, ok := m.PoolData[txin.PreviousOutPoint.Hash]; ok {
 				parent[entry] = struct{}{}
 				if uint64(len(parent))+1 > limitAncestorCount {
-					return nil, errors.New(fmt.Sprintf("too many unconfirmed parents [limit: %d]\n", limitAncestorCount))
+					return nil,
+						fmt.Errorf("too many unconfirmed parents [limit: %d]", limitAncestorCount)
 				}
 			}
 		}
@@ -351,14 +355,14 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 		totalSizeWithAncestors += uint64(entry.txSize)
 		hash := entry.tx.Hash
 		if entry.sumSizeWithDescendants+uint64(entry.txSize) > limitDescendantSize {
-			return nil, errors.New(fmt.Sprintf(
-				"exceeds descendant size limit for tx %s [limit: %d]\n", hash.ToString(), limitDescendantSize))
+			return nil,
+				fmt.Errorf("exceeds descendant size limit for tx %s [limit: %d]", hash.ToString(), limitDescendantSize)
 		} else if entry.sumTxCountWithDescendants+1 > limitDescendantCount {
-			return nil, errors.New(fmt.Sprintf(
-				"too many descendants for tx %s [limit: %d]\n", hash.ToString(), limitDescendantCount))
+			return nil,
+				fmt.Errorf("too many descendants for tx %s [limit: %d]", hash.ToString(), limitDescendantCount)
 		} else if totalSizeWithAncestors > limitAncestorSize {
-			return nil, errors.New(fmt.Sprintf(
-				"exceeds ancestor size limit [limit: %d]\n", limitAncestorSize))
+			return nil,
+				fmt.Errorf("exceeds ancestor size limit [limit: %d]", limitAncestorSize)
 		}
 
 		graTxentrys := entry.parentTx
@@ -367,13 +371,13 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 				parent[gentry] = struct{}{}
 			}
 			if uint64(len(parent)+len(ancestors)+1) > limitAncestorCount {
-				return nil, errors.New(fmt.Sprintf(
-					"too many unconfirmed ancestors [limit: %d]\n", limitAncestorCount))
+				return nil,
+					fmt.Errorf("too many unconfirmed ancestors [limit: %d]", limitAncestorCount)
 			}
 		}
 	}
 
-	return
+	return ancestors, nil
 }
 
 func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {

@@ -82,16 +82,15 @@ func NewTxentry(tx *core.Tx, txFee int64) *TxEntry {
 	t.tx = tx
 	t.time = time.Now().Unix()
 	t.txSize = tx.SerializeSize()
-	t.sumSize = uint64(t.txSize)
+	t.sumSizeWithDescendants = uint64(t.txSize)
 	t.txFee = txFee
 	t.txFeeRate = utils.NewFeeRateWithSize(txFee, t.txSize)
 	t.usageSize = int64(t.txSize) + int64(unsafe.Sizeof(t.txSize)*2+
-		unsafe.Sizeof(t.sumTxCount)*4+unsafe.Sizeof(t.txFeeRate))
+		unsafe.Sizeof(t.sumTxCountWithDescendants)*4+unsafe.Sizeof(t.txFeeRate))
 	t.parentTx = make(map[*TxEntry]struct{})
 	t.childTx = make(map[*TxEntry]struct{})
-	t.sumFee += txFee
-	t.sumSize += uint64(t.txSize)
-	t.sumTxCount++
+	t.sumFeeWithDescendants += txFee
+	t.sumTxCountWithDescendants++
 
 	return t
 }
