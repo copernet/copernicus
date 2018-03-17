@@ -50,6 +50,7 @@ func startBitcoin() error {
 		peerManager.WaitForShutdown()
 		log.Info("server shutdown complete")
 	}()
+
 	peerManager.Start()
 	return nil
 }

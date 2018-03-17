@@ -62,7 +62,6 @@ func init() {
 	//	log.Info("logger dir is %s", logLevel)
 	//}
 	AppConf = loadConfig()
-
 }
 
 func loadConfig() *AppConfig {

@@ -59,7 +59,7 @@ func TestGetBlockProofEquivalentTime(t *testing.T) {
 	for i := uint32(0); i < 10000; i++ {
 		blocks[i] = &core.BlockIndex{}
 		if i > 0 {
-			blocks[i].PPrev = blocks[i-1]
+			blocks[i].Prev = blocks[i-1]
 		}
 		blocks[i].Height = int(i)
 		blocks[i].Time = 1269211443 + i*uint32(msg.ActiveNetParams.TargetTimePerBlock)

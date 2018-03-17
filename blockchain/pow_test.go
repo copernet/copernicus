@@ -55,7 +55,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 
 func getBlockIndex(pindexPrev *core.BlockIndex, timeInterval int64, bits uint32) *core.BlockIndex {
 	block := new(core.BlockIndex)
-	block.PPrev = pindexPrev
+	block.Prev = pindexPrev
 	block.Height = pindexPrev.Height + 1
 	block.Time = pindexPrev.Time + uint32(timeInterval)
 	block.Bits = bits

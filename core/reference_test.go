@@ -132,7 +132,6 @@ var shortFormOps map[string]byte
 //   - Anything else is an error
 func parseShortForm(script string) ([]byte, error) {
 	// Only create the short form opcode map once.
-	//fmt.Printf("got script=%q\n", script)
 	if shortFormOps == nil {
 		shortFormOps = make(map[string]byte)
 		for i := 0; i <= OP_NOP10; i++ {
@@ -147,11 +146,7 @@ func parseShortForm(script string) ([]byte, error) {
 			shortFormOps[strings.TrimPrefix(name, "OP_")] = byte(i)
 		}
 	}
-	/*
-		for k, v := range shortFormOps {
-			fmt.Printf("k=%v,  v=%v\n", k, v)
-		}
-	*/
+
 	// Split only does one separator so convert all \n and tab into  space.
 	script = strings.Replace(script, "\n", " ", -1)
 	script = strings.Replace(script, "\t", " ", -1)

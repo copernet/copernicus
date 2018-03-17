@@ -276,8 +276,8 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 		stk = append(stk, parsedopCode)
 		i += nSize
 	}
-	return
 
+	return
 }
 
 func (script *Script) FindAndDelete(b *Script) (bool, error) {

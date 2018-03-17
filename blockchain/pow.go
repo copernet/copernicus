@@ -129,9 +129,9 @@ func (pow *Pow) getNextEDAWorkRequired(pindexPrev *core.BlockIndex, pblock *core
 		}
 		// Return the last non-special-min-difficulty-rules-block
 		pindex := pindexPrev
-		for pindex.PPrev != nil && int64(pindex.Height)%params.DifficultyAdjustmentInterval() != 0 &&
+		for pindex.Prev != nil && int64(pindex.Height)%params.DifficultyAdjustmentInterval() != 0 &&
 			pindex.Bits == nProofOfWorkLimit {
-			pindex = pindex.PPrev
+			pindex = pindex.Prev
 		}
 
 		return pindex.Bits
@@ -214,8 +214,8 @@ func (pow *Pow) getSuitableBlock(pindex *core.BlockIndex) *core.BlockIndex {
 	//point.
 	blocks := make([]*core.BlockIndex, 3)
 	blocks[2] = pindex
-	blocks[1] = pindex.PPrev
-	blocks[0] = blocks[1].PPrev
+	blocks[1] = pindex.Prev
+	blocks[0] = blocks[1].Prev
 
 	// Sorting network.
 	if blocks[0].Time > blocks[2].Time {

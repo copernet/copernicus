@@ -71,12 +71,12 @@ func merkleComputation(leaves []utils.Hash, root *utils.Hash, pmutated *bool, br
 	for ; (count & (uint32(1) << uint(level))) == 0; level++ {
 	}
 	h := inner[level]
-	matchh := matchlevel == level
+	isMatched := matchlevel == level
 	for count != (uint32(1) << uint(level)) {
 		// If we reach this point, h is an inner value that is not the top.
 		// We combine it with itself (Bitcoin's special rule for odd levels in
 		// the tree) to produce a higher level one.
-		if pbranch != nil && matchh {
+		if pbranch != nil && isMatched {
 			*pbranch = append(*pbranch, h)
 		}
 		var tmp []byte
@@ -90,11 +90,11 @@ func merkleComputation(leaves []utils.Hash, root *utils.Hash, pmutated *bool, br
 		// And propagate the result upwards accordingly.
 		for ; (count & (uint32(1) << uint(level))) == 0; level++ {
 			if pbranch != nil {
-				if matchh {
+				if isMatched {
 					*pbranch = append(*pbranch, inner[level])
 				} else if matchlevel == level {
 					*pbranch = append(*pbranch, h)
-					matchh = true
+					isMatched = true
 				}
 			}
 			var tmp []byte
@@ -143,17 +143,17 @@ func ComputeMerkleRootFromBranch(leaf *utils.Hash, branch []utils.Hash, index ui
 }
 
 func BlockMerkleRoot(block *Block, mutated *bool) utils.Hash {
-	leaves := make([]utils.Hash, len(block.Transactions))
-	for i := 0; i < len(block.Transactions); i++ {
-		leaves[i] = block.Transactions[i].TxHash()
+	leaves := make([]utils.Hash, len(block.Txs))
+	for i := 0; i < len(block.Txs); i++ {
+		leaves[i] = block.Txs[i].TxHash()
 	}
 	return ComputeMerkleRoot(leaves, mutated)
 }
 
 func BlockMerkleBranch(block *Block, position uint32) []utils.Hash {
-	leaves := make([]utils.Hash, len(block.Transactions))
-	for i := 0; i < len(block.Transactions); i++ {
-		leaves[i] = block.Transactions[i].TxHash()
+	leaves := make([]utils.Hash, len(block.Txs))
+	for i := 0; i < len(block.Txs); i++ {
+		leaves[i] = block.Txs[i].TxHash()
 	}
 	return ComputeMerkleBranch(leaves, position)
 }

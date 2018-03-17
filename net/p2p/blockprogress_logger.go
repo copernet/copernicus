@@ -27,7 +27,7 @@ func (blockLog *BlockProgressLogger) LogBlockHeight(block *core.Block) {
 	blockLog.lock.Lock()
 	defer blockLog.lock.Unlock()
 	blockLog.receivedLogBlocks++
-	blockLog.receivedLogTx += int64(len(block.Transactions))
+	blockLog.receivedLogTx += int64(len(block.Txs))
 	now := time.Now()
 	duration := now.Sub(blockLog.LastBlockLogTime)
 	if duration < time.Second*10 {

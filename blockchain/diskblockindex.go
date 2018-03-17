@@ -23,7 +23,7 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarInt(writer, uint64(diskBlockIndex.Txs))
+	err = utils.WriteVarInt(writer, uint64(diskBlockIndex.TxCount))
 	if err != nil {
 		return err
 	}
@@ -34,13 +34,13 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 		}
 	}
 	if diskBlockIndex.Status&core.BlockHaveData != 0 {
-		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.DataPosition))
+		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.DataPos))
 		if err != nil {
 			return err
 		}
 	}
 	if diskBlockIndex.Status&core.BlockHaveUndo != 0 {
-		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.UndoPosition))
+		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.UndoPos))
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 func (diskBlockIndex *DiskBlockIndex) ToString(writer io.Writer) string {
 	str := "DiskBlockIndex("
 	str += diskBlockIndex.BlockIndex.ToString()
-	str += fmt.Sprintf("\n\thashBlock=%s, hashPrev=%s)", diskBlockIndex.PHashBlock.ToString(), diskBlockIndex.hashPrev.ToString())
+	str += fmt.Sprintf("\n\thashBlock=%s, hashPrev=%s)", diskBlockIndex.BlockHash.ToString(), diskBlockIndex.hashPrev.ToString())
 	return str
 }
 
@@ -80,10 +80,10 @@ func NewDiskBlockIndex(bl *core.BlockIndex) *DiskBlockIndex {
 	dbi := DiskBlockIndex{
 		BlockIndex: bl,
 	}
-	if bl.PPrev == nil {
+	if bl.Prev == nil {
 		dbi.hashPrev = utils.HashZero
 	} else {
-		dbi.hashPrev = *bl.PPrev.GetBlockHash()
+		dbi.hashPrev = *bl.Prev.GetBlockHash()
 	}
 	return nil
 }

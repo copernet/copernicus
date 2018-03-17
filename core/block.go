@@ -10,20 +10,20 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-var EmptyByte = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+var emptyByte = bytes.Repeat([]byte{0}, 32)
 
 type Block struct {
-	Raw          []byte
-	Hash         utils.Hash
-	BlockHeader  BlockHeader
-	Height       int32
-	Transactions []*Tx
-	TxNum        uint32
-	Size         uint32
-	TotalBTC     uint64
-	BlockReward  float64
-	NextBlock    utils.Hash
-	FChecked     bool
+	Raw         []byte
+	Hash        utils.Hash // todo repeated item, can get by BlockHeader.BlockHash
+	BlockHeader BlockHeader
+	Height      int32
+	Txs         []*Tx
+	TxNum       uint32
+	Size        uint32
+	TotalBTC    uint64
+	BlockReward float64
+	NextBlock   utils.Hash
+	Checked     bool
 }
 
 func ParseBlock(raw []byte) (block *Block, err error) {
@@ -31,10 +31,10 @@ func ParseBlock(raw []byte) (block *Block, err error) {
 	block.Raw = raw
 	block.Hash = crypto.DoubleSha256Hash(raw[:80])
 	block.BlockHeader.Version = int32(binary.LittleEndian.Uint32(raw[0:4]))
-	if !bytes.Equal(raw[4:36], EmptyByte) {
-		block.BlockHeader.HashMerkleRoot = crypto.DoubleSha256Hash(raw[4:36])
+	if !bytes.Equal(raw[4:36], emptyByte) {
+		block.BlockHeader.MerkleRoot = crypto.DoubleSha256Hash(raw[4:36])
 	}
-	block.BlockHeader.HashMerkleRoot = crypto.DoubleSha256Hash(raw[36:68])
+	block.BlockHeader.MerkleRoot = crypto.DoubleSha256Hash(raw[36:68])
 	//block.BlockTime = binary.LittleEndian.Uint32(txRaw[68:72])
 	block.BlockHeader.Bits = binary.LittleEndian.Uint32(raw[72:76])
 	block.BlockHeader.Nonce = binary.LittleEndian.Uint32(raw[76:80])
@@ -50,17 +50,17 @@ func (bl *Block) GetBlockHeader() BlockHeader {
 
 func (bl *Block) SetNull() {
 	bl.BlockHeader.SetNull()
-	bl.Transactions = nil
+	bl.Txs = nil
 	bl.Hash = utils.HashZero
-	bl.FChecked = false
+	bl.Checked = false
 }
 
 func (bl *Block) Serialize(w io.Writer) error {
 	if err := bl.BlockHeader.Serialize(w); err != nil {
 		return err
 	}
-	for _, v := range bl.Transactions {
-		if err := v.Serialize(w); err != nil {
+	for _, tx := range bl.Txs {
+		if err := tx.Serialize(w); err != nil {
 			return err
 		}
 	}
@@ -72,7 +72,7 @@ func (bl *Block) Deserialize(r io.Reader) error {
 	bl.BlockHeader.Deserialize(r)
 	for i := uint32(0); i < bl.TxNum; i++ {
 		if tx, err := DeserializeTx(r); err != nil {
-			bl.Transactions = append(bl.Transactions, tx)
+			bl.Txs = append(bl.Txs, tx)
 			return err
 		}
 	}
@@ -86,7 +86,7 @@ func (bl *Block) Deserialize(r io.Reader) error {
 
 func (bl *Block) SerializeSize() int {
 	size := int(unsafe.Sizeof(BlockHeader{}))
-	for _, tx := range bl.Transactions {
+	for _, tx := range bl.Txs {
 		size += tx.SerializeSize()
 	}
 	return size
