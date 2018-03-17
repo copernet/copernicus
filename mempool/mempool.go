@@ -90,7 +90,7 @@ type Mempool struct {
 	Mtx                         sync.RWMutex
 }
 
-func (mempool *Mempool) RemoveRecursive(origTx *core.Tx, reason int) {
+func (mempool *Mempool) RemoveRecursive(origTx *core.Tx, reason PoolRemovalReason) {
 	mempool.Mtx.Lock()
 	defer mempool.Mtx.Unlock()
 	txToRemove := set.New()
@@ -158,7 +158,7 @@ func (mempool *Mempool) CalculateDescendants(txEntry *TxMempoolEntry, setDescend
 // this transaction is being removed for being in a block. Set
 // updateDescendants to true when removing a tx that was in a block, so that
 // any in-mempool descendants have their ancestor state updated.
-func (mempool *Mempool) RemoveStaged(stage *set.Set, updateDescendants bool, reason int) {
+func (mempool *Mempool) RemoveStaged(stage *set.Set, updateDescendants bool, reason PoolRemovalReason) {
 	mempool.UpdateForRemoveFromMempool(stage, updateDescendants)
 	stage.Each(func(item interface{}) bool {
 		tmpTxMempoolEntryPtr := item.(*TxMempoolEntry)
@@ -302,7 +302,7 @@ func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
  * transaction that is removed, so we can't remove intermediate transactions
  * in a chain before we've updated all the state for the removal.
  */
-func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason int) {
+func (mempool *Mempool) removeUnchecked(entry *TxMempoolEntry, reason PoolRemovalReason) {
 	//todo: add signal/slot In where for passed entry
 	for _, txin := range entry.TxRef.Ins {
 		mempool.MapNextTx.Del(refOutPoint{txin.PreviousOutPoint.Hash, txin.PreviousOutPoint.Index})

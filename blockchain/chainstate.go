@@ -40,6 +40,7 @@ var (
 	GCoinsTip         *utxo.CoinsViewCache
 	GBlockTree        *BlockTreeDB
 	GMinRelayTxFee    utils.FeeRate
+	Pool              *mempool.TxMempool
 	GfReindex         = false
 	GnCoinCacheUsage  = 5000 * 300
 	GWarningCache     []ThresholdConditionCache

@@ -6,6 +6,7 @@ import (
 	"time"
 	"unsafe"
 
+	"btree"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -18,23 +19,38 @@ type TxEntry struct {
 	txFee     int64
 	txFeeRate utils.FeeRate
 	// sumTxCount is this tx and all Descendants transaction's number.
-	sumTxCount uint64
+	sumTxCountWithDescendants uint64
 	// sumFee is calculated by this tx and all Descendants transaction;
-	sumFee int64
+	sumFeeWithDescendants int64
 	// sumSize size calculated by this tx and all Descendants transaction;
-	sumSize uint64
+	sumSizeWithDescendants     uint64
+	sumTxCountWithAncestors    uint64
+	sumSizeWitAncestors        uint64
+	sumSigOpCountWithAncestors uint64
 	// time Local time when entering the mempool
 	time int64
 	// usageSize and total memory usage
 	usageSize int64
 	// childTx the tx's all Descendants transaction
 	childTx map[*TxEntry]struct{}
-	// childTx the tx's all Ancestors transaction
+	// parentTx the tx's all Ancestors transaction
 	parentTx map[*TxEntry]struct{}
+	//lp Track the height and time at which tx was final
+	lp core.LockPoints
+	//spendsCoinbase keep track of transactions that spend a coinbase
+	spendsCoinbase bool
 }
 
-func (t *TxEntry) Less(c *TxEntry) bool {
-	return t.txFeeRate.Less(c.txFeeRate)
+func (t *TxEntry) GetTxFromTxEntry() *core.Tx {
+	return t.tx
+}
+
+func (t *TxEntry) SetLockPointFromTxEntry(lp core.LockPoints) {
+	t.lp = lp
+}
+
+func (t *TxEntry) GetLockPointFromTxEntry() core.LockPoints {
+	return t.lp
 }
 
 func (t *TxEntry) UpdateForDescendants(addTx *TxEntry) {
@@ -45,6 +61,10 @@ func (t *TxEntry) UpdateEntryForAncestors() {
 
 }
 
+func (t *TxEntry) GetSpendsCoinbase() bool {
+	return t.spendsCoinbase
+}
+
 //UpdateParent update the tx's parent transaction.
 func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
 	if add {
@@ -53,21 +73,24 @@ func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
 	delete(t.parentTx, parent)
 }
 
+func (t *TxEntry) Less(than btree.Item) bool {
+	return t.time < than.(*TxEntry).time
+}
+
 func NewTxentry(tx *core.Tx, txFee int64) *TxEntry {
 	t := new(TxEntry)
 	t.tx = tx
 	t.time = time.Now().Unix()
 	t.txSize = tx.SerializeSize()
-	t.sumSize = uint64(t.txSize)
+	t.sumSizeWithDescendants = uint64(t.txSize)
 	t.txFee = txFee
 	t.txFeeRate = utils.NewFeeRateWithSize(txFee, t.txSize)
 	t.usageSize = int64(t.txSize) + int64(unsafe.Sizeof(t.txSize)*2+
-		unsafe.Sizeof(t.sumTxCount)*4+unsafe.Sizeof(t.txFeeRate))
+		unsafe.Sizeof(t.sumTxCountWithDescendants)*4+unsafe.Sizeof(t.txFeeRate))
 	t.parentTx = make(map[*TxEntry]struct{})
 	t.childTx = make(map[*TxEntry]struct{})
-	t.sumFee += txFee
-	t.sumSize += uint64(t.txSize)
-	t.sumTxCount++
+	t.sumFeeWithDescendants += txFee
+	t.sumTxCountWithDescendants++
 
 	return t
 }

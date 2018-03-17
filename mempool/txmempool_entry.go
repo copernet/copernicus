@@ -38,7 +38,7 @@ type TxMempoolEntry struct {
 	SigOpCount        int64
 	FeeDelta          int64
 
-	LockPoints *LockPoints
+	LockPoints *core.LockPoints
 	// Information about descendants of this transaction that are in the
 	// mempool; if we remove this transaction we must remove all of these
 	// descendants as well.  if nCountWithDescendants is 0, treat this entry as
@@ -80,7 +80,7 @@ func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
 	return result
 }
 
-func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *LockPoints) {
+func (txMempoolEntry *TxMempoolEntry) UpdateLockPoints(lockPoint *core.LockPoints) {
 	txMempoolEntry.LockPoints = lockPoint
 }
 
@@ -243,7 +243,7 @@ func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
 }
 func NewTxMempoolEntry(txRef *core.Tx, fee utils.Amount, time int64,
 	entryPriority float64, entryHeight uint, inChainInputValue utils.Amount, spendCoinbase bool,
-	sigOpsCount int64, lockPoints *LockPoints) *TxMempoolEntry {
+	sigOpsCount int64, lockPoints *core.LockPoints) *TxMempoolEntry {
 	txMempoolEntry := TxMempoolEntry{}
 
 	txMempoolEntry.TxRef = txRef
