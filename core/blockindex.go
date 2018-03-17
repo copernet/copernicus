@@ -85,7 +85,7 @@ func (blIndex *BlockIndex) SetNull() {
 
 func (blIndex *BlockIndex) GetBlockPos() DiskBlockPos {
 	var ret DiskBlockPos
-	if (blIndex.Status & BLOCK_HAVE_DATA) != 0 {
+	if (blIndex.Status & BlockHaveData) != 0 {
 		ret.File = blIndex.File
 		ret.Pos = blIndex.DataPos
 	}
@@ -95,7 +95,7 @@ func (blIndex *BlockIndex) GetBlockPos() DiskBlockPos {
 
 func (blIndex *BlockIndex) GetUndoPos() DiskBlockPos {
 	var ret DiskBlockPos
-	if (blIndex.Status & BLOCK_HAVE_UNDO) != 0 {
+	if (blIndex.Status & BlockHaveUndo) != 0 {
 		ret.File = blIndex.File
 		ret.Pos = blIndex.UndoPos
 	}
@@ -149,27 +149,27 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 // level.
 func (blIndex *BlockIndex) IsValid(upto uint32) bool {
 	//Only validity flags allowed.
-	if upto&(^BLOCK_VALID_MASK) != 0 {
+	if upto&(^BlockValidMask) != 0 {
 		panic("Only validity flags allowed.")
 	}
-	if (blIndex.Status & BLOCK_VALID_MASK) != 0 {
+	if (blIndex.Status & BlockValidMask) != 0 {
 		return false
 	}
-	return (blIndex.Status & BLOCK_VALID_MASK) >= upto
+	return (blIndex.Status & BlockValidMask) >= upto
 }
 
 //RaiseValidity Raise the validity level of this block index entry.
 //Returns true if the validity was changed.
 func (blIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 	//Only validity flags allowed.
-	if upto&(^BLOCK_VALID_MASK) != 0 {
+	if upto&(^BlockValidMask) != 0 {
 		panic("Only validity flags allowed.")
 	}
-	if blIndex.Status&BLOCK_VALID_MASK != 0 {
+	if blIndex.Status&BlockValidMask != 0 {
 		return false
 	}
-	if (blIndex.Status & BLOCK_VALID_MASK) < upto {
-		blIndex.Status = (blIndex.Status & (^BLOCK_VALID_MASK)) | upto
+	if (blIndex.Status & BlockValidMask) < upto {
+		blIndex.Status = (blIndex.Status & (^BlockValidMask)) | upto
 		return true
 	}
 	return false
