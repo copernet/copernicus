@@ -9,37 +9,37 @@ import (
 
 func TestParseBlockchain(t *testing.T) {
 	path := os.TempDir()
-	err := creatFile(path, uint32(0))
+	err := createFile(path, uint32(0))
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	var magic = [4]byte{1, 0, 0, 0}
-	testBlcokChain, err := ParseBlockchain(path, magic)
+	testBlockChain, err := ParseBlockchain(path, magic)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer testBlcokChain.CurrentFile.Close()
+	defer testBlockChain.CurrentFile.Close()
 
-	if testBlcokChain.CurrentFile == nil {
+	if testBlockChain.CurrentFile == nil {
 		t.Error("The file Not Open")
 	}
-	if !bytes.Equal(testBlcokChain.Magic[:], magic[:]) {
+	if !bytes.Equal(testBlockChain.Magic[:], magic[:]) {
 		t.Errorf("ParseBlockchain() assignment magic data %v"+
-			"should be equal the origin magic data %v", testBlcokChain.Magic, magic)
+			"should be equal the origin magic data %v", testBlockChain.Magic, magic)
 	}
 }
 
-func creatFile(path string, id uint32) error {
+func createFile(path string, id uint32) error {
 	file, err := os.Create(blkFileName(path, id))
 	defer file.Close()
 	return err
 }
 
-func creatNextFile(block *BlockChain) error {
-	err := creatFile(block.Path, block.CurrentID+1)
+func createNextFile(block *BlockChain) error {
+	err := createFile(block.Path, block.CurrentID+1)
 	return err
 }
 
@@ -64,43 +64,43 @@ func WriteContentInFile(blockChain *BlockChain) error {
 	return err
 }
 
-func creatBlockChiain() (*BlockChain, error) {
+func createBlockChiain() (*BlockChain, error) {
 	path := os.TempDir()
 	var magic = [4]byte{1, 0, 0, 0}
-	testBlcokChain, err := ParseBlockchain(path, magic)
+	testBlockChain, err := ParseBlockchain(path, magic)
 	if err != nil {
 		return nil, err
 	}
-	return testBlcokChain, nil
+	return testBlockChain, nil
 }
 
 func TestBlockChainFetchNextBlock(t *testing.T) {
-	testBlcokChain, err := creatBlockChiain()
+	testBlockChain, err := createBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	testBlcokChain.CurrentFile.Close()
+	testBlockChain.CurrentFile.Close()
 
-	testBlcokChain.CurrentFile, err = os.OpenFile(blkFileName(testBlcokChain.Path, testBlcokChain.CurrentID), os.O_RDWR, 0666)
+	testBlockChain.CurrentFile, err = os.OpenFile(blkFileName(testBlockChain.Path, testBlockChain.CurrentID), os.O_RDWR, 0666)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer testBlcokChain.CurrentFile.Close()
+	defer testBlockChain.CurrentFile.Close()
 
-	err = WriteContentInFile(testBlcokChain)
+	err = WriteContentInFile(testBlockChain)
 	if err != nil {
 		return
 	}
 
-	_, err = testBlcokChain.CurrentFile.Seek(0, 0)
+	_, err = testBlockChain.CurrentFile.Seek(0, 0)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	newBlockHead, err := testBlcokChain.FetchNextBlock()
+	newBlockHead, err := testBlockChain.FetchNextBlock()
 	if err != nil {
 		t.Error(err)
 		return
@@ -113,13 +113,13 @@ func TestBlockChainFetchNextBlock(t *testing.T) {
 }
 
 func TestBlockChainSkipTo(t *testing.T) {
-	testBlockChain, err := creatBlockChiain()
+	testBlockChain, err := createBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	testBlockChain.CurrentFile.Close()
-	err = creatNextFile(testBlockChain)
+	err = createNextFile(testBlockChain)
 	if err != nil {
 		t.Error(err)
 		return
@@ -132,7 +132,7 @@ func TestBlockChainSkipTo(t *testing.T) {
 }
 
 func WriteNextFile() error {
-	testBlockChain, err := creatBlockChiain()
+	testBlockChain, err := createBlockChiain()
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func TestBlockChainNextBlock(t *testing.T) {
 		return
 	}
 
-	testBlockChain, err := creatBlockChiain()
+	testBlockChain, err := createBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
@@ -174,7 +174,7 @@ func TestBlockChainNextBlock(t *testing.T) {
 }
 
 func TestBlockChainBestBlockHash(t *testing.T) {
-	testBlcokChain, err := creatBlockChiain()
+	testBlockChain, err := createBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return
@@ -185,27 +185,27 @@ func TestBlockChainBestBlockHash(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	testBlcokChain.LastBlock = blockTmp
+	testBlockChain.LastBlock = blockTmp
 
-	hash, height, err := testBlcokChain.BestBlockHash()
+	hash, height, err := testBlockChain.BestBlockHash()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if !bytes.Equal(hash[:], testBlcokChain.LastBlock.Hash[:]) {
+	if !bytes.Equal(hash[:], testBlockChain.LastBlock.Hash[:]) {
 		t.Errorf("BestBlockHash() return the hash %v "+
-			"should be eqaul origin hash data %v", hash, testBlcokChain.LastBlock.Hash)
+			"should be eqaul origin hash data %v", hash, testBlockChain.LastBlock.Hash)
 	}
-	if testBlcokChain.LastBlock.Height != height {
+	if testBlockChain.LastBlock.Height != height {
 		t.Errorf("BestBlockHash() return the height %d"+
-			"should be equal origin height %d", height, testBlcokChain.LastBlock.Height)
+			"should be equal origin height %d", height, testBlockChain.LastBlock.Height)
 	}
 
 }
 
 func TestBlockChainSkipBlock(t *testing.T) {
-	testBlockChain, err := creatBlockChiain()
+	testBlockChain, err := createBlockChiain()
 	if err != nil {
 		t.Error(err)
 		return

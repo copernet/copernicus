@@ -19,16 +19,17 @@ type BlockChain struct {
 	Lock        sync.Mutex
 }
 
-func ParseBlockchain(path string, magic [4]byte) (bc *BlockChain, err error) {
+func ParseBlockchain(path string, magic [4]byte) (*BlockChain, error) {
+	bc := BlockChain{}
 	bc.Path = path
 	bc.Magic = magic
 	bc.CurrentID = 0
 	f, err := os.Open(blkFileName(path, 0))
 	if err != nil {
-		return
+		return &bc, err
 	}
 	bc.CurrentFile = f
-	return
+	return &bc, nil
 }
 func (bc *BlockChain) NextBlock() (*Block, error) {
 	rawBlock, err := bc.FetchNextBlock()
@@ -84,24 +85,36 @@ func (bc *BlockChain) FetchNextBlock() (raw []byte, err error) {
 	return
 }
 
-func (blockChain *BlockChain) SkipTo(blkID uint32, offset int64) (err error) {
+func (bc *BlockChain) SkipTo(blkID uint32, offset int64) (err error) {
 
-	blockChain.CurrentID = blkID
-	f, err := os.Open(blkFileName(blockChain.Path, blkID))
+	bc.CurrentID = blkID
+	f, err := os.Open(blkFileName(bc.Path, blkID))
 	if err != nil {
 		return
 	}
 
-	if blockChain.CurrentFile != nil {
-		blockChain.CurrentFile.Close()
+	if bc.CurrentFile != nil {
+		bc.CurrentFile.Close()
 	}
-	blockChain.CurrentFile = f
-	_, err = blockChain.CurrentFile.Seek(offset, 0)
+	bc.CurrentFile = f
+	_, err = bc.CurrentFile.Seek(offset, 0)
 	return
 }
 
+func (bc *BlockChain) BestBlockHash() (utils.Hash, int32, error) {
+	bc.Lock.Lock()
+	defer bc.Lock.Unlock()
+	return bc.LastBlock.Hash, bc.LastBlock.Height, nil
+
+}
+
+func (bc *BlockChain) FetchBlockByHash(hash *utils.Hash) *Block {
+	// todo complete
+	return nil
+}
+
 func blkFileName(path string, id uint32) string {
-	return fmt.Sprintf("%s/blk%05.dat", path, id)
+	return fmt.Sprintf("%s/blk%05d.dat", path, id)
 }
 
 func blkSize(buf []byte) (size uint64) {
@@ -110,14 +123,4 @@ func blkSize(buf []byte) (size uint64) {
 		size |= (uint64(buf[i]) << uint(i*8))
 	}
 	return
-}
-func (blockChain *BlockChain) BestBlockHash() (utils.Hash, int32, error) {
-	blockChain.Lock.Lock()
-	defer blockChain.Lock.Unlock()
-	return blockChain.LastBlock.Hash, blockChain.LastBlock.Height, nil
-
-}
-
-func (blockChain *BlockChain) FetchBlockByHash(hash *utils.Hash) *Block {
-	return nil
 }

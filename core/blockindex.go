@@ -11,7 +11,7 @@ import (
 /**
  * The block chain is a tree shaped structure starting with the genesis block at
  * the root, with each block potentially having multiple candidates to be the
- * next block. A blockindex may have multiple pprev pointing to it, but at most
+ * next block. A blockindex may have multiple prev pointing to it, but at most
  * one of them can be part of the currently active branch.
  */
 
@@ -48,13 +48,13 @@ type BlockIndex struct {
 	// block header
 	Version    int32
 	MerkleRoot utils.Hash
-	TimeStamp  uint32
+	Time       uint32
 	Bits       uint32
 	Nonce      uint32
 	//! (memory only) Sequential id assigned to distinguish order in which
 	//! blocks are received.
 	SequenceID int32
-	//! (memory only) Maximum nTime in the chain upto and including this block.
+	//! (memory only) Maximum time in the chain upto and including this block.
 	TimeMax uint32
 }
 
@@ -78,9 +78,13 @@ func (blIndex *BlockIndex) SetNull() {
 	blIndex.TimeMax = 0
 
 	blIndex.Version = 0
-	blIndex.TimeStamp = 0
+	blIndex.Time = 0
 	blIndex.Bits = 0
 	blIndex.Nonce = 0
+}
+
+func (blIndex *BlockIndex) AddToBlockIndex() {
+
 }
 
 func (blIndex *BlockIndex) GetBlockPos() DiskBlockPos {
@@ -110,7 +114,7 @@ func (blIndex *BlockIndex) GetBlockHeader() BlockHeader {
 		bl.HashPrevBlock = *blIndex.Prev.GetBlockHash()
 	}
 	bl.MerkleRoot = blIndex.MerkleRoot
-	bl.TimeStamp = blIndex.TimeStamp
+	bl.Time = blIndex.Time
 	bl.Bits = blIndex.Bits
 	bl.Nonce = blIndex.Nonce
 	return bl
@@ -121,7 +125,7 @@ func (blIndex *BlockIndex) GetBlockHash() *utils.Hash {
 }
 
 func (blIndex *BlockIndex) GetBlockTime() uint32 {
-	return blIndex.TimeStamp
+	return blIndex.Time
 }
 
 func (blIndex *BlockIndex) GetBlockTimeMax() uint32 {
@@ -145,7 +149,7 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 	return median[numNodes/2]
 }
 
-// Check whether this block index entry is valid up to the passed validity
+// IsValid checks whether this block index entry is valid up to the passed validity
 // level.
 func (blIndex *BlockIndex) IsValid(upto uint32) bool {
 	//Only validity flags allowed.
@@ -239,7 +243,7 @@ func NewBlockIndex(blkHeader *BlockHeader) *BlockIndex {
 	blockIndex.SetNull()
 	blockIndex.Version = blkHeader.Version
 	blockIndex.MerkleRoot = blkHeader.MerkleRoot
-	blockIndex.TimeStamp = blkHeader.TimeStamp
+	blockIndex.Time = blkHeader.Time
 	blockIndex.Bits = blkHeader.Bits
 	blockIndex.Nonce = blkHeader.Nonce
 	return blockIndex

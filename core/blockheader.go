@@ -14,7 +14,7 @@ type BlockHeader struct {
 	Version       int32
 	HashPrevBlock utils.Hash
 	MerkleRoot    utils.Hash
-	TimeStamp     uint32
+	Time          uint32
 	Bits          uint32
 	Nonce         uint32
 }
@@ -32,7 +32,7 @@ func (bh *BlockHeader) IsNull() bool {
 }
 
 func (bh *BlockHeader) GetBlockTime() uint32 {
-	return bh.TimeStamp
+	return bh.Time
 }
 
 func (bh *BlockHeader) GetHash() (utils.Hash, error) {
@@ -43,7 +43,7 @@ func (bh *BlockHeader) GetHash() (utils.Hash, error) {
 
 func (bh *BlockHeader) SetNull() {
 	bh.Version = 0
-	bh.TimeStamp = 0
+	bh.Time = 0
 	bh.Bits = 0
 	bh.Nonce = 0
 }
@@ -58,7 +58,7 @@ func (bh *BlockHeader) Serialize(writer io.Writer) (err error) {
 	if _, err = writer.Write(bh.MerkleRoot.GetCloneBytes()); err != nil {
 		return
 	}
-	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.TimeStamp); err != nil {
+	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Time); err != nil {
 		return
 	}
 	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Bits); err != nil {
@@ -77,7 +77,7 @@ func (bh *BlockHeader) Deserialize(r io.Reader) (err error) {
 	if _, err = io.ReadFull(r, bh.MerkleRoot[:]); err != nil {
 		return
 	}
-	if bh.TimeStamp, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
+	if bh.Time, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
 		return
 	}
 	if bh.Bits, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
@@ -96,5 +96,5 @@ func (bh *BlockHeader) ToString() string {
 	}
 	return fmt.Sprintf("Block version : %d, hashPrevBlock : %s, hashMerkleRoot : %s,"+
 		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock.ToString(),
-		bh.MerkleRoot.ToString(), bh.TimeStamp, bh.Bits, bh.Nonce, hash.ToString())
+		bh.MerkleRoot.ToString(), bh.Time, bh.Bits, bh.Nonce, hash.ToString())
 }

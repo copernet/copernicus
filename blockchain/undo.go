@@ -132,16 +132,16 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 
 func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, cache *utxo.CoinsViewCache) DisconnectResult {
 	clean := true
-	if len(undo.txundo)+1 != len(block.Transactions) {
+	if len(undo.txundo)+1 != len(block.Txs) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
 		return DisconnectFailed
 	}
 
 	// Undo transactions in reverse order.
-	i := len(block.Transactions)
+	i := len(block.Txs)
 	for i > 0 {
 		i--
-		tx := block.Transactions[i]
+		tx := block.Txs[i]
 		txid := tx.Hash
 
 		// Check that all outputs are available and match the outputs in the

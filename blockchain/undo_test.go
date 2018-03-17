@@ -38,12 +38,14 @@ func (coinsViewTest *CoinsViewTest) BatchWrite(cacheCoins utxo.CacheCoins, hashB
 	return true
 }
 
-func UpdateUTXOSet(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, param *msg.BitcoinParams, height int) {
-	coinbaseTx := block.Transactions[0]
+func UpdateUTXOSet(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUndo,
+	param *msg.BitcoinParams, height int) {
+
+	coinbaseTx := block.Txs[0]
 	UpdateCoins(coinbaseTx, cache, nil, height)
 
-	for i := 1; i < len(block.Transactions); i++ {
-		tx := block.Transactions[1]
+	for i := 1; i < len(block.Txs); i++ {
+		tx := block.Txs[1]
 
 		tmp := newTxUndo()
 		undo.txundo = append(undo.txundo, tmp)
@@ -54,7 +56,9 @@ func UpdateUTXOSet(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUnd
 
 }
 
-func UndoBlock(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUndo, params *msg.BitcoinParams, height int) {
+func UndoBlock(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUndo,
+	params *msg.BitcoinParams, height int) {
+
 	header := core.NewBlockHeader()
 	index := core.NewBlockIndex(header)
 	index.Height = height
@@ -80,7 +84,8 @@ func copyTx(tx *core.Tx) *core.Tx {
 			result.Ins[i] = in
 			continue
 		}
-		in = core.NewTxIn(core.NewOutPoint(tx.Ins[i].PreviousOutPoint.Hash, tx.Ins[i].PreviousOutPoint.Index), tx.Ins[i].Script.GetScriptByte())
+		in = core.NewTxIn(core.NewOutPoint(tx.Ins[i].PreviousOutPoint.Hash,
+			tx.Ins[i].PreviousOutPoint.Index), tx.Ins[i].Script.GetScriptByte())
 		in.Sequence = tx.Ins[i].Sequence
 		in.SigOpCount = tx.Ins[i].SigOpCount
 		result.Ins[i] = in
@@ -127,8 +132,8 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	coinbaseTx := copyTx(tx)
 
-	block.Transactions = make([]*core.Tx, 2)
-	block.Transactions[0] = copyTx(tx)
+	block.Txs = make([]*core.Tx, 2)
+	block.Txs[0] = copyTx(tx)
 
 	tx.Outs[0].Script = core.NewScriptRaw([]byte{core.OP_TRUE})
 	tx.Ins[0].PreviousOutPoint = core.NewOutPoint(*utils.GetRandHash(), 0)
@@ -145,7 +150,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	tx.Hash = GetID(tx)
 	tx0 := copyTx(tx)
-	block.Transactions[1] = tx0
+	block.Txs[1] = tx0
 
 	buf := bytes.NewBuffer(nil)
 	block.Serialize(buf)

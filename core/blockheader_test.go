@@ -38,7 +38,7 @@ func TestBlockHeaderGetHash(t *testing.T) {
 	blHe.Version = 1
 	blHe.HashPrevBlock = mainNetGenesisHash
 	blHe.MerkleRoot = mainNetGenesisMerkleRoot
-	blHe.TimeStamp = 1231469665
+	blHe.Time = 1231469665
 	blHe.Bits = 0x1d00ffff
 	blHe.Nonce = 2573394689
 
@@ -51,15 +51,17 @@ func TestBlockHeaderGetHash(t *testing.T) {
 		return
 	}
 	if !bytes.Equal(tmpBlk.HashPrevBlock[:], blHe.HashPrevBlock[:]) {
-		t.Errorf("Deserialize late preHash : %s, expect preHash : %s", tmpBlk.HashPrevBlock.ToString(), blHe.HashPrevBlock.ToString())
+		t.Errorf("Deserialize late preHash : %s, expect preHash : %s",
+			tmpBlk.HashPrevBlock.ToString(), blHe.HashPrevBlock.ToString())
 		return
 	}
 	if !bytes.Equal(tmpBlk.MerkleRoot[:], blHe.MerkleRoot[:]) {
-		t.Errorf("Deserialize late merkleRoot : %s, expect merkleRoot : %s", tmpBlk.MerkleRoot.ToString(), blHe.HashMerkleRoot.ToString())
+		t.Errorf("Deserialize late merkleRoot : %s, expect merkleRoot : %s",
+			tmpBlk.MerkleRoot.ToString(), blHe.MerkleRoot.ToString())
 		return
 	}
-	if tmpBlk.TimeStamp != blHe.TimeStamp {
-		t.Errorf("Deserialize late Time : %d, expect Time : %d", tmpBlk.TimeStamp, blHe.TimeStamp)
+	if tmpBlk.Time != blHe.Time {
+		t.Errorf("Deserialize late Time : %d, expect Time : %d", tmpBlk.Time, blHe.Time)
 		return
 	}
 	if tmpBlk.Bits != blHe.Bits {

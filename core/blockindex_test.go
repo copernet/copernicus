@@ -85,20 +85,20 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 		vBlocksMain[i].BuildSkip()
 		if i < 10 {
 			vBlocksMain[i].TimeMax = uint32(i)
-			vBlocksMain[i].TimeStamp = uint32(i)
+			vBlocksMain[i].Time = uint32(i)
 		} else {
 			// randomly choose something in the range [MTP, MTP*2]
 			medianTimePast := uint32(vBlocksMain[i].GetMedianTimePast())
 			r := tmpRand.Rand32() % medianTimePast
-			vBlocksMain[i].TimeStamp = r + medianTimePast
-			vBlocksMain[i].TimeMax = uint32(math.Max(float64(vBlocksMain[i].TimeStamp), float64(vBlocksMain[i-1].TimeMax)))
+			vBlocksMain[i].Time = r + medianTimePast
+			vBlocksMain[i].TimeMax = uint32(math.Max(float64(vBlocksMain[i].Time), float64(vBlocksMain[i-1].TimeMax)))
 		}
 	}
 
 	//Check that we set nTimeMax up correctly.
 	curTimeMax := uint32(0)
 	for i := 0; i < len(vBlocksMain); i++ {
-		curTimeMax = uint32(math.Max(float64(curTimeMax), float64(vBlocksMain[i].TimeStamp)))
+		curTimeMax = uint32(math.Max(float64(curTimeMax), float64(vBlocksMain[i].Time)))
 		if curTimeMax != vBlocksMain[i].TimeMax {
 			t.Errorf("the two element should be equal, left value : %d, right value : %d",
 				curTimeMax, vBlocksMain[i].TimeMax)
@@ -111,13 +111,13 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 	chain.SetTip(&vBlocksMain[len(vBlocksMain)-1])
 
 	// Verify that FindEarliestAtLeast is correct
-	for _, v := range chain.VChain {
+	for _, v := range chain.Chain {
 		_ = v.Height
 	}
 	for i := 0; i < len(vBlocksMain); i++ {
 		// Pick a random element in vBlocksMain.
 		r := tmpRand.Rand32() % uint32(len(vBlocksMain))
-		testTime := vBlocksMain[r].TimeStamp
+		testTime := vBlocksMain[r].Time
 		ret := chain.FindEarliestAtLeast(int64(testTime))
 		if ret == nil {
 			continue

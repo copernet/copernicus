@@ -27,6 +27,7 @@ type Block struct {
 }
 
 func ParseBlock(raw []byte) (block *Block, err error) {
+	block = new(Block)
 	block.Raw = raw
 	block.Hash = crypto.DoubleSha256Hash(raw[:80])
 	block.BlockHeader.Version = int32(binary.LittleEndian.Uint32(raw[0:4]))
@@ -38,7 +39,7 @@ func ParseBlock(raw []byte) (block *Block, err error) {
 	block.BlockHeader.Bits = binary.LittleEndian.Uint32(raw[72:76])
 	block.BlockHeader.Nonce = binary.LittleEndian.Uint32(raw[76:80])
 	block.Size = uint32(len(raw))
-	//txs, _ := ParseTransaction(txRaw[80:])		// todo why not
+	//txs, _ := ParseTranscation(txRaw[80:])
 	//block.Transactions = txs
 	return
 }

@@ -205,7 +205,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockInde
 					if vc.Condition(indexCount, params) {
 						count++
 					}
-					indexCount = indexCount.PPrev
+					indexCount = indexCount.Prev
 				}
 				if count >= nThreshold {
 					stateNext = ThresholdLockedIn
@@ -290,7 +290,7 @@ func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *
 
 	return int64(index.Version)&VersionBitsTopMask == VersionBitsTopBits &&
 		((index.Version)>>uint(w.bit))&1 != 0 &&
-		(ComputeBlockVersion(index.PPrev, params, GVersionBitsCache)>>uint(w.bit))&1 == 0
+		(ComputeBlockVersion(index.Prev, params, GVersionBitsCache)>>uint(w.bit))&1 == 0
 }
 
 func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
