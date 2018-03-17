@@ -156,7 +156,7 @@ func ShutdownRequested() bool {
 type FlushStateMode int
 
 const (
-	FlushStateNone     FlushStateMode = iota
+	FlushStateNone FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -4174,7 +4174,7 @@ func GetScriptCacheKey(tx *core.Tx, flags uint32) *utils.Hash {
 
 	b := make([]byte, 0)
 
-	b = append(b, core.ScriptExecutionCacheNonce[:(55 - unsafe.Sizeof(flags) - 32)]...)
+	b = append(b, core.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
 
 	txHash := tx.TxHash()
 	b = append(b, txHash[:]...)

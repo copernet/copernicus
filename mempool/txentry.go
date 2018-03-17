@@ -1,13 +1,12 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/core"
-
 	"time"
 	"unsafe"
 
-	"btree"
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/google/btree"
 )
 
 //TxEntry are not safe for concurrent write and read access .
