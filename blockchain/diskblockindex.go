@@ -27,19 +27,19 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if diskBlockIndex.Status&(core.BLOCK_HAVE_DATA|core.BLOCK_HAVE_UNDO) != 0 {
+	if diskBlockIndex.Status&(core.BlockHaveData|core.BlockHaveUndo) != 0 {
 		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.File))
 		if err != nil {
 			return err
 		}
 	}
-	if diskBlockIndex.Status&core.BLOCK_HAVE_DATA != 0 {
+	if diskBlockIndex.Status&core.BlockHaveData != 0 {
 		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.DataPosition))
 		if err != nil {
 			return err
 		}
 	}
-	if diskBlockIndex.Status&core.BLOCK_HAVE_UNDO != 0 {
+	if diskBlockIndex.Status&core.BlockHaveUndo != 0 {
 		err = utils.WriteVarInt(writer, uint64(diskBlockIndex.UndoPosition))
 		if err != nil {
 			return err

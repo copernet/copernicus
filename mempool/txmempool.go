@@ -3,12 +3,12 @@ package mempool
 import (
 	"sync"
 
-	"btree"
 	"fmt"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
+	"github.com/google/btree"
 	"math"
 )
 

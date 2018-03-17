@@ -3,20 +3,20 @@ package core
 import "fmt"
 
 const (
-	REJECT_MALFORMED       byte = 0x01
-	REJECT_INVALID              = 0x10
-	REJECT_OBSOLETE             = 0x11
-	REJECT_DUPLICATE            = 0x12
-	REJECT_NONSTANDARD          = 0x40
-	REJECT_DUST                 = 0x41
-	REJECT_INSUFFICIENTFEE      = 0x42
-	REJECT_CHECKPOINT           = 0x43
+	RejectMalformed       byte = 0x01
+	RejectInvalid              = 0x10
+	RejectObsolete             = 0x11
+	RejectDuplicate            = 0x12
+	RejectNonStandard          = 0x40
+	RejectDust                 = 0x41
+	RejectInsufficientFee      = 0x42
+	RejectCheckPoint           = 0x43
 )
 
 const (
-	MODE_VALID   = iota // everything ok
-	MODE_INVALID        // network rule violation (DoS value may be set)
-	MODE_ERROR          // run-time error
+	ModeValid   = iota // everything ok
+	ModeInvalid        // network rule violation (DoS value may be set)
+	ModeError          // run-time error
 )
 
 type ValidationState struct {
@@ -33,11 +33,11 @@ func (vs *ValidationState) Dos(lvl int, ret bool, rejectCode uint, rejectReason 
 	vs.rejectReason = rejectReason
 	vs.corruptionPossible = corruption
 	vs.debugMessage = dbgMsg
-	if vs.mode == MODE_ERROR {
+	if vs.mode == ModeError {
 		return ret
 	}
 	vs.dos += lvl
-	vs.mode = MODE_INVALID
+	vs.mode = ModeInvalid
 	return ret
 }
 
@@ -46,23 +46,23 @@ func (vs *ValidationState) Invalid(ret bool, rejectCode uint, rejectReason strin
 }
 
 func (vs *ValidationState) Error(rejectReason string) bool {
-	if vs.mode == MODE_VALID {
+	if vs.mode == ModeValid {
 		vs.rejectReason = rejectReason
 	}
-	vs.mode = MODE_ERROR
+	vs.mode = ModeError
 	return false
 }
 
 func (vs *ValidationState) IsValid() bool {
-	return vs.mode == MODE_VALID
+	return vs.mode == ModeValid
 }
 
 func (vs *ValidationState) IsInvalid() bool {
-	return vs.mode == MODE_INVALID
+	return vs.mode == ModeInvalid
 }
 
 func (vs *ValidationState) IsError() bool {
-	return vs.mode == MODE_ERROR
+	return vs.mode == ModeError
 }
 
 func (vs *ValidationState) IsInvalidDumpDos() (int, bool) {
@@ -116,7 +116,7 @@ func (vs *ValidationState) FormatStateMessage() string {
 
 func NewValidationState() *ValidationState {
 	v := new(ValidationState)
-	v.mode = MODE_VALID
+	v.mode = ModeValid
 	v.dos = 0
 	v.rejectCode = 0
 	v.corruptionPossible = false

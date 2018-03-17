@@ -165,7 +165,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	// If mempool is limiting txs , return at least the min feerate from the
 	// mempool
-	maxMempool := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+	maxMempool := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
 	minPoolFeeTmp := pool.GetMinFee(maxMempool)
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
@@ -188,8 +188,8 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartPriority(confTarg
 		*answerFoundAtTarget = confTarget
 	}
 
-	// If mempool is limiting txs, no priority txs are allowed
-	maxMempool := utils.GetArg("-maxmempool", int64(policy.DEFAULT_MAX_MEMPOOL_SIZE)) * 1000000
+	// If memPool is limiting txs, no priority txs are allowed
+	maxMempool := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
 	minPoolFeeTmp := pool.GetMinFee(maxMempool)
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 

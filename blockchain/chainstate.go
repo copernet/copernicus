@@ -14,11 +14,11 @@ type BlockMap struct {
 	Data map[utils.Hash]*core.BlockIndex
 }
 
-// ChainState store the blockchain global state
+// ChainState store the blockChain global state
 type ChainState struct {
-	ChainAcTive       core.Chain
-	MapBlockIndex     BlockMap
-	PindexBestInvalid *core.BlockIndex
+	ChainActive      core.Chain
+	MapBlockIndex    BlockMap
+	IndexBestInvalid *core.BlockIndex
 
 	//* The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself
 	//* and all ancestors) and as good as our current tip or better. Entries may be
@@ -30,75 +30,74 @@ type ChainState struct {
 	MapBlocksUnlinked map[*core.BlockIndex][]*core.BlockIndex
 }
 
-// Global status for blockchain
+// Global status for blockChain
 var (
 	//GChainState Global unique variables
 	GChainState       ChainState
-	GfImporting       atomic.Value
+	GImporting        atomic.Value
 	GMaxTipAge        int64
-	Gmempool          *mempool.Mempool
+	GMemPool          *mempool.Mempool
+	GCoinsTip         *utxo.CoinsViewCache
+	GBlockTree        *BlockTreeDB
+	GMinRelayTxFee    utils.FeeRate
 	Pool              *mempool.TxMempool
-	GpcoinsTip        *utxo.CoinsViewCache
-	Gpblocktree       *BlockTreeDB
-	GminRelayTxFee    utils.FeeRate
 	GfReindex         = false
 	GnCoinCacheUsage  = 5000 * 300
-	Gwarningcache     []ThresholdConditionCache
-	Gversionbitscache *VersionBitsCache
+	GWarningCache     []ThresholdConditionCache
+	GVersionBitsCache *VersionBitsCache
 )
 
 var (
-	// GfHavePruned Pruning-related variables and constants, True if any block files have ever been pruned.
-	GfHavePruned = false
-	GfPruneMode  = false
-	GfTxIndex    = false
+	// GHavePruned pruning-related variables and constants, True if any block files have ever been pruned.
+	GHavePruned = false
+	GPruneMode  = false
+	GTxIndex    = false
 
-	//GindexBestHeader Best header we've seen so far (used for getheaders queries' starting points)
-	GindexBestHeader *core.BlockIndex
+	//GIndexBestHeader Best header we've seen so far (used for getHeaders queries' starting points)
+	GIndexBestHeader *core.BlockIndex
 	//GChainActive currently-connected chain of blocks (protected by cs_main).
 	GChainActive core.Chain
 	GPruneTarget uint64
 
-	//GfCheckForPruning Global flag to indicate we should check to see if there are block/undo files
+	//GCheckForPruning Global flag to indicate we should check to see if there are block/undo files
 	//* that should be deleted. Set on startup or if we allocate more file space when
 	//* we're in prune mode.
-	GfCheckForPruning    = false
-	GfCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED
-	GfCheckBlockIndex    = false
-	GfRequireStandard    = true
-	GfIsBareMultisigStd  = DEFAULT_PERMIT_BAREMULTISIG
+	GCheckForPruning    = false
+	GCheckpointsEnabled = DefaultCheckPointsEnabled
+	GCheckBlockIndex    = false
+	GRequireStandard    = true
+	GIsBareMultiSigStd  = DefaultPermitBareMultiSig
 )
 
 const (
-	// MAX_BLOCKFILE_SIZE The maximum size of a blk?????.dat file (since 0.8)  // 128 MiB
-	MAX_BLOCKFILE_SIZE = 0x8000000
-	// BLOCKFILE_CHUNK_SIZE The pre-allocation chunk size for blk?????.dat files (since 0.8)  // 16 MiB
-	BLOCKFILE_CHUNK_SIZE = 0x1000000
-	// UNDOFILE_CHUNK_SIZE The pre-allocation chunk size for rev?????.dat files (since 0.8) // 1 MiB
+	// MaxBlockFileSize the maximum size of a blk?????.dat file (since 0.8)  // 128 MiB
+	MaxBlockFileSize = 0x8000000
+	// BlockFileChunkSize the pre-allocation chunk size for blk?????.dat files (since 0.8)  // 16 MiB
+	BlockFileChunkSize = 0x1000000
+	// UndoFileChunkSize the pre-allocation chunk size for rev?????.dat files (since 0.8) // 1 MiB
+	UndoFileChunkSize                 = 0x100000
+	DefaultMinRelayTxFee utils.Amount = 1000
 
-	UNDOFILE_CHUNK_SIZE                   = 0x100000
-	DEFAULT_MIN_RELAY_TX_FEE utils.Amount = 1000
-
-	// DB_PEAK_USAGE_FACTOR compensate for extra memory peak (x1.5-x1.9) at flush time.
-	DB_PEAK_USAGE_FACTOR = 2
-	// MAX_BLOCK_COINSDB_USAGE no need to periodic flush if at least this much space still available.
-	MAX_BLOCK_COINSDB_USAGE = 200 * DB_PEAK_USAGE_FACTOR
-	// MIN_BLOCK_COINSDB_USAGE always periodic flush if less than this much space still available.
-	MIN_BLOCK_COINSDB_USAGE = 50 * DB_PEAK_USAGE_FACTOR
-	// DATABASE_WRITE_INTERVAL time to wait (in seconds) between writing blocks/block index to disk.
-	DATABASE_WRITE_INTERVAL = 60 * 60
-	// DATABASE_FLUSH_INTERVAL time to wait (in seconds) between flushing chainstate to disk.
-	DATABASE_FLUSH_INTERVAL = 24 * 60 * 60
+	// DBPeakUsageFactor compensate for extra memory peak (x1.5-x1.9) at flush time.
+	DBPeakUsageFactor = 2
+	// MaxBlockCoinsDBUsage no need to periodic flush if at least this much space still available.
+	MaxBlockCoinsDBUsage = 200 * DBPeakUsageFactor
+	// MinBlockCoinsDBUsage always periodic flush if less than this much space still available.
+	MinBlockCoinsDBUsage = 50 * DBPeakUsageFactor
+	// DataBaseWriteInterval time to wait (in seconds) between writing blocks/block index to disk.
+	DataBaseWriteInterval = 60 * 60
+	// DataBaseFlushInterval time to wait (in seconds) between flushing chainState to disk.
+	DataBaseFlushInterval = 24 * 60 * 60
 )
 
 func init() {
 	GChainState.MapBlockIndex.Data = make(map[utils.Hash]*core.BlockIndex)
 	GChainState.MapBlocksUnlinked = make(map[*core.BlockIndex][]*core.BlockIndex)
 	GChainState.setBlockIndexCandidates = container.NewCustomSet(BlockIndexWorkComparator)
-	GfImporting.Store(false)
-	GMaxTipAge = DEFAULT_MAX_TIP_AGE
-	GminRelayTxFee.SataoshisPerK = int64(DEFAULT_MIN_RELAY_TX_FEE)
-	Gmempool = mempool.NewMemPool(GminRelayTxFee)
-	Gwarningcache = NewWarnBitsCache(VERSIONBITS_NUM_BITS)
-	Gversionbitscache = NewVersionBitsCache()
+	GImporting.Store(false)
+	GMaxTipAge = DefaultMaxTipAge
+	GMinRelayTxFee.SataoshisPerK = int64(DefaultMinRelayTxFee)
+	GMemPool = mempool.NewMemPool(GMinRelayTxFee)
+	GWarningCache = NewWarnBitsCache(VersionBitsNumBits)
+	GVersionBitsCache = NewVersionBitsCache()
 }

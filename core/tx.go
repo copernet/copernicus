@@ -233,28 +233,28 @@ func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 
 func (tx *Tx) CheckCoinbase(state *ValidationState, checkDupInput bool) bool {
 	if !tx.IsCoinBase() {
-		return state.Dos(100, false, REJECT_INVALID, "bad-cb-missing", false,
+		return state.Dos(100, false, RejectInvalid, "bad-cb-missing", false,
 			"first tx is not coinbase")
 	}
 	if !tx.CheckTransactionCommon(state, checkDupInput) {
 		return false
 	}
 	if tx.Ins[0].Script.Size() < 2 || tx.Ins[0].Script.Size() > 100 {
-		return state.Dos(100, false, REJECT_INVALID, "bad-cb-length", false, "")
+		return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
 	}
 	return true
 }
 
 func (tx *Tx) CheckRegularTransaction(state *ValidationState, checkDupInput bool) bool {
 	if tx.IsCoinBase() {
-		return state.Dos(100, false, REJECT_INVALID, "bad-tx-coinbase", false, "")
+		return state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
 	}
 	if !tx.CheckTransactionCommon(state, checkDupInput) {
 		return false
 	}
 	for _, in := range tx.Ins {
 		if in.PreviousOutPoint.IsNull() {
-			return state.Dos(10, false, REJECT_INVALID, "bad-txns-prevout-null", false, "")
+			return state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
 		}
 	}
 	return true
@@ -262,29 +262,29 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, checkDupInput bool
 
 func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool) bool {
 	if len(tx.Ins) == 0 {
-		return state.Dos(10, false, REJECT_INVALID, "bad-txns-vin-empty", false, "")
+		return state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
 	}
 	if len(tx.Outs) == 0 {
-		return state.Dos(10, false, REJECT_INVALID, "bad-txns-vout-empty", false, "")
+		return state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
 	}
 	if tx.SerializeSize() > MAX_TX_SIZE {
-		return state.Dos(100, false, REJECT_INVALID, "bad-txns-oversize", false, "")
+		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 	}
 	totalOut := int64(0)
 	for _, out := range tx.Outs {
 		if out.Value < 0 {
-			return state.Dos(100, false, REJECT_INVALID, "bad-txns-vout-negative", false, "")
+			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
 		}
 		if out.Value > MAX_MONEY {
-			return state.Dos(100, false, REJECT_INVALID, "bad-txns-vout-toolarge", false, "")
+			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
 		}
 		totalOut += out.Value
 		if totalOut < 0 || totalOut > MAX_MONEY {
-			return state.Dos(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge", false, "")
+			return state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
 		}
 	}
 	if tx.GetSigOpCountWithoutP2SH() > 100 {
-		return state.Dos(100, false, REJECT_INVALID, "bad-txn-sigops", false, "")
+		return state.Dos(100, false, RejectInvalid, "bad-txn-sigops", false, "")
 	}
 	if checkDupInput {
 		outPointSet := make(map[*OutPoint]struct{})
@@ -292,7 +292,7 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
-				return state.Dos(100, false, REJECT_INVALID, "bad-txns-inputs-duplicate", false, "")
+				return state.Dos(100, false, RejectInvalid, "bad-txns-inputs-duplicate", false, "")
 			}
 		}
 	}

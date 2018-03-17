@@ -10,24 +10,24 @@ import (
 )
 
 const (
-	// VERSIONBITS_LAST_OLD_BLOCK_VERSION What block version to use for new blocks (pre versionbits)
-	VERSIONBITS_LAST_OLD_BLOCK_VERSION = 4
-	// VERSIONBITS_TOP_BITS What bits to set in version for versionbits blocks
-	VERSIONBITS_TOP_BITS = 0x20000000
-	// VERSIONBITS_TOP_MASK What bitmask determines whether versionbits is in use
-	VERSIONBITS_TOP_MASK int64 = 0xE0000000
-	// VERSIONBITS_NUM_BITS Total bits available for versionbits
-	VERSIONBITS_NUM_BITS = 29
+	// VersionBitsLastOldBlockVersion what block version to use for new blocks (pre versionBits)
+	VersionBitsLastOldBlockVersion = 4
+	// VersionBitsTopBits what bits to set in version for versionBits blocks
+	VersionBitsTopBits = 0x20000000
+	// VersionBitsTopMask What bitMask determines whether versionBits is in use
+	VersionBitsTopMask int64 = 0xE0000000
+	// VersionBitsNumBits Total bits available for versionBits
+	VersionBitsNumBits = 29
 )
 
 type ThresholdState int
 
 const (
-	THRESHOLD_DEFINED ThresholdState = iota
-	THRESHOLD_STARTED
-	THRESHOLD_LOCKED_IN
-	THRESHOLD_ACTIVE
-	THRESHOLD_FAILED
+	ThresholdDefined ThresholdState = iota
+	ThresholdStarted
+	ThresholdLockedIn
+	ThresholdActive
+	ThresholdFailed
 )
 
 type BIP9DeploymentInfo struct {
@@ -123,7 +123,7 @@ func (vc *VersionBitsConditionChecker) Threshold(params *msg.BitcoinParams) int 
 }
 
 func (vc *VersionBitsConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
-	return ((int64(index.Version) & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) && (index.Version&vc.Mask(params)) != 0
+	return ((int64(index.Version) & VersionBitsTopMask) == VersionBitsTopBits) && (index.Version&vc.Mask(params)) != 0
 }
 
 func (vc *VersionBitsConditionChecker) Mask(params *msg.BitcoinParams) int32 {
@@ -137,26 +137,26 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockInde
 	nTimeTimeout := vc.EndTime(params)
 
 	// A block's state is always the same as that of the first of its period, so
-	// it is computed based on a pindexPrev whose height equals a multiple of
+	// it is computed based on a indexPrev whose height equals a multiple of
 	// nPeriod - 1.
 	if indexPrev != nil {
 		indexPrev = indexPrev.GetAncestor(indexPrev.Height - (indexPrev.Height+1)%nPeriod)
 	}
 
-	// Walk backwards in steps of nPeriod to find a pindexPrev whose information
+	// Walk backwards in steps of nPeriod to find a indexPrev whose information
 	// is known
 	toCompute := make([]*core.BlockIndex, 0)
 	for {
 		if _, ok := cache[indexPrev]; !ok {
 			if indexPrev == nil {
 				// The genesis block is by definition defined.
-				cache[indexPrev] = THRESHOLD_DEFINED
+				cache[indexPrev] = ThresholdDefined
 				break
 			}
 			if indexPrev.GetMedianTimePast() < nTimeStart {
 				// Optimization: don't recompute down further, as we know every
 				// earlier block will be before the start time
-				cache[indexPrev] = THRESHOLD_DEFINED
+				cache[indexPrev] = ThresholdDefined
 				break
 			}
 			toCompute = append(toCompute, indexPrev)
@@ -166,33 +166,33 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockInde
 		}
 	}
 
-	// At this point, cache[pindexPrev] is known
+	// At this point, cache[indexPrev] is known
 	state, ok := cache[indexPrev]
 	if !ok {
 		panic("there should be a element in cache")
 	}
 
-	// Now walk forward and compute the state of descendants of pindexPrev
+	// Now walk forward and compute the state of descendants of indexPrev
 	for n := 0; n < len(toCompute); n++ {
 		stateNext := state
 		indexPrev = toCompute[len(toCompute)-1]
 		toCompute = toCompute[:(len(toCompute) - 1)]
 
 		switch state {
-		case THRESHOLD_DEFINED:
+		case ThresholdDefined:
 			{
 				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
-					stateNext = THRESHOLD_FAILED
+					stateNext = ThresholdFailed
 				} else if indexPrev.GetMedianTimePast() >= nTimeStart {
-					stateNext = THRESHOLD_STARTED
+					stateNext = ThresholdStarted
 				}
 			}
-		case THRESHOLD_STARTED:
+		case ThresholdStarted:
 			{
 				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
 					fmt.Println("********* height : ", indexPrev.Height)
 					//panic("jjjjjjj")
-					stateNext = THRESHOLD_FAILED
+					stateNext = ThresholdFailed
 					break
 				}
 				if indexPrev.Height == 2999 {
@@ -208,16 +208,16 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockInde
 					indexCount = indexCount.PPrev
 				}
 				if count >= nThreshold {
-					stateNext = THRESHOLD_LOCKED_IN
+					stateNext = ThresholdLockedIn
 				}
 			}
-		case THRESHOLD_LOCKED_IN:
+		case ThresholdLockedIn:
 			{
 				// Always progresses into ACTIVE.
-				stateNext = THRESHOLD_ACTIVE
+				stateNext = ThresholdActive
 			}
-		case THRESHOLD_FAILED:
-		case THRESHOLD_ACTIVE:
+		case ThresholdFailed:
+		case ThresholdActive:
 			{
 				// Nothing happens, these are terminal states.
 			}
@@ -232,19 +232,19 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *cor
 	initialState := GetStateFor(vc, indexPrev, params, cache)
 	// BIP 9 about state DEFINED: "The genesis block is by definition in this
 	// state for each deployment."
-	if initialState == THRESHOLD_DEFINED {
+	if initialState == ThresholdDefined {
 		return 0
 	}
 
 	nPeriod := vc.Period(params)
 	// A block's state is always the same as that of the first of its period, so
-	// it is computed based on a pindexPrev whose height equals a multiple of
+	// it is computed based on a indexPrev whose height equals a multiple of
 	// nPeriod - 1. To ease understanding of the following height calculation,
-	// it helps to remember that right now pindexPrev points to the block prior
+	// it helps to remember that right now indexPrev points to the block prior
 	// to the block that we are computing for, thus: if we are computing for the
-	// last block of a period, then pindexPrev points to the second to last
-	// block of thev period, and if we are computing for the first block of a
-	// period, then pindexPrev points to the last block of the previous period.
+	// last block of a period, then indexPrev points to the second to last
+	// block of the period, and if we are computing for the first block of a
+	// period, then indexPrev points to the last block of the previous period.
 	// The parent of the genesis block is represented by nullptr.
 	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
 	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
@@ -288,13 +288,13 @@ func (w *WarningBitsConditionChecker) Threshold(params *msg.BitcoinParams) int {
 
 func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
 
-	return int64(index.Version)&VERSIONBITS_TOP_MASK == VERSIONBITS_TOP_BITS &&
+	return int64(index.Version)&VersionBitsTopMask == VersionBitsTopBits &&
 		((index.Version)>>uint(w.bit))&1 != 0 &&
-		(ComputeBlockVersion(index.PPrev, params, Gversionbitscache)>>uint(w.bit))&1 == 0
+		(ComputeBlockVersion(index.PPrev, params, GVersionBitsCache)>>uint(w.bit))&1 == 0
 }
 
 func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
-	version := VERSIONBITS_TOP_BITS
+	version := VersionBitsTopBits
 
 	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
 		state := func() ThresholdState {
@@ -304,7 +304,7 @@ func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, 
 			return v
 		}()
 
-		if state == THRESHOLD_LOCKED_IN || state == THRESHOLD_STARTED {
+		if state == ThresholdLockedIn || state == ThresholdStarted {
 			version |= int(VersionBitsMask(params, msg.DeploymentPos(i)))
 		}
 	}
