@@ -8,12 +8,12 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-const SKIPLIST_LENGTH = 300000
+const SkipListLength = 300000
 
 func TestBlockIndexGetAncestor(t *testing.T) {
-	vIndex := make([]BlockIndex, SKIPLIST_LENGTH)
+	vIndex := make([]BlockIndex, SkipListLength)
 
-	for i := 0; i < SKIPLIST_LENGTH; i++ {
+	for i := 0; i < SkipListLength; i++ {
 		vIndex[i].Height = i
 		if i == 0 {
 			vIndex[i].Prev = nil
@@ -23,7 +23,7 @@ func TestBlockIndexGetAncestor(t *testing.T) {
 		vIndex[i].BuildSkip()
 	}
 
-	for i := 0; i < SKIPLIST_LENGTH; i++ {
+	for i := 0; i < SkipListLength; i++ {
 		if i > 0 {
 			if vIndex[i].Skip != &vIndex[vIndex[i].Skip.Height] {
 				t.Errorf("the two element addr should be equal, expect %p, but get value : %p",
@@ -45,12 +45,12 @@ func TestBlockIndexGetAncestor(t *testing.T) {
 	}
 	tmpRand := utils.NewFastRandomContext(false)
 	for i := 0; i < 1000; i++ {
-		from := tmpRand.Rand32() % (SKIPLIST_LENGTH - 1)
+		from := tmpRand.Rand32() % (SkipListLength - 1)
 		to := tmpRand.Rand32() % (from + 1)
 
-		if vIndex[SKIPLIST_LENGTH-1].GetAncestor(int(from)) != &vIndex[from] {
+		if vIndex[SkipListLength-1].GetAncestor(int(from)) != &vIndex[from] {
 			t.Errorf("the two element should be equal, left value : %p, right value : %p",
-				vIndex[SKIPLIST_LENGTH-1].GetAncestor(int(from)), &vIndex[from])
+				vIndex[SkipListLength-1].GetAncestor(int(from)), &vIndex[from])
 			return
 		}
 		if vIndex[from].GetAncestor(int(to)) != &vIndex[to] {

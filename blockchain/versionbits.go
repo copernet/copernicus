@@ -60,19 +60,19 @@ var versionBitsCache VersionBitsCache // todo waring: there is a global variable
 
 type VersionBitsCache struct {
 	sync.RWMutex
-	cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
+	cache [msg.MaxVersionBitsDeployments]ThresholdConditionCache
 }
 
 func NewVersionBitsCache() *VersionBitsCache {
-	var cache [msg.MAX_VERSION_BITS_DEPLOYMENTS]ThresholdConditionCache
-	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
+	var cache [msg.MaxVersionBitsDeployments]ThresholdConditionCache
+	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
 		cache[i] = make(ThresholdConditionCache)
 	}
 	return &VersionBitsCache{cache: cache}
 }
 
 func (vbc *VersionBitsCache) Clear() {
-	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
+	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
 		vbc.cache[i] = make(ThresholdConditionCache)
 	}
 }
@@ -296,7 +296,7 @@ func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *
 func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
 	version := VersionBitsTopBits
 
-	for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
+	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
 		state := func() ThresholdState {
 			t.Lock()
 			defer t.Unlock()

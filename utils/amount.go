@@ -26,10 +26,10 @@ const (
 	AmountMicroBTC AmountUnit = -6
 	AmountSatoshi  AmountUnit = -8
 
-	COIN          int64 = 100000000
-	CENT          int64 = 1000000
-	MAX_MONEY     int64 = 21000000 * COIN
-	CURRENCY_UNIT       = "BCH"
+	COIN         int64 = 100000000
+	CENT         int64 = 1000000
+	MaxMoney           = 21000000 * COIN
+	CurrencyUnit       = "BCH"
 )
 
 // String returns the unit as a string.  For recognized units, the SI
@@ -127,5 +127,5 @@ func (a Amount) MulF64(f float64) Amount {
 }
 
 func MoneyRange(value int64) bool {
-	return value >= 0 && value <= MAX_MONEY
+	return value >= 0 && value <= MaxMoney
 }

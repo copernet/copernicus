@@ -106,8 +106,8 @@ func (cacheMap *CacheMap) Last() interface{} {
 }
 
 func (cacheMap *CacheMap) String() string {
-	len := cacheMap.Len()
-	if len == 0 {
+	lens := cacheMap.Len()
+	if lens == 0 {
 		return ""
 	}
 	queryStr := ""

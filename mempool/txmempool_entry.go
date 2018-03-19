@@ -9,10 +9,10 @@ import (
 )
 
 /* TxMempoolEntry stores data about the corresponding transaction, as well as
- * data about all in-mempool transactions that depend on the transaction
+ * data about all in-memPool transactions that depend on the transaction
  * ("descendant" transactions).
  *
- * When a new entry is added to the mempool, we update the descendant state
+ * When a new entry is added to the memPool, we update the descendant state
  * (nCountWithDescendants, nSizeWithDescendants, and nModFeesWithDescendants)
  * for all ancestors of the newly added transaction.
  *

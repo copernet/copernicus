@@ -231,7 +231,7 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *c
 	}
 
 	lockTimeFlags := 0
-	if VersionBitsState(indexPrev, params, msg.DEPLOYMENT_CSV, GVersionBitsCache) == ThresholdActive {
+	if VersionBitsState(indexPrev, params, msg.DeploymentCSV, GVersionBitsCache) == ThresholdActive {
 		lockTimeFlags |= core.LocktimeMedianTimePast
 	}
 
@@ -956,20 +956,20 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 			// nTx > 0
 			if pindex.Status&core.BlockHaveData != 0 {
 				if pindex.TxCount <= 0 {
-					panic("block status is BLOCK_HAVE_DATA, so the nTx > 0")
+					panic("block status is BlockHaveData, so the nTx > 0")
 				}
 			}
 		}
 		if pindex.Status&core.BlockHaveUndo != 0 {
 			if pindex.Status&core.BlockHaveData == 0 {
 				panic("the block data should be had store the blk*dat file, so the " +
-					"blkindex' status & BLOCK_HAVE_DATA should != 0")
+					"blkIndex' status & BlockHaveData should != 0")
 			}
 		}
 		// This is pruning-independent.
 		if (pindex.Status&core.BlockValidMask >= core.BlockValidTransactions) !=
 			(pindex.TxCount > 0) {
-			panic("the blockindex TRANSACTIONS status should equivalent Txs > 0 ")
+			panic("the blockIndex TRANSACTIONS status should equivalent Txs > 0 ")
 		}
 		// All parents having had data (at some point) is equivalent to all
 		// parents being VALID_TRANSACTIONS, which is equivalent to nChainTx
@@ -988,10 +988,10 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		if pindex.Height != nHeight {
 			panic("the blockIndex height is incorrect")
 		}
-		// For every block except the genesis block, the chainwork must be
+		// For every block except the genesis block, the chainWork must be
 		// larger than the parent's.
 		if pindex.Prev != nil && pindex.ChainWork.Cmp(&pindex.Prev.ChainWork) < 0 {
-			panic("For every block except the genesis block, the chainwork must be " +
+			panic("For every block except the genesis block, the chainWork must be " +
 				"larger than the parent's.")
 		}
 		// The pskip pointer must point back for all but the first 2 blocks.
@@ -1049,7 +1049,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 			// block has never been seen, it cannot be in
 			// setBlockIndexCandidates.
 			if c.setBlockIndexCandidates.HasItem(pindex) {
-				panic("the blockindex should not be in setBlockIndexCandidates")
+				panic("the blockIndex should not be in setBlockIndexCandidates")
 			}
 		}
 		// Check whether this block is in mapBlocksUnlinked.
@@ -1073,7 +1073,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		}
 
 		if !(pindex.Status&core.BlockHaveData != 0) {
-			// Can't be in mapBlocksUnlinked if we don't HAVE_DATA
+			// Can't be in mapBlocksUnlinked if we don't have data
 			if foundInUnlinked {
 				panic("the block can't be in mapBlocksUnlinked")
 			}
@@ -1087,7 +1087,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		}
 		if pindex.Prev != nil && (pindex.Status&core.BlockHaveData != 0) &&
 			pindexFirstNeverProcessed == nil && pindexFirstMissing != nil {
-			// We HAVE_DATA for this block, have received data for all parents
+			// We have data for this block, have received data for all parents
 			// at some point, but we're currently missing data for some parent.
 			// We must have pruned.
 			if !GHavePruned {
@@ -1919,7 +1919,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	// Start enforcing BIP68 (sequence locks) using versionBits logic.
 	nLockTimeFlags := 0
-	if VersionBitsState(pindex.Prev, param, msg.DEPLOYMENT_CSV, &versionBitsCache) == ThresholdActive {
+	if VersionBitsState(pindex.Prev, param, msg.DeploymentCSV, &versionBitsCache) == ThresholdActive {
 		nLockTimeFlags |= core.LocktimeVerifySequence
 	}
 
@@ -1973,7 +1973,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 		// * legacy (always)
 		// * p2sh (when P2SH enabled in flags and excludes coinBase)
 		txSigOpsCount := GetTransactionSigOpCount(tx, view, uint(flags))
-		if txSigOpsCount > core.MAX_TX_SIGOPS_COUNT {
+		if txSigOpsCount > int(policy.MaxTxSigOpsCount) {
 			return state.Dos(100, false, core.RejectInvalid, "bad-txn-sigOps",
 				false, "")
 		}
@@ -2860,7 +2860,7 @@ func CheckTransactionCommon(tx *core.Tx, state *core.ValidationState, fCheckDupl
 	}
 
 	// Size limit
-	if tx.SerializeSize() > core.MAX_TX_SIZE {
+	if tx.SerializeSize() > core.MaxTxSize {
 		return state.Dos(100, false, core.RejectInvalid, "bad-txns-oversize",
 			false, "")
 	}
@@ -2873,7 +2873,7 @@ func CheckTransactionCommon(tx *core.Tx, state *core.ValidationState, fCheckDupl
 				false, "")
 		}
 
-		if txout.Value > core.MAX_MONEY {
+		if txout.Value > core.MaxMoney {
 			return state.Dos(100, false, core.RejectInvalid, "bad-txns-vout-toolarge",
 				false, "")
 		}
@@ -2885,7 +2885,7 @@ func CheckTransactionCommon(tx *core.Tx, state *core.ValidationState, fCheckDupl
 		}
 	}
 
-	if tx.GetSigOpCountWithoutP2SH() > core.MAX_TX_SIGOPS_COUNT {
+	if tx.GetSigOpCountWithoutP2SH() > int(policy.MaxTxSigOpsCount) {
 		return state.Dos(100, false, core.RejectInvalid, "bad-txn-sigops",
 			false, "")
 	}
@@ -2908,7 +2908,7 @@ func CheckTransactionCommon(tx *core.Tx, state *core.ValidationState, fCheckDupl
 }
 
 func MoneyRange(money int64) bool {
-	return money <= 0 && money <= core.MAX_MONEY
+	return money <= 0 && money <= core.MaxMoney
 }
 
 func notifyHeaderTip() {
@@ -2974,30 +2974,30 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 	var flags uint32
 
 	if fStrictPayToScriptHash {
-		flags = crypto.SCRIPT_VERIFY_P2SH
+		flags = crypto.ScriptVerifyP2SH
 	} else {
-		flags = crypto.SCRIPT_VERIFY_NONE
+		flags = crypto.ScriptVerifyNone
 	}
 
 	// Start enforcing the DERSIG (BIP66) rule
 	if pindex.Height >= param.BIP66Height {
-		flags |= crypto.SCRIPT_VERIFY_DERSIG
+		flags |= crypto.ScriptVerifyDersig
 	}
 
 	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
 	if pindex.Height >= param.BIP65Height {
-		flags |= crypto.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY
+		flags |= crypto.ScriptVerifyCheckLockTimeVerify
 	}
 
 	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if VersionBitsState(pindex.Prev, param, msg.DEPLOYMENT_CSV, &versionBitsCache) == ThresholdActive {
-		flags |= crypto.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY
+	if VersionBitsState(pindex.Prev, param, msg.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+		flags |= crypto.ScriptVerifyCheckSequenceVerify
 	}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
 	if IsUAHFEnabled(param, pindex.Height) {
-		flags |= crypto.SCRIPT_VERIFY_STRICTENC
-		flags |= crypto.SCRIPT_ENABLE_SIGHASH_FORKID
+		flags |= crypto.ScriptVerifyStrictenc
+		flags |= crypto.ScriptEnableSigHashForkID
 	}
 
 	// If the Cash HF is enabled, we start rejecting transaction that use a high
@@ -3005,8 +3005,8 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 	// to fail (for instance in multisig or other forms of smart contracts) are
 	// null.
 	if IsCashHFEnabled(param, pindex.GetMedianTimePast()) {
-		flags |= crypto.SCRIPT_VERIFY_LOW_S
-		flags |= crypto.SCRIPT_VERIFY_NULLFAIL
+		flags |= crypto.ScriptVerifyLows
+		flags |= crypto.ScriptVerifyNullFail
 	}
 
 	return flags
@@ -4313,14 +4313,14 @@ func CalculateSequenceLocks(tx *core.Tx, flags int, prevHeights []int, block *co
 		// Sequence numbers with the most significant bit set are not
 		// treated as relative lock-times, nor are they given any
 		// core-enforced meaning at this point.
-		if (txin.Sequence & core.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0 {
+		if (txin.Sequence & core.SequenceLockTimeDisableFlag) != 0 {
 			// The height of this input is not relevant for sequence locks
 			prevHeights[txinIndex] = 0
 			continue
 		}
 		nCoinHeight := prevHeights[txinIndex]
 
-		if (txin.Sequence & core.SEQUENCE_LOCKTIME_DISABLE_FLAG) != 0 {
+		if (txin.Sequence & core.SequenceLockTimeDisableFlag) != 0 {
 			nCoinTime := block.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
 			// BIP 68 relative lock times have the semantics of calculating the
@@ -4333,10 +4333,10 @@ func CalculateSequenceLocks(tx *core.Tx, flags int, prevHeights []int, block *co
 			// Time-based relative lock-times are measured from the smallest
 			// allowed timestamp of the block containing the txout being spent,
 			// which is the median time past of the block prior.
-			tmpTime := int(nCoinTime) + int(txin.Sequence)&core.SEQUENCE_LOCKTIME_MASK<<core.SEQUENCE_LOCKTIME_GRANULARITY
+			tmpTime := int(nCoinTime) + int(txin.Sequence)&core.SequenceLockTimeMask<<core.SequenceLockTimeQranularity
 			nMinTime = int(math.Max(float64(nMinTime), float64(tmpTime)))
 		} else {
-			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence&core.SEQUENCE_LOCKTIME_MASK)-1)))
+			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence&core.SequenceLockTimeMask)-1)))
 		}
 	}
 
@@ -4385,7 +4385,7 @@ func CheckSequenceLocks(tx *core.Tx, flags int, lp *core.LockPoints, useExisting
 			if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
 				return logger.ErrorLog("Missing input")
 			}
-			if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
+			if coin.GetHeight() == mempool.HeightMemPool {
 				// Assume all mempool transaction confirm in the next block
 				prevheights[txinIndex] = tip.Height + 1
 			} else {
@@ -4450,7 +4450,7 @@ func GetTransactionSigOpCount(tx *core.Tx, view *utxo.CoinsViewCache, flags uint
 		return sigOps
 	}
 
-	if flags&crypto.SCRIPT_VERIFY_P2SH != 0 {
+	if flags&crypto.ScriptVerifyP2SH != 0 {
 		sigOps += GetP2SHSigOpCount(tx, view)
 	}
 

@@ -7,158 +7,158 @@ import (
 type ScriptError int
 
 const (
-	SCRIPT_ERR_OK ScriptError = iota
-	SCRIPT_ERR_UNKNOWN_ERROR
-	SCRIPT_ERR_EVAL_FALSE
-	SCRIPT_ERR_OP_RETURN
+	ScriptErrOK ScriptError = iota
+	ScriptErrUnknownError
+	ScriptErrEvalFalse
+	ScriptErrOpReturn
 
 	/* Max sizes */
 
-	SCRIPT_ERR_SCRIPT_SIZE
-	SCRIPT_ERR_PUSH_SIZE
-	SCRIPT_ERR_OP_COUNT
-	SCRIPT_ERR_STACK_SIZE
-	SCRIPT_ERR_SIG_COUNT
-	SCRIPT_ERR_PUBKEY_COUNT
+	ScriptErrScriptSize
+	ScriptErrPushSize
+	ScriptErrOpCount
+	ScriptErrStackSize
+	ScriptErrSigCount
+	ScriptErrPubKeyCount
 
 	/* Failed verify operations */
 
-	SCRIPT_ERR_VERIFY
-	SCRIPT_ERR_EQUALVERIFY
-	SCRIPT_ERR_CHECKMULTISIGVERIFY
-	SCRIPT_ERR_CHECKSIGVERIFY
-	SCRIPT_ERR_NUMEQUALVERIFY
+	ScriptErrVerify
+	ScriptErrEqualVerify
+	ScriptErrCheckMultiSigVerify
+	ScriptErrCheckSigVerify
+	ScriptErrNumEqualVerify
 
 	/* Logical/Format/Canonical errors */
 
-	SCRIPT_ERR_BAD_OPCODE
-	SCRIPT_ERR_DISABLED_OPCODE
-	SCRIPT_ERR_INVALID_STACK_OPERATION
-	SCRIPT_ERR_INVALID_ALTSTACK_OPERATION
-	SCRIPT_ERR_UNBALANCED_CONDITIONAL
+	ScriptErrBadOpCode
+	ScriptErrDisabledOpCode
+	ScriptErrInvalidStackOperation
+	ScriptErrInvalidAltStackOperation
+	ScriptErrUnbalancedConditional
 
-	/* CHECKLOCKTIMEVERIFY and CHECKSEQUENCEVERIFY */
+	/* CheckLockTimeVerify and CheckSequenceVerify */
 
-	SCRIPT_ERR_NEGATIVE_LOCKTIME
-	SCRIPT_ERR_UNSATISFIED_LOCKTIME
+	ScriptErrNegativeLockTime
+	ScriptErrUnsatisfiedLockTime
 
 	/* Malleability */
 
-	SCRIPT_ERR_SIG_HASHTYPE
-	SCRIPT_ERR_SIG_DER
-	SCRIPT_ERR_MINIMALDATA
-	SCRIPT_ERR_SIG_PUSHONLY
-	SCRIPT_ERR_SIG_HIGH_S
-	SCRIPT_ERR_SIG_NULLDUMMY
-	SCRIPT_ERR_PUBKEYTYPE
-	SCRIPT_ERR_CLEANSTACK
-	SCRIPT_ERR_MINIMALIF
-	SCRIPT_ERR_SIG_NULLFAIL
+	ScriptErrSigHashType
+	ScriptErrSigDer
+	ScriptErrMinimalData
+	ScriptErrSigPushOnly
+	ScriptErrSigHighs
+	ScriptErrSigNullDummy
+	ScriptErrPubKeyType
+	ScriptErrCleanStack
+	ScriptErrMinimalIf
+	ScriptErrSigNullFail
 
-	/* softfork safeness */
+	/* softFork safeness */
 
-	SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS
-	SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM
+	ScriptErrDiscourageUpgradableNOPs
+	ScriptErrDiscourageUpgradableWitnessProgram
 
-	/* segregated witness */
+	/* segregated witness  */
 
-	SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH
-	SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY
-	SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH
-	SCRIPT_ERR_WITNESS_MALLEATED
-	SCRIPT_ERR_WITNESS_MALLEATED_P2SH
-	SCRIPT_ERR_WITNESS_UNEXPECTED
-	SCRIPT_ERR_WITNESS_PUBKEYTYPE
+	ScriptErrWitnessProgramWrongLength
+	ScriptErrWitnessProgramWitnessEmpty
+	ScriptErrWitnessProgramMismatch
+	ScriptErrWitnessMallRated
+	ScriptErrWitnessMallRatedP2SH
+	ScriptErrWitnessUnexpected
+	ScriptErrWitnessPubKeyType
 
-	SCRIPT_ERR_ERROR_COUNT
+	ScriptErrErrorCount
 
 	/* misc */
 
-	SCRIPT_ERR_NONCOMPRESSED_PUBKEY
+	ScriptErrNonCompressedPubKey
 )
 
 func ScriptErrorString(scriptError ScriptError) string {
 	switch scriptError {
-	case SCRIPT_ERR_OK:
+	case ScriptErrOK:
 		return "No error"
-	case SCRIPT_ERR_EVAL_FALSE:
+	case ScriptErrEvalFalse:
 		return "Script evaluated without error but finished with a false/empty top stack element"
-	case SCRIPT_ERR_VERIFY:
+	case ScriptErrVerify:
 		return "Script failed an OP_VERIFY operation"
-	case SCRIPT_ERR_EQUALVERIFY:
+	case ScriptErrEqualVerify:
 		return "Script failed an OP_EQUALVERIFY operation"
-	case SCRIPT_ERR_CHECKMULTISIGVERIFY:
+	case ScriptErrCheckMultiSigVerify:
 		return "Script failed an OP_CHECKMULTISIGVERIFY operation"
-	case SCRIPT_ERR_CHECKSIGVERIFY:
+	case ScriptErrCheckSigVerify:
 		return "Script failed an OP_CHECKSIGVERIFY operation"
-	case SCRIPT_ERR_NUMEQUALVERIFY:
+	case ScriptErrNumEqualVerify:
 		return "Script failed an OP_NUMEQUALVERIFY operation"
-	case SCRIPT_ERR_SCRIPT_SIZE:
+	case ScriptErrScriptSize:
 		return "Script is too big"
-	case SCRIPT_ERR_PUSH_SIZE:
+	case ScriptErrPushSize:
 		return "Push value size limit exceeded"
-	case SCRIPT_ERR_OP_COUNT:
+	case ScriptErrOpCount:
 		return "Operation limit exceeded"
-	case SCRIPT_ERR_STACK_SIZE:
+	case ScriptErrStackSize:
 		return "Stack size limit exceeded"
-	case SCRIPT_ERR_SIG_COUNT:
-		return "Signature count negative or greater than pubkey count"
-	case SCRIPT_ERR_PUBKEY_COUNT:
-		return "Pubkey count negative or limit exceeded"
-	case SCRIPT_ERR_BAD_OPCODE:
-		return "Opcode missing or not understood"
-	case SCRIPT_ERR_DISABLED_OPCODE:
-		return "Attempted to use a disabled opcode"
-	case SCRIPT_ERR_INVALID_STACK_OPERATION:
+	case ScriptErrSigCount:
+		return "Signature count negative or greater than pubKey count"
+	case ScriptErrPubKeyCount:
+		return "PubKey count negative or limit exceeded"
+	case ScriptErrBadOpCode:
+		return "OpCode missing or not understood"
+	case ScriptErrDisabledOpCode:
+		return "Attempted to use a disabled opCode"
+	case ScriptErrInvalidStackOperation:
 		return "Operation not valid with the current stack size"
-	case SCRIPT_ERR_INVALID_ALTSTACK_OPERATION:
-		return "Operation not valid with the current altstack size"
-	case SCRIPT_ERR_OP_RETURN:
+	case ScriptErrInvalidAltStackOperation:
+		return "Operation not valid with the current altStack size"
+	case ScriptErrOpReturn:
 		return "OP_RETURN was encountered"
-	case SCRIPT_ERR_UNBALANCED_CONDITIONAL:
+	case ScriptErrUnbalancedConditional:
 		return "Invalid OP_IF construction"
-	case SCRIPT_ERR_NEGATIVE_LOCKTIME:
-		return "Negative locktime"
-	case SCRIPT_ERR_UNSATISFIED_LOCKTIME:
-		return "Locktime requirement not satisfied"
-	case SCRIPT_ERR_SIG_HASHTYPE:
+	case ScriptErrNegativeLockTime:
+		return "Negative lockTime"
+	case ScriptErrUnsatisfiedLockTime:
+		return "LockTime requirement not satisfied"
+	case ScriptErrSigHashType:
 		return "Signature hash type missing or not understood"
-	case SCRIPT_ERR_SIG_DER:
+	case ScriptErrSigDer:
 		return "Non-canonical DER signature"
-	case SCRIPT_ERR_MINIMALDATA:
+	case ScriptErrMinimalData:
 		return "Data push larger than necessary"
-	case SCRIPT_ERR_SIG_PUSHONLY:
+	case ScriptErrSigPushOnly:
 		return "Only non-push operators allowed in signatures"
-	case SCRIPT_ERR_SIG_HIGH_S:
+	case ScriptErrSigHighs:
 		return "Non-canonical signature: S value is unnecessarily high"
-	case SCRIPT_ERR_SIG_NULLDUMMY:
-		return "Dummy CHECKMULTISIG argument must be zero"
-	case SCRIPT_ERR_MINIMALIF:
+	case ScriptErrSigNullDummy:
+		return "Dummy CheckMultiSig argument must be zero"
+	case ScriptErrMinimalIf:
 		return "OP_IF/NOTIF argument must be minimal"
-	case SCRIPT_ERR_SIG_NULLFAIL:
+	case ScriptErrSigNullFail:
 		return "Signature must be zero for failed CHECK(MULTI)SIG operation"
-	case SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS:
+	case ScriptErrDiscourageUpgradableNOPs:
 		return "NOPx reserved for soft-fork upgrades"
-	case SCRIPT_ERR_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM:
+	case ScriptErrDiscourageUpgradableWitnessProgram:
 		return "Witness version reserved for soft-fork upgrades"
-	case SCRIPT_ERR_PUBKEYTYPE:
+	case ScriptErrPubKeyType:
 		return "Public key is neither compressed or uncompressed"
-	case SCRIPT_ERR_WITNESS_PROGRAM_WRONG_LENGTH:
+	case ScriptErrWitnessProgramWrongLength:
 		return "Witness program has incorrect length"
-	case SCRIPT_ERR_WITNESS_PROGRAM_WITNESS_EMPTY:
+	case ScriptErrWitnessProgramWitnessEmpty:
 		return "Witness program was passed an empty witness"
-	case SCRIPT_ERR_WITNESS_PROGRAM_MISMATCH:
+	case ScriptErrWitnessProgramMismatch:
 		return "Witness program hash mismatch"
-	case SCRIPT_ERR_WITNESS_MALLEATED:
+	case ScriptErrWitnessMallRated:
 		return "Witness requires empty scriptSig"
-	case SCRIPT_ERR_WITNESS_MALLEATED_P2SH:
-		return "Witness requires only-redeemscript scriptSig"
-	case SCRIPT_ERR_WITNESS_UNEXPECTED:
+	case ScriptErrWitnessMallRatedP2SH:
+		return "Witness requires only-redeemScript scriptSig"
+	case ScriptErrWitnessUnexpected:
 		return "Witness provided for non-witness script"
-	case SCRIPT_ERR_WITNESS_PUBKEYTYPE:
-		return "Using non-compressed keys in segwit"
-	case SCRIPT_ERR_UNKNOWN_ERROR:
-	case SCRIPT_ERR_ERROR_COUNT:
+	case ScriptErrWitnessPubKeyType:
+		return "Using non-compressed keys in segWit"
+	case ScriptErrUnknownError:
+	case ScriptErrErrorCount:
 	default:
 		break
 	}

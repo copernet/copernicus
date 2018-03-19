@@ -175,7 +175,7 @@ func TestSignHash(t *testing.T) {
 	}
 	preTestTx := testTxs[0]
 	testTx := testTxs[1]
-	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, crypto.SIGHASH_ALL, 0)
+	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.Outs[0].Script, crypto.SigHashAll, 0)
 	signature, err := privateKey.Sign(txHash.GetCloneBytes())
 	ret, err := CheckSig(txHash, signature.Serialize(), privateKey.PubKey().ToBytes())
 	if err != nil {

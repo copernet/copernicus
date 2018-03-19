@@ -11,7 +11,7 @@ import (
 
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/database/boltdb"
+	"github.com/btcboost/copernicus/database"
 	"github.com/btcboost/copernicus/net/conn"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/network"
@@ -46,8 +46,8 @@ type PeerManager struct {
 	quit                 chan struct{}
 
 	//txMemPool    *mempool.TxPool
-	nat          network.NATInterface
-	storage      boltdb.DBBase
+	nat network.NATInterface
+	//storage      boltdb.DBBase
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
 
@@ -60,7 +60,7 @@ type getOutboundGroup struct {
 	reply chan int
 }
 
-func NewPeerManager(listenAddrs []string, db boltdb.DBBase, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
+func NewPeerManager(listenAddrs []string, db database.DBWrapper, bitcoinParam *msg.BitcoinParams) (*PeerManager, error) {
 	services := DefaultServices
 	if conf.AppConf.NoPeerBloomFilters {
 		services &^= protocol.SFNodeBloomFilter
@@ -81,9 +81,9 @@ func NewPeerManager(listenAddrs []string, db boltdb.DBBase, bitcoinParam *msg.Bi
 		modifyRebroadcastInv: make(chan interface{}),
 		peerHeightsUpdate:    make(chan UpdatePeerHeightsMessage),
 		nat:                  natListener,
-		storage:              db,
-		timeSource:           blockchain.NewMedianTime(),
-		servicesFlag:         protocol.ServiceFlag(services),
+		//storage:              db, todo:
+		timeSource:   blockchain.NewMedianTime(),
+		servicesFlag: protocol.ServiceFlag(services),
 	}
 
 	connectListener := conn.ConnectListener{

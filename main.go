@@ -5,11 +5,6 @@ import (
 	"syscall"
 
 	"github.com/astaxie/beego/logs"
-
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/database"
-	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/net/p2p"
 )
 
 var log *logs.BeeLogger
@@ -34,23 +29,23 @@ func main() {
 }
 
 func startBitcoin() error {
-	db, err := database.InitDB(database.DBBolt, conf.AppConf.DataDir+"/peer-")
-	if err != nil {
-		log.Error("InitDB:", err.Error())
-		return err
-	}
-	peerManager, err := p2p.NewPeerManager(conf.AppConf.Listeners, db, msg.ActiveNetParams)
-	if err != nil {
-		log.Error("unable to start server on %v:%v", conf.AppConf.Listeners, err)
-		return err
-	}
-	defer func() {
-		log.Info("gracefully shutting down the server ....")
-		peerManager.Stop()
-		peerManager.WaitForShutdown()
-		log.Info("server shutdown complete")
-	}()
-
-	peerManager.Start()
+	//db, err := database.InitDB(database.DBBolt, conf.AppConf.DataDir+"/peer-")
+	//if err != nil {
+	//	log.Error("InitDB:", err.Error())
+	//	return err
+	//}
+	//peerManager, err := p2p.NewPeerManager(conf.AppConf.Listeners, db, msg.ActiveNetParams)
+	//if err != nil {
+	//	log.Error("unable to start server on %v:%v", conf.AppConf.Listeners, err)
+	//	return err
+	//}
+	//defer func() {
+	//	log.Info("gracefully shutting down the server ....")
+	//	peerManager.Stop()
+	//	peerManager.WaitForShutdown()
+	//	log.Info("server shutdown complete")
+	//}()
+	//
+	//peerManager.Start()
 	return nil
 }

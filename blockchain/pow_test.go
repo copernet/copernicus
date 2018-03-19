@@ -9,57 +9,57 @@ import (
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
-	nLastRetargetTime := int64(1261130161) // Block #30240
-	var pindexLast core.BlockIndex
-	pindexLast.Height = 32255
-	pindexLast.Time = 1262152739 // Block #32255
-	pindexLast.Bits = 0x1d00ffff
+	lastRetargetTime := int64(1261130161) // Block #30240
+	var indexLast core.BlockIndex
+	indexLast.Height = 32255
+	indexLast.Time = 1262152739 // Block #32255
+	indexLast.Bits = 0x1d00ffff
 
 	pow := Pow{}
-	work := pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	work := pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00d86a {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00d86a, work)
 		return
 	}
 
-	nLastRetargetTime = 1231006505
-	pindexLast.Height = 2015
-	pindexLast.Time = 1233061996
-	pindexLast.Bits = 0x1d00ffff
-	work = pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	lastRetargetTime = 1231006505
+	indexLast.Height = 2015
+	indexLast.Time = 1233061996
+	indexLast.Bits = 0x1d00ffff
+	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00ffff {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00ffff, work)
 		return
 	}
 
-	nLastRetargetTime = 1279008237
-	pindexLast.Height = 68543
-	pindexLast.Time = 1279297671
-	pindexLast.Bits = 0x1c05a3f4
-	work = pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	lastRetargetTime = 1279008237
+	indexLast.Height = 68543
+	indexLast.Time = 1279297671
+	indexLast.Bits = 0x1c05a3f4
+	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1c0168fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1c0168fd, work)
 		return
 	}
 
-	nLastRetargetTime = 1263163443
-	pindexLast.Height = 46367
-	pindexLast.Time = 1269211443
-	pindexLast.Bits = 0x1c387f6f
-	work = pow.calculateNextWorkRequired(&pindexLast, nLastRetargetTime, msg.ActiveNetParams)
+	lastRetargetTime = 1263163443
+	indexLast.Height = 46367
+	indexLast.Time = 1269211443
+	indexLast.Bits = 0x1c387f6f
+	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00e1fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00e1fd, work)
 		return
 	}
 }
 
-func getBlockIndex(pindexPrev *core.BlockIndex, timeInterval int64, bits uint32) *core.BlockIndex {
+func getBlockIndex(indexPrev *core.BlockIndex, timeInterval int64, bits uint32) *core.BlockIndex {
 	block := new(core.BlockIndex)
-	block.Prev = pindexPrev
-	block.Height = pindexPrev.Height + 1
-	block.Time = pindexPrev.Time + uint32(timeInterval)
+	block.Prev = indexPrev
+	block.Height = indexPrev.Height + 1
+	block.Time = indexPrev.Time + uint32(timeInterval)
 	block.Bits = bits
-	block.ChainWork = *big.NewInt(0).Add(&pindexPrev.ChainWork, GetBlockProof(block))
+	block.ChainWork = *big.NewInt(0).Add(&indexPrev.ChainWork, GetBlockProof(block))
 	return block
 }
 

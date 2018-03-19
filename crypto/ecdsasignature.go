@@ -6,41 +6,41 @@ import (
 )
 
 const (
-	SIGHASH_ALL          = 1
-	SIGHASH_NONE         = 2
-	SIGHASH_SINGLE       = 3
-	SIGHASH_ANYONECANPAY = 128
+	SigHashAll          = 1
+	SigHashNone         = 2
+	SigHashSingle       = 3
+	SigHashAnyoneCanpay = 128
 )
 
 /** Script verification flags */
 const (
-	SCRIPT_VERIFY_NONE = 0
+	ScriptVerifyNone = 0
 
 	// Evaluate P2SH subscripts (softfork safe BIP16).
-	SCRIPT_VERIFY_P2SH = 1 << 0
+	ScriptVerifyP2SH = 1 << 0
 
 	// Passing a non-strict-DER signature or one with undefined hashtype to a
-	// checksig operation causes script failure. Evaluating a pubkey that is not
+	// checkSig operation causes script failure. Evaluating a pubkey that is not
 	// (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) by checksig causes script
 	// failure.
-	SCRIPT_VERIFY_STRICTENC = 1 << 1
+	ScriptVerifyStrictenc = 1 << 1
 
 	// Passing a non-strict-DER signature to a checksig operation causes script
 	// failure (softfork safe BIP62 rule 1)
-	SCRIPT_VERIFY_DERSIG = 1 << 2
+	ScriptVerifyDersig = 1 << 2
 
 	// Passing a non-strict-DER signature or one with S > order/2 to a checksig
 	// operation causes script failure
-	// (softfork safe BIP62 rule 5).
-	SCRIPT_VERIFY_LOW_S = 1 << 3
+	// (softFork safe BIP62 rule 5).
+	ScriptVerifyLows = 1 << 3
 
 	// verify dummy stack item consumed by CHECKMULTISIG is of zero-length
-	// (softfork safe BIP62 rule 7).
-	SCRIPT_VERIFY_NULLDUMMY = 1 << 4
+	// (softFork safe BIP62 rule 7).
+	ScriptVerifyNullDummy = 1 << 4
 
 	// Using a non-push operator in the scriptSig causes script failure
-	// (softfork safe BIP62 rule 2).
-	SCRIPT_VERIFY_SIGPUSHONLY = 1 << 5
+	// (softFork safe BIP62 rule 2).
+	ScriptVerifySigPushOnly = 1 << 5
 
 	// Require minimal encodings for all push operations (OP_0... OP_16
 	// OP_1NEGATE where possible, direct pushes up to 75 bytes, OP_PUSHDATA up
@@ -49,7 +49,7 @@ const (
 	// stack element is interpreted as a number, it must be of minimal length
 	// (BIP62 rule 4).
 	// (softfork safe)
-	SCRIPT_VERIFY_MINIMALDATA = 1 << 6
+	ScriptVerifyMinimalData = 1 << 6
 
 	// Discourage use of NOPs reserved for upgrades (NOP1-10)
 	//
@@ -59,7 +59,7 @@ const (
 	// discouraged NOPs fails the script. This verification flag will never be a
 	// mandatory flag applied to scripts in a block. NOPs that are not executed,
 	// e.g.  within an unexecuted IF ENDIF block, are *not* rejected.
-	SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS = 1 << 7
+	ScriptVerifyDiscourageUpgradableNOPs = 1 << 7
 
 	// Require that only a single stack element remains after evaluation. This
 	// changes the success criterion from "At least one stack element must
@@ -68,38 +68,38 @@ const (
 	// be true".
 	// (softfork safe, BIP62 rule 6)
 	// Note: CLEANSTACK should never be used without P2SH or WITNESS.
-	SCRIPT_VERIFY_CLEANSTACK = 1 << 8
+	ScriptVerifyCleanStack = 1 << 8
 
-	// Verify CHECKLOCKTIMEVERIFY
+	// Verify CheckLockTimeVerify
 	//
 	// See BIP65 for details.
-	SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = 1 << 9
+	ScriptVerifyCheckLockTimeVerify = 1 << 9
 
-	// support CHECKSEQUENCEVERIFY opcode
+	// support CheckSequenceVerify opCode
 	//
 	// See BIP112 for details
-	SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = 1 << 10
+	ScriptVerifyCheckSequenceVerify = 1 << 10
 
 	// Making v1-v16 witness program non-standard
 	//
-	SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM = 1 << 12
+	ScriptVerifyDiscourageUpgradAbleWitnessProgram = 1 << 12
 
-	// Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
+	// SegWit script only: Require the argument of OP_IF/NOTIF to be exactly
 	// 0x01 or empty vector
 	//
-	SCRIPT_VERIFY_MINIMALIF = 1 << 13
+	ScriptVerifyMinimalif = 1 << 13
 
 	// Signature(s) must be empty vector if an CHECK(MULTI)SIG operation failed
 	//
-	SCRIPT_VERIFY_NULLFAIL = 1 << 14
+	ScriptVerifyNullFail = 1 << 14
 
 	// Public keys in scripts must be compressed
 	//
-	SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE = 1 << 15
+	ScriptVerifyCompressedPubKeyType = 1 << 15
 
-	// Do we accept signature using SIGHASH_FORKID
+	// Do we accept signature using SigHashForkID
 	//
-	SCRIPT_ENABLE_SIGHASH_FORKID = 1 << 16
+	ScriptEnableSigHashForkID = 1 << 16
 )
 
 type Signature secp256k1.EcdsaSignature
@@ -156,16 +156,16 @@ func Sign(privKey *PrivateKey, hash []byte) ([]byte, error) {
  */
 
 func IsValidSignatureEncoding(signs []byte) bool {
-	// Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S] [sighash]
+	// Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S] [sigHash]
 	// * total-length: 1-byte length descriptor of everything that follows,
-	//   excluding the sighash byte.
+	//   excluding the sigHash byte.
 	// * R-length: 1-byte length descriptor of the R value that follows.
 	// * R: arbitrary-length big-endian encoded R value. It must use the shortest
 	//   possible encoding for a positive integers (which means no null bytes at
 	//   the start, except a single one when the next byte has its highest bit set).
 	// * S-length: 1-byte length descriptor of the S value that follows.
 	// * S: arbitrary-length big-endian encoded S value. The same rules apply.
-	// * sighash: 1-byte value indicating what data is hashed (not part of the DER
+	// * sigHash: 1-byte value indicating what data is hashed (not part of the DER
 	//   signature)
 	signsLen := len(signs)
 	if signsLen < 9 {
@@ -226,13 +226,13 @@ func GetHashType(chSig []byte) uint32 {
 
 func IsLowDERSignature(vchSig []byte) (bool, error) {
 	if !IsValidSignatureEncoding(vchSig) {
-		return false, ScriptErr(SCRIPT_ERR_SIG_DER)
+		return false, ScriptErr(ScriptErrSigDer)
 	}
 	var vchCopy []byte
 	vchCopy = append(vchCopy, vchSig[:]...)
 	ret := CheckLowS(vchCopy)
 	if !ret {
-		return false, ScriptErr(SCRIPT_ERR_SIG_HIGH_S)
+		return false, ScriptErr(ScriptErrSigHighs)
 	}
 	return true, nil
 
@@ -255,8 +255,8 @@ func IsDefineHashtypeSignature(vchSig []byte) bool {
 	if len(vchSig) == 0 {
 		return false
 	}
-	nHashType := vchSig[len(vchSig)-1] & (^byte(SIGHASH_ANYONECANPAY))
-	if nHashType < SIGHASH_ALL || nHashType > SIGHASH_SINGLE {
+	nHashType := vchSig[len(vchSig)-1] & (^byte(SigHashAnyoneCanpay))
+	if nHashType < SigHashAll || nHashType > SigHashSingle {
 		return false
 	}
 	return true
@@ -270,12 +270,12 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
 		return true, nil
 	}
 	if (flags&
-		(SCRIPT_VERIFY_DERSIG|SCRIPT_VERIFY_LOW_S|SCRIPT_VERIFY_STRICTENC)) != 0 &&
+		(ScriptVerifyDersig|ScriptVerifyLows|ScriptVerifyStrictenc)) != 0 &&
 		!IsValidSignatureEncoding(vchSig) {
 		return false, errors.New("is valid signature encoding")
 
 	}
-	if (flags & SCRIPT_VERIFY_LOW_S) != 0 {
+	if (flags & ScriptVerifyLows) != 0 {
 		ret, err := IsLowDERSignature(vchSig)
 		if err != nil {
 			return false, err
@@ -284,9 +284,9 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
 		}
 	}
 
-	if (flags & SCRIPT_VERIFY_STRICTENC) != 0 {
+	if (flags & ScriptVerifyStrictenc) != 0 {
 		if !IsDefineHashtypeSignature(vchSig) {
-			return false, ScriptErr(SCRIPT_ERR_SIG_HASHTYPE)
+			return false, ScriptErr(ScriptErrSigHashType)
 
 		}
 	}

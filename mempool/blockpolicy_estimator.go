@@ -127,8 +127,8 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateFee(confTarget int) ut
 		return feeRate
 	}
 
-	median := blockPolicyEstimator.feeStats.EstimateMedianVal(confTarget, utils.SUFFICIENT_FEETXS,
-		utils.MIN_SUCCESS_PCT, true, blockPolicyEstimator.bestSeenHeight)
+	median := blockPolicyEstimator.feeStats.EstimateMedianVal(confTarget, utils.SufficientFeeTxs,
+		utils.MinSuccessPct, true, blockPolicyEstimator.bestSeenHeight)
 	if median < 0 {
 		return feeRate
 	}
@@ -154,7 +154,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartFee(confTarget in
 
 	median := float64(-1)
 	for median < 0 && uint(confTarget) <= blockPolicyEstimator.feeStats.GetMaxConfirms() {
-		median = blockPolicyEstimator.feeStats.EstimateMedianVal(confTarget, utils.SUFFICIENT_FEETXS, utils.MIN_SUCCESS_PCT,
+		median = blockPolicyEstimator.feeStats.EstimateMedianVal(confTarget, utils.SufficientFeeTxs, utils.MinSuccessPct,
 			true, blockPolicyEstimator.bestSeenHeight)
 		confTarget++
 	}
@@ -194,7 +194,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) EstimateSmartPriority(confTarg
 	minPoolFee := minPoolFeeTmp.GetFeePerK()
 
 	if minPoolFee > 0 {
-		return utils.INF_PRIORITY
+		return utils.InfPriority
 	}
 
 	return -1
@@ -243,7 +243,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) RemoveTx(hash utils.Hash) bool
 
 func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
 	blockPolicyEstimator := BlockPolicyEstimator{}
-	if utils.MIN_FEERATE < 0 {
+	if utils.MinFeeRate < 0 {
 		panic("Min feerate must be nonzero")
 	}
 	blockPolicyEstimator.mapMemPoolTxs = beegoUtils.NewBeeMap()
@@ -251,14 +251,14 @@ func NewBlockPolicyEstmator(rate utils.FeeRate) *BlockPolicyEstimator {
 	blockPolicyEstimator.trackedTxs = 0
 	blockPolicyEstimator.untranckedTxs = 0
 	blockPolicyEstimator.minTrackedFee.SataoshisPerK = rate.SataoshisPerK
-	if rate.SataoshisPerK < utils.MIN_FEERATE {
-		blockPolicyEstimator.minTrackedFee.SataoshisPerK = utils.MIN_FEERATE
+	if rate.SataoshisPerK < utils.MinFeeRate {
+		blockPolicyEstimator.minTrackedFee.SataoshisPerK = utils.MinFeeRate
 	}
 	vfeeList := container.NewVector()
-	for bucketBoundary := float64(blockPolicyEstimator.minTrackedFee.GetFeePerK()); bucketBoundary <= float64(utils.MAX_FEERATE); bucketBoundary *= utils.FEE_SPACING {
+	for bucketBoundary := float64(blockPolicyEstimator.minTrackedFee.GetFeePerK()); bucketBoundary <= float64(utils.MaxFeeRate); bucketBoundary *= utils.FeeSpacing {
 		vfeeList.PushBack(bucketBoundary)
 	}
-	vfeeList.PushBack(float64(utils.INF_FEERATE))
-	blockPolicyEstimator.feeStats = *policy.NewTxConfirmStats(vfeeList, utils.MAX_BLOCK_CONFIRMS, utils.DEFAULT_DECAY)
+	vfeeList.PushBack(float64(utils.InfFeeRate))
+	blockPolicyEstimator.feeStats = *policy.NewTxConfirmStats(vfeeList, utils.MaxBlockConfirms, utils.DefaultDecay)
 	return &blockPolicyEstimator
 }

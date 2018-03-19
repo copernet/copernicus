@@ -1,11 +1,11 @@
 package utxo
 
 const (
-	// COIN_ENTRY_DIRTY : This cache entry is potentially different from the version in the
+	// CoinEntryDirty : This cache entry is potentially different from the version in the
 	// parent view.
-	COIN_ENTRY_DIRTY = 1 << 0
-	// COIN_ENTRY_FRESH : The parent view does not have this entry (or it is pruned).
-	COIN_ENTRY_FRESH = 1 << 1
+	CoinEntryDirty = 1 << 0
+	// CoinEntryFresh : The parent view does not have this entry (or it is pruned).
+	CoinEntryFresh = 1 << 1
 )
 
 type CoinsCacheEntry struct {

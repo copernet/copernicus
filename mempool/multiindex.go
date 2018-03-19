@@ -7,13 +7,13 @@ import (
 )
 
 const (
-	DESCENDANTSCORE = iota
-	MININGSCORE
-	ANCESTORSCORE
-	TIMESORT
+	DescendantScore = iota
+	MiningScore
+	AncestorScore
+	TimeSort
 )
 
-//MultiIndex the struct for support mempool store node, to implement MultiIndex sort
+//MultiIndex the struct for support memPool store node, to implement MultiIndex sort
 type MultiIndex struct {
 	PoolNode              map[utils.Hash]*TxMempoolEntry //unique
 	nodeKey               []*TxMempoolEntry
@@ -73,12 +73,12 @@ func (multiIndex *MultiIndex) Size() int {
 
 //GetByDescendantScoreSort : return the sort slice by descendantScore
 func (multiIndex *MultiIndex) GetByDescendantScoreSort() []*TxMempoolEntry {
-	multiIndex.updateSort(DESCENDANTSCORE)
+	multiIndex.updateSort(DescendantScore)
 	return multiIndex.byDescendantScoreSort
 }
 
 func (multiIndex *MultiIndex) GetByDescendantScoreSortBegin() interface{} {
-	multiIndex.updateSort(DESCENDANTSCORE)
+	multiIndex.updateSort(DescendantScore)
 	if len(multiIndex.byDescendantScoreSort) > 0 {
 		return multiIndex.byDescendantScoreSort[0]
 	}
@@ -87,25 +87,25 @@ func (multiIndex *MultiIndex) GetByDescendantScoreSortBegin() interface{} {
 
 func (multiIndex *MultiIndex) updateSort(flag int) {
 	switch flag {
-	case DESCENDANTSCORE:
+	case DescendantScore:
 		multiIndex.byDescendantScoreSort = make([]*TxMempoolEntry, len(multiIndex.nodeKey))
 		copy(multiIndex.byDescendantScoreSort, multiIndex.nodeKey)
 		sort.SliceStable(multiIndex.byDescendantScoreSort, func(i, j int) bool {
 			return CompareTxMemPoolEntryByDescendantScore(multiIndex.byDescendantScoreSort[i], multiIndex.byDescendantScoreSort[j])
 		})
-	case ANCESTORSCORE:
+	case AncestorScore:
 		multiIndex.byAncestorFeeSort = make([]*TxMempoolEntry, len(multiIndex.nodeKey))
 		copy(multiIndex.byAncestorFeeSort, multiIndex.nodeKey)
 		sort.SliceStable(multiIndex.byAncestorFeeSort, func(i, j int) bool {
 			return CompareTxMemPoolEntryByAncestorFee(multiIndex.byAncestorFeeSort[i], multiIndex.byAncestorFeeSort[j])
 		})
-	case MININGSCORE:
+	case MiningScore:
 		multiIndex.byScoreSort = make([]*TxMempoolEntry, len(multiIndex.nodeKey))
 		copy(multiIndex.byScoreSort, multiIndex.nodeKey)
 		sort.SliceStable(multiIndex.byScoreSort, func(i, j int) bool {
 			return CompareTxMempoolEntryByScore(multiIndex.byScoreSort[i], multiIndex.byScoreSort[j])
 		})
-	case TIMESORT:
+	case TimeSort:
 		multiIndex.byEntryTimeSort = make([]*TxMempoolEntry, len(multiIndex.nodeKey))
 		copy(multiIndex.byEntryTimeSort, multiIndex.nodeKey)
 		sort.SliceStable(multiIndex.byEntryTimeSort, func(i, j int) bool {
@@ -116,12 +116,12 @@ func (multiIndex *MultiIndex) updateSort(flag int) {
 }
 
 func (multiIndex *MultiIndex) GetbyEntryTimeSort() []*TxMempoolEntry {
-	multiIndex.updateSort(TIMESORT)
+	multiIndex.updateSort(TimeSort)
 	return multiIndex.byEntryTimeSort
 }
 
 func (multiIndex *MultiIndex) GetbyEntryTimeSortBegin() interface{} {
-	multiIndex.updateSort(TIMESORT)
+	multiIndex.updateSort(TimeSort)
 	if len(multiIndex.byEntryTimeSort) > 0 {
 		return multiIndex.byEntryTimeSort[len(multiIndex.byEntryTimeSort)-1]
 	}
@@ -129,12 +129,12 @@ func (multiIndex *MultiIndex) GetbyEntryTimeSortBegin() interface{} {
 }
 
 func (multiIndex *MultiIndex) GetbyAncestorFeeSort() []*TxMempoolEntry {
-	multiIndex.updateSort(ANCESTORSCORE)
+	multiIndex.updateSort(AncestorScore)
 	return multiIndex.byAncestorFeeSort
 }
 
 func (multiIndex *MultiIndex) GetbyAncestorFeeSortBegin() interface{} {
-	multiIndex.updateSort(ANCESTORSCORE)
+	multiIndex.updateSort(AncestorScore)
 	if len(multiIndex.byAncestorFeeSort) > 0 {
 		return multiIndex.byAncestorFeeSort[len(multiIndex.byAncestorFeeSort)-1]
 	}
@@ -142,12 +142,12 @@ func (multiIndex *MultiIndex) GetbyAncestorFeeSortBegin() interface{} {
 }
 
 func (multiIndex *MultiIndex) GetbyScoreSort() []*TxMempoolEntry {
-	multiIndex.updateSort(MININGSCORE)
+	multiIndex.updateSort(MiningScore)
 	return multiIndex.byScoreSort
 }
 
 func (multiIndex *MultiIndex) GetbyScoreSortBegin() interface{} {
-	multiIndex.updateSort(MININGSCORE)
+	multiIndex.updateSort(MiningScore)
 	if len(multiIndex.byScoreSort) > 0 {
 		return multiIndex.byScoreSort[len(multiIndex.byScoreSort)-1]
 	}

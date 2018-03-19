@@ -249,13 +249,13 @@ func checkSort(pool *Mempool, sortedOrder []utils.Hash, typeName int) error {
 
 	var err error
 	switch typeName {
-	case DESCENDANTSCORE:
+	case DescendantScore:
 		keys := pool.MapTx.GetByDescendantScoreSort()
 		err = processFunc(keys)
-	case ANCESTORSCORE:
+	case AncestorScore:
 		keys := pool.MapTx.GetbyAncestorFeeSort()
 		err = processFunc(keys)
-	case MININGSCORE:
+	case MiningScore:
 		keys := pool.MapTx.GetbyScoreSort()
 		err = processFunc(keys)
 	}
@@ -320,7 +320,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	sortedOrder[2] = tx1.Hash //10000
 	sortedOrder[3] = tx4.Hash //15000
 	sortedOrder[4] = tx2.Hash //20000
-	err := checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	err := checkSort(testPool, sortedOrder, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -344,7 +344,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tmpSorted[0] = tx6.Hash
 	copy(tmpSorted[1:], sortedOrder)
 	sortedOrder = tmpSorted
-	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	err = checkSort(testPool, sortedOrder, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -383,7 +383,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tmpSorted[5] = tx6.Hash
 	tmpSorted[6] = tx7.Hash
 	sortedOrder = tmpSorted
-	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	err = checkSort(testPool, sortedOrder, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -406,7 +406,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tmpSorted[0] = tx8.Hash
 	copy(tmpSorted[1:], sortedOrder)
 	sortedOrder = tmpSorted
-	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	err = checkSort(testPool, sortedOrder, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -429,7 +429,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	tmpSorted[0] = tx9.Hash
 	copy(tmpSorted[1:], sortedOrder)
 	sortedOrder = tmpSorted
-	err = checkSort(testPool, sortedOrder, DESCENDANTSCORE)
+	err = checkSort(testPool, sortedOrder, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -483,7 +483,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 	// tx10 is just before tx6
 	tmpSorted[7] = tx10.Hash
 	t.Log("tmpSorted.Size() : ", len(tmpSorted))
-	err = checkSort(testPool, tmpSorted, DESCENDANTSCORE)
+	err = checkSort(testPool, tmpSorted, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -496,7 +496,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 
 	// Now try removing tx10 and verify the sort order returns to normal
 	testPool.RemoveRecursive(testPool.MapTx.GetEntryByHash(tx10.Hash).TxRef, UNKNOWN)
-	err = checkSort(testPool, snapshotOrder, DESCENDANTSCORE)
+	err = checkSort(testPool, snapshotOrder, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -532,7 +532,7 @@ func TestMempoolEstimatePriority(t *testing.T) {
 		sortedOrder = append(sortedOrder, tx3.Hash)
 		sortedOrder = append(sortedOrder, tx6.Hash)
 	}
-	err = checkSort(testPool, sortedOrder, MININGSCORE)
+	err = checkSort(testPool, sortedOrder, MiningScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -595,7 +595,7 @@ func TestMempoolApplyDeltas(t *testing.T) {
 		sortedOrder[3] = tx1.Hash
 	}
 	sortedOrder[4] = tx3.Hash
-	err := checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	err := checkSort(testPool, sortedOrder, AncestorScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -622,7 +622,7 @@ func TestMempoolApplyDeltas(t *testing.T) {
 		sortedOrder[4] = tx6.Hash
 		sortedOrder[5] = tx3.Hash
 	}
-	err = checkSort(testPool, sortedOrder, ANCESTORSCORE)
+	err = checkSort(testPool, sortedOrder, AncestorScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -648,7 +648,7 @@ func TestMempoolApplyDeltas(t *testing.T) {
 	tmpSort[0] = sortedOrder[0]
 	tmpSort[1] = tx7.Hash
 	copy(tmpSort[2:], sortedOrder[1:])
-	err = checkSort(testPool, tmpSort, ANCESTORSCORE)
+	err = checkSort(testPool, tmpSort, AncestorScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -671,7 +671,7 @@ func TestMempoolApplyDeltas(t *testing.T) {
 	tmpSort = make([]utils.Hash, 1)
 	tmpSort[0] = tx7.Hash
 	tmpSort = append(tmpSort, sortedOrder...)
-	err = checkSort(testPool, tmpSort, ANCESTORSCORE)
+	err = checkSort(testPool, tmpSort, AncestorScore)
 	if err != nil {
 		t.Error(err)
 		return
@@ -712,13 +712,13 @@ func TestMempoolEstimateFee(t *testing.T) {
 		t.Errorf("tx2 should be In Mempool ...")
 		return
 	}
-	err := checkSort(testPool, []utils.Hash{tx2.Hash, tx1.Hash}, DESCENDANTSCORE)
+	err := checkSort(testPool, []utils.Hash{tx2.Hash, tx1.Hash}, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	// should remove the lower-feerate transaction;
+	// should remove the lower-feeRate transaction;
 	// tx2 should be remove;
 	testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
 	if !testPool.Exists(tx1.Hash) {
@@ -741,7 +741,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	testPool.AddUnchecked(&tx3.Hash, entry.SetFee(20000).FromTxToEntry(tx3, testPool), true)
 
 	// tx3 should pay for tx2 (CPFP)
-	// tx1 should be remove, because tx1's feerate is low
+	// tx1 should be remove, because tx1's feeRate is low
 	testPool.TrimToSize(testPool.DynamicMemoryUsage()*3/4, nil)
 	if testPool.Exists(tx1.Hash) {
 		t.Errorf("tx1 should be Not In Mempool ...")
@@ -755,14 +755,14 @@ func TestMempoolEstimateFee(t *testing.T) {
 		t.Errorf("tx3 should be In Mempool ...")
 		return
 	}
-	err = checkSort(testPool, []utils.Hash{tx2.Hash, tx3.Hash}, DESCENDANTSCORE)
+	err = checkSort(testPool, []utils.Hash{tx2.Hash, tx3.Hash}, DescendantScore)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	// mempool is limited to tx1's size in memory usage, so nothing fits
-	// remove all tx from mempool
+	// memPool is limited to tx1's size in memory usage, so nothing fits
+	// remove all tx from memPool
 	testPool.TrimToSize(int64(tx1.SerializeSize()), nil)
 	if testPool.Exists(tx1.Hash) {
 		t.Errorf("tx1 should Not be In Mempool ...")
@@ -849,7 +849,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	}
 	testPool.AddUnchecked(&tx7.Hash, entry.SetFee(9000).FromTxToEntry(tx7, testPool), true)
 
-	// should maximize mempool size by only removing 5/7
+	// should maximize memPool size by only removing 5/7
 	testPool.TrimToSize(testPool.DynamicMemoryUsage()/2, nil)
 	if !testPool.Exists(tx4.Hash) {
 		t.Errorf("tx4 should  be In Mempool ...")
@@ -873,7 +873,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	vtx := make([]*core.Tx, 0)
 	utils.SetMockTime(42)
-	utils.SetMockTime(42 + ROLLING_FEE_HALFLIFE)
+	utils.SetMockTime(42 + RollingFeeHalfLife)
 	f = testPool.GetMinFee(1)
 	if f.GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
@@ -883,43 +883,43 @@ func TestMempoolEstimateFee(t *testing.T) {
 
 	// ... we should keep the same min fee until we get a block
 	testPool.RemoveForBlock(vtx, 1)
-	utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE)
+	utils.SetMockTime(42 + 2*RollingFeeHalfLife)
 	f = testPool.GetMinFee(1)
 	if f.GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/2 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
 			f.GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/2)
 		return
 	}
-	// ... then feerate should drop 1/2 each halflife
+	// ... then feeRate should drop 1/2 each halfLife
 
-	utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2)
+	utils.SetMockTime(42 + 2*RollingFeeHalfLife + RollingFeeHalfLife/2)
 	f = testPool.GetMinFee(testPool.DynamicMemoryUsage() * 5 / 2)
 	if f.GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/4 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
 			f.GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/4)
 		return
 	}
-	// ... with a 1/2 halflife when mempool is < 1/2 its target size
+	// ... with a 1/2 halfLife when memPool is < 1/2 its target size
 
-	utils.SetMockTime(42 + 2*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
+	utils.SetMockTime(42 + 2*RollingFeeHalfLife + RollingFeeHalfLife/2 + RollingFeeHalfLife/4)
 	f = testPool.GetMinFee(testPool.DynamicMemoryUsage() * 9 / 2)
 	if f.GetFeePerK() != (maxFeeRateRemoved.GetFeePerK()+1000)/8 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
 			f.GetFeePerK(), (maxFeeRateRemoved.GetFeePerK()+1000)/8)
 		return
 	}
-	// ... with a 1/4 halflife when mempool is < 1/4 its target size
+	// ... with a 1/4 halfLife when memPool is < 1/4 its target size
 
-	utils.SetMockTime(42 + 7*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
+	utils.SetMockTime(42 + 7*RollingFeeHalfLife + RollingFeeHalfLife/2 + RollingFeeHalfLife/4)
 	f = testPool.GetMinFee(1)
 	if f.GetFeePerK() != 1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",
 			f.GetFeePerK(), 1000)
 		return
 	}
-	// ... but feerate should never drop below 1000
+	// ... but feeRate should never drop below 1000
 
-	utils.SetMockTime(42 + 8*ROLLING_FEE_HALFLIFE + ROLLING_FEE_HALFLIFE/2 + ROLLING_FEE_HALFLIFE/4)
+	utils.SetMockTime(42 + 8*RollingFeeHalfLife + RollingFeeHalfLife/2 + RollingFeeHalfLife/4)
 	f = testPool.GetMinFee(1)
 	if f.GetFeePerK() != 0 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",

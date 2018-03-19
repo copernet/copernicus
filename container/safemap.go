@@ -24,7 +24,7 @@ type BeeMap struct {
 	bm   map[interface{}]interface{}
 }
 
-// NewBeeMap return new safemap
+// NewBeeMap return new safeMap
 func NewBeeMap() *BeeMap {
 	return &BeeMap{
 		lock: new(sync.RWMutex),
@@ -83,7 +83,7 @@ func (m *BeeMap) Delete(k interface{}) {
 	delete(m.bm, k)
 }
 
-// Items returns all items in safemap.
+// Items returns all items in safeMap.
 func (m *BeeMap) Items() map[interface{}]interface{} {
 	m.lock.RLock()
 	defer m.lock.RUnlock()

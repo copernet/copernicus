@@ -664,9 +664,9 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 type DisconnectResult int
 
 const (
-	DISCONNECT_OK DisconnectResult = iota
-	DISCONNECT_UNCLEAN
-	DISCONNECT_FAILED
+	DisconnectOK DisconnectResult = iota
+	DisconnectUnclean
+	DisconnectFailed
 )
 
 func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *core.OutPoint) DisconnectResult {
@@ -683,7 +683,7 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *core.OutPoint) Disconn
 		alternate := AccessByTxid(view, &out.Hash)
 		if alternate.IsSpent() {
 			// Adding output for transaction without known metadata
-			return DISCONNECT_FAILED
+			return DisconnectFailed
 		}
 
 		// This is somewhat ugly, but hopefully utility is limited. This is only
@@ -693,9 +693,9 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *core.OutPoint) Disconn
 	}
 	view.AddCoin(out, *undo, undo.IsCoinBase())
 	if fClean {
-		return DISCONNECT_OK
+		return DisconnectOK
 	}
-	return DISCONNECT_UNCLEAN
+	return DisconnectUnclean
 }
 
 func UpdateCoins(tx core.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
@@ -717,21 +717,21 @@ func UpdateCoins(tx core.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
 var OUTPOINT = core.OutPoint{Hash: utils.HashZero, Index: math.MaxUint32}
 
 const (
-	PRUNED   utils.Amount = -1
-	ABSENT   utils.Amount = -2
-	FAIL     utils.Amount = -3
-	VALUE1   utils.Amount = 100
-	VALUE2   utils.Amount = 200
-	VALUE3   utils.Amount = 300
-	DIRTY                 = COIN_ENTRY_DIRTY
-	FRESH                 = COIN_ENTRY_FRESH
-	NO_ENTRY              = -1
+	PRUNED  utils.Amount = -1
+	ABSENT  utils.Amount = -2
+	FAIL    utils.Amount = -3
+	VALUE1  utils.Amount = 100
+	VALUE2  utils.Amount = 200
+	VALUE3  utils.Amount = 300
+	DIRTY                = CoinEntryDirty
+	FRESH                = CoinEntryFresh
+	NoEntry              = -1
 )
 
 var (
-	FLAGS        = []int{0, FRESH, DIRTY, DIRTY | FRESH}
-	CLEAN_FLAGS  = []int{0, FRESH}
-	ABSENT_FLAGS = []int{NO_ENTRY}
+	FLAGS       = []int{0, FRESH, DIRTY, DIRTY | FRESH}
+	CleanFlags  = []int{0, FRESH}
+	AbsentFlags = []int{NoEntry}
 )
 
 type SingleEntryCacheTest struct {
@@ -747,7 +747,7 @@ func NewSingleEntryCacheTest(baseValue utils.Amount, cacheValue utils.Amount, ca
 	cache := newCoinsViewCacheTest()
 	cache.Base = base
 	if baseValue == ABSENT {
-		WriteCoinViewEntry(base, baseValue, NO_ENTRY)
+		WriteCoinViewEntry(base, baseValue, NoEntry)
 	} else {
 		WriteCoinViewEntry(base, baseValue, DIRTY)
 	}
@@ -767,12 +767,12 @@ func WriteCoinViewEntry(view CoinsView, value utils.Amount, flags int) {
 
 func InsertCoinMapEntry(cacheCoins CacheCoins, value utils.Amount, flags int) int64 {
 	if value == ABSENT {
-		if flags != NO_ENTRY {
+		if flags != NoEntry {
 			panic("input flags should be NO_ENTRY")
 		}
 		return 0
 	}
-	if flags == NO_ENTRY {
+	if flags == NoEntry {
 		panic("input flags should not be NO_ENTRY")
 	}
 	coin := NewEmptyCoin()
@@ -807,7 +807,7 @@ func GetCoinMapEntry(cacheCoins CacheCoins) (utils.Amount, int) {
 	var resultFlags int
 	if !ok {
 		resultValue = ABSENT
-		resultFlags = NO_ENTRY
+		resultFlags = NoEntry
 	} else {
 		if entry.Coin.IsSpent() {
 			resultValue = PRUNED
@@ -815,7 +815,7 @@ func GetCoinMapEntry(cacheCoins CacheCoins) (utils.Amount, int) {
 			resultValue = utils.Amount(entry.Coin.TxOut.Value)
 		}
 		resultFlags = int(entry.Flags)
-		if resultFlags == NO_ENTRY {
+		if resultFlags == NoEntry {
 			panic("result_flags should not be equal to NO_ENTRY")
 		}
 	}
@@ -842,7 +842,7 @@ func CheckAccessCoin(baseValue utils.Amount, cacheValue utils.Amount, expectedVa
 }
 
 func TestCoinAccess(t *testing.T) {
-	CheckAccessCoin(ABSENT, ABSENT, ABSENT, NO_ENTRY, NO_ENTRY)
+	CheckAccessCoin(ABSENT, ABSENT, ABSENT, NoEntry, NoEntry)
 	CheckAccessCoin(ABSENT, PRUNED, PRUNED, 0, 0)
 	CheckAccessCoin(ABSENT, PRUNED, PRUNED, FRESH, FRESH)
 	CheckAccessCoin(ABSENT, PRUNED, PRUNED, DIRTY, DIRTY)
@@ -851,7 +851,7 @@ func TestCoinAccess(t *testing.T) {
 	CheckAccessCoin(ABSENT, VALUE2, VALUE2, FRESH, FRESH)
 	CheckAccessCoin(ABSENT, VALUE2, VALUE2, DIRTY, DIRTY)
 	CheckAccessCoin(ABSENT, VALUE2, VALUE2, DIRTY|FRESH, DIRTY|FRESH)
-	CheckAccessCoin(PRUNED, ABSENT, PRUNED, NO_ENTRY, FRESH)
+	CheckAccessCoin(PRUNED, ABSENT, PRUNED, NoEntry, FRESH)
 	CheckAccessCoin(PRUNED, PRUNED, PRUNED, 0, 0)
 	CheckAccessCoin(PRUNED, PRUNED, PRUNED, FRESH, FRESH)
 	CheckAccessCoin(PRUNED, PRUNED, PRUNED, DIRTY, DIRTY)
@@ -860,7 +860,7 @@ func TestCoinAccess(t *testing.T) {
 	CheckAccessCoin(PRUNED, VALUE2, VALUE2, FRESH, FRESH)
 	CheckAccessCoin(PRUNED, VALUE2, VALUE2, DIRTY, DIRTY)
 	CheckAccessCoin(PRUNED, VALUE2, VALUE2, DIRTY|FRESH, DIRTY|FRESH)
-	CheckAccessCoin(VALUE1, ABSENT, VALUE1, NO_ENTRY, 0)
+	CheckAccessCoin(VALUE1, ABSENT, VALUE1, NoEntry, 0)
 	CheckAccessCoin(VALUE1, PRUNED, PRUNED, 0, 0)
 	CheckAccessCoin(VALUE1, PRUNED, PRUNED, FRESH, FRESH)
 	CheckAccessCoin(VALUE1, PRUNED, PRUNED, DIRTY, DIRTY)
@@ -895,33 +895,33 @@ func TestCoinSpeed(t *testing.T) {
 	 *              Value   	Value   	Value   		Flags        Flags
 	 */
 
-	CheckSpendCoin(ABSENT, ABSENT, ABSENT, NO_ENTRY, NO_ENTRY)
+	CheckSpendCoin(ABSENT, ABSENT, ABSENT, NoEntry, NoEntry)
 	CheckSpendCoin(ABSENT, PRUNED, PRUNED, 0, DIRTY)
-	CheckSpendCoin(ABSENT, PRUNED, ABSENT, FRESH, NO_ENTRY)
+	CheckSpendCoin(ABSENT, PRUNED, ABSENT, FRESH, NoEntry)
 	CheckSpendCoin(ABSENT, PRUNED, PRUNED, DIRTY, DIRTY)
-	CheckSpendCoin(ABSENT, PRUNED, ABSENT, DIRTY|FRESH, NO_ENTRY)
+	CheckSpendCoin(ABSENT, PRUNED, ABSENT, DIRTY|FRESH, NoEntry)
 	CheckSpendCoin(ABSENT, VALUE2, PRUNED, 0, DIRTY)
-	CheckSpendCoin(ABSENT, VALUE2, ABSENT, FRESH, NO_ENTRY)
+	CheckSpendCoin(ABSENT, VALUE2, ABSENT, FRESH, NoEntry)
 	CheckSpendCoin(ABSENT, VALUE2, PRUNED, DIRTY, DIRTY)
-	CheckSpendCoin(ABSENT, VALUE2, ABSENT, DIRTY|FRESH, NO_ENTRY)
-	CheckSpendCoin(PRUNED, ABSENT, ABSENT, NO_ENTRY, NO_ENTRY)
+	CheckSpendCoin(ABSENT, VALUE2, ABSENT, DIRTY|FRESH, NoEntry)
+	CheckSpendCoin(PRUNED, ABSENT, ABSENT, NoEntry, NoEntry)
 	CheckSpendCoin(PRUNED, PRUNED, PRUNED, 0, DIRTY)
-	CheckSpendCoin(PRUNED, PRUNED, ABSENT, FRESH, NO_ENTRY)
+	CheckSpendCoin(PRUNED, PRUNED, ABSENT, FRESH, NoEntry)
 	CheckSpendCoin(PRUNED, PRUNED, PRUNED, DIRTY, DIRTY)
-	CheckSpendCoin(PRUNED, PRUNED, ABSENT, DIRTY|FRESH, NO_ENTRY)
+	CheckSpendCoin(PRUNED, PRUNED, ABSENT, DIRTY|FRESH, NoEntry)
 	CheckSpendCoin(PRUNED, VALUE2, PRUNED, 0, DIRTY)
-	CheckSpendCoin(PRUNED, VALUE2, ABSENT, FRESH, NO_ENTRY)
+	CheckSpendCoin(PRUNED, VALUE2, ABSENT, FRESH, NoEntry)
 	CheckSpendCoin(PRUNED, VALUE2, PRUNED, DIRTY, DIRTY)
-	CheckSpendCoin(PRUNED, VALUE2, ABSENT, DIRTY|FRESH, NO_ENTRY)
-	CheckSpendCoin(VALUE1, ABSENT, PRUNED, NO_ENTRY, DIRTY)
+	CheckSpendCoin(PRUNED, VALUE2, ABSENT, DIRTY|FRESH, NoEntry)
+	CheckSpendCoin(VALUE1, ABSENT, PRUNED, NoEntry, DIRTY)
 	CheckSpendCoin(VALUE1, PRUNED, PRUNED, 0, DIRTY)
-	CheckSpendCoin(VALUE1, PRUNED, ABSENT, FRESH, NO_ENTRY)
+	CheckSpendCoin(VALUE1, PRUNED, ABSENT, FRESH, NoEntry)
 	CheckSpendCoin(VALUE1, PRUNED, PRUNED, DIRTY, DIRTY)
-	CheckSpendCoin(VALUE1, PRUNED, ABSENT, DIRTY|FRESH, NO_ENTRY)
+	CheckSpendCoin(VALUE1, PRUNED, ABSENT, DIRTY|FRESH, NoEntry)
 	CheckSpendCoin(VALUE1, VALUE2, PRUNED, 0, DIRTY)
-	CheckSpendCoin(VALUE1, VALUE2, ABSENT, FRESH, NO_ENTRY)
+	CheckSpendCoin(VALUE1, VALUE2, ABSENT, FRESH, NoEntry)
 	CheckSpendCoin(VALUE1, VALUE2, PRUNED, DIRTY, DIRTY)
-	CheckSpendCoin(VALUE1, VALUE2, ABSENT, DIRTY|FRESH, NO_ENTRY)
+	CheckSpendCoin(VALUE1, VALUE2, ABSENT, DIRTY|FRESH, NoEntry)
 }
 
 func CheckAddCoinBase(baseValue utils.Amount, cacheValue utils.Amount, modifyValue utils.Amount,
@@ -934,7 +934,7 @@ func CheckAddCoinBase(baseValue utils.Amount, cacheValue utils.Amount, modifyVal
 	defer func() {
 		if r := recover(); r != nil {
 			resultValue = FAIL
-			resultFlags = NO_ENTRY
+			resultFlags = NoEntry
 			if resultValue != expectedValue {
 				panic("expectedValue should be equal to resultValue")
 			}
@@ -974,8 +974,8 @@ func TestCoinAdd(t *testing.T) {
 	 * Cache   Write   Result  Cache        Result       potential_overwrite
 	 * Value   Value   Value   Flags        Flags
 	 */
-	CheckAddCoin(ABSENT, VALUE3, VALUE3, NO_ENTRY, DIRTY|FRESH, false)
-	CheckAddCoin(ABSENT, VALUE3, VALUE3, NO_ENTRY, DIRTY, true)
+	CheckAddCoin(ABSENT, VALUE3, VALUE3, NoEntry, DIRTY|FRESH, false)
+	CheckAddCoin(ABSENT, VALUE3, VALUE3, NoEntry, DIRTY, true)
 	CheckAddCoin(PRUNED, VALUE3, VALUE3, 0, DIRTY|FRESH, false)
 	CheckAddCoin(PRUNED, VALUE3, VALUE3, 0, DIRTY, true)
 	CheckAddCoin(PRUNED, VALUE3, VALUE3, FRESH, DIRTY|FRESH, false)
@@ -984,13 +984,13 @@ func TestCoinAdd(t *testing.T) {
 	CheckAddCoin(PRUNED, VALUE3, VALUE3, DIRTY, DIRTY, true)
 	CheckAddCoin(PRUNED, VALUE3, VALUE3, DIRTY|FRESH, DIRTY|FRESH, false)
 	CheckAddCoin(PRUNED, VALUE3, VALUE3, DIRTY|FRESH, DIRTY|FRESH, true)
-	CheckAddCoin(VALUE2, VALUE3, FAIL, 0, NO_ENTRY, false)
+	CheckAddCoin(VALUE2, VALUE3, FAIL, 0, NoEntry, false)
 	CheckAddCoin(VALUE2, VALUE3, VALUE3, 0, DIRTY, true)
-	CheckAddCoin(VALUE2, VALUE3, FAIL, FRESH, NO_ENTRY, false)
+	CheckAddCoin(VALUE2, VALUE3, FAIL, FRESH, NoEntry, false)
 	CheckAddCoin(VALUE2, VALUE3, VALUE3, FRESH, DIRTY|FRESH, true)
-	CheckAddCoin(VALUE2, VALUE3, FAIL, DIRTY, NO_ENTRY, false)
+	CheckAddCoin(VALUE2, VALUE3, FAIL, DIRTY, NoEntry, false)
 	CheckAddCoin(VALUE2, VALUE3, VALUE3, DIRTY, DIRTY, true)
-	CheckAddCoin(VALUE2, VALUE3, FAIL, DIRTY|FRESH, NO_ENTRY, false)
+	CheckAddCoin(VALUE2, VALUE3, FAIL, DIRTY|FRESH, NoEntry, false)
 	CheckAddCoin(VALUE2, VALUE3, VALUE3, DIRTY|FRESH, DIRTY|FRESH, true)
 }
 
@@ -1003,7 +1003,7 @@ func CheckWriteCoin(parentValue utils.Amount, childValue utils.Amount, expectedV
 	defer func() {
 		if r := recover(); r != nil {
 			resultValue = FAIL
-			resultFlags = NO_ENTRY
+			resultFlags = NoEntry
 			if resultValue != expectedValue {
 				panic("expectedValue should be equal to resultValue")
 			}
@@ -1033,23 +1033,23 @@ func TestWriteCoin(t *testing.T) {
 	 *              Parent  Child   Result  Parent       Child        Result
 	 *              Value   Value   Value   Flags        Flags        Flags
 	 */
-	CheckWriteCoin(ABSENT, ABSENT, ABSENT, NO_ENTRY, NO_ENTRY, NO_ENTRY)
-	CheckWriteCoin(ABSENT, PRUNED, PRUNED, NO_ENTRY, DIRTY, DIRTY)
-	CheckWriteCoin(ABSENT, PRUNED, ABSENT, NO_ENTRY, DIRTY|FRESH, NO_ENTRY)
-	CheckWriteCoin(ABSENT, VALUE2, VALUE2, NO_ENTRY, DIRTY, DIRTY)
-	CheckWriteCoin(ABSENT, VALUE2, VALUE2, NO_ENTRY, DIRTY|FRESH, DIRTY|FRESH)
-	CheckWriteCoin(PRUNED, ABSENT, PRUNED, 0, NO_ENTRY, 0)
-	CheckWriteCoin(PRUNED, ABSENT, PRUNED, FRESH, NO_ENTRY, FRESH)
-	CheckWriteCoin(PRUNED, ABSENT, PRUNED, DIRTY, NO_ENTRY, DIRTY)
-	CheckWriteCoin(PRUNED, ABSENT, PRUNED, DIRTY|FRESH, NO_ENTRY, DIRTY|FRESH)
+	CheckWriteCoin(ABSENT, ABSENT, ABSENT, NoEntry, NoEntry, NoEntry)
+	CheckWriteCoin(ABSENT, PRUNED, PRUNED, NoEntry, DIRTY, DIRTY)
+	CheckWriteCoin(ABSENT, PRUNED, ABSENT, NoEntry, DIRTY|FRESH, NoEntry)
+	CheckWriteCoin(ABSENT, VALUE2, VALUE2, NoEntry, DIRTY, DIRTY)
+	CheckWriteCoin(ABSENT, VALUE2, VALUE2, NoEntry, DIRTY|FRESH, DIRTY|FRESH)
+	CheckWriteCoin(PRUNED, ABSENT, PRUNED, 0, NoEntry, 0)
+	CheckWriteCoin(PRUNED, ABSENT, PRUNED, FRESH, NoEntry, FRESH)
+	CheckWriteCoin(PRUNED, ABSENT, PRUNED, DIRTY, NoEntry, DIRTY)
+	CheckWriteCoin(PRUNED, ABSENT, PRUNED, DIRTY|FRESH, NoEntry, DIRTY|FRESH)
 	CheckWriteCoin(PRUNED, PRUNED, PRUNED, 0, DIRTY, DIRTY)
 	CheckWriteCoin(PRUNED, PRUNED, PRUNED, 0, DIRTY|FRESH, DIRTY)
-	CheckWriteCoin(PRUNED, PRUNED, ABSENT, FRESH, DIRTY, NO_ENTRY)
-	CheckWriteCoin(PRUNED, PRUNED, ABSENT, FRESH, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(PRUNED, PRUNED, ABSENT, FRESH, DIRTY, NoEntry)
+	CheckWriteCoin(PRUNED, PRUNED, ABSENT, FRESH, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(PRUNED, PRUNED, PRUNED, DIRTY, DIRTY, DIRTY)
 	CheckWriteCoin(PRUNED, PRUNED, PRUNED, DIRTY, DIRTY|FRESH, DIRTY)
-	CheckWriteCoin(PRUNED, PRUNED, ABSENT, DIRTY|FRESH, DIRTY, NO_ENTRY)
-	CheckWriteCoin(PRUNED, PRUNED, ABSENT, DIRTY|FRESH, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(PRUNED, PRUNED, ABSENT, DIRTY|FRESH, DIRTY, NoEntry)
+	CheckWriteCoin(PRUNED, PRUNED, ABSENT, DIRTY|FRESH, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(PRUNED, VALUE2, VALUE2, 0, DIRTY, DIRTY)
 	CheckWriteCoin(PRUNED, VALUE2, VALUE2, 0, DIRTY|FRESH, DIRTY)
 	CheckWriteCoin(PRUNED, VALUE2, VALUE2, FRESH, DIRTY, DIRTY|FRESH)
@@ -1058,26 +1058,26 @@ func TestWriteCoin(t *testing.T) {
 	CheckWriteCoin(PRUNED, VALUE2, VALUE2, DIRTY, DIRTY|FRESH, DIRTY)
 	CheckWriteCoin(PRUNED, VALUE2, VALUE2, DIRTY|FRESH, DIRTY, DIRTY|FRESH)
 	CheckWriteCoin(PRUNED, VALUE2, VALUE2, DIRTY|FRESH, DIRTY|FRESH, DIRTY|FRESH)
-	CheckWriteCoin(VALUE1, ABSENT, VALUE1, 0, NO_ENTRY, 0)
-	CheckWriteCoin(VALUE1, ABSENT, VALUE1, FRESH, NO_ENTRY, FRESH)
-	CheckWriteCoin(VALUE1, ABSENT, VALUE1, DIRTY, NO_ENTRY, DIRTY)
-	CheckWriteCoin(VALUE1, ABSENT, VALUE1, DIRTY|FRESH, NO_ENTRY, DIRTY|FRESH)
+	CheckWriteCoin(VALUE1, ABSENT, VALUE1, 0, NoEntry, 0)
+	CheckWriteCoin(VALUE1, ABSENT, VALUE1, FRESH, NoEntry, FRESH)
+	CheckWriteCoin(VALUE1, ABSENT, VALUE1, DIRTY, NoEntry, DIRTY)
+	CheckWriteCoin(VALUE1, ABSENT, VALUE1, DIRTY|FRESH, NoEntry, DIRTY|FRESH)
 	CheckWriteCoin(VALUE1, PRUNED, PRUNED, 0, DIRTY, DIRTY)
-	CheckWriteCoin(VALUE1, PRUNED, FAIL, 0, DIRTY|FRESH, NO_ENTRY)
-	CheckWriteCoin(VALUE1, PRUNED, ABSENT, FRESH, DIRTY, NO_ENTRY)
-	CheckWriteCoin(VALUE1, PRUNED, FAIL, FRESH, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(VALUE1, PRUNED, FAIL, 0, DIRTY|FRESH, NoEntry)
+	CheckWriteCoin(VALUE1, PRUNED, ABSENT, FRESH, DIRTY, NoEntry)
+	CheckWriteCoin(VALUE1, PRUNED, FAIL, FRESH, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(VALUE1, PRUNED, PRUNED, DIRTY, DIRTY, DIRTY)
-	CheckWriteCoin(VALUE1, PRUNED, FAIL, DIRTY, DIRTY|FRESH, NO_ENTRY)
-	CheckWriteCoin(VALUE1, PRUNED, ABSENT, DIRTY|FRESH, DIRTY, NO_ENTRY)
-	CheckWriteCoin(VALUE1, PRUNED, FAIL, DIRTY|FRESH, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(VALUE1, PRUNED, FAIL, DIRTY, DIRTY|FRESH, NoEntry)
+	CheckWriteCoin(VALUE1, PRUNED, ABSENT, DIRTY|FRESH, DIRTY, NoEntry)
+	CheckWriteCoin(VALUE1, PRUNED, FAIL, DIRTY|FRESH, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(VALUE1, VALUE2, VALUE2, 0, DIRTY, DIRTY)
-	CheckWriteCoin(VALUE1, VALUE2, FAIL, 0, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(VALUE1, VALUE2, FAIL, 0, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(VALUE1, VALUE2, VALUE2, FRESH, DIRTY, DIRTY|FRESH)
-	CheckWriteCoin(VALUE1, VALUE2, FAIL, FRESH, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(VALUE1, VALUE2, FAIL, FRESH, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(VALUE1, VALUE2, VALUE2, DIRTY, DIRTY, DIRTY)
-	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY, DIRTY|FRESH, NoEntry)
 	CheckWriteCoin(VALUE1, VALUE2, VALUE2, DIRTY|FRESH, DIRTY, DIRTY|FRESH)
-	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY|FRESH, DIRTY|FRESH, NO_ENTRY)
+	CheckWriteCoin(VALUE1, VALUE2, FAIL, DIRTY|FRESH, DIRTY|FRESH, NoEntry)
 
 	// The checks above omit cases where the child flags are not DIRTY, since
 	// they would be too repetitive (the parent cache is never updated in these
@@ -1088,7 +1088,7 @@ func TestWriteCoin(t *testing.T) {
 
 			var parentFlags []int
 			if parentValue == int(ABSENT) {
-				parentFlags = ABSENT_FLAGS
+				parentFlags = AbsentFlags
 			} else {
 				parentFlags = FLAGS
 			}
@@ -1097,9 +1097,9 @@ func TestWriteCoin(t *testing.T) {
 
 				var childFlags []int
 				if childValue == int(ABSENT) {
-					childFlags = ABSENT_FLAGS
+					childFlags = AbsentFlags
 				} else {
-					childFlags = CLEAN_FLAGS
+					childFlags = CleanFlags
 				}
 
 				for _, childFlag := range childFlags {

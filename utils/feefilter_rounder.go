@@ -53,7 +53,7 @@ func NewFeeFilterRounder(minIncrementalFee FeeRate, fDeterministic bool) *FeeFil
 
 	minFeeLimit = 1
 	feeFilterRounder.feeSet.Add(0)
-	for bucketBoundary := float64(minFeeLimit); bucketBoundary <= float64(MAX_FEERATE); bucketBoundary *= FEE_SPACING {
+	for bucketBoundary := float64(minFeeLimit); bucketBoundary <= float64(MaxFeeRate); bucketBoundary *= FeeSpacing {
 		feeFilterRounder.feeSet.Add(bucketBoundary)
 	}
 

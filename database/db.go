@@ -194,9 +194,9 @@ func (dbw *DBWrapper) Exists(key []byte) bool {
 	if err != nil {
 		if err == lvldb.ErrNotFound {
 			return false
-		} else {
-			panic("DBWrapper :" + err.Error())
 		}
+		panic("DBWrapper :" + err.Error())
+
 	}
 	return true
 }

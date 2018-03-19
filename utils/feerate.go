@@ -8,32 +8,32 @@ import (
 )
 
 const (
-	//MIN_FEERATE Minimum and Maximum values for tracking feerates
-	MIN_FEERATE  int64   = 10
-	MAX_FEERATE  int64   = 1e7
-	INF_FEERATE  int64   = MAX_MONEY
-	INF_PRIORITY float64 = 1e9 * float64(MAX_MONEY)
+	// MinFeeRate minimum and Maximum values for tracking feeRates
+	MinFeeRate  int64   = 10
+	MaxFeeRate  int64   = 1e7
+	InfFeeRate  int64   = MaxMoney
+	InfPriority float64 = 1e9 * float64(MaxMoney)
 
-	//FEE_SPACING We have to lump transactions into buckets based on feerate, but we want to be
-	// able to give accurate estimates over a large range of potential feerates.
+	//FeeSpacing we have to lump transactions into buckets based on feeRate, but we want to be
+	// able to give accurate estimates over a large range of potential feeRates.
 	// Therefore it makes sense to exponentially space the buckets
-	FEE_SPACING float64 = 1.1
+	FeeSpacing float64 = 1.1
 )
 
 const (
-	/*MAX_BLOCK_CONFIRMS Track confirm delays up to 25 blocks, can't estimate beyond that */
-	MAX_BLOCK_CONFIRMS uint = 25
+	// MaxBlockConfirms track confirm delays up to 25 blocks, can't estimate beyond that
+	MaxBlockConfirms uint = 25
 
-	/*DEFAULT_DECAY Decay of .998 is a half-life of 346 blocks or about 2.4 days */
-	DEFAULT_DECAY float64 = .998
+	// DefaultDecay decay of .998 is a half-life of 346 blocks or about 2.4 days
+	DefaultDecay float64 = .998
 
-	/*MIN_SUCCESS_PCT Require greater than 95% of X feerate transactions to be confirmed within Y
-	 * blocks for X to be big enough */
-	MIN_SUCCESS_PCT float64 = .95
+	// MinSuccessPct require greater than 95% of X feeRate transactions to be confirmed within Y
+	// blocks for X to be big enough
+	MinSuccessPct float64 = .95
 
-	/*SUFFICIENT_FEETXS Require an avg of 1 tx in the combined feerate bucket per block to have stat
-	 * significance */
-	SUFFICIENT_FEETXS float64 = 1
+	// SufficientFeeTxs Require an avg of 1 tx in the combined feeRate bucket per block to have stat
+	// significance
+	SufficientFeeTxs float64 = 1
 )
 
 // FeeRate : Fee rate in satoshis per kilobyte: Amount / kB
@@ -68,7 +68,7 @@ func (feeRate *FeeRate) String() string {
 	return fmt.Sprintf("%d.%08d %s/kb",
 		feeRate.SataoshisPerK/COIN,
 		feeRate.SataoshisPerK%COIN,
-		CURRENCY_UNIT)
+		CurrencyUnit)
 }
 
 func (feeRate *FeeRate) SerializeSize() int {

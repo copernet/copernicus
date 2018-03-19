@@ -27,7 +27,7 @@ const (
 	BlockValidScripts uint32 = 5
 
 	// BlockValidMask : All validity bits
-	BlockValidMask uint32 = BlockValidHeader |
+	BlockValidMask = BlockValidHeader |
 		BlockValidTree |
 		BlockValidTransactions |
 		BlockValidChain |
@@ -43,5 +43,5 @@ const (
 	BlockFailedValid uint32 = 32
 	// BlockFailedChild : descends from failed block
 	BlockFailedChild uint32 = 64
-	BlockFailedMask  uint32 = BlockFailedValid | BlockFailedChild
+	BlockFailedMask         = BlockFailedValid | BlockFailedChild
 )

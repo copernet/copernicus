@@ -452,9 +452,9 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	mainnetParams := msg.MainNetParams
 
 	// Use the TESTDUMMY deployment for testing purposes.
-	bit := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].Bit
-	startTime := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].StartTime
-	timeout := mainnetParams.Deployments[msg.DEPLOYMENT_TESTDUMMY].Timeout
+	bit := mainnetParams.Deployments[msg.DeploymentTestDummy].Bit
+	startTime := mainnetParams.Deployments[msg.DeploymentTestDummy].StartTime
+	timeout := mainnetParams.Deployments[msg.DeploymentTestDummy].Timeout
 
 	if startTime >= timeout {
 		t.Error("startTime should be less than timeout value")

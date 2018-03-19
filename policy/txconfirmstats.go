@@ -12,10 +12,10 @@ import (
 /**
  * We will instantiate an instance of this class to track transactions that were
  * included in a block. We will lump transactions into a bucket according to
- * their approximate feerate and then track how long it took for those txs to be
+ * their approximate feeRate and then track how long it took for those txs to be
  * included in a block.
  *
- * The tracking of unconfirmed (mempool) transactions is completely independent
+ * The tracking of unconfirmed (memPool) transactions is completely independent
  * of the historical tracking of transactions that have been confirmed in a
  * block.
  */

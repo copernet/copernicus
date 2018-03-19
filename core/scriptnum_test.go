@@ -29,35 +29,35 @@ func TestGetCScriptNum(t *testing.T) {
 		err             error
 	}{
 		// Minimal encoding must reject negative 0.
-		{hexToBytes("80"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},
+		{hexToBytes("80"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},
 
 		// Minimally encoded valid values with minimal encoding flag.
 		// Should not error and return expected integral number.
-		{nil, CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("01"), CScriptNum{1}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("81"), CScriptNum{-1}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("7f"), CScriptNum{127}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ff"), CScriptNum{-127}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("8000"), CScriptNum{128}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("8080"), CScriptNum{-128}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("8100"), CScriptNum{129}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("8180"), CScriptNum{-129}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("0001"), CScriptNum{256}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("0081"), CScriptNum{-256}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ff7f"), CScriptNum{32767}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ffff"), CScriptNum{-32767}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("008000"), CScriptNum{32768}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("008080"), CScriptNum{-32768}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ffff00"), CScriptNum{65535}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ffff80"), CScriptNum{-65535}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("000008"), CScriptNum{524288}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("000088"), CScriptNum{-524288}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("000070"), CScriptNum{7340032}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("0000f0"), CScriptNum{-7340032}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("00008000"), CScriptNum{8388608}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("00008080"), CScriptNum{-8388608}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ffffff7f"), CScriptNum{2147483647}, DEFAULT_MAX_NUM_SIZE, true, nil},
-		{hexToBytes("ffffffff"), CScriptNum{-2147483647}, DEFAULT_MAX_NUM_SIZE, true, nil},
+		{nil, CScriptNum{0}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("01"), CScriptNum{1}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("81"), CScriptNum{-1}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("7f"), CScriptNum{127}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ff"), CScriptNum{-127}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("8000"), CScriptNum{128}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("8080"), CScriptNum{-128}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("8100"), CScriptNum{129}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("8180"), CScriptNum{-129}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("0001"), CScriptNum{256}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("0081"), CScriptNum{-256}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ff7f"), CScriptNum{32767}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ffff"), CScriptNum{-32767}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("008000"), CScriptNum{32768}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("008080"), CScriptNum{-32768}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ffff00"), CScriptNum{65535}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ffff80"), CScriptNum{-65535}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("000008"), CScriptNum{524288}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("000088"), CScriptNum{-524288}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("000070"), CScriptNum{7340032}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("0000f0"), CScriptNum{-7340032}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("00008000"), CScriptNum{8388608}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("00008080"), CScriptNum{-8388608}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ffffff7f"), CScriptNum{2147483647}, DefaultMaxNumSize, true, nil},
+		{hexToBytes("ffffffff"), CScriptNum{-2147483647}, DefaultMaxNumSize, true, nil},
 		{hexToBytes("ffffffff7f"), CScriptNum{549755813887}, 5, true, nil},
 		{hexToBytes("ffffffffff"), CScriptNum{-549755813887}, 5, true, nil},
 		{hexToBytes("ffffffffffffff7f"), CScriptNum{9223372036854775807}, 8, true, nil},
@@ -70,50 +70,50 @@ func TestGetCScriptNum(t *testing.T) {
 		// Minimally encoded values that are out of range for data that
 		// is interpreted as script numbers with the minimal encoding
 		// flag set.  Should error and return 0.
-		{hexToBytes("0000008000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("0000008080"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("0000009000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("0000009080"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffff00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffff80"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("0000000001"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("0000000081"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffffffff00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffffffff80"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffffffffff00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffffffffff80"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffffffffff7f"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
-		{hexToBytes("ffffffffffffffff"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errNumTooBig},
+		{hexToBytes("0000008000"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("0000008080"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("0000009000"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("0000009080"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffff00"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffff80"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("0000000001"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("0000000081"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffffffff00"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffffffff80"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffffffffff00"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffffffffff80"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffffffffff7f"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
+		{hexToBytes("ffffffffffffffff"), CScriptNum{0}, DefaultMaxNumSize, true, errNumTooBig},
 
 		// Non-minimally encoded, but otherwise valid values with
 		// minimal encoding flag.  Should error and return 0.
-		{hexToBytes("00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},       // 0
-		{hexToBytes("0100"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},     // 1
-		{hexToBytes("7f00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},     // 127
-		{hexToBytes("800000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},   // 128
-		{hexToBytes("810000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},   // 129
-		{hexToBytes("000100"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},   // 256
-		{hexToBytes("ff7f00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData},   // 32767
-		{hexToBytes("00800000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData}, // 32768
-		{hexToBytes("ffff0000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData}, // 65535
-		{hexToBytes("00000800"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData}, // 524288
-		{hexToBytes("00007000"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, true, errMinimalData}, // 7340032
-		{hexToBytes("0009000100"), CScriptNum{0}, 5, true, errMinimalData},                  // 16779520
+		{hexToBytes("00"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},       // 0
+		{hexToBytes("0100"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},     // 1
+		{hexToBytes("7f00"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},     // 127
+		{hexToBytes("800000"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},   // 128
+		{hexToBytes("810000"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},   // 129
+		{hexToBytes("000100"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},   // 256
+		{hexToBytes("ff7f00"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData},   // 32767
+		{hexToBytes("00800000"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData}, // 32768
+		{hexToBytes("ffff0000"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData}, // 65535
+		{hexToBytes("00000800"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData}, // 524288
+		{hexToBytes("00007000"), CScriptNum{0}, DefaultMaxNumSize, true, errMinimalData}, // 7340032
+		{hexToBytes("0009000100"), CScriptNum{0}, 5, true, errMinimalData},               // 16779520
 
 		// Non-minimally encoded, but otherwise valid values without
 		// minimal encoding flag.  Should not error and return expected
 		// integral number.
-		{hexToBytes("00"), CScriptNum{0}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("0100"), CScriptNum{1}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("7f00"), CScriptNum{127}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("800000"), CScriptNum{128}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("810000"), CScriptNum{129}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("000100"), CScriptNum{256}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("ff7f00"), CScriptNum{32767}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("00800000"), CScriptNum{32768}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("ffff0000"), CScriptNum{65535}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("00000800"), CScriptNum{524288}, DEFAULT_MAX_NUM_SIZE, false, nil},
-		{hexToBytes("00007000"), CScriptNum{7340032}, DEFAULT_MAX_NUM_SIZE, false, nil},
+		{hexToBytes("00"), CScriptNum{0}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("0100"), CScriptNum{1}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("7f00"), CScriptNum{127}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("800000"), CScriptNum{128}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("810000"), CScriptNum{129}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("000100"), CScriptNum{256}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("ff7f00"), CScriptNum{32767}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("00800000"), CScriptNum{32768}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("ffff0000"), CScriptNum{65535}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("00000800"), CScriptNum{524288}, DefaultMaxNumSize, false, nil},
+		{hexToBytes("00007000"), CScriptNum{7340032}, DefaultMaxNumSize, false, nil},
 		{hexToBytes("0009000100"), CScriptNum{16779520}, 5, false, nil},
 	}
 	for _, test := range tests {

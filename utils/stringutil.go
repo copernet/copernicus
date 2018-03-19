@@ -19,7 +19,7 @@ func DecodeVariableLengthInteger(raw []byte) (cnt int, cntSize int) {
 	}
 	res := uint64(0)
 	for i := 1; i < cntSize; i++ {
-		res |= (uint64((raw[i]))) << uint64(8*(i-1))
+		res |= (uint64(raw[i])) << uint64(8*(i-1))
 
 	}
 	cnt = int(res)

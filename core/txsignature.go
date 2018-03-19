@@ -74,7 +74,7 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 var NilScript = NewScriptRaw(make([]byte, 0))
 
 func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result utils.Hash, err error) {
-	if (hashType&0x1f == crypto.SIGHASH_SINGLE) &&
+	if (hashType&0x1f == crypto.SigHashSingle) &&
 		nIn >= len(tx.Outs) {
 		return utils.HashOne, nil
 	}
@@ -90,14 +90,14 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 		}
 	}
 	switch hashType & 0x1f {
-	case crypto.SIGHASH_NONE:
+	case crypto.SigHashNone:
 		txCopy.Outs = make([]*TxOut, 0)
 		for i := range txCopy.Ins {
 			if nIn != i {
 				txCopy.Ins[i].Sequence = 0
 			}
 		}
-	case crypto.SIGHASH_SINGLE:
+	case crypto.SigHashSingle:
 		txCopy.Outs = txCopy.Outs[:nIn+1]
 		for i := 0; i < nIn; i++ {
 			txCopy.Outs[i].Value = -1
@@ -108,9 +108,9 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 				txCopy.Ins[i].Sequence = 0
 			}
 		}
-	case crypto.SIGHASH_ALL:
+	case crypto.SigHashAll:
 	}
-	if hashType&crypto.SIGHASH_ANYONECANPAY != 0 {
+	if hashType&crypto.SigHashAnyoneCanpay != 0 {
 		txCopy.Ins = txCopy.Ins[nIn : nIn+1]
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))

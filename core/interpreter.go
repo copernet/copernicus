@@ -14,8 +14,8 @@ type Interpreter struct {
 }
 
 func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scriptPubKey *Script, flags uint32) (result bool, err error) {
-	if flags&crypto.SCRIPT_VERIFY_SIGPUSHONLY != 0 && !scriptSig.IsPushOnly() {
-		err = crypto.ScriptErr(crypto.SCRIPT_ERR_SIG_PUSHONLY)
+	if flags&crypto.ScriptVerifySigPushOnly != 0 && !scriptSig.IsPushOnly() {
+		err = crypto.ScriptErr(crypto.ScriptErrSigPushOnly)
 		return
 	}
 
@@ -27,7 +27,7 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 	if !result {
 		return
 	}
-	if flags&crypto.SCRIPT_VERIFY_P2SH != 0 {
+	if flags&crypto.ScriptVerifyP2SH != 0 {
 		container.CopyStackByteType(&stackCopy, &stack)
 	}
 
@@ -39,24 +39,24 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 		return
 	}
 	if stack.Empty() {
-		return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EVAL_FALSE)
+		return false, crypto.ScriptErr(crypto.ScriptErrEvalFalse)
 	}
 	if !CastToBool(stack.Last().([]byte)) {
-		return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EVAL_FALSE)
+		return false, crypto.ScriptErr(crypto.ScriptErrEvalFalse)
 	}
 	// Additional validation for spend-to-script-txHash transactions:
-	if (flags&crypto.SCRIPT_VERIFY_P2SH == crypto.SCRIPT_VERIFY_P2SH) &&
+	if (flags&crypto.ScriptVerifyP2SH == crypto.ScriptVerifyP2SH) &&
 		scriptPubKey.IsPayToScriptHash() {
 		// scriptSig must be literals-only or validation fails
 		if !scriptSig.IsPushOnly() {
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_SIG_PUSHONLY)
+			return false, crypto.ScriptErr(crypto.ScriptErrSigPushOnly)
 		}
 		container.SwapStack(&stack, &stackCopy)
 		// stack cannot be empty here, because if it was the P2SH  HASH <> EQUAL
 		// scriptPubKey would be evaluated with an empty stack and the
 		// EvalScript above would return false.
 		if stack.Empty() {
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EVAL_FALSE)
+			return false, crypto.ScriptErr(crypto.ScriptErrEvalFalse)
 		}
 		pubKeySerialized := stack.Last().([]byte)
 		pubKey2 := NewScriptRaw(pubKeySerialized)
@@ -70,10 +70,10 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 			return
 		}
 		if stack.Empty() {
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EVAL_FALSE)
+			return false, crypto.ScriptErr(crypto.ScriptErrEvalFalse)
 		}
 		if !CastToBool(stack.Last().([]byte)) {
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EVAL_FALSE)
+			return false, crypto.ScriptErr(crypto.ScriptErrEvalFalse)
 		}
 
 		// The CLEANSTACK check is only performed after potential P2SH evaluation,
@@ -81,15 +81,15 @@ func (interpreter *Interpreter) Verify(tx *Tx, nIn int, scriptSig *Script, scrip
 		// a clean stack (the P2SH inputs remain). The same holds for witness
 		// evaluation.
 
-		if flags&crypto.SCRIPT_VERIFY_CLEANSTACK != 0 {
+		if flags&crypto.ScriptVerifyCleanStack != 0 {
 			// Disallow CLEANSTACK without P2SH, as otherwise a switch
 			// CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
 			// softfork (and P2SH should be one).
-			if flags&crypto.SCRIPT_VERIFY_P2SH == 0 {
-				return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EVAL_FALSE)
+			if flags&crypto.ScriptVerifyP2SH == 0 {
+				return false, crypto.ScriptErr(crypto.ScriptErrEvalFalse)
 			}
 			if stack.Size() != 1 {
-				return false, crypto.ScriptErr(crypto.SCRIPT_ERR_CLEANSTACK)
+				return false, crypto.ScriptErr(crypto.ScriptErrCleanStack)
 			}
 		}
 		return true, nil
@@ -112,8 +112,8 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 	altstack := container.NewStack()
 	var pbegincodehash int
 
-	if script.Size() > MAX_SCRIPT_SIZE {
-		return false, crypto.ScriptErr(crypto.SCRIPT_ERR_SCRIPT_SIZE)
+	if script.Size() > MaxScriptSize {
+		return false, crypto.ScriptErr(crypto.ScriptErrScriptSize)
 	}
 	parsedOpcodes, err := script.ParseScript()
 	if err != nil {
@@ -121,17 +121,17 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 	}
 
 	nOpCount := 0
-	fRequireMinimal := (flags & crypto.SCRIPT_VERIFY_MINIMALDATA) != 0
+	fRequireMinimal := (flags & crypto.ScriptVerifyMinimalData) != 0
 	for i := 0; i < len(parsedOpcodes); i++ {
 		parsedOpcode := parsedOpcodes[i]
 		fExec := vfExec.CountEqualElement(false) == 0
-		if len(parsedOpcode.data) > MAX_SCRIPT_ELEMENT_SIZE {
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_PUSH_SIZE)
+		if len(parsedOpcode.data) > MaxScriptElementSize {
+			return false, crypto.ScriptErr(crypto.ScriptErrPushSize)
 		}
 		nOpCount++
-		// Note how OP_RESERVED does not count towards the opcode limit.
-		if parsedOpcode.opValue > OP_16 && nOpCount > MAX_OPS_PER_SCRIPT {
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_OP_COUNT)
+		// Note how OP_RESERVED does not count towards the opCode limit.
+		if parsedOpcode.opValue > OP_16 && nOpCount > MaxOpsPerScript {
+			return false, crypto.ScriptErr(crypto.ScriptErrOpCount)
 		}
 
 		if parsedOpcode.opValue == OP_CAT || parsedOpcode.opValue == OP_SUBSTR || parsedOpcode.opValue == OP_LEFT ||
@@ -141,13 +141,13 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 			parsedOpcode.opValue == OP_MOD || parsedOpcode.opValue == OP_LSHIFT ||
 			parsedOpcode.opValue == OP_RSHIFT {
 			// Disabled opcodes.
-			return false, crypto.ScriptErr(crypto.SCRIPT_ERR_DISABLED_OPCODE)
+			return false, crypto.ScriptErr(crypto.ScriptErrDisabledOpCode)
 		}
 
 		if fExec && 0 <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_PUSHDATA4 {
 			if fRequireMinimal &&
 				!CheckMinimalPush(parsedOpcode.data, int32(parsedOpcode.opValue)) {
-				return false, crypto.ScriptErr(crypto.SCRIPT_ERR_MINIMALDATA)
+				return false, crypto.ScriptErr(crypto.ScriptErrMinimalData)
 			}
 			stack.PushStack(parsedOpcode.data)
 		} else if fExec || (OP_IF <= parsedOpcode.opValue && parsedOpcode.opValue <= OP_ENDIF) {
@@ -188,18 +188,18 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				break
 			case OP_CHECKLOCKTIMEVERIFY:
 				{
-					if flags&crypto.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY == 0 {
+					if flags&crypto.ScriptVerifyCheckLockTimeVerify == 0 {
 						// not enabled; treat as a NOP2
-						if flags&crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS ==
-							crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+						if flags&crypto.ScriptVerifyDiscourageUpgradableNOPs ==
+							crypto.ScriptVerifyDiscourageUpgradableNOPs {
+							return false, crypto.ScriptErr(crypto.ScriptErrDiscourageUpgradableNOPs)
 
 						}
 						break
 
 					}
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					// Note that elsewhere numeric opcodes are limited to
 					// operands in the range -2**31+1 to 2**31-1, however it
@@ -228,31 +228,31 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					// some arithmetic being done first, you can always use
 					// 0 MAX CHECKLOCKTIMEVERIFY.
 					if nLocktime.Value < 0 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_NEGATIVE_LOCKTIME)
+						return false, crypto.ScriptErr(crypto.ScriptErrNegativeLockTime)
 					}
 					// Actually compare the specified lock time with the
 					// transaction.
 					if !CheckLockTime(nLocktime.Value, int64(tx.LockTime), tx.Ins[nIn].Sequence) {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_UNSATISFIED_LOCKTIME)
+						return false, crypto.ScriptErr(crypto.ScriptErrUnsatisfiedLockTime)
 					}
 					break
 				}
 			case OP_CHECKSEQUENCEVERIFY:
 				{
-					if flags&crypto.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY != crypto.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY {
+					if flags&crypto.ScriptVerifyCheckSequenceVerify != crypto.ScriptVerifyCheckSequenceVerify {
 						// not enabled; treat as a NOP3
-						if flags&crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+						if flags&crypto.ScriptVerifyDiscourageUpgradableNOPs == crypto.ScriptVerifyDiscourageUpgradableNOPs {
+							return false, crypto.ScriptErr(crypto.ScriptErrDiscourageUpgradableNOPs)
 
 						}
 						break
 					}
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 
 					// nSequence, like nLockTime, is a 32-bit unsigned
-					// integer field. See the comment in CHECKLOCKTIMEVERIFY
+					// integer field. See the comment in checkLockTimeVerify
 					// regarding 5-byte numeric operands.
 					topBytes, err := stack.StackTop(-1)
 					if err != nil {
@@ -264,19 +264,19 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					}
 					// In the rare event that the argument may be < 0 due to
 					// some arithmetic being done first, you can always use
-					// 0 MAX CHECKSEQUENCEVERIFY.
+					// 0 MAX checkSequenceVerify.
 					if nSequence.Value < 0 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_NEGATIVE_LOCKTIME)
+						return false, crypto.ScriptErr(crypto.ScriptErrNegativeLockTime)
 					}
 
 					// To provide for future soft-fork extensibility, if the
 					// operand has the disabled lock-time flag set,
-					// CHECKSEQUENCEVERIFY behaves as a NOP.
-					if nSequence.Value&SEQUENCE_LOCKTIME_DISABLE_FLAG == SEQUENCE_LOCKTIME_DISABLE_FLAG {
+					// checkSequenceVerify behaves as a NOP.
+					if nSequence.Value&SequenceLockTimeDisableFlag == SequenceLockTimeDisableFlag {
 						break
 					}
 					if !CheckSequence(nSequence.Value, int64(tx.Ins[nIn].Sequence), tx.Version) {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_UNSATISFIED_LOCKTIME)
+						return false, crypto.ScriptErr(crypto.ScriptErrUnsatisfiedLockTime)
 					}
 					break
 				}
@@ -296,8 +296,8 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				fallthrough
 			case OP_NOP10:
 				{
-					if flags&crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS == crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS)
+					if flags&crypto.ScriptVerifyDiscourageUpgradableNOPs == crypto.ScriptVerifyDiscourageUpgradableNOPs {
+						return false, crypto.ScriptErr(crypto.ScriptErrDiscourageUpgradableNOPs)
 					}
 					break
 				}
@@ -310,19 +310,19 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					fValue := false
 					if fExec {
 						if stack.Size() < 1 {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
+							return false, crypto.ScriptErr(crypto.ScriptErrUnbalancedConditional)
 						}
 						vch, err := stack.StackTop(-1)
 						if err != nil {
 							return false, err
 						}
 						vchBytes := vch.([]byte)
-						if flags&crypto.SCRIPT_VERIFY_MINIMALIF == crypto.SCRIPT_VERIFY_MINIMALIF {
+						if flags&crypto.ScriptVerifyMinimalif == crypto.ScriptVerifyMinimalif {
 							if len(vchBytes) > 1 {
-								return false, crypto.ScriptErr(crypto.SCRIPT_ERR_MINIMALIF)
+								return false, crypto.ScriptErr(crypto.ScriptErrMinimalIf)
 							}
 							if len(vchBytes) == 1 && vchBytes[0] != 1 {
-								return false, crypto.ScriptErr(crypto.SCRIPT_ERR_MINIMALIF)
+								return false, crypto.ScriptErr(crypto.ScriptErrMinimalIf)
 							}
 
 						}
@@ -339,7 +339,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 			case OP_ELSE:
 				{
 					if vfExec.Empty() {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
+						return false, crypto.ScriptErr(crypto.ScriptErrUnbalancedConditional)
 					}
 					vfBack := !vfExec.Back().(bool)
 					vfExec.SetBack(vfBack)
@@ -348,7 +348,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 			case OP_ENDIF:
 				{
 					if vfExec.Empty() {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_UNBALANCED_CONDITIONAL)
+						return false, crypto.ScriptErr(crypto.ScriptErrUnbalancedConditional)
 					}
 					vfExec.PopBack()
 					break
@@ -358,7 +358,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					// (true -- ) or
 					// (false -- false) and return
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -369,13 +369,13 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					if fValue {
 						stack.PopStack()
 					} else {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_VERIFY)
+						return false, crypto.ScriptErr(crypto.ScriptErrVerify)
 					}
 					break
 				}
 			case OP_RETURN:
 				{
-					return false, crypto.ScriptErr(crypto.SCRIPT_ERR_OP_RETURN)
+					return false, crypto.ScriptErr(crypto.ScriptErrOpReturn)
 				}
 				//
 				// Stack ops
@@ -383,7 +383,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 			case OP_TOALTSTACK:
 				{
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -397,7 +397,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- )
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					stack.PopStack()
 					stack.PopStack()
@@ -407,7 +407,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- x1 x2 x1 x2)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_ALTSTACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidAltStackOperation)
 					}
 					vch1, err := stack.StackTop(-2)
 					if err != nil {
@@ -425,7 +425,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 x3 -- x1 x2 x3 x1 x2 x3)
 					if stack.Size() < 3 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch1, err := stack.StackTop(-3)
 					if err != nil {
@@ -448,7 +448,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2)
 					if stack.Size() < 4 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch1, err := stack.StackTop(-4)
 					if err != nil {
@@ -466,7 +466,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 x3 x4 x5 x6 -- x3 x4 x5 x6 x1 x2)
 					if stack.Size() < 6 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch1, err := stack.StackTop(-6)
 					if err != nil {
@@ -485,7 +485,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 x3 x4 -- x3 x4 x1 x2)
 					if stack.Size() < 4 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					stack.Swap(stack.Size()-4, stack.Size()-2)
 					stack.Swap(stack.Size()-3, stack.Size()-1)
@@ -495,7 +495,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x - 0 | x x)
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -517,7 +517,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x -- )
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					stack.PopStack()
 					break
@@ -526,7 +526,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x -- x x)
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -539,7 +539,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- x2)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					stack.RemoveAt(stack.Size() - 2)
 					break
@@ -548,7 +548,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- x1 x2 x1)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-2)
 					if err != nil {
@@ -564,13 +564,13 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					// (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
 					// (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
 						return false, err
 					}
-					scriptNum, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					scriptNum, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DefaultMaxNumSize)
 					if err != nil {
 						return false, err
 
@@ -578,7 +578,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					n := scriptNum.Int32()
 					stack.PopStack()
 					if n < 0 || n >= int32(stack.Size()) {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vchn, err := stack.StackTop(int(-n - 1))
 					if err != nil {
@@ -596,7 +596,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					//  x2 x1 x3  after first swap
 					//  x2 x3 x1  after second swap
 					if stack.Size() < 3 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					stack.Swap(stack.Size()-3, stack.Size()-2)
 					stack.Swap(stack.Size()-2, stack.Size()-1)
@@ -606,7 +606,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- x2 x1)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					stack.Swap(stack.Size()-2, stack.Size()-1)
 					break
@@ -616,7 +616,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- x2 x1 x2)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -632,7 +632,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (in -- in size)
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -653,7 +653,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 - bool)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 
 					vch1, err := stack.StackTop(-2)
@@ -684,7 +684,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 						if fEqual {
 							stack.PopStack()
 						} else {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_EQUALVERIFY)
+							return false, crypto.ScriptErr(crypto.ScriptErrEqualVerify)
 						}
 					}
 					break
@@ -705,13 +705,13 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (in -- out)
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
 						return false, err
 					}
-					bn, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					bn, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DefaultMaxNumSize)
 					if err != nil {
 						return false, err
 					}
@@ -773,7 +773,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (x1 x2 -- out)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch1, err := stack.StackTop(-2)
 					if err != nil {
@@ -783,11 +783,11 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					if err != nil {
 						return false, err
 					}
-					bn1, err := GetCScriptNum(vch1.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					bn1, err := GetCScriptNum(vch1.([]byte), fRequireMinimal, DefaultMaxNumSize)
 					if err != nil {
 						return false, err
 					}
-					bn2, err := GetCScriptNum(vch2.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					bn2, err := GetCScriptNum(vch2.([]byte), fRequireMinimal, DefaultMaxNumSize)
 					if err != nil {
 						return false, err
 					}
@@ -878,7 +878,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 						if CastToBool(vch.([]byte)) {
 							stack.PopStack()
 						} else {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_NUMEQUALVERIFY)
+							return false, crypto.ScriptErr(crypto.ScriptErrNumEqualVerify)
 						}
 					}
 				}
@@ -898,7 +898,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					// (in -- txHash)
 					var vchHash []byte
 					if stack.Size() < 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err := stack.StackTop(-1)
 					if err != nil {
@@ -933,7 +933,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 				{
 					// (sig pubkey -- bool)
 					if stack.Size() < 2 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vchSig, err := stack.StackTop(-2)
 					if err != nil {
@@ -960,7 +960,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					hashType := vchByte[len(vchByte)-1]
 					vchByte = vchByte[:vchByte[1]+2]
 					// Subset of script starting at the most recent
-					// codeseparator
+					// codeSeparator
 					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
 					txHash, err := SignatureHash(tx, scriptCode, uint32(hashType), nIn)
 					if err != nil {
@@ -968,9 +968,9 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					}
 					fSuccess, _ := CheckSig(txHash, vchByte, vchPubkey.([]byte))
 					if !fSuccess &&
-						(flags&crypto.SCRIPT_VERIFY_NULLFAIL == crypto.SCRIPT_VERIFY_NULLFAIL) &&
+						(flags&crypto.ScriptVerifyNullFail == crypto.ScriptVerifyNullFail) &&
 						len(vchSig.([]byte)) > 0 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_SIG_NULLFAIL)
+						return false, crypto.ScriptErr(crypto.ScriptErrSigNullFail)
 
 					}
 
@@ -985,7 +985,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 						if fSuccess {
 							stack.PopStack()
 						} else {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_CHECKSIGVERIFY)
+							return false, crypto.ScriptErr(crypto.ScriptErrCheckSigVerify)
 						}
 					}
 				}
@@ -997,20 +997,20 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					// num_of_pubkeys -- bool)
 					i := 1
 					if stack.Size() < i {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 
 					vch, err := stack.StackTop(-i)
 					if err != nil {
 						return false, err
 					}
-					nKeysNum, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					nKeysNum, err := GetCScriptNum(vch.([]byte), fRequireMinimal, DefaultMaxNumSize)
 					if err != nil {
 						return false, err
 					}
 					nKeysCount := nKeysNum.Int32()
-					if nKeysCount < 0 || nKeysCount > MAX_OPS_PER_SCRIPT {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_OP_COUNT)
+					if nKeysCount < 0 || nKeysCount > MaxOpsPerScript {
+						return false, crypto.ScriptErr(crypto.ScriptErrOpCount)
 					}
 					i++
 					iKey := i
@@ -1021,25 +1021,25 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					iKey2 := nKeysCount + 2
 					i += int(nKeysCount)
 					if stack.Size() < i {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					sigsVch, err := stack.StackTop(-i)
 					if err != nil {
 						return false, err
 					}
-					nSigsNum, err := GetCScriptNum(sigsVch.([]byte), fRequireMinimal, DEFAULT_MAX_NUM_SIZE)
+					nSigsNum, err := GetCScriptNum(sigsVch.([]byte), fRequireMinimal, DefaultMaxNumSize)
 					if err != nil {
 						return false, err
 					}
 					nSigsCount := nSigsNum.Int32()
 					if nSigsCount < 0 || nSigsCount > nKeysCount {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_SIG_COUNT)
+						return false, crypto.ScriptErr(crypto.ScriptErrSigCount)
 					}
 					i++
 					isig := i
 					i += int(nSigsCount)
 					if stack.Size() < i {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 
 					// Subset of script starting at the most recent
@@ -1109,9 +1109,9 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 							return false, err
 						}
 						if !fSuccess &&
-							(flags&crypto.SCRIPT_VERIFY_NULLFAIL == crypto.SCRIPT_VERIFY_NULLFAIL) &&
+							(flags&crypto.ScriptVerifyNullFail == crypto.ScriptVerifyNullFail) &&
 							iKey2 == 0 && len(vch.([]byte)) > 0 {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_SIG_NULLFAIL)
+							return false, crypto.ScriptErr(crypto.ScriptErrSigNullFail)
 
 						}
 						if iKey2 > 0 {
@@ -1127,13 +1127,13 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					// mutability, so optionally verify it is exactly equal
 					// to zero prior to removing it from the stack.
 					if stack.Size() > 1 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_INVALID_STACK_OPERATION)
+						return false, crypto.ScriptErr(crypto.ScriptErrInvalidStackOperation)
 					}
 					vch, err = stack.StackTop(-isig)
 					if err != nil {
 						return false, err
 					}
-					if flags&crypto.SCRIPT_VERIFY_NULLFAIL == crypto.SCRIPT_VERIFY_NULLFAIL && len(vch.([]byte)) > 0 {
+					if flags&crypto.ScriptVerifyNullFail == crypto.ScriptVerifyNullFail && len(vch.([]byte)) > 0 {
 						return false, err
 					}
 					stack.PopStack()
@@ -1146,11 +1146,11 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 						if fSuccess {
 							stack.PopStack()
 						} else {
-							return false, crypto.ScriptErr(crypto.SCRIPT_ERR_CHECKMULTISIGVERIFY)
+							return false, crypto.ScriptErr(crypto.ScriptErrCheckMultiSigVerify)
 						}
 					}
 					if stack.Size()+altstack.Size() > 1000 {
-						return false, crypto.ScriptErr(crypto.SCRIPT_ERR_STACK_SIZE)
+						return false, crypto.ScriptErr(crypto.ScriptErrStackSize)
 					}
 				}
 

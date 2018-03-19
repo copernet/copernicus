@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const ANTI_REPLAY_COMMITMENT = "Bitcoin: A Peer-to-Peer Electronic Cash System"
+const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
 
 var ActiveNetParams = &MainNetParams
 
@@ -26,12 +26,12 @@ var (
 type DeploymentPos int
 
 const (
-	DEPLOYMENT_TESTDUMMY DeploymentPos = iota
-	// DEPLOYMENT_CSV Deployment of BIP68, BIP112, and BIP113.
-	DEPLOYMENT_CSV
-	// MAX_VERSION_BITS_DEPLOYMENTS NOTE: Also add new deployments to VersionBitsDeploymentInfo in
+	DeploymentTestDummy DeploymentPos = iota
+	// DeploymentCSV deployment of BIP68, BIP112, and BIP113.
+	DeploymentCSV
+	// MaxVersionBitsDeployments NOTE: Also add new deployments to VersionBitsDeploymentInfo in
 	// versionbits.cpp
-	MAX_VERSION_BITS_DEPLOYMENTS
+	MaxVersionBitsDeployments
 )
 
 type ChainTxData struct {
@@ -108,7 +108,7 @@ type BitcoinParams struct {
 	AntiReplayOpReturnCommitment   []byte
 	RuleChangeActivationThreshold  uint32
 	MinerConfirmationWindow        uint32
-	Deployments                    [MAX_VERSION_BITS_DEPLOYMENTS]BIP9Deployment
+	Deployments                    [MaxVersionBitsDeployments]BIP9Deployment
 	// The best chain should have at least this much work.
 	MinimumChainWork big.Int
 	// By default assume that the signatures in ancestors of this block are valid.
@@ -146,10 +146,10 @@ var MainNetParams = BitcoinParams{
 	AntiReplayOpReturnSunsetHeight: 530000,
 	RuleChangeActivationThreshold:  1916,
 	MinerConfirmationWindow:        2016,
-	AntiReplayOpReturnCommitment:   []byte(ANTI_REPLAY_COMMITMENT),
-	Deployments: [MAX_VERSION_BITS_DEPLOYMENTS]BIP9Deployment{
-		DEPLOYMENT_TESTDUMMY: {28, 1199145601, 1230767999},
-		DEPLOYMENT_CSV:       {0, 1462060800, 1493596800},
+	AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
+	Deployments: [MaxVersionBitsDeployments]BIP9Deployment{
+		DeploymentTestDummy: {28, 1199145601, 1230767999},
+		DeploymentCSV:       {0, 1462060800, 1493596800},
 	},
 	TargetTimespan:           60 * 60 * 24 * 14,
 	TargetTimePerBlock:       60 * 10,
