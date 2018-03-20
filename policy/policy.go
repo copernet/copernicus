@@ -34,7 +34,7 @@ const (
 	MaxP2SHSigOps uint = 15
 
 	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
-	MaxStandardTxSigOps uint = uint(MaxTxSigOpsCount / 5)
+	MaxStandardTxSigOps = uint(MaxTxSigOpsCount / 5)
 
 	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
 	DefaultMaxMemPoolSize uint = 300
@@ -52,15 +52,15 @@ const (
 	 * with. However scripts violating these flags may still be present in valid
 	 * blocks and we must accept those blocks.
 	 */
-	StandardScriptVerifyFlags uint = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_DERSIG |
-		crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_VERIFY_MINIMALDATA |
-		crypto.SCRIPT_VERIFY_NULLDUMMY | crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS |
-		crypto.SCRIPT_VERIFY_CLEANSTACK | crypto.SCRIPT_VERIFY_NULLFAIL |
-		crypto.SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY | crypto.SCRIPT_VERIFY_CHECKSEQUENCEVERIFY |
-		crypto.SCRIPT_VERIFY_LOW_S | crypto.SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM
+	StandardScriptVerifyFlags uint = crypto.ScriptVerifyP2SH | crypto.ScriptVerifyDersig |
+		crypto.ScriptVerifyStrictenc | crypto.ScriptVerifyMinimalData |
+		crypto.ScriptVerifyNullDummy | crypto.ScriptVerifyDiscourageUpgradableNOPs |
+		crypto.ScriptVerifyCleanStack | crypto.ScriptVerifyNullFail |
+		crypto.ScriptVerifyCheckLockTimeVerify | crypto.ScriptVerifyCheckSequenceVerify |
+		crypto.ScriptVerifyLows | crypto.ScriptVerifyDiscourageUpgradAbleWitnessProgram
 
 	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
-	StandardNotMandatoryVerifyFlags int = int(StandardScriptVerifyFlags) & (^MandatoryScriptVerifyFlags)
+	StandardNotMandatoryVerifyFlags = int(StandardScriptVerifyFlags) & (^MandatoryScriptVerifyFlags)
 
 	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
 	 * non-core code. */
@@ -73,7 +73,7 @@ const (
 	//
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MandatoryScriptVerifyFlags = crypto.SCRIPT_VERIFY_P2SH | crypto.SCRIPT_VERIFY_STRICTENC | crypto.SCRIPT_ENABLE_SIGHASH_FORKID
+	MandatoryScriptVerifyFlags = crypto.ScriptVerifyP2SH | crypto.ScriptVerifyStrictenc | crypto.ScriptEnableSigHashForkID
 )
 
 /*IsStandardTx check for standard transaction types
@@ -81,7 +81,7 @@ const (
  * forms
  */
 func IsStandardTx(tx *core.Tx, reason *string) bool {
-	if tx.Version > core.MAX_STANDARD_VERSION || tx.Version < 1 {
+	if tx.Version > core.MaxStandardVersion || tx.Version < 1 {
 		*reason = "Version"
 		return false
 	}
@@ -96,7 +96,7 @@ func IsStandardTx(tx *core.Tx, reason *string) bool {
 	}
 
 	for _, txIn := range tx.Ins {
-		// Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
+		// Biggest 'standard' txin is a 15-of-15 P2SH multiSig with compressed
 		// keys (remember the 520 byte limit on redeemScript size). That works
 		// out to a (15*(33+1))+3=513 byte redeemScript, 513+1+15*(73+1)+3=1627
 		// bytes of scriptSig, which we round off to 1650 bytes for some minor
@@ -120,9 +120,9 @@ func IsStandardTx(tx *core.Tx, reason *string) bool {
 			return false
 		}
 
-		if whichType == core.TX_NULL_DATA {
+		if whichType == core.TxNullData {
 			nDataOut++
-		} else if whichType == core.TX_MULTISIG && !conf.GlobalValueInstance.GetIsBareMultisigStd() {
+		} else if whichType == core.TxMultiSig && !conf.GlobalValueInstance.GetIsBareMultiSigStd() {
 			*reason = "bare-multisig"
 			return false
 		} else if txOut.IsDust(conf.GlobalValueInstance.GetDustRelayFee()) {
@@ -157,7 +157,7 @@ func IsStandard(scriptPubKey *core.Script, whichType *int) bool {
 		return false
 	}
 
-	if *whichType == core.TX_MULTISIG {
+	if *whichType == core.TxMultiSig {
 		m := vSolutions.Array[0].(container.Vector).Array[0].(byte)
 		n := vSolutions.Array[0].(container.Vector).Array[0].(byte)
 		// Support up to x-of-3 multisig txns as standard
@@ -167,19 +167,19 @@ func IsStandard(scriptPubKey *core.Script, whichType *int) bool {
 		if m < 1 || m > n {
 			return false
 		}
-	} else if *whichType == core.TX_NULL_DATA &&
-		(!conf.GlobalValueInstance.GetAcceptDatacarrier() ||
-			uint(scriptPubKey.Size()) > conf.GlobalValueInstance.GetMaxDatacarrierBytes()) {
+	} else if *whichType == core.TxNullData &&
+		(!conf.GlobalValueInstance.GetAcceptDataCarrier() ||
+			uint(scriptPubKey.Size()) > conf.GlobalValueInstance.GetMaxDataCarrierBytes()) {
 		return false
 	}
-	return *whichType != core.TX_NONSTANDARD
+	return *whichType != core.TxNonStandard
 }
 
 // AreInputsStandard Check for standard transaction types
 // cache Map of previous transactions that have outputs we're spending
 func AreInputsStandard(tx *core.Tx, cache *utxo.CoinsViewCache) bool {
 	if tx.IsCoinBase() {
-		// Coinbases don't use vin normally
+		// CoinBases don't use vin normally
 		return true
 	}
 
@@ -194,7 +194,7 @@ func AreInputsStandard(tx *core.Tx, cache *utxo.CoinsViewCache) bool {
 			return false
 		}
 
-		if whichType == core.TX_SCRIPTHASH {
+		if whichType == core.TxScriptHash {
 			interpreter := core.NewInterpreter()
 
 			//convert the scriptSig into a stack, so we can inspect the
@@ -202,7 +202,7 @@ func AreInputsStandard(tx *core.Tx, cache *utxo.CoinsViewCache) bool {
 			coin := utxo.NewEmptyCoin()
 			exist := cache.GetCoin(vin.PreviousOutPoint, coin)
 			if exist {
-				ret, err := interpreter.Verify(tx, index, vin.Script, coin.TxOut.Script, crypto.SCRIPT_VERIFY_NONE)
+				ret, err := interpreter.Verify(tx, index, vin.Script, coin.TxOut.Script, crypto.ScriptVerifyNone)
 				if err != nil || !ret {
 					return false
 				}

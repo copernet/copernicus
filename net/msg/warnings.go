@@ -44,8 +44,8 @@ func GetfLargeWorkInvalidChainFound() bool {
 }
 
 const (
-	CLIENT_VERSION_IS_RELEASE = true
-	DEFAULT_TESTSAFEMODE      = false
+	ClientVersionIsRelease = true
+	DefaultTestSafeMode    = false
 )
 
 func GetWarnings(strFor string) string {
@@ -57,14 +57,14 @@ func GetWarnings(strFor string) string {
 	gwaringLock.Lock()
 	defer gwaringLock.Unlock()
 
-	if !CLIENT_VERSION_IS_RELEASE {
+	if !ClientVersionIsRelease {
 		strStatusBar = "This is a pre-release test build - use at your own " +
 			"risk - do not use for mining or merchant applications"
 		strGUI = "This is a pre-release test build - use at your own risk - " +
 			"do not use for mining or merchant applications"
 	}
 
-	if utils.GetBoolArg("-testsafemode", DEFAULT_TESTSAFEMODE) {
+	if utils.GetBoolArg("-testsafemode", DefaultTestSafeMode) {
 		strGUI = "testsafemode enabled"
 		strRPC = strGUI
 		strStatusBar = strRPC

@@ -70,7 +70,7 @@ func (bc *BlockChain) FetchNextBlock() (raw []byte, err error) {
 		return
 	}
 	if !bytes.Equal(buf[:], bc.Magic[:]) {
-		err = errors.New("Bad magic")
+		err = errors.New("bad magic")
 		return
 	}
 	_, err = bc.CurrentFile.Read(buf[:])
@@ -120,7 +120,7 @@ func blkFileName(path string, id uint32) string {
 func blkSize(buf []byte) (size uint64) {
 
 	for i := 0; i < len(buf); i++ {
-		size |= (uint64(buf[i]) << uint(i*8))
+		size |= uint64(buf[i]) << uint(i*8)
 	}
 	return
 }

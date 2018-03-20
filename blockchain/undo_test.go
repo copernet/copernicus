@@ -137,7 +137,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	tx.Outs[0].Script = core.NewScriptRaw([]byte{core.OP_TRUE})
 	tx.Ins[0].PreviousOutPoint = core.NewOutPoint(*utils.GetRandHash(), 0)
-	tx.Ins[0].Sequence = core.SEQUENCE_FINAL
+	tx.Ins[0].Sequence = core.SequenceFinal
 	tx.Ins[0].Script = core.NewScriptRaw([]byte{})
 	tx.Version = 2
 	tx.Hash = GetID(tx)

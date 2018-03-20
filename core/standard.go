@@ -8,16 +8,15 @@ import (
 )
 
 const (
-	TX_NONSTANDARD = iota
+	TxNonStandard = iota
 
-	TX_PUBKEY
-	TX_PUBKEYHASH
-	TX_SCRIPTHASH
-	TX_MULTISIG
-	TX_NULL_DATA
+	TxPubKey
+	TxPubKeyHash
+	TxScriptHash
+	TxMultiSig
+	TxNullData
 
-	DEFAULT_ACCEPT_DATACARRIER bool = true
-	MAX_OP_RETURN_RELAY        uint = 83
+	MaxOpReturnRelay uint = 83
 )
 
 /*Solver Return public keys or hashes from scriptPubKey, for 'standard' transaction
@@ -29,18 +28,18 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *container.Vector)
 	if len(mTemplates) == 0 {
 		// Standard tx, sender provides pubkey, receiver adds signature[]byte{byte(model.OP_PUBKEY), byte(model.OP_CHECKSIG)
 		scriptBytes := []byte{byte(OP_PUBKEY), byte(OP_CHECKSIG)}
-		mTemplates[TX_PUBKEY] = *NewScriptRaw(scriptBytes)
+		mTemplates[TxPubKey] = *NewScriptRaw(scriptBytes)
 
 		// Bitcoin address tx, sender provides hash of pubkey, receiver provides
 		// signature and pubkey
 		scriptBytes = []byte{byte(OP_DUP), byte(OP_HASH160), byte(OP_PUBKEYHASH),
 			byte(OP_EQUALVERIFY), byte(OP_CHECKSIG)}
-		mTemplates[TX_PUBKEYHASH] = *NewScriptRaw(scriptBytes)
+		mTemplates[TxPubKeyHash] = *NewScriptRaw(scriptBytes)
 
 		// Sender provides N pubkeys, receivers provides M signatures
 		scriptBytes = []byte{byte(OP_SMALLINTEGER), byte(OP_PUBKEYS),
 			byte(OP_SMALLINTEGER), byte(OP_CHECKMULTISIG)}
-		mTemplates[TX_MULTISIG] = *NewScriptRaw(scriptBytes)
+		mTemplates[TxMultiSig] = *NewScriptRaw(scriptBytes)
 	}
 
 	vSolutionsRet.Clear()
@@ -50,7 +49,7 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *container.Vector)
 	// it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
 	scriptByte := scriptPubKey.GetScriptByte()
 	if scriptPubKey.IsPayToScriptHash() {
-		*typeRet = TX_SCRIPTHASH
+		*typeRet = TxScriptHash
 		hashBytes := container.NewVector()
 		hashBytes.PushBack(scriptByte[2:22])
 		vSolutionsRet.PushBack(hashBytes)
@@ -64,7 +63,7 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *container.Vector)
 	// script.
 	tmpScriptPubkey := NewScriptRaw(scriptByte[1:])
 	if scriptPubKey.Size() >= 1 && scriptByte[0] == OP_RETURN && tmpScriptPubkey.IsPushOnly() {
-		*typeRet = TX_NULL_DATA
+		*typeRet = TxNullData
 		return true
 	}
 
@@ -87,8 +86,8 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *container.Vector)
 			if pc1 == script1.Size() && pc2 == tmpScript.Size() {
 				// Found a match
 				*typeRet = int(tmpScript.GetScriptByte()[0])
-				if *typeRet == TX_MULTISIG {
-					// Additional checks for TX_MULTISIG:
+				if *typeRet == TxMultiSig {
+					// Additional checks for TxMultiSig:
 					front := vSolutionsRet.Array[0].([]byte)
 					m := front[0]
 					back := vSolutionsRet.Array[vSolutionsRet.Size()-1].([]byte)
@@ -107,7 +106,7 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *container.Vector)
 				break
 			}
 
-			// Template matching opcodes:
+			// Template matching opCodes:
 			if opcode2 == OP_PUBKEYS {
 				for len(vch1) >= 33 && len(vch1) <= 65 {
 					vSolutionsRet.PushBack(vch1)
@@ -153,7 +152,7 @@ func Solver(scriptPubKey *Script, typeRet *int, vSolutionsRet *container.Vector)
 
 	}
 	vSolutionsRet.Clear()
-	*typeRet = TX_NONSTANDARD
+	*typeRet = TxNonStandard
 	return false
 
 }

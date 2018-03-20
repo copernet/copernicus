@@ -5,75 +5,74 @@ import (
 )
 
 const (
-	/*DEFAULT_BYTES_PER_SIGOP Default for -bytespersigop */
-	DEFAULT_BYTES_PER_SIGOP uint = 20
+	// DefaultBytesPerSigOP default for -bytesPerSigOP
+	DefaultBytesPerSigOP uint = 20
 
-	/*DUST_RELAY_TX_FEE Min feerate for defining dust. Historically this has been the same as the
-	 * minRelayTxFee, however changing the dust limit changes which transactions are
-	 * standard and should be done with care and ideally rarely. It makes sense to
-	 * only increase the dust limit after prior releases were already not creating
-	 * outputs below the new threshold.
-	 */
-	DUST_RELAY_TX_FEE uint = 1000
+	// DustRelayTxFee min feeRate for defining dust. Historically this has been the same as the
+	// minRelayTxFee, however changing the dust limit changes which transactions are
+	// standard and should be done with care and ideally rarely. It makes sense to
+	// only increase the dust limit after prior releases were already not creating
+	// outputs below the new threshold.
+	DustRelayTxFee uint = 1000
 
-	/*DEFAULT_INCREMENTAL_RELAY_FEE Default for -incrementalrelayfee, which sets the minimum feerate increase
-	 * for mempool limiting or BIP 125 replacement **/
-	DEFAULT_INCREMENTAL_RELAY_FEE uint = 1000
+	// DefaultIncrementalRelayFee default for -incrementAlrelayFee, which sets the minimum feeRate increase
+	// for mempool limiting or BIP 125 replacement
+	DefaultIncrementalRelayFee uint = 1000
 
-	/*DEFAULT_PERMIT_BAREMULTISIG Default for -permitbaremultisig */
-	DEFAULT_PERMIT_BAREMULTISIG bool = true
-	DEFAULT_CHECKPOINTS_ENABLED bool = true
-	DEFAULT_TXINDEX             bool = false
-	DEFAULT_BANSCORE_THRESHOLD  uint = 100
+	// DefaultPermitBareMultiSig Default for -permitbaremultisig
+	DefaultPermitBareMultiSig      = true
+	DefaultCheckPointsEnabled      = true
+	DefaultTxIndex                 = false
+	DefaultBanScoreThreshold  uint = 100
 
-	DEFAULT_ACCEPT_DATACARRIER = true
+	DefaultAcceptDataCarrier = true
 
-	//MAX_OP_RETURN_RELAY bytes (+1 for OP_RETURN, +2 for the pushdata opcodes)
-	MAX_OP_RETURN_RELAY uint = 83
+	// MaxOpReturnRelay bytes (+1 for OP_RETURN, +2 for the pushdata opcodes)
+	MaxOpReturnRelay uint = 83
 )
 
 type GlobalValue struct {
-	isBareMultisigStd   bool
+	isBareMultiSigStd   bool
 	incrementalRelayFee utils.FeeRate
 	dustRelayFee        utils.FeeRate
 	bytesPerSigOp       uint
-	maxDatacarrierBytes uint
-	acceptDatacarrier   bool
+	maxDataCarrierBytes uint
+	acceptDataCarrier   bool
 }
 
 var GlobalValueInstance GlobalValue
 
 func init() {
-	GlobalValueInstance.isBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG
-	GlobalValueInstance.incrementalRelayFee = utils.FeeRate{SataoshisPerK: int64(DEFAULT_INCREMENTAL_RELAY_FEE)}
-	GlobalValueInstance.bytesPerSigOp = DEFAULT_BYTES_PER_SIGOP
-	GlobalValueInstance.dustRelayFee = utils.FeeRate{SataoshisPerK: int64(DUST_RELAY_TX_FEE)}
-	GlobalValueInstance.acceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER
-	GlobalValueInstance.maxDatacarrierBytes = MAX_OP_RETURN_RELAY
+	GlobalValueInstance.isBareMultiSigStd = DefaultPermitBareMultiSig
+	GlobalValueInstance.incrementalRelayFee = utils.FeeRate{SataoshisPerK: int64(DefaultIncrementalRelayFee)}
+	GlobalValueInstance.bytesPerSigOp = DefaultBytesPerSigOP
+	GlobalValueInstance.dustRelayFee = utils.FeeRate{SataoshisPerK: int64(DustRelayTxFee)}
+	GlobalValueInstance.acceptDataCarrier = DefaultAcceptDataCarrier
+	GlobalValueInstance.maxDataCarrierBytes = MaxOpReturnRelay
 }
 
-func (g *GlobalValue) GetAcceptDatacarrier() bool {
-	return g.acceptDatacarrier
+func (g *GlobalValue) GetAcceptDataCarrier() bool {
+	return g.acceptDataCarrier
 }
 
-func (g *GlobalValue) SetAcceptDatacarrier(flag bool) {
-	g.acceptDatacarrier = flag
+func (g *GlobalValue) SetAcceptDataCarrier(flag bool) {
+	g.acceptDataCarrier = flag
 }
 
-func (g *GlobalValue) GetMaxDatacarrierBytes() uint {
-	return g.maxDatacarrierBytes
+func (g *GlobalValue) GetMaxDataCarrierBytes() uint {
+	return g.maxDataCarrierBytes
 }
 
-func (g *GlobalValue) SetMaxDatacarrierBytes(flag uint) {
-	g.maxDatacarrierBytes = flag
+func (g *GlobalValue) SetMaxDataCarrierBytes(flag uint) {
+	g.maxDataCarrierBytes = flag
 }
 
-func (g *GlobalValue) SetIsBareMultisigStd(flag bool) {
-	g.isBareMultisigStd = flag
+func (g *GlobalValue) SetIsBareMultiSigStd(flag bool) {
+	g.isBareMultiSigStd = flag
 }
 
-func (g *GlobalValue) GetIsBareMultisigStd() bool {
-	return g.isBareMultisigStd
+func (g *GlobalValue) GetIsBareMultiSigStd() bool {
+	return g.isBareMultiSigStd
 }
 
 func (g *GlobalValue) SetIncrementalRelayFee(fee utils.FeeRate) {

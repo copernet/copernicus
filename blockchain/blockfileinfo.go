@@ -118,7 +118,7 @@ func (bfi *BlockFileInfo) AddBlock(nHeightIn uint32, timeIn uint64) {
 }
 
 func (bfi *BlockFileInfo) ToString() string {
-	return fmt.Sprintf("CBlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%s...%s)",
+	return fmt.Sprintf("BlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%s...%s)",
 		bfi.Blocks, bfi.Size, bfi.HeightFirst, bfi.HeightLast,
 		time.Unix(int64(bfi.timeFirst), 0).Format(time.RFC3339),
 		time.Unix(int64(bfi.timeLast), 0).Format(time.RFC3339))

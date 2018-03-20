@@ -14,12 +14,12 @@ import (
 
 type PoolRemovalReason int
 
-//Reason why a transaction was removed from the mempool, this is passed to the
+//Reason why a transaction was removed from the memPool, this is passed to the
 //* notification signal.
 const (
 	//UNKNOWN Manually removed or unknown reason
 	UNKNOWN PoolRemovalReason = iota
-	//EXPIRY Expired from mempool
+	//EXPIRY Expired from memPool
 	EXPIRY
 	//SIZELIMIT Removed in size limiting
 	SIZELIMIT
@@ -51,7 +51,7 @@ func (m *TxMempool) GetCheckFreQuency() float64 {
 }
 
 // RemoveForBlock when a new valid block is received, so all the transaction
-// in the block should removed from mempool.
+// in the block should removed from memPool.
 func (m *TxMempool) RemoveForBlock(txs []*core.Tx, txHeight int) {
 	m.Lock()
 	defer m.Unlock()
@@ -76,7 +76,7 @@ func (m *TxMempool) RemoveForBlock(txs []*core.Tx, txHeight int) {
 }
 
 // AddTx operator is safe for concurrent write And read access.
-// this function is used to add tx to the mempool, and now the tx should
+// this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
 func (m *TxMempool) AddTx(tx *core.Tx, txFee int64) bool {
 	//todo; send signal to all interesting the caller.
@@ -85,7 +85,7 @@ func (m *TxMempool) AddTx(tx *core.Tx, txFee int64) bool {
 	nNoLimit := uint64(math.MaxUint64)
 	ancestors, _ := m.CalculateMemPoolAncestors(tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
 
-	// insert new txentry to the mempool; and update the mempool's memory consume.
+	// insert new txEntry to the memPool; and update the memPool's memory consume.
 	newTxEntry := NewTxentry(tx, txFee)
 	m.PoolData[tx.Hash] = newTxEntry
 	m.cacheInnerUsage += newTxEntry.usageSize
@@ -147,7 +147,7 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining *[]*core.OutPo
 
 }
 
-// Expire all transaction (and their dependencies) in the mempool older
+// Expire all transaction (and their dependencies) in the memPool older
 // than time. Return the number of removed transactions.
 func (m *TxMempool) Expire(time int64) int {
 	m.Lock()
@@ -170,8 +170,8 @@ func (m *TxMempool) Expire(time int64) int {
 	return len(stage)
 }
 
-// HasNoInputsOf Check that none of this transactions inputs are in the mempool,
-// and thus the tx is not dependent on other mempool transactions to be included
+// HasNoInputsOf Check that none of this transactions inputs are in the memPool,
+// and thus the tx is not dependent on other memPool transactions to be included
 // in a block.
 func (m *TxMempool) HasNoInputsOf(tx *core.Tx) bool {
 	m.RLock()

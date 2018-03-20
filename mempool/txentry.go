@@ -26,7 +26,7 @@ type TxEntry struct {
 	sumTxCountWithAncestors    uint64
 	sumSizeWitAncestors        uint64
 	sumSigOpCountWithAncestors uint64
-	// time Local time when entering the mempool
+	// time Local time when entering the memPool
 	time int64
 	// usageSize and total memory usage
 	usageSize int64
@@ -36,7 +36,7 @@ type TxEntry struct {
 	parentTx map[*TxEntry]struct{}
 	//lp Track the height and time at which tx was final
 	lp core.LockPoints
-	//spendsCoinbase keep track of transactions that spend a coinbase
+	//spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
 }
 

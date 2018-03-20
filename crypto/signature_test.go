@@ -30,7 +30,7 @@ func decodeHex(hexStr string) []byte {
 }
 
 var signatureTests = []signatureTest{
-	// signatures from bitcoin blockchain tx
+	// signatures from bitCoin blockChain tx
 	// 0437cd7f8525ceed2324359c2d0ba26006d92d85
 	{
 		name: "valid signature.",

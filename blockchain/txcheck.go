@@ -14,14 +14,14 @@ func TxCheckChain(tx *core.Tx) (int, error) {
 	for i := 0; i < TxInsLen; i++ {
 		PreTx := mempool.GetTxFromMemPool(tx.Ins[i].PreviousOutPoint.Hash)
 		if PreTx != nil {
-			if PreTx.ValState == core.TX_ORPHAN {
-				return core.TX_ORPHAN, errors.New("previous TX is orphan")
+			if PreTx.ValState == core.TxOrphan {
+				return core.TxOrphan, errors.New("previous TX is orphan")
 			}
 			PreTxsOutTotalMoney += PreTx.Outs[tx.Ins[i].PreviousOutPoint.Index].Value
 		} else {
 			PreTx = utxo.GetTxFromUTXO(tx.Ins[i].PreviousOutPoint.Hash)
 			if PreTx == nil {
-				return core.TX_ORPHAN, errors.New("UTXO has no previous tx")
+				return core.TxOrphan, errors.New("UTXO has no previous tx")
 			}
 			PreTxsOutTotalMoney += PreTx.Outs[tx.Ins[i].PreviousOutPoint.Index].Value
 		}
@@ -32,7 +32,7 @@ func TxCheckChain(tx *core.Tx) (int, error) {
 		TotalOutsMoney += tx.Outs[j].Value
 	}
 	if PreTxsOutTotalMoney < TotalOutsMoney {
-		return core.TX_INVALID, errors.New("Ins' money < outs' money")
+		return core.TxInvalid, errors.New("Ins' money < outs' money")
 	}
 
 	for k := 0; k < TxInsLen; k++ {

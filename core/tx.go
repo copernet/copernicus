@@ -13,46 +13,41 @@ import (
 )
 
 const (
-	TX_ORPHAN int = iota
-	TX_INVALID
-	COIN = 100000000
+	TxOrphan = iota
+	TxInvalid
+	CoinAmount = 100000000
 )
 
 const (
-	// SEQUENCE_LOCKTIME_DISABLE_FLAG Below flags apply in the context of BIP 68*/
+	// SequenceLockTimeDisableFlag below flags apply in the context of BIP 68*/
 	// If this flag set, CTxIn::nSequence is NOT interpreted as a
 	// relative lock-time. */
-	SEQUENCE_LOCKTIME_DISABLE_FLAG = 1 << 31
+	SequenceLockTimeDisableFlag = 1 << 31
 
-	// SEQUENCE_LOCKTIME_TYPE_FLAG If CTxIn::nSequence encodes a relative lock-time and this flag
+	// SequenceLockTimeTypeFlag if CTxIn::nSequence encodes a relative lock-time and this flag
 	// is set, the relative lock-time has units of 512 seconds,
 	// otherwise it specifies blocks with a granularity of 1.
-	SEQUENCE_LOCKTIME_TYPE_FLAG = 1 << 22
+	SequenceLockTimeTypeFlag = 1 << 22
 
-	// SEQUENCE_LOCKTIME_MASK If CTxIn::nSequence encodes a relative lock-time, this mask is
+	// SequenceLockTimeMask if CTxIn::nSequence encodes a relative lock-time, this mask is
 	// applied to extract that lock-time from the sequence field.
-	SEQUENCE_LOCKTIME_MASK = 0x0000ffff
+	SequenceLockTimeMask = 0x0000ffff
 
-	// SEQUENCE_LOCKTIME_GRANULARITY in order to use the same number of bits to encode roughly the
+	// SequenceLockTimeQranularity in order to use the same number of bits to encode roughly the
 	// same wall-clock duration, and because blocks are naturally
 	// limited to occur every 600s on average, the minimum granularity
 	// for time-based relative lock-time is fixed at 512 seconds.
 	// Converting from CTxIn::nSequence to seconds is performed by
 	// multiplying by 512 = 2^9, or equivalently shifting up by
 	// 9 bits.
-	SEQUENCE_LOCKTIME_GRANULARITY = 9
+	SequenceLockTimeQranularity = 9
 
-	ONE_MEGABYTE = 1000000
-	/** The maximum allowed size for a transaction, in bytes */
+	MaxMoney = 21000000 * CoinAmount
 
-	MAX_TX_SIZE = ONE_MEGABYTE
+	// MaxTxSigOpsCounts the maximum allowed number of signature check operations per transaction (network rule)
+	MaxTxSigOpsCounts = 20000
 
-	// MAX_TX_SIGOPS_COUNT The maximum allowed number of signature check operations per transaction (network rule)
-	MAX_TX_SIGOPS_COUNT = 20000
-
-	MAX_MONEY = 21000000 * COIN
-
-	MAX_STANDARD_VERSION = 2
+	MaxStandardVersion = 2
 
 	MaxTxInSequenceNum uint32 = 0xffffffff
 	FreeListMaxItems          = 12500
@@ -267,7 +262,7 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 	if len(tx.Outs) == 0 {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
 	}
-	if tx.SerializeSize() > MAX_TX_SIZE {
+	if tx.SerializeSize() > MaxTxSize {
 		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 	}
 	totalOut := int64(0)
@@ -275,11 +270,11 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 		if out.Value < 0 {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
 		}
-		if out.Value > MAX_MONEY {
+		if out.Value > MaxMoney {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
 		}
 		totalOut += out.Value
-		if totalOut < 0 || totalOut > MAX_MONEY {
+		if totalOut < 0 || totalOut > MaxMoney {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
 		}
 	}
@@ -300,15 +295,15 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 }
 
 func (tx *Tx) CheckSelf() (bool, error) {
-	if tx.Version > MAX_STANDARD_VERSION || tx.Version < 1 {
+	if tx.Version > MaxStandardVersion || tx.Version < 1 {
 		return false, errors.New("error version")
 	}
 	if len(tx.Ins) == 0 || len(tx.Outs) == 0 {
 		return false, errors.New("no inputs or outputs")
 	}
 	size := tx.SerializeSize()
-	if size > MAX_TX_SIZE {
-		return false, errors.Errorf("tx size %d > max size %d", size, MAX_TX_SIZE)
+	if size > MaxTxSize {
+		return false, errors.Errorf("tx size %d > max size %d", size, MaxTxSize)
 	}
 
 	TotalOutValue := int64(0)
@@ -320,17 +315,17 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		if txOut.Value < 0 {
 			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
 		}
-		if txOut.Value > MAX_MONEY {
+		if txOut.Value > MaxMoney {
 			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
 		}
 
 		TotalOutValue += txOut.Value
-		if TotalOutValue > MAX_MONEY {
+		if TotalOutValue > MaxMoney {
 			return false, errors.Errorf("tx outs' total value:%d from 0 to %d is too large", TotalOutValue, i)
 		}
 
 		TotalSigOpCount += int64(txOut.SigOpCount)
-		if TotalSigOpCount > MAX_TX_SIGOPS_COUNT {
+		if TotalSigOpCount > int64(MaxTxSigOpsCounts) {
 			return false, errors.Errorf("tx outs' total SigOpCount:%d from 0 to %d is too large", TotalSigOpCount, i)
 		}
 	}
@@ -340,7 +335,7 @@ func (tx *Tx) CheckSelf() (bool, error) {
 	for i := 0; i < TxInsLen; i++ {
 		txIn := tx.Ins[i]
 		TotalSigOpCount += int64(txIn.SigOpCount)
-		if TotalSigOpCount > MAX_TX_SIGOPS_COUNT {
+		if TotalSigOpCount > int64(MaxTxSigOpsCounts) {
 			return false, errors.Errorf("tx total SigOpCount:%d of all Outs and partial Ins from 0 to %d is too large", TotalSigOpCount, i)
 		}
 		if txIn.Script.Size() > 1650 {
@@ -462,7 +457,7 @@ func (tx *Tx) IsFinalTx(Height int, time int64) bool {
 	}
 
 	lockTimeLimit := int64(0)
-	if tx.LockTime < LOCKTIME_THRESHOLD {
+	if tx.LockTime < LockTimeThreshold {
 		lockTimeLimit = int64(Height)
 	} else {
 		lockTimeLimit = time
@@ -473,7 +468,7 @@ func (tx *Tx) IsFinalTx(Height int, time int64) bool {
 	}
 
 	for _, txin := range tx.Ins {
-		if txin.Sequence != SEQUENCE_FINAL {
+		if txin.Sequence != SequenceFinal {
 			return false
 		}
 	}

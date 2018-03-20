@@ -162,7 +162,7 @@ func TestInterpreterVerify(t *testing.T) {
 	}
 	preTestTx := testsTx[0].tx
 	testTx := testsTx[1].tx
-	flag := crypto.SIGHASH_ALL
+	flag := crypto.SigHashAll
 	ret, err := interpreter.Verify(&testTx, 0, testTx.Ins[0].Script, preTestTx.Outs[1].Script, uint32(flag))
 	if err != nil {
 		t.Error(err)

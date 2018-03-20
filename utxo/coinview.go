@@ -55,7 +55,7 @@ func (coinsViewCache *CoinsViewCache) FetchCoin(point *core.OutPoint) *CoinsCach
 	if newEntry.Coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
 		// our version as fresh.
-		newEntry.Flags = COIN_ENTRY_FRESH
+		newEntry.Flags = CoinEntryFresh
 	}
 	coinsViewCache.cachedCoinsUsage += newEntry.Coin.DynamicMemoryUsage()
 	return newEntry
@@ -100,30 +100,30 @@ func (coinsViewCache *CoinsViewCache) EstimateSize() uint64 {
 func (coinsViewCache *CoinsViewCache) BatchWrite(cacheCoins CacheCoins, hash *utils.Hash) bool {
 	for point, item := range cacheCoins {
 		// Ignore non-dirty entries (optimization).
-		if item.Flags&COIN_ENTRY_DIRTY != 0 {
+		if item.Flags&CoinEntryDirty != 0 {
 			itUs, ok := coinsViewCache.CacheCoins[point]
 			if !ok {
-				if !(item.Flags&COIN_ENTRY_FRESH != 0 && item.Coin.IsSpent()) {
-					entry := &CoinsCacheEntry{Coin: item.Coin, Flags: COIN_ENTRY_DIRTY}
+				if !(item.Flags&CoinEntryFresh != 0 && item.Coin.IsSpent()) {
+					entry := &CoinsCacheEntry{Coin: item.Coin, Flags: CoinEntryDirty}
 					coinsViewCache.CacheCoins[point] = entry
 					coinsViewCache.cachedCoinsUsage += entry.Coin.DynamicMemoryUsage()
-					if item.Flags&COIN_ENTRY_FRESH != 0 {
-						entry.Flags |= COIN_ENTRY_FRESH
+					if item.Flags&CoinEntryFresh != 0 {
+						entry.Flags |= CoinEntryFresh
 					}
 				}
 			} else {
-				if item.Flags&COIN_ENTRY_FRESH != 0 && !itUs.Coin.IsSpent() {
+				if item.Flags&CoinEntryFresh != 0 && !itUs.Coin.IsSpent() {
 					panic("FRESH flag misapplied to cache entry for base transaction with spendable outputs")
 				}
 
-				if itUs.Flags&COIN_ENTRY_FRESH != 0 && item.Coin.IsSpent() {
+				if itUs.Flags&CoinEntryFresh != 0 && item.Coin.IsSpent() {
 					coinsViewCache.cachedCoinsUsage -= itUs.Coin.DynamicMemoryUsage()
 					delete(coinsViewCache.CacheCoins, point)
 				} else {
 					coinsViewCache.cachedCoinsUsage -= itUs.Coin.DynamicMemoryUsage()
 					*itUs.Coin = DeepCopyCoin(item.Coin)
 					coinsViewCache.cachedCoinsUsage += itUs.Coin.DynamicMemoryUsage()
-					itUs.Flags |= COIN_ENTRY_DIRTY
+					itUs.Flags |= CoinEntryDirty
 				}
 			}
 		}
@@ -159,15 +159,15 @@ func (coinsViewCache *CoinsViewCache) AddCoin(point *core.OutPoint, coin Coin, p
 		if !coinsViewCache.CacheCoins[*point].Coin.IsSpent() {
 			panic("Adding new coin that replaces non-pruned entry")
 		}
-		fresh = coinsViewCache.CacheCoins[*point].Flags&COIN_ENTRY_DIRTY == 0
+		fresh = coinsViewCache.CacheCoins[*point].Flags&CoinEntryDirty == 0
 	}
 
 	*coinsViewCache.CacheCoins[*point].Coin = DeepCopyCoin(&coin)
 
 	if fresh {
-		coinsViewCache.CacheCoins[*point].Flags |= COIN_ENTRY_DIRTY | COIN_ENTRY_FRESH
+		coinsViewCache.CacheCoins[*point].Flags |= CoinEntryDirty | CoinEntryFresh
 	} else {
-		coinsViewCache.CacheCoins[*point].Flags |= COIN_ENTRY_DIRTY | 0
+		coinsViewCache.CacheCoins[*point].Flags |= CoinEntryDirty | 0
 	}
 	coinsViewCache.cachedCoinsUsage += coinsViewCache.CacheCoins[*point].Coin.DynamicMemoryUsage()
 }
@@ -181,11 +181,11 @@ func (coinsViewCache *CoinsViewCache) SpendCoin(point *core.OutPoint, coin *Coin
 	if coin != nil {
 		*coin = *entry.Coin
 	}
-	if entry.Flags&COIN_ENTRY_FRESH != 0 {
+	if entry.Flags&CoinEntryFresh != 0 {
 		delete(coinsViewCache.CacheCoins, *point)
 		coinsViewCache.cachedCoinsUsage -= entry.Coin.DynamicMemoryUsage()
 	} else {
-		entry.Flags |= COIN_ENTRY_DIRTY
+		entry.Flags |= CoinEntryDirty
 		entry.Coin.Clear()
 	}
 	return true

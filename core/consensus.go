@@ -12,8 +12,6 @@ const (
 	/*MaxBlockSigopsPerMb  The maximum allowed number of signature check operations per MB in a block
 	* (network rule) */
 	MaxBlockSigopsPerMb = 20000
-	//MaxTxSigopsCount  allowed number of signature check operations per transaction. */
-	MaxTxSigopsCount = 20000
 	/*CoinbaseMaturity  Coinbase transaction outputs can only be spent after this number of new
 	blocks (network rule) */
 	CoinbaseMaturity = 100
@@ -22,7 +20,7 @@ const (
 
 const (
 	// LocktimeVerifySequence ,  Interpret sequence numbers as relative lock-time constraints.
-	LocktimeVerifySequence = (1 << iota)
+	LocktimeVerifySequence = 1 << iota
 
 	// LocktimeMedianTimePast , Use GetMedianTimePast() instead of nTime for end point timestamp.
 	LocktimeMedianTimePast

@@ -24,14 +24,14 @@ import (
  * pool(since 0.8)
  */
 const (
-	MEMPOOL_HEIGHT       = 0x7FFFFFFF
-	ROLLING_FEE_HALFLIFE = 60 * 60 * 12
+	HeightMemPool      = 0x7FFFFFFF
+	RollingFeeHalfLife = 60 * 60 * 12
 )
 
 type TxMempoolInfo struct {
 	Tx       *core.Tx      // The transaction itself
-	Time     int64         // Time the transaction entered the mempool
-	FeeRate  utils.FeeRate // Feerate of the transaction
+	Time     int64         // Time the transaction entered the memPool
+	FeeRate  utils.FeeRate // FeeRate of the transaction
 	FeeDelta int64         // The fee delta
 }
 
@@ -179,7 +179,7 @@ func (mempool *Mempool) UpdateForRemoveFromMempool(entriesToRemove *set.Set, upd
 		// removing a tx and all its descendants, eg when a transaction is
 		// confirmed in a block. Here we only update statistics and not data in
 		// mapLinks (which we need to preserve until we're finished with all
-		// operations that need to traverse the mempool).
+		// operations that need to traverse the memPool).
 		entriesToRemove.Each(func(item interface{}) bool {
 			setDescendants := set.New()
 			removeIt := item.(*TxMempoolEntry)
@@ -200,20 +200,20 @@ func (mempool *Mempool) UpdateForRemoveFromMempool(entriesToRemove *set.Set, upd
 	entriesToRemove.Each(func(item interface{}) bool {
 		entry := item.(*TxMempoolEntry)
 		setAncestors := set.New()
-		// Since this is a tx that is already in the mempool, we can call CMPA
-		// with fSearchForParents = false.  If the mempool is in a consistent
+		// Since this is a tx that is already in the memPool, we can call CMPA
+		// with fSearchForParents = false.  If the memPool is in a consistent
 		// state, then using true or false should both be correct, though false
 		// should be a bit faster.
-		// However, if we happen to be in the middle of processing a reorg, then
-		// the mempool can be in an inconsistent state. In this case, the set of
+		// However, if we happen to be in the middle of processing a reOrg, then
+		// the memPool can be in an inconsistent state. In this case, the set of
 		// ancestors reachable via mapLinks will be the same as the set of
 		// ancestors whose packages include this transaction, because when we
-		// add a new transaction to the mempool in addUnchecked(), we assume it
-		// has no children, and in the case of a reorg where that assumption is
-		// false, the in-mempool children aren't linked to the in-block tx's
+		// add a new transaction to the memPool in addUnchecked(), we assume it
+		// has no children, and in the case of a reOrg where that assumption is
+		// false, the in-memPool children aren't linked to the in-block tx's
 		// until UpdateTransactionsFromBlock() is called. So if we're being
-		// called during a reorg, ie before UpdateTransactionsFromBlock() has
-		// been called, then mapLinks[] will differ from the set of mempool
+		// called during a reOrg, ie before UpdateTransactionsFromBlock() has
+		// been called, then mapLinks[] will differ from the set of memPool
 		// parents we'd calculate by searching, and it's important that we use
 		// the mapLinks[] notion of ancestor transactions as the set of things
 		// to update for removal.
@@ -296,7 +296,7 @@ func (mempool *Mempool) ClearPrioritisation(hash *utils.Hash) {
 }
 
 /* removeUnchecked Before calling removeUnchecked for a given transaction,
- * UpdateForRemoveFromMempool must be called on the entire (dependent) set
+ * UpdateForRemoveFromMemPool must be called on the entire (dependent) set
  * of transactions being removed at the same time. We use each
  * CTxMemPoolEntry's setMemPoolParents in order to walk ancestors of a given
  * transaction that is removed, so we can't remove intermediate transactions
@@ -497,7 +497,7 @@ func (mempool *Mempool) GetMinFee(sizeLimit int64) utils.FeeRate {
 	increRelFee := conf.GlobalValueInstance.GetIncrementalRelayFee()
 	time := utils.GetMockTime()
 	if time > mempool.LastRollingFeeUpdate+10 {
-		halfLife := ROLLING_FEE_HALFLIFE
+		halfLife := RollingFeeHalfLife
 		mempoolUsage := mempool.DynamicMemoryUsage()
 		if mempoolUsage < sizeLimit/4 {
 			halfLife = halfLife / 4
@@ -662,7 +662,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 		if hasTx := mempool.MapTx.GetEntryByHash(entry.TxRef.Hash); hasTx != nil {
 			parentHashes = mempool.GetMemPoolParents(hasTx)
 		} else {
-			panic("passed the entry is not in mempool")
+			panic("passed the entry is not in memPool")
 		}
 	}
 
@@ -1088,7 +1088,7 @@ func (m *CoinsViewMemPool) GetCoin(point *core.OutPoint, coin *utxo.Coin) bool {
 	ptx := m.Mpool.Get(&point.Hash)
 	if ptx != nil {
 		if int(point.Index) < len(ptx.Outs) {
-			*coin = *utxo.NewCoin(ptx.Outs[point.Index], MEMPOOL_HEIGHT, false)
+			*coin = *utxo.NewCoin(ptx.Outs[point.Index], HeightMemPool, false)
 			return true
 		}
 		return false

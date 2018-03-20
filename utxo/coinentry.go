@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/database"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -60,6 +59,6 @@ func (coinEntry *CoinEntry) GetSerKey() []byte {
 func NewCoinEntry(outPoint *core.OutPoint) *CoinEntry {
 	coinEntry := new(CoinEntry)
 	coinEntry.outpoint = outPoint
-	coinEntry.key = database.DB_COIN
+	//coinEntry.key = database.DB_COIN
 	return coinEntry
 }

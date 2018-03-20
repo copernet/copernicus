@@ -23,7 +23,7 @@ var (
 	oneLsh256 = new(big.Int).Lsh(bigOne, 256)
 )
 
-// HashToBig converts a chainhash.Hash into a big.Int that can be used to
+// HashToBig converts a chainHash.Hash into a big.Int that can be used to
 // perform math comparisons.
 func HashToBig(hash *utils.Hash) *big.Int {
 	// A Hash is in little-endian, but the big package wants the bytes in

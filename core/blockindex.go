@@ -11,7 +11,7 @@ import (
 /**
  * The block chain is a tree shaped structure starting with the genesis block at
  * the root, with each block potentially having multiple candidates to be the
- * next block. A blockindex may have multiple prev pointing to it, but at most
+ * next block. A blockIndex may have multiple prev pointing to it, but at most
  * one of them can be part of the currently active branch.
  */
 

@@ -7,23 +7,23 @@ import (
 )
 
 const (
-	DEFAULT_SIZE = 28
+	DefaultSize = 28
 
-	// MAX_PUBKEYS_PER_MULTISIG :  Maximum number of public keys per multisig
-	MAX_PUBKEYS_PER_MULTISIG = 20
+	// MaxPubKeysPerMultiSig :  maximum number of public keys per multiSig
+	MaxPubKeysPerMultiSig = 20
 
-	// LOCKTIME_THRESHOLD Threshold for nLockTime: below this value it is interpreted as block number,
+	// LockTimeThreshold threshold for nLockTime: below this value it is interpreted as block number,
 	// otherwise as UNIX timestamp. Threshold is Tue Nov 5 00:53:20 1985 UTC
-	LOCKTIME_THRESHOLD = 500000000
+	LockTimeThreshold = 500000000
 
-	// SEQUENCE_FINAL Setting nSequence to this value for every input in a transaction
+	// SequenceFinal setting sequence to this value for every input in a transaction
 	// disables nLockTime.
-	SEQUENCE_FINAL = 0xffffffff
+	SequenceFinal = 0xffffffff
 
-	MAX_SCRIPT_SIZE         = 10000
-	MAX_SCRIPT_ELEMENT_SIZE = 520
-	MAX_SCRIPT_OPCODES      = 201
-	MAX_OPS_PER_SCRIPT      = 201
+	MaxScriptSize        = 10000
+	MaxScriptElementSize = 520
+	MaxScriptOpCodes     = 201
+	MaxOpsPerScript      = 201
 )
 
 type Script struct {
@@ -91,7 +91,7 @@ func (script *Script) IsUnspendable() bool {
 
 	return script.Size() > 0 &&
 		script.ParsedOpCodes[0].opValue == OP_RETURN ||
-		script.Size() > MAX_SCRIPT_SIZE
+		script.Size() > MaxScriptSize
 }
 
 func CheckMinimalPush(data []byte, opcode int32) bool {
@@ -414,7 +414,7 @@ func (script *Script) GetSigOpCountWithAccurate(accurate bool) (int, error) {
 				}
 				n += opn
 			} else {
-				n += MAX_PUBKEYS_PER_MULTISIG
+				n += MaxPubKeysPerMultiSig
 			}
 		}
 		lastOpcode = int(opcode)

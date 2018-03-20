@@ -85,7 +85,7 @@ func merkleComputation(leaves []utils.Hash, root *utils.Hash, pmutated *bool, br
 		h = crypto.DoubleSha256Hash(tmp)
 		// Increment count to the value it would have if two entries at this
 		// level had existed.
-		count += (uint32(1) << uint(level))
+		count += uint32(1) << uint(level)
 		level++
 		// And propagate the result upwards accordingly.
 		for ; (count & (uint32(1) << uint(level))) == 0; level++ {

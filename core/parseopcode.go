@@ -13,7 +13,7 @@ type ParsedOpCode struct {
 	data   []byte
 }
 
-// isDisabled returns whether or not the opcode is disabled and thus is always
+// isDisabled returns whether or not the opCode is disabled and thus is always
 // bad to see in the instruction stream (even if turned off by a conditional).
 func (parsedOpCode *ParsedOpCode) isDisabled() bool {
 	switch parsedOpCode.opValue {
@@ -94,32 +94,32 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 			if opcode != OP_1+data[0]-1 {
 				// Should have used OP_1 .. OP_16
 				return errors.Errorf(
-					"data push of the value %d encoded with opcode %d instead of op_%d",
+					"data push of the value %d encoded with opCode %d instead of op_%d",
 					data[0], parsedOpCode.opValue, data[0])
 			}
 		} else if data[0] == 0x81 {
 			if opcode != OP_1NEGATE {
 				return errors.Errorf(
-					"data push of the value -1 encoded with opcode %d instead of OP_1NEGATE",
+					"data push of the value -1 encoded with opCode %d instead of OP_1NEGATE",
 					parsedOpCode.opValue)
 			}
 		}
 	} else if dataLen <= 75 {
 		if int(opcode) != dataLen {
 			return errors.Errorf(
-				"data push of %d bytes encoded with opcode %d instead of op_data_%d",
+				"data push of %d bytes encoded with opCode %d instead of op_data_%d",
 				dataLen, parsedOpCode.opValue, dataLen)
 		}
 	} else if dataLen <= 255 {
 		if opcode != OP_PUSHDATA1 {
 			return errors.Errorf(
-				" data push of %d bytes encoded with opcode %d instead of OP_PUSHDATA1",
+				" data push of %d bytes encoded with opCode %d instead of OP_PUSHDATA1",
 				dataLen, parsedOpCode.opValue)
 		}
 	} else if dataLen <= 65535 {
 		if opcode != OP_PUSHDATA2 {
 			return errors.Errorf(
-				"data push of %d bytes encoded with opcode %d instead of OP_PUSHDATA2",
+				"data push of %d bytes encoded with opCode %d instead of OP_PUSHDATA2",
 				dataLen, parsedOpCode.opValue)
 		}
 	}
@@ -137,7 +137,7 @@ func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
 	if parsedOpCode.length == 1 {
 		if len(parsedOpCode.data) != 0 {
 			return nil, errors.Errorf(
-				"internal consistency error parsed opcode %d has data length %d when %d was expected",
+				"internal consistency error parsed opCode %d has data length %d when %d was expected",
 				parsedOpCode.opValue, len(parsedOpCode.data), 0)
 		}
 		return retBytes, nil
@@ -164,7 +164,7 @@ func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
 	retBytes = append(retBytes, parsedOpCode.data...)
 	if len(retBytes) != nBytes {
 		return nil, errors.Errorf(
-			"internal consistency error - parsed opcode %d has data length %d when %d was expected",
+			"internal consistency error - parsed opCode %d has data length %d when %d was expected",
 			parsedOpCode.opValue, len(retBytes), nBytes)
 	}
 	return retBytes, nil
