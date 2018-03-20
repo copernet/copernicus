@@ -1,5 +1,5 @@
-hash: 5ddec11c33de555d60a4f350792d67f9b08d49629350a5b011169cf24faefd8a
-updated: 2018-03-13T10:47:17.600880415+08:00
+hash: 206a11eb7241331e3d8041d61c26b27101fecf5b00294b17e32e1ec9450e07bd
+updated: 2018-03-20T15:00:15.989812+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -7,8 +7,6 @@ imports:
   - config
   - logs
   - utils
-- name: github.com/boltdb/bolt
-  version: 2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8
 - name: github.com/bradfitz/slice
   version: d9036e2120b5ddfa53f3ebccd618c4af275f47da
 - name: github.com/btcboost/secp256k1-go
@@ -27,6 +25,8 @@ imports:
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
+- name: github.com/golang/snappy
+  version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/google/btree
   version: e89373fe6b4a7413d7acd6da1725b83ef713e6e4
 - name: github.com/pkg/errors
@@ -35,6 +35,21 @@ imports:
   version: 56900470a899883f691bcdf6bea4ac547f2a9a6f
   subpackages:
   - ledis
+- name: github.com/syndtr/goleveldb
+  version: 211f780988068502fe874c44dae530528ebd840f
+  subpackages:
+  - leveldb
+  - leveldb/cache
+  - leveldb/comparer
+  - leveldb/errors
+  - leveldb/filter
+  - leveldb/iterator
+  - leveldb/journal
+  - leveldb/memdb
+  - leveldb/opt
+  - leveldb/storage
+  - leveldb/table
+  - leveldb/util
 - name: go4.org
   version: fba789b7e39ba524b9e60c45c37a50fae63a2a09
   subpackages:
@@ -43,10 +58,6 @@ imports:
   version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
   - ripemd160
-- name: golang.org/x/sys
-  version: 7dca6fe1f43775aa6d1334576870ff63f978f539
-  subpackages:
-  - unix
 - name: gopkg.in/fatih/set.v0
   version: 168a5d71ba0669ae06888225478d73a113f1687e
 - name: gopkg.in/yaml.v2
