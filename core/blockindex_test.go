@@ -68,56 +68,56 @@ func TestBlockIndexGetAncestor(t *testing.T) {
 }
 
 func TestBlockIndexBuildSkip(t *testing.T) {
-	vHashMain := make([]*big.Int, 10000)
-	vBlocksMain := make([]BlockIndex, 10000)
+	HashMain := make([]*big.Int, 10000)
+	BlocksMain := make([]BlockIndex, 10000)
 	tmpRand := utils.NewFastRandomContext(false)
 
-	for i := 0; i < cap(vBlocksMain); i++ {
+	for i := 0; i < cap(BlocksMain); i++ {
 		// Set the hash equal to the height
-		vHashMain[i] = big.NewInt(int64(i))
-		vBlocksMain[i].Height = i
+		HashMain[i] = big.NewInt(int64(i))
+		BlocksMain[i].Height = i
 		if i > 0 {
-			vBlocksMain[i].Prev = &vBlocksMain[i-1]
+			BlocksMain[i].Prev = &BlocksMain[i-1]
 		} else {
-			vBlocksMain[i].Prev = nil
+			BlocksMain[i].Prev = nil
 		}
 
-		vBlocksMain[i].BuildSkip()
+		BlocksMain[i].BuildSkip()
 		if i < 10 {
-			vBlocksMain[i].TimeMax = uint32(i)
-			vBlocksMain[i].Time = uint32(i)
+			BlocksMain[i].TimeMax = uint32(i)
+			BlocksMain[i].Header.Time = uint32(i)
 		} else {
 			// randomly choose something in the range [MTP, MTP*2]
-			medianTimePast := uint32(vBlocksMain[i].GetMedianTimePast())
+			medianTimePast := uint32(BlocksMain[i].GetMedianTimePast())
 			r := tmpRand.Rand32() % medianTimePast
-			vBlocksMain[i].Time = r + medianTimePast
-			vBlocksMain[i].TimeMax = uint32(math.Max(float64(vBlocksMain[i].Time), float64(vBlocksMain[i-1].TimeMax)))
+			BlocksMain[i].Header.Time = r + medianTimePast
+			BlocksMain[i].TimeMax = uint32(math.Max(float64(BlocksMain[i].Header.Time), float64(BlocksMain[i-1].TimeMax)))
 		}
 	}
 
-	//Check that we set nTimeMax up correctly.
+	// Check that we set nTimeMax up correctly.
 	curTimeMax := uint32(0)
-	for i := 0; i < len(vBlocksMain); i++ {
-		curTimeMax = uint32(math.Max(float64(curTimeMax), float64(vBlocksMain[i].Time)))
-		if curTimeMax != vBlocksMain[i].TimeMax {
+	for i := 0; i < len(BlocksMain); i++ {
+		curTimeMax = uint32(math.Max(float64(curTimeMax), float64(BlocksMain[i].Header.Time)))
+		if curTimeMax != BlocksMain[i].TimeMax {
 			t.Errorf("the two element should be equal, left value : %d, right value : %d",
-				curTimeMax, vBlocksMain[i].TimeMax)
+				curTimeMax, BlocksMain[i].TimeMax)
 			return
 		}
 	}
 
 	// Build a CChain for the main branch.
 	chain := Chain{}
-	chain.SetTip(&vBlocksMain[len(vBlocksMain)-1])
+	chain.SetTip(&BlocksMain[len(BlocksMain)-1])
 
 	// Verify that FindEarliestAtLeast is correct
 	for _, v := range chain.Chain {
 		_ = v.Height
 	}
-	for i := 0; i < len(vBlocksMain); i++ {
-		// Pick a random element in vBlocksMain.
-		r := tmpRand.Rand32() % uint32(len(vBlocksMain))
-		testTime := vBlocksMain[r].Time
+	for i := 0; i < len(BlocksMain); i++ {
+		// Pick a random element in BlocksMain.
+		r := tmpRand.Rand32() % uint32(len(BlocksMain))
+		testTime := BlocksMain[r].Header.Time
 		ret := chain.FindEarliestAtLeast(int64(testTime))
 		if ret == nil {
 			continue
@@ -135,9 +135,9 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 		if r < uint32(ret.Height) {
 			continue
 		}
-		if vBlocksMain[r].GetAncestor(ret.Height) != ret {
+		if BlocksMain[r].GetAncestor(ret.Height) != ret {
 			t.Errorf("GetAncestor() return value : %p should be equal ret : %p, "+
-				"the find height : %d, r : %d", vBlocksMain[r].GetAncestor(ret.Height), ret, ret.Height, r)
+				"the find height : %d, r : %d", BlocksMain[r].GetAncestor(ret.Height), ret, ret.Height, r)
 			return
 		}
 

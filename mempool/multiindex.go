@@ -13,14 +13,14 @@ const (
 	TimeSort
 )
 
-//MultiIndex the struct for support memPool store node, to implement MultiIndex sort
+// MultiIndex the struct for support memPool store node, to implement MultiIndex sort
 type MultiIndex struct {
-	PoolNode              map[utils.Hash]*TxMempoolEntry //unique
+	PoolNode              map[utils.Hash]*TxMempoolEntry // unique
 	nodeKey               []*TxMempoolEntry
-	byDescendantScoreSort []*TxMempoolEntry //ordered_non_unique;
-	byEntryTimeSort       []*TxMempoolEntry //ordered_non_unique;
-	byScoreSort           []*TxMempoolEntry //ordered_unique;
-	byAncestorFeeSort     []*TxMempoolEntry //ordered_non_unique;
+	byDescendantScoreSort []*TxMempoolEntry // ordered_non_unique;
+	byEntryTimeSort       []*TxMempoolEntry // ordered_non_unique;
+	byScoreSort           []*TxMempoolEntry // ordered_unique;
+	byAncestorFeeSort     []*TxMempoolEntry // ordered_non_unique;
 }
 
 func NewMultiIndex() *MultiIndex {
@@ -35,7 +35,7 @@ func NewMultiIndex() *MultiIndex {
 	return &multi
 }
 
-//AddElement add the element to the multiIndex; the element must meet multiIndex's keys various criterions;
+// AddElement add the element to the multiIndex; the element must meet multiIndex's keys various criterions;
 func (multiIndex *MultiIndex) AddElement(hash utils.Hash, txEntry *TxMempoolEntry) {
 	if _, has := multiIndex.PoolNode[hash]; has {
 		return
@@ -44,7 +44,7 @@ func (multiIndex *MultiIndex) AddElement(hash utils.Hash, txEntry *TxMempoolEntr
 	multiIndex.nodeKey = append(multiIndex.nodeKey, txEntry)
 }
 
-//DelEntryByHash : delete the key correspond value In multiIndex;
+// DelEntryByHash : delete the key correspond value In multiIndex;
 func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
 	if _, ok := multiIndex.PoolNode[hash]; ok {
 		delete(multiIndex.PoolNode, hash)
@@ -58,8 +58,8 @@ func (multiIndex *MultiIndex) DelEntryByHash(hash utils.Hash) {
 	}
 }
 
-//GetEntryByHash : return the key correspond value In multiIndex;
-//And modify The return value will be Influence the multiIndex;
+// GetEntryByHash : return the key correspond value In multiIndex;
+// And modify The return value will be Influence the multiIndex;
 func (multiIndex *MultiIndex) GetEntryByHash(hash utils.Hash) *TxMempoolEntry {
 	if v, ok := multiIndex.PoolNode[hash]; ok {
 		return v
@@ -71,7 +71,7 @@ func (multiIndex *MultiIndex) Size() int {
 	return len(multiIndex.PoolNode)
 }
 
-//GetByDescendantScoreSort : return the sort slice by descendantScore
+// GetByDescendantScoreSort : return the sort slice by descendantScore
 func (multiIndex *MultiIndex) GetByDescendantScoreSort() []*TxMempoolEntry {
 	multiIndex.updateSort(DescendantScore)
 	return multiIndex.byDescendantScoreSort

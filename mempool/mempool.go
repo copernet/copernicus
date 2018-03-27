@@ -83,8 +83,8 @@ type Mempool struct {
 	BlockSinceLatRollingFeeBump bool
 	RollingMinimumFeeRate       float64
 	MapTx                       *MultiIndex
-	MapLinks                    *beeUtils.BeeMap    //map[utils.Hash]*Txlinks
-	MapNextTx                   *container.CacheMap //map[refOutPoint]tx
+	MapLinks                    *beeUtils.BeeMap    // map[utils.Hash]*Txlinks
+	MapNextTx                   *container.CacheMap // map[refOutPoint]tx
 	MapDeltas                   map[utils.Hash]PriorityFeeDelta
 	vTxHashes                   []TxHash
 	Mtx                         sync.RWMutex

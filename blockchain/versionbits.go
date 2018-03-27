@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math"
 	"sync"
 
@@ -123,14 +122,17 @@ func (vc *VersionBitsConditionChecker) Threshold(params *msg.BitcoinParams) int 
 }
 
 func (vc *VersionBitsConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
-	return ((int64(index.Version) & VersionBitsTopMask) == VersionBitsTopBits) && (index.Version&vc.Mask(params)) != 0
+	return ((int64(index.Header.Version) & VersionBitsTopMask) == VersionBitsTopBits) &&
+		(index.Header.Version&vc.Mask(params)) != 0
 }
 
 func (vc *VersionBitsConditionChecker) Mask(params *msg.BitcoinParams) int32 {
 	return int32(1) << uint(params.Deployments[vc.id].Bit)
 }
 
-func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockIndex, params *msg.BitcoinParams, cache ThresholdConditionCache) ThresholdState {
+func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockIndex,
+	params *msg.BitcoinParams, cache ThresholdConditionCache) ThresholdState {
+
 	nPeriod := vc.Period(params)
 	nThreshold := vc.Threshold(params)
 	nTimeStart := vc.BeginTime(params)
@@ -190,13 +192,8 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockInde
 		case ThresholdStarted:
 			{
 				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
-					fmt.Println("********* height : ", indexPrev.Height)
-					//panic("jjjjjjj")
 					stateNext = ThresholdFailed
 					break
-				}
-				if indexPrev.Height == 2999 {
-					fmt.Println("GetStateFor time : ", indexPrev.GetMedianTimePast())
 				}
 				// We need to count
 				indexCount := indexPrev
@@ -248,9 +245,6 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *cor
 	// The parent of the genesis block is represented by nullptr.
 	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
 	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
-	if indexPrev.Height == 2999 {
-		fmt.Println("initialState : ", initialState)
-	}
 	for previousPeriodParent != nil && GetStateFor(vc, previousPeriodParent, params, cache) == initialState {
 		indexPrev = previousPeriodParent
 		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
@@ -288,8 +282,8 @@ func (w *WarningBitsConditionChecker) Threshold(params *msg.BitcoinParams) int {
 
 func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
 
-	return int64(index.Version)&VersionBitsTopMask == VersionBitsTopBits &&
-		((index.Version)>>uint(w.bit))&1 != 0 &&
+	return int64(index.Header.Version)&VersionBitsTopMask == VersionBitsTopBits &&
+		((index.Header.Version)>>uint(w.bit))&1 != 0 &&
 		(ComputeBlockVersion(index.Prev, params, GVersionBitsCache)>>uint(w.bit))&1 == 0
 }
 

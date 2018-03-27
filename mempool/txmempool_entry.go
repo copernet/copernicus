@@ -32,7 +32,7 @@ type TxMempoolEntry struct {
 	Time          int64
 	EntryPriority float64
 	EntryHeight   uint
-	//!< Sum of all txin values that are already in blockchain
+	// < Sum of all txin values that are already in blockchain
 	InChainInputValue utils.Amount
 	SpendsCoinbase    bool
 	SigOpCount        int64
@@ -44,7 +44,7 @@ type TxMempoolEntry struct {
 	// descendants as well.  if nCountWithDescendants is 0, treat this entry as
 	// dirty, and nSizeWithDescendants and nModFeesWithDescendants will not be
 	// correct.
-	//!< number of descendant transactions
+	// < number of descendant transactions
 	CountWithDescendants   uint64
 	SizeWithDescendants    uint64
 	ModFeesWithDescendants utils.Amount
@@ -54,7 +54,7 @@ type TxMempoolEntry struct {
 	sizeWithAncestors       uint64
 	ModFeesWithAncestors    utils.Amount
 	SigOpCountWithAncestors int64
-	//Index in mempool's vTxHashes
+	// Index in mempool's vTxHashes
 	vTxHashesIdx int
 }
 
