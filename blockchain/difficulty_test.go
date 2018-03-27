@@ -62,8 +62,8 @@ func TestGetBlockProofEquivalentTime(t *testing.T) {
 			blocks[i].Prev = blocks[i-1]
 		}
 		blocks[i].Height = int(i)
-		blocks[i].Time = 1269211443 + i*uint32(msg.ActiveNetParams.TargetTimePerBlock)
-		blocks[i].Bits = 0x207fffff
+		blocks[i].Header.Time = 1269211443 + i*uint32(msg.ActiveNetParams.TargetTimePerBlock)
+		blocks[i].Header.Bits = 0x207fffff
 		blocks[i].ChainWork = *big.NewInt(0)
 		if i > 0 {
 			blocks[i].ChainWork = *(big.NewInt(0)).Add(&blocks[i-1].ChainWork, GetBlockProof(blocks[i]))

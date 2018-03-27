@@ -9,7 +9,7 @@ import (
 	"github.com/google/btree"
 )
 
-//TxEntry are not safe for concurrent write and read access .
+// TxEntry are not safe for concurrent write and read access .
 type TxEntry struct {
 	tx       *core.Tx
 	txHeight int
@@ -34,9 +34,9 @@ type TxEntry struct {
 	childTx map[*TxEntry]struct{}
 	// parentTx the tx's all Ancestors transaction
 	parentTx map[*TxEntry]struct{}
-	//lp Track the height and time at which tx was final
+	// lp Track the height and time at which tx was final
 	lp core.LockPoints
-	//spendsCoinBase keep track of transactions that spend a coinBase
+	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
 }
 
@@ -64,7 +64,7 @@ func (t *TxEntry) GetSpendsCoinbase() bool {
 	return t.spendsCoinbase
 }
 
-//UpdateParent update the tx's parent transaction.
+// UpdateParent update the tx's parent transaction.
 func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
 	if add {
 		t.parentTx[parent] = struct{}{}

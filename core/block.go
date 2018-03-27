@@ -35,12 +35,12 @@ func ParseBlock(raw []byte) (block *Block, err error) {
 		block.BlockHeader.MerkleRoot = crypto.DoubleSha256Hash(raw[4:36])
 	}
 	block.BlockHeader.MerkleRoot = crypto.DoubleSha256Hash(raw[36:68])
-	//block.BlockTime = binary.LittleEndian.Uint32(txRaw[68:72])
+	// block.BlockTime = binary.LittleEndian.Uint32(txRaw[68:72])
 	block.BlockHeader.Bits = binary.LittleEndian.Uint32(raw[72:76])
 	block.BlockHeader.Nonce = binary.LittleEndian.Uint32(raw[76:80])
 	block.Size = uint32(len(raw))
-	//txs, _ := ParseTranscation(txRaw[80:])
-	//block.Transactions = txs
+	// txs, _ := ParseTranscation(txRaw[80:])
+	// block.Transactions = txs
 	return
 }
 

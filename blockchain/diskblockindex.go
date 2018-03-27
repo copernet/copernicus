@@ -45,7 +45,7 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 			return err
 		}
 	}
-	err = binary.Write(writer, binary.LittleEndian, diskBlockIndex.Version)
+	err = binary.Write(writer, binary.LittleEndian, diskBlockIndex.Header.Version)
 	if err != nil {
 		return err
 	}
@@ -53,19 +53,19 @@ func (diskBlockIndex *DiskBlockIndex) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = writer.Write(diskBlockIndex.MerkleRoot.GetCloneBytes())
+	_, err = writer.Write(diskBlockIndex.Header.MerkleRoot.GetCloneBytes())
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, diskBlockIndex.Time)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, diskBlockIndex.Header.Time)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, diskBlockIndex.Bits)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, diskBlockIndex.Header.Bits)
 	if err != nil {
 		return err
 	}
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, diskBlockIndex.Nonce)
+	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, diskBlockIndex.Header.Nonce)
 	return err
 }
 
