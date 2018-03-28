@@ -31,6 +31,24 @@ func TestPublicKeyToAddress(t *testing.T) {
 		return
 	}
 }
+
+func TestHash160Address(t *testing.T) {
+	hash160, err := hex.DecodeString("0000000000000000000000000000000000000000")
+	if hex.EncodeToString(hash160) != "0000000000000000000000000000000000000000" {
+		t.Error(err)
+		return
+	}
+	address, err := Hash160ToAddressStr(hash160, PublicKeyToAddress)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if address != "1111111111111111111114oLvT2" {
+		t.Error("address is worng ,", address)
+		return
+	}
+}
+
 func TestHash160ToAddress(t *testing.T) {
 	data, err := hex.DecodeString("0014a4b4ca48de0b3fffc15404a1acdc8dbaae226955")
 	if err != nil {
