@@ -25,7 +25,6 @@ func (txIn *TxIn) SerializeSize() int {
 		return 40
 	}
 	return 40 + utils.VarIntSerializeSize(uint64(txIn.Script.Size())) + txIn.Script.Size()
-
 }
 
 func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {

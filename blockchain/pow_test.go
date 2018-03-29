@@ -12,8 +12,8 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	lastRetargetTime := int64(1261130161) // Block #30240
 	var indexLast core.BlockIndex
 	indexLast.Height = 32255
-	indexLast.Time = 1262152739 // Block #32255
-	indexLast.Bits = 0x1d00ffff
+	indexLast.Header.Time = 1262152739 // Block #32255
+	indexLast.Header.Bits = 0x1d00ffff
 
 	pow := Pow{}
 	work := pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
@@ -24,8 +24,8 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 
 	lastRetargetTime = 1231006505
 	indexLast.Height = 2015
-	indexLast.Time = 1233061996
-	indexLast.Bits = 0x1d00ffff
+	indexLast.Header.Time = 1233061996
+	indexLast.Header.Bits = 0x1d00ffff
 	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00ffff {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00ffff, work)
@@ -34,8 +34,8 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 
 	lastRetargetTime = 1279008237
 	indexLast.Height = 68543
-	indexLast.Time = 1279297671
-	indexLast.Bits = 0x1c05a3f4
+	indexLast.Header.Time = 1279297671
+	indexLast.Header.Bits = 0x1c05a3f4
 	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1c0168fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1c0168fd, work)
@@ -44,8 +44,8 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 
 	lastRetargetTime = 1263163443
 	indexLast.Height = 46367
-	indexLast.Time = 1269211443
-	indexLast.Bits = 0x1c387f6f
+	indexLast.Header.Time = 1269211443
+	indexLast.Header.Bits = 0x1c387f6f
 	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, msg.ActiveNetParams)
 	if work != 0x1d00e1fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00e1fd, work)
@@ -57,8 +57,8 @@ func getBlockIndex(indexPrev *core.BlockIndex, timeInterval int64, bits uint32) 
 	block := new(core.BlockIndex)
 	block.Prev = indexPrev
 	block.Height = indexPrev.Height + 1
-	block.Time = indexPrev.Time + uint32(timeInterval)
-	block.Bits = bits
+	block.Header.Time = indexPrev.Header.Time + uint32(timeInterval)
+	block.Header.Bits = bits
 	block.ChainWork = *big.NewInt(0).Add(&indexPrev.ChainWork, GetBlockProof(block))
 	return block
 }
@@ -73,8 +73,8 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks[0] = new(core.BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
-	blocks[0].Time = 1269211443
-	blocks[0].Bits = initialBits
+	blocks[0].Header.Time = 1269211443
+	blocks[0].Header.Bits = initialBits
 	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
 	// Pile up some blocks.
@@ -169,8 +169,8 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	blocks[0] = new(core.BlockIndex)
 	blocks[0].SetNull()
 	blocks[0].Height = 0
-	blocks[0].Time = 1269211443
-	blocks[0].Bits = initialBits
+	blocks[0].Header.Time = 1269211443
+	blocks[0].Header.Bits = initialBits
 	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
 	// Block counter.

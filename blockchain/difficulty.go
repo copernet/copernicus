@@ -144,7 +144,7 @@ func GetBlockProof(blIn *core.BlockIndex) *big.Int {
 	// Return a work value of zero if the passed difficulty bits represent
 	// a negative number. Note this should not happen in practice with valid
 	// blocks, but an invalid block could trigger it
-	difficultyNum := CompactToBig(blIn.Bits)
+	difficultyNum := CompactToBig(blIn.Header.Bits)
 	//difficultyNum := CompactToBig(blIn.Bits)
 	if difficultyNum.Sign() <= 0 {
 		return big.NewInt(0)

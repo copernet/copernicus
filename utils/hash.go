@@ -53,8 +53,8 @@ func (hash *Hash) ToString() string {
 }
 
 func (hash *Hash) Serialize(w io.Writer) bool {
-	lenth, err := w.Write(hash[:])
-	if lenth != Hash256Size || err != nil {
+	length, err := w.Write(hash[:])
+	if length != Hash256Size || err != nil {
 		return false
 	}
 	return true

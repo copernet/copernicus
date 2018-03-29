@@ -33,10 +33,10 @@ func NewScriptCheck(script *core.Script, amount utils.Amount, tx *core.Tx, ins i
 }
 
 func (sc *ScriptCheck) check() bool {
-	//scriptSig := sc.txTo.Ins[sc.ins].Script
-	//if !core.VerifyScript(scriptSig, sc.scriptPubKey, sc.flags,, sc.err) { // todo new a CachingTransactionSignatureChecker
-	//	return false
-	//}
+	// scriptSig := sc.txTo.Ins[sc.ins].Script
+	// if !core.VerifyScript(scriptSig, sc.scriptPubKey, sc.flags,, sc.err) { // todo new a CachingTransactionSignatureChecker
+	// 	return false
+	// }
 	return true
 }
 
