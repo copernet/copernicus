@@ -150,16 +150,16 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *cor
 		indexNew.File = diskindex.File
 		indexNew.DataPos = diskindex.DataPos
 		indexNew.UndoPos = diskindex.UndoPos
-		indexNew.Version = diskindex.Version
-		indexNew.MerkleRoot = diskindex.MerkleRoot
-		indexNew.Time = diskindex.Time
-		indexNew.Bits = diskindex.Bits
-		indexNew.Nonce = diskindex.Nonce
+		indexNew.Header.Version = diskindex.Header.Version
+		indexNew.Header.MerkleRoot = diskindex.Header.MerkleRoot
+		indexNew.Header.Time = diskindex.Header.Time
+		indexNew.Header.Bits = diskindex.Header.Bits
+		indexNew.Header.Nonce = diskindex.Header.Nonce
 		indexNew.Status = diskindex.Status
 		indexNew.TxCount = diskindex.TxCount
 
 		var pow Pow
-		if pow.CheckProofOfWork(indexNew.GetBlockHash(), indexNew.Bits, msg.ActiveNetParams) {
+		if pow.CheckProofOfWork(indexNew.GetBlockHash(), indexNew.Header.Bits, msg.ActiveNetParams) {
 			return logger.ErrorLog("LoadBlockIndex(): CheckProofOfWork failed: %s", indexNew.ToString())
 		}
 
