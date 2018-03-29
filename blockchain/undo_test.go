@@ -52,7 +52,7 @@ func UpdateUTXOSet(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUnd
 		UpdateCoins(tx, cache, tmp, height)
 	}
 
-	cache.SetBestBlock(block.Hash)
+	cache.SetBestBlock(*block.Hash)
 
 }
 
@@ -154,7 +154,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	buf := bytes.NewBuffer(nil)
 	block.Serialize(buf)
-	block.Hash = crypto.DoubleSha256Hash(buf.Bytes()[:80])
+	*block.Hash = crypto.DoubleSha256Hash(buf.Bytes()[:80])
 
 	// Now update hte UTXO set
 	undo := &BlockUndo{
@@ -163,7 +163,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	UpdateUTXOSet(block, &cache, undo, chainparams, 123456)
 
-	if cache.GetBestBlock() != block.Hash {
+	if cache.GetBestBlock() != *block.Hash {
 		t.Error("this block should have been stored in the cache")
 	}
 	if !HasSpendableCoin(&cache, &coinbaseTx.Hash) {

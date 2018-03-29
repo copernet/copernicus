@@ -85,7 +85,7 @@ func MessageSummary(msg Message) string {
 		return fmt.Sprintf("tx hash %s,%d inputs,%d outputs ,lock %s", msgType.Tx.Hash,
 			len(msgType.Tx.Ins), len(msgType.Tx.Outs), LockTimeToString(msgType.Tx.LockTime))
 	case *BlockMessage:
-		return fmt.Sprintf("hash %s, ver %d, %d txs ,%d", msgType.Block.Hash,
+		return fmt.Sprintf("hash %s, ver %d, %d txs ,%d", msgType.Block.Hash.ToString(),
 			msgType.Block.BlockHeader.Version, len(msgType.Block.Txs), msgType.Block.BlockHeader.Time)
 	case *InventoryMessage:
 		return InventorySummary(msgType.InventoryList)

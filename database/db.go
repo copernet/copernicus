@@ -3,7 +3,6 @@ package database
 import (
 	"crypto/rand"
 	"errors"
-	//"log"
 	"os"
 	"path/filepath"
 
