@@ -28,6 +28,14 @@ func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
 	return utils.WriteVarInt(writer, uint64(diskBlockPos.Pos))
 }
 
+func (diskTxPos *DiskTxPos) SerializeDiskTxPos(writer io.Writer) error {
+	err := diskTxPos.BlockIn.Serialize(writer)
+	if err != nil {
+		return err
+	}
+	return utils.WriteVarInt(writer, uint64(diskTxPos.TxOffsetIn))
+}
+
 func DeserializeDiskBlock(reader io.Reader) (*DiskBlockPos, error) {
 	file, err := utils.ReadVarInt(reader)
 	if err != nil {
