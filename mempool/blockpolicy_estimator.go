@@ -4,14 +4,11 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
 )
-
-var log = logs.NewLogger()
 
 /*
  * BlockPolicyEstimator We want to be able to estimate feerates that are needed on tx's to be

@@ -15,3 +15,12 @@ func DisableLog() {
 func UseLogger(logger btclog.Logger) {
 	log = logger
 }
+
+type LogClosure func() string
+
+func (c LogClosure) ToString() string {
+	return c()
+}
+func InitLogClosure(c func() string) LogClosure {
+	return LogClosure(c)
+}

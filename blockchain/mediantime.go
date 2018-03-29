@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/container"
-
-	"github.com/astaxie/beego/logs"
 )
 
 const (
@@ -17,8 +15,6 @@ const (
 )
 
 var MaxMedianTimeRetries = 200
-
-var log = logs.NewLogger()
 
 type MedianTime struct {
 	lock               sync.Mutex

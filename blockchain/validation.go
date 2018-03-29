@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -17,13 +18,10 @@ import (
 	"time"
 	"unsafe"
 
-	"sort"
-
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/policy"
@@ -73,17 +71,17 @@ const (
 var (
 	gSetDirtyBlockIndex      *container.Set
 	gSetBlockIndexCandidates *container.Set
-	//HashAssumeValid is Block hash whose ancestors we will assume to have valid scripts without checking them.
+	// HashAssumeValid is Block hash whose ancestors we will assume to have valid scripts without checking them.
 	HashAssumeValid       utils.Hash
 	gHashPrevBestCoinBase utils.Hash
 	MapBlockIndex         BlockMap
 	MapBlocksUnlinked     = make(map[*core.BlockIndex][]*core.BlockIndex) // todo init
 	gInfoBlockFile        = make([]*BlockFileInfo, 0)
 	gLastBlockFile        int
-	//setDirtyFileInfo  Dirty block file entries.
+	// setDirtyFileInfo  Dirty block file entries.
 	gSetDirtyFileInfo *container.Set
 	gLatchToFalse     atomic.Value
-	//gBlockSequenceID blocks loaded from disk are assigned id 0, so start the counter at 1.
+	// gBlockSequenceID blocks loaded from disk are assigned id 0, so start the counter at 1.
 	gBlockSequenceID   int32
 	gIndexHeaderOld    *core.BlockIndex
 	gIndexBestHeader   *core.BlockIndex
@@ -193,7 +191,7 @@ func FormatStateMessage(state *core.ValidationState) string {
 	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
 }
 
-//IsUAHFEnabled Check is UAHF has activated.
+// IsUAHFEnabled Check is UAHF has activated.
 func IsUAHFEnabled(params *msg.BitcoinParams, height int) bool {
 	return height >= params.UAHFHeight
 }
@@ -490,8 +488,9 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Valid
 			pindex.Status |= core.BlockFailedValid
 			gSetDirtyBlockIndex.AddItem(pindex)
 		}
-		return logger.ErrorLog(fmt.Sprintf("%s: %s (block %s)", logger.TraceLog(), state.FormatStateMessage(),
+		log.Error(fmt.Sprintf("%s: %s (block %s)", TraceLog(), state.FormatStateMessage(),
 			pblock.Hash.ToString()))
+		return false
 	}
 
 	// Header is valid/has work, merkle tree and segwit merkle tree are
@@ -511,7 +510,8 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Valid
 	if !FindBlockPos(state, &blockPos, uint(nBlockSize+8), uint(nHeight),
 		uint64(pblock.BlockHeader.GetBlockTime()), dbp != nil) {
 
-		return logger.ErrorLog("AcceptBlock(): FindBlockPos failed")
+		log.Error("AcceptBlock(): FindBlockPos failed")
+		return false
 	}
 	if dbp == nil {
 		if !WriteBlockToDisk(pblock, &blockPos, param.BitcoinNet) {
@@ -519,13 +519,14 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Valid
 		}
 	}
 	if !ReceivedBlockTransactions(pblock, state, pindex, &blockPos) {
-		return logger.ErrorLog("AcceptBlock(): ReceivedBlockTransactions failed")
+		log.Error("AcceptBlock(): ReceivedBlockTransactions failed")
+		return false
 	}
 
-	//todo !!! find C++ code throw exception place
-	//if len(reason) != 0 {
-	//	return AbortNode(state, fmt.Sprintf("System error: ", reason, ""))
-	//}
+	// todo !!! find C++ code throw exception place
+	// if len(reason) != 0 {
+	// 	return AbortNode(state, fmt.Sprintf("System error: ", reason, ""))
+	// }
 
 	if GCheckForPruning {
 		// we just allocated more disk space for block files.
@@ -535,8 +536,8 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Valid
 	return true
 }
 
-//ReceivedBlockTransactions Mark a block as having its data received and checked (up to
-//* BLOCK_VALID_TRANSACTIONS).
+// ReceivedBlockTransactions Mark a block as having its data received and checked (up to
+// * BLOCK_VALID_TRANSACTIONS).
 func ReceivedBlockTransactions(pblock *core.Block, state *core.ValidationState,
 	pindexNew *core.BlockIndex, pos *core.DiskBlockPos) bool {
 
@@ -595,7 +596,7 @@ func ReceivedBlockTransactions(pblock *core.Block, state *core.ValidationState,
 }
 
 func AbortNodes(reason, userMessage string) bool {
-	logger.GetLogger().Info("*** %s\n", reason)
+	log.Info("*** %s\n", reason)
 
 	//todo:
 	if len(userMessage) == 0 {
@@ -616,23 +617,26 @@ func WriteBlockToDisk(block *core.Block, pos *core.DiskBlockPos, messageStart ut
 	// Open history file to append
 	fileOut := OpenBlockFile(pos, false)
 	if fileOut == nil {
-		logger.ErrorLog("WriteBlockToDisk: OpenBlockFile failed")
+		log.Error("WriteBlockToDisk: OpenBlockFile failed")
+		return false
 	}
 
 	// Write index header
 	size := block.SerializeSize()
 
-	//4 bytes
+	// 4 bytes
 	err := utils.BinarySerializer.PutUint32(fileOut, binary.LittleEndian, uint32(messageStart))
 	if err != nil {
-		logger.ErrorLog("the messageStart write failed")
+		log.Error("the messageStart write failed")
+		return false
 	}
 	utils.WriteVarInt(fileOut, uint64(size))
 
 	// Write block
 	fileOutPos, err := fileOut.Seek(0, 1)
 	if fileOutPos < 0 || err != nil {
-		logger.ErrorLog("WriteBlockToDisk: ftell failed")
+		log.Error("WriteBlockToDisk: ftell failed")
+		return false
 	}
 
 	pos.Pos = int(fileOutPos)
@@ -641,8 +645,8 @@ func WriteBlockToDisk(block *core.Block, pos *core.DiskBlockPos, messageStart ut
 	return true
 }
 
-//IsInitialBlockDownload Check whether we are doing an initial block download
-//(synchronizing from disk or network)
+// IsInitialBlockDownload Check whether we are doing an initial block download
+// (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
 	// Once this function has returned false, it must remain false.
 	gLatchToFalse.Store(false)
@@ -651,7 +655,7 @@ func IsInitialBlockDownload() bool {
 		return false
 	}
 
-	//todo !!! add cs_main sync.lock in here
+	// todo !!! add cs_main sync.lock in here
 	if gLatchToFalse.Load().(bool) {
 		return false
 	}
@@ -691,7 +695,7 @@ func FindBlockPos(state *core.ValidationState, pos *core.DiskBlockPos, nAddSize 
 
 	if nFile != gLastBlockFile {
 		if !fKnown {
-			logger.GetLogger().Info(fmt.Sprintf("Leaving block file %d: %s\n", gLastBlockFile,
+			log.Info(fmt.Sprintf("Leaving block file %d: %s\n", gLastBlockFile,
 				gInfoBlockFile[gLastBlockFile].ToString()))
 		}
 		FlushBlockFile(!fKnown)
@@ -715,7 +719,7 @@ func FindBlockPos(state *core.ValidationState, pos *core.DiskBlockPos, nAddSize 
 				if CheckDiskSpace(nNewChunks*BlockFileChunkSize - uint32(pos.Pos)) {
 					pfile := OpenBlockFile(pos, false)
 					if pfile != nil {
-						logger.GetLogger().Info("Pre-allocating up to position 0x%x in blk%05u.dat\n",
+						log.Info("Pre-allocating up to position 0x%x in blk%05u.dat\n",
 							nNewChunks*BlockFileChunkSize, pos.File)
 						AllocateFileRange(pfile, pos.Pos, nNewChunks*BlockFileChunkSize-uint32(pos.Pos))
 						pfile.Close()
@@ -755,7 +759,8 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {
-		return logger.ErrorLog("can not get disk info")
+		log.Error("can not get disk info")
+		return false
 	}
 	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
 
@@ -812,12 +817,12 @@ func OpenDiskFile(pos core.DiskBlockPos, prefix string, fReadOnly bool) *os.File
 		}
 	}
 	if file == nil {
-		logger.GetLogger().Info("Unable to open file %s\n", path)
+		log.Info("Unable to open file %s\n", path)
 		return nil
 	}
 	if pos.Pos > 0 {
 		if _, err := file.Seek(0, 1); err != nil {
-			logger.GetLogger().Info("Unable to seek to position %u of %s\n", pos.Pos, path)
+			log.Info("Unable to seek to position %u of %s\n", pos.Pos, path)
 			file.Close()
 			return nil
 		}
@@ -840,7 +845,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		return
 	}
 
-	//todo !! consider mutex here
+	// todo !! consider mutex here
 	// During a reindex, we read the genesis block and call CheckBlockIndex
 	// before ActivateBestChain, so we have the genesis block in mapBlockIndex
 	// but no active chain. (A few of the tests when iterating the block tree
@@ -933,7 +938,7 @@ func (c *ChainState) CheckBlockIndex(param *msg.BitcoinParams) {
 		}
 		if pindex.ChainTxCount == 0 {
 			// nSequenceId can't be set positive for blocks that aren't linked
-			// (negative is used for preciousblock)
+			// (negative is used for previousblock)
 			if pindex.SequenceID > 0 {
 				panic("nSequenceId can't be set positive for blocks that aren't linked")
 			}
@@ -1476,7 +1481,7 @@ func InsertBlockIndex(hash *utils.Hash) *core.BlockIndex {
 func ActivateBestChainStep(param *msg.BitcoinParams, state *core.ValidationState, pindexMostWork *core.BlockIndex,
 	pblock *core.Block, fInvalidFound *bool, connectTrace *ConnectTrace) bool {
 
-	//todo !!! add sync.mutex lock; cs_main
+	// todo !!! add sync.mutex lock; cs_main
 	pindexOldTip := GChainState.ChainActive.Tip()
 	pindexFork := GChainState.ChainActive.FindFork(pindexMostWork)
 
@@ -1569,15 +1574,15 @@ func InvalidChainFound(pindexNew *core.BlockIndex) {
 	if gIndexBestInvalid == nil || pindexNew.ChainWork.Cmp(&gIndexBestInvalid.ChainWork) > 0 {
 		gIndexBestInvalid = pindexNew
 	}
-	logger.GetLogger().Info("%s: invalid block=%s  height=%d  work=%.8d  date=%s\n",
-		logger.TraceLog(), pindexNew.BlockHash.ToString(), pindexNew.Height,
+	log.Info("%s: invalid block=%s  height=%d  work=%.8d  date=%s\n",
+		TraceLog(), pindexNew.BlockHash.ToString(), pindexNew.Height,
 		pindexNew.ChainWork.String(), time.Unix(int64(pindexNew.GetBlockTime()), 0).String())
 	tip := GChainState.ChainActive.Tip()
 	if tip == nil {
 		panic("Now, the chain Tip should not equal nil")
 	}
-	logger.GetLogger().Debug("%s:  current best=%s  height=%d  log2_work=%.8g  date=%s\n",
-		logger.TraceLog(), tip.BlockHash.ToString(), GChainState.ChainActive.Height(),
+	log.Debug("%s:  current best=%s  height=%d  log2_work=%.8g  date=%s\n",
+		TraceLog(), tip.BlockHash.ToString(), GChainState.ChainActive.Height(),
 		time.Unix(int64(tip.GetBlockTime()), 0).String())
 
 	CheckForkWarningConditions()
@@ -1602,7 +1607,7 @@ func PruneBlockIndexCandidates() {
 }
 
 func CheckForkWarningConditionsOnNewFork(pindexNewForkTip *core.BlockIndex) {
-	//todo !!! add sync.mutex lock; cs_main
+	// todo !!! add sync.mutex lock; cs_main
 	// If we are on a fork that is sufficiently large, set a warning flag
 	pfork := pindexNewForkTip
 	plonger := GChainState.ChainActive.Tip()
@@ -1659,16 +1664,16 @@ func CheckForkWarningConditions() {
 		}
 
 		if gIndexBestForkTip != nil && gIndexBestForkBase != nil {
-			logger.GetLogger().Debug("%s: Warning: Large valid fork found forking the "+
+			log.Debug("%s: Warning: Large valid fork found forking the "+
 				"chain at height %d (%s) lasting to height %d (%s).\n"+
-				"Chain state database corruption likely.\n", logger.TraceLog(), gIndexBestForkBase.Height,
+				"Chain state database corruption likely.\n", TraceLog(), gIndexBestForkBase.Height,
 				gIndexBestForkBase.BlockHash.ToString(), gIndexBestForkTip.Height,
 				gIndexBestForkTip.BlockHash.ToString())
 			msg.SetfLargeWorkForkFound(true)
 		} else {
-			logger.GetLogger().Debug("%s: Warning: Found invalid chain at least ~6 blocks "+
+			log.Debug("%s: Warning: Found invalid chain at least ~6 blocks "+
 				"longer than our best chain.\nChain state database "+
-				"corruption likely.\n", logger.TraceLog())
+				"corruption likely.\n", TraceLog())
 			msg.SetfLargeWorkInvalidChainFound(true)
 		}
 	} else {
@@ -1717,11 +1722,12 @@ func ConnectTip(param *msg.BitcoinParams, state *core.ValidationState, indexNew 
 			InvalidBlockFound(indexNew, state)
 		}
 		hash := indexNew.GetBlockHash()
-		return logger.ErrorLog(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", hash.ToString()))
+		log.Error(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", hash.ToString()))
+		return false
 	}
 	nTime3 := utils.GetMicrosTime()
 	gTimeConnectTotal += nTime3 - nTime2
-	logger.LogPrint("bench", "debug", " - Connect total: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gTimeConnectTotal)*0.000001)
 	flushed := view.Flush()
 	if !flushed {
@@ -1729,7 +1735,7 @@ func ConnectTip(param *msg.BitcoinParams, state *core.ValidationState, indexNew 
 	}
 	nTime4 := utils.GetMicrosTime()
 	gTimeFlush += nTime4 - nTime3
-	logger.LogPrint("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
 		float64(nTime4-nTime3)*0.001, float64(gTimeFlush)*0.000001)
 	// Write the chain state to disk, if necessary.
 	if !FlushStateToDisk(state, FlushStateIfNeeded, 0) {
@@ -1737,7 +1743,7 @@ func ConnectTip(param *msg.BitcoinParams, state *core.ValidationState, indexNew 
 	}
 	nTime5 := utils.GetMicrosTime()
 	gTimeChainState += nTime5 - nTime4
-	logger.LogPrint("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
 		float64(nTime5-nTime4)*0.001, float64(gTimeChainState)*0.000001)
 	// Remove conflicting transactions from the mempool.;
 	GMemPool.RemoveForBlock(blockConnecting.Txs, uint(indexNew.Height))
@@ -1746,9 +1752,9 @@ func ConnectTip(param *msg.BitcoinParams, state *core.ValidationState, indexNew 
 	nTime6 := utils.GetMicrosTime()
 	gTimePostConnect += nTime6 - nTime1
 	gTimeTotal += nTime6 - nTime1
-	logger.LogPrint("bench", "debug", " - Connect postprocess: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Connect postprocess: %.2fms [%.2fs]\n",
 		float64(nTime6-nTime5)*0.001, float64(gTimePostConnect)*0.000001)
-	logger.LogPrint("bench", "debug", " - Connect block: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Connect block: %.2fms [%.2fs]\n",
 		float64(nTime6-nTime1)*0.001, float64(gTimeTotal)*0.000001)
 
 	return true
@@ -1789,7 +1795,7 @@ func FindUndoPos(state *core.ValidationState, nFile int, pos *core.DiskBlockPos,
 		if CheckDiskSpace(nNewChunks*UndoFileChunkSize - uint32(pos.Pos)) {
 			file := OpenUndoFile(*pos, false)
 			if file != nil {
-				logger.GetLogger().Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
+				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
 					nNewChunks*UndoFileChunkSize, pos.File)
 				AllocateFileRange(file, pos.Pos, nNewChunks*UndoFileChunkSize-uint32(pos.Pos))
 				file.Close()
@@ -1819,7 +1825,8 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	// Check it again in case a previous version let a bad block in
 	if !CheckBlock(param, pblock, state, !fJustCheck, !fJustCheck) {
-		return logger.ErrorLog(fmt.Sprintf("CheckBlock: %s", FormatStateMessage(state)))
+		log.Error(fmt.Sprintf("CheckBlock: %s", FormatStateMessage(state)))
+		return false
 	}
 
 	// Verify that the view's current state corresponds to the previous block
@@ -1870,7 +1877,8 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	nTime1 := utils.GetMicrosTime()
 	gTimeCheck += nTime1 - nTimeStart
-	logger.LogPrint("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n", 0.001*float64(nTime1-nTimeStart), float64(gTimeCheck)*0.000001)
+	LogPrint("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n",
+		0.001*float64(nTime1-nTimeStart), float64(gTimeCheck)*0.000001)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
 	// transactions, unless those are already completely spent. If such
@@ -1901,7 +1909,8 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 	pindexBIP34height := pindex.Prev.GetAncestor(param.BIP34Height)
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
-	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil || !(*pindexBIP34height.GetBlockHash() == param.BIP34Hash))
+	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil ||
+		!(*pindexBIP34height.GetBlockHash() == param.BIP34Hash))
 
 	if fEnforceBIP30 {
 		for _, tx := range pblock.Txs {
@@ -1911,7 +1920,8 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 					Index: uint32(o),
 				}
 				if view.HaveCoin(outPoint) {
-					return state.Dos(100, false, core.RejectInvalid, "bad-txns-BIP30", false, "")
+					return state.Dos(100, false, core.RejectInvalid, "bad-txns-BIP30",
+						false, "")
 				}
 			}
 		}
@@ -1926,7 +1936,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 	flags := GetBlockScriptFlags(pindex, param)
 	nTime2 := utils.GetMicrosTime()
 	gTimeForks += nTime2 - nTime1
-	logger.LogPrint("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
 		0.001*float64(nTime2-nTime1), float64(gTimeForks)*0.000001)
 
 	var blockundo *BlockUndo
@@ -1954,7 +1964,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 		nInputs += len(tx.Ins)
 		if !tx.IsCoinBase() {
 			if !view.HaveInputs(tx) {
-				return state.Dos(100, logger.ErrorLog("ConnectBlock(): inputs missing/spent"), core.RejectInvalid, "bad-txns-inputs-missIngorSpent", false, "")
+				log.Error("ConnectBlock(): inputs missing/spent")
+				return state.Dos(100, false, core.RejectInvalid,
+					"bad-txns-inputs-missIngorSpent", false, "")
 			}
 
 			// Check that transaction is BIP68 final BIP68 lock checks (as
@@ -1965,8 +1977,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 			}
 
 			if !SequenceLocks(tx, nLockTimeFlags, prevheights, pindex) {
-				return state.Dos(100, logger.ErrorLog("contains a non-BIP68-final transaction"),
-					core.RejectInvalid, "bad-txns-nonFinal", false, "")
+				log.Error("ConnectBlock(): inputs missing/spent")
+				return state.Dos(100, false, core.RejectInvalid, "bad-txns-nonFinal",
+					false, "")
 			}
 		}
 		// GetTransactionSigOpCount counts 2 types of sigOps:
@@ -1980,8 +1993,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 		nSigOpsCount += txSigOpsCount
 		if nSigOpsCount > int(nMaxSigOpsCount) {
-			return state.Dos(100, logger.ErrorLog("ConnectBlock(): too many sigOps"),
-				core.RejectInvalid, "bad-blk-sigops", false, "")
+			log.Error("ConnectBlock(): too many sigOps")
+			return state.Dos(100, false, core.RejectInvalid,
+				"bad-blk-sigops", false, "")
 		}
 
 		if !tx.IsCoinBase() {
@@ -1992,8 +2006,9 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 			vChecks := make([]*ScriptCheck, 0)
 			if !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults,
 				core.NewPrecomputedTransactionData(tx), vChecks) {
-				return logger.ErrorLog(fmt.Sprintf("ConnectBlock(): CheckInputs on %s failed with %s",
+				log.Error(fmt.Sprintf("ConnectBlock(): CheckInputs on %s failed with %s",
 					tx.TxHash(), FormatStateMessage(state)))
+				return false
 			}
 
 			// todo:control.add(vChecks)
@@ -2016,10 +2031,10 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 	nTime3 := utils.GetMicrosTime()
 	gTimeConnect += nTime3 - nTime2
 	if nInputs <= 1 {
-		logger.LogPrint("bench", "debug", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n",
+		LogPrint("bench", "debug", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n",
 			len(pblock.Txs), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Txs)), 0, float64(gTimeConnect)*0.000001)
 	} else {
-		logger.LogPrint("bench", "debug", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n",
+		LogPrint("bench", "debug", " - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n",
 			len(pblock.Txs), 0.001*float64(nTime3-nTime2), 0.001*float64(nTime3-nTime2)/float64(len(pblock.Txs)),
 			0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gTimeConnect)*0.000001)
 	}
@@ -2027,7 +2042,8 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 	blockReward := nFees + GetBlockSubsidy(pindex.Height, *param)
 
 	if pblock.Txs[0].GetValueOut() > int64(blockReward) {
-		return state.Dos(100, logger.ErrorLog("ConnectBlock(): coinbase pays too much "),
+		log.Error("ConnectBlock(): coinbase pays too much ")
+		return state.Dos(100, false,
 			core.RejectInvalid, "bad-cb-amount", false, "")
 	}
 
@@ -2037,10 +2053,10 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 	gTimeVerify += nTime4 - nTime2
 
 	if nInputs <= 1 {
-		logger.LogPrint("bench", "debug", " - Verify %u txIns: %.2fms (%.3fms/txIn) [%.2fs]\n",
+		LogPrint("bench", "debug", " - Verify %u txIns: %.2fms (%.3fms/txIn) [%.2fs]\n",
 			nInputs-1, 0.001*float64(nTime4-nTime2), 0, float64(gTimeVerify)*0.000001)
 	} else {
-		logger.LogPrint("bench", "debug", " - Verify %u txIns: %.2fms (%.3fms/txIn) [%.2fs]\n",
+		LogPrint("bench", "debug", " - Verify %u txIns: %.2fms (%.3fms/txIn) [%.2fs]\n",
 			nInputs-1, 0.001*float64(nTime4-nTime2), 0.001*float64(nTime4-nTime2)/float64(nInputs-1),
 			float64(gTimeVerify)*0.000001)
 	}
@@ -2080,7 +2096,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	nTime5 := utils.GetMicrosTime()
 	gTimeIndex += nTime5 - nTime4
-	logger.LogPrint("bench", "debug", " - Index writing: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Index writing: %.2fms [%.2fs]\n",
 		0.001*float64(nTime5-nTime4), float64(gTimeIndex)*0.000001)
 
 	// Watch for changes to the previous coinbase transaction.
@@ -2089,7 +2105,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	nTime6 := utils.GetMicrosTime()
 	gTimeCallbacks += nTime6 - nTime5
-	logger.LogPrint("bench", "debug", " - Callbacks: %.2fms [%.2fs]\n",
+	LogPrint("bench", "debug", " - Callbacks: %.2fms [%.2fs]\n",
 		0.001*float64(nTime6-nTime5), float64(gTimeCallbacks)*0.000001)
 	return true
 }
@@ -2115,7 +2131,8 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 		view := utxo.NewCoinViewCacheByCoinview(GCoinsTip)
 		hash := indexDelete.GetBlockHash()
 		if DisconnectBlock(&block, indexDelete, view) != DisconnectOk {
-			return logger.ErrorLog(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.ToString()))
+			log.Error(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.ToString()))
+			return false
 		}
 		flushed := view.Flush()
 		if !flushed {
@@ -2123,7 +2140,7 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 		}
 	}
 	// replace implement with LogPrint(in C++).
-	logger.LogPrint("bench", "debug", " - Disconnect block : %.2fms\n",
+	LogPrint("bench", "debug", " - Disconnect block : %.2fms\n",
 		float64(utils.GetMicrosTime()-nStart)*0.001)
 
 	// Write the chain state to disk, if necessary.
@@ -2137,7 +2154,8 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 		for _, tx := range block.Txs {
 			// ignore validation errors in resurrected transactions
 			var stateDummy core.ValidationState
-			if tx.IsCoinBase() || !AcceptToMemoryPool(param, GMemPool, &stateDummy, tx, false, nil, nil, true, 0) {
+			if tx.IsCoinBase() || !AcceptToMemoryPool(param, GMemPool, &stateDummy, tx,
+				false, nil, nil, true, 0) {
 				GMemPool.RemoveRecursive(tx, mempool.REORG)
 			} else if GMemPool.Exists(tx.Hash) {
 				vHashUpdate.PushBack(tx.Hash)
@@ -2218,15 +2236,15 @@ func UpdateTip(param *msg.BitcoinParams, pindexNew *core.BlockIndex) {
 		}
 	}
 	txdata := param.TxData()
-	logger.GetLogger().Info("%s: new best=%s height=%d version=0x%08x work=%.8g tx=%lu "+
-		"date='%s' progress=%f cache=%.1f(%utxo)", logger.TraceLog(), GChainState.ChainActive.Tip().BlockHash.ToString(),
+	log.Info("%s: new best=%s height=%d version=0x%08x work=%.8g tx=%lu "+
+		"date='%s' progress=%f cache=%.1f(%utxo)", TraceLog(), GChainState.ChainActive.Tip().BlockHash.ToString(),
 		GChainState.ChainActive.Height(), GChainState.ChainActive.Tip().Header.Version,
 		GChainState.ChainActive.Tip().ChainWork.String(), GChainState.ChainActive.Tip().ChainTxCount,
 		time.Unix(int64(GChainState.ChainActive.Tip().Header.Time), 0).String(),
 		GuessVerificationProgress(txdata, GChainState.ChainActive.Tip()),
 		GCoinsTip.DynamicMemoryUsage(), GCoinsTip.GetCacheSize())
 	if len(warningMessages) != 0 {
-		logger.GetLogger().Info("waring= %s", strings.Join(warningMessages, ","))
+		log.Info("waring= %s", strings.Join(warningMessages, ","))
 	}
 }
 
@@ -2251,14 +2269,16 @@ func AcceptToMemoryPool(param *msg.BitcoinParams, pool *mempool.Mempool, state *
 		utils.GetMockTime(), txnReplaced, overrideMempoolLimit, absurdFee)
 }
 
-func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx, hashBlock *utils.Hash, fAllowSlow bool) (ret bool) {
+func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx,
+	hashBlock *utils.Hash, fAllowSlow bool) (ret bool) {
 	var pindexSlow *core.BlockIndex
 	// todo:LOCK(cs_main)
 
 	ptx := mempool.GetTxFromMemPool(*txid)
 	if ptx != nil {
 		txOut = ptx
-		return true
+		ret = true
+		return
 	}
 
 	if GTxIndex {
@@ -2266,13 +2286,15 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx, 
 		if GBlockTree.ReadTxIndex(txid, &postx) {
 			file := OpenBlockFile(postx.BlockIn, true)
 			if file == nil {
-				return logger.ErrorLog("GetTransaction:OpenBlockFile failed")
+				log.Error("GetTransaction:OpenBlockFile failed")
+				ret = false
+				return
 			}
-			ret = true
 			defer func() {
 				if err := recover(); err != nil {
-					logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error -%s", logger.TraceLog(), err))
+					log.Error(fmt.Sprintf("%s: Deserialize or I/O error -%s", TraceLog(), err))
 					ret = false
+					return
 				}
 			}()
 			var header core.BlockHeader
@@ -2282,7 +2304,9 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx, 
 			var err error
 			*hashBlock, err = header.GetHash()
 			if txOut.TxHash() != *txid && err != nil {
-				return logger.ErrorLog(fmt.Sprintf("%s: txid mismatch", logger.TraceLog()))
+				log.Error(fmt.Sprintf("%s: txid mismatch", TraceLog()))
+				ret = false
+				return
 			}
 			return true
 		}
@@ -2325,12 +2349,12 @@ func DisconnectBlock(pblock *core.Block, pindex *core.BlockIndex, view *utxo.Coi
 	var blockUndo BlockUndo
 	pos := pindex.GetUndoPos()
 	if pos.IsNull() {
-		logger.ErrorLog("DisconnectBlock(): no undo data available")
+		log.Error("DisconnectBlock(): no undo data available")
 		return DisconnectFailed
 	}
 
 	if !UndoReadFromDisk(&blockUndo, &pos, *pindex.Prev.GetBlockHash()) {
-		logger.ErrorLog("DisconnectBlock(): failure reading undo data")
+		log.Error("DisconnectBlock(): failure reading undo data")
 		return DisconnectFailed
 	}
 
@@ -2341,21 +2365,24 @@ func UndoWriteToDisk(blockundo *BlockUndo, pos *core.DiskBlockPos, hashBlock uti
 	// Open history file to append
 	fileout := OpenUndoFile(*pos, false)
 	if fileout == nil {
-		return logger.ErrorLog("OpenUndoFile failed")
+		log.Error("OpenUndoFile failed")
+		return false
 	}
 
 	// Write index header
 	nSize := 0 // todo:nSize = GetSerializeSize(fileout, block);
 	err := utils.BinarySerializer.PutUint32(fileout, binary.LittleEndian, uint32(messageStart))
 	if err != nil {
-		logger.ErrorLog("the messageStart write failed")
+		log.Error("the messageStart write failed")
+		return false
 	}
 	utils.WriteVarInt(fileout, uint64(nSize))
 
 	// Write undo data
 	fileOutPos, err := fileout.Seek(0, 1)
 	if fileOutPos < 0 || err != nil {
-		return logger.ErrorLog("UndoWriteToDisk: ftell failed")
+		log.Error("UndoWriteToDisk: ftell failed")
+		return false
 	}
 	pos.Pos = int(fileOutPos)
 	blockundo.Serialize(fileout)
@@ -2369,13 +2396,14 @@ func UndoReadFromDisk(blockundo *BlockUndo, pos *core.DiskBlockPos, hashblock ut
 	ret = true
 	defer func() {
 		if err := recover(); err != nil {
-			logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error - %v", logger.TraceLog(), err))
+			log.Error(fmt.Sprintf("%s: Deserialize or I/O error - %v", TraceLog(), err))
 			ret = false
 		}
 	}()
 	file := OpenUndoFile(*pos, true)
 	if file == nil {
-		return logger.ErrorLog(fmt.Sprintf("%s: OpenUndoFile failed", logger.TraceLog()))
+		log.Error(fmt.Sprintf("%s: OpenUndoFile failed", TraceLog()))
+		return false
 	}
 
 	// Read block
@@ -2403,8 +2431,9 @@ func ReadBlockFromDisk(pblock *core.Block, pindex *core.BlockIndex, param *msg.B
 	hash := pindex.GetBlockHash()
 	pos := pindex.GetBlockPos()
 	if bytes.Equal(pblock.Hash[:], hash[:]) {
-		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
+		log.Error(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
 			"doesn't match index for %s at %s", pindex.ToString(), pos.ToString()))
+		return false
 	}
 	return true
 }
@@ -2415,19 +2444,20 @@ func ReadBlockFromDiskByPos(block *core.Block, pos core.DiskBlockPos, param *msg
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
 	if file == nil {
-		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString()))
+		log.Errorf("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString())
+		return false
 	}
 
 	// Read block
 	if err := block.Deserialize(file); err != nil {
-		return logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error - %v at %s", logger.TraceLog(),
-			err, pos.ToString()))
+		log.Errorf("%s: Deserialize or I/O error - %s at %s", TraceLog(), err.Error(), pos.ToString())
 	}
 
 	// Check the header
 	pow := Pow{}
 	if !pow.CheckProofOfWork(block.Hash, block.BlockHeader.Bits, param) {
-		return logger.ErrorLog(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.ToString()))
+		log.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.ToString()))
+		return false
 	}
 	return true
 }
@@ -2454,7 +2484,7 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 	// to calculate max(0, min(checkLevel, 4))
 	checkLevel = utils.Max(0, tmpNum)
 
-	logger.GetLogger().Debug("Verifying last %d blocks at level %d", checkDepth, checkLevel)
+	log.Debug("Verifying last %d blocks at level %d", checkDepth, checkLevel)
 
 	coins := utxo.NewCoinViewCacheByCoinview(*view)
 	indexState := GChainActive.Tip()
@@ -2462,7 +2492,7 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 	var goodTransactions int
 	state := core.NewValidationState()
 	var reportDone int
-	logger.GetLogger().Debug("[0%%]...")
+	log.Debug("[0%%]...")
 	for index := GChainActive.Tip(); index != nil && index.Prev != nil; index = index.Prev {
 		// todo boost::this_thread::interruption_point()
 
@@ -2477,7 +2507,7 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 
 		if reportDone < percentageDone/10 {
 			// report every 10% step
-			logger.GetLogger().Debug("[%d%%]...", percentageDone)
+			log.Debug("[%d%%]...", percentageDone)
 			reportDone = percentageDone / 10
 		}
 
@@ -2489,7 +2519,7 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 
 		if GPruneMode && (index.Status&core.BlockHaveData) == 0 {
 			// If pruning, only go back as far as we have data.
-			logger.GetLogger().Debug("VerifyDB(): block verification stopping at height"+
+			log.Debug("VerifyDB(): block verification stopping at height"+
 				" %d (pruning, no data)", index.Height)
 			break
 		}
@@ -2497,14 +2527,16 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 		block := core.NewBlock()
 		// check level 0: read from disk
 		if !ReadBlockFromDisk(block, index, params) {
-			return logger.ErrorLog("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s",
+			log.Error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s",
 				index.Height, index.GetBlockHash().ToString())
+			return false
 		}
 
 		// check level 1: verify block validity
 		if checkLevel >= 1 && !CheckBlock(params, block, state, true, true) {
-			return logger.ErrorLog("VerifyDB(): *** found bad block at %d, hash=%s (%s)\n",
+			log.Error("VerifyDB(): *** found bad block at %d, hash=%s (%s)\n",
 				index.Height, index.GetBlockHash().ToString(), state.FormatStateMessage())
+			return false
 		}
 
 		// check level 2: verify undo validity
@@ -2513,8 +2545,9 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 			pos := index.GetUndoPos()
 			if !pos.IsNull() {
 				if !UndoReadFromDisk(undo, &pos, *index.Prev.GetBlockHash()) {
-					return logger.ErrorLog("VerifyDB(): *** found bad undo data at %d, hash=%s",
+					log.Error("VerifyDB(): *** found bad undo data at %d, hash=%s",
 						index.Height, index.GetBlockHash().ToString())
+					return false
 				}
 			}
 		}
@@ -2526,8 +2559,9 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 
 			res := DisconnectBlock(block, index, coins)
 			if res == DisconnectFailed {
-				return logger.ErrorLog("VerifyDB(): *** irrecoverable inconsistency in "+
+				log.Error("VerifyDB(): *** irrecoverable inconsistency in "+
 					"block data at %d, hash=%s", index.Height, index.GetBlockHash().ToString())
+				return false
 			}
 
 			indexState = index.Prev
@@ -2545,9 +2579,10 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 	}
 
 	if indexFailure != nil {
-		return logger.ErrorLog("VerifyDB(): *** coin database inconsistencies found "+
+		log.Error("VerifyDB(): *** coin database inconsistencies found "+
 			"(last %d blocks, %d good transactions before that)",
 			GChainActive.Height()-indexFailure.Height+1, goodTransactions)
+		return false
 	}
 
 	// check level 4: try reconnecting blocks
@@ -2567,18 +2602,20 @@ func VerifyDB(params *msg.BitcoinParams, view *utxo.CoinsView, checkLevel int, c
 			index = GChainActive.Next(index)
 			block := core.NewBlock()
 			if !ReadBlockFromDisk(block, index, params) {
-				return logger.ErrorLog("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s",
+				log.Error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s",
 					index.Height, index.GetBlockHash().ToString())
+				return false
 			}
 			if !ConnectBlock(params, block, state, index, coins, false) {
-				return logger.ErrorLog("VerifyDB(): *** found unconnectable block at %d, hash=%s",
+				log.Error("VerifyDB(): *** found unconnectable block at %d, hash=%s",
 					index.Height, index.GetBlockHash().ToString())
+				return false
 			}
 		}
 	}
 
-	logger.GetLogger().Debug("[DONE].")
-	logger.GetLogger().Debug("No coin database inconsistencies in last %d blocks (%d "+
+	log.Debug("[DONE].")
+	log.Debug("No coin database inconsistencies in last %d blocks (%d "+
 		"transactions)", GChainActive.Height()-indexState.Height, goodTransactions)
 
 	return true
@@ -2740,9 +2777,8 @@ func checkIndexAgainstCheckpoint(indexPrev *core.BlockIndex, state *core.Validat
 	// Don't accept any forks from the main chain prior to last checkpoint
 	checkPoint := core.GetLastCheckpoint(param.Checkpoints)
 	if checkPoint != nil && height < checkPoint.Height {
-		return state.Dos(100,
-			logger.ErrorLog("checkIndexAgainstCheckpoint(): forked chain older than last checkpoint (height %d)", height),
-			0, "", false, "")
+		log.Errorf("checkIndexAgainstCheckpoint(): forked chain older than last checkpoint (height %d)", height)
+		return state.Dos(100, false, 0, "", false, "")
 	}
 	return true
 }
@@ -2792,14 +2828,16 @@ func ProcessNewBlock(param *msg.BitcoinParams, pblock *core.Block, fForceProcess
 	GChainState.CheckBlockIndex(param)
 	if !ret {
 		// todo !!! add asynchronous notification
-		return logger.ErrorLog(" AcceptBlock FAILED ")
+		log.Error(" AcceptBlock FAILED ")
+		return false
 	}
 
 	notifyHeaderTip()
 
 	// Only used to report errors, not invalidity - ignore it
 	if !ActivateBestChain(param, &state, pblock) {
-		return logger.ErrorLog(" ActivateBestChain failed ")
+		log.Error(" ActivateBestChain failed ")
+		return false
 	}
 
 	return true
@@ -3020,7 +3058,8 @@ func TestBlockValidity(params *msg.BitcoinParams, state *core.ValidationState, b
 	}
 
 	if GCheckpointsEnabled && !checkIndexAgainstCheckpoint(indexPrev, state, params, block.Hash) {
-		return logger.ErrorLog(": CheckIndexAgainstCheckpoint(): %s", state.GetRejectReason())
+		log.Error(": CheckIndexAgainstCheckpoint(): %s", state.GetRejectReason())
+		return false
 	}
 
 	viewNew := utxo.NewCoinViewCacheByCoinview(GCoinsTip)
@@ -3030,16 +3069,19 @@ func TestBlockValidity(params *msg.BitcoinParams, state *core.ValidationState, b
 
 	// NOTE: CheckBlockHeader is called by CheckBlock
 	if !ContextualCheckBlockHeader(&block.BlockHeader, state, params, indexPrev, utils.GetAdjustedTime()) {
-		return logger.ErrorLog("TestBlockValidity(): Consensus::ContextualCheckBlockHeader: %s",
+		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlockHeader: %s",
 			state.FormatStateMessage())
+		return false
 	}
 
 	if !CheckBlock(params, block, state, checkPOW, checkMerkleRoot) {
-		return logger.ErrorLog("TestBlockValidity(): Consensus::CheckBlock: %s", state.FormatStateMessage())
+		log.Error("TestBlockValidity(): Consensus::CheckBlock: %s", state.FormatStateMessage())
+		return false
 	}
 
 	if !ContextualCheckBlock(params, block, state, indexPrev) {
-		return logger.ErrorLog("TestBlockValidity(): Consensus::ContextualCheckBlock: %s", state.FormatStateMessage())
+		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlock: %s", state.FormatStateMessage())
+		return false
 	}
 
 	if !ConnectBlock(params, block, state, indexDummy, viewNew, true) {
@@ -3117,7 +3159,7 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 		}
 		os.Remove(GetBlockPosFilename(*pos, "blk"))
 		os.Remove(GetBlockPosFilename(*pos, "rev"))
-		logger.GetLogger().Info("Prune: %s deleted blk/rev (%05u)\n", key)
+		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
 	}
 }
 
@@ -3146,7 +3188,7 @@ func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 		setFilesToPrune.Add(fileNumber)
 		count++
 	}
-	logger.GetLogger().Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
 }
 
 // PruneBlockFilesManual is called from the RPC code for pruneblockchain */
@@ -3203,7 +3245,7 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 		}
 	}
 
-	logger.GetLogger().Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
 		GPruneTarget/1024/1024, nCurrentUsage/1024/1024, (GPruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
 }
 
@@ -3501,11 +3543,11 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 
 	// Load block file info
 	GBlockTree.ReadLastBlockFile(&gLastBlockFile)
-	logger.GetLogger().Debug("LoadBlockIndexDB(): last block file = %d", gLastBlockFile)
+	log.Debug("LoadBlockIndexDB(): last block file = %d", gLastBlockFile)
 	for file := 0; file <= gLastBlockFile; file++ {
 		gInfoBlockFile[file] = GBlockTree.ReadBlockFileInfo(file)
 	}
-	logger.GetLogger().Debug("LoadBlockIndexDB(): last block file info: %s\n",
+	log.Debug("LoadBlockIndexDB(): last block file info: %s\n",
 		gInfoBlockFile[gLastBlockFile].ToString())
 
 	for file := gLastBlockFile + 1; true; file++ {
@@ -3518,7 +3560,7 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
-	logger.GetLogger().Debug("Checking all blk files are present...")
+	log.Debug("Checking all blk files are present...")
 	for _, item := range MapBlockIndex.Data {
 		index := item
 		if index.Status&core.BlockHaveData != 0 {
@@ -3543,7 +3585,7 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	// Check whether we have ever pruned block & undo files
 	GBlockTree.ReadFlag("prunedblockfiles", GHavePruned)
 	if GHavePruned {
-		logger.GetLogger().Debug("LoadBlockIndexDB(): Block files have previously been pruned")
+		log.Debug("LoadBlockIndexDB(): Block files have previously been pruned")
 	}
 
 	// Check whether we need to continue reindexing
@@ -3556,9 +3598,9 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	// Check whether we have a transaction index
 	GBlockTree.ReadFlag("txindex", GTxIndex)
 	if GTxIndex {
-		logger.GetLogger().Debug("LoadBlockIndexDB(): transaction index enabled")
+		log.Debug("LoadBlockIndexDB(): transaction index enabled")
 	} else {
-		logger.GetLogger().Debug("LoadBlockIndexDB(): transaction index disabled")
+		log.Debug("LoadBlockIndexDB(): transaction index disabled")
 	}
 
 	// Load pointer to end of best chain
@@ -3570,7 +3612,7 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	GChainActive.SetTip(index)
 	PruneBlockIndexCandidates()
 
-	logger.GetLogger().Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
+	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
 		GChainActive.Tip().GetBlockHash().ToString(), GChainActive.Height(),
 		time.Unix(int64(GChainActive.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
 		GuessVerificationProgress(params.TxData(), GChainActive.Tip()))
@@ -3593,7 +3635,8 @@ func RewindBlockIndex(params *msg.BitcoinParams) bool {
 			break
 		}
 		if !(DisconnectTip(params, state, true)) {
-			return logger.ErrorLog(fmt.Sprintf("RewindBlockIndex: unable to disconnect block at height %d", pindex.Height))
+			log.Error(fmt.Sprintf("RewindBlockIndex: unable to disconnect block at height %d", pindex.Height))
+			return false
 		}
 		// Occasionally flush state to disk.
 		if !FlushStateToDisk(state, FlushStatePeriodic, 0) {
@@ -3663,7 +3706,7 @@ func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
 	// Use the provided setting for -txindex in the new database
 	GTxIndex = utils.GetBoolArg("-txindex", DefaultTxIndex)
 	// todo:pblocktree->WriteFlag("txindex", fTxIndex)
-	logger.GetLogger().Info("Initializing databases...")
+	log.Info("Initializing databases...")
 
 	// Only add the genesis block if not reindexing (in which case we reuse the
 	// one already on disk)
@@ -3671,7 +3714,7 @@ func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
 		ret = true
 		defer func() {
 			if err := recover(); err != nil {
-				logger.ErrorLog(fmt.Sprintf("LoadBlockIndex(): failed to initialize block database: %s", err))
+				log.Error(fmt.Sprintf("LoadBlockIndex(): failed to initialize block database: %s", err))
 				ret = false
 			}
 		}()
@@ -3684,14 +3727,17 @@ func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
 			state    core.ValidationState
 		)
 		if !FindBlockPos(&state, &blockPos, uint(nBlockSize+8), 0, uint64(block.BlockHeader.GetBlockTime()), false) {
-			return logger.ErrorLog("LoadBlockIndex(): FindBlockPos failed")
+			log.Error("LoadBlockIndex(): FindBlockPos failed")
+			return false
 		}
 		if !WriteBlockToDisk(block, &blockPos, param.BitcoinNet) {
-			return logger.ErrorLog("LoadBlockIndex(): writing genesis block to disk failed")
+			log.Error("LoadBlockIndex(): writing genesis block to disk failed")
+			return false
 		}
 		pindex := AddToBlockIndex(&block.BlockHeader)
 		if !ReceivedBlockTransactions(block, &state, pindex, &blockPos) {
-			return logger.ErrorLog("LoadBlockIndex(): genesis block not accepted")
+			log.Error("LoadBlockIndex(): genesis block not accepted")
+			return false
 		}
 		// Force a chainstate write so that when we VerifyDB in a moment, it
 		// doesn't check stale data
@@ -4383,7 +4429,8 @@ func CheckSequenceLocks(tx *core.Tx, flags int, lp *core.LockPoints, useExisting
 			txin := tx.Ins[txinIndex]
 			var coin *utxo.Coin
 			if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
-				return logger.ErrorLog("Missing input")
+				log.Error("Missing input")
+				return false
 			}
 			if coin.GetHeight() == mempool.HeightMemPool {
 				// Assume all mempool transaction confirm in the next block
@@ -4635,7 +4682,7 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 		}
 	}
 
-	fmt.Printf("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
+	log.Debugf("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
 	return true
 }
 
@@ -4659,7 +4706,7 @@ func DumpMempool() {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Failed to dump mempool:", r, " . Continuing anyway.")
+			log.Debugf("Failed to dump mempool:", r, " . Continuing anyway.")
 		}
 	}()
 
@@ -4710,7 +4757,7 @@ func DumpMempool() {
 		panic(err)
 	}
 	last := time.Now().Second()
-	fmt.Printf("Dumped mempool: %ds to copy, %ds to dump\n", mid-start, last-mid)
+	log.Debugf("Dumped mempool: %ds to copy, %ds to dump\n", mid-start, last-mid)
 }
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
@@ -4781,7 +4828,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 		totalLenth += utils.VarIntSerializeSize(nSize)
 		defer func() {
 			if err := recover(); err != nil {
-				logger.GetLogger().Debug("%s: Deserialize or I/O error - %v\n", logger.TraceLog(), err)
+				log.Debug("%s: Deserialize or I/O error - %v\n", TraceLog(), err)
 				ret = nLoaded > 0
 			}
 		}()
@@ -4798,8 +4845,8 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 		hash := block.Hash
 		if !hash.IsEqual(param.GenesisHash) {
 			if _, ok := MapBlockIndex.Data[block.BlockHeader.HashPrevBlock]; !ok {
-				logger.LogPrint("reindex", "10", "%s: Out of order block %s, parent %s not known\n",
-					logger.TraceLog(), hash.ToString(), block.BlockHeader.HashPrevBlock.ToString())
+				LogPrint("reindex", "10", "%s: Out of order block %s, parent %s not known\n",
+					TraceLog(), hash.ToString(), block.BlockHeader.HashPrevBlock.ToString())
 				if dbp != nil {
 					mapBlocksUnknownParent[*hash] = append(mapBlocksUnknownParent[*hash], *dbp)
 				}
@@ -4819,7 +4866,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 				break
 			}
 		} else if !hash.IsEqual(param.GenesisHash) && MapBlockIndex.Data[*hash].Height%1000 == 0 {
-			logger.LogPrint("reindex", "10", "Block Import: already had block %s at height %d",
+			LogPrint("reindex", "10", "Block Import: already had block %s at height %d",
 				hash.ToString(), MapBlockIndex.Data[*hash].Height)
 		}
 
@@ -4843,8 +4890,8 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 				blockrecursive := core.Block{}
 				disPos := ranges[0]
 				if ReadBlockFromDiskByPos(&blockrecursive, disPos, param) {
-					logger.LogPrint("reindex", "10", "%s: Processing out of order child %s of %s\n",
-						logger.TraceLog(), blockrecursive.Hash.ToString(), head.ToString())
+					LogPrint("reindex", "10", "%s: Processing out of order child %s of %s\n",
+						TraceLog(), blockrecursive.Hash.ToString(), head.ToString())
 					//	todo  LOCK(cs_main);
 					dummy := core.NewValidationState()
 					if AcceptBlock(param, &blockrecursive, dummy, nil, true, &disPos, nil) {
@@ -4858,7 +4905,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 		}
 	}
 	if nLoaded > 0 {
-		logger.GetLogger().Debug("Loaded %d blocks from external file in %dms",
+		log.Debug("Loaded %d blocks from external file in %dms",
 			nLoaded, utils.GetMillisTimee()-nStart)
 	}
 
@@ -4874,7 +4921,7 @@ func CheckMempool(pool *mempool.Mempool, pcoins *utxo.CoinsViewCache) {
 		return
 	}
 
-	logger.GetLogger().Info("mempool : Checking mempool with %d transactions and %d inputs ",
+	log.Info("mempool : Checking mempool with %d transactions and %d inputs ",
 		pool.MapTx.Size(), pool.MapNextTx.Size())
 	checkTotal := 0
 	innerUsage := 0

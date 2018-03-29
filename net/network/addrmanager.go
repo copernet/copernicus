@@ -18,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/net/protocol"
 	"github.com/btcboost/copernicus/utils"
@@ -44,8 +43,6 @@ const (
 	AddressMax            = 2500
 	TriedBucketSize       = 256
 )
-
-var log = logs.NewLogger()
 
 type NetAddressManager struct {
 	lock           sync.Mutex

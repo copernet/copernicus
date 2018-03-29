@@ -22,6 +22,8 @@ import (
 	"github.com/jrick/logrotate/rotator"
 )
 
+// todo use conf to init log file
+
 // logWriter implements an io.Writer that outputs to both standard output and
 // the write-end pipe of an initialized log rotator.
 type logWriter struct{}
@@ -50,7 +52,7 @@ var (
 	// application shutdown.
 	logRotator *rotator.Rotator
 
-	// main process
+	// main process log
 	log = backendLog.Logger("COPE")
 
 	chainLog   = backendLog.Logger("BLCH")
@@ -73,7 +75,6 @@ func init() {
 	network.UseLogger(netLog)
 	p2p.UseLogger(p2pLog)
 	utxo.UseLogger(utxoLog)
-
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.

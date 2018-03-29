@@ -12,9 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/container"
-	log2 "github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/network"
 	"github.com/btcboost/copernicus/net/protocol"
@@ -98,7 +96,6 @@ type Peer struct {
 	outputInvChan chan *msg.InventoryVector
 }
 
-var log = logs.NewLogger()
 var (
 	sentNoces = container.NewLRUCache(50)
 	nodeCount int32
@@ -231,8 +228,8 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 	if atomic.LoadInt32(&p.disconnect) != 0 {
 		return nil
 	}
-	//todo func()string
-	log.Debug("%v", log2.InitLogClosure(func() string {
+	// todo func()string
+	log.Debug("%v", InitLogClosure(func() string {
 		summary := msg.MessageSummary(message)
 		if len(summary) > 0 {
 			summary = fmt.Sprintf("(%s)", summary)
@@ -240,16 +237,16 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p.String())
 
 	}))
-	log.Debug("%v", log2.InitLogClosure(func() string {
+	log.Debug("%v", InitLogClosure(func() string {
 		return spew.Sdump(message)
 	}))
-	log.Debug("%v", log2.InitLogClosure(func() string {
+	log.Debug("%v", InitLogClosure(func() string {
 		var buf bytes.Buffer
 		_, err := msg.WriteMessage(&buf, message, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
 		if err != nil {
 			return err.Error()
 		}
-		//todo what is mean spew
+		// todo what is mean spew
 		return spew.Sdump(buf.Bytes())
 
 	}))
@@ -417,7 +414,7 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Debug("%v", log2.InitLogClosure(func() string {
+	log.Debug("%v", InitLogClosure(func() string {
 		summary := msg.MessageSummary(message)
 		if len(summary) > 0 {
 			summary = fmt.Sprintf("(%s)", summary)
@@ -426,10 +423,10 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 			message.Command(), summary, p.String())
 
 	}))
-	log.Trace("%v", log2.InitLogClosure(func() string {
+	log.Trace("%v", InitLogClosure(func() string {
 		return spew.Sdump(message)
 	}))
-	log.Trace("%v", log2.InitLogClosure(func() string {
+	log.Trace("%v", InitLogClosure(func() string {
 
 		return spew.Sdump(buf)
 	}))
