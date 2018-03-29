@@ -11,7 +11,7 @@ func NewMempoolConflictRemoveTrack(pool *Mempool) *PoolConflictRemovalTracker {
 	m := new(PoolConflictRemovalTracker)
 	m.mpool = pool
 	m.conflictedTxs = make([]*core.Tx, 0)
-	//todo !!! register signal.
+	// todo !!! register signal.
 	return m
 }
 
@@ -22,5 +22,5 @@ func (m *PoolConflictRemovalTracker) NotifyEntryRemoved(txRemove *core.Tx, reaso
 }
 
 func (m *PoolConflictRemovalTracker) DelMempoolConflictRemoveTrack() {
-	//todo !!! 注册信号，发送信号
+	// todo !!! 注册信号，发送信号
 }

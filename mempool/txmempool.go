@@ -14,22 +14,22 @@ import (
 
 type PoolRemovalReason int
 
-//Reason why a transaction was removed from the memPool, this is passed to the
-//* notification signal.
+// Reason why a transaction was removed from the memPool, this is passed to the
+// * notification signal.
 const (
-	//UNKNOWN Manually removed or unknown reason
+	// UNKNOWN Manually removed or unknown reason
 	UNKNOWN PoolRemovalReason = iota
-	//EXPIRY Expired from memPool
+	// EXPIRY Expired from memPool
 	EXPIRY
-	//SIZELIMIT Removed in size limiting
+	// SIZELIMIT Removed in size limiting
 	SIZELIMIT
-	//REORG Removed for reorganization
+	// REORG Removed for reorganization
 	REORG
-	//BLOCK Removed for block
+	// BLOCK Removed for block
 	BLOCK
-	//CONFLICT Removed for conflict with in-block transaction
+	// CONFLICT Removed for conflict with in-block transaction
 	CONFLICT
-	//REPLACED Removed for replacement
+	// REPLACED Removed for replacement
 	REPLACED
 )
 
@@ -79,7 +79,7 @@ func (m *TxMempool) RemoveForBlock(txs []*core.Tx, txHeight int) {
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
 func (m *TxMempool) AddTx(tx *core.Tx, txFee int64) bool {
-	//todo; send signal to all interesting the caller.
+	// todo: send signal to all interesting the caller.
 	m.Lock()
 	defer m.Unlock()
 	nNoLimit := uint64(math.MaxUint64)
@@ -263,7 +263,7 @@ func (m *TxMempool) removeRecursive(origTx *core.Tx, reason PoolRemovalReason) {
 }
 
 // CalculateDescendants Calculates descendants of entry that are not already in setDescendants, and
-// adds to setDescendants. Assumes entryit is already a tx in the mempool and
+// adds to setDescendants. Assumes entry it is already a tx in the mempool and
 // setMemPoolChildren is correct for tx and all descendants. Also assumes that
 // if an entry is in setDescendants already, then all in-mempool descendants of
 // it are already in setDescendants as well, so that we can save time by not
@@ -381,7 +381,7 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 }
 
 func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
-	//todo add signal for any subscriber
+	// todo add signal for any subscriber
 
 	for _, txin := range removeEntry.tx.Ins {
 		delete(m.NextTx, *txin.PreviousOutPoint)
