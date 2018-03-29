@@ -309,7 +309,7 @@ func (tx *Tx) CheckSelf() (bool, error) {
 	TotalOutValue := int64(0)
 	TotalSigOpCount := int64(0)
 	TxOutsLen := len(tx.Outs)
-	//to do: check txOut's script is
+	// todo: check txOut's script is
 	for i := 0; i < TxOutsLen; i++ {
 		txOut := tx.Outs[i]
 		if txOut.Value < 0 {
@@ -330,7 +330,7 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		}
 	}
 
-	//todo: check ins' preout duplicate at the same time
+	// todo: check ins' preout duplicate at the same time
 	TxInsLen := len(tx.Ins)
 	for i := 0; i < TxInsLen; i++ {
 		txIn := tx.Ins[i]

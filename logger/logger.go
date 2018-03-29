@@ -12,8 +12,8 @@ import (
 
 var mlog *logs.BeeLogger
 
-//todo config color of debug logger
-//todo output logger to elasticSearch
+// todo config color of debug logger
+// todo output logger to elasticSearch
 
 type LogConfig struct {
 	Filename string `json:"filename"`
@@ -34,7 +34,7 @@ func init() {
 func validLogLevel(strLevel string) (level int, ok bool) {
 	ok = true
 	switch strLevel {
-	case "emergecy":
+	case "emergency":
 		level = logs.LevelEmergency
 	case "alert":
 		level = logs.LevelAlert

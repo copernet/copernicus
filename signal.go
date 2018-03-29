@@ -24,7 +24,7 @@ func interruptListener() <-chan struct{} {
 		// Listen for initial shutdown signal
 		select {
 		case sig := <-interruptChannel:
-			log.Informational("Received signal (%s).  Shutting down...",
+			log.Info("Received signal (%s).  Shutting down...",
 				sig)
 
 		case <-shutdownRequestChannel:
@@ -36,7 +36,7 @@ func interruptListener() <-chan struct{} {
 		for {
 			select {
 			case sig := <-interruptChannel:
-				log.Informational("Received signal (%s).  Already "+
+				log.Info("Received signal (%s).  Already "+
 					"shutting down...", sig)
 
 			case <-shutdownRequestChannel:

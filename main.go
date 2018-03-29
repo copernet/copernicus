@@ -3,14 +3,9 @@ package main
 import (
 	"os"
 	"syscall"
-
-	"github.com/astaxie/beego/logs"
 )
 
-var log *logs.BeeLogger
-
 func init() {
-	log = logs.NewLogger()
 	interruptSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 }
 

@@ -130,7 +130,8 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 	return bu, nil
 }
 
-func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, cache *utxo.CoinsViewCache) DisconnectResult {
+func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex,
+	cache *utxo.CoinsViewCache) DisconnectResult {
 	clean := true
 	if len(undo.txundo)+1 != len(block.Txs) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
