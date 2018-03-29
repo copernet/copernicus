@@ -10,7 +10,6 @@ import (
 
 type CoinViewDB struct {
 	database.DBWrapper
-	bucketKey string
 }
 
 func (coinViewDB *CoinViewDB) GetCoin(outpoint *core.OutPoint) (coin *Coin) {
