@@ -2,6 +2,7 @@ package policy
 
 import (
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/crypto"
@@ -64,7 +65,7 @@ const (
 
 	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
 	 * non-core code. */
-	StandardLockTimeVerifyFlags uint = core.LocktimeVerifySequence | core.LocktimeMedianTimePast
+	StandardLockTimeVerifyFlags uint = consensus.LocktimeVerifySequence | consensus.LocktimeMedianTimePast
 
 	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
 	// them to be valid. (but old blocks may not comply with) Currently just P2SH,

@@ -19,6 +19,7 @@ import (
 	"unsafe"
 
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/crypto"
@@ -28,44 +29,6 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"gopkg.in/fatih/set.v0"
-)
-
-const (
-	// DefaultPermitBareMultiSig  Default for -permitBareMultiSig
-	DefaultPermitBareMultiSig      = true
-	DefaultCheckPointsEnabled      = true
-	DefaultTxIndex                 = false
-	DefaultBanscoreThreshold  uint = 100
-	// MinBlocksToKeep of chainActive.Tip() will not be pruned.
-	MinBlocksToKeep      = 288
-	DefaultMaxTipAge     = 24 * 60 * 60
-	DefaultRelayPriority = true
-
-	// DefaultMemPoolExpiry Default for -memPoolExpiry, expiration time
-	// for memPool transactions in hours
-	DefaultMemPoolExpiry       = 336
-	MemPoolDumpVersion         = 1
-	DefaultLimitFreeRelay      = 0
-	DefaultAncestorLimit       = 25
-	DefaultAncestorSizeLimit   = 101
-	DefaultDescendantLimit     = 25
-	DefaultDescendantSizeLimit = 101
-	MaxFeeEstimationTipAge     = 3 * 60 * 60
-	// gMinDiskSpace: Minimum disk space required - used in CheckDiskSpace()
-	gMinDiskSpace = 52428800
-)
-
-// Reject codes greater or equal to this can be returned by AcceptToMemPool for
-// transactions, to signal internal conditions. They cannot and should not be
-// sent over the P2P network.
-const (
-	RejectInternal = 0x100
-	// RejectHighFee too high fee. Can not be triggered by P2P transactions
-	RejectHighFee = 0x100
-	// RejectAlreadyKnown Transaction is already known (either in memPool or blockChain)
-	RejectAlreadyKnown = 0x101
-	// RejectConflict transaction conflicts with a transaction already known
-	RejectConflict = 0x102
 )
 
 var (
@@ -110,9 +73,9 @@ var (
 
 	gFreeCount float64
 	gLastTime  int
-	//chainWork for the last block that preciousBlock has been applied to.
+	// chainWork for the last block that preciousBlock has been applied to.
 	gLastPreciousChainWork big.Int
-	//Decreasing counter (used by subsequent preciousBlock calls).
+	// Decreasing counter (used by subsequent preciousBlock calls).
 	gMapBlocksUnknownParent = make(map[utils.Hash][]*core.DiskBlockPos)
 	gBlockReverseSequenceID = -1
 )
@@ -229,8 +192,8 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *c
 	}
 
 	lockTimeFlags := 0
-	if VersionBitsState(indexPrev, params, msg.DeploymentCSV, GVersionBitsCache) == ThresholdActive {
-		lockTimeFlags |= core.LocktimeMedianTimePast
+	if VersionBitsState(indexPrev, params, consensus.DeploymentCSV, GVersionBitsCache) == ThresholdActive {
+		lockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
 
 	medianTimePast := indexPrev.GetMedianTimePast()
@@ -239,7 +202,7 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *c
 	}
 
 	lockTimeCutoff := int64(block.BlockHeader.GetBlockTime())
-	if lockTimeFlags&core.LocktimeMedianTimePast != 0 {
+	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = medianTimePast
 	}
 
@@ -279,12 +242,12 @@ func CheckBlockHeader(blockHeader *core.BlockHeader, state *core.ValidationState
 func CheckBlock(params *msg.BitcoinParams, block *core.Block, state *core.ValidationState,
 	checkPOW, checkMerkleRoot bool) bool {
 
-	//These are checks that are independent of context.
+	// These are checks that are independent of context.
 	if block.Checked {
 		return true
 	}
 
-	//Check that the header is valid (particularly PoW).  This is mostly
+	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
 	if !CheckBlockHeader(&block.BlockHeader, state, params, checkPOW) {
 		return false
@@ -293,7 +256,7 @@ func CheckBlock(params *msg.BitcoinParams, block *core.Block, state *core.Valida
 	// Check the merkle root.
 	if checkMerkleRoot {
 		mutated := false
-		hashMerkleRoot2 := core.BlockMerkleRoot(block, &mutated)
+		hashMerkleRoot2 := msg.BlockMerkleRoot(block, &mutated)
 		if !block.BlockHeader.MerkleRoot.IsEqual(&hashMerkleRoot2) {
 			return state.Dos(100, false, core.RejectInvalid, "bad-txnMrklRoot",
 				true, "hashMerkleRoot mismatch")
@@ -338,12 +301,13 @@ func CheckBlock(params *msg.BitcoinParams, block *core.Block, state *core.Valida
 	if !block.Txs[0].CheckCoinbase(state, false) {
 		hs := block.Txs[0].TxHash()
 		return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
-			fmt.Sprintf("Coinbase check failed (txid %s) %s", hs.ToString(), state.GetDebugMessage()))
+			fmt.Sprintf("Coinbase check failed (txid %s) %s", hs.ToString(),
+				state.GetDebugMessage()))
 	}
 
 	// Keep track of the sigOps count.
 	nSigOps := 0
-	nMaxSigOpsCount := core.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
+	nMaxSigOpsCount := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 
 	// Check transactions
 	txCount := len(block.Txs)
@@ -448,7 +412,7 @@ func AcceptBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Valid
 	// blocks which are too close in height to the tip.  Apply this test
 	// regardless of whether pruning is enabled; it should generally be safe to
 	// not process unrequested blocks.
-	fTooFarAhead := pindex.Height > GChainState.ChainActive.Height()+MinBlocksToKeep
+	fTooFarAhead := pindex.Height > GChainState.ChainActive.Height()+consensus.MinBlocksToKeep
 
 	// TODO: Decouple this function from the block download logic by removing
 	// fRequested
@@ -765,7 +729,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
 
 	// Check for nMinDiskSpace bytes (currently 50MB)
-	if int(nFreeBytesAvailable) < gMinDiskSpace+int(nAdditionalBytes) {
+	if int(nFreeBytesAvailable) < consensus.MinDiskSpace+int(nAdditionalBytes) {
 		return AbortNodes("Disk space is low!", "Error: Disk space is low!")
 	}
 	return true
@@ -1192,12 +1156,12 @@ func GetBlockFileInfo(n int) *BlockFileInfo {
 	return gInfoBlockFile[n]
 }
 
-func VersionBitsTipState(param *msg.BitcoinParams, pos msg.DeploymentPos) ThresholdState {
+func VersionBitsTipState(param *msg.BitcoinParams, pos consensus.DeploymentPos) ThresholdState {
 	//todo:LOCK(cs_main)
 	return VersionBitsState(GChainActive.Tip(), param, pos, &versionBitsCache)
 }
 
-func VersionBitsTipStateSinceHeight(params *msg.BitcoinParams, pos msg.DeploymentPos) int {
+func VersionBitsTipStateSinceHeight(params *msg.BitcoinParams, pos consensus.DeploymentPos) int {
 	//todo:LOCK(cs_main)
 	return VersionBitsStateSinceHeight(GChainActive.Tip(), params, pos, &versionBitsCache)
 }
@@ -1557,7 +1521,7 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *core.ValidationState
 	if fBlocksDisconnected {
 		RemoveForReorg(Pool, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
 		LimitMempoolSize(GMemPool, utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize))*1000000,
-			utils.GetArg("-mempoolexpiry", int64(DefaultMemPoolExpiry))*60*60)
+			utils.GetArg("-mempoolexpiry", int64(consensus.DefaultMemPoolExpiry))*60*60)
 	}
 	GMemPool.Check(GCoinsTip)
 
@@ -1929,8 +1893,8 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	// Start enforcing BIP68 (sequence locks) using versionBits logic.
 	nLockTimeFlags := 0
-	if VersionBitsState(pindex.Prev, param, msg.DeploymentCSV, &versionBitsCache) == ThresholdActive {
-		nLockTimeFlags |= core.LocktimeVerifySequence
+	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+		nLockTimeFlags |= consensus.LocktimeVerifySequence
 	}
 
 	flags := GetBlockScriptFlags(pindex, param)
@@ -1950,7 +1914,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 	// SigOps counting. We need to do it again because of P2SH.
 	nSigOpsCount := 0
 	currentBlockSize := pblock.SerializeSize()
-	nMaxSigOpsCount := core.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
+	nMaxSigOpsCount := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 
 	tmpBlockPos := pindex.GetBlockPos()
 	txPos := &core.DiskTxPos{
@@ -2898,7 +2862,7 @@ func CheckTransactionCommon(tx *core.Tx, state *core.ValidationState, fCheckDupl
 	}
 
 	// Size limit
-	if tx.SerializeSize() > core.MaxTxSize {
+	if tx.SerializeSize() > consensus.MaxTxSize {
 		return state.Dos(100, false, core.RejectInvalid, "bad-txns-oversize",
 			false, "")
 	}
@@ -3028,7 +2992,7 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 	}
 
 	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if VersionBitsState(pindex.Prev, param, msg.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, &versionBitsCache) == ThresholdActive {
 		flags |= crypto.ScriptVerifyCheckSequenceVerify
 	}
 
@@ -3178,7 +3142,7 @@ func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 	}
 
 	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(GChainActive.Tip().Height-MinBlocksToKeep))
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(GChainActive.Tip().Height-consensus.MinBlocksToKeep))
 	count := 0
 	for fileNumber := 0; fileNumber < gLastBlockFile; fileNumber++ {
 		if gInfoBlockFile[fileNumber].Size == 0 || int(gInfoBlockFile[fileNumber].HeightLast) > gLastBlockFile {
@@ -3211,7 +3175,7 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 		return
 	}
 
-	nLastBlockWeCanPrune := GChainActive.Tip().Height - MinBlocksToKeep
+	nLastBlockWeCanPrune := GChainActive.Tip().Height - consensus.MinBlocksToKeep
 	nCurrentUsage := CalculateCurrentUsage()
 	// We don't check to prune until after we've allocated new space for files,
 	// so we should leave a buffer under our target to account for another
@@ -3415,7 +3379,7 @@ func ContextualCheckTransactionForCurrentBlock(tx *core.Tx, state *core.Validati
 	// chain tip, so we use that to calculate the median time passed to
 	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
 	var lockTimeCutoff int64
-	if flags&core.LocktimeMedianTimePast != 0 {
+	if flags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
 	} else {
 		lockTimeCutoff = utils.GetAdjustedTime()
@@ -3434,7 +3398,7 @@ func RemoveForReorg(pcoins *utxo.CoinsViewCache, pool *mempool.Mempool, nMemPool
 	for _, entry := range pool.MapTx.PoolNode {
 		lp := entry.LockPoints
 		validLP := TestLockPointValidity(lp)
-		param := msg.ActiveNetParams
+		param := consensus.ActiveNetParams
 		var state core.ValidationState
 		if !ContextualCheckTransactionForCurrentBlock(entry.TxRef, &state, param, uint(flags)) ||
 			!CheckSequenceLocks(entry.TxRef, flags, lp, validLP) {
@@ -3704,7 +3668,7 @@ func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
 	}
 
 	// Use the provided setting for -txindex in the new database
-	GTxIndex = utils.GetBoolArg("-txindex", DefaultTxIndex)
+	GTxIndex = utils.GetBoolArg("-txindex", consensus.DefaultTxIndex)
 	// todo:pblocktree->WriteFlag("txindex", fTxIndex)
 	log.Info("Initializing databases...")
 
@@ -3788,7 +3752,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 
 	// Is it already in the memory pool?
 	if pool.Exists(txid) {
-		ret = state.Invalid(false, RejectAlreadyKnown, "txn-already-in-mempool", "")
+		ret = state.Invalid(false, consensus.RejectAlreadyKnown, "txn-already-in-mempool", "")
 		return
 	}
 
@@ -3801,7 +3765,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		for _, txin := range ptx.Ins {
 			itConflicting := pool.MapNextTx.Get(txin.PreviousOutPoint)
 			if itConflicting != nil { // todo confirm this condition judgement
-				ret = state.Invalid(false, RejectConflict, "txn-mempool-conflict", "")
+				ret = state.Invalid(false, consensus.RejectConflict, "txn-mempool-conflict", "")
 			}
 		}
 	}()
@@ -3829,7 +3793,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 					coinsToUncache = append(coinsToUncache, outpoint)
 				}
 
-				ret = state.Invalid(false, RejectAlreadyKnown, "txn-already-known", "")
+				ret = state.Invalid(false, consensus.RejectAlreadyKnown, "txn-already-known", "")
 				return
 			}
 		}
@@ -3871,7 +3835,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		// transactions that can't be mined yet. Must keep pool.cs for this
 		// unless we change CheckSequenceLocks to take a CoinsViewCache
 		// instead of create its own.
-		if !CheckSequenceLocks(ptx, core.StandardLocktimeVerifyFlags, &lp, false) {
+		if !CheckSequenceLocks(ptx, consensus.StandardLocktimeVerifyFlags, &lp, false) {
 			ret = state.Dos(0, false, core.RejectNonStandard, "non-BIP68-final", false, "")
 			return
 		}
@@ -3922,7 +3886,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		return
 	}
 
-	relaypriority := utils.GetBoolArg("-relaypriority", DefaultRelayPriority)
+	relaypriority := utils.GetBoolArg("-relaypriority", consensus.DefaultRelayPriority)
 	minFeeRate := gMinRelayTxFee.GetFee(size)
 	allow := mempool.AllowFree(entry.GetPriority(uint(GChainActive.Height() + 1)))
 	if relaypriority && modifiedFees < minFeeRate && !allow {
@@ -3946,7 +3910,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		gLastTime = now
 		// -limitfreerelay unit is thousand-bytes-per-minute
 		// At default rate it would take over a month to fill 1GB
-		limitfreerelay := utils.GetArg("-limitfreerelay", DefaultLimitFreeRelay)
+		limitfreerelay := utils.GetArg("-limitfreerelay", consensus.DefaultLimitFreeRelay)
 		if gFreeCount+float64(size) >= float64(limitfreerelay*10*1000) {
 			ret = state.Dos(0, false, core.RejectInsufficientFee,
 				"rate limited free transaction", false, "")
@@ -3959,16 +3923,16 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	}
 
 	if absurdFee != 0 && fees > int64(absurdFee) {
-		ret = state.Invalid(false, RejectHighFee, "absurdly-high-fee",
+		ret = state.Invalid(false, consensus.RejectHighFee, "absurdly-high-fee",
 			fmt.Sprintf("%d > %d", fees, int64(absurdFee)))
 		return
 	}
 
 	// Calculate in-mempool ancestors, up to a limit.
-	limitAncestors := utils.GetArg("-limitancestorcount", DefaultAncestorLimit)
-	limitAncestorSize := utils.GetArg("-limitancestorsize", DefaultAncestorSizeLimit) * 1000
-	limitDescendants := utils.GetArg("-limitdescendantcount", DefaultDescendantLimit)
-	limitDescendantSize := utils.GetArg("-limitdescendantsize", DefaultDescendantSizeLimit) * 1000
+	limitAncestors := utils.GetArg("-limitancestorcount", consensus.DefaultAncestorLimit)
+	limitAncestorSize := utils.GetArg("-limitancestorsize", consensus.DefaultAncestorSizeLimit) * 1000
+	limitDescendants := utils.GetArg("-limitdescendantcount", consensus.DefaultDescendantLimit)
+	limitDescendantSize := utils.GetArg("-limitdescendantsize", consensus.DefaultDescendantSizeLimit) * 1000
 	setAncestors := set.New()
 
 	if err := pool.CalculateMemPoolAncestors(entry, setAncestors, uint64(limitAncestors), uint64(limitAncestorSize),
@@ -4044,7 +4008,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// Trim mempool and check if tx was trimmed.
 	if !overrideMempoolLimit {
 		maxmempool := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
-		mempoolExpiry := utils.GetArg("-mempoolexpiry", DefaultMemPoolExpiry) * 60 * 60
+		mempoolExpiry := utils.GetArg("-mempoolexpiry", consensus.DefaultMemPoolExpiry) * 60 * 60
 		LimitMempoolSize(pool, maxmempool, mempoolExpiry)
 
 		if !pool.Exists(txid) {
@@ -4078,7 +4042,7 @@ func IsCurrentForFeeEstimation() bool {
 	if IsInitialBlockDownload() {
 		return false
 	}
-	if int64(GChainActive.Tip().GetBlockTime()) < utils.GetMockTime()-MaxFeeEstimationTipAge {
+	if int64(GChainActive.Tip().GetBlockTime()) < utils.GetMockTime()-consensus.MaxFeeEstimationTipAge {
 		return false
 	}
 	return true
@@ -4292,7 +4256,7 @@ func CheckTxInputs(tx *core.Tx, state *core.ValidationState, view *utxo.CoinsVie
 		// If prev is coinbase, check that it's matured
 		if coin.IsCoinBase() {
 			sub := spendHeight - int(coin.GetHeight())
-			if sub < core.CoinbaseMaturity {
+			if sub < consensus.CoinbaseMaturity {
 				return state.Invalid(false, core.RejectInvalid, "bad-txns-premature-spend-of-coinbase",
 					"tried to spend coinbase at depth"+strconv.Itoa(sub))
 			}
@@ -4343,7 +4307,7 @@ func CalculateSequenceLocks(tx *core.Tx, flags int, prevHeights []int, block *co
 	// tx.nVersion is signed integer so requires cast to unsigned otherwise
 	// we would be doing a signed comparison and half the range of nVersion
 	// wouldn't support BIP 68.
-	fEnforceBIP68 := tx.Version >= 2 && (flags&core.LocktimeVerifySequence) != 0
+	fEnforceBIP68 := tx.Version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
 
 	// Do not enforce sequence numbers as a relative lock time
 	// unless we have been instructed to
@@ -4526,7 +4490,7 @@ func InvalidateBlock(params *msg.BitcoinParams, state *core.ValidationState, ind
 	}
 
 	maxmempool := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
-	mempoolexpiry := utils.GetArg("-mempoolexpiry", int64(DefaultMemPoolExpiry)) * 60 * 60
+	mempoolexpiry := utils.GetArg("-mempoolexpiry", int64(consensus.DefaultMemPoolExpiry)) * 60 * 60
 	LimitMempoolSize(GMemPool, maxmempool, mempoolexpiry)
 
 	// The resulting new best tip may not be in setBlockIndexCandidates anymore,
@@ -4587,7 +4551,7 @@ func AcceptToMemoryPoolWithTime(params *msg.BitcoinParams, mpool *mempool.Mempoo
 
 // LoadMempool Load the mempool from disk
 func LoadMempool(params *msg.BitcoinParams) bool {
-	expiryTimeout := (utils.GetArg("-mempoolexpiry", DefaultMemPoolExpiry)) * 60 * 60
+	expiryTimeout := (utils.GetArg("-mempoolexpiry", consensus.DefaultMemPoolExpiry)) * 60 * 60
 
 	fileStr, err := os.OpenFile(conf.GetDataPath()+"/mempool.dat", os.O_RDONLY, 0666)
 	if err != nil {
@@ -4612,7 +4576,7 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 	if err != nil {
 		panic(err)
 	}
-	if version != MemPoolDumpVersion {
+	if version != consensus.MemPoolDumpVersion {
 		return false
 	}
 
@@ -4716,7 +4680,7 @@ func DumpMempool() {
 	}
 	defer fileStr.Close() // guarantee closing the opened file
 
-	err = utils.BinarySerializer.PutUint32(fileStr, binary.LittleEndian, uint32(MemPoolDumpVersion))
+	err = utils.BinarySerializer.PutUint32(fileStr, binary.LittleEndian, uint32(consensus.MemPoolDumpVersion))
 	if err != nil {
 		panic(err)
 	}
@@ -5142,7 +5106,7 @@ func RemoveForReorg(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolH
 				}
 
 				if coin.IsSpent() || (coin.IsCoinBase() &&
-					uint32(nMemPoolHeight)-coin.GetHeight() < core.CoinbaseMaturity) {
+					uint32(nMemPoolHeight)-coin.GetHeight() < consensus.CoinbaseMaturity) {
 					txToRemove[entry] = struct{}{}
 					break
 				}

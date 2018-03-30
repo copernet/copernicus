@@ -45,14 +45,14 @@ type PeerManager struct {
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
 
-	//txMemPool    *mempool.TxPool
+	// txMemPool    *mempool.TxPool
 	nat network.NATInterface
-	//storage      boltdb.DBBase
+	//  storage      boltdb.DBBase
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
 
-	//txIndex   *indexers.TxIndex
-	//addrIndex *indexers.AddrIndex
+	// txIndex   *indexers.TxIndex
+	// addrIndex *indexers.AddrIndex
 }
 
 type getOutboundGroup struct {
@@ -81,7 +81,7 @@ func NewPeerManager(listenAddrs []string, db database.DBWrapper, bitcoinParam *m
 		modifyRebroadcastInv: make(chan interface{}),
 		peerHeightsUpdate:    make(chan UpdatePeerHeightsMessage),
 		nat:                  natListener,
-		//storage:              db, todo:
+		// storage:              db, todo:
 		timeSource:   blockchain.NewMedianTime(),
 		servicesFlag: protocol.ServiceFlag(services),
 	}
@@ -121,13 +121,13 @@ func (peerManager *PeerManager) newAddressFunc() (net.Addr, error) {
 			continue
 		}
 
-		//if tries < 30 && time.Since(address.LastAttempt) < 10*time.Minute {
-		//	continue
-		//}
-		//port := fmt.Sprintf("%d", address.NetAddress.Port)
-		//if tries < 50 && port != msg.ActiveNetParams.DefaultPort {
-		//	continue
-		//}
+		// if tries < 30 && time.Since(address.LastAttempt) < 10*time.Minute {
+		// 	continue
+		// }
+		// port := fmt.Sprintf("%d", address.NetAddress.Port)
+		// if tries < 50 && port != msg.ActiveNetParams.DefaultPort {
+		// 	continue
+		// }
 		addressString := peerManager.netAddressManager.GetAddress().NetAddress.NetAddressKey()
 		log.Debug("get address :%s", addressString)
 		return addrStringToNetAddr(addressString)
@@ -157,13 +157,13 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 
 	// Tor addresses cannot be resolved to an IP, so just return an onion
 	// address instead.
-	//if strings.HasSuffix(host, ".onion") {
-	//	if cfg.NoOnion {
-	//		return nil, errors.New("tor has been disabled")
-	//	}
+	// if strings.HasSuffix(host, ".onion") {
+	// 	if cfg.NoOnion {
+	// 		return nil, errors.New("tor has been disabled")
+	// 	}
 	//
-	//	return &onionAddr{addr: addr}, nil
-	//}
+	// 	return &onionAddr{addr: addr}, nil
+	// }
 	//
 	// Attempt to look up an IP address associated with the parsed host.
 	ips, err := conf.AppLookup(host)
@@ -317,9 +317,9 @@ func (peerManager *PeerManager) upnpUpdateThread() {
 
 }
 
-//func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
-//	sp := NewServerPeer(s, false)
-//	sp.Peer = p2p.NewInboundPeer(InitPe(sp))
-//	sp.AssociateConnection(conn)
-//	go s.peerDoneHandler(sp)
-//}
+// func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
+// 	sp := NewServerPeer(s, false)
+// 	sp.Peer = p2p.NewInboundPeer(InitPe(sp))
+// 	sp.AssociateConnection(conn)
+// 	go s.peerDoneHandler(sp)
+// }
