@@ -1,5 +1,5 @@
-hash: b68ba1b5df470d109fb5a9bb1df306e3ddc4754503e034fa72377b9fe55b9ee0
-updated: 2018-03-29T11:47:29.493486+08:00
+hash: fcd46177aa229c83572cf5d9443de97a6cf0a1812865884d2f96d5c40e245dd6
+updated: 2018-03-29T16:41:45.301951+08:00
 imports:
 - name: github.com/astaxie/beego
   version: cab8458c1c4a5a3b4bf5192922be620e6dede15b
@@ -27,16 +27,48 @@ imports:
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
+- name: github.com/fsnotify/fsnotify
+  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/google/btree
   version: e89373fe6b4a7413d7acd6da1725b83ef713e6e4
+- name: github.com/hashicorp/hcl
+  version: f40e974e75af4e271d97ce0fc917af5898ae7bda
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/printer
+  - hcl/scanner
+  - hcl/strconv
+  - hcl/token
+  - json/parser
+  - json/scanner
+  - json/token
+- name: github.com/magiconair/properties
+  version: 2c9e9502788518c97fe44e8955cd069417ee89df
+- name: github.com/mitchellh/mapstructure
+  version: 00c29f56e2386353d58c599509e8dc3801b0d716
+- name: github.com/pelletier/go-toml
+  version: 0131db6d737cfbbfb678f8b7d92e55e27ce46224
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/siddontang/ledisdb
   version: 56900470a899883f691bcdf6bea4ac547f2a9a6f
   subpackages:
   - ledis
+- name: github.com/spf13/afero
+  version: a880a37ed1804d98f64b3b7d58b5e3f8fbf421c4
+  subpackages:
+  - mem
+- name: github.com/spf13/cast
+  version: 8965335b8c7107321228e3e3702cab9832751bac
+- name: github.com/spf13/jwalterweatherman
+  version: 7c0cea34c8ece3fbeb2b27ab9b59511d360fb394
+- name: github.com/spf13/pflag
+  version: ad68c28ee799163e627e77fcc6e8ecaa866e3535
+- name: github.com/spf13/viper
+  version: b5e8006cbee93ec955a89ab31e0e3ce3204f3736
 - name: github.com/syndtr/goleveldb
   version: 211f780988068502fe874c44dae530528ebd840f
   subpackages:
@@ -60,6 +92,15 @@ imports:
   version: 122d919ec1efcfb58483215da23f815853e24b81
   subpackages:
   - ripemd160
+- name: golang.org/x/sys
+  version: 7dca6fe1f43775aa6d1334576870ff63f978f539
+  subpackages:
+  - unix
+- name: golang.org/x/text
+  version: ece95c760240037f89ebcbdd7155ac8cb52e38fa
+  subpackages:
+  - transform
+  - unicode/norm
 - name: gopkg.in/fatih/set.v0
   version: 27c40922c40b43fe04554d8223a402af3ea333f3
 - name: gopkg.in/yaml.v2

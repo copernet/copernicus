@@ -2248,34 +2248,30 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx,
 	}
 
 	if GTxIndex {
-		var postx core.DiskTxPos
-		if GBlockTree.ReadTxIndex(txid, &postx) {
-			file := OpenBlockFile(postx.BlockIn, true)
-			if file == nil {
-				logs.Error("GetTransaction:OpenBlockFile failed")
-				ret = false
-				return
-			}
-			defer func() {
-				if err := recover(); err != nil {
-					logs.Error(fmt.Sprintf("%s: Deserialize or I/O error -%s", log.TraceLog(), err))
-					ret = false
-					return
-				}
-			}()
-			var header core.BlockHeader
-			header.Serialize(file)
-			file.Seek(int64(postx.TxOffsetIn), 1)
-			txOut.Serialize(file)
-			var err error
-			*hashBlock, err = header.GetHash()
-			if txOut.TxHash() != *txid && err != nil {
-				logs.Error(fmt.Sprintf("%s: txid mismatch", log.TraceLog()))
-				ret = false
-				return
-			}
-			return true
-		}
+		//var postx core.DiskTxPos
+		//if GBlockTree.ReadTxIndex(txid, &postx) {
+		//	file := OpenBlockFile(postx.BlockIn, true)
+		//	if file == nil {
+		//		return logger.ErrorLog("GetTransaction:OpenBlockFile failed")
+		//	}
+		//	ret = true
+		//	defer func() {
+		//		if err := recover(); err != nil {
+		//			logger.ErrorLog(fmt.Sprintf("%s: Deserialize or I/O error -%s", logger.TraceLog(), err))
+		//			ret = false
+		//		}
+		//	}()
+		//	var header core.BlockHeader
+		//	header.Serialize(file)
+		//	file.Seek(int64(postx.TxOffsetIn), 1)
+		//	txOut.Serialize(file)
+		//	var err error
+		//	*hashBlock, err = header.GetHash()
+		//	if txOut.TxHash() != *txid && err != nil {
+		//		return logger.ErrorLog(fmt.Sprintf("%s: txid mismatch", logger.TraceLog()))
+		//	}
+		//	return true
+		//}
 	}
 
 	// use coin database to locate block that contains transaction, and scan it
@@ -3313,9 +3309,10 @@ func FlushStateToDisk(state *core.ValidationState, mode FlushStateMode, nManualP
 			gSetDirtyBlockIndex.RemoveItem(value)
 		}
 
-		if !GBlockTree.WriteBatchSync(files.value, gLastBlockFile, blocks) {
-			ret = AbortNode(state, "Failed to write to block index database", "")
-		}
+		//err := GBlockTree.WriteBatchSync(files, gLastBlockFile, blocks)
+		//if err != nil {
+		//	ret = AbortNode(state, "Failed to write to block index database", "")
+		//}
 
 		// Finally remove any pruned files
 		if fFlushForPrune {
@@ -3508,7 +3505,8 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	}
 
 	// Load block file info
-	GBlockTree.ReadLastBlockFile(&gLastBlockFile)
+	//r, err := GBlockTree.ReadLastBlockFile()
+
 	logs.Debug("LoadBlockIndexDB(): last block file = %d", gLastBlockFile)
 	for file := 0; file <= gLastBlockFile; file++ {
 		gInfoBlockFile[file] = GBlockTree.ReadBlockFileInfo(file)
@@ -3549,20 +3547,20 @@ func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	}
 
 	// Check whether we have ever pruned block & undo files
-	GBlockTree.ReadFlag("prunedblockfiles", GHavePruned)
+	GHavePruned = GBlockTree.ReadFlag("prunedblockfiles")
 	if GHavePruned {
 		logs.Debug("LoadBlockIndexDB(): Block files have previously been pruned")
 	}
 
 	// Check whether we need to continue reindexing
 	reIndexing := false
-	GBlockTree.ReadReindexing()
+	GBlockTree.ReadReindexing(reIndexing)
 	if reIndexing {
 		GfReindex = true
 	}
 
 	// Check whether we have a transaction index
-	GBlockTree.ReadFlag("txindex", GTxIndex)
+	GTxIndex = GBlockTree.ReadFlag("txindex")
 	if GTxIndex {
 		logs.Debug("LoadBlockIndexDB(): transaction index enabled")
 	} else {
