@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/network"
 	"github.com/btcboost/copernicus/net/protocol"
@@ -32,7 +33,7 @@ func SeedFromDNS(chainParams *msg.BitcoinParams, servicesFlag protocol.ServiceFl
 			randSource := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 			seedPeers, err := lookupFunc(host)
 			if err != nil {
-				log.Warn("DNS discovery failed on sedd %s :v%", host, err)
+				logs.Warn("DNS discovery failed on sedd %s :v%", host, err)
 				return
 			}
 			numPeers := len(seedPeers)

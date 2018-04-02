@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/policy"
@@ -33,7 +34,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMe
 	txHeight := entry.EntryHeight
 	txID := entry.TxRef.Hash
 	if has := blockPolicyEstimator.mapMemPoolTxs.Get(txID); has != nil {
-		log.Debug("estimatefee Blockpolicy error mempool tx %s already being tracked\n", txID.ToString())
+		logs.Debug("estimatefee Blockpolicy error mempool tx %s already being tracked\n", txID.ToString())
 		return
 	}
 	if txHeight != blockPolicyEstimator.bestSeenHeight {
@@ -70,7 +71,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlockTx(blockHeight uin
 	// possible block has confirmation count of 1
 	blocksToConfirm := blockHeight - entry.EntryHeight
 	if blocksToConfirm <= 0 {
-		log.Error("estimatefee Blockpolicy error Transaction had negative blocksToConfirm\n")
+		logs.Error("estimatefee Blockpolicy error Transaction had negative blocksToConfirm\n")
 		return false
 	}
 
@@ -108,7 +109,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlock(blockHeight uint,
 
 	blockPolicyEstimator.feeStats.UpdateMovingAverages()
 
-	log.Trace("estimatefee Blockpolicy after updating estimates for %u of %u txs in block, since last"+
+	logs.Trace("estimatefee Blockpolicy after updating estimates for %u of %u txs in block, since last"+
 		" block %u of %u tracked, new mempool map size %u", countedTxs, len(entry), blockPolicyEstimator.trackedTxs,
 		blockPolicyEstimator.trackedTxs+blockPolicyEstimator.untranckedTxs, blockPolicyEstimator.mapMemPoolTxs.Count())
 

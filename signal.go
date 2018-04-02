@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"os/signal"
+
+	"github.com/astaxie/beego/logs"
 )
 
 // shutdownRequestChannel is used to initiate shutdown from one of the
@@ -24,11 +26,11 @@ func interruptListener() <-chan struct{} {
 		// Listen for initial shutdown signal
 		select {
 		case sig := <-interruptChannel:
-			log.Info("Received signal (%s).  Shutting down...",
+			logs.Info("Received signal (%s).  Shutting down...",
 				sig)
 
 		case <-shutdownRequestChannel:
-			log.Info("Shutdown requested.  Shutting down...")
+			logs.Info("Shutdown requested.  Shutting down...")
 		}
 		close(c)
 
@@ -36,11 +38,11 @@ func interruptListener() <-chan struct{} {
 		for {
 			select {
 			case sig := <-interruptChannel:
-				log.Info("Received signal (%s).  Already "+
+				logs.Info("Received signal (%s).  Already "+
 					"shutting down...", sig)
 
 			case <-shutdownRequestChannel:
-				log.Info("Shutdown requested.  Already " +
+				logs.Info("Shutdown requested.  Already " +
 					"shutting down...")
 			}
 		}

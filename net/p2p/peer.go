@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/container"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/network"
 	"github.com/btcboost/copernicus/net/protocol"
@@ -110,13 +112,13 @@ func (p *Peer) String() string {
 }
 func (p *Peer) UpdateBlockHeight(newHeight int32) {
 	p.BlockStatusMutex.Lock()
-	log.Trace("Updating last block height of p2p %v from %v to %v", p.AddressString, p.LastBlock, newHeight)
+	logs.Trace("Updating last block height of p2p %v from %v to %v", p.AddressString, p.LastBlock, newHeight)
 	p.LastBlock = newHeight
 	p.BlockStatusMutex.Unlock()
 }
 
 func (p *Peer) UpdateDeclareBlock(blackHash *utils.Hash) {
-	log.Trace("Updating last block:%v form p2p %v", blackHash, p.AddressString)
+	logs.Trace("Updating last block:%v form p2p %v", blackHash, p.AddressString)
 	p.BlockStatusMutex.Lock()
 	p.lastDeclareBlock = blackHash
 	p.BlockStatusMutex.Unlock()
@@ -164,7 +166,7 @@ func (p *Peer) LocalVersionMsg() (*msg.VersionMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Info("block number:%v", blockNumber)
+		logs.Info("block number:%v", blockNumber)
 
 	}
 	remoteAddress := p.PeerAddress
@@ -216,7 +218,7 @@ func (p *Peer) HandleRemoteVersionMessage(versionMessage *msg.VersionMessage) er
 	p.PeerStatusMutex.Lock()
 	p.ProtocolVersion = container.MinUint32(p.ProtocolVersion, versionMessage.ProtocolVersion)
 	p.VersionKnown = true
-	log.Debug("Negotiated protocol version %d for p2p %s", p.ProtocolVersion, p)
+	logs.Debug("Negotiated protocol version %d for p2p %s", p.ProtocolVersion, p)
 	p.ID = atomic.AddInt32(&nodeCount, 1)
 	p.ServiceFlag = versionMessage.ServiceFlag
 	p.UserAgent = versionMessage.UserAgent
@@ -229,7 +231,7 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		return nil
 	}
 	// todo func()string
-	log.Debug("%v", InitLogClosure(func() string {
+	logs.Debug("%v", log.InitLogClosure(func() string {
 		summary := msg.MessageSummary(message)
 		if len(summary) > 0 {
 			summary = fmt.Sprintf("(%s)", summary)
@@ -237,10 +239,10 @@ func (p *Peer) WriteMessage(message msg.Message) error {
 		return fmt.Sprintf("Sending %v %s to %s", message.Command(), summary, p.String())
 
 	}))
-	log.Debug("%v", InitLogClosure(func() string {
+	logs.Debug("%v", log.InitLogClosure(func() string {
 		return spew.Sdump(message)
 	}))
-	log.Debug("%v", InitLogClosure(func() string {
+	logs.Debug("%v", log.InitLogClosure(func() string {
 		var buf bytes.Buffer
 		_, err := msg.WriteMessage(&buf, message, p.ProtocolVersion, p.Config.ChainParams.BitcoinNet)
 		if err != nil {
@@ -301,7 +303,7 @@ func (p *Peer) SendGetBlocks(locator []*utils.Hash, stopHash *utils.Hash) error 
 	p.GetBlocksLock.Lock()
 	isDuplicate := p.GetBlocksStop != nil && p.GetBlocksBegin != nil && beginHash != nil && stopHash.IsEqual(p.GetBlocksStop) && beginHash.IsEqual(p.GetBlocksBegin)
 	if isDuplicate {
-		log.Warn("duplicate getblocks with  %v -> %v", beginHash, stopHash)
+		logs.Warn("duplicate getblocks with  %v -> %v", beginHash, stopHash)
 		return nil
 	}
 	p.GetBlocksLock.Unlock()
@@ -332,7 +334,7 @@ func (p *Peer) SendGetHeadersMessage(locator []*utils.Hash, stopHash *utils.Hash
 	isDuplicate := p.GetHeadersStop != nil && p.GetHeadersBegin != nil && beginHash != nil && stopHash.IsEqual(p.GetHeadersStop) && beginHash.IsEqual(p.GetHeadersBegin)
 	p.GetHeadersLock.Unlock()
 	if isDuplicate {
-		log.Warn("duplicate  getheaders with begin hash %v", beginHash)
+		logs.Warn("duplicate  getheaders with begin hash %v", beginHash)
 		return nil
 	}
 
@@ -361,7 +363,7 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 	rejectMessage := msg.NewRejectMessage(command, code, reason)
 	if command == msg.CommandTx || command == msg.CommandBlock {
 		if hash == nil {
-			log.Warn("sending a reject message for command type %v which should have specified a hash ", command)
+			logs.Warn("sending a reject message for command type %v which should have specified a hash ", command)
 			hash = &zeroHash
 		}
 		rejectMessage.Hash = hash
@@ -378,11 +380,11 @@ func (p *Peer) SendRejectMessage(command string, code msg.RejectCode, reason str
 func (p *Peer) IsValidBIP0111(command string) bool {
 	if p.ServiceFlag&protocol.SFNodeBloomFilter != protocol.SFNodeBloomFilter {
 		if p.ProtocolVersion >= protocol.Bip0111Version {
-			log.Debug("%s sent an unsupported %s request --disconnecting", p, command)
+			logs.Debug("%s sent an unsupported %s request --disconnecting", p, command)
 			p.Stop()
 
 		} else {
-			log.Debug("Ignoring %s request from %s -- bloom support is disabled", command, p)
+			logs.Debug("Ignoring %s request from %s -- bloom support is disabled", command, p)
 
 		}
 		return false
@@ -414,7 +416,7 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Debug("%v", InitLogClosure(func() string {
+	logs.Debug("%v", log.InitLogClosure(func() string {
 		summary := msg.MessageSummary(message)
 		if len(summary) > 0 {
 			summary = fmt.Sprintf("(%s)", summary)
@@ -423,10 +425,10 @@ func (p *Peer) ReadMessage() (msg.Message, []byte, error) {
 			message.Command(), summary, p.String())
 
 	}))
-	log.Trace("%v", InitLogClosure(func() string {
+	logs.Trace("%v", log.InitLogClosure(func() string {
 		return spew.Sdump(message)
 	}))
-	log.Trace("%v", InitLogClosure(func() string {
+	logs.Trace("%v", log.InitLogClosure(func() string {
 
 		return spew.Sdump(buf)
 	}))
@@ -510,14 +512,14 @@ out:
 				}
 			case SccHandlerStart:
 				if handlerActive {
-					log.Warn("Received handler start control command while a handler is already active")
+					logs.Warn("Received handler start control command while a handler is already active")
 					continue
 				}
 				handlerActive = true
 				handlerStartTime = time.Now()
 			case SccHandlerDone:
 				if !handlerActive {
-					log.Warn("Received handler done control command when a handler is not already active")
+					logs.Warn("Received handler done control command when a handler is not already active")
 					continue
 				}
 
@@ -525,7 +527,7 @@ out:
 				deadlineOffset += duration
 				handlerActive = false
 			default:
-				log.Warn("unsupported message command %v", stall.Command)
+				logs.Warn("unsupported message command %v", stall.Command)
 
 			}
 		case <-stallTicker.C:
@@ -539,7 +541,7 @@ out:
 				if now.Before(deadline.Add(offset)) {
 					continue
 				}
-				log.Debug("p2p %s appears to be stalled or misbehaving,%s timeout -- disconnecting",
+				logs.Debug("p2p %s appears to be stalled or misbehaving,%s timeout -- disconnecting",
 					p, command)
 				p.Stop()
 				break
@@ -567,12 +569,12 @@ cleanup:
 			break cleanup
 		}
 	}
-	log.Trace("Peer stall handler done for %s", p)
+	logs.Trace("Peer stall handler done for %s", p)
 
 }
 func (p *Peer) inHandler() {
 	idleTimer := time.AfterFunc(IdleTimeout, func() {
-		log.Warn("Peer %s no answer for %s --disconnected", p, IdleTimeout)
+		logs.Warn("Peer %s no answer for %s --disconnected", p, IdleTimeout)
 		p.Stop()
 	})
 out:
@@ -583,13 +585,13 @@ out:
 		idleTimer.Stop()
 		if err != nil {
 			if p.IsAllowedReadError(err) {
-				log.Error("Allowed test error from %s :%v", p, err)
+				logs.Error("Allowed test error from %s :%v", p, err)
 				idleTimer.Reset(IdleTimeout)
 				continue
 			}
 			if p.shouldHandleReadError(err) {
 				errMessage := fmt.Sprintf("Can't read message from %s: %v", p.String(), err)
-				log.Error(errMessage)
+				logs.Error(errMessage)
 				p.SendRejectMessage("malformed", msg.RejectMalformed, errMessage, nil, true)
 
 			}
@@ -609,7 +611,7 @@ out:
 			p.HandlePongMessage(message)
 
 		default:
-			log.Debug("Received unhandled message of type %v from %v", readMessage.Command(), p)
+			logs.Debug("Received unhandled message of type %v from %v", readMessage.Command(), p)
 
 		}
 
@@ -620,7 +622,7 @@ out:
 	idleTimer.Stop()
 	close(p.inQuit)
 
-	log.Trace("Peer input handler done for %s", p)
+	logs.Trace("Peer input handler done for %s", p)
 
 }
 
@@ -707,7 +709,7 @@ cleanup:
 		}
 	}
 	close(p.queueQuit)
-	log.Trace("Peer queue handler done for %s", p)
+	logs.Trace("Peer queue handler done for %s", p)
 }
 
 func (p *Peer) outHandler() {
@@ -730,7 +732,7 @@ out:
 			if err != nil {
 				p.Stop()
 				if p.shouldHandleReadError(err) {
-					log.Error("failed to send message to %s :%v", p, err)
+					logs.Error("failed to send message to %s :%v", p, err)
 				}
 				if message.Done != nil {
 					message.Done <- struct{}{}
@@ -746,7 +748,7 @@ out:
 		case <-pingTicker.C:
 			nonce, err := utils.RandomUint64()
 			if err != nil {
-				log.Error("Not sending ping to %s :%v", p, err)
+				logs.Error("Not sending ping to %s :%v", p, err)
 				continue
 			}
 			p.SendMessage(msg.InitPingMessage(nonce), nil)
@@ -769,7 +771,7 @@ cleanup:
 		}
 	}
 	close(p.outQuit)
-	log.Trace("p2p output handler done for %s", p)
+	logs.Trace("p2p output handler done for %s", p)
 
 }
 func (p *Peer) QueueInventory(inventoryVector *msg.InventoryVector) {
@@ -794,7 +796,7 @@ func (p *Peer) Connect(conn net.Conn) {
 
 		peerAddress, err := network.NewPeerAddressWithNetAddr(p.conn.RemoteAddr(), p.ServiceFlag)
 		if err != nil {
-			log.Error("Cannot create remote net AddressString :%v", err)
+			logs.Error("Cannot create remote net AddressString :%v", err)
 			p.Stop()
 			return
 		}
@@ -803,7 +805,7 @@ func (p *Peer) Connect(conn net.Conn) {
 	go func() {
 		err := p.start()
 		if err != nil {
-			log.Warn("Can note start peer %v , err :%v", p, err)
+			logs.Warn("Can note start peer %v , err :%v", p, err)
 			p.Stop()
 		}
 
@@ -814,7 +816,7 @@ func (p *Peer) Disconnect() {
 	if atomic.AddInt32(&p.disconnect, 1) != 1 {
 		return
 	}
-	log.Trace("disconnecting %s", p)
+	logs.Trace("disconnecting %s", p)
 	if atomic.LoadInt32(&p.connected) != 0 {
 		p.conn.Close()
 	}
@@ -843,7 +845,7 @@ func (p *Peer) readRemoteVersionMessage() error {
 	remoteVersionMessage, ok := message.(*msg.VersionMessage)
 	if !ok {
 		errStr := "A version message must precede all  others"
-		log.Error(errStr)
+		logs.Error(errStr)
 		rejectMessage := msg.NewRejectMessage(message.Command(), msg.RejectMalformed, errStr)
 		err := p.WriteMessage(rejectMessage)
 		if err != nil {
@@ -879,7 +881,7 @@ func (p *Peer) negotiateOutboundProtocol() error {
 
 }
 func (p *Peer) start() error {
-	log.Trace("start p2p %s ", p)
+	logs.Trace("start p2p %s ", p)
 	negotiateErr := make(chan error)
 	go func() {
 		if p.Inbound {
@@ -896,7 +898,7 @@ func (p *Peer) start() error {
 	case <-time.After(NegotiateTimeOut):
 		return errors.New("protocol negotiation timeout ")
 	}
-	log.Debug("Connected to %s", p.AddressString)
+	logs.Debug("Connected to %s", p.AddressString)
 	go p.stallHandler()
 	go p.inHandler()
 	go p.queueHandler()
@@ -913,7 +915,7 @@ func (p *Peer) Stop() {
 	if atomic.AddInt32(&p.disconnect, 1) != 1 {
 		return
 	}
-	log.Trace("Disconnecting %s", p)
+	logs.Trace("Disconnecting %s", p)
 	if atomic.LoadInt32(&p.connected) != 0 {
 		p.conn.Close()
 	}

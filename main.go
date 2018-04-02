@@ -1,8 +1,14 @@
 package main
 
+// please ensure init `github.com/btcboost/copernicus/log` firstly,
+// or you will get an error log output.
 import (
 	"os"
 	"syscall"
+
+	_ "github.com/btcboost/copernicus/log"
+
+	"github.com/astaxie/beego/logs"
 )
 
 func init() {
@@ -16,7 +22,7 @@ func btcMain() error {
 }
 
 func main() {
-	log.Info("application is running")
+	logs.Info("application is running")
 	startBitcoin()
 	if err := btcMain(); err != nil {
 		os.Exit(1)

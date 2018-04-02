@@ -5,6 +5,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
@@ -142,7 +143,7 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining *[]*core.OutPo
 			}
 		}
 	}
-	log.Debug("mempool remove %d transactions with SIZELIMIT reason. \n", nTxnRemoved)
+	logs.Debug("mempool remove %d transactions with SIZELIMIT reason. \n", nTxnRemoved)
 
 }
 
@@ -196,7 +197,7 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache) {
 		return
 	}
 
-	log.Debug("mempool Checking mempool with %d transactions and %d inputs", len(m.PoolData), len(m.NextTx))
+	logs.Debug("mempool Checking mempool with %d transactions and %d inputs", len(m.PoolData), len(m.NextTx))
 
 	//checkTotal := uint64(0)
 	//innerUsage := uint64(0)
