@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/core"
 )
 
@@ -43,7 +44,7 @@ func (blockLog *BlockProgressLogger) LogBlockHeight(block *core.Block) {
 	if blockLog.receivedLogTx == 1 {
 		txStr = "transxation"
 	}
-	log.Info("%s %d %s in the last %s (%d %s, height %d, %s)",
+	logs.Info("%s %d %s in the last %s (%d %s, height %d, %s)",
 		blockLog.progressAction,
 		blockLog.receivedLogBlocks,
 		blockStr,

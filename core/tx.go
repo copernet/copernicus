@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
@@ -262,7 +263,7 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 	if len(tx.Outs) == 0 {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
 	}
-	if tx.SerializeSize() > MaxTxSize {
+	if tx.SerializeSize() > consensus.MaxTxSize {
 		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 	}
 	totalOut := int64(0)
@@ -302,14 +303,14 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		return false, errors.New("no inputs or outputs")
 	}
 	size := tx.SerializeSize()
-	if size > MaxTxSize {
-		return false, errors.Errorf("tx size %d > max size %d", size, MaxTxSize)
+	if size > consensus.MaxTxSize {
+		return false, errors.Errorf("tx size %d > max size %d", size, consensus.MaxTxSize)
 	}
 
 	TotalOutValue := int64(0)
 	TotalSigOpCount := int64(0)
 	TxOutsLen := len(tx.Outs)
-	//to do: check txOut's script is
+	// todo: check txOut's script is
 	for i := 0; i < TxOutsLen; i++ {
 		txOut := tx.Outs[i]
 		if txOut.Value < 0 {
@@ -330,7 +331,7 @@ func (tx *Tx) CheckSelf() (bool, error) {
 		}
 	}
 
-	//todo: check ins' preout duplicate at the same time
+	// todo: check ins' preout duplicate at the same time
 	TxInsLen := len(tx.Ins)
 	for i := 0; i < TxInsLen; i++ {
 		txIn := tx.Ins[i]

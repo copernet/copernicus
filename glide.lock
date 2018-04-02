@@ -13,6 +13,8 @@ imports:
   version: d1d3521a2faf654cee837aad57713ec4c814791f
   subpackages:
   - secp256k1
+- name: github.com/btcsuite/btclog
+  version: 84c8d2346e9fc8c7b947e243b9c24e6df9fd206a
 - name: github.com/btcsuite/fastsha256
   version: 637e656429416087660c84436a2a035d69d54e2e
 - name: github.com/btcsuite/go-socks
@@ -100,7 +102,7 @@ imports:
   - transform
   - unicode/norm
 - name: gopkg.in/fatih/set.v0
-  version: 168a5d71ba0669ae06888225478d73a113f1687e
+  version: 27c40922c40b43fe04554d8223a402af3ea333f3
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:

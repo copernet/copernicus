@@ -1,21 +1,21 @@
-package logger
+package log
 
 import (
 	"encoding/json"
 	"fmt"
 	"path"
 	"runtime"
+	"strings"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
 )
 
-var mlog *logs.BeeLogger
+func init() {
+	InitLogger(conf.GetDataPath(), "debug") // todo configure via config file
+}
 
-//todo config color of debug logger
-//todo output logger to elasticSearch
-
-type LogConfig struct {
+type logConfig struct {
 	Filename string `json:"filename"`
 	Level    int    `json:"level,omitempty"`
 	Rotate   bool   `json:"rotate,omitempty"`
@@ -25,16 +25,11 @@ type LogConfig struct {
 	MaxSize  int    `json:"maxsize,omitempty"`
 }
 
-func init() {
-	mlog = logs.NewLogger()
-	mlog.EnableFuncCallDepth(true)
-	logs.Async()
-}
-
 func validLogLevel(strLevel string) (level int, ok bool) {
 	ok = true
+	strLevel = strings.ToLower(strLevel)
 	switch strLevel {
-	case "emergecy":
+	case "emergency":
 		level = logs.LevelEmergency
 	case "alert":
 		level = logs.LevelAlert
@@ -56,34 +51,6 @@ func validLogLevel(strLevel string) (level int, ok bool) {
 	return
 }
 
-func InitLogger(dir, strLevel string) (err error) {
-	logLevel, ok := validLogLevel(strLevel)
-	if !ok {
-		return fmt.Errorf("mismatch the logLevel %s", strLevel)
-	}
-	config, err := json.Marshal(LogConfig{
-		Filename: path.Join(dir, "debug.logger"),
-		Rotate:   true,
-		Daily:    true,
-		Level:    logLevel,
-	})
-	if err != nil {
-		return err
-	}
-	mlog.SetLogger(logs.AdapterFile, string(config))
-	mlog.Debug(string(config))
-	return nil
-}
-
-func GetLogger() *logs.BeeLogger {
-	return mlog
-}
-
-func ErrorLog(reason string, v ...interface{}) bool {
-	mlog.Error(reason, v)
-	return false
-}
-
 func TraceLog() string {
 	pc := make([]uintptr, 10) // at least 1 entry needed
 	runtime.Callers(2, pc)
@@ -92,25 +59,25 @@ func TraceLog() string {
 	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
 }
 
-func LogPrint(module string, level string, format string, reason ...interface{}) {
+func Print(module string, level string, format string, reason ...interface{}) {
 	if IsIncludeModule(module) {
 		switch level {
-		case "emergecy":
-			mlog.Emergency(format, reason)
+		case "emergency":
+			logs.Emergency(format, reason)
 		case "alert":
-			mlog.Alert(format, reason)
+			logs.Alert(format, reason)
 		case "critical":
-			mlog.Critical(format, reason)
+			logs.Critical(format, reason)
 		case "error":
-			mlog.Error(format, reason)
+			logs.Error(format, reason)
 		case "warn":
-			mlog.Warn(format, reason)
+			logs.Warn(format, reason)
 		case "info":
-			mlog.Info(format, reason)
+			logs.Info(format, reason)
 		case "debug":
-			mlog.Debug(format, reason)
+			logs.Debug(format, reason)
 		case "notice":
-			mlog.Notice(format, reason)
+			logs.Notice(format, reason)
 		}
 	}
 }
@@ -122,4 +89,32 @@ func IsIncludeModule(module string) bool {
 		}
 	}
 	return false
+}
+
+func InitLogger(dir, strLevel string) (err error) {
+	logLevel, ok := validLogLevel(strLevel)
+	if !ok {
+		return fmt.Errorf("mismatch the logLevel %s", strLevel)
+	}
+	config, err := json.Marshal(logConfig{
+		Filename: path.Join(dir, "debug.logger"),
+		Rotate:   true,
+		Daily:    true,
+		Level:    logLevel,
+	})
+	if err != nil {
+		return err
+	}
+	logs.SetLogger(logs.AdapterFile, string(config))
+	logs.Debug(string(config))
+	return nil
+}
+
+type Closure func() string
+
+func (c Closure) ToString() string {
+	return c()
+}
+func InitLogClosure(c func() string) Closure {
+	return Closure(c)
 }

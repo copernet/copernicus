@@ -2,13 +2,13 @@ package blockchain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"strconv"
 
-	"encoding/binary"
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/database"
-	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
@@ -141,7 +141,8 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *cor
 		var diskindex DiskBlockIndex
 		val := cursor.GetVal()
 		if val == nil {
-			return logger.ErrorLog("LoadBlockIndex() : failed to read value")
+			logs.Error("LoadBlockIndex() : failed to read value")
+			return false
 		}
 		// Construct block index object
 		indexNew := InsertBlockIndex(diskindex.GetBlockHash())
@@ -160,7 +161,8 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *cor
 
 		var pow Pow
 		if pow.CheckProofOfWork(indexNew.GetBlockHash(), indexNew.Header.Bits, msg.ActiveNetParams) {
-			return logger.ErrorLog("LoadBlockIndex(): CheckProofOfWork failed: %s", indexNew.ToString())
+			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", indexNew.ToString())
+			return false
 		}
 
 		cursor.Next()

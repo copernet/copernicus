@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
@@ -448,9 +449,9 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	mainnetParams := msg.MainNetParams
 
 	// Use the TESTDUMMY deployment for testing purposes.
-	bit := mainnetParams.Deployments[msg.DeploymentTestDummy].Bit
-	startTime := mainnetParams.Deployments[msg.DeploymentTestDummy].StartTime
-	timeout := mainnetParams.Deployments[msg.DeploymentTestDummy].Timeout
+	bit := mainnetParams.Deployments[consensus.DeploymentTestDummy].Bit
+	startTime := mainnetParams.Deployments[consensus.DeploymentTestDummy].StartTime
+	timeout := mainnetParams.Deployments[consensus.DeploymentTestDummy].Timeout
 
 	if startTime >= timeout {
 		t.Error("startTime should be less than timeout value")

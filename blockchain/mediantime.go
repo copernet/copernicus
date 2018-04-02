@@ -6,9 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcboost/copernicus/container"
-
 	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/container"
 )
 
 const (
@@ -17,8 +16,6 @@ const (
 )
 
 var MaxMedianTimeRetries = 200
-
-var log = logs.NewLogger()
 
 type MedianTime struct {
 	lock               sync.Mutex
@@ -58,7 +55,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 	int64Sorter := container.Int64Sorter(sortedOffsets)
 	sort.Sort(int64Sorter)
 	offsetDuration := time.Duration(offsetSecs) * time.Second
-	log.Debug("added time sample of %v (total:%v)", offsetDuration, numOffsets)
+	logs.Debug("added time sample of %v (total:%v)", offsetDuration, numOffsets)
 
 	if numOffsets < 5 || numOffsets&0x01 != 1 {
 		return
@@ -78,7 +75,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 				}
 			}
 			if !removeHasCloseTime {
-				log.Warn("Please check your date and time are correct!")
+				logs.Warn("Please check your date and time are correct!")
 			}
 		}
 	}
