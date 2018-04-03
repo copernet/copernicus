@@ -6,7 +6,7 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/database"
-	"github.com/btcboost/copernicus/logger"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -79,7 +79,7 @@ func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[core.OutPoint]CoinsCacheEn
 	}
 
 	ret := coinViewDB.dbw.WriteBatch(batch, false)
-	logger.LogPrint("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin database...\n", changed, count)
+	log.Print("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin database...\n", changed, count)
 	return ret
 }
 
