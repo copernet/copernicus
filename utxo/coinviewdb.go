@@ -3,10 +3,11 @@ package utxo
 import (
 	"bytes"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/database"
+	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/utils"
-	"github.com/btcboost/copernicus/conf"
 )
 
 type CoinViewDB struct {
@@ -49,8 +50,37 @@ func (coinViewDB *CoinViewDB) GetBestBlock() utils.Hash {
 	return hashBestChain
 }
 
-func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[core.OutPoint]CoinsCacheEntry) (bool, error) {
-	return true, nil
+func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[core.OutPoint]CoinsCacheEntry, hashBlock *utils.Hash) error {
+	var batch *database.BatchWrapper
+	count := 0
+	changed := 0
+	for k, v := range mapCoins {
+		if v.Flags != 0&CoinEntryDirty {
+			entry := NewCoinEntry(&k)
+			bufEntry := bytes.NewBuffer(nil)
+			entry.Serialize(bufEntry)
+
+			if v.Coin.IsSpent() {
+				batch.Erase(bufEntry.Bytes())
+			} else {
+				coinByte := bytes.NewBuffer(nil)
+				v.Coin.Serialize(coinByte)
+				batch.Write(bufEntry.Bytes(), coinByte.Bytes())
+			}
+			changed++
+		}
+		count++
+		delete(mapCoins, k)
+	}
+	if !hashBlock.IsNull() {
+		hashByte := bytes.NewBuffer(nil)
+		hashBlock.Serialize(hashByte)
+		batch.Write([]byte{DbBestBlock}, hashByte.Bytes())
+	}
+
+	ret := coinViewDB.dbw.WriteBatch(batch, false)
+	logger.LogPrint("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin database...\n", changed, count)
+	return ret
 }
 
 func (coinViewDB *CoinViewDB) EstimateSize() uint64 {
