@@ -1,6 +1,7 @@
-package core
+package msg
 
 import (
+	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 )
@@ -142,7 +143,7 @@ func ComputeMerkleRootFromBranch(leaf *utils.Hash, branch []utils.Hash, index ui
 	return hash
 }
 
-func BlockMerkleRoot(block *Block, mutated *bool) utils.Hash {
+func BlockMerkleRoot(block *core.Block, mutated *bool) utils.Hash {
 	leaves := make([]utils.Hash, len(block.Txs))
 	for i := 0; i < len(block.Txs); i++ {
 		leaves[i] = block.Txs[i].TxHash()
@@ -150,7 +151,7 @@ func BlockMerkleRoot(block *Block, mutated *bool) utils.Hash {
 	return ComputeMerkleRoot(leaves, mutated)
 }
 
-func BlockMerkleBranch(block *Block, position uint32) []utils.Hash {
+func BlockMerkleBranch(block *core.Block, position uint32) []utils.Hash {
 	leaves := make([]utils.Hash, len(block.Txs))
 	for i := 0; i < len(block.Txs); i++ {
 		leaves[i] = block.Txs[i].TxHash()

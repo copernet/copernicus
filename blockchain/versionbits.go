@@ -4,6 +4,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/net/msg"
 )
@@ -59,19 +60,19 @@ var versionBitsCache VersionBitsCache // todo waring: there is a global variable
 
 type VersionBitsCache struct {
 	sync.RWMutex
-	cache [msg.MaxVersionBitsDeployments]ThresholdConditionCache
+	cache [consensus.MaxVersionBitsDeployments]ThresholdConditionCache
 }
 
 func NewVersionBitsCache() *VersionBitsCache {
-	var cache [msg.MaxVersionBitsDeployments]ThresholdConditionCache
-	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
+	var cache [consensus.MaxVersionBitsDeployments]ThresholdConditionCache
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		cache[i] = make(ThresholdConditionCache)
 	}
 	return &VersionBitsCache{cache: cache}
 }
 
 func (vbc *VersionBitsCache) Clear() {
-	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		vbc.cache[i] = make(ThresholdConditionCache)
 	}
 }
@@ -86,23 +87,23 @@ func NewWarnBitsCache(bitNum int) []ThresholdConditionCache {
 	return w
 }
 
-func VersionBitsState(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
+func VersionBitsState(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
 	vc := &VersionBitsConditionChecker{id: pos}
 	return GetStateFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsStateSinceHeight(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) int {
+func VersionBitsStateSinceHeight(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) int {
 	vc := &VersionBitsConditionChecker{id: pos}
 	return GetStateSinceHeightFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsMask(params *msg.BitcoinParams, pos msg.DeploymentPos) uint32 {
+func VersionBitsMask(params *msg.BitcoinParams, pos consensus.DeploymentPos) uint32 {
 	vc := VersionBitsConditionChecker{id: pos}
 	return uint32(vc.Mask(params))
 }
 
 type VersionBitsConditionChecker struct {
-	id msg.DeploymentPos
+	id consensus.DeploymentPos
 }
 
 func (vc *VersionBitsConditionChecker) BeginTime(params *msg.BitcoinParams) int64 {
@@ -290,16 +291,16 @@ func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *
 func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
 	version := VersionBitsTopBits
 
-	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		state := func() ThresholdState {
 			t.Lock()
 			defer t.Unlock()
-			v := VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
+			v := VersionBitsState(indexPrev, params, consensus.DeploymentPos(i), t)
 			return v
 		}()
 
 		if state == ThresholdLockedIn || state == ThresholdStarted {
-			version |= int(VersionBitsMask(params, msg.DeploymentPos(i)))
+			version |= int(VersionBitsMask(params, consensus.DeploymentPos(i)))
 		}
 	}
 

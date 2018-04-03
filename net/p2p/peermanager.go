@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/database"
@@ -45,14 +46,14 @@ type PeerManager struct {
 	waitGroup            sync.WaitGroup
 	quit                 chan struct{}
 
-	//txMemPool    *mempool.TxPool
+	// txMemPool    *mempool.TxPool
 	nat network.NATInterface
-	//storage      boltdb.DBBase
+	//  storage      boltdb.DBBase
 	timeSource   *blockchain.MedianTime
 	servicesFlag protocol.ServiceFlag
 
-	//txIndex   *indexers.TxIndex
-	//addrIndex *indexers.AddrIndex
+	// txIndex   *indexers.TxIndex
+	// addrIndex *indexers.AddrIndex
 }
 
 type getOutboundGroup struct {
@@ -81,7 +82,7 @@ func NewPeerManager(listenAddrs []string, db database.DBWrapper, bitcoinParam *m
 		modifyRebroadcastInv: make(chan interface{}),
 		peerHeightsUpdate:    make(chan UpdatePeerHeightsMessage),
 		nat:                  natListener,
-		//storage:              db, todo:
+		// storage:              db, todo:
 		timeSource:   blockchain.NewMedianTime(),
 		servicesFlag: protocol.ServiceFlag(services),
 	}
@@ -110,26 +111,26 @@ func (peerManager *PeerManager) newAddressFunc() (net.Addr, error) {
 	for tries := 0; tries < 100; tries++ {
 		address := peerManager.netAddressManager.GetAddress()
 
-		log.Debug(" newAddressFunc ")
+		logs.Debug(" newAddressFunc ")
 		if address == nil {
-			log.Debug(" newAddressFunc address is nil")
+			logs.Debug(" newAddressFunc address is nil")
 			break
 		}
 		key := peerManager.netAddressManager.GetAddress().NetAddress.NetAddressKey()
 		if peerManager.OutboundGroupCount(key) != 0 {
-			log.Debug("peerManager OutboundGroupCount :%s", key)
+			logs.Debug("peerManager OutboundGroupCount :%s", key)
 			continue
 		}
 
-		//if tries < 30 && time.Since(address.LastAttempt) < 10*time.Minute {
-		//	continue
-		//}
-		//port := fmt.Sprintf("%d", address.NetAddress.Port)
-		//if tries < 50 && port != msg.ActiveNetParams.DefaultPort {
-		//	continue
-		//}
+		// if tries < 30 && time.Since(address.LastAttempt) < 10*time.Minute {
+		// 	continue
+		// }
+		// port := fmt.Sprintf("%d", address.NetAddress.Port)
+		// if tries < 50 && port != msg.ActiveNetParams.DefaultPort {
+		// 	continue
+		// }
 		addressString := peerManager.netAddressManager.GetAddress().NetAddress.NetAddressKey()
-		log.Debug("get address :%s", addressString)
+		logs.Debug("get address :%s", addressString)
 		return addrStringToNetAddr(addressString)
 
 	}
@@ -157,13 +158,13 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 
 	// Tor addresses cannot be resolved to an IP, so just return an onion
 	// address instead.
-	//if strings.HasSuffix(host, ".onion") {
-	//	if cfg.NoOnion {
-	//		return nil, errors.New("tor has been disabled")
-	//	}
+	// if strings.HasSuffix(host, ".onion") {
+	// 	if cfg.NoOnion {
+	// 		return nil, errors.New("tor has been disabled")
+	// 	}
 	//
-	//	return &onionAddr{addr: addr}, nil
-	//}
+	// 	return &onionAddr{addr: addr}, nil
+	// }
 	//
 	// Attempt to look up an IP address associated with the parsed host.
 	ips, err := conf.AppLookup(host)
@@ -190,10 +191,10 @@ func (peerManager *PeerManager) AddPeer(serverPeer *ServerPeer) {
 
 func (peerManager *PeerManager) Stop() error {
 	if atomic.AddInt32(&peerManager.shutdown, 1) != 1 {
-		log.Info("PeerManager is already in the process of shutting down")
+		logs.Info("PeerManager is already in the process of shutting down")
 		return nil
 	}
-	log.Info("PeerManager shutting down")
+	logs.Info("PeerManager shutting down")
 	close(peerManager.quit)
 	return nil
 }
@@ -205,7 +206,7 @@ func (peerManager *PeerManager) Start() {
 	if atomic.AddInt32(&peerManager.started, 1) != 1 {
 		return
 	}
-	log.Trace("starting server")
+	logs.Trace("starting server")
 	peerManager.waitGroup.Add(1)
 	go peerManager.peerHandler()
 	if peerManager.nat != nil {
@@ -218,7 +219,7 @@ func (peerManager *PeerManager) Start() {
 func (peerManager *PeerManager) peerHandler() {
 	peerManager.netAddressManager.Start()
 	peerManager.BlockManager.Start()
-	log.Trace("Starting p2p handler")
+	logs.Trace("Starting p2p handler")
 	peerState := &PeerState{
 		inboundPeers:    make(map[int32]*ServerPeer),
 		persistentPeers: make(map[int32]*ServerPeer),
@@ -228,7 +229,7 @@ func (peerManager *PeerManager) peerHandler() {
 	}
 	if !conf.AppConf.DisableDNSSeed {
 		conn.SeedFromDNS(msg.ActiveNetParams, DefaultRequiredServices, conf.AppLookup, func(addresses []*network.PeerAddress) {
-			log.Warn(addresses[0].IP.String())
+			logs.Warn(addresses[0].IP.String())
 			peerManager.netAddressManager.AddPeerAddresses(addresses, addresses[0])
 		})
 
@@ -242,7 +243,7 @@ out:
 			peerManager.handleAddPeerMsg(peerState, peer)
 		case <-peerManager.quit:
 			peerState.forAllPeers(func(serverPeer *ServerPeer) {
-				log.Trace("Shutdown p2p %s", serverPeer)
+				logs.Trace("Shutdown p2p %s", serverPeer)
 				serverPeer.Disconnect()
 			})
 			break out
@@ -262,7 +263,7 @@ func (peerManager *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPee
 
 	// Ignore new peers if we're shutting down.
 	if atomic.LoadInt32(&peerManager.shutdown) != 0 {
-		log.Info("New p2p %s ignored - server is shutting down", serverPeer)
+		logs.Info("New p2p %s ignored - server is shutting down", serverPeer)
 		serverPeer.Disconnect()
 		return false
 	}
@@ -270,19 +271,19 @@ func (peerManager *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPee
 	// Disconnect banned peers.
 	host, _, err := net.SplitHostPort(serverPeer.AddressString)
 	if err != nil {
-		log.Debug("can't split hostport %v", err)
+		logs.Debug("can't split hostport %v", err)
 		serverPeer.Disconnect()
 		return false
 	}
 	if banEnd, ok := peerState.banned[host]; ok {
 		if time.Now().Before(banEnd) {
-			log.Debug("Peer %s is banned for another %s - disconnecting",
+			logs.Debug("Peer %s is banned for another %s - disconnecting",
 				host, banEnd.String())
 			serverPeer.Disconnect()
 			return false
 		}
 
-		log.Info("Peer %s is no longer banned", host)
+		logs.Info("Peer %s is no longer banned", host)
 		delete(peerState.banned, host)
 	}
 
@@ -290,7 +291,7 @@ func (peerManager *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPee
 
 	// Limit max number of total peers.
 	if peerState.Count() >= conf.AppConf.MaxPeers {
-		log.Info("Max peers reached [%d] - disconnecting p2p %s",
+		logs.Info("Max peers reached [%d] - disconnecting p2p %s",
 			conf.AppConf.MaxPeers, serverPeer)
 		serverPeer.Disconnect()
 		// TODO: how to handle permanent peers here?
@@ -299,7 +300,7 @@ func (peerManager *PeerManager) handleAddPeerMsg(peerState *PeerState, serverPee
 	}
 
 	// Add the new p2p and start it.
-	log.Debug("New p2p %s", serverPeer)
+	logs.Debug("New p2p %s", serverPeer)
 	if serverPeer.Inbound {
 		peerState.inboundPeers[serverPeer.ID] = serverPeer
 	} else {
@@ -317,9 +318,9 @@ func (peerManager *PeerManager) upnpUpdateThread() {
 
 }
 
-//func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
-//	sp := NewServerPeer(s, false)
-//	sp.Peer = p2p.NewInboundPeer(InitPe(sp))
-//	sp.AssociateConnection(conn)
-//	go s.peerDoneHandler(sp)
-//}
+// func (s *PeerManager) inboundPeerConnected(conn net.Conn) {
+// 	sp := NewServerPeer(s, false)
+// 	sp.Peer = p2p.NewInboundPeer(InitPe(sp))
+// 	sp.AssociateConnection(conn)
+// 	go s.peerDoneHandler(sp)
+// }

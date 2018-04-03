@@ -3,6 +3,7 @@ package p2p
 import (
 	"sync"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/net/conn"
 
 	"github.com/btcboost/copernicus/conf"
@@ -86,7 +87,7 @@ func (serverPeer *ServerPeer) pushAddressMessage(peerAddresses []*network.PeerAd
 	}
 	knownes, err := serverPeer.SendAddrMessage(addresses)
 	if err != nil {
-		log.Error("can't send address message to %s :%v", serverPeer.Peer, err)
+		logs.Error("can't send address message to %s :%v", serverPeer.Peer, err)
 		serverPeer.Disconnect()
 		return
 	}
@@ -102,17 +103,17 @@ func (serverPeer *ServerPeer) addBanScore(persistent, transient uint32, reason s
 	if transient == 0 && persistent == 0 {
 		score := serverPeer.banScore.Int()
 		if score > warnThreshold {
-			log.Warn("misbehaving p2p %s :%s --ban score is %d it was not increased this time",
+			logs.Warn("misbehaving p2p %s :%s --ban score is %d it was not increased this time",
 				serverPeer, reason, score)
 		}
 		return
 	}
 	score := serverPeer.banScore.Increase(persistent, transient)
 	if score > warnThreshold {
-		log.Warn("misbehaving p2p %s :%s -- ban scote increased to %d",
+		logs.Warn("misbehaving p2p %s :%s -- ban scote increased to %d",
 			serverPeer, reason, score)
 		if score > conf.AppConf.BanThreshold {
-			log.Warn("misbehaving p2p %s --banning and isconnecting ", serverPeer)
+			logs.Warn("misbehaving p2p %s --banning and isconnecting ", serverPeer)
 			serverPeer.peerManager.BanPeer(serverPeer)
 			serverPeer.Disconnect()
 		}
@@ -172,7 +173,7 @@ func (serverPeer *ServerPeer) OnAlert(p *Peer, msg *msg.AlertMessage) {
 
 func (serverPeer *ServerPeer) OnMemPool(p *Peer, msg *msg.MempoolMessage) {
 	if serverPeer.peerManager.servicesFlag&protocol.SFNodeBloomFilter != protocol.SFNodeBloomFilter {
-		log.Debug("p2p %v sent mempool request with bloom filtering disable --disconnecting", serverPeer)
+		logs.Debug("p2p %v sent mempool request with bloom filtering disable --disconnecting", serverPeer)
 		serverPeer.Disconnect()
 		return
 	}

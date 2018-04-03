@@ -1,15 +1,15 @@
 package mempool
 
 import (
+	"fmt"
+	"math"
 	"sync"
 
-	"fmt"
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/logger"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/google/btree"
-	"math"
 )
 
 type PoolRemovalReason int
@@ -143,7 +143,7 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining *[]*core.OutPo
 			}
 		}
 	}
-	logger.GetLogger().Debug("mempool remove %d transactions with SIZELIMIT reason. \n", nTxnRemoved)
+	logs.Debug("mempool remove %d transactions with SIZELIMIT reason. \n", nTxnRemoved)
 
 }
 
@@ -197,7 +197,7 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache) {
 		return
 	}
 
-	logger.GetLogger().Debug("mempool Checking mempool with %d transactions and %d inputs", len(m.PoolData), len(m.NextTx))
+	logs.Debug("mempool Checking mempool with %d transactions and %d inputs", len(m.PoolData), len(m.NextTx))
 
 	//checkTotal := uint64(0)
 	//innerUsage := uint64(0)

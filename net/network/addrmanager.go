@@ -18,11 +18,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/net/protocol"
 	"github.com/btcboost/copernicus/utils"
 
+	"github.com/astaxie/beego/logs"
 	beegoUtils "github.com/astaxie/beego/utils"
 )
 
@@ -44,8 +44,6 @@ const (
 	AddressMax            = 2500
 	TriedBucketSize       = 256
 )
-
-var log = logs.NewLogger()
 
 type NetAddressManager struct {
 	lock           sync.Mutex
@@ -103,20 +101,20 @@ func (addressManager *NetAddressManager) updateAddress(netAddress, srcAddress *P
 		return
 	}
 	if addressManager.addressNew[bucket].Count() > NewBucketSize {
-		log.Trace("new bucket is full ,expiring old")
+		logs.Trace("new bucket is full ,expiring old")
 		addressManager.expireNew(bucket)
 
 	}
 	knownAddress.refs++
 	addressManager.addressNew[bucket].Set(addressString, knownAddress)
-	log.Trace("sAdded new address %s for addressManager total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
+	logs.Trace("sAdded new address %s for addressManager total of %d addresses", addressString, addressManager.numTried+addressManager.numNew)
 }
 func (addressManager *NetAddressManager) expireNew(bucket int) {
 	var oldest *KnownAddress
 	for k, v := range addressManager.addressNew[bucket].Items() {
 		knownAddressValue := v.(*KnownAddress)
 		if knownAddressValue.IsBad() {
-			log.Trace("expiring bad address %v", k)
+			logs.Trace("expiring bad address %v", k)
 			addressManager.addressNew[bucket].Delete(k)
 			knownAddressValue.refs--
 			if knownAddressValue.refs == 0 {
@@ -134,7 +132,7 @@ func (addressManager *NetAddressManager) expireNew(bucket int) {
 	}
 	if oldest != nil {
 		key := oldest.NetAddress.NetAddressKey()
-		log.Trace("expiring oldest address %v", key)
+		logs.Trace("expiring oldest address %v", key)
 		addressManager.addressNew[bucket].Delete(key)
 		oldest.refs--
 		if oldest.refs == 0 {
@@ -213,14 +211,14 @@ func (addressManager *NetAddressManager) savePeers() {
 	}
 	w, err := os.Create(addressManager.peersFile)
 	if err != nil {
-		log.Error("Error opening file %s :%v", addressManager.peersFile, err)
+		logs.Error("Error opening file %s :%v", addressManager.peersFile, err)
 		return
 	}
 	newEncoder := json.NewEncoder(w)
 	defer w.Close()
 
 	if err := newEncoder.Encode(&serializedAddressManager); err != nil {
-		log.Error("Failed to encode file %s :%v", addressManager.peersFile, err)
+		logs.Error("Failed to encode file %s :%v", addressManager.peersFile, err)
 	}
 }
 func (addressManager *NetAddressManager) addressHandler() {
@@ -238,7 +236,7 @@ out:
 	}
 	addressManager.savePeers()
 	addressManager.waitGroup.Done()
-	log.Trace("address handler done ")
+	logs.Trace("address handler done ")
 }
 func (addressManager *NetAddressManager) loadPeers() {
 	addressManager.lock.Lock()
@@ -266,7 +264,7 @@ func (addressManager *NetAddressManager) HostToNetAddress(host string, port uint
 		}
 		prefix := []byte{0xfd, 0x87, 0xd8, 0x7e, 0xeb, 0x43}
 		ip := net.IP(append(prefix, data...))
-		log.Debug("%s", ip)
+		logs.Debug("%s", ip)
 	} else if ip = net.ParseIP(host); ip == nil {
 		ips, err := addressManager.lookupFunc(host)
 		if err != nil {
@@ -303,7 +301,7 @@ func (addressManager *NetAddressManager) Start() {
 	if atomic.AddInt32(&addressManager.started, 1) != 1 {
 		return
 	}
-	log.Trace("Starting address manager")
+	logs.Trace("Starting address manager")
 	addressManager.loadPeers()
 	addressManager.waitGroup.Add(1)
 	go addressManager.addressHandler()
@@ -311,10 +309,10 @@ func (addressManager *NetAddressManager) Start() {
 
 func (addressManager *NetAddressManager) Stop() error {
 	if atomic.AddInt32(&addressManager.shutdown, 1) != 1 {
-		log.Warn("address manager is already in the process of shutting down ")
+		logs.Warn("address manager is already in the process of shutting down ")
 		return nil
 	}
-	log.Info("address manger shutting down")
+	logs.Info("address manger shutting down")
 	close(addressManager.quit)
 	addressManager.waitGroup.Wait()
 	return nil
@@ -422,7 +420,7 @@ func (addressManager *NetAddressManager) GetAddress() *KnownAddress {
 			knownAddress := e.Value.(*KnownAddress)
 			randVal := addressManager.rand.Intn(large)
 			if float64(randVal) < (factor * knownAddress.Chance() * float64(large)) {
-				log.Trace("selected %v from tried bucket ", knownAddress.NetAddress.NetAddressKey())
+				logs.Trace("selected %v from tried bucket ", knownAddress.NetAddress.NetAddressKey())
 			}
 		}
 	} else {
@@ -443,7 +441,7 @@ func (addressManager *NetAddressManager) GetAddress() *KnownAddress {
 			}
 			randval := addressManager.rand.Intn(large)
 			if float64(randval) < (factor * knownAddress.Chance() * float64(large)) {
-				log.Trace("selected %v from new bucket", knownAddress.NetAddress.NetAddressKey())
+				logs.Trace("selected %v from new bucket", knownAddress.NetAddress.NetAddressKey())
 				return knownAddress
 			}
 			factor *= 1.2
@@ -528,7 +526,7 @@ func (addressManager *NetAddressManager) MarkGood(address *PeerAddress) {
 	addressManager.numNew++
 
 	rmKey := rmKnownAddress.NetAddress.NetAddressKey()
-	log.Trace("Replacing %s with %s in tried", rmKey, addressKey)
+	logs.Trace("Replacing %s with %s in tried", rmKey, addressKey)
 	addressManager.addressNew[newBucket].Set(rmKey, rmKnownAddress)
 
 }
@@ -570,10 +568,10 @@ func (addressManager *NetAddressManager) GetBestLocalAddress(remoteAddress *Peer
 		}
 	}
 	if bestAddress != nil {
-		log.Debug("suggesting address %s:%d for %s:%d", bestAddress.IP, bestAddress.Port, remoteAddress.IP, remoteAddress.Port)
+		logs.Debug("suggesting address %s:%d for %s:%d", bestAddress.IP, bestAddress.Port, remoteAddress.IP, remoteAddress.Port)
 
 	} else {
-		log.Debug("No worthy address for %s:%d", remoteAddress.IP, remoteAddress.Port)
+		logs.Debug("No worthy address for %s:%d", remoteAddress.IP, remoteAddress.Port)
 		var ip net.IP
 		if !remoteAddress.IsIPv4() && !remoteAddress.IsOnionCatTor() {
 			ip = net.IPv6zero
