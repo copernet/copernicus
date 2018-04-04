@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	InitLogger(conf.GetDataPath(), "debug") // todo configure via config file
+	initLogger(conf.GetDataPath(), "debug") // todo configure via config file
 }
 
 type logConfig struct {
@@ -60,7 +60,7 @@ func TraceLog() string {
 }
 
 func Print(module string, level string, format string, reason ...interface{}) {
-	if IsIncludeModule(module) {
+	if isIncludeModule(module) {
 		switch level {
 		case "emergency":
 			logs.Emergency(format, reason)
@@ -82,7 +82,7 @@ func Print(module string, level string, format string, reason ...interface{}) {
 	}
 }
 
-func IsIncludeModule(module string) bool {
+func isIncludeModule(module string) bool {
 	for _, item := range conf.AppConf.LogModule {
 		if item == module {
 			return true
@@ -91,7 +91,7 @@ func IsIncludeModule(module string) bool {
 	return false
 }
 
-func InitLogger(dir, strLevel string) (err error) {
+func initLogger(dir, strLevel string) (err error) {
 	logLevel, ok := validLogLevel(strLevel)
 	if !ok {
 		return fmt.Errorf("mismatch the logLevel %s", strLevel)

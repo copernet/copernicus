@@ -10,7 +10,8 @@ import (
 
 type Pow struct{}
 
-func (pow *Pow) GetNextWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) GetNextWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader,
+	params *msg.BitcoinParams) uint32 {
 	if indexPrev == nil {
 		return BigToCompact(params.PowLimit)
 	}
@@ -27,7 +28,8 @@ func (pow *Pow) GetNextWorkRequired(indexPrev *core.BlockIndex, blHeader *core.B
 	return pow.getNextEDAWorkRequired(indexPrev, blHeader, params)
 }
 
-func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlockTime int64, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlockTime int64,
+	params *msg.BitcoinParams) uint32 {
 	if params.FPowNoRetargeting {
 		return indexPrev.Header.Bits
 	}
@@ -59,7 +61,8 @@ func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlock
 // most of the calculation - except for the timestamp of the first and last
 // block. Because timestamps are the least trustworthy information we have as
 // input, this ensures the algorithm is more resistant to malicious inputs.
-func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader,
+	params *msg.BitcoinParams) uint32 {
 	if indexPrev == nil {
 		panic("This cannot handle the genesis block and early blocks in general.")
 	}
@@ -100,7 +103,8 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *co
 
 // getNextEDAWorkRequired Compute the next required proof of work using the
 // legacy Bitcoin difficulty adjustment + Emergency Difficulty Adjustment (EDA).
-func (pow *Pow) getNextEDAWorkRequired(indexPrev *core.BlockIndex, pblock *core.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) getNextEDAWorkRequired(indexPrev *core.BlockIndex, pblock *core.BlockHeader,
+	params *msg.BitcoinParams) uint32 {
 
 	// Only change once per difficulty adjustment interval
 	nHeight := indexPrev.Height + 1

@@ -23,6 +23,9 @@ const (
 	DisconnectFailed
 )
 
+type TxInUndo struct {
+}
+
 type TxUndo struct {
 	prevOut []*utxo.Coin
 }
