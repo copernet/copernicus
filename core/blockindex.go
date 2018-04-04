@@ -73,15 +73,6 @@ func (blIndex *BlockIndex) SetNull() {
 	blIndex.TimeMax = 0
 }
 
-func (blIndex *BlockIndex) AddToBlockIndex() bool {
-	_, exist := BlockIndexMap[blIndex.BlockHash]
-	if !exist {
-		BlockIndexMap[blIndex.BlockHash] = blIndex
-		return true
-	}
-	return false
-}
-
 func (blIndex *BlockIndex) DelBlockIndex() bool {
 	_, exist := BlockIndexMap[blIndex.BlockHash]
 	if exist {
