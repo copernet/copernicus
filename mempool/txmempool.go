@@ -199,8 +199,8 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache) {
 
 	logs.Debug("mempool Checking mempool with %d transactions and %d inputs", len(m.PoolData), len(m.NextTx))
 
-	//checkTotal := uint64(0)
-	//innerUsage := uint64(0)
+	// checkTotal := uint64(0)
+	// innerUsage := uint64(0)
 
 }
 

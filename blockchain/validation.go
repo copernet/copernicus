@@ -283,8 +283,8 @@ func CheckBlock(params *msg.BitcoinParams, block *core.Block, state *core.Valida
 			false, "first tx is not coinBase")
 	}
 
-	//size limits
-	nMaxBlockSize := policy.DefaultBlockMinTxFee
+	// size limits
+	nMaxBlockSize := policy.DefaultMaxBlockSize
 
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := core.NewTx().SerializeSize()
@@ -4747,7 +4747,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 	// Map of disk positions for blocks with unknown parent (only used for
 	// reindex)
 	mapBlocksUnknownParent := make(map[utils.Hash][]core.DiskBlockPos)
-	nStart := utils.GetMillisTimee()
+	nStart := utils.GetMillisTime()
 	nLoaded := 0
 
 	defer func() {
@@ -4870,7 +4870,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 	}
 	if nLoaded > 0 {
 		logs.Debug("Loaded %d blocks from external file in %dms",
-			nLoaded, utils.GetMillisTimee()-nStart)
+			nLoaded, utils.GetMillisTime()-nStart)
 	}
 
 	return nLoaded > 0

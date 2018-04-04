@@ -85,7 +85,6 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 			scriptBytes, _ := GetScriptBytes(script)
 			txCopy.Ins[i].Script = NewScriptRaw(scriptBytes)
 		} else {
-
 			txCopy.Ins[i].Script = NilScript
 		}
 	}
