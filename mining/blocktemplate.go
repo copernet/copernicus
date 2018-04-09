@@ -1,15 +1,23 @@
 package mining
 
 import (
+	"fmt"
 	"strconv"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
+)
+
+var (
+	lastBlockTx   = uint64(0)
+	lastBlockSize = uint64(0)
 )
 
 const DEFAULT_PRINTPRIORITY = false
@@ -18,6 +26,14 @@ type BlockTemplate struct {
 	block         *core.Block
 	txFees        []utils.Amount
 	txSigOpsCount []int64
+}
+
+func newBlockTemplate() *BlockTemplate {
+	return &BlockTemplate{
+		block:         core.NewBlock(),
+		txFees:        make([]utils.Amount, 0),
+		txSigOpsCount: make([]int64, 0),
+	}
 }
 
 // Container for tracking updates to ancestor feerate as we include (parent)
@@ -82,8 +98,8 @@ func ScoreCompare(a, b *mempool.TxMempoolEntry) bool {
 	return mempool.CompareTxMempoolEntryByScore(b, a)
 }
 
-func UpdateTime(bh *core.BlockHeader, params *msg.BitcoinParams, indexPrev *core.BlockIndex) int64 {
-	oldTime := int64(bh.Time)
+func UpdateTime(bl *core.Block, params *msg.BitcoinParams, indexPrev *core.BlockIndex) int64 {
+	oldTime := int64(bl.BlockHeader.Time)
 	var newTime int64
 	mt := indexPrev.GetMedianTimePast() + 1
 	at := utils.GetAdjustedTime()
@@ -93,13 +109,13 @@ func UpdateTime(bh *core.BlockHeader, params *msg.BitcoinParams, indexPrev *core
 		newTime = at
 	}
 	if oldTime < newTime {
-		bh.Time = uint32(newTime)
+		bl.BlockHeader.Time = uint32(newTime)
 	}
 
 	// Updating time can change work required on testnet:
 	if params.FPowAllowMinDifficultyBlocks {
 		pow := blockchain.Pow{}
-		bh.Bits = pow.GetNextWorkRequired(indexPrev, bh, params)
+		bl.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &bl.BlockHeader, params)
 	}
 	return newTime - oldTime
 }
@@ -175,8 +191,102 @@ func getSubVersionEB(maxBlockSize uint64) string {
 }
 
 func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
-	// timeStart := utils.GetMockTimeInMicros()
-	//
-	// ba.resetBlock()
-	return nil
+	timeStart := utils.GetMockTimeInMicros()
+
+	ba.resetBlock()
+	ba.bt = newBlockTemplate()
+
+	// Pointer for convenience.
+	ba.block = ba.bt.block
+
+	// add dummy coinbase tx as first transaction
+	ba.block.Txs = make([]*core.Tx, 1)
+	ba.block.Txs[0] = core.NewTx()
+
+	// updated at end
+	ba.bt.txFees = append(ba.bt.txFees, -1)
+	ba.bt.txSigOpsCount = append(ba.bt.txSigOpsCount, -1)
+
+	// todo LOCK2(cs_main, mempool.cs);
+	indexPrev := core.ActiveChain.Tip()
+	ba.height = indexPrev.Height + 1
+
+	ba.block.BlockHeader.Version = int32(blockchain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, nil))
+	// -regtest only: allow overriding block.nVersion with
+	// -blockversion=N to test forking scenarios
+	if ba.chainParams.MineBlocksOnDemands {
+		ba.block.BlockHeader.Version = int32(utils.GetArg("-blockversion", int64(ba.block.BlockHeader.Version)))
+	}
+
+	ba.block.BlockHeader.Time = uint32(utils.GetAdjustedTime())
+
+	ba.maxGeneratedBlockSize = ComputeMaxGeneratedBlockSize(indexPrev)
+
+	if consensus.StandardLocktimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+		ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
+	} else {
+		ba.lockTimeCutoff = int64(ba.block.BlockHeader.Time)
+	}
+	addPriorityTxs()
+	packagesSelected := 0
+	descendantsUpdated := 0
+	addPackageTxs(packagesSelected, descendantsUpdated)
+
+	time1 := utils.GetMockTimeInMicros()
+	lastBlockTx = ba.blockTx
+	lastBlockSize = ba.blockSize
+
+	// Create coinbase transaction
+	coinbaseTx := core.NewTx()
+	coinbaseTx.Ins = make([]*core.TxIn, 1)
+	// outpoint := core.OutPoint{
+	// 	Hash:  utils.HashZero,
+	// 	Index: -1,
+	// }
+	// coinbaseTx.Ins[0] = core.NewTxIn(&outpoint, nil)
+	s := core.NewScriptRaw([]byte{})
+	s.PushScriptNum(core.NewCScriptNum(int64(ba.height)))
+	s.PushOpCode(core.OP_0)
+	coinbaseTx.Ins[0].Script = s
+
+	coinbaseTx.Outs = make([]*core.TxOut, 1)
+	value := ba.fees + blockchain.GetBlockSubsidy(ba.height, ba.chainParams)
+	coinbaseTx.Outs[0] = core.NewTxOut(int64(value), script.GetScriptByte())
+
+	ba.block.Txs = make([]*core.Tx, 1)
+	ba.block.Txs[0] = coinbaseTx
+
+	ba.bt.txFees = append(ba.bt.txFees, -1*ba.fees)
+	serializeSize := ba.block.SerializeSize()
+	logs.Info("CreateNewBlock(): total size: %d txs: %d fees: %d sigops %d\n",
+		serializeSize, ba.blockTx, ba.fees, ba.blockSigOps)
+
+	// Fill in header.
+	ba.block.BlockHeader.HashPrevBlock = *indexPrev.GetBlockHash()
+	UpdateTime(ba.block, ba.chainParams, indexPrev)
+
+	pow := blockchain.Pow{}
+	ba.block.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &ba.block.BlockHeader, ba.chainParams)
+	ba.block.BlockHeader.Nonce = 0
+	ba.bt.txSigOpsCount[0] = int64(ba.block.Txs[0].GetSigOpCountWithoutP2SH())
+
+	state := core.ValidationState{}
+	if !blockchain.TestBlockValidity(ba.chainParams, &state, ba.block, indexPrev, false, false) {
+		panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
+	}
+
+	time2 := utils.GetMockTimeInMicros()
+	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+
+		"updated descendants), validity: %.2fms (total %.2fms)\n", 0.001*float64(time1-timeStart),
+		packagesSelected, descendantsUpdated, 0.001*float64(time2-time1), 0.001*float64(time2-timeStart))
+
+	return ba.bt
+}
+
+func addPriorityTxs() {
+
+}
+
+func addPackageTxs(packagesSelected, descendantsUpdated int) {
+
 }

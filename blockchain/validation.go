@@ -1730,7 +1730,7 @@ func InvalidBlockFound(pindex *core.BlockIndex, state *core.ValidationState) {
 
 }
 
-func GetBlockSubsidy(height int, params msg.BitcoinParams) utils.Amount {
+func GetBlockSubsidy(height int, params *msg.BitcoinParams) utils.Amount {
 	halvings := height / int(params.SubsidyReductionInterval)
 	// Force block reward to zero when right shift is undefined.
 	if halvings >= 64 {
@@ -2006,7 +2006,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 			0.001*float64(nTime3-nTime2)/float64(nInputs-1), float64(gTimeConnect)*0.000001)
 	}
 
-	blockReward := nFees + GetBlockSubsidy(pindex.Height, *param)
+	blockReward := nFees + GetBlockSubsidy(pindex.Height, param)
 
 	if pblock.Txs[0].GetValueOut() > int64(blockReward) {
 		logs.Error("ConnectBlock(): coinbase pays too much ")
