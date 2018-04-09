@@ -22,14 +22,17 @@ type TxEntry struct {
 	// sumFee is calculated by this tx and all Descendants transaction;
 	sumFeeWithDescendants int64
 	// sumSize size calculated by this tx and all Descendants transaction;
-	sumSizeWithDescendants     uint64
+	sumSizeWithDescendants uint64
+
 	sumTxCountWithAncestors    uint64
 	sumSizeWitAncestors        uint64
 	sumSigOpCountWithAncestors uint64
+	// Total sigop plus P2SH sigops count
+	sigOpCount uint64
 	// time Local time when entering the memPool
 	time int64
 	// usageSize and total memory usage
-	usageSize int64
+	usageSize int
 	// childTx the tx's all Descendants transaction
 	childTx map[*TxEntry]struct{}
 	// parentTx the tx's all Ancestors transaction
@@ -38,6 +41,38 @@ type TxEntry struct {
 	lp core.LockPoints
 	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
+}
+
+func (t *TxEntry) GetTxCountWithDescendants() uint64 {
+	return t.sumTxCountWithDescendants
+}
+
+func (t *TxEntry) GetTxCountWithAncestors() uint64 {
+	return t.sumTxCountWithAncestors
+}
+
+func (t *TxEntry) GetSizeWithAncestors() uint64 {
+	return t.sumSizeWitAncestors
+}
+
+func (t *TxEntry) GetSizeWithDescendants() uint64 {
+	return t.sumSizeWithDescendants
+}
+
+func (t *TxEntry) GetSigOpCount() uint64 {
+	return t.sigOpCount
+}
+
+func (t *TxEntry) GetSigOpCountWithAncestors() uint64 {
+	return t.sumSigOpCountWithAncestors
+}
+
+func (t *TxEntry) GetTxSize() int {
+	return t.txSize
+}
+
+func (t *TxEntry) GetUsageSize() int64 {
+	return int64(t.usageSize)
 }
 
 func (t *TxEntry) GetTxFromTxEntry() *core.Tx {
@@ -50,14 +85,6 @@ func (t *TxEntry) SetLockPointFromTxEntry(lp core.LockPoints) {
 
 func (t *TxEntry) GetLockPointFromTxEntry() core.LockPoints {
 	return t.lp
-}
-
-func (t *TxEntry) UpdateForDescendants(addTx *TxEntry) {
-
-}
-
-func (t *TxEntry) UpdateEntryForAncestors() {
-
 }
 
 func (t *TxEntry) GetSpendsCoinbase() bool {
@@ -84,7 +111,7 @@ func NewTxentry(tx *core.Tx, txFee int64) *TxEntry {
 	t.sumSizeWithDescendants = uint64(t.txSize)
 	t.txFee = txFee
 	t.txFeeRate = utils.NewFeeRateWithSize(txFee, t.txSize)
-	t.usageSize = int64(t.txSize) + int64(unsafe.Sizeof(t.txSize)*2+
+	t.usageSize = t.txSize + int(unsafe.Sizeof(t.txSize)*2+
 		unsafe.Sizeof(t.sumTxCountWithDescendants)*4+unsafe.Sizeof(t.txFeeRate))
 	t.parentTx = make(map[*TxEntry]struct{})
 	t.childTx = make(map[*TxEntry]struct{})
