@@ -5,6 +5,7 @@ import (
 	"math"
 	"sync"
 
+	"container/list"
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
@@ -47,7 +48,129 @@ type TxMempool struct {
 }
 
 func (m *TxMempool) GetCheckFreQuency() float64 {
+	m.RLock()
+	defer m.RUnlock()
 	return m.checkFrequency
+}
+
+// Check If sanity-checking is turned on, check makes sure the pool is consistent
+// (does not contain two transactions that spend the same inputs, all inputs
+// are in the mapNextTx array). If sanity-checking is turned off, check does
+// nothing.
+func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
+	if m.GetCheckFreQuency() == 0 {
+		return
+	}
+	if float64(utils.GetRand(math.MaxUint32)) >= m.GetCheckFreQuency() {
+		return
+	}
+
+	checkTotal := uint64(0)
+	innerUsage := uint64(0)
+	m.Lock()
+	defer m.Unlock()
+
+	waitingOnDependants := list.New()
+	for _, entry := range m.PoolData {
+		//i := uint(0)
+		checkTotal += uint64(entry.GetTxSize())
+		innerUsage += uint64(entry.usageSize)
+		fDependsWait := false
+		setParentCheck := make(map[utils.Hash]struct{})
+
+		for _, txin := range entry.tx.Ins {
+			if entry, ok := m.PoolData[txin.PreviousOutPoint.Hash]; ok {
+				tx2 := entry.tx
+				if !(len(tx2.Outs) > int(txin.PreviousOutPoint.Index) &&
+					!tx2.Outs[txin.PreviousOutPoint.Index].IsNull()) {
+					panic("the tx introduced input dose not exist, or the input amount is nil ")
+				}
+				fDependsWait = true
+				setParentCheck[tx2.Hash] = struct{}{}
+			} else {
+				if coins.HaveCoin(txin.PreviousOutPoint) {
+					panic("the tx introduced input dose not exist mempool And UTXO set !!!")
+				}
+			}
+
+			if _, ok := m.NextTx[*txin.PreviousOutPoint]; !ok {
+				panic("the introduced tx is not in mempool")
+			}
+		}
+		if len(setParentCheck) != len(entry.parentTx) {
+			panic("the two parent set should be equal")
+		}
+
+		// Verify ancestor state is correct.
+		nNoLimit := uint64(math.MaxUint64)
+		setAncestors, err := m.CalculateMemPoolAncestors(entry.tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
+		if err != nil {
+			return
+		}
+		nCountCheck := uint64(len(setAncestors)) + 1
+		nSizeCheck := uint64(entry.txSize)
+		nSigOpCheck := entry.sigOpCount
+		for ancestorIt := range setAncestors {
+			nSizeCheck += uint64(ancestorIt.txSize)
+			nSigOpCheck += ancestorIt.sigOpCount
+		}
+		if entry.sumTxCountWithAncestors != nCountCheck {
+			panic("the txentry's ancestors number is incorrect .")
+		}
+		if entry.sumSizeWitAncestors != nSizeCheck {
+			panic("the txentry's ancestors size is incorrect .")
+		}
+		if entry.sumSigOpCountWithAncestors != nSigOpCheck {
+			panic("the txentry's ancestors sigopcount is incorrect .")
+		}
+
+		// Also check to make sure size is greater than sum with immediate
+		// children. Just a sanity check, not definitive that this calc is
+		// correct...
+		if fDependsWait {
+			waitingOnDependants.PushBack(entry)
+		} else {
+			var state core.ValidationState
+			fCheckResult := entry.tx.IsCoinBase() ||
+				coins.CheckTxInputs(entry.tx, &state, bestHeight)
+			if !fCheckResult {
+				panic("the txentry check failed with utxo set...")
+			}
+			coins.UpdateCoins(entry.tx, 1000000)
+		}
+	}
+	stepsSinceLastRemove := 0
+	for waitingOnDependants.Len() > 0 {
+		it := waitingOnDependants.Front()
+		entry := it.Value.(*TxEntry)
+		waitingOnDependants.Remove(it)
+		if !coins.HaveInputs(entry.tx) {
+			waitingOnDependants.PushBack(entry)
+			stepsSinceLastRemove++
+			if !(stepsSinceLastRemove < waitingOnDependants.Len()) {
+				panic("")
+			}
+		} else {
+			fCheckResult := entry.tx.IsCoinBase() ||
+				coins.CheckTxInputs(entry.tx, nil, bestHeight)
+			if !fCheckResult {
+				panic("")
+			}
+			coins.UpdateCoins(entry.tx, 1000000)
+			stepsSinceLastRemove = 0
+		}
+	}
+
+	for _, entry := range m.NextTx {
+		txid := entry.tx.Hash
+		if e, ok := m.PoolData[txid]; !ok {
+			panic("the transaction not exsit mempool. . .")
+		} else {
+			if e.tx != entry.tx {
+				panic("mempool store the transaction is different with it's two struct . . .")
+			}
+		}
+	}
 }
 
 // RemoveForBlock when a new valid block is received, so all the transaction
@@ -88,7 +211,7 @@ func (m *TxMempool) AddTx(tx *core.Tx, txFee int64) bool {
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
 	newTxEntry := NewTxentry(tx, txFee)
 	m.PoolData[tx.Hash] = newTxEntry
-	m.cacheInnerUsage += newTxEntry.usageSize
+	m.cacheInnerUsage += int64(newTxEntry.usageSize)
 	m.timeSortData.ReplaceOrInsert(newTxEntry)
 
 	// Update ancestors with information about this tx
@@ -100,7 +223,6 @@ func (m *TxMempool) AddTx(tx *core.Tx, txFee int64) bool {
 
 	for hash := range setParentTransactions {
 		if parent, ok := m.PoolData[hash]; ok {
-
 			newTxEntry.UpdateParent(parent, true)
 		}
 	}
@@ -144,7 +266,6 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining *[]*core.OutPo
 		}
 	}
 	logs.Debug("mempool remove %d transactions with SIZELIMIT reason. \n", nTxnRemoved)
-
 }
 
 // Expire all transaction (and their dependencies) in the memPool older
@@ -170,6 +291,15 @@ func (m *TxMempool) Expire(time int64) int {
 	return len(stage)
 }
 
+func (m *TxMempool) FindTx(hash utils.Hash) *core.Tx {
+	m.RLock()
+	m.RUnlock()
+	if find, ok := m.PoolData[hash]; ok {
+		return find.tx
+	}
+	return nil
+}
+
 // HasNoInputsOf Check that none of this transactions inputs are in the memPool,
 // and thus the tx is not dependent on other memPool transactions to be included
 // in a block.
@@ -183,25 +313,6 @@ func (m *TxMempool) HasNoInputsOf(tx *core.Tx) bool {
 		}
 	}
 	return true
-}
-
-// Check If sanity-checking is turned on, check makes sure the pool is consistent
-// (does not contain two transactions that spend the same inputs, all inputs
-// are in the mapNextTx array). If sanity-checking is turned off, check does
-// nothing.
-func (m *TxMempool) Check(coins *utxo.CoinsViewCache) {
-	if m.checkFrequency == 0 {
-		return
-	}
-	if float64(utils.GetRand(math.MaxUint32)) >= m.checkFrequency {
-		return
-	}
-
-	logs.Debug("mempool Checking mempool with %d transactions and %d inputs", len(m.PoolData), len(m.NextTx))
-
-	// checkTotal := uint64(0)
-	// innerUsage := uint64(0)
-
 }
 
 func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
@@ -387,31 +498,6 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 		delete(m.NextTx, *txin.PreviousOutPoint)
 	}
 
-	m.cacheInnerUsage -= removeEntry.usageSize
+	m.cacheInnerUsage -= int64(removeEntry.usageSize)
 	delete(m.PoolData, removeEntry.tx.Hash)
-}
-
-func (m *TxMempool) FindTx(hash utils.Hash) *core.Tx {
-	m.RLock()
-	m.RUnlock()
-	if find, ok := m.PoolData[hash]; ok {
-		return find.tx
-	}
-	return nil
-}
-
-func (m *TxMempool) xAcceptTx(tx *core.Tx) bool {
-	return true
-}
-
-func (m *TxMempool) RejectTx(tx *core.Tx) bool {
-	return true
-}
-
-func (m *TxMempool) GetDescendant(tx *core.Tx) int {
-	return 0
-}
-
-func (m *TxMempool) GetAncestor(tx *core.Tx) int {
-	return 0
 }

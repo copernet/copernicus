@@ -1985,10 +1985,11 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 			blockundo.txundo = append(blockundo.txundo, newTxUndo())
 		}
 		if i == 0 {
-			UpdateCoins(tx, view, &undoDummy, pindex.Height)
+			undoDummy.PrevOut = view.UpdateCoins(tx, pindex.Height)
 		} else {
-			UpdateCoins(tx, view, blockundo.txundo[len(blockundo.txundo)-1], pindex.Height)
+			blockundo.txundo[len(blockundo.txundo)-1].PrevOut = view.UpdateCoins(tx, pindex.Height)
 		}
+		_ = undoDummy
 
 		vPos[tx.Hash] = *txPos
 		txPos.TxOffsetIn += tx.SerializeSize()
@@ -4115,7 +4116,7 @@ func CheckInputs(tx *core.Tx, state *core.ValidationState, view *utxo.CoinsViewC
 	if tx.IsCoinBase() {
 		panic("critical error")
 	}
-	if !CheckTxInputs(tx, state, view, GetSpendHeight(view)) {
+	if !view.CheckTxInputs(tx, state, GetSpendHeight(view)) {
 		return false
 	}
 
@@ -4234,61 +4235,6 @@ func GetSpendHeight(view *utxo.CoinsViewCache) int {
 	// todo lock cs_main
 	indexPrev := MapBlockIndex.Data[view.GetBestBlock()]
 	return indexPrev.Height + 1
-}
-
-func CheckTxInputs(tx *core.Tx, state *core.ValidationState, view *utxo.CoinsViewCache, spendHeight int) bool {
-	// This doesn't trigger the DoS code on purpose; if it did, it would make it
-	// easier for an attacker to attempt to split the network.
-	if !view.HaveInputs(tx) {
-		return state.Invalid(false, 0, "", "Inputs unavailable")
-	}
-
-	valueIn := utils.Amount(0)
-	fees := utils.Amount(0)
-	length := len(tx.Ins)
-	for i := 0; i < length; i++ {
-		prevout := tx.Ins[i].PreviousOutPoint
-		coin := view.AccessCoin(prevout)
-		if coin.IsSpent() {
-			panic("critical error")
-		}
-
-		// If prev is coinbase, check that it's matured
-		if coin.IsCoinBase() {
-			sub := spendHeight - int(coin.GetHeight())
-			if sub < consensus.CoinbaseMaturity {
-				return state.Invalid(false, core.RejectInvalid, "bad-txns-premature-spend-of-coinbase",
-					"tried to spend coinbase at depth"+strconv.Itoa(sub))
-			}
-		}
-
-		// Check for negative or overflow input values
-		valueIn += utils.Amount(coin.TxOut.Value)
-		if !MoneyRange(coin.TxOut.Value) || !MoneyRange(int64(valueIn)) {
-			return state.Dos(100, false, core.RejectInvalid,
-				"bad-txns-inputvalues-outofrange", false, "")
-		}
-	}
-
-	if int64(valueIn) < tx.GetValueOut() {
-		return state.Dos(100, false, core.RejectInvalid, "bad-txns-in-belowout", false,
-			fmt.Sprintf("value in (%s) < value out (%s)", valueIn.String(), utils.Amount(tx.GetValueOut()).String()))
-	}
-
-	// Tally transaction fees
-	txFee := int64(valueIn) - tx.GetValueOut()
-	if txFee < 0 {
-		return state.Dos(100, false, core.RejectInvalid,
-			"bad-txns-fee-negative", false, "")
-	}
-
-	fees += utils.Amount(txFee)
-	if !MoneyRange(int64(fees)) {
-		return state.Dos(100, false, core.RejectInvalid,
-			"bad-txns-fee-outofrange", false, "")
-	}
-
-	return true
 }
 
 func CalculateSequenceLocks(tx *core.Tx, flags int, prevHeights []int, block *core.BlockIndex) map[int]int64 {
@@ -4876,6 +4822,7 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 	return nLoaded > 0
 }
 
+/*
 func CheckMempool(pool *mempool.Mempool, pcoins *utxo.CoinsViewCache) {
 	if pool.CheckFrequency == 0 {
 		return
@@ -5050,6 +4997,7 @@ func CheckMempool(pool *mempool.Mempool, pcoins *utxo.CoinsViewCache) {
 		panic("the usage should be equal")
 	}
 }
+*/
 
 func MainCleanup() {
 	MapBlockIndex.Data = make(map[utils.Hash]*core.BlockIndex)

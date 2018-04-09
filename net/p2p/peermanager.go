@@ -213,6 +213,7 @@ func (peerManager *PeerManager) Start() {
 		peerManager.waitGroup.Add(1)
 		go peerManager.upnpUpdateThread()
 	}
+	fmt.Println("PeerManager Start")
 
 }
 
