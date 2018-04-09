@@ -114,14 +114,14 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 0})
 	poolSize := testPool.Size()
 
-	//Nothing in pool, remove should do nothing:
+	// Nothing in pool, remove should do nothing:
 	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize)
 	}
 
-	//Just add the parent:
+	// Just add the parent:
 	if !testPool.AddUnchecked(&txParentPtr.Hash, entry.FromTxToEntry(txParentPtr, nil), true) {
 		t.Error("add Tx failure ...")
 	}
