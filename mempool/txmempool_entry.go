@@ -72,7 +72,8 @@ func (txMempoolEntry *TxMempoolEntry) GetInfo() *TxMempoolInfo {
 }
 
 func (txMempoolEntry *TxMempoolEntry) GetPriority(currentHeight uint) float64 {
-	deltaPriority := (float64(currentHeight-txMempoolEntry.EntryHeight) * float64(txMempoolEntry.InChainInputValue)) / float64(txMempoolEntry.ModSize)
+	deltaPriority := (float64(currentHeight-txMempoolEntry.EntryHeight) *
+		float64(txMempoolEntry.InChainInputValue)) / float64(txMempoolEntry.ModSize)
 	result := txMempoolEntry.EntryPriority + deltaPriority
 	if result < 0 {
 		result = 0
@@ -241,6 +242,7 @@ func CompareTxMempoolEntryByScore(src, dst interface{}) bool {
 func IncrementalDynamicUsageTxMempoolEntry(s *set.Set) int64 {
 	return MallocUsage(int64(unsafe.Sizeof(s)))
 }
+
 func NewTxMempoolEntry(txRef *core.Tx, fee utils.Amount, time int64,
 	entryPriority float64, entryHeight uint, inChainInputValue utils.Amount, spendCoinbase bool,
 	sigOpsCount int64, lockPoints *core.LockPoints) *TxMempoolEntry {

@@ -19,7 +19,7 @@ func SetMockTime(time int64) {
 	mockTime = time
 }
 
-func GetMillisTimee() int64 {
+func GetMillisTime() int64 {
 	return time.Now().Unix()
 }
 
