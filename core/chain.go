@@ -8,7 +8,7 @@ import (
 
 // todo, should be protected by lock
 type Chain struct {
-	ActiveChain   Chain
+	ActiveChain   []*BlockIndex
 	BranchChain   []*BlockIndex
 	WaitForTx     map[utils.Hash]*BlockIndex
 	Orphan        []*BlockIndex
