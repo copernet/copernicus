@@ -6,8 +6,8 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-// todo these global variable should be protected by lock
-type Chain struct (
+// todo, should be protected by lock
+type Chain struct {
 	ActiveChain   Chain
 	BranchChain   []*BlockIndex
 	WaitForTx     map[utils.Hash]*BlockIndex
@@ -15,7 +15,7 @@ type Chain struct (
 	BlockIndexMap map[utils.Hash]*BlockIndex
 	NewestBlock   *BlockIndex
 	ReceiveID     uint64
-)
+}
 
 // Chain An in-memory blIndexed chain of blocks.
 /*type Chain struct {
