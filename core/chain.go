@@ -7,7 +7,7 @@ import (
 )
 
 // todo these global variable should be protected by lock
-var (
+type Chain struct (
 	ActiveChain   Chain
 	BranchChain   []*BlockIndex
 	WaitForTx     map[utils.Hash]*BlockIndex
@@ -18,9 +18,9 @@ var (
 )
 
 // Chain An in-memory blIndexed chain of blocks.
-type Chain struct {
+/*type Chain struct {
 	Chain []*BlockIndex
-}
+}*/
 
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
