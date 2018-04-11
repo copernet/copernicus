@@ -2,6 +2,7 @@ package mining
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/astaxie/beego/logs"
@@ -13,6 +14,7 @@ import (
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
+	"gopkg.in/fatih/set.v0"
 )
 
 var (
@@ -86,7 +88,7 @@ type BlockAssembler struct {
 	blockTx               uint64
 	blockSigOps           uint64
 	fees                  utils.Amount
-	inBlock               []*mempool.TxMempoolEntry
+	inBlock               set.Set // element type: *mempool.TxMempoolEntry
 	height                int
 	lockTimeCutoff        int64
 	chainParams           *msg.BitcoinParams
@@ -148,7 +150,7 @@ func NewBlockAssembler(params *msg.BitcoinParams) *BlockAssembler {
 }
 
 func (ba *BlockAssembler) resetBlock() {
-	ba.inBlock = nil
+	ba.inBlock.Clear()
 	// Reserve space for coinbase tx.
 	ba.blockSize = 1000
 	ba.blockSigOps = 1000
@@ -230,7 +232,6 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	addPriorityTxs()
 	packagesSelected := 0
 	descendantsUpdated := 0
-	addPackageTxs(packagesSelected, descendantsUpdated)
 
 	time1 := utils.GetMockTimeInMicros()
 	lastBlockTx = ba.blockTx
@@ -287,6 +288,174 @@ func addPriorityTxs() {
 
 }
 
-func addPackageTxs(packagesSelected, descendantsUpdated int) {
+// This transaction selection algorithm orders the mempool based on feerate of a
+// transaction including all unconfirmed ancestors. Since we don't remove
+// transactions from the mempool as we select them for block inclusion, we need
+// an alternate method of updating the feerate of a transaction with its
+// not-yet-selected ancestors as we go. This is accomplished by walking the
+// in-mempool descendants of selected transactions and storing a temporary
+// modified state in mapModifiedTxs. Each time through the loop, we compare the
+// best transaction in mapModifiedTxs with the next transaction in the mempool
+// to decide what transaction package to work on next.
+func (ba *BlockAssembler) addPackageTxs(packagesSelected, descendantsUpdated int) {
 
+}
+
+func (ba *BlockAssembler) isStillDependent(te *mempool.TxMempoolEntry) bool {
+	setParent := blockchain.GMemPool.GetMemPoolParents(te)
+	plist := setParent.List()
+	for _, item := range plist {
+		parent := item.(*mempool.TxMempoolEntry)
+		if !ba.inBlock.Has(parent) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ba *BlockAssembler) onlyUnconfirmed(testSet *set.Set) {
+	testSet.Each(func(item interface{}) bool {
+		iit := item.(*mempool.TxMempoolEntry)
+		// Only test txs not already in the block.
+		if ba.inBlock.Has(iit) {
+			testSet.Remove(iit)
+		}
+		return true
+	})
+}
+
+func (ba *BlockAssembler) TestPackage(packageSize uint64, packageSigops int64) bool {
+	blockSizeWithPackage := ba.blockSize + packageSize
+	if blockSizeWithPackage >= ba.maxGeneratedBlockSize {
+		return false
+	}
+	if ba.blockSigOps+uint64(packageSigops) >= consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage) {
+		return false
+	}
+	return true
+}
+
+// Perform transaction-level checks before adding to block:
+// - transaction finality (locktime)
+// - serialized size (in case -blockmaxsize is in use)
+func (ba *BlockAssembler) testPackageTransactions(pkg *set.Set) bool {
+	potentialBlockSize := ba.blockSize
+	pkg.Each(func(item interface{}) bool {
+		state := core.ValidationState{}
+		it := item.(*mempool.TxMempoolEntry)
+		if !blockchain.ContextualCheckTransaction(ba.chainParams, it.TxRef, &state, ba.height, ba.lockTimeCutoff) {
+			return false
+		}
+
+		txSize := it.TxRef.SerializeSize()
+		if potentialBlockSize+uint64(txSize) >= ba.maxGeneratedBlockSize {
+			return false
+		}
+
+		potentialBlockSize += uint64(txSize)
+		return true
+	})
+	return true
+}
+
+func (ba *BlockAssembler) testForBlock(te *mempool.TxMempoolEntry) bool {
+	blockSizeWithTx := ba.blockSize + uint64(te.TxRef.SerializeSize())
+	if blockSizeWithTx >= ba.maxGeneratedBlockSize {
+		if ba.blockSize > ba.maxGeneratedBlockSize-100 || ba.lastFewTxs > 50 {
+			ba.blockFinished = true
+			return false
+		}
+		if ba.blockSize > ba.maxGeneratedBlockSize-1000 {
+			ba.lastFewTxs++
+		}
+		return false
+	}
+
+	maxBlockSigOps := consensus.GetMaxBlockSigOpsCount(blockSizeWithTx)
+	if ba.blockSigOps+uint64(te.SigOpCount) >= maxBlockSigOps {
+		// If the block has room for no more sig ops then flag that the block is
+		// finished.
+		// TODO: We should consider adding another transaction that isn't very
+		// dense in sigops instead of bailing out so easily.
+		if ba.blockSigOps > maxBlockSigOps-2 {
+			ba.blockFinished = true
+			return false
+		}
+		// Otherwise attempt to find another tx with fewer sigops to put in the
+		// block.
+		return false
+	}
+
+	// Must check that lock times are still valid. This can be removed once MTP
+	// is always enforced as long as reorgs keep the mempool consistent.
+	state := core.ValidationState{}
+	return blockchain.ContextualCheckTransaction(ba.chainParams, te.TxRef, &state, ba.height, ba.lockTimeCutoff)
+}
+
+func (ba *BlockAssembler) addToBlock(te *mempool.TxMempoolEntry) {
+	ba.block.Txs = append(ba.block.Txs, te.TxRef)
+	ba.bt.txFees = append(ba.bt.txFees, te.Fee)
+	ba.bt.txSigOpsCount = append(ba.bt.txSigOpsCount, te.SigOpCount)
+	ba.blockSize += uint64(te.TxSize)
+	ba.blockTx++
+	ba.blockSigOps += uint64(te.SigOpCount)
+	ba.fees += te.Fee
+	ba.inBlock.Add(te)
+}
+
+func (ba *BlockAssembler) UpdatePackagesForAdded(alreadyAdded *set.Set, mapModifiedTx *set.Set) int {
+	descendantsUpdated := 0
+	alreadyAdded.Each(func(item interface{}) bool {
+		it := item.(*mempool.TxMempoolEntry)
+		descendants := set.New() // element type: *mempool.TxMempoolEntry
+		blockchain.GMemPool.CalculateDescendants(it, descendants)
+		// Insert all descendants (not yet in block) into the modified set.
+		descendants.Each(func(ele interface{}) bool {
+			desc := ele.(*mempool.TxMempoolEntry)
+			if alreadyAdded.Has(desc) {
+				// do nothing
+			} else {
+				descendantsUpdated++
+				// mit := mapModifiedTx
+				// todo complete
+			}
+
+			return true
+		})
+		return true
+	})
+
+	return 0
+}
+
+// mapModifiedTx (which implies that the mapTx ancestor state is stale due to
+// ancestor inclusion in the block). Also skip transactions that we've already
+// failed to add. This can happen if we consider a transaction in mapModifiedTx
+// and it fails: we can then potentially consider it again while walking mapTx.
+// It's currently guaranteed to fail again, but as a belt-and-suspenders check
+// we put it in failedTx and avoid re-evaluation, since the re-evaluation would
+// be using cached size/sigops/fee values that are not actually correct.
+func (ba *BlockAssembler) skipMapTxEntry(it *mempool.TxMempoolEntry, mapModifiedTx *set.Set, failedTx *set.Set) bool {
+	return true
+}
+
+func (ba *BlockAssembler) sortForBlock(pkg *set.Set, entry *mempool.TxMempoolEntry) []*mempool.TxMempoolEntry {
+	// Sort package by ancestor count. If a transaction A depends on transaction
+	// B, then A's ancestor count must be greater than B's. So this is
+	// sufficient to validly order the transactions for block inclusion.
+	sortedEntries := make([]*mempool.TxMempoolEntry, pkg.Size())
+	i := 0
+	pkg.Each(func(item interface{}) bool {
+		it := item.(*mempool.TxMempoolEntry)
+		sortedEntries[i] = it
+		return true
+	})
+
+	sort.SliceStable(sortedEntries, func(i, j int) bool {
+		if sortedEntries[i].CountWithAncestors != sortedEntries[j].CountWithAncestors {
+			return sortedEntries[i].CountWithAncestors < sortedEntries[j].CountWithAncestors
+		}
+		return !utils.CompareByHash(sortedEntries[i].TxRef.Hash, sortedEntries[j].TxRef.Hash)
+	})
+	return sortedEntries
 }
