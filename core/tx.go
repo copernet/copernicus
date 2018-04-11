@@ -396,7 +396,7 @@ func (tx *Tx) Copy() *Tx {
 	}
 	for _, txIn := range tx.Ins {
 		var newOutPoint *OutPoint
-		if txIn.PreviousOutPoint != nil{
+		if txIn.PreviousOutPoint != nil {
 			preHash := new(utils.Hash)
 			preHash.SetBytes(txIn.PreviousOutPoint.Hash[:])
 			newOutPoint = &OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
