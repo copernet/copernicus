@@ -7,20 +7,20 @@ import (
 )
 
 // todo, should be protected by lock
-type Chain struct {
-	ActiveChain   []*BlockIndex
+var (
+	ActiveChain   Chain
 	BranchChain   []*BlockIndex
 	WaitForTx     map[utils.Hash]*BlockIndex
 	Orphan        []*BlockIndex
 	BlockIndexMap map[utils.Hash]*BlockIndex
 	NewestBlock   *BlockIndex
 	ReceiveID     uint64
-}
+)
 
 // Chain An in-memory blIndexed chain of blocks.
-/*type Chain struct {
+type Chain struct {
 	Chain []*BlockIndex
-}*/
+}
 
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
