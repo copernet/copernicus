@@ -6,7 +6,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-// todo these global variable should be protected by lock
+// todo, should be protected by lock
 var (
 	ActiveChain   Chain
 	BranchChain   []*BlockIndex
