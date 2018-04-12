@@ -15,17 +15,12 @@ go:
 
 cache:
   apt: true
-  packages:
-    - g++-6
-    - gcc-6
-    - libsnappy-dev
-    - zlib1g-dev
-    - libbz2-dev
   directories:
     - $HOME/.glide/cache
     - _venv
     - $GOPATH/src
     - $GOPATH/pkg
+    - ${TRAVIS_BUILD_DIR}/deps
     #- /tmp/secp256k1
 before_cache:  # glide touches ORIG_HEAD on `glide install`
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
