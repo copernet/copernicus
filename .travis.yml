@@ -11,6 +11,7 @@ go:
 
 
 cache:
+  apt: true
   directories:
   - $HOME/.glide/cache
   - _venv
