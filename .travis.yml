@@ -12,9 +12,15 @@ addons:
 go:
   - 1.8.x
   - 1.9.x
-cache: packages
+
 cache:
   apt: true
+  packages:
+    - g++-6
+    - gcc-6
+    - libsnappy-dev
+    - zlib1g-dev
+    - libbz2-dev
   directories:
     - $HOME/.glide/cache
     - _venv
