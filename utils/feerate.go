@@ -99,13 +99,12 @@ func NewFeeRate(amount int64) FeeRate {
 	return feeRate
 }
 
-func NewFeeRateWithSize(feePaid int64, bytes int) FeeRate {
+func NewFeeRateWithSize(feePaid int64, bytes int64) FeeRate {
 	if bytes > math.MaxInt64 {
 		panic("bytes is  greater than MaxInt64")
 	}
-	size := int64(bytes)
-	if size > 0 {
-		return NewFeeRate(feePaid * 1000 / size)
+	if bytes > 0 {
+		return NewFeeRate(feePaid * 1000 / bytes)
 	}
 	return NewFeeRate(0)
 }

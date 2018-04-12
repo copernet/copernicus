@@ -53,7 +53,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessTransaction(entry *TxMe
 	}
 	blockPolicyEstimator.trackedTxs++
 	// Feerates are stored and reported as BCC-per-kb:
-	feeRate := utils.NewFeeRateWithSize(int64(entry.Fee), entry.TxSize)
+	feeRate := utils.NewFeeRateWithSize(int64(entry.Fee), int64(entry.TxSize))
 	bucketIndex := blockPolicyEstimator.feeStats.NewTx(txHeight, float64(feeRate.GetFeePerK()))
 	txStatsInfo := policy.TxStatsInfo{BlockHeight: txHeight, BucketIndex: bucketIndex}
 	blockPolicyEstimator.mapMemPoolTxs.Set(txID, txStatsInfo)
@@ -76,7 +76,7 @@ func (blockPolicyEstimator *BlockPolicyEstimator) ProcessBlockTx(blockHeight uin
 	}
 
 	// Feerates are stored and reported as BCC-per-kb:
-	feeRate := utils.NewFeeRateWithSize(int64(entry.Fee), entry.TxSize)
+	feeRate := utils.NewFeeRateWithSize(int64(entry.Fee), int64(entry.TxSize))
 	blockPolicyEstimator.feeStats.Record(int(blocksToConfirm), float64(feeRate.GetFeePerK()))
 
 	return true
