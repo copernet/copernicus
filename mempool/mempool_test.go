@@ -779,7 +779,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	}
 	testPool.DynamicMemoryUsage()
 
-	maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, tx3.SerializeSize()+tx2.SerializeSize())
+	maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, int64(tx3.SerializeSize()+tx2.SerializeSize()))
 	f := testPool.GetMinFee(1)
 	if f.GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",

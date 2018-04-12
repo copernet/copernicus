@@ -542,7 +542,7 @@ func (mempool *Mempool) TrimToSize(sizeLimit int64, pvNoSpendsRemaining *contain
 		// consider txn to have 0 fee). This way, we don't allow txn to enter
 		// mempool with feerate equal to txn which were removed with no block in
 		// between.
-		removed := utils.NewFeeRateWithSize(int64(it.ModFeesWithDescendants), int(it.SizeWithDescendants))
+		removed := utils.NewFeeRateWithSize(int64(it.ModFeesWithDescendants), int64(it.SizeWithDescendants))
 		removed.SataoshisPerK += conf.GlobalValueInstance.GetIncrementalRelayFee().SataoshisPerK
 		mempool.TrackPackageRemoved(removed)
 		if removed.SataoshisPerK > maxFeeRateRemoved.SataoshisPerK {

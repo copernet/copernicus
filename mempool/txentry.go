@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/utils"
 	"github.com/google/btree"
 )
 
@@ -149,4 +150,18 @@ func NewTxentry(tx *core.Tx, txFee int64, acceptTime int64, lp core.LockPoints, 
 	t.childTx = make(map[*TxEntry]struct{})
 
 	return t
+}
+
+type EntryFeeSort TxEntry
+
+func (e EntryFeeSort) Less(than btree.Item) bool {
+	return e.sumFeeWithDescendants > than.(EntryFeeSort).sumFeeWithDescendants
+}
+
+type EntryFeeRateSort TxEntry
+
+func (r EntryFeeRateSort) Less(than btree.Item) bool {
+	t := than.(EntryFeeRateSort)
+	return utils.NewFeeRateWithSize((r).sumFeeWithDescendants, r.sumSizeWithDescendants).SataoshisPerK >
+		utils.NewFeeRateWithSize(t.sumFeeWithDescendants, t.sumSizeWithDescendants).SataoshisPerK
 }

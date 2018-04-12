@@ -45,10 +45,12 @@ type TxMempool struct {
 	//NextTx key is txPreout, value is tx.
 	NextTx map[core.OutPoint]*TxEntry
 	//RootTx all tx's ancestor transaction number is 1.
-	RootTx          map[utils.Hash]*TxEntry
-	timeSortData    *btree.BTree
-	cacheInnerUsage int64
-	checkFrequency  float64
+	RootTxByFeeSort     btree.BTree
+	RootTxByFeeRateSort btree.BTree
+	RootTx              map[utils.Hash]*TxEntry
+	timeSortData        btree.BTree
+	cacheInnerUsage     int64
+	checkFrequency      float64
 	// sum of all mempool tx's size.
 	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
@@ -73,16 +75,15 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 		return
 	}
 
+	logs.SetLogger("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(m.PoolData), len(m.NextTx)))
 	checkTotal := uint64(0)
-	innerUsage := uint64(0)
 	m.Lock()
 	defer m.Unlock()
 
 	waitingOnDependants := list.New()
 	for _, entry := range m.PoolData {
-		//i := uint(0)
+
 		checkTotal += uint64(entry.GetTxSize())
-		innerUsage += uint64(entry.usageSize)
 		fDependsWait := false
 		setParentCheck := make(map[utils.Hash]struct{})
 
@@ -96,7 +97,7 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 				fDependsWait = true
 				setParentCheck[tx2.Hash] = struct{}{}
 			} else {
-				if coins.HaveCoin(txin.PreviousOutPoint) {
+				if !coins.HaveCoin(txin.PreviousOutPoint) {
 					panic("the tx introduced input dose not exist mempool And UTXO set !!!")
 				}
 			}
@@ -118,9 +119,11 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 		nCountCheck := int64(len(setAncestors)) + 1
 		nSizeCheck := int64(entry.txSize)
 		nSigOpCheck := int64(entry.sigOpCount)
+		nFeesCheck := entry.txFee
 		for ancestorIt := range setAncestors {
 			nSizeCheck += int64(ancestorIt.txSize)
 			nSigOpCheck += int64(ancestorIt.sigOpCount)
+			nFeesCheck += ancestorIt.txFee
 		}
 		if entry.sumTxCountWithAncestors != nCountCheck {
 			panic("the txentry's ancestors number is incorrect .")
@@ -130,6 +133,31 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 		}
 		if entry.sumSigOpCountWithAncestors != nSigOpCheck {
 			panic("the txentry's ancestors sigopcount is incorrect .")
+		}
+		if entry.sumFeeWithAncestors != nFeesCheck {
+			panic("the txentry's ancestors fee is incorrect .")
+		}
+
+		setChildrenCheck := make(map[*TxEntry]struct{})
+		childSize := 0
+		for i := range entry.tx.Outs {
+			o := core.OutPoint{Hash: entry.tx.Hash, Index: uint32(i)}
+			if e, ok := m.NextTx[o]; ok {
+				if _, ok := m.PoolData[e.tx.Hash]; !ok {
+					panic("the transaction should be in mempool ...")
+				}
+				if _, ok := setChildrenCheck[e]; !ok {
+					setChildrenCheck[e] = struct{}{}
+					childSize += e.txSize
+				}
+			}
+		}
+
+		if len(setChildrenCheck) != len(entry.childTx) {
+			panic("the transaction children set is different ...")
+		}
+		if entry.sumSizeWithDescendants < int64(childSize+entry.txSize) {
+			panic("the transaction descendant's fee is less its children fee ...")
 		}
 
 		// Also check to make sure size is greater than sum with immediate
@@ -156,7 +184,7 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 			waitingOnDependants.PushBack(entry)
 			stepsSinceLastRemove++
 			if !(stepsSinceLastRemove < waitingOnDependants.Len()) {
-				panic("")
+				panic("the waitingOnDependants list have incorrect number ...")
 			}
 		} else {
 			fCheckResult := entry.tx.IsCoinBase() ||
@@ -178,6 +206,10 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 				panic("mempool store the transaction is different with it's two struct . . .")
 			}
 		}
+	}
+
+	if m.totalTxSize != checkTotal {
+		panic("mempool have all transaction size state is incorrect ...")
 	}
 }
 
@@ -244,13 +276,55 @@ func (m *TxMempool) AddTx(txentry *TxEntry, limitAncestorCount uint64,
 	m.transactionsUpdated++
 	if txentry.sumTxCountWithAncestors == 1 {
 		m.RootTx[txentry.tx.Hash] = txentry
+		m.RootTxByFeeSort.ReplaceOrInsert(EntryFeeSort(*txentry))
+		m.RootTxByFeeRateSort.ReplaceOrInsert(EntryFeeRateSort(*txentry))
 		m.cacheInnerUsage += int64(unsafe.Sizeof(txentry.tx.Hash) + unsafe.Sizeof(txentry))
 	}
 
 	return nil
 }
 
-func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining *[]*core.OutPoint) {
+func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining bool) []*core.OutPoint {
+
+	nTxnRemoved := 0
+	ret := make([]*core.OutPoint, 0)
+	maxFeeRateRemove := int64(0)
+	for len(m.PoolData) > 0 && m.cacheInnerUsage > sizeLimit {
+		removeIt := TxEntry(m.RootTxByFeeRateSort.Min().(EntryFeeRateSort))
+		rem := m.RootTxByFeeRateSort.Min().(EntryFeeRateSort)
+		if rem.tx.Hash != removeIt.tx.Hash {
+			panic("the two transaction should be equal ...")
+		}
+		maxFeeRateRemove = utils.NewFeeRateWithSize(rem.sumFeeWithDescendants, rem.sumSizeWithDescendants).SataoshisPerK
+		stage := make(map[*TxEntry]struct{})
+		m.CalculateDescendants(&removeIt, stage)
+		nTxnRemoved += len(stage)
+		txn := make([]*core.Tx, 0, len(stage))
+		if noSpendsRemaining {
+			for iter := range stage {
+				txn = append(txn, iter.tx)
+			}
+		}
+		m.RemoveStaged(stage, false, SIZELIMIT)
+		if noSpendsRemaining {
+			for _, tx := range txn {
+				for _, txin := range tx.Ins {
+					if _, ok := m.PoolData[txin.PreviousOutPoint.Hash]; ok {
+						continue
+					}
+					if _, ok := m.NextTx[*txin.PreviousOutPoint]; !ok {
+						ret = append(ret, txin.PreviousOutPoint)
+					}
+				}
+			}
+		}
+	}
+
+	logs.SetLogger("mempool", fmt.Sprintf("removed %d txn, rolling minimum fee bumped : %d", nTxnRemoved, maxFeeRateRemove))
+	return ret
+}
+
+func (m *TxMempool) trimToSizeLeagcy(sizeLimit int64, noSpendsRemaining *[]*core.OutPoint) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -350,6 +424,8 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 				if _, ok := m.RootTx[removeIt.tx.Hash]; ok {
 					if dit.sumTxCountWithAncestors == 1 {
 						m.RootTx[dit.tx.Hash] = dit
+						m.RootTxByFeeRateSort.ReplaceOrInsert(EntryFeeRateSort(*dit))
+						m.RootTxByFeeSort.ReplaceOrInsert(EntryFeeSort(*dit))
 					}
 				}
 			}
@@ -367,6 +443,12 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	for removeIt := range entriesToRemove {
 		if _, ok := m.RootTx[removeIt.tx.Hash]; ok {
 			delete(m.RootTx, removeIt.tx.Hash)
+			if err := m.RootTxByFeeSort.Delete(EntryFeeSort(*removeIt)); err != nil {
+				panic("the remove item should be in mempool")
+			}
+			if err := m.RootTxByFeeRateSort.Delete(EntryFeeRateSort(*removeIt)); err != nil {
+				panic("the remove item should be in mempool")
+			}
 			m.cacheInnerUsage -= int64(unsafe.Sizeof(removeIt.tx.Hash) + unsafe.Sizeof(removeIt))
 		}
 		for updateIt := range removeIt.childTx {
@@ -571,6 +653,8 @@ func NewTxMempool() *TxMempool {
 	t := &TxMempool{}
 	t.NextTx = make(map[core.OutPoint]*TxEntry)
 	t.PoolData = make(map[utils.Hash]*TxEntry)
-	t.timeSortData = btree.New(32)
+	t.timeSortData = *btree.New(32)
+	t.RootTxByFeeRateSort = *btree.New(32)
+	t.RootTxByFeeSort = *btree.New(32)
 	return t
 }
