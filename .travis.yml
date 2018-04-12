@@ -1,14 +1,14 @@
 language: go
-#addons:
-#  apt:
-#    sources:
-#      - ubuntu-toolchain-r-test
-#    packages:
-#      - g++-6
-#      - gcc-6
-#      - libsnappy-dev
-#      - zlib1g-dev
-#      - libbz2-dev
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-6
+      - gcc-6
+      - libsnappy-dev
+      - zlib1g-dev
+      - libbz2-dev
 go:
   - 1.8.x
   - 1.9.x
@@ -21,12 +21,6 @@ cache:
     - $GOPATH/src
     - $GOPATH/pkg
     #- /tmp/secp256k1
-  paths:
-    - apt-cache/
-
-before_script:
-  - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
-  - sudo apt-get update -yq && sudo apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y gcc-6 g++-6 libsnappy-dev zlib1g-dev libbz2-dev
 before_cache:  # glide touches ORIG_HEAD on `glide install`
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
   - rm -rf $GOPATH/src/github.com/btcboost/copernicus/*
