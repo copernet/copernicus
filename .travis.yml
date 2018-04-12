@@ -20,7 +20,7 @@ cache:
     - _venv
     - $GOPATH/src
     - $GOPATH/pkg
-    - /usr/local/lib
+
 
     #- /tmp/secp256k1
 before_cache:  # glide touches ORIG_HEAD on `glide install`
