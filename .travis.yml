@@ -13,11 +13,15 @@ go:
 cache:
   apt: true
   directories:
-  - $HOME/.glide/cache
-  - _venv
+    - $HOME/.glide/cache
+    - _venv
+    - $GOPATH/src
+    - $GOPATH/pkg
  # - /tmp/secp256k1
 before_cache:  # glide touches ORIG_HEAD on `glide install`
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
+  - rm -rf $GOPATH/src/github.com/btcboost/copernicus/*
+  - rm -rf $GOPATH/pkg/**/github.com/btcboost/copernicus/*
 
 before_install:
   - export GOROOT=$(go env GOROOT)
