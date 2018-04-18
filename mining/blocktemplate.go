@@ -14,7 +14,9 @@ import (
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/google/btree"
 	"gopkg.in/fatih/set.v0"
+	"math"
 )
 
 var (
@@ -27,14 +29,14 @@ const DEFAULT_PRINTPRIORITY = false
 type BlockTemplate struct {
 	block         *core.Block
 	txFees        []utils.Amount
-	txSigOpsCount []int64
+	txSigOpsCount []int
 }
 
 func newBlockTemplate() *BlockTemplate {
 	return &BlockTemplate{
 		block:         core.NewBlock(),
 		txFees:        make([]utils.Amount, 0),
-		txSigOpsCount: make([]int64, 0),
+		txSigOpsCount: make([]int, 0),
 	}
 }
 
@@ -88,7 +90,7 @@ type BlockAssembler struct {
 	blockTx               uint64
 	blockSigOps           uint64
 	fees                  utils.Amount
-	inBlock               set.Set // element type: *mempool.TxMempoolEntry
+	inBlock               map[utils.Hash]*mempool.TxEntry // element type: *mempool.TxMempoolEntry
 	height                int
 	lockTimeCutoff        int64
 	chainParams           *msg.BitcoinParams
@@ -150,10 +152,10 @@ func NewBlockAssembler(params *msg.BitcoinParams) *BlockAssembler {
 }
 
 func (ba *BlockAssembler) resetBlock() {
-	ba.inBlock.Clear()
+	ba.inBlock = make(map[utils.Hash]*mempool.TxEntry)
 	// Reserve space for coinbase tx.
 	ba.blockSize = 1000
-	ba.blockSigOps = 1000
+	ba.blockSigOps = 100
 
 	// These counters do not include coinbase tx.
 	ba.blockTx = 0
@@ -192,7 +194,7 @@ func getSubVersionEB(maxBlockSize uint64) string {
 	return toStr[:length-1] + "." + toStr[length-1:]
 }
 
-func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
+func (ba *BlockAssembler) CreateNewBlockLeagcy(script core.Script) *BlockTemplate {
 	timeStart := utils.GetMockTimeInMicros()
 
 	ba.resetBlock()
@@ -229,7 +231,6 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	} else {
 		ba.lockTimeCutoff = int64(ba.block.BlockHeader.Time)
 	}
-	addPriorityTxs()
 	packagesSelected := 0
 	descendantsUpdated := 0
 
@@ -240,11 +241,6 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	// Create coinbase transaction
 	coinbaseTx := core.NewTx()
 	coinbaseTx.Ins = make([]*core.TxIn, 1)
-	// outpoint := core.OutPoint{
-	// 	Hash:  utils.HashZero,
-	// 	Index: -1,
-	// }
-	// coinbaseTx.Ins[0] = core.NewTxIn(&outpoint, nil)
 	s := core.NewScriptRaw([]byte{})
 	s.PushScriptNum(core.NewCScriptNum(int64(ba.height)))
 	s.PushOpCode(core.OP_0)
@@ -269,7 +265,7 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	pow := blockchain.Pow{}
 	ba.block.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &ba.block.BlockHeader, ba.chainParams)
 	ba.block.BlockHeader.Nonce = 0
-	ba.bt.txSigOpsCount[0] = int64(ba.block.Txs[0].GetSigOpCountWithoutP2SH())
+	ba.bt.txSigOpsCount[0] = ba.block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	state := core.ValidationState{}
 	if !blockchain.TestBlockValidity(ba.chainParams, &state, ba.block, indexPrev, false, false) {
@@ -284,10 +280,6 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	return ba.bt
 }
 
-func addPriorityTxs() {
-
-}
-
 // This transaction selection algorithm orders the mempool based on feerate of a
 // transaction including all unconfirmed ancestors. Since we don't remove
 // transactions from the mempool as we select them for block inclusion, we need
@@ -297,34 +289,96 @@ func addPriorityTxs() {
 // modified state in mapModifiedTxs. Each time through the loop, we compare the
 // best transaction in mapModifiedTxs with the next transaction in the mempool
 // to decide what transaction package to work on next.
-func (ba *BlockAssembler) addPackageTxs(packagesSelected, descendantsUpdated int) {
+func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
+	pool := blockchain.GMemPool
+	pool.RLock()
+	defer pool.RUnlock()
 
+	nConsecutiveFailed := 0
+	// Limit the number of attempts to add transactions to the block when it is
+	// close to full; this is just a simple heuristic to finish quickly if the
+	// mempool has a lot of entries.
+	MAX_CONSECUTIVE_FAILURES := 1000
+
+	cloneTxSet := pool.TxByAncestorFeeRateSort.Clone()
+	//pendingTx := make(map[utils.Hash]mempool.TxEntry)
+	failedTx := make(map[utils.Hash]mempool.TxEntry)
+
+	for {
+		entry := mempool.TxEntry(cloneTxSet.DeleteMax().(mempool.EntryAncestorFeeRateSort))
+		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
+			continue
+		}
+		if _, ok := failedTx[entry.Tx.Hash]; ok {
+			continue
+		}
+
+		packageSize := entry.SumSizeWitAncestors
+		packageFee := entry.SumFeeWithAncestors
+		packageSigOps := entry.SumSigOpCountWithAncestors
+		if packageFee < ba.blockMinFeeRate.GetFee(int(packageSize)) {
+			break
+		}
+
+		if !ba.TestPackage(uint64(packageSize), packageSigOps, nil) {
+			nConsecutiveFailed++
+			if nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES &&
+				ba.blockSize > ba.maxGeneratedBlockSize-1000 {
+				break
+			}
+			continue
+		}
+		noLimit := uint64(math.MaxUint64)
+		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+		ba.onlyUnconfirmed(ancestors)
+		ancestors[&entry] = struct{}{}
+		if !ba.testPackageTransactions(ancestors) {
+			continue
+		}
+
+		nConsecutiveFailed = 0
+		addset := make(map[utils.Hash]mempool.TxEntry)
+		for add := range ancestors {
+			ba.addToBlock(add)
+			addset[add.Tx.Hash] = *add
+		}
+		*descendantsUpdated += ba.UpdatePackagesForAdded(pool, addset, nil, cloneTxSet)
+	}
 }
 
-func (ba *BlockAssembler) isStillDependent(te *mempool.TxMempoolEntry) bool {
-	setParent := blockchain.GMemPool.GetMemPoolParents(te)
-	plist := setParent.List()
-	for _, item := range plist {
-		parent := item.(*mempool.TxMempoolEntry)
-		if !ba.inBlock.Has(parent) {
+func (ba *BlockAssembler) dealPendingTx(addEntry *mempool.TxEntry, pendingTx map[utils.Hash]*mempool.TxEntry) {
+	for child := range addEntry.ChildTx {
+		if _, ok := pendingTx[child.Tx.Hash]; ok {
+			for pa := range child.ParentTx {
+				if _, ok := ba.inBlock[pa.Tx.Hash]; !ok {
+					continue
+				}
+			}
+
+			ba.addToBlock(child)
+			delete(pendingTx, child.Tx.Hash)
+		}
+	}
+}
+
+func (ba *BlockAssembler) isStillDependent(te *mempool.TxEntry) bool {
+	for parent := range te.ParentTx {
+		if _, ok := ba.inBlock[parent.Tx.Hash]; !ok {
 			return true
 		}
 	}
 	return false
 }
 
-func (ba *BlockAssembler) onlyUnconfirmed(testSet *set.Set) {
-	testSet.Each(func(item interface{}) bool {
-		iit := item.(*mempool.TxMempoolEntry)
-		// Only test txs not already in the block.
-		if ba.inBlock.Has(iit) {
-			testSet.Remove(iit)
+func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}) {
+	for entry := range entrySet {
+		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
+			delete(entrySet, entry)
 		}
-		return true
-	})
+	}
 }
 
-func (ba *BlockAssembler) TestPackage(packageSize uint64, packageSigops int64) bool {
+func (ba *BlockAssembler) TestPackage(packageSize uint64, packageSigops int64, add *core.Tx) bool {
 	blockSizeWithPackage := ba.blockSize + packageSize
 	if blockSizeWithPackage >= ba.maxGeneratedBlockSize {
 		return false
@@ -338,23 +392,20 @@ func (ba *BlockAssembler) TestPackage(packageSize uint64, packageSigops int64) b
 // Perform transaction-level checks before adding to block:
 // - transaction finality (locktime)
 // - serialized size (in case -blockmaxsize is in use)
-func (ba *BlockAssembler) testPackageTransactions(pkg *set.Set) bool {
+func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]struct{}) bool {
 	potentialBlockSize := ba.blockSize
-	pkg.Each(func(item interface{}) bool {
+	for entry := range entrySet {
 		state := core.ValidationState{}
-		it := item.(*mempool.TxMempoolEntry)
-		if !blockchain.ContextualCheckTransaction(ba.chainParams, it.TxRef, &state, ba.height, ba.lockTimeCutoff) {
+		if blockchain.ContextualCheckTransaction(ba.chainParams, entry.Tx, &state, ba.height, ba.lockTimeCutoff) {
 			return false
 		}
 
-		txSize := it.TxRef.SerializeSize()
-		if potentialBlockSize+uint64(txSize) >= ba.maxGeneratedBlockSize {
+		if potentialBlockSize+uint64(entry.TxSize) >= ba.maxGeneratedBlockSize {
 			return false
 		}
+		potentialBlockSize += uint64(entry.TxSize)
+	}
 
-		potentialBlockSize += uint64(txSize)
-		return true
-	})
 	return true
 }
 
@@ -392,17 +443,42 @@ func (ba *BlockAssembler) testForBlock(te *mempool.TxMempoolEntry) bool {
 	return blockchain.ContextualCheckTransaction(ba.chainParams, te.TxRef, &state, ba.height, ba.lockTimeCutoff)
 }
 
-func (ba *BlockAssembler) addToBlock(te *mempool.TxMempoolEntry) {
-	ba.block.Txs = append(ba.block.Txs, te.TxRef)
-	ba.bt.txFees = append(ba.bt.txFees, te.Fee)
+func (ba *BlockAssembler) addToBlock(te *mempool.TxEntry) {
+	ba.block.Txs = append(ba.block.Txs, te.Tx)
+	ba.bt.txFees = append(ba.bt.txFees, utils.Amount(te.TxFee))
 	ba.bt.txSigOpsCount = append(ba.bt.txSigOpsCount, te.SigOpCount)
 	ba.blockSize += uint64(te.TxSize)
 	ba.blockTx++
 	ba.blockSigOps += uint64(te.SigOpCount)
-	ba.fees += te.Fee
-	ba.inBlock.Add(te)
+	ba.fees += utils.Amount(te.TxFee)
+	ba.inBlock[te.Tx.Hash] = te
 }
 
+func (ba *BlockAssembler) UpdatePackagesForAdded(pool *mempool.TxMempool, alreadyAdded map[utils.Hash]mempool.TxEntry,
+	mapModifiedTx map[utils.Hash]*mempool.TxEntry, sortTree *btree.BTree) int {
+
+	nDescendantsUpdated := 0
+	for _, entry := range alreadyAdded {
+		descendants := make(map[*mempool.TxEntry]struct{})
+		pool.CalculateDescendants(&entry, descendants)
+
+		for desc := range descendants {
+			if _, ok := alreadyAdded[desc.Tx.Hash]; ok {
+				continue
+			}
+			nDescendantsUpdated++
+			sortTree.Delete(mempool.EntryAncestorFeeRateSort(*desc))
+			desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
+			desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+			desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
+			sortTree.ReplaceOrInsert(mempool.EntryAncestorFeeRateSort(*desc))
+		}
+	}
+
+	return nDescendantsUpdated
+}
+
+/*
 func (ba *BlockAssembler) UpdatePackagesForAdded(alreadyAdded *set.Set, mapModifiedTx *set.Set) int {
 	descendantsUpdated := 0
 	alreadyAdded.Each(func(item interface{}) bool {
@@ -427,6 +503,7 @@ func (ba *BlockAssembler) UpdatePackagesForAdded(alreadyAdded *set.Set, mapModif
 
 	return 0
 }
+*/
 
 // mapModifiedTx (which implies that the mapTx ancestor state is stale due to
 // ancestor inclusion in the block). Also skip transactions that we've already
@@ -435,8 +512,18 @@ func (ba *BlockAssembler) UpdatePackagesForAdded(alreadyAdded *set.Set, mapModif
 // It's currently guaranteed to fail again, but as a belt-and-suspenders check
 // we put it in failedTx and avoid re-evaluation, since the re-evaluation would
 // be using cached size/sigops/fee values that are not actually correct.
-func (ba *BlockAssembler) skipMapTxEntry(it *mempool.TxMempoolEntry, mapModifiedTx *set.Set, failedTx *set.Set) bool {
-	return true
+func (ba *BlockAssembler) skipMapTxEntry(it *mempool.TxEntry, mapModifiedTx map[*mempool.TxEntry]struct{}, failedTx map[*mempool.TxEntry]struct{}) bool {
+	if _, ok := ba.inBlock[it.Tx.Hash]; ok {
+		return true
+	}
+	if _, ok := mapModifiedTx[it]; ok {
+		return true
+	}
+	if _, ok := failedTx[it]; ok {
+		return true
+	}
+
+	return false
 }
 
 func (ba *BlockAssembler) sortForBlock(pkg *set.Set, entry *mempool.TxMempoolEntry) []*mempool.TxMempoolEntry {
@@ -458,4 +545,85 @@ func (ba *BlockAssembler) sortForBlock(pkg *set.Set, entry *mempool.TxMempoolEnt
 		return !utils.CompareByHash(sortedEntries[i].TxRef.Hash, sortedEntries[j].TxRef.Hash)
 	})
 	return sortedEntries
+}
+
+func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
+	timeStart := utils.GetMockTimeInMicros()
+
+	ba.resetBlock()
+	ba.bt = newBlockTemplate()
+
+	// Pointer for convenience.
+	ba.block = ba.bt.block
+
+	// add dummy coinbase tx as first transaction
+	ba.block.Txs = make([]*core.Tx, 0, 100000)
+	ba.block.Txs = append(ba.block.Txs, core.NewTx())
+	ba.bt.txFees = make([]utils.Amount, 0, 100000)
+	ba.bt.txFees = append(ba.bt.txFees, -1)
+	ba.bt.txSigOpsCount = make([]int, 0, 100000)
+	ba.bt.txSigOpsCount = append(ba.bt.txSigOpsCount, -1)
+
+	// todo LOCK2(cs_main);
+	indexPrev := core.ActiveChain.Tip()
+	ba.height = indexPrev.Height + 1
+	ba.block.BlockHeader.Version = int32(blockchain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, nil))
+	// -regtest only: allow overriding block.nVersion with
+	// -blockversion=N to test forking scenarios
+	if ba.chainParams.MineBlocksOnDemands {
+		ba.block.BlockHeader.Version = int32(utils.GetArg("-blockversion", int64(ba.block.BlockHeader.Version)))
+	}
+	ba.block.BlockHeader.Time = uint32(utils.GetAdjustedTime())
+	ba.maxGeneratedBlockSize = ComputeMaxGeneratedBlockSize(indexPrev)
+	if consensus.StandardLocktimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+		ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
+	} else {
+		ba.lockTimeCutoff = int64(ba.block.BlockHeader.Time)
+	}
+
+	blockchain.GMemPool.RLock()
+	defer blockchain.GMemPool.RUnlock()
+	descendantsUpdated := 0
+	ba.addPackageTxs(&descendantsUpdated)
+
+	time1 := utils.GetMockTimeInMicros()
+	lastBlockTx = ba.blockTx
+	lastBlockSize = ba.blockSize
+
+	// Create coinbase transaction
+	coinbaseTx := core.NewTx()
+	coinbaseTx.Ins = make([]*core.TxIn, 1)
+	sig := core.Script{}
+	sig.PushInt64(int64(ba.height))
+	sig.PushOpCode(core.OP_0)
+	coinbaseTx.Ins[0] = core.NewTxIn(&core.OutPoint{Hash: utils.HashZero, Index: 0xffffffff}, sig.GetScriptByte())
+	coinbaseTx.Outs = make([]*core.TxOut, 1)
+	value := ba.fees + blockchain.GetBlockSubsidy(ba.height, ba.chainParams)
+	coinbaseTx.Outs[0] = core.NewTxOut(int64(value), script.GetScriptByte())
+	ba.block.Txs[0] = coinbaseTx
+	ba.bt.txFees[0] = -1 * ba.fees
+
+	serializeSize := ba.block.SerializeSize()
+	logs.Info("CreateNewBlock(): total size: %d txs: %d fees: %d sigops %d\n",
+		serializeSize, ba.blockTx, ba.fees, ba.blockSigOps)
+
+	// Fill in header.
+	ba.block.BlockHeader.HashPrevBlock = *indexPrev.GetBlockHash()
+	UpdateTime(ba.block, ba.chainParams, indexPrev)
+	pow := blockchain.Pow{}
+	ba.block.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &ba.block.BlockHeader, ba.chainParams)
+	ba.block.BlockHeader.Nonce = 0
+	ba.bt.txSigOpsCount[0] = ba.block.Txs[0].GetSigOpCountWithoutP2SH()
+
+	state := core.ValidationState{}
+	if !blockchain.TestBlockValidity(ba.chainParams, &state, ba.block, indexPrev, false, false) {
+		panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
+	}
+
+	time2 := utils.GetMockTimeInMicros()
+	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+
+		"updated descendants), validity: %.2fms (total %.2fms)\n", 0.001*float64(time1-timeStart),
+		ba.blockTx, descendantsUpdated, 0.001*float64(time2-time1), 0.001*float64(time2-timeStart))
+
+	return ba.bt
 }
