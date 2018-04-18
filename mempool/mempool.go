@@ -28,51 +28,6 @@ const (
 	RollingFeeHalfLife = 60 * 60 * 12
 )
 
-type TxMempoolInfo struct {
-	Tx       *core.Tx      // The transaction itself
-	Time     int64         // Time the transaction entered the memPool
-	FeeRate  utils.FeeRate // FeeRate of the transaction
-	FeeDelta int64         // The fee delta
-}
-
-func (info *TxMempoolInfo) Serialize(w io.Writer) error {
-	err := info.Tx.Serialize(w)
-	if err != nil {
-		return err
-	}
-
-	err = utils.BinarySerializer.PutUint64(w, binary.LittleEndian, uint64(info.Time))
-	if err != nil {
-		return err
-	}
-
-	err = utils.BinarySerializer.PutUint64(w, binary.LittleEndian, uint64(info.FeeDelta))
-	return err
-}
-
-func DeserializeInfo(r io.Reader) (*TxMempoolInfo, error) {
-	tx, err := core.DeserializeTx(r)
-	if err != nil {
-		return nil, err
-	}
-
-	Time, err := utils.BinarySerializer.Uint64(r, binary.LittleEndian)
-	if err != nil {
-		return nil, err
-	}
-
-	FeeDelta, err := utils.BinarySerializer.Uint64(r, binary.LittleEndian)
-	if err != nil {
-		return nil, err
-	}
-
-	return &TxMempoolInfo{
-		Tx:       tx,
-		Time:     int64(Time),
-		FeeDelta: int64(FeeDelta),
-	}, nil
-}
-
 type Mempool struct {
 	CheckFrequency              uint32
 	TransactionsUpdated         int
@@ -1073,48 +1028,4 @@ func (mempool *Mempool) Get(hash *utils.Hash) *core.Tx {
 		return nil
 	}
 	return entry.TxRef
-}
-
-type CoinsViewMemPool struct {
-	Base  utxo.CoinsView
-	Mpool *Mempool
-}
-
-func (m *CoinsViewMemPool) GetCoin(point *core.OutPoint, coin *utxo.Coin) bool {
-	// If an entry in the mempool exists, always return that one, as it's
-	// guaranteed to never conflict with the underlying cache, and it cannot
-	// have pruned entries (as it contains full) transactions. First checking
-	// the underlying cache risks returning a pruned entry instead.
-	ptx := m.Mpool.Get(&point.Hash)
-	if ptx != nil {
-		if int(point.Index) < len(ptx.Outs) {
-			*coin = *utxo.NewCoin(ptx.Outs[point.Index], HeightMemPool, false)
-			return true
-		}
-		return false
-	}
-
-	return m.Base.GetCoin(point, coin) && !coin.IsSpent()
-}
-func (m *CoinsViewMemPool) HaveCoin(point *core.OutPoint) bool {
-	return m.Mpool.ExistsOutPoint(point) || m.Base.HaveCoin(point)
-}
-
-func (m *CoinsViewMemPool) GetBestBlock() utils.Hash {
-	return m.Base.GetBestBlock()
-}
-
-func (m *CoinsViewMemPool) BatchWrite(coinsMap utxo.CacheCoins, hash *utils.Hash) bool {
-	return m.Base.BatchWrite(coinsMap, hash)
-}
-
-func (m *CoinsViewMemPool) EstimateSize() uint64 {
-	return m.Base.EstimateSize()
-}
-
-func NewCoinsViewMemPool(base utxo.CoinsView, mempool *Mempool) *CoinsViewMemPool {
-	return &CoinsViewMemPool{
-		Base:  base,
-		Mpool: mempool,
-	}
 }

@@ -37,7 +37,7 @@ var (
 	GChainState       ChainState
 	GImporting        atomic.Value
 	GMaxTipAge        int64
-	GMemPool          *mempool.Mempool
+	GMemPool          *mempool.TxMempool
 	GCoinsTip         *utxo.CoinsViewCache
 	GBlockTree        *BlockTreeDB
 	GMinRelayTxFee    utils.FeeRate
@@ -98,7 +98,7 @@ func init() {
 	GImporting.Store(false)
 	GMaxTipAge = consensus.DefaultMaxTipAge
 	GMinRelayTxFee.SataoshisPerK = int64(DefaultMinRelayTxFee)
-	GMemPool = mempool.NewMemPool(GMinRelayTxFee)
+	GMemPool = mempool.NewTxMempool()
 	GWarningCache = NewWarnBitsCache(VersionBitsNumBits)
 	GVersionBitsCache = NewVersionBitsCache()
 }
