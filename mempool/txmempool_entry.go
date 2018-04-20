@@ -66,7 +66,7 @@ func (txMempoolEntry *TxMempoolEntry) GetInfo() *TxMempoolInfo {
 	return &TxMempoolInfo{
 		Tx:       txMempoolEntry.TxRef,
 		Time:     txMempoolEntry.Time,
-		FeeRate:  txMempoolEntry.GetFeeRate(),
+		FeeRate:  *txMempoolEntry.GetFeeRate(),
 		FeeDelta: txMempoolEntry.FeeDelta,
 	}
 }
@@ -96,7 +96,7 @@ func (txMempoolEntry *TxMempoolEntry) UpdateFeeDelta(newFeeDelta int64) {
 
 }
 
-func (txMempoolEntry *TxMempoolEntry) GetFeeRate() utils.FeeRate {
+func (txMempoolEntry *TxMempoolEntry) GetFeeRate() *utils.FeeRate {
 	return utils.NewFeeRateWithSize(int64(txMempoolEntry.Fee), int64(txMempoolEntry.TxSize))
 }
 

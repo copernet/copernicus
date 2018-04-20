@@ -2,21 +2,22 @@ package mining
 
 import (
 	"github.com/btcboost/copernicus/mempool"
-	"github.com/btcboost/copernicus/utils"
 )
 
 // Container for tracking updates to ancestor feerate as we include (parent)
 // transactions in a block
 type txMemPoolModifiedEntry struct {
-	iter                    *mempool.TxMempoolEntry
-	sizeWithAncestors       uint64
-	modFeesWithAncestors    utils.Amount
+	iter                    *mempool.TxEntry
+	sizeWithAncestors       int64
+	modFeesWithAncestors    int64
 	sigOpCountWithAncestors int64
 }
 
-func newTxMemPoolModifiedEntry(entry *mempool.TxMempoolEntry) {
+func newTxMemPoolModifiedEntry(entry *mempool.TxEntry) *txMemPoolModifiedEntry {
 	mEntry := new(txMemPoolModifiedEntry)
 	mEntry.iter = entry
-	mEntry.sizeWithAncestors = entry.GetsizeWithAncestors()
-	mEntry.modFeesWithAncestors = entry.ModFeesWithAncestors
+	mEntry.sizeWithAncestors = entry.SumSizeWitAncestors
+	mEntry.modFeesWithAncestors = entry.SumFeeWithAncestors
+	mEntry.sigOpCountWithAncestors = entry.SumSigOpCountWithAncestors
+	return mEntry
 }

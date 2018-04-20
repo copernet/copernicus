@@ -61,7 +61,13 @@ const (
 	maxConsecutiveFailures = 1000
 )
 
-var bt *BlockTemplate
+var blocktemplate *BlockTemplate
+
+// global value for getmininginfo rpc use
+var (
+	LastBlockTx   uint64
+	LastBlockSize uint64
+)
 
 type BlockTemplate struct {
 	sync.Mutex
@@ -88,7 +94,7 @@ type BlockAssembler struct {
 	blockTx               uint64
 	blockSigOps           uint64
 	fees                  utils.Amount
-	inBlock               map[utils.Hash]*mempool.TxEntry
+	inBlock               map[*mempool.TxEntry]struct{} // todo modify key to value pattern instead of pointer pattern
 	height                int
 	lockTimeCutoff        int64
 	chainParams           *msg.BitcoinParams
@@ -100,13 +106,13 @@ func NewBlockAssembler(params *msg.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.chainParams = params
 	v := utils.GetArg("-blockmintxfee", int64(policy.DefaultBlockMinTxFee))
-	ba.blockMinFeeRate = utils.NewFeeRate(v) // todo confirm
+	ba.blockMinFeeRate = *utils.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = ComputeMaxGeneratedBlockSize(core.ActiveChain.Tip())
 	return ba
 }
 
 func (ba *BlockAssembler) resetBlock() {
-	ba.inBlock = make(map[utils.Hash]*mempool.TxEntry)
+	ba.inBlock = make(map[*mempool.TxEntry]struct{})
 	// Reserve space for coinbase tx.
 	ba.blockSize = 1000
 	ba.blockSigOps = 100
@@ -137,7 +143,7 @@ func (ba *BlockAssembler) addToBlock(te *mempool.TxEntry) {
 	ba.blockTx++
 	ba.blockSigOps += uint64(te.SigOpCount)
 	ba.fees += utils.Amount(te.TxFee)
-	ba.inBlock[te.Tx.Hash] = te
+	ba.inBlock[te] = struct{}{}
 }
 
 // This function convert MaxBlockSize from byte to
@@ -199,15 +205,31 @@ func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
 
 	consecutiveFailed := 0
 
-	cloneTxSet := pool.TxByAncestorFeeRateSort.Clone()
+	cloneTxSet := btree.New(32) // todo confirm 32
+	switch strategy {
+	case sortByFee:
+		for _, entry := range pool.PoolData {
+			cloneTxSet.ReplaceOrInsert(EntryFeeSort(*entry))
+		}
+	case sortByFeeRate:
+		for _, entry := range pool.PoolData {
+			cloneTxSet.ReplaceOrInsert(EntryAncestorFeeRateSort(*entry))
+		}
+	}
+
 	//pendingTx := make(map[utils.Hash]mempool.TxEntry)
 	failedTx := make(map[utils.Hash]mempool.TxEntry)
+	mapModifiedTx := make(map[utils.Hash]*txMemPoolModifiedEntry)
+	ba.UpdatePackagesForAdded(ba.inBlock, mapModifiedTx)
 
 	for {
-		entry := mempool.TxEntry(cloneTxSet.DeleteMax().(mempool.EntryAncestorFeeRateSort))
-		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
+		// select the max value item, and delete it. select strategy is descent.
+		entry := mempool.TxEntry(cloneTxSet.DeleteMax().(EntryAncestorFeeRateSort))
+		// if inBlock has the item, continue next loop
+		if _, ok := ba.inBlock[&entry]; ok {
 			continue
 		}
+		// if the item has failed in packing into the block, continue next loop
 		if _, ok := failedTx[entry.Tx.Hash]; ok {
 			continue
 		}
@@ -215,7 +237,23 @@ func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
 		packageSize := entry.SumSizeWitAncestors
 		packageFee := entry.SumFeeWithAncestors
 		packageSigOps := entry.SumSigOpCountWithAncestors
-		if packageFee < ba.blockMinFeeRate.GetFee(int(packageSize)) {
+
+		// deal with several different mining strategies
+		isEnd := false
+		switch strategy {
+		case sortByFee:
+			// if the current fee lower than the specified min fee rate, stop loop directly.
+			// because the following after this item must be lower than this
+			if packageFee < ba.blockMinFeeRate.GetFee(int(packageSize)) {
+				isEnd = true
+			}
+		case sortByFeeRate:
+			currentFeeRate := utils.NewFeeRateWithSize(packageFee, packageSize)
+			if currentFeeRate.Less(ba.blockMinFeeRate) {
+				isEnd = true
+			}
+		}
+		if isEnd {
 			break
 		}
 
@@ -223,10 +261,13 @@ func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
 			consecutiveFailed++
 			if consecutiveFailed > maxConsecutiveFailures &&
 				ba.blockSize > ba.maxGeneratedBlockSize-1000 {
+				// Give up if we're close to full and haven't succeeded in a while.
 				break
 			}
 			continue
 		}
+
+		// add the ancestors of the current item to block
 		noLimit := uint64(math.MaxUint64)
 		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
 		ba.onlyUnconfirmed(ancestors)
@@ -235,13 +276,14 @@ func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
 			continue
 		}
 
+		// This transaction will make it in; reset the failed counter.
 		consecutiveFailed = 0
 		addset := make(map[utils.Hash]mempool.TxEntry)
 		for add := range ancestors {
 			ba.addToBlock(add)
 			addset[add.Tx.Hash] = *add
 		}
-		*descendantsUpdated += ba.UpdatePackagesForAdded(pool, addset, nil, cloneTxSet)
+		*descendantsUpdated += ba.UpdatePackagesForAdded(ancestors, mapModifiedTx)
 	}
 }
 
@@ -265,7 +307,7 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	// todo LOCK2(cs_main);
 	indexPrev := core.ActiveChain.Tip()
 	ba.height = indexPrev.Height + 1
-	ba.block.BlockHeader.Version = int32(blockchain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, nil))
+	ba.block.BlockHeader.Version = int32(blockchain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, nil)) // todo deal with nil param
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
@@ -279,14 +321,14 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 		ba.lockTimeCutoff = int64(ba.block.BlockHeader.Time)
 	}
 
-	blockchain.GMemPool.RLock()
-	defer blockchain.GMemPool.RUnlock()
 	descendantsUpdated := 0
 	ba.addPackageTxs(&descendantsUpdated)
 
 	time1 := utils.GetMockTimeInMicros()
-	//lastBlockTx := ba.blockTx
-	//lastBlockSize := ba.blockSize
+
+	// record last mining info for getmininginfo rpc using
+	LastBlockTx = ba.blockTx
+	LastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
 	coinbaseTx := core.NewTx()
@@ -296,10 +338,12 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 	sig.PushOpCode(core.OP_0)
 	coinbaseTx.Ins[0] = core.NewTxIn(&core.OutPoint{Hash: utils.HashZero, Index: 0xffffffff}, sig.GetScriptByte())
 	coinbaseTx.Outs = make([]*core.TxOut, 1)
+
+	// value represents total reward(fee and block generate reward)
 	value := ba.fees + blockchain.GetBlockSubsidy(ba.height, ba.chainParams)
 	coinbaseTx.Outs[0] = core.NewTxOut(int64(value), script.GetScriptByte())
 	ba.block.Txs[0] = coinbaseTx
-	ba.bt.txFees[0] = -1 * ba.fees
+	ba.bt.txFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
 
 	serializeSize := ba.block.SerializeSize()
 	logs.Info("CreateNewBlock(): total size: %d txs: %d fees: %d sigops %d\n",
@@ -323,7 +367,7 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 		"updated descendants), validity: %.2fms (total %.2fms)\n", 0.001*float64(time1-timeStart),
 		ba.blockTx, descendantsUpdated, 0.001*float64(time2-time1), 0.001*float64(time2-timeStart))
 
-	bt = ba.bt // blocktemplate cache
+	blocktemplate = ba.bt // blocktemplate cache
 	return ba.bt
 }
 
@@ -351,7 +395,7 @@ func UpdateTime(bl *core.Block, params *msg.BitcoinParams, indexPrev *core.Block
 
 func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}) {
 	for entry := range entrySet {
-		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
+		if _, ok := ba.inBlock[entry]; ok {
 			delete(entrySet, entry)
 		}
 	}
@@ -377,26 +421,62 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 	return true
 }
 
-func (ba *BlockAssembler) UpdatePackagesForAdded(pool *mempool.TxMempool, alreadyAdded map[utils.Hash]mempool.TxEntry,
-	mapModifiedTx map[utils.Hash]*mempool.TxEntry, sortTree *btree.BTree) int {
+//func (ba *BlockAssembler) UpdatePackagesForAdded(pool *mempool.TxMempool, alreadyAdded map[utils.Hash]mempool.TxEntry,
+//	mapModifiedTx map[utils.Hash]*mempool.TxEntry, sortTree *btree.BTree) int {
+//
+//	nDescendantsUpdated := 0
+//	for _, entry := range alreadyAdded {
+//		descendants := make(map[*mempool.TxEntry]struct{})
+//		pool.CalculateDescendants(&entry, descendants)
+//
+//		for desc := range descendants {
+//			if _, ok := alreadyAdded[desc.Tx.Hash]; ok {
+//				continue
+//			}
+//			nDescendantsUpdated++
+//			sortTree.Delete(mempool.EntryAncestorFeeRateSort(*desc))
+//			desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
+//			desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+//			desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
+//			sortTree.ReplaceOrInsert(mempool.EntryAncestorFeeRateSort(*desc))
+//		}
+//	}
+//
+//	return nDescendantsUpdated
+//}
 
-	nDescendantsUpdated := 0
-	for _, entry := range alreadyAdded {
+func (ba *BlockAssembler) UpdatePackagesForAdded(alreadyAdded map[*mempool.TxEntry]struct{}, mapModifiedTx map[utils.Hash]*txMemPoolModifiedEntry) int {
+	descendantsUpdated := 0
+
+	for entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
-		pool.CalculateDescendants(&entry, descendants)
-
+		blockchain.GMemPool.CalculateDescendants(entry, descendants)
+		// Insert all descendants (not yet in block) into the modified set.
 		for desc := range descendants {
-			if _, ok := alreadyAdded[desc.Tx.Hash]; ok {
+			if _, ok := alreadyAdded[desc]; ok {
 				continue
 			}
-			nDescendantsUpdated++
-			sortTree.Delete(mempool.EntryAncestorFeeRateSort(*desc))
-			desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
-			desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
-			desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
-			sortTree.ReplaceOrInsert(mempool.EntryAncestorFeeRateSort(*desc))
+			descendantsUpdated++
+			mi, ok := mapModifiedTx[desc.Tx.Hash]
+			if !ok {
+				// that is to say: the parent of item have not been added to inBlock
+				modEntry := newTxMemPoolModifiedEntry(desc)
+				modEntry.sizeWithAncestors -= entry.SumSizeWitAncestors
+				modEntry.modFeesWithAncestors -= entry.SumFeeWithAncestors
+				modEntry.sigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				mapModifiedTx[desc.Tx.Hash] = modEntry
+			} else {
+				// that is to say: the parents of item have been update
+				haveModified, ok := mapModifiedTx[desc.Tx.Hash]
+				if !ok {
+					panic("the item's parent must be in modified set")
+				}
+				// should update from modified set
+				mi.sizeWithAncestors -= haveModified.sizeWithAncestors
+				mi.modFeesWithAncestors -= haveModified.modFeesWithAncestors
+				mi.sigOpCountWithAncestors -= haveModified.sigOpCountWithAncestors
+			}
 		}
 	}
-
-	return nDescendantsUpdated
+	return descendantsUpdated
 }

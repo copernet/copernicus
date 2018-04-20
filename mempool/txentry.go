@@ -126,7 +126,7 @@ func NewTxentry(tx *core.Tx, txFee int64, acceptTime int64, height int, lp core.
 	return t
 }
 
-func (t *TxEntry) GetFeeRate() utils.FeeRate {
+func (t *TxEntry) GetFeeRate() *utils.FeeRate {
 	return utils.NewFeeRateWithSize(t.TxFee, int64(t.TxSize))
 }
 
@@ -134,7 +134,7 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 	return &TxMempoolInfo{
 		Tx:      t.Tx,
 		Time:    t.time,
-		FeeRate: t.GetFeeRate(),
+		FeeRate: *t.GetFeeRate(),
 	}
 }
 
