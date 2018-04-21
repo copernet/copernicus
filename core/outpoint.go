@@ -13,7 +13,7 @@ type OutPoint struct {
 	Hash  utils.Hash
 	Index uint32
 }
-
+/*
 func NewOutPoint(hash utils.Hash, index uint32) *OutPoint {
 	outPoint := OutPoint{
 		Hash:  hash,
@@ -21,7 +21,16 @@ func NewOutPoint(hash utils.Hash, index uint32) *OutPoint {
 	}
 	return &outPoint
 }
+*/
 
+func NewOutPoint() *OutPoint {
+	outPoint := OutPoint {
+		Hash: 0,
+		Index: -1,
+	}
+
+	return &outPoint
+}
 func (outPoint *OutPoint) Serialize() string {
 	// Allocate enough for hash string, colon, and 10 digits.  Although
 	// at the time of writing, the number of digits can be no greater than

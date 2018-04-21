@@ -28,7 +28,7 @@ func (txIn *TxIn) SerializeSize() int {
 
 }
 
-func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
+func (txIn *TxIn) Deserialize(reader io.Reader) error {
 	err := txIn.PreviousOutPoint.Deserialize(reader)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 	return protocol.ReadElement(reader, &txIn.Sequence)
 
 }
-func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
+func (txIn *TxIn) Serialize(writer io.Writer) error {
 	var err error
 	if txIn.PreviousOutPoint != nil {
 		err = txIn.PreviousOutPoint.WriteOutPoint(writer)
@@ -66,11 +66,12 @@ func (txIn *TxIn) String() string {
 	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.Script.bytes), txIn.Sequence)
 
 }
+/*
 func (txIn *TxIn) Check() bool {
 	return true
 }
-
-func NewTxIn(prevOut *OutPoint, pkScript []byte) *TxIn {
-	txIn := TxIn{PreviousOutPoint: prevOut, Script: NewScriptRaw(pkScript), Sequence: MaxTxInSequenceNum}
+*/
+func NewTxIn() *TxIn {
+	txIn := TxIn{PreviousOutPoint: nil, Script: nil, Sequence: MaxTxInSequenceNum}
 	return &txIn
 }

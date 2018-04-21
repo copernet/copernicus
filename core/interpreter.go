@@ -1159,11 +1159,11 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 	}
 	return true, nil
 }
-
+/*
 func CleanupScriptCode(scriptCode *Script, vchSig []byte, flags uint32) {
 	scriptCode.FindAndDelete(scriptCode)
 }
-
+*/
 func CastToBool(vch []byte) bool {
 	for i := 0; i < len(vch); i++ {
 		if vch[i] != 0 {

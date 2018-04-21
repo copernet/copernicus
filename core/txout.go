@@ -12,7 +12,6 @@ import (
 
 type TxOut struct {
 	Value      int64
-	SigOpCount int
 	Script     *Script
 }
 
@@ -22,7 +21,7 @@ func (txOut *TxOut) SerializeSize() int {
 	}
 	return 8 + utils.VarIntSerializeSize(uint64(txOut.Script.Size())) + txOut.Script.Size()
 }
-
+/*
 func (txOut *TxOut) IsDust(minRelayTxFee utils.FeeRate) bool {
 	return txOut.Value < txOut.GetDustThreshold(minRelayTxFee)
 }
@@ -44,16 +43,7 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
 	size += 32 + 4 + 1 + 107 + 4
 	return 3 * minRelayTxFee.GetFee(size)
 }
-
-func (txOut *TxOut) Deserialize(reader io.Reader) error {
-	err := protocol.ReadElement(reader, &txOut.Value)
-	if err != nil {
-		return err
-	}
-	bytes, err := ReadScript(reader, MaxMessagePayload, "tx output script")
-	txOut.Script = NewScriptRaw(bytes)
-	return err
-}
+*/
 
 func (txOut *TxOut) Serialize(writer io.Writer) error {
 	if txOut.Script == nil {
@@ -66,10 +56,22 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	return utils.WriteVarBytes(writer, txOut.Script.bytes)
 }
 
+func (txOut *TxOut) Deserialize(reader io.Reader) error {
+	err := protocol.ReadElement(reader, &txOut.Value)
+	if err != nil {
+		return err
+	}
+	bytes, err := ReadScript(reader, MaxMessagePayload, "tx output script")
+	txOut.Script = NewScriptRaw(bytes)
+	return err
+}
+
+/*
 func (txOut *TxOut) Check() bool {
 	return true
 }
-
+*/
+/*
 func (txOut *TxOut) SetNull() {
 	txOut.Value = -1
 	txOut.Script = nil
@@ -78,7 +80,7 @@ func (txOut *TxOut) SetNull() {
 func (txOut *TxOut) IsNull() bool {
 	return txOut.Value == -1
 }
-
+*/
 func (txOut *TxOut) String() string {
 	return fmt.Sprintf("Value :%d Script:%s", txOut.Value, hex.EncodeToString(txOut.Script.bytes))
 }
@@ -91,10 +93,10 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 	return txOut.Script.IsEqual(out.Script)
 }
 
-func NewTxOut(value int64, pkScript []byte) *TxOut {
+func NewTxOut() *TxOut {
 	txOut := TxOut{
-		Value:  value,
-		Script: NewScriptRaw(pkScript),
+		Value:  -1,
+		Script: nil,
 	}
 	return &txOut
 }

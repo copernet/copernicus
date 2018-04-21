@@ -61,62 +61,63 @@ type Tx struct {
 	Hash     utils.Hash // Cached transaction hash	todo defined a pointer will be the optimization
 	LockTime uint32
 	Version  int32
-	Ins      []*TxIn
-	Outs     []*TxOut
-	ValState int
+	ins      []*TxIn
+	outs     []*TxOut
+	//ValState int
 }
 
 var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
 
+
 func (tx *Tx) AddTxIn(txIn *TxIn) {
-	tx.Ins = append(tx.Ins, txIn)
+	tx.ins = append(tx.ins, txIn)
 }
 
 func (tx *Tx) AddTxOut(txOut *TxOut) {
-	tx.Outs = append(tx.Outs, txOut)
+	tx.outs = append(tx.outs, txOut)
 }
 
 func (tx *Tx) RemoveTxIn(txIn *TxIn) {
-	ret := tx.Ins[:0]
-	for _, e := range tx.Ins {
+	ret := tx.ins[:0]
+	for _, e := range tx.ins {
 		if e != txIn {
 			ret = append(ret, e)
 		}
 	}
-	tx.Ins = ret
+	tx.ins = ret
 }
 
 func (tx *Tx) RemoveTxOut(txOut *TxOut) {
-	ret := tx.Outs[:0]
-	for _, e := range tx.Outs {
+	ret := tx.outs[:0]
+	for _, e := range tx.outs {
 		if e != txOut {
 			ret = append(ret, e)
 		}
 	}
-	tx.Outs = ret
+	tx.outs = ret
 }
 
 func (tx *Tx) SerializeSize() int {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
-	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.Outs)))
-	if tx == nil {
-		fmt.Println("tx is nil")
-	}
+	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
+	//if tx == nil {
+	//	fmt.Println("tx is nil")
+	//}
 	for _, txIn := range tx.Ins {
 		if txIn == nil {
 			fmt.Println("txIn ins is nil")
 		}
 		n += txIn.SerializeSize()
 	}
-	for _, txOut := range tx.Outs {
+	for _, txOut := range tx.outs {
 		n += txOut.SerializeSize()
 	}
 	return n
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
-	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(tx.Version))
+	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.Version)
 	if err != nil {
 		return err
 	}
@@ -126,17 +127,17 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 		return err
 	}
 	for _, txIn := range tx.Ins {
-		err := txIn.Serialize(writer, tx.Version)
+		err := txIn.Serialize(writer)
 		if err != nil {
 			return err
 		}
 	}
-	count = uint64(len(tx.Outs))
+	count = uint64(len(tx.outs))
 	err = utils.WriteVarInt(writer, count)
 	if err != nil {
 		return err
 	}
-	for _, txOut := range tx.Outs {
+	for _, txOut := range tx.outs {
 		err := txOut.Serialize(writer)
 		if err != nil {
 			return err
@@ -146,108 +147,122 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 
 }
 
-func DeserializeTx(reader io.Reader) (tx *Tx, err error) {
-	tx = new(Tx)
+func (tx *Tx)Deserialize(reader io.Reader) error {
 	version, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
-		return tx, err
+		return err
 	}
-	tx.Version = int32(version)
 	count, err := utils.ReadVarInt(reader)
 	if err != nil {
-		return tx, err
+		return err
 	}
 	if count > uint64(MaxTxInPerMessage) {
 		err = errors.Errorf("too many input tx to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
-		return
+		return err
 	}
 
-	txIns := make([]TxIn, count)
-	tx.Ins = make([]*TxIn, count)
-	for i := uint64(0); i < count; i++ {
-		txIns[i].PreviousOutPoint = new(OutPoint)
-		txIns[i].PreviousOutPoint.Hash = *new(utils.Hash)
+	tx.Version = int32(version)
+	tx.ins = make([]*TxIn, count)
 
-		txIn := &txIns[i]
-		tx.Ins[i] = txIn
-		err = txIn.Deserialize(reader, tx.Version)
+	for i := uint64(0); i < count; i++ {
+		txIn := new(TxIn)
+		txIn.PreviousOutPoint = new(OutPoint)
+		txIn.PreviousOutPoint.Hash = *new(utils.Hash)
+		err = txIn.Deserialize(reader)
 		if err != nil {
-			tx.returnScriptBuffers()
-			return
+			return err
 		}
+		tx.ins[i] = txIn
 	}
 	count, err = utils.ReadVarInt(reader)
 	if err != nil {
-		tx.returnScriptBuffers()
-		return
+		return err
 	}
 
-	txOuts := make([]TxOut, count)
-	tx.Outs = make([]*TxOut, count)
+	tx.outs = make([]*TxOut, count)
 	for i := uint64(0); i < count; i++ {
 		// The pointer is set now in case a script buffer is borrowed
 		// and needs to be returned to the pool on error.
-
-		txOut := &txOuts[i]
-		tx.Outs[i] = txOut
+		txOut := new(TxOut)
 		err = txOut.Deserialize(reader)
 		if err != nil {
-			tx.returnScriptBuffers()
-			return
+			return err
 		}
+		tx.outs[i] = txOut
 	}
 
 	tx.LockTime, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
-		tx.returnScriptBuffers()
-		return
+		return err
 	}
-	tx.returnScriptBuffers()
-	return
-
+	return err
 }
 
 func (tx *Tx) IsCoinBase() bool {
-	return len(tx.Ins) == 1 && tx.Ins[0].PreviousOutPoint == nil
+	return len(tx.ins) == 1 && tx.ins[0].PreviousOutPoint == nil
 }
 
 func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 	n := 0
-	for _, in := range tx.Ins {
-		if c, err := in.Script.GetSigOpCountWithAccurate(false); err == nil {
+	for _, in := range tx.ins {
+		if c, err := in.Script.GetSigOpCount(false); err == nil {
 			n += c
 		}
 	}
-	for _, out := range tx.Outs {
-		if c, err := out.Script.GetSigOpCountWithAccurate(false); err == nil {
+	for _, out := range tx.outs {
+		if c, err := out.Script.GetSigOpCount(false); err == nil {
 			n += c
 		}
 	}
 	return n
 }
 
-func (tx *Tx) CheckCoinbase(state *ValidationState, checkDupInput bool) bool {
+// starting BIP16(Apr 1 2012), we should check p2sh
+func (tx *Tx) GetSigOpCountWithP2SH() (int, error) {
+	n := tx.GetSigOpCountWithoutP2SH()
+	if tx.IsCoinBase() {
+		return n, nil
+	}
+	for _, e := range tx.ins {
+		coin := utxo.GetCoins(e.PreviousOutPoint)
+		if !coin {
+			coin = mempool.GetCoins(e.PreviousOutPoint)
+			if !coin {
+				err := errors.New("TX has no Previous coin")
+				return 0, err
+			}
+		}
+		if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
+			n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
+		} else {
+			n += e.Script.GetP2SHSigOpCount()
+		}
+	}
+	return n, nil
+}
+
+func (tx *Tx) CheckCoinbaseTransaction(state *ValidationState) bool {
 	if !tx.IsCoinBase() {
 		return state.Dos(100, false, RejectInvalid, "bad-cb-missing", false,
 			"first tx is not coinbase")
 	}
-	if !tx.CheckTransactionCommon(state, checkDupInput) {
+	if !tx.checkTransactionCommon(state, false) {
 		return false
 	}
-	if tx.Ins[0].Script.Size() < 2 || tx.Ins[0].Script.Size() > 100 {
+	if tx.ins[0].Script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
 		return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
 	}
 	return true
 }
 
-func (tx *Tx) CheckRegularTransaction(state *ValidationState, checkDupInput bool) bool {
+func (tx *Tx) CheckRegularTransaction(state *ValidationState) bool {
 	if tx.IsCoinBase() {
 		return state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
 	}
-	if !tx.CheckTransactionCommon(state, checkDupInput) {
+	if !tx.checkTransactionCommon(state, true) {
 		return false
 	}
-	for _, in := range tx.Ins {
+	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
 			return state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
 		}
@@ -255,18 +270,18 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, checkDupInput bool
 	return true
 }
 
-func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool) bool {
-	if len(tx.Ins) == 0 {
+func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool) bool {
+	if len(tx.ins) == 0 {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
 	}
-	if len(tx.Outs) == 0 {
+	if len(tx.outs) == 0 {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
 	}
 	if tx.SerializeSize() > MaxTxSize {
 		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 	}
 	totalOut := int64(0)
-	for _, out := range tx.Outs {
+	for _, out := range tx.outs {
 		if out.Value < 0 {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
 		}
@@ -283,7 +298,7 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 	}
 	if checkDupInput {
 		outPointSet := make(map[*OutPoint]struct{})
-		for _, in := range tx.Ins {
+		for _, in := range tx.ins {
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
@@ -293,12 +308,12 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 	}
 	return true
 }
-
+/*
 func (tx *Tx) CheckSelf() (bool, error) {
 	if tx.Version > MaxStandardVersion || tx.Version < 1 {
 		return false, errors.New("error version")
 	}
-	if len(tx.Ins) == 0 || len(tx.Outs) == 0 {
+	if len(tx.ins) == 0 || len(tx.outs) == 0 {
 		return false, errors.New("no inputs or outputs")
 	}
 	size := tx.SerializeSize()
@@ -308,10 +323,10 @@ func (tx *Tx) CheckSelf() (bool, error) {
 
 	TotalOutValue := int64(0)
 	TotalSigOpCount := int64(0)
-	TxOutsLen := len(tx.Outs)
+	TxOutsLen := len(tx.outs)
 	//to do: check txOut's script is
 	for i := 0; i < TxOutsLen; i++ {
-		txOut := tx.Outs[i]
+		txOut := tx.outs[i]
 		if txOut.Value < 0 {
 			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
 		}
@@ -331,12 +346,12 @@ func (tx *Tx) CheckSelf() (bool, error) {
 	}
 
 	//todo: check ins' preout duplicate at the same time
-	TxInsLen := len(tx.Ins)
-	for i := 0; i < TxInsLen; i++ {
-		txIn := tx.Ins[i]
+	TxinsLen := len(tx.ins)
+	for i := 0; i < TxinsLen; i++ {
+		txIn := tx.ins[i]
 		TotalSigOpCount += int64(txIn.SigOpCount)
 		if TotalSigOpCount > int64(MaxTxSigOpsCounts) {
-			return false, errors.Errorf("tx total SigOpCount:%d of all Outs and partial Ins from 0 to %d is too large", TotalSigOpCount, i)
+			return false, errors.Errorf("tx total SigOpCount:%d of all Outs and partial ins from 0 to %d is too large", TotalSigOpCount, i)
 		}
 		if txIn.Script.Size() > 1650 {
 			return false, errors.Errorf("txIn %d has too long script", i)
@@ -347,24 +362,25 @@ func (tx *Tx) CheckSelf() (bool, error) {
 	}
 	return true, nil
 }
-
+*/
 func (tx *Tx) returnScriptBuffers() {
-	for _, txIn := range tx.Ins {
+	for _, txIn := range tx.ins {
 		if txIn == nil || txIn.Script == nil {
 			continue
 		}
 		scriptPool.Return(txIn.Script.bytes)
 	}
-	for _, txOut := range tx.Outs {
+	for _, txOut := range tx.outs {
 		if txOut == nil || txOut.Script == nil {
 			continue
 		}
 		scriptPool.Return(txOut.Script.bytes)
 	}
 }
+
 func (tx *Tx) GetValueOut() int64 {
 	var valueOut int64
-	for _, out := range tx.Outs {
+	for _, out := range tx.outs {
 		valueOut += out.Value
 		if !utils.MoneyRange(out.Value) || !utils.MoneyRange(valueOut) {
 			panic("value out of range")
@@ -373,16 +389,17 @@ func (tx *Tx) GetValueOut() int64 {
 	return valueOut
 }
 
+/*
 func (tx *Tx) Copy() *Tx {
 	newTx := Tx{
 		Version:  tx.Version,
 		LockTime: tx.LockTime,
-		Ins:      make([]*TxIn, 0, len(tx.Ins)),
-		Outs:     make([]*TxOut, 0, len(tx.Outs)),
+		ins:      make([]*TxIn, 0, len(tx.ins)),
+		outs:     make([]*TxOut, 0, len(tx.outs)),
 	}
 	newTx.Hash = tx.Hash
 
-	for _, txOut := range tx.Outs {
+	for _, txOut := range tx.outs {
 		scriptLen := len(txOut.Script.bytes)
 		newOutScript := make([]byte, scriptLen)
 		copy(newOutScript, txOut.Script.bytes[:scriptLen])
@@ -391,9 +408,9 @@ func (tx *Tx) Copy() *Tx {
 			Value:  txOut.Value,
 			Script: NewScriptRaw(newOutScript),
 		}
-		newTx.Outs = append(newTx.Outs, &newTxOut)
+		newTx.outs = append(newTx.outs, &newTxOut)
 	}
-	for _, txIn := range tx.Ins {
+	for _, txIn := range tx.ins {
 		var hashBytes [32]byte
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
 		preHash := new(utils.Hash)
@@ -407,12 +424,13 @@ func (tx *Tx) Copy() *Tx {
 			PreviousOutPoint: &newOutPoint,
 			Script:           NewScriptRaw(newScript),
 		}
-		newTx.Ins = append(newTx.Ins, &newTxTmp)
+		newTx.ins = append(newTx.ins, &newTxTmp)
 	}
 	return &newTx
 
 }
-
+*/
+/*
 func (tx *Tx) Equal(dstTx *Tx) bool {
 	originBuf := bytes.NewBuffer(nil)
 	tx.Serialize(originBuf)
@@ -422,6 +440,7 @@ func (tx *Tx) Equal(dstTx *Tx) bool {
 
 	return bytes.Equal(originBuf.Bytes(), dstBuf.Bytes())
 }
+*/
 
 func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	txModifiedSize := tx.CalculateModifiedSize()
@@ -440,9 +459,9 @@ func (tx *Tx) CalculateModifiedSize() int {
 	// inputs free would risk encouraging people to create junk outputs to
 	// redeem later.
 	txSize := tx.SerializeSize()
-	for _, in := range tx.Ins {
-		inScriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
-		offset := 41 + int(inScriptModifiedSize)
+	for _, in := range tx.ins {
+		InscriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
+		offset := 41 + int(InScriptModifiedSize)
 		if txSize > offset {
 			txSize -= offset
 		}
@@ -467,7 +486,7 @@ func (tx *Tx) IsFinalTx(Height int, time int64) bool {
 		return true
 	}
 
-	for _, txin := range tx.Ins {
+	for _, txin := range tx.ins {
 		if txin.Sequence != SequenceFinal {
 			return false
 		}
@@ -478,9 +497,9 @@ func (tx *Tx) IsFinalTx(Height int, time int64) bool {
 
 func (tx *Tx) String() string {
 	str := ""
-	str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.Ins), len(tx.Outs))
+	str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.ins), len(tx.outs))
 	inStr := "ins:\n"
-	for i, in := range tx.Ins {
+	for i, in := range tx.ins {
 		if in == nil {
 			inStr = fmt.Sprintf("  %s %d , nil \n", inStr, i)
 		} else {
@@ -488,7 +507,7 @@ func (tx *Tx) String() string {
 		}
 	}
 	outStr := "outs:\n"
-	for i, out := range tx.Outs {
+	for i, out := range tx.outs {
 		outStr = fmt.Sprintf("  %s %d , %s\n", outStr, i, out.String())
 	}
 	return fmt.Sprintf("%s%s%s", str, inStr, outStr)
@@ -510,7 +529,7 @@ func (tx *Tx) TxHash() utils.Hash {
 func NewTx() *Tx {
 	return &Tx{LockTime: 0, Version: TxVersion}
 }
-
+/*
 // PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing
 type PrecomputedTransactionData struct {
 	HashPrevout  *utils.Hash
@@ -528,4 +547,4 @@ func NewPrecomputedTransactionData(tx *Tx) *PrecomputedTransactionData {
 		HashSequence: &hashSequence,
 		HashOutputs:  &hashOutputs,
 	}
-}
+}*/
