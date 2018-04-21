@@ -94,12 +94,12 @@ func (feeRate *FeeRate) Less(b FeeRate) bool {
 	return feeRate.SataoshisPerK < b.SataoshisPerK
 }
 
-func NewFeeRate(amount int64) FeeRate {
-	feeRate := FeeRate{SataoshisPerK: amount}
+func NewFeeRate(amount int64) *FeeRate {
+	feeRate := &FeeRate{SataoshisPerK: amount}
 	return feeRate
 }
 
-func NewFeeRateWithSize(feePaid int64, bytes int64) FeeRate {
+func NewFeeRateWithSize(feePaid int64, bytes int64) *FeeRate {
 	if bytes > math.MaxInt64 {
 		panic("bytes is  greater than MaxInt64")
 	}
