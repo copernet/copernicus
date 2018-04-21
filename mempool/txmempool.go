@@ -260,18 +260,18 @@ func (m *TxMempool) RemoveForBlock(txs []*core.Tx, txHeight int) {
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
 func (m *TxMempool) AddTx(txentry *TxEntry, limitAncestorCount uint64,
-	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64) error {
+	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64, searchForParent bool) error {
 	// todo: send signal to all interesting the caller.
 	m.Lock()
 	defer m.Unlock()
-	ancestors, err := m.CalculateMemPoolAncestors(txentry.Tx, limitAncestorCount, limitAncestorSize, limitDescendantCount, limitDescendantSize, true)
+	ancestors, err := m.CalculateMemPoolAncestors(txentry.Tx, limitAncestorCount, limitAncestorSize, limitDescendantCount, limitDescendantSize, searchForParent)
 	if err != nil {
 		return err
 	}
 
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
-	m.PoolData[txentry.Tx.Hash] = txentry
 	m.timeSortData.ReplaceOrInsert(txentry)
+	m.PoolData[txentry.Tx.Hash] = txentry
 	m.cacheInnerUsage += int64(txentry.usageSize) + int64(unsafe.Sizeof(txentry))
 
 	// Update ancestors with information about this tx
@@ -297,6 +297,10 @@ func (m *TxMempool) AddTx(txentry *TxEntry, limitAncestorCount uint64,
 	return nil
 }
 
+// TrimToSize Remove transactions from the mempool until its dynamic size is <=
+// sizelimit. noSpendsRemaining, if set, will be populated with the list
+// of outpoints which are not in mempool which no longer have any spends in
+// this mempool.
 func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining bool) []*core.OutPoint {
 	m.Lock()
 	defer m.Unlock()
@@ -304,6 +308,7 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining bool) []*core.
 	nTxnRemoved := 0
 	ret := make([]*core.OutPoint, 0)
 	maxFeeRateRemove := int64(0)
+
 	for len(m.PoolData) > 0 && m.cacheInnerUsage > sizeLimit {
 		removeIt := TxEntry(m.TxByAncestorFeeRateSort.Min().(EntryAncestorFeeRateSort))
 		rem := m.TxByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(removeIt)).(EntryAncestorFeeRateSort)
@@ -320,7 +325,13 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining bool) []*core.
 				txn = append(txn, iter.Tx)
 			}
 		}
+
+		// here, don't update Descendant transaction state's reason :
+		// all Descendant transaction of the removed tx also will be removed.
 		m.RemoveStaged(stage, false, SIZELIMIT)
+		for e := range stage{
+			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.Hash.ToString(), m.cacheInnerUsage)
+		}
 		if noSpendsRemaining {
 			for _, tx := range txn {
 				for _, txin := range tx.Ins {
@@ -337,42 +348,6 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining bool) []*core.
 
 	logs.SetLogger("mempool", fmt.Sprintf("removed %d txn, rolling minimum fee bumped : %d", nTxnRemoved, maxFeeRateRemove))
 	return ret
-}
-
-func (m *TxMempool) trimToSizeLeagcy(sizeLimit int64, noSpendsRemaining *[]*core.OutPoint) {
-	m.Lock()
-	defer m.Unlock()
-
-	nTxnRemoved := 0
-	for _, remove := range m.PoolData {
-		if m.cacheInnerUsage > sizeLimit {
-			stage := make(map[*TxEntry]struct{})
-			m.CalculateDescendants(remove, stage)
-			nTxnRemoved += len(stage)
-
-			txn := make([]*core.Tx, 0, len(stage))
-			if noSpendsRemaining != nil {
-				for iter := range stage {
-					txn = append(txn, iter.Tx)
-				}
-			}
-
-			m.RemoveStaged(stage, false, SIZELIMIT)
-			if noSpendsRemaining != nil {
-				for _, tx := range txn {
-					for _, txin := range tx.Ins {
-						if m.FindTx(txin.PreviousOutPoint.Hash) != nil {
-							continue
-						}
-						if _, ok := m.NextTx[*txin.PreviousOutPoint]; !ok {
-							*noSpendsRemaining = append(*noSpendsRemaining, txin.PreviousOutPoint)
-						}
-					}
-				}
-			}
-		}
-	}
-	logs.Debug("mempool remove %d transactions with SIZELIMIT reason. \n", nTxnRemoved)
 }
 
 // Expire all transaction (and their dependencies) in the memPool older
@@ -446,6 +421,12 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	}
 
 	for removeIt := range entriesToRemove {
+		for updateIt := range removeIt.ChildTx {
+			updateIt.UpdateParent(removeIt, &m.cacheInnerUsage, false)
+		}
+	}
+
+	for removeIt := range entriesToRemove {
 		ancestors, err := m.CalculateMemPoolAncestors(removeIt.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
 		if err != nil {
 			return
@@ -453,11 +434,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 		m.updateAncestorsOf(false, removeIt, ancestors)
 	}
 
-	for removeIt := range entriesToRemove {
-		for updateIt := range removeIt.ChildTx {
-			updateIt.UpdateParent(removeIt, &m.cacheInnerUsage, false)
-		}
-	}
+
 }
 
 func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
@@ -465,6 +442,7 @@ func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDe
 	m.updateForRemoveFromMempool(entriesToRemove, updateDescendants)
 	for rem := range entriesToRemove {
 		m.delTxentry(rem, reason)
+		fmt.Println("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
 	}
 }
 
@@ -517,25 +495,26 @@ func (m *TxMempool) RemoveRecursive(origTx *core.Tx, reason PoolRemovalReason) {
 // it are already in setDescendants as well, so that we can save time by not
 // iterating over those entries.
 func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntry]struct{}) {
-	stage := make(map[*TxEntry]struct{})
+	//stage := make(map[*TxEntry]struct{})
+	stage := make([]*TxEntry, 0)
 	if _, ok := descendants[entry]; !ok {
-		stage[entry] = struct{}{}
+		stage = append(stage, entry)
 	}
 
 	// Traverse down the children of entry, only adding children that are not
 	// accounted for in setDescendants already (because those children have
 	// either already been walked, or will be walked in this iteration).
-	for desEntry := range stage {
+	for len(stage) > 0{
+		desEntry := stage[0]
 		descendants[desEntry] = struct{}{}
-		delete(stage, desEntry)
+		stage = stage[1:]
 
 		for child := range desEntry.ChildTx {
 			if _, ok := descendants[child]; !ok {
-				stage[child] = struct{}{}
+				stage = append(stage, child)
 			}
 		}
 	}
-
 }
 
 // updateAncestorsOf update each of ancestors transaction state; add or remove this
@@ -547,6 +526,7 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 		if add {
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, true)
 		} else {
+			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", txentry.Tx.Hash.ToString(), ", tx1 : ", piter.Tx.Hash.ToString())
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, false)
 		}
 	}
@@ -559,6 +539,7 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 	updateFee := int64(updateCount) * txentry.TxFee
 	// update each of ancestors transaction state;
 	for ancestorit := range ancestors {
+		//fmt.Println("ancestor hash : ", ancestorit.Tx.Hash.ToString())
 		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
 	}
 }
@@ -606,9 +587,17 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 	}
 
 	totalSizeWithAncestors := int64(tx.SerializeSize())
+	paSLice := make([]*TxEntry, len(parent))
+	j := 0
+	for entry := range parent{
+		paSLice[j] = entry
+		j++
+	}
 
-	for entry := range parent {
-		delete(parent, entry)
+	for len(paSLice) > 0 {
+		entry := paSLice[0]
+		paSLice = paSLice[1:]
+		//delete(parent, entry)
 		ancestors[entry] = struct{}{}
 		totalSizeWithAncestors += int64(entry.TxSize)
 		hash := entry.Tx.Hash
@@ -626,7 +615,7 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 		graTxentrys := entry.ParentTx
 		for gentry := range graTxentrys {
 			if _, ok := ancestors[gentry]; !ok {
-				parent[gentry] = struct{}{}
+				paSLice = append(paSLice, gentry)
 			}
 			if uint64(len(parent)+len(ancestors)+1) > limitAncestorCount {
 				return nil,
@@ -653,14 +642,6 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	m.TxByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(*removeEntry))
 }
 
-func (m *TxMempool) LockMempoolInternal() {
-	m.Lock()
-}
-
-func (m *TxMempool) UnlockMempoolInternal() {
-	m.Unlock()
-}
-
 func (m *TxMempool) UpdateTransactionsFromBlock(ele interface{}) {
 	//todo implement, this function is called in DisconnectTip()
 }
@@ -679,6 +660,13 @@ func (m *TxMempool) InfoAll() []*TxMempoolInfo {
 	})
 
 	return ret
+}
+
+func (m *TxMempool)Size() int {
+	m.RLock()
+	defer m.RUnlock()
+
+	return len(m.PoolData)
 }
 
 func NewTxMempool() *TxMempool {
