@@ -663,7 +663,7 @@ func (mempool *Mempool) CalculateMemPoolAncestors(entry *TxMempoolEntry, setAnce
 	return nil
 }
 
-// AddUnchecked addUnchecked must updated state for all ancestors of a given transaction,
+// AddUnchecked must updated state for all ancestors of a given transaction,
 // to track size/count of descendant transactions. First version of
 // addUnchecked can be used to have it call CalculateMemPoolAncestors(), and
 // then invoke the second version.
