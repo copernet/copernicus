@@ -6,6 +6,7 @@ import (
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/google/btree"
+	"fmt"
 )
 
 // TxEntry are not safe for concurrent write and read access .
@@ -66,20 +67,24 @@ func (t *TxEntry) GetSpendsCoinbase() bool {
 func (t *TxEntry) UpdateParent(parent *TxEntry, innerUsage *int64, add bool) {
 	if add {
 		t.ParentTx[parent] = struct{}{}
+		fmt.Printf("should add tx1 to tx3 parent, ---------------- tx1 : %s, tx3 : %s\n", parent.Tx.Hash.ToString(), t.Tx.Hash.ToString())
 		*innerUsage += int64(unsafe.Sizeof(parent))
 		return
 	}
 	delete(t.ParentTx, parent)
 	*innerUsage -= int64(unsafe.Sizeof(parent))
+	fmt.Printf("should remove tx1 from tx3 parent, *************** tx1 : %s, tx3 : %s\n", parent.Tx.Hash.ToString(), t.Tx.Hash.ToString())
 }
 
 func (t *TxEntry) UpdateChild(child *TxEntry, innerUsage *int64, add bool) {
 	if add {
 		t.ChildTx[child] = struct{}{}
+		fmt.Printf("should add tx3 to tx1 child ----------------, tx1 : %s, tx3 : %s\n", t.Tx.Hash.ToString(), child.Tx.Hash.ToString())
 		*innerUsage += int64(unsafe.Sizeof(child))
 		return
 	}
 	delete(t.ChildTx, child)
+	fmt.Printf("should remove tx3 from tx1 child ***************, tx1 : %s, tx3 : %s\n", t.Tx.Hash.ToString(), child.Tx.Hash.ToString())
 	*innerUsage -= int64(unsafe.Sizeof(child))
 }
 
@@ -97,7 +102,11 @@ func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int,
 }
 
 func (t *TxEntry) Less(than btree.Item) bool {
-	return t.time < than.(*TxEntry).time
+	th := than.(*TxEntry)
+	if t.time == th.time{
+		return t.Tx.Hash.Cmp(&th.Tx.Hash) > 0
+	}
+	return t.time < th.time
 }
 
 func NewTxentry(tx *core.Tx, txFee int64, acceptTime int64, height int, lp core.LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
@@ -142,10 +151,10 @@ type EntryFeeSort TxEntry
 
 func (e EntryFeeSort) Less(than btree.Item) bool {
 	t := than.(EntryFeeSort)
-	if e.SumFeeWithDescendants == t.SumFeeWithDescendants {
+	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
 		return e.Tx.Hash.Cmp(&t.Tx.Hash) > 0
 	}
-	return e.SumFeeWithDescendants > than.(EntryFeeSort).SumFeeWithDescendants
+	return e.SumFeeWithAncestors > than.(EntryFeeSort).SumFeeWithAncestors
 }
 
 type EntryAncestorFeeRateSort TxEntry
@@ -159,3 +168,5 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	}
 	return b1 > b2
 }
+
+
