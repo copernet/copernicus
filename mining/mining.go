@@ -223,38 +223,34 @@ func computeMaxGeneratedBlockSize(indexPrev *core.BlockIndex) uint64 {
 // transaction including all unconfirmed ancestors. Since we don't remove
 // transactions from the mempool as we select them for block inclusion, we need
 // an alternate method of updating the feerate of a transaction with its
-// not-yet-selected ancestors as we go. This is accomplished by walking the
-// in-mempool descendants of selected transactions and storing a temporary
-// modified state in mapModifiedTxs. Each time through the loop, we compare the
-// best transaction in mapModifiedTxs with the next transaction in the mempool
-// to decide what transaction package to work on next.
-func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
+// not-yet-selected ancestors as we go.
+func (ba *BlockAssembler) addPackageTxs() int {
+	descendantsUpdated := 0
 	pool := blockchain.GMemPool
 	pool.RLock()
 	defer pool.RUnlock()
 
 	consecutiveFailed := 0
 
-	cloneTxSet := btree.New(32) // todo confirm 32
+	txSet := btree.New(32) // todo confirm 32
 	switch strategy {
 	case sortByFee:
 		for _, entry := range pool.PoolData {
-			cloneTxSet.ReplaceOrInsert(EntryFeeSort(*entry))
+			txSet.ReplaceOrInsert(EntryFeeSort(*entry))
 		}
 	case sortByFeeRate:
 		for _, entry := range pool.PoolData {
-			cloneTxSet.ReplaceOrInsert(EntryAncestorFeeRateSort(*entry))
+			txSet.ReplaceOrInsert(EntryAncestorFeeRateSort(*entry))
 		}
 	}
 
 	//pendingTx := make(map[utils.Hash]mempool.TxEntry)
 	failedTx := make(map[utils.Hash]mempool.TxEntry)
-	mapModifiedTx := make(map[utils.Hash]*txMemPoolModifiedEntry)
-	ba.updatePackagesForAdded(ba.inBlock, mapModifiedTx)
+	ba.updatePackagesForAdded(txSet, ba.inBlock)
 
 	for {
 		// select the max value item, and delete it. select strategy is descent.
-		entry := mempool.TxEntry(cloneTxSet.DeleteMax().(EntryAncestorFeeRateSort))
+		entry := mempool.TxEntry(txSet.DeleteMax().(EntryAncestorFeeRateSort))
 		// if inBlock has the item, continue next loop
 		if _, ok := ba.inBlock[&entry]; ok {
 			continue
@@ -301,7 +297,7 @@ func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
 		noLimit := uint64(math.MaxUint64)
 		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
 		ba.onlyUnconfirmed(ancestors)
-		ancestors[&entry] = struct{}{}
+		ancestors[&entry] = struct{}{} // add current item
 		if !ba.testPackageTransactions(ancestors) {
 			continue
 		}
@@ -313,8 +309,9 @@ func (ba *BlockAssembler) addPackageTxs(descendantsUpdated *int) {
 			ba.addToBlock(add)
 			addset[add.Tx.Hash] = *add
 		}
-		*descendantsUpdated += ba.updatePackagesForAdded(ancestors, mapModifiedTx)
+		descendantsUpdated += ba.updatePackagesForAdded(txSet, ancestors)
 	}
+	return descendantsUpdated
 }
 
 func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
@@ -351,8 +348,7 @@ func (ba *BlockAssembler) CreateNewBlock(script core.Script) *BlockTemplate {
 		ba.lockTimeCutoff = int64(ba.block.BlockHeader.Time)
 	}
 
-	descendantsUpdated := 0
-	ba.addPackageTxs(&descendantsUpdated)
+	descendantsUpdated := ba.addPackageTxs()
 
 	time1 := utils.GetMockTimeInMicros()
 
@@ -451,38 +447,41 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 	return true
 }
 
-func (ba *BlockAssembler) updatePackagesForAdded(alreadyAdded map[*mempool.TxEntry]struct{}, mapModifiedTx map[utils.Hash]*txMemPoolModifiedEntry) int {
-	descendantsUpdated := 0
-
+func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
+	decendantUpdate := 0
 	for entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
 		blockchain.GMemPool.CalculateDescendants(entry, descendants)
 		// Insert all descendants (not yet in block) into the modified set.
+		// use reflect function if there are so many strategies
 		for desc := range descendants {
-			if _, ok := alreadyAdded[desc]; ok {
-				continue
+			decendantUpdate++
+			switch strategy {
+			case sortByFee:
+				item := EntryFeeSort(*desc)
+				// remove the old one
+				txSet.Delete(item)
+				// update origin data
+				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
+				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
+				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				item = EntryFeeSort(*desc)
+				// insert the modified one
+				txSet.ReplaceOrInsert(item)
+			case sortByFeeRate:
+				item := EntryAncestorFeeRateSort(*desc)
+				// remove the old one
+				txSet.Delete(item)
+				// update origin data
+				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
+				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
+				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				item = EntryAncestorFeeRateSort(*desc)
+				// insert the modified one
+				txSet.ReplaceOrInsert(item)
 			}
-			descendantsUpdated++
-			mi, ok := mapModifiedTx[desc.Tx.Hash]
-			if !ok {
-				// that is to say: the parent of item have not been added to inBlock
-				modEntry := newTxMemPoolModifiedEntry(desc)
-				modEntry.sizeWithAncestors -= entry.SumSizeWitAncestors
-				modEntry.modFeesWithAncestors -= entry.SumFeeWithAncestors
-				modEntry.sigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
-				mapModifiedTx[desc.Tx.Hash] = modEntry
-			} else {
-				// that is to say: the parents of item have been update
-				haveModified, ok := mapModifiedTx[desc.Tx.Hash]
-				if !ok {
-					panic("the item's parent must be in modified set")
-				}
-				// should update from modified set
-				mi.sizeWithAncestors -= haveModified.sizeWithAncestors
-				mi.modFeesWithAncestors -= haveModified.modFeesWithAncestors
-				mi.sigOpCountWithAncestors -= haveModified.sigOpCountWithAncestors
-			}
+
 		}
 	}
-	return descendantsUpdated
+	return decendantUpdate
 }

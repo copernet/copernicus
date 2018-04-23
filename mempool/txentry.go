@@ -3,10 +3,10 @@ package mempool
 import (
 	"unsafe"
 
+	"fmt"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/google/btree"
-	"fmt"
 )
 
 // TxEntry are not safe for concurrent write and read access .
@@ -103,7 +103,7 @@ func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int,
 
 func (t *TxEntry) Less(than btree.Item) bool {
 	th := than.(*TxEntry)
-	if t.time == th.time{
+	if t.time == th.time {
 		return t.Tx.Hash.Cmp(&th.Tx.Hash) > 0
 	}
 	return t.time < th.time
@@ -168,5 +168,3 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	}
 	return b1 > b2
 }
-
-

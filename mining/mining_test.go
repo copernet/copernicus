@@ -1,39 +1,30 @@
 package mining
 
-//
-//import (
-//	"testing"
-//
-//	"github.com/btcboost/copernicus/blockchain"
-//	"github.com/btcboost/copernicus/core"
-//	"github.com/btcboost/copernicus/mempool"
-//	"github.com/btcboost/copernicus/net/msg"
-//	"github.com/btcboost/copernicus/policy"
-//	"github.com/btcboost/copernicus/utils"
-//)
-//
-//func TestGetSubVersionEB(t *testing.T) {
-//	str1 := GetSubVersionEB(0)
-//	str2 := GetSubVersionEB(2e6)
-//	str3 := GetSubVersionEB(2e7)
-//	str4 := GetSubVersionEB(2e8)
-//
-//	if str1 != "0.0" {
-//		t.Error("convert error when value equal to zero")
-//	}
-//
-//	if str2 != "0.2" {
-//		t.Error("convert error when value less than 1")
-//	}
-//
-//	if str3 != "2.0" {
-//		t.Error("convert error when value between 1 and 10")
-//	}
-//
-//	if str4 != "20.0" {
-//		t.Error("convert error when value more than 10")
-//	}
-//}
+import "testing"
+
+func TestGetSubVersionEB(t *testing.T) {
+	str1 := GetSubVersionEB(0)
+	str2 := GetSubVersionEB(2e6)
+	str3 := GetSubVersionEB(2e7)
+	str4 := GetSubVersionEB(2e8)
+
+	if str1 != "0.0" {
+		t.Error("convert error when value equal to zero")
+	}
+
+	if str2 != "0.2" {
+		t.Error("convert error when value less than 1")
+	}
+
+	if str3 != "2.0" {
+		t.Error("convert error when value between 1 and 10")
+	}
+
+	if str4 != "20.0" {
+		t.Error("convert error when value more than 10")
+	}
+}
+
 //
 //var blockMinFeeRate = utils.NewFeeRate(int64(policy.DefaultBlockMinTxFee))
 //
