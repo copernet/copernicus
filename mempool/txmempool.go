@@ -329,7 +329,7 @@ func (m *TxMempool) TrimToSize(sizeLimit int64, noSpendsRemaining bool) []*core.
 		// here, don't update Descendant transaction state's reason :
 		// all Descendant transaction of the removed tx also will be removed.
 		m.RemoveStaged(stage, false, SIZELIMIT)
-		for e := range stage{
+		for e := range stage {
 			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.Hash.ToString(), m.cacheInnerUsage)
 		}
 		if noSpendsRemaining {
@@ -434,7 +434,6 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 		m.updateAncestorsOf(false, removeIt, ancestors)
 	}
 
-
 }
 
 func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
@@ -504,7 +503,7 @@ func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntr
 	// Traverse down the children of entry, only adding children that are not
 	// accounted for in setDescendants already (because those children have
 	// either already been walked, or will be walked in this iteration).
-	for len(stage) > 0{
+	for len(stage) > 0 {
 		desEntry := stage[0]
 		descendants[desEntry] = struct{}{}
 		stage = stage[1:]
@@ -589,7 +588,7 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *core.Tx, limitAncestorCount ui
 	totalSizeWithAncestors := int64(tx.SerializeSize())
 	paSLice := make([]*TxEntry, len(parent))
 	j := 0
-	for entry := range parent{
+	for entry := range parent {
 		paSLice[j] = entry
 		j++
 	}
@@ -662,7 +661,7 @@ func (m *TxMempool) InfoAll() []*TxMempoolInfo {
 	return ret
 }
 
-func (m *TxMempool)Size() int {
+func (m *TxMempool) Size() int {
 	m.RLock()
 	defer m.RUnlock()
 

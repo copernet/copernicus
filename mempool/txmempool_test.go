@@ -1,10 +1,10 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/core"
-	"testing"
+	"github.com/btcboost/copernicus/utils"
 	"math"
+	"testing"
 	//"github.com/google/btree"
 	"fmt"
 )
@@ -62,7 +62,7 @@ func (t *TestMemPoolEntry) FromTxToEntry(tx *core.Tx, pool *Mempool) *TxEntry {
 	//	inChainValue = utils.Amount(tx.GetValueOut())
 	//}
 	lp := core.LockPoints{}
-	if t.lp != nil{
+	if t.lp != nil {
 		lp = *(t.lp)
 	}
 	entry := NewTxentry(tx, int64(t.Fee), t.Time, int(t.Height), lp, int(t.SigOpCost), t.SpendsCoinbase)
@@ -195,28 +195,28 @@ func createTx() []*TxEntry {
 	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1, nil)
 
 	/*
-	tx2 := core.NewTx()
-	tx2.Ins = make([]*core.TxIn, 0)
-	tx2.Outs = make([]*core.TxOut, 1)
-	tx2.Outs[0] = core.NewTxOut(2*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
-	tx2.Hash = tx2.TxHash()
-	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2, nil)
-*/
+		tx2 := core.NewTx()
+		tx2.Ins = make([]*core.TxIn, 0)
+		tx2.Outs = make([]*core.TxOut, 1)
+		tx2.Outs[0] = core.NewTxOut(2*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
+		tx2.Hash = tx2.TxHash()
+		txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2, nil)
+	*/
 	tx3 := core.NewTx()
 	tx3.Ins = make([]*core.TxIn, 1)
 	tx3.Outs = make([]*core.TxOut, 1)
 	tx3.Outs[0] = core.NewTxOut(5*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
-	tx3.Ins[0] = core.NewTxIn(core.NewOutPoint(tx1.Hash, 0),[]byte{core.OP_11, core.OP_EQUAL})
+	tx3.Ins[0] = core.NewTxIn(core.NewOutPoint(tx1.Hash, 0), []byte{core.OP_11, core.OP_EQUAL})
 	tx3.Hash = tx3.TxHash()
 	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3, nil)
-/*
-	tx4 := core.NewTx()
-	tx4.Ins = make([]*core.TxIn, 0)
-	tx4.Outs = make([]*core.TxOut, 1)
-	tx4.Outs[0] = core.NewTxOut(6*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
-	tx4.Hash = tx4.TxHash()
-	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4, nil)
-*/
+	/*
+		tx4 := core.NewTx()
+		tx4.Ins = make([]*core.TxIn, 0)
+		tx4.Outs = make([]*core.TxOut, 1)
+		tx4.Outs[0] = core.NewTxOut(6*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
+		tx4.Hash = tx4.TxHash()
+		txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4, nil)
+	*/
 	t := make([]*TxEntry, 2)
 	t[0] = txentry1
 	//t[1] = txentry2
@@ -278,14 +278,14 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 
 	set := createTx()
 	fmt.Println("tx number : ", len(set))
-	for _, e := range set{
+	for _, e := range set {
 		testPool.AddTx(e, noLimit, noLimit, noLimit, noLimit, true)
 		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.Hash.ToString(), testPool.cacheInnerUsage)
 	}
 	fmt.Println("mempool usage size : ", testPool.cacheInnerUsage)
 
 	testPool.TrimToSize(testPool.cacheInnerUsage, false)
-	if testPool.Size() != len(set){
+	if testPool.Size() != len(set) {
 		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", len(set), testPool.Size())
 	}
 	fmt.Printf("============= end ============\n")
@@ -296,12 +296,8 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	if testPool.Size() != 0 {
 		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", 0, testPool.Size())
 	}
-	if testPool.cacheInnerUsage != 0{
+	if testPool.cacheInnerUsage != 0 {
 		t.Errorf("current the mempool size should be 0 byte, actual pool size is %d\n", testPool.cacheInnerUsage)
 	}
 	fmt.Printf("============= end ============\n")
 }
-
-
-
-
