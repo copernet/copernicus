@@ -54,6 +54,29 @@ func (bl *Block) SetNull() {
 	bl.Checked = false
 }
 
+func (bl *Block) UpdateTime(indexPrev *BlockIndex) int64 {
+	oldTime := int64(bl.BlockHeader.Time)
+	var newTime int64
+	mt := indexPrev.GetMedianTimePast() + 1
+	at := utils.GetAdjustedTime()
+	if mt > at {
+		newTime = mt
+	} else {
+		newTime = at
+	}
+	if oldTime < newTime {
+		bl.BlockHeader.Time = uint32(newTime)
+	}
+
+	// Updating time can change work required on testnet:
+	// if params.FPowAllowMinDifficultyBlocks {
+	// 	pow := blockchain.Pow{}
+	// 	bl.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &bl.BlockHeader, params)
+	// }
+
+	return newTime - oldTime
+}
+
 func (bl *Block) Serialize(w io.Writer) error {
 	if err := bl.BlockHeader.Serialize(w); err != nil {
 		return err
