@@ -52,9 +52,11 @@ func TestCompactToBig(t *testing.T) {
 			return
 		}
 	}
+
 }
 
 func TestGetBlockProofEquivalentTime(t *testing.T) {
+
 	blocks := make([]*core.BlockIndex, 10000)
 	for i := uint32(0); i < 10000; i++ {
 		blocks[i] = &core.BlockIndex{}
@@ -80,6 +82,6 @@ func TestGetBlockProofEquivalentTime(t *testing.T) {
 				tdiff, int64(p1.GetBlockTime())-int64(p2.GetBlockTime()))
 			return
 		}
-
 	}
+
 }

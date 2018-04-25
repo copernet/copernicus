@@ -45,6 +45,7 @@ type BitcoinParams struct {
 	MinDiffReductionTime     time.Duration
 	GenerateSupported        bool
 	Checkpoints              []*core.Checkpoint
+	MineBlocksOnDemands      bool
 
 	// Enforce current block version once network has
 	// upgraded.  This is part of BIP0034.
@@ -138,6 +139,7 @@ var MainNetParams = BitcoinParams{
 		{352940, utils.HashFromString("000000000000000010755df42dba556bb72be6a32f3ce0b6941ce4430152c9ff")},
 		{382320, utils.HashFromString("00000000000000000a8dc6ed5b133d0eb2fd6af56203e4159789b092defd8ab2")},
 	},
+	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)
@@ -183,6 +185,7 @@ var RegressionNetParams = BitcoinParams{
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        true,
 	Checkpoints:              nil,
+	MineBlocksOnDemands:      false,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)
@@ -232,6 +235,7 @@ var TestNet3Params = BitcoinParams{
 	Checkpoints: []*core.Checkpoint{
 		{546, utils.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
 	},
+	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)

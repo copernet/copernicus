@@ -395,17 +395,18 @@ func (tx *Tx) Copy() *Tx {
 		newTx.Outs = append(newTx.Outs, &newTxOut)
 	}
 	for _, txIn := range tx.Ins {
-		var hashBytes [32]byte
-		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-		preHash := new(utils.Hash)
-		preHash.SetBytes(hashBytes[:])
-		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+		var newOutPoint *OutPoint
+		if txIn.PreviousOutPoint != nil {
+			preHash := new(utils.Hash)
+			preHash.SetBytes(txIn.PreviousOutPoint.Hash[:])
+			newOutPoint = &OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+		}
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
 		copy(newScript[:], txIn.Script.bytes[:scriptLen])
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
-			PreviousOutPoint: &newOutPoint,
+			PreviousOutPoint: newOutPoint,
 			Script:           NewScriptRaw(newScript),
 		}
 		newTx.Ins = append(newTx.Ins, &newTxTmp)
@@ -430,7 +431,6 @@ func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 		return 0
 	}
 	return priorityInputs / float64(txModifiedSize)
-
 }
 
 func (tx *Tx) CalculateModifiedSize() int {
@@ -449,7 +449,6 @@ func (tx *Tx) CalculateModifiedSize() int {
 		}
 	}
 	return txSize
-
 }
 
 func (tx *Tx) IsFinalTx(Height int, time int64) bool {

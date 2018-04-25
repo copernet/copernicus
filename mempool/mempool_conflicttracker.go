@@ -3,11 +3,11 @@ package mempool
 import "github.com/btcboost/copernicus/core"
 
 type PoolConflictRemovalTracker struct {
-	mpool         *Mempool
+	mpool         *TxMempool
 	conflictedTxs []*core.Tx
 }
 
-func NewMempoolConflictRemoveTrack(pool *Mempool) *PoolConflictRemovalTracker {
+func NewMempoolConflictRemoveTrack(pool *TxMempool) *PoolConflictRemovalTracker {
 	m := new(PoolConflictRemovalTracker)
 	m.mpool = pool
 	m.conflictedTxs = make([]*core.Tx, 0)

@@ -114,14 +114,14 @@ func TestMempoolAddUnchecked(t *testing.T) {
 	testPool := NewMemPool(utils.FeeRate{SataoshisPerK: 0})
 	poolSize := testPool.Size()
 
-	//Nothing in pool, remove should do nothing:
+	// Nothing in pool, remove should do nothing:
 	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize)
 	}
 
-	//Just add the parent:
+	// Just add the parent:
 	if !testPool.AddUnchecked(&txParentPtr.Hash, entry.FromTxToEntry(txParentPtr, nil), true) {
 		t.Error("add Tx failure ...")
 	}
@@ -779,7 +779,7 @@ func TestMempoolEstimateFee(t *testing.T) {
 	}
 	testPool.DynamicMemoryUsage()
 
-	maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, tx3.SerializeSize()+tx2.SerializeSize())
+	maxFeeRateRemoved := utils.NewFeeRateWithSize(25000, int64(tx3.SerializeSize()+tx2.SerializeSize()))
 	f := testPool.GetMinFee(1)
 	if f.GetFeePerK() != maxFeeRateRemoved.GetFeePerK()+1000 {
 		t.Errorf("current FeePerk : %d, except FeePerk : %d",

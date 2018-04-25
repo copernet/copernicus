@@ -549,7 +549,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 
 			// Call UpdateCoins on the top cache
 			ud := make([]Coin, 0)
-			UpdateCoins(*tx1, stack[len(stack)-1].CoinsViewCache, ud, int(height))
+			updateCoins(*tx1, stack[len(stack)-1].CoinsViewCache, ud, int(height))
 
 			// Update the utxo set for future spends
 			utxoSet.Add(*OutPoint)
@@ -698,7 +698,7 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *core.OutPoint) Disconn
 	return DisconnectUnclean
 }
 
-func UpdateCoins(tx core.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
+func updateCoins(tx core.Tx, inputs CoinsViewCache, ud []Coin, nHeight int) {
 	// Mark inputs spent.
 	if !(tx.IsCoinBase()) {
 		for _, txin := range tx.Ins {
