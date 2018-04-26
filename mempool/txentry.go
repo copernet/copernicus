@@ -3,7 +3,6 @@ package mempool
 import (
 	"unsafe"
 
-	"fmt"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/google/btree"
@@ -67,24 +66,20 @@ func (t *TxEntry) GetSpendsCoinbase() bool {
 func (t *TxEntry) UpdateParent(parent *TxEntry, innerUsage *int64, add bool) {
 	if add {
 		t.ParentTx[parent] = struct{}{}
-		fmt.Printf("should add tx1 to tx3 parent, ---------------- tx1 : %s, tx3 : %s\n", parent.Tx.Hash.ToString(), t.Tx.Hash.ToString())
 		*innerUsage += int64(unsafe.Sizeof(parent))
 		return
 	}
 	delete(t.ParentTx, parent)
 	*innerUsage -= int64(unsafe.Sizeof(parent))
-	fmt.Printf("should remove tx1 from tx3 parent, *************** tx1 : %s, tx3 : %s\n", parent.Tx.Hash.ToString(), t.Tx.Hash.ToString())
 }
 
 func (t *TxEntry) UpdateChild(child *TxEntry, innerUsage *int64, add bool) {
 	if add {
 		t.ChildTx[child] = struct{}{}
-		fmt.Printf("should add tx3 to tx1 child ----------------, tx1 : %s, tx3 : %s\n", t.Tx.Hash.ToString(), child.Tx.Hash.ToString())
 		*innerUsage += int64(unsafe.Sizeof(child))
 		return
 	}
 	delete(t.ChildTx, child)
-	fmt.Printf("should remove tx3 from tx1 child ***************, tx1 : %s, tx3 : %s\n", t.Tx.Hash.ToString(), child.Tx.Hash.ToString())
 	*innerUsage -= int64(unsafe.Sizeof(child))
 }
 

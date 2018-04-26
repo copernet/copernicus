@@ -2,13 +2,13 @@ package mining
 
 import (
 	"fmt"
-	"log"
 	"math"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/blockchain"
 	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/mempool"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/policy"
@@ -29,16 +29,16 @@ var (
 	lastBlockSize uint64
 )
 
-func getLastBlockTx() uint64 {
+func GetLastBlockTx() uint64 {
 	return lastBlockTx
 }
 
-func getLastBlockSize() uint64 {
+func GetLastBlockSize() uint64 {
 	return lastBlockSize
 }
 
 type BlockTemplate struct {
-	*core.Block
+	Block         *core.Block
 	TxFees        []utils.Amount
 	TxSigOpsCount []int
 }
@@ -60,7 +60,7 @@ type BlockAssembler struct {
 	blockTx               uint64
 	blockSigOps           uint64
 	fees                  utils.Amount
-	inBlock               map[*mempool.TxEntry]struct{} // todo modify key to value pattern instead of pointer pattern
+	inBlock               map[utils.Hash]struct{} // todo modify key to value pattern instead of pointer pattern
 	height                int
 	lockTimeCutoff        int64
 	chainParams           *msg.BitcoinParams
@@ -72,12 +72,12 @@ func NewBlockAssembler(params *msg.BitcoinParams) *BlockAssembler {
 	ba.chainParams = params
 	v := utils.GetArg("-blockmintxfee", int64(policy.DefaultBlockMinTxFee))
 	ba.blockMinFeeRate = *utils.NewFeeRate(v) // todo confirm
-	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize(core.ActiveChain.Tip())
+	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	return ba
 }
 
 func (ba *BlockAssembler) resetBlockAssembler() {
-	ba.inBlock = make(map[*mempool.TxEntry]struct{})
+	ba.inBlock = make(map[utils.Hash]struct{})
 	// Reserve space for coinbase tx.
 	ba.blockSize = 1000
 	ba.blockSigOps = 100
@@ -87,12 +87,12 @@ func (ba *BlockAssembler) resetBlockAssembler() {
 	ba.fees = 0
 }
 
-func (ba *BlockAssembler) testPackage(packageSize uint64, packageSigops int64, add *core.Tx) bool {
+func (ba *BlockAssembler) testPackage(packageSize uint64, packageSigOps int64, add *core.Tx) bool {
 	blockSizeWithPackage := ba.blockSize + packageSize
 	if blockSizeWithPackage >= ba.maxGeneratedBlockSize {
 		return false
 	}
-	if ba.blockSigOps+uint64(packageSigops) >= consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage) {
+	if ba.blockSigOps+uint64(packageSigOps) >= consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage) {
 		return false
 	}
 	return true
@@ -106,10 +106,10 @@ func (ba *BlockAssembler) addToBlock(te *mempool.TxEntry) {
 	ba.blockTx++
 	ba.blockSigOps += uint64(te.SigOpCount)
 	ba.fees += utils.Amount(te.TxFee)
-	ba.inBlock[te] = struct{}{}
+	ba.inBlock[te.Tx.Hash] = struct{}{}
 }
 
-func computeMaxGeneratedBlockSize(indexPrev *core.BlockIndex) uint64 {
+func computeMaxGeneratedBlockSize() uint64 {
 	// Block resource limits
 	// If -blockmaxsize is not given, limit to DEFAULT_MAX_GENERATED_BLOCK_SIZE
 	// If only one is given, only restrict the specified resource.
@@ -134,33 +134,36 @@ func computeMaxGeneratedBlockSize(indexPrev *core.BlockIndex) uint64 {
 // not-yet-selected ancestors as we go.
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
-	pool := blockchain.GMemPool
+	pool := blockchain.GMemPool // todo use global variable
 	pool.RLock()
 	defer pool.RUnlock()
 
 	consecutiveFailed := 0
 
-	txSet := btree.New(32) // todo confirm 32
+	var txSet *btree.BTree
 	switch strategy {
 	case sortByFee:
-		for _, entry := range pool.PoolData {
-			txSet.ReplaceOrInsert(EntryFeeSort(*entry))
-		}
+		txSet = sortedByFeeWithAncestors()
 	case sortByFeeRate:
-		for _, entry := range pool.PoolData {
-			txSet.ReplaceOrInsert(EntryAncestorFeeRateSort(*entry))
-		}
+		txSet = sortedByFeeRateWithAncestors()
 	}
 
 	//pendingTx := make(map[utils.Hash]mempool.TxEntry)
 	failedTx := make(map[utils.Hash]mempool.TxEntry)
-	ba.updatePackagesForAdded(txSet, ba.inBlock)
-
-	for {
+	for txSet.Len() > 0 {
 		// select the max value item, and delete it. select strategy is descent.
-		entry := mempool.TxEntry(txSet.DeleteMax().(EntryAncestorFeeRateSort))
+		var entry mempool.TxEntry
+
+		switch strategy {
+		case sortByFee:
+			entry = mempool.TxEntry(txSet.Max().(EntryFeeSort))
+			txSet.DeleteMax()
+		case sortByFeeRate:
+			entry = mempool.TxEntry(txSet.Max().(EntryAncestorFeeRateSort))
+			txSet.DeleteMax()
+		}
 		// if inBlock has the item, continue next loop
-		if _, ok := ba.inBlock[&entry]; ok {
+		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
 			continue
 		}
 		// if the item has failed in packing into the block, continue next loop
@@ -200,7 +203,6 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			}
 			continue
 		}
-
 		// add the ancestors of the current item to block
 		noLimit := uint64(math.MaxUint64)
 		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
@@ -217,6 +219,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			ba.addToBlock(add)
 			addset[add.Tx.Hash] = *add
 		}
+
 		descendantsUpdated += ba.updatePackagesForAdded(txSet, ancestors)
 	}
 	return descendantsUpdated
@@ -236,18 +239,25 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, -1)
 
 	// todo LOCK2(cs_main);
-	indexPrev := core.ActiveChain.Tip()
-	ba.height = indexPrev.Height + 1
-	ba.bt.Block.BlockHeader.Version = int32(blockchain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, nil)) // todo deal with nil param
+	indexPrev := blockchain.GChainActive.Tip()
+
+	// genesis block
+	if indexPrev == nil {
+		ba.height = 0
+	} else {
+		ba.height = indexPrev.Height + 1
+	}
+	ba.bt.Block.BlockHeader.Version = int32(blockchain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, blockchain.VBCache)) // todo deal with nil param
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
 		ba.bt.Block.BlockHeader.Version = int32(utils.GetArg("-blockversion", int64(ba.bt.Block.BlockHeader.Version)))
 	}
 	ba.bt.Block.BlockHeader.Time = uint32(utils.GetAdjustedTime())
-	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize(indexPrev)
+	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	if consensus.StandardLocktimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
-		ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
+		//ba.lockTimeCutoff = indexPrev.GetMedianTimePast() // todo fix
+		ba.lockTimeCutoff = 1
 	} else {
 		ba.lockTimeCutoff = int64(ba.bt.Block.BlockHeader.Time)
 	}
@@ -280,8 +290,12 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 		serializeSize, ba.blockTx, ba.fees, ba.blockSigOps)
 
 	// Fill in header.
-	ba.bt.Block.BlockHeader.HashPrevBlock = *indexPrev.GetBlockHash()
-	ba.bt.Block.UpdateTime(indexPrev)
+	if indexPrev == nil {
+		ba.bt.Block.BlockHeader.HashPrevBlock = utils.HashZero
+	} else {
+		ba.bt.Block.BlockHeader.HashPrevBlock = *indexPrev.GetBlockHash()
+	}
+	//ba.bt.Block.UpdateTime(indexPrev) // todo fix
 	pow := blockchain.Pow{}
 	ba.bt.Block.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &ba.bt.Block.BlockHeader, ba.chainParams)
 	ba.bt.Block.BlockHeader.Nonce = 0
@@ -302,7 +316,7 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 
 func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}) {
 	for entry := range entrySet {
-		if _, ok := ba.inBlock[entry]; ok {
+		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
 			delete(entrySet, entry)
 		}
 	}
@@ -315,7 +329,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 	potentialBlockSize := ba.blockSize
 	for entry := range entrySet {
 		state := core.ValidationState{}
-		if blockchain.ContextualCheckTransaction(ba.chainParams, entry.Tx, &state, ba.height, ba.lockTimeCutoff) {
+		if !blockchain.ContextualCheckTransaction(ba.chainParams, entry.Tx, &state, ba.height, ba.lockTimeCutoff) {
 			return false
 		}
 
@@ -332,7 +346,7 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	descendantUpdate := 0
 	for entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
-		blockchain.GMemPool.CalculateDescendants(entry, descendants)
+		blockchain.GMemPool.CalculateDescendants(entry, descendants) // todo use global variable
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
@@ -346,7 +360,6 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
 				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
 				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
-				item = EntryFeeSort(*desc)
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			case sortByFeeRate:
@@ -357,7 +370,6 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
 				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
 				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
-				item = EntryAncestorFeeRateSort(*desc)
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			}
