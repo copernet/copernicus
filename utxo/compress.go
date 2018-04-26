@@ -127,15 +127,15 @@ func (scr *scriptCompressor) Compress() []byte {
 		if pubKey[0] == 0x2 || pubKey[0] == 0x3 {
 			out[0] = pubKey[0]
 			return out
-		} else if pubkey[0] == 0x04 {
-			out[0] = 0x4 | (pubkey[64] & 0x1)
+		} else if pubKey[0] == 0x04 {
+			out[0] = 0x4 | (pubKey[64] & 0x1)
 			return out
 		}
 	}
 	return nil
 }
 
-func getSpecialSize(nSize int) int {
+func getSpecialSize(nSize uint64) int {
 	if nSize == 0 || nSize == 1 {
 		return 20
 	}
@@ -145,7 +145,7 @@ func getSpecialSize(nSize int) int {
 	return 0
 }
 
-func (scr *scriptCompressor) Decompress(size int, in []byte) bool {
+func (scr *scriptCompressor) Decompress(size uint64, in []byte) bool {
 	var bs []byte
 	switch size {
 	case 0x00:
@@ -167,20 +167,20 @@ func (scr *scriptCompressor) Decompress(size int, in []byte) bool {
 	case 0x3:
 		bs = make([]byte, 35)
 		bs[0] = 33
-		bs[1] = size
+		bs[1] = byte(size)
 		copy(bs[2:], in[0:32])
 		bs[34] = core.OP_CHECKSIG
 	case 0x4:
 		fallthrough
 	case 0x5:
 		tmp := make([]byte, 33)
-		tmp[0] = size - 2
+		tmp[0] = byte(size - 2)
 		copy(tmp[1:], in[0:32])
-		if pubkey, err := crypto.ParsePubKey(tmp); err != nil {
-			return
+		pubkey, err := crypto.ParsePubKey(tmp)
+		if err != nil {
+			return false
 		}
-		tmp = make([]byte, 65)
-		uncompressed := pubkey.SerializeUncompressed(tmp)
+		uncompressed := pubkey.SerializeUncompressed()
 		bs = make([]byte, 67)
 		bs[0] = 65
 		copy(bs[1:], uncompressed)
@@ -254,8 +254,8 @@ func (tc *TxoutCompressor) Serialize(w io.Writer) error {
 	if tc == nil {
 		return ErrCompress
 	}
-	amount := CompressAmount(tc.txout.Value)
-	if err := utils.WriteVarInt(w, amount); err != nil {
+	amount := CompressAmount(utils.Amount(tc.txout.Value))
+	if err := utils.WriteVarLenInt(w, amount); err != nil {
 		return err
 	}
 	sc := newScriptCompressor(tc.txout.Script)
@@ -266,7 +266,7 @@ func (tc *TxoutCompressor) Unserialize(r io.Reader) error {
 	if tc == nil {
 		return ErrCompress
 	}
-	amount, err := utils.ReadVarInt(r)
+	amount, err := utils.ReadVarLenInt(r)
 	if err != nil {
 		return err
 	}

@@ -1,8 +1,6 @@
 package utxo
 
 import (
-	//"bytes"
-	//"encoding/binary"
 	"errors"
 	"io"
 
@@ -40,7 +38,7 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
 		return errors.New("already spent")
 	}
-	if err := utils.WriteVarInt(w, coin.heightAndIsCoinBase); err != nil {
+	if err := utils.WriteVarLenInt(w, uint64(coin.heightAndIsCoinBase)); err != nil {
 		return err
 	}
 	tc := NewTxoutCompressor(&coin.txOut)
@@ -48,7 +46,7 @@ func (coin *Coin) Serialize(w io.Writer) error {
 }
 
 func (coin *Coin) Unserialize(r io.Reader) error {
-	hicb, err := utils.ReadVarInt(r)
+	hicb, err := utils.ReadVarLenInt(r)
 	if err != nil {
 		return err
 	}
@@ -63,15 +61,8 @@ func NewCoin(out *core.TxOut, height uint32, isCoinBase bool) *Coin {
 		bit = 1
 	}
 	return &Coin{
-		txOut:               out,
+		txOut:               *out,
 		heightAndIsCoinBase: (height << 1) | bit,
-	}
-}
-
-func NewEmptyCoin() *Coin {
-	return &Coin{
-		heightAndIsCoinBase: 0,
-		txOut:               core.NewTxOut(-1, []byte{}),
 	}
 }
 
@@ -89,28 +80,4 @@ type CoinViewCursor interface {
 	GetValSize() int
 	Valid() bool
 	Next()
-}
-
-func DeepCopyCoin(coin *Coin) Coin {
-	dst := Coin{
-		txOut: &core.TxOut{
-			Script: core.NewScriptRaw([]byte{}),
-		},
-	}
-
-	dst.HeightAndIsCoinBase = coin.HeightAndIsCoinBase
-	if coin.TxOut != nil {
-		dst.TxOut.Value = coin.TxOut.Value
-		dst.TxOut.SigOpCount = coin.TxOut.SigOpCount
-		if coin.TxOut.Script != nil {
-			tmp := coin.TxOut.Script.GetScriptByte()
-			dst.TxOut.Script = core.NewScriptRaw(tmp)
-		} else {
-			dst.TxOut.Script = nil
-		}
-	} else {
-		dst.TxOut = nil
-	}
-
-	return dst
 }

@@ -26,13 +26,13 @@ func newCoinMap() *coinMap {
 	return &coinMap{
 		k0:    rand.Uint64(),
 		k1:    rand.Uint64(),
-		cache: make(map[core.OutPoint]coinCacheEntry),
+		cache: make(map[uint64]coinCacheEntry),
 	}
 }
 
 func (cm *coinMap) find(out core.OutPoint) (coinCacheEntry, bool) {
 	key := utils.SipHashExtra(cm.k0, cm.k1, out.Hash[:], out.Index)
-	ret, ok := cm[key]
+	ret, ok := cm.cache[key]
 	return ret, ok
 }
 

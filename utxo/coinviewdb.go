@@ -33,10 +33,12 @@ func (coinViewDB *CoinViewDB) HaveCoin(outpoint *core.OutPoint) bool {
 	return coinViewDB.dbw.Exists(buf.Bytes())
 }
 
+/*
 func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
 	var cvc *CoinsViewCache
 	cvc.hashBlock = *hash
 }
+*/
 
 func (coinViewDB *CoinViewDB) GetBestBlock() utils.Hash {
 	var hashBestChain utils.Hash
