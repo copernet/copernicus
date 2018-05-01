@@ -1,13 +1,14 @@
 package blockchain
 
-import (
-	"errors"
+//import (
+//	"errors"
+//
+//	"github.com/btcboost/copernicus/core"
+//	"github.com/btcboost/copernicus/mempool"
+//	"github.com/btcboost/copernicus/utxo"
+//)
 
-	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/mempool"
-	"github.com/btcboost/copernicus/utxo"
-)
-
+/*
 func TxCheckChain(tx *core.Tx) (int, error) {
 	TxInsLen := len(tx.Ins)
 	var PreTxsOutTotalMoney int64
@@ -43,3 +44,4 @@ func TxCheckChain(tx *core.Tx) (int, error) {
 	}
 	return 0, nil
 }
+*/

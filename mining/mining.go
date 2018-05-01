@@ -429,7 +429,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 //		descendants := make(map[*mempool.TxEntry]struct{})
 //		pool.CalculateDescendants(&entry, descendants)
 //
-//		for desc := range descendants {
+//		for desc := range descendants {v
 //			if _, ok := alreadyAdded[desc.Tx.Hash]; ok {
 //				continue
 //			}

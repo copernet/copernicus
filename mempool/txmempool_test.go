@@ -1,12 +1,12 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/utils"
-	"github.com/btcboost/copernicus/core"
-	"testing"
-	"math"
-	//"github.com/google/btree"
 	"fmt"
+	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/utils"
+	"github.com/google/btree"
+	"math"
+	"testing"
 )
 
 type TestMemPoolEntry struct {
@@ -56,20 +56,15 @@ func (t *TestMemPoolEntry) SetSigOpsCost(sigOpsCost int) *TestMemPoolEntry {
 	return t
 }
 
-func (t *TestMemPoolEntry) FromTxToEntry(tx *core.Tx, pool *Mempool) *TxEntry {
-	//var inChainValue utils.Amount
-	//if pool != nil && pool.HasNoInputsOf(tx) {
-	//	inChainValue = utils.Amount(tx.GetValueOut())
-	//}
+func (t *TestMemPoolEntry) FromTxToEntry(tx *core.Tx) *TxEntry {
 	lp := core.LockPoints{}
-	if t.lp != nil{
+	if t.lp != nil {
 		lp = *(t.lp)
 	}
 	entry := NewTxentry(tx, int64(t.Fee), t.Time, int(t.Height), lp, int(t.SigOpCost), t.SpendsCoinbase)
 	return entry
 }
 
-/*
 func TestTxMempoolAddTx(t *testing.T) {
 	testEntryHelp := NewTestMemPoolEntry()
 
@@ -105,7 +100,7 @@ func TestTxMempoolAddTx(t *testing.T) {
 	noLimit := uint64(math.MaxUint64)
 
 	// Nothing in pool, remove should do nothing:
-	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize)
@@ -114,12 +109,12 @@ func TestTxMempoolAddTx(t *testing.T) {
 
 	// Just add the parent:
 
-	if err := testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr, nil), noLimit,noLimit,noLimit,noLimit, true); err != nil {
+	if err := testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), noLimit, noLimit, noLimit, noLimit, true); err != nil {
 		t.Error("add Tx failure : ", err)
 		return
 	}
 	poolSize = testPool.Size()
-	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize-1 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize-1)
@@ -127,10 +122,10 @@ func TestTxMempoolAddTx(t *testing.T) {
 	}
 
 	// Parent, children, grandchildren:
-	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr, nil), noLimit,noLimit,noLimit,noLimit, true)
+	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), noLimit, noLimit, noLimit, noLimit, true)
 	for i := 0; i < 3; i++ {
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i], nil), noLimit,noLimit,noLimit,noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i], nil), noLimit,noLimit,noLimit,noLimit, true)
+		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), noLimit, noLimit, noLimit, noLimit, true)
+		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), noLimit, noLimit, noLimit, noLimit, true)
 	}
 	poolSize = testPool.Size()
 	if poolSize != 7 {
@@ -139,7 +134,7 @@ func TestTxMempoolAddTx(t *testing.T) {
 	}
 
 	// Remove Child[0], GrandChild[0] should be removed:
-	testPool.RemoveRecursive(&txChild[0], UNKNOWN)
+	testPool.RemoveTxRecursive(&txChild[0], UNKNOWN)
 	if poolSize-2 != testPool.Size() {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize-2)
 		return
@@ -147,13 +142,13 @@ func TestTxMempoolAddTx(t *testing.T) {
 
 	// ... make sure grandchild and child are gone:
 	poolSize = testPool.Size()
-	testPool.RemoveRecursive(&txGrandChild[0], UNKNOWN)
+	testPool.RemoveTxRecursive(&txGrandChild[0], UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
 		return
 	}
 	poolSize = testPool.Size()
-	testPool.RemoveRecursive(&txChild[0], UNKNOWN)
+	testPool.RemoveTxRecursive(&txChild[0], UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
 		return
@@ -161,7 +156,7 @@ func TestTxMempoolAddTx(t *testing.T) {
 
 	// Remove parent, all children/grandchildren should go:
 	poolSize = testPool.Size()
-	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize-5 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-5)
 		return
@@ -170,19 +165,18 @@ func TestTxMempoolAddTx(t *testing.T) {
 	// Add children and grandchildren, but NOT the parent (simulate the parent
 	// being in a block)
 	for i := 0; i < 3; i++ {
-		testPool.AddTx( testEntryHelp.FromTxToEntry(&txChild[i], nil), noLimit,noLimit,noLimit,noLimit, true)
-		testPool.AddTx( testEntryHelp.FromTxToEntry(&txGrandChild[i], nil), noLimit,noLimit,noLimit,noLimit, true)
+		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), noLimit, noLimit, noLimit, noLimit, true)
+		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), noLimit, noLimit, noLimit, noLimit, true)
 	}
 	// Now remove the parent, as might happen if a block-re-org occurs but the
 	// parent cannot be put into the mempool (maybe because it is non-standard):
 	poolSize = testPool.Size()
-	testPool.RemoveRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize-6 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-6)
 		return
 	}
 }
-*/
 
 func createTx() []*TxEntry {
 
@@ -192,62 +186,60 @@ func createTx() []*TxEntry {
 	tx1.Outs = make([]*core.TxOut, 1)
 	tx1.Outs[0] = core.NewTxOut(10*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
 	tx1.Hash = tx1.TxHash()
-	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1, nil)
+	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1)
 
-	/*
 	tx2 := core.NewTx()
 	tx2.Ins = make([]*core.TxIn, 0)
 	tx2.Outs = make([]*core.TxOut, 1)
 	tx2.Outs[0] = core.NewTxOut(2*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
 	tx2.Hash = tx2.TxHash()
-	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2, nil)
-*/
+	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2)
+
 	tx3 := core.NewTx()
 	tx3.Ins = make([]*core.TxIn, 1)
 	tx3.Outs = make([]*core.TxOut, 1)
 	tx3.Outs[0] = core.NewTxOut(5*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
-	tx3.Ins[0] = core.NewTxIn(core.NewOutPoint(tx1.Hash, 0),[]byte{core.OP_11, core.OP_EQUAL})
+	tx3.Ins[0] = core.NewTxIn(core.NewOutPoint(tx1.Hash, 0), []byte{core.OP_11, core.OP_EQUAL})
 	tx3.Hash = tx3.TxHash()
-	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3, nil)
-/*
+	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3)
+
 	tx4 := core.NewTx()
 	tx4.Ins = make([]*core.TxIn, 0)
 	tx4.Outs = make([]*core.TxOut, 1)
 	tx4.Outs[0] = core.NewTxOut(6*utils.COIN, []byte{core.OP_11, core.OP_EQUAL})
 	tx4.Hash = tx4.TxHash()
-	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4, nil)
-*/
-	t := make([]*TxEntry, 2)
+	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4)
+
+	t := make([]*TxEntry, 4)
 	t[0] = txentry1
-	//t[1] = txentry2
-	t[1] = txentry3
-	//t[3] = txentry4
+	t[1] = txentry2
+	t[2] = txentry3
+	t[3] = txentry4
 	return t
 }
 
-/*
 func TestMempoolSortTime(t *testing.T) {
 	testPool := NewTxMempool()
 	noLimit := uint64(math.MaxUint64)
 
 	set := createTx()
-	for _, e := range set{
-		testPool.AddTx(e, noLimit,noLimit,noLimit,noLimit, true)
+	for _, e := range set {
+		testPool.AddTx(e, noLimit, noLimit, noLimit, noLimit, true)
 	}
 
 	sortedOrder := make([]utils.Hash, 4)
-	sortedOrder[0] = set[0].Tx.Hash   	//10000
-	sortedOrder[1] = set[2].Tx.Hash		//15000
-	sortedOrder[2] = set[1].Tx.Hash		//20000
-	sortedOrder[3] = set[3].Tx.Hash	  	//25300
+	sortedOrder[0] = set[0].Tx.Hash //10000
+	sortedOrder[1] = set[2].Tx.Hash //15000
+	sortedOrder[2] = set[1].Tx.Hash //20000
+	sortedOrder[3] = set[3].Tx.Hash //25300
 
-	if len(testPool.PoolData) != len(sortedOrder){
+	if len(testPool.PoolData) != len(sortedOrder) {
 		t.Error("the pool element number is error, expect 4, but actual is ", len(testPool.PoolData))
 	}
 	index := 0
 	testPool.timeSortData.Ascend(func(i btree.Item) bool {
 		entry := i.(*TxEntry)
-		if entry.Tx.Hash != sortedOrder[index]{
+		if entry.Tx.Hash != sortedOrder[index] {
 			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %s\n",
 				index, sortedOrder[index].ToString(), entry.Tx.Hash.ToString())
 			return true
@@ -271,37 +263,32 @@ func TestMempoolSortTime(t *testing.T) {
 		t.Error("after the expire time, the pool should have 0 element, but actual number is : ", testPool.Size())
 	}
 }
-*/
+
 func TestTxMempoolTrimToSize(t *testing.T) {
 	testPool := NewTxMempool()
 	noLimit := uint64(math.MaxUint64)
 
 	set := createTx()
 	fmt.Println("tx number : ", len(set))
-	for _, e := range set{
+	for _, e := range set {
 		testPool.AddTx(e, noLimit, noLimit, noLimit, noLimit, true)
 		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.Hash.ToString(), testPool.cacheInnerUsage)
 	}
 	fmt.Println("mempool usage size : ", testPool.cacheInnerUsage)
 
-	testPool.TrimToSize(testPool.cacheInnerUsage, false)
-	if testPool.Size() != len(set){
+	testPool.TrimToSize(testPool.cacheInnerUsage)
+	if testPool.Size() != len(set) {
 		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", len(set), testPool.Size())
 	}
 	fmt.Printf("============= end ============\n")
-	//testPool.TrimToSize(int64(set[0].usageSize + set[1].usageSize), false)
-	//t.Error("testpool number : ", testPool.Size())
+	testPool.TrimToSize(int64(set[0].usageSize + set[1].usageSize))
 
-	testPool.TrimToSize(1, false)
+	testPool.TrimToSize(1)
 	if testPool.Size() != 0 {
 		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", 0, testPool.Size())
 	}
-	if testPool.cacheInnerUsage != 0{
+	if testPool.cacheInnerUsage != 0 {
 		t.Errorf("current the mempool size should be 0 byte, actual pool size is %d\n", testPool.cacheInnerUsage)
 	}
 	fmt.Printf("============= end ============\n")
 }
-
-
-
-
