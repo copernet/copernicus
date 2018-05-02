@@ -1,19 +1,19 @@
 package mempool
 
 import (
-	"fmt"
-	"math"
-	"sync"
-
 	"container/list"
 	"encoding/binary"
+	"fmt"
+	"io"
+	"math"
+	"sync"
+	"unsafe"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/google/btree"
-	"io"
-	"unsafe"
 )
 
 type PoolRemovalReason int
@@ -44,7 +44,7 @@ type TxMempool struct {
 	fee utils.FeeRate
 	// poolData store the tx in the mempool
 	PoolData map[utils.Hash]*TxEntry
-	//NextTx key is txPreout, value is tx.
+	//NextTx key is txPrevout, value is tx.
 	NextTx map[core.OutPoint]*TxEntry
 	//RootTx all tx's ancestor transaction number is 1.
 	TxByAncestorFeeRateSort btree.BTree
@@ -63,7 +63,7 @@ func (m *TxMempool) GetCacheUsage() int64 {
 	return m.cacheInnerUsage
 }
 
-func (m *TxMempool) GetCheckFreQuency() float64 {
+func (m *TxMempool) GetCheckFrequency() float64 {
 	m.RLock()
 	defer m.RUnlock()
 	return m.checkFrequency
@@ -86,10 +86,10 @@ func (m *TxMempool) ExistsOutPoint(outpoint *core.OutPoint) bool {
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
 func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
-	if m.GetCheckFreQuency() == 0 {
+	if m.GetCheckFrequency() == 0 {
 		return
 	}
-	if float64(utils.GetRand(math.MaxUint32)) >= m.GetCheckFreQuency() {
+	if float64(utils.GetRand(math.MaxUint32)) >= m.GetCheckFrequency() {
 		return
 	}
 
