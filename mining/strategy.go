@@ -38,8 +38,8 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 
 func sortedByFeeWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	for _, txentry := range blockchain.GMemPool.PoolData {
-		b.ReplaceOrInsert(EntryFeeSort(*txentry))
+	for _, txEntry := range blockchain.GMemPool.PoolData { // todo use global variable
+		b.ReplaceOrInsert(EntryFeeSort(*txEntry))
 	}
 	return b
 }
@@ -59,8 +59,8 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 
 func sortedByFeeRateWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	for _, txentry := range blockchain.GMemPool.PoolData {
-		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txentry))
+	for _, txEntry := range blockchain.GMemPool.PoolData { // todo use global variable
+		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
 	}
 	return b
 }
@@ -69,7 +69,7 @@ func init() {
 	sortParam := viper.GetString("strategy")
 	ret, ok := strategies[sortParam]
 	if !ok {
-		logs.Info("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)
+		logs.Error("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)
 		strategy = defaultSortStrategy
 	}
 	strategy = ret

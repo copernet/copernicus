@@ -194,7 +194,7 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *c
 	}
 
 	lockTimeFlags := 0
-	if VersionBitsState(indexPrev, params, consensus.DeploymentCSV, GVersionBitsCache) == ThresholdActive {
+	if VersionBitsState(indexPrev, params, consensus.DeploymentCSV, VBCache) == ThresholdActive {
 		lockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
 
@@ -1160,12 +1160,12 @@ func GetBlockFileInfo(n int) *BlockFileInfo {
 
 func VersionBitsTipState(param *msg.BitcoinParams, pos consensus.DeploymentPos) ThresholdState {
 	//todo:LOCK(cs_main)
-	return VersionBitsState(GChainActive.Tip(), param, pos, &versionBitsCache)
+	return VersionBitsState(GChainActive.Tip(), param, pos, VBCache)
 }
 
 func VersionBitsTipStateSinceHeight(params *msg.BitcoinParams, pos consensus.DeploymentPos) int {
 	//todo:LOCK(cs_main)
-	return VersionBitsStateSinceHeight(GChainActive.Tip(), params, pos, &versionBitsCache)
+	return VersionBitsStateSinceHeight(GChainActive.Tip(), params, pos, VBCache)
 }
 
 func BlockIndexWorkComparator(pa, pb interface{}) bool {
@@ -1895,7 +1895,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	// Start enforcing BIP68 (sequence locks) using versionBits logic.
 	nLockTimeFlags := 0
-	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, VBCache) == ThresholdActive {
 		nLockTimeFlags |= consensus.LocktimeVerifySequence
 	}
 
@@ -2180,7 +2180,7 @@ func UpdateTip(param *msg.BitcoinParams, pindexNew *core.BlockIndex) {
 		// Check the version of the last 100 blocks to see if we need to
 		// upgrade:
 		for i := 0; i < 100 && index != nil; i++ {
-			nExpectedVersion := ComputeBlockVersion(index.Prev, param, GVersionBitsCache)
+			nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
 			if index.Header.Version > VersionBitsLastOldBlockVersion &&
 				(int(index.Header.Version)&(^nExpectedVersion) != 0) {
 				nUpgraded++
@@ -2993,7 +2993,7 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 	}
 
 	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, VBCache) == ThresholdActive {
 		flags |= crypto.ScriptVerifyCheckSequenceVerify
 	}
 
@@ -3018,6 +3018,9 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 func TestBlockValidity(params *msg.BitcoinParams, state *core.ValidationState, block *core.Block,
 	indexPrev *core.BlockIndex, checkPOW bool, checkMerkleRoot bool) bool {
 	// todo AssertLockHeld(cs_main)
+	if indexPrev == nil {
+		return true
+	}
 	if !(indexPrev != nil && indexPrev == GChainActive.Tip()) {
 		panic("error")
 	}
@@ -3644,7 +3647,7 @@ func UnloadBlockIndex() {
 	gBlockSequenceID = 1
 	gSetDirtyFileInfo.Clear()
 	gSetDirtyBlockIndex.Clear()
-	versionBitsCache.Clear()
+	VBCache.Clear()
 	for b := 0; b < VersionBitsNumBits; b++ {
 		warningcache[b] = make(ThresholdConditionCache)
 	}
@@ -4868,7 +4871,7 @@ func RemoveForReorg(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolH
 				}
 
 				coin := pcoins.AccessCoin(txin.PreviousOutPoint)
-				if m.GetCheckFreQuency() != 0 {
+				if m.GetCheckFrequency() != 0 {
 					if coin.IsSpent() {
 						panic("the coin must be unspent")
 					}
