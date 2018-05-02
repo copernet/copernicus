@@ -88,8 +88,8 @@ var MainNetParams = BitcoinParams{
 		MinerConfirmationWindow:        2016,
 		AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
 		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
-			consensus.DeploymentTestDummy: {28, 1199145601, 1230767999},
-			consensus.DeploymentCSV:       {0, 1462060800, 1493596800},
+			consensus.DeploymentTestDummy: {Bit: 28, StartTime: 1199145601, Timeout: 1230767999},
+			consensus.DeploymentCSV:       {Bit: 0, StartTime: 1462060800, Timeout: 1493596800},
 		},
 		FPowNoRetargeting:          false,
 		CashHardForkActivationTime: 1510600000,
