@@ -33,7 +33,7 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
 		return e.Tx.Hash.Cmp(&t.Tx.Hash) > 0
 	}
-	return e.SumFeeWithAncestors > than.(EntryFeeSort).SumFeeWithAncestors
+	return e.SumFeeWithAncestors < than.(EntryFeeSort).SumFeeWithAncestors
 }
 
 func sortedByFeeWithAncestors() *btree.BTree {
@@ -54,7 +54,7 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	if b1 == b2 {
 		return r.Tx.Hash.Cmp(&t.Tx.Hash) > 0
 	}
-	return b1 > b2
+	return b1 < b2
 }
 
 func sortedByFeeRateWithAncestors() *btree.BTree {
