@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/viper"
-	"gopkg.in/go-playground/validator.v8"
+	//"gopkg.in/go-playground/validator.v8"
 )
 
 const (
@@ -29,7 +29,7 @@ func initConfig() *Configuration {
 	Must(nil, viper.ReadConfig(file))
 	Must(nil, viper.Unmarshal(config))
 	//TODO:
-	Must(nil, config.Validate())
+	//Must(nil, config.Validate())
 
 	return config
 }
@@ -64,8 +64,8 @@ func Must(i interface{}, err error) interface{} {
 }
 
 // Validate validates configuration
-func (c Configuration) Validate() error {
-	validate := validator.New(&validator.Config{TagName: "validate"})
-
-	return validate.Struct(c)
-}
+//func (c Configuration) Validate() error {
+//	validate := validator.New(&validator.Config{TagName: "validate"})
+//
+//	return validate.Struct(c)
+//}
