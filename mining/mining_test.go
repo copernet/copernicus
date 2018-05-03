@@ -115,19 +115,15 @@ func createTx() []*mempool.TxEntry {
 
 func TestCreateNewBlockByFee(t *testing.T) {
 	// clear mempool data
+	blockchain.GMemPool = mempool.NewTxMempool()
 	pool := blockchain.GMemPool
-	pool.PoolData = make(map[utils.Hash]*mempool.TxEntry)
-	// clean mempool data
-	defer func() {
-		pool.PoolData = make(map[utils.Hash]*mempool.TxEntry)
-	}()
 
 	txSet := createTx()
 	noLimit := uint64(math.MaxUint64)
 	for _, entry := range txSet {
 		pool.AddTx(entry, noLimit, noLimit, noLimit, noLimit, true)
 	}
-	if len(pool.PoolData) != 4 {
+	if pool.Size() != 4 {
 		t.Error("add txEntry to mempool error")
 	}
 
@@ -146,15 +142,15 @@ func TestCreateNewBlockByFee(t *testing.T) {
 
 func TestCreateNewBlockByFeeRate(t *testing.T) {
 	// clear mempool data
+	blockchain.GMemPool = mempool.NewTxMempool()
 	pool := blockchain.GMemPool
-	pool.PoolData = make(map[utils.Hash]*mempool.TxEntry)
 
 	txSet := createTx()
 	noLimit := uint64(math.MaxUint64)
 	for _, entry := range txSet {
 		pool.AddTx(entry, noLimit, noLimit, noLimit, noLimit, true)
 	}
-	if len(pool.PoolData) != 4 {
+	if pool.Size() != 4 {
 		t.Error("add txEntry to mempool error")
 	}
 
