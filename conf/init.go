@@ -11,6 +11,9 @@ const (
 	ConfEnv = "DSP_ALLOT_CONF"
 )
 
+var Cfg *Configuration
+
+// init configuration
 func initConfig() *Configuration {
 	config := &Configuration{}
 
@@ -38,7 +41,7 @@ type Configuration struct {
 	GoVersion string `mapstructure:"go_version" validate:"required"`
 	Version   string `mapstructure:"version" validate:"required"`
 	BuildDate string `mapstructure:"build_date" validate:"required"`
-	Service   struct {
+	Service struct {
 		Address string `mapstructure:"address" validate:"required,cidr"`
 	} `mapstructure:"service" validate:"required"`
 	HTTP struct {
@@ -61,6 +64,10 @@ func Must(i interface{}, err error) interface{} {
 		panic(err)
 	}
 	return i
+}
+
+func init()  {
+	Cfg = initConfig()
 }
 
 // Validate validates configuration
