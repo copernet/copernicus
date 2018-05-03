@@ -3,55 +3,28 @@ package core
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"unsafe"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 )
 
-var emptyByte = bytes.Repeat([]byte{0}, 32)
-
 type Block struct {
-	Raw         []byte
-	Hash        *utils.Hash
-	BlockHeader BlockHeader
-	Height      int32
-	Txs         []*Tx
-	Size        uint32
-	TotalBTC    uint64
-	BlockReward float64
-	NextBlock   utils.Hash
-	Checked     bool
-}
-
-func ParseBlock(raw []byte) (block *Block, err error) {
-	block = new(Block)
-	block.Raw = raw
-	hash := crypto.DoubleSha256Hash(raw[:80])
-	block.Hash = &hash
-	block.BlockHeader.Version = int32(binary.LittleEndian.Uint32(raw[0:4]))
-	if !bytes.Equal(raw[4:36], emptyByte) {
-		block.BlockHeader.MerkleRoot = crypto.DoubleSha256Hash(raw[4:36])
-	}
-	// block.BlockTime = binary.LittleEndian.Uint32(txRaw[68:72])
-	block.BlockHeader.Bits = binary.LittleEndian.Uint32(raw[72:76])
-	block.BlockHeader.Nonce = binary.LittleEndian.Uint32(raw[76:80])
-	block.Size = uint32(len(raw))
-	// txs, _ := ParseTransaction(txRaw[80:])
-	// block.Transactions = txs
-	return
+	Header BlockHeader
+	Txs    []*Tx
 }
 
 func (bl *Block) GetBlockHeader() BlockHeader {
-	return bl.BlockHeader
+	return bl.Header
 }
 
 func (bl *Block) SetNull() {
-	bl.BlockHeader.SetNull()
+	bl.Header.SetNull()
 	bl.Txs = nil
-	bl.Hash = &utils.HashZero
-	bl.Checked = false
 }
 
 func (bl *Block) UpdateTime(indexPrev *BlockIndex) int64 {
@@ -78,7 +51,10 @@ func (bl *Block) UpdateTime(indexPrev *BlockIndex) int64 {
 }
 
 func (bl *Block) Serialize(w io.Writer) error {
-	if err := bl.BlockHeader.Serialize(w); err != nil {
+	if err := bl.Header.Serialize(w); err != nil {
+		return err
+	}
+	if err := utils.WriteVarInt(w, uint64(len(bl.Txs))); err != nil {
 		return err
 	}
 	for _, tx := range bl.Txs {
@@ -86,23 +62,26 @@ func (bl *Block) Serialize(w io.Writer) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
 func (bl *Block) Deserialize(r io.Reader) error {
-	bl.BlockHeader.Deserialize(r)
-	for i := 0; i < len(bl.Txs); i++ {
-		if tx, err := DeserializeTx(r); err != nil {
-			bl.Txs = append(bl.Txs, tx)
-			return err
-		}
+	if err := bl.Header.Deserialize(r); err != nil {
+		return err
 	}
-	hash, err := bl.BlockHeader.GetHash()
+	ntx, err := utils.ReadVarInt(r)
 	if err != nil {
 		return err
 	}
-	bl.Hash = &hash
+	if ntx > consensus.MaxTxCount {
+		return errors.New(fmt.Sprintf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount))
+	}
+	for i := 0; i < ntx; i++ {
+		if tx, err := DeserializeTx(r); err != nil {
+			return err
+		}
+		bl.Txs = append(bl.Txs, tx)
+	}
 	return nil
 }
 
@@ -115,7 +94,5 @@ func (bl *Block) SerializeSize() int {
 }
 
 func NewBlock() *Block {
-	bl := Block{}
-	bl.SetNull()
-	return &bl
+	return &Block{}
 }
