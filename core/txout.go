@@ -11,20 +11,19 @@ import (
 )
 
 type TxOut struct {
-	Value      int64
-	SigOpCount int
-	Script     *Script
+	value            int64
+	scriptPubKey     *Script
 }
 
 func (txOut *TxOut) SerializeSize() int {
-	if txOut.Script == nil {
+	if txOut.scriptPubKey == nil {
 		return 8
 	}
-	return 8 + utils.VarIntSerializeSize(uint64(txOut.Script.Size())) + txOut.Script.Size()
+	return 8 + utils.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
 }
 
 func (txOut *TxOut) IsDust(minRelayTxFee utils.FeeRate) bool {
-	return txOut.Value < txOut.GetDustThreshold(minRelayTxFee)
+	return txOut.value < txOut.GetDustThreshold(minRelayTxFee)
 }
 
 func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
@@ -37,12 +36,23 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
 	// txout is 31 bytes big, and will need a CTxIn of at least 67 bytes to
 	// spend: so dust is a spendable txout less than 294*minRelayTxFee/1000
 	// (in satoshis).
-	if txOut.Script.IsUnspendable() {
+	if txOut.scriptPubKey.IsUnspendable() {
 		return 0
 	}
 	size := txOut.SerializeSize()
 	size += 32 + 4 + 1 + 107 + 4
 	return 3 * minRelayTxFee.GetFee(size)
+}
+
+func (txOut *TxOut) Serialize(writer io.Writer) error {
+	if txOut.scriptPubKey == nil {
+		return nil
+	}
+	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.Value))
+	if err != nil {
+		return err
+	}
+	return utils.WriteVarBytes(writer, txOut.scriptPubKey.bytes)
 }
 
 func (txOut *TxOut) Deserialize(reader io.Reader) error {
@@ -51,25 +61,50 @@ func (txOut *TxOut) Deserialize(reader io.Reader) error {
 		return err
 	}
 	bytes, err := ReadScript(reader, MaxMessagePayload, "tx output script")
-	txOut.Script = NewScriptRaw(bytes)
+	txOut.scriptPubKey = NewScriptRaw(bytes)
 	return err
 }
 
-func (txOut *TxOut) Serialize(writer io.Writer) error {
-	if txOut.Script == nil {
-		return nil
+func (txOut *TxOut) CheckValue(state *ValidationState) bool {
+	if txOut.value < 0 {
+		state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
+		return false
 	}
-	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.Value))
-	if err != nil {
-		return err
+	if txOut.value > MaxMoney {
+		state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
+		return false
 	}
-	return utils.WriteVarBytes(writer, txOut.Script.bytes)
-}
 
-func (txOut *TxOut) Check() bool {
 	return true
 }
 
+func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool) (succeed bool, pubKeyType int)  {
+	succeed, pubKeyType = txOut.scriptPubKey.CheckScriptPubKey(state)
+
+	if pubKeyType == SCRIPT_NULL_DATA {
+		if !AcceptDataCarrier {
+			return false, pubKeyType
+		}
+		if txOut.scriptPubKey.Size() > (allowLargeOpReturn ?
+			MAX_OP_RETURN_RELAY_LARGE : MAX_OP_RETURN_RELAY) {
+			state.Dos(100, false, RejectInvalid, "scriptpubkey too large", false, "")
+			return false, pubKeyType
+		}
+	}
+
+	return
+}
+
+func (txOut *TxOut) GetValue() int64 {
+	return txOut.value
+}
+
+/*
+func (txOut *TxOut) Check() bool {
+	return true
+}
+*/
+/*
 func (txOut *TxOut) SetNull() {
 	txOut.Value = -1
 	txOut.Script = nil
@@ -78,9 +113,9 @@ func (txOut *TxOut) SetNull() {
 func (txOut *TxOut) IsNull() bool {
 	return txOut.Value == -1
 }
-
+*/
 func (txOut *TxOut) String() string {
-	return fmt.Sprintf("Value :%d Script:%s", txOut.Value, hex.EncodeToString(txOut.Script.bytes))
+	return fmt.Sprintf("Value :%d Script:%s", txOut.Value, hex.EncodeToString(txOut.scriptPubKey.bytes))
 }
 
 func (txOut *TxOut) IsEqual(out *TxOut) bool {
@@ -88,13 +123,13 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 		return false
 	}
 
-	return txOut.Script.IsEqual(out.Script)
+	return txOut.scriptPubKey.IsEqual(out.scriptPubKey)
 }
 
-func NewTxOut(value int64, pkScript []byte) *TxOut {
+func NewTxOut() *TxOut {
 	txOut := TxOut{
-		Value:  value,
-		Script: NewScriptRaw(pkScript),
+		Value:  -1,
+		scriptPubKey: nil,
 	}
 	return &txOut
 }

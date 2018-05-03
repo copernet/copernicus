@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/btcboost/copernicus/utils"
+	utils2 "copernicus/utils"
 )
 
 type OutPoint struct {
@@ -21,6 +22,17 @@ func NewOutPoint(hash utils.Hash, index uint32) *OutPoint {
 	}
 	return &outPoint
 }
+
+/*
+func NewOutPoint() *OutPoint {
+	outPoint := OutPoint {
+		Hash: 0,
+		Index: -1,
+	}
+
+	return &outPoint
+}
+*/
 
 func (outPoint *OutPoint) Serialize() string {
 	// Allocate enough for hash string, colon, and 10 digits.  Although

@@ -35,22 +35,3 @@ func (scriptFreeList ScriptFreeList) Return(buf []byte) {
 	}
 
 }
-
-func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (signScript []byte, err error) {
-	count, err := utils.ReadVarInt(reader)
-	if err != nil {
-		return
-	}
-	if count > uint64(maxAllowed) {
-		err = errors.Errorf("readScript %s is larger than the max allowed size [count %d,max %d]", fieldName, count, maxAllowed)
-		return
-	}
-	buf := scriptPool.Borrow(count)
-	_, err = io.ReadFull(reader, buf)
-	if err != nil {
-		scriptPool.Return(buf)
-		return
-	}
-	return buf, nil
-
-}
