@@ -285,6 +285,16 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 		return false
 	}
 
+	// check duplicate tx
+	if tx.isOutputAlreadyExist() {
+		return state.Dos(10, false, RejectInvalid, "bad-txns-output-already-exist", false, "")
+	}
+
+	// check duble-spending
+	if !tx.isInputAvailable() {
+		return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
+	}
+
 	//check inputs
 	if !tx.checkInputs() {
 		return false
@@ -342,6 +352,7 @@ func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool)
 
 	return true
 }
+
 func (tx *Tx) checkStandard(state *ValidationState, allowLargeOpReturn bool) bool {
 	// check version
 	if tx.Version > MaxStandardVersion || tx.Version < 1 {
@@ -416,6 +427,34 @@ func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
 			if e.scriptPubKey.IsCommitment(consensusParams.antiReplayOpReturnCommitment) {
 				return state.Dos(100, false, RejectInvalid, "bad-txns-replay", false, "")
 			}
+		}
+	}
+
+	return true
+}
+
+func (tx *Tx) isOutputAlreadyExist() bool {
+	for i, e := range tx.outs {
+		outPoint := NewOutPoint(tx.GetID(), i)
+		if GMempool.GetCoin(outPoint) {
+			return false
+		}
+		if GUtxo.GetCoin(outPoint) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (tx *Tx) isInputsAvailable() bool {
+	for e := range tx.ins {
+		outPoint := e.PreviousOutPoint
+		if !GMempool.GetCoin(outPoint) {
+			return false
+		}
+		if !GUtxo.GetCoin(outPoint) {
+			return false
 		}
 	}
 
