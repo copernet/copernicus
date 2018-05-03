@@ -6,16 +6,12 @@
 package rpcclient
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/btcboost/copernicus/btcjson"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/btcboost/copernicus/utils"
 )
 
 // FutureDebugLevelResult is a future promise to deliver the result of a
@@ -128,6 +124,8 @@ func (r FutureListAddressTransactionsResult) Receive() ([]btcjson.ListTransactio
 // See ListAddressTransactions for the blocking version and more details.
 //
 // NOTE: This is a btcd extension.
+// todo open
+/*
 func (c *Client) ListAddressTransactionsAsync(addresses []btcutil.Address, account string) FutureListAddressTransactionsResult {
 	// Convert addresses to strings.
 	addrs := make([]string, 0, len(addresses))
@@ -137,14 +135,18 @@ func (c *Client) ListAddressTransactionsAsync(addresses []btcutil.Address, accou
 	cmd := btcjson.NewListAddressTransactionsCmd(addrs, &account)
 	return c.sendCmd(cmd)
 }
+*/
 
 // ListAddressTransactions returns information about all transactions associated
 // with the provided addresses.
 //
 // NOTE: This is a btcwallet extension.
+// todo open
+/*
 func (c *Client) ListAddressTransactions(addresses []btcutil.Address, account string) ([]btcjson.ListTransactionsResult, error) {
 	return c.ListAddressTransactionsAsync(addresses, account).Receive()
 }
+*/
 
 // FutureGetBestBlockResult is a future promise to deliver the result of a
 // GetBestBlockAsync RPC invocation (or an applicable error).
@@ -152,7 +154,7 @@ type FutureGetBestBlockResult chan *response
 
 // Receive waits for the response promised by the future and returns the hash
 // and height of the block in the longest (best) chain.
-func (r FutureGetBestBlockResult) Receive() (*chainhash.Hash, int32, error) {
+func (r FutureGetBestBlockResult) Receive() (*utils.Hash, int32, error) {
 	res, err := receiveFuture(r)
 	if err != nil {
 		return nil, 0, err
@@ -166,7 +168,7 @@ func (r FutureGetBestBlockResult) Receive() (*chainhash.Hash, int32, error) {
 	}
 
 	// Convert to hash from string.
-	hash, err := chainhash.NewHashFromStr(bestBlock.Hash)
+	hash, err := utils.GetHashFromStr(bestBlock.Hash)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -190,7 +192,7 @@ func (c *Client) GetBestBlockAsync() FutureGetBestBlockResult {
 // chain.
 //
 // NOTE: This is a btcd extension.
-func (c *Client) GetBestBlock() (*chainhash.Hash, int32, error) {
+func (c *Client) GetBestBlock() (*utils.Hash, int32, error) {
 	return c.GetBestBlockAsync().Receive()
 }
 
@@ -200,7 +202,7 @@ type FutureGetCurrentNetResult chan *response
 
 // Receive waits for the response promised by the future and returns the network
 // the server is running on.
-func (r FutureGetCurrentNetResult) Receive() (wire.BitcoinNet, error) {
+func (r FutureGetCurrentNetResult) Receive() (utils.BitcoinNet, error) {
 	res, err := receiveFuture(r)
 	if err != nil {
 		return 0, err
@@ -213,7 +215,7 @@ func (r FutureGetCurrentNetResult) Receive() (wire.BitcoinNet, error) {
 		return 0, err
 	}
 
-	return wire.BitcoinNet(net), nil
+	return utils.BitcoinNet(net), nil
 }
 
 // GetCurrentNetAsync returns an instance of a type that can be used to get the
@@ -231,7 +233,7 @@ func (c *Client) GetCurrentNetAsync() FutureGetCurrentNetResult {
 // GetCurrentNet returns the network the server is running on.
 //
 // NOTE: This is a btcd extension.
-func (c *Client) GetCurrentNet() (wire.BitcoinNet, error) {
+func (c *Client) GetCurrentNet() (utils.BitcoinNet, error) {
 	return c.GetCurrentNetAsync().Receive()
 }
 
@@ -247,6 +249,8 @@ type FutureGetHeadersResult chan *response
 //
 // NOTE: This is a btcsuite extension ported from
 // github.com/decred/dcrrpcclient.
+// todo open
+/*
 func (r FutureGetHeadersResult) Receive() ([]wire.BlockHeader, error) {
 	res, err := receiveFuture(r)
 	if err != nil {
@@ -274,6 +278,7 @@ func (r FutureGetHeadersResult) Receive() ([]wire.BlockHeader, error) {
 	}
 	return headers, nil
 }
+*/
 
 // GetHeadersAsync returns an instance of a type that can be used to get the result
 // of the RPC at some future time by invoking the Receive function on the returned instance.
@@ -282,14 +287,14 @@ func (r FutureGetHeadersResult) Receive() ([]wire.BlockHeader, error) {
 //
 // NOTE: This is a btcsuite extension ported from
 // github.com/decred/dcrrpcclient.
-func (c *Client) GetHeadersAsync(blockLocators []chainhash.Hash, hashStop *chainhash.Hash) FutureGetHeadersResult {
+func (c *Client) GetHeadersAsync(blockLocators []utils.Hash, hashStop *utils.Hash) FutureGetHeadersResult {
 	locators := make([]string, len(blockLocators))
 	for i := range blockLocators {
-		locators[i] = blockLocators[i].String()
+		locators[i] = blockLocators[i].ToString()
 	}
 	hash := ""
 	if hashStop != nil {
-		hash = hashStop.String()
+		hash = hashStop.ToString()
 	}
 	cmd := btcjson.NewGetHeadersCmd(locators, hash)
 	return c.sendCmd(cmd)
@@ -301,9 +306,12 @@ func (c *Client) GetHeadersAsync(blockLocators []chainhash.Hash, hashStop *chain
 //
 // NOTE: This is a btcsuite extension ported from
 // github.com/decred/dcrrpcclient.
-func (c *Client) GetHeaders(blockLocators []chainhash.Hash, hashStop *chainhash.Hash) ([]wire.BlockHeader, error) {
+// todo open
+/*
+func (c *Client) GetHeaders(blockLocators []utils.Hash, hashStop *utils.Hash) ([]wire.BlockHeader, error) {
 	return c.GetHeadersAsync(blockLocators, hashStop).Receive()
 }
+*/
 
 // FutureExportWatchingWalletResult is a future promise to deliver the result of
 // an ExportWatchingWalletAsync RPC invocation (or an applicable error).

@@ -3,7 +3,7 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package rpc
+package rpcserver
 
 import (
 	"bytes"
@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"math/rand"
 	"net"
 	"net/http"
@@ -1001,23 +1000,23 @@ func handleGetBestBlockHash(s *RPCServer, cmd interface{}, closeChan <-chan stru
 
 // getDifficultyRatio returns the proof-of-work difficulty as a multiple of the
 // minimum difficulty using the passed bits field from the header of a block.
-func getDifficultyRatio(bits uint32, params *chaincfg.Params) float64 {
-	// The minimum difficulty is the max possible proof-of-work limit bits
-	// converted back to a number.  Note this is not the same as the proof of
-	// work limit directly because the block difficulty is encoded in a block
-	// with the compact form which loses precision.
-	max := blockchain.CompactToBig(params.PowLimitBits)
-	target := blockchain.CompactToBig(bits)
-
-	difficulty := new(big.Rat).SetFrac(max, target)
-	outString := difficulty.FloatString(8)
-	diff, err := strconv.ParseFloat(outString, 64)
-	if err != nil {
-		logs.Error("Cannot get difficulty: %v", err)
-		return 0
-	}
-	return diff
-}
+//func getDifficultyRatio(bits uint32, params *chaincfg.Params) float64 {
+//	// The minimum difficulty is the max possible proof-of-work limit bits
+//	// converted back to a number.  Note this is not the same as the proof of
+//	// work limit directly because the block difficulty is encoded in a block
+//	// with the compact form which loses precision.
+//	max := blockchain.CompactToBig(params.PowLimitBits)
+//	target := blockchain.CompactToBig(bits)
+//
+//	difficulty := new(big.Rat).SetFrac(max, target)
+//	outString := difficulty.FloatString(8)
+//	diff, err := strconv.ParseFloat(outString, 64)
+//	if err != nil {
+//		logs.Error("Cannot get difficulty: %v", err)
+//		return 0
+//	}
+//	return diff
+//}
 
 // handleGetBlock implements the getblock command.
 /*
