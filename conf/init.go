@@ -5,6 +5,8 @@ import (
 
 	"github.com/spf13/viper"
 	//"gopkg.in/go-playground/validator.v8"
+	"path"
+	"runtime"
 )
 
 const (
@@ -20,7 +22,12 @@ func initConfig() *Configuration {
 	viper.SetEnvPrefix("copernicus")
 	viper.AutomaticEnv()
 	viper.SetConfigType("yaml")
-	viper.SetDefault("conf", "./conf.yml")
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("get current file path failed.")
+	}
+	filePath := path.Join(path.Dir(filename), "./conf.yml")
+	viper.SetDefault("conf", filePath)
 
 	// get config file path from environment
 	conf := viper.GetString("conf")
@@ -41,7 +48,7 @@ type Configuration struct {
 	GoVersion string `mapstructure:"go_version" validate:"required"`
 	Version   string `mapstructure:"version" validate:"required"`
 	BuildDate string `mapstructure:"build_date" validate:"required"`
-	Service struct {
+	Service   struct {
 		Address string `mapstructure:"address" validate:"required,cidr"`
 	} `mapstructure:"service" validate:"required"`
 	HTTP struct {
@@ -66,7 +73,7 @@ func Must(i interface{}, err error) interface{} {
 	return i
 }
 
-func init()  {
+func init() {
 	Cfg = initConfig()
 }
 
