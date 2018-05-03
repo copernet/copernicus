@@ -22,79 +22,37 @@ type BlockHeader struct {
 const blockHeaderLength = 16 + utils.Hash256Size*2
 
 func NewBlockHeader() *BlockHeader {
-	bh := BlockHeader{}
-	bh.SetNull()
-	return &bh
+	return &BlockHeader{}
 }
 
 func (bh *BlockHeader) IsNull() bool {
 	return bh.Bits == 0
 }
 
-func (bh *BlockHeader) GetBlockTime() uint32 {
-	return bh.Time
+func (bh *BlockHeader) GetBlockTime() int64 {
+	return int64(bh.Time)
 }
 
-func (bh *BlockHeader) GetHash() (utils.Hash, error) {
+func (bh *BlockHeader) GetHash() utils.Hash {
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
-	err := bh.Serialize(buf)
-	return crypto.DoubleSha256Hash(buf.Bytes()), err
+	bh.Serialize(buf)
+	return crypto.DoubleSha256Hash(buf.Bytes())
 }
 
 func (bh *BlockHeader) SetNull() {
-	bh.Version = 0
-	bh.Time = 0
-	bh.Bits = 0
-	bh.Nonce = 0
+	*bh = BlockHeader{}
 }
 
-func (bh *BlockHeader) Serialize(writer io.Writer) (err error) {
-	if err = binary.Write(writer, binary.LittleEndian, bh.Version); err != nil {
-		return
-	}
-	if _, err = writer.Write(bh.HashPrevBlock.GetCloneBytes()); err != nil {
-		return
-	}
-	if _, err = writer.Write(bh.MerkleRoot.GetCloneBytes()); err != nil {
-		return
-	}
-	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Time); err != nil {
-		return
-	}
-	if err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Bits); err != nil {
-		return
-	}
-	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, bh.Nonce)
+func (bh *BlockHeader) Serialize(w io.Writer) error {
+	return utils.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
 }
 
-func (bh *BlockHeader) Deserialize(r io.Reader) (err error) {
-	if err = binary.Read(r, binary.LittleEndian, &bh.Version); err != nil {
-		return
-	}
-	if _, err = io.ReadFull(r, bh.HashPrevBlock[:]); err != nil {
-		return
-	}
-	if _, err = io.ReadFull(r, bh.MerkleRoot[:]); err != nil {
-		return
-	}
-	if bh.Time, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
-		return
-	}
-	if bh.Bits, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian); err != nil {
-		return
-	}
-	bh.Nonce, err = utils.BinarySerializer.Uint32(r, binary.LittleEndian)
-
-	return
+func (bh *BlockHeader) Deserialize(r io.Reader) error {
+	return utils.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
 
-func (bh *BlockHeader) ToString() string {
-	var hash utils.Hash
-	var err error
-	if hash, err = bh.GetHash(); err != nil {
-		return ""
-	}
+func (bh *BlockHeader) String() string {
 	return fmt.Sprintf("Block version : %d, hashPrevBlock : %s, hashMerkleRoot : %s,"+
-		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock.ToString(),
-		bh.MerkleRoot.ToString(), bh.Time, bh.Bits, bh.Nonce, hash.ToString())
+		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock,
+		bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce, bh.GetHash())
 }

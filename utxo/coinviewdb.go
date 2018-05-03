@@ -14,14 +14,14 @@ type CoinViewDB struct {
 	dbw *database.DBWrapper
 }
 
-func (coinViewDB *CoinViewDB) GetCoin(outpoint *core.OutPoint) ([]byte, error) {
+func (cvd *CoinViewDB) GetCoin(outpoint *core.OutPoint) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinEntry(outpoint).Serialize(buf)
 	if err != nil {
 		panic("get coin is failed!")
 	}
 
-	return coinViewDB.dbw.Read(buf.Bytes())
+	return cvd.dbw.Read(buf.Bytes())
 }
 
 func (coinViewDB *CoinViewDB) HaveCoin(outpoint *core.OutPoint) bool {
@@ -33,10 +33,12 @@ func (coinViewDB *CoinViewDB) HaveCoin(outpoint *core.OutPoint) bool {
 	return coinViewDB.dbw.Exists(buf.Bytes())
 }
 
+/*
 func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
 	var cvc *CoinsViewCache
 	cvc.hashBlock = *hash
 }
+*/
 
 func (coinViewDB *CoinViewDB) GetBestBlock() utils.Hash {
 	var hashBestChain utils.Hash
@@ -104,7 +106,7 @@ func NewCoinViewDB(do *database.DBOption) *CoinViewDB {
 		FilePath:      conf.GetDataPath() + "/chainstate",
 		CacheSize:     do.CacheSize,
 		Wipe:          false,
-		DontObfuscate: true,
+		DontObfuscate: false,
 	})
 
 	if err != nil {
