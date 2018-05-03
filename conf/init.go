@@ -5,19 +5,29 @@ import (
 
 	"github.com/spf13/viper"
 	//"gopkg.in/go-playground/validator.v8"
+	"path"
+	"runtime"
 )
 
 const (
 	ConfEnv = "DSP_ALLOT_CONF"
 )
 
+var Cfg *Configuration
+
+// init configuration
 func initConfig() *Configuration {
 	config := &Configuration{}
 
 	viper.SetEnvPrefix("copernicus")
 	viper.AutomaticEnv()
 	viper.SetConfigType("yaml")
-	viper.SetDefault("conf", "./conf.yml")
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("get current file path failed.")
+	}
+	filePath := path.Join(path.Dir(filename), "./conf.yml")
+	viper.SetDefault("conf", filePath)
 
 	// get config file path from environment
 	conf := viper.GetString("conf")
@@ -61,6 +71,10 @@ func Must(i interface{}, err error) interface{} {
 		panic(err)
 	}
 	return i
+}
+
+func init() {
+	Cfg = initConfig()
 }
 
 // Validate validates configuration
