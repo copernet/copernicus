@@ -15,17 +15,6 @@ type TxEntry struct {
 	// txFee tis transaction fee
 	TxFee    int64
 	TxHeight int
-	// sumTxCountWithDescendants is this tx and all Descendants transaction's number. init number is 1.
-	SumTxCountWithDescendants int64
-	// sumFeeWithDescendants is calculated by this tx and all Descendants transaction;
-	SumFeeWithDescendants int64
-	// sumSizeWithDescendants size calculated by this tx and all Descendants transaction;
-	SumSizeWithDescendants int64
-
-	SumTxCountWithAncestors    int64
-	SumSizeWitAncestors        int64
-	SumSigOpCountWithAncestors int64
-	SumFeeWithAncestors        int64
 	// sigOpCount sigop plus P2SH sigops count
 	SigOpCount int
 	// time Local time when entering the memPool
@@ -40,6 +29,22 @@ type TxEntry struct {
 	lp core.LockPoints
 	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
+	//Statistics Information for every txentry with its ancestors And descend.
+	StatisInformation
+}
+
+type StatisInformation struct {
+	// sumTxCountWithDescendants is this tx and all Descendants transaction's number. init number is 1.
+	SumTxCountWithDescendants int64
+	// sumFeeWithDescendants is calculated by this tx and all Descendants transaction;
+	SumFeeWithDescendants int64
+	// sumSizeWithDescendants size calculated by this tx and all Descendants transaction;
+	SumSizeWithDescendants int64
+
+	SumTxCountWithAncestors    int64
+	SumSizeWitAncestors        int64
+	SumSigOpCountWithAncestors int64
+	SumFeeWithAncestors        int64
 }
 
 func (t *TxEntry) GetSigOpCountWithAncestors() int64 {
