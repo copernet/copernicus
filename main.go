@@ -20,8 +20,6 @@ import (
 	"github.com/btcboost/copernicus/utils"
 
 	_ "github.com/btcboost/copernicus/log"
-
-	"github.com/astaxie/beego/logs"
 )
 
 func init() {
@@ -79,6 +77,31 @@ func startBitcoin() error {
 
 	peerManager.Start()
 
+	conf.AppConf.RPCUser = "rpc"
+	conf.AppConf.RPCPass = "rpc"
+	rpcListeners, err := setupRPCListeners()
+	if err != nil {
+		//return nil, err
+	}
+	if len(rpcListeners) == 0 {
+		//return nil, errors.New("RPCS: No valid listen address")
+	}
+
+	rpcServer, err := rpc.NewRPCServer(&rpc.RpcserverConfig{
+		Listeners:   rpcListeners,
+		StartupTime: time.Now().Unix(),
+	})
+
+	if err != nil {
+		//return nil, err
+	}
+	// Signal process shutdown when the RPC server requests it.
+	go func() {
+		<-rpcServer.RequestedProcessShutdown()
+		shutdownRequestChannel <- struct{}{}
+	}()
+
+	rpcServer.Start()
 	return nil
 }
 
@@ -140,6 +163,7 @@ func setupRPCListeners() ([]net.Listener, error) {
 				return nil, err
 			}
 		}
+
 		keypair, err := tls.LoadX509KeyPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
 		if err != nil {
 			return nil, err
