@@ -7,16 +7,16 @@ import (
 )
 
 type ParsedOpCode struct {
-	opValue byte
+	OpValue byte
 
-	length int
-	data   []byte
+	Length int
+	Data   []byte
 }
 
 // isDisabled returns whether or not the opCode is disabled and thus is always
 // bad to see in the instruction stream (even if turned off by a conditional).
 func (parsedOpCode *ParsedOpCode) isDisabled() bool {
-	switch parsedOpCode.opValue {
+	switch parsedOpCode.OpValue {
 	case OP_CAT:
 		return true
 	case OP_SUBSTR:
@@ -56,7 +56,7 @@ func (parsedOpCode *ParsedOpCode) isDisabled() bool {
 // over by the program counter even if in a non-executed branch (it isn't a
 // coincidence that they are conditionals).
 func (parsedOpCode *ParsedOpCode) alwaysIllegal() bool {
-	switch parsedOpCode.opValue {
+	switch parsedOpCode.OpValue {
 	case OP_VERIF:
 		return true
 	case OP_VERNOTIF:
@@ -67,7 +67,7 @@ func (parsedOpCode *ParsedOpCode) alwaysIllegal() bool {
 }
 
 func (parsedOpCode *ParsedOpCode) isConditional() bool {
-	switch parsedOpCode.opValue {
+	switch parsedOpCode.OpValue {
 	case OP_IF:
 		return true
 	case OP_NOTIF:

@@ -10,6 +10,10 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
+	"copernicus/conf"
+	utils2 "copernicus/utils"
+	"copernicus/blockchain"
+	"btcd/chaincfg"
 )
 
 const (
@@ -46,8 +50,6 @@ const (
 
 	// MaxTxSigOpsCounts the maximum allowed number of signature check operations per transaction (network rule)
 	MaxTxSigOpsCounts = 20000
-
-	MaxStandardVersion = 2
 
 	MaxTxInSequenceNum uint32 = 0xffffffff
 	FreeListMaxItems          = 12500
@@ -97,14 +99,14 @@ func (tx *Tx) RemoveTxOut(txOut *TxOut) {
 	tx.outs = ret
 }
 
-func (tx *Tx) SerializeSize() int {
+func (tx *Tx) SerializeSize() uint {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
 	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
 	//if tx == nil {
 	//	fmt.Println("tx is nil")
 	//}
-	for _, txIn := range tx.Ins {
+	for _, txIn := range tx.ins {
 		if txIn == nil {
 			fmt.Println("txIn ins is nil")
 		}
@@ -235,7 +237,7 @@ func (tx *Tx) GetSigOpCountWithP2SH() (int, error) {
 		if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
 			n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
 		} else {
-			n += e.Script.GetP2SHSigOpCount()
+			n += e.scriptSigcript.GetP2SHSigOpCount()
 		}
 	}
 	return n, nil
@@ -255,47 +257,78 @@ func (tx *Tx) CheckCoinbaseTransaction(state *ValidationState) bool {
 	return true
 }
 
-func (tx *Tx) CheckRegularTransaction(state *ValidationState) bool {
+func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn bool) bool {
 	if tx.IsCoinBase() {
-		return state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
+		state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
+		return false
 	}
+
 	if !tx.checkTransactionCommon(state, true) {
 		return false
 	}
+
+	// all inputs should have preout
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
-			return state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
+			state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
+			return false
 		}
 	}
+
+	// check standard
+	if RequireStandard && !tx.checkStandard(state, allowLargeOpReturn) {
+		return false
+	}
+
+	//check locktime
+	if !tx.ContextualCheckTransaction(state, StandardLockTimeVerifyFlags) {
+		return false
+	}
+
+	//check inputs
+	if !tx.checkInputs() {
+		return false
+	}
+
 	return true
 }
 
 func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool) bool {
+	//check inputs and outputs
 	if len(tx.ins) == 0 {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
+		state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
+		return false
 	}
 	if len(tx.outs) == 0 {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
+		state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
+		return false
 	}
+
+	// check size
 	if tx.SerializeSize() > MaxTxSize {
-		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
+		state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
+		return false
 	}
+
+	// check outputs money
 	totalOut := int64(0)
 	for _, out := range tx.outs {
-		if out.Value < 0 {
-			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
+		if !out.CheckValue(state) {
+			return false
 		}
-		if out.Value > MaxMoney {
-			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
-		}
-		totalOut += out.Value
+		totalOut += out.GetValue()
 		if totalOut < 0 || totalOut > MaxMoney {
-			return state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
+			state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
+			return false
 		}
 	}
-	if tx.GetSigOpCountWithoutP2SH() > 100 {
+
+	// check sigopcount
+	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCount {
 		return state.Dos(100, false, RejectInvalid, "bad-txn-sigops", false, "")
 	}
+
+	// check dup input
 	if checkDupInput {
 		outPointSet := make(map[*OutPoint]struct{})
 		for _, in := range tx.ins {
@@ -306,75 +339,106 @@ func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool)
 			}
 		}
 	}
+
 	return true
 }
-/*
-func (tx *Tx) CheckSelf() (bool, error) {
+func (tx *Tx) checkStandard(state *ValidationState, allowLargeOpReturn bool) bool {
+	// check version
 	if tx.Version > MaxStandardVersion || tx.Version < 1 {
-		return false, errors.New("error version")
-	}
-	if len(tx.ins) == 0 || len(tx.outs) == 0 {
-		return false, errors.New("no inputs or outputs")
-	}
-	size := tx.SerializeSize()
-	if size > MaxTxSize {
-		return false, errors.Errorf("tx size %d > max size %d", size, MaxTxSize)
+		state.Dos(10, false, RejectInvalid, "bad-tx-version", false, "")
+		return false
 	}
 
-	TotalOutValue := int64(0)
-	TotalSigOpCount := int64(0)
-	TxOutsLen := len(tx.outs)
-	//to do: check txOut's script is
-	for i := 0; i < TxOutsLen; i++ {
-		txOut := tx.outs[i]
-		if txOut.Value < 0 {
-			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
-		}
-		if txOut.Value > MaxMoney {
-			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
-		}
+	// check size
+	if tx.SerializeSize() > MaxStandardTxSize {
+		state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
+		return false
+	}
 
-		TotalOutValue += txOut.Value
-		if TotalOutValue > MaxMoney {
-			return false, errors.Errorf("tx outs' total value:%d from 0 to %d is too large", TotalOutValue, i)
-		}
-
-		TotalSigOpCount += int64(txOut.SigOpCount)
-		if TotalSigOpCount > int64(MaxTxSigOpsCounts) {
-			return false, errors.Errorf("tx outs' total SigOpCount:%d from 0 to %d is too large", TotalSigOpCount, i)
+	// check inputs script
+	for _, in := range tx.ins {
+		if in.CheckScript(state) {
+			return false
 		}
 	}
 
-	//todo: check ins' preout duplicate at the same time
-	TxinsLen := len(tx.ins)
-	for i := 0; i < TxinsLen; i++ {
-		txIn := tx.ins[i]
-		TotalSigOpCount += int64(txIn.SigOpCount)
-		if TotalSigOpCount > int64(MaxTxSigOpsCounts) {
-			return false, errors.Errorf("tx total SigOpCount:%d of all Outs and partial ins from 0 to %d is too large", TotalSigOpCount, i)
+	// check output scriptpubkey and inputs scriptsig
+	nDataOut := 0
+	for _, out := range tx.outs {
+		succeed, pubKeyType := out.CheckScript(state, allowLargeOpReturn)
+		if !succeed {
+			state.Dos(100, false, RejectInvalid, "scriptpubkey", false, "")
+			return false
 		}
-		if txIn.Script.Size() > 1650 {
-			return false, errors.Errorf("txIn %d has too long script", i)
+		if pubKeyType == SCRIPT_MULTISIG && !IsBareMultiSigStd {
+			state.Dos(100, false, RejectInvalid, "bare-multisig", false, "")
+			return false
 		}
-		if !txIn.Script.IsPushOnly() {
-			return false, errors.Errorf("txIn %d's script is not push script", i)
+		if pubKeyType == SCRIPT_NULL_DATA {
+			nDataOut++
+		}
+		// only one OP_RETURN txout is permitted
+		if nDataOut > 1 {
+			state.Dos(100, false, RejectInvalid, "multi-op-return", false, "")
+			return false
+		}
+		if out.IsDust(conf.GlobalValueInstance.GetDustRelayFee()) {
+			state.Dos(100, false, RejectInvalid, "dust out", false, "")
+			return false
 		}
 	}
-	return true, nil
+
+	return true
 }
-*/
+
+func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
+	flags := 0
+	if flag > 0 {
+		flags = flag
+	}
+
+	nBlockHeight := ActiveChain.Height() + 1
+
+	var nLockTimeCutoff int64 = 0
+
+	if flags & LocktimeMedianTimePast {
+		nLockTimeCutoff = ActiveChain.Tip()->GetMedianTimePast()
+	} else {
+		nLockTimeCutoff = utils2.GetAdjustedTime()
+	}
+
+	if !tx.isFinal(nBlockHeight, nLockTimeCutoff) {
+		return state.Dos(100, false, RejectInvalid, "bad-txns-nonfinal", false, "")
+	}
+
+	if blockchain.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= consensusParams.antiReplayOpReturnSunsetHeight {
+		for _, e := range tx.outs {
+			if e.scriptPubKey.IsCommitment(consensusParams.antiReplayOpReturnCommitment) {
+				return state.Dos(100, false, RejectInvalid, "bad-txns-replay", false, "")
+			}
+		}
+	}
+
+	return true
+}
+
+func (tx *Tx) checkInputs() bool {
+
+	return true
+}
+
 func (tx *Tx) returnScriptBuffers() {
 	for _, txIn := range tx.ins {
-		if txIn == nil || txIn.Script == nil {
+		if txIn == nil || txIn.scriptSig == nil {
 			continue
 		}
-		scriptPool.Return(txIn.Script.bytes)
+		scriptPool.Return(txIn.scriptSig.bytes)
 	}
 	for _, txOut := range tx.outs {
-		if txOut == nil || txOut.Script == nil {
+		if txOut == nil || txOut.scriptPubKey == nil {
 			continue
 		}
-		scriptPool.Return(txOut.Script.bytes)
+		scriptPool.Return(txOut.scriptPubKey.bytes)
 	}
 }
 
@@ -470,7 +534,7 @@ func (tx *Tx) CalculateModifiedSize() int {
 
 }
 
-func (tx *Tx) IsFinalTx(Height int, time int64) bool {
+func (tx *Tx) isFinal(Height int, time int64) bool {
 	if tx.LockTime == 0 {
 		return true
 	}
