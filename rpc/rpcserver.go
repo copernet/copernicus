@@ -157,7 +157,7 @@ var rpcHandlersBeforeInit = map[string]commandHandler{
 	//"gettxout":              handleGetTxOut,
 	//"help":                  handleHelp,
 	//"node":                  handleNode,
-	//"ping":                  handlePing,
+	"ping": handlePing,
 	//"searchrawtransactions": handleSearchRawTransactions,
 	//"sendrawtransaction":    handleSendRawTransaction,
 	//"setgenerate":           handleSetGenerate,
@@ -2756,7 +2756,6 @@ func handleHelp(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (inter
 */
 
 // handlePing implements the ping command.
-/*
 func handlePing(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	// Ask server to ping \o_
 	nonce, err := wire.RandomUint64()
@@ -2768,7 +2767,6 @@ func handlePing(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (inter
 
 	return nil, nil
 }
-*/
 
 // retrievedTx represents a transaction that was either loaded from the
 // transaction memory pool or from the database.  When a transaction is loaded
@@ -3870,6 +3868,7 @@ func (s *RPCServer) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin 
 
 	// Read and close the JSON-RPC request body from the caller.
 	body, err := ioutil.ReadAll(r.Body)
+	fmt.Println(string(body)) // todo delete
 	r.Body.Close()
 	if err != nil {
 		errCode := http.StatusBadRequest
@@ -4008,7 +4007,7 @@ func (s *RPCServer) Start() {
 		return
 	}
 
-	logs.Trace("Starting RPC server")
+	logs.Info("Starting RPC server")
 	rpcServeMux := http.NewServeMux()
 	httpServer := &http.Server{
 		Handler: rpcServeMux,
@@ -4265,6 +4264,7 @@ func NewRPCServer(config *RPCServerConfig) (*RPCServer, error) {
 		quit: make(chan int),
 	}
 	if conf.Cfg.RPCUser != "" && conf.Cfg.RPCPass != "" {
+		fmt.Println("rpcuser", conf.Cfg.RPCUser)
 		login := conf.Cfg.RPCUser + ":" + conf.Cfg.RPCPass
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.authsha = sha256.Sum256([]byte(auth))

@@ -19,7 +19,7 @@ var Cfg = struct {
 	RPCPass:              "rpc",
 	RPCLimitUser:         "",
 	RPCLimitPass:         "",
-	RPCListeners:         []string{"127.0.0.1:8334", "[::1]:8334]"},
+	RPCListeners:         []string{"127.0.0.1:8334"},
 	RPCCert:              "",
 	RPCKey:               "",
 	RPCMaxClients:        10,
@@ -27,5 +27,5 @@ var Cfg = struct {
 	RPCMaxConcurrentReqs: 20,
 	RPCQuirks:            false,
 	DisableRPC:           false,
-	DisableTLS:           false,
+	DisableTLS:           true,
 }

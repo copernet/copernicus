@@ -37,6 +37,11 @@ func btcMain() error {
 func main() {
 	logs.Info("application is running")
 	startBitcoin()
+	rpcServer, err := setupRPCServer()
+	if err != nil {
+		panic(err)
+	}
+	rpcServer.Start()
 	if err := btcMain(); err != nil {
 		os.Exit(1)
 	}
@@ -93,7 +98,7 @@ func setupRPCServer() (*rpc.RPCServer, error) {
 			Listeners: rpcListeners,
 			// todo open
 			//StartupTime: s.startupTime,
-			//ConnMgr:     &rpcConnManager{&s},
+			//ConnMgr: &rpcConnManager{&s},
 			//SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
 			//TimeSource:  s.timeSource,
 			//Chain:       s.chain,
@@ -125,6 +130,7 @@ func setupRPCServer() (*rpc.RPCServer, error) {
 func setupRPCListeners() ([]net.Listener, error) {
 	// Setup TLS if not disabled.
 	listenFunc := net.Listen
+	// todo open
 	if !conf.Cfg.DisableTLS {
 		// Generate the TLS cert and key file if both don't already
 		// exist.
