@@ -1,106 +1,92 @@
 package utxo
 
 import (
-	"bytes"
-	"encoding/binary"
+	"errors"
 	"io"
-	"unsafe"
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 )
 
 type Coin struct {
-	TxOut               *core.TxOut
-	HeightAndIsCoinBase uint32
+	txOut               core.TxOut
+	height              uint32
+	isCoinBase          bool
 }
 
 func (coin *Coin) GetHeight() uint32 {
-	return coin.HeightAndIsCoinBase >> 1
+	return coin.height
 }
 
 func (coin *Coin) IsCoinBase() bool {
-	return coin.HeightAndIsCoinBase&0x01 > 0
+	return coin.isCoinBase
 }
 
 func (coin *Coin) IsSpent() bool {
-	return coin.TxOut.IsNull()
+	return coin.txOut.IsNull()
 }
 
 func (coin *Coin) Clear() {
-	coin.TxOut.SetNull()
-	coin.HeightAndIsCoinBase = 0
+	coin.txOut.SetNull()
+	coin.height = 0
+	coin.isCoinBase = false
 }
 
-func (coin *Coin) Serialize(writer io.Writer) error {
-	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, coin.HeightAndIsCoinBase)
+func (coin *Coin) GetTxOut() *core.TxOut {
+	return &coin.txOut
+}
+
+func (coin *Coin) Serialize(w io.Writer) error {
+	if coin.IsSpent() {
+		return errors.New("already spent")
+	}
+	var bit uint32
+	if coin.isCoinBase {
+		bit = 1
+	}
+	heightAndIsCoinBase := (coin.height << 1) | bit
+	if err := utils.WriteVarLenInt(w, uint64(heightAndIsCoinBase)); err != nil {
+		return err
+	}
+	tc := NewTxoutCompressor(&coin.txOut)
+	return tc.Serialize(w)
+}
+
+func (coin *Coin) Unserialize(r io.Reader) error {
+	hicb, err := utils.ReadVarLenInt(r)
 	if err != nil {
 		return err
 	}
-	return coin.TxOut.Serialize(writer)
-}
-
-func (coin *Coin) GetSerialize() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	err := coin.Serialize(buf)
-	return buf.Bytes(), err
-}
-
-func (coin *Coin) DynamicMemoryUsage() int64 {
-	return int64(unsafe.Sizeof(coin.TxOut.Script.ParsedOpCodes))
-}
-
-func DeserializeCoin(reader io.Reader) (*Coin, error) {
-	coin := new(Coin)
-	heightAndIsCoinBase, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
-	coin.HeightAndIsCoinBase = heightAndIsCoinBase
-	if err != nil {
-		return nil, err
+	heightAndIsCoinBase := uint32(hicb)
+	coin.height = heightAndIsCoinBase >> 1
+	if (heightAndIsCoinBase & 1) == 1{
+		coin.isCoinBase =  true
 	}
-	txOut := core.TxOut{}
-	err = txOut.Deserialize(reader)
-	coin.TxOut = &txOut
-	return coin, err
+	tc := NewTxoutCompressor(&coin.txOut)
+	return tc.Unserialize(r)
 }
 
 func NewCoin(out *core.TxOut, height uint32, isCoinBase bool) *Coin {
-	var bit uint32
-	if isCoinBase {
-		bit = 1
-	}
+
 	return &Coin{
-		TxOut:               out,
-		HeightAndIsCoinBase: (height << 1) | bit,
-	}
+		txOut:               *out,
+		height:height,
+		isCoinBase:isCoinBase,
+    }
 }
 
-func NewEmptyCoin() *Coin {
-	return &Coin{
-		HeightAndIsCoinBase: 0,
-		TxOut:               core.NewTxOut(-1, []byte{}),
-	}
+type CoinView interface {
+	GetCoin(core.OutPoint) (Coin, bool)
+	HaveCoin(core.OutPoint) bool
+	GetBestBlock() utils.Hash
+	GetHeadBlocks() []utils.Hash
+	BatchWrite(*coinMap, utils.Hash)
 }
 
-func DeepCopyCoin(coin *Coin) Coin {
-	dst := Coin{
-		TxOut: &core.TxOut{
-			Script: core.NewScriptRaw([]byte{}),
-		},
-	}
-
-	dst.HeightAndIsCoinBase = coin.HeightAndIsCoinBase
-	if coin.TxOut != nil {
-		dst.TxOut.Value = coin.TxOut.Value
-		dst.TxOut.SigOpCount = coin.TxOut.SigOpCount
-		if coin.TxOut.Script != nil {
-			tmp := coin.TxOut.Script.GetScriptByte()
-			dst.TxOut.Script = core.NewScriptRaw(tmp)
-		} else {
-			dst.TxOut.Script = nil
-		}
-	} else {
-		dst.TxOut = nil
-	}
-
-	return dst
+type CoinViewCursor interface {
+	GetKey() (core.OutPoint, bool)
+	GetVal() (Coin, bool)
+	GetValSize() int
+	Valid() bool
+	Next()
 }
