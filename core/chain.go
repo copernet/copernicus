@@ -18,6 +18,15 @@ type Chain struct {
 	receiveID     	uint64
 }
 
+func (c *Chain) FindIndex(hash *utils.Hash) *BlockIndex {
+	index,ok := c.blockIndexMap[*hash]
+
+	if(ok) {
+		return index
+	}
+
+	return nil
+}
 
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
@@ -168,3 +177,27 @@ func FindMostWorkChain() *BlockIndex {
 	// todo complete
 	return nil
 }
+
+func ProcessNewBlock(b *Block) bool {
+
+	return true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
