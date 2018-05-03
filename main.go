@@ -16,7 +16,7 @@ import (
 	"github.com/btcboost/copernicus/database"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/p2p"
-	"github.com/btcboost/copernicus/rpc"
+	"github.com/btcboost/copernicus/rpc/rpcserver"
 	"github.com/btcboost/copernicus/utils"
 
 	_ "github.com/btcboost/copernicus/log"
@@ -82,8 +82,8 @@ func startBitcoin() error {
 	return nil
 }
 
-func setupRPCServer() (*rpc.RPCServer, error) {
-	if !conf.Cfg.DisableRPC {
+func setupRPCServer() (*rpcserver.RPCServer, error) {
+	if !conf.CFG.DisableRPC {
 		// Setup listeners for the configured RPC listen addresses and
 		// TLS settings.
 		rpcListeners, err := setupRPCListeners()
@@ -94,7 +94,7 @@ func setupRPCServer() (*rpc.RPCServer, error) {
 			return nil, errors.New("RPCS: No valid listen address")
 		}
 
-		rpcServer, err := rpc.NewRPCServer(&rpc.RPCServerConfig{
+		rpcServer, err := rpcserver.NewRPCServer(&rpcserver.RPCServerConfig{
 			Listeners: rpcListeners,
 			// todo open
 			//StartupTime: s.startupTime,
@@ -131,16 +131,16 @@ func setupRPCListeners() ([]net.Listener, error) {
 	// Setup TLS if not disabled.
 	listenFunc := net.Listen
 	// todo open
-	if !conf.Cfg.DisableTLS {
+	if !conf.CFG.DisableTLS {
 		// Generate the TLS cert and key file if both don't already
 		// exist.
-		if !fileExists(conf.Cfg.RPCKey) && !fileExists(conf.Cfg.RPCCert) {
-			err := rpc.GenCertPair(conf.Cfg.RPCCert, conf.Cfg.RPCKey)
+		if !fileExists(conf.CFG.RPCKey) && !fileExists(conf.CFG.RPCCert) {
+			err := rpcserver.GenCertPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
 			if err != nil {
 				return nil, err
 			}
 		}
-		keypair, err := tls.LoadX509KeyPair(conf.Cfg.RPCCert, conf.Cfg.RPCKey)
+		keypair, err := tls.LoadX509KeyPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +156,7 @@ func setupRPCListeners() ([]net.Listener, error) {
 		}
 	}
 
-	netAddrs, err := parseListeners(conf.Cfg.RPCListeners)
+	netAddrs, err := parseListeners(conf.CFG.RPCListeners)
 	if err != nil {
 		return nil, err
 	}

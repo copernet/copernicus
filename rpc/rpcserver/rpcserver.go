@@ -3705,9 +3705,9 @@ func (s *RPCServer) NotifyNewTransactions(txns []*mempool.TxDesc) {
 //
 // This function is safe for concurrent access.
 func (s *RPCServer) limitConnections(w http.ResponseWriter, remoteAddr string) bool {
-	if int(atomic.LoadInt32(&s.numClients)+1) > conf.Cfg.RPCMaxClients {
+	if int(atomic.LoadInt32(&s.numClients)+1) > conf.CFG.RPCMaxClients {
 		logs.Info("Max RPC clients exceeded [%d] - "+
-			"disconnecting client %s", conf.Cfg.RPCMaxClients,
+			"disconnecting client %s", conf.CFG.RPCMaxClients,
 			remoteAddr)
 		http.Error(w, "503 Too busy.  Try again later.",
 			http.StatusServiceUnavailable)
@@ -3931,7 +3931,7 @@ func (s *RPCServer) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin 
 		//
 		// RPC quirks can be enabled by the user to avoid compatibility issues
 		// with software relying on Core's behavior.
-		if request.ID == nil && !(conf.Cfg.RPCQuirks && request.Jsonrpc == "") {
+		if request.ID == nil && !(conf.CFG.RPCQuirks && request.Jsonrpc == "") {
 			return
 		}
 
@@ -4262,14 +4262,14 @@ func NewRPCServer(config *RPCServerConfig) (*RPCServer, error) {
 		requestProcessShutdown: make(chan struct{}),
 		quit: make(chan int),
 	}
-	if conf.Cfg.RPCUser != "" && conf.Cfg.RPCPass != "" {
-		fmt.Println("rpcuser", conf.Cfg.RPCUser)
-		login := conf.Cfg.RPCUser + ":" + conf.Cfg.RPCPass
+	if conf.CFG.RPCUser != "" && conf.CFG.RPCPass != "" {
+		fmt.Println("rpcuser", conf.CFG.RPCUser)
+		login := conf.CFG.RPCUser + ":" + conf.CFG.RPCPass
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.authsha = sha256.Sum256([]byte(auth))
 	}
-	if conf.Cfg.RPCLimitUser != "" && conf.Cfg.RPCLimitPass != "" {
-		login := conf.Cfg.RPCLimitUser + ":" + conf.Cfg.RPCLimitPass
+	if conf.CFG.RPCLimitUser != "" && conf.CFG.RPCLimitPass != "" {
+		login := conf.CFG.RPCLimitUser + ":" + conf.CFG.RPCLimitPass
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.limitauthsha = sha256.Sum256([]byte(auth))
 	}

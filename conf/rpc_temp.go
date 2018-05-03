@@ -1,6 +1,6 @@
 package conf
 
-var Cfg = struct {
+var CFG = struct {
 	RPCUser              string
 	RPCPass              string
 	RPCLimitUser         string

@@ -24,13 +24,13 @@ import (
 	"golang.org/x/crypto/ripemd160"
 
 	"github.com/btcboost/copernicus/btcjson"
+	"github.com/btcboost/copernicus/rpc/websocket"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/websocket"
 )
 
 const (
@@ -94,9 +94,9 @@ func (s *RPCServer) WebsocketHandler(conn *websocket.Conn, remoteAddr string,
 
 	// Limit max number of websocket clients.
 	logs.Info("New websocket client %s", remoteAddr)
-	if s.ntfnMgr.NumClients()+1 > conf.Cfg.RPCMaxWebsockets {
-		logs.Info("Max websocket clients exceeded [conf.Cfg.- "+
-			"disconnecting client %s", conf.Cfg.RPCMaxWebsockets,
+	if s.ntfnMgr.NumClients()+1 > conf.CFG.RPCMaxWebsockets {
+		logs.Info("Max websocket clients exceeded [conf.CFG.- "+
+			"disconnecting client %s", conf.CFG.RPCMaxWebsockets,
 			remoteAddr)
 		conn.Close()
 		return
@@ -1352,7 +1352,7 @@ out:
 		//
 		// RPC quirks can be enabled by the user to avoid compatibility issues
 		// with software relying on Core's behavior.
-		if request.ID == nil && !(conf.Cfg.RPCQuirks && request.Jsonrpc == "") {
+		if request.ID == nil && !(conf.CFG.RPCQuirks && request.Jsonrpc == "") {
 			if !c.authenticated {
 				break out
 			}
@@ -1715,7 +1715,7 @@ func newWebsocketClient(server *RPCServer, conn *websocket.Conn,
 		server:            server,
 		addrRequests:      make(map[string]struct{}),
 		spentRequests:     make(map[wire.OutPoint]struct{}),
-		serviceRequestSem: makeSemaphore(conf.Cfg.RPCMaxConcurrentReqs),
+		serviceRequestSem: makeSemaphore(conf.CFG.RPCMaxConcurrentReqs),
 		ntfnChan:          make(chan []byte, 1), // nonblocking sync
 		sendChan:          make(chan wsResponse, websocketSendBufferSize),
 		quit:              make(chan struct{}),
