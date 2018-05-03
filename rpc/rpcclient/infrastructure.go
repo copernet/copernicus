@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/btcjson"
+	"github.com/btcboost/copernicus/rpc/websocket"
 	"github.com/btcsuite/go-socks/socks"
-	"github.com/btcsuite/websocket"
 )
 
 var (
