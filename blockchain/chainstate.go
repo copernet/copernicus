@@ -34,18 +34,17 @@ type ChainState struct {
 // Global status for blockChain
 var (
 	// GChainState Global unique variables
-	GChainState       ChainState
-	GImporting        atomic.Value
-	GMaxTipAge        int64
-	GMemPool          *mempool.Mempool
-	GCoinsTip         *utxo.CoinsViewCache
-	GBlockTree        *BlockTreeDB
-	GMinRelayTxFee    utils.FeeRate
-	Pool              *mempool.TxMempool
-	GfReindex         = false
-	GnCoinCacheUsage  = 5000 * 300
-	GWarningCache     []ThresholdConditionCache
-	GVersionBitsCache *VersionBitsCache
+	GChainState      ChainState
+	GImporting       atomic.Value
+	GMaxTipAge       int64
+	GMemPool         *mempool.TxMempool
+	GCoinsTip        *utxo.CoinsViewCache
+	GBlockTree       *BlockTreeDB
+	GMinRelayTxFee   utils.FeeRate
+	Pool             *mempool.TxMempool
+	GfReindex        = false
+	GnCoinCacheUsage = 5000 * 300
+	GWarningCache    []ThresholdConditionCache
 )
 
 var (
@@ -98,7 +97,6 @@ func init() {
 	GImporting.Store(false)
 	GMaxTipAge = consensus.DefaultMaxTipAge
 	GMinRelayTxFee.SataoshisPerK = int64(DefaultMinRelayTxFee)
-	GMemPool = mempool.NewMemPool(GMinRelayTxFee)
+	GMemPool = mempool.NewTxMempool()
 	GWarningCache = NewWarnBitsCache(VersionBitsNumBits)
-	GVersionBitsCache = NewVersionBitsCache()
 }

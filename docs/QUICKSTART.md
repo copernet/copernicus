@@ -1,7 +1,7 @@
 
 ## bulid c-secp256k1
 ```
-git clone git@github.com:bitcoin-core/secp256k1.git
+git clone https://github.com/bitcoin-core/secp256k1.git
 cd secp256k1 
 ./autogen.sh
 ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery 

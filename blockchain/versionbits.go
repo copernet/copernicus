@@ -56,7 +56,7 @@ type AbstractThresholdConditionChecker interface {
 	Threshold(params *msg.BitcoinParams) int
 }
 
-var versionBitsCache VersionBitsCache // todo waring: there is a global variable(used as cache)
+var VBCache *VersionBitsCache // todo waring: there is a global variable(used as cache)
 
 type VersionBitsCache struct {
 	sync.RWMutex
@@ -285,7 +285,7 @@ func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *
 
 	return int64(index.Header.Version)&VersionBitsTopMask == VersionBitsTopBits &&
 		((index.Header.Version)>>uint(w.bit))&1 != 0 &&
-		(ComputeBlockVersion(index.Prev, params, GVersionBitsCache)>>uint(w.bit))&1 == 0
+		(ComputeBlockVersion(index.Prev, params, VBCache)>>uint(w.bit))&1 == 0
 }
 
 func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
@@ -305,4 +305,8 @@ func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, 
 	}
 
 	return version
+}
+
+func init() {
+	VBCache = NewVersionBitsCache()
 }

@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/btcboost/copernicus/consensus"
@@ -42,7 +41,7 @@ func (tc *ConditionChecker) Condition(index *core.BlockIndex, params *msg.Bitcoi
 func (tc *ConditionChecker) GetStateFor(indexPrev *core.BlockIndex) ThresholdState {
 	v := GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 	if indexPrev != nil && indexPrev.Height == 2999 {
-		fmt.Println("state : ", v)
+		//fmt.Println("state : ", v)
 	}
 	return v
 }

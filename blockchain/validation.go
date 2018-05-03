@@ -194,7 +194,7 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *c
 	}
 
 	lockTimeFlags := 0
-	if VersionBitsState(indexPrev, params, consensus.DeploymentCSV, GVersionBitsCache) == ThresholdActive {
+	if VersionBitsState(indexPrev, params, consensus.DeploymentCSV, VBCache) == ThresholdActive {
 		lockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
 
@@ -1160,12 +1160,12 @@ func GetBlockFileInfo(n int) *BlockFileInfo {
 
 func VersionBitsTipState(param *msg.BitcoinParams, pos consensus.DeploymentPos) ThresholdState {
 	//todo:LOCK(cs_main)
-	return VersionBitsState(GChainActive.Tip(), param, pos, &versionBitsCache)
+	return VersionBitsState(GChainActive.Tip(), param, pos, VBCache)
 }
 
 func VersionBitsTipStateSinceHeight(params *msg.BitcoinParams, pos consensus.DeploymentPos) int {
 	//todo:LOCK(cs_main)
-	return VersionBitsStateSinceHeight(GChainActive.Tip(), params, pos, &versionBitsCache)
+	return VersionBitsStateSinceHeight(GChainActive.Tip(), params, pos, VBCache)
 }
 
 func BlockIndexWorkComparator(pa, pb interface{}) bool {
@@ -1250,8 +1250,8 @@ func ActivateBestChain(param *msg.BitcoinParams, state *core.ValidationState, pb
 			// might cause an outside process to abandon a transaction and
 			// then have it inadvertantly cleared by the notification that
 			// the conflicted transaction was evicted.
-			mrt := mempool.NewMempoolConflictRemoveTrack(GMemPool)
-			_ = mrt
+			//mrt := mempool.NewMempoolConflictRemoveTrack(GMemPool)
+			//_ = mrt
 			pindexOldTip := GChainState.ChainActive.Tip()
 			if pindexMostWork == nil {
 				pindexMostWork = FindMostWorkChain()
@@ -1521,11 +1521,11 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *core.ValidationState
 	}
 
 	if fBlocksDisconnected {
-		RemoveForReorg(Pool, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+		RemoveForReorg(GMemPool, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
 		LimitMempoolSize(GMemPool, utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize))*1000000,
 			utils.GetArg("-mempoolexpiry", int64(consensus.DefaultMemPoolExpiry))*60*60)
 	}
-	GMemPool.Check(GCoinsTip)
+	GMemPool.Check(GCoinsTip, nHeight)
 
 	// Callbacks/notifications for a new best chain.
 	if *fInvalidFound {
@@ -1712,7 +1712,7 @@ func ConnectTip(param *msg.BitcoinParams, state *core.ValidationState, indexNew 
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
 		float64(nTime5-nTime4)*0.001, float64(gTimeChainState)*0.000001)
 	// Remove conflicting transactions from the mempool.;
-	GMemPool.RemoveForBlock(blockConnecting.Txs, uint(indexNew.Height))
+	GMemPool.RemoveTxSelf(blockConnecting.Txs)
 	// Update chainActive & related variables.
 	UpdateTip(param, indexNew)
 	nTime6 := utils.GetMicrosTime()
@@ -1895,7 +1895,7 @@ func ConnectBlock(param *msg.BitcoinParams, pblock *core.Block, state *core.Vali
 
 	// Start enforcing BIP68 (sequence locks) using versionBits logic.
 	nLockTimeFlags := 0
-	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, VBCache) == ThresholdActive {
 		nLockTimeFlags |= consensus.LocktimeVerifySequence
 	}
 
@@ -2123,7 +2123,9 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 			var stateDummy core.ValidationState
 			if tx.IsCoinBase() || !AcceptToMemoryPool(param, GMemPool, &stateDummy, tx,
 				false, nil, nil, true, 0) {
-				GMemPool.RemoveRecursive(tx, mempool.REORG)
+				GMemPool.Lock()
+				GMemPool.RemoveTxRecursive(tx, mempool.REORG)
+				GMemPool.Unlock()
 			} else if GMemPool.Exists(tx.Hash) {
 				vHashUpdate.PushBack(tx.Hash)
 			}
@@ -2151,7 +2153,7 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 func UpdateTip(param *msg.BitcoinParams, pindexNew *core.BlockIndex) {
 	GChainState.ChainActive.SetTip(pindexNew)
 	// New best block
-	GMemPool.AddTransactionsUpdated(1)
+	//GMemPool.AddTransactionsUpdated(1)
 
 	//	TODO !!! add Parallel Programming boost::condition_variable
 	warningMessages := make([]string, 0)
@@ -2178,7 +2180,7 @@ func UpdateTip(param *msg.BitcoinParams, pindexNew *core.BlockIndex) {
 		// Check the version of the last 100 blocks to see if we need to
 		// upgrade:
 		for i := 0; i < 100 && index != nil; i++ {
-			nExpectedVersion := ComputeBlockVersion(index.Prev, param, GVersionBitsCache)
+			nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
 			if index.Header.Version > VersionBitsLastOldBlockVersion &&
 				(int(index.Header.Version)&(^nExpectedVersion) != 0) {
 				nUpgraded++
@@ -2228,7 +2230,7 @@ func AlertNotify(strMessage string) {
 
 }
 
-func AcceptToMemoryPool(param *msg.BitcoinParams, pool *mempool.Mempool, state *core.ValidationState,
+func AcceptToMemoryPool(param *msg.BitcoinParams, pool *mempool.TxMempool, state *core.ValidationState,
 	tx *core.Tx, limitFree bool, missingInputs *bool, txnReplaced *list.List,
 	overrideMempoolLimit bool, absurdFee utils.Amount) bool {
 
@@ -2241,7 +2243,7 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx,
 	var pindexSlow *core.BlockIndex
 	// todo:LOCK(cs_main)
 
-	ptx := mempool.GetTxFromMemPool(*txid)
+	ptx := GMemPool.FindTx(*txid)
 	if ptx != nil {
 		txOut = ptx
 		ret = true
@@ -2991,7 +2993,7 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 	}
 
 	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, &versionBitsCache) == ThresholdActive {
+	if VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, VBCache) == ThresholdActive {
 		flags |= crypto.ScriptVerifyCheckSequenceVerify
 	}
 
@@ -3016,6 +3018,9 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 func TestBlockValidity(params *msg.BitcoinParams, state *core.ValidationState, block *core.Block,
 	indexPrev *core.BlockIndex, checkPOW bool, checkMerkleRoot bool) bool {
 	// todo AssertLockHeld(cs_main)
+	if indexPrev == nil {
+		return true
+	}
 	if !(indexPrev != nil && indexPrev == GChainActive.Tip()) {
 		panic("error")
 	}
@@ -3216,7 +3221,7 @@ func FlushStateToDisk(state *core.ValidationState, mode FlushStateMode, nManualP
 	ret = true
 	var params *msg.BitcoinParams
 
-	mempoolUsage := GMemPool.DynamicMemoryUsage()
+	mempoolUsage := GMemPool.GetCacheUsage()
 
 	// TODO: LOCK2(cs_main, cs_LastBlockFile);
 	// var sc sync.RWMutex
@@ -3636,14 +3641,13 @@ func UnloadBlockIndex() {
 	GChainActive.SetTip(nil)
 	gIndexBestInvalid = nil
 	gIndexBestHeader = nil
-	GMemPool.Clear()
 	GChainState.MapBlocksUnlinked = nil
 	gInfoBlockFile = nil
 	gLastBlockFile = 0
 	gBlockSequenceID = 1
 	gSetDirtyFileInfo.Clear()
 	gSetDirtyBlockIndex.Clear()
-	versionBitsCache.Clear()
+	VBCache.Clear()
 	for b := 0; b < VersionBitsNumBits; b++ {
 		warningcache[b] = make(ThresholdConditionCache)
 	}
@@ -3711,7 +3715,7 @@ func InitBlockIndex(param *msg.BitcoinParams) (ret bool) {
 	return true
 }
 
-func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, state *core.ValidationState,
+func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool, state *core.ValidationState,
 	tx *core.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
 	overrideMempoolLimit bool, absurdFee utils.Amount, coinsToUncache []*core.OutPoint) (ret bool) {
 
@@ -3760,11 +3764,11 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// Check for conflicts with in-memory transactions
 	func() {
 		// Protect pool.mapNextTx
-		pool.Mtx.RLock() // todo confirm lock on read process
-		defer pool.Mtx.RUnlock()
+		pool.RLock() // todo confirm lock on read process
+		defer pool.RUnlock()
 
 		for _, txin := range ptx.Ins {
-			itConflicting := pool.MapNextTx.Get(txin.PreviousOutPoint)
+			itConflicting := pool.NextTx[*(txin.PreviousOutPoint)]
 			if itConflicting != nil { // todo confirm this condition judgement
 				ret = state.Invalid(false, consensus.RejectConflict, "txn-mempool-conflict", "")
 			}
@@ -3779,10 +3783,10 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	var valueIn utils.Amount
 	lp := core.LockPoints{}
 	func() {
-		pool.Mtx.Lock()
-		defer pool.Mtx.Unlock()
-		viewMemPool := mempool.NewCoinsViewMemPool(GCoinsTip, pool)
-		view.Base = viewMemPool
+		pool.Lock()
+		defer pool.Unlock()
+		//viewMemPool := mempool.NewCoinsViewMemPool(GCoinsTip, pool)
+		//view.Base = viewMemPool
 
 		// Do we already have it?
 		length := len(ptx.Outs)
@@ -3854,12 +3858,12 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	fees := int64(valueIn) - valueOut
 	// nModifiedFees includes any fee deltas from PrioritiseTransaction
 	modifiedFees := fees
-	priorityDummy := float64(0)
-	pool.ApplyDeltas(txid, priorityDummy, modifiedFees)
+	//priorityDummy := float64(0)
+	//pool.ApplyDeltas(txid, priorityDummy, modifiedFees)
 
 	var inChainInputValue utils.Amount
 	priority := view.GetPriority(ptx, uint32(GChainActive.Height()), &inChainInputValue)
-
+	_ = priority
 	// Keep track of transactions that spend a coinbase, which we re-scan
 	// during reorgs to ensure COINBASE_MATURITY is still met.
 	spendsCoinbase := false
@@ -3871,9 +3875,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		}
 	}
 
-	entry := mempool.NewTxMempoolEntry(tx, utils.Amount(fees), acceptTime, priority, uint(GChainActive.Height()),
-		inChainInputValue, spendsCoinbase, int64(sigOpsCount), &lp)
-
+	entry := mempool.NewTxentry(tx, fees, acceptTime, GChainActive.Height()+1, lp, sigOpsCount, spendsCoinbase)
 	size := entry.TxSize
 
 	// Check that the transaction doesn't have an excessive number of
@@ -3887,16 +3889,16 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 		return
 	}
 
-	relaypriority := utils.GetBoolArg("-relaypriority", consensus.DefaultRelayPriority)
+	//relaypriority := utils.GetBoolArg("-relaypriority", consensus.DefaultRelayPriority)
 	minFeeRate := gMinRelayTxFee.GetFee(size)
-	allow := mempool.AllowFree(entry.GetPriority(uint(GChainActive.Height() + 1)))
-	if relaypriority && modifiedFees < minFeeRate && !allow {
-		// Require that free transactions have sufficient priority to be
-		// mined in the next block.
-		ret = state.Dos(0, false, core.RejectInsufficientFee, "insufficient priority",
-			false, "")
-		return
-	}
+	//allow := mempool.AllowFree(entry.GetPriority(uint(GChainActive.Height() + 1)))
+	//if relaypriority && modifiedFees < minFeeRate && !allow {
+	// Require that free transactions have sufficient priority to be
+	// mined in the next block.
+	//ret = state.Dos(0, false, core.RejectInsufficientFee, "insufficient priority",
+	//	false, "")
+	//return
+	//}
 
 	// Continuously rate-limit free (really, very-low-fee) transactions.
 	// This mitigates 'penny-flooding' -- sending thousands of free
@@ -3934,9 +3936,8 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	limitAncestorSize := utils.GetArg("-limitancestorsize", consensus.DefaultAncestorSizeLimit) * 1000
 	limitDescendants := utils.GetArg("-limitdescendantcount", consensus.DefaultDescendantLimit)
 	limitDescendantSize := utils.GetArg("-limitdescendantsize", consensus.DefaultDescendantSizeLimit) * 1000
-	setAncestors := set.New()
 
-	if err := pool.CalculateMemPoolAncestors(entry, setAncestors, uint64(limitAncestors), uint64(limitAncestorSize),
+	if _, err := pool.CalculateMemPoolAncestors(entry.Tx, uint64(limitAncestors), uint64(limitAncestorSize),
 		uint64(limitDescendants), uint64(limitDescendantSize), true); err != nil {
 		ret = state.Dos(0, false, core.RejectNonStandard, "too-long-mempool-chain",
 			false, err.Error())
@@ -4001,10 +4002,10 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	// This transaction should only count for fee estimation if
 	// the node is not behind and it is not dependent on any other
 	// transactions in the mempool.
-	validForFeeEstimation := IsCurrentForFeeEstimation() && pool.HasNoInputsOf(ptx)
+	//validForFeeEstimation := IsCurrentForFeeEstimation() && pool.HasNoInputsOf(ptx)
 	// Store transaction in memory.
 	// todo argument number
-	pool.AddUncheckedWithAncestors(&txid, entry, setAncestors, validForFeeEstimation)
+	//pool.AddUncheckedWithAncestors(&txid, entry, setAncestors, validForFeeEstimation)
 
 	// Trim mempool and check if tx was trimmed.
 	if !overrideMempoolLimit {
@@ -4025,16 +4026,16 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.Mempool, 
 	return
 }
 
-func LimitMempoolSize(pool *mempool.Mempool, limit int64, age int64) {
+func LimitMempoolSize(pool *mempool.TxMempool, limit int64, age int64) {
 	expired := pool.Expire(utils.GetMockTime() - age)
 	if expired != 0 {
 		// todo write Log
 		fmt.Printf("mempool Expired %d transactions from the memory pool\n", expired)
 	}
-	noSpendsRemaining := container.NewVector()
-	pool.TrimToSize(limit, noSpendsRemaining)
-	for _, outpoint := range noSpendsRemaining.Array {
-		GCoinsTip.UnCache(outpoint.(*core.OutPoint))
+
+	noSpendsRemaining := pool.TrimToSize(limit)
+	for _, outpoint := range noSpendsRemaining {
+		GCoinsTip.UnCache(outpoint)
 	}
 }
 
@@ -4052,14 +4053,14 @@ func IsCurrentForFeeEstimation() bool {
 // CheckInputsFromMempoolAndCache Used to avoid mempool polluting core critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
 func CheckInputsFromMempoolAndCache(tx *core.Tx, state *core.ValidationState, view *utxo.CoinsViewCache,
-	mpool *mempool.Mempool, flags uint32, cacheSigStore bool, txData *core.PrecomputedTransactionData) bool {
+	mpool *mempool.TxMempool, flags uint32, cacheSigStore bool, txData *core.PrecomputedTransactionData) bool {
 
 	// todo AssertLockHeld(cs_main)
 	// pool.cs should be locked already, but go ahead and re-take the lock here
 	// to enforce that mempool doesn't change between when we check the view and
 	// when we actually call through to CheckInputs
-	mpool.Mtx.Lock()
-	defer mpool.Mtx.Unlock()
+	mpool.Lock()
+	defer mpool.Unlock()
 
 	if tx.IsCoinBase() {
 		panic("critical error")
@@ -4075,7 +4076,7 @@ func CheckInputsFromMempoolAndCache(tx *core.Tx, state *core.ValidationState, vi
 			return false
 		}
 
-		txFrom := mpool.Get(&txin.PreviousOutPoint.Hash)
+		txFrom := mpool.FindTx(txin.PreviousOutPoint.Hash)
 		if txFrom != nil {
 			if txFrom.TxHash() != txin.PreviousOutPoint.Hash {
 				panic("critical error")
@@ -4330,19 +4331,19 @@ func CheckSequenceLocks(tx *core.Tx, flags int, lp *core.LockPoints, useExisting
 		lockPair[lp.Height] = lp.Time
 	} else {
 		// pcoinsTip contains the UTXO set for chainActive.Tip()
-		viewMempool := mempool.CoinsViewMemPool{
-			Base:  GCoinsTip,
-			Mpool: GMemPool,
-		}
+		//viewMempool := mempool.CoinsViewMemPool{
+		//	Base:  GCoinsTip,
+		//	Mpool: GMemPool,
+		//}
 		var prevheights []int
 		for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
-			txin := tx.Ins[txinIndex]
+			//txin := tx.Ins[txinIndex]
 			var coin *utxo.Coin
-			if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
-				logs.Error("Missing input")
-				return false
-			}
-			if coin.GetHeight() == mempool.HeightMemPool {
+			//if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
+			//	logs.Error("Missing input")
+			//	return false
+			//}
+			if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
 				// Assume all mempool transaction confirm in the next block
 				prevheights[txinIndex] = tip.Height + 1
 			} else {
@@ -4475,7 +4476,7 @@ func GetP2SHSigOpCount(tx *core.Tx, view *utxo.CoinsViewCache) int {
 	return sigOps
 }
 
-func AcceptToMemoryPoolWithTime(params *msg.BitcoinParams, mpool *mempool.Mempool, state *core.ValidationState,
+func AcceptToMemoryPoolWithTime(params *msg.BitcoinParams, mpool *mempool.TxMempool, state *core.ValidationState,
 	tx *core.Tx, limitFree bool, missingInputs *bool, acceptTime int64, txReplaced *list.List,
 	overrideMempoolLimit bool, absurdFee utils.Amount) bool {
 
@@ -4531,7 +4532,7 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 		panic(err)
 	}
 
-	var priorityDummy float64
+	//var priorityDummy float64
 	for num > 0 {
 		num--
 		txPoolInfo, err := mempool.DeserializeInfo(fileStr)
@@ -4541,8 +4542,8 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 
 		amountDelta := txPoolInfo.FeeDelta
 		if amountDelta != 0 {
-			hashA := txPoolInfo.Tx.TxHash()
-			GMemPool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), hashA.ToString(), priorityDummy, amountDelta)
+			//hashA := txPoolInfo.Tx.TxHash()
+			//GMemPool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), hashA.ToString(), priorityDummy, amountDelta)
 		}
 
 		vs := &core.ValidationState{}
@@ -4587,9 +4588,9 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 			mapDeltas[hash] = utils.Amount(amount)
 		}
 
-		for hash, amount := range mapDeltas {
-			GMemPool.PrioritiseTransaction(hash, hash.ToString(), priorityDummy, int64(amount))
-		}
+		//for hash, amount := range mapDeltas {
+		//GMemPool.PrioritiseTransaction(hash, hash.ToString(), priorityDummy, int64(amount))
+		//}
 	}
 
 	logs.Debug("Imported mempool transactions from disk: %d successes, %d failed, %d expired", count, failed, skipped)
@@ -4602,14 +4603,14 @@ func DumpMempool() {
 
 	mapDeltas := make(map[utils.Hash]utils.Amount)
 	var info []*mempool.TxMempoolInfo
-
 	{
-		GMemPool.Mtx.Lock()
-		for hash, feeDelta := range GMemPool.MapDeltas {
-			mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
-		}
+		mapDeltas = make(map[utils.Hash]utils.Amount, len(GMemPool.PoolData))
+		GMemPool.Lock()
+		//for hash, feeDelta := range GMemPool.MapDeltas {
+		//	mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
+		//}
 		info = GMemPool.InfoAll()
-		GMemPool.Mtx.Unlock()
+		GMemPool.Unlock()
 	}
 
 	mid := time.Now().Second()
@@ -4822,183 +4823,6 @@ func LoadExternalBlockFile(param *msg.BitcoinParams, file *os.File, dbp *core.Di
 	return nLoaded > 0
 }
 
-/*
-func CheckMempool(pool *mempool.Mempool, pcoins *utxo.CoinsViewCache) {
-	if pool.CheckFrequency == 0 {
-		return
-	}
-
-	if utils.GetRand(uint64(math.MaxUint32)) >= uint64(pool.CheckFrequency) {
-		return
-	}
-
-	logs.Info("mempool : Checking mempool with %d transactions and %d inputs ",
-		pool.MapTx.Size(), pool.MapNextTx.Size())
-	checkTotal := 0
-	innerUsage := 0
-	nSpendHeight := GetSpendHeight(pcoins)
-
-	// todo LOCK(cs);
-	waitingOnDependants := list.New()
-	for hash, entry := range pool.MapTx.PoolNode {
-		i := 0
-		checkTotal += entry.TxSize
-		innerUsage += entry.UsageSize
-		linksiter := pool.MapLinks.Get(hash)
-		if linksiter == nil {
-			panic("current , the tx must be in mempool")
-		}
-		links := linksiter.(*mempool.TxLinks)
-		innerUsage += mempool.DynamicUsage(links.Parents) + mempool.DynamicUsage(links.Children)
-		fDependsWait := false
-		setParentCheck := container.NewSet()
-		parentSizes := 0
-		parentSigOpCount := 0
-		tx := entry.TxRef
-
-		for _, txin := range tx.Ins {
-			// Check that every mempool transaction's inputs refer to available
-			// coins, or other mempool tx's.
-			if txEntry, ok := pool.MapTx.PoolNode[txin.PreviousOutPoint.Hash]; ok {
-				tx2 := txEntry.TxRef
-				if !(len(tx2.Outs) > int(txin.PreviousOutPoint.Index) &&
-					!tx2.Outs[txin.PreviousOutPoint.Index].IsNull()) {
-					panic("the tx index error")
-				}
-				fDependsWait = true
-				if setParentCheck.AddItem(txEntry) {
-					parentSizes += txEntry.TxSize
-					parentSigOpCount += int(txEntry.SigOpCount)
-				}
-			} else {
-				if !pcoins.HaveCoin(txin.PreviousOutPoint) {
-					panic("the utxo should have the outpoint")
-				}
-			}
-			// Check whether its inputs are marked in mapNextTx.
-			it3 := pool.MapNextTx.Get(*txin.PreviousOutPoint)
-			if it3 == nil {
-				panic("the mempool should have the prePoint")
-			}
-			tx3 := it3.(*core.Tx)
-			if tx3 != tx {
-				panic("the two tx should equal")
-			}
-			i++
-		}
-		if setParentCheck != pool.GetMemPoolParents(entry) {
-			panic("the set should equal")
-		}
-		// Verify ancestor state is correct.
-		setAncestors := set.New()
-		nNoLimit := uint64(math.MaxUint64)
-		pool.CalculateMemPoolAncestors(entry, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
-		nCountCheck := setAncestors.Size() + 1
-		nSizeCheck := entry.TxSize
-		nFeesCheck := entry.GetModifiedFee()
-		nSigOpCheck := entry.SigOpCount
-		setAncestors.Each(func(item interface{}) bool {
-			txEntry := item.(*mempool.TxMempoolEntry)
-			nSizeCheck += txEntry.TxSize
-			nFeesCheck += txEntry.GetModifiedFee()
-			nSigOpCheck += txEntry.SigOpCount
-			return true
-		})
-
-		if !(entry.CountWithAncestors == uint64(nCountCheck)) {
-			panic("the number with ancestors should be equal")
-		}
-		if !(entry.GetsizeWithAncestors() == uint64(nSizeCheck)) {
-			panic("the size with ancestors should be equal")
-		}
-		if !(entry.SigOpCountWithAncestors == nSigOpCheck) {
-			panic("the sigOpCount with ancestors should be equal")
-		}
-		if !(entry.ModFeesWithAncestors == nFeesCheck) {
-			panic("error: the size with ancestors should be equal")
-		}
-		// Check children against mapNextTx
-		setChildrenCheck := container.NewSet()
-		childSize := 0
-		allKeys := pool.MapNextTx.GetAllKeys()
-		for _, key := range allKeys {
-			if mempool.CompareByRefOutPoint(key, core.OutPoint{Hash: hash, Index: 0}) {
-				continue
-			}
-			childSizes := 0
-			prePoint := key.(core.OutPoint)
-			childEntry, ok := pool.MapTx.PoolNode[prePoint.Hash]
-			if !ok {
-				panic("the tx must in mempool")
-			}
-			if setChildrenCheck.AddItem(childEntry) {
-				childSizes += childEntry.TxSize
-			}
-		}
-		if !setChildrenCheck.IsEqual(pool.GetMempoolChildren(entry)) {
-			panic("the two set should have same element ")
-		}
-
-		// Also check to make sure size is greater than sum with immediate
-		// children. Just a sanity check, not definitive that this calc is
-		// correct...
-		if !(entry.SizeWithDescendants >= uint64(childSize+entry.TxSize)) {
-			panic("the size with descendants should not less than the childsize")
-		}
-		if fDependsWait {
-			waitingOnDependants.PushBack(entry)
-		} else {
-			state := core.NewValidationState()
-			fCheckResult := tx.IsCoinBase() || CheckTxInputs(tx, state, pcoins, nSpendHeight)
-			if !fCheckResult {
-				panic("the tx check should be true")
-			}
-			txundo := TxUndo{}
-			UpdateCoins(tx, pcoins, &txundo, 1000000)
-		}
-	}
-	stepsSinceLastRemove := 0
-	for waitingOnDependants.Len() > 0 {
-		entry := waitingOnDependants.Front().Value.(*mempool.TxMempoolEntry)
-		waitingOnDependants.Remove(waitingOnDependants.Front())
-		state := core.NewValidationState()
-		if !pcoins.HaveInputs(entry.TxRef) {
-			waitingOnDependants.PushBack(entry)
-			stepsSinceLastRemove++
-			if stepsSinceLastRemove >= waitingOnDependants.Len() {
-				panic("the element number should less list size")
-			}
-		} else {
-			fCheckResult := entry.TxRef.IsCoinBase() || CheckTxInputs(entry.TxRef, state, pcoins, nSpendHeight)
-			if !fCheckResult {
-				panic("the tx check should be true.")
-			}
-			txundo := TxUndo{}
-			UpdateCoins(entry.TxRef, pcoins, &txundo, 1000000)
-			stepsSinceLastRemove = 0
-		}
-	}
-	tmpValue := pool.MapNextTx.GetMap()
-	for _, tx := range tmpValue {
-		txid := tx.(*core.Tx).Hash
-		it2, ok := pool.MapTx.PoolNode[txid]
-		if !ok {
-			panic("the tx should be in mempool")
-		}
-		tx2 := it2.TxRef
-		if tx2 != tx.(*core.Tx) {
-			panic("the two tx should reference the same one tx")
-		}
-	}
-	if pool.GetTotalTxSize() != uint64(checkTotal) {
-		panic("the size should be equal")
-	}
-	if uint64(innerUsage) != pool.CachedInnerUsage {
-		panic("the usage should be equal")
-	}
-}
-*/
-
 func MainCleanup() {
 	MapBlockIndex.Data = make(map[utils.Hash]*core.BlockIndex)
 }
@@ -5036,7 +4860,7 @@ func RemoveForReorg(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolH
 		validLP := TestLockPointValidity(&lp, &GChainActive)
 		state := core.NewValidationState()
 
-		tx := entry.GetTxFromTxEntry()
+		tx := entry.Tx
 		if !ContextualCheckTransactionForCurrentBlock(tx, state, msg.ActiveNetParams, uint(flag)) ||
 			!CheckSequenceLocks(tx, flag, &lp, validLP) {
 			txToRemove[entry] = struct{}{}
@@ -5047,7 +4871,7 @@ func RemoveForReorg(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolH
 				}
 
 				coin := pcoins.AccessCoin(txin.PreviousOutPoint)
-				if m.GetCheckFreQuency() != 0 {
+				if m.GetCheckFrequency() != 0 {
 					if coin.IsSpent() {
 						panic("the coin must be unspent")
 					}
