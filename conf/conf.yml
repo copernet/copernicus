@@ -1,0 +1,19 @@
+go_version: 1.9.2
+version: 1.0.0
+build_date: 20180428
+
+service:
+  address: 10.0.0.0/8
+
+http:
+  host: 127.0.0.1
+  port: 8080
+  mode: test
+
+rpc:
+  host: 127.0.0.1
+  port: 9552
+
+log:
+  level: error
+  format: json
