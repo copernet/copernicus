@@ -57,8 +57,19 @@ type Configuration struct {
 		Mode string `mapstructure:"mode" validate:"required,eq=release|eq=test|eq=debug"`
 	} `mapstructure:"http" validate:"required"`
 	RPC struct {
-		Host string `mapstructure:"host" validate:"required,ip"`
-		Port int    `mapstructure:"port" validate:"required"`
+		RPCUser              string
+		RPCPass              string
+		RPCLimitUser         string
+		RPCLimitPass         string
+		RPCListeners         []string
+		RPCCert              string
+		RPCKey               string
+		RPCMaxClients        int
+		RPCMaxWebsockets     int
+		RPCMaxConcurrentReqs int
+		RPCQuirks            bool
+		DisableRPC           bool
+		DisableTLS           bool
 	} `mapstructure:"rpc" validate:"required"`
 	Log struct {
 		Level  string `mapstructure:"level" validate:"required,eq=debug|eq=info|eq=warn|eq=error|eq=fatal|eq=panic"`

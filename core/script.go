@@ -184,7 +184,6 @@ func (script *Script) GetOp(index *int, opCode *byte, data *[]byte) bool {
 }
 
 func (script *Script) PushInt64(n int64) {
-
 	if n == -1 || (n >= 1 && n <= 16) {
 		script.bytes = append(script.bytes, byte(n+(OP_1-1)))
 	} else if n == 0 {

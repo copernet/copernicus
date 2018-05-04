@@ -1,4 +1,9 @@
-package rpc
+// Copyright (c) 2015-2017 The btcsuite developers
+// Copyright (c) 2015-2017 The Decred developers
+// Use of this source code is governed by an ISC
+// license that can be found in the LICENSE file.
+
+package rpcserver
 
 import (
 	"errors"
@@ -6,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/btcsuite/btcd/btcjson"
+	"github.com/btcboost/copernicus/btcjson"
 )
 
 // helpDescsEnUS defines the English descriptions used for the help strings.
@@ -763,17 +768,6 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 			return "", err
 		}
 		usageTexts = append(usageTexts, usage)
-	}
-
-	// Include websockets commands if requested.
-	if includeWebsockets {
-		for k := range wsHandlers {
-			usage, err := btcjson.MethodUsageText(k)
-			if err != nil {
-				return "", err
-			}
-			usageTexts = append(usageTexts, usage)
-		}
 	}
 
 	sort.Sort(sort.StringSlice(usageTexts))

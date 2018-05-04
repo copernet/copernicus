@@ -13,8 +13,6 @@ imports:
   version: d1d3521a2faf654cee837aad57713ec4c814791f
   subpackages:
   - secp256k1
-- name: github.com/btcsuite/btclog
-  version: 84c8d2346e9fc8c7b947e243b9c24e6df9fd206a
 - name: github.com/btcsuite/fastsha256
   version: 637e656429416087660c84436a2a035d69d54e2e
 - name: github.com/btcsuite/go-socks
