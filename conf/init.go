@@ -8,11 +8,9 @@ import (
 	"runtime"
 
 	"github.com/spf13/viper"
-	"gopkg.in/go-playground/validator.v8"
 )
 
 const (
-	ConfEnv = "DSP_ALLOT_CONF"
 	tagName = "default"
 )
 
@@ -104,7 +102,7 @@ func init() {
 }
 
 // Validate validates configuration
-func (c Configuration) Validate() error {
-	validate := validator.New(&validator.Config{TagName: "validate"})
-	return validate.Struct(c)
-}
+//func (c Configuration) Validate() error {
+//	validate := validator.New(&validator.Config{TagName: "validate"})
+//	return validate.Struct(c)
+//}

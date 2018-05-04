@@ -31,7 +31,6 @@ Log:
 func TestInitConfig(t *testing.T) {
 	Convey("Given config file", t, func() {
 		filename := fmt.Sprintf("conf_test%04d.yml", rand.Intn(9999))
-		os.Setenv(ConfEnv, filename)
 		ioutil.WriteFile(filename, confData, 0664)
 
 		Convey("When init configuration", func() {
@@ -58,7 +57,6 @@ func TestInitConfig(t *testing.T) {
 		fmt.Println(v)
 
 		Reset(func() {
-			os.Unsetenv(ConfEnv)
 			os.Remove(filename)
 		})
 	})
