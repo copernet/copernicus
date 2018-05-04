@@ -1,30 +1,12 @@
 package msghandle
 
 import (
-	"github.com/btcboost/copernicus/core"
+	"copernicus/core"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/mempool"
 )
 
-func AcceptBlockHeader(bh * BlockHeader, bi ** BlockIndex) bool {
-
-
-
-	return true
-}
-
-func AcceptBlock(b *Block, isNewBlock * bool) bool {
-
-	if isNewBlock != nil {
-		*isNewBlock = false
-	}
-
-
-
-	return true
-}
-
-func ProcessNewblock(b *Block, isNewBlock * bool) bool  {
+func ProcessNewblock(b *core.Block, isNewBlock * bool) bool  {
 
 	if isNewBlock != nil {
 		*isNewBlock = false
