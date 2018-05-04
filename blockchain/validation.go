@@ -1521,9 +1521,8 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *core.ValidationState
 	}
 
 	if fBlocksDisconnected {
-		RemoveForReorg(GMemPool, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
-		LimitMempoolSize(GMemPool, utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize))*1000000,
-			utils.GetArg("-mempoolexpiry", int64(consensus.DefaultMemPoolExpiry))*60*60)
+		RemoveUnFinalTx(GMemPool, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+		LimitMempoolSize(GMemPool)
 	}
 	GMemPool.Check(GCoinsTip, nHeight)
 
@@ -2123,10 +2122,8 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 			var stateDummy core.ValidationState
 			if tx.IsCoinBase() || !AcceptToMemoryPool(param, GMemPool, &stateDummy, tx,
 				false, nil, nil, true, 0) {
-				GMemPool.Lock()
 				GMemPool.RemoveTxRecursive(tx, mempool.REORG)
-				GMemPool.Unlock()
-			} else if GMemPool.Exists(tx.Hash) {
+			} else if GMemPool.FindTx(tx.Hash) != nil {
 				vHashUpdate.PushBack(tx.Hash)
 			}
 		}
@@ -3756,7 +3753,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 	}
 
 	// Is it already in the memory pool?
-	if pool.Exists(txid) {
+	if pool.FindTx(txid) != nil {
 		ret = state.Invalid(false, consensus.RejectAlreadyKnown, "txn-already-in-mempool", "")
 		return
 	}
@@ -3768,8 +3765,8 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 		defer pool.RUnlock()
 
 		for _, txin := range ptx.Ins {
-			itConflicting := pool.NextTx[*(txin.PreviousOutPoint)]
-			if itConflicting != nil { // todo confirm this condition judgement
+			itConflicting := pool.HasSpentOut(txin.PreviousOutPoint)
+			if !itConflicting { // todo confirm this condition judgement
 				ret = state.Invalid(false, consensus.RejectConflict, "txn-mempool-conflict", "")
 			}
 		}
@@ -4009,11 +4006,9 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 
 	// Trim mempool and check if tx was trimmed.
 	if !overrideMempoolLimit {
-		maxmempool := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
-		mempoolExpiry := utils.GetArg("-mempoolexpiry", consensus.DefaultMemPoolExpiry) * 60 * 60
-		LimitMempoolSize(pool, maxmempool, mempoolExpiry)
+		LimitMempoolSize(pool)
 
-		if !pool.Exists(txid) {
+		if pool.FindTx(txid) == nil {
 			ret = state.Dos(0, false, core.RejectInsufficientFee, "mempool full", false, "")
 			return
 		}
@@ -4026,14 +4021,8 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 	return
 }
 
-func LimitMempoolSize(pool *mempool.TxMempool, limit int64, age int64) {
-	expired := pool.Expire(utils.GetMockTime() - age)
-	if expired != 0 {
-		// todo write Log
-		fmt.Printf("mempool Expired %d transactions from the memory pool\n", expired)
-	}
-
-	noSpendsRemaining := pool.TrimToSize(limit)
+func LimitMempoolSize(pool *mempool.TxMempool) {
+	noSpendsRemaining := pool.LimitMempoolSize()
 	for _, outpoint := range noSpendsRemaining {
 		GCoinsTip.UnCache(outpoint)
 	}
@@ -4431,15 +4420,12 @@ func InvalidateBlock(params *msg.BitcoinParams, state *core.ValidationState, ind
 		// ActivateBestChain considers blocks already in chainActive
 		// unconditionally valid already, so force disconnect away from it.
 		if !DisconnectTip(params, state, false) {
-			RemoveForReorg(Pool, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+			RemoveUnFinalTx(Pool, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
 			return false
 		}
 	}
 
-	maxmempool := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
-	mempoolexpiry := utils.GetArg("-mempoolexpiry", int64(consensus.DefaultMemPoolExpiry)) * 60 * 60
-	LimitMempoolSize(GMemPool, maxmempool, mempoolexpiry)
-
+	LimitMempoolSize(GMemPool)
 	// The resulting new best tip may not be in setBlockIndexCandidates anymore,
 	// so add it again.
 	for _, index := range MapBlockIndex.Data {
@@ -4450,7 +4436,7 @@ func InvalidateBlock(params *msg.BitcoinParams, state *core.ValidationState, ind
 	}
 
 	InvalidChainFound(index)
-	RemoveForReorg(Pool, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+	RemoveUnFinalTx(Pool, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
 	// gui notify
 	// uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev);
 	return true
@@ -4535,7 +4521,8 @@ func LoadMempool(params *msg.BitcoinParams) bool {
 	//var priorityDummy float64
 	for num > 0 {
 		num--
-		txPoolInfo, err := mempool.DeserializeInfo(fileStr)
+		txPoolInfo := &mempool.TxMempoolInfo{}
+		err := txPoolInfo.DeserializeInfo(fileStr)
 		if err != nil {
 			panic(err)
 		}
@@ -4604,13 +4591,11 @@ func DumpMempool() {
 	mapDeltas := make(map[utils.Hash]utils.Amount)
 	var info []*mempool.TxMempoolInfo
 	{
-		mapDeltas = make(map[utils.Hash]utils.Amount, len(GMemPool.PoolData))
-		GMemPool.Lock()
+		mapDeltas = make(map[utils.Hash]utils.Amount, GMemPool.Size())
 		//for hash, feeDelta := range GMemPool.MapDeltas {
 		//	mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
 		//}
 		info = GMemPool.InfoAll()
-		GMemPool.Unlock()
 	}
 
 	mid := time.Now().Second()
@@ -4848,14 +4833,15 @@ func TestLockPointValidity(lp *core.LockPoints, activeChain *core.Chain) bool {
 	return true
 }
 
-func RemoveForReorg(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolHeight int, flag int) {
+func RemoveUnFinalTx(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolHeight int, flag int) {
 	m.Lock()
 	defer m.Unlock()
 
 	// Remove transactions spending a coinbase which are now immature and
 	// no-longer-final transactions
 	txToRemove := make(map[*mempool.TxEntry]struct{})
-	for _, entry := range m.PoolData {
+	poolData := m.GetAllTxEntry()
+	for _, entry := range poolData {
 		lp := entry.GetLockPointFromTxEntry()
 		validLP := TestLockPointValidity(&lp, &GChainActive)
 		state := core.NewValidationState()
@@ -4866,7 +4852,7 @@ func RemoveForReorg(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolH
 			txToRemove[entry] = struct{}{}
 		} else if entry.GetSpendsCoinbase() {
 			for _, txin := range tx.Ins {
-				if _, ok := m.PoolData[txin.PreviousOutPoint.Hash]; ok {
+				if _, ok := poolData[txin.PreviousOutPoint.Hash]; ok {
 					continue
 				}
 
