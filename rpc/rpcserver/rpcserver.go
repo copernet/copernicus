@@ -32,15 +32,13 @@ import (
 	"github.com/btcboost/copernicus/mining"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/blockchain/indexers"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcd/mempool"
-	"github.com/btcsuite/btcd/mining/cpuminer"
 	"github.com/btcsuite/btcd/peer"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
+	"crypto/tls"
+	"runtime"
 )
 
 // API version constants
@@ -169,53 +167,6 @@ var rpcHandlersBeforeInit = map[string]commandHandler{
 	"version": handleVersion,
 }
 
-// list of commands that we recognize, but for which btcd has no support because
-// it lacks support for wallet functionality. For these commands the user
-// should ask a connected instance of btcwallet.
-var rpcAskWallet = map[string]struct{}{
-	"addmultisigaddress":     {},
-	"backupwallet":           {},
-	"createencryptedwallet":  {},
-	"createmultisig":         {},
-	"dumpprivkey":            {},
-	"dumpwallet":             {},
-	"encryptwallet":          {},
-	"getaccount":             {},
-	"getaccountaddress":      {},
-	"getaddressesbyaccount":  {},
-	"getbalance":             {},
-	"getnewaddress":          {},
-	"getrawchangeaddress":    {},
-	"getreceivedbyaccount":   {},
-	"getreceivedbyaddress":   {},
-	"gettransaction":         {},
-	"gettxoutsetinfo":        {},
-	"getunconfirmedbalance":  {},
-	"getwalletinfo":          {},
-	"importprivkey":          {},
-	"importwallet":           {},
-	"keypoolrefill":          {},
-	"listaccounts":           {},
-	"listaddressgroupings":   {},
-	"listlockunspent":        {},
-	"listreceivedbyaccount":  {},
-	"listreceivedbyaddress":  {},
-	"listsinceblock":         {},
-	"listtransactions":       {},
-	"listunspent":            {},
-	"lockunspent":            {},
-	"move":                   {},
-	"sendfrom":               {},
-	"sendmany":               {},
-	"sendtoaddress":          {},
-	"setaccount":             {},
-	"settxfee":               {},
-	"signmessage":            {},
-	"signrawtransaction":     {},
-	"walletlock":             {},
-	"walletpassphrase":       {},
-	"walletpassphrasechange": {},
-}
 
 // Commands that are currently unimplemented, but should ultimately be.
 var rpcUnimplemented = map[string]struct{}{
@@ -3449,7 +3400,7 @@ func handleValidateAddress(s *RPCServer, cmd interface{}, closeChan <-chan struc
 }
 */
 
-func verifyChain(s *RPCServer, level, depth int32) error {
+/*func verifyChain(s *RPCServer, level, depth int32) error {
 	best := s.cfg.Chain.BestSnapshot()
 	finishHeight := best.Height - depth
 	if finishHeight < 0 {
@@ -3482,7 +3433,7 @@ func verifyChain(s *RPCServer, level, depth int32) error {
 	logs.Info("Chain verify completed successfully")
 
 	return nil
-}
+}*/     // todo open
 
 // handleVerifyChain implements the verifychain command.
 /*
@@ -3589,7 +3540,6 @@ type RPCServer struct {
 	cfg          RPCServerConfig
 	authsha      [sha256.Size]byte
 	limitauthsha [sha256.Size]byte
-	ntfnMgr      *wsNotificationManager
 	numClients   int32
 	statusLines  map[int]string
 	statusLock   sync.RWMutex
@@ -3669,8 +3619,6 @@ func (s *RPCServer) Stop() error {
 			return err
 		}
 	}
-	s.ntfnMgr.Shutdown()
-	s.ntfnMgr.WaitForShutdown()
 	close(s.quit)
 	s.wg.Wait()
 	logs.Info("RPC server shutdown complete")
@@ -3683,22 +3631,6 @@ func (s *RPCServer) Stop() error {
 func (s *RPCServer) RequestedProcessShutdown() <-chan struct{} {
 	return s.requestProcessShutdown
 }
-
-// NotifyNewTransactions notifies both websocket and getblocktemplate long
-// poll clients of the passed transactions.  This function should be called
-// whenever new transactions are added to the mempool.
-/*
-func (s *RPCServer) NotifyNewTransactions(txns []*mempool.TxDesc) {
-	for _, txD := range txns {
-		// Notify websocket clients about mempool transactions.
-		s.ntfnMgr.NotifyMempoolTx(txD.Tx, true)
-
-		// Potentially notify any getblocktemplate long poll clients
-		// about stale block templates due to the new transaction.
-		s.gbtWorkState.NotifyMempoolTx(s.cfg.TxMemPool.LastUpdated())
-	}
-}
-*/
 
 // limitConnections responds with a 503 service unavailable and returns true if
 // adding another client would exceed the maximum allow RPC clients.
@@ -3899,7 +3831,7 @@ func (s *RPCServer) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin 
 	}
 	defer conn.Close()
 	defer buf.Flush()
-	conn.SetReadDeadline(timeZeroVal)
+	//conn.SetReadDeadline(timeZeroVal)
 
 	// Attempt to parse the raw body into a JSON-RPC request.
 	var responseID interface{}
@@ -4039,27 +3971,6 @@ func (s *RPCServer) Start() {
 	})
 
 	// todo open
-	// Websocket endpoint.
-	//rpcServeMux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-	//	authenticated, isAdmin, err := s.checkAuth(r, false)
-	//	if err != nil {
-	//		jsonAuthFail(w)
-	//		return
-	//	}
-	//
-	//	// Attempt to upgrade the connection to a websocket connection
-	//	// using the default size for read/write buffers.
-	//	ws, err := websocket.Upgrade(w, r, nil, 0, 0)
-	//	if err != nil {
-	//		if _, ok := err.(websocket.HandshakeError); !ok {
-	//			logs.Error("Unexpected websocket error: %v",
-	//				err)
-	//		}
-	//		http.Error(w, "400 Bad Request.", http.StatusBadRequest)
-	//		return
-	//	}
-	//	s.WebsocketHandler(ws, r.RemoteAddr, authenticated, isAdmin)
-	//})
 
 	for _, listener := range s.cfg.Listeners {
 		s.wg.Add(1)
@@ -4070,8 +3981,6 @@ func (s *RPCServer) Start() {
 			s.wg.Done()
 		}(listener)
 	}
-
-	s.ntfnMgr.Start()
 }
 
 // GenCertPair generates a key/cert pair to the paths provided.
@@ -4231,7 +4140,7 @@ type RPCServerConfig struct {
 	// These fields allow the RPC server to interface with the local block
 	// chain data and state.
 	TimeSource  blockchain.MedianTimeSource
-	Chain       *blockchain.BlockChain
+/*	Chain       *blockchain.BlockChain
 	ChainParams *chaincfg.Params
 	DB          database.DB
 
@@ -4249,8 +4158,137 @@ type RPCServerConfig struct {
 	// These fields define any optional indexes the RPC server can make use
 	// of to provide additional data when queried.
 	TxIndex   *indexers.TxIndex
-	AddrIndex *indexers.AddrIndex
+	AddrIndex *indexers.AddrIndex*/   // todo open
 }
+
+
+
+// setupRPCListeners returns a slice of listeners that are configured for use
+// with the RPC server depending on the configuration settings for listen
+// addresses and TLS.
+func SetupRPCListeners() ([]net.Listener, error) {
+	// Setup TLS if not disabled.
+	listenFunc := net.Listen
+	// todo open
+	if !conf.CFG.DisableTLS {
+		// Generate the TLS cert and key file if both don't already
+		// exist.
+		if !fileExists(conf.CFG.RPCKey) && !fileExists(conf.CFG.RPCCert) {
+			err := GenCertPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		keypair, err := tls.LoadX509KeyPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConfig := tls.Config{
+			Certificates: []tls.Certificate{keypair},
+			MinVersion:   tls.VersionTLS12,
+		}
+
+		// Change the standard net.Listen function to the tls one.
+		listenFunc = func(net string, laddr string) (net.Listener, error) {
+			return tls.Listen(net, laddr, &tlsConfig)
+		}
+	}
+
+	netAddrs, err := parseListeners(conf.CFG.RPCListeners)
+	if err != nil {
+		return nil, err
+	}
+
+	listeners := make([]net.Listener, 0, len(netAddrs))
+	for _, addr := range netAddrs {
+		listener, err := listenFunc(addr.Network(), addr.String())
+		if err != nil {
+			logs.Warn("Can't listen on %s: %v", addr, err)
+			continue
+		}
+		listeners = append(listeners, listener)
+	}
+
+	return listeners, nil
+}
+
+// filesExists reports whether the named file or directory exists.
+func fileExists(name string) bool {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
+}
+
+// parseListeners determines whether each listen address is IPv4 and IPv6 and
+// returns a slice of appropriate net.Addrs to listen on with TCP. It also
+// properly detects addresses which apply to "all interfaces" and adds the
+// address as both IPv4 and IPv6.
+func parseListeners(addrs []string) ([]net.Addr, error) {
+	netAddrs := make([]net.Addr, 0, len(addrs)*2)
+	for _, addr := range addrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			// Shouldn't happen due to already being normalized.
+			return nil, err
+		}
+
+		// Empty host or host of * on plan9 is both IPv4 and IPv6.
+		if host == "" || (host == "*" && runtime.GOOS == "plan9") {
+			netAddrs = append(netAddrs, simpleAddr{net: "tcp4", addr: addr})
+			netAddrs = append(netAddrs, simpleAddr{net: "tcp6", addr: addr})
+			continue
+		}
+
+		// Strip IPv6 zone id if present since net.ParseIP does not
+		// handle it.
+		zoneIndex := strings.LastIndex(host, "%")
+		if zoneIndex > 0 {
+			host = host[:zoneIndex]
+		}
+
+		// Parse the IP.
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return nil, fmt.Errorf("'%s' is not a valid IP address", host)
+		}
+
+		// To4 returns nil when the IP is not an IPv4 address, so use
+		// this determine the address type.
+		if ip.To4() == nil {
+			netAddrs = append(netAddrs, simpleAddr{net: "tcp6", addr: addr})
+		} else {
+			netAddrs = append(netAddrs, simpleAddr{net: "tcp4", addr: addr})
+		}
+	}
+	return netAddrs, nil
+}
+
+// onionAddr implements the net.Addr interface with two struct fields
+type simpleAddr struct {
+	net, addr string
+}
+
+// String returns the address.
+//
+// This is part of the net.Addr interface.
+func (a simpleAddr) String() string {
+	return a.addr
+}
+
+// Network returns the network.
+//
+// This is part of the net.Addr interface.
+func (a simpleAddr) Network() string {
+	return a.net
+}
+
+// Ensure simpleAddr implements the net.Addr interface.
+var _ net.Addr = simpleAddr{}
 
 // NewRPCServer returns a new instance of the RPCServer struct.
 func NewRPCServer(config *RPCServerConfig) (*RPCServer, error) {
@@ -4273,51 +4311,11 @@ func NewRPCServer(config *RPCServerConfig) (*RPCServer, error) {
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.limitauthsha = sha256.Sum256([]byte(auth))
 	}
-	rpc.ntfnMgr = newWsNotificationManager(&rpc)
 	//rpc.cfg.Chain.Subscribe(rpc.handleBlockchainNotification)  // todo open
 
 	return &rpc, nil
 }
 
-// Callback for notifications from blockchain.  It notifies clients that are
-// long polling for changes or subscribed to websockets notifications.
-/*
-func (s *RPCServer) handleBlockchainNotification(notification *blockchain.Notification) {
-	switch notification.Type {
-	case blockchain.NTBlockAccepted:
-		block, ok := notification.Data.(*btcutil.Block)
-		if !ok {
-			logs.Warn("Chain accepted notification is not a block.")
-			break
-		}
-
-		// Allow any clients performing long polling via the
-		// getblocktemplate RPC to be notified when the new block causes
-		// their old block template to become stale.
-		s.gbtWorkState.NotifyBlockConnected(block.Hash())
-
-	case blockchain.NTBlockConnected:
-		block, ok := notification.Data.(*btcutil.Block)
-		if !ok {
-			logs.Warn("Chain connected notification is not a block.")
-			break
-		}
-
-		// Notify registered websocket clients of incoming block.
-		s.ntfnMgr.NotifyBlockConnected(block)
-
-	case blockchain.NTBlockDisconnected:
-		block, ok := notification.Data.(*btcutil.Block)
-		if !ok {
-			logs.Warn("Chain disconnected notification is not a block.")
-			break
-		}
-
-		// Notify registered websocket clients.
-		s.ntfnMgr.NotifyBlockDisconnected(block)
-	}
-}
-*/
 
 func init() {
 	rpcHandlers = rpcHandlersBeforeInit

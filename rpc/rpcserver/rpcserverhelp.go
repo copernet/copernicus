@@ -770,17 +770,6 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 		usageTexts = append(usageTexts, usage)
 	}
 
-	// Include websockets commands if requested.
-	if includeWebsockets {
-		for k := range wsHandlers {
-			usage, err := btcjson.MethodUsageText(k)
-			if err != nil {
-				return "", err
-			}
-			usageTexts = append(usageTexts, usage)
-		}
-	}
-
 	sort.Sort(sort.StringSlice(usageTexts))
 	c.usage = strings.Join(usageTexts, "\n")
 	return c.usage, nil
