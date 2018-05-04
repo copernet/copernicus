@@ -39,6 +39,8 @@ import (
 	"github.com/btcsuite/btcutil"
 	"crypto/tls"
 	"runtime"
+	"github.com/btcboost/copernicus/net/msg"
+	"github.com/btcboost/copernicus/core"
 )
 
 // API version constants
@@ -1828,7 +1830,7 @@ func handleGetBlockTemplateLongPoll(s *RPCServer, longPollID string, useCoinbase
 // in regards to whether or not it supports creating its own coinbase (the
 // coinbasetxn and coinbasevalue capabilities) and modifies the returned block
 // template accordingly.
-/*
+
 func handleGetBlockTemplateRequest(s *RPCServer, request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
 	// Extract the relevant passed capabilities and restrict the result to
 	// either a coinbase value or a coinbase transaction object depending on
@@ -1907,7 +1909,7 @@ func handleGetBlockTemplateRequest(s *RPCServer, request *btcjson.TemplateReques
 	}
 	return state.blockTemplateResult(useCoinbaseValue, nil)
 }
-*/
+
 
 // chainErrToGBTErrString converts an error returned from btcchain to a string
 // which matches the reasons and format described in BIP0022 for rejection
@@ -3212,8 +3214,8 @@ func handleSearchRawTransactions(s *RPCServer, cmd interface{}, closeChan <-chan
 */
 
 // handleSendRawTransaction implements the sendrawtransaction command.
-/*
-func handleSendRawTransaction(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+
+/*func handleSendRawTransaction(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SendRawTransactionCmd)
 	// Deserialize and send off to tx relay
 	hexStr := c.HexTx
@@ -3224,8 +3226,8 @@ func handleSendRawTransaction(s *RPCServer, cmd interface{}, closeChan <-chan st
 	if err != nil {
 		return nil, rpcDecodeHexError(hexStr)
 	}
-	var msgTx wire.MsgTx
-	err = msgTx.Deserialize(bytes.NewReader(serializedTx))
+	var msgTx msg.TxMessage
+	err = msgTx.BitcoinParse(bytes.NewReader(serializedTx),0)
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDeserialization,
@@ -3234,8 +3236,8 @@ func handleSendRawTransaction(s *RPCServer, cmd interface{}, closeChan <-chan st
 	}
 
 	// Use 0 for the tag to represent local node.
-	tx := btcutil.NewTx(&msgTx)
-	acceptedTxs, err := s.cfg.TxMemPool.ProcessTransaction(tx, false, false, 0)
+	acceptedTxs, err := s.cfg.TxMemPool.ProcessTransaction(msgTx.Tx, false, false, 0)
+	blockchain.
 	if err != nil {
 		// When the error is a rule error, it means the transaction was
 		// simply rejected as opposed to something actually going wrong,
@@ -3244,7 +3246,7 @@ func handleSendRawTransaction(s *RPCServer, cmd interface{}, closeChan <-chan st
 		// error is returned to the client with the deserialization
 		// error code (to match bitcoind behavior).
 		if _, ok := err.(mempool.RuleError); ok {
-			logs.Debugf("Rejected transaction %v: %v", tx.Hash(),
+			logs.Debug("Rejected transaction %v: %v", tx.Hash(),
 				err)
 		} else {
 			logs.Error("Failed to process transaction %v: %v",
@@ -3287,8 +3289,8 @@ func handleSendRawTransaction(s *RPCServer, cmd interface{}, closeChan <-chan st
 	s.cfg.ConnMgr.AddRebroadcastInventory(iv, txD)
 
 	return tx.Hash().String(), nil
-}
-*/
+}*/        //Todo
+
 
 // handleSetGenerate implements the setgenerate command.
 /*
@@ -4069,20 +4071,20 @@ type RPCServerConnManager interface {
 	NetTotals() (uint64, uint64)
 
 	// ConnectedPeers returns an array consisting of all connected peers.
-	ConnectedPeers() []RPCServerPeer
+	//ConnectedPeers() []RPCServerPeer      // Todo
 
 	// PersistentPeers returns an array consisting of all the persistent
 	// peers.
-	PersistentPeers() []RPCServerPeer
+	//PersistentPeers() []RPCServerPeer      // Todo
 
 	// BroadcastMessage sends the provided message to all currently
 	// connected peers.
-	BroadcastMessage(msg wire.Message)
+	BroadcastMessage(msg msg.Message)
 
 	// AddRebroadcastInventory adds the provided inventory to the list of
 	// inventories to be rebroadcast at random intervals until they show up
 	// in a block.
-	AddRebroadcastInventory(iv *wire.InvVect, data interface{})
+	AddRebroadcastInventory(iv *msg.InventoryVector, data interface{})
 
 	// RelayTransactions generates and relays inventory vectors for all of
 	// the passed transactions to all connected peers.
