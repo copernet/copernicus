@@ -12,11 +12,9 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/blockchain"
-	"github.com/btcd/chaincfg"
 	"github.com/btcboost/copernicus/utxo"
-	"github.com/btcd/wire"
 	"github.com/btcboost/copernicus/net/msg"
+	"btcd/wire"
 )
 
 const (
@@ -65,7 +63,7 @@ const (
 const (
 	/*DefaultMaxGeneratedBlockSize default for -blockMaxsize, which controls the maximum size of block the
 	 * mining code will create **/
-	DefaultMaxGeneratedBlockSize uint64 = 2 * OneMegaByte
+	DefaultMaxGeneratedBlockSize uint64 = 2 * consensus.OneMegaByte
 	/** Default for -blockprioritypercentage, define the amount of block space
 	 * reserved to high priority transactions **/
 
@@ -84,7 +82,7 @@ const (
 	MaxP2SHSigOps uint = 15
 
 	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
-	MaxStandardTxSigOps = uint(MaxTxSigOpsCount / 5)
+	MaxStandardTxSigOps = uint(consensus.MaxTxSigOpsCount / 5)
 
 	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
 	DefaultMaxMemPoolSize uint = 300
@@ -133,7 +131,7 @@ const (
 
 	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
 	 * non-core code. */
-	StandardLockTimeVerifyFlags uint = LocktimeVerifySequence | LocktimeMedianTimePast
+	StandardLockTimeVerifyFlags uint = consensus.LocktimeVerifySequence | consensus.LocktimeMedianTimePast
 )
 
 type Tx struct {

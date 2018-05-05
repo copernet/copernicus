@@ -85,6 +85,7 @@ func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool)
 		if !AcceptDataCarrier {
 			return false, pubKeyType
 		}
+
 		maxScriptSize uint32 = 0
 
 		if allowLargeOpReturn {
