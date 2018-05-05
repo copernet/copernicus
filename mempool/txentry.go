@@ -147,6 +147,15 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 	}
 }
 
+func (t *TxEntry) CheckLockPointValidity(chain *core.Chain) bool {
+	if t.lp.MaxInputBlock != nil{
+		if !chain.Contains(t.lp.MaxInputBlock){
+			return false
+		}
+	}
+	return true
+}
+
 type EntryFeeSort TxEntry
 
 func (e EntryFeeSort) Less(than btree.Item) bool {

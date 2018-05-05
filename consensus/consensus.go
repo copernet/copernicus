@@ -30,6 +30,8 @@ const (
 	StandardLocktimeVerifyFlags = LocktimeVerifySequence | LocktimeMedianTimePast
 )
 
+const MempoolHeight = 0x7FFFFFFF
+
 // GetMaxBlockSigOpsCount Compute the maximum number of sigops operation that can contained in a block
 // given the block size as parameter. It is computed by multiplying
 // MAX_BLOCK_SIGOPS_PER_MB by the size of the block in MB rounded up to the

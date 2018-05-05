@@ -14,6 +14,8 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/google/btree"
+	"github.com/btcboost/copernicus/net/msg"
+	"github.com/btcboost/copernicus/consensus"
 )
 
 type PoolRemovalReason int
@@ -36,8 +38,6 @@ const (
 	// REPLACED Removed for replacement
 	REPLACED
 )
-
-const MEMPOOL_HEIGHT = 0x7FFFFFFF
 
 var Gpool *TxMempool
 
@@ -62,19 +62,132 @@ type TxMempool struct {
 	transactionsUpdated uint64
 }
 
-func (m *TxMempool) GetCacheUsage() int64 {
-	m.RLock()
-	defer m.RUnlock()
-	return m.cacheInnerUsage
+func AddTx(txentry *TxEntry, limitAncestorCount uint64,
+	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64, searchForParent bool)error  {
+	return Gpool.addTx(txentry, limitAncestorCount, limitAncestorSize, limitDescendantCount, limitDescendantSize, searchForParent)
 }
 
-func (m *TxMempool) GetCheckFrequency() float64 {
-	m.RLock()
-	defer m.RUnlock()
-	return m.checkFrequency
+func FindTx(hash utils.Hash) *core.Tx {
+	return Gpool.findTx(hash)
 }
 
-func (m *TxMempool) GetCoin(outpoint *core.OutPoint) *utxo.Coin {
+func HasNoInputsOf(tx *core.Tx) bool {
+	return Gpool.hasNoInputsOf(tx)
+}
+
+func HasSpentOut(out *core.OutPoint) bool {
+	return Gpool.hasSpentOut(out)
+}
+
+func GetRootTx() map[utils.Hash]TxEntry {
+	return Gpool.getRootTx()
+}
+
+func RemoveTxRecursive(origTx *core.Tx, reason PoolRemovalReason) {
+	Gpool.Lock()
+	defer Gpool.Unlock()
+	Gpool.removeTxRecursive(origTx, reason)
+}
+
+func Size() int {
+	return Gpool.size()
+}
+
+func GetAllTxEntry() map[utils.Hash]*TxEntry {
+	return Gpool.poolData
+}
+
+func GetCacheUsage() int64 {
+	Gpool.RLock()
+	defer Gpool.RUnlock()
+	return Gpool.cacheInnerUsage
+}
+
+func GetCheckFrequency() float64 {
+	Gpool.RLock()
+	defer Gpool.RUnlock()
+	return Gpool.checkFrequency
+}
+
+func GetCoin(outpoint *core.OutPoint) *utxo.Coin  {
+	return Gpool.getCoin(outpoint)
+}
+
+func Check(coins *utxo.CoinsViewCache, bestHeight int)  {
+	Gpool.check(coins, bestHeight)
+}
+
+func RemoveTxSelf(txs []*core.Tx)  {
+	Gpool.removeTxSelf(txs)
+}
+
+// LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
+// set, the function will return these have removed transaction's txin from mempool which use
+// TrimToSize rule. Later, caller will remove these txin from uxto cache.
+func LimitMempoolSize() []*core.OutPoint {
+	Gpool.Lock()
+	defer Gpool.Unlock()
+	//todo, parse expire time from config
+	Gpool.expire(0)
+	//todo, parse limit mempoolsize from config
+	c := Gpool.trimToSize(0)
+	return c
+}
+
+func RemoveUnFinalTx(chain *core.Chain, pcoins *utxo.CoinsViewCache, nMemPoolHeight int, flag int)  {
+	Gpool.removeUnFinalTx(chain, pcoins, nMemPoolHeight, flag)
+}
+
+func (m *TxMempool)removeUnFinalTx(chain *core.Chain, pcoins *utxo.CoinsViewCache, nMemPoolHeight int, flag int) {
+	m.Lock()
+	defer m.Unlock()
+
+	// Remove transactions spending a coinbase which are now immature and
+	// no-longer-final transactions
+	txToRemove := make(map[*TxEntry]struct{})
+	for _, entry := range m.poolData {
+		lp := entry.GetLockPointFromTxEntry()
+		validLP := entry.CheckLockPointValidity(chain)
+		state := core.NewValidationState()
+
+		tx := entry.Tx
+		if !tx.ContextualCheckTransactionForCurrentBlock(state, msg.ActiveNetParams, uint(flag)) ||
+			!tx.CheckSequenceLocks(flag, &lp, validLP) {
+			txToRemove[entry] = struct{}{}
+		} else if entry.GetSpendsCoinbase() {
+			for _, txin := range tx.Ins {
+				if _, ok := m.poolData[txin.PreviousOutPoint.Hash]; ok {
+					continue
+				}
+
+				coin := pcoins.AccessCoin(txin.PreviousOutPoint)
+				if m.checkFrequency != 0 {
+					if coin.IsSpent() {
+						panic("the coin must be unspent")
+					}
+				}
+
+				if coin.IsSpent() || (coin.IsCoinBase() &&
+					uint32(nMemPoolHeight)-coin.GetHeight() < consensus.CoinbaseMaturity) {
+					txToRemove[entry] = struct{}{}
+					break
+				}
+			}
+		}
+
+		if !validLP {
+			entry.SetLockPointFromTxEntry(lp)
+		}
+	}
+
+	allRemoves := make(map[*TxEntry]struct{})
+	for it := range txToRemove {
+		m.CalculateDescendants(it, allRemoves)
+	}
+	m.RemoveStaged(allRemoves, false, REORG)
+}
+
+func (m *TxMempool) getCoin(outpoint *core.OutPoint) *utxo.Coin {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -84,7 +197,7 @@ func (m *TxMempool) GetCoin(outpoint *core.OutPoint) *utxo.Coin {
 	}
 
 	if int(outpoint.Index) < len(txMempoolEntry.Tx.Outs) {
-		coin := utxo.NewCoin(txMempoolEntry.Tx.Outs[outpoint.Index], MEMPOOL_HEIGHT, false)
+		coin := utxo.NewCoin(txMempoolEntry.Tx.Outs[outpoint.Index], consensus.MempoolHeight, false)
 		return coin
 	}
 
@@ -95,11 +208,11 @@ func (m *TxMempool) GetCoin(outpoint *core.OutPoint) *utxo.Coin {
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
-func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
-	if m.GetCheckFrequency() == 0 {
+func (m *TxMempool) check(coins *utxo.CoinsViewCache, bestHeight int) {
+	if m.checkFrequency == 0 {
 		return
 	}
-	if float64(utils.GetRand(math.MaxUint32)) >= m.GetCheckFrequency() {
+	if float64(utils.GetRand(math.MaxUint32)) >= m.checkFrequency {
 		return
 	}
 
@@ -242,7 +355,7 @@ func (m *TxMempool) Check(coins *utxo.CoinsViewCache, bestHeight int) {
 }
 
 // RemoveTxSelf will only remove these transaction self.
-func (m *TxMempool) RemoveTxSelf(txs []*core.Tx) {
+func (m *TxMempool) removeTxSelf(txs []*core.Tx) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -268,7 +381,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*core.Tx) {
 // AddTx operator is safe for concurrent write And read access.
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
-func (m *TxMempool) AddTx(txentry *TxEntry, limitAncestorCount uint64,
+func (m *TxMempool) addTx(txentry *TxEntry, limitAncestorCount uint64,
 	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64, searchForParent bool) error {
 	// todo: send signal to all interesting the caller.
 	m.Lock()
@@ -308,20 +421,7 @@ func (m *TxMempool) AddTx(txentry *TxEntry, limitAncestorCount uint64,
 	return nil
 }
 
-// LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
-// set, the function will return these have removed transaction's txin from mempool which use
-// TrimToSize rule. Later, caller will remove these txin from uxto cache.
-func (m *TxMempool) LimitMempoolSize() []*core.OutPoint {
-	m.Lock()
-	defer m.Unlock()
-	//todo, parse expire time from config
-	m.expire(0)
-	//todo, parse limit mempoolsize from config
-	c := m.trimToSize(0)
-	return c
-}
-
-func (m *TxMempool) FindTx(hash utils.Hash) *core.Tx {
+func (m *TxMempool) findTx(hash utils.Hash) *core.Tx {
 	m.RLock()
 	m.RUnlock()
 	if find, ok := m.poolData[hash]; ok {
@@ -333,19 +433,19 @@ func (m *TxMempool) FindTx(hash utils.Hash) *core.Tx {
 // HasNoInputsOf Check that none of this transactions inputs are in the memPool,
 // and thus the tx is not dependent on other memPool transactions to be included
 // in a block.
-func (m *TxMempool) HasNoInputsOf(tx *core.Tx) bool {
+func (m *TxMempool) hasNoInputsOf(tx *core.Tx) bool {
 	m.RLock()
 	defer m.RUnlock()
 
 	for _, txin := range tx.Ins {
-		if m.FindTx(txin.PreviousOutPoint.Hash) != nil {
+		if m.findTx(txin.PreviousOutPoint.Hash) != nil {
 			return false
 		}
 	}
 	return true
 }
 
-func (m *TxMempool) HasSpentOut(out *core.OutPoint) bool {
+func (m *TxMempool) hasSpentOut(out *core.OutPoint) bool {
 	m.RLock()
 	m.RUnlock()
 
@@ -355,7 +455,7 @@ func (m *TxMempool) HasSpentOut(out *core.OutPoint) bool {
 	return false
 }
 
-func (m *TxMempool) GetRootTx() map[utils.Hash]TxEntry {
+func (m *TxMempool) getRootTx() map[utils.Hash]TxEntry {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -366,21 +466,11 @@ func (m *TxMempool) GetRootTx() map[utils.Hash]TxEntry {
 	return n
 }
 
-func (m *TxMempool) RemoveTxRecursive(origTx *core.Tx, reason PoolRemovalReason) {
-	m.Lock()
-	defer m.Unlock()
-	m.removeTxRecursive(origTx, reason)
-}
-
-func (m *TxMempool) Size() int {
+func (m *TxMempool) size() int {
 	m.RLock()
 	defer m.RUnlock()
 
 	return len(m.poolData)
-}
-
-func (m *TxMempool) GetAllTxEntry() map[utils.Hash]*TxEntry {
-	return m.poolData
 }
 
 // TrimToSize Remove transactions from the mempool until its dynamic size is <=
@@ -698,7 +788,11 @@ func (m *TxMempool) UpdateTransactionsFromBlock(ele interface{}) {
 	//todo implement, this function is called in DisconnectTip()
 }
 
-func (m *TxMempool) InfoAll() []*TxMempoolInfo {
+func TxInfoAll() []*TxMempoolInfo {
+	return Gpool.txInfoAll()
+}
+
+func (m *TxMempool) txInfoAll() []*TxMempoolInfo {
 	m.RLock()
 	defer m.RUnlock()
 
