@@ -254,11 +254,11 @@ func (tc *TxoutCompressor) Serialize(w io.Writer) error {
 	if tc == nil {
 		return ErrCompress
 	}
-	amount := CompressAmount(utils.Amount(tc.txout.Value))
+	amount := CompressAmount(utils.Amount(tc.txout.GetValue()))
 	if err := utils.WriteVarLenInt(w, amount); err != nil {
 		return err
 	}
-	sc := newScriptCompressor(tc.txout.Script)
+	sc := newScriptCompressor(tc.txout.GetScriptPubKey())
 	return sc.Serialize(w)
 }
 
@@ -270,7 +270,7 @@ func (tc *TxoutCompressor) Unserialize(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	tc.txout.Value = int64(DecompressAmount(amount))
-	sc := newScriptCompressor(tc.txout.Script)
+	tc.txout.SetValue(int64(DecompressAmount(amount)))
+	sc := newScriptCompressor(tc.txout.GetScriptPubKey())
 	return sc.Unserialize(r)
 }

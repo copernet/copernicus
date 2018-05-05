@@ -6,71 +6,100 @@ import (
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
+	"fmt"
 )
+var UtxoTip *CoinsViewCache
 
-type CacheCoins map[core.OutPoint]*CoinsCacheEntry
-
-type CoinsView interface {
-	GetCoin(point *core.OutPoint, coin *Coin) bool
-	HaveCoin(point *core.OutPoint) bool
+type coinsView interface {
+	GetCoin(*core.OutPoint) (*Coin, error)
+	HaveCoin(*core.OutPoint) bool
 	GetBestBlock() utils.Hash
-	BatchWrite(coinsMap CacheCoins, hash *utils.Hash) bool
+	BatchWrite(*CacheCoins, *utils.Hash) error
 	EstimateSize() uint64
 }
 
+
+type UtxoConfig struct {
+
+}
+
+func InitUtxo(conf *UtxoConfig){
+	fmt.Printf("initUtxo processing ....%v",conf)
+	GetUtxoCacheInstance()
+}
+
+type CoinsCacheEntry struct {
+	Coin  *Coin
+	dirty bool //是否修改过
+	fresh bool //父cache中不存在
+}
+
+func NewCoinsCacheEntry(coin *Coin) *CoinsCacheEntry{
+	return &CoinsCacheEntry{Coin:coin}
+}
+
+
+
+func GetUtxoCacheInstance() *CoinsViewCache{
+	if UtxoTip == nil{
+		db := new(CoinsViewDB)
+		UtxoTip = NewCoinViewCache(db)
+	}
+	return UtxoTip
+}
+type CacheCoins map[core.OutPoint]*CoinsCacheEntry
+
+
+
 type CoinsViewCache struct {
-	Base             CoinsView
+	Base             coinsView
 	hashBlock        utils.Hash
-	CacheCoins       CacheCoins
+	cacheCoins       CacheCoins
 	cachedCoinsUsage int64
 }
 
-func NewCoinViewCacheByCoinview(view CoinsView) *CoinsViewCache {
+func NewCoinViewCache(view coinsView) *CoinsViewCache {
 	c := new(CoinsViewCache)
 	c.Base = view
 	c.cachedCoinsUsage = 0
 	return c
 }
 
-func (coinsViewCache *CoinsViewCache) AccessCoin(point *core.OutPoint) *Coin {
-	entry := coinsViewCache.FetchCoin(point)
-	if entry == nil {
-		return NewEmptyCoin()
-	}
-	return entry.Coin
-}
+//func (coinsViewCache *CoinsViewCache) AccessCoin(point *core.OutPoint) *Coin {
+//	entry := coinsViewCache.FetchCoin(point)
+//	if entry == nil {
+//		return nil
+//	}
+//	return entry.Coin
+//}
 
-func (coinsViewCache *CoinsViewCache) FetchCoin(point *core.OutPoint) *CoinsCacheEntry {
-	entry, ok := coinsViewCache.CacheCoins[*point]
+func (coinsViewCache *CoinsViewCache) FetchCoin(outpoint *core.OutPoint) *CoinsCacheEntry {
+	entry, ok := coinsViewCache.cacheCoins[*outpoint]
 	if ok {
 		return entry
 	}
-
-	tmp := NewEmptyCoin()
-	if !coinsViewCache.Base.GetCoin(point, tmp) {
+    base := coinsViewCache.Base
+	coin, err := base.GetCoin(outpoint)
+	if err != nil||coin == nil {
 		return nil
 	}
-
-	newEntry := NewCoinsCacheEntry(tmp)
-	coinsViewCache.CacheCoins[*point] = newEntry
+	newEntry := NewCoinsCacheEntry(coin)
+	coinsViewCache.cacheCoins[*outpoint] = newEntry
 	if newEntry.Coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
 		// our version as fresh.
-		newEntry.Flags = CoinEntryFresh
+		newEntry.fresh = true
 	}
 	coinsViewCache.cachedCoinsUsage += newEntry.Coin.DynamicMemoryUsage()
 	return newEntry
 }
 
-func (coinsViewCache *CoinsViewCache) GetCoin(point *core.OutPoint, coin *Coin) bool {
+func (coinsViewCache *CoinsViewCache) GetCoin(point *core.OutPoint) (*Coin, error) {
 	entry := coinsViewCache.FetchCoin(point)
 	if entry == nil {
-		return false
+		return nil, nil
 	}
-	tmp := DeepCopyCoin(entry.Coin)
-	coin.HeightAndIsCoinBase = tmp.HeightAndIsCoinBase
-	coin.TxOut = tmp.TxOut
-	return true
+	return entry.Coin, nil
 }
 
 func (coinsViewCache *CoinsViewCache) HaveCoin(point *core.OutPoint) bool {
@@ -79,7 +108,7 @@ func (coinsViewCache *CoinsViewCache) HaveCoin(point *core.OutPoint) bool {
 }
 
 func (coinsViewCache *CoinsViewCache) HaveCoinInCache(point *core.OutPoint) bool {
-	_, ok := coinsViewCache.CacheCoins[*point]
+	_, ok := coinsViewCache.cacheCoins[*point]
 	return ok
 }
 
@@ -98,79 +127,86 @@ func (coinsViewCache *CoinsViewCache) EstimateSize() uint64 {
 	return 0
 }
 
-func (coinsViewCache *CoinsViewCache) BatchWrite(cacheCoins CacheCoins, hash *utils.Hash) bool {
-	for point, item := range cacheCoins {
+func (coinsViewCache *CoinsViewCache) BatchWrite(cacheCoins *CacheCoins, hash *utils.Hash) error {
+	for point, item := range *cacheCoins {
 		// Ignore non-dirty entries (optimization).
-		if item.Flags&CoinEntryDirty != 0 {
-			itUs, ok := coinsViewCache.CacheCoins[point]
+		if item.dirty{
+			itUs, ok := coinsViewCache.cacheCoins[point]
 			if !ok {
-				if !(item.Flags&CoinEntryFresh != 0 && item.Coin.IsSpent()) {
-					entry := &CoinsCacheEntry{Coin: item.Coin, Flags: CoinEntryDirty}
-					coinsViewCache.CacheCoins[point] = entry
-					coinsViewCache.cachedCoinsUsage += entry.Coin.DynamicMemoryUsage()
-					if item.Flags&CoinEntryFresh != 0 {
-						entry.Flags |= CoinEntryFresh
+				if !(item.fresh && item.Coin.IsSpent()) {
+					entry := &CoinsCacheEntry{Coin: item.Coin, dirty:true}
+					coinsViewCache.cacheCoins[point] = entry
+					coinsViewCache.cachedCoinsUsage +=  entry.Coin.DynamicMemoryUsage()
+					if item.fresh {
+						entry.fresh = true
 					}
 				}
 			} else {
-				if item.Flags&CoinEntryFresh != 0 && !itUs.Coin.IsSpent() {
+				if item.fresh && !itUs.Coin.IsSpent() {
 					panic("FRESH flag misapplied to cache entry for base transaction with spendable outputs")
 				}
 
-				if itUs.Flags&CoinEntryFresh != 0 && item.Coin.IsSpent() {
+				if itUs.fresh && item.Coin.IsSpent() {
+					// The grandparent does not have an entry, and the child is
+					// modified and being pruned. This means we can just delete
+					// it from the parent.
 					coinsViewCache.cachedCoinsUsage -= itUs.Coin.DynamicMemoryUsage()
-					delete(coinsViewCache.CacheCoins, point)
+					delete(coinsViewCache.cacheCoins, point)
 				} else {
 					coinsViewCache.cachedCoinsUsage -= itUs.Coin.DynamicMemoryUsage()
-					*itUs.Coin = DeepCopyCoin(item.Coin)
+					itUs.Coin = item.Coin
 					coinsViewCache.cachedCoinsUsage += itUs.Coin.DynamicMemoryUsage()
-					itUs.Flags |= CoinEntryDirty
+					itUs.dirty =  true
 				}
 			}
 		}
+		delete(*cacheCoins, point)
 	}
-	cacheCoins = make(CacheCoins)
+	cacheCoins = new(CacheCoins)
 	coinsViewCache.hashBlock = *hash
-	return true
+	return nil
 }
 
 func (coinsViewCache *CoinsViewCache) Flush() bool {
-	ok := coinsViewCache.Base.BatchWrite(coinsViewCache.CacheCoins, &coinsViewCache.hashBlock)
+	println("flush=============")
+	fmt.Printf("flush...coinsViewCache.cacheCoins====%#v \n  hashBlock====%#v",coinsViewCache.cacheCoins,coinsViewCache.hashBlock)
+	ok := coinsViewCache.Base.BatchWrite(&coinsViewCache.cacheCoins, &coinsViewCache.hashBlock)
 	//coinsViewCache.cacheCoins = make(CacheCoins)
 	coinsViewCache.cachedCoinsUsage = 0
-	return ok
+	return ok == nil
 }
 
 func (coinsViewCache *CoinsViewCache) AddCoin(point *core.OutPoint, coin Coin, possibleOverwrite bool) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
-	if coin.TxOut.Script.IsUnspendable() {
+	if coin.GetTxOut().GetScriptPubKey().IsUnspendable() {
 		return
 	}
 	fresh := false
-	_, ok := coinsViewCache.CacheCoins[*point]
+	_, ok := coinsViewCache.cacheCoins[*point]
 	if !ok {
-		coinsViewCache.CacheCoins[*point] = &CoinsCacheEntry{Coin: &Coin{TxOut: core.NewTxOut(-1, []byte{})}}
+		coinsViewCache.cacheCoins[*point] = &CoinsCacheEntry{Coin: NewEmptyCoin()}
 	} else {
-		coinsViewCache.cachedCoinsUsage -= coinsViewCache.CacheCoins[*point].Coin.DynamicMemoryUsage()
+		coinsViewCache.cachedCoinsUsage -= coinsViewCache.cacheCoins[*point].Coin.DynamicMemoryUsage()
 	}
 
 	if !possibleOverwrite {
-		if !coinsViewCache.CacheCoins[*point].Coin.IsSpent() {
+		if !coinsViewCache.cacheCoins[*point].Coin.IsSpent() {
 			panic("Adding new coin that replaces non-pruned entry")
 		}
-		fresh = coinsViewCache.CacheCoins[*point].Flags&CoinEntryDirty == 0
+		fresh = coinsViewCache.cacheCoins[*point].dirty == false
 	}
 
-	*coinsViewCache.CacheCoins[*point].Coin = DeepCopyCoin(&coin)
+	*coinsViewCache.cacheCoins[*point].Coin = coin
 
 	if fresh {
-		coinsViewCache.CacheCoins[*point].Flags |= CoinEntryDirty | CoinEntryFresh
+		coinsViewCache.cacheCoins[*point].dirty = true
+		coinsViewCache.cacheCoins[*point].fresh = true
 	} else {
-		coinsViewCache.CacheCoins[*point].Flags |= CoinEntryDirty | 0
+		coinsViewCache.cacheCoins[*point].dirty = true
 	}
-	coinsViewCache.cachedCoinsUsage += coinsViewCache.CacheCoins[*point].Coin.DynamicMemoryUsage()
+	coinsViewCache.cachedCoinsUsage += coinsViewCache.cacheCoins[*point].Coin.DynamicMemoryUsage()
 }
 
 func (coinsViewCache *CoinsViewCache) SpendCoin(point *core.OutPoint, coin *Coin) bool {
@@ -182,30 +218,30 @@ func (coinsViewCache *CoinsViewCache) SpendCoin(point *core.OutPoint, coin *Coin
 	if coin != nil {
 		*coin = *entry.Coin
 	}
-	if entry.Flags&CoinEntryFresh != 0 {
-		delete(coinsViewCache.CacheCoins, *point)
+	if entry.fresh {
+		delete(coinsViewCache.cacheCoins, *point)
 		coinsViewCache.cachedCoinsUsage -= entry.Coin.DynamicMemoryUsage()
 	} else {
-		entry.Flags |= CoinEntryDirty
+		entry.dirty = true
 		entry.Coin.Clear()
 	}
 	return true
 }
 
 func (coinsViewCache *CoinsViewCache) UnCache(point *core.OutPoint) {
-	tmpEntry, ok := coinsViewCache.CacheCoins[*point]
-	if ok && tmpEntry.Flags == 0 {
+	tmpEntry, ok := coinsViewCache.cacheCoins[*point]
+	if ok && !tmpEntry.dirty && !tmpEntry.fresh{
 		coinsViewCache.cachedCoinsUsage -= tmpEntry.Coin.DynamicMemoryUsage()
-		delete(coinsViewCache.CacheCoins, *point)
+		delete(coinsViewCache.cacheCoins, *point)
 	}
 }
 
 func (coinsViewCache *CoinsViewCache) GetCacheSize() int {
-	return len(coinsViewCache.CacheCoins)
+	return len(coinsViewCache.cacheCoins)
 }
 
 func (coinsViewCache *CoinsViewCache) DynamicMemoryUsage() int64 {
-	return int64(unsafe.Sizeof(coinsViewCache.CacheCoins))
+	return int64(unsafe.Sizeof(coinsViewCache.cacheCoins))
 }
 
 func (coinsViewCache *CoinsViewCache) GetOutputFor(tx *core.TxIn) *core.TxOut {
@@ -213,11 +249,11 @@ func (coinsViewCache *CoinsViewCache) GetOutputFor(tx *core.TxIn) *core.TxOut {
 		Hash:  tx.PreviousOutPoint.Hash,
 		Index: tx.PreviousOutPoint.Index,
 	}
-	coin := coinsViewCache.AccessCoin(&point)
+	coin, _ := coinsViewCache.GetCoin(&point)
 	if coin.IsSpent() {
 		panic("coin should not be null")
 	}
-	return coin.TxOut
+	return coin.txOut
 }
 
 func (coinsViewCache *CoinsViewCache) GetValueIn(tx *core.Tx) utils.Amount {
@@ -227,7 +263,7 @@ func (coinsViewCache *CoinsViewCache) GetValueIn(tx *core.Tx) utils.Amount {
 
 	var result int64
 	for _, item := range tx.Ins {
-		result += coinsViewCache.GetOutputFor(item).Value
+		result += coinsViewCache.GetOutputFor(item).GetValue()
 	}
 	return utils.Amount(result)
 }
@@ -239,6 +275,7 @@ func (coinsViewCache *CoinsViewCache) HaveInputs(tx *core.Tx) bool {
 	point := core.OutPoint{}
 	for _, item := range tx.Ins {
 		point.Hash = item.PreviousOutPoint.Hash
+
 		point.Index = item.PreviousOutPoint.Index
 		if !coinsViewCache.HaveCoin(&point) {
 			return false
@@ -252,17 +289,14 @@ func (coinsViewCache *CoinsViewCache) GetPriority(tx *core.Tx, height uint32, ch
 		return 0.0
 	}
 	var result float64
-	point := core.OutPoint{}
 	for _, item := range tx.Ins {
-		point.Hash = item.PreviousOutPoint.Hash
-		point.Index = item.PreviousOutPoint.Index
-		coin := coinsViewCache.AccessCoin(&point)
+		coin,_ := coinsViewCache.GetCoin(item.PreviousOutPoint)
 		if coin.IsSpent() {
 			continue
 		}
 		if coin.GetHeight() <= height {
-			result += float64(coin.TxOut.Value * int64(height-coin.GetHeight()))
-			*chainInputValue += utils.Amount(coin.TxOut.Value)
+			result += float64(coin.GetTxOut().GetValue() * int64(height-coin.GetHeight()))
+			*chainInputValue += utils.Amount(coin.GetTxOut().GetValue())
 		}
 	}
 	return tx.ComputePriority(result, 0)
@@ -277,14 +311,15 @@ func AddCoins(cache CoinsViewCache, tx core.Tx, height int) {
 		// transactions.
 		point := core.OutPoint{Hash: txid, Index: uint32(i)}
 		coin := NewCoin(out, uint32(height), isCoinbase)
+		fmt.Printf("coin======%#v \n",coin.txOut.GetValue())
 		cache.AddCoin(&point, *coin, isCoinbase)
 	}
 }
 
 func AccessByTxid(coinsViewCache *CoinsViewCache, hash *utils.Hash) *Coin {
-	out := core.OutPoint{Hash: *hash, Index: 0}
+	out := core.OutPoint{ *hash,  0}
 	for int(out.Index) < 11000 { // todo modify to be precise
-		alternate := coinsViewCache.AccessCoin(&out)
+		alternate,_ := coinsViewCache.GetCoin(&out)
 		if !alternate.IsSpent() {
 			return alternate
 		}

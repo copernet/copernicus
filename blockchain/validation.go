@@ -29,7 +29,7 @@ import (
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/policy"
 	"github.com/btcboost/copernicus/utils"
-	"github.com/btcboost/copernicus/utxo"
+	"copernicus/utxo"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -3664,7 +3664,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 
 	// dummy backed store
 	backed := utxo.CoinsViewCache{}
-	view := utxo.CoinsViewCache{}
+	view := utxo.NewCoinViewCache()
 	view.Base = &backed
 
 	var valueIn utils.Amount
