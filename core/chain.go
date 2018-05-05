@@ -4,12 +4,10 @@ import (
 	"sort"
 
 	"github.com/btcboost/copernicus/utils"
-	"unicode"
 )
 
 // todo, should be protected by lock
-<<<<<<< HEAD:blockchain/chain.go
-=======
+
 var (
 	ActiveChain   Chain
 	BranchChain   []*BlockIndex
@@ -20,10 +18,7 @@ var (
 	ReceiveID     uint64
 )
 
-var GChainActive *Chain
-
 // Chain An in-memory blIndexed chain of blocks.
->>>>>>> origin/yyx:core/chain.go
 type Chain struct {
 	active   		[]*BlockIndex
 	branch   		[]*BlockIndex
@@ -39,7 +34,7 @@ type Chain struct {
 // or nullptr if none.
 func (c *Chain) Genesis() *BlockIndex {
 	if len(c.active) > 0 {
-		return c.Active[0]
+		return c.active[0]
 	}
 
 	return nil

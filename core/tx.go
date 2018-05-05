@@ -179,7 +179,7 @@ func (tx *Tx) RemoveTxOut(txOut *TxOut) {
 func (tx *Tx) SerializeSize() uint {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
-	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
+	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
 	//if tx == nil {
 	//	fmt.Println("tx is nil")
 	//}
@@ -192,7 +192,7 @@ func (tx *Tx) SerializeSize() uint {
 	for _, txOut := range tx.outs {
 		n += txOut.SerializeSize()
 	}
-	return n
+	return uint(n)
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
@@ -498,7 +498,7 @@ func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
 
 	var nLockTimeCutoff int64 = 0
 
-	if flags & LocktimeMedianTimePast {
+	if flags & consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = ActiveChain.Tip()->GetMedianTimePast()
 	} else {
 		nLockTimeCutoff = utils2.GetAdjustedTime()
@@ -825,27 +825,6 @@ func IsUAHFEnabled(params *msg.BitcoinParams, height int) bool {
 	return height >= params.UAHFHeight
 }
 
-func (tx *Tx)ContextualCheckTransaction(params *msg.BitcoinParams,  state *ValidationState,
-	height int, lockTimeCutoff int64) bool {
-
-	if !tx.IsFinalTx(height, lockTimeCutoff) {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-nonFinal",
-			false, "non-final transaction")
-	}
-
-	if IsUAHFEnabled(params, height) && height <= params.AntiReplayOpReturnSunsetHeight {
-		for _, txo := range tx.Outs {
-			if txo.Script.IsCommitment(params.AntiReplayOpReturnCommitment) {
-				return state.Dos(10, false, RejectInvalid, "bad-txn-replay",
-					false, "non playable transaction")
-			}
-		}
-	}
-
-	return true
-}
-
-
 // CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
 //
 // Simulates calling SequenceLocks() with data from the tip of the current
@@ -988,18 +967,6 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIn
 	return maps
 }
 
-func EvaluateSequenceLocks(block *BlockIndex, lockPair map[int]int64) bool {
-	if block.Prev == nil {
-		panic("the block's pprev is nil, Please check.")
-	}
-	nBlocktime := block.Prev.GetMedianTimePast()
-	for key, value := range lockPair {
-		if key >= block.Height || value >= nBlocktime {
-			return false
-		}
-	}
-	return true
-}
 
 func NewTx() *Tx {
 	return &Tx{LockTime: 0, Version: TxVersion}

@@ -113,7 +113,7 @@ func NewTxentry(tx *core.Tx, txFee int64, acceptTime int64, height int, lp core.
 	t := new(TxEntry)
 	t.Tx = tx
 	t.time = acceptTime
-	t.TxSize = tx.SerializeSize()
+	t.TxSize = int(tx.SerializeSize())
 	t.TxFee = txFee
 	t.usageSize = t.TxSize + int(unsafe.Sizeof(t.lp))
 	t.spendsCoinbase = spendCoinbase
@@ -150,6 +150,19 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 func (t *TxEntry) CheckLockPointValidity(chain *core.Chain) bool {
 	if t.lp.MaxInputBlock != nil{
 		if !chain.Contains(t.lp.MaxInputBlock){
+			return false
+		}
+	}
+	return true
+}
+
+func EvaluateSequenceLocks(block *core.BlockIndex, lockPair map[int]int64) bool {
+	if block.Prev == nil {
+		panic("the block's pprev is nil, Please check.")
+	}
+	nBlocktime := block.Prev.GetMedianTimePast()
+	for key, value := range lockPair {
+		if key >= block.Height || value >= nBlocktime {
 			return false
 		}
 	}

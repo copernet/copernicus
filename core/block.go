@@ -28,7 +28,7 @@ func (bl *Block) SetNull() {
 }
 
 func (bl *Block) UpdateTime(indexPrev *BlockIndex) int64 {
-	oldTime := int64(bl.BlockHeader.Time)
+	oldTime := int64(bl.Header.Time)
 	var newTime int64
 	mt := indexPrev.GetMedianTimePast() + 1
 	at := utils.GetAdjustedTime()
@@ -38,7 +38,7 @@ func (bl *Block) UpdateTime(indexPrev *BlockIndex) int64 {
 		newTime = at
 	}
 	if oldTime < newTime {
-		bl.BlockHeader.Time = uint32(newTime)
+		bl.Header.Time = uint32(newTime)
 	}
 
 	// Updating time can change work required on testnet:

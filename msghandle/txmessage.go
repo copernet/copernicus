@@ -34,13 +34,13 @@ func ProcessTxMessage(tx *core.Tx) {
 			}
 		}
 		if !fRejectedParents{
-			msgInv := NewInv()
+			//msgInv := NewInv()
 		}
 
 	}
 
 
-	AccpetTxToMemPool(...)
+	//AccpetTxToMemPool(...)
 
 }
 
