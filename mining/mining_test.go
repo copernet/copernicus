@@ -140,40 +140,41 @@ func TestCreateNewBlockByFee(t *testing.T) {
 	}
 }
 
-func TestCreateNewBlockByFeeRate(t *testing.T) {
-	// clear mempool data
-	blockchain.GMemPool = mempool.NewTxMempool()
-	pool := blockchain.GMemPool
+//func TestCreateNewBlockByFeeRate(t *testing.T) {
+//	// clear mempool data
+//	pool := blockchain.GMemPool
+//	pool.PoolData = make(map[utils.Hash]*mempool.TxEntry)
+//
+//	txSet := createTx()
+//	noLimit := uint64(math.MaxUint64)
+//	for _, entry := range txSet {
+//		pool.AddTx(entry, noLimit, noLimit, noLimit, noLimit, true)
+//	}
+//	if len(pool.PoolData) != 4 {
+//		t.Error("add txEntry to mempool error")
+//	}
+//
+//	ba := NewBlockAssembler(msg.ActiveNetParams)
+//	strategy = sortByFeeRate
+//	ba.CreateNewBlock()
+//	if len(ba.bt.Block.Txs) != 5 {
+//		t.Error("some transactions are inserted to block error")
+//	}
+//
+//	if ba.bt.Block.Txs[1].Hash != txSet[0].Tx.Hash {
+//		t.Error("error sort by tx feerate")
+//	}
+//
+//	if ba.bt.Block.Txs[2].Hash != txSet[1].Tx.Hash {
+//		t.Error("error sort by tx feerate")
+//	}
+//
+//	if ba.bt.Block.Txs[3].Hash != txSet[2].Tx.Hash {
+//		t.Error("error sort by tx feerate")
+//	}
+//
+//	if ba.bt.Block.Txs[4].Hash != txSet[3].Tx.Hash {
+//		t.Error("error sort by tx feerate")
+//	}
+//}
 
-	txSet := createTx()
-	noLimit := uint64(math.MaxUint64)
-	for _, entry := range txSet {
-		pool.AddTx(entry, noLimit, noLimit, noLimit, noLimit, true)
-	}
-	if pool.Size() != 4 {
-		t.Error("add txEntry to mempool error")
-	}
-
-	ba := NewBlockAssembler(msg.ActiveNetParams)
-	strategy = sortByFeeRate
-	ba.CreateNewBlock()
-	if len(ba.bt.Block.Txs) != 5 {
-		t.Error("some transactions are inserted to block error")
-	}
-
-	if ba.bt.Block.Txs[1].Hash != txSet[0].Tx.Hash {
-		t.Error("error sort by tx feerate")
-	}
-
-	if ba.bt.Block.Txs[2].Hash != txSet[1].Tx.Hash {
-		t.Error("error sort by tx feerate")
-	}
-
-	if ba.bt.Block.Txs[3].Hash != txSet[2].Tx.Hash {
-		t.Error("error sort by tx feerate")
-	}
-
-	if ba.bt.Block.Txs[4].Hash != txSet[3].Tx.Hash {
-		t.Error("error sort by tx feerate")
-	}
-}
