@@ -1,20 +1,6 @@
 package consensus
 
 const (
-<<<<<<< HEAD
-	// OneMegabyte  1MB
-	OneMegabyte = 1000000
-	// MaxTxSize  The maximum allowed size for a transaction, in bytes
-	MaxTxSize = OneMegabyte
-	// LegacyMaxBlockSize  The maximum allowed size for a block, before the UAHF
-	LegacyMaxBlockSize = OneMegabyte
-	// DefaultMaxBlockSize  Default setting for maximum allowed size for a block, in bytes
-	DefaultMaxBlockSize = 8 * OneMegabyte
-	MinTxSize           = 62
-	MaxTxCount          = DefaultMaxBlockSize / MinTxSize
-	// MaxBlockSigopsPerMb  The maximum allowed number of signature check operations per MB
-	// in a block (network rule)
-=======
 	//OneMegabyte  1MB
 	OneMegaByte = 1000000
 
@@ -29,7 +15,6 @@ const (
 
 	/*MaxBlockSigopsPerMb  The maximum allowed number of signature check operations per MB in a block
 	* (network rule) */
->>>>>>> origin/yyx
 	MaxBlockSigopsPerMb = 20000
 
 	/*MaxTxSigOpsCount allowed number of signature check operations per transaction. */
