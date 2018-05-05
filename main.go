@@ -76,7 +76,7 @@ func startBitcoin() error {
 	return nil
 }
 
-func setupRPCServer() (*rpc.RPCServer, error) {
+func setupRPCServer() (*rpc.Server, error) {
 	if !conf.CFG.DisableRPC {
 		// Setup listeners for the configured RPC listen addresses and
 		// TLS settings.
@@ -88,7 +88,7 @@ func setupRPCServer() (*rpc.RPCServer, error) {
 			return nil, errors.New("RPCS: No valid listen address")
 		}
 
-		rpcServer, err := rpc.NewRPCServer(&rpc.RPCServerConfig{
+		rpcServer, err := rpc.NewServer(&rpc.ServerConfig{
 			Listeners: rpcListeners,
 			// todo open
 			//StartupTime: s.startupTime,

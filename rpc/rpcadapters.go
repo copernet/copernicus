@@ -12,7 +12,7 @@ type rpcConnManager struct {
 }
 
 // Ensure rpcConnManager implements the rpcserverConnManager interface.
-var _ RPCServerConnManager = &rpcConnManager{}
+var _ ServerConnManager = &rpcConnManager{}
 
 // Connect adds the provided address as a new outbound peer.  The permanent flag
 // indicates whether or not to make the peer persistent and reconnect if the
