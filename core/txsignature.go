@@ -99,8 +99,8 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 	case crypto.SigHashSingle:
 		txCopy.Outs = txCopy.Outs[:nIn+1]
 		for i := 0; i < nIn; i++ {
-			txCopy.Outs[i].Value = -1
-			txCopy.Outs[i].Script = NilScript
+			txCopy.Outs[i].value = -1
+			txCopy.Outs[i].scriptPubKey = NilScript
 		}
 		for i := range txCopy.Ins {
 			if i != nIn {

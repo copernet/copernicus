@@ -8,6 +8,7 @@ import (
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcboost/copernicus/database"
+	"fmt"
 )
 
 type Coin struct {
@@ -25,6 +26,7 @@ func (coin *Coin) IsCoinBase() bool {
 }
 
 func (coin *Coin) IsSpent() bool {
+	fmt.Printf("isspend=======%#v",coin)
 	return coin.txOut.IsNull()
 }
 
@@ -91,7 +93,7 @@ func NewCoin(out *core.TxOut, height uint32, isCoinBase bool) *Coin {
 func NewEmptyCoin() *Coin {
 
 	return &Coin{
-		txOut:               nil,
+		txOut:               core.NewTxOut(),
 		height: 0,
 		isCoinBase:false,
 	}

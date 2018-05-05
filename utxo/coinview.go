@@ -7,7 +7,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"fmt"
 )
-var UtxoCache *CoinsViewCache
+var UtxoTip *CoinsViewCache
 
 type coinsView interface {
 	GetCoin(*core.OutPoint) (*Coin, error)
@@ -40,11 +40,11 @@ func NewCoinsCacheEntry(coin *Coin) *CoinsCacheEntry{
 
 
 func GetUtxoCacheInstance() *CoinsViewCache{
-	if UtxoCache == nil{
+	if UtxoTip == nil{
 		db := new(CoinsViewDB)
-		UtxoCache = NewCoinViewCache(db)
+		UtxoTip = NewCoinViewCache(db)
 	}
-	return UtxoCache
+	return UtxoTip
 }
 type CacheCoins map[core.OutPoint]*CoinsCacheEntry
 
@@ -64,13 +64,13 @@ func NewCoinViewCache(view coinsView) *CoinsViewCache {
 	return c
 }
 
-func (coinsViewCache *CoinsViewCache) AccessCoin(point *core.OutPoint) *Coin {
-	entry := coinsViewCache.FetchCoin(point)
-	if entry == nil {
-		return NewEmptyCoin()
-	}
-	return entry.Coin
-}
+//func (coinsViewCache *CoinsViewCache) AccessCoin(point *core.OutPoint) *Coin {
+//	entry := coinsViewCache.FetchCoin(point)
+//	if entry == nil {
+//		return nil
+//	}
+//	return entry.Coin
+//}
 
 func (coinsViewCache *CoinsViewCache) FetchCoin(outpoint *core.OutPoint) *CoinsCacheEntry {
 	entry, ok := coinsViewCache.cacheCoins[*outpoint]
@@ -79,7 +79,7 @@ func (coinsViewCache *CoinsViewCache) FetchCoin(outpoint *core.OutPoint) *CoinsC
 	}
     base := coinsViewCache.Base
 	coin, err := base.GetCoin(outpoint)
-	if err != nil {
+	if err != nil||coin == nil {
 		return nil
 	}
 	newEntry := NewCoinsCacheEntry(coin)
@@ -167,6 +167,8 @@ func (coinsViewCache *CoinsViewCache) BatchWrite(cacheCoins *CacheCoins, hash *u
 }
 
 func (coinsViewCache *CoinsViewCache) Flush() bool {
+	println("flush=============")
+	fmt.Printf("flush...coinsViewCache.cacheCoins====%#v \n  hashBlock====%#v",coinsViewCache.cacheCoins,coinsViewCache.hashBlock)
 	ok := coinsViewCache.Base.BatchWrite(&coinsViewCache.cacheCoins, &coinsViewCache.hashBlock)
 	//coinsViewCache.cacheCoins = make(CacheCoins)
 	coinsViewCache.cachedCoinsUsage = 0
@@ -246,11 +248,11 @@ func (coinsViewCache *CoinsViewCache) GetOutputFor(tx *core.TxIn) *core.TxOut {
 		Hash:  tx.PreviousOutPoint.Hash,
 		Index: tx.PreviousOutPoint.Index,
 	}
-	coin := coinsViewCache.AccessCoin(&point)
+	coin, _ := coinsViewCache.GetCoin(&point)
 	if coin.IsSpent() {
 		panic("coin should not be null")
 	}
-	return &coin.txOut
+	return coin.txOut
 }
 
 func (coinsViewCache *CoinsViewCache) GetValueIn(tx *core.Tx) utils.Amount {
@@ -287,7 +289,7 @@ func (coinsViewCache *CoinsViewCache) GetPriority(tx *core.Tx, height uint32, ch
 	}
 	var result float64
 	for _, item := range tx.Ins {
-		coin := coinsViewCache.AccessCoin(item.PreviousOutPoint)
+		coin,_ := coinsViewCache.GetCoin(item.PreviousOutPoint)
 		if coin.IsSpent() {
 			continue
 		}
@@ -308,6 +310,7 @@ func AddCoins(cache CoinsViewCache, tx core.Tx, height int) {
 		// transactions.
 		point := core.OutPoint{Hash: txid, Index: uint32(i)}
 		coin := NewCoin(out, uint32(height), isCoinbase)
+		fmt.Printf("coin======%#v \n",coin.txOut.GetValue())
 		cache.AddCoin(&point, *coin, isCoinbase)
 	}
 }
@@ -315,7 +318,7 @@ func AddCoins(cache CoinsViewCache, tx core.Tx, height int) {
 func AccessByTxid(coinsViewCache *CoinsViewCache, hash *utils.Hash) *Coin {
 	out := core.OutPoint{ *hash,  0}
 	for int(out.Index) < 11000 { // todo modify to be precise
-		alternate := coinsViewCache.AccessCoin(&out)
+		alternate,_ := coinsViewCache.GetCoin(&out)
 		if !alternate.IsSpent() {
 			return alternate
 		}

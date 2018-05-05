@@ -47,7 +47,7 @@ func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 			return err
 		}
 	}
-	err = utils.WriteVarBytes(writer, txIn.Script.bytes)
+	err = utils.WriteVarBytes(writer, txIn.Script.GetByteCodes())
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (txIn *TxIn) String() string {
 	if txIn.Script == nil {
 		return fmt.Sprintf("%s , script:  , Sequence:%d ", str, txIn.Sequence)
 	}
-	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.Script.bytes), txIn.Sequence)
+	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.Script.GetByteCodes()), txIn.Sequence)
 
 }
 func (txIn *TxIn) Check() bool {

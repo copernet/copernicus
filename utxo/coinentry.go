@@ -6,6 +6,7 @@ import (
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/database"
 )
 
 type CoinEntry struct {
@@ -59,6 +60,6 @@ func (coinEntry *CoinEntry) GetSerKey() []byte {
 func NewCoinEntry(outPoint *core.OutPoint) *CoinEntry {
 	coinEntry := new(CoinEntry)
 	coinEntry.outpoint = outPoint
-	coinEntry.key = DB_COIN
+	coinEntry.key = database.DbCoin
 	return coinEntry
 }

@@ -228,7 +228,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			if randNum == 0 {
 				entry = AccessByTxid(&stack[len(stack)-1].CoinsViewCache, &txid)
 			} else {
-				entry = stack[len(stack)-1].AccessCoin(&core.OutPoint{Hash: txid, Index: 0})
+				entry,_ = stack[len(stack)-1].GetCoin(&core.OutPoint{Hash: txid, Index: 0})
 			}
 
 			if !IsEqualCoin(entry, coin) {
@@ -237,9 +237,9 @@ func TestCoinsCacheSimulation(t *testing.T) {
 
 			if InsecureRandRange(5) == 0 || coin.IsSpent() {
 				var newTxOut core.TxOut
-				newTxOut.GetValue() = int64(InsecureRand32())
+				newTxOut.SetValue(int64(InsecureRand32()))
 				if InsecureRandRange(16) == 0 && coin.IsSpent() {
-					newTxOut.GetScriptPubKey() = core.NewScriptRaw(bytes.Repeat([]byte{byte(core.OP_RETURN)}, int(InsecureRandBits(6)+1)))
+					newTxOut.SetScriptPubKey(core.NewScriptRaw(bytes.Repeat([]byte{byte(core.OP_RETURN)}, int(InsecureRandBits(6)+1))))
 					if !newTxOut.GetScriptPubKey().IsUnspendable() {
 						t.Error("error IsUnspendable")
 					}
@@ -247,7 +247,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 				} else {
 					// Random sizes so we can test memory usage accounting
 					randomBytes := bytes.Repeat([]byte{0}, int(InsecureRandBits(6)+1))
-					newTxOut.GetScriptPubKey() = core.NewScriptRaw(randomBytes)
+					newTxOut.SetScriptPubKey(core.NewScriptRaw(randomBytes))
 					if coin.IsSpent() {
 						addedAnEntry = true
 					} else {
@@ -280,7 +280,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 		if i == 200 || i == NumSimulationIterations-1 {
 			for out, entry := range result {
 				have := stack[len(stack)-1].HaveCoin(&out)
-				coin := stack[len(stack)-1].AccessCoin(&out)
+				coin,_ := stack[len(stack)-1].GetCoin(&out)
 				if have == coin.IsSpent() {
 					t.Error("the coin should be different from have in IsSpent")
 				}
@@ -458,12 +458,16 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		//19/20 txs add a new transaction
 		if (randiter % 20) < 19 {
 			tx1 := core.NewTx()
-			tx1.Ins = make([]*core.TxIn, 0)
-
-			tx1.Ins = append(tx1.Ins, core.NewTxIn(nil, []byte{}))
+			tx1.Ins = make([]*core.TxIn, 1)
+			tx1.Ins[0] = core.NewTxIn(nil, []byte{})
 			tx1.Outs = make([]*core.TxOut, 1)
-			//tx1.Outs[0] = core.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
-
+			out := core.NewTxOut()
+			out.SetValue(int64(i))
+			s:=core.Script{}
+			s.SetByteCodes(bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
+			s.GetSigOpCount()
+			out.SetScriptPubKey(&core.Script{})
+			tx1.Outs[0] = out
 			height := InsecureRand32()
 			var oldCoin = NewEmptyCoin()
 
@@ -601,7 +605,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 		if (InsecureRandRange(1000) == 1) || (i == NumSimulationIterations-1) {
 			for itKey, itValue := range result {
 				have := stack[len(stack)-1].HaveCoin(&itKey)
-				coin := stack[len(stack)-1].AccessCoin(&itKey)
+				coin,_ := stack[len(stack)-1].GetCoin(&itKey)
 				if have == coin.IsSpent() {
 					t.Error("this should have been spent")
 				}
@@ -832,7 +836,7 @@ func CheckAccessCoin(baseValue utils.Amount, cacheValue utils.Amount, expectedVa
 		resultValue utils.Amount
 		resultFlags int
 	)
-	singleEntryCacheTest.cache.AccessCoin(&OUTPOINT)
+	singleEntryCacheTest.cache.GetCoin(&OUTPOINT)
 	singleEntryCacheTest.cache.SelfTest()
 	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
 

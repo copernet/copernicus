@@ -21,7 +21,7 @@ func (coinsViewCache *CoinsViewCache) CheckTxInputs(tx *core.Tx, state *core.Val
 	length := len(tx.Ins)
 	for i := 0; i < length; i++ {
 		prevout := tx.Ins[i].PreviousOutPoint
-		coin := view.AccessCoin(prevout)
+		coin, _ := view.GetCoin(prevout)
 		if coin.IsSpent() {
 			panic("critical error")
 		}
@@ -36,8 +36,8 @@ func (coinsViewCache *CoinsViewCache) CheckTxInputs(tx *core.Tx, state *core.Val
 		}
 
 		// Check for negative or overflow input values
-		valueIn += utils.Amount(coin.TxOut.Value)
-		if !utils.MoneyRange(coin.TxOut.Value) || !utils.MoneyRange(int64(valueIn)) {
+		valueIn += utils.Amount(coin.txOut.GetValue())
+		if !utils.MoneyRange(coin.txOut.GetValue()) || !utils.MoneyRange(int64(valueIn)) {
 			return state.Dos(100, false, core.RejectInvalid,
 				"bad-txns-inputvalues-outofrange", false, "")
 		}

@@ -220,7 +220,7 @@ func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 		}
 	}
 	for _, out := range tx.Outs {
-		if c, err := out.Script.GetSigOpCountWithAccurate(false); err == nil {
+		if c, err := out.GetScriptPubKey().GetSigOpCountWithAccurate(false); err == nil {
 			n += c
 		}
 	}
@@ -268,13 +268,13 @@ func (tx *Tx) CheckTransactionCommon(state *ValidationState, checkDupInput bool)
 	}
 	totalOut := int64(0)
 	for _, out := range tx.Outs {
-		if out.Value < 0 {
+		if out.value < 0 {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
 		}
-		if out.Value > MaxMoney {
+		if out.value > MaxMoney {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
 		}
-		totalOut += out.Value
+		totalOut += out.value
 		if totalOut < 0 || totalOut > MaxMoney {
 			return state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
 		}
@@ -313,14 +313,14 @@ func (tx *Tx) CheckSelf() (bool, error) {
 	// todo: check txOut's script is
 	for i := 0; i < TxOutsLen; i++ {
 		txOut := tx.Outs[i]
-		if txOut.Value < 0 {
-			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
+		if txOut.value < 0 {
+			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.value)
 		}
-		if txOut.Value > MaxMoney {
-			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.Value)
+		if txOut.value > MaxMoney {
+			return false, errors.Errorf("tx out %d's value:%d invalid", i, txOut.value)
 		}
 
-		TotalOutValue += txOut.Value
+		TotalOutValue += txOut.value
 		if TotalOutValue > MaxMoney {
 			return false, errors.Errorf("tx outs' total value:%d from 0 to %d is too large", TotalOutValue, i)
 		}
@@ -354,20 +354,20 @@ func (tx *Tx) returnScriptBuffers() {
 		if txIn == nil || txIn.Script == nil {
 			continue
 		}
-		scriptPool.Return(txIn.Script.bytes)
+		scriptPool.Return(txIn.Script.GetByteCodes())
 	}
 	for _, txOut := range tx.Outs {
-		if txOut == nil || txOut.Script == nil {
+		if txOut == nil || txOut.GetScriptPubKey() == nil {
 			continue
 		}
-		scriptPool.Return(txOut.Script.bytes)
+		scriptPool.Return(txOut.GetScriptPubKey().GetByteCodes())
 	}
 }
 func (tx *Tx) GetValueOut() int64 {
 	var valueOut int64
 	for _, out := range tx.Outs {
-		valueOut += out.Value
-		if !utils.MoneyRange(out.Value) || !utils.MoneyRange(valueOut) {
+		valueOut += out.value
+		if !utils.MoneyRange(out.value) || !utils.MoneyRange(valueOut) {
 			panic("value out of range")
 		}
 	}
@@ -384,13 +384,13 @@ func (tx *Tx) Copy() *Tx {
 	newTx.Hash = tx.Hash
 
 	for _, txOut := range tx.Outs {
-		scriptLen := len(txOut.Script.bytes)
+		scriptLen := len(txOut.GetScriptPubKey().GetByteCodes())
 		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.Script.bytes[:scriptLen])
+		copy(newOutScript, txOut.GetScriptPubKey().GetByteCodes()[:scriptLen])
 
 		newTxOut := TxOut{
-			Value:  txOut.Value,
-			Script: NewScriptRaw(newOutScript),
+			value:  txOut.value,
+			scriptPubKey: NewScriptRaw(newOutScript),
 		}
 		newTx.Outs = append(newTx.Outs, &newTxOut)
 	}
@@ -403,7 +403,7 @@ func (tx *Tx) Copy() *Tx {
 		}
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
-		copy(newScript[:], txIn.Script.bytes[:scriptLen])
+		copy(newScript[:], txIn.Script.GetByteCodes()[:scriptLen])
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
 			PreviousOutPoint: newOutPoint,
@@ -442,7 +442,7 @@ func (tx *Tx) CalculateModifiedSize() int {
 	// redeem later.
 	txSize := tx.SerializeSize()
 	for _, in := range tx.Ins {
-		inScriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
+		inScriptModifiedSize := math.Min(110, float64(len(in.Script.GetByteCodes())))
 		offset := 41 + int(inScriptModifiedSize)
 		if txSize > offset {
 			txSize -= offset

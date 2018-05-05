@@ -86,7 +86,7 @@ func UndoCoinSpend(coin *utxo.Coin, cache *utxo.CoinsViewCache, out *core.OutPoi
 		// This is somewhat ugly, but hopefully utility is limited. This is only
 		// useful when working from legacy on disck data. In any case, putting
 		// the correct information in there doesn't hurt.
-		coin = utxo.NewCoin(coin.TxOut, alternate.GetHeight(), alternate.IsCoinBase())
+		coin = utxo.NewCoin(coin.GetTxOut(), alternate.GetHeight(), alternate.IsCoinBase())
 	}
 	cache.AddCoin(out, *coin, coin.IsCoinBase())
 	if clean {

@@ -961,7 +961,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					vchByte = vchByte[:vchByte[1]+2]
 					// Subset of script starting at the most recent
 					// codeSeparator
-					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
+					scriptCode := NewScriptRaw(script.GetByteCodes()[pbegincodehash:])
 					txHash, err := SignatureHash(tx, scriptCode, uint32(hashType), nIn)
 					if err != nil {
 						return false, err
@@ -1044,7 +1044,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 
 					// Subset of script starting at the most recent
 					// codeseparator
-					scriptCode := NewScriptRaw(script.bytes[pbegincodehash:])
+					scriptCode := NewScriptRaw(script.GetByteCodes()[pbegincodehash:])
 
 					// Drop the signature in pre-segwit scripts but not
 					// segwit scripts
