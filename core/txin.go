@@ -24,8 +24,8 @@ func (txIn *TxIn) SerializeSize() int {
 	if txIn.scriptSig == nil {
 		return 40
 	}
-	return 40 + utils.VarIntSerializeSize(uint64(txIn.scriptSig.Size())) + txIn.scriptSig.Size()
 
+	return 40 + utils.VarIntSerializeSize(uint64(txIn.scriptSig.Size())) + txIn.scriptSig.Size()
 }
 
 func (txIn *TxIn) Deserialize(reader io.Reader) error {

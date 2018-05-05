@@ -156,34 +156,12 @@ func FormatStateMessage(state *core.ValidationState) string {
 	return fmt.Sprintf("%s%s (code %c)", state.GetRejectReason(), state.GetDebugMessage(), state.GetRejectCode())
 }
 
-// IsUAHFEnabled Check is UAHF has activated.
-func IsUAHFEnabled(params *msg.BitcoinParams, height int) bool {
-	return height >= params.UAHFHeight
-}
+
 
 func IsCashHFEnabled(params *msg.BitcoinParams, medianTimePast int64) bool {
 	return params.CashHardForkActivationTime <= medianTimePast
 }
 
-func ContextualCheckTransaction(params *msg.BitcoinParams, tx *core.Tx, state *core.ValidationState,
-	height int, lockTimeCutoff int64) bool {
-
-	if !tx.IsFinalTx(height, lockTimeCutoff) {
-		return state.Dos(10, false, core.RejectInvalid, "bad-txns-nonFinal",
-			false, "non-final transaction")
-	}
-
-	if IsUAHFEnabled(params, height) && height <= params.AntiReplayOpReturnSunsetHeight {
-		for _, txo := range tx.Outs {
-			if txo.Script.IsCommitment(params.AntiReplayOpReturnCommitment) {
-				return state.Dos(10, false, core.RejectInvalid, "bad-txn-replay",
-					false, "non playable transaction")
-			}
-		}
-	}
-
-	return true
-}
 
 func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *core.ValidationState,
 	indexPrev *core.BlockIndex) bool {
@@ -210,7 +188,7 @@ func ContextualCheckBlock(params *msg.BitcoinParams, block *core.Block, state *c
 
 	// Check that all transactions are finalized
 	for _, tx := range block.Txs {
-		if !ContextualCheckTransaction(params, tx, state, height, lockTimeCutoff) {
+		if !tx.ContextualCheckTransaction(params, state, height, lockTimeCutoff) {
 			return false
 		}
 	}
@@ -1521,10 +1499,10 @@ func ActivateBestChainStep(param *msg.BitcoinParams, state *core.ValidationState
 	}
 
 	if fBlocksDisconnected {
-		RemoveUnFinalTx(GMemPool, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
-		LimitMempoolSize(GMemPool)
+		mempool.RemoveUnFinalTx(core.GChainActive, GCoinsTip, GChainState.ChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+		LimitMempoolSize()
 	}
-	GMemPool.Check(GCoinsTip, nHeight)
+	mempool.Check(GCoinsTip, nHeight)
 
 	// Callbacks/notifications for a new best chain.
 	if *fInvalidFound {
@@ -1711,7 +1689,7 @@ func ConnectTip(param *msg.BitcoinParams, state *core.ValidationState, indexNew 
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
 		float64(nTime5-nTime4)*0.001, float64(gTimeChainState)*0.000001)
 	// Remove conflicting transactions from the mempool.;
-	GMemPool.RemoveTxSelf(blockConnecting.Txs)
+	mempool.RemoveTxSelf(blockConnecting.Txs)
 	// Update chainActive & related variables.
 	UpdateTip(param, indexNew)
 	nTime6 := utils.GetMicrosTime()
@@ -2122,8 +2100,8 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 			var stateDummy core.ValidationState
 			if tx.IsCoinBase() || !AcceptToMemoryPool(param, GMemPool, &stateDummy, tx,
 				false, nil, nil, true, 0) {
-				GMemPool.RemoveTxRecursive(tx, mempool.REORG)
-			} else if GMemPool.FindTx(tx.Hash) != nil {
+				mempool.RemoveTxRecursive(tx, mempool.REORG)
+			} else if mempool.FindTx(tx.Hash) != nil {
 				vHashUpdate.PushBack(tx.Hash)
 			}
 		}
@@ -2132,7 +2110,6 @@ func DisconnectTip(param *msg.BitcoinParams, state *core.ValidationState, fBare 
 		// previously-confirmed transactions back to the memPool.
 		// UpdateTransactionsFromBlock finds descendants of any transactions in
 		// this block that were added back and cleans up the memPool state.
-		GMemPool.UpdateTransactionsFromBlock(vHashUpdate)
 	}
 
 	// Update chainActive and related variables.
@@ -2240,7 +2217,7 @@ func GetTransaction(param *msg.BitcoinParams, txid *utils.Hash, txOut *core.Tx,
 	var pindexSlow *core.BlockIndex
 	// todo:LOCK(cs_main)
 
-	ptx := GMemPool.FindTx(*txid)
+	ptx := mempool.FindTx(*txid)
 	if ptx != nil {
 		txOut = ptx
 		ret = true
@@ -2995,7 +2972,7 @@ func GetBlockScriptFlags(pindex *core.BlockIndex, param *msg.BitcoinParams) uint
 	}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
-	if IsUAHFEnabled(param, pindex.Height) {
+	if core.IsUAHFEnabled(param, pindex.Height) {
 		flags |= crypto.ScriptVerifyStrictenc
 		flags |= crypto.ScriptEnableSigHashForkID
 	}
@@ -3218,7 +3195,7 @@ func FlushStateToDisk(state *core.ValidationState, mode FlushStateMode, nManualP
 	ret = true
 	var params *msg.BitcoinParams
 
-	mempoolUsage := GMemPool.GetCacheUsage()
+	mempoolUsage := mempool.GetCacheUsage()
 
 	// TODO: LOCK2(cs_main, cs_LastBlockFile);
 	// var sc sync.RWMutex
@@ -3351,93 +3328,6 @@ func FlushStateToDisk(state *core.ValidationState, mode FlushStateMode, nManualP
 
 	return
 }
-
-// ContextualCheckTransactionForCurrentBlock This is a variant of ContextualCheckTransaction which computes the contextual
-// check for a transaction based on the chain tip.
-func ContextualCheckTransactionForCurrentBlock(tx *core.Tx, state *core.ValidationState,
-	params *msg.BitcoinParams, flags uint) bool {
-
-	// todo AssertLockHeld(cs_main);
-
-	// By convention a negative value for flags indicates that the current
-	// network-enforced core rules should be used. In a future soft-fork
-	// scenario that would mean checking which rules would be enforced for the
-	// next block and setting the appropriate flags. At the present time no
-	// soft-forks are scheduled, so no flags are set.
-	if flags < 0 {
-		flags = 0
-	}
-	// ContextualCheckTransactionForCurrentBlock() uses chainActive.Height()+1
-	// to evaluate nLockTime because when IsFinalTx() is called within
-	// CBlock::AcceptBlock(), the height of the block *being* evaluated is what
-	// is used. Thus if we want to know if a transaction can be part of the
-	// *next* block, we need to call ContextualCheckTransaction() with one more
-	// than chainActive.Height().
-	blockHeight := GChainActive.Height() + 1
-
-	// BIP113 will require that time-locked transactions have nLockTime set to
-	// less than the median time of the previous block they're contained in.
-	// When the next block is created its previous block will be the current
-	// chain tip, so we use that to calculate the median time passed to
-	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
-	var lockTimeCutoff int64
-	if flags&consensus.LocktimeMedianTimePast != 0 {
-		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
-	} else {
-		lockTimeCutoff = utils.GetAdjustedTime()
-	}
-
-	return ContextualCheckTransaction(params, tx, state, blockHeight, lockTimeCutoff)
-}
-
-/*
-func RemoveForReorg(pcoins *utxo.CoinsViewCache, pool *mempool.Mempool, nMemPoolHeight uint, flags int) {
-	// Remove transactions spending a coinbase which are now immature and
-	// no-longer-final transactions
-	pool.Mtx.Lock()
-	defer pool.Mtx.Unlock()
-	txToRemove := set.New()
-	for _, entry := range pool.MapTx.PoolNode {
-		lp := entry.LockPoints
-		validLP := TestLockPointValidity(lp)
-		param := consensus.ActiveNetParams
-		var state core.ValidationState
-		if !ContextualCheckTransactionForCurrentBlock(entry.TxRef, &state, param, uint(flags)) ||
-			!CheckSequenceLocks(entry.TxRef, flags, lp, validLP) {
-			// Note if CheckSequenceLocks fails the LockPoints may still be
-			// invalid. So it's critical that we remove the tx and not depend on
-			// the LockPoints.
-			txToRemove.Add(entry)
-		} else if entry.SpendsCoinbase {
-			for _, txin := range entry.TxRef.Ins {
-				it2 := pool.MapTx.GetEntryByHash(txin.PreviousOutPoint.Hash)
-				if it2 != nil {
-					continue
-				}
-				coin := GCoinsTip.AccessCoin(txin.PreviousOutPoint)
-				if pool.CheckFrequency != 0 {
-					if coin.IsSpent() {
-						panic("the coin should not be spent ")
-					}
-				}
-				if coin.IsSpent() || (coin.IsCoinBase() && nMemPoolHeight-uint(coin.GetHeight()) < core.CoinbaseMaturity) {
-					txToRemove.Add(entry)
-					break
-				}
-			}
-		}
-		if !validLP {
-			entry.LockPoints = lp
-		}
-	}
-	setAllRemoves := set.New()
-	for _, it := range txToRemove.List() {
-		entry := it.(*mempool.TxMempoolEntry)
-		pool.CalculateDescendants(entry, setAllRemoves)
-	}
-	pool.RemoveStaged(setAllRemoves, false, mempool.REORG)
-}
-*/
 
 func LoadBlockIndexDB(params *msg.BitcoinParams) bool {
 	if !GBlockTree.LoadBlockIndexGuts(InsertBlockIndex) {
@@ -3744,7 +3634,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 	// block; we don't want our mempool filled up with transactions that can't
 	// be mined yet.
 	vs := core.ValidationState{}
-	if !ContextualCheckTransactionForCurrentBlock(ptx, &vs, params, policy.StandardLockTimeVerifyFlags) {
+	if !ptx.ContextualCheckTransactionForCurrentBlock( &vs, params, policy.StandardLockTimeVerifyFlags) {
 		// We copy the state from a dummy to ensure we don't increase the
 		// ban scrypto of peer for transaction that could be valid in the future.
 		ret = state.Dos(0, false, core.RejectNonStandard, vs.GetRejectReason(),
@@ -3753,7 +3643,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 	}
 
 	// Is it already in the memory pool?
-	if pool.FindTx(txid) != nil {
+	if mempool.FindTx(txid) != nil {
 		ret = state.Invalid(false, consensus.RejectAlreadyKnown, "txn-already-in-mempool", "")
 		return
 	}
@@ -3765,7 +3655,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 		defer pool.RUnlock()
 
 		for _, txin := range ptx.Ins {
-			itConflicting := pool.HasSpentOut(txin.PreviousOutPoint)
+			itConflicting := mempool.HasSpentOut(txin.PreviousOutPoint)
 			if !itConflicting { // todo confirm this condition judgement
 				ret = state.Invalid(false, consensus.RejectConflict, "txn-mempool-conflict", "")
 			}
@@ -3837,7 +3727,7 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 		// transactions that can't be mined yet. Must keep pool.cs for this
 		// unless we change CheckSequenceLocks to take a CoinsViewCache
 		// instead of create its own.
-		if !CheckSequenceLocks(ptx, consensus.StandardLocktimeVerifyFlags, &lp, false) {
+		if !ptx.CheckSequenceLocks(consensus.StandardLocktimeVerifyFlags, &lp, false) {
 			ret = state.Dos(0, false, core.RejectNonStandard, "non-BIP68-final", false, "")
 			return
 		}
@@ -4006,9 +3896,9 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 
 	// Trim mempool and check if tx was trimmed.
 	if !overrideMempoolLimit {
-		LimitMempoolSize(pool)
+		LimitMempoolSize()
 
-		if pool.FindTx(txid) == nil {
+		if mempool.FindTx(txid) == nil {
 			ret = state.Dos(0, false, core.RejectInsufficientFee, "mempool full", false, "")
 			return
 		}
@@ -4021,8 +3911,8 @@ func AcceptToMemoryPoolWorker(params *msg.BitcoinParams, pool *mempool.TxMempool
 	return
 }
 
-func LimitMempoolSize(pool *mempool.TxMempool) {
-	noSpendsRemaining := pool.LimitMempoolSize()
+func LimitMempoolSize() {
+	noSpendsRemaining := mempool.LimitMempoolSize()
 	for _, outpoint := range noSpendsRemaining {
 		GCoinsTip.UnCache(outpoint)
 	}
@@ -4065,7 +3955,7 @@ func CheckInputsFromMempoolAndCache(tx *core.Tx, state *core.ValidationState, vi
 			return false
 		}
 
-		txFrom := mpool.FindTx(txin.PreviousOutPoint.Hash)
+		txFrom := mempool.FindTx(txin.PreviousOutPoint.Hash)
 		if txFrom != nil {
 			if txFrom.TxHash() != txin.PreviousOutPoint.Hash {
 				panic("critical error")
@@ -4227,163 +4117,8 @@ func GetSpendHeight(view *utxo.CoinsViewCache) int {
 	return indexPrev.Height + 1
 }
 
-func CalculateSequenceLocks(tx *core.Tx, flags int, prevHeights []int, block *core.BlockIndex) map[int]int64 {
-	if len(prevHeights) != len(tx.Ins) {
-		panic("the prevHeights size mot equal txIns size")
-	}
-
-	// Will be set to the equivalent height- and time-based nLockTime
-	// values that would be necessary to satisfy all relative lock-
-	// time constraints given our view of block chain history.
-	// The semantics of nLockTime are the last invalid height/time, so
-	// use -1 to have the effect of any height or time being valid.
-
-	nMinHeight := -1
-	nMinTime := -1
-	// tx.nVersion is signed integer so requires cast to unsigned otherwise
-	// we would be doing a signed comparison and half the range of nVersion
-	// wouldn't support BIP 68.
-	fEnforceBIP68 := tx.Version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
-
-	// Do not enforce sequence numbers as a relative lock time
-	// unless we have been instructed to
-	maps := make(map[int]int64)
-
-	if !fEnforceBIP68 {
-		maps[nMinHeight] = int64(nMinTime)
-		return maps
-	}
-
-	for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
-		txin := tx.Ins[txinIndex]
-		// Sequence numbers with the most significant bit set are not
-		// treated as relative lock-times, nor are they given any
-		// core-enforced meaning at this point.
-		if (txin.Sequence & core.SequenceLockTimeDisableFlag) != 0 {
-			// The height of this input is not relevant for sequence locks
-			prevHeights[txinIndex] = 0
-			continue
-		}
-		nCoinHeight := prevHeights[txinIndex]
-
-		if (txin.Sequence & core.SequenceLockTimeDisableFlag) != 0 {
-			nCoinTime := block.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
-			// NOTE: Subtract 1 to maintain nLockTime semantics.
-			// BIP 68 relative lock times have the semantics of calculating the
-			// first block or time at which the transaction would be valid. When
-			// calculating the effective block time or height for the entire
-			// transaction, we switch to using the semantics of nLockTime which
-			// is the last invalid block time or height. Thus we subtract 1 from
-			// the calculated time or height.
-
-			// Time-based relative lock-times are measured from the smallest
-			// allowed timestamp of the block containing the txout being spent,
-			// which is the median time past of the block prior.
-			tmpTime := int(nCoinTime) + int(txin.Sequence)&core.SequenceLockTimeMask<<core.SequenceLockTimeQranularity
-			nMinTime = int(math.Max(float64(nMinTime), float64(tmpTime)))
-		} else {
-			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence&core.SequenceLockTimeMask)-1)))
-		}
-	}
-
-	maps[nMinHeight] = int64(nMinTime)
-	return maps
-}
-
-// CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
-//
-// Simulates calling SequenceLocks() with data from the tip of the current
-// active chain. Optionally stores in LockPoints the resulting height and time
-// calculated and the hash of the block needed for calculation or skips the
-// calculation and uses the LockPoints passed in for evaluation. The LockPoints
-// should not be considered valid if CheckSequenceLocks returns false.
-//
-// See core/core.h for flag definitions.
-func CheckSequenceLocks(tx *core.Tx, flags int, lp *core.LockPoints, useExistingLockPoints bool) bool {
-
-	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
-	tip := GChainActive.Tip()
-	var index *core.BlockIndex
-	index.Prev = tip
-	// CheckSequenceLocks() uses chainActive.Height()+1 to evaluate height based
-	// locks because when SequenceLocks() is called within ConnectBlock(), the
-	// height of the block *being* evaluated is what is used. Thus if we want to
-	// know if a transaction can be part of the *next* block, we need to use one
-	// more than chainActive.Height()
-	index.Height = tip.Height + 1
-	lockPair := make(map[int]int64)
-
-	if useExistingLockPoints {
-		if lp == nil {
-			panic("the mempool lockPoints is nil")
-		}
-		lockPair[lp.Height] = lp.Time
-	} else {
-		// pcoinsTip contains the UTXO set for chainActive.Tip()
-		//viewMempool := mempool.CoinsViewMemPool{
-		//	Base:  GCoinsTip,
-		//	Mpool: GMemPool,
-		//}
-		var prevheights []int
-		for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
-			//txin := tx.Ins[txinIndex]
-			var coin *utxo.Coin
-			//if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
-			//	logs.Error("Missing input")
-			//	return false
-			//}
-			if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
-				// Assume all mempool transaction confirm in the next block
-				prevheights[txinIndex] = tip.Height + 1
-			} else {
-				prevheights[txinIndex] = int(coin.GetHeight())
-			}
-		}
-
-		lockPair = CalculateSequenceLocks(tx, flags, prevheights, index)
-		if lp != nil {
-			lockPair[lp.Height] = lp.Time
-			// Also store the hash of the block with the highest height of all
-			// the blocks which have sequence locked prevouts. This hash needs
-			// to still be on the chain for these LockPoint calculations to be
-			// valid.
-			// Note: It is impossible to correctly calculate a maxInputBlock if
-			// any of the sequence locked inputs depend on unconfirmed txs,
-			// except in the special case where the relative lock time/height is
-			// 0, which is equivalent to no sequence lock. Since we assume input
-			// height of tip+1 for mempool txs and test the resulting lockPair
-			// from CalculateSequenceLocks against tip+1. We know
-			// EvaluateSequenceLocks will fail if there was a non-zero sequence
-			// lock on a mempool input, so we can use the return value of
-			// CheckSequenceLocks to indicate the LockPoints validity
-			maxInputHeight := 0
-			for height := range prevheights {
-				// Can ignore mempool inputs since we'll fail if they had non-zero locks
-				if height != tip.Height+1 {
-					maxInputHeight = int(math.Max(float64(maxInputHeight), float64(height)))
-				}
-			}
-			lp.MaxInputBlock = tip.GetAncestor(maxInputHeight)
-		}
-	}
-	return EvaluateSequenceLocks(index, lockPair)
-}
-
-func EvaluateSequenceLocks(block *core.BlockIndex, lockPair map[int]int64) bool {
-	if block.Prev == nil {
-		panic("the block's pprev is nil, Please check.")
-	}
-	nBlocktime := block.Prev.GetMedianTimePast()
-	for key, value := range lockPair {
-		if key >= block.Height || value >= nBlocktime {
-			return false
-		}
-	}
-	return true
-}
-
 func SequenceLocks(tx *core.Tx, flags int, prevHeights []int, block *core.BlockIndex) bool {
-	return EvaluateSequenceLocks(block, CalculateSequenceLocks(tx, flags, prevHeights, block))
+	return core.EvaluateSequenceLocks(block, tx.CalculateSequenceLocks(flags, prevHeights, block))
 }
 
 // GetTransactionSigOpCount Compute total signature operation of a transaction.
@@ -4420,12 +4155,12 @@ func InvalidateBlock(params *msg.BitcoinParams, state *core.ValidationState, ind
 		// ActivateBestChain considers blocks already in chainActive
 		// unconditionally valid already, so force disconnect away from it.
 		if !DisconnectTip(params, state, false) {
-			RemoveUnFinalTx(Pool, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+			mempool.RemoveUnFinalTx(core.GChainActive, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
 			return false
 		}
 	}
 
-	LimitMempoolSize(GMemPool)
+	LimitMempoolSize()
 	// The resulting new best tip may not be in setBlockIndexCandidates anymore,
 	// so add it again.
 	for _, index := range MapBlockIndex.Data {
@@ -4436,7 +4171,7 @@ func InvalidateBlock(params *msg.BitcoinParams, state *core.ValidationState, ind
 	}
 
 	InvalidChainFound(index)
-	RemoveUnFinalTx(Pool, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
+	mempool.RemoveUnFinalTx(core.GChainActive, GCoinsTip, GChainActive.Tip().Height+1, int(policy.StandardLockTimeVerifyFlags))
 	// gui notify
 	// uiInterface.NotifyBlockTip(IsInitialBlockDownload(), pindex->pprev);
 	return true
@@ -4591,11 +4326,11 @@ func DumpMempool() {
 	mapDeltas := make(map[utils.Hash]utils.Amount)
 	var info []*mempool.TxMempoolInfo
 	{
-		mapDeltas = make(map[utils.Hash]utils.Amount, GMemPool.Size())
+		mapDeltas = make(map[utils.Hash]utils.Amount, mempool.Size())
 		//for hash, feeDelta := range GMemPool.MapDeltas {
 		//	mapDeltas[hash] = feeDelta.Fee // todo confirm feeDelta.Fee or feedelta.PriorityDelta
 		//}
-		info = GMemPool.InfoAll()
+		info = mempool.TxInfoAll()
 	}
 
 	mid := time.Now().Second()
@@ -4833,52 +4568,13 @@ func TestLockPointValidity(lp *core.LockPoints, activeChain *core.Chain) bool {
 	return true
 }
 
-func RemoveUnFinalTx(m *mempool.TxMempool, pcoins *utxo.CoinsViewCache, nMemPoolHeight int, flag int) {
-	m.Lock()
-	defer m.Unlock()
 
-	// Remove transactions spending a coinbase which are now immature and
-	// no-longer-final transactions
-	txToRemove := make(map[*mempool.TxEntry]struct{})
-	poolData := m.GetAllTxEntry()
-	for _, entry := range poolData {
-		lp := entry.GetLockPointFromTxEntry()
-		validLP := TestLockPointValidity(&lp, &GChainActive)
-		state := core.NewValidationState()
+type Validation struct {}
 
-		tx := entry.Tx
-		if !ContextualCheckTransactionForCurrentBlock(tx, state, msg.ActiveNetParams, uint(flag)) ||
-			!CheckSequenceLocks(tx, flag, &lp, validLP) {
-			txToRemove[entry] = struct{}{}
-		} else if entry.GetSpendsCoinbase() {
-			for _, txin := range tx.Ins {
-				if _, ok := poolData[txin.PreviousOutPoint.Hash]; ok {
-					continue
-				}
+func (v Validation)CheckTx(tx *core.Tx, flag int) (bool, error) {
+	return  false, nil
+}
 
-				coin := pcoins.AccessCoin(txin.PreviousOutPoint)
-				if m.GetCheckFrequency() != 0 {
-					if coin.IsSpent() {
-						panic("the coin must be unspent")
-					}
-				}
-
-				if coin.IsSpent() || (coin.IsCoinBase() &&
-					uint32(nMemPoolHeight)-coin.GetHeight() < consensus.CoinbaseMaturity) {
-					txToRemove[entry] = struct{}{}
-					break
-				}
-			}
-		}
-
-		if !validLP {
-			entry.SetLockPointFromTxEntry(lp)
-		}
-	}
-
-	allRemoves := make(map[*mempool.TxEntry]struct{})
-	for it := range txToRemove {
-		m.CalculateDescendants(it, allRemoves)
-	}
-	m.RemoveStaged(allRemoves, false, mempool.REORG)
+func (v Validation)CheckBlock(tx *core.Tx, flag int) error  {
+	return nil
 }

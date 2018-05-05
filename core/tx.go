@@ -11,10 +11,12 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
-	"copernicus/conf"
-	utils2 "copernicus/utils"
-	"copernicus/blockchain"
-	"btcd/chaincfg"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/blockchain"
+	"github.com/btcd/chaincfg"
+	"github.com/btcboost/copernicus/utxo"
+	"github.com/btcd/wire"
+	"github.com/btcboost/copernicus/net/msg"
 )
 
 const (
@@ -58,6 +60,80 @@ const (
 	MinTxInPayload            = 9 + utils.Hash256Size
 	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
 	TxVersion                 = 1
+)
+
+const (
+	/*DefaultMaxGeneratedBlockSize default for -blockMaxsize, which controls the maximum size of block the
+	 * mining code will create **/
+	DefaultMaxGeneratedBlockSize uint64 = 2 * OneMegaByte
+	/** Default for -blockprioritypercentage, define the amount of block space
+	 * reserved to high priority transactions **/
+
+	DefaultBlockPriorityPercentage uint64= 5
+
+	/*DefaultBlockMinTxFee default for -blockMinTxFee, which sets the minimum feeRate for a transaction
+	 * in blocks created by mining code **/
+	DefaultBlockMinTxFee uint = 1000
+
+	MaxStandardVersion = 2
+
+	/*MaxStandardTxSize the maximum size for transactions we're willing to relay/mine */
+	MaxStandardTxSize uint = 100000
+
+	/*MaxP2SHSigOps maximum number of signature check operations in an IsStandard() P2SH script*/
+	MaxP2SHSigOps uint = 15
+
+	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
+	MaxStandardTxSigOps = uint(MaxTxSigOpsCount / 5)
+
+	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
+	DefaultMaxMemPoolSize uint = 300
+
+	/** Default for -incrementalrelayfee, which sets the minimum feerate increase
+ 	* for mempool limiting or BIP 125 replacement **/
+	DefaultIncrementalRelayFee int64 = 1000
+
+	/** Default for -bytespersigop */
+	DefaultBytesPerSigop uint= 20
+
+	/** The maximum number of witness stack items in a standard P2WSH script */
+	MaxStandardP2WSHStackItems uint = 100
+
+	/*MaxStandardP2WSHStackItemSize the maximum size of each witness stack item in a standard P2WSH script */
+	MaxStandardP2WSHStackItemSize uint = 80
+
+	/*MaxStandardP2WSHScriptSize the maximum size of a standard witnessScript */
+	MaxStandardP2WSHScriptSize uint = 3600
+
+
+	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
+	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
+	// but in the future other flags may be added, such as a soft-fork to enforce
+	// strict DER encoding.
+	//
+	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
+	// details.
+	MandatoryScriptVerifyFlags uint =
+		ScriptVerifyP2SH | ScriptVerifyStrictEnc |
+			ScriptEnableSighashForkid | ScriptVerifyLowS | ScriptVerifyNullFail
+
+	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
+	 * with. However scripts violating these flags may still be present in valid
+	 * blocks and we must accept those blocks.
+	 */
+	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
+		ScriptVerifyMinmalData | ScriptVerifyNullDummy |
+		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
+		ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
+		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
+		ScriptVerifyDiscourageUpgradableWitnessProgram
+
+	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
+	StandardNotMandatoryVerifyFlags uint= StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
+
+	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
+	 * non-core code. */
+	StandardLockTimeVerifyFlags uint = LocktimeVerifySequence | LocktimeMedianTimePast
 )
 
 type Tx struct {
@@ -292,8 +368,19 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 	}
 
 	// check duble-spending
-	if !tx.isInputAvailable() {
+	if !tx.areInputsAvailable() {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
+	}
+
+	//check sequencelock
+	lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
+	if !tx.checkSequenceLocks(lp) {
+		return false
+	}
+
+	//check standard inputs
+	if RequiredStandard && !tx.areInputsStandard() {
+		return false
 	}
 
 	//check inputs
@@ -315,10 +402,8 @@ func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool)
 		return false
 	}
 
-	// check size
-	if tx.SerializeSize() > MaxTxSize {
-		state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
-		return false
+	if tx.SerializeSize() > consensus.MaxTxSize {
+		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 	}
 
 	// check outputs money
@@ -382,11 +467,11 @@ func (tx *Tx) checkStandard(state *ValidationState, allowLargeOpReturn bool) boo
 			state.Dos(100, false, RejectInvalid, "scriptpubkey", false, "")
 			return false
 		}
-		if pubKeyType == SCRIPT_MULTISIG && !IsBareMultiSigStd {
+		if pubKeyType == ScriptMultiSig && !IsBareMultiSigStd {
 			state.Dos(100, false, RejectInvalid, "bare-multisig", false, "")
 			return false
 		}
-		if pubKeyType == SCRIPT_NULL_DATA {
+		if pubKeyType == ScriptNullData {
 			nDataOut++
 		}
 		// only one OP_RETURN txout is permitted
@@ -448,7 +533,7 @@ func (tx *Tx) isOutputAlreadyExist() bool {
 	return true
 }
 
-func (tx *Tx) isInputsAvailable() bool {
+func (tx *Tx) areInputsAvailable() bool {
 	for e := range tx.ins {
 		outPoint := e.PreviousOutPoint
 		if !GMempool.GetCoin(outPoint) {
@@ -459,6 +544,78 @@ func (tx *Tx) isInputsAvailable() bool {
 		}
 	}
 
+	return true
+}
+
+func (tx *Tx) caculateLockPoint(flags uint) (lp *LockPoints) {
+	lp = NewLockPoints()
+	maxHeight int = 0
+	maxTime int64 = 0
+	for _, e := range tx.ins {
+		if e.Sequence & SequenceLockTimeDisableFlag != 0 {
+			continue
+		}
+		coin := mempool.GetCoin(e.PreviousOutPoint)
+		if !coin {
+			coin = utxo.GetCoin(e.PreviousOutPoint)
+		}
+		if !coin {
+			lp = nil
+			return
+		}
+		coinTime int64 = 0
+		coinHeight := coin.GetHeight()
+		if coinHeight == MEMPOOL_HEIGHT {
+			coinHeight = ActiveChain.GetHeight() + 1
+		}
+		if e.Sequence & SequenceLockTimeTypeFlag != 0 {
+			if coinHeight - 1 > 0 {
+				coinTime = ActiveChain.Tip().GetAncesstor(coinHeight - 1).GetMedianTimePast()
+			} else {
+				coinTime = ActiveChain.Tip().GetAncesstor(0).GetMedianTimePast()
+			}
+			coinTime = ((e.Sequence & SequenceLockTimeMask) << wire.SequenceLockTimeGranularity) - 1
+			if maxTime < coinTime {
+				maxTime = coinTime
+			}
+		} else {
+			if maxHeight < coinHeight {
+				maxHeight = coinHeight
+			}
+		}
+	}
+	lp.MaxInputBlock = ActiveChain.GetAncestor(maxHeight)
+
+	if tx.Version >= 2 && flags & LocktimeVerifySequence != 0 {
+		lp.Height = maxHeight
+		lp.Time = maxTime
+		return
+	}
+
+	lp.Height = -1
+	lp.Time = -1
+	return
+}
+
+func (tx *Tx) checkSequenceLocks(lp *LockPoints) bool {
+	BlockTime := lp.MaxInputBlock.GetMedianTimePast()
+	if lp.Height >= lp.Height || lp.Time >= BlockTime {
+		return false
+	}
+
+	return true
+}
+
+func (tx *Tx) areInputsStandard() bool {
+	for _, e := range tx.ins {
+		coin := utxo.GetCoin(e.PreviousOutPoint)
+		if !coin {
+			coin = mempool.GetCoin(e.PreviousOutPoint)
+		}
+		txOut := coin.txOut
+		succeed, pubKeyType := txOut.CheckScript()
+		if !succeed
+	}
 	return true
 }
 
@@ -514,6 +671,10 @@ func (tx *Tx) Copy() *Tx {
 		}
 		newTx.outs = append(newTx.outs, &newTxOut)
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/yyx
 	for _, txIn := range tx.ins {
 		var hashBytes [32]byte
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
@@ -626,6 +787,218 @@ func (tx *Tx) TxHash() utils.Hash {
 	hash := crypto.DoubleSha256Hash(buf.Bytes())
 	tx.Hash = hash
 	return hash
+}
+
+func (tx *Tx)ContextualCheckTransactionForCurrentBlock(state *ValidationState, params *msg.BitcoinParams, flags uint) bool {
+	// By convention a negative value for flags indicates that the current
+	// network-enforced core rules should be used. In a future soft-fork
+	// scenario that would mean checking which rules would be enforced for the
+	// next block and setting the appropriate flags. At the present time no
+	// soft-forks are scheduled, so no flags are set.
+	if flags < 0 {
+		flags = 0
+	}
+	// ContextualCheckTransactionForCurrentBlock() uses chainActive.Height()+1
+	// to evaluate nLockTime because when IsFinalTx() is called within
+	// CBlock::AcceptBlock(), the height of the block *being* evaluated is what
+	// is used. Thus if we want to know if a transaction can be part of the
+	// *next* block, we need to call ContextualCheckTransaction() with one more
+	// than chainActive.Height().
+	blockHeight := GChainActive.Height() + 1
+
+	// BIP113 will require that time-locked transactions have nLockTime set to
+	// less than the median time of the previous block they're contained in.
+	// When the next block is created its previous block will be the current
+	// chain tip, so we use that to calculate the median time passed to
+	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
+	var lockTimeCutoff int64
+	if flags&consensus.LocktimeMedianTimePast != 0 {
+		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
+	} else {
+		lockTimeCutoff = utils.GetAdjustedTime()
+	}
+
+	return tx.ContextualCheckTransaction(params, state, blockHeight, lockTimeCutoff)
+}
+// IsUAHFEnabled Check is UAHF has activated.
+func IsUAHFEnabled(params *msg.BitcoinParams, height int) bool {
+	return height >= params.UAHFHeight
+}
+
+func (tx *Tx)ContextualCheckTransaction(params *msg.BitcoinParams,  state *ValidationState,
+	height int, lockTimeCutoff int64) bool {
+
+	if !tx.IsFinalTx(height, lockTimeCutoff) {
+		return state.Dos(10, false, RejectInvalid, "bad-txns-nonFinal",
+			false, "non-final transaction")
+	}
+
+	if IsUAHFEnabled(params, height) && height <= params.AntiReplayOpReturnSunsetHeight {
+		for _, txo := range tx.Outs {
+			if txo.Script.IsCommitment(params.AntiReplayOpReturnCommitment) {
+				return state.Dos(10, false, RejectInvalid, "bad-txn-replay",
+					false, "non playable transaction")
+			}
+		}
+	}
+
+	return true
+}
+
+
+// CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
+//
+// Simulates calling SequenceLocks() with data from the tip of the current
+// active chain. Optionally stores in LockPoints the resulting height and time
+// calculated and the hash of the block needed for calculation or skips the
+// calculation and uses the LockPoints passed in for evaluation. The LockPoints
+// should not be considered valid if CheckSequenceLocks returns false.
+//
+// See core/core.h for flag definitions.
+func (tx *Tx)CheckSequenceLocks(flags int, lp *LockPoints, useExistingLockPoints bool) bool {
+
+	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
+	tip := GChainActive.Tip()
+	var index *BlockIndex
+	index.Prev = tip
+	// CheckSequenceLocks() uses chainActive.Height()+1 to evaluate height based
+	// locks because when SequenceLocks() is called within ConnectBlock(), the
+	// height of the block *being* evaluated is what is used. Thus if we want to
+	// know if a transaction can be part of the *next* block, we need to use one
+	// more than chainActive.Height()
+	index.Height = tip.Height + 1
+	lockPair := make(map[int]int64)
+
+	if useExistingLockPoints {
+		if lp == nil {
+			panic("the mempool lockPoints is nil")
+		}
+		lockPair[lp.Height] = lp.Time
+	} else {
+		// pcoinsTip contains the UTXO set for chainActive.Tip()
+		//viewMempool := mempool.CoinsViewMemPool{
+		//	Base:  GCoinsTip,
+		//	Mpool: GMemPool,
+		//}
+		var prevheights []int
+		for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
+			//txin := tx.Ins[txinIndex]
+			var coin *utxo.Coin
+			//if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
+			//	logs.Error("Missing input")
+			//	return false
+			//}
+			if coin.GetHeight() == consensus.MEMPOOL_HEIGHT {
+				// Assume all mempool transaction confirm in the next block
+				prevheights[txinIndex] = tip.Height + 1
+			} else {
+				prevheights[txinIndex] = int(coin.GetHeight())
+			}
+		}
+
+		lockPair = tx.CalculateSequenceLocks(flags, prevheights, index)
+		if lp != nil {
+			lockPair[lp.Height] = lp.Time
+			// Also store the hash of the block with the highest height of all
+			// the blocks which have sequence locked prevouts. This hash needs
+			// to still be on the chain for these LockPoint calculations to be
+			// valid.
+			// Note: It is impossible to correctly calculate a maxInputBlock if
+			// any of the sequence locked inputs depend on unconfirmed txs,
+			// except in the special case where the relative lock time/height is
+			// 0, which is equivalent to no sequence lock. Since we assume input
+			// height of tip+1 for mempool txs and test the resulting lockPair
+			// from CalculateSequenceLocks against tip+1. We know
+			// EvaluateSequenceLocks will fail if there was a non-zero sequence
+			// lock on a mempool input, so we can use the return value of
+			// CheckSequenceLocks to indicate the LockPoints validity
+			maxInputHeight := 0
+			for height := range prevheights {
+				// Can ignore mempool inputs since we'll fail if they had non-zero locks
+				if height != tip.Height+1 {
+					maxInputHeight = int(math.Max(float64(maxInputHeight), float64(height)))
+				}
+			}
+			lp.MaxInputBlock = tip.GetAncestor(maxInputHeight)
+		}
+	}
+	return EvaluateSequenceLocks(index, lockPair)
+}
+
+func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIndex) map[int]int64 {
+	if len(prevHeights) != len(tx.Ins) {
+		panic("the prevHeights size mot equal txIns size")
+	}
+
+	// Will be set to the equivalent height- and time-based nLockTime
+	// values that would be necessary to satisfy all relative lock-
+	// time constraints given our view of block chain history.
+	// The semantics of nLockTime are the last invalid height/time, so
+	// use -1 to have the effect of any height or time being valid.
+
+	nMinHeight := -1
+	nMinTime := -1
+	// tx.nVersion is signed integer so requires cast to unsigned otherwise
+	// we would be doing a signed comparison and half the range of nVersion
+	// wouldn't support BIP 68.
+	fEnforceBIP68 := tx.Version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
+
+	// Do not enforce sequence numbers as a relative lock time
+	// unless we have been instructed to
+	maps := make(map[int]int64)
+
+	if !fEnforceBIP68 {
+		maps[nMinHeight] = int64(nMinTime)
+		return maps
+	}
+
+	for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
+		txin := tx.Ins[txinIndex]
+		// Sequence numbers with the most significant bit set are not
+		// treated as relative lock-times, nor are they given any
+		// core-enforced meaning at this point.
+		if (txin.Sequence & SequenceLockTimeDisableFlag) != 0 {
+			// The height of this input is not relevant for sequence locks
+			prevHeights[txinIndex] = 0
+			continue
+		}
+		nCoinHeight := prevHeights[txinIndex]
+
+		if (txin.Sequence & SequenceLockTimeDisableFlag) != 0 {
+			nCoinTime := block.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
+			// NOTE: Subtract 1 to maintain nLockTime semantics.
+			// BIP 68 relative lock times have the semantics of calculating the
+			// first block or time at which the transaction would be valid. When
+			// calculating the effective block time or height for the entire
+			// transaction, we switch to using the semantics of nLockTime which
+			// is the last invalid block time or height. Thus we subtract 1 from
+			// the calculated time or height.
+
+			// Time-based relative lock-times are measured from the smallest
+			// allowed timestamp of the block containing the txout being spent,
+			// which is the median time past of the block prior.
+			tmpTime := int(nCoinTime) + int(txin.Sequence)&SequenceLockTimeMask<<SequenceLockTimeQranularity
+			nMinTime = int(math.Max(float64(nMinTime), float64(tmpTime)))
+		} else {
+			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence&SequenceLockTimeMask)-1)))
+		}
+	}
+
+	maps[nMinHeight] = int64(nMinTime)
+	return maps
+}
+
+func EvaluateSequenceLocks(block *BlockIndex, lockPair map[int]int64) bool {
+	if block.Prev == nil {
+		panic("the block's pprev is nil, Please check.")
+	}
+	nBlocktime := block.Prev.GetMedianTimePast()
+	for key, value := range lockPair {
+		if key >= block.Height || value >= nBlocktime {
+			return false
+		}
+	}
+	return true
 }
 
 func NewTx() *Tx {

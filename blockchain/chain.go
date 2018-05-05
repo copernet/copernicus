@@ -8,6 +8,22 @@ import (
 )
 
 // todo, should be protected by lock
+<<<<<<< HEAD:blockchain/chain.go
+=======
+var (
+	ActiveChain   Chain
+	BranchChain   []*BlockIndex
+	WaitForTx     map[utils.Hash]*BlockIndex
+	Orphan        []*BlockIndex
+	BlockIndexMap map[utils.Hash]*BlockIndex
+	NewestBlock   *BlockIndex
+	ReceiveID     uint64
+)
+
+var GChainActive *Chain
+
+// Chain An in-memory blIndexed chain of blocks.
+>>>>>>> origin/yyx:core/chain.go
 type Chain struct {
 	active   		[]*BlockIndex
 	branch   		[]*BlockIndex

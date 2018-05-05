@@ -37,11 +37,11 @@ var (
 	GChainState      ChainState
 	GImporting       atomic.Value
 	GMaxTipAge       int64
-	GMemPool         *mempool.TxMempool
+	//GMemPool         *mempool.TxMempool
 	GCoinsTip        *utxo.CoinsViewCache
 	GBlockTree       *BlockTreeDB
 	GMinRelayTxFee   utils.FeeRate
-	Pool             *mempool.TxMempool
+	//Pool             *mempool.TxMempool
 	GfReindex        = false
 	GnCoinCacheUsage = 5000 * 300
 	GWarningCache    []ThresholdConditionCache

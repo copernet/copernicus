@@ -81,12 +81,18 @@ func (txOut *TxOut) CheckValue(state *ValidationState) bool {
 func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool) (succeed bool, pubKeyType int)  {
 	succeed, pubKeyType = txOut.scriptPubKey.CheckScriptPubKey(state)
 
-	if pubKeyType == SCRIPT_NULL_DATA {
+	if pubKeyType == ScriptNullData {
 		if !AcceptDataCarrier {
 			return false, pubKeyType
 		}
-		if txOut.scriptPubKey.Size() > (allowLargeOpReturn ?
-			MAX_OP_RETURN_RELAY_LARGE : MAX_OP_RETURN_RELAY) {
+		maxScriptSize uint32 = 0
+
+		if allowLargeOpReturn {
+			maxScriptSize = MaxOpReturnRelayLarge
+		} else {
+			maxScriptSize = MaxOpReturnRelay
+		}
+		if txOut.scriptPubKey.Size() > maxScriptSize {
 			state.Dos(100, false, RejectInvalid, "scriptpubkey too large", false, "")
 			return false, pubKeyType
 		}
