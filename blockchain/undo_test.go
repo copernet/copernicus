@@ -42,17 +42,17 @@ func UpdateUTXOSet(block *core.Block, cache *utxo.CoinsViewCache, undo *BlockUnd
 	param *msg.BitcoinParams, height int) {
 
 	coinbaseTx := block.Txs[0]
-	UpdateCoins(coinbaseTx, cache, nil, height)
+	cache.UpdateCoins(coinbaseTx, height)
 
 	for i := 1; i < len(block.Txs); i++ {
 		tx := block.Txs[1]
 
 		tmp := newTxUndo()
 		undo.txundo = append(undo.txundo, tmp)
-		UpdateCoins(tx, cache, tmp, height)
+		tmp.PrevOut = append(tmp.PrevOut, cache.UpdateCoins(tx, height)...)
 	}
 
-	cache.SetBestBlock(block.Hash)
+	cache.SetBestBlock(*block.Hash)
 
 }
 
@@ -69,43 +69,6 @@ func HasSpendableCoin(cache *utxo.CoinsViewCache, txid *utils.Hash) bool {
 	return !cache.AccessCoin(core.NewOutPoint(*txid, 0)).IsSpent()
 }
 
-func copyTx(tx *core.Tx) *core.Tx {
-	result := *tx
-	ins := len(tx.Ins)
-	outs := len(tx.Outs)
-	result.Ins = make([]*core.TxIn, ins)
-	result.Outs = make([]*core.TxOut, outs)
-	for i := 0; i < ins; i++ {
-		var in *core.TxIn
-		if tx.IsCoinBase() {
-			in := core.NewTxIn(nil, tx.Ins[i].Script.GetScriptByte())
-			in.Sequence = tx.Ins[i].Sequence
-			in.SigOpCount = tx.Ins[i].SigOpCount
-			result.Ins[i] = in
-			continue
-		}
-		in = core.NewTxIn(core.NewOutPoint(tx.Ins[i].PreviousOutPoint.Hash,
-			tx.Ins[i].PreviousOutPoint.Index), tx.Ins[i].Script.GetScriptByte())
-		in.Sequence = tx.Ins[i].Sequence
-		in.SigOpCount = tx.Ins[i].SigOpCount
-		result.Ins[i] = in
-	}
-
-	for j := 0; j < outs; j++ {
-		out := core.NewTxOut(tx.Outs[j].Value, tx.Outs[j].Script.GetScriptByte())
-		out.SigOpCount = tx.Outs[j].SigOpCount
-		result.Outs[j] = out
-	}
-
-	return &result
-}
-
-func GetID(tx *core.Tx) utils.Hash {
-	buf := bytes.NewBuffer(nil)
-	tx.Serialize(buf)
-	return crypto.DoubleSha256Hash(buf.Bytes())
-}
-
 func TestConnectUtxoExtBlock(t *testing.T) {
 	chainparams := msg.ActiveNetParams
 	block := core.NewBlock()
@@ -116,7 +79,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		CacheCoins: make(utxo.CacheCoins),
 	}
 	cache.Base = coinsDummy
-
+	//genesis block hash, and set genesis block to utxo
 	randomHash := *utils.GetRandHash()
 	block.BlockHeader.HashPrevBlock = randomHash
 	cache.SetBestBlock(randomHash)
@@ -126,35 +89,33 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	tx.Ins = make([]*core.TxIn, 1)
 	tx.Outs = make([]*core.TxOut, 1)
 
-	tx.Ins[0] = core.NewTxIn(nil, bytes.Repeat([]byte{}, 10))
+	tx.Ins[0] = core.NewTxIn(nil, make([]byte, 10))
 	tx.Outs[0] = core.NewTxOut(42, []byte{})
-	tx.Hash = GetID(tx)
-
-	coinbaseTx := copyTx(tx)
+	tx.Hash = tx.TxHash()
+	coinbaseTx := tx.Copy()
 
 	block.Txs = make([]*core.Tx, 2)
-	block.Txs[0] = copyTx(tx)
+	block.Txs[0] = coinbaseTx
 
 	tx.Outs[0].Script = core.NewScriptRaw([]byte{core.OP_TRUE})
 	tx.Ins[0].PreviousOutPoint = core.NewOutPoint(*utils.GetRandHash(), 0)
 	tx.Ins[0].Sequence = core.SequenceFinal
 	tx.Ins[0].Script = core.NewScriptRaw([]byte{})
 	tx.Version = 2
-	tx.Hash = GetID(tx)
+	tx.Hash = utils.HashZero
+	tx.Hash = tx.TxHash()
 
-	prevTx0 := copyTx(tx)
-
+	prevTx0 := tx.Copy()
 	utxo.AddCoins(cache, *prevTx0, 100)
 
-	tx.Ins[0].PreviousOutPoint.Hash = prevTx0.Hash
-
-	tx.Hash = GetID(tx)
-	tx0 := copyTx(tx)
-	block.Txs[1] = tx0
+	tx.Ins[0].PreviousOutPoint.Hash = tx.Hash
+	tx.Hash = utils.HashZero
+	tx.Hash = tx.TxHash()
+	block.Txs[1] = tx
 
 	buf := bytes.NewBuffer(nil)
 	block.Serialize(buf)
-	block.Hash = crypto.DoubleSha256Hash(buf.Bytes()[:80])
+	*block.Hash = crypto.DoubleSha256Hash(buf.Bytes()[:80])
 
 	// Now update hte UTXO set
 	undo := &BlockUndo{
@@ -163,13 +124,13 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	UpdateUTXOSet(block, &cache, undo, chainparams, 123456)
 
-	if cache.GetBestBlock() != block.Hash {
+	if cache.GetBestBlock() != *block.Hash {
 		t.Error("this block should have been stored in the cache")
 	}
 	if !HasSpendableCoin(&cache, &coinbaseTx.Hash) {
 		t.Error("this coinbase transaction should have been unlocked")
 	}
-	if !HasSpendableCoin(&cache, &tx0.Hash) {
+	if !HasSpendableCoin(&cache, &tx.Hash) {
 		t.Error("the specified transaction should be spendable")
 	}
 	if HasSpendableCoin(&cache, &prevTx0.Hash) {
@@ -177,14 +138,18 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	}
 
 	UndoBlock(block, &cache, undo, chainparams, 123456)
+	if len(undo.txundo) != 1 {
+		t.Error("block undo information number should be 1, because only one common tx ")
+		return
+	}
 
 	if cache.GetBestBlock() != block.BlockHeader.HashPrevBlock {
-		t.Error("this block should have been stored in the cache")
+		t.Error("this block should have been stored in the cache : ", block.Hash)
 	}
 	if HasSpendableCoin(&cache, &coinbaseTx.Hash) {
 		t.Error("this coinbase transaction should not have been unlocked")
 	}
-	if HasSpendableCoin(&cache, &tx0.Hash) {
+	if HasSpendableCoin(&cache, &tx.Hash) {
 		t.Error("the specified transaction should not be spendable")
 	}
 	if !HasSpendableCoin(&cache, &prevTx0.Hash) {

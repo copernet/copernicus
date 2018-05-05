@@ -23,16 +23,19 @@ const (
 	DisconnectFailed
 )
 
+type TxInUndo struct {
+}
+
 type TxUndo struct {
-	prevOut []*utxo.Coin
+	PrevOut []*utxo.Coin
 }
 
 func (tu *TxUndo) Serialize(w io.Writer) error {
-	err := utils.WriteVarInt(w, uint64(len(tu.prevOut)))
+	err := utils.WriteVarInt(w, uint64(len(tu.PrevOut)))
 	if err != nil {
 		return err
 	}
-	for _, coin := range tu.prevOut {
+	for _, coin := range tu.PrevOut {
 		err = coin.Serialize(w)
 		if err != nil {
 			return err
@@ -43,7 +46,7 @@ func (tu *TxUndo) Serialize(w io.Writer) error {
 
 func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 	tu := &TxUndo{
-		prevOut: make([]*utxo.Coin, 0),
+		PrevOut: make([]*utxo.Coin, 0),
 	}
 	utils.BinarySerializer.Uint64(r, binary.LittleEndian)
 	var count int
@@ -59,7 +62,7 @@ func DeserializeTxUndo(r io.Reader) (*TxUndo, error) {
 		if count > MaxInputPerTx {
 			panic("Too many input undo records")
 		}
-		tu.prevOut = append(tu.prevOut, coin)
+		tu.PrevOut = append(tu.PrevOut, coin)
 	}
 }
 
@@ -130,7 +133,8 @@ func DeserializeBlockUndo(r io.Reader) (*BlockUndo, error) {
 	return bu, nil
 }
 
-func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, cache *utxo.CoinsViewCache) DisconnectResult {
+func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex,
+	cache *utxo.CoinsViewCache) DisconnectResult {
 	clean := true
 	if len(undo.txundo)+1 != len(block.Txs) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
@@ -166,7 +170,7 @@ func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, 
 			}
 
 			txundo := undo.txundo[i-1]
-			if len(txundo.prevOut) != len(tx.Ins) {
+			if len(txundo.PrevOut) != len(tx.Ins) {
 				fmt.Println("DisconnectBlock(): transaction and undo data inconsistent")
 				return DisconnectFailed
 			}
@@ -174,7 +178,7 @@ func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, 
 			for k := len(tx.Ins); k > 0; {
 				k--
 				outpoint := tx.Ins[k].PreviousOutPoint
-				c := txundo.prevOut[k]
+				c := txundo.PrevOut[k]
 				res := UndoCoinSpend(c, cache, outpoint)
 				if res == DisconnectFailed {
 					return DisconnectFailed
@@ -193,25 +197,8 @@ func ApplyBlockUndo(undo *BlockUndo, block *core.Block, index *core.BlockIndex, 
 	return DisconnectUnclean
 }
 
-func UpdateCoins(tx *core.Tx, inputs *utxo.CoinsViewCache, undo *TxUndo, height int) {
-	// Mark inputs spent.
-	if !(tx.IsCoinBase()) {
-		for _, txin := range tx.Ins {
-			undo.prevOut = append(undo.prevOut, utxo.NewEmptyCoin())
-
-			isSpent := inputs.SpendCoin(txin.PreviousOutPoint, undo.prevOut[len(undo.prevOut)-1])
-			if !isSpent {
-				panic("the coin is spent ..")
-			}
-		}
-	}
-
-	// Add outputs.
-	utxo.AddCoins(*inputs, *tx, height)
-}
-
 func newTxUndo() *TxUndo {
 	return &TxUndo{
-		prevOut: make([]*utxo.Coin, 0),
+		PrevOut: make([]*utxo.Coin, 0),
 	}
 }

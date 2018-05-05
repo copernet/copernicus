@@ -1,10 +1,10 @@
 package blockchain
 
 import (
-	"fmt"
 	"math"
 	"sync"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/net/msg"
 )
@@ -56,23 +56,23 @@ type AbstractThresholdConditionChecker interface {
 	Threshold(params *msg.BitcoinParams) int
 }
 
-var versionBitsCache VersionBitsCache // todo waring: there is a global variable(used as cache)
+var VBCache *VersionBitsCache // todo waring: there is a global variable(used as cache)
 
 type VersionBitsCache struct {
 	sync.RWMutex
-	cache [msg.MaxVersionBitsDeployments]ThresholdConditionCache
+	cache [consensus.MaxVersionBitsDeployments]ThresholdConditionCache
 }
 
 func NewVersionBitsCache() *VersionBitsCache {
-	var cache [msg.MaxVersionBitsDeployments]ThresholdConditionCache
-	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
+	var cache [consensus.MaxVersionBitsDeployments]ThresholdConditionCache
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		cache[i] = make(ThresholdConditionCache)
 	}
 	return &VersionBitsCache{cache: cache}
 }
 
 func (vbc *VersionBitsCache) Clear() {
-	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		vbc.cache[i] = make(ThresholdConditionCache)
 	}
 }
@@ -87,23 +87,23 @@ func NewWarnBitsCache(bitNum int) []ThresholdConditionCache {
 	return w
 }
 
-func VersionBitsState(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
+func VersionBitsState(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
 	vc := &VersionBitsConditionChecker{id: pos}
 	return GetStateFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsStateSinceHeight(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos msg.DeploymentPos, vbc *VersionBitsCache) int {
+func VersionBitsStateSinceHeight(indexPrev *core.BlockIndex, params *msg.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) int {
 	vc := &VersionBitsConditionChecker{id: pos}
 	return GetStateSinceHeightFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsMask(params *msg.BitcoinParams, pos msg.DeploymentPos) uint32 {
+func VersionBitsMask(params *msg.BitcoinParams, pos consensus.DeploymentPos) uint32 {
 	vc := VersionBitsConditionChecker{id: pos}
 	return uint32(vc.Mask(params))
 }
 
 type VersionBitsConditionChecker struct {
-	id msg.DeploymentPos
+	id consensus.DeploymentPos
 }
 
 func (vc *VersionBitsConditionChecker) BeginTime(params *msg.BitcoinParams) int64 {
@@ -123,14 +123,17 @@ func (vc *VersionBitsConditionChecker) Threshold(params *msg.BitcoinParams) int 
 }
 
 func (vc *VersionBitsConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
-	return ((int64(index.Version) & VersionBitsTopMask) == VersionBitsTopBits) && (index.Version&vc.Mask(params)) != 0
+	return ((int64(index.Header.Version) & VersionBitsTopMask) == VersionBitsTopBits) &&
+		(index.Header.Version&vc.Mask(params)) != 0
 }
 
 func (vc *VersionBitsConditionChecker) Mask(params *msg.BitcoinParams) int32 {
 	return int32(1) << uint(params.Deployments[vc.id].Bit)
 }
 
-func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockIndex, params *msg.BitcoinParams, cache ThresholdConditionCache) ThresholdState {
+func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockIndex,
+	params *msg.BitcoinParams, cache ThresholdConditionCache) ThresholdState {
+
 	nPeriod := vc.Period(params)
 	nThreshold := vc.Threshold(params)
 	nTimeStart := vc.BeginTime(params)
@@ -190,13 +193,8 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *core.BlockInde
 		case ThresholdStarted:
 			{
 				if indexPrev.GetMedianTimePast() >= nTimeTimeout {
-					fmt.Println("********* height : ", indexPrev.Height)
-					//panic("jjjjjjj")
 					stateNext = ThresholdFailed
 					break
-				}
-				if indexPrev.Height == 2999 {
-					fmt.Println("GetStateFor time : ", indexPrev.GetMedianTimePast())
 				}
 				// We need to count
 				indexCount := indexPrev
@@ -248,9 +246,6 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *cor
 	// The parent of the genesis block is represented by nullptr.
 	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
 	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
-	if indexPrev.Height == 2999 {
-		fmt.Println("initialState : ", initialState)
-	}
 	for previousPeriodParent != nil && GetStateFor(vc, previousPeriodParent, params, cache) == initialState {
 		indexPrev = previousPeriodParent
 		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
@@ -288,26 +283,30 @@ func (w *WarningBitsConditionChecker) Threshold(params *msg.BitcoinParams) int {
 
 func (w *WarningBitsConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
 
-	return int64(index.Version)&VersionBitsTopMask == VersionBitsTopBits &&
-		((index.Version)>>uint(w.bit))&1 != 0 &&
-		(ComputeBlockVersion(index.Prev, params, GVersionBitsCache)>>uint(w.bit))&1 == 0
+	return int64(index.Header.Version)&VersionBitsTopMask == VersionBitsTopBits &&
+		((index.Header.Version)>>uint(w.bit))&1 != 0 &&
+		(ComputeBlockVersion(index.Prev, params, VBCache)>>uint(w.bit))&1 == 0
 }
 
 func ComputeBlockVersion(indexPrev *core.BlockIndex, params *msg.BitcoinParams, t *VersionBitsCache) int {
 	version := VersionBitsTopBits
 
-	for i := 0; i < int(msg.MaxVersionBitsDeployments); i++ {
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		state := func() ThresholdState {
 			t.Lock()
 			defer t.Unlock()
-			v := VersionBitsState(indexPrev, params, msg.DeploymentPos(i), t)
+			v := VersionBitsState(indexPrev, params, consensus.DeploymentPos(i), t)
 			return v
 		}()
 
 		if state == ThresholdLockedIn || state == ThresholdStarted {
-			version |= int(VersionBitsMask(params, msg.DeploymentPos(i)))
+			version |= int(VersionBitsMask(params, consensus.DeploymentPos(i)))
 		}
 	}
 
 	return version
+}
+
+func init() {
+	VBCache = NewVersionBitsCache()
 }

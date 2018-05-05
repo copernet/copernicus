@@ -2,6 +2,7 @@ package policy
 
 import (
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/crypto"

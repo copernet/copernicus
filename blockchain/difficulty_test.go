@@ -52,9 +52,11 @@ func TestCompactToBig(t *testing.T) {
 			return
 		}
 	}
+
 }
 
 func TestGetBlockProofEquivalentTime(t *testing.T) {
+
 	blocks := make([]*core.BlockIndex, 10000)
 	for i := uint32(0); i < 10000; i++ {
 		blocks[i] = &core.BlockIndex{}
@@ -62,8 +64,8 @@ func TestGetBlockProofEquivalentTime(t *testing.T) {
 			blocks[i].Prev = blocks[i-1]
 		}
 		blocks[i].Height = int(i)
-		blocks[i].Time = 1269211443 + i*uint32(msg.ActiveNetParams.TargetTimePerBlock)
-		blocks[i].Bits = 0x207fffff
+		blocks[i].Header.Time = 1269211443 + i*uint32(msg.ActiveNetParams.TargetTimePerBlock)
+		blocks[i].Header.Bits = 0x207fffff
 		blocks[i].ChainWork = *big.NewInt(0)
 		if i > 0 {
 			blocks[i].ChainWork = *(big.NewInt(0)).Add(&blocks[i-1].ChainWork, GetBlockProof(blocks[i]))
@@ -80,6 +82,6 @@ func TestGetBlockProofEquivalentTime(t *testing.T) {
 				tdiff, int64(p1.GetBlockTime())-int64(p2.GetBlockTime()))
 			return
 		}
-
 	}
+
 }

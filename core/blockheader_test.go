@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/btcboost/copernicus/utils"
@@ -80,5 +79,4 @@ func TestBlockHeaderGetHash(t *testing.T) {
 				blkHash.ToString(), firstBlockHash.ToString())
 		}
 	}
-	fmt.Println("blockHead : ", blHe.ToString())
 }

@@ -1,9 +1,9 @@
 package blockchain
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
@@ -19,7 +19,7 @@ type ConditionChecker struct {
 	cache ThresholdConditionCache
 }
 
-//var tcc = ConditionChecker{cache: make(ThresholdConditionCache)}
+// var tcc = ConditionChecker{cache: make(ThresholdConditionCache)}
 
 func (tc *ConditionChecker) BeginTime(params *msg.BitcoinParams) int64 {
 	return testTime(10000)
@@ -35,13 +35,13 @@ func (tc *ConditionChecker) Threshold(params *msg.BitcoinParams) int {
 	return 900
 }
 func (tc *ConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
-	return index.Version&0x100 != 0
+	return index.Header.Version&0x100 != 0
 }
 
 func (tc *ConditionChecker) GetStateFor(indexPrev *core.BlockIndex) ThresholdState {
 	v := GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 	if indexPrev != nil && indexPrev.Height == 2999 {
-		fmt.Println("state : ", v)
+		//fmt.Println("state : ", v)
 	}
 	return v
 }
@@ -96,7 +96,7 @@ func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
 	return versionBitsTester
 }
 
-//Mine the block, util the blockChain height equal height - 1.
+// Mine the block, util the blockChain height equal height - 1.
 func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersion int32) *VersionBitsTester {
 	for len(versionBitsTester.block) < height {
 		index := &core.BlockIndex{}
@@ -106,8 +106,8 @@ func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersi
 		if len(versionBitsTester.block) > 0 {
 			index.Prev = versionBitsTester.block[len(versionBitsTester.block)-1]
 		}
-		index.Time = uint32(nTime)
-		index.Version = nVersion
+		index.Header.Time = uint32(nTime)
+		index.Header.Version = nVersion
 		index.BuildSkip()
 		versionBitsTester.block = append(versionBitsTester.block, index)
 	}
@@ -141,7 +141,6 @@ func (versionBitsTester *VersionBitsTester) TestDefined(t *testing.T) *VersionBi
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
-				//fmt.Printf("blocks number is : %d%d%d\n", len(versionBitsTester.block), len(versionBitsTester.block), len(versionBitsTester.block) )
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
 
@@ -215,17 +214,14 @@ func (versionBitsTester *VersionBitsTester) TestActive(t *testing.T) *VersionBit
 }
 
 func (versionBitsTester *VersionBitsTester) TestFailed(t *testing.T) *VersionBitsTester {
-	fmt.Println("\n\nTestFailed")
-	for i := 0; i < 3; i++ {
+	for i := 0; i < CHECKERS; i++ {
 		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
-				fmt.Println("99999999999999999999")
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
 			} else {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(versionBitsTester.block[len(versionBitsTester.block)-1])
 			}
-			//fmt.Println("tmpThreshold : ", tmpThreshold)
 			if tmpThreshold != ThresholdFailed {
 				t.Errorf("Test %d for FAILED, actual state : %d, expect state : THRESHOLD_FAILED\n", versionBitsTester.num, tmpThreshold)
 			}
@@ -452,9 +448,9 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	mainnetParams := msg.MainNetParams
 
 	// Use the TESTDUMMY deployment for testing purposes.
-	bit := mainnetParams.Deployments[msg.DeploymentTestDummy].Bit
-	startTime := mainnetParams.Deployments[msg.DeploymentTestDummy].StartTime
-	timeout := mainnetParams.Deployments[msg.DeploymentTestDummy].Timeout
+	bit := mainnetParams.Deployments[consensus.DeploymentTestDummy].Bit
+	startTime := mainnetParams.Deployments[consensus.DeploymentTestDummy].StartTime
+	timeout := mainnetParams.Deployments[consensus.DeploymentTestDummy].Timeout
 
 	if startTime >= timeout {
 		t.Error("startTime should be less than timeout value")
@@ -477,7 +473,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 		return
 	}
 
-	//Now , the next block version bit should be VERSIONBITS_TOP_BITS
+	// Now , the next block version bit should be VERSIONBITS_TOP_BITS
 	// Mine 2011 more blocks at the old time, and check that CBV isn't setting
 	// the bit yet.
 	for i := 1; i < 2012; i++ {

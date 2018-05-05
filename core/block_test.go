@@ -32,7 +32,8 @@ func TestParseBlock(t *testing.T) {
 	}
 
 	if blockHeadFirst.BlockHeader.Version != 1 {
-		t.Errorf("ParseBlock() return the version data %d should be equal 1", blockHeadFirst.BlockHeader.Version)
+		t.Errorf("ParseBlock() return the version data %d should be equal 1",
+			blockHeadFirst.BlockHeader.Version)
 	}
 	if blockHeadFirst.Size != uint32(len(blockHead)) {
 		t.Errorf("ParseBlock() return the size data %d "+

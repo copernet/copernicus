@@ -64,7 +64,7 @@ func WriteContentInFile(blockChain *BlockChain) error {
 	return err
 }
 
-func createBlockChiain() (*BlockChain, error) {
+func createBlockChain() (*BlockChain, error) {
 	path := os.TempDir()
 	var magic = [4]byte{1, 0, 0, 0}
 	testBlockChain, err := ParseBlockchain(path, magic)
@@ -75,14 +75,15 @@ func createBlockChiain() (*BlockChain, error) {
 }
 
 func TestBlockChainFetchNextBlock(t *testing.T) {
-	testBlockChain, err := createBlockChiain()
+	testBlockChain, err := createBlockChain()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	testBlockChain.CurrentFile.Close()
 
-	testBlockChain.CurrentFile, err = os.OpenFile(blkFileName(testBlockChain.Path, testBlockChain.CurrentID), os.O_RDWR, 0666)
+	testBlockChain.CurrentFile, err = os.OpenFile(blkFileName(testBlockChain.Path,
+		testBlockChain.CurrentID), os.O_RDWR, 0666)
 	if err != nil {
 		t.Error(err)
 		return
@@ -113,7 +114,7 @@ func TestBlockChainFetchNextBlock(t *testing.T) {
 }
 
 func TestBlockChainSkipTo(t *testing.T) {
-	testBlockChain, err := createBlockChiain()
+	testBlockChain, err := createBlockChain()
 	if err != nil {
 		t.Error(err)
 		return
@@ -132,13 +133,14 @@ func TestBlockChainSkipTo(t *testing.T) {
 }
 
 func WriteNextFile() error {
-	testBlockChain, err := createBlockChiain()
+	testBlockChain, err := createBlockChain()
 	if err != nil {
 		return err
 	}
 	testBlockChain.CurrentFile.Close()
 
-	testBlockChain.CurrentFile, err = os.OpenFile(blkFileName(testBlockChain.Path, testBlockChain.CurrentID+1), os.O_RDWR, 0666)
+	testBlockChain.CurrentFile, err = os.OpenFile(blkFileName(testBlockChain.Path,
+		testBlockChain.CurrentID+1), os.O_RDWR, 0666)
 	if err != nil {
 		return err
 	}
@@ -155,7 +157,7 @@ func TestBlockChainNextBlock(t *testing.T) {
 		return
 	}
 
-	testBlockChain, err := createBlockChiain()
+	testBlockChain, err := createBlockChain()
 	if err != nil {
 		t.Error(err)
 		return
@@ -174,7 +176,7 @@ func TestBlockChainNextBlock(t *testing.T) {
 }
 
 func TestBlockChainBestBlockHash(t *testing.T) {
-	testBlockChain, err := createBlockChiain()
+	testBlockChain, err := createBlockChain()
 	if err != nil {
 		t.Error(err)
 		return
@@ -205,7 +207,7 @@ func TestBlockChainBestBlockHash(t *testing.T) {
 }
 
 func TestBlockChainSkipBlock(t *testing.T) {
-	testBlockChain, err := createBlockChiain()
+	testBlockChain, err := createBlockChain()
 	if err != nil {
 		t.Error(err)
 		return

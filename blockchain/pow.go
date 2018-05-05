@@ -10,14 +10,15 @@ import (
 
 type Pow struct{}
 
-func (pow *Pow) GetNextWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) GetNextWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader,
+	params *msg.BitcoinParams) uint32 {
 	if indexPrev == nil {
 		return BigToCompact(params.PowLimit)
 	}
 
 	// Special rule for regTest: we never retarget.
 	if params.FPowNoRetargeting {
-		return indexPrev.Bits
+		return indexPrev.Header.Bits
 	}
 
 	if indexPrev.GetMedianTimePast() >= params.CashHardForkActivationTime {
@@ -27,12 +28,13 @@ func (pow *Pow) GetNextWorkRequired(indexPrev *core.BlockIndex, blHeader *core.B
 	return pow.getNextEDAWorkRequired(indexPrev, blHeader, params)
 }
 
-func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlockTime int64, params *msg.BitcoinParams) uint32 {
+func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlockTime int64,
+	params *msg.BitcoinParams) uint32 {
 	if params.FPowNoRetargeting {
-		return indexPrev.Bits
+		return indexPrev.Header.Bits
 	}
 
-	//Limit adjustment step
+	// Limit adjustment step
 	actualTimeSpan := indexPrev.GetBlockTime() - uint32(firstBlockTime)
 	if actualTimeSpan < uint32(params.TargetTimespan/4) {
 		actualTimeSpan = uint32(params.TargetTimespan / 4)
@@ -43,7 +45,7 @@ func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlock
 	}
 
 	// Retarget
-	bnNew := CompactToBig(indexPrev.Bits)
+	bnNew := CompactToBig(indexPrev.Header.Bits)
 	bnNew.Mul(bnNew, big.NewInt(int64(actualTimeSpan)))
 	bnNew.Div(bnNew, big.NewInt(int64(params.TargetTimespan)))
 	if bnNew.Cmp(params.PowLimit) > 0 {
@@ -52,14 +54,15 @@ func (pow *Pow) calculateNextWorkRequired(indexPrev *core.BlockIndex, firstBlock
 	return BigToCompact(bnNew)
 }
 
-//GetNextCashWorkRequired Compute the next required proof of work using a weighted
+// GetNextCashWorkRequired Compute the next required proof of work using a weighted
 // average of the estimated hashRate per block.
 //
-//Using a weighted average ensure that the timestamp parameter cancels out in
-//most of the calculation - except for the timestamp of the first and last
-//block. Because timestamps are the least trustworthy information we have as
-//input, this ensures the algorithm is more resistant to malicious inputs.
-func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader, params *msg.BitcoinParams) uint32 {
+// Using a weighted average ensure that the timestamp parameter cancels out in
+// most of the calculation - except for the timestamp of the first and last
+// block. Because timestamps are the least trustworthy information we have as
+// input, this ensures the algorithm is more resistant to malicious inputs.
+func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *core.BlockHeader,
+	params *msg.BitcoinParams) uint32 {
 	if indexPrev == nil {
 		panic("This cannot handle the genesis block and early blocks in general.")
 	}
@@ -71,7 +74,7 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *co
 		return BigToCompact(params.PowLimit)
 	}
 
-	// Compute the difficulty based on the full adjustement interval.
+	// Compute the difficulty based on the full adjustment interval.
 	if int64(indexPrev.Height) < params.DifficultyAdjustmentInterval() {
 		panic("this height should not less than params.DifficultyAdjustmentInterval()")
 	}
@@ -79,7 +82,7 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *co
 	// Get the last suitable block of the difficulty interval.
 	indexLast := pow.getSuitableBlock(indexPrev)
 	if indexLast == nil {
-		panic("the pindexLast value should not equal nil")
+		panic("the indexLast value should not equal nil")
 	}
 
 	// Get the first suitable block of the difficulty interval.
@@ -99,8 +102,9 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *core.BlockIndex, blHeader *co
 }
 
 // getNextEDAWorkRequired Compute the next required proof of work using the
-// legacy Bitcoin difficulty adjustement + Emergency Difficulty Adjustement (EDA).
-func (pow *Pow) getNextEDAWorkRequired(indexPrev *core.BlockIndex, pblock *core.BlockHeader, params *msg.BitcoinParams) uint32 {
+// legacy Bitcoin difficulty adjustment + Emergency Difficulty Adjustment (EDA).
+func (pow *Pow) getNextEDAWorkRequired(indexPrev *core.BlockIndex, pblock *core.BlockHeader,
+	params *msg.BitcoinParams) uint32 {
 
 	// Only change once per difficulty adjustment interval
 	nHeight := indexPrev.Height + 1
@@ -111,12 +115,12 @@ func (pow *Pow) getNextEDAWorkRequired(indexPrev *core.BlockIndex, pblock *core.
 		}
 
 		nHeightFirst := nHeight - int(params.DifficultyAdjustmentInterval())
-		pindexFirst := indexPrev.GetAncestor(nHeightFirst)
-		if pindexFirst == nil {
+		indexFirst := indexPrev.GetAncestor(nHeightFirst)
+		if indexFirst == nil {
 			panic("the blockIndex should not equal nil")
 		}
 
-		return pow.calculateNextWorkRequired(indexPrev, int64(pindexFirst.GetBlockTime()), params)
+		return pow.calculateNextWorkRequired(indexPrev, int64(indexFirst.GetBlockTime()), params)
 	}
 
 	nProofOfWorkLimit := BigToCompact(params.PowLimit)
@@ -130,15 +134,15 @@ func (pow *Pow) getNextEDAWorkRequired(indexPrev *core.BlockIndex, pblock *core.
 		// Return the last non-special-min-difficulty-rules-block
 		index := indexPrev
 		for index.Prev != nil && int64(index.Height)%params.DifficultyAdjustmentInterval() != 0 &&
-			index.Bits == nProofOfWorkLimit {
+			index.Header.Bits == nProofOfWorkLimit {
 			index = index.Prev
 		}
 
-		return index.Bits
+		return index.Header.Bits
 	}
 
 	// We can't go bellow the minimum, so early bail.
-	bits := indexPrev.Bits
+	bits := indexPrev.Header.Bits
 	if bits == nProofOfWorkLimit {
 		return nProofOfWorkLimit
 	}
@@ -185,10 +189,10 @@ func (pow *Pow) computeTarget(indexFirst, indexLast *core.BlockIndex, params *ms
 
 	// In order to avoid difficulty cliffs, we bound the amplitude of the
 	// adjustement we are going to do.
-	if indexLast.Time <= indexFirst.Time {
+	if indexLast.Header.Time <= indexFirst.Header.Time {
 		panic("indexLast time should greater than indexFirst time ")
 	}
-	actualTimeSpan := indexLast.Time - indexFirst.Time
+	actualTimeSpan := indexLast.Header.Time - indexFirst.Header.Time
 	if actualTimeSpan > uint32(288*params.TargetTimePerBlock) {
 		actualTimeSpan = uint32(288 * params.TargetTimePerBlock)
 	} else if actualTimeSpan < uint32(72*params.TargetTimePerBlock) {
@@ -209,24 +213,24 @@ func (pow *Pow) getSuitableBlock(index *core.BlockIndex) *core.BlockIndex {
 		panic("This block height should not less than 3")
 	}
 
-	//In order to avoid a block is a very skewed timestamp to have too much
-	//influence, we select the median of the 3 top most blocks as a starting
-	//point.
+	// In order to avoid a block is a very skewed timestamp to have too much
+	// influence, we select the median of the 3 top most blocks as a starting
+	// point.
 	blocks := make([]*core.BlockIndex, 3)
 	blocks[2] = index
 	blocks[1] = index.Prev
 	blocks[0] = blocks[1].Prev
 
 	// Sorting network.
-	if blocks[0].Time > blocks[2].Time {
+	if blocks[0].Header.Time > blocks[2].Header.Time {
 		blocks[0], blocks[2] = blocks[2], blocks[0]
 	}
 
-	if blocks[0].Time > blocks[1].Time {
+	if blocks[0].Header.Time > blocks[1].Header.Time {
 		blocks[0], blocks[1] = blocks[1], blocks[0]
 	}
 
-	if blocks[1].Time > blocks[2].Time {
+	if blocks[1].Header.Time > blocks[2].Header.Time {
 		blocks[1], blocks[2] = blocks[2], blocks[1]
 	}
 

@@ -16,55 +16,50 @@ import (
  */
 
 type BlockIndex struct {
-	//! pointer to the hash of the block, if any.
+	Header BlockHeader
+	// pointer to the hash of the block, if any.
 	BlockHash utils.Hash
-	//! pointer to the index of the predecessor of this block
+	// pointer to the index of the predecessor of this block
 	Prev *BlockIndex
-	//! pointer to the index of some further predecessor of this block
+	// pointer to the index of some further predecessor of this block
 	Skip *BlockIndex
-	//! height of the entry in the chain. The genesis block has height 0；
+	// height of the entry in the chain. The genesis block has height 0；
 	Height int
-	//! Which # file this block is stored in (blk?????.dat)
+	// Which # file this block is stored in (blk?????.dat)
 	File int
-	//! Byte offset within blk?????.dat where this block's data is stored
+	// Byte offset within blk?????.dat where this block's data is stored
 	DataPos int
-	//! Byte offset within rev?????.dat where this block's undo data is stored
+	// Byte offset within rev?????.dat where this block's undo data is stored
 	UndoPos int
-	//! (memory only) Total amount of work (expected number of hashes) in the
-	//! chain up to and including this block
+	// (memory only) Total amount of work (expected number of hashes) in the
+	// chain up to and including this block
 	ChainWork big.Int
-	//! Number of transactions in this block.
-	//! Note: in a potential headers-first mode, this number cannot be relied
-	//! upon
+	// Number of transactions in this block.
+	// Note: in a potential headers-first mode, this number cannot be relied
+	// upon
 	TxCount int
-	//! (memory only) Number of transactions in the chain up to and including
-	//! this block.
-	//! This value will be non-zero only if and only if transactions for this
-	//! block and all its parents are available. Change to 64-bit type when
-	//! necessary; won't happen before 2030
+	// (memory only) Number of transactions in the chain up to and including
+	// this block.
+	// This value will be non-zero only if and only if transactions for this
+	// block and all its parents are available. Change to 64-bit type when
+	// necessary; won't happen before 2030
 	ChainTxCount int
-	//! Verification status of this block. See enum BlockStatus
+	// Verification status of this block. See enum BlockStatus
 	Status uint32
-	// block header
-	Version    int32
-	MerkleRoot utils.Hash
-	Time       uint32
-	Bits       uint32
-	Nonce      uint32
-	//! (memory only) Sequential id assigned to distinguish order in which
-	//! blocks are received.
+	// (memory only) Sequential id assigned to distinguish order in which
+	// blocks are received.
 	SequenceID int32
-	//! (memory only) Maximum time in the chain upto and including this block.
+	// (memory only) Maximum time in the chain upto and including this block.
 	TimeMax uint32
 }
 
 const medianTimeSpan = 11
 
 func (blIndex *BlockIndex) SetNull() {
+	blIndex.Header.SetNull()
 	blIndex.BlockHash = utils.Hash{}
 	blIndex.Prev = nil
 	blIndex.Skip = nil
-	blIndex.MerkleRoot = utils.Hash{}
 
 	blIndex.Height = 0
 	blIndex.File = 0
@@ -76,15 +71,21 @@ func (blIndex *BlockIndex) SetNull() {
 	blIndex.Status = 0
 	blIndex.SequenceID = 0
 	blIndex.TimeMax = 0
-
-	blIndex.Version = 0
-	blIndex.Time = 0
-	blIndex.Bits = 0
-	blIndex.Nonce = 0
 }
 
-func (blIndex *BlockIndex) AddToBlockIndex() {
+func (blIndex *BlockIndex) DelBlockIndex() bool {
+	_, exist := BlockIndexMap[blIndex.BlockHash]
+	if exist {
+		delete(BlockIndexMap, blIndex.BlockHash)
+		return true
+	}
+	return false
+}
 
+func (blIndex *BlockIndex) ReadBlockIndex(hash *utils.Hash) *BlockIndex {
+	// The caller should justify return value by comparing to nil
+	// to be sure for validation
+	return BlockIndexMap[blIndex.BlockHash]
 }
 
 func (blIndex *BlockIndex) GetBlockPos() DiskBlockPos {
@@ -107,17 +108,8 @@ func (blIndex *BlockIndex) GetUndoPos() DiskBlockPos {
 	return ret
 }
 
-func (blIndex *BlockIndex) GetBlockHeader() BlockHeader {
-	bl := BlockHeader{}
-	bl.Version = blIndex.Version
-	if blIndex.Prev != nil {
-		bl.HashPrevBlock = *blIndex.Prev.GetBlockHash()
-	}
-	bl.MerkleRoot = blIndex.MerkleRoot
-	bl.Time = blIndex.Time
-	bl.Bits = blIndex.Bits
-	bl.Nonce = blIndex.Nonce
-	return bl
+func (blIndex *BlockIndex) GetBlockHeader() *BlockHeader {
+	return &blIndex.Header
 }
 
 func (blIndex *BlockIndex) GetBlockHash() *utils.Hash {
@@ -125,7 +117,7 @@ func (blIndex *BlockIndex) GetBlockHash() *utils.Hash {
 }
 
 func (blIndex *BlockIndex) GetBlockTime() uint32 {
-	return blIndex.Time
+	return blIndex.Header.Time
 }
 
 func (blIndex *BlockIndex) GetBlockTimeMax() uint32 {
@@ -152,7 +144,7 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 // IsValid checks whether this block index entry is valid up to the passed validity
 // level.
 func (blIndex *BlockIndex) IsValid(upto uint32) bool {
-	//Only validity flags allowed.
+	// Only validity flags allowed.
 	if upto&(^BlockValidMask) != 0 {
 		panic("Only validity flags allowed.")
 	}
@@ -162,10 +154,10 @@ func (blIndex *BlockIndex) IsValid(upto uint32) bool {
 	return (blIndex.Status & BlockValidMask) >= upto
 }
 
-//RaiseValidity Raise the validity level of this block index entry.
-//Returns true if the validity was changed.
+// RaiseValidity Raise the validity level of this block index entry.
+// Returns true if the validity was changed.
 func (blIndex *BlockIndex) RaiseValidity(upto uint32) bool {
-	//Only validity flags allowed.
+	// Only validity flags allowed.
 	if upto&(^BlockValidMask) != 0 {
 		panic("Only validity flags allowed.")
 	}
@@ -190,7 +182,7 @@ func invertLowestOne(n int) int {
 	return n & (n - 1)
 }
 
-//getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
+// getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
 func getSkipHeight(height int) int {
 	if height < 2 {
 		return 0
@@ -205,7 +197,7 @@ func getSkipHeight(height int) int {
 	return invertLowestOne(height)
 }
 
-//GetAncestor efficiently find an ancestor of this block.
+// GetAncestor efficiently find an ancestor of this block.
 func (blIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
 	if height > blIndex.Height || height < 0 {
 		return nil
@@ -235,16 +227,12 @@ func (blIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
 func (blIndex *BlockIndex) ToString() string {
 	hash := blIndex.GetBlockHash()
 	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", blIndex.Prev,
-		blIndex.Height, blIndex.MerkleRoot.ToString(), hash.ToString())
+		blIndex.Height, blIndex.Header.MerkleRoot.ToString(), hash.ToString())
 }
 
 func NewBlockIndex(blkHeader *BlockHeader) *BlockIndex {
 	blockIndex := new(BlockIndex)
 	blockIndex.SetNull()
-	blockIndex.Version = blkHeader.Version
-	blockIndex.MerkleRoot = blkHeader.MerkleRoot
-	blockIndex.Time = blkHeader.Time
-	blockIndex.Bits = blkHeader.Bits
-	blockIndex.Nonce = blkHeader.Nonce
+	blockIndex.Header = *blkHeader
 	return blockIndex
 }

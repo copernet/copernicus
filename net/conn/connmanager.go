@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/logger"
 	"github.com/pkg/errors"
 )
 
@@ -17,8 +16,6 @@ const (
 	defaultTargetOutbound = uint32(8)
 	maxFailedAttempts     = 25
 )
-
-var log *logs.BeeLogger
 
 type ConnectManager struct {
 	connRequestCount uint64
@@ -56,7 +53,7 @@ func (connectManager *ConnectManager) handleFailedConnect(connectRequest *Connec
 		if duration > maxRetryDuration {
 			duration = maxRetryDuration
 		}
-		log.Debug("Retrying connection to %v in %v", connectRequest, duration)
+		logs.Debug("Retrying connection to %v in %v", connectRequest, duration)
 		time.AfterFunc(duration, func() {
 			connectManager.Connect(connectRequest)
 		})
@@ -64,7 +61,7 @@ func (connectManager *ConnectManager) handleFailedConnect(connectRequest *Connec
 	} else if connectManager.listener.GetNewAddress != nil {
 		connectManager.failedAttempts++
 		if connectManager.failedAttempts >= maxFailedAttempts {
-			log.Debug("max failed connection attempts reached :[%d]--retrying connection in:%v",
+			logs.Debug("max failed connection attempts reached :[%d]--retrying connection in:%v",
 				maxFailedAttempts, connectManager.listener.RetryDuration)
 			time.AfterFunc(connectManager.listener.RetryDuration, func() {
 				connectManager.NewConnectRequest()
@@ -84,7 +81,7 @@ func (connectManager *ConnectManager) Connect(connectRequest *ConnectRequest) {
 		atomic.StoreUint64(&connectRequest.id, atomic.AddUint64(&connectManager.connRequestCount, 1))
 
 	}
-	log.Debug("attempting to conn to %v ", connectRequest)
+	logs.Debug("attempting to conn to %v ", connectRequest)
 	conn, err := connectManager.listener.Dial(connectRequest.Address)
 	if err != nil {
 		connectManager.requests <- handleFailed{connectRequest, err}
@@ -109,33 +106,33 @@ func (connectManager *ConnectManager) Remove(id uint64) {
 }
 
 func (connectManager *ConnectManager) listenHandler(listener net.Listener) {
-	log.Info("server listening on %s", listener.Addr())
+	logs.Info("server listening on %s", listener.Addr())
 	for atomic.LoadInt32(&connectManager.stop) == 0 {
 		conn, err := listener.Accept()
 		if err != nil {
 			if atomic.LoadInt32(&connectManager.stop) == 0 {
-				log.Error("Can't accept connection :%v", err)
+				logs.Error("Can't accept connection :%v", err)
 			}
 			continue
 		}
 		go connectManager.listener.OnAccept(conn)
 	}
 	connectManager.waitGroup.Done()
-	log.Trace("Listener handler done for %s", listener.Addr())
+	logs.Trace("Listener handler done for %s", listener.Addr())
 }
 
 func (connectManager *ConnectManager) NewConnectRequest() {
 	//if atomic.LoadInt32(&connectManager.stop) != 0 {
 	//	return
 	//}
-	log.Debug("NewConnectRequest ")
+	logs.Debug("NewConnectRequest ")
 	if connectManager.listener.GetNewAddress == nil {
 		return
 	}
 	connectRequest := &ConnectRequest{}
 	atomic.StoreUint64(&connectRequest.id, atomic.AddUint64(&connectManager.connRequestCount, 1))
 	address, err := connectManager.listener.GetNewAddress()
-	log.Debug("NewConnectRequest :%s", address)
+	logs.Debug("NewConnectRequest :%s", address)
 	if err != nil {
 		connectManager.requests <- handleFailed{connectRequest, err}
 		return
@@ -156,7 +153,7 @@ out:
 				connectRequest.updateState(ConnectEstablished)
 				connectRequest.Conn = msg.conn
 				conns[connectRequest.id] = connectRequest
-				log.Debug("connected to %v", connectRequest)
+				logs.Debug("connected to %v", connectRequest)
 				connectRequest.retryCount = 0
 				connectManager.failedAttempts = 0
 				if connectManager.listener.OnConnection != nil {
@@ -168,7 +165,7 @@ out:
 					if connectRequest.Conn != nil {
 						connectRequest.Conn.Close()
 					}
-					log.Debug("Disconnected from %v", connectRequest)
+					logs.Debug("Disconnected from %v", connectRequest)
 					delete(conns, msg.id)
 					if connectManager.listener.OnDisconnection != nil {
 						go connectManager.listener.OnDisconnection(connectRequest)
@@ -177,13 +174,13 @@ out:
 						connectManager.handleFailedConnect(connectRequest)
 					}
 				} else {
-					log.Error("unknown connecting :%d", msg.id)
+					logs.Error("unknown connecting :%d", msg.id)
 				}
 
 			case handleFailed:
 				connectRequest := msg.connectRequest
 				connectRequest.updateState(ConnectFailed)
-				log.Debug("failed to conn to %v :%v", connectRequest, msg.err)
+				logs.Debug("failed to conn to %v :%v", connectRequest, msg.err)
 				connectManager.handleFailedConnect(connectRequest)
 
 			}
@@ -197,13 +194,13 @@ out:
 
 func (connectManager *ConnectManager) Start() {
 	if atomic.AddInt32(&connectManager.start, 1) != 1 {
-		log.Trace("Connection manager return")
+		logs.Trace("Connection manager return")
 		return
 	}
-	log.Trace("Connection manager started")
+	logs.Trace("Connection manager started")
 	connectManager.waitGroup.Add(1)
 	go connectManager.connectHandler()
-	log.Trace("Connection manager connectHandler")
+	logs.Trace("Connection manager connectHandler")
 	if connectManager.listener.OnAccept != nil {
 		for _, listener := range connectManager.listener.Listeners {
 			connectManager.waitGroup.Add(1)
@@ -211,7 +208,7 @@ func (connectManager *ConnectManager) Start() {
 		}
 	}
 	for i := atomic.LoadUint64(&connectManager.connRequestCount); i < uint64(connectManager.listener.TargetOutbound); i++ {
-		log.Trace("Connection manager NewConnectRequest")
+		logs.Trace("Connection manager NewConnectRequest")
 		go connectManager.NewConnectRequest()
 	}
 
@@ -223,14 +220,14 @@ func (connectManager *ConnectManager) Wait() {
 
 func (connectManager *ConnectManager) Stop() {
 	if atomic.AddInt32(&connectManager.stop, 1) != 1 {
-		log.Warn("connection manager already stopped")
+		logs.Warn("connection manager already stopped")
 		return
 	}
 	for _, listener := range connectManager.listener.Listeners {
 		_ = listener.Close()
 	}
 	close(connectManager.quit)
-	log.Trace("connection manager stopped")
+	logs.Trace("connection manager stopped")
 }
 
 func NewConnectManager(listener *ConnectListener) (*ConnectManager, error) {
@@ -251,8 +248,4 @@ func NewConnectManager(listener *ConnectListener) (*ConnectManager, error) {
 		quit:     make(chan struct{}),
 	}
 	return &connectManager, nil
-}
-
-func init() {
-	log = logger.GetLogger()
 }

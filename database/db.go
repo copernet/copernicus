@@ -3,7 +3,6 @@ package database
 import (
 	"crypto/rand"
 	"errors"
-	//"log"
 	"os"
 	"path/filepath"
 
@@ -98,10 +97,12 @@ func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 			return nil, err
 		}
 	}
+
 	err := os.MkdirAll(do.FilePath, 0740)
 	if err != nil && !os.IsExist(err) {
 		return nil, err
 	}
+
 	db, err := lvldb.OpenFile(do.FilePath, &opts)
 	if err != nil {
 		return nil, err

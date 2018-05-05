@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/config"
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/utils"
 )
 
@@ -47,20 +46,19 @@ type AppConfig struct {
 }
 
 func init() {
-	log := logs.NewLogger()
 	_, err := config.NewConfig("ini", "init.conf")
 	if err != nil {
-		log.Error(err.Error())
+		fmt.Println(err)
 	}
-	//todo unable to pass in unit test
-	//if appConf != nil {
-	//	contentTimeout := appConf.String("Timeout::connectTimeout")
-	//	log.Info("read conf timeout is  %s", contentTimeout)
-	//	logDir := appConf.String("Log::dir")
-	//	log.Info("logger dir is %s", logDir)
-	//	logLevel := appConf.String("Log::level")
-	//	log.Info("logger dir is %s", logLevel)
-	//}
+	// todo unable to pass in unit test
+	// if appConf != nil {
+	// 	contentTimeout := appConf.String("Timeout::connectTimeout")
+	// 	log.Info("read conf timeout is  %s", contentTimeout)
+	// 	logDir := appConf.String("Log::dir")
+	// 	log.Info("logger dir is %s", logDir)
+	// 	logLevel := appConf.String("Log::level")
+	// 	log.Info("logger dir is %s", logLevel)
+	// }
 	AppConf = loadConfig()
 }
 

@@ -3,6 +3,7 @@ package blockchain
 import (
 	"sync/atomic"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/container"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/mempool"
@@ -20,9 +21,9 @@ type ChainState struct {
 	MapBlockIndex    BlockMap
 	IndexBestInvalid *core.BlockIndex
 
-	//* The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself
-	//* and all ancestors) and as good as our current tip or better. Entries may be
-	//* failed, though, and pruning nodes may be missing the data for the block.
+	// The set of all CBlockIndex entries with BLOCK_VALID_TRANSACTIONS (for itself
+	// and all ancestors) and as good as our current tip or better. Entries may be
+	// failed, though, and pruning nodes may be missing the data for the block.
 	setBlockIndexCandidates *container.CustomSet
 
 	// All pairs A->B, where A (or one of its ancestors) misses transactions, but B
@@ -32,19 +33,18 @@ type ChainState struct {
 
 // Global status for blockChain
 var (
-	//GChainState Global unique variables
-	GChainState       ChainState
-	GImporting        atomic.Value
-	GMaxTipAge        int64
-	GMemPool          *mempool.Mempool
-	GCoinsTip         *utxo.CoinsViewCache
-	GBlockTree        *BlockTreeDB
-	GMinRelayTxFee    utils.FeeRate
-	Pool              *mempool.TxMempool
-	GfReindex         = false
-	GnCoinCacheUsage  = 5000 * 300
-	GWarningCache     []ThresholdConditionCache
-	GVersionBitsCache *VersionBitsCache
+	// GChainState Global unique variables
+	GChainState      ChainState
+	GImporting       atomic.Value
+	GMaxTipAge       int64
+	GMemPool         *mempool.TxMempool
+	GCoinsTip        *utxo.CoinsViewCache
+	GBlockTree       *BlockTreeDB
+	GMinRelayTxFee   utils.FeeRate
+	Pool             *mempool.TxMempool
+	GfReindex        = false
+	GnCoinCacheUsage = 5000 * 300
+	GWarningCache    []ThresholdConditionCache
 )
 
 var (
@@ -63,10 +63,10 @@ var (
 	//* that should be deleted. Set on startup or if we allocate more file space when
 	//* we're in prune mode.
 	GCheckForPruning    = false
-	GCheckpointsEnabled = DefaultCheckPointsEnabled
+	GCheckpointsEnabled = consensus.DefaultCheckPointsEnabled
 	GCheckBlockIndex    = false
 	GRequireStandard    = true
-	GIsBareMultiSigStd  = DefaultPermitBareMultiSig
+	GIsBareMultiSigStd  = consensus.DefaultPermitBareMultiSig
 )
 
 const (
@@ -95,9 +95,8 @@ func init() {
 	GChainState.MapBlocksUnlinked = make(map[*core.BlockIndex][]*core.BlockIndex)
 	GChainState.setBlockIndexCandidates = container.NewCustomSet(BlockIndexWorkComparator)
 	GImporting.Store(false)
-	GMaxTipAge = DefaultMaxTipAge
+	GMaxTipAge = consensus.DefaultMaxTipAge
 	GMinRelayTxFee.SataoshisPerK = int64(DefaultMinRelayTxFee)
-	GMemPool = mempool.NewMemPool(GMinRelayTxFee)
+	GMemPool = mempool.NewTxMempool()
 	GWarningCache = NewWarnBitsCache(VersionBitsNumBits)
-	GVersionBitsCache = NewVersionBitsCache()
 }

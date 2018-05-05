@@ -31,6 +31,7 @@ func ParseBlockchain(path string, magic [4]byte) (*BlockChain, error) {
 	bc.CurrentFile = f
 	return &bc, nil
 }
+
 func (bc *BlockChain) NextBlock() (*Block, error) {
 	rawBlock, err := bc.FetchNextBlock()
 	if err != nil {
@@ -104,7 +105,7 @@ func (bc *BlockChain) SkipTo(blkID uint32, offset int64) (err error) {
 func (bc *BlockChain) BestBlockHash() (utils.Hash, int32, error) {
 	bc.Lock.Lock()
 	defer bc.Lock.Unlock()
-	return bc.LastBlock.Hash, bc.LastBlock.Height, nil
+	return *bc.LastBlock.Hash, bc.LastBlock.Height, nil
 
 }
 

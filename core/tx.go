@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
@@ -59,6 +60,80 @@ const (
 	MinTxInPayload            = 9 + utils.Hash256Size
 	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
 	TxVersion                 = 1
+)
+
+const (
+	/*DefaultMaxGeneratedBlockSize default for -blockMaxsize, which controls the maximum size of block the
+	 * mining code will create **/
+	DefaultMaxGeneratedBlockSize uint64 = 2 * OneMegaByte
+	/** Default for -blockprioritypercentage, define the amount of block space
+	 * reserved to high priority transactions **/
+
+	DefaultBlockPriorityPercentage uint64= 5
+
+	/*DefaultBlockMinTxFee default for -blockMinTxFee, which sets the minimum feeRate for a transaction
+	 * in blocks created by mining code **/
+	DefaultBlockMinTxFee uint = 1000
+
+	MaxStandardVersion = 2
+
+	/*MaxStandardTxSize the maximum size for transactions we're willing to relay/mine */
+	MaxStandardTxSize uint = 100000
+
+	/*MaxP2SHSigOps maximum number of signature check operations in an IsStandard() P2SH script*/
+	MaxP2SHSigOps uint = 15
+
+	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
+	MaxStandardTxSigOps = uint(MaxTxSigOpsCount / 5)
+
+	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
+	DefaultMaxMemPoolSize uint = 300
+
+	/** Default for -incrementalrelayfee, which sets the minimum feerate increase
+ 	* for mempool limiting or BIP 125 replacement **/
+	DefaultIncrementalRelayFee int64 = 1000
+
+	/** Default for -bytespersigop */
+	DefaultBytesPerSigop uint= 20
+
+	/** The maximum number of witness stack items in a standard P2WSH script */
+	MaxStandardP2WSHStackItems uint = 100
+
+	/*MaxStandardP2WSHStackItemSize the maximum size of each witness stack item in a standard P2WSH script */
+	MaxStandardP2WSHStackItemSize uint = 80
+
+	/*MaxStandardP2WSHScriptSize the maximum size of a standard witnessScript */
+	MaxStandardP2WSHScriptSize uint = 3600
+
+
+	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
+	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
+	// but in the future other flags may be added, such as a soft-fork to enforce
+	// strict DER encoding.
+	//
+	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
+	// details.
+	MandatoryScriptVerifyFlags uint =
+		ScriptVerifyP2SH | ScriptVerifyStrictEnc |
+			ScriptEnableSighashForkid | ScriptVerifyLowS | ScriptVerifyNullFail
+
+	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
+	 * with. However scripts violating these flags may still be present in valid
+	 * blocks and we must accept those blocks.
+	 */
+	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
+		ScriptVerifyMinmalData | ScriptVerifyNullDummy |
+		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
+		ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
+		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
+		ScriptVerifyDiscourageUpgradableWitnessProgram
+
+	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
+	StandardNotMandatoryVerifyFlags uint= StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
+
+	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
+	 * non-core code. */
+	StandardLockTimeVerifyFlags uint = LocktimeVerifySequence | LocktimeMedianTimePast
 )
 
 type Tx struct {
@@ -327,10 +402,8 @@ func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool)
 		return false
 	}
 
-	// check size
-	if tx.SerializeSize() > MaxTxSize {
-		state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
-		return false
+	if tx.SerializeSize() > consensus.MaxTxSize {
+		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 	}
 
 	// check outputs money
@@ -598,6 +671,7 @@ func (tx *Tx) Copy() *Tx {
 		}
 		newTx.outs = append(newTx.outs, &newTxOut)
 	}
+
 	for _, txIn := range tx.ins {
 		var hashBytes [32]byte
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
@@ -609,7 +683,7 @@ func (tx *Tx) Copy() *Tx {
 		copy(newScript[:], txIn.Script.bytes[:scriptLen])
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
-			PreviousOutPoint: &newOutPoint,
+			PreviousOutPoint: newOutPoint,
 			Script:           NewScriptRaw(newScript),
 		}
 		newTx.ins = append(newTx.ins, &newTxTmp)
@@ -636,7 +710,6 @@ func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 		return 0
 	}
 	return priorityInputs / float64(txModifiedSize)
-
 }
 
 func (tx *Tx) CalculateModifiedSize() int {
@@ -655,7 +728,6 @@ func (tx *Tx) CalculateModifiedSize() int {
 		}
 	}
 	return txSize
-
 }
 
 func (tx *Tx) isFinal(Height int, time int64) bool {

@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"time"
 	"unsafe"
 
 	"github.com/btcboost/copernicus/core"
@@ -9,39 +8,51 @@ import (
 	"github.com/google/btree"
 )
 
-//TxEntry are not safe for concurrent write and read access .
+// TxEntry are not safe for concurrent write and read access .
 type TxEntry struct {
-	tx       *core.Tx
-	txHeight int
-	txSize   int
+	Tx     *core.Tx
+	TxSize int
 	// txFee tis transaction fee
-	txFee     int64
-	txFeeRate utils.FeeRate
-	// sumTxCount is this tx and all Descendants transaction's number.
-	sumTxCountWithDescendants uint64
-	// sumFee is calculated by this tx and all Descendants transaction;
-	sumFeeWithDescendants int64
-	// sumSize size calculated by this tx and all Descendants transaction;
-	sumSizeWithDescendants     uint64
-	sumTxCountWithAncestors    uint64
-	sumSizeWitAncestors        uint64
-	sumSigOpCountWithAncestors uint64
+	TxFee    int64
+	TxHeight int
+	// sigOpCount sigop plus P2SH sigops count
+	SigOpCount int
 	// time Local time when entering the memPool
 	time int64
 	// usageSize and total memory usage
-	usageSize int64
+	usageSize int
 	// childTx the tx's all Descendants transaction
-	childTx map[*TxEntry]struct{}
+	ChildTx map[*TxEntry]struct{}
 	// parentTx the tx's all Ancestors transaction
-	parentTx map[*TxEntry]struct{}
-	//lp Track the height and time at which tx was final
+	ParentTx map[*TxEntry]struct{}
+	// lp Track the height and time at which tx was final
 	lp core.LockPoints
-	//spendsCoinBase keep track of transactions that spend a coinBase
+	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
+	//Statistics Information for every txentry with its ancestors And descend.
+	StatisInformation
 }
 
-func (t *TxEntry) GetTxFromTxEntry() *core.Tx {
-	return t.tx
+type StatisInformation struct {
+	// sumTxCountWithDescendants is this tx and all Descendants transaction's number. init number is 1.
+	SumTxCountWithDescendants int64
+	// sumFeeWithDescendants is calculated by this tx and all Descendants transaction;
+	SumFeeWithDescendants int64
+	// sumSizeWithDescendants size calculated by this tx and all Descendants transaction;
+	SumSizeWithDescendants int64
+
+	SumTxCountWithAncestors    int64
+	SumSizeWitAncestors        int64
+	SumSigOpCountWithAncestors int64
+	SumFeeWithAncestors        int64
+}
+
+func (t *TxEntry) GetSigOpCountWithAncestors() int64 {
+	return t.SumSigOpCountWithAncestors
+}
+
+func (t *TxEntry) GetUsageSize() int64 {
+	return int64(t.usageSize)
 }
 
 func (t *TxEntry) SetLockPointFromTxEntry(lp core.LockPoints) {
@@ -52,44 +63,108 @@ func (t *TxEntry) GetLockPointFromTxEntry() core.LockPoints {
 	return t.lp
 }
 
-func (t *TxEntry) UpdateForDescendants(addTx *TxEntry) {
-
-}
-
-func (t *TxEntry) UpdateEntryForAncestors() {
-
-}
-
 func (t *TxEntry) GetSpendsCoinbase() bool {
 	return t.spendsCoinbase
 }
 
-//UpdateParent update the tx's parent transaction.
-func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
+// UpdateParent update the tx's parent transaction.
+func (t *TxEntry) UpdateParent(parent *TxEntry, innerUsage *int64, add bool) {
 	if add {
-		t.parentTx[parent] = struct{}{}
+		t.ParentTx[parent] = struct{}{}
+		*innerUsage += int64(unsafe.Sizeof(parent))
+		return
 	}
-	delete(t.parentTx, parent)
+	delete(t.ParentTx, parent)
+	*innerUsage -= int64(unsafe.Sizeof(parent))
+}
+
+func (t *TxEntry) UpdateChild(child *TxEntry, innerUsage *int64, add bool) {
+	if add {
+		t.ChildTx[child] = struct{}{}
+		*innerUsage += int64(unsafe.Sizeof(child))
+		return
+	}
+	delete(t.ChildTx, child)
+	*innerUsage -= int64(unsafe.Sizeof(child))
+}
+
+func (t *TxEntry) UpdateDescendantState(updateCount, updateSize int, updateFee int64) {
+	t.SumTxCountWithDescendants += int64(updateCount)
+	t.SumSizeWithDescendants += int64(updateSize)
+	t.SumFeeWithDescendants += updateFee
+}
+
+func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int, updateFee int64) {
+	t.SumSizeWitAncestors += int64(updateSize)
+	t.SumTxCountWithAncestors += int64(updateCount)
+	t.SumSigOpCountWithAncestors += int64(updateSigOps)
+	t.SumFeeWithAncestors += updateFee
 }
 
 func (t *TxEntry) Less(than btree.Item) bool {
-	return t.time < than.(*TxEntry).time
+	th := than.(*TxEntry)
+	if t.time == th.time {
+		return t.Tx.Hash.Cmp(&th.Tx.Hash) > 0
+	}
+	return t.time < th.time
 }
 
-func NewTxentry(tx *core.Tx, txFee int64) *TxEntry {
+func NewTxentry(tx *core.Tx, txFee int64, acceptTime int64, height int, lp core.LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
 	t := new(TxEntry)
-	t.tx = tx
-	t.time = time.Now().Unix()
-	t.txSize = tx.SerializeSize()
-	t.sumSizeWithDescendants = uint64(t.txSize)
-	t.txFee = txFee
-	t.txFeeRate = utils.NewFeeRateWithSize(txFee, t.txSize)
-	t.usageSize = int64(t.txSize) + int64(unsafe.Sizeof(t.txSize)*2+
-		unsafe.Sizeof(t.sumTxCountWithDescendants)*4+unsafe.Sizeof(t.txFeeRate))
-	t.parentTx = make(map[*TxEntry]struct{})
-	t.childTx = make(map[*TxEntry]struct{})
-	t.sumFeeWithDescendants += txFee
-	t.sumTxCountWithDescendants++
+	t.Tx = tx
+	t.time = acceptTime
+	t.TxSize = tx.SerializeSize()
+	t.TxFee = txFee
+	t.usageSize = t.TxSize + int(unsafe.Sizeof(t.lp))
+	t.spendsCoinbase = spendCoinbase
+	t.lp = lp
+	t.TxHeight = height
+
+	t.SumSizeWithDescendants = int64(t.TxSize)
+	t.SumFeeWithDescendants = txFee
+	t.SumTxCountWithDescendants = 1
+
+	t.SumFeeWithAncestors = txFee
+	t.SumSizeWitAncestors = int64(t.TxSize)
+	t.SumTxCountWithAncestors = 1
+	t.SumSigOpCountWithAncestors = int64(sigOpsCount)
+
+	t.ParentTx = make(map[*TxEntry]struct{})
+	t.ChildTx = make(map[*TxEntry]struct{})
 
 	return t
+}
+
+func (t *TxEntry) GetFeeRate() *utils.FeeRate {
+	return utils.NewFeeRateWithSize(t.TxFee, int64(t.TxSize))
+}
+
+func (t *TxEntry) GetInfo() *TxMempoolInfo {
+	return &TxMempoolInfo{
+		Tx:      t.Tx,
+		Time:    t.time,
+		FeeRate: *t.GetFeeRate(),
+	}
+}
+
+type EntryFeeSort TxEntry
+
+func (e EntryFeeSort) Less(than btree.Item) bool {
+	t := than.(EntryFeeSort)
+	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
+		return e.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+	}
+	return e.SumFeeWithAncestors > than.(EntryFeeSort).SumFeeWithAncestors
+}
+
+type EntryAncestorFeeRateSort TxEntry
+
+func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
+	t := than.(EntryAncestorFeeRateSort)
+	b1 := utils.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
+	b2 := utils.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
+	if b1 == b2 {
+		return r.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+	}
+	return b1 > b2
 }

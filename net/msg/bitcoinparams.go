@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
@@ -15,23 +16,12 @@ var ActiveNetParams = &MainNetParams
 
 var (
 	bigOne = big.NewInt(1)
-	//2^224 -1
+	// 2^224 -1
 	mainPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
-	//2^255 -1
+	// 2^255 -1
 	regressingPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
 	testNet3PowLimit   = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
 	simNetPowlimit     = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 225), bigOne)
-)
-
-type DeploymentPos int
-
-const (
-	DeploymentTestDummy DeploymentPos = iota
-	// DeploymentCSV deployment of BIP68, BIP112, and BIP113.
-	DeploymentCSV
-	// MaxVersionBitsDeployments NOTE: Also add new deployments to VersionBitsDeploymentInfo in
-	// versionbits.cpp
-	MaxVersionBitsDeployments
 )
 
 type ChainTxData struct {
@@ -40,36 +30,22 @@ type ChainTxData struct {
 	TxRate  float64
 }
 
-type BIP9Deployment struct {
-	/** Bit position to select the particular bit in nVersion. */
-	Bit int
-	/** Start MedianTime for version bits miner confirmation. Can be a date in
-	 * the past */
-	StartTime int64
-	/** Timeout/expiry MedianTime for the deployment attempt. */
-	Timeout int64
-}
-
 type BitcoinParams struct {
-	Name                         string
-	BitcoinNet                   utils.BitcoinNet
-	DefaultPort                  string
-	DNSSeeds                     []utils.DNSSeed
-	GenesisBlock                 *BlockMessage
-	GenesisHash                  *utils.Hash
-	PowLimit                     *big.Int
-	PowLimitBits                 uint32
-	CoinbaseMaturity             uint16
-	SubsidyReductionInterval     int32
-	TargetTimespan               time.Duration
-	TargetTimePerBlock           time.Duration
-	RetargetAdjustmentFactor     int64
-	ReduceMinDifficulty          bool
-	MinDiffReductionTime         time.Duration
-	GenerateSupported            bool
-	Checkpoints                  []*core.Checkpoint
-	FPowNoRetargeting            bool
-	FPowAllowMinDifficultyBlocks bool
+	consensus.Param
+	Name                     string
+	BitcoinNet               utils.BitcoinNet
+	DefaultPort              string
+	DNSSeeds                 []utils.DNSSeed
+	GenesisBlock             *BlockMessage
+	PowLimitBits             uint32
+	CoinbaseMaturity         uint16
+	SubsidyReductionInterval int32
+	RetargetAdjustmentFactor int64
+	ReduceMinDifficulty      bool
+	MinDiffReductionTime     time.Duration
+	GenerateSupported        bool
+	Checkpoints              []*core.Checkpoint
+	MineBlocksOnDemands      bool
 
 	// Enforce current block version once network has
 	// upgraded.  This is part of BIP0034.
@@ -91,30 +67,8 @@ type BitcoinParams struct {
 	HDPublicKeyID       [4]byte
 	HDCoinType          uint32
 
-	//Block height and hash at which BIP34 becomes active
-	BIP34Height int
-	BIP34Hash   utils.Hash
-
-	//Block height at which BIP65 becomes active
-	BIP65Height int
-	//Block height at which BIP66 becomes active
-	BIP66Height int
-	//Block height at which UAHF kicks in
-	UAHFHeight int
-	//Activation time at which the cash HF kicks in.
-	CashHardForkActivationTime int64
-	//Block height at which OP_RETURN replay protection stops
-	AntiReplayOpReturnSunsetHeight int
-	AntiReplayOpReturnCommitment   []byte
-	RuleChangeActivationThreshold  uint32
-	MinerConfirmationWindow        uint32
-	Deployments                    [MaxVersionBitsDeployments]BIP9Deployment
-	// The best chain should have at least this much work.
-	MinimumChainWork big.Int
-	// By default assume that the signatures in ancestors of this block are valid.
-	DefaultAssumeValid big.Int
-	PruneAfterHeight   int
-	chainTxData        ChainTxData
+	PruneAfterHeight int
+	chainTxData      ChainTxData
 }
 
 func (param *BitcoinParams) TxData() *ChainTxData {
@@ -122,6 +76,28 @@ func (param *BitcoinParams) TxData() *ChainTxData {
 }
 
 var MainNetParams = BitcoinParams{
+	Param: consensus.Param{
+		GenesisHash: &GenesisHash,
+		PowLimit:    mainPowLimit,
+		BIP34Height: 227931,
+		// BIP34Hash:                   utils.Hash{0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8},
+		BIP65Height:                    388381,
+		BIP66Height:                    363725,
+		AntiReplayOpReturnSunsetHeight: 530000,
+		RuleChangeActivationThreshold:  1916,
+		MinerConfirmationWindow:        2016,
+		AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
+		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
+			consensus.DeploymentTestDummy: {Bit: 28, StartTime: 1199145601, Timeout: 1230767999},
+			consensus.DeploymentCSV:       {Bit: 0, StartTime: 1462060800, Timeout: 1493596800},
+		},
+		FPowNoRetargeting:          false,
+		CashHardForkActivationTime: 1510600000,
+		UAHFHeight:                 478559,
+		TargetTimespan:             60 * 60 * 24 * 14,
+		TargetTimePerBlock:         60 * 10,
+	},
+
 	Name:        "mainnet",
 	BitcoinNet:  utils.MainNet,
 	DefaultPort: "8333",
@@ -133,26 +109,12 @@ var MainNetParams = BitcoinParams{
 		{Host: "seed.bitcoinstats.com", HasFiltering: true},
 		{Host: "seed.bitnodes.io", HasFiltering: false},
 	},
-	GenesisBlock:             &GenesisBlock,
-	GenesisHash:              &GenesisHash,
-	PowLimit:                 mainPowLimit,
+	GenesisBlock: &GenesisBlock,
+
 	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	BIP34Height:              227931,
-	//BIP34Hash:                      utils.Hash{0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8},
-	BIP65Height:                    388381,
-	BIP66Height:                    363725,
-	AntiReplayOpReturnSunsetHeight: 530000,
-	RuleChangeActivationThreshold:  1916,
-	MinerConfirmationWindow:        2016,
-	AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
-	Deployments: [MaxVersionBitsDeployments]BIP9Deployment{
-		DeploymentTestDummy: {28, 1199145601, 1230767999},
-		DeploymentCSV:       {0, 1462060800, 1493596800},
-	},
-	TargetTimespan:           60 * 60 * 24 * 14,
-	TargetTimePerBlock:       60 * 10,
+
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      false,
 	MinDiffReductionTime:     0,
@@ -177,6 +139,7 @@ var MainNetParams = BitcoinParams{
 		{352940, utils.HashFromString("000000000000000010755df42dba556bb72be6a32f3ce0b6941ce4430152c9ff")},
 		{382320, utils.HashFromString("00000000000000000a8dc6ed5b133d0eb2fd6af56203e4159789b092defd8ab2")},
 	},
+	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)
@@ -197,30 +160,32 @@ var MainNetParams = BitcoinParams{
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType: 0,
-
-	FPowNoRetargeting:          false,
-	CashHardForkActivationTime: 1510600000,
-	UAHFHeight:                 478559,
 }
 
 var RegressionNetParams = BitcoinParams{
-	Name:                     "regtest",
-	BitcoinNet:               utils.TestNet,
-	DefaultPort:              "18444",
-	DNSSeeds:                 []utils.DNSSeed{},
-	GenesisBlock:             &RegressionTestGenesisBlock,
-	GenesisHash:              &RegressionTestGenesisHash,
-	PowLimit:                 regressingPowLimit,
+	Param: consensus.Param{
+		GenesisHash:        &RegressionTestGenesisHash,
+		PowLimit:           regressingPowLimit,
+		TargetTimespan:     60 * 60 * 24 * 14,
+		TargetTimePerBlock: 60 * 10,
+	},
+
+	Name:         "regtest",
+	BitcoinNet:   utils.TestNet,
+	DefaultPort:  "18444",
+	DNSSeeds:     []utils.DNSSeed{},
+	GenesisBlock: &RegressionTestGenesisBlock,
+
 	PowLimitBits:             RegressionTestGenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 150,
-	TargetTimespan:           60 * 60 * 24 * 14,
-	TargetTimePerBlock:       60 * 10,
+
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        true,
 	Checkpoints:              nil,
+	MineBlocksOnDemands:      false,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)
@@ -244,6 +209,13 @@ var RegressionNetParams = BitcoinParams{
 }
 
 var TestNet3Params = BitcoinParams{
+	Param: consensus.Param{
+		GenesisHash:        &TestNet3GenesisHash,
+		PowLimit:           testNet3PowLimit,
+		TargetTimespan:     60 * 60 * 24 * 14,
+		TargetTimePerBlock: 60 * 10,
+	},
+
 	Name:        "testnet3",
 	BitcoinNet:  utils.TestNet3,
 	DefaultPort: "18333",
@@ -253,13 +225,9 @@ var TestNet3Params = BitcoinParams{
 		{Host: "testnet-seed.bluematt.me", HasFiltering: false},
 	},
 	GenesisBlock:             &TestNet3GenesisBlock,
-	GenesisHash:              &TestNet3GenesisHash,
-	PowLimit:                 testNet3PowLimit,
 	PowLimitBits:             GenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	TargetTimespan:           60 * 60 * 24 * 14,
-	TargetTimePerBlock:       60 * 10,
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
@@ -267,6 +235,7 @@ var TestNet3Params = BitcoinParams{
 	Checkpoints: []*core.Checkpoint{
 		{546, utils.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
 	},
+	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)
@@ -290,18 +259,23 @@ var TestNet3Params = BitcoinParams{
 }
 
 var SimNetParams = BitcoinParams{
-	Name:                     "simnet",
-	BitcoinNet:               utils.SimNet,
-	DefaultPort:              "18555",
-	DNSSeeds:                 []utils.DNSSeed{},
-	GenesisBlock:             &SimNetGenesisBlock,
-	GenesisHash:              &SimNetGenesisHash,
-	PowLimit:                 simNetPowlimit,
+	Param: consensus.Param{
+		GenesisHash:        &SimNetGenesisHash,
+		PowLimit:           simNetPowlimit,
+		TargetTimespan:     60 * 60 * 24 * 14,
+		TargetTimePerBlock: 60 * 10,
+	},
+
+	Name:         "simnet",
+	BitcoinNet:   utils.SimNet,
+	DefaultPort:  "18555",
+	DNSSeeds:     []utils.DNSSeed{},
+	GenesisBlock: &SimNetGenesisBlock,
+
 	PowLimitBits:             SimNetGenesisBlock.Block.BlockHeader.Bits,
 	CoinbaseMaturity:         100,
 	SubsidyReductionInterval: 210000,
-	TargetTimespan:           60 * 60 * 24 * 14,
-	TargetTimePerBlock:       60 * 10,
+
 	RetargetAdjustmentFactor: 4,
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
@@ -375,8 +349,8 @@ func HDPrivateKeyToPublicKeyID(id []byte) ([]byte, error) {
 	}
 	return pubBytes, nil
 }
-func mustRegister(bitcoinParams *BitcoinParams) {
-	err := Register(bitcoinParams)
+func mustRegister(bp *BitcoinParams) {
+	err := Register(bp)
 	if err != nil {
 		panic("failed to register network :" + err.Error())
 	}
@@ -384,14 +358,10 @@ func mustRegister(bitcoinParams *BitcoinParams) {
 	if !ok {
 		panic("error")
 	}
-	bitcoinParams.MinimumChainWork = *work
+	bp.MinimumChainWork = *work
 	work, ok = big.NewInt(0).SetString("000000000000000004694d6c74b532faf99fc072181f870bfb4a6c9930f7440c", 16)
 	if !ok {
 		panic("err")
 	}
-	bitcoinParams.DefaultAssumeValid = *work
-}
-
-func (param *BitcoinParams) DifficultyAdjustmentInterval() int64 {
-	return int64(param.TargetTimespan / param.TargetTimePerBlock)
+	bp.DefaultAssumeValid = *work
 }
