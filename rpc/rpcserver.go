@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -20,14 +21,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"crypto/tls"
-	"runtime"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/btcjson"
@@ -39,7 +38,6 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/peer"
-	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 )
 
@@ -426,6 +424,7 @@ func handleNode(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (inter
 // peerExists determines if a certain peer is currently connected given
 // information about all currently connected peers. Peer existence is
 // determined using either a target address or node id.
+/*
 func peerExists(connMgr RPCServerConnManager, addr string, nodeID int32) bool {
 	for _, p := range connMgr.ConnectedPeers() {
 		if p.ToPeer().ID() == nodeID || p.ToPeer().Addr() == addr {
@@ -434,12 +433,13 @@ func peerExists(connMgr RPCServerConnManager, addr string, nodeID int32) bool {
 	}
 	return false
 }
+*/
 
 // messageToHex serializes a message to the wire protocol encoding using the
 // latest protocol version and returns a hex-encoded string of the result.
 func messageToHex(msg msg.Message) (string, error) {
 	var buf bytes.Buffer
-	if err := msg.BitcoinParse(&buf, maxProtocolVersion); err != nil {
+	if err := msg.BitcoinParse(&buf, maxProtocolVersion); err != nil { // todo check
 		context := fmt.Sprintf("Failed to encode msg of type %T", msg)
 		return "", internalRPCError(err.Error(), context)
 	}
@@ -2708,12 +2708,12 @@ func handleHelp(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (inter
 // handlePing implements the ping command.
 func handlePing(s *RPCServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	// Ask server to ping \o_
-	nonce, err := wire.RandomUint64()
+	nonce, err := utils.RandomUint64()
 	if err != nil {
 		return nil, internalRPCError("Not sending ping - failed to "+
 			"generate nonce: "+err.Error(), "")
 	}
-	s.cfg.ConnMgr.BroadcastMessage(wire.NewMsgPing(nonce))
+	s.cfg.ConnMgr.BroadcastMessage(msg.InitPingMessage(nonce))
 
 	return nil, nil
 }
@@ -4112,7 +4112,7 @@ type RPCServerSyncManager interface {
 	// block in the provided locators until the provided stop hash or the
 	// current tip is reached, up to a max of wire.MaxBlockHeadersPerMsg
 	// hashes.
-	LocateHeaders(locators []*chainhash.Hash, hashStop *chainhash.Hash) []wire.BlockHeader
+	//LocateHeaders(locators []*chainhash.Hash, hashStop *chainhash.Hash) []wire.BlockHeader  todo open
 }
 
 // RPCServerConfig is a descriptor containing the RPC server configuration.
