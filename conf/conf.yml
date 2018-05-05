@@ -10,10 +10,22 @@ http:
   port: 8080
   mode: test
 
-rpc:
-  host: 127.0.0.1
-  port: 9552
-
 log:
   level: error
   format: json
+
+rpc:
+  # rpcuser: default
+  # rpcpass: default
+  # rpclimituser: 0
+  # rpclimitpass:
+  # rpclisten:
+  # rpcmaxclients: 10
+  # rpcmaxwebsockets: 25
+  # rpcquirks: 1
+  # norpc: 1
+  # notls: 1
+
+
+
+

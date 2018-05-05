@@ -3,18 +3,20 @@ package main
 // please ensure init `github.com/btcboost/copernicus/log` firstly,
 // or you will get an error log output.
 import (
+	"errors"
 	"fmt"
+	"os"
+	"syscall"
+
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/database"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/p2p"
+	"github.com/btcboost/copernicus/rpc"
 	"github.com/btcboost/copernicus/utils"
-	"os"
-	"syscall"
-
-	_ "github.com/btcboost/copernicus/log"
 
 	"github.com/astaxie/beego/logs"
+	_ "github.com/btcboost/copernicus/log"
 )
 
 func init() {
@@ -30,6 +32,11 @@ func btcMain() error {
 func main() {
 	logs.Info("application is running")
 	startBitcoin()
+	rpcServer, err := setupRPCServer()
+	if err != nil {
+		panic(err)
+	}
+	rpcServer.Start()
 	if err := btcMain(); err != nil {
 		os.Exit(1)
 	}
@@ -66,6 +73,47 @@ func startBitcoin() error {
 	//}()
 
 	peerManager.Start()
-
 	return nil
+}
+
+func setupRPCServer() (*rpc.Server, error) {
+	if !conf.CFG.DisableRPC {
+		// Setup listeners for the configured RPC listen addresses and
+		// TLS settings.
+		rpcListeners, err := rpc.SetupRPCListeners()
+		if err != nil {
+			return nil, err
+		}
+		if len(rpcListeners) == 0 {
+			return nil, errors.New("RPCS: No valid listen address")
+		}
+
+		rpcServer, err := rpc.NewServer(&rpc.ServerConfig{
+			Listeners: rpcListeners,
+			// todo open
+			//StartupTime: s.startupTime,
+			//ConnMgr: &rpcConnManager{&s},
+			//SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
+			//TimeSource:  s.timeSource,
+			//Chain:       s.chain,
+			//ChainParams: chainParams,
+			//DB:          db,
+			//TxMemPool:   s.txMemPool,
+			//Generator:   blockTemplateGenerator,
+			//CPUMiner:    s.cpuMiner,
+			//TxIndex:     s.txIndex,
+			//AddrIndex:   s.addrIndex,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// Signal process shutdown when the RPC server requests it.
+		go func() {
+			<-rpcServer.RequestedProcessShutdown()
+			shutdownRequestChannel <- struct{}{}
+		}()
+		return rpcServer, nil
+	}
+	return nil, nil
 }
