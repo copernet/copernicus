@@ -1,31 +1,20 @@
-go_version: 1.9.2
-version: 1.0.0
-build_date: 20180428
+#
+GoVersion: 1.9.2
+Version: 1.0.0
+BuildDate: 20180428
 
-service:
-  address: 10.0.0.0/8
+Service:
+  Address: 10.0.0.0/8
 
-http:
-  host: 127.0.0.1
-  port: 8080
-  mode: test
+HTTP:
+  Host: 127.0.0.1
+  Port: 8080
+  Mode: test
 
-log:
-  level: error
-  format: json
+RPC:
+  Host: 127.0.0.1
+  Port: 9552
 
-rpc:
-  # rpcuser: default
-  # rpcpass: default
-  # rpclimituser: 0
-  # rpclimitpass:
-  # rpclisten:
-  # rpcmaxclients: 10
-  # rpcmaxwebsockets: 25
-  # rpcquirks: 1
-  # norpc: 1
-  # notls: 1
-
-
-
-
+Log:
+#  Level: info
+  Format: json

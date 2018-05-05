@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/btcboost/copernicus/btcjson"
-	"github.com/btcsuite/btcutil"
-	flags "github.com/jessevdk/go-flags"
+	"github.com/btcboost/copernicus/utils"
+	"github.com/jessevdk/go-flags"
 )
 
 const (
@@ -26,9 +26,9 @@ const (
 )
 
 var (
-	btcdHomeDir           = btcutil.AppDataDir("btcd", false)
-	btcctlHomeDir         = btcutil.AppDataDir("btcctl", false)
-	btcwalletHomeDir      = btcutil.AppDataDir("btcwallet", false)
+	btcdHomeDir           = utils.AppDataDir("btcd", false)
+	btcctlHomeDir         = utils.AppDataDir("btcctl", false)
+	btcwalletHomeDir      = utils.AppDataDir("btcwallet", false)
 	defaultConfigFile     = filepath.Join(btcctlHomeDir, "btcctl.conf")
 	defaultRPCServer      = "localhost"
 	defaultRPCCertFile    = filepath.Join(btcdHomeDir, "rpc.cert")

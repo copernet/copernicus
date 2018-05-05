@@ -36,7 +36,6 @@ import (
 	"github.com/btcboost/copernicus/mining"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
 // API version constants
@@ -133,7 +132,7 @@ var rpcHandlersBeforeInit = map[string]commandHandler{
 	//"getblockchaininfo":     handleGetBlockChainInfo,
 	//"getblockcount":         handleGetBlockCount,
 	//"getblockhash":          handleGetBlockHash,
-	"getblockheader": handleGetBlockHeader,
+	//"getblockheader": handleGetBlockHeader,
 	//"getblocktemplate":      handleGetBlockTemplate,
 	//"getconnectioncount":    handleGetConnectionCount,
 	//"getcurrentnet":         handleGetCurrentNet,
@@ -1230,6 +1229,7 @@ func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 */
 
 // handleGetBlockHeader implements the getblockheader command.
+/*
 func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetBlockHeaderCmd)
 
@@ -1296,6 +1296,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	}
 	return blockHeaderReply, nil
 }
+*/
 
 // encodeTemplateID encodes the passed details into an ID that can be used to
 // uniquely identify a block template.
