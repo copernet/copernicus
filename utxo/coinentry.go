@@ -59,6 +59,6 @@ func (coinEntry *CoinEntry) GetSerKey() []byte {
 func NewCoinEntry(outPoint *core.OutPoint) *CoinEntry {
 	coinEntry := new(CoinEntry)
 	coinEntry.outpoint = outPoint
-	//coinEntry.key = database.DB_COIN
+	coinEntry.key = DB_COIN
 	return coinEntry
 }

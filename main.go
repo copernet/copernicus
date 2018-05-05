@@ -15,6 +15,7 @@ import (
 	_ "github.com/btcboost/copernicus/log"
 
 	"github.com/astaxie/beego/logs"
+	"copernicus/utxo"
 )
 
 func init() {
@@ -52,6 +53,7 @@ func startBitcoin() error {
 	}
 	defer db.Close()
 	fmt.Println("InitDB finish")
+	utxo.InitUtxo(utxo.UtxoConfig{})
 	peerManager, err := p2p.NewPeerManager(conf.AppConf.Listeners, *db, msg.ActiveNetParams)
 	if err != nil {
 		fmt.Printf("unable to start server on %v:%v \n", conf.AppConf.Listeners, err)

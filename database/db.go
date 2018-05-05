@@ -19,6 +19,21 @@ const (
 	obfuscateKeyLen = 8
 )
 
+
+
+const (
+	DbCoin       byte = 'C'
+	DbCoins      byte = 'c'
+	DbBlockFiles byte = 'f'
+	DbTxIndex    byte = 't'
+	DbBlockIndex byte = 'b'
+
+	DbBestBlock   byte = 'B'
+	DbFlag        byte = 'F'
+	DbReindexFlag byte = 'R'
+	DbLastBlock   byte = 'l'
+)
+
 const (
 	preallocKeySize   = 64
 	preallocValueSize = 1024

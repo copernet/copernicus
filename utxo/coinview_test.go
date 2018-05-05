@@ -23,7 +23,7 @@ type CoinsViewCacheTest struct {
 func newCoinsViewCacheTest() *CoinsViewCacheTest {
 	return &CoinsViewCacheTest{
 		CoinsViewCache: CoinsViewCache{
-			CacheCoins: make(CacheCoins),
+			cacheCoins: make(CacheCoins),
 		},
 	}
 }
@@ -47,23 +47,25 @@ func newCoinsViewTest() *CoinsViewTest {
 	}
 }
 
-func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *core.OutPoint, coin *Coin) bool {
+
+func (coinsViewTest *CoinsViewTest) GetCoin(outPoint *core.OutPoint) (*Coin, error){
 	c, ok := coinsViewTest.coinMap[*outPoint]
 	if !ok {
-		return false
+		return nil, nil
 	}
-	tmp := DeepCopyCoin(c)
-	coin.TxOut = tmp.TxOut
-	coin.HeightAndIsCoinBase = tmp.HeightAndIsCoinBase
-	if coin.IsSpent() && InsecureRandBool() {
-		return false
+
+	if c.IsSpent() && InsecureRandBool() {
+		return nil, nil
 	}
-	return true
+	return c, nil
 }
 
 func (coinsViewTest *CoinsViewTest) HaveCoin(point *core.OutPoint) bool {
-	var coin *Coin
-	return coinsViewTest.GetCoin(point, coin)
+	coin, err := coinsViewTest.GetCoin(point)
+	if (coin!=nil && err==nil){
+		return true
+	}
+	return false
 }
 
 func (coinsViewTest *CoinsViewTest) GetBestBlock() utils.Hash {
@@ -73,35 +75,34 @@ func (coinsViewTest *CoinsViewTest) EstimateSize() uint64 {
 	return 0
 }
 
-func (coinsViewTest *CoinsViewTest) BatchWrite(cacheCoins CacheCoins, hashBlock *utils.Hash) bool {
-	for outPoint, entry := range cacheCoins {
-		if entry.Flags&DIRTY != 0 {
+func (coinsViewTest *CoinsViewTest) BatchWrite(cacheCoins *CacheCoins, hashBlock *utils.Hash) error {
+	for outPoint, entry := range *cacheCoins {
+		if entry.dirty {
 			// Same optimization used in CCoinsViewDB is to only write dirty entries.
-			tmp := DeepCopyCoin(entry.Coin)
-			coinsViewTest.coinMap[outPoint] = &tmp
+			coinsViewTest.coinMap[outPoint] = entry.Coin
 			if entry.Coin.IsSpent() && InsecureRand32()%3 == 0 {
 				// Randomly delete empty entries on write.
 				delete(coinsViewTest.coinMap, outPoint)
 			}
 		}
 	}
-	cacheCoins = make(CacheCoins)
+	cacheCoins = new(CacheCoins)
 	if !hashBlock.IsNull() {
 		coinsViewTest.hashBestBlock = *hashBlock
 	}
 
-	return true
+	return nil
 }
 
 func (coinsViewCacheTest *CoinsViewCacheTest) SelfTest() {
 	// Manually recompute the dynamic usage of the whole data, and compare it.
 	var ret int64
 	var count int
-	for _, entry := range coinsViewCacheTest.CacheCoins {
+	for _, entry := range coinsViewCacheTest.cacheCoins {
 		ret += entry.Coin.DynamicMemoryUsage()
 		count++
 	}
-	if len(coinsViewCacheTest.CacheCoins) != count {
+	if len(coinsViewCacheTest.cacheCoins) != count {
 		panic("count error")
 	}
 
@@ -114,18 +115,18 @@ func IsEqualCoin(c1 *Coin, c2 *Coin) bool {
 	if c1.IsSpent() && c2.IsSpent() {
 		return true
 	}
-	return c1.HeightAndIsCoinBase == c2.HeightAndIsCoinBase && IsEqualTxOut(c1.TxOut, c2.TxOut)
+	return c1.IsCoinBase() == c2.IsCoinBase()&&c1.GetHeight() == c2.GetHeight() && IsEqualTxOut(c1.GetTxOut(), c2.GetTxOut())
 }
 
 func IsEqualTxOut(o1 *core.TxOut, o2 *core.TxOut) bool {
-	if o1.Script == nil && o2.Script == nil {
-		return o1.Value == o2.Value
+	if o1.GetScriptPubKey() == nil && o2.GetScriptPubKey() == nil {
+		return o1.GetValue() == o2.GetValue()
 	}
 
-	if o1.Script != nil && o2.Script != nil {
-		bytes1 := o1.Script.GetScriptByte()
-		bytes2 := o2.Script.GetScriptByte()
-		if o1.Value != o2.Value || len(bytes1) != len(bytes2) {
+	if o1.GetScriptPubKey() != nil && o2.GetScriptPubKey() != nil {
+		bytes1 := o1.GetScriptPubKey().GetScriptByte()
+		bytes2 := o2.GetScriptPubKey().GetScriptByte()
+		if o1.GetValue() != o2.GetValue() || len(bytes1) != len(bytes2) {
 			return false
 		}
 		for i := 0; i < len(bytes1); i++ {
@@ -236,27 +237,26 @@ func TestCoinsCacheSimulation(t *testing.T) {
 
 			if InsecureRandRange(5) == 0 || coin.IsSpent() {
 				var newTxOut core.TxOut
-				newTxOut.Value = int64(InsecureRand32())
+				newTxOut.GetValue() = int64(InsecureRand32())
 				if InsecureRandRange(16) == 0 && coin.IsSpent() {
-					newTxOut.Script = core.NewScriptRaw(bytes.Repeat([]byte{byte(core.OP_RETURN)}, int(InsecureRandBits(6)+1)))
-					if !newTxOut.Script.IsUnspendable() {
+					newTxOut.GetScriptPubKey() = core.NewScriptRaw(bytes.Repeat([]byte{byte(core.OP_RETURN)}, int(InsecureRandBits(6)+1)))
+					if !newTxOut.GetScriptPubKey().IsUnspendable() {
 						t.Error("error IsUnspendable")
 					}
 					addedAnUnspendableEntry = true
 				} else {
 					// Random sizes so we can test memory usage accounting
 					randomBytes := bytes.Repeat([]byte{0}, int(InsecureRandBits(6)+1))
-					newTxOut.Script = core.NewScriptRaw(randomBytes)
+					newTxOut.GetScriptPubKey() = core.NewScriptRaw(randomBytes)
 					if coin.IsSpent() {
 						addedAnEntry = true
 					} else {
 						updatedAnEntry = true
 					}
-					*result[core.OutPoint{Hash: txid, Index: 0}] = DeepCopyCoin(&Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2})
+					result[core.OutPoint{Hash: txid, Index: 0}] = coin
 				}
-				newCoin := Coin{TxOut: &newTxOut, HeightAndIsCoinBase: 2}
-				newnewCoin := DeepCopyCoin(&newCoin)
-				stack[len(stack)-1].AddCoin(&core.OutPoint{Hash: txid, Index: 0}, newnewCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
+				newCoin := coin
+				stack[len(stack)-1].AddCoin(&core.OutPoint{Hash: txid, Index: 0}, *newCoin, !coin.IsSpent() || (InsecureRand32()&1 != 0))
 			} else {
 				removedAnEntry = true
 				result[core.OutPoint{Hash: txid, Index: 0}].Clear()
@@ -307,8 +307,8 @@ func TestCoinsCacheSimulation(t *testing.T) {
 			// Every 100 iterations, flush an intermediate cache
 			if len(stack) > 1 && InsecureRandBool() {
 				flushIndex := InsecureRandRange(uint64(len(stack) - 1))
-				for out, item := range stack[0].CacheCoins {
-					fmt.Println(out.Hash.ToString(), item.Coin.TxOut.Value, item.Coin.HeightAndIsCoinBase, item.Flags)
+				for out, item := range stack[0].cacheCoins {
+					fmt.Println(out.Hash.ToString(), item.Coin.txOut.GetValue(), item.Coin.GetHeight(),item.Coin.IsCoinBase(), item.dirty,item.fresh)
 				}
 				stack[flushIndex].Flush()
 			}
@@ -327,7 +327,7 @@ func TestCoinsCacheSimulation(t *testing.T) {
 				//Add a new cache
 				tip := newCoinsViewCacheTest()
 				if len(stack) > 0 {
-					tip.Base = stack[len(stack)-1]
+					//todo tip.Base = stack[len(stack)-1]
 				} else {
 					tip.Base = backed
 					removedAllCaches = true
@@ -462,7 +462,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 
 			tx1.Ins = append(tx1.Ins, core.NewTxIn(nil, []byte{}))
 			tx1.Outs = make([]*core.TxOut, 1)
-			tx1.Outs[0] = core.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
+			//tx1.Outs[0] = core.NewTxOut(int64(i), bytes.Repeat([]byte{0}, int(InsecureRand32())&0x3F))
 
 			height := InsecureRand32()
 			var oldCoin = NewEmptyCoin()
@@ -643,7 +643,7 @@ func TestUpdateCoinsSimulation(t *testing.T) {
 				tip := newCoinsViewCacheTest()
 
 				if len(stack) > 0 {
-					tip.Base = stack[len(stack)-1]
+					//todo tip.Base = stack[len(stack)-1]
 				} else {
 					tip.Base = backed
 				}
@@ -689,7 +689,7 @@ func UndoCoinSpend(undo *Coin, view *CoinsViewCache, out *core.OutPoint) Disconn
 		// This is somewhat ugly, but hopefully utility is limited. This is only
 		// useful when working from legacy on disck data. In any case, putting
 		// the correct information in there doesn't hurt.
-		undo = NewCoin(undo.TxOut, alternate.GetHeight(), alternate.IsCoinBase())
+		undo = NewCoin(undo.txOut, alternate.GetHeight(), alternate.IsCoinBase())
 	}
 	view.AddCoin(out, *undo, undo.IsCoinBase())
 	if fClean {
@@ -723,8 +723,8 @@ const (
 	VALUE1  utils.Amount = 100
 	VALUE2  utils.Amount = 200
 	VALUE3  utils.Amount = 300
-	DIRTY                = CoinEntryDirty
-	FRESH                = CoinEntryFresh
+	DIRTY                = 1
+	FRESH                = 2
 	NoEntry              = -1
 )
 
@@ -735,7 +735,7 @@ var (
 )
 
 type SingleEntryCacheTest struct {
-	root  CoinsView
+	root  coinsView
 	base  *CoinsViewCacheTest
 	cache *CoinsViewCacheTest
 }
@@ -751,7 +751,7 @@ func NewSingleEntryCacheTest(baseValue utils.Amount, cacheValue utils.Amount, ca
 	} else {
 		WriteCoinViewEntry(base, baseValue, DIRTY)
 	}
-	cache.cachedCoinsUsage += InsertCoinMapEntry(cache.CacheCoins, cacheValue, cacheFlags)
+	cache.cachedCoinsUsage += InsertCoinMapEntry(cache.cacheCoins, cacheValue, cacheFlags)
 	return &SingleEntryCacheTest{
 		root:  root,
 		base:  base,
@@ -759,10 +759,10 @@ func NewSingleEntryCacheTest(baseValue utils.Amount, cacheValue utils.Amount, ca
 	}
 }
 
-func WriteCoinViewEntry(view CoinsView, value utils.Amount, flags int) {
+func WriteCoinViewEntry(view coinsView, value utils.Amount, flags int) {
 	cacheCoins := make(CacheCoins)
 	InsertCoinMapEntry(cacheCoins, value, flags)
-	view.BatchWrite(cacheCoins, &utils.Hash{})
+	view.BatchWrite(&cacheCoins, &utils.Hash{})
 }
 
 func InsertCoinMapEntry(cacheCoins CacheCoins, value utils.Amount, flags int) int64 {
@@ -778,7 +778,9 @@ func InsertCoinMapEntry(cacheCoins CacheCoins, value utils.Amount, flags int) in
 	coin := NewEmptyCoin()
 	SetCoinValue(value, coin)
 	coinsCacheEntry := NewCoinsCacheEntry(coin)
-	coinsCacheEntry.Flags = uint8(flags)
+	coinsCacheEntry.dirty = flags&1==1
+	coinsCacheEntry.fresh = flags&2==2
+
 	_, ok := cacheCoins[OUTPOINT]
 	if ok {
 		panic("add CoinsCacheEntry should success")
@@ -796,8 +798,10 @@ func SetCoinValue(value utils.Amount, coin *Coin) {
 		panic("coin should have spent after calling Clear() function")
 	}
 	if value != PRUNED {
-		coin.TxOut = &core.TxOut{Value: int64(value)}
-		coin.HeightAndIsCoinBase = (1 << 1) | 0
+		coin.txOut = core.NewTxOut()
+		coin.txOut.SetValue(int64(value))
+		coin.isCoinBase=false
+		coin.height=1
 	}
 }
 
@@ -812,12 +816,12 @@ func GetCoinMapEntry(cacheCoins CacheCoins) (utils.Amount, int) {
 		if entry.Coin.IsSpent() {
 			resultValue = PRUNED
 		} else {
-			resultValue = utils.Amount(entry.Coin.TxOut.Value)
+			resultValue = utils.Amount(entry.Coin.txOut.GetValue())
 		}
-		resultFlags = int(entry.Flags)
-		if resultFlags == NoEntry {
-			panic("result_flags should not be equal to NO_ENTRY")
-		}
+		//resultFlags = int(entry.Flags)
+		//if resultFlags == NoEntry {
+		//	panic("result_flags should not be equal to NO_ENTRY")
+		//}
 	}
 	return resultValue, resultFlags
 }
@@ -830,7 +834,7 @@ func CheckAccessCoin(baseValue utils.Amount, cacheValue utils.Amount, expectedVa
 	)
 	singleEntryCacheTest.cache.AccessCoin(&OUTPOINT)
 	singleEntryCacheTest.cache.SelfTest()
-	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
+	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
 
 	if resultValue != expectedValue {
 		panic("expectedValue should be equal to resultValue")
@@ -876,7 +880,7 @@ func CheckSpendCoin(baseValue utils.Amount, cacheValue utils.Amount, expectedVal
 	singleEntryCacheTest.cache.SpendCoin(&OUTPOINT, nil)
 	singleEntryCacheTest.cache.SelfTest()
 
-	resultValue, resultFlags := GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
+	resultValue, resultFlags := GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
 	if expectedValue != resultValue {
 		panic("expectedValue should be equal to resultValue")
 	}
@@ -951,11 +955,12 @@ func CheckAddCoinBase(baseValue utils.Amount, cacheValue utils.Amount, modifyVal
 		}
 	}()
 
-	txOut := core.NewTxOut(int64(modifyValue), []byte{})
+	txOut := core.NewTxOut()
+	txOut.SetValue(int64(modifyValue))
 	coin := NewCoin(txOut, 1, isCoinbase)
 	singleEntryCacheTest.cache.AddCoin(&OUTPOINT, *coin, isCoinbase)
 	singleEntryCacheTest.cache.SelfTest()
-	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
+	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
 }
 
 func CheckAddCoin(cacheValue utils.Amount, modifyValue utils.Amount, expectedValue utils.Amount, cacheFlags int, expectedFlags int, isCoinbase bool) {
@@ -1022,7 +1027,7 @@ func CheckWriteCoin(parentValue utils.Amount, childValue utils.Amount, expectedV
 
 	WriteCoinViewEntry(singleEntryCacheTest.cache, childValue, childFlags)
 	singleEntryCacheTest.cache.SelfTest()
-	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.CacheCoins)
+	resultValue, resultFlags = GetCoinMapEntry(singleEntryCacheTest.cache.cacheCoins)
 }
 
 func TestWriteCoin(t *testing.T) {

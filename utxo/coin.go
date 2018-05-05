@@ -3,13 +3,15 @@ package utxo
 import (
 	"errors"
 	"io"
+	"encoding/binary"
 
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/database"
 )
 
 type Coin struct {
-	txOut               core.TxOut
+	txOut               *core.TxOut
 	height              uint32
 	isCoinBase          bool
 }
@@ -32,14 +34,22 @@ func (coin *Coin) Clear() {
 	coin.isCoinBase = false
 }
 
+
 func (coin *Coin) GetTxOut() *core.TxOut {
-	return &coin.txOut
+	return coin.txOut
 }
 
+func (coin *Coin) GetAmount() utils.Amount {
+	return utils.Amount(coin.txOut.GetValue())
+}
+func (coin *Coin) DynamicMemoryUsage() int64{
+	return int64(binary.Size(coin))
+}
 func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
 		return errors.New("already spent")
 	}
+	w.Write([]byte{database.DbCoin})
 	var bit uint32
 	if coin.isCoinBase {
 		bit = 1
@@ -48,11 +58,13 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	if err := utils.WriteVarLenInt(w, uint64(heightAndIsCoinBase)); err != nil {
 		return err
 	}
-	tc := NewTxoutCompressor(&coin.txOut)
+	tc := NewTxoutCompressor(coin.txOut)
 	return tc.Serialize(w)
 }
 
 func (coin *Coin) Unserialize(r io.Reader) error {
+	buf := make([]byte, 1)
+	r.Read(buf) //read database.DbCoin
 	hicb, err := utils.ReadVarLenInt(r)
 	if err != nil {
 		return err
@@ -62,26 +74,29 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	if (heightAndIsCoinBase & 1) == 1{
 		coin.isCoinBase =  true
 	}
-	tc := NewTxoutCompressor(&coin.txOut)
+	tc := NewTxoutCompressor(coin.txOut)
 	return tc.Unserialize(r)
 }
 
 func NewCoin(out *core.TxOut, height uint32, isCoinBase bool) *Coin {
 
 	return &Coin{
-		txOut:               *out,
-		height:height,
-		isCoinBase:isCoinBase,
+		txOut:               out,
+		height:              height,
+		isCoinBase:          isCoinBase,
     }
 }
 
-type CoinView interface {
-	GetCoin(core.OutPoint) (Coin, bool)
-	HaveCoin(core.OutPoint) bool
-	GetBestBlock() utils.Hash
-	GetHeadBlocks() []utils.Hash
-	BatchWrite(*coinMap, utils.Hash)
+
+func NewEmptyCoin() *Coin {
+
+	return &Coin{
+		txOut:               nil,
+		height: 0,
+		isCoinBase:false,
+	}
 }
+
 
 type CoinViewCursor interface {
 	GetKey() (core.OutPoint, bool)

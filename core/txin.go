@@ -38,7 +38,6 @@ func (txIn *TxIn) Deserialize(reader io.Reader, version int32) error {
 	}
 	txIn.Script = NewScriptRaw(bytes)
 	return protocol.ReadElement(reader, &txIn.Sequence)
-
 }
 func (txIn *TxIn) Serialize(writer io.Writer, version int32) error {
 	var err error
