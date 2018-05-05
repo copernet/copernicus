@@ -74,4 +74,3 @@ func TestSetDefault(t *testing.T) {
 
 	fmt.Println(viper.GetString("Log.Level"))
 }
->>>>>>> e144ad5353a2ecfc20c8a06b7a5b8d71287c248f
