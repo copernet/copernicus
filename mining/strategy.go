@@ -38,7 +38,8 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 
 func sortedByFeeWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	for _, txEntry := range blockchain.GMemPool.PoolData { // todo use global variable
+	poolData := blockchain.GMemPool.GetAllTxEntry()
+	for _, txEntry := range poolData { // todo use global variable
 		b.ReplaceOrInsert(EntryFeeSort(*txEntry))
 	}
 	return b
@@ -59,7 +60,8 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 
 func sortedByFeeRateWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	for _, txEntry := range blockchain.GMemPool.PoolData { // todo use global variable
+	poolData := blockchain.GMemPool.GetAllTxEntry()
+	for _, txEntry := range poolData { // todo use global variable
 		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
 	}
 	return b

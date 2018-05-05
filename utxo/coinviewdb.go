@@ -39,6 +39,10 @@ func (coinsViewDB *CoinsViewDB) HaveCoin(outpoint *core.OutPoint) bool {
 	return coinsViewDB.dbw.Exists(buf.Bytes())
 }
 
+func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
+	var cvc *CoinsViewCache
+	cvc.hashBlock = *hash
+}
 
 func (coinsViewDB *CoinsViewDB) GetBestBlock() utils.Hash {
 	var hashBestChain utils.Hash
@@ -106,7 +110,7 @@ func NewCoinsViewDB(do *database.DBOption) *CoinsViewDB {
 		FilePath:      conf.GetDataPath() + "/chainstate",
 		CacheSize:     do.CacheSize,
 		Wipe:          false,
-		DontObfuscate: true,
+		DontObfuscate: false,
 	})
 
 	if err != nil {

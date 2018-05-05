@@ -1016,7 +1016,7 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 					iKey := i
 					// ikey2 is the position of last non-signature item in
 					// the stack. Top stack item = 1. With
-					// SCRIPT_VERIFY_NULLFAIL, this is used for cleanup if
+					// ScriptVerifyNullFail, this is used for cleanup if
 					// operation fails.
 					iKey2 := nKeysCount + 2
 					i += int(nKeysCount)
@@ -1159,11 +1159,11 @@ func (interpreter *Interpreter) Exec(tx *Tx, nIn int, stack *container.Stack, sc
 	}
 	return true, nil
 }
-
+/*
 func CleanupScriptCode(scriptCode *Script, vchSig []byte, flags uint32) {
 	scriptCode.FindAndDelete(scriptCode)
 }
-
+*/
 func CastToBool(vch []byte) bool {
 	for i := 0; i < len(vch); i++ {
 		if vch[i] != 0 {

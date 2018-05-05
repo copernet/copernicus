@@ -1,5 +1,6 @@
 package utxo
 
+/*
 import (
 	"unsafe"
 
@@ -326,3 +327,4 @@ func AccessByTxid(coinsViewCache *CoinsViewCache, hash *utils.Hash) *Coin {
 	}
 	return NewEmptyCoin()
 }
+*/

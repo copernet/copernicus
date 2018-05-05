@@ -4,9 +4,12 @@ import (
 	"sort"
 
 	"github.com/btcboost/copernicus/utils"
+	"unicode"
 )
 
 // todo, should be protected by lock
+<<<<<<< HEAD:blockchain/chain.go
+=======
 var (
 	ActiveChain   Chain
 	BranchChain   []*BlockIndex
@@ -17,25 +20,35 @@ var (
 	ReceiveID     uint64
 )
 
+var GChainActive *Chain
+
 // Chain An in-memory blIndexed chain of blocks.
+>>>>>>> origin/yyx:core/chain.go
 type Chain struct {
-	Chain []*BlockIndex
+	active   		[]*BlockIndex
+	branch   		[]*BlockIndex
+	waitForTx     	map[utils.Hash]*BlockIndex
+	orphan        	[]*BlockIndex
+	blockIndexMap 	map[utils.Hash]*BlockIndex
+	newestBlock   	*BlockIndex
+	receiveID     	uint64
 }
+
 
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
-func (chain *Chain) Genesis() *BlockIndex {
-	if len(chain.Chain) > 0 {
-		return chain.Chain[0]
+func (c *Chain) Genesis() *BlockIndex {
+	if len(c.active) > 0 {
+		return c.Active[0]
 	}
 
 	return nil
 }
 
 // Tip Returns the blIndex entry for the tip of this chain, or nullptr if none.
-func (chain *Chain) Tip() *BlockIndex {
-	if len(chain.Chain) > 0 {
-		return chain.Chain[len(chain.Chain)-1]
+func (c *Chain) Tip() *BlockIndex {
+	if len(c.active) > 0 {
+		return c.active[len(c.active)-1]
 	}
 
 	return nil
@@ -43,60 +56,54 @@ func (chain *Chain) Tip() *BlockIndex {
 
 // GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
-func (chain *Chain) GetSpecIndex(height int) *BlockIndex {
-	if height < 0 || height >= len(chain.Chain) {
+func (c *Chain) GetIndex(height int) *BlockIndex {
+	if height < 0 || height >= len(c.active) {
 		return nil
 	}
 
-	return chain.Chain[height]
+	return c.active[height]
 }
 
 // Equal Compare two chains efficiently.
-func (chain *Chain) Equal(dst *Chain) bool {
-	return len(chain.Chain) == len(dst.Chain) &&
-		chain.Chain[len(chain.Chain)-1] == dst.Chain[len(dst.Chain)-1]
+func (c *Chain) Equal(dst *Chain) bool {
+	return len(c.active) == len(dst.active) &&
+		c.active[len(c.active)-1] == dst.active[len(dst.active)-1]
 }
 
 // Contains /** Efficiently check whether a block is present in this chain
-func (chain *Chain) Contains(blIndex *BlockIndex) bool {
-	return chain.GetSpecIndex(blIndex.Height) == blIndex
+func (c *Chain) Contains(index *BlockIndex) bool {
+	return c.GetIndex(index.Height) == index
 }
 
 // Next Find the successor of a block in this chain, or nullptr if the given
-// blIndex is not found or is the tip.
-func (chain *Chain) Next(blIndex *BlockIndex) *BlockIndex {
-	if chain.Contains(blIndex) {
-		return chain.GetSpecIndex(blIndex.Height + 1)
+// index is not found or is the tip.
+func (c *Chain) Next(index *BlockIndex) *BlockIndex {
+	if c.Contains(index) {
+		return c.GetIndex(index.Height + 1)
 	}
 	return nil
 }
 
 // Height Return the maximal height in the chain. Is equal to chain.Tip() ?
 // chain.Tip()->nHeight : -1.
-func (chain *Chain) Height() int {
-	return len(chain.Chain) - 1
+func (c *Chain) Height() int {
+	return len(c.active) - 1
 }
 
 // SetTip Set/initialize a chain with a given tip.
-func (chain *Chain) SetTip(blIndex *BlockIndex) {
-	if blIndex == nil {
-		chain.Chain = []*BlockIndex{}
+func (c *Chain) SetTip(index *BlockIndex) {
+	if index == nil {
+		c.active = []*BlockIndex{}
 		return
 	}
 
-	tmp := make([]*BlockIndex, blIndex.Height+1)
-	copy(tmp, chain.Chain)
-	chain.Chain = tmp
-	for blIndex != nil && chain.Chain[blIndex.Height] != blIndex {
-		chain.Chain[blIndex.Height] = blIndex
-		blIndex = blIndex.Prev
+	tmp := make([]*BlockIndex, index.Height+1)
+	copy(tmp, c.active)
+	c.active = tmp
+	for index != nil && c.active[index.Height] != index {
+		c.active[index.Height] = index
+		index = index.Prev
 	}
-}
-
-// GetLocator Return a CBlockLocator that refers to a block in this chain (by default
-// the tip).
-func (chain *Chain) GetLocator(blIndex *BlockIndex) {
-
 }
 
 // FindFork Find the last common block between this chain and a block blIndex entry.

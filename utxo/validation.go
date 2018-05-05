@@ -1,5 +1,6 @@
 package utxo
 
+/*
 import (
 	"fmt"
 	"github.com/btcboost/copernicus/consensus"
@@ -82,3 +83,4 @@ func (coinsViewCache *CoinsViewCache) UpdateCoins(tx *core.Tx, height int) (undo
 	AddCoins(*inputs, *tx, height)
 	return
 }
+*/

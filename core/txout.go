@@ -80,7 +80,25 @@ func (txOut *TxOut) CheckValue(state *ValidationState) bool {
 }
 
 func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool) (succeed bool, pubKeyType int)  {
+	succeed, pubKeyType = txOut.scriptPubKey.CheckScriptPubKey(state)
 
+	if pubKeyType == ScriptNullData {
+		if !AcceptDataCarrier {
+			return false, pubKeyType
+		}
+
+		maxScriptSize uint32 = 0
+
+		if allowLargeOpReturn {
+			maxScriptSize = MaxOpReturnRelayLarge
+		} else {
+			maxScriptSize = MaxOpReturnRelay
+		}
+		if txOut.scriptPubKey.Size() > maxScriptSize {
+			state.Dos(100, false, RejectInvalid, "scriptpubkey too large", false, "")
+			return false, pubKeyType
+		}
+	}
 
 	return
 }
@@ -102,7 +120,6 @@ func (txOut *TxOut) Check() bool {
 	return true
 }
 */
-
 func (txOut *TxOut) SetNull() {
 	txOut.value = -1
 	txOut.scriptPubKey = nil
@@ -110,7 +127,6 @@ func (txOut *TxOut) SetNull() {
 func (txOut *TxOut) IsNull() bool {
 	return txOut.value == -1
 }
-
 func (txOut *TxOut) String() string {
 	return fmt.Sprintf("Value :%d Script:%s", txOut.value, hex.EncodeToString(txOut.scriptPubKey.GetByteCodes()))
 }

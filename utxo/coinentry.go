@@ -2,6 +2,7 @@ package utxo
 
 import (
 	"bytes"
+	"errors"
 	"io"
 
 	"github.com/btcboost/copernicus/core"
@@ -9,46 +10,47 @@ import (
 	"github.com/btcboost/copernicus/database"
 )
 
+var ErrCoinEntry = errors.New("nil CoinEntry")
+
 type CoinEntry struct {
-	outpoint *core.OutPoint
+	outpoint core.OutPoint
 	key      byte
 }
 
-func (coinEntry *CoinEntry) Serialize(writer io.Writer) error {
-	_, err := writer.Write([]byte{coinEntry.key})
+func (ce *CoinEntry) Serialize(w io.Writer) error {
+	if ce == nil {
+		return ErrCoinEntry
+	}
+	_, err := w.Write([]byte{ce.key})
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, coinEntry.outpoint.Hash.GetCloneBytes())
-	if err != nil {
+	if _, err = w.Write(ce.outpoint.Hash[:]); err != nil {
 		return err
 	}
-	err = utils.WriteVarInt(writer, uint64(coinEntry.outpoint.Index))
-	return nil
-
+	err = utils.WriteVarLenInt(w, uint64(ce.outpoint.Index))
+	return err
 }
 
-func DeserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
-	coinEntry = new(CoinEntry)
-	coinEntry.outpoint.Hash = utils.Hash{}
-	keys := make([]byte, 1)
-	_, err = io.ReadFull(reader, keys)
-	if err != nil {
-		return
+func (ce *CoinEntry) Unserialize(r io.Reader) error {
+	if ce == nil {
+		return ErrCoinEntry
 	}
-
-	b, err := utils.ReadVarBytes(reader, 32, "hash")
-	if err != nil {
-		return
+	tmp := make([]byte, 32)
+	if _, err := r.Read(tmp[:1]); err != nil {
+		return err
 	}
-	n, err := utils.ReadVarInt(reader)
-	if err != nil {
-		return
+	ce.key = tmp[0]
+	if _, err := r.Read(tmp); err != nil {
+		return err
 	}
-	coinEntry.key = keys[0]
-	coinEntry.outpoint.Hash.SetBytes(b)
-	coinEntry.outpoint.Index = uint32(n)
-	return
+	copy(ce.outpoint.Hash[:], tmp)
+	n, err := utils.ReadVarLenInt(r)
+	if err != nil {
+		return err
+	}
+	ce.outpoint.Index = uint32(n)
+	return nil
 }
 
 func (coinEntry *CoinEntry) GetSerKey() []byte {

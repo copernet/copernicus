@@ -47,6 +47,7 @@ func (coin *Coin) GetAmount() utils.Amount {
 func (coin *Coin) DynamicMemoryUsage() int64{
 	return int64(binary.Size(coin))
 }
+
 func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
 		return errors.New("already spent")
@@ -98,7 +99,6 @@ func NewEmptyCoin() *Coin {
 		isCoinBase:false,
 	}
 }
-
 
 type CoinViewCursor interface {
 	GetKey() (core.OutPoint, bool)
