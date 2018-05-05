@@ -65,7 +65,7 @@ func (t *TestMemPoolEntry) FromTxToEntry(tx *core.Tx) *TxEntry {
 	return entry
 }
 
-func TestTxMempoolAddTx(t *testing.T) {
+func TestTxMempooladdTx(t *testing.T) {
 	testEntryHelp := NewTestMemPoolEntry()
 
 	txParentPtr := core.NewTx()
@@ -96,84 +96,84 @@ func TestTxMempoolAddTx(t *testing.T) {
 	}
 
 	testPool := NewTxMempool()
-	poolSize := testPool.Size()
+	poolSize := testPool.size()
 	noLimit := uint64(math.MaxUint64)
 
 	// Nothing in pool, remove should do nothing:
-	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
-	if testPool.Size() != poolSize {
+	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	if testPool.size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
-			testPool.Size(), poolSize)
+			testPool.size(), poolSize)
 		return
 	}
 
 	// Just add the parent:
 
-	if err := testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), noLimit, noLimit, noLimit, noLimit, true); err != nil {
+	if err := testPool.addTx(testEntryHelp.FromTxToEntry(txParentPtr), noLimit, noLimit, noLimit, noLimit, true); err != nil {
 		t.Error("add Tx failure : ", err)
 		return
 	}
-	poolSize = testPool.Size()
-	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
-	if testPool.Size() != poolSize-1 {
+	poolSize = testPool.size()
+	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	if testPool.size() != poolSize-1 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
-			testPool.Size(), poolSize-1)
+			testPool.size(), poolSize-1)
 		return
 	}
 
 	// Parent, children, grandchildren:
-	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), noLimit, noLimit, noLimit, noLimit, true)
+	testPool.addTx(testEntryHelp.FromTxToEntry(txParentPtr), noLimit, noLimit, noLimit, noLimit, true)
 	for i := 0; i < 3; i++ {
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), noLimit, noLimit, noLimit, noLimit, true)
+		testPool.addTx(testEntryHelp.FromTxToEntry(&txChild[i]), noLimit, noLimit, noLimit, noLimit, true)
+		testPool.addTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), noLimit, noLimit, noLimit, noLimit, true)
 	}
-	poolSize = testPool.Size()
+	poolSize = testPool.size()
 	if poolSize != 7 {
 		t.Errorf("current poolSize : %d, except the poolSize 7 ", poolSize)
 		return
 	}
 
 	// Remove Child[0], GrandChild[0] should be removed:
-	testPool.RemoveTxRecursive(&txChild[0], UNKNOWN)
-	if poolSize-2 != testPool.Size() {
-		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize-2)
+	testPool.removeTxRecursive(&txChild[0], UNKNOWN)
+	if poolSize-2 != testPool.size() {
+		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.size(), poolSize-2)
 		return
 	}
 
 	// ... make sure grandchild and child are gone:
-	poolSize = testPool.Size()
-	testPool.RemoveTxRecursive(&txGrandChild[0], UNKNOWN)
-	if testPool.Size() != poolSize {
-		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
+	poolSize = testPool.size()
+	testPool.removeTxRecursive(&txGrandChild[0], UNKNOWN)
+	if testPool.size() != poolSize {
+		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.size(), poolSize)
 		return
 	}
-	poolSize = testPool.Size()
-	testPool.RemoveTxRecursive(&txChild[0], UNKNOWN)
-	if testPool.Size() != poolSize {
-		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
+	poolSize = testPool.size()
+	testPool.removeTxRecursive(&txChild[0], UNKNOWN)
+	if testPool.size() != poolSize {
+		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.size(), poolSize)
 		return
 	}
 
 	// Remove parent, all children/grandchildren should go:
-	poolSize = testPool.Size()
-	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
-	if testPool.Size() != poolSize-5 {
-		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-5)
+	poolSize = testPool.size()
+	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	if testPool.size() != poolSize-5 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.size(), poolSize-5)
 		return
 	}
 
 	// Add children and grandchildren, but NOT the parent (simulate the parent
 	// being in a block)
 	for i := 0; i < 3; i++ {
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), noLimit, noLimit, noLimit, noLimit, true)
+		testPool.addTx(testEntryHelp.FromTxToEntry(&txChild[i]), noLimit, noLimit, noLimit, noLimit, true)
+		testPool.addTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), noLimit, noLimit, noLimit, noLimit, true)
 	}
 	// Now remove the parent, as might happen if a block-re-org occurs but the
 	// parent cannot be put into the mempool (maybe because it is non-standard):
-	poolSize = testPool.Size()
-	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
-	if testPool.Size() != poolSize-6 {
-		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-6)
+	poolSize = testPool.size()
+	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	if testPool.size() != poolSize-6 {
+		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.size(), poolSize-6)
 		return
 	}
 }
@@ -224,7 +224,7 @@ func TestMempoolSortTime(t *testing.T) {
 
 	set := createTx()
 	for _, e := range set {
-		testPool.AddTx(e, noLimit, noLimit, noLimit, noLimit, true)
+		testPool.addTx(e, noLimit, noLimit, noLimit, noLimit, true)
 	}
 
 	sortedOrder := make([]utils.Hash, 4)
@@ -233,8 +233,8 @@ func TestMempoolSortTime(t *testing.T) {
 	sortedOrder[2] = set[1].Tx.Hash //20000
 	sortedOrder[3] = set[3].Tx.Hash //25300
 
-	if len(testPool.PoolData) != len(sortedOrder) {
-		t.Error("the pool element number is error, expect 4, but actual is ", len(testPool.PoolData))
+	if len(testPool.poolData) != len(sortedOrder) {
+		t.Error("the pool element number is error, expect 4, but actual is ", len(testPool.poolData))
 	}
 	index := 0
 	testPool.timeSortData.Ascend(func(i btree.Item) bool {
@@ -248,19 +248,19 @@ func TestMempoolSortTime(t *testing.T) {
 		return true
 	})
 
-	testPool.Expire(5000)
-	if testPool.Size() != 4 {
-		t.Error("after the expire time, the pool should have 4 element, but actual number is : ", testPool.Size())
+	testPool.expire(5000)
+	if testPool.size() != 4 {
+		t.Error("after the expire time, the pool should have 4 element, but actual number is : ", testPool.size())
 	}
 
-	testPool.Expire(11000)
-	if testPool.Size() != 2 {
-		t.Error("after the expire time, the pool should have 2 element, but actual number is : ", testPool.Size())
+	testPool.expire(11000)
+	if testPool.size() != 2 {
+		t.Error("after the expire time, the pool should have 2 element, but actual number is : ", testPool.size())
 	}
 
-	testPool.Expire(300000)
-	if testPool.Size() != 0 {
-		t.Error("after the expire time, the pool should have 0 element, but actual number is : ", testPool.Size())
+	testPool.expire(300000)
+	if testPool.size() != 0 {
+		t.Error("after the expire time, the pool should have 0 element, but actual number is : ", testPool.size())
 	}
 }
 
@@ -271,21 +271,21 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	set := createTx()
 	fmt.Println("tx number : ", len(set))
 	for _, e := range set {
-		testPool.AddTx(e, noLimit, noLimit, noLimit, noLimit, true)
+		testPool.addTx(e, noLimit, noLimit, noLimit, noLimit, true)
 		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.Hash.ToString(), testPool.cacheInnerUsage)
 	}
 	fmt.Println("mempool usage size : ", testPool.cacheInnerUsage)
 
-	testPool.TrimToSize(testPool.cacheInnerUsage)
-	if testPool.Size() != len(set) {
-		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", len(set), testPool.Size())
+	testPool.trimToSize(testPool.cacheInnerUsage)
+	if testPool.size() != len(set) {
+		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", len(set), testPool.size())
 	}
 	fmt.Printf("============= end ============\n")
-	testPool.TrimToSize(int64(set[0].usageSize + set[1].usageSize))
+	testPool.trimToSize(int64(set[0].usageSize + set[1].usageSize))
 
-	testPool.TrimToSize(1)
-	if testPool.Size() != 0 {
-		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", 0, testPool.Size())
+	testPool.trimToSize(1)
+	if testPool.size() != 0 {
+		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", 0, testPool.size())
 	}
 	if testPool.cacheInnerUsage != 0 {
 		t.Errorf("current the mempool size should be 0 byte, actual pool size is %d\n", testPool.cacheInnerUsage)

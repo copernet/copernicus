@@ -33,10 +33,11 @@ const (
 	LocktimeMedianTimePast
 )
 
-//GetMaxBlockSigOpsCount Compute the maximum number of sigops operation that can contained in a block
-//given the block size as parameter. It is computed by multiplying
-//MAX_BLOCK_SIGOPS_PER_MB by the size of the block in MB rounded up to the
-//closest integer.
+// GetMaxBlockSigOpsCount Compute the maximum number of sigops operation that can contained in a block
+// given the block size as parameter. It is computed by multiplying
+// MAX_BLOCK_SIGOPS_PER_MB by the size of the block in MB rounded up to the
+// closest integer.
+
 func GetMaxBlockSigOpsCount(blockSize uint64) uint64 {
 	roundedUp := 1 + ((blockSize - 1) / OneMegaByte)
 	return roundedUp * MaxBlockSigopsPerMb

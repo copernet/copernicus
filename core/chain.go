@@ -17,6 +17,8 @@ var (
 	ReceiveID     uint64
 )
 
+var GChainActive *Chain
+
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
 	Chain []*BlockIndex
