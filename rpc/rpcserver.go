@@ -3,7 +3,7 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package rpcserver
+package rpc
 
 import (
 	"bytes"
@@ -26,10 +26,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"crypto/tls"
+	"runtime"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/btcjson"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/mining"
+	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -37,10 +41,6 @@ import (
 	"github.com/btcsuite/btcd/peer"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
-	"crypto/tls"
-	"runtime"
-	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/core"
 )
 
 // API version constants
@@ -168,7 +168,6 @@ var rpcHandlersBeforeInit = map[string]commandHandler{
 	//"verifymessage":         handleVerifyMessage,
 	"version": handleVersion,
 }
-
 
 // Commands that are currently unimplemented, but should ultimately be.
 var rpcUnimplemented = map[string]struct{}{
@@ -438,9 +437,9 @@ func peerExists(connMgr RPCServerConnManager, addr string, nodeID int32) bool {
 
 // messageToHex serializes a message to the wire protocol encoding using the
 // latest protocol version and returns a hex-encoded string of the result.
-func messageToHex(msg wire.Message) (string, error) {
+func messageToHex(msg msg.Message) (string, error) {
 	var buf bytes.Buffer
-	if err := msg.BtcEncode(&buf, maxProtocolVersion, wire.WitnessEncoding); err != nil {
+	if err := msg.BitcoinParse(&buf, maxProtocolVersion); err != nil {
 		context := fmt.Sprintf("Failed to encode msg of type %T", msg)
 		return "", internalRPCError(err.Error(), context)
 	}
@@ -1910,7 +1909,6 @@ func handleGetBlockTemplateRequest(s *RPCServer, request *btcjson.TemplateReques
 	return state.blockTemplateResult(useCoinbaseValue, nil)
 }
 
-
 // chainErrToGBTErrString converts an error returned from btcchain to a string
 // which matches the reasons and format described in BIP0022 for rejection
 // reasons.
@@ -3289,8 +3287,7 @@ func handleSearchRawTransactions(s *RPCServer, cmd interface{}, closeChan <-chan
 	s.cfg.ConnMgr.AddRebroadcastInventory(iv, txD)
 
 	return tx.Hash().String(), nil
-}*/        //Todo
-
+}*/ //Todo
 
 // handleSetGenerate implements the setgenerate command.
 /*
@@ -3435,7 +3432,7 @@ func handleValidateAddress(s *RPCServer, cmd interface{}, closeChan <-chan struc
 	logs.Info("Chain verify completed successfully")
 
 	return nil
-}*/     // todo open
+}*/ // todo open
 
 // handleVerifyChain implements the verifychain command.
 /*
@@ -4141,29 +4138,27 @@ type RPCServerConfig struct {
 
 	// These fields allow the RPC server to interface with the local block
 	// chain data and state.
-	TimeSource  blockchain.MedianTimeSource
-/*	Chain       *blockchain.BlockChain
-	ChainParams *chaincfg.Params
-	DB          database.DB
+	TimeSource blockchain.MedianTimeSource
+	/*	Chain       *blockchain.BlockChain
+		ChainParams *chaincfg.Params
+		DB          database.DB
 
-	// TxMemPool defines the transaction memory pool to interact with.
-	TxMemPool *mempool.TxPool
+		// TxMemPool defines the transaction memory pool to interact with.
+		TxMemPool *mempool.TxPool
 
-	// These fields allow the RPC server to interface with mining.
-	//
-	// Generator produces block templates and the CPUMiner solves them using
-	// the CPU.  CPU mining is typically only useful for test purposes when
-	// doing regression or simulation testing.
-	//Generator *mining.BlkTmplGenerator		// todo open
-	CPUMiner *cpuminer.CPUMiner
+		// These fields allow the RPC server to interface with mining.
+		//
+		// Generator produces block templates and the CPUMiner solves them using
+		// the CPU.  CPU mining is typically only useful for test purposes when
+		// doing regression or simulation testing.
+		//Generator *mining.BlkTmplGenerator		// todo open
+		CPUMiner *cpuminer.CPUMiner
 
-	// These fields define any optional indexes the RPC server can make use
-	// of to provide additional data when queried.
-	TxIndex   *indexers.TxIndex
-	AddrIndex *indexers.AddrIndex*/   // todo open
+		// These fields define any optional indexes the RPC server can make use
+		// of to provide additional data when queried.
+		TxIndex   *indexers.TxIndex
+		AddrIndex *indexers.AddrIndex*/ // todo open
 }
-
-
 
 // setupRPCListeners returns a slice of listeners that are configured for use
 // with the RPC server depending on the configuration settings for listen
@@ -4317,7 +4312,6 @@ func NewRPCServer(config *RPCServerConfig) (*RPCServer, error) {
 
 	return &rpc, nil
 }
-
 
 func init() {
 	rpcHandlers = rpcHandlersBeforeInit

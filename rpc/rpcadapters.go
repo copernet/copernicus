@@ -1,8 +1,8 @@
-package rpcserver
+package rpc
 
 import (
-	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcboost/copernicus/net/msg"
+	"github.com/btcsuite/btcd/mempool"
 )
 
 // rpcConnManager provides a connection manager for use with the RPC server and
@@ -23,11 +23,11 @@ var _ RPCServerConnManager = &rpcConnManager{}
 // rpcserverConnManager interface implementation.
 func (cm *rpcConnManager) Connect(addr string, permanent bool) error {
 	replyChan := make(chan error)
-/*	cm.server.query <- connectNodeMsg{
+	/*	cm.server.query <- connectNodeMsg{
 		addr:      addr,
 		permanent: permanent,
 		reply:     replyChan,
-	}*/                      // Todo
+	}*/ // Todo
 	return <-replyChan
 }
 
@@ -39,10 +39,10 @@ func (cm *rpcConnManager) Connect(addr string, permanent bool) error {
 // rpcserverConnManager interface implementation.
 func (cm *rpcConnManager) RemoveByID(id int32) error {
 	replyChan := make(chan error)
-/*	cm.server.query <- removeNodeMsg{
+	/*	cm.server.query <- removeNodeMsg{
 		cmp:   func(sp *serverPeer) bool { return sp.ID() == id },
 		reply: replyChan,
-	}*/             // Todo
+	}*/ // Todo
 	return <-replyChan
 }
 
@@ -125,7 +125,7 @@ func (cm *rpcConnManager) NetTotals() (uint64, uint64) {
 		peers = append(peers, (*rpcPeer)(sp))
 	}
 	return peers
-}*/            // Todo
+}*/ // Todo
 
 // PersistentPeers returns an array consisting of all the added persistent
 // peers.
@@ -143,7 +143,7 @@ func (cm *rpcConnManager) NetTotals() (uint64, uint64) {
 		peers = append(peers, (*rpcPeer)(sp))
 	}
 	return peers
-}*/           // Todo
+}*/ // Todo
 
 // BroadcastMessage sends the provided message to all currently connected peers.
 //
