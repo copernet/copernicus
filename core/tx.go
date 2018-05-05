@@ -14,6 +14,8 @@ import (
 	utils2 "copernicus/utils"
 	"copernicus/blockchain"
 	"btcd/chaincfg"
+	"copernicus/utxo"
+	"btcd/wire"
 )
 
 const (
@@ -291,8 +293,19 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 	}
 
 	// check duble-spending
-	if !tx.isInputAvailable() {
+	if !tx.areInputsAvailable() {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
+	}
+
+	//check sequencelock
+	lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
+	if !tx.checkSequenceLocks(lp) {
+		return false
+	}
+
+	//check standard inputs
+	if RequiredStandard && !tx.areInputsStandard() {
+		return false
 	}
 
 	//check inputs
@@ -381,11 +394,11 @@ func (tx *Tx) checkStandard(state *ValidationState, allowLargeOpReturn bool) boo
 			state.Dos(100, false, RejectInvalid, "scriptpubkey", false, "")
 			return false
 		}
-		if pubKeyType == SCRIPT_MULTISIG && !IsBareMultiSigStd {
+		if pubKeyType == ScriptMultiSig && !IsBareMultiSigStd {
 			state.Dos(100, false, RejectInvalid, "bare-multisig", false, "")
 			return false
 		}
-		if pubKeyType == SCRIPT_NULL_DATA {
+		if pubKeyType == ScriptNullData {
 			nDataOut++
 		}
 		// only one OP_RETURN txout is permitted
@@ -447,7 +460,7 @@ func (tx *Tx) isOutputAlreadyExist() bool {
 	return true
 }
 
-func (tx *Tx) isInputsAvailable() bool {
+func (tx *Tx) areInputsAvailable() bool {
 	for e := range tx.ins {
 		outPoint := e.PreviousOutPoint
 		if !GMempool.GetCoin(outPoint) {
@@ -458,6 +471,78 @@ func (tx *Tx) isInputsAvailable() bool {
 		}
 	}
 
+	return true
+}
+
+func (tx *Tx) caculateLockPoint(flags uint) (lp *LockPoints) {
+	lp = NewLockPoints()
+	maxHeight int = 0
+	maxTime int64 = 0
+	for _, e := range tx.ins {
+		if e.Sequence & SequenceLockTimeDisableFlag != 0 {
+			continue
+		}
+		coin := mempool.GetCoin(e.PreviousOutPoint)
+		if !coin {
+			coin = utxo.GetCoin(e.PreviousOutPoint)
+		}
+		if !coin {
+			lp = nil
+			return
+		}
+		coinTime int64 = 0
+		coinHeight := coin.GetHeight()
+		if coinHeight == MEMPOOL_HEIGHT {
+			coinHeight = ActiveChain.GetHeight() + 1
+		}
+		if e.Sequence & SequenceLockTimeTypeFlag != 0 {
+			if coinHeight - 1 > 0 {
+				coinTime = ActiveChain.Tip().GetAncesstor(coinHeight - 1).GetMedianTimePast()
+			} else {
+				coinTime = ActiveChain.Tip().GetAncesstor(0).GetMedianTimePast()
+			}
+			coinTime = ((e.Sequence & SequenceLockTimeMask) << wire.SequenceLockTimeGranularity) - 1
+			if maxTime < coinTime {
+				maxTime = coinTime
+			}
+		} else {
+			if maxHeight < coinHeight {
+				maxHeight = coinHeight
+			}
+		}
+	}
+	lp.MaxInputBlock = ActiveChain.GetAncestor(maxHeight)
+
+	if tx.Version >= 2 && flags & LocktimeVerifySequence != 0 {
+		lp.Height = maxHeight
+		lp.Time = maxTime
+		return
+	}
+
+	lp.Height = -1
+	lp.Time = -1
+	return
+}
+
+func (tx *Tx) checkSequenceLocks(lp *LockPoints) bool {
+	BlockTime := lp.MaxInputBlock.GetMedianTimePast()
+	if lp.Height >= lp.Height || lp.Time >= BlockTime {
+		return false
+	}
+
+	return true
+}
+
+func (tx *Tx) areInputsStandard() bool {
+	for _, e := range tx.ins {
+		coin := utxo.GetCoin(e.PreviousOutPoint)
+		if !coin {
+			coin = mempool.GetCoin(e.PreviousOutPoint)
+		}
+		txOut := coin.txOut
+		succeed, pubKeyType := txOut.CheckScript()
+		if !succeed
+	}
 	return true
 }
 

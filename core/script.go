@@ -31,33 +31,33 @@ const (
 
 /** Script verification flags */
 const (
-	SCRIPT_VERIFY_NONE = 0
+	ScriptVerifyNone = 0
 
 	// Evaluate P2SH subscripts (softfork safe, BIP16).
-	SCRIPT_VERIFY_P2SH = (1 << 0)
+	ScriptVerifyP2SH = (1 << 0)
 
 	// Passing a non-strict-DER signature or one with undefined hashtype to a
 	// checksig operation causes script failure. Evaluating a pubkey that is not
 	// (0x04 + 64 bytes) or (0x02 or 0x03 + 32 bytes) by checksig causes script
 	// failure.
-	SCRIPT_VERIFY_STRICTENC = (1 << 1)
+	ScriptVerifyStrictEnc = (1 << 1)
 
 	// Passing a non-strict-DER signature to a checksig operation causes script
 	// failure (softfork safe, BIP62 rule 1)
-	SCRIPT_VERIFY_DERSIG = (1 << 2)
+	ScriptVerifyDersig = (1 << 2)
 
 	// Passing a non-strict-DER signature or one with S > order/2 to a checksig
 	// operation causes script failure
 	// (softfork safe, BIP62 rule 5).
-	SCRIPT_VERIFY_LOW_S = (1 << 3)
+	ScriptVerifyLowS = (1 << 3)
 
 	// verify dummy stack item consumed by CHECKMULTISIG is of zero-length
 	// (softfork safe, BIP62 rule 7).
-	SCRIPT_VERIFY_NULLDUMMY = (1 << 4)
+	ScriptVerifyNullDummy = (1 << 4)
 
 	// Using a non-push operator in the scriptSig causes script failure
 	// (softfork safe, BIP62 rule 2).
-	SCRIPT_VERIFY_SIGPUSHONLY = (1 << 5)
+	ScriptVerifySigPushOnly = (1 << 5)
 
 	// Require minimal encodings for all push operations (OP_0... OP_16,
 	// OP_1NEGATE where possible, direct pushes up to 75 bytes, OP_PUSHDATA up
@@ -66,7 +66,7 @@ const (
 	// stack element is interpreted as a number, it must be of minimal length
 	// (BIP62 rule 4).
 	// (softfork safe)
-	SCRIPT_VERIFY_MINIMALDATA = (1 << 6)
+	ScriptVerifyMinmalData = (1 << 6)
 
 	// Discourage use of NOPs reserved for upgrades (NOP1-10)
 	//
@@ -76,7 +76,7 @@ const (
 	// discouraged NOPs fails the script. This verification flag will never be a
 	// mandatory flag applied to scripts in a block. NOPs that are not executed,
 	// e.g.  within an unexecuted IF ENDIF block, are *not* rejected.
-	SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS = (1 << 7)
+	ScriptVerifyDiscourageUpgradableNops = (1 << 7)
 
 	// Require that only a single stack element remains after evaluation. This
 	// changes the success criterion from "At least one stack element must
@@ -85,56 +85,59 @@ const (
 	// be true".
 	// (softfork safe, BIP62 rule 6)
 	// Note: CLEANSTACK should never be used without P2SH or WITNESS.
-	SCRIPT_VERIFY_CLEANSTACK = (1 << 8)
+	ScriptVerifyCleanStack = (1 << 8)
 
 	// Verify CHECKLOCKTIMEVERIFY
 	//
 	// See BIP65 for details.
-	SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1 << 9)
+	ScriptVerifyCheckLockTimeVerify = (1 << 9)
 
 	// support CHECKSEQUENCEVERIFY opcode
 	//
 	// See BIP112 for details
-	SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1 << 10)
+	ScriptVerifyCheckSequenceVerify = (1 << 10)
 
 	// Making v1-v16 witness program non-standard
 	//
-	SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM = (1 << 12)
+	ScriptVerifyDiscourageUpgradableWitnessProgram = (1 << 12)
 
 	// Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
 	// 0x01 or empty vector
 	//
-	SCRIPT_VERIFY_MINIMALIF = (1 << 13)
+	ScriptVerifyMinmalIf = (1 << 13)
 
 	// Signature(s) must be empty vector if an CHECK(MULTI)SIG operation failed
 	//
-	SCRIPT_VERIFY_NULLFAIL = (1 << 14)
+	ScriptVerifyNullFail = (1 << 14)
 
 	// Public keys in scripts must be compressed
 	//
-	SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE = (1 << 15)
+	ScriptVerifyCompressedPubkeyType = (1 << 15)
 
 	// Do we accept signature using SIGHASH_FORKID
 	//
-	SCRIPT_ENABLE_SIGHASH_FORKID = (1 << 16)
+	ScriptEnableSighashForkid = (1 << 16)
 
 	// Do we accept activate replay protection using a different fork id.
 	//
-	SCRIPT_ENABLE_REPLAY_PROTECTION = (1 << 17)
+	ScriptEnableReplayProtection = (1 << 17)
 
 	// Enable new opcodes.
 	//
-	SCRIPT_ENABLE_MONOLITH_OPCODES = (1 << 18)
+	ScriptEnableMonolithOpcodes = (1 << 18)
 )
 
 const (
-	SCRIPT_NONSTANDARD = iota
+	ScriptNonStandard = iota
 	// 'standard' transaction types:
-	SCRIPT_PUBKEY
-	SCRIPT_PUBKEYHASH
-	SCRIPT_HASH
-	SCRIPT_MULTISIG
-	SCRIPT_NULL_DATA
+	ScriptPubkey
+	ScriptPubkeyHash
+	ScriptHash
+	ScriptMultiSig
+	ScriptNullData
+
+	MaxOpReturnRelay uint = 83
+	MaxOpReturnRelayLarge uint = 223
 )
 
 type Script struct {
@@ -283,7 +286,7 @@ func (script *Script) IsCommitment(data []byte) bool {
 func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, pubKeyType int) {
 	//p2sh scriptPubKey
 	if script.IsPayToScriptHash() {
-		return true, SCRIPT_HASH
+		return true, ScriptHash
 	}
 	// Provably prunable, data-carrying output
 	//
@@ -292,7 +295,7 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 	// script.
 	len := len(script.ParsedOpCodes)
 	if len == 0 {
-		return false, SCRIPT_NONSTANDARD
+		return false, ScriptNonStandard
 	}
 	parsedOpCode0 := script.ParsedOpCodes[0]
 	opValue0 := parsedOpCode0.OpValue
@@ -300,27 +303,27 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 	// OP_RETURN
 	if len == 1 {
 		if parsedOpCode0.OpValue == OP_RETURN {
-			return true, SCRIPT_NULL_DATA
+			return true, ScriptNullData
 		}
-		return false, SCRIPT_NONSTANDARD
+		return false, ScriptNonStandard
 	}
 
 	// OP_RETURN and DATA
 	if parsedOpCode0.OpValue == OP_RETURN {
 		tempScript := NewScriptOps(script.ParsedOpCodes[1:])
 		if tempScript.IsPushOnly() {
-			return true, SCRIPT_NULL_DATA
+			return true, ScriptNullData
 		}
-		return false, SCRIPT_NONSTANDARD
+		return false, ScriptNonStandard
 	}
 
 	//PUBKEY OP_CHECKSIG
 	if len == 2 {
 		if opValue0 > OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
 			parsedOpCode0.Length > 65 || script.ParsedOpCodes[1].OpValue != OP_CHECKSIG {
-			return false, SCRIPT_NONSTANDARD
+			return false, ScriptNonStandard
 		}
-		return true, SCRIPT_PUBKEY
+		return true, ScriptPubkey
 	}
 
 	//OP_DUP OP_HASH160 OP_PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
@@ -330,9 +333,9 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 			script.ParsedOpCodes[2].Length != 20 ||
 			script.ParsedOpCodes[3].OpValue != OP_EQUALVERIFY ||
 			script.ParsedOpCodes[4].OpValue != OP_CHECKSIG {
-			return false, SCRIPT_NONSTANDARD
+			return false, ScriptNonStandard
 		}
-		return true, SCRIPT_PUBKEYHASH
+		return true, ScriptPubkeyHash
 	}
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
@@ -349,19 +352,19 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 			opN, _ := DecodeOPN(opValueI)
 			// Support up to x-of-3 multisig txns as standard
 			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
-				return false, SCRIPT_NONSTANDARD
+				return false, ScriptNonStandard
 			}
 			i++
 		} else {
-			return false, SCRIPT_NONSTANDARD
+			return false, ScriptNonStandard
 		}
 		if script.ParsedOpCodes[i].OpValue != OP_CHECKMULTISIG {
-			return false, SCRIPT_NONSTANDARD
+			return false, ScriptNonStandard
 		}
-		return true, SCRIPT_MULTISIG
+		return true, ScriptMultiSig
 	}
 
-	return false, SCRIPT_NONSTANDARD
+	return false, ScriptNonStandard
 }
 
 func (script *Script) CheckScriptSig(state *ValidationState) bool{
