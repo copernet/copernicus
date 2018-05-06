@@ -9,7 +9,6 @@ import (
 
 	"github.com/astaxie/beego/config"
 	"github.com/btcboost/copernicus/utils"
-	"github.com/btcsuite/btcd/chaincfg"
 )
 
 var AppConf *AppConfig
@@ -97,8 +96,6 @@ type AppConfig struct {
 	DropAddrIndex        bool     `long:"dropaddrindex" description:"Deletes the address-based transaction index from the database on start up and then exits."`
 	RelayNonStd          bool     `long:"relaynonstd" description:"Relay non-standard transactions regardless of the default settings for the active network."`
 	RejectNonStd         bool     `long:"rejectnonstd" description:"Reject non-standard transactions regardless of the default settings for the active network."`
-	addCheckpoints       []chaincfg.Checkpoint
-	whitelists           []*net.IPNet
 }
 
 func init() {

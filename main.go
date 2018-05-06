@@ -3,20 +3,20 @@ package main
 // please ensure init `github.com/btcboost/copernicus/log` firstly,
 // or you will get an error log output.
 import (
+	"errors"
 	"fmt"
 	"os"
 	"syscall"
-	"errors"
 
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/database"
 	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/net/p2p"
+	"github.com/btcboost/copernicus/rpc"
 	"github.com/btcboost/copernicus/utils"
 
-	_ "github.com/btcboost/copernicus/log"
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/rpc/rpcserver"
+	_ "github.com/btcboost/copernicus/log"
 )
 
 func init() {
@@ -76,11 +76,11 @@ func startBitcoin() error {
 	return nil
 }
 
-func setupRPCServer() (*rpcserver.RPCServer, error) {
+func setupRPCServer() (*rpc.Server, error) {
 	if !conf.CFG.DisableRPC {
 		// Setup listeners for the configured RPC listen addresses and
 		// TLS settings.
-		rpcListeners, err := rpcserver.SetupRPCListeners()
+		rpcListeners, err := rpc.SetupRPCListeners()
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func setupRPCServer() (*rpcserver.RPCServer, error) {
 			return nil, errors.New("RPCS: No valid listen address")
 		}
 
-		rpcServer, err := rpcserver.NewRPCServer(&rpcserver.RPCServerConfig{
+		rpcServer, err := rpc.NewServer(&rpc.ServerConfig{
 			Listeners: rpcListeners,
 			// todo open
 			//StartupTime: s.startupTime,
@@ -117,8 +117,3 @@ func setupRPCServer() (*rpcserver.RPCServer, error) {
 	}
 	return nil, nil
 }
-
-
-
-
-
