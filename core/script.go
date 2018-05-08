@@ -141,12 +141,12 @@ const (
 )
 
 type Script struct {
-	bytes         []byte
+	data          []byte
 	ParsedOpCodes []ParsedOpCode
 }
 
 func NewScriptRaw(bytes []byte) *Script {
-	script := Script{bytes: bytes}
+	script := Script{data: bytes}
 	script.convertOPS()
 	return &script
 }
@@ -158,23 +158,23 @@ func NewScriptOps(parsedOpCodes []ParsedOpCode) *Script {
 }
 
 func (script *Script) convertRaw() {
-	script.bytes = make([]byte, 0)
+	script.data = make([]byte, 0)
 	for _, e := range script.ParsedOpCodes {
-		script.bytes = append(script.bytes, e.OpValue)
+		script.data = append(script.data, e.OpValue)
 		if e.OpValue == OP_PUSHDATA1 {
-			script.bytes = append(script.bytes, byte(e.Length))
+			script.data = append(script.data, byte(e.Length))
 		} else if e.OpValue == OP_PUSHDATA2 {
 			b := make([]byte, 2)
 			binary.LittleEndian.PutUint16(b, uint16(e.Length))
-			script.bytes = append(script.bytes, b...)
+			script.data = append(script.data, b...)
 		} else if e.OpValue == OP_PUSHDATA4 {
 			b := make([]byte, 4)
 			binary.LittleEndian.PutUint32(b, uint32(e.Length))
-			script.bytes = append(script.bytes, b...)
+			script.data = append(script.data, b...)
 		} else {
 			if e.OpValue < OP_PUSHDATA1 && e.Length > 0 {
-				script.bytes = append(script.bytes, byte(e.Length))
-				script.bytes = append(script.bytes, e.Data...)
+				script.data = append(script.data, byte(e.Length))
+				script.data = append(script.data, e.Data...)
 			}
 		}
 
@@ -184,11 +184,11 @@ func (script *Script) convertRaw() {
 
 func (script *Script) convertOPS() error {
 	script.ParsedOpCodes = make([]ParsedOpCode, 0)
-	scriptLen := len(script.bytes)
+	scriptLen := len(script.data)
 
 	for i := 0; i < scriptLen; i++ {
 		var nSize int
-		opcode := script.bytes[i]
+		opcode := script.data[i]
 		parsedopCode := ParsedOpCode{OpValue: opcode}
 
 		if opcode < OP_PUSHDATA1 {
@@ -196,35 +196,35 @@ func (script *Script) convertOPS() error {
 			if scriptLen - i < nSize {
 				return errors.New("OP has no enough data")
 			}
-			parsedopCode.Data = script.bytes[i + 1: i + 1 + nSize]
+			parsedopCode.Data = script.data[i + 1: i + 1 + nSize]
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen - i < 1 {
 				return errors.New("OP_PUSHDATA1 has no enough data")
 			}
 
-			nSize = int(script.bytes[i + 1])
+			nSize = int(script.data[i + 1])
 			if scriptLen - i - 1 < nSize {
 				return errors.New("OP_PUSHDATA1 has no enough data")
 			}
-			parsedopCode.Data = script.bytes[i + 2: i + 2 + nSize]
+			parsedopCode.Data = script.data[i + 2: i + 2 + nSize]
 			i++
 		} else if opcode == OP_PUSHDATA2 {
 			if scriptLen - i < 2 {
 				return errors.New("OP_PUSHDATA2 has no enough data")
 			}
-			nSize = int(binary.LittleEndian.Uint16(script.bytes[i + 1: i + 3]))
+			nSize = int(binary.LittleEndian.Uint16(script.data[i + 1: i + 3]))
 			if scriptLen - i - 3 < nSize {
 				return errors.New("OP_PUSHDATA2 has no enough data")
 			}
-			parsedopCode.Data = script.bytes[i + 3: i + 3 + nSize]
+			parsedopCode.Data = script.data[i + 3: i + 3 + nSize]
 			i += 2
 		} else if opcode == OP_PUSHDATA4 {
 			if scriptLen - i < 4 {
 				return errors.New("OP_PUSHDATA4 has no enough data")
 
 			}
-			nSize = int(binary.LittleEndian.Uint32(script.bytes[i + 1: i + 5]))
-			parsedopCode.Data = script.bytes[i + 5: i + 5 + nSize]
+			nSize = int(binary.LittleEndian.Uint32(script.data[i + 1: i + 5]))
+			parsedopCode.Data = script.data[i + 5: i + 5 + nSize]
 			i += 4
 		}
 		if scriptLen - i < 0 || (scriptLen - i) < nSize {
@@ -269,12 +269,12 @@ func (script *Script) IsCommitment(data []byte) bool {
 		return false
 	}
 
-	if script.bytes[0] != OP_RETURN || int(script.bytes[1]) != len(data) {
+	if script.data[0] != OP_RETURN || int(script.data[1]) != len(data) {
 		return false
 	}
 
 	for i := 0; i < len(data); i++ {
-		if script.bytes[i+2] != data[i] {
+		if script.data[i+2] != data[i] {
 			return false
 		}
 	}
@@ -381,11 +381,11 @@ func (script *Script) CheckScriptSig(state *ValidationState) bool{
 }
 
 func (script *Script) IsPayToScriptHash() bool {
-	size := len(script.bytes)
+	size := len(script.data)
 	return size == 23 &&
-		script.bytes[0] == OP_HASH160 &&
-		script.bytes[1] == 0x14 &&
-		script.bytes[22] == OP_EQUAL
+		script.data[0] == OP_HASH160 &&
+		script.data[1] == 0x14 &&
+		script.data[22] == OP_EQUAL
 }
 
 func (script *Script) IsUnspendable() bool {
@@ -438,7 +438,7 @@ func (script *Script) GetOp(index *int, opCode *byte, data *[]byte) bool {
 		return false
 	}
 
-	opcode = script.bytes[tmpIndex]
+	opcode = script.data[tmpIndex]
 	tmpIndex++
 
 	// Immediate operand
@@ -450,25 +450,25 @@ func (script *Script) GetOp(index *int, opCode *byte, data *[]byte) bool {
 			if script.Size() - tmpIndex < 1 {
 				return false
 			}
-			nSize = int(script.bytes[*index])
+			nSize = int(script.data[*index])
 			tmpIndex++
 		} else if opcode == OP_PUSHDATA2 {
 			if script.Size() - tmpIndex < 2 {
 				return false
 			}
-			nSize = int(binary.LittleEndian.Uint16(script.bytes[tmpIndex : tmpIndex+2]))
+			nSize = int(binary.LittleEndian.Uint16(script.data[tmpIndex : tmpIndex+2]))
 			tmpIndex += 2
 		} else if opcode == OP_PUSHDATA4 {
 			if script.Size() - tmpIndex < 4 {
 				return false
 			}
-			nSize = int(binary.LittleEndian.Uint32(script.bytes[tmpIndex : tmpIndex+4]))
+			nSize = int(binary.LittleEndian.Uint32(script.data[tmpIndex : tmpIndex+4]))
 			tmpIndex += 4
 		}
 		if script.Size()-tmpIndex < 0 || script.Size()-tmpIndex < nSize {
 			return false
 		}
-		tmpData = append(tmpData, script.bytes[tmpIndex:tmpIndex+nSize]...)
+		tmpData = append(tmpData, script.data[tmpIndex:tmpIndex+nSize]...)
 		tmpIndex += nSize
 	}
 
@@ -482,12 +482,12 @@ func (script *Script) GetOp(index *int, opCode *byte, data *[]byte) bool {
 func (script *Script) PushInt64(n int64) {
 
 	if n == -1 || (n >= 1 && n <= 16) {
-		script.bytes = append(script.bytes, byte(n+(OP_1-1)))
+		script.data = append(script.data, byte(n+(OP_1-1)))
 	} else if n == 0 {
-		script.bytes = append(script.bytes, byte(OP_0))
+		script.data = append(script.data, byte(OP_0))
 	} else {
 		scriptNum := NewCScriptNum(n)
-		script.bytes = append(script.bytes, scriptNum.Serialize()...)
+		script.data = append(script.data, scriptNum.Serialize()...)
 	}
 }
 
@@ -495,57 +495,57 @@ func (script *Script) PushOpCode(opcode int) error {
 	if opcode < 0 || opcode > 0xff {
 		return errors.New("push opcode failed :invalid opcode")
 	}
-	script.bytes = append(script.bytes, byte(opcode))
+	script.data = append(script.data, byte(opcode))
 	return nil
 }
 
 func (script *Script) PushScriptNum(scriptNum *CScriptNum) {
-	script.bytes = append(script.bytes, scriptNum.Serialize()...)
+	script.data = append(script.data, scriptNum.Serialize()...)
 }
 
 func (script *Script) PushData(data []byte) {
 	dataLen := len(data)
 	if dataLen < OP_PUSHDATA1 {
-		script.bytes = append(script.bytes, byte(dataLen))
+		script.data = append(script.data, byte(dataLen))
 	} else if dataLen <= 0xff {
-		script.bytes = append(script.bytes, OP_PUSHDATA1)
-		script.bytes = append(script.bytes, byte(dataLen))
+		script.data = append(script.data, OP_PUSHDATA1)
+		script.data = append(script.data, byte(dataLen))
 	} else if dataLen <= 0xffff {
-		script.bytes = append(script.bytes, OP_PUSHDATA2)
+		script.data = append(script.data, OP_PUSHDATA2)
 		buf := make([]byte, 2)
 		binary.LittleEndian.PutUint16(buf, uint16(dataLen))
-		script.bytes = append(script.bytes, buf...)
+		script.data = append(script.data, buf...)
 
 	} else {
-		script.bytes = append(script.bytes, OP_PUSHDATA4)
+		script.data = append(script.data, OP_PUSHDATA4)
 		buf := make([]byte, 4)
-		binary.LittleEndian.PutUint32(script.bytes, uint32(dataLen))
-		script.bytes = append(script.bytes, buf...)
+		binary.LittleEndian.PutUint32(script.data, uint32(dataLen))
+		script.data = append(script.data, buf...)
 	}
-	script.bytes = append(script.bytes, data...)
+	script.data = append(script.data, data...)
 }
 */
 /*
 func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 	stk = make([]ParsedOpCode, 0)
-	scriptLen := len(script.bytes)
+	scriptLen := len(script.data)
 
 	for i := 0; i < scriptLen; i++ {
 		var nSize int
-		opcode := script.bytes[i]
+		opcode := script.data[i]
 		parsedopCode := ParsedOpCode{opValue: opcode}
 
 		if opcode < OP_PUSHDATA1 {
 			nSize = int(opcode)
-			parsedopCode.data = script.bytes[i+1 : i+1+nSize]
+			parsedopCode.data = script.data[i+1 : i+1+nSize]
 
 		} else if opcode == OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				err = errors.New("OP_PUSHDATA1 has no enough data")
 				return
 			}
-			nSize = int(script.bytes[i+1])
-			parsedopCode.data = script.bytes[i+2 : i+2+nSize]
+			nSize = int(script.data[i+1])
+			parsedopCode.data = script.data[i+2 : i+2+nSize]
 			i++
 
 		} else if opcode == OP_PUSHDATA2 {
@@ -553,16 +553,16 @@ func (script *Script) ParseScript() (stk []ParsedOpCode, err error) {
 				err = errors.New("OP_PUSHDATA2 has no enough data")
 				return
 			}
-			nSize = int(binary.LittleEndian.Uint16(script.bytes[i+1 : i+3]))
-			parsedopCode.data = script.bytes[i+3 : i+3+nSize]
+			nSize = int(binary.LittleEndian.Uint16(script.data[i+1 : i+3]))
+			parsedopCode.data = script.data[i+3 : i+3+nSize]
 			i += 2
 		} else if opcode == OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
 				err = errors.New("OP_PUSHDATA4 has no enough data")
 				return
 			}
-			nSize = int(binary.LittleEndian.Uint32(script.bytes[i+1 : i+5]))
-			parsedopCode.data = script.bytes[i+5 : i+5+nSize]
+			nSize = int(binary.LittleEndian.Uint32(script.data[i+1 : i+5]))
+			parsedopCode.data = script.data[i+5 : i+5+nSize]
 			i += 4
 		}
 		if scriptLen-i < 0 || (scriptLen-i) < nSize {
@@ -587,7 +587,7 @@ func (script *Script) FindAndDelete(b *Script) (bool, error) {
 	//if err != nil {
 	//	return false, err
 	//}
-	//script.bytes = make([]byte, 0)
+	//script.data = make([]byte, 0)
 
 	for i := 0; i < len(orginalParseCodes); i++ {
 		isDelete := false
@@ -599,8 +599,8 @@ func (script *Script) FindAndDelete(b *Script) (bool, error) {
 			}
 		}
 		if !isDelete {
-			script.bytes = append(script.bytes, parseCode.opValue)
-			script.bytes = append(script.bytes, parseCode.data...)
+			script.data = append(script.data, parseCode.opValue)
+			script.data = append(script.data, parseCode.data...)
 		}
 	}
 
@@ -685,7 +685,7 @@ func (script *Script) GetSigOpCountFor(scriptSig *Script) (int, error) {
 /*
 func (script *Script) GetScriptByte() []byte {
 	scriptByte := make([]byte, 0)
-	scriptByte = append(scriptByte, script.bytes...)
+	scriptByte = append(scriptByte, script.data...)
 	return scriptByte
 }
 */
@@ -749,7 +749,7 @@ func DecodeOPN(opcode byte) (int, error) {
 }
 
 func (script *Script) Size() int {
-	return len(script.bytes)
+	return len(script.data)
 }
 
 func (script *Script) IsEqual(script2 *Script) bool {
@@ -757,5 +757,5 @@ func (script *Script) IsEqual(script2 *Script) bool {
 		return false
 	}*/
 
-	return bytes.Equal(script.bytes, script2.bytes)
+	return bytes.Equal(script.data, script2.data)
 }

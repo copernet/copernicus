@@ -15,6 +15,7 @@ import (
 	"github.com/btcboost/copernicus/utxo"
 	"github.com/btcboost/copernicus/net/msg"
 	"btcd/wire"
+	"github.com/btcboost/copernicus/mempool"
 )
 
 const (
@@ -177,7 +178,7 @@ func (tx *Tx) RemoveTxOut(txOut *TxOut) {
 func (tx *Tx) SerializeSize() uint {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
-	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
+	var n uint = uint(8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs))))
 	//if tx == nil {
 	//	fmt.Println("tx is nil")
 	//}
@@ -342,16 +343,13 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 		return false
 	}
 
-	// all inputs should have preout
-	for _, in := range tx.ins {
-		if in.PreviousOutPoint.IsNull() {
-			state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
-			return false
-		}
-	}
-
 	// check standard
 	if RequireStandard && !tx.checkStandard(state, allowLargeOpReturn) {
+		return false
+	}
+
+	//check standard inputs
+	if RequiredStandard && !tx.areInputsStandard() {
 		return false
 	}
 
@@ -360,6 +358,13 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 		return false
 	}
 
+	// all inputs should have preout
+	for _, in := range tx.ins {
+		if in.PreviousOutPoint.IsNull() {
+			state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
+			return false
+		}
+	}
 	// check duplicate tx
 	if tx.isOutputAlreadyExist() {
 		return state.Dos(10, false, RejectInvalid, "bad-txns-output-already-exist", false, "")
@@ -371,13 +376,13 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 	}
 
 	//check sequencelock
-	lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
-	if !tx.checkSequenceLocks(lp) {
-		return false
-	}
+	//lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
+	//if !tx.checkSequenceLocks(lp) {
+	//	return false
+	//}
 
-	//check standard inputs
-	if RequiredStandard && !tx.areInputsStandard() {
+	//check inputs money range
+	if !tx.checkInputsMoney() {
 		return false
 	}
 
@@ -594,7 +599,7 @@ func (tx *Tx) caculateLockPoint(flags uint) (lp *LockPoints) {
 	lp.Time = -1
 	return
 }
-
+/*
 func (tx *Tx) checkSequenceLocks(lp *LockPoints) bool {
 	BlockTime := lp.MaxInputBlock.GetMedianTimePast()
 	if lp.Height >= lp.Height || lp.Time >= BlockTime {
@@ -603,7 +608,7 @@ func (tx *Tx) checkSequenceLocks(lp *LockPoints) bool {
 
 	return true
 }
-
+*/
 func (tx *Tx) areInputsStandard() bool {
 	for _, e := range tx.ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
@@ -612,12 +617,31 @@ func (tx *Tx) areInputsStandard() bool {
 		}
 		txOut := coin.txOut
 		succeed, pubKeyType := txOut.CheckScript()
-		if !succeed
+		if !succeed {
+			return false
+		}
+		if pubKeyType == ScriptHash {
+			subScript := NewScriptRaw(e.scriptSig.ParsedOpCodes[len(e.scriptSig.ParsedOpCodes) - 1].data)
+			if subScript.GetSigOpCount(true) > MaxP2SHSigOps {
+				return false
+			}
+		}
 	}
+
 	return true
 }
 
-func (tx *Tx) checkInputs() bool {
+func (tx *Tx) checkInputsMoney(state *ValidationState) bool {
+	for _, e := range tx.ins {
+		coin := mempool.GetCoin(e.PreviousOutPoint)
+		if !coin {
+			coin = utxo.GetCoin()
+		}
+
+	}
+}
+
+func (tx *Tx) checkInputs(state *ValidationState, flag int) bool {
 
 	return true
 }
