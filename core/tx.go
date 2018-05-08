@@ -863,7 +863,6 @@ func (tx *Tx)ContextualCheckTransaction(params *msg.BitcoinParams,  state *Valid
 	return true
 }
 
-
 // CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
 //
 // Simulates calling SequenceLocks() with data from the tip of the current
