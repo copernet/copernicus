@@ -685,18 +685,14 @@ func (tx *Tx) Copy() *Tx {
 	for _, txOut := range tx.outs {
 		scriptLen := len(txOut.Script.bytes)
 		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.Script.bytes[:scriptLen])
+		copy(newOutScript, txOut.GetScriptPubKey().GetByteCodes()[:scriptLen])
 
 		newTxOut := TxOut{
-			Value:  txOut.Value,
-			Script: NewScriptRaw(newOutScript),
+			value:  txOut.value,
+			scriptPubKey: NewScriptRaw(newOutScript),
 		}
 		newTx.outs = append(newTx.outs, &newTxOut)
 	}
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/yyx
 	for _, txIn := range tx.ins {
 		var hashBytes [32]byte
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
@@ -705,7 +701,7 @@ func (tx *Tx) Copy() *Tx {
 		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
 		scriptLen := txIn.Script.Size()
 		newScript := make([]byte, scriptLen)
-		copy(newScript[:], txIn.Script.bytes[:scriptLen])
+		copy(newScript[:], txIn.Script.GetByteCodes()[:scriptLen])
 		newTxTmp := TxIn{
 			Sequence:         txIn.Sequence,
 			PreviousOutPoint: newOutPoint,

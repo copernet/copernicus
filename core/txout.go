@@ -13,6 +13,7 @@ import (
 type TxOut struct {
 	value            int64
 	scriptPubKey     *Script
+	SigOpCount      int64
 }
 
 func (txOut *TxOut) SerializeSize() int {
@@ -48,15 +49,15 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	if txOut.scriptPubKey == nil {
 		return nil
 	}
-	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.Value))
+	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
 	if err != nil {
 		return err
 	}
-	return utils.WriteVarBytes(writer, txOut.scriptPubKey.bytes)
+	return utils.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
 }
 
 func (txOut *TxOut) Deserialize(reader io.Reader) error {
-	err := protocol.ReadElement(reader, &txOut.Value)
+	err := protocol.ReadElement(reader, &txOut.value)
 	if err != nil {
 		return err
 	}
@@ -105,28 +106,33 @@ func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool)
 func (txOut *TxOut) GetValue() int64 {
 	return txOut.value
 }
-
+func (txOut *TxOut) SetValue(v int64) {
+	txOut.value=v
+}
+func (txOut *TxOut) GetScriptPubKey() *Script {
+	return txOut.scriptPubKey
+}
+func (txOut *TxOut) SetScriptPubKey(s *Script)  {
+	 txOut.scriptPubKey = s
+}
 /*
 func (txOut *TxOut) Check() bool {
 	return true
 }
 */
-/*
 func (txOut *TxOut) SetNull() {
-	txOut.Value = -1
-	txOut.Script = nil
+	txOut.value = -1
+	txOut.scriptPubKey = nil
 }
-
 func (txOut *TxOut) IsNull() bool {
-	return txOut.Value == -1
+	return txOut.value == -1
 }
-*/
 func (txOut *TxOut) String() string {
-	return fmt.Sprintf("Value :%d Script:%s", txOut.Value, hex.EncodeToString(txOut.scriptPubKey.bytes))
+	return fmt.Sprintf("Value :%d Script:%s", txOut.value, hex.EncodeToString(txOut.scriptPubKey.GetByteCodes()))
 }
 
 func (txOut *TxOut) IsEqual(out *TxOut) bool {
-	if txOut.Value != out.Value {
+	if txOut.value != out.value {
 		return false
 	}
 
@@ -135,7 +141,7 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 
 func NewTxOut() *TxOut {
 	txOut := TxOut{
-		Value:  -1,
+		value:  -1,
 		scriptPubKey: nil,
 	}
 	return &txOut

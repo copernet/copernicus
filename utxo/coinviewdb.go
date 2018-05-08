@@ -10,41 +10,45 @@ import (
 	"github.com/btcboost/copernicus/utils"
 )
 
-type CoinViewDB struct {
+type CoinsViewDB struct {
 	dbw *database.DBWrapper
 }
 
-func (cvd *CoinViewDB) GetCoin(outpoint *core.OutPoint) ([]byte, error) {
+func (coinsViewDB *CoinsViewDB) GetCoin(outpoint *core.OutPoint) (*Coin, error) {
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinEntry(outpoint).Serialize(buf)
 	if err != nil {
 		panic("get coin is failed!")
 	}
 
-	return cvd.dbw.Read(buf.Bytes())
+	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
+	if err != nil{
+		return nil, err
+	}
+	coin := NewEmptyCoin()
+	err = coin.Unserialize(bytes.NewBuffer(coinBuff))
+	return coin, err
 }
 
-func (coinViewDB *CoinViewDB) HaveCoin(outpoint *core.OutPoint) bool {
+func (coinsViewDB *CoinsViewDB) HaveCoin(outpoint *core.OutPoint) bool {
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinEntry(outpoint).Serialize(buf)
 	if err != nil {
 		return false
 	}
-	return coinViewDB.dbw.Exists(buf.Bytes())
+	return coinsViewDB.dbw.Exists(buf.Bytes())
 }
 
-/*
 func (coinViewDB *CoinViewDB) SetBestBlock(hash *utils.Hash) {
 	var cvc *CoinsViewCache
 	cvc.hashBlock = *hash
 }
-*/
 
-func (coinViewDB *CoinViewDB) GetBestBlock() utils.Hash {
+func (coinsViewDB *CoinsViewDB) GetBestBlock() utils.Hash {
 	var hashBestChain utils.Hash
 	buf := bytes.NewBuffer(nil)
 	hashBestChain.Serialize(buf)
-	v, err := coinViewDB.dbw.Read([]byte{DbBestBlock})
+	v, err := coinsViewDB.dbw.Read([]byte{database.DbBestBlock})
 	v = append(v, buf.Bytes()...)
 	if err != nil {
 		return utils.Hash{}
@@ -52,12 +56,12 @@ func (coinViewDB *CoinViewDB) GetBestBlock() utils.Hash {
 	return hashBestChain
 }
 
-func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[core.OutPoint]CoinsCacheEntry, hashBlock *utils.Hash) error {
+func (coinsViewDB *CoinsViewDB) BatchWrite(mapCoins *CacheCoins, hashBlock *utils.Hash) error {
 	var batch *database.BatchWrapper
 	count := 0
 	changed := 0
-	for k, v := range mapCoins {
-		if v.Flags != 0&CoinEntryDirty {
+	for k, v := range *mapCoins {
+		if v.dirty {
 			entry := NewCoinEntry(&k)
 			bufEntry := bytes.NewBuffer(nil)
 			entry.Serialize(bufEntry)
@@ -72,24 +76,24 @@ func (coinViewDB *CoinViewDB) BatchWrite(mapCoins map[core.OutPoint]CoinsCacheEn
 			changed++
 		}
 		count++
-		delete(mapCoins, k)
+		delete(*mapCoins, k)
 	}
 	if !hashBlock.IsNull() {
 		hashByte := bytes.NewBuffer(nil)
 		hashBlock.Serialize(hashByte)
-		batch.Write([]byte{DbBestBlock}, hashByte.Bytes())
+		batch.Write([]byte{database.DbBestBlock}, hashByte.Bytes())
 	}
 
-	ret := coinViewDB.dbw.WriteBatch(batch, false)
+	ret := coinsViewDB.dbw.WriteBatch(batch, false)
 	log.Print("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin database...\n", changed, count)
 	return ret
 }
 
-func (coinViewDB *CoinViewDB) EstimateSize() uint64 {
-	return coinViewDB.dbw.EstimateSize([]byte{DbCoin}, []byte{DbCoin + 1})
+func (coinsViewDB *CoinsViewDB) EstimateSize() uint64 {
+	return coinsViewDB.dbw.EstimateSize([]byte{database.DbCoin}, []byte{database.DbCoin + 1})
 }
 
-//func (coinViewDB *CoinViewDB) Cursor() *CoinsViewCursor {
+//func (coinsViewDB *CoinsViewDB) Cursor() *CoinsViewCursor {
 //
 //	// It seems that there are no "const iterators" for LevelDB. Since we only
 //	// need read operations on it, use a const-cast to get around that
@@ -97,7 +101,7 @@ func (coinViewDB *CoinViewDB) EstimateSize() uint64 {
 //
 //}
 
-func NewCoinViewDB(do *database.DBOption) *CoinViewDB {
+func NewCoinsViewDB(do *database.DBOption) *CoinsViewDB {
 	if do == nil {
 		return nil
 	}
@@ -110,10 +114,10 @@ func NewCoinViewDB(do *database.DBOption) *CoinViewDB {
 	})
 
 	if err != nil {
-		panic("init CoinViewDB failed...")
+		panic("init CoinsViewDB failed...")
 	}
 
-	return &CoinViewDB{
+	return &CoinsViewDB{
 		dbw: dbw,
 	}
 }
