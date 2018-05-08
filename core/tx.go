@@ -178,7 +178,8 @@ func (tx *Tx) RemoveTxOut(txOut *TxOut) {
 func (tx *Tx) SerializeSize() uint {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
-	var n uint = uint(8 + utils.VarIntSerializeSize(uint64(len(tx.Ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs))))
+	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
+
 	//if tx == nil {
 	//	fmt.Println("tx is nil")
 	//}
@@ -191,7 +192,7 @@ func (tx *Tx) SerializeSize() uint {
 	for _, txOut := range tx.outs {
 		n += txOut.SerializeSize()
 	}
-	return n
+	return uint(n)
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
@@ -501,7 +502,7 @@ func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
 
 	var nLockTimeCutoff int64 = 0
 
-	if flags & LocktimeMedianTimePast {
+	if flags & consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = ActiveChain.Tip()->GetMedianTimePast()
 	} else {
 		nLockTimeCutoff = utils2.GetAdjustedTime()
@@ -1005,18 +1006,6 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIn
 	return maps
 }
 
-func EvaluateSequenceLocks(block *BlockIndex, lockPair map[int]int64) bool {
-	if block.Prev == nil {
-		panic("the block's pprev is nil, Please check.")
-	}
-	nBlocktime := block.Prev.GetMedianTimePast()
-	for key, value := range lockPair {
-		if key >= block.Height || value >= nBlocktime {
-			return false
-		}
-	}
-	return true
-}
 
 func NewTx() *Tx {
 	return &Tx{LockTime: 0, Version: TxVersion}
