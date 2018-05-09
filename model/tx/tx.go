@@ -1,4 +1,4 @@
-package core
+package tx
 
 import (
 	"bytes"
@@ -7,15 +7,10 @@ import (
 	"io"
 	"math"
 
-	"github.com/btcboost/copernicus/consensus"
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/txout"
 	"github.com/pkg/errors"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/utxo"
-	"github.com/btcboost/copernicus/net/msg"
-	"btcd/wire"
-	"github.com/btcboost/copernicus/mempool"
 )
 
 const (
@@ -153,6 +148,19 @@ func (tx *Tx) AddTxIn(txIn *TxIn) {
 
 func (tx *Tx) AddTxOut(txOut *TxOut) {
 	tx.outs = append(tx.outs, txOut)
+}
+
+func (tx *Tx) GetTxOut(index int) (out *TxOut){
+	if index < 0 || index > len(tx.outs) {
+		return nil
+	}
+
+	return &tx.outs[index]
+}
+
+func (tx *Tx) GetAllPreviousOut() (outs []PreviousOutPoint){
+	return
+
 }
 
 func (tx *Tx) RemoveTxIn(txIn *TxIn) {

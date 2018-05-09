@@ -1,11 +1,10 @@
-package core
+package script
 
 import (
 	"encoding/binary"
 	"errors"
 	"bytes"
 	"io"
-	"copernicus/utils"
 )
 
 const (

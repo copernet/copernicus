@@ -1,4 +1,4 @@
-package core
+package tx
 
 import (
 	"github.com/btcboost/copernicus/container"
