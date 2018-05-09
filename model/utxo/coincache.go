@@ -47,7 +47,7 @@ type CoinsCacheMap map[outpoint.OutPoint]*CoinsCacheValue
 
 
 type CoinsCache struct {
-	db             CoinsDB
+	db               CoinsDB
 	hashBlock        util.Hash
 	cacheCoins       CoinsCacheMap
 	cachedCoinsUsage int64
