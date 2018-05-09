@@ -8,19 +8,19 @@ import (
 	"fmt"
 	"copernicus/core"
 )
-var UtxoTip *CoinsViewCache
+var utxoTip *CoinsCache
 
 
 type UtxoConfig struct {
 
 }
 
-func InitUtxo(conf *UtxoConfig){
+func InitUtxoTip(conf *UtxoConfig){
 	fmt.Printf("initUtxo processing ....%v",conf)
 	GetUtxoCacheInstance()
 }
 
-type CoinsCacheEntry struct {
+type Coin struct {
 	Coin  *utxo.Coin
 	dirty bool //是否修改过
 	fresh bool //父cache中不存在

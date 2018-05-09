@@ -10,11 +10,10 @@ import (
 
 type CoinKey struct {
 	outpoint *outpoint.OutPoint
-	key      byte
 }
 
 func (coinKey *CoinKey) Serialize(writer io.Writer) error {
-	_, err := writer.Write([]byte{coinKey.key})
+	_, err := writer.Write([]byte{db.DbCoin})
 	if err != nil {
 		return err
 	}
@@ -28,14 +27,12 @@ func (coinKey *CoinKey) Serialize(writer io.Writer) error {
 }
 
 func (coinKey *CoinKey)Unserialize(reader io.Reader) error {
-	coinKey = new(CoinKey)
 	coinKey.outpoint.Hash = util.Hash{}
 	keys := make([]byte, 1)
 	_, err := io.ReadFull(reader, keys)
 	if err != nil {
 		return err
 	}
-
 	b, err := util.ReadVarBytes(reader, 32, "hash")
 	if err != nil {
 		return err
@@ -44,7 +41,6 @@ func (coinKey *CoinKey)Unserialize(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	coinKey.key = keys[0]
 	coinKey.outpoint.Hash.SetBytes(b)
 	coinKey.outpoint.Index = uint32(n)
 	return err
@@ -59,6 +55,5 @@ func (coinKey *CoinKey) GetSerKey() []byte {
 func NewCoinKey(outPoint *outpoint.OutPoint) *CoinKey {
 	coinKey := new(CoinKey)
 	coinKey.outpoint = outPoint
-	coinKey.key = db.DbCoin
 	return coinKey
 }
