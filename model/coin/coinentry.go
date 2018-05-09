@@ -5,8 +5,9 @@ import (
 	"io"
 
 	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/database"
+	"github.com/btcboost/copernicus/util"
 )
 
 type CoinEntry struct {
@@ -19,29 +20,29 @@ func (coinEntry *CoinEntry) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarBytes(writer, coinEntry.outpoint.Hash.GetCloneBytes())
+	err = util.WriteVarBytes(writer, coinEntry.outpoint.Hash.GetCloneBytes())
 	if err != nil {
 		return err
 	}
-	err = utils.WriteVarInt(writer, uint64(coinEntry.outpoint.Index))
+	err = util.WriteVarInt(writer, uint64(coinEntry.outpoint.Index))
 	return nil
 
 }
 
-func DeserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
+func UnserializeCE(reader io.Reader) (coinEntry *CoinEntry, err error) {
 	coinEntry = new(CoinEntry)
-	coinEntry.outpoint.Hash = utils.Hash{}
+	coinEntry.outpoint.Hash = util.Hash{}
 	keys := make([]byte, 1)
 	_, err = io.ReadFull(reader, keys)
 	if err != nil {
 		return
 	}
 
-	b, err := utils.ReadVarBytes(reader, 32, "hash")
+	b, err := util.ReadVarBytes(reader, 32, "hash")
 	if err != nil {
 		return
 	}
-	n, err := utils.ReadVarInt(reader)
+	n, err := util.ReadVarInt(reader)
 	if err != nil {
 		return
 	}

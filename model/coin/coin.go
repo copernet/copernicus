@@ -15,6 +15,7 @@ import (
 	"github.com/btcboost/copernicus/persist/db"
 	"copernicus/core"
 	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcboost/copernicus/model/outpoint"
 )
 
 type Coin struct {
@@ -70,7 +71,7 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	return tc.Serialize(w)
 }
 
-func (coin *Coin) Unserialize(r io.Reader) error {
+func Unserialize(r io.Reader)（coin, error) {
 	buf := make([]byte, 1)
 	r.Read(buf) //read database.DbCoin
 	hicb, err := util.ReadVarLenInt(r)
@@ -82,8 +83,8 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	if (heightAndIsCoinBase & 1) == 1{
 		coin.isCoinBase =  true
 	}
-	tc := util.NewTxoutCompressor(coin.txOut)
-	return tc.serialize(r)
+	coin.txOut := txout.Unserialize(r)
+	return coin
 }
 
 func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
@@ -106,10 +107,3 @@ func NewEmptyCoin() *Coin {
 }
 
 
-type CoinViewCursor interface {
-	GetKey() (core.OutPoint, bool)
-	GetVal() (Coin, bool)
-	GetValSize() int
-	Valid() bool
-	Next()
-}
