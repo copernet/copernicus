@@ -7,10 +7,12 @@ import (
 	"io"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
+	"copernicus/net/protocol"
+	"copernicus/utils"
 )
 
 type TxIn struct {
-	PreviousOutPoint *OutPoint
+	PreviousOutPoint *outpoint.OutPoint
 	scriptSig        *Script
 	Sequence         uint32 //todo ?
 	SigOpCount       int

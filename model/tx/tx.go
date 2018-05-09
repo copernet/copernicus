@@ -16,6 +16,10 @@ import (
 
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/consensus"
+	"copernicus/utils"
+	"copernicus/blockchain"
+	"copernicus/net/msg"
 )
 
 const (
@@ -136,7 +140,7 @@ const (
 )
 
 type Tx struct {
-	Hash     utils.Hash // Cached transaction hash	todo defined a pointer will be the optimization
+	Hash     util.Hash // Cached transaction hash	todo defined a pointer will be the optimization
 	LockTime uint32
 	Version  int32
 	ins      []*txin.TxIn
@@ -163,6 +167,15 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut){
 	return tx.outs[index]
 }
 
+func (tx *Tx) GetOuts() (outs []*txout.TxOut){
+
+	return tx.outs
+}
+
+func (tx *Tx) GetIns() (outs []*txin.TxIn){
+
+	return tx.ins
+}
 func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint){
 	return
 
