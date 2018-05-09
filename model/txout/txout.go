@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/util"
 )
 
 type TxOut struct {
@@ -19,10 +20,10 @@ func (txOut *TxOut) SerializeSize() int {
 	if txOut.scriptPubKey == nil {
 		return 8
 	}
-	return 8 + utils.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
+	return 8 + util.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
 }
 
-func (txOut *TxOut) IsDust(minRelayTxFee utils.FeeRate) bool {
+func (txOut *TxOut) IsDust(minRelayTxFee util.FeeRate) bool {
 	return txOut.value < txOut.GetDustThreshold(minRelayTxFee)
 }
 
@@ -55,7 +56,7 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	return utils.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
 }
 
-func (txOut *TxOut) Deserialize(reader io.Reader) error {
+func (txOut *TxOut) Unserialize(reader io.Reader) error {
 	err := protocol.ReadElement(reader, &txOut.value)
 	if err != nil {
 		return err
