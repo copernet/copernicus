@@ -1,96 +1,58 @@
 package util
 
 import (
-	"encoding/binary"
-	"fmt"
+	"bytes"
 	"io"
-	"math"
 )
 
-var errVarIntDesc = "non-rule varint %x - discriminant %x must encode a value greater than %x "
-
-func ReadVarInt(r io.Reader) (uint64, error) {
-	discriminant, err := BinarySerializer.Uint8(r)
-	if err != nil {
-		return 0, err
+func WriteVarLenInt(w io.Writer, n uint64) error {
+	buf := make([]byte, 10)
+	len := 0
+	mask := uint64(0)
+	for {
+		if len > 0 {
+			mask = 0x80
+		}
+		buf[len] = byte((n & 0x7f) | mask)
+		if n <= 0x7f {
+			break
+		}
+		n = (n >> 7) - 1
+		len++
 	}
-	var result uint64
-	switch discriminant {
-	case 0xff:
-		sv, err := BinarySerializer.Uint64(r, binary.LittleEndian)
-		if err != nil {
-			return 0, err
-		}
-		result = sv
-		min := uint64(0x100000000)
-		if result < min {
-			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
-		}
-
-	case 0xfe:
-		sv, err := BinarySerializer.Uint32(r, binary.LittleEndian)
-		if err != nil {
-			return 0, err
-		}
-		result = uint64(sv)
-		min := uint64(0x10000)
-		if result < min {
-			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
-		}
-	case 0xfd:
-		sv, err := BinarySerializer.Uint16(r, binary.LittleEndian)
-		if err != nil {
-			return 0, err
-		}
-		result = uint64(sv)
-		min := uint64(0xfd)
-		if result < min {
-			return 0, fmt.Errorf(errVarIntDesc, result, discriminant, min)
-		}
-	default:
-		result = uint64(discriminant)
-
+	var tmp bytes.Buffer
+	for i := len; i >= 0; i-- {
+		tmp.WriteByte(buf[i])
 	}
-	return result, nil
+	_, err := w.Write(tmp.Bytes())
+	return err
 }
 
-func WriteVarInt(w io.Writer, val uint64) error {
-	if val < 0xfd {
-		return BinarySerializer.PutUint8(w, uint8(val))
-	}
-	if val <= math.MaxUint16 {
-		err := BinarySerializer.PutUint8(w, 0xfd)
-		if err != nil {
-			return err
+func ReadVarLenInt(r io.Reader) (uint64, error) {
+	ret := uint64(0)
+	buf := make([]byte, 1)
+	for {
+		len, err := r.Read(buf)
+		if len == 0 {
+			return ret, err
 		}
-		return BinarySerializer.PutUint16(w, binary.LittleEndian, uint16(val))
-
-	}
-	if val <= math.MaxUint32 {
-		err := BinarySerializer.PutUint8(w, 0xfe)
-		if err != nil {
-			return err
+		ret = (ret << 7) | uint64(buf[0]&0x7f)
+		if buf[0]&0x80 != 0 {
+			ret++
+		} else {
+			return ret, nil
 		}
-		return BinarySerializer.PutUint32(w, binary.LittleEndian, uint32(val))
 	}
-	err := BinarySerializer.PutUint8(w, 0xff)
-	if err != nil {
-		return err
-	}
-	return BinarySerializer.PutUint64(w, binary.LittleEndian, val)
-
 }
 
-func VarIntSerializeSize(val uint64) int {
-	if val < 0xfd {
-		return 1
+func VarLenIntSize(n uint64) uint {
+	size := uint(0)
+	for {
+		size++
+		if n <= 0x7f {
+			break
+		}
+		n = (n >> 7) - 1
 	}
-	if val <= math.MaxUint16 {
-		return 3
-	}
-	if val <= math.MaxUint32 {
-		return 5
-	}
-	return 9
-
+	return size
 }
