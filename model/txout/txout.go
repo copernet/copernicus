@@ -57,7 +57,7 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	return  util.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
 }
 
-func Unserialize(reader io.Reader) (*TxOut,error) {
+func (txOut *TxOut) Unserialize(reader io.Reader) error {
 	txOut:= NewTxOut()
 	err := protocol.ReadElement(reader, &txOut.value)
 	if err != nil {
