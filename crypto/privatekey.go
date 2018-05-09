@@ -3,7 +3,7 @@ package crypto
 import (
 	"fmt"
 
-	"github.com/btcboost/copernicus/utils/base58"
+	"github.com/btcboost/copernicus/util/base58"
 	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
 )
