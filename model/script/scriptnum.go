@@ -1,4 +1,4 @@
-package core
+package script
 
 import "github.com/pkg/errors"
 

@@ -1,4 +1,4 @@
-package core
+package txout
 
 import (
 	"encoding/binary"
@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/net/protocol"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/model/script"
 )
 
 type TxOut struct {
 	value            int64
 	scriptPubKey     *Script
-	SigOpCount      int64
+	//SigOpCount      int64
 }
 
 func (txOut *TxOut) SerializeSize() int {
