@@ -3,14 +3,13 @@ package mempool
 import (
 	"unsafe"
 
-	"github.com/btcboost/copernicus/core"
+	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/utils"
 	"github.com/google/btree"
 )
 
-// TxEntry are not safe for concurrent write and read access .
 type TxEntry struct {
-	Tx     *core.Tx
+	Tx     *tx.Tx
 	TxSize int
 	// txFee tis transaction fee
 	TxFee    int64

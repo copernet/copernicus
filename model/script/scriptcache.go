@@ -1,5 +1,3 @@
-package core
-
-import "github.com/btcboost/copernicus/utils"
+package script
 
 var ScriptExecutionCacheNonce = utils.GetRandHash()
