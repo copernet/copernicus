@@ -1,11 +1,16 @@
 package tx
 
-import "github.com/btcboost/copernicus/model/tx"
+import (
+	"github.com/btcboost/copernicus/model/tx"
 
-type Tx struct {
-	tx tx.Tx
+
+)
+
+func CheckCoinBaseTransaction(tx *tx.Tx, state *ValidationState, allowLargeOpReturn bool) bool {
+	return true
 }
 
-func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn bool) bool {
-
+func CheckRegularTransaction(tx *tx.Tx, state *ValidationState, allowLargeOpReturn bool) bool {
+	return true
 }
+

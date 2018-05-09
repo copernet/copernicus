@@ -7,8 +7,6 @@ import (
 	"io"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus1/copernicus/utils"
-	"github.com/btcboost/copernicus1/copernicus/net/protocol"
 )
 
 type TxIn struct {

@@ -11,6 +11,11 @@ import (
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/pkg/errors"
 	"github.com/btcboost/copernicus/conf"
+	"btcd/wire"
+	"github.com/btcboost/copernicus/model/script"
+
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/util"
 )
 
 const (
@@ -108,19 +113,19 @@ const (
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
 	MandatoryScriptVerifyFlags uint =
-		ScriptVerifyP2SH | ScriptVerifyStrictEnc |
-			ScriptEnableSighashForkid | ScriptVerifyLowS | ScriptVerifyNullFail
+		script.ScriptVerifyP2SH | script.ScriptVerifyStrictEnc |
+			script.ScriptEnableSighashForkid | script.ScriptVerifyLowS | script.ScriptVerifyNullFail
 
 	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
 	 * with. However scripts violating these flags may still be present in valid
 	 * blocks and we must accept those blocks.
 	 */
-	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
-		ScriptVerifyMinmalData | ScriptVerifyNullDummy |
-		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
-		ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
-		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
-		ScriptVerifyDiscourageUpgradableWitnessProgram
+	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | script.ScriptVerifyDersig |
+		script.ScriptVerifyMinmalData | script.ScriptVerifyNullDummy |
+		script.ScriptVerifyDiscourageUpgradableNops | script.ScriptVerifyCleanStack |
+		script.ScriptVerifyNullFail | script.ScriptVerifyCheckLockTimeVerify |
+		script.ScriptVerifyCheckSequenceVerify | script.ScriptVerifyLowS |
+		script.ScriptVerifyDiscourageUpgradableWitnessProgram
 
 	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
 	StandardNotMandatoryVerifyFlags uint= StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
@@ -134,31 +139,31 @@ type Tx struct {
 	Hash     utils.Hash // Cached transaction hash	todo defined a pointer will be the optimization
 	LockTime uint32
 	Version  int32
-	ins      []*TxIn
-	outs     []*TxOut
+	ins      []*txin.TxIn
+	outs     []*txout.TxOut
 	//ValState int
 }
 
 var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
 
 
-func (tx *Tx) AddTxIn(txIn *TxIn) {
+func (tx *Tx) AddTxIn(txIn *txin.TxIn) {
 	tx.ins = append(tx.ins, txIn)
 }
 
-func (tx *Tx) AddTxOut(txOut *TxOut) {
+func (tx *Tx) AddTxOut(txOut *txout.TxOut) {
 	tx.outs = append(tx.outs, txOut)
 }
 
-func (tx *Tx) GetTxOut(index int) (out *TxOut){
+func (tx *Tx) GetTxOut(index int) (out *txout.TxOut){
 	if index < 0 || index > len(tx.outs) {
 		return nil
 	}
 
-	return &tx.outs[index]
+	return tx.outs[index]
 }
 
-func (tx *Tx) GetAllPreviousOut() (outs []PreviousOutPoint){
+func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint){
 	return
 
 }
@@ -208,12 +213,12 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	count := uint64(len(tx.Ins))
+	count := uint64(len(tx.ins))
 	err = utils.WriteVarInt(writer, count)
 	if err != nil {
 		return err
 	}
-	for _, txIn := range tx.Ins {
+	for _, txIn := range tx.ins {
 		err := txIn.Serialize(writer)
 		if err != nil {
 			return err
@@ -249,11 +254,11 @@ func (tx *Tx)Deserialize(reader io.Reader) error {
 	}
 
 	tx.Version = int32(version)
-	tx.ins = make([]*TxIn, count)
+	tx.ins = make([]*txin.TxIn, count)
 
 	for i := uint64(0); i < count; i++ {
-		txIn := new(TxIn)
-		txIn.PreviousOutPoint = new(OutPoint)
+		txIn := new(txin.TxIn)
+		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		txIn.PreviousOutPoint.Hash = *new(utils.Hash)
 		err = txIn.Deserialize(reader)
 		if err != nil {
@@ -266,11 +271,11 @@ func (tx *Tx)Deserialize(reader io.Reader) error {
 		return err
 	}
 
-	tx.outs = make([]*TxOut, count)
+	tx.outs = make([]*txout.TxOut, count)
 	for i := uint64(0); i < count; i++ {
 		// The pointer is set now in case a script buffer is borrowed
 		// and needs to be returned to the pool on error.
-		txOut := new(TxOut)
+		txOut := new(txout.TxOut)
 		err = txOut.Deserialize(reader)
 		if err != nil {
 			return err
@@ -646,7 +651,6 @@ func (tx *Tx) checkInputsMoney(state *ValidationState) bool {
 		if !coin {
 			coin = utxo.GetCoin()
 		}
-
 	}
 }
 

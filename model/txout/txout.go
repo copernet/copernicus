@@ -11,7 +11,7 @@ import (
 
 type TxOut struct {
 	value            int64
-	scriptPubKey     *Script
+	scriptPubKey     *script.Script
 	//SigOpCount      int64
 }
 
