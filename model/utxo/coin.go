@@ -4,23 +4,19 @@ import (
 	"errors"
 	"io"
 	"encoding/binary"
-
-
 	"fmt"
-
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/util"
-
-
 	"github.com/btcboost/copernicus/persist/db"
-
 	"github.com/btcboost/copernicus/util/amount"
 )
 
 type Coin struct {
-	txOut               *txout.TxOut
+	txOut               txout.TxOut
 	height              uint32
 	isCoinBase          bool
+	dirty bool //是否修改过
+	fresh bool //是否是新增
 }
 
 func (coin *Coin) GetHeight() uint32 {
@@ -43,13 +39,16 @@ func (coin *Coin) Clear() {
 }
 
 
-func (coin *Coin) GetTxOut() *txout.TxOut {
+func (coin *Coin) GetTxOut() txout.TxOut {
 	return coin.txOut
 }
 
 func (coin *Coin) GetAmount() amount.Amount {
 	return amount.Amount(coin.txOut.GetValue())
 }
+
+
+
 func (coin *Coin) DynamicMemoryUsage() int64{
 	return int64(binary.Size(coin))
 }
@@ -66,7 +65,7 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	if err := util.WriteVarLenInt(w, uint64(heightAndIsCoinBase)); err != nil {
 		return err
 	}
-	tc := util.NewTxoutCompressor(coin.txOut)
+	tc := coin.txOut
 	return tc.Serialize(w)
 }
 
@@ -89,7 +88,7 @@ func (coin *Coin) Unserialize(r io.Reader)error {
 func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
 
 	return &Coin{
-		txOut:               out,
+		txOut:               *out,
 		height:              height,
 		isCoinBase:          isCoinBase,
     }
@@ -99,7 +98,7 @@ func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
 func NewEmptyCoin() *Coin {
 
 	return &Coin{
-		txOut:               txout.NewTxOut(),
+		txOut:               *txout.NewTxOut(),
 		height: 0,
 		isCoinBase:false,
 	}

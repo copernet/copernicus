@@ -4,11 +4,9 @@ import (
 	"bytes"
 
 	"github.com/btcboost/copernicus/conf"
-
 	"github.com/btcboost/copernicus/persist/db"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/util"
-
 	"github.com/btcboost/copernicus/model/outpoint"
 )
 
@@ -54,7 +52,7 @@ func (coinsViewDB *CoinsDB) GetBestBlock() util.Hash {
 	return hashBestChain
 }
 
-func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCacheMap, hashBlock *util.Hash) error {
+func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsMap, hashBlock *util.Hash) error {
 	var batch *db.BatchWrapper
 	count := 0
 	changed := 0
@@ -64,11 +62,11 @@ func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCacheMap, hashBlock *util.
 			bufEntry := bytes.NewBuffer(nil)
 			entry.Serialize(bufEntry)
 
-			if v.Coin.IsSpent() {
+			if v.IsSpent() {
 				batch.Erase(bufEntry.Bytes())
 			} else {
 				coinByte := bytes.NewBuffer(nil)
-				v.Coin.Serialize(coinByte)
+				v.Serialize(coinByte)
 				batch.Write(bufEntry.Bytes(), coinByte.Bytes())
 			}
 			changed++

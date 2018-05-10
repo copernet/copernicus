@@ -17,11 +17,7 @@ func (coinKey *CoinKey) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	err = util.WriteVarBytes(writer, coinKey.outpoint.Hash.GetCloneBytes())
-	if err != nil {
-		return err
-	}
-	err = util.WriteVarInt(writer, uint64(coinKey.outpoint.Index))
+	err = coinKey.outpoint.Serialize(writer)
 	return nil
 
 }
@@ -33,16 +29,7 @@ func (coinKey *CoinKey)Unserialize(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	b, err := util.ReadVarBytes(reader, 32, "hash")
-	if err != nil {
-		return err
-	}
-	n, err := util.ReadVarInt(reader)
-	if err != nil {
-		return err
-	}
-	coinKey.outpoint.Hash.SetBytes(b)
-	coinKey.outpoint.Index = uint32(n)
+	err := coinKey.Unserialize(reader)
 	return err
 }
 
