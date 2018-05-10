@@ -17,6 +17,8 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/model/utxo"
 )
 
 const (
