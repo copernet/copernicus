@@ -7,13 +7,12 @@ import (
 	"io"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
-	"copernicus/net/protocol"
-	"copernicus/utils"
+	"github.com/btcboost/copernicus/util"
 )
 
 type TxIn struct {
 	PreviousOutPoint *outpoint.OutPoint
-	scriptSig        *Script
+	scriptSig        *script.Script
 	Sequence         uint32 //todo ?
 	SigOpCount       int
 }
@@ -26,7 +25,7 @@ func (txIn *TxIn) SerializeSize() int {
 		return 40
 	}
 
-	return 40 + utils.VarIntSerializeSize(uint64(txIn.scriptSig.Size())) + txIn.scriptSig.Size()
+	return 40 + util.VarIntSerializeSize(uint64(txIn.scriptSig.Size())) + txIn.scriptSig.Size()
 }
 
 func (txIn *TxIn) Deserialize(reader io.Reader) error {
@@ -49,12 +48,12 @@ func (txIn *TxIn) Serialize(writer io.Writer) error {
 			return err
 		}
 	}
-	err = utils.WriteVarBytes(writer, txIn.scriptSig.bytes)
+	err = util.WriteVarBytes(writer, txIn.scriptSig.bytes)
 	if err != nil {
 		return err
 	}
 
-	err = utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
+	err = util.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
 	return err
 }
 

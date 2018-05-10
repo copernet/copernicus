@@ -17,9 +17,8 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/consensus"
-	"copernicus/utils"
-	"copernicus/blockchain"
-	"copernicus/net/msg"
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/model/utxo"
 )
 
 const (
@@ -60,7 +59,7 @@ const (
 	MaxTxInSequenceNum uint32 = 0xffffffff
 	FreeListMaxItems          = 12500
 	MaxMessagePayload         = 32 * 1024 * 1024
-	MinTxInPayload            = 9 + util.Hash256Size
+	MinTxInPayload            = 9 + utils.Hash256Size
 	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
 	TxVersion                 = 1
 )
@@ -108,32 +107,6 @@ const (
 	/*MaxStandardP2WSHScriptSize the maximum size of a standard witnessScript */
 	MaxStandardP2WSHScriptSize uint = 3600
 
-
-	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
-	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
-	// but in the future other flags may be added, such as a soft-fork to enforce
-	// strict DER encoding.
-	//
-	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
-	// details.
-	MandatoryScriptVerifyFlags uint =
-		script.ScriptVerifyP2SH | script.ScriptVerifyStrictEnc |
-			script.ScriptEnableSighashForkid | script.ScriptVerifyLowS | script.ScriptVerifyNullFail
-
-	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
-	 * with. However scripts violating these flags may still be present in valid
-	 * blocks and we must accept those blocks.
-	 */
-	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | script.ScriptVerifyDersig |
-		script.ScriptVerifyMinmalData | script.ScriptVerifyNullDummy |
-		script.ScriptVerifyDiscourageUpgradableNops | script.ScriptVerifyCleanStack |
-		script.ScriptVerifyNullFail | script.ScriptVerifyCheckLockTimeVerify |
-		script.ScriptVerifyCheckSequenceVerify | script.ScriptVerifyLowS |
-		script.ScriptVerifyDiscourageUpgradableWitnessProgram
-
-	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
-	StandardNotMandatoryVerifyFlags uint= StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
-
 	/*StandardLockTimeVerifyFlags used as the flags parameter to sequence and LockTime checks in
 	 * non-core code. */
 	StandardLockTimeVerifyFlags uint = consensus.LocktimeVerifySequence | consensus.LocktimeMedianTimePast
@@ -167,21 +140,17 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut){
 	return tx.outs[index]
 }
 
-func (tx *Tx) GetOuts() (outs []*txout.TxOut){
-
-	return tx.outs
-}
-
-func (tx *Tx) GetIns() (outs []*txin.TxIn){
-
-	return tx.ins
-}
-func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint){
+func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
 	return
 
 }
 
-func (tx *Tx) RemoveTxIn(txIn *TxIn) {
+func (tx *Tx) GetOutsCount() int {
+	return len(tx.outs)
+
+}
+
+func (tx *Tx) RemoveTxIn(txIn *txin.TxIn) {
 	ret := tx.ins[:0]
 	for _, e := range tx.ins {
 		if e != txIn {
@@ -191,7 +160,7 @@ func (tx *Tx) RemoveTxIn(txIn *TxIn) {
 	tx.ins = ret
 }
 
-func (tx *Tx) RemoveTxOut(txOut *TxOut) {
+func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
 	ret := tx.outs[:0]
 	for _, e := range tx.outs {
 		if e != txOut {
@@ -204,7 +173,7 @@ func (tx *Tx) RemoveTxOut(txOut *TxOut) {
 func (tx *Tx) SerializeSize() uint {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
-	n := 8 + utils.VarIntSerializeSize(uint64(len(tx.ins))) + utils.VarIntSerializeSize(uint64(len(tx.outs)))
+	n := 8 + util.VarIntSerializeSize(uint64(len(tx.ins))) + util.VarIntSerializeSize(uint64(len(tx.outs)))
 
 	//if tx == nil {
 	//	fmt.Println("tx is nil")
@@ -222,12 +191,12 @@ func (tx *Tx) SerializeSize() uint {
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
-	err := utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.Version)
+	err := util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.Version)
 	if err != nil {
 		return err
 	}
 	count := uint64(len(tx.ins))
-	err = utils.WriteVarInt(writer, count)
+	err = util.WriteVarInt(writer, count)
 	if err != nil {
 		return err
 	}
@@ -238,7 +207,7 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 		}
 	}
 	count = uint64(len(tx.outs))
-	err = utils.WriteVarInt(writer, count)
+	err = util.WriteVarInt(writer, count)
 	if err != nil {
 		return err
 	}
@@ -248,16 +217,16 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 			return err
 		}
 	}
-	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.LockTime)
+	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.LockTime)
 
 }
 
-func (tx *Tx)Deserialize(reader io.Reader) error {
-	version, err := utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+func (tx *Tx)Unserialize(reader io.Reader) error {
+	version, err := util.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
 		return err
 	}
-	count, err := utils.ReadVarInt(reader)
+	count, err := util.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -272,14 +241,14 @@ func (tx *Tx)Deserialize(reader io.Reader) error {
 	for i := uint64(0); i < count; i++ {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
-		txIn.PreviousOutPoint.Hash = *new(utils.Hash)
+		txIn.PreviousOutPoint.Hash = *new(util.Hash)
 		err = txIn.Deserialize(reader)
 		if err != nil {
 			return err
 		}
 		tx.ins[i] = txIn
 	}
-	count, err = utils.ReadVarInt(reader)
+	count, err = util.ReadVarInt(reader)
 	if err != nil {
 		return err
 	}
@@ -296,7 +265,7 @@ func (tx *Tx)Deserialize(reader io.Reader) error {
 		tx.outs[i] = txOut
 	}
 
-	tx.LockTime, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	tx.LockTime, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
 		return err
 	}
@@ -531,7 +500,7 @@ func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
 	if flags & consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = ActiveChain.Tip()->GetMedianTimePast()
 	} else {
-		nLockTimeCutoff = utils2.GetAdjustedTime()
+		nLockTimeCutoff = util2.GetAdjustedTime()
 	}
 
 	if !tx.isFinal(nBlockHeight, nLockTimeCutoff) {
@@ -659,11 +628,22 @@ func (tx *Tx) areInputsStandard() bool {
 }
 
 func (tx *Tx) checkInputsMoney(state *ValidationState) bool {
+	nValue := 0
 	for _, e := range tx.ins {
 		coin := mempool.GetCoin(e.PreviousOutPoint)
 		if !coin {
 			coin = utxo.GetCoin()
 		}
+		if coin.txout.value < 0 || coin.txout.value > MaxMoney {
+			return false
+		}
+		nValue += coin.txout.value
+		if nValue < 0 || nValue > MaxMoney {
+			return false
+		}
+	}
+	if nValue < tx.GetValueOut() {
+		return false
 	}
 }
 
@@ -691,7 +671,7 @@ func (tx *Tx) GetValueOut() int64 {
 	var valueOut int64
 	for _, out := range tx.outs {
 		valueOut += out.Value
-		if !utils.MoneyRange(out.Value) || !utils.MoneyRange(valueOut) {
+		if !util.MoneyRange(out.Value) || !util.MoneyRange(valueOut) {
 			panic("value out of range")
 		}
 	}
@@ -722,7 +702,7 @@ func (tx *Tx) Copy() *Tx {
 	for _, txIn := range tx.ins {
 		var hashBytes [32]byte
 		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-		preHash := new(utils.Hash)
+		preHash := new(util.Hash)
 		preHash.SetBytes(hashBytes[:])
 		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
 		scriptLen := txIn.Script.Size()
@@ -820,7 +800,7 @@ func (tx *Tx) String() string {
 	return fmt.Sprintf("%s%s%s", str, inStr, outStr)
 }
 
-func (tx *Tx) TxHash() utils.Hash {
+func (tx *Tx) TxHash() util.Hash {
 	// cache hash
 	if !tx.Hash.IsNull() {
 		return tx.Hash
@@ -859,7 +839,7 @@ func (tx *Tx)ContextualCheckTransactionForCurrentBlock(state *ValidationState, p
 	if flags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
 	} else {
-		lockTimeCutoff = utils.GetAdjustedTime()
+		lockTimeCutoff = util.GetAdjustedTime()
 	}
 
 	return tx.ContextualCheckTransaction(params, state, blockHeight, lockTimeCutoff)
@@ -1038,9 +1018,9 @@ func NewTx() *Tx {
 /*
 // PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing
 type PrecomputedTransactionData struct {
-	HashPrevout  *utils.Hash
-	HashSequence *utils.Hash
-	HashOutputs  *utils.Hash
+	HashPrevout  *util.Hash
+	HashSequence *util.Hash
+	HashOutputs  *util.Hash
 }
 
 func NewPrecomputedTransactionData(tx *Tx) *PrecomputedTransactionData {

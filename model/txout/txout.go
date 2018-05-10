@@ -8,7 +8,6 @@ import (
 
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
-	"copernicus/net/protocol"
 )
 
 type TxOut struct {
@@ -21,14 +20,14 @@ func (txOut *TxOut) SerializeSize() int {
 	if txOut.scriptPubKey == nil {
 		return 8
 	}
-	return 8 +  util.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
+	return 8 + util.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
 }
 
-func (txOut *TxOut) IsDust(minRelayTxFee  util.FeeRate) bool {
+func (txOut *TxOut) IsDust(minRelayTxFee util.FeeRate) bool {
 	return txOut.value < txOut.GetDustThreshold(minRelayTxFee)
 }
 
-func (txOut *TxOut) GetDustThreshold(minRelayTxFee  util.FeeRate) int64 {
+func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
 	// "Dust" is defined in terms of CTransaction::minRelayTxFee, which has
 	// units satoshis-per-kilobyte. If you'd pay more than 1/3 in fees to
 	// spend something, then we consider it dust. A typical spendable
@@ -50,22 +49,21 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	if txOut.scriptPubKey == nil {
 		return nil
 	}
-	err :=  util.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
+	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
 	if err != nil {
 		return err
 	}
-	return  util.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
+	return utils.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
 }
 
 func (txOut *TxOut) Unserialize(reader io.Reader) error {
-	txOut:= NewTxOut()
 	err := protocol.ReadElement(reader, &txOut.value)
 	if err != nil {
-		return txOut, err
+		return err
 	}
 	bytes, err := ReadScript(reader, MaxMessagePayload, "tx output script")
 	txOut.scriptPubKey = NewScriptRaw(bytes)
-	return txOut, err
+	return err
 }
 
 func (txOut *TxOut) CheckValue(state *ValidationState) bool {

@@ -138,22 +138,56 @@ const (
 	MaxOpReturnRelay uint = 83
 	MaxOpReturnRelayLarge uint = 223
 )
+const (
+	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
+	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
+	// but in the future other flags may be added, such as a soft-fork to enforce
+	// strict DER encoding.
+	//
+	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
+	// details.
+	MandatoryScriptVerifyFlags uint =
+	ScriptVerifyP2SH | ScriptVerifyStrictEnc |
+	ScriptEnableSighashForkid | ScriptVerifyLowS | ScriptVerifyNullFail
+
+	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
+	 * with. However scripts violating these flags may still be present in valid
+	 * blocks and we must accept those blocks.
+	 */
+	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
+	ScriptVerifyMinmalData | ScriptVerifyNullDummy |
+	ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
+	ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
+	ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
+	ScriptVerifyDiscourageUpgradableWitnessProgram
+
+	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
+	StandardNotMandatoryVerifyFlags uint= StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
+)
 
 type Script struct {
 	data          []byte
 	ParsedOpCodes []ParsedOpCode
 }
 
-func (s *Script)SetData(bc []byte){
-	s.data = bc
-	
+func (s *Script) Serialize(io io.Writer) (n int, err error) {
+	return io.Write(s.data)
 }
-func (s *Script)GetData() []byte{
-	return s.data
+
+func UnSerialize(io io.Reader) *Script {
+	bytes, err := ReadScript(io, MaxMessagePayload, "tx input signature script")
+	if err != nil {
+		return err
+	}
+
+	return NewScriptRaw(bytes)
 }
+
 func NewScriptRaw(bytes []byte) *Script {
 	script := Script{data: bytes}
-	script.convertOPS()
+	if script.convertOPS() != nil {
+		return nil
+	}
 	return &script
 }
 

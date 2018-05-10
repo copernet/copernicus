@@ -6,12 +6,12 @@ import (
 	"io"
 	"strconv"
 
-	"copernicus/utils"
-	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/utils"
+	utils2 "copernicus/utils"
 )
 
 type OutPoint struct {
-	Hash  util.Hash
+	Hash  utils.Hash
 	Index uint32
 }
 
