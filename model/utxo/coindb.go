@@ -4,19 +4,21 @@ import (
 	"bytes"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/database"
+
+	"github.com/btcboost/copernicus/persist/db"
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/util"
+
+	"github.com/btcboost/copernicus/model/outpoint"
 )
 
-type CoinsViewDB struct {
-	dbw *database.DBWrapper
+type CoinsDB struct {
+	dbw *db.DBWrapper
 }
 
-func (coinsViewDB *CoinsViewDB) GetCoin(outpoint *core.OutPoint) (*Coin, error) {
+func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {
 	buf := bytes.NewBuffer(nil)
-	err := NewCoinEntry(outpoint).Serialize(buf)
+	err := NewCoinKey(outpoint).Serialize(buf)
 	if err != nil {
 		panic("get coin is failed!")
 	}
@@ -30,9 +32,9 @@ func (coinsViewDB *CoinsViewDB) GetCoin(outpoint *core.OutPoint) (*Coin, error) 
 	return coin, err
 }
 
-func (coinsViewDB *CoinsViewDB) HaveCoin(outpoint *core.OutPoint) bool {
+func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 	buf := bytes.NewBuffer(nil)
-	err := NewCoinEntry(outpoint).Serialize(buf)
+	err := NewCoinKey(outpoint).Serialize(buf)
 	if err != nil {
 		return false
 	}
@@ -40,25 +42,25 @@ func (coinsViewDB *CoinsViewDB) HaveCoin(outpoint *core.OutPoint) bool {
 }
 
 
-func (coinsViewDB *CoinsViewDB) GetBestBlock() utils.Hash {
-	var hashBestChain utils.Hash
+func (coinsViewDB *CoinsDB) GetBestBlock() util.Hash {
+	var hashBestChain util.Hash
 	buf := bytes.NewBuffer(nil)
 	hashBestChain.Serialize(buf)
-	v, err := coinsViewDB.dbw.Read([]byte{database.DbBestBlock})
+	v, err := coinsViewDB.dbw.Read([]byte{db.DbBestBlock})
 	v = append(v, buf.Bytes()...)
 	if err != nil {
-		return utils.Hash{}
+		return util.Hash{}
 	}
 	return hashBestChain
 }
 
-func (coinsViewDB *CoinsViewDB) BatchWrite(mapCoins *CacheCoins, hashBlock *utils.Hash) error {
-	var batch *database.BatchWrapper
+func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCacheMap, hashBlock *util.Hash) error {
+	var batch *db.BatchWrapper
 	count := 0
 	changed := 0
 	for k, v := range *mapCoins {
 		if v.dirty {
-			entry := NewCoinEntry(&k)
+			entry := NewCoinKey(&k)
 			bufEntry := bytes.NewBuffer(nil)
 			entry.Serialize(bufEntry)
 
@@ -77,19 +79,19 @@ func (coinsViewDB *CoinsViewDB) BatchWrite(mapCoins *CacheCoins, hashBlock *util
 	if !hashBlock.IsNull() {
 		hashByte := bytes.NewBuffer(nil)
 		hashBlock.Serialize(hashByte)
-		batch.Write([]byte{database.DbBestBlock}, hashByte.Bytes())
+		batch.Write([]byte{db.DbBestBlock}, hashByte.Bytes())
 	}
 
 	ret := coinsViewDB.dbw.WriteBatch(batch, false)
-	log.Print("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin database...\n", changed, count)
+	log.Print("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin db...\n", changed, count)
 	return ret
 }
 
-func (coinsViewDB *CoinsViewDB) EstimateSize() uint64 {
-	return coinsViewDB.dbw.EstimateSize([]byte{database.DbCoin}, []byte{database.DbCoin + 1})
+func (coinsViewDB *CoinsDB) EstimateSize() uint64 {
+	return coinsViewDB.dbw.EstimateSize([]byte{db.DbCoin}, []byte{db.DbCoin + 1})
 }
 
-//func (coinsViewDB *CoinsViewDB) Cursor() *CoinsViewCursor {
+//func (coinsViewDB *CoinsDB) Cursor() *CoinsViewCursor {
 //
 //	// It seems that there are no "const iterators" for LevelDB. Since we only
 //	// need read operations on it, use a const-cast to get around that
@@ -97,12 +99,12 @@ func (coinsViewDB *CoinsViewDB) EstimateSize() uint64 {
 //
 //}
 
-func NewCoinsViewDB(do *database.DBOption) *CoinsViewDB {
+func NewCoinsDB(do *db.DBOption) *CoinsDB {
 	if do == nil {
 		return nil
 	}
 
-	dbw, err := database.NewDBWrapper(&database.DBOption{
+	dbw, err := db.NewDBWrapper(&db.DBOption{
 		FilePath:      conf.GetDataPath() + "/chainstate",
 		CacheSize:     do.CacheSize,
 		Wipe:          false,
@@ -110,10 +112,10 @@ func NewCoinsViewDB(do *database.DBOption) *CoinsViewDB {
 	})
 
 	if err != nil {
-		panic("init CoinsViewDB failed...")
+		panic("init CoinsDB failed...")
 	}
 
-	return &CoinsViewDB{
+	return &CoinsDB{
 		dbw: dbw,
 	}
 }

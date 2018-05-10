@@ -2,20 +2,23 @@ package block
 
 import (
 	"bytes"
-	"io"
 	"fmt"
+	"io"
+
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/util"
 )
 
 type BlockHeader struct {
 	Version       int32
-	HashPrevBlock utils.Hash
-	MerkleRoot    utils.Hash
+	HashPrevBlock util.Hash
+	MerkleRoot    util.Hash
 	Time          uint32
 	Bits          uint32
 	Nonce         uint32
 }
 
-const blockHeaderLength = 16 + utils.Hash256Size*2
+const blockHeaderLength = 16 + util.Hash256Size*2
 
 func NewBlockHeader() *BlockHeader {
 	return &BlockHeader{}
@@ -29,7 +32,7 @@ func (bh *BlockHeader) GetBlockTime() int64 {
 	return int64(bh.Time)
 }
 
-func (bh *BlockHeader) GetHash() utils.Hash {
+func (bh *BlockHeader) GetHash() util.Hash {
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
 	bh.Serialize(buf)
 	return crypto.DoubleSha256Hash(buf.Bytes())
@@ -40,11 +43,11 @@ func (bh *BlockHeader) SetNull() {
 }
 
 func (bh *BlockHeader) Serialize(w io.Writer) error {
-	return utils.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
+	return util.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
 }
 
-func (bh *BlockHeader) Deserialize(r io.Reader) error {
-	return utils.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
+func (bh *BlockHeader) Unserialize(r io.Reader) error {
+	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
 
 func (bh *BlockHeader) String() string {

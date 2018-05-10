@@ -1,15 +1,16 @@
-package util
+package utxo
 
 import (
 	"errors"
 	"io"
 
-	"github.com/btcboost/copernicus/util/crypto"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/model/script"
 	 "github.com/btcboost/copernicus/model/opcodes"
 
+	"github.com/btcboost/copernicus/util"
 )
 
 const (
@@ -203,7 +204,7 @@ func (scr *scriptCompressor) Serialize(w io.Writer) error {
 		return err
 	}
 	size := scr.script.Size() + numSpecialScripts
-	if err := WriteVarLenInt(w, uint64(size)); err != nil {
+	if err := util.WriteVarLenInt(w, uint64(size)); err != nil {
 		return err
 	}
 	if _, err := w.Write(scr.script.GetScriptByte()); err != nil {
@@ -213,7 +214,7 @@ func (scr *scriptCompressor) Serialize(w io.Writer) error {
 }
 
 func (scr *scriptCompressor) Unserialize(r io.Reader) error {
-	size, err := ReadVarInt(r)
+	size, err := util.ReadVarInt(r)
 	if err != nil {
 		return err
 	}
@@ -258,7 +259,7 @@ func (tc *TxoutCompressor) Serialize(w io.Writer) error {
 		return ErrCompress
 	}
 	amount := CompressAmount(amount.Amount(tc.txout.GetValue()))
-	if err := WriteVarLenInt(w, amount); err != nil {
+	if err := util.WriteVarLenInt(w, amount); err != nil {
 		return err
 	}
 	sc := newScriptCompressor(tc.txout.GetScriptPubKey())
@@ -269,7 +270,7 @@ func (tc *TxoutCompressor) Unserialize(r io.Reader) error {
 	if tc == nil {
 		return ErrCompress
 	}
-	amount, err := ReadVarLenInt(r)
+	amount, err := util.ReadVarLenInt(r)
 	if err != nil {
 		return err
 	}
