@@ -1,0 +1,280 @@
+package utxo
+
+import (
+	"errors"
+	"io"
+
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/model/txout"
+	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcboost/copernicus/model/script"
+	 "github.com/btcboost/copernicus/model/opcodes"
+
+	"github.com/btcboost/copernicus/util"
+)
+
+const (
+	numSpecialScripts = 6
+)
+
+func CompressAmount(amt amount.Amount) uint64 {
+	n := uint64(amt)
+	if n == 0 {
+		return 0
+	}
+	e := uint64(0)
+	for n%10 == 0 && e < 9 {
+		n /= 10
+		e++
+	}
+	if e < 9 {
+		d := uint64(n % 10)
+		if d < 1 || d > 9 {
+			panic("CompressAmount: d should in range [1,9]")
+		}
+		n /= 10
+		return 1 + (9*n+d-1)*10 + e
+	} else {
+		return 1 + (n-1)*10 + 9
+	}
+}
+
+func DecompressAmount(x uint64) amount.Amount {
+	if x == 0 {
+		return 0
+	}
+	x--
+	e := x % 10
+	x /= 10
+	n := uint64(0)
+	if e < 9 {
+		d := (x % 9) + 1
+		x /= 9
+		n = 10*x + d
+	} else {
+		n = x + 1
+	}
+	for e != 0 {
+		n *= 10
+		e--
+	}
+	return amount.Amount(n)
+}
+
+type scriptCompressor struct {
+	script *script.Script
+}
+
+func newScriptCompressor(script *script.Script) *scriptCompressor {
+	if script == nil {
+		return nil
+	}
+	return &scriptCompressor{
+		script: script,
+	}
+}
+
+func (scr *scriptCompressor) isToKeyId() []byte {
+	bs := scr.script.GetScriptByte()
+	if len(bs) == 25 && bs[0] == opcodes.OP_DUP && bs[1] == opcodes.OP_HASH160 &&
+		bs[2] == 20 && bs[23] == opcodes.OP_EQUALVERIFY && bs[24] == opcodes.OP_CHECKSIG {
+		return bs[3:23]
+	}
+	return nil
+}
+
+func (scr *scriptCompressor) isToScriptId() []byte {
+	bs := scr.script.GetScriptByte()
+	if len(bs) == 23 && bs[0] == opcodes.OP_HASH160 &&
+		bs[1] == 20 && bs[22] == opcodes.OP_EQUAL {
+		return bs[2:22]
+	}
+	return nil
+}
+
+func (scr *scriptCompressor) isToPubKey() []byte {
+	bs := scr.script.GetScriptByte()
+	if len(bs) == 35 && bs[0] == 33 && bs[34] == opcodes.OP_CHECKSIG &&
+		(bs[1] == 0x2 || bs[1] == 0x3) {
+		return bs[1:34]
+	}
+	if len(bs) == 67 && bs[0] == 65 && bs[66] == opcodes.OP_CHECKSIG &&
+		bs[1] == 0x4 {
+		if _, err := crypto.ParsePubKey(bs[1:66]); err != nil {
+			return nil
+		}
+		return bs[1:66]
+	}
+	return nil
+}
+
+func (scr *scriptCompressor) Compress() []byte {
+	var out []byte
+	keyId := scr.isToKeyId()
+	if len(keyId) > 0 {
+		out = make([]byte, 21)
+		out[0] = 0x00
+		out = append(out[1:], keyId...)
+		return out
+	}
+	scriptId := scr.isToScriptId()
+	if len(scriptId) > 0 {
+		out = make([]byte, 21)
+		out[0] = 0x01
+		out = append(out[1:], scriptId...)
+		return out
+	}
+	pubKey := scr.isToPubKey()
+	if len(pubKey) > 0 {
+		out = make([]byte, 33)
+		copy(out[1:], pubKey[1:33])
+		if pubKey[0] == 0x2 || pubKey[0] == 0x3 {
+			out[0] = pubKey[0]
+			return out
+		} else if pubKey[0] == 0x04 {
+			out[0] = 0x4 | (pubKey[64] & 0x1)
+			return out
+		}
+	}
+	return nil
+}
+
+func getSpecialSize(nSize uint64) int {
+	if nSize == 0 || nSize == 1 {
+		return 20
+	}
+	if nSize == 2 || nSize == 3 || nSize == 4 || nSize == 5 {
+		return 32
+	}
+	return 0
+}
+
+func (scr *scriptCompressor) Decompress(size uint64, in []byte) bool {
+	var bs []byte
+	switch size {
+	case 0x00:
+		bs = make([]byte, 25)
+		bs[0] = opcodes.OP_DUP
+		bs[1] = opcodes.OP_HASH160
+		bs[2] = 20
+		copy(bs[3:], in[0:20])
+		bs[23] = opcodes.OP_EQUALVERIFY
+		bs[24] = opcodes.OP_CHECKSIG
+	case 0x01:
+		bs = make([]byte, 23)
+		bs[0] = opcodes.OP_HASH160
+		bs[1] = 20
+		copy(bs[2:], in[0:20])
+		bs[22] = opcodes.OP_EQUAL
+	case 0x2:
+		fallthrough
+	case 0x3:
+		bs = make([]byte, 35)
+		bs[0] = 33
+		bs[1] = byte(size)
+		copy(bs[2:], in[0:32])
+		bs[34] = opcodes.OP_CHECKSIG
+	case 0x4:
+		fallthrough
+	case 0x5:
+		tmp := make([]byte, 33)
+		tmp[0] = byte(size - 2)
+		copy(tmp[1:], in[0:32])
+		pubkey, err := crypto.ParsePubKey(tmp)
+		if err != nil {
+			return false
+		}
+		uncompressed := pubkey.SerializeUncompressed()
+		bs = make([]byte, 67)
+		bs[0] = 65
+		copy(bs[1:], uncompressed)
+		bs[66] = opcodes.OP_CHECKSIG
+	}
+	if bs != nil {
+		scr.script = script.NewScriptRaw(bs)
+		return true
+	}
+	return false
+}
+
+func (scr *scriptCompressor) Serialize(w io.Writer) error {
+	bs := scr.Compress()
+	if len(bs) > 0 {
+		_, err := w.Write(bs)
+		return err
+	}
+	size := scr.script.Size() + numSpecialScripts
+	if err := util.WriteVarLenInt(w, uint64(size)); err != nil {
+		return err
+	}
+	if _, err := w.Write(scr.script.GetScriptByte()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (scr *scriptCompressor) Unserialize(r io.Reader) error {
+	size, err := util.ReadVarInt(r)
+	if err != nil {
+		return err
+	}
+	if size < numSpecialScripts {
+		vch := make([]byte, getSpecialSize(size))
+		_, err := io.ReadFull(r, vch)
+		scr.Decompress(size, vch)
+		return err
+	}
+	size -= numSpecialScripts
+	if size > script.MaxScriptSize {
+		scr.script.PushOpCode(opcodes.OP_RETURN)
+		tmp := make([]byte, size)
+		_, err = io.ReadFull(r, tmp)
+	} else {
+		tmp := make([]byte, size)
+		_, err = io.ReadFull(r, tmp)
+		if err == nil {
+			scr.script = script.NewScriptRaw(tmp)
+		}
+	}
+	return err
+}
+
+type TxoutCompressor struct {
+	txout *txout.TxOut
+}
+
+var ErrCompress = errors.New("nil TxoutCompressor receiver")
+
+func NewTxoutCompressor(txout *txout.TxOut) *TxoutCompressor {
+	if txout == nil {
+		return nil
+	}
+	return &TxoutCompressor{
+		txout: txout,
+	}
+}
+
+func (tc *TxoutCompressor) Serialize(w io.Writer) error {
+	if tc == nil {
+		return ErrCompress
+	}
+	amount := CompressAmount(amount.Amount(tc.txout.GetValue()))
+	if err := util.WriteVarLenInt(w, amount); err != nil {
+		return err
+	}
+	sc := newScriptCompressor(tc.txout.GetScriptPubKey())
+	return sc.Serialize(w)
+}
+
+func (tc *TxoutCompressor) Unserialize(r io.Reader) error {
+	if tc == nil {
+		return ErrCompress
+	}
+	amount, err := util.ReadVarLenInt(r)
+	if err != nil {
+		return err
+	}
+	tc.txout.SetValue(int64(DecompressAmount(amount)))
+	sc := newScriptCompressor(tc.txout.GetScriptPubKey())
+	return sc.Unserialize(r)
+}
