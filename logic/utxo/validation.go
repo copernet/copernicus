@@ -3,14 +3,13 @@ package utxo
 import (
 	"fmt"
 	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/util/amount"
 	"strconv"
 	"copernicus/core"
 	"copernicus/utils"
+	"github.com/btcboost/copernicus/model/tx"
 )
 
-func (coinsViewCache *CoinsViewCache) CheckTxInputs(tx *core.Tx, state *core.ValidationState, spendHeight int) bool {
+func (coinsViewCache *CoinsViewCache) CheckTxInputs(tx *tx.Tx, state *core.ValidationState, spendHeight int) bool {
 	// This doesn't trigger the DoS code on purpose; if it did, it would make it
 	// easier for an attacker to attempt to split the network.
 	view := coinsViewCache
