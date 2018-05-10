@@ -49,11 +49,11 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	if txOut.scriptPubKey == nil {
 		return nil
 	}
-	err := utils.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
+	err := util.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
 	if err != nil {
 		return err
 	}
-	return utils.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
+	return util.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
 }
 
 func (txOut *TxOut) Unserialize(reader io.Reader) error {
@@ -120,6 +120,10 @@ func (txOut *TxOut) Check() bool {
 	return true
 }
 */
+func (txOut *TxOut) IsSpendable() bool {
+	return true
+}
+
 func (txOut *TxOut) SetNull() {
 	txOut.value = -1
 	txOut.scriptPubKey = nil

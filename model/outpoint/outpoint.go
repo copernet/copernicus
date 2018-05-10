@@ -48,7 +48,7 @@ func (outPoint *OutPoint) Serialize() string {
 	return string(buf)
 }
 
-func (outPoint *OutPoint) Deserialize(reader io.Reader) (err error) {
+func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	_, err = io.ReadFull(reader, outPoint.Hash[:])
 	if err != nil {
 		return
