@@ -9,7 +9,6 @@ import (
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/astaxie/beego/logs"
 	"fmt"
-	"container/list"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/model/consensus"
@@ -299,6 +298,7 @@ func (m *TxMempool)IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utx
 	return ancestors, lp, true
 }
 
+/*
 // Check If sanity-checking is turned on, check makes sure the pool is consistent
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
@@ -405,13 +405,11 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 		if fDependsWait {
 			waitingOnDependants.PushBack(entry)
 		} else {
-			entry.Tx.
-			var state ValidationState
-			fCheckResult := entry.Tx.IsCoinBase() || view.CheckTxInputs(entry.Tx, &state, bestHeight)
+			fCheckResult := entry.Tx.IsCoinBase() || entry.Tx.CheckInputsMoney()
 			if !fCheckResult {
 				panic("the txentry check failed with utxo set...")
 			}
-			view.UpdateCoins(entry.Tx, 1000000)
+			//view.UpdateCoins(entry.Tx, 1000000)
 		}
 	}
 	stepsSinceLastRemove := 0
@@ -451,6 +449,7 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 		panic("mempool have all transaction size state is incorrect ...")
 	}
 }
+*/
 
 // LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
 // set, the function will return these have removed transaction's txin from mempool which use
