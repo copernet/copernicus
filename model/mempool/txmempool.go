@@ -176,7 +176,7 @@ func (m *TxMempool)RemoveUnFinalTx(chain *chain.Chain, view *utxo.CoinsCache, nM
 				}
 			}
 		}
-		if !tx.ContextualCheckTransactionForCurrentBlock(nil, nil, uint(flag)) ||
+		if !tx.ContextualCheckTransaction(flag) ||
 			!checkSequenceLocks(tx, tip, flag, &lp, validLP, coins) {
 			txToRemove[entry] = struct{}{}
 		} else if entry.GetSpendsCoinbase() {
@@ -272,9 +272,9 @@ func minInt(a, b int) int {
 }
 
 func (m *TxMempool)IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utxo.Coin,
-		tip *blockindex.BlockIndex ) (map[*TxEntry]struct{}, LockPoints, bool) {
+		tip *blockindex.BlockIndex ) (map[*TxEntry]struct{}, tx.LockPoints, bool) {
 
-	lp := LockPoints{}
+	lp := tx.LockPoints{}
 	if _, ok := m.poolData[tx.Hash]; ok{
 		return nil, lp, false
 	}
@@ -778,7 +778,7 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 }
 
 
-func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *LockPoints, useExistingLockPoints bool, coins []*utxo.Coin) bool {
+func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *tx.LockPoints, useExistingLockPoints bool, coins []*utxo.Coin) bool {
 	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
 	var index *blockindex.BlockIndex
 	index.Prev = tip
@@ -879,22 +879,6 @@ func InitMempool() {
 	Gpool = NewTxMempool()
 }
 
-type LockPoints struct {
-	// Height and Time will be set to the blockChain height and median time past values that
-	// would be necessary to satisfy all relative lockTime constraints (BIP68)
-	// of this tx given our view of block chain history
-	Height int
-	Time   int64
-	// MaxInputBlock as long as the current chain descends from the highest height block
-	// containing one of the inputs used in the calculation, then the cached
-	// values are still valid even after a reOrg.
-	MaxInputBlock *blockindex.BlockIndex
-}
-
-func NewLockPoints() *LockPoints {
-	lockPoints := LockPoints{}
-	return &lockPoints
-}
 
 
 
