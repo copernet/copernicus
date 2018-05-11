@@ -1,5 +1,5 @@
 package mempool
-
+/*
 import (
 	"fmt"
 	"github.com/btcboost/copernicus/core"
@@ -292,3 +292,4 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	}
 	fmt.Printf("============= end ============\n")
 }
+*/
