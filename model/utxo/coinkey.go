@@ -29,7 +29,7 @@ func (coinKey *CoinKey)Unserialize(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	err := coinKey.Unserialize(reader)
+	err = coinKey.outpoint.Unserialize(reader)
 	return err
 }
 

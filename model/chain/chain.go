@@ -1,8 +1,6 @@
 package chain
 
 import (
-	"sort"
-
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/util"
 )
@@ -61,6 +59,10 @@ func (c *Chain) GetTipTime() int64 {
 	return 0
 }
 
+func (c *Chain) GetScriptFlags() uint32 {
+
+	return 0
+}
 
 // GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
@@ -99,13 +101,13 @@ func (c *Chain) Height() int {
 }
 
 // SetTip Set/initialize a chain with a given tip.
-func (c *Chain) SetTip(index *BlockIndex) {
+func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	if index == nil {
-		c.active = []*BlockIndex{}
+		c.active = []*blockindex.BlockIndex{}
 		return
 	}
 
-	tmp := make([]*BlockIndex, index.Height+1)
+	tmp := make([]*blockindex.BlockIndex, index.Height+1)
 	copy(tmp, c.active)
 	c.active = tmp
 	for index != nil && c.active[index.Height] != index {
@@ -115,7 +117,7 @@ func (c *Chain) SetTip(index *BlockIndex) {
 }
 
 // FindFork Find the last common block between this chain and a block blIndex entry.
-func (chain *Chain) FindFork(blIndex *BlockIndex) *BlockIndex {
+func (chain *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex {
 	if blIndex == nil {
 		return nil
 	}
@@ -131,64 +133,25 @@ func (chain *Chain) FindFork(blIndex *BlockIndex) *BlockIndex {
 }
 
 // FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
-func (chain *Chain) FindEarliestAtLeast(time int64) *BlockIndex {
-	i := sort.Search(len(chain.Chain), func(i int) bool {
-		return int64(chain.Chain[i].GetBlockTimeMax()) > time
-	})
-	if i == len(chain.Chain) {
-		return nil
-	}
+func (chain *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
 
-	return chain.Chain[i]
+	return nil
 }
 
-func ActiveBestChain(bi *BlockIndex) bool {
-	forkBlock := ActiveChain.FindFork(bi)
-	if forkBlock == nil {
-		return false
-	}
-
-	// maintain global variable NewestBlock
-	NewestBlock = bi
-
-	subHeight := bi.Height - forkBlock.Height
-	tmpBi := make([]*BlockIndex, subHeight)
-	tmpBi[subHeight-1] = bi
-	for i := 0; i < subHeight; i++ {
-		bi = bi.Prev
-		tmpBi[subHeight-i-2] = bi
-	}
-
-	// maintain the global variable ActiveChain
-	// todo should be locked
-	ActiveChain.Chain = append(ActiveChain.Chain[:bi.Height+1], tmpBi...)
-
-	// maintain global variable BranchChain
-	removeBlockIndexFromBranchChain(tmpBi)
-	addBlockIndexToBranchChain(tmpBi)
+func (chain *Chain)ActiveBestChain(bi *blockindex.BlockIndex) bool {
 
 	return true
 }
 
-// should be before addBlockIndexToBranchChain()
-func removeBlockIndexFromBranchChain(bis []*BlockIndex) {
-	for i := 0; i < len(bis); i++ {
-		for j := 0; j < len(BranchChain); {
-			if BranchChain[j].BlockHash == bis[i].BlockHash {
-				BranchChain = append(BranchChain[:j], BranchChain[j+1:]...)
-			} else {
-				j++
-			}
-		}
-	}
+func (chain *Chain)removeFromBranch(bis []*blockindex.BlockIndex) {
+
 }
 
-// should be after removeBlockIndexFromBranchChain()
-func addBlockIndexToBranchChain(bis []*BlockIndex) {
-	BranchChain = append(BranchChain, bis...)
+func (chain *Chain)addToBranch(bis []*blockindex.BlockIndex) {
+
 }
 
-func FindMostWorkChain() *BlockIndex {
-	// todo complete
+func (chain *Chain)FindMostWorkChain() *blockindex.BlockIndex {
+
 	return nil
 }
