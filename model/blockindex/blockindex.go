@@ -58,7 +58,7 @@ const medianTimeSpan = 11
 
 func (blIndex *BlockIndex) SetNull() {
 	blIndex.Header.SetNull()
-	blIndex.BlockHash = utils.Hash{}
+	blIndex.BlockHash = util.Hash{}
 	blIndex.Prev = nil
 	blIndex.Skip = nil
 
@@ -74,50 +74,29 @@ func (blIndex *BlockIndex) SetNull() {
 	blIndex.TimeMax = 0
 }
 
-func (blIndex *BlockIndex) DelBlockIndex() bool {
-	_, exist := BlockIndexMap[blIndex.BlockHash]
-	if exist {
-		delete(BlockIndexMap, blIndex.BlockHash)
-		return true
-	}
-	return false
+
+func (blIndex *BlockIndex) GetDataPos() int {
+
+	return 0
 }
 
-func (blIndex *BlockIndex) ReadBlockIndex(hash *utils.Hash) *BlockIndex {
-	// The caller should justify return value by comparing to nil
-	// to be sure for validation
-	return BlockIndexMap[blIndex.BlockHash]
+func (blIndex *BlockIndex) GetUndoPos() int {
+
+	return 0
 }
 
-func (blIndex *BlockIndex) GetBlockPos() DiskBlockPos {
-	var ret DiskBlockPos
-	if (blIndex.Status & BlockHaveData) != 0 {
-		ret.File = blIndex.File
-		ret.Pos = blIndex.DataPos
-	}
+func (blIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
 
-	return ret
-}
-
-func (blIndex *BlockIndex) GetUndoPos() DiskBlockPos {
-	var ret DiskBlockPos
-	if (blIndex.Status & BlockHaveUndo) != 0 {
-		ret.File = blIndex.File
-		ret.Pos = blIndex.UndoPos
-	}
-
-	return ret
-}
-
-func (blIndex *BlockIndex) GetBlockHeader() *BlockHeader {
 	return &blIndex.Header
 }
 
-func (blIndex *BlockIndex) GetBlockHash() *utils.Hash {
+func (blIndex *BlockIndex) GetBlockHash() *util.Hash {
+
 	return &blIndex.BlockHash
 }
 
 func (blIndex *BlockIndex) GetBlockTime() uint32 {
+
 	return blIndex.Header.Time
 }
 
@@ -145,30 +124,14 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 // IsValid checks whether this block index entry is valid up to the passed validity
 // level.
 func (blIndex *BlockIndex) IsValid(upto uint32) bool {
-	// Only validity flags allowed.
-	if upto&(^BlockValidMask) != 0 {
-		panic("Only validity flags allowed.")
-	}
-	if (blIndex.Status & BlockValidMask) != 0 {
-		return false
-	}
-	return (blIndex.Status & BlockValidMask) >= upto
+
+	return false
 }
 
 // RaiseValidity Raise the validity level of this block index entry.
 // Returns true if the validity was changed.
 func (blIndex *BlockIndex) RaiseValidity(upto uint32) bool {
-	// Only validity flags allowed.
-	if upto&(^BlockValidMask) != 0 {
-		panic("Only validity flags allowed.")
-	}
-	if blIndex.Status&BlockValidMask != 0 {
-		return false
-	}
-	if (blIndex.Status & BlockValidMask) < upto {
-		blIndex.Status = (blIndex.Status & (^BlockValidMask)) | upto
-		return true
-	}
+
 	return false
 }
 
@@ -231,9 +194,10 @@ func (blIndex *BlockIndex) ToString() string {
 		blIndex.Height, blIndex.Header.MerkleRoot.ToString(), hash.ToString())
 }
 
-func NewBlockIndex(blkHeader *BlockHeader) *BlockIndex {
+func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
 	blockIndex := new(BlockIndex)
 	blockIndex.SetNull()
 	blockIndex.Header = *blkHeader
+
 	return blockIndex
 }
