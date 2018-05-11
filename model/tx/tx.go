@@ -121,7 +121,7 @@ type Tx struct {
 	//ValState int
 }
 
-var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
+//var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
 
 
 func (tx *Tx) AddTxIn(txIn *txin.TxIn) {
@@ -191,7 +191,7 @@ func (tx *Tx) SerializeSize() uint {
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
-	err := util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.Version)
+	err := util.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(tx.Version))
 	if err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func (tx *Tx)Unserialize(reader io.Reader) error {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		txIn.PreviousOutPoint.Hash = *new(util.Hash)
-		err = txIn.Deserialize(reader)
+		err = txIn.Serialize(reader)
 		if err != nil {
 			return err
 		}
@@ -627,7 +627,7 @@ func (tx *Tx) areInputsStandard() bool {
 	return true
 }
 
-func (tx *Tx) checkInputsMoney(state *ValidationState) bool {
+func (tx *Tx) CheckInputsMoney(state *ValidationState) bool {
 	nValue := 0
 	for _, e := range tx.ins {
 		coin := mempool.GetCoin(e.PreviousOutPoint)

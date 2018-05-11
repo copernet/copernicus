@@ -5,13 +5,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/util"
 )
 
 var testOutPoint *OutPoint
 
 func TestNewOutPoint(t *testing.T) {
-	var preHash = utils.Hash{
+	var preHash = util.Hash{
 		0xc1, 0x60, 0x7e, 0x00, 0x31, 0xbc, 0xb1, 0x57,
 		0xa3, 0xb2, 0xfd, 0x73, 0x0e, 0xcf, 0xac, 0xd1,
 		0x6e, 0xda, 0x9d, 0x95, 0x7c, 0x5e, 0x03, 0xfa,
@@ -42,9 +42,9 @@ func TestOutPointWriteOutPoint(t *testing.T) {
 
 	file.Seek(0, 0)
 	txOutRead := &OutPoint{}
-	txOutRead.Hash = utils.Hash{}
+	txOutRead.Hash = util.Hash{}
 
-	err = txOutRead.Deserialize(file)
+	err = txOutRead.Unserialize(file)
 	if err != nil {
 		t.Error(err)
 	}
