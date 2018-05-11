@@ -1,3 +1,3 @@
 package script
 
-var ScriptExecutionCacheNonce = utils.GetRandHash()
+//var ScriptExecutionCacheNonce = util.GetRandHash()

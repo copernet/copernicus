@@ -6,7 +6,7 @@ import (
 	"github.com/btcboost/copernicus/utils"
 	"github.com/pkg/errors"
 )
-
+/*
 func VerifySignature(vchSig []byte, pubkey *crypto.PublicKey, sigHash utils.Hash) (bool, error) {
 	sign, err := crypto.ParseDERSignature(vchSig)
 	if err != nil {
@@ -234,3 +234,4 @@ func SetSuccess(ret *crypto.ScriptError) bool {
 	}
 	return true
 }
+*/

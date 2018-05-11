@@ -1,15 +1,7 @@
 package txin
 
-import (
-	"bytes"
-	"os"
-	"testing"
-
-	"github.com/btcboost/copernicus/utils"
-)
-
 var testTxIn *TxIn
-
+/*
 func TestNewTxIn(t *testing.T) {
 
 	var preHash = utils.Hash{
@@ -85,4 +77,4 @@ func TestTxInSerialize(t *testing.T) {
 		t.Error(err)
 	}
 
-}
+}*/

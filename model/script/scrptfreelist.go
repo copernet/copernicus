@@ -1,12 +1,5 @@
 package script
 
-import (
-	"io"
-
-	"github.com/btcboost/copernicus/utils"
-	"github.com/pkg/errors"
-)
-
 type ScriptFreeList chan []byte
 
 const (

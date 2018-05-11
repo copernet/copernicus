@@ -2,9 +2,14 @@ package script
 
 import (
 	"encoding/binary"
-	"errors"
+	"github.com/pkg/errors"
 	"bytes"
 	"io"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/util"
+)
+const (
+	MaxMessagePayload = 32*1024*1024
 )
 
 const (
@@ -167,20 +172,20 @@ const (
 
 type Script struct {
 	data          []byte
-	ParsedOpCodes []ParsedOpCode
+	ParsedOpCodes []opcodes.ParsedOpCode
 }
 
 func (s *Script) Serialize(io io.Writer) (n int, err error) {
 	return io.Write(s.data)
 }
 
-func UnSerialize(io io.Reader) *Script {
+func UnSerialize(io io.Reader) (script *Script, err error) {
 	bytes, err := ReadScript(io, MaxMessagePayload, "tx input signature script")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return NewScriptRaw(bytes)
+	return NewScriptRaw(bytes), err
 }
 
 func NewScriptRaw(bytes []byte) *Script {
@@ -191,7 +196,7 @@ func NewScriptRaw(bytes []byte) *Script {
 	return &script
 }
 
-func NewScriptOps(parsedOpCodes []ParsedOpCode) *Script {
+func NewScriptOps(parsedOpCodes []opcodes.ParsedOpCode) *Script {
 	script := Script{ParsedOpCodes: parsedOpCodes}
 	script.convertRaw()
 	return &script
@@ -201,18 +206,18 @@ func (script *Script) convertRaw() {
 	script.data = make([]byte, 0)
 	for _, e := range script.ParsedOpCodes {
 		script.data = append(script.data, e.OpValue)
-		if e.OpValue == OP_PUSHDATA1 {
+		if e.OpValue == opcodes.OP_PUSHDATA1 {
 			script.data = append(script.data, byte(e.Length))
-		} else if e.OpValue == OP_PUSHDATA2 {
+		} else if e.OpValue == opcodes.OP_PUSHDATA2 {
 			b := make([]byte, 2)
 			binary.LittleEndian.PutUint16(b, uint16(e.Length))
 			script.data = append(script.data, b...)
-		} else if e.OpValue == OP_PUSHDATA4 {
+		} else if e.OpValue == opcodes.OP_PUSHDATA4 {
 			b := make([]byte, 4)
 			binary.LittleEndian.PutUint32(b, uint32(e.Length))
 			script.data = append(script.data, b...)
 		} else {
-			if e.OpValue < OP_PUSHDATA1 && e.Length > 0 {
+			if e.OpValue < opcodes.OP_PUSHDATA1 && e.Length > 0 {
 				script.data = append(script.data, byte(e.Length))
 				script.data = append(script.data, e.Data...)
 			}
@@ -222,22 +227,26 @@ func (script *Script) convertRaw() {
 
 }
 
+func (script *Script) GetData() []byte {
+	return script.data
+}
+
 func (script *Script) convertOPS() error {
-	script.ParsedOpCodes = make([]ParsedOpCode, 0)
+	script.ParsedOpCodes = make([]opcodes.ParsedOpCode, 0)
 	scriptLen := len(script.data)
 
 	for i := 0; i < scriptLen; i++ {
 		var nSize int
 		opcode := script.data[i]
-		parsedopCode := ParsedOpCode{OpValue: opcode}
+		parsedopCode := opcodes.ParsedOpCode{OpValue: opcode}
 
-		if opcode < OP_PUSHDATA1 {
+		if opcode < opcodes.OP_PUSHDATA1 {
 			nSize = int(opcode)
 			if scriptLen - i < nSize {
 				return errors.New("OP has no enough data")
 			}
 			parsedopCode.Data = script.data[i + 1: i + 1 + nSize]
-		} else if opcode == OP_PUSHDATA1 {
+		} else if opcode == opcodes.OP_PUSHDATA1 {
 			if scriptLen - i < 1 {
 				return errors.New("OP_PUSHDATA1 has no enough data")
 			}
@@ -248,7 +257,7 @@ func (script *Script) convertOPS() error {
 			}
 			parsedopCode.Data = script.data[i + 2: i + 2 + nSize]
 			i++
-		} else if opcode == OP_PUSHDATA2 {
+		} else if opcode == opcodes.OP_PUSHDATA2 {
 			if scriptLen - i < 2 {
 				return errors.New("OP_PUSHDATA2 has no enough data")
 			}
@@ -258,7 +267,7 @@ func (script *Script) convertOPS() error {
 			}
 			parsedopCode.Data = script.data[i + 3: i + 3 + nSize]
 			i += 2
-		} else if opcode == OP_PUSHDATA4 {
+		} else if opcode == opcodes.OP_PUSHDATA4 {
 			if scriptLen - i < 4 {
 				return errors.New("OP_PUSHDATA4 has no enough data")
 
@@ -284,8 +293,8 @@ func (script *Script) Eval() (int, error) {
 	return 0, nil
 }
 
-func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (signScript []byte, err error) {
-	count, err := utils.ReadVarInt(reader)
+func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script []byte, err error) {
+	count, err := util.ReadVarInt(reader)
 	if err != nil {
 		return
 	}
@@ -293,13 +302,13 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (signScri
 		err = errors.Errorf("readScript %s is larger than the max allowed size [count %d,max %d]", fieldName, count, maxAllowed)
 		return
 	}
-	buf := scriptPool.Borrow(count)
-	_, err = io.ReadFull(reader, buf)
+	//buf := scriptPool.Borrow(count)
+	_, err = io.ReadFull(reader, script)
 	if err != nil {
-		scriptPool.Return(buf)
+		//scriptPool.Return(buf)
 		return
 	}
-	return buf, nil
+	return script, nil
 
 }
 
@@ -331,7 +340,7 @@ func (script *Script) IsCommitment(data []byte) bool {
 }
 */
 
-func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, pubKeyType int) {
+func (script *Script) CheckScriptPubKey() (succeed bool, pubKeyType int) {
 	//p2sh scriptPubKey
 	if script.IsPayToScriptHash() {
 		return true, ScriptHash
@@ -350,14 +359,14 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 
 	// OP_RETURN
 	if len == 1 {
-		if parsedOpCode0.OpValue == OP_RETURN {
+		if parsedOpCode0.OpValue == opcodes.OP_RETURN {
 			return true, ScriptNullData
 		}
 		return false, ScriptNonStandard
 	}
 
 	// OP_RETURN and DATA
-	if parsedOpCode0.OpValue == OP_RETURN {
+	if parsedOpCode0.OpValue == opcodes.OP_RETURN {
 		tempScript := NewScriptOps(script.ParsedOpCodes[1:])
 		if tempScript.IsPushOnly() {
 			return true, ScriptNullData
@@ -367,27 +376,27 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 
 	//PUBKEY OP_CHECKSIG
 	if len == 2 {
-		if opValue0 > OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
-			parsedOpCode0.Length > 65 || script.ParsedOpCodes[1].OpValue != OP_CHECKSIG {
+		if opValue0 > opcodes.OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
+			parsedOpCode0.Length > 65 || script.ParsedOpCodes[1].OpValue != opcodes.OP_CHECKSIG {
 			return false, ScriptNonStandard
 		}
 		return true, ScriptPubkey
 	}
 
 	//OP_DUP OP_HASH160 OP_PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
-	if opValue0 == OP_DUP {
-		if script.ParsedOpCodes[1].OpValue != OP_HASH160 ||
-			script.ParsedOpCodes[2].OpValue != OP_PUBKEYHASH ||
+	if opValue0 == opcodes.OP_DUP {
+		if script.ParsedOpCodes[1].OpValue != opcodes.OP_HASH160 ||
+			script.ParsedOpCodes[2].OpValue != opcodes.OP_PUBKEYHASH ||
 			script.ParsedOpCodes[2].Length != 20 ||
-			script.ParsedOpCodes[3].OpValue != OP_EQUALVERIFY ||
-			script.ParsedOpCodes[4].OpValue != OP_CHECKSIG {
+			script.ParsedOpCodes[3].OpValue != opcodes.OP_EQUALVERIFY ||
+			script.ParsedOpCodes[4].OpValue != opcodes.OP_CHECKSIG {
 			return false, ScriptNonStandard
 		}
 		return true, ScriptPubkeyHash
 	}
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
-	if opValue0 == OP_0 || (opValue0 >= OP_1 && opValue0 <= OP_16) {
+	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
 		opM, _ := DecodeOPN(opValue0)
 		i := 1
 		pubKeyCount := 0
@@ -396,7 +405,7 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 			i++
 		}
 		opValueI := script.ParsedOpCodes[i].OpValue
-		if opValueI == OP_0 || (opValue0 >= OP_1 && opValue0 <= OP_16) {
+		if opValueI == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
 			opN, _ := DecodeOPN(opValueI)
 			// Support up to x-of-3 multisig txns as standard
 			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
@@ -406,7 +415,7 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 		} else {
 			return false, ScriptNonStandard
 		}
-		if script.ParsedOpCodes[i].OpValue != OP_CHECKMULTISIG {
+		if script.ParsedOpCodes[i].OpValue != opcodes.OP_CHECKMULTISIG {
 			return false, ScriptNonStandard
 		}
 		return true, ScriptMultiSig
@@ -415,13 +424,13 @@ func (script *Script) CheckScriptPubKey(state *ValidationState) (succeed bool, p
 	return false, ScriptNonStandard
 }
 
-func (script *Script) CheckScriptSig(state *ValidationState) bool{
+func (script *Script) CheckScriptSig() bool{
 	if script.Size() > 1650 {
-		state.Dos(100, false, RejectInvalid, "bad-tx-input-script-size", false, "")
+		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-size", false, "")
 		return false
 	}
 	if !script.IsPushOnly() {
-		state.Dos(100, false, RejectInvalid, "bad-tx-input-script-not-pushonly", false, "")
+		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-not-pushonly", false, "")
 		return false
 	}
 
@@ -431,14 +440,14 @@ func (script *Script) CheckScriptSig(state *ValidationState) bool{
 func (script *Script) IsPayToScriptHash() bool {
 	size := len(script.data)
 	return size == 23 &&
-		script.data[0] == OP_HASH160 &&
+		script.data[0] == opcodes.OP_HASH160 &&
 		script.data[1] == 0x14 &&
-		script.data[22] == OP_EQUAL
+		script.data[22] == opcodes.OP_EQUAL
 }
 
 func (script *Script) IsUnspendable() bool {
 	return script.Size() > 0 &&
-		script.ParsedOpCodes[0].OpValue == OP_RETURN ||
+		script.ParsedOpCodes[0].OpValue == opcodes.OP_RETURN ||
 		script.Size() > MaxScriptSize
 }
 /*
@@ -839,10 +848,10 @@ func (script *Script) GetSigOpCount(accurate bool) (int, error) {
 	var lastOpcode byte
 	for _, e := range script.ParsedOpCodes {
 		opcode := e.OpValue
-		if opcode == OP_CHECKSIG || opcode == OP_CHECKSIGVERIFY {
+		if opcode == opcodes.OP_CHECKSIG || opcode == opcodes.OP_CHECKSIGVERIFY {
 			n++
-		} else if opcode == OP_CHECKMULTISIG || opcode == OP_CHECKMULTISIGVERIFY {
-			if accurate && lastOpcode >= OP_1 && lastOpcode <= OP_16 {
+		} else if opcode == opcodes.OP_CHECKMULTISIG || opcode == opcodes.OP_CHECKMULTISIGVERIFY {
+			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
 				opn, err := DecodeOPN(lastOpcode)
 				if err != nil {
 					return 0, err
@@ -863,13 +872,13 @@ func (script *Script) GetP2SHSigOpCount() (int, error) {
 	// get the last item that the scriptSig
 	// pushes onto the stack:
 	for _, e := range script.ParsedOpCodes {
-		opcode := e.opValue
-		if opcode > OP_16 {
+		opcode := e.OpValue
+		if opcode > opcodes.OP_16 {
 			return 0, nil
 		}
 	}
 	lastOps := script.ParsedOpCodes[len(script.ParsedOpCodes) - 1]
-	tempScript := NewScriptRaw(lastOps.data)
+	tempScript := NewScriptRaw(lastOps.Data)
 	return tempScript.GetSigOpCount(true)
 
 }
@@ -879,14 +888,14 @@ func EncodeOPN(n int) (int, error) {
 	if n < 0 || n > 16 {
 		return 0, errors.New("EncodeOPN n is out of bounds")
 	}
-	return OP_1 + n - 1, nil
+	return opcodes.OP_1 + n - 1, nil
 }
 
 func DecodeOPN(opcode byte) (int, error) {
-	if opcode < OP_0 || opcode > OP_16 {
+	if opcode < opcodes.OP_0 || opcode > opcodes.OP_16 {
 		return 0, errors.New(" DecodeOPN opcode is out of bounds")
 	}
-	return int(opcode) - int(OP_1 - 1), nil
+	return int(opcode) - int(opcodes.OP_1 - 1), nil
 }
 
 func (script *Script) Size() int {

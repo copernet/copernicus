@@ -10,6 +10,10 @@ import (
 	"github.com/btcboost/copernicus/util"
 )
 
+const (
+	MaxTxInSequenceNum uint32 = 0xffffffff
+)
+
 type TxIn struct {
 	PreviousOutPoint *outpoint.OutPoint
 	scriptSig        *script.Script
@@ -29,16 +33,16 @@ func (txIn *TxIn) SerializeSize() int {
 }
 
 func (txIn *TxIn) Unserialize(reader io.Reader) error {
-	err := txIn.PreviousOutPoint.Deserialize(reader)
+	err := txIn.PreviousOutPoint.Unserialize(reader)
 	if err != nil {
 		return err
 	}
-	bytes, err := ReadScript(reader, MaxMessagePayload, "tx input signature script")
+	bytes, err := script.ReadScript(reader, script.MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return err
 	}
-	txIn.scriptSig = NewScriptRaw(bytes)
-	return protocol.ReadElement(reader, &txIn.Sequence)
+	txIn.scriptSig = script.NewScriptRaw(bytes)
+	return util.ReadElements(reader, &txIn.Sequence)
 }
 func (txIn *TxIn) Serialize(writer io.Writer) error {
 	var err error
@@ -48,7 +52,7 @@ func (txIn *TxIn) Serialize(writer io.Writer) error {
 			return err
 		}
 	}
-	err = util.WriteVarBytes(writer, txIn.scriptSig.bytes)
+	err = util.WriteVarBytes(writer, txIn.scriptSig.GetData())
 	if err != nil {
 		return err
 	}
@@ -57,8 +61,8 @@ func (txIn *TxIn) Serialize(writer io.Writer) error {
 	return err
 }
 
-func (txIn *TxIn) CheckScript(state *ValidationState) bool {
-	return txIn.scriptSig.CheckScriptSig(state)
+func (txIn *TxIn) CheckScript() bool {
+	return txIn.scriptSig.CheckScriptSig()
 }
 
 func (txIn *TxIn) String() string {
@@ -66,7 +70,7 @@ func (txIn *TxIn) String() string {
 	if txIn.scriptSig == nil {
 		return fmt.Sprintf("%s , script:  , Sequence:%d ", str, txIn.Sequence)
 	}
-	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.script.bytes), txIn.Sequence)
+	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.scriptSig.GetData()), txIn.Sequence)
 
 }
 /*

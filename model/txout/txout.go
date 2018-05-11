@@ -53,7 +53,7 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return util.WriteVarBytes(writer, txOut.scriptPubKey.GetByteCodes())
+	return util.WriteVarBytes(writer, txOut.scriptPubKey.GetData())
 }
 
 func (txOut *TxOut) Unserialize(reader io.Reader) error {
@@ -61,28 +61,29 @@ func (txOut *TxOut) Unserialize(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	bytes, err := ReadScript(reader, MaxMessagePayload, "tx output script")
-	txOut.scriptPubKey = NewScriptRaw(bytes)
+	bytes, err := script.ReadScript(reader, script.MaxMessagePayload, "tx output script")
+	txOut.scriptPubKey = script.NewScriptRaw(bytes)
 	return err
 }
 
-func (txOut *TxOut) CheckValue(state *ValidationState) bool {
+func (txOut *TxOut) CheckValue() bool {
 	if txOut.value < 0 {
-		state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
+		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
 		return false
 	}
-	if txOut.value > MaxMoney {
-		state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
+	if txOut.value > util.MaxMoney {
+		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
 		return false
 	}
 
 	return true
 }
 
-func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool) (succeed bool, pubKeyType int)  {
-	succeed, pubKeyType = txOut.scriptPubKey.CheckScriptPubKey(state)
+func (txOut *TxOut) CheckScript(allowLargeOpReturn bool) (succeed bool, pubKeyType int)  {
+	succeed, pubKeyType = txOut.scriptPubKey.CheckScriptPubKey()
 
-	if pubKeyType == ScriptNullData {
+	if pubKeyType == script.ScriptNullData {
+		/*
 		if !AcceptDataCarrier {
 			return false, pubKeyType
 		}
@@ -97,7 +98,7 @@ func (txOut *TxOut) CheckScript(state *ValidationState, allowLargeOpReturn bool)
 		if txOut.scriptPubKey.Size() > maxScriptSize {
 			state.Dos(100, false, RejectInvalid, "scriptpubkey too large", false, "")
 			return false, pubKeyType
-		}
+		}*/
 	}
 
 	return
@@ -109,10 +110,10 @@ func (txOut *TxOut) GetValue() int64 {
 func (txOut *TxOut) SetValue(v int64) {
 	txOut.value=v
 }
-func (txOut *TxOut) GetScriptPubKey() *Script {
+func (txOut *TxOut) GetScriptPubKey() *script.Script {
 	return txOut.scriptPubKey
 }
-func (txOut *TxOut) SetScriptPubKey(s *Script)  {
+func (txOut *TxOut) SetScriptPubKey(s *script.Script)  {
 	 txOut.scriptPubKey = s
 }
 /*

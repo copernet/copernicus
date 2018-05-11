@@ -5,26 +5,25 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
 
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/pkg/errors"
-	"github.com/btcboost/copernicus/conf"
-	"btcd/wire"
-	"github.com/btcboost/copernicus/model/script"
-
+	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/model/utxo"
 )
 
 const (
 	TxOrphan = iota
 	TxInvalid
 	CoinAmount = 100000000
+)
+
+const (
+	RequireStandard = 1
 )
 
 const (
@@ -258,7 +257,7 @@ func (tx *Tx)Unserialize(reader io.Reader) error {
 		// The pointer is set now in case a script buffer is borrowed
 		// and needs to be returned to the pool on error.
 		txOut := new(txout.TxOut)
-		err = txOut.Deserialize(reader)
+		err = txOut.Unserialize(reader)
 		if err != nil {
 			return err
 		}
@@ -278,6 +277,7 @@ func (tx *Tx) IsCoinBase() bool {
 
 func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 	n := 0
+	/*
 	for _, in := range tx.ins {
 		if c, err := in.Script.GetSigOpCount(false); err == nil {
 			n += c
@@ -287,7 +287,7 @@ func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 		if c, err := out.Script.GetSigOpCount(false); err == nil {
 			n += c
 		}
-	}
+	}*/
 	return n
 }
 
@@ -297,6 +297,7 @@ func (tx *Tx) GetSigOpCountWithP2SH() (int, error) {
 	if tx.IsCoinBase() {
 		return n, nil
 	}
+	/*
 	for _, e := range tx.ins {
 		coin := utxo.GetCoins(e.PreviousOutPoint)
 		if !coin {
@@ -312,35 +313,37 @@ func (tx *Tx) GetSigOpCountWithP2SH() (int, error) {
 			n += e.scriptSigcript.GetP2SHSigOpCount()
 		}
 	}
+	*/
 	return n, nil
 }
 
-func (tx *Tx) CheckCoinbaseTransaction(state *ValidationState) bool {
+func (tx *Tx) CheckCoinbaseTransaction() bool {
 	if !tx.IsCoinBase() {
-		return state.Dos(100, false, RejectInvalid, "bad-cb-missing", false,
-			"first tx is not coinbase")
+		//return state.Dos(100, false, RejectInvalid, "bad-cb-missing", false,
+		//	"first tx is not coinbase")
 	}
-	if !tx.checkTransactionCommon(state, false) {
+	if !tx.checkTransactionCommon(false) {
 		return false
 	}
-	if tx.ins[0].Script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
+	/*
+	if tx.ins[0].script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
 		return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
-	}
+	}*/
 	return true
 }
 
-func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn bool) bool {
+func (tx *Tx) CheckRegularTransaction(allowLargeOpReturn bool) bool {
 	if tx.IsCoinBase() {
-		state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
+		//state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
 		return false
 	}
-
+/*
 	if !tx.checkTransactionCommon(state, true) {
 		return false
 	}
 
 	// check standard
-	if RequireStandard && !tx.checkStandard(state, allowLargeOpReturn) {
+	if RequireStandard && !tx.checkStandard(allowLargeOpReturn) {
 		return false
 	}
 
@@ -378,7 +381,7 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 	//}
 
 	//check inputs money range
-	if !tx.checkInputsMoney() {
+	if !tx.CheckInputsMoney() {
 		return false
 	}
 
@@ -386,34 +389,35 @@ func (tx *Tx) CheckRegularTransaction(state *ValidationState, allowLargeOpReturn
 	if !tx.checkInputs() {
 		return false
 	}
-
+*/
 	return true
 }
 
-func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool) bool {
+func (tx *Tx) checkTransactionCommon(checkDupInput bool) bool {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
-		state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
+		//state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
 		return false
 	}
 	if len(tx.outs) == 0 {
-		state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
+		//state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
 		return false
 	}
 
 	if tx.SerializeSize() > consensus.MaxTxSize {
-		return state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
+		//state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
+		return false
 	}
-
+	/*
 	// check outputs money
 	totalOut := int64(0)
 	for _, out := range tx.outs {
-		if !out.CheckValue(state) {
+		if !out.CheckValue() {
 			return false
 		}
 		totalOut += out.GetValue()
 		if totalOut < 0 || totalOut > MaxMoney {
-			state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
+			//state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
 			return false
 		}
 	}
@@ -434,12 +438,13 @@ func (tx *Tx) checkTransactionCommon(state *ValidationState, checkDupInput bool)
 			}
 		}
 	}
-
+	*/
 	return true
 }
 
-func (tx *Tx) checkStandard(state *ValidationState, allowLargeOpReturn bool) bool {
+func (tx *Tx) checkStandard(allowLargeOpReturn bool) bool {
 	// check version
+	/*
 	if tx.Version > MaxStandardVersion || tx.Version < 1 {
 		state.Dos(10, false, RejectInvalid, "bad-tx-version", false, "")
 		return false
@@ -483,12 +488,12 @@ func (tx *Tx) checkStandard(state *ValidationState, allowLargeOpReturn bool) boo
 			return false
 		}
 	}
-
+	*/
 	return true
 }
 
-func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
-	flags := 0
+func (tx *Tx) ContextualCheckTransaction(flag int) bool {
+	/*flags := 0
 	if flag > 0 {
 		flags = flag
 	}
@@ -513,12 +518,13 @@ func (tx *Tx) ContextualCheckTransaction(state *ValidationState, flag int) {
 				return state.Dos(100, false, RejectInvalid, "bad-txns-replay", false, "")
 			}
 		}
-	}
+	}*/
 
 	return true
 }
 
 func (tx *Tx) isOutputAlreadyExist() bool {
+	/*
 	for i, e := range tx.outs {
 		outPoint := NewOutPoint(tx.GetID(), i)
 		if GMempool.GetCoin(outPoint) {
@@ -527,12 +533,13 @@ func (tx *Tx) isOutputAlreadyExist() bool {
 		if GUtxo.GetCoin(outPoint) {
 			return false
 		}
-	}
+	}*/
 
 	return true
 }
 
 func (tx *Tx) areInputsAvailable() bool {
+	/*
 	for e := range tx.ins {
 		outPoint := e.PreviousOutPoint
 		if !GMempool.GetCoin(outPoint) {
@@ -542,11 +549,12 @@ func (tx *Tx) areInputsAvailable() bool {
 			return false
 		}
 	}
-
+	*/
 	return true
 }
 
 func (tx *Tx) caculateLockPoint(flags uint) (lp *LockPoints) {
+	/*
 	lp = NewLockPoints()
 	maxHeight int = 0
 	maxTime int64 = 0
@@ -593,6 +601,7 @@ func (tx *Tx) caculateLockPoint(flags uint) (lp *LockPoints) {
 
 	lp.Height = -1
 	lp.Time = -1
+	*/
 	return
 }
 /*
@@ -606,6 +615,7 @@ func (tx *Tx) checkSequenceLocks(lp *LockPoints) bool {
 }
 */
 func (tx *Tx) areInputsStandard() bool {
+	/*
 	for _, e := range tx.ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if !coin {
@@ -623,11 +633,12 @@ func (tx *Tx) areInputsStandard() bool {
 			}
 		}
 	}
-
+*/
 	return true
 }
 
-func (tx *Tx) CheckInputsMoney(state *ValidationState) bool {
+func (tx *Tx) CheckInputsMoney() bool {
+	/*
 	nValue := 0
 	for _, e := range tx.ins {
 		coin := mempool.GetCoin(e.PreviousOutPoint)
@@ -645,13 +656,15 @@ func (tx *Tx) CheckInputsMoney(state *ValidationState) bool {
 	if nValue < tx.GetValueOut() {
 		return false
 	}
-}
-
-func (tx *Tx) checkInputs(state *ValidationState, flag int) bool {
-
+	*/
 	return true
 }
 
+func (tx *Tx) checkInputs(flag int) bool {
+
+	return true
+}
+/*
 func (tx *Tx) returnScriptBuffers() {
 	for _, txIn := range tx.ins {
 		if txIn == nil || txIn.scriptSig == nil {
@@ -666,12 +679,13 @@ func (tx *Tx) returnScriptBuffers() {
 		scriptPool.Return(txOut.scriptPubKey.bytes)
 	}
 }
-
+*/
 func (tx *Tx) GetValueOut() int64 {
 	var valueOut int64
 	for _, out := range tx.outs {
-		valueOut += out.Value
-		if !util.MoneyRange(out.Value) || !util.MoneyRange(valueOut) {
+		valueOut += out.GetValue()
+		if out.GetValue() < 0  || out.GetValue() > MaxMoney ||
+			valueOut < 0 || valueOut> MaxMoney{
 			panic("value out of range")
 		}
 	}
@@ -739,7 +753,7 @@ func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	return priorityInputs / float64(txModifiedSize)
 }
 
-func (tx *Tx) CalculateModifiedSize() int {
+func (tx *Tx) CalculateModifiedSize() uint {
 	// In order to avoid disincentivizing cleaning up the UTXO set we don't
 	// count the constant overhead for each txin and up to 110 bytes of
 	// scriptSig (which is enough to cover a compressed pubkey p2sh redemption)
@@ -747,13 +761,15 @@ func (tx *Tx) CalculateModifiedSize() int {
 	// inputs free would risk encouraging people to create junk outputs to
 	// redeem later.
 	txSize := tx.SerializeSize()
-	for _, in := range tx.ins {
+	/*for _, in := range tx.ins {
+
 		InscriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
 		offset := 41 + int(InScriptModifiedSize)
 		if txSize > offset {
 			txSize -= offset
 		}
-	}
+	}*/
+
 	return txSize
 }
 
@@ -763,22 +779,23 @@ func (tx *Tx) isFinal(Height int, time int64) bool {
 	}
 
 	lockTimeLimit := int64(0)
+	/*
 	if tx.LockTime < LockTimeThreshold {
 		lockTimeLimit = int64(Height)
 	} else {
 		lockTimeLimit = time
 	}
-
+	*/
 	if int64(tx.LockTime) < lockTimeLimit {
 		return true
 	}
-
+	/*
 	for _, txin := range tx.ins {
 		if txin.Sequence != SequenceFinal {
 			return false
 		}
 	}
-
+	*/
 	return true
 }
 
@@ -813,62 +830,6 @@ func (tx *Tx) TxHash() util.Hash {
 	return hash
 }
 
-func (tx *Tx)ContextualCheckTransactionForCurrentBlock(state *ValidationState, params *msg.BitcoinParams, flags uint) bool {
-	// By convention a negative value for flags indicates that the current
-	// network-enforced core rules should be used. In a future soft-fork
-	// scenario that would mean checking which rules would be enforced for the
-	// next block and setting the appropriate flags. At the present time no
-	// soft-forks are scheduled, so no flags are set.
-	if flags < 0 {
-		flags = 0
-	}
-	// ContextualCheckTransactionForCurrentBlock() uses chainActive.Height()+1
-	// to evaluate nLockTime because when IsFinalTx() is called within
-	// CBlock::AcceptBlock(), the height of the block *being* evaluated is what
-	// is used. Thus if we want to know if a transaction can be part of the
-	// *next* block, we need to call ContextualCheckTransaction() with one more
-	// than chainActive.Height().
-	blockHeight := GChainActive.Height() + 1
-
-	// BIP113 will require that time-locked transactions have nLockTime set to
-	// less than the median time of the previous block they're contained in.
-	// When the next block is created its previous block will be the current
-	// chain tip, so we use that to calculate the median time passed to
-	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
-	var lockTimeCutoff int64
-	if flags&consensus.LocktimeMedianTimePast != 0 {
-		lockTimeCutoff = GChainActive.Tip().GetMedianTimePast()
-	} else {
-		lockTimeCutoff = util.GetAdjustedTime()
-	}
-
-	return tx.ContextualCheckTransaction(params, state, blockHeight, lockTimeCutoff)
-}
-// IsUAHFEnabled Check is UAHF has activated.
-func IsUAHFEnabled(params *msg.BitcoinParams, height int) bool {
-	return height >= params.UAHFHeight
-}
-
-func (tx *Tx)ContextualCheckTransaction(params *msg.BitcoinParams,  state *ValidationState,
-	height int, lockTimeCutoff int64) bool {
-
-	if !tx.IsFinalTx(height, lockTimeCutoff) {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-nonFinal",
-			false, "non-final transaction")
-	}
-
-	if IsUAHFEnabled(params, height) && height <= params.AntiReplayOpReturnSunsetHeight {
-		for _, txo := range tx.Outs {
-			if txo.Script.IsCommitment(params.AntiReplayOpReturnCommitment) {
-				return state.Dos(10, false, RejectInvalid, "bad-txn-replay",
-					false, "non playable transaction")
-			}
-		}
-	}
-
-	return true
-}
-
 // CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
 //
 // Simulates calling SequenceLocks() with data from the tip of the current
@@ -881,6 +842,7 @@ func (tx *Tx)ContextualCheckTransaction(params *msg.BitcoinParams,  state *Valid
 func (tx *Tx)CheckSequenceLocks(flags int, lp *LockPoints, useExistingLockPoints bool) bool {
 
 	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
+	/*
 	tip := GChainActive.Tip()
 	var index *BlockIndex
 	index.Prev = tip
@@ -946,10 +908,13 @@ func (tx *Tx)CheckSequenceLocks(flags int, lp *LockPoints, useExistingLockPoints
 		}
 	}
 	return EvaluateSequenceLocks(index, lockPair)
+	*/
+
+	return true
 }
 
-func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIndex) map[int]int64 {
-	if len(prevHeights) != len(tx.Ins) {
+func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *blockindex.BlockIndex) map[int]int64 {
+	if len(prevHeights) != len(tx.ins) {
 		panic("the prevHeights size mot equal txIns size")
 	}
 
@@ -975,8 +940,8 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIn
 		return maps
 	}
 
-	for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
-		txin := tx.Ins[txinIndex]
+	for txinIndex := 0; txinIndex < len(tx.ins); txinIndex++ {
+		txin := tx.ins[txinIndex]
 		// Sequence numbers with the most significant bit set are not
 		// treated as relative lock-times, nor are they given any
 		// core-enforced meaning at this point.
@@ -985,8 +950,8 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIn
 			prevHeights[txinIndex] = 0
 			continue
 		}
-		nCoinHeight := prevHeights[txinIndex]
-
+		//nCoinHeight := prevHeights[txinIndex]
+		/*
 		if (txin.Sequence & SequenceLockTimeDisableFlag) != 0 {
 			nCoinTime := block.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
@@ -1004,7 +969,7 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *BlockIn
 			nMinTime = int(math.Max(float64(nMinTime), float64(tmpTime)))
 		} else {
 			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence&SequenceLockTimeMask)-1)))
-		}
+		}*/
 	}
 
 	maps[nMinHeight] = int64(nMinTime)
