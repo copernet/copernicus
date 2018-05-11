@@ -28,7 +28,7 @@ func (txIn *TxIn) SerializeSize() int {
 	return 40 + util.VarIntSerializeSize(uint64(txIn.scriptSig.Size())) + txIn.scriptSig.Size()
 }
 
-func (txIn *TxIn) Deserialize(reader io.Reader) error {
+func (txIn *TxIn) Unserialize(reader io.Reader) error {
 	err := txIn.PreviousOutPoint.Deserialize(reader)
 	if err != nil {
 		return err
