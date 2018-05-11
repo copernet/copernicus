@@ -61,6 +61,10 @@ func (c *Chain) GetTipTime() int64 {
 	return 0
 }
 
+func (c *Chain) GetScriptFlags() uint32 {
+
+	return 0
+}
 
 // GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
