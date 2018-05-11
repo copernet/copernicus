@@ -52,11 +52,12 @@ func (coinsViewDB *CoinsDB) GetBestBlock() util.Hash {
 	return hashBestChain
 }
 
-func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsMap, hashBlock *util.Hash) error {
+func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCache) error {
+	hashBlock := mapCoins.hashBlock
 	var batch *db.BatchWrapper
 	count := 0
 	changed := 0
-	for k, v := range *mapCoins {
+	for k, v := range mapCoins.cacheCoins {
 		if v.dirty {
 			entry := NewCoinKey(&k)
 			bufEntry := bytes.NewBuffer(nil)
@@ -72,7 +73,7 @@ func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsMap, hashBlock *util.Hash)
 			changed++
 		}
 		count++
-		delete(*mapCoins, k)
+		delete(mapCoins.cacheCoins, k)
 	}
 	if !hashBlock.IsNull() {
 		hashByte := bytes.NewBuffer(nil)

@@ -27,10 +27,15 @@ func (coin *Coin) GetHeight() uint32 {
 func (coin *Coin) IsCoinBase() bool {
 	return coin.isCoinBase
 }
+
 func (coin *Coin) GetIsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
-
+//coinbase检查高度，锁定时间？
+func (coin *Coin) IsSpendable() bool {
+	fmt.Printf("isspend=======%#v",coin)
+	return coin.txOut.IsNull()
+}
 
 func (coin *Coin) IsSpent() bool {
 	fmt.Printf("isspend=======%#v",coin)
