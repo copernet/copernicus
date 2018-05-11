@@ -14,6 +14,6 @@ func IsErrorCode(err error, c int) bool {
 	return ok && e.ErrorCode == c
 }
 
-func ErrToProject(errorCode int, reason string) ProjectError {
+func ErrToProject(errorCode int, reason string) error {
 	return ProjectError{ErrorCode:errorCode, Description:reason}
 }

@@ -4,13 +4,13 @@ import (
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/pkg/errors"
-	"time"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
 	ltx "github.com/btcboost/copernicus/logic/tx"
-	"github.com/btcboost/copernicus/model/consensus"
+	//"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/utxo"
+	//"github.com/btcboost/copernicus/log"
 )
 
 const (
@@ -72,15 +72,18 @@ func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 	return nil
 }
 
-func Processmeage()  {
-	errors.Errorf()
+func processOrphan(work []outpoint.OutPoint)  {
+
 }
+
+/*
 
 func ProcessTransaction(tx *tx.Tx, node Node) error {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	vEraseQueue := make([]util.Hash, 0)
 
-	err := AccpetTxToMemPool(tx, nil)
+	AccpetTxToMemPool(tx, nil)
+	err := util.ErrToProject(1, "")
 	if err == nil{
 		//todo !!! replay this transaction
 		//	RelayTransaction(tx, connman)
@@ -134,9 +137,9 @@ func ProcessTransaction(tx *tx.Tx, node Node) error {
 		}
 	}
 
-	errCode := err.(Type)
+	proErr := err.(util.ProjectError)
 
-	if errCode == MissParentCode {
+	if proErr.ErrorCode == MissParentCode {
 		fRejectedParents := false
 		for _, preOut := range tx.GetAllPreviousOut() {
 			if _, ok := RecentRejects[preOut.Hash]; ok {
@@ -156,7 +159,7 @@ func ProcessTransaction(tx *tx.Tx, node Node) error {
 			log.()
 		}
 	}else{
-		if errcode == CorruptionCode {
+		if proErr.ErrorCode == CorruptionCode {
 			RecentRejects[tx.Hash] = struct{}{}
 		}
 	}
@@ -230,5 +233,5 @@ func limitOrphanTx() int {
 	}
 	return removeNum
 }
-
+*/
 
