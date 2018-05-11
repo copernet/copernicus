@@ -54,7 +54,7 @@ func (coinsViewDB *CoinsDB) GetBestBlock() util.Hash {
 
 func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCache) error {
 	hashBlock := mapCoins.hashBlock
-	var batch *db.BatchWrapper
+	batch := db.NewBatchWrapper(coinsViewDB.dbw)
 	count := 0
 	changed := 0
 	for k, v := range mapCoins.cacheCoins {
