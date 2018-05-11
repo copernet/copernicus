@@ -32,7 +32,7 @@ func NewOutPoint() *OutPoint {
 }
 */
 
-func (outPoint *OutPoint) Serialize(io io.Writer)  {
+func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
 	// Allocate enough for hash string, colon, and 10 digits.  Although
 	// at the time of writing, the number of digits can be no greater than
 	// the length of the decimal representation of maxTxOutPerMessage, the
@@ -43,7 +43,7 @@ func (outPoint *OutPoint) Serialize(io io.Writer)  {
 	copy(buf, outPoint.Hash.ToString())
 	buf[2*util.Hash256Size] = ':'
 	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
-	io.Write(buf)
+	return io.Write(buf)
 }
 
 func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
