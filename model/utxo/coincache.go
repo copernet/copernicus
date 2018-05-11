@@ -21,8 +21,6 @@ func InitUtxoTip(conf *UtxoConfig){
 }
 
 
-
-
 func GetUtxoCacheInstance() *CoinsCache{
 	if utxoTip == nil{
 		db := new(CoinsDB)
@@ -31,15 +29,13 @@ func GetUtxoCacheInstance() *CoinsCache{
 	return utxoTip
 }
 
-type CoinsMap map[outpoint.OutPoint]*Coin
 
 type CoinsCache struct {
 	db               CoinsDB
 	hashBlock        util.Hash
-	cacheCoins       CoinsMap
+	CoinsMap
 	cachedCoinsUsage int64
 }
-
 
 func NewCoinCache(view CoinsDB) *CoinsCache {
 	c := new(CoinsCache)
@@ -90,8 +86,8 @@ func (coinsCache *CoinsCache) EstimateSize() uint64 {
 	return 0
 }
 
-func (coinsCache *CoinsCache) batchWrite(tempCacheCoins *CoinsMap, hash *util.Hash) error {
-	for point, tempCacheCoin := range *tempCacheCoins {
+func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error {
+	for point, tempCacheCoin := range tempCacheCoins.cacheCoins {
 		// Ignore non-dirty entries (optimization).
 		if tempCacheCoin.dirty{
 			globalCacheCoin, ok := coinsCache.cacheCoins[point]
@@ -123,9 +119,8 @@ func (coinsCache *CoinsCache) batchWrite(tempCacheCoins *CoinsMap, hash *util.Ha
 				}
 			}
 		}
-		delete(*tempCacheCoins, point)
+		delete(tempCacheCoins.cacheCoins, point)
 	}
-	tempCacheCoins = new(CoinsMap)
 	coinsCache.hashBlock = *hash
 	return nil
 }
@@ -133,60 +128,60 @@ func (coinsCache *CoinsCache) batchWrite(tempCacheCoins *CoinsMap, hash *util.Ha
 func (coinsCache *CoinsCache) Flush() bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v",coinsCache.cacheCoins,coinsCache.hashBlock)
-	ok := coinsCache.db.BatchWrite(&coinsCache.cacheCoins, &coinsCache.hashBlock)
+	ok := coinsCache.db.BatchWrite(&coinsCache)
 	//coinsCache.cacheCoins = make(CacheCoins)
 	coinsCache.cachedCoinsUsage = 0
 	return ok == nil
 }
-
-func (coinsCache *CoinsCache) AddCoin(point *outpoint.OutPoint, coin Coin, possibleOverwrite bool) {
-	if coin.IsSpent() {
-		panic("param coin should not be null")
-	}
-	if !coin.GetTxOut().IsSpendable() {
-		return
-	}
-	fresh := false
-	_, ok := coinsCache.cacheCoins[*point]
-	if !ok {
-		coinsCache.cacheCoins[*point] = NewEmptyCoin()
-	} else {
-		coinsCache.cachedCoinsUsage -= coinsCache.cacheCoins[*point].DynamicMemoryUsage()
-	}
-
-	if !possibleOverwrite {
-		if !coinsCache.cacheCoins[*point].IsSpent() {
-			panic("Adding new coin that replaces non-pruned entry")
-		}
-		fresh = coinsCache.cacheCoins[*point].dirty == false
-	}
-
-	*coinsCache.cacheCoins[*point] = coin
-
-	if fresh {
-		coinsCache.cacheCoins[*point].dirty = true
-		coinsCache.cacheCoins[*point].fresh = true
-	} else {
-		coinsCache.cacheCoins[*point].dirty = true
-	}
-	coinsCache.cachedCoinsUsage += coinsCache.cacheCoins[*point].DynamicMemoryUsage()
-}
-
-func (coinsCache *CoinsCache) SpendCoin(point *outpoint.OutPoint) (*Coin, error) {
-	entry, err := coinsCache.GetCoin(point)
-	if entry == nil || err != nil {
-		return entry, err
-	}
-
-	if entry.fresh {
-		delete(coinsCache.cacheCoins, *point)
-		coinsCache.cachedCoinsUsage -= entry.DynamicMemoryUsage()
-	} else {
-		entry.dirty = true
-		entry.Clear()
-	}
-	return entry, err
-}
+//
+//func (coinsCache *CoinsCache) AddCoin(point *outpoint.OutPoint, coin Coin, possibleOverwrite bool) {
+//	if coin.IsSpent() {
+//		panic("param coin should not be null")
+//	}
+//	if !coin.GetTxOut().IsSpendable() {
+//		return
+//	}
+//	fresh := false
+//	_, ok := coinsCache.cacheCoins[*point]
+//	if !ok {
+//		coinsCache.cacheCoins[*point] = NewEmptyCoin()
+//	} else {
+//		coinsCache.cachedCoinsUsage -= coinsCache.cacheCoins[*point].DynamicMemoryUsage()
+//	}
+//
+//	if !possibleOverwrite {
+//		if !coinsCache.cacheCoins[*point].IsSpent() {
+//			panic("Adding new coin that replaces non-pruned entry")
+//		}
+//		fresh = coinsCache.cacheCoins[*point].dirty == false
+//	}
+//
+//	*coinsCache.cacheCoins[*point] = coin
+//
+//	if fresh {
+//		coinsCache.cacheCoins[*point].dirty = true
+//		coinsCache.cacheCoins[*point].fresh = true
+//	} else {
+//		coinsCache.cacheCoins[*point].dirty = true
+//	}
+//	coinsCache.cachedCoinsUsage += coinsCache.cacheCoins[*point].DynamicMemoryUsage()
+//}
+//
+//func (coinsCache *CoinsCache) SpendCoin(point *outpoint.OutPoint) (*Coin, error) {
+//	entry, err := coinsCache.GetCoin(point)
+//	if entry == nil || err != nil {
+//		return entry, err
+//	}
+//
+//	if entry.fresh {
+//		delete(coinsCache.cacheCoins, *point)
+//		coinsCache.cachedCoinsUsage -= entry.DynamicMemoryUsage()
+//	} else {
+//		entry.dirty = true
+//		entry.Clear()
+//	}
+//	return entry, err
+//}
 
 func (coinsCache *CoinsCache) UnCache(point *outpoint.OutPoint) {
 	coin, ok := coinsCache.cacheCoins[*point]

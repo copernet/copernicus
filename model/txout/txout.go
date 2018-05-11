@@ -27,7 +27,7 @@ func (txOut *TxOut) IsDust(minRelayTxFee util.FeeRate) bool {
 	return txOut.value < txOut.GetDustThreshold(minRelayTxFee)
 }
 
-func (txOut *TxOut) GetDustThreshold(minRelayTxFee utils.FeeRate) int64 {
+func (txOut *TxOut) GetDustThreshold(minRelayTxFee util.FeeRate) int64 {
 	// "Dust" is defined in terms of CTransaction::minRelayTxFee, which has
 	// units satoshis-per-kilobyte. If you'd pay more than 1/3 in fees to
 	// spend something, then we consider it dust. A typical spendable
@@ -57,7 +57,7 @@ func (txOut *TxOut) Serialize(writer io.Writer) error {
 }
 
 func (txOut *TxOut) Unserialize(reader io.Reader) error {
-	err := protocol.ReadElement(reader, &txOut.value)
+	err := util.ReadElements(reader, &txOut.value)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,17 @@ func (txOut *TxOut) Check() bool {
 	return true
 }
 */
+/*
+  The TxOut can be spent or not according script, but don't care it is already been spent or not
+ */
 func (txOut *TxOut) IsSpendable() bool {
+	return true
+}
+
+/*
+  The TxOut already spent
+ */
+func (txOut *TxOut) IsSpent() bool {
 	return true
 }
 

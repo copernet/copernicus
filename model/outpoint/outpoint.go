@@ -5,17 +5,15 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-
-	"github.com/btcboost/copernicus/utils"
-	utils2 "copernicus/utils"
+	"github.com/btcboost/copernicus/util"
 )
 
 type OutPoint struct {
-	Hash  utils.Hash
+	Hash  util.Hash
 	Index uint32
 }
 
-func NewOutPoint(hash utils.Hash, index uint32) *OutPoint {
+func NewOutPoint(hash util.Hash, index uint32) *OutPoint {
 	outPoint := OutPoint{
 		Hash:  hash,
 		Index: index,
@@ -34,18 +32,18 @@ func NewOutPoint() *OutPoint {
 }
 */
 
-func (outPoint *OutPoint) Serialize() string {
+func (outPoint *OutPoint) Serialize(io io.Writer)  {
 	// Allocate enough for hash string, colon, and 10 digits.  Although
 	// at the time of writing, the number of digits can be no greater than
 	// the length of the decimal representation of maxTxOutPerMessage, the
 	// maximum message payload may increase in the future and this
 	// optimization may go unnoticed, so allocate space for 10 decimal
 	// digits, which will fit any uint32.
-	buf := make([]byte, 2*utils.Hash256Size+1, 2*utils.Hash256Size+1+10)
+	buf := make([]byte, 2*util.Hash256Size+1, 2*util.Hash256Size+1+10)
 	copy(buf, outPoint.Hash.ToString())
-	buf[2*utils.Hash256Size] = ':'
+	buf[2*util.Hash256Size] = ':'
 	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
-	return string(buf)
+	io.Write(buf)
 }
 
 func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
@@ -53,7 +51,7 @@ func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	if err != nil {
 		return
 	}
-	outPoint.Index, err = utils.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	outPoint.Index, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	return
 }
 
@@ -62,7 +60,7 @@ func (outPoint *OutPoint) WriteOutPoint(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return utils.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
+	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
 }
 
 func (outPoint *OutPoint) String() string {
@@ -76,5 +74,5 @@ func (outPoint *OutPoint) IsNull() bool {
 	if outPoint.Index != 0xffffffff {
 		return false
 	}
-	return outPoint.Hash.IsEqual(&utils.HashZero)
+	return outPoint.Hash.IsEqual(&util.HashZero)
 }
