@@ -59,7 +59,7 @@ const (
 	MaxTxInSequenceNum uint32 = 0xffffffff
 	FreeListMaxItems          = 12500
 	MaxMessagePayload         = 32 * 1024 * 1024
-	MinTxInPayload            = 9 + utils.Hash256Size
+	MinTxInPayload            = 9 + util.Hash256Size
 	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
 	TxVersion                 = 1
 )

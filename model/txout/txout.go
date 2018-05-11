@@ -120,7 +120,17 @@ func (txOut *TxOut) Check() bool {
 	return true
 }
 */
+/*
+  The TxOut can be spent or not according script, but don't care it is already been spent or not
+ */
 func (txOut *TxOut) IsSpendable() bool {
+	return true
+}
+
+/*
+  The TxOut already spent
+ */
+func (txOut *TxOut) IsSpent() bool {
 	return true
 }
 
