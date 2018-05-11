@@ -38,6 +38,30 @@ func (c *Chain) Tip() *blockindex.BlockIndex {
 	return nil
 }
 
+func (c *Chain) TipHeight() int {
+	if len(c.active) > 0 {
+		return c.active[len(c.active)-1].Height
+	}
+
+	return 0
+}
+
+func (c *Chain) GetMedianTimePast() int64 {
+
+	return 0
+}
+
+func (c *Chain) GetVersionState() int {
+
+	return 0
+}
+
+func (c *Chain) GetTipTime() int64 {
+
+	return 0
+}
+
+
 // GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
 func (c *Chain) GetIndex(height int) *blockindex.BlockIndex {
