@@ -17,6 +17,7 @@ type Coin struct {
 	isCoinBase          bool
 	dirty bool //是否修改过
 	fresh bool //是否是新增
+	isMempoolCoin        bool
 }
 
 func (coin *Coin) GetHeight() uint32 {
@@ -26,6 +27,10 @@ func (coin *Coin) GetHeight() uint32 {
 func (coin *Coin) IsCoinBase() bool {
 	return coin.isCoinBase
 }
+func (coin *Coin) GetIsMempoolCoin() bool {
+	return coin.isMempoolCoin
+}
+
 
 func (coin *Coin) IsSpent() bool {
 	fmt.Printf("isspend=======%#v",coin)
@@ -84,7 +89,7 @@ func (coin *Coin) Unserialize(r io.Reader)error {
 	err = coin.txOut.Unserialize(r)
 	return err
 }
-
+//生成一个确认的coin
 func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
 
 	return &Coin{
@@ -94,6 +99,13 @@ func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
     }
 }
 
+//生成一个mempool中未确认的coin
+func NewMempoolCoin(out *txout.TxOut)*Coin{
+	return &Coin{
+		txOut:               *out,
+		isMempoolCoin:true,
+	}
+}
 
 func NewEmptyCoin() *Coin {
 
