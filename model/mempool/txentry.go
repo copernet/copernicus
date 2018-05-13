@@ -6,6 +6,7 @@ import (
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
+	"github.com/btcboost/copernicus/model/chain"
 )
 
 type TxEntry struct {
@@ -25,7 +26,7 @@ type TxEntry struct {
 	// parentTx the tx's all Ancestors transaction
 	ParentTx map[*TxEntry]struct{}
 	// lp Track the height and time at which tx was final
-	lp LockPoints
+	lp tx.LockPoints
 	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
 	//Statistics Information for every txentry with its ancestors And descend.
@@ -54,11 +55,11 @@ func (t *TxEntry) GetUsageSize() int64 {
 	return int64(t.usageSize)
 }
 
-func (t *TxEntry) SetLockPointFromTxEntry(lp LockPoints) {
+func (t *TxEntry) SetLockPointFromTxEntry(lp tx.LockPoints) {
 	t.lp = lp
 }
 
-func (t *TxEntry) GetLockPointFromTxEntry() LockPoints {
+func (t *TxEntry) GetLockPointFromTxEntry() tx.LockPoints {
 	return t.lp
 }
 
@@ -108,7 +109,7 @@ func (t *TxEntry) Less(than btree.Item) bool {
 	return t.time < th.time
 }
 
-func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int, lp LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
+func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int, lp tx.LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
 	t := new(TxEntry)
 	t.Tx = tx
 	t.time = acceptTime
@@ -146,7 +147,7 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 	}
 }
 
-func (t *TxEntry) CheckLockPointValidity(chain *Chain) bool {
+func (t *TxEntry) CheckLockPointValidity(chain *chain.Chain) bool {
 	if t.lp.MaxInputBlock != nil{
 		if !chain.Contains(t.lp.MaxInputBlock){
 			return false
