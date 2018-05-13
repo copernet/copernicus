@@ -40,6 +40,7 @@ type CoinsCache struct {
 func NewCoinCache(view CoinsDB) *CoinsCache {
 	c := new(CoinsCache)
 	c.db = view
+	c.CoinsMap = *NewEmptyCoinsMap()
 	c.cachedCoinsUsage = 0
 	return c
 }
@@ -128,7 +129,7 @@ func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.H
 func (coinsCache *CoinsCache) Flush() bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v",coinsCache.cacheCoins,coinsCache.hashBlock)
-	ok := coinsCache.db.BatchWrite(&coinsCache)
+	ok := coinsCache.db.BatchWrite(coinsCache)
 	//coinsCache.cacheCoins = make(CacheCoins)
 	coinsCache.cachedCoinsUsage = 0
 	return ok == nil
