@@ -3,6 +3,7 @@ package chain
 import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/block"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
@@ -139,6 +140,29 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	}
 }
 
+func (c *Chain) AcceptBlock(b * block.Block, replaceIndex bool) (*blockindex.BlockIndex,error) {
+
+
+	return nil,nil
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // FindFork Find the last common block between this chain and a block blIndex entry.
 func (chain *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex {
 	if blIndex == nil {
@@ -161,9 +185,9 @@ func (chain *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
 	return nil
 }
 
-func (chain *Chain)ActiveBestChain(bi *blockindex.BlockIndex) bool {
+func (chain *Chain)ActiveBest(bi *blockindex.BlockIndex) error {
 
-	return true
+	return nil
 }
 
 func (chain *Chain)removeFromBranch(bis []*blockindex.BlockIndex) {
