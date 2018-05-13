@@ -2,6 +2,7 @@ package log
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
@@ -9,9 +10,14 @@ import (
 	"github.com/gin-gonic/gin/json"
 )
 
-const defaultLogDirname = "logs"
+const (
+	defaultLogDirname = "logs"
+
+	errModuleNotFound = "specified module not found"
+)
 
 func Print(module string, level string, format string, reason ...interface{}) {
+	level = strings.ToLower(level)
 	if isIncludeModule(module) {
 		switch level {
 		case "emergency":
@@ -31,6 +37,8 @@ func Print(module string, level string, format string, reason ...interface{}) {
 		case "notice":
 			logs.Notice(format, reason)
 		}
+	} else {
+		logs.Error(errModuleNotFound)
 	}
 }
 
@@ -53,7 +61,7 @@ func init() {
 		Daily    bool   `json:"daily"`
 	}{
 		FileName: logDir,
-		Level:    getLevel("debug"),
+		Level:    getLevel(conf.AppConf.LogLevel),
 		Daily:    false,
 	}
 
