@@ -16,6 +16,17 @@ import (
  * one of them can be part of the currently active branch.
  */
 
+ const (
+ 	statusHeaderValid uint32 = 1 << iota
+ 	statusAllValid
+ 	statusIndexStored
+ 	statusAllStored
+	statusMissData
+
+	//NOTE: This must be defined last in order to avoid influencing iota
+	statusNone  = 0
+ )
+
 type BlockIndex struct {
 	Header block.BlockHeader
 	// pointer to the hash of the block, if any.
@@ -45,7 +56,7 @@ type BlockIndex struct {
 	// block and all its parents are available. Change to 64-bit type when
 	// necessary; won't happen before 2030
 	ChainTxCount int
-	// Verification status of this block. See enum BlockStatus
+	//status of this block. See enum
 	Status uint32
 	// (memory only) Sequential id assigned to distinguish order in which
 	// blocks are received.
@@ -56,57 +67,76 @@ type BlockIndex struct {
 
 const medianTimeSpan = 11
 
-func (blIndex *BlockIndex) SetNull() {
-	blIndex.Header.SetNull()
-	blIndex.BlockHash = util.Hash{}
-	blIndex.Prev = nil
-	blIndex.Skip = nil
+func (bIndex *BlockIndex) SetNull() {
+	bIndex.Header.SetNull()
+	bIndex.BlockHash = util.Hash{}
+	bIndex.Prev = nil
+	bIndex.Skip = nil
 
-	blIndex.Height = 0
-	blIndex.File = 0
-	blIndex.DataPos = 0
-	blIndex.UndoPos = 0
-	blIndex.ChainWork = big.Int{}
-	blIndex.ChainTxCount = 0
-	blIndex.TxCount = 0
-	blIndex.Status = 0
-	blIndex.SequenceID = 0
-	blIndex.TimeMax = 0
+	bIndex.Height = 0
+	bIndex.File = 0
+	bIndex.DataPos = 0
+	bIndex.UndoPos = 0
+	bIndex.ChainWork = big.Int{}
+	bIndex.ChainTxCount = 0
+	bIndex.TxCount = 0
+	bIndex.Status = 0
+	bIndex.SequenceID = 0
+	bIndex.TimeMax = 0
 }
 
+func (bIndex *BlockIndex) HaveData() bool {
+	return bIndex.Status & statusMissData == 0
+}
 
-func (blIndex *BlockIndex) GetDataPos() int {
+func (bIndex *BlockIndex) HeaderValid() bool {
+	return bIndex.Status & statusHeaderValid != 0
+}
+
+func (bIndex *BlockIndex) AllValid() bool {
+	return bIndex.Status & statusAllValid != 0
+}
+
+func (bIndex *BlockIndex) IndexStored() bool {
+	return bIndex.Status & statusIndexStored != 0
+}
+
+func (bIndex *BlockIndex) AllStored() bool {
+	return bIndex.Status & statusAllStored != 0
+}
+
+func (bIndex *BlockIndex) GetDataPos() int {
 
 	return 0
 }
 
-func (blIndex *BlockIndex) GetUndoPos() int {
+func (bIndex *BlockIndex) GetUndoPos() int {
 
 	return 0
 }
 
-func (blIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
+func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
 
-	return &blIndex.Header
+	return &bIndex.Header
 }
 
-func (blIndex *BlockIndex) GetBlockHash() *util.Hash {
+func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
 
-	return &blIndex.BlockHash
+	return &bIndex.BlockHash
 }
 
-func (blIndex *BlockIndex) GetBlockTime() uint32 {
+func (bIndex *BlockIndex) GetBlockTime() uint32 {
 
-	return blIndex.Header.Time
+	return bIndex.Header.Time
 }
 
-func (blIndex *BlockIndex) GetBlockTimeMax() uint32 {
-	return blIndex.TimeMax
+func (bIndex *BlockIndex) GetBlockTimeMax() uint32 {
+	return bIndex.TimeMax
 }
 
-func (blIndex *BlockIndex) GetMedianTimePast() int64 {
+func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 	median := make([]int64, 0, medianTimeSpan)
-	index := blIndex
+	index := bIndex
 	numNodes := 0
 	for i := 0; i < medianTimeSpan && index != nil; i++ {
 		median = append(median, int64(index.GetBlockTime()))
@@ -123,21 +153,21 @@ func (blIndex *BlockIndex) GetMedianTimePast() int64 {
 
 // IsValid checks whether this block index entry is valid up to the passed validity
 // level.
-func (blIndex *BlockIndex) IsValid(upto uint32) bool {
+func (bIndex *BlockIndex) IsValid(upto uint32) bool {
 
 	return false
 }
 
 // RaiseValidity Raise the validity level of this block index entry.
 // Returns true if the validity was changed.
-func (blIndex *BlockIndex) RaiseValidity(upto uint32) bool {
+func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 
 	return false
 }
 
-func (blIndex *BlockIndex) BuildSkip() {
-	if blIndex.Prev != nil {
-		blIndex.Skip = blIndex.Prev.GetAncestor(getSkipHeight(blIndex.Height))
+func (bIndex *BlockIndex) BuildSkip() {
+	if bIndex.Prev != nil {
+		bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
 	}
 }
 
@@ -162,12 +192,12 @@ func getSkipHeight(height int) int {
 }
 
 // GetAncestor efficiently find an ancestor of this block.
-func (blIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
-	if height > blIndex.Height || height < 0 {
+func (bIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
+	if height > bIndex.Height || height < 0 {
 		return nil
 	}
-	indexWalk := blIndex
-	heightWalk := blIndex.Height
+	indexWalk := bIndex
+	heightWalk := bIndex.Height
 	for heightWalk > height {
 		heightSkip := getSkipHeight(heightWalk)
 		heightSkipPrev := getSkipHeight(heightWalk - 1)
@@ -188,10 +218,10 @@ func (blIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
 	return indexWalk
 }
 
-func (blIndex *BlockIndex) ToString() string {
-	hash := blIndex.GetBlockHash()
-	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", blIndex.Prev,
-		blIndex.Height, blIndex.Header.MerkleRoot.ToString(), hash.ToString())
+func (bIndex *BlockIndex) ToString() string {
+	hash := bIndex.GetBlockHash()
+	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", bIndex.Prev,
+		bIndex.Height, bIndex.Header.MerkleRoot.ToString(), hash.ToString())
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
