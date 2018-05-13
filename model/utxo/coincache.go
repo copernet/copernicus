@@ -7,6 +7,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
 
+	"log"
 )
 var utxoTip *CoinsCache
 
@@ -74,7 +75,12 @@ func (coinsCache *CoinsCache) HaveCoin(point *outpoint.OutPoint) bool {
 
 func (coinsCache *CoinsCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
-		coinsCache.hashBlock = coinsCache.db.GetBestBlock()
+		hashBlock, err := coinsCache.db.GetBestBlock()
+		if err != nil{
+			log.Fatalf("db.GetBestBlock err:%#v", err)
+			panic("db.GetBestBlock read err")
+		}
+		coinsCache.hashBlock = *hashBlock
 	}
 	return coinsCache.hashBlock
 }

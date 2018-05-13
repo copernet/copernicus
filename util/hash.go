@@ -12,6 +12,7 @@ import (
 	"crypto/sha1"
 
 	"golang.org/x/crypto/ripemd160"
+	"github.com/astaxie/beego/logs"
 )
 
 const (
@@ -52,20 +53,22 @@ func (hash *Hash) ToString() string {
 	return hex.EncodeToString(bytes[:])
 }
 
-func (hash *Hash) Serialize(w io.Writer) bool {
+func (hash *Hash) Serialize(w io.Writer) (int, error) {
 	length, err := w.Write(hash[:])
 	if length != Hash256Size || err != nil {
-		return false
+		logs.Alert("hash.Unserialize err: ", length, err)
+		return length, err
 	}
-	return true
+	return length, err
 }
 
-func (hash *Hash) Deserialize(r io.Reader) bool {
-	lenth, err := io.ReadFull(r, hash[:])
-	if lenth != Hash256Size || err != nil {
-		return false
+func (hash *Hash) Unserialize(r io.Reader) (int, error) {
+	length, err := io.ReadFull(r, hash[:])
+	if length != Hash256Size || err != nil {
+		logs.Alert("hash.Unserialize err: ", length, err)
+		return length, err
 	}
-	return true
+	return length, err
 }
 
 func (hash *Hash) GetCloneBytes() []byte {
