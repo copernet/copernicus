@@ -1,13 +1,13 @@
 package log
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/util"
-	"github.com/gin-gonic/gin/json"
 )
 
 const (
