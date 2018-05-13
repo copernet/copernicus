@@ -154,10 +154,10 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 	return txOut.scriptPubKey.IsEqual(out.scriptPubKey)
 }
 
-func NewTxOut() *TxOut {
+func NewTxOut(value int64, scriptPubKey *script.Script) *TxOut {
 	txOut := TxOut{
-		value:  -1,
-		scriptPubKey: nil,
+		value: value,
+		scriptPubKey: scriptPubKey,
 	}
 	return &txOut
 }

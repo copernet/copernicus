@@ -16,12 +16,35 @@ type Chain struct {
 	receiveID     	uint64
 }
 
+var GlobalChain *Chain
+
+func GetInstance() *Chain {
+	if GlobalChain == nil {
+		GlobalChain = NewChain()
+	}
+
+	return GlobalChain
+}
+
+func NewChain() *Chain {
+	return &Chain{}
+}
 
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
 func (c *Chain) Genesis() *blockindex.BlockIndex {
 	if len(c.active) > 0 {
 		return c.active[0]
+	}
+
+	return nil
+}
+
+//find blockindex from blockIndexMap
+func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
+	bi, ok := c.blockIndexMap[hash]
+	if ok {
+		return bi
 	}
 
 	return nil

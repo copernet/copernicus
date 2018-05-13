@@ -44,6 +44,7 @@ func (txIn *TxIn) Unserialize(reader io.Reader) error {
 	txIn.scriptSig = script.NewScriptRaw(bytes)
 	return util.ReadElements(reader, &txIn.Sequence)
 }
+
 func (txIn *TxIn) Serialize(writer io.Writer) error {
 	var err error
 	if txIn.PreviousOutPoint != nil {
@@ -59,6 +60,10 @@ func (txIn *TxIn) Serialize(writer io.Writer) error {
 
 	err = util.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
 	return err
+}
+
+func (txIn *TxIn) GetScriptSig() *script.Script {
+	return txIn.scriptSig
 }
 
 func (txIn *TxIn) CheckScript() bool {
@@ -78,7 +83,8 @@ func (txIn *TxIn) Check() bool {
 	return true
 }
 */
-func NewTxIn() *TxIn {
-	txIn := TxIn{PreviousOutPoint: nil, scriptSig: nil, Sequence: MaxTxInSequenceNum}
+
+func NewTxIn(previousOutPoint *outpoint.OutPoint, scriptSig *script.Script, sequence uint32) *TxIn {
+	txIn := TxIn{PreviousOutPoint: previousOutPoint, scriptSig: scriptSig, Sequence: sequence}
 	return &txIn
 }

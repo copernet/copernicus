@@ -179,7 +179,7 @@ func (s *Script) Serialize(io io.Writer) (n int, err error) {
 	return io.Write(s.data)
 }
 
-func UnSerialize(io io.Reader) (script *Script, err error) {
+func (s *Script) UnSerialize(io io.Reader) (script *Script, err error) {
 	bytes, err := ReadScript(io, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func (script *Script) convertOPS() error {
 	return nil
 }
 
-func (script *Script) Eval() (int, error) {
+func (script *Script) Eval(stack *util.Stack) (int, error) {
 	return 0, nil
 }
 
