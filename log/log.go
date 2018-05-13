@@ -5,7 +5,7 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcsuite/btcutil"
+	"github.com/btcboost/copernicus/util"
 	"github.com/gin-gonic/gin/json"
 )
 
@@ -44,7 +44,7 @@ func isIncludeModule(module string) bool {
 }
 
 func init() {
-	defaultHomeDir := btcutil.AppDataDir("copernicus", false)
+	defaultHomeDir := util.AppDataDir("copernicus", false)
 	logDir := filepath.Join(defaultHomeDir, defaultLogDirname)
 
 	logConf := struct {
@@ -62,4 +62,60 @@ func init() {
 		panic(err)
 	}
 	logs.SetLogger(logs.AdapterFile, string(configuration))
+}
+
+// Emergency logs a message at emergency level.
+func Emergency(f interface{}, v ...interface{}) {
+	logs.Emergency(f, v)
+}
+
+// Alert logs a message at alert level.
+func Alert(f interface{}, v ...interface{}) {
+	logs.Alert(f, v)
+}
+
+// Critical logs a message at critical level.
+func Critical(f interface{}, v ...interface{}) {
+	logs.Critical(f, v)
+}
+
+// Error logs a message at error level.
+func Error(f interface{}, v ...interface{}) {
+	logs.Error(f, v)
+}
+
+// Warning logs a message at warning level.
+func Warning(f interface{}, v ...interface{}) {
+	logs.Warning(f, v)
+}
+
+// Warn compatibility alias for Warning()
+func Warn(f interface{}, v ...interface{}) {
+	logs.Warn(f, v)
+}
+
+// Notice logs a message at notice level.
+func Notice(f interface{}, v ...interface{}) {
+	logs.Notice(f, v)
+}
+
+// Informational logs a message at info level.
+func Informational(f interface{}, v ...interface{}) {
+	logs.Informational(f, v)
+}
+
+// Info compatibility alias for Warning()
+func Info(f interface{}, v ...interface{}) {
+	logs.Info(f, v)
+}
+
+// Debug logs a message at debug level.
+func Debug(f interface{}, v ...interface{}) {
+	logs.Debug(f, v)
+}
+
+// Trace logs a message at trace level.
+// compatibility alias for Warning()
+func Trace(f interface{}, v ...interface{}) {
+	logs.Trace(f, v)
 }
