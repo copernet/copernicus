@@ -113,8 +113,8 @@ const (
 
 type Tx struct {
 	Hash     util.Hash // Cached transaction hash	todo defined a pointer will be the optimization
-	LockTime uint32
-	Version  int32
+	lockTime uint32
+	version  int32
 	ins      []*txin.TxIn
 	outs     []*txout.TxOut
 	//ValState int
@@ -660,10 +660,6 @@ func (tx *Tx) CheckInputsMoney() bool {
 	return true
 }
 
-func (tx *Tx) checkInputs(flag int) bool {
-
-	return true
-}
 /*
 func (tx *Tx) returnScriptBuffers() {
 	for _, txIn := range tx.ins {
@@ -976,9 +972,12 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *blockin
 	return maps
 }
 
+func(tx *Tx)GetIns() []*txin.TxIn {
+	return tx.ins
+}
 
-func NewTx() *Tx {
-	return &Tx{LockTime: 0, Version: TxVersion}
+func NewTx(locktime uint32, version int32) *Tx {
+	return &Tx{lockTime: locktime, version: version}
 }
 /*
 // PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing

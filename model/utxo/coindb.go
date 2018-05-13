@@ -5,9 +5,10 @@ import (
 
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/persist/db"
-	"github.com/btcboost/copernicus/log"
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
+
 )
 
 type CoinsDB struct {
@@ -18,6 +19,7 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinKey(outpoint).Serialize(buf)
 	if err != nil {
+		logs.Emergency("db.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
 
@@ -34,22 +36,25 @@ func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinKey(outpoint).Serialize(buf)
 	if err != nil {
+		logs.Emergency("db.HaveCoin err:%#v", err)
+
 		return false
 	}
 	return coinsViewDB.dbw.Exists(buf.Bytes())
 }
 
 
-func (coinsViewDB *CoinsDB) GetBestBlock() util.Hash {
-	var hashBestChain util.Hash
-	buf := bytes.NewBuffer(nil)
-	hashBestChain.Serialize(buf)
+func (coinsViewDB *CoinsDB) GetBestBlock() (*util.Hash, error) {
 	v, err := coinsViewDB.dbw.Read([]byte{db.DbBestBlock})
-	v = append(v, buf.Bytes()...)
 	if err != nil {
-		return util.Hash{}
+		return nil, err
 	}
-	return hashBestChain
+	hashBlock := new(util.Hash)
+	if v == nil{
+		return hashBlock, nil
+	}
+	_, err = hashBlock.Unserialize(bytes.NewBuffer(v))
+	return hashBlock, err
 }
 
 func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCache) error {
@@ -82,7 +87,6 @@ func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCache) error {
 	}
 
 	ret := coinsViewDB.dbw.WriteBatch(batch, false)
-	log.Print("coindb", "debug", "Committed %u changed transaction outputs (out of %u) to coin db...\n", changed, count)
 	return ret
 }
 
