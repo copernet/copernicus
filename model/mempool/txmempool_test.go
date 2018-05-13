@@ -2,21 +2,25 @@ package mempool
 
 import (
 	"fmt"
-	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/util/amount"
 	"github.com/google/btree"
 	"math"
 	"testing"
+	"github.com/btcboost/copernicus/model/tx"
+	txin2 "github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/opcodes"
 )
 
 type TestMemPoolEntry struct {
-	Fee            utils.Amount
+	Fee            amount.Amount
 	Time           int64
 	Priority       float64
 	Height         int
 	SpendsCoinbase bool
 	SigOpCost      int
-	lp             *core.LockPoints
+	lp             *tx.LockPoints
 }
 
 func NewTestMemPoolEntry() *TestMemPoolEntry {
@@ -31,7 +35,7 @@ func NewTestMemPoolEntry() *TestMemPoolEntry {
 	return &t
 }
 
-func (t *TestMemPoolEntry) SetFee(fee utils.Amount) *TestMemPoolEntry {
+func (t *TestMemPoolEntry) SetFee(fee amount.Amount) *TestMemPoolEntry {
 	t.Fee = fee
 	return t
 }
@@ -56,8 +60,8 @@ func (t *TestMemPoolEntry) SetSigOpsCost(sigOpsCost int) *TestMemPoolEntry {
 	return t
 }
 
-func (t *TestMemPoolEntry) FromTxToEntry(tx *core.Tx) *TxEntry {
-	lp := core.LockPoints{}
+func (t *TestMemPoolEntry) FromTxToEntry(tx *tx.Tx) *TxEntry {
+	lp := tx.LockPoints{}
 	if t.lp != nil {
 		lp = *(t.lp)
 	}
@@ -68,9 +72,9 @@ func (t *TestMemPoolEntry) FromTxToEntry(tx *core.Tx) *TxEntry {
 func TestTxMempooladdTx(t *testing.T) {
 	testEntryHelp := NewTestMemPoolEntry()
 
-	txParentPtr := core.NewTx()
-	txParentPtr.Ins = make([]*core.TxIn, 1)
-	txParentPtr.Ins[0] = core.NewTxIn(core.NewOutPoint(utils.HashOne, 0), []byte{core.OP_11})
+	txParentPtr := tx.NewTx()
+	txin := txin2.TxIn{&outpoint.OutPoint{util.HashOne, 0},[]byte(opcodes.OP_11)}
+	txParentPtr.AddTxIn(txin)
 	txParentPtr.Outs = make([]*core.TxOut, 3)
 	for i := 0; i < 3; i++ {
 		txParentPtr.Outs[i] = core.NewTxOut(33000, []byte{core.OP_11, core.OP_EQUAL})

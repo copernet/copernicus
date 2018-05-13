@@ -6,7 +6,7 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 )
-
+/*
 var testTxs = []struct {
 	txHash string
 	txRaw  string
@@ -186,3 +186,4 @@ func TestSignHash(t *testing.T) {
 	}
 
 }
+*/

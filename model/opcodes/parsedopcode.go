@@ -82,45 +82,45 @@ func (parsedOpCode *ParsedOpCode) isConditional() bool {
 }
 
 func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
-	data := parsedOpCode.data
+	data := parsedOpCode.Data
 	dataLen := len(data)
-	opcode := parsedOpCode.opValue
+	opcode := parsedOpCode.OpValue
 	if dataLen == 0 && opcode != OP_0 {
 		return errors.Errorf(
 			"zero length data push is encode with op code %d instead of OP_0",
-			parsedOpCode.opValue)
+			parsedOpCode.OpValue)
 	} else if dataLen == 1 {
 		if data[0] >= 1 && data[0] <= 16 {
 			if opcode != OP_1+data[0]-1 {
 				// Should have used OP_1 .. OP_16
 				return errors.Errorf(
 					"data push of the value %d encoded with opCode %d instead of op_%d",
-					data[0], parsedOpCode.opValue, data[0])
+					data[0], parsedOpCode.OpValue, data[0])
 			}
 		} else if data[0] == 0x81 {
 			if opcode != OP_1NEGATE {
 				return errors.Errorf(
 					"data push of the value -1 encoded with opCode %d instead of OP_1NEGATE",
-					parsedOpCode.opValue)
+					parsedOpCode.OpValue)
 			}
 		}
 	} else if dataLen <= 75 {
 		if int(opcode) != dataLen {
 			return errors.Errorf(
 				"data push of %d bytes encoded with opCode %d instead of op_data_%d",
-				dataLen, parsedOpCode.opValue, dataLen)
+				dataLen, parsedOpCode.OpValue, dataLen)
 		}
 	} else if dataLen <= 255 {
 		if opcode != OP_PUSHDATA1 {
 			return errors.Errorf(
 				" data push of %d bytes encoded with opCode %d instead of OP_PUSHDATA1",
-				dataLen, parsedOpCode.opValue)
+				dataLen, parsedOpCode.OpValue)
 		}
 	} else if dataLen <= 65535 {
 		if opcode != OP_PUSHDATA2 {
 			return errors.Errorf(
 				"data push of %d bytes encoded with opCode %d instead of OP_PUSHDATA2",
-				dataLen, parsedOpCode.opValue)
+				dataLen, parsedOpCode.OpValue)
 		}
 	}
 	return nil
@@ -128,24 +128,24 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 
 func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
 	var retBytes []byte
-	if parsedOpCode.length > 0 {
-		retBytes = make([]byte, 1, parsedOpCode.length)
+	if parsedOpCode.Length > 0 {
+		retBytes = make([]byte, 1, parsedOpCode.Length)
 	} else {
-		retBytes = make([]byte, 1, 1+len(parsedOpCode.data)-parsedOpCode.length)
+		retBytes = make([]byte, 1, 1+len(parsedOpCode.Data)-parsedOpCode.Length)
 	}
-	retBytes[0] = parsedOpCode.opValue
-	if parsedOpCode.length == 1 {
-		if len(parsedOpCode.data) != 0 {
+	retBytes[0] = parsedOpCode.OpValue
+	if parsedOpCode.Length == 1 {
+		if len(parsedOpCode.Data) != 0 {
 			return nil, errors.Errorf(
 				"internal consistency error parsed opCode %d has data length %d when %d was expected",
-				parsedOpCode.opValue, len(parsedOpCode.data), 0)
+				parsedOpCode.OpValue, len(parsedOpCode.Data), 0)
 		}
 		return retBytes, nil
 	}
-	nBytes := parsedOpCode.length
-	if parsedOpCode.length < 0 {
-		l := len(parsedOpCode.data)
-		switch parsedOpCode.length {
+	nBytes := parsedOpCode.Length
+	if parsedOpCode.Length < 0 {
+		l := len(parsedOpCode.Data)
+		switch parsedOpCode.Length {
 		case -1:
 			retBytes = append(retBytes, byte(l))
 			nBytes = int(retBytes[1]) + len(retBytes)
@@ -161,11 +161,11 @@ func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
 
 		}
 	}
-	retBytes = append(retBytes, parsedOpCode.data...)
+	retBytes = append(retBytes, parsedOpCode.Data...)
 	if len(retBytes) != nBytes {
 		return nil, errors.Errorf(
 			"internal consistency error - parsed opCode %d has data length %d when %d was expected",
-			parsedOpCode.opValue, len(retBytes), nBytes)
+			parsedOpCode.OpValue, len(retBytes), nBytes)
 	}
 	return retBytes, nil
 }

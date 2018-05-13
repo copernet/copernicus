@@ -7,7 +7,7 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 )
-
+/*
 type TxSignatureSerializer struct {
 	txTo       *Tx
 	script     *Script
@@ -50,7 +50,8 @@ func GetOutputsHash(tx *Tx) (utils.Hash, error) {
 	}
 	return crypto.DoubleSha256Hash(buf.Bytes()), nil
 
-}
+}*/
+/*
 func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	stk, err := script.ParseScript()
 	if err != nil {
@@ -59,6 +60,7 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	bytes = make([]byte, 0, len(stk))
 	for i := 0; i < len(stk); i++ {
 		/** Serialize the passed scriptCode, skipping OP_CODESEPARATORs */
+		/*
 		parsedOpcode := stk[i]
 		if parsedOpcode.opValue == OP_CODESEPARATOR {
 
@@ -119,4 +121,4 @@ func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result uti
 	result = utils.Hash{}
 	result.SetBytes(sha256)
 	return
-}
+}*/

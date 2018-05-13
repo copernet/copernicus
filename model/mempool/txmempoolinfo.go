@@ -29,7 +29,7 @@ func (info *TxMempoolInfo) Serialize(w io.Writer) error {
 }
 
 func (info *TxMempoolInfo) Deserialize(r io.Reader) error {
-	err := info.Tx.Deserialize(r)
+	err := info.Tx.Unserialize(r)
 	if err != nil {
 		return err
 	}

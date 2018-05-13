@@ -9,6 +9,11 @@ type CoinsMap struct {
 	cacheCoins   map[outpoint.OutPoint]*Coin
 }
 
+func NewEmptyCoinsMap()*CoinsMap{
+	cacheCoins := make(map[outpoint.OutPoint]*Coin)
+	cm := CoinsMap{cacheCoins:cacheCoins}
+	return &cm
+}
 func (ctc *CoinsMap) GetCoin(outpoint *outpoint.OutPoint)(*Coin){
 	coin, _ := ctc.cacheCoins[*outpoint]
 	return coin

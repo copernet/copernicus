@@ -7,10 +7,6 @@ import (
 	//"gopkg.in/go-playground/validator.v8"
 )
 
-const (
-	ConfEnv = "DSP_ALLOT_CONF"
-)
-
 func initConfig() *Configuration {
 	config := &Configuration{}
 

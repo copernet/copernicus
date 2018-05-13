@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/config"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/util"
 )
 
 var AppConf *AppConfig
@@ -36,7 +36,7 @@ type AppConfig struct {
 
 	DisableListen bool `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --conn or --proxy options are used without also specifying listen interfaces via --listen"`
 
-	lookup         utils.LookupFunc
+	lookup         util.LookupFunc
 	DisableDNSSeed bool `long:"nodnsseed" description:"Disable DNS seeding for peers"`
 
 	oniondial func(string, string, time.Duration) (net.Conn, error)
@@ -74,9 +74,9 @@ func loadConfig() *AppConfig {
 }
 
 func GetDataPath() string {
-	dataPath := filepath.Clean(utils.MergePath("cp"))
-	if utils.PathExists(dataPath) {
-		err := utils.MakePath(dataPath)
+	dataPath := filepath.Clean(util.MergePath("cp"))
+	if util.PathExists(dataPath) {
+		err := util.MakePath(dataPath)
 		if err != nil {
 			panic(err)
 		}

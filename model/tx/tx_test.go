@@ -1,14 +1,8 @@
 package tx
 
 import (
-	"bytes"
-	"encoding/hex"
-	"testing"
-
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/utils"
 )
-
+/*
 var tests = []struct {
 	txHash string
 	txRaw  string
@@ -173,3 +167,4 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		}
 	}
 }
+*/
