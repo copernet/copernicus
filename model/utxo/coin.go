@@ -62,6 +62,7 @@ func (coin *Coin) GetAmount() amount.Amount {
 func (coin *Coin) DynamicMemoryUsage() int64{
 	return int64(binary.Size(coin))
 }
+
 func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
 		return errors.New("already spent")
@@ -94,6 +95,7 @@ func (coin *Coin) Unserialize(r io.Reader)error {
 	err = coin.txOut.Unserialize(r)
 	return err
 }
+
 //生成一个确认的coin
 func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
 

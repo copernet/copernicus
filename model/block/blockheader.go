@@ -7,9 +7,11 @@ import (
 
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/persist/db"
 )
 
 type BlockHeader struct {
+	db.Serializer
 	Version       int32
 	HashPrevBlock util.Hash
 	MerkleRoot    util.Hash
@@ -34,7 +36,7 @@ func (bh *BlockHeader) GetBlockTime() int64 {
 
 func (bh *BlockHeader) GetHash() util.Hash {
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
-	bh.Serialize(buf)
+	bh.SerializeHeader(buf)
 	return crypto.DoubleSha256Hash(buf.Bytes())
 }
 
@@ -42,11 +44,11 @@ func (bh *BlockHeader) SetNull() {
 	*bh = BlockHeader{}
 }
 
-func (bh *BlockHeader) Serialize(w io.Writer) error {
+func (bh *BlockHeader) SerializeHeader(w io.Writer) error {
 	return util.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
 }
 
-func (bh *BlockHeader) Unserialize(r io.Reader) error {
+func (bh *BlockHeader) UnserializeHeader(r io.Reader) error {
 	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
 
@@ -54,4 +56,8 @@ func (bh *BlockHeader) String() string {
 	return fmt.Sprintf("Block version : %d, hashPrevBlock : %s, hashMerkleRoot : %s,"+
 		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock,
 		bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce, bh.GetHash())
+}
+func (bh *BlockHeader)GetSerializeList()[]string{
+	dump_list := []string{"Version","HashPrevBlock", "MerkleRoot", "Time", "Bits","Nonce"}
+	return dump_list
 }
