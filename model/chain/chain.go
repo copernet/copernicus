@@ -140,13 +140,30 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	}
 }
 
-func (c *Chain) AcceptBlock(b * block.Block, replaceIndex bool) (*blockindex.BlockIndex,error) {
+func (c *Chain) AcceptBlock(b * block.Block) (*blockindex.BlockIndex,error) {
+	var err error
+	var bIndex *blockindex.BlockIndex
+
+	bIndex,err = c.AcceptBlockHeader(&b.Header)
+	if err != nil {
+		return nil,err
+	}
 
 
 	return nil,nil
 }
 
+func (c *Chain) AcceptBlockHeader(bh * block.BlockHeader) (*blockindex.BlockIndex,error) {
+	bIndex := c.FindBlockIndex(bh.GetHash())
+	if bIndex != nil {
+		if bIndex.HeaderValid() == false {
+			return nil,nil
+		}
+	}
 
+
+	return nil,nil
+}
 
 
 
