@@ -2,18 +2,16 @@ package chain
 
 import (
 	"bytes"
-	"encoding/binary"
+
 	"strconv"
 
 	
 	"github.com/btcboost/copernicus/persist/db"
-	"copernicus/utils"
-	"copernicus/core"
-	"copernicus/net/msg"
+
 	"github.com/btcboost/copernicus/conf"
-	"github.com/astaxie/beego/logs"
 	. "github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"encoding/binary"
 )
 
 type BlockTreeDB struct {
@@ -135,11 +133,11 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*BlockFileInfo, la
 ////	bkfInfo *BlockFileInfo
 ////}
 //
-//func IntToBytes(i int) []byte {
-//	var buf = make([]byte, 8)
-//	binary.BigEndian.PutUint64(buf, uint64(i))
-//	return buf
-//}
+func IntToBytes(i int) []byte {
+	var buf = make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(i))
+	return buf
+}
 //
 //
 //func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *utils.Hash) *core.BlockIndex) bool {
