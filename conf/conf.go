@@ -43,6 +43,7 @@ type AppConfig struct {
 	dial      func(string, string, time.Duration) (net.Conn, error)
 
 	LogModule []string
+	LogLevel  string
 }
 
 func init() {
