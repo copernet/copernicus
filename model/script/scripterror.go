@@ -1,13 +1,11 @@
-package crypto
+package script
 
 import (
 	"fmt"
 )
 
-type ScriptError int
-
 const (
-	ScriptErrOK ScriptError = iota
+	ScriptErrOK int = iota
 	ScriptErrUnknownError
 	ScriptErrEvalFalse
 	ScriptErrOpReturn
@@ -60,24 +58,17 @@ const (
 	ScriptErrDiscourageUpgradableNOPs
 	ScriptErrDiscourageUpgradableWitnessProgram
 
-	/* segregated witness  */
+	/* misc */
+	ScriptErrNonCompressedPubKey
 
-	ScriptErrWitnessProgramWrongLength
-	ScriptErrWitnessProgramWitnessEmpty
-	ScriptErrWitnessProgramMismatch
-	ScriptErrWitnessMallRated
-	ScriptErrWitnessMallRatedP2SH
-	ScriptErrWitnessUnexpected
-	ScriptErrWitnessPubKeyType
+	/* anti replay */
+	ScriptErrIllegalForkId
+	ScriptErrMustUseForkId
 
 	ScriptErrErrorCount
-
-	/* misc */
-
-	ScriptErrNonCompressedPubKey
 )
 
-func ScriptErrorString(scriptError ScriptError) string {
+func ScriptErrorString(scriptError int) string {
 	switch scriptError {
 	case ScriptErrOK:
 		return "No error"
@@ -133,6 +124,8 @@ func ScriptErrorString(scriptError ScriptError) string {
 		return "Non-canonical signature: S value is unnecessarily high"
 	case ScriptErrSigNullDummy:
 		return "Dummy CheckMultiSig argument must be zero"
+	case ScriptErrPubKeyType:
+		return "Public key is neither compressed or uncompressed"
 	case ScriptErrMinimalIf:
 		return "OP_IF/NOTIF argument must be minimal"
 	case ScriptErrSigNullFail:
@@ -141,24 +134,6 @@ func ScriptErrorString(scriptError ScriptError) string {
 		return "NOPx reserved for soft-fork upgrades"
 	case ScriptErrDiscourageUpgradableWitnessProgram:
 		return "Witness version reserved for soft-fork upgrades"
-	case ScriptErrPubKeyType:
-		return "Public key is neither compressed or uncompressed"
-	case ScriptErrWitnessProgramWrongLength:
-		return "Witness program has incorrect length"
-	case ScriptErrWitnessProgramWitnessEmpty:
-		return "Witness program was passed an empty witness"
-	case ScriptErrWitnessProgramMismatch:
-		return "Witness program hash mismatch"
-	case ScriptErrWitnessMallRated:
-		return "Witness requires empty scriptSig"
-	case ScriptErrWitnessMallRatedP2SH:
-		return "Witness requires only-redeemScript scriptSig"
-	case ScriptErrWitnessUnexpected:
-		return "Witness provided for non-witness script"
-	case ScriptErrWitnessPubKeyType:
-		return "Using non-compressed keys in segWit"
-	case ScriptErrUnknownError:
-	case ScriptErrErrorCount:
 	default:
 		break
 	}
@@ -167,7 +142,7 @@ func ScriptErrorString(scriptError ScriptError) string {
 }
 
 type ErrDesc struct {
-	Code ScriptError
+	Code int
 	Desc string
 }
 
@@ -175,7 +150,7 @@ func (e *ErrDesc) Error() string {
 	return fmt.Sprintf("script error :%s code:%d", e.Desc, e.Code)
 }
 
-func ScriptErr(scriptError ScriptError) error {
+func ScriptErr(scriptError int) error {
 	str := ScriptErrorString(scriptError)
 	return &ErrDesc{
 		Code: scriptError,

@@ -1,5 +1,10 @@
 package util
 
+const (
+	ErrorNoPreviousOut = 1
+
+)
+
 type ProjectError struct {
 	ErrorCode int
 	Description string

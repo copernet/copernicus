@@ -81,17 +81,20 @@ func (parsedOpCode *ParsedOpCode) isConditional() bool {
 	}
 }
 
-func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
+func (parsedOpCode *ParsedOpCode) CheckMinimalDataPush() error {
 	data := parsedOpCode.Data
 	dataLen := len(data)
 	opcode := parsedOpCode.OpValue
-	if dataLen == 0 && opcode != OP_0 {
-		return errors.Errorf(
+	if dataLen == 0 {
+		if opcode != OP_0 {
+			return errors.Errorf(
 			"zero length data push is encode with op code %d instead of OP_0",
 			parsedOpCode.OpValue)
+		}
+		return nil
 	} else if dataLen == 1 {
 		if data[0] >= 1 && data[0] <= 16 {
-			if opcode != OP_1+data[0]-1 {
+			if opcode != OP_1 + data[0] - 1 {
 				// Should have used OP_1 .. OP_16
 				return errors.Errorf(
 					"data push of the value %d encoded with opCode %d instead of op_%d",
@@ -104,24 +107,28 @@ func (parsedOpCode *ParsedOpCode) checkMinimalDataPush() error {
 					parsedOpCode.OpValue)
 			}
 		}
+		return nil
 	} else if dataLen <= 75 {
 		if int(opcode) != dataLen {
 			return errors.Errorf(
 				"data push of %d bytes encoded with opCode %d instead of op_data_%d",
 				dataLen, parsedOpCode.OpValue, dataLen)
 		}
+		return nil
 	} else if dataLen <= 255 {
 		if opcode != OP_PUSHDATA1 {
 			return errors.Errorf(
 				" data push of %d bytes encoded with opCode %d instead of OP_PUSHDATA1",
 				dataLen, parsedOpCode.OpValue)
 		}
+		return nil
 	} else if dataLen <= 65535 {
 		if opcode != OP_PUSHDATA2 {
 			return errors.Errorf(
 				"data push of %d bytes encoded with opCode %d instead of OP_PUSHDATA2",
 				dataLen, parsedOpCode.OpValue)
 		}
+		return nil
 	}
 	return nil
 }

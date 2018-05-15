@@ -5,6 +5,8 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/script"
+	"fmt"
 )
 
 func CheckRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) bool {
@@ -18,7 +20,8 @@ func CheckBlockCoinBaseTransaction(tx *tx.Tx, allowLargeOpReturn bool) bool {
 func CheckBlockRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) bool {
 	tempCoinsMap :=  utxo.NewEmptyCoinsMap()
 
-	if !checkInputs(tx, tempCoinsMap, 1) {
+	err := checkInputs(tx, tempCoinsMap, 1)
+	if err != nil{
 		return false
 	}
 
@@ -34,19 +37,35 @@ func UndoTransaction(txs []*txundo.TxUndo) bool {
 }
 */
 
-func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flag int) bool {
+func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	ins := tx.GetIns()
 	for _, in := range ins {
 		coin := tempCoinMap.GetCoin(in.PreviousOutPoint)
 		if coin == nil {
-			return false
+			return util.ErrToProject(util.ErrorNoPreviousOut, fmt.Sprintf("Can't find Money of preout:%s", in.PreviousOutPoint.String()))
 		}
 		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
+		if flags & script.ScriptEnableSigHashForkId != 0 {
+			flags |= script.ScriptVerifyStrictEnc
+		}
+		if flags & script.ScriptVerifySigPushOnly != 0 && !scriptSig.IsPushOnly() {
+			return util.ErrToProject(script.ScriptErrSigPushOnly, "ScriptSig is not PushOnly")
+		}
 		stack := util.NewStack()
-		scriptSig.Eval(stack)
-		scriptPubKey.Eval(stack)
+		err := scriptSig.Eval(stack, flags)
+		if err != nil {
+			return err
+		}
 
+		err = scriptPubKey.Eval(stack, flags)
+		if err != nil {
+			return err
+		}
+		if stack.Empty() {
+			return util.ErrToProject(script.ScriptErrEvalFalse, "")
+		}
+		if
 	}
-	return true
+	return nil
 }
