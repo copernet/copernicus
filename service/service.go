@@ -2,30 +2,37 @@ package service
 
 import (
 	"sync"
+	"context"
 )
 
 type MsgHandle struct {
 	mtx sync.Mutex
-	sendChannel  <- chan interface{}
+	sendToPeerMag  <- chan interface{}
 	recvChannel  chan interface{}
 	errChannel	chan error
 }
 
-func NewMsgHandle(s <- chan interface{}) *MsgHandle {
-	return &MsgHandle{mtx:sync.Mutex{}, sendChannel:s}
+// NewMsgHandle create a msgHandle for these message from peer And RPC.
+// Then begins the core block handler which processes block and inv messages.
+func NewMsgHandle(ctx context.Context, cmdCh <- chan interface{}) *MsgHandle {
+	msg := &MsgHandle{mtx:sync.Mutex{}, sendToPeerMag:cmdCh}
+	ctxChild, _ := context.WithCancel(ctx)
+	go msg.start(ctxChild)
+	return msg
 }
 
-func (msg *MsgHandle)Start()  {
-	go msg.processmsg()
-}
-
-func (msg *MsgHandle)processmsg()  {
+// start begins the core block handler which processes block and inv messages.
+// It must be run as a goroutine.
+func (msg *MsgHandle)start(ctx context.Context)  {
+	out:
 	for{
 		select{
 		case m := <-msg.recvChannel:
 			go func(m interface{}) {
-				 msg.sendChannel <- m
+				 msg.sendToPeerMag <- m
 			}(m)
+		case <-ctx.Done():
+			break out
 		}
 	}
 }
@@ -78,9 +85,9 @@ func (msg *MsgHandle)ProcessForRpc(message interface{}) (rsp Imsg, err error) {
 
 	switch ret.(type) {
 	case PingRspStruct1:
-		msg.sendChannel <- ret
+		msg.sendToPeerMag <- ret
 	case SigalPeer:
-		msg.sendChannel <- ret
+		msg.sendToPeerMag <- ret
 	default:
 	}
 
