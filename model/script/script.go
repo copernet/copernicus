@@ -8,6 +8,7 @@ import (
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/errcode"
 )
 const (
 	MaxMessagePayload = 32*1024*1024
@@ -294,12 +295,12 @@ func (script *Script) Eval(stack *util.Stack, flags uint32) error {
 	nOpCount := 0
 	for i, e := range script.ParsedOpCodes {
 		if len(e.Data) > MaxScriptElementSize {
-			return nil
+			return errcode.New(errcode.ScriptErrPushSize)
 		}
 		nOpCount++
 		// Note how OP_RESERVED does not count towards the opCode limit.
 		if e.OpValue > opcodes.OP_16 && nOpCount > MaxOpsPerScript {
-			return nil
+			return errcode.New(errcode.ScriptErrOpCount)
 		}
 
 		if e.OpValue == opcodes.OP_CAT || e.OpValue == opcodes.OP_SUBSTR || e.OpValue == opcodes.OP_LEFT ||
@@ -309,12 +310,12 @@ func (script *Script) Eval(stack *util.Stack, flags uint32) error {
 			e.OpValue == opcodes.OP_MOD || e.OpValue == opcodes.OP_LSHIFT ||
 			e.OpValue == opcodes.OP_RSHIFT {
 			// Disabled opcodes.
-			return nil
+			return errcode.New(errcode.ScriptErrDisabledOpCode)
 		}
-
+		/*
 		if fExec && 0 <= e.OpValue && e.OpValue <= opcodes.OP_PUSHDATA4 {
-			if fRequireMinimal && e.CheckMinimalDataPush() != nil {
-				return nil
+			if fRequireMinimal && !e.CheckMinimalDataPush() {
+				return errcode.New(errcode.ScriptErrMinimalData)
 			}
 			stack.PushStack(e.Data)
 		} else if fExec || (opcodes.OP_IF <= e.OpValue && e.OpValue <= opcodes.OP_ENDIF) {
@@ -358,14 +359,12 @@ func (script *Script) Eval(stack *util.Stack, flags uint32) error {
 					if flags & ScriptVerifyCheckLockTimeVerify == 0 {
 						// not enabled; treat as a NOP2
 						if flags & ScriptVerifyDiscourageUpgradableNops != 0 {
-							return nil
-
+							return errcode.New(errcode.ScriptErrDiscourageUpgradableNOPs)
 						}
 						break
-
 					}
 					if stack.Size() < 1 {
-						return nil
+						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
 					// Note that elsewhere numeric opcodes are limited to
 					// operands in the range -2**31+1 to 2**31-1, however it
@@ -382,9 +381,9 @@ func (script *Script) Eval(stack *util.Stack, flags uint32) error {
 					// up to 5-byte bignums, which are good until 2**39-1,
 					// well beyond the 2**32-1 limit of the nLockTime field
 					// itself.
-					topBytes, err := stack.StackTop(-1)
-					if err != nil {
-						return err
+					topBytes := stack.StackTop(-1)
+					if topBytes == nil {
+						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
 					nLocktime, err := GetCScriptNum(topBytes.([]byte), fRequireMinimal, 5)
 					if err != nil {
@@ -1319,9 +1318,9 @@ func (script *Script) Eval(stack *util.Stack, flags uint32) error {
 						return nil
 					}
 				}
-
 			}
 		}
+			*/
 	}
 	return nil
 }
