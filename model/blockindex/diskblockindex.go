@@ -25,3 +25,11 @@ func (bIndex *BlockIndex) Serialize(w io.Writer) error {
 	return db.SerializeOP(w, bIndex)
 }
 
+func (bIndex *BlockIndex) Unserialize(r io.Reader) error {
+	_, err := util.ReadVarLenInt(r)
+	if err != nil {
+		return err
+	}
+
+	return db.UnserializeOP(r, bIndex)
+}

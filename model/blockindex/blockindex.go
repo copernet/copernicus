@@ -7,7 +7,6 @@ import (
 
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/persist/db"
 )
 
 /**
@@ -30,7 +29,6 @@ import (
  )
 
 type BlockIndex struct {
-	db.Serializer
 	Header block.BlockHeader
 	// pointer to the hash of the block, if any.
 	BlockHash util.Hash

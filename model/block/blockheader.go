@@ -11,7 +11,6 @@ import (
 )
 
 type BlockHeader struct {
-	db.Serializer
 	Version       int32
 	HashPrevBlock util.Hash
 	MerkleRoot    util.Hash
@@ -49,6 +48,13 @@ func (bh *BlockHeader) SerializeHeader(w io.Writer) error {
 }
 
 func (bh *BlockHeader) UnserializeHeader(r io.Reader) error {
+	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
+}
+func (bh *BlockHeader) Serialize(w io.Writer) error {
+	return db.SerializeOP(w, bh)
+}
+
+func (bh *BlockHeader) Unserialize(r io.Reader) error {
 	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
 

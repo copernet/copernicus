@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/persist/db"
+	"io"
 )
 
 
 type BlockFileInfo struct {
-	db.Serializer
 	Blocks      uint32 // number of blocks stored in file
 	Size        uint32 // number of used bytes of block file
 	UndoSize    uint32 // number of used bytes in the undo file
@@ -27,15 +27,15 @@ func (bfi *BlockFileInfo) GetSerializeList()[]string{
 	return dumpList
 }
 
-//func (bfi *BlockFileInfo) Serialize(writer io.Writer) error {
-//	return db.SerializeOP(writer, bfi)
-//}
-//
-//func (bfi *BlockFileInfo) Unserialize(reader io.Reader) error {
-//	err := db.UnserializeOP(reader, bfi)
-//	return err
-//
-//}
+func (bfi *BlockFileInfo) Serialize(writer io.Writer) error {
+	return db.SerializeOP(writer, bfi)
+}
+
+func (bfi *BlockFileInfo) Unserialize(reader io.Reader) error {
+	err := db.UnserializeOP(reader, bfi)
+	return err
+
+}
 func (bfi *BlockFileInfo) SetNull() {
 	bfi.Size = 0
 	bfi.timeFirst = 0
