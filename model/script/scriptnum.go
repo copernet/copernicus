@@ -4,6 +4,7 @@ import "github.com/pkg/errors"
 
 const (
 	DefaultMaxNumSize = 4
+
 	MaxInt32          = 1<<31 - 1
 	MinInt32          = -1 << 31
 )

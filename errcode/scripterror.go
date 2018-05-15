@@ -1,11 +1,11 @@
-package script
+package errcode
 
-import (
-	"fmt"
-)
+type ScriptErr int
+
+const ScriptErrBase ScriptErr = 2000
 
 const (
-	ScriptErrOK int = iota
+	ScriptErrOK ScriptErr = ScriptErrBase + iota
 	ScriptErrUnknownError
 	ScriptErrEvalFalse
 	ScriptErrOpReturn
@@ -68,7 +68,42 @@ const (
 	ScriptErrErrorCount
 )
 
-func ScriptErrorString(scriptError int) string {
+/*
+var scriptErrorToString = map[ScriptErr]string{
+	ScriptErrOK: "No error",
+	ScriptErrEvalFalse: "Script evaluated without error but finished with a false/empty top stack element",
+	ScriptErrVerify: "Script failed an OP_VERIFY operation",
+	ScriptErrEqualVerify: "Script failed an OP_EQUALVERIFY operation",
+	ScriptErrCheckMultiSigVerify: "Script failed an OP_CHECKMULTISIGVERIFY operation",
+	ScriptErrCheckSigVerify: "Script failed an OP_CHECKSIGVERIFY operation",
+	ScriptErrNumEqualVerify: "Script failed an OP_NUMEQUALVERIFY operation",
+	ScriptErrScriptSize:
+	ScriptErrPushSize:
+	ScriptErrOpCount:
+	ScriptErrStackSize:
+	ScriptErrSigCount
+	ScriptErrPubKeyCount
+	ScriptErrBadOpCode
+	ScriptErrDisabledOpCode
+	ScriptErrInvalidStackOperation
+	ScriptErrOpReturn
+	ScriptErrUnbalancedConditional
+	ScriptErrNegativeLockTime
+	ScriptErrUnsatisfiedLockTime
+	ScriptErrSigHashType
+	ScriptErrSigDer
+	ScriptErrMinimalData
+	ScriptErrSigPushOnly
+	ScriptErrSigHighs
+	ScriptErrSigNullDummy
+	ScriptErrPubKeyType
+	ScriptErrMinimalIf
+	ScriptErrSigNullFail
+	ScriptErrDiscourageUpgradableNOPs
+	ScriptErrDiscourageUpgradableWitnessProgram
+}*/
+
+func scriptErrorString(scriptError ScriptErr) string {
 	switch scriptError {
 	case ScriptErrOK:
 		return "No error"
@@ -141,19 +176,6 @@ func ScriptErrorString(scriptError int) string {
 
 }
 
-type ErrDesc struct {
-	Code int
-	Desc string
-}
-
-func (e *ErrDesc) Error() string {
-	return fmt.Sprintf("script error :%s code:%d", e.Desc, e.Code)
-}
-
-func ScriptErr(scriptError int) error {
-	str := ScriptErrorString(scriptError)
-	return &ErrDesc{
-		Code: scriptError,
-		Desc: str,
-	}
+func (se ScriptErr) String() string {
+	return scriptErrorString(se)
 }
