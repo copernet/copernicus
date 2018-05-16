@@ -4,20 +4,21 @@ import (
 	"sync"
 	"context"
 	"fmt"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/logic/mempool"
+	"github.com/btcboost/copernicus/model/tx"
 )
 
 type SendMsgToPeer func(int, interface{})
-type BroadCastMsg  func(interface{})
+type BroadCastMsg  func(msg )
 
 type MsgHandle struct {
 	mtx sync.Mutex
 	sendToPeerMag  	<- chan interface{}
 	recvChannel  	chan interface{}
-	errChannel		chan error
+	resultChannel		chan interface{}
 
 	// callback, when the news processd done.
-	broadCastMsg 	[]BroadCastMsg
+	broadCastMsg 	BroadCastMsg
 	sendMsgToPeer 	[]SendMsgToPeer
 
 	ConfigForRpc
@@ -25,7 +26,16 @@ type MsgHandle struct {
 
 // ConfigForRpc contains callback operations for RPC commands.
 type ConfigForRpc struct {
-	NodeOpera func(opera NodeOperateMsg)error
+	NodeOpera 		func(opera NodeOperateMsg)error
+	requestPeer 	func()([]listPeer, error)
+	...
+	..
+		...
+		...
+		...
+
+
+
 } 
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
@@ -44,6 +54,16 @@ func (msg *MsgHandle)start(ctx context.Context)  {
 	for{
 		select{
 		case m := <-msg.recvChannel:
+			switch contents := m.(type) {
+			case *tx.Tx:
+				acceptTx, err := mempool.ProcessTransaction(contents, 0)
+				if err != nil{
+					msg.resultChannel <- err
+				}
+				msg.broadCastMsg(acceptTx)
+				msg.resultChannel <- acceptTx
+			}
+
 			go func(m interface{}) {
 				 msg.sendToPeerMag <- m
 			}(m)
@@ -65,15 +85,31 @@ type NodeOperateMsg struct {
 	Cmd  NodeOperaCmd
 }
 
+type MsgTx struct {
+	tx *tx.Tx
+}
+
 // Rpc process things .
 func (msg *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 
 	switch m := message.(type) {
+
 	case NodeOperateMsg:
 		err = msg.NodeOpera(m)
+	case :
+
+	case *tx.Tx:
+		msg.recvChannel <- m
+		ret := <- msg.resultChannel
+		switch r :=ret.(type)  {
+		case error:
+			return nil, err
+		case []*tx.Tx:
+			return r, nil
+		}
 
 	default:
-		return nil, fmt.Errorf("")
+		return nil, fmt.Errorf("Unknown command")
 	}
 
 	if err != nil{
@@ -82,9 +118,7 @@ func (msg *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err er
 	return nil, nil
 }
 
-
 /*
-
 // Peer And net caller
 func (msg *MsgHandle)ProcessMsg(message interface{}) (ret Imsg, err error) {
 	msg.recvChannel <- message
