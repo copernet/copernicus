@@ -24,7 +24,8 @@ func WriteVarLenInt(w io.Writer, n uint64) error {
 	for i := len; i >= 0; i-- {
 		tmp.WriteByte(buf[i])
 	}
-	_, err := w.Write(tmp.Bytes())
+	dd := tmp.Bytes()
+	_, err := w.Write(dd)
 	return err
 }
 

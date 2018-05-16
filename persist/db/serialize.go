@@ -6,45 +6,42 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"encoding/binary"
 	"io"
+	"github.com/astaxie/beego/logs"
 )
 
-type Serializer struct {
-}
 
-func (s *Serializer) Serialize(w io.Writer) error {
-	return SerializeOP(w, s)
-}
 
-func (s *Serializer) Unserialize(r io.Reader) error {
-	err := UnserializeOP(r, s)
-	return err
-}
-
-func (s *Serializer) GetSerializeList()[]string{
-	panic("no impl of GetSerializeList ")
-}
 type ISerialize interface{
 	GetSerializeList()[]string
 	Unserialize(r io.Reader) error
 	Serialize(w io.Writer) error
 }
-
+type ISerializable interface{
+	Unserialize(r io.Reader) error
+	Serialize(w io.Writer) error
+}
 
 func SerializeOP(w io.Writer, obj ISerialize) error{
 	dumpList := obj.GetSerializeList()
 	rv := reflect.ValueOf(obj)
 	var err error
 	for _, key := range dumpList{
+
 		value := rv.FieldByName(key)
-		t := value.Type()
-		switch value.Kind(){
-		case reflect.Uint32:
-			err = util.WriteVarLenInt(w, uint64(value.Uint()))
-		case reflect.Uint64:
-			err = util.WriteVarLenInt(w, uint64(value.Uint()))
+		v := value.Interface()
+		switch v.(type){
+		case uint32:
+			err = util.WriteVarLenInt(w, value.Uint())
+		case uint64:
+			err = util.WriteVarLenInt(w, value.Uint())
+		case ISerialize:
+			vv, _ := v.(ISerialize)
+			SerializeOP(w,vv)
+		case ISerializable:
+			vv, _ := v.(ISerializable)
+			vv.Serialize(w)
 		default:
-			v, _ := t.(ISerialize)
-			err = v.Serialize(w)
+			logs.Alert("SerializeOP:value.Interface().(type)======%#v",value.Type())
 		}
 
 
