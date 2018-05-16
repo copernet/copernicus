@@ -2,11 +2,11 @@ package rpc
 
 import (
 	"fmt"
-	"github.com/btcboost/copernicus/blockchain"
+
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/net/protocol"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcsuite/btcd/mempool"
 )
 
 var miscHandlers = map[string]commandHandler{
@@ -22,7 +22,7 @@ var miscHandlers = map[string]commandHandler{
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	best := blockchain.GChainActive.Tip()
+	best := chain.GlobalChain.Tip()
 	var height int32
 	if best == nil {
 		height = 0
@@ -32,12 +32,12 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		Version:         protocol.Copernicus,
 		ProtocolVersion: int32(protocol.BitcoinProtocolVersion),
 		Blocks:          height,
-		TimeOffset:      utils.GetTimeOffset(),
+		TimeOffset:      util.GetTimeOffset(),
 		//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
 		Proxy:      conf.AppConf.Proxy,
-		Difficulty: getDifficulty(blockchain.GChainActive.Tip()),
+		Difficulty: getDifficulty(chain.GlobalChain.Tip()),
 		TestNet:    conf.AppConf.TestNet3,
-		RelayFee:   float64(blockchain.DefaultMinRelayTxFee),
+		RelayFee:   float64(mempool.DefaultMinRelayTxFee),
 	}
 
 	return ret, nil
@@ -144,7 +144,6 @@ func handleEcho(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 
 // handleHelp implements the help command.
 func handleHelp(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	fmt.Println("-------")
 	c := cmd.(*btcjson.HelpCmd)
 	var command string
 	if c.Command != nil {
