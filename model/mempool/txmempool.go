@@ -39,7 +39,6 @@ const (
 	DescendantSize 	= 101
 )
 
-
 type PoolRemovalReason int
 
 // Reason why a transaction was removed from the memPool, this is passed to the
@@ -126,12 +125,52 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 
 func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 	m.RLock()
-	m.RUnlock()
+	defer m.RUnlock()
 
 	if _, ok := m.nextTx[*out]; ok {
 		return true
 	}
 	return false
+}
+
+func (m *TxMempool)GetPoolAllTxSize() uint64 {
+	m.RLock()
+	size := m.totalTxSize
+	m.RUnlock()
+	return size
+}
+
+func (m *TxMempool)GetPoolUsage() int64 {
+	m.RLock()
+	size := m.cacheInnerUsage
+	m.RUnlock()
+	return size
+}
+
+func (m *TxMempool)CalculateDescendants(txHash *util.Hash) map[*TxEntry]struct{} {
+	descendants := make(map[*TxEntry]struct{})
+	m.RLock()
+	defer m.RUnlock()
+	if entry, ok := m.poolData[*txHash]; !ok{
+		return nil
+	}else {
+		m.calculateDescendants(entry, descendants)
+	}
+
+	return descendants
+}
+
+func (m *TxMempool)CalculateMemPoolAncestors(txhash *util.Hash) map[*TxEntry]struct{} {
+	m.RLock()
+	defer m.RUnlock()
+	ancestors := make(map[*TxEntry]struct{})
+	if entry, ok := m.poolData[*txhash]; !ok{
+		return nil
+	}else {
+		noLimit := uint64(math.MaxUint64)
+		ancestors, _ = m.calculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+	}
+	return ancestors
 }
 
 func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason)  {
@@ -308,7 +347,6 @@ func (m *TxMempool)IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utx
 
 	return ancestors, lp, nil
 }
-
 
 // Check If sanity-checking is turned on, check makes sure the pool is consistent
 // (does not contain two transactions that spend the same inputs, all inputs
@@ -492,7 +530,6 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 		panic("mempool have all transaction size state is incorrect ...")
 	}
 }
-
 
 // LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
 // set, the function will return these have removed transaction's txin from mempool which use
@@ -740,7 +777,6 @@ func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 	ancestors = make(map[*TxEntry]struct{})
 	parent := make(map[*TxEntry]struct{})
 	if searchForParent {
-
 		for _, preout := range tx.GetAllPreviousOut() {
 			if entry, ok := m.poolData[preout.Hash]; ok {
 				parent[entry] = struct{}{}

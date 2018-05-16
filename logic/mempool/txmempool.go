@@ -9,7 +9,9 @@ import (
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/errcode"
+	"fmt"
 )
 
 const	(
@@ -18,10 +20,10 @@ const	(
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
+func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 
 	//first : check transaction context And itself.
-	if !ltx.CheckRegularTransaction(tx, nil, false) {
+	if !ltx.CheckRegularTransaction(tx, true) {
 		return errors.Errorf("")
 	}
 
@@ -60,48 +62,10 @@ func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 	return nil
 }
 
-func ProcessTransaction(tx *tx.Tx, nodeID int64) error {
-
-	err := AccpetTxToMemPool(tx, nil)
-	if err == nil{
-		//todo !!! replay this transaction
-		//	RelayTransaction(tx, connman)
-		processOrphan(tx)
-	}
-
-	proErr := err.(*util.ProjectError)
-	if proErr.ErrorCode == MissParentCode {
-		fRejectedParents := false
-		for _, preOut := range tx.GetAllPreviousOut() {
-			if _, ok := mempool.Gpool.RecentRejects[preOut.Hash]; ok {
-				fRejectedParents = true
-				break
-			}
-		}
-		if !fRejectedParents {
-			for _, preOut := range tx.GetAllPreviousOut() {
-				//todo... require its parent transaction for all connect net node.
-				_ = preOut
-			}
-			mempool.Gpool.AddOrphanTx(tx, nodeID)
-		}
-		evicted := mempool.Gpool.LimitOrphanTx()
-		if evicted > 0 {
-			//todo add log
-			logs.Debug("")
-		}
-	}else{
-		if proErr.ErrorCode == CorruptionCode {
-			mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
-		}
-	}
-
-	return nil
-}
-
-func processOrphan(tx *tx.Tx)  {
+func processOrphan(tx *tx.Tx) []*tx.Tx {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	vEraseQueue := make([]util.Hash, 0)
+	acceptTx := make([]*tx.Tx, 0)
 
 	// first collect this tx all outPoint.
 	for i := 0; i < tx.GetOutsCount(); i++{
@@ -124,35 +88,85 @@ func processOrphan(tx *tx.Tx)  {
 					continue
 				}
 
-				err2 := AccpetTxToMemPool(iOrphanTx.Tx, nil)
+				err2 := accpetTxToMemPool(iOrphanTx.Tx, nil)
 				if err2 == nil{
-					//	todo.. relay this transaction
-					//	RelayTransaction(orphanTx, connman);
+					acceptTx = append(acceptTx, iOrphanTx.Tx)
+					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++{
+						o := outpoint.OutPoint{Hash:iOrphanTx.Tx.Hash, Index:uint32(i)}
+						vWorkQueue = append(vWorkQueue, o)
+					}
+					vEraseQueue = append(vEraseQueue, iOrphanTx.Tx.Hash)
+					continue
 				}
-				for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++{
-					o := outpoint.OutPoint{Hash:iOrphanTx.Tx.Hash, Index:uint32(i)}
-					vWorkQueue = append(vWorkQueue, o)
-				}
-				vEraseQueue = append(vEraseQueue, iOrphanTx.Tx.Hash)
 
-				errCode := err2.(*util.ProjectError)
-				if errCode.ErrorCode != MissParentCode {
+				errCode := err2.(errcode.ProjectError)
+				if errCode.Code != MissParentCode {
 					// todo !!!  punish peer that gave us an invalid orphan tx
-					if errCode.ErrorCode > 0{
+					if errCode.Code > 0{
 
 					}
 					vEraseQueue = append(vEraseQueue, iHash)
-					if errCode.ErrorCode == CorruptionCode {
+					if errCode.Code == CorruptionCode {
 						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
 					}
 				}
 			}
 		}
 	}
+
 	for _, eraseHash := range vEraseQueue{
 		mempool.Gpool.EraseOrphanTx(eraseHash)
 	}
+
+	return acceptTx
 }
+
+func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*tx.Tx ,error ){
+
+	acceptTx := make([]*tx.Tx, 0)
+	err := accpetTxToMemPool(tx, nil)
+	if err == nil{
+		acceptTx = append(acceptTx, tx)
+		acc := processOrphan(tx)
+		if len(acc) > 0{
+			temAccept := make([]*tx.Tx, len(acc) + 1)
+			temAccept[0] = tx
+			copy(temAccept[1:], acc[:])
+			return temAccept, nil
+		}
+		return acceptTx, nil
+	}
+
+	proErr := err.(errcode.ProjectError)
+	if proErr.Code == MissParentCode {
+		fRejectedParents := false
+		for _, preOut := range tx.GetAllPreviousOut() {
+			if _, ok := mempool.Gpool.RecentRejects[preOut.Hash]; ok {
+				fRejectedParents = true
+				break
+			}
+		}
+		if !fRejectedParents {
+			for _, preOut := range tx.GetAllPreviousOut() {
+				//todo... require its parent transaction for all connect net node.
+				_ = preOut
+			}
+			mempool.Gpool.AddOrphanTx(tx, nodeID)
+		}
+		evicted := mempool.Gpool.LimitOrphanTx()
+		if evicted > 0 {
+			//todo add log
+			log.Debug("")
+		}
+	}else{
+		if proErr.Code == CorruptionCode {
+			mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
+		}
+	}
+
+	return nil, fmt.Errorf("")
+}
+
 
 
 
