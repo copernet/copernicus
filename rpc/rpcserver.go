@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/internal/btcjson"
 )
@@ -37,7 +37,7 @@ func internalRPCError(errStr, context string) *btcjson.RPCError {
 	if context != "" {
 		logStr = context + ": " + errStr
 	}
-	logs.Error(logStr)
+	log.Error(logStr)
 	return btcjson.NewRPCError(btcjson.ErrRPCInternal.Code, errStr)
 }
 
@@ -120,20 +120,20 @@ func (s *Server) writeHTTPResponseHeaders(req *http.Request, headers http.Header
 // Stop is used by server.go to stop the rpc listener.
 func (s *Server) Stop() error {
 	if atomic.AddInt32(&s.shutdown, 1) != 1 {
-		logs.Info("RPC server is already in the process of shutting down")
+		log.Info("RPC server is already in the process of shutting down")
 		return nil
 	}
-	logs.Warn("RPC server shutting down")
+	log.Warn("RPC server shutting down")
 	for _, listener := range s.cfg.Listeners {
 		err := listener.Close()
 		if err != nil {
-			logs.Error("Problem shutting down rpc: %v", err)
+			log.Error("Problem shutting down rpc: %v", err)
 			return err
 		}
 	}
 	close(s.quit)
 	s.wg.Wait()
-	logs.Info("RPC server shutdown complete")
+	log.Info("RPC server shutdown complete")
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (s *Server) RequestedProcessShutdown() <-chan struct{} {
 // This function is safe for concurrent access.
 func (s *Server) limitConnections(w http.ResponseWriter, remoteAddr string) bool {
 	if int(atomic.LoadInt32(&s.numClients)+1) > conf.CFG.RPCMaxClients {
-		logs.Info("Max RPC clients exceeded [%d] - "+
+		log.Info("Max RPC clients exceeded [%d] - "+
 			"disconnecting client %s", conf.CFG.RPCMaxClients,
 			remoteAddr)
 		http.Error(w, "503 Too busy.  Try again later.",
@@ -182,7 +182,7 @@ func (s *Server) checkAuth(r *http.Request, require bool) (bool, bool, error) {
 	authhdr := r.Header["Authorization"]
 	if len(authhdr) <= 0 {
 		if require {
-			logs.Warn("RPC authentication failure from %s",
+			log.Warn("RPC authentication failure from %s",
 				r.RemoteAddr)
 			return false, false, errors.New("auth failure")
 		}
@@ -206,7 +206,7 @@ func (s *Server) checkAuth(r *http.Request, require bool) (bool, bool, error) {
 	}
 
 	// Request's auth doesn't match either user
-	logs.Warn("RPC authentication failure from %s", r.RemoteAddr)
+	log.Warn("RPC authentication failure from %s", r.RemoteAddr)
 	return false, false, errors.New("auth failure")
 }
 
@@ -298,14 +298,14 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		errMsg := "webserver doesn't support hijacking"
-		logs.Warn(errMsg)
+		log.Warn(errMsg)
 		errCode := http.StatusInternalServerError
 		http.Error(w, strconv.Itoa(errCode)+" "+errMsg, errCode)
 		return
 	}
 	conn, buf, err := hj.Hijack()
 	if err != nil {
-		logs.Warn("Failed to hijack HTTP connection: %v", err)
+		log.Warn("Failed to hijack HTTP connection: %v", err)
 		errCode := http.StatusInternalServerError
 		http.Error(w, strconv.Itoa(errCode)+" "+err.Error(), errCode)
 		return
@@ -369,23 +369,23 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 	// Marshal the response.
 	msg, err := createMarshalledReply(responseID, result, jsonErr)
 	if err != nil {
-		logs.Error("Failed to marshal reply: %v", err)
+		log.Error("Failed to marshal reply: %v", err)
 		return
 	}
 
 	// Write the response.
 	err = s.writeHTTPResponseHeaders(r, w.Header(), http.StatusOK, buf)
 	if err != nil {
-		logs.Error(err)
+		log.Error(err)
 		return
 	}
 	if _, err := buf.Write(msg); err != nil {
-		logs.Error("Failed to write marshalled reply: %v", err)
+		log.Error("Failed to write marshalled reply: %v", err)
 	}
 
 	// Terminate with newline to maintain compatibility with Bitcoin Core.
 	if err := buf.WriteByte('\n'); err != nil {
-		logs.Error("Failed to append terminating newline to reply: %v", err)
+		log.Error("Failed to append terminating newline to reply: %v", err)
 	}
 }
 
@@ -401,7 +401,7 @@ func (s *Server) Start() {
 		return
 	}
 
-	logs.Info("Starting RPC server")
+	log.Info("Starting RPC server")
 	rpcServeMux := http.NewServeMux()
 	httpServer := &http.Server{
 		Handler: rpcServeMux,
@@ -435,9 +435,9 @@ func (s *Server) Start() {
 	for _, listener := range s.cfg.Listeners {
 		s.wg.Add(1)
 		go func(listener net.Listener) {
-			logs.Info("RPC server listening on %s", listener.Addr())
+			log.Info("RPC server listening on %s", listener.Addr())
 			httpServer.Serve(listener)
-			logs.Trace("RPC listener done for %s", listener.Addr())
+			log.Trace("RPC listener done for %s", listener.Addr())
 			s.wg.Done()
 		}(listener)
 	}
@@ -445,7 +445,7 @@ func (s *Server) Start() {
 
 // GenCertPair generates a key/cert pair to the paths provided.
 func GenCertPair(certFile, keyFile string) error {
-	logs.Info("Generating TLS certificates...")
+	log.Info("Generating TLS certificates...")
 
 	org := "btcd autogenerated cert"
 	validUntil := time.Now().Add(10 * 365 * 24 * time.Hour)
@@ -463,7 +463,7 @@ func GenCertPair(certFile, keyFile string) error {
 		return err
 	}
 
-	logs.Info("Done generating TLS certificates")
+	log.Info("Done generating TLS certificates")
 	return nil
 }
 
@@ -522,7 +522,7 @@ func SetupRPCListeners() ([]net.Listener, error) {
 	for _, addr := range netAddrs {
 		listener, err := listenFunc(addr.Network(), addr.String())
 		if err != nil {
-			logs.Warn("Can't listen on %s: %v", addr, err)
+			log.Warn("Can't listen on %s: %v", addr, err)
 			continue
 		}
 		listeners = append(listeners, listener)
@@ -627,4 +627,46 @@ func NewServer(config *ServerConfig) (*Server, error) {
 	//rpc.cfg.Chain.Subscribe(rpc.handleBlockchainNotification)  // todo open
 
 	return &rpc, nil
+}
+
+func InitRPCServer() (*Server, error) {
+	if !conf.CFG.DisableRPC {
+		// Setup listeners for the configured RPC listen addresses and
+		// TLS settings.
+		rpcListeners, err := SetupRPCListeners()
+		if err != nil {
+			return nil, err
+		}
+		if len(rpcListeners) == 0 {
+			return nil, errors.New("RPCS: No valid listen address")
+		}
+
+		rpcServer, err := NewServer(&ServerConfig{
+			Listeners: rpcListeners,
+			// todo open
+			//StartupTime: s.startupTime,
+			//ConnMgr: &rpcConnManager{&s},
+			//SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
+			//TimeSource:  s.timeSource,
+			//Chain:       s.chain,
+			//ChainParams: chainParams,
+			//DB:          db,
+			//TxMemPool:   s.txMemPool,
+			//Generator:   blockTemplateGenerator,
+			//CPUMiner:    s.cpuMiner,
+			//TxIndex:     s.txIndex,
+			//AddrIndex:   s.addrIndex,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+/*		// Signal process shutdown when the RPC server requests it.
+		go func() {
+			<-rpcServer.RequestedProcessShutdown()
+			shutdownRequestChannel <- struct{}{}
+		}()*/                     // TODO open
+		return rpcServer, nil
+	}
+	return nil, nil
 }
