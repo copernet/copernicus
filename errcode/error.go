@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	MempoolErrorBase int = iota * 1000
+	MempoolErrorBase = iota * 1000
 	ScriptErrorBase
 	TxErrorBase
 	ChainErrorBase
