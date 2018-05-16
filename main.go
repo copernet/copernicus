@@ -23,6 +23,8 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/limits"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/addrmgr"
 )
 
 const (
@@ -166,8 +168,6 @@ func bchMain(ctx context.Context, serverChan chan<- *server) error {
 	<-interrupt
 	return nil
 }
-<<<<<<< Updated upstream
-=======
 
 // removeRegressionDB removes the existing regression test database if running
 // in regression test mode and it already exists.
@@ -329,4 +329,3 @@ func main() {
 		os.Exit(1)
 	}
 }
->>>>>>> Stashed changes
