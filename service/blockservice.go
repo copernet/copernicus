@@ -9,13 +9,13 @@ import (
 func ProcessBlock(b *block.Block) (bool,error) {
 	gChain := chain.GetInstance()
 	isNewBlock := false
-	haveData := false
+	accepted := false
 	var err error
 
 	bIndex := gChain.FindBlockIndex(b.Header.GetHash())
 	if bIndex != nil {
-		haveData = bIndex.HaveData()
-		if haveData {
+		accepted = bIndex.Accepted()
+		if accepted {
 			return isNewBlock,nil
 		}
 	}
@@ -25,11 +25,7 @@ func ProcessBlock(b *block.Block) (bool,error) {
 		return isNewBlock,err
 	}
 
-	replaceIndexFlag := false
-	if bIndex != nil && haveData == false {
-		replaceIndexFlag = true
-	}
-	bIndex,err = gChain.AcceptBlock(b,replaceIndexFlag)
+	bIndex,err = gChain.AcceptBlock(b)
 	if err != nil {
 		return isNewBlock,err
 	}

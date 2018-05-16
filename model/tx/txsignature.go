@@ -1,5 +1,5 @@
 package tx
-
+/*
 import (
 	"bytes"
 	"encoding/binary"
@@ -7,7 +7,7 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/utils"
 )
-/*
+
 type TxSignatureSerializer struct {
 	txTo       *Tx
 	script     *Script

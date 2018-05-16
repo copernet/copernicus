@@ -22,6 +22,7 @@ import (
  	statusIndexStored
  	statusAllStored
 	statusMissData
+	statusAccepted
 
 	//NOTE: This must be defined last in order to avoid influencing iota
 	statusNone  = 0
@@ -103,6 +104,10 @@ func (bIndex *BlockIndex) IndexStored() bool {
 
 func (bIndex *BlockIndex) AllStored() bool {
 	return bIndex.Status & statusAllStored != 0
+}
+
+func (bIndex *BlockIndex) Accepted() bool {
+	return bIndex.Status & statusAccepted != 0
 }
 
 func (bIndex *BlockIndex) GetDataPos() int {
@@ -231,3 +236,5 @@ func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
 
 	return blockIndex
 }
+
+

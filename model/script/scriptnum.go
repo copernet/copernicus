@@ -1,9 +1,13 @@
 package script
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	"github.com/btcboost/copernicus/errcode"
+)
 
 const (
 	DefaultMaxNumSize = 4
+
 	MaxInt32          = 1<<31 - 1
 	MinInt32          = -1 << 31
 )
@@ -15,7 +19,7 @@ type CScriptNum struct {
 func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *CScriptNum, err error) {
 	vchLen := len(vch)
 	if vchLen > maxNumSize {
-		err = errors.New("script number overflow")
+		err = errcode.New(errcode.ScriptErrNumberOverflow)
 		scriptNum = NewCScriptNum(0)
 		return
 	}
@@ -26,14 +30,14 @@ func GetCScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *
 		// If the most-significant-byte - excluding the sign bit - is zero
 		// then we're not minimal. Note how this test also rejects the
 		// negative-zero encoding, 0x80.
-		if vch[vchLen-1]&0x7f == 0 {
+		if vch[vchLen - 1] & 0x7f == 0 {
 
 			// One exception: if there's more than one byte and the most
 			// significant bit of the second-most-significant-byte is set
 			// it would conflict with the sign bit. An example of this case
 			// is +-255, which encode to 0xff00 and 0xff80 respectively.
 			// (big-endian).
-			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
+			if vchLen == 1 || (vch[vchLen - 2] & 0x80) == 0 {
 				err = errors.New("non-minimally encoded script number")
 				scriptNum = NewCScriptNum(0)
 				return
@@ -84,9 +88,8 @@ func (scriptNum *CScriptNum) Serialize() (bytes []byte) {
 	}
 	bytes = make([]byte, 0, 9)
 	for absoluteValue > 0 {
-		bytes = append(bytes, byte(absoluteValue&0xff))
+		bytes = append(bytes, byte(absoluteValue & 0xff))
 		absoluteValue >>= 8
-
 	}
 	//    - If the most significant byte is >= 0x80 and the value is positive, push a
 	//    new zero-byte to make the significant byte < 0x80 again.
@@ -98,15 +101,16 @@ func (scriptNum *CScriptNum) Serialize() (bytes []byte) {
 	//    0x80 to it, since it will be subtracted and interpreted as a negative when
 	//    converting to an integral.
 
-	if bytes[len(bytes)-1]&0x80 != 0 {
+	if bytes[len(bytes) - 1] & 0x80 != 0 {
 		extraByte := byte(0x00)
 		if negative {
 			extraByte = 0x80
 		}
 		bytes = append(bytes, extraByte)
 	} else if negative {
-		bytes[len(bytes)-1] |= 0x80
+		bytes[len(bytes) - 1] |= 0x80
 	}
+
 	return
 }
 func NewCScriptNum(v int64) *CScriptNum {
