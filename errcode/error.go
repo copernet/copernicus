@@ -4,6 +4,25 @@ import (
 	"fmt"
 )
 
+const (
+	MempoolErrorBase = iota * 1000
+	ScriptErrorBase
+	TxErrorBase
+	ChainErrorBase
+	BlockErrorBase
+	BlockIndexErrorBase
+	CoinErrorBase
+	MessageErrorBase
+	RpcErrorBase
+	NetErrorBase
+	PeerErrorBase
+	ServiceErrorBase
+	PersistErrorBase
+	CryptoErrorBase
+	ConsensusErrorBase
+
+)
+
 const errDescFmt string = "module: [%s], inner err desc: [%s]"
 
 type ProjectError struct {
