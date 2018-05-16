@@ -1,5 +1,7 @@
 package rpc
 
+import "github.com/btcboost/copernicus/service"
+
 var netHandlers = map[string]commandHandler{
 	"getconnectioncount": handleGetConnectionCount,
 	"ping":               handlePing,
@@ -78,25 +80,12 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 }
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
+
 		c := cmd.(*btcjson.AddNodeCmd)
 
 		addr := normalizeAddress(c.Addr, s.cfg.ChainParams.DefaultPort)
-		var err error
-		switch c.SubCmd {
-		case "add":
-			err = s.cfg.ConnMgr.Connect(addr, true)
-		case "remove":
-			err = s.cfg.ConnMgr.RemoveByAddr(addr)
-		case "onetry":
-			err = s.cfg.ConnMgr.Connect(addr, false)
-		default:
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidParameter,
-				Message: "invalid subcommand for addnode",
-			}
-		}
-
+		nodeCmd := service.NodeOperateMsg{addr, 0}
+		_, err := s.Handler.ProcessForRpc(nodeCmd)
 		if err != nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
@@ -106,7 +95,6 @@ func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 
 		// no data returned unless an error.
 		return nil, nil
-	*/
 	return nil, nil
 }
 

@@ -3,14 +3,30 @@ package service
 import (
 	"sync"
 	"context"
+	"fmt"
+	"github.com/btcboost/copernicus/internal/btcjson"
 )
+
+type SendMsgToPeer func(int, interface{})
+type BroadCastMsg  func(interface{})
 
 type MsgHandle struct {
 	mtx sync.Mutex
-	sendToPeerMag  <- chan interface{}
-	recvChannel  chan interface{}
-	errChannel	chan error
+	sendToPeerMag  	<- chan interface{}
+	recvChannel  	chan interface{}
+	errChannel		chan error
+
+	// callback, when the news processd done.
+	broadCastMsg 	[]BroadCastMsg
+	sendMsgToPeer 	[]SendMsgToPeer
+
+	ConfigForRpc
 }
+
+// ConfigForRpc contains callback operations for RPC commands.
+type ConfigForRpc struct {
+	NodeOpera func(opera NodeOperateMsg)error
+} 
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
@@ -37,11 +53,37 @@ func (msg *MsgHandle)start(ctx context.Context)  {
 	}
 }
 
-type addrType struct {
-	addr string
-	port int
-	result chan interface{}
+type NodeOperaCmd  int8
+const (
+	ConnectNode	NodeOperaCmd = iota
+	RemoveNode
+	Onetry
+)
+
+type NodeOperateMsg struct {
+	Addr string
+	Cmd  NodeOperaCmd
 }
+
+// Rpc process things .
+func (msg *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err error) {
+
+	switch m := message.(type) {
+	case NodeOperateMsg:
+		err = msg.NodeOpera(m)
+
+	default:
+		return nil, fmt.Errorf("")
+	}
+
+	if err != nil{
+		return nil, err
+	}
+	return nil, nil
+}
+
+
+/*
 
 // Peer And net caller
 func (msg *MsgHandle)ProcessMsg(message interface{}) (ret Imsg, err error) {
@@ -60,7 +102,7 @@ func (msg *MsgHandle)ProcessMsg(message interface{}) (ret Imsg, err error) {
 	}
 }
 
-type PingStruct struct {
+type MsgPing struct {
 	Nonce int
 	ret chan interface{}
 }
@@ -72,24 +114,5 @@ type PingRspStruct1 struct {
 func RpcCall()  {
 	msg := NewMsgHandle(make(chan interface{}))
 	msg.ProcessForRpc(PingStruct{ret:make(chan interface{})})
-
 }
-
-// Rpc process things .
-func (msg *MsgHandle)ProcessForRpc(message interface{}) (rsp Imsg, err error) {
-
-	ret , err := msg.ProcessMsg(message)
-	if err != nil{
-		return nil, err
-	}
-
-	switch ret.(type) {
-	case PingRspStruct1:
-		msg.sendToPeerMag <- ret
-	case SigalPeer:
-		msg.sendToPeerMag <- ret
-	default:
-	}
-
-	return ret, err
-}
+*/

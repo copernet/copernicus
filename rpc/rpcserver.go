@@ -23,6 +23,7 @@ import (
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/service"
 )
 
 const (
@@ -63,6 +64,7 @@ type Server struct {
 	helpCacher             *helpCacher
 	requestProcessShutdown chan struct{}
 	quit                   chan int
+	Handler 				*service.MsgHandle
 }
 
 func (s *Server) httpStatusLine(req *http.Request, code int) string {
