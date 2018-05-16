@@ -75,9 +75,9 @@ func (bIndex *BlockIndex) SetNull() {
 	bIndex.Skip = nil
 
 	bIndex.Height = 0
-	bIndex.File = 0
-	bIndex.DataPos = 0
-	bIndex.UndoPos = 0
+	bIndex.File = -1
+	bIndex.DataPos = -1
+	bIndex.UndoPos = -1
 	bIndex.ChainWork = big.Int{}
 	bIndex.ChainTxCount = 0
 	bIndex.TxCount = 0
