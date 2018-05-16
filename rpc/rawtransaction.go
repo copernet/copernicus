@@ -5,14 +5,17 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/btcboost/copernicus/blockchain"
-	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/mempool"
-	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/utils"
-	"github.com/btcboost/copernicus/utxo"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/logic/utxo"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/consensus"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -31,7 +34,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 	c := cmd.(*btcjson.GetRawTransactionCmd)
 
 	// Convert the provided transaction hash hex to a Hash.
-	txHash, err := utils.GetHashFromStr(c.Txid)
+	txHash, err := util.GetHashFromStr(c.Txid)
 	if err != nil {
 		return nil, rpcDecodeHexError(c.Txid)
 	}
@@ -43,7 +46,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 
 	tx, hashBlock, ok := GetTransaction(txHash, true)
 	if !ok {
-		if blockchain.GTxIndex {
+		if chain.GTxIndex {
 			return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey,
 				"No such mempool or blockchain transaction")
 		}
@@ -60,7 +63,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 	if !verbose {
 		return strHex, nil
 	}
-	rawTxn, err := createTxRawResult(tx, hashBlock, msg.ActiveNetParams)
+	rawTxn, err := createTxRawResult(tx, hashBlock, consensus.ActiveNetParams)
 	if err != nil {
 		return nil, err
 	}
@@ -69,13 +72,13 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 
 // createTxRawResult converts the passed transaction and associated parameters
 // to a raw transaction JSON object.
-func createTxRawResult(tx *core.Tx, hashBlock *utils.Hash, params *msg.BitcoinParams) (*btcjson.TxRawResult, error) {
+func createTxRawResult(tx *tx.Tx, hashBlock *util.Hash, params *consensus.BitcoinParams) (*btcjson.TxRawResult, error) {
 
 	hash := tx.TxHash()
 	txReply := &btcjson.TxRawResult{
 		TxID:     hash.ToString(),
 		Hash:     hash.ToString(),
-		Size:     tx.SerializeSize(),
+		Size:     int(tx.SerializeSize()),
 		Version:  tx.Version,
 		LockTime: tx.LockTime,
 		Vin:      createVinList(tx),
@@ -84,10 +87,10 @@ func createTxRawResult(tx *core.Tx, hashBlock *utils.Hash, params *msg.BitcoinPa
 
 	if !hashBlock.IsNull() {
 		txReply.BlockHash = hashBlock.ToString()
-		bindex := blockchain.GChainActive.FetchBlockIndexByHash(hashBlock) // todo realise: get *BlockIndex by blockhash
+		bindex := chain.GlobalChain.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
 		if bindex != nil {
-			if blockchain.GChainActive.Contains(bindex) {
-				txReply.Confirmations = blockchain.GChainActive.Height() - bindex.Height + 1
+			if chain.GlobalChain.Contains(bindex) {
+				txReply.Confirmations = chain.GlobalChain.Height() - bindex.Height + 1
 				txReply.Time = bindex.Header.Time
 				txReply.Blocktime = bindex.Header.Time
 			} else {
@@ -100,45 +103,45 @@ func createTxRawResult(tx *core.Tx, hashBlock *utils.Hash, params *msg.BitcoinPa
 
 // createVinList returns a slice of JSON objects for the inputs of the passed
 // transaction.
-func createVinList(tx *core.Tx) []btcjson.Vin {
-	vinList := make([]btcjson.Vin, len(tx.Ins))
-	for index, in := range tx.Ins {
+func createVinList(tx *tx.Tx) []btcjson.Vin {
+	vinList := make([]btcjson.Vin, len(tx.GetIns()))
+	for index, in := range tx.GetIns() {
 		if tx.IsCoinBase() {
-			vinList[index].Coinbase = hex.EncodeToString(in.Script.GetScriptByte())
+			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
 		} else {
 			vinList[index].Txid = in.PreviousOutPoint.Hash.ToString()
 			vinList[index].Vout = in.PreviousOutPoint.Index
-			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.Script, true)
-			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.Script.GetScriptByte())
+			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.GetScriptSig(), true)
+			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
 		}
 		vinList[index].Sequence = in.Sequence
 	}
 	return vinList
 }
 
-func ScriptToAsmStr(script *core.Script, attemptSighashDecode bool) string { // todo complete
+func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // todo complete
 	var str string
 	var opcode byte
 	vch := make([]byte, 0)
-	b := script.GetScriptByte()
+	b := s.GetData()
 	for i := 0; i < len(b); i++ {
 		if len(str) != 0 {
 			str += " "
 		}
 
-		if !script.GetOp(&i, &opcode, &vch) {
+		if !s.GetOp(&i, &opcode, &vch) {
 			str += "[error]"
 			return str
 		}
 
-		if opcode >= 0 && opcode <= core.OP_PUSHDATA4 {
+		if opcode >= 0 && opcode <= opcodes.OP_PUSHDATA4 {
 			if len(vch) <= 4 {
-				num, _ := core.GetCScriptNum(vch, false, core.DefaultMaxNumSize)
+				num, _ := script.GetCScriptNum(vch, false, script.DefaultMaxNumSize)
 				str += fmt.Sprintf("%d", num.Value)
 			} else {
 				// the IsUnspendable check makes sure not to try to decode
 				// OP_RETURN data that may match the format of a signature
-				if attemptSighashDecode && !script.IsUnspendable() {
+				if attemptSighashDecode && !s.IsUnspendable() {
 					var strSigHashDecode string
 					// goal: only attempt to decode a defined sighash type from
 					// data that looks like a signature within a scriptSig. This
@@ -146,14 +149,14 @@ func ScriptToAsmStr(script *core.Script, attemptSighashDecode bool) string { // 
 					// Multisig scripts due to the restrictions on the pubkey
 					// formats (see IsCompressedOrUncompressedPubKey) being
 					// incongruous with the checks in CheckSignatureEncoding.
-					flags := crypto.ScriptVerifyStrictenc
-					if vch[len(vch)-1]&crypto.SigHashForkID != 0 {
+					flags := script.ScriptVerifyStrictEnc
+					if vch[len(vch)-1]&script.SigHashForkID != 0 {
 						// If the transaction is using SIGHASH_FORKID, we need
 						// to set the apropriate flag.
 						// TODO: Remove after the Hard Fork.
-						flags |= crypto.ScriptEnableSigHashForkID
+						flags |= script.ScriptEnableSigHashForkId
 					}
-					if ok, _ := crypto.CheckSignatureEncoding(vch, uint32(flags)); ok {
+					if ok, _ := script.CheckSignatureEncoding(vch, uint32(flags)); ok {
 						//chsigHashType := vch[len(vch)-1]
 						//if t, ok := crypto.MapSigHashTypes[chsigHashType]; ok { // todo realise define
 						//	strSigHashDecode = "[" + t + "]"
@@ -169,7 +172,7 @@ func ScriptToAsmStr(script *core.Script, attemptSighashDecode bool) string { // 
 				}
 			}
 		} else {
-			str += core.GetOpName(int(opcode))
+			str += opcodes.GetOpName(int(opcode))
 		}
 	}
 	return str
@@ -177,7 +180,7 @@ func ScriptToAsmStr(script *core.Script, attemptSighashDecode bool) string { // 
 
 // createVoutList returns a slice of JSON objects for the outputs of the passed
 // transaction.
-func createVoutList(tx *core.Tx, params *msg.BitcoinParams) []btcjson.Vout {
+func createVoutList(tx *tx.Tx, params *consensus.BitcoinParams) []btcjson.Vout {
 	voutList := make([]btcjson.Vout, len(tx.Outs))
 	for index, out := range tx.Outs {
 		voutList[index].Value = out.Value
@@ -188,35 +191,35 @@ func createVoutList(tx *core.Tx, params *msg.BitcoinParams) []btcjson.Vout {
 	return voutList
 }
 
-func ScriptPubKeyToJSON(script *core.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
+func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
 
 	return btcjson.ScriptPubKeyResult{}
 }
 
-func GetTransaction(hash *utils.Hash, allowSlow bool) (*core.Tx, *utils.Hash, bool) {
+func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
 	tx := mempool.GetTxByHash(hash) // todo realize: in mempool get *core.Tx by hash
 	if tx != nil {
 		return tx, nil, true
 	}
 
-	if blockchain.GTxIndex {
+	if chain.GTxIndex {
 		blockchain.GBlockTree.ReadTxIndex(hash)
 		//blockchain.OpenBlockFile(, true)
 		// todo complete
 	}
 
 	// use coin database to locate block that contains transaction, and scan it
-	var indexSlow *core.BlockIndex
+	var indexSlow *blockindex.BlockIndex
 	if allowSlow {
-		coin := utxo.AccessByTxid(blockchain.GCoinsTip, hash)
+		coin := utxo.AccessByTxid(chain.GCoinsTip, hash)
 		if !coin.IsSpent() {
-			indexSlow = blockchain.GChainActive.FetchBlockIndexByHeight(coin.GetHeight()) // todo realise : get *BlockIndex by height
+			indexSlow = chain.GlobalChain.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
 		}
 	}
 
 	if indexSlow != nil {
-		var block *core.Block
-		if blockchain.ReadBlockFromDisk(block, indexSlow, msg.ActiveNetParams) {
+		var block *block.Block
+		if chain.ReadBlockFromDisk(block, indexSlow, consensus.ActiveNetParams) {
 			for _, tx := range block.Txs {
 				if *hash == tx.TxHash() {
 					return tx, &indexSlow.BlockHash, true
