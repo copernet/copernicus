@@ -5,7 +5,7 @@ type ScriptErr int
 const ScriptErrBase ScriptErr = 2000
 
 const (
-	ScriptErrOK ScriptErr = ScriptErrBase + iota
+	ScriptErrOK = ScriptErrBase + iota
 	ScriptErrUnknownError
 	ScriptErrEvalFalse
 	ScriptErrOpReturn
@@ -66,6 +66,9 @@ const (
 	ScriptErrMustUseForkId
 
 	ScriptErrErrorCount
+
+	// other errcode
+	ScriptErrNumberOverflow
 )
 
 /*

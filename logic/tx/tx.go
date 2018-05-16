@@ -6,7 +6,7 @@ import (
 
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/script"
-	"fmt"
+	"github.com/btcboost/copernicus/errcode"
 )
 
 func CheckRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) bool {
@@ -42,7 +42,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	for _, in := range ins {
 		coin := tempCoinMap.GetCoin(in.PreviousOutPoint)
 		if coin == nil {
-			return util.ErrToProject(util.ErrorNoPreviousOut, fmt.Sprintf("Can't find Money of preout:%s", in.PreviousOutPoint.String()))
+			return errcode.New(errcode.ErrorNoPreviousOut)
 		}
 		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
@@ -50,7 +50,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 			flags |= script.ScriptVerifyStrictEnc
 		}
 		if flags & script.ScriptVerifySigPushOnly != 0 && !scriptSig.IsPushOnly() {
-			return util.ErrToProject(script.ScriptErrSigPushOnly, "ScriptSig is not PushOnly")
+			return errcode.New(errcode.ScriptErrSigPushOnly)
 		}
 		stack := util.NewStack()
 		err := scriptSig.Eval(stack, flags)
@@ -63,9 +63,9 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 			return err
 		}
 		if stack.Empty() {
-			return util.ErrToProject(script.ScriptErrEvalFalse, "")
+			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
-		if
+
 	}
 	return nil
 }
