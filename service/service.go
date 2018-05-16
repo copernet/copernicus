@@ -28,14 +28,6 @@ type MsgHandle struct {
 type ConfigForRpc struct {
 	NodeOpera 		func(opera NodeOperateMsg)error
 	requestPeer 	func()([]listPeer, error)
-	...
-	..
-		...
-		...
-		...
-
-
-
 } 
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
@@ -44,6 +36,12 @@ func NewMsgHandle(ctx context.Context, cmdCh <- chan interface{}) *MsgHandle {
 	msg := &MsgHandle{mtx:sync.Mutex{}, sendToPeerMag:cmdCh}
 	ctxChild, _ := context.WithCancel(ctx)
 	go msg.start(ctxChild)
+	go func() {
+		select{
+		case netCmd := <- cmdCh:
+			msg.recvChannel <- netCmd
+		}
+	}()
 	return msg
 }
 
@@ -63,10 +61,6 @@ func (msg *MsgHandle)start(ctx context.Context)  {
 				msg.broadCastMsg(acceptTx)
 				msg.resultChannel <- acceptTx
 			}
-
-			go func(m interface{}) {
-				 msg.sendToPeerMag <- m
-			}(m)
 		case <-ctx.Done():
 			break out
 		}
