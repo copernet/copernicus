@@ -8,10 +8,41 @@ import (
 	"runtime"
 
 	"github.com/spf13/viper"
+	"time"
 )
 
 const (
 	tagName = "default"
+
+	defaultConfigFilename       = "cps.conf"
+	defaultDataDirname          = "data"
+	defaultLogLevel             = "info"
+	defaultLogDirname           = "logs"
+	defaultLogFilename          = "btcd.log"
+	defaultMaxPeers             = 125
+	defaultBanDuration          = time.Hour * 24
+	defaultBanThreshold         = 100
+	defaultConnectTimeout       = time.Second * 30
+	defaultMaxRPCClients        = 10
+	defaultMaxRPCWebsockets     = 25
+	defaultMaxRPCConcurrentReqs = 20
+	defaultDbType               = "ffldb"
+	defaultFreeTxRelayLimit     = 15.0
+	defaultBlockMinSize         = 0
+	defaultBlockMaxSize         = 750000
+	defaultBlockMinWeight       = 0
+	defaultBlockMaxWeight       = 3000000
+	blockMaxSizeMin             = 1000
+	blockMaxWeightMin           = 4000
+	// blockMaxSizeMax              = blockchain.MaxBlockBaseSize - 1000
+	// blockMaxWeightMax            = blockchain.MaxBlockWeight - 4000
+	defaultGenerate              = false
+	defaultMaxOrphanTransactions = 100
+	defaultMaxOrphanTxSize       = 100000
+	defaultSigCacheMaxSize       = 100000
+	sampleConfigFilename         = "sample-btcd.conf"
+	defaultTxIndex               = false
+	defaultAddrIndex             = false
 )
 
 var Cfg *Configuration
@@ -88,9 +119,12 @@ type Configuration struct {
 		Level  string //description:"Define level of log,include trace, debug, info, warn, error"
 		Format string
 	}
-	Mempool struct{
+	Mempool struct {
 		MinFeeRate int64
-
+	}
+	P2PNet struct {
+		ListenerAddrs []string `validate:"require" default:"1234"`
+		MaxPeers      int      `default:"128"`
 	}
 }
 
