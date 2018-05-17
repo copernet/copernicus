@@ -648,7 +648,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 
 	h := *height
 	chainHeight := chain.GlobalChain.Height()
-	if chainHeight < chain.GlobalChain.PruneAfterHeight {
+	if chainHeight < consensus.ActiveNetParams.PruneAfterHeight {
 		return false, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCMisc,
 			Message: fmt.Sprintf("Blockchain is too short for pruning."),
