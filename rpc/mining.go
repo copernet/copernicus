@@ -7,7 +7,6 @@ import (
 	"math/big"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/block"
@@ -212,9 +211,9 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		// Need to update only after we know CreateNewBlock succeeded
 		indexPrev = indexPrevNew
 	}
-	block := blocktemplate.Block
-	block.UpdateTime(indexPrev)
-	block.Header.Nonce = 0
+	bk := blocktemplate.Block
+	bk.UpdateTime(indexPrev)
+	bk.Header.Nonce = 0
 
 	return blockTemplateResult(blocktemplate, setClientRules, maxVersionVb, transactionsUpdatedLast)
 }
@@ -247,7 +246,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		entry.Hash = txID.ToString()
 
 		deps := make([]int, 0)
-		for _, in := range tx.Ins {
+		for _, in := range tx.GetIns() {
 			if ele, ok := setTxIndex[in.PreviousOutPoint.Hash]; ok {
 				deps = append(deps, ele)
 			}
@@ -274,7 +273,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		case chain.ThresholdLockedIn:
 			// Ensure bit is set in block version, then fallthrough to get
 			// vbavailable set.
-			bt.Block.BlockHeader.Version |= int32(chain.VersionBitsMask(consensus.ActiveNetParams, pos))
+			bt.Block.Header.Version |= int32(chain.VersionBitsMask(consensus.ActiveNetParams, pos))
 			fallthrough
 		case chain.ThresholdStarted:
 			vbinfo := chain.VersionBitsDeploymentInfo[pos]
@@ -328,7 +327,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		PreviousHash:  bt.Block.Header.HashPrevBlock.ToString(),
 		Transactions:  transactions,
 		CoinbaseAux:   &btcjson.GetBlockTemplateResultAux{Flags: mining.CoinbaseFlag},
-		CoinbaseValue: &bt.Block.Txs[0].Outs[0].Value,
+		CoinbaseValue: &bt.Block.Txs[0].GetTxOut(0).GetValue(),
 		LongPollID:    chain.GlobalChain.Tip().GetBlockHash().ToString() + fmt.Sprintf("%d", transactionsUpdatedLast),
 		Target:        pow.CompactToBig(bt.Block.Header.Bits).String(),
 		MinTime:       indexPrev.GetMedianTimePast() + 1,

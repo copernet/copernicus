@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/service"
 )
 
@@ -85,7 +86,7 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.AddNodeCmd)
 
-	addr := normalizeAddress(c.Addr, s.cfg.ChainParams.DefaultPort)
+	addr := normalizeAddress(c.Addr, consensus.ActiveNetParams.DefaultPort)
 	nodeCmd := service.NodeOperateMsg{addr, 0}
 	_, err := s.Handler.ProcessForRpc(nodeCmd)
 	if err != nil {
