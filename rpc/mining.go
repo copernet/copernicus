@@ -9,6 +9,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -416,12 +417,12 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 			Message: "inconclusive-not-best-prevblk",
 		}
 	}
-	state := core.ValidationState{}
+	state := valistate.ValidationState{}
 	chain.TestBlockValidity(consensus.ActiveNetParams, &state, &bk, indexPrev, false, true)
 	return BIP22ValidationResult(&state)
 }
 
-func BIP22ValidationResult(state *core.ValidationState) (interface{}, error) {
+func BIP22ValidationResult(state *valistate.ValidationState) (interface{}, error) {
 	if state.IsValid() {
 		return nil, nil
 	}

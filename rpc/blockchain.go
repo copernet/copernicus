@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math"
 
-	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -16,7 +15,6 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/util"
 	"github.com/pkg/errors"
 )
@@ -402,8 +400,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 		}
 	}
 
-	noLimit := uint64(math.MaxUint64)
-	txSet, err := mempool.Gpool.CalculateMemPoolAncestors(txItem, noLimit, noLimit, noLimit, noLimit, false)
+	txSet := mempool.Gpool.CalculateMemPoolAncestors(&txItem.Hash)
 
 	if !c.Verbose {
 		s := make([]string, len(txSet))
@@ -467,10 +464,8 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		}
 	}
 
-	descendants := make(map[*mempool.TxEntry]struct{})
-
 	// todo CalculateMemPoolAncestors() and CalculateDescendants() is different API form
-	mempool.Gpool.CalculateDescendants(entry, descendants)
+	descendants := mempool.Gpool.CalculateDescendants(entry)
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
@@ -498,6 +493,7 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 	mempool.Gpool.Lock()
 	defer mempool.Gpool.Unlock()
 
+	tx := mempool.Gpool.FindTx(*hash)
 	entry, ok := mempool.Gpool.PoolData[*hash]
 	if !ok {
 		return nil, btcjson.RPCError{
@@ -513,8 +509,8 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 	maxMempool := util.GetArg("-maxmempool", int64(tx.DefaultMaxMemPoolSize))
 	ret := &btcjson.GetMempoolInfoResult{
 		Size:       mempool.Gpool.Size(),
-		Bytes:      mempool.Gpool.TotalTxSize,
-		Usage:      mempool.Gpool.GetCacheUsage(),
+		Bytes:      mempool.Gpool.GetPoolAllTxSize(),
+		Usage:      mempool.Gpool.GetPoolUsage(),
 		MaxMempool: maxMempool,
 		//MempoolMinFee: valueFromAmount(mempool.GetMinFee(maxMempool)),		// todo realise
 	}
@@ -698,7 +694,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 			Message: "Block not found",
 		}
 	}
-	state := core.ValidationState{}
+	state := valistate.ValidationState{}
 	chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 	if !state.IsValid() {
 
@@ -709,7 +705,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	//c := cmd.(*btcjson.InvalidateBlockCmd)
 	//hash, _ := util.GetHashFromStr(c.BlockHash)
-	state := core.ValidationState{}
+	state := valistate.ValidationState{}
 
 	if len(chain.MapBlockIndex.Data) == 0 {
 		return nil, &btcjson.RPCError{
@@ -747,13 +743,13 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	}
 	chain.ResetBlockFailureFlags(index)
 
-	state := core.ValidationState{}
-	chain.ActivateBestChain(msg.ActiveNetParams, &state, nil)
+	state := valistate.ValidationState{}
+	chain.ActivateBestChain(consensus.ActiveNetParams, &state, nil)
 
 	if state.IsInvalid() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDatabase,
-			Message: chain.FormatStateMessage(&state),
+			Message: state.FormatStateMessage(),
 		}
 	}
 	return nil, nil

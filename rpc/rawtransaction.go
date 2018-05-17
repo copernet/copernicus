@@ -6,16 +6,16 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/logic/utxo"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/logic/utxo"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/util"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -420,79 +420,8 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/* c := cmd.(*btcjson.SendRawTransactionCmd)
-	// Deserialize and send off to tx relay
-	hexStr := c.HexTx
-	if len(hexStr)%2 != 0 {
-		hexStr = "0" + hexStr
-	}
-	serializedTx, err := hex.DecodeString(hexStr)
-	if err != nil {
-		return nil, rpcDecodeHexError(hexStr)
-	}
-	var msgTx msg.TxMessage
-	err = msgTx.BitcoinParse(bytes.NewReader(serializedTx),0)
-	if err != nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDeserialization,
-			Message: "TX decode failed: " + err.Error(),
-		}
-	}
+	c := cmd.(*btcjson.SendRawTransactionCmd)
 
-	// Use 0 for the tag to represent local node.
-	acceptedTxs, err := s.cfg.TxMemPool.ProcessTransaction(msgTx.Tx, false, false, 0)
-	blockchain.
-	if err != nil {
-		// When the error is a rule error, it means the transaction was
-		// simply rejected as opposed to something actually going wrong,
-		// so log it as such.  Otherwise, something really did go wrong,
-		// so log it as an actual error.  In both cases, a JSON-RPC
-		// error is returned to the client with the deserialization
-		// error code (to match bitcoind behavior).
-		if _, ok := err.(mempool.RuleError); ok {
-			logs.Debug("Rejected transaction %v: %v", tx.Hash(),
-				err)
-		} else {
-			logs.Error("Failed to process transaction %v: %v",
-				tx.Hash(), err)
-		}
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDeserialization,
-			Message: "TX rejected: " + err.Error(),
-		}
-	}
-
-	// When the transaction was accepted it should be the first item in the
-	// returned array of accepted transactions.  The only way this will not
-	// be true is if the API for ProcessTransaction changes and this code is
-	// not properly updated, but ensure the condition holds as a safeguard.
-	//
-	// Also, since an error is being returned to the caller, ensure the
-	// transaction is removed from the memory pool.
-	if len(acceptedTxs) == 0 || !acceptedTxs[0].Tx.Hash().IsEqual(tx.Hash()) {
-		s.cfg.TxMemPool.RemoveTransaction(tx, true)
-
-		errStr := fmt.Sprintf("transaction %v is not in accepted list",
-			tx.Hash())
-		return nil, internalRPCError(errStr, "")
-	}
-
-	// Generate and relay inventory vectors for all newly accepted
-	// transactions into the memory pool due to the original being
-	// accepted.
-	s.cfg.ConnMgr.RelayTransactions(acceptedTxs)
-
-	// Notify both websocket and getblocktemplate long poll clients of all
-	// newly accepted transactions.
-	s.NotifyNewTransactions(acceptedTxs)
-
-	// Keep track of all the sendrawtransaction request txns so that they
-	// can be rebroadcast if they don't make their way into a block.
-	txD := acceptedTxs[0]
-	iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.Hash())
-	s.cfg.ConnMgr.AddRebroadcastInventory(iv, txD)
-
-	return tx.Hash().String(), nil*/
 	return nil, nil
 } //Todo
 
