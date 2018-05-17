@@ -64,7 +64,6 @@ func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 
 func processOrphan(tx *tx.Tx) []*tx.Tx {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
-	vEraseQueue := make([]util.Hash, 0)
 	acceptTx := make([]*tx.Tx, 0)
 
 	// first collect this tx all outPoint.
@@ -79,10 +78,10 @@ func processOrphan(tx *tx.Tx) []*tx.Tx {
 	for len(vWorkQueue) > 0{
 		prevOut := vWorkQueue[0]
 		vWorkQueue = vWorkQueue[1:]
-		if byPrev, ok := mempool.Gpool.OrphanTransactionsByPrev[prevOut]; !ok{
+		if orphans, ok := mempool.Gpool.OrphanTransactionsByPrev[prevOut]; !ok{
 			continue
 		}else {
-			for iHash, iOrphanTx := range byPrev{
+			for _, iOrphanTx := range orphans{
 				fromPeer := iOrphanTx.NodeID
 				if _, ok := setMisbehaving[fromPeer]; ok{
 					continue
@@ -95,8 +94,8 @@ func processOrphan(tx *tx.Tx) []*tx.Tx {
 						o := outpoint.OutPoint{Hash:iOrphanTx.Tx.Hash, Index:uint32(i)}
 						vWorkQueue = append(vWorkQueue, o)
 					}
-					vEraseQueue = append(vEraseQueue, iOrphanTx.Tx.Hash)
-					continue
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, false)
+					break
 				}
 
 				errCode := err2.(errcode.ProjectError)
@@ -105,17 +104,14 @@ func processOrphan(tx *tx.Tx) []*tx.Tx {
 					if errCode.Code > 0{
 
 					}
-					vEraseQueue = append(vEraseQueue, iHash)
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, true)
 					if errCode.Code == CorruptionCode {
 						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
 					}
+					break
 				}
 			}
 		}
-	}
-
-	for _, eraseHash := range vEraseQueue{
-		mempool.Gpool.EraseOrphanTx(eraseHash)
 	}
 
 	return acceptTx

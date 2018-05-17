@@ -83,6 +83,8 @@ type TxMempool struct {
 	OrphanTransactions		map[util.Hash]OrphanTx
 	RecentRejects			map[util.Hash]struct{}
 
+	nextSweep 				int
+
 }
 
 // AddTx operator is safe for concurrent write And read access.
@@ -290,11 +292,11 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 }
 
 
-func (m *TxMempool) FindTx(hash util.Hash) *tx.Tx {
+func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
 	m.RLock()
 	m.RUnlock()
 	if find, ok := m.poolData[hash]; ok {
-		return find.Tx
+		return find
 	}
 	return nil
 }
@@ -996,39 +998,48 @@ func (m *TxMempool)AddOrphanTx(orphantx *tx.Tx, nodeID int64)  {
 	}
 }
 
-func (m *TxMempool)EraseOrphanTx(txHash util.Hash) int {
+func (m *TxMempool)EraseOrphanTx(txHash util.Hash, removeRedeemers bool){
+
 	if orphanTx, ok := m.OrphanTransactions[txHash]; ok{
 		for _, preout := range orphanTx.Tx.GetAllPreviousOut(){
-			if mi, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
-				delete(mi, txHash)
-				if len(mi) == 0{
+			if orphans, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
+				delete(orphans, txHash)
+				if len(orphans) == 0{
 					delete(m.OrphanTransactionsByPrev, preout)
 				}
 			}
 		}
-		delete(m.OrphanTransactions, txHash)
-		return 1
 	}
-	return 0
+	if removeRedeemers{
+		preout := outpoint.OutPoint{Hash:txHash}
+		orphan := m.OrphanTransactions[txHash]
+		for  i := 0; i < orphan.Tx.GetOutsCount(); i++{
+			preout.Index = uint32(i)
+			for _, orphan := range m.OrphanTransactionsByPrev[preout]{
+				m.EraseOrphanTx(orphan.Tx.Hash, true)
+			}
+		}
+	}
+	delete(m.OrphanTransactions, txHash)
 }
 
-var nextSweep int
+
 func (m *TxMempool)LimitOrphanTx() int {
 
 	removeNum := 0
 	now := time.Now().Second()
-	if nextSweep <= now{
+	if m.nextSweep <= now{
 		minExpTime := now + OrphanTxExpireTime - OrphanTxExpireInterval
 		for hash, orphan := range m.OrphanTransactions{
 			if orphan.Expiration <= now{
-				removeNum += m.EraseOrphanTx(hash)
+				m.EraseOrphanTx(hash, true)
 			}else {
 				if minExpTime > orphan.Expiration{
 					minExpTime = orphan.Expiration
 				}
 			}
 		}
-		nextSweep = minExpTime + OrphanTxExpireInterval
+		m.nextSweep = minExpTime + OrphanTxExpireInterval
 	}
 
 	for {
@@ -1036,7 +1047,7 @@ func (m *TxMempool)LimitOrphanTx() int {
 			break
 		}
 		for hash := range m.OrphanTransactions{
-			removeNum += m.EraseOrphanTx(hash)
+			m.EraseOrphanTx(hash, true)
 		}
 	}
 	return removeNum
