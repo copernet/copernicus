@@ -17,6 +17,7 @@ import (
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/service"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -442,6 +443,11 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	for i := 0; !haveChain && i < transaction.GetOutsCount(); i++ {
 		existingCoin, _ := view.GetCoin(outpoint.NewOutPoint(hash, uint32(i)))
 		haveChain = !existingCoin.IsSpent()
+	}
+
+	entry := mempool.Gpool.FindTx(hash)
+	if entry != nil {
+		s.Handler.ProcessForRpc(transaction)
 	}
 
 	// todo here
