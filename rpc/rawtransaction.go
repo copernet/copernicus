@@ -6,15 +6,16 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/logic/utxo"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -421,9 +422,32 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SendRawTransactionCmd)
+	buf := bytes.NewBufferString(c.HexTx)
+	transaction := tx.Tx{}
+	err := transaction.Unserialize(buf)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
 
-	return nil, nil
-} //Todo
+	hash := transaction.TxHash()
+
+	maxTxFee := 10000 // todo define this global variable
+	maxRawTxFee := maxTxFee
+	if c.AllowHighFees != nil && *c.AllowHighFees {
+		maxRawTxFee = 0
+	}
+
+	view := utxo.GetUtxoCacheInstance()
+	var haveChain bool
+	for i := 0; !haveChain && i < transaction.GetOutsCount(); i++ {
+		existingCoin, _ := view.GetCoin(outpoint.NewOutPoint(hash, uint32(i)))
+		haveChain = !existingCoin.IsSpent()
+	}
+
+	// todo here
+
+	return hash.ToString(), nil
+}
 
 func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return nil, nil
