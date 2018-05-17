@@ -1,11 +1,10 @@
 package rpc
 
 import (
-	"fmt"
-
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcsuite/btcd/mempool"
 )
 

@@ -5,7 +5,6 @@
 package main
 
 import (
-
 	"fmt"
 	"net"
 	"net/http"
@@ -23,8 +22,8 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/limits"
-	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/addrmgr"
+	"github.com/btcsuite/btcd/txscript"
 )
 
 const (
@@ -135,6 +134,8 @@ func bchMain(ctx context.Context, serverChan chan<- *server) error {
 		services:             services,
 		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
 		hashCache:            txscript.NewHashCache(cfg.SigCacheMaxSize),
+
+		phCh: make(chan *peer.Peer),
 	}
 
 	amgr := addrmgr.New(cfg.DataDir, iplookup)

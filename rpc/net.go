@@ -1,6 +1,9 @@
 package rpc
 
-import "github.com/btcboost/copernicus/service"
+import (
+	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/service"
+)
 
 var netHandlers = map[string]commandHandler{
 	"getconnectioncount": handleGetConnectionCount,
@@ -80,21 +83,20 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 }
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.AddNodeCmd)
 
-		c := cmd.(*btcjson.AddNodeCmd)
-
-		addr := normalizeAddress(c.Addr, s.cfg.ChainParams.DefaultPort)
-		nodeCmd := service.NodeOperateMsg{addr, 0}
-		_, err := s.Handler.ProcessForRpc(nodeCmd)
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidParameter,
-				Message: err.Error(),
-			}
+	addr := normalizeAddress(c.Addr, s.cfg.ChainParams.DefaultPort)
+	nodeCmd := service.NodeOperateMsg{addr, 0}
+	_, err := s.Handler.ProcessForRpc(nodeCmd)
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidParameter,
+			Message: err.Error(),
 		}
+	}
 
-		// no data returned unless an error.
-		return nil, nil
+	// no data returned unless an error.
+	return nil, nil
 	return nil, nil
 }
 
