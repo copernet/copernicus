@@ -699,7 +699,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		}
 	}
 	state := core.ValidationState{}
-	chain.PreciousBlock(msg.ActiveNetParams, &state, blockIndex)
+	chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 	if !state.IsValid() {
 
 	}
