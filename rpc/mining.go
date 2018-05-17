@@ -7,13 +7,13 @@ import (
 	"math/big"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/blockchain"
-	"github.com/btcboost/copernicus/consensus"
 	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/mining"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/mining"
 	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcsuite/btcd/blockchain"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -44,9 +44,9 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 		height = *c.Height
 	}
 
-	block := blockchain.GChainActive.Tip()
-	if height > 0 || height < blockchain.GChainActive.Height() {
-		block = blockchain.GChainActive.Chain[height]
+	block := chain.GlobalChain.Tip()
+	if height > 0 || height < chain.GlobalChain.Height() {
+		block = chain.GlobalChain.GetIndex(height)
 	}
 
 	if block == nil || block.Height != 0 {
@@ -54,7 +54,7 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	if lookup <= 0 {
-		lookup = block.Height%int(msg.ActiveNetParams.DifficultyAdjustmentInterval()) + 1
+		lookup = block.Height%int(consensus.ActiveNetParams.DifficultyAdjustmentInterval()) + 1
 	}
 
 	if lookup > block.Height {
