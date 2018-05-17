@@ -115,9 +115,12 @@ func (bIndex *BlockIndex) GetDataPos() int {
 	return 0
 }
 
-func (bIndex *BlockIndex) GetUndoPos() int {
+func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.UndoPos}
+}
 
-	return 0
+func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.DataPos}
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {

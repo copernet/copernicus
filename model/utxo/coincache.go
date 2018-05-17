@@ -8,6 +8,7 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 
 	"log"
+	"github.com/astaxie/beego/logs"
 )
 var utxoTip *CoinsCache
 
@@ -54,8 +55,13 @@ func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
+	if err != nil{
+		logs.Emergency("CoinsCache.GetCoin err:%#v", err)
+		panic("get coin is failed!")
+	}
 	if err != nil||coin == nil {
-		return coin, nil
+
+		return coin, err
 	}
 	coinsCache.cacheCoins[*outpoint] = coin
 	if coin.IsSpent() {

@@ -79,3 +79,13 @@ func (coinsCache *CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 	}
 	return coin
 }
+
+// different from GetCoin, if not get coin, FetchCoin will get coin from global cache
+func (coinsMap *CoinsMap)FetchCoin(out *outpoint.OutPoint) *Coin{
+	coin := coinsMap.GetCoin(out)
+	if coin != nil{
+		return coin
+	}
+	coin, _ = GetUtxoCacheInstance().GetCoin(out)
+	return coin
+}
