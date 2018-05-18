@@ -75,9 +75,9 @@ func (bIndex *BlockIndex) SetNull() {
 	bIndex.Skip = nil
 
 	bIndex.Height = 0
-	bIndex.File = 0
-	bIndex.DataPos = 0
-	bIndex.UndoPos = 0
+	bIndex.File = -1
+	bIndex.DataPos = -1
+	bIndex.UndoPos = -1
 	bIndex.ChainWork = big.Int{}
 	bIndex.ChainTxCount = 0
 	bIndex.TxCount = 0
@@ -115,9 +115,12 @@ func (bIndex *BlockIndex) GetDataPos() int {
 	return 0
 }
 
-func (bIndex *BlockIndex) GetUndoPos() int {
+func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.UndoPos}
+}
 
-	return 0
+func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.DataPos}
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {

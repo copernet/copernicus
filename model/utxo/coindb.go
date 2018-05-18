@@ -25,6 +25,7 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 
 	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
 	if err != nil{
+
 		return nil, err
 	}
 	coin := NewEmptyCoin()

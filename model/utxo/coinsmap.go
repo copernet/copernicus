@@ -35,7 +35,7 @@ func (coinsCache *CoinsMap) Flush(hashBlock util.Hash) bool {
 }
 
 
-func (coinsCache *CoinsMap) AddCoin(point *outpoint.OutPoint, coin Coin, possibleOverwrite bool) {
+func (coinsCache *CoinsMap) AddCoin(point *outpoint.OutPoint, coin Coin) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
@@ -44,26 +44,26 @@ func (coinsCache *CoinsMap) AddCoin(point *outpoint.OutPoint, coin Coin, possibl
 		return
 	}
 	fresh := false
-	_, ok := coinsCache.cacheCoins[*point]
-	if !ok {
-		coinsCache.cacheCoins[*point] = NewEmptyCoin()
-	}
 
-	if !possibleOverwrite {
-		if !coinsCache.cacheCoins[*point].IsSpent() {
-			panic("Adding new coin that replaces non-pruned entry")
+	if true{
+		oldCoin, ok := coinsCache.cacheCoins[*point]
+		if ok{
+			//exist old Coin in cache
+			if oldCoin.IsSpent(){
+				panic("Adding new coin that replaces non-pruned entry")
+			}
+			fresh = !oldCoin.dirty
+		}else{
+			fresh = true
 		}
-		fresh = coinsCache.cacheCoins[*point].dirty == false
 	}
-
-	*coinsCache.cacheCoins[*point] = coin
-
+	newcoin := &coin
+	newcoin.dirty = true
 	if fresh {
-		coinsCache.cacheCoins[*point].dirty = true
-		coinsCache.cacheCoins[*point].fresh = true
-	} else {
-		coinsCache.cacheCoins[*point].dirty = true
+		newcoin.fresh = true
 	}
+	coinsCache.cacheCoins[*point] = newcoin
+
 }
 
 func (coinsCache *CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
@@ -78,4 +78,29 @@ func (coinsCache *CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 		coin.Clear()
 	}
 	return coin
+}
+
+// different from GetCoin, if not get coin, FetchCoin will get coin from global cache
+func (coinsMap *CoinsMap)FetchCoin(out *outpoint.OutPoint) *Coin{
+	coin := coinsMap.GetCoin(out)
+	if coin != nil{
+		return coin
+	}
+	coin, _ = GetUtxoCacheInstance().GetCoin(out)
+	newCoin := coin.DeepCopy()
+	if newCoin.IsSpent(){
+		newCoin.fresh = true
+		newCoin.dirty = false
+	}
+	coinsMap.cacheCoins[*out] = newCoin
+	return newCoin
+}
+// different from GetCoin, if not get coin, FetchCoin will get coin from global cache
+func (coinsMap *CoinsMap)SpendGlobalCoin(out *outpoint.OutPoint) *Coin{
+	coin := coinsMap.FetchCoin(out)
+	if coin == nil{
+		return coin
+	}
+
+	return coinsMap.SpendCoin(out)
 }
