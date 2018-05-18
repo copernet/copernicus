@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
 	utxo2 "github.com/btcboost/copernicus/logic/utxo"
@@ -16,9 +17,10 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/service"
+	"github.com/btcsuite/btcd/wire"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -26,7 +28,7 @@ var rawTransactionHandlers = map[string]commandHandler{
 	"createrawtransaction": handleCreateRawTransaction,
 	"decoderawtransaction": handleDecodeRawTransaction,
 	"decodescript":         handleDecodeScript,
-	"sendrawtransaction":   handleSendRawTransaction,
+	"sendrawtransaction":   handleSendRawTransaction, // complete
 
 	"signrawtransaction": handleSignRawTransaction,
 	"gettxoutproof":      handleGetTxoutProof,
@@ -207,7 +209,7 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 	}
 
 	if chain.GTxIndex {
-		blockchain.GBlockTree.ReadTxIndex(hash)
+		chain.GBlockTree.ReadTxIndex(hash)
 		//blockchain.OpenBlockFile(, true)
 		// todo complete
 	}
@@ -236,18 +238,48 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 }
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		c := cmd.(*btcjson.CreateRawTransactionCmd)
+	c := cmd.(*btcjson.CreateRawTransactionCmd)
 
-		// Validate the locktime, if given.
-		if c.LockTime != nil &&
-			(*c.LockTime < 0 || *c.LockTime > int64(wire.MaxTxInSequenceNum)) {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidParameter,
-				Message: "Locktime out of range",
+	var transaction *tx.Tx
+	// Validate the locktime, if given.
+	if c.LockTime != nil &&
+		(*c.LockTime < 0 || *c.LockTime > int64(wire.MaxTxInSequenceNum)) {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidParameter,
+			Message: "Locktime out of range",
+		}
+
+		transaction = tx.NewTx(uint32(*c.LockTime), 0)
+	}
+
+	for _, input := range c.Inputs {
+		hash, err := util.GetHashFromStr(input.Txid)
+		if err != nil {
+			return nil, rpcDecodeHexError(input.Txid)
+		}
+
+		if input.Vout < 0 {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid parameter, vout must be positive",
 			}
 		}
 
+		sequence := uint32(math.MaxUint32)
+		if transaction.GetLocalTime() != 0 {
+			sequence = math.MaxUint32 - 1
+		}
+
+		// todo lack handle with sequence parameter(optional), is reasonable?
+		in := txin.NewTxIn(outpoint.NewOutPoint(*hash, input.Vout), &script.Script{}, sequence)
+		transaction.AddTxIn(in)
+	}
+
+	for address, cost := range c.Amounts {
+		// todo do not support the key named 'data' in btcd
+
+	}
+	/*
 		// Add all transaction inputs to a new transaction after performing
 		// some validity checks.
 		mtx := wire.NewMsgTx(wire.TxVersion)
@@ -337,8 +369,8 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 		if err != nil {
 			return nil, err
 		}
-		return mtxHex, nil
 	*/
+
 	return nil, nil
 }
 
@@ -425,6 +457,7 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SendRawTransactionCmd)
+
 	buf := bytes.NewBufferString(c.HexTx)
 	transaction := tx.Tx{}
 	err := transaction.Unserialize(buf)
