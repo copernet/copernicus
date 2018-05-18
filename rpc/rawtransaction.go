@@ -8,6 +8,7 @@ import (
 
 	"github.com/btcboost/copernicus/internal/btcjson"
 	utxo2 "github.com/btcboost/copernicus/logic/utxo"
+	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -18,8 +19,10 @@ import (
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcsuite/btcd/wire"
 )
 
@@ -266,7 +269,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 		}
 
 		sequence := uint32(math.MaxUint32)
-		if transaction.GetLocalTime() != 0 {
+		if transaction.GetLockTime() != 0 {
 			sequence = math.MaxUint32 - 1
 		}
 
@@ -277,101 +280,29 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 
 	for address, cost := range c.Amounts {
 		// todo do not support the key named 'data' in btcd
-
-	}
-	/*
-		// Add all transaction inputs to a new transaction after performing
-		// some validity checks.
-		mtx := wire.NewMsgTx(wire.TxVersion)
-		for _, input := range c.Inputs {
-			txHash, err := chainhash.NewHashFromStr(input.Txid)
-			if err != nil {
-				return nil, rpcDecodeHexError(input.Txid)
-			}
-
-			prevOut := wire.NewOutPoint(txHash, input.Vout)
-			txIn := wire.NewTxIn(prevOut, []byte{}, nil)
-			if c.LockTime != nil && *c.LockTime != 0 {
-				txIn.Sequence = wire.MaxTxInSequenceNum - 1
-			}
-			mtx.AddTxIn(txIn)
-		}
-
-		// Add all transaction outputs to the transaction after performing
-		// some validity checks.
-		params := s.cfg.ChainParams
-		for encodedAddr, amount := range c.Amounts {
-			// Ensure amount is in the valid range for monetary amounts.
-			if amount <= 0 || amount > btcutil.MaxSatoshi {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCType,
-					Message: "Invalid amount",
-				}
-			}
-
-			// Decode the provided address.
-			addr, err := btcutil.DecodeAddress(encodedAddr, params)
-			if err != nil {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidAddressOrKey,
-					Message: "Invalid address or key: " + err.Error(),
-				}
-			}
-
-			// Ensure the address is one of the supported types and that
-			// the network encoded with the address matches the network the
-			// server is currently on.
-			switch addr.(type) {
-			case *btcutil.AddressPubKeyHash:
-			case *btcutil.AddressScriptHash:
-			default:
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidAddressOrKey,
-					Message: "Invalid address or key",
-				}
-			}
-			if !addr.IsForNet(params) {
-				return nil, &btcjson.RPCError{
-					Code: btcjson.ErrRPCInvalidAddressOrKey,
-					Message: "Invalid address: " + encodedAddr +
-						" is for the wrong network",
-				}
-			}
-
-			// Create a new script which pays to the provided address.
-			pkScript, err := txscript.PayToAddrScript(addr)
-			if err != nil {
-				context := "Failed to generate pay-to-address script"
-				return nil, internalRPCError(err.Error(), context)
-			}
-
-			// Convert the amount to satoshi.
-			satoshi, err := btcutil.NewAmount(amount)
-			if err != nil {
-				context := "Failed to convert amount"
-				return nil, internalRPCError(err.Error(), context)
-			}
-
-			txOut := wire.NewTxOut(int64(satoshi), pkScript)
-			mtx.AddTxOut(txOut)
-		}
-
-		// Set the Locktime, if given.
-		if c.LockTime != nil {
-			mtx.LockTime = uint32(*c.LockTime)
-		}
-
-		// Return the serialized and hex-encoded transaction.  Note that this
-		// is intentionally not directly returning because the first return
-		// value is a string and it would result in returning an empty string to
-		// the client instead of nothing (nil) in the case of an error.
-		mtxHex, err := messageToHex(mtx)
+		addr, err := bitaddr.AddressFromString(address)
 		if err != nil {
-			return nil, err
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidAddressOrKey,
+				Message: "Invalid Bitcoin address: " + address,
+			}
 		}
-	*/
 
-	return nil, nil
+		outValue := int64(cost * 1e8)
+		if !amount.MoneyRange(outValue) {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid amount",
+			}
+		}
+		out := txout.NewTxOut(outValue, script.NewScriptRaw(addr.EncodeToPubKeyHash()))
+		transaction.AddTxOut(out)
+	}
+
+	buf := bytes.NewBuffer(nil)
+	transaction.Serialize(buf)
+
+	return hex.EncodeToString(buf.Bytes()), nil
 }
 
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

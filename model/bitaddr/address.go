@@ -1,4 +1,4 @@
-package core
+package bitaddr
 
 import (
 	"bytes"
@@ -28,8 +28,12 @@ type Address struct {
 	hash160    [20]byte
 }
 
+func (addr *Address) EncodeToPubKeyHash() []byte {
+	return addr.hash160[:]
+}
+
 func AddressFromString(addressStr string) (btcAddress *Address, err error) {
-	decodes := base58.Decode(addressStr)
+	decodes := base58.Decode(addressStr) // todo check whether is CheckDecode() or not
 	if decodes == nil {
 		err = errors.Errorf("can not  base58-decode string  %s", addressStr)
 		return
@@ -38,7 +42,7 @@ func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 		err = errors.Errorf("addressStr length is %d ,not %d", len(decodes), AddressBytesLength)
 		return
 	}
-	checkBytes := crypto.DoubleSha256Bytes(decodes[0:21])
+	checkBytes := util.DoubleSha256Bytes(decodes[0:21])
 	if !bytes.Equal(checkBytes[:4], decodes[21:25]) {
 		err = errors.Errorf("addressStr(%s) checksum failed", addressStr)
 	} else {
@@ -81,6 +85,7 @@ func AddressFromHash160(hash160 []byte, version byte) (address *Address, err err
 	}
 	return
 }
+
 func Hash160ToAddressStr(hash160 []byte, version byte) (str string, err error) {
 	if len(hash160) != Hash160BytesLength {
 		err = errors.Errorf("hash160 length %d not %d", len(hash160), Hash160BytesLength)
