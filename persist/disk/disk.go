@@ -15,11 +15,12 @@ import (
 	"bytes"
 	"copernicus/policy"
 	"math"
-	"copernicus/core"
 	"sync/atomic"
 	"time"
 	"github.com/btcboost/copernicus/model/utxo"
 	"syscall"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/tx"
 )
 type FlushStateMode int
 
@@ -141,7 +142,7 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *consensus.BitcoinPa
 	return blk, true
 }
 
-var gLastWrite,gLastFlush = 0,0
+
 func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
 	ret = true
 	// TODO: LOCK2(cs_main, cs_LastBlockFile);
@@ -185,7 +186,7 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	//}
 	mempoolUsage := int64(0) // todo mempool.mempoolUsage
 	coinsTip := utxo.GetUtxoCacheInstance()
-	nMempoolSizeMax := int64(policy.DefaultMaxMemPoolSize) * 1000000
+	nMempoolSizeMax := int64(tx.DefaultMaxMemPoolSize) * 1000000
 	DBPeakUsageFactor := int64(2)
 	cacheSize := coinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
 	nCoinCacheUsage := 5000 * 300
@@ -202,11 +203,11 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	// It's been a while since we wrote the block index to disk. Do this
 	// frequently, so we don't need to redownLoad after a crash.
 	DataBaseWriteInterval := 60*60
-	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > gLastWrite+DataBaseWriteInterval*1000000
+	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > GlobalLastWrite+DataBaseWriteInterval*1000000
 	// It's been very long since we flushed the cache. Do this infrequently,
 	// to optimize cache usage.
 	DataBaseFlushInterval := 24*60*60
-	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > gLastFlush+DataBaseFlushInterval*1000000
+	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > GlobalLastFlush+DataBaseFlushInterval*1000000
 	// Combine all conditions that result in a full cache flush.
 	fDoFullFlush := mode == FlushStateAlways || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
 	// Write blocks and block index to disk.
@@ -219,43 +220,27 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		FlushBlockFile(false)
 		// Then update all block file information (which may refer to block and undo files).
 
-		type Files struct {
-			key   []int
-			value []*BlockFileInfo
-		}
 
-		files := Files{
-			key:   make([]int, 0),
-			value: make([]*BlockFileInfo, 0),
+		tBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(*GlobalBlockFileInfoMap))
+		for _, bfi := range *GlobalBlockFileInfoMap {
+			tBlockFileInfoList = append(tBlockFileInfoList, bfi)
 		}
-
-		lists := gSetDirtyFileInfo.List()
-		for _, value := range lists {
-			v := value.(int)
-			files.key = append(files.key, v)
-			files.value = append(files.value, gInfoBlockFile[v])
-			gSetDirtyFileInfo.RemoveItem(v)
+		GlobalBlockFileInfoMap = new(BlockFileInfoMap)
+		tBlockIndexList := make([]*blockindex.BlockIndex, 0, len(*GlobalBlockIndexMap))
+		for _, bi := range *GlobalBlockIndexMap {
+			tBlockIndexList = append(tBlockIndexList, bi)
 		}
-
-		var blocks = make([]*core.BlockIndex, 0)
-		list := gSetDirtyBlockIndex.List()
-		for _, value := range list {
-			v := value.(*core.BlockIndex)
-			blocks = append(blocks, v)
-			gSetDirtyBlockIndex.RemoveItem(value)
+		GlobalBlockIndexMap = new(BlockIndexMap)
+		btd := chain.GetBlockTreeDBInstance()
+		err := btd.WriteBatchSync(tBlockFileInfoList, GlobalLastBlockFile,  tBlockIndexList)
+		if err != nil{
+			ret = AbortNode(state, "Failed to write to block index database", "")
 		}
-
-		//err := GBlockTree.WriteBatchSync(files, gLastBlockFile, blocks)
-		//if err != nil {
-		//	ret = AbortNode(state, "Failed to write to block index database", "")
-		//}
-		//
-		//// Finally remove any pruned files
+		GlobalLastWrite = int(nNow)
+		//// todo Finally remove any pruned files
 		//if fFlushForPrune {
 		//	UnlinkPrunedFiles(setFilesToPrune)
 		//}
-		gLastWrite = int(nNow)
-
 	}
 
 	// Flush best chain related state. This can only be done if the blocks /
@@ -266,20 +251,20 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		// twice (once in the log, and once in the tables). This is already
 		// an overestimation, as most will delete an existing entry or
 		// overwrite one. Still, use a conservative safety factor of 2.
-		if !CheckDiskSpace(uint32(48 * 2 * 2 * GCoinsTip.GetCacheSize())) {
+		if !CheckDiskSpace(uint32(48 * 2 * 2 * coinsTip.GetCacheSize())) {
 			ret = state.Error("out of disk space")
 		}
 		// Flush the chainState (which may refer to block index entries).
-		if !GCoinsTip.Flush() {
+		if !coinsTip.Flush() {
 			ret = AbortNode(state, "Failed to write to coin database", "")
 		}
-		gLastFlush = int(nNow)
+		GlobalLastFlush = int(nNow)
 	}
 	if fDoFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
-		int(nNow) > gLastSetChain+DataBaseWriteInterval*1000000) {
+		int(nNow) > GlobalLastSetChain+DataBaseWriteInterval*1000000) {
 		// Update best block in wallet (so we can detect restored wallets).
 		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
-		gLastSetChain = int(nNow)
+		GlobalLastSetChain = int(nNow)
 	}
 
 	return
@@ -315,7 +300,7 @@ func FlushBlockFile(fFinalize bool) {
 	fileOld := OpenBlockFile(posOld, false)
 	if fileOld != nil {
 		if fFinalize {
-			os.Truncate(fileOld.Name(), int64(gInfoBlockFile[gLastBlockFile].Size))
+			os.Truncate(fileOld.Name(), int64((*GlobalBlockFileInfoMap)[GlobalLastBlockFile].Size))
 			fileOld.Sync()
 			fileOld.Close()
 		}
@@ -324,7 +309,7 @@ func FlushBlockFile(fFinalize bool) {
 	fileOld = OpenUndoFile(*posOld, false)
 	if fileOld != nil {
 		if fFinalize {
-			os.Truncate(fileOld.Name(), int64(gInfoBlockFile[gLastBlockFile].UndoSize))
+			os.Truncate(fileOld.Name(), int64((*GlobalBlockFileInfoMap)[GlobalLastBlockFile].UndoSize))
 			fileOld.Sync()
 			fileOld.Close()
 		}
