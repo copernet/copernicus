@@ -84,17 +84,17 @@ func createTxRawResult(tx *tx.Tx, hashBlock *util.Hash, params *consensus.Bitcoi
 
 	hash := tx.TxHash()
 	txReply := &btcjson.TxRawResult{
-		TxID:     hash.ToString(),
-		Hash:     hash.ToString(),
+		TxID:     hash.String(),
+		Hash:     hash.String(),
 		Size:     int(tx.SerializeSize()),
-		Version:  tx.Version,
-		LockTime: tx.LockTime,
+		Version:  tx.GetVersion(),
+		LockTime: tx.GetLockTime(),
 		Vin:      createVinList(tx),
 		Vout:     createVoutList(tx, params),
 	}
 
 	if !hashBlock.IsNull() {
-		txReply.BlockHash = hashBlock.ToString()
+		txReply.BlockHash = hashBlock.String()
 		bindex := chain.GlobalChain.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
 		if bindex != nil {
 			if chain.GlobalChain.Contains(bindex) {
@@ -117,7 +117,7 @@ func createVinList(tx *tx.Tx) []btcjson.Vin {
 		if tx.IsCoinBase() {
 			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
 		} else {
-			vinList[index].Txid = in.PreviousOutPoint.Hash.ToString()
+			vinList[index].Txid = in.PreviousOutPoint.Hash.String()
 			vinList[index].Vout = in.PreviousOutPoint.Index
 			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.GetScriptSig(), true)
 			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetData())
@@ -417,7 +417,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	// todo here
 
-	return hash.ToString(), nil
+	return hash.String(), nil
 }
 
 func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
