@@ -14,6 +14,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/model/script"
 )
 
 const (
@@ -27,35 +28,11 @@ const (
 )
 
 const (
-	// SequenceLockTimeDisableFlag below flags apply in the context of BIP 68*/
-	// If this flag set, CTxIn::nSequence is NOT interpreted as a
-	// relative lock-time. */
-	SequenceLockTimeDisableFlag = 1 << 31
-
-	// SequenceLockTimeTypeFlag if CTxIn::nSequence encodes a relative lock-time and this flag
-	// is set, the relative lock-time has units of 512 seconds,
-	// otherwise it specifies blocks with a granularity of 1.
-	SequenceLockTimeTypeFlag = 1 << 22
-
-	// SequenceLockTimeMask if CTxIn::nSequence encodes a relative lock-time, this mask is
-	// applied to extract that lock-time from the sequence field.
-	SequenceLockTimeMask = 0x0000ffff
-
-	// SequenceLockTimeQranularity in order to use the same number of bits to encode roughly the
-	// same wall-clock duration, and because blocks are naturally
-	// limited to occur every 600s on average, the minimum granularity
-	// for time-based relative lock-time is fixed at 512 seconds.
-	// Converting from CTxIn::nSequence to seconds is performed by
-	// multiplying by 512 = 2^9, or equivalently shifting up by
-	// 9 bits.
-	SequenceLockTimeQranularity = 9
-
 	MaxMoney = 21000000 * CoinAmount
 
 	// MaxTxSigOpsCounts the maximum allowed number of signature check operations per transaction (network rule)
 	MaxTxSigOpsCounts = 20000
 
-	MaxTxInSequenceNum uint32 = 0xffffffff
 	FreeListMaxItems          = 12500
 	MaxMessagePayload         = 32 * 1024 * 1024
 	MinTxInPayload            = 9 + util.Hash256Size
@@ -66,15 +43,15 @@ const (
 const (
 	/*DefaultMaxGeneratedBlockSize default for -blockMaxsize, which controls the maximum size of block the
 	 * mining code will create **/
-	DefaultMaxGeneratedBlockSize uint64 = 2 * consensus.OneMegaByte
+	//DefaultMaxGeneratedBlockSize uint64 = 2 * consensus.OneMegaByte
 	/** Default for -blockprioritypercentage, define the amount of block space
 	 * reserved to high priority transactions **/
 
-	DefaultBlockPriorityPercentage uint64= 5
+	//DefaultBlockPriorityPercentage uint64= 5
 
 	/*DefaultBlockMinTxFee default for -blockMinTxFee, which sets the minimum feeRate for a transaction
 	 * in blocks created by mining code **/
-	DefaultBlockMinTxFee uint = 1000
+	//DefaultBlockMinTxFee uint = 1000
 
 	MaxStandardVersion = 2
 
@@ -88,7 +65,7 @@ const (
 	MaxStandardTxSigOps = uint(consensus.MaxTxSigOpsCount / 5)
 
 	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
-	DefaultMaxMemPoolSize uint = 300
+	//DefaultMaxMemPoolSize uint = 300
 
 	/** Default for -incrementalrelayfee, which sets the minimum feerate increase
  	* for mempool limiting or BIP 125 replacement **/
@@ -121,8 +98,6 @@ type Tx struct {
 }
 
 //var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
-
-
 func (tx *Tx) AddTxIn(txIn *txin.TxIn) {
 	tx.ins = append(tx.ins, txIn)
 }
@@ -190,7 +165,7 @@ func (tx *Tx) SerializeSize() uint {
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
-	err := util.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(tx.Version))
+	err := util.BinarySerializer.PutUint32(writer, binary.LittleEndian, uint32(tx.version))
 	if err != nil {
 		return err
 	}
@@ -216,8 +191,7 @@ func (tx *Tx) Serialize(writer io.Writer) error {
 			return err
 		}
 	}
-	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.LockTime)
-
+	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.lockTime)
 }
 
 func (tx *Tx)Unserialize(reader io.Reader) error {
@@ -234,14 +208,14 @@ func (tx *Tx)Unserialize(reader io.Reader) error {
 		return err
 	}
 
-	tx.Version = int32(version)
+	tx.version = int32(version)
 	tx.ins = make([]*txin.TxIn, count)
 
 	for i := uint64(0); i < count; i++ {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		txIn.PreviousOutPoint.Hash = *new(util.Hash)
-		err = txIn.Serialize(reader)
+		err = txIn.Unserialize(reader)
 		if err != nil {
 			return err
 		}
@@ -264,7 +238,7 @@ func (tx *Tx)Unserialize(reader io.Reader) error {
 		tx.outs[i] = txOut
 	}
 
-	tx.LockTime, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	tx.lockTime, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
 		return err
 	}
@@ -289,6 +263,14 @@ func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 		}
 	}*/
 	return n
+}
+
+func (tx *Tx) GetLockTime() uint32 {
+	return tx.lockTime
+}
+
+func (tx *Tx) GetVersion() int32 {
+	return tx.version
 }
 
 // starting BIP16(Apr 1 2012), we should check p2sh
@@ -770,7 +752,7 @@ func (tx *Tx) CalculateModifiedSize() uint {
 }
 
 func (tx *Tx) isFinal(Height int, time int64) bool {
-	if tx.LockTime == 0 {
+	if tx.lockTime == 0 {
 		return true
 	}
 
@@ -782,7 +764,7 @@ func (tx *Tx) isFinal(Height int, time int64) bool {
 		lockTimeLimit = time
 	}
 	*/
-	if int64(tx.LockTime) < lockTimeLimit {
+	if int64(tx.lockTime) < lockTimeLimit {
 		return true
 	}
 	/*
@@ -925,7 +907,7 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *blockin
 	// tx.nVersion is signed integer so requires cast to unsigned otherwise
 	// we would be doing a signed comparison and half the range of nVersion
 	// wouldn't support BIP 68.
-	fEnforceBIP68 := tx.Version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
+	fEnforceBIP68 := tx.version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
 
 	// Do not enforce sequence numbers as a relative lock time
 	// unless we have been instructed to
@@ -941,7 +923,7 @@ func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *blockin
 		// Sequence numbers with the most significant bit set are not
 		// treated as relative lock-times, nor are they given any
 		// core-enforced meaning at this point.
-		if (txin.Sequence & SequenceLockTimeDisableFlag) != 0 {
+		if (txin.Sequence & script.SequenceLockTimeDisableFlag) != 0 {
 			// The height of this input is not relevant for sequence locks
 			prevHeights[txinIndex] = 0
 			continue
@@ -976,9 +958,14 @@ func(tx *Tx)GetIns() []*txin.TxIn {
 	return tx.ins
 }
 
+func(tx *Tx)GetOuts() []*txout.TxOut {
+	return tx.outs
+}
+
 func NewTx(locktime uint32, version int32) *Tx {
 	return &Tx{lockTime: locktime, version: version}
 }
+
 /*
 // PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing
 type PrecomputedTransactionData struct {

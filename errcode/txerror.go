@@ -4,10 +4,8 @@ import "fmt"
 
 type TxErr int
 
-const TxErrBase TxErr = 2000
-
 const (
-	ErrorNoPreviousOut TxErr = TxErrBase + iota
+	ErrorNoPreviousOut TxErr = TxErrorBase + iota
 )
 
 var txErrorToString = map[TxErr]string {

@@ -39,14 +39,14 @@ func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
 	// maximum message payload may increase in the future and this
 	// optimization may go unnoticed, so allocate space for 10 decimal
 	// digits, which will fit any uint32.
-	buf := make([]byte, 2*util.Hash256Size+1, 2*util.Hash256Size+1+10)
+	buf := make([]byte, 2 * util.Hash256Size + 1, 2 * util.Hash256Size + 1 + 10)
 	copy(buf, outPoint.Hash.ToString())
 	buf[2*util.Hash256Size] = ':'
 	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
 	return io.Write(buf)
 }
 
-func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
+func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
 	_, err = io.ReadFull(reader, outPoint.Hash[:])
 	if err != nil {
 		return
@@ -55,7 +55,7 @@ func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	return
 }
 
-func (outPoint *OutPoint) WriteOutPoint(writer io.Writer) error {
+func (outPoint *OutPoint) Encode(writer io.Writer) error {
 	_, err := writer.Write(outPoint.Hash.GetCloneBytes())
 	if err != nil {
 		return err
