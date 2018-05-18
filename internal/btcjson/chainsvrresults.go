@@ -517,6 +517,8 @@ type SearchRawTransactionsResult struct {
 // TxRawDecodeResult models the data from the decoderawtransaction command.
 type TxRawDecodeResult struct {
 	Txid     string `json:"txid"`
+	Hash     string `json:"hash"`
+	Size     uint   `json:"size"`
 	Version  int32  `json:"version"`
 	Locktime uint32 `json:"locktime"`
 	Vin      []Vin  `json:"vin"`

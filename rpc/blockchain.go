@@ -407,7 +407,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
-			s[i] = index.Tx.Hash.ToString()
+			s[i] = index.Tx.Hash.String()
 			i++
 		}
 		return s, nil
@@ -416,7 +416,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 	for index := range txSet {
 		hash := index.Tx.Hash
-		infos[hash.ToString()] = entryToJSON(index)
+		infos[hash.String()] = entryToJSON(index)
 	}
 	return infos, nil
 }
@@ -426,7 +426,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	result.Size = entry.TxSize
 	result.Fee = valueFromAmount(entry.TxFee)
 	result.ModifiedFee = valueFromAmount(entry.SumFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
-	result.Time = entry.Time
+	result.Time = entry.GetTime()
 	result.Height = entry.TxHeight
 	// remove priority at current version
 	result.StartingPriority = 0

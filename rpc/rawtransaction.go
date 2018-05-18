@@ -27,8 +27,8 @@ import (
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
-	"getrawtransaction":    handleGetRawTransaction, // complete
-	"createrawtransaction": handleCreateRawTransaction,
+	"getrawtransaction":    handleGetRawTransaction,    // complete
+	"createrawtransaction": handleCreateRawTransaction, // complete
 	"decoderawtransaction": handleDecodeRawTransaction,
 	"decodescript":         handleDecodeScript,
 	"sendrawtransaction":   handleSendRawTransaction, // complete
@@ -306,36 +306,35 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 }
 
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
+	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
-		// Deserialize the transaction.
-		hexStr := c.HexTx
-		if len(hexStr)%2 != 0 {
-			hexStr = "0" + hexStr
-		}
-		serializedTx, err := hex.DecodeString(hexStr)
-		if err != nil {
-			return nil, rpcDecodeHexError(hexStr)
-		}
-		var mtx wire.MsgTx
-		err = mtx.Deserialize(bytes.NewReader(serializedTx))
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDeserialization,
-				Message: "TX decode failed: " + err.Error(),
-			}
-		}
+	// Deserialize the transaction.
+	serializedTx, err := hex.DecodeString(c.HexTx)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
 
-		// Create and return the result.
-		txReply := btcjson.TxRawDecodeResult{
-			Txid:     mtx.TxHash().String(),
-			Version:  mtx.Version,
-			Locktime: mtx.LockTime,
-			Vin:      createVinList(&mtx),
-			Vout:     createVoutList(&mtx, s.cfg.ChainParams, nil),
+	var transaction tx.Tx
+	err = transaction.Unserialize(bytes.NewReader(serializedTx))
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCDeserialization,
+			Message: "TX decode failed: " + err.Error(),
 		}
-		return txReply, nil*/
-	return nil, nil
+	}
+
+	// Create and return the result.
+	txReply := btcjson.TxRawDecodeResult{
+		Txid:     transaction.Hash.String(),
+		Hash:     transaction.Hash.String(),
+		Size:     transaction.SerializeSize(),
+		Version:  transaction.GetVersion(),
+		Locktime: transaction.GetLockTime(),
+		Vin:      createVinList(&transaction),
+		Vout:     createVoutList(&transaction, consensus.ActiveNetParams),
+	}
+
+	return txReply, nil
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
