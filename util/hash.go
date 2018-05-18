@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/astaxie/beego/logs"
+	"bytes"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -131,10 +132,7 @@ func (hash *Hash) IsEqual(target *Hash) bool {
 	if hash == nil && target == nil {
 		return true
 	}
-	if hash == nil || target == nil {
-		return false
-	}
-	return *hash == *target
+	return bytes.Equal(hash[:], target[:])
 }
 
 func (hash *Hash) IsNull() bool {
