@@ -103,6 +103,7 @@ type Configuration struct {
 	GoVersion string `validate:"require"` //description:"Display version information and exit"
 	Version   string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
+	DataDir   string `default:"data`
 	Service   struct {
 		Address string `default:"1.0.0.1:80"`
 	}
@@ -123,8 +124,10 @@ type Configuration struct {
 		MinFeeRate int64
 	}
 	P2PNet struct {
-		ListenerAddrs []string `validate:"require" default:"1234"`
-		MaxPeers      int      `default:"128"`
+		ListenAddrs         []string `validate:"require" default:"1234"`
+		MaxPeers            int      `default:"128"`
+		TargetOutbound      int      `default:"8"`
+		ConnectPeersOnStart []string
 	}
 }
 

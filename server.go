@@ -7,6 +7,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/netsync"
 	"github.com/btcboost/copernicus/peer"
@@ -1697,7 +1699,7 @@ func (s *server) peerHandler() {
 	if !cfg.DisableDNSSeed {
 		// Add peers discovered through DNS to the address manager.
 		connmgr.SeedFromDNS(activeNetParams.Params, defaultRequiredServices,
-			btcdLookup, func(addrs []*wire.NetAddress) {
+			net.LookupIP, func(addrs []*wire.NetAddress) {
 				// Bitcoind uses a lookup of the dns seeder here. This
 				// is rather strange since the values looked up by the
 				// DNS seed lookups will vary quite a lot.
@@ -2438,6 +2440,88 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 	}
 
 	return &s, nil
+}
+
+func newServer1(listenAddrs []string, chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server, error) {
+
+	cfg := conf.Cfg
+
+	services := defaultServices
+	if cfg.NoPeerBloomFilters {
+		services &^= wire.SFNodeBloom
+	}
+
+	amgr := addrmgr.New(cfg.DataDir, net.LookupIP)
+
+	var listeners []net.Listener
+	var nat NAT
+
+	var err error
+	listeners, nat, err = initListeners(amgr, cfg.P2PNet.ListenAddrs, services)
+	if err != nil {
+		return nil, err
+	}
+	if len(cfg.P2PNet.ListenAddrs) != 0 && len(listeners) == 0 {
+		return nil, errors.New("no valid listen address")
+	}
+
+	// FIXME: remove useless member
+	s := server{
+		chainParams:          chainParams,
+		addrManager:          amgr,
+		newPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
+		donePeers:            make(chan *serverPeer, cfg.P2PNet.MaxPeers),
+		banPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
+		query:                make(chan interface{}),
+		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
+		broadcast:            make(chan broadcastMsg, cfg.P2PNet.MaxPeers),
+		quit:                 make(chan struct{}),
+		modifyRebroadcastInv: make(chan interface{}),
+		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
+		services:             services,
+		// nat:                  nat,
+		// db:                   db,
+		// timeSource: blockchain.NewMedianTime(),
+
+		// sigCache:   txscript.NewSigCache(cfg.SigCacheMaxSize),
+		// hashCache:  txscript.NewHashCache(cfg.SigCacheMaxSize),
+
+		phCh: make(chan *peer.PeerMessage),
+	}
+
+	targetOutbound := defaultTargetOutbound
+	if cfg.P2PNet.MaxPeers < targetOutbound {
+		targetOutbound = cfg.P2PNet.MaxPeers
+	}
+
+	cmgr, err := connmgr.New(&connmgr.Config{
+		Listeners:      listeners,
+		RetryDuration:  connectionRetryInterval,
+		TargetOutbound: uint32(targetOutbound),
+
+		Dial: func(ctx context.Context, netaddr net.Addr) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, netaddr.Network(), netaddr.String())
+		},
+		OnAccept:      s.inboundPeerConnected,
+		OnConnect:     s.outboundPeerConnected,
+		GetNewAddress: addmgr.GetNewAddress(), // TODO: for xiaolong
+	})
+	for _, addr := range cfg.P2PNet.ConnectPeersOnStart {
+		netAddr, err := addrStringToNetAddr(addr)
+		if err != nil {
+			return nil, err
+		}
+		go cmgr.Connect(context.TODO(), &connmgr.ConnReq{
+			Addr:      netAddr,
+			Permanent: true,
+		})
+	}
+
+	// Wait until the interrupt signal is received from an OS signal or
+	// shutdown is requested through one of the subsystems such as the RPC
+	// server.
+	<-interrupt
 }
 
 // initListeners initializes the configured net listeners and adds any bound

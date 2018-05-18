@@ -19,11 +19,11 @@ import (
 	// "github.com/btcsuite/btcd/limits"
 
 	"context"
+	"errors"
+	"github.com/btcboost/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/limits"
-	"github.com/btcsuite/btcd/addrmgr"
-	"github.com/btcsuite/btcd/txscript"
 )
 
 const (
@@ -45,128 +45,7 @@ var winServiceMain func() (bool, error)
 func bchMain(ctx context.Context, serverChan chan<- *server) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
-	cfg := conf.Cfg
 
-	// Get a channel that will be closed when a shutdown signal has been
-	// triggered either from an OS signal such as SIGINT (Ctrl+C) or from
-	// another subsystem such as the RPC server.
-	interrupt := interruptListener()
-
-	// Return now if an interrupt signal was triggered.
-	if interruptRequested(interrupt) {
-		return nil
-	}
-
-	// Load the block database.
-	// db, err := loadBlockDB()
-	// if err != nil {
-	// 	btcdLog.Errorf("%v", err)
-	// 	return err
-	// }
-	// defer func() {
-	// 	// Ensure the database is sync'd and closed on shutdown.
-	// 	btcdLog.Infof("Gracefully shutting down the database...")
-	// 	db.Close()
-	// }()
-
-	// Return now if an interrupt signal was triggered.
-	// if interruptRequested(interrupt) {
-	// 	return nil
-	// }
-
-	// Drop indexes and exit if requested.
-	//
-	// NOTE: The order is important here because dropping the tx index also
-	// drops the address index since it relies on it.
-	// if cfg.DropAddrIndex {
-	// 	if err := indexers.DropAddrIndex(db, interrupt); err != nil {
-	// 		btcdLog.Errorf("%v", err)
-	// 		return err
-	// 	}
-
-	// 	return nil
-	// }
-	// if cfg.DropTxIndex {
-	// 	if err := indexers.DropTxIndex(db, interrupt); err != nil {
-	// 		btcdLog.Errorf("%v", err)
-	// 		return err
-	// 	}
-
-	// 	return nil
-	// }
-
-	// Create server and start it.
-	// server, err := newServer(cfg.P2PNet.ListenerAddrs, db, activeNetParams.Params,
-	// 	interrupt)
-	// if err != nil {
-	// 	// TODO: this logging could do with some beautifying.
-	// 	btcdLog.Errorf("Unable to start server on %v: %v",
-	// 		cfg.Listeners, err)
-	// 	return err
-	// }
-	// defer func() {
-	// 	btcdLog.Infof("Gracefully shutting down the server...")
-	// 	server.Stop()
-	// 	server.WaitForShutdown()
-	// 	srvrLog.Infof("Server shutdown complete")
-	// }()
-	// server.Start()
-	// if serverChan != nil {
-	// 	serverChan <- server
-	// }
-
-	// FIXME
-	s := server{
-		chainParams:          chainParams,
-		addrManager:          amgr,
-		newPeers:             make(chan *serverPeer, cfg.MaxPeers),
-		donePeers:            make(chan *serverPeer, cfg.MaxPeers),
-		banPeers:             make(chan *serverPeer, cfg.MaxPeers),
-		query:                make(chan interface{}),
-		relayInv:             make(chan relayMsg, cfg.MaxPeers),
-		broadcast:            make(chan broadcastMsg, cfg.MaxPeers),
-		quit:                 make(chan struct{}),
-		modifyRebroadcastInv: make(chan interface{}),
-		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
-		nat:                  nat,
-		db:                   db,
-		timeSource:           blockchain.NewMedianTime(),
-		services:             services,
-		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
-		hashCache:            txscript.NewHashCache(cfg.SigCacheMaxSize),
-
-		phCh: make(chan *peer.Peer),
-	}
-
-	amgr := addrmgr.New(cfg.DataDir, iplookup)
-
-	cmgr, err := connmgr.New(&connmgr.Config{
-		ListenAddr:     cfg.P2PNet.ListenAddrs,
-		RetryDuration:  cfg.P2PNet.RetryDuration,
-		RetgetOutbound: cfg.P2PNet.TargetOutbound,
-
-		Dial: func(ctx context.Context, netaddr net.Addr) {
-			return net.Dialer{}.DialContext(ctx, netaddr.Network(), netaddr.String())
-		},
-		OnAccept:      s.inboundPeerConnected,
-		OnConnect:     s.outboundPeerConnected,
-		GetNewAddress: addmgr.GetNewAddress(),
-	})
-	for _, addr := range cfg.PeersOnStart {
-		netAddr, err := addrStringToNetAddr(addr)
-		if err != nil {
-			return err
-		}
-		go cmgr.Connect(ctx, netAddr, true)
-	}
-
-	// qiw: we must do Start() after connect PeersOnStart
-	cmgr.Start(ctx)
-
-	// Wait until the interrupt signal is received from an OS signal or
-	// shutdown is requested through one of the subsystems such as the RPC
-	// server.
-	<-interrupt
 	return nil
 }
 
