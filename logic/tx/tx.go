@@ -934,11 +934,11 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						result := util.Sha1(vch.([]byte))
 						vchHash = append(vchHash, result[:]...)
 					case opcodes.OP_SHA256:
-						vchHash = crypto.Sha256Bytes(vch.([]byte))
+						vchHash = util.Sha256Bytes(vch.([]byte))
 					case opcodes.OP_HASH160:
 						vchHash = util.Hash160(vch.([]byte))
 					case opcodes.OP_HASH256:
-						vchHash = crypto.Sha256Bytes(vch.([]byte))
+						vchHash = util.Sha256Bytes(vch.([]byte))
 					}
 					stack.Pop()
 					stack.Push(vchHash)
