@@ -35,7 +35,7 @@ var rawTransactionHandlers = map[string]commandHandler{
 	"decodescript":         handleDecodeScript,         // complete
 	"sendrawtransaction":   handleSendRawTransaction,   // complete
 
-	"signrawtransaction": handleSignRawTransaction,
+	"signrawtransaction": handleSignRawTransaction, // partial complete
 	"gettxoutproof":      handleGetTxoutProof,
 	"verifytxoutproof":   handleVerifyTxoutProof,
 }
@@ -618,36 +618,96 @@ func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransac
 
 func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetTxOutProofCmd)
+
 	setTxIds := set.New()
 	var oneTxId util.Hash
 	txIds := c.TxIDs
 
 	for idx := 0; idx < len(txIds); idx++ {
 		txId := txIds[idx]
-		_, err := util.GetHashFromStr(txId)
-		if len(txId) != 64 || err == nil {
+		hash, err := util.GetHashFromStr(txId)
+		if len(txId) != 64 || err != nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid txid " + txId,
 			}
 		}
 
-		hash := util.HashFromString(txId)
-		if setTxIds.Has(hash) {
+		if setTxIds.Has(*hash) {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid parameter, duplicated txid: " + txId,
 			}
 		}
-		setTxIds.Add(hash)
+		setTxIds.Add(*hash)
 		oneTxId = *hash
 	}
 
-	blkIndex := blockindex.BlockIndex{}
-	var hashBlk util.Hash
+	var bindex *blockindex.BlockIndex
+	var hashBlock *util.Hash
 	if c.BlockHash != nil {
+		var err error
+		hashBlock, err = util.GetHashFromStr(*c.BlockHash)
+		if err != nil {
+			return nil, rpcDecodeHexError(*c.BlockHash)
+		}
 
+		bindex = chain.GlobalChain.FindBlockIndex(*hashBlock)
+		if bindex == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Block not found",
+			}
+		}
+	} else {
+		view := utxo.GetUtxoCacheInstance()
+		coin := utxo2.AccessByTxid(view, &oneTxId)
+		if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GlobalChain.Height() {
+			bindex = chain.GlobalChain.GetIndex(int(coin.GetHeight()))
+		}
 	}
+
+	if bindex == nil {
+		tx, hashBlock, ok := GetTransaction(&oneTxId, false)
+		if !ok || hashBlock.IsNull() {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Transaction not yet in block",
+			}
+		}
+
+		bindex = chain.GlobalChain.FindBlockIndex(*hashBlock)
+		if bindex == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "Transaction index corrupt",
+			}
+		}
+	}
+
+	bk, ok := ReadBlockFromDisk(bindex)
+	if !ok {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not read block from disk",
+		}
+	}
+
+	found := 0
+	for _, transaction := range bk.Txs {
+		if setTxIds.Has(transaction.TxHash()) {
+			found++
+		}
+	}
+
+	if found != setTxIds.Size() {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "(Not all) transactions not found in specified block",
+		}
+	}
+
+	// todo merkleblock serialize
 
 	return nil, nil
 }
