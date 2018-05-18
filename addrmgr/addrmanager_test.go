@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/addrmgr"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/btcboost/copernicus/net/wire"
 )
 
 // naTest is used to describe a test to be performed against the NetAddressKey
@@ -241,11 +241,11 @@ func TestConnected(t *testing.T) {
 	ka := n.GetAddress()
 	na := ka.NetAddress()
 	// make it an hour ago
-	na.Timestamp = time.Unix(time.Now().Add(time.Hour*-1).Unix(), 0)
+	na.Timestamp = uint32(time.Now().Add(time.Hour * -1).Unix())
 
 	n.Connected(na)
 
-	if !ka.NetAddress().Timestamp.After(na.Timestamp) {
+	if !time.Unix(int64(ka.NetAddress().Timestamp), 0).After(time.Unix(int64(na.Timestamp), 0)) {
 		t.Errorf("Address should have a new timestamp, but does not")
 	}
 }

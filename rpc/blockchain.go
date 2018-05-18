@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math"
 
-	"github.com/btcboost/copernicus/core"
 	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -16,7 +15,6 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/util"
 	"github.com/pkg/errors"
 )
@@ -170,7 +168,7 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 }
 
 func handleGetBestBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return chain.GlobalChain.Tip().GetBlockHash().ToString(), nil
+	return chain.GlobalChain.Tip().GetBlockHash().String(), nil
 }
 
 func handleGetBlockCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -240,21 +238,21 @@ func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails boo
 
 	var previousHash string
 	if index.Prev != nil {
-		previousHash = index.Prev.BlockHash.ToString()
+		previousHash = index.Prev.BlockHash.String()
 	}
 
 	var nextBlockHash string
 	next := chain.GlobalChain.Next(index)
 	if next != nil {
-		nextBlockHash = next.BlockHash.ToString()
+		nextBlockHash = next.BlockHash.String()
 	}
 	return &btcjson.GetBlockVerboseResult{
-		Hash:          index.GetBlockHash().ToString(),
+		Hash:          index.GetBlockHash().String(),
 		Confirmations: uint64(confirmations),
 		Size:          block.SerializeSize(),
 		Height:        index.Height,
 		Version:       block.Header.Version,
-		MerkleRoot:    block.Header.MerkleRoot.ToString(),
+		MerkleRoot:    block.Header.MerkleRoot.String(),
 		Tx:            txs,
 		Time:          int64(block.Header.Time),
 		Mediantime:    index.GetMedianTimePast(),
@@ -322,13 +320,13 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 
 	var previousblockhash string
 	if blockIndex.Prev != nil {
-		previousblockhash = blockIndex.Prev.BlockHash.ToString()
+		previousblockhash = blockIndex.Prev.BlockHash.String()
 	}
 
 	var nextblockhash string
 	next := chain.GlobalChain.Next(blockIndex)
 	if next != nil {
-		nextblockhash = next.BlockHash.ToString()
+		nextblockhash = next.BlockHash.String()
 	}
 
 	blockHeaderReply := btcjson.GetBlockHeaderVerboseResult{
@@ -337,7 +335,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 		Height:        int32(blockIndex.Height),
 		Version:       blockIndex.Header.Version,
 		VersionHex:    fmt.Sprintf("%08x", blockIndex.Header.Version),
-		MerkleRoot:    blockIndex.Header.MerkleRoot.ToString(),
+		MerkleRoot:    blockIndex.Header.MerkleRoot.String(),
 		Time:          blockIndex.Header.Time,
 		Mediantime:    blockIndex.GetMedianTimePast(),
 		Nonce:         uint64(blockIndex.Header.Nonce),
@@ -394,22 +392,22 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 			Message: "the string " + c.TxID + " is not a standard hash",
 		}
 	}
-	txItem := mempool.Gpool.FindTx(*hash)
-	if txItem == nil {
+	entry := mempool.Gpool.FindTx(*hash)
+	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
 			Message: "Transaction not in mempool",
 		}
 	}
 
-	noLimit := uint64(math.MaxUint64)
-	txSet, err := mempool.Gpool.CalculateMemPoolAncestors(txItem, noLimit, noLimit, noLimit, noLimit, false)
+	h := entry.Tx.TxHash()
+	txSet := mempool.Gpool.CalculateMemPoolAncestors(&h)
 
 	if !c.Verbose {
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
-			s[i] = index.Tx.Hash.ToString()
+			s[i] = index.Tx.Hash.String()
 			i++
 		}
 		return s, nil
@@ -418,7 +416,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 	for index := range txSet {
 		hash := index.Tx.Hash
-		infos[hash.ToString()] = entryToJSON(index)
+		infos[hash.String()] = entryToJSON(index)
 	}
 	return infos, nil
 }
@@ -428,7 +426,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	result.Size = entry.TxSize
 	result.Fee = valueFromAmount(entry.TxFee)
 	result.ModifiedFee = valueFromAmount(entry.SumFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
-	result.Time = entry.Time
+	result.Time = entry.GetTime()
 	result.Height = entry.TxHeight
 	// remove priority at current version
 	result.StartingPriority = 0
@@ -443,7 +441,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	setDepends := make([]string, 0)
 	for _, in := range entry.Tx.GetIns() {
 		if txItem := mempool.Gpool.FindTx(in.PreviousOutPoint.Hash); txItem != nil {
-			setDepends = append(setDepends, in.PreviousOutPoint.Hash.ToString())
+			setDepends = append(setDepends, in.PreviousOutPoint.Hash.String())
 		}
 	}
 	result.Depends = setDepends
@@ -459,31 +457,28 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	entry, ok := mempool.Gpool.PoolData[*hash]
-	if !ok {
+	entry := mempool.Gpool.FindTx(*hash)
+	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
 			Message: "Transaction not in mempool",
 		}
 	}
 
-	descendants := make(map[*mempool.TxEntry]struct{})
-
-	// todo CalculateMemPoolAncestors() and CalculateDescendants() is different API form
-	mempool.Gpool.CalculateDescendants(entry, descendants)
+	descendants := mempool.Gpool.CalculateDescendants(hash)
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
 	if !c.Verbose {
 		des := make([]string, 0)
 		for item := range descendants {
-			des = append(des, item.Tx.Hash.ToString())
+			des = append(des, item.Tx.Hash.String())
 		}
 		return des, nil
 	}
 
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
-	infos[entry.Tx.Hash.ToString()] = entryToJSON(entry)
+	infos[entry.Tx.Hash.String()] = entryToJSON(entry)
 	return infos, nil
 }
 
@@ -498,8 +493,8 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 	mempool.Gpool.Lock()
 	defer mempool.Gpool.Unlock()
 
-	entry, ok := mempool.Gpool.PoolData[*hash]
-	if !ok {
+	entry := mempool.Gpool.FindTx(*hash)
+	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidAddressOrKey,
 			Message: "Transaction not in mempool",
@@ -513,8 +508,8 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 	maxMempool := util.GetArg("-maxmempool", int64(tx.DefaultMaxMemPoolSize))
 	ret := &btcjson.GetMempoolInfoResult{
 		Size:       mempool.Gpool.Size(),
-		Bytes:      mempool.Gpool.TotalTxSize,
-		Usage:      mempool.Gpool.GetCacheUsage(),
+		Bytes:      mempool.Gpool.GetPoolAllTxSize(),
+		Usage:      mempool.Gpool.GetPoolUsage(),
 		MaxMempool: maxMempool,
 		//MempoolMinFee: valueFromAmount(mempool.GetMinFee(maxMempool)),		// todo realise
 	}
@@ -550,7 +545,7 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	if *c.Verbose {
 		infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 		for hash, entry := range pool.GetAllTxEntry() {
-			infos[hash.ToString()] = entryToJSON(entry)
+			infos[hash.String()] = entryToJSON(entry)
 		}
 		return infos, nil
 	}
@@ -594,7 +589,7 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 
 	txout := coin.GetTxOut()
 	txOutReply := &btcjson.GetTxOutResult{
-		BestBlock:     index.BlockHash.ToString(),
+		BestBlock:     index.BlockHash.String(),
 		Confirmations: int64(confirmations),
 		Value:         valueFromAmount(int64(coin.GetAmount())),
 		ScriptPubKey:  ScriptPubKeyToJSON(txout.GetScriptPubKey(), true),
@@ -648,7 +643,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 
 	h := *height
 	chainHeight := chain.GlobalChain.Height()
-	if chainHeight < chain.GlobalChain.PruneAfterHeight {
+	if chainHeight < consensus.ActiveNetParams.PruneAfterHeight {
 		return false, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCMisc,
 			Message: fmt.Sprintf("Blockchain is too short for pruning."),
@@ -698,7 +693,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 			Message: "Block not found",
 		}
 	}
-	state := core.ValidationState{}
+	state := valistate.ValidationState{}
 	chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 	if !state.IsValid() {
 
@@ -709,7 +704,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	//c := cmd.(*btcjson.InvalidateBlockCmd)
 	//hash, _ := util.GetHashFromStr(c.BlockHash)
-	state := core.ValidationState{}
+	state := valistate.ValidationState{}
 
 	if len(chain.MapBlockIndex.Data) == 0 {
 		return nil, &btcjson.RPCError{
@@ -747,13 +742,13 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	}
 	chain.ResetBlockFailureFlags(index)
 
-	state := core.ValidationState{}
-	chain.ActivateBestChain(msg.ActiveNetParams, &state, nil)
+	state := valistate.ValidationState{}
+	chain.ActivateBestChain(consensus.ActiveNetParams, &state, nil)
 
 	if state.IsInvalid() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDatabase,
-			Message: chain.FormatStateMessage(&state),
+			Message: state.FormatStateMessage(),
 		}
 	}
 	return nil, nil

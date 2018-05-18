@@ -20,4 +20,8 @@ log:
 
 P2PNet:
   Listerners: 127.0.0.1:8333 127.0.0.1:18333
-  MaxPeers int
+  MaxPeers: 125
+
+AddrMgr:
+  SimNet: false
+  ConnectPeers:

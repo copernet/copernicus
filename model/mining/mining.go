@@ -5,15 +5,18 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/pow"
+	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/net/msg"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
+	"github.com/go-xorm/core"
 	"github.com/google/btree"
-	"github.com/sasaxie/go-blockchain/core"
 )
 
 const (
@@ -38,14 +41,14 @@ func GetLastBlockSize() uint64 {
 }
 
 type BlockTemplate struct {
-	Block         *core.Block
+	Block         *block.Block
 	TxFees        []amount.Amount
 	TxSigOpsCount []int
 }
 
 func newBlockTemplate() *BlockTemplate {
 	return &BlockTemplate{
-		Block:         core.NewBlock(),
+		Block:         block.NewBlock(),
 		TxFees:        make([]amount.Amount, 0),
 		TxSigOpsCount: make([]int, 0),
 	}
@@ -246,19 +249,19 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 	} else {
 		ba.height = indexPrev.Height + 1
 	}
-	ba.bt.Block.BlockHeader.Version = int32(chain.ComputeBlockVersion(indexPrev, msg.ActiveNetParams, chain.VBCache)) // todo deal with nil param
+	ba.bt.Block.Header.Version = int32(chain.ComputeBlockVersion(indexPrev, consensus.ActiveNetParams, chain.VBCache)) // todo deal with nil param
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
-		ba.bt.Block.BlockHeader.Version = int32(util.GetArg("-blockversion", int64(ba.bt.Block.BlockHeader.Version)))
+		ba.bt.Block.Header.Version = int32(util.GetArg("-blockversion", int64(ba.bt.Block.Header.Version)))
 	}
-	ba.bt.Block.BlockHeader.Time = uint32(util.GetAdjustedTime())
+	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	if consensus.StandardLocktimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
 		//ba.lockTimeCutoff = indexPrev.GetMedianTimePast() // todo fix
 		ba.lockTimeCutoff = 1
 	} else {
-		ba.lockTimeCutoff = int64(ba.bt.Block.BlockHeader.Time)
+		ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
 	}
 
 	descendantsUpdated := ba.addPackageTxs()
@@ -270,12 +273,12 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 	lastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
-	coinbaseTx := core.NewTx()
+	coinbaseTx := tx.NewTx()
 	coinbaseTx.Ins = make([]*core.TxIn, 1)
-	sig := core.Script{}
+	sig := script.Script{}
 	sig.PushInt64(int64(ba.height))
 	sig.PushOpCode(core.OP_0)
-	coinbaseTx.Ins[0] = core.NewTxIn(&core.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, sig.GetScriptByte())
+	coinbaseTx.Ins[0] = core.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, sig.GetScriptByte())
 	coinbaseTx.Outs = make([]*core.TxOut, 1)
 
 	// value represents total reward(fee and block generate reward)
@@ -290,14 +293,14 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 
 	// Fill in header.
 	if indexPrev == nil {
-		ba.bt.Block.BlockHeader.HashPrevBlock = util.HashZero
+		ba.bt.Block.Header.HashPrevBlock = util.HashZero
 	} else {
-		ba.bt.Block.BlockHeader.HashPrevBlock = *indexPrev.GetBlockHash()
+		ba.bt.Block.Header.HashPrevBlock = *indexPrev.GetBlockHash()
 	}
 	ba.bt.Block.UpdateTime(indexPrev) // todo fix
-	pow := chain.Pow{}
-	ba.bt.Block.BlockHeader.Bits = pow.GetNextWorkRequired(indexPrev, &ba.bt.Block.BlockHeader, ba.chainParams)
-	ba.bt.Block.BlockHeader.Nonce = 0
+	p := pow.Pow{}
+	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
+	ba.bt.Block.Header.Nonce = 0
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	state := core.ValidationState{}

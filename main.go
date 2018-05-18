@@ -46,7 +46,13 @@ func bchMain(ctx context.Context, serverChan chan<- *server) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
 
-	return nil
+	interrupt := interruptListener()
+
+	s := newServer1()
+
+	if interruptRequested(interrupted) {
+		return nil
+	}
 }
 
 // removeRegressionDB removes the existing regression test database if running

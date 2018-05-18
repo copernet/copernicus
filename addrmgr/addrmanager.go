@@ -21,9 +21,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"errors"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential
@@ -175,7 +178,8 @@ func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
 		// messages the netaddresses in addrmaanger are *immutable*,
 		// if we need to change them then we replace the pointer with a
 		// new copy so that we don't have to copy every na for getaddr.
-		if netAddr.Timestamp.After(ka.na.Timestamp) ||
+
+		if time.Unix(int64(netAddr.Timestamp), 0).After(time.Unix(int64(ka.na.Timestamp), 0)) ||
 			(ka.na.Services&netAddr.Services) !=
 				netAddr.Services {
 
@@ -255,7 +259,7 @@ func (a *AddrManager) expireNew(bucket int) {
 		}
 		if oldest == nil {
 			oldest = v
-		} else if !v.na.Timestamp.After(oldest.na.Timestamp) {
+		} else if !time.Unix(int64(v.na.Timestamp), 0).After(time.Unix(int64(oldest.na.Timestamp), 0)) {
 			oldest = v
 		}
 	}
@@ -281,7 +285,7 @@ func (a *AddrManager) pickTried(bucket int) *list.Element {
 	var oldestElem *list.Element
 	for e := a.addrTried[bucket].Front(); e != nil; e = e.Next() {
 		ka := e.Value.(*KnownAddress)
-		if oldest == nil || oldest.na.Timestamp.After(ka.na.Timestamp) {
+		if oldest == nil || time.Unix(int64(oldest.na.Timestamp), 0).After(time.Unix(int64(ka.na.Timestamp), 0)) {
 			oldestElem = e
 			oldest = ka
 		}
@@ -298,7 +302,7 @@ func (a *AddrManager) getNewBucket(netAddr, srcAddr *wire.NetAddress) int {
 	data1 = append(data1, a.key[:]...)
 	data1 = append(data1, []byte(GroupKey(netAddr))...)
 	data1 = append(data1, []byte(GroupKey(srcAddr))...)
-	hash1 := chainhash.DoubleHashB(data1)
+	hash1 := util.DoubleSha256Bytes(data1)
 	hash64 := binary.LittleEndian.Uint64(hash1)
 	hash64 %= newBucketsPerGroup
 	var hashbuf [8]byte
@@ -308,7 +312,7 @@ func (a *AddrManager) getNewBucket(netAddr, srcAddr *wire.NetAddress) int {
 	data2 = append(data2, GroupKey(srcAddr)...)
 	data2 = append(data2, hashbuf[:]...)
 
-	hash2 := chainhash.DoubleHashB(data2)
+	hash2 := util.DoubleSha256Bytes(data2)
 	return int(binary.LittleEndian.Uint64(hash2) % newBucketCount)
 }
 
@@ -318,7 +322,7 @@ func (a *AddrManager) getTriedBucket(netAddr *wire.NetAddress) int {
 	data1 := []byte{}
 	data1 = append(data1, a.key[:]...)
 	data1 = append(data1, []byte(NetAddressKey(netAddr))...)
-	hash1 := chainhash.DoubleHashB(data1)
+	hash1 := util.DoubleSha256Bytes(data1)
 	hash64 := binary.LittleEndian.Uint64(hash1)
 	hash64 %= triedBucketsPerGroup
 	var hashbuf [8]byte
@@ -328,7 +332,7 @@ func (a *AddrManager) getTriedBucket(netAddr *wire.NetAddress) int {
 	data2 = append(data2, GroupKey(netAddr)...)
 	data2 = append(data2, hashbuf[:]...)
 
-	hash2 := chainhash.DoubleHashB(data2)
+	hash2 := util.DoubleSha256Bytes(data2)
 	return int(binary.LittleEndian.Uint64(hash2) % triedBucketCount)
 }
 
@@ -369,7 +373,7 @@ func (a *AddrManager) savePeers() {
 	for k, v := range a.addrIndex {
 		ska := new(serializedKnownAddress)
 		ska.Addr = k
-		ska.TimeStamp = v.na.Timestamp.Unix()
+		ska.TimeStamp = int64(v.na.Timestamp)
 		ska.Src = NetAddressKey(v.srcAddr)
 		ska.Attempts = v.attempts
 		ska.LastAttempt = v.lastattempt.Unix()
@@ -840,10 +844,10 @@ func (a *AddrManager) Connected(addr *wire.NetAddress) {
 	// Update the time as long as it has been 20 minutes since last we did
 	// so.
 	now := time.Now()
-	if now.After(ka.na.Timestamp.Add(time.Minute * 20)) {
+	if now.After(time.Unix(int64(ka.na.Timestamp),0).Add(time.Minute * 20)) {
 		// ka.na is immutable, so replace it.
 		naCopy := *ka.na
-		naCopy.Timestamp = time.Now()
+		naCopy.Timestamp = uint32(time.Now().Unix())
 		ka.na = &naCopy
 	}
 }
@@ -1039,6 +1043,53 @@ func getReachabilityFrom(localAddr, remoteAddr *wire.NetAddress) int {
 	}
 
 	return Ipv6Strong
+}
+
+// NewAddress only setup a function to return new addresses to connect to when
+// not running in connect-only mode.  The simulation network is always
+// in connect-only mode since it is only intended to connect to
+// specified peers and actively avoid advertising and connecting to
+// discovered peers in order to prevent it from becoming a public test
+// network.
+
+func (a *AddrManager) NewAddress(filterOut func(gKey string) bool, astn func(string) (net.Addr, error)) (net.Addr, error) {
+
+	if !conf.Cfg.AddrMgr.SimNet && len(conf.Cfg.AddrMgr.ConnectPeers) == 0 {
+		for tries := 0; tries < 100; tries++ {
+			addr := a.GetAddress()
+			if addr == nil {
+				break
+			}
+
+			// Address will not be invalid, local or unroutable
+			// because addrmanager rejects those on addition.
+			// Just check that we don't already have an address
+			// in the same group so that we are not connecting
+			// to the same network segment at the expense of
+			// others.
+			key := GroupKey(addr.NetAddress())
+
+			if filterOut(key) {
+				continue
+			}
+
+			// only allow recent nodes (10mins) after we failed 30
+			// times
+			if tries < 30 && time.Since(addr.LastAttempt()) < 10*time.Minute {
+				continue
+			}
+
+			// allow nondefault ports after 50 failed tries.
+			if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
+				consensus.ActiveNetParams.DefaultPort {
+				continue
+			}
+
+			addrString := NetAddressKey(addr.NetAddress())
+			return astn(addrString)
+		}
+	}
+	return nil, errors.New("no valid connect address")
 }
 
 // GetBestLocalAddress returns the most appropriate local address to use

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -9,10 +10,8 @@ import (
 	"io"
 	"math/big"
 
-	"crypto/sha1"
-
-	"golang.org/x/crypto/ripemd160"
 	"github.com/astaxie/beego/logs"
+	"golang.org/x/crypto/ripemd160"
 )
 
 const (
@@ -25,6 +24,34 @@ type Hash [Hash256Size]byte
 
 var HashZero = Hash{}
 var HashOne = Hash{0x0000000000000000000000000000000000000000000000000000000000000001}
+
+func Sha256Bytes(b []byte) []byte {
+	hash := sha256.Sum256(b)
+	return hash[:Hash256Size]
+}
+func Sha256Hash(b []byte) Hash {
+	return Hash(sha256.Sum256(b))
+}
+
+func DoubleSha256Bytes(b []byte) []byte {
+	first := sha256.Sum256(b)
+	second := sha256.Sum256(first[:])
+	return second[:]
+}
+func DoubleSha256Hash(b []byte) Hash {
+	first := sha256.Sum256(b)
+	return Hash(sha256.Sum256(first[:Hash256Size]))
+}
+
+func HexToHash(str string) Hash {
+	bytes := HexToBytes(str)
+	if bytes == nil {
+		return Hash{}
+	}
+	var hashBytes [Hash256Size]byte
+	copy(hashBytes[:], bytes[:Hash256Size])
+	return Hash(hashBytes)
+}
 
 // Calculate the hash of hasher over buf.
 func calcHash(buf []byte, hasher hash.Hash) []byte {
@@ -45,7 +72,7 @@ func Sha1(buf []byte) [20]byte {
 	return sha1.Sum(buf)
 }
 
-func (hash *Hash) ToString() string {
+func (hash *Hash) String() string {
 	bytes := hash.GetCloneBytes()
 	for i := 0; i < Hash256Size/2; i++ {
 		bytes[i], bytes[Hash256Size-1-i] = bytes[Hash256Size-1-i], bytes[i]
@@ -124,6 +151,7 @@ func BytesToHash(bytes []byte) (hash *Hash, err error) {
 	if length != Hash256Size {
 		return nil, fmt.Errorf("invalid hash length of %v , want %v", length, Hash256Size)
 	}
+	hash = new(Hash)
 	hash.SetBytes(bytes)
 	return
 }

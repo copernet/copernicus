@@ -4,26 +4,34 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/script"
+	utxo2 "github.com/btcboost/copernicus/logic/utxo"
+	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/logic/utxo"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/txout"
+	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcsuite/btcd/wire"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
-	"getrawtransaction":    handleGetRawTransaction, // complete
-	"createrawtransaction": handleCreateRawTransaction,
+	"getrawtransaction":    handleGetRawTransaction,    // complete
+	"createrawtransaction": handleCreateRawTransaction, // complete
 	"decoderawtransaction": handleDecodeRawTransaction,
 	"decodescript":         handleDecodeScript,
-	"sendrawtransaction":   handleSendRawTransaction,
+	"sendrawtransaction":   handleSendRawTransaction, // complete
 
 	"signrawtransaction": handleSignRawTransaction,
 	"gettxoutproof":      handleGetTxoutProof,
@@ -76,17 +84,17 @@ func createTxRawResult(tx *tx.Tx, hashBlock *util.Hash, params *consensus.Bitcoi
 
 	hash := tx.TxHash()
 	txReply := &btcjson.TxRawResult{
-		TxID:     hash.ToString(),
-		Hash:     hash.ToString(),
+		TxID:     hash.String(),
+		Hash:     hash.String(),
 		Size:     int(tx.SerializeSize()),
-		Version:  tx.Version,
-		LockTime: tx.LockTime,
+		Version:  tx.GetVersion(),
+		LockTime: tx.GetLockTime(),
 		Vin:      createVinList(tx),
 		Vout:     createVoutList(tx, params),
 	}
 
 	if !hashBlock.IsNull() {
-		txReply.BlockHash = hashBlock.ToString()
+		txReply.BlockHash = hashBlock.String()
 		bindex := chain.GlobalChain.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
 		if bindex != nil {
 			if chain.GlobalChain.Contains(bindex) {
@@ -109,10 +117,10 @@ func createVinList(tx *tx.Tx) []btcjson.Vin {
 		if tx.IsCoinBase() {
 			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
 		} else {
-			vinList[index].Txid = in.PreviousOutPoint.Hash.ToString()
+			vinList[index].Txid = in.PreviousOutPoint.Hash.String()
 			vinList[index].Vout = in.PreviousOutPoint.Index
 			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.GetScriptSig(), true)
-			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
+			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetData())
 		}
 		vinList[index].Sequence = in.Sequence
 	}
@@ -181,11 +189,12 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 // createVoutList returns a slice of JSON objects for the outputs of the passed
 // transaction.
 func createVoutList(tx *tx.Tx, params *consensus.BitcoinParams) []btcjson.Vout {
-	voutList := make([]btcjson.Vout, len(tx.Outs))
-	for index, out := range tx.Outs {
-		voutList[index].Value = out.Value
-		voutList[index].N = uint32(index)
-		voutList[index].ScriptPubKey = ScriptPubKeyToJSON(out.Script, true)
+	voutList := make([]btcjson.Vout, tx.GetOutsCount())
+	for i := 0; i < tx.GetOutsCount(); i++ {
+		out := tx.GetTxOut(i)
+		voutList[i].Value = out.GetValue()
+		voutList[i].N = uint32(i)
+		voutList[i].ScriptPubKey = ScriptPubKeyToJSON(out.GetScriptPubKey(), true)
 	}
 
 	return voutList
@@ -197,13 +206,13 @@ func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPu
 }
 
 func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
-	tx := mempool.GetTxByHash(hash) // todo realize: in mempool get *core.Tx by hash
-	if tx != nil {
-		return tx, nil, true
+	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
+	if entry != nil {
+		return entry.Tx, nil, true
 	}
 
 	if chain.GTxIndex {
-		blockchain.GBlockTree.ReadTxIndex(hash)
+		chain.GBlockTree.ReadTxIndex(hash)
 		//blockchain.OpenBlockFile(, true)
 		// todo complete
 	}
@@ -211,16 +220,16 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 	// use coin database to locate block that contains transaction, and scan it
 	var indexSlow *blockindex.BlockIndex
 	if allowSlow {
-		coin := utxo.AccessByTxid(chain.GCoinsTip, hash)
+		coin := utxo2.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
 		if !coin.IsSpent() {
 			indexSlow = chain.GlobalChain.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
 		}
 	}
 
 	if indexSlow != nil {
-		var block *block.Block
-		if chain.ReadBlockFromDisk(block, indexSlow, consensus.ActiveNetParams) {
-			for _, tx := range block.Txs {
+		var bk *block.Block
+		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
+			for _, tx := range bk.Txs {
 				if *hash == tx.TxHash() {
 					return tx, &indexSlow.BlockHash, true
 				}
@@ -232,143 +241,100 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 }
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		c := cmd.(*btcjson.CreateRawTransactionCmd)
+	c := cmd.(*btcjson.CreateRawTransactionCmd)
 
-		// Validate the locktime, if given.
-		if c.LockTime != nil &&
-			(*c.LockTime < 0 || *c.LockTime > int64(wire.MaxTxInSequenceNum)) {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidParameter,
-				Message: "Locktime out of range",
-			}
+	var transaction *tx.Tx
+	// Validate the locktime, if given.
+	if c.LockTime != nil &&
+		(*c.LockTime < 0 || *c.LockTime > int64(wire.MaxTxInSequenceNum)) {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidParameter,
+			Message: "Locktime out of range",
 		}
 
-		// Add all transaction inputs to a new transaction after performing
-		// some validity checks.
-		mtx := wire.NewMsgTx(wire.TxVersion)
-		for _, input := range c.Inputs {
-			txHash, err := chainhash.NewHashFromStr(input.Txid)
-			if err != nil {
-				return nil, rpcDecodeHexError(input.Txid)
-			}
+		transaction = tx.NewTx(uint32(*c.LockTime), 0)
+	}
 
-			prevOut := wire.NewOutPoint(txHash, input.Vout)
-			txIn := wire.NewTxIn(prevOut, []byte{}, nil)
-			if c.LockTime != nil && *c.LockTime != 0 {
-				txIn.Sequence = wire.MaxTxInSequenceNum - 1
-			}
-			mtx.AddTxIn(txIn)
-		}
-
-		// Add all transaction outputs to the transaction after performing
-		// some validity checks.
-		params := s.cfg.ChainParams
-		for encodedAddr, amount := range c.Amounts {
-			// Ensure amount is in the valid range for monetary amounts.
-			if amount <= 0 || amount > btcutil.MaxSatoshi {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCType,
-					Message: "Invalid amount",
-				}
-			}
-
-			// Decode the provided address.
-			addr, err := btcutil.DecodeAddress(encodedAddr, params)
-			if err != nil {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidAddressOrKey,
-					Message: "Invalid address or key: " + err.Error(),
-				}
-			}
-
-			// Ensure the address is one of the supported types and that
-			// the network encoded with the address matches the network the
-			// server is currently on.
-			switch addr.(type) {
-			case *btcutil.AddressPubKeyHash:
-			case *btcutil.AddressScriptHash:
-			default:
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidAddressOrKey,
-					Message: "Invalid address or key",
-				}
-			}
-			if !addr.IsForNet(params) {
-				return nil, &btcjson.RPCError{
-					Code: btcjson.ErrRPCInvalidAddressOrKey,
-					Message: "Invalid address: " + encodedAddr +
-						" is for the wrong network",
-				}
-			}
-
-			// Create a new script which pays to the provided address.
-			pkScript, err := txscript.PayToAddrScript(addr)
-			if err != nil {
-				context := "Failed to generate pay-to-address script"
-				return nil, internalRPCError(err.Error(), context)
-			}
-
-			// Convert the amount to satoshi.
-			satoshi, err := btcutil.NewAmount(amount)
-			if err != nil {
-				context := "Failed to convert amount"
-				return nil, internalRPCError(err.Error(), context)
-			}
-
-			txOut := wire.NewTxOut(int64(satoshi), pkScript)
-			mtx.AddTxOut(txOut)
-		}
-
-		// Set the Locktime, if given.
-		if c.LockTime != nil {
-			mtx.LockTime = uint32(*c.LockTime)
-		}
-
-		// Return the serialized and hex-encoded transaction.  Note that this
-		// is intentionally not directly returning because the first return
-		// value is a string and it would result in returning an empty string to
-		// the client instead of nothing (nil) in the case of an error.
-		mtxHex, err := messageToHex(mtx)
+	for _, input := range c.Inputs {
+		hash, err := util.GetHashFromStr(input.Txid)
 		if err != nil {
-			return nil, err
+			return nil, rpcDecodeHexError(input.Txid)
 		}
-		return mtxHex, nil
-	*/
-	return nil, nil
+
+		if input.Vout < 0 {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid parameter, vout must be positive",
+			}
+		}
+
+		sequence := uint32(math.MaxUint32)
+		if transaction.GetLockTime() != 0 {
+			sequence = math.MaxUint32 - 1
+		}
+
+		// todo lack handle with sequence parameter(optional), is reasonable?
+		in := txin.NewTxIn(outpoint.NewOutPoint(*hash, input.Vout), &script.Script{}, sequence)
+		transaction.AddTxIn(in)
+	}
+
+	for address, cost := range c.Amounts {
+		// todo do not support the key named 'data' in btcd
+		addr, err := bitaddr.AddressFromString(address)
+		if err != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidAddressOrKey,
+				Message: "Invalid Bitcoin address: " + address,
+			}
+		}
+
+		outValue := int64(cost * 1e8)
+		if !amount.MoneyRange(outValue) {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid amount",
+			}
+		}
+		out := txout.NewTxOut(outValue, script.NewScriptRaw(addr.EncodeToPubKeyHash()))
+		transaction.AddTxOut(out)
+	}
+
+	buf := bytes.NewBuffer(nil)
+	transaction.Serialize(buf)
+
+	return hex.EncodeToString(buf.Bytes()), nil
 }
 
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
+	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
-		// Deserialize the transaction.
-		hexStr := c.HexTx
-		if len(hexStr)%2 != 0 {
-			hexStr = "0" + hexStr
-		}
-		serializedTx, err := hex.DecodeString(hexStr)
-		if err != nil {
-			return nil, rpcDecodeHexError(hexStr)
-		}
-		var mtx wire.MsgTx
-		err = mtx.Deserialize(bytes.NewReader(serializedTx))
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDeserialization,
-				Message: "TX decode failed: " + err.Error(),
-			}
-		}
+	// Deserialize the transaction.
+	serializedTx, err := hex.DecodeString(c.HexTx)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
 
-		// Create and return the result.
-		txReply := btcjson.TxRawDecodeResult{
-			Txid:     mtx.TxHash().String(),
-			Version:  mtx.Version,
-			Locktime: mtx.LockTime,
-			Vin:      createVinList(&mtx),
-			Vout:     createVoutList(&mtx, s.cfg.ChainParams, nil),
+	var transaction tx.Tx
+	err = transaction.Unserialize(bytes.NewReader(serializedTx))
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCDeserialization,
+			Message: "TX decode failed: " + err.Error(),
 		}
-		return txReply, nil*/
-	return nil, nil
+	}
+
+	// Create and return the result.
+	txReply := btcjson.TxRawDecodeResult{
+		Txid:     transaction.Hash.String(),
+		Hash:     transaction.Hash.String(),
+		Size:     transaction.SerializeSize(),
+		Version:  transaction.GetVersion(),
+		Locktime: transaction.GetLockTime(),
+		Vin:      createVinList(&transaction),
+		Vout:     createVoutList(&transaction, consensus.ActiveNetParams),
+	}
+
+	return txReply, nil
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -420,81 +386,39 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/* c := cmd.(*btcjson.SendRawTransactionCmd)
-	// Deserialize and send off to tx relay
-	hexStr := c.HexTx
-	if len(hexStr)%2 != 0 {
-		hexStr = "0" + hexStr
-	}
-	serializedTx, err := hex.DecodeString(hexStr)
+	c := cmd.(*btcjson.SendRawTransactionCmd)
+
+	buf := bytes.NewBufferString(c.HexTx)
+	transaction := tx.Tx{}
+	err := transaction.Unserialize(buf)
 	if err != nil {
-		return nil, rpcDecodeHexError(hexStr)
-	}
-	var msgTx msg.TxMessage
-	err = msgTx.BitcoinParse(bytes.NewReader(serializedTx),0)
-	if err != nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDeserialization,
-			Message: "TX decode failed: " + err.Error(),
-		}
+		return nil, rpcDecodeHexError(c.HexTx)
 	}
 
-	// Use 0 for the tag to represent local node.
-	acceptedTxs, err := s.cfg.TxMemPool.ProcessTransaction(msgTx.Tx, false, false, 0)
-	blockchain.
-	if err != nil {
-		// When the error is a rule error, it means the transaction was
-		// simply rejected as opposed to something actually going wrong,
-		// so log it as such.  Otherwise, something really did go wrong,
-		// so log it as an actual error.  In both cases, a JSON-RPC
-		// error is returned to the client with the deserialization
-		// error code (to match bitcoind behavior).
-		if _, ok := err.(mempool.RuleError); ok {
-			logs.Debug("Rejected transaction %v: %v", tx.Hash(),
-				err)
-		} else {
-			logs.Error("Failed to process transaction %v: %v",
-				tx.Hash(), err)
-		}
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDeserialization,
-			Message: "TX rejected: " + err.Error(),
-		}
+	hash := transaction.TxHash()
+
+	maxTxFee := 10000 // todo define this global variable
+	maxRawTxFee := maxTxFee
+	if c.AllowHighFees != nil && *c.AllowHighFees {
+		maxRawTxFee = 0
 	}
 
-	// When the transaction was accepted it should be the first item in the
-	// returned array of accepted transactions.  The only way this will not
-	// be true is if the API for ProcessTransaction changes and this code is
-	// not properly updated, but ensure the condition holds as a safeguard.
-	//
-	// Also, since an error is being returned to the caller, ensure the
-	// transaction is removed from the memory pool.
-	if len(acceptedTxs) == 0 || !acceptedTxs[0].Tx.Hash().IsEqual(tx.Hash()) {
-		s.cfg.TxMemPool.RemoveTransaction(tx, true)
-
-		errStr := fmt.Sprintf("transaction %v is not in accepted list",
-			tx.Hash())
-		return nil, internalRPCError(errStr, "")
+	view := utxo.GetUtxoCacheInstance()
+	var haveChain bool
+	for i := 0; !haveChain && i < transaction.GetOutsCount(); i++ {
+		existingCoin, _ := view.GetCoin(outpoint.NewOutPoint(hash, uint32(i)))
+		haveChain = !existingCoin.IsSpent()
 	}
 
-	// Generate and relay inventory vectors for all newly accepted
-	// transactions into the memory pool due to the original being
-	// accepted.
-	s.cfg.ConnMgr.RelayTransactions(acceptedTxs)
+	entry := mempool.Gpool.FindTx(hash)
+	if entry != nil {
+		s.Handler.ProcessForRpc(transaction)
+	}
 
-	// Notify both websocket and getblocktemplate long poll clients of all
-	// newly accepted transactions.
-	s.NotifyNewTransactions(acceptedTxs)
+	// todo here
 
-	// Keep track of all the sendrawtransaction request txns so that they
-	// can be rebroadcast if they don't make their way into a block.
-	txD := acceptedTxs[0]
-	iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.Hash())
-	s.cfg.ConnMgr.AddRebroadcastInventory(iv, txD)
-
-	return tx.Hash().String(), nil*/
-	return nil, nil
-} //Todo
+	return hash.String(), nil
+}
 
 func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return nil, nil
