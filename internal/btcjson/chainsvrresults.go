@@ -549,3 +549,17 @@ type GetMempoolEntryRelativeInfoVerbose struct {
 	AncestorFees     int64    `json:"ancestorfees"`
 	Depends          []string `json:"depends"`
 }
+
+type SignRawTransactionResult struct {
+	Hex      string                    `json:"hex"`
+	Complete bool                      `json:"complete"`
+	Errors   []SignRawTransactionError `json:"errors"`
+}
+
+type SignRawTransactionError struct {
+	TxID      string `json:"txid"`
+	Vout      int    `json:"vout"`
+	ScriptSig string `json:"scriptSig"`
+	Sequence  int    `json:"sequence"`
+	Error     string `json:"error"`
+}

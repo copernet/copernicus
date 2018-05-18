@@ -780,6 +780,21 @@ type GetMempoolDescendantsCmd struct {
 	Verbose bool   `json:"verbose";jsonrpcdefault:"false"`
 }
 
+type SignRawTransactionCmd struct {
+	HexStr      string
+	PrevTxs     []Previous
+	PrivKeys    []string
+	SigHashType string `jsonrpcdefault:"ALL"`
+}
+
+type Previous struct {
+	TxID         string
+	Vout         int
+	ScriptPubKey string
+	RedeemScript string
+	Amount       int
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -830,4 +845,6 @@ func init() {
 	MustRegisterCmd("verifychain", (*VerifyChainCmd)(nil), flags)
 	MustRegisterCmd("verifymessage", (*VerifyMessageCmd)(nil), flags)
 	MustRegisterCmd("verifytxoutproof", (*VerifyTxOutProofCmd)(nil), flags)
+	MustRegisterCmd("getmempoolancestors", (*GetMempoolAncestorsCmd)(nil), flags)
+	MustRegisterCmd("getmempooldescendants", (*GetMempoolDescendantsCmd)(nil), flags)
 }
