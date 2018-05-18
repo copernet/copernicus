@@ -29,7 +29,7 @@ import (
 var rawTransactionHandlers = map[string]commandHandler{
 	"getrawtransaction":    handleGetRawTransaction,    // complete
 	"createrawtransaction": handleCreateRawTransaction, // complete
-	"decoderawtransaction": handleDecodeRawTransaction,
+	"decoderawtransaction": handleDecodeRawTransaction, // complete
 	"decodescript":         handleDecodeScript,
 	"sendrawtransaction":   handleSendRawTransaction, // complete
 
@@ -201,8 +201,28 @@ func createVoutList(tx *tx.Tx, params *consensus.BitcoinParams) []btcjson.Vout {
 }
 
 func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
+	result := btcjson.ScriptPubKeyResult{}
 
-	return btcjson.ScriptPubKeyResult{}
+	result.Asm = ScriptToAsmStr(script, includeHex)
+	if includeHex {
+		result.Hex = hex.EncodeToString(script.GetData())
+	}
+
+	t, addresses, required, ok := script.ExtractDestinations(script)
+	if !ok {
+		result.Type = script.GetTxnOutputType(t)
+		return result
+	}
+
+	result.ReqSigs = required
+	result.Type = script.GetTxnOutputType(t)
+
+	result.Addresses = make([]string, 0, len(addresses))
+	for _, address := range addresses {
+		result.Addresses = append(result.Addresses, address.String())
+	}
+
+	return result
 }
 
 func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
@@ -338,51 +358,24 @@ func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeScriptCmd)
+	c := cmd.(*btcjson.DecodeScriptCmd)
 
-		// Convert the hex script to bytes.
-		hexStr := c.HexScript
-		if len(hexStr)%2 != 0 {
-			hexStr = "0" + hexStr
-		}
-		script, err := hex.DecodeString(hexStr)
-		if err != nil {
-			return nil, rpcDecodeHexError(hexStr)
-		}
+	// Convert the hex script to bytes.
+	scriptByte, err := hex.DecodeString(c.HexScript)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexScript)
+	}
+	st := script.NewScriptRaw(scriptByte)
 
-		// The disassembled string will contain [error] inline if the script
-		// doesn't fully parse, so ignore the error here.
-		disbuf, _ := txscript.DisasmString(script)
+	ret := ScriptPubKeyToJSON(st, false)
 
-		// Get information about the script.
-		// Ignore the error here since an error means the script couldn't parse
-		// and there is no additinal information about it anyways.
-		scriptClass, addrs, reqSigs, _ := txscript.ExtractPkScriptAddrs(script,
-			s.cfg.ChainParams)
-		addresses := make([]string, len(addrs))
-		for i, addr := range addrs {
-			addresses[i] = addr.EncodeAddress()
-		}
+	if ret.Type != "scripthash" {
+		// P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
+		// don't return the address for a P2SH of the P2SH.
+		ret.P2SH = EncodeDestination(scriptByte) // todo realise
+	}
 
-		// Convert the script itself to a pay-to-script-hash address.
-		p2sh, err := btcutil.NewAddressScriptHash(script, s.cfg.ChainParams)
-		if err != nil {
-			context := "Failed to convert script to pay-to-script-hash"
-			return nil, internalRPCError(err.Error(), context)
-		}
-
-		// Generate and return the reply.
-		reply := btcjson.DecodeScriptResult{
-			Asm:       disbuf,
-			ReqSigs:   int32(reqSigs),
-			Type:      scriptClass.String(),
-			Addresses: addresses,
-		}
-		if scriptClass != txscript.ScriptHashTy {
-			reply.P2sh = p2sh.EncodeAddress()
-		}
-		return reply, nil*/
-	return nil, nil
+	return ret, nil
 }
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

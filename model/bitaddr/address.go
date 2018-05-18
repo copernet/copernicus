@@ -32,6 +32,14 @@ func (addr *Address) EncodeToPubKeyHash() []byte {
 	return addr.hash160[:]
 }
 
+func (addr *Address) String() string {
+	if addr.addressStr != "" {
+		return addr.addressStr
+	}
+
+	return base58.CheckEncode(addr.publicKey, addr.version)
+}
+
 func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 	decodes := base58.Decode(addressStr) // todo check whether is CheckDecode() or not
 	if decodes == nil {
@@ -94,7 +102,7 @@ func Hash160ToAddressStr(hash160 []byte, version byte) (str string, err error) {
 	result := make([]byte, 25)
 	result[0] = version
 	copy(result[1:21], hash160[:])
-	checkBytes := crypto.DoubleSha256Bytes(result[:21])
+	checkBytes := util.DoubleSha256Bytes(result[:21])
 	copy(result[21:25], checkBytes[:4])
 	str = base58.Encode(result)
 	return
