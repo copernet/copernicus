@@ -168,7 +168,7 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 }
 
 func handleGetBestBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return chain.GlobalChain.Tip().GetBlockHash().ToString(), nil
+	return chain.GlobalChain.Tip().GetBlockHash().String(), nil
 }
 
 func handleGetBlockCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -238,21 +238,21 @@ func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails boo
 
 	var previousHash string
 	if index.Prev != nil {
-		previousHash = index.Prev.BlockHash.ToString()
+		previousHash = index.Prev.BlockHash.String()
 	}
 
 	var nextBlockHash string
 	next := chain.GlobalChain.Next(index)
 	if next != nil {
-		nextBlockHash = next.BlockHash.ToString()
+		nextBlockHash = next.BlockHash.String()
 	}
 	return &btcjson.GetBlockVerboseResult{
-		Hash:          index.GetBlockHash().ToString(),
+		Hash:          index.GetBlockHash().String(),
 		Confirmations: uint64(confirmations),
 		Size:          block.SerializeSize(),
 		Height:        index.Height,
 		Version:       block.Header.Version,
-		MerkleRoot:    block.Header.MerkleRoot.ToString(),
+		MerkleRoot:    block.Header.MerkleRoot.String(),
 		Tx:            txs,
 		Time:          int64(block.Header.Time),
 		Mediantime:    index.GetMedianTimePast(),
@@ -320,13 +320,13 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 
 	var previousblockhash string
 	if blockIndex.Prev != nil {
-		previousblockhash = blockIndex.Prev.BlockHash.ToString()
+		previousblockhash = blockIndex.Prev.BlockHash.String()
 	}
 
 	var nextblockhash string
 	next := chain.GlobalChain.Next(blockIndex)
 	if next != nil {
-		nextblockhash = next.BlockHash.ToString()
+		nextblockhash = next.BlockHash.String()
 	}
 
 	blockHeaderReply := btcjson.GetBlockHeaderVerboseResult{
@@ -335,7 +335,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 		Height:        int32(blockIndex.Height),
 		Version:       blockIndex.Header.Version,
 		VersionHex:    fmt.Sprintf("%08x", blockIndex.Header.Version),
-		MerkleRoot:    blockIndex.Header.MerkleRoot.ToString(),
+		MerkleRoot:    blockIndex.Header.MerkleRoot.String(),
 		Time:          blockIndex.Header.Time,
 		Mediantime:    blockIndex.GetMedianTimePast(),
 		Nonce:         uint64(blockIndex.Header.Nonce),
@@ -407,7 +407,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
-			s[i] = index.Tx.Hash.ToString()
+			s[i] = index.Tx.Hash.String()
 			i++
 		}
 		return s, nil
@@ -416,7 +416,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 	for index := range txSet {
 		hash := index.Tx.Hash
-		infos[hash.ToString()] = entryToJSON(index)
+		infos[hash.String()] = entryToJSON(index)
 	}
 	return infos, nil
 }
@@ -426,7 +426,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	result.Size = entry.TxSize
 	result.Fee = valueFromAmount(entry.TxFee)
 	result.ModifiedFee = valueFromAmount(entry.SumFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
-	result.Time = entry.Time
+	result.Time = entry.GetTime()
 	result.Height = entry.TxHeight
 	// remove priority at current version
 	result.StartingPriority = 0
@@ -441,7 +441,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	setDepends := make([]string, 0)
 	for _, in := range entry.Tx.GetIns() {
 		if txItem := mempool.Gpool.FindTx(in.PreviousOutPoint.Hash); txItem != nil {
-			setDepends = append(setDepends, in.PreviousOutPoint.Hash.ToString())
+			setDepends = append(setDepends, in.PreviousOutPoint.Hash.String())
 		}
 	}
 	result.Depends = setDepends
@@ -472,13 +472,13 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 	if !c.Verbose {
 		des := make([]string, 0)
 		for item := range descendants {
-			des = append(des, item.Tx.Hash.ToString())
+			des = append(des, item.Tx.Hash.String())
 		}
 		return des, nil
 	}
 
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
-	infos[entry.Tx.Hash.ToString()] = entryToJSON(entry)
+	infos[entry.Tx.Hash.String()] = entryToJSON(entry)
 	return infos, nil
 }
 
@@ -545,7 +545,7 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	if *c.Verbose {
 		infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 		for hash, entry := range pool.GetAllTxEntry() {
-			infos[hash.ToString()] = entryToJSON(entry)
+			infos[hash.String()] = entryToJSON(entry)
 		}
 		return infos, nil
 	}
@@ -589,7 +589,7 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 
 	txout := coin.GetTxOut()
 	txOutReply := &btcjson.GetTxOutResult{
-		BestBlock:     index.BlockHash.ToString(),
+		BestBlock:     index.BlockHash.String(),
 		Confirmations: int64(confirmations),
 		Value:         valueFromAmount(int64(coin.GetAmount())),
 		ScriptPubKey:  ScriptPubKeyToJSON(txout.GetScriptPubKey(), true),

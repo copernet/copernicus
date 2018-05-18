@@ -242,8 +242,8 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		tx.Serialize(dataBuf)
 		entry.Data = hex.EncodeToString(dataBuf.Bytes())
 
-		entry.TxID = txID.ToString()
-		entry.Hash = txID.ToString()
+		entry.TxID = txID.String()
+		entry.Hash = txID.String()
 
 		deps := make([]int, 0)
 		for _, in := range tx.GetIns() {
@@ -324,7 +324,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		Rules:         rules,
 		VbAvailable:   vbAvailable,
 		VbRequired:    0,
-		PreviousHash:  bt.Block.Header.HashPrevBlock.ToString(),
+		PreviousHash:  bt.Block.Header.HashPrevBlock.String(),
 		Transactions:  transactions,
 		CoinbaseAux:   &btcjson.GetBlockTemplateResultAux{Flags: mining.CoinbaseFlag},
 		CoinbaseValue: &bt.Block.Txs[0].GetTxOut(0).GetValue(),
@@ -390,13 +390,13 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	hash := bk.Header.GetHash()
 	bindex := chain.GlobalChain.FindBlockIndex(hash) // todo realise
 	if bindex != nil {
-		if bindex.IsValid(core.BlockValidScripts) {
+		if bindex.IsValid(BlockValidScripts) {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate",
 			}
 		}
-		if bindex.Status&core.BlockFailedMask != 0 {
+		if bindex.Status&BlockFailedMask != 0 {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",

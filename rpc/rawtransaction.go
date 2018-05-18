@@ -27,8 +27,8 @@ import (
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
-	"getrawtransaction":    handleGetRawTransaction, // complete
-	"createrawtransaction": handleCreateRawTransaction,
+	"getrawtransaction":    handleGetRawTransaction,    // complete
+	"createrawtransaction": handleCreateRawTransaction, // complete
 	"decoderawtransaction": handleDecodeRawTransaction,
 	"decodescript":         handleDecodeScript,
 	"sendrawtransaction":   handleSendRawTransaction, // complete
@@ -84,17 +84,17 @@ func createTxRawResult(tx *tx.Tx, hashBlock *util.Hash, params *consensus.Bitcoi
 
 	hash := tx.TxHash()
 	txReply := &btcjson.TxRawResult{
-		TxID:     hash.ToString(),
-		Hash:     hash.ToString(),
+		TxID:     hash.String(),
+		Hash:     hash.String(),
 		Size:     int(tx.SerializeSize()),
-		Version:  tx.Version,
-		LockTime: tx.LockTime,
+		Version:  tx.GetVersion(),
+		LockTime: tx.GetLockTime(),
 		Vin:      createVinList(tx),
 		Vout:     createVoutList(tx, params),
 	}
 
 	if !hashBlock.IsNull() {
-		txReply.BlockHash = hashBlock.ToString()
+		txReply.BlockHash = hashBlock.String()
 		bindex := chain.GlobalChain.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
 		if bindex != nil {
 			if chain.GlobalChain.Contains(bindex) {
@@ -117,7 +117,7 @@ func createVinList(tx *tx.Tx) []btcjson.Vin {
 		if tx.IsCoinBase() {
 			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
 		} else {
-			vinList[index].Txid = in.PreviousOutPoint.Hash.ToString()
+			vinList[index].Txid = in.PreviousOutPoint.Hash.String()
 			vinList[index].Vout = in.PreviousOutPoint.Index
 			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.GetScriptSig(), true)
 			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetData())
@@ -306,36 +306,35 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 }
 
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
+	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
-		// Deserialize the transaction.
-		hexStr := c.HexTx
-		if len(hexStr)%2 != 0 {
-			hexStr = "0" + hexStr
-		}
-		serializedTx, err := hex.DecodeString(hexStr)
-		if err != nil {
-			return nil, rpcDecodeHexError(hexStr)
-		}
-		var mtx wire.MsgTx
-		err = mtx.Deserialize(bytes.NewReader(serializedTx))
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDeserialization,
-				Message: "TX decode failed: " + err.Error(),
-			}
-		}
+	// Deserialize the transaction.
+	serializedTx, err := hex.DecodeString(c.HexTx)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
 
-		// Create and return the result.
-		txReply := btcjson.TxRawDecodeResult{
-			Txid:     mtx.TxHash().String(),
-			Version:  mtx.Version,
-			Locktime: mtx.LockTime,
-			Vin:      createVinList(&mtx),
-			Vout:     createVoutList(&mtx, s.cfg.ChainParams, nil),
+	var transaction tx.Tx
+	err = transaction.Unserialize(bytes.NewReader(serializedTx))
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCDeserialization,
+			Message: "TX decode failed: " + err.Error(),
 		}
-		return txReply, nil*/
-	return nil, nil
+	}
+
+	// Create and return the result.
+	txReply := btcjson.TxRawDecodeResult{
+		Txid:     transaction.Hash.String(),
+		Hash:     transaction.Hash.String(),
+		Size:     transaction.SerializeSize(),
+		Version:  transaction.GetVersion(),
+		Locktime: transaction.GetLockTime(),
+		Vin:      createVinList(&transaction),
+		Vout:     createVoutList(&transaction, consensus.ActiveNetParams),
+	}
+
+	return txReply, nil
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -418,7 +417,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	// todo here
 
-	return hash.ToString(), nil
+	return hash.String(), nil
 }
 
 func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
