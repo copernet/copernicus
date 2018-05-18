@@ -24,7 +24,7 @@ func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 
 	//first : check transaction context And itself.
 	if !ltx.CheckRegularTransaction(tx, true) {
-		return errors.Errorf("")
+		return fmt.Errorf("")
 	}
 
 	//second : check whether enter mempool.
@@ -98,14 +98,9 @@ func processOrphan(tx *tx.Tx) []*tx.Tx {
 					break
 				}
 
-				errCode := err2.(errcode.ProjectError)
-				if errCode.Code != MissParentCode {
-					// todo !!!  punish peer that gave us an invalid orphan tx
-					if errCode.Code > 0{
-
-					}
+				if !errcode.IsErrorCode(err2, errcode.ErrorNoPreviousOut) {
 					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, true)
-					if errCode.Code == CorruptionCode {
+					if errcode.IsErrorCode(err2, errcode.RejectTx){
 						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
 					}
 					break
@@ -118,6 +113,9 @@ func processOrphan(tx *tx.Tx) []*tx.Tx {
 }
 
 func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*tx.Tx ,error ){
+	if _, ok := mempool.Gpool.RecentRejects[tx.Hash]; ok {
+		return nil, errcode.New(errcode.RejectTx)
+	}
 
 	acceptTx := make([]*tx.Tx, 0)
 	err := accpetTxToMemPool(tx, nil)
@@ -133,8 +131,7 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*tx.Tx ,error ){
 		return acceptTx, nil
 	}
 
-	proErr := err.(errcode.ProjectError)
-	if proErr.Code == MissParentCode {
+	if errcode.IsErrorCode(err, errcode.ErrorNoPreviousOut) {
 		fRejectedParents := false
 		for _, preOut := range tx.GetAllPreviousOut() {
 			if _, ok := mempool.Gpool.RecentRejects[preOut.Hash]; ok {
@@ -155,9 +152,7 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*tx.Tx ,error ){
 			log.Debug("")
 		}
 	}else{
-		if proErr.Code == CorruptionCode {
-			mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
-		}
+		mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
 	}
 
 	return nil, fmt.Errorf("")
