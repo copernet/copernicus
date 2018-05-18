@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/netsync"
 	"github.com/btcboost/copernicus/peer"
@@ -1514,7 +1514,7 @@ func (s *server) handleQuery(state *peerState, querymsg interface{}) {
 		} else {
 			msg.reply <- 0
 		}
-	// Request a list of the persistent (added) peers.
+		// Request a list of the persistent (added) peers.
 	case getAddedNodesMsg:
 		// Respond with a slice of the relevant peers.
 		peers := make([]*serverPeer, 0, len(state.persistentPeers))
@@ -1715,24 +1715,24 @@ out:
 		case p := <-s.newPeers:
 			s.handleAddPeerMsg(state, p)
 
-		// Disconnected peers.
+			// Disconnected peers.
 		case p := <-s.donePeers:
 			s.handleDonePeerMsg(state, p)
 
-		// Block accepted in mainchain or orphan, update peer height.
+			// Block accepted in mainchain or orphan, update peer height.
 		case umsg := <-s.peerHeightsUpdate:
 			s.handleUpdatePeerHeights(state, umsg)
 
-		// Peer to ban.
+			// Peer to ban.
 		case p := <-s.banPeers:
 			s.handleBanPeerMsg(state, p)
 
-		// New inventory to potentially be relayed to other peers.
+			// New inventory to potentially be relayed to other peers.
 		case invMsg := <-s.relayInv:
 			s.handleRelayInvMsg(state, invMsg)
 
-		// Message to broadcast to all connected peers except those
-		// which are excluded by the message.
+			// Message to broadcast to all connected peers except those
+			// which are excluded by the message.
 		case bmsg := <-s.broadcast:
 			s.handleBroadcastMsg(state, &bmsg)
 
@@ -1862,8 +1862,8 @@ out:
 			case broadcastInventoryAdd:
 				pendingInvs[*msg.invVect] = msg.data
 
-			// When an InvVect has been added to a block, we can
-			// now remove it, if it was present.
+				// When an InvVect has been added to a block, we can
+				// now remove it, if it was present.
 			case broadcastInventoryDel:
 				if _, ok := pendingInvs[*msg]; ok {
 					delete(pendingInvs, *msg)
@@ -2318,51 +2318,10 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		IsCurrent:              s.syncManager.IsCurrent,
 	})
 
-	// Only setup a function to return new addresses to connect to when
-	// not running in connect-only mode.  The simulation network is always
-	// in connect-only mode since it is only intended to connect to
-	// specified peers and actively avoid advertising and connecting to
-	// discovered peers in order to prevent it from becoming a public test
-	// network.
-	var newAddressFunc func() (net.Addr, error)
-	if !cfg.SimNet && len(cfg.ConnectPeers) == 0 {
-		newAddressFunc = func() (net.Addr, error) {
-			for tries := 0; tries < 100; tries++ {
-				addr := s.addrManager.GetAddress()
-				if addr == nil {
-					break
-				}
+	amgr.NewAddress(func(groupKey string) bool {
+		return s.OutboundGroupCount(groupKey) != 0
+	},addrStringToNetAddr)
 
-				// Address will not be invalid, local or unroutable
-				// because addrmanager rejects those on addition.
-				// Just check that we don't already have an address
-				// in the same group so that we are not connecting
-				// to the same network segment at the expense of
-				// others.
-				key := addrmgr.GroupKey(addr.NetAddress())
-				if s.OutboundGroupCount(key) != 0 {
-					continue
-				}
-
-				// only allow recent nodes (10mins) after we failed 30
-				// times
-				if tries < 30 && time.Since(addr.LastAttempt()) < 10*time.Minute {
-					continue
-				}
-
-				// allow nondefault ports after 50 failed tries.
-				if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
-					activeNetParams.DefaultPort {
-					continue
-				}
-
-				addrString := addrmgr.NetAddressKey(addr.NetAddress())
-				return addrStringToNetAddr(addrString)
-			}
-
-			return nil, errors.New("no valid connect address")
-		}
-	}
 
 	// Create a connection manager.
 	targetOutbound := defaultTargetOutbound

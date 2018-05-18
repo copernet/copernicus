@@ -21,9 +21,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"errors"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/conf"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential
@@ -1039,6 +1042,53 @@ func getReachabilityFrom(localAddr, remoteAddr *wire.NetAddress) int {
 	}
 
 	return Ipv6Strong
+}
+
+// NewAddress only setup a function to return new addresses to connect to when
+// not running in connect-only mode.  The simulation network is always
+// in connect-only mode since it is only intended to connect to
+// specified peers and actively avoid advertising and connecting to
+// discovered peers in order to prevent it from becoming a public test
+// network.
+
+func (a *AddrManager) NewAddress(filterOut func(gKey string) bool, astn func(string) (net.Addr, error)) (net.Addr, error) {
+
+	if !conf.Cfg.SimNet && len(conf.Cfg.ConnectPeers) == 0 {
+		for tries := 0; tries < 100; tries++ {
+			addr := a.GetAddress()
+			if addr == nil {
+				break
+			}
+
+			// Address will not be invalid, local or unroutable
+			// because addrmanager rejects those on addition.
+			// Just check that we don't already have an address
+			// in the same group so that we are not connecting
+			// to the same network segment at the expense of
+			// others.
+			key := GroupKey(addr.NetAddress())
+
+			if filterOut(key) {
+				continue
+			}
+
+			// only allow recent nodes (10mins) after we failed 30
+			// times
+			if tries < 30 && time.Since(addr.LastAttempt()) < 10*time.Minute {
+				continue
+			}
+
+			// allow nondefault ports after 50 failed tries.
+			if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
+				consensus.ActiveNetParams.DefaultPort {
+				continue
+			}
+
+			addrString := NetAddressKey(addr.NetAddress())
+			return astn(addrString)
+		}
+	}
+	return nil, errors.New("no valid connect address")
 }
 
 // GetBestLocalAddress returns the most appropriate local address to use
