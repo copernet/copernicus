@@ -8,6 +8,7 @@ const (
 	SigHashAll          = 1
 	SigHashNone         = 2
 	SigHashSingle       = 3
+	SigHashForkID       = 0x40
 	SigHashAnyoneCanpay = 128
 )
 
@@ -170,6 +171,7 @@ func IsDefineHashtypeSignature(vchSig []byte) bool {
 	}
 	return true
 }
+
 /*
 func CheckSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
 	// Empty signature. Not strictly DER encoded, but allowed to provide a
