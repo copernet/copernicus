@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 	"github.com/astaxie/beego/logs"
+	"bytes"
 )
 
 const (
@@ -104,10 +105,7 @@ func (hash *Hash) IsEqual(target *Hash) bool {
 	if hash == nil && target == nil {
 		return true
 	}
-	if hash == nil || target == nil {
-		return false
-	}
-	return *hash == *target
+	return bytes.Equal(hash[:], target[:])
 }
 
 func (hash *Hash) IsNull() bool {

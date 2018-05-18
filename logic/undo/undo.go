@@ -1,302 +1,83 @@
 package undo
 
 import (
-	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/utxo"
 	"fmt"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/undo"
-	"copernicus/utils"
+	"github.com/btcboost/copernicus/log"
 	"github.com/astaxie/beego/logs"
-	"copernicus/log"
-	"github.com/btcboost/copernicus/util"
-	"bytes"
-	"copernicus/container"
-	"github.com/btcboost/copernicus/model/chain"
-
 	"github.com/btcboost/copernicus/model/consensus"
-	"sync/atomic"
 	"time"
-	"copernicus/core"
 	"copernicus/net/msg"
-	"gopkg.in/fatih/set.v0"
-	"copernicus/policy"
-	"math"
 	"github.com/btcboost/copernicus/persist/disk"
+	"github.com/btcboost/copernicus/util"
 )
 
 
 
-var GRequestShutdown   = new(atomic.Value)
-func StartShutdown() {
-	GRequestShutdown.Store(true)
-}
 
-func AbortNodes(reason, userMessage string) bool {
-	logs.Info("*** %s\n", reason)
 
-	//todo:
-	if len(userMessage) == 0 {
-		panic("Error: A fatal internal error occurred, see debug.log for details")
+
+
+
+
+// GuessVerificationProgress Guess how far we are in the verification process at the given block index
+func GuessVerificationProgress(data *consensus.ChainTxData, index *blockindex.BlockIndex) float64 {
+	if index == nil {
+		return float64(0)
+	}
+
+	now := time.Now()
+
+	var txTotal float64
+	// todo confirm time precise
+	if int64(index.ChainTxCount) <= data.TxCount {
+		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
 	} else {
-
+		txTotal = float64(index.ChainTxCount) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
 	}
-	StartShutdown()
-	return false
-}
-func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
-	AbortNodes(reason, userMessage)
-	return state.Error(reason)
+
+	return float64(index.ChainTxCount) / txTotal
 }
 
-
-func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
-	ret = true
-	var params *msg.BitcoinParams
-
-	mempoolUsage := GMemPool.GetCacheUsage()
-
-	// TODO: LOCK2(cs_main, cs_LastBlockFile);
-	// var sc sync.RWMutex
-	// sc.Lock()
-	// defer sc.Unlock()
-
-	var setFilesToPrune *set.Set
-	fFlushForPrune := false
-
-	defer func() {
-		if r := recover(); r != nil {
-			ret = AbortNode(state, "System error while flushing:", "")
-		}
-	}()
-	if GPruneMode && (GCheckForPruning || nManualPruneHeight > 0) && !GfReindex {
-		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
-	} else {
-		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
-		GCheckForPruning = false
-	}
-	if !setFilesToPrune.IsEmpty() {
-		fFlushForPrune = true
-		if !GHavePruned {
-			// TODO: pblocktree.WriteFlag("prunedblockfiles", true)
-			GHavePruned = true
-		}
-	}
-	nNow := utils.GetMockTimeInMicros()
-	// Avoid writing/flushing immediately after startup.
-	if gLastWrite == 0 {
-		gLastWrite = int(nNow)
-	}
-	if gLastFlush == 0 {
-		gLastFlush = int(nNow)
-	}
-	if gLastSetChain == 0 {
-		gLastSetChain = int(nNow)
-	}
-	nMempoolSizeMax := utils.GetArg("-maxmempool", int64(policy.DefaultMaxMemPoolSize)) * 1000000
-	cacheSize := GCoinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
-	nTotalSpace := float64(GnCoinCacheUsage) + math.Max(float64(nMempoolSizeMax-mempoolUsage), 0)
-	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
-	// of the limit, but we have time now (not in the middle of a block processing).
-	x := math.Max(nTotalSpace/2, nTotalSpace-MinBlockCoinsDBUsage*1024*1024)
-	y := math.Max(9*nTotalSpace/10, nTotalSpace-MaxBlockCoinsDBUsage*1024*1024)
-	fCacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
-	// The cache is over the limit, we have to write now.
-	fCacheCritical := mode == FlushStateIfNeeded && float64(cacheSize) > nTotalSpace
-	// It's been a while since we wrote the block index to disk. Do this
-	// frequently, so we don't need to redownLoad after a crash.
-	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > gLastWrite+DataBaseWriteInterval*1000000
-	// It's been very long since we flushed the cache. Do this infrequently,
-	// to optimize cache usage.
-	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > gLastFlush+DataBaseFlushInterval*1000000
-	// Combine all conditions that result in a full cache flush.
-	fDoFullFlush := mode == FlushStateAlways || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
-	// Write blocks and block index to disk.
-	if fDoFullFlush || fPeriodicWrite {
-		// Depend on nMinDiskSpace to ensure we can write block index
-		if !CheckDiskSpace(0) {
-			ret = state.Error("out of disk space")
-		}
-		// First make sure all block and undo data is flushed to disk.
-		FlushBlockFile(false)
-		// Then update all block file information (which may refer to block and undo files).
-
-		type Files struct {
-			key   []int
-			value []*BlockFileInfo
-		}
-
-		files := Files{
-			key:   make([]int, 0),
-			value: make([]*BlockFileInfo, 0),
-		}
-
-		lists := gSetDirtyFileInfo.List()
-		for _, value := range lists {
-			v := value.(int)
-			files.key = append(files.key, v)
-			files.value = append(files.value, gInfoBlockFile[v])
-			gSetDirtyFileInfo.RemoveItem(v)
-		}
-
-		var blocks = make([]*core.BlockIndex, 0)
-		list := gSetDirtyBlockIndex.List()
-		for _, value := range list {
-			v := value.(*core.BlockIndex)
-			blocks = append(blocks, v)
-			gSetDirtyBlockIndex.RemoveItem(value)
-		}
-
-		//err := GBlockTree.WriteBatchSync(files, gLastBlockFile, blocks)
-		//if err != nil {
-		//	ret = AbortNode(state, "Failed to write to block index database", "")
-		//}
-
-		// Finally remove any pruned files
-		if fFlushForPrune {
-			UnlinkPrunedFiles(setFilesToPrune)
-		}
-		gLastWrite = int(nNow)
-
-	}
-
-	// Flush best chain related state. This can only be done if the blocks /
-	// block index write was also done.
-	if fDoFullFlush {
-		// Typical Coin structures on disk are around 48 bytes in size.
-		// Pushing a new one to the database can cause it to be written
-		// twice (once in the log, and once in the tables). This is already
-		// an overestimation, as most will delete an existing entry or
-		// overwrite one. Still, use a conservative safety factor of 2.
-		if !CheckDiskSpace(uint32(48 * 2 * 2 * GCoinsTip.GetCacheSize())) {
-			ret = state.Error("out of disk space")
-		}
-		// Flush the chainState (which may refer to block index entries).
-		if !GCoinsTip.Flush() {
-			ret = AbortNode(state, "Failed to write to coin database", "")
-		}
-		gLastFlush = int(nNow)
-	}
-	if fDoFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
-		int(nNow) > gLastSetChain+DataBaseWriteInterval*1000000) {
-		// Update best block in wallet (so we can detect restored wallets).
-		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
-		gLastSetChain = int(nNow)
-	}
-
-	return
-}
-
-type FlushStateMode int
-
-const (
-	FlushStateNone FlushStateMode = iota
-	FlushStateIfNeeded
-	FlushStatePeriodic
-	FlushStateAlways
-)
-
-// DisconnectTip Disconnect chainActive's tip. You probably want to call
-// mempool.removeForReorg and manually re-limit mempool size after this, with
-// cs_main held.
-func DisconnectTip(param *consensus.BitcoinParams, state *block.ValidationState, fBare bool) bool {
-
-	indexDelete := chain.GetInstance().Tip()
-	if indexDelete == nil {
-		panic("the chain tip element should not equal nil")
-	}
-	// Read block from disk.
-	blk, ret := disk.ReadBlockFromDisk(indexDelete, param)
-	if !ret{
-		return AbortNode(state, "Failed to read block", "")
-	}
-
-	// Apply the block atomically to the chain state.
-	nStart := time.Now().UnixNano()
-	{
-		view := utxo.NewEmptyCoinsMap()
-
-		if DisconnectBlock(blk, indexDelete, view) != undo.DisconnectOk {
-			hash := indexDelete.GetBlockHash()
-			logs.Error(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.ToString()))
-			return false
-		}
-		flushed := view.Flush(blk.Header.HashPrevBlock)
-		if !flushed {
-			panic("view flush error !!!")
-		}
-
-	}
-	// replace implement with log.Print(in C++).
-	log.Print("bench", "debug", " - Disconnect block : %.2fms\n",
-		float64(time.Now().UnixNano()-nStart)*0.001)
-
-	// Write the chain state to disk, if necessary.
-	if !FlushStateToDisk(state, FlushStateIfNeeded, 0) {
+// IsInitialBlockDownload Check whether we are doing an initial block download
+// (synchronizing from disk or network)
+func IsInitialBlockDownload() bool {
+	// Once this function has returned false, it must remain false.
+	gLatchToFalse.Store(false)
+	// Optimization: pre-test latch before taking the lock.
+	if gLatchToFalse.Load().(bool) {
 		return false
 	}
 
-	if !fBare {
-		// Resurrect mempool transactions from the disconnected block.
-		vHashUpdate := container.Vector{}
-		for _, tx := range block.Txs {
-			// ignore validation errors in resurrected transactions
-			var stateDummy block.ValidationState
-			if tx.IsCoinBase() || !AcceptToMemoryPool(param, GMemPool, &stateDummy, tx,
-				false, nil, nil, true, 0) {
-				GMemPool.Lock()
-				GMemPool.RemoveTxRecursive(tx, mempool.REORG)
-				GMemPool.Unlock()
-			} else if GMemPool.Exists(tx.Hash) {
-				vHashUpdate.PushBack(tx.Hash)
-			}
-		}
-		// AcceptToMemoryPool/addUnchecked all assume that new memPool entries
-		// have no in-memPool children, which is generally not true when adding
-		// previously-confirmed transactions back to the memPool.
-		// UpdateTransactionsFromBlock finds descendants of any transactions in
-		// this block that were added back and cleans up the memPool state.
-		GMemPool.UpdateTransactionsFromBlock(vHashUpdate)
+	// todo !!! add cs_main sync.lock in here
+	if gLatchToFalse.Load().(bool) {
+		return false
 	}
+	if GImporting.Load().(bool) || GfReindex {
+		return true
+	}
+	if GChainState.ChainActive.Tip() == nil {
+		return true
+	}
+	if GChainState.ChainActive.Tip().ChainWork.Cmp(&msg.ActiveNetParams.MinimumChainWork) < 0 {
+		return true
+	}
+	if int64(GChainState.ChainActive.Tip().GetBlockTime()) < util.GetMockTime()-GMaxTipAge {
+		return true
+	}
+	gLatchToFalse.Store(true)
 
-	// Update chainActive and related variables.
-	UpdateTip(param, indexDelete.Prev)
-	// Let wallets know transactions went from 1-confirmed to
-	// 0-confirmed or conflicted:
-	for _, tx := range block.Txs {
-		// todo !!! add  GetMainSignals().SyncTransaction()
-		_ = tx
-	}
-	return true
+	return false
 }
 
 
-func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap) undo.DisconnectResult {
 
-	hashA := pindex.GetBlockHash()
-	hashB := utxo.GetUtxoCacheInstance().GetBestBlock()
-	if !bytes.Equal(hashA[:], hashB[:]) {
-		panic("the two hash should be equal ...")
-	}
-	var blockUndo undo.BlockUndo
-	pos := pindex.GetUndoPos()
-	if pos.IsNull() {
-		logs.Error("DisconnectBlock(): no undo data available")
-		return undo.DisconnectFailed
-	}
-
-	if !UndoReadFromDisk(&blockUndo, &pos, *pindex.Prev.GetBlockHash()) {
-		logs.Error("DisconnectBlock(): failure reading undo data")
-		return undo.DisconnectFailed
-	}
-
-	return ApplyBlockUndo(&blockUndo, pblock, pindex, view)
-}
-
-func UndoReadFromDisk(blockundo *undo.BlockUndo, pos *block.DiskBlockPos, hashblock util.Hash) (ret bool) {
-	ret = true
+func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.BlockUndo, bool) {
+	ret := true
 	defer func() {
 		if err := recover(); err != nil {
 			logs.Error(fmt.Sprintf("%s: Deserialize or I/O error - %v", log.TraceLog(), err))
@@ -306,40 +87,35 @@ func UndoReadFromDisk(blockundo *undo.BlockUndo, pos *block.DiskBlockPos, hashbl
 	file := disk.OpenUndoFile(*pos, true)
 	if file == nil {
 		logs.Error(fmt.Sprintf("%s: OpenUndoFile failed", log.TraceLog()))
-		return false
+		return nil, false
 	}
-
+	bu:= undo.NewBlockUndo()
 	// Read block
-	var hashCheckSum utils.Hash
-	ok := hashblock.Serialize(file)
-	if !ok {
-		return ok
-	}
-	blockundo, err := DeserializeBlockUndo(file)
+	err := bu.Unserialize(file)
 	if err != nil {
-		return false
+		return bu, false
 	}
-	ok = hashCheckSum.Deserialize(file)
-
+	hashCheckSum := &util.HashOne
+	_, err = hashCheckSum.Unserialize(file)
+	if err != nil{
+		return bu, false
+	}
 	// Verify checksum
-	// todo !!! add if bytes.Equal(hashCheckSum[:], )
+	return bu, hashCheckSum.IsEqual(&hashblock)
 
-	return ok
 }
 
 
-func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, index *blockindex.BlockIndex,
-	cache *utxo.CoinsMap) undo.DisconnectResult {
+func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
+	cm *utxo.CoinsMap) undo.DisconnectResult {
 	clean := true
 	txUndos := blockUndo.GetTxundo()
 	if len(txUndos)+1 != len(blk.Txs) {
 		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
 		return undo.DisconnectFailed
 	}
-	i := len(blk.Txs)
 	// Undo transactions in reverse order.
-	for  i >0 {
-		i--
+	for i := len(blk.Txs)-1;i >0;i-- {
 		tx := blk.Txs[i]
 		txid := tx.Hash
 
@@ -349,11 +125,10 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, index *blockind
 			if tx.GetTxOut(j).IsSpendable() {
 				continue
 			}
-
 			out := outpoint.NewOutPoint(txid, uint32(j))
-			coin := cache.SpendCoin(out)
+			coin := cm.SpendGlobalCoin(out)
 			coinOut := coin.GetTxOut()
-			if coin!=nil || tx.GetTxOut(j).IsEqual(&coinOut)  {
+			if coin == nil || !tx.GetTxOut(j).IsEqual(&coinOut)  {
 				// transaction output mismatch
 				clean = false
 			}
@@ -365,16 +140,17 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, index *blockind
 			}
 
 			txundo := txUndos[i-1]
-			if len(txundo.PrevOut) != len(tx.GetIns()) {
-				fmt.Println("DisconnectBlock(): transaction and undo data inconsistent")
+			ins := tx.GetIns()
+			insLen := len(ins)
+			if len(txundo.PrevOut) != insLen {
+				log.Error("DisconnectBlock(): transaction and undo data inconsistent")
 				return undo.DisconnectFailed
 			}
-			ins := tx.GetIns()
-			for k := len(ins); k > 0; {
-				k--
+
+			for k := insLen-1; k > 0; k--{
 				outpoint := ins[k].PreviousOutPoint
-				c := txundo.PrevOut[k]
-				res := UndoCoinSpend(c, cache, outpoint)
+				undoCoin := txundo.PrevOut[k]
+				res := UndoCoinSpend(undoCoin, cm, outpoint)
 				if res == undo.DisconnectFailed {
 					return undo.DisconnectFailed
 				}
@@ -415,7 +191,7 @@ func UndoCoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) u
 	//	// the correct information in there doesn't hurt.
 	//	coin = utxo.NewCoin(coin.GetTxOut(), alternate.GetHeight(), alternate.IsCoinBase())
 	//}
-	cm.AddCoin(out, *coin, coin.IsCoinBase())
+	cm.AddCoin(out, *coin)
 	if clean {
 		return undo.DisconnectOk
 	}

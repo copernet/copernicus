@@ -3,7 +3,7 @@ package disk
 import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/conf"
-
+	"sync"
 	"os"
 	blogs "github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/log"
@@ -13,7 +13,46 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"bytes"
+	"copernicus/policy"
+	"math"
+	"copernicus/core"
+	"sync/atomic"
+	"time"
+	"github.com/btcboost/copernicus/model/utxo"
+	"syscall"
 )
+type FlushStateMode int
+
+const (
+	FlushStateNone FlushStateMode = iota
+	FlushStateIfNeeded
+	FlushStatePeriodic
+	FlushStateAlways
+)
+
+var GRequestShutdown   = new(atomic.Value)
+func StartShutdown() {
+	GRequestShutdown.Store(true)
+}
+
+func AbortNodes(reason, userMessage string) bool {
+	log.Info("*** %s\n", reason)
+
+	//todo:
+	if len(userMessage) == 0 {
+		panic("Error: A fatal internal error occurred, see debug.log for details")
+	} else {
+
+	}
+	StartShutdown()
+	return false
+}
+func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
+	AbortNodes(reason, userMessage)
+	return state.Error(reason)
+}
+
+
 
 func OpenBlockFile(pos *block.DiskBlockPos, fReadOnly bool) *os.File {
 	return OpenDiskFile(*pos, "blk", fReadOnly)
@@ -101,3 +140,219 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *consensus.BitcoinPa
 	}
 	return blk, true
 }
+
+var gLastWrite,gLastFlush = 0,0
+func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
+	ret = true
+	// TODO: LOCK2(cs_main, cs_LastBlockFile);
+	// var sc sync.RWMutex
+	// sc.Lock()
+	// defer sc.Unlock()
+	//
+	//var setFilesToPrune *set.Set
+	//fFlushForPrune := false
+
+	defer func() {
+		if r := recover(); r != nil {
+			ret = AbortNode(state, "System error while flushing:", "")
+		}
+	}()
+	fFlushForPrune := false
+	// todo for prune
+	//if GPruneMode && (GCheckForPruning || nManualPruneHeight > 0) && !GfReindex {
+	//	FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
+	//} else {
+	//	FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
+	//	GCheckForPruning = false
+	//}
+	//if !setFilesToPrune.IsEmpty() {
+	//	fFlushForPrune = true
+	//	if !GHavePruned {
+	//		// TODO: pblocktree.WriteFlag("prunedblockfiles", true)
+	//		GHavePruned = true
+	//	}
+	//}
+	nNow := time.Now().UnixNano()
+	// todo Avoid writing/flushing immediately after startup.
+	//if gLastWrite == 0 {
+	//	gLastWrite = int(nNow)
+	//}
+	//if gLastFlush == 0 {
+	//	gLastFlush = int(nNow)
+	//}
+	//if gLastSetChain == 0 {
+	//	gLastSetChain = int(nNow)
+	//}
+	mempoolUsage := int64(0) // todo mempool.mempoolUsage
+	coinsTip := utxo.GetUtxoCacheInstance()
+	nMempoolSizeMax := int64(policy.DefaultMaxMemPoolSize) * 1000000
+	DBPeakUsageFactor := int64(2)
+	cacheSize := coinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
+	nCoinCacheUsage := 5000 * 300
+	nTotalSpace := float64(nCoinCacheUsage) + math.Max(float64(nMempoolSizeMax-mempoolUsage), 0)
+	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
+	// of the limit, but we have time now (not in the middle of a block processing).
+	MinBlockCoinsDBUsage := DBPeakUsageFactor
+	x := math.Max(float64(nTotalSpace/2), float64(nTotalSpace-float64(MinBlockCoinsDBUsage*1024*1024)))
+	MaxBlockCoinsDBUsage := float64(DBPeakUsageFactor * 200)
+	y := math.Max(9*nTotalSpace/10, nTotalSpace-MaxBlockCoinsDBUsage*1024*1024)
+	fCacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
+	// The cache is over the limit, we have to write now.
+	fCacheCritical := mode == FlushStateIfNeeded && float64(cacheSize) > nTotalSpace
+	// It's been a while since we wrote the block index to disk. Do this
+	// frequently, so we don't need to redownLoad after a crash.
+	DataBaseWriteInterval := 60*60
+	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > gLastWrite+DataBaseWriteInterval*1000000
+	// It's been very long since we flushed the cache. Do this infrequently,
+	// to optimize cache usage.
+	DataBaseFlushInterval := 24*60*60
+	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > gLastFlush+DataBaseFlushInterval*1000000
+	// Combine all conditions that result in a full cache flush.
+	fDoFullFlush := mode == FlushStateAlways || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
+	// Write blocks and block index to disk.
+	if fDoFullFlush || fPeriodicWrite {
+		// Depend on nMinDiskSpace to ensure we can write block index
+		if !CheckDiskSpace(0) {
+			ret = state.Error("out of disk space")
+		}
+		// First make sure all block and undo data is flushed to disk.
+		FlushBlockFile(false)
+		// Then update all block file information (which may refer to block and undo files).
+
+		type Files struct {
+			key   []int
+			value []*BlockFileInfo
+		}
+
+		files := Files{
+			key:   make([]int, 0),
+			value: make([]*BlockFileInfo, 0),
+		}
+
+		lists := gSetDirtyFileInfo.List()
+		for _, value := range lists {
+			v := value.(int)
+			files.key = append(files.key, v)
+			files.value = append(files.value, gInfoBlockFile[v])
+			gSetDirtyFileInfo.RemoveItem(v)
+		}
+
+		var blocks = make([]*core.BlockIndex, 0)
+		list := gSetDirtyBlockIndex.List()
+		for _, value := range list {
+			v := value.(*core.BlockIndex)
+			blocks = append(blocks, v)
+			gSetDirtyBlockIndex.RemoveItem(value)
+		}
+
+		//err := GBlockTree.WriteBatchSync(files, gLastBlockFile, blocks)
+		//if err != nil {
+		//	ret = AbortNode(state, "Failed to write to block index database", "")
+		//}
+		//
+		//// Finally remove any pruned files
+		//if fFlushForPrune {
+		//	UnlinkPrunedFiles(setFilesToPrune)
+		//}
+		gLastWrite = int(nNow)
+
+	}
+
+	// Flush best chain related state. This can only be done if the blocks /
+	// block index write was also done.
+	if fDoFullFlush {
+		// Typical Coin structures on disk are around 48 bytes in size.
+		// Pushing a new one to the database can cause it to be written
+		// twice (once in the log, and once in the tables). This is already
+		// an overestimation, as most will delete an existing entry or
+		// overwrite one. Still, use a conservative safety factor of 2.
+		if !CheckDiskSpace(uint32(48 * 2 * 2 * GCoinsTip.GetCacheSize())) {
+			ret = state.Error("out of disk space")
+		}
+		// Flush the chainState (which may refer to block index entries).
+		if !GCoinsTip.Flush() {
+			ret = AbortNode(state, "Failed to write to coin database", "")
+		}
+		gLastFlush = int(nNow)
+	}
+	if fDoFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
+		int(nNow) > gLastSetChain+DataBaseWriteInterval*1000000) {
+		// Update best block in wallet (so we can detect restored wallets).
+		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
+		gLastSetChain = int(nNow)
+	}
+
+	return
+}
+
+
+func CheckDiskSpace(nAdditionalBytes uint32) bool {
+	path := conf.GetDataPath()
+	fs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &fs)
+	if err != nil {
+		log.Error("can not get disk info")
+		return false
+	}
+	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
+
+	// Check for nMinDiskSpace bytes (currently 50MB)
+	MinDiskSpace := 52428800
+	if int(nFreeBytesAvailable) < MinDiskSpace+int(nAdditionalBytes) {
+		return AbortNodes("Disk space is low!", "Error: Disk space is low!")
+	}
+	return true
+}
+
+var csLastBlockFile *sync.RWMutex = new(sync.RWMutex)
+var gLastBlockFile int  = 0
+func FlushBlockFile(fFinalize bool) {
+	// todo !!! add file sync.lock, LOCK(cs_LastBlockFile);
+	csLastBlockFile.Lock()
+	defer csLastBlockFile.Unlock()
+	posOld := block.NewDiskBlockPos(gLastBlockFile, 0)
+
+	fileOld := OpenBlockFile(posOld, false)
+	if fileOld != nil {
+		if fFinalize {
+			os.Truncate(fileOld.Name(), int64(gInfoBlockFile[gLastBlockFile].Size))
+			fileOld.Sync()
+			fileOld.Close()
+		}
+	}
+
+	fileOld = OpenUndoFile(*posOld, false)
+	if fileOld != nil {
+		if fFinalize {
+			os.Truncate(fileOld.Name(), int64(gInfoBlockFile[gLastBlockFile].UndoSize))
+			fileOld.Sync()
+			fileOld.Close()
+		}
+	}
+}
+
+func FindBlockPos(state *block.ValidationState, pos *block.DiskBlockPos, nAddSize uint,
+	nHeight uint, nTime uint64, fKnown bool) bool {
+
+	//	todo !!! Add sync.Lock in the later, because the concurrency goroutine
+	nFile := pos.File
+	if !fKnown {
+		nFile = gLastBlockFile
+	}
+
+	if !fKnown {
+		for uint(gInfoBlockFile[nFile].Size)+nAddSize >= MaxBlockFileSize {
+			nFile++
+		}
+		pos.File = nFile
+		pos.Pos = int(gInfoBlockFile[nFile].Size)
+	}
+
+	if nFile != gLastBlockFile {
+		if !fKnown {
+			logs.Info(fmt.Sprintf("Leaving block file %d: %s\n", gLastBlockFile,
+				gInfoBlockFile[gLastBlockFile].ToString()))
+		}
+		FlushBlockFile(!fKnown)
+		gLastBlockFile = nFile
+	}
