@@ -780,19 +780,22 @@ type GetMempoolDescendantsCmd struct {
 	Verbose bool   `json:"verbose";jsonrpcdefault:"false"`
 }
 
-type SignRawTransactionCmd struct {
-	HexStr      string
-	PrevTxs     []Previous
-	PrivKeys    []string
-	SigHashType string `jsonrpcdefault:"ALL"`
+// RawTxInput models the data needed for raw transaction input that is used in
+// the SignRawTransactionCmd struct.
+type RawTxInput struct {
+	Txid         string `json:"txid"`
+	Vout         uint32 `json:"vout"`
+	ScriptPubKey string `json:"scriptPubKey"`
+	RedeemScript string `json:"redeemScript"`
+	Amount       *int   `json:"amount"`
 }
 
-type Previous struct {
-	TxID         string
-	Vout         int
-	ScriptPubKey string
-	RedeemScript string
-	Amount       int
+// SignRawTransactionCmd defines the signrawtransaction JSON-RPC command.
+type SignRawTransactionCmd struct {
+	RawTx    string
+	Inputs   *[]RawTxInput
+	PrivKeys *[]string
+	Flags    *string `jsonrpcdefault:"\"ALL\""`
 }
 
 func init() {
