@@ -7,7 +7,7 @@ package addrmgr
 import (
 	"time"
 
-	"github.com/btcsuite/btcd/wire"
+	"github.com/btcboost/copernicus/net/wire"
 )
 
 // KnownAddress tracks information about a known network address that is used
@@ -73,12 +73,12 @@ func (ka *KnownAddress) isBad() bool {
 	}
 
 	// From the future?
-	if ka.na.Timestamp.After(time.Now().Add(10 * time.Minute)) {
+	if time.Unix(int64(ka.na.Timestamp), 0).After(time.Now().Add(10 * time.Minute)) {
 		return true
 	}
 
 	// Over a month old?
-	if ka.na.Timestamp.Before(time.Now().Add(-1 * numMissingDays * time.Hour * 24)) {
+	if time.Unix(int64(ka.na.Timestamp), 0).Before(time.Now().Add(-1 * numMissingDays * time.Hour * 24)) {
 		return true
 	}
 
@@ -88,7 +88,7 @@ func (ka *KnownAddress) isBad() bool {
 	}
 
 	// Hasn't succeeded in too long?
-	if !ka.lastsuccess.After(time.Now().Add(-1*minBadDays*time.Hour*24)) &&
+	if !ka.lastsuccess.After(time.Now().Add(-1 * minBadDays * time.Hour * 24)) &&
 		ka.attempts >= maxFailures {
 		return true
 	}
