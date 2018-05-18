@@ -24,6 +24,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcsuite/btcd/wire"
+	"gopkg.in/fatih/set.v0"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -418,6 +419,38 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GetTxOutProofCmd)
+	setTxIds := set.New()
+	var oneTxId util.Hash
+	txIds := c.TxIDs
+
+	for idx := 0; idx < len(txIds); idx++ {
+		txId := txIds[idx]
+		_, err := util.GetHashFromStr(txId)
+		if len(txId) != 64 || err == nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid txid " + txId,
+			}
+		}
+
+        hash := util.HashFromString(txId)
+		if setTxIds.Has(hash) {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid parameter, duplicated txid: " + txId,
+			}
+		}
+		setTxIds.Add(hash)
+		oneTxId = *hash
+	}
+
+	blkIndex := blockindex.BlockIndex{}
+	var hashBlk util.Hash
+	if c.BlockHash != nil {
+
+	}
+
 	return nil, nil
 }
 
