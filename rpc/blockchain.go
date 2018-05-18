@@ -392,15 +392,16 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 			Message: "the string " + c.TxID + " is not a standard hash",
 		}
 	}
-	txItem := mempool.Gpool.FindTx(*hash)
-	if txItem == nil {
+	entry := mempool.Gpool.FindTx(*hash)
+	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
 			Message: "Transaction not in mempool",
 		}
 	}
 
-	txSet := mempool.Gpool.CalculateMemPoolAncestors(&txItem.Hash)
+	h := entry.Tx.TxHash()
+	txSet := mempool.Gpool.CalculateMemPoolAncestors(&h)
 
 	if !c.Verbose {
 		s := make([]string, len(txSet))
@@ -456,16 +457,15 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	entry, ok := mempool.Gpool.PoolData[*hash]
-	if !ok {
+	entry := mempool.Gpool.FindTx(*hash)
+	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
 			Message: "Transaction not in mempool",
 		}
 	}
 
-	// todo CalculateMemPoolAncestors() and CalculateDescendants() is different API form
-	descendants := mempool.Gpool.CalculateDescendants(entry)
+	descendants := mempool.Gpool.CalculateDescendants(hash)
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
@@ -493,9 +493,8 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 	mempool.Gpool.Lock()
 	defer mempool.Gpool.Unlock()
 
-	tx := mempool.Gpool.FindTx(*hash)
-	entry, ok := mempool.Gpool.PoolData[*hash]
-	if !ok {
+	entry := mempool.Gpool.FindTx(*hash)
+	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidAddressOrKey,
 			Message: "Transaction not in mempool",

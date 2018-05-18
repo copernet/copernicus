@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
+	utxo2 "github.com/btcboost/copernicus/logic/utxo"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -114,7 +115,7 @@ func createVinList(tx *tx.Tx) []btcjson.Vin {
 			vinList[index].Txid = in.PreviousOutPoint.Hash.ToString()
 			vinList[index].Vout = in.PreviousOutPoint.Index
 			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.GetScriptSig(), true)
-			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
+			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetData())
 		}
 		vinList[index].Sequence = in.Sequence
 	}
@@ -183,11 +184,12 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 // createVoutList returns a slice of JSON objects for the outputs of the passed
 // transaction.
 func createVoutList(tx *tx.Tx, params *consensus.BitcoinParams) []btcjson.Vout {
-	voutList := make([]btcjson.Vout, len(tx.Outs))
-	for index, out := range tx.Outs {
-		voutList[index].Value = out.Value
-		voutList[index].N = uint32(index)
-		voutList[index].ScriptPubKey = ScriptPubKeyToJSON(out.Script, true)
+	voutList := make([]btcjson.Vout, tx.GetOutsCount())
+	for i := 0; i < tx.GetOutsCount(); i++ {
+		out := tx.GetTxOut(i)
+		voutList[i].Value = out.GetValue()
+		voutList[i].N = uint32(i)
+		voutList[i].ScriptPubKey = ScriptPubKeyToJSON(out.GetScriptPubKey(), true)
 	}
 
 	return voutList
@@ -199,9 +201,9 @@ func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPu
 }
 
 func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
-	tx := mempool.GetTxByHash(hash) // todo realize: in mempool get *core.Tx by hash
-	if tx != nil {
-		return tx, nil, true
+	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
+	if entry != nil {
+		return entry.Tx, nil, true
 	}
 
 	if chain.GTxIndex {
@@ -213,16 +215,16 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 	// use coin database to locate block that contains transaction, and scan it
 	var indexSlow *blockindex.BlockIndex
 	if allowSlow {
-		coin := utxo.AccessByTxid(chain.GCoinsTip, hash)
+		coin := utxo2.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
 		if !coin.IsSpent() {
 			indexSlow = chain.GlobalChain.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
 		}
 	}
 
 	if indexSlow != nil {
-		var block *block.Block
-		if chain.ReadBlockFromDisk(block, indexSlow, consensus.ActiveNetParams) {
-			for _, tx := range block.Txs {
+		var bk *block.Block
+		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
+			for _, tx := range bk.Txs {
 				if *hash == tx.TxHash() {
 					return tx, &indexSlow.BlockHash, true
 				}
