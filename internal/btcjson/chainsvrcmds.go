@@ -780,6 +780,24 @@ type GetMempoolDescendantsCmd struct {
 	Verbose bool   `json:"verbose";jsonrpcdefault:"false"`
 }
 
+// RawTxInput models the data needed for raw transaction input that is used in
+// the SignRawTransactionCmd struct.
+type RawTxInput struct {
+	Txid         string `json:"txid"`
+	Vout         uint32 `json:"vout"`
+	ScriptPubKey string `json:"scriptPubKey"`
+	RedeemScript string `json:"redeemScript"`
+	Amount       *int   `json:"amount"`
+}
+
+// SignRawTransactionCmd defines the signrawtransaction JSON-RPC command.
+type SignRawTransactionCmd struct {
+	RawTx    string
+	Inputs   *[]RawTxInput
+	PrivKeys *[]string
+	Flags    *string `jsonrpcdefault:"\"ALL\""`
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -830,4 +848,6 @@ func init() {
 	MustRegisterCmd("verifychain", (*VerifyChainCmd)(nil), flags)
 	MustRegisterCmd("verifymessage", (*VerifyMessageCmd)(nil), flags)
 	MustRegisterCmd("verifytxoutproof", (*VerifyTxOutProofCmd)(nil), flags)
+	MustRegisterCmd("getmempoolancestors", (*GetMempoolAncestorsCmd)(nil), flags)
+	MustRegisterCmd("getmempooldescendants", (*GetMempoolDescendantsCmd)(nil), flags)
 }
