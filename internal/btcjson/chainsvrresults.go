@@ -291,6 +291,7 @@ type ScriptPubKeyResult struct {
 	ReqSigs   int32    `json:"reqSigs,omitempty"`
 	Type      string   `json:"type"`
 	Addresses []string `json:"addresses,omitempty"`
+	P2SH      string   `json:"p2sh,omitempty"`
 }
 
 // GetTxOutResult models the data from the gettxout command.
@@ -517,6 +518,8 @@ type SearchRawTransactionsResult struct {
 // TxRawDecodeResult models the data from the decoderawtransaction command.
 type TxRawDecodeResult struct {
 	Txid     string `json:"txid"`
+	Hash     string `json:"hash"`
+	Size     uint   `json:"size"`
 	Version  int32  `json:"version"`
 	Locktime uint32 `json:"locktime"`
 	Vin      []Vin  `json:"vin"`
