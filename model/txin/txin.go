@@ -10,9 +10,11 @@ import (
 	"github.com/btcboost/copernicus/util"
 )
 
-const (
+
+/*const (
 	MaxTxInSequenceNum uint32 = 0xffffffff
 )
+*/
 
 type TxIn struct {
 	PreviousOutPoint *outpoint.OutPoint
@@ -48,7 +50,7 @@ func (txIn *TxIn) Unserialize(reader io.Reader) error {
 func (txIn *TxIn) Serialize(writer io.Writer) error {
 	var err error
 	if txIn.PreviousOutPoint != nil {
-		err = txIn.PreviousOutPoint.WriteOutPoint(writer)
+		err = txIn.PreviousOutPoint.Encode(writer)
 		if err != nil {
 			return err
 		}

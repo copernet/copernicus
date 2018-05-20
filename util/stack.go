@@ -25,7 +25,7 @@ func (s *Stack) Copy() *Stack {
 	}
 }
 
-func (s *Stack) PushStack(value interface{}) {
+func (s *Stack) Push(value interface{}) {
 	s.array = append(s.array, value)
 }
 
@@ -41,7 +41,7 @@ func (s *Stack) Swap(i int, j int) bool {
 	return true
 
 }
-func (s *Stack) PopStack() (interface{}) {
+func (s *Stack) Pop() (interface{}) {
 	stackLen := len(s.array)
 	if stackLen == 0 {
 		return nil
@@ -95,9 +95,9 @@ func (s *Stack) Insert(index int, value interface{}) bool {
 	return true
 }
 
-func (s *Stack) StackTop(i int) (interface{}) {
+func (s *Stack) Top(i int) (interface{}) {
 	stackLen := s.Size()
-	if stackLen + i > stackLen - 1 || stackLen + i < 0{
+	if stackLen + i > stackLen - 1 || stackLen + i < 0 {
 		return nil
 	}
 	return s.array[stackLen + i]
@@ -116,7 +116,7 @@ func (s *Stack) Equal(other *Stack) bool {
 }
 
 
-func SwapStack(s *Stack, other *Stack) {
+func Swap(s *Stack, other *Stack) {
 	if s.Size() == 0 && other.Size() == 0 {
 		return
 	}

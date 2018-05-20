@@ -4,7 +4,7 @@
 
 //+build ignore
 
-package main
+package util
 
 import (
 	"bytes"

@@ -7,7 +7,7 @@ import (
 
 	
 	"github.com/btcboost/copernicus/persist/db"
-
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/blockindex"
 
@@ -17,13 +17,33 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/consensus"
+	"fmt"
 )
 
 type BlockTreeDB struct {
 	dbw *db.DBWrapper
 }
+var blockTreeDb *BlockTreeDB = nil
+
+type BlockTreeDBConfig struct {
+	do *db.DBOption
+}
+
+func InitBlockTreDB(uc *BlockTreeDBConfig){
+	fmt.Printf("InitBlockTreDB processing ....%v",uc)
+	blockTreeDb = NewBlockTreeDB(uc.do)
+
+}
 
 
+
+
+func GetBlockTreeDBInstance()*BlockTreeDB{
+	if blockTreeDb == nil{
+		log.Error("blockTreeDb has not init !!!")
+	}
+	return blockTreeDb
+}
 func NewBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	if do == nil {
 		return nil
