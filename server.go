@@ -43,6 +43,12 @@ import (
 	// "github.com/btcsuite/btcd/wire"
 	// "github.com/btcsuite/btcutil"
 	// "github.com/btcsuite/btcutil/bloom"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/mining/cpuminer"
+	"github.com/btcsuite/btcd/blockchain/indexers"
+	"github.com/btcsuite/btcutil/bloom"
 )
 
 const (
