@@ -7,6 +7,7 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/base58"
 	"github.com/btcsuite/btcd/mempool"
@@ -17,8 +18,8 @@ var miscHandlers = map[string]commandHandler{
 	"validateaddress":        handleValidateAddress,
 	"createmultisig":         handleCreatemultisig,
 	"verifymessage":          handleVerifyMessage,
-	"signmessagewithprivkey": handleSignMessageWithPrivkey, // todo 1
-	"setmocktime":            handleSetMocktime,            // todo 2
+	"signmessagewithprivkey": handleSignMessageWithPrivkey, // complete
+	"setmocktime":            handleSetMocktime,            // complete
 	"echo":                   handleEcho,                   // todo 3
 	"help":                   handleHelp,                   // complete
 	"stop":                   handleStop,                   // complete
@@ -157,6 +158,22 @@ func handleSignMessageWithPrivkey(s *Server, cmd interface{}, closeChan <-chan s
 }
 
 func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.SetMocktimeCmd)
+
+	if !consensus.ActiveNetParams.MineBlocksOnDemands {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCForbiddenBySafeMode,
+			Message: "etmocktime for regression testing (-regtest mode) only",
+		}
+	}
+
+	// For now, don't change mocktime if we're in the middle of validation, as
+	// this could have an effect on mempool time-based eviction, as well as
+	// IsCurrentForFeeEstimation() and IsInitialBlockDownload().
+	// TODO: figure out the right way to synchronize around mocktime, and
+	// ensure all callsites of GetTime() are accessing this safely.
+	util.SetMockTime(c.Timestamp)
+
 	return nil, nil
 }
 
