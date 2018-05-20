@@ -3,6 +3,7 @@ package rpc
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/crypto"
@@ -17,8 +18,8 @@ import (
 )
 
 var miscHandlers = map[string]commandHandler{
-	"getinfo":                handleGetInfo, // complete
-	"validateaddress":        handleValidateAddress,
+	"getinfo":                handleGetInfo,         // complete
+	"validateaddress":        handleValidateAddress, // complete
 	"createmultisig":         handleCreatemultisig,
 	"verifymessage":          handleVerifyMessage,          // complete
 	"signmessagewithprivkey": handleSignMessageWithPrivkey, // complete
@@ -52,17 +53,18 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 
 // handleValidateAddress implements the validateaddress command.
 func handleValidateAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.ValidateAddressCmd)
+	c := cmd.(*btcjson.ValidateAddressCmd)
 
 	result := btcjson.ValidateAddressChainResult{}
-	/*	addr, err := utils.DecodeAddress(c.Address, conf.AppConf.ChainParams)
-		if err != nil {
-			// Return the default value (false) for IsValid.
-			return result, nil
-		}
+	dest, err := bitaddr.AddressFromString(c.Address)
+	if err != nil {
+		result.IsValid = false
+		return result, nil
+	}
 
-		result.Address = addr.EncodeAddress()   */ // TODO realise
 	result.IsValid = true
+	result.Address = c.Address
+	result.ScriptPubKey = hex.EncodeToString(dest.EncodeToPubKeyHash())
 
 	return result, nil
 }
