@@ -17,7 +17,7 @@ type PreFilledTransaction struct {
 	Index uint16
 }
 
-type MsgHeaderAndShortTxIDs struct {
+type MsgCmpctBlock struct {
 	shortTxidk0  uint64
 	shortTxidk1  uint64
 	Nonce        uint64
@@ -26,7 +26,7 @@ type MsgHeaderAndShortTxIDs struct {
 	Header       BlockHeader
 }
 
-func NewMsgHeaderAndShortTxIDs(block *MsgBlock) *MsgHeaderAndShortTxIDs {
+func NewMsgCmpctBlock(block *MsgBlock) *MsgCmpctBlock {
 	nonce, _ := util.RandomUint64()
 	shortids := make([]uint64, len(block.Transactions)-1)
 	prefilledTxn := make([]PreFilledTransaction, 1)
@@ -42,7 +42,7 @@ func NewMsgHeaderAndShortTxIDs(block *MsgBlock) *MsgHeaderAndShortTxIDs {
 		txhash := block.Transactions[i].TxHash()
 		shortids[i-1] = getShortID(id0, id1, &txhash)
 	}
-	return &MsgHeaderAndShortTxIDs{
+	return &MsgCmpctBlock{
 		shortTxidk0:  id0,
 		shortTxidk1:  id1,
 		Nonce:        nonce,
@@ -93,7 +93,7 @@ func (pft *PreFilledTransaction) BtcEncode(w io.Writer, pver uint32, enc Message
 	return nil
 }
 
-func (msg *MsgHeaderAndShortTxIDs) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgCmpctBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("cmpctblock message invalid for protocol "+
 			"version %d", pver)
@@ -141,7 +141,7 @@ func (msg *MsgHeaderAndShortTxIDs) BtcDecode(r io.Reader, pver uint32, enc Messa
 	return nil
 }
 
-func (msg *MsgHeaderAndShortTxIDs) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgCmpctBlock) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("cmpctblock message invalid for protocol "+
 			"version %d", pver)
@@ -176,10 +176,10 @@ func (msg *MsgHeaderAndShortTxIDs) BtcEncode(w io.Writer, pver uint32, enc Messa
 	return nil
 }
 
-func (msg *MsgHeaderAndShortTxIDs) Command() string {
+func (msg *MsgCmpctBlock) Command() string {
 	return CmdCmpctBlock
 }
 
-func (msg *MsgHeaderAndShortTxIDs) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgCmpctBlock) MaxPayloadLength(pver uint32) uint32 {
 	return uint32(80 + 8 + 3 + len(msg.ShortTxids)*6 + 3 + len(msg.PreFilledTxn)*(3+MaxBlockPayload))
 }
