@@ -29,13 +29,13 @@ func TestNewOutPoint(t *testing.T) {
 
 }
 
-func TestOutPointWriteOutPoint(t *testing.T) {
+func TestOutPointEncode(t *testing.T) {
 	file, err := os.OpenFile("tmp.txt", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = testOutPoint.WriteOutPoint(file)
+	err = testOutPoint.Encode(file)
 	if err != nil {
 		t.Error(err)
 	}

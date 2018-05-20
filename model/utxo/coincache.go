@@ -3,29 +3,33 @@ package utxo
 import (
 	"unsafe"
 	"fmt"
+	"github.com/btcboost/copernicus/log"
 
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
 
-	"log"
+	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/persist/db"
 )
 var utxoTip *CoinsCache
 
 
 type UtxoConfig struct {
-
+	do *db.DBOption
 }
 
-func InitUtxoTip(conf *UtxoConfig){
-	fmt.Printf("initUtxo processing ....%v",conf)
-	GetUtxoCacheInstance()
+func InitUtxoTip(uc *UtxoConfig){
+	fmt.Printf("initUtxo processing ....%v",uc)
+
+	db := NewCoinsDB(uc.do)
+	utxoTip = NewCoinCache(*db)
+
 }
 
 
 func GetUtxoCacheInstance() *CoinsCache{
 	if utxoTip == nil{
-		db := new(CoinsDB)
-		utxoTip = NewCoinCache(*db)
+		log.Error("utxoTip has not init!!")
 	}
 	return utxoTip
 }
@@ -54,8 +58,13 @@ func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
+	if err != nil{
+		logs.Emergency("CoinsCache.GetCoin err:%#v", err)
+		panic("get coin is failed!")
+	}
 	if err != nil||coin == nil {
-		return coin, nil
+
+		return coin, err
 	}
 	coinsCache.cacheCoins[*outpoint] = coin
 	if coin.IsSpent() {

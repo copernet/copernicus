@@ -14,6 +14,7 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/mblock"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -36,8 +37,8 @@ var rawTransactionHandlers = map[string]commandHandler{
 	"sendrawtransaction":   handleSendRawTransaction,   // complete
 
 	"signrawtransaction": handleSignRawTransaction, // partial complete
-	"gettxoutproof":      handleGetTxoutProof,
-	"verifytxoutproof":   handleVerifyTxoutProof,
+	"gettxoutproof":      handleGetTxoutProof,      // complete
+	"verifytxoutproof":   handleVerifyTxoutProof,   // complete
 }
 
 func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -56,7 +57,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 
 	tx, hashBlock, ok := GetTransaction(txHash, true)
 	if !ok {
-		if chain.GTxIndex {
+		if chain.GTxIndex { // todo define
 			return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey,
 				"No such mempool or blockchain transaction")
 		}
@@ -117,7 +118,7 @@ func createVinList(tx *tx.Tx) []btcjson.Vin {
 	vinList := make([]btcjson.Vin, len(tx.GetIns()))
 	for index, in := range tx.GetIns() {
 		if tx.IsCoinBase() {
-			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetScriptByte())
+			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetData())
 		} else {
 			vinList[index].Txid = in.PreviousOutPoint.Hash.String()
 			vinList[index].Vout = in.PreviousOutPoint.Index
@@ -251,9 +252,9 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 	if indexSlow != nil {
 		var bk *block.Block
 		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
-			for _, tx := range bk.Txs {
-				if *hash == tx.TxHash() {
-					return tx, &indexSlow.BlockHash, true
+			for _, item := range bk.Txs {
+				if *hash == item.TxHash() {
+					return item, &indexSlow.BlockHash, true
 				}
 			}
 		}
@@ -545,7 +546,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 			}
 		}
 
-		view.AddCoin(out, *utxo.NewCoin(txOut, 1, false), true)
+		view.AddCoin(out, *utxo.NewCoin(txOut, 1, false))
 
 		// If redeemScript given and not using the local wallet (private
 		// keys given), add redeemScript to the tempKeystore so it can be
@@ -619,7 +620,7 @@ func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransac
 func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetTxOutProofCmd)
 
-	setTxIds := set.New()
+	setTxIds := set.New() // element type: util.Hash
 	var oneTxId util.Hash
 	txIds := c.TxIDs
 
@@ -707,13 +708,48 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		}
 	}
 
-	// todo merkleblock serialize
-
-	return nil, nil
+	mb := mblock.NewMerkleBlock(bk, setTxIds)
+	buf := bytes.NewBuffer(nil)
+	mb.Serialize(buf)
+	return hex.EncodeToString(buf.Bytes()), nil
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	c := cmd.(*btcjson.VerifyTxoutProofCmd)
+
+	b, err := hex.DecodeString(c.Proof)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Proof)
+	}
+
+	mb := mblock.MerkleBlock{}
+	err = mb.Unserialize(bytes.NewReader(b))
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCDeserializationError,
+			Message: "MerkleBlock Unserialize error",
+		}
+	}
+
+	matches := make([]util.Hash, 0)
+	items := make([]int, 0)
+	if mb.Txn.ExtractMatches(matches, items).IsEqual(&mb.Header.MerkleRoot) {
+		return nil, nil
+	}
+
+	bindex := LookupBlockIndex(mb.Header.GetHash()) // todo realize
+	if bindex == nil || !chain.GlobalChain.Contains(bindex) {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "Block not found in chain",
+		}
+	}
+
+	ret := make([]string, 0, len(matches))
+	for _, hash := range matches {
+		ret = append(ret, hash.String())
+	}
+	return ret, nil
 }
 
 func registeRawTransactionRPCCommands() {

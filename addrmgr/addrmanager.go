@@ -27,6 +27,7 @@ import (
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/log"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential
@@ -225,7 +226,7 @@ func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
 
 	// Enforce max addresses.
 	if len(a.addrNew[bucket]) > newBucketSize {
-		log.Tracef("new bucket is full, expiring old")
+		log.Trace("new bucket is full, expiring old")
 		a.expireNew(bucket)
 	}
 
@@ -233,7 +234,7 @@ func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
 	ka.refs++
 	a.addrNew[bucket][addr] = ka
 
-	log.Tracef("Added new address %s for a total of %d addresses", addr,
+	log.Trace("Added new address %s for a total of %d addresses", addr,
 		a.nTried+a.nNew)
 }
 
@@ -248,7 +249,7 @@ func (a *AddrManager) expireNew(bucket int) {
 	var oldest *KnownAddress
 	for k, v := range a.addrNew[bucket] {
 		if v.isBad() {
-			log.Tracef("expiring bad address %v", k)
+			log.Trace("expiring bad address %v", k)
 			delete(a.addrNew[bucket], k)
 			v.refs--
 			if v.refs == 0 {
@@ -266,7 +267,7 @@ func (a *AddrManager) expireNew(bucket int) {
 
 	if oldest != nil {
 		key := NetAddressKey(oldest.na)
-		log.Tracef("expiring oldest address %v", key)
+		log.Trace("expiring oldest address %v", key)
 
 		delete(a.addrNew[bucket], key)
 		oldest.refs--
@@ -403,13 +404,13 @@ func (a *AddrManager) savePeers() {
 
 	w, err := os.Create(a.peersFile)
 	if err != nil {
-		log.Errorf("Error opening file %s: %v", a.peersFile, err)
+		log.Error("Error opening file %s: %v", a.peersFile, err)
 		return
 	}
 	enc := json.NewEncoder(w)
 	defer w.Close()
 	if err := enc.Encode(&sam); err != nil {
-		log.Errorf("Failed to encode file %s: %v", a.peersFile, err)
+		log.Error("Failed to encode file %s: %v", a.peersFile, err)
 		return
 	}
 }
@@ -422,17 +423,17 @@ func (a *AddrManager) loadPeers() {
 
 	err := a.deserializePeers(a.peersFile)
 	if err != nil {
-		log.Errorf("Failed to parse file %s: %v", a.peersFile, err)
+		log.Error("Failed to parse file %s: %v", a.peersFile, err)
 		// if it is invalid we nuke the old one unconditionally.
 		err = os.Remove(a.peersFile)
 		if err != nil {
-			log.Warnf("Failed to remove corrupt peers file %s: %v",
+			log.Warn("Failed to remove corrupt peers file %s: %v",
 				a.peersFile, err)
 		}
 		a.reset()
 		return
 	}
-	log.Infof("Loaded %d addresses from file '%s'", a.numAddresses(), a.peersFile)
+	log.Info("Loaded %d addresses from file '%s'", a.numAddresses(), a.peersFile)
 }
 
 func (a *AddrManager) deserializePeers(filePath string) error {
@@ -558,12 +559,12 @@ func (a *AddrManager) Start() {
 // Stop gracefully shuts down the address manager by stopping the main handler.
 func (a *AddrManager) Stop() error {
 	if atomic.AddInt32(&a.shutdown, 1) != 1 {
-		log.Warnf("Address manager is already in the process of " +
+		log.Warn("Address manager is already in the process of " +
 			"shutting down")
 		return nil
 	}
 
-	log.Infof("Address manager shutting down")
+	log.Info("Address manager shutting down")
 	close(a.quit)
 	a.wg.Wait()
 	return nil
@@ -771,7 +772,7 @@ func (a *AddrManager) GetAddress() *KnownAddress {
 			ka := e.Value.(*KnownAddress)
 			randval := a.rand.Intn(large)
 			if float64(randval) < (factor * ka.chance() * float64(large)) {
-				log.Tracef("Selected %v from tried bucket",
+				log.Trace("Selected %v from tried bucket",
 					NetAddressKey(ka.na))
 				return ka
 			}
@@ -799,7 +800,7 @@ func (a *AddrManager) GetAddress() *KnownAddress {
 			}
 			randval := a.rand.Intn(large)
 			if float64(randval) < (factor * ka.chance() * float64(large)) {
-				log.Tracef("Selected %v from new bucket",
+				log.Trace("Selected %v from new bucket",
 					NetAddressKey(ka.na))
 				return ka
 			}
@@ -935,7 +936,7 @@ func (a *AddrManager) Good(addr *wire.NetAddress) {
 	a.nNew++
 
 	rmkey := NetAddressKey(rmka.na)
-	log.Tracef("Replacing %s with %s in tried", rmkey, addrKey)
+	log.Trace("Replacing %s with %s in tried", rmkey, addrKey)
 
 	// We made sure there is space here just above.
 	a.addrNew[newBucket][rmkey] = rmka
@@ -1110,10 +1111,10 @@ func (a *AddrManager) GetBestLocalAddress(remoteAddr *wire.NetAddress) *wire.Net
 		}
 	}
 	if bestAddress != nil {
-		log.Debugf("Suggesting address %s:%d for %s:%d", bestAddress.IP,
+		log.Debug("Suggesting address %s:%d for %s:%d", bestAddress.IP,
 			bestAddress.Port, remoteAddr.IP, remoteAddr.Port)
 	} else {
-		log.Debugf("No worthy address for %s:%d", remoteAddr.IP,
+		log.Debug("No worthy address for %s:%d", remoteAddr.IP,
 			remoteAddr.Port)
 
 		// Send something unroutable if nothing suitable.
