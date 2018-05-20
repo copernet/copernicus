@@ -13,11 +13,11 @@ var miscHandlers = map[string]commandHandler{
 	"validateaddress":        handleValidateAddress,
 	"createmultisig":         handleCreatemultisig,
 	"verifymessage":          handleVerifyMessage,
-	"signmessagewithprivkey": handleSignMessageWithPrivkey,
-	"setmocktime":            handleSetMocktime,
-	"echo":                   handleEcho,
-	"help":                   handleHelp,
-	"stop":                   handleStop,
+	"signmessagewithprivkey": handleSignMessageWithPrivkey, // todo 1
+	"setmocktime":            handleSetMocktime,            // todo 2
+	"echo":                   handleEcho,                   // todo 3
+	"help":                   handleHelp,                   // complete
+	"stop":                   handleStop,                   // complete
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
