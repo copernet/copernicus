@@ -35,7 +35,7 @@ func (coinsCache *CoinsMap) Flush(hashBlock util.Hash) bool {
 }
 
 
-func (coinsCache *CoinsMap) AddCoin(point *outpoint.OutPoint, coin Coin) {
+func (coinsCache *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
@@ -57,7 +57,7 @@ func (coinsCache *CoinsMap) AddCoin(point *outpoint.OutPoint, coin Coin) {
 			fresh = true
 		}
 	}
-	newcoin := &coin
+	newcoin := coin
 	newcoin.dirty = true
 	if fresh {
 		newcoin.fresh = true
