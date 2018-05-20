@@ -1,10 +1,14 @@
 package rpc
 
 import (
+	"encoding/base64"
+
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/base58"
 	"github.com/btcsuite/btcd/mempool"
 )
 
@@ -129,8 +133,27 @@ func handleVerifyMessage(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleSignMessageWithPrivkey(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.SignMessageWithPrivkeyCmd)
-	return nil, nil
+	c := cmd.(*btcjson.SignMessageWithPrivkeyCmd)
+
+	bs, _, err := base58.CheckDecode(c.Privkey)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "Invalid private key",
+		}
+	}
+	privKey := crypto.PrivateKeyFromBytes(bs)
+
+	data := []byte(strMessageMagic + c.Message) // todo define <strMessageMagic>
+	originBytes := util.DoubleSha256Bytes(data)
+	signature, err := privKey.Sign(originBytes)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "Sign failed",
+		}
+	}
+	return base64.StdEncoding.EncodeToString(signature.Serialize()), nil
 }
 
 func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
