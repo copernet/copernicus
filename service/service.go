@@ -24,24 +24,24 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/net/wire"
-	"github.com/ethereum/go-ethereum/les"
+	"github.com/btcboost/copernicus/model/chainparams"
 )
 
 
 // peerSyncState stores additional information that the SyncManager tracks
-// about a peer. 存储
+// about a peer.
 type peerSyncState struct {
 	syncCandidate   bool
-	requestQueue    []*wire.InvVect					//请求消息的队列。
+	requestQueue    []*wire.InvVect
 	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}		//同步节点正在同步的块
+	requestedBlocks map[util.Hash]struct{}
 }
 
 type MsgHandle struct {
 	mtx sync.Mutex
 	recvFromNet  	<- chan peer.PeerMessage
 	txAndBlockPro	chan peer.PeerMessage
-
+	chainparam    *chainparams.BitcoinParams
 	//connect manager
 	connManager 	connmgr.ConnManager
 
@@ -64,12 +64,15 @@ type MsgHandle struct {
 func NewMsgHandle(ctx context.Context, cmdCh <- chan peer.PeerMessage) *MsgHandle {
 	msg := &MsgHandle{mtx:sync.Mutex{}, recvFromNet:cmdCh}
 	ctxChild, _ := context.WithCancel(ctx)
+
 	go msg.startProcess(ctxChild)
 	return msg
 }
 
 func (mh *MsgHandle)startProcess(ctx context.Context)  {
-	ctxChild, _ := context.WithCancel(ctx)
+	ctxChild, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	go mh.txAndBlockProcess(ctxChild)
 
 	out:
@@ -79,6 +82,7 @@ func (mh *MsgHandle)startProcess(ctx context.Context)  {
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
 			case *wire.MsgGetBlocks:
+			//	receive getblocks request, response this request.
 			case *wire.MsgGetData:
 			case *wire.MsgTx:
 				mh.txAndBlockPro <- msg
@@ -107,8 +111,8 @@ func (mh *MsgHandle)startProcess(ctx context.Context)  {
 
 			}
 		case <-ctx.Done():
+			log.Info("msgHandle service exit. function : startProcess", )
 			break out
-
 		}
 	}
 
@@ -126,22 +130,95 @@ func (mh *MsgHandle)txAndBlockProcess(ctx context.Context)  {
 			case *wire.MsgTx:
 				acceptTx, err := mempool.ProcessTransaction(data, peers.ID())
 				if err != nil{
-					mh.resultChannel <- err
-				}else {
-					mh.broadCastMsg(acceptTx)
-					mh.resultChannel <- acceptTx
+					_ = acceptTx
 				}
 
 			case *wire.MsgBlock:
 			}
-
-
 		}
 	}
-	
 }
 
+func (mh *MsgHandle)startSync()  {
+	if mh.syncPeer != nil{
+		return
+	}
 
+	best := mh.chain.BestSnapshot()
+	var bestPeer *peer.Peer
+	for peer, state := range mh.peerStates {
+		if !state.syncCandidate {
+			continue
+		}
+
+		// Remove sync candidate peers that are no longer candidates due
+		// to passing their latest known block.  NOTE: The < is
+		// intentional as opposed to <=.  While technically the peer
+		// doesn't have a later block when it's equal, it will likely
+		// have one soon so it is a reasonable choice.  It also allows
+		// the case where both are at 0 such as during regression test.
+		if peer.LastBlock() < best.Height {
+			state.syncCandidate = false
+			continue
+		}
+
+		// TODO(davec): Use a better algorithm to choose the best peer.
+		// For now, just pick the first available candidate.
+		bestPeer = peer
+	}
+
+	// Start syncing from the best peer if one was selected.
+	if bestPeer != nil {
+		// Clear the requestedBlocks if the sync peer changes, otherwise
+		// we may ignore blocks we need that the last sync peer failed
+		// to send.
+		mh.requestedBlocks = make(map[util.Hash]struct{})
+
+		//3. locator
+		locator, err := mh.chain.LatestBlockLocator()
+		if err != nil {
+			log.Error("Failed to get block locator for the "+
+				"latest block: %v", err)
+			return
+		}
+
+		log.Info("Syncing to block height %d from peer %v",
+			bestPeer.LastBlock(), bestPeer.Addr())
+
+		// When the current height is less than a known checkpoint we
+		// can use block headers to learn about which blocks comprise
+		// the chain up to the checkpoint and perform less validation
+		// for them.  This is possible since each header contains the
+		// hash of the previous header and a merkle root.  Therefore if
+		// we validate all of the received headers link together
+		// properly and the checkpoint hashes match, we can be sure the
+		// hashes for the blocks in between are accurate.  Further, once
+		// the full blocks are downloaded, the merkle root is computed
+		// and compared against the value in the header which proves the
+		// full block hasn't been tampered with.
+		//
+		// Once we have passed the final checkpoint, or checkpoints are
+		// disabled, use standard inv messages learn about the blocks
+		// and fully validate them.  Finally, regression test mode does
+		// not support the headers-first approach so do normal block
+		// downloads when in regression test mode.
+		if mh.nextCheckpoint != nil &&
+			best.Height < mh.nextCheckpoint.Height &&
+			mh.chainparam != &chainparams.RegressionNetParams {
+			//	3. push peer
+			bestPeer.PushGetHeadersMsg(locator, mh.nextCheckpoint.Hash)
+			mh.headersFirstMode = true
+			log.Info("Downloading headers for blocks %d to "+
+				"%d from peer %s", best.Height+1,
+				mh.nextCheckpoint.Height, bestPeer.Addr())
+		} else {
+			bestPeer.PushGetBlocksMsg(locator, &util.HashZero)
+		}
+		mh.syncPeer = bestPeer			//赋值 同步节点。
+	} else {
+		log.Warn("No sync peer candidates available")
+	}
+}
 
 
 // handleGetData is invoked when a peer receives a getdata bitcoin message and
