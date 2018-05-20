@@ -99,11 +99,12 @@ func initConfig() *Configuration {
 	return config
 }
 
+// Configuration defines all configurations for application
 type Configuration struct {
 	GoVersion string `validate:"require"` //description:"Display version information and exit"
 	Version   string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
-	DataDir   string `default:"data`
+	DataDir   string `default:"data"`
 
 	Service struct {
 		Address string `default:"1.0.0.1:80"`
@@ -129,6 +130,10 @@ type Configuration struct {
 		MaxPeers            int      `default:"128"`
 		TargetOutbound      int      `default:"8"`
 		ConnectPeersOnStart []string
+		DisableBanning      bool `default:"true"`
+		BanThreshold        uint32
+		SimNet              bool `default:"false"`
+		DisableListen       bool `default:"true"`
 	}
 	AddrMgr struct {
 		SimNet       bool

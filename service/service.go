@@ -60,7 +60,7 @@ type MsgHandle struct {
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan peer.PeerMessage) *MsgHandle {
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage) *MsgHandle {
 	msg := &MsgHandle{mtx: sync.Mutex{}, recvFromNet: cmdCh}
 	go msg.startProcess(ctx)
 	return msg

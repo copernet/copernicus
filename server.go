@@ -28,6 +28,7 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	log "github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/bitcointime"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/netsync"
 	"github.com/btcboost/copernicus/peer"
@@ -209,12 +210,12 @@ type server struct {
 	startupTime   int64
 
 	chainParams *chaincfg.Params
-	// addrManager *addrmgr.AddrManager
+	addrManager *addrmgr.AddrManager
 	connManager *connmgr.ConnManager
 	// sigCache             *txscript.SigCache
 	// hashCache            *txscript.HashCache
 	// rpcServer *rpcServer
-	// syncManager *netsync.SyncManager
+	syncManager *netsync.SyncManager
 	// chain                *blockchain.BlockChain
 	// txMemPool            *mempool.TxPool
 	// cpuMiner             *cpuminer.CPUMiner
@@ -230,7 +231,7 @@ type server struct {
 	quit                 chan struct{}
 	nat                  NAT
 	// db                   database.DB
-	timeSource blockchain.MedianTimeSource
+	timeSource *bitcointime.MedianTime
 	services   wire.ServiceFlag
 
 	// The following fields are used for optional indexes.  They will be nil
@@ -351,7 +352,7 @@ func (sp *serverPeer) pushAddrMsg(addresses []*wire.NetAddress) {
 // disconnected.
 func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 	// No warning is logged and no score is calculated if banning is disabled.
-	if cfg.DisableBanning {
+	if conf.Cfg.P2PNet.DisableBanning {
 		return
 	}
 	if sp.isWhitelisted {
@@ -359,7 +360,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 		return
 	}
 
-	warnThreshold := cfg.BanThreshold >> 1
+	warnThreshold := conf.Cfg.P2PNet.BanThreshold >> 1
 	if transient == 0 && persistent == 0 {
 		// The score is not being increased, but a warning message is still
 		// logged if the score is above the warn threshold.
@@ -374,7 +375,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 	if score > warnThreshold {
 		log.Warn("Misbehaving peer %s: %s -- ban score increased to %d",
 			sp, reason, score)
-		if score > cfg.BanThreshold {
+		if score > conf.Cfg.P2PNet.BanThreshold {
 			log.Warn("Misbehaving peer %s -- banning and disconnecting",
 				sp)
 			sp.server.BanPeer(sp)
@@ -403,33 +404,14 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 	// on the simulation test network since it is only intended to connect
 	// to specified peers and actively avoids advertising and connecting to
 	// discovered peers.
-	if !cfg.SimNet {
+	if !conf.Cfg.P2PNet.SimNet {
 		addrManager := sp.server.addrManager
 
 		// Outbound connections.
 		if !sp.Inbound() {
-			// After soft-fork activation, only make outbound
-			// connection to peers if they flag that they're segwit
-			// enabled.
-			chain := sp.server.chain
-			segwitActive, err := chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
-			if err != nil {
-				log.Error("Unable to query for segwit "+
-					"soft-fork state: %v", err)
-				return
-			}
-
-			if segwitActive && !sp.IsWitnessEnabled() {
-				log.Info("Disconnecting non-segwit "+
-					"peer %v, isn't segwit enabled and "+
-					"we need more segwit enabled peers", sp)
-				sp.Disconnect()
-				return
-			}
-
 			// TODO(davec): Only do this if not doing the initial block
 			// download and the local address is routable.
-			if !cfg.DisableListen /* && isCurrent? */ {
+			if !conf.Cfg.P2PNet.DisableListen /* && isCurrent? */ {
 				// Get address that best matches.
 				lna := addrManager.GetBestLocalAddress(sp.NA())
 				if addrmgr.IsRoutable(lna) {
@@ -2447,13 +2429,13 @@ func newServer(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server
 		services:             services,
 		nat:                  nat,
 		// db:                   db,
-		// timeSource: blockchain.NewMedianTime(),
+		timeSource: bitcointime.NewMedianTime(),
 
 		// sigCache:   txscript.NewSigCache(cfg.SigCacheMaxSize),
 		// hashCache:  txscript.NewHashCache(cfg.SigCacheMaxSize),
 
 		phCh: phCh,
-		mh:   service.NewMsgHandler(context.TODO(), phCh),
+		mh:   service.NewMsgHandle(context.TODO(), phCh),
 	}
 
 	targetOutbound := defaultTargetOutbound
@@ -2613,7 +2595,7 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 	}
 
 	// Attempt to look up an IP address associated with the parsed host.
-	ips, err := btcdLookup(host)
+	ips, err := net.LookupIP(host)
 	if err != nil {
 		return nil, err
 	}
