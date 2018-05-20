@@ -47,7 +47,7 @@ func NewMsgHandle(ctx context.Context, cmdCh <- chan interface{}) *MsgHandle {
 
 // start begins the core block handler which processes block and inv messages.
 // It must be run as a goroutine.
-func (msg *MsgHandle)start(ctx context.Context)  {
+func (msg *MsgHandle) start(ctx context.Context)  {
 	out:
 	for{
 		select{

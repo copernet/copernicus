@@ -104,7 +104,6 @@ type Configuration struct {
 	Version   string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
 	DataDir   string `default:"data`
-	Service   struct {
 
 	Service struct {
 		Address string `default:"1.0.0.1:80"`
@@ -116,7 +115,7 @@ type Configuration struct {
 	}
 	RPC struct {
 		Host string `validate:"require"` //description:"Define host of RPC"
-		Port int                         //description:"Define port of RPC"
+		Port int    //description:"Define port of RPC"
 	}
 	Log struct {
 		Level  string //description:"Define level of log,include trace, debug, info, warn, error"
@@ -134,6 +133,9 @@ type Configuration struct {
 	AddrMgr struct {
 		SimNet       bool
 		ConnectPeers []string
+	}
+	Protocal struct {
+		NoPeerBloomFilters bool `default:"false"`
 	}
 }
 

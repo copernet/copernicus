@@ -17,11 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/go-socks/socks"
+	// "github.com/btcsuite/btcd/blockchain"
+	// "github.com/btcsuite/btcd/chaincfg"
+	// "github.com/btcsuite/btcd/chaincfg/chainhash"
+	// "github.com/btcsuite/btcd/wire"
+	// "github.com/btcsuite/go-socks/socks"
+	"github.com/btcboost/copernicus/chaincfg"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -77,7 +80,7 @@ var (
 
 	// zeroHash is the zero value hash (all zeros).  It is defined as a
 	// convenience.
-	zeroHash chainhash.Hash
+	zeroHash util.Hash
 
 	// sentNonces houses the unique nonces that are generated when pushing
 	// version messages that are used to detect self connections.
@@ -89,12 +92,27 @@ var (
 	allowSelfConns bool
 )
 
+// PeerMessage define a message used to send a Msg from net to protocol handler
 type PeerMessage struct {
 	Peerp *Peer
 	Msg   wire.Message
 	Buf   []byte
-	Done  chan struct{}
+	Done  chan<- struct{}
 }
+
+// NewPeerMessage create a pointer for PeerMessage
+func NewPeerMessage(peer *Peer, msg wire.Message, buf []byte, done chan<- struct{}) *PeerMessage {
+	return &PeerMessage{
+		Peerp: peer,
+		Msg:   msg,
+		Buf:   buf,
+		Done:  done,
+	}
+}
+
+// func PushPM(ch chan<- *PeerMessage) {
+// 	ch <- &PeerMessage{}
+// }
 
 // MessageListeners defines callback function pointers to invoke with message
 // listeners for a peer. Any listener which is not set to a concrete callback
@@ -360,7 +378,7 @@ type StatsSnap struct {
 
 // HashFunc is a function which returns a block hash, height and error
 // It is used as a callback to get newest block details.
-type HashFunc func() (hash *chainhash.Hash, height int32, err error)
+type HashFunc func() (hash *util.Hash, height int32, err error)
 
 // AddrFunc is a func which takes an address and returns a related address.
 type AddrFunc func(remoteAddr *wire.NetAddress) *wire.NetAddress
@@ -1492,7 +1510,7 @@ out:
 		// Handle each supported message type.
 		p.stallControl <- stallControlMsg{sccHandlerStart, rmsg}
 
-		phCh <- &PeerMessage{Peerp: p, Msg: rmsg, Buf: buf}
+		phCh <- NewPeerMessage(p, rmsg, buf, nil)
 
 		// switch msg := rmsg.(type) {
 		// case *wire.MsgVersion:
@@ -2003,30 +2021,30 @@ func (p *Peer) Disconnect() {
 func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	log.Tracef("Starting peer %s", p)
 
-	// negotiateErr := make(chan error)
-	// go func() {
-	// 	if p.inbound {
-	// 		negotiateErr <- p.negotiateInboundProtocol()
-	// 	} else {
-	// 		negotiateErr <- p.negotiateOutboundProtocol()
-	// 	}
-	// }()
+	negotiateErr := make(chan error)
+	go func() {
+		if p.inbound {
+			negotiateErr <- p.negotiateInboundProtocol()
+		} else {
+			negotiateErr <- p.negotiateOutboundProtocol()
+		}
+	}()
 
-	// // Negotiate the protocol within the specified negotiateTimeout.
-	// select {
-	// case err := <-negotiateErr:
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// case <-time.After(negotiateTimeout):
-	// 	return errors.New("protocol negotiation timeout")
-	// }
-	// log.Debugf("Connected to %s", p.Addr())
+	// Negotiate the protocol within the specified negotiateTimeout.
+	select {
+	case err := <-negotiateErr:
+		if err != nil {
+			return err
+		}
+	case <-time.After(negotiateTimeout):
+		return errors.New("protocol negotiation timeout")
+	}
+	log.Debugf("Connected to %s", p.Addr())
 
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
 
-	//go p.stallHandler()
+	go p.stallHandler()
 
 	go p.inHandler(phCh)
 	go p.queueHandler()
@@ -2034,15 +2052,8 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	go p.pingHandler()
 
 	// Send our verack message now that the IO processing machinery has started.
-	// p.QueueMessage(wire.NewMsgVerAck(), nil)
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
-	// rmsg, buf, err := p.readMessage(p.wireEncoding)
-	// if err != nil {
-	// 	// FIXME: err
-	// }
-	// atomic.StoreInt64(&p.lastRecv, time.Now().Unix())
-
-	// protoCh <- Message{peer: p, msg: rmsg, buf: buf, done: make(chan struct{})}
 	return nil
 }
 

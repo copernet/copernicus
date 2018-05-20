@@ -6,24 +6,24 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"net/http"
+	// "net"
+	// "net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"runtime/pprof"
+	//"runtime/pprof"
 	// "github.com/btcsuite/btcd/blockchain/indexers"
 	// "github.com/btcsuite/btcd/database"
 	// "github.com/btcsuite/btcd/limits"
 
 	"context"
-	"errors"
 	"github.com/btcboost/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/limits"
+	"github.com/btcboost/copernicus/log"
 )
 
 const (
@@ -42,17 +42,24 @@ var winServiceMain func() (bool, error)
 // optional serverChan parameter is mainly used by the service code to be
 // notified with the server once it is setup so it can gracefully stop it when
 // requested from the service control manager.
-func bchMain(ctx context.Context, serverChan chan<- *server) error {
+func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
 
 	interrupt := interruptListener()
 
-	s := newServer1()
+	s, err := newServer(nil, interrupt)
+	if err != nil {
+		return err
+	}
 
-	if interruptRequested(interrupted) {
+	if interruptRequested(interrupt) {
 		return nil
 	}
+	s.Start()
+
+	<-interrupt
+	return nil
 }
 
 // removeRegressionDB removes the existing regression test database if running
@@ -66,7 +73,7 @@ func removeRegressionDB(dbPath string) error {
 	// Remove the old regression test database if it already exists.
 	fi, err := os.Stat(dbPath)
 	if err == nil {
-		btcdLog.Infof("Removing regression test database from '%s'", dbPath)
+		log.Infof("Removing regression test database from '%s'", dbPath)
 		if fi.IsDir() {
 			err := os.RemoveAll(dbPath)
 			if err != nil {
@@ -118,7 +125,7 @@ func warnMultipleDBs() {
 	// Warn if there are extra databases.
 	if len(duplicateDbPaths) > 0 {
 		selectedDbPath := blockDbPath(cfg.DbType)
-		btcdLog.Warnf("WARNING: There are multiple block chain databases "+
+		log.Warn("WARNING: There are multiple block chain databases "+
 			"using different database types.\nYou probably don't "+
 			"want to waste disk space by having more than one.\n"+
 			"Your current database is located at [%v].\nThe "+
@@ -132,53 +139,53 @@ func warnMultipleDBs() {
 // contains additional logic such warning the user if there are multiple
 // databases which consume space on the file system and ensuring the regression
 // test database is clean when in regression test mode.
-func loadBlockDB() (database.DB, error) {
-	// The memdb backend does not have a file path associated with it, so
-	// handle it uniquely.  We also don't want to worry about the multiple
-	// database type warnings when running with the memory database.
-	if cfg.DbType == "memdb" {
-		btcdLog.Infof("Creating block database in memory.")
-		db, err := database.Create(cfg.DbType)
-		if err != nil {
-			return nil, err
-		}
-		return db, nil
-	}
+// func loadBlockDB() (database.DB, error) {
+// 	// The memdb backend does not have a file path associated with it, so
+// 	// handle it uniquely.  We also don't want to worry about the multiple
+// 	// database type warnings when running with the memory database.
+// 	if cfg.DbType == "memdb" {
+// 		log.Info("Creating block database in memory.")
+// 		db, err := database.Create(cfg.DbType)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		return db, nil
+// 	}
 
-	warnMultipleDBs()
+// 	warnMultipleDBs()
 
-	// The database name is based on the database type.
-	dbPath := blockDbPath(cfg.DbType)
+// 	// The database name is based on the database type.
+// 	dbPath := blockDbPath(cfg.DbType)
 
-	// The regression test is special in that it needs a clean database for
-	// each run, so remove it now if it already exists.
-	removeRegressionDB(dbPath)
+// 	// The regression test is special in that it needs a clean database for
+// 	// each run, so remove it now if it already exists.
+// 	removeRegressionDB(dbPath)
 
-	btcdLog.Infof("Loading block database from '%s'", dbPath)
-	db, err := database.Open(cfg.DbType, dbPath, activeNetParams.Net)
-	if err != nil {
-		// Return the error if it's not because the database doesn't
-		// exist.
-		if dbErr, ok := err.(database.Error); !ok || dbErr.ErrorCode !=
-			database.ErrDbDoesNotExist {
+// 	log.Info("Loading block database from '%s'", dbPath)
+// 	db, err := database.Open(cfg.DbType, dbPath, activeNetParams.Net)
+// 	if err != nil {
+// 		// Return the error if it's not because the database doesn't
+// 		// exist.
+// 		if dbErr, ok := err.(database.Error); !ok || dbErr.ErrorCode !=
+// 			database.ErrDbDoesNotExist {
 
-			return nil, err
-		}
+// 			return nil, err
+// 		}
 
-		// Create the db if it does not exist.
-		err = os.MkdirAll(cfg.DataDir, 0700)
-		if err != nil {
-			return nil, err
-		}
-		db, err = database.Create(cfg.DbType, dbPath, activeNetParams.Net)
-		if err != nil {
-			return nil, err
-		}
-	}
+// 		// Create the db if it does not exist.
+// 		err = os.MkdirAll(cfg.DataDir, 0700)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		db, err = database.Create(cfg.DbType, dbPath, activeNetParams.Net)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 	}
 
-	btcdLog.Info("Block database loaded")
-	return db, nil
-}
+// 	btcdLog.Info("Block database loaded")
+// 	return db, nil
+// }
 
 func main() {
 	// Use all processor cores.
@@ -211,7 +218,7 @@ func main() {
 	}
 
 	// Work around defer not working after os.Exit()
-	if err := bchMain(nil); err != nil {
+	if err := bchMain(context.Background(), nil); err != nil {
 		os.Exit(1)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"encoding/base32"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -21,10 +22,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"errors"
 
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 )
@@ -844,7 +844,7 @@ func (a *AddrManager) Connected(addr *wire.NetAddress) {
 	// Update the time as long as it has been 20 minutes since last we did
 	// so.
 	now := time.Now()
-	if now.After(time.Unix(int64(ka.na.Timestamp),0).Add(time.Minute * 20)) {
+	if now.After(time.Unix(int64(ka.na.Timestamp), 0).Add(time.Minute * 20)) {
 		// ka.na is immutable, so replace it.
 		naCopy := *ka.na
 		naCopy.Timestamp = uint32(time.Now().Unix())
@@ -1051,8 +1051,7 @@ func getReachabilityFrom(localAddr, remoteAddr *wire.NetAddress) int {
 // specified peers and actively avoid advertising and connecting to
 // discovered peers in order to prevent it from becoming a public test
 // network.
-
-func (a *AddrManager) NewAddress(filterOut func(gKey string) bool, astn func(string) (net.Addr, error)) (net.Addr, error) {
+func (a *AddrManager) NewAddress(filterOut func(gKey string) bool) (string, error) {
 
 	if !conf.Cfg.AddrMgr.SimNet && len(conf.Cfg.AddrMgr.ConnectPeers) == 0 {
 		for tries := 0; tries < 100; tries++ {
@@ -1086,10 +1085,10 @@ func (a *AddrManager) NewAddress(filterOut func(gKey string) bool, astn func(str
 			}
 
 			addrString := NetAddressKey(addr.NetAddress())
-			return astn(addrString)
+			return addrString, nil
 		}
 	}
-	return nil, errors.New("no valid connect address")
+	return "", errors.New("no valid connect address")
 }
 
 // GetBestLocalAddress returns the most appropriate local address to use

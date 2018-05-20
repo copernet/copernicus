@@ -24,11 +24,15 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/btcboost/copernicus/chaincfg"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
+	log "github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/netsync"
 	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/wire"
+	"github.com/btcboost/copernicus/service"
+	"github.com/btcboost/copernicus/util"
 	// "github.com/btcsuite/btcd/addrmgr"
 	// "github.com/btcsuite/btcd/blockchain"
 	// "github.com/btcsuite/btcd/blockchain/indexers"
@@ -68,7 +72,7 @@ const (
 var (
 	// userAgentName is the user agent name and is used to help identify
 	// ourselves to other bitcoin peers.
-	userAgentName = "btcd"
+	userAgentName = "copernicus"
 
 	// userAgentVersion is the user agent version and is used to help
 	// identify ourselves to other bitcoin peers.
@@ -76,7 +80,7 @@ var (
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
-var zeroHash chainhash.Hash
+var zeroHash util.Hash
 
 // onionAddr implements the net.Addr interface and represents a tor address.
 type onionAddr struct {
@@ -151,7 +155,7 @@ type relayMsg struct {
 // updates, peer heights will be kept up to date, allowing for fresh data when
 // selecting sync peer candidacy.
 type updatePeerHeightsMsg struct {
-	newHash    *chainhash.Hash
+	newHash    *util.Hash
 	newHeight  int32
 	originPeer *peer.Peer
 }
@@ -204,16 +208,16 @@ type server struct {
 	shutdownSched int32
 	startupTime   int64
 
-	chainParams          *chaincfg.Params
-	addrManager          *addrmgr.AddrManager
-	connManager          *connmgr.ConnManager
-	sigCache             *txscript.SigCache
-	hashCache            *txscript.HashCache
-	rpcServer            *rpcServer
-	syncManager          *netsync.SyncManager
-	chain                *blockchain.BlockChain
-	txMemPool            *mempool.TxPool
-	cpuMiner             *cpuminer.CPUMiner
+	chainParams *chaincfg.Params
+	// addrManager *addrmgr.AddrManager
+	connManager *connmgr.ConnManager
+	// sigCache             *txscript.SigCache
+	// hashCache            *txscript.HashCache
+	// rpcServer *rpcServer
+	// syncManager *netsync.SyncManager
+	// chain                *blockchain.BlockChain
+	// txMemPool            *mempool.TxPool
+	// cpuMiner             *cpuminer.CPUMiner
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *serverPeer
 	donePeers            chan *serverPeer
@@ -225,18 +229,20 @@ type server struct {
 	wg                   sync.WaitGroup
 	quit                 chan struct{}
 	nat                  NAT
-	db                   database.DB
-	timeSource           blockchain.MedianTimeSource
-	services             wire.ServiceFlag
+	// db                   database.DB
+	timeSource blockchain.MedianTimeSource
+	services   wire.ServiceFlag
 
 	// The following fields are used for optional indexes.  They will be nil
 	// if the associated index is not enabled.  These fields are set during
 	// initial creation of the server and never changed afterwards, so they
 	// do not need to be protected for concurrent access.
-	txIndex   *indexers.TxIndex
-	addrIndex *indexers.AddrIndex
+
+	// txIndex   *indexers.TxIndex
+	// addrIndex *indexers.AddrIndex
 
 	phCh chan *peer.PeerMessage
+	mh   *service.MsgHandle
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
@@ -250,7 +256,7 @@ type serverPeer struct {
 	connReq        *connmgr.ConnReq
 	server         *server
 	persistent     bool
-	continueHash   *chainhash.Hash
+	continueHash   *util.Hash
 	relayMtx       sync.Mutex
 	disableRelayTx bool
 	sentAddrs      bool
@@ -280,7 +286,7 @@ func newServerPeer(s *server, isPersistent bool) *serverPeer {
 
 // newestBlock returns the current best block hash and height using the format
 // required by the configuration for the peer package.
-func (sp *serverPeer) newestBlock() (*chainhash.Hash, int32, error) {
+func (sp *serverPeer) newestBlock() (*util.Hash, int32, error) {
 	best := sp.server.chain.BestSnapshot()
 	return &best.Hash, best.Height, nil
 }
@@ -328,9 +334,10 @@ func (sp *serverPeer) pushAddrMsg(addresses []*wire.NetAddress) {
 			addrs = append(addrs, addr)
 		}
 	}
+
 	known, err := sp.PushAddrMsg(addrs)
 	if err != nil {
-		peerLog.Errorf("Can't push address message to %s: %v", sp.Peer, err)
+		log.Error("Can't push address message to %s: %v", sp.Peer, err)
 		sp.Disconnect()
 		return
 	}
@@ -348,7 +355,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 		return
 	}
 	if sp.isWhitelisted {
-		peerLog.Debugf("Misbehaving whitelisted peer %s: %s", sp, reason)
+		log.Debug("Misbehaving whitelisted peer %s: %s", sp, reason)
 		return
 	}
 
@@ -358,17 +365,17 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 		// logged if the score is above the warn threshold.
 		score := sp.banScore.Int()
 		if score > warnThreshold {
-			peerLog.Warnf("Misbehaving peer %s: %s -- ban score is %d, "+
+			log.Warn("Misbehaving peer %s: %s -- ban score is %d, "+
 				"it was not increased this time", sp, reason, score)
 		}
 		return
 	}
 	score := sp.banScore.Increase(persistent, transient)
 	if score > warnThreshold {
-		peerLog.Warnf("Misbehaving peer %s: %s -- ban score increased to %d",
+		log.Warn("Misbehaving peer %s: %s -- ban score increased to %d",
 			sp, reason, score)
 		if score > cfg.BanThreshold {
-			peerLog.Warnf("Misbehaving peer %s -- banning and disconnecting",
+			log.Warn("Misbehaving peer %s -- banning and disconnecting",
 				sp)
 			sp.server.BanPeer(sp)
 			sp.Disconnect()
@@ -407,13 +414,13 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 			chain := sp.server.chain
 			segwitActive, err := chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
 			if err != nil {
-				peerLog.Errorf("Unable to query for segwit "+
+				log.Error("Unable to query for segwit "+
 					"soft-fork state: %v", err)
 				return
 			}
 
 			if segwitActive && !sp.IsWitnessEnabled() {
-				peerLog.Infof("Disconnecting non-segwit "+
+				log.Info("Disconnecting non-segwit "+
 					"peer %v, isn't segwit enabled and "+
 					"we need more segwit enabled peers", sp)
 				sp.Disconnect()
@@ -458,7 +465,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// Only allow mempool requests if the server has bloom filtering
 	// enabled.
 	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom {
-		peerLog.Debugf("peer %v sent mempool request with bloom "+
+		log.Debug("peer %v sent mempool request with bloom "+
 			"filtering disabled -- disconnecting", sp)
 		sp.Disconnect()
 		return
@@ -504,7 +511,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 // transactions don't rely on the previous one in a linear fashion like blocks.
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	if cfg.BlocksOnly {
-		peerLog.Tracef("Ignoring tx %v from %v - blocksonly enabled",
+		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
 			msg.TxHash(), sp)
 		return
 	}
@@ -566,10 +573,10 @@ func (sp *serverPeer) OnInv(_ *peer.Peer, msg *wire.MsgInv) {
 	newInv := wire.NewMsgInvSizeHint(uint(len(msg.InvList)))
 	for _, invVect := range msg.InvList {
 		if invVect.Type == wire.InvTypeTx {
-			peerLog.Tracef("Ignoring tx %v in inv from %v -- "+
+			log.Trace("Ignoring tx %v in inv from %v -- "+
 				"blocksonly enabled", invVect.Hash, sp)
 			if sp.ProtocolVersion() >= wire.BIP0037Version {
-				peerLog.Infof("Peer %v is announcing "+
+				log.Info("Peer %v is announcing "+
 					"transactions -- disconnecting", sp)
 				sp.Disconnect()
 				return
@@ -578,7 +585,7 @@ func (sp *serverPeer) OnInv(_ *peer.Peer, msg *wire.MsgInv) {
 		}
 		err := newInv.AddInvVect(invVect)
 		if err != nil {
-			peerLog.Errorf("Failed to add inventory vector: %v", err)
+			log.Error("Failed to add inventory vector: %v", err)
 			break
 		}
 	}
@@ -641,7 +648,7 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 		case wire.InvTypeFilteredBlock:
 			err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
 		default:
-			peerLog.Warnf("Unknown type in inventory request %d",
+			log.Warn("Unknown type in inventory request %d",
 				iv.Type)
 			continue
 		}
@@ -772,7 +779,7 @@ func (sp *serverPeer) enforceNodeBloomFlag(cmd string) bool {
 
 		// Disconnect the peer regardless of protocol version or banning
 		// state.
-		peerLog.Debugf("%s sent an unsupported %s request -- "+
+		log.Debug("%s sent an unsupported %s request -- "+
 			"disconnecting", sp, cmd)
 		sp.Disconnect()
 		return false
@@ -788,7 +795,7 @@ func (sp *serverPeer) enforceNodeBloomFlag(cmd string) bool {
 func (sp *serverPeer) OnFeeFilter(_ *peer.Peer, msg *wire.MsgFeeFilter) {
 	// Check that the passed minimum fee is a valid amount.
 	if msg.MinFee < 0 || msg.MinFee > btcutil.MaxSatoshi {
-		peerLog.Debugf("Peer %v sent an invalid feefilter '%v' -- "+
+		log.Debug("Peer %v sent an invalid feefilter '%v' -- "+
 			"disconnecting", sp, btcutil.Amount(msg.MinFee))
 		sp.Disconnect()
 		return
@@ -809,7 +816,7 @@ func (sp *serverPeer) OnFilterAdd(_ *peer.Peer, msg *wire.MsgFilterAdd) {
 	}
 
 	if sp.filter.IsLoaded() {
-		peerLog.Debugf("%s sent a filteradd request with no filter "+
+		log.Debug("%s sent a filteradd request with no filter "+
 			"loaded -- disconnecting", sp)
 		sp.Disconnect()
 		return
@@ -871,7 +878,7 @@ func (sp *serverPeer) OnGetAddr(_ *peer.Peer, msg *wire.MsgGetAddr) {
 	// Do not accept getaddr requests from outbound peers.  This reduces
 	// fingerprinting attacks.
 	if !sp.Inbound() {
-		peerLog.Debugf("Ignoring getaddr request from outbound peer ",
+		log.Debug("Ignoring getaddr request from outbound peer ",
 			"%v", sp)
 		return
 	}
@@ -879,7 +886,7 @@ func (sp *serverPeer) OnGetAddr(_ *peer.Peer, msg *wire.MsgGetAddr) {
 	// Only allow one getaddr request per connection to discourage
 	// address stamping of inv announcements.
 	if sp.sentAddrs {
-		peerLog.Debugf("Ignoring repeated getaddr request from peer ",
+		log.Debug("Ignoring repeated getaddr request from peer ",
 			"%v", sp)
 		return
 	}
@@ -910,7 +917,7 @@ func (sp *serverPeer) OnAddr(_ *peer.Peer, msg *wire.MsgAddr) {
 
 	// A message that has no addresses is invalid.
 	if len(msg.AddrList) == 0 {
-		peerLog.Errorf("Command [%s] from %s does not contain any addresses",
+		log.Error("Command [%s] from %s does not contain any addresses",
 			msg.Command(), sp)
 		sp.Disconnect()
 		return
@@ -1033,7 +1040,7 @@ func (s *server) TransactionConfirmed(tx *btcutil.Tx) {
 
 // pushTxMsg sends a tx message for the provided transaction hash to the
 // connected peer.  An error is returned if the transaction hash is not known.
-func (s *server) pushTxMsg(sp *serverPeer, hash *chainhash.Hash, doneChan chan<- struct{},
+func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Attempt to fetch the requested transaction from the pool.  A
@@ -1041,7 +1048,7 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *chainhash.Hash, doneChan chan<-
 	// to fetch a missing transaction results in the same behavior.
 	tx, err := s.txMemPool.FetchTransaction(hash)
 	if err != nil {
-		peerLog.Tracef("Unable to fetch tx %v from transaction "+
+		log.Tracef("Unable to fetch tx %v from transaction "+
 			"pool: %v", hash, err)
 
 		if doneChan != nil {
@@ -1062,7 +1069,7 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *chainhash.Hash, doneChan chan<-
 
 // pushBlockMsg sends a block message for the provided block hash to the
 // connected peer.  An error is returned if the block hash is not known.
-func (s *server) pushBlockMsg(sp *serverPeer, hash *chainhash.Hash, doneChan chan<- struct{},
+func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Fetch the raw block bytes from the database.
@@ -1073,7 +1080,7 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *chainhash.Hash, doneChan cha
 		return err
 	})
 	if err != nil {
-		peerLog.Tracef("Unable to fetch requested block hash %v: %v",
+		log.Trace("Unable to fetch requested block hash %v: %v",
 			hash, err)
 
 		if doneChan != nil {
@@ -1086,7 +1093,7 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *chainhash.Hash, doneChan cha
 	var msgBlock wire.MsgBlock
 	err = msgBlock.Deserialize(bytes.NewReader(blockBytes))
 	if err != nil {
-		peerLog.Tracef("Unable to deserialize requested block hash "+
+		log.Trace("Unable to deserialize requested block hash "+
 			"%v: %v", hash, err)
 
 		if doneChan != nil {
@@ -1130,7 +1137,7 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *chainhash.Hash, doneChan cha
 // the connected peer.  Since a merkle block requires the peer to have a filter
 // loaded, this call will simply be ignored if there is no filter loaded.  An
 // error is returned if the block hash is not known.
-func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *chainhash.Hash,
+func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
 	doneChan chan<- struct{}, waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Do not send a response if the peer doesn't have a filter loaded.
@@ -1144,7 +1151,7 @@ func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *chainhash.Hash,
 	// Fetch the raw block bytes from the database.
 	blk, err := sp.server.chain.BlockByHash(hash)
 	if err != nil {
-		peerLog.Tracef("Unable to fetch requested block hash %v: %v",
+		log.Trace("Unable to fetch requested block hash %v: %v",
 			hash, err)
 
 		if doneChan != nil {
@@ -1224,7 +1231,7 @@ func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 
 	// Ignore new peers if we're shutting down.
 	if atomic.LoadInt32(&s.shutdown) != 0 {
-		srvrLog.Infof("New peer %s ignored - server is shutting down", sp)
+		log.Info("New peer %s ignored - server is shutting down", sp)
 		sp.Disconnect()
 		return false
 	}
@@ -1232,19 +1239,19 @@ func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	// Disconnect banned peers.
 	host, _, err := net.SplitHostPort(sp.Addr())
 	if err != nil {
-		srvrLog.Debugf("can't split hostport %v", err)
+		log.Debug("can't split hostport %v", err)
 		sp.Disconnect()
 		return false
 	}
 	if banEnd, ok := state.banned[host]; ok {
 		if time.Now().Before(banEnd) {
-			srvrLog.Debugf("Peer %s is banned for another %v - disconnecting",
+			log.Debug("Peer %s is banned for another %v - disconnecting",
 				host, time.Until(banEnd))
 			sp.Disconnect()
 			return false
 		}
 
-		srvrLog.Infof("Peer %s is no longer banned", host)
+		log.Info("Peer %s is no longer banned", host)
 		delete(state.banned, host)
 	}
 
@@ -1252,7 +1259,7 @@ func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 
 	// Limit max number of total peers.
 	if state.Count() >= cfg.MaxPeers {
-		srvrLog.Infof("Max peers reached [%d] - disconnecting peer %s",
+		log.Info("Max peers reached [%d] - disconnecting peer %s",
 			cfg.MaxPeers, sp)
 		sp.Disconnect()
 		// TODO: how to handle permanent peers here?
@@ -1261,7 +1268,7 @@ func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	}
 
 	// Add the new peer and start it.
-	srvrLog.Debugf("New peer %s", sp)
+	log.Debug("New peer %s", sp)
 	if sp.Inbound() {
 		state.inboundPeers[sp.ID()] = sp
 	} else {
@@ -1295,7 +1302,7 @@ func (s *server) handleDonePeerMsg(state *peerState, sp *serverPeer) {
 			s.connManager.Disconnect(sp.connReq.ID())
 		}
 		delete(list, sp.ID())
-		srvrLog.Debugf("Removed peer %s", sp)
+		log.Debug("Removed peer %s", sp)
 		return
 	}
 
@@ -1318,11 +1325,11 @@ func (s *server) handleDonePeerMsg(state *peerState, sp *serverPeer) {
 func (s *server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 	host, _, err := net.SplitHostPort(sp.Addr())
 	if err != nil {
-		srvrLog.Debugf("can't split ban peer %s %v", sp.Addr(), err)
+		log.Debug("can't split ban peer %s %v", sp.Addr(), err)
 		return
 	}
 	direction := directionString(sp.Inbound())
-	srvrLog.Infof("Banned peer %s (%s) for %v", host, direction,
+	log.Info("Banned peer %s (%s) for %v", host, direction,
 		cfg.BanDuration)
 	state.banned[host] = time.Now().Add(cfg.BanDuration)
 }
@@ -1341,13 +1348,13 @@ func (s *server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 		if msg.invVect.Type == wire.InvTypeBlock && sp.WantsHeaders() {
 			blockHeader, ok := msg.data.(wire.BlockHeader)
 			if !ok {
-				peerLog.Warnf("Underlying data for headers" +
+				log.Warn("Underlying data for headers" +
 					" is not a block header")
 				return
 			}
 			msgHeaders := wire.NewMsgHeaders()
 			if err := msgHeaders.AddBlockHeader(&blockHeader); err != nil {
-				peerLog.Errorf("Failed to add block"+
+				log.Error("Failed to add block"+
 					" header: %v", err)
 				return
 			}
@@ -1364,7 +1371,7 @@ func (s *server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 
 			txD, ok := msg.data.(*mempool.TxDesc)
 			if !ok {
-				peerLog.Warnf("Underlying data for tx inv "+
+				log.Warn("Underlying data for tx inv "+
 					"relay is not a *mempool.TxDesc: %T",
 					msg.data)
 				return
@@ -1642,7 +1649,7 @@ func (s *server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp := newServerPeer(s, c.Permanent)
 	p, err := peer.NewOutboundPeer(newPeerConfig(sp), c.Addr.String())
 	if err != nil {
-		srvrLog.Debugf("Cannot create outbound peer %s: %v", c.Addr, err)
+		log.Debug("Cannot create outbound peer %s: %v", c.Addr, err)
 		s.connManager.Disconnect(c.ID())
 	}
 	sp.Peer = p
@@ -1666,7 +1673,7 @@ func (s *server) peerDoneHandler(sp *serverPeer) {
 		// Evict any remaining orphans that were sent by the peer.
 		numEvicted := s.txMemPool.RemoveOrphansByTag(mempool.Tag(sp.ID()))
 		if numEvicted > 0 {
-			txmpLog.Debugf("Evicted %d %s from peer %v (id %d)",
+			log.Debug("Evicted %d %s from peer %v (id %d)",
 				numEvicted, pickNoun(numEvicted, "orphan",
 					"orphans"), sp, sp.ID())
 		}
@@ -1686,7 +1693,7 @@ func (s *server) peerHandler() {
 	s.addrManager.Start()
 	s.syncManager.Start()
 
-	srvrLog.Tracef("Starting peer handler")
+	log.Trace("Starting peer handler")
 
 	state := &peerState{
 		inboundPeers:    make(map[int32]*serverPeer),
@@ -1744,7 +1751,7 @@ out:
 		case <-s.quit:
 			// Disconnect all peers on server shutdown.
 			state.forAllPeers(func(sp *serverPeer) {
-				srvrLog.Tracef("Shutdown peer %s", sp)
+				log.Tracef("Shutdown peer %s", sp)
 				sp.Disconnect()
 			})
 			break out
@@ -1771,7 +1778,7 @@ cleanup:
 		}
 	}
 	s.wg.Done()
-	srvrLog.Tracef("Peer handler done")
+	log.Trace("Peer handler done")
 }
 
 // AddPeer adds a new peer that has already been connected to the server.
@@ -1839,7 +1846,7 @@ func (s *server) NetTotals() (uint64, uint64) {
 // the latest connected main chain block, or a recognized orphan. These height
 // updates allow us to dynamically refresh peer heights, ensuring sync peer
 // selection has access to the latest block heights for each peer.
-func (s *server) UpdatePeerHeights(latestBlkHash *chainhash.Hash, latestHeight int32, updateSource *peer.Peer) {
+func (s *server) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {
 	s.peerHeightsUpdate <- updatePeerHeightsMsg{
 		newHash:    latestBlkHash,
 		newHeight:  latestHeight,
@@ -1912,7 +1919,7 @@ func (s *server) Start() {
 		return
 	}
 
-	srvrLog.Trace("Starting server")
+	log.Trace("Starting server")
 
 	// Server startup time. Used for the uptime command for uptime calculation.
 	s.startupTime = time.Now().Unix()
@@ -1938,9 +1945,9 @@ func (s *server) Start() {
 	}
 
 	// Start the CPU miner if generation is enabled.
-	if cfg.Generate {
-		s.cpuMiner.Start()
-	}
+	// if cfg.Generate {
+	// 	s.cpuMiner.Start()
+	// }
 }
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
@@ -1948,14 +1955,14 @@ func (s *server) Start() {
 func (s *server) Stop() error {
 	// Make sure this only happens once.
 	if atomic.AddInt32(&s.shutdown, 1) != 1 {
-		srvrLog.Infof("Server is already in the process of shutting down")
+		log.Info("Server is already in the process of shutting down")
 		return nil
 	}
 
-	srvrLog.Warnf("Server shutting down")
+	log.Warn("Server shutting down")
 
 	// Stop the CPU miner if needed
-	s.cpuMiner.Stop()
+	// s.cpuMiner.Stop()
 
 	// Shutdown the RPC server if it's not disabled.
 	if !cfg.DisableRPC {
@@ -1980,7 +1987,7 @@ func (s *server) ScheduleShutdown(duration time.Duration) {
 	if atomic.AddInt32(&s.shutdownSched, 1) != 1 {
 		return
 	}
-	srvrLog.Warnf("Server shutdown in %v", duration)
+	log.Warn("Server shutdown in %v", duration)
 	go func() {
 		remaining := duration
 		tickDuration := dynamicTickDuration(remaining)
@@ -2006,7 +2013,7 @@ func (s *server) ScheduleShutdown(duration time.Duration) {
 					ticker.Stop()
 					ticker = time.NewTicker(tickDuration)
 				}
-				srvrLog.Warnf("Server shutdown in %v", remaining)
+				s.Warn("Server shutdown in %v", remaining)
 			}
 		}
 	}()
@@ -2074,14 +2081,14 @@ out:
 			listenPort, err := s.nat.AddPortMapping("tcp", int(lport), int(lport),
 				"btcd listen port", 20*60)
 			if err != nil {
-				srvrLog.Warnf("can't add UPnP port mapping: %v", err)
+				log.Warn("can't add UPnP port mapping: %v", err)
 			}
 			if first && err == nil {
 				// TODO: look this up periodically to see if upnp domain changed
 				// and so did ip.
 				externalip, err := s.nat.GetExternalAddress()
 				if err != nil {
-					srvrLog.Warnf("UPnP can't get external address: %v", err)
+					log.Warn("UPnP can't get external address: %v", err)
 					continue out
 				}
 				na := wire.NewNetAddressIPPort(externalip, uint16(listenPort),
@@ -2090,7 +2097,7 @@ out:
 				if err != nil {
 					// XXX DeletePortMapping?
 				}
-				srvrLog.Warnf("Successfully bound via UPnP to %s", addrmgr.NetAddressKey(na))
+				log.Warn("Successfully bound via UPnP to %s", addrmgr.NetAddressKey(na))
 				first = false
 			}
 			timer.Reset(time.Minute * 15)
@@ -2102,9 +2109,9 @@ out:
 	timer.Stop()
 
 	if err := s.nat.DeletePortMapping("tcp", int(lport), int(lport)); err != nil {
-		srvrLog.Warnf("unable to remove UPnP port mapping: %v", err)
+		log.Warn("unable to remove UPnP port mapping: %v", err)
 	} else {
-		srvrLog.Debugf("successfully disestablished UPnP port mapping")
+		log.Debug("successfully disestablished UPnP port mapping")
 	}
 
 	s.wg.Done()
@@ -2162,250 +2169,250 @@ func setupRPCListeners() ([]net.Listener, error) {
 // newServer returns a new btcd server configured to listen on addr for the
 // bitcoin network type specified by chainParams.  Use start to begin accepting
 // connections from peers.
-func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server, error) {
-	services := defaultServices
-	if cfg.NoPeerBloomFilters {
-		services &^= wire.SFNodeBloom
-	}
+// func newServerObsolete(listenAddrs []string, db database.DB, chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server, error) {
+// 	services := defaultServices
+// 	if cfg.NoPeerBloomFilters {
+// 		services &^= wire.SFNodeBloom
+// 	}
 
-	amgr := addrmgr.New(cfg.DataDir, btcdLookup)
+// 	amgr := addrmgr.New(cfg.DataDir, btcdLookup)
 
-	var listeners []net.Listener
-	var nat NAT
-	if !cfg.DisableListen {
-		var err error
-		listeners, nat, err = initListeners(amgr, listenAddrs, services)
-		if err != nil {
-			return nil, err
-		}
-		if len(listeners) == 0 {
-			return nil, errors.New("no valid listen address")
-		}
-	}
+// 	var listeners []net.Listener
+// 	var nat NAT
+// 	if !cfg.DisableListen {
+// 		var err error
+// 		listeners, nat, err = initListeners(amgr, listenAddrs, services)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		if len(listeners) == 0 {
+// 			return nil, errors.New("no valid listen address")
+// 		}
+// 	}
 
-	s := server{
-		chainParams:          chainParams,
-		addrManager:          amgr,
-		newPeers:             make(chan *serverPeer, cfg.MaxPeers),
-		donePeers:            make(chan *serverPeer, cfg.MaxPeers),
-		banPeers:             make(chan *serverPeer, cfg.MaxPeers),
-		query:                make(chan interface{}),
-		relayInv:             make(chan relayMsg, cfg.MaxPeers),
-		broadcast:            make(chan broadcastMsg, cfg.MaxPeers),
-		quit:                 make(chan struct{}),
-		modifyRebroadcastInv: make(chan interface{}),
-		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
-		nat:                  nat,
-		db:                   db,
-		timeSource:           blockchain.NewMedianTime(),
-		services:             services,
-		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
-		hashCache:            txscript.NewHashCache(cfg.SigCacheMaxSize),
-	}
+// 	s := server{
+// 		chainParams:          chainParams,
+// 		addrManager:          amgr,
+// 		newPeers:             make(chan *serverPeer, cfg.MaxPeers),
+// 		donePeers:            make(chan *serverPeer, cfg.MaxPeers),
+// 		banPeers:             make(chan *serverPeer, cfg.MaxPeers),
+// 		query:                make(chan interface{}),
+// 		relayInv:             make(chan relayMsg, cfg.MaxPeers),
+// 		broadcast:            make(chan broadcastMsg, cfg.MaxPeers),
+// 		quit:                 make(chan struct{}),
+// 		modifyRebroadcastInv: make(chan interface{}),
+// 		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
+// 		nat:                  nat,
+// 		db:                   db,
+// 		timeSource:           blockchain.NewMedianTime(),
+// 		services:             services,
+// 		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
+// 		hashCache:            txscript.NewHashCache(cfg.SigCacheMaxSize),
+// 	}
 
-	// Create the transaction and address indexes if needed.
-	//
-	// CAUTION: the txindex needs to be first in the indexes array because
-	// the addrindex uses data from the txindex during catchup.  If the
-	// addrindex is run first, it may not have the transactions from the
-	// current block indexed.
-	var indexes []indexers.Indexer
-	if cfg.TxIndex || cfg.AddrIndex {
-		// Enable transaction index if address index is enabled since it
-		// requires it.
-		if !cfg.TxIndex {
-			indxLog.Infof("Transaction index enabled because it " +
-				"is required by the address index")
-			cfg.TxIndex = true
-		} else {
-			indxLog.Info("Transaction index is enabled")
-		}
+// 	// Create the transaction and address indexes if needed.
+// 	//
+// 	// CAUTION: the txindex needs to be first in the indexes array because
+// 	// the addrindex uses data from the txindex during catchup.  If the
+// 	// addrindex is run first, it may not have the transactions from the
+// 	// current block indexed.
+// 	var indexes []indexers.Indexer
+// 	if cfg.TxIndex || cfg.AddrIndex {
+// 		// Enable transaction index if address index is enabled since it
+// 		// requires it.
+// 		if !cfg.TxIndex {
+// 			indxLog.Infof("Transaction index enabled because it " +
+// 				"is required by the address index")
+// 			cfg.TxIndex = true
+// 		} else {
+// 			indxLog.Info("Transaction index is enabled")
+// 		}
 
-		s.txIndex = indexers.NewTxIndex(db)
-		indexes = append(indexes, s.txIndex)
-	}
-	if cfg.AddrIndex {
-		indxLog.Info("Address index is enabled")
-		s.addrIndex = indexers.NewAddrIndex(db, chainParams)
-		indexes = append(indexes, s.addrIndex)
-	}
+// 		s.txIndex = indexers.NewTxIndex(db)
+// 		indexes = append(indexes, s.txIndex)
+// 	}
+// 	if cfg.AddrIndex {
+// 		indxLog.Info("Address index is enabled")
+// 		s.addrIndex = indexers.NewAddrIndex(db, chainParams)
+// 		indexes = append(indexes, s.addrIndex)
+// 	}
 
-	// Create an index manager if any of the optional indexes are enabled.
-	var indexManager blockchain.IndexManager
-	if len(indexes) > 0 {
-		indexManager = indexers.NewManager(db, indexes)
-	}
+// 	// Create an index manager if any of the optional indexes are enabled.
+// 	var indexManager blockchain.IndexManager
+// 	if len(indexes) > 0 {
+// 		indexManager = indexers.NewManager(db, indexes)
+// 	}
 
-	// Merge given checkpoints with the default ones unless they are disabled.
-	var checkpoints []chaincfg.Checkpoint
-	if !cfg.DisableCheckpoints {
-		checkpoints = mergeCheckpoints(s.chainParams.Checkpoints, cfg.addCheckpoints)
-	}
+// 	// Merge given checkpoints with the default ones unless they are disabled.
+// 	var checkpoints []chaincfg.Checkpoint
+// 	if !cfg.DisableCheckpoints {
+// 		checkpoints = mergeCheckpoints(s.chainParams.Checkpoints, cfg.addCheckpoints)
+// 	}
 
-	// Create a new block chain instance with the appropriate configuration.
-	var err error
-	s.chain, err = blockchain.New(&blockchain.Config{
-		DB:           s.db,
-		Interrupt:    interrupt,
-		ChainParams:  s.chainParams,
-		Checkpoints:  checkpoints,
-		TimeSource:   s.timeSource,
-		SigCache:     s.sigCache,
-		IndexManager: indexManager,
-		HashCache:    s.hashCache,
-	})
-	if err != nil {
-		return nil, err
-	}
+// 	// Create a new block chain instance with the appropriate configuration.
+// 	var err error
+// 	s.chain, err = blockchain.New(&blockchain.Config{
+// 		DB:           s.db,
+// 		Interrupt:    interrupt,
+// 		ChainParams:  s.chainParams,
+// 		Checkpoints:  checkpoints,
+// 		TimeSource:   s.timeSource,
+// 		SigCache:     s.sigCache,
+// 		IndexManager: indexManager,
+// 		HashCache:    s.hashCache,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	txC := mempool.Config{
-		Policy: mempool.Policy{
-			DisableRelayPriority: cfg.NoRelayPriority,
-			AcceptNonStd:         cfg.RelayNonStd,
-			FreeTxRelayLimit:     cfg.FreeTxRelayLimit,
-			MaxOrphanTxs:         cfg.MaxOrphanTxs,
-			MaxOrphanTxSize:      defaultMaxOrphanTxSize,
-			MaxSigOpCostPerTx:    blockchain.MaxBlockSigOpsCost / 4,
-			MinRelayTxFee:        cfg.minRelayTxFee,
-			MaxTxVersion:         2,
-		},
-		ChainParams:    chainParams,
-		FetchUtxoView:  s.chain.FetchUtxoView,
-		BestHeight:     func() int32 { return s.chain.BestSnapshot().Height },
-		MedianTimePast: func() time.Time { return s.chain.BestSnapshot().MedianTime },
-		CalcSequenceLock: func(tx *btcutil.Tx, view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
-			return s.chain.CalcSequenceLock(tx, view, true)
-		},
-		IsDeploymentActive: s.chain.IsDeploymentActive,
-		SigCache:           s.sigCache,
-		HashCache:          s.hashCache,
-		AddrIndex:          s.addrIndex,
-	}
-	s.txMemPool = mempool.New(&txC)
+// 	txC := mempool.Config{
+// 		Policy: mempool.Policy{
+// 			DisableRelayPriority: cfg.NoRelayPriority,
+// 			AcceptNonStd:         cfg.RelayNonStd,
+// 			FreeTxRelayLimit:     cfg.FreeTxRelayLimit,
+// 			MaxOrphanTxs:         cfg.MaxOrphanTxs,
+// 			MaxOrphanTxSize:      defaultMaxOrphanTxSize,
+// 			MaxSigOpCostPerTx:    blockchain.MaxBlockSigOpsCost / 4,
+// 			MinRelayTxFee:        cfg.minRelayTxFee,
+// 			MaxTxVersion:         2,
+// 		},
+// 		ChainParams:    chainParams,
+// 		FetchUtxoView:  s.chain.FetchUtxoView,
+// 		BestHeight:     func() int32 { return s.chain.BestSnapshot().Height },
+// 		MedianTimePast: func() time.Time { return s.chain.BestSnapshot().MedianTime },
+// 		CalcSequenceLock: func(tx *btcutil.Tx, view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
+// 			return s.chain.CalcSequenceLock(tx, view, true)
+// 		},
+// 		IsDeploymentActive: s.chain.IsDeploymentActive,
+// 		SigCache:           s.sigCache,
+// 		HashCache:          s.hashCache,
+// 		AddrIndex:          s.addrIndex,
+// 	}
+// 	s.txMemPool = mempool.New(&txC)
 
-	s.syncManager, err = netsync.New(&netsync.Config{
-		PeerNotifier:       &s,
-		Chain:              s.chain,
-		TxMemPool:          s.txMemPool,
-		ChainParams:        s.chainParams,
-		DisableCheckpoints: cfg.DisableCheckpoints,
-		MaxPeers:           cfg.MaxPeers,
-	})
-	if err != nil {
-		return nil, err
-	}
+// 	s.syncManager, err = netsync.New(&netsync.Config{
+// 		PeerNotifier:       &s,
+// 		Chain:              s.chain,
+// 		TxMemPool:          s.txMemPool,
+// 		ChainParams:        s.chainParams,
+// 		DisableCheckpoints: cfg.DisableCheckpoints,
+// 		MaxPeers:           cfg.MaxPeers,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// Create the mining policy and block template generator based on the
-	// configuration options.
-	//
-	// NOTE: The CPU miner relies on the mempool, so the mempool has to be
-	// created before calling the function to create the CPU miner.
-	policy := mining.Policy{
-		BlockMinWeight:    cfg.BlockMinWeight,
-		BlockMaxWeight:    cfg.BlockMaxWeight,
-		BlockMinSize:      cfg.BlockMinSize,
-		BlockMaxSize:      cfg.BlockMaxSize,
-		BlockPrioritySize: cfg.BlockPrioritySize,
-		TxMinFreeFee:      cfg.minRelayTxFee,
-	}
-	blockTemplateGenerator := mining.NewBlkTmplGenerator(&policy,
-		s.chainParams, s.txMemPool, s.chain, s.timeSource,
-		s.sigCache, s.hashCache)
-	s.cpuMiner = cpuminer.New(&cpuminer.Config{
-		ChainParams:            chainParams,
-		BlockTemplateGenerator: blockTemplateGenerator,
-		MiningAddrs:            cfg.miningAddrs,
-		ProcessBlock:           s.syncManager.ProcessBlock,
-		ConnectedCount:         s.ConnectedCount,
-		IsCurrent:              s.syncManager.IsCurrent,
-	})
+// 	// Create the mining policy and block template generator based on the
+// 	// configuration options.
+// 	//
+// 	// NOTE: The CPU miner relies on the mempool, so the mempool has to be
+// 	// created before calling the function to create the CPU miner.
+// 	policy := mining.Policy{
+// 		BlockMinWeight:    cfg.BlockMinWeight,
+// 		BlockMaxWeight:    cfg.BlockMaxWeight,
+// 		BlockMinSize:      cfg.BlockMinSize,
+// 		BlockMaxSize:      cfg.BlockMaxSize,
+// 		BlockPrioritySize: cfg.BlockPrioritySize,
+// 		TxMinFreeFee:      cfg.minRelayTxFee,
+// 	}
+// 	blockTemplateGenerator := mining.NewBlkTmplGenerator(&policy,
+// 		s.chainParams, s.txMemPool, s.chain, s.timeSource,
+// 		s.sigCache, s.hashCache)
+// 	s.cpuMiner = cpuminer.New(&cpuminer.Config{
+// 		ChainParams:            chainParams,
+// 		BlockTemplateGenerator: blockTemplateGenerator,
+// 		MiningAddrs:            cfg.miningAddrs,
+// 		ProcessBlock:           s.syncManager.ProcessBlock,
+// 		ConnectedCount:         s.ConnectedCount,
+// 		IsCurrent:              s.syncManager.IsCurrent,
+// 	})
 
-	amgr.NewAddress(func(groupKey string) bool {
-		return s.OutboundGroupCount(groupKey) != 0
-	}, addrStringToNetAddr)
+// 	amgr.NewAddress(func(groupKey string) bool {
+// 		return s.OutboundGroupCount(groupKey) != 0
+// 	}, addrStringToNetAddr)
 
-	// Create a connection manager.
-	targetOutbound := defaultTargetOutbound
-	if cfg.MaxPeers < targetOutbound {
-		targetOutbound = cfg.MaxPeers
-	}
-	cmgr, err := connmgr.New(&connmgr.Config{
-		Listeners:      listeners,
-		OnAccept:       s.inboundPeerConnected,
-		RetryDuration:  connectionRetryInterval,
-		TargetOutbound: uint32(targetOutbound),
-		Dial:           btcdDial,
-		OnConnection:   s.outboundPeerConnected,
-		GetNewAddress:  newAddressFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.connManager = cmgr
+// 	// Create a connection manager.
+// 	targetOutbound := defaultTargetOutbound
+// 	if cfg.MaxPeers < targetOutbound {
+// 		targetOutbound = cfg.MaxPeers
+// 	}
+// 	cmgr, err := connmgr.New(&connmgr.Config{
+// 		Listeners:      listeners,
+// 		OnAccept:       s.inboundPeerConnected,
+// 		RetryDuration:  connectionRetryInterval,
+// 		TargetOutbound: uint32(targetOutbound),
+// 		Dial:           btcdDial,
+// 		OnConnection:   s.outboundPeerConnected,
+// 		GetNewAddress:  newAddressFunc,
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	s.connManager = cmgr
 
-	// Start up persistent peers.
-	permanentPeers := cfg.ConnectPeers
-	if len(permanentPeers) == 0 {
-		permanentPeers = cfg.AddPeers
-	}
-	for _, addr := range permanentPeers {
-		netAddr, err := addrStringToNetAddr(addr)
-		if err != nil {
-			return nil, err
-		}
+// 	// Start up persistent peers.
+// 	permanentPeers := cfg.ConnectPeers
+// 	if len(permanentPeers) == 0 {
+// 		permanentPeers = cfg.AddPeers
+// 	}
+// 	for _, addr := range permanentPeers {
+// 		netAddr, err := addrStringToNetAddr(addr)
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		go s.connManager.Connect(&connmgr.ConnReq{
-			Addr:      netAddr,
-			Permanent: true,
-		})
-	}
+// 		go s.connManager.Connect(&connmgr.ConnReq{
+// 			Addr:      netAddr,
+// 			Permanent: true,
+// 		})
+// 	}
 
-	if !cfg.DisableRPC {
-		// Setup listeners for the configured RPC listen addresses and
-		// TLS settings.
-		rpcListeners, err := setupRPCListeners()
-		if err != nil {
-			return nil, err
-		}
-		if len(rpcListeners) == 0 {
-			return nil, errors.New("RPCS: No valid listen address")
-		}
+// 	if !cfg.DisableRPC {
+// 		// Setup listeners for the configured RPC listen addresses and
+// 		// TLS settings.
+// 		rpcListeners, err := setupRPCListeners()
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		if len(rpcListeners) == 0 {
+// 			return nil, errors.New("RPCS: No valid listen address")
+// 		}
 
-		s.rpcServer, err = newRPCServer(&rpcserverConfig{
-			Listeners:   rpcListeners,
-			StartupTime: s.startupTime,
-			ConnMgr:     &rpcConnManager{&s},
-			SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
-			TimeSource:  s.timeSource,
-			Chain:       s.chain,
-			ChainParams: chainParams,
-			DB:          db,
-			TxMemPool:   s.txMemPool,
-			Generator:   blockTemplateGenerator,
-			CPUMiner:    s.cpuMiner,
-			TxIndex:     s.txIndex,
-			AddrIndex:   s.addrIndex,
-		})
-		if err != nil {
-			return nil, err
-		}
+// 		s.rpcServer, err = newRPCServer(&rpcserverConfig{
+// 			Listeners:   rpcListeners,
+// 			StartupTime: s.startupTime,
+// 			ConnMgr:     &rpcConnManager{&s},
+// 			SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
+// 			TimeSource:  s.timeSource,
+// 			Chain:       s.chain,
+// 			ChainParams: chainParams,
+// 			DB:          db,
+// 			TxMemPool:   s.txMemPool,
+// 			Generator:   blockTemplateGenerator,
+// 			CPUMiner:    s.cpuMiner,
+// 			TxIndex:     s.txIndex,
+// 			AddrIndex:   s.addrIndex,
+// 		})
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		// Signal process shutdown when the RPC server requests it.
-		go func() {
-			<-s.rpcServer.RequestedProcessShutdown()
-			shutdownRequestChannel <- struct{}{}
-		}()
-	}
+// 		// Signal process shutdown when the RPC server requests it.
+// 		go func() {
+// 			<-s.rpcServer.RequestedProcessShutdown()
+// 			shutdownRequestChannel <- struct{}{}
+// 		}()
+// 	}
 
-	return &s, nil
-}
+// 	return &s, nil
+// }
 
-func newServer1(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server, error) {
+func newServer(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server, error) {
 
 	cfg := conf.Cfg
 
 	services := defaultServices
-	if cfg.NoPeerBloomFilters {
+	if cfg.Protocal.NoPeerBloomFilters {
 		services &^= wire.SFNodeBloom
 	}
 
@@ -2423,8 +2430,9 @@ func newServer1(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*serve
 		return nil, errors.New("no valid listen address")
 	}
 
+	phCh := make(chan *peer.PeerMessage)
 	// FIXME: remove useless member
-	s := server{
+	s := &server{
 		chainParams:          chainParams,
 		addrManager:          amgr,
 		newPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
@@ -2437,14 +2445,15 @@ func newServer1(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*serve
 		modifyRebroadcastInv: make(chan interface{}),
 		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
 		services:             services,
-		// nat:                  nat,
+		nat:                  nat,
 		// db:                   db,
 		// timeSource: blockchain.NewMedianTime(),
 
 		// sigCache:   txscript.NewSigCache(cfg.SigCacheMaxSize),
 		// hashCache:  txscript.NewHashCache(cfg.SigCacheMaxSize),
 
-		phCh: make(chan *peer.PeerMessage),
+		phCh: phCh,
+		mh:   service.NewMsgHandler(context.TODO(), phCh),
 	}
 
 	targetOutbound := defaultTargetOutbound
@@ -2461,9 +2470,18 @@ func newServer1(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*serve
 			var d net.Dialer
 			return d.DialContext(ctx, netaddr.Network(), netaddr.String())
 		},
-		OnAccept:      s.inboundPeerConnected,
-		OnConnect:     s.outboundPeerConnected,
-		GetNewAddress: addmgr.GetNewAddress(), // TODO: for xiaolong
+		OnAccept:  s.inboundPeerConnected,
+		OnConnect: s.outboundPeerConnected,
+		//GetNewAddress: addmgr.GetNewAddress(), // TODO: for xiaolong
+		GetNewAddress: func() (net.Addr, error) {
+			addr, err := amgr.NewAddress(func(groupKey string) bool {
+				return s.OutboundGroupCount(groupKey) != 0
+			})
+			if err != nil {
+				return nil, err
+			}
+			return addrStringToNetAddr(addr)
+		},
 	})
 	for _, addr := range cfg.P2PNet.ConnectPeersOnStart {
 		netAddr, err := addrStringToNetAddr(addr)
@@ -2480,6 +2498,7 @@ func newServer1(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*serve
 	// shutdown is requested through one of the subsystems such as the RPC
 	// server.
 	<-interrupt
+	return s, nil
 }
 
 // initListeners initializes the configured net listeners and adds any bound
@@ -2496,7 +2515,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 	for _, addr := range netAddrs {
 		listener, err := net.Listen(addr.Network(), addr.String())
 		if err != nil {
-			srvrLog.Warnf("Can't listen on %s: %v", addr, err)
+			log.Warn("Can't listen on %s: %v", addr, err)
 			continue
 		}
 		listeners = append(listeners, listener)
@@ -2506,7 +2525,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 	if len(cfg.ExternalIPs) != 0 {
 		defaultPort, err := strconv.ParseUint(activeNetParams.DefaultPort, 10, 16)
 		if err != nil {
-			srvrLog.Errorf("Can not parse default port %s for active chain: %v",
+			log.Error("Can not parse default port %s for active chain: %v",
 				activeNetParams.DefaultPort, err)
 			return nil, nil, err
 		}
@@ -2520,7 +2539,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 			} else {
 				port, err := strconv.ParseUint(portstr, 10, 16)
 				if err != nil {
-					srvrLog.Warnf("Can not parse port from %s for "+
+					log.Warn("Can not parse port from %s for "+
 						"externalip: %v", sip, err)
 					continue
 				}
@@ -2528,13 +2547,13 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 			}
 			na, err := amgr.HostToNetAddress(host, eport, services)
 			if err != nil {
-				srvrLog.Warnf("Not adding %s as externalip: %v", sip, err)
+				log.Warn("Not adding %s as externalip: %v", sip, err)
 				continue
 			}
 
 			err = amgr.AddLocalAddress(na, addrmgr.ManualPrio)
 			if err != nil {
-				amgrLog.Warnf("Skipping specified external IP: %v", err)
+				log.Warn("Skipping specified external IP: %v", err)
 			}
 		}
 	} else {
@@ -2542,7 +2561,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 			var err error
 			nat, err = Discover()
 			if err != nil {
-				srvrLog.Warnf("Can't discover upnp: %v", err)
+				log.Warn("Can't discover upnp: %v", err)
 			}
 			// nil nat here is fine, just means no upnp on network.
 		}
@@ -2552,7 +2571,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 			addr := listener.Addr().String()
 			err := addLocalAddress(amgr, addr, services)
 			if err != nil {
-				amgrLog.Warnf("Skipping bound address %s: %v", addr, err)
+				log.Warn("Skipping bound address %s: %v", addr, err)
 			}
 		}
 	}
@@ -2685,12 +2704,12 @@ func isWhitelisted(addr net.Addr) bool {
 
 	host, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
-		srvrLog.Warnf("Unable to SplitHostPort on '%s': %v", addr, err)
+		log.Warn("Unable to SplitHostPort on '%s': %v", addr, err)
 		return false
 	}
 	ip := net.ParseIP(host)
 	if ip == nil {
-		srvrLog.Warnf("Unable to parse IP '%s'", addr)
+		log.Warn("Unable to parse IP '%s'", addr)
 		return false
 	}
 
