@@ -798,6 +798,10 @@ type SignRawTransactionCmd struct {
 	Flags    *string `jsonrpcdefault:"\"ALL\""`
 }
 
+type VerifyTxoutProofCmd struct {
+	Proof string
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -850,4 +854,5 @@ func init() {
 	MustRegisterCmd("verifytxoutproof", (*VerifyTxOutProofCmd)(nil), flags)
 	MustRegisterCmd("getmempoolancestors", (*GetMempoolAncestorsCmd)(nil), flags)
 	MustRegisterCmd("getmempooldescendants", (*GetMempoolDescendantsCmd)(nil), flags)
+	MustRegisterCmd("signrawtransaction", (*SignRawTransactionCmd)(nil), flags)
 }
