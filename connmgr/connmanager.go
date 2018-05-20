@@ -193,7 +193,7 @@ func (cm *ConnManager) handleFailedConn(c *ConnReq) {
 		}
 		log.Debugf("Retrying connection to %v in %v", c, d)
 		time.AfterFunc(d, func() {
-			cm.Connect(c)
+			cm.Connect(context.TODO(), c)
 		})
 	} else if cm.cfg.GetNewAddress != nil {
 		cm.failedAttempts++
@@ -202,10 +202,10 @@ func (cm *ConnManager) handleFailedConn(c *ConnReq) {
 				"-- retrying connection in: %v", maxFailedAttempts,
 				cm.cfg.RetryDuration)
 			time.AfterFunc(cm.cfg.RetryDuration, func() {
-				cm.NewConnReq()
+				cm.NewConnReq(context.TODO())
 			})
 		} else {
-			go cm.NewConnReq()
+			go cm.NewConnReq(context.TODO())
 		}
 	}
 }

@@ -6,24 +6,24 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"net/http"
+	// "net"
+	// "net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"runtime/pprof"
+	//"runtime/pprof"
 	// "github.com/btcsuite/btcd/blockchain/indexers"
 	// "github.com/btcsuite/btcd/database"
 	// "github.com/btcsuite/btcd/limits"
 
 	"context"
+	"github.com/btcboost/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/limits"
-	"github.com/btcsuite/btcd/addrmgr"
-	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcboost/copernicus/log"
 )
 
 const (
@@ -42,130 +42,22 @@ var winServiceMain func() (bool, error)
 // optional serverChan parameter is mainly used by the service code to be
 // notified with the server once it is setup so it can gracefully stop it when
 // requested from the service control manager.
-func bchMain(ctx context.Context, serverChan chan<- *server) error {
+func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
-	cfg := conf.Cfg
 
-	// Get a channel that will be closed when a shutdown signal has been
-	// triggered either from an OS signal such as SIGINT (Ctrl+C) or from
-	// another subsystem such as the RPC server.
 	interrupt := interruptListener()
 
-	// Return now if an interrupt signal was triggered.
+	s, err := newServer(nil, interrupt)
+	if err != nil {
+		return err
+	}
+
 	if interruptRequested(interrupt) {
 		return nil
 	}
+	s.Start()
 
-	// Load the block database.
-	// db, err := loadBlockDB()
-	// if err != nil {
-	// 	btcdLog.Errorf("%v", err)
-	// 	return err
-	// }
-	// defer func() {
-	// 	// Ensure the database is sync'd and closed on shutdown.
-	// 	btcdLog.Infof("Gracefully shutting down the database...")
-	// 	db.Close()
-	// }()
-
-	// Return now if an interrupt signal was triggered.
-	// if interruptRequested(interrupt) {
-	// 	return nil
-	// }
-
-	// Drop indexes and exit if requested.
-	//
-	// NOTE: The order is important here because dropping the tx index also
-	// drops the address index since it relies on it.
-	// if cfg.DropAddrIndex {
-	// 	if err := indexers.DropAddrIndex(db, interrupt); err != nil {
-	// 		btcdLog.Errorf("%v", err)
-	// 		return err
-	// 	}
-
-	// 	return nil
-	// }
-	// if cfg.DropTxIndex {
-	// 	if err := indexers.DropTxIndex(db, interrupt); err != nil {
-	// 		btcdLog.Errorf("%v", err)
-	// 		return err
-	// 	}
-
-	// 	return nil
-	// }
-
-	// Create server and start it.
-	// server, err := newServer(cfg.P2PNet.ListenerAddrs, db, activeNetParams.Params,
-	// 	interrupt)
-	// if err != nil {
-	// 	// TODO: this logging could do with some beautifying.
-	// 	btcdLog.Errorf("Unable to start server on %v: %v",
-	// 		cfg.Listeners, err)
-	// 	return err
-	// }
-	// defer func() {
-	// 	btcdLog.Infof("Gracefully shutting down the server...")
-	// 	server.Stop()
-	// 	server.WaitForShutdown()
-	// 	srvrLog.Infof("Server shutdown complete")
-	// }()
-	// server.Start()
-	// if serverChan != nil {
-	// 	serverChan <- server
-	// }
-
-	// FIXME
-	s := server{
-		chainParams:          chainParams,
-		addrManager:          amgr,
-		newPeers:             make(chan *serverPeer, cfg.MaxPeers),
-		donePeers:            make(chan *serverPeer, cfg.MaxPeers),
-		banPeers:             make(chan *serverPeer, cfg.MaxPeers),
-		query:                make(chan interface{}),
-		relayInv:             make(chan relayMsg, cfg.MaxPeers),
-		broadcast:            make(chan broadcastMsg, cfg.MaxPeers),
-		quit:                 make(chan struct{}),
-		modifyRebroadcastInv: make(chan interface{}),
-		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
-		nat:                  nat,
-		db:                   db,
-		timeSource:           blockchain.NewMedianTime(),
-		services:             services,
-		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
-		hashCache:            txscript.NewHashCache(cfg.SigCacheMaxSize),
-
-		phCh: make(chan *peer.Peer),
-	}
-
-	amgr := addrmgr.New(cfg.DataDir, iplookup)
-
-	cmgr, err := connmgr.New(&connmgr.Config{
-		ListenAddr:     cfg.P2PNet.ListenAddrs,
-		RetryDuration:  cfg.P2PNet.RetryDuration,
-		RetgetOutbound: cfg.P2PNet.TargetOutbound,
-
-		Dial: func(ctx context.Context, netaddr net.Addr) {
-			return net.Dialer{}.DialContext(ctx, netaddr.Network(), netaddr.String())
-		},
-		OnAccept:      s.inboundPeerConnected,
-		OnConnect:     s.outboundPeerConnected,
-		GetNewAddress: addmgr.GetNewAddress(),
-	})
-	for _, addr := range cfg.PeersOnStart {
-		netAddr, err := addrStringToNetAddr(addr)
-		if err != nil {
-			return err
-		}
-		go cmgr.Connect(ctx, netAddr, true)
-	}
-
-	// qiw: we must do Start() after connect PeersOnStart
-	cmgr.Start(ctx)
-
-	// Wait until the interrupt signal is received from an OS signal or
-	// shutdown is requested through one of the subsystems such as the RPC
-	// server.
 	<-interrupt
 	return nil
 }
@@ -181,7 +73,7 @@ func removeRegressionDB(dbPath string) error {
 	// Remove the old regression test database if it already exists.
 	fi, err := os.Stat(dbPath)
 	if err == nil {
-		btcdLog.Infof("Removing regression test database from '%s'", dbPath)
+		log.Info("Removing regression test database from '%s'", dbPath)
 		if fi.IsDir() {
 			err := os.RemoveAll(dbPath)
 			if err != nil {
@@ -233,7 +125,7 @@ func warnMultipleDBs() {
 	// Warn if there are extra databases.
 	if len(duplicateDbPaths) > 0 {
 		selectedDbPath := blockDbPath(cfg.DbType)
-		btcdLog.Warnf("WARNING: There are multiple block chain databases "+
+		log.Warn("WARNING: There are multiple block chain databases "+
 			"using different database types.\nYou probably don't "+
 			"want to waste disk space by having more than one.\n"+
 			"Your current database is located at [%v].\nThe "+
@@ -247,53 +139,53 @@ func warnMultipleDBs() {
 // contains additional logic such warning the user if there are multiple
 // databases which consume space on the file system and ensuring the regression
 // test database is clean when in regression test mode.
-func loadBlockDB() (database.DB, error) {
-	// The memdb backend does not have a file path associated with it, so
-	// handle it uniquely.  We also don't want to worry about the multiple
-	// database type warnings when running with the memory database.
-	if cfg.DbType == "memdb" {
-		btcdLog.Infof("Creating block database in memory.")
-		db, err := database.Create(cfg.DbType)
-		if err != nil {
-			return nil, err
-		}
-		return db, nil
-	}
+// func loadBlockDB() (database.DB, error) {
+// 	// The memdb backend does not have a file path associated with it, so
+// 	// handle it uniquely.  We also don't want to worry about the multiple
+// 	// database type warnings when running with the memory database.
+// 	if cfg.DbType == "memdb" {
+// 		log.Info("Creating block database in memory.")
+// 		db, err := database.Create(cfg.DbType)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		return db, nil
+// 	}
 
-	warnMultipleDBs()
+// 	warnMultipleDBs()
 
-	// The database name is based on the database type.
-	dbPath := blockDbPath(cfg.DbType)
+// 	// The database name is based on the database type.
+// 	dbPath := blockDbPath(cfg.DbType)
 
-	// The regression test is special in that it needs a clean database for
-	// each run, so remove it now if it already exists.
-	removeRegressionDB(dbPath)
+// 	// The regression test is special in that it needs a clean database for
+// 	// each run, so remove it now if it already exists.
+// 	removeRegressionDB(dbPath)
 
-	btcdLog.Infof("Loading block database from '%s'", dbPath)
-	db, err := database.Open(cfg.DbType, dbPath, activeNetParams.Net)
-	if err != nil {
-		// Return the error if it's not because the database doesn't
-		// exist.
-		if dbErr, ok := err.(database.Error); !ok || dbErr.ErrorCode !=
-			database.ErrDbDoesNotExist {
+// 	log.Info("Loading block database from '%s'", dbPath)
+// 	db, err := database.Open(cfg.DbType, dbPath, activeNetParams.Net)
+// 	if err != nil {
+// 		// Return the error if it's not because the database doesn't
+// 		// exist.
+// 		if dbErr, ok := err.(database.Error); !ok || dbErr.ErrorCode !=
+// 			database.ErrDbDoesNotExist {
 
-			return nil, err
-		}
+// 			return nil, err
+// 		}
 
-		// Create the db if it does not exist.
-		err = os.MkdirAll(cfg.DataDir, 0700)
-		if err != nil {
-			return nil, err
-		}
-		db, err = database.Create(cfg.DbType, dbPath, activeNetParams.Net)
-		if err != nil {
-			return nil, err
-		}
-	}
+// 		// Create the db if it does not exist.
+// 		err = os.MkdirAll(cfg.DataDir, 0700)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		db, err = database.Create(cfg.DbType, dbPath, activeNetParams.Net)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 	}
 
-	btcdLog.Info("Block database loaded")
-	return db, nil
-}
+// 	btcdLog.Info("Block database loaded")
+// 	return db, nil
+// }
 
 func main() {
 	// Use all processor cores.
@@ -326,7 +218,7 @@ func main() {
 	}
 
 	// Work around defer not working after os.Exit()
-	if err := bchMain(nil); err != nil {
+	if err := bchMain(context.Background(), nil); err != nil {
 		os.Exit(1)
 	}
 }

@@ -58,6 +58,13 @@ func NewGenerateCmd(numBlocks uint32) *GenerateCmd {
 	}
 }
 
+// GenerateToAddressCmd defines the generatetoaddress JSON-RPC command.
+type GenerateToAddressCmd struct {
+	NumBlocks uint32
+	Address   string
+	MaxTries  uint64
+}
+
 // GetBestBlockCmd defines the getbestblock JSON-RPC command.
 type GetBestBlockCmd struct{}
 

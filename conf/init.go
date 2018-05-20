@@ -99,10 +99,13 @@ func initConfig() *Configuration {
 	return config
 }
 
+// Configuration defines all configurations for application
 type Configuration struct {
 	GoVersion string `validate:"require"` //description:"Display version information and exit"
 	Version   string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
+	DataDir   string `default:"data"`
+
 	Service struct {
 		Address string `default:"1.0.0.1:80"`
 	}
@@ -113,7 +116,7 @@ type Configuration struct {
 	}
 	RPC struct {
 		Host string `validate:"require"` //description:"Define host of RPC"
-		Port int                         //description:"Define port of RPC"
+		Port int    //description:"Define port of RPC"
 	}
 	Log struct {
 		Level  string //description:"Define level of log,include trace, debug, info, warn, error"
@@ -123,12 +126,21 @@ type Configuration struct {
 		MinFeeRate int64
 	}
 	P2PNet struct {
-		ListenerAddrs []string `validate:"require" default:"1234"`
-		MaxPeers      int      `default:"128"`
+		ListenAddrs         []string `validate:"require" default:"1234"`
+		MaxPeers            int      `default:"128"`
+		TargetOutbound      int      `default:"8"`
+		ConnectPeersOnStart []string
+		DisableBanning      bool `default:"true"`
+		BanThreshold        uint32
+		SimNet              bool `default:"false"`
+		DisableListen       bool `default:"true"`
 	}
 	AddrMgr struct {
 		SimNet       bool
 		ConnectPeers []string
+	}
+	Protocal struct {
+		NoPeerBloomFilters bool `default:"false"`
 	}
 }
 

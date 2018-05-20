@@ -6,13 +6,16 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/merkleroot"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/go-xorm/core"
@@ -227,7 +230,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 	return descendantsUpdated
 }
 
-func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
+func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTemplate {
 	timeStart := util.GetMockTimeInMicros()
 
 	ba.resetBlockAssembler()
@@ -278,7 +281,7 @@ func (ba *BlockAssembler) CreateNewBlock() *BlockTemplate {
 	sig := script.Script{}
 	sig.PushInt64(int64(ba.height))
 	sig.PushOpCode(core.OP_0)
-	coinbaseTx.Ins[0] = core.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, sig.GetScriptByte())
+	coinbaseTx.Ins[0] = txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, coinbaseScript, 0xffffffff)
 	coinbaseTx.Outs = make([]*core.TxOut, 1)
 
 	// value represents total reward(fee and block generate reward)
@@ -377,4 +380,18 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 		}
 	}
 	return descendantUpdate
+}
+
+func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraNonce uint) {
+	// Update nExtraNonce
+	if bk.Header.HashPrevBlock != util.HashZero {
+		extraNonce = 0
+	}
+	extraNonce++
+	// Height first in coinbase required for block.version=2
+	height := bindex.Height + 1
+	// todo complete
+	bk.Header.MerkleRoot = merkleroot.BlockMerkleRoot(bk, nil)
+
+	return extraNonce
 }

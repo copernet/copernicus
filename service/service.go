@@ -5,28 +5,28 @@
 package service
 
 import (
-	"sync"
+	"container/list"
 	"context"
 	"fmt"
-	"github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcsuite/btcd/connmgr"
-	"github.com/btcboost/copernicus/peer"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"container/list"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/log"
+	"sync"
 	"time"
-	"github.com/btcsuite/btcd/blockchain"
+
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/logic/mempool"
+	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/model/block"
 	mpool "github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/peer"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/connmgr"
 )
-
 
 // peerSyncState stores additional information that the SyncManager tracks
 // about a peer.
@@ -43,7 +43,7 @@ type MsgHandle struct {
 	txAndBlockPro	chan peer.PeerMessage
 	chainparam    *chainparams.BitcoinParams
 	//connect manager
-	connManager 	connmgr.ConnManager
+	connManager connmgr.ConnManager
 
 	// These fields should only be accessed from the blockHandler thread
 	rejectedTxns    map[util.Hash]struct{}
@@ -74,10 +74,9 @@ func (mh *MsgHandle)startProcess(ctx context.Context)  {
 	defer cancel()
 
 	go mh.txAndBlockProcess(ctxChild)
-
-	out:
-	for{
-		select{
+out:
+	for {
+		select {
 		case msg := <-mh.recvFromNet:
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
@@ -118,13 +117,13 @@ func (mh *MsgHandle)startProcess(ctx context.Context)  {
 
 }
 
-func (mh *MsgHandle)txAndBlockProcess(ctx context.Context)  {
-	out:
-	for{
-		select{
-		case <- ctx.Done():
+func (mh *MsgHandle) txAndBlockProcess(ctx context.Context) {
+out:
+	for {
+		select {
+		case <-ctx.Done():
 			break out
-		case msg := <- mh.txAndBlockPro:
+		case msg := <-mh.txAndBlockPro:
 			peers := msg.Peerp
 			switch data := msg.Msg.(type) {
 			case *wire.MsgTx:
@@ -223,7 +222,7 @@ func (mh *MsgHandle)startSync()  {
 
 // handleGetData is invoked when a peer receives a getdata bitcoin message and
 // is used to deliver block and transaction information.
-func (mh *MsgHandle)OnGetData(msg *wire.MsgGetData)  {
+func (mh *MsgHandle) OnGetData(msg *wire.MsgGetData) {
 	numAdded := 0
 	notFound := wire.NewMsgNotFound()
 
@@ -304,7 +303,7 @@ func (mh *MsgHandle)OnGetData(msg *wire.MsgGetData)  {
 
 // handleHeadersMsg handles block header messages from all peers.  Headers are
 // requested when performing a headers-first sync.
-func (mh *MsgHandle)handleHeadersMsg(hmsg *headersMsg)  {
+func (mh *MsgHandle) handleHeadersMsg(hmsg *headersMsg) {
 	peer := hmsg.peer
 	_, exists := mh.peerStates[peer]
 	if !exists {
@@ -477,7 +476,7 @@ func (mh *MsgHandle) haveInventory(invVect *wire.InvVect) (bool, error) {
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
 		// to it in any form (main pool or orphan).
-		if mpool.Gpool.FindTx(invVect.Hash) != nil{
+		if mpool.Gpool.FindTx(invVect.Hash) != nil {
 			return true, nil
 		}
 
@@ -497,8 +496,8 @@ func (mh *MsgHandle) haveInventory(invVect *wire.InvVect) (bool, error) {
 	return true, nil
 }
 
-// Rpc process things 
-func (mh *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err error) {
+// Rpc process things
+func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
 	case NodeOperateMsg:
@@ -506,8 +505,8 @@ func (mh *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err err
 
 	case *tx.Tx:
 		mh.recvChannel <- m
-		ret := <- mh.resultChannel
-		switch r :=ret.(type)  {
+		ret := <-mh.resultChannel
+		switch r := ret.(type) {
 		case error:
 			return nil, r
 		case []*tx.Tx:
@@ -516,7 +515,7 @@ func (mh *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err err
 
 	case *block.Block:
 		mh.recvChannel <- m
-		ret := <- mh.resultChannel
+		ret := <-mh.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r
@@ -527,14 +526,12 @@ func (mh *MsgHandle)ProcessForRpc(message interface{}) (rsp interface{}, err err
 	case GetConnectCount:
 		return mh.connManager.ConnectedCount(), nil
 
-	case PingMsg:
+	case *wire.MsgPing:
 		return mh.connManager.BroadCast(), nil
 
 	case GetAddedNodeInfoMsg:
 		return mh.connManager.PersistentPeers(), nil
-
-		
 	}
+
 	return nil, fmt.Errorf("Unknown command")
 }
-
