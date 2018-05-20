@@ -13,8 +13,8 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/errcode"
 )
 
 const (
@@ -251,17 +251,17 @@ func (tx *Tx) IsCoinBase() bool {
 
 func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 	n := 0
-	/*
+
 	for _, in := range tx.ins {
-		if c, err := in.Script.GetSigOpCount(false); err == nil {
+		if c, err := in.GetScriptSig().GetSigOpCount(false); err == nil {
 			n += c
 		}
 	}
 	for _, out := range tx.outs {
-		if c, err := out.Script.GetSigOpCount(false); err == nil {
+		if c, err := out.GetScriptPubKey().GetSigOpCount(false); err == nil {
 			n += c
 		}
-	}*/
+	}
 	return n
 }
 
@@ -273,122 +273,34 @@ func (tx *Tx) GetVersion() int32 {
 	return tx.version
 }
 
-// starting BIP16(Apr 1 2012), we should check p2sh
-func (tx *Tx) GetSigOpCountWithP2SH() (int, error) {
-	n := tx.GetSigOpCountWithoutP2SH()
-	if tx.IsCoinBase() {
-		return n, nil
-	}
-	/*
-	for _, e := range tx.ins {
-		coin := utxo.GetCoins(e.PreviousOutPoint)
-		if !coin {
-			coin = mempool.GetCoins(e.PreviousOutPoint)
-			if !coin {
-				err := errors.New("TX has no Previous coin")
-				return 0, err
-			}
-		}
-		if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
-			n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
-		} else {
-			n += e.scriptSigcript.GetP2SHSigOpCount()
-		}
-	}
-	*/
-	return n, nil
-}
-
-func (tx *Tx) CheckCoinbaseTransaction() bool {
+func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
-		//return state.Dos(100, false, RejectInvalid, "bad-cb-missing", false,
-		//	"first tx is not coinbase")
+		return errcode.New(errcode.TxErrNotCoinBase)
 	}
-	if !tx.checkTransactionCommon(false) {
-		return false
-	}
+	//if !tx.CheckTransactionCommon(false) {
+	//	return false
+	//}
 	/*
 	if tx.ins[0].script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
 		return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
 	}*/
-	return true
+	return nil
 }
 
-func (tx *Tx) CheckRegularTransaction(allowLargeOpReturn bool) bool {
-	if tx.IsCoinBase() {
-		//state.Dos(100, false, RejectInvalid, "bad-tx-coinbase", false, "")
-		return false
-	}
-/*
-	if !tx.checkTransactionCommon(state, true) {
-		return false
-	}
-
-	// check standard
-	if RequireStandard && !tx.checkStandard(allowLargeOpReturn) {
-		return false
-	}
-
-	//check standard inputs
-	if RequiredStandard && !tx.areInputsStandard() {
-		return false
-	}
-
-	//check locktime
-	if !tx.ContextualCheckTransaction(state, StandardLockTimeVerifyFlags) {
-		return false
-	}
-
-	// all inputs should have preout
-	for _, in := range tx.ins {
-		if in.PreviousOutPoint.IsNull() {
-			state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
-			return false
-		}
-	}
-	// check duplicate tx
-	if tx.isOutputAlreadyExist() {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-output-already-exist", false, "")
-	}
-
-	// check duble-spending
-	if !tx.areInputsAvailable() {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
-	}
-
-	//check sequencelock
-	//lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
-	//if !tx.checkSequenceLocks(lp) {
-	//	return false
-	//}
-
-	//check inputs money range
-	if !tx.CheckInputsMoney() {
-		return false
-	}
-
-	//check inputs
-	if !tx.checkInputs() {
-		return false
-	}
-*/
-	return true
-}
-
-func (tx *Tx) checkTransactionCommon(checkDupInput bool) bool {
+func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
 		//state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
-		return false
+		return errcode.New(errcode.TxErrEmptyInputs)
 	}
 	if len(tx.outs) == 0 {
 		//state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
-		return false
+		return nil
 	}
 
 	if tx.SerializeSize() > consensus.MaxTxSize {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
-		return false
+		return nil
 	}
 	/*
 	// check outputs money
@@ -421,7 +333,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) bool {
 		}
 	}
 	*/
-	return true
+	return nil
 }
 
 func (tx *Tx) checkStandard(allowLargeOpReturn bool) bool {
@@ -779,7 +691,7 @@ func (tx *Tx) isFinal(Height int, time int64) bool {
 
 func (tx *Tx) String() string {
 	str := ""
-	str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.ins), len(tx.outs))
+	//str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.ins), len(tx.outs))
 	inStr := "ins:\n"
 	for i, in := range tx.ins {
 		if in == nil {
@@ -803,7 +715,7 @@ func (tx *Tx) TxHash() util.Hash {
 
 	buf := bytes.NewBuffer(make([]byte, 0, tx.SerializeSize()))
 	_ = tx.Serialize(buf)
-	hash := crypto.DoubleSha256Hash(buf.Bytes())
+	hash := util.DoubleSha256Hash(buf.Bytes())
 	tx.Hash = hash
 	return hash
 }
