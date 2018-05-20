@@ -45,6 +45,10 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	return nil
 }
 
+func (blk *Block) GetHash() *util.Hash{
+	// todo
+	return &util.HashZero
+}
 func (bl *Block) SerializeSize() uint {
 	size := uint(unsafe.Sizeof(BlockHeader{}))
 	for _, Tx := range bl.Txs {

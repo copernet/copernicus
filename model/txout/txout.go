@@ -45,18 +45,19 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee util.FeeRate) int64 {
 	return 3 * minRelayTxFee.GetFee(size)
 }
 
-func (txOut *TxOut) Serialize(writer io.Writer) error {
-	if txOut.scriptPubKey == nil {
-		return nil
-	}
+func (txOut *TxOut) Encode(writer io.Writer) error {
 	err := util.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
 	if err != nil {
 		return err
 	}
-	return util.WriteVarBytes(writer, txOut.scriptPubKey.GetData())
+	if txOut.scriptPubKey == nil {
+		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0  )
+	} else {
+	    return util.WriteVarBytes(writer, txOut.scriptPubKey.GetData())
+	}
 }
 
-func (txOut *TxOut) Unserialize(reader io.Reader) error {
+func (txOut *TxOut) Decode(reader io.Reader) error {
 	err := util.ReadElements(reader, &txOut.value)
 	if err != nil {
 		return err
@@ -64,6 +65,13 @@ func (txOut *TxOut) Unserialize(reader io.Reader) error {
 	bytes, err := script.ReadScript(reader, script.MaxMessagePayload, "tx output script")
 	txOut.scriptPubKey = script.NewScriptRaw(bytes)
 	return err
+}
+func (txOut *TxOut) Serialize(writer io.Writer) error {
+	return nil
+}
+
+func (txOut *TxOut) Unserialize(reader io.Reader) error {
+	return nil
 }
 
 func (txOut *TxOut) CheckValue() bool {
@@ -139,6 +147,7 @@ func (txOut *TxOut) SetNull() {
 	txOut.value = -1
 	txOut.scriptPubKey = nil
 }
+
 func (txOut *TxOut) IsNull() bool {
 	return txOut.value == -1
 }

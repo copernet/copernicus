@@ -36,7 +36,7 @@ var rawTransactionHandlers = map[string]commandHandler{
 	"sendrawtransaction":   handleSendRawTransaction,   // complete
 
 	"signrawtransaction": handleSignRawTransaction, // partial complete
-	"gettxoutproof":      handleGetTxoutProof,
+	"gettxoutproof":      handleGetTxoutProof,      // complete
 	"verifytxoutproof":   handleVerifyTxoutProof,
 }
 
@@ -251,9 +251,9 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 	if indexSlow != nil {
 		var bk *block.Block
 		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
-			for _, tx := range bk.Txs {
-				if *hash == tx.TxHash() {
-					return tx, &indexSlow.BlockHash, true
+			for _, item := range bk.Txs {
+				if *hash == item.TxHash() {
+					return item, &indexSlow.BlockHash, true
 				}
 			}
 		}
@@ -545,7 +545,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 			}
 		}
 
-		view.AddCoin(out, *utxo.NewCoin(txOut, 1, false), true)
+		view.AddCoin(out, *utxo.NewCoin(txOut, 1, false))
 
 		// If redeemScript given and not using the local wallet (private
 		// keys given), add redeemScript to the tempKeystore so it can be
@@ -713,6 +713,12 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.VerifyTxoutProofCmd)
+
+	b, err := hex.DecodeString(c.Proof)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Proof)
+	}
 	return nil, nil
 }
 
