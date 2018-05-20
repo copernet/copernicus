@@ -4,6 +4,9 @@ import (
 	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/service"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
+	"math"
 )
 
 var netHandlers = map[string]commandHandler{
@@ -22,22 +25,21 @@ var netHandlers = map[string]commandHandler{
 }
 
 func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		return s.cfg.ConnMgr.ConnectedCount(), nil
-	*/
-	return nil, nil
+	getNodeCountCmd := service.GetNodeCount{}
+	num , err := s.Handler.ProcessForRpc(getNodeCountCmd)
+	if err != nil {
+
+	}
+	return num, nil
 }
 
 func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	// Ask server to ping \o_
-	/*	nonce, err := utils.RandomUint64()
-		if err != nil {
-			return nil, internalRPCError("Not sending ping - failed to "+
-				"generate nonce: "+err.Error(), "")
-		}
-		s.cfg.ConnMgr.BroadcastMessage(msg.InitPingMessage(nonce))
+	nonce := util.GetRand(math.MaxInt64)
+	pingCmd := wire.NewMsgPing(nonce)
+	_, err := s.Handler.ProcessForRpc(pingCmd)
+	if err != nil {
 
-		return nil, nil*/
+	}
 	return nil, nil
 }
 
@@ -97,7 +99,6 @@ func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 	}
 
 	// no data returned unless an error.
-	return nil, nil
 	return nil, nil
 }
 

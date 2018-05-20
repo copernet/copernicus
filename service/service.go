@@ -8,6 +8,9 @@ import (
 	"container/list"
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model"
@@ -22,9 +25,6 @@ import (
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/connmgr"
-	"github.com/ethereum/go-ethereum/les"
-	"sync"
-	"time"
 )
 
 // peerSyncState stores additional information that the SyncManager tracks
@@ -445,12 +445,12 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 	case GetConnectCount:
 		return mh.connManager.ConnectedCount(), nil
 
-	case PingMsg:
+	case *wire.MsgPing:
 		return mh.connManager.BroadCast(), nil
 
 	case GetAddedNodeInfoMsg:
 		return mh.connManager.PersistentPeers(), nil
-
 	}
+
 	return nil, fmt.Errorf("Unknown command")
 }

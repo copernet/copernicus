@@ -802,6 +802,10 @@ type VerifyTxoutProofCmd struct {
 	Proof string
 }
 
+type SetMocktimeCmd struct {
+	Timestamp int64
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -855,4 +859,6 @@ func init() {
 	MustRegisterCmd("getmempoolancestors", (*GetMempoolAncestorsCmd)(nil), flags)
 	MustRegisterCmd("getmempooldescendants", (*GetMempoolDescendantsCmd)(nil), flags)
 	MustRegisterCmd("signrawtransaction", (*SignRawTransactionCmd)(nil), flags)
+	MustRegisterCmd("handleVerifyTxoutProof", (*VerifyTxoutProofCmd)(nil), flags)
+	MustRegisterCmd("handleSetMocktime", (*SetMocktimeCmd)(nil), flags)
 }
