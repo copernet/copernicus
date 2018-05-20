@@ -137,7 +137,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetLockTime())
 		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, hashType)
 
-		result = crypto.Sha256Hash(hashBuffer.Bytes())
+		result = util.Sha256Hash(hashBuffer.Bytes())
 	}
 	// The SigHashSingle signature type signs only the corresponding input
 	// and output (the output with the same index number as the input).
@@ -224,7 +224,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 
 	// encode tx.locktime
 	util.BinarySerializer.PutUint64(&hashBuffer, binary.LittleEndian, uint64(transaction.GetLockTime()))
-	result = crypto.Sha256Hash(hashBuffer.Bytes())
+	result = util.Sha256Hash(hashBuffer.Bytes())
 	return
 }
 
@@ -234,7 +234,7 @@ func GetPreviousOutHash(tx *Tx) (h util.Hash) {
 	for _, e := range ins {
 		e.PreviousOutPoint.Encode(&bPreOut)
 	}
-	h = crypto.Sha256Hash(bPreOut.Bytes())
+	h = util.Sha256Hash(bPreOut.Bytes())
 	return
 }
 
@@ -246,7 +246,7 @@ func GetSequenceHash(tx *Tx) (h util.Hash) {
 		binary.LittleEndian.PutUint32(tempbuf, e.Sequence)
 		buf = append(buf, tempbuf...)
 	}
-	h = crypto.Sha256Hash(buf)
+	h = util.Sha256Hash(buf)
 	return
 }
 
@@ -258,7 +258,7 @@ func GetOutputsHash(outs []*txout.TxOut) (h util.Hash, err error) {
 			return
 		}
 	}
-	h = crypto.Sha256Hash(bOut.Bytes())
+	h = util.Sha256Hash(bOut.Bytes())
 	return
 }
 

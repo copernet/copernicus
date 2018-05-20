@@ -35,7 +35,7 @@ func (txIn *TxIn) SerializeSize() int {
 }
 
 func (txIn *TxIn) Unserialize(reader io.Reader) error {
-	err := txIn.PreviousOutPoint.Unserialize(reader)
+	err := txIn.PreviousOutPoint.Decode(reader)
 	if err != nil {
 		return err
 	}
@@ -85,6 +85,10 @@ func (txIn *TxIn) Check() bool {
 	return true
 }
 */
+
+func (txIn *TxIn) SetScript(script *script.Script) {
+	txIn.scriptSig = script
+}
 
 func NewTxIn(previousOutPoint *outpoint.OutPoint, scriptSig *script.Script, sequence uint32) *TxIn {
 	txIn := TxIn{PreviousOutPoint: previousOutPoint, scriptSig: scriptSig, Sequence: sequence}
