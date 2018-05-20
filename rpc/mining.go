@@ -23,17 +23,17 @@ import (
 )
 
 var miningHandlers = map[string]commandHandler{
-	"getnetworkhashps":      handleGetNetWorkhashPS,
-	"getmininginfo":         handleGetMiningInfo,
-	"prioritisetransaction": handlePrioritisetransaction,
-	"getblocktemplate":      handleGetblocktemplate,
-	"submitblock":           handleSubmitBlock,
+	"getnetworkhashps":      handleGetNetWorkhashPS,      // complete
+	"getmininginfo":         handleGetMiningInfo,         // complete
+	"prioritisetransaction": handlePrioritisetransaction, // do not support at this version
+	"getblocktemplate":      handleGetblocktemplate,      // complete
+	"submitblock":           handleSubmitBlock,           // complete
 	"generate":              handleGenerate,
 	"generatetoaddress":     handleGenerateToAddress,
-	"estimatefee":           handleEstimateFee,
-	"estimatepriority":      handleEstimatePriority,
-	"estimatesmartfee":      handleEstimateSmartFee,
-	"estimatesmartpriority": handleEstimateSmartPriority,
+	"estimatefee":           handleEstimateFee,           // do not support at this version
+	"estimatepriority":      handleEstimatePriority,      // do not support at this version
+	"estimatesmartfee":      handleEstimateSmartFee,      // do not support at this version
+	"estimatesmartpriority": handleEstimateSmartPriority, // do not support at this version
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
