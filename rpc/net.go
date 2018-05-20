@@ -98,7 +98,6 @@ func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 
 	// no data returned unless an error.
 	return nil, nil
-	return nil, nil
 }
 
 func handleDisconnectNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
