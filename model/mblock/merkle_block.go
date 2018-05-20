@@ -1,6 +1,8 @@
 package mblock
 
 import (
+	"io"
+
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/fatih/set.v0"
@@ -40,10 +42,32 @@ func NewMerkleBlock(bk *block.Block, txids *set.Set) *MerkleBlock {
 	return &ret
 }
 
-func (mb *MerkleBlock) Serialize() []byte { // todo
-	return nil
+func (mb *MerkleBlock) Serialize(w io.Writer) (err error) {
+	err = mb.Header.Serialize(w)
+	if err != nil {
+		return
+	}
+
+	err = mb.Txn.Serialize(w)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
-func (mb *MerkleBlock) Unserialize() *MerkleBlock { // todo
-	return &MerkleBlock{}
+func (mb *MerkleBlock) Unserialize(r io.Reader) (err error) {
+	err = mb.Header.Unserialize(r)
+	if err != nil {
+		return
+	}
+
+	pmt := PartialMerkleTree{}
+	err = pmt.Unserialize(r)
+	if err != nil {
+		return
+	}
+	mb.Txn = &pmt
+
+	return
 }
