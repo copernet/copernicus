@@ -663,21 +663,17 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 
 // handleVerifyChain implements the verifychain command.
 func handleVerifyChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.VerifyChainCmd)
 
-	/*	c := cmd.(*btcjson.VerifyChainCmd)
+	var checkLevel, checkDepth int32
+	if c.CheckLevel != nil {
+		checkLevel = *c.CheckLevel
+	}
+	if c.CheckDepth != nil {
+		checkDepth = *c.CheckDepth
+	}
 
-		var checkLevel, checkDepth int32
-		if c.CheckLevel != nil {
-			checkLevel = *c.CheckLevel
-		}
-		if c.CheckDepth != nil {
-			checkDepth = *c.CheckDepth
-		}
-
-		err := verifyChain(s, checkLevel, checkDepth)
-
-		return err == nil, nil*/ // TODO realise
-	return nil, nil
+	return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil // todo realise
 }
 
 func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
