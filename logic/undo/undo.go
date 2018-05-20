@@ -8,11 +8,10 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/log"
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model/consensus"
 	"time"
 	"copernicus/net/msg"
-	"github.com/btcboost/copernicus/persist/disk"
+
 	"github.com/btcboost/copernicus/util"
 )
 
