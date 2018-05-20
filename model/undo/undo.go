@@ -93,8 +93,7 @@ func (bu *BlockUndo) Serialize(w io.Writer) error {
 }
 
 func (bu *BlockUndo) Unserialize(r io.Reader) error {
-
-	count, err := util.ReadVarInt(r)
+	count, err := util.ReadVarLenInt(r)
 	txundos := make([]*TxUndo, count, count)
 	for i := 0; i<int(count); i++{
 		obj := newTxUndo()

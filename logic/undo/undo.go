@@ -76,34 +76,7 @@ func IsInitialBlockDownload() bool {
 
 
 
-func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.BlockUndo, bool) {
-	ret := true
-	defer func() {
-		if err := recover(); err != nil {
-			logs.Error(fmt.Sprintf("%s: Deserialize or I/O error - %v", log.TraceLog(), err))
-			ret = false
-		}
-	}()
-	file := disk.OpenUndoFile(*pos, true)
-	if file == nil {
-		logs.Error(fmt.Sprintf("%s: OpenUndoFile failed", log.TraceLog()))
-		return nil, false
-	}
-	bu:= undo.NewBlockUndo()
-	// Read block
-	err := bu.Unserialize(file)
-	if err != nil {
-		return bu, false
-	}
-	hashCheckSum := &util.HashOne
-	_, err = hashCheckSum.Unserialize(file)
-	if err != nil{
-		return bu, false
-	}
-	// Verify checksum
-	return bu, hashCheckSum.IsEqual(&hashblock)
 
-}
 
 
 func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
