@@ -1,4 +1,4 @@
-package chain
+package db
 
 import (
 	"bytes"
@@ -16,9 +16,9 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/pow"
-	"github.com/btcboost/copernicus/model/consensus"
 	"fmt"
 	"github.com/btcboost/copernicus/persist/disk"
+	"github.com/btcboost/copernicus/model/chainparams"
 )
 
 type BlockTreeDB struct {
@@ -206,11 +206,12 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *util.Hash) *bloc
 		bi.Unserialize(bytes.NewBuffer(val))
 
 
-		if new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, &consensus.MainNetParams) {
+		if new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, &chainparams.MainNetParams) {
 			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
 		}
-		disk.GlobalBlockIndexMap[]
+		//todo这时候整个bi没有通过pre组织成链
+		disk.GlobalBlockIndexMap[bi.BlockHash] = bi
 		cursor.Next()
 	}
 
