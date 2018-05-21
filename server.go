@@ -2230,7 +2230,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	}
 	s.connManager = cmgr
 
-	s.syncManager, err = netsync.New(&service.Config{
+	s.syncManager, err = service.New(&service.Config{
 		PeerNotifier:       &s,
 		ChainParams:        s.chainParams,
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
