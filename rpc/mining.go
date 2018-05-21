@@ -89,7 +89,7 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 }
 
 func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
+/*	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
 	networkHashesPerSecIface, err := handleGetNetWorkhashPS(s, gnhpsCmd,
 		closeChan)
 	if err != nil {
@@ -115,7 +115,8 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		//PooledTx:           uint64(mempool.Size()),              TODO
 		Chain: consensus.MainNetParams.Name,
 	}
-	return &result, nil
+	return &result, nil*/        // TODO open
+	return nil, nil
 }
 
 // priority transaction currently disabled
@@ -492,41 +493,6 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 }
 
 func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.GenerateCmd)
-	//
-	//var maxTries uint64
-	//maxTries = 1000000
-	//if c.MaxTries != 0 {
-	//	maxTries = c.MaxTries
-	//}
-	//
-	//core.Script{}
-	//// Respond with an error if the client is requesting 0 blocks to be generated.
-	//if c.NumBlocks == 0 {
-	//	return nil, &btcjson.RPCError{
-	//		Code:    btcjson.ErrRPCInternal.Code,
-	//		Message: "Please request a nonzero number of blocks to generate.",
-	//	}
-	//}
-	//
-	//// Create a reply
-	//reply := make([]string, c.NumBlocks)
-	//
-	//blockHashes, err := s.cfg.CPUMiner.GenerateNBlocks(c.NumBlocks)
-	//if err != nil {
-	//	return nil, &btcjson.RPCError{
-	//		Code:    btcjson.ErrRPCInternal.Code,
-	//		Message: err.Error(),
-	//	}
-	//}
-	//
-	//// Mine the correct number of blocks, assigning the hex representation of the
-	//// hash of each one to its place in the reply.
-	//for i, hash := range blockHashes {
-	//	reply[i] = hash.String()
-	//}
-	//
-	//return reply, nil
 	return nil, nil
 }
 
@@ -548,7 +514,7 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 const nInnerLoopCount = 0x100000
 
 func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64) (interface{}, error) {
-	heightStart := chain.GlobalChain.Height()
+/*	heightStart := chain.GlobalChain.Height()
 	heightEnd := heightStart + generate
 	height := heightStart
 
@@ -589,7 +555,8 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	}
 	_ = extraNonce
 
-	return ret, nil
+	return ret, nil*/             // TODO open
+	return nil, nil
 }
 
 func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
