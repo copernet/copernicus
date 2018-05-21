@@ -27,17 +27,17 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
 	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/bitcointime"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcsuite/btcutil/bloom"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util/amount"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model"
+	"github.com/btcsuite/btcutil/bloom"
 )
 
 const (
@@ -1033,6 +1033,7 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 
 // pushBlockMsg sends a block message for the provided block hash to the
 // connected peer.  An error is returned if the block hash is not known.
+// FIXME by qiw: read block data from chain and make a msg block.
 func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
@@ -1463,7 +1464,7 @@ func (s *server) handleQuery(state *peerState, querymsg interface{}) {
 		}
 
 		// TODO: if too many, nuke a non-perm peer.
-		go s.connManager.Connect(ctx,&connmgr.ConnReq{
+		go s.connManager.Connect(ctx, &connmgr.ConnReq{
 			Addr:      netAddr,
 			Permanent: msg.permanent,
 		})
