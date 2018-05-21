@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -15,15 +14,16 @@ import (
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/merkleroot"
+	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
-	"github.com/go-xorm/core"
 	"github.com/google/btree"
 )
 
@@ -281,22 +281,21 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	lastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
-	coinbaseTx := tx.NewTx()
-	coinbaseTx.Ins = make([]*txin.TxIn, 1)
-	sig := script.Script{}
-	sig.PushInt64(int64(ba.height))
-	sig.PushOpCode(core.OP_0)
-	coinbaseTx.Ins[0] = txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, coinbaseScript, 0xffffffff)
-	coinbaseTx.Outs = make([]*core.TxOut, 1)
+	coinbaseTx := tx.NewTx(0, 0xffffffff)
+	buf := bytes.NewBuffer(nil)
+	bs := make([]byte, 4)
+	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
+	buf.Write([]byte{opcodes.OP_0})
+	coinbaseTx.AddTxIn(txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, script.NewScriptRaw(buf.Bytes()), 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
 	value := ba.fees + chain.GetBlockSubsidy(ba.height, ba.chainParams)
-	coinbaseTx.Outs[0] = core.NewTxOut(int64(value), []byte{core.OP_1})
+	coinbaseTx.AddTxOut(txout.NewTxOut(int64(value), coinbaseScript))
 	ba.bt.Block.Txs[0] = coinbaseTx
 	ba.bt.TxFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
 
 	serializeSize := ba.bt.Block.SerializeSize()
-	logs.Info("CreateNewBlock(): total size: %d txs: %d fees: %d sigops %d\n",
+	log.Info("CreateNewBlock(): total size: %d txs: %d fees: %d sigops %d\n",
 		serializeSize, ba.blockTx, ba.fees, ba.blockSigOps)
 
 	// Fill in header.
@@ -311,7 +310,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.Block.Header.Nonce = 0
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
-	state := core.ValidationState{}
+	state := ValidationState{}
 	if !chain.TestBlockValidity(ba.chainParams, &state, ba.bt.Block, indexPrev, false, false) {
 		panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
 	}
@@ -338,7 +337,7 @@ func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}
 func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]struct{}) bool {
 	potentialBlockSize := ba.blockSize
 	for entry := range entrySet {
-		state := core.ValidationState{}
+		state := ValidationState{}
 		if !entry.Tx.ContextualCheckTransaction(ba.chainParams, &state, ba.height, ba.lockTimeCutoff) { // TODO
 			return false
 		}
@@ -354,8 +353,11 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 
 func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
 	descendantUpdate := 0
+	mpool := mempool.Gpool
+	mpool.Lock()
+	defer mpool.Unlock()
 	for entry := range alreadyAdded {
-		descendants := mempool.Gpool.CalculateDescendants(&entry.Tx.Hash) // todo use global variable
+		descendants := mpool.CalculateDescendants(&entry.Tx.Hash)
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {

@@ -2,9 +2,8 @@ package mining
 
 import (
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/blockchain"
-	"github.com/btcboost/copernicus/mempool"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
 	"github.com/spf13/viper"
 )
@@ -38,7 +37,10 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 
 func sortedByFeeWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	for _, txEntry := range blockchain.GMemPool.PoolData { // todo use global variable
+	mpool := mempool.Gpool
+	mpool.Lock()
+	defer mpool.Unlock()
+	for _, txEntry := range mpool.GetAllTxEntry() {
 		b.ReplaceOrInsert(EntryFeeSort(*txEntry))
 	}
 	return b
@@ -49,8 +51,8 @@ type EntryAncestorFeeRateSort mempool.TxEntry
 
 func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	t := than.(EntryAncestorFeeRateSort)
-	b1 := utils.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
-	b2 := utils.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
+	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
+	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
 		return r.Tx.Hash.Cmp(&t.Tx.Hash) > 0
 	}
@@ -59,7 +61,10 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 
 func sortedByFeeRateWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	for _, txEntry := range blockchain.GMemPool.PoolData { // todo use global variable
+	mpool := mempool.Gpool
+	mpool.Lock()
+	defer mpool.Unlock()
+	for _, txEntry := range mpool.GetAllTxEntry() {
 		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
 	}
 	return b
