@@ -6,19 +6,19 @@ package service
 import (
 	"container/list"
 	"context"
-	"fmt"
+	//"fmt"
 	"sync"
 
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/tx"
+	//"github.com/btcboost/copernicus/model/block"
+	//"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcsuite/btcd/connmgr"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	//"github.com/btcboost/copernicus/internal/btcjson"
 )
 
 type MsgHandle struct {
@@ -173,6 +173,7 @@ out:
 
 }
 
+/*
 // Rpc process things
 func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
@@ -212,3 +213,4 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 
 	return nil, fmt.Errorf("Unknown command")
 }
+*/
