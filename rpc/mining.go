@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/undo"
 	"github.com/btcboost/copernicus/logic/valistate"
@@ -22,6 +21,7 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/versionbits"
+	"github.com/btcboost/copernicus/rpc/internal/btcjson"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
