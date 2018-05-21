@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 
-	"github.com/btcboost/copernicus/rpc/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/util"
-	"strconv"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -170,45 +171,45 @@ func handleGetBlockCount(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*	c := cmd.(*btcjson.GetBlockCmd)
+	/*	c := cmd.(*btcjson.GetBlockCmd)
 
-	// Load the raw block bytes from the database.
-	hash, err := util.GetHashFromStr(c.Hash)
-	if err != nil {
-		return nil, rpcDecodeHexError(c.Hash)
-	}
-
-	index := chain.GlobalChain.FindBlockIndex(*hash)
-	if index == nil {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidAddressOrKey,
-			Message: "Block not found",
+		// Load the raw block bytes from the database.
+		hash, err := util.GetHashFromStr(c.Hash)
+		if err != nil {
+			return nil, rpcDecodeHexError(c.Hash)
 		}
-	}
 
-	if chain.GHavePruned && !index.HaveData() && index.TxCount > 0 {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCMisc,
-			Message: "Block not available (pruned data)",
+		index := chain.GlobalChain.FindBlockIndex(*hash)
+		if index == nil {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidAddressOrKey,
+				Message: "Block not found",
+			}
 		}
-	}
 
-	block := block.Block{}
-	if chain.ReadBlockFromDisk(&block, index, consensus.ActiveNetParams) {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCMisc,
-			Message: "Block not found on disk",
+		if chain.GHavePruned && !index.HaveData() && index.TxCount > 0 {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCMisc,
+				Message: "Block not available (pruned data)",
+			}
 		}
-	}
 
-	if !*c.Verbose {
-		buf := bytes.NewBuffer(nil)
-		block.Serialize(buf)
-		strHex := hex.EncodeToString(buf.Bytes())
-		return strHex, nil
-	}
+		block := block.Block{}
+		if chain.ReadBlockFromDisk(&block, index, consensus.ActiveNetParams) {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCMisc,
+				Message: "Block not found on disk",
+			}
+		}
 
-	return blockToJSON(&block, index, false), nil*/           //todo open
+		if !*c.Verbose {
+			buf := bytes.NewBuffer(nil)
+			block.Serialize(buf)
+			strHex := hex.EncodeToString(buf.Bytes())
+			return strHex, nil
+		}
+
+		return blockToJSON(&block, index, false), nil*/ //todo open
 	return nil, nil
 }
 
@@ -257,23 +258,23 @@ func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		PreviousHash:  previousHash,
 		NextHash:      nextBlockHash,
 	}
-}*/                  // todo open
+}*/ // todo open
 
 func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*
-	c := cmd.(*btcjson.GetBlockHashCmd)
+	/*
+		c := cmd.(*btcjson.GetBlockHashCmd)
 
-	height := c.Height
-	if height < 0 || height > chain.GlobalChain.Height() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCOutOfRange,
-			Message: "Block number out of range",
+		height := c.Height
+		if height < 0 || height > chain.GlobalChain.Height() {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCOutOfRange,
+				Message: "Block number out of range",
+			}
 		}
-	}
 
-	blockIndex := chain.GlobalChain.GetSpecIndex(height) // todo realise
+		blockIndex := chain.GlobalChain.GetSpecIndex(height) // todo realise
 
-	return blockIndex.BlockHash, nil*/           //todo open
+		return blockIndex.BlockHash, nil*/ //todo open
 	return nil, nil
 }
 
@@ -501,10 +502,10 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 
 func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	ret := &btcjson.GetMempoolInfoResult{
-		Size:       mempool.Gpool.Size(),
-		Bytes:      mempool.Gpool.GetPoolAllTxSize(),
-		Usage:      mempool.Gpool.GetPoolUsage(),
-		MaxMempool: mempool.Gpool.MaxMemPoolSize,
+		Size:          mempool.Gpool.Size(),
+		Bytes:         mempool.Gpool.GetPoolAllTxSize(),
+		Usage:         mempool.Gpool.GetPoolUsage(),
+		MaxMempool:    mempool.Gpool.MaxMemPoolSize,
 		MempoolMinFee: valueFromAmount(mempool.Gpool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil
@@ -528,7 +529,7 @@ func valueFromAmount(sizeLimit int64) float64 {
 	}
 	strValue = fmt.Sprintf("%d.%08d", quotient, remainder)
 
-	result , err := strconv.ParseFloat(strValue, 64)
+	result, err := strconv.ParseFloat(strValue, 64)
 	if err == nil {
 		return 0
 	}
@@ -556,47 +557,47 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*	c := cmd.(*btcjson.GetTxOutCmd)
+	/*	c := cmd.(*btcjson.GetTxOutCmd)
 
-	// Convert the provided transaction hash hex to a Hash.
-	hash, err := util.GetHashFromStr(c.Txid)
-	if err != nil {
-		return nil, rpcDecodeHexError(c.Txid)
-	}
-
-	out := outpoint.OutPoint{Hash: *hash, Index: c.Vout}
-
-	coin := &utxo.Coin{}
-	coinView := utxo.GetUtxoCacheInstance()
-	if *c.IncludeMempool {
-		// todo realise CoinsViewMemPool{} in mempool
-	} else {
-		if c, err := coinView.GetCoin(&out); err != nil || c == nil {
-			return nil, err
+		// Convert the provided transaction hash hex to a Hash.
+		hash, err := util.GetHashFromStr(c.Txid)
+		if err != nil {
+			return nil, rpcDecodeHexError(c.Txid)
 		}
 
-	}
+		out := outpoint.OutPoint{Hash: *hash, Index: c.Vout}
 
-	bestHash := coinView.GetBestBlock()
-	index := chain.GlobalChain.FindBlockIndex(bestHash)
+		coin := &utxo.Coin{}
+		coinView := utxo.GetUtxoCacheInstance()
+		if *c.IncludeMempool {
+			// todo realise CoinsViewMemPool{} in mempool
+		} else {
+			if c, err := coinView.GetCoin(&out); err != nil || c == nil {
+				return nil, err
+			}
 
-	var confirmations int
-	if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
-		confirmations = 0
-	} else {
-		confirmations = index.Height - int(coin.GetHeight()) + 1
-	}
+		}
 
-	txout := coin.GetTxOut()
-	txOutReply := &btcjson.GetTxOutResult{
-		BestBlock:     index.BlockHash.String(),
-		Confirmations: int64(confirmations),
-		Value:         valueFromAmount(int64(coin.GetAmount())),
-		ScriptPubKey:  ScriptPubKeyToJSON(txout.GetScriptPubKey(), true),
-		Coinbase:      coin.IsCoinBase(),
-	}
+		bestHash := coinView.GetBestBlock()
+		index := chain.GlobalChain.FindBlockIndex(bestHash)
 
-	return &txOutReply, nil*/                // todo open
+		var confirmations int
+		if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
+			confirmations = 0
+		} else {
+			confirmations = index.Height - int(coin.GetHeight()) + 1
+		}
+
+		txout := coin.GetTxOut()
+		txOutReply := &btcjson.GetTxOutResult{
+			BestBlock:     index.BlockHash.String(),
+			Confirmations: int64(confirmations),
+			Value:         valueFromAmount(int64(coin.GetAmount())),
+			ScriptPubKey:  ScriptPubKeyToJSON(txout.GetScriptPubKey(), true),
+			Coinbase:      coin.IsCoinBase(),
+		}
+
+		return &txOutReply, nil*/ // todo open
 	return nil, nil
 }
 
@@ -605,151 +606,152 @@ func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}
 }
 
 func getPrunMode() (bool, error) {
-/*	pruneArg := util.GetArg("-prune", 0)
-	if pruneArg < 0 {
-		return false, errors.New("Prune cannot be configured with a negative value")
-	}*/                 // todo open
+	/*	pruneArg := util.GetArg("-prune", 0)
+		if pruneArg < 0 {
+			return false, errors.New("Prune cannot be configured with a negative value")
+		}*/ // todo open
 	return true, nil
 }
 
 func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*	pruneMode, err := getPrunMode()
+	/*	pruneMode, err := getPrunMode()
 
-	if err != nil && !pruneMode {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCType,
-			Message: fmt.Sprintf("Cannot prune blocks because node is not in prune mode."),
-		}
-	}
-
-	c := cmd.(*btcjson.PruneBlockChainCmd)
-	height := c.Height
-	if *height < 0 {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCType,
-			Message: fmt.Sprintf("Negative block height."),
-		}
-	}
-
-	if *height > 1000000000 {
-		index := chain.GlobalChain.FindEarliestAtLeast(int64(*height - 72000))
-		if index != nil {
+		if err != nil && !pruneMode {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCType,
-				Message: fmt.Sprintf("Could not find block with at least the specified timestamp."),
+				Message: fmt.Sprintf("Cannot prune blocks because node is not in prune mode."),
 			}
 		}
-		height = &index.Height
-	}
 
-	h := *height
-	chainHeight := chain.GlobalChain.Height()
-	if chainHeight < consensus.ActiveNetParams.PruneAfterHeight {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCMisc,
-			Message: fmt.Sprintf("Blockchain is too short for pruning."),
+		c := cmd.(*btcjson.PruneBlockChainCmd)
+		height := c.Height
+		if *height < 0 {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCType,
+				Message: fmt.Sprintf("Negative block height."),
+			}
 		}
-	} else if h > chainHeight {
-		return false, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidParameter,
-			Message: fmt.Sprintf("Blockchain is shorter than the attempted prune height."),
-		}
-	} /*else if h > chainHeight - MIN_BLOCKS_TO_KEEP {
-		h = chainHeight - MIN_BLOCKS_TO_KEEP
-	}
 
-	chain.PruneBlockFilesManual(*height)
-	return uint64(*height), nil*/                // todo realise
+		if *height > 1000000000 {
+			index := chain.GlobalChain.FindEarliestAtLeast(int64(*height - 72000))
+			if index != nil {
+				return false, &btcjson.RPCError{
+					Code:    btcjson.ErrRPCType,
+					Message: fmt.Sprintf("Could not find block with at least the specified timestamp."),
+				}
+			}
+			height = &index.Height
+		}
+
+		h := *height
+		chainHeight := chain.GlobalChain.Height()
+		if chainHeight < consensus.ActiveNetParams.PruneAfterHeight {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCMisc,
+				Message: fmt.Sprintf("Blockchain is too short for pruning."),
+			}
+		} else if h > chainHeight {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: fmt.Sprintf("Blockchain is shorter than the attempted prune height."),
+			}
+		} /*else if h > chainHeight - MIN_BLOCKS_TO_KEEP {
+			h = chainHeight - MIN_BLOCKS_TO_KEEP
+		}
+
+		chain.PruneBlockFilesManual(*height)
+		return uint64(*height), nil*/ // todo realise
 
 	return nil, nil
 }
 
 // handleVerifyChain implements the verifychain command.
 func handleVerifyChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*	c := cmd.(*btcjson.VerifyChainCmd)
+	/*	c := cmd.(*btcjson.VerifyChainCmd)
 
-	var checkLevel, checkDepth int32
-	if c.CheckLevel != nil {
-		checkLevel = *c.CheckLevel
-	}
-	if c.CheckDepth != nil {
-		checkDepth = *c.CheckDepth
-	}
+		var checkLevel, checkDepth int32
+		if c.CheckLevel != nil {
+			checkLevel = *c.CheckLevel
+		}
+		if c.CheckDepth != nil {
+			checkDepth = *c.CheckDepth
+		}
 
-	return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // todo open
+		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // todo open
+	return nil, nil
 }
 
 func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*	c := cmd.(*btcjson.PreciousBlockCmd)
-	hash, err := util.GetHashFromStr(c.BlockHash)
-	if err != nil {
-		return nil, err
-	}
-	blockIndex := chain.GlobalChain.FindBlockIndex(*hash)
-	if blockIndex == nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCBlockNotFound,
-			Message: "Block not found",
+	/*	c := cmd.(*btcjson.PreciousBlockCmd)
+		hash, err := util.GetHashFromStr(c.BlockHash)
+		if err != nil {
+			return nil, err
 		}
-	}
-	state := valistate.ValidationState{}
-	chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
-	if !state.IsValid() {
+		blockIndex := chain.GlobalChain.FindBlockIndex(*hash)
+		if blockIndex == nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCBlockNotFound,
+				Message: "Block not found",
+			}
+		}
+		state := valistate.ValidationState{}
+		chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
+		if !state.IsValid() {
 
-	}*/                        // todo open
+		}*/ // todo open
 	return nil, nil
 }
 
 func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	//c := cmd.(*btcjson.InvalidateBlockCmd)
 	//hash, _ := util.GetHashFromStr(c.BlockHash)
-/*	state := valistate.ValidationState{}
+	/*	state := valistate.ValidationState{}
 
-	if len(chain.MapBlockIndex.Data) == 0 {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidAddressOrKey,
-			Message: "Block not found",
+		if len(chain.MapBlockIndex.Data) == 0 {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidAddressOrKey,
+				Message: "Block not found",
+			}
+
+			//blkIndex := chain.MapBlockIndex.Data[*hash]
+			//chain.InvalidateBlock()                  // todo
+		}
+		if state.IsValid() {
+			//chain.ActivateBestChain()        // todo
 		}
 
-		//blkIndex := chain.MapBlockIndex.Data[*hash]
-		//chain.InvalidateBlock()                  // todo
-	}
-	if state.IsValid() {
-		//chain.ActivateBestChain()        // todo
-	}
-
-	if state.IsInvalid() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDatabase,
-			Message: state.GetRejectReason(),
-		}
-	}*/                  // todo open
+		if state.IsInvalid() {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCDatabase,
+				Message: state.GetRejectReason(),
+			}
+		}*/ // todo open
 
 	return nil, nil
 }
 
 func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-/*	c := cmd.(*btcjson.ReconsiderBlockCmd)
-	hash, _ := util.GetHashFromStr(c.BlockHash)
+	/*	c := cmd.(*btcjson.ReconsiderBlockCmd)
+		hash, _ := util.GetHashFromStr(c.BlockHash)
 
-	index := chain.GlobalChain.FindBlockIndex(*hash)
-	if index == nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidAddressOrKey,
-			Message: "Block not found",
+		index := chain.GlobalChain.FindBlockIndex(*hash)
+		if index == nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidAddressOrKey,
+				Message: "Block not found",
+			}
 		}
-	}
-	chain.ResetBlockFailureFlags(index)
+		chain.ResetBlockFailureFlags(index)
 
-	state := valistate.ValidationState{}
-	chain.ActivateBestChain(consensus.ActiveNetParams, &state, nil)
+		state := valistate.ValidationState{}
+		chain.ActivateBestChain(consensus.ActiveNetParams, &state, nil)
 
-	if state.IsInvalid() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDatabase,
-			Message: state.FormatStateMessage(),
-		}
-	}*/                 // todo open
+		if state.IsInvalid() {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCDatabase,
+				Message: state.FormatStateMessage(),
+			}
+		}*/ // todo open
 	return nil, nil
 }
 

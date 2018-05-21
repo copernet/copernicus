@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/btcboost/copernicus/rpc/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 )
 
 // helpDescsEnUS defines the English descriptions used for the help strings.

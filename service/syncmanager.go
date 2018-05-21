@@ -11,17 +11,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/mempool"
-	lpool "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcboost/copernicus/model/chainparams"
+	lpool "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/peer"
+	"github.com/btcboost/copernicus/util"
 )
 
 const (
@@ -437,7 +435,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	// Process the transaction to include validation, insertion in the
 	// memory pool, orphan handling, etc.
 	uncache, acceptedTxs, err := lpool.ProcessTransaction(tmsg.tx, int64(peer.ID()))
-	if len(uncache) > 0{
+	if len(uncache) > 0 {
 
 	}
 	// Remove transaction from request maps. Either the mempool/chain
@@ -1399,7 +1397,7 @@ func New(config *Config) (*SyncManager, error) {
 		requestedTxns:   make(map[util.Hash]struct{}),
 		requestedBlocks: make(map[util.Hash]struct{}),
 		peerStates:      make(map[*peer.Peer]*peerSyncState),
-		progressLogger:  newBlockProgressLogger("Processed", log.),
+		progressLogger:  newBlockProgressLogger("Processed"),
 		msgChan:         make(chan interface{}, config.MaxPeers*3),
 		headerList:      list.New(),
 		quit:            make(chan struct{}),
@@ -1442,4 +1440,3 @@ type Config struct {
 	DisableCheckpoints bool
 	MaxPeers           int
 }
-

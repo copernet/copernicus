@@ -22,7 +22,7 @@ import (
 
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/rpc/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/service"
 )
 
@@ -151,9 +151,9 @@ func (s *Server) RequestedProcessShutdown() <-chan struct{} {
 //
 // This function is safe for concurrent access.
 func (s *Server) limitConnections(w http.ResponseWriter, remoteAddr string) bool {
-	if int(atomic.LoadInt32(&s.numClients)+1) > conf.CFG.RPCMaxClients {
+	if int(atomic.LoadInt32(&s.numClients)+1) > conf.Cfg.RPC.RPCMaxClients {
 		log.Info("Max RPC clients exceeded [%d] - "+
-			"disconnecting client %s", conf.CFG.RPCMaxClients,
+			"disconnecting client %s", conf.Cfg.RPC.RPCMaxClients,
 			remoteAddr)
 		http.Error(w, "503 Too busy.  Try again later.",
 			http.StatusServiceUnavailable)
@@ -328,7 +328,7 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 		}
 	}
 	if jsonErr == nil {
-		if request.ID == nil && !(conf.CFG.RPCQuirks && request.Jsonrpc == "") {
+		if request.ID == nil && !(conf.Cfg.RPC.RPCQuirks && request.Jsonrpc == "") {
 			return
 		}
 
@@ -488,18 +488,18 @@ type ServerConfig struct {
 func SetupRPCListeners() ([]net.Listener, error) {
 	// Setup TLS if not disabled.
 	listenFunc := net.Listen
-	if !conf.CFG.DisableTLS {
+	if !conf.Cfg.P2PNet.DisableTLS {
 		// Generate the TLS cert and key file if both don't already
 		// exist.
 
-		if !fileExists(conf.CFG.RPCKey) && !fileExists(conf.CFG.RPCCert) {
-			err := GenCertPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
+		if !fileExists(conf.Cfg.RPC.RPCKey) && !fileExists(conf.Cfg.RPC.RPCCert) {
+			err := GenCertPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		keypair, err := tls.LoadX509KeyPair(conf.CFG.RPCCert, conf.CFG.RPCKey)
+		keypair, err := tls.LoadX509KeyPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
 		if err != nil {
 			return nil, err
 		}
@@ -515,7 +515,7 @@ func SetupRPCListeners() ([]net.Listener, error) {
 		}
 	}
 
-	netAddrs, err := parseListeners(conf.CFG.RPCListeners)
+	netAddrs, err := parseListeners(conf.Cfg.RPC.RPCListeners)
 	if err != nil {
 		return nil, err
 	}
@@ -615,14 +615,14 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		requestProcessShutdown: make(chan struct{}),
 		quit: make(chan int),
 	}
-	if conf.CFG.RPCUser != "" && conf.CFG.RPCPass != "" {
-		fmt.Println("rpcuser", conf.CFG.RPCUser)
-		login := conf.CFG.RPCUser + ":" + conf.CFG.RPCPass
+	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
+		fmt.Println("rpcuser", conf.Cfg.RPC.RPCUser)
+		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.authsha = sha256.Sum256([]byte(auth))
 	}
-	if conf.CFG.RPCLimitUser != "" && conf.CFG.RPCLimitPass != "" {
-		login := conf.CFG.RPCLimitUser + ":" + conf.CFG.RPCLimitPass
+	if conf.Cfg.RPC.RPCLimitUser != "" && conf.Cfg.RPC.RPCLimitPass != "" {
+		login := conf.Cfg.RPC.RPCLimitUser + ":" + conf.Cfg.RPC.RPCLimitPass
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.limitauthsha = sha256.Sum256([]byte(auth))
 	}
@@ -632,7 +632,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 }
 
 func InitRPCServer() (*Server, error) {
-	if !conf.CFG.DisableRPC {
+	if !conf.Cfg.P2PNet.DisableRPC {
 		// Setup listeners for the configured RPC listen addresses and
 		// TLS settings.
 		rpcListeners, err := SetupRPCListeners()
@@ -647,17 +647,6 @@ func InitRPCServer() (*Server, error) {
 			Listeners: rpcListeners,
 			// todo open
 			//StartupTime: s.startupTime,
-			//ConnMgr: &rpcConnManager{&s},
-			//SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
-			//TimeSource:  s.timeSource,
-			//Chain:       s.chain,
-			//ChainParams: chainParams,
-			//DB:          db,
-			//TxMemPool:   s.txMemPool,
-			//Generator:   blockTemplateGenerator,
-			//CPUMiner:    s.cpuMiner,
-			//TxIndex:     s.txIndex,
-			//AddrIndex:   s.addrIndex,
 		})
 		if err != nil {
 			return nil, err

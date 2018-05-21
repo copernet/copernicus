@@ -304,7 +304,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.bt.Block.Header.HashPrevBlock = *indexPrev.GetBlockHash()
 	}
-	ba.bt.Block.UpdateTime(indexPrev) // todo fix
+	UpdateTime(ba.bt.Block, indexPrev) // todo fix
 	p := pow.Pow{}
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
@@ -446,4 +446,27 @@ func getSubVersionEB(maxBlockSize uint64) string {
 func getExcessiveBlockSizeSig() []byte {
 	cbmsg := "/EB" + getSubVersionEB(consensus.DefaultMaxBlockSize) + "/"
 	return []byte(cbmsg)
+}
+
+func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
+	oldTime := int64(bk.Header.Time)
+	var newTime int64
+	mt := indexPrev.GetMedianTimePast() + 1
+	at := util.GetAdjustedTime()
+	if mt > at {
+		newTime = mt
+	} else {
+		newTime = at
+	}
+	if oldTime < newTime {
+		bk.Header.Time = uint32(newTime)
+	}
+
+	// Updating time can change work required on testnet:
+	if chainparams.ActiveNetParams.FPowAllowMinDifficultyBlocks {
+		p := pow.Pow{}
+		bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, chainparams.ActiveNetParams)
+	}
+
+	return newTime - oldTime
 }

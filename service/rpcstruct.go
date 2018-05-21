@@ -1,6 +1,5 @@
 package service
 
-
 type GetNodeCount struct {
 }
 
@@ -8,7 +7,7 @@ type GetNodeCountResponse struct {
 	Num int
 }
 
-type GetPeersMsg struct{
+type GetPeersInfoMsg struct {
 }
 
 type GetSyncPeerMsg struct {
