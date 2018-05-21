@@ -35,9 +35,12 @@ import (
 	"github.com/btcboost/copernicus/net/upnp"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
+	"github.com/btcboost/copernicus/rpc"
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcsuite/btcd/database"
+	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/bloom"
 )
 
@@ -203,8 +206,11 @@ type server struct {
 	connManager *connmgr.ConnManager
 	// sigCache             *txscript.SigCache
 	// hashCache            *txscript.HashCache
-	// rpcServer *rpcServer
+
 	syncManager *service.SyncManager
+
+	rpcServer *rpc.Server
+
 	// chain                *blockchain.BlockChain
 	// txMemPool            *mempool.TxPool
 	// cpuMiner             *cpuminer.CPUMiner
@@ -2179,6 +2185,11 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 
 		phCh: phCh,
 		mh:   service.NewMsgHandle(context.TODO(), phCh),
+	}
+
+	s.rpcServer, err = rpc.InitRPCServer()
+	if err != nil {
+		return nil, errors.New("failed to init rpc")
 	}
 
 	targetOutbound := defaultTargetOutbound
