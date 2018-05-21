@@ -1,15 +1,15 @@
-package blockchain
+package versionbits
 
 import (
 	"testing"
 
-	"github.com/btcboost/copernicus/consensus"
-	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/util"
 )
 
-var paramsDummy = msg.BitcoinParams{}
+var paramsDummy = chainparams.BitcoinParams{}
 
 func testTime(Height int) int64 {
 	return 1415926536 + int64(600*Height)
@@ -21,24 +21,24 @@ type ConditionChecker struct {
 
 // var tcc = ConditionChecker{cache: make(ThresholdConditionCache)}
 
-func (tc *ConditionChecker) BeginTime(params *msg.BitcoinParams) int64 {
+func (tc *ConditionChecker) BeginTime(params *chainparams.BitcoinParams) int64 {
 	return testTime(10000)
 }
 
-func (tc *ConditionChecker) EndTime(params *msg.BitcoinParams) int64 {
+func (tc *ConditionChecker) EndTime(params *chainparams.BitcoinParams) int64 {
 	return testTime(20000)
 }
-func (tc *ConditionChecker) Period(params *msg.BitcoinParams) int {
+func (tc *ConditionChecker) Period(params *chainparams.BitcoinParams) int {
 	return 1000
 }
-func (tc *ConditionChecker) Threshold(params *msg.BitcoinParams) int {
+func (tc *ConditionChecker) Threshold(params *chainparams.BitcoinParams) int {
 	return 900
 }
-func (tc *ConditionChecker) Condition(index *core.BlockIndex, params *msg.BitcoinParams) bool {
+func (tc *ConditionChecker) Condition(index *blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
 	return index.Header.Version&0x100 != 0
 }
 
-func (tc *ConditionChecker) GetStateFor(indexPrev *core.BlockIndex) ThresholdState {
+func (tc *ConditionChecker) GetStateFor(indexPrev *blockindex.BlockIndex) ThresholdState {
 	v := GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 	if indexPrev != nil && indexPrev.Height == 2999 {
 		//fmt.Println("state : ", v)
@@ -46,7 +46,7 @@ func (tc *ConditionChecker) GetStateFor(indexPrev *core.BlockIndex) ThresholdSta
 	return v
 }
 
-func (tc *ConditionChecker) GetStateSinceHeightFor(indexPrev *core.BlockIndex) int {
+func (tc *ConditionChecker) GetStateSinceHeightFor(indexPrev *blockindex.BlockIndex) int {
 	return GetStateSinceHeightFor(tc, indexPrev, &paramsDummy, tc.cache)
 }
 
@@ -56,7 +56,7 @@ type VersionBitsTester struct {
 	// Test counter (to identify failures)
 	num int
 	// A fake blockchain
-	block []*core.BlockIndex
+	block []*blockindex.BlockIndex
 	// 6 independent checkers for the same bit.
 	// The first one performs all checks, the second only 50%, the third only
 	// 25%, etc...
@@ -68,7 +68,7 @@ type VersionBitsTester struct {
 func newVersionBitsTester() *VersionBitsTester {
 	vt := VersionBitsTester{
 		num:   0,
-		block: make([]*core.BlockIndex, 0),
+		block: make([]*blockindex.BlockIndex, 0),
 	}
 
 	var checker [CHECKERS]ConditionChecker
@@ -79,7 +79,7 @@ func newVersionBitsTester() *VersionBitsTester {
 	return &vt
 }
 
-func (versionBitsTester *VersionBitsTester) Tip() *core.BlockIndex {
+func (versionBitsTester *VersionBitsTester) Tip() *blockindex.BlockIndex {
 	if len(versionBitsTester.block) == 0 {
 		return nil
 	}
@@ -87,7 +87,7 @@ func (versionBitsTester *VersionBitsTester) Tip() *core.BlockIndex {
 }
 
 func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
-	versionBitsTester.block = make([]*core.BlockIndex, 0)
+	versionBitsTester.block = make([]*blockindex.BlockIndex, 0)
 	for i := 0; i < CHECKERS; i++ {
 		versionBitsTester.checker[i] = ConditionChecker{}
 		versionBitsTester.checker[i].cache = make(ThresholdConditionCache)
@@ -99,7 +99,7 @@ func (versionBitsTester *VersionBitsTester) Reset() *VersionBitsTester {
 // Mine the block, util the blockChain height equal height - 1.
 func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersion int32) *VersionBitsTester {
 	for len(versionBitsTester.block) < height {
-		index := &core.BlockIndex{}
+		index := &blockindex.BlockIndex{}
 		index.SetNull()
 		index.Height = len(versionBitsTester.block)
 		index.Prev = nil
@@ -116,7 +116,7 @@ func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersi
 
 func (versionBitsTester *VersionBitsTester) TestStateSinceHeight(height int, t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpHeight int
 			if len(versionBitsTester.block) == 0 {
 				tmpHeight = versionBitsTester.checker[i].GetStateSinceHeightFor(nil)
@@ -136,7 +136,7 @@ func (versionBitsTester *VersionBitsTester) TestStateSinceHeight(height int, t *
 
 func (versionBitsTester *VersionBitsTester) TestDefined(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -156,7 +156,7 @@ func (versionBitsTester *VersionBitsTester) TestDefined(t *testing.T) *VersionBi
 
 func (versionBitsTester *VersionBitsTester) TestStarted(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -176,7 +176,7 @@ func (versionBitsTester *VersionBitsTester) TestStarted(t *testing.T) *VersionBi
 
 func (versionBitsTester *VersionBitsTester) TestLockedIn(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -196,7 +196,7 @@ func (versionBitsTester *VersionBitsTester) TestLockedIn(t *testing.T) *VersionB
 
 func (versionBitsTester *VersionBitsTester) TestActive(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -215,7 +215,7 @@ func (versionBitsTester *VersionBitsTester) TestActive(t *testing.T) *VersionBit
 
 func (versionBitsTester *VersionBitsTester) TestFailed(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (utils.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -445,7 +445,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	vbc := NewVersionBitsCache()
 
 	// Check that ComputeBlockVersion will set the appropriate bit correctly on mainnet.
-	mainnetParams := msg.MainNetParams
+	mainnetParams := chainparams.MainNetParams
 
 	// Use the TESTDUMMY deployment for testing purposes.
 	bit := mainnetParams.Deployments[consensus.DeploymentTestDummy].Bit
