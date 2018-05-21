@@ -7,6 +7,8 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 	"math"
+	"fmt"
+	"time"
 )
 
 var netHandlers = map[string]commandHandler{
@@ -26,7 +28,7 @@ var netHandlers = map[string]commandHandler{
 
 func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	getNodeCountCmd := service.GetNodeCount{}
-	num , err := s.Handler.ProcessForRpc(getNodeCountCmd)
+	num, err := s.Handler.ProcessForRpc(getNodeCountCmd)
 	if err != nil {
 
 	}
@@ -44,53 +46,48 @@ func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 }
 
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		peers := s.cfg.ConnMgr.ConnectedPeers()
-		syncPeerID := s.cfg.SyncMgr.SyncPeerID()
-		infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
-		for _, p := range peers {
-			statsSnap := p.ToPeer().StatsSnapshot()
-			info := &btcjson.GetPeerInfoResult{
-				ID:             statsSnap.ID,
-				Addr:           statsSnap.Addr,
-				AddrLocal:      p.ToPeer().LocalAddr().String(),
-				Services:       fmt.Sprintf("%08d", uint64(statsSnap.Services)),
-				RelayTxes:      !p.IsTxRelayDisabled(),
-				LastSend:       statsSnap.LastSend.Unix(),
-				LastRecv:       statsSnap.LastRecv.Unix(),
-				BytesSent:      statsSnap.BytesSent,
-				BytesRecv:      statsSnap.BytesRecv,
-				ConnTime:       statsSnap.ConnTime.Unix(),
-				PingTime:       float64(statsSnap.LastPingMicros),
-				TimeOffset:     statsSnap.TimeOffset,
-				Version:        statsSnap.Version,
-				SubVer:         statsSnap.UserAgent,
-				Inbound:        statsSnap.Inbound,
-				StartingHeight: statsSnap.StartingHeight,
-				CurrentHeight:  statsSnap.LastBlock,
-				BanScore:       int32(p.BanScore()),
-				FeeFilter:      p.FeeFilter(),
-				SyncNode:       statsSnap.ID == syncPeerID,
-			}
-			if p.ToPeer().LastPingNonce() != 0 {
-				wait := float64(time.Since(statsSnap.LastPingTime).Nanoseconds())
-				// We actually want microseconds.
-				info.PingWait = wait / 1000
-			}
-			infos = append(infos, info)
-		}
-		return infos, nil
-	*/
+	getPeerCmd := service.GetPeersMsg{}
+	peers, _ := s.Handler.ProcessForRpc(getPeerCmd)
 
-	return nil, nil
+	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()
+	infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
+	for _, p := range peers {
+		statsSnap := p.ToPeer().StatsSnapshot()
+		info := &btcjson.GetPeerInfoResult{
+			ID:             statsSnap.ID,
+			Addr:           statsSnap.Addr,
+			AddrLocal:      p.ToPeer().LocalAddr().String(),
+			Services:       fmt.Sprintf("%08d", uint64(statsSnap.Services)),
+			RelayTxes:      !p.IsTxRelayDisabled(),
+			LastSend:       statsSnap.LastSend.Unix(),
+			LastRecv:       statsSnap.LastRecv.Unix(),
+			BytesSent:      statsSnap.BytesSent,
+			BytesRecv:      statsSnap.BytesRecv,
+			ConnTime:       statsSnap.ConnTime.Unix(),
+			TimeOffset:     statsSnap.TimeOffset,
+			PingTime:       float64(statsSnap.LastPingMicros),
+			Version:        statsSnap.Version,
+			SubVer:         statsSnap.UserAgent,
+			Inbound:        statsSnap.Inbound,
+			AddNode:        statsSnap.AddNode,
+			StartingHeight: statsSnap.StartingHeight,
+			BanScore:       int32(p.BanScore()),
+			FeeFilter:      p.FeeFilter(),
+			SyncNode:       statsSnap.ID == syncPeerID,
+		}
+		if p.ToPeer().LastPingNonce() != 0 {
+			wait := float64(time.Since(statsSnap.LastPingTime).Nanoseconds())
+			// We actually want microseconds.
+			info.PingWait = wait / 1000
+		}
+		infos = append(infos, info)
+	}
+	return infos, nil
 }
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.AddNodeCmd)
-
-	addr := normalizeAddress(c.Addr, consensus.ActiveNetParams.DefaultPort)
-	nodeCmd := service.NodeOperateMsg{addr, 0}
-	_, err := s.Handler.ProcessForRpc(nodeCmd)
+	_, err := s.Handler.ProcessForRpc(c)
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
@@ -98,7 +95,6 @@ func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		}
 	}
 
-	// no data returned unless an error.
 	return nil, nil
 }
 

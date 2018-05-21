@@ -8,17 +8,20 @@ import (
 	"fmt"
 	// "net"
 	// "net/http"
+
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	//"runtime/pprof"
+
 	// "github.com/btcsuite/btcd/blockchain/indexers"
 	// "github.com/btcsuite/btcd/database"
 	// "github.com/btcsuite/btcd/limits"
 
 	"context"
+
 	"github.com/btcboost/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/connmgr"
@@ -133,59 +136,6 @@ func warnMultipleDBs() {
 			duplicateDbPaths)
 	}
 }
-
-// loadBlockDB loads (or creates when needed) the block database taking into
-// account the selected database backend and returns a handle to it.  It also
-// contains additional logic such warning the user if there are multiple
-// databases which consume space on the file system and ensuring the regression
-// test database is clean when in regression test mode.
-// func loadBlockDB() (database.DB, error) {
-// 	// The memdb backend does not have a file path associated with it, so
-// 	// handle it uniquely.  We also don't want to worry about the multiple
-// 	// database type warnings when running with the memory database.
-// 	if cfg.DbType == "memdb" {
-// 		log.Info("Creating block database in memory.")
-// 		db, err := database.Create(cfg.DbType)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		return db, nil
-// 	}
-
-// 	warnMultipleDBs()
-
-// 	// The database name is based on the database type.
-// 	dbPath := blockDbPath(cfg.DbType)
-
-// 	// The regression test is special in that it needs a clean database for
-// 	// each run, so remove it now if it already exists.
-// 	removeRegressionDB(dbPath)
-
-// 	log.Info("Loading block database from '%s'", dbPath)
-// 	db, err := database.Open(cfg.DbType, dbPath, activeNetParams.Net)
-// 	if err != nil {
-// 		// Return the error if it's not because the database doesn't
-// 		// exist.
-// 		if dbErr, ok := err.(database.Error); !ok || dbErr.ErrorCode !=
-// 			database.ErrDbDoesNotExist {
-
-// 			return nil, err
-// 		}
-
-// 		// Create the db if it does not exist.
-// 		err = os.MkdirAll(cfg.DataDir, 0700)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		db, err = database.Create(cfg.DbType, dbPath, activeNetParams.Net)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 	}
-
-// 	btcdLog.Info("Block database loaded")
-// 	return db, nil
-// }
 
 func main() {
 	// Use all processor cores.

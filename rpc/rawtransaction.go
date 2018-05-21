@@ -14,7 +14,7 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/mblock"
+	//"github.com/btcboost/copernicus/model/mblock"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -26,7 +26,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcsuite/btcd/wire"
-	"gopkg.in/fatih/set.v0"
+	//"gopkg.in/fatih/set.v0"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -42,7 +42,7 @@ var rawTransactionHandlers = map[string]commandHandler{
 }
 
 func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.GetRawTransactionCmd)
+/*	c := cmd.(*btcjson.GetRawTransactionCmd)
 
 	// Convert the provided transaction hash hex to a Hash.
 	txHash, err := util.GetHashFromStr(c.Txid)
@@ -78,7 +78,8 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 	if err != nil {
 		return nil, err
 	}
-	return *rawTxn, nil
+	return *rawTxn, nil*/            //TODO open
+	return nil, nil
 }
 
 // createTxRawResult converts the passed transaction and associated parameters
@@ -361,7 +362,7 @@ func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.DecodeScriptCmd)
+/*	c := cmd.(*btcjson.DecodeScriptCmd)
 
 	// Convert the hex script to bytes.
 	scriptByte, err := hex.DecodeString(c.HexScript)
@@ -378,7 +379,8 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		ret.P2SH = EncodeDestination(scriptByte) // todo realise
 	}
 
-	return ret, nil
+	return ret, nil*/              // TODO open
+	return nil, nil
 }
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -618,7 +620,7 @@ func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransac
 }
 
 func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.GetTxOutProofCmd)
+/*	c := cmd.(*btcjson.GetTxOutProofCmd)
 
 	setTxIds := set.New() // element type: util.Hash
 	var oneTxId util.Hash
@@ -711,11 +713,12 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	mb := mblock.NewMerkleBlock(bk, setTxIds)
 	buf := bytes.NewBuffer(nil)
 	mb.Serialize(buf)
-	return hex.EncodeToString(buf.Bytes()), nil
+	return hex.EncodeToString(buf.Bytes()), nil*/           //TODO open
+	return nil, nil
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.VerifyTxoutProofCmd)
+/*	c := cmd.(*btcjson.VerifyTxoutProofCmd)
 
 	b, err := hex.DecodeString(c.Proof)
 	if err != nil {
@@ -749,7 +752,8 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 	for _, hash := range matches {
 		ret = append(ret, hash.String())
 	}
-	return ret, nil
+	return ret, nil*/                //TODO open
+	return nil, nil
 }
 
 func registeRawTransactionRPCCommands() {

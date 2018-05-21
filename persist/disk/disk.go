@@ -477,37 +477,5 @@ func FindBlockPos(state *block.ValidationState, pos *block.DiskBlockPos, nAddSiz
 		int(GlobalLastBlockFile) = nFile
 	}
 
-	GlobalBlockFileInfoMap[nFile].AddBlock(uint32(nHeight), nTime)
-	if fKnown {
-		GlobalBlockFileInfoMap[nFile].Size = uint32(math.Max(float64(pos.Pos+int(nAddSize)),
-			float64(GlobalBlockFileInfoMap[nFile].Size)))
-	} else {
-		GlobalBlockFileInfoMap[nFile].Size += uint32(nAddSize)
-	}
-
-	if !fKnown {
-		nOldChunks := (pos.Pos + BlockFileChunkSize - 1) / BlockFileChunkSize
-		nNewChunks := (GlobalBlockFileInfoMap[nFile].Size + BlockFileChunkSize - 1) / BlockFileChunkSize
-		if nNewChunks > uint32(nOldChunks) {
-			// todo handle prune mode
-			//if GPruneMode {
-			//	GCheckForPruning = true
-			//	if CheckDiskSpace(nNewChunks*BlockFileChunkSize - uint32(pos.Pos)) {
-			//		pfile := OpenBlockFile(pos, false)
-			//		if pfile != nil {
-			//			log.Info("Pre-allocating up to position 0x%x in blk%05u.dat\n",
-			//				nNewChunks*BlockFileChunkSize, pos.File)
-			//			AllocateFileRange(pfile, pos.Pos, nNewChunks*BlockFileChunkSize-uint32(pos.Pos))
-			//			pfile.Close()
-			//		}
-			//	} else {
-			//		return state.Error("out of disk space")
-			//	}
-			//}
-		}
-	}
-
-	GlobalSetDirtyFileInfo[nFile]=true
-	return true
+	return false
 }
-

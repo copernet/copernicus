@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btclog"
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/script"
 )
 
 const (
@@ -20,11 +20,6 @@ const (
 	// that will be logged.
 	maxRejectReasonLen = 250
 )
-
-// log is a logger that is initialized with no output filters.  This
-// means the package will not perform any logging by default until the caller
-// requests it.
-var log btclog.Logger
 
 // The default amount of logging is none.
 func init() {
@@ -34,11 +29,11 @@ func init() {
 // DisableLog disables all library log output.  Logging output is disabled
 // by default until UseLogger is called.
 func DisableLog() {
-	log = btclog.Disabled
+	log = log.Disabled
 }
 
 // UseLogger uses a specified Logger to output package logging info.
-func UseLogger(logger btclog.Logger) {
+func UseLogger(logger log.Logger) {
 	log = logger
 }
 
@@ -70,7 +65,7 @@ func formatLockTime(lockTime uint32) string {
 	// which the transaction is finalized or a timestamp depending on if the
 	// value is before the lockTimeThreshold.  When it is under the
 	// threshold it is a block height.
-	if lockTime < txscript.LockTimeThreshold {
+	if lockTime < script.LockTimeThreshold {
 		return fmt.Sprintf("height %d", lockTime)
 	}
 
@@ -91,12 +86,8 @@ func invSummary(invList []*wire.InvVect) string {
 		switch iv.Type {
 		case wire.InvTypeError:
 			return fmt.Sprintf("error %s", iv.Hash)
-		case wire.InvTypeWitnessBlock:
-			return fmt.Sprintf("witness block %s", iv.Hash)
 		case wire.InvTypeBlock:
 			return fmt.Sprintf("block %s", iv.Hash)
-		case wire.InvTypeWitnessTx:
-			return fmt.Sprintf("witness tx %s", iv.Hash)
 		case wire.InvTypeTx:
 			return fmt.Sprintf("tx %s", iv.Hash)
 		}
@@ -109,7 +100,7 @@ func invSummary(invList []*wire.InvVect) string {
 }
 
 // locatorSummary returns a block locator as a human-readable string.
-func locatorSummary(locator []*chainhash.Hash, stopHash *chainhash.Hash) string {
+func locatorSummary(locator []*util.Hash, stopHash *util.Hash) string {
 	if len(locator) > 0 {
 		return fmt.Sprintf("locator %s, stop %s", locator[0], stopHash)
 	}
