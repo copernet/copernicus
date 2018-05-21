@@ -15,6 +15,65 @@ import (
 )
 
 func CheckRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
+	if tx.IsCoinBase() {
+		return errcode.New(errcode.TxErrIsCoinBase)
+	}
+
+	tempCoinsMap :=  utxo.NewEmptyCoinsMap()
+
+	err := tx.CheckTransactionCommon(true)
+	if err != nil {
+		return err
+	}
+	//
+	//// check standard
+	//if RequireStandard && !tx.checkStandard(allowLargeOpReturn) {
+	//	return false
+	//}
+	//
+	////check standard inputs
+	//if RequiredStandard && !tx.areInputsStandard() {
+	//	return false
+	//}
+	//
+	////check locktime
+	//if !tx.ContextualCheckTransaction(state, StandardLockTimeVerifyFlags) {
+	//	return false
+	//}
+	//
+	//// all inputs should have preout
+	//for _, in := range tx.ins {
+	//	if in.PreviousOutPoint.IsNull() {
+	//		state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
+	//		return false
+	//	}
+	//}
+	//// check duplicate tx
+	//if tx.isOutputAlreadyExist() {
+	//	return state.Dos(10, false, RejectInvalid, "bad-txns-output-already-exist", false, "")
+	//}
+	//
+	//// check duble-spending
+	//if !tx.areInputsAvailable() {
+	//	return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
+	//}
+	//
+	////check sequencelock
+	////lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
+	////if !tx.checkSequenceLocks(lp) {
+	////	return false
+	////}
+	//
+	////check inputs money range
+	//if !tx.CheckInputsMoney() {
+	//	return false
+	//}
+
+	//check inputs
+	err = checkInputs(tx, tempCoinsMap, 1)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -23,64 +82,6 @@ func CheckBlockCoinBaseTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
 }
 
 func CheckBlockRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
-	if tx.IsCoinBase() {
-		return errcode.New(errcode.TxErrIsCoinBase)
-	}
-
-	tempCoinsMap :=  utxo.NewEmptyCoinsMap()
-/*
-	if !tx.CheckTransactionCommon(true) {
-		return false
-	}
-
-	// check standard
-	if RequireStandard && !tx.checkStandard(allowLargeOpReturn) {
-		return false
-	}
-
-	//check standard inputs
-	if RequiredStandard && !tx.areInputsStandard() {
-		return false
-	}
-
-	//check locktime
-	if !tx.ContextualCheckTransaction(state, StandardLockTimeVerifyFlags) {
-		return false
-	}
-
-	// all inputs should have preout
-	for _, in := range tx.ins {
-		if in.PreviousOutPoint.IsNull() {
-			state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
-			return false
-		}
-	}
-	// check duplicate tx
-	if tx.isOutputAlreadyExist() {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-output-already-exist", false, "")
-	}
-
-	// check duble-spending
-	if !tx.areInputsAvailable() {
-		return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
-	}
-
-	//check sequencelock
-	//lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
-	//if !tx.checkSequenceLocks(lp) {
-	//	return false
-	//}
-
-	//check inputs money range
-	if !tx.CheckInputsMoney() {
-		return false
-	}
-*/
-		//check inputs
-	err := checkInputs(tx, tempCoinsMap, 1)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -104,7 +105,7 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 		if coin == nil {
 			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
 			if coin == nil {
-				 err := errcode.New(errcode.TxErrTxInNoPreOut)
+				 err := errcode.New(errcode.TxErrNoPreviousOut)
 				return 0, err
 			}
 		}
@@ -130,7 +131,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	for i, in := range ins {
 		coin := tempCoinMap.GetCoin(in.PreviousOutPoint)
 		if coin == nil {
-			return errcode.New(errcode.ErrorNoPreviousOut)
+			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
 		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
 		scriptSig := in.GetScriptSig()

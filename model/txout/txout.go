@@ -8,6 +8,7 @@ import (
 
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/errcode"
 )
 
 type TxOut struct {
@@ -74,17 +75,17 @@ func (txOut *TxOut) Unserialize(reader io.Reader) error {
 	return nil
 }
 
-func (txOut *TxOut) CheckValue() bool {
+func (txOut *TxOut) CheckValue() error {
 	if txOut.value < 0 {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
-		return false
+		return errcode.New(errcode.TxOutErrNegativeValue)
 	}
 	if txOut.value > util.MaxMoney {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
-		return false
+		return errcode.New(errcode.TxOutErrTooLargeValue)
 	}
 
-	return true
+	return nil
 }
 
 func (txOut *TxOut) CheckScript(allowLargeOpReturn bool) (succeed bool, pubKeyType int)  {

@@ -302,37 +302,38 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 		return nil
 	}
-	/*
+
 	// check outputs money
 	totalOut := int64(0)
 	for _, out := range tx.outs {
-		if !out.CheckValue() {
-			return false
+		err := out.CheckValue()
+		if err != nil {
+			return err
 		}
 		totalOut += out.GetValue()
 		if totalOut < 0 || totalOut > MaxMoney {
 			//state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
-			return false
+			return errcode.New(errcode.TxErrTotalMoneyTooLarge)
 		}
 	}
 
 	// check sigopcount
-	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCount {
-		return state.Dos(100, false, RejectInvalid, "bad-txn-sigops", false, "")
+	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
+		return errcode.New(errcode.TxErrTooManySigOps)
 	}
 
 	// check dup input
 	if checkDupInput {
-		outPointSet := make(map[*OutPoint]struct{})
+		outPointSet := make(map[*outpoint.OutPoint]struct{})
 		for _, in := range tx.ins {
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
-				return state.Dos(100, false, RejectInvalid, "bad-txns-inputs-duplicate", false, "")
+				return errcode.New(errcode.TxErrDupIns)
 			}
 		}
 	}
-	*/
+
 	return nil
 }
 
