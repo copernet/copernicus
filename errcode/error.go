@@ -8,6 +8,7 @@ const (
 	MempoolErrorBase = iota * 1000
 	ScriptErrorBase
 	TxErrorBase
+	TxOutErrorBase
 	ChainErrorBase
 	BlockErrorBase
 	BlockIndexErrorBase

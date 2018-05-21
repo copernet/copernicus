@@ -5,15 +5,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/pkg/errors"
-	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/errcode"
 )
 
@@ -302,37 +299,38 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
 		return nil
 	}
-	/*
+
 	// check outputs money
 	totalOut := int64(0)
 	for _, out := range tx.outs {
-		if !out.CheckValue() {
-			return false
+		err := out.CheckValue()
+		if err != nil {
+			return err
 		}
 		totalOut += out.GetValue()
 		if totalOut < 0 || totalOut > MaxMoney {
 			//state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
-			return false
+			return errcode.New(errcode.TxErrTotalMoneyTooLarge)
 		}
 	}
 
 	// check sigopcount
-	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCount {
-		return state.Dos(100, false, RejectInvalid, "bad-txn-sigops", false, "")
+	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
+		return errcode.New(errcode.TxErrTooManySigOps)
 	}
 
 	// check dup input
 	if checkDupInput {
-		outPointSet := make(map[*OutPoint]struct{})
+		outPointSet := make(map[*outpoint.OutPoint]struct{})
 		for _, in := range tx.ins {
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
-				return state.Dos(100, false, RejectInvalid, "bad-txns-inputs-duplicate", false, "")
+				return errcode.New(errcode.TxErrDupIns)
 			}
 		}
 	}
-	*/
+
 	return nil
 }
 
@@ -801,69 +799,6 @@ func (tx *Tx)CheckSequenceLocks(flags int, lp *LockPoints, useExistingLockPoints
 	*/
 
 	return true
-}
-
-func (tx *Tx)CalculateSequenceLocks(flags int, prevHeights []int, block *blockindex.BlockIndex) map[int]int64 {
-	if len(prevHeights) != len(tx.ins) {
-		panic("the prevHeights size mot equal txIns size")
-	}
-
-	// Will be set to the equivalent height- and time-based nLockTime
-	// values that would be necessary to satisfy all relative lock-
-	// time constraints given our view of block chain history.
-	// The semantics of nLockTime are the last invalid height/time, so
-	// use -1 to have the effect of any height or time being valid.
-
-	nMinHeight := -1
-	nMinTime := -1
-	// tx.nVersion is signed integer so requires cast to unsigned otherwise
-	// we would be doing a signed comparison and half the range of nVersion
-	// wouldn't support BIP 68.
-	fEnforceBIP68 := tx.version >= 2 && (flags&consensus.LocktimeVerifySequence) != 0
-
-	// Do not enforce sequence numbers as a relative lock time
-	// unless we have been instructed to
-	maps := make(map[int]int64)
-
-	if !fEnforceBIP68 {
-		maps[nMinHeight] = int64(nMinTime)
-		return maps
-	}
-
-	for txinIndex := 0; txinIndex < len(tx.ins); txinIndex++ {
-		txin := tx.ins[txinIndex]
-		// Sequence numbers with the most significant bit set are not
-		// treated as relative lock-times, nor are they given any
-		// core-enforced meaning at this point.
-		if (txin.Sequence & script.SequenceLockTimeDisableFlag) != 0 {
-			// The height of this input is not relevant for sequence locks
-			prevHeights[txinIndex] = 0
-			continue
-		}
-		//nCoinHeight := prevHeights[txinIndex]
-		/*
-		if (txin.Sequence & SequenceLockTimeDisableFlag) != 0 {
-			nCoinTime := block.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
-			// NOTE: Subtract 1 to maintain nLockTime semantics.
-			// BIP 68 relative lock times have the semantics of calculating the
-			// first block or time at which the transaction would be valid. When
-			// calculating the effective block time or height for the entire
-			// transaction, we switch to using the semantics of nLockTime which
-			// is the last invalid block time or height. Thus we subtract 1 from
-			// the calculated time or height.
-
-			// Time-based relative lock-times are measured from the smallest
-			// allowed timestamp of the block containing the txout being spent,
-			// which is the median time past of the block prior.
-			tmpTime := int(nCoinTime) + int(txin.Sequence)&SequenceLockTimeMask<<SequenceLockTimeQranularity
-			nMinTime = int(math.Max(float64(nMinTime), float64(tmpTime)))
-		} else {
-			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence&SequenceLockTimeMask)-1)))
-		}*/
-	}
-
-	maps[nMinHeight] = int64(nMinTime)
-	return maps
 }
 
 func(tx *Tx)GetIns() []*txin.TxIn {

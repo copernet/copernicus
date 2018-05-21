@@ -9,7 +9,9 @@ import (
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/errcode"
+	"fmt"
 )
 
 const	(
@@ -18,11 +20,11 @@ const	(
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
+func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 
 	//first : check transaction context And itself.
-	if !ltx.CheckRegularTransaction(tx, nil, false) {
-		return errors.Errorf("")
+	if !ltx.CheckRegularTransaction(tx, true) {
+		return fmt.Errorf("")
 	}
 
 	//second : check whether enter mempool.
@@ -60,17 +62,76 @@ func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 	return nil
 }
 
-func ProcessTransaction(tx *tx.Tx, nodeID int64) error {
+func processOrphan(tx *tx.Tx) []*tx.Tx {
+	vWorkQueue := make([]outpoint.OutPoint, 0)
+	acceptTx := make([]*tx.Tx, 0)
 
-	err := AccpetTxToMemPool(tx, nil)
-	if err == nil{
-		//todo !!! replay this transaction
-		//	RelayTransaction(tx, connman)
-		processOrphan(tx)
+	// first collect this tx all outPoint.
+	for i := 0; i < tx.GetOutsCount(); i++{
+		o := outpoint.OutPoint{Hash:tx.Hash, Index:uint32(i)}
+		vWorkQueue = append(vWorkQueue, o)
 	}
 
-	proErr := err.(*util.ProjectError)
-	if proErr.ErrorCode == MissParentCode {
+	//todo !!! modify this transaction send node time .
+	//pfrom->nLastTXTime = GetTime();
+	setMisbehaving := make(map[int64]struct{}, 0)
+	for len(vWorkQueue) > 0{
+		prevOut := vWorkQueue[0]
+		vWorkQueue = vWorkQueue[1:]
+		if orphans, ok := mempool.Gpool.OrphanTransactionsByPrev[prevOut]; !ok{
+			continue
+		}else {
+			for _, iOrphanTx := range orphans{
+				fromPeer := iOrphanTx.NodeID
+				if _, ok := setMisbehaving[fromPeer]; ok{
+					continue
+				}
+
+				err2 := accpetTxToMemPool(iOrphanTx.Tx, nil)
+				if err2 == nil{
+					acceptTx = append(acceptTx, iOrphanTx.Tx)
+					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++{
+						o := outpoint.OutPoint{Hash:iOrphanTx.Tx.Hash, Index:uint32(i)}
+						vWorkQueue = append(vWorkQueue, o)
+					}
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, false)
+					break
+				}
+
+				if !errcode.IsErrorCode(err2, errcode.ErrorNoPreviousOut) {
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, true)
+					if errcode.IsErrorCode(err2, errcode.RejectTx){
+						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return acceptTx
+}
+
+func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*tx.Tx ,error ){
+	if _, ok := mempool.Gpool.RecentRejects[tx.Hash]; ok {
+		return nil, errcode.New(errcode.RejectTx)
+	}
+
+	acceptTx := make([]*tx.Tx, 0)
+	err := accpetTxToMemPool(tx, nil)
+	if err == nil{
+		acceptTx = append(acceptTx, tx)
+		acc := processOrphan(tx)
+		if len(acc) > 0{
+			temAccept := make([]*tx.Tx, len(acc) + 1)
+			temAccept[0] = tx
+			copy(temAccept[1:], acc[:])
+			return temAccept, nil
+		}
+		return acceptTx, nil
+	}
+
+	if errcode.IsErrorCode(err, errcode.ErrorNoPreviousOut) {
 		fRejectedParents := false
 		for _, preOut := range tx.GetAllPreviousOut() {
 			if _, ok := mempool.Gpool.RecentRejects[preOut.Hash]; ok {
@@ -88,71 +149,15 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64) error {
 		evicted := mempool.Gpool.LimitOrphanTx()
 		if evicted > 0 {
 			//todo add log
-			logs.Debug("")
+			log.Debug("")
 		}
 	}else{
-		if proErr.ErrorCode == CorruptionCode {
-			mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
-		}
+		mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
 	}
 
-	return nil
+	return nil, fmt.Errorf("")
 }
 
-func processOrphan(tx *tx.Tx)  {
-	vWorkQueue := make([]outpoint.OutPoint, 0)
-	vEraseQueue := make([]util.Hash, 0)
-
-	// first collect this tx all outPoint.
-	for i := 0; i < tx.GetOutsCount(); i++{
-		o := outpoint.OutPoint{Hash:tx.Hash, Index:uint32(i)}
-		vWorkQueue = append(vWorkQueue, o)
-	}
-
-	//todo !!! modify this transaction send node time .
-	//pfrom->nLastTXTime = GetTime();
-	setMisbehaving := make(map[int64]struct{}, 0)
-	for len(vWorkQueue) > 0{
-		prevOut := vWorkQueue[0]
-		vWorkQueue = vWorkQueue[1:]
-		if byPrev, ok := mempool.Gpool.OrphanTransactionsByPrev[prevOut]; !ok{
-			continue
-		}else {
-			for iHash, iOrphanTx := range byPrev{
-				fromPeer := iOrphanTx.NodeID
-				if _, ok := setMisbehaving[fromPeer]; ok{
-					continue
-				}
-
-				err2 := AccpetTxToMemPool(iOrphanTx.Tx, nil)
-				if err2 == nil{
-					//	todo.. relay this transaction
-					//	RelayTransaction(orphanTx, connman);
-				}
-				for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++{
-					o := outpoint.OutPoint{Hash:iOrphanTx.Tx.Hash, Index:uint32(i)}
-					vWorkQueue = append(vWorkQueue, o)
-				}
-				vEraseQueue = append(vEraseQueue, iOrphanTx.Tx.Hash)
-
-				errCode := err2.(*util.ProjectError)
-				if errCode.ErrorCode != MissParentCode {
-					// todo !!!  punish peer that gave us an invalid orphan tx
-					if errCode.ErrorCode > 0{
-
-					}
-					vEraseQueue = append(vEraseQueue, iHash)
-					if errCode.ErrorCode == CorruptionCode {
-						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-	for _, eraseHash := range vEraseQueue{
-		mempool.Gpool.EraseOrphanTx(eraseHash)
-	}
-}
 
 
 

@@ -167,6 +167,7 @@ const (
 	MaxOpReturnRelay uint = 83
 	MaxOpReturnRelayLarge uint = 223
 )
+
 const (
 	// MandatoryScriptVerifyFlags mandatory script verification flags that all new blocks must comply with for
 	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
@@ -249,6 +250,24 @@ func (script *Script) convertRaw() {
 
 	}
 
+}
+
+func (script *Script) GetPubKeyTypeString(t int) string {
+	switch (t) {
+	case ScriptNonStandard:
+		return "nonstandard";
+	case ScriptPubkey:
+		return "pubkey";
+	case ScriptPubkeyHash:
+		return "pubkeyhash";
+	case ScriptHash:
+		return "scripthash";
+	case ScriptMultiSig:
+		return "multisig";
+	case ScriptNullData:
+		return "nulldata";
+	}
+	return "";
 }
 
 func (script *Script) GetData() []byte {
@@ -833,7 +852,7 @@ func (script *Script) Find(opcode int) bool {
 
 func (script *Script) IsPushOnly() bool {
 	for _, ops := range script.ParsedOpCodes {
-		if ops.OpValue > OP_16 {
+		if ops.OpValue > opcodes.OP_16 {
 			return false
 		}
 	}

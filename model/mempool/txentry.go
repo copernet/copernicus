@@ -67,6 +67,10 @@ func (t *TxEntry) GetSpendsCoinbase() bool {
 	return t.spendsCoinbase
 }
 
+func (t *TxEntry)GetTime() int64  {
+	return t.time
+}
+
 // UpdateParent update the tx's parent transaction.
 func (t *TxEntry) UpdateParent(parent *TxEntry, innerUsage *int64, add bool) {
 	if add {

@@ -1,4 +1,4 @@
-package tx
+package mempool
 
 import (
 	"github.com/btcboost/copernicus/model/blockindex"
