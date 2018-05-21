@@ -1,7 +1,6 @@
 // Copyright (c) 2013-2017 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
-
 package service
 
 import (
@@ -80,8 +79,12 @@ out:
 		case msg := <-mh.recvFromNet:
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
+			case *wire.MsgVersion:
+				peerFrom.PushRejectMsg(data.Command(), wire.RejectDuplicate, "")
 			case *wire.MsgGetBlocks:
-			//	receive getblocks request, response this request.
+				if peerFrom.Cfg.Listeners.OnGetBlocks != nil{
+					peerFrom.Cfg.Listeners.OnGetBlocks(peerFrom, data)
+				}
 			case *wire.MsgGetData:
 			case *wire.MsgTx:
 				mh.txAndBlockPro <- msg
@@ -99,8 +102,15 @@ out:
 			case *wire.MsgFeeFilter:
 			case *wire.MsgFilterClear:
 			case *wire.MsgInv:
+				if peerFrom.Cfg.Listeners.OnInv != nil{
+					peerFrom.Cfg.Listeners.OnInv(peerFrom, data)
+				}
 			case *wire.MsgGetAddr:
 			case *wire.MsgHeaders:
+			case *wire.MsgGetHeaders:
+				if peerFrom.Cfg.Listeners.OnGetHeaders != nil{
+					peerFrom.Cfg.Listeners.OnGetHeaders(peerFrom, data)
+				}
 			case *wire.MsgSendHeaders:
 			case *wire.MsgSendCmpct:
 			case *wire.MsgReject:
@@ -149,7 +159,6 @@ func (mh *MsgHandle)startSync()  {
 		if !state.syncCandidate {
 			continue
 		}
-
 		// Remove sync candidate peers that are no longer candidates due
 		// to passing their latest known block.  NOTE: The < is
 		// intentional as opposed to <=.  While technically the peer

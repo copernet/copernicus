@@ -26,6 +26,8 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/btcsuite/go-socks/socks"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
 const (
@@ -428,7 +430,7 @@ type Peer struct {
 	// These fields are set at creation time and never modified, so they are
 	// safe to read from concurrently without a mutex.
 	addr    string
-	cfg     Config
+	Cfg     Config
 	inbound bool
 
 	flagsMtx             sync.Mutex // protects the peer flags below
