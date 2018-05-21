@@ -18,6 +18,7 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/consensus"
 	"fmt"
+	"github.com/btcboost/copernicus/persist/disk"
 )
 
 type BlockTreeDB struct {
@@ -196,24 +197,27 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(f func(hash *util.Hash) *bloc
 			break
 		}
 
-		var diskindex blockindex.BlockIndex
+		var bi  = blockindex.NewBlockIndex(nil)
 		val := cursor.GetVal()
 		if val == nil {
 			logs.Error("LoadBlockIndex() : failed to read value")
 			return false
 		}
-		diskindex.Unserialize(bytes.NewBuffer(val))
+		bi.Unserialize(bytes.NewBuffer(val))
 
 
-		if new(pow.Pow).CheckProofOfWork(diskindex.GetBlockHash(), diskindex.Header.Bits, &consensus.MainNetParams) {
-			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", diskindex.ToString())
+		if new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, &consensus.MainNetParams) {
+			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
 		}
-
+		disk.GlobalBlockIndexMap[]
 		cursor.Next()
 	}
 
 	return true
 }
 
+func initGlobalBlockIndexMap(hash util.Hash, index *blockindex.BlockIndex){
+
+}
 

@@ -226,10 +226,10 @@ func (bIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
 	return indexWalk
 }
 
-func (bIndex *BlockIndex) ToString() string {
+func (bIndex *BlockIndex) String() string {
 	hash := bIndex.GetBlockHash()
 	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", bIndex.Prev,
-		bIndex.Height, bIndex.Header.MerkleRoot.ToString(), hash.ToString())
+		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {

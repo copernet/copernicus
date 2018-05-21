@@ -12,8 +12,8 @@ import (
 
 
 func (bIndex *BlockIndex)GetSerializeList()[]string{
-	dump_list := []string{"Height","Status", "TxCount", "File", "DataPos","UndoPos","Header"}
-	return dump_list
+	dumpList := []string{"Height","Status", "TxCount", "File", "DataPos","UndoPos","Header"}
+	return dumpList
 }
 
 func (bIndex *BlockIndex) Serialize(w io.Writer) error {
