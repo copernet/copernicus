@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
@@ -19,11 +18,11 @@ var netHandlers = map[string]commandHandler{
 	"disconnectnode":     handleDisconnectNode,
 	"getaddednodeinfo":   handleGetAddedNodeInfo,
 	"getnettotals":       handleGetNetTotals,
-	"getnetworkinfo":     handleGetnetWorkinfo,
+	"getnetworkinfo":     handleGetnetWorkInfo,
 	"setban":             handleSetBan,
 	"listbanned":         handleListBanned,
 	"clearbanned":        handleClearBanned,
-	"setnetworkactive":   handleSetnetWorkActive,
+	"setnetworkactive":   handleSetNetWorkActive,
 }
 
 func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -208,7 +207,7 @@ func handleGetNetTotals(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	return nil, nil
 }
 
-func handleGetnetWorkinfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+func handleGetnetWorkInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return nil, nil
 }
 
@@ -224,7 +223,7 @@ func handleClearBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	return nil, nil
 }
 
-func handleSetnetWorkActive(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+func handleSetNetWorkActive(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return nil, nil
 }
 

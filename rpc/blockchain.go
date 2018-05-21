@@ -6,17 +6,11 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/logic/valistate"
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
-	"github.com/pkg/errors"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -61,14 +55,14 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 
 		tip := chain.GlobalChain.Tip()
 		chainInfo := &btcjson.GetBlockChainInfoResult{
-			//Chain:         Params().NetworkingIDString(),            // TODO
+			//Chain:         Params().NetworkingIDString(),            // todo
 			Blocks:        int32(chain.GlobalChain.Height()),
 			Headers:       headers,
 			BestBlockHash: tip.GetBlockHash().ToString(),
 			Difficulty:    getDifficulty(tip),
 			MedianTime:    tip.GetMedianTimePast(),
 			//VerificationProgress: chain.GuessVerificationProgress(Params().TxData(),
-			//	chain.GlobalChain.Tip())            // TODO
+			//	chain.GlobalChain.Tip())            // todo
 			ChainWork:     tip.ChainWork.String(),
 			Pruned:        false,
 			Bip9SoftForks: make(map[string]*btcjson.Bip9SoftForkDescription),
@@ -214,11 +208,11 @@ func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		return strHex, nil
 	}
 
-	return blockToJSON(&block, index, false), nil*/           //TODO open
+	return blockToJSON(&block, index, false), nil*/           //todo open
 	return nil, nil
 }
 
-func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails bool) *btcjson.GetBlockVerboseResult {
+/*func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails bool) *btcjson.GetBlockVerboseResult {
 	confirmations := -1
 	// Only report confirmations if the block is on the main chain
 	if chain.GlobalChain.Contains(index) {
@@ -263,7 +257,7 @@ func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails boo
 		PreviousHash:  previousHash,
 		NextHash:      nextBlockHash,
 	}
-}
+}*/                  // todo open
 
 func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 /*
@@ -279,7 +273,7 @@ func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 
 	blockIndex := chain.GlobalChain.GetSpecIndex(height) // todo realise
 
-	return blockIndex.BlockHash, nil*/           //TODO open
+	return blockIndex.BlockHash, nil*/           //todo open
 	return nil, nil
 }
 
@@ -597,7 +591,7 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		Coinbase:      coin.IsCoinBase(),
 	}
 
-	return &txOutReply, nil*/                // TODO open
+	return &txOutReply, nil*/                // todo open
 	return nil, nil
 }
 
@@ -609,7 +603,7 @@ func getPrunMode() (bool, error) {
 /*	pruneArg := util.GetArg("-prune", 0)
 	if pruneArg < 0 {
 		return false, errors.New("Prune cannot be configured with a negative value")
-	}*/                 // TODO open
+	}*/                 // todo open
 	return true, nil
 }
 
@@ -660,7 +654,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 	}
 
 	chain.PruneBlockFilesManual(*height)
-	return uint64(*height), nil*/                // TODO realise
+	return uint64(*height), nil*/                // todo realise
 
 	return nil, nil
 }
@@ -677,7 +671,7 @@ func handleVerifyChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 		checkDepth = *c.CheckDepth
 	}
 
-	return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // TODO open
+	return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // todo open
 }
 
 func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -697,7 +691,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 	if !state.IsValid() {
 
-	}*/                        // TODO open
+	}*/                        // todo open
 	return nil, nil
 }
 
@@ -713,10 +707,10 @@ func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{})
 		}
 
 		//blkIndex := chain.MapBlockIndex.Data[*hash]
-		//chain.InvalidateBlock()                  // TODO
+		//chain.InvalidateBlock()                  // todo
 	}
 	if state.IsValid() {
-		//chain.ActivateBestChain()        // TODO
+		//chain.ActivateBestChain()        // todo
 	}
 
 	if state.IsInvalid() {
@@ -724,7 +718,7 @@ func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{})
 			Code:    btcjson.ErrRPCDatabase,
 			Message: state.GetRejectReason(),
 		}
-	}*/                  // TODO open
+	}*/                  // todo open
 
 	return nil, nil
 }
@@ -750,7 +744,7 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 			Code:    btcjson.ErrRPCDatabase,
 			Message: state.FormatStateMessage(),
 		}
-	}*/                 // TODO open
+	}*/                 // todo open
 	return nil, nil
 }
 
