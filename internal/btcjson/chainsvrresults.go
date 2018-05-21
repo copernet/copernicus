@@ -265,8 +265,14 @@ type GetPeerInfoResult struct {
 	StartingHeight int32   `json:"startingheight"`
 	CurrentHeight  int32   `json:"currentheight,omitempty"`
 	BanScore       int32   `json:"banscore"`
-	FeeFilter      int64   `json:"feefilter"`
-	SyncNode       bool    `json:"syncnode"`
+	SyncedHeaders  int 		`json:"synced_headers"`
+	SyncedBlocks  int 		`json:"synced_blocks"`
+	Inflight       []int     `json:"inflight"`
+	WhiteListed    bool      `json:"whitelisted"`
+	CashMagic      bool     `json:"cashmagic"`
+
+	//FeeFilter      int64   `json:"feefilter"`
+	//SyncNode       bool    `json:"syncnode"`
 }
 
 // GetRawMempoolVerboseResult models the data returned from the getrawmempool
