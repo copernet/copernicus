@@ -215,7 +215,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		indexPrev = indexPrevNew
 	}
 	bk := blocktemplate.Block
-	bk.UpdateTime(indexPrev)
+	mining.UpdateTime(bk, indexPrev)
 	bk.Header.Nonce = 0
 
 	return blockTemplateResult(blocktemplate, setClientRules, maxVersionVb, transactionsUpdatedLast)
