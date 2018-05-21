@@ -1,26 +1,29 @@
-go_version: 1.9.2
-version: 1.0.0
-build_date: 20180428
+GoVersion: 1.9.2
+Version: 1.0.0
+BuildDate: 20180428
+DataDir: data
 
-service:
+Service:
   address: 10.0.0.0/8
 
-http:
+HTTP:
   host: 127.0.0.1
   port: 8080
   mode: test
 
-rpc:
-  host: 127.0.0.1
-  port: 9552
+RPC:
+  RPCListeners: 127.0.0.1:8334 127.0.0.1:18334
+  RPCUser: xxx
+  RPCPass: xxx
 
-log:
-  level: error
-  format: json
+Log:
+  Level: error
+  Format: json
 
 P2PNet:
   Listerners: 127.0.0.1:8333 127.0.0.1:18333
   MaxPeers: 125
+  TargetOutbound: 8
 
 AddrMgr:
   SimNet: false
