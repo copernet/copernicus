@@ -86,7 +86,7 @@ type GetAddedNodeInfoResult struct {
 type SoftForkDescription struct {
 	ID      string `json:"id"`
 	Version uint32 `json:"version"`
-	Reject  struct {
+	Reject struct {
 		Status bool `json:"status"`
 	} `json:"reject"`
 }
@@ -265,11 +265,11 @@ type GetPeerInfoResult struct {
 	StartingHeight int32   `json:"startingheight"`
 	CurrentHeight  int32   `json:"currentheight,omitempty"`
 	BanScore       int32   `json:"banscore"`
-	SyncedHeaders  int 		`json:"synced_headers"`
-	SyncedBlocks  int 		`json:"synced_blocks"`
-	Inflight       []int     `json:"inflight"`
-	WhiteListed    bool      `json:"whitelisted"`
-	CashMagic      bool     `json:"cashmagic"`
+	SyncedHeaders  int     `json:"synced_headers"`
+	SyncedBlocks   int     `json:"synced_blocks"`
+	Inflight       []int   `json:"inflight"`
+	WhiteListed    bool    `json:"whitelisted"`
+	CashMagic      bool    `json:"cashmagic"`
 
 	//FeeFilter      int64   `json:"feefilter"`
 	//SyncNode       bool    `json:"syncnode"`
@@ -542,8 +542,8 @@ type ValidateAddressChainResult struct {
 
 type GetMempoolEntryRelativeInfoVerbose struct {
 	Size             int      `json:"size"`
-	Fee              string   `json:"fee"`
-	ModifiedFee      string   `json:"modifiedfee"`
+	Fee              float64  `json:"fee"`
+	ModifiedFee      float64  `json:"modifiedfee"`
 	Time             int64    `json:"time"`
 	Height           int      `json:"height"`
 	StartingPriority float64  `json:"startingpriority"`
