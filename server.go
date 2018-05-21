@@ -1977,7 +1977,7 @@ func (s *server) ScheduleShutdown(duration time.Duration) {
 					ticker.Stop()
 					ticker = time.NewTicker(tickDuration)
 				}
-				s.Warn("Server shutdown in %v", remaining)
+				log.Warn("Server shutdown in %v", remaining)
 			}
 		}
 	}()
@@ -2121,7 +2121,7 @@ func setupRPCListeners() ([]net.Listener, error) {
 	for _, addr := range netAddrs {
 		listener, err := listenFunc(addr.Network(), addr.String())
 		if err != nil {
-			rpcsLog.Warnf("Can't listen on %s: %v", addr, err)
+			log.Warn("Can't listen on %s: %v", addr, err)
 			continue
 		}
 		listeners = append(listeners, listener)
