@@ -23,21 +23,21 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/copernicus/addrmgr"
-	"github.com/copernicus/conf"
-	"github.com/copernicus/connmgr"
-	"github.com/copernicus/log"
-	"github.com/copernicus/model/bitcointime"
-	"github.com/copernicus/net/wire"
-	"github.com/copernicus/peer"
-	"github.com/copernicus/service"
-	"github.com/copernicus/util"
+	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/connmgr"
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/bitcointime"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/peer"
+	"github.com/btcboost/copernicus/service"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcsuite/btcutil/bloom"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/copernicus/model/chainparams"
-	"github.com/copernicus/model/tx"
-	"github.com/copernicus/util/amount"
-	"github.com/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model"
 )
 
 const (
@@ -480,7 +480,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 // handler this does not serialize all transactions through a single thread
 // transactions don't rely on the previous one in a linear fashion like blocks.
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
-	if cfg.BlocksOnly {
+	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
 			msg.TxHash(), sp)
 		return
@@ -2687,7 +2687,7 @@ func isWhitelisted(addr net.Addr) bool {
 
 // checkpointSorter implements sort.Interface to allow a slice of checkpoints to
 // be sorted.
-type checkpointSorter []chaincfg.Checkpoint
+type checkpointSorter []model.Checkpoint
 
 // Len returns the number of checkpoints in the slice.  It is part of the
 // sort.Interface implementation.
@@ -2712,10 +2712,10 @@ func (s checkpointSorter) Less(i, j int) bool {
 // checkpoints contain a checkpoint with the same height as a checkpoint in the
 // default checkpoints, the additional checkpoint will take precedence and
 // overwrite the default one.
-func mergeCheckpoints(defaultCheckpoints, additional []chaincfg.Checkpoint) []chaincfg.Checkpoint {
+func mergeCheckpoints(defaultCheckpoints, additional []model.Checkpoint) []model.Checkpoint {
 	// Create a map of the additional checkpoints to remove duplicates while
 	// leaving the most recently-specified checkpoint.
-	extra := make(map[int32]chaincfg.Checkpoint)
+	extra := make(map[int32]model.Checkpoint)
 	for _, checkpoint := range additional {
 		extra[checkpoint.Height] = checkpoint
 	}
@@ -2723,7 +2723,7 @@ func mergeCheckpoints(defaultCheckpoints, additional []chaincfg.Checkpoint) []ch
 	// Add all default checkpoints that do not have an override in the
 	// additional checkpoints.
 	numDefault := len(defaultCheckpoints)
-	checkpoints := make([]chaincfg.Checkpoint, 0, numDefault+len(extra))
+	checkpoints := make([]model.Checkpoint, 0, numDefault+len(extra))
 	for _, checkpoint := range defaultCheckpoints {
 		if _, exists := extra[checkpoint.Height]; !exists {
 			checkpoints = append(checkpoints, checkpoint)
