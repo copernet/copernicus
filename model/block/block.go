@@ -5,6 +5,8 @@ import (
 	"unsafe"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
+	"bytes"
+	"github.com/btcboost/copernicus/log"
 )
 
 type Block struct {
@@ -46,8 +48,14 @@ func (bl *Block) Unserialize(r io.Reader) error {
 }
 
 func (blk *Block) GetHash() *util.Hash{
-	// todo
-	return &util.HashZero
+	buf := bytes.NewBuffer(nil)
+	err := blk.Serialize(buf)
+	if err != nil{
+		log.Error("GetHash is err=====%#v", err)
+		panic("GetHash is err=====")
+	}
+	h := util.Sha256Hash(buf.Bytes())
+	return &h
 }
 func (bl *Block) SerializeSize() uint {
 	size := uint(unsafe.Sizeof(BlockHeader{}))

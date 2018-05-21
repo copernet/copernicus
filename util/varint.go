@@ -6,25 +6,7 @@ import (
 )
 
 func WriteVarLenInt(w io.Writer, n uint64) error {
-	buf := make([]byte, 10)
-	len := 0
-	mask := uint64(0)
-	for {
-		if len > 0 {
-			mask = 0x80
-		}
-		buf[len] = byte((n & 0x7f) | mask)
-		if n <= 0x7f {
-			break
-		}
-		n = (n >> 7) - 1
-		len++
-	}
-	var tmp bytes.Buffer
-	for i := len; i >= 0; i-- {
-		tmp.WriteByte(buf[i])
-	}
-	dd := tmp.Bytes()
+	dd := EncodeVarLenInt(n)
 	_, err := w.Write(dd)
 	return err
 }
@@ -46,6 +28,30 @@ func ReadVarLenInt(r io.Reader) (uint64, error) {
 	}
 }
 
+
+
+
+func EncodeVarLenInt(n uint64) ([]byte){
+	buf := make([]byte, 10)
+	len := 0
+	mask := uint64(0)
+	for {
+		if len > 0 {
+			mask = 0x80
+		}
+		buf[len] = byte((n & 0x7f) | mask)
+		if n <= 0x7f {
+			break
+		}
+		n = (n >> 7) - 1
+		len++
+	}
+	var tmp bytes.Buffer
+	for i := len; i >= 0; i-- {
+		tmp.WriteByte(buf[i])
+	}
+	return tmp.Bytes()
+}
 func VarLenIntSize(n uint64) uint {
 	size := uint(0)
 	for {

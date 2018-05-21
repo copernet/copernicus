@@ -6,6 +6,10 @@ type TxErr int
 
 const (
 	ErrorNoPreviousOut TxErr = TxErrorBase + iota
+	TxErrIsCoinBase
+	TxErrNotCoinBase
+	TxErrEmptyInputs
+	TxErrTxInNoPreOut
 )
 
 var txErrorToString = map[TxErr]string {

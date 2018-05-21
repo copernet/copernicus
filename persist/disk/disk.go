@@ -13,14 +13,21 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"bytes"
-	"copernicus/policy"
+
 	"math"
 	"sync/atomic"
 	"time"
 	"github.com/btcboost/copernicus/model/utxo"
 	"syscall"
 	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/tx"
+
+	"encoding/binary"
+	"github.com/btcboost/copernicus/model/undo"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/errcode"
+	"crypto/sha256"
+	"reflect"
 )
 type FlushStateMode int
 
@@ -67,23 +74,26 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	if pos.IsNull() {
 		return nil
 	}
-	path := GetBlockPosParentFilename()
-	os.MkdirAll(path, os.ModePerm)
-
-	file, err := os.Open(path + "rb+")
-	if file == nil && !fReadOnly || err != nil {
-		file, err = os.Open(path + "wb+")
-		if err == nil {
-			panic("open wb+ file failed ")
-		}
+	parentPath := GetBlockPosParentFilename()
+	os.MkdirAll(parentPath, os.ModePerm)
+	filePath := GetBlockPosFilename(pos, prefix)
+	flag := 0
+	if fReadOnly {
+		flag |= os.O_RDONLY
+	} else{
+		flag |= os.O_APPEND|os.O_WRONLY
 	}
-	if file == nil {
-		blogs.Info("Unable to open file %s\n", path)
+	if _, err:=os.Stat(filePath);os.IsExist(err){
+		flag |= os.O_CREATE
+	}
+	file, err := os.OpenFile(filePath,flag, os.ModePerm)
+	if file == nil || err!=nil{
+		log.Error("Unable to open file %s\n", err)
 		return nil
 	}
 	if pos.Pos > 0 {
-		if _, err := file.Seek(0, 1); err != nil {
-			blogs.Info("Unable to seek to position %u of %s\n", pos.Pos, path)
+		if _, err := file.Seek(int64(pos.Pos), 0); err != nil {
+			log.Error("Unable to seek to position %u of %s\n", pos.Pos, filePath)
 			file.Close()
 			return nil
 		}
@@ -93,7 +103,7 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 }
 
 func GetBlockPosFilename(pos block.DiskBlockPos, prefix string) string {
-	return conf.GetDataPath() + "/blocks/" + fmt.Sprintf("%s%05d.dat", prefix, pos.File)
+	return GetBlockPosParentFilename() + fmt.Sprintf("%s%05d.dat", prefix, pos.File)
 }
 
 func GetBlockPosParentFilename() string {
@@ -110,6 +120,7 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *consensus.BitcoinPara
 		blogs.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString())
 		return nil, false
 	}
+	defer file.Close()
 
 	// Read block
 	blk := block.NewBlock()
@@ -126,6 +137,127 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *consensus.BitcoinPara
 	return blk, true
 }
 
+
+
+func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlockPos, nAddSize int) error  {
+	undoPos.File = nFile
+	csLastBlockFile.Lock()
+	defer csLastBlockFile.Unlock()
+	undoPos.Pos = int((GlobalBlockFileInfoMap)[nFile].UndoSize)
+	GlobalBlockFileInfoMap[nFile].UndoSize += uint32(nAddSize)
+	nNewSize := GlobalBlockFileInfoMap[nFile].UndoSize
+	GlobalSetDirtyFileInfo[nFile]=true
+
+	nOldChunks := (undoPos.Pos + UndoFileChunkSize - 1) / UndoFileChunkSize
+	nNewChunks := (nNewSize + UndoFileChunkSize - 1) / UndoFileChunkSize
+
+	if nNewChunks > uint32(nOldChunks) {
+
+		if CheckDiskSpace(nNewChunks*UndoFileChunkSize - uint32(undoPos.Pos)) {
+			file := OpenUndoFile(*undoPos, false)
+			if file != nil {
+				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
+					nNewChunks*UndoFileChunkSize, undoPos.File)
+				AllocateFileRange(file, undoPos.Pos, nNewChunks*UndoFileChunkSize-uint32(undoPos.Pos))
+				file.Close()
+			}else{
+				return errcode.ProjectError{Code:1002,Desc:"can not find Undo file"}
+
+			}
+		} else {
+			state.Error("out of disk space")
+			return errcode.ProjectError{Code:1001,Desc:"out of disk space"}
+		}
+	}
+
+	return nil
+}
+
+
+
+func AllocateFileRange(file *os.File, offset int, length uint32) {
+	// Fallback version
+	// TODO: just write one byte per block
+	var buf [65536]byte
+	file.Seek(int64(offset), 0)
+	for length > 0 {
+		now := 65536
+		if int(length) < now {
+			now = int(length)
+		}
+		// Allowed to fail; this function is advisory anyway.
+		_, err := file.Write(buf[:])
+		if err != nil {
+			panic("the file write failed.")
+		}
+		length -= uint32(now)
+	}
+}
+
+
+func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util.Hash, messageStart wire.BitcoinNet) bool {
+	// Open history file to append
+	undoFile := OpenUndoFile(*pos, false)
+	if undoFile == nil {
+		log.Error("OpenUndoFile failed")
+		return false
+	}
+	defer undoFile.Close()
+	//undoFile.Write(messageStart)
+	buf := bytes.NewBuffer(nil)
+	bu.Serialize(buf)
+	size := buf.Len() + 32
+	buHasher := sha256.New()
+	buHasher.Write(hashBlock[:])
+	buHasher.Write(buf.Bytes())
+	buHash := buHasher.Sum(nil)
+	buf.Write(buHash)
+	lenBuf := bytes.NewBuffer(nil)
+	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
+	undoFile.Write(lenBuf.Bytes())
+	undoFile.Write(buf.Bytes())
+	return true
+
+}
+
+func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.BlockUndo, bool) {
+	file := OpenUndoFile(*pos, true)
+	if file == nil {
+		log.Error(fmt.Sprintf("%s: OpenUndoFile failed", log.TraceLog()))
+		return nil, false
+	}
+	defer file.Close()
+	size, err := util.BinarySerializer.Uint32(file, binary.LittleEndian)
+	if err != nil{
+		log.Error("UndoReadFromDisk===",err)
+		return nil, false
+	}
+	buf := make([]byte, size,size)
+	// Read block
+	num, err := file.Read(buf)
+	if uint32(num) < size{
+		log.Error("UndoReadFromDisk===read undo num < size")
+		return nil, false
+	}
+	bu:= undo.NewBlockUndo()
+	undoData := buf[:len(buf)-32]
+	checkSumData := buf[len(buf)-32:]
+	buff := bytes.NewBuffer(undoData)
+	err = bu.Unserialize(buff)
+	if err != nil {
+		log.Error("UndoReadFromDisk===",err)
+		return bu, false
+	}
+
+
+	// Verify checksum
+	buHasher := sha256.New()
+	buHasher.Write(hashblock[:])
+	buHasher.Write(undoData)
+	buHash := buHasher.Sum(nil)
+	return bu, reflect.DeepEqual(checkSumData,buHash)
+
+}
 
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *consensus.BitcoinParams) (*block.Block, bool) {
 	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
@@ -145,10 +277,11 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *consensus.BitcoinPa
 
 func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
 	ret = true
-	// TODO: LOCK2(cs_main, cs_LastBlockFile);
-	// var sc sync.RWMutex
-	// sc.Lock()
-	// defer sc.Unlock()
+	csMain.Lock()
+	csLastBlockFile.Lock()
+
+	defer csMain.Unlock()
+	defer csLastBlockFile.Unlock()
 	//
 	//var setFilesToPrune *set.Set
 	//fFlushForPrune := false
@@ -186,7 +319,7 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	//}
 	mempoolUsage := int64(0) // todo mempool.mempoolUsage
 	coinsTip := utxo.GetUtxoCacheInstance()
-	nMempoolSizeMax := int64(tx.DefaultMaxMemPoolSize) * 1000000
+	nMempoolSizeMax := int64(DefaultMaxMemPoolSize) * 1000000
 	DBPeakUsageFactor := int64(2)
 	cacheSize := coinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
 	nCoinCacheUsage := 5000 * 300
@@ -221,18 +354,18 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		// Then update all block file information (which may refer to block and undo files).
 
 
-		tBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(*GlobalBlockFileInfoMap))
-		for _, bfi := range *GlobalBlockFileInfoMap {
+		tBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(GlobalBlockFileInfoMap))
+		for _, bfi := range GlobalBlockFileInfoMap {
 			tBlockFileInfoList = append(tBlockFileInfoList, bfi)
 		}
-		GlobalBlockFileInfoMap = new(BlockFileInfoMap)
-		tBlockIndexList := make([]*blockindex.BlockIndex, 0, len(*GlobalBlockIndexMap))
-		for _, bi := range *GlobalBlockIndexMap {
+		GlobalBlockFileInfoMap = make(BlockFileInfoMap)
+		tBlockIndexList := make([]*blockindex.BlockIndex, 0, len(GlobalBlockIndexMap))
+		for _, bi := range GlobalBlockIndexMap {
 			tBlockIndexList = append(tBlockIndexList, bi)
 		}
-		GlobalBlockIndexMap = new(BlockIndexMap)
+		GlobalBlockIndexMap = make(BlockIndexMap)
 		btd := chain.GetBlockTreeDBInstance()
-		err := btd.WriteBatchSync(tBlockFileInfoList, GlobalLastBlockFile,  tBlockIndexList)
+		err := btd.WriteBatchSync(tBlockFileInfoList, int(GlobalLastBlockFile),  tBlockIndexList)
 		if err != nil{
 			ret = AbortNode(state, "Failed to write to block index database", "")
 		}
@@ -288,19 +421,19 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	}
 	return true
 }
+var csMain *sync.RWMutex = new(sync.RWMutex)
 
 var csLastBlockFile *sync.RWMutex = new(sync.RWMutex)
-var gLastBlockFile int  = 0
+
 func FlushBlockFile(fFinalize bool) {
-	// todo !!! add file sync.lock, LOCK(cs_LastBlockFile);
 	csLastBlockFile.Lock()
 	defer csLastBlockFile.Unlock()
-	posOld := block.NewDiskBlockPos(gLastBlockFile, 0)
+	posOld := block.NewDiskBlockPos(int(GlobalLastBlockFile), 0)
 
 	fileOld := OpenBlockFile(posOld, false)
 	if fileOld != nil {
 		if fFinalize {
-			os.Truncate(fileOld.Name(), int64((*GlobalBlockFileInfoMap)[GlobalLastBlockFile].Size))
+			os.Truncate(fileOld.Name(), int64(GlobalBlockFileInfoMap[GlobalLastBlockFile].Size))
 			fileOld.Sync()
 			fileOld.Close()
 		}
@@ -309,35 +442,72 @@ func FlushBlockFile(fFinalize bool) {
 	fileOld = OpenUndoFile(*posOld, false)
 	if fileOld != nil {
 		if fFinalize {
-			os.Truncate(fileOld.Name(), int64((*GlobalBlockFileInfoMap)[GlobalLastBlockFile].UndoSize))
+			os.Truncate(fileOld.Name(), int64(GlobalBlockFileInfoMap[GlobalLastBlockFile].UndoSize))
 			fileOld.Sync()
 			fileOld.Close()
 		}
 	}
 }
 
+
 func FindBlockPos(state *block.ValidationState, pos *block.DiskBlockPos, nAddSize uint,
 	nHeight uint, nTime uint64, fKnown bool) bool {
+	csLastBlockFile.Lock()
+	defer csLastBlockFile.Unlock()
 
-	//	todo !!! Add sync.Lock in the later, because the concurrency goroutine
 	nFile := pos.File
 	if !fKnown {
-		nFile = gLastBlockFile
+		nFile = int(GlobalLastBlockFile)
 	}
 
 	if !fKnown {
-		for uint(gInfoBlockFile[nFile].Size)+nAddSize >= MaxBlockFileSize {
+		for uint(GlobalBlockFileInfoMap[nFile].Size)+nAddSize >= MaxBlockFileSize {
 			nFile++
 		}
 		pos.File = nFile
-		pos.Pos = int(gInfoBlockFile[nFile].Size)
+		pos.Pos = int(GlobalBlockFileInfoMap[nFile].Size)
 	}
 
-	if nFile != gLastBlockFile {
+	if nFile != int(GlobalLastBlockFile) {
 		if !fKnown {
-			logs.Info(fmt.Sprintf("Leaving block file %d: %s\n", gLastBlockFile,
-				gInfoBlockFile[gLastBlockFile].ToString()))
+			log.Info(fmt.Sprintf("Leaving block file %d: %s\n", int(GlobalLastBlockFile),
+				GlobalBlockFileInfoMap[int(GlobalLastBlockFile)].ToString()))
 		}
 		FlushBlockFile(!fKnown)
-		gLastBlockFile = nFile
+		int(GlobalLastBlockFile) = nFile
 	}
+
+	GlobalBlockFileInfoMap[nFile].AddBlock(uint32(nHeight), nTime)
+	if fKnown {
+		GlobalBlockFileInfoMap[nFile].Size = uint32(math.Max(float64(pos.Pos+int(nAddSize)),
+			float64(GlobalBlockFileInfoMap[nFile].Size)))
+	} else {
+		GlobalBlockFileInfoMap[nFile].Size += uint32(nAddSize)
+	}
+
+	if !fKnown {
+		nOldChunks := (pos.Pos + BlockFileChunkSize - 1) / BlockFileChunkSize
+		nNewChunks := (GlobalBlockFileInfoMap[nFile].Size + BlockFileChunkSize - 1) / BlockFileChunkSize
+		if nNewChunks > uint32(nOldChunks) {
+			// todo handle prune mode
+			//if GPruneMode {
+			//	GCheckForPruning = true
+			//	if CheckDiskSpace(nNewChunks*BlockFileChunkSize - uint32(pos.Pos)) {
+			//		pfile := OpenBlockFile(pos, false)
+			//		if pfile != nil {
+			//			log.Info("Pre-allocating up to position 0x%x in blk%05u.dat\n",
+			//				nNewChunks*BlockFileChunkSize, pos.File)
+			//			AllocateFileRange(pfile, pos.Pos, nNewChunks*BlockFileChunkSize-uint32(pos.Pos))
+			//			pfile.Close()
+			//		}
+			//	} else {
+			//		return state.Error("out of disk space")
+			//	}
+			//}
+		}
+	}
+
+	GlobalSetDirtyFileInfo[nFile]=true
+	return true
+}
+
