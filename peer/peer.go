@@ -1198,6 +1198,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 	log.Tracef("%v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
+
 	log.Tracef("%v", newLogClosure(func() string {
 		var buf bytes.Buffer
 		_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
