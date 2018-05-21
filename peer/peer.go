@@ -17,15 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	// "github.com/btcsuite/btcd/blockchain"
-	// "github.com/btcsuite/btcd/chaincfg"
-	// "github.com/btcsuite/btcd/chaincfg/chainhash"
-	// "github.com/btcsuite/btcd/wire"
-	// "github.com/btcsuite/go-socks/socks"
-	"github.com/btcboost/copernicus/chaincfg"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/btcboost/copernicus/log"
+
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcsuite/go-socks/socks"
+	"github.com/btcboost/copernicus/util/bitcoinutil"
 )
 
 const (
@@ -251,7 +250,7 @@ type Config struct {
 	// ChainParams identifies which chain parameters the peer is associated
 	// with.  It is highly recommended to specify this field, however it can
 	// be omitted in which case the test network will be used.
-	ChainParams *chaincfg.Params
+	ChainParams *chainparams.BitcoinParams
 
 	// Services specifies which services to advertise as supported by the
 	// local peer.  This field can be omitted in which case it will be 0
@@ -447,11 +446,11 @@ type Peer struct {
 
 	knownInventory     *mruInventoryMap
 	prevGetBlocksMtx   sync.Mutex
-	prevGetBlocksBegin *chainhash.Hash
-	prevGetBlocksStop  *chainhash.Hash
+	prevGetBlocksBegin *util.Hash
+	prevGetBlocksStop  *util.Hash
 	prevGetHdrsMtx     sync.Mutex
-	prevGetHdrsBegin   *chainhash.Hash
-	prevGetHdrsStop    *chainhash.Hash
+	prevGetHdrsBegin   *util.Hash
+	prevGetHdrsStop    *util.Hash
 
 	// These fields keep track of statistics for the peer and are protected
 	// by the statsMtx mutex.
@@ -460,7 +459,7 @@ type Peer struct {
 	timeConnected      time.Time
 	startingHeight     int32
 	lastBlock          int32
-	lastAnnouncedBlock *chainhash.Hash
+	lastAnnouncedBlock *util.Hash
 	lastPingNonce      uint64    // Set to nonce if we have a pending ping.
 	lastPingTime       time.Time // Time we sent last ping.
 	lastPingMicros     int64     // Time for last ping to return.
@@ -489,7 +488,7 @@ func (p *Peer) String() string {
 // This function is safe for concurrent access.
 func (p *Peer) UpdateLastBlockHeight(newHeight int32) {
 	p.statsMtx.Lock()
-	log.Tracef("Updating last block height of peer %v from %v to %v",
+	log.Trace("Updating last block height of peer %v from %v to %v",
 		p.addr, p.lastBlock, newHeight)
 	p.lastBlock = newHeight
 	p.statsMtx.Unlock()
@@ -499,8 +498,8 @@ func (p *Peer) UpdateLastBlockHeight(newHeight int32) {
 // peer is known to have announced.
 //
 // This function is safe for concurrent access.
-func (p *Peer) UpdateLastAnnouncedBlock(blkHash *chainhash.Hash) {
-	log.Tracef("Updating last blk for peer %v, %v", p.addr, blkHash)
+func (p *Peer) UpdateLastAnnouncedBlock(blkHash *util.Hash) {
+	log.Trace("Updating last blk for peer %v, %v", p.addr, blkHash)
 
 	p.statsMtx.Lock()
 	p.lastAnnouncedBlock = blkHash
@@ -617,7 +616,7 @@ func (p *Peer) UserAgent() string {
 // LastAnnouncedBlock returns the last announced block of the remote peer.
 //
 // This function is safe for concurrent access.
-func (p *Peer) LastAnnouncedBlock() *chainhash.Hash {
+func (p *Peer) LastAnnouncedBlock() *util.Hash {
 	p.statsMtx.RLock()
 	lastAnnouncedBlock := p.lastAnnouncedBlock
 	p.statsMtx.RUnlock()
@@ -922,10 +921,10 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *chainhash.Hash) error {
+func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getblocks requests.
-	var beginHash *chainhash.Hash
+	var beginHash *util.Hash
 	if len(locator) > 0 {
 		beginHash = locator[0]
 	}
@@ -938,7 +937,7 @@ func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *chain
 	p.prevGetBlocksMtx.Unlock()
 
 	if isDuplicate {
-		log.Tracef("Filtering duplicate [getblocks] with begin "+
+		log.Trace("Filtering duplicate [getblocks] with begin "+
 			"hash %v, stop hash %v", beginHash, stopHash)
 		return nil
 	}
@@ -966,10 +965,10 @@ func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *chain
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *chainhash.Hash) error {
+func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getheaders requests.
-	var beginHash *chainhash.Hash
+	var beginHash *util.Hash
 	if len(locator) > 0 {
 		beginHash = locator[0]
 	}
@@ -982,7 +981,7 @@ func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *chai
 	p.prevGetHdrsMtx.Unlock()
 
 	if isDuplicate {
-		log.Tracef("Filtering duplicate [getheaders] with begin hash %v",
+		log.Trace("Filtering duplicate [getheaders] with begin hash %v",
 			beginHash)
 		return nil
 	}
@@ -1013,7 +1012,7 @@ func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *chai
 // function to block until the reject message has actually been sent.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushRejectMsg(command string, code wire.RejectCode, reason string, hash *chainhash.Hash, wait bool) {
+func (p *Peer) PushRejectMsg(command string, code wire.RejectCode, reason string, hash *util.Hash, wait bool) {
 	// Don't bother sending the reject message if the protocol version
 	// is too low.
 	if p.VersionKnown() && p.ProtocolVersion() < wire.RejectVersion {
@@ -1023,7 +1022,7 @@ func (p *Peer) PushRejectMsg(command string, code wire.RejectCode, reason string
 	msg := wire.NewMsgReject(command, code, reason)
 	if command == wire.CmdTx || command == wire.CmdBlock {
 		if hash == nil {
-			log.Warnf("Sending a reject message for command "+
+			log.Warn("Sending a reject message for command "+
 				"type %v which should have specified a hash "+
 				"but does not", command)
 			hash = &zeroHash
@@ -1069,7 +1068,7 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	p.statsMtx.Lock()
 	p.lastBlock = msg.LastBlock
 	p.startingHeight = msg.LastBlock
-	p.timeOffset = msg.Timestamp.Unix() - time.Now().Unix()
+	p.timeOffset = msg.Timestamp - time.Now().Unix()
 	p.statsMtx.Unlock()
 
 	// Negotiate the protocol version.
@@ -1077,7 +1076,7 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	p.advertisedProtoVer = uint32(msg.ProtocolVersion)
 	p.protocolVersion = minUint32(p.protocolVersion, p.advertisedProtoVer)
 	p.versionKnown = true
-	log.Debugf("Negotiated protocol version %d for peer %s",
+	log.Debug("Negotiated protocol version %d for peer %s",
 		p.protocolVersion, p)
 
 	// Set the peer's ID.
@@ -1147,7 +1146,7 @@ func (p *Peer) handlePongMsg(msg *wire.MsgPong) {
 // readMessage reads the next bitcoin message from the peer with logging.
 func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte, error) {
 	n, msg, buf, err := wire.ReadMessageWithEncodingN(p.conn,
-		p.ProtocolVersion(), p.cfg.ChainParams.Net, encoding)
+		p.ProtocolVersion(), p.cfg.ChainParams.BitcoinNet, encoding)
 	atomic.AddUint64(&p.bytesReceived, uint64(n))
 	if p.cfg.Listeners.OnRead != nil {
 		p.cfg.Listeners.OnRead(p, n, msg, err)
@@ -1158,7 +1157,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debugf("%v", newLogClosure(func() string {
+	log.Debug("%v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1167,10 +1166,10 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 		return fmt.Sprintf("Received %v%s from %s",
 			msg.Command(), summary, p)
 	}))
-	log.Tracef("%v", newLogClosure(func() string {
+	log.Trace("%v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
-	log.Tracef("%v", newLogClosure(func() string {
+	log.Trace("%v", newLogClosure(func() string {
 		return spew.Sdump(buf)
 	}))
 
@@ -1186,7 +1185,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debugf("%v", newLogClosure(func() string {
+	log.Debug("%v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1195,14 +1194,14 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
 			summary, p)
 	}))
-	log.Tracef("%v", newLogClosure(func() string {
+	log.Trace("%v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 
-	log.Tracef("%v", newLogClosure(func() string {
+	log.Trace("%v", newLogClosure(func() string {
 		var buf bytes.Buffer
 		_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
-			p.cfg.ChainParams.Net, enc)
+			p.cfg.ChainParams.BitcoinNet, enc)
 		if err != nil {
 			return err.Error()
 		}
@@ -1211,7 +1210,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 
 	// Write the message to the peer.
 	n, err := wire.WriteMessageWithEncodingN(p.conn, msg,
-		p.ProtocolVersion(), p.cfg.ChainParams.Net, enc)
+		p.ProtocolVersion(), p.cfg.ChainParams.BitcoinNet, enc)
 	atomic.AddUint64(&p.bytesSent, uint64(n))
 	if p.cfg.Listeners.OnWrite != nil {
 		p.cfg.Listeners.OnWrite(p, n, msg, err)
@@ -1224,7 +1223,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 // to send malformed messages without the peer being disconnected.
 func (p *Peer) isAllowedReadError(err error) bool {
 	// Only allow read errors in regression test mode.
-	if p.cfg.ChainParams.Net != wire.TestNet {
+	if p.cfg.ChainParams.BitcoinNet != bitcoinutil.TestNet {
 		return false
 	}
 
@@ -1395,7 +1394,7 @@ out:
 				handlerActive = false
 
 			default:
-				log.Warnf("Unsupported message command %v",
+				log.Warn("Unsupported message command %v",
 					msg.command)
 			}
 
@@ -1416,7 +1415,7 @@ out:
 					continue
 				}
 
-				log.Debugf("Peer %s appears to be stalled or "+
+				log.Debug("Peer %s appears to be stalled or "+
 					"misbehaving, %s timeout -- "+
 					"disconnecting", p, command)
 				p.Disconnect()
@@ -1454,7 +1453,7 @@ cleanup:
 			break cleanup
 		}
 	}
-	log.Tracef("Peer stall handler done for %s", p)
+	log.Trace("Peer stall handler done for %s", p)
 }
 
 // inHandler handles all incoming messages for the peer.  It must be run as a
@@ -1463,7 +1462,7 @@ func (p *Peer) inHandler(phCh chan<- *PeerMessage) {
 	// The timer is stopped when a new message is received and reset after it
 	// is processed.
 	idleTimer := time.AfterFunc(idleTimeout, func() {
-		log.Warnf("Peer %s no answer for %s -- disconnecting", p, idleTimeout)
+		log.Warn("Peer %s no answer for %s -- disconnecting", p, idleTimeout)
 		p.Disconnect()
 	})
 
@@ -1479,7 +1478,7 @@ out:
 			// disconnect the peer when we're in regression test mode and the
 			// error is one of the allowed errors.
 			if p.isAllowedReadError(err) {
-				log.Errorf("Allowed test error from %s: %v", p, err)
+				log.Error("Allowed test error from %s: %v", p, err)
 				idleTimer.Reset(idleTimeout)
 				continue
 			}
@@ -1490,7 +1489,7 @@ out:
 			if p.shouldHandleReadError(err) {
 				errMsg := fmt.Sprintf("Can't read message from %s: %v", p, err)
 				if err != io.ErrUnexpectedEOF {
-					log.Errorf(errMsg)
+					log.Error(errMsg)
 				}
 
 				// Push a reject message for the malformed message and wait for
@@ -1525,7 +1524,7 @@ out:
 		// 	// No read lock is necessary because verAckReceived is not written
 		// 	// to in any other goroutine.
 		// 	if p.verAckReceived {
-		// 		log.Infof("Already received 'verack' from peer %v -- "+
+		// 		log.Info("Already received 'verack' from peer %v -- "+
 		// 			"disconnecting", p)
 		// 		break out
 		// 	}
@@ -1664,7 +1663,7 @@ out:
 	p.Disconnect()
 
 	close(p.inQuit)
-	log.Tracef("Peer input handler done for %s", p)
+	log.Trace("Peer input handler done for %s", p)
 }
 
 // queueHandler handles the queuing of outgoing data for the peer. This runs as
@@ -1791,7 +1790,7 @@ cleanup:
 		}
 	}
 	close(p.queueQuit)
-	log.Tracef("Peer queue handler done for %s", p)
+	log.Trace("Peer queue handler done for %s", p)
 }
 
 // shouldLogWriteError returns whether or not the passed error, which is
@@ -1840,7 +1839,7 @@ out:
 			if err != nil {
 				p.Disconnect()
 				if p.shouldLogWriteError(err) {
-					log.Errorf("Failed to send message to "+
+					log.Error("Failed to send message to "+
 						"%s: %v", p, err)
 				}
 				if msg.doneChan != nil {
@@ -1884,7 +1883,7 @@ cleanup:
 		}
 	}
 	close(p.outQuit)
-	log.Tracef("Peer output handler done for %s", p)
+	log.Trace("Peer output handler done for %s", p)
 }
 
 // pingHandler periodically pings the peer.  It must be run as a goroutine.
@@ -1896,9 +1895,9 @@ out:
 	for {
 		select {
 		case <-pingTicker.C:
-			nonce, err := wire.RandomUint64()
+			nonce, err := util.RandomUint64()
 			if err != nil {
-				log.Errorf("Not sending ping to %s: %v", p, err)
+				log.Error("Not sending ping to %s: %v", p, err)
 				continue
 			}
 			p.QueueMessage(wire.NewMsgPing(nonce), nil)
@@ -1980,7 +1979,7 @@ func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
 		// and no point recomputing.
 		na, err := newNetAddress(p.conn.RemoteAddr(), p.services)
 		if err != nil {
-			log.Errorf("Cannot create remote net address: %v", err)
+			log.Error("Cannot create remote net address: %v", err)
 			p.Disconnect()
 			return
 		}
@@ -1989,7 +1988,7 @@ func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
 
 	go func() {
 		if err := p.start(phCh); err != nil {
-			log.Debugf("Cannot start peer %v: %v", p, err)
+			log.Debug("Cannot start peer %v: %v", p, err)
 			p.Disconnect()
 		}
 	}()
@@ -2011,7 +2010,7 @@ func (p *Peer) Disconnect() {
 		return
 	}
 
-	log.Tracef("Disconnecting %s", p)
+	log.Trace("Disconnecting %s", p)
 	if atomic.LoadInt32(&p.connected) != 0 {
 		p.conn.Close()
 	}
@@ -2020,7 +2019,7 @@ func (p *Peer) Disconnect() {
 
 // start begins processing input and output messages.
 func (p *Peer) start(phCh chan<- *PeerMessage) error {
-	log.Tracef("Starting peer %s", p)
+	log.Trace("Starting peer %s", p)
 
 	negotiateErr := make(chan error)
 	go func() {
@@ -2040,7 +2039,7 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	case <-time.After(negotiateTimeout):
 		return errors.New("protocol negotiation timeout")
 	}
-	log.Debugf("Connected to %s", p.Addr())
+	log.Debug("Connected to %s", p.Addr())
 
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
@@ -2079,7 +2078,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 	remoteVerMsg, ok := msg.(*wire.MsgVersion)
 	if !ok {
 		errStr := "A version message must precede all others"
-		log.Errorf(errStr)
+		log.Error(errStr)
 
 		rejectMsg := wire.NewMsgReject(msg.Command(), wire.RejectMalformed,
 			errStr)
@@ -2141,7 +2140,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 
 	// Set the chain parameters to testnet if the caller did not specify any.
 	if cfg.ChainParams == nil {
-		cfg.ChainParams = &chaincfg.TestNet3Params
+		cfg.ChainParams = &chainparams.TestNet3Params
 	}
 
 	p := Peer{

@@ -341,3 +341,5 @@ func FindBlockPos(state *block.ValidationState, pos *block.DiskBlockPos, nAddSiz
 		FlushBlockFile(!fKnown)
 		gLastBlockFile = nFile
 	}
+	return false
+}
