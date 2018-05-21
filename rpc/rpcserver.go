@@ -647,17 +647,6 @@ func InitRPCServer() (*Server, error) {
 			Listeners: rpcListeners,
 			// todo open
 			//StartupTime: s.startupTime,
-			//ConnMgr: &rpcConnManager{&s},
-			//SyncMgr:     &rpcSyncMgr{&s, s.syncManager},
-			//TimeSource:  s.timeSource,
-			//Chain:       s.chain,
-			//ChainParams: chainParams,
-			//DB:          db,
-			//TxMemPool:   s.txMemPool,
-			//Generator:   blockTemplateGenerator,
-			//CPUMiner:    s.cpuMiner,
-			//TxIndex:     s.txIndex,
-			//AddrIndex:   s.addrIndex,
 		})
 		if err != nil {
 			return nil, err
