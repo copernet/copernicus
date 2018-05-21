@@ -2,7 +2,6 @@ package service
 
 
 type GetNodeCount struct {
-
 }
 
 type GetNodeCountResponse struct {
