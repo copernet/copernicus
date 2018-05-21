@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/internal/btcjson"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/util"
+	"strconv"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -504,13 +505,12 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 		Bytes:      mempool.Gpool.GetPoolAllTxSize(),
 		Usage:      mempool.Gpool.GetPoolUsage(),
 		MaxMempool: mempool.Gpool.MaxMemPoolSize,
-		//MempoolMinFee: valueFromAmount(mempool.GetMinFee(maxMempool)),		// todo realise
+		MempoolMinFee: valueFromAmount(mempool.Gpool.GetMinFeeRate().SataoshisPerK),
 	}
-
 	return ret, nil
 }
 
-func valueFromAmount(sizeLimit int64) string {
+func valueFromAmount(sizeLimit int64) float64 {
 	sign := sizeLimit < 0
 	var nAbs int64
 	if sign {
@@ -522,10 +522,17 @@ func valueFromAmount(sizeLimit int64) string {
 	quotient := nAbs / util.COIN
 	remainder := nAbs % util.COIN
 
+	var strValue string
 	if sign {
-		return fmt.Sprintf("-%d.%08d", quotient, remainder)
+		strValue = fmt.Sprintf("-%d.%08d", quotient, remainder)
 	}
-	return fmt.Sprintf("%d.%08d", quotient, remainder)
+	strValue = fmt.Sprintf("%d.%08d", quotient, remainder)
+
+	result , err := strconv.ParseFloat(strValue, 64)
+	if err == nil {
+		return 0
+	}
+	return result
 }
 
 func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

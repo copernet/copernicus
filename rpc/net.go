@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/internal/btcjson"
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"

@@ -22,11 +22,11 @@ import (
 
 	"context"
 
-	"github.com/btcboost/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/connmgr"
-	"github.com/btcboost/copernicus/limits"
 	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/net/addrmgr"
+	"github.com/btcboost/copernicus/net/connmgr"
+	"github.com/btcboost/copernicus/net/limits"
 )
 
 const (
