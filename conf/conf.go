@@ -36,7 +36,7 @@ type AppConfig struct {
 
 	DisableListen bool `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --conn or --proxy options are used without also specifying listen interfaces via --listen"`
 
-	lookup         util.LookupFunc
+	// lookup         util.LookupFunc
 	DisableDNSSeed bool `long:"nodnsseed" description:"Disable DNS seeding for peers"`
 
 	oniondial func(string, string, time.Duration) (net.Conn, error)
@@ -96,4 +96,34 @@ func AppDial(address net.Addr) (net.Conn, error) {
 		return AppConf.oniondial(address.Network(), address.String(), DefaultConnectTimeout)
 	}
 	return AppConf.dial(address.Network(), address.String(), DefaultConnectTimeout)
+}
+
+var CFG = struct {
+	RPCUser              string
+	RPCPass              string
+	RPCLimitUser         string
+	RPCLimitPass         string
+	RPCListeners         []string
+	RPCCert              string
+	RPCKey               string
+	RPCMaxClients        int
+	RPCMaxWebsockets     int
+	RPCMaxConcurrentReqs int
+	RPCQuirks            bool
+	DisableRPC           bool
+	DisableTLS           bool
+}{
+	RPCUser:              "rpc",
+	RPCPass:              "rpc",
+	RPCLimitUser:         "",
+	RPCLimitPass:         "",
+	RPCListeners:         []string{"127.0.0.1:8334"},
+	RPCCert:              "",
+	RPCKey:               "",
+	RPCMaxClients:        10,
+	RPCMaxWebsockets:     25,
+	RPCMaxConcurrentReqs: 20,
+	RPCQuirks:            false,
+	DisableRPC:           false,
+	DisableTLS:           true,
 }
