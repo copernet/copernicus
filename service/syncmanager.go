@@ -11,16 +11,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/mempool"
-	lpool "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	lpool "github.com/btcboost/copernicus/logic/mempool"
+	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/peer"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
 
 const (
@@ -1396,7 +1396,7 @@ func New(config *Config) (*SyncManager, error) {
 		requestedTxns:   make(map[chainhash.Hash]struct{}),
 		requestedBlocks: make(map[chainhash.Hash]struct{}),
 		peerStates:      make(map[*peer.Peer]*peerSyncState),
-		progressLogger:  newBlockProgressLogger("Processed", log.),
+		progressLogger:  newBlockProgressLogger("Processed"),
 		msgChan:         make(chan interface{}, config.MaxPeers*3),
 		headerList:      list.New(),
 		quit:            make(chan struct{}),
@@ -1417,4 +1417,3 @@ func New(config *Config) (*SyncManager, error) {
 
 	return &sm, nil
 }
-
