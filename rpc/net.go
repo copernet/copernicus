@@ -87,10 +87,7 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.AddNodeCmd)
-
-	addr := normalizeAddress(c.Addr, consensus.ActiveNetParams.DefaultPort)
-	nodeCmd := service.NodeOperateMsg{addr, 0}
-	_, err := s.Handler.ProcessForRpc(nodeCmd)
+	_, err := s.Handler.ProcessForRpc(c)
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
@@ -98,7 +95,6 @@ func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		}
 	}
 
-	// no data returned unless an error.
 	return nil, nil
 }
 
