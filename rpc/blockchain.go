@@ -6,17 +6,11 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/logic/valistate"
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
-	"github.com/pkg/errors"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -218,7 +212,7 @@ func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	return nil, nil
 }
 
-func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails bool) *btcjson.GetBlockVerboseResult {
+/*func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails bool) *btcjson.GetBlockVerboseResult {
 	confirmations := -1
 	// Only report confirmations if the block is on the main chain
 	if chain.GlobalChain.Contains(index) {
@@ -263,7 +257,7 @@ func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails boo
 		PreviousHash:  previousHash,
 		NextHash:      nextBlockHash,
 	}
-}
+}*/                  // TODO open
 
 func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 /*
