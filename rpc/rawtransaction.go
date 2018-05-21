@@ -68,7 +68,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		if err != nil {
 			return nil, err
 		}
-		return *rawTxn, nil*///TODO open
+		return *rawTxn, nil*///   TODO open
 	return nil, nil
 }
 
