@@ -115,7 +115,7 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		//PooledTx:           uint64(mempool.Size()),              TODO
 		Chain: consensus.MainNetParams.Name,
 	}
-	return &result, nil*/        // TODO open
+	return &result, nil*/        // todo open
 	return nil, nil
 }
 
@@ -556,7 +556,7 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	}
 	_ = extraNonce
 
-	return ret, nil*/             // TODO open
+	return ret, nil*/             // todo open
 	return nil, nil
 }
 
