@@ -23,19 +23,21 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/addrmgr"
-	"github.com/btcboost/copernicus/chaincfg"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/connmgr"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/bitcointime"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/netsync"
-	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/service"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernicus/addrmgr"
+	"github.com/copernicus/conf"
+	"github.com/copernicus/connmgr"
+	"github.com/copernicus/log"
+	"github.com/copernicus/model/bitcointime"
+	"github.com/copernicus/net/wire"
+	"github.com/copernicus/peer"
+	"github.com/copernicus/service"
+	"github.com/copernicus/util"
 	"github.com/btcsuite/btcutil/bloom"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/copernicus/model/chainparams"
+	"github.com/copernicus/model/tx"
+	"github.com/copernicus/util/amount"
+	"github.com/copernicus/model/mempool"
 )
 
 const (
@@ -195,13 +197,13 @@ type server struct {
 	shutdownSched int32
 	startupTime   int64
 
-	chainParams *chaincfg.Params
+	chainParams *chainparams.BitcoinParams
 	addrManager *addrmgr.AddrManager
 	connManager *connmgr.ConnManager
 	// sigCache             *txscript.SigCache
 	// hashCache            *txscript.HashCache
 	// rpcServer *rpcServer
-	syncManager *netsync.SyncManager
+	//syncManager *netsync.SyncManager
 	// chain                *blockchain.BlockChain
 	// txMemPool            *mempool.TxPool
 	// cpuMiner             *cpuminer.CPUMiner
@@ -376,7 +378,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 	// Add the remote peer time as a sample for creating an offset against
 	// the local clock to keep the network time in sync.
-	sp.server.timeSource.AddTimeSample(sp.Addr(), msg.Timestamp)
+	sp.server.timeSource.AddTimeSample(sp.Addr(), time.Unix(msg.Timestamp, 0))
 
 	// Signal the sync manager this peer is a new sync candidate.
 	sp.server.syncManager.NewPeer(sp.Peer)
@@ -487,7 +489,7 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	// Add the transaction to the known inventory for the peer.
 	// Convert the raw MsgTx to a btcutil.Tx which provides some convenience
 	// methods and things such as hash caching.
-	tx := btcutil.NewTx(msg)
+	tx := tx.NewTx(msg)
 	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
 	sp.AddKnownInventory(iv)
 
@@ -531,7 +533,7 @@ func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 // accordingly.  We pass the message down to blockmanager which will call
 // QueueMessage with any appropriate responses.
 func (sp *serverPeer) OnInv(_ *peer.Peer, msg *wire.MsgInv) {
-	if !cfg.BlocksOnly {
+	if !conf.Cfg.P2PNet.BlocksOnly {
 		if len(msg.InvList) > 0 {
 			sp.server.syncManager.QueueInv(msg, sp.Peer)
 		}
@@ -603,16 +605,10 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 		}
 		var err error
 		switch iv.Type {
-		case wire.InvTypeWitnessTx:
-			err = sp.server.pushTxMsg(sp, &iv.Hash, c, waitChan, wire.WitnessEncoding)
 		case wire.InvTypeTx:
 			err = sp.server.pushTxMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
-		case wire.InvTypeWitnessBlock:
-			err = sp.server.pushBlockMsg(sp, &iv.Hash, c, waitChan, wire.WitnessEncoding)
 		case wire.InvTypeBlock:
 			err = sp.server.pushBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
-		case wire.InvTypeFilteredWitnessBlock:
-			err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.WitnessEncoding)
 		case wire.InvTypeFilteredBlock:
 			err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
 		default:
@@ -736,7 +732,7 @@ func (sp *serverPeer) enforceNodeBloomFlag(cmd string) bool {
 		// to ensure the violation is logged and the peer is
 		// disconnected regardless.
 		if sp.ProtocolVersion() >= wire.BIP0111Version &&
-			!cfg.DisableBanning {
+			!conf.Cfg.P2PNet.DisableBanning {
 
 			// Disconnect the peer regardless of whether it was
 			// banned.
@@ -762,9 +758,9 @@ func (sp *serverPeer) enforceNodeBloomFlag(cmd string) bool {
 // disconnected if an invalid fee filter value is provided.
 func (sp *serverPeer) OnFeeFilter(_ *peer.Peer, msg *wire.MsgFeeFilter) {
 	// Check that the passed minimum fee is a valid amount.
-	if msg.MinFee < 0 || msg.MinFee > btcutil.MaxSatoshi {
+	if msg.MinFee < 0 || msg.MinFee > util.MaxSatoshi {
 		log.Debug("Peer %v sent an invalid feefilter '%v' -- "+
-			"disconnecting", sp, btcutil.Amount(msg.MinFee))
+			"disconnecting", sp, amount.Amount(msg.MinFee))
 		sp.Disconnect()
 		return
 	}
@@ -805,7 +801,7 @@ func (sp *serverPeer) OnFilterClear(_ *peer.Peer, msg *wire.MsgFilterClear) {
 	}
 
 	if !sp.filter.IsLoaded() {
-		peerLog.Debugf("%s sent a filterclear request with no "+
+		log.Debug("%s sent a filterclear request with no "+
 			"filter loaded -- disconnecting", sp)
 		sp.Disconnect()
 		return
@@ -839,7 +835,7 @@ func (sp *serverPeer) OnGetAddr(_ *peer.Peer, msg *wire.MsgGetAddr) {
 	// network.  This helps prevent the network from becoming another
 	// public test network since it will not be able to learn about other
 	// peers that have not specifically been provided.
-	if cfg.SimNet {
+	if conf.Cfg.P2PNet.SimNet {
 		return
 	}
 
@@ -874,7 +870,7 @@ func (sp *serverPeer) OnAddr(_ *peer.Peer, msg *wire.MsgAddr) {
 	// helps prevent the network from becoming another public test network
 	// since it will not be able to learn about other peers that have not
 	// specifically been provided.
-	if cfg.SimNet {
+	if conf.Cfg.P2PNet.SimNet {
 		return
 	}
 
@@ -902,7 +898,7 @@ func (sp *serverPeer) OnAddr(_ *peer.Peer, msg *wire.MsgAddr) {
 		// removed when space is needed.
 		now := time.Now()
 		if na.Timestamp.After(now.Add(time.Minute * 10)) {
-			na.Timestamp = now.Add(-1 * time.Hour * 24 * 5)
+			na.Timestamp = uint32(now.Add(-1 * time.Hour * 24 * 5).Unix())
 		}
 
 		// Add address to known addresses for this peer.
@@ -971,9 +967,9 @@ func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 
 // relayTransactions generates and relays inventory vectors for all of the
 // passed transactions to all connected peers.
-func (s *server) relayTransactions(txns []*mempool.TxDesc) {
+func (s *server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
-		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.Hash())
+		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.Hash)
 		s.RelayInventory(iv, txD)
 	}
 }
@@ -982,7 +978,7 @@ func (s *server) relayTransactions(txns []*mempool.TxDesc) {
 // both websocket and getblocktemplate long poll clients of the passed
 // transactions.  This function should be called whenever new transactions
 // are added to the mempool.
-func (s *server) AnnounceNewTransactions(txns []*mempool.TxDesc) {
+func (s *server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 	// Generate and relay inventory vectors for all newly accepted
 	// transactions.
 	s.relayTransactions(txns)
@@ -1016,7 +1012,7 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 	// to fetch a missing transaction results in the same behavior.
 	tx, err := s.txMemPool.FetchTransaction(hash)
 	if err != nil {
-		log.Tracef("Unable to fetch tx %v from transaction "+
+		log.Trace("Unable to fetch tx %v from transaction "+
 			"pool: %v", hash, err)
 
 		if doneChan != nil {
@@ -1226,9 +1222,9 @@ func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	// TODO: Check for max peers from a single IP.
 
 	// Limit max number of total peers.
-	if state.Count() >= cfg.MaxPeers {
+	if state.Count() >= conf.Cfg.P2PNet.MaxPeers {
 		log.Info("Max peers reached [%d] - disconnecting peer %s",
-			cfg.MaxPeers, sp)
+			conf.Cfg.P2PNet.MaxPeers, sp)
 		sp.Disconnect()
 		// TODO: how to handle permanent peers here?
 		// they should be rescheduled.
@@ -1298,8 +1294,8 @@ func (s *server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 	}
 	direction := directionString(sp.Inbound())
 	log.Info("Banned peer %s (%s) for %v", host, direction,
-		cfg.BanDuration)
-	state.banned[host] = time.Now().Add(cfg.BanDuration)
+		conf.Cfg.P2PNet.BanDuration)
+	state.banned[host] = time.Now().Add(conf.Cfg.P2PNet.BanDuration)
 }
 
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
@@ -1337,7 +1333,7 @@ func (s *server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 				return
 			}
 
-			txD, ok := msg.data.(*mempool.TxDesc)
+			txD, ok := msg.data.(*mempool.TxEntry)
 			if !ok {
 				log.Warn("Underlying data for tx inv "+
 					"relay is not a *mempool.TxDesc: %T",
@@ -1445,7 +1441,7 @@ func (s *server) handleQuery(state *peerState, querymsg interface{}) {
 	case connectNodeMsg:
 		// TODO: duplicate oneshots?
 		// Limit max number of total peers.
-		if state.Count() >= cfg.MaxPeers {
+		if state.Count() >= conf.Cfg.P2PNet.MaxPeers {
 			msg.reply <- errors.New("max peers reached")
 			return
 		}
@@ -1467,7 +1463,7 @@ func (s *server) handleQuery(state *peerState, querymsg interface{}) {
 		}
 
 		// TODO: if too many, nuke a non-perm peer.
-		go s.connManager.Connect(&connmgr.ConnReq{
+		go s.connManager.Connect(ctx,&connmgr.ConnReq{
 			Addr:      netAddr,
 			Permanent: msg.permanent,
 		})
@@ -1585,13 +1581,13 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 		},
 		NewestBlock:       sp.newestBlock,
 		HostToNetAddress:  sp.server.addrManager.HostToNetAddress,
-		Proxy:             cfg.Proxy,
+		Proxy:             conf.Cfg.P2PNet.Proxy,
 		UserAgentName:     userAgentName,
 		UserAgentVersion:  userAgentVersion,
-		UserAgentComments: cfg.UserAgentComments,
+		UserAgentComments: conf.Cfg.P2PNet.UserAgentComments,
 		ChainParams:       sp.server.chainParams,
 		Services:          sp.server.services,
-		DisableRelayTx:    cfg.BlocksOnly,
+		DisableRelayTx:    conf.Cfg.P2PNet.BlocksOnly,
 		ProtocolVersion:   peer.MaxProtocolVersion,
 	}
 }
@@ -1671,7 +1667,7 @@ func (s *server) peerHandler() {
 		outboundGroups:  make(map[string]int),
 	}
 
-	if !cfg.DisableDNSSeed {
+	if !conf.Cfg.P2PNet.DisableDNSSeed {
 		// Add peers discovered through DNS to the address manager.
 		connmgr.SeedFromDNS(activeNetParams.Params, defaultRequiredServices,
 			net.LookupIP, func(addrs []*wire.NetAddress) {
@@ -1719,7 +1715,7 @@ out:
 		case <-s.quit:
 			// Disconnect all peers on server shutdown.
 			state.forAllPeers(func(sp *serverPeer) {
-				log.Tracef("Shutdown peer %s", sp)
+				log.Trace("Shutdown peer %s", sp)
 				sp.Disconnect()
 			})
 			break out
@@ -1902,7 +1898,7 @@ func (s *server) Start() {
 		go s.upnpUpdateThread()
 	}
 
-	if !cfg.DisableRPC {
+	if !conf.Cfg.P2PNet.DisableRPC {
 		s.wg.Add(1)
 
 		// Start the rebroadcastHandler, which ensures user tx received by
@@ -1933,7 +1929,7 @@ func (s *server) Stop() error {
 	// s.cpuMiner.Stop()
 
 	// Shutdown the RPC server if it's not disabled.
-	if !cfg.DisableRPC {
+	if !conf.Cfg.P2PNet.DisableRPC {
 		s.rpcServer.Stop()
 	}
 
@@ -2035,7 +2031,7 @@ func (s *server) upnpUpdateThread() {
 	// Go off immediately to prevent code duplication, thereafter we renew
 	// lease every 15 minutes.
 	timer := time.NewTimer(0 * time.Second)
-	lport, _ := strconv.ParseInt(activeNetParams.DefaultPort, 10, 16)
+	lport, _ := strconv.ParseInt(chainparams.ActiveNetParams.DefaultPort, 10, 16)
 	first := true
 out:
 	for {
@@ -2091,16 +2087,16 @@ out:
 func setupRPCListeners() ([]net.Listener, error) {
 	// Setup TLS if not disabled.
 	listenFunc := net.Listen
-	if !cfg.DisableTLS {
+	if !conf.Cfg.P2PNet.DisableTLS {
 		// Generate the TLS cert and key file if both don't already
 		// exist.
-		if !fileExists(cfg.RPCKey) && !fileExists(cfg.RPCCert) {
-			err := genCertPair(cfg.RPCCert, cfg.RPCKey)
+		if !fileExists(conf.Cfg.RPC.RPCKey) && !fileExists(conf.Cfg.RPC.RPCCert) {
+			err := genCertPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
 			if err != nil {
 				return nil, err
 			}
 		}
-		keypair, err := tls.LoadX509KeyPair(cfg.RPCCert, cfg.RPCKey)
+		keypair, err := tls.LoadX509KeyPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
 		if err != nil {
 			return nil, err
 		}
@@ -2116,7 +2112,7 @@ func setupRPCListeners() ([]net.Listener, error) {
 		}
 	}
 
-	netAddrs, err := parseListeners(cfg.RPCListeners)
+	netAddrs, err := parseListeners(conf.Cfg.RPC.RPCListeners)
 	if err != nil {
 		return nil, err
 	}
@@ -2375,7 +2371,7 @@ func setupRPCListeners() ([]net.Listener, error) {
 // 	return &s, nil
 // }
 
-func newServer(chainParams *chaincfg.Params, interrupt <-chan struct{}) (*server, error) {
+func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}) (*server, error) {
 
 	cfg := conf.Cfg
 
@@ -2490,15 +2486,15 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 	}
 
 	var nat NAT
-	if len(cfg.ExternalIPs) != 0 {
-		defaultPort, err := strconv.ParseUint(activeNetParams.DefaultPort, 10, 16)
+	if len(conf.Cfg.P2PNet.ExternalIPs) != 0 {
+		defaultPort, err := strconv.ParseUint(chainparams.ActiveNetParams.DefaultPort, 10, 16)
 		if err != nil {
 			log.Error("Can not parse default port %s for active chain: %v",
-				activeNetParams.DefaultPort, err)
+				chainparams.ActiveNetParams.DefaultPort, err)
 			return nil, nil, err
 		}
 
-		for _, sip := range cfg.ExternalIPs {
+		for _, sip := range conf.Cfg.P2PNet.ExternalIPs {
 			eport := uint16(defaultPort)
 			host, portstr, err := net.SplitHostPort(sip)
 			if err != nil {
@@ -2525,7 +2521,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 			}
 		}
 	} else {
-		if cfg.Upnp {
+		if conf.Cfg.P2PNet.Upnp {
 			var err error
 			nat, err = Discover()
 			if err != nil {
@@ -2573,7 +2569,7 @@ func addrStringToNetAddr(addr string) (net.Addr, error) {
 	// Tor addresses cannot be resolved to an IP, so just return an onion
 	// address instead.
 	if strings.HasSuffix(host, ".onion") {
-		if cfg.NoOnion {
+		if conf.Cfg.P2PNet.NoOnion {
 			return nil, errors.New("tor has been disabled")
 		}
 
@@ -2666,7 +2662,7 @@ func dynamicTickDuration(remaining time.Duration) time.Duration {
 // isWhitelisted returns whether the IP address is included in the whitelisted
 // networks and IPs.
 func isWhitelisted(addr net.Addr) bool {
-	if len(cfg.whitelists) == 0 {
+	if len(conf.Cfg.P2PNet.Whitelists) == 0 {
 		return false
 	}
 
@@ -2681,7 +2677,7 @@ func isWhitelisted(addr net.Addr) bool {
 		return false
 	}
 
-	for _, ipnet := range cfg.whitelists {
+	for _, ipnet := range conf.Cfg.P2PNet.Whitelists {
 		if ipnet.Contains(ip) {
 			return true
 		}
