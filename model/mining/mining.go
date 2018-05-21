@@ -11,6 +11,7 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/merkleroot"
@@ -19,6 +20,7 @@ import (
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/go-xorm/core"
@@ -72,14 +74,14 @@ type BlockAssembler struct {
 	inBlock               map[util.Hash]struct{}
 	height                int
 	lockTimeCutoff        int64
-	chainParams           *consensus.BitcoinParams
+	chainParams           *chainparams.BitcoinParams
 }
 
-func NewBlockAssembler(params *consensus.BitcoinParams) *BlockAssembler {
+func NewBlockAssembler(params *chainparams.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
-	v := util.GetArg("-blockmintxfee", int64(tx.DefaultBlockMinTxFee))
+	v := util.GetArg("-blockmintxfee", DefaultBlockMinTxFee)
 	ba.blockMinFeeRate = *util.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	return ba
@@ -108,7 +110,7 @@ func (ba *BlockAssembler) testPackage(packageSize uint64, packageSigOps int64, a
 }
 
 func (ba *BlockAssembler) addToBlock(te *mempool.TxEntry) {
-	ba.bt.Block.Transactions = append(ba.bt.Block.Transactions, te.Tx)
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, te.Tx)
 	ba.bt.TxFees = append(ba.bt.TxFees, amount.Amount(te.TxFee))
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, te.SigOpCount)
 	ba.blockSize += uint64(te.TxSize)
@@ -123,7 +125,7 @@ func computeMaxGeneratedBlockSize() uint64 {
 	// If -blockmaxsize is not given, limit to DEFAULT_MAX_GENERATED_BLOCK_SIZE
 	// If only one is given, only restrict the specified resource.
 	// If both are given, restrict both.
-	maxGeneratedBlockSize := uint64(util.GetArg("-blockmaxsize", int64(tx.DefaultMaxGeneratedBlockSize)))
+	maxGeneratedBlockSize := uint64(util.GetArg("-blockmaxsize", DefaultMaxGeneratedBlockSize))
 
 	// Limit size to between 1K and MaxBlockSize-1K for sanity:
 	csize := consensus.DefaultMaxBlockSize - 1000
@@ -239,8 +241,8 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.resetBlockAssembler()
 
 	// add dummy coinbase tx as first transaction
-	ba.bt.Block.Txs = make([]*core.Tx, 0, 100000)
-	ba.bt.Block.Txs = append(ba.bt.Block.Txs, core.NewTx())
+	ba.bt.Block.Txs = make([]*tx.Tx, 0, 100000)
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx())
 	ba.bt.TxFees = make([]amount.Amount, 0, 100000)
 	ba.bt.TxFees = append(ba.bt.TxFees, -1)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
@@ -255,7 +257,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.height = indexPrev.Height + 1
 	}
-	ba.bt.Block.Header.Version = int32(chain.ComputeBlockVersion(indexPrev, consensus.ActiveNetParams, chain.VBCache)) // todo deal with nil param
+	ba.bt.Block.Header.Version = int32(chain.ComputeBlockVersion(indexPrev, chainparams.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
@@ -263,7 +265,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	}
 	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
-	if consensus.StandardLocktimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+	if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
 		//ba.lockTimeCutoff = indexPrev.GetMedianTimePast() // todo fix
 		ba.lockTimeCutoff = 1
 	} else {
@@ -280,7 +282,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// Create coinbase transaction
 	coinbaseTx := tx.NewTx()
-	coinbaseTx.Ins = make([]*core.TxIn, 1)
+	coinbaseTx.Ins = make([]*txin.TxIn, 1)
 	sig := script.Script{}
 	sig.PushInt64(int64(ba.height))
 	sig.PushOpCode(core.OP_0)
@@ -337,7 +339,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 	potentialBlockSize := ba.blockSize
 	for entry := range entrySet {
 		state := core.ValidationState{}
-		if !tx.ContextualCheckTransaction(ba.chainParams, entry.Tx, &state, ba.height, ba.lockTimeCutoff) {
+		if !entry.Tx.ContextualCheckTransaction(ba.chainParams, &state, ba.height, ba.lockTimeCutoff) { // TODO
 			return false
 		}
 
