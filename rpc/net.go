@@ -1,13 +1,15 @@
 package rpc
 
 import (
+	"fmt"
+	"math"
+	"time"
+
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/service"
-	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
-	"math"
-	"fmt"
-	"time"
 )
 
 var netHandlers = map[string]commandHandler{
@@ -45,36 +47,42 @@ func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 }
 
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	getPeerCmd := service.GetPeersMsg{}
-	peers, _ := s.Handler.ProcessForRpc(getPeerCmd)
-
+	getPeerInfoCmd := &service.GetPeersInfoMsg{}
+	ret, _ := s.Handler.ProcessForRpc(getPeerInfoCmd) // todo Alert: match with return type
+	peers := ret.([]*peer.Peer)
 	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()
 	infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
-	for _, p := range peers {
-		statsSnap := p.ToPeer().StatsSnapshot()
+	for _, item := range peers {
+		statsSnap := item.StatsSnapshot()
 		info := &btcjson.GetPeerInfoResult{
-			ID:             statsSnap.ID,
-			Addr:           statsSnap.Addr,
-			AddrLocal:      p.ToPeer().LocalAddr().String(),
-			Services:       fmt.Sprintf("%08d", uint64(statsSnap.Services)),
-			RelayTxes:      !p.IsTxRelayDisabled(),
-			LastSend:       statsSnap.LastSend.Unix(),
-			LastRecv:       statsSnap.LastRecv.Unix(),
-			BytesSent:      statsSnap.BytesSent,
-			BytesRecv:      statsSnap.BytesRecv,
-			ConnTime:       statsSnap.ConnTime.Unix(),
-			TimeOffset:     statsSnap.TimeOffset,
-			PingTime:       float64(statsSnap.LastPingMicros),
-			Version:        statsSnap.Version,
-			SubVer:         statsSnap.UserAgent,
-			Inbound:        statsSnap.Inbound,
-			AddNode:        statsSnap.AddNode,
-			StartingHeight: statsSnap.StartingHeight,
-			BanScore:       int32(p.BanScore()),
-			FeeFilter:      p.FeeFilter(),
-			SyncNode:       statsSnap.ID == syncPeerID,
+			ID:              statsSnap.ID,
+			Addr:            statsSnap.Addr,
+			AddrLocal:       item.LocalAddr().String(),
+			Services:        fmt.Sprintf("%08d", uint64(statsSnap.Services)),
+			RelayTxes:       !item.IsTxRelayDisabled(), // TODO
+			LastSend:        statsSnap.LastSend.Unix(),
+			LastRecv:        statsSnap.LastRecv.Unix(),
+			BytesSent:       statsSnap.BytesSent,
+			BytesRecv:       statsSnap.BytesRecv,
+			ConnTime:        statsSnap.ConnTime.Unix(),
+			TimeOffset:      statsSnap.TimeOffset,
+			PingTime:        float64(statsSnap.LastPingMicros),
+			MinPing:         000,
+			Version:         statsSnap.Version,
+			SubVer:          statsSnap.UserAgent,
+			Inbound:         statsSnap.Inbound,
+			AddNode:         item.AddNode, // TODO
+			StartingHeight:  statsSnap.StartingHeight,
+			BanScore:        int32(item.BanScore()), // TODO
+			SyncedHeaders:   000,                    // TODO
+			SyncedBlocks:    000,                    // TODO
+			Inflight:        []int{},                // TODO
+			WhiteListed:     false,                  // TODO
+			CashMagic:       false,                  // TODO
+			BytesSendPerMsg: map[string]uint64{},    // TODO
+			BytesRecvPerMsg: map[string]uint64{},    // TODO
 		}
-		if p.ToPeer().LastPingNonce() != 0 {
+		if item.LastPingNonce() != 0 {
 			wait := float64(time.Since(statsSnap.LastPingTime).Nanoseconds())
 			// We actually want microseconds.
 			info.PingWait = wait / 1000

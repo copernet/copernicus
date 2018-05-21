@@ -86,7 +86,7 @@ type GetAddedNodeInfoResult struct {
 type SoftForkDescription struct {
 	ID      string `json:"id"`
 	Version uint32 `json:"version"`
-	Reject struct {
+	Reject  struct {
 		Status bool `json:"status"`
 	} `json:"reject"`
 }
@@ -246,33 +246,33 @@ type GetNetworkInfoResult struct {
 
 // GetPeerInfoResult models the data returned from the getpeerinfo command.
 type GetPeerInfoResult struct {
-	ID             int32   `json:"id"`
-	Addr           string  `json:"addr"`
-	AddrLocal      string  `json:"addrlocal,omitempty"`
-	Services       string  `json:"services"`
-	RelayTxes      bool    `json:"relaytxes"`
-	LastSend       int64   `json:"lastsend"`
-	LastRecv       int64   `json:"lastrecv"`
-	BytesSent      uint64  `json:"bytessent"`
-	BytesRecv      uint64  `json:"bytesrecv"`
-	ConnTime       int64   `json:"conntime"`
-	TimeOffset     int64   `json:"timeoffset"`
-	PingTime       float64 `json:"pingtime"`
-	PingWait       float64 `json:"pingwait,omitempty"`
-	Version        uint32  `json:"version"`
-	SubVer         string  `json:"subver"`
-	Inbound        bool    `json:"inbound"`
-	StartingHeight int32   `json:"startingheight"`
-	CurrentHeight  int32   `json:"currentheight,omitempty"`
-	BanScore       int32   `json:"banscore"`
-	SyncedHeaders  int     `json:"synced_headers"`
-	SyncedBlocks   int     `json:"synced_blocks"`
-	Inflight       []int   `json:"inflight"`
-	WhiteListed    bool    `json:"whitelisted"`
-	CashMagic      bool    `json:"cashmagic"`
-
-	//FeeFilter      int64   `json:"feefilter"`
-	//SyncNode       bool    `json:"syncnode"`
+	ID              int32             `json:"id"`
+	Addr            string            `json:"addr"`
+	AddrLocal       string            `json:"addrlocal,omitempty"`
+	Services        string            `json:"services"`
+	RelayTxes       bool              `json:"relaytxes"`
+	LastSend        int64             `json:"lastsend"`
+	LastRecv        int64             `json:"lastrecv"`
+	BytesSent       uint64            `json:"bytessent"`
+	BytesRecv       uint64            `json:"bytesrecv"`
+	ConnTime        int64             `json:"conntime"`
+	TimeOffset      int64             `json:"timeoffset"`
+	PingTime        float64           `json:"pingtime,omitempty"`
+	MinPing         float64           `json:"minping,omitempty"`
+	PingWait        float64           `json:"pingwait,omitempty"`
+	Version         uint32            `json:"version"`
+	SubVer          string            `json:"subver"`
+	Inbound         bool              `json:"inbound"`
+	AddNode         bool              `json:"addnode"`
+	StartingHeight  int32             `json:"startingheight"`
+	BanScore        int32             `json:"banscore,omitempty"`
+	SyncedHeaders   int               `json:"synced_headers,omitempty"`
+	SyncedBlocks    int               `json:"synced_blocks,omitempty"`
+	Inflight        []int             `json:"inflight,omitempty"`
+	WhiteListed     bool              `json:"whitelisted"`
+	CashMagic       bool              `json:"cashmagic"`
+	BytesSendPerMsg map[string]uint64 `json:"bytessent_per_msg"`
+	BytesRecvPerMsg map[string]uint64 `json:"bytesrecv_per_msg"`
 }
 
 // GetRawMempoolVerboseResult models the data returned from the getrawmempool
