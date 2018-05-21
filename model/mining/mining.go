@@ -242,7 +242,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// add dummy coinbase tx as first transaction
 	ba.bt.Block.Txs = make([]*tx.Tx, 0, 100000)
-	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx())
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0xffffffff))
 	ba.bt.TxFees = make([]amount.Amount, 0, 100000)
 	ba.bt.TxFees = append(ba.bt.TxFees, -1)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
@@ -310,7 +310,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.Block.Header.Nonce = 0
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
-	state := ValidationState{}
+	state := block.ValidationState{}
 	if !chain.TestBlockValidity(ba.chainParams, &state, ba.bt.Block, indexPrev, false, false) {
 		panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
 	}
@@ -337,7 +337,7 @@ func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}
 func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]struct{}) bool {
 	potentialBlockSize := ba.blockSize
 	for entry := range entrySet {
-		state := ValidationState{}
+		state := block.ValidationState{}
 		if !entry.Tx.ContextualCheckTransaction(ba.chainParams, &state, ba.height, ba.lockTimeCutoff) { // TODO
 			return false
 		}

@@ -19,7 +19,7 @@ type TestMemPoolEntry struct {
 	Height         int
 	SpendsCoinbase bool
 	SigOpCost      int
-	lp             *tx.LockPoints
+	lp             *mempool.LockPoints
 }
 
 func NewTestMemPoolEntry() *TestMemPoolEntry {
@@ -60,7 +60,7 @@ func (t *TestMemPoolEntry) SetSigOpsCost(sigOpsCost int) *TestMemPoolEntry {
 }
 
 func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
-	lp := tx.LockPoints{}
+	lp := mempool.LockPoints{}
 	if t.lp != nil {
 		lp = *(t.lp)
 	}
