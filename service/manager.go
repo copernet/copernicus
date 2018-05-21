@@ -9,7 +9,6 @@ type GetNodeCountResponse struct {
 }
 
 type GetPeersMsg struct{
-
 }
 
 type GetSyncPeerMsg struct {
