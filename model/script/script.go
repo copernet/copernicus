@@ -918,7 +918,6 @@ func (script *Script) GetSigOpCount(accurate bool) (int, error) {
 				opn, err := DecodeOPN(lastOpcode)
 				if err != nil {
 					return 0, err
-
 				}
 				n += opn
 			} else {

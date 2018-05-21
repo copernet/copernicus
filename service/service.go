@@ -1,7 +1,6 @@
 // Copyright (c) 2013-2017 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
-
 package service
 
 import (
@@ -26,6 +25,7 @@ import (
 	"github.com/btcsuite/btcd/blockchain"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/connmgr"
+	"github.com/btcboost/copernicus/internal/btcjson"
 )
 
 // peerSyncState stores additional information that the SyncManager tracks
@@ -38,9 +38,9 @@ type peerSyncState struct {
 }
 
 type MsgHandle struct {
-	mtx sync.Mutex
-	recvFromNet  	<- chan peer.PeerMessage
-	txAndBlockPro	chan peer.PeerMessage
+	mtx           sync.Mutex
+	recvFromNet   <-chan peer.PeerMessage
+	txAndBlockPro chan peer.PeerMessage
 	chainparam    *chainparams.BitcoinParams
 	//connect manager
 	connManager connmgr.ConnManager
@@ -61,15 +61,15 @@ type MsgHandle struct {
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <- chan peer.PeerMessage) *MsgHandle {
-	msg := &MsgHandle{mtx:sync.Mutex{}, recvFromNet:cmdCh}
+func NewMsgHandle(ctx context.Context, cmdCh <-chan peer.PeerMessage) *MsgHandle {
+	msg := &MsgHandle{mtx: sync.Mutex{}, recvFromNet: cmdCh}
 	ctxChild, _ := context.WithCancel(ctx)
 
 	go msg.startProcess(ctxChild)
 	return msg
 }
 
-func (mh *MsgHandle)startProcess(ctx context.Context)  {
+func (mh *MsgHandle) startProcess(ctx context.Context) {
 	ctxChild, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -80,8 +80,12 @@ out:
 		case msg := <-mh.recvFromNet:
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
+			case *wire.MsgVersion:
+				peerFrom.PushRejectMsg(data.Command(), wire.RejectDuplicate, "")
 			case *wire.MsgGetBlocks:
-			//	receive getblocks request, response this request.
+				if peerFrom.Cfg.Listeners.OnGetBlocks != nil{
+					peerFrom.Cfg.Listeners.OnGetBlocks(peerFrom, data)
+				}
 			case *wire.MsgGetData:
 			case *wire.MsgTx:
 				mh.txAndBlockPro <- msg
@@ -99,8 +103,15 @@ out:
 			case *wire.MsgFeeFilter:
 			case *wire.MsgFilterClear:
 			case *wire.MsgInv:
+				if peerFrom.Cfg.Listeners.OnInv != nil{
+					peerFrom.Cfg.Listeners.OnInv(peerFrom, data)
+				}
 			case *wire.MsgGetAddr:
 			case *wire.MsgHeaders:
+			case *wire.MsgGetHeaders:
+				if peerFrom.Cfg.Listeners.OnGetHeaders != nil{
+					peerFrom.Cfg.Listeners.OnGetHeaders(peerFrom, data)
+				}
 			case *wire.MsgSendHeaders:
 			case *wire.MsgSendCmpct:
 			case *wire.MsgReject:
@@ -128,7 +139,7 @@ out:
 			switch data := msg.Msg.(type) {
 			case *wire.MsgTx:
 				acceptTx, err := mempool.ProcessTransaction(data, peers.ID())
-				if err != nil{
+				if err != nil {
 					_ = acceptTx
 				}
 
@@ -138,8 +149,8 @@ out:
 	}
 }
 
-func (mh *MsgHandle)startSync()  {
-	if mh.syncPeer != nil{
+func (mh *MsgHandle) startSync() {
+	if mh.syncPeer != nil {
 		return
 	}
 
@@ -149,7 +160,6 @@ func (mh *MsgHandle)startSync()  {
 		if !state.syncCandidate {
 			continue
 		}
-
 		// Remove sync candidate peers that are no longer candidates due
 		// to passing their latest known block.  NOTE: The < is
 		// intentional as opposed to <=.  While technically the peer
@@ -213,12 +223,11 @@ func (mh *MsgHandle)startSync()  {
 		} else {
 			bestPeer.PushGetBlocksMsg(locator, &util.HashZero)
 		}
-		mh.syncPeer = bestPeer			//赋值 同步节点。
+		mh.syncPeer = bestPeer //赋值 同步节点。
 	} else {
 		log.Warn("No sync peer candidates available")
 	}
 }
-
 
 // handleGetData is invoked when a peer receives a getdata bitcoin message and
 // is used to deliver block and transaction information.
@@ -500,7 +509,7 @@ func (mh *MsgHandle) haveInventory(invVect *wire.InvVect) (bool, error) {
 func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
-	case NodeOperateMsg:
+	case *btcjson.AddNodeCmd:
 		err = mh.NodeOpera(m)
 
 	case *tx.Tx:

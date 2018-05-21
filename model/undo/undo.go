@@ -23,15 +23,27 @@ const (
 
 
 type TxUndo struct {
-	PrevOut []*utxo.Coin
+	undoCoins []*utxo.Coin
+}
+
+func (tu *TxUndo) AddUndoCoin(coin *utxo.Coin){
+	tu.undoCoins = append(tu.undoCoins, coin)
+}
+
+func (tu *TxUndo) SetUndoCoins(coins []*utxo.Coin) []*utxo.Coin{
+	 tu.undoCoins = coins
+}
+
+func (tu *TxUndo) GetUndoCoins() []*utxo.Coin{
+	return tu.undoCoins
 }
 
 func (tu *TxUndo) Serialize(w io.Writer) error {
-	err := util.WriteVarInt(w, uint64(len(tu.PrevOut)))
+	err := util.WriteVarInt(w, uint64(len(tu.undoCoins)))
 	if err != nil {
 		return err
 	}
-	for _, coin := range tu.PrevOut {
+	for _, coin := range tu.undoCoins {
 		err = coin.Serialize(w)
 		if err != nil {
 			return err
@@ -93,8 +105,7 @@ func (bu *BlockUndo) Serialize(w io.Writer) error {
 }
 
 func (bu *BlockUndo) Unserialize(r io.Reader) error {
-
-	count, err := util.ReadVarInt(r)
+	count, err := util.ReadVarLenInt(r)
 	txundos := make([]*TxUndo, count, count)
 	for i := 0; i<int(count); i++{
 		obj := newTxUndo()

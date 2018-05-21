@@ -427,7 +427,7 @@ type Peer struct {
 	// These fields are set at creation time and never modified, so they are
 	// safe to read from concurrently without a mutex.
 	addr    string
-	cfg     Config
+	Cfg     Config
 	inbound bool
 
 	flagsMtx             sync.Mutex // protects the peer flags below

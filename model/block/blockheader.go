@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/persist/db"
 )
@@ -36,7 +35,7 @@ func (bh *BlockHeader) GetBlockTime() int64 {
 func (bh *BlockHeader) GetHash() util.Hash {
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
 	bh.SerializeHeader(buf)
-	return crypto.DoubleSha256Hash(buf.Bytes())
+	return util.DoubleSha256Hash(buf.Bytes())
 }
 
 func (bh *BlockHeader) SetNull() {
