@@ -23,7 +23,7 @@ import (
 
 type MsgHandle struct {
 	mtx           sync.Mutex
-	recvFromNet   <-chan peer.PeerMessage
+	recvFromNet   <-chan *peer.PeerMessage
 	txAndBlockPro chan peer.PeerMessage
 	chainparam    *chainparams.BitcoinParams
 	//connect manager

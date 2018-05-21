@@ -25,6 +25,7 @@ import (
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcsuite/go-socks/socks"
 	"github.com/btcboost/copernicus/util/bitcoinutil"
+	"github.com/btcsuite/btcd/blockchain"
 )
 
 const (
@@ -356,23 +357,32 @@ type stallControlMsg struct {
 
 // StatsSnap is a snapshot of peer stats at a point in time.
 type StatsSnap struct {
-	ID             int32
-	Addr           string
-	Services       wire.ServiceFlag
-	LastSend       time.Time
-	LastRecv       time.Time
-	BytesSent      uint64
-	BytesRecv      uint64
-	ConnTime       time.Time
-	TimeOffset     int64
-	Version        uint32
-	UserAgent      string
-	Inbound        bool
-	StartingHeight int32
-	LastBlock      int32
-	LastPingNonce  uint64
-	LastPingTime   time.Time
-	LastPingMicros int64
+	ID                    int32
+	Addr                  string
+	Services              wire.ServiceFlag
+	LastSend              time.Time
+	LastRecv              time.Time
+	BytesSent             uint64
+	BytesRecv             uint64
+	ConnTime              time.Time
+	TimeOffset            int64
+	Version               uint32
+	UserAgent             string
+	Inbound               bool
+	StartingHeight        int32
+	LastBlock             int32
+	LastPingNonce         uint64
+	LastPingTime          time.Time
+	LastPingMicros        int64
+	AddNode               bool
+	MingPing              float64
+	PingWait              float64
+	SyncedHeaders         int
+	SyncedBlocks          int
+	WhiteListed           bool
+	UsesCashMagic         bool
+	MapSendBytesPerMsgCmd map[string]uint64
+	MapRecvBytesPerMsgCmd map[string]uint64
 }
 
 // HashFunc is a function which returns a block hash, height and error
@@ -681,7 +691,7 @@ func (p *Peer) VerAckReceived() bool {
 	return verAckReceived
 }
 
-func (p *Peer)SetAckReceived(rev bool)  {
+func (p *Peer) SetAckReceived(rev bool) {
 	p.flagsMtx.Lock()
 	p.verAckReceived = rev
 	p.flagsMtx.Unlock()
@@ -1707,8 +1717,8 @@ out:
 		case msg := <-p.outputQueue:
 			waiting = queuePacket(msg, pendingMsgs, waiting)
 
-		// This channel is notified when a message has been sent across
-		// the network socket.
+			// This channel is notified when a message has been sent across
+			// the network socket.
 		case <-p.sendDoneQueue:
 			// No longer waiting if there are no more messages
 			// in the pending messages queue.
@@ -1790,7 +1800,7 @@ cleanup:
 			}
 		case <-p.outputInvChan:
 			// Just drain channel
-		// sendDoneQueue is buffered so doesn't need draining.
+			// sendDoneQueue is buffered so doesn't need draining.
 		default:
 			break cleanup
 		}
