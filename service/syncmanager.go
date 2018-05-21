@@ -19,8 +19,9 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model"
 )
 
 const (
@@ -43,7 +44,7 @@ const (
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
-var zeroHash chainhash.Hash
+var zeroHash util.Hash
 
 // newPeerMsg signifies a newly connected peer to the block handler.
 type newPeerMsg struct {
@@ -128,7 +129,7 @@ type pauseMsg struct {
 // between checkpoints.
 type headerNode struct {
 	height int32
-	hash   *chainhash.Hash
+	hash   *util.Hash
 }
 
 // peerSyncState stores additional information that the SyncManager tracks
@@ -136,8 +137,8 @@ type headerNode struct {
 type peerSyncState struct {
 	syncCandidate   bool
 	requestQueue    []*wire.InvVect
-	requestedTxns   map[chainhash.Hash]struct{}
-	requestedBlocks map[chainhash.Hash]struct{}
+	requestedTxns   map[util.Hash]struct{}
+	requestedBlocks map[util.Hash]struct{}
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -149,16 +150,16 @@ type SyncManager struct {
 	peerNotifier   PeerNotifier
 	started        int32
 	shutdown       int32
-	chainParams    *chaincfg.Params
+	chainParams    *chainparams.BitcoinParams
 	progressLogger *blockProgressLogger
 	msgChan        chan interface{}
 	wg             sync.WaitGroup
 	quit           chan struct{}
 
 	// These fields should only be accessed from the blockHandler thread
-	rejectedTxns    map[chainhash.Hash]struct{}
-	requestedTxns   map[chainhash.Hash]struct{}
-	requestedBlocks map[chainhash.Hash]struct{}
+	rejectedTxns    map[util.Hash]struct{}
+	requestedTxns   map[util.Hash]struct{}
+	requestedBlocks map[util.Hash]struct{}
 	syncPeer        *peer.Peer
 	peerStates      map[*peer.Peer]*peerSyncState
 
@@ -166,12 +167,12 @@ type SyncManager struct {
 	headersFirstMode bool
 	headerList       *list.List
 	startHeader      *list.Element
-	nextCheckpoint   *chaincfg.Checkpoint
+	nextCheckpoint   *model.Checkpoint
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
 // syncing from a new peer.
-func (sm *SyncManager) resetHeaderState(newestHash *chainhash.Hash, newestHeight int32) {
+func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int32) {
 	sm.headersFirstMode = false
 	sm.headerList.Init()
 	sm.startHeader = nil
@@ -189,8 +190,9 @@ func (sm *SyncManager) resetHeaderState(newestHash *chainhash.Hash, newestHeight
 // It returns nil when there is not one either because the height is already
 // later than the final checkpoint or some other reason such as disabled
 // checkpoints.
-func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *chaincfg.Checkpoint {
-	checkpoints := sm.chain.Checkpoints()
+func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
+	//checkpoints := sm.chain.Checkpoints()
+	checkpoints := make([]model.Checkpoint, 2)
 	if len(checkpoints) == 0 {
 		return nil
 	}
@@ -251,7 +253,7 @@ func (sm *SyncManager) startSync() {
 		// Clear the requestedBlocks if the sync peer changes, otherwise
 		// we may ignore blocks we need that the last sync peer failed
 		// to send.
-		sm.requestedBlocks = make(map[chainhash.Hash]struct{})
+		sm.requestedBlocks = make(map[util.Hash]struct{})
 
 		locator, err := sm.chain.LatestBlockLocator()
 		if err != nil {
@@ -282,7 +284,7 @@ func (sm *SyncManager) startSync() {
 		// downloads when in regression test mode.
 		if sm.nextCheckpoint != nil &&
 			best.Height < sm.nextCheckpoint.Height &&
-			sm.chainParams != &chaincfg.RegressionNetParams {
+			sm.chainParams != &chainparams.RegressionNetParams {
 
 			//	3. push peer
 			bestPeer.PushGetHeadersMsg(locator, sm.nextCheckpoint.Hash)
@@ -305,7 +307,7 @@ func (sm *SyncManager) isSyncCandidate(peer *peer.Peer) bool {
 	// Typically a peer is not a candidate for sync if it's not a full node,
 	// however regression test is special in that the regression tool is
 	// not a full node and still needs to be considered a sync candidate.
-	if sm.chainParams == &chaincfg.RegressionNetParams {
+	if sm.chainParams == &chainparams.RegressionNetParams {
 		// The peer is not a candidate if it's not coming from localhost
 		// or the hostname can't be determined for some reason.
 		host, _, err := net.SplitHostPort(peer.Addr())
@@ -351,8 +353,8 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	isSyncCandidate := sm.isSyncCandidate(peer)
 	sm.peerStates[peer] = &peerSyncState{
 		syncCandidate:   isSyncCandidate,
-		requestedTxns:   make(map[chainhash.Hash]struct{}),
-		requestedBlocks: make(map[chainhash.Hash]struct{}),
+		requestedTxns:   make(map[util.Hash]struct{}),
+		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
 	// Start syncing by choosing the best candidate if needed.
@@ -421,12 +423,12 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	// spec to proliferate.  While this is not ideal, there is no check here
 	// to disconnect peers for sending unsolicited transactions to provide
 	// interoperability.
-	txHash := tmsg.tx.Hash()
+	txHash := tmsg.tx.Hash
 
 	// Ignore transactions that we have already rejected.  Do not
 	// send a reject message here because if the transaction was already
 	// rejected, the transaction was unsolicited.
-	if _, exists = sm.rejectedTxns[*txHash]; exists {
+	if _, exists = sm.rejectedTxns[txHash]; exists {
 		log.Debug("Ignoring unsolicited previously rejected "+
 			"transaction %v from %s", txHash, peer)
 		return
@@ -434,20 +436,21 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	// Process the transaction to include validation, insertion in the
 	// memory pool, orphan handling, etc.
-	acceptedTxs, err := sm.txMemPool.ProcessTransaction(tmsg.tx,
-		true, true, mempool.Tag(peer.ID()))
+	uncache, acceptedTxs, err := lpool.ProcessTransaction(tmsg.tx, int64(peer.ID()))
+	if len(uncache) > 0{
 
+	}
 	// Remove transaction from request maps. Either the mempool/chain
 	// already knows about it and as such we shouldn't have any more
 	// instances of trying to fetch it, or we failed to insert and thus
 	// we'll retry next time we get an inv.
-	delete(state.requestedTxns, *txHash)
-	delete(sm.requestedTxns, *txHash)
+	delete(state.requestedTxns, txHash)
+	delete(sm.requestedTxns, txHash)
 
 	if err != nil {
 		// Do not request this transaction again until a new block
 		// has been processed.
-		sm.rejectedTxns[*txHash] = struct{}{}
+		sm.rejectedTxns[txHash] = struct{}{}
 		sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
 
 		// When the error is a rule error, it means the transaction was
@@ -585,7 +588,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// if we are actively syncing while the chain is not yet current or
 	// who may have lost the lock announcment race.
 	var heightUpdate int32
-	var blkHashUpdate *chainhash.Hash
+	var blkHashUpdate *util.Hash
 
 	// Request the parents for the orphan block from the peer that sent it.
 	if isOrphan {
@@ -629,7 +632,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		blkHashUpdate = &best.Hash
 
 		// Clear the rejected transactions.
-		sm.rejectedTxns = make(map[chainhash.Hash]struct{})
+		sm.rejectedTxns = make(map[util.Hash]struct{})
 	}
 
 	// Update the block height for this peer. But only send a message to
@@ -668,7 +671,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	prevHash := sm.nextCheckpoint.Hash
 	sm.nextCheckpoint = sm.findNextHeaderCheckpoint(prevHeight)
 	if sm.nextCheckpoint != nil {
-		locator := blockchain.BlockLocator([]*chainhash.Hash{prevHash})
+		locator := blockchain.BlockLocator([]*util.Hash{prevHash})
 		err := peer.PushGetHeadersMsg(locator, sm.nextCheckpoint.Hash)
 		if err != nil {
 			log.Warn("Failed to send getheaders message to "+
@@ -687,7 +690,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	sm.headersFirstMode = false
 	sm.headerList.Init()
 	log.Info("Reached the final checkpoint -- switching to normal mode")
-	locator := blockchain.BlockLocator([]*chainhash.Hash{blockHash})
+	locator := blockchain.BlockLocator([]*util.Hash{blockHash})
 	err = peer.PushGetBlocksMsg(locator, &zeroHash)
 	if err != nil {
 		log.Warn("Failed to send getblocks message to peer %s: %v",
@@ -778,7 +781,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	// Process all of the received headers ensuring each one connects to the
 	// previous and that checkpoints match.
 	receivedCheckpoint := false
-	var finalHash *chainhash.Hash
+	var finalHash *util.Hash
 	for _, blockHeader := range msg.Headers {
 		blockHash := blockHeader.BlockHash()
 		finalHash = &blockHash
@@ -849,7 +852,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	// This header is not a checkpoint, so request the next batch of
 	// headers starting from the latest known header and ending with the
 	// next checkpoint.
-	locator := blockchain.BlockLocator([]*chainhash.Hash{finalHash})
+	locator := blockchain.BlockLocator([]*util.Hash{finalHash})
 	err := peer.PushGetHeadersMsg(locator, sm.nextCheckpoint.Hash)
 	if err != nil {
 		log.Warn("Failed to send getheaders message to "+
@@ -1095,7 +1098,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 // limitMap is a helper function for maps that require a maximum limit by
 // evicting a random transaction if adding a new value would cause it to
 // overflow the maximum allowed.
-func (sm *SyncManager) limitMap(m map[chainhash.Hash]struct{}, limit int) {
+func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 	if len(m)+1 > limit {
 		// Remove a random entry from the map.  For most compilers, Go's
 		// range statement iterates starting at a random item although
@@ -1392,9 +1395,9 @@ func New(config *Config) (*SyncManager, error) {
 	sm := SyncManager{
 		peerNotifier:    config.PeerNotifier,
 		chainParams:     config.ChainParams,
-		rejectedTxns:    make(map[chainhash.Hash]struct{}),
-		requestedTxns:   make(map[chainhash.Hash]struct{}),
-		requestedBlocks: make(map[chainhash.Hash]struct{}),
+		rejectedTxns:    make(map[util.Hash]struct{}),
+		requestedTxns:   make(map[util.Hash]struct{}),
+		requestedBlocks: make(map[util.Hash]struct{}),
 		peerStates:      make(map[*peer.Peer]*peerSyncState),
 		progressLogger:  newBlockProgressLogger("Processed", log.),
 		msgChan:         make(chan interface{}, config.MaxPeers*3),
@@ -1416,5 +1419,27 @@ func New(config *Config) (*SyncManager, error) {
 	sm.chain.Subscribe(sm.handleBlockchainNotification)
 
 	return &sm, nil
+}
+
+// PeerNotifier exposes methods to notify peers of status changes to
+// transactions, blocks, etc. Currently server (in the main package) implements
+// this interface.
+type PeerNotifier interface {
+	AnnounceNewTransactions(newTxs []*mempool.TxEntry)
+
+	UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer)
+
+	RelayInventory(invVect *wire.InvVect, data interface{})
+
+	TransactionConfirmed(tx *tx.Tx)
+}
+
+// Config is a configuration struct used to initialize a new SyncManager.
+type Config struct {
+	PeerNotifier PeerNotifier
+	ChainParams  *chaincfg.Params
+
+	DisableCheckpoints bool
+	MaxPeers           int
 }
 

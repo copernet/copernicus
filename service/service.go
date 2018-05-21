@@ -13,8 +13,8 @@ import (
 	"github.com/btcboost/copernicus/model"
 	//"github.com/btcboost/copernicus/model/block"
 	//"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcsuite/btcd/connmgr"
@@ -23,7 +23,7 @@ import (
 
 type MsgHandle struct {
 	mtx           sync.Mutex
-	recvFromNet   <-chan peer.PeerMessage
+	recvFromNet   <-chan *peer.PeerMessage
 	txAndBlockPro chan peer.PeerMessage
 	chainparam    *chainparams.BitcoinParams
 	//connect manager
@@ -45,7 +45,7 @@ type MsgHandle struct {
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan peer.PeerMessage) *MsgHandle {
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage) *MsgHandle {
 	msg := &MsgHandle{mtx: sync.Mutex{}, recvFromNet: cmdCh}
 	ctxChild, _ := context.WithCancel(ctx)
 
@@ -66,31 +66,31 @@ out:
 					nil, false)
 				break out
 			case *wire.MsgVerAck:
-				if peerFrom.VerAckReceived(){
-					log.Info("Already received 'verack' from peer %v -- " +
+				if peerFrom.VerAckReceived() {
+					log.Info("Already received 'verack' from peer %v -- "+
 						"disconnecting", peerFrom)
 					break out
 				}
 				peerFrom.SetAckReceived(true)
-				if peerFrom.Cfg.Listeners.OnVerAck != nil{
+				if peerFrom.Cfg.Listeners.OnVerAck != nil {
 					peerFrom.Cfg.Listeners.OnVerAck(peerFrom, data)
 				}
 			case *wire.MsgGetAddr:
-				if peerFrom.Cfg.Listeners.OnGetAddr != nil{
+				if peerFrom.Cfg.Listeners.OnGetAddr != nil {
 					peerFrom.Cfg.Listeners.OnGetAddr(peerFrom, data)
 				}
 			case *wire.MsgAddr:
-				if peerFrom.Cfg.Listeners.OnAddr != nil{
+				if peerFrom.Cfg.Listeners.OnAddr != nil {
 					peerFrom.Cfg.Listeners.OnAddr(peerFrom, data)
 				}
 			case *wire.MsgPing:
 				peerFrom.HandlePingMsg(data)
-				if peerFrom.Cfg.Listeners.OnPing != nil{
+				if peerFrom.Cfg.Listeners.OnPing != nil {
 					peerFrom.Cfg.Listeners.OnPing(peerFrom, data)
 				}
 			case *wire.MsgPong:
 				peerFrom.HandlePongMsg(data)
-				if peerFrom.Cfg.Listeners.OnPong != nil{
+				if peerFrom.Cfg.Listeners.OnPong != nil {
 					peerFrom.Cfg.Listeners.OnPong(peerFrom, data)
 				}
 			case *wire.MsgAlert:
@@ -98,75 +98,75 @@ out:
 					peerFrom.Cfg.Listeners.OnAlert(peerFrom, data)
 				}
 			case *wire.MsgMemPool:
-				if peerFrom.Cfg.Listeners.OnMemPool != nil{
+				if peerFrom.Cfg.Listeners.OnMemPool != nil {
 					peerFrom.Cfg.Listeners.OnMemPool(peerFrom, data)
 				}
 			case *wire.MsgTx:
-				if peerFrom.Cfg.Listeners.OnTx != nil{
+				if peerFrom.Cfg.Listeners.OnTx != nil {
 					peerFrom.Cfg.Listeners.OnTx(peerFrom, data)
 				}
 			case *wire.MsgBlock:
-				if peerFrom.Cfg.Listeners.OnBlock != nil{
+				if peerFrom.Cfg.Listeners.OnBlock != nil {
 					peerFrom.Cfg.Listeners.OnBlock(peerFrom, data, msg.Buf)
 				}
 			case *wire.MsgInv:
-				if peerFrom.Cfg.Listeners.OnInv != nil{
+				if peerFrom.Cfg.Listeners.OnInv != nil {
 					peerFrom.Cfg.Listeners.OnInv(peerFrom, data)
 				}
 			case *wire.MsgHeaders:
-				if peerFrom.Cfg.Listeners.OnHeaders != nil{
+				if peerFrom.Cfg.Listeners.OnHeaders != nil {
 					peerFrom.Cfg.Listeners.OnHeaders(peerFrom, data)
 				}
 			case *wire.MsgNotFound:
-				if peerFrom.Cfg.Listeners.OnNotFound != nil{
+				if peerFrom.Cfg.Listeners.OnNotFound != nil {
 					peerFrom.Cfg.Listeners.OnNotFound(peerFrom, data)
 				}
 			case *wire.MsgGetData:
-				if peerFrom.Cfg.Listeners.OnGetData != nil{
+				if peerFrom.Cfg.Listeners.OnGetData != nil {
 					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data)
 				}
 			case *wire.MsgGetBlocks:
-				if peerFrom.Cfg.Listeners.OnGetBlocks != nil{
+				if peerFrom.Cfg.Listeners.OnGetBlocks != nil {
 					peerFrom.Cfg.Listeners.OnGetBlocks(peerFrom, data)
 				}
 			case *wire.MsgGetHeaders:
-				if peerFrom.Cfg.Listeners.OnGetHeaders != nil{
+				if peerFrom.Cfg.Listeners.OnGetHeaders != nil {
 					peerFrom.Cfg.Listeners.OnGetHeaders(peerFrom, data)
 				}
 			case *wire.MsgFeeFilter:
-				if peerFrom.Cfg.Listeners.OnFeeFilter != nil{
+				if peerFrom.Cfg.Listeners.OnFeeFilter != nil {
 					peerFrom.Cfg.Listeners.OnFeeFilter(peerFrom, data)
 				}
 			case *wire.MsgFilterAdd:
-				if peerFrom.Cfg.Listeners.OnFilterAdd != nil{
+				if peerFrom.Cfg.Listeners.OnFilterAdd != nil {
 					peerFrom.Cfg.Listeners.OnFilterAdd(peerFrom, data)
 				}
 			case *wire.MsgFilterClear:
-				if peerFrom.Cfg.Listeners.OnFilterClear != nil{
+				if peerFrom.Cfg.Listeners.OnFilterClear != nil {
 					peerFrom.Cfg.Listeners.OnFilterClear(peerFrom, data)
 				}
 			case *wire.MsgFilterLoad:
-				if peerFrom.Cfg.Listeners.OnFilterLoad != nil{
+				if peerFrom.Cfg.Listeners.OnFilterLoad != nil {
 					peerFrom.Cfg.Listeners.OnFilterLoad(peerFrom, data)
 				}
 			case *wire.MsgMerkleBlock:
-				if peerFrom.Cfg.Listeners.OnMerkleBlock != nil{
+				if peerFrom.Cfg.Listeners.OnMerkleBlock != nil {
 					peerFrom.Cfg.Listeners.OnMerkleBlock(peerFrom, data)
 				}
 			case *wire.MsgReject:
-				if peerFrom.Cfg.Listeners.OnReject != nil{
+				if peerFrom.Cfg.Listeners.OnReject != nil {
 					peerFrom.Cfg.Listeners.OnReject(peerFrom, data)
 				}
 			case *wire.MsgSendHeaders:
-				if peerFrom.Cfg.Listeners.OnSendHeaders != nil{
+				if peerFrom.Cfg.Listeners.OnSendHeaders != nil {
 					peerFrom.Cfg.Listeners.OnSendHeaders(peerFrom, data)
 				}
 			default:
-				log.Debug("Received unhandled message of type %v " +
+				log.Debug("Received unhandled message of type %v "+
 					"from %v", data.Command())
 			}
 		case <-ctx.Done():
-			log.Info("msgHandle service exit. function : startProcess", )
+			log.Info("msgHandle service exit. function : startProcess")
 			break out
 		}
 	}
