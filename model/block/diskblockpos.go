@@ -17,8 +17,6 @@ type DiskTxPos struct {
 	TxOffsetIn int
 }
 
-// TxOffset is after header
-var TxOffset int
 
 func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
 	err := util.WriteVarInt(writer, uint64(diskBlockPos.File))
@@ -64,7 +62,7 @@ func (diskBlockPos *DiskBlockPos) IsNull() bool {
 	return diskBlockPos.File == -1
 }
 
-func (diskBlockPos *DiskBlockPos) ToString() string {
+func (diskBlockPos *DiskBlockPos) String() string {
 	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
 }
 
@@ -79,9 +77,4 @@ func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn int) *DiskTxPos {
 		TxOffsetIn: offsetIn,
 	}
 	return diskTxPos
-}
-func SetNull() {
-	var blockPos *DiskBlockPos
-	blockPos.SetNull()
-	TxOffset = 0
 }

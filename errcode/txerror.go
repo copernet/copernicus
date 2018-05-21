@@ -5,15 +5,17 @@ import "fmt"
 type TxErr int
 
 const (
-	ErrorNoPreviousOut TxErr = TxErrorBase + iota
+	TxErrNoPreviousOut TxErr = TxErrorBase + iota
 	TxErrIsCoinBase
 	TxErrNotCoinBase
 	TxErrEmptyInputs
-	TxErrTxInNoPreOut
+	TxErrTotalMoneyTooLarge
+	TxErrTooManySigOps
+	TxErrDupIns
 )
 
 var txErrorToString = map[TxErr]string {
-	ErrorNoPreviousOut: "There is no previousout",
+	TxErrNoPreviousOut: "There is no previousout",
 }
 
 func (te TxErr) String() string {

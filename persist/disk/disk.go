@@ -112,12 +112,11 @@ func GetBlockPosParentFilename() string {
 
 
 func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *consensus.BitcoinParams) (*block.Block,bool) {
-	block.SetNull()
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
 	if file == nil {
-		blogs.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.ToString())
+		blogs.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.String())
 		return nil, false
 	}
 	defer file.Close()
@@ -125,13 +124,13 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *consensus.BitcoinPara
 	// Read block
 	blk := block.NewBlock()
 	if err := blk.Unserialize(file); err != nil {
-		blogs.Error("%s: Deserialize or I/O error - %s at %s", log.TraceLog(), err.Error(), pos.ToString())
+		blogs.Error("%s: Deserialize or I/O error - %s at %s", log.TraceLog(), err.Error(), pos.String())
 	}
 
 	// Check the header
 	pow := pow.Pow{}
 	if !pow.CheckProofOfWork(blk.GetHash(), blk.Header.Bits, param) {
-		blogs.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.ToString()))
+		blogs.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.String()))
 		return nil, false
 	}
 	return blk, true
@@ -268,7 +267,7 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *consensus.BitcoinPa
 	pos := pindex.GetBlockPos()
 	if bytes.Equal(blk.GetHash()[:], hash[:]) {
 		blogs.Error(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
-			"doesn't match index for %s at %s", pindex.ToString(), pos.ToString()))
+			"doesn't match index for %s at %s", pindex.String(), pos.String()))
 		return blk, false
 	}
 	return blk, true

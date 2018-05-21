@@ -3,9 +3,10 @@ package disk
 import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/util"
 )
 type BlockFileInfoMap map[int] *block.BlockFileInfo
-type BlockIndexMap  map[int] *blockindex.BlockIndex
+type BlockIndexMap  map[util.Hash] *blockindex.BlockIndex
 var GlobalBlockFileInfoMap = make(BlockFileInfoMap)
 
 var GlobalBlockIndexMap = make(BlockIndexMap)
