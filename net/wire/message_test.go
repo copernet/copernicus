@@ -11,6 +11,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
@@ -41,10 +42,10 @@ func TestMessage(t *testing.T) {
 	// MsgVersion.
 	addrYou := &net.TCPAddr{IP: net.ParseIP("192.168.0.1"), Port: 8333}
 	you := NewNetAddress(addrYou, SFNodeNetwork)
-	you.Timestamp = 0 // Version message has zero value timestamp.
+	you.Timestamp = time.Time{} // Version message has zero value timestamp.
 	addrMe := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8333}
 	me := NewNetAddress(addrMe, SFNodeNetwork)
-	me.Timestamp = 0 // Version message has zero value timestamp.
+	me.Timestamp = time.Time{} // Version message has zero value timestamp.
 	msgVersion := NewMsgVersion(me, you, 123123, 0)
 
 	_ = msgVersion

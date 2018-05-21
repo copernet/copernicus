@@ -12,20 +12,20 @@ type MsgSendCmpct struct {
 	CmpctBlockVersion       uint64
 }
 
-func (msg *MsgSendCmpct) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgSendCmpct) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("sendcmpct message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgSendCmpt.BtcDecode", str)
+		return messageError("MsgSendCmpt.Decode", str)
 	}
 	return util.ReadElements(r, &msg.AnnounceUsingCmpctBlock, &msg.CmpctBlockVersion)
 }
 
-func (msg *MsgSendCmpct) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgSendCmpct) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("sendcmpct message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgSendCmpct.BtcEncode", str)
+		return messageError("MsgSendCmpct.Encode", str)
 	}
 	return util.WriteElements(w, msg.AnnounceUsingCmpctBlock, msg.CmpctBlockVersion)
 }

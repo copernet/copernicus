@@ -36,7 +36,7 @@ type MsgVersion struct {
 	Services ServiceFlag
 
 	// Time the message was generated.  This is encoded as an int64 on the wire.
-	Timestamp int64
+	Timestamp time.Time
 
 	// Address of the remote peer.
 	AddrYou NetAddress
@@ -71,24 +71,25 @@ func (msg *MsgVersion) AddService(service ServiceFlag) {
 	msg.Services |= service
 }
 
-// BtcDecode decodes r using the bitcoin protocol encoding into the receiver.
+// Decode decodes r using the bitcoin protocol encoding into the receiver.
 // The version message is special in that the protocol version hasn't been
 // negotiated yet.  As a result, the pver field is ignored and any fields which
 // are added in new versions are optional.  This also mean that r must be a
 // *bytes.Buffer so the number of remaining bytes can be ascertained.
 //
 // This is part of the Message interface implementation.
-func (msg *MsgVersion) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgVersion) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	buf, ok := r.(*bytes.Buffer)
 	if !ok {
-		return fmt.Errorf("MsgVersion.BtcDecode reader is not a " +
+		return fmt.Errorf("MsgVersion.Decode reader is not a " +
 			"*bytes.Buffer")
 	}
-
-	err := util.ReadElements(buf, &msg.ProtocolVersion, (*uint64)(&msg.Services), &msg.Timestamp)
+	t := int64(0)
+	err := util.ReadElements(buf, &msg.ProtocolVersion, (*uint64)(&msg.Services), &t)
 	if err != nil {
 		return err
 	}
+	msg.Timestamp = time.Unix(t, 0)
 
 	err = readNetAddress(buf, pver, &msg.AddrYou, false)
 	if err != nil {
@@ -148,16 +149,16 @@ func (msg *MsgVersion) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) 
 	return nil
 }
 
-// BtcEncode encodes the receiver to w using the bitcoin protocol encoding.
+// Encode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgVersion) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgVersion) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	err := validateUserAgent(msg.UserAgent)
 	if err != nil {
 		return err
 	}
 
 	err = util.WriteElements(w, msg.ProtocolVersion, uint64(msg.Services),
-		msg.Timestamp)
+		msg.Timestamp.Unix())
 	if err != nil {
 		return err
 	}

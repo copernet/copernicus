@@ -35,7 +35,7 @@ type NetAddress struct {
 	// uint32 on the wire and therefore is limited to 2106.  This field is
 	// not present in the bitcoin version message (MsgVersion) nor was it
 	// added until protocol version >= NetAddressTimeVersion.
-	Timestamp uint32
+	Timestamp time.Time
 
 	// Bitfield which identifies the services supported by the address.
 	Services ServiceFlag
@@ -62,18 +62,18 @@ func (na *NetAddress) AddService(service ServiceFlag) {
 // NewNetAddressIPPort returns a new NetAddress using the provided IP, port, and
 // supported services with defaults for the remaining fields.
 func NewNetAddressIPPort(ip net.IP, port uint16, services ServiceFlag) *NetAddress {
-	return NewNetAddressTimestamp(uint32(time.Now().Unix()), services, ip, port)
+	return NewNetAddressTimestamp(time.Now(), services, ip, port)
 }
 
 // NewNetAddressTimestamp returns a new NetAddress using the provided
 // timestamp, IP, port, and supported services. The timestamp is rounded to
 // single second precision.
 func NewNetAddressTimestamp(
-	timestamp uint32, services ServiceFlag, ip net.IP, port uint16) *NetAddress {
+	timestamp time.Time, services ServiceFlag, ip net.IP, port uint16) *NetAddress {
 	// Limit the timestamp to one second precision since the protocol
 	// doesn't support better.
 	na := NetAddress{
-		Timestamp: timestamp,
+		Timestamp: time.Unix(timestamp.Unix(), 0),
 		Services:  services,
 		IP:        ip,
 		Port:      port,
@@ -97,10 +97,12 @@ func readNetAddress(r io.Reader, pver uint32, na *NetAddress, ts bool) error {
 	// stop working somewhere around 2106.  Also timestamp wasn't added until
 	// protocol version >= NetAddressTimeVersion
 	if ts && pver >= NetAddressTimeVersion {
-		err := util.ReadElements(r, &na.Timestamp)
+		t := uint32(0)
+		err := util.ReadElements(r, &t)
 		if err != nil {
 			return err
 		}
+		na.Timestamp = time.Unix(int64(t), 0)
 	}
 
 	err := util.ReadElements(r, (*uint64)(&na.Services), &ip)
@@ -130,7 +132,7 @@ func writeNetAddress(w io.Writer, pver uint32, na *NetAddress, ts bool) error {
 	// stop working somewhere around 2106.  Also timestamp wasn't added until
 	// until protocol version >= NetAddressTimeVersion.
 	if ts && pver >= NetAddressTimeVersion {
-		err := util.WriteElements(w, na.Timestamp)
+		err := util.WriteElements(w, uint32(na.Timestamp.Unix()))
 		if err != nil {
 			return err
 		}

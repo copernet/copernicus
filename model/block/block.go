@@ -1,12 +1,16 @@
 package block
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"unsafe"
+
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
-	"bytes"
-	"github.com/btcboost/copernicus/log"
 )
 
 type Block struct {
@@ -43,14 +47,28 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	if err := bl.Header.Unserialize(r); err != nil {
 		return err
 	}
-
+	ntx, err := util.ReadVarInt(r)
+	if err != nil {
+		return err
+	}
+	if ntx > consensus.MaxTxCount {
+		return errors.New(fmt.Sprintf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount))
+	}
+	txns := make([]tx.Tx, ntx)
+	bl.Txs = make([]*tx.Tx, ntx)
+	for i := 0; i < ntx; i++ {
+		if err := txns[i].Unserialize(r); err != nil {
+			return err
+		}
+		bl.Txs[i] = &txns[i]
+	}
 	return nil
 }
 
-func (blk *Block) GetHash() *util.Hash{
+func (blk *Block) GetHash() *util.Hash {
 	buf := bytes.NewBuffer(nil)
 	err := blk.Serialize(buf)
-	if err != nil{
+	if err != nil {
 		log.Error("GetHash is err=====%#v", err)
 		panic("GetHash is err=====")
 	}

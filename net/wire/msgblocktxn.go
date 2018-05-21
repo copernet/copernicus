@@ -19,11 +19,11 @@ func NewMsgBlockTxn(blockHash *util.Hash, indexSize int) *MsgBlockTxn {
 	}
 }
 
-func (msg *MsgBlockTxn) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgBlockTxn) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("blocktxn message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgBlockTxn.BtcEncode", str)
+		return messageError("MsgBlockTxn.Encode", str)
 	}
 	if err := util.WriteElements(w, msg.BlockHash); err != nil {
 		return err
@@ -32,18 +32,18 @@ func (msg *MsgBlockTxn) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding)
 		return err
 	}
 	for i := 0; i < len(msg.Txn); i++ {
-		if err := msg.Txn[i].BtcEncode(w, pver, enc); err != nil {
+		if err := msg.Txn[i].Encode(w, pver, enc); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (msg *MsgBlockTxn) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgBlockTxn) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("blocktxn message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgBlockTxn.BtcDecode", str)
+		return messageError("MsgBlockTxn.Decode", str)
 	}
 
 	if err := util.ReadElements(r, &msg.BlockHash); err != nil {
@@ -55,7 +55,7 @@ func (msg *MsgBlockTxn) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding)
 	}
 	txns := make([]MsgTx, int(txnSize))
 	for i := 0; i < len(txns); i++ {
-		if err := txns[i].BtcDecode(r, pver, enc); err != nil {
+		if err := txns[i].Decode(r, pver, enc); err != nil {
 			return err
 		}
 		msg.Txn[i] = &txns[i]
