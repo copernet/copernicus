@@ -88,6 +88,10 @@ type TxMempool struct {
 
 }
 
+func (m *TxMempool)GetMinFeeRate() util.FeeRate {
+	return m.feeRate
+}
+
 // AddTx operator is safe for concurrent write And read access.
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
