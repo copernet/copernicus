@@ -6,7 +6,7 @@ import (
 	"math"
 
 	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/internal/btcjson"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
