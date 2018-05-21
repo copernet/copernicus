@@ -85,7 +85,7 @@ type TxMempool struct {
 	RecentRejects			map[util.Hash]struct{}
 
 	nextSweep 				int
-
+	MaxMemPoolSize          int64
 }
 
 // AddTx operator is safe for concurrent write And read access.

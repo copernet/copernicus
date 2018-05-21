@@ -9,7 +9,6 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -500,12 +499,11 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 }
 
 func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	maxMempool := util.GetArg("-maxmempool", int64(tx.DefaultMaxMemPoolSize))
 	ret := &btcjson.GetMempoolInfoResult{
 		Size:       mempool.Gpool.Size(),
 		Bytes:      mempool.Gpool.GetPoolAllTxSize(),
 		Usage:      mempool.Gpool.GetPoolUsage(),
-		MaxMempool: maxMempool,
+		MaxMempool: mempool.Gpool.MaxMemPoolSize,
 		//MempoolMinFee: valueFromAmount(mempool.GetMinFee(maxMempool)),		// todo realise
 	}
 
