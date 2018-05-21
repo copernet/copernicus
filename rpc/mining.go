@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/internal/btcjson"
 	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/block"

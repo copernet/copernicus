@@ -22,7 +22,7 @@ import (
 
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/internal/btcjson"
 	"github.com/btcboost/copernicus/service"
 )
 
