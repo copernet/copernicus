@@ -32,6 +32,7 @@ import (
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/addrmgr"
 	"github.com/btcboost/copernicus/net/connmgr"
+	"github.com/btcboost/copernicus/net/upnp"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/service"
@@ -217,7 +218,7 @@ type server struct {
 	peerHeightsUpdate    chan updatePeerHeightsMsg
 	wg                   sync.WaitGroup
 	quit                 chan struct{}
-	nat                  NAT
+	nat                  upnp.NAT
 	// db                   database.DB
 	timeSource *bitcointime.MedianTime
 	services   wire.ServiceFlag
@@ -2384,7 +2385,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	amgr := addrmgr.New(cfg.DataDir, net.LookupIP)
 
 	var listeners []net.Listener
-	var nat NAT
+	var nat upnp.NAT
 
 	var err error
 	listeners, nat, err = initListeners(amgr, cfg.P2PNet.ListenAddrs, services)
@@ -2469,7 +2470,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 // initListeners initializes the configured net listeners and adds any bound
 // addresses to the address manager. Returns the listeners and a NAT interface,
 // which is non-nil if UPnP is in use.
-func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wire.ServiceFlag) ([]net.Listener, NAT, error) {
+func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wire.ServiceFlag) ([]net.Listener, upnp.NAT, error) {
 	// Listen for TCP connections at the configured addresses
 	netAddrs, err := parseListeners(listenAddrs)
 	if err != nil {
@@ -2486,7 +2487,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 		listeners = append(listeners, listener)
 	}
 
-	var nat NAT
+	var nat upnp.NAT
 	if len(conf.Cfg.P2PNet.ExternalIPs) != 0 {
 		defaultPort, err := strconv.ParseUint(chainparams.ActiveNetParams.DefaultPort, 10, 16)
 		if err != nil {
@@ -2524,7 +2525,7 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 	} else {
 		if conf.Cfg.P2PNet.Upnp {
 			var err error
-			nat, err = Discover()
+			nat, err = upnp.Discover()
 			if err != nil {
 				log.Warn("Can't discover upnp: %v", err)
 			}
