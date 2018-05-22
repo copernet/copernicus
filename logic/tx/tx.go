@@ -18,7 +18,6 @@ import (
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/outpoint"
-	"btcd/wire"
 )
 
 func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error {
@@ -71,10 +70,10 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 	}
 
 	//check sequencelock
-	lp := CaculateLockPoint(transaction, tx.StandardLockTimeVerifyFlags)
-	if !tx.checkSequenceLocks(lp) {
-		return false
-	}
+	//lp := CaculateLockPoint(transaction, tx.StandardLockTimeVerifyFlags)
+	//if !CheckSequenceLocks(lp) {
+	//	return false
+	//}
 
 	//check standard inputs
 	err = checkInputsStandard(transaction, tempCoinsMap)
