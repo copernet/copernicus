@@ -7,9 +7,10 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/spf13/viper"
 	"net"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -129,8 +130,8 @@ type Configuration struct {
 		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
 	}
 	Log struct {
-		Level  string //description:"Define level of log,include trace, debug, info, warn, error"
-		Format string
+		Level  string   //description:"Define level of log,include trace, debug, info, warn, error"
+		Module []string // only output the specified module's log when using log.Print(...)
 	}
 	Mempool struct {
 		MinFeeRate int64

@@ -2,14 +2,14 @@ package log
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/util"
-	"runtime"
-	"fmt"
 )
 
 const (
@@ -17,6 +17,8 @@ const (
 
 	errModuleNotFound = "specified module not found"
 )
+
+var mapModule map[string]struct{}
 
 func Print(module string, level string, format string, reason ...interface{}) {
 	level = strings.ToLower(level)
@@ -46,10 +48,10 @@ func Print(module string, level string, format string, reason ...interface{}) {
 }
 
 func isIncludeModule(module string) bool {
-	for _, item := range conf.AppConf.LogModule {
-		if item == module {
-			return true
-		}
+	module = strings.ToLower(module)
+	_, ok := mapModule[module]
+	if ok {
+		return true
 	}
 	return false
 }
@@ -64,7 +66,7 @@ func init() {
 		Daily    bool   `json:"daily"`
 	}{
 		FileName: logDir,
-		Level:    getLevel(conf.AppConf.LogLevel),
+		Level:    getLevel(conf.Cfg.Log.Level),
 		Daily:    false,
 	}
 
@@ -73,6 +75,13 @@ func init() {
 		panic(err)
 	}
 	logs.SetLogger(logs.AdapterFile, string(configuration))
+
+	// init mapModule
+	mapModule = make(map[string]struct{})
+	for _, module := range conf.Cfg.Log.Module {
+		module = strings.ToLower(module)
+		mapModule[module] = struct{}{}
+	}
 }
 
 // Emergency logs a message at emergency level.
