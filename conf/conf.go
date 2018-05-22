@@ -8,8 +8,8 @@ import (
 	"runtime"
 
 	"github.com/spf13/viper"
-	"time"
 	"net"
+	"time"
 )
 
 const (
@@ -116,17 +116,17 @@ type Configuration struct {
 		Mode string
 	}
 	RPC struct {
-		RPCListeners         []string            // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
-		RPCUser              string              // Username for RPC connections
-		RPCPass              string              // Password for RPC connections
-		RPCLimitUser         string              //Username for limited RPC connections
-		RPCLimitPass         string              //Password for limited RPC connections
-		RPCCert              string `default:""` //File containing the certificate file
-		RPCKey               string              //File containing the certificate key
-		RPCMaxClients        int                 //Max number of RPC clients for standard connections
-		RPCMaxWebsockets     int                 //Max number of RPC websocket connections
-		RPCMaxConcurrentReqs int                 //Max number of concurrent RPC requests that may be processed concurrently
-		RPCQuirks            bool                //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
+		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
+		RPCUser              string   // Username for RPC connections
+		RPCPass              string   // Password for RPC connections
+		RPCLimitUser         string   //Username for limited RPC connections
+		RPCLimitPass         string   //Password for limited RPC connections
+		RPCCert              string   `default:""` //File containing the certificate file
+		RPCKey               string   //File containing the certificate key
+		RPCMaxClients        int      //Max number of RPC clients for standard connections
+		RPCMaxWebsockets     int      //Max number of RPC websocket connections
+		RPCMaxConcurrentReqs int      //Max number of concurrent RPC requests that may be processed concurrently
+		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
 	}
 	Log struct {
 		Level  string //description:"Define level of log,include trace, debug, info, warn, error"
@@ -140,21 +140,21 @@ type Configuration struct {
 		MaxPeers            int      `default:"128"`
 		TargetOutbound      int      `default:"8"`
 		ConnectPeersOnStart []string
-		DisableBanning      bool     `default:"true"`
+		DisableBanning      bool `default:"true"`
 		BanThreshold        uint32
-		SimNet              bool     `default:"false"`
-		DisableListen       bool     `default:"true"`
-		BlocksOnly          bool     `default:"true"`
+		SimNet              bool          `default:"false"`
+		DisableListen       bool          `default:"true"`
+		BlocksOnly          bool          `default:"true"`
 		BanDuration         time.Duration // How long to ban misbehaving peers
 		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
 		DisableDNSSeed      bool          //Disable DNS seeding for peers
-		DisableRPC          bool     `default:"true"`
+		DisableRPC          bool          `default:"true"`
 		DisableTLS          bool
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"` // Disable connecting to tor hidden services
-		Upnp                bool                      // Use UPnP to map our listening port outside of NAT
-		ExternalIPs         []string                  // Add an ip to the list of local addresses we claim to listen on to peers
+		Upnp                bool     // Use UPnP to map our listening port outside of NAT
+		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
 	}
 	AddrMgr struct {
 		SimNet       bool
@@ -162,6 +162,7 @@ type Configuration struct {
 	}
 	Protocal struct {
 		NoPeerBloomFilters bool `default:"false"`
+		DisableCheckpoints bool `default:"true"`
 	}
 	Script struct {
 		AcceptDataCarrier bool `default:"true"`

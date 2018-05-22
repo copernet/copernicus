@@ -10,6 +10,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -75,7 +76,7 @@ func TestNetAddress(t *testing.T) {
 func TestNetAddressWire(t *testing.T) {
 	// baseNetAddr is used in the various tests as a baseline NetAddress.
 	baseNetAddr := NetAddress{
-		Timestamp: 0x495fab29, // 2009-01-03 12:15:05 -0600 CST
+		Timestamp: time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,
@@ -83,7 +84,7 @@ func TestNetAddressWire(t *testing.T) {
 
 	// baseNetAddrNoTS is baseNetAddr with a zero value for the timestamp.
 	baseNetAddrNoTS := baseNetAddr
-	baseNetAddrNoTS.Timestamp = 0
+	baseNetAddrNoTS.Timestamp = time.Time{}
 
 	// baseNetAddrEncoded is the wire encoded bytes of baseNetAddr.
 	baseNetAddrEncoded := []byte{
@@ -207,7 +208,7 @@ func TestNetAddressWireErrors(t *testing.T) {
 
 	// baseNetAddr is used in the various tests as a baseline NetAddress.
 	baseNetAddr := NetAddress{
-		Timestamp: 0x495fab29, // 2009-01-03 12:15:05 -0600 CST
+		Timestamp: time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,

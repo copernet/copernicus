@@ -3,7 +3,7 @@ package rpc
 import (
 	"encoding/hex"
 
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/model/bitaddr"
 )
 

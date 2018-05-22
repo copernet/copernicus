@@ -6,7 +6,7 @@ import (
 	"math"
 
 	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -68,7 +68,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		if err != nil {
 			return nil, err
 		}
-		return *rawTxn, nil*///TODO open
+		return *rawTxn, nil*///   TODO open
 	return nil, nil
 }
 

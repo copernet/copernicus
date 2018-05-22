@@ -80,7 +80,9 @@ func (hash *Hash) String() string {
 	}
 	return hex.EncodeToString(bytes[:])
 }
-
+func (hash *Hash) ToString() string {
+	return hash.String()
+}
 func (hash *Hash) Serialize(w io.Writer) (int, error) {
 	length, err := w.Write(hash[:])
 	if length != Hash256Size || err != nil {

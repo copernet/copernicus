@@ -681,6 +681,12 @@ func (p *Peer) VerAckReceived() bool {
 	return verAckReceived
 }
 
+func (p *Peer)SetAckReceived(rev bool)  {
+	p.flagsMtx.Lock()
+	p.verAckReceived = rev
+	p.flagsMtx.Unlock()
+}
+
 // ProtocolVersion returns the negotiated peer protocol version.
 //
 // This function is safe for concurrent access.
@@ -806,9 +812,9 @@ func (p *Peer) IsWitnessEnabled() bool {
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	var blockNum int32
-	if p.cfg.NewestBlock != nil {
+	if p.Cfg.NewestBlock != nil {
 		var err error
-		_, blockNum, err = p.cfg.NewestBlock()
+		_, blockNum, err = p.Cfg.NewestBlock()
 		if err != nil {
 			return nil, err
 		}
@@ -819,8 +825,8 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	// If we are behind a proxy and the connection comes from the proxy then
 	// we return an unroutable address as their address. This is to prevent
 	// leaking the tor proxy address.
-	if p.cfg.Proxy != "" {
-		proxyaddress, _, err := net.SplitHostPort(p.cfg.Proxy)
+	if p.Cfg.Proxy != "" {
+		proxyaddress, _, err := net.SplitHostPort(p.Cfg.Proxy)
 		// invalid proxy means poorly configured, be on the safe side.
 		if err != nil || p.na.IP.String() == proxyaddress {
 			theirNA = wire.NewNetAddressIPPort(net.IP([]byte{0, 0, 0, 0}), 0, 0)
@@ -837,7 +843,7 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	//
 	// Also, the timestamp is unused in the version message.
 	ourNA := &wire.NetAddress{
-		Services: p.cfg.Services,
+		Services: p.Cfg.Services,
 	}
 
 	// Generate a unique nonce for this peer so self connections can be
@@ -848,8 +854,8 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 
 	// Version message.
 	msg := wire.NewMsgVersion(ourNA, theirNA, nonce, blockNum)
-	msg.AddUserAgent(p.cfg.UserAgentName, p.cfg.UserAgentVersion,
-		p.cfg.UserAgentComments...)
+	msg.AddUserAgent(p.Cfg.UserAgentName, p.Cfg.UserAgentVersion,
+		p.Cfg.UserAgentComments...)
 
 	// XXX: bitcoind appears to always enable the full node services flag
 	// of the remote peer netaddress field in the version message regardless
@@ -870,13 +876,13 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	msg.AddrYou.Services = wire.SFNodeNetwork
 
 	// Advertise the services flag
-	msg.Services = p.cfg.Services
+	msg.Services = p.Cfg.Services
 
 	// Advertise our max supported protocol version.
-	msg.ProtocolVersion = int32(p.cfg.ProtocolVersion)
+	msg.ProtocolVersion = int32(p.Cfg.ProtocolVersion)
 
 	// Advertise if inv messages for transactions are desired.
-	msg.DisableRelayTx = p.cfg.DisableRelayTx
+	msg.DisableRelayTx = p.Cfg.DisableRelayTx
 
 	return msg, nil
 }
@@ -1112,7 +1118,7 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 // recent clients (protocol version > BIP0031Version), it replies with a pong
 // message.  For older clients, it does nothing and anything other than failure
 // is considered a successful ping.
-func (p *Peer) handlePingMsg(msg *wire.MsgPing) {
+func (p *Peer) HandlePingMsg(msg *wire.MsgPing) {
 	// Only reply with pong if the message is from a new enough client.
 	if p.ProtocolVersion() > wire.BIP0031Version {
 		// Include nonce from ping so pong can be identified.
@@ -1124,7 +1130,7 @@ func (p *Peer) handlePingMsg(msg *wire.MsgPing) {
 // updates the ping statistics as required for recent clients (protocol
 // version > BIP0031Version).  There is no effect for older clients or when a
 // ping was not previously sent.
-func (p *Peer) handlePongMsg(msg *wire.MsgPong) {
+func (p *Peer) HandlePongMsg(msg *wire.MsgPong) {
 	// Arguably we could use a buffered channel here sending data
 	// in a fifo manner whenever we send a ping, or a list keeping track of
 	// the times of each ping. For now we just make a best effort and
@@ -1146,10 +1152,10 @@ func (p *Peer) handlePongMsg(msg *wire.MsgPong) {
 // readMessage reads the next bitcoin message from the peer with logging.
 func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte, error) {
 	n, msg, buf, err := wire.ReadMessageWithEncodingN(p.conn,
-		p.ProtocolVersion(), p.cfg.ChainParams.BitcoinNet, encoding)
+		p.ProtocolVersion(), p.Cfg.ChainParams.BitcoinNet, encoding)
 	atomic.AddUint64(&p.bytesReceived, uint64(n))
-	if p.cfg.Listeners.OnRead != nil {
-		p.cfg.Listeners.OnRead(p, n, msg, err)
+	if p.Cfg.Listeners.OnRead != nil {
+		p.Cfg.Listeners.OnRead(p, n, msg, err)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -1201,7 +1207,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 	log.Trace("%v", newLogClosure(func() string {
 		var buf bytes.Buffer
 		_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
-			p.cfg.ChainParams.BitcoinNet, enc)
+			p.Cfg.ChainParams.BitcoinNet, enc)
 		if err != nil {
 			return err.Error()
 		}
@@ -1210,10 +1216,10 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 
 	// Write the message to the peer.
 	n, err := wire.WriteMessageWithEncodingN(p.conn, msg,
-		p.ProtocolVersion(), p.cfg.ChainParams.BitcoinNet, enc)
+		p.ProtocolVersion(), p.Cfg.ChainParams.BitcoinNet, enc)
 	atomic.AddUint64(&p.bytesSent, uint64(n))
-	if p.cfg.Listeners.OnWrite != nil {
-		p.cfg.Listeners.OnWrite(p, n, msg, err)
+	if p.Cfg.Listeners.OnWrite != nil {
+		p.Cfg.Listeners.OnWrite(p, n, msg, err)
 	}
 	return err
 }
@@ -1223,7 +1229,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 // to send malformed messages without the peer being disconnected.
 func (p *Peer) isAllowedReadError(err error) bool {
 	// Only allow read errors in regression test mode.
-	if p.cfg.ChainParams.BitcoinNet != bitcoinutil.TestNet {
+	if p.Cfg.ChainParams.BitcoinNet != bitcoinutil.TestNet {
 		return false
 	}
 

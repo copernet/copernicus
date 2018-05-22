@@ -40,6 +40,7 @@ func Print(module string, level string, format string, reason ...interface{}) {
 			logs.Notice(format, reason)
 		}
 	} else {
+		logs.GetLogger()
 		logs.Error(errModuleNotFound)
 	}
 }
@@ -136,4 +137,8 @@ func TraceLog() string {
 	f := runtime.FuncForPC(pc[0])
 	_, line := f.FileLine(pc[0])
 	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
+}
+
+func GetLogger() *logs.BeeLogger {
+	return logs.GetBeeLogger()
 }

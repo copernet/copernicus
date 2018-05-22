@@ -22,11 +22,11 @@ import (
 
 	"context"
 
-	"github.com/btcboost/copernicus/addrmgr"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/connmgr"
-	"github.com/btcboost/copernicus/limits"
 	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/net/addrmgr"
+	"github.com/btcboost/copernicus/net/connmgr"
+	"github.com/btcboost/copernicus/net/limits"
 )
 
 const (
@@ -151,20 +151,6 @@ func main() {
 	if err := limits.SetLimits(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
 		os.Exit(1)
-	}
-
-	// Call serviceMain on Windows to handle running as a service.  When
-	// the return isService flag is true, exit now since we ran as a
-	// service.  Otherwise, just fall through to normal operation.
-	if runtime.GOOS == "windows" {
-		isService, err := winServiceMain()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		if isService {
-			os.Exit(0)
-		}
 	}
 
 	// Work around defer not working after os.Exit()

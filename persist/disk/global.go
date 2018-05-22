@@ -14,10 +14,15 @@ var GlobalBlockIndexMap = make(BlockIndexMap)
 var GlobalLastBlockFile int = 0
 
 var GlobalLastWrite,GlobalLastFlush,GlobalLastSetChain = 0,0,0
-
+var GlobalBlocksUnlinkedMap = make(map[*blockindex.BlockIndex] *blockindex.BlockIndex)
 var DefaultMaxMemPoolSize uint = 300
 var GlobalSetDirtyFileInfo = make(map[int]bool)
 var GlobalTimeReadFromDisk int64 = 0
+
+var GlobalReindex = false
+var GlobalTxIndex = false
+
+
 
 const (
 	/** The maximum size of a blk?????.dat file (since 0.8) */
