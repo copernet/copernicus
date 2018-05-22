@@ -11,7 +11,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/persist/db"
 )
-var utxoTip *CoinsCache
+var utxoTip CacheView
 
 
 type UtxoConfig struct {
@@ -27,13 +27,21 @@ func InitUtxoTip(uc *UtxoConfig){
 }
 
 
-func GetUtxoCacheInstance() *CoinsCache{
+func GetUtxoCacheInstance() CacheView{
 	if utxoTip == nil{
 		log.Error("utxoTip has not init!!")
 	}
-	return utxoTip
+	return utxoLruTip
 }
 
+type CacheView interface {
+	GetCoin(outpoint *outpoint.OutPoint) (*Coin, error)
+	HaveCoin(point *outpoint.OutPoint) bool
+	GetBestBlock() util.Hash
+	SetBestBlock(hash util.Hash)
+	UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error
+	Flush() bool
+}
 
 type CoinsCache struct {
 	db               CoinsDB
@@ -44,7 +52,7 @@ type CoinsCache struct {
 }
 
 
-func NewCoinCache(view CoinsDB) *CoinsCache {
+func NewCoinCache(view CoinsDB) CacheView {
 	c := new(CoinsCache)
 	c.db = view
 	c.cacheCoins = *NewEmptyCoinsMap()

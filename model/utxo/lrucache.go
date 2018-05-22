@@ -18,7 +18,7 @@ type CoinsLruCache struct {
 }
 
 
-var utxoLruTip *CoinsLruCache
+var utxoLruTip CacheView
 
 
 
@@ -31,7 +31,7 @@ func InitUtxoLruTip(uc *UtxoConfig){
 }
 
 
-func GetUtxoLruCacheInstance() *CoinsLruCache{
+func GetUtxoLruCacheInstance() CacheView{
 	if utxoLruTip == nil{
 		log.Error("utxoTip has not init!!")
 	}
@@ -40,7 +40,7 @@ func GetUtxoLruCacheInstance() *CoinsLruCache{
 
 
 
-func NewCoinsLruCache(db CoinsDB) *CoinsLruCache {
+func NewCoinsLruCache(db CoinsDB) CacheView {
 	c := new(CoinsLruCache)
 	c.db = db
 	cache, err := lru.New(1000000)
@@ -208,6 +208,7 @@ func (coinsCache *CoinsLruCache) UnCache(point *outpoint.OutPoint) {
 	coin := c.(*Coin)
 	if ok && !coin.dirty && !coin.fresh{
 		coinsCache.cacheCoins.Remove(*point)
+		// donot delete from dirty map
 	}
 }
 
