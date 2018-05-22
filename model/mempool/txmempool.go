@@ -874,7 +874,7 @@ func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *tx
 	} else {
 		var prevheights []int
 		for txinIndex, coin := range coins {
-			if coin.GetIsMempoolCoin(){
+			if coin.IsMempoolCoin(){
 				prevheights[txinIndex] = tip.Height + 1
 			}else {
 				prevheights[txinIndex] = int(coin.GetHeight())

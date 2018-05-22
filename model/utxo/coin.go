@@ -28,7 +28,7 @@ func (coin *Coin) IsCoinBase() bool {
 	return coin.isCoinBase
 }
 
-func (coin *Coin) GetIsMempoolCoin() bool {
+func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 //coinbase检查高度，锁定时间？
