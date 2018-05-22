@@ -130,8 +130,9 @@ type Configuration struct {
 		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
 	}
 	Log struct {
-		Level  string   //description:"Define level of log,include trace, debug, info, warn, error"
-		Module []string // only output the specified module's log when using log.Print(...)
+		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+		Module   []string // only output the specified module's log when using log.Print(...)
+		FileName string   // the name of log file
 	}
 	Mempool struct {
 		MinFeeRate int64

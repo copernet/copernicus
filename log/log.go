@@ -9,7 +9,6 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/util"
 )
 
 const (
@@ -57,15 +56,14 @@ func isIncludeModule(module string) bool {
 }
 
 func init() {
-	defaultHomeDir := util.AppDataDir("copernicus", false)
-	logDir := filepath.Join(defaultHomeDir, defaultLogDirname)
+	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
 
 	logConf := struct {
 		FileName string `json:"filename"`
 		Level    int    `json:"level"`
 		Daily    bool   `json:"daily"`
 	}{
-		FileName: logDir,
+		FileName: logDir + "/" + conf.Cfg.Log.FileName,
 		Level:    getLevel(conf.Cfg.Log.Level),
 		Daily:    false,
 	}
