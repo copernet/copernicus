@@ -178,33 +178,33 @@ func IsDefineHashtypeSignature(vchSig []byte) bool {
 	return true
 }
 
-func CheckSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
+func CheckSignatureEncoding(vchSig []byte, flags uint32) (error) {
 	// Empty signature. Not strictly DER encoded, but allowed to provide a
 	// compact way to provide an invalid signature for use with CHECK(MULTI)SIG
 	vchSigLen := len(vchSig)
 	if vchSigLen == 0 {
-		return true, nil
+		return nil
 	}
 	if (flags & (script.ScriptVerifyDersig | script.ScriptVerifyLowS | script.ScriptVerifyStrictEnc)) != 0 &&
 		!IsValidSignatureEncoding(vchSig) {
-		return false, errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
+		return errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
 
 	}
 	if (flags & script.ScriptVerifyLowS) != 0 {
 		ret, err := IsLowDERSignature(vchSig)
 		if err != nil {
-			return false, err
+			return err
 		} else if !ret {
-			return false, err
+			return err
 		}
 	}
 
 	if (flags & script.ScriptVerifyStrictEnc) != 0 {
 		if !IsDefineHashtypeSignature(vchSig) {
-			return false, errcode.New(errcode.ScriptErrSigHashType)
+			return errcode.New(errcode.ScriptErrSigHashType)
 		}
 	}
 
-	return true, nil
+	return nil
 
 }

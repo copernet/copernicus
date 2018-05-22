@@ -145,13 +145,13 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 	ins := transaction.GetIns()
 	utxo := utxo.GetUtxoCacheInstance()
 	for _, e := range ins {
-		coin, _ := utxo.GetCoin(e.PreviousOutPoint)
+		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
 			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
-			if coin == nil {
-				 err := errcode.New(errcode.TxErrNoPreviousOut)
-				return 0, err
-			}
+		}
+		if coin == nil {
+			err := errcode.New(errcode.TxErrNoPreviousOut)
+			return 0, err
 		}
 		/*
 		if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
@@ -1184,16 +1184,13 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					}
 
 					vchSigBytes := vchSig.([]byte)
-					checkSig, err := crypto.CheckSignatureEncoding(vchSigBytes, flags)
+					err := crypto.CheckSignatureEncoding(vchSigBytes, flags)
 					if err != nil {
 						return err
 					}
-					checkPubKey, err := crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+					err = crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 					if err != nil {
 						return err
-					}
-					if !checkPubKey || !checkSig {
-						return errcode.New(errcode.ScriptErrInValidPubKeyOrSig)
 					}
 
 					hashType := vchSigBytes[len(vchSigBytes) - 1]
@@ -1317,16 +1314,13 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						// pubkey/signature evaluation distinguishable by
 						// CHECKMULTISIG NOT if the STRICTENC flag is set.
 						// See the script_(in)valid tests for details.
-						checkSig, err := crypto.CheckSignatureEncoding(vchSig.([]byte), flags)
+						err := crypto.CheckSignatureEncoding(vchSig.([]byte), flags)
 						if err != nil {
 							return err
 						}
-						checkPubKey, err := crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+						err = crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 						if err != nil {
 							return err
-						}
-						if !checkSig || !checkPubKey {
-							return errcode.New(errcode.ScriptErrInvalidStackOperation)
 						}
 						hashType := vchSig.([]byte)[len(vchSig.([]byte)) - 1]
 						txHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
