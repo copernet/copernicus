@@ -21,6 +21,7 @@ type ChainGlobal struct {
 	GlobalTimeReadFromDisk                               int64
 	GlobalReindex                                        bool
 	GlobalTxIndex                                        bool
+	GlobalHavePruned                                     bool
 }
 
 func InitChainGlobal() *ChainGlobal {
