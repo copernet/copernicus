@@ -8,7 +8,6 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/persist/db"
 )
 var utxoTip CacheView
@@ -35,7 +34,7 @@ func GetUtxoCacheInstance() CacheView{
 }
 
 type CacheView interface {
-	GetCoin(outpoint *outpoint.OutPoint) (*Coin, error)
+	GetCoin(outpoint *outpoint.OutPoint) (*Coin)
 	HaveCoin(point *outpoint.OutPoint) bool
 	GetBestBlock() util.Hash
 	SetBestBlock(hash util.Hash)
@@ -61,20 +60,20 @@ func NewCoinCache(view CoinsDB) CacheView {
 }
 
 
-func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {
+func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
 	coin, ok := coinsCache.cacheCoins[*outpoint]
 	if ok {
-		return coin, nil
+		return coin
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
-	if err != nil{
-		logs.Emergency("CoinsCache.GetCoin err:%#v", err)
-		panic("get coin is failed!")
-	}
-	if err != nil||coin == nil {
 
-		return nil, err
+	if err != nil{
+		log.Error("Error:  CoinsCache.GetCoin err: %#v ", err)
+		panic("GetCoin error")
+	}
+	if coin == nil{
+		return nil
 	}
 	coinsCache.cacheCoins[*outpoint] = coin
 	if coin.IsSpent() {
@@ -83,11 +82,11 @@ func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error
 		coin.fresh = true
 	}
 	coinsCache.cachedCoinsUsage += coin.DynamicMemoryUsage()
-	return coin, nil
+	return coin
 }
 
 func (coinsCache *CoinsCache) HaveCoin(point *outpoint.OutPoint) bool {
-	coin, _ := coinsCache.GetCoin(point)
+	coin := coinsCache.GetCoin(point)
 	return coin != nil && !coin.IsSpent()
 }
 

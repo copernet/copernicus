@@ -53,10 +53,10 @@ func NewCoinsLruCache(db CoinsDB) CacheView {
 }
 
 
-func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {
+func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
 	c, ok := coinsCache.cacheCoins.Get(*outpoint)
 	if ok {
-		return c.(*Coin), nil
+		return c.(*Coin)
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
@@ -64,9 +64,13 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, er
 		logs.Emergency("CoinsLruCache.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
-	if err != nil||coin == nil {
 
-		return c.(*Coin), err
+	if err != nil{
+		log.Error("Error:  GetCoin err: %#v ", err)
+		panic("GetCoin error")
+	}
+	if coin == nil{
+		return nil
 	}
 	coin = c.(*Coin)
 	coinsCache.cacheCoins.Add(*outpoint, coin)
@@ -75,11 +79,11 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, er
 		// our version as fresh.
 		coin.fresh = true
 	}
-	return coin, nil
+	return coin
 }
 
 func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
-	coin, _ := coinsCache.GetCoin(point)
+	coin := coinsCache.GetCoin(point)
 	return coin != nil && !coin.IsSpent()
 }
 
