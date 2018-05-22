@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/script"
 )
 
 const (
@@ -20,22 +19,6 @@ const (
 	// that will be logged.
 	maxRejectReasonLen = 250
 )
-
-// The default amount of logging is none.
-func init() {
-	DisableLog()
-}
-
-// DisableLog disables all library log output.  Logging output is disabled
-// by default until UseLogger is called.
-func DisableLog() {
-	log = log.Disabled
-}
-
-// UseLogger uses a specified Logger to output package logging info.
-func UseLogger(logger log.Logger) {
-	log = logger
-}
 
 // LogClosure is a closure that can be printed with %v to be used to
 // generate expensive-to-create data for a detailed log level and avoid doing
