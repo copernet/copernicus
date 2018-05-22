@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/persist/db"
 )
 
 type BlockHeader struct {
@@ -50,7 +49,7 @@ func (bh *BlockHeader) UnserializeHeader(r io.Reader) error {
 	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
 func (bh *BlockHeader) Serialize(w io.Writer) error {
-	return db.SerializeOP(w, bh)
+	return util.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
 }
 
 func (bh *BlockHeader) Unserialize(r io.Reader) error {

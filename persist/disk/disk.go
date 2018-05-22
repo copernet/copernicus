@@ -9,7 +9,7 @@ import (
 	"github.com/btcboost/copernicus/log"
 
 	"fmt"
-	"github.com/btcboost/copernicus/model/consensus"
+
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"bytes"
@@ -19,8 +19,6 @@ import (
 	"time"
 	"github.com/btcboost/copernicus/model/utxo"
 	"syscall"
-	"github.com/btcboost/copernicus/model/chain"
-
 	"encoding/binary"
 	"github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/net/wire"
@@ -28,6 +26,8 @@ import (
 	"github.com/btcboost/copernicus/errcode"
 	"crypto/sha256"
 	"reflect"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/persist/blkdb"
 )
 type FlushStateMode int
 
@@ -111,7 +111,7 @@ func GetBlockPosParentFilename() string {
 }
 
 
-func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *consensus.BitcoinParams) (*block.Block,bool) {
+func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block,bool) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
@@ -258,7 +258,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *consensus.BitcoinParams) (*block.Block, bool) {
+func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) (*block.Block, bool) {
 	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
 	if !ret{
 		return nil, false
@@ -363,7 +363,7 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 			tBlockIndexList = append(tBlockIndexList, bi)
 		}
 		GlobalBlockIndexMap = make(BlockIndexMap)
-		btd := chain.GetBlockTreeDBInstance()
+		btd := blkdb.GetBlockTreeDBInstance()
 		err := btd.WriteBatchSync(tBlockFileInfoList, int(GlobalLastBlockFile),  tBlockIndexList)
 		if err != nil{
 			ret = AbortNode(state, "Failed to write to block index database", "")
