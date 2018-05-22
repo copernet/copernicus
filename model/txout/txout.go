@@ -79,11 +79,11 @@ func (txOut *TxOut) Unserialize(reader io.Reader) error {
 func (txOut *TxOut) CheckValue() error {
 	if txOut.value < 0 {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
-		return errcode.New(errcode.TxOutErrNegativeValue)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	if txOut.value > util.MaxMoney {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
-		return errcode.New(errcode.TxOutErrTooLargeValue)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	return nil
