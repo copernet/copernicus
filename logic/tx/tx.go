@@ -15,52 +15,65 @@ import (
 	"github.com/btcboost/copernicus/model/consensus"
 	"math"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/outpoint"
 )
 
-func CheckRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
-	if tx.IsCoinBase() {
+func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error {
+	if transaction.IsCoinBase() {
 		return errcode.New(errcode.TxErrIsCoinBase)
 	}
 
-	tempCoinsMap :=  utxo.NewEmptyCoinsMap()
-
-	err := tx.CheckTransactionCommon(true)
+	err := transaction.CheckTransactionCommon(true)
 	if err != nil {
 		return err
 	}
-	//
-	//// check standard
-	//if RequireStandard && !tx.checkStandard(allowLargeOpReturn) {
-	//	return false
-	//}
-	//
-	////check standard inputs
-	//if RequiredStandard && !tx.areInputsStandard() {
-	//	return false
-	//}
-	//
-	////check locktime
-	//if !tx.ContextualCheckTransaction(state, StandardLockTimeVerifyFlags) {
-	//	return false
-	//}
-	//
-	//// all inputs should have preout
-	//for _, in := range tx.ins {
-	//	if in.PreviousOutPoint.IsNull() {
-	//		state.Dos(10, false, RejectInvalid, "bad-txns-prevout-null", false, "")
-	//		return false
-	//	}
-	//}
-	//// check duplicate tx
-	//if tx.isOutputAlreadyExist() {
-	//	return state.Dos(10, false, RejectInvalid, "bad-txns-output-already-exist", false, "")
-	//}
-	//
-	//// check duble-spending
-	//if !tx.areInputsAvailable() {
-	//	return state.Dos(10, false, RejectInvalid, "bad-txns-input-already-spended", false, "")
-	//}
-	//
+
+	// check standard
+	if chainparams.ActiveNetParams.RequireStandard {
+		err := transaction.CheckStandard()
+		if err != nil {
+			return err
+		}
+	}
+
+	//check locktime
+	err = ContextualCheckTransaction(transaction, int(tx.StandardLockTimeVerifyFlags))
+	if err != nil {
+		return err
+	}
+
+	// is mempool already have it? conflict tx with mempool
+	if mempool.Gpool.FindTx(transaction.Hash) != nil {
+		return errcode.New(errcode.TxErrMempoolAlreadyExist)
+	}
+
+	// check preout already spent
+	ins := transaction.GetIns()
+	for _, e := range ins {
+		if mempool.Gpool.HasSpentOut(e.PreviousOutPoint) {
+			return errcode.New(errcode.TxErrPreOutAlreadySpent)
+		}
+	}
+
+	// check outpoint alread exist
+	exist := areOutputsAlreadExist(transaction)
+	if exist {
+		return errcode.New(errcode.TxErrOutAlreadHave)
+	}
+
+	tempCoinsMap :=  utxo.NewEmptyCoinsMap()
+	available := areInputsAvailable(transaction, tempCoinsMap)
+	if !available {
+		return errcode.New(errcode.TxErrInputsNotAvailable)
+	}
+
+	//check standard inputs
+	err = checkInputsStandard(transaction, tempCoinsMap)
+	if err != nil {
+		return err
+	}
 	////check sequencelock
 	////lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
 	////if !tx.checkSequenceLocks(lp) {
@@ -73,7 +86,7 @@ func CheckRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
 	//}
 
 	//check inputs
-	err = checkInputs(tx, tempCoinsMap, 1)
+	err = checkInputs(transaction, tempCoinsMap, 1)
 	if err != nil {
 		return err
 	}
@@ -93,6 +106,34 @@ func SubmitTransaction(txs []*tx.Tx) bool {
 	return true
 }
 
+func areOutputsAlreadExist(transaction *tx.Tx) (exist bool){
+	utxo := utxo.GetUtxoCacheInstance()
+	outs := transaction.GetOuts()
+	for i, _ := range outs {
+		coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.Hash, uint32(i)))
+		if  coin != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) (bool) {
+	utxo := utxo.GetUtxoCacheInstance()
+	ins := transaction.GetIns()
+	for _, e := range ins {
+		coin := utxo.GetCoin(e.PreviousOutPoint)
+		if coin == nil {
+			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
+		}
+		if coin == nil {
+			return false
+		}
+		coinMap.AddCoin(e.PreviousOutPoint, coin)
+	}
+
+	return true
+}
 
 // starting BIP16(Apr 1 2012), we should check p2sh
 func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
@@ -123,11 +164,77 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 	return n, nil
 }
 
+func ContextualCheckTransaction(transaction *tx.Tx, flags int) error {
+
+	// By convention a negative value for flags indicates that the current
+	// network-enforced consensus rules should be used. In a future soft-fork
+	// scenario that would mean checking which rules would be enforced for the
+	// next block and setting the appropriate flags. At the present time no
+	// soft-forks are scheduled, so no flags are set.
+	if flags > 0 {
+		flags = 0
+	}
+
+	activeChain := chain.GetInstance()
+	var nLockTimeCutoff int64 = 0
+	if flags & consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
+		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
+	} else {
+		nLockTimeCutoff = util.GetAdjustedTime()
+	}
+
+	nBlockHeight := activeChain.Height() + 1
+	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
+		return errcode.New(errcode.TxErrNotFinal)
+	}
+
+	if IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
+		if transaction.IsCommitment() {
+			return errcode.New(errcode.TxErrTxCommitment)
+		}
+	}
+
+	return nil
+}
 /*
 func UndoTransaction(txs []*txundo.TxUndo) bool {
 	return true
 }
 */
+
+//IsUAHFEnabled Check is UAHF has activated.
+func IsUAHFEnabled(height int) bool {
+	return height >= chainparams.ActiveNetParams.UAHFHeight
+}
+
+func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
+	ins := transaction.GetIns()
+	for _, e := range ins {
+		coin := coinsMap.GetCoin(e.PreviousOutPoint)
+		if coin == nil {
+			errcode.New(errcode.TxErrInputsNotAvailable)
+		}
+		txOut := coin.GetTxOut()
+		pubKeyType, err := txOut.GetPubKeyType()
+		if err != nil {
+			return err
+		}
+		if pubKeyType == script.ScriptHash {
+			scriptSig := e.GetScriptSig()
+			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes) - 1].Data)
+			opCount, err := subScript.GetSigOpCount(true)
+
+			if err != nil {
+				return err
+			}
+			if uint(opCount) > tx.MaxP2SHSigOps {
+				return errcode.New(errcode.TxErrTooManySigOps)
+			}
+		}
+	}
+
+	return nil
+}
 
 func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	ins := tx.GetIns()
@@ -1439,4 +1546,56 @@ func CalculateSequenceLocks(transaction tx.Tx, flags int, prevHeights []int, bi 
 
 	maps[nMinHeight] = int64(nMinTime)
 	return maps
+}
+
+func CaculateLockPoint(flags uint) (lp *mempool.LockPoints) {
+	/*
+	lp = NewLockPoints()
+	maxHeight int = 0
+	maxTime int64 = 0
+	for _, e := range tx.ins {
+		if e.Sequence & SequenceLockTimeDisableFlag != 0 {
+			continue
+		}
+		coin := mempool.GetCoin(e.PreviousOutPoint)
+		if !coin {
+			coin = utxo.GetCoin(e.PreviousOutPoint)
+		}
+		if !coin {
+			lp = nil
+			return
+		}
+		coinTime int64 = 0
+		coinHeight := coin.GetHeight()
+		if coinHeight == MEMPOOL_HEIGHT {
+			coinHeight = ActiveChain.GetHeight() + 1
+		}
+		if e.Sequence & SequenceLockTimeTypeFlag != 0 {
+			if coinHeight - 1 > 0 {
+				coinTime = ActiveChain.Tip().GetAncesstor(coinHeight - 1).GetMedianTimePast()
+			} else {
+				coinTime = ActiveChain.Tip().GetAncesstor(0).GetMedianTimePast()
+			}
+			coinTime = ((e.Sequence & SequenceLockTimeMask) << wire.SequenceLockTimeGranularity) - 1
+			if maxTime < coinTime {
+				maxTime = coinTime
+			}
+		} else {
+			if maxHeight < coinHeight {
+				maxHeight = coinHeight
+			}
+		}
+	}
+	lp.MaxInputBlock = ActiveChain.GetAncestor(maxHeight)
+
+	if tx.Version >= 2 && flags & LocktimeVerifySequence != 0 {
+		lp.Height = maxHeight
+		lp.Time = maxTime
+		return
+	}
+
+	lp.Height = -1
+	lp.Time = -1
+	*/
+	return
 }

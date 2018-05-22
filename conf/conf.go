@@ -163,6 +163,14 @@ type Configuration struct {
 	Protocal struct {
 		NoPeerBloomFilters bool `default:"false"`
 	}
+	Script struct {
+		AcceptDataCarrier bool `default:"true"`
+		MaxDatacarrierBytes uint `default:"83"`
+		IsBareMultiSigStd bool `default:"true"`
+	}
+	TxOut struct {
+		DustRelayFee int64 `default:"83"`
+	}
 }
 
 func must(i interface{}, err error) interface{} {

@@ -6,12 +6,22 @@ type TxErr int
 
 const (
 	TxErrNoPreviousOut TxErr = TxErrorBase + iota
+	TxErrNullPreOut
 	TxErrIsCoinBase
 	TxErrNotCoinBase
 	TxErrEmptyInputs
 	TxErrTotalMoneyTooLarge
 	TxErrTooManySigOps
 	TxErrDupIns
+	TxErrBadVersion
+	TxErrOverSize
+	ScriptErrDustOut
+	TxErrNotFinal
+	TxErrTxCommitment
+	TxErrMempoolAlreadyExist
+	TxErrPreOutAlreadySpent
+	TxErrInputsNotAvailable
+	TxErrOutAlreadHave
 )
 
 var txErrorToString = map[TxErr]string {
