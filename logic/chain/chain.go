@@ -6,6 +6,7 @@ import (
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
 	lblock "github.com/btcboost/copernicus/logic/block"
+	"math"
 )
 
 func AcceptBlock(b * block.Block) (*blockindex.BlockIndex,error) {
@@ -22,27 +23,26 @@ func AcceptBlock(b * block.Block) (*blockindex.BlockIndex,error) {
 	return nil,nil
 }
 
-func  AcceptBlockHeader(bh * block.BlockHeader) (*blockindex.BlockIndex,error) {
+func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	var c = chain.GetInstance()
 
 	bIndex := c.FindBlockIndex(bh.GetHash())
 	if bIndex != nil {
 		if bIndex.HeaderValid() == false {
-			return nil,errcode.New(errcode.ErrorBlockHeaderNoValid)
-		}
-	} else {
-		err := lblock.CheckBlockHeader(&bIndex.Header)
-		if err != nil {
-			return nil,err
+			return nil, errcode.New(errcode.ErrorBlockHeaderNoValid)
 		}
 
-		bIndex = blockindex.NewBlockIndex(bh)
-		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
-		if bIndex.Prev == nil {
-			return nil,errcode.New(errcode.ErrorBlockHeaderNoParent)
-		}
+		return bIndex, nil
 	}
 
+	bIndex = blockindex.NewBlockIndex(bh)
+	bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
+	if bIndex.Prev == nil {
+		return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
+	}
 
-	return nil,nil
+	bIndex.Height = bIndex.Prev.Height + 1
+	bIndex.TimeMax = uint32(math.Max(float64(bIndex.Prev.TimeMax),float64(bIndex.Header.GetBlockTime())))
+
+	return nil, nil
 }

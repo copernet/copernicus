@@ -29,8 +29,8 @@ func (bh *BlockHeader) IsNull() bool {
 	return bh.Bits == 0
 }
 
-func (bh *BlockHeader) GetBlockTime() int64 {
-	return int64(bh.Time)
+func (bh *BlockHeader) GetBlockTime() uint32 {
+	return bh.Time
 }
 
 func (bh *BlockHeader) GetHash() util.Hash {
