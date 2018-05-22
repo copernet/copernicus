@@ -6,9 +6,7 @@ import (
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
 	lblock "github.com/btcboost/copernicus/logic/block"
-<<<<<<< HEAD
-	"math"
-=======
+
 	"fmt"
 
 	"github.com/btcboost/copernicus/log"
@@ -28,7 +26,7 @@ import (
 	"copernicus/core"
 	"copernicus/utils"
 	"copernicus/policy"
->>>>>>> ed1c78463bb42fc2d957ab4c40f756a5a45ca3e1
+	"math"
 )
 
 func AcceptBlock(b * block.Block) (*blockindex.BlockIndex,error) {
