@@ -161,7 +161,7 @@ type Configuration struct {
 		ConnectPeers []string
 	}
 	Protocal struct {
-		NoPeerBloomFilters bool `default:"false"`
+		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}
 }

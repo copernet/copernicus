@@ -16,6 +16,7 @@ import (
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chainparams"
+	mpool "github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
@@ -317,17 +318,8 @@ func (sm *SyncManager) isSyncCandidate(peer *peer.Peer) bool {
 			return false
 		}
 	} else {
-		// The peer is not a candidate for sync if it's not a full
-		// node. Additionally, if the segwit soft-fork package has
-		// activated, then the peer must also be upgraded.
-		segwitActive, err := sm.chain.IsDeploymentActive(chaincfg.DeploymentSegwit)
-		if err != nil {
-			log.Error("Unable to query for segwit "+
-				"soft-fork state: %v", err)
-		}
 		nodeServices := peer.Services()
-		if nodeServices&wire.SFNodeNetwork != wire.SFNodeNetwork ||
-			(segwitActive && !peer.IsWitnessEnabled()) {
+		if nodeServices&wire.SFNodeNetwork != wire.SFNodeNetwork {
 			return false
 		}
 	}
@@ -455,7 +447,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 		// simply rejected as opposed to something actually going wrong,
 		// so log it as such.  Otherwise, something really did go wrong,
 		// so log it as an actual error.
-		if _, ok := err.(mempool.RuleError); ok {
+		if _, ok := err.(mpool.RuleError); ok {
 			log.Debug("Rejected transaction %v from %s: %v",
 				txHash, peer, err)
 		} else {
@@ -465,7 +457,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 		// Convert the error into an appropriate reject message and
 		// send it.
-		code, reason := mempool.ErrToRejectErr(err)
+		code, reason := mpool.ErrToRejectErr(err)
 		peer.PushRejectMsg(wire.CmdTx, code, reason, txHash, false)
 		return
 	}
@@ -571,7 +563,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 		// Convert the error into an appropriate reject message and
 		// send it.
-		code, reason := mempool.ErrToRejectErr(err)
+		code, reason := mpool.ErrToRejectErr(err)
 		peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
 		return
 	}
@@ -1423,7 +1415,7 @@ func New(config *Config) (*SyncManager, error) {
 // transactions, blocks, etc. Currently server (in the main package) implements
 // this interface.
 type PeerNotifier interface {
-	AnnounceNewTransactions(newTxs []*mempool.TxEntry)
+	AnnounceNewTransactions(newTxs []*mpool.TxEntry)
 
 	UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer)
 

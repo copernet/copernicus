@@ -39,10 +39,7 @@ import (
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/bloom"
-	"github.com/btcsuite/btcd/netsync"
 )
 
 const (
@@ -933,8 +930,6 @@ func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten int, msg wire.Message, 
 	sp.server.AddBytesSent(uint64(bytesWritten))
 }
 
-
-
 // rpcPeer provides a peer for use with the RPC server and implements the
 // rpcserverPeer interface.
 type rpcPeer serverPeer
@@ -979,7 +974,6 @@ func (p *rpcPeer) BanScore() uint32 {
 func (p *rpcPeer) FeeFilter() int64 {
 	return atomic.LoadInt64(&(*serverPeer)(p).feeFilter)
 }
-
 
 // randomUint16Number returns a random uint16 in a specified input range.  Note
 // that the range is in zeroth ordering; if you pass it 1800, you will get
@@ -1964,11 +1958,6 @@ func (s *server) Start() {
 
 		s.rpcServer.Start()
 	}
-
-	// Start the CPU miner if generation is enabled.
-	// if cfg.Generate {
-	// 	s.cpuMiner.Start()
-	// }
 }
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
@@ -2138,55 +2127,6 @@ out:
 	s.wg.Done()
 }
 
-// setupRPCListeners returns a slice of listeners that are configured for use
-// with the RPC server depending on the configuration settings for listen
-// addresses and TLS.
-func setupRPCListeners() ([]net.Listener, error) {
-	// Setup TLS if not disabled.
-	listenFunc := net.Listen
-	if !conf.Cfg.P2PNet.DisableTLS {
-		// Generate the TLS cert and key file if both don't already
-		// exist.
-		if !fileExists(conf.Cfg.RPC.RPCKey) && !fileExists(conf.Cfg.RPC.RPCCert) {
-			err := genCertPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
-			if err != nil {
-				return nil, err
-			}
-		}
-		keypair, err := tls.LoadX509KeyPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
-		if err != nil {
-			return nil, err
-		}
-
-		tlsConfig := tls.Config{
-			Certificates: []tls.Certificate{keypair},
-			MinVersion:   tls.VersionTLS12,
-		}
-
-		// Change the standard net.Listen function to the tls one.
-		listenFunc = func(net string, laddr string) (net.Listener, error) {
-			return tls.Listen(net, laddr, &tlsConfig)
-		}
-	}
-
-	netAddrs, err := parseListeners(conf.Cfg.RPC.RPCListeners)
-	if err != nil {
-		return nil, err
-	}
-
-	listeners := make([]net.Listener, 0, len(netAddrs))
-	for _, addr := range netAddrs {
-		listener, err := listenFunc(addr.Network(), addr.String())
-		if err != nil {
-			log.Warn("Can't listen on %s: %v", addr, err)
-			continue
-		}
-		listeners = append(listeners, listener)
-	}
-
-	return listeners, nil
-}
-
 func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}) (*server, error) {
 
 	cfg := conf.Cfg
@@ -2226,14 +2166,9 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
 		services:             services,
 		nat:                  nat,
-		// db:                   db,
-		timeSource: bitcointime.NewMedianTime(),
-
-		// sigCache:   txscript.NewSigCache(cfg.SigCacheMaxSize),
-		// hashCache:  txscript.NewHashCache(cfg.SigCacheMaxSize),
-
-		phCh: phCh,
-		mh:   service.NewMsgHandle(context.TODO(), phCh),
+		timeSource:           bitcointime.NewMedianTime(),
+		phCh:                 phCh,
+		mh:                   service.NewMsgHandle(context.TODO(), phCh),
 	}
 
 	s.rpcServer, err = rpc.InitRPCServer()
@@ -2280,7 +2215,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	s.connManager = cmgr
 
 	s.syncManager, err = service.New(&service.Config{
-		PeerNotifier:       &s,
+		PeerNotifier:       s,
 		ChainParams:        s.chainParams,
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
@@ -2543,6 +2478,7 @@ func (s checkpointSorter) Less(i, j int) bool {
 // checkpoints contain a checkpoint with the same height as a checkpoint in the
 // default checkpoints, the additional checkpoint will take precedence and
 // overwrite the default one.
+// FIXME: by qiw, make a checkpoint list from config file
 func mergeCheckpoints(defaultCheckpoints, additional []model.Checkpoint) []model.Checkpoint {
 	// Create a map of the additional checkpoints to remove duplicates while
 	// leaving the most recently-specified checkpoint.
