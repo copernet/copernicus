@@ -18,6 +18,7 @@ import (
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/outpoint"
+	"btcd/wire"
 )
 
 func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error {
@@ -69,17 +70,17 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 		return errcode.New(errcode.TxErrInputsNotAvailable)
 	}
 
+	//check sequencelock
+	//lp := caculateLockPoint(StandardLockTimeVerifyFlags)
+	//if !tx.checkSequenceLocks(lp) {
+	//	return false
+	//}
+
 	//check standard inputs
 	err = checkInputsStandard(transaction, tempCoinsMap)
 	if err != nil {
 		return err
 	}
-	////check sequencelock
-	////lp := tx.caculateLockPoint(StandardLockTimeVerifyFlags)
-	////if !tx.checkSequenceLocks(lp) {
-	////	return false
-	////}
-	//
 	////check inputs money range
 	//if !tx.CheckInputsMoney() {
 	//	return false
@@ -189,7 +190,7 @@ func ContextualCheckTransaction(transaction *tx.Tx, flags int) error {
 	}
 
 	if IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
-		if transaction.IsCommitment() {
+		if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
 			return errcode.New(errcode.TxErrTxCommitment)
 		}
 	}
@@ -1542,11 +1543,10 @@ func CalculateSequenceLocks(transaction tx.Tx, flags int, prevHeights []int, bi 
 	return maps
 }
 
-func CaculateLockPoint(flags uint) (lp *mempool.LockPoints) {
-	/*
-	lp = NewLockPoints()
-	maxHeight int = 0
-	maxTime int64 = 0
+func CaculateLockPoint(transaction tx.Tx, flags uint) (lp *mempool.LockPoints) {
+	lp = mempool.NewLockPoints()
+	var maxHeight int = 0
+	var maxTime int64 = 0
 	for _, e := range tx.ins {
 		if e.Sequence & SequenceLockTimeDisableFlag != 0 {
 			continue
@@ -1590,6 +1590,6 @@ func CaculateLockPoint(flags uint) (lp *mempool.LockPoints) {
 
 	lp.Height = -1
 	lp.Time = -1
-	*/
+
 	return
 }

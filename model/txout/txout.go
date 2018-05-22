@@ -10,7 +10,6 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/chainparams"
 )
 
 type TxOut struct {
@@ -121,8 +120,8 @@ func (txOut *TxOut) SetScriptPubKey(s *script.Script)  {
 	 txOut.scriptPubKey = s
 }
 
-func (txOut *TxOut) IsCommitment() bool {
-	return txOut.scriptPubKey.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment)
+func (txOut *TxOut) IsCommitment(data []byte) bool {
+	return txOut.scriptPubKey.IsCommitment(data)
 }
 
 /*

@@ -383,9 +383,9 @@ func (tx *Tx) CheckStandard() error {
 	return nil
 }
 
-func (tx *Tx) IsCommitment() bool {
+func (tx *Tx) IsCommitment(data []byte) bool {
 	for _, e := range tx.outs {
-		if e.IsCommitment() {
+		if e.IsCommitment(data) {
 			return true
 		}
 	}
