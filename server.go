@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -40,7 +39,6 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/netsync"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/bloom"
 )
@@ -70,7 +68,7 @@ var (
 
 	// userAgentVersion is the user agent version and is used to help
 	// identify ourselves to other bitcoin peers.
-	userAgentVersion = fmt.Sprintf("%d.%d.%d", appMajor, appMinor, appPatch)
+	userAgentVersion = fmt.Sprintf("%d.%d.%d", btcctl.AppMajor, btcctl.AppMinor, btcctl.AppPatch)
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -195,26 +193,17 @@ func (ps *peerState) forAllPeers(closure func(sp *serverPeer)) {
 type server struct {
 	// The following variables must only be used atomically.
 	// Putting the uint64s first makes them 64-bit aligned for 32-bit systems.
-	bytesReceived uint64 // Total bytes received from all peers since start.
-	bytesSent     uint64 // Total bytes sent by all peers since start.
-	started       int32
-	shutdown      int32
-	shutdownSched int32
-	startupTime   int64
-
-	chainParams *chainparams.BitcoinParams
-	addrManager *addrmgr.AddrManager
-	connManager *connmgr.ConnManager
-	// sigCache             *txscript.SigCache
-	// hashCache            *txscript.HashCache
-
-	syncManager *service.SyncManager
-
-	rpcServer *rpc.Server
-
-	// chain                *blockchain.BlockChain
-	// txMemPool            *mempool.TxPool
-	// cpuMiner             *cpuminer.CPUMiner
+	bytesReceived        uint64 // Total bytes received from all peers since start.
+	bytesSent            uint64 // Total bytes sent by all peers since start.
+	started              int32
+	shutdown             int32
+	shutdownSched        int32
+	startupTime          int64
+	chainParams          *chainparams.BitcoinParams
+	addrManager          *addrmgr.AddrManager
+	connManager          *connmgr.ConnManager
+	syncManager          *service.SyncManager
+	rpcServer            *rpc.Server
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *serverPeer
 	donePeers            chan *serverPeer
@@ -226,7 +215,7 @@ type server struct {
 	wg                   sync.WaitGroup
 	quit                 chan struct{}
 	nat                  upnp.NAT
-	// db                   database.DB
+	// db                   database.DB//todo:?
 	timeSource *bitcointime.MedianTime
 	services   wire.ServiceFlag
 
@@ -234,9 +223,6 @@ type server struct {
 	// if the associated index is not enabled.  These fields are set during
 	// initial creation of the server and never changed afterwards, so they
 	// do not need to be protected for concurrent access.
-
-	// txIndex   *indexers.TxIndex
-	// addrIndex *indexers.AddrIndex
 
 	phCh chan *peer.PeerMessage
 	mh   *service.MsgHandle
@@ -283,6 +269,7 @@ func newServerPeer(s *server, isPersistent bool) *serverPeer {
 
 // newestBlock returns the current best block hash and height using the format
 // required by the configuration for the peer package.
+//todo: need stand by jiangheping
 func (sp *serverPeer) newestBlock() (*util.Hash, int32, error) {
 	best := sp.server.chain.BestSnapshot()
 	return &best.Hash, best.Height, nil
@@ -386,7 +373,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 	// Add the remote peer time as a sample for creating an offset against
 	// the local clock to keep the network time in sync.
-	sp.server.timeSource.AddTimeSample(sp.Addr(), time.Unix(msg.Timestamp, 0))
+	sp.server.timeSource.AddTimeSample(sp.Addr(), time.Unix(msg.Timestamp.Unix(), 0))
 
 	// Signal the sync manager this peer is a new sync candidate.
 	sp.server.syncManager.NewPeer(sp.Peer)
@@ -439,6 +426,7 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 // It creates and sends an inventory message with the contents of the memory
 // pool up to the maximum inventory allowed per message.  When the peer has a
 // bloom filter loaded, the contents are filtered accordingly.
+// todo: need stand by yaoyongxin
 func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// Only allow mempool requests if the server has bloom filtering
 	// enabled.
@@ -654,6 +642,7 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 
 // OnGetBlocks is invoked when a peer receives a getblocks bitcoin
 // message.
+// todo: need stand by jiangheping
 func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	// Find the most recent known block in the best chain based on the block
 	// locator and fetch all of the block hashes after it until either
@@ -693,6 +682,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 
 // OnGetHeaders is invoked when a peer receives a getheaders bitcoin
 // message.
+//todo:need stand by jiangheping
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// Ignore getheaders requests if not in sync.
 	if !sp.server.syncManager.IsCurrent() {
@@ -905,7 +895,7 @@ func (sp *serverPeer) OnAddr(_ *peer.Peer, msg *wire.MsgAddr) {
 		// removed when space is needed.
 		now := time.Now()
 		if na.Timestamp.After(now.Add(time.Minute * 10)) {
-			na.Timestamp = uint32(now.Add(-1 * time.Hour * 24 * 5).Unix())
+			na.Timestamp = now.Add(-1 * time.Hour * 24 * 5)
 		}
 
 		// Add address to known addresses for this peer.
@@ -1960,11 +1950,6 @@ func (s *server) Start() {
 
 		s.rpcServer.Start()
 	}
-
-	// Start the CPU miner if generation is enabled.
-	// if cfg.Generate {
-	// 	s.cpuMiner.Start()
-	// }
 }
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
@@ -2134,55 +2119,6 @@ out:
 	s.wg.Done()
 }
 
-// setupRPCListeners returns a slice of listeners that are configured for use
-// with the RPC server depending on the configuration settings for listen
-// addresses and TLS.
-func setupRPCListeners() ([]net.Listener, error) {
-	// Setup TLS if not disabled.
-	listenFunc := net.Listen
-	if !conf.Cfg.P2PNet.DisableTLS {
-		// Generate the TLS cert and key file if both don't already
-		// exist.
-		if !fileExists(conf.Cfg.RPC.RPCKey) && !fileExists(conf.Cfg.RPC.RPCCert) {
-			err := genCertPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
-			if err != nil {
-				return nil, err
-			}
-		}
-		keypair, err := tls.LoadX509KeyPair(conf.Cfg.RPC.RPCCert, conf.Cfg.RPC.RPCKey)
-		if err != nil {
-			return nil, err
-		}
-
-		tlsConfig := tls.Config{
-			Certificates: []tls.Certificate{keypair},
-			MinVersion:   tls.VersionTLS12,
-		}
-
-		// Change the standard net.Listen function to the tls one.
-		listenFunc = func(net string, laddr string) (net.Listener, error) {
-			return tls.Listen(net, laddr, &tlsConfig)
-		}
-	}
-
-	netAddrs, err := parseListeners(conf.Cfg.RPC.RPCListeners)
-	if err != nil {
-		return nil, err
-	}
-
-	listeners := make([]net.Listener, 0, len(netAddrs))
-	for _, addr := range netAddrs {
-		listener, err := listenFunc(addr.Network(), addr.String())
-		if err != nil {
-			log.Warn("Can't listen on %s: %v", addr, err)
-			continue
-		}
-		listeners = append(listeners, listener)
-	}
-
-	return listeners, nil
-}
-
 func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}) (*server, error) {
 
 	cfg := conf.Cfg
@@ -2222,14 +2158,9 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
 		services:             services,
 		nat:                  nat,
-		// db:                   db,
-		timeSource: bitcointime.NewMedianTime(),
-
-		// sigCache:   txscript.NewSigCache(cfg.SigCacheMaxSize),
-		// hashCache:  txscript.NewHashCache(cfg.SigCacheMaxSize),
-
-		phCh: phCh,
-		mh:   service.NewMsgHandle(context.TODO(), phCh),
+		timeSource:           bitcointime.NewMedianTime(),
+		phCh:                 phCh,
+		mh:                   service.NewMsgHandle(context.TODO(), phCh),
 	}
 
 	s.rpcServer, err = rpc.InitRPCServer()
@@ -2276,7 +2207,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	s.connManager = cmgr
 
 	s.syncManager, err = service.New(&service.Config{
-		PeerNotifier:       &s,
+		PeerNotifier:       s,
 		ChainParams:        s.chainParams,
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
@@ -2539,6 +2470,7 @@ func (s checkpointSorter) Less(i, j int) bool {
 // checkpoints contain a checkpoint with the same height as a checkpoint in the
 // default checkpoints, the additional checkpoint will take precedence and
 // overwrite the default one.
+// FIXME: by qiw, make a checkpoint list from config file
 func mergeCheckpoints(defaultCheckpoints, additional []model.Checkpoint) []model.Checkpoint {
 	// Create a map of the additional checkpoints to remove duplicates while
 	// leaving the most recently-specified checkpoint.
