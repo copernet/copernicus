@@ -230,7 +230,7 @@ func NewMsgVersion(me *NetAddress, you *NetAddress, nonce uint64,
 	return &MsgVersion{
 		ProtocolVersion: int32(ProtocolVersion),
 		Services:        0,
-		Timestamp:       time.Now().Unix(),
+		Timestamp:       time.Now(),
 		AddrYou:         *you,
 		AddrMe:          *me,
 		Nonce:           nonce,

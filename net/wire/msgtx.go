@@ -5,14 +5,12 @@
 package wire
 
 import (
-	"bytes"
-	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
 )
+
+const minTxPayload = 10
 
 type MsgTx tx.Tx
 
