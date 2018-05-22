@@ -7,9 +7,10 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/spf13/viper"
 	"net"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -129,8 +130,9 @@ type Configuration struct {
 		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
 	}
 	Log struct {
-		Level  string //description:"Define level of log,include trace, debug, info, warn, error"
-		Format string
+		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+		Module   []string // only output the specified module's log when using log.Print(...)
+		FileName string   // the name of log file
 	}
 	Mempool struct {
 		MinFeeRate int64
@@ -144,7 +146,7 @@ type Configuration struct {
 		BanThreshold        uint32
 		SimNet              bool          `default:"false"`
 		DisableListen       bool          `default:"true"`
-		BlocksOnly          bool          `default:"true"`
+		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
 		BanDuration         time.Duration // How long to ban misbehaving peers
 		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.

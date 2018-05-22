@@ -71,7 +71,7 @@ func (tu *TxUndo)Unserialize(r io.Reader) error {
 		}
 		preouts[i] = coin
 	}
-	tu.PrevOut = preouts
+	tu.undoCoins = preouts
 	return nil
 }
 
@@ -122,6 +122,6 @@ func (bu *BlockUndo) Unserialize(r io.Reader) error {
 
 func newTxUndo() *TxUndo {
 	return &TxUndo{
-		PrevOut: make([]*utxo.Coin, 0),
+		undoCoins: make([]*utxo.Coin, 0),
 	}
 }

@@ -16,15 +16,15 @@ import (
 // This message has no payload.
 type MsgGetAddr struct{}
 
-// BtcDecode decodes r using the bitcoin protocol encoding into the receiver.
+// Decode decodes r using the bitcoin protocol encoding into the receiver.
 // This is part of the Message interface implementation.
-func (msg *MsgGetAddr) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgGetAddr) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	return nil
 }
 
-// BtcEncode encodes the receiver to w using the bitcoin protocol encoding.
+// Encode encodes the receiver to w using the bitcoin protocol encoding.
 // This is part of the Message interface implementation.
-func (msg *MsgGetAddr) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgGetAddr) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	return nil
 }
 

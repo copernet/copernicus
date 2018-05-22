@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
@@ -215,13 +216,13 @@ func TestVersionWire(t *testing.T) {
 	for i, test := range tests {
 		// Encode the message to wire format.
 		var buf bytes.Buffer
-		err := test.in.BtcEncode(&buf, test.pver, test.enc)
+		err := test.in.Encode(&buf, test.pver, test.enc)
 		if err != nil {
-			t.Errorf("BtcEncode #%d error %v", i, err)
+			t.Errorf("Encode #%d error %v", i, err)
 			continue
 		}
 		if !bytes.Equal(buf.Bytes(), test.buf) {
-			t.Errorf("BtcEncode #%d\n got: %s want: %s", i,
+			t.Errorf("Encode #%d\n got: %s want: %s", i,
 				spew.Sdump(buf.Bytes()), spew.Sdump(test.buf))
 			continue
 		}
@@ -229,13 +230,13 @@ func TestVersionWire(t *testing.T) {
 		// Decode the message from wire format.
 		var msg MsgVersion
 		rbuf := bytes.NewBuffer(test.buf)
-		err = msg.BtcDecode(rbuf, test.pver, test.enc)
+		err = msg.Decode(rbuf, test.pver, test.enc)
 		if err != nil {
-			t.Errorf("BtcDecode #%d error %v", i, err)
+			t.Errorf("Decode #%d error %v", i, err)
 			continue
 		}
 		if !reflect.DeepEqual(&msg, test.out) {
-			t.Errorf("BtcDecode #%d\n got: %s want: %s", i,
+			t.Errorf("Decode #%d\n got: %s want: %s", i,
 				spew.Sdump(msg), spew.Sdump(test.out))
 			continue
 		}
@@ -252,12 +253,12 @@ func TestVersionWireErrors(t *testing.T) {
 	enc := BaseEncoding
 	wireErr := &MessageError{}
 
-	// Ensure calling MsgVersion.BtcDecode with a non *bytes.Buffer returns
+	// Ensure calling MsgVersion.Decode with a non *bytes.Buffer returns
 	// error.
 	fr := newFixedReader(0, []byte{})
-	if err := baseVersion.BtcDecode(fr, pver, enc); err == nil {
+	if err := baseVersion.Decode(fr, pver, enc); err == nil {
 		t.Errorf("Did not received error when calling " +
-			"MsgVersion.BtcDecode with non *bytes.Buffer")
+			"MsgVersion.Decode with non *bytes.Buffer")
 	}
 
 	// Copy the base version and change the user agent to exceed max limits.
@@ -325,9 +326,9 @@ func TestVersionWireErrors(t *testing.T) {
 	for i, test := range tests {
 		// Encode to wire format.
 		w := newFixedWriter(test.max)
-		err := test.in.BtcEncode(w, test.pver, test.enc)
+		err := test.in.Encode(w, test.pver, test.enc)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.writeErr) {
-			t.Errorf("BtcEncode #%d wrong error got: %v, want: %v",
+			t.Errorf("Encode #%d wrong error got: %v, want: %v",
 				i, err, test.writeErr)
 			continue
 		}
@@ -336,7 +337,7 @@ func TestVersionWireErrors(t *testing.T) {
 		// equality.
 		if _, ok := err.(*MessageError); !ok {
 			if err != test.writeErr {
-				t.Errorf("BtcEncode #%d wrong error got: %v, "+
+				t.Errorf("Encode #%d wrong error got: %v, "+
 					"want: %v", i, err, test.writeErr)
 				continue
 			}
@@ -345,9 +346,9 @@ func TestVersionWireErrors(t *testing.T) {
 		// Decode from wire format.
 		var msg MsgVersion
 		buf := bytes.NewBuffer(test.buf[0:test.max])
-		err = msg.BtcDecode(buf, test.pver, test.enc)
+		err = msg.Decode(buf, test.pver, test.enc)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.readErr) {
-			t.Errorf("BtcDecode #%d wrong error got: %v, want: %v",
+			t.Errorf("Decode #%d wrong error got: %v, want: %v",
 				i, err, test.readErr)
 			continue
 		}
@@ -356,7 +357,7 @@ func TestVersionWireErrors(t *testing.T) {
 		// equality.
 		if _, ok := err.(*MessageError); !ok {
 			if err != test.readErr {
-				t.Errorf("BtcDecode #%d wrong error got: %v, "+
+				t.Errorf("Decode #%d wrong error got: %v, "+
 					"want: %v", i, err, test.readErr)
 				continue
 			}
@@ -372,9 +373,9 @@ func TestVersionOptionalFields(t *testing.T) {
 	onlyRequiredVersion := MsgVersion{
 		ProtocolVersion: 60002,
 		Services:        SFNodeNetwork,
-		Timestamp:       0x495fab29, // 2009-01-03 12:15:05 -0600 CST)
+		Timestamp:       time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST)
 		AddrYou: NetAddress{
-			Timestamp: 0, // Zero value -- no timestamp in version
+			Timestamp: time.Time{}, // Zero value -- no timestamp in version
 			Services:  SFNodeNetwork,
 			IP:        net.ParseIP("192.168.0.1"),
 			Port:      8333,
@@ -387,7 +388,7 @@ func TestVersionOptionalFields(t *testing.T) {
 	// the AddrMe field.
 	addrMeVersion := onlyRequiredVersion
 	addrMeVersion.AddrMe = NetAddress{
-		Timestamp: 0, // Zero value -- no timestamp in version
+		Timestamp: time.Time{}, // Zero value -- no timestamp in version
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,
@@ -458,13 +459,13 @@ func TestVersionOptionalFields(t *testing.T) {
 		// Decode the message from wire format.
 		var msg MsgVersion
 		rbuf := bytes.NewBuffer(test.buf)
-		err := msg.BtcDecode(rbuf, test.pver, test.enc)
+		err := msg.Decode(rbuf, test.pver, test.enc)
 		if err != nil {
-			t.Errorf("BtcDecode #%d error %v", i, err)
+			t.Errorf("Decode #%d error %v", i, err)
 			continue
 		}
 		if !reflect.DeepEqual(&msg, test.msg) {
-			t.Errorf("BtcDecode #%d\n got: %s want: %s", i,
+			t.Errorf("Decode #%d\n got: %s want: %s", i,
 				spew.Sdump(msg), spew.Sdump(test.msg))
 			continue
 		}
@@ -475,15 +476,15 @@ func TestVersionOptionalFields(t *testing.T) {
 var baseVersion = &MsgVersion{
 	ProtocolVersion: 60002,
 	Services:        SFNodeNetwork,
-	Timestamp:       0x495fab29, // 2009-01-03 12:15:05 -0600 CST)
+	Timestamp:       time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST)
 	AddrYou: NetAddress{
-		Timestamp: 0, // Zero value -- no timestamp in version
+		Timestamp: time.Time{}, // Zero value -- no timestamp in version
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("192.168.0.1"),
 		Port:      8333,
 	},
 	AddrMe: NetAddress{
-		Timestamp: 0, // Zero value -- no timestamp in version
+		Timestamp: time.Time{}, // Zero value -- no timestamp in version
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,
@@ -521,15 +522,15 @@ var baseVersionEncoded = []byte{
 var baseVersionBIP0037 = &MsgVersion{
 	ProtocolVersion: 70001,
 	Services:        SFNodeNetwork,
-	Timestamp:       0x495fab29, // 2009-01-03 12:15:05 -0600 CST)
+	Timestamp:       time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST)
 	AddrYou: NetAddress{
-		Timestamp: 0, // Zero value -- no timestamp in version
+		Timestamp: time.Time{}, // Zero value -- no timestamp in version
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("192.168.0.1"),
 		Port:      8333,
 	},
 	AddrMe: NetAddress{
-		Timestamp: 0, // Zero value -- no timestamp in version
+		Timestamp: time.Time{}, // Zero value -- no timestamp in version
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,

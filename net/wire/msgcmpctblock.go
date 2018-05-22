@@ -68,38 +68,38 @@ func getShortID(id0, id1 uint64, hash *util.Hash) uint64 {
 	return util.SipHash(id0, id1, (*hash)[:]) & 0xffffffffffff
 }
 
-func (pft *PreFilledTransaction) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (pft *PreFilledTransaction) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	idx, err := util.ReadVarInt(r)
 	if err != nil {
 		return err
 	}
 	if idx > math.MaxUint16 {
-		return messageError("MsgCmpctBlock.BtcDecode", fmt.Sprintf("index overflowed 16-bits"))
+		return messageError("MsgCmpctBlock.Decode", fmt.Sprintf("index overflowed 16-bits"))
 	}
 	pft.Index = uint16(idx)
-	if err := pft.Tx.BtcDecode(r, pver, enc); err != nil {
+	if err := pft.Tx.Decode(r, pver, enc); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (pft *PreFilledTransaction) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (pft *PreFilledTransaction) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if err := util.WriteVarInt(w, uint64(pft.Index)); err != nil {
 		return err
 	}
-	if err := pft.Tx.BtcEncode(w, pver, enc); err != nil {
+	if err := pft.Tx.Encode(w, pver, enc); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (msg *MsgCmpctBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgCmpctBlock) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("cmpctblock message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgCmpctBlock.BtcDecode", str)
+		return messageError("MsgCmpctBlock.Decode", str)
 	}
-	if err := msg.Header.BtcDecode(r, pver, enc); err != nil {
+	if err := msg.Header.Decode(r, pver, enc); err != nil {
 		return err
 	}
 	if err := util.ReadElements(r, &msg.Nonce); err != nil {
@@ -128,7 +128,7 @@ func (msg *MsgCmpctBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncodin
 	}
 	vpft := make([]PreFilledTransaction, pftLen)
 	for i := 0; i < len(vpft); i++ {
-		if err := vpft[i].BtcDecode(r, pver, enc); err != nil {
+		if err := vpft[i].Decode(r, pver, enc); err != nil {
 			return err
 		}
 	}
@@ -141,13 +141,13 @@ func (msg *MsgCmpctBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncodin
 	return nil
 }
 
-func (msg *MsgCmpctBlock) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgCmpctBlock) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("cmpctblock message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgCmpctBlock.BtcEncode", str)
+		return messageError("MsgCmpctBlock.Encode", str)
 	}
-	if err := msg.Header.BtcEncode(w, pver, enc); err != nil {
+	if err := msg.Header.Encode(w, pver, enc); err != nil {
 		return err
 	}
 	if err := util.WriteElements(w, &msg.Nonce); err != nil {
@@ -169,7 +169,7 @@ func (msg *MsgCmpctBlock) BtcEncode(w io.Writer, pver uint32, enc MessageEncodin
 		}
 	}
 	for i := 0; i < len(msg.PreFilledTxn); i++ {
-		if err := msg.PreFilledTxn[i].BtcEncode(w, pver, enc); err != nil {
+		if err := msg.PreFilledTxn[i].Encode(w, pver, enc); err != nil {
 			return err
 		}
 	}

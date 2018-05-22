@@ -13,11 +13,11 @@ type MsgGetBlockTxn struct {
 	Indexes   []uint16
 }
 
-func (msg *MsgGetBlockTxn) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) error {
+func (msg *MsgGetBlockTxn) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("getblocktxn message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgGetBlockTxn.BtcEncode", str)
+		return messageError("MsgGetBlockTxn.Encode", str)
 	}
 
 	if err := util.WriteElements(w, msg.BlockHash); err != nil {
@@ -41,11 +41,11 @@ func (msg *MsgGetBlockTxn) BtcEncode(w io.Writer, pver uint32, enc MessageEncodi
 	return nil
 }
 
-func (msg *MsgGetBlockTxn) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) error {
+func (msg *MsgGetBlockTxn) Decode(r io.Reader, pver uint32, enc MessageEncoding) error {
 	if pver < ShortIdsBlocksVersion {
 		str := fmt.Sprintf("getblocktxn message invalid for protocol "+
 			"version %d", pver)
-		return messageError("MsgGetBlockTxn.BtcDecode", str)
+		return messageError("MsgGetBlockTxn.Decode", str)
 	}
 	if err := util.ReadElements(r, &msg.BlockHash); err != nil {
 		return err
@@ -61,14 +61,14 @@ func (msg *MsgGetBlockTxn) BtcDecode(r io.Reader, pver uint32, enc MessageEncodi
 			return err
 		}
 		if index > math.MaxUint16 {
-			return messageError("MsgGetBlockTxn.BtcDecode", fmt.Sprintf("index overflowed 16-bits"))
+			return messageError("MsgGetBlockTxn.Decode", fmt.Sprintf("index overflowed 16-bits"))
 		}
 		indexes[i] = uint16(index)
 	}
 	offset := uint16(0)
 	for j := 0; j < len(indexes); j++ {
 		if uint64(indexes[j])+uint64(offset) > math.MaxUint16 {
-			return messageError("MsgGetBlockTxn.BtcDecode", fmt.Sprintf("index overflowed 16-bits"))
+			return messageError("MsgGetBlockTxn.Decode", fmt.Sprintf("index overflowed 16-bits"))
 		}
 		indexes[j] += offset
 		offset = indexes[j] + 1

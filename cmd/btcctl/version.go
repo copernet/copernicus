@@ -2,7 +2,7 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package main
+package btcctl
 
 import (
 	"bytes"
@@ -16,9 +16,9 @@ const semanticAlphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqr
 // These constants define the application version and follow the semantic
 // versioning 2.0.0 spec (http://semver.org/).
 const (
-	appMajor uint = 0
-	appMinor uint = 12
-	appPatch uint = 0
+	AppMajor uint = 0
+	AppMinor uint = 12
+	AppPatch uint = 0
 
 	// appPreRelease MUST only contain characters from semanticAlphabet
 	// per the semantic versioning spec.
@@ -34,7 +34,7 @@ var appBuild string
 // semantic versioning 2.0.0 spec (http://semver.org/).
 func version() string {
 	// Start with the major, minor, and patch versions.
-	version := fmt.Sprintf("%d.%d.%d", appMajor, appMinor, appPatch)
+	version := fmt.Sprintf("%d.%d.%d", AppMajor, AppMinor, AppPatch)
 
 	// Append pre-release version if there is one.  The hyphen called for
 	// by the semantic versioning spec is automatically appended and should
