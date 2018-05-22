@@ -39,7 +39,8 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 		panic("param coin should not be null")
 	}
 	// 脚本不可花
-	if !coin.GetTxOut().IsSpendable() {
+	txout := coin.GetTxOut()
+	if !txout.IsSpendable() {
 		return
 	}
 	fresh := false
@@ -85,7 +86,7 @@ func (coinsMap CoinsMap)FetchCoin(out *outpoint.OutPoint) *Coin{
 	if coin != nil{
 		return coin
 	}
-	coin, _ = GetUtxoCacheInstance().GetCoin(out)
+	coin = GetUtxoCacheInstance().GetCoin(out)
 	newCoin := coin.DeepCopy()
 	if newCoin.IsSpent(){
 		newCoin.fresh = true

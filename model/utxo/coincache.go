@@ -75,6 +75,7 @@ func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
 	if coin == nil{
 		return nil
 	}
+	log.Debug("db.getcoin======%#v", coin)
 	coinsCache.cacheCoins[*outpoint] = coin
 	if coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
@@ -114,6 +115,10 @@ func (coinsCache *CoinsCache) EstimateSize() uint64 {
 func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error {
 	for point, tempCacheCoin := range *tempCacheCoins {
 		// Ignore non-dirty entries (optimization).
+		if tempCacheCoin.isMempoolCoin{
+			log.Error("MempoolCoin  save to DB!!!  %#v", tempCacheCoin)
+			panic("MempoolCoin  save to DB!!!")
+		}
 		if tempCacheCoin.dirty{
 			globalCacheCoin, ok := coinsCache.cacheCoins[point]
 			if !ok {

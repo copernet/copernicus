@@ -49,6 +49,7 @@ func NewCoinsLruCache(db CoinsDB) CacheView {
 		panic("Error: NewCoinsLruCache err")
 	}
 	c.cacheCoins = cache
+	c.dirtyCoins = make(CoinsMap)
 	return c
 }
 
@@ -64,15 +65,9 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
 		logs.Emergency("CoinsLruCache.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
-
-	if err != nil{
-		log.Error("Error:  GetCoin err: %#v ", err)
-		panic("GetCoin error")
-	}
 	if coin == nil{
 		return nil
 	}
-	coin = c.(*Coin)
 	coinsCache.cacheCoins.Add(*outpoint, coin)
 	if coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
@@ -109,6 +104,10 @@ func (coinsCache *CoinsLruCache) SetBestBlock(hash util.Hash) {
 func (coinsCache *CoinsLruCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error {
 	for point, tempCacheCoin := range *tempCacheCoins {
 		// Ignore non-dirty entries (optimization).
+		if tempCacheCoin.isMempoolCoin{
+			log.Error("MempoolCoin  save to DB!!!  %#v", tempCacheCoin)
+			panic("MempoolCoin  save to DB!!!")
+		}
 		if tempCacheCoin.dirty{
 			coin, ok := coinsCache.cacheCoins.Get(point)
 			// Lru could have deleted it from cache ,but ok.

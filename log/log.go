@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/util"
 	"runtime"
 	"fmt"
@@ -46,11 +45,11 @@ func Print(module string, level string, format string, reason ...interface{}) {
 }
 
 func isIncludeModule(module string) bool {
-	for _, item := range conf.AppConf.LogModule {
-		if item == module {
-			return true
-		}
-	}
+	//for _, item := range conf.AppConf.LogModule {
+	//	if item == module {
+	//		return true
+	//	}
+	//}
 	return false
 }
 
@@ -64,7 +63,7 @@ func init() {
 		Daily    bool   `json:"daily"`
 	}{
 		FileName: logDir,
-		Level:    getLevel(conf.AppConf.LogLevel),
+		Level:    getLevel("debug"),
 		Daily:    false,
 	}
 
