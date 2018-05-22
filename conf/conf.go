@@ -144,7 +144,7 @@ type Configuration struct {
 		BanThreshold        uint32
 		SimNet              bool          `default:"false"`
 		DisableListen       bool          `default:"true"`
-		BlocksOnly          bool          `default:"true"`
+		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
 		BanDuration         time.Duration // How long to ban misbehaving peers
 		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
