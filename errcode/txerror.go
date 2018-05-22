@@ -4,14 +4,28 @@ import "fmt"
 
 type TxErr int
 
-const TxErrBase TxErr = 2000
-
 const (
-	ErrorNoPreviousOut TxErr = TxErrBase + iota
+	TxErrNoPreviousOut TxErr = TxErrorBase + iota
+	TxErrNullPreOut
+	TxErrIsCoinBase
+	TxErrNotCoinBase
+	TxErrEmptyInputs
+	TxErrTotalMoneyTooLarge
+	TxErrTooManySigOps
+	TxErrDupIns
+	TxErrBadVersion
+	TxErrOverSize
+	ScriptErrDustOut
+	TxErrNotFinal
+	TxErrTxCommitment
+	TxErrMempoolAlreadyExist
+	TxErrPreOutAlreadySpent
+	TxErrInputsNotAvailable
+	TxErrOutAlreadHave
 )
 
 var txErrorToString = map[TxErr]string {
-	ErrorNoPreviousOut: "There is no previousout",
+	TxErrNoPreviousOut: "There is no previousout",
 }
 
 func (te TxErr) String() string {

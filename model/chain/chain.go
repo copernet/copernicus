@@ -146,10 +146,38 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 
 
+func (c *Chain) GetAncestor(height int) *blockindex.BlockIndex{
+	// todo
+	return nil
+}
 
 
-
-
+func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator{
+	step := 1
+	blockHashList := make([]util.Hash, 0, 32)
+	if index == nil{
+		index = ch.Tip()
+	}
+	for {
+		blockHashList = append(blockHashList, *index.GetBlockHash())
+		if index.Height == 0{
+			break
+		}
+		height := index.Height - step
+		if height < 0{
+			height = 0
+		}
+		if ch.Contains(index){
+			index = ch.GetIndex(height)
+		}else {
+			index = ch.GetAncestor(height)
+		}
+		if len(blockHashList) > 10{
+			step *= 2
+		}
+	}
+	return NewBlockLocator(blockHashList)
+}
 
 
 

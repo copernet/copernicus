@@ -16,6 +16,7 @@ import (
 	"math"
 	"time"
 	"container/list"
+	"github.com/btcboost/copernicus/errcode"
 )
 
 //error status for the transaction that entering txmempool.
@@ -38,7 +39,6 @@ const (
 	DescendantNum	= 25
 	DescendantSize 	= 101
 )
-
 
 type PoolRemovalReason int
 
@@ -84,6 +84,12 @@ type TxMempool struct {
 	OrphanTransactions		map[util.Hash]OrphanTx
 	RecentRejects			map[util.Hash]struct{}
 
+	nextSweep 				int
+	MaxMemPoolSize          int64
+}
+
+func (m *TxMempool)GetMinFeeRate() util.FeeRate {
+	return m.feeRate
 }
 
 // AddTx operator is safe for concurrent write And read access.
@@ -126,12 +132,52 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 
 func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 	m.RLock()
-	m.RUnlock()
+	defer m.RUnlock()
 
 	if _, ok := m.nextTx[*out]; ok {
 		return true
 	}
 	return false
+}
+
+func (m *TxMempool)GetPoolAllTxSize() uint64 {
+	m.RLock()
+	size := m.totalTxSize
+	m.RUnlock()
+	return size
+}
+
+func (m *TxMempool)GetPoolUsage() int64 {
+	m.RLock()
+	size := m.cacheInnerUsage
+	m.RUnlock()
+	return size
+}
+
+func (m *TxMempool)CalculateDescendants(txHash *util.Hash) map[*TxEntry]struct{} {
+	descendants := make(map[*TxEntry]struct{})
+	m.RLock()
+	defer m.RUnlock()
+	if entry, ok := m.poolData[*txHash]; !ok{
+		return nil
+	}else {
+		m.calculateDescendants(entry, descendants)
+	}
+
+	return descendants
+}
+
+func (m *TxMempool)CalculateMemPoolAncestors(txhash *util.Hash) map[*TxEntry]struct{} {
+	m.RLock()
+	defer m.RUnlock()
+	ancestors := make(map[*TxEntry]struct{})
+	if entry, ok := m.poolData[*txhash]; !ok{
+		return nil
+	}else {
+		noLimit := uint64(math.MaxUint64)
+		ancestors, _ = m.calculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+	}
+	return ancestors
 }
 
 func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason)  {
@@ -251,11 +297,11 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 }
 
 
-func (m *TxMempool) FindTx(hash util.Hash) *tx.Tx {
+func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
 	m.RLock()
 	m.RUnlock()
 	if find, ok := m.poolData[hash]; ok {
-		return find.Tx
+		return find
 	}
 	return nil
 }
@@ -283,13 +329,11 @@ func (m *TxMempool)IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utx
 
 	lp := tx.LockPoints{}
 	if _, ok := m.poolData[tx.Hash]; ok{
-		return nil, lp, util.ProjectError{ErrorCode:RejectAlreadyKnown,
-		Description:fmt.Sprintf("txn-already-in-mempool ...")}
+		return nil, lp, errcode.New(errcode.AlreadHaveTx)
 	}
 
 	if !checkSequenceLocks(tx, tip, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast, &lp, false, coins){
-		return nil, lp, util.ProjectError{ErrorCode:RejectNonStandard,
-		Description:fmt.Sprintf("non-BIP68-final")}
+		return nil, lp, errcode.New(errcode.Nomature)
 	}
 
 	ancestors, err := m.calculateMemPoolAncestors(tx, AncestorNum, AncestorSize * 1000,
@@ -302,13 +346,11 @@ func (m *TxMempool)IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utx
 	txfeeRate := util.NewFeeRateWithSize(txfee, txsize)
 	// compare the transaction feeRate with enter mempool min txfeeRate
 	if txfeeRate.SataoshisPerK < m.feeRate.SataoshisPerK{
-		return nil, lp, util.ErrToProject(LowTransactionFee,fmt.Sprintf("very low transaction feeRate with per kilobyte " +
-			"[limit %d sataoshi], actual payment %d feeRate.", m.feeRate.SataoshisPerK, txfeeRate.SataoshisPerK) )
+		return nil, lp, errcode.New(errcode.TooMinFeeRate)
 	}
 
 	return ancestors, lp, nil
 }
-
 
 // Check If sanity-checking is turned on, check makes sure the pool is consistent
 // (does not contain two transactions that spend the same inputs, all inputs
@@ -493,7 +535,6 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 	}
 }
 
-
 // LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
 // set, the function will return these have removed transaction's txin from mempool which use
 // TrimToSize rule. Later, caller will remove these txin from uxto cache.
@@ -535,7 +576,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		// all Descendant transaction of the removed tx also will be removed.
 		m.removeStaged(stage, false, SIZELIMIT)
 		for e := range stage {
-			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.Hash.ToString(), m.cacheInnerUsage)
+			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.Hash.String(), m.cacheInnerUsage)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {
@@ -699,7 +740,7 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 		if add {
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, true)
 		} else {
-			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", txentry.Tx.Hash.ToString(), ", tx1 : ", piter.Tx.Hash.ToString())
+			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", txentry.Tx.Hash.String(), ", tx1 : ", piter.Tx.Hash.String())
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, false)
 		}
 	}
@@ -740,14 +781,11 @@ func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 	ancestors = make(map[*TxEntry]struct{})
 	parent := make(map[*TxEntry]struct{})
 	if searchForParent {
-
 		for _, preout := range tx.GetAllPreviousOut() {
 			if entry, ok := m.poolData[preout.Hash]; ok {
 				parent[entry] = struct{}{}
 				if uint64(len(parent))+1 > limitAncestorCount {
-					return nil, util.ErrToProject(ManyUnconfirmedAncestor,
-						fmt.Sprintf("too many unconfirmed ancestors [limit: %d], actual have %d in mempool",
-							limitAncestorCount, len(parent) + 1))
+					return nil, errcode.New(errcode.ManyUnspendDepend)
 				}
 			}
 		}
@@ -775,19 +813,12 @@ func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 		//delete(parent, entry)
 		ancestors[entry] = struct{}{}
 		totalSizeWithAncestors += int64(entry.TxSize)
-		hash := entry.Tx.Hash
 		if uint64(entry.SumSizeWithDescendants+int64(entry.TxSize)) > limitDescendantSize {
-			return nil, util.ErrToProject(ExceedUnconfirmedDescendtSize,
-				fmt.Sprintf("exceeds descendant size limit for tx %s [limit: %d], actual have %d in mempool",
-					hash.ToString(), limitDescendantSize, entry.SumSizeWithDescendants+int64(entry.TxSize)))
+			return nil, errcode.New(errcode.ManyUnspendDepend)
 		} else if uint64(entry.SumTxCountWithDescendants+1) > limitDescendantCount {
-			return nil, util.ErrToProject(ManyUnconfirmedDescendt,
-				fmt.Sprintf("too many descendants for tx %s [limit: %d], actual have %d in mempool",
-					hash.ToString(), limitDescendantCount, entry.SumTxCountWithDescendants+1))
+			return nil, errcode.New(errcode.ManyUnspendDepend)
 		} else if uint64(totalSizeWithAncestors) > limitAncestorSize {
-			return nil, util.ErrToProject(ExceedUnconfirmedAncestorSize,
-				fmt.Sprintf("exceeds ancestor size limit [limit: %d], actual have %d in mempool",
-					limitAncestorSize, totalSizeWithAncestors ))
+			return nil, errcode.New(errcode.ManyUnspendDepend)
 		}
 
 		graTxentrys := entry.ParentTx
@@ -796,9 +827,7 @@ func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 				paSLice = append(paSLice, gentry)
 			}
 			if uint64(len(parent)+len(ancestors)+1) > limitAncestorCount {
-				return nil, util.ErrToProject(ManyUnconfirmedAncestor,
-					fmt.Sprintf("too many unconfirmed ancestors [limit: %d], actual have %d in mempool",
-						limitAncestorCount, len(parent) + len(ancestors) + 1))
+				return nil, errcode.New(errcode.ManyUnspendDepend)
 			}
 		}
 	}
@@ -845,7 +874,7 @@ func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *tx
 	} else {
 		var prevheights []int
 		for txinIndex, coin := range coins {
-			if coin.GetIsMempoolCoin(){
+			if coin.IsMempoolCoin(){
 				prevheights[txinIndex] = tip.Height + 1
 			}else {
 				prevheights[txinIndex] = int(coin.GetHeight())
@@ -960,39 +989,48 @@ func (m *TxMempool)AddOrphanTx(orphantx *tx.Tx, nodeID int64)  {
 	}
 }
 
-func (m *TxMempool)EraseOrphanTx(txHash util.Hash) int {
+func (m *TxMempool)EraseOrphanTx(txHash util.Hash, removeRedeemers bool){
+
 	if orphanTx, ok := m.OrphanTransactions[txHash]; ok{
 		for _, preout := range orphanTx.Tx.GetAllPreviousOut(){
-			if mi, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
-				delete(mi, txHash)
-				if len(mi) == 0{
+			if orphans, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
+				delete(orphans, txHash)
+				if len(orphans) == 0{
 					delete(m.OrphanTransactionsByPrev, preout)
 				}
 			}
 		}
-		delete(m.OrphanTransactions, txHash)
-		return 1
 	}
-	return 0
+	if removeRedeemers{
+		preout := outpoint.OutPoint{Hash:txHash}
+		orphan := m.OrphanTransactions[txHash]
+		for  i := 0; i < orphan.Tx.GetOutsCount(); i++{
+			preout.Index = uint32(i)
+			for _, orphan := range m.OrphanTransactionsByPrev[preout]{
+				m.EraseOrphanTx(orphan.Tx.Hash, true)
+			}
+		}
+	}
+	delete(m.OrphanTransactions, txHash)
 }
 
-var nextSweep int
+
 func (m *TxMempool)LimitOrphanTx() int {
 
 	removeNum := 0
 	now := time.Now().Second()
-	if nextSweep <= now{
+	if m.nextSweep <= now{
 		minExpTime := now + OrphanTxExpireTime - OrphanTxExpireInterval
 		for hash, orphan := range m.OrphanTransactions{
 			if orphan.Expiration <= now{
-				removeNum += m.EraseOrphanTx(hash)
+				m.EraseOrphanTx(hash, true)
 			}else {
 				if minExpTime > orphan.Expiration{
 					minExpTime = orphan.Expiration
 				}
 			}
 		}
-		nextSweep = minExpTime + OrphanTxExpireInterval
+		m.nextSweep = minExpTime + OrphanTxExpireInterval
 	}
 
 	for {
@@ -1000,7 +1038,7 @@ func (m *TxMempool)LimitOrphanTx() int {
 			break
 		}
 		for hash := range m.OrphanTransactions{
-			removeNum += m.EraseOrphanTx(hash)
+			m.EraseOrphanTx(hash, true)
 		}
 	}
 	return removeNum

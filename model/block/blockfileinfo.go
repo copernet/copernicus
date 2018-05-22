@@ -67,7 +67,7 @@ func (bfi *BlockFileInfo) GetIndex()uint32{
 func (bfi *BlockFileInfo) SetIndex(idx uint32){
 	bfi.index = idx
 }
-func (bfi *BlockFileInfo) ToString() string {
+func (bfi *BlockFileInfo) String() string {
 	return fmt.Sprintf("BlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%s...%s)",
 		bfi.Blocks, bfi.Size, bfi.HeightFirst, bfi.HeightLast,
 		time.Unix(int64(bfi.timeFirst), 0).Format(time.RFC3339),

@@ -3,60 +3,79 @@ package utxo
 import (
 	"unsafe"
 	"fmt"
+	"github.com/btcboost/copernicus/log"
 
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
 
-	"log"
+	"github.com/btcboost/copernicus/persist/db"
 )
-var utxoTip *CoinsCache
+var utxoTip CacheView
 
 
 type UtxoConfig struct {
+	do *db.DBOption
+}
+
+func InitUtxoTip(uc *UtxoConfig){
+	fmt.Printf("initUtxo processing ....%v",uc)
+
+	db := NewCoinsDB(uc.do)
+	utxoTip = NewCoinCache(*db)
 
 }
 
-func InitUtxoTip(conf *UtxoConfig){
-	fmt.Printf("initUtxo processing ....%v",conf)
-	GetUtxoCacheInstance()
-}
 
-
-func GetUtxoCacheInstance() *CoinsCache{
+func GetUtxoCacheInstance() CacheView{
 	if utxoTip == nil{
-		db := new(CoinsDB)
-		utxoTip = NewCoinCache(*db)
+		log.Error("utxoTip has not init!!")
 	}
-	return utxoTip
+	return utxoLruTip
 }
 
+type CacheView interface {
+	GetCoin(outpoint *outpoint.OutPoint) (*Coin)
+	HaveCoin(point *outpoint.OutPoint) bool
+	GetBestBlock() util.Hash
+	SetBestBlock(hash util.Hash)
+	UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error
+	Flush() bool
+}
 
 type CoinsCache struct {
 	db               CoinsDB
 	hashBlock        util.Hash
-	CoinsMap
+	cacheCoins        CoinsMap
 	cachedCoinsUsage int64
+
 }
 
-func NewCoinCache(view CoinsDB) *CoinsCache {
+
+func NewCoinCache(view CoinsDB) CacheView {
 	c := new(CoinsCache)
 	c.db = view
-	c.CoinsMap = *NewEmptyCoinsMap()
+	c.cacheCoins = *NewEmptyCoinsMap()
 	c.cachedCoinsUsage = 0
 	return c
 }
 
 
-func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {
+func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
 	coin, ok := coinsCache.cacheCoins[*outpoint]
 	if ok {
-		return coin, nil
+		return coin
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
-	if err != nil||coin == nil {
-		return coin, nil
+
+	if err != nil{
+		log.Error("Error:  CoinsCache.GetCoin err: %#v ", err)
+		panic("GetCoin error")
 	}
+	if coin == nil{
+		return nil
+	}
+	log.Debug("db.getcoin======%#v", coin)
 	coinsCache.cacheCoins[*outpoint] = coin
 	if coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
@@ -64,11 +83,11 @@ func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error
 		coin.fresh = true
 	}
 	coinsCache.cachedCoinsUsage += coin.DynamicMemoryUsage()
-	return coin, nil
+	return coin
 }
 
 func (coinsCache *CoinsCache) HaveCoin(point *outpoint.OutPoint) bool {
-	coin, _ := coinsCache.GetCoin(point)
+	coin := coinsCache.GetCoin(point)
 	return coin != nil && !coin.IsSpent()
 }
 
@@ -77,7 +96,7 @@ func (coinsCache *CoinsCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
 		if err != nil{
-			log.Fatalf("db.GetBestBlock err:%#v", err)
+			log.Error("db.GetBestBlock err:%#v", err)
 			panic("db.GetBestBlock read err")
 		}
 		coinsCache.hashBlock = *hashBlock
@@ -94,8 +113,12 @@ func (coinsCache *CoinsCache) EstimateSize() uint64 {
 }
 
 func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error {
-	for point, tempCacheCoin := range tempCacheCoins.cacheCoins {
+	for point, tempCacheCoin := range *tempCacheCoins {
 		// Ignore non-dirty entries (optimization).
+		if tempCacheCoin.isMempoolCoin{
+			log.Error("MempoolCoin  save to DB!!!  %#v", tempCacheCoin)
+			panic("MempoolCoin  save to DB!!!")
+		}
 		if tempCacheCoin.dirty{
 			globalCacheCoin, ok := coinsCache.cacheCoins[point]
 			if !ok {
@@ -126,7 +149,7 @@ func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.H
 				}
 			}
 		}
-		delete(tempCacheCoins.cacheCoins, point)
+		delete(*tempCacheCoins, point)
 	}
 	coinsCache.hashBlock = *hash
 	return nil
@@ -135,7 +158,7 @@ func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.H
 func (coinsCache *CoinsCache) Flush() bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v",coinsCache.cacheCoins,coinsCache.hashBlock)
-	ok := coinsCache.db.BatchWrite(coinsCache)
+	ok := coinsCache.db.BatchWrite(&coinsCache.cacheCoins, coinsCache.hashBlock)
 	//coinsCache.cacheCoins = make(CacheCoins)
 	coinsCache.cachedCoinsUsage = 0
 	return ok == nil

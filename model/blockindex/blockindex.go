@@ -31,7 +31,7 @@ import (
 type BlockIndex struct {
 	Header block.BlockHeader
 	// pointer to the hash of the block, if any.
-	BlockHash util.Hash
+	blockHash util.Hash
 	// pointer to the index of the predecessor of this block
 	Prev *BlockIndex
 	// pointer to the index of some further predecessor of this block
@@ -70,7 +70,7 @@ const medianTimeSpan = 11
 
 func (bIndex *BlockIndex) SetNull() {
 	bIndex.Header.SetNull()
-	bIndex.BlockHash = util.Hash{}
+	bIndex.blockHash = util.Hash{}
 	bIndex.Prev = nil
 	bIndex.Skip = nil
 
@@ -115,9 +115,12 @@ func (bIndex *BlockIndex) GetDataPos() int {
 	return 0
 }
 
-func (bIndex *BlockIndex) GetUndoPos() int {
+func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.UndoPos}
+}
 
-	return 0
+func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.DataPos}
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
@@ -126,8 +129,17 @@ func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
 }
 
 func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
+	if bIndex.blockHash.IsNull(){
+		bIndex.blockHash = bIndex.Header.GetHash()
+	}
+	if bIndex.blockHash.IsEqual(&util.Hash{}) {
+		bIndex.blockHash = bIndex.Header.GetHash()
+	}
+	return &bIndex.blockHash
+}
 
-	return &bIndex.BlockHash
+func (bIndex *BlockIndex) SetBlockHash(hash util.Hash) {
+	bIndex.blockHash =  hash
 }
 
 func (bIndex *BlockIndex) GetBlockTime() uint32 {
@@ -223,10 +235,10 @@ func (bIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
 	return indexWalk
 }
 
-func (bIndex *BlockIndex) ToString() string {
+func (bIndex *BlockIndex) String() string {
 	hash := bIndex.GetBlockHash()
 	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", bIndex.Prev,
-		bIndex.Height, bIndex.Header.MerkleRoot.ToString(), hash.ToString())
+		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {

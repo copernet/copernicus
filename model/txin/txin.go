@@ -10,9 +10,11 @@ import (
 	"github.com/btcboost/copernicus/util"
 )
 
-const (
+
+/*const (
 	MaxTxInSequenceNum uint32 = 0xffffffff
 )
+*/
 
 type TxIn struct {
 	PreviousOutPoint *outpoint.OutPoint
@@ -33,7 +35,7 @@ func (txIn *TxIn) SerializeSize() int {
 }
 
 func (txIn *TxIn) Unserialize(reader io.Reader) error {
-	err := txIn.PreviousOutPoint.Unserialize(reader)
+	err := txIn.PreviousOutPoint.Decode(reader)
 	if err != nil {
 		return err
 	}
@@ -48,7 +50,7 @@ func (txIn *TxIn) Unserialize(reader io.Reader) error {
 func (txIn *TxIn) Serialize(writer io.Writer) error {
 	var err error
 	if txIn.PreviousOutPoint != nil {
-		err = txIn.PreviousOutPoint.WriteOutPoint(writer)
+		err = txIn.PreviousOutPoint.Encode(writer)
 		if err != nil {
 			return err
 		}
@@ -66,8 +68,8 @@ func (txIn *TxIn) GetScriptSig() *script.Script {
 	return txIn.scriptSig
 }
 
-func (txIn *TxIn) CheckScript() bool {
-	return txIn.scriptSig.CheckScriptSig()
+func (txIn *TxIn) CheckStandard() error {
+	return txIn.scriptSig.CheckScriptSigStandard()
 }
 
 func (txIn *TxIn) String() string {
@@ -83,6 +85,10 @@ func (txIn *TxIn) Check() bool {
 	return true
 }
 */
+
+func (txIn *TxIn) SetScript(script *script.Script) {
+	txIn.scriptSig = script
+}
 
 func NewTxIn(previousOutPoint *outpoint.OutPoint, scriptSig *script.Script, sequence uint32) *TxIn {
 	txIn := TxIn{PreviousOutPoint: previousOutPoint, scriptSig: scriptSig, Sequence: sequence}

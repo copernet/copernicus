@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/util"
+	"runtime"
+	"fmt"
 )
 
 const (
@@ -38,16 +39,17 @@ func Print(module string, level string, format string, reason ...interface{}) {
 			logs.Notice(format, reason)
 		}
 	} else {
+		logs.GetLogger()
 		logs.Error(errModuleNotFound)
 	}
 }
 
 func isIncludeModule(module string) bool {
-	for _, item := range conf.AppConf.LogModule {
-		if item == module {
-			return true
-		}
-	}
+	//for _, item := range conf.AppConf.LogModule {
+	//	if item == module {
+	//		return true
+	//	}
+	//}
 	return false
 }
 
@@ -61,7 +63,7 @@ func init() {
 		Daily    bool   `json:"daily"`
 	}{
 		FileName: logDir,
-		Level:    getLevel(conf.AppConf.LogLevel),
+		Level:    getLevel("debug"),
 		Daily:    false,
 	}
 
@@ -126,4 +128,16 @@ func Debug(f interface{}, v ...interface{}) {
 // compatibility alias for Warning()
 func Trace(f interface{}, v ...interface{}) {
 	logs.Trace(f, v)
+}
+
+func TraceLog() string {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	runtime.Callers(2, pc)
+	f := runtime.FuncForPC(pc[0])
+	_, line := f.FileLine(pc[0])
+	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
+}
+
+func GetLogger() *logs.BeeLogger {
+	return logs.GetBeeLogger()
 }

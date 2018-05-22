@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/persist/db"
 	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcboost/copernicus/model/script"
 )
 
 type Coin struct {
@@ -28,7 +28,7 @@ func (coin *Coin) IsCoinBase() bool {
 	return coin.isCoinBase
 }
 
-func (coin *Coin) GetIsMempoolCoin() bool {
+func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 //coinbase检查高度，锁定时间？
@@ -57,7 +57,15 @@ func (coin *Coin) GetAmount() amount.Amount {
 	return amount.Amount(coin.txOut.GetValue())
 }
 
-
+func (coin *Coin) DeepCopy() *Coin{
+	newCoin := Coin{height:coin.height,isCoinBase:coin.isCoinBase,dirty:coin.dirty,fresh:coin.fresh,isMempoolCoin:coin.isMempoolCoin}
+	outScript := coin.txOut.GetScriptPubKey()
+	newOutScript := script.NewScriptRaw(outScript.GetData())
+	newOutScript.ParsedOpCodes = outScript.ParsedOpCodes
+	newOut := txout.NewTxOut(coin.txOut.GetValue(), newOutScript)
+	newCoin.txOut = *newOut
+	return &newCoin
+}
 
 func (coin *Coin) DynamicMemoryUsage() int64{
 	return int64(binary.Size(coin))
@@ -67,7 +75,6 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
 		return errors.New("already spent")
 	}
-	w.Write([]byte{db.DbCoin})
 	var bit uint32
 	if coin.isCoinBase {
 		bit = 1
@@ -81,8 +88,7 @@ func (coin *Coin) Serialize(w io.Writer) error {
 }
 
 func (coin *Coin) Unserialize(r io.Reader)error {
-	buf := make([]byte, 1)
-	r.Read(buf) //read database.DbCoin
+
 	hicb, err := util.ReadVarLenInt(r)
 	if err != nil {
 		return err
@@ -96,7 +102,7 @@ func (coin *Coin) Unserialize(r io.Reader)error {
 	return err
 }
 
-//生成一个确认的coin
+//new an confirmed coin
 func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
 
 	return &Coin{
@@ -106,7 +112,7 @@ func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
     }
 }
 
-//生成一个mempool中未确认的coin
+//new an unconfirmed coin for mempool
 func NewMempoolCoin(out *txout.TxOut)*Coin{
 	return &Coin{
 		txOut:               *out,
@@ -117,7 +123,7 @@ func NewMempoolCoin(out *txout.TxOut)*Coin{
 func NewEmptyCoin() *Coin {
 
 	return &Coin{
-		txOut:               *txout.NewTxOut(),
+		txOut:               *txout.NewTxOut(0, nil),
 		height: 0,
 		isCoinBase:false,
 	}

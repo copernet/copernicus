@@ -17,18 +17,12 @@ type DiskTxPos struct {
 	TxOffsetIn int
 }
 
-// TxOffset is after header
-var TxOffset int
 
 func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
-	err := util.WriteVarInt(writer, uint64(diskBlockPos.File))
-	if err != nil {
-		return err
-	}
-	return util.WriteVarInt(writer, uint64(diskBlockPos.Pos))
+	return  util.WriteElements(writer, )
 }
 
-func (diskTxPos *DiskTxPos) SerializeDiskTxPos(writer io.Writer) error {
+func (diskTxPos *DiskTxPos) Serialize(writer io.Writer) error {
 	err := diskTxPos.BlockIn.Serialize(writer)
 	if err != nil {
 		return err
@@ -36,7 +30,7 @@ func (diskTxPos *DiskTxPos) SerializeDiskTxPos(writer io.Writer) error {
 	return util.WriteVarInt(writer, uint64(diskTxPos.TxOffsetIn))
 }
 
-func DeserializeDiskBlock(reader io.Reader) (*DiskBlockPos, error) {
+func Unserialize(reader io.Reader) (*DiskBlockPos, error) {
 	file, err := util.ReadVarInt(reader)
 	if err != nil {
 		return nil, err
@@ -64,7 +58,7 @@ func (diskBlockPos *DiskBlockPos) IsNull() bool {
 	return diskBlockPos.File == -1
 }
 
-func (diskBlockPos *DiskBlockPos) ToString() string {
+func (diskBlockPos *DiskBlockPos) String() string {
 	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
 }
 
@@ -79,9 +73,4 @@ func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn int) *DiskTxPos {
 		TxOffsetIn: offsetIn,
 	}
 	return diskTxPos
-}
-func SetNull() {
-	var blockPos *DiskBlockPos
-	blockPos.SetNull()
-	TxOffset = 0
 }

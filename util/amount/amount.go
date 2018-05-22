@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"github.com/btcboost/copernicus/util"
 )
 
 // AmountUnit describes a method of converting an Amount to something
@@ -89,7 +90,7 @@ func NewAmount(f float64) (Amount, error) {
 		return 0, errors.New("invalid bitcoin amount")
 	}
 
-	return round(f * SatoshiPerBitcoin), nil
+	return round(f * util.SatoshiPerBitcoin), nil
 }
 
 // ToUnit converts a monetary amount counted in bitcoin base units to a
@@ -126,5 +127,5 @@ func (a Amount) MulF64(f float64) Amount {
 }
 
 func MoneyRange(value int64) bool {
-	return value >= 0 && value <= MaxMoney
+	return value >= 0 && value <= util.MaxMoney
 }

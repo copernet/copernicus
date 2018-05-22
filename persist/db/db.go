@@ -32,6 +32,8 @@ const (
 	DbFlag        byte = 'F'
 	DbReindexFlag byte = 'R'
 	DbLastBlock   byte = 'l'
+	DbMaxBlock   byte = 'm'
+
 )
 
 const (
