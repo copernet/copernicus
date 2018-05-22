@@ -1,12 +1,12 @@
 package service
 
 import (
+	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chain"
-	lblock "github.com/btcboost/copernicus/logic/block"
 )
 
-func ProcessBlock(b *block.Block) (bool,error) {
+func ProcessBlock(b *block.Block) (bool, error) {
 	gChain := chain.GetInstance()
 	isNewBlock := false
 	accepted := false
@@ -16,25 +16,25 @@ func ProcessBlock(b *block.Block) (bool,error) {
 	if bIndex != nil {
 		accepted = bIndex.Accepted()
 		if accepted {
-			return isNewBlock,nil
+			return isNewBlock, nil
 		}
 	}
 
 	err = lblock.Check(b)
 	if err != nil {
-		return isNewBlock,err
+		return isNewBlock, err
 	}
 
-	bIndex,err = gChain.AcceptBlock(b)
+	bIndex, err = gChain.AcceptBlock(b)
 	if err != nil {
-		return isNewBlock,err
+		return isNewBlock, err
 	}
 
 	isNewBlock = true
 	err = gChain.ActiveBest(bIndex)
 	if err != nil {
-		return isNewBlock,err
+		return isNewBlock, err
 	}
 
-	return isNewBlock,err
+	return isNewBlock, err
 }

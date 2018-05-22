@@ -40,9 +40,9 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcsuite/btcd/database"
+	"github.com/btcsuite/btcd/netsync"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/bloom"
-	"github.com/btcsuite/btcd/netsync"
 )
 
 const (
@@ -460,16 +460,15 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// per message.  The NewMsgInvSizeHint function automatically limits
 	// the passed hint to the maximum allowed, so it's safe to pass it
 	// without double checking it here.
-	txMemPool := sp.server.txMemPool
-	txDescs := txMemPool.TxDescs()
+	txDescs := mempool.Gpool.GetAllTxEntry()
 	invMsg := wire.NewMsgInvSizeHint(uint(len(txDescs)))
 
-	for _, txDesc := range txDescs {
+	for hash := range txDescs {
 		// Either add all transactions when there is no bloom filter,
 		// or only the transactions that match the filter when there is
 		// one.
-		if !sp.filter.IsLoaded() || sp.filter.MatchTxAndUpdate(txDesc.Tx) {
-			iv := wire.NewInvVect(wire.InvTypeTx, txDesc.Tx.Hash())
+		if !sp.filter.IsLoaded() || sp.filter.MatchTxAndUpdate(&hash) {
+			iv := wire.NewInvVect(wire.InvTypeTx, &hash)
 			invMsg.AddInvVect(iv)
 			if len(invMsg.InvList)+1 > wire.MaxInvPerMsg {
 				break
@@ -933,8 +932,6 @@ func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten int, msg wire.Message, 
 	sp.server.AddBytesSent(uint64(bytesWritten))
 }
 
-
-
 // rpcPeer provides a peer for use with the RPC server and implements the
 // rpcserverPeer interface.
 type rpcPeer serverPeer
@@ -979,7 +976,6 @@ func (p *rpcPeer) BanScore() uint32 {
 func (p *rpcPeer) FeeFilter() int64 {
 	return atomic.LoadInt64(&(*serverPeer)(p).feeFilter)
 }
-
 
 // randomUint16Number returns a random uint16 in a specified input range.  Note
 // that the range is in zeroth ordering; if you pass it 1800, you will get

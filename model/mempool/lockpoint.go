@@ -20,4 +20,3 @@ func NewLockPoints() *LockPoints {
 	lockPoints := LockPoints{}
 	return &lockPoints
 }
-

@@ -17,15 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/btcboost/copernicus/log"
-
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcsuite/go-socks/socks"
 	"github.com/btcboost/copernicus/util/bitcoinutil"
-	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/go-socks/socks"
 )
 
 const (
@@ -937,12 +936,13 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.Hash) error {
+func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getblocks requests.
 	var beginHash *util.Hash
-	if len(locator) > 0 {
-		beginHash = locator[0]
+	blkHashs := locator.GetBlockHashList()
+	if len(blkHashs) > 0 {
+		beginHash = &blkHashs[0]
 	}
 
 	// Filter duplicate getblocks requests.
@@ -960,8 +960,8 @@ func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.
 
 	// Construct the getblocks request and queue it to be sent.
 	msg := wire.NewMsgGetBlocks(stopHash)
-	for _, hash := range locator {
-		err := msg.AddBlockLocatorHash(hash)
+	for _, hash := range blkHashs {
+		err := msg.AddBlockLocatorHash(&hash)
 		if err != nil {
 			return err
 		}
@@ -981,12 +981,13 @@ func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *util.Hash) error {
+func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getheaders requests.
 	var beginHash *util.Hash
-	if len(locator) > 0 {
-		beginHash = locator[0]
+	blkHashs := locator.GetBlockHashList()
+	if len(blkHashs) > 0 {
+		beginHash = &blkHashs[0]
 	}
 
 	// Filter duplicate getheaders requests.
@@ -1005,8 +1006,8 @@ func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *util
 	// Construct the getheaders request and queue it to be sent.
 	msg := wire.NewMsgGetHeaders()
 	msg.HashStop = *stopHash
-	for _, hash := range locator {
-		err := msg.AddBlockLocatorHash(hash)
+	for _, hash := range blkHashs {
+		err := msg.AddBlockLocatorHash(&hash)
 		if err != nil {
 			return err
 		}
@@ -1084,7 +1085,7 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	p.statsMtx.Lock()
 	p.lastBlock = msg.LastBlock
 	p.startingHeight = msg.LastBlock
-	p.timeOffset = msg.Timestamp - time.Now().Unix()
+	p.timeOffset = msg.Timestamp.Unix() - time.Now().Unix()
 	p.statsMtx.Unlock()
 
 	// Negotiate the protocol version.
@@ -2105,8 +2106,8 @@ func (p *Peer) readRemoteVersionMsg() error {
 		return err
 	}
 
-	if p.cfg.Listeners.OnVersion != nil {
-		p.cfg.Listeners.OnVersion(p, remoteVerMsg)
+	if p.Cfg.Listeners.OnVersion != nil {
+		p.Cfg.Listeners.OnVersion(p, remoteVerMsg)
 	}
 	return nil
 }
@@ -2172,7 +2173,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 		queueQuit:       make(chan struct{}),
 		outQuit:         make(chan struct{}),
 		quit:            make(chan struct{}),
-		cfg:             cfg, // Copy so caller can't mutate.
+		Cfg:             cfg, // Copy so caller can't mutate.
 		services:        cfg.Services,
 		protocolVersion: cfg.ProtocolVersion,
 	}

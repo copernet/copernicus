@@ -3,10 +3,10 @@ package mempool
 import (
 	"unsafe"
 
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
-	"github.com/btcboost/copernicus/model/chain"
 )
 
 type TxEntry struct {
@@ -67,7 +67,7 @@ func (t *TxEntry) GetSpendsCoinbase() bool {
 	return t.spendsCoinbase
 }
 
-func (t *TxEntry)GetTime() int64  {
+func (t *TxEntry) GetTime() int64 {
 	return t.time
 }
 
@@ -152,8 +152,8 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 }
 
 func (t *TxEntry) CheckLockPointValidity(chain *chain.Chain) bool {
-	if t.lp.MaxInputBlock != nil{
-		if !chain.Contains(t.lp.MaxInputBlock){
+	if t.lp.MaxInputBlock != nil {
+		if !chain.Contains(t.lp.MaxInputBlock) {
 			return false
 		}
 	}
