@@ -19,8 +19,6 @@ const (
 	obfuscateKeyLen = 8
 )
 
-
-
 const (
 	DbCoin       byte = 'C'
 	DbCoins      byte = 'c'
@@ -32,8 +30,7 @@ const (
 	DbFlag        byte = 'F'
 	DbReindexFlag byte = 'R'
 	DbLastBlock   byte = 'l'
-	DbMaxBlock   byte = 'm'
-
+	DbMaxBlock    byte = 'm'
 )
 
 const (

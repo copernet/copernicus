@@ -2,8 +2,8 @@ package blkdb
 
 import (
 	"bytes"
-
-
+	
+	"github.com/btcboost/copernicus/model/chain/global"
 	"github.com/btcboost/copernicus/persist/db"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
@@ -16,7 +16,6 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 	"fmt"
 	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/persist/disk"
 )
 
 type BlockTreeDB struct {
@@ -160,11 +159,16 @@ func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *util.Hash) (*block.DiskTxPos, 
 	tmp = append(tmp, txid[:]...)
 	vdata, err := blockTreeDB.dbw.Read(tmp)
 	if err != nil{
+		log.Error("Error: ReadTxIndex======%#v", err)
+		panic("Error: ReadTxIndex======")
 		return nil, err
 	}
-	if vdata != nil{
-
+	if vdata == nil{
+		return nil, nil
 	}
+	dtp := block.NewDiskTxPos(nil, 0)
+	err = dtp.Unserialize(bytes.NewBuffer(vdata))
+	return dtp, err
 
 }
 
@@ -179,7 +183,7 @@ func (blockTreeDB *BlockTreeDB) WriteTxIndex(txIndexes map[util.Hash] block.Disk
 		valueBuf.Reset()
 		keyBuf.Write([]byte{db.DbTxIndex})
 		keyBuf.Write(k[:])
-		if err := v.SerializeDiskTxPos(valueBuf); err != nil {
+		if err := v.Serialize(valueBuf); err != nil {
 			return err
 		}
 		batch.Write(keyBuf.Bytes(), valueBuf.Bytes())
@@ -271,12 +275,12 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts() bool {
 }
 
 func InsertBlockIndex(hash util.Hash)*blockindex.BlockIndex{
-	if i, ok := disk.GlobalBlockIndexMap[hash]; ok{
+	if i, ok := global.GetChainGlobalInstance().GlobalBlockIndexMap[hash]; ok{
 		return i
 	}
 	var bi  = blockindex.NewBlockIndex(block.NewBlockHeader())
-
-	disk.GlobalBlockIndexMap[hash] = bi
+	
+	global.GetChainGlobalInstance().GlobalBlockIndexMap[hash] = bi
 
 	return bi
 
