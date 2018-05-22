@@ -46,7 +46,7 @@ func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
 	return io.Write(buf)
 }
 
-func (outPoint *OutPoint) UnSerialize(reader io.Reader) (err error) {
+func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	return nil
 }
 

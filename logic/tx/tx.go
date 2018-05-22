@@ -71,10 +71,10 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 	}
 
 	//check sequencelock
-	//lp := caculateLockPoint(StandardLockTimeVerifyFlags)
-	//if !tx.checkSequenceLocks(lp) {
-	//	return false
-	//}
+	lp := CaculateLockPoint(transaction, tx.StandardLockTimeVerifyFlags)
+	if !tx.checkSequenceLocks(lp) {
+		return false
+	}
 
 	//check standard inputs
 	err = checkInputsStandard(transaction, tempCoinsMap)
@@ -1545,10 +1545,11 @@ func CalculateSequenceLocks(transaction tx.Tx, flags int, prevHeights []int, bi 
 
 func CaculateLockPoint(transaction tx.Tx, flags uint) (lp *mempool.LockPoints) {
 	lp = mempool.NewLockPoints()
-	var maxHeight int = 0
+	/*var maxHeight int = 0
 	var maxTime int64 = 0
-	for _, e := range tx.ins {
-		if e.Sequence & SequenceLockTimeDisableFlag != 0 {
+	ins := transaction.GetIns()
+	for _, e := range ins {
+		if e.Sequence & script.SequenceLockTimeDisableFlag != 0 {
 			continue
 		}
 		coin := mempool.GetCoin(e.PreviousOutPoint)
@@ -1587,7 +1588,7 @@ func CaculateLockPoint(transaction tx.Tx, flags uint) (lp *mempool.LockPoints) {
 		lp.Time = maxTime
 		return
 	}
-
+*/
 	lp.Height = -1
 	lp.Time = -1
 
