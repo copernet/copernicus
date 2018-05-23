@@ -1041,3 +1041,16 @@ func (m *TxMempool) LimitOrphanTx() int {
 	}
 	return removeNum
 }
+
+func (m *TxMempool)RemoveOrphansByTag(nodeID int64) int {
+	numEvicted := 0
+	m.Lock()
+	for _, otx := range m.OrphanTransactions{
+		if otx.NodeID == nodeID{
+			m.EraseOrphanTx(otx.Tx.GetHash(), true)
+			numEvicted++
+		}
+	}
+	m.Unlock()
+	return numEvicted
+}

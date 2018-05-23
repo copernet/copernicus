@@ -552,7 +552,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	_, isOrphan, err := sm.chain.ProcessBlock(bmsg.block, behaviorFlags)
+	_, err := ProcessBlock(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
 		// rejected as opposed to something actually going wrong, so log
@@ -589,50 +589,18 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	var heightUpdate int32
 	var blkHashUpdate *util.Hash
 
-	// Request the parents for the orphan block from the peer that sent it.
-	if isOrphan {
-		// We've just received an orphan block from a peer. In order
-		// to update the height of the peer, we try to extract the
-		// block height from the scriptSig of the coinbase transaction.
-		// Extraction is only attempted if the block's version is
-		// high enough (ver 2+).
-		header := &bmsg.block.Header
-		if blockchain.ShouldHaveSerializedBlockHeight(header) {
-			coinbaseTx := bmsg.block.Txs[0]
-			cbHeight, err := blockchain.ExtractCoinbaseHeight(coinbaseTx)
-			if err != nil {
-				log.Warn("Unable to extract height from "+
-					"coinbase tx: %v", err)
-			} else {
-				log.Debug("Extracted height of %v from "+
-					"orphan block", cbHeight)
-				heightUpdate = cbHeight
-				blkHashUpdate = blockHash
-			}
-		}
+	// When the block is not an orphan, log information about it and
+	// update the chain state.
+	sm.progressLogger.LogBlockHeight(bmsg.block)
 
-		orphanRoot := sm.chain.GetOrphanRoot(blockHash)
-		locator, err := sm.chain.LatestBlockLocator()
-		if err != nil {
-			log.Warn("Failed to get block locator for the "+
-				"latest block: %v", err)
-		} else {
-			peer.PushGetBlocksMsg(locator, orphanRoot)
-		}
-	} else {
-		// When the block is not an orphan, log information about it and
-		// update the chain state.
-		sm.progressLogger.LogBlockHeight(bmsg.block)
+	// Update this peer's latest block height, for future
+	// potential sync node candidacy.
+	best := chain.GetInstance().Tip()
+	heightUpdate = int32(best.Height)
+	blkHashUpdate = best.GetBlockHash()
 
-		// Update this peer's latest block height, for future
-		// potential sync node candidacy.
-		best := chain.GetInstance().Tip()
-		heightUpdate = int32(best.Height)
-		blkHashUpdate = best.GetBlockHash()
-
-		// Clear the rejected transactions.
-		sm.rejectedTxns = make(map[util.Hash]struct{})
-	}
+	// Clear the rejected transactions.
+	sm.rejectedTxns = make(map[util.Hash]struct{})
 
 	// Update the block height for this peer. But only send a message to
 	// the server for updating peer heights if this is an orphan or our
@@ -1108,8 +1076,7 @@ out:
 				msg.reply <- peerID
 
 			case processBlockMsg:
-				_, isOrphan, err := sm.chain.ProcessBlock(
-					msg.block, msg.flags)
+				_, err := ProcessBlock(msg.block)
 				if err != nil {
 					msg.reply <- processBlockResponse{
 						isOrphan: false,
@@ -1188,7 +1155,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 			acceptedTxs := lpool.ProcessOrphan(tx)
 			txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 			for _, tx := range acceptedTxs {
-				if find := mempool.Gpool.FindTx(tx.Hash); find != nil {
+				if find := mempool.Gpool.FindTx(tx.GetHash()); find != nil {
 					txentrys = append(txentrys, find)
 				}
 			}
