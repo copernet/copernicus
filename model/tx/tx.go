@@ -89,7 +89,7 @@ const (
 )
 
 type Tx struct {
-	Hash     util.Hash // Cached transaction hash	todo defined a pointer will be the optimization
+	hash     util.Hash // Cached transaction hash	todo defined a pointer will be the optimization
 	lockTime uint32
 	version  int32
 	ins      []*txin.TxIn
