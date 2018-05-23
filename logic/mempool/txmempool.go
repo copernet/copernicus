@@ -17,7 +17,7 @@ const (
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) ([]*outpoint.OutPoint, error) {
+func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) ([]*outpoint.OutPoint, error) {
 
 	//first : check transaction context And itself.
 	if err := ltx.CheckRegularTransaction(tx, true); err != nil {
@@ -33,7 +33,7 @@ func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) ([]*outpoint.OutPoin
 	var txfee int64
 	var inputValue int64
 	for i, preout := range allPreout {
-		if coin, err := utxoTip.GetCoin(&preout); err == nil {
+		if coin := utxoTip.GetCoin(&preout); coin != nil {
 			coins[i] = coin
 			inputValue += int64(coin.GetAmount())
 		} else {
@@ -85,7 +85,7 @@ func processOrphan(tx *tx.Tx) ([]*outpoint.OutPoint, []*tx.Tx) {
 					continue
 				}
 
-				uncacheTmp, err2 := accpetTxToMemPool(iOrphanTx.Tx, nil)
+				uncacheTmp, err2 := AccpetTxToMemPool(iOrphanTx.Tx, nil)
 				if err2 == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -118,7 +118,7 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64) ([]*outpoint.OutPoint, []*tx.Tx
 	uncache := make([]*outpoint.OutPoint, 0)
 	var err error
 	acceptTx := make([]*tx.Tx, 0)
-	uncache, err = accpetTxToMemPool(tx, nil)
+	uncache, err = AccpetTxToMemPool(tx, nil)
 	if err == nil {
 		acceptTx = append(acceptTx, tx)
 		uncacheTmp, acc := processOrphan(tx)

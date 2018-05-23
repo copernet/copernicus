@@ -5,6 +5,7 @@ import (
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/undo"
@@ -13,7 +14,7 @@ import (
 )
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
-func GuessVerificationProgress(data *consensus.ChainTxData, index *blockindex.BlockIndex) float64 {
+func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.BlockIndex) float64 {
 	if index == nil {
 		return float64(0)
 	}
