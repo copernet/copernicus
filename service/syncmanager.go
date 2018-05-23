@@ -11,14 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-<<<<<<< HEAD
 	"github.com/btcboost/copernicus/errcode"
-=======
-	"btcd/blockchain"
-	"btcd/chaincfg"
-	"btcd/database"
-	"btcd/mempool"
->>>>>>> fa9fe2fd6276598a68bf97ee4079931c9c63d7cb
 	"github.com/btcboost/copernicus/log"
 	lpool "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model"

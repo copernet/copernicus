@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/btcutil"
 	//"github.com/btcsuite/btcutil/bloom" //todo:not support now
 	"github.com/btcboost/copernicus/cmd/btcctl"
 	"github.com/btcboost/copernicus/conf"
