@@ -17,8 +17,9 @@ RPC:
   RPCPass: xxx
 
 Log:
-  Level: error
-  Format: json
+  FileName: copernicus
+  Level: debug
+  Module: mempool utxo
 
 P2PNet:
   Listerners: 127.0.0.1:8333 127.0.0.1:18333

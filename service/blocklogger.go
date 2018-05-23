@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/model/block"
 )
 
 // blockProgressLogger provides periodic logging for other services in order

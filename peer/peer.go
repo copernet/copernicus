@@ -17,14 +17,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/btcboost/copernicus/log"
-
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcsuite/go-socks/socks"
-	"github.com/btcboost/copernicus/util/bitcoinutil"
 )
 
 const (
@@ -356,23 +355,32 @@ type stallControlMsg struct {
 
 // StatsSnap is a snapshot of peer stats at a point in time.
 type StatsSnap struct {
-	ID             int32
-	Addr           string
-	Services       wire.ServiceFlag
-	LastSend       time.Time
-	LastRecv       time.Time
-	BytesSent      uint64
-	BytesRecv      uint64
-	ConnTime       time.Time
-	TimeOffset     int64
-	Version        uint32
-	UserAgent      string
-	Inbound        bool
-	StartingHeight int32
-	LastBlock      int32
-	LastPingNonce  uint64
-	LastPingTime   time.Time
-	LastPingMicros int64
+	ID                    int32
+	Addr                  string
+	Services              wire.ServiceFlag
+	LastSend              time.Time
+	LastRecv              time.Time
+	BytesSent             uint64
+	BytesRecv             uint64
+	ConnTime              time.Time
+	TimeOffset            int64
+	Version               uint32
+	UserAgent             string
+	Inbound               bool
+	StartingHeight        int32
+	LastBlock             int32
+	LastPingNonce         uint64
+	LastPingTime          time.Time
+	LastPingMicros        int64
+	AddNode               bool
+	MingPing              float64
+	PingWait              float64
+	SyncedHeaders         int
+	SyncedBlocks          int
+	WhiteListed           bool
+	UsesCashMagic         bool
+	MapSendBytesPerMsgCmd map[string]uint64
+	MapRecvBytesPerMsgCmd map[string]uint64
 }
 
 // HashFunc is a function which returns a block hash, height and error
@@ -681,7 +689,7 @@ func (p *Peer) VerAckReceived() bool {
 	return verAckReceived
 }
 
-func (p *Peer)SetAckReceived(rev bool)  {
+func (p *Peer) SetAckReceived(rev bool) {
 	p.flagsMtx.Lock()
 	p.verAckReceived = rev
 	p.flagsMtx.Unlock()
@@ -927,12 +935,13 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.Hash) error {
+func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getblocks requests.
 	var beginHash *util.Hash
-	if len(locator) > 0 {
-		beginHash = locator[0]
+	blkHashs := locator.GetBlockHashList()
+	if len(blkHashs) > 0 {
+		beginHash = &blkHashs[0]
 	}
 
 	// Filter duplicate getblocks requests.
@@ -950,8 +959,8 @@ func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.
 
 	// Construct the getblocks request and queue it to be sent.
 	msg := wire.NewMsgGetBlocks(stopHash)
-	for _, hash := range locator {
-		err := msg.AddBlockLocatorHash(hash)
+	for _, hash := range blkHashs {
+		err := msg.AddBlockLocatorHash(&hash)
 		if err != nil {
 			return err
 		}
@@ -971,12 +980,13 @@ func (p *Peer) PushGetBlocksMsg(locator blockchain.BlockLocator, stopHash *util.
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *util.Hash) error {
+func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getheaders requests.
 	var beginHash *util.Hash
-	if len(locator) > 0 {
-		beginHash = locator[0]
+	blkHashs := locator.GetBlockHashList()
+	if len(blkHashs) > 0 {
+		beginHash = &blkHashs[0]
 	}
 
 	// Filter duplicate getheaders requests.
@@ -995,8 +1005,8 @@ func (p *Peer) PushGetHeadersMsg(locator blockchain.BlockLocator, stopHash *util
 	// Construct the getheaders request and queue it to be sent.
 	msg := wire.NewMsgGetHeaders()
 	msg.HashStop = *stopHash
-	for _, hash := range locator {
-		err := msg.AddBlockLocatorHash(hash)
+	for _, hash := range blkHashs {
+		err := msg.AddBlockLocatorHash(&hash)
 		if err != nil {
 			return err
 		}
@@ -1074,7 +1084,7 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	p.statsMtx.Lock()
 	p.lastBlock = msg.LastBlock
 	p.startingHeight = msg.LastBlock
-	p.timeOffset = msg.Timestamp - time.Now().Unix()
+	p.timeOffset = msg.Timestamp.Unix() - time.Now().Unix()
 	p.statsMtx.Unlock()
 
 	// Negotiate the protocol version.
@@ -1229,7 +1239,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 // to send malformed messages without the peer being disconnected.
 func (p *Peer) isAllowedReadError(err error) bool {
 	// Only allow read errors in regression test mode.
-	if p.Cfg.ChainParams.BitcoinNet != bitcoinutil.TestNet {
+	if p.Cfg.ChainParams.BitcoinNet != wire.RegTestNet {
 		return false
 	}
 
@@ -1707,8 +1717,8 @@ out:
 		case msg := <-p.outputQueue:
 			waiting = queuePacket(msg, pendingMsgs, waiting)
 
-		// This channel is notified when a message has been sent across
-		// the network socket.
+			// This channel is notified when a message has been sent across
+			// the network socket.
 		case <-p.sendDoneQueue:
 			// No longer waiting if there are no more messages
 			// in the pending messages queue.
@@ -1790,7 +1800,7 @@ cleanup:
 			}
 		case <-p.outputInvChan:
 			// Just drain channel
-		// sendDoneQueue is buffered so doesn't need draining.
+			// sendDoneQueue is buffered so doesn't need draining.
 		default:
 			break cleanup
 		}
@@ -2095,8 +2105,8 @@ func (p *Peer) readRemoteVersionMsg() error {
 		return err
 	}
 
-	if p.cfg.Listeners.OnVersion != nil {
-		p.cfg.Listeners.OnVersion(p, remoteVerMsg)
+	if p.Cfg.Listeners.OnVersion != nil {
+		p.Cfg.Listeners.OnVersion(p, remoteVerMsg)
 	}
 	return nil
 }
@@ -2162,7 +2172,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 		queueQuit:       make(chan struct{}),
 		outQuit:         make(chan struct{}),
 		quit:            make(chan struct{}),
-		cfg:             cfg, // Copy so caller can't mutate.
+		Cfg:             cfg, // Copy so caller can't mutate.
 		services:        cfg.Services,
 		protocolVersion: cfg.ProtocolVersion,
 	}

@@ -1,21 +1,25 @@
 package chain
 
 import (
+	"fmt"
+	"time"
+	
 	"github.com/btcboost/copernicus/errcode"
+	// lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
-
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/mempool"
+	lmp "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/util"
-
-
+	
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/undo"
 	mUndo "github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/persist/disk"
-
-
+	
 	"bytes"
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model/pow"
@@ -28,6 +32,10 @@ func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
 		return nil, err
 	}
 	log.Info(bIndex)
+
+	if bIndex.Accepted() {
+		return bIndex,nil
+	}
 
 	return nil, nil
 }
@@ -54,7 +62,10 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax,bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork,work)
-	c.AddToIndexMap(bIndex)
+	err := c.AddToIndexMap(bIndex)
+	if err != nil {
+		return nil,err
+	}
 
 	return bIndex, nil
 }
@@ -438,11 +449,11 @@ func ConnectTip(param *consensus.BitcoinParams, state *block.ValidationState, pI
 }
 */
 
-/*
+
 // DisconnectTip Disconnect chainActive's tip. You probably want to call
 // mempool.removeForReorg and manually re-limit mempool size after this, with
 // cs_main held.
-func DisconnectTip(param *consensus.BitcoinParams, state *block.ValidationState, fBare bool) bool {
+func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, fBare bool) bool {
 
 	tip := chain.GetInstance().Tip()
 	if tip == nil {
@@ -486,7 +497,7 @@ func DisconnectTip(param *consensus.BitcoinParams, state *block.ValidationState,
 			if tx.IsCoinBase() {
 				mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
 			} else {
-				e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
+				_, e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
 				if e != nil {
 					mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
 				}
@@ -508,11 +519,11 @@ func DisconnectTip(param *consensus.BitcoinParams, state *block.ValidationState,
 	// todo !!! add  GetMainSignals().SyncTransaction()
 	return true
 }
-*/
 
-/*
+
+
 // UpdateTip Update chainActive and related internal data structures.
-func UpdateTip(param *consensus.BitcoinParams, pindexNew *blockindex.BlockIndex) {
+func UpdateTip(param *chainparams.BitcoinParams, pindexNew *blockindex.BlockIndex) {
 	//chain.GetInstance().SetTip(pindexNew)
 	//// New best block
 	////GMemPool.AddTransactionsUpdated(1)
@@ -580,7 +591,7 @@ func UpdateTip(param *consensus.BitcoinParams, pindexNew *blockindex.BlockIndex)
 	//	logs.Info("waring= %s", strings.Join(warningMessages, ","))
 	//}
 }
-*/
+
 
 
 func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap) mUndo.DisconnectResult {

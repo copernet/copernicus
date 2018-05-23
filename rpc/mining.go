@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
+	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/logic/undo"
-	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -16,12 +17,12 @@ import (
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/mining"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/service/mining"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
@@ -394,13 +395,13 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	hash := bk.Header.GetHash()
 	bindex := chain.GlobalChain.FindBlockIndex(hash)
 	if bindex != nil {
-		if bindex.IsValid(BlockValidScripts) { // TODO define in chain model
+		if bindex.IsValid(blockindex2.BlockValidScripts) { // TODO define in chain model
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate",
 			}
 		}
-		if bindex.Status&BlockFailedMask != 0 { // TODO define in chain model
+		if bindex.Status&blockindex2.BlockFailedMask != 0 { // TODO define in chain model
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",
@@ -414,41 +415,45 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 
 	indexPrev := chain.GlobalChain.Tip()
 	// TestBlockValidity only supports blocks built on the current Tip
-	if bk.Header.HashPrevBlock != indexPrev.BlockHash {
+	if bk.Header.HashPrevBlock != *indexPrev.GetBlockHash() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrUnDefined,
 			Message: "inconclusive-not-best-prevblk",
 		}
 	}
-	state := valistate.ValidationState{}
+
 	// TODO realise in block model
-	chain.TestBlockValidity(chainparams.ActiveNetParams, &state, &bk, indexPrev, false, true)
-	return BIP22ValidationResult(&state)
+	err = chain.TestBlockValidity(chainparams.ActiveNetParams, &bk, indexPrev, false, true)
+	return BIP22ValidationResult(err)
 }
 
-func BIP22ValidationResult(state *valistate.ValidationState) (interface{}, error) {
-	if state.IsValid() {
-		return nil, nil
-	}
-
-	strRejectReason := state.GetRejectReason()
-	if state.IsError() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCVerify,
-			Message: strRejectReason,
+func BIP22ValidationResult(err error) (interface{}, error) {
+	projectError, ok := err.(errcode.ProjectError) // todo warning: TestBlockValidity should return type errcode.ProjectError
+	if ok {
+		if projectError.Code == int(errcode.ModelValid) {
+			return nil, nil
 		}
-	}
 
-	if state.IsInvalid() {
-		if strRejectReason == "" {
+		strRejectReason := projectError.Desc
+
+		if projectError.Code == int(errcode.ModelError) {
 			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: "rejected",
+				Code:    btcjson.ErrRPCVerify,
+				Message: strRejectReason,
 			}
 		}
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrUnDefined,
-			Message: strRejectReason,
+
+		if projectError.Code == int(errcode.ModelInvalid) {
+			if strRejectReason == "" {
+				return nil, &btcjson.RPCError{
+					Code:    btcjson.ErrUnDefined,
+					Message: "rejected",
+				}
+			}
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrUnDefined,
+				Message: strRejectReason,
+			}
 		}
 	}
 

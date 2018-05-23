@@ -20,8 +20,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/service"
 )
@@ -50,6 +51,27 @@ func rpcDecodeHexError(gotHex string) *btcjson.RPCError {
 			gotHex))
 }
 
+// rpcserverPeer represents a peer for use with the RPC server.
+//
+// The interface contract requires that all of these methods are safe for
+// concurrent access.
+type RpcServerPeer interface {
+	// ToPeer returns the underlying peer instance.
+	ToPeer() *peer.Peer
+
+	// IsTxRelayDisabled returns whether or not the peer has disabled
+	// transaction relay.
+	IsTxRelayDisabled() bool
+
+	// BanScore returns the current integer value that represents how close
+	// the peer is to being banned.
+	BanScore() uint32
+
+	// FeeFilter returns the requested current minimum fee rate for which
+	// transactions should be announced.
+	FeeFilter() int64
+}
+
 // Server provides a concurrent safe RPC server to a chain server.
 type Server struct {
 	started                int32
@@ -64,7 +86,7 @@ type Server struct {
 	helpCacher             *helpCacher
 	requestProcessShutdown chan struct{}
 	quit                   chan int
-	Handler 				*service.MsgHandle
+	Handler                *service.MsgHandle
 }
 
 func (s *Server) httpStatusLine(req *http.Request, code int) string {
@@ -652,11 +674,11 @@ func InitRPCServer() (*Server, error) {
 			return nil, err
 		}
 
-/*		// Signal process shutdown when the RPC server requests it.
-		go func() {
-			<-rpcServer.RequestedProcessShutdown()
-			shutdownRequestChannel <- struct{}{}
-		}()*/                     // TODO open
+		/*		// Signal process shutdown when the RPC server requests it.
+				go func() {
+					<-rpcServer.RequestedProcessShutdown()
+					shutdownRequestChannel <- struct{}{}
+				}()*/ // TODO open
 		return rpcServer, nil
 	}
 	return nil, nil
