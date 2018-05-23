@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"strconv"
 
+	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
+	"gopkg.in/fatih/set.v0"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -344,7 +346,62 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 }
 
 func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	// Idea:  the set of chain tips is chainActive.tip, plus orphan blocks which
+	// do not have another orphan building off of them.
+	// Algorithm:
+	//	- Make one pass through mapBlockIndex, picking out the orphan blocks,
+	//	  and also storing a set of the orphan block's pprev pointers.
+	//  - Iterate through the orphan blocks. If the block isn't pointed to by
+	//	  another orphan, it is a chain tip.
+	//	- add chainActive.Tip()
+	setTips := set.New() // element type:
+
+	// todo add orphan blockindex, lack of chain's support<orphan>
+	setTips.Add(chain.GlobalChain.Tip())
+
+	ret := btcjson.GetChainTipsResult{
+		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),
+	}
+	setTips.Each(func(item interface{}) bool {
+		bindex := item.(*blockindex.BlockIndex)
+		tipInfo := btcjson.ChainTipsInfo{
+			Height:    bindex.Height,
+			Hash:      bindex.GetBlockHash().String(),
+			BranchLen: bindex.Height - chain.GlobalChain.FindFork(bindex).Height,
+		}
+
+		var status string
+		if chain.GlobalChain.Contains(bindex) {
+			// This block is part of the currently active chain.
+			status = "active"
+		} else if bindex.Status&blockindex2.BlockFailedMask != 0 {
+			// This block or one of its ancestors is invalid.
+			status = "invalid"
+		} else if bindex.ChainTxCount == 0 {
+			// This block cannot be connected because full block data for it or
+			// one of its parents is missing.
+			status = "headers-only"
+		} else if bindex.IsValid(blockindex2.BlockValidScripts) {
+			// This block is fully validated, but no longer part of the active
+			// chain. It was probably the active block once, but was
+			// reorganized.
+			status = "valid-fork"
+		} else if bindex.IsValid(blockindex2.BlockValidTree) {
+			// The headers for this block are valid, but it has not been
+			// validated. It was probably never part of the most-work chain.
+			status = "valid-headers"
+		} else {
+			// No clue
+			status = "unknown"
+		}
+		tipInfo.Status = status
+
+		ret.Tips = append(ret.Tips, tipInfo)
+
+		return true
+	})
+
+	return ret, nil
 }
 
 func getDifficulty(bi *blockindex.BlockIndex) float64 {

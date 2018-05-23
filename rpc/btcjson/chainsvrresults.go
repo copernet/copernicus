@@ -574,3 +574,14 @@ type SignRawTransactionResult struct {
 	Complete bool                       `json:"complete"`
 	Errors   []*SignRawTransactionError `json:"errors,omitempty"`
 }
+
+type GetChainTipsResult struct {
+	Tips []ChainTipsInfo
+}
+
+type ChainTipsInfo struct {
+	Height    int    `json:"height"`
+	Hash      string `json:"hash"`
+	BranchLen int    `json:"branchlen"`
+	Status    string `json:"status"`
+}
