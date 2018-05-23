@@ -42,7 +42,6 @@ import (
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
-
 )
 
 const (
@@ -479,14 +478,14 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	txn := (*tx.Tx)(msg)
 	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
-			txn.TxHash(), sp)
+			txn.GetHash(), sp)
 		return
 	}
 
 	// Add the transaction to the known inventory for the peer.
 	// Convert the raw MsgTx to a btcutil.Tx which provides some convenience
 	// methods and things such as hash caching.
-	txhash := txn.TxHash()
+	txhash := txn.GetHash()
 
 	iv := wire.NewInvVect(wire.InvTypeTx, &txhash)
 	sp.AddKnownInventory(iv)
@@ -608,8 +607,8 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 			err = sp.server.pushTxMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
 		case wire.InvTypeBlock:
 			err = sp.server.pushBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
-		// case wire.InvTypeFilteredBlock:
-		// 	err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
+			// case wire.InvTypeFilteredBlock:
+			// 	err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
 		default:
 			log.Warn("Unknown type in inventory request %d",
 				iv.Type)
@@ -1086,11 +1085,13 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 
 	// Fetch the raw block bytes from the database.
 	var blockBytes []byte
-	err := sp.server.db.View(func(dbTx database.Tx) error {
-		var err error
-		blockBytes, err = dbTx.FetchBlock(hash)
-		return err
-	})
+	//err := sp.server.db.View(func(dbTx database.Tx) error {
+	//	var err error
+	//	blockBytes, err = dbTx.FetchBlock(hash)
+	//	return err
+	//})
+	//FIXME by xiaolong:
+	var err error
 	if err != nil {
 		log.Trace("Unable to fetch requested block hash %v: %v",
 			hash, err)
@@ -1102,8 +1103,9 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	}
 
 	// Deserialize the block.
-	var msgBlock wire.MsgBlock
-	err = msgBlock.Deserialize(bytes.NewReader(blockBytes))
+	var mb wire.MsgBlock
+	msgBlock := (block.Block)(mb)
+	err = msgBlock.Unserialize(bytes.NewReader(blockBytes))
 	if err != nil {
 		log.Trace("Unable to deserialize requested block hash "+
 			"%v: %v", hash, err)
