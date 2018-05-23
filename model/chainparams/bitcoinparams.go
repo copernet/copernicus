@@ -1,14 +1,16 @@
 package chainparams
 
 import (
+	"errors"
 	"math/big"
 	"time"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/block"
+
 	"github.com/btcboost/copernicus/model"
-	"errors"
-	"github.com/btcboost/copernicus/util/bitcoinutil"
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/bitcoinutil"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
@@ -34,7 +36,7 @@ type ChainTxData struct {
 type BitcoinParams struct {
 	consensus.Param
 	Name                     string
-	BitcoinNet               bitcoinutil.BitcoinNet
+	BitcoinNet               wire.BitcoinNet
 	DefaultPort              string
 	DNSSeeds                 []bitcoinutil.DNSSeed
 	GenesisBlock             *block.Block
@@ -306,7 +308,7 @@ var SimNetParams = BitcoinParams{
 }
 
 var (
-	RegisteredNets          = make(map[bitcoinutil.BitcoinNet]struct{})
+	RegisteredNets          = make(map[wire.BitcoinNet]struct{})
 	PubKeyHashAddressIDs    = make(map[byte]struct{})
 	ScriptHashAddressIDs    = make(map[byte]struct{})
 	HDPrivateToPublicKeyIDs = make(map[[4]byte][]byte)
@@ -367,4 +369,3 @@ func mustRegister(bp *BitcoinParams) {
 	}
 	bp.DefaultAssumeValid = *work
 }
-
