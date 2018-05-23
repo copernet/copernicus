@@ -23,7 +23,6 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
-
 )
 
 const (
@@ -57,6 +56,7 @@ type newPeerMsg struct {
 // so the block handler has access to that information.
 type blockMsg struct {
 	block *block.Block
+	buf   []byte
 	peer  *peer.Peer
 	reply chan struct{}
 }
@@ -1241,14 +1241,14 @@ func (sm *SyncManager) QueueTx(tx *tx.Tx, peer *peer.Peer, done chan struct{}) {
 // QueueBlock adds the passed block message and peer to the block handling
 // queue. Responds to the done channel argument after the block message is
 // processed.
-func (sm *SyncManager) QueueBlock(block *block.Block, peer *peer.Peer, done chan struct{}) {
+func (sm *SyncManager) QueueBlock(block *block.Block, buf []byte, peer *peer.Peer, done chan struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.msgChan <- &blockMsg{block: block, peer: peer, reply: done}
+	sm.msgChan <- &blockMsg{block: block, buf: buf, peer: peer, reply: done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.
@@ -1381,7 +1381,7 @@ func New(config *Config) (*SyncManager, error) {
 // transactions, blocks, etc. Currently server (in the main package) implements
 // this interface.
 type PeerNotifier interface {
-	AnnounceNewTransactions(newTxs []*mpool.TxEntry)
+	AnnounceNewTransactions(newTxs []*mempool.TxEntry)
 
 	UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer)
 

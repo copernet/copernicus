@@ -29,6 +29,7 @@ import (
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/bitcointime"
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/mempool"
@@ -475,17 +476,19 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 // handler this does not serialize all transactions through a single thread
 // transactions don't rely on the previous one in a linear fashion like blocks.
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
+	txn := (*tx.Tx)(msg)
 	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
-			msg.Hash, sp)
+			txn.TxHash(), sp)
 		return
 	}
 
 	// Add the transaction to the known inventory for the peer.
 	// Convert the raw MsgTx to a btcutil.Tx which provides some convenience
 	// methods and things such as hash caching.
-	tx := tx.NewTx(msg)
-	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
+	txhash := txn.TxHash()
+
+	iv := wire.NewInvVect(wire.InvTypeTx, &txhash)
 	sp.AddKnownInventory(iv)
 
 	// Queue the transaction up to be handled by the sync manager and
@@ -493,7 +496,7 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	// processed and known good or bad.  This helps prevent a malicious peer
 	// from queuing up a bunch of bad transactions before disconnecting (or
 	// being disconnected) and wasting memory.
-	sp.server.syncManager.QueueTx(tx, sp.Peer, sp.txProcessed)
+	sp.server.syncManager.QueueTx(txn, sp.Peer, sp.txProcessed)
 	<-sp.txProcessed
 }
 
@@ -502,10 +505,11 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 	// Convert the raw MsgBlock to a btcutil.Block which provides some
 	// convenience methods and things such as hash caching.
-	block := btcutil.NewBlockFromBlockAndBytes(msg, buf)
+	//block := btcutil.NewBlockFromBlockAndBytes(msg, buf)
+	block := (*block.Block)(msg)
 
 	// Add the block to the known inventory for the peer.
-	iv := wire.NewInvVect(wire.InvTypeBlock, block.Hash())
+	iv := wire.NewInvVect(wire.InvTypeBlock, block.GetHash())
 	sp.AddKnownInventory(iv)
 
 	// Queue the block up to be handled by the block
@@ -519,7 +523,7 @@ func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 	// reference implementation processes blocks in the same
 	// thread and therefore blocks further messages until
 	// the bitcoin block has been fully processed.
-	sp.server.syncManager.QueueBlock(block, sp.Peer, sp.blockProcessed)
+	sp.server.syncManager.QueueBlock(block, buf, sp.Peer, sp.blockProcessed)
 	<-sp.blockProcessed
 }
 
@@ -604,8 +608,8 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 			err = sp.server.pushTxMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
 		case wire.InvTypeBlock:
 			err = sp.server.pushBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
-		case wire.InvTypeFilteredBlock:
-			err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
+		// case wire.InvTypeFilteredBlock:
+		// 	err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, wire.BaseEncoding)
 		default:
 			log.Warn("Unknown type in inventory request %d",
 				iv.Type)
@@ -1010,7 +1014,7 @@ func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 // passed transactions to all connected peers.
 func (s *server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
-		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx)
+		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.GetHash())
 		s.RelayInventory(iv, txD)
 	}
 }
@@ -1026,20 +1030,20 @@ func (s *server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 
 	// Notify both websocket and getblocktemplate long poll clients of all
 	// newly accepted transactions.
-	if s.rpcServer != nil {
-		s.rpcServer.NotifyNewTransactions(txns)
-	}
+	// if s.rpcServer != nil {
+	// 	s.rpcServer.NotifyNewTransactions(txns)
+	// }
 }
 
 // Transaction has one confirmation on the main chain. Now we can mark it as no
 // longer needing rebroadcasting.
-func (s *server) TransactionConfirmed(tx *btcutil.Tx) {
+func (s *server) TransactionConfirmed(tx *tx.Tx) {
 	// Rebroadcasting is only necessary when the RPC server is active.
 	if s.rpcServer == nil {
 		return
 	}
 
-	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
+	iv := wire.NewInvVect(wire.InvTypeTx, tx.GetHash())
 	s.RemoveRebroadcastInventory(iv)
 }
 
@@ -1051,8 +1055,8 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 	// Attempt to fetch the requested transaction from the pool.  A
 	// call could be made to check for existence first, but simply trying
 	// to fetch a missing transaction results in the same behavior.
-	tx := mempool.Gpool.FindTx(hash)
-	if tx == nil {
+	txe := mempool.Gpool.FindTx(*hash)
+	if txe == nil {
 		log.Trace("Unable to fetch tx %v from transaction pool ", hash)
 
 		if doneChan != nil {
@@ -1067,7 +1071,9 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 		<-waitChan
 	}
 
-	sp.QueueMessageWithEncoding(tx.MsgTx(), doneChan, encoding)
+	//sp.QueueMessageWithEncoding(tx.MsgTx(), doneChan, encoding)
+	msgtx := (*wire.MsgTx)(txe.Tx)
+	sp.QueueMessageWithEncoding(msgtx, doneChan, encoding)
 
 	return nil
 }
