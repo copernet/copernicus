@@ -6,6 +6,7 @@ import (
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
 	lblock "github.com/btcboost/copernicus/logic/block"
+	"github.com/btcboost/copernicus/util"
 
 	"fmt"
 
@@ -22,11 +23,7 @@ import (
 
 	"bytes"
 	"github.com/astaxie/beego/logs"
-
-	"copernicus/core"
-	"copernicus/utils"
-	"copernicus/policy"
-	"math"
+	"github.com/btcboost/copernicus/model/pow"
 )
 
 func AcceptBlock(b * block.Block) (*blockindex.BlockIndex,error) {
@@ -60,9 +57,12 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	}
 
 	bIndex.Height = bIndex.Prev.Height + 1
-	bIndex.TimeMax = uint32(math.Max(float64(bIndex.Prev.TimeMax),float64(bIndex.Header.GetBlockTime())))
+	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax,bIndex.Header.GetBlockTime())
+	work := pow.GetBlockProof(bIndex)
+	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork,work)
+	c.AddToIndexMap(bIndex)
 
-	return nil, nil
+	return bIndex, nil
 }
 
 

@@ -11,7 +11,7 @@ type Chain struct {
 	branch   		[]* blockindex.BlockIndex
 	waitForTx     	map[util.Hash]* blockindex.BlockIndex
 	orphan        	[]* blockindex.BlockIndex
-	blockIndexMap 	map[util.Hash]* blockindex.BlockIndex
+	indexMap 	map[util.Hash]* blockindex.BlockIndex
 	newestBlock   	*blockindex.BlockIndex
 	receiveID     	uint64
 }
@@ -42,7 +42,7 @@ func (c *Chain) Genesis() *blockindex.BlockIndex {
 
 //find blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	bi, ok := c.blockIndexMap[hash]
+	bi, ok := c.indexMap[hash]
 	if ok {
 		return bi
 	}
@@ -210,15 +210,23 @@ func (chain *Chain)ActiveBest(bi *blockindex.BlockIndex) error {
 	return nil
 }
 
-func (chain *Chain)removeFromBranch(bis []*blockindex.BlockIndex) {
+func (chain *Chain)RemoveFromBranch(bis []*blockindex.BlockIndex) {
 
 }
 
-func (chain *Chain)addToBranch(bis []*blockindex.BlockIndex) {
+func (chain *Chain)AddToBranch(bis []*blockindex.BlockIndex) {
 
 }
 
 func (chain *Chain)FindMostWorkChain() *blockindex.BlockIndex {
 
 	return nil
+}
+
+func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
+	return nil
+}
+
+func (c *Chain) GetActiveHeight(hash *util.Hash) (error,int) {
+	return nil,0
 }
