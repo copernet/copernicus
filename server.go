@@ -22,9 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcutil"
-	//"github.com/btcsuite/btcutil/bloom" //todo:not support now
 	"github.com/btcboost/copernicus/cmd/btcctl"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
@@ -43,6 +40,9 @@ import (
 	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcsuite/btcd/database"
+	"github.com/btcsuite/btcutil"
+	"github.com/btcsuite/btcutil/bloom"
 )
 
 const (
@@ -656,6 +656,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	// over with the genesis block if unknown block locators are provided.
 	//
 	// This mirrors the behavior in the reference implementation.
+
 	hashList := chain.GlobalChain.LocateBlocks(msg.BlockLocatorHashes, &msg.HashStop,
 		wire.MaxBlocksPerMsg)
 
@@ -699,6 +700,7 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// over with the genesis block if unknown block locators are provided.
 	//
 	// This mirrors the behavior in the reference implementation.
+
 	headers := chain.GlobalChain.LocateHeaders(msg.BlockLocatorHashes, &msg.HashStop)
 	if len(headers) == 0 {
 		// Nothing to send.
@@ -1011,7 +1013,7 @@ func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 // passed transactions to all connected peers.
 func (s *server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
-		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.)
+		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx)
 		s.RelayInventory(iv, txD)
 	}
 }
