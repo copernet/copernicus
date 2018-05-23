@@ -1623,7 +1623,7 @@ func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	return true
 }
 
-func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int) (err error) {
+func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
 	nValue := int64(0)
 	ins := transaction.GetIns()
 	for _, e := range ins {
@@ -1632,7 +1632,7 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
 		if coin.IsCoinBase() {
-			if uint32(spendHeight)-coin.GetHeight() < consensus.CoinbaseMaturity {
+			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {
 				return errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
