@@ -439,7 +439,6 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	// we'll retry next time we get an inv.
 	delete(state.requestedTxns, txHash)
 	delete(sm.requestedTxns, txHash)
-
 	if err != nil {
 		// Do not request this transaction again until a new block
 		// has been processed.
@@ -460,7 +459,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 		// Convert the error into an appropriate reject message and
 		// send it.
-		code, reason := mempool.ErrToRejectErr(err)
+		code, reason := errcode.IsErrorCode(err, errcode.RejectTx)
 		peer.PushRejectMsg(wire.CmdTx, code, reason, &txHash, false)
 		return
 	}
@@ -529,13 +528,13 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// since it is needed to verify the next round of headers links
 	// properly.
 	isCheckpointBlock := false
-	behaviorFlags := blockchain.BFNone
+	behaviorFlags := chain.BFNone
 	if sm.headersFirstMode {
 		firstNodeEl := sm.headerList.Front()
 		if firstNodeEl != nil {
 			firstNode := firstNodeEl.Value.(*headerNode)
 			if blockHash.IsEqual(firstNode.hash) {
-				behaviorFlags |= blockchain.BFFastAdd
+				behaviorFlags |= chain.BFFastAdd
 				if firstNode.hash.IsEqual(sm.nextCheckpoint.Hash) {
 					isCheckpointBlock = true
 				} else {
@@ -776,7 +775,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	receivedCheckpoint := false
 	var finalHash *util.Hash
 	for _, blockHeader := range msg.Headers {
-		blockHash := blockHeader.BlockHash()
+		blockHash := blockHeader.GetHash()
 		finalHash = &blockHash
 
 		// Ensure there is a previous header to compare against.
@@ -792,7 +791,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		// add it to the list of headers.
 		node := headerNode{hash: &blockHash}
 		prevNode := prevNodeEl.Value.(*headerNode)
-		if prevNode.hash.IsEqual(&blockHeader.PrevBlock) {
+		if prevNode.hash.IsEqual(&blockHeader.HashPrevBlock) {
 			node.height = prevNode.height + 1
 			e := sm.headerList.PushBack(&node)
 			if sm.startHeader == nil {
@@ -997,8 +996,11 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				// Request blocks after this one up to the
 				// final one the remote peer knows about (zero
 				// stop hash).
-				locator := sm.chain.BlockLocatorFromHash(&iv.Hash)
-				peer.PushGetBlocksMsg(locator, &zeroHash)
+
+				activeChain := chain.GetInstance()
+				blkIndex := activeChain.FindBlockIndex(iv.Hash)
+				locator := activeChain.GetLocator(blkIndex)
+				peer.PushGetBlocksMsg(*locator, &zeroHash)
 			}
 		}
 	}
@@ -1372,7 +1374,7 @@ func New(config *Config) (*SyncManager, error) {
 		log.Info("Checkpoints are disabled")
 	}
 
-	sm.chain.Subscribe(sm.handleBlockchainNotification)
+	//sm.chain.Subscribe(sm.handleBlockchainNotification)
 
 	return &sm, nil
 }
@@ -1381,7 +1383,7 @@ func New(config *Config) (*SyncManager, error) {
 // transactions, blocks, etc. Currently server (in the main package) implements
 // this interface.
 type PeerNotifier interface {
-	AnnounceNewTransactions(newTxs []*mpool.TxEntry)
+	AnnounceNewTransactions(newTxs []*mempool.TxEntry)
 
 	UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer)
 

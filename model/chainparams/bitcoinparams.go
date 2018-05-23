@@ -7,7 +7,7 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model"
 	"errors"
-	"github.com/btcboost/copernicus/util/bitcoinutil"
+	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/model/consensus"
 )
 
@@ -31,12 +31,22 @@ type ChainTxData struct {
 	TxRate  float64
 }
 
+// DNSSeed identifies a DNS seed.
+type DNSSeed struct {
+	// Host defines the hostname of the seed.
+	Host string
+
+	// HasFiltering defines whether the seed supports filtering
+	// by service flags (wire.ServiceFlag).
+	HasFiltering bool
+}
+
 type BitcoinParams struct {
 	consensus.Param
 	Name                     string
-	BitcoinNet               bitcoinutil.BitcoinNet
+	BitcoinNet               wire.BitcoinNet
 	DefaultPort              string
-	DNSSeeds                 []bitcoinutil.DNSSeed
+	DNSSeeds                 []DNSSeed
 	GenesisBlock             *block.Block
 	PowLimitBits             uint32
 	CoinbaseMaturity         uint16
@@ -100,9 +110,9 @@ var MainNetParams = BitcoinParams{
 	},
 
 	Name:        "mainnet",
-	BitcoinNet:  bitcoinutil.MainNet,
+	BitcoinNet:  wire.MainNet,
 	DefaultPort: "8333",
-	DNSSeeds: []bitcoinutil.DNSSeed{
+	DNSSeeds: []DNSSeed{
 		{Host: "seed.bitcoin.sipa.be", HasFiltering: true},  // Pieter Wuille
 		{Host: "dnsseed.bluematt.me", HasFiltering: true},   // Matt Corallo
 		{Host: "seed.bitcoinstats.com", HasFiltering: true}, // Chris Decker
@@ -173,9 +183,9 @@ var RegressionNetParams = BitcoinParams{
 	},
 
 	Name:         "regtest",
-	BitcoinNet:   bitcoinutil.TestNet,
+	BitcoinNet:   wire.RegTestNet,
 	DefaultPort:  "18444",
-	DNSSeeds:     []bitcoinutil.DNSSeed{},
+	DNSSeeds:     []DNSSeed{},
 	GenesisBlock: &RegressionTestGenesisBlock,
 
 	PowLimitBits:             RegressionTestGenesisBlock.Header.Bits,
@@ -219,9 +229,9 @@ var TestNet3Params = BitcoinParams{
 	},
 
 	Name:        "testnet3",
-	BitcoinNet:  bitcoinutil.TestNet3,
+	BitcoinNet:  wire.TestNet3,
 	DefaultPort: "18333",
-	DNSSeeds: []bitcoinutil.DNSSeed{
+	DNSSeeds: []DNSSeed{
 		{Host: "testnet-seed.bitcoin.schildbach.de", HasFiltering: false},
 		{Host: "testnet-seed.bitcoin.petertodd.org", HasFiltering: true},
 		{Host: "testnet-seed.bluematt.me", HasFiltering: false},
@@ -269,9 +279,9 @@ var SimNetParams = BitcoinParams{
 	},
 
 	Name:         "simnet",
-	BitcoinNet:   bitcoinutil.SimNet,
+	BitcoinNet:   wire.SimNet,
 	DefaultPort:  "18555",
-	DNSSeeds:     []bitcoinutil.DNSSeed{},
+	DNSSeeds:     []DNSSeed{},
 	GenesisBlock: &SimNetGenesisBlock,
 
 	PowLimitBits:             SimNetGenesisBlock.Header.Bits,
@@ -306,7 +316,7 @@ var SimNetParams = BitcoinParams{
 }
 
 var (
-	RegisteredNets          = make(map[bitcoinutil.BitcoinNet]struct{})
+	RegisteredNets          = make(map[wire.BitcoinNet]struct{})
 	PubKeyHashAddressIDs    = make(map[byte]struct{})
 	ScriptHashAddressIDs    = make(map[byte]struct{})
 	HDPrivateToPublicKeyIDs = make(map[[4]byte][]byte)

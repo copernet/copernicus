@@ -12,7 +12,7 @@ import (
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
+func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 
 	//first : check transaction context And itself.
 	if err := ltx.CheckRegularTransaction(tx, true); err != nil {
@@ -79,7 +79,7 @@ func ProcessOrphan(tx *tx.Tx) []*tx.Tx {
 					continue
 				}
 
-				err2 := accpetTxToMemPool(iOrphanTx.Tx, nil)
+				err2 := AccpetTxToMemPool(iOrphanTx.Tx, nil)
 				if err2 == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -112,7 +112,7 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64) ([]*tx.Tx, error) {
 	var err error
 	utxoTip := utxo.GetUtxoCacheInstance()
 	acceptTx := make([]*tx.Tx, 0)
-	err = accpetTxToMemPool(tx, nil)
+	err = AccpetTxToMemPool(tx, nil)
 	if err == nil {
 		//bestHeight := utxoTip.GetBestBlock()
 		mempool.Gpool.Check(utxoTip, 0)

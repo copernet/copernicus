@@ -23,7 +23,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/util/bitcoinutil"
 	"github.com/btcsuite/go-socks/socks"
 )
 
@@ -1240,7 +1239,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 // to send malformed messages without the peer being disconnected.
 func (p *Peer) isAllowedReadError(err error) bool {
 	// Only allow read errors in regression test mode.
-	if p.Cfg.ChainParams.BitcoinNet != bitcoinutil.TestNet {
+	if p.Cfg.ChainParams.BitcoinNet != wire.RegTestNet {
 		return false
 	}
 

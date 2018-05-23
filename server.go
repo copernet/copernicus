@@ -41,6 +41,7 @@ import (
 	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/bloom"
+	"github.com/btcboost/copernicus/cmd/btcctl"
 )
 
 const (
