@@ -81,7 +81,7 @@ func (pmt *PartialMerkleTree) calcHash(height uint, pos uint, txids []util.Hash)
 	}
 
 	// Combine subhashes.
-	ret := make([]byte, 2*crypto.HashSize)
+	ret := make([]byte, 2*util.Hash256Size)
 	ret = append(ret, left[:]...)
 	ret = append(ret, right[:]...)
 	b := util.DoubleSha256Bytes(ret)
