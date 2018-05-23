@@ -1,17 +1,17 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/log"
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/errcode"
 )
 
-const	(
+const (
 	MissParentCode = iota
 	CorruptionCode
 )
@@ -32,15 +32,15 @@ func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) ([]*outpoint.OutPoin
 	coins := make([]*utxo.Coin, len(allPreout))
 	var txfee int64
 	var inputValue int64
-	for i, preout := range allPreout{
-		if coin, err := utxoTip.GetCoin(&preout); err == nil{
+	for i, preout := range allPreout {
+		if coin, err := utxoTip.GetCoin(&preout); err == nil {
 			coins[i] = coin
 			inputValue += int64(coin.GetAmount())
 		} else {
-			if coin := mempool.Gpool.GetCoin(&preout); coin != nil{
+			if coin := mempool.Gpool.GetCoin(&preout); coin != nil {
 				coins[i] = coin
 				inputValue += int64(coin.GetAmount())
-			}else {
+			} else {
 				panic("the transaction in mempool, not found its parent " +
 					"transaction in local node and utxo")
 			}
@@ -53,7 +53,7 @@ func accpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) ([]*outpoint.OutPoin
 	}
 
 	//three : add transaction to mempool.
-	txentry := mempool.NewTxentry(tx, txfee, 0, mpHeight, lp,0, false )
+	txentry := mempool.NewTxentry(tx, txfee, 0, mpHeight, lp, 0, false)
 	mempool.Gpool.AddTx(txentry, ancestors)
 
 	return nil, nil
@@ -65,42 +65,42 @@ func processOrphan(tx *tx.Tx) ([]*outpoint.OutPoint, []*tx.Tx) {
 	uncache := make([]*outpoint.OutPoint, 0)
 
 	// first collect this tx all outPoint.
-	for i := 0; i < tx.GetOutsCount(); i++{
-		o := outpoint.OutPoint{Hash:tx.Hash, Index:uint32(i)}
+	for i := 0; i < tx.GetOutsCount(); i++ {
+		o := outpoint.OutPoint{Hash: tx.GetHash(), Index: uint32(i)}
 		vWorkQueue = append(vWorkQueue, o)
 	}
 
 	//todo !!! modify this transaction send node time .
 	//pfrom->nLastTXTime = GetTime();
 	setMisbehaving := make(map[int64]struct{}, 0)
-	for len(vWorkQueue) > 0{
+	for len(vWorkQueue) > 0 {
 		prevOut := vWorkQueue[0]
 		vWorkQueue = vWorkQueue[1:]
-		if orphans, ok := mempool.Gpool.OrphanTransactionsByPrev[prevOut]; !ok{
+		if orphans, ok := mempool.Gpool.OrphanTransactionsByPrev[prevOut]; !ok {
 			continue
-		}else {
-			for _, iOrphanTx := range orphans{
+		} else {
+			for _, iOrphanTx := range orphans {
 				fromPeer := iOrphanTx.NodeID
-				if _, ok := setMisbehaving[fromPeer]; ok{
+				if _, ok := setMisbehaving[fromPeer]; ok {
 					continue
 				}
 
 				uncacheTmp, err2 := accpetTxToMemPool(iOrphanTx.Tx, nil)
-				if err2 == nil{
+				if err2 == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
-					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++{
-						o := outpoint.OutPoint{Hash:iOrphanTx.Tx.Hash, Index:uint32(i)}
+					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
+						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.GetHash(), Index: uint32(i)}
 						vWorkQueue = append(vWorkQueue, o)
 					}
-					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, false)
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), false)
 					break
 				}
 
 				if !errcode.IsErrorCode(err2, errcode.TxErrNoPreviousOut) {
 					uncache = append(uncache, uncacheTmp...)
-					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, true)
-					if errcode.IsErrorCode(err2, errcode.RejectTx){
-						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), true)
+					if errcode.IsErrorCode(err2, errcode.RejectTx) {
+						mempool.Gpool.RecentRejects[iOrphanTx.Tx.GetHash()] = struct{}{}
 					}
 					break
 				}
@@ -111,22 +111,22 @@ func processOrphan(tx *tx.Tx) ([]*outpoint.OutPoint, []*tx.Tx) {
 	return uncache, acceptTx
 }
 
-func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*outpoint.OutPoint, []*tx.Tx, error ){
-	if _, ok := mempool.Gpool.RecentRejects[tx.Hash]; ok {
+func ProcessTransaction(tx *tx.Tx, nodeID int64) ([]*outpoint.OutPoint, []*tx.Tx, error) {
+	if _, ok := mempool.Gpool.RecentRejects[tx.GetHash()]; ok {
 		return nil, nil, errcode.New(errcode.RejectTx)
 	}
 	uncache := make([]*outpoint.OutPoint, 0)
 	var err error
 	acceptTx := make([]*tx.Tx, 0)
 	uncache, err = accpetTxToMemPool(tx, nil)
-	if err == nil{
+	if err == nil {
 		acceptTx = append(acceptTx, tx)
 		uncacheTmp, acc := processOrphan(tx)
-		if len(acc) > 0{
-			temAccept := make([]*tx.Tx, len(acc) + 1)
+		if len(acc) > 0 {
+			temAccept := make([]*tx.Tx, len(acc)+1)
 			temAccept[0] = tx
 			copy(temAccept[1:], acc[:])
-			if len(uncacheTmp) > 0{
+			if len(uncacheTmp) > 0 {
 				uncache = append(uncache, uncacheTmp...)
 			}
 			return uncache, temAccept, nil
@@ -154,14 +154,9 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64)([]*outpoint.OutPoint, []*tx.Tx,
 			//todo add log
 			log.Debug("")
 		}
-	}else{
-		mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
+	} else {
+		mempool.Gpool.RecentRejects[tx.GetHash()] = struct{}{}
 	}
 
 	return uncache, nil, err
 }
-
-
-
-
-

@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -15,6 +14,7 @@ import (
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcsuite/btcd/wire"
@@ -68,7 +68,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		if err != nil {
 			return nil, err
 		}
-		return *rawTxn, nil*///   TODO open
+		return *rawTxn, nil*/ //   TODO open
 	return nil, nil
 }
 
@@ -76,7 +76,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 // to a raw transaction JSON object.
 /*func createTxRawResult(tx *tx.Tx, hashBlock *util.Hash, params *consensus.BitcoinParams) (*btcjson.TxRawResult, error) {
 
-	hash := tx.TxHash()
+	hash := tx.GetHash()
 	txReply := &btcjson.TxRawResult{
 		TxID:     hash.String(),
 		Hash:     hash.String(),
@@ -101,7 +101,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		}
 	}
 	return txReply, nil
-}*/// TODO open
+}*/ // TODO open
 
 // createVinList returns a slice of JSON objects for the inputs of the passed
 // transaction.
@@ -119,65 +119,65 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		vinList[index].Sequence = in.Sequence
 	}
 	return vinList
-}*/// TODO open
+}*/ // TODO open
 
 func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // todo complete
-/*	var str string
-	var opcode byte
-	vch := make([]byte, 0)
-	b := s.GetData()
-	for i := 0; i < len(b); i++ {
-		if len(str) != 0 {
-			str += " "
-		}
-
-		if !s.GetOp(&i, &opcode, &vch) {
-			str += "[error]"
-			return str
-		}
-
-		if opcode >= 0 && opcode <= opcodes.OP_PUSHDATA4 {
-			if len(vch) <= 4 {
-				num, _ := script.GetCScriptNum(vch, false, script.DefaultMaxNumSize)
-				str += fmt.Sprintf("%d", num.Value)
-			} else {
-				// the IsUnspendable check makes sure not to try to decode
-				// OP_RETURN data that may match the format of a signature
-				if attemptSighashDecode && !s.IsUnspendable() {
-					var strSigHashDecode string
-					// goal: only attempt to decode a defined sighash type from
-					// data that looks like a signature within a scriptSig. This
-					// won't decode correctly formatted public keys in Pubkey or
-					// Multisig scripts due to the restrictions on the pubkey
-					// formats (see IsCompressedOrUncompressedPubKey) being
-					// incongruous with the checks in CheckSignatureEncoding.
-					flags := script.ScriptVerifyStrictEnc
-					if vch[len(vch)-1]&script.SigHashForkID != 0 {
-						// If the transaction is using SIGHASH_FORKID, we need
-						// to set the apropriate flag.
-						// TODO: Remove after the Hard Fork.
-						flags |= script.ScriptEnableSigHashForkId
-					}
-					if ok, _ := crypto.CheckSignatureEncoding(vch, uint32(flags)); ok {
-						//chsigHashType := vch[len(vch)-1]
-						//if t, ok := crypto.MapSigHashTypes[chsigHashType]; ok { // todo realise define
-						//	strSigHashDecode = "[" + t + "]"
-						//	// remove the sighash type byte. it will be replaced
-						//	// by the decode.
-						//	vch = vch[:len(vch)-1]
-						//}
-					}
-
-					str += hex.EncodeToString(vch) + strSigHashDecode
-				} else {
-					str += hex.EncodeToString(vch)
-				}
+	/*	var str string
+		var opcode byte
+		vch := make([]byte, 0)
+		b := s.GetData()
+		for i := 0; i < len(b); i++ {
+			if len(str) != 0 {
+				str += " "
 			}
-		} else {
-			str += opcodes.GetOpName(int(opcode))
+
+			if !s.GetOp(&i, &opcode, &vch) {
+				str += "[error]"
+				return str
+			}
+
+			if opcode >= 0 && opcode <= opcodes.OP_PUSHDATA4 {
+				if len(vch) <= 4 {
+					num, _ := script.GetCScriptNum(vch, false, script.DefaultMaxNumSize)
+					str += fmt.Sprintf("%d", num.Value)
+				} else {
+					// the IsUnspendable check makes sure not to try to decode
+					// OP_RETURN data that may match the format of a signature
+					if attemptSighashDecode && !s.IsUnspendable() {
+						var strSigHashDecode string
+						// goal: only attempt to decode a defined sighash type from
+						// data that looks like a signature within a scriptSig. This
+						// won't decode correctly formatted public keys in Pubkey or
+						// Multisig scripts due to the restrictions on the pubkey
+						// formats (see IsCompressedOrUncompressedPubKey) being
+						// incongruous with the checks in CheckSignatureEncoding.
+						flags := script.ScriptVerifyStrictEnc
+						if vch[len(vch)-1]&script.SigHashForkID != 0 {
+							// If the transaction is using SIGHASH_FORKID, we need
+							// to set the apropriate flag.
+							// TODO: Remove after the Hard Fork.
+							flags |= script.ScriptEnableSigHashForkId
+						}
+						if ok, _ := crypto.CheckSignatureEncoding(vch, uint32(flags)); ok {
+							//chsigHashType := vch[len(vch)-1]
+							//if t, ok := crypto.MapSigHashTypes[chsigHashType]; ok { // todo realise define
+							//	strSigHashDecode = "[" + t + "]"
+							//	// remove the sighash type byte. it will be replaced
+							//	// by the decode.
+							//	vch = vch[:len(vch)-1]
+							//}
+						}
+
+						str += hex.EncodeToString(vch) + strSigHashDecode
+					} else {
+						str += hex.EncodeToString(vch)
+					}
+				}
+			} else {
+				str += opcodes.GetOpName(int(opcode))
+			}
 		}
-	}
-	return str*/
+		return str*/
 	return ""
 }
 
@@ -193,7 +193,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return voutList
-}*/// TODO open
+}*/ // TODO open
 
 /*func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
 	result := btcjson.ScriptPubKeyResult{}
@@ -218,7 +218,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return result
-}*///TODO open
+}*/ //TODO open
 
 /*func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
 	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
@@ -245,7 +245,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 		var bk *block.Block
 		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
 			for _, item := range bk.Txs {
-				if *hash == item.TxHash() {
+				if *hash == item.GetHash() {
 					return item, &indexSlow.BlockHash, true
 				}
 			}
@@ -253,7 +253,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return nil, nil, false
-}*///TODO open
+}*/ //TODO open
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
@@ -371,7 +371,7 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 			ret.P2SH = EncodeDestination(scriptByte) // todo realise
 		}
 
-		return ret, nil*/// TODO open
+		return ret, nil*/ // TODO open
 	return nil, nil
 }
 
@@ -385,7 +385,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		return nil, rpcDecodeHexError(c.HexTx)
 	}
 
-	hash := transaction.TxHash()
+	hash := transaction.GetHash()
 
 	maxTxFee := 10000 // todo define this global variable
 	maxRawTxFee := maxTxFee
@@ -411,10 +411,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                        crypto.SigHashAll,
-	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                     crypto.SigHashAll,
+	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,
@@ -571,7 +571,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		}
 	}
 
-	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
 
 	errors := make([]*btcjson.SignRawTransactionError, 0)
 	for index, in := range transactions[0].GetIns() {
@@ -690,7 +690,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 
 		found := 0
 		for _, transaction := range bk.Txs {
-			if setTxIds.Has(transaction.TxHash()) {
+			if setTxIds.Has(transaction.GetHash()) {
 				found++
 			}
 		}
@@ -705,7 +705,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		mb := mblock.NewMerkleBlock(bk, setTxIds)
 		buf := bytes.NewBuffer(nil)
 		mb.Serialize(buf)
-		return hex.EncodeToString(buf.Bytes()), nil*///TODO open
+		return hex.EncodeToString(buf.Bytes()), nil*/ //TODO open
 	return nil, nil
 }
 
@@ -744,7 +744,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 		for _, hash := range matches {
 			ret = append(ret, hash.String())
 		}
-		return ret, nil*///TODO open
+		return ret, nil*/ //TODO open
 	return nil, nil
 }
 

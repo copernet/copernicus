@@ -231,7 +231,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 	var i int
 	transactions := make([]btcjson.GetBlockTemplateResultTx, 0, len(bt.Block.Txs))
 	for _, tx := range bt.Block.Txs {
-		txID := tx.TxHash()
+		txID := tx.GetHash()
 		setTxIndex[txID] = i
 		i++
 

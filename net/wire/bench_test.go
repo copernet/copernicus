@@ -597,7 +597,7 @@ func BenchmarkDecodeMerkleBlock(b *testing.B) {
 // transaction.
 func BenchmarkTxHash(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		genesisCoinbaseTx.TxHash()
+		genesisCoinbaseTx.GetHash()
 	}
 }
 

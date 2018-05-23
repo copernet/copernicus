@@ -2,17 +2,17 @@ package mempool
 
 import (
 	"fmt"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/tx"
+	txin2 "github.com/btcboost/copernicus/model/txin"
+	"github.com/btcboost/copernicus/model/txout"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/google/btree"
 	"math"
 	"testing"
-	"github.com/btcboost/copernicus/model/tx"
-	txin2 "github.com/btcboost/copernicus/model/txin"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/txout"
 )
 
 type TestMemPoolEntry struct {
@@ -81,7 +81,7 @@ func TestTxMempooladdTx(t *testing.T) {
 		o := txout.NewTxOut(33000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txParentPtr.AddTxOut(o)
 	}
-	txParentPtr.Hash = txParentPtr.TxHash()
+	txParentPtr.Hash = txParentPtr.GetHash()
 
 	var txChild [3]tx.Tx
 	for i := 0; i < 3; i++ {
@@ -89,7 +89,7 @@ func TestTxMempooladdTx(t *testing.T) {
 		txChild[i].AddTxIn(ins)
 		outs := txout.NewTxOut(11000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txChild[i].AddTxOut(outs)
-		txChild[i].Hash = txChild[i].TxHash()
+		txChild[i].Hash = txChild[i].GetHash()
 	}
 
 	var txGrandChild [3]tx.Tx
@@ -98,7 +98,7 @@ func TestTxMempooladdTx(t *testing.T) {
 		txGrandChild[i].AddTxIn(ins)
 		outs := txout.NewTxOut(11000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txGrandChild[i].AddTxOut(outs)
-		txGrandChild[i].Hash = txGrandChild[i].TxHash()
+		txGrandChild[i].Hash = txGrandChild[i].GetHash()
 	}
 
 	testPool := NewTxMempool()
@@ -114,7 +114,7 @@ func TestTxMempooladdTx(t *testing.T) {
 	}
 
 	// Just add the parent:
-	ancestors, _ := testPool.calculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true )
+	ancestors, _ := testPool.calculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
 	if err := testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors); err != nil {
 		t.Error("add Tx failure : ", err)
 		return
@@ -128,12 +128,12 @@ func TestTxMempooladdTx(t *testing.T) {
 	}
 
 	// Parent, children, grandchildren:
-	ancestors, _ = testPool.calculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true )
-	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr),ancestors)
+	ancestors, _ = testPool.calculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
+	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors)
 	for i := 0; i < 3; i++ {
-		ancestors,_ := testPool.calculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true )
+		ancestors, _ := testPool.calculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
-		ancestors,_ = testPool.calculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true )
+		ancestors, _ = testPool.calculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
 	}
 	poolSize = testPool.Size()
@@ -174,9 +174,9 @@ func TestTxMempooladdTx(t *testing.T) {
 	// Add children and grandchildren, but NOT the parent (simulate the parent
 	// being in a block)
 	for i := 0; i < 3; i++ {
-		ancestors,_ := testPool.calculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true )
+		ancestors, _ := testPool.calculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
-		ancestors,_ = testPool.calculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true )
+		ancestors, _ = testPool.calculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
 	}
 	// Now remove the parent, as might happen if a block-re-org occurs but the
@@ -197,13 +197,13 @@ func createTx() []*TxEntry {
 	//txChild[i].AddTxIn(ins)
 	outs := txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx1.AddTxOut(outs)
-	tx1.Hash = tx1.TxHash()
+	tx1.Hash = tx1.GetHash()
 	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, tx.TxVersion)
 	out2 := txout.NewTxOut(2*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx2.AddTxOut(out2)
-	tx2.Hash = tx2.TxHash()
+	tx2.Hash = tx2.GetHash()
 	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2)
 
 	tx3 := tx.NewTx(0, tx.TxVersion)
@@ -211,13 +211,13 @@ func createTx() []*TxEntry {
 	tx3.AddTxIn(ins)
 	out3 := txout.NewTxOut(5*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx3.AddTxOut(out3)
-	tx3.Hash = tx3.TxHash()
+	tx3.Hash = tx3.GetHash()
 	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, tx.TxVersion)
 	out4 := txout.NewTxOut(6*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx4.AddTxOut(out4)
-	tx4.Hash = tx4.TxHash()
+	tx4.Hash = tx4.GetHash()
 	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4)
 	t := make([]*TxEntry, 4)
 
@@ -234,15 +234,15 @@ func TestMempoolSortTime(t *testing.T) {
 
 	set := createTx()
 	for _, e := range set {
-		ancestors,_ := testPool.calculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true )
+		ancestors, _ := testPool.calculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(e, ancestors)
 	}
 
 	sortedOrder := make([]util.Hash, 4)
-	sortedOrder[0] = set[0].Tx.Hash //10000
-	sortedOrder[1] = set[2].Tx.Hash //15000
-	sortedOrder[2] = set[1].Tx.Hash //20000
-	sortedOrder[3] = set[3].Tx.Hash //25300
+	sortedOrder[0] = set[0].Tx.GetHash() //10000
+	sortedOrder[1] = set[2].Tx.GetHash() //15000
+	sortedOrder[2] = set[1].Tx.GetHash() //20000
+	sortedOrder[3] = set[3].Tx.GetHash() //25300
 
 	if len(testPool.poolData) != len(sortedOrder) {
 		t.Error("the pool element number is error, expect 4, but actual is ", len(testPool.poolData))
@@ -250,9 +250,9 @@ func TestMempoolSortTime(t *testing.T) {
 	index := 0
 	testPool.timeSortData.Ascend(func(i btree.Item) bool {
 		entry := i.(*TxEntry)
-		if entry.Tx.Hash != sortedOrder[index] {
+		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %s\n",
-				index, sortedOrder[index].ToString(), entry.Tx.Hash.ToString())
+				index, sortedOrder[index].ToString(), entry.Tx.GetHash().ToString())
 			return true
 		}
 		index++
@@ -282,9 +282,9 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	set := createTx()
 	fmt.Println("tx number : ", len(set))
 	for _, e := range set {
-		ancestors,_ := testPool.calculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true )
+		ancestors, _ := testPool.calculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(e, ancestors)
-		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.Hash.ToString(), testPool.cacheInnerUsage)
+		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.GetHash().ToString(), testPool.cacheInnerUsage)
 	}
 	fmt.Println("mempool usage size : ", testPool.cacheInnerUsage)
 

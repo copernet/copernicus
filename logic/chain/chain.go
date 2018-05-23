@@ -1,44 +1,43 @@
 package chain
 
 import (
+	"github.com/btcboost/copernicus/errcode"
+	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
-	lblock "github.com/btcboost/copernicus/logic/block"
 
 	"fmt"
 
 	"github.com/btcboost/copernicus/log"
-	"time"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/persist/disk"
-	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/logic/undo"
+	"github.com/btcboost/copernicus/model/consensus"
 	mUndo "github.com/btcboost/copernicus/model/undo"
+	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/persist/disk"
+	"time"
 
-	"github.com/btcboost/copernicus/model/mempool"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
+	"github.com/btcboost/copernicus/model/mempool"
 
 	"bytes"
 	"github.com/astaxie/beego/logs"
 
 	"copernicus/core"
-	"copernicus/utils"
 	"copernicus/policy"
+	"copernicus/utils"
 	"math"
 )
 
-func AcceptBlock(b * block.Block) (*blockindex.BlockIndex,error) {
+func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
 
-
-	var bIndex,err = AcceptBlockHeader(&b.Header)
+	var bIndex, err = AcceptBlockHeader(&b.Header)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	log.Info(bIndex)
 
-	return nil,nil
+	return nil, nil
 }
 
 func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
@@ -60,11 +59,10 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	}
 
 	bIndex.Height = bIndex.Prev.Height + 1
-	bIndex.TimeMax = uint32(math.Max(float64(bIndex.Prev.TimeMax),float64(bIndex.Header.GetBlockTime())))
+	bIndex.TimeMax = uint32(math.Max(float64(bIndex.Prev.TimeMax), float64(bIndex.Header.GetBlockTime())))
 
 	return nil, nil
 }
-
 
 func ConnectBlock(param *consensus.BitcoinParams, pblock *block.Block, state *block.ValidationState,
 	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) bool {
@@ -169,7 +167,7 @@ func ConnectBlock(param *consensus.BitcoinParams, pblock *block.Block, state *bl
 		for _, tx := range pblock.Txs {
 			for o := 0; o < len(tx.Outs); o++ {
 				outPoint := &core.OutPoint{
-					Hash:  tx.Hash,
+					Hash:  Tx.GetHash(),
 					Index: uint32(o),
 				}
 				if view.HaveCoin(outPoint) {
@@ -260,7 +258,7 @@ func ConnectBlock(param *consensus.BitcoinParams, pblock *block.Block, state *bl
 			if !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults,
 				core.NewPrecomputedTransactionData(tx), vChecks) {
 				logs.Error(fmt.Sprintf("ConnectBlock(): CheckInputs on %s failed with %s",
-					tx.TxHash(), FormatStateMessage(state)))
+					tx.GetHash(), FormatStateMessage(state)))
 				return false
 			}
 
@@ -278,7 +276,7 @@ func ConnectBlock(param *consensus.BitcoinParams, pblock *block.Block, state *bl
 		}
 		_ = undoDummy
 
-		vPos[tx.Hash] = *txPos
+		vPos[Tx.GetHash()] = *txPos
 		txPos.TxOffsetIn += tx.SerializeSize()
 	}
 
@@ -364,14 +362,13 @@ func ConnectBlock(param *consensus.BitcoinParams, pblock *block.Block, state *bl
 	return true
 }
 
-
 // ConnectTip Connect a new block to chainActive. block is either nullptr or a pointer to
 // a CBlock corresponding to indexNew, to bypass loading it again from disk.
 // The block is always added to connectTrace (either after loading from disk or
 // by copying block) - if that is not intended, care must be taken to remove
 // the last entry in blocksConnected in case of failure.
 func ConnectTip(param *consensus.BitcoinParams, state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
-	block *block.Block, connectTrace map[*blockindex.BlockIndex] *block.Block) bool {
+	block *block.Block, connectTrace map[*blockindex.BlockIndex]*block.Block) bool {
 	tip := chain.GetInstance().Tip()
 	if pIndexNew.Prev != tip {
 		log.Error("error: try to connect to inactive chain!!!")
@@ -379,9 +376,9 @@ func ConnectTip(param *consensus.BitcoinParams, state *block.ValidationState, pI
 	}
 	// Read block from disk.
 	nTime1 := time.Now().UnixNano()
-	if block == nil{
-		blockNew, err := disk.ReadBlockFromDisk(pIndexNew,param)
-		if !err || blockNew == nil{
+	if block == nil {
+		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, param)
+		if !err || blockNew == nil {
 			return disk.AbortNode(state, "Failed to read block", "")
 		}
 		connectTrace[pIndexNew] = blockNew
@@ -394,7 +391,7 @@ func ConnectTip(param *consensus.BitcoinParams, state *block.ValidationState, pI
 	// Apply the block atomically to the chain state.
 	nTime2 := time.Now().UnixNano()
 	disk.GlobalTimeReadFromDisk += nTime2 - nTime1
-	log.Info("  - Load block from disk: %#v ms total: [%#v s]\n",(nTime2 - nTime1)/1000, disk.GlobalTimeReadFromDisk/1000000)
+	log.Info("  - Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, disk.GlobalTimeReadFromDisk/1000000)
 
 	view := utxo.NewEmptyCoinsMap()
 	rv := ConnectBlock(param, blockConnecting, state, pIndexNew, view, false)
@@ -442,7 +439,6 @@ func ConnectTip(param *consensus.BitcoinParams, state *block.ValidationState, pI
 	return true
 }
 
-
 // DisconnectTip Disconnect chainActive's tip. You probably want to call
 // mempool.removeForReorg and manually re-limit mempool size after this, with
 // cs_main held.
@@ -454,7 +450,7 @@ func DisconnectTip(param *consensus.BitcoinParams, state *block.ValidationState,
 	}
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, param)
-	if !ret{
+	if !ret {
 		return disk.AbortNode(state, "Failed to read block", "")
 	}
 
@@ -488,11 +484,11 @@ func DisconnectTip(param *consensus.BitcoinParams, state *block.ValidationState,
 		for _, tx := range blk.Txs {
 			// ignore validation errors in resurrected transactions
 			if tx.IsCoinBase() {
-				mempool.Gpool.RemoveTxRecursive(tx,mempool.REORG)
-			}else{
+				mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
+			} else {
 				e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
-				if e != nil{
-					mempool.Gpool.RemoveTxRecursive(tx,mempool.REORG)
+				if e != nil {
+					mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
 				}
 			}
 		}

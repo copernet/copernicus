@@ -1,15 +1,15 @@
 package tx
 
 import (
-	"github.com/btcboost/copernicus/crypto"
 	"bytes"
 	"encoding/binary"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/txout"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/model/opcodes"
-	)
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/txout"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/amount"
+)
 
 /*
 import (
@@ -72,7 +72,7 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	bytes = make([]byte, 0, len(stk))
 	for i := 0; i < len(stk); i++ {
 		/** Serialize the passed scriptCode, skipping OP_CODESEPARATORs */
-		/*
+/*
 		parsedOpcode := stk[i]
 		if parsedOpcode.opValue == OP_CODESEPARATOR {
 
@@ -93,19 +93,19 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 
 	var hashBuffer bytes.Buffer
 	var sigHashAnyOneCanPay bool = false
-	if hashType & crypto.SigHashAnyoneCanpay == crypto.SigHashAnyoneCanpay {
+	if hashType&crypto.SigHashAnyoneCanpay == crypto.SigHashAnyoneCanpay {
 		sigHashAnyOneCanPay = true
 	}
 	var sigHashNone bool = false
-	if hashType & crypto.SigHashMask == crypto.SigHashNone {
+	if hashType&crypto.SigHashMask == crypto.SigHashNone {
 		sigHashNone = true
 	}
 	var sigHashSingle bool = false
-	if hashType & crypto.SigHashMask == crypto.SigHashSingle {
+	if hashType&crypto.SigHashMask == crypto.SigHashSingle {
 		sigHashSingle = true
 	}
-	if hashType & crypto.SigHashForkID == crypto.SigHashForkID &&
-		flags & script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
+	if hashType&crypto.SigHashForkID == crypto.SigHashForkID &&
+		flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
 		var hashPrevouts util.Hash
 		var hashSequence util.Hash
 		var hashOutputs util.Hash
@@ -114,12 +114,12 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 			hashPrevouts = GetPreviousOutHash(transaction)
 		}
 		if !sigHashAnyOneCanPay && !sigHashSingle && !sigHashNone {
-				hashSequence = GetSequenceHash(transaction)
+			hashSequence = GetSequenceHash(transaction)
 		}
 		if !sigHashSingle && !sigHashNone {
 			hashOutputs, _ = GetOutputsHash(transaction.GetOuts())
 		} else if sigHashSingle && nIn < len(transaction.GetOuts()) {
-			hashOutputs, _ = GetOutputsHash(transaction.GetOuts()[nIn : nIn + 1])
+			hashOutputs, _ = GetOutputsHash(transaction.GetOuts()[nIn : nIn+1])
 		}
 
 		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, uint32(transaction.GetVersion()))
@@ -240,7 +240,7 @@ func GetPreviousOutHash(tx *Tx) (h util.Hash) {
 
 func GetSequenceHash(tx *Tx) (h util.Hash) {
 	ins := tx.GetIns()
-	buf := make([]byte, 4 * len(ins))
+	buf := make([]byte, 4*len(ins))
 	for _, e := range ins {
 		tempbuf := make([]byte, 4)
 		binary.LittleEndian.PutUint32(tempbuf, e.Sequence)
@@ -253,7 +253,7 @@ func GetSequenceHash(tx *Tx) (h util.Hash) {
 func GetOutputsHash(outs []*txout.TxOut) (h util.Hash, err error) {
 	var bOut bytes.Buffer
 	for _, e := range outs {
-		err := e.Serialize(&bOut)
+		err = e.Serialize(&bOut)
 		if err != nil {
 			return
 		}
@@ -261,7 +261,6 @@ func GetOutputsHash(outs []*txout.TxOut) (h util.Hash, err error) {
 	h = util.Sha256Hash(bOut.Bytes())
 	return
 }
-
 
 func verifySignature(vchSig []byte, pubkey *crypto.PublicKey, sigHash util.Hash) (bool, error) {
 	sign, err := crypto.ParseDERSignature(vchSig)

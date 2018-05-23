@@ -1,8 +1,8 @@
 package script
 
 import (
-	"testing"
 	"github.com/btcboost/copernicus/model/opcodes"
+	"testing"
 )
 
 var p2SHScript = [23]byte{
@@ -11,7 +11,7 @@ var p2SHScript = [23]byte{
 	0x89, 0xAB, 0xCD, 0xEF, 0xAB,
 	0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
 	0xAB, 0xBA, 0xAB, 0xBA, 0xAB,
-	0xBA, 0xAB, 0xBA, 0xAB, 0xBA, //script txHash
+	0xBA, 0xAB, 0xBA, 0xAB, 0xBA, //script GetHash
 	opcodes.OP_EQUAL,
 }
 
@@ -32,76 +32,77 @@ func TestScriptParseScript(t *testing.T) {
 	if !p2shScript.IsPayToScriptHash() {
 		t.Errorf("the script is P2SH should be true instead of false")
 	}
-/*
-	stk, err := p2shScript.ParseScript()
-	if len(stk) != 3 || err != nil {
-		t.Errorf("the P2SH script should have 3 ParsedOpCode struct instead of %d"+
-			" The err : %v", len(stk), err)
-	}
+	/*
+		stk, err := p2shScript.ParseScript()
+		if len(stk) != 3 || err != nil {
+			t.Errorf("the P2SH script should have 3 ParsedOpCode struct instead of %d"+
+				" The err : %v", len(stk), err)
+		}
 
-	for i, parseCode := range stk {
-		if i == 0 {
-			if stk[i].opValue != opcodes.OP_HASH160 || len(stk[i].data) != 0 {
-				t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-			}
-		} else if i == 1 {
-			if stk[i].opValue != 0x14 || len(stk[i].data) != 0x14 {
-				t.Errorf("parse index %d value should be 0x14 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-			}
-		} else if i == 2 {
-			if stk[i].opValue != opcodes.OP_EQUAL || len(stk[i].data) != 0 {
-				t.Errorf("parse index %d value should be 0x87 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+		for i, parseCode := range stk {
+			if i == 0 {
+				if stk[i].opValue != opcodes.OP_HASH160 || len(stk[i].data) != 0 {
+					t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
+			} else if i == 1 {
+				if stk[i].opValue != 0x14 || len(stk[i].data) != 0x14 {
+					t.Errorf("parse index %d value should be 0x14 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
+			} else if i == 2 {
+				if stk[i].opValue != opcodes.OP_EQUAL || len(stk[i].data) != 0 {
+					t.Errorf("parse index %d value should be 0x87 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
 			}
 		}
-	}
 
-	num, err := p2shScript.GetSigOpCount()
-	if err != nil || num != 0 {
-		t.Errorf("Error : P2SH script have 0 OpCode instead of %d\n", num)
-	}
+		num, err := p2shScript.GetSigOpCount()
+		if err != nil || num != 0 {
+			t.Errorf("Error : P2SH script have 0 OpCode instead of %d\n", num)
+		}
 
-	p2pkhScript := NewScriptRaw(p2PKHScript[:])
-	if p2pkhScript.IsPayToScriptHash() {
-		t.Error("script is P2PKH should be false instead of true")
-	}
+		p2pkhScript := NewScriptRaw(p2PKHScript[:])
+		if p2pkhScript.IsPayToScriptHash() {
+			t.Error("script is P2PKH should be false instead of true")
+		}
 
-	stk, err = p2pkhScript.ParseScript()
-	if len(stk) != 5 || err != nil {
-		t.Errorf("the P2PKH script should have 5 ParsedOpCode struct instead of %d"+
-			" The err : %v", len(stk), err)
-	}
+		stk, err = p2pkhScript.ParseScript()
+		if len(stk) != 5 || err != nil {
+			t.Errorf("the P2PKH script should have 5 ParsedOpCode struct instead of %d"+
+				" The err : %v", len(stk), err)
+		}
 
-	for i, parseCode := range stk {
-		if i == 0 {
-			if stk[i].opValue != opcodes.OP_DUP || len(stk[i].data) != 0 {
-				t.Errorf("parse index %d value should be 0x76 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-			}
-		} else if i == 1 {
-			if stk[i].opValue != opcodes.OP_HASH160 || len(stk[i].data) != 0 {
-				t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-			}
-		} else if i == 2 {
-			if stk[i].opValue != 0x14 || len(stk[i].data) != 0x14 {
-				t.Errorf("parse index %d value should be 0x14 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-			}
-		} else if i == 3 {
-			if stk[i].opValue != opcodes.OP_EQUALVERIFY || len(stk[i].data) != 0 {
-				t.Errorf("parse index %d value should be 0x88 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-			}
-		} else if i == 4 {
-			if stk[i].opValue != opcodes.OP_CHECKSIG || len(stk[i].data) != 0 {
-				t.Errorf("parse index %d value should be 0xac instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+		for i, parseCode := range stk {
+			if i == 0 {
+				if stk[i].opValue != opcodes.OP_DUP || len(stk[i].data) != 0 {
+					t.Errorf("parse index %d value should be 0x76 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
+			} else if i == 1 {
+				if stk[i].opValue != opcodes.OP_HASH160 || len(stk[i].data) != 0 {
+					t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
+			} else if i == 2 {
+				if stk[i].opValue != 0x14 || len(stk[i].data) != 0x14 {
+					t.Errorf("parse index %d value should be 0x14 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
+			} else if i == 3 {
+				if stk[i].opValue != opcodes.OP_EQUALVERIFY || len(stk[i].data) != 0 {
+					t.Errorf("parse index %d value should be 0x88 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
+			} else if i == 4 {
+				if stk[i].opValue != opcodes.OP_CHECKSIG || len(stk[i].data) != 0 {
+					t.Errorf("parse index %d value should be 0xac instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
+				}
 			}
 		}
-	}
 
-	num, err = p2pkhScript.GetSigOpCount()
-	if err != nil || num != 1 {
-		t.Errorf("Error : P2PKH script have 1 OpCode instead of %d\n", num)
-	}
-*/
+		num, err = p2pkhScript.GetSigOpCount()
+		if err != nil || num != 1 {
+			t.Errorf("Error : P2PKH script have 1 OpCode instead of %d\n", num)
+		}
+	*/
 
 }
+
 /*
 func TestCScriptPushData(t *testing.T) {
 	script := NewScriptRaw(make([]byte, 0))

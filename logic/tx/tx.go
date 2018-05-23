@@ -86,16 +86,18 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 			return err
 		}
 	}
-	////check inputs money range
-	//if !CheckInputsMoney(transaction, tempCoinsMap) {
-	//	return false
-	//}
+	//check inputs money range
+	err = CheckInputsMoney(transaction, tempCoinsMap)
+	if err != nil {
+		return err
+	}
 
 	//check inputs
 	err = checkInputs(transaction, tempCoinsMap, 1)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -1141,7 +1143,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				fallthrough
 			case opcodes.OP_HASH256:
 				{
-					// (in -- txHash)
+					// (in -- GetHash)
 					var vchHash []byte
 					if stack.Size() < 1 {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
@@ -1555,25 +1557,29 @@ func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	return true
 }
 
-func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap) (success bool, err error) {
+func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap) (err error) {
 	nValue := int64(0)
 	ins := transaction.GetIns()
 	for _, e := range ins {
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			return false, errcode.New(errcode.TxErrInputsNotAvailable)
+			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
 		if !amount.MoneyRange(coin.GetTxOut().GetValue()) {
-			return false, errcode.New(errcode.TxErrInputsMoneyTooLarge)
+			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 		nValue += coin.GetTxOut().GetValue()
 		if amount.MoneyRange(nValue) {
-			return false, errcode.New(errcode.TxErrInputsMoneyTooLarge)
+			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
 	if nValue < transaction.GetValueOut() {
-		return false, errcode.New(errcode.TxErrInputsMoneyBigThanOut)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
-	return true, nil
+	txFee := nValue - transaction.GetValueOut()
+	if !amount.MoneyRange(txFee) {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+	return nil
 }

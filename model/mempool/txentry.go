@@ -3,10 +3,10 @@ package mempool
 import (
 	"unsafe"
 
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
-	"github.com/btcboost/copernicus/model/chain"
 )
 
 type TxEntry struct {
@@ -67,7 +67,7 @@ func (t *TxEntry) GetSpendsCoinbase() bool {
 	return t.spendsCoinbase
 }
 
-func (t *TxEntry)GetTime() int64  {
+func (t *TxEntry) GetTime() int64 {
 	return t.time
 }
 
@@ -108,7 +108,7 @@ func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int,
 func (t *TxEntry) Less(than btree.Item) bool {
 	th := than.(*TxEntry)
 	if t.time == th.time {
-		return t.Tx.Hash.Cmp(&th.Tx.Hash) > 0
+		return t.Tx.GetHash().Cmp(&th.Tx.GetHash()) > 0
 	}
 	return t.time < th.time
 }
@@ -152,8 +152,8 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 }
 
 func (t *TxEntry) CheckLockPointValidity(chain *chain.Chain) bool {
-	if t.lp.MaxInputBlock != nil{
-		if !chain.Contains(t.lp.MaxInputBlock){
+	if t.lp.MaxInputBlock != nil {
+		if !chain.Contains(t.lp.MaxInputBlock) {
 			return false
 		}
 	}
@@ -165,7 +165,7 @@ type EntryFeeSort TxEntry
 func (e EntryFeeSort) Less(than btree.Item) bool {
 	t := than.(EntryFeeSort)
 	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
-		return e.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+		return e.Tx.GetHash().Cmp(&t.Tx.GetHash()) > 0
 	}
 	return e.SumFeeWithAncestors > than.(EntryFeeSort).SumFeeWithAncestors
 }
@@ -177,7 +177,7 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
 	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
-		return r.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+		return r.Tx.GetHash().Cmp(&t.Tx.GetHash()) > 0
 	}
 	return b1 > b2
 }

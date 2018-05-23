@@ -74,14 +74,14 @@ func createTx() []*mempool.TxEntry {
 	tx1.AddTxIn(txin.NewTxIn(nil, nil, 0xffffffff))
 	tx1.AddTxOut(txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	tx1.AddTxOut(txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
-	tx1.Hash = tx1.TxHash()
+	tx1.Hash = tx1.GetHash()
 	txEntry1 := testEntryHelp.SetTime(1).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
 	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.Hash, 0), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
 	tx2.AddTxOut(txout.NewTxOut(5*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
-	tx2.Hash = tx2.TxHash()
+	tx2.Hash = tx2.GetHash()
 	txEntry2 := testEntryHelp.SetTime(1).SetFee(amount.Amount(5 * util.COIN)).FromTxToEntry(tx2)
 
 	//  modify tx3's content to avoid to get the same hash with tx2
@@ -89,14 +89,14 @@ func createTx() []*mempool.TxEntry {
 	// reference relation(tx3 -> tx1)
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.Hash, 1), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
 	tx3.AddTxOut(txout.NewTxOut(6*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
-	tx3.Hash = tx3.TxHash()
+	tx3.Hash = tx3.GetHash()
 	txEntry3 := testEntryHelp.SetTime(1).SetFee(amount.Amount(4 * util.COIN)).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
 	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.Hash, 0), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
 	tx4.AddTxOut(txout.NewTxOut(4*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
-	tx4.Hash = tx4.TxHash()
+	tx4.Hash = tx4.GetHash()
 	txEntry4 := testEntryHelp.SetTime(1).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx4)
 
 	t := make([]*mempool.TxEntry, 4)
@@ -133,7 +133,7 @@ func createTx() []*mempool.TxEntry {
 //		t.Error("some transactions are inserted to block error")
 //	}
 //
-//	if ba.bt.Block.Txs[4].Hash != txSet[1].Tx.Hash {
+//	if ba.bt.Block.Txs[4].Hash != txSet[1].Tx.GetHash() {
 //		t.Error("error sort by tx fee")
 //	}
 //}
@@ -159,19 +159,19 @@ func createTx() []*mempool.TxEntry {
 //		t.Error("some transactions are inserted to block error")
 //	}
 //
-//	if ba.bt.Block.Txs[1].Hash != txSet[0].Tx.Hash {
+//	if ba.bt.Block.Txs[1].Hash != txSet[0].Tx.GetHash() {
 //		t.Error("error sort by tx feerate")
 //	}
 //
-//	if ba.bt.Block.Txs[2].Hash != txSet[1].Tx.Hash {
+//	if ba.bt.Block.Txs[2].Hash != txSet[1].Tx.GetHash() {
 //		t.Error("error sort by tx feerate")
 //	}
 //
-//	if ba.bt.Block.Txs[3].Hash != txSet[2].Tx.Hash {
+//	if ba.bt.Block.Txs[3].Hash != txSet[2].Tx.GetHash() {
 //		t.Error("error sort by tx feerate")
 //	}
 //
-//	if ba.bt.Block.Txs[4].Hash != txSet[3].Tx.Hash {
+//	if ba.bt.Block.Txs[4].Hash != txSet[3].Tx.GetHash() {
 //		t.Error("error sort by tx feerate")
 //	}
 //}
