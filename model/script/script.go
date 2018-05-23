@@ -1,16 +1,17 @@
 package script
 
 import (
-	"encoding/binary"
-	"github.com/pkg/errors"
 	"bytes"
-	"io"
+	"encoding/binary"
+	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/errcode"
+	"github.com/pkg/errors"
+	"io"
 )
+
 const (
-	MaxMessagePayload = 32*1024*1024
+	MaxMessagePayload = 32 * 1024 * 1024
 )
 
 const (
@@ -165,7 +166,7 @@ const (
 	ScriptMultiSig
 	ScriptNullData
 
-	MaxOpReturnRelay uint = 83
+	MaxOpReturnRelay      uint = 83
 	MaxOpReturnRelayLarge uint = 223
 )
 
@@ -177,8 +178,7 @@ const (
 	//
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MandatoryScriptVerifyFlags uint =
-	ScriptVerifyP2SH | ScriptVerifyStrictEnc |
+	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc |
 		ScriptEnableSigHashForkId | ScriptVerifyLowS | ScriptVerifyNullFail
 
 	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
@@ -186,14 +186,14 @@ const (
 	 * blocks and we must accept those blocks.
 	 */
 	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
-	ScriptVerifyMinmalData | ScriptVerifyNullDummy |
-	ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
-	ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
-	ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
-	ScriptVerifyDiscourageUpgradableWitnessProgram
+		ScriptVerifyMinmalData | ScriptVerifyNullDummy |
+		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
+		ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
+		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
+		ScriptVerifyDiscourageUpgradableWitnessProgram
 
 	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
-	StandardNotMandatoryVerifyFlags uint= StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
+	StandardNotMandatoryVerifyFlags uint = StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
 )
 
 type Script struct {
@@ -201,17 +201,33 @@ type Script struct {
 	ParsedOpCodes []opcodes.ParsedOpCode
 }
 
+func (s *Script) SerializeSize() int {
+	return 0
+}
+
 func (s *Script) Serialize(io io.Writer) (err error) {
 	return util.WriteVarBytes(io, s.data)
 }
 
-func (s *Script) UnSerialize(io io.Reader) (script *Script, err error) {
+func (s *Script) Unserialize(io io.Reader) (script *Script, err error) {
 	bytes, err := ReadScript(io, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return nil, err
 	}
 
 	return NewScriptRaw(bytes), err
+}
+
+func (s *Script) EncodeSize() int {
+	return 0
+}
+
+func (s *Script) Encode(io io.Writer) (err error) {
+	return nil
+}
+
+func (s *Script) Decode(io io.Reader) (err error) {
+	return nil
 }
 
 func NewScriptRaw(bytes []byte) *Script {
@@ -254,21 +270,21 @@ func (script *Script) convertRaw() {
 }
 
 func (script *Script) GetPubKeyTypeString(t int) string {
-	switch (t) {
+	switch t {
 	case ScriptNonStandard:
-		return "nonstandard";
+		return "nonstandard"
 	case ScriptPubkey:
-		return "pubkey";
+		return "pubkey"
 	case ScriptPubkeyHash:
-		return "pubkeyhash";
+		return "pubkeyhash"
 	case ScriptHash:
-		return "scripthash";
+		return "scripthash"
 	case ScriptMultiSig:
-		return "multisig";
+		return "multisig"
 	case ScriptNullData:
-		return "nulldata";
+		return "nulldata"
 	}
-	return "";
+	return ""
 }
 
 func (script *Script) GetData() []byte {
@@ -288,41 +304,41 @@ func (script *Script) convertOPS() error {
 
 		if opcode < opcodes.OP_PUSHDATA1 {
 			nSize = int(opcode)
-			if scriptLen - i < nSize {
+			if scriptLen-i < nSize {
 				return errors.New("OP has no enough data")
 			}
-			parsedopCode.Data = script.data[i + 1: i + 1 + nSize]
+			parsedopCode.Data = script.data[i+1 : i+1+nSize]
 		} else if opcode == opcodes.OP_PUSHDATA1 {
-			if scriptLen - i < 1 {
+			if scriptLen-i < 1 {
 				return errors.New("OP_PUSHDATA1 has no enough data")
 			}
 
-			nSize = int(script.data[i + 1])
-			if scriptLen - i - 1 < nSize {
+			nSize = int(script.data[i+1])
+			if scriptLen-i-1 < nSize {
 				return errors.New("OP_PUSHDATA1 has no enough data")
 			}
-			parsedopCode.Data = script.data[i + 2: i + 2 + nSize]
+			parsedopCode.Data = script.data[i+2 : i+2+nSize]
 			i++
 		} else if opcode == opcodes.OP_PUSHDATA2 {
-			if scriptLen - i < 2 {
+			if scriptLen-i < 2 {
 				return errors.New("OP_PUSHDATA2 has no enough data")
 			}
-			nSize = int(binary.LittleEndian.Uint16(script.data[i + 1: i + 3]))
-			if scriptLen - i - 3 < nSize {
+			nSize = int(binary.LittleEndian.Uint16(script.data[i+1 : i+3]))
+			if scriptLen-i-3 < nSize {
 				return errors.New("OP_PUSHDATA2 has no enough data")
 			}
-			parsedopCode.Data = script.data[i + 3: i + 3 + nSize]
+			parsedopCode.Data = script.data[i+3 : i+3+nSize]
 			i += 2
 		} else if opcode == opcodes.OP_PUSHDATA4 {
-			if scriptLen - i < 4 {
+			if scriptLen-i < 4 {
 				return errors.New("OP_PUSHDATA4 has no enough data")
 
 			}
-			nSize = int(binary.LittleEndian.Uint32(script.data[i + 1: i + 5]))
-			parsedopCode.Data = script.data[i + 5: i + 5 + nSize]
+			nSize = int(binary.LittleEndian.Uint32(script.data[i+1 : i+5]))
+			parsedopCode.Data = script.data[i+5 : i+5+nSize]
 			i += 4
 		}
-		if scriptLen - i < 0 || (scriptLen - i) < nSize {
+		if scriptLen-i < 0 || (scriptLen-i) < nSize {
 			return errors.New("size is wrong")
 
 		}
@@ -335,7 +351,7 @@ func (script *Script) convertOPS() error {
 	return nil
 }
 
-func (script *Script)RemoveOpcodeByData(data []byte) *Script{
+func (script *Script) RemoveOpcodeByData(data []byte) *Script {
 	parsedOpCodes := make([]opcodes.ParsedOpCode, len(script.ParsedOpCodes))
 	for _, e := range script.ParsedOpCodes {
 		if bytes.Contains(e.Data, data) {
@@ -346,7 +362,7 @@ func (script *Script)RemoveOpcodeByData(data []byte) *Script{
 	return NewScriptOps(parsedOpCodes)
 }
 
-func (script *Script)RemoveOpcode(code byte) *Script{
+func (script *Script) RemoveOpcode(code byte) *Script {
 	parsedOpCodes := make([]opcodes.ParsedOpCode, len(script.ParsedOpCodes))
 	for _, e := range script.ParsedOpCodes {
 		if e.OpValue == code {
@@ -381,7 +397,7 @@ func (script *Script) ExtractDestinations() (sType int, address [][]byte, sigCou
 }
 
 func (script *Script) IsCommitment(data []byte) bool {
-	if len(data) > 64 || script.Size() != len(data) + 2 {
+	if len(data) > 64 || script.Size() != len(data)+2 {
 		return false
 	}
 
@@ -390,14 +406,13 @@ func (script *Script) IsCommitment(data []byte) bool {
 	}
 
 	for i := 0; i < len(data); i++ {
-		if script.data[i + 2] != data[i] {
+		if script.data[i+2] != data[i] {
 			return false
 		}
 	}
 
 	return true
 }
-
 
 func BytesToBool(bytes []byte) bool {
 	bytesLen := len(bytes)
@@ -406,7 +421,7 @@ func BytesToBool(bytes []byte) bool {
 	}
 	for i, e := range bytes {
 		if uint8(e) != 0 {
-			if i == bytesLen - 1 && e == 0x80 {
+			if i == bytesLen-1 && e == 0x80 {
 				return false
 			}
 			return true
@@ -499,7 +514,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, err error) {
 	return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 }
 
-func (script *Script) CheckScriptSigStandard() error{
+func (script *Script) CheckScriptSigStandard() error {
 	if script.Size() > 1650 {
 		return errcode.New(errcode.ScriptErrSize)
 	}
@@ -524,6 +539,7 @@ func (script *Script) IsUnspendable() bool {
 		script.ParsedOpCodes[0].OpValue == opcodes.OP_RETURN ||
 		script.Size() > MaxScriptSize
 }
+
 /*
 func CheckMinimalPush(data []byte, opcode int32) bool {
 	dataLen := len(data)
@@ -851,6 +867,7 @@ func (script *Script) IsPushOnly() bool {
 	return true
 
 }
+
 /*
 func (script *Script) GetSigOpCount() (int, error) {
 	if !script.IsPayToScriptHash() {
@@ -950,12 +967,11 @@ func (script *Script) GetP2SHSigOpCount() (int, error) {
 			return 0, nil
 		}
 	}
-	lastOps := script.ParsedOpCodes[len(script.ParsedOpCodes) - 1]
+	lastOps := script.ParsedOpCodes[len(script.ParsedOpCodes)-1]
 	tempScript := NewScriptRaw(lastOps.Data)
 	return tempScript.GetSigOpCount(true)
 
 }
-
 
 func EncodeOPN(n int) (int, error) {
 	if n < 0 || n > 16 {
@@ -968,7 +984,7 @@ func DecodeOPN(opcode byte) (int, error) {
 	if opcode < opcodes.OP_0 || opcode > opcodes.OP_16 {
 		return 0, errors.New(" DecodeOPN opcode is out of bounds")
 	}
-	return int(opcode) - int(opcodes.OP_1 - 1), nil
+	return int(opcode) - int(opcodes.OP_1-1), nil
 }
 
 func (script *Script) Size() int {

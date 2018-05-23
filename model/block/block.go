@@ -56,7 +56,7 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	}
 	txns := make([]tx.Tx, ntx)
 	bl.Txs = make([]*tx.Tx, ntx)
-	for i := 0; i < ntx; i++ {
+	for i := 0; i < int(ntx); i++ {
 		if err := txns[i].Unserialize(r); err != nil {
 			return err
 		}

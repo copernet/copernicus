@@ -1,17 +1,16 @@
 package undo
 
 import (
+	"fmt"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/utxo"
-	"fmt"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/undo"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/utxo"
 	"time"
 )
-
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
 func GuessVerificationProgress(data *consensus.ChainTxData, index *blockindex.BlockIndex) float64 {
@@ -63,11 +62,6 @@ func IsInitialBlockDownload() bool {
 	//return false
 }
 
-
-
-
-
-
 func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 	cm *utxo.CoinsMap) undo.DisconnectResult {
 	clean := true
@@ -77,9 +71,9 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		return undo.DisconnectFailed
 	}
 	// Undo transactions in reverse order.
-	for i := len(blk.Txs)-1;i >0;i-- {
+	for i := len(blk.Txs) - 1; i > 0; i-- {
 		tx := blk.Txs[i]
-		txid := tx.Hash
+		txid := tx.GetHash()
 
 		// Check that all outputs are available and match the outputs in the
 		// block itself exactly.
@@ -90,7 +84,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			out := outpoint.NewOutPoint(txid, uint32(j))
 			coin := cm.SpendGlobalCoin(out)
 			coinOut := coin.GetTxOut()
-			if coin == nil || !tx.GetTxOut(j).IsEqual(&coinOut)  {
+			if coin == nil || !tx.GetTxOut(j).IsEqual(&coinOut) {
 				// transaction output mismatch
 				clean = false
 			}
@@ -109,7 +103,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 				return undo.DisconnectFailed
 			}
 
-			for k := insLen-1; k > 0; k--{
+			for k := insLen - 1; k > 0; k-- {
 				outpoint := ins[k].PreviousOutPoint
 				undoCoin := txundo.GetUndoCoins()[k]
 				res := UndoCoinSpend(undoCoin, cm, outpoint)
@@ -121,18 +115,15 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		}
 	}
 
-
-
 	if clean {
 		return undo.DisconnectOk
 	}
 	return undo.DisconnectUnclean
 }
 
-
 func UndoCoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.DisconnectResult {
 	clean := true
-	if cm.FetchCoin(out)!=nil {
+	if cm.FetchCoin(out) != nil {
 		// Overwriting transaction output.
 		clean = false
 	}

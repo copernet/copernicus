@@ -1,4 +1,5 @@
 package undo
+
 //
 //import (
 //	"bufio"
@@ -301,7 +302,7 @@ package undo
 //
 //	// And a valid coinBase.
 //	if !block.Txs[0].CheckCoinbase(state, false) {
-//		hs := block.Txs[0].TxHash()
+//		hs := block.Txs[0].GetHash()
 //		return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
 //			fmt.Sprintf("Coinbase check failed (txid %s) %s", hs.ToString(),
 //				state.GetDebugMessage()))
@@ -338,7 +339,7 @@ package undo
 //		// least one increment.
 //		tx := block.Txs[i]
 //		if !tx.CheckRegularTransaction(state, false) {
-//			hs := tx.TxHash()
+//			hs := tx.GetHash()
 //			return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
 //				fmt.Sprintf("Transaction check failed (txid %s) %s", hs.ToString(), state.GetDebugMessage()))
 //		}
@@ -1882,7 +1883,7 @@ package undo
 //		for _, tx := range pblock.Txs {
 //			for o := 0; o < len(tx.Outs); o++ {
 //				outPoint := &core.OutPoint{
-//					Hash:  tx.Hash,
+//					Hash:  Tx.GetHash(),
 //					Index: uint32(o),
 //				}
 //				if view.HaveCoin(outPoint) {
@@ -1973,7 +1974,7 @@ package undo
 //			if !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults,
 //				core.NewPrecomputedTransactionData(tx), vChecks) {
 //				logs.Error(fmt.Sprintf("ConnectBlock(): CheckInputs on %s failed with %s",
-//					tx.TxHash(), FormatStateMessage(state)))
+//					tx.GetHash(), FormatStateMessage(state)))
 //				return false
 //			}
 //
@@ -1991,7 +1992,7 @@ package undo
 //		}
 //		_ = undoDummy
 //
-//		vPos[tx.Hash] = *txPos
+//		vPos[Tx.GetHash()] = *txPos
 //		txPos.TxOffsetIn += tx.SerializeSize()
 //	}
 //
@@ -2126,8 +2127,8 @@ package undo
 //				GMemPool.Lock()
 //				GMemPool.RemoveTxRecursive(tx, mempool.REORG)
 //				GMemPool.Unlock()
-//			} else if GMemPool.Exists(tx.Hash) {
-//				vHashUpdate.PushBack(tx.Hash)
+//			} else if GMemPool.Exists(Tx.GetHash()) {
+//				vHashUpdate.PushBack(Tx.GetHash())
 //			}
 //		}
 //		// AcceptToMemoryPool/addUnchecked all assume that new memPool entries
@@ -2270,7 +2271,7 @@ package undo
 //		//	txOut.Serialize(file)
 //		//	var err error
 //		//	*hashBlock, err = header.GetHash()
-//		//	if txOut.TxHash() != *txid && err != nil {
+//		//	if txOut.GetHash() != *txid && err != nil {
 //		//		return logger.ErrorLog(fmt.Sprintf("%s: txid mismatch", logger.TraceLog()))
 //		//	}
 //		//	return true
@@ -2289,7 +2290,7 @@ package undo
 //		var block core.Block
 //		if ReadBlockFromDisk(&block, pindexSlow, param) {
 //			for _, tx := range block.Txs {
-//				if tx.TxHash() == *txid {
+//				if tx.GetHash() == *txid {
 //					txOut = tx
 //					hashBlock = pindexSlow.GetBlockHash()
 //					return true
@@ -3723,7 +3724,7 @@ package undo
 //	// todo AssertLockHeld(cs_main)
 //
 //	ptx := tx
-//	txid := ptx.TxHash()
+//	txid := ptx.GetHash()
 //
 //	// nil pointer
 //	if missingInputs != nil {
@@ -4078,7 +4079,7 @@ package undo
 //
 //		txFrom := mpool.FindTx(txin.PreviousOutPoint.Hash)
 //		if txFrom != nil {
-//			if txFrom.TxHash() != txin.PreviousOutPoint.Hash {
+//			if txFrom.GetHash() != txin.PreviousOutPoint.Hash {
 //				panic("critical error")
 //			}
 //			if len(txFrom.Outs) <= int(txin.PreviousOutPoint.Index) {
@@ -4221,7 +4222,7 @@ package undo
 //
 //	b = append(b, core.ScriptExecutionCacheNonce[:(55-unsafe.Sizeof(flags)-32)]...)
 //
-//	txHash := tx.TxHash()
+//	txHash := tx.GetHash()
 //	b = append(b, txHash[:]...)
 //
 //	buf := make([]byte, unsafe.Sizeof(flags))
@@ -4542,8 +4543,8 @@ package undo
 //
 //		amountDelta := txPoolInfo.FeeDelta
 //		if amountDelta != 0 {
-//			//hashA := txPoolInfo.Tx.TxHash()
-//			//GMemPool.PrioritiseTransaction(txPoolInfo.Tx.TxHash(), hashA.ToString(), priorityDummy, amountDelta)
+//			//hashA := txPoolInfo.Tx.GetHash()
+//			//GMemPool.PrioritiseTransaction(txPoolInfo.Tx.GetHash(), hashA.ToString(), priorityDummy, amountDelta)
 //		}
 //
 //		vs := &core.ValidationState{}
@@ -4642,7 +4643,7 @@ package undo
 //		if err != nil {
 //			panic(err)
 //		}
-//		delete(mapDeltas, item.Tx.TxHash())
+//		delete(mapDeltas, item.Tx.GetHash())
 //	}
 //
 //	// write the size

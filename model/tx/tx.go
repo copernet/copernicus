@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
-	"github.com/pkg/errors"
-	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/util/amount"
+	"github.com/pkg/errors"
+	"io"
 )
 
 const (
@@ -32,11 +33,11 @@ const (
 	// MaxTxSigOpsCounts the maximum allowed number of signature check operations per transaction (network rule)
 	MaxTxSigOpsCounts = 20000
 
-	FreeListMaxItems          = 12500
-	MaxMessagePayload         = 32 * 1024 * 1024
-	MinTxInPayload            = 9 + util.Hash256Size
-	MaxTxInPerMessage         = (MaxMessagePayload / MinTxInPayload) + 1
-	TxVersion                 = 1
+	FreeListMaxItems  = 12500
+	MaxMessagePayload = 32 * 1024 * 1024
+	MinTxInPayload    = 9 + util.Hash256Size
+	MaxTxInPerMessage = (MaxMessagePayload / MinTxInPayload) + 1
+	TxVersion         = 1
 )
 
 const (
@@ -67,11 +68,11 @@ const (
 	//DefaultMaxMemPoolSize uint = 300
 
 	/** Default for -incrementalrelayfee, which sets the minimum feerate increase
- 	* for mempool limiting or BIP 125 replacement **/
+	* for mempool limiting or BIP 125 replacement **/
 	DefaultIncrementalRelayFee int64 = 1000
 
 	/** Default for -bytespersigop */
-	DefaultBytesPerSigop uint= 20
+	DefaultBytesPerSigop uint = 20
 
 	/** The maximum number of witness stack items in a standard P2WSH script */
 	MaxStandardP2WSHStackItems uint = 100
@@ -88,12 +89,11 @@ const (
 )
 
 type Tx struct {
-	Hash     util.Hash // Cached transaction hash	todo defined a pointer will be the optimization
+	hash     util.Hash // Cached transaction hash	todo defined a pointer will be the optimization
 	lockTime uint32
 	version  int32
 	ins      []*txin.TxIn
 	outs     []*txout.TxOut
-	//ValState int
 }
 
 //var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
@@ -105,7 +105,7 @@ func (tx *Tx) AddTxOut(txOut *txout.TxOut) {
 	tx.outs = append(tx.outs, txOut)
 }
 
-func (tx *Tx) GetTxOut(index int) (out *txout.TxOut){
+func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 	if index < 0 || index > len(tx.outs) {
 		return nil
 	}
@@ -141,6 +141,18 @@ func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
 		}
 	}
 	tx.outs = ret
+}
+
+func (tx *Tx) SerializeSize() uint {
+	return 0
+}
+
+func (tx *Tx) Serialize(writer io.Writer) error {
+	return nil
+}
+
+func (tx *Tx) Unserialize(reader io.Reader) error {
+	return nil
 }
 
 func (tx *Tx) EncodeSize() uint {
@@ -193,7 +205,7 @@ func (tx *Tx) Encode(writer io.Writer) error {
 	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.lockTime)
 }
 
-func (tx *Tx)Decode(reader io.Reader) error {
+func (tx *Tx) Decode(reader io.Reader) error {
 	version, err := util.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	if err != nil {
 		return err
@@ -280,9 +292,9 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 	//	return false
 	//}
 	/*
-	if tx.ins[0].script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
-		return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
-	}*/
+		if tx.ins[0].script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
+			return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
+		}*/
 	return nil
 }
 
@@ -290,16 +302,15 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
 		//state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
-		return errcode.New(errcode.TxErrEmptyInputs)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	if len(tx.outs) == 0 {
 		//state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
-		return nil
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	if tx.EncodeSize() > consensus.MaxTxSize {
-		//state.Dos(100, false, RejectInvalid, "bad-txns-oversize", false, "")
-		return nil
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	// check outputs money
@@ -310,15 +321,15 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 			return err
 		}
 		totalOut += out.GetValue()
-		if totalOut < 0 || totalOut > MaxMoney {
+		if !amount.MoneyRange(totalOut) {
 			//state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
-			return errcode.New(errcode.TxErrTotalMoneyTooLarge)
+			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
 
 	// check sigopcount
 	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
-		return errcode.New(errcode.TxErrTooManySigOps)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	// check dup input
@@ -326,12 +337,12 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 		outPointSet := make(map[*outpoint.OutPoint]struct{})
 		for _, in := range tx.ins {
 			if in.PreviousOutPoint.IsNull() {
-				return errcode.New(errcode.TxErrNullPreOut)
+				return errcode.New(errcode.TxErrRejectInvalid)
 			}
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
-				return errcode.New(errcode.TxErrDupIns)
+				return errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
 	}
@@ -380,6 +391,9 @@ func (tx *Tx) CheckStandard() error {
 		}
 	}
 
+	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
 	return nil
 }
 
@@ -392,119 +406,81 @@ func (tx *Tx) IsCommitment(data []byte) bool {
 	return false
 }
 
-/*
-func (tx *Tx) checkSequenceLocks(lp *LockPoints) bool {
-	BlockTime := lp.MaxInputBlock.GetMedianTimePast()
-	if lp.Height >= lp.Height || lp.Time >= BlockTime {
-		return false
-	}
+//func (tx *Tx) returnScriptBuffers() {
+//	for _, txIn := range tx.ins {
+//		if txIn == nil || txIn.scriptSig == nil {
+//			continue
+//		}
+//		scriptPool.Return(txIn.scriptSig.bytes)
+//	}
+//	for _, txOut := range tx.outs {
+//		if txOut == nil || txOut.scriptPubKey == nil {
+//			continue
+//		}
+//		scriptPool.Return(txOut.scriptPubKey.bytes)
+//	}
+//}
 
-	return true
-}
-*/
-func (tx *Tx) CheckInputsMoney() bool {
-	/*
-	nValue := 0
-	for _, e := range tx.ins {
-		coin := mempool.GetCoin(e.PreviousOutPoint)
-		if !coin {
-			coin = utxo.GetCoin()
-		}
-		if coin.txout.value < 0 || coin.txout.value > MaxMoney {
-			return false
-		}
-		nValue += coin.txout.value
-		if nValue < 0 || nValue > MaxMoney {
-			return false
-		}
-	}
-	if nValue < tx.GetValueOut() {
-		return false
-	}
-	*/
-	return true
-}
-
-/*
-func (tx *Tx) returnScriptBuffers() {
-	for _, txIn := range tx.ins {
-		if txIn == nil || txIn.scriptSig == nil {
-			continue
-		}
-		scriptPool.Return(txIn.scriptSig.bytes)
-	}
-	for _, txOut := range tx.outs {
-		if txOut == nil || txOut.scriptPubKey == nil {
-			continue
-		}
-		scriptPool.Return(txOut.scriptPubKey.bytes)
-	}
-}
-*/
 func (tx *Tx) GetValueOut() int64 {
 	var valueOut int64
 	for _, out := range tx.outs {
 		valueOut += out.GetValue()
-		if out.GetValue() < 0  || out.GetValue() > MaxMoney ||
-			valueOut < 0 || valueOut> MaxMoney{
+		if !amount.MoneyRange(out.GetValue()) || amount.MoneyRange(valueOut) {
 			panic("value out of range")
 		}
 	}
 	return valueOut
 }
 
-/*
-func (tx *Tx) Copy() *Tx {
-	newTx := Tx{
-		Version:  tx.Version,
-		LockTime: tx.LockTime,
-		ins:      make([]*TxIn, 0, len(tx.ins)),
-		outs:     make([]*TxOut, 0, len(tx.outs)),
-	}
-	newTx.Hash = tx.Hash
+//func (tx *Tx) Copy() *Tx {
+//	newTx := Tx{
+//		Version:  tx.Version,
+//		LockTime: tx.LockTime,
+//		ins:      make([]*TxIn, 0, len(tx.ins)),
+//		outs:     make([]*TxOut, 0, len(tx.outs)),
+//	}
+//	newTx.GetHash() = Tx.GetHash()
+//
+//	for _, txOut := range tx.outs {
+//		scriptLen := len(txOut.Script.bytes)
+//		newOutScript := make([]byte, scriptLen)
+//		copy(newOutScript, txOut.GetScriptPubKey().GetByteCodes()[:scriptLen])
+//
+//		newTxOut := TxOut{
+//			value:  txOut.value,
+//			scriptPubKey: NewScriptRaw(newOutScript),
+//		}
+//		newTx.outs = append(newTx.outs, &newTxOut)
+//	}
+//	for _, txIn := range tx.ins {
+//		var hashBytes [32]byte
+//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
+//		preHash := new(util.Hash)
+//		preHash.SetBytes(hashBytes[:])
+//		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+//		scriptLen := txIn.Script.Size()
+//		newScript := make([]byte, scriptLen)
+//		copy(newScript[:], txIn.Script.GetByteCodes()[:scriptLen])
+//		newTxTmp := TxIn{
+//			Sequence:         txIn.Sequence,
+//			PreviousOutPoint: newOutPoint,
+//			Script:           NewScriptRaw(newScript),
+//		}
+//		newTx.ins = append(newTx.ins, &newTxTmp)
+//	}
+//	return &newTx
+//
+//}
 
-	for _, txOut := range tx.outs {
-		scriptLen := len(txOut.Script.bytes)
-		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.GetScriptPubKey().GetByteCodes()[:scriptLen])
-
-		newTxOut := TxOut{
-			value:  txOut.value,
-			scriptPubKey: NewScriptRaw(newOutScript),
-		}
-		newTx.outs = append(newTx.outs, &newTxOut)
-	}
-	for _, txIn := range tx.ins {
-		var hashBytes [32]byte
-		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-		preHash := new(util.Hash)
-		preHash.SetBytes(hashBytes[:])
-		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-		scriptLen := txIn.Script.Size()
-		newScript := make([]byte, scriptLen)
-		copy(newScript[:], txIn.Script.GetByteCodes()[:scriptLen])
-		newTxTmp := TxIn{
-			Sequence:         txIn.Sequence,
-			PreviousOutPoint: newOutPoint,
-			Script:           NewScriptRaw(newScript),
-		}
-		newTx.ins = append(newTx.ins, &newTxTmp)
-	}
-	return &newTx
-
-}
-*/
-/*
-func (tx *Tx) Equal(dstTx *Tx) bool {
-	originBuf := bytes.NewBuffer(nil)
-	tx.Serialize(originBuf)
-
-	dstBuf := bytes.NewBuffer(nil)
-	dstTx.Serialize(dstBuf)
-
-	return bytes.Equal(originBuf.Bytes(), dstBuf.Bytes())
-}
-*/
+//func (tx *Tx) Equal(dstTx *Tx) bool {
+//	originBuf := bytes.NewBuffer(nil)
+//	tx.Serialize(originBuf)
+//
+//	dstBuf := bytes.NewBuffer(nil)
+//	dstTx.Serialize(dstBuf)
+//
+//	return bytes.Equal(originBuf.Bytes(), dstBuf.Bytes())
+//}
 
 func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	txModifiedSize := tx.CalculateModifiedSize()
@@ -562,7 +538,7 @@ func (tx *Tx) IsFinal(Height int, time int64) bool {
 
 func (tx *Tx) String() string {
 	str := ""
-	//str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", tx.Hash.ToString(), tx.Version, tx.LockTime, len(tx.ins), len(tx.outs))
+	//str = fmt.Sprintf(" hash :%s version : %d  lockTime: %d , ins:%d outs:%d \n", Tx.GetHash().ToString(), tx.Version, tx.LockTime, len(tx.ins), len(tx.outs))
 	inStr := "ins:\n"
 	for i, in := range tx.ins {
 		if in == nil {
@@ -578,107 +554,25 @@ func (tx *Tx) String() string {
 	return fmt.Sprintf("%s%s%s", str, inStr, outStr)
 }
 
-func (tx *Tx) TxHash() util.Hash {
+func (tx *Tx) GetHash() util.Hash {
 	// cache hash
-	if !tx.Hash.IsNull() {
-		return tx.Hash
+	if !tx.hash.IsNull() {
+		return tx.hash
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, tx.EncodeSize()))
 	_ = tx.Encode(buf)
 	hash := util.DoubleSha256Hash(buf.Bytes())
-	tx.Hash = hash
-	return hash
+	tx.hash = hash
+
+	return tx.hash
 }
 
-// CheckSequenceLocks Check if transaction will be BIP 68 final in the next block to be created.
-//
-// Simulates calling SequenceLocks() with data from the tip of the current
-// active chain. Optionally stores in LockPoints the resulting height and time
-// calculated and the hash of the block needed for calculation or skips the
-// calculation and uses the LockPoints passed in for evaluation. The LockPoints
-// should not be considered valid if CheckSequenceLocks returns false.
-//
-// See core/core.h for flag definitions.
-func (tx *Tx)CheckSequenceLocks(flags int, lp *LockPoints, useExistingLockPoints bool) bool {
-
-	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
-	/*
-	tip := GChainActive.Tip()
-	var index *BlockIndex
-	index.Prev = tip
-	// CheckSequenceLocks() uses chainActive.Height()+1 to evaluate height based
-	// locks because when SequenceLocks() is called within ConnectBlock(), the
-	// height of the block *being* evaluated is what is used. Thus if we want to
-	// know if a transaction can be part of the *next* block, we need to use one
-	// more than chainActive.Height()
-	index.Height = tip.Height + 1
-	lockPair := make(map[int]int64)
-
-	if useExistingLockPoints {
-		if lp == nil {
-			panic("the mempool lockPoints is nil")
-		}
-		lockPair[lp.Height] = lp.Time
-	} else {
-		// pcoinsTip contains the UTXO set for chainActive.Tip()
-		//viewMempool := mempool.CoinsViewMemPool{
-		//	Base:  GCoinsTip,
-		//	Mpool: GMemPool,
-		//}
-		var prevheights []int
-		for txinIndex := 0; txinIndex < len(tx.Ins); txinIndex++ {
-			//txin := tx.Ins[txinIndex]
-			var coin *utxo.Coin
-			//if !viewMempool.GetCoin(txin.PreviousOutPoint, coin) {
-			//	logs.Error("Missing input")
-			//	return false
-			//}
-			if coin.GetHeight() == consensus.MEMPOOL_HEIGHT {
-				// Assume all mempool transaction confirm in the next block
-				prevheights[txinIndex] = tip.Height + 1
-			} else {
-				prevheights[txinIndex] = int(coin.GetHeight())
-			}
-		}
-
-		lockPair = tx.CalculateSequenceLocks(flags, prevheights, index)
-		if lp != nil {
-			lockPair[lp.Height] = lp.Time
-			// Also store the hash of the block with the highest height of all
-			// the blocks which have sequence locked prevouts. This hash needs
-			// to still be on the chain for these LockPoint calculations to be
-			// valid.
-			// Note: It is impossible to correctly calculate a maxInputBlock if
-			// any of the sequence locked inputs depend on unconfirmed txs,
-			// except in the special case where the relative lock time/height is
-			// 0, which is equivalent to no sequence lock. Since we assume input
-			// height of tip+1 for mempool txs and test the resulting lockPair
-			// from CalculateSequenceLocks against tip+1. We know
-			// EvaluateSequenceLocks will fail if there was a non-zero sequence
-			// lock on a mempool input, so we can use the return value of
-			// CheckSequenceLocks to indicate the LockPoints validity
-			maxInputHeight := 0
-			for height := range prevheights {
-				// Can ignore mempool inputs since we'll fail if they had non-zero locks
-				if height != tip.Height+1 {
-					maxInputHeight = int(math.Max(float64(maxInputHeight), float64(height)))
-				}
-			}
-			lp.MaxInputBlock = tip.GetAncestor(maxInputHeight)
-		}
-	}
-	return EvaluateSequenceLocks(index, lockPair)
-	*/
-
-	return true
-}
-
-func(tx *Tx)GetIns() []*txin.TxIn {
+func (tx *Tx) GetIns() []*txin.TxIn {
 	return tx.ins
 }
 
-func(tx *Tx)GetOuts() []*txout.TxOut {
+func (tx *Tx) GetOuts() []*txout.TxOut {
 	return tx.outs
 }
 

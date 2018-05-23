@@ -23,6 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"btcd/netsync"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model"
@@ -468,7 +469,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 		// or only the transactions that match the filter when there is
 		// one.
 		if !sp.filter.IsLoaded() || sp.filter.MatchTxAndUpdate(txDesc.Tx) {
-			iv := wire.NewInvVect(wire.InvTypeTx, txDesc.Tx.Hash())
+			iv := wire.NewInvVect(wire.InvTypeTx, txDesc.Tx.GetHash()())
 			invMsg.AddInvVect(iv)
 			if len(invMsg.InvList)+1 > wire.MaxInvPerMsg {
 				break
@@ -489,7 +490,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
-			msg.TxHash(), sp)
+			msg.GetHash(), sp)
 		return
 	}
 
@@ -497,7 +498,7 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	// Convert the raw MsgTx to a btcutil.Tx which provides some convenience
 	// methods and things such as hash caching.
 	tx := tx.NewTx(msg)
-	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
+	iv := wire.NewInvVect(wire.InvTypeTx, tx.GetHash()())
 	sp.AddKnownInventory(iv)
 
 	// Queue the transaction up to be handled by the sync manager and
@@ -976,7 +977,7 @@ func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 // passed transactions to all connected peers.
 func (s *server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
-		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.Hash)
+		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.GetHash())
 		s.RelayInventory(iv, txD)
 	}
 }
@@ -1005,7 +1006,7 @@ func (s *server) TransactionConfirmed(tx *btcutil.Tx) {
 		return
 	}
 
-	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
+	iv := wire.NewInvVect(wire.InvTypeTx, tx.GetHash()())
 	s.RemoveRebroadcastInventory(iv)
 }
 

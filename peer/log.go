@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/script"
 )
 
 const (
@@ -164,7 +164,7 @@ func messageSummary(msg wire.Message) string {
 
 	case *wire.MsgTx:
 		return fmt.Sprintf("hash %s, %d inputs, %d outputs, lock %s",
-			msg.TxHash(), len(msg.TxIn), len(msg.TxOut),
+			msg.GetHash(), len(msg.TxIn), len(msg.TxOut),
 			formatLockTime(msg.LockTime))
 
 	case *wire.MsgBlock:

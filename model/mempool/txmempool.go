@@ -1,43 +1,43 @@
 package mempool
 
 import (
-	"sync"
-	"github.com/google/btree"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/astaxie/beego/logs"
+	"container/list"
 	"fmt"
+	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/model/consensus"
-	"unsafe"
+	"github.com/btcboost/copernicus/util"
+	"github.com/google/btree"
 	"math"
+	"sync"
 	"time"
-	"container/list"
-	"github.com/btcboost/copernicus/errcode"
+	"unsafe"
 )
 
 //error status for the transaction that entering txmempool.
-const(
+const (
 	RejectAlreadyKnown = 300
-	RejectNonStandard = 301
+	RejectNonStandard  = 301
 
-	ManyUnconfirmedAncestor = 302
+	ManyUnconfirmedAncestor       = 302
 	ExceedUnconfirmedAncestorSize = 303
-	ManyUnconfirmedDescendt = 304
+	ManyUnconfirmedDescendt       = 304
 	ExceedUnconfirmedDescendtSize = 305
-	LowTransactionFee = 306
+	LowTransactionFee             = 306
 )
 
 var Gpool *TxMempool
 
 const (
-	AncestorSize uint64	= 101
-	AncestorNum		= 25
-	DescendantNum	= 25
-	DescendantSize 	= 101
+	AncestorSize   uint64 = 101
+	AncestorNum           = 25
+	DescendantNum         = 25
+	DescendantSize        = 101
 )
 
 type PoolRemovalReason int
@@ -65,11 +65,11 @@ const (
 type TxMempool struct {
 	sync.RWMutex
 	// current mempool best feerate for one transaction.
-	feeRate 					util.FeeRate
+	feeRate util.FeeRate
 	// poolData store the tx in the mempool
-	poolData 				map[util.Hash]*TxEntry
+	poolData map[util.Hash]*TxEntry
 	//NextTx key is txPrevout, value is tx.
-	nextTx 					map[outpoint.OutPoint]*TxEntry
+	nextTx map[outpoint.OutPoint]*TxEntry
 	//RootTx contain all root transaction in mempool.
 	rootTx                  map[util.Hash]*TxEntry
 	txByAncestorFeeRateSort btree.BTree
@@ -77,18 +77,18 @@ type TxMempool struct {
 	cacheInnerUsage         int64
 	checkFrequency          float64
 	// sum of all mempool tx's size.
-	totalTxSize 			uint64
+	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
-	TransactionsUpdated 	uint64
+	TransactionsUpdated      uint64
 	OrphanTransactionsByPrev map[outpoint.OutPoint]map[util.Hash]OrphanTx
-	OrphanTransactions		map[util.Hash]OrphanTx
-	RecentRejects			map[util.Hash]struct{}
+	OrphanTransactions       map[util.Hash]OrphanTx
+	RecentRejects            map[util.Hash]struct{}
 
-	nextSweep 				int
-	MaxMemPoolSize          int64
+	nextSweep      int
+	MaxMemPoolSize int64
 }
 
-func (m *TxMempool)GetMinFeeRate() util.FeeRate {
+func (m *TxMempool) GetMinFeeRate() util.FeeRate {
 	return m.feeRate
 }
 
@@ -102,7 +102,7 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
 	m.timeSortData.ReplaceOrInsert(txentry)
-	m.poolData[txentry.Tx.Hash] = txentry
+	m.poolData[txentry.Tx.GetHash()] = txentry
 	m.cacheInnerUsage += int64(txentry.usageSize) + int64(unsafe.Sizeof(txentry))
 
 	// Update ancestors with information about this tx
@@ -125,7 +125,7 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	m.TransactionsUpdated++
 	m.txByAncestorFeeRateSort.ReplaceOrInsert(EntryAncestorFeeRateSort(*txentry))
 	if txentry.SumTxCountWithAncestors == 1 {
-		m.rootTx[txentry.Tx.Hash] = txentry
+		m.rootTx[txentry.Tx.GetHash()] = txentry
 	}
 	return nil
 }
@@ -140,47 +140,47 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 	return false
 }
 
-func (m *TxMempool)GetPoolAllTxSize() uint64 {
+func (m *TxMempool) GetPoolAllTxSize() uint64 {
 	m.RLock()
 	size := m.totalTxSize
 	m.RUnlock()
 	return size
 }
 
-func (m *TxMempool)GetPoolUsage() int64 {
+func (m *TxMempool) GetPoolUsage() int64 {
 	m.RLock()
 	size := m.cacheInnerUsage
 	m.RUnlock()
 	return size
 }
 
-func (m *TxMempool)CalculateDescendants(txHash *util.Hash) map[*TxEntry]struct{} {
+func (m *TxMempool) CalculateDescendants(txHash *util.Hash) map[*TxEntry]struct{} {
 	descendants := make(map[*TxEntry]struct{})
 	m.RLock()
 	defer m.RUnlock()
-	if entry, ok := m.poolData[*txHash]; !ok{
+	if entry, ok := m.poolData[*txHash]; !ok {
 		return nil
-	}else {
+	} else {
 		m.calculateDescendants(entry, descendants)
 	}
 
 	return descendants
 }
 
-func (m *TxMempool)CalculateMemPoolAncestors(txhash *util.Hash) map[*TxEntry]struct{} {
+func (m *TxMempool) CalculateMemPoolAncestors(txhash *util.Hash) map[*TxEntry]struct{} {
 	m.RLock()
 	defer m.RUnlock()
 	ancestors := make(map[*TxEntry]struct{})
-	if entry, ok := m.poolData[*txhash]; !ok{
+	if entry, ok := m.poolData[*txhash]; !ok {
 		return nil
-	}else {
+	} else {
 		noLimit := uint64(math.MaxUint64)
 		ancestors, _ = m.calculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
 	}
 	return ancestors
 }
 
-func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason)  {
+func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 	m.Lock()
 	defer m.Unlock()
 	m.removeTxRecursive(origTx, reason)
@@ -204,11 +204,11 @@ func (m *TxMempool) Size() int {
 	return len(m.poolData)
 }
 
-func (m *TxMempool)GetAllTxEntry() map[util.Hash]*TxEntry {
+func (m *TxMempool) GetAllTxEntry() map[util.Hash]*TxEntry {
 	return m.poolData
 }
 
-func (m *TxMempool)RemoveUnFinalTx(chain *chain.Chain, view *utxo.CoinsCache, nMemPoolHeight int, flag int) {
+func (m *TxMempool) RemoveUnFinalTx(chain *chain.Chain, view *utxo.CoinsCache, nMemPoolHeight int, flag int) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -224,13 +224,13 @@ func (m *TxMempool)RemoveUnFinalTx(chain *chain.Chain, view *utxo.CoinsCache, nM
 		tx := entry.Tx
 		allPreout := tx.GetAllPreviousOut()
 		coins := make([]*utxo.Coin, len(allPreout))
-		for i, preout := range allPreout{
-			if coin, err := view.GetCoin(&preout); err == nil{
+		for i, preout := range allPreout {
+			if coin, err := view.GetCoin(&preout); err == nil {
 				coins[i] = coin
 			} else {
-				if coin := m.GetCoin(&preout); coin != nil{
+				if coin := m.GetCoin(&preout); coin != nil {
 					coins[i] = coin
-				}else {
+				} else {
 					panic("the transaction in mempool, not found its parent " +
 						"transaction in local node and utxo")
 				}
@@ -279,7 +279,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 
 	entries := make([]*TxEntry, 0, len(txs))
 	for _, tx := range txs {
-		if entry, ok := m.poolData[tx.Hash]; ok {
+		if entry, ok := m.poolData[tx.GetHash()]; ok {
 			entries = append(entries, entry)
 		}
 	}
@@ -287,7 +287,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 	// todo base on entries to set the new feerate for mempool.
 
 	for _, tx := range txs {
-		if entry, ok := m.poolData[tx.Hash]; ok {
+		if entry, ok := m.poolData[tx.GetHash()]; ok {
 			stage := make(map[*TxEntry]struct{})
 			stage[entry] = struct{}{}
 			m.removeStaged(stage, true, BLOCK)
@@ -295,7 +295,6 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 		m.removeConflicts(tx)
 	}
 }
-
 
 func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
 	m.RLock()
@@ -306,7 +305,6 @@ func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
 	return nil
 }
 
-
 func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 	m.RLock()
 	defer m.RUnlock()
@@ -316,7 +314,7 @@ func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 		return nil
 	}
 	out := txMempoolEntry.Tx.GetTxOut(int(outpoint.Index))
-	if out != nil{
+	if out != nil {
 		coin := utxo.NewMempoolCoin(out)
 		return coin
 	}
@@ -324,28 +322,28 @@ func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 	return nil
 }
 
-func (m *TxMempool)IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utxo.Coin,
-		tip *blockindex.BlockIndex ) (map[*TxEntry]struct{}, tx.LockPoints, error) {
+func (m *TxMempool) IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utxo.Coin,
+	tip *blockindex.BlockIndex) (map[*TxEntry]struct{}, tx.LockPoints, error) {
 
 	lp := tx.LockPoints{}
-	if _, ok := m.poolData[tx.Hash]; ok{
+	if _, ok := m.poolData[tx.GetHash()]; ok {
 		return nil, lp, errcode.New(errcode.AlreadHaveTx)
 	}
 
-	if !checkSequenceLocks(tx, tip, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast, &lp, false, coins){
+	if !checkSequenceLocks(tx, tip, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast, &lp, false, coins) {
 		return nil, lp, errcode.New(errcode.Nomature)
 	}
 
-	ancestors, err := m.calculateMemPoolAncestors(tx, AncestorNum, AncestorSize * 1000,
-		DescendantNum, DescendantSize * 1000, true)
-	if err != nil{
+	ancestors, err := m.calculateMemPoolAncestors(tx, AncestorNum, AncestorSize*1000,
+		DescendantNum, DescendantSize*1000, true)
+	if err != nil {
 		return nil, lp, err
 	}
 
 	txsize := int64(tx.SerializeSize())
 	txfeeRate := util.NewFeeRateWithSize(txfee, txsize)
 	// compare the transaction feeRate with enter mempool min txfeeRate
-	if txfeeRate.SataoshisPerK < m.feeRate.SataoshisPerK{
+	if txfeeRate.SataoshisPerK < m.feeRate.SataoshisPerK {
 		return nil, lp, errcode.New(errcode.TooMinFeeRate)
 	}
 
@@ -381,8 +379,8 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 		for _, preout := range entry.Tx.GetAllPreviousOut() {
 			if entry, ok := m.poolData[preout.Hash]; ok {
 				tx2 := entry.Tx
-				if !(tx2.GetOutsCount() > int(preout.Index)){
-					if !tx2.GetTxOut(int(preout.Index)).IsNull(){
+				if !(tx2.GetOutsCount() > int(preout.Index)) {
+					if !tx2.GetTxOut(int(preout.Index)).IsNull() {
 						panic("the tx introduced input dose not exist, or the input amount is nil ")
 					}
 				}
@@ -434,9 +432,9 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 		setChildrenCheck := make(map[*TxEntry]struct{})
 		childSize := 0
 		for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-			o := outpoint.OutPoint{Hash: entry.Tx.Hash, Index: uint32(i)}
+			o := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
 			if e, ok := m.nextTx[o]; ok {
-				if _, ok := m.poolData[e.Tx.Hash]; !ok {
+				if _, ok := m.poolData[e.Tx.GetHash()]; !ok {
 					panic("the transaction should be in mempool ...")
 				}
 				if _, ok := setChildrenCheck[e]; !ok {
@@ -464,13 +462,13 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 				panic("the txentry check failed with utxo set...")
 			}
 
-			for _, preout := range entry.Tx.GetAllPreviousOut(){
+			for _, preout := range entry.Tx.GetAllPreviousOut() {
 				mempoolDuplicate.SpendCoin(&preout)
 			}
 			isCoinBase := entry.Tx.IsCoinBase()
-			for i := 0; i < entry.Tx.GetOutsCount(); i++{
-				a := outpoint.OutPoint{entry.Tx.Hash, uint32(i)}
-				mempoolDuplicate.AddCoin(&a, *utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000,isCoinBase ),isCoinBase)
+			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
+				a := outpoint.OutPoint{entry.Tx.GetHash(), uint32(i)}
+				mempoolDuplicate.AddCoin(&a, *utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 			}
 		}
 	}
@@ -481,9 +479,9 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 		entry := it.Value.(*TxEntry)
 		waitingOnDependants.Remove(it)
 		spend := false
-		for _, preOut := range entry.Tx.GetAllPreviousOut(){
+		for _, preOut := range entry.Tx.GetAllPreviousOut() {
 			co := mempoolDuplicate.GetCoin(&preOut)
-			if !(co != nil && !co.IsSpent()){
+			if !(co != nil && !co.IsSpent()) {
 				waitingOnDependants.PushBack(entry)
 				stepsSinceLastRemove++
 				if !(stepsSinceLastRemove < waitingOnDependants.Len()) {
@@ -507,20 +505,20 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 			if !fCheckResult {
 				panic("this transaction all parent have spent...")
 			}
-			for _, preout := range entry.Tx.GetAllPreviousOut(){
+			for _, preout := range entry.Tx.GetAllPreviousOut() {
 				mempoolDuplicate.SpendCoin(&preout)
 			}
 			isCoinBase := entry.Tx.IsCoinBase()
-			for i := 0; i < entry.Tx.GetOutsCount(); i++{
-				a := outpoint.OutPoint{entry.Tx.Hash, uint32(i)}
-				mempoolDuplicate.AddCoin(&a, *utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000,isCoinBase ),isCoinBase)
+			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
+				a := outpoint.OutPoint{entry.Tx.GetHash(), uint32(i)}
+				mempoolDuplicate.AddCoin(&a, *utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 			}
 			stepsSinceLastRemove = 0
 		}
 	}
 
 	for _, entry := range m.nextTx {
-		txid := entry.Tx.Hash
+		txid := entry.Tx.GetHash()
 		if e, ok := m.poolData[txid]; !ok {
 			panic("the transaction not exsit mempool. . .")
 		} else {
@@ -538,7 +536,7 @@ func (m *TxMempool) Check(view *utxo.CoinsCache, bestHeight int) {
 // LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
 // set, the function will return these have removed transaction's txin from mempool which use
 // TrimToSize rule. Later, caller will remove these txin from uxto cache.
-func (m *TxMempool)LimitMempoolSize() []*outpoint.OutPoint {
+func (m *TxMempool) LimitMempoolSize() []*outpoint.OutPoint {
 	m.Lock()
 	defer m.Unlock()
 	//todo, parse expire time from config
@@ -560,7 +558,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 	for len(m.poolData) > 0 && m.cacheInnerUsage > sizeLimit {
 		removeIt := TxEntry(m.txByAncestorFeeRateSort.Min().(EntryAncestorFeeRateSort))
 		rem := m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(removeIt)).(EntryAncestorFeeRateSort)
-		if rem.Tx.Hash != removeIt.Tx.Hash {
+		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
 			panic("the two element should have the same Txhash")
 		}
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumFeeWithDescendants, removeIt.SumSizeWithDescendants).SataoshisPerK
@@ -576,7 +574,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		// all Descendant transaction of the removed tx also will be removed.
 		m.removeStaged(stage, false, SIZELIMIT)
 		for e := range stage {
-			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.Hash.String(), m.cacheInnerUsage)
+			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.GetHash().String(), m.cacheInnerUsage)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {
@@ -619,8 +617,8 @@ func (m *TxMempool) expire(time int64) int {
 func (m *TxMempool) removeStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
 	m.updateForRemoveFromMempool(entriesToRemove, updateDescendants)
 	for rem := range entriesToRemove {
-		if _, ok := m.rootTx[rem.Tx.Hash]; ok {
-			delete(m.rootTx, rem.Tx.Hash)
+		if _, ok := m.rootTx[rem.Tx.GetHash()]; ok {
+			delete(m.rootTx, rem.Tx.GetHash())
 		}
 		m.delTxentry(rem, reason)
 		fmt.Println("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
@@ -631,7 +629,7 @@ func (m *TxMempool) removeConflicts(tx *tx.Tx) {
 	// Remove transactions which depend on inputs of tx, recursively
 	for _, preout := range tx.GetAllPreviousOut() {
 		if flictEntry, ok := m.nextTx[preout]; ok {
-			if flictEntry.Tx.Hash != tx.Hash {
+			if flictEntry.Tx.GetHash() != tx.GetHash() {
 				m.removeTxRecursive(flictEntry.Tx, CONFLICT)
 			}
 		}
@@ -676,7 +674,7 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 	// Remove transaction from memory pool
 	txToRemove := make(map[*TxEntry]struct{})
 
-	if entry, ok := m.poolData[origTx.Hash]; ok {
+	if entry, ok := m.poolData[origTx.GetHash()]; ok {
 		txToRemove[entry] = struct{}{}
 	} else {
 		// When recursively removing but origTx isn't in the mempool be sure
@@ -684,11 +682,11 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 		// during chain re-orgs if origTx isn't re-accepted into the mempool
 		// for any reason.
 		for i := 0; i < origTx.GetOutsCount(); i++ {
-			outPoint := outpoint.OutPoint{Hash: origTx.Hash, Index: uint32(i)}
+			outPoint := outpoint.OutPoint{Hash: origTx.GetHash(), Index: uint32(i)}
 			if en, ok := m.nextTx[outPoint]; !ok {
 				continue
 			} else {
-				if find, ok := m.poolData[en.Tx.Hash]; ok {
+				if find, ok := m.poolData[en.Tx.GetHash()]; ok {
 					txToRemove[find] = struct{}{}
 				} else {
 					panic("the transaction must in mempool, because NextTx struct of mempool have its data")
@@ -740,7 +738,7 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 		if add {
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, true)
 		} else {
-			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", txentry.Tx.Hash.String(), ", tx1 : ", piter.Tx.Hash.String())
+			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", txentry.Tx.GetHash().String(), ", tx1 : ", piter.Tx.GetHash().String())
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, false)
 		}
 	}
@@ -753,7 +751,7 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 	updateFee := int64(updateCount) * txentry.TxFee
 	// update each of ancestors transaction state;
 	for ancestorit := range ancestors {
-		//fmt.Println("ancestor hash : ", ancestorit.Tx.Hash.ToString())
+		//fmt.Println("ancestor hash : ", ancestorit.Tx.GetHash().ToString())
 		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
 	}
 }
@@ -792,7 +790,7 @@ func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 	} else {
 		// If we're not searching for parents, we require this to be an entry in
 		// the mempool already.
-		if entry, ok := m.poolData[tx.Hash]; ok {
+		if entry, ok := m.poolData[tx.GetHash()]; ok {
 			parent = entry.ParentTx
 		} else {
 			panic("the tx must be in mempool")
@@ -842,17 +840,16 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 		delete(m.nextTx, preout)
 	}
 
-	if _, ok := m.rootTx[removeEntry.Tx.Hash]; ok {
-		delete(m.rootTx, removeEntry.Tx.Hash)
+	if _, ok := m.rootTx[removeEntry.Tx.GetHash()]; ok {
+		delete(m.rootTx, removeEntry.Tx.GetHash())
 	}
 	m.cacheInnerUsage -= int64(removeEntry.usageSize) + int64(unsafe.Sizeof(removeEntry))
 	m.TransactionsUpdated++
 	m.totalTxSize -= uint64(removeEntry.TxSize)
-	delete(m.poolData, removeEntry.Tx.Hash)
+	delete(m.poolData, removeEntry.Tx.GetHash())
 	m.timeSortData.Delete(removeEntry)
 	m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(*removeEntry))
 }
-
 
 func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *tx.LockPoints, useExistingLockPoints bool, coins []*utxo.Coin) bool {
 	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
@@ -874,9 +871,9 @@ func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *tx
 	} else {
 		var prevheights []int
 		for txinIndex, coin := range coins {
-			if coin.IsMempoolCoin(){
+			if coin.IsMempoolCoin() {
 				prevheights[txinIndex] = tip.Height + 1
-			}else {
+			} else {
 				prevheights[txinIndex] = int(coin.GetHeight())
 			}
 		}
@@ -939,7 +936,6 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 	return ret
 }
 
-
 func NewTxMempool() *TxMempool {
 	t := &TxMempool{}
 	t.feeRate = util.FeeRate{SataoshisPerK: 1}
@@ -956,76 +952,74 @@ func InitMempool() {
 }
 
 const (
-	OrphanTxExpireTime = 20 * 60
-	OrphanTxExpireInterval = 5 * 60
+	OrphanTxExpireTime          = 20 * 60
+	OrphanTxExpireInterval      = 5 * 60
 	DefaultMaxOrphanTransaction = 100
 )
 
 type OrphanTx struct {
 	Tx         *tx.Tx
-	NodeID        int64
+	NodeID     int64
 	Expiration int
 }
 
-
-func (m *TxMempool)AddOrphanTx(orphantx *tx.Tx, nodeID int64)  {
-	if _, ok := m.OrphanTransactions[orphantx.Hash]; ok{
+func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
+	if _, ok := m.OrphanTransactions[orphantx.GetHash()]; ok {
 		return
 	}
 	sz := orphantx.SerializeSize()
 	if sz >= consensus.MaxTxSize {
 		return
 	}
-	o := OrphanTx{Tx:orphantx, NodeID: nodeID, Expiration:time.Now().Second() + OrphanTxExpireTime}
-	m.OrphanTransactions[orphantx.Hash] = o
-	for _, preout := range orphantx.GetAllPreviousOut(){
+	o := OrphanTx{Tx: orphantx, NodeID: nodeID, Expiration: time.Now().Second() + OrphanTxExpireTime}
+	m.OrphanTransactions[orphantx.GetHash()] = o
+	for _, preout := range orphantx.GetAllPreviousOut() {
 		if exsit, ok := m.OrphanTransactionsByPrev[preout]; ok {
-			exsit[orphantx.Hash] = o
-		}else{
+			exsit[orphantx.GetHash()] = o
+		} else {
 			mi := make(map[util.Hash]OrphanTx)
-			mi[orphantx.Hash] = o
+			mi[orphantx.GetHash()] = o
 			m.OrphanTransactionsByPrev[preout] = mi
 		}
 	}
 }
 
-func (m *TxMempool)EraseOrphanTx(txHash util.Hash, removeRedeemers bool){
+func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 
-	if orphanTx, ok := m.OrphanTransactions[txHash]; ok{
-		for _, preout := range orphanTx.Tx.GetAllPreviousOut(){
+	if orphanTx, ok := m.OrphanTransactions[txHash]; ok {
+		for _, preout := range orphanTx.Tx.GetAllPreviousOut() {
 			if orphans, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
 				delete(orphans, txHash)
-				if len(orphans) == 0{
+				if len(orphans) == 0 {
 					delete(m.OrphanTransactionsByPrev, preout)
 				}
 			}
 		}
 	}
-	if removeRedeemers{
-		preout := outpoint.OutPoint{Hash:txHash}
+	if removeRedeemers {
+		preout := outpoint.OutPoint{Hash: txHash}
 		orphan := m.OrphanTransactions[txHash]
-		for  i := 0; i < orphan.Tx.GetOutsCount(); i++{
+		for i := 0; i < orphan.Tx.GetOutsCount(); i++ {
 			preout.Index = uint32(i)
-			for _, orphan := range m.OrphanTransactionsByPrev[preout]{
-				m.EraseOrphanTx(orphan.Tx.Hash, true)
+			for _, orphan := range m.OrphanTransactionsByPrev[preout] {
+				m.EraseOrphanTx(orphan.Tx.GetHash(), true)
 			}
 		}
 	}
 	delete(m.OrphanTransactions, txHash)
 }
 
-
-func (m *TxMempool)LimitOrphanTx() int {
+func (m *TxMempool) LimitOrphanTx() int {
 
 	removeNum := 0
 	now := time.Now().Second()
-	if m.nextSweep <= now{
+	if m.nextSweep <= now {
 		minExpTime := now + OrphanTxExpireTime - OrphanTxExpireInterval
-		for hash, orphan := range m.OrphanTransactions{
-			if orphan.Expiration <= now{
+		for hash, orphan := range m.OrphanTransactions {
+			if orphan.Expiration <= now {
 				m.EraseOrphanTx(hash, true)
-			}else {
-				if minExpTime > orphan.Expiration{
+			} else {
+				if minExpTime > orphan.Expiration {
 					minExpTime = orphan.Expiration
 				}
 			}
@@ -1034,16 +1028,12 @@ func (m *TxMempool)LimitOrphanTx() int {
 	}
 
 	for {
-		if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction{
+		if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
 			break
 		}
-		for hash := range m.OrphanTransactions{
+		for hash := range m.OrphanTransactions {
 			m.EraseOrphanTx(hash, true)
 		}
 	}
 	return removeNum
 }
-
-
-
-

@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/conf"
 )
 
 type TxOut struct {
-	value            int64
-	scriptPubKey     *script.Script
+	value        int64
+	scriptPubKey *script.Script
 	//SigOpCount      int64
 }
 
@@ -23,6 +23,14 @@ func (txOut *TxOut) SerializeSize() int {
 		return 8
 	}
 	return 8 + util.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
+}
+
+func (txOut *TxOut) Serialize(writer io.Writer) error {
+	return nil
+}
+
+func (txOut *TxOut) Unserialize(reader io.Reader) error {
+	return nil
 }
 
 func (txOut *TxOut) IsDust(minRelayTxFee *util.FeeRate) bool {
@@ -47,15 +55,19 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 	return 3 * minRelayTxFee.GetFee(size)
 }
 
+func (txOut *TxOut) EncodeSize() int {
+	return 0
+}
+
 func (txOut *TxOut) Encode(writer io.Writer) error {
 	err := util.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
 	if err != nil {
 		return err
 	}
 	if txOut.scriptPubKey == nil {
-		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0  )
+		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0)
 	} else {
-	    return util.WriteVarBytes(writer, txOut.scriptPubKey.GetData())
+		return util.WriteVarBytes(writer, txOut.scriptPubKey.GetData())
 	}
 }
 
@@ -68,28 +80,21 @@ func (txOut *TxOut) Decode(reader io.Reader) error {
 	txOut.scriptPubKey = script.NewScriptRaw(bytes)
 	return err
 }
-func (txOut *TxOut) Serialize(writer io.Writer) error {
-	return nil
-}
-
-func (txOut *TxOut) Unserialize(reader io.Reader) error {
-	return nil
-}
 
 func (txOut *TxOut) CheckValue() error {
 	if txOut.value < 0 {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
-		return errcode.New(errcode.TxOutErrNegativeValue)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	if txOut.value > util.MaxMoney {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
-		return errcode.New(errcode.TxOutErrTooLargeValue)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	return nil
 }
 
-func (txOut *TxOut) CheckStandard() (pubKeyType int, err error)  {
+func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {
 	pubKeyType, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		return
@@ -111,13 +116,13 @@ func (txOut *TxOut) GetValue() int64 {
 	return txOut.value
 }
 func (txOut *TxOut) SetValue(v int64) {
-	txOut.value=v
+	txOut.value = v
 }
 func (txOut *TxOut) GetScriptPubKey() *script.Script {
 	return txOut.scriptPubKey
 }
-func (txOut *TxOut) SetScriptPubKey(s *script.Script)  {
-	 txOut.scriptPubKey = s
+func (txOut *TxOut) SetScriptPubKey(s *script.Script) {
+	txOut.scriptPubKey = s
 }
 
 func (txOut *TxOut) IsCommitment(data []byte) bool {
@@ -126,14 +131,14 @@ func (txOut *TxOut) IsCommitment(data []byte) bool {
 
 /*
   The TxOut can be spent or not according script, but don't care it is already been spent or not
- */
+*/
 func (txOut *TxOut) IsSpendable() bool {
 	return true
 }
 
 /*
   The TxOut already spent
- */
+*/
 func (txOut *TxOut) IsSpent() bool {
 	return true
 }
@@ -160,7 +165,7 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 
 func NewTxOut(value int64, scriptPubKey *script.Script) *TxOut {
 	txOut := TxOut{
-		value: value,
+		value:        value,
 		scriptPubKey: scriptPubKey,
 	}
 	return &txOut

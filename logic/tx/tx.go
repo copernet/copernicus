@@ -4,25 +4,24 @@ import (
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
 
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/model/opcodes"
 	"bytes"
+
 	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/util/amount"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/consensus"
-	"math"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/amount"
 )
 
 func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error {
 	if transaction.IsCoinBase() {
-		return errcode.New(errcode.TxErrIsCoinBase)
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	err := transaction.CheckTransactionCommon(true)
@@ -63,33 +62,42 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 		return errcode.New(errcode.TxErrOutAlreadHave)
 	}
 
-	tempCoinsMap :=  utxo.NewEmptyCoinsMap()
+	tempCoinsMap := utxo.NewEmptyCoinsMap()
 	available := areInputsAvailable(transaction, tempCoinsMap)
 	if !available {
 		return errcode.New(errcode.TxErrInputsNotAvailable)
 	}
 
 	//check sequencelock
-	//lp := CaculateLockPoint(transaction, tx.StandardLockTimeVerifyFlags)
-	//if !CheckSequenceLocks(lp) {
-	//	return false
-	//}
+	lp := CalculateSequenceLocks(transaction, tx.StandardLockTimeVerifyFlags)
+	// Only accept BIP68 sequence locked transactions that can be mined
+	// in the next block; we don't want our mempool filled up with
+	// transactions that can't be mined yet. Must keep pool.cs for this
+	// unless we change CheckSequenceLocks to take a CoinsViewCache
+	// instead of create its own.
+	if !CheckSequenceLocks(lp) {
+		return errcode.New(errcode.TxErrRejectNonstandard)
+	}
 
 	//check standard inputs
-	err = checkInputsStandard(transaction, tempCoinsMap)
+	if chainparams.ActiveNetParams.RequireStandard {
+		err = checkInputsStandard(transaction, tempCoinsMap)
+		if err != nil {
+			return err
+		}
+	}
+	//check inputs money range
+	err = CheckInputsMoney(transaction, tempCoinsMap)
 	if err != nil {
 		return err
 	}
-	////check inputs money range
-	//if !tx.CheckInputsMoney() {
-	//	return false
-	//}
 
 	//check inputs
 	err = checkInputs(transaction, tempCoinsMap, 1)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -106,19 +114,19 @@ func SubmitTransaction(txs []*tx.Tx) bool {
 	return true
 }
 
-func areOutputsAlreadExist(transaction *tx.Tx) (exist bool){
+func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	utxo := utxo.GetUtxoCacheInstance()
 	outs := transaction.GetOuts()
 	for i, _ := range outs {
 		coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.Hash, uint32(i)))
-		if  coin != nil {
+		if coin != nil {
 			return true
 		}
 	}
 	return false
 }
 
-func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) (bool) {
+func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
 	for _, e := range ins {
@@ -154,11 +162,11 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 			return 0, err
 		}
 		/*
-		if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
-			n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
-		} else {
-			n += e.scriptSigcript.GetP2SHSigOpCount()
-		}*/
+			if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
+				n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
+			} else {
+				n += e.scriptSigcript.GetP2SHSigOpCount()
+			}*/
 	}
 
 	return n, nil
@@ -177,7 +185,7 @@ func ContextualCheckTransaction(transaction *tx.Tx, flags int) error {
 
 	activeChain := chain.GetInstance()
 	var nLockTimeCutoff int64 = 0
-	if flags & consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
+	if flags&consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
 	} else {
 		nLockTimeCutoff = util.GetAdjustedTime()
@@ -196,6 +204,7 @@ func ContextualCheckTransaction(transaction *tx.Tx, flags int) error {
 
 	return nil
 }
+
 /*
 func UndoTransaction(txs []*txundo.TxUndo) bool {
 	return true
@@ -221,7 +230,7 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 		}
 		if pubKeyType == script.ScriptHash {
 			scriptSig := e.GetScriptSig()
-			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes) - 1].Data)
+			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 			opCount, err := subScript.GetSigOpCount(true)
 
 			if err != nil {
@@ -245,10 +254,10 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		}
 		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
-		if flags & script.ScriptEnableSigHashForkId != 0 {
+		if flags&script.ScriptEnableSigHashForkId != 0 {
 			flags |= script.ScriptVerifyStrictEnc
 		}
-		if flags & script.ScriptVerifySigPushOnly != 0 && !scriptSig.IsPushOnly() {
+		if flags&script.ScriptVerifySigPushOnly != 0 && !scriptSig.IsPushOnly() {
 			return errcode.New(errcode.ScriptErrSigPushOnly)
 		}
 		stack := util.NewStack()
@@ -273,14 +282,14 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 	money amount.Amount, flags uint32) error {
 	nOpCount := 0
 
-	bnZero :=  script.ScriptNum{0}
-	bnOne :=  script.ScriptNum{1}
-	bnFalse :=  script.ScriptNum{0}
-	bnTrue :=  script.ScriptNum{1}
+	bnZero := script.ScriptNum{0}
+	bnOne := script.ScriptNum{1}
+	bnFalse := script.ScriptNum{0}
+	bnTrue := script.ScriptNum{1}
 
 	beginCodeHash := 0
-	var  fRequireMinimal bool
-	if flags & script.ScriptVerifyMinmalData == script.ScriptVerifyMinmalData {
+	var fRequireMinimal bool
+	if flags&script.ScriptVerifyMinmalData == script.ScriptVerifyMinmalData {
 		fRequireMinimal = true
 	} else {
 		fRequireMinimal = false
@@ -340,7 +349,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_16:
 				{
 					// ( -- value)
-					bn := script.NewScriptNum(int64(e.OpValue) - int64(opcodes.OP_1 - 1))
+					bn := script.NewScriptNum(int64(e.OpValue) - int64(opcodes.OP_1-1))
 					stack.Push(bn.Serialize())
 					// The result of these opcodes should always be the
 					// minimal way to push the data they push, so no need
@@ -354,9 +363,9 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				break
 			case opcodes.OP_CHECKLOCKTIMEVERIFY:
 				{
-					if flags & script.ScriptVerifyCheckLockTimeVerify == script.ScriptVerifyCheckLockTimeVerify {
+					if flags&script.ScriptVerifyCheckLockTimeVerify == script.ScriptVerifyCheckLockTimeVerify {
 						// not enabled; treat as a NOP2
-						if flags & script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
+						if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
 							return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
 						}
 						break
@@ -403,9 +412,9 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 			case opcodes.OP_CHECKSEQUENCEVERIFY:
 				{
-					if flags & script.ScriptVerifyCheckSequenceVerify == script.ScriptVerifyCheckSequenceVerify {
+					if flags&script.ScriptVerifyCheckSequenceVerify == script.ScriptVerifyCheckSequenceVerify {
 						// not enabled; treat as a NOP3
-						if flags & script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
+						if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
 							return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
 
 						}
@@ -437,7 +446,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					// To provide for future soft-fork extensibility, if the
 					// operand has the disabled lock-time flag set,
 					// checkSequenceVerify behaves as a NOP.
-					if nSequence.Value & script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
+					if nSequence.Value&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 						break
 					}
 					if !checkSequence(nSequence.Value, int64(transaction.GetIns()[nIn].Sequence), uint32(transaction.GetVersion())) {
@@ -461,7 +470,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				fallthrough
 			case opcodes.OP_NOP10:
 				{
-					if flags & script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
+					if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
 						return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
 					}
 					break
@@ -482,7 +491,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 							return errcode.New(errcode.ScriptErrUnbalancedConditional)
 						}
 						vchBytes := vch.([]byte)
-						if flags & script.ScriptVerifyMinimalIf == script.ScriptVerifyMinimalIf {
+						if flags&script.ScriptVerifyMinimalIf == script.ScriptVerifyMinimalIf {
 							if len(vchBytes) > 1 {
 								return errcode.New(errcode.ScriptErrMinimalIf)
 							}
@@ -561,7 +570,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 			case opcodes.OP_FROMALTSTACK:
 				{
-					if (stackAlt.Size() < 1) {
+					if stackAlt.Size() < 1 {
 						return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
 					}
 					stack.Push(stackAlt.Top(-1))
@@ -775,8 +784,8 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					if stack.Size() < 3 {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
-					stack.Swap(stack.Size() - 3, stack.Size() - 2)
-					stack.Swap(stack.Size() - 2, stack.Size() - 1)
+					stack.Swap(stack.Size()-3, stack.Size()-2)
+					stack.Swap(stack.Size()-2, stack.Size()-1)
 					break
 				}
 			case opcodes.OP_SWAP:
@@ -785,7 +794,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					if stack.Size() < 2 {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
-					stack.Swap(stack.Size() - 2, stack.Size() - 1)
+					stack.Swap(stack.Size()-2, stack.Size()-1)
 					break
 				}
 			case opcodes.OP_TUCK:
@@ -1084,7 +1093,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_WITHIN:
 				{
 					// (x min max -- out)
-					if (stack.Size() < 3) {
+					if stack.Size() < 3 {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
 					vch1 := stack.Top(-3)
@@ -1121,7 +1130,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					stack.Pop()
 					stack.Pop()
 					stack.Push(fValue)
-					break;
+					break
 				}
 				// Crypto
 			case opcodes.OP_RIPEMD160:
@@ -1134,7 +1143,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				fallthrough
 			case opcodes.OP_HASH256:
 				{
-					// (in -- txHash)
+					// (in -- GetHash)
 					var vchHash []byte
 					if stack.Size() < 1 {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
@@ -1193,10 +1202,10 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						return err
 					}
 
-					hashType := vchSigBytes[len(vchSigBytes) - 1]
+					hashType := vchSigBytes[len(vchSigBytes)-1]
 					// signature is DER format, the second byte + 2 indicates the len of signature
 					// 0x30 if the first byte that indicates the beginning of signature
-					vchSigBytes = vchSigBytes[:vchSigBytes[1] + 2]
+					vchSigBytes = vchSigBytes[:vchSigBytes[1]+2]
 					// Subset of script starting at the most recent codeSeparator
 					scriptCode := script.NewScriptOps(s.ParsedOpCodes[beginCodeHash:])
 
@@ -1210,7 +1219,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					}
 					fSuccess := tx.CheckSig(txHash, vchSigBytes, vchPubkey.([]byte))
 					if !fSuccess &&
-						(flags & script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
+						(flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
 						len(vchSig.([]byte)) > 0 {
 						return errcode.New(errcode.ScriptErrSigNullFail)
 
@@ -1322,7 +1331,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						if err != nil {
 							return err
 						}
-						hashType := vchSig.([]byte)[len(vchSig.([]byte)) - 1]
+						hashType := vchSig.([]byte)[len(vchSig.([]byte))-1]
 						txHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
 						if err != nil {
 							return err
@@ -1345,7 +1354,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					for i > 1 {
 						// If the operation failed, we require that all
 						// signatures must be empty vector
-						if !fSuccess &&	(flags & script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
+						if !fSuccess && (flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
 							iKey2 == 0 && len(stack.Top(-1).([]byte)) > 0 {
 							return errcode.New(errcode.ScriptErrSigNullFail)
 
@@ -1365,9 +1374,9 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					if stack.Size() < 1 {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
-					if flags & script.ScriptVerifyNullDummy == script.ScriptVerifyNullDummy &&
+					if flags&script.ScriptVerifyNullDummy == script.ScriptVerifyNullDummy &&
 						len(stack.Top(-1).([]byte)) > 0 {
-							return errcode.New(errcode.ScriptErrSigNullDummy)
+						return errcode.New(errcode.ScriptErrSigNullDummy)
 
 					}
 					stack.Pop()
@@ -1389,13 +1398,13 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				return errcode.New(errcode.ScriptErrBadOpCode)
 			}
 
-			if (stack.Size() + stackAlt.Size() > 1000) {
+			if stack.Size()+stackAlt.Size() > 1000 {
 				return errcode.New(errcode.ScriptErrStackSize)
 			}
 		}
 	}
 
-	if (!stackExec.Empty()) {
+	if !stackExec.Empty() {
 		return errcode.New(errcode.ScriptErrUnbalancedConditional)
 	}
 
@@ -1445,7 +1454,7 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 	// constrained. Testing that the transaction's sequence number do not have
 	// this bit set prevents using this property to get around a
 	// checkSequenceVerify check.
-	if txToSequence & script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
+	if txToSequence&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 		return false
 	}
 	// Mask off any bits that do not have consensus-enforced meaning before
@@ -1471,55 +1480,38 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 	return true
 }
 
-/**
- * Calculates the block height and previous block's median time past at
- * which the transaction will be considered final in the context of BIP 68.
- * Also removes from the vector of input heights any entries which did not
- * correspond to sequence locked inputs as they do not affect the calculation.
- */
-func CalculateSequenceLocks(transaction tx.Tx, flags int, prevHeights []int, bi *blockindex.BlockIndex) map[int]int64 {
+// caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+func CalculateSequenceLocks(transaction *tx.Tx, flags uint) (lp *mempool.LockPoints) {
+	lp = mempool.NewLockPoints()
+	var maxHeight int = -1
+	var maxTime int64 = -1
+	var maxInputHeight int = 0
+	activeChain := chain.GetInstance()
+	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
-	insLen := len(ins)
-	if len(prevHeights) != insLen {
-		panic("the prevHeights size mot equal txIns size")
-	}
-
-	// Will be set to the equivalent height- and time-based nLockTime
-	// values that would be necessary to satisfy all relative lock-
-	// time constraints given our view of block chain history.
-	// The semantics of nLockTime are the last invalid height/time, so
-	// use -1 to have the effect of any height or time being valid.
-
-	nMinHeight := -1
-	nMinTime := -1
-	// tx.nVersion is signed integer so requires cast to unsigned otherwise
-	// we would be doing a signed comparison and half the range of nVersion
-	// wouldn't support BIP 68.
-	fEnforceBIP68 := transaction.GetVersion() >= 2 && (flags & consensus.LocktimeVerifySequence) != 0
-
-	// Do not enforce sequence numbers as a relative lock time
-	// unless we have been instructed to
-	maps := make(map[int]int64)
-
-	if !fEnforceBIP68 {
-		maps[nMinHeight] = int64(nMinTime)
-		return maps
-	}
-
-	for txinIndex := 0; txinIndex < insLen; txinIndex++ {
-		txin := ins[txinIndex]
-		// Sequence numbers with the most significant bit set are not
-		// treated as relative lock-times, nor are they given any
-		// core-enforced meaning at this point.
-		if (txin.Sequence & script.SequenceLockTimeDisableFlag) != 0 {
-			// The height of this input is not relevant for sequence locks
-			prevHeights[txinIndex] = 0
+	for _, e := range ins {
+		coin := utxo.GetCoin(e.PreviousOutPoint)
+		if coin == nil {
+			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
+		}
+		if coin == nil {
+			return nil
+		}
+		var coinHeight int
+		var coinTime int64
+		if coin.IsMempoolCoin() {
+			coinHeight = activeChain.Height() + 1
+		} else {
+			coinHeight = int(coin.GetHeight())
+		}
+		if e.Sequence&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 			continue
 		}
-
-		nCoinHeight := prevHeights[txinIndex]
-		if (txin.Sequence & script.SequenceLockTimeTypeFlag) != 0 {
-			nCoinTime := bi.GetAncestor(int(math.Max(float64(nCoinHeight-1), float64(0)))).GetMedianTimePast()
+		if coinHeight != activeChain.Height()+1 && maxHeight < coinHeight {
+			maxInputHeight = coinHeight
+		}
+		if e.Sequence&script.SequenceLockTimeTypeFlag == script.SequenceLockTimeTypeFlag {
+			coinTime = activeChain.GetAncestor(coinHeight).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
 			// BIP 68 relative lock times have the semantics of calculating the
 			// first block or time at which the transaction would be valid. When
@@ -1531,65 +1523,63 @@ func CalculateSequenceLocks(transaction tx.Tx, flags int, prevHeights []int, bi 
 			// Time-based relative lock-times are measured from the smallest
 			// allowed timestamp of the block containing the txout being spent,
 			// which is the median time past of the block prior.
-			tmpTime := int(nCoinTime) + int(txin.Sequence) & script.SequenceLockTimeMask << script.SequenceLockTimeGranularity
-			nMinTime = int(math.Max(float64(nMinTime), float64(tmpTime)))
+			expireTime := coinTime + ((int64(e.Sequence) & script.SequenceLockTimeMask) <<
+				script.SequenceLockTimeGranularity) - 1
+			if maxTime < expireTime {
+				maxTime = expireTime
+			}
 		} else {
-			nMinHeight = int(math.Max(float64(nMinHeight), float64((txin.Sequence & script.SequenceLockTimeMask)-1)))
+			expireHeight := coinHeight + (int(e.Sequence) & script.SequenceLockTimeMask) - 1
+			if maxHeight < expireHeight {
+				maxHeight = expireHeight
+			}
 		}
 	}
 
-	maps[nMinHeight] = int64(nMinTime)
-	return maps
-}
-
-func CaculateLockPoint(transaction tx.Tx, flags uint) (lp *mempool.LockPoints) {
-	lp = mempool.NewLockPoints()
-	/*var maxHeight int = 0
-	var maxTime int64 = 0
-	ins := transaction.GetIns()
-	for _, e := range ins {
-		if e.Sequence & script.SequenceLockTimeDisableFlag != 0 {
-			continue
-		}
-		coin := mempool.GetCoin(e.PreviousOutPoint)
-		if !coin {
-			coin = utxo.GetCoin(e.PreviousOutPoint)
-		}
-		if !coin {
-			lp = nil
-			return
-		}
-		coinTime int64 = 0
-		coinHeight := coin.GetHeight()
-		if coinHeight == MEMPOOL_HEIGHT {
-			coinHeight = ActiveChain.GetHeight() + 1
-		}
-		if e.Sequence & SequenceLockTimeTypeFlag != 0 {
-			if coinHeight - 1 > 0 {
-				coinTime = ActiveChain.Tip().GetAncesstor(coinHeight - 1).GetMedianTimePast()
-			} else {
-				coinTime = ActiveChain.Tip().GetAncesstor(0).GetMedianTimePast()
-			}
-			coinTime = ((e.Sequence & SequenceLockTimeMask) << wire.SequenceLockTimeGranularity) - 1
-			if maxTime < coinTime {
-				maxTime = coinTime
-			}
-		} else {
-			if maxHeight < coinHeight {
-				maxHeight = coinHeight
-			}
-		}
-	}
-	lp.MaxInputBlock = ActiveChain.GetAncestor(maxHeight)
-
-	if tx.Version >= 2 && flags & LocktimeVerifySequence != 0 {
+	lp.MaxInputBlock = activeChain.GetAncestor(maxInputHeight)
+	if transaction.GetVersion() < 2 || flags&consensus.LocktimeVerifySequence != consensus.LocktimeVerifySequence {
+		lp.Time = -1
+		lp.Height = -1
+	} else {
 		lp.Height = maxHeight
 		lp.Time = maxTime
-		return
 	}
-*/
-	lp.Height = -1
-	lp.Time = -1
 
 	return
+}
+
+func CheckSequenceLocks(lp *mempool.LockPoints) bool {
+	activeChain := chain.GetInstance()
+	blockTime := activeChain.GetMedianTimePast()
+	if lp.Height >= activeChain.Height()+1 || lp.Time >= blockTime {
+		return false
+	}
+	return true
+}
+
+func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap) (err error) {
+	nValue := int64(0)
+	ins := transaction.GetIns()
+	for _, e := range ins {
+		coin := coinsMap.GetCoin(e.PreviousOutPoint)
+		if coin == nil {
+			return errcode.New(errcode.TxErrInputsNotAvailable)
+		}
+		if !amount.MoneyRange(coin.GetTxOut().GetValue()) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+		nValue += coin.GetTxOut().GetValue()
+		if amount.MoneyRange(nValue) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+	if nValue < transaction.GetValueOut() {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+
+	txFee := nValue - transaction.GetValueOut()
+	if !amount.MoneyRange(txFee) {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+	return nil
 }

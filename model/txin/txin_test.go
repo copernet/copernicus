@@ -1,6 +1,7 @@
 package txin
 
 var testTxIn *TxIn
+
 /*
 func TestNewTxIn(t *testing.T) {
 
@@ -69,7 +70,7 @@ func TestTxInSerialize(t *testing.T) {
 	}
 	if !bytes.Equal(txInRead.PreviousOutPoint.Hash[:], testTxIn.PreviousOutPoint.Hash[:]) {
 		t.Errorf("Deserialize() return the preOutputHash data %v "+
-			"should be equal origin txHash data %v", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
+			"should be equal origin GetHash data %v", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
 	}
 
 	err = os.Remove("tmp1.txt")

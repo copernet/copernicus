@@ -5,6 +5,7 @@ import (
 	"sort"
 	"math/big"
 	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/model/chain/global"
 	"gopkg.in/fatih/set.v0"
 	"time"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -23,13 +24,13 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	if !blkdb.GetBlockTreeDBInstance().LoadBlockIndexGuts() {
 		return false
 	}
-
-
-	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(disk.GlobalBlockIndexMap))
-	for _, index := range disk.GlobalBlockIndexMap {
+	
+	chainGlobal := global.GetChainGlobalInstance()
+	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(chainGlobal.GlobalBlockIndexMap))
+	for _, index := range chainGlobal.GlobalBlockIndexMap {
 		sortedByHeight = append(sortedByHeight, index)
 	}
-//sort by decrease
+	//sort by decrease
 	sort.SliceStable(sortedByHeight, func(i, j int) bool {
 		return sortedByHeight[i].Height < sortedByHeight[j].Height
 	})
@@ -55,7 +56,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 					index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
 				} else {
 					index.ChainTxCount = 0
-					disk.GlobalBlocksUnlinkedMap[index.Prev] = index
+					chainGlobal.GlobalBlocksUnlinkedMap[index.Prev] = index
 				}
 			} else {
 				index.ChainTxCount = index.TxCount
@@ -89,21 +90,22 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 
 	// Load block file info
 	var err error
-	disk.GlobalLastBlockFile, err = blkdb.GetBlockTreeDBInstance().ReadLastBlockFile()
+	chainGlobal := global.GetChainGlobalInstance()
+	chainGlobal.GlobalLastBlockFile, err = blkdb.GetBlockTreeDBInstance().ReadLastBlockFile()
 	if err != nil{
 		log.Error("Error: GetLastBlockFile err %#v", err)
 	}
-	logs.Debug("LoadBlockIndexDB(): last block file = %d", disk.GlobalLastBlockFile)
-	for file := 0; file <= disk.GlobalLastBlockFile; file++ {
-		disk.GlobalBlockFileInfoMap[file],err = blkdb.GetBlockTreeDBInstance().ReadBlockFileInfo(file)
+	logs.Debug("LoadBlockIndexDB(): last block file = %d", chainGlobal.GlobalLastBlockFile)
+	for file := 0; file <= chainGlobal.GlobalLastBlockFile; file++ {
+		chainGlobal.GlobalBlockFileInfoMap[file],err = blkdb.GetBlockTreeDBInstance().ReadBlockFileInfo(file)
 	}
 	logs.Debug("LoadBlockIndexDB(): last block file info: %s\n",
-		disk.GlobalBlockFileInfoMap[disk.GlobalLastBlockFile].String())
+		chainGlobal.GlobalBlockFileInfoMap[chainGlobal.GlobalLastBlockFile].String())
 	var bli *block.BlockFileInfo
-	for file := disk.GlobalLastBlockFile + 1; true; file++ {
+	for file := chainGlobal.GlobalLastBlockFile + 1; true; file++ {
 		bli, err = blkdb.GetBlockTreeDBInstance().ReadBlockFileInfo(file)
 		if  bli != nil && err == nil {
-			disk.GlobalBlockFileInfoMap[file] = bli
+			chainGlobal.GlobalBlockFileInfoMap[file] = bli
 		} else {
 			break
 		}
@@ -112,7 +114,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
 	logs.Debug("Checking all blk files are present...")
-	for _, item := range disk.GlobalBlockIndexMap {
+	for _, item := range chainGlobal.GlobalBlockIndexMap {
 		index := item
 		if index.Status&core.BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)
@@ -134,8 +136,8 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	}
 
 	// Check whether we have ever pruned block & undo files
-	GHavePruned = blkdb.GetBlockTreeDBInstance().ReadFlag("prunedblockfiles")
-	if GHavePruned {
+	chainGlobal.GlobalHavePruned = blkdb.GetBlockTreeDBInstance().ReadFlag("prunedblockfiles")
+	if chainGlobal.GlobalHavePruned  {
 		logs.Debug("LoadBlockIndexDB(): Block files have previously been pruned")
 	}
 
@@ -143,19 +145,19 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	reIndexing := false
 	reIndexing = blkdb.GetBlockTreeDBInstance().ReadReindexing()
 	if reIndexing {
-		disk.GlobalReindex = true
+		chainGlobal.GlobalReindex = true
 	}
 
 	// Check whether we have a transaction index
-	disk.GlobalTxIndex = blkdb.GetBlockTreeDBInstance().ReadFlag("txindex")
-	if disk.GlobalTxIndex {
+	chainGlobal.GlobalTxIndex = blkdb.GetBlockTreeDBInstance().ReadFlag("txindex")
+	if chainGlobal.GlobalTxIndex {
 		logs.Debug("LoadBlockIndexDB(): transaction index enabled")
 	} else {
 		logs.Debug("LoadBlockIndexDB(): transaction index disabled")
 	}
 
 	// Load pointer to end of best chain
-	index, ok := disk.GlobalBlockIndexMap[utxo.GetUtxoCacheInstance().GetBestBlock()]
+	index, ok := chainGlobal.GlobalBlockIndexMap[utxo.GetUtxoCacheInstance().GetBestBlock()]
 	if !ok {
 		return true
 	}

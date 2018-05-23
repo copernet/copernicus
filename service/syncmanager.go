@@ -11,6 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"btcd/blockchain"
+	"btcd/chaincfg"
+	"btcd/database"
+	"btcd/mempool"
 	"github.com/btcboost/copernicus/log"
 	lpool "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model"
@@ -421,7 +425,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	// spec to proliferate.  While this is not ideal, there is no check here
 	// to disconnect peers for sending unsolicited transactions to provide
 	// interoperability.
-	txHash := tmsg.tx.Hash
+	txHash := tmsg.tx.GetHash()
 
 	// Ignore transactions that we have already rejected.  Do not
 	// send a reject message here because if the transaction was already

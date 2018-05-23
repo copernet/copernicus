@@ -2,10 +2,10 @@ package utxo
 
 import (
 	"bytes"
-	"io"
-	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/persist/db"
+	"github.com/btcboost/copernicus/util"
+	"io"
 )
 
 type CoinKey struct {
@@ -22,7 +22,7 @@ func (coinKey *CoinKey) Serialize(writer io.Writer) error {
 
 }
 
-func (coinKey *CoinKey)Unserialize(reader io.Reader) error {
+func (coinKey *CoinKey) Unserialize(reader io.Reader) error {
 	coinKey.outpoint.Hash = util.Hash{}
 	keys := make([]byte, 1)
 	_, err := io.ReadFull(reader, keys)

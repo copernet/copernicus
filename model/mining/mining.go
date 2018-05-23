@@ -117,7 +117,7 @@ func (ba *BlockAssembler) addToBlock(te *mempool.TxEntry) {
 	ba.blockTx++
 	ba.blockSigOps += uint64(te.SigOpCount)
 	ba.fees += amount.Amount(te.TxFee)
-	ba.inBlock[te.Tx.Hash] = struct{}{}
+	ba.inBlock[te.Tx.GetHash()] = struct{}{}
 }
 
 func computeMaxGeneratedBlockSize() uint64 {
@@ -174,11 +174,11 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			txSet.DeleteMax()
 		}
 		// if inBlock has the item, continue next loop
-		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
+		if _, ok := ba.inBlock[entry.Tx.GetHash()]; ok {
 			continue
 		}
 		// if the item has failed in packing into the block, continue next loop
-		if _, ok := failedTx[entry.Tx.Hash]; ok {
+		if _, ok := failedTx[entry.Tx.GetHash()]; ok {
 			continue
 		}
 
@@ -215,7 +215,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			continue
 		}
 		// add the ancestors of the current item to block
-		ancestors := pool.CalculateMemPoolAncestors(&entry.Tx.Hash)
+		ancestors := pool.CalculateMemPoolAncestors(&entry.Tx.GetHash())
 		ba.onlyUnconfirmed(ancestors)
 		ancestors[&entry] = struct{}{} // add current item
 		if !ba.testPackageTransactions(ancestors) {
@@ -227,7 +227,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		addset := make(map[util.Hash]mempool.TxEntry)
 		for add := range ancestors {
 			ba.addToBlock(add)
-			addset[add.Tx.Hash] = *add
+			addset[add.Tx.GetHash()] = *add
 		}
 
 		descendantsUpdated += ba.updatePackagesForAdded(txSet, ancestors)
@@ -325,7 +325,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}) {
 	for entry := range entrySet {
-		if _, ok := ba.inBlock[entry.Tx.Hash]; ok {
+		if _, ok := ba.inBlock[entry.Tx.GetHash()]; ok {
 			delete(entrySet, entry)
 		}
 	}
@@ -357,7 +357,7 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	mpool.Lock()
 	defer mpool.Unlock()
 	for entry := range alreadyAdded {
-		descendants := mpool.CalculateDescendants(&entry.Tx.Hash)
+		descendants := mpool.CalculateDescendants(&entry.Tx.GetHash())
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {

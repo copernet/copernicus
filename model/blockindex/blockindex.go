@@ -37,7 +37,7 @@ type BlockIndex struct {
 	// pointer to the index of some further predecessor of this block
 	Skip *BlockIndex
 	// height of the entry in the chain. The genesis block has height 0；
-	Height int
+	Height int32
 	// Which # file this block is stored in (blk?????.dat)
 	File int
 	// Byte offset within blk?????.dat where this block's data is stored

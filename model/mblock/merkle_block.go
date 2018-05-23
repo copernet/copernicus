@@ -28,7 +28,7 @@ func NewMerkleBlock(bk *block.Block, txids *set.Set) *MerkleBlock {
 	hashes := make([]util.Hash, 0, len(bk.Txs))
 
 	for _, transaction := range bk.Txs {
-		txid := transaction.TxHash()
+		txid := transaction.GetHash()
 		if txids.Has(txid) {
 			match = append(match, true)
 		} else {
