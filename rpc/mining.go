@@ -414,7 +414,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 
 	indexPrev := chain.GlobalChain.Tip()
 	// TestBlockValidity only supports blocks built on the current Tip
-	if bk.Header.HashPrevBlock != indexPrev.BlockHash {
+	if bk.Header.HashPrevBlock != *indexPrev.GetBlockHash() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrUnDefined,
 			Message: "inconclusive-not-best-prevblk",

@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/btcboost/copernicus/rpc/btcjson"
-
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -316,13 +315,13 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 
 	var previousblockhash string
 	if blockIndex.Prev != nil {
-		previousblockhash = blockIndex.Prev.BlockHash.String()
+		previousblockhash = blockIndex.Prev.GetBlockHash().String()
 	}
 
 	var nextblockhash string
 	next := chain.GlobalChain.Next(blockIndex)
 	if next != nil {
-		nextblockhash = next.BlockHash.String()
+		nextblockhash = next.GetBlockHash().String()
 	}
 
 	blockHeaderReply := btcjson.GetBlockHeaderVerboseResult{
