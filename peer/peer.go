@@ -18,13 +18,13 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/bitcoinutil"
 	"github.com/btcsuite/go-socks/socks"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
