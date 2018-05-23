@@ -4,12 +4,11 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
+	"io"
 )
-
 
 /*const (
 	MaxTxInSequenceNum uint32 = 0xffffffff
@@ -64,6 +63,18 @@ func (txIn *TxIn) Serialize(writer io.Writer) error {
 	return err
 }
 
+func (txIn *TxIn) EncodeSize() int {
+	return 0
+}
+
+func (txIn *TxIn) Encode(writer io.Writer) error {
+	return nil
+}
+
+func (txIn *TxIn) Decode(writer io.Writer) error {
+	return nil
+}
+
 func (txIn *TxIn) GetScriptSig() *script.Script {
 	return txIn.scriptSig
 }
@@ -80,6 +91,7 @@ func (txIn *TxIn) String() string {
 	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.scriptSig.GetData()), txIn.Sequence)
 
 }
+
 /*
 func (txIn *TxIn) Check() bool {
 	return true

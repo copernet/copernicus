@@ -1,8 +1,9 @@
 package service
 
 import (
-	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/block"
+	lchain "github.com/btcboost/copernicus/logic/chain"
+	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/chain"
 )
 
@@ -25,7 +26,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 		return isNewBlock, err
 	}
 
-	bIndex, err = gChain.AcceptBlock(b)
+	bIndex,err = lchain.AcceptBlock(b)
 	if err != nil {
 		return isNewBlock, err
 	}

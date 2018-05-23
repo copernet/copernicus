@@ -13,14 +13,14 @@ import (
 
 type Coin struct {
 	txOut         txout.TxOut
-	height        uint32
+	height        int32
 	isCoinBase    bool
 	dirty         bool //是否修改过
 	fresh         bool //是否是新增
 	isMempoolCoin bool
 }
 
-func (coin *Coin) GetHeight() uint32 {
+func (coin *Coin) GetHeight() int32 {
 	return coin.height
 }
 
@@ -34,12 +34,10 @@ func (coin *Coin) IsMempoolCoin() bool {
 
 //coinbase检查高度，锁定时间？
 func (coin *Coin) IsSpendable() bool {
-	fmt.Printf("isspend=======%#v", coin)
 	return coin.txOut.IsNull()
 }
 
 func (coin *Coin) IsSpent() bool {
-	fmt.Printf("isspend=======%#v", coin)
 	return coin.txOut.IsNull()
 }
 
@@ -75,7 +73,7 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
 		return errors.New("already spent")
 	}
-	var bit uint32
+	var bit int32
 	if coin.isCoinBase {
 		bit = 1
 	}
@@ -93,17 +91,18 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	heightAndIsCoinBase := uint32(hicb)
+	heightAndIsCoinBase := int32(hicb)
 	coin.height = heightAndIsCoinBase >> 1
 	if (heightAndIsCoinBase & 1) == 1 {
 		coin.isCoinBase = true
 	}
+	fmt.Println("coin.Unserialize=====", err, coin.height, coin.isCoinBase)
 	err = coin.txOut.Unserialize(r)
 	return err
 }
 
 //new an confirmed coin
-func NewCoin(out *txout.TxOut, height uint32, isCoinBase bool) *Coin {
+func NewCoin(out *txout.TxOut, height int32, isCoinBase bool) *Coin {
 
 	return &Coin{
 		txOut:      *out,

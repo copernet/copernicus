@@ -40,7 +40,7 @@ func NewMsgCmpctBlock(block *MsgBlock) *MsgCmpctBlock {
 	prefilledTxn[0].Index = 0
 	prefilledTxn[0].Tx = (*MsgTx)(block.Txs[0])
 	for i := 1; i < len(block.Txs); i++ {
-		txhash := block.Txs[i].TxHash()
+		txhash := block.Txs[i].GetHash()
 		shortids[i-1] = getShortID(id0, id1, &txhash)
 	}
 	return &MsgCmpctBlock{

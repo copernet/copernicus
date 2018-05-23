@@ -108,7 +108,7 @@ func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int,
 func (t *TxEntry) Less(than btree.Item) bool {
 	th := than.(*TxEntry)
 	if t.time == th.time {
-		return t.Tx.Hash.Cmp(&th.Tx.Hash) > 0
+		return t.Tx.GetHash().Cmp(&th.Tx.GetHash()) > 0
 	}
 	return t.time < th.time
 }
@@ -165,7 +165,7 @@ type EntryFeeSort TxEntry
 func (e EntryFeeSort) Less(than btree.Item) bool {
 	t := than.(EntryFeeSort)
 	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
-		return e.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+		return e.Tx.GetHash().Cmp(&t.Tx.GetHash()) > 0
 	}
 	return e.SumFeeWithAncestors > than.(EntryFeeSort).SumFeeWithAncestors
 }
@@ -177,7 +177,7 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
 	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
-		return r.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+		return r.Tx.GetHash().Cmp(&t.Tx.GetHash()) > 0
 	}
 	return b1 > b2
 }

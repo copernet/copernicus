@@ -478,7 +478,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
-			msg.TxHash(), sp)
+			msg.GetHash(), sp)
 		return
 	}
 
@@ -486,7 +486,7 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	// Convert the raw MsgTx to a btcutil.Tx which provides some convenience
 	// methods and things such as hash caching.
 	tx := tx.NewTx(msg)
-	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
+	iv := wire.NewInvVect(wire.InvTypeTx, tx.GetHash()())
 	sp.AddKnownInventory(iv)
 
 	// Queue the transaction up to be handled by the sync manager and
@@ -1012,7 +1012,7 @@ func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 // passed transactions to all connected peers.
 func (s *server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
-		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.Hash)
+		iv := wire.NewInvVect(wire.InvTypeTx, txD.Tx.GetHash())
 		s.RelayInventory(iv, txD)
 	}
 }
@@ -1041,7 +1041,7 @@ func (s *server) TransactionConfirmed(tx *btcutil.Tx) {
 		return
 	}
 
-	iv := wire.NewInvVect(wire.InvTypeTx, tx.Hash())
+	iv := wire.NewInvVect(wire.InvTypeTx, tx.GetHash()())
 	s.RemoveRebroadcastInventory(iv)
 }
 
@@ -1713,14 +1713,10 @@ func (s *server) peerHandler() {
 
 	if !conf.Cfg.P2PNet.DisableDNSSeed {
 		// Add peers discovered through DNS to the address manager.
-		connmgr.SeedFromDNS(activeNetParams.Params, defaultRequiredServices,
+		connmgr.SeedFromDNS(chain.ActiveNetParams.Params, defaultRequiredServices,
 			net.LookupIP, func(addrs []*wire.NetAddress) {
-				// Bitcoind uses a lookup of the dns seeder here. This
-				// is rather strange since the values looked up by the
-				// DNS seed lookups will vary quite a lot.
-				// to replicate this behaviour we put all addresses as
-				// having come from the first one.
 				s.addrManager.AddAddresses(addrs, addrs[0])
+				return nil, nil
 			})
 	}
 	go s.connManager.Start()

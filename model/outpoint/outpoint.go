@@ -3,9 +3,9 @@ package outpoint
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/btcboost/copernicus/util"
 	"io"
 	"strconv"
-	"github.com/btcboost/copernicus/util"
 )
 
 type OutPoint struct {
@@ -32,6 +32,10 @@ func NewOutPoint() *OutPoint {
 }
 */
 
+func (outPoint *OutPoint) SerializeSize() int {
+	return 0
+}
+
 func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
 	// Allocate enough for hash string, colon, and 10 digits.  Although
 	// at the time of writing, the number of digits can be no greater than
@@ -39,7 +43,7 @@ func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
 	// maximum message payload may increase in the future and this
 	// optimization may go unnoticed, so allocate space for 10 decimal
 	// digits, which will fit any uint32.
-	buf := make([]byte, 2 * util.Hash256Size + 1, 2 * util.Hash256Size + 1 + 10)
+	buf := make([]byte, 2*util.Hash256Size+1, 2*util.Hash256Size+1+10)
 	copy(buf, outPoint.Hash.String())
 	buf[2*util.Hash256Size] = ':'
 	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
@@ -50,6 +54,14 @@ func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	return nil
 }
 
+func (outPoint *OutPoint) Encode(writer io.Writer) error {
+	_, err := writer.Write(outPoint.Hash.GetCloneBytes())
+	if err != nil {
+		return err
+	}
+	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
+}
+
 func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
 	_, err = io.ReadFull(reader, outPoint.Hash[:])
 	if err != nil {
@@ -57,14 +69,6 @@ func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
 	}
 	outPoint.Index, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
 	return
-}
-
-func (outPoint *OutPoint) Encode(writer io.Writer) error {
-	_, err := writer.Write(outPoint.Hash.GetCloneBytes())
-	if err != nil {
-		return err
-	}
-	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
 }
 
 func (outPoint *OutPoint) String() string {

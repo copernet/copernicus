@@ -11,8 +11,13 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 )
 
+const (
+	MissParentCode = iota
+	CorruptionCode
+)
+
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
+func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error{
 
 	//first : check transaction context And itself.
 	if err := ltx.CheckRegularTransaction(tx, true); err != nil {
@@ -60,7 +65,8 @@ func ProcessOrphan(tx *tx.Tx) []*tx.Tx {
 
 	// first collect this tx all outPoint.
 	for i := 0; i < tx.GetOutsCount(); i++ {
-		o := outpoint.OutPoint{Hash: tx.Hash, Index: uint32(i)}
+
+		o := outpoint.OutPoint{Hash: tx.GetHash(), Index: uint32(i)}
 		vWorkQueue = append(vWorkQueue, o)
 	}
 
@@ -83,17 +89,17 @@ func ProcessOrphan(tx *tx.Tx) []*tx.Tx {
 				if err2 == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
-						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.Hash, Index: uint32(i)}
+						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.GetHash(), Index: uint32(i)}
 						vWorkQueue = append(vWorkQueue, o)
 					}
-					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, false)
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), false)
 					break
 				}
 
 				if !errcode.IsErrorCode(err2, errcode.TxErrNoPreviousOut) {
-					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.Hash, true)
+					mempool.Gpool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), true)
 					if errcode.IsErrorCode(err2, errcode.RejectTx) {
-						mempool.Gpool.RecentRejects[iOrphanTx.Tx.Hash] = struct{}{}
+						mempool.Gpool.RecentRejects[iOrphanTx.Tx.GetHash()] = struct{}{}
 					}
 					break
 				}
@@ -105,7 +111,7 @@ func ProcessOrphan(tx *tx.Tx) []*tx.Tx {
 }
 
 func ProcessTransaction(tx *tx.Tx, nodeID int64) ([]*tx.Tx, error) {
-	if _, ok := mempool.Gpool.RecentRejects[tx.Hash]; ok {
+	if _, ok := mempool.Gpool.RecentRejects[tx.GetHash()]; ok {
 		return nil, errcode.New(errcode.RejectTx)
 	}
 
@@ -148,7 +154,7 @@ func ProcessTransaction(tx *tx.Tx, nodeID int64) ([]*tx.Tx, error) {
 			log.Debug("")
 		}
 	} else {
-		mempool.Gpool.RecentRejects[tx.Hash] = struct{}{}
+		mempool.Gpool.RecentRejects[tx.GetHash()] = struct{}{}
 	}
 
 	return nil, err
