@@ -151,6 +151,7 @@ var MainNetParams = BitcoinParams{
 	BlockRejectNumRequired:  950,
 	BlockUpgradeNumToCheck:  1000,
 
+	RequireStandard:     true,
 	RelayNonStdTxs:      false,
 	PubKeyHashAddressID: 0x00, // starts with 1
 	ScriptHashAddressID: 0x05, // starts with 3

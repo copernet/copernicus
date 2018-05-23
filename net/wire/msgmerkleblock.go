@@ -8,21 +8,23 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/util"
 )
+
+const maxFlagsPerMerkleBlock = maxTxPerBlock / 8
 
 // maxFlagsPerMerkleBlock is the maximum number of flag bytes that could
 // possibly fit into a merkle block.  Since each transaction is represented by
 // a single bit, this is the max number of transactions per block divided by
 // 8 bits per byte.  Then an extra one to cover partials.
-const maxFlagsPerMerkleBlock = maxTxPerBlock / 8
 
 // MsgMerkleBlock implements the Message interface and represents a bitcoin
 // merkleblock message which is used to reset a Bloom filter.
 //
 // This message was not added until protocol version BIP0037Version.
 type MsgMerkleBlock struct {
-	Header       BlockHeader
+	Header       block.BlockHeader
 	Transactions uint32
 	Hashes       []*util.Hash
 	Flags        []byte
@@ -49,7 +51,7 @@ func (msg *MsgMerkleBlock) Decode(r io.Reader, pver uint32, enc MessageEncoding)
 		return messageError("MsgMerkleBlock.Decode", str)
 	}
 
-	err := readBlockHeader(r, pver, &msg.Header)
+	err := msg.Header.Unserialize(r)
 	if err != nil {
 		return err
 	}
@@ -111,7 +113,7 @@ func (msg *MsgMerkleBlock) Encode(w io.Writer, pver uint32, enc MessageEncoding)
 		return messageError("MsgMerkleBlock.Decode", str)
 	}
 
-	err := writeBlockHeader(w, pver, &msg.Header)
+	err := msg.Header.Serialize(w)
 	if err != nil {
 		return err
 	}
@@ -149,7 +151,7 @@ func (msg *MsgMerkleBlock) MaxPayloadLength(pver uint32) uint32 {
 
 // NewMsgMerkleBlock returns a new bitcoin merkleblock message that conforms to
 // the Message interface.  See MsgMerkleBlock for details.
-func NewMsgMerkleBlock(bh *BlockHeader) *MsgMerkleBlock {
+func NewMsgMerkleBlock(bh *block.BlockHeader) *MsgMerkleBlock {
 	return &MsgMerkleBlock{
 		Header:       *bh,
 		Transactions: 0,

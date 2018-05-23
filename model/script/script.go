@@ -7,6 +7,7 @@ import (
 	"io"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/errcode"
 )
 const (
 	MaxMessagePayload = 32*1024*1024
@@ -378,33 +379,25 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 func (script *Script) ExtractDestinations() (sType int, address [][]byte, sigCountRequired int, err error) {
 	return
 }
-/*
+
 func (script *Script) IsCommitment(data []byte) bool {
-	if len(data) > 64 || script.Size() != len(data)+2 {
+	if len(data) > 64 || script.Size() != len(data) + 2 {
 		return false
 	}
 
-<<<<<<< HEAD
-	if script.data[0] != OP_RETURN || int(script.data[1]) != len(data) {
-=======
-	if script.byteCodes[0] != OP_RETURN || int(script.byteCodes[1]) != len(data) {
->>>>>>> c094fa5c6f05ba4ae9dab8c6668ccf09996efbc7
+	if script.data[0] != opcodes.OP_RETURN || int(script.data[1]) != len(data) {
 		return false
 	}
 
 	for i := 0; i < len(data); i++ {
-<<<<<<< HEAD
-		if script.data[i+2] != data[i] {
-=======
-		if script.byteCodes[i+2] != data[i] {
->>>>>>> c094fa5c6f05ba4ae9dab8c6668ccf09996efbc7
+		if script.data[i + 2] != data[i] {
 			return false
 		}
 	}
 
 	return true
 }
-*/
+
 
 func BytesToBool(bytes []byte) bool {
 	bytesLen := len(bytes)
@@ -422,10 +415,10 @@ func BytesToBool(bytes []byte) bool {
 	return false
 }
 
-func (script *Script) CheckScriptPubKey() (succeed bool, pubKeyType int) {
+func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, err error) {
 	//p2sh scriptPubKey
 	if script.IsPayToScriptHash() {
-		return true, ScriptHash
+		return ScriptHash, nil
 	}
 	// Provably prunable, data-carrying output
 	//
@@ -434,7 +427,7 @@ func (script *Script) CheckScriptPubKey() (succeed bool, pubKeyType int) {
 	// script.
 	len := len(script.ParsedOpCodes)
 	if len == 0 {
-		return false, ScriptNonStandard
+		return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 	}
 	parsedOpCode0 := script.ParsedOpCodes[0]
 	opValue0 := parsedOpCode0.OpValue
@@ -442,27 +435,27 @@ func (script *Script) CheckScriptPubKey() (succeed bool, pubKeyType int) {
 	// OP_RETURN
 	if len == 1 {
 		if parsedOpCode0.OpValue == opcodes.OP_RETURN {
-			return true, ScriptNullData
+			return ScriptNullData, nil
 		}
-		return false, ScriptNonStandard
+		return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 	}
 
 	// OP_RETURN and DATA
 	if parsedOpCode0.OpValue == opcodes.OP_RETURN {
 		tempScript := NewScriptOps(script.ParsedOpCodes[1:])
 		if tempScript.IsPushOnly() {
-			return true, ScriptNullData
+			return ScriptNullData, nil
 		}
-		return false, ScriptNonStandard
+		return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 	}
 
 	//PUBKEY OP_CHECKSIG
 	if len == 2 {
 		if opValue0 > opcodes.OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
 			parsedOpCode0.Length > 65 || script.ParsedOpCodes[1].OpValue != opcodes.OP_CHECKSIG {
-			return false, ScriptNonStandard
+			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		return true, ScriptPubkey
+		return ScriptPubkey, nil
 	}
 
 	//OP_DUP OP_HASH160 OP_PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
@@ -472,9 +465,9 @@ func (script *Script) CheckScriptPubKey() (succeed bool, pubKeyType int) {
 			script.ParsedOpCodes[2].Length != 20 ||
 			script.ParsedOpCodes[3].OpValue != opcodes.OP_EQUALVERIFY ||
 			script.ParsedOpCodes[4].OpValue != opcodes.OP_CHECKSIG {
-			return false, ScriptNonStandard
+			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		return true, ScriptPubkeyHash
+		return ScriptPubkeyHash, nil
 	}
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
@@ -491,32 +484,31 @@ func (script *Script) CheckScriptPubKey() (succeed bool, pubKeyType int) {
 			opN, _ := DecodeOPN(opValueI)
 			// Support up to x-of-3 multisig txns as standard
 			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
-				return false, ScriptNonStandard
+				return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 			}
 			i++
 		} else {
-			return false, ScriptNonStandard
+			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		if script.ParsedOpCodes[i].OpValue != opcodes.OP_CHECKMULTISIG {
-			return false, ScriptNonStandard
+			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		return true, ScriptMultiSig
+		return ScriptMultiSig, nil
 	}
 
-	return false, ScriptNonStandard
+	return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
 }
 
-func (script *Script) CheckScriptSig() bool{
+func (script *Script) CheckScriptSigStandard() error{
 	if script.Size() > 1650 {
-		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-size", false, "")
-		return false
+		return errcode.New(errcode.ScriptErrSize)
 	}
 	if !script.IsPushOnly() {
 		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-not-pushonly", false, "")
-		return false
+		return errcode.New(errcode.ScriptErrScriptSigNotPushOnly)
 	}
 
-	return true
+	return nil
 }
 
 func (script *Script) IsPayToScriptHash() bool {

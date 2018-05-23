@@ -3,12 +3,11 @@ package utxo
 import (
 	"bytes"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/persist/db"
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/outpoint"
-
+	"github.com/btcboost/copernicus/persist/db"
+	"github.com/btcboost/copernicus/util"
 )
 
 type CoinsDB struct {
@@ -24,7 +23,7 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 	}
 
 	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
-	if err != nil{
+	if err != nil {
 
 		return nil, err
 	}
@@ -44,14 +43,13 @@ func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 	return coinsViewDB.dbw.Exists(buf.Bytes())
 }
 
-
 func (coinsViewDB *CoinsDB) GetBestBlock() (*util.Hash, error) {
 	v, err := coinsViewDB.dbw.Read([]byte{db.DbBestBlock})
 	if err != nil {
 		return nil, err
 	}
 	hashBlock := new(util.Hash)
-	if v == nil{
+	if v == nil {
 		return hashBlock, nil
 	}
 	_, err = hashBlock.Unserialize(bytes.NewBuffer(v))

@@ -1,55 +1,54 @@
 package utxo
 
 import (
-	"unsafe"
 	"fmt"
 	"github.com/btcboost/copernicus/log"
+	"unsafe"
 
-	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/util"
 
 	"github.com/btcboost/copernicus/persist/db"
 )
-var utxoTip CacheView
 
+var utxoTip CacheView
 
 type UtxoConfig struct {
 	do *db.DBOption
 }
 
-func InitUtxoTip(uc *UtxoConfig){
-	fmt.Printf("initUtxo processing ....%v",uc)
+func InitUtxoTip(uc *UtxoConfig) {
+	fmt.Printf("initUtxo processing ....%v", uc)
 
 	db := NewCoinsDB(uc.do)
 	utxoTip = NewCoinCache(*db)
 
 }
 
-
-func GetUtxoCacheInstance() CacheView{
-	if utxoTip == nil{
+func GetUtxoCacheInstance() CacheView {
+	if utxoLruTip == nil {
 		log.Error("utxoTip has not init!!")
 	}
 	return utxoLruTip
 }
 
 type CacheView interface {
-	GetCoin(outpoint *outpoint.OutPoint) (*Coin)
+	GetCoin(outpoint *outpoint.OutPoint) *Coin
 	HaveCoin(point *outpoint.OutPoint) bool
 	GetBestBlock() util.Hash
 	SetBestBlock(hash util.Hash)
 	UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error
+	DynamicMemoryUsage() int64
+	GetCacheSize() int
 	Flush() bool
 }
 
 type CoinsCache struct {
 	db               CoinsDB
 	hashBlock        util.Hash
-	cacheCoins        CoinsMap
+	cacheCoins       CoinsMap
 	cachedCoinsUsage int64
-
 }
-
 
 func NewCoinCache(view CoinsDB) CacheView {
 	c := new(CoinsCache)
@@ -59,8 +58,7 @@ func NewCoinCache(view CoinsDB) CacheView {
 	return c
 }
 
-
-func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
+func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	coin, ok := coinsCache.cacheCoins[*outpoint]
 	if ok {
 		return coin
@@ -68,13 +66,14 @@ func (coinsCache *CoinsCache) GetCoin(outpoint *outpoint.OutPoint) (*Coin) {
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
 
-	if err != nil{
+	if err != nil {
 		log.Error("Error:  CoinsCache.GetCoin err: %#v ", err)
 		panic("GetCoin error")
 	}
-	if coin == nil{
+	if coin == nil {
 		return nil
 	}
+	log.Debug("db.getcoin======%#v", coin)
 	coinsCache.cacheCoins[*outpoint] = coin
 	if coin.IsSpent() {
 		// The parent only has an empty entry for this outpoint; we can consider
@@ -90,11 +89,10 @@ func (coinsCache *CoinsCache) HaveCoin(point *outpoint.OutPoint) bool {
 	return coin != nil && !coin.IsSpent()
 }
 
-
 func (coinsCache *CoinsCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
-		if err != nil{
+		if err != nil {
 			log.Error("db.GetBestBlock err:%#v", err)
 			panic("db.GetBestBlock read err")
 		}
@@ -114,13 +112,17 @@ func (coinsCache *CoinsCache) EstimateSize() uint64 {
 func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error {
 	for point, tempCacheCoin := range *tempCacheCoins {
 		// Ignore non-dirty entries (optimization).
-		if tempCacheCoin.dirty{
+		if tempCacheCoin.isMempoolCoin {
+			log.Error("MempoolCoin  save to DB!!!  %#v", tempCacheCoin)
+			panic("MempoolCoin  save to DB!!!")
+		}
+		if tempCacheCoin.dirty {
 			globalCacheCoin, ok := coinsCache.cacheCoins[point]
 			if !ok {
 				if !(tempCacheCoin.fresh && tempCacheCoin.IsSpent()) {
 					tempCacheCoin.dirty = true
 					coinsCache.cacheCoins[point] = tempCacheCoin
-					coinsCache.cachedCoinsUsage +=  tempCacheCoin.DynamicMemoryUsage()
+					coinsCache.cachedCoinsUsage += tempCacheCoin.DynamicMemoryUsage()
 					if tempCacheCoin.fresh {
 						tempCacheCoin.fresh = true
 					}
@@ -140,7 +142,7 @@ func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.H
 					coinsCache.cachedCoinsUsage -= globalCacheCoin.DynamicMemoryUsage()
 					globalCacheCoin = tempCacheCoin
 					coinsCache.cachedCoinsUsage += globalCacheCoin.DynamicMemoryUsage()
-					globalCacheCoin.dirty =  true
+					globalCacheCoin.dirty = true
 				}
 			}
 		}
@@ -152,12 +154,13 @@ func (coinsCache *CoinsCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.H
 
 func (coinsCache *CoinsCache) Flush() bool {
 	println("flush=============")
-	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v",coinsCache.cacheCoins,coinsCache.hashBlock)
+	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
 	ok := coinsCache.db.BatchWrite(&coinsCache.cacheCoins, coinsCache.hashBlock)
 	//coinsCache.cacheCoins = make(CacheCoins)
 	coinsCache.cachedCoinsUsage = 0
 	return ok == nil
 }
+
 //
 //func (coinsCache *CoinsCache) AddCoin(point *outpoint.OutPoint, coin Coin, possibleOverwrite bool) {
 //	if coin.IsSpent() {
@@ -210,7 +213,7 @@ func (coinsCache *CoinsCache) Flush() bool {
 
 func (coinsCache *CoinsCache) UnCache(point *outpoint.OutPoint) {
 	coin, ok := coinsCache.cacheCoins[*point]
-	if ok && !coin.dirty && !coin.fresh{
+	if ok && !coin.dirty && !coin.fresh {
 		coinsCache.cachedCoinsUsage -= coin.DynamicMemoryUsage()
 		delete(coinsCache.cacheCoins, *point)
 	}
@@ -223,6 +226,7 @@ func (coinsCache *CoinsCache) GetCacheSize() int {
 func (coinsCache *CoinsCache) DynamicMemoryUsage() int64 {
 	return int64(unsafe.Sizeof(coinsCache.cacheCoins))
 }
+
 //
 //func (coinsCache *CoinsCache) GetOutputFor(tx *txin.TxIn) *txout.TxOut {
 //	point := outpoint.OutPoint{
@@ -281,4 +285,3 @@ func (coinsCache *CoinsCache) DynamicMemoryUsage() int64 {
 //	}
 //	return tx.ComputePriority(result, 0)
 //}
-

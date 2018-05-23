@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
+	"github.com/copernicus/conf"
 )
 
 const (
@@ -47,11 +47,12 @@ func Print(module string, level string, format string, reason ...interface{}) {
 }
 
 func isIncludeModule(module string) bool {
-	module = strings.ToLower(module)
-	_, ok := mapModule[module]
-	if ok {
-		return true
-	}
+
+	//for _, item := range conf.AppConf.LogModule {
+	//	if item == module {
+	//		return true
+	//	}
+	//}
 	return false
 }
 

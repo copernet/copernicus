@@ -68,8 +68,8 @@ func (txIn *TxIn) GetScriptSig() *script.Script {
 	return txIn.scriptSig
 }
 
-func (txIn *TxIn) CheckScript() bool {
-	return txIn.scriptSig.CheckScriptSig()
+func (txIn *TxIn) CheckStandard() error {
+	return txIn.scriptSig.CheckScriptSigStandard()
 }
 
 func (txIn *TxIn) String() string {
