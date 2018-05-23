@@ -189,12 +189,12 @@ func (bIndex *BlockIndex) BuildSkip() {
 }
 
 // Turn the lowest '1' bit in the binary representation of a number into a '0'.
-func invertLowestOne(n int) int {
+func invertLowestOne(n int32) int32 {
 	return n & (n - 1)
 }
 
 // getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
-func getSkipHeight(height int) int {
+func getSkipHeight(height int32) int32 {
 	if height < 2 {
 		return 0
 	}
@@ -209,7 +209,7 @@ func getSkipHeight(height int) int {
 }
 
 // GetAncestor efficiently find an ancestor of this block.
-func (bIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
+func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 	if height > bIndex.Height || height < 0 {
 		return nil
 	}

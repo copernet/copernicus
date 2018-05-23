@@ -2,7 +2,6 @@ package chain
 
 import (
 	"github.com/btcboost/copernicus/errcode"
-	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"

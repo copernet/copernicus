@@ -59,7 +59,7 @@ func (c *Chain) Tip() *blockindex.BlockIndex {
 	return nil
 }
 
-func (c *Chain) TipHeight() int {
+func (c *Chain) TipHeight() int32 {
 	if len(c.active) > 0 {
 		return c.active[len(c.active)-1].Height
 	}
@@ -89,8 +89,8 @@ func (c *Chain) GetScriptFlags() uint32 {
 
 // GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
-func (c *Chain) GetIndex(height int) *blockindex.BlockIndex {
-	if height < 0 || height >= len(c.active) {
+func (c *Chain) GetIndex(height int32) *blockindex.BlockIndex {
+	if height < 0 || height >= int32(len(c.active)) {
 		return nil
 	}
 
@@ -119,8 +119,8 @@ func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
 
 // Height Return the maximal height in the chain. Is equal to chain.Tip() ?
 // chain.Tip()->nHeight : -1.
-func (c *Chain) Height() int {
-	return len(c.active) - 1
+func (c *Chain) Height() int32 {
+	return int32(len(c.active) - 1)
 }
 
 // SetTip Set/initialize a chain with a given tip.
@@ -146,7 +146,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 
 
-func (c *Chain) GetAncestor(height int) *blockindex.BlockIndex{
+func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex{
 	// todo
 	return nil
 }
@@ -163,7 +163,7 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator{
 		if index.Height == 0{
 			break
 		}
-		height := index.Height - step
+		height := index.Height - int32(step)
 		if height < 0{
 			height = 0
 		}
@@ -227,6 +227,6 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	return nil
 }
 
-func (c *Chain) GetActiveHeight(hash *util.Hash) (error,int) {
-	return nil,0
+func (c *Chain) GetActiveHeight(hash *util.Hash) (int,error) {
+	return 0,nil
 }
