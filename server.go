@@ -1387,19 +1387,19 @@ func (s *server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 
 			// Don't relay the transaction if the transaction fee-per-kb
 			// is less than the peer's feefilter.
-			//todo: not support
 			feeFilter := atomic.LoadInt64(&sp.feeFilter)
-			if feeFilter > 0 && txD.FeePerKB < feeFilter {
+			feePerKB := util.NewFeeRateWithSize(txD.TxFee, int64(txD.TxSize))
+			if feeFilter > 0 && feePerKB.SataoshisPerK < feeFilter {
 				return
 			}
 
 			// Don't relay the transaction if there is a bloom
 			// filter loaded and the transaction doesn't match it.
-			if sp.filter.IsLoaded() {
-				if !sp.filter.MatchTxAndUpdate(txD.Tx) {
-					return
-				}
-			}
+			//if sp.filter.IsLoaded() {
+			//	if !sp.filter.MatchTxAndUpdate(txD.Tx) {
+			//		return
+			//	}
+			//}
 		}
 
 		// Queue the inventory to be relayed with the next batch.
@@ -1508,7 +1508,7 @@ func (s *server) handleQuery(state *peerState, querymsg interface{}) {
 		}
 
 		// TODO: if too many, nuke a non-perm peer. fix yongxin
-		go s.connManager.Connect(ctx, &connmgr.ConnReq{
+		go s.connManager.Connect(context.TODO(), &connmgr.ConnReq{
 			Addr:      netAddr,
 			Permanent: msg.permanent,
 		})
@@ -1600,23 +1600,23 @@ func disconnectPeer(peerList map[int32]*serverPeer, compareFunc func(*serverPeer
 func newPeerConfig(sp *serverPeer) *peer.Config {
 	return &peer.Config{
 		Listeners: peer.MessageListeners{
-			OnVersion:     sp.OnVersion,
-			OnMemPool:     sp.OnMemPool,
-			OnTx:          sp.OnTx,
-			OnBlock:       sp.OnBlock,
-			OnInv:         sp.OnInv,
-			OnHeaders:     sp.OnHeaders,
-			OnGetData:     sp.OnGetData,
-			OnGetBlocks:   sp.OnGetBlocks,
-			OnGetHeaders:  sp.OnGetHeaders,
-			OnFeeFilter:   sp.OnFeeFilter,
+			OnVersion:    sp.OnVersion,
+			OnMemPool:    sp.OnMemPool,
+			OnTx:         sp.OnTx,
+			OnBlock:      sp.OnBlock,
+			OnInv:        sp.OnInv,
+			OnHeaders:    sp.OnHeaders,
+			OnGetData:    sp.OnGetData,
+			OnGetBlocks:  sp.OnGetBlocks,
+			OnGetHeaders: sp.OnGetHeaders,
+			OnFeeFilter:  sp.OnFeeFilter,
 			//OnFilterAdd:   sp.OnFilterAdd,
 			//OnFilterClear: sp.OnFilterClear,
 			//OnFilterLoad:  sp.OnFilterLoad,
-			OnGetAddr:     sp.OnGetAddr,
-			OnAddr:        sp.OnAddr,
-			OnRead:        sp.OnRead,
-			OnWrite:       sp.OnWrite,
+			OnGetAddr: sp.OnGetAddr,
+			OnAddr:    sp.OnAddr,
+			OnRead:    sp.OnRead,
+			OnWrite:   sp.OnWrite,
 
 			// Note: The reference client currently bans peers that send alerts
 			// not signed with its key.  We could verify against their key, but
@@ -1713,19 +1713,19 @@ func (s *server) peerHandler() {
 		outboundGroups:  make(map[string]int),
 	}
 
-	if !conf.Cfg.P2PNet.DisableDNSSeed {
-		// Add peers discovered through DNS to the address manager.
-		connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
-			net.LookupIP, func(addrs []*wire.NetAddress) {
-				// Bitcoind uses a lookup of the dns seeder here. This
-				// is rather strange since the values looked up by the
-				// DNS seed lookups will vary quite a lot.
-				// to replicate this behaviour we put all addresses as
-				// having come from the first one.
-				s.addrManager.AddAddresses(addrs, addrs[0])
-			})
-	}
-	go s.connManager.Start()
+	//if !conf.Cfg.P2PNet.DisableDNSSeed {
+	//	// Add peers discovered through DNS to the address manager.
+	//	connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
+	//		net.LookupIP, func(addrs []*wire.NetAddress) {
+	//			// Bitcoind uses a lookup of the dns seeder here. This
+	//			// is rather strange since the values looked up by the
+	//			// DNS seed lookups will vary quite a lot.
+	//			// to replicate this behaviour we put all addresses as
+	//			// having come from the first one.
+	//			s.addrManager.AddAddresses(addrs, addrs[0])
+	//		})
+	//}
+	go s.connManager.Start(context.TODO())
 
 out:
 	for {
