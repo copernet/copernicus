@@ -475,7 +475,7 @@ type GetWorkResult struct {
 
 // InfoChainResult models the data returned by the chain server getinfo command.
 type InfoChainResult struct {
-	Version         string  `json:"version"`
+	Version         uint    `json:"version"`
 	ProtocolVersion int32   `json:"protocolversion"`
 	Blocks          int32   `json:"blocks"`
 	TimeOffset      int64   `json:"timeoffset"`

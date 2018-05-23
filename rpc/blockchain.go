@@ -17,12 +17,12 @@ import (
 
 var blockchainHandlers = map[string]commandHandler{
 	"getblockchaininfo":     handleGetBlockChainInfo,
-	"getbestblockhash":      handleGetBestBlockHash, // complete
-	"getblockcount":         handleGetBlockCount,    // complete
-	"getblock":              handleGetBlock,         // complete
-	"getblockhash":          handleGetBlockHash,     // complete
-	"getblockheader":        handleGetBlockHeader,   // complete
-	"getchaintips":          handleGetChainTips,
+	"getbestblockhash":      handleGetBestBlockHash,      // complete
+	"getblockcount":         handleGetBlockCount,         // complete
+	"getblock":              handleGetBlock,              // complete
+	"getblockhash":          handleGetBlockHash,          // complete
+	"getblockheader":        handleGetBlockHeader,        // complete
+	"getchaintips":          handleGetChainTips,          // partial complete
 	"getdifficulty":         handleGetDifficulty,         //complete
 	"getmempoolancestors":   handleGetMempoolAncestors,   // complete
 	"getmempooldescendants": handleGetMempoolDescendants, //complete

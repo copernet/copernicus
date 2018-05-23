@@ -3,8 +3,15 @@ package rpc
 import (
 	"encoding/hex"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/bitaddr"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/bitcoinutil"
+	"github.com/btcsuite/btcd/mempool"
 )
 
 var miscHandlers = map[string]commandHandler{
@@ -20,26 +27,25 @@ var miscHandlers = map[string]commandHandler{
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	best := chain.GlobalChain.Tip()
-		var height int32
-		if best == nil {
-			height = 0
-		}
+	best := chain.GlobalChain.Tip()
+	var height int32
+	if best == nil {
+		height = 0
+	}
 
-		ret := &btcjson.InfoChainResult{
-			Version:         protocol.Copernicus,
-			ProtocolVersion: int32(protocol.BitcoinProtocolVersion),
-			Blocks:          height,
-			TimeOffset:      util.GetTimeOffset(),
-			//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
-			Proxy:      conf.AppConf.Proxy,
-			Difficulty: getDifficulty(chain.GlobalChain.Tip()),
-			TestNet:    conf.AppConf.TestNet3,
-			RelayFee:   float64(mempool.DefaultMinRelayTxFee),
-		}
+	ret := &btcjson.InfoChainResult{
+		Version:         1000000*conf.AppMajor + 10000*conf.AppMinor + 100*conf.AppPatch,
+		ProtocolVersion: int32(wire.ProtocolVersion),
+		Blocks:          height,
+		TimeOffset:      util.GetTimeOffset(),
+		//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
+		Proxy:      "", // todo define in conf
+		Difficulty: getDifficulty(chain.GlobalChain.Tip()),
+		TestNet:    chainparams.ActiveNetParams.BitcoinNet == bitcoinutil.TestNet3,
+		RelayFee:   float64(mempool.DefaultMinRelayTxFee),
+	}
 
-		return ret, nil*/ // todo open
-	return nil, nil
+	return ret, nil
 }
 
 // handleValidateAddress implements the validateaddress command.
