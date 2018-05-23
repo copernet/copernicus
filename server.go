@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/btcd/database"
 	"github.com/btcsuite/btcutil"
 	//"github.com/btcsuite/btcutil/bloom" //todo:not support now
 	"github.com/btcboost/copernicus/cmd/btcctl"
@@ -271,7 +270,6 @@ func newServerPeer(s *server, isPersistent bool) *serverPeer {
 
 // newestBlock returns the current best block hash and height using the format
 // required by the configuration for the peer package.
-//todo: need stand by jiangheping
 func (sp *serverPeer) newestBlock() (*util.Hash, int32, error) {
 	tip := chain.GlobalChain.Tip()
 	height := chain.GlobalChain.TipHeight()
@@ -429,7 +427,6 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 // It creates and sends an inventory message with the contents of the memory
 // pool up to the maximum inventory allowed per message.  When the peer has a
 // bloom filter loaded, the contents are filtered accordingly.
-// todo: need stand by yaoyongxin
 func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// Only allow mempool requests if the server has bloom filtering
 	// enabled.
@@ -480,7 +477,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
-			msg.TxHash(), sp)
+			msg.Hash, sp)
 		return
 	}
 
@@ -1144,63 +1141,63 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 // the connected peer.  Since a merkle block requires the peer to have a filter
 // loaded, this call will simply be ignored if there is no filter loaded.  An
 // error is returned if the block hash is not known.
-func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
-	doneChan chan<- struct{}, waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
-
-	// Do not send a response if the peer doesn't have a filter loaded.
-	//if !sp.filter.IsLoaded() {
-	if doneChan != nil {
-		doneChan <- struct{}{}
-	}
-	return nil
-	//}
-
-	// Fetch the raw block bytes from the database.
-	blk, err := chain.GlobalChain.BlockByHash() //todo: chain support
-	if err != nil {
-		log.Trace("Unable to fetch requested block hash %v: %v",
-			hash, err)
-
-		if doneChan != nil {
-			doneChan <- struct{}{}
-		}
-		return err
-	}
-
-	// Generate a merkle block by filtering the requested block according
-	// to the filter for the peer.
-	//todo:not support
-	merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
-
-	// Once we have fetched data wait for any previous operation to finish.
-	if waitChan != nil {
-		<-waitChan
-	}
-
-	// Send the merkleblock.  Only send the done channel with this message
-	// if no transactions will be sent afterwards.
-	var dc chan<- struct{}
-	if len(matchedTxIndices) == 0 {
-		dc = doneChan
-	}
-	sp.QueueMessage(merkle, dc)
-
-	// Finally, send any matched transactions.
-	blkTransactions := blk.MsgBlock().Transactions
-	for i, txIndex := range matchedTxIndices {
-		// Only send the done channel on the final transaction.
-		var dc chan<- struct{}
-		if i == len(matchedTxIndices)-1 {
-			dc = doneChan
-		}
-		if txIndex < uint32(len(blkTransactions)) {
-			sp.QueueMessageWithEncoding(blkTransactions[txIndex], dc,
-				encoding)
-		}
-	}
-
-	return nil
-}
+//func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
+//	doneChan chan<- struct{}, waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
+//
+//	// Do not send a response if the peer doesn't have a filter loaded.
+//	//if !sp.filter.IsLoaded() {
+//	if doneChan != nil {
+//		doneChan <- struct{}{}
+//	}
+//	return nil
+//	//}
+//
+//	// Fetch the raw block bytes from the database.
+//	blk, err := chain.GlobalChain.BlockByHash() //todo: chain support
+//	if err != nil {
+//		log.Trace("Unable to fetch requested block hash %v: %v",
+//			hash, err)
+//
+//		if doneChan != nil {
+//			doneChan <- struct{}{}
+//		}
+//		return err
+//	}
+//
+//	// Generate a merkle block by filtering the requested block according
+//	// to the filter for the peer.
+//	//todo:not support
+//	merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
+//
+//	// Once we have fetched data wait for any previous operation to finish.
+//	if waitChan != nil {
+//		<-waitChan
+//	}
+//
+//	// Send the merkleblock.  Only send the done channel with this message
+//	// if no transactions will be sent afterwards.
+//	var dc chan<- struct{}
+//	if len(matchedTxIndices) == 0 {
+//		dc = doneChan
+//	}
+//	sp.QueueMessage(merkle, dc)
+//
+//	// Finally, send any matched transactions.
+//	blkTransactions := blk.MsgBlock().Transactions
+//	for i, txIndex := range matchedTxIndices {
+//		// Only send the done channel on the final transaction.
+//		var dc chan<- struct{}
+//		if i == len(matchedTxIndices)-1 {
+//			dc = doneChan
+//		}
+//		if txIndex < uint32(len(blkTransactions)) {
+//			sp.QueueMessageWithEncoding(blkTransactions[txIndex], dc,
+//				encoding)
+//		}
+//	}
+//
+//	return nil
+//}
 
 // handleUpdatePeerHeight updates the heights of all peers who were known to
 // announce a block we recently accepted.
@@ -1336,8 +1333,7 @@ func (s *server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 		log.Debug("can't split ban peer %s %v", sp.Addr(), err)
 		return
 	}
-	direction := directionString(sp.Inbound())
-	log.Info("Banned peer %s (%s) for %v", host, direction,
+	log.Info("Banned peer %s (inBlund:%v) for %v", host, sp.Inbound(),
 		conf.Cfg.P2PNet.BanDuration)
 	state.banned[host] = time.Now().Add(conf.Cfg.P2PNet.BanDuration)
 }
