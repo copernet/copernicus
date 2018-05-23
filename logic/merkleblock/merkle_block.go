@@ -1,4 +1,4 @@
-package mblock
+package merkleblock
 
 import (
 	"io"
