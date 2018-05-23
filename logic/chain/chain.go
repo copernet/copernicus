@@ -33,6 +33,10 @@ func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
 	}
 	log.Info(bIndex)
 
+	if bIndex.Accepted() {
+		return bIndex,nil
+	}
+
 	return nil, nil
 }
 
@@ -58,7 +62,10 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax,bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork,work)
-	c.AddToIndexMap(bIndex)
+	err := c.AddToIndexMap(bIndex)
+	if err != nil {
+		return nil,err
+	}
 
 	return bIndex, nil
 }

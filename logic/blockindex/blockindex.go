@@ -90,7 +90,6 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 
 	// Load block file info
 	var err error
-	chainGlobal := global.GetChainGlobalInstance()
 	chainGlobal.GlobalLastBlockFile, err = blkdb.GetBlockTreeDBInstance().ReadLastBlockFile()
 	if err != nil{
 		log.Error("Error: GetLastBlockFile err %#v", err)
