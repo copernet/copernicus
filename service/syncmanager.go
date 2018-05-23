@@ -11,19 +11,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"btcd/blockchain"
-	"btcd/chaincfg"
-	"btcd/database"
-	"btcd/mempool"
 	"github.com/btcboost/copernicus/log"
 	lpool "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcsuite/btcutil"
 )
 
 const (

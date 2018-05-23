@@ -33,6 +33,7 @@ Script:
   AcceptDataCarrier:
   MaxDatacarrierBytes:
   IsBareMultiSigStd:
+  PromiscuousMempoolFlags:
 
 TxOut:
   DustRelayFee:
