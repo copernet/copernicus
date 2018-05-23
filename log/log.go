@@ -63,8 +63,8 @@ func init() {
 		Level    int    `json:"level"`
 		Daily    bool   `json:"daily"`
 	}{
-		FileName: logDir,
-		Level:    getLevel("debug"),
+		FileName: logDir + "/" + conf.Cfg.Log.FileName,
+		Level:    getLevel(conf.Cfg.Log.Level),
 		Daily:    false,
 	}
 

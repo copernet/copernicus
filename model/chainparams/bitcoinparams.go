@@ -3,12 +3,13 @@ package chainparams
 import (
 	"math/big"
 	"time"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model"
 	"errors"
+
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/block"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
@@ -377,4 +378,3 @@ func mustRegister(bp *BitcoinParams) {
 	}
 	bp.DefaultAssumeValid = *work
 }
-

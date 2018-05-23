@@ -27,16 +27,4 @@ const (
 
 	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
 	MaxStandardTxSigOps = uint(MaxTxSigOpsCount / 5)
-
-	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
-	DefaultMaxMemPoolSize uint = 300
-
-	/*MaxStandardP2WSHStackItems the maximum number of witness stack items in a standard P2WSH script */
-	MaxStandardP2WSHStackItems uint = 100
-
-	/*MaxStandardP2WSHStackItemSize the maximum size of each witness stack item in a standard P2WSH script */
-	MaxStandardP2WSHStackItemSize uint = 80
-
-	/*MaxStandardP2WSHScriptSize the maximum size of a standard witnessScript */
-	MaxStandardP2WSHScriptSize uint = 3600
 )

@@ -17,7 +17,6 @@ import (
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
-	"github.com/btcsuite/btcd/wire"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -261,7 +260,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 	var transaction *tx.Tx
 	// Validate the locktime, if given.
 	if c.LockTime != nil &&
-		(*c.LockTime < 0 || *c.LockTime > int64(wire.MaxTxInSequenceNum)) {
+		(*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
 			Message: "Locktime out of range",
@@ -396,7 +395,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	view := utxo.GetUtxoCacheInstance()
 	var haveChain bool
 	for i := 0; !haveChain && i < transaction.GetOutsCount(); i++ {
-		existingCoin, _ := view.GetCoin(outpoint.NewOutPoint(hash, uint32(i)))
+		existingCoin := view.GetCoin(outpoint.NewOutPoint(hash, uint32(i)))
 		haveChain = !existingCoin.IsSpent()
 	}
 
@@ -456,7 +455,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	// mergedTx will end up with all the signatures; it starts as a clone of the rawtx
 	//mergedTx := transactions[0]
-	// todo Fetch previous transactions (inputs) to cache
+	// todo Fetch previous transactions (inputs) to cache <FetchCoin() function>
 	// todo do not support this feature at current utxo version
 
 	givenKeys := false
@@ -497,13 +496,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		}
 
 		view := utxo.GetUtxoCacheInstance()
-		coin, err := view.GetCoin(out)
-		if err != nil {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: "utxo: get coin error",
-			}
-		}
+		coin := view.GetCoin(out)
 
 		if !coin.IsSpent() && !coin.GetTxOut().GetScriptPubKey().IsEqual(script.NewScriptRaw(scriptPubKey)) {
 			return nil, btcjson.RPCError{
@@ -576,7 +569,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	errors := make([]*btcjson.SignRawTransactionError, 0)
 	for index, in := range transactions[0].GetIns() {
 		view := utxo.GetUtxoCacheInstance()
-		coin, _ := view.GetCoin(in.PreviousOutPoint)
+		coin := view.GetCoin(in.PreviousOutPoint)
 		if coin.IsSpent() {
 			errors = append(errors, TxInErrorToJSON(in, "Input not found or already spent"))
 			continue

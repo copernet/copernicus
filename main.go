@@ -5,11 +5,8 @@
 package main
 
 import (
-	"fmt"
-	// "net"
-	// "net/http"
-
 	"context"
+	"fmt"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
