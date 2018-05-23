@@ -98,6 +98,7 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	if (heightAndIsCoinBase & 1) == 1 {
 		coin.isCoinBase = true
 	}
+	fmt.Println("coin.Unserialize=====", err, coin.height, coin.isCoinBase)
 	err = coin.txOut.Unserialize(r)
 	return err
 }

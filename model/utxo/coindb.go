@@ -2,7 +2,8 @@ package utxo
 
 import (
 	"bytes"
-
+	"fmt"
+	
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -113,6 +114,7 @@ func NewCoinsDB(do *db.DBOption) *CoinsDB {
 	})
 
 	if err != nil {
+		fmt.Println("err======%#v", err)
 		panic("init CoinsDB failed...")
 	}
 

@@ -268,7 +268,6 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts() bool {
 			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
 		}
-		//todo这时候整个bi没有通过pre组织成链
 		cursor.Next()
 	}
 	return true

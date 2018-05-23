@@ -9,7 +9,6 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/hashicorp/golang-lru"
 
-	"github.com/astaxie/beego/logs"
 )
 
 type CoinsLruCache struct {
@@ -22,7 +21,7 @@ type CoinsLruCache struct {
 var utxoLruTip CacheView
 
 func InitUtxoLruTip(uc *UtxoConfig) {
-	fmt.Printf("InitUtxoLruTip processing ....%v", uc)
+	fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
 
 	db := NewCoinsDB(uc.do)
 	utxoLruTip = NewCoinsLruCache(*db)
@@ -52,12 +51,13 @@ func NewCoinsLruCache(db CoinsDB) CacheView {
 func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	c, ok := coinsCache.cacheCoins.Get(*outpoint)
 	if ok {
+		fmt.Println("getCoin from cache")
 		return c.(*Coin)
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
 	if err != nil {
-		logs.Emergency("CoinsLruCache.GetCoin err:%#v", err)
+		log.Emergency("CoinsLruCache.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
 	if coin == nil {
@@ -69,6 +69,8 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 		// our version as fresh.
 		coin.fresh = true
 	}
+	fmt.Println("getCoin from db")
+	
 	return coin
 }
 
