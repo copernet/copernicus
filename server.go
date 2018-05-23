@@ -6,7 +6,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -47,7 +46,9 @@ import (
 const (
 	// defaultServices describes the default services that are supported by
 	// the server.
-	defaultServices = wire.SFNodeNetwork | wire.SFNodeBloom | wire.SFNodeWitness
+	// if we add bloom and witness, we should define:
+	// defaultServices = wire.SFNodeNetwork | wire.SFNodeBloom | wire.SFNodeWitness
+	defaultServices = wire.SFNodeNetwork
 
 	// defaultRequiredServices describes the default services that are
 	// required to be supported by outbound peers.
@@ -430,12 +431,12 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// Only allow mempool requests if the server has bloom filtering
 	// enabled.
-	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom {
-		log.Debug("peer %v sent mempool request with bloom "+
-			"filtering disabled -- disconnecting", sp)
-		sp.Disconnect()
-		return
-	}
+	//if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom {
+	//		log.Debug("peer %v sent mempool request with bloom "+
+	//			"filtering disabled -- disconnecting", sp)
+	//	sp.Disconnect()
+	//	return
+	//}
 
 	// A decaying ban score increase is applied to prevent flooding.
 	// The ban score accumulates and passes the ban threshold if a burst of
@@ -719,36 +720,36 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 // allow bloom filters.  Additionally, if the peer has negotiated to a protocol
 // version  that is high enough to observe the bloom filter service support bit,
 // it will be banned since it is intentionally violating the protocol.
-func (sp *serverPeer) enforceNodeBloomFlag(cmd string) bool {
-	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom {
-		// Ban the peer if the protocol version is high enough that the
-		// peer is knowingly violating the protocol and banning is
-		// enabled.
-		//
-		// NOTE: Even though the addBanScore function already examines
-		// whether or not banning is enabled, it is checked here as well
-		// to ensure the violation is logged and the peer is
-		// disconnected regardless.
-		if sp.ProtocolVersion() >= wire.BIP0111Version &&
-			!conf.Cfg.P2PNet.DisableBanning {
-
-			// Disconnect the peer regardless of whether it was
-			// banned.
-			sp.addBanScore(100, 0, cmd)
-			sp.Disconnect()
-			return false
-		}
-
-		// Disconnect the peer regardless of protocol version or banning
-		// state.
-		log.Debug("%s sent an unsupported %s request -- "+
-			"disconnecting", sp, cmd)
-		sp.Disconnect()
-		return false
-	}
-
-	return true
-}
+//func (sp *serverPeer) enforceNodeBloomFlag(cmd string) bool {
+//	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom {
+//		// Ban the peer if the protocol version is high enough that the
+//		// peer is knowingly violating the protocol and banning is
+//		// enabled.
+//		//
+//		// NOTE: Even though the addBanScore function already examines
+//		// whether or not banning is enabled, it is checked here as well
+//		// to ensure the violation is logged and the peer is
+//		// disconnected regardless.
+//		if sp.ProtocolVersion() >= wire.BIP0111Version &&
+//			!conf.Cfg.P2PNet.DisableBanning {
+//
+//			// Disconnect the peer regardless of whether it was
+//			// banned.
+//			sp.addBanScore(100, 0, cmd)
+//			sp.Disconnect()
+//			return false
+//		}
+//
+//		// Disconnect the peer regardless of protocol version or banning
+//		// state.
+//		log.Debug("%s sent an unsupported %s request -- "+
+//			"disconnecting", sp, cmd)
+//		sp.Disconnect()
+//		return false
+//	}
+//
+//	return true
+//}
 
 // OnFeeFilter is invoked when a peer receives a feefilter bitcoin message and
 // is used by remote peers to request that no transactions which have a fee rate
@@ -1084,31 +1085,11 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Fetch the raw block bytes from the database.
-	var blockBytes []byte
-	//err := sp.server.db.View(func(dbTx database.Tx) error {
-	//	var err error
-	//	blockBytes, err = dbTx.FetchBlock(hash)
-	//	return err
-	//})
-	//FIXME by xiaolong:
-	var err error
+	bl, err := lblock.GetBlock(hash)
+
 	if err != nil {
 		log.Trace("Unable to fetch requested block hash %v: %v",
 			hash, err)
-
-		if doneChan != nil {
-			doneChan <- struct{}{}
-		}
-		return err
-	}
-
-	// Deserialize the block.
-	var mb wire.MsgBlock
-	msgBlock := (block.Block)(mb)
-	err = msgBlock.Unserialize(bytes.NewReader(blockBytes))
-	if err != nil {
-		log.Trace("Unable to deserialize requested block hash "+
-			"%v: %v", hash, err)
 
 		if doneChan != nil {
 			doneChan <- struct{}{}
@@ -1129,7 +1110,7 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	if !sendInv {
 		dc = doneChan
 	}
-	sp.QueueMessageWithEncoding(&msgBlock, dc, encoding)
+	sp.QueueMessageWithEncoding((*wire.MsgBlock)(bl), dc, encoding)
 
 	// When the peer requests the final block that was advertised in
 	// response to a getblocks message which requested more blocks than
@@ -1686,12 +1667,9 @@ func (s *server) peerDoneHandler(sp *serverPeer) {
 		s.syncManager.DonePeer(sp.Peer)
 
 		// Evict any remaining orphans that were sent by the peer.
-		//todo:fix yongxin
-		numEvicted := mempool.Gpool.RemoveOrphansByTag(mempool.Tag(sp.ID()))
+		numEvicted := mempool.Gpool.RemoveOrphansByTag(int64(sp.ID()))
 		if numEvicted > 0 {
-			log.Debug("Evicted %d %s from peer %v (id %d)",
-				numEvicted, pickNoun(numEvicted, "orphan",
-					"orphans"), sp, sp.ID())
+			log.Debug("Evicted %d from peer %v (id %d)", numEvicted, sp, sp.ID())
 		}
 	}
 	close(sp.quit)
@@ -2132,9 +2110,9 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	cfg := conf.Cfg
 
 	services := defaultServices
-	if cfg.Protocal.NoPeerBloomFilters {
-		services &^= wire.SFNodeBloom
-	}
+	//if cfg.Protocal.NoPeerBloomFilters {
+	//	services &^= wire.SFNodeBloom
+	//}
 
 	amgr := addrmgr.New(cfg.DataDir, net.LookupIP)
 

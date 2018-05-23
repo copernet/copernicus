@@ -5,10 +5,10 @@ import (
 	"github.com/btcboost/copernicus/util"
 )
 
-func Check(b * block.Block) error {
+func Check(b *block.Block) error {
 	return nil
 }
 
-func GetBlock(hash *util.Hash) (* block.Block, error) {
-	return nil,nil
+func GetBlock(hash *util.Hash) (*block.Block, error) {
+	return nil, nil
 }
