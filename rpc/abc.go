@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/mining"
 	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/service/mining"
 )
 
 var abcHandlers = map[string]commandHandler{

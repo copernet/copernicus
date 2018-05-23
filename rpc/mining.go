@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
 	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/logic/undo"
-	"github.com/btcboost/copernicus/logic/valistate"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -17,12 +17,12 @@ import (
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/mining"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/service/mining"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
@@ -421,35 +421,39 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 			Message: "inconclusive-not-best-prevblk",
 		}
 	}
-	state := valistate.ValidationState{}
+
 	// TODO realise in block model
-	chain.TestBlockValidity(chainparams.ActiveNetParams, &state, &bk, indexPrev, false, true)
-	return BIP22ValidationResult(&state)
+	err = chain.TestBlockValidity(chainparams.ActiveNetParams, &bk, indexPrev, false, true)
+	return BIP22ValidationResult(err)
 }
 
-func BIP22ValidationResult(state *valistate.ValidationState) (interface{}, error) {
-	if state.IsValid() {
-		return nil, nil
-	}
-
-	strRejectReason := state.GetRejectReason()
-	if state.IsError() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCVerify,
-			Message: strRejectReason,
+func BIP22ValidationResult(err error) (interface{}, error) {
+	projectError, ok := err.(errcode.ProjectError) // todo warning: TestBlockValidity should return type errcode.ProjectError
+	if ok {
+		if projectError.Code == int(errcode.ModelValid) {
+			return nil, nil
 		}
-	}
 
-	if state.IsInvalid() {
-		if strRejectReason == "" {
+		strRejectReason := projectError.Desc
+
+		if projectError.Code == int(errcode.ModelError) {
 			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: "rejected",
+				Code:    btcjson.ErrRPCVerify,
+				Message: strRejectReason,
 			}
 		}
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrUnDefined,
-			Message: strRejectReason,
+
+		if projectError.Code == int(errcode.ModelInvalid) {
+			if strRejectReason == "" {
+				return nil, &btcjson.RPCError{
+					Code:    btcjson.ErrUnDefined,
+					Message: "rejected",
+				}
+			}
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrUnDefined,
+				Message: strRejectReason,
+			}
 		}
 	}
 
