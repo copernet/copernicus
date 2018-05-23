@@ -30,7 +30,7 @@ func (tu *TxUndo) AddUndoCoin(coin *utxo.Coin){
 	tu.undoCoins = append(tu.undoCoins, coin)
 }
 
-func (tu *TxUndo) SetUndoCoins(coins []*utxo.Coin) []*utxo.Coin{
+func (tu *TxUndo) SetUndoCoins(coins []*utxo.Coin){
 	 tu.undoCoins = coins
 }
 

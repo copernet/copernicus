@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -21,11 +22,11 @@ const MaxBlockHeadersPerMsg = 2000
 // per message is currently 2000.  See MsgGetHeaders for details on requesting
 // the headers.
 type MsgHeaders struct {
-	Headers []*BlockHeader
+	Headers []*block.BlockHeader
 }
 
 // AddBlockHeader adds a new block header to the message.
-func (msg *MsgHeaders) AddBlockHeader(bh *BlockHeader) error {
+func (msg *MsgHeaders) AddBlockHeader(bh *block.BlockHeader) error {
 	if len(msg.Headers)+1 > MaxBlockHeadersPerMsg {
 		str := fmt.Sprintf("too many block headers in message [max %v]",
 			MaxBlockHeadersPerMsg)
@@ -53,11 +54,11 @@ func (msg *MsgHeaders) Decode(r io.Reader, pver uint32, enc MessageEncoding) err
 
 	// Create a contiguous slice of headers to deserialize into in order to
 	// reduce the number of allocations.
-	headers := make([]BlockHeader, count)
-	msg.Headers = make([]*BlockHeader, 0, count)
+	headers := make([]block.BlockHeader, count)
+	msg.Headers = make([]*block.BlockHeader, 0, count)
 	for i := uint64(0); i < count; i++ {
 		bh := &headers[i]
-		err := readBlockHeader(r, pver, bh)
+		err := bh.Unserialize(r)
 		if err != nil {
 			return err
 		}
@@ -96,7 +97,8 @@ func (msg *MsgHeaders) Encode(w io.Writer, pver uint32, enc MessageEncoding) err
 	}
 
 	for _, bh := range msg.Headers {
-		err := writeBlockHeader(w, pver, bh)
+		err := bh.Serialize(w)
+		//err := writeBlockHeader(w, pver, bh)
 		if err != nil {
 			return err
 		}
@@ -133,6 +135,6 @@ func (msg *MsgHeaders) MaxPayloadLength(pver uint32) uint32 {
 // Message interface.  See MsgHeaders for details.
 func NewMsgHeaders() *MsgHeaders {
 	return &MsgHeaders{
-		Headers: make([]*BlockHeader, 0, MaxBlockHeadersPerMsg),
+		Headers: make([]*block.BlockHeader, 0, MaxBlockHeadersPerMsg),
 	}
 }

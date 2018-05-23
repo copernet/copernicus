@@ -10,6 +10,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -101,13 +102,13 @@ func TestAddr(t *testing.T) {
 func TestAddrWire(t *testing.T) {
 	// A couple of NetAddresses to use for testing.
 	na := &NetAddress{
-		Timestamp: 0x495fab29, // 2009-01-03 12:15:05 -0600 CST
+		Timestamp: time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,
 	}
 	na2 := &NetAddress{
-		Timestamp: 0x495fab29, // 2009-01-03 12:15:05 -0600 CST
+		Timestamp: time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("192.168.0.1"),
 		Port:      8334,
@@ -212,13 +213,13 @@ func TestAddrWireErrors(t *testing.T) {
 
 	// A couple of NetAddresses to use for testing.
 	na := &NetAddress{
-		Timestamp: 0x495fab29, // 2009-01-03 12:15:05 -0600 CST
+		Timestamp: time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("127.0.0.1"),
 		Port:      8333,
 	}
 	na2 := &NetAddress{
-		Timestamp: 0x495fab29, // 2009-01-03 12:15:05 -0600 CST
+		Timestamp: time.Unix(0x495fab29, 0), // 2009-01-03 12:15:05 -0600 CST
 		Services:  SFNodeNetwork,
 		IP:        net.ParseIP("192.168.0.1"),
 		Port:      8334,

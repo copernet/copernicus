@@ -66,11 +66,17 @@ const (
 	ScriptErrErrorCount
 
 	// other errcode
+	ScriptErrSize
+	ScriptErrNonStandard
+	ScriptErrNullData
+	ScriptErrBareMultiSig
+	ScriptErrMultiOpReturn
 	ScriptErrInvalidSignatureEncoding
 	ScriptErrNumberOverflow
 	ScriptErrNonMinimalEncodedNumber
 	ScriptErrInvalidOpCode
 	ScriptErrInValidPubKeyOrSig
+	ScriptErrScriptSigNotPushOnly
 )
 
 /*

@@ -3,9 +3,13 @@ package mempool
 import (
 	"container/list"
 	"fmt"
+	"math"
+	"sync"
+	"time"
+	"unsafe"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/errcode"
-	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
@@ -14,13 +18,9 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
-	"math"
-	"sync"
-	"time"
-	"unsafe"
 )
 
-//error status for the transaction that entering txmempool.
+// error status for the transaction that entering txmempool.
 const (
 	RejectAlreadyKnown = 300
 	RejectNonStandard  = 301
@@ -206,7 +206,13 @@ func (m *TxMempool) Size() int {
 }
 
 func (m *TxMempool) GetAllTxEntry() map[util.Hash]*TxEntry {
-	return m.poolData
+	m.RLock()
+	ret := make(map[util.Hash]*TxEntry, len(m.poolData))
+	for k, v := range m.poolData{
+		ret[k] = v
+	}
+	m.RUnlock()
+	return ret
 }
 
 func (m *TxMempool) RemoveUnFinalTx(chain *chain.Chain, view *utxo.CoinsCache, nMemPoolHeight int, flag int) {
@@ -340,7 +346,7 @@ func (m *TxMempool) IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*ut
 		return nil, lp, err
 	}
 
-	txsize := int64(tx.SerializeSize())
+	txsize := int64(tx.EncodeSize())
 	txfeeRate := util.NewFeeRateWithSize(txfee, txsize)
 	// compare the transaction feeRate with enter mempool min txfeeRate
 	if txfeeRate.SataoshisPerK < m.feeRate.SataoshisPerK {
@@ -795,7 +801,7 @@ func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 		}
 	}
 
-	totalSizeWithAncestors := int64(tx.SerializeSize())
+	totalSizeWithAncestors := int64(tx.EncodeSize())
 	paSLice := make([]*TxEntry, len(parent))
 	j := 0
 	for entry := range parent {
@@ -869,7 +875,7 @@ func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *Lo
 	} else {
 		var prevheights []int
 		for txinIndex, coin := range coins {
-			if coin.GetIsMempoolCoin() {
+			if coin.IsMempoolCoin(){
 				prevheights[txinIndex] = tip.Height + 1
 			} else {
 				prevheights[txinIndex] = int(coin.GetHeight())
@@ -965,7 +971,7 @@ func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
 	if _, ok := m.OrphanTransactions[orphantx.Hash]; ok {
 		return
 	}
-	sz := orphantx.SerializeSize()
+	sz := orphantx.EncodeSize()
 	if sz >= consensus.MaxTxSize {
 		return
 	}

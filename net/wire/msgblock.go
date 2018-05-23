@@ -5,12 +5,9 @@
 package wire
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 
 	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/util"
 )
 
 // MaxBlocksPerMsg is the maximum number of blocks allowed per message.
@@ -18,6 +15,8 @@ const MaxBlocksPerMsg = 500
 
 // MaxBlockPayload is the maximum bytes a block message can be in bytes.
 const MaxBlockPayload = 8000000
+
+const maxTxPerBlock = (MaxBlockPayload / minTxPayload) + 1
 
 type MsgBlock block.Block
 

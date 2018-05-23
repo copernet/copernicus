@@ -159,7 +159,7 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator{
 		index = ch.Tip()
 	}
 	for {
-		blockHashList = append(blockHashList, index.BlockHash)
+		blockHashList = append(blockHashList, *index.GetBlockHash())
 		if index.Height == 0{
 			break
 		}

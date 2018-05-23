@@ -47,11 +47,11 @@ func Print(module string, level string, format string, reason ...interface{}) {
 }
 
 func isIncludeModule(module string) bool {
-	module = strings.ToLower(module)
-	_, ok := mapModule[module]
-	if ok {
-		return true
-	}
+	//for _, item := range conf.AppConf.LogModule {
+	//	if item == module {
+	//		return true
+	//	}
+	//}
 	return false
 }
 
@@ -63,8 +63,8 @@ func init() {
 		Level    int    `json:"level"`
 		Daily    bool   `json:"daily"`
 	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName,
-		Level:    getLevel(conf.Cfg.Log.Level),
+		FileName: logDir,
+		Level:    getLevel("debug"),
 		Daily:    false,
 	}
 

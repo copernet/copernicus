@@ -166,6 +166,14 @@ type Configuration struct {
 		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}
+	Script struct {
+		AcceptDataCarrier bool `default:"true"`
+		MaxDatacarrierBytes uint `default:"83"`
+		IsBareMultiSigStd bool `default:"true"`
+	}
+	TxOut struct {
+		DustRelayFee int64 `default:"83"`
+	}
 }
 
 func must(i interface{}, err error) interface{} {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -23,12 +24,12 @@ type MsgCmpctBlock struct {
 	Nonce        uint64
 	ShortTxids   []uint64
 	PreFilledTxn []PreFilledTransaction
-	Header       BlockHeader
+	Header       block.BlockHeader
 }
 
 func NewMsgCmpctBlock(block *MsgBlock) *MsgCmpctBlock {
 	nonce, _ := util.RandomUint64()
-	shortids := make([]uint64, len(block.Transactions)-1)
+	shortids := make([]uint64, len(block.Txs)-1)
 	prefilledTxn := make([]PreFilledTransaction, 1)
 	header := block.Header
 
@@ -37,9 +38,9 @@ func NewMsgCmpctBlock(block *MsgBlock) *MsgCmpctBlock {
 		return nil
 	}
 	prefilledTxn[0].Index = 0
-	prefilledTxn[0].Tx = block.Transactions[0]
-	for i := 1; i < len(block.Transactions); i++ {
-		txhash := block.Transactions[i].TxHash()
+	prefilledTxn[0].Tx = (*MsgTx)(block.Txs[0])
+	for i := 1; i < len(block.Txs); i++ {
+		txhash := block.Txs[i].TxHash()
 		shortids[i-1] = getShortID(id0, id1, &txhash)
 	}
 	return &MsgCmpctBlock{
@@ -52,9 +53,9 @@ func NewMsgCmpctBlock(block *MsgBlock) *MsgCmpctBlock {
 	}
 }
 
-func fillShortTxIDSelector(h *BlockHeader, nonce uint64) (uint64, uint64, error) {
+func fillShortTxIDSelector(h *block.BlockHeader, nonce uint64) (uint64, uint64, error) {
 	bw := bytes.NewBuffer(nil)
-	if err := writeBlockHeader(bw, 0, h); err != nil {
+	if err := h.Serialize(bw); err != nil {
 		return 0, 0, err
 	}
 	if err := util.WriteElements(bw, nonce); err != nil {
@@ -99,7 +100,7 @@ func (msg *MsgCmpctBlock) Decode(r io.Reader, pver uint32, enc MessageEncoding) 
 			"version %d", pver)
 		return messageError("MsgCmpctBlock.Decode", str)
 	}
-	if err := msg.Header.Decode(r, pver, enc); err != nil {
+	if err := msg.Header.Unserialize(r); err != nil {
 		return err
 	}
 	if err := util.ReadElements(r, &msg.Nonce); err != nil {
@@ -147,7 +148,7 @@ func (msg *MsgCmpctBlock) Encode(w io.Writer, pver uint32, enc MessageEncoding) 
 			"version %d", pver)
 		return messageError("MsgCmpctBlock.Encode", str)
 	}
-	if err := msg.Header.Encode(w, pver, enc); err != nil {
+	if err := msg.Header.Serialize(w); err != nil {
 		return err
 	}
 	if err := util.WriteElements(w, &msg.Nonce); err != nil {

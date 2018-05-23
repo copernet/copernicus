@@ -40,10 +40,14 @@ func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
 	// optimization may go unnoticed, so allocate space for 10 decimal
 	// digits, which will fit any uint32.
 	buf := make([]byte, 2 * util.Hash256Size + 1, 2 * util.Hash256Size + 1 + 10)
-	copy(buf, outPoint.Hash.ToString())
+	copy(buf, outPoint.Hash.String())
 	buf[2*util.Hash256Size] = ':'
 	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
 	return io.Write(buf)
+}
+
+func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
+	return nil
 }
 
 func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
@@ -64,7 +68,7 @@ func (outPoint *OutPoint) Encode(writer io.Writer) error {
 }
 
 func (outPoint *OutPoint) String() string {
-	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.ToString(), outPoint.Index)
+	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.String(), outPoint.Index)
 }
 
 func (outPoint *OutPoint) IsNull() bool {

@@ -29,3 +29,11 @@ P2PNet:
 AddrMgr:
   SimNet: false
   ConnectPeers:
+
+Script:
+  AcceptDataCarrier:
+  MaxDatacarrierBytes:
+  IsBareMultiSigStd:
+
+TxOut:
+  DustRelayFee:
