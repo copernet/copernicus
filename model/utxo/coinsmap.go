@@ -1,23 +1,21 @@
 package utxo
 
 import (
-	"github.com/btcboost/copernicus/model/outpoint"
 	"fmt"
+	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 )
 
-type CoinsMap  map[outpoint.OutPoint]*Coin
+type CoinsMap map[outpoint.OutPoint]*Coin
 
-
-func NewEmptyCoinsMap()*CoinsMap{
+func NewEmptyCoinsMap() *CoinsMap {
 	cacheCoins := make(CoinsMap)
 	return &cacheCoins
 }
-func (ctc CoinsMap) GetCoin(outpoint *outpoint.OutPoint)(*Coin){
+func (ctc CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	coin := ctc[*outpoint]
 	return coin
 }
-
 
 func (coinsCache CoinsMap) UnCache(point *outpoint.OutPoint) {
 	_, ok := coinsCache[*point]
@@ -27,12 +25,11 @@ func (coinsCache CoinsMap) UnCache(point *outpoint.OutPoint) {
 }
 func (coinsCache CoinsMap) Flush(hashBlock util.Hash) bool {
 	println("flush=============")
-	fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v",coinsCache, hashBlock)
+	fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
 	ok := GetUtxoCacheInstance().UpdateCoins(&coinsCache, &hashBlock)
 	coinsCache = make(map[outpoint.OutPoint]*Coin)
 	return ok == nil
 }
-
 
 func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	if coin.IsSpent() {
@@ -45,15 +42,15 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	}
 	fresh := false
 
-	if true{
+	if true {
 		oldCoin, ok := coinsCache[*point]
-		if ok{
+		if ok {
 			//exist old Coin in cache
-			if oldCoin.IsSpent(){
+			if oldCoin.IsSpent() {
 				panic("Adding new coin that replaces non-pruned entry")
 			}
 			fresh = !oldCoin.dirty
-		}else{
+		} else {
 			fresh = true
 		}
 	}
@@ -81,24 +78,25 @@ func (coinsCache CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 }
 
 // different from GetCoin, if not get coin, FetchCoin will get coin from global cache
-func (coinsMap CoinsMap)FetchCoin(out *outpoint.OutPoint) *Coin{
+func (coinsMap CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	coin := coinsMap.GetCoin(out)
-	if coin != nil{
+	if coin != nil {
 		return coin
 	}
 	coin = GetUtxoCacheInstance().GetCoin(out)
 	newCoin := coin.DeepCopy()
-	if newCoin.IsSpent(){
+	if newCoin.IsSpent() {
 		newCoin.fresh = true
 		newCoin.dirty = false
 	}
 	coinsMap[*out] = newCoin
 	return newCoin
 }
+
 // different from GetCoin, if not get coin, FetchCoin will get coin from global cache
-func (coinsMap CoinsMap)SpendGlobalCoin(out *outpoint.OutPoint) *Coin{
+func (coinsMap CoinsMap) SpendGlobalCoin(out *outpoint.OutPoint) *Coin {
 	coin := coinsMap.FetchCoin(out)
-	if coin == nil{
+	if coin == nil {
 		return coin
 	}
 

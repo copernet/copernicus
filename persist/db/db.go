@@ -19,8 +19,6 @@ const (
 	obfuscateKeyLen = 8
 )
 
-
-
 const (
 	DbCoin       byte = 'C'
 	DbCoins      byte = 'c'
@@ -32,8 +30,7 @@ const (
 	DbFlag        byte = 'F'
 	DbReindexFlag byte = 'R'
 	DbLastBlock   byte = 'l'
-	DbMaxBlock   byte = 'm'
-
+	DbMaxBlock    byte = 'm'
 )
 
 const (
@@ -122,6 +119,7 @@ func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 
 	db, err := lvldb.OpenFile(do.FilePath, &opts)
 	if err != nil {
+		// fmt.Println("lvldb.OpenFile=======%#v, %#v, %#v", err,do.FilePath, opts)
 		return nil, err
 	}
 	if do.ForceCompactdb {
