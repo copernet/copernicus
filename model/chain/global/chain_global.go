@@ -11,17 +11,18 @@ var chainGlobal *ChainGlobal
 type BlockFileInfoMap map[int]*block.BlockFileInfo
 type BlockIndexMap map[util.Hash]*blockindex.BlockIndex
 type ChainGlobal struct {
-	GlobalBlockFileInfoMap                               BlockFileInfoMap
-	GlobalBlockIndexMap                                  BlockIndexMap
-	GlobalLastBlockFile                                  int
-	GlobalLastWrite, GlobalLastFlush, GlobalLastSetChain int
+	GlobalBlockFileInfoMap                               BlockFileInfoMap   // storage all blockfileinfo
+	GlobalBlockIndexMap                                  BlockIndexMap      // storage all block index
+	GlobalLastBlockFile                                  int                //last block file no.
+	GlobalLastWrite, GlobalLastFlush, GlobalLastSetChain int                // last update time
 	GlobalBlocksUnlinkedMap                              map[*blockindex.BlockIndex]*blockindex.BlockIndex
 	DefaultMaxMemPoolSize                                uint
-	GlobalSetDirtyFileInfo                               map[int]bool
+	GlobalSetDirtyFileInfo                               map[int]bool      // temp for update file info
 	GlobalTimeReadFromDisk                               int64
 	GlobalReindex                                        bool
 	GlobalTxIndex                                        bool
 	GlobalHavePruned                                     bool
+	
 }
 
 func InitChainGlobal() *ChainGlobal {
