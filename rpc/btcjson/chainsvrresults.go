@@ -235,8 +235,8 @@ type GetNetworkInfoResult struct {
 	LocalServices   string                 `json:"localservices"`
 	LocalRelay      bool                   `json:"localrelay"`
 	TimeOffset      int64                  `json:"timeoffset"`
-	Connections     int32                  `json:"connections"`
 	NetworkActive   bool                   `json:"networkactive"`
+	Connections     int32                  `json:"connections"`
 	Networks        []NetworksResult       `json:"networks"`
 	RelayFee        float64                `json:"relayfee"`
 	IncrementalFee  float64                `json:"incrementalfee"`
@@ -312,9 +312,19 @@ type GetTxOutResult struct {
 
 // GetNetTotalsResult models the data returned from the getnettotals command.
 type GetNetTotalsResult struct {
-	TotalBytesRecv uint64 `json:"totalbytesrecv"`
-	TotalBytesSent uint64 `json:"totalbytessent"`
-	TimeMillis     int64  `json:"timemillis"`
+	TotalBytesRecv uint64       `json:"totalbytesrecv"`
+	TotalBytesSent uint64       `json:"totalbytessent"`
+	TimeMillis     int64        `json:"timemillis"`
+	Uploadtarget   Uploadtarget `json:"pploadtarget"`
+}
+
+type Uploadtarget struct {
+	TimeFrame             uint64 `json:"timeframe"`
+	Target                uint64 `json:"target"`
+	TargetReached         bool   `json:"target_reached"`
+	ServeHistoricalBlocks bool   `json:"serve_historical_blocks"`
+	BytesLeftInCycle      uint64 `json:"bytes_left_in_cycle"`
+	TimeLeftInCycle       uint64 `json:"time_left_in_cycle"`
 }
 
 // ScriptSig models a signature script.  It is defined separately since it only
@@ -580,8 +590,19 @@ type GetChainTipsResult struct {
 }
 
 type ChainTipsInfo struct {
-	Height    int    `json:"height"`
+	Height    int32  `json:"height"`
 	Hash      string `json:"hash"`
-	BranchLen int    `json:"branchlen"`
+	BranchLen int32  `json:"branchlen"`
 	Status    string `json:"status"`
+}
+
+type ListBannedResult struct {
+	BannedINfo []BannedINfo
+}
+
+type BannedINfo struct {
+	Address     string `json:"address"`
+	BannedUntil int64  `json:"banned_until"`
+	BanCreated  int64  `json:"ban_created"`
+	BanReason   string `json:"ban_reason"`
 }
