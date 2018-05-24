@@ -5,6 +5,7 @@
 package main
 
 import (
+	"github.com/btcboost/copernicus/log"
 	"os"
 	"os/signal"
 	"sync"
@@ -31,11 +32,11 @@ func interruptListener() <-chan struct{} {
 		for {
 			select {
 			case sig := <-interruptChannel:
-				btcdLog.Infof("Received signal (%s).  "+
+				log.Info("Received signal (%s).  "+
 					"shutting down...", sig)
 
 			case <-shutdownRequestChannel:
-				btcdLog.Info("Shutdown requested.  " +
+				log.Info("Shutdown requested.  " +
 					"shutting down...")
 			}
 
