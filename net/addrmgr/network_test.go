@@ -8,7 +8,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/btcboost/copernicus/net/addrmgr"
 	"github.com/btcboost/copernicus/net/wire"
 )
 

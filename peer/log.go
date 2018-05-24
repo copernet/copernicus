@@ -9,10 +9,6 @@ import (
 	"strings"
 	"time"
 
-<<<<<<< HEAD
-=======
-	"github.com/btcboost/copernicus/log"
->>>>>>> fa9fe2fd6276598a68bf97ee4079931c9c63d7cb
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"

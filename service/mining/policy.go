@@ -1,5 +1,7 @@
 package mining
 
+import "github.com/btcboost/copernicus/util"
+
 const (
 	/*MaxTxSigOpsCount allowed number of signature check operations per transaction. */
 	MaxTxSigOpsCount uint64 = 20000
@@ -27,4 +29,11 @@ const (
 
 	/*MaxStandardTxSigOps the maximum number of sigops we're willing to relay/mine in a single tx */
 	MaxStandardTxSigOps = uint(MaxTxSigOpsCount / 5)
+
+	DefaultTransactionMaxfee = util.COIN / 10
+)
+
+// global value in mining module
+var (
+	MaxTxFee = DefaultTransactionMaxfee
 )

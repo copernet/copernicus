@@ -217,9 +217,8 @@ type server struct {
 	wg                   sync.WaitGroup
 	quit                 chan struct{}
 	nat                  upnp.NAT
-	// db                   database.DB//todo:?
-	timeSource *bitcointime.MedianTime
-	services   wire.ServiceFlag
+	timeSource           *bitcointime.MedianTime
+	services             wire.ServiceFlag
 
 	// The following fields are used for optional indexes.  They will be nil
 	// if the associated index is not enabled.  These fields are set during

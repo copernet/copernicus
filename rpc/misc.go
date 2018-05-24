@@ -10,7 +10,6 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/bitcoinutil"
 	"github.com/btcsuite/btcd/mempool"
 )
 
@@ -41,7 +40,7 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
 		Proxy:      "", // todo define in conf
 		Difficulty: getDifficulty(chain.GlobalChain.Tip()),
-		TestNet:    chainparams.ActiveNetParams.BitcoinNet == bitcoinutil.TestNet3,
+		TestNet:    chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
 		RelayFee:   float64(mempool.DefaultMinRelayTxFee),
 	}
 

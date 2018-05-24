@@ -109,7 +109,7 @@ func TestChainSvrCmds(t *testing.T) {
 				return NewGetAddedNodeInfoCmd(true, nil)
 			},
 			marshalled:   `{"jsonrpc":"1.0","method":"getaddednodeinfo","params":[true],"id":1}`,
-			unmarshalled: &GetAddedNodeInfoCmd{DNS: true, Node: nil},
+			unmarshalled: &GetAddedNodeInfoCmd{Node: nil},
 		},
 		{
 			name: "getaddednodeinfo optional",
@@ -119,9 +119,8 @@ func TestChainSvrCmds(t *testing.T) {
 			staticCmd: func() interface{} {
 				return NewGetAddedNodeInfoCmd(true, String("127.0.0.1"))
 			},
-			marshalled: `{"jsonrpc":"1.0","method":"getaddednodeinfo","params":[true,"127.0.0.1"],"id":1}`,
+			marshalled: `{"jsonrpc":"1.0","method":"getaddednodeinfo","params":["127.0.0.1"],"id":1}`,
 			unmarshalled: &GetAddedNodeInfoCmd{
-				DNS:  true,
 				Node: String("127.0.0.1"),
 			},
 		},
@@ -451,7 +450,7 @@ func TestChainSvrCmds(t *testing.T) {
 			marshalled: `{"jsonrpc":"1.0","method":"getnetworkhashps","params":[],"id":1}`,
 			unmarshalled: &GetNetworkHashPSCmd{
 				Blocks: Int(120),
-				Height: Int(-1),
+				Height: Int32(-1),
 			},
 		},
 		{
@@ -465,7 +464,7 @@ func TestChainSvrCmds(t *testing.T) {
 			marshalled: `{"jsonrpc":"1.0","method":"getnetworkhashps","params":[200],"id":1}`,
 			unmarshalled: &GetNetworkHashPSCmd{
 				Blocks: Int(200),
-				Height: Int(-1),
+				Height: Int32(-1),
 			},
 		},
 		{
@@ -474,12 +473,12 @@ func TestChainSvrCmds(t *testing.T) {
 				return NewCmd("getnetworkhashps", 200, 123)
 			},
 			staticCmd: func() interface{} {
-				return NewGetNetworkHashPSCmd(Int(200), Int(123))
+				return NewGetNetworkHashPSCmd(Int(200), Int32(123))
 			},
 			marshalled: `{"jsonrpc":"1.0","method":"getnetworkhashps","params":[200,123],"id":1}`,
 			unmarshalled: &GetNetworkHashPSCmd{
 				Blocks: Int(200),
-				Height: Int(123),
+				Height: Int32(123),
 			},
 		},
 		{

@@ -72,7 +72,7 @@ type BlockAssembler struct {
 	blockSigOps           uint64
 	fees                  amount.Amount
 	inBlock               map[util.Hash]struct{}
-	height                int
+	height                int32
 	lockTimeCutoff        int64
 	chainParams           *chainparams.BitcoinParams
 }
@@ -215,7 +215,8 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			continue
 		}
 		// add the ancestors of the current item to block
-		ancestors := pool.CalculateMemPoolAncestors(&entry.Tx.GetHash())
+		h := entry.Tx.GetHash()
+		ancestors := pool.CalculateMemPoolAncestors(&h)
 		ba.onlyUnconfirmed(ancestors)
 		ancestors[&entry] = struct{}{} // add current item
 		if !ba.testPackageTransactions(ancestors) {
@@ -356,7 +357,8 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	mpool.Lock()
 	defer mpool.Unlock()
 	for entry := range alreadyAdded {
-		descendants := mpool.CalculateDescendants(&entry.Tx.GetHash())
+		h := entry.Tx.GetHash()
+		descendants := mpool.CalculateDescendants(&h)
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
