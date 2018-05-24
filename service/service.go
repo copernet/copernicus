@@ -6,11 +6,17 @@ package service
 import (
 	"container/list"
 	"context"
+	"fmt"
+
 	//"fmt"
 	"sync"
 
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+
 	//"github.com/btcboost/copernicus/model/block"
 	//"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -173,11 +179,9 @@ out:
 
 }
 
-/*
 // Rpc process things
 func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
-	switch m := message.(type) {
-
+	switch message.(type) {
 	case *btcjson.AddNodeCmd:
 		err = mh.NodeOpera(m)
 
@@ -200,17 +204,16 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		case BlockState:
 			return r, nil
 		}
-
-	case GetConnectCount:
+	//
+	case *GetConnectionCountRequest:
 		return mh.connManager.ConnectedCount(), nil
 
 	case *wire.MsgPing:
 		return mh.connManager.BroadCast(), nil
 
-	case GetAddedNodeInfoMsg:
+	case *btcjson.GetAddedNodeInfoCmd:
 		return mh.connManager.PersistentPeers(), nil
 	}
 
 	return nil, fmt.Errorf("Unknown command")
 }
-*/
