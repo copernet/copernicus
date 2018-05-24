@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcboost/copernicus/addrmgr"
+	"github.com/btcboost/copernicus/net/addrmgr"
 	"github.com/btcboost/copernicus/net/wire"
 )
 
@@ -241,11 +241,11 @@ func TestConnected(t *testing.T) {
 	ka := n.GetAddress()
 	na := ka.NetAddress()
 	// make it an hour ago
-	na.Timestamp = uint32(time.Now().Add(time.Hour * -1).Unix())
+	na.Timestamp = time.Now().Add(time.Hour * -1)
 
 	n.Connected(na)
 
-	if !time.Unix(int64(ka.NetAddress().Timestamp), 0).After(time.Unix(int64(na.Timestamp), 0)) {
+	if !ka.NetAddress().Timestamp.After(na.Timestamp) {
 		t.Errorf("Address should have a new timestamp, but does not")
 	}
 }
