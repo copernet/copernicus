@@ -475,7 +475,7 @@ type GetWorkResult struct {
 
 // InfoChainResult models the data returned by the chain server getinfo command.
 type InfoChainResult struct {
-	Version         string  `json:"version"`
+	Version         uint    `json:"version"`
 	ProtocolVersion int32   `json:"protocolversion"`
 	Blocks          int32   `json:"blocks"`
 	TimeOffset      int64   `json:"timeoffset"`
@@ -573,4 +573,15 @@ type SignRawTransactionResult struct {
 	Hex      string                     `json:"hex"`
 	Complete bool                       `json:"complete"`
 	Errors   []*SignRawTransactionError `json:"errors,omitempty"`
+}
+
+type GetChainTipsResult struct {
+	Tips []ChainTipsInfo
+}
+
+type ChainTipsInfo struct {
+	Height    int    `json:"height"`
+	Hash      string `json:"hash"`
+	BranchLen int    `json:"branchlen"`
+	Status    string `json:"status"`
 }

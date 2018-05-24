@@ -7,7 +7,7 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 )
 
-func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height uint32) {
+func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height int32) {
 	if !tx.IsCoinBase() {
 		undoCoins := make([]*utxo.Coin, 0, len(tx.GetIns()))
 		for idx, txin := range tx.GetIns() {
@@ -22,7 +22,7 @@ func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height 
 	}
 }
 
-func AddCoins(coinMap *utxo.CoinsMap, tx *tx.Tx, height uint32) {
+func AddCoins(coinMap *utxo.CoinsMap, tx *tx.Tx, height int32) {
 	isCoinbase := tx.IsCoinBase()
 	txid := tx.GetHash()
 	for idx, out := range tx.GetOuts() {

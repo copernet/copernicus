@@ -22,7 +22,7 @@ type TestMemPoolEntry struct {
 	Height         int
 	SpendsCoinbase bool
 	SigOpCost      int
-	lp             *tx.LockPoints
+	lp             *LockPoints
 }
 
 func NewTestMemPoolEntry() *TestMemPoolEntry {
@@ -63,7 +63,7 @@ func (t *TestMemPoolEntry) SetSigOpsCost(sigOpsCost int) *TestMemPoolEntry {
 }
 
 func (t *TestMemPoolEntry) FromTxToEntry(tx *tx.Tx) *TxEntry {
-	lp := tx.LockPoints{}
+	lp := LockPoints{}
 	if t.lp != nil {
 		lp = *(t.lp)
 	}
@@ -81,24 +81,24 @@ func TestTxMempooladdTx(t *testing.T) {
 		o := txout.NewTxOut(33000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txParentPtr.AddTxOut(o)
 	}
-	txParentPtr.Hash = txParentPtr.GetHash()
+	_ = txParentPtr.GetHash()
 
 	var txChild [3]tx.Tx
 	for i := 0; i < 3; i++ {
-		ins := txin2.NewTxIn(&outpoint.OutPoint{txParentPtr.Hash, uint32(i)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
+		ins := txin2.NewTxIn(&outpoint.OutPoint{txParentPtr.GetHash(), uint32(i)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
 		txChild[i].AddTxIn(ins)
 		outs := txout.NewTxOut(11000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txChild[i].AddTxOut(outs)
-		txChild[i].Hash = txChild[i].GetHash()
+		_ = txChild[i].GetHash()
 	}
 
 	var txGrandChild [3]tx.Tx
 	for i := 0; i < 3; i++ {
-		ins := txin2.NewTxIn(&outpoint.OutPoint{txChild[i].Hash, uint32(0)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
+		ins := txin2.NewTxIn(&outpoint.OutPoint{txChild[i].GetHash(), uint32(0)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
 		txGrandChild[i].AddTxIn(ins)
 		outs := txout.NewTxOut(11000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txGrandChild[i].AddTxOut(outs)
-		txGrandChild[i].Hash = txGrandChild[i].GetHash()
+		_ = txGrandChild[i].GetHash()
 	}
 
 	testPool := NewTxMempool()
@@ -197,27 +197,27 @@ func createTx() []*TxEntry {
 	//txChild[i].AddTxIn(ins)
 	outs := txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx1.AddTxOut(outs)
-	tx1.Hash = tx1.GetHash()
+	_ = tx1.GetHash()
 	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, tx.TxVersion)
 	out2 := txout.NewTxOut(2*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx2.AddTxOut(out2)
-	tx2.Hash = tx2.GetHash()
+	_ = tx2.GetHash()
 	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2)
 
 	tx3 := tx.NewTx(0, tx.TxVersion)
-	ins := txin2.NewTxIn(&outpoint.OutPoint{tx1.Hash, 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), tx.MaxTxInSequenceNum)
+	ins := txin2.NewTxIn(&outpoint.OutPoint{tx1.GetHash(), 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), tx.MaxTxInSequenceNum)
 	tx3.AddTxIn(ins)
 	out3 := txout.NewTxOut(5*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx3.AddTxOut(out3)
-	tx3.Hash = tx3.GetHash()
+	_ = tx3.GetHash()
 	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, tx.TxVersion)
 	out4 := txout.NewTxOut(6*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx4.AddTxOut(out4)
-	tx4.Hash = tx4.GetHash()
+	_ = tx4.GetHash()
 	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4)
 	t := make([]*TxEntry, 4)
 

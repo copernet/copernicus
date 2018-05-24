@@ -7,7 +7,7 @@ import (
 	"github.com/btcboost/copernicus/model/chain"
 )
 
-func ProcessBlock(b *block.Block) (bool,error) {
+func ProcessBlock(b *block.Block) (bool, error) {
 	gChain := chain.GetInstance()
 	isNewBlock := false
 	accepted := false
@@ -22,19 +22,19 @@ func ProcessBlock(b *block.Block) (bool,error) {
 
 	err = lblock.Check(b)
 	if err != nil {
-		return isNewBlock,err
+		return isNewBlock, err
 	}
 
 	bIndex,err = lchain.AcceptBlock(b)
 	if err != nil {
-		return isNewBlock,err
+		return isNewBlock, err
 	}
 
 	isNewBlock = true
 	err = gChain.ActiveBest(bIndex)
 	if err != nil {
-		return isNewBlock,err
+		return isNewBlock, err
 	}
 
-	return isNewBlock,err
+	return isNewBlock, err
 }

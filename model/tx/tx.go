@@ -510,7 +510,7 @@ func (tx *Tx) CalculateModifiedSize() uint {
 	return txSize
 }
 
-func (tx *Tx) IsFinal(Height int, time int64) bool {
+func (tx *Tx) IsFinal(Height int32, time int64) bool {
 	if tx.lockTime == 0 {
 		return true
 	}

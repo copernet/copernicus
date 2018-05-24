@@ -1,34 +1,34 @@
 package disk
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
+	"math"
+	"os"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"time"
+	
 	blogs "github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
-	"os"
-	"sync"
-
-	"fmt"
-
-	"bytes"
+	
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/pow"
-
-	"crypto/sha256"
-	"encoding/binary"
+	
 	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/model/chain/global"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/persist/blkdb"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/chain/global"
-	"math"
-	"reflect"
-	"sync/atomic"
-	"syscall"
-	"time"
 )
 
 type FlushStateMode int
@@ -111,30 +111,7 @@ func GetBlockPosParentFilename() string {
 	return conf.GetDataPath() + "/blocks/"
 }
 
-func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
 
-	// Open history file to read
-	file := OpenBlockFile(&pos, true)
-	if file == nil {
-		blogs.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.String())
-		return nil, false
-	}
-	defer file.Close()
-
-	// Read block
-	blk := block.NewBlock()
-	if err := blk.Unserialize(file); err != nil {
-		blogs.Error("%s: Deserialize or I/O error - %s at %s", log.TraceLog(), err.Error(), pos.String())
-	}
-
-	// Check the header
-	pow := pow.Pow{}
-	if !pow.CheckProofOfWork(blk.GetHash(), blk.Header.Bits, param) {
-		blogs.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.String()))
-		return nil, false
-	}
-	return blk, true
-}
 
 func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
 	undoPos.File = nFile
@@ -252,6 +229,44 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
+func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
+	
+	// Open history file to read
+	file := OpenBlockFile(&pos, true)
+	if file == nil {
+		log.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.String())
+		return nil, false
+	}
+	defer file.Close()
+	
+	size, err := util.BinarySerializer.Uint32(file, binary.LittleEndian)
+	if err != nil{
+		log.Error("ReadBlockFromDisk: read block file len failed for %s", pos.String())
+		return nil, false
+	}
+	//read block data to tmp buff
+	tmp := make([]byte, size, size)
+	n, err := file.Read(tmp)
+	if err != nil || n != int(size){
+		log.Error("ReadBlockFromDisk: read block file len != size failed for %s, %s", pos.String(), err)
+		return nil, false
+	}
+	buf := bytes.NewBuffer(tmp)
+	// Read block
+	blk := block.NewBlock()
+	if err := blk.Unserialize(buf); err != nil {
+		log.Error("%s: Deserialize or I/O error - %s at %s", log.TraceLog(), err.Error(), pos.String())
+	}
+	
+	// Check the header
+	pow := pow.Pow{}
+	if !pow.CheckProofOfWork(blk.GetHash(), blk.Header.Bits, param) {
+		log.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.String()))
+		return nil, false
+	}
+	return blk, true
+}
+
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) (*block.Block, bool) {
 	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
 	if !ret {
@@ -265,6 +280,25 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.Bitcoin
 		return blk, false
 	}
 	return blk, true
+}
+
+
+func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
+	// Open history file to append
+	file := OpenBlockFile(pos, false)
+	if file == nil {
+		log.Error("OpenUndoFile failed")
+		return false
+	}
+	defer file.Close()
+	buf := bytes.NewBuffer(nil)
+	block.Serialize(buf)
+	size := buf.Len()
+	lenBuf := bytes.NewBuffer(nil)
+	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
+	file.Write(lenBuf.Bytes())
+	file.Write(buf.Bytes())
+	return true
 }
 
 func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {

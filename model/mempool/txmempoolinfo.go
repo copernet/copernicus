@@ -2,15 +2,15 @@ package mempool
 
 import (
 	"encoding/binary"
-	"io"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
+	"io"
 )
 
 type TxMempoolInfo struct {
-	Tx       *tx.Tx      	// The transaction itself
-	Time     int64         	// Time the transaction entered the memPool
-	FeeRate  util.FeeRate 	// FeeRate of the transaction
+	Tx      *tx.Tx       // The transaction itself
+	Time    int64        // Time the transaction entered the memPool
+	FeeRate util.FeeRate // FeeRate of the transaction
 }
 
 func (info *TxMempoolInfo) Serialize(w io.Writer) error {
@@ -47,4 +47,3 @@ func (info *TxMempoolInfo) Deserialize(r io.Reader) error {
 	info.FeeRate.SataoshisPerK = int64(f)
 	return nil
 }
-
