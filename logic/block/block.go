@@ -1,6 +1,7 @@
 package block
 
 import (
+	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -17,21 +18,20 @@ func GetBlock(hash *util.Hash) (* block.Block, error) {
 }
 
 
-func WriteBlockToDisk(bl *block.Block, bi *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
+func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlockPos,error)  {
 	
-	if pos == nil{
-		height := bi.Height
-		pos = block.NewDiskBlockPos(0,0)
-		flag := disk.FindBlockPos(pos, bl.SerializeSize(), height, uint64(bl.GetBlockHeader().Time), false)
-		if !flag{
-			log.Error("WriteBlockToDisk():FindBlockPos failed")
-			return false
-		}
+	height := bi.Height
+	pos := block.NewDiskBlockPos(0,0)
+	flag := disk.FindBlockPos(pos, bl.SerializeSize(), height, uint64(bl.GetBlockHeader().Time), false)
+	if !flag{
+		log.Error("WriteBlockToDisk():FindBlockPos failed")
+		return nil, errcode.ProjectError{Code:2000}
 	}
-	err := disk.WriteBlockToDisk(bl, pos)
-	if !err{
+	
+	flag = disk.WriteBlockToDisk(bl, pos)
+	if !flag{
 		log.Error("WriteBlockToDisk():WriteBlockToDisk failed")
-		return false
+		return nil, errcode.ProjectError{Code:2001}
 	}
-	return true
+	return pos, nil
 }

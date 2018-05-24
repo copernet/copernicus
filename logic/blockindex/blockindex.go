@@ -115,14 +115,14 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	logs.Debug("Checking all blk files are present...")
 	for _, item := range chainGlobal.GlobalBlockIndexMap {
 		index := item
-		if index.Status&blockindex.BlockHaveData != 0 {
+		if index.Status&blockindex != 0 {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
 	
 	l := setBlkDataFiles.List()
 	for _, item := range l {
-		pos := &core.DiskBlockPos{
+		pos := &block.DiskBlockPos{
 			File: item.(int),
 			Pos:  0,
 		}

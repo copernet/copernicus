@@ -47,11 +47,11 @@ func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
 		bIndex.AddStatus(blockindex.StatusAllValid)
 	}
 
-	err = lblock.Write(bIndex,b)
+	pos, err := lblock.WriteBlockToDisk(bIndex,b)
 	if err != nil {
 		return bIndex,err
 	}
-
+	
 	bIndex.AddStatus(blockindex.StatusAllStored)
 
 	return nil, nil
@@ -522,7 +522,7 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 			if tx.IsCoinBase() {
 				mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
 			} else {
-				_, e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
+				e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
 				if e != nil {
 					mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
 				}

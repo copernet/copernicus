@@ -1,11 +1,18 @@
 package block
 
 import (
-	"fmt"
-	"time"
+"bytes"
+"fmt"
+"io"
+"time"
 
-	"github.com/btcboost/copernicus/persist/db"
-	"io"
+
+
+
+
+"github.com/btcboost/copernicus/util"
+
+
 )
 
 
@@ -27,15 +34,25 @@ func (bfi *BlockFileInfo) GetSerializeList()[]string{
 	return dumpList
 }
 
-func (bfi *BlockFileInfo) Serialize(writer io.Writer) error {
-	return db.SerializeOP(writer, bfi)
-}
 
-func (bfi *BlockFileInfo) Unserialize(reader io.Reader) error {
-	err := db.UnserializeOP(reader, bfi)
+func (bfi *BlockFileInfo) Serialize(w io.Writer) error {
+	buf := bytes.NewBuffer(nil)
+	err := util.WriteElements(buf, bfi.Blocks, bfi.Size, bfi.UndoSize, bfi.HeightFirst, bfi.HeightLast, bfi.timeFirst, bfi.timeLast, bfi.index)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(buf.Bytes())
 	return err
-
 }
+
+func (bfi *BlockFileInfo) Unserialize(r io.Reader) error {
+	err := util.ReadElements(r, &bfi.Blocks, &bfi.Size, &bfi.UndoSize, &bfi.HeightFirst, &bfi.HeightLast, &bfi.timeFirst, &bfi.timeLast, &bfi.index)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
 func (bfi *BlockFileInfo) SetNull() {
 	bfi.Size = 0
 	bfi.timeFirst = 0
