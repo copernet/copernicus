@@ -8,7 +8,7 @@ type LockPoints struct {
 	// Height and Time will be set to the blockChain height and median time past values that
 	// would be necessary to satisfy all relative lockTime constraints (BIP68)
 	// of this tx given our view of block chain history
-	Height int
+	Height int32
 	Time   int64
 	// MaxInputBlock as long as the current chain descends from the highest height block
 	// containing one of the inputs used in the calculation, then the cached

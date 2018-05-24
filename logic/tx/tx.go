@@ -6,6 +6,7 @@ import (
 
 	"bytes"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
@@ -38,13 +39,13 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 	}
 
 	//check locktime
-	err = ContextualCheckTransaction(transaction, int(tx.StandardLockTimeVerifyFlags))
+	err = ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
 		return err
 	}
 
 	// is mempool already have it? conflict tx with mempool
-	if mempool.Gpool.FindTx(transaction.Hash) != nil {
+	if mempool.Gpool.FindTx(transaction.GetHash()) != nil {
 		return errcode.New(errcode.TxErrMempoolAlreadyExist)
 	}
 
@@ -87,15 +88,35 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 		}
 	}
 	//check inputs money range
-	err = CheckInputsMoney(transaction, tempCoinsMap)
+	bestBlockHash := utxo.GetUtxoCacheInstance().GetBestBlock()
+	spendHeight, err := chain.GetInstance().GetActiveHeight(&bestBlockHash)
+	if err != nil {
+		return err
+	}
+	err = CheckInputsMoney(transaction, tempCoinsMap, spendHeight)
 	if err != nil {
 		return err
 	}
 
 	//check inputs
-	err = checkInputs(transaction, tempCoinsMap, 1)
+	var scriptVerifyFlags uint32 = uint32(script.StandardScriptVerifyFlags)
+	if !chainparams.ActiveNetParams.RequireStandard {
+		//scriptVerifyFlags = conf.Cfg.Script.PromiscuousMempoolFlags
+	}
+	err = checkInputs(transaction, tempCoinsMap, scriptVerifyFlags)
 	if err != nil {
 		return err
+	}
+	var currentBlockScriptVerifyFlags uint32 = chain.GetInstance().GetScriptFlags()
+	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
+	if err != nil {
+		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
+			return errcode.New(errcode.ScriptCheckInputsBug)
+		}
+		err = checkInputs(transaction, tempCoinsMap, uint32(script.MandatoryScriptVerifyFlags))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -118,7 +139,7 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	utxo := utxo.GetUtxoCacheInstance()
 	outs := transaction.GetOuts()
 	for i, _ := range outs {
-		coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.Hash, uint32(i)))
+		coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
 		if coin != nil {
 			return true
 		}
@@ -135,6 +156,9 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
+			return false
+		}
+		if coin.IsSpent() {
 			return false
 		}
 		coinMap.AddCoin(e.PreviousOutPoint, coin)
@@ -171,27 +195,7 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 
 	return n, nil
 }
-
-func ContextualCheckTransaction(transaction *tx.Tx, flags int) error {
-
-	// By convention a negative value for flags indicates that the current
-	// network-enforced consensus rules should be used. In a future soft-fork
-	// scenario that would mean checking which rules would be enforced for the
-	// next block and setting the appropriate flags. At the present time no
-	// soft-forks are scheduled, so no flags are set.
-	if flags > 0 {
-		flags = 0
-	}
-
-	activeChain := chain.GetInstance()
-	var nLockTimeCutoff int64 = 0
-	if flags&consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
-		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
-	} else {
-		nLockTimeCutoff = util.GetAdjustedTime()
-	}
-
-	nBlockHeight := activeChain.Height() + 1
+func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		return errcode.New(errcode.TxErrNotFinal)
 	}
@@ -205,6 +209,30 @@ func ContextualCheckTransaction(transaction *tx.Tx, flags int) error {
 	return nil
 }
 
+func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) error {
+
+	// By convention a negative value for flags indicates that the current
+	// network-enforced consensus rules should be used. In a future soft-fork
+	// scenario that would mean checking which rules would be enforced for the
+	// next block and setting the appropriate flags. At the present time no
+	// soft-forks are scheduled, so no flags are set.
+	if flags < 0 {
+		flags = 0
+	}
+
+	activeChain := chain.GetInstance()
+	var nLockTimeCutoff int64 = 0
+	if flags&consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
+		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
+	} else {
+		nLockTimeCutoff = util.GetAdjustedTime()
+	}
+
+	nBlockHeight := activeChain.Height() + 1
+
+	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
+}
+
 /*
 func UndoTransaction(txs []*txundo.TxUndo) bool {
 	return true
@@ -212,7 +240,7 @@ func UndoTransaction(txs []*txundo.TxUndo) bool {
 */
 
 //IsUAHFEnabled Check is UAHF has activated.
-func IsUAHFEnabled(height int) bool {
+func IsUAHFEnabled(height int32) bool {
 	return height >= chainparams.ActiveNetParams.UAHFHeight
 }
 
@@ -254,10 +282,10 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		}
 		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
-		if flags&script.ScriptEnableSigHashForkId != 0 {
+		if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
 			flags |= script.ScriptVerifyStrictEnc
 		}
-		if flags&script.ScriptVerifySigPushOnly != 0 && !scriptSig.IsPushOnly() {
+		if flags&script.ScriptVerifySigPushOnly == script.ScriptVerifySigPushOnly && !scriptSig.IsPushOnly() {
 			return errcode.New(errcode.ScriptErrSigPushOnly)
 		}
 		stack := util.NewStack()
@@ -265,13 +293,51 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		if err != nil {
 			return err
 		}
-
+		stackCopy := stack.Copy()
 		err = EvalScript(stack, scriptPubKey, tx, i, coin.GetAmount(), flags)
 		if err != nil {
 			return err
 		}
 		if stack.Empty() {
 			return errcode.New(errcode.ScriptErrEvalFalse)
+		}
+		if stack.Top(-1).(bool) == false {
+			return errcode.New(errcode.ScriptErrEvalFalse)
+		}
+		if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH && scriptPubKey.IsPayToScriptHash() {
+			if !scriptSig.IsPushOnly() {
+				return errcode.New(errcode.ScriptErrSigPushOnly)
+			}
+			util.Swap(stack, stackCopy)
+			topBytes := stack.Top(-1)
+			stack.Pop()
+			scriptPubKey2 := script.NewScriptRaw(topBytes.([]byte))
+			err = EvalScript(stack, scriptPubKey2, tx, i, coin.GetAmount(), flags)
+			if err != nil {
+				return err
+			}
+			if stack.Empty() {
+				return errcode.New(errcode.ScriptErrEvalFalse)
+			}
+			if !stack.Top(-1).(bool) {
+				return errcode.New(errcode.ScriptErrEvalFalse)
+			}
+		}
+
+		// The CLEANSTACK check is only performed after potential P2SH evaluation,
+		// as the non-P2SH evaluation of a P2SH script will obviously not result in
+		// a clean stack (the P2SH inputs remain). The same holds for witness
+		// evaluation.
+		if (flags & script.ScriptVerifyCleanStack) != 0 {
+			// Disallow CLEANSTACK without P2SH, as otherwise a switch
+			// CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
+			// softfork (and P2SH should be one).
+			if flags&script.ScriptVerifyP2SH != 0 {
+				panic("")
+			}
+			if stack.Size() != 1 {
+				return errcode.New(errcode.ScriptErrCleanStack)
+			}
 		}
 
 	}
@@ -1483,9 +1549,9 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 // caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func CalculateSequenceLocks(transaction *tx.Tx, flags uint) (lp *mempool.LockPoints) {
 	lp = mempool.NewLockPoints()
-	var maxHeight int = -1
+	var maxHeight int32 = -1
 	var maxTime int64 = -1
-	var maxInputHeight int = 0
+	var maxInputHeight int32 = 0
 	activeChain := chain.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
@@ -1497,12 +1563,12 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint) (lp *mempool.LockPoi
 		if coin == nil {
 			return nil
 		}
-		var coinHeight int
+		var coinHeight int32
 		var coinTime int64
 		if coin.IsMempoolCoin() {
 			coinHeight = activeChain.Height() + 1
 		} else {
-			coinHeight = int(coin.GetHeight())
+			coinHeight = coin.GetHeight()
 		}
 		if e.Sequence&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 			continue
@@ -1529,7 +1595,7 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint) (lp *mempool.LockPoi
 				maxTime = expireTime
 			}
 		} else {
-			expireHeight := coinHeight + (int(e.Sequence) & script.SequenceLockTimeMask) - 1
+			expireHeight := coinHeight + (int32(e.Sequence) & script.SequenceLockTimeMask) - 1
 			if maxHeight < expireHeight {
 				maxHeight = expireHeight
 			}
@@ -1557,13 +1623,18 @@ func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	return true
 }
 
-func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap) (err error) {
+func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
 	nValue := int64(0)
 	ins := transaction.GetIns()
 	for _, e := range ins {
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
 			return errcode.New(errcode.TxErrInputsNotAvailable)
+		}
+		if coin.IsCoinBase() {
+			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {
+				return errcode.New(errcode.TxErrRejectInvalid)
+			}
 		}
 		if !amount.MoneyRange(coin.GetTxOut().GetValue()) {
 			return errcode.New(errcode.TxErrRejectInvalid)

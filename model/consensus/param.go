@@ -1,10 +1,10 @@
 package consensus
 
 import (
-"math/big"
-"time"
+	"math/big"
+	"time"
 
-"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util"
 )
 
 type DeploymentPos int
@@ -32,17 +32,17 @@ type Param struct {
 	GenesisHash *util.Hash
 
 	// Block height and hash at which BIP34 becomes active
-	BIP34Height int
+	BIP34Height int32
 	BIP34Hash   util.Hash
 	//  Block height at which BIP65 becomes active
-	BIP65Height int
+	BIP65Height int32
 	//  Block height at which BIP66 becomes active
-	BIP66Height int
+	BIP66Height int32
 	//  Block height at which UAHF kicks in
-	UAHFHeight int
+	UAHFHeight int32
 
 	// Block height at which OP_RETURN replay protection stops
-	AntiReplayOpReturnSunsetHeight int
+	AntiReplayOpReturnSunsetHeight int32
 	AntiReplayOpReturnCommitment   []byte
 
 	// Minimum blocks including miner confirmation of the total of 2016 blocks

@@ -23,6 +23,7 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcsuite/btcutil"
 )
 
 const (

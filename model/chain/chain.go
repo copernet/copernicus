@@ -7,13 +7,13 @@ import (
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
-	active   		[]* blockindex.BlockIndex
-	branch   		[]* blockindex.BlockIndex
-	waitForTx     	map[util.Hash]* blockindex.BlockIndex
-	orphan        	[]* blockindex.BlockIndex
-	indexMap 	map[util.Hash]* blockindex.BlockIndex
-	newestBlock   	*blockindex.BlockIndex
-	receiveID     	uint64
+	active      []*blockindex.BlockIndex
+	branch      []*blockindex.BlockIndex
+	waitForTx   map[util.Hash]*blockindex.BlockIndex
+	orphan      []*blockindex.BlockIndex
+	indexMap    map[util.Hash]*blockindex.BlockIndex
+	newestBlock *blockindex.BlockIndex
+	receiveID   uint64
 }
 
 var GlobalChain *Chain
@@ -139,49 +139,37 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	}
 }
 
-
-
-
-
-
-
-
-func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex{
+func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 	// todo
 	return nil
 }
 
-
-func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator{
+func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 	step := 1
 	blockHashList := make([]util.Hash, 0, 32)
-	if index == nil{
+	if index == nil {
 		index = ch.Tip()
 	}
 	for {
 		blockHashList = append(blockHashList, *index.GetBlockHash())
-		if index.Height == 0{
+		if index.Height == 0 {
 			break
 		}
 		height := index.Height - int32(step)
-		if height < 0{
+		if height < 0 {
 			height = 0
 		}
-		if ch.Contains(index){
+		if ch.Contains(index) {
 			index = ch.GetIndex(height)
-		}else {
+		} else {
 			index = ch.GetAncestor(height)
 		}
-		if len(blockHashList) > 10{
+		if len(blockHashList) > 10 {
 			step *= 2
 		}
 	}
 	return NewBlockLocator(blockHashList)
 }
-
-
-
-
 
 // FindFork Find the last common block between this chain and a block blIndex entry.
 func (chain *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex {
@@ -205,20 +193,20 @@ func (chain *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
 	return nil
 }
 
-func (chain *Chain)ActiveBest(bi *blockindex.BlockIndex) error {
+func (chain *Chain) ActiveBest(bi *blockindex.BlockIndex) error {
 
 	return nil
 }
 
-func (chain *Chain)RemoveFromBranch(bis []*blockindex.BlockIndex) {
+func (chain *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
 
 }
 
-func (chain *Chain)AddToBranch(bis []*blockindex.BlockIndex) {
+func (chain *Chain) AddToBranch(bis []*blockindex.BlockIndex) {
 
 }
 
-func (chain *Chain)FindMostWorkChain() *blockindex.BlockIndex {
+func (chain *Chain) FindMostWorkChain() *blockindex.BlockIndex {
 
 	return nil
 }
@@ -227,6 +215,6 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	return nil
 }
 
-func (c *Chain) GetActiveHeight(hash *util.Hash) (int,error) {
-	return 0,nil
+func (c *Chain) GetActiveHeight(hash *util.Hash) (int32, error) {
+	return 0, nil
 }

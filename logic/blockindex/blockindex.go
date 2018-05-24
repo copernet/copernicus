@@ -19,7 +19,7 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 )
 
-
+//on main init call it
 func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	if !blkdb.GetBlockTreeDBInstance().LoadBlockIndexGuts() {
 		return false
@@ -47,7 +47,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 			index.ChainWork = *pow.GetBlockProof(index)
 		}
 		index.TimeMax = timeMax
-
+		
 		// We can link the chain of blocks for which we've received transactions
 		// at some point. Pruned nodes may have deleted the block.
 		if index.TxCount > 0 {
@@ -65,7 +65,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 			log.Error("index's Txcount is 0 ")
 			panic("index's Txcount is 0 ")
 		}
-
+		
 		if index.Prev != nil {
 			index.BuildSkip()
 		}
@@ -80,14 +80,14 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 		//	gIndexBestInvalid = index
 		//}
 		//
-
+		
 		//
 		//if index.IsValid(BlockValidTree) &&
 		//	(GIndexBestHeader == nil || BlockIndexWorkComparator(GIndexBestHeader, index)) {
 		//	GIndexBestHeader = index
 		//}
 	}
-
+	
 	// Load block file info
 	var err error
 	chainGlobal.GlobalLastBlockFile, err = blkdb.GetBlockTreeDBInstance().ReadLastBlockFile()
@@ -109,44 +109,44 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 			break
 		}
 	}
-
+	
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
 	logs.Debug("Checking all blk files are present...")
 	for _, item := range chainGlobal.GlobalBlockIndexMap {
 		index := item
-		if index.Status&core.BlockHaveData != 0 {
+		if index.Status&blockindex.BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
-
+	
 	l := setBlkDataFiles.List()
 	for _, item := range l {
 		pos := &core.DiskBlockPos{
 			File: item.(int),
 			Pos:  0,
 		}
-
+		
 		file := disk.OpenBlockFile(pos, true)
 		if file == nil {
 			return false
 		}
 		file.Close()
 	}
-
+	
 	// Check whether we have ever pruned block & undo files
 	chainGlobal.GlobalHavePruned = blkdb.GetBlockTreeDBInstance().ReadFlag("prunedblockfiles")
 	if chainGlobal.GlobalHavePruned  {
 		logs.Debug("LoadBlockIndexDB(): Block files have previously been pruned")
 	}
-
+	
 	// Check whether we need to continue reindexing
 	reIndexing := false
 	reIndexing = blkdb.GetBlockTreeDBInstance().ReadReindexing()
 	if reIndexing {
 		chainGlobal.GlobalReindex = true
 	}
-
+	
 	// Check whether we have a transaction index
 	chainGlobal.GlobalTxIndex = blkdb.GetBlockTreeDBInstance().ReadFlag("txindex")
 	if chainGlobal.GlobalTxIndex {
@@ -154,20 +154,20 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	} else {
 		logs.Debug("LoadBlockIndexDB(): transaction index disabled")
 	}
-
+	
 	// Load pointer to end of best chain
 	index, ok := chainGlobal.GlobalBlockIndexMap[utxo.GetUtxoCacheInstance().GetBestBlock()]
 	if !ok {
 		return true
 	}
-
+	
 	chain.GetInstance().SetTip(index)
 	PruneBlockIndexCandidates()
-
+	
 	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
 		chain.GetInstance().Tip().GetBlockHash().ToString(), chain.GetInstance().Height(),
 		time.Unix(int64(chain.GetInstance().Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
 		GuessVerificationProgress(params.TxData(), chain.GetInstance().Tip()))
-
+	
 	return true
 }

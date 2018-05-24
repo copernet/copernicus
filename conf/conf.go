@@ -167,9 +167,10 @@ type Configuration struct {
 		DisableCheckpoints bool `default:"true"`
 	}
 	Script struct {
-		AcceptDataCarrier bool `default:"true"`
-		MaxDatacarrierBytes uint `default:"83"`
-		IsBareMultiSigStd bool `default:"true"`
+		AcceptDataCarrier       bool     `default:"true"`
+		MaxDatacarrierBytes     uint     `default:"83"`
+		IsBareMultiSigStd       bool     `default:"true"`
+		PromiscuousMempoolFlags []string `default:"StandardScriptVerifyFlags"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
