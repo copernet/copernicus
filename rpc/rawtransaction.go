@@ -15,6 +15,7 @@ import (
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/service/mining"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 )
@@ -386,8 +387,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	hash := transaction.GetHash()
 
-	maxTxFee := 10000 // todo define this global variable
-	maxRawTxFee := maxTxFee
+	maxRawTxFee := mining.MaxTxFee
 	if c.AllowHighFees != nil && *c.AllowHighFees {
 		maxRawTxFee = 0
 	}
