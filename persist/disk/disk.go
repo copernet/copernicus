@@ -475,8 +475,8 @@ func FlushBlockFile(fFinalize bool) {
 	}
 }
 
-func FindBlockPos(state *block.ValidationState, pos *block.DiskBlockPos, nAddSize uint,
-	nHeight uint, nTime uint64, fKnown bool) bool {
+func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint,
+	nHeight int32, nTime uint64, fKnown bool) bool {
 	csLastBlockFile.Lock()
 	defer csLastBlockFile.Unlock()
 

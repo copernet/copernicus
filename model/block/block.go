@@ -16,6 +16,7 @@ import (
 type Block struct {
 	Header BlockHeader
 	Txs    []*tx.Tx
+	size    uint
 }
 
 func (bl *Block) GetBlockHeader() BlockHeader {
@@ -76,10 +77,14 @@ func (blk *Block) GetHash() *util.Hash {
 	return &h
 }
 func (bl *Block) SerializeSize() uint {
+	if bl.size !=0{
+		return bl.size
+	}
 	size := uint(unsafe.Sizeof(BlockHeader{}))
 	for _, Tx := range bl.Txs {
 		size += Tx.SerializeSize()
 	}
+	bl.size = size
 	return size
 }
 
