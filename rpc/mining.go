@@ -45,7 +45,7 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	c := cmd.(*btcjson.GetNetworkHashPSCmd)
 
 	lookup := 120
-	height := -1
+	height := int32(-1)
 	if c.Blocks != nil {
 		lookup = *c.Blocks
 	}
@@ -64,11 +64,11 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	if lookup <= 0 {
-		lookup = index.Height%int(chainparams.ActiveNetParams.DifficultyAdjustmentInterval()) + 1
+		lookup = int(index.Height%int32(chainparams.ActiveNetParams.DifficultyAdjustmentInterval()) + 1)
 	}
 
-	if lookup > index.Height {
-		lookup = index.Height
+	if lookup > int(index.Height) {
+		lookup = int(index.Height)
 	}
 
 	b := index

@@ -309,7 +309,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 
 	//best := s.cfg.Chain.BestSnapshot()
 	best := chain.GlobalChain.Tip()
-	confirmations := -1
+	confirmations := int32(-1)
 	// Only report confirmations if the block is on the main chain
 	if chain.GlobalChain.Contains(blockIndex) {
 		confirmations = best.Height - blockIndex.Height + 1

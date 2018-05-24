@@ -30,7 +30,9 @@ type EntryFeeSort mempool.TxEntry
 func (e EntryFeeSort) Less(than btree.Item) bool {
 	t := than.(EntryFeeSort)
 	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
-		return e.Tx.GetHash().Cmp(&t.Tx.GetHash()) > 0
+		eHash := e.Tx.GetHash()
+		tHash := t.Tx.GetHash()
+		return eHash.Cmp(&tHash) > 0
 	}
 	return e.SumFeeWithAncestors < than.(EntryFeeSort).SumFeeWithAncestors
 }
@@ -54,7 +56,9 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
 	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
-		return r.Tx.GetHash().Cmp(&t.Tx.GetHash()) > 0
+		rHash := r.Tx.GetHash()
+		tHash := t.Tx.GetHash()
+		return rHash.Cmp(&tHash) > 0
 	}
 	return b1 < b2
 }
