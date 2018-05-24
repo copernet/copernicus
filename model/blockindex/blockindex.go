@@ -17,11 +17,11 @@ import (
  */
 
  const (
- 	StatusHeaderStored uint32 = 1 << iota
- 	StatusAllValid
+ 	StatusAllValid uint32 = 1 << iota
  	StatusIndexStored
  	StatusDataStored
 	StatusWaitingData
+	StatusFailed
 	StatusAccepted
 
 	//NOTE: This must be defined last in order to avoid influencing iota
@@ -90,10 +90,6 @@ func (bIndex *BlockIndex) WaitingData() bool {
 	return bIndex.Status & StatusWaitingData == 0
 }
 
-func (bIndex *BlockIndex) HeaderValid() bool {
-	return bIndex.Status & StatusHeaderValid != 0
-}
-
 func (bIndex *BlockIndex) AllValid() bool {
 	return bIndex.Status & StatusAllValid != 0
 }
@@ -103,11 +99,15 @@ func (bIndex *BlockIndex) IndexStored() bool {
 }
 
 func (bIndex *BlockIndex) AllStored() bool {
-	return bIndex.Status & StatusAllStored != 0
+	return bIndex.Status & StatusDataStored != 0
 }
 
 func (bIndex *BlockIndex) Accepted() bool {
 	return bIndex.Status & StatusAccepted != 0
+}
+
+func (bIndex *BlockIndex) Failed() bool {
+	return bIndex.Status & StatusFailed != 0
 }
 
 func (bIndex *BlockIndex) AddStatus(statu uint32) {
