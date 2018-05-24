@@ -6,7 +6,7 @@ package service
 import (
 	"container/list"
 	"context"
-	"fmt"
+	"errors"
 
 	//"fmt"
 	"sync"
@@ -181,9 +181,41 @@ out:
 
 // Rpc process things
 func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
-	switch message.(type) {
+	switch m := message.(type) {
+
+	case *GetConnectionCountRequest:
+		return mh.connManager.ConnectedCount(), nil
+
+	case *wire.MsgPing:
+		return mh.connManager.BroadCast(), nil
+
+	case *GetPeersInfoMsg:
+		return nil, nil
+
 	case *btcjson.AddNodeCmd:
 		err = mh.NodeOpera(m)
+		return
+
+	case *btcjson.DisconnectNodeCmd:
+		return
+
+	case *btcjson.GetAddedNodeInfoCmd:
+		return mh.connManager.PersistentPeers(), nil
+
+	case *GetNetTotalsRequest:
+		return
+
+	case *btcjson.GetNetworkInfoCmd:
+		return
+
+	case *btcjson.SetBanCmd:
+		return
+
+	case *ListBannedRequest:
+		return
+
+	case *ClearBannedRequest:
+		return
 
 	case *tx.Tx:
 		mh.recvChannel <- m
@@ -204,16 +236,8 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		case BlockState:
 			return r, nil
 		}
-	//
-	case *GetConnectionCountRequest:
-		return mh.connManager.ConnectedCount(), nil
 
-	case *wire.MsgPing:
-		return mh.connManager.BroadCast(), nil
-
-	case *btcjson.GetAddedNodeInfoCmd:
-		return mh.connManager.PersistentPeers(), nil
 	}
 
-	return nil, fmt.Errorf("Unknown command")
+	return nil, errors.New("unknown rpc request")
 }
