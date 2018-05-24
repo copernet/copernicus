@@ -7,10 +7,14 @@ import (
 	"github.com/btcboost/copernicus/model/chain"
 )
 
+
+func ProcessBlockHeader(bl * block.BlockHeader) error {
+	return nil
+}
+
 func ProcessBlock(b *block.Block) (bool, error) {
 	gChain := chain.GetInstance()
 	isNewBlock := false
-	accepted := false
 	var err error
 
 	bIndex := gChain.FindBlockIndex(b.Header.GetHash())

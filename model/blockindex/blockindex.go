@@ -17,10 +17,10 @@ import (
  */
 
  const (
- 	StatusHeaderValid uint32 = 1 << iota
+ 	StatusHeaderStored uint32 = 1 << iota
  	StatusAllValid
  	StatusIndexStored
- 	StatusAllStored
+ 	StatusDataStored
 	StatusWaitingData
 	StatusAccepted
 

@@ -14,6 +14,6 @@ func GetBlock(hash *util.Hash) (* block.Block, error) {
 	return nil,nil
 }
 
-func Write(bi *blockindex.BlockIndex, b *block.Block) error {
+func WriteToFile(bi *blockindex.BlockIndex, b *block.Block) error {
 	return nil
 }
