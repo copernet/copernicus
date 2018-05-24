@@ -15,8 +15,7 @@ func ProcessBlock(b *block.Block) (bool,error) {
 
 	bIndex := gChain.FindBlockIndex(b.Header.GetHash())
 	if bIndex != nil {
-		accepted = bIndex.Accepted()
-		if accepted {
+		if bIndex.Accepted() {
 			return isNewBlock,nil
 		}
 	}

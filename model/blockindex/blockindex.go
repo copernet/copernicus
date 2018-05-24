@@ -17,15 +17,15 @@ import (
  */
 
  const (
- 	statusHeaderValid uint32 = 1 << iota
- 	statusAllValid
- 	statusIndexStored
- 	statusAllStored
-	statusMissData
-	statusAccepted
+ 	StatusHeaderValid uint32 = 1 << iota
+ 	StatusAllValid
+ 	StatusIndexStored
+ 	StatusAllStored
+	StatusWaitingData
+	StatusAccepted
 
 	//NOTE: This must be defined last in order to avoid influencing iota
-	statusNone  = 0
+	StatusNone  = 0
  )
 
 type BlockIndex struct {
@@ -81,33 +81,41 @@ func (bIndex *BlockIndex) SetNull() {
 	bIndex.ChainWork = big.Int{}
 	bIndex.ChainTxCount = 0
 	bIndex.TxCount = 0
-	bIndex.Status = 0
+	bIndex.Status = StatusNone
 	bIndex.SequenceID = 0
 	bIndex.TimeMax = 0
 }
 
-func (bIndex *BlockIndex) HaveData() bool {
-	return bIndex.Status & statusMissData == 0
+func (bIndex *BlockIndex) WaitingData() bool {
+	return bIndex.Status & StatusWaitingData == 0
 }
 
 func (bIndex *BlockIndex) HeaderValid() bool {
-	return bIndex.Status & statusHeaderValid != 0
+	return bIndex.Status & StatusHeaderValid != 0
 }
 
 func (bIndex *BlockIndex) AllValid() bool {
-	return bIndex.Status & statusAllValid != 0
+	return bIndex.Status & StatusAllValid != 0
 }
 
 func (bIndex *BlockIndex) IndexStored() bool {
-	return bIndex.Status & statusIndexStored != 0
+	return bIndex.Status & StatusIndexStored != 0
 }
 
 func (bIndex *BlockIndex) AllStored() bool {
-	return bIndex.Status & statusAllStored != 0
+	return bIndex.Status & StatusAllStored != 0
 }
 
 func (bIndex *BlockIndex) Accepted() bool {
-	return bIndex.Status & statusAccepted != 0
+	return bIndex.Status & StatusAccepted != 0
+}
+
+func (bIndex *BlockIndex) AddStatus(statu uint32) {
+	bIndex.Status |= statu
+}
+
+func (bIndex *BlockIndex) SubStatus(statu uint32) {
+	bIndex.Status &= ^statu
 }
 
 func (bIndex *BlockIndex) GetDataPos() int {

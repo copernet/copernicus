@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model/pow"
+	lblock "github.com/btcboost/copernicus/logic/block"
 )
 
 func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
@@ -32,6 +33,22 @@ func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
 	if bIndex.Accepted() {
 		return bIndex,nil
 	}
+
+	if bIndex.AllValid() == false {
+		err = lblock.Check(b)
+		if err != nil {
+			return nil,err
+		}
+
+		bIndex.AddStatus(blockindex.StatusAllValid)
+	}
+
+	err = lblock.Write(bIndex,b)
+	if err != nil {
+		return bIndex,err
+	}
+
+	bIndex.AddStatus(blockindex.StatusAllStored)
 
 	return nil, nil
 }
@@ -48,6 +65,12 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 		return bIndex, nil
 	}
 
+	//this is a new blockheader
+	err := lblock.CheckBlockHeader(bh)
+	if err != nil {
+		return nil,err
+	}
+
 	bIndex = blockindex.NewBlockIndex(bh)
 	bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 	if bIndex.Prev == nil {
@@ -58,10 +81,12 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax,bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork,work)
-	err := c.AddToIndexMap(bIndex)
+	bIndex.AddStatus(blockindex.StatusHeaderValid)
+	err = c.AddToIndexMap(bIndex)
 	if err != nil {
 		return nil,err
 	}
+
 
 	return bIndex, nil
 }
