@@ -198,7 +198,7 @@ func handleListBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (in
 }
 
 func handleClearBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	ret, err := s.Handler.ProcessForRpc(&service.ClearBannedRequest{})
+	_, err := s.Handler.ProcessForRpc(&service.ClearBannedRequest{})
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
