@@ -226,7 +226,7 @@ type server struct {
 	// do not need to be protected for concurrent access.
 
 	phCh chan *peer.PeerMessage
-	mh   *service.MsgHandle
+	mh   *service.
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
