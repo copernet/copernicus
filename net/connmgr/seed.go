@@ -11,8 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/net/wire"
 )
 
 const (
@@ -30,7 +31,7 @@ type OnSeed func(addrs []*wire.NetAddress)
 type LookupFunc func(string) ([]net.IP, error)
 
 // SeedFromDNS uses DNS seeding to populate the address manager with peers.
-func SeedFromDNS(chainParams *chaincfg.Params, reqServices wire.ServiceFlag,
+func SeedFromDNS(chainParams *chainparams.BitcoinParams, reqServices wire.ServiceFlag,
 	lookupFn LookupFunc, seedFn OnSeed) {
 
 	for _, dnsseed := range chainParams.DNSSeeds {
@@ -46,12 +47,12 @@ func SeedFromDNS(chainParams *chaincfg.Params, reqServices wire.ServiceFlag,
 
 			seedpeers, err := lookupFn(host)
 			if err != nil {
-				log.Infof("DNS discovery failed on seed %s: %v", host, err)
+				log.Info("DNS discovery failed on seed %s: %v", host, err)
 				return
 			}
 			numPeers := len(seedpeers)
 
-			log.Infof("%d addresses found from DNS seed %s", numPeers, host)
+			log.Info("%d addresses found from DNS seed %s", numPeers, host)
 
 			if numPeers == 0 {
 				return

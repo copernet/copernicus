@@ -10,6 +10,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/btcboost/copernicus/model"
 	"github.com/spf13/viper"
 )
 
@@ -165,10 +166,12 @@ type Configuration struct {
 		DisableDNSSeed      bool          //Disable DNS seeding for peers
 		DisableRPC          bool          `default:"true"`
 		DisableTLS          bool
+		DisableCheckpoints  bool
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"` // Disable connecting to tor hidden services
 		Upnp                bool     // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+		AddCheckpoints      []model.Checkpoint
 	}
 	AddrMgr struct {
 		SimNet       bool
@@ -179,10 +182,9 @@ type Configuration struct {
 		DisableCheckpoints bool `default:"true"`
 	}
 	Script struct {
-		AcceptDataCarrier       bool     `default:"true"`
-		MaxDatacarrierBytes     uint     `default:"83"`
-		IsBareMultiSigStd       bool     `default:"true"`
-		PromiscuousMempoolFlags []string `default:"StandardScriptVerifyFlags"`
+		AcceptDataCarrier   bool `default:"true"`
+		MaxDatacarrierBytes uint `default:"83"`
+		IsBareMultiSigStd   bool `default:"true"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
