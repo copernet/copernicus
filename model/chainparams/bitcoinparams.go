@@ -1,15 +1,15 @@
 package chainparams
 
 import (
+	"errors"
 	"math/big"
 	"time"
-	"errors"
 
 	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
@@ -56,7 +56,7 @@ type BitcoinParams struct {
 	ReduceMinDifficulty      bool
 	MinDiffReductionTime     time.Duration
 	GenerateSupported        bool
-	Checkpoints              []*model.Checkpoint
+	Checkpoints              []model.Checkpoint
 	MineBlocksOnDemands      bool
 
 	// Enforce current block version once network has
