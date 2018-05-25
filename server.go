@@ -1156,7 +1156,6 @@ func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
 
 	// Generate a merkle block by filtering the requested block according
 	// to the filter for the peer.
-	//todo:not support
 	merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
 
 	// Once we have fetched data wait for any previous operation to finish.
