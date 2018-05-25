@@ -6,19 +6,14 @@ package service
 import (
 	"context"
 	"errors"
-
 	//"fmt"
-	"sync"
 
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/rpc/btcjson"
-
 	//"github.com/btcboost/copernicus/model/block"
 	//"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/net/server"

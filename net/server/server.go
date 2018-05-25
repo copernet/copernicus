@@ -36,11 +36,10 @@ import (
 	"github.com/btcboost/copernicus/net/upnp"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/rpc"
-	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
+	"github.com/btcboost/copernicus/net/syncmanager"
 )
 
 const (
@@ -202,7 +201,7 @@ type Server struct {
 	chainParams          *chainparams.BitcoinParams
 	addrManager          *addrmgr.AddrManager
 	connManager          *connmgr.ConnManager
-	syncManager          *service.SyncManager
+	syncManager          *syncmanager.SyncManager
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *serverPeer
 	donePeers            chan *serverPeer
@@ -504,7 +503,8 @@ func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 	block := (*block.Block)(msg)
 
 	// Add the block to the known inventory for the peer.
-	iv := wire.NewInvVect(wire.InvTypeBlock, block.GetHash())
+	hash := block.GetHash()
+	iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
 	sp.AddKnownInventory(iv)
 
 	// Queue the block up to be handled by the block
@@ -925,7 +925,7 @@ func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten int, msg wire.Message, 
 type rpcPeer serverPeer
 
 // Ensure rpcPeer implements the rpcserverPeer interface.
-var _ rpc.RpcServerPeer = (*rpcPeer)(nil)
+//var _ rpc.RpcServerPeer = (*rpcPeer)(nil)
 
 // ToPeer returns the underlying peer instance.
 //
@@ -1905,7 +1905,7 @@ cleanup:
 }
 
 // Start begins accepting connections from peers.
-func (s *Server) Start(rpcserver *rpc.Server) {
+func (s *Server) Start() {
 	// Already started?
 	if atomic.AddInt32(&s.started, 1) != 1 {
 		return
@@ -1926,19 +1926,11 @@ func (s *Server) Start(rpcserver *rpc.Server) {
 		go s.upnpUpdateThread()
 	}
 
-	if !conf.Cfg.P2PNet.DisableRPC {
-		s.wg.Add(1)
-
-		// Start the rebroadcastHandler, which ensures user tx received by
-		// the RPC server are rebroadcast until being included in a block.
-		go s.rebroadcastHandler()
-		rpcserver.Start()
-	}
 }
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
 // peers and the main listener.
-func (s *Server) Stop(rpcserver *rpc.Server) error {
+func (s *Server) Stop() error {
 	// Make sure this only happens once.
 	if atomic.AddInt32(&s.shutdown, 1) != 1 {
 		log.Info("Server is already in the process of shutting down")
@@ -1949,12 +1941,6 @@ func (s *Server) Stop(rpcserver *rpc.Server) error {
 
 	// Stop the CPU miner if needed
 	// s.cpuMiner.Stop()
-
-	// Shutdown the RPC server if it's not disabled.
-	if !conf.Cfg.P2PNet.DisableRPC {
-		rpcserver.Stop()
-	}
-
 	// Signal the remaining goroutines to quit.
 	close(s.quit)
 	return nil
@@ -2191,7 +2177,7 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	}
 	s.connManager = cmgr
 
-	s.syncManager, err = service.New(&service.Config{
+	s.syncManager, err = syncmanager.New(&syncmanager.Config{
 		PeerNotifier:       s,
 		ChainParams:        s.chainParams,
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
