@@ -23,11 +23,7 @@ import (
 
 // transaction service will use this func to check transaction before accepting to mempool
 func CheckRegularTransaction(transaction *tx.Tx) error {
-	if transaction.IsCoinBase() {
-		return errcode.New(errcode.TxErrRejectInvalid)
-	}
-
-	err := transaction.CheckTransactionCommon(true)
+	err := transaction.CheckRegularTransaction()
 	if err != nil {
 		return err
 	}
@@ -95,7 +91,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if err != nil {
 		return err
 	}
-	err = CheckInputsMoney(transaction, tempCoinsMap, spendHeight)
+	err = checkInputsMoney(transaction, tempCoinsMap, spendHeight)
 	if err != nil {
 		return err
 	}
@@ -130,15 +126,38 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 
 // block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
 func CheckBlockCoinBaseTransaction(tx *tx.Tx) error {
-	return nil
+	return tx.CheckCoinbaseTransaction()
 }
 
-func CheckBlockRegularTransactions(txs []*tx.Tx) error {
-
+func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
+	for _, transaction := range txs {
+		err := transaction.CheckRegularTransaction()
+		if err != nil {
+			return err
+		}
+		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func ApplyBlockTransactions(txs []*tx.Tx) error {
+	return nil
+}
+
+func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
+	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
+		return errcode.New(errcode.TxErrNotFinal)
+	}
+
+	if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
+		if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
+			return errcode.New(errcode.TxErrTxCommitment)
+		}
+	}
+
 	return nil
 }
 
@@ -202,19 +221,6 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 
 	return n, nil
 }
-func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
-	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
-		return errcode.New(errcode.TxErrNotFinal)
-	}
-
-	if IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
-		if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
-			return errcode.New(errcode.TxErrTxCommitment)
-		}
-	}
-
-	return nil
-}
 
 func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) error {
 
@@ -237,18 +243,7 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 
 	nBlockHeight := activeChain.Height() + 1
 
-	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
-}
-
-/*
-func UndoTransaction(txs []*txundo.TxUndo) bool {
-	return true
-}
-*/
-
-//IsUAHFEnabled Check is UAHF has activated.
-func IsUAHFEnabled(height int32) bool {
-	return height >= chainparams.ActiveNetParams.UAHFHeight
+	return transaction.ContextualCheckTransaction(nBlockHeight, nLockTimeCutoff)
 }
 
 func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
@@ -296,12 +291,12 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 			return errcode.New(errcode.ScriptErrSigPushOnly)
 		}
 		stack := util.NewStack()
-		err := EvalScript(stack, scriptSig, tx, i, coin.GetAmount(), flags)
+		err := evalScript(stack, scriptSig, tx, i, coin.GetAmount(), flags)
 		if err != nil {
 			return err
 		}
 		stackCopy := stack.Copy()
-		err = EvalScript(stack, scriptPubKey, tx, i, coin.GetAmount(), flags)
+		err = evalScript(stack, scriptPubKey, tx, i, coin.GetAmount(), flags)
 		if err != nil {
 			return err
 		}
@@ -319,7 +314,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 			topBytes := stack.Top(-1)
 			stack.Pop()
 			scriptPubKey2 := script.NewScriptRaw(topBytes.([]byte))
-			err = EvalScript(stack, scriptPubKey2, tx, i, coin.GetAmount(), flags)
+			err = evalScript(stack, scriptPubKey2, tx, i, coin.GetAmount(), flags)
 			if err != nil {
 				return err
 			}
@@ -351,7 +346,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	return nil
 }
 
-func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int,
+func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int,
 	money amount.Amount, flags uint32) error {
 	nOpCount := 0
 
@@ -1630,7 +1625,7 @@ func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	return true
 }
 
-func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
+func checkInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
 	nValue := int64(0)
 	ins := transaction.GetIns()
 	for _, e := range ins {

@@ -1,11 +1,12 @@
 package blockindex
 
 import (
-	"copernicus/core"
+	
 	"sort"
 	"math/big"
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/model/chain/global"
+	"github.com/btcboost/copernicus/persist/global"
+	"github.com/btcboost/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 	"time"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -21,13 +22,17 @@ import (
 
 //on main init call it
 func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
-	if !blkdb.GetBlockTreeDBInstance().LoadBlockIndexGuts() {
+	gChain := chain.GetInstance()
+	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
+	GlobalBlocksUnlinked := make([]*blockindex.BlockIndex, 0, 20)
+	// branchMap := make(map[util.Hash]*blockindex.BlockIndex)
+	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap) {
 		return false
 	}
 	
-	chainGlobal := global.GetChainGlobalInstance()
-	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(chainGlobal.GlobalBlockIndexMap))
-	for _, index := range chainGlobal.GlobalBlockIndexMap {
+	gPersist := global.GetInstance()
+	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(GlobalBlockIndexMap))
+	for _, index := range GlobalBlockIndexMap {
 		sortedByHeight = append(sortedByHeight, index)
 	}
 	//sort by decrease
@@ -56,7 +61,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 					index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
 				} else {
 					index.ChainTxCount = 0
-					chainGlobal.GlobalBlocksUnlinkedMap[index.Prev] = index
+					GlobalBlocksUnlinked = append(GlobalBlocksUnlinked, index)
 				}
 			} else {
 				index.ChainTxCount = index.TxCount
@@ -65,68 +70,63 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 			log.Error("index's Txcount is 0 ")
 			panic("index's Txcount is 0 ")
 		}
-		
+		if index.IsValid(blockindex.StatusAllValid) &&
+			(index.ChainTxCount != 0 || index.Prev == nil) {
+			gChain.AddToBranch(index)
+		}
 		if index.Prev != nil {
 			index.BuildSkip()
 		}
-		// todo notunderstand
-		//if index.IsValid(BlockValidTransactions) &&
-		//	(index.ChainTxCount != 0 || index.Prev == nil) {
-		//	gSetBlockIndexCandidates.AddItem(index)
-		//}
-		//
-		//if index.Status&BlockFailedMask != 0 &&
-		//	(index.ChainWork.Cmp(&gIndexBestInvalid.ChainWork) > 0) {
-		//	gIndexBestInvalid = index
-		//}
-		//
-		
-		//
-		//if index.IsValid(BlockValidTree) &&
-		//	(GIndexBestHeader == nil || BlockIndexWorkComparator(GIndexBestHeader, index)) {
-		//	GIndexBestHeader = index
-		//}
 	}
 	
 	// Load block file info
+	btd := blkdb.GetInstance()
 	var err error
-	chainGlobal.GlobalLastBlockFile, err = blkdb.GetBlockTreeDBInstance().ReadLastBlockFile()
+	var bfi *block.BlockFileInfo
+	
+	gPersist.GlobalLastBlockFile, err = btd.ReadLastBlockFile()
+	GlobalBlockFileInfo := make(global.BlockFileInfoList, gPersist.GlobalLastBlockFile+1)
 	if err != nil{
 		log.Error("Error: GetLastBlockFile err %#v", err)
 	}
-	logs.Debug("LoadBlockIndexDB(): last block file = %d", chainGlobal.GlobalLastBlockFile)
-	for file := 0; file <= chainGlobal.GlobalLastBlockFile; file++ {
-		chainGlobal.GlobalBlockFileInfoMap[file],err = blkdb.GetBlockTreeDBInstance().ReadBlockFileInfo(file)
+	logs.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
+	for nFile := 0; nFile <= gPersist.GlobalLastBlockFile; nFile++ {
+		bfi,err = btd.ReadBlockFileInfo(nFile)
+		if err == nil{
+			GlobalBlockFileInfo[nFile] = bfi
+		}else{
+			log.Error("btd.ReadBlockFileInfo(%#v) err:%#v", nFile, err)
+			panic("btd.ReadBlockFileInfo(nFile) err")
+		}
 	}
 	logs.Debug("LoadBlockIndexDB(): last block file info: %s\n",
-		chainGlobal.GlobalBlockFileInfoMap[chainGlobal.GlobalLastBlockFile].String())
-	var bli *block.BlockFileInfo
-	for file := chainGlobal.GlobalLastBlockFile + 1; true; file++ {
-		bli, err = blkdb.GetBlockTreeDBInstance().ReadBlockFileInfo(file)
-		if  bli != nil && err == nil {
-			chainGlobal.GlobalBlockFileInfoMap[file] = bli
+		GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String())
+	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
+		bfi, err = btd.ReadBlockFileInfo(nFile)
+		if  bfi != nil && err == nil {
+			GlobalBlockFileInfo[nFile] = bfi
 		} else {
 			break
 		}
 	}
-	
+	gPersist.GlobalBlockFileInfo = GlobalBlockFileInfo
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
 	logs.Debug("Checking all blk files are present...")
-	for _, item := range chainGlobal.GlobalBlockIndexMap {
+	for _, item := range gChain.GetIndexMap() {
 		index := item
-		if index.Status&blockindex.BlockHaveData != 0 {
+		if index.Status&BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
 	
 	l := setBlkDataFiles.List()
+	
 	for _, item := range l {
-		pos := &core.DiskBlockPos{
+		pos := &block.DiskBlockPos{
 			File: item.(int),
 			Pos:  0,
 		}
-		
 		file := disk.OpenBlockFile(pos, true)
 		if file == nil {
 			return false
@@ -134,40 +134,17 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 		file.Close()
 	}
 	
-	// Check whether we have ever pruned block & undo files
-	chainGlobal.GlobalHavePruned = blkdb.GetBlockTreeDBInstance().ReadFlag("prunedblockfiles")
-	if chainGlobal.GlobalHavePruned  {
-		logs.Debug("LoadBlockIndexDB(): Block files have previously been pruned")
-	}
 	
-	// Check whether we need to continue reindexing
-	reIndexing := false
-	reIndexing = blkdb.GetBlockTreeDBInstance().ReadReindexing()
-	if reIndexing {
-		chainGlobal.GlobalReindex = true
-	}
 	
-	// Check whether we have a transaction index
-	chainGlobal.GlobalTxIndex = blkdb.GetBlockTreeDBInstance().ReadFlag("txindex")
-	if chainGlobal.GlobalTxIndex {
-		logs.Debug("LoadBlockIndexDB(): transaction index enabled")
-	} else {
-		logs.Debug("LoadBlockIndexDB(): transaction index disabled")
-	}
+	// Load pointer to end of best chain todo: coinDB must init!!!
+	tip := utxo.GetUtxoCacheInstance().GetBestBlock()
 	
-	// Load pointer to end of best chain
-	index, ok := chainGlobal.GlobalBlockIndexMap[utxo.GetUtxoCacheInstance().GetBestBlock()]
-	if !ok {
-		return true
-	}
-	
-	chain.GetInstance().SetTip(index)
-	PruneBlockIndexCandidates()
+	gChain.InitLoad(GlobalBlockIndexMap, GlobalBlocksUnlinked, tip)
 	
 	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
-		chain.GetInstance().Tip().GetBlockHash().ToString(), chain.GetInstance().Height(),
-		time.Unix(int64(chain.GetInstance().Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
-		GuessVerificationProgress(params.TxData(), chain.GetInstance().Tip()))
+		gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
+		time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
+		gChain.Tip())
 	
 	return true
 }

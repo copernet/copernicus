@@ -21,14 +21,16 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/pow"
 	
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/model/chain/global"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/undo"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/persist/blkdb"
-	"github.com/btcboost/copernicus/util"
+
+"github.com/btcboost/copernicus/errcode"
+"github.com/btcboost/copernicus/model/chainparams"
+"github.com/btcboost/copernicus/model/undo"
+"github.com/btcboost/copernicus/model/utxo"
+"github.com/btcboost/copernicus/net/wire"
+"github.com/btcboost/copernicus/persist/blkdb"
+"github.com/btcboost/copernicus/persist/global"
+"github.com/btcboost/copernicus/util"
+
 )
 
 type FlushStateMode int
@@ -113,41 +115,8 @@ func GetBlockPosParentFilename() string {
 
 
 
-func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
-	undoPos.File = nFile
-	csLastBlockFile.Lock()
-	defer csLastBlockFile.Unlock()
-	undoPos.Pos = int((global.GetChainGlobalInstance().GlobalBlockFileInfoMap)[nFile].UndoSize)
-	global.GetChainGlobalInstance().GlobalBlockFileInfoMap[nFile].UndoSize += uint32(nAddSize)
-	nNewSize := global.GetChainGlobalInstance().GlobalBlockFileInfoMap[nFile].UndoSize
-	global.GetChainGlobalInstance().GlobalSetDirtyFileInfo[nFile] = true
 
-	nOldChunks := (undoPos.Pos + UndoFileChunkSize - 1) / UndoFileChunkSize
-	nNewChunks := (nNewSize + UndoFileChunkSize - 1) / UndoFileChunkSize
-
-	if nNewChunks > uint32(nOldChunks) {
-
-		if CheckDiskSpace(nNewChunks*UndoFileChunkSize - uint32(undoPos.Pos)) {
-			file := OpenUndoFile(*undoPos, false)
-			if file != nil {
-				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
-					nNewChunks*UndoFileChunkSize, undoPos.File)
-				AllocateFileRange(file, undoPos.Pos, nNewChunks*UndoFileChunkSize-uint32(undoPos.Pos))
-				file.Close()
-			} else {
-				return errcode.ProjectError{Code: 1002, Desc: "can not find Undo file"}
-
-			}
-		} else {
-			state.Error("out of disk space")
-			return errcode.ProjectError{Code: 1001, Desc: "out of disk space"}
-		}
-	}
-
-	return nil
-}
-
-func AllocateFileRange(file *os.File, offset int, length uint32) {
+func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 	// Fallback version
 	// TODO: just write one byte per block
 	var buf [65536]byte
@@ -260,7 +229,8 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 	
 	// Check the header
 	pow := pow.Pow{}
-	if !pow.CheckProofOfWork(blk.GetHash(), blk.Header.Bits, param) {
+	blockHash := blk.GetHash()
+	if !pow.CheckProofOfWork(&blockHash, blk.Header.Bits, param) {
 		log.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.String()))
 		return nil, false
 	}
@@ -308,10 +278,8 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 
 	defer csMain.Unlock()
 	defer csLastBlockFile.Unlock()
-	//
-	//var setFilesToPrune *set.Set
-	//fFlushForPrune := false
-
+	
+	gPersist := global.GetInstance()
 	defer func() {
 		if r := recover(); r != nil {
 			ret = AbortNode(state, "System error while flushing:", "")
@@ -345,7 +313,7 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	//}
 	mempoolUsage := int64(0) // todo mempool.mempoolUsage
 	coinsTip := utxo.GetUtxoCacheInstance()
-	nMempoolSizeMax := int64(DefaultMaxMemPoolSize) * 1000000
+	nMempoolSizeMax := int64(global.DefaultMaxMemPoolSize) * 1000000
 	DBPeakUsageFactor := int64(2)
 	cacheSize := coinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
 	nCoinCacheUsage := 5000 * 300
@@ -362,11 +330,11 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	// It's been a while since we wrote the block index to disk. Do this
 	// frequently, so we don't need to redownLoad after a crash.
 	DataBaseWriteInterval := 60 * 60
-	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > global.GetChainGlobalInstance().GlobalLastWrite+DataBaseWriteInterval*1000000
+	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastWrite+DataBaseWriteInterval*1000000
 	// It's been very long since we flushed the cache. Do this infrequently,
 	// to optimize cache usage.
 	DataBaseFlushInterval := 24 * 60 * 60
-	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > global.GetChainGlobalInstance().GlobalLastFlush+DataBaseFlushInterval*1000000
+	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastFlush+DataBaseFlushInterval*1000000
 	// Combine all conditions that result in a full cache flush.
 	fDoFullFlush := mode == FlushStateAlways || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
 	// Write blocks and block index to disk.
@@ -379,26 +347,23 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		FlushBlockFile(false)
 		// Then update all block file information (which may refer to block and undo files).
 
-		tBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(global.GetChainGlobalInstance().GlobalBlockFileInfoMap))
-		for _, bfi := range global.GetChainGlobalInstance().GlobalBlockFileInfoMap {
-			tBlockFileInfoList = append(tBlockFileInfoList, bfi)
+		dirtyBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(gPersist.GlobalDirtyFileInfo))
+		for k, _ := range gPersist.GlobalDirtyFileInfo {
+			dirtyBlockFileInfoList = append(dirtyBlockFileInfoList, gPersist.GlobalBlockFileInfo[k])
+			
 		}
-		global.GetChainGlobalInstance().GlobalBlockFileInfoMap = make(global.BlockFileInfoMap)
-		tBlockIndexList := make([]*blockindex.BlockIndex, 0, len(global.GetChainGlobalInstance().GlobalBlockIndexMap))
-		for _, bi := range global.GetChainGlobalInstance().GlobalBlockIndexMap {
-			tBlockIndexList = append(tBlockIndexList, bi)
+		gPersist.GlobalDirtyFileInfo = make(map[int]bool , 0)
+		dirtyBlockIndexList := make([]*blockindex.BlockIndex, 0, len(gPersist.GlobalDirtyBlockIndex))
+		for _, bi := range gPersist.GlobalDirtyBlockIndex {
+			dirtyBlockIndexList = append(dirtyBlockIndexList, bi)
 		}
-		global.GetChainGlobalInstance().GlobalBlockIndexMap = make(global.BlockIndexMap)
-		btd := blkdb.GetBlockTreeDBInstance()
-		err := btd.WriteBatchSync(tBlockFileInfoList, int(global.GetChainGlobalInstance().GlobalLastBlockFile), tBlockIndexList)
+		gPersist.GlobalDirtyBlockIndex = make(global.DirtyBlockIndex)
+		btd := blkdb.GetInstance()
+		err := btd.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
 		if err != nil {
 			ret = AbortNode(state, "Failed to write to block index database", "")
 		}
-		global.GetChainGlobalInstance().GlobalLastWrite = int(nNow)
-		//// todo Finally remove any pruned files
-		//if fFlushForPrune {
-		//	UnlinkPrunedFiles(setFilesToPrune)
-		//}
+		gPersist.GlobalLastWrite = int(nNow)
 	}
 
 	// Flush best chain related state. This can only be done if the blocks /
@@ -417,13 +382,12 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		if !coinsTip.Flush() {
 			ret = AbortNode(state, "Failed to write to coin database", "")
 		}
-		global.GetChainGlobalInstance().GlobalLastFlush = int(nNow)
+		gPersist.GlobalLastFlush = int(nNow)
 	}
 	if fDoFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
-		int(nNow) > global.GetChainGlobalInstance().GlobalLastSetChain+DataBaseWriteInterval*1000000) {
+		int(nNow) > gPersist.GlobalLastSetChain+DataBaseWriteInterval*1000000) {
 		// Update best block in wallet (so we can detect restored wallets).
-		// TODO:GetMainSignals().SetBestChain(chainActive.GetLocator())
-		global.GetChainGlobalInstance().GlobalLastSetChain = int(nNow)
+		gPersist.GlobalLastSetChain = int(nNow)
 	}
 
 	return
@@ -454,12 +418,13 @@ var csLastBlockFile *sync.RWMutex = new(sync.RWMutex)
 func FlushBlockFile(fFinalize bool) {
 	csLastBlockFile.Lock()
 	defer csLastBlockFile.Unlock()
-	posOld := block.NewDiskBlockPos(int(global.GetChainGlobalInstance().GlobalLastBlockFile), 0)
+	gPersist := global.GetInstance()
+	posOld := block.NewDiskBlockPos(int(gPersist.GlobalLastBlockFile), 0)
 
 	fileOld := OpenBlockFile(posOld, false)
 	if fileOld != nil {
 		if fFinalize {
-			os.Truncate(fileOld.Name(), int64(global.GetChainGlobalInstance().GlobalBlockFileInfoMap[global.GetChainGlobalInstance().GlobalLastBlockFile].Size))
+			os.Truncate(fileOld.Name(), int64(gPersist.GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].Size))
 			fileOld.Sync()
 			fileOld.Close()
 		}
@@ -468,39 +433,117 @@ func FlushBlockFile(fFinalize bool) {
 	fileOld = OpenUndoFile(*posOld, false)
 	if fileOld != nil {
 		if fFinalize {
-			os.Truncate(fileOld.Name(), int64(global.GetChainGlobalInstance().GlobalBlockFileInfoMap[global.GetChainGlobalInstance().GlobalLastBlockFile].UndoSize))
+			os.Truncate(fileOld.Name(), int64(gPersist.GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].UndoSize))
 			fileOld.Sync()
 			fileOld.Close()
 		}
 	}
 }
 
-func FindBlockPos(state *block.ValidationState, pos *block.DiskBlockPos, nAddSize uint,
-	nHeight uint, nTime uint64, fKnown bool) bool {
+func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
+	nHeight int32, nTime uint64, fKnown bool) bool {
 	csLastBlockFile.Lock()
 	defer csLastBlockFile.Unlock()
-
+	if nAddSize > global.MaxBlockFileSize{
+		log.Error("FindBlockPos nAddSize [%#v] is too large more then global.MaxBlockFileSize ", nAddSize)
+		panic("FindBlockPos nAddSize  is too large more then global.MaxBlockFileSize")
+	}
+	gPersist := global.GetInstance()
+	ret := false
 	nFile := pos.File
 	if !fKnown {
-		nFile = int(global.GetChainGlobalInstance().GlobalLastBlockFile)
+		nFile = gPersist.GlobalLastBlockFile
 	}
-
+	if len(gPersist.GlobalBlockFileInfo) <= nFile{
+		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
+	}
 	if !fKnown {
-		for uint(global.GetChainGlobalInstance().GlobalBlockFileInfoMap[nFile].Size)+nAddSize >= MaxBlockFileSize {
+		for gPersist.GlobalBlockFileInfo[nFile].Size+nAddSize >= global.MaxBlockFileSize {
 			nFile++
+			if nFile >= len(gPersist.GlobalBlockFileInfo){
+				gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
+			}
 		}
 		pos.File = nFile
-		pos.Pos = int(global.GetChainGlobalInstance().GlobalBlockFileInfoMap[nFile].Size)
+		pos.Pos = gPersist.GlobalBlockFileInfo[nFile].Size
 	}
 
-	if nFile != int(global.GetChainGlobalInstance().GlobalLastBlockFile) {
+	if nFile != gPersist.GlobalLastBlockFile {
 		if !fKnown {
-			log.Info(fmt.Sprintf("Leaving block file %d: %s\n", int(global.GetChainGlobalInstance().GlobalLastBlockFile),
-				global.GetChainGlobalInstance().GlobalBlockFileInfoMap[int(global.GetChainGlobalInstance().GlobalLastBlockFile)].String()))
+			log.Info(fmt.Sprintf("Leaving block file %d: %s\n", int(gPersist.GlobalLastBlockFile),
+				gPersist.GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String()))
 		}
 		FlushBlockFile(!fKnown)
-		int(global.GetChainGlobalInstance().GlobalLastBlockFile) = nFile
+		gPersist.GlobalLastBlockFile = nFile
 	}
+	gPersist.GlobalBlockFileInfo[nFile].AddBlock(nHeight, nTime)
+	if fKnown{
+		maxSize := uint32(pos.Pos) + nAddSize
+		if maxSize < gPersist.GlobalBlockFileInfo[nFile].Size{
+			maxSize =  gPersist.GlobalBlockFileInfo[nFile].Size
+		}
+		gPersist.GlobalBlockFileInfo[nFile].Size = maxSize
+		ret = true
+	}else{
+		gPersist.GlobalBlockFileInfo[nFile].Size += nAddSize
+		nNewSize := gPersist.GlobalBlockFileInfo[nFile].Size
+		
+		nOldChunks := (pos.Pos + global.BlockFileChunkSize - 1)/global.BlockFileChunkSize
+		nNewChunks := (nNewSize + global.BlockFileChunkSize -1)/global.BlockFileChunkSize
+		if nNewChunks > nOldChunks{
+			allocateSize := nNewChunks*global.BlockFileChunkSize - pos.Pos
+			if CheckDiskSpace(allocateSize){
+				file := OpenBlockFile(pos, false)
+				if file != nil{
+					log.Info("pre-allocating up to position %#v in blk%05u.dat\n", nNewChunks*global.BlockFileChunkSize, pos.File)
+					AllocateFileRange(file, pos.Pos, allocateSize)
+					file.Close()
+					ret = true
+				}else{
+					ret = false
+				}
+			}else{
+				ret = false
+			}
+		}else{
+			ret = true
+		}
+	}
+	gPersist.GlobalDirtyFileInfo[nFile] = true
+	return ret
+}
 
-	return false
+func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
+	undoPos.File = nFile
+	csLastBlockFile.Lock()
+	defer csLastBlockFile.Unlock()
+	gPersist := global.GetInstance()
+	undoPos.Pos = (gPersist.GlobalBlockFileInfo)[nFile].UndoSize
+	gPersist.GlobalBlockFileInfo[nFile].UndoSize += uint32(nAddSize)
+	nNewSize := gPersist.GlobalBlockFileInfo[nFile].UndoSize
+	gPersist.GlobalDirtyFileInfo[nFile] = true
+	
+	nOldChunks := (undoPos.Pos + global.UndoFileChunkSize - 1) / global.UndoFileChunkSize
+	nNewChunks := (nNewSize + global.UndoFileChunkSize - 1) / global.UndoFileChunkSize
+	
+	if nNewChunks > uint32(nOldChunks) {
+		
+		if CheckDiskSpace(nNewChunks*global.UndoFileChunkSize - undoPos.Pos) {
+			file := OpenUndoFile(*undoPos, false)
+			if file != nil {
+				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
+					nNewChunks*global.UndoFileChunkSize, undoPos.File)
+				AllocateFileRange(file, undoPos.Pos, nNewChunks*global.UndoFileChunkSize-uint32(undoPos.Pos))
+				file.Close()
+			} else {
+				return errcode.ProjectError{Code: 1002, Desc: "can not find Undo file"}
+				
+			}
+		} else {
+			state.Error("out of disk space")
+			return errcode.ProjectError{Code: 1001, Desc: "out of disk space"}
+		}
+	}
+	
+	return nil
 }

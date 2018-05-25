@@ -378,3 +378,8 @@ func mustRegister(bp *BitcoinParams) {
 	}
 	bp.DefaultAssumeValid = *work
 }
+
+//IsUAHFEnabled Check is UAHF has activated.
+func IsUAHFEnabled(height int32) bool {
+	return height >= ActiveNetParams.UAHFHeight
+}
