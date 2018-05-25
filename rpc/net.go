@@ -61,7 +61,7 @@ func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 }
 
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	getPeerInfoCmd := &service.GetPeersInfoMsg{}
+	getPeerInfoCmd := &service.GetPeersInfoRequest{}
 	ret, _ := s.Handler.ProcessForRpc(getPeerInfoCmd) // todo Alert: match with return type
 	peers := ret.([]RpcServerPeer)
 	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()

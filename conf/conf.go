@@ -2,12 +2,11 @@ package conf
 
 import (
 	"log"
+	"net"
 	"os"
 	"path"
 	"reflect"
 	"runtime"
-
-	"net"
 	"time"
 
 	"github.com/spf13/viper"
@@ -167,9 +166,9 @@ type Configuration struct {
 		DisableCheckpoints bool `default:"true"`
 	}
 	Script struct {
-		AcceptDataCarrier bool `default:"true"`
+		AcceptDataCarrier   bool `default:"true"`
 		MaxDatacarrierBytes uint `default:"83"`
-		IsBareMultiSigStd bool `default:"true"`
+		IsBareMultiSigStd   bool `default:"true"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`

@@ -8,6 +8,7 @@ import (
 
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
+	block2 "github.com/btcboost/copernicus/logic/block"
 	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/logic/undo"
 	"github.com/btcboost/copernicus/model/bitaddr"
@@ -173,7 +174,6 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		maxVersionVb = request.MaxVersion
 	}
 
-	// todo handle connMan exception
 	if undo.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCClientInInitialDownload,
@@ -372,7 +372,8 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	// Ensure the provided data is sane and deserialize the proposed block.
-	// todo check: whether the length of data source is multiples of 2. That is to say if it is necessary for the following branch
+	// todo check: whether the length of data source is multiples of 2.
+	// That is to say if it is necessary for the following branch
 	if len(hexData)%2 != 0 {
 		hexData = "0" + hexData
 	}
@@ -395,13 +396,13 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	hash := bk.Header.GetHash()
 	bindex := chain.GlobalChain.FindBlockIndex(hash)
 	if bindex != nil {
-		if bindex.IsValid(blockindex2.BlockValidScripts) { // TODO define in chain model
+		if bindex.IsValid(blockindex2.BlockValidScripts) {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate",
 			}
 		}
-		if bindex.Status&blockindex2.BlockFailedMask != 0 { // TODO define in chain model
+		if bindex.Status&blockindex2.BlockFailedMask != 0 {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",
@@ -423,7 +424,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	// TODO realise in block model
-	err = chain.TestBlockValidity(chainparams.ActiveNetParams, &bk, indexPrev, false, true)
+	err = block2.Check(&bk)
 	return BIP22ValidationResult(err)
 }
 

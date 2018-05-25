@@ -189,7 +189,7 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 	case *wire.MsgPing:
 		return mh.connManager.BroadCast(), nil
 
-	case *GetPeersInfoMsg:
+	case *GetPeersInfoRequest:
 		return nil, nil
 
 	case *btcjson.AddNodeCmd:
