@@ -85,7 +85,7 @@ func (hash *Hash) ToString() string {
 	return hash.String()
 }
 
-func (hash *Hash) SerializeSize() int {
+func (hash *Hash) SerializeSize() uint32 {
 	return hash.EncodeSize()
 }
 
@@ -97,7 +97,7 @@ func (hash *Hash) Unserialize(r io.Reader) (int, error) {
 	return hash.Decode(r)
 }
 
-func (hash *Hash) EncodeSize() int {
+func (hash *Hash) EncodeSize() uint32 {
 	return Hash256Size
 }
 

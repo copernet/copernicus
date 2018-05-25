@@ -17,7 +17,7 @@ type TxOut struct {
 	scriptPubKey *script.Script
 }
 
-func (txOut *TxOut) SerializeSize() int {
+func (txOut *TxOut) SerializeSize() uint32 {
 	return txOut.EncodeSize()
 }
 
@@ -29,7 +29,7 @@ func (txOut *TxOut) Unserialize(reader io.Reader) error {
 	return txOut.Decode(reader)
 }
 
-func (txOut *TxOut) EncodeSize() int {
+func (txOut *TxOut) EncodeSize() uint32 {
 	return 8 + txOut.scriptPubKey.EncodeSize()
 }
 
