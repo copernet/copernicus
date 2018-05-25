@@ -31,10 +31,10 @@ type GetPeersInfoMsg struct{}
 // return btcjson.GetNetTotalsResult
 type GetNetTotalsRequest struct{}
 
-// btcjson.GetnetWorkInfo
+// *btcjson.GetnetWorkInfo
 // return btcjson.GetNetworkInfoResult
 
-// btcjson.SetBanCmd
+// *btcjson.SetBanCmd
 // return error if encountering any error
 
 // return btcjson.ListBannedResult and any error
