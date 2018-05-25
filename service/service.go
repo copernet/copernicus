@@ -4,7 +4,6 @@
 package service
 
 import (
-	"container/list"
 	"context"
 	"errors"
 
@@ -28,16 +27,7 @@ import (
 )
 
 type MsgHandle struct {
-	mtx           sync.Mutex
 	recvFromNet   <-chan *peer.PeerMessage
-	txAndBlockPro chan peer.PeerMessage
-	chainparam    *chainparams.BitcoinParams
-
-	// The following fields are used for headers-first mode.
-	headersFirstMode bool
-	headerList       *list.List
-	startHeader      *list.Element
-	nextCheckpoint   *model.Checkpoint
 	server 			*server.Server
 }
 
