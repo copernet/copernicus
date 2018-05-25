@@ -1,16 +1,22 @@
 package service
 
-//func ProcessTransaction(transaction *tx.Tx) error {
-//	err := ltx.CheckRegularTransaction(transaction)
-//	if err != nil {
-//		return err
-//	}
-//	err := mempool.AccpetTxToMemPool(transaction)
-//	if err != nil {
-//		return err
-//	}
-//	return nil
-//}
+import (
+	ltx "github.com/btcboost/copernicus/logic/tx"
+	"github.com/btcboost/copernicus/model/tx"
+)
+
+func ProcessTransaction(transaction *tx.Tx) error {
+	err := ltx.CheckRegularTransaction(transaction)
+	if err != nil {
+		return err
+	}
+	//err := mempool.AccpetTxToMemPool(transaction)
+	//if err != nil {
+	//	return err
+	//}
+	return nil
+}
+
 //
 //func ProcessTransaction(tx *tx.Tx, nodeID int64) ([]*tx.Tx, error) {
 //	if _, ok := mempool.Gpool.RecentRejects[tx.GetHash()]; ok {
