@@ -4,7 +4,12 @@ import (
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain/global"
+	"github.com/btcboost/copernicus/util"
 )
+
+func LocateBlocks(bl *chain.BlockLocator, endHash *util.Hash,maxLength int) error {
+	return nil
+}
 
 func FindForkInGlobalIndex(chain *chain.Chain, locator *chain.BlockLocator) *blockindex.BlockIndex {
 	// Find the first block the caller has in the main chain
