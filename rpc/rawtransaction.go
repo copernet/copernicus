@@ -14,6 +14,7 @@ import (
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/service/mining"
 	"github.com/btcboost/copernicus/util"
@@ -400,11 +401,12 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	entry := mempool.Gpool.FindTx(hash)
-	if entry != nil {
-		s.Handler.ProcessForRpc(transaction)
+	if entry == nil && !haveChain {
+		// todo mempool: AcceptToMempool
 	}
 
-	// todo here
+	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
+	// todo broadcast txInvMsg
 
 	return hash.String(), nil
 }
