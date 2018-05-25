@@ -6,11 +6,17 @@ package service
 import (
 	"container/list"
 	"context"
+	"errors"
+
 	//"fmt"
 	"sync"
 
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+
 	//"github.com/btcboost/copernicus/model/block"
 	//"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -43,14 +49,15 @@ type MsgHandle struct {
 	nextCheckpoint   *model.Checkpoint
 }
 
+var msgHandle *MsgHandle
+
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage) *MsgHandle {
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage){
 	msg := &MsgHandle{mtx: sync.Mutex{}, recvFromNet: cmdCh}
 	ctxChild, _ := context.WithCancel(ctx)
-
 	go msg.startProcess(ctxChild)
-	return msg
+	msgHandle = msg
 }
 
 func (mh *MsgHandle) startProcess(ctx context.Context) {
@@ -173,17 +180,47 @@ out:
 
 }
 
-/*
 // Rpc process things
-func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
+func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
+	case *GetConnectionCountRequest:
+		return msgHandle.connManager.ConnectedCount(), nil
+
+	case *wire.MsgPing:
+		return msgHandle.connManager.BroadCast(), nil
+
+	case *GetPeersInfoRequest:
+		return nil, nil
+
 	case *btcjson.AddNodeCmd:
-		err = mh.NodeOpera(m)
+		err = msgHandle.NodeOpera(m)
+		return
+
+	case *btcjson.DisconnectNodeCmd:
+		return
+
+	case *btcjson.GetAddedNodeInfoCmd:
+		return msgHandle.connManager.PersistentPeers(), nil
+
+	case *GetNetTotalsRequest:
+		return
+
+	case *btcjson.GetNetworkInfoCmd:
+		return
+
+	case *btcjson.SetBanCmd:
+		return
+
+	case *ListBannedRequest:
+		return
+
+	case *ClearBannedRequest:
+		return
 
 	case *tx.Tx:
-		mh.recvChannel <- m
-		ret := <-mh.resultChannel
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r
@@ -192,8 +229,8 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		}
 
 	case *block.Block:
-		mh.recvChannel <- m
-		ret := <-mh.resultChannel
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r
@@ -201,16 +238,7 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 			return r, nil
 		}
 
-	case GetConnectCount:
-		return mh.connManager.ConnectedCount(), nil
-
-	case *wire.MsgPing:
-		return mh.connManager.BroadCast(), nil
-
-	case GetAddedNodeInfoMsg:
-		return mh.connManager.PersistentPeers(), nil
 	}
 
-	return nil, fmt.Errorf("Unknown command")
+	return nil, errors.New("unknown rpc request")
 }
-*/

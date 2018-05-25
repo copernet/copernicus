@@ -1,4 +1,4 @@
-package btcctl
+package main
 
 import (
 	"bufio"

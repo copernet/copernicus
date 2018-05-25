@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/log"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential
@@ -180,7 +180,7 @@ func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
 		// if we need to change them then we replace the pointer with a
 		// new copy so that we don't have to copy every na for getaddr.
 
-		if time.Unix(int64(netAddr.Timestamp), 0).After(time.Unix(int64(ka.na.Timestamp), 0)) ||
+		if netAddr.Timestamp.After(ka.na.Timestamp) ||
 			(ka.na.Services&netAddr.Services) !=
 				netAddr.Services {
 
@@ -260,7 +260,7 @@ func (a *AddrManager) expireNew(bucket int) {
 		}
 		if oldest == nil {
 			oldest = v
-		} else if !time.Unix(int64(v.na.Timestamp), 0).After(time.Unix(int64(oldest.na.Timestamp), 0)) {
+		} else if !v.na.Timestamp.After(oldest.na.Timestamp) {
 			oldest = v
 		}
 	}
@@ -286,7 +286,7 @@ func (a *AddrManager) pickTried(bucket int) *list.Element {
 	var oldestElem *list.Element
 	for e := a.addrTried[bucket].Front(); e != nil; e = e.Next() {
 		ka := e.Value.(*KnownAddress)
-		if oldest == nil || time.Unix(int64(oldest.na.Timestamp), 0).After(time.Unix(int64(ka.na.Timestamp), 0)) {
+		if oldest == nil || oldest.na.Timestamp.After(ka.na.Timestamp) {
 			oldestElem = e
 			oldest = ka
 		}
@@ -374,7 +374,7 @@ func (a *AddrManager) savePeers() {
 	for k, v := range a.addrIndex {
 		ska := new(serializedKnownAddress)
 		ska.Addr = k
-		ska.TimeStamp = int64(v.na.Timestamp)
+		ska.TimeStamp = v.na.Timestamp.Unix()
 		ska.Src = NetAddressKey(v.srcAddr)
 		ska.Attempts = v.attempts
 		ska.LastAttempt = v.lastattempt.Unix()
@@ -845,10 +845,10 @@ func (a *AddrManager) Connected(addr *wire.NetAddress) {
 	// Update the time as long as it has been 20 minutes since last we did
 	// so.
 	now := time.Now()
-	if now.After(time.Unix(int64(ka.na.Timestamp), 0).Add(time.Minute * 20)) {
+	if now.After(ka.na.Timestamp.Add(time.Minute * 20)) {
 		// ka.na is immutable, so replace it.
 		naCopy := *ka.na
-		naCopy.Timestamp = uint32(time.Now().Unix())
+		naCopy.Timestamp = time.Now()
 		ka.na = &naCopy
 	}
 }
@@ -1081,7 +1081,7 @@ func (a *AddrManager) NewAddress(filterOut func(gKey string) bool) (string, erro
 
 			// allow nondefault ports after 50 failed tries.
 			if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
-				consensus.ActiveNetParams.DefaultPort {
+				chainparams.ActiveNetParams.DefaultPort {
 				continue
 			}
 

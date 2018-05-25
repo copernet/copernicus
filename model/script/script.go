@@ -202,32 +202,44 @@ type Script struct {
 }
 
 func (s *Script) SerializeSize() int {
-	return 0
+	return s.EncodeSize()
 }
 
-func (s *Script) Serialize(io io.Writer) (err error) {
-	return util.WriteVarBytes(io, s.data)
+func (s *Script) Serialize(writer io.Writer) (err error) {
+	return s.Encode(writer)
 }
 
-func (s *Script) Unserialize(io io.Reader) (script *Script, err error) {
-	bytes, err := ReadScript(io, MaxMessagePayload, "tx input signature script")
-	if err != nil {
-		return nil, err
-	}
-
-	return NewScriptRaw(bytes), err
+func (s *Script) Unserialize(reader io.Reader) (err error) {
+	return s.Decode(reader)
 }
 
 func (s *Script) EncodeSize() int {
-	return 0
+	return 8 + util.VarIntSerializeSize(uint64(len(s.data))) + len(s.data)
 }
 
-func (s *Script) Encode(io io.Writer) (err error) {
+func (s *Script) Encode(writer io.Writer) (err error) {
+	return util.WriteVarBytes(writer, s.data)
+}
+
+func (s *Script) Decode(reader io.Reader) (err error) {
+	bytes, err := ReadScript(reader, MaxMessagePayload, "tx input signature script")
+	if err != nil {
+		return err
+	}
+	s.data = bytes
+	err = s.convertOPS()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Script) Decode(io io.Reader) (err error) {
-	return nil
+func (s *Script) IsSpendable() bool {
+	if (len(s.data) > 0 && s.ParsedOpCodes[0].OpValue == opcodes.OP_RETURN) || len(s.data) > MaxScriptSize {
+		return false
+	}
+	return true
 }
 
 func NewScriptRaw(bytes []byte) *Script {

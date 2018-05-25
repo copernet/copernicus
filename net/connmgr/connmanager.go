@@ -12,6 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/btcboost/copernicus/log"
 )
 
 // maxFailedAttempts is the maximum number of successive failed connection
@@ -191,14 +193,14 @@ func (cm *ConnManager) handleFailedConn(c *ConnReq) {
 		if d > maxRetryDuration {
 			d = maxRetryDuration
 		}
-		log.Debugf("Retrying connection to %v in %v", c, d)
+		log.Debug("Retrying connection to %v in %v", c, d)
 		time.AfterFunc(d, func() {
 			cm.Connect(context.TODO(), c)
 		})
 	} else if cm.cfg.GetNewAddress != nil {
 		cm.failedAttempts++
 		if cm.failedAttempts >= maxFailedAttempts {
-			log.Debugf("Max failed connection attempts reached: [%d] "+
+			log.Debug("Max failed connection attempts reached: [%d] "+
 				"-- retrying connection in: %v", maxFailedAttempts,
 				cm.cfg.RetryDuration)
 			time.AfterFunc(cm.cfg.RetryDuration, func() {
@@ -229,7 +231,7 @@ out:
 				connReq.updateState(ConnEstablished)
 				connReq.conn = msg.conn
 				conns[connReq.id] = connReq
-				log.Debugf("Connected to %v", connReq)
+				log.Debug("Connected to %v", connReq)
 				connReq.retryCount = 0
 				cm.failedAttempts = 0
 
@@ -243,7 +245,7 @@ out:
 					if connReq.conn != nil {
 						connReq.conn.Close()
 					}
-					log.Debugf("Disconnected from %v", connReq)
+					log.Debug("Disconnected from %v", connReq)
 					delete(conns, msg.id)
 
 					if cm.cfg.OnDisconnection != nil {
@@ -254,13 +256,13 @@ out:
 						cm.handleFailedConn(connReq)
 					}
 				} else {
-					log.Errorf("Unknown connection: %d", msg.id)
+					log.Error("Unknown connection: %d", msg.id)
 				}
 
 			case handleFailed:
 				connReq := msg.c
 				connReq.updateState(ConnFailed)
-				log.Debugf("Failed to connect to %v: %v", connReq, msg.err)
+				log.Debug("Failed to connect to %v: %v", connReq, msg.err)
 				cm.handleFailedConn(connReq)
 			}
 
@@ -306,7 +308,7 @@ func (cm *ConnManager) Connect(ctx context.Context, c *ConnReq) {
 	if atomic.LoadUint64(&c.id) == 0 {
 		atomic.StoreUint64(&c.id, atomic.AddUint64(&cm.connReqCount, 1))
 	}
-	log.Debugf("Attempting to connect to %v", c)
+	log.Debug("Attempting to connect to %v", c)
 	conn, err := cm.cfg.Dial(ctx, c.Addr)
 	if err != nil {
 		cm.requests <- handleFailed{c, err}
@@ -337,13 +339,13 @@ func (cm *ConnManager) Remove(id uint64) {
 // listenHandler accepts incoming connections on a given listener.  It must be
 // run as a goroutine.
 func (cm *ConnManager) listenHandler(ctx context.Context, listener net.Listener) {
-	log.Infof("Server listening on %s", listener.Addr())
+	log.Info("Server listening on %s", listener.Addr())
 	for atomic.LoadInt32(&cm.stop) == 0 {
 		conn, err := listener.Accept()
 		if err != nil {
 			// Only log the error if not forcibly shutting down.
 			if atomic.LoadInt32(&cm.stop) == 0 {
-				log.Errorf("Can't accept connection: %v", err)
+				log.Error("Can't accept connection: %v", err)
 			}
 			continue
 		}
@@ -351,7 +353,7 @@ func (cm *ConnManager) listenHandler(ctx context.Context, listener net.Listener)
 	}
 
 	cm.wg.Done()
-	log.Tracef("Listener handler done for %s", listener.Addr())
+	log.Trace("Listener handler done for %s", listener.Addr())
 }
 
 // Start launches the connection manager and begins connecting to the network.
@@ -387,7 +389,7 @@ func (cm *ConnManager) Wait() {
 // Stop gracefully shuts down the connection manager.
 func (cm *ConnManager) Stop() {
 	if atomic.AddInt32(&cm.stop, 1) != 1 {
-		log.Warnf("Connection manager already stopped")
+		log.Warn("Connection manager already stopped")
 		return
 	}
 

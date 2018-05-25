@@ -65,10 +65,6 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 	bIndex := c.FindBlockIndex(bh.GetHash())
 	if bIndex != nil {
-		if bIndex.HeaderValid() == false {
-			return nil, errcode.New(errcode.ErrorBlockHeaderNoValid)
-		}
-
 		return bIndex, nil
 	}
 

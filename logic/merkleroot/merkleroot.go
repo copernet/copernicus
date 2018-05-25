@@ -157,3 +157,12 @@ func BlockMerkleBranch(bk *block.Block, position uint32) []util.Hash {
 	}
 	return ComputeMerkleBranch(leaves, position)
 }
+
+func HashMerkleBranches(left *util.Hash, right *util.Hash) *util.Hash {
+	var hash [util.Hash256Size * 2]byte
+	copy(hash[:util.Hash256Size], left[:])
+	copy(hash[util.Hash256Size:], right[:])
+
+	newHash := util.DoubleSha256Hash(hash[:])
+	return &newHash
+}

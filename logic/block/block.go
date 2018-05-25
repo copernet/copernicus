@@ -9,7 +9,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 )
 
-func Check(b * block.Block) error {
+func Check(b *block.Block) error {
 	return nil
 }
 

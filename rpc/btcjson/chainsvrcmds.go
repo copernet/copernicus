@@ -43,6 +43,11 @@ func NewAddNodeCmd(addr string, subCmd AddNodeSubCmd) *AddNodeCmd {
 	}
 }
 
+type DisconnectNodeCmd struct {
+	Address *string
+	ID      *int
+}
+
 // TransactionInput represents the inputs to a transaction.  Specifically a
 // transaction hash and output number pair.
 type TransactionInput struct {
@@ -99,7 +104,6 @@ func NewDecodeScriptCmd(hexScript string) *DecodeScriptCmd {
 
 // GetAddedNodeInfoCmd defines the getaddednodeinfo JSON-RPC command.
 type GetAddedNodeInfoCmd struct {
-	DNS  bool
 	Node *string
 }
 
@@ -110,7 +114,6 @@ type GetAddedNodeInfoCmd struct {
 // for optional parameters will use the default value.
 func NewGetAddedNodeInfoCmd(dns bool, node *string) *GetAddedNodeInfoCmd {
 	return &GetAddedNodeInfoCmd{
-		DNS:  dns,
 		Node: node,
 	}
 }
@@ -386,8 +389,8 @@ func NewGetNetTotalsCmd() *GetNetTotalsCmd {
 
 // GetNetworkHashPSCmd defines the getnetworkhashps JSON-RPC command.
 type GetNetworkHashPSCmd struct {
-	Blocks *int `jsonrpcdefault:"120"`
-	Height *int `jsonrpcdefault:"-1"`
+	Blocks *int   `jsonrpcdefault:"120"`
+	Height *int32 `jsonrpcdefault:"-1"`
 }
 
 // NewGetNetworkHashPSCmd returns a new instance which can be used to issue a
@@ -395,7 +398,7 @@ type GetNetworkHashPSCmd struct {
 //
 // The parameters which are pointers indicate they are optional.  Passing nil
 // for optional parameters will use the default value.
-func NewGetNetworkHashPSCmd(numBlocks, height *int) *GetNetworkHashPSCmd {
+func NewGetNetworkHashPSCmd(numBlocks *int, height *int32) *GetNetworkHashPSCmd {
 	return &GetNetworkHashPSCmd{
 		Blocks: numBlocks,
 		Height: height,
@@ -806,6 +809,17 @@ type SetMocktimeCmd struct {
 	Timestamp int64
 }
 
+type SetBanCmd struct {
+	SubNet   string
+	Command  string
+	BanTime  *int `jsonrpcdefault:"86400"`
+	Absolute *bool
+}
+
+type SetNetWorkActiveCmd struct {
+	State bool `jsonrpcusage:"\"true|false\""`
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -859,6 +873,6 @@ func init() {
 	MustRegisterCmd("getmempoolancestors", (*GetMempoolAncestorsCmd)(nil), flags)
 	MustRegisterCmd("getmempooldescendants", (*GetMempoolDescendantsCmd)(nil), flags)
 	MustRegisterCmd("signrawtransaction", (*SignRawTransactionCmd)(nil), flags)
-	MustRegisterCmd("handleVerifyTxoutProof", (*VerifyTxoutProofCmd)(nil), flags)
-	MustRegisterCmd("handleSetMocktime", (*SetMocktimeCmd)(nil), flags)
+	MustRegisterCmd("verifytxoutproof", (*VerifyTxoutProofCmd)(nil), flags)
+	MustRegisterCmd("setmocktime", (*SetMocktimeCmd)(nil), flags)
 }
