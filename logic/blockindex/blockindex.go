@@ -22,7 +22,7 @@ import (
 
 //on main init call it
 func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
-	chainGlobal := chain.GetInstance()
+	gChain := chain.GetInstance()
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
 	GlobalBlocksUnlinked := make([]*blockindex.BlockIndex, 0, 20)
 	// branchMap := make(map[util.Hash]*blockindex.BlockIndex)
@@ -72,25 +72,11 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 		}
 		if index.IsValid(blockindex.StatusAllValid) &&
 			(index.ChainTxCount != 0 || index.Prev == nil) {
-			chainGlobal.AddToBranch(index)
+			gChain.AddToBranch(index)
 		}
 		if index.Prev != nil {
 			index.BuildSkip()
 		}
-		
-		// todo notunderstand
-		
-		//if index.Status&BlockFailedMask != 0 &&
-		//	(index.ChainWork.Cmp(&gIndexBestInvalid.ChainWork) > 0) {
-		//	gIndexBestInvalid = index
-		//}
-		//
-		
-		//
-		//if index.IsValid(BlockValidTree) &&
-		//	(GIndexBestHeader == nil || BlockIndexWorkComparator(GIndexBestHeader, index)) {
-		//	GIndexBestHeader = index
-		//}
 	}
 	
 	// Load block file info
@@ -114,11 +100,11 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 		}
 	}
 	logs.Debug("LoadBlockIndexDB(): last block file info: %s\n",
-		gPersist.GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String())
+		GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String())
 	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
 		if  bfi != nil && err == nil {
-			gPersist.GlobalBlockFileInfo[nFile] = bfi
+			GlobalBlockFileInfo[nFile] = bfi
 		} else {
 			break
 		}
@@ -127,7 +113,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
 	logs.Debug("Checking all blk files are present...")
-	for _, item := range chainGlobal.GlobalBlockIndexMap {
+	for _, item := range gChain.GetIndexMap() {
 		index := item
 		if index.Status&BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)
@@ -135,12 +121,12 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	}
 	
 	l := setBlkDataFiles.List()
+	
 	for _, item := range l {
 		pos := &block.DiskBlockPos{
 			File: item.(int),
 			Pos:  0,
 		}
-		
 		file := disk.OpenBlockFile(pos, true)
 		if file == nil {
 			return false
@@ -150,15 +136,15 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	
 	
 	
-	// Load pointer to end of best chain
+	// Load pointer to end of best chain todo: coinDB must init!!!
 	tip := utxo.GetUtxoCacheInstance().GetBestBlock()
 	
-	chainGlobal.InitLoad(GlobalBlockIndexMap, GlobalBlocksUnlinked, tip)
+	gChain.InitLoad(GlobalBlockIndexMap, GlobalBlocksUnlinked, tip)
 	
 	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
-		chain.GetInstance().Tip().GetBlockHash().ToString(), chain.GetInstance().Height(),
-		time.Unix(int64(chain.GetInstance().Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
-		, chain.GetInstance().Tip()))
+		gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
+		time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
+		gChain.Tip())
 	
 	return true
 }
