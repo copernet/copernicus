@@ -41,9 +41,9 @@ type BlockIndex struct {
 	// Which # file this block is stored in (blk?????.dat)
 	File int
 	// Byte offset within blk?????.dat where this block's data is stored
-	DataPos int
+	DataPos uint32
 	// Byte offset within rev?????.dat where this block's undo data is stored
-	UndoPos int
+	UndoPos uint32
 	// (memory only) Total amount of work (expected number of hashes) in the
 	// chain up to and including this block
 	ChainWork big.Int
@@ -76,8 +76,8 @@ func (bIndex *BlockIndex) SetNull() {
 
 	bIndex.Height = 0
 	bIndex.File = -1
-	bIndex.DataPos = -1
-	bIndex.UndoPos = -1
+	bIndex.DataPos = 0
+	bIndex.UndoPos = 0
 	bIndex.ChainWork = big.Int{}
 	bIndex.ChainTxCount = 0
 	bIndex.TxCount = 0
