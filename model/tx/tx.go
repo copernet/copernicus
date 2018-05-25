@@ -143,7 +143,7 @@ func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
 	tx.outs = ret
 }
 
-func (tx *Tx) SerializeSize() uint {
+func (tx *Tx) SerializeSize() uint32 {
 	return tx.EncodeSize()
 }
 
@@ -155,7 +155,7 @@ func (tx *Tx) Unserialize(reader io.Reader) error {
 	return tx.Decode(reader)
 }
 
-func (tx *Tx) EncodeSize() uint {
+func (tx *Tx) EncodeSize() uint32 {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
 	n := 8 + util.VarIntSerializeSize(uint64(len(tx.ins))) + util.VarIntSerializeSize(uint64(len(tx.outs)))
@@ -167,7 +167,7 @@ func (tx *Tx) EncodeSize() uint {
 		n += txOut.EncodeSize()
 	}
 
-	return uint(n)
+	return uint32(n)
 }
 
 func (tx *Tx) Encode(writer io.Writer) error {

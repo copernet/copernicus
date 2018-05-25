@@ -43,14 +43,14 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// is mempool already have it? conflict tx with mempool
-	if mempool.Gpool.FindTx(transaction.GetHash()) != nil {
+	if mempool.GetInstance().FindTx(transaction.GetHash()) != nil {
 		return errcode.New(errcode.TxErrMempoolAlreadyExist)
 	}
 
 	// check preout already spent
 	ins := transaction.GetIns()
 	for _, e := range ins {
-		if mempool.Gpool.HasSpentOut(e.PreviousOutPoint) {
+		if mempool.GetInstance().HasSpentOut(e.PreviousOutPoint) {
 			return errcode.New(errcode.TxErrPreOutAlreadySpent)
 		}
 	}
@@ -125,7 +125,23 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 }
 
 // block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
-func CheckBlockCoinBaseTransaction(tx *tx.Tx) error {
+func CheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32, blockReward int64) error {
+	// Enforce rule that the coinbase starts with serialized block height
+	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
+		heightNumb := script.NewScriptNum(int64(blockHeight))
+		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
+		heightData := heightNumb.Serialize()
+		if coinBaseScriptSig.Size() < len(heightData) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
+		if !bytes.Equal(scriptData, heightData) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+	if tx.GetValueOut() > blockReward {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
 	return tx.CheckCoinbaseTransaction()
 }
 
@@ -143,9 +159,25 @@ func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTim
 	return nil
 }
 
-func ApplyBlockTransactions(txs []*tx.Tx) error {
-	return nil
-}
+//
+//func GetBlockSubsidy(nHeight int32) uint32 {
+//	var halvings uint32 = uint32(nHeight) / uint32(chainparams.ActiveNetParams.SubsidyHalvingInterval)
+//	// Force block reward to zero when right shift is undefined.
+//	if halvings >= 64 {
+//		return 0
+//	}
+//	nSubsidy := 50 * util.COIN
+//	// Subsidy is cut in half every 210,000 blocks which will occur
+//	// approximately every 4 years.
+//	return uint32(nSubsidy) >> halvings
+//}
+
+//func ApplyBlockTransactions(txs []*tx.Tx) error {
+//	for _, transaction := range txs {
+//
+//	}
+//	return nil
+//}
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
@@ -179,7 +211,7 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
+			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
 			return false
@@ -205,7 +237,7 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
+			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
 			err := errcode.New(errcode.TxErrNoPreviousOut)
@@ -243,7 +275,7 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 
 	nBlockHeight := activeChain.Height() + 1
 
-	return transaction.ContextualCheckTransaction(nBlockHeight, nLockTimeCutoff)
+	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
 }
 
 func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
@@ -1560,7 +1592,7 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint) (lp *mempool.LockPoi
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.Gpool.GetCoin(e.PreviousOutPoint)
+			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
 			return nil
