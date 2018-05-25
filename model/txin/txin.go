@@ -16,7 +16,7 @@ type TxIn struct {
 	Sequence         uint32
 }
 
-func (txIn *TxIn) SerializeSize() int {
+func (txIn *TxIn) SerializeSize() uint32 {
 	return txIn.EncodeSize()
 }
 
@@ -28,7 +28,7 @@ func (txIn *TxIn) Serialize(writer io.Writer) error {
 	return txIn.Encode(writer)
 }
 
-func (txIn *TxIn) EncodeSize() int {
+func (txIn *TxIn) EncodeSize() uint32 {
 	// previousOutPoint EncodeSize + scriptSig EncodeSize + Sequence 4 bytes
 	return txIn.PreviousOutPoint.EncodeSize() + txIn.scriptSig.EncodeSize() + 4
 }

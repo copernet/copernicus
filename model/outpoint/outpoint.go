@@ -20,7 +20,7 @@ func NewOutPoint(hash util.Hash, index uint32) *OutPoint {
 	return &outPoint
 }
 
-func (outPoint *OutPoint) SerializeSize() int {
+func (outPoint *OutPoint) SerializeSize() uint32 {
 	return outPoint.EncodeSize()
 }
 
@@ -32,7 +32,7 @@ func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	return outPoint.Decode(reader)
 }
 
-func (outPoint *OutPoint) EncodeSize() int {
+func (outPoint *OutPoint) EncodeSize() uint32 {
 	return outPoint.Hash.EncodeSize() + 4
 }
 

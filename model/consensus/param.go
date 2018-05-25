@@ -29,8 +29,8 @@ type BIP9Deployment struct {
 }
 
 type Param struct {
-	GenesisHash *util.Hash
-
+	GenesisHash            *util.Hash
+	SubsidyHalvingInterval int
 	// Block height and hash at which BIP34 becomes active
 	BIP34Height int32
 	BIP34Hash   util.Hash

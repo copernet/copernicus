@@ -2,7 +2,7 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package service
+package syncmanager
 
 import (
 	"container/list"
@@ -23,7 +23,6 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcsuite/btcutil"
 )
 
 const (
