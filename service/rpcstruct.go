@@ -7,20 +7,20 @@ type GetConnectionCountResponse struct {
 	Count int
 }
 
-// wire.MsgPing Requests that a ping be sent to all other nodes, to measure
+// *wire.MsgPing Requests that a ping be sent to all other nodes, to measure
 // ping time.
 // return error if encountering any error
 
-// GetPeersInfoMsg Returns data about each connected network node as a json array
+// *GetPeersInfoRequest Returns data about each connected network node as a json array
 // of object.
 // return one object implementing []rpc.RpcServerPeer interface
-type GetPeersInfoMsg struct{}
+type GetPeersInfoRequest struct{}
 
-// btcjson.AddNodeCmd Attempts add or remove a node from the addnode list."
+// *btcjson.AddNodeCmd Attempts add or remove a node from the addnode list."
 // Or try a connection to a node once.
 // return error if encountering any error
 
-// btcjson.DisconnectNodeCmd Immediately disconnects from the specified peer node.
+// *btcjson.DisconnectNodeCmd Immediately disconnects from the specified peer node.
 // Strictly one out of 'address' and 'nodeid' can be provided to identify the node.
 // return error if encountering any error
 

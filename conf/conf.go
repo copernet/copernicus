@@ -2,12 +2,11 @@ package conf
 
 import (
 	"log"
+	"net"
 	"os"
 	"path"
 	"reflect"
 	"runtime"
-
-	"net"
 	"time"
 
 	"github.com/btcboost/copernicus/model"

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/btcboost/copernicus/log"
+	block2 "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/logic/merkleroot"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -289,7 +290,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, script.NewScriptRaw(buf.Bytes()), 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
-	value := ba.fees + chain.GetBlockSubsidy(ba.height, ba.chainParams)
+	value := ba.fees + GetBlockSubsidy(ba.height, ba.chainParams)
 	coinbaseTx.AddTxOut(txout.NewTxOut(int64(value), coinbaseScript))
 	ba.bt.Block.Txs[0] = coinbaseTx
 	ba.bt.TxFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
@@ -311,7 +312,8 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	state := block.ValidationState{}
-	if !chain.TestBlockValidity(ba.chainParams, &state, ba.bt.Block, indexPrev, false, false) {
+	err := block2.Check(ba.bt.Block)
+	if err != nil {
 		panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
 	}
 
@@ -470,4 +472,17 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	}
 
 	return newTime - oldTime
+}
+
+func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
+	halvings := height / params.SubsidyReductionInterval
+	// Force block reward to zero when right shift is undefined.
+	if halvings >= 64 {
+		return 0
+	}
+
+	nSubsidy := amount.Amount(50 * util.COIN)
+	// Subsidy is cut in half every 210,000 blocks which will occur
+	// approximately every 4 years.
+	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }

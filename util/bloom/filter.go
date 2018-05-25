@@ -9,11 +9,11 @@ import (
 	"math"
 	"sync"
 
-	"github.com/copernicus/model/outpoint"
-	"github.com/copernicus/model/script"
-	"github.com/copernicus/model/tx"
-	"github.com/copernicus/net/wire"
-	"github.com/copernicus/util"
+	"github.com/btcboost/copernicus/model/outpoint"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 	"github.com/pkg/errors"
 )
 
