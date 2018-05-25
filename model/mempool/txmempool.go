@@ -208,7 +208,7 @@ func (m *TxMempool) Size() int {
 func (m *TxMempool) GetAllTxEntry() map[util.Hash]*TxEntry {
 	m.RLock()
 	ret := make(map[util.Hash]*TxEntry, len(m.poolData))
-	for k, v := range m.poolData{
+	for k, v := range m.poolData {
 		ret[k] = v
 	}
 	m.RUnlock()
@@ -390,7 +390,7 @@ func (m *TxMempool) Check(view utxo.CacheView, bestHeight int) {
 				}
 
 				fDependsWait = true
-				setParentCheck[tx2.Hash] = struct{}{}
+				setParentCheck[tx2.GetHash()] = struct{}{}
 			} else {
 				if !view.HaveCoin(&preout) {
 					panic("the tx introduced input dose not exist mempool And UTXO set !!!")
@@ -1042,11 +1042,11 @@ func (m *TxMempool) LimitOrphanTx() int {
 	return removeNum
 }
 
-func (m *TxMempool)RemoveOrphansByTag(nodeID int64) int {
+func (m *TxMempool) RemoveOrphansByTag(nodeID int64) int {
 	numEvicted := 0
 	m.Lock()
-	for _, otx := range m.OrphanTransactions{
-		if otx.NodeID == nodeID{
+	for _, otx := range m.OrphanTransactions {
+		if otx.NodeID == nodeID {
 			m.EraseOrphanTx(otx.Tx.GetHash(), true)
 			numEvicted++
 		}

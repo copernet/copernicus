@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
@@ -280,21 +281,43 @@ func (tx *Tx) GetVersion() int32 {
 	return tx.version
 }
 
+func (tx *Tx) CheckRegularTransaction() error {
+	if tx.IsCoinBase() {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+
+	err := tx.checkTransactionCommon(true)
+	if err != nil {
+		return err
+	}
+
+	for _, in := range tx.ins {
+		if in.PreviousOutPoint.IsNull() {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+
+	return nil
+}
+
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
 		return errcode.New(errcode.TxErrNotCoinBase)
 	}
-	//if !tx.CheckTransactionCommon(false) {
-	//	return false
-	//}
-	/*
-		if tx.ins[0].script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
-			return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
-		}*/
+	err := tx.checkTransactionCommon(false)
+	if err != nil {
+		return err
+	}
+
+	// coinbase in script check
+	if tx.ins[0].GetScriptSig().Size() < 2 || tx.ins[0].GetScriptSig().Size() > 100 {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+
 	return nil
 }
 
-func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
+func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
 		//state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
@@ -332,14 +355,25 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 	if checkDupInput {
 		outPointSet := make(map[*outpoint.OutPoint]struct{})
 		for _, in := range tx.ins {
-			if in.PreviousOutPoint.IsNull() {
-				return errcode.New(errcode.TxErrRejectInvalid)
-			}
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
 				return errcode.New(errcode.TxErrRejectInvalid)
 			}
+		}
+	}
+
+	return nil
+}
+
+func (tx *Tx) ContextualCheckTransaction(nBlockHeight int32, nLockTimeCutoff int64) error {
+	if !tx.IsFinal(nBlockHeight, nLockTimeCutoff) {
+		return errcode.New(errcode.TxErrNotFinal)
+	}
+
+	if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
+		if tx.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
+			return errcode.New(errcode.TxErrTxCommitment)
 		}
 	}
 

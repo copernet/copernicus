@@ -1,15 +1,15 @@
 package chainparams
 
 import (
+	"errors"
 	"math/big"
 	"time"
-	"errors"
 
 	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
@@ -377,4 +377,9 @@ func mustRegister(bp *BitcoinParams) {
 		panic("err")
 	}
 	bp.DefaultAssumeValid = *work
+}
+
+//IsUAHFEnabled Check is UAHF has activated.
+func IsUAHFEnabled(height int32) bool {
+	return height >= ActiveNetParams.UAHFHeight
 }
