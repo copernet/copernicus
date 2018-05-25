@@ -25,7 +25,15 @@ const (
 	RollingFeeHalfLife = 12 * 60 * 60
 )
 
-var Gpool *TxMempool
+var gpool *TxMempool
+
+func GetInstance() *TxMempool {
+	if gpool == nil{
+		gpool = NewTxMempool()
+	}
+
+	return gpool
+}
 
 type PoolRemovalReason int
 
@@ -991,7 +999,7 @@ func NewTxMempool() *TxMempool {
 }
 
 func InitMempool() {
-	Gpool = NewTxMempool()
+	gpool = NewTxMempool()
 }
 
 const (

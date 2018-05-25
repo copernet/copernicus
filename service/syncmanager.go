@@ -1071,15 +1071,6 @@ out:
 				}
 				msg.reply <- peerID
 
-			case processBlockMsg:
-				_, err := ProcessBlock(msg.block)
-				if err != nil {
-					msg.reply <- processBlockResponse{
-						isOrphan: false,
-						err:      err,
-					}
-				}
-
 			case isCurrentMsg:
 				msg.reply <- sm.current()
 
