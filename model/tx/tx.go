@@ -144,15 +144,15 @@ func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
 }
 
 func (tx *Tx) SerializeSize() uint {
-	return 0
+	return tx.EncodeSize()
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
-	return nil
+	return tx.Encode(writer)
 }
 
 func (tx *Tx) Unserialize(reader io.Reader) error {
-	return nil
+	return tx.Decode(reader)
 }
 
 func (tx *Tx) EncodeSize() uint {
@@ -160,18 +160,13 @@ func (tx *Tx) EncodeSize() uint {
 	// number of transaction inputs and outputs.
 	n := 8 + util.VarIntSerializeSize(uint64(len(tx.ins))) + util.VarIntSerializeSize(uint64(len(tx.outs)))
 
-	//if tx == nil {
-	//	fmt.Println("tx is nil")
-	//}
 	for _, txIn := range tx.ins {
-		if txIn == nil {
-			fmt.Println("txIn ins is nil")
-		}
-		n += txIn.SerializeSize()
+		n += txIn.EncodeSize()
 	}
 	for _, txOut := range tx.outs {
-		n += txOut.SerializeSize()
+		n += txOut.EncodeSize()
 	}
+
 	return uint(n)
 }
 
@@ -186,7 +181,7 @@ func (tx *Tx) Encode(writer io.Writer) error {
 		return err
 	}
 	for _, txIn := range tx.ins {
-		err := txIn.Serialize(writer)
+		err := txIn.Encode(writer)
 		if err != nil {
 			return err
 		}
@@ -197,11 +192,12 @@ func (tx *Tx) Encode(writer io.Writer) error {
 		return err
 	}
 	for _, txOut := range tx.outs {
-		err := txOut.Serialize(writer)
+		err := txOut.Encode(writer)
 		if err != nil {
 			return err
 		}
 	}
+
 	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.lockTime)
 }
 
@@ -226,7 +222,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		txIn.PreviousOutPoint.Hash = *new(util.Hash)
-		err = txIn.Unserialize(reader)
+		err = txIn.Decode(reader)
 		if err != nil {
 			return err
 		}
@@ -242,7 +238,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		// The pointer is set now in case a script buffer is borrowed
 		// and needs to be returned to the pool on error.
 		txOut := new(txout.TxOut)
-		err = txOut.Unserialize(reader)
+		err = txOut.Decode(reader)
 		if err != nil {
 			return err
 		}

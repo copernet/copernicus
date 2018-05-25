@@ -17,10 +17,10 @@ const (
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error{
+func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
 
 	//first : check transaction context And itself.
-	if err := ltx.CheckRegularTransaction(tx, true); err != nil {
+	if err := ltx.CheckRegularTransaction(tx); err != nil {
 		return err
 	}
 
