@@ -18,9 +18,11 @@ import (
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
+	"strconv"
 )
 
-func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error {
+// transaction service will use this func to check transaction before accepting to mempool
+func CheckRegularTransaction(transaction *tx.Tx) error {
 	if transaction.IsCoinBase() {
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
@@ -101,7 +103,11 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 	//check inputs
 	var scriptVerifyFlags uint32 = uint32(script.StandardScriptVerifyFlags)
 	if !chainparams.ActiveNetParams.RequireStandard {
-		//scriptVerifyFlags = conf.Cfg.Script.PromiscuousMempoolFlags
+		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
+		if err != nil {
+			panic("")
+		}
+		scriptVerifyFlags = uint32(configVerifyFlags)
 	}
 	err = checkInputs(transaction, tempCoinsMap, scriptVerifyFlags)
 	if err != nil {
@@ -122,17 +128,18 @@ func CheckRegularTransaction(transaction *tx.Tx, allowLargeOpReturn bool) error 
 	return nil
 }
 
-func CheckBlockCoinBaseTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
+// block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
+func CheckBlockCoinBaseTransaction(tx *tx.Tx) error {
 	return nil
 }
 
-func CheckBlockRegularTransaction(tx *tx.Tx, allowLargeOpReturn bool) error {
+func CheckBlockRegularTransactions(txs []*tx.Tx) error {
 
 	return nil
 }
 
-func SubmitTransaction(txs []*tx.Tx) bool {
-	return true
+func ApplyBlockTransactions(txs []*tx.Tx) error {
+	return nil
 }
 
 func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
