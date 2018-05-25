@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
@@ -360,20 +359,6 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 			} else {
 				return errcode.New(errcode.TxErrRejectInvalid)
 			}
-		}
-	}
-
-	return nil
-}
-
-func (tx *Tx) ContextualCheckTransaction(nBlockHeight int32, nLockTimeCutoff int64) error {
-	if !tx.IsFinal(nBlockHeight, nLockTimeCutoff) {
-		return errcode.New(errcode.TxErrNotFinal)
-	}
-
-	if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
-		if tx.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
-			return errcode.New(errcode.TxErrTxCommitment)
 		}
 	}
 

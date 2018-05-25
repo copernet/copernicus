@@ -135,7 +135,7 @@ func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTim
 		if err != nil {
 			return err
 		}
-		err = transaction.ContextualCheckTransaction(blockHeight, blockLockTime)
+		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
 		if err != nil {
 			return err
 		}
@@ -144,6 +144,20 @@ func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTim
 }
 
 func ApplyBlockTransactions(txs []*tx.Tx) error {
+	return nil
+}
+
+func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
+	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
+		return errcode.New(errcode.TxErrNotFinal)
+	}
+
+	if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
+		if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
+			return errcode.New(errcode.TxErrTxCommitment)
+		}
+	}
+
 	return nil
 }
 
