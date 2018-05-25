@@ -39,7 +39,7 @@ func bchMain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	service2.NewMsgHandle(s.mh, )
+	//service2.NewMsgHandle(s.mh, )
 
 	if interruptRequested(interrupt) {
 		return nil
