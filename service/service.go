@@ -49,14 +49,15 @@ type MsgHandle struct {
 	nextCheckpoint   *model.Checkpoint
 }
 
+var msgHandle *MsgHandle
+
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage) *MsgHandle {
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage){
 	msg := &MsgHandle{mtx: sync.Mutex{}, recvFromNet: cmdCh}
 	ctxChild, _ := context.WithCancel(ctx)
-
 	go msg.startProcess(ctxChild)
-	return msg
+	msgHandle = msg
 }
 
 func (mh *MsgHandle) startProcess(ctx context.Context) {
@@ -180,27 +181,27 @@ out:
 }
 
 // Rpc process things
-func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
+func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
 	case *GetConnectionCountRequest:
-		return mh.connManager.ConnectedCount(), nil
+		return msgHandle.connManager.ConnectedCount(), nil
 
 	case *wire.MsgPing:
-		return mh.connManager.BroadCast(), nil
+		return msgHandle.connManager.BroadCast(), nil
 
 	case *GetPeersInfoMsg:
 		return nil, nil
 
 	case *btcjson.AddNodeCmd:
-		err = mh.NodeOpera(m)
+		err = msgHandle.NodeOpera(m)
 		return
 
 	case *btcjson.DisconnectNodeCmd:
 		return
 
 	case *btcjson.GetAddedNodeInfoCmd:
-		return mh.connManager.PersistentPeers(), nil
+		return msgHandle.connManager.PersistentPeers(), nil
 
 	case *GetNetTotalsRequest:
 		return
@@ -218,8 +219,8 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		return
 
 	case *tx.Tx:
-		mh.recvChannel <- m
-		ret := <-mh.resultChannel
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r
@@ -228,8 +229,8 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		}
 
 	case *block.Block:
-		mh.recvChannel <- m
-		ret := <-mh.resultChannel
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r

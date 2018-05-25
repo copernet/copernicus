@@ -18,28 +18,14 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
+	"github.com/btcboost/copernicus/conf"
 )
 
-// error status for the transaction that entering txmempool.
 const (
-	RejectAlreadyKnown = 300
-	RejectNonStandard  = 301
-
-	ManyUnconfirmedAncestor       = 302
-	ExceedUnconfirmedAncestorSize = 303
-	ManyUnconfirmedDescendt       = 304
-	ExceedUnconfirmedDescendtSize = 305
-	LowTransactionFee             = 306
+	RollingFeeHalfLife = 12 * 60 * 60
 )
 
 var Gpool *TxMempool
-
-const (
-	AncestorSize   uint64 = 101
-	AncestorNum           = 25
-	DescendantNum         = 25
-	DescendantSize        = 101
-)
 
 type PoolRemovalReason int
 
@@ -87,10 +73,17 @@ type TxMempool struct {
 
 	nextSweep      int
 	MaxMemPoolSize int64
+	incrementalRelayFee	util.FeeRate		//
+	rollingMinimumFeeRate	int64
+	blockSinceLastRollingFeeBump	bool
+	lastRollingFeeUpdate		int64
 }
 
 func (m *TxMempool) GetMinFeeRate() util.FeeRate {
-	return m.feeRate
+	m.RLock()
+	feeRate := m.getMinFee(conf.Cfg.Mempool.MaxPoolSize)
+	m.RUnlock()
+	return feeRate
 }
 
 // AddTx operator is safe for concurrent write And read access.
@@ -300,6 +293,8 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 		}
 		m.removeConflicts(tx)
 	}
+	m.lastRollingFeeUpdate = util.GetMockTime()
+	m.blockSinceLastRollingFeeBump = true
 }
 
 func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
@@ -340,16 +335,21 @@ func (m *TxMempool) IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*ut
 		return nil, lp, errcode.New(errcode.Nomature)
 	}
 
-	ancestors, err := m.calculateMemPoolAncestors(tx, AncestorNum, AncestorSize*1000,
-		DescendantNum, DescendantSize*1000, true)
+	ancestorNum := conf.Cfg.Mempool.LimitAncestorCount
+	ancestorSize := conf.Cfg.Mempool.LimitAncestorSize
+	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
+	descendantSize := conf.Cfg.Mempool.LimitDescendantSize
+	ancestors, err := m.calculateMemPoolAncestors(tx, uint64(ancestorNum), uint64(ancestorSize*1000),
+		uint64(descendantNum), uint64(descendantSize*1000), true)
 	if err != nil {
 		return nil, lp, err
 	}
 
 	txsize := int64(tx.EncodeSize())
 	txfeeRate := util.NewFeeRateWithSize(txfee, txsize)
+	rejectFee := m.getMinFee(conf.Cfg.Mempool.MaxPoolSize)
 	// compare the transaction feeRate with enter mempool min txfeeRate
-	if txfeeRate.SataoshisPerK < m.feeRate.SataoshisPerK {
+	if txfeeRate.SataoshisPerK < rejectFee.SataoshisPerK {
 		return nil, lp, errcode.New(errcode.TooMinFeeRate)
 	}
 
@@ -390,7 +390,7 @@ func (m *TxMempool) Check(view utxo.CacheView, bestHeight int) {
 				}
 
 				fDependsWait = true
-				setParentCheck[tx2.Hash] = struct{}{}
+				setParentCheck[tx2.GetHash()] = struct{}{}
 			} else {
 				if !view.HaveCoin(&preout) {
 					panic("the tx introduced input dose not exist mempool And UTXO set !!!")
@@ -550,6 +550,40 @@ func (m *TxMempool) LimitMempoolSize() []*outpoint.OutPoint {
 	return c
 }
 
+func (m *TxMempool)trackPackageRemoved(rate util.FeeRate) {
+	if rate.GetFeePerK() > m.rollingMinimumFeeRate{
+		m.rollingMinimumFeeRate = rate.GetFeePerK()
+		m.blockSinceLastRollingFeeBump = false
+	}
+}
+
+func (m *TxMempool) getMinFee(sizeLimit int) util.FeeRate {
+	if !m.blockSinceLastRollingFeeBump || m.rollingMinimumFeeRate == 0{
+		return *util.NewFeeRate(m.rollingMinimumFeeRate)
+	}
+
+	timeTmp := util.GetMockTime()
+	if timeTmp > m.lastRollingFeeUpdate + 10 {
+		halfLife := RollingFeeHalfLife
+		if m.cacheInnerUsage < int64(sizeLimit / 4){
+			halfLife /= 4
+		}else if m.cacheInnerUsage < int64(sizeLimit / 2){
+			halfLife /= 2
+		}
+		m.rollingMinimumFeeRate = m.rollingMinimumFeeRate / int64(math.Pow(2.0, float64(timeTmp - m.lastRollingFeeUpdate)) / float64(halfLife))
+		m.lastRollingFeeUpdate = timeTmp
+		if m.rollingMinimumFeeRate < m.incrementalRelayFee.GetFeePerK() / 2 {
+			m.rollingMinimumFeeRate = 0
+			return *util.NewFeeRate(0)
+		}
+	}
+	rate := util.NewFeeRate(m.rollingMinimumFeeRate)
+	if rate.SataoshisPerK > m.incrementalRelayFee.SataoshisPerK {
+		return *rate
+	}
+	return m.incrementalRelayFee
+}
+
 // TrimToSize Remove transactions from the mempool until its dynamic size is <=
 // sizelimit. noSpendsRemaining, if set, will be populated with the list
 // of outpoints which are not in mempool which no longer have any spends in
@@ -565,6 +599,10 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
 			panic("the two element should have the same Txhash")
 		}
+		removed := util.NewFeeRateWithSize(rem.TxFee, int64(rem.TxSize))
+		removed.SataoshisPerK += m.incrementalRelayFee.SataoshisPerK
+		
+
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumFeeWithDescendants, removeIt.SumSizeWithDescendants).SataoshisPerK
 		stage := make(map[*TxEntry]struct{})
 		m.calculateDescendants(&removeIt, stage)
@@ -948,6 +986,7 @@ func NewTxMempool() *TxMempool {
 	t.timeSortData = *btree.New(32)
 	t.rootTx = make(map[util.Hash]*TxEntry)
 	t.txByAncestorFeeRateSort = *btree.New(32)
+	t.incrementalRelayFee = *util.NewFeeRate(1)
 	return t
 }
 
