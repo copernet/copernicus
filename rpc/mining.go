@@ -191,14 +191,14 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	}
 
 	if indexPrev != chain.GlobalChain.Tip() ||
-		mempool.Gpool.TransactionsUpdated != transactionsUpdatedLast &&
+		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
 			util.GetMockTime()-start > 5 {
 
 		// Clear pindexPrev so future calls make a new block, despite any
 		// failures from here on
 		indexPrev = nil
 		// Store the pindexBest used before CreateNewBlock, to avoid races
-		transactionsUpdatedLast = mempool.Gpool.TransactionsUpdated
+		transactionsUpdatedLast = mempool.GetInstance().TransactionsUpdated
 		indexPrevNew := chain.GlobalChain.Tip()
 		start = util.GetMockTime()
 

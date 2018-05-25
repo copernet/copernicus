@@ -401,7 +401,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		haveChain = !existingCoin.IsSpent()
 	}
 
-	entry := mempool.Gpool.FindTx(hash)
+	entry := mempool.GetInstance().FindTx(hash)
 	if entry == nil && !haveChain {
 		_, err = mempool2.ProcessTransaction(&transaction, 0)
 		if err != nil {

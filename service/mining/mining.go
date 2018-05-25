@@ -9,6 +9,7 @@ import (
 	"github.com/btcboost/copernicus/log"
 	block2 "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/logic/merkleroot"
+	tx2 "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -146,7 +147,7 @@ func computeMaxGeneratedBlockSize() uint64 {
 // not-yet-selected ancestors as we go.
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
-	pool := mempool.Gpool // todo use global variable
+	pool := mempool.GetInstance() // todo use global variable
 	pool.RLock()
 	defer pool.RUnlock()
 
@@ -339,8 +340,8 @@ func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}
 func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]struct{}) bool {
 	potentialBlockSize := ba.blockSize
 	for entry := range entrySet {
-		state := block.ValidationState{}
-		if !entry.Tx.ContextualCheckTransaction(ba.chainParams, &state, ba.height, ba.lockTimeCutoff) { // TODO
+		err := tx2.ContextualCheckTransaction(entry.Tx, ba.height, ba.lockTimeCutoff)
+		if err != nil {
 			return false
 		}
 
@@ -355,7 +356,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 
 func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
 	descendantUpdate := 0
-	mpool := mempool.Gpool
+	mpool := mempool.GetInstance()
 	mpool.Lock()
 	defer mpool.Unlock()
 	for entry := range alreadyAdded {

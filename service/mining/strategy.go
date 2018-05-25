@@ -39,7 +39,7 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 
 func sortedByFeeWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	mpool := mempool.Gpool
+	mpool := mempool.GetInstance()
 	mpool.Lock()
 	defer mpool.Unlock()
 	for _, txEntry := range mpool.GetAllTxEntry() {
@@ -65,7 +65,7 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 
 func sortedByFeeRateWithAncestors() *btree.BTree {
 	b := btree.New(32)
-	mpool := mempool.Gpool
+	mpool := mempool.GetInstance()
 	mpool.Lock()
 	defer mpool.Unlock()
 	for _, txEntry := range mpool.GetAllTxEntry() {
