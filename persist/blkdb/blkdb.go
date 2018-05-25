@@ -1,21 +1,25 @@
 package blkdb
 
 import (
-	"bytes"
-	
-	"github.com/btcboost/copernicus/model/chain/global"
-	"github.com/btcboost/copernicus/persist/db"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/blockindex"
+"bytes"
+"fmt"
 
 
-	"github.com/btcboost/copernicus/util"
-	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/pow"
-	"fmt"
-	"github.com/btcboost/copernicus/model/chainparams"
+
+"github.com/btcboost/copernicus/conf"
+"github.com/btcboost/copernicus/log"
+"github.com/btcboost/copernicus/model/blockindex"
+"github.com/btcboost/copernicus/persist/db"
+
+
+
+
+"github.com/astaxie/beego/logs"
+"github.com/btcboost/copernicus/model/block"
+"github.com/btcboost/copernicus/model/chainparams"
+"github.com/btcboost/copernicus/model/pow"
+"github.com/btcboost/copernicus/util"
+
 )
 
 type BlockTreeDB struct {
@@ -36,7 +40,7 @@ func InitBlockTreDB(uc *BlockTreeDBConfig){
 
 
 
-func GetBlockTreeDBInstance()*BlockTreeDB{
+func GetInstance()*BlockTreeDB{
 	if blockTreeDb == nil{
 		log.Error("blockTreeDb has not init !!!")
 	}
@@ -219,7 +223,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 //
 
 // todo for iter and check key、 pow
-func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts() bool {
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex) bool {
 	cursor:=blockTreeDB.dbw.Iterator()
 	defer cursor.Close()
 	hash := util.Hash{}
@@ -249,8 +253,8 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts() bool {
 		}
 		bi.Unserialize(bytes.NewBuffer(val))
 
-		newIndex := InsertBlockIndex(*bi.GetBlockHash())
-		newIndex.Prev = InsertBlockIndex(bi.Header.HashPrevBlock)
+		newIndex := InsertBlockIndex(*bi.GetBlockHash(), GlobalBlockIndexMap)
+		newIndex.Prev = InsertBlockIndex(bi.Header.HashPrevBlock, GlobalBlockIndexMap)
 		newIndex.SetBlockHash(*bi.GetBlockHash())
 		newIndex.Height = bi.Height
 		newIndex.File = bi.File
@@ -273,13 +277,14 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts() bool {
 	return true
 }
 
-func InsertBlockIndex(hash util.Hash)*blockindex.BlockIndex{
-	if i, ok := global.GetChainGlobalInstance().GlobalBlockIndexMap[hash]; ok{
+func InsertBlockIndex(hash util.Hash, GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex)*blockindex.BlockIndex{
+	
+	if i, ok := GlobalBlockIndexMap[hash]; ok{
 		return i
 	}
 	var bi  = blockindex.NewBlockIndex(block.NewBlockHeader())
 	
-	global.GetChainGlobalInstance().GlobalBlockIndexMap[hash] = bi
+	GlobalBlockIndexMap[hash] = bi
 
 	return bi
 

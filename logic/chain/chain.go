@@ -47,13 +47,16 @@ func AcceptBlock(b *block.Block) (*blockindex.BlockIndex, error) {
 		bIndex.AddStatus(blockindex.StatusAllValid)
 	}
 
-	pos, err := lblock.WriteBlockToDisk(bIndex,b)
+
+	err = lblock.WriteToFile(bIndex,b)
 	if err != nil {
 		return bIndex,err
 	}
-	
-	bIndex.AddStatus(blockindex.StatusAllStored)
 
+	bIndex.SubStatus(blockindex.StatusWaitingData)
+	bIndex.AddStatus(blockindex.StatusDataStored)
+
+	
 	return nil, nil
 }
 
@@ -85,12 +88,12 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax,bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork,work)
-	bIndex.AddStatus(blockindex.StatusHeaderValid)
+	bIndex.AddStatus(blockindex.StatusWaitingData)
+
 	err = c.AddToIndexMap(bIndex)
 	if err != nil {
 		return nil,err
 	}
-
 
 	return bIndex, nil
 }

@@ -30,6 +30,9 @@ func NewChain() *Chain {
 	return &Chain{}
 }
 
+func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex, tip util.Hash){
+
+}
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
 func (c *Chain) Genesis() *blockindex.BlockIndex {
@@ -202,7 +205,7 @@ func (chain *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
 
 }
 
-func (chain *Chain) AddToBranch(bis []*blockindex.BlockIndex) {
+func (chain *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 
 }
 
@@ -215,6 +218,16 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	return nil
 }
 
+func (c *Chain) GetIndexMap() map[util.Hash]*blockindex.BlockIndex{
+	return c.indexMap
+}
+
+func (c *Chain) SetIndexMap(im map[util.Hash]*blockindex.BlockIndex){
+	c.indexMap = im
+}
+func (c *Chain) GetIndexMapSize() int{
+	return len(c.indexMap)
+}
 func (c *Chain) GetActiveHeight(hash *util.Hash) (int32, error) {
 	return 0, nil
 }

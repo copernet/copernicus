@@ -1,6 +1,7 @@
 package block
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +15,7 @@ import (
 type Block struct {
 	Header BlockHeader
 	Txs    []*tx.Tx
-	size    uint
+	size    uint32
 }
 
 func (bl *Block) GetBlockHeader() BlockHeader {
@@ -64,12 +65,12 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	return nil
 }
 
-func (bl *Block) SerializeSize() uint {
+func (bl *Block) SerializeSize() uint32 {
 	if bl.size !=0{
 		return bl.size
 	}
-	size := uint(unsafe.Sizeof(BlockHeader{}))
-	size += uint(util.VarIntSerializeSize(uint64(len(bl.Txs))))
+	size := uint32(unsafe.Sizeof(BlockHeader{}))
+	size += uint32(util.VarIntSerializeSize(uint64(len(bl.Txs))))
 	for _, Tx := range bl.Txs {
 		size += Tx.SerializeSize()
 	}
@@ -77,6 +78,11 @@ func (bl *Block) SerializeSize() uint {
 	return size
 }
 
+func (bl *Block) GetHash() util.Hash{
+	buf := bytes.NewBuffer(nil)
+	bl.Serialize(buf)
+	return util.DoubleSha256Hash(buf.Bytes())
+}
 func NewBlock() *Block {
 	return &Block{}
 }
