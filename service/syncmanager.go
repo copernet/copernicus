@@ -109,7 +109,7 @@ type processBlockResponse struct {
 // way to call ProcessBlock on the internal block chain instance.
 type processBlockMsg struct {
 	block *block.Block
-	flags blockchain.BehaviorFlags
+	flags chain.BehaviorFlags
 	reply chan processBlockResponse
 }
 
@@ -258,13 +258,8 @@ func (sm *SyncManager) startSync() {
 		// to send.
 		sm.requestedBlocks = make(map[util.Hash]struct{})
 
-		locator, err := sm.chain.LatestBlockLocator()
-		if err != nil {
-			log.Error("Failed to get block locator for the "+
-				"latest block: %v", err)
-			return
-		}
-
+		activeChain := chain.GetInstance()
+		locator := activeChain.GetLocator(nil)
 		log.Info("Syncing to block height %d from peer %v",
 			bestPeer.LastBlock(), bestPeer.Addr())
 
@@ -290,13 +285,13 @@ func (sm *SyncManager) startSync() {
 			sm.chainParams != &chainparams.RegressionNetParams {
 
 			//	3. push peer
-			bestPeer.PushGetHeadersMsg(locator, sm.nextCheckpoint.Hash)
+			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
 			sm.headersFirstMode = true
 			log.Info("Downloading headers for blocks %d to "+
 				"%d from peer %s", best.Height+1,
 				sm.nextCheckpoint.Height, bestPeer.Addr())
 		} else {
-			bestPeer.PushGetBlocksMsg(locator, &zeroHash)
+			bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
 		}
 		sm.syncPeer = bestPeer
 	} else {
@@ -466,7 +461,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	}
 	txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 	for _, tx := range acceptedTxs {
-		if entry := mempool.Gpool.FindTx(tx.Hash); entry != nil {
+		if entry := mempool.Gpool.FindTx(tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
 		} else {
 			panic("the transaction must be in mempool")
@@ -609,7 +604,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// if we're syncing the chain from scratch.
 	if blkHashUpdate != nil && heightUpdate != 0 {
 		peer.UpdateLastBlockHeight(heightUpdate)
-		if isOrphan || sm.current() {
+		if sm.current() {
 			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate,
 				peer)
 		}
@@ -1083,11 +1078,6 @@ out:
 						isOrphan: false,
 						err:      err,
 					}
-				}
-
-				msg.reply <- processBlockResponse{
-					isOrphan: isOrphan,
-					err:      nil,
 				}
 
 			case isCurrentMsg:

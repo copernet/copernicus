@@ -6,7 +6,7 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 )
 
-func Check(b * block.Block) error {
+func Check(b *block.Block) error {
 	return nil
 }
 
@@ -17,3 +17,4 @@ func GetBlock(hash *util.Hash) (* block.Block, error) {
 func WriteToFile(bi *blockindex.BlockIndex, b *block.Block) error {
 	return nil
 }
+

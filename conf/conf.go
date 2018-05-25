@@ -2,14 +2,14 @@ package conf
 
 import (
 	"log"
+	"net"
 	"os"
 	"path"
 	"reflect"
 	"runtime"
-
-	"net"
 	"time"
 
+	"github.com/btcboost/copernicus/model"
 	"github.com/spf13/viper"
 )
 
@@ -45,6 +45,12 @@ const (
 	sampleConfigFilename         = "sample-btcd.conf"
 	defaultTxIndex               = false
 	defaultAddrIndex             = false
+	defaultDescendantLimit		= 25
+	defaultDescendantSizeLimit 	= 101
+	defaultAncestorSizeLimit	= 101
+	defaultAncestorLimit		= 25
+	defaultMempoolExpiry		= 336
+	defaultMaxMempoolSize		= 300
 )
 
 var Cfg *Configuration
@@ -135,7 +141,13 @@ type Configuration struct {
 		FileName string   // the name of log file
 	}
 	Mempool struct {
-		MinFeeRate int64
+		MinFeeRate 				int64	//
+		LimitAncestorCount 		int		// Default for -limitancestorcount, max number of in-mempool ancestors
+		LimitAncestorSize		int		// Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
+		LimitDescendantCount	int		// Default for -limitdescendantcount, max number of in-mempool descendants
+		LimitDescendantSize 	int		// Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
+		MaxPoolSize				int		// Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolExpiry			int		// Default for -mempoolexpiry, expiration time for mempool transactions in hours
 	}
 	P2PNet struct {
 		ListenAddrs         []string `validate:"require" default:"1234"`
@@ -153,10 +165,12 @@ type Configuration struct {
 		DisableDNSSeed      bool          //Disable DNS seeding for peers
 		DisableRPC          bool          `default:"true"`
 		DisableTLS          bool
+		DisableCheckpoints  bool
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"` // Disable connecting to tor hidden services
 		Upnp                bool     // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+		AddCheckpoints      []model.Checkpoint
 	}
 	AddrMgr struct {
 		SimNet       bool

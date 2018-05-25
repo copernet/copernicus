@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	//"runtime/pprof"
 
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/limits"
 )
 
@@ -34,10 +35,11 @@ func bchMain(ctx context.Context) error {
 
 	interrupt := interruptListener()
 
-	s, err := newServer(nil, interrupt)
+	s, err := newServer(&chainparams.TestNet3Params, interrupt)
 	if err != nil {
 		return err
 	}
+	//service2.NewMsgHandle(s.mh, )
 
 	if interruptRequested(interrupt) {
 		return nil
