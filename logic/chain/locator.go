@@ -1,25 +1,30 @@
 package chain
 
 import (
-	"github.com/btcboost/copernicus/model/chain"
+	mchain "github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chain/global"
 	"github.com/btcboost/copernicus/util"
 )
 
-func LocateBlocks(bl *chain.BlockLocator, endHash *util.Hash,maxLength int) error {
+func LocateBlocks(bl *mchain.BlockLocator, endHash *util.Hash,maxLength int) error {
 	return nil
 }
 
-func FindForkInGlobalIndex(chain *chain.Chain, locator *chain.BlockLocator) *blockindex.BlockIndex {
+func LocateHeaders(bl *mchain.BlockLocator, endHash *util.Hash,maxLength int) error {
+	
+	return nil
+}
+
+func FindForkInGlobalIndex(chain *mchain.Chain, locator *mchain.BlockLocator) *blockindex.BlockIndex {
+	gChain := mchain.GetInstance()
 	// Find the first block the caller has in the main chain
 	for _, hash := range locator.GetBlockHashList() {
-		mi, ok := global.GetChainGlobalInstance().GlobalBlockIndexMap[hash]
-		if ok {
-			if chain.Contains(mi) {
-				return mi
+		bi := gChain.FindBlockIndex(hash)
+		if bi != nil {
+			if chain.Contains(bi) {
+				return bi
 			}
-			if mi.GetAncestor(chain.Height()) == chain.Tip() {
+			if bi.GetAncestor(chain.Height()) == chain.Tip() {
 				return chain.Tip()
 			}
 		}

@@ -48,6 +48,15 @@ func (bh *BlockHeader) SerializeHeader(w io.Writer) error {
 func (bh *BlockHeader) UnserializeHeader(r io.Reader) error {
 	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
+
+func (bh *BlockHeader) Encode(w io.Writer) error {
+	return bh.Serialize(w)
+}
+
+func (bh *BlockHeader) Decode(r io.Reader) error {
+	return bh.Decode(r)
+}
+
 func (bh *BlockHeader) Serialize(w io.Writer) error {
 	return util.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
 }

@@ -54,13 +54,13 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	if ntx > consensus.MaxTxCount {
 		return errors.New(fmt.Sprintf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount))
 	}
-	txns := make([]tx.Tx, ntx)
+	txns := make([]*tx.Tx, ntx)
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {
 		if err := txns[i].Unserialize(r); err != nil {
 			return err
 		}
-		bl.Txs[i] = &txns[i]
+		bl.Txs[i] = txns[i]
 	}
 	return nil
 }

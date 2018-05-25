@@ -1,6 +1,8 @@
 package global
 
 import (
+	"sync"
+	
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/util"
@@ -16,6 +18,9 @@ const (
 	DefaultMaxMemPoolSize =300
 )
 
+var CsMain *sync.RWMutex = new(sync.RWMutex)
+
+var CsLastBlockFile *sync.RWMutex = new(sync.RWMutex)
 
 var persistGlobal *PersistGlobal
 type BlockFileInfoList []*block.BlockFileInfo
