@@ -18,7 +18,7 @@ import (
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AccpetTxToMemPool(tx *tx.Tx, activaChain *chain.Chain) error {
+func AccpetTxToMemPool(tx *tx.Tx ) error {
 
 	//first : check transaction context And itself.
 	if err := ltx.CheckRegularTransaction(tx); err != nil {
@@ -89,7 +89,7 @@ func ProcessOrphan(tx *tx.Tx) []*tx.Tx {
 					continue
 				}
 
-				err2 := AccpetTxToMemPool(iOrphanTx.Tx, nil)
+				err2 := AccpetTxToMemPool(iOrphanTx.Tx)
 				if err2 == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -227,19 +227,22 @@ func RemoveUnFinalTx(chain *chain.Chain, view utxo.CacheView, nMemPoolHeight int
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
-func Check(view utxo.CacheView, bestHeight int) {
+func CheckMempool(view utxo.CacheView) {
 	pool := mempool.GetInstance()
+	pool.Lock()
+	defer pool.Unlock()
+
 	if pool.GetCheckFrequency() == 0 {
 		return
 	}
 	if float64(util.GetRand(math.MaxUint32)) >= pool.GetCheckFrequency() {
 		return
 	}
-	pool.Lock()
-	defer pool.Unlock()
+	activaChain := chain.GetInstance()
 	mempoolDuplicate := utxo.NewEmptyCoinsMap()
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	spentOut := pool.GetAllSpentOutWithoutLock()
+	bestHeigh := activaChain.FindBlockIndex(view.GetBestBlock()).Height + 1
 	logs.SetLogger("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(allEntry), len(spentOut)))
 	checkTotal := uint64(0)
 
@@ -338,6 +341,8 @@ func Check(view utxo.CacheView, bestHeight int) {
 			//if !fCheckResult {
 			//	panic("the txentry check failed with utxo set...")
 			//}
+			//ltx.CheckInputsMoney(entry.Tx, view, bestHeigh)
+			_ = bestHeigh
 
 			for _, preout := range entry.Tx.GetAllPreviousOut() {
 				mempoolDuplicate.SpendCoin(&preout)
@@ -408,5 +413,10 @@ func Check(view utxo.CacheView, bestHeight int) {
 	if pool.GetPoolAllTxSize() != checkTotal {
 		panic("mempool have all transaction size state is incorrect ...")
 	}
+}
+
+func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
+	pool := mempool.GetInstance()
+	return pool.FindTx(hash)
 }
 
