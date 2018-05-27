@@ -3,19 +3,18 @@ package util
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/btcboost/copernicus/util/amount"
 	"io"
 	"math"
 )
 
 const (
-	COIN     int64         = 100000000
-	MaxMoney amount.Amount = amount.Amount(21000000 * COIN)
+	COIN     int64 = 100000000
+	MaxMoney       = 21000000 * COIN
 	// MinFeeRate minimum and Maximum values for tracking feeRates
-	MinFeeRate  int64         = 10
-	MaxFeeRate  int64         = 1e7
-	InfFeeRate  amount.Amount = MaxMoney
-	InfPriority float64       = 1e9 * float64(MaxMoney)
+	MinFeeRate  int64   = 10
+	MaxFeeRate  int64   = 1e7
+	InfFeeRate  int64   = MaxMoney
+	InfPriority float64 = 1e9 * float64(MaxMoney)
 
 	//FeeSpacing we have to lump transactions into buckets based on feeRate, but we want to be
 	// able to give accurate estimates over a large range of potential feeRates.

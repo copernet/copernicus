@@ -1,24 +1,24 @@
 package mempool
 
 import (
+	"container/list"
+	"fmt"
+	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/errcode"
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/astaxie/beego/logs"
-	"fmt"
-	"math"
-	"container/list"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/conf"
+	"math"
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AcceptTxToMemPool(tx *tx.Tx ) error {
+func AcceptTxToMemPool(tx *tx.Tx) error {
 
 	//first : check transaction context And itself.
 	if err := ltx.CheckRegularTransaction(tx); err != nil {
@@ -49,7 +49,7 @@ func AcceptTxToMemPool(tx *tx.Tx ) error {
 			}
 		}
 	}
-	txfee = inputValue - tx.GetValueOut()
+	txfee = inputValue - int64(tx.GetValueOut())
 	ancestors, lp, err := isAcceptTx(tx, txfee)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 	return acceptTx
 }
 
-func isAcceptTx(tx *tx.Tx, txfee int64 ) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
+func isAcceptTx(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
 	pool := mempool.GetInstance()
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	if _, ok := allEntry[tx.GetHash()]; ok {
@@ -122,7 +122,7 @@ func isAcceptTx(tx *tx.Tx, txfee int64 ) (map[*mempool.TxEntry]struct{}, *mempoo
 	}
 
 	lp := ltx.CalculateSequenceLocks(tx, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast)
-	if !ltx.CheckSequenceLocks(lp){
+	if !ltx.CheckSequenceLocks(lp) {
 		return nil, lp, errcode.New(errcode.Nomature)
 	}
 
@@ -140,19 +140,19 @@ func isAcceptTx(tx *tx.Tx, txfee int64 ) (map[*mempool.TxEntry]struct{}, *mempoo
 	minfeeRate := pool.GetMinFee(conf.Cfg.Mempool.MaxPoolSize)
 	rejectFee := minfeeRate.GetFee(int(txsize))
 	// compare the transaction feeRate with enter mempool min txfeeRate
-	if txfee < rejectFee{
+	if txfee < rejectFee {
 		return nil, lp, errcode.New(errcode.TooMinFeeRate)
 	}
 
 	return ancestors, lp, nil
 }
 
-func RemoveTxSelf(txs []*tx.Tx)  {
+func RemoveTxSelf(txs []*tx.Tx) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxSelf(txs)
 }
 
-func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason)  {
+func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxRecursive(origTx, reason)
 }
@@ -186,7 +186,7 @@ func RemoveUnFinalTx(chain *chain.Chain, view utxo.CacheView, nMemPoolHeight int
 				}
 			}
 		}
-		tlp := ltx.CalculateSequenceLocks(tx, uint(flag))
+		tlp := ltx.CalculateSequenceLocks(tx, uint32(flag))
 		if ltx.ContextualCheckTransactionForCurrentBlock(tx, flag) != nil ||
 			!ltx.CheckSequenceLocks(tlp) {
 			txToRemove[entry] = struct{}{}
@@ -204,7 +204,7 @@ func RemoveUnFinalTx(chain *chain.Chain, view utxo.CacheView, nMemPoolHeight int
 				}
 
 				if coin.IsSpent() || (coin.IsCoinBase() &&
-					nMemPoolHeight - coin.GetHeight() < consensus.CoinbaseMaturity) {
+					nMemPoolHeight-coin.GetHeight() < consensus.CoinbaseMaturity) {
 					txToRemove[entry] = struct{}{}
 					break
 				}
@@ -419,4 +419,3 @@ func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
 	pool := mempool.GetInstance()
 	return pool.FindTx(hash)
 }
-
