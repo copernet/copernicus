@@ -253,7 +253,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, -1)
 
 	// todo LOCK2(cs_main);
-	indexPrev := chain.GlobalChain.Tip()
+	indexPrev := chain.GetInstance().Tip()
 
 	// genesis block
 	if indexPrev == nil {

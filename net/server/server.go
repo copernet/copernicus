@@ -267,8 +267,8 @@ func newServerPeer(s *Server, isPersistent bool) *serverPeer {
 // newestBlock returns the current best block hash and height using the format
 // required by the configuration for the peer package.
 func (sp *serverPeer) newestBlock() (*util.Hash, int32, error) {
-	tip := chain.GlobalChain.Tip()
-	height := chain.GlobalChain.TipHeight()
+	tip := chain.GetInstance().Tip()
+	height := chain.GetInstance().TipHeight()
 	return tip.GetBlockHash(), int32(height), nil
 }
 
@@ -661,10 +661,8 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	// over with the genesis block if unknown block locators are provided.
 	//
 	// This mirrors the behavior in the reference implementation.
-
 	hashList := lchain.LocateBlocks(chain.NewBlockLocator(hashpointer2hashinstance(msg.BlockLocatorHashes)),
-		&msg.HashStop,
-		wire.MaxBlocksPerMsg)
+		&msg.HashStop)
 	// Generate inventory message.
 	invMsg := wire.NewMsgInv()
 	for i := range hashList {
@@ -705,16 +703,14 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// over with the genesis block if unknown block locators are provided.
 	//
 	// This mirrors the behavior in the reference implementation.
-
-	headers := lchain.LocateHeaders(chain.NewBlockLocator(hashpointer2hashinstance(msg.BlockLocatorHashes)),
-		&msg.HashStop, wire.MaxBlocksPerMsg)
+	headers := lchain.LocateHeaders(chain.NewBlockLocator(hashpointer2hashinstance(msg.BlockLocatorHashes)), &msg.HashStop)
 	if len(headers) == 0 {
 		// Nothing to send.
 		return
 	}
 
 	// Send found headers to the requesting peer.
-	blockHeaders := make([]*wire.BlockHeader, len(headers))
+	blockHeaders := make([]*block.BlockHeader, len(headers))
 	for i := range headers {
 		blockHeaders[i] = &headers[i]
 	}
@@ -1045,10 +1041,6 @@ func (s *Server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 // longer needing rebroadcasting.
 func (s *Server) TransactionConfirmed(tx *tx.Tx) {
 	// Rebroadcasting is only necessary when the RPC server is active.
-	if s.rpcServer == nil {
-		return
-	}
-
 	hash := tx.GetHash()
 	iv := wire.NewInvVect(wire.InvTypeTx, &hash)
 	s.RemoveRebroadcastInventory(iv)
@@ -1126,7 +1118,7 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	// to trigger it to issue another getblocks message for the next
 	// batch of inventory.
 	if sendInv {
-		tip := chain.GlobalChain.Tip()
+		tip := chain.GetInstance().Tip()
 		invMsg := wire.NewMsgInvSizeHint(1)
 		iv := wire.NewInvVect(wire.InvTypeBlock, tip.GetBlockHash())
 		invMsg.AddInvVect(iv)
@@ -1348,7 +1340,7 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 		// generate and send a headers message instead of an inventory
 		// message.
 		if msg.invVect.Type == wire.InvTypeBlock && sp.WantsHeaders() {
-			blockHeader, ok := msg.data.(wire.BlockHeader)
+			blockHeader, ok := msg.data.(block.BlockHeader)
 			if !ok {
 				log.Warn("Underlying data for headers" +
 					" is not a block header")

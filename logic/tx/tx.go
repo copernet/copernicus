@@ -91,7 +91,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if err != nil {
 		return err
 	}
-	err = checkInputsMoney(transaction, tempCoinsMap, spendHeight)
+	err = CheckInputsMoney(transaction, tempCoinsMap, spendHeight)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 }
 
 // block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
-func CheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32, blockReward int64) error {
+func checkBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 	// Enforce rule that the coinbase starts with serialized block height
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
@@ -139,14 +139,21 @@ func CheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32, blockReward int
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
-	if tx.GetValueOut() > blockReward {
-		return errcode.New(errcode.TxErrRejectInvalid)
-	}
 	return tx.CheckCoinbaseTransaction()
 }
 
-func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
-	for _, transaction := range txs {
+func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64,
+	blockReward int64, maxBlockSigOps uint64) error {
+	err := checkBlockCoinBaseTransaction(txs[0], blockHeight)
+	if err != nil {
+		return err
+	}
+	sigOps := txs[0].GetSigOpCountWithoutP2SH()
+	for i, transaction := range txs[1:] {
+		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
+		if uint64(sigOps) > maxBlockSigOps {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
 		err := transaction.CheckRegularTransaction()
 		if err != nil {
 			return err
@@ -172,10 +179,35 @@ func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTim
 //	return uint32(nSubsidy) >> halvings
 //}
 
-func ApplyBlockTransactions(txs []*tx.Tx) error {
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int) error {
+	// make view
+	//coinsMap := utxo.NewEmptyCoinsMap()
+	//utxo := utxo.GetUtxoCacheInstance()
+	//sigOpsCount := 0
+	////check inputs money
+	////check sigops
+	////update temp coinsMap
+	////check blockReward
+	////updateCoins
 	//for _, transaction := range txs {
+	//	//check duplicate out
+	//	if bip30Enable {
+	//		ins := transaction.GetIns()
+	//		for i, _ := range ins {
+	//			coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
+	//			if coin != nil {
+	//				return errcode.New(errcode.TxErrRejectInvalid)
+	//			}
+	//		}
+	//	}
+	//	if transaction.IsCoinBase() {
 	//
+	//	}
 	//}
+	//
+	//if tx.GetValueOut() > blockReward {
+	//	return errcode.New(errcode.TxErrRejectInvalid)
+	//}errcode
 	return nil
 }
 
@@ -314,7 +346,8 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		if coin == nil {
 			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
+		txOut := coin.GetTxOut()
+		scriptPubKey := txOut.GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
 		if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
 			flags |= script.ScriptVerifyStrictEnc
@@ -1657,7 +1690,7 @@ func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	return true
 }
 
-func checkInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
+func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
 	nValue := int64(0)
 	ins := transaction.GetIns()
 	for _, e := range ins {
@@ -1670,10 +1703,11 @@ func checkInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 				return errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
-		if !amount.MoneyRange(coin.GetTxOut().GetValue()) {
+		txOut := coin.GetTxOut()
+		if !amount.MoneyRange(txOut.GetValue()) {
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
-		nValue += coin.GetTxOut().GetValue()
+		nValue += txOut.GetValue()
 		if amount.MoneyRange(nValue) {
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}

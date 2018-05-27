@@ -92,10 +92,10 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 
 	if !hashBlock.IsNull() {
 		txReply.BlockHash = hashBlock.String()
-		bindex := chain.GlobalChain.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
+		bindex := chain.GetInstance.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
 		if bindex != nil {
-			if chain.GlobalChain.Contains(bindex) {
-				txReply.Confirmations = chain.GlobalChain.Height() - bindex.Height + 1
+			if chain.GetInstance.Contains(bindex) {
+				txReply.Confirmations = chain.GetInstance.Height() - bindex.Height + 1
 				txReply.Time = bindex.Header.Time
 				txReply.Blocktime = bindex.Header.Time
 			} else {
@@ -240,7 +240,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	if allowSlow {
 		coin := utxo2.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
 		if !coin.IsSpent() {
-			indexSlow = chain.GlobalChain.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
+			indexSlow = chain.GetInstance.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
 		}
 	}
 
@@ -657,7 +657,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				return nil, rpcDecodeHexError(*c.BlockHash)
 			}
 
-			bindex = chain.GlobalChain.FindBlockIndex(*hashBlock)
+			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
 			if bindex == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInvalidAddressOrKey,
@@ -667,8 +667,8 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		} else {
 			view := utxo.GetUtxoCacheInstance()
 			coin := utxo2.AccessByTxid(view, &oneTxId)
-			if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GlobalChain.Height() {
-				bindex = chain.GlobalChain.GetIndex(int(coin.GetHeight()))
+			if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GetInstance.Height() {
+				bindex = chain.GetInstance.GetIndex(int(coin.GetHeight()))
 			}
 		}
 
@@ -681,7 +681,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				}
 			}
 
-			bindex = chain.GlobalChain.FindBlockIndex(*hashBlock)
+			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
 			if bindex == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInternalError,
@@ -743,7 +743,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 		}
 
 		bindex := LookupBlockIndex(mb.Header.GetHash()) // todo realize
-		if bindex == nil || !chain.GlobalChain.Contains(bindex) {
+		if bindex == nil || !chain.GetInstance.Contains(bindex) {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInvalidAddressOrKey,
 				Message: "Block not found in chain",

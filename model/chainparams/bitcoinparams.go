@@ -56,7 +56,7 @@ type BitcoinParams struct {
 	ReduceMinDifficulty      bool
 	MinDiffReductionTime     time.Duration
 	GenerateSupported        bool
-	Checkpoints              []model.Checkpoint
+	Checkpoints              []*model.Checkpoint
 	MineBlocksOnDemands      bool
 
 	// Enforce current block version once network has

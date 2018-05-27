@@ -170,6 +170,11 @@ type SyncManager struct {
 	headerList       *list.List
 	startHeader      *list.Element
 	nextCheckpoint   *model.Checkpoint
+
+	// callback for transaction And block process
+	processTransaction 	func(*tx.Tx, int64) ([]*tx.Tx, error)
+	processBlock 		func(*block.Block) (bool, error)
+	processBlockHead 	func(*block.BlockHeader) error
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -427,7 +432,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	// Process the transaction to include validation, insertion in the
 	// memory pool, orphan handling, etc.
-	acceptedTxs, err := service.ProcessTransaction(tmsg.tx, int64(peer.ID()))
+	acceptedTxs, err := sm.processTransaction(tmsg.tx, int64(peer.ID()))
 	// Remove transaction from request maps. Either the mempool/chain
 	// already knows about it and as such we shouldn't have any more
 	// instances of trying to fetch it, or we failed to insert and thus
@@ -454,14 +459,14 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 		// Convert the error into an appropriate reject message and
 		// send it.
-		if errcode.IsErrorCode(err, errcode.RejectTx) {
-			peer.PushRejectMsg(wire.CmdTx, wire.RejectInvalid, err.Error(), &txHash, false)
-		}
+		//todo !!! need process for error code. yyx
+		//code := err.(errcode.TxErr)
+		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
 		return
 	}
 	txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 	for _, tx := range acceptedTxs {
-		if entry := mempool.Gpool.FindTx(tx.GetHash()); entry != nil {
+		if entry := lpool.FindTxInMempool(tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
 		} else {
 			panic("the transaction must be in mempool")
@@ -473,10 +478,9 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 // current returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
 func (sm *SyncManager) current() bool {
-	// FIXME: by qiw
-	// if !sm.chain.IsCurrent() {
-	// 	return false
-	// }
+	//if !sm.chain.IsCurrent() {
+	//	return false
+	//}
 
 	// if blockChain thinks we are current and we have no syncPeer it
 	// is probably right.
@@ -503,7 +507,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// If we didn't ask for this block then the peer is misbehaving.
 	blockHash := bmsg.block.GetHash()
-	if _, exists = state.requestedBlocks[*blockHash]; !exists {
+	if _, exists = state.requestedBlocks[blockHash]; !exists {
 		// The regression test intentionally sends some blocks twice
 		// to test duplicate block insertion fails.  Don't disconnect
 		// the peer or ignore the block when we're in regression test
@@ -544,33 +548,35 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// Remove block from request maps. Either chain will know about it and
 	// so we shouldn't have any more instances of trying to fetch it, or we
 	// will fail the insert and thus we'll retry next time we get an inv.
-	delete(state.requestedBlocks, *blockHash)
-	delete(sm.requestedBlocks, *blockHash)
+	delete(state.requestedBlocks, blockHash)
+	delete(sm.requestedBlocks, blockHash)
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	_, err := ProcessBlock(bmsg.block)
+	_, err := sm.processBlock(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
 		// rejected as opposed to something actually going wrong, so log
 		// it as such.  Otherwise, something really did go wrong, so log
 		// it as an actual error.
-		if _, ok := err.(blockchain.RuleError); ok {
-			log.Info("Rejected block %v from %s: %v", blockHash,
-				peer, err)
-		} else {
-			log.Error("Failed to process block %v: %v",
-				blockHash, err)
-		}
-		if dbErr, ok := err.(database.Error); ok && dbErr.ErrorCode ==
-			database.ErrCorruption {
-			panic(dbErr)
-		}
+		// todo !!! and error code process. yyx
+		//if _, ok := err.(blockchain.RuleError); ok {
+		//	log.Info("Rejected block %v from %s: %v", blockHash,
+		//		peer, err)
+		//} else {
+		//	log.Error("Failed to process block %v: %v",
+		//		blockHash, err)
+		//}
+		//if dbErr, ok := err.(database.Error); ok && dbErr.ErrorCode ==
+		//	database.ErrCorruption {
+		//	panic(dbErr)
+		//}
 
 		// Convert the error into an appropriate reject message and
 		// send it.
-		code, reason := mpool.ErrToRejectErr(err)
-		peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
+		// todo !!! need process. yyx
+		//code, reason := mpool.ErrToRejectErr(err)
+		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
 		return
 	}
 
@@ -654,7 +660,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	sm.headersFirstMode = false
 	sm.headerList.Init()
 	log.Info("Reached the final checkpoint -- switching to normal mode")
-	locator := chain.NewBlockLocator([]util.Hash{*blockHash})
+	locator := chain.NewBlockLocator([]util.Hash{blockHash})
 	err = peer.PushGetBlocksMsg(*locator, &zeroHash)
 	if err != nil {
 		log.Warn("Failed to send getblocks message to peer %s: %v",
@@ -836,17 +842,18 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
 		// to it in any form (main pool or orphan).
-		if mempool.Gpool.FindTx(invVect.Hash) != nil {
+		if lpool.FindTxInMempool(invVect.Hash) != nil {
 			return true, nil
 		}
 
 		// Check if the transaction exists from the point of view of the
 		// end of the main chain.
-		entry, err := sm.chain.FetchUtxoEntry(&invVect.Hash)
-		if err != nil {
-			return false, err
-		}
-		return entry != nil && !entry.IsFullySpent(), nil
+		// todo !!! need process. yyx
+		//entry, err := sm.chain.FetchUtxoEntry(&invVect.Hash)
+		//if err != nil {
+		//	return false, err
+		//}
+		//return entry != nil && !entry.IsFullySpent(), nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
@@ -1114,8 +1121,8 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		}
 
 		// Generate the inventory vector and relay it.
-		hash := block.GetHash()
-		iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
+		blkHash := block.GetHash()
+		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
 		sm.peerNotifier.RelayInventory(iv, block.Header)
 
 		// A block has been connected to the main block chain.
@@ -1133,13 +1140,13 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// no longer an orphan. Transactions which depend on a confirmed
 		// transaction are NOT removed recursively because they are still
 		// valid.
-		mempool.Gpool.RemoveTxSelf(block.Txs[1:])
+		lpool.RemoveTxSelf(block.Txs[1:])
 		for _, tx := range block.Txs[1:] {
 			sm.peerNotifier.TransactionConfirmed(tx)
 			acceptedTxs := lpool.ProcessOrphan(tx)
 			txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 			for _, tx := range acceptedTxs {
-				if find := mempool.Gpool.FindTx(tx.GetHash()); find != nil {
+				if find := lpool.FindTxInMempool(tx.GetHash()); find != nil {
 					txentrys = append(txentrys, find)
 				}
 			}
@@ -1157,12 +1164,12 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Reinsert all of the transactions (except the coinbase) into
 		// the transaction pool.
 		for _, tx := range block.Txs[1:] {
-			_, err := lpool.ProcessTransaction(tx, 0)
+			_, err := sm.processTransaction(tx, 0)
 			if err != nil {
 				// Remove the transaction and all transactions
 				// that depend on it if it wasn't accepted into
 				// the transaction pool.
-				mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
+				lpool.RemoveTxRecursive(tx, mempool.REORG)
 			}
 		}
 	}
