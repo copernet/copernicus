@@ -820,6 +820,7 @@ func (p *Peer) IsWitnessEnabled() bool {
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	var blockNum int32
+	fmt.Printf("remote is :%v\n", p.conn.RemoteAddr())
 	if p.Cfg.NewestBlock != nil {
 		var err error
 		_, blockNum, err = p.Cfg.NewestBlock()

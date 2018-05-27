@@ -1700,7 +1700,8 @@ func (s *Server) peerHandler() {
 
 	if !conf.Cfg.P2PNet.DisableDNSSeed {
 		// Add peers discovered through DNS to the address manager.
-		connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
+		//connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
+		connmgr.SeedFromDNS(s.chainParams, defaultRequiredServices,
 			net.LookupIP, func(addrs []*wire.NetAddress) {
 				// Bitcoind uses a lookup of the dns seeder here. This
 				// is rather strange since the values looked up by the
