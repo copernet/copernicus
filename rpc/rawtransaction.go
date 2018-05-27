@@ -8,7 +8,6 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	mempool2 "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/bitaddr"
-	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
@@ -405,7 +404,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	entry := mempool.GetInstance().FindTx(hash)
 	if entry == nil && !haveChain {
-		err = mempool2.AccpetTxToMemPool(&transaction, chain.GlobalChain)
+		err = mempool2.AcceptTxToMemPool(&transaction)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -512,11 +511,12 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		view := utxo.GetUtxoCacheInstance()
 		coin := view.GetCoin(out)
 
-		if !coin.IsSpent() && !coin.GetTxOut().GetScriptPubKey().IsEqual(script.NewScriptRaw(scriptPubKey)) {
+		coinOut := coin.GetTxOut()
+		if !coin.IsSpent() && !coinOut.GetScriptPubKey().IsEqual(script.NewScriptRaw(scriptPubKey)) {
 			return nil, btcjson.RPCError{
 				Code: btcjson.RPCDeserializationError,
 				Message: "Previous output scriptPubKey mismatch:\n" +
-					ScriptToAsmStr(coin.GetTxOut().GetScriptPubKey(), false) +
+					ScriptToAsmStr(coinOut.GetScriptPubKey(), false) +
 					"\nvs:\n" + ScriptToAsmStr(script.NewScriptRaw(scriptPubKey), false),
 			}
 		}

@@ -453,13 +453,14 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	}
 
 	h := entry.Tx.GetHash()
-	txSet := mempool.GetInstance().CalculateMemPoolAncestors(&h)
+	txSet := mempool.GetInstance().CalculateMemPoolAncestorsWithLock(&h)
 
 	if !c.Verbose {
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
-			s[i] = index.Tx.GetHash().String()
+			hash := index.Tx.GetHash()
+			s[i] = hash.String()
 			i++
 		}
 		return s, nil
@@ -517,20 +518,22 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		}
 	}
 
-	descendants := mempool.GetInstance().CalculateDescendants(hash)
+	descendants := mempool.GetInstance().CalculateDescendantsWithLock(hash)
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
 	if !c.Verbose {
 		des := make([]string, 0)
 		for item := range descendants {
-			des = append(des, item.Tx.GetHash().String())
+			hash := item.Tx.GetHash()
+			des = append(des, hash.String())
 		}
 		return des, nil
 	}
 
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
-	infos[entry.Tx.GetHash().String()] = entryToJSON(entry)
+	h := entry.Tx.GetHash()
+	infos[h.String()] = entryToJSON(entry)
 	return infos, nil
 }
 
