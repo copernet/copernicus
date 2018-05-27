@@ -125,7 +125,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 }
 
 // block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
-func CheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32, blockReward int64) error {
+func checkBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 	// Enforce rule that the coinbase starts with serialized block height
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
@@ -139,14 +139,21 @@ func CheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32, blockReward int
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
-	if tx.GetValueOut() > blockReward {
-		return errcode.New(errcode.TxErrRejectInvalid)
-	}
 	return tx.CheckCoinbaseTransaction()
 }
 
-func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
-	for _, transaction := range txs {
+func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64,
+	blockReward int64, maxBlockSigOps uint64) error {
+	err := checkBlockCoinBaseTransaction(txs[0], blockHeight)
+	if err != nil {
+		return err
+	}
+	sigOps := txs[0].GetSigOpCountWithoutP2SH()
+	for i, transaction := range txs[1:] {
+		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
+		if uint64(sigOps) > maxBlockSigOps {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
 		err := transaction.CheckRegularTransaction()
 		if err != nil {
 			return err
@@ -172,9 +179,21 @@ func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTim
 //	return uint32(nSubsidy) >> halvings
 //}
 
-func ApplyBlockTransactions(txs []*tx.Tx) error {
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int) error {
+	// make view
+	//coinsMap := utxo.NewEmptyCoinsMap()
+	//check duplicate out
+	//check inputs money
+	//check sigops
+	//update temp coinsMap
+	//check blockReward
+	//updateCoins
 	//for _, transaction := range txs {
+	//	if
+	//}
 	//
+	//if tx.GetValueOut() > blockReward {
+	//	return errcode.New(errcode.TxErrRejectInvalid)
 	//}
 	return nil
 }
