@@ -12,14 +12,12 @@ import (
 	"runtime"
 	"runtime/debug"
 	"errors"
-	//"runtime/pprof"
 
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/limits"
 	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/rpc"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/service"
 )
 
 const (
@@ -57,7 +55,7 @@ func bchMain(ctx context.Context) error {
 		rpcServer.Start()
 	}
 
-	service.NewMsgHandle(context.TODO(), s.PhCh, s)
+	server.NewMsgHandle(context.TODO(), s.PhCh, s)
 	if interruptRequested(interrupt) {
 		return nil
 	}

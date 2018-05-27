@@ -41,6 +41,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
+	"github.com/btcboost/copernicus/service"
 )
 
 const (
@@ -2187,6 +2188,9 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
 	})
+	s.syncManager.ProcessBlockCallBack = service.ProcessBlock
+	s.syncManager.ProcessBlockHeadCallBack = service.ProcessBlockHeader
+	s.syncManager.ProcessTransactionCallBack = service.ProcessTransaction
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,7 @@
 // Copyright (c) 2013-2017 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
-package service
+package server
 
 import (
 	"context"
@@ -9,27 +9,22 @@ import (
 	//"fmt"
 
 	"github.com/btcboost/copernicus/log"
-	//"github.com/btcboost/copernicus/model/block"
-	//"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
-	//"github.com/btcboost/copernicus/util"
-	//"github.com/btcboost/copernicus/internal/btcjson"
 )
 
 type MsgHandle struct {
 	recvFromNet <-chan *peer.PeerMessage
-	server      *server.Server
+	*Server
 }
 
 var msgHandle *MsgHandle
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage, server *server.Server) {
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage, server *Server) {
 	msg := &MsgHandle{recvFromNet: cmdCh}
-	msg.server = server
+	msg.Server = server
 	ctxChild, _ := context.WithCancel(ctx)
 	go msg.startProcess(ctxChild)
 	msgHandle = msg
