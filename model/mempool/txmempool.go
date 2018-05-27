@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"container/list"
 	"fmt"
 	"math"
 	"sync"
@@ -10,8 +9,6 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/tx"
@@ -87,9 +84,13 @@ type TxMempool struct {
 	lastRollingFeeUpdate		int64
 }
 
+func (m *TxMempool)GetCheckFrequency() float64 {
+	return m.checkFrequency
+}
+
 func (m *TxMempool) GetMinFeeRate() util.FeeRate {
 	m.RLock()
-	feeRate := m.getMinFee(conf.Cfg.Mempool.MaxPoolSize)
+	feeRate := m.GetMinFee(conf.Cfg.Mempool.MaxPoolSize)
 	m.RUnlock()
 	return feeRate
 }
@@ -98,10 +99,6 @@ func (m *TxMempool) GetMinFeeRate() util.FeeRate {
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
 func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) error {
-	// todo: send signal to all interesting the caller.
-	m.Lock()
-	defer m.Unlock()
-
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
 	m.timeSortData.ReplaceOrInsert(txentry)
 	m.poolData[txentry.Tx.GetHash()] = txentry
@@ -142,6 +139,13 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 	return false
 }
 
+func (m *TxMempool)HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
+	if e, ok := m.nextTx[*out]; ok{
+		return e
+	}
+	return nil
+}
+
 func (m *TxMempool) GetPoolAllTxSize() uint64 {
 	m.RLock()
 	size := m.totalTxSize
@@ -156,20 +160,20 @@ func (m *TxMempool) GetPoolUsage() int64 {
 	return size
 }
 
-func (m *TxMempool) CalculateDescendants(txHash *util.Hash) map[*TxEntry]struct{} {
+func (m *TxMempool) CalculateDescendantsWithLock(txHash *util.Hash) map[*TxEntry]struct{} {
 	descendants := make(map[*TxEntry]struct{})
 	m.RLock()
 	defer m.RUnlock()
 	if entry, ok := m.poolData[*txHash]; !ok {
 		return nil
 	} else {
-		m.calculateDescendants(entry, descendants)
+		m.CalculateDescendants(entry, descendants)
 	}
 
 	return descendants
 }
 
-func (m *TxMempool) CalculateMemPoolAncestors(txhash *util.Hash) map[*TxEntry]struct{} {
+func (m *TxMempool) CalculateMemPoolAncestorsWithLock(txhash *util.Hash) map[*TxEntry]struct{} {
 	m.RLock()
 	defer m.RUnlock()
 	ancestors := make(map[*TxEntry]struct{})
@@ -177,15 +181,15 @@ func (m *TxMempool) CalculateMemPoolAncestors(txhash *util.Hash) map[*TxEntry]st
 		return nil
 	} else {
 		noLimit := uint64(math.MaxUint64)
-		ancestors, _ = m.calculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+		ancestors, _ = m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
 	}
 	return ancestors
 }
 
 func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 	m.Lock()
-	defer m.Unlock()
 	m.removeTxRecursive(origTx, reason)
+	m.Unlock()
 }
 
 func (m *TxMempool) GetRootTx() map[util.Hash]TxEntry {
@@ -216,69 +220,24 @@ func (m *TxMempool) GetAllTxEntry() map[util.Hash]*TxEntry {
 	return ret
 }
 
-func (m *TxMempool) RemoveUnFinalTx(chain *chain.Chain, view *utxo.CoinsCache, nMemPoolHeight int, flag int) {
-	m.Lock()
-	defer m.Unlock()
-
-	// Remove transactions spending a coinbase which are now immature and
-	// no-longer-final transactions
-	txToRemove := make(map[*TxEntry]struct{})
-	tip := chain.Tip()
-	for _, entry := range m.poolData {
-		lp := entry.GetLockPointFromTxEntry()
-		validLP := entry.CheckLockPointValidity(chain)
-		//state := NewValidationState()
-
-		tx := entry.Tx
-		allPreout := tx.GetAllPreviousOut()
-		coins := make([]*utxo.Coin, len(allPreout))
-		for i, preout := range allPreout {
-			if coin := view.GetCoin(&preout); coin != nil {
-				coins[i] = coin
-			} else {
-				if coin := m.GetCoin(&preout); coin != nil {
-					coins[i] = coin
-				} else {
-					panic("the transaction in mempool, not found its parent " +
-						"transaction in local node and utxo")
-				}
-			}
-		}
-		if !tx.ContextualCheckTransaction(flag) ||
-			!checkSequenceLocks(tx, tip, flag, &lp, validLP, coins) {
-			txToRemove[entry] = struct{}{}
-		} else if entry.GetSpendsCoinbase() {
-			for _, preout := range tx.GetAllPreviousOut() {
-				if _, ok := m.poolData[preout.Hash]; ok {
-					continue
-				}
-
-				coin := view.GetCoin(&preout)
-				if m.checkFrequency != 0 {
-					if coin.IsSpent() {
-						panic("the coin must be unspent")
-					}
-				}
-
-				if coin.IsSpent() || (coin.IsCoinBase() &&
-					uint32(nMemPoolHeight)-coin.GetHeight() < consensus.CoinbaseMaturity) {
-					txToRemove[entry] = struct{}{}
-					break
-				}
-			}
-		}
-
-		if !validLP {
-			entry.SetLockPointFromTxEntry(lp)
-		}
+func (m *TxMempool) GetAllTxEntryWithoutLock() map[util.Hash]*TxEntry {
+	m.RLock()
+	ret := make(map[util.Hash]*TxEntry, len(m.poolData))
+	for k, v := range m.poolData {
+		ret[k] = v
 	}
-
-	allRemoves := make(map[*TxEntry]struct{})
-	for it := range txToRemove {
-		m.calculateDescendants(it, allRemoves)
-	}
-	m.removeStaged(allRemoves, false, REORG)
+	m.RUnlock()
+	return ret
 }
+
+func (m *TxMempool) GetAllSpentOutWithoutLock() map[outpoint.OutPoint]*TxEntry {
+	ret := make(map[outpoint.OutPoint]*TxEntry, len(m.nextTx))
+	for k, v := range m.nextTx {
+		ret[k] = v
+	}
+	return ret
+}
+
 
 // RemoveTxSelf will only remove these transaction self.
 func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
@@ -297,7 +256,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 		if entry, ok := m.poolData[tx.GetHash()]; ok {
 			stage := make(map[*TxEntry]struct{})
 			stage[entry] = struct{}{}
-			m.removeStaged(stage, true, BLOCK)
+			m.RemoveStaged(stage, true, BLOCK)
 		}
 		m.removeConflicts(tx)
 	}
@@ -331,220 +290,6 @@ func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 	return nil
 }
 
-func (m *TxMempool) IsAcceptTx(tx *tx.Tx, txfee int64, mpHeight int, coins []*utxo.Coin,
-	tip *blockindex.BlockIndex) (map[*TxEntry]struct{}, LockPoints, error) {
-
-	lp := LockPoints{}
-	if _, ok := m.poolData[tx.GetHash()]; ok {
-		return nil, lp, errcode.New(errcode.AlreadHaveTx)
-	}
-
-	if !checkSequenceLocks(tx, tip, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast, &lp, false, coins) {
-		return nil, lp, errcode.New(errcode.Nomature)
-	}
-
-	ancestorNum := conf.Cfg.Mempool.LimitAncestorCount
-	ancestorSize := conf.Cfg.Mempool.LimitAncestorSize
-	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
-	descendantSize := conf.Cfg.Mempool.LimitDescendantSize
-	ancestors, err := m.calculateMemPoolAncestors(tx, uint64(ancestorNum), uint64(ancestorSize*1000),
-		uint64(descendantNum), uint64(descendantSize*1000), true)
-	if err != nil {
-		return nil, lp, err
-	}
-
-	txsize := int64(tx.EncodeSize())
-	txfeeRate := util.NewFeeRateWithSize(txfee, txsize)
-	rejectFee := m.getMinFee(conf.Cfg.Mempool.MaxPoolSize)
-	// compare the transaction feeRate with enter mempool min txfeeRate
-	if txfeeRate.SataoshisPerK < rejectFee.SataoshisPerK {
-		return nil, lp, errcode.New(errcode.TooMinFeeRate)
-	}
-
-	return ancestors, lp, nil
-}
-
-// Check If sanity-checking is turned on, check makes sure the pool is consistent
-// (does not contain two transactions that spend the same inputs, all inputs
-// are in the mapNextTx array). If sanity-checking is turned off, check does
-// nothing.
-func (m *TxMempool) Check(view utxo.CacheView, bestHeight int) {
-	if m.checkFrequency == 0 {
-		return
-	}
-	if float64(util.GetRand(math.MaxUint32)) >= m.checkFrequency {
-		return
-	}
-
-	mempoolDuplicate := utxo.NewEmptyCoinsMap()
-	logs.SetLogger("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(m.poolData), len(m.nextTx)))
-	checkTotal := uint64(0)
-
-	waitingOnDependants := list.New()
-	// foreach every txentry in mempool, and check these txentry correctness.
-	for _, entry := range m.poolData {
-
-		checkTotal += uint64(entry.TxSize)
-		fDependsWait := false
-		setParentCheck := make(map[util.Hash]struct{})
-
-		for _, preout := range entry.Tx.GetAllPreviousOut() {
-			if entry, ok := m.poolData[preout.Hash]; ok {
-				tx2 := entry.Tx
-				if !(tx2.GetOutsCount() > int(preout.Index)) {
-					if !tx2.GetTxOut(int(preout.Index)).IsNull() {
-						panic("the tx introduced input dose not exist, or the input amount is nil ")
-					}
-				}
-
-				fDependsWait = true
-				setParentCheck[tx2.GetHash()] = struct{}{}
-			} else {
-				if !view.HaveCoin(&preout) {
-					panic("the tx introduced input dose not exist mempool And UTXO set !!!")
-				}
-			}
-
-			if _, ok := m.nextTx[preout]; !ok {
-				panic("the introduced tx is not in mempool")
-			}
-		}
-		if len(setParentCheck) != len(entry.ParentTx) {
-			panic("the two parent set should be equal")
-		}
-
-		// Verify ancestor state is correct.
-		nNoLimit := uint64(math.MaxUint64)
-		setAncestors, err := m.calculateMemPoolAncestors(entry.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
-		if err != nil {
-			return
-		}
-		nCountCheck := int64(len(setAncestors)) + 1
-		nSizeCheck := int64(entry.TxSize)
-		nSigOpCheck := int64(entry.SigOpCount)
-		nFeesCheck := entry.TxFee
-		for ancestorIt := range setAncestors {
-			nSizeCheck += int64(ancestorIt.TxSize)
-			nSigOpCheck += int64(ancestorIt.SigOpCount)
-			nFeesCheck += ancestorIt.TxFee
-		}
-		if entry.SumTxCountWithAncestors != nCountCheck {
-			panic("the txentry's ancestors number is incorrect .")
-		}
-		if entry.SumSizeWitAncestors != nSizeCheck {
-			panic("the txentry's ancestors size is incorrect .")
-		}
-		if entry.SumSigOpCountWithAncestors != nSigOpCheck {
-			panic("the txentry's ancestors sigopcount is incorrect .")
-		}
-		if entry.SumFeeWithAncestors != nFeesCheck {
-			panic("the txentry's ancestors fee is incorrect .")
-		}
-
-		setChildrenCheck := make(map[*TxEntry]struct{})
-		childSize := 0
-		for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-			o := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-			if e, ok := m.nextTx[o]; ok {
-				if _, ok := m.poolData[e.Tx.GetHash()]; !ok {
-					panic("the transaction should be in mempool ...")
-				}
-				if _, ok := setChildrenCheck[e]; !ok {
-					setChildrenCheck[e] = struct{}{}
-					childSize += e.TxSize
-				}
-			}
-		}
-
-		if len(setChildrenCheck) != len(entry.ChildTx) {
-			panic("the transaction children set is different ...")
-		}
-		if entry.SumSizeWithDescendants < int64(childSize+entry.TxSize) {
-			panic("the transaction descendant's fee is less its children fee ...")
-		}
-
-		// Also check to make sure size is greater than sum with immediate
-		// children. Just a sanity check, not definitive that this calc is
-		// correct...
-		if fDependsWait {
-			waitingOnDependants.PushBack(entry)
-		} else {
-			fCheckResult := entry.Tx.IsCoinBase() || entry.Tx.CheckInputsMoney()
-			if !fCheckResult {
-				panic("the txentry check failed with utxo set...")
-			}
-
-			for _, preout := range entry.Tx.GetAllPreviousOut() {
-				mempoolDuplicate.SpendCoin(&preout)
-			}
-			isCoinBase := entry.Tx.IsCoinBase()
-			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-				a := outpoint.OutPoint{entry.Tx.GetHash(), uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
-			}
-		}
-	}
-
-	stepsSinceLastRemove := 0
-	for waitingOnDependants.Len() > 0 {
-		it := waitingOnDependants.Front()
-		entry := it.Value.(*TxEntry)
-		waitingOnDependants.Remove(it)
-		spend := false
-		for _, preOut := range entry.Tx.GetAllPreviousOut() {
-			co := mempoolDuplicate.GetCoin(&preOut)
-			if !(co != nil && !co.IsSpent()) {
-				waitingOnDependants.PushBack(entry)
-				stepsSinceLastRemove++
-				if !(stepsSinceLastRemove < waitingOnDependants.Len()) {
-					panic("the waitingOnDependants list have incorrect number ...")
-				}
-				spend = true
-				break
-			}
-		}
-
-		if spend {
-			fCheckResult := entry.Tx.IsCoinBase()
-
-			for _, preOut := range entry.Tx.GetAllPreviousOut() {
-				co := mempoolDuplicate.GetCoin(&preOut)
-				if !(co != nil && !co.IsSpent()) {
-					fCheckResult = false
-					break
-				}
-			}
-			if !fCheckResult {
-				panic("this transaction all parent have spent...")
-			}
-			for _, preout := range entry.Tx.GetAllPreviousOut() {
-				mempoolDuplicate.SpendCoin(&preout)
-			}
-			isCoinBase := entry.Tx.IsCoinBase()
-			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-				a := outpoint.OutPoint{entry.Tx.GetHash(), uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
-			}
-			stepsSinceLastRemove = 0
-		}
-	}
-
-	for _, entry := range m.nextTx {
-		txid := entry.Tx.GetHash()
-		if e, ok := m.poolData[txid]; !ok {
-			panic("the transaction not exsit mempool. . .")
-		} else {
-			if e.Tx != entry.Tx {
-				panic("mempool store the transaction is different with it's two struct . . .")
-			}
-		}
-	}
-
-	if m.totalTxSize != checkTotal {
-		panic("mempool have all transaction size state is incorrect ...")
-	}
-}
-
 // LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
 // set, the function will return these have removed transaction's txin from mempool which use
 // TrimToSize rule. Later, caller will remove these txin from uxto cache.
@@ -565,7 +310,7 @@ func (m *TxMempool)trackPackageRemoved(rate util.FeeRate) {
 	}
 }
 
-func (m *TxMempool) getMinFee(sizeLimit int) util.FeeRate {
+func (m *TxMempool) GetMinFee(sizeLimit int) util.FeeRate {
 	if !m.blockSinceLastRollingFeeBump || m.rollingMinimumFeeRate == 0{
 		return *util.NewFeeRate(m.rollingMinimumFeeRate)
 	}
@@ -613,7 +358,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumFeeWithDescendants, removeIt.SumSizeWithDescendants).SataoshisPerK
 		stage := make(map[*TxEntry]struct{})
-		m.calculateDescendants(&removeIt, stage)
+		m.CalculateDescendants(&removeIt, stage)
 		nTxnRemoved += len(stage)
 		txn := make([]*tx.Tx, 0, len(stage))
 		for iter := range stage {
@@ -622,7 +367,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 
 		// here, don't update Descendant transaction state's reason :
 		// all Descendant transaction of the removed tx also will be removed.
-		m.removeStaged(stage, false, SIZELIMIT)
+		m.RemoveStaged(stage, false, SIZELIMIT)
 		for e := range stage {
 			fmt.Printf("remove tx hash : %s, mempool size : %d\n", e.Tx.GetHash().String(), m.cacheInnerUsage)
 		}
@@ -658,13 +403,13 @@ func (m *TxMempool) expire(time int64) int {
 
 	stage := make(map[*TxEntry]struct{}, len(toremove)*3)
 	for removeIt := range toremove {
-		m.calculateDescendants(removeIt, stage)
+		m.CalculateDescendants(removeIt, stage)
 	}
-	m.removeStaged(stage, false, EXPIRY)
+	m.RemoveStaged(stage, false, EXPIRY)
 	return len(stage)
 }
 
-func (m *TxMempool) removeStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
+func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
 	m.updateForRemoveFromMempool(entriesToRemove, updateDescendants)
 	for rem := range entriesToRemove {
 		if _, ok := m.rootTx[rem.Tx.GetHash()]; ok {
@@ -692,7 +437,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	if updateDescendants {
 		for removeIt := range entriesToRemove {
 			setDescendants := make(map[*TxEntry]struct{})
-			m.calculateDescendants(removeIt, setDescendants)
+			m.CalculateDescendants(removeIt, setDescendants)
 			delete(setDescendants, removeIt)
 			modifySize := -removeIt.TxSize
 			modifyFee := -removeIt.TxFee
@@ -711,7 +456,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	}
 
 	for removeIt := range entriesToRemove {
-		ancestors, err := m.calculateMemPoolAncestors(removeIt.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
+		ancestors, err := m.CalculateMemPoolAncestors(removeIt.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
 		if err != nil {
 			return
 		}
@@ -746,9 +491,9 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 	}
 	allRemoves := make(map[*TxEntry]struct{})
 	for it := range txToRemove {
-		m.calculateDescendants(it, allRemoves)
+		m.CalculateDescendants(it, allRemoves)
 	}
-	m.removeStaged(allRemoves, false, reason)
+	m.RemoveStaged(allRemoves, false, reason)
 }
 
 // CalculateDescendants Calculates descendants of entry that are not already in setDescendants, and
@@ -757,7 +502,7 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 // if an entry is in setDescendants already, then all in-mempool descendants of
 // it are already in setDescendants as well, so that we can save time by not
 // iterating over those entries.
-func (m *TxMempool) calculateDescendants(entry *TxEntry, descendants map[*TxEntry]struct{}) {
+func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntry]struct{}) {
 	//stage := make(map[*TxEntry]struct{})
 	stage := make([]*TxEntry, 0)
 	if _, ok := descendants[entry]; !ok {
@@ -822,7 +567,7 @@ func (m *TxMempool) updateEntryForAncestors(entry *TxEntry, setAncestors map[*Tx
 
 // CalculateMemPoolAncestors get tx all ancestors transaction in mempool.
 // when the find is false: the tx must in mempool, so directly get his parent.
-func (m *TxMempool) calculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint64,
+func (m *TxMempool) CalculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint64,
 	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64,
 	searchForParent bool) (ancestors map[*TxEntry]struct{}, err error) {
 
@@ -901,74 +646,7 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(*removeEntry))
 }
 
-func checkSequenceLocks(tx *tx.Tx, tip *blockindex.BlockIndex, flags int, lp *LockPoints, useExistingLockPoints bool, coins []*utxo.Coin) bool {
-	//TODO:AssertLockHeld(cs_main) and AssertLockHeld(mempool.cs) not finish
-	var index *blockindex.BlockIndex
-	index.Prev = tip
-	// CheckSequenceLocks() uses chainActive.Height()+1 to evaluate height based
-	// locks because when SequenceLocks() is called within ConnectBlock(), the
-	// height of the block *being* evaluated is what is used. Thus if we want to
-	// know if a transaction can be part of the *next* block, we need to use one
-	// more than chainActive.Height()
-	index.Height = tip.Height + 1
-	lockPair := make(map[int]int64)
 
-	if useExistingLockPoints {
-		if lp == nil {
-			panic("the mempool lockPoints is nil")
-		}
-		lockPair[lp.Height] = lp.Time
-	} else {
-		var prevheights []int
-		for txinIndex, coin := range coins {
-			if coin.IsMempoolCoin() {
-				prevheights[txinIndex] = tip.Height + 1
-			} else {
-				prevheights[txinIndex] = int(coin.GetHeight())
-			}
-		}
-
-		lockPair = ltx.CalculateSequenceLocks(*tx, flags, prevheights, index)
-		if lp != nil {
-			lockPair[lp.Height] = lp.Time
-			// Also store the hash of the block with the highest height of all
-			// the blocks which have sequence locked prevouts. This hash needs
-			// to still be on the chain for these LockPoint calculations to be
-			// valid.
-			// Note: It is impossible to correctly calculate a maxInputBlock if
-			// any of the sequence locked inputs depend on unconfirmed txs,
-			// except in the special case where the relative lock time/height is
-			// 0, which is equivalent to no sequence lock. Since we assume input
-			// height of tip+1 for mempool txs and test the resulting lockPair
-			// from CalculateSequenceLocks against tip+1. We know
-			// EvaluateSequenceLocks will fail if there was a non-zero sequence
-			// lock on a mempool input, so we can use the return value of
-			// CheckSequenceLocks to indicate the LockPoints validity
-			maxInputHeight := 0
-			for height := range prevheights {
-				// Can ignore mempool inputs since we'll fail if they had non-zero locks
-				if height != tip.Height+1 {
-					maxInputHeight = int(math.Max(float64(maxInputHeight), float64(height)))
-				}
-			}
-			lp.MaxInputBlock = tip.GetAncestor(maxInputHeight)
-		}
-	}
-	return EvaluateSequenceLocks(index, lockPair)
-}
-
-func EvaluateSequenceLocks(block *blockindex.BlockIndex, lockPair map[int]int64) bool {
-	if block.Prev == nil {
-		panic("the block's pprev is nil, Please check.")
-	}
-	nBlocktime := block.Prev.GetMedianTimePast()
-	for key, value := range lockPair {
-		if int32(key) >= block.Height || value >= nBlocktime {
-			return false
-		}
-	}
-	return true
-}
 
 func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 	m.RLock()
