@@ -2,10 +2,10 @@ package mining
 
 import (
 	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
-	"github.com/spf13/viper"
 )
 
 type sortType int
@@ -75,7 +75,7 @@ func sortedByFeeRateWithAncestors() *btree.BTree {
 }
 
 func init() {
-	sortParam := viper.GetString("strategy")
+	sortParam := conf.Cfg.Mining.Strategy
 	ret, ok := strategies[sortParam]
 	if !ok {
 		logs.Error("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)

@@ -194,6 +194,7 @@ type Configuration struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee
 		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
 		BlockVersion  int32  `default:"-1"`
+		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
 	}
 }
 

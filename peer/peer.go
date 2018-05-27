@@ -18,12 +18,12 @@ import (
 	"time"
 
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/util"
 	"github.com/btcsuite/go-socks/socks"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -1124,7 +1124,7 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	return nil
 }
 
-// handlePingMsg is invoked when a peer receives a ping bitcoin message.  For
+// HandlePingMsg is invoked when a peer receives a ping bitcoin message.  For
 // recent clients (protocol version > BIP0031Version), it replies with a pong
 // message.  For older clients, it does nothing and anything other than failure
 // is considered a successful ping.
@@ -1136,7 +1136,7 @@ func (p *Peer) HandlePingMsg(msg *wire.MsgPing) {
 	}
 }
 
-// handlePongMsg is invoked when a peer receives a pong bitcoin message.  It
+// HandlePongMsg is invoked when a peer receives a pong bitcoin message.  It
 // updates the ping statistics as required for recent clients (protocol
 // version > BIP0031Version).  There is no effect for older clients or when a
 // ping was not previously sent.

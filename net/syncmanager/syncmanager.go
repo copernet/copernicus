@@ -459,6 +459,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 		// Convert the error into an appropriate reject message and
 		// send it.
+		//todo !!! need process for error code. yyx
 		//code := err.(errcode.TxErr)
 		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
 		return
