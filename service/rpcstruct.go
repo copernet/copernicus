@@ -42,3 +42,6 @@ type ListBannedRequest struct{}
 
 // return boolean
 type ClearBannedRequest struct{}
+
+// *InvVect to broadcast a tx inv message
+// return error if encountering any error

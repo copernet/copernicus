@@ -3,12 +3,11 @@ package utxo
 import (
 	"fmt"
 	"unsafe"
-	
+
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/hashicorp/golang-lru"
-
 )
 
 type CoinsLruCache struct {
@@ -70,7 +69,7 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 		coin.fresh = true
 	}
 	fmt.Println("getCoin from db")
-	
+
 	return coin
 }
 
@@ -217,6 +216,7 @@ func (coinsCache *CoinsLruCache) GetCacheSize() int {
 func (coinsCache *CoinsLruCache) DynamicMemoryUsage() int64 {
 	return int64(unsafe.Sizeof(coinsCache.cacheCoins))
 }
+
 //
 //func (coinsCache *CoinsLruCache) GetOutputFor(tx *txin.TxIn) *txout.TxOut {
 //	point := outpoint.OutPoint{

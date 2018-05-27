@@ -26,7 +26,7 @@ var miscHandlers = map[string]commandHandler{
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	best := chain.GlobalChain.Tip()
+	best := chain.GetInstance().Tip()
 	var height int32
 	if best == nil {
 		height = 0
@@ -39,7 +39,7 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		TimeOffset:      util.GetTimeOffset(),
 		//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
 		Proxy:      "", // todo define in conf
-		Difficulty: getDifficulty(chain.GlobalChain.Tip()),
+		Difficulty: getDifficulty(chain.GetInstance().Tip()),
 		TestNet:    chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
 		RelayFee:   float64(mempool.DefaultMinRelayTxFee),
 	}

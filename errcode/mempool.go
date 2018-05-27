@@ -26,7 +26,6 @@ var merrToString = map[MemPoolErr]string{
 	TooMinFeeRate:"the transaction's feerate is too minimal",
 }
 
-
 func (me MemPoolErr) String() string {
 	if s, ok := merrToString[me]; ok {
 		return s

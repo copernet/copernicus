@@ -101,7 +101,7 @@ func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersi
 	for len(versionBitsTester.block) < height {
 		index := &blockindex.BlockIndex{}
 		index.SetNull()
-		index.Height = len(versionBitsTester.block)
+		index.Height = int32(len(versionBitsTester.block))
 		index.Prev = nil
 		if len(versionBitsTester.block) > 0 {
 			index.Prev = versionBitsTester.block[len(versionBitsTester.block)-1]

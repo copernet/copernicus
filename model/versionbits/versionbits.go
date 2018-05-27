@@ -143,7 +143,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.Blo
 	// it is computed based on a indexPrev whose height equals a multiple of
 	// nPeriod - 1.
 	if indexPrev != nil {
-		indexPrev = indexPrev.GetAncestor(indexPrev.Height - (indexPrev.Height+1)%nPeriod)
+		indexPrev = indexPrev.GetAncestor(indexPrev.Height - (indexPrev.Height+1)%int32(nPeriod))
 	}
 
 	// Walk backwards in steps of nPeriod to find a indexPrev whose information
@@ -163,7 +163,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.Blo
 				break
 			}
 			toCompute = append(toCompute, indexPrev)
-			indexPrev = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
+			indexPrev = indexPrev.GetAncestor(indexPrev.Height - int32(nPeriod))
 		} else {
 			break
 		}
@@ -244,15 +244,15 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *blo
 	// block of the period, and if we are computing for the first block of a
 	// period, then indexPrev points to the last block of the previous period.
 	// The parent of the genesis block is represented by nullptr.
-	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % nPeriod))
-	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - nPeriod)
+	indexPrev = indexPrev.GetAncestor(indexPrev.Height - ((indexPrev.Height + 1) % int32(nPeriod)))
+	previousPeriodParent := indexPrev.GetAncestor(indexPrev.Height - int32(nPeriod))
 	for previousPeriodParent != nil && GetStateFor(vc, previousPeriodParent, params, cache) == initialState {
 		indexPrev = previousPeriodParent
-		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
+		previousPeriodParent = indexPrev.GetAncestor(indexPrev.Height - int32(nPeriod))
 	}
 
 	// Adjust the result because right now we point to the parent block.
-	return indexPrev.Height + 1
+	return int(indexPrev.Height) + 1
 }
 
 type WarningBitsConditionChecker struct {

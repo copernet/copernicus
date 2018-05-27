@@ -10,11 +10,11 @@ import (
 	"sync"
 
 	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/script"
+	// "github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
-	"github.com/pkg/errors"
+	// "github.com/pkg/errors"
 )
 
 type MsgTx tx.Tx
@@ -255,20 +255,21 @@ func (bf *Filter) AddOutPoint(outpoint *outpoint.OutPoint) {
 //
 // This function MUST be called with the filter lock held.
 func (bf *Filter) maybeAddOutpoint(outHash *util.Hash, outIdx uint32) {
-	switch bf.msgFilterLoad.Flags {
-	case wire.BloomUpdateAll:
-		outpoint := outpoint.NewOutPoint(*outHash, outIdx)
-		bf.addOutPoint(outpoint)
-	case wire.BloomUpdateP2PubkeyOnly:
-		var sc *script.Script
-		class, err := sc.CheckScriptPubKeyStandard()
-		if err != nil {
-			errors.New("The script not standard...")
-		} else if class == script.ScriptPubkey || class == script.ScriptMultiSig {
-			outpoint := outpoint.NewOutPoint(*outHash, outIdx)
-			bf.addOutPoint(outpoint)
-		}
-	}
+
+	// switch bf.msgFilterLoad.Flags {
+	// case wire.BloomUpdateAll:
+	// 	outpoint := outpoint.NewOutPoint(*outHash, outIdx)
+	// 	bf.addOutPoint(outpoint)
+	// case wire.BloomUpdateP2PubkeyOnly:
+	// 	var sc *script.Script
+	// 	class, err := sc.CheckScriptPubKeyStandard()
+	// 	if err != nil {
+	// 		errors.New("The script not standard...")
+	// 	} else if class == script.ScriptPubkey || class == script.ScriptMultiSig {
+	// 		outpoint := outpoint.NewOutPoint(*outHash, outIdx)
+	// 		bf.addOutPoint(outpoint)
+	// 	}
+	// }
 }
 
 // matchTxAndUpdate returns true if the bloom filter matches data within the
@@ -280,8 +281,9 @@ func (bf *Filter) maybeAddOutpoint(outHash *util.Hash, outIdx uint32) {
 func (bf *Filter) matchTxAndUpdate(tx *tx.Tx) bool {
 	// Check if the filter matches the hash of the transaction.
 	// This is useful for finding transactions when they appear in a block.
-	txHash := tx.GetHash()
-	matched := bf.matches(txHash[:])
+
+	// txHash := tx.GetHash()
+	// matched := bf.matches(txHash[:])
 
 	// Check if the filter matches any data elements in the public key
 	// scripts of any of the outputs.  When it does, add the outpoint that
@@ -311,9 +313,9 @@ func (bf *Filter) matchTxAndUpdate(tx *tx.Tx) bool {
 	//}
 
 	// Nothing more to do if a match has already been made.
-	if matched {
-		return true
-	}
+	// if matched {
+	// 	return true
+	// }
 
 	// At this point, the transaction and none of the data elements in the
 	// public key scripts of its outputs matched.

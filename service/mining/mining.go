@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strconv"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	block2 "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/logic/merkleroot"
@@ -83,7 +85,7 @@ func NewBlockAssembler(params *chainparams.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
-	v := util.GetArg("-blockmintxfee", DefaultBlockMinTxFee)
+	v := conf.Cfg.Mining.BlockMinTxFee
 	ba.blockMinFeeRate = *util.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	return ba
@@ -127,7 +129,7 @@ func computeMaxGeneratedBlockSize() uint64 {
 	// If -blockmaxsize is not given, limit to DEFAULT_MAX_GENERATED_BLOCK_SIZE
 	// If only one is given, only restrict the specified resource.
 	// If both are given, restrict both.
-	maxGeneratedBlockSize := uint64(util.GetArg("-blockmaxsize", DefaultMaxGeneratedBlockSize))
+	maxGeneratedBlockSize := conf.Cfg.Mining.BlockMaxSize
 
 	// Limit size to between 1K and MaxBlockSize-1K for sanity:
 	csize := consensus.DefaultMaxBlockSize - 1000
@@ -217,8 +219,8 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			continue
 		}
 		// add the ancestors of the current item to block
-		h := entry.Tx.GetHash()
-		ancestors := pool.CalculateMemPoolAncestors(&h)
+		noLimit := uint64(math.MaxUint64)
+		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		ba.onlyUnconfirmed(ancestors)
 		ancestors[&entry] = struct{}{} // add current item
 		if !ba.testPackageTransactions(ancestors) {
@@ -245,14 +247,14 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// add dummy coinbase tx as first transaction
 	ba.bt.Block.Txs = make([]*tx.Tx, 0, 100000)
-	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0xffffffff))
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0x01)) // todo default version
 	ba.bt.TxFees = make([]amount.Amount, 0, 100000)
 	ba.bt.TxFees = append(ba.bt.TxFees, -1)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, -1)
 
 	// todo LOCK2(cs_main);
-	indexPrev := chain.GlobalChain.Tip()
+	indexPrev := chain.GetInstance().Tip()
 
 	// genesis block
 	if indexPrev == nil {
@@ -264,7 +266,9 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
-		ba.bt.Block.Header.Version = int32(util.GetArg("-blockversion", int64(ba.bt.Block.Header.Version)))
+		if conf.Cfg.Mining.BlockVersion != -1 {
+			ba.bt.Block.Header.Version = conf.Cfg.Mining.BlockVersion
+		}
 	}
 	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
@@ -283,7 +287,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	lastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
-	coinbaseTx := tx.NewTx(0, 0xffffffff)
+	coinbaseTx := tx.NewTx(0, 0x01)
 	buf := bytes.NewBuffer(nil)
 	bs := make([]byte, 4)
 	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
@@ -360,8 +364,8 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	mpool.Lock()
 	defer mpool.Unlock()
 	for entry := range alreadyAdded {
-		h := entry.Tx.GetHash()
-		descendants := mpool.CalculateDescendants(&h)
+		descendants := make(map[*mempool.TxEntry]struct{})
+		mpool.CalculateDescendants(entry, descendants)
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {

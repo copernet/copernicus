@@ -3,18 +3,26 @@ package service
 import (
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/errcode"
 )
 
-func ProcessTransaction(transaction *tx.Tx) error {
+func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, error) {
+	pool:= mempool.GetInstance()
+	if _, ok := pool.RecentRejects[transaction.GetHash()]; ok{
+		return nil, errcode.New(errcode.RejectTx)
+	}
+
 	err := ltx.CheckRegularTransaction(transaction)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	//err := mempool.AccpetTxToMemPool(transaction)
 	//if err != nil {
 	//	return err
 	//}
-	return nil
+	return nil, nil
 }
 
 //

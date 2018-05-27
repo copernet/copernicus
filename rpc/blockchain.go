@@ -55,16 +55,16 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 		}
 
 
-		tip := chain.GlobalChain.Tip()
+		tip := chain.GetInstance().Tip()
 		chainInfo := &btcjson.GetBlockChainInfoResult{
 			//Chain:         Params().NetworkingIDString(),            // todo
-			Blocks:        int32(chain.GlobalChain.Height()),
+			Blocks:        int32(chain.GetInstance().Height()),
 			Headers:       headers,
 			BestBlockHash: tip.GetBlockHash().ToString(),
 			Difficulty:    getDifficulty(tip),
 			MedianTime:    tip.GetMedianTimePast(),
 			//VerificationProgress: chain.GuessVerificationProgress(Params().TxData(),
-			//	chain.GlobalChain.Tip())            // todo
+			//	chain.GetInstance().Tip())            // todo
 			ChainWork:     tip.ChainWork.String(),
 			Pruned:        false,
 			Bip9SoftForks: make(map[string]*btcjson.Bip9SoftForkDescription),
@@ -164,11 +164,11 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 }
 
 func handleGetBestBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return chain.GlobalChain.Tip().GetBlockHash().String(), nil
+	return chain.GetInstance().Tip().GetBlockHash().String(), nil
 }
 
 func handleGetBlockCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return chain.GlobalChain.Height(), nil
+	return chain.GetInstance().Height(), nil
 }
 
 func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -180,7 +180,7 @@ func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 			return nil, rpcDecodeHexError(c.Hash)
 		}
 
-		index := chain.GlobalChain.FindBlockIndex(*hash)
+		index := chain.GetInstance().FindBlockIndex(*hash)
 		if index == nil {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidAddressOrKey,
@@ -217,8 +217,8 @@ func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 /*func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails bool) *btcjson.GetBlockVerboseResult {
 	confirmations := -1
 	// Only report confirmations if the block is on the main chain
-	if chain.GlobalChain.Contains(index) {
-		confirmations = chain.GlobalChain.Height() - index.Height + 1
+	if chain.GetInstance().Contains(index) {
+		confirmations = chain.GetInstance().Height() - index.Height + 1
 	}
 
 	txs := make([]btcjson.TxRawResult, len(block.Txs))
@@ -238,7 +238,7 @@ func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	}
 
 	var nextBlockHash string
-	next := chain.GlobalChain.Next(index)
+	next := chain.GetInstance().Next(index)
 	if next != nil {
 		nextBlockHash = next.BlockHash.String()
 	}
@@ -266,14 +266,14 @@ func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		c := cmd.(*btcjson.GetBlockHashCmd)
 
 		height := c.Height
-		if height < 0 || height > chain.GlobalChain.Height() {
+		if height < 0 || height > chain.GetInstance().Height() {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCOutOfRange,
 				Message: "Block number out of range",
 			}
 		}
 
-		blockIndex := chain.GlobalChain.GetSpecIndex(height) // todo realise
+		blockIndex := chain.GetInstance().GetSpecIndex(height) // todo realise
 
 		return blockIndex.BlockHash, nil*/ //todo open
 	return nil, nil
@@ -287,7 +287,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	if err != nil {
 		return nil, rpcDecodeHexError(c.Hash)
 	}
-	blockIndex := chain.GlobalChain.FindBlockIndex(*hash)
+	blockIndex := chain.GetInstance().FindBlockIndex(*hash)
 
 	if blockIndex == nil {
 		return nil, &btcjson.RPCError{
@@ -308,10 +308,10 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	}
 
 	//best := s.cfg.Chain.BestSnapshot()
-	best := chain.GlobalChain.Tip()
+	best := chain.GetInstance().Tip()
 	confirmations := int32(-1)
 	// Only report confirmations if the block is on the main chain
-	if chain.GlobalChain.Contains(blockIndex) {
+	if chain.GetInstance().Contains(blockIndex) {
 		confirmations = best.Height - blockIndex.Height + 1
 	}
 
@@ -321,7 +321,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	}
 
 	var nextblockhash string
-	next := chain.GlobalChain.Next(blockIndex)
+	next := chain.GetInstance().Next(blockIndex)
 	if next != nil {
 		nextblockhash = next.GetBlockHash().String()
 	}
@@ -357,7 +357,7 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	setTips := set.New() // element type:
 
 	// todo add orphan blockindex, lack of chain's support<orphan>
-	setTips.Add(chain.GlobalChain.Tip())
+	setTips.Add(chain.GetInstance().Tip())
 
 	ret := btcjson.GetChainTipsResult{
 		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),
@@ -367,11 +367,11 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		tipInfo := btcjson.ChainTipsInfo{
 			Height:    bindex.Height,
 			Hash:      bindex.GetBlockHash().String(),
-			BranchLen: bindex.Height - chain.GlobalChain.FindFork(bindex).Height,
+			BranchLen: bindex.Height - chain.GetInstance().FindFork(bindex).Height,
 		}
 
 		var status string
-		if chain.GlobalChain.Contains(bindex) {
+		if chain.GetInstance().Contains(bindex) {
 			// This block is part of the currently active chain.
 			status = "active"
 		} else if bindex.Status&blockindex2.BlockFailedMask != 0 {
@@ -431,7 +431,7 @@ func getDifficultyFromBits(bits uint32) float64 {
 }
 
 func handleGetDifficulty(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	best := chain.GlobalChain.Tip()
+	best := chain.GetInstance().Tip()
 	return getDifficulty(best), nil
 }
 
@@ -453,13 +453,14 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	}
 
 	h := entry.Tx.GetHash()
-	txSet := mempool.GetInstance().CalculateMemPoolAncestors(&h)
+	txSet := mempool.GetInstance().CalculateMemPoolAncestorsWithLock(&h)
 
 	if !c.Verbose {
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
-			s[i] = index.Tx.GetHash().String()
+			hash := index.Tx.GetHash()
+			s[i] = hash.String()
 			i++
 		}
 		return s, nil
@@ -517,20 +518,22 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		}
 	}
 
-	descendants := mempool.GetInstance().CalculateDescendants(hash)
+	descendants := mempool.GetInstance().CalculateDescendantsWithLock(hash)
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
 	if !c.Verbose {
 		des := make([]string, 0)
 		for item := range descendants {
-			des = append(des, item.Tx.GetHash().String())
+			hash := item.Tx.GetHash()
+			des = append(des, hash.String())
 		}
 		return des, nil
 	}
 
 	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
-	infos[entry.Tx.GetHash().String()] = entryToJSON(entry)
+	h := entry.Tx.GetHash()
+	infos[h.String()] = entryToJSON(entry)
 	return infos, nil
 }
 
@@ -635,7 +638,7 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 
 		bestHash := coinView.GetBestBlock()
-		index := chain.GlobalChain.FindBlockIndex(bestHash)
+		index := chain.GetInstance().FindBlockIndex(bestHash)
 
 		var confirmations int
 		if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
@@ -689,7 +692,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 
 		if *height > 1000000000 {
-			index := chain.GlobalChain.FindEarliestAtLeast(int64(*height - 72000))
+			index := chain.GetInstance().FindEarliestAtLeast(int64(*height - 72000))
 			if index != nil {
 				return false, &btcjson.RPCError{
 					Code:    btcjson.ErrRPCType,
@@ -700,7 +703,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 
 		h := *height
-		chainHeight := chain.GlobalChain.Height()
+		chainHeight := chain.GetInstance().Height()
 		if chainHeight < consensus.ActiveNetParams.PruneAfterHeight {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCMisc,
@@ -743,7 +746,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		if err != nil {
 			return nil, err
 		}
-		blockIndex := chain.GlobalChain.FindBlockIndex(*hash)
+		blockIndex := chain.GetInstance().FindBlockIndex(*hash)
 		if blockIndex == nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCBlockNotFound,
@@ -790,7 +793,7 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	/*	c := cmd.(*btcjson.ReconsiderBlockCmd)
 		hash, _ := util.GetHashFromStr(c.BlockHash)
 
-		index := chain.GlobalChain.FindBlockIndex(*hash)
+		index := chain.GetInstance().FindBlockIndex(*hash)
 		if index == nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidAddressOrKey,

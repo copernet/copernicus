@@ -17,7 +17,7 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/service/mining"
+	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 )
@@ -91,10 +91,10 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 
 	if !hashBlock.IsNull() {
 		txReply.BlockHash = hashBlock.String()
-		bindex := chain.GlobalChain.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
+		bindex := chain.GetInstance.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
 		if bindex != nil {
-			if chain.GlobalChain.Contains(bindex) {
-				txReply.Confirmations = chain.GlobalChain.Height() - bindex.Height + 1
+			if chain.GetInstance.Contains(bindex) {
+				txReply.Confirmations = chain.GetInstance.Height() - bindex.Height + 1
 				txReply.Time = bindex.Header.Time
 				txReply.Blocktime = bindex.Header.Time
 			} else {
@@ -239,7 +239,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	if allowSlow {
 		coin := utxo2.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
 		if !coin.IsSpent() {
-			indexSlow = chain.GlobalChain.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
+			indexSlow = chain.GetInstance.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
 		}
 	}
 
@@ -389,10 +389,11 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	hash := transaction.GetHash()
 
-	maxRawTxFee := mining.MaxTxFee
-	if c.AllowHighFees != nil && *c.AllowHighFees {
-		maxRawTxFee = 0
-	}
+	// todo open
+	//maxRawTxFee := mining.MaxTxFee
+	//if c.AllowHighFees != nil && *c.AllowHighFees {
+	//	maxRawTxFee = 0
+	//}
 
 	view := utxo.GetUtxoCacheInstance()
 	var haveChain bool
@@ -403,7 +404,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	entry := mempool.GetInstance().FindTx(hash)
 	if entry == nil && !haveChain {
-		_, err = mempool2.ProcessTransaction(&transaction, 0)
+		err = mempool2.AcceptTxToMemPool(&transaction)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -413,7 +414,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
-	// todo broadcast txInvMsg
+	_, err = service.ProcessForRpc(txInvMsg)
+	if err != nil {
+		return nil, btcjson.ErrRPCInternal
+	}
 
 	return hash.String(), nil
 }
@@ -507,11 +511,12 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		view := utxo.GetUtxoCacheInstance()
 		coin := view.GetCoin(out)
 
-		if !coin.IsSpent() && !coin.GetTxOut().GetScriptPubKey().IsEqual(script.NewScriptRaw(scriptPubKey)) {
+		coinOut := coin.GetTxOut()
+		if !coin.IsSpent() && !coinOut.GetScriptPubKey().IsEqual(script.NewScriptRaw(scriptPubKey)) {
 			return nil, btcjson.RPCError{
 				Code: btcjson.RPCDeserializationError,
 				Message: "Previous output scriptPubKey mismatch:\n" +
-					ScriptToAsmStr(coin.GetTxOut().GetScriptPubKey(), false) +
+					ScriptToAsmStr(coinOut.GetScriptPubKey(), false) +
 					"\nvs:\n" + ScriptToAsmStr(script.NewScriptRaw(scriptPubKey), false),
 			}
 		}
@@ -542,7 +547,10 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 			}
 		}
 
-		view.AddCoin(out, *utxo.NewCoin(txOut, 1, false))
+		// todo confirm
+		coinsMap := utxo.NewEmptyCoinsMap()
+		coinsMap.AddCoin(out, utxo.NewCoin(txOut, 1, false))
+		view.UpdateCoins(coinsMap, hash)
 
 		// If redeemScript given and not using the local wallet (private
 		// keys given), add redeemScript to the tempKeystore so it can be
@@ -584,8 +592,8 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 			continue
 		}
 
-		prevPubKey := coin.GetTxOut().GetScriptPubKey()
-		cost := coin.GetTxOut().GetValue()
+		//prevPubKey := coin.GetTxOut().GetScriptPubKey()
+		//cost := coin.GetTxOut().GetValue()
 
 		if !hashSingle || index < transactions[0].GetOutsCount() {
 			// todo make and check signature
@@ -649,7 +657,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				return nil, rpcDecodeHexError(*c.BlockHash)
 			}
 
-			bindex = chain.GlobalChain.FindBlockIndex(*hashBlock)
+			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
 			if bindex == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInvalidAddressOrKey,
@@ -659,8 +667,8 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		} else {
 			view := utxo.GetUtxoCacheInstance()
 			coin := utxo2.AccessByTxid(view, &oneTxId)
-			if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GlobalChain.Height() {
-				bindex = chain.GlobalChain.GetIndex(int(coin.GetHeight()))
+			if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GetInstance.Height() {
+				bindex = chain.GetInstance.GetIndex(int(coin.GetHeight()))
 			}
 		}
 
@@ -673,7 +681,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				}
 			}
 
-			bindex = chain.GlobalChain.FindBlockIndex(*hashBlock)
+			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
 			if bindex == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInternalError,
@@ -735,7 +743,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 		}
 
 		bindex := LookupBlockIndex(mb.Header.GetHash()) // todo realize
-		if bindex == nil || !chain.GlobalChain.Contains(bindex) {
+		if bindex == nil || !chain.GetInstance.Contains(bindex) {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInvalidAddressOrKey,
 				Message: "Block not found in chain",

@@ -63,7 +63,7 @@ func bchMain(ctx context.Context) error {
 	}
 	s.Start()
 	defer func() {
-		s.Stop(rpcServer)
+		s.Stop()
 		// Shutdown the RPC server if it's not disabled.
 		if !conf.Cfg.P2PNet.DisableRPC {
 			rpcServer.Stop()
@@ -71,7 +71,7 @@ func bchMain(ctx context.Context) error {
 	}()
 	go func() {
 		<- rpcServer.RequestedProcessShutdown()
-		interrupt <- struct{}{}
+		shutdownRequestChannel <- struct{}{}
 	}()
 	<-interrupt
 	return nil

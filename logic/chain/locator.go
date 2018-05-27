@@ -1,18 +1,71 @@
 package chain
 
 import (
+	"github.com/btcboost/copernicus/model/block"
 	mchain "github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 )
 
-func LocateBlocks(bl *mchain.BlockLocator, endHash *util.Hash,maxLength int) error {
-	return nil
+const (
+	MaxHeadersResults = 2000
+	MaxBlocksResults = 500
+
+)
+func LocateBlocks(locator *mchain.BlockLocator, endHash *util.Hash) []util.Hash {
+	global.CsMain.Lock()
+	defer global.CsMain.Unlock()
+	var bi *blockindex.BlockIndex
+	gChain := mchain.GetInstance()
+	ret := make([]util.Hash, 0)
+	
+	bi = FindForkInGlobalIndex(gChain, locator)
+	if bi != nil{
+		bi =  gChain.Next(bi)
+	}
+	
+	nLimits := MaxBlocksResults
+	for{
+		if bi == nil&& nLimits <= 0 || bi.GetBlockHash().IsEqual(endHash){
+			break
+		}
+		bh := bi.GetBlockHeader()
+		ret = append(ret, bh.GetHash())
+		nLimits -= 1
+		bi=gChain.Next(bi)
+	}
+	return ret
 }
 
-func LocateHeaders(bl *mchain.BlockLocator, endHash *util.Hash,maxLength int) error {
-	
-	return nil
+func LocateHeaders(locator *mchain.BlockLocator, endHash *util.Hash) []block.BlockHeader {
+	global.CsMain.Lock()
+	defer global.CsMain.Unlock()
+	var bi *blockindex.BlockIndex
+	gChain := mchain.GetInstance()
+	ret := make([]block.BlockHeader, 0)
+	if locator.IsNull(){
+		bi = gChain.FindBlockIndex(*endHash)
+		if bi == nil{
+			return ret
+		}
+	}else{
+		bi = FindForkInGlobalIndex(gChain, locator)
+		if bi != nil{
+			bi =  gChain.Next(bi)
+		}
+	}
+	nLimits := MaxHeadersResults
+	for{
+		if bi==nil && nLimits <= 0 || bi.GetBlockHash().IsEqual(endHash){
+			break
+		}
+		bh := bi.GetBlockHeader()
+		ret = append(ret, *bh)
+		nLimits -= 1
+		bi=gChain.Next(bi)
+	}
+	return ret
 }
 
 func FindForkInGlobalIndex(chain *mchain.Chain, locator *mchain.BlockLocator) *blockindex.BlockIndex {
