@@ -266,8 +266,8 @@ func newServerPeer(s *Server, isPersistent bool) *serverPeer {
 // newestBlock returns the current best block hash and height using the format
 // required by the configuration for the peer package.
 func (sp *serverPeer) newestBlock() (*util.Hash, int32, error) {
-	tip := chain.GlobalChain.Tip()
-	height := chain.GlobalChain.TipHeight()
+	tip := chain.GetInstance().Tip()
+	height := chain.GetInstance().TipHeight()
 	return tip.GetBlockHash(), int32(height), nil
 }
 
@@ -653,7 +653,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	//
 	// This mirrors the behavior in the reference implementation.
 
-	hashList := chain.GlobalChain.LocateBlocks(msg.BlockLocatorHashes, &msg.HashStop,
+	hashList := chain.GetInstance().LocateBlocks(msg.BlockLocatorHashes, &msg.HashStop,
 		wire.MaxBlocksPerMsg)
 
 	// Generate inventory message.
@@ -697,7 +697,7 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	//
 	// This mirrors the behavior in the reference implementation.
 
-	headers := chain.GlobalChain.LocateHeaders(msg.BlockLocatorHashes, &msg.HashStop)
+	headers := chain.GetInstance().LocateHeaders(msg.BlockLocatorHashes, &msg.HashStop)
 	if len(headers) == 0 {
 		// Nothing to send.
 		return
@@ -1116,7 +1116,7 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	// to trigger it to issue another getblocks message for the next
 	// batch of inventory.
 	if sendInv {
-		tip := chain.GlobalChain.Tip()
+		tip := chain.GetInstance().Tip()
 		invMsg := wire.NewMsgInvSizeHint(1)
 		iv := wire.NewInvVect(wire.InvTypeBlock, tip.GetBlockHash())
 		invMsg.AddInvVect(iv)

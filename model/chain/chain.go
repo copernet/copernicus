@@ -16,14 +16,14 @@ type Chain struct {
 	receiveID   uint64
 }
 
-var GlobalChain *Chain
+var globalChain *Chain
 
 func GetInstance() *Chain {
-	if GlobalChain == nil {
-		GlobalChain = NewChain()
+	if globalChain == nil {
+		globalChain = NewChain()
 	}
 
-	return GlobalChain
+	return globalChain
 }
 
 func NewChain() *Chain {
@@ -31,7 +31,8 @@ func NewChain() *Chain {
 }
 
 func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex, tip util.Hash){
-
+	c.indexMap = indexMap
+	c.branch =  branch
 }
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
