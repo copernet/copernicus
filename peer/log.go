@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
 )
@@ -146,14 +148,16 @@ func messageSummary(msg wire.Message) string {
 		// No summary.
 
 	case *wire.MsgTx:
-		return fmt.Sprintf("hash %s, %d inputs, %d outputs, lock %s",
-			msg.GetHash(), len(msg.TxIn), len(msg.TxOut),
-			formatLockTime(msg.LockTime))
+		txmsg := (*tx.Tx)(msg)
+		return fmt.Sprintf("hash %v, %d inputs, %d outputs, lock %s",
+			txmsg.GetHash(), len(txmsg.GetIns()), txmsg.GetOutsCount(),
+			formatLockTime(txmsg.GetLockTime()))
 
 	case *wire.MsgBlock:
+		blkmsg := (*block.Block)(msg)
 		header := &msg.Header
-		return fmt.Sprintf("hash %s, ver %d, %d tx, %s", msg.BlockHash(),
-			header.Version, len(msg.Transactions), header.Timestamp)
+		return fmt.Sprintf("hash %s, ver %d, %d tx, %s", blkmsg.GetHash(),
+			header.Version, len(msg.Txs), header.Time)
 
 	case *wire.MsgInv:
 		return invSummary(msg.InvList)
