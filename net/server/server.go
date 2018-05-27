@@ -2095,6 +2095,8 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 
 	cfg := conf.Cfg
 
+	fmt.Printf("%+v", cfg)
+
 	services := defaultServices
 	if cfg.Protocal.NoPeerBloomFilters {
 		services &^= wire.SFNodeBloom
