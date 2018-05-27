@@ -550,7 +550,6 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
 
-	// todo !!! add  GetMainSignals().SyncTransaction()
 	return true
 }
 

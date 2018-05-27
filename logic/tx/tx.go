@@ -208,7 +208,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	//if tx.GetValueOut() > blockReward {
 	//	return errcode.New(errcode.TxErrRejectInvalid)
 	//}errcode
-	//return nil
+	return nil
 }
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
@@ -346,7 +346,8 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		if coin == nil {
 			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
+		txOut := coin.GetTxOut()
+		scriptPubKey := txOut.GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
 		if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
 			flags |= script.ScriptVerifyStrictEnc
@@ -1702,10 +1703,11 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 				return errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
-		if !amount.MoneyRange(coin.GetTxOut().GetValue()) {
+		txOut := coin.GetTxOut()
+		if !amount.MoneyRange(txOut.GetValue()) {
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
-		nValue += coin.GetTxOut().GetValue()
+		nValue += txOut.GetValue()
 		if amount.MoneyRange(nValue) {
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
