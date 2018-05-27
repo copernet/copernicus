@@ -75,9 +75,7 @@ func (tu *TxUndo)Unserialize(r io.Reader) error {
 	return nil
 }
 
-func (tu *TxUndo) NewEmptyObj() *TxUndo {
-	return &TxUndo{}
-}
+
 
 type BlockUndo struct {
 	txundo []*TxUndo
@@ -108,7 +106,7 @@ func (bu *BlockUndo) Unserialize(r io.Reader) error {
 	count, err := util.ReadVarLenInt(r)
 	txundos := make([]*TxUndo, count, count)
 	for i := 0; i<int(count); i++{
-		obj := newTxUndo()
+		obj := NewTxUndo()
 		err = obj.Unserialize(r)
 		if err != nil{
 			return err
@@ -120,7 +118,7 @@ func (bu *BlockUndo) Unserialize(r io.Reader) error {
 }
 
 
-func newTxUndo() *TxUndo {
+func NewTxUndo() *TxUndo {
 	return &TxUndo{
 		undoCoins: make([]*utxo.Coin, 0),
 	}

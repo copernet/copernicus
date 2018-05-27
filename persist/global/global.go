@@ -33,7 +33,13 @@ type PersistGlobal struct {
 	GlobalDirtyFileInfo                               map[int]bool      // temp for update file info
 	GlobalDirtyBlockIndex        DirtyBlockIndex
 	GlobalTimeReadFromDisk                               int64
-
+	GlobalTimeConnectTotal                               int64
+	GlobalTimeChainState int64
+	GlobalTimeFlush int64
+	GlobalTimePostConnect int64
+	GlobalTimeTotal int64
+	
+	
 	
 }
 
