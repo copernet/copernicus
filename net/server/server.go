@@ -1698,18 +1698,18 @@ func (s *Server) peerHandler() {
 		outboundGroups:  make(map[string]int),
 	}
 
-	//if !conf.Cfg.P2PNet.DisableDNSSeed {
-	//	// Add peers discovered through DNS to the address manager.
-	//	connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
-	//		net.LookupIP, func(addrs []*wire.NetAddress) {
-	//			// Bitcoind uses a lookup of the dns seeder here. This
-	//			// is rather strange since the values looked up by the
-	//			// DNS seed lookups will vary quite a lot.
-	//			// to replicate this behaviour we put all addresses as
-	//			// having come from the first one.
-	//			s.addrManager.AddAddresses(addrs, addrs[0])
-	//		})
-	//}
+	if !conf.Cfg.P2PNet.DisableDNSSeed {
+		// Add peers discovered through DNS to the address manager.
+		connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
+			net.LookupIP, func(addrs []*wire.NetAddress) {
+				// Bitcoind uses a lookup of the dns seeder here. This
+				// is rather strange since the values looked up by the
+				// DNS seed lookups will vary quite a lot.
+				// to replicate this behaviour we put all addresses as
+				// having come from the first one.
+				s.addrManager.AddAddresses(addrs, addrs[0])
+			})
+	}
 	go s.connManager.Start(context.TODO())
 out:
 	for {
@@ -2191,10 +2191,6 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		return nil, err
 	}
 
-	// Wait until the interrupt signal is received from an OS signal or
-	// shutdown is requested through one of the subsystems such as the RPC
-	// server.
-	<-interrupt
 	return s, nil
 }
 

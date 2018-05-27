@@ -27,6 +27,7 @@ P2PNet:
   SimNet: false
   DisableListen: false
   BlocksOnly: true
+  DisableDNSSeed: false
   DisableRPC: false
   OnOnion: true
   Upnp: false
