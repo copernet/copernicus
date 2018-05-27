@@ -157,67 +157,63 @@ out:
 
 // Rpc process things
 func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
-	// switch m := message.(type) {
-	//
-	// case *GetConnectionCountRequest:
-	// 	return msgHandle.server.ConnectedCount(), nil
-	//
-	// case *wire.MsgPing:
-	// 	return msgHandle.server.BroadcastMessage(), nil
-	//
-	// case *GetPeersInfoRequest:
-	// 	return nil, nil
-	//
-	// case *btcjson.AddNodeCmd:
-	// 	err = msgHandle.NodeOpera(m)
-	// 	return
-	//
-	// case *btcjson.DisconnectNodeCmd:
-	// 	return
-	//
-	// case *btcjson.GetAddedNodeInfoCmd:
-	// 	return msgHandle.connManager.PersistentPeers(), nil
-	//
-	// case *GetNetTotalsRequest:
-	// 	return
-	//
-	// case *btcjson.GetNetworkInfoCmd:
-	// 	return
-	//
-	// case *btcjson.SetBanCmd:
-	// 	return
-	//
-	// case *ListBannedRequest:
-	// 	return
-	//
-	// case *ClearBannedRequest:
-	// 	return
-	//
-	// case *wire.InvVect:
-	// 	// todo
-	// 	return
-	//
-	// case *tx.Tx:
-	// 	msgHandle.recvChannel <- m
-	// 	ret := <-msgHandle.resultChannel
-	// 	switch r := ret.(type) {
-	// 	case error:
-	// 		return nil, r
-	// 	case []*tx.Tx:
-	// 		return r, nil
-	// 	}
-	//
-	// case *block.Block:
-	// 	msgHandle.recvChannel <- m
-	// 	ret := <-msgHandle.resultChannel
-	// 	switch r := ret.(type) {
-	// 	case error:
-	// 		return nil, r
-	// 	case BlockState:
-	// 		return r, nil
-	// 	}
-	//
-	// }
+	switch m := message.(type) {
+
+	case *GetConnectionCountRequest:
+		return msgHandle.server.ConnectedCount(), nil
+
+	case *wire.MsgPing:
+		return msgHandle.server.BroadcastMessage(m), nil
+
+	case *GetPeersInfoRequest:
+		return server.NewRpcConnManager(msgHandle.server).ConnectedPeers(), nil
+
+	case *btcjson.AddNodeCmd:
+		err = msgHandle.NodeOpera(m)
+		return
+
+	case *btcjson.DisconnectNodeCmd:
+		return
+
+	case *btcjson.GetAddedNodeInfoCmd:
+		return msgHandle.connManager.PersistentPeers(), nil
+
+	case *GetNetTotalsRequest:
+		return
+
+	case *btcjson.GetNetworkInfoCmd:
+		return
+
+	case *btcjson.SetBanCmd:
+		return
+
+	case *ListBannedRequest:
+		return
+
+	case *ClearBannedRequest:
+		return
+
+	case *tx.Tx:
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
+		switch r := ret.(type) {
+		case error:
+			return nil, r
+		case []*tx.Tx:
+			return r, nil
+		}
+
+	case *block.Block:
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
+		switch r := ret.(type) {
+		case error:
+			return nil, r
+		case BlockState:
+			return r, nil
+		}
+
+	}
 
 	return nil, errors.New("unknown rpc request")
 }
