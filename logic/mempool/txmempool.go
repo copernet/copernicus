@@ -62,15 +62,15 @@ func AccpetTxToMemPool(tx *tx.Tx ) error {
 	return nil
 }
 
-func ProcessOrphan(tx *tx.Tx) []*tx.Tx {
+func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	acceptTx := make([]*tx.Tx, 0)
 	pool := mempool.GetInstance()
 
 	// first collect this tx all outPoint.
-	for i := 0; i < tx.GetOutsCount(); i++ {
+	for i := 0; i < transaction.GetOutsCount(); i++ {
 
-		o := outpoint.OutPoint{Hash: tx.GetHash(), Index: uint32(i)}
+		o := outpoint.OutPoint{Hash: transaction.GetHash(), Index: uint32(i)}
 		vWorkQueue = append(vWorkQueue, o)
 	}
 
