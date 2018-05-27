@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	block2 "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/logic/merkleroot"
@@ -83,7 +84,7 @@ func NewBlockAssembler(params *chainparams.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
-	v := util.GetArg("-blockmintxfee", DefaultBlockMinTxFee)
+	v := conf.Cfg.Mining.BlockMinTxFee
 	ba.blockMinFeeRate = *util.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	return ba
@@ -127,7 +128,7 @@ func computeMaxGeneratedBlockSize() uint64 {
 	// If -blockmaxsize is not given, limit to DEFAULT_MAX_GENERATED_BLOCK_SIZE
 	// If only one is given, only restrict the specified resource.
 	// If both are given, restrict both.
-	maxGeneratedBlockSize := uint64(util.GetArg("-blockmaxsize", DefaultMaxGeneratedBlockSize))
+	maxGeneratedBlockSize := conf.Cfg.Mining.BlockMaxSize
 
 	// Limit size to between 1K and MaxBlockSize-1K for sanity:
 	csize := consensus.DefaultMaxBlockSize - 1000
@@ -264,7 +265,9 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
-		ba.bt.Block.Header.Version = int32(util.GetArg("-blockversion", int64(ba.bt.Block.Header.Version)))
+		if conf.Cfg.Mining.BlockVersion != -1 {
+			ba.bt.Block.Header.Version = conf.Cfg.Mining.BlockVersion
+		}
 	}
 	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
