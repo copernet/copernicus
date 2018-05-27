@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/model/utxo"
-	"time"
 )
 
 
