@@ -163,7 +163,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.Blo
 				break
 			}
 			toCompute = append(toCompute, indexPrev)
-			indexPrev = indexPrev.GetAncestor(indexPrev.Height - nPeriod)
+			indexPrev = indexPrev.GetAncestor(indexPrev.Height - int32(nPeriod))
 		} else {
 			break
 		}
