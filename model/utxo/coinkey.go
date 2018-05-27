@@ -17,7 +17,7 @@ func (coinKey *CoinKey) Serialize(writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = coinKey.outpoint.Serialize(writer)
+	err = coinKey.outpoint.Serialize(writer)
 	return err
 
 }

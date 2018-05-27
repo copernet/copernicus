@@ -172,12 +172,12 @@ func CheckBlockRegularTransactions(txs []*tx.Tx, blockHeight int32, blockLockTim
 //	return uint32(nSubsidy) >> halvings
 //}
 
-//func ApplyBlockTransactions(txs []*tx.Tx) error {
-//	for _, transaction := range txs {
-//
-//	}
-//	return nil
-//}
+func ApplyBlockTransactions(txs []*tx.Tx) error {
+	//for _, transaction := range txs {
+	//
+	//}
+	return nil
+}
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {

@@ -372,7 +372,7 @@ func (tx *Tx) CheckStandard() error {
 	}
 
 	// check size
-	if tx.EncodeSize() > MaxStandardTxSize {
+	if tx.EncodeSize() > uint32(MaxStandardTxSize) {
 		return errcode.New(errcode.TxErrOverSize)
 	}
 
@@ -505,7 +505,7 @@ func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	return priorityInputs / float64(txModifiedSize)
 }
 
-func (tx *Tx) CalculateModifiedSize() uint {
+func (tx *Tx) CalculateModifiedSize() uint32 {
 	// In order to avoid disincentivizing cleaning up the UTXO set we don't
 	// count the constant overhead for each txin and up to 110 bytes of
 	// scriptSig (which is enough to cover a compressed pubkey p2sh redemption)

@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -273,11 +272,11 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 
 func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
 	ret = true
-	csMain.Lock()
-	csLastBlockFile.Lock()
+	global.CsMain.Lock()
+	global.CsLastBlockFile.Lock()
 
-	defer csMain.Unlock()
-	defer csLastBlockFile.Unlock()
+	defer global.CsMain.Unlock()
+	defer global.CsLastBlockFile.Unlock()
 	
 	gPersist := global.GetInstance()
 	defer func() {
@@ -411,13 +410,10 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	return true
 }
 
-var csMain *sync.RWMutex = new(sync.RWMutex)
-
-var csLastBlockFile *sync.RWMutex = new(sync.RWMutex)
 
 func FlushBlockFile(fFinalize bool) {
-	csLastBlockFile.Lock()
-	defer csLastBlockFile.Unlock()
+	global.CsLastBlockFile.Lock()
+	defer global.CsLastBlockFile.Unlock()
 	gPersist := global.GetInstance()
 	posOld := block.NewDiskBlockPos(int(gPersist.GlobalLastBlockFile), 0)
 
@@ -442,8 +438,8 @@ func FlushBlockFile(fFinalize bool) {
 
 func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	nHeight int32, nTime uint64, fKnown bool) bool {
-	csLastBlockFile.Lock()
-	defer csLastBlockFile.Unlock()
+	global.CsLastBlockFile.Lock()
+	defer global.CsLastBlockFile.Unlock()
 	if nAddSize > global.MaxBlockFileSize{
 		log.Error("FindBlockPos nAddSize [%#v] is too large more then global.MaxBlockFileSize ", nAddSize)
 		panic("FindBlockPos nAddSize  is too large more then global.MaxBlockFileSize")
@@ -515,8 +511,8 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 
 func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
 	undoPos.File = nFile
-	csLastBlockFile.Lock()
-	defer csLastBlockFile.Unlock()
+	global.CsLastBlockFile.Lock()
+	defer global.CsLastBlockFile.Unlock()
 	gPersist := global.GetInstance()
 	undoPos.Pos = (gPersist.GlobalBlockFileInfo)[nFile].UndoSize
 	gPersist.GlobalBlockFileInfo[nFile].UndoSize += uint32(nAddSize)

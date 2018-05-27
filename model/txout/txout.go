@@ -74,7 +74,7 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 	}
 	size := txOut.SerializeSize()
 	size += 32 + 4 + 1 + 107 + 4
-	return 3 * minRelayTxFee.GetFee(size)
+	return 3 * minRelayTxFee.GetFee(int(size))
 }
 
 func (txOut *TxOut) CheckValue() error {
