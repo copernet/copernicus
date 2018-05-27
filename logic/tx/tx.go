@@ -91,7 +91,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if err != nil {
 		return err
 	}
-	err = checkInputsMoney(transaction, tempCoinsMap, spendHeight)
+	err = CheckInputsMoney(transaction, tempCoinsMap, spendHeight)
 	if err != nil {
 		return err
 	}
@@ -182,20 +182,33 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int) error {
 	// make view
 	//coinsMap := utxo.NewEmptyCoinsMap()
-	//check duplicate out
-	//check inputs money
-	//check sigops
-	//update temp coinsMap
-	//check blockReward
-	//updateCoins
+	//utxo := utxo.GetUtxoCacheInstance()
+	//sigOpsCount := 0
+	////check inputs money
+	////check sigops
+	////update temp coinsMap
+	////check blockReward
+	////updateCoins
 	//for _, transaction := range txs {
-	//	if
+	//	//check duplicate out
+	//	if bip30Enable {
+	//		ins := transaction.GetIns()
+	//		for i, _ := range ins {
+	//			coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
+	//			if coin != nil {
+	//				return errcode.New(errcode.TxErrRejectInvalid)
+	//			}
+	//		}
+	//	}
+	//	if transaction.IsCoinBase() {
+	//
+	//	}
 	//}
 	//
 	//if tx.GetValueOut() > blockReward {
 	//	return errcode.New(errcode.TxErrRejectInvalid)
-	//}
-	return nil
+	//}errcode
+	//return nil
 }
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
@@ -1676,7 +1689,7 @@ func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	return true
 }
 
-func checkInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
+func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight int32) (err error) {
 	nValue := int64(0)
 	ins := transaction.GetIns()
 	for _, e := range ins {
