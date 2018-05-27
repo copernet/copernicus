@@ -13,13 +13,14 @@ func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height 
 		for idx, txin := range tx.GetIns() {
 			coin := coinMap.FetchCoin(txin.PreviousOutPoint)
 			if coin == nil {
-				panic("not coin find to spend!")
+				panic("no coin find to spend!")
 			}
 			undoCoins[idx] = coin.DeepCopy()
 			coinMap.SpendCoin(txin.PreviousOutPoint)
 		}
-		AddCoins(coinMap, tx, height)
+		txundo.SetUndoCoins(undoCoins)
 	}
+	AddCoins(coinMap, tx, height)
 }
 
 func AddCoins(coinMap *utxo.CoinsMap, tx *tx.Tx, height int32) {

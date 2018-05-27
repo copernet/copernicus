@@ -125,6 +125,6 @@ func (a Amount) MulF64(f float64) Amount {
 	return round(float64(a) * f)
 }
 
-func MoneyRange(value int64) bool {
+func MoneyRange(value Amount) bool {
 	return value >= 0 && value <= util.MaxMoney
 }

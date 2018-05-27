@@ -12,54 +12,11 @@ import (
 	"time"
 )
 
-// GuessVerificationProgress Guess how far we are in the verification process at the given block index
-func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.BlockIndex) float64 {
-	if index == nil {
-		return float64(0)
-	}
-
-	now := time.Now()
-
-	var txTotal float64
-	// todo confirm time precise
-	if int64(index.ChainTxCount) <= data.TxCount {
-		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
-	} else {
-		txTotal = float64(index.ChainTxCount) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
-	}
-	return float64(index.ChainTxCount) / txTotal
-}
 
 // IsInitialBlockDownload Check whether we are doing an initial block download
 // (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
-	return true
-	//// Once this function has returned false, it must remain false.
-	//gLatchToFalse.Store(false)
-	//// Optimization: pre-test latch before taking the lock.
-	//if gLatchToFalse.Load().(bool) {
-	//	return false
-	//}
-	//
-	//// todo !!! add cs_main sync.lock in here
-	//if gLatchToFalse.Load().(bool) {
-	//	return false
-	//}
-	//if GImporting.Load().(bool) || GfReindex {
-	//	return true
-	//}
-	//if GChainState.ChainActive.Tip() == nil {
-	//	return true
-	//}
-	//if GChainState.ChainActive.Tip().ChainWork.Cmp(&msg.ActiveNetParams.MinimumChainWork) < 0 {
-	//	return true
-	//}
-	//if int64(GChainState.ChainActive.Tip().GetBlockTime()) < util.GetMockTime()-GMaxTipAge {
-	//	return true
-	//}
-	//gLatchToFalse.Store(true)
-	//
-	//return false
+	return false
 }
 
 func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,

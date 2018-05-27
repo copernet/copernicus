@@ -332,7 +332,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	}
 
 	// check outputs money
-	totalOut := int64(0)
+	totalOut := amount.Amount(0)
 	for _, out := range tx.outs {
 		err := out.CheckValue()
 		if err != nil {
@@ -352,19 +352,25 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	// check dup input
 	if checkDupInput {
-		outPointSet := make(map[*outpoint.OutPoint]struct{})
-		for _, in := range tx.ins {
-			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
-				outPointSet[in.PreviousOutPoint] = struct{}{}
-			} else {
-				return errcode.New(errcode.TxErrRejectInvalid)
-			}
+		outPointSet := make(map[*outpoint.OutPoint]bool)
+		err := tx.CheckDuplicateIns(&outPointSet)
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
-
+func (tx *Tx) CheckDuplicateIns(outpoints *map[*outpoint.OutPoint]bool) error {
+	for _, in := range tx.ins {
+		if _, ok := (*outpoints)[in.PreviousOutPoint]; !ok {
+			(*outpoints)[in.PreviousOutPoint] = true
+		} else {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+	return nil
+}
 func (tx *Tx) CheckStandard() error {
 	// check version
 	if tx.version > MaxStandardVersion || tx.version < 1 {
@@ -436,8 +442,8 @@ func (tx *Tx) IsCommitment(data []byte) bool {
 //	}
 //}
 
-func (tx *Tx) GetValueOut() int64 {
-	var valueOut int64
+func (tx *Tx) GetValueOut() amount.Amount {
+	var valueOut amount.Amount
 	for _, out := range tx.outs {
 		valueOut += out.GetValue()
 		if !amount.MoneyRange(out.GetValue()) || amount.MoneyRange(valueOut) {
