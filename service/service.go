@@ -15,7 +15,7 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	//"github.com/btcboost/copernicus/util"
-	//"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/rpc/btcjson"
 )
 
 type MsgHandle struct {
@@ -163,20 +163,42 @@ func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 		return msgHandle.server.ConnectedCount(), nil
 
 	case *wire.MsgPing:
-		return msgHandle.server.BroadcastMessage(m), nil
+		msgHandle.server.BroadcastMessage(m)
+		return nil, nil
 
 	case *GetPeersInfoRequest:
 		return server.NewRpcConnManager(msgHandle.server).ConnectedPeers(), nil
 
 	case *btcjson.AddNodeCmd:
-		err = msgHandle.NodeOpera(m)
-		return
+		cmd := message.(*btcjson.AddNodeCmd)
+		var err error
+		switch cmd.SubCmd {
+		case "add":
+			err = server.NewRpcConnManager(msgHandle.server).Connect(cmd.Addr, true)
+		case "remove":
+			err = server.NewRpcConnManager(msgHandle.server).RemoveByAddr(cmd.Addr)
+		case "onetry":
+			err = server.NewRpcConnManager(msgHandle.server).Connect(cmd.Addr, false)
+		default:
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "invalid subcommand for addnode",
+			}
+		}
+
+		if err != nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: err.Error(),
+			}
+		}
+		return nil, nil
 
 	case *btcjson.DisconnectNodeCmd:
 		return
 
-	case *btcjson.GetAddedNodeInfoCmd:
-		return msgHandle.connManager.PersistentPeers(), nil
+		//case *btcjson.GetAddedNodeInfoCmd:
+		//	return msgHandle.connManager.PersistentPeers(), nil
 
 	case *GetNetTotalsRequest:
 		return
@@ -193,25 +215,25 @@ func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	case *ClearBannedRequest:
 		return
 
-	case *tx.Tx:
-		msgHandle.recvChannel <- m
-		ret := <-msgHandle.resultChannel
-		switch r := ret.(type) {
-		case error:
-			return nil, r
-		case []*tx.Tx:
-			return r, nil
-		}
-
-	case *block.Block:
-		msgHandle.recvChannel <- m
-		ret := <-msgHandle.resultChannel
-		switch r := ret.(type) {
-		case error:
-			return nil, r
-		case BlockState:
-			return r, nil
-		}
+		//case *tx.Tx:
+		//	msgHandle.recvChannel <- m
+		//	ret := <-msgHandle.resultChannel
+		//	switch r := ret.(type) {
+		//	case error:
+		//		return nil, r
+		//	case []*tx.Tx:
+		//		return r, nil
+		//	}
+		//
+		//case *block.Block:
+		//	msgHandle.recvChannel <- m
+		//	ret := <-msgHandle.resultChannel
+		//	switch r := ret.(type) {
+		//	case error:
+		//		return nil, r
+		//	case BlockState:
+		//		return r, nil
+		//	}
 
 	}
 

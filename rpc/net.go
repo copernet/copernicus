@@ -63,9 +63,8 @@ func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	getPeerInfoCmd := &service.GetPeersInfoRequest{}
-	ret, _ := service.ProcessForRpc(getPeerInfoCmd) // todo Alert: match with return type
+	ret, _ := service.ProcessForRpc(getPeerInfoCmd)
 	peers := ret.([]server.RpcServerPeer)
-	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()
 	infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
 	for _, item := range peers {
 		statsSnap := item.ToPeer().StatsSnapshot()
