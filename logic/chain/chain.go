@@ -531,7 +531,7 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 			if tx.IsCoinBase() {
 				mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
 			} else {
-				e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
+				e := lmp.AcceptTxToMemPool(tx)
 				if e != nil {
 					mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
 				}

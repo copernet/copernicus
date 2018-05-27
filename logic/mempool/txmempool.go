@@ -18,7 +18,7 @@ import (
 )
 
 // AccpetTxToMemPool add one check corret transaction to mempool.
-func AccpetTxToMemPool(tx *tx.Tx ) error {
+func AcceptTxToMemPool(tx *tx.Tx ) error {
 
 	//first : check transaction context And itself.
 	if err := ltx.CheckRegularTransaction(tx); err != nil {
