@@ -14,23 +14,23 @@ import (
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	//"github.com/btcboost/copernicus/model/block"
 	//"github.com/btcboost/copernicus/model/tx"
+	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/net/server"
 	//"github.com/btcboost/copernicus/util"
 	//"github.com/btcboost/copernicus/internal/btcjson"
 )
 
 type MsgHandle struct {
-	recvFromNet   <-chan *peer.PeerMessage
-	server 			*server.Server
+	recvFromNet <-chan *peer.PeerMessage
+	server      *server.Server
 }
 
 var msgHandle *MsgHandle
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage, server *server.Server){
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage, server *server.Server) {
 	msg := &MsgHandle{recvFromNet: cmdCh}
 	msg.server = server
 	ctxChild, _ := context.WithCancel(ctx)
@@ -194,6 +194,10 @@ func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 		return
 
 	case *ClearBannedRequest:
+		return
+
+	case *wire.InvVect:
+		// todo
 		return
 
 	case *tx.Tx:

@@ -8,6 +8,7 @@ import (
 	"github.com/btcboost/copernicus/crypto"
 	mempool2 "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/bitaddr"
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
@@ -17,7 +18,7 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/service/mining"
+	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 )
@@ -389,10 +390,11 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	hash := transaction.GetHash()
 
-	maxRawTxFee := mining.MaxTxFee
-	if c.AllowHighFees != nil && *c.AllowHighFees {
-		maxRawTxFee = 0
-	}
+	// todo open
+	//maxRawTxFee := mining.MaxTxFee
+	//if c.AllowHighFees != nil && *c.AllowHighFees {
+	//	maxRawTxFee = 0
+	//}
 
 	view := utxo.GetUtxoCacheInstance()
 	var haveChain bool
@@ -403,7 +405,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	entry := mempool.GetInstance().FindTx(hash)
 	if entry == nil && !haveChain {
-		_, err = mempool2.ProcessTransaction(&transaction, 0)
+		err = mempool2.AccpetTxToMemPool(&transaction, chain.GlobalChain)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -413,7 +415,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
-	// todo broadcast txInvMsg
+	_, err = service.ProcessForRpc(txInvMsg)
+	if err != nil {
+		return nil, btcjson.ErrRPCInternal
+	}
 
 	return hash.String(), nil
 }
@@ -542,7 +547,10 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 			}
 		}
 
-		view.AddCoin(out, *utxo.NewCoin(txOut, 1, false))
+		// todo confirm
+		coinsMap := utxo.NewEmptyCoinsMap()
+		coinsMap.AddCoin(out, utxo.NewCoin(txOut, 1, false))
+		view.UpdateCoins(coinsMap, hash)
 
 		// If redeemScript given and not using the local wallet (private
 		// keys given), add redeemScript to the tempKeystore so it can be
@@ -584,8 +592,8 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 			continue
 		}
 
-		prevPubKey := coin.GetTxOut().GetScriptPubKey()
-		cost := coin.GetTxOut().GetValue()
+		//prevPubKey := coin.GetTxOut().GetScriptPubKey()
+		//cost := coin.GetTxOut().GetValue()
 
 		if !hashSingle || index < transactions[0].GetOutsCount() {
 			// todo make and check signature
