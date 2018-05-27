@@ -6,7 +6,6 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/model/utxo"
@@ -145,7 +144,7 @@ func UndoCoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) u
 	//	// the correct information in there doesn't hurt.
 	//	coin = utxo.NewCoin(coin.GetTxOut(), alternate.GetHeight(), alternate.IsCoinBase())
 	//}
-	cm.AddCoin(out, *coin)
+	cm.AddCoin(out, coin)
 	if clean {
 		return undo.DisconnectOk
 	}

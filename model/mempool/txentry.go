@@ -26,7 +26,7 @@ type TxEntry struct {
 	// parentTx the tx's all Ancestors transaction
 	ParentTx map[*TxEntry]struct{}
 	// lp Track the height and time at which tx was final
-	lp tx.LockPoints
+	// lp tx.LockPoints
 	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
 	//Statistics Information for every txentry with its ancestors And descend.

@@ -257,7 +257,7 @@ func (bf *Filter) AddOutPoint(outpoint *outpoint.OutPoint) {
 func (bf *Filter) maybeAddOutpoint(outHash *util.Hash, outIdx uint32) {
 	switch bf.msgFilterLoad.Flags {
 	case wire.BloomUpdateAll:
-		outpoint := outpoint.NewOutPoint(outHash, outIdx)
+		outpoint := outpoint.NewOutPoint(*outHash, outIdx)
 		bf.addOutPoint(outpoint)
 	case wire.BloomUpdateP2PubkeyOnly:
 		var sc *script.Script
@@ -265,7 +265,7 @@ func (bf *Filter) maybeAddOutpoint(outHash *util.Hash, outIdx uint32) {
 		if err != nil {
 			errors.New("The script not standard...")
 		} else if class == script.ScriptPubkey || class == script.ScriptMultiSig {
-			outpoint := outpoint.NewOutPoint(outHash, outIdx)
+			outpoint := outpoint.NewOutPoint(*outHash, outIdx)
 			bf.addOutPoint(outpoint)
 		}
 	}
@@ -280,7 +280,8 @@ func (bf *Filter) maybeAddOutpoint(outHash *util.Hash, outIdx uint32) {
 func (bf *Filter) matchTxAndUpdate(tx *tx.Tx) bool {
 	// Check if the filter matches the hash of the transaction.
 	// This is useful for finding transactions when they appear in a block.
-	matched := bf.matches(tx.GetHash()[:])
+	txHash := tx.GetHash()
+	matched := bf.matches(txHash[:])
 
 	// Check if the filter matches any data elements in the public key
 	// scripts of any of the outputs.  When it does, add the outpoint that
