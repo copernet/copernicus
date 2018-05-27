@@ -2,7 +2,10 @@ package chain
 
 import (
 	"fmt"
+	"strings"
 	"time"
+	
+	"copernicus/net/msg"
 	
 	"github.com/btcboost/copernicus/errcode"
 	// lblock "github.com/btcboost/copernicus/logic/block"
@@ -519,11 +522,11 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 		for _, tx := range blk.Txs {
 			// ignore validation errors in resurrected transactions
 			if tx.IsCoinBase() {
-				mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
+				mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
 			} else {
 				e := lmp.AccpetTxToMemPool(tx, chain.GetInstance())
 				if e != nil {
-					mempool.Gpool.RemoveTxRecursive(tx, mempool.REORG)
+					mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
 				}
 			}
 		}
@@ -548,72 +551,72 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 
 // UpdateTip Update chainActive and related internal data structures.
 func UpdateTip(param *chainparams.BitcoinParams, pindexNew *blockindex.BlockIndex) {
-	//chain.GetInstance().SetTip(pindexNew)
-	//// New best block
-	////GMemPool.AddTransactionsUpdated(1)
-	//
-	////	TODO !!! add Parallel Programming boost::condition_variable
-	//warningMessages := make([]string, 0)
-	//if !IsInitialBlockDownload() {
-	//	nUpgraded := 0
-	//	tip := pindexNew
-	//	for bit := 0; bit < VersionBitsNumBits; bit++ {
-	//		checker := NewWarningBitsConChecker(bit)
-	//		state := GetStateFor(checker, index, param, GWarningCache[bit])
-	//		if state == ThresholdActive || state == ThresholdLockedIn {
-	//			if state == ThresholdActive {
-	//				strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
-	//				msg.SetMiscWarning(strWaring)
-	//				if !gWarned {
-	//					AlertNotify(strWaring)
-	//					gWarned = true
-	//				}
-	//			} else {
-	//				warningMessages = append(warningMessages,
-	//					fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
-	//			}
-	//		}
-	//	}
-	//	// Check the version of the last 100 blocks to see if we need to
-	//	// upgrade:
-	//	for i := 0; i < 100 && index != nil; i++ {
-	//		nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
-	//		if index.Header.Version > VersionBitsLastOldBlockVersion &&
-	//			(int(index.Header.Version)&(^nExpectedVersion) != 0) {
-	//			nUpgraded++
-	//			index = index.Prev
-	//		}
-	//	}
-	//	if nUpgraded > 0 {
-	//		warningMessages = append(warningMessages,
-	//			fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
-	//	}
-	//	if nUpgraded > 100/2 {
-	//		strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
-	//			" It's possible unknown rules are in effect")
-	//		// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
-	//		// the user:
-	//		msg.SetMiscWarning(strWarning)
-	//		if !gWarned {
-	//			AlertNotify(strWarning)
-	//
-	//			gWarned = true
-	//		}
-	//	}
-	//}
-	//txdata := param.TxData()
-	//tip := chain.GetInstance().Tip()
-	//utxoTip := utxo.GetUtxoCacheInstance()
-	//logs.Info("%s: new best=%s height=%d version=0x%08x work=%.8g tx=%lu "+
-	//	"date='%s' progress=%f cache=%.1f(%utxo)", log.TraceLog(), tip.BlockHash.ToString(),
-	//	tip.Height, tip.Header.Version,
-	//	tip.ChainWork.String(), tip.ChainTxCount,
-	//	time.Unix(int64(tip.Header.Time), 0).String(),
-	//	GuessVerificationProgress(txdata, tip),
-	//	utxoTip.DynamicMemoryUsage(), utxoTip.GetCacheSize())
-	//if len(warningMessages) != 0 {
-	//	logs.Info("waring= %s", strings.Join(warningMessages, ","))
-	//}
+	chain.GetInstance().SetTip(pindexNew)
+	// New best block
+	//GMemPool.AddTransactionsUpdated(1)
+	
+	//	TODO !!! add Parallel Programming boost::condition_variable
+	warningMessages := make([]string, 0)
+	if !IsInitialBlockDownload() {
+		nUpgraded := 0
+		tip := pindexNew
+		for bit := 0; bit < VersionBitsNumBits; bit++ {
+			checker := NewWarningBitsConChecker(bit)
+			state := GetStateFor(checker, index, param, GWarningCache[bit])
+			if state == ThresholdActive || state == ThresholdLockedIn {
+				if state == ThresholdActive {
+					strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
+					msg.SetMiscWarning(strWaring)
+					if !gWarned {
+						AlertNotify(strWaring)
+						gWarned = true
+					}
+				} else {
+					warningMessages = append(warningMessages,
+						fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
+				}
+			}
+		}
+		// Check the version of the last 100 blocks to see if we need to
+		// upgrade:
+		for i := 0; i < 100 && index != nil; i++ {
+			nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
+			if index.Header.Version > VersionBitsLastOldBlockVersion &&
+				(int(index.Header.Version)&(^nExpectedVersion) != 0) {
+				nUpgraded++
+				index = index.Prev
+			}
+		}
+		if nUpgraded > 0 {
+			warningMessages = append(warningMessages,
+				fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
+		}
+		if nUpgraded > 100/2 {
+			strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
+				" It's possible unknown rules are in effect")
+			// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
+			// the user:
+			msg.SetMiscWarning(strWarning)
+			if !gWarned {
+				AlertNotify(strWarning)
+	
+				gWarned = true
+			}
+		}
+	}
+	txdata := param.TxData()
+	tip := chain.GetInstance().Tip()
+	utxoTip := utxo.GetUtxoCacheInstance()
+	logs.Info("%s: new best=%s height=%d version=0x%08x work=%.8g tx=%lu "+
+		"date='%s' progress=%f cache=%.1f(%utxo)", log.TraceLog(), tip.BlockHash.ToString(),
+		tip.Height, tip.Header.Version,
+		tip.ChainWork.String(), tip.ChainTxCount,
+		time.Unix(int64(tip.Header.Time), 0).String(),
+		GuessVerificationProgress(txdata, tip),
+		utxoTip.DynamicMemoryUsage(), utxoTip.GetCacheSize())
+	if len(warningMessages) != 0 {
+		logs.Info("waring= %s", strings.Join(warningMessages, ","))
+	}
 }
 
 

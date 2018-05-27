@@ -55,9 +55,9 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 		height = *c.Height
 	}
 
-	index := chain.GlobalChain.Tip()
-	if height > 0 || height < chain.GlobalChain.Height() {
-		index = chain.GlobalChain.GetIndex(height)
+	index := chain.GetInstance().Tip()
+	if height > 0 || height < chain.GetInstance().Height() {
+		index = chain.GetInstance().GetIndex(height)
 	}
 
 	if index == nil || index.Height != 0 {
@@ -108,7 +108,7 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				}
 			}
 
-		index := chain.GlobalChain.Tip()
+		index := chain.GetInstance().Tip()
 		result := btcjson.GetMiningInfoResult{
 			Blocks:                  int64(index.Height),
 			CurrentBlockSize:        mining.GetLastBlockSize(),
@@ -190,7 +190,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		// todo complete
 	}
 
-	if indexPrev != chain.GlobalChain.Tip() ||
+	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
 			util.GetMockTime()-start > 5 {
 
@@ -199,7 +199,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		indexPrev = nil
 		// Store the pindexBest used before CreateNewBlock, to avoid races
 		transactionsUpdatedLast = mempool.GetInstance().TransactionsUpdated
-		indexPrevNew := chain.GlobalChain.Tip()
+		indexPrevNew := chain.GetInstance().Tip()
 		start = util.GetMockTime()
 
 		// Create new block
@@ -333,7 +333,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		Transactions:  transactions,
 		CoinbaseAux:   &btcjson.GetBlockTemplateResultAux{Flags: mining.CoinbaseFlag},
 		CoinbaseValue: &v,
-		LongPollID:    chain.GlobalChain.Tip().GetBlockHash().String() + fmt.Sprintf("%d", transactionsUpdatedLast),
+		LongPollID:    chain.GetInstance().Tip().GetBlockHash().String() + fmt.Sprintf("%d", transactionsUpdatedLast),
 		Target:        pow.CompactToBig(bt.Block.Header.Bits).String(),
 		MinTime:       indexPrev.GetMedianTimePast() + 1,
 		Mutable:       mutable,
@@ -394,7 +394,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	hash := bk.Header.GetHash()
-	bindex := chain.GlobalChain.FindBlockIndex(hash)
+	bindex := chain.GetInstance().FindBlockIndex(hash)
 	if bindex != nil {
 		if bindex.IsValid(blockindex2.BlockValidScripts) {
 			return nil, &btcjson.RPCError{
@@ -414,7 +414,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 		}
 	}
 
-	indexPrev := chain.GlobalChain.Tip()
+	indexPrev := chain.GetInstance().Tip()
 	// TestBlockValidity only supports blocks built on the current Tip
 	if bk.Header.HashPrevBlock != *indexPrev.GetBlockHash() {
 		return nil, &btcjson.RPCError{
@@ -523,7 +523,7 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 const nInnerLoopCount = 0x100000
 
 func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64) (interface{}, error) {
-	/*	heightStart := chain.GlobalChain.Height()
+	/*	heightStart := chain.GetInstance().Height()
 		heightEnd := heightStart + generate
 		height := heightStart
 
@@ -539,7 +539,7 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 				}
 			}
 
-			extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GlobalChain.Tip())
+			extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
 			// blockchain.CheckProofOfWork(bt.Block, consensus.ActiveNetParams.PowLimit) != nil // todo realise <CheckProofOfWork()>
 			for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount {
 				bt.Block.Header.Nonce++
