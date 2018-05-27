@@ -75,7 +75,7 @@ func TestTxMempooladdTx(t *testing.T) {
 	testEntryHelp := NewTestMemPoolEntry()
 
 	txParentPtr := tx.NewTx(0, tx.TxVersion)
-	txin := txin2.NewTxIn(&outpoint.OutPoint{util.HashOne, 0}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
+	txin := txin2.NewTxIn(&outpoint.OutPoint{util.HashOne, 0}, script.NewScriptRaw([]byte{opcodes.OP_11}), 0xffffffff)
 	txParentPtr.AddTxIn(txin)
 	for i := 0; i < 3; i++ {
 		o := txout.NewTxOut(33000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
@@ -85,7 +85,7 @@ func TestTxMempooladdTx(t *testing.T) {
 
 	var txChild [3]tx.Tx
 	for i := 0; i < 3; i++ {
-		ins := txin2.NewTxIn(&outpoint.OutPoint{txParentPtr.GetHash(), uint32(i)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
+		ins := txin2.NewTxIn(&outpoint.OutPoint{txParentPtr.GetHash(), uint32(i)}, script.NewScriptRaw([]byte{opcodes.OP_11}), 0xffffffff)
 		txChild[i].AddTxIn(ins)
 		outs := txout.NewTxOut(11000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txChild[i].AddTxOut(outs)
@@ -94,7 +94,7 @@ func TestTxMempooladdTx(t *testing.T) {
 
 	var txGrandChild [3]tx.Tx
 	for i := 0; i < 3; i++ {
-		ins := txin2.NewTxIn(&outpoint.OutPoint{txChild[i].GetHash(), uint32(0)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
+		ins := txin2.NewTxIn(&outpoint.OutPoint{txChild[i].GetHash(), uint32(0)}, script.NewScriptRaw([]byte{opcodes.OP_11}), 0xffffffff)
 		txGrandChild[i].AddTxIn(ins)
 		outs := txout.NewTxOut(11000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txGrandChild[i].AddTxOut(outs)
@@ -207,7 +207,7 @@ func createTx() []*TxEntry {
 	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2)
 
 	tx3 := tx.NewTx(0, tx.TxVersion)
-	ins := txin2.NewTxIn(&outpoint.OutPoint{tx1.GetHash(), 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), tx.MaxTxInSequenceNum)
+	ins := txin2.NewTxIn(&outpoint.OutPoint{tx1.GetHash(), 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff)
 	tx3.AddTxIn(ins)
 	out3 := txout.NewTxOut(5*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx3.AddTxOut(out3)
