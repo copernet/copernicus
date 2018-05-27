@@ -1114,7 +1114,8 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		}
 
 		// Generate the inventory vector and relay it.
-		iv := wire.NewInvVect(wire.InvTypeBlock, block.GetHash())
+		hash := block.GetHash()
+		iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
 		sm.peerNotifier.RelayInventory(iv, block.Header)
 
 		// A block has been connected to the main block chain.
