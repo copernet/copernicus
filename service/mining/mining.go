@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/btcboost/copernicus/conf"
@@ -218,8 +219,8 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			continue
 		}
 		// add the ancestors of the current item to block
-		h := entry.Tx.GetHash()
-		ancestors := pool.CalculateMemPoolAncestors(&h)
+		noLimit := uint64(math.MaxUint64)
+		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		ba.onlyUnconfirmed(ancestors)
 		ancestors[&entry] = struct{}{} // add current item
 		if !ba.testPackageTransactions(ancestors) {
@@ -246,7 +247,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// add dummy coinbase tx as first transaction
 	ba.bt.Block.Txs = make([]*tx.Tx, 0, 100000)
-	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0xffffffff))
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0x01)) // todo default version
 	ba.bt.TxFees = make([]amount.Amount, 0, 100000)
 	ba.bt.TxFees = append(ba.bt.TxFees, -1)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
@@ -286,7 +287,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	lastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
-	coinbaseTx := tx.NewTx(0, 0xffffffff)
+	coinbaseTx := tx.NewTx(0, 0x01)
 	buf := bytes.NewBuffer(nil)
 	bs := make([]byte, 4)
 	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
@@ -363,8 +364,8 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	mpool.Lock()
 	defer mpool.Unlock()
 	for entry := range alreadyAdded {
-		h := entry.Tx.GetHash()
-		descendants := mpool.CalculateDescendants(&h)
+		descendants := make(map[*mempool.TxEntry]struct{})
+		mpool.CalculateDescendants(entry, descendants)
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
