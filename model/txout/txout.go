@@ -10,10 +10,11 @@ import (
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/amount"
 )
 
 type TxOut struct {
-	value        int64
+	value        amount.Amount
 	scriptPubKey *script.Script
 }
 
@@ -108,10 +109,10 @@ func (txOut *TxOut) GetPubKeyType() (pubKeyType int, err error) {
 	return txOut.scriptPubKey.CheckScriptPubKeyStandard()
 }
 
-func (txOut *TxOut) GetValue() int64 {
+func (txOut *TxOut) GetValue() amount.Amount {
 	return txOut.value
 }
-func (txOut *TxOut) SetValue(v int64) {
+func (txOut *TxOut) SetValue(v amount.Amount) {
 	txOut.value = v
 }
 func (txOut *TxOut) GetScriptPubKey() *script.Script {
@@ -159,7 +160,7 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 	return txOut.scriptPubKey.IsEqual(out.scriptPubKey)
 }
 
-func NewTxOut(value int64, scriptPubKey *script.Script) *TxOut {
+func NewTxOut(value amount.Amount, scriptPubKey *script.Script) *TxOut {
 	txOut := TxOut{
 		value:        value,
 		scriptPubKey: scriptPubKey,

@@ -436,8 +436,8 @@ func (tx *Tx) IsCommitment(data []byte) bool {
 //	}
 //}
 
-func (tx *Tx) GetValueOut() int64 {
-	var valueOut int64
+func (tx *Tx) GetValueOut() amount.Amount {
+	var valueOut amount.Amount
 	for _, out := range tx.outs {
 		valueOut += out.GetValue()
 		if !amount.MoneyRange(out.GetValue()) || amount.MoneyRange(valueOut) {
