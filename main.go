@@ -71,7 +71,7 @@ func bchMain(ctx context.Context) error {
 	}()
 	go func() {
 		<- rpcServer.RequestedProcessShutdown()
-		interrupt <- struct{}{}
+		shutdownRequestChannel <- struct{}{}
 	}()
 	<-interrupt
 	return nil
