@@ -20,12 +20,12 @@ Log:
   Module: mempool utxo
 
 P2PNet:
-  Listerners: 127.0.0.1:8333 127.0.0.1:18333
+  ListenAddrs: 127.0.0.1:18333
   MaxPeers: 128
   TargetOutbound: 8
   DisableBanding: true
   SimNet: false
-  DisableListen: true
+  DisableListen: false
   BlocksOnly: true
   DisableRPC: false
   OnOnion: true
