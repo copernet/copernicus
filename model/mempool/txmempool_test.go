@@ -114,7 +114,7 @@ func TestTxMempooladdTx(t *testing.T) {
 	}
 
 	// Just add the parent:
-	ancestors, _ := testPool.calculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, _ := testPool.CalculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
 	if err := testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors); err != nil {
 		t.Error("add Tx failure : ", err)
 		return
@@ -128,12 +128,12 @@ func TestTxMempooladdTx(t *testing.T) {
 	}
 
 	// Parent, children, grandchildren:
-	ancestors, _ = testPool.calculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, _ = testPool.CalculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
 	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors)
 	for i := 0; i < 3; i++ {
-		ancestors, _ := testPool.calculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
+		ancestors, _ := testPool.CalculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
-		ancestors, _ = testPool.calculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
+		ancestors, _ = testPool.CalculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
 	}
 	poolSize = testPool.Size()
@@ -174,9 +174,9 @@ func TestTxMempooladdTx(t *testing.T) {
 	// Add children and grandchildren, but NOT the parent (simulate the parent
 	// being in a block)
 	for i := 0; i < 3; i++ {
-		ancestors, _ := testPool.calculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
+		ancestors, _ := testPool.CalculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
-		ancestors, _ = testPool.calculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
+		ancestors, _ = testPool.CalculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
 	}
 	// Now remove the parent, as might happen if a block-re-org occurs but the
@@ -234,7 +234,7 @@ func TestMempoolSortTime(t *testing.T) {
 
 	set := createTx()
 	for _, e := range set {
-		ancestors, _ := testPool.calculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		ancestors, _ := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(e, ancestors)
 	}
 
@@ -282,7 +282,7 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	set := createTx()
 	fmt.Println("tx number : ", len(set))
 	for _, e := range set {
-		ancestors, _ := testPool.calculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		ancestors, _ := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(e, ancestors)
 		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.GetHash().ToString(), testPool.cacheInnerUsage)
 	}
