@@ -16,6 +16,7 @@ import (
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"strconv"
@@ -68,7 +69,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	//check sequencelock
-	lp := CalculateSequenceLocks(transaction, tx.StandardLockTimeVerifyFlags)
+	lp := CalculateSequenceLocks(transaction, uint32(tx.StandardLockTimeVerifyFlags))
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
 	// transactions that can't be mined yet. Must keep pool.cs for this
@@ -134,11 +135,16 @@ func checkBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 
 func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64,
 	blockReward int64, maxBlockSigOps uint64) error {
+	txsLen := len(txs)
+	if txsLen == 0 {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
 	err := checkBlockCoinBaseTransaction(txs[0], blockHeight)
 	if err != nil {
 		return err
 	}
 	sigOps := txs[0].GetSigOpCountWithoutP2SH()
+	outPointSet := make(map[*outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
@@ -152,6 +158,13 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 		if err != nil {
 			return err
 		}
+
+		// check dup input
+		err = transaction.CheckDuplicateIns(&outPointSet)
+		if err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
@@ -169,16 +182,14 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 //	return uint32(nSubsidy) >> halvings
 //}
 
-func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int) error {
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int,
+	blockSubSidy amount.Amount, blockHeight int32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
 	utxo := utxo.GetUtxoCacheInstance()
 	sigOpsCount := 0
 	var fees amount.Amount = 0
-	//check inputs money
-	//check sigops
-	//update temp coinsMap
-	//check blockReward
+	bundo = undo.NewBlockUndo()
 	//updateCoins
 	for _, transaction := range txs {
 		//check duplicate out
@@ -187,43 +198,49 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for i, _ := range outs {
 				coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
 				if coin != nil {
-					return errcode.New(errcode.TxErrRejectInvalid)
+					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 				}
 			}
 		}
+		//check sigops
 		sigOpsCount += transaction.GetSigOpCountWithoutP2SH()
 		if sigOpsCount > tx.MaxTxSigOpsCounts {
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
+			UpdateCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
-		ins := transaction.GetIns()
 		var valueIn amount.Amount = 0
+		ins := transaction.GetIns()
 		for _, in := range ins {
-			coin := utxo.GetCoin(in.PreviousOutPoint)
+			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 			if coin == nil {
-				return errcode.New(errcode.TxErrRejectInvalid)
+				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 			}
-			coinsMap.AddCoin(in.PreviousOutPoint, coin)
 			valueIn += coin.GetAmount()
 		}
 		lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
 		if !CheckSequenceLocks(lp) {
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		fees += valueIn - transaction.GetValueOut()
+		//check inputs
 		err := checkInputs(transaction, coinsMap, scriptCheckFlags)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-		//UpdateCoins(transaction, )
+		//update temp coinsMap
+		//txundo := undo.NewTxUndo()
+		//UpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		//bundo.AddTxUndo(txundo)
 	}
 
-	//if tx.GetValueOut() > blockReward {
-	//	return errcode.New(errcode.TxErrRejectInvalid)
-	//}errcode
-	return nil
+	//check blockReward
+	if fees+blockSubSidy > txs[0].GetValueOut() {
+		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+	}
+	return coinsMap, bundo, nil
 }
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {

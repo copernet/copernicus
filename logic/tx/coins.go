@@ -16,11 +16,11 @@ func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height 
 				panic("no coin find to spend!")
 			}
 			undoCoins[idx] = coin.DeepCopy()
-			txundo.SetUndoCoins(undoCoins)
 			coinMap.SpendCoin(txin.PreviousOutPoint)
 		}
-		AddCoins(coinMap, tx, height)
+		txundo.SetUndoCoins(undoCoins)
 	}
+	AddCoins(coinMap, tx, height)
 }
 
 func AddCoins(coinMap *utxo.CoinsMap, tx *tx.Tx, height int32) {
