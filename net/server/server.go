@@ -3,7 +3,7 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package main
+package server
 
 import (
 	"context"
@@ -36,11 +36,10 @@ import (
 	"github.com/btcboost/copernicus/net/upnp"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/rpc"
-	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
+	"github.com/btcboost/copernicus/net/syncmanager"
 )
 
 const (
@@ -190,7 +189,7 @@ func (ps *peerState) forAllPeers(closure func(sp *serverPeer)) {
 
 // server provides a bitcoin server for handling communications to and from
 // bitcoin peers.
-type server struct {
+type Server struct {
 	// The following variables must only be used atomically.
 	// Putting the uint64s first makes them 64-bit aligned for 32-bit systems.
 	bytesReceived        uint64 // Total bytes received from all peers since start.
@@ -202,8 +201,7 @@ type server struct {
 	chainParams          *chainparams.BitcoinParams
 	addrManager          *addrmgr.AddrManager
 	connManager          *connmgr.ConnManager
-	syncManager          *service.SyncManager
-	rpcServer            *rpc.Server
+	syncManager          *syncmanager.SyncManager
 	modifyRebroadcastInv chan interface{}
 	newPeers             chan *serverPeer
 	donePeers            chan *serverPeer
@@ -223,8 +221,7 @@ type server struct {
 	// initial creation of the server and never changed afterwards, so they
 	// do not need to be protected for concurrent access.
 
-	phCh chan *peer.PeerMessage
-	mh   *service.MsgHandle
+	PhCh chan *peer.PeerMessage
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
@@ -236,7 +233,7 @@ type serverPeer struct {
 	*peer.Peer
 
 	connReq        *connmgr.ConnReq
-	server         *server
+	server         *Server
 	persistent     bool
 	continueHash   *util.Hash
 	relayMtx       sync.Mutex
@@ -254,7 +251,7 @@ type serverPeer struct {
 
 // newServerPeer returns a new serverPeer instance. The peer needs to be set by
 // the caller.
-func newServerPeer(s *server, isPersistent bool) *serverPeer {
+func newServerPeer(s *Server, isPersistent bool) *serverPeer {
 	return &serverPeer{
 		server:         s,
 		persistent:     isPersistent,
@@ -446,7 +443,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// per message.  The NewMsgInvSizeHint function automatically limits
 	// the passed hint to the maximum allowed, so it's safe to pass it
 	// without double checking it here.
-	txDescs := mempool.Gpool.GetAllTxEntry()
+	txDescs := mempool.GetInstance().GetAllTxEntry()
 	invMsg := wire.NewMsgInvSizeHint(uint(len(txDescs)))
 
 	for hash := range txDescs {
@@ -506,7 +503,8 @@ func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 	block := (*block.Block)(msg)
 
 	// Add the block to the known inventory for the peer.
-	iv := wire.NewInvVect(wire.InvTypeBlock, block.GetHash())
+	hash := block.GetHash()
+	iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
 	sp.AddKnownInventory(iv)
 
 	// Queue the block up to be handled by the block
@@ -927,7 +925,7 @@ func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten int, msg wire.Message, 
 type rpcPeer serverPeer
 
 // Ensure rpcPeer implements the rpcserverPeer interface.
-var _ rpc.RpcServerPeer = (*rpcPeer)(nil)
+//var _ rpc.RpcServerPeer = (*rpcPeer)(nil)
 
 // ToPeer returns the underlying peer instance.
 //
@@ -987,7 +985,7 @@ func randomUint16Number(max uint16) uint16 {
 
 // AddRebroadcastInventory adds 'iv' to the list of inventories to be
 // rebroadcasted at random intervals until they show up in a block.
-func (s *server) AddRebroadcastInventory(iv *wire.InvVect, data interface{}) {
+func (s *Server) AddRebroadcastInventory(iv *wire.InvVect, data interface{}) {
 	// Ignore if shutting down.
 	if atomic.LoadInt32(&s.shutdown) != 0 {
 		return
@@ -998,7 +996,7 @@ func (s *server) AddRebroadcastInventory(iv *wire.InvVect, data interface{}) {
 
 // RemoveRebroadcastInventory removes 'iv' from the list of items to be
 // rebroadcasted if present.
-func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
+func (s *Server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 	// Ignore if shutting down.
 	if atomic.LoadInt32(&s.shutdown) != 0 {
 		return
@@ -1009,7 +1007,7 @@ func (s *server) RemoveRebroadcastInventory(iv *wire.InvVect) {
 
 // relayTransactions generates and relays inventory vectors for all of the
 // passed transactions to all connected peers.
-func (s *server) relayTransactions(txns []*mempool.TxEntry) {
+func (s *Server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
 		hash := txD.Tx.GetHash()
 		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
@@ -1021,7 +1019,7 @@ func (s *server) relayTransactions(txns []*mempool.TxEntry) {
 // both websocket and getblocktemplate long poll clients of the passed
 // transactions.  This function should be called whenever new transactions
 // are added to the mempool.
-func (s *server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
+func (s *Server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 	// Generate and relay inventory vectors for all newly accepted
 	// transactions.
 	s.relayTransactions(txns)
@@ -1035,7 +1033,7 @@ func (s *server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 
 // Transaction has one confirmation on the main chain. Now we can mark it as no
 // longer needing rebroadcasting.
-func (s *server) TransactionConfirmed(tx *tx.Tx) {
+func (s *Server) TransactionConfirmed(tx *tx.Tx) {
 	// Rebroadcasting is only necessary when the RPC server is active.
 	if s.rpcServer == nil {
 		return
@@ -1048,13 +1046,14 @@ func (s *server) TransactionConfirmed(tx *tx.Tx) {
 
 // pushTxMsg sends a tx message for the provided transaction hash to the
 // connected peer.  An error is returned if the transaction hash is not known.
-func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
+func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Attempt to fetch the requested transaction from the pool.  A
 	// call could be made to check for existence first, but simply trying
 	// to fetch a missing transaction results in the same behavior.
-	txe := mempool.Gpool.FindTx(*hash)
+	pool := mempool.GetInstance()
+	txe := pool.FindTx(*hash)
 	if txe == nil {
 		log.Trace("Unable to fetch tx %v from transaction pool ", hash)
 
@@ -1080,7 +1079,7 @@ func (s *server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 // pushBlockMsg sends a block message for the provided block hash to the
 // connected peer.  An error is returned if the block hash is not known.
 // FIXME by qiw: read block data from chain and make a msg block.
-func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
+func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Fetch the raw block bytes from the database.
@@ -1131,7 +1130,7 @@ func (s *server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 // the connected peer.  Since a merkle block requires the peer to have a filter
 // loaded, this call will simply be ignored if there is no filter loaded.  An
 // error is returned if the block hash is not known.
-func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
+func (s *Server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
 	doneChan chan<- struct{}, waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
 	// Do not send a response if the peer doesn't have a filter loaded.
@@ -1190,7 +1189,7 @@ func (s *server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
 
 // handleUpdatePeerHeight updates the heights of all peers who were known to
 // announce a block we recently accepted.
-func (s *server) handleUpdatePeerHeights(state *peerState, umsg updatePeerHeightsMsg) {
+func (s *Server) handleUpdatePeerHeights(state *peerState, umsg updatePeerHeightsMsg) {
 	state.forAllPeers(func(sp *serverPeer) {
 		// The origin peer should already have the updated height.
 		if sp.Peer == umsg.originPeer {
@@ -1218,7 +1217,7 @@ func (s *server) handleUpdatePeerHeights(state *peerState, umsg updatePeerHeight
 
 // handleAddPeerMsg deals with adding new peers.  It is invoked from the
 // peerHandler goroutine.
-func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
+func (s *Server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	if sp == nil {
 		return false
 	}
@@ -1279,7 +1278,7 @@ func (s *server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 
 // handleDonePeerMsg deals with peers that have signalled they are done.  It is
 // invoked from the peerHandler goroutine.
-func (s *server) handleDonePeerMsg(state *peerState, sp *serverPeer) {
+func (s *Server) handleDonePeerMsg(state *peerState, sp *serverPeer) {
 	var list map[int32]*serverPeer
 	if sp.persistent {
 		list = state.persistentPeers
@@ -1316,7 +1315,7 @@ func (s *server) handleDonePeerMsg(state *peerState, sp *serverPeer) {
 
 // handleBanPeerMsg deals with banning peers.  It is invoked from the
 // peerHandler goroutine.
-func (s *server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
+func (s *Server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 	host, _, err := net.SplitHostPort(sp.Addr())
 	if err != nil {
 		log.Debug("can't split ban peer %s %v", sp.Addr(), err)
@@ -1329,7 +1328,7 @@ func (s *server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
 // known to have it.  It is invoked from the peerHandler goroutine.
-func (s *server) handleRelayInvMsg(state *peerState, msg relayMsg) {
+func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 	state.forAllPeers(func(sp *serverPeer) {
 		if !sp.Connected() {
 			return
@@ -1397,7 +1396,7 @@ func (s *server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 
 // handleBroadcastMsg deals with broadcasting messages to peers.  It is invoked
 // from the peerHandler goroutine.
-func (s *server) handleBroadcastMsg(state *peerState, bmsg *broadcastMsg) {
+func (s *Server) handleBroadcastMsg(state *peerState, bmsg *broadcastMsg) {
 	state.forAllPeers(func(sp *serverPeer) {
 		if !sp.Connected() {
 			return
@@ -1448,7 +1447,7 @@ type removeNodeMsg struct {
 
 // handleQuery is the central handler for all queries and commands from other
 // goroutines related to peer state.
-func (s *server) handleQuery(state *peerState, querymsg interface{}) {
+func (s *Server) handleQuery(state *peerState, querymsg interface{}) {
 	switch msg := querymsg.(type) {
 	case getConnCountMsg:
 		nconnected := int32(0)
@@ -1627,11 +1626,11 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 // connection is established.  It initializes a new inbound server peer
 // instance, associates it with the connection, and starts a goroutine to wait
 // for disconnection.
-func (s *server) inboundPeerConnected(conn net.Conn) {
+func (s *Server) inboundPeerConnected(conn net.Conn) {
 	sp := newServerPeer(s, false)
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
-	sp.AssociateConnection(conn, s.phCh)
+	sp.AssociateConnection(conn, s.PhCh)
 	go s.peerDoneHandler(sp)
 }
 
@@ -1640,7 +1639,7 @@ func (s *server) inboundPeerConnected(conn net.Conn) {
 // peer instance, associates it with the relevant state such as the connection
 // request instance and the connection itself, and finally notifies the address
 // manager of the attempt.
-func (s *server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
+func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp := newServerPeer(s, c.Permanent)
 	p, err := peer.NewOutboundPeer(newPeerConfig(sp), c.Addr.String())
 	if err != nil {
@@ -1650,14 +1649,14 @@ func (s *server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp.Peer = p
 	sp.connReq = c
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
-	sp.AssociateConnection(conn, s.phCh)
+	sp.AssociateConnection(conn, s.PhCh)
 	go s.peerDoneHandler(sp)
 	s.addrManager.Attempt(sp.NA())
 }
 
 // peerDoneHandler handles peer disconnects by notifiying the server that it's
 // done along with other performing other desirable cleanup.
-func (s *server) peerDoneHandler(sp *serverPeer) {
+func (s *Server) peerDoneHandler(sp *serverPeer) {
 	sp.WaitForDisconnect()
 	s.donePeers <- sp
 
@@ -1666,7 +1665,8 @@ func (s *server) peerDoneHandler(sp *serverPeer) {
 		s.syncManager.DonePeer(sp.Peer)
 
 		// Evict any remaining orphans that were sent by the peer.
-		numEvicted := mempool.Gpool.RemoveOrphansByTag(int64(sp.ID()))
+		pool := mempool.GetInstance()
+		numEvicted := pool.RemoveOrphansByTag(int64(sp.ID()))
 		if numEvicted > 0 {
 			log.Debug("Evicted %d from peer %v (id %d)", numEvicted, sp, sp.ID())
 		}
@@ -1677,7 +1677,7 @@ func (s *server) peerDoneHandler(sp *serverPeer) {
 // peerHandler is used to handle peer operations such as adding and removing
 // peers to and from the server, banning peers, and broadcasting messages to
 // peers.  It must be run in a goroutine.
-func (s *server) peerHandler() {
+func (s *Server) peerHandler() {
 	// Start the address manager and sync manager, both of which are needed
 	// by peers.  This is done here since their lifecycle is closely tied
 	// to this handler and rather than adding more channels to sychronize
@@ -1774,24 +1774,24 @@ cleanup:
 }
 
 // AddPeer adds a new peer that has already been connected to the server.
-func (s *server) AddPeer(sp *serverPeer) {
+func (s *Server) AddPeer(sp *serverPeer) {
 	s.newPeers <- sp
 }
 
 // BanPeer bans a peer that has already been connected to the server by ip.
-func (s *server) BanPeer(sp *serverPeer) {
+func (s *Server) BanPeer(sp *serverPeer) {
 	s.banPeers <- sp
 }
 
 // RelayInventory relays the passed inventory vector to all connected peers
 // that are not already known to have it.
-func (s *server) RelayInventory(invVect *wire.InvVect, data interface{}) {
+func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 	s.relayInv <- relayMsg{invVect: invVect, data: data}
 }
 
 // BroadcastMessage sends msg to all peers currently connected to the server
 // except those in the passed peers to exclude.
-func (s *server) BroadcastMessage(msg wire.Message, exclPeers ...*serverPeer) {
+func (s *Server) BroadcastMessage(msg wire.Message, exclPeers ...*serverPeer) {
 	// XXX: Need to determine if this is an alert that has already been
 	// broadcast and refrain from broadcasting again.
 	bmsg := broadcastMsg{message: msg, excludePeers: exclPeers}
@@ -1799,7 +1799,7 @@ func (s *server) BroadcastMessage(msg wire.Message, exclPeers ...*serverPeer) {
 }
 
 // ConnectedCount returns the number of currently connected peers.
-func (s *server) ConnectedCount() int32 {
+func (s *Server) ConnectedCount() int32 {
 	replyChan := make(chan int32)
 
 	s.query <- getConnCountMsg{reply: replyChan}
@@ -1809,7 +1809,7 @@ func (s *server) ConnectedCount() int32 {
 
 // OutboundGroupCount returns the number of peers connected to the given
 // outbound group key.
-func (s *server) OutboundGroupCount(key string) int {
+func (s *Server) OutboundGroupCount(key string) int {
 	replyChan := make(chan int)
 	s.query <- getOutboundGroup{key: key, reply: replyChan}
 	return <-replyChan
@@ -1817,19 +1817,19 @@ func (s *server) OutboundGroupCount(key string) int {
 
 // AddBytesSent adds the passed number of bytes to the total bytes sent counter
 // for the server.  It is safe for concurrent access.
-func (s *server) AddBytesSent(bytesSent uint64) {
+func (s *Server) AddBytesSent(bytesSent uint64) {
 	atomic.AddUint64(&s.bytesSent, bytesSent)
 }
 
 // AddBytesReceived adds the passed number of bytes to the total bytes received
 // counter for the server.  It is safe for concurrent access.
-func (s *server) AddBytesReceived(bytesReceived uint64) {
+func (s *Server) AddBytesReceived(bytesReceived uint64) {
 	atomic.AddUint64(&s.bytesReceived, bytesReceived)
 }
 
 // NetTotals returns the sum of all bytes received and sent across the network
 // for all peers.  It is safe for concurrent access.
-func (s *server) NetTotals() (uint64, uint64) {
+func (s *Server) NetTotals() (uint64, uint64) {
 	return atomic.LoadUint64(&s.bytesReceived),
 		atomic.LoadUint64(&s.bytesSent)
 }
@@ -1838,7 +1838,7 @@ func (s *server) NetTotals() (uint64, uint64) {
 // the latest connected main chain block, or a recognized orphan. These height
 // updates allow us to dynamically refresh peer heights, ensuring sync peer
 // selection has access to the latest block heights for each peer.
-func (s *server) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {
+func (s *Server) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {
 	s.peerHeightsUpdate <- updatePeerHeightsMsg{
 		newHash:    latestBlkHash,
 		newHeight:  latestHeight,
@@ -1849,7 +1849,7 @@ func (s *server) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32,
 // rebroadcastHandler keeps track of user submitted inventories that we have
 // sent out but have not yet made it into a block. We periodically rebroadcast
 // them in case our peers restarted or otherwise lost track of them.
-func (s *server) rebroadcastHandler() {
+func (s *Server) rebroadcastHandler() {
 	// Wait 5 min before first tx rebroadcast.
 	timer := time.NewTimer(5 * time.Minute)
 	pendingInvs := make(map[wire.InvVect]interface{})
@@ -1905,7 +1905,7 @@ cleanup:
 }
 
 // Start begins accepting connections from peers.
-func (s *server) Start() {
+func (s *Server) Start() {
 	// Already started?
 	if atomic.AddInt32(&s.started, 1) != 1 {
 		return
@@ -1926,20 +1926,11 @@ func (s *server) Start() {
 		go s.upnpUpdateThread()
 	}
 
-	if !conf.Cfg.P2PNet.DisableRPC {
-		s.wg.Add(1)
-
-		// Start the rebroadcastHandler, which ensures user tx received by
-		// the RPC server are rebroadcast until being included in a block.
-		go s.rebroadcastHandler()
-
-		s.rpcServer.Start()
-	}
 }
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
 // peers and the main listener.
-func (s *server) Stop() error {
+func (s *Server) Stop() error {
 	// Make sure this only happens once.
 	if atomic.AddInt32(&s.shutdown, 1) != 1 {
 		log.Info("Server is already in the process of shutting down")
@@ -1950,26 +1941,20 @@ func (s *server) Stop() error {
 
 	// Stop the CPU miner if needed
 	// s.cpuMiner.Stop()
-
-	// Shutdown the RPC server if it's not disabled.
-	if !conf.Cfg.P2PNet.DisableRPC {
-		s.rpcServer.Stop()
-	}
-
 	// Signal the remaining goroutines to quit.
 	close(s.quit)
 	return nil
 }
 
 // WaitForShutdown blocks until the main listener and peer handlers are stopped.
-func (s *server) WaitForShutdown() {
+func (s *Server) WaitForShutdown() {
 	s.wg.Wait()
 }
 
 // ScheduleShutdown schedules a server shutdown after the specified duration.
 // It also dynamically adjusts how often to warn the server is going down based
 // on remaining duration.
-func (s *server) ScheduleShutdown(duration time.Duration) {
+func (s *Server) ScheduleShutdown(duration time.Duration) {
 	// Don't schedule shutdown more than once.
 	if atomic.AddInt32(&s.shutdownSched, 1) != 1 {
 		return
@@ -2050,7 +2035,7 @@ func parseListeners(addrs []string) ([]net.Addr, error) {
 	return netAddrs, nil
 }
 
-func (s *server) upnpUpdateThread() {
+func (s *Server) upnpUpdateThread() {
 	// Go off immediately to prevent code duplication, thereafter we renew
 	// lease every 15 minutes.
 	timer := time.NewTimer(0 * time.Second)
@@ -2104,7 +2089,7 @@ out:
 	s.wg.Done()
 }
 
-func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}) (*server, error) {
+func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
 
@@ -2127,9 +2112,9 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		return nil, errors.New("no valid listen address")
 	}
 
-	phCh := make(chan *peer.PeerMessage)
+	PhCh := make(chan *peer.PeerMessage)
 	// FIXME: remove useless member
-	s := &server{
+	s := &Server{
 		chainParams:          chainParams,
 		addrManager:          amgr,
 		newPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
@@ -2144,13 +2129,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		services:             services,
 		nat:                  nat,
 		timeSource:           bitcointime.NewMedianTime(),
-		phCh:                 phCh,
-		mh:                   service.NewMsgHandle(context.TODO(), phCh),
-	}
-
-	s.rpcServer, err = rpc.InitRPCServer()
-	if err != nil {
-		return nil, errors.New("failed to init rpc")
+		PhCh:                 PhCh,
 	}
 
 	targetOutbound := defaultTargetOutbound
@@ -2159,7 +2138,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	}
 
 	// Merge given checkpoints with the default ones unless they are disabled.
-	//todo:please qiwei fix me Checkpoint. now question:where is the Checkpoint is used ?
+	// todo:please qiwei fix me Checkpoint. now question:where is the Checkpoint is used ?
 	//var checkpoints []model.Checkpoint
 	//if !cfg.P2PNet.DisableCheckpoints {
 	//	checkpoints = mergeCheckpoints(s.chainParams.Checkpoints, cfg.P2PNet.AddCheckpoints)
@@ -2198,7 +2177,7 @@ func newServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	}
 	s.connManager = cmgr
 
-	s.syncManager, err = service.New(&service.Config{
+	s.syncManager, err = syncmanager.New(&syncmanager.Config{
 		PeerNotifier:       s,
 		ChainParams:        s.chainParams,
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,

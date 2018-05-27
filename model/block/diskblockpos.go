@@ -9,12 +9,12 @@ import (
 
 type DiskBlockPos struct {
 	File int
-	Pos  int
+	Pos  uint32
 }
 
 type DiskTxPos struct {
 	BlockIn    *DiskBlockPos
-	TxOffsetIn int
+	TxOffsetIn uint32
 }
 
 
@@ -63,12 +63,12 @@ func (diskBlockPos *DiskBlockPos) String() string {
 	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
 }
 
-func NewDiskBlockPos(file int, pos int) *DiskBlockPos {
+func NewDiskBlockPos(file int, pos uint32) *DiskBlockPos {
 	diskBlockPos := DiskBlockPos{File: file, Pos: pos}
 	return &diskBlockPos
 }
 
-func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn int) *DiskTxPos {
+func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn uint32) *DiskTxPos {
 	diskTxPos := &DiskTxPos{
 		BlockIn:    blockIn,
 		TxOffsetIn: offsetIn,

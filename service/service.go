@@ -4,59 +4,38 @@
 package service
 
 import (
-	"container/list"
 	"context"
 	"errors"
-
 	//"fmt"
-	"sync"
 
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/rpc/btcjson"
-
 	//"github.com/btcboost/copernicus/model/block"
 	//"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcsuite/btcd/connmgr"
+	"github.com/btcboost/copernicus/net/server"
+	//"github.com/btcboost/copernicus/util"
 	//"github.com/btcboost/copernicus/internal/btcjson"
 )
 
 type MsgHandle struct {
-	mtx           sync.Mutex
 	recvFromNet   <-chan *peer.PeerMessage
-	txAndBlockPro chan peer.PeerMessage
-	chainparam    *chainparams.BitcoinParams
-	//connect manager
-	connManager connmgr.ConnManager
-
-	// These fields should only be accessed from the blockHandler thread
-	rejectedTxns    map[util.Hash]struct{}
-	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}
-	syncPeer        *peer.Peer
-	peerStates      map[*peer.Peer]*peerSyncState
-
-	// The following fields are used for headers-first mode.
-	headersFirstMode bool
-	headerList       *list.List
-	startHeader      *list.Element
-	nextCheckpoint   *model.Checkpoint
+	server 			*server.Server
 }
+
+var msgHandle *MsgHandle
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage) *MsgHandle {
-	msg := &MsgHandle{mtx: sync.Mutex{}, recvFromNet: cmdCh}
+func NewMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage, server *server.Server){
+	msg := &MsgHandle{recvFromNet: cmdCh}
+	msg.server = server
 	ctxChild, _ := context.WithCancel(ctx)
-
 	go msg.startProcess(ctxChild)
-	return msg
+	msgHandle = msg
 }
 
 func (mh *MsgHandle) startProcess(ctx context.Context) {
@@ -180,27 +159,27 @@ out:
 }
 
 // Rpc process things
-func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err error) {
+func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
 	case *GetConnectionCountRequest:
-		return mh.connManager.ConnectedCount(), nil
+		return msgHandle.server.ConnectedCount(), nil
 
 	case *wire.MsgPing:
-		return mh.connManager.BroadCast(), nil
+		return msgHandle.server.BroadcastMessage(), nil
 
 	case *GetPeersInfoRequest:
 		return nil, nil
 
 	case *btcjson.AddNodeCmd:
-		err = mh.NodeOpera(m)
+		err = msgHandle.NodeOpera(m)
 		return
 
 	case *btcjson.DisconnectNodeCmd:
 		return
 
 	case *btcjson.GetAddedNodeInfoCmd:
-		return mh.connManager.PersistentPeers(), nil
+		return msgHandle.connManager.PersistentPeers(), nil
 
 	case *GetNetTotalsRequest:
 		return
@@ -218,8 +197,8 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		return
 
 	case *tx.Tx:
-		mh.recvChannel <- m
-		ret := <-mh.resultChannel
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r
@@ -228,8 +207,8 @@ func (mh *MsgHandle) ProcessForRpc(message interface{}) (rsp interface{}, err er
 		}
 
 	case *block.Block:
-		mh.recvChannel <- m
-		ret := <-mh.resultChannel
+		msgHandle.recvChannel <- m
+		ret := <-msgHandle.resultChannel
 		switch r := ret.(type) {
 		case error:
 			return nil, r

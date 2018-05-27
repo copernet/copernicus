@@ -89,25 +89,27 @@ func (param *BitcoinParams) TxData() *ChainTxData {
 
 var MainNetParams = BitcoinParams{
 	Param: consensus.Param{
-		GenesisHash: &GenesisHash,
-		PowLimit:    mainPowLimit,
-		BIP34Height: 227931,
+		GenesisHash:            &GenesisHash,
+		SubsidyHalvingInterval: 210000,
+		BIP34Height:            227931,
 		// BIP34Hash:                   util.Hash{0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8},
 		BIP65Height:                    388381,
 		BIP66Height:                    363725,
 		AntiReplayOpReturnSunsetHeight: 530000,
+		AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
+		PowLimit:                       mainPowLimit,
+		TargetTimespan:                 60 * 60 * 24 * 14,
+		TargetTimePerBlock:             60 * 10,
+		FPowAllowMinDifficultyBlocks:   false,
+		FPowNoRetargeting:              false,
 		RuleChangeActivationThreshold:  1916,
 		MinerConfirmationWindow:        2016,
-		AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
 		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
 			consensus.DeploymentTestDummy: {Bit: 28, StartTime: 1199145601, Timeout: 1230767999},
 			consensus.DeploymentCSV:       {Bit: 0, StartTime: 1462060800, Timeout: 1493596800},
 		},
-		FPowNoRetargeting:          false,
-		CashHardForkActivationTime: 1510600000,
 		UAHFHeight:                 478559,
-		TargetTimespan:             60 * 60 * 24 * 14,
-		TargetTimePerBlock:         60 * 10,
+		CashHardForkActivationTime: 1510600000,
 	},
 
 	Name:        "mainnet",
@@ -377,4 +379,9 @@ func mustRegister(bp *BitcoinParams) {
 		panic("err")
 	}
 	bp.DefaultAssumeValid = *work
+}
+
+//IsUAHFEnabled Check is UAHF has activated.
+func IsUAHFEnabled(height int32) bool {
+	return height >= ActiveNetParams.UAHFHeight
 }

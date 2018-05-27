@@ -7,7 +7,6 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
@@ -16,6 +15,7 @@ import (
 type Block struct {
 	Header BlockHeader
 	Txs    []*tx.Tx
+	size    uint32
 }
 
 func (bl *Block) GetBlockHeader() BlockHeader {
@@ -65,24 +65,24 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	return nil
 }
 
-func (blk *Block) GetHash() *util.Hash {
-	buf := bytes.NewBuffer(nil)
-	err := blk.Serialize(buf)
-	if err != nil {
-		log.Error("GetHash is err=====%#v", err)
-		panic("GetHash is err=====")
+func (bl *Block) SerializeSize() uint32 {
+	if bl.size !=0{
+		return bl.size
 	}
-	h := util.Sha256Hash(buf.Bytes())
-	return &h
-}
-func (bl *Block) SerializeSize() uint {
-	size := uint(unsafe.Sizeof(BlockHeader{}))
+	size := uint32(unsafe.Sizeof(BlockHeader{}))
+	size += uint32(util.VarIntSerializeSize(uint64(len(bl.Txs))))
 	for _, Tx := range bl.Txs {
 		size += Tx.SerializeSize()
 	}
+	bl.size = size
 	return size
 }
 
+func (bl *Block) GetHash() util.Hash{
+	buf := bytes.NewBuffer(nil)
+	bl.Serialize(buf)
+	return util.DoubleSha256Hash(buf.Bytes())
+}
 func NewBlock() *Block {
 	return &Block{}
 }

@@ -444,7 +444,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 			Message: "the string " + c.TxID + " is not a standard hash",
 		}
 	}
-	entry := mempool.Gpool.FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash)
 	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
@@ -453,7 +453,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	}
 
 	h := entry.Tx.GetHash()
-	txSet := mempool.Gpool.CalculateMemPoolAncestors(&h)
+	txSet := mempool.GetInstance().CalculateMemPoolAncestors(&h)
 
 	if !c.Verbose {
 		s := make([]string, len(txSet))
@@ -492,7 +492,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 
 	setDepends := make([]string, 0)
 	for _, in := range entry.Tx.GetIns() {
-		if txItem := mempool.Gpool.FindTx(in.PreviousOutPoint.Hash); txItem != nil {
+		if txItem := mempool.GetInstance().FindTx(in.PreviousOutPoint.Hash); txItem != nil {
 			setDepends = append(setDepends, in.PreviousOutPoint.Hash.String())
 		}
 	}
@@ -509,7 +509,7 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	entry := mempool.Gpool.FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash)
 	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
@@ -517,7 +517,7 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		}
 	}
 
-	descendants := mempool.Gpool.CalculateDescendants(hash)
+	descendants := mempool.GetInstance().CalculateDescendants(hash)
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
@@ -542,10 +542,10 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	mempool.Gpool.Lock()
-	defer mempool.Gpool.Unlock()
+	mempool.GetInstance().Lock()
+	defer mempool.GetInstance().Unlock()
 
-	entry := mempool.Gpool.FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash)
 	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidAddressOrKey,
@@ -558,11 +558,11 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 
 func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	ret := &btcjson.GetMempoolInfoResult{
-		Size:          mempool.Gpool.Size(),
-		Bytes:         mempool.Gpool.GetPoolAllTxSize(),
-		Usage:         mempool.Gpool.GetPoolUsage(),
-		MaxMempool:    mempool.Gpool.MaxMemPoolSize,
-		MempoolMinFee: valueFromAmount(mempool.Gpool.GetMinFeeRate().SataoshisPerK),
+		Size:          mempool.GetInstance().Size(),
+		Bytes:         mempool.GetInstance().GetPoolAllTxSize(),
+		Usage:         mempool.GetInstance().GetPoolUsage(),
+		MaxMempool:    mempool.GetInstance().MaxMemPoolSize,
+		MempoolMinFee: valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil
 }
@@ -595,7 +595,7 @@ func valueFromAmount(sizeLimit int64) float64 {
 func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetRawMempoolCmd)
 
-	pool := mempool.Gpool
+	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
 

@@ -10,30 +10,45 @@ import (
 	"io"
 )
 
-/*const (
-	MaxTxInSequenceNum uint32 = 0xffffffff
-)
-*/
-
 type TxIn struct {
 	PreviousOutPoint *outpoint.OutPoint
 	scriptSig        *script.Script
-	Sequence         uint32 //todo ?
-	SigOpCount       int
+	Sequence         uint32
 }
 
-func (txIn *TxIn) SerializeSize() int {
-	// Outpoint Hash 32 bytes + Outpoint Index 4 bytes + Sequence 4 bytes +
-	// serialized VarInt size for the length of SignatureScript +
-	// SignatureScript bytes.
-	if txIn.scriptSig == nil {
-		return 40
-	}
-
-	return 40 + util.VarIntSerializeSize(uint64(txIn.scriptSig.Size())) + txIn.scriptSig.Size()
+func (txIn *TxIn) SerializeSize() uint32 {
+	return txIn.EncodeSize()
 }
 
 func (txIn *TxIn) Unserialize(reader io.Reader) error {
+	return txIn.Decode(reader)
+}
+
+func (txIn *TxIn) Serialize(writer io.Writer) error {
+	return txIn.Encode(writer)
+}
+
+func (txIn *TxIn) EncodeSize() uint32 {
+	// previousOutPoint EncodeSize + scriptSig EncodeSize + Sequence 4 bytes
+	return txIn.PreviousOutPoint.EncodeSize() + txIn.scriptSig.EncodeSize() + 4
+}
+
+func (txIn *TxIn) Encode(writer io.Writer) error {
+	err := txIn.PreviousOutPoint.Encode(writer)
+	if err != nil {
+		return err
+	}
+	err = txIn.scriptSig.Encode(writer)
+	if err != nil {
+		return err
+	}
+
+	err = util.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
+	return err
+
+}
+
+func (txIn *TxIn) Decode(reader io.Reader) error {
 	err := txIn.PreviousOutPoint.Decode(reader)
 	if err != nil {
 		return err
@@ -44,35 +59,6 @@ func (txIn *TxIn) Unserialize(reader io.Reader) error {
 	}
 	txIn.scriptSig = script.NewScriptRaw(bytes)
 	return util.ReadElements(reader, &txIn.Sequence)
-}
-
-func (txIn *TxIn) Serialize(writer io.Writer) error {
-	var err error
-	if txIn.PreviousOutPoint != nil {
-		err = txIn.PreviousOutPoint.Encode(writer)
-		if err != nil {
-			return err
-		}
-	}
-	err = util.WriteVarBytes(writer, txIn.scriptSig.GetData())
-	if err != nil {
-		return err
-	}
-
-	err = util.BinarySerializer.PutUint32(writer, binary.LittleEndian, txIn.Sequence)
-	return err
-}
-
-func (txIn *TxIn) EncodeSize() int {
-	return 0
-}
-
-func (txIn *TxIn) Encode(writer io.Writer) error {
-	return nil
-}
-
-func (txIn *TxIn) Decode(writer io.Writer) error {
-	return nil
 }
 
 func (txIn *TxIn) GetScriptSig() *script.Script {
@@ -91,12 +77,6 @@ func (txIn *TxIn) String() string {
 	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.scriptSig.GetData()), txIn.Sequence)
 
 }
-
-/*
-func (txIn *TxIn) Check() bool {
-	return true
-}
-*/
 
 func (txIn *TxIn) SetScript(script *script.Script) {
 	txIn.scriptSig = script

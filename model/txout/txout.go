@@ -1,11 +1,11 @@
 package txout
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
 
+	"encoding/binary"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/script"
@@ -15,22 +15,44 @@ import (
 type TxOut struct {
 	value        int64
 	scriptPubKey *script.Script
-	//SigOpCount      int64
 }
 
-func (txOut *TxOut) SerializeSize() int {
-	if txOut.scriptPubKey == nil {
-		return 8
-	}
-	return 8 + util.VarIntSerializeSize(uint64(txOut.scriptPubKey.Size())) + txOut.scriptPubKey.Size()
+func (txOut *TxOut) SerializeSize() uint32 {
+	return txOut.EncodeSize()
 }
 
 func (txOut *TxOut) Serialize(writer io.Writer) error {
-	return nil
+	return txOut.Encode(writer)
 }
 
 func (txOut *TxOut) Unserialize(reader io.Reader) error {
-	return nil
+	return txOut.Decode(reader)
+}
+
+func (txOut *TxOut) EncodeSize() uint32 {
+	return 8 + txOut.scriptPubKey.EncodeSize()
+}
+
+func (txOut *TxOut) Encode(writer io.Writer) error {
+	err := util.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
+	if err != nil {
+		return err
+	}
+	if txOut.scriptPubKey == nil {
+		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0)
+	} else {
+		return txOut.scriptPubKey.Encode(writer)
+	}
+}
+
+func (txOut *TxOut) Decode(reader io.Reader) error {
+	err := util.ReadElements(reader, &txOut.value)
+	if err != nil {
+		return err
+	}
+	bytes, err := script.ReadScript(reader, script.MaxMessagePayload, "tx output script")
+	txOut.scriptPubKey = script.NewScriptRaw(bytes)
+	return err
 }
 
 func (txOut *TxOut) IsDust(minRelayTxFee *util.FeeRate) bool {
@@ -53,32 +75,6 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 	size := txOut.SerializeSize()
 	size += 32 + 4 + 1 + 107 + 4
 	return 3 * minRelayTxFee.GetFee(size)
-}
-
-func (txOut *TxOut) EncodeSize() int {
-	return 0
-}
-
-func (txOut *TxOut) Encode(writer io.Writer) error {
-	err := util.BinarySerializer.PutUint64(writer, binary.LittleEndian, uint64(txOut.value))
-	if err != nil {
-		return err
-	}
-	if txOut.scriptPubKey == nil {
-		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0)
-	} else {
-		return util.WriteVarBytes(writer, txOut.scriptPubKey.GetData())
-	}
-}
-
-func (txOut *TxOut) Decode(reader io.Reader) error {
-	err := util.ReadElements(reader, &txOut.value)
-	if err != nil {
-		return err
-	}
-	bytes, err := script.ReadScript(reader, script.MaxMessagePayload, "tx output script")
-	txOut.scriptPubKey = script.NewScriptRaw(bytes)
-	return err
 }
 
 func (txOut *TxOut) CheckValue() error {
@@ -133,7 +129,7 @@ func (txOut *TxOut) IsCommitment(data []byte) bool {
   The TxOut can be spent or not according script, but don't care it is already been spent or not
 */
 func (txOut *TxOut) IsSpendable() bool {
-	return true
+	return txOut.scriptPubKey.IsSpendable()
 }
 
 /*

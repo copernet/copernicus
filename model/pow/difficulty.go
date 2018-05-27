@@ -9,7 +9,7 @@ import (
 	"math/big"
 
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -158,7 +158,7 @@ func GetBlockProof(blIn *blockindex.BlockIndex) *big.Int {
 // GetBlockProofEquivalentTime Return the time it would take to redo the work difference
 // between from and to, assuming the current hashrate corresponds to the difficulty
 // at tip, in seconds.
-func GetBlockProofEquivalentTime(to, from, tip *blockindex.BlockIndex, params *consensus.BitcoinParams) int64 {
+func GetBlockProofEquivalentTime(to, from, tip *blockindex.BlockIndex, params *chainparams.BitcoinParams) int64 {
 	ret := new(big.Int)
 	sign := int64(1)
 	if to.ChainWork.Cmp(&from.ChainWork) > 0 {

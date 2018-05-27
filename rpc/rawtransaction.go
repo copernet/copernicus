@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/btcboost/copernicus/crypto"
+	mempool2 "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -14,6 +15,7 @@ import (
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/service/mining"
 	"github.com/btcboost/copernicus/util"
@@ -399,12 +401,19 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		haveChain = !existingCoin.IsSpent()
 	}
 
-	entry := mempool.Gpool.FindTx(hash)
-	if entry != nil {
-		s.Handler.ProcessForRpc(transaction)
+	entry := mempool.GetInstance().FindTx(hash)
+	if entry == nil && !haveChain {
+		_, err = mempool2.ProcessTransaction(&transaction, 0)
+		if err != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrUnDefined,
+				Message: "mempool reject the specified transaction for undefined reason",
+			}
+		}
 	}
 
-	// todo here
+	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
+	// todo broadcast txInvMsg
 
 	return hash.String(), nil
 }

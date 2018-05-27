@@ -10,8 +10,8 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/astaxie/beego/logs"
 	"bytes"
+	"github.com/astaxie/beego/logs"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -80,10 +80,28 @@ func (hash *Hash) String() string {
 	}
 	return hex.EncodeToString(bytes[:])
 }
+
 func (hash *Hash) ToString() string {
 	return hash.String()
 }
+
+func (hash *Hash) SerializeSize() uint32 {
+	return hash.EncodeSize()
+}
+
 func (hash *Hash) Serialize(w io.Writer) (int, error) {
+	return hash.Encode(w)
+}
+
+func (hash *Hash) Unserialize(r io.Reader) (int, error) {
+	return hash.Decode(r)
+}
+
+func (hash *Hash) EncodeSize() uint32 {
+	return Hash256Size
+}
+
+func (hash *Hash) Encode(w io.Writer) (int, error) {
 	length, err := w.Write(hash[:])
 	if length != Hash256Size || err != nil {
 		logs.Alert("hash.Unserialize err: ", length, err)
@@ -92,7 +110,7 @@ func (hash *Hash) Serialize(w io.Writer) (int, error) {
 	return length, err
 }
 
-func (hash *Hash) Unserialize(r io.Reader) (int, error) {
+func (hash *Hash) Decode(r io.Reader) (int, error) {
 	length, err := io.ReadFull(r, hash[:])
 	if length != Hash256Size || err != nil {
 		logs.Alert("hash.Unserialize err: ", length, err)

@@ -11,10 +11,15 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"errors"
 	//"runtime/pprof"
 
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/limits"
+	"github.com/btcboost/copernicus/net/server"
+	"github.com/btcboost/copernicus/rpc"
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/service"
 )
 
 const (
@@ -35,16 +40,39 @@ func bchMain(ctx context.Context) error {
 
 	interrupt := interruptListener()
 
-	s, err := newServer(&chainparams.TestNet3Params, interrupt)
+	s, err := server.NewServer(&chainparams.TestNet3Params, interrupt)
 	if err != nil {
 		return err
 	}
+	//service2.NewMsgHandle(s.mh, )
+	var rpcServer *rpc.Server
+	if !conf.Cfg.P2PNet.DisableRPC {
+		rpcServer, err = rpc.InitRPCServer()
+		if err != nil {
+			return errors.New("failed to init rpc")
+		}
+		// Start the rebroadcastHandler, which ensures user tx received by
+		// the RPC server are rebroadcast until being included in a block.
+		//go s.rebroadcastHandler()
+		rpcServer.Start()
+	}
 
+	service.NewMsgHandle(context.TODO(), s.PhCh, s)
 	if interruptRequested(interrupt) {
 		return nil
 	}
 	s.Start()
-
+	defer func() {
+		s.Stop(rpcServer)
+		// Shutdown the RPC server if it's not disabled.
+		if !conf.Cfg.P2PNet.DisableRPC {
+			rpcServer.Stop()
+		}
+	}()
+	go func() {
+		<- rpcServer.RequestedProcessShutdown()
+		interrupt <- struct{}{}
+	}()
 	<-interrupt
 	return nil
 }

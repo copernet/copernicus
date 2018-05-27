@@ -143,36 +143,31 @@ func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
 	tx.outs = ret
 }
 
-func (tx *Tx) SerializeSize() uint {
-	return 0
+func (tx *Tx) SerializeSize() uint32 {
+	return tx.EncodeSize()
 }
 
 func (tx *Tx) Serialize(writer io.Writer) error {
-	return nil
+	return tx.Encode(writer)
 }
 
 func (tx *Tx) Unserialize(reader io.Reader) error {
-	return nil
+	return tx.Decode(reader)
 }
 
-func (tx *Tx) EncodeSize() uint {
+func (tx *Tx) EncodeSize() uint32 {
 	// Version 4 bytes + LockTime 4 bytes + Serialized varint size for the
 	// number of transaction inputs and outputs.
 	n := 8 + util.VarIntSerializeSize(uint64(len(tx.ins))) + util.VarIntSerializeSize(uint64(len(tx.outs)))
 
-	//if tx == nil {
-	//	fmt.Println("tx is nil")
-	//}
 	for _, txIn := range tx.ins {
-		if txIn == nil {
-			fmt.Println("txIn ins is nil")
-		}
-		n += txIn.SerializeSize()
+		n += txIn.EncodeSize()
 	}
 	for _, txOut := range tx.outs {
-		n += txOut.SerializeSize()
+		n += txOut.EncodeSize()
 	}
-	return uint(n)
+
+	return uint32(n)
 }
 
 func (tx *Tx) Encode(writer io.Writer) error {
@@ -186,7 +181,7 @@ func (tx *Tx) Encode(writer io.Writer) error {
 		return err
 	}
 	for _, txIn := range tx.ins {
-		err := txIn.Serialize(writer)
+		err := txIn.Encode(writer)
 		if err != nil {
 			return err
 		}
@@ -197,11 +192,12 @@ func (tx *Tx) Encode(writer io.Writer) error {
 		return err
 	}
 	for _, txOut := range tx.outs {
-		err := txOut.Serialize(writer)
+		err := txOut.Encode(writer)
 		if err != nil {
 			return err
 		}
 	}
+
 	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, tx.lockTime)
 }
 
@@ -226,7 +222,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		txIn.PreviousOutPoint.Hash = *new(util.Hash)
-		err = txIn.Unserialize(reader)
+		err = txIn.Decode(reader)
 		if err != nil {
 			return err
 		}
@@ -242,7 +238,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		// The pointer is set now in case a script buffer is borrowed
 		// and needs to be returned to the pool on error.
 		txOut := new(txout.TxOut)
-		err = txOut.Unserialize(reader)
+		err = txOut.Decode(reader)
 		if err != nil {
 			return err
 		}
@@ -284,21 +280,43 @@ func (tx *Tx) GetVersion() int32 {
 	return tx.version
 }
 
+func (tx *Tx) CheckRegularTransaction() error {
+	if tx.IsCoinBase() {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+
+	err := tx.checkTransactionCommon(true)
+	if err != nil {
+		return err
+	}
+
+	for _, in := range tx.ins {
+		if in.PreviousOutPoint.IsNull() {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+
+	return nil
+}
+
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
 		return errcode.New(errcode.TxErrNotCoinBase)
 	}
-	//if !tx.CheckTransactionCommon(false) {
-	//	return false
-	//}
-	/*
-		if tx.ins[0].script.Size() < 2 || tx.ins[0].Script.Size() > 100 {
-			return state.Dos(100, false, RejectInvalid, "bad-cb-length", false, "")
-		}*/
+	err := tx.checkTransactionCommon(false)
+	if err != nil {
+		return err
+	}
+
+	// coinbase in script check
+	if tx.ins[0].GetScriptSig().Size() < 2 || tx.ins[0].GetScriptSig().Size() > 100 {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+
 	return nil
 }
 
-func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
+func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
 		//state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
@@ -336,9 +354,6 @@ func (tx *Tx) CheckTransactionCommon(checkDupInput bool) error {
 	if checkDupInput {
 		outPointSet := make(map[*outpoint.OutPoint]struct{})
 		for _, in := range tx.ins {
-			if in.PreviousOutPoint.IsNull() {
-				return errcode.New(errcode.TxErrRejectInvalid)
-			}
 			if _, ok := outPointSet[in.PreviousOutPoint]; !ok {
 				outPointSet[in.PreviousOutPoint] = struct{}{}
 			} else {
@@ -510,7 +525,7 @@ func (tx *Tx) CalculateModifiedSize() uint {
 	return txSize
 }
 
-func (tx *Tx) IsFinal(Height int, time int64) bool {
+func (tx *Tx) IsFinal(Height int32, time int64) bool {
 	if tx.lockTime == 0 {
 		return true
 	}

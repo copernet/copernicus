@@ -25,9 +25,9 @@ import (
 
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/chainparams"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential
