@@ -89,7 +89,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 					continue
 				}
 
-				err2 := AccpetTxToMemPool(iOrphanTx.Tx)
+				err2 := AcceptTxToMemPool(iOrphanTx.Tx)
 				if err2 == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
