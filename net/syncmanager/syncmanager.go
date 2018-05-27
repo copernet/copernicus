@@ -427,7 +427,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	// Process the transaction to include validation, insertion in the
 	// memory pool, orphan handling, etc.
-	acceptedTxs, err := lpool.ProcessTransaction(tmsg.tx, int64(peer.ID()))
+	acceptedTxs, err := service.ProcessTransaction(tmsg.tx, int64(peer.ID()))
 	// Remove transaction from request maps. Either the mempool/chain
 	// already knows about it and as such we shouldn't have any more
 	// instances of trying to fetch it, or we failed to insert and thus
@@ -454,8 +454,9 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 		// Convert the error into an appropriate reject message and
 		// send it.
-		code, reason := errcode.IsErrorCode(err, errcode.RejectTx)
-		peer.PushRejectMsg(wire.CmdTx, code, reason, &txHash, false)
+		if errcode.IsErrorCode(err, errcode.RejectTx) {
+			peer.PushRejectMsg(wire.CmdTx, wire.RejectInvalid, err.Error(), &txHash, false)
+		}
 		return
 	}
 	txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
@@ -472,9 +473,10 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 // current returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
 func (sm *SyncManager) current() bool {
-	if !sm.chain.IsCurrent() {
-		return false
-	}
+	// FIXME: by qiw
+	// if !sm.chain.IsCurrent() {
+	// 	return false
+	// }
 
 	// if blockChain thinks we are current and we have no syncPeer it
 	// is probably right.

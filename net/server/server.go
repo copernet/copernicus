@@ -24,6 +24,7 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
+	lchain "github.com/btcboost/copernicus/logic/chain"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/bitcointime"
 	"github.com/btcboost/copernicus/model/block"
@@ -33,13 +34,13 @@ import (
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/net/addrmgr"
 	"github.com/btcboost/copernicus/net/connmgr"
+	"github.com/btcboost/copernicus/net/syncmanager"
 	"github.com/btcboost/copernicus/net/upnp"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
-	"github.com/btcboost/copernicus/net/syncmanager"
 )
 
 const (
@@ -450,13 +451,13 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 		// Either add all transactions when there is no bloom filter,
 		// or only the transactions that match the filter when there is
 		// one.
-		if !sp.filter.IsLoaded() || sp.filter.MatchTxAndUpdate(&hash) {
-			iv := wire.NewInvVect(wire.InvTypeTx, &hash)
-			invMsg.AddInvVect(iv)
-			if len(invMsg.InvList)+1 > wire.MaxInvPerMsg {
-				break
-			}
+		// if !sp.filter.IsLoaded() || sp.filter.MatchTxAndUpdate(&hash) {
+		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
+		invMsg.AddInvVect(iv)
+		if len(invMsg.InvList)+1 > wire.MaxInvPerMsg {
+			break
 		}
+		// }
 	}
 
 	// Send the inventory message if there is anything to send.
@@ -639,6 +640,14 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 	}
 }
 
+func hashpointer2hashinstance(phash []*util.Hash) []util.Hash {
+	inshash := make([]util.Hash, len(phash))
+	for _, phash := range phash {
+		inshash = append(inshash, *phash)
+	}
+	return inshash
+}
+
 // OnGetBlocks is invoked when a peer receives a getblocks bitcoin
 // message.
 func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
@@ -653,9 +662,9 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	//
 	// This mirrors the behavior in the reference implementation.
 
-	hashList := chain.GlobalChain.LocateBlocks(msg.BlockLocatorHashes, &msg.HashStop,
+	hashList := lchain.LocateBlocks(chain.NewBlockLocator(hashpointer2hashinstance(msg.BlockLocatorHashes)),
+		&msg.HashStop,
 		wire.MaxBlocksPerMsg)
-
 	// Generate inventory message.
 	invMsg := wire.NewMsgInv()
 	for i := range hashList {
@@ -697,7 +706,8 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	//
 	// This mirrors the behavior in the reference implementation.
 
-	headers := chain.GlobalChain.LocateHeaders(msg.BlockLocatorHashes, &msg.HashStop)
+	headers := lchain.LocateHeaders(chain.NewBlockLocator(hashpointer2hashinstance(msg.BlockLocatorHashes)),
+		&msg.HashStop, wire.MaxBlocksPerMsg)
 	if len(headers) == 0 {
 		// Nothing to send.
 		return
@@ -1141,50 +1151,50 @@ func (s *Server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
 	return nil
 	//}
 
-	// Fetch the raw block bytes from the database.
-	blk, err := lblock.GetBlock(hash)
-	if err != nil {
-		log.Trace("Unable to fetch requested block hash %v: %v",
-			hash, err)
+	// // Fetch the raw block bytes from the database.
+	// blk, err := lblock.GetBlock(hash)
+	// if err != nil {
+	// 	log.Trace("Unable to fetch requested block hash %v: %v",
+	// 		hash, err)
 
-		if doneChan != nil {
-			doneChan <- struct{}{}
-		}
-		return err
-	}
+	// 	if doneChan != nil {
+	// 		doneChan <- struct{}{}
+	// 	}
+	// 	return err
+	// }
 
-	// Generate a merkle block by filtering the requested block according
-	// to the filter for the peer.
-	merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
+	// // Generate a merkle block by filtering the requested block according
+	// // to the filter for the peer.
+	// merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
 
-	// Once we have fetched data wait for any previous operation to finish.
-	if waitChan != nil {
-		<-waitChan
-	}
+	// // Once we have fetched data wait for any previous operation to finish.
+	// if waitChan != nil {
+	// 	<-waitChan
+	// }
 
-	// Send the merkleblock.  Only send the done channel with this message
-	// if no transactions will be sent afterwards.
-	var dc chan<- struct{}
-	if len(matchedTxIndices) == 0 {
-		dc = doneChan
-	}
-	sp.QueueMessage(merkle, dc)
+	// // Send the merkleblock.  Only send the done channel with this message
+	// // if no transactions will be sent afterwards.
+	// var dc chan<- struct{}
+	// if len(matchedTxIndices) == 0 {
+	// 	dc = doneChan
+	// }
+	// sp.QueueMessage(merkle, dc)
 
-	// Finally, send any matched transactions.
-	blkTransactions := blk.Txs
-	for i, txIndex := range matchedTxIndices {
-		// Only send the done channel on the final transaction.
-		var dc chan<- struct{}
-		if i == len(matchedTxIndices)-1 {
-			dc = doneChan
-		}
-		if txIndex < uint32(len(blkTransactions)) {
-			sp.QueueMessageWithEncoding(blkTransactions[txIndex], dc,
-				encoding)
-		}
-	}
+	// // Finally, send any matched transactions.
+	// blkTransactions := blk.Txs
+	// for i, txIndex := range matchedTxIndices {
+	// 	// Only send the done channel on the final transaction.
+	// 	var dc chan<- struct{}
+	// 	if i == len(matchedTxIndices)-1 {
+	// 		dc = doneChan
+	// 	}
+	// 	if txIndex < uint32(len(blkTransactions)) {
+	// 		sp.QueueMessageWithEncoding(blkTransactions[txIndex], dc,
+	// 			encoding)
+	// 	}
+	// }
 
-	return nil
+	// return nil
 }
 
 // handleUpdatePeerHeight updates the heights of all peers who were known to
