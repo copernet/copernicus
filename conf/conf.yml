@@ -10,7 +10,7 @@ HTTP:
   Mode: test
 
 RPC:
-  RPCListeners: 127.0.0.1:8334 127.0.0.1:18334
+  RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
   RPCUser: xxx
   RPCPass: xxx
 
@@ -20,7 +20,7 @@ Log:
   Module: mempool utxo
 
 P2PNet:
-  ListenAddrs: 127.0.0.1:18333
+  ListenAddrs: [127.0.0.1:8333 ,127.0.0.1:18333]
   MaxPeers: 128
   TargetOutbound: 8
   DisableBanding: true
