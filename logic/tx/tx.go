@@ -117,29 +117,12 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 }
 
 // block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
-func checkBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
-	// Enforce rule that the coinbase starts with serialized block height
-	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
-		heightNumb := script.NewScriptNum(int64(blockHeight))
-		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := heightNumb.Serialize()
-		if coinBaseScriptSig.Size() < len(heightData) {
-			return errcode.New(errcode.TxErrRejectInvalid)
-		}
-		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
-		if !bytes.Equal(scriptData, heightData) {
-			return errcode.New(errcode.TxErrRejectInvalid)
-		}
-	}
-	return tx.CheckCoinbaseTransaction()
-}
-
-func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64, maxBlockSigOps uint64) error {
+func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
-	err := checkBlockCoinBaseTransaction(txs[0], blockHeight)
+	err := txs[0].CheckCoinbaseTransaction()
 	if err != nil {
 		return err
 	}
@@ -154,10 +137,6 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 		if err != nil {
 			return err
 		}
-		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
-		if err != nil {
-			return err
-		}
 
 		// check dup input
 		err = transaction.CheckDuplicateIns(&outPointSet)
@@ -169,18 +148,24 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 	return nil
 }
 
-//
-//func GetBlockSubsidy(nHeight int32) uint32 {
-//	var halvings uint32 = uint32(nHeight) / uint32(chainparams.ActiveNetParams.SubsidyHalvingInterval)
-//	// Force block reward to zero when right shift is undefined.
-//	if halvings >= 64 {
-//		return 0
-//	}
-//	nSubsidy := 50 * util.COIN
-//	// Subsidy is cut in half every 210,000 blocks which will occur
-//	// approximately every 4 years.
-//	return uint32(nSubsidy) >> halvings
-//}
+func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
+	txsLen := len(txs)
+	if txsLen == 0 {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+	err := checkBlockContextureCoinBaseTransaction(txs[0], blockHeight)
+	if err != nil {
+		return err
+	}
+
+	for _, transaction := range txs[1:] {
+		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
 	blockSubSidy amount.Amount, blockHeight int32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
@@ -253,6 +238,24 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	return coinsMap, bundo, nil
 }
 
+// check coinbase with height
+func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
+	// Enforce rule that the coinbase starts with serialized block height
+	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
+		heightNumb := script.NewScriptNum(int64(blockHeight))
+		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
+		heightData := heightNumb.Serialize()
+		if coinBaseScriptSig.Size() < len(heightData) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
+		if !bytes.Equal(scriptData, heightData) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+	return nil
+}
+
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		return errcode.New(errcode.TxErrNotFinal)
@@ -266,6 +269,19 @@ func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTim
 
 	return nil
 }
+
+//
+//func GetBlockSubsidy(nHeight int32) uint32 {
+//	var halvings uint32 = uint32(nHeight) / uint32(chainparams.ActiveNetParams.SubsidyHalvingInterval)
+//	// Force block reward to zero when right shift is undefined.
+//	if halvings >= 64 {
+//		return 0
+//	}
+//	nSubsidy := 50 * util.COIN
+//	// Subsidy is cut in half every 210,000 blocks which will occur
+//	// approximately every 4 years.
+//	return uint32(nSubsidy) >> halvings
+//}
 
 func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	utxo := utxo.GetUtxoCacheInstance()
