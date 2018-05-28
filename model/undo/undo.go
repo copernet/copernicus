@@ -1,6 +1,7 @@
 package undo
 
 import (
+	"bytes"
 	"io"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/model/tx"
@@ -26,9 +27,6 @@ type TxUndo struct {
 	undoCoins []*utxo.Coin
 }
 
-func (tu *TxUndo) AddUndoCoin(coin *utxo.Coin){
-	tu.undoCoins = append(tu.undoCoins, coin)
-}
 
 func (tu *TxUndo) SetUndoCoins(coins []*utxo.Coin){
 	 tu.undoCoins = coins
@@ -102,6 +100,13 @@ func (bu *BlockUndo) Serialize(w io.Writer) error {
 
 }
 
+func (bu *BlockUndo) SerializeSize() int {
+	buf := bytes.NewBuffer(nil)
+	bu.Serialize(buf)
+	return buf.Len()
+	
+}
+
 func (bu *BlockUndo) Unserialize(r io.Reader) error {
 	count, err := util.ReadVarLenInt(r)
 	txundos := make([]*TxUndo, count, count)
@@ -116,6 +121,11 @@ func (bu *BlockUndo) Unserialize(r io.Reader) error {
 	bu.txundo = txundos
 	return nil
 }
+
+func (bu *BlockUndo) SetTxUndo(txUndo []*TxUndo){
+	bu.txundo = txUndo
+}
+
 
 
 func NewTxUndo() *TxUndo {

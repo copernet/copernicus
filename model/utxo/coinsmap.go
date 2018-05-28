@@ -6,28 +6,32 @@ import (
 	"github.com/btcboost/copernicus/util"
 )
 
-type CoinsMap map[outpoint.OutPoint]*Coin
+type CoinsMap struct {
+	cacheCoins map[outpoint.OutPoint]*Coin
+	hashBlock   util.Hash
+}
 
 func NewEmptyCoinsMap() *CoinsMap {
-	cacheCoins := make(CoinsMap)
-	return &cacheCoins
+	cm := new(CoinsMap)
+	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
+	return cm
 }
-func (ctc CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
-	coin := ctc[*outpoint]
+func (cm CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
+	coin := cm.cacheCoins[*outpoint]
 	return coin
 }
 
 func (coinsCache CoinsMap) UnCache(point *outpoint.OutPoint) {
-	_, ok := coinsCache[*point]
+	_, ok := coinsCache.cacheCoins[*point]
 	if ok {
-		delete(coinsCache, *point)
+		delete(coinsCache.cacheCoins, *point)
 	}
 }
 func (coinsCache CoinsMap) Flush(hashBlock util.Hash) bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
 	ok := GetUtxoCacheInstance().UpdateCoins(&coinsCache, &hashBlock)
-	coinsCache = make(map[outpoint.OutPoint]*Coin)
+	coinsCache.cacheCoins = make(map[outpoint.OutPoint]*Coin)
 	return ok == nil
 }
 
@@ -43,7 +47,7 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	fresh := false
 
 	if true {
-		oldCoin, ok := coinsCache[*point]
+		oldCoin, ok := coinsCache.cacheCoins[*point]
 		if ok {
 			//exist old Coin in cache
 			if oldCoin.IsSpent() {
@@ -59,8 +63,12 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	if fresh {
 		newcoin.fresh = true
 	}
-	coinsCache[*point] = newcoin
+	coinsCache.cacheCoins[*point] = newcoin
 
+}
+
+func (cm *CoinsMap) SetBestBlock(hash util.Hash) {
+	cm.hashBlock = hash
 }
 
 func (coinsCache CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
@@ -69,7 +77,7 @@ func (coinsCache CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 		return coin
 	}
 	if coin.fresh {
-		delete(coinsCache, *point)
+		delete(coinsCache.cacheCoins, *point)
 	} else {
 		coin.dirty = true
 		coin.Clear()
@@ -89,7 +97,7 @@ func (coinsMap CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 		newCoin.fresh = true
 		newCoin.dirty = false
 	}
-	coinsMap[*out] = newCoin
+	coinsMap.cacheCoins[*out] = newCoin
 	return newCoin
 }
 

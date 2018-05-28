@@ -36,6 +36,8 @@ type PersistGlobal struct {
 	GlobalTimeConnectTotal                               int64
 	GlobalTimeChainState int64
 	GlobalTimeFlush int64
+	GlobalTimeCheck int64
+	GlobalTimeForks int64
 	GlobalTimePostConnect int64
 	GlobalTimeTotal int64
 	

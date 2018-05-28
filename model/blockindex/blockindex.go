@@ -137,10 +137,11 @@ func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
 }
 
 func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
-	if bIndex.blockHash.IsNull(){
+	bHash := bIndex.blockHash
+	if bHash.IsNull(){
 		bIndex.blockHash = bIndex.Header.GetHash()
 	}
-	if bIndex.blockHash.IsEqual(&util.Hash{}) {
+	if bHash.IsEqual(&util.Hash{}) {
 		bIndex.blockHash = bIndex.Header.GetHash()
 	}
 	return &bIndex.blockHash

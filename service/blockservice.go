@@ -5,6 +5,7 @@ import (
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/chainparams"
 )
 
 
@@ -28,8 +29,8 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	if err != nil {
 		return isNewBlock, err
 	}
-
-	bIndex,err = lchain.AcceptBlock(b)
+	params := chainparams.MainNetParams
+	bIndex,err = lchain.AcceptBlock(b, &params)
 	if err != nil {
 		return isNewBlock, err
 	}

@@ -15,6 +15,8 @@ type BlockHeader struct {
 	Time          uint32
 	Bits          uint32
 	Nonce         uint32
+	encodeSize    int
+	serializeSize int
 }
 
 const blockHeaderLength = 16 + util.Hash256Size*2
@@ -53,6 +55,24 @@ func (bh *BlockHeader) Encode(w io.Writer) error {
 	return bh.Serialize(w)
 }
 
+func (bh *BlockHeader) EncodeSize() int {
+	if bh.encodeSize > 0{
+		return bh.encodeSize
+	}
+	buf := bytes.NewBuffer(nil)
+	bh.Encode(buf)
+	bh.encodeSize = buf.Len()
+	return bh.encodeSize
+}
+func (bh *BlockHeader) SerializeSize() int {
+	if bh.serializeSize > 0{
+		return bh.serializeSize
+	}
+	buf := bytes.NewBuffer(nil)
+	bh.Serialize(buf)
+	bh.serializeSize = buf.Len()
+	return bh.serializeSize
+}
 func (bh *BlockHeader) Decode(r io.Reader) error {
 	return bh.Decode(r)
 }

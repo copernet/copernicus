@@ -7,11 +7,13 @@ type ChainErr int
 const (
 	ErrorBlockHeaderNoValid ChainErr = ChainErrorBase + iota
 	ErrorBlockHeaderNoParent
+	ErrorPowCheckErr
 )
 
 var ChainErrString = map[ChainErr]string {
 	ErrorBlockHeaderNoValid: "The block header is not valid",
 	ErrorBlockHeaderNoParent: "Can not find this block header's father ",
+	ErrorPowCheckErr: "ErrorPowCheckErr",
 }
 
 func (chainerr ChainErr) String() string {
