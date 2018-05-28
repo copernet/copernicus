@@ -117,11 +117,6 @@ type Configuration struct {
 	// Service struct {
 	// 	Address string `default:"1.0.0.1:80"`
 	// }
-	HTTP struct {
-		Host string `validate:"require"`
-		Port int
-		Mode string
-	}
 	RPC struct {
 		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
 		RPCUser              string   // Username for RPC connections
