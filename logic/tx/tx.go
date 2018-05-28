@@ -62,6 +62,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return errcode.New(errcode.TxErrOutAlreadHave)
 	}
 
+	// check inputs are avaliable
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
 	available := areInputsAvailable(transaction, tempCoinsMap)
 	if !available {
@@ -133,8 +134,7 @@ func checkBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 	return tx.CheckCoinbaseTransaction()
 }
 
-func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64,
-	blockReward int64, maxBlockSigOps uint64) error {
+func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		return errcode.New(errcode.TxErrRejectInvalid)
@@ -182,7 +182,7 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 //	return uint32(nSubsidy) >> halvings
 //}
 
-func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int,
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32,
 	blockSubSidy amount.Amount, blockHeight int32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
@@ -270,12 +270,13 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 }
 
 func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
+	gMempool := mempool.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
+			coin = gMempool.GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
 			return false
@@ -378,6 +379,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	if err != nil {
 		return err
 	}
+	spendHeight += 1
 	err = CheckInputsMoney(tx, tempCoinMap, spendHeight)
 	if err != nil {
 		return err

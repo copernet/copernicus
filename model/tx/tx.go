@@ -531,6 +531,9 @@ func (tx *Tx) CalculateModifiedSize() uint32 {
 	return txSize
 }
 
+// 1. tx.locktime > 0 and tx.locktime < Threshhold, use height to check(tx.locktime > current height)
+// 2. tx.locktime > Threshhold, use time to check(tx.locktime > current blocktime)
+// 3. sequence can disable it
 func (tx *Tx) IsFinal(Height int32, time int64) bool {
 	if tx.lockTime == 0 {
 		return true
