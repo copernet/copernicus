@@ -341,7 +341,8 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, err
 		if coin == nil {
 			return 0, errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
+		txOut := coin.GetTxOut()
+		scriptPubKey := txOut.GetScriptPubKey()
 		if !scriptPubKey.IsPayToScriptHash() {
 			sigsCount, err := scriptPubKey.GetSigOpCount(true)
 			if err != nil {
