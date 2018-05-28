@@ -7,7 +7,6 @@ import (
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -21,13 +20,11 @@ func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash
 	if err != nil {
 		return nil, nil, err
 	}
-
-	utxoTip := utxo.GetUtxoCacheInstance()
 	acceptTx := make([]*tx.Tx, 0)
 	missTx := make([]util.Hash, 0)
 	err = lmempool.AcceptTxToMemPool(transaction)
 	if err == nil {
-		lmempool.CheckMempool(utxoTip)
+		lmempool.CheckMempool()
 		acceptTx = append(acceptTx, transaction)
 		acc := lmempool.ProcessOrphan(transaction)
 		if len(acc) > 0 {
