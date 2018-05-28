@@ -174,7 +174,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	utxo := utxo.GetUtxoCacheInstance()
 	sigOpsCount := 0
 	var fees amount.Amount = 0
-	bundo = undo.NewBlockUndo()
+	bundo = undo.NewBlockUndo(len(txs)-1)
 	//updateCoins
 	for _, transaction := range txs {
 		//check duplicate out

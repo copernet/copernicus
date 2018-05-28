@@ -178,7 +178,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 		log.Error("UndoReadFromDisk===read undo num < size")
 		return nil, false
 	}
-	bu := undo.NewBlockUndo()
+	bu := undo.NewBlockUndo(0)
 	undoData := buf[:len(buf)-32]
 	checkSumData := buf[len(buf)-32:]
 	buff := bytes.NewBuffer(undoData)
@@ -273,10 +273,10 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 
 func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
 	ret = true
-	global.CsMain.Lock()
+	// global.CsMain.Lock()
 	global.CsLastBlockFile.Lock()
 
-	defer global.CsMain.Unlock()
+	// defer global.CsMain.Unlock()
 	defer global.CsLastBlockFile.Unlock()
 	
 	gPersist := global.GetInstance()
