@@ -57,7 +57,7 @@ func (txOut *TxOut) Decode(reader io.Reader) error {
 }
 
 func (txOut *TxOut) IsDust(minRelayTxFee *util.FeeRate) bool {
-	return txOut.value < txOut.GetDustThreshold(minRelayTxFee)
+	return txOut.value < amount.Amount(txOut.GetDustThreshold(minRelayTxFee))
 }
 
 func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
@@ -83,7 +83,7 @@ func (txOut *TxOut) CheckValue() error {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
-	if txOut.value > util.MaxMoney {
+	if txOut.value > amount.Amount(util.MaxMoney) {
 		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}

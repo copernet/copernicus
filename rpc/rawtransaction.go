@@ -306,13 +306,13 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 		}
 
 		outValue := int64(cost * 1e8)
-		if !amount.MoneyRange(outValue) {
+		if !amount.MoneyRange(amount.Amount(outValue)) {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrInvalidParameter,
 				Message: "Invalid amount",
 			}
 		}
-		out := txout.NewTxOut(outValue, script.NewScriptRaw(addr.EncodeToPubKeyHash()))
+		out := txout.NewTxOut(amount.Amount(outValue), script.NewScriptRaw(addr.EncodeToPubKeyHash()))
 		transaction.AddTxOut(out)
 	}
 
@@ -524,13 +524,13 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		txOut := txout.NewTxOut(0, script.NewScriptRaw(scriptPubKey))
 		if input.Amount != nil {
 			cost := int64(*input.Amount) * util.COIN
-			if !amount.MoneyRange(cost) {
+			if !amount.MoneyRange(amount.Amount(cost)) {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.ErrRPCInvalidParameter,
 					Message: "Amount out of range",
 				}
 			}
-			txOut.SetValue(cost)
+			txOut.SetValue(amount.Amount(cost))
 		} else {
 			// amount param is required in replay-protected txs.
 			// Note that we must check for its presence here rather

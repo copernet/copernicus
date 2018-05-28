@@ -332,7 +332,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		PreviousHash:  bt.Block.Header.HashPrevBlock.String(),
 		Transactions:  transactions,
 		CoinbaseAux:   &btcjson.GetBlockTemplateResultAux{Flags: mining.CoinbaseFlag},
-		CoinbaseValue: &v,
+		CoinbaseValue: (*int64)(&v),
 		LongPollID:    chain.GetInstance().Tip().GetBlockHash().String() + fmt.Sprintf("%d", transactionsUpdatedLast),
 		Target:        pow.CompactToBig(bt.Block.Header.Bits).String(),
 		MinTime:       indexPrev.GetMedianTimePast() + 1,
