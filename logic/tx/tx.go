@@ -37,7 +37,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		}
 	}
 
-	//check locktime
+	// check common locktime, sequence final can disable it
 	err = ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return errcode.New(errcode.TxErrInputsNotAvailable)
 	}
 
-	//check sequencelock
+	// CLTV(CheckLockTimeVerify)
 	lp := CalculateSequenceLocks(transaction, uint32(tx.StandardLockTimeVerifyFlags))
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
@@ -215,7 +215,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		ins := transaction.GetIns()
 		for _, in := range ins {
 			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
-			if coin == nil {
+			if coin == nil || coin.IsSpent() {
 				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 			}
 			valueIn += coin.GetAmount()
