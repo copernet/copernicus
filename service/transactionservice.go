@@ -12,11 +12,6 @@ import (
 )
 
 func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash, error) {
-	pool:= mempool.GetInstance()
-	if _, ok := pool.RecentRejects[transaction.GetHash()]; ok{
-		return nil, nil, errcode.New(errcode.RejectTx)
-	}
-
 	err := ltx.CheckRegularTransaction(transaction)
 	if err != nil {
 		return nil, nil, err
@@ -39,6 +34,7 @@ func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash
 		return acceptTx, missTx, nil
 	}
 
+	pool:= mempool.GetInstance()
 	if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 		fRejectedParents := false
 		for _, preOut := range transaction.GetAllPreviousOut() {

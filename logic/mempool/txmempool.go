@@ -414,3 +414,23 @@ func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
 	pool := mempool.GetInstance()
 	return pool.FindTx(hash)
 }
+
+func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx  {
+	pool := mempool.GetInstance()
+	pool.RLock()
+	if orphan, ok := pool.OrphanTransactions[hash]; ok {
+		return orphan.Tx
+	}
+	pool.RUnlock()
+	return nil
+}
+
+func FindRejectTxInMempool(hash util.Hash) bool {
+	pool := mempool.GetInstance()
+	pool.RLock()
+	if _, ok := pool.RecentRejects[hash]; ok{
+		return ok
+	}
+	pool.RUnlock()
+	return false
+}

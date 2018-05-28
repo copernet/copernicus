@@ -23,6 +23,8 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/model/outpoint"
 )
 
 const (
@@ -854,15 +856,21 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if lpool.FindTxInMempool(invVect.Hash) != nil {
 			return true, nil
 		}
-
 		// Check if the transaction exists from the point of view of the
 		// end of the main chain.
-		// todo !!! need process. yyx
-		//entry, err := sm.chain.FetchUtxoEntry(&invVect.Hash)
-		//if err != nil {
-		//	return false, err
-		//}
-		//return entry != nil && !entry.IsFullySpent(), nil
+		pcoins := utxo.GetUtxoCacheInstance()
+		out := outpoint.OutPoint{invVect.Hash, 0}
+		if pcoins.GetCoin(&out) != nil {
+			return true, nil
+		}
+		out.Index = 1
+		if pcoins.GetCoin(&out) != nil{
+			return true, nil
+		}
+		if lpool.FindRejectTxInMempool(invVect.Hash) ||
+			lpool.FindOrphanTxInMemPool(invVect.Hash) != nil {
+			return true, nil
+		}
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
@@ -953,14 +961,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				if _, exists := sm.rejectedTxns[iv.Hash]; exists {
 					continue
 				}
-			}
-
-			// Ignore invs block invs from non-witness enabled
-			// peers, as after segwit activation we only want to
-			// download from peers that can provide us full witness
-			// data for blocks.
-			if !peer.IsWitnessEnabled() && iv.Type == wire.InvTypeBlock {
-				continue
 			}
 
 			// Add it to the request queue.
