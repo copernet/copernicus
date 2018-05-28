@@ -5,10 +5,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/service"
 )
 
@@ -63,8 +63,9 @@ func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	getPeerInfoCmd := &service.GetPeersInfoRequest{}
+
 	ret, _ := server.ProcessForRpc(getPeerInfoCmd) // todo Alert: match with return type
-	peers := ret.([]RpcServerPeer)
+	peers := ret.([]server.RpcServerPeer)
 	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()
 	infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
 	for _, item := range peers {

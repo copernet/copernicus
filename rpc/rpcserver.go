@@ -22,7 +22,6 @@ import (
 
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/peer"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/net/server"
 )
@@ -49,27 +48,6 @@ func rpcDecodeHexError(gotHex string) *btcjson.RPCError {
 	return btcjson.NewRPCError(btcjson.ErrRPCDecodeHexString,
 		fmt.Sprintf("Argument must be hexadecimal string (not %q)",
 			gotHex))
-}
-
-// rpcserverPeer represents a peer for use with the RPC server.
-//
-// The interface contract requires that all of these methods are safe for
-// concurrent access.
-type RpcServerPeer interface {
-	// ToPeer returns the underlying peer instance.
-	ToPeer() *peer.Peer
-
-	// IsTxRelayDisabled returns whether or not the peer has disabled
-	// transaction relay.
-	IsTxRelayDisabled() bool
-
-	// BanScore returns the current integer value that represents how close
-	// the peer is to being banned.
-	BanScore() uint32
-
-	// FeeFilter returns the requested current minimum fee rate for which
-	// transactions should be announced.
-	FeeFilter() int64
 }
 
 // Server provides a concurrent safe RPC server to a chain server.
