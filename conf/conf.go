@@ -205,7 +205,7 @@ func must(i interface{}, err error) interface{} {
 }
 
 func init() {
-	Cfg = initConfig()
+	//Cfg = initConfig()
 }
 
 // Validate validates configuration
