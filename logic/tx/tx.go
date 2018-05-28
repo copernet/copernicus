@@ -182,7 +182,7 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 //	return uint32(nSubsidy) >> halvings
 //}
 
-func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32,
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
 	blockSubSidy amount.Amount, blockHeight int32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
@@ -225,10 +225,12 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		fees += valueIn - transaction.GetValueOut()
-		//check inputs
-		err := checkInputs(transaction, coinsMap, scriptCheckFlags)
-		if err != nil {
-			return nil, nil, err
+		if needCheckScript {
+			//check inputs
+			err := checkInputs(transaction, coinsMap, scriptCheckFlags)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		//update temp coinsMap
 		//txundo := undo.NewTxUndo()
