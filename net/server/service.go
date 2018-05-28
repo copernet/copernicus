@@ -6,13 +6,10 @@ package server
 import (
 	"context"
 	"errors"
-	//"fmt"
 
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
-
-	//"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/service"
 )
