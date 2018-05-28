@@ -5,8 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"unsafe"
-
+	
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
@@ -15,7 +14,9 @@ import (
 type Block struct {
 	Header BlockHeader
 	Txs    []*tx.Tx
-	size    uint32
+	serializesize    int
+	Checked bool
+	encodeSize int
 }
 
 func (bl *Block) GetBlockHeader() BlockHeader {
@@ -26,6 +27,8 @@ func (bl *Block) SetNull() {
 	bl.Header.SetNull()
 	bl.Txs = nil
 }
+
+
 
 func (bl *Block) Serialize(w io.Writer) error {
 	if err := bl.Header.Serialize(w); err != nil {
@@ -40,6 +43,27 @@ func (bl *Block) Serialize(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func (bl *Block) SerializeSize() int {
+	if bl.serializesize !=0{
+		return bl.serializesize
+	}
+	buf := bytes.NewBuffer(nil)
+	bl.Serialize(buf)
+	bl.serializesize = buf.Len()
+	return bl.serializesize
+}
+
+func (bl *Block) Encode(w io.Writer) error {
+	return bl.Serialize(w)
+}
+
+func (bl *Block) EncodeSize() int {
+	if bl.encodeSize !=0 {
+		return bl.encodeSize
+	}
+	return bl.SerializeSize()
 }
 
 func (bl *Block) Unserialize(r io.Reader) error {
@@ -65,18 +89,6 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	return nil
 }
 
-func (bl *Block) SerializeSize() uint32 {
-	if bl.size !=0{
-		return bl.size
-	}
-	size := uint32(unsafe.Sizeof(BlockHeader{}))
-	size += uint32(util.VarIntSerializeSize(uint64(len(bl.Txs))))
-	for _, Tx := range bl.Txs {
-		size += Tx.SerializeSize()
-	}
-	bl.size = size
-	return size
-}
 
 func (bl *Block) GetHash() util.Hash{
 	buf := bytes.NewBuffer(nil)

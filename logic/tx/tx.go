@@ -37,7 +37,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		}
 	}
 
-	//check locktime
+	// check common locktime, sequence final can disable it
 	err = ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
 		return err
@@ -62,13 +62,14 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return errcode.New(errcode.TxErrOutAlreadHave)
 	}
 
+	// check inputs are avaliable
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
-	available := areInputsAvailable(transaction, tempCoinsMap)
-	if !available {
-		return errcode.New(errcode.TxErrInputsNotAvailable)
+	err = areInputsAvailable(transaction, tempCoinsMap)
+	if err != nil {
+		return err
 	}
 
-	//check sequencelock
+	// CLTV(CheckLockTimeVerify)
 	lp := CalculateSequenceLocks(transaction, uint32(tx.StandardLockTimeVerifyFlags))
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
@@ -116,30 +117,12 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 }
 
 // block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
-func checkBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
-	// Enforce rule that the coinbase starts with serialized block height
-	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
-		heightNumb := script.NewScriptNum(int64(blockHeight))
-		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := heightNumb.Serialize()
-		if coinBaseScriptSig.Size() < len(heightData) {
-			return errcode.New(errcode.TxErrRejectInvalid)
-		}
-		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
-		if !bytes.Equal(scriptData, heightData) {
-			return errcode.New(errcode.TxErrRejectInvalid)
-		}
-	}
-	return tx.CheckCoinbaseTransaction()
-}
-
-func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64,
-	blockReward int64, maxBlockSigOps uint64) error {
+func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
-	err := checkBlockCoinBaseTransaction(txs[0], blockHeight)
+	err := txs[0].CheckCoinbaseTransaction()
 	if err != nil {
 		return err
 	}
@@ -154,10 +137,6 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 		if err != nil {
 			return err
 		}
-		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
-		if err != nil {
-			return err
-		}
 
 		// check dup input
 		err = transaction.CheckDuplicateIns(&outPointSet)
@@ -169,20 +148,26 @@ func CheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64
 	return nil
 }
 
-//
-//func GetBlockSubsidy(nHeight int32) uint32 {
-//	var halvings uint32 = uint32(nHeight) / uint32(chainparams.ActiveNetParams.SubsidyHalvingInterval)
-//	// Force block reward to zero when right shift is undefined.
-//	if halvings >= 64 {
-//		return 0
-//	}
-//	nSubsidy := 50 * util.COIN
-//	// Subsidy is cut in half every 210,000 blocks which will occur
-//	// approximately every 4 years.
-//	return uint32(nSubsidy) >> halvings
-//}
+func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
+	txsLen := len(txs)
+	if txsLen == 0 {
+		return errcode.New(errcode.TxErrRejectInvalid)
+	}
+	err := checkBlockContextureCoinBaseTransaction(txs[0], blockHeight)
+	if err != nil {
+		return err
+	}
 
-func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, lockTimeFlags int,
+	for _, transaction := range txs[1:] {
+		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
 	blockSubSidy amount.Amount, blockHeight int32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
@@ -202,33 +187,43 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 			}
 		}
+		var valueIn amount.Amount = 0
+		if !transaction.IsCoinBase() {
+			ins := transaction.GetIns()
+			for _, in := range ins {
+				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
+				if coin == nil || coin.IsSpent() {
+					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+				}
+				valueIn += coin.GetAmount()
+			}
+			lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
+			if !CheckSequenceLocks(lp) {
+				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+			}
+		}
 		//check sigops
-		sigOpsCount += transaction.GetSigOpCountWithoutP2SH()
+		sigsCount, err := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinMap)
+		if err != nil {
+			return nil, nil, err
+		}
+		sigOpsCount += sigsCount
 		if sigOpsCount > tx.MaxTxSigOpsCounts {
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
-		if transaction.IsCoinBase() {
-			UpdateCoins(transaction, coinsMap, nil, blockHeight)
-			continue
-		}
-		var valueIn amount.Amount = 0
-		ins := transaction.GetIns()
-		for _, in := range ins {
-			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
-			if coin == nil {
-				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+		//if transaction.IsCoinBase() {
+		//	UpdateCoins(transaction, coinsMap, nil, blockHeight)
+		//	continue
+		//}
+		if !transaction.IsCoinBase() {
+			fees += valueIn - transaction.GetValueOut()
+			if needCheckScript {
+				//check inputs
+				err := checkInputs(transaction, coinsMap, scriptCheckFlags)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
-			valueIn += coin.GetAmount()
-		}
-		lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
-		if !CheckSequenceLocks(lp) {
-			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
-		}
-		fees += valueIn - transaction.GetValueOut()
-		//check inputs
-		err := checkInputs(transaction, coinsMap, scriptCheckFlags)
-		if err != nil {
-			return nil, nil, err
 		}
 		//update temp coinsMap
 		//txundo := undo.NewTxUndo()
@@ -241,6 +236,24 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 	}
 	return coinsMap, bundo, nil
+}
+
+// check coinbase with height
+func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
+	// Enforce rule that the coinbase starts with serialized block height
+	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
+		heightNumb := script.NewScriptNum(int64(blockHeight))
+		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
+		heightData := heightNumb.Serialize()
+		if coinBaseScriptSig.Size() < len(heightData) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
+		if !bytes.Equal(scriptData, heightData) {
+			return errcode.New(errcode.TxErrRejectInvalid)
+		}
+	}
+	return nil
 }
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
@@ -257,6 +270,19 @@ func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTim
 	return nil
 }
 
+//
+//func GetBlockSubsidy(nHeight int32) uint32 {
+//	var halvings uint32 = uint32(nHeight) / uint32(chainparams.ActiveNetParams.SubsidyHalvingInterval)
+//	// Force block reward to zero when right shift is undefined.
+//	if halvings >= 64 {
+//		return 0
+//	}
+//	nSubsidy := 50 * util.COIN
+//	// Subsidy is cut in half every 210,000 blocks which will occur
+//	// approximately every 4 years.
+//	return uint32(nSubsidy) >> halvings
+//}
+
 func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	utxo := utxo.GetUtxoCacheInstance()
 	outs := transaction.GetOuts()
@@ -269,50 +295,66 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	return false
 }
 
-func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
+func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
+	gMempool := mempool.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
+			coin = gMempool.GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
-			return false
+			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
 		if coin.IsSpent() {
-			return false
+			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
 		coinMap.AddCoin(e.PreviousOutPoint, coin)
 	}
 
-	return true
+	return nil
+}
+
+func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) (int, error) {
+	sigOpsCount := transaction.GetSigOpCountWithoutP2SH()
+	if transaction.IsCoinBase() || flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
+		return sigOpsCount, nil
+	}
+	sigOps, err := GetSigOpCountWithP2SH(transaction, coinMap)
+	if err != nil {
+		return 0, err
+	}
+	return sigOpsCount + sigOps, nil
 }
 
 // starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
+func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, error) {
 	n := transaction.GetSigOpCountWithoutP2SH()
 	if transaction.IsCoinBase() {
 		return n, nil
 	}
 
 	ins := transaction.GetIns()
-	utxo := utxo.GetUtxoCacheInstance()
 	for _, e := range ins {
-		coin := utxo.GetCoin(e.PreviousOutPoint)
+		coin := coinMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
+			return 0, errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		if coin == nil {
-			err := errcode.New(errcode.TxErrNoPreviousOut)
-			return 0, err
+		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
+		if !scriptPubKey.IsPayToScriptHash() {
+			sigsCount, err := scriptPubKey.GetSigOpCount(true)
+			if err != nil {
+				return 0, err
+			}
+			n += sigsCount
+		} else {
+			sigsCount, err := e.GetScriptSig().GetP2SHSigOpCount()
+			if err != nil {
+				return 0, err
+			}
+			n += sigsCount
 		}
-		/*
-			if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
-				n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
-			} else {
-				n += e.scriptSigcript.GetP2SHSigOpCount()
-			}*/
 	}
 
 	return n, nil
@@ -378,6 +420,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	if err != nil {
 		return err
 	}
+	spendHeight += 1
 	err = CheckInputsMoney(tx, tempCoinMap, spendHeight)
 	if err != nil {
 		return err

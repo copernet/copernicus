@@ -14,7 +14,7 @@ type CoinsLruCache struct {
 	db         CoinsDB
 	hashBlock  util.Hash
 	cacheCoins *lru.Cache
-	dirtyCoins CoinsMap //写数据库临时缓存
+	dirtyCoins map[outpoint.OutPoint]*Coin //写数据库临时缓存
 }
 
 var utxoLruTip CacheView
@@ -43,7 +43,7 @@ func NewCoinsLruCache(db CoinsDB) CacheView {
 		panic("Error: NewCoinsLruCache err")
 	}
 	c.cacheCoins = cache
-	c.dirtyCoins = make(CoinsMap)
+	c.dirtyCoins = make(map[outpoint.OutPoint]*Coin)
 	return c
 }
 
@@ -94,8 +94,9 @@ func (coinsCache *CoinsLruCache) SetBestBlock(hash util.Hash) {
 	coinsCache.hashBlock = hash
 }
 
-func (coinsCache *CoinsLruCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error {
-	for point, tempCacheCoin := range *tempCacheCoins {
+func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) error {
+	tempCacheCoins := cm.cacheCoins
+	for point, tempCacheCoin := range tempCacheCoins {
 		// Ignore non-dirty entries (optimization).
 		if tempCacheCoin.isMempoolCoin {
 			log.Error("MempoolCoin  save to DB!!!  %#v", tempCacheCoin)
@@ -135,7 +136,7 @@ func (coinsCache *CoinsLruCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *uti
 				}
 			}
 		}
-		delete(*tempCacheCoins, point)
+		delete(cm.cacheCoins, point)
 	}
 	coinsCache.hashBlock = *hash
 	return nil
@@ -144,7 +145,7 @@ func (coinsCache *CoinsLruCache) UpdateCoins(tempCacheCoins *CoinsMap, hash *uti
 func (coinsCache *CoinsLruCache) Flush() bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
-	ok := coinsCache.db.BatchWrite(&(coinsCache.dirtyCoins), coinsCache.hashBlock)
+	ok := coinsCache.db.BatchWrite(coinsCache.dirtyCoins, coinsCache.hashBlock)
 
 	//coinsCache.cacheCoins = make(CacheCoins)
 	return ok == nil

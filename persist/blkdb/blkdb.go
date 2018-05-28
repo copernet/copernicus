@@ -267,7 +267,6 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 		newIndex.Header.Nonce = bi.Header.Nonce
 		newIndex.Status = bi.Status
 		newIndex.TxCount = bi.TxCount
-
 		if new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, &chainparams.MainNetParams) {
 			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false

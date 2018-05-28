@@ -16,14 +16,14 @@ func TestMain(m *testing.M){
 }
 func TestNewCoinsLruCache(t *testing.T) {
 	
-	coinsmap := make(CoinsMap)
+	coinsmap := NewEmptyCoinsMap()
 	coin := NewEmptyCoin()
 	coin.isCoinBase = true
 	coin.height = 100
 	h := util.HashZero
 	op := outpoint.NewOutPoint(h, 0)
 	coinsmap.AddCoin(op, coin)
-	utxoLruTip.UpdateCoins(&coinsmap, &util.HashZero)
+	utxoLruTip.UpdateCoins(coinsmap, &util.HashZero)
 	utxoLruTip.Flush()
 	c := utxoLruTip.GetCoin(op)
 	fmt.Println("c==TestNewCoinsLruCache=====%#v", c)

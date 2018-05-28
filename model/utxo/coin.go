@@ -32,7 +32,7 @@ func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 
-//coinbase检查高度，锁定时间？
+// todo coinbase检查高度，锁定时间？
 func (coin *Coin) IsSpendable() bool {
 	return coin.txOut.IsNull()
 }
