@@ -42,6 +42,8 @@ import (
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
 	"github.com/btcboost/copernicus/service"
+	"github.com/btcboost/copernicus/model/blockindex"
+	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 )
 
 const (
@@ -1040,47 +1042,67 @@ func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
-	// Fetch the raw block bytes from the database.
-	bl, err := lblock.GetBlock(hash)
-
-	if err != nil {
-		log.Trace("Unable to fetch requested block hash %v: %v",
-			hash, err)
-
-		if doneChan != nil {
-			doneChan <- struct{}{}
+	activeChain := chain.GetInstance()
+	var blkIndex *blockindex.BlockIndex
+	send := false
+	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
+		if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex2.BlockValidScripts) &&
+			blkIndex.IsValid(blockindex2.BlockValidTree) {
 		}
-		return err
+
+		// Check the block whether in main chain.
+		if !activeChain.Contains(blkIndex) {
+			//nOneMonth := 30 * 24 * 60 * 60
+			//todo !!! add time process, exclude too older block.
+			if blkIndex.IsValid(blockindex2.BlockValidScripts) {
+				send = true
+			}
+		}
 	}
 
-	// Once we have fetched data wait for any previous operation to finish.
-	if waitChan != nil {
-		<-waitChan
+	if send && blkIndex.IsValid(blockindex2.BlockHaveData){
+		// Fetch the raw block bytes from the database.
+		bl, err := lblock.GetBlock(hash)
+		if err != nil {
+			log.Trace("Unable to fetch requested block hash %v: %v",
+				hash, err)
+
+			if doneChan != nil {
+				doneChan <- struct{}{}
+			}
+			return err
+		}
+		// Once we have fetched data wait for any previous operation to finish.
+		if waitChan != nil {
+			<-waitChan
+		}
+
+		// We only send the channel for this message if we aren't sending
+		// an inv straight after.
+		var dc chan<- struct{}
+		continueHash := sp.continueHash
+		sendInv := continueHash != nil && continueHash.IsEqual(hash)
+		if !sendInv {
+			dc = doneChan
+		}
+		sp.QueueMessageWithEncoding((*wire.MsgBlock)(bl), dc, encoding)
+
+		// When the peer requests the final block that was advertised in
+		// response to a getblocks message which requested more blocks than
+		// would fit into a single message, send it a new inventory message
+		// to trigger it to issue another getblocks message for the next
+		// batch of inventory.
+		if sendInv {
+			tip := chain.GetInstance().Tip()
+			invMsg := wire.NewMsgInvSizeHint(1)
+			iv := wire.NewInvVect(wire.InvTypeBlock, tip.GetBlockHash())
+			invMsg.AddInvVect(iv)
+			sp.QueueMessage(invMsg, doneChan)
+			sp.continueHash = nil
+		}
 	}
 
-	// We only send the channel for this message if we aren't sending
-	// an inv straight after.
-	var dc chan<- struct{}
-	continueHash := sp.continueHash
-	sendInv := continueHash != nil && continueHash.IsEqual(hash)
-	if !sendInv {
-		dc = doneChan
-	}
-	sp.QueueMessageWithEncoding((*wire.MsgBlock)(bl), dc, encoding)
 
-	// When the peer requests the final block that was advertised in
-	// response to a getblocks message which requested more blocks than
-	// would fit into a single message, send it a new inventory message
-	// to trigger it to issue another getblocks message for the next
-	// batch of inventory.
-	if sendInv {
-		tip := chain.GetInstance().Tip()
-		invMsg := wire.NewMsgInvSizeHint(1)
-		iv := wire.NewInvVect(wire.InvTypeBlock, tip.GetBlockHash())
-		invMsg.AddInvVect(iv)
-		sp.QueueMessage(invMsg, doneChan)
-		sp.continueHash = nil
-	}
 	return nil
 }
 
