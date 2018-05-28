@@ -3,16 +3,14 @@ Version: 1.0.0
 BuildDate: 20180428
 DataDir: data
 
-Service:
-  address: 10.0.0.0/8
 
 HTTP:
-  host: 127.0.0.1
-  port: 8080
-  mode: test
+  Host: 127.0.0.1
+  Port: 8080
+  Mode: test
 
 RPC:
-  RPCListeners: 127.0.0.1:8334 127.0.0.1:18334
+  RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
   RPCUser: xxx
   RPCPass: xxx
 
@@ -22,9 +20,22 @@ Log:
   Module: mempool utxo
 
 P2PNet:
-  Listerners: 127.0.0.1:8333 127.0.0.1:18333
-  MaxPeers: 125
+  ListenAddrs: [127.0.0.1:8333, 127.0.0.1:18333]
+  MaxPeers: 128
   TargetOutbound: 8
+  DisableBanding: true
+  SimNet: false
+  DisableListen: false
+  BlocksOnly: true
+  DisableDNSSeed: false
+  DisableRPC: false
+  OnOnion: true
+  Upnp: false
+  DisableTLS: true
+
+Protocal:
+  NoPeerBloomFilters: true
+  DisableCheckpoints: true
 
 AddrMgr:
   SimNet: false

@@ -172,9 +172,9 @@ type SyncManager struct {
 	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
-	processTransaction 	func(*tx.Tx, int64) ([]*tx.Tx, error)
-	processBlock 		func(*block.Block) (bool, error)
-	processBlockHead 	func(*block.BlockHeader) error
+	ProcessTransactionCallBack 	func(*tx.Tx, int64) ([]*tx.Tx, []util.Hash, error)
+	ProcessBlockCallBack 		func(*block.Block) (bool, error)
+	ProcessBlockHeadCallBack 	func(*block.BlockHeader) error
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -432,13 +432,22 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	// Process the transaction to include validation, insertion in the
 	// memory pool, orphan handling, etc.
-	acceptedTxs, err := sm.processTransaction(tmsg.tx, int64(peer.ID()))
+	acceptedTxs, missTx,  err := sm.ProcessTransactionCallBack(tmsg.tx, int64(peer.ID()))
 	// Remove transaction from request maps. Either the mempool/chain
 	// already knows about it and as such we shouldn't have any more
 	// instances of trying to fetch it, or we failed to insert and thus
 	// we'll retry next time we get an inv.
 	delete(state.requestedTxns, txHash)
 	delete(sm.requestedTxns, txHash)
+	invMsg := wire.NewMsgInvSizeHint(uint(len(missTx)))
+	for _, hash := range missTx{
+		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
+		invMsg.AddInvVect(iv)
+	}
+	if len(missTx) > 0{
+		peer.QueueMessage(invMsg, nil)
+	}
+
 	if err != nil {
 		// Do not request this transaction again until a new block
 		// has been processed.
@@ -454,7 +463,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 				txHash, peer, err)
 		} else {
 			log.Error("Failed to process transaction %v: %v",
-				txHash, err)
+				txHash.String(), err)
 		}
 
 		// Convert the error into an appropriate reject message and
@@ -553,7 +562,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	_, err := sm.processBlock(bmsg.block)
+	_, err := sm.ProcessBlockCallBack(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
 		// rejected as opposed to something actually going wrong, so log
@@ -1164,7 +1173,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Reinsert all of the transactions (except the coinbase) into
 		// the transaction pool.
 		for _, tx := range block.Txs[1:] {
-			_, err := sm.processTransaction(tx, 0)
+			_, _,  err := sm.ProcessTransactionCallBack(tx, 0)
 			if err != nil {
 				// Remove the transaction and all transactions
 				// that depend on it if it wasn't accepted into

@@ -114,9 +114,9 @@ type Configuration struct {
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
 	DataDir   string `default:"data"`
 
-	Service struct {
-		Address string `default:"1.0.0.1:80"`
-	}
+	// Service struct {
+	// 	Address string `default:"1.0.0.1:80"`
+	// }
 	HTTP struct {
 		Host string `validate:"require"`
 		Port int
@@ -163,9 +163,8 @@ type Configuration struct {
 		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
 		DisableDNSSeed      bool          //Disable DNS seeding for peers
-		DisableRPC          bool          `default:"true"`
+		DisableRPC          bool          `default:"false"`
 		DisableTLS          bool
-		DisableCheckpoints  bool
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT

@@ -20,12 +20,7 @@ import (
 // AccpetTxToMemPool add one check corret transaction to mempool.
 func AcceptTxToMemPool(tx *tx.Tx) error {
 
-	//first : check transaction context And itself.
-	if err := ltx.CheckRegularTransaction(tx); err != nil {
-		return err
-	}
-
-	//second : check whether enter mempool.
+	//first : check whether enter mempool.
 	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
@@ -55,7 +50,7 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 		return err
 	}
 
-	//three : add transaction to mempool.
+	//second : add transaction to mempool.
 	txentry := mempool.NewTxentry(tx, txfee, 0, mpHeight, *lp, 0, false)
 	pool.AddTx(txentry, ancestors)
 

@@ -41,6 +41,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
+	"github.com/btcboost/copernicus/service"
 )
 
 const (
@@ -926,51 +927,6 @@ func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten int, msg wire.Message, 
 	sp.server.AddBytesSent(uint64(bytesWritten))
 }
 
-// rpcPeer provides a peer for use with the RPC server and implements the
-// rpcserverPeer interface.
-type rpcPeer serverPeer
-
-// Ensure rpcPeer implements the rpcserverPeer interface.
-//var _ rpc.RpcServerPeer = (*rpcPeer)(nil)
-
-// ToPeer returns the underlying peer instance.
-//
-// This function is safe for concurrent access and is part of the rpcserverPeer
-// interface implementation.
-func (p *rpcPeer) ToPeer() *peer.Peer {
-	if p == nil {
-		return nil
-	}
-	return (*serverPeer)(p).Peer
-}
-
-// IsTxRelayDisabled returns whether or not the peer has disabled transaction
-// relay.
-//
-// This function is safe for concurrent access and is part of the rpcserverPeer
-// interface implementation.
-func (p *rpcPeer) IsTxRelayDisabled() bool {
-	return (*serverPeer)(p).disableRelayTx
-}
-
-// BanScore returns the current integer value that represents how close the peer
-// is to being banned.
-//
-// This function is safe for concurrent access and is part of the rpcserverPeer
-// interface implementation.
-func (p *rpcPeer) BanScore() uint32 {
-	return (*serverPeer)(p).banScore.Int()
-}
-
-// FeeFilter returns the requested current minimum fee rate for which
-// transactions should be announced.
-//
-// This function is safe for concurrent access and is part of the rpcserverPeer
-// interface implementation.
-func (p *rpcPeer) FeeFilter() int64 {
-	return atomic.LoadInt64(&(*serverPeer)(p).feeFilter)
-}
-
 // randomUint16Number returns a random uint16 in a specified input range.  Note
 // that the range is in zeroth ordering; if you pass it 1800, you will get
 // values from 0 to 1800.
@@ -1698,18 +1654,19 @@ func (s *Server) peerHandler() {
 		outboundGroups:  make(map[string]int),
 	}
 
-	//if !conf.Cfg.P2PNet.DisableDNSSeed {
-	//	// Add peers discovered through DNS to the address manager.
-	//	connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
-	//		net.LookupIP, func(addrs []*wire.NetAddress) {
-	//			// Bitcoind uses a lookup of the dns seeder here. This
-	//			// is rather strange since the values looked up by the
-	//			// DNS seed lookups will vary quite a lot.
-	//			// to replicate this behaviour we put all addresses as
-	//			// having come from the first one.
-	//			s.addrManager.AddAddresses(addrs, addrs[0])
-	//		})
-	//}
+	if !conf.Cfg.P2PNet.DisableDNSSeed {
+		// Add peers discovered through DNS to the address manager.
+		//connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
+		connmgr.SeedFromDNS(s.chainParams, defaultRequiredServices,
+			net.LookupIP, func(addrs []*wire.NetAddress) {
+				// Bitcoind uses a lookup of the dns seeder here. This
+				// is rather strange since the values looked up by the
+				// DNS seed lookups will vary quite a lot.
+				// to replicate this behaviour we put all addresses as
+				// having come from the first one.
+				s.addrManager.AddAddresses(addrs, addrs[0])
+			})
+	}
 	go s.connManager.Start(context.TODO())
 out:
 	for {
@@ -2095,6 +2052,8 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 
 	cfg := conf.Cfg
 
+	fmt.Printf("%+v", cfg)
+
 	services := defaultServices
 	if cfg.Protocal.NoPeerBloomFilters {
 		services &^= wire.SFNodeBloom
@@ -2185,14 +2144,13 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
 	})
+	s.syncManager.ProcessBlockCallBack = service.ProcessBlock
+	s.syncManager.ProcessBlockHeadCallBack = service.ProcessBlockHeader
+	s.syncManager.ProcessTransactionCallBack = service.ProcessTransaction
 	if err != nil {
 		return nil, err
 	}
 
-	// Wait until the interrupt signal is received from an OS signal or
-	// shutdown is requested through one of the subsystems such as the RPC
-	// server.
-	<-interrupt
 	return s, nil
 }
 

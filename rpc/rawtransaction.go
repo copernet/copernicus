@@ -17,7 +17,7 @@ import (
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/service"
+	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 )
@@ -414,7 +414,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
-	_, err = service.ProcessForRpc(txInvMsg)
+	_, err = server.ProcessForRpc(txInvMsg)
 	if err != nil {
 		return nil, btcjson.ErrRPCInternal
 	}
