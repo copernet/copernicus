@@ -359,14 +359,14 @@ func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amo
 	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
-
+type connectTrace map[*blockindex.BlockIndex]*block.Block
 // ConnectTip Connect a new block to chainActive. block is either nullptr or a pointer to
 // a CBlock corresponding to indexNew, to bypass loading it again from disk.
 // The block is always added to connectTrace (either after loading from disk or
 // by copying block) - if that is not intended, care must be taken to remove
 // the last entry in blocksConnected in case of failure.
 func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
-	block *block.Block, connectTrace map[*blockindex.BlockIndex]*block.Block) bool {
+	block *block.Block, connTrace connectTrace) bool {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	
@@ -381,11 +381,11 @@ func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, 
 		if !err || blockNew == nil {
 			return disk.AbortNode(state, "Failed to read block", "")
 		}
-		connectTrace[pIndexNew] = blockNew
+		connTrace[pIndexNew] = blockNew
 		block = blockNew
 
 	} else {
-		connectTrace[pIndexNew] = block
+		connTrace[pIndexNew] = block
 	}
 	blockConnecting := block
 	indexHash := blockConnecting.GetHash()

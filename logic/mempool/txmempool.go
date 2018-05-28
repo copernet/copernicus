@@ -152,7 +152,9 @@ func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason) {
 	pool.RemoveTxRecursive(origTx, reason)
 }
 
-func RemoveUnFinalTx(chain *chain.Chain, view utxo.CacheView, nMemPoolHeight int32, flag int) {
+func RemoveForReorg(nMemPoolHeight int32, flag int) {
+	gChain := chain.GetInstance()
+	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
@@ -163,7 +165,7 @@ func RemoveUnFinalTx(chain *chain.Chain, view utxo.CacheView, nMemPoolHeight int
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
 		lp := entry.GetLockPointFromTxEntry()
-		validLP := entry.CheckLockPointValidity(chain)
+		validLP := entry.CheckLockPointValidity(gChain)
 		//state := NewValidationState()
 
 		tx := entry.Tx
@@ -222,7 +224,8 @@ func RemoveUnFinalTx(chain *chain.Chain, view utxo.CacheView, nMemPoolHeight int
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
-func CheckMempool(view utxo.CacheView) {
+func CheckMempool() {
+	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
