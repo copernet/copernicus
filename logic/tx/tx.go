@@ -64,9 +64,9 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 
 	// check inputs are avaliable
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
-	available := areInputsAvailable(transaction, tempCoinsMap)
-	if !available {
-		return errcode.New(errcode.TxErrInputsNotAvailable)
+	err = areInputsAvailable(transaction, tempCoinsMap)
+	if err != nil {
+		return err
 	}
 
 	// CLTV(CheckLockTimeVerify)
@@ -202,34 +202,42 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 			}
 		}
+		var valueIn amount.Amount = 0
+		if !transaction.IsCoinBase() {
+			ins := transaction.GetIns()
+			for _, in := range ins {
+				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
+				if coin == nil || coin.IsSpent() {
+					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+				}
+				valueIn += coin.GetAmount()
+			}
+			lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
+			if !CheckSequenceLocks(lp) {
+				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+			}
+		}
 		//check sigops
-		sigOpsCount += transaction.GetSigOpCountWithoutP2SH()
+		sigsCount, err := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinMap)
+		if err != nil {
+			return nil, nil, err
+		}
+		sigOpsCount += sigsCount
 		if sigOpsCount > tx.MaxTxSigOpsCounts {
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
-		if transaction.IsCoinBase() {
-			UpdateCoins(transaction, coinsMap, nil, blockHeight)
-			continue
-		}
-		var valueIn amount.Amount = 0
-		ins := transaction.GetIns()
-		for _, in := range ins {
-			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
-			if coin == nil || coin.IsSpent() {
-				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
-			}
-			valueIn += coin.GetAmount()
-		}
-		lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
-		if !CheckSequenceLocks(lp) {
-			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
-		}
-		fees += valueIn - transaction.GetValueOut()
-		if needCheckScript {
-			//check inputs
-			err := checkInputs(transaction, coinsMap, scriptCheckFlags)
-			if err != nil {
-				return nil, nil, err
+		//if transaction.IsCoinBase() {
+		//	UpdateCoins(transaction, coinsMap, nil, blockHeight)
+		//	continue
+		//}
+		if !transaction.IsCoinBase() {
+			fees += valueIn - transaction.GetValueOut()
+			if needCheckScript {
+				//check inputs
+				err := checkInputs(transaction, coinsMap, scriptCheckFlags)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 		//update temp coinsMap
@@ -271,7 +279,7 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	return false
 }
 
-func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
+func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 	gMempool := mempool.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
@@ -281,41 +289,56 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 			coin = gMempool.GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
-			return false
+			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
 		if coin.IsSpent() {
-			return false
+			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
 		coinMap.AddCoin(e.PreviousOutPoint, coin)
 	}
 
-	return true
+	return nil
+}
+
+func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) (int, error) {
+	sigOpsCount := transaction.GetSigOpCountWithoutP2SH()
+	if transaction.IsCoinBase() || flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
+		return sigOpsCount, nil
+	}
+	sigOps, err := GetSigOpCountWithP2SH(transaction, coinMap)
+	if err != nil {
+		return 0, err
+	}
+	return sigOpsCount + sigOps, nil
 }
 
 // starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(transaction *tx.Tx) (int, error) {
+func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, error) {
 	n := transaction.GetSigOpCountWithoutP2SH()
 	if transaction.IsCoinBase() {
 		return n, nil
 	}
 
 	ins := transaction.GetIns()
-	utxo := utxo.GetUtxoCacheInstance()
 	for _, e := range ins {
-		coin := utxo.GetCoin(e.PreviousOutPoint)
+		coin := coinMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
+			return 0, errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		if coin == nil {
-			err := errcode.New(errcode.TxErrNoPreviousOut)
-			return 0, err
+		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
+		if !scriptPubKey.IsPayToScriptHash() {
+			sigsCount, err := scriptPubKey.GetSigOpCount(true)
+			if err != nil {
+				return 0, err
+			}
+			n += sigsCount
+		} else {
+			sigsCount, err := e.GetScriptSig().GetP2SHSigOpCount()
+			if err != nil {
+				return 0, err
+			}
+			n += sigsCount
 		}
-		/*
-			if !coin.Vout.ScriptPubkey.IsPayToScriptHash() {
-				n += coin.Vout.ScriptPubkey.GetSigOpCount(true)
-			} else {
-				n += e.scriptSigcript.GetP2SHSigOpCount()
-			}*/
 	}
 
 	return n, nil
