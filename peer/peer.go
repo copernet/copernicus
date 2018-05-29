@@ -2043,7 +2043,7 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		if p.inbound {
 			negotiateErr <- p.negotiateInboundProtocol()
 		} else {
-			log.Trace("outbound peer :  %s", p)
+			log.Trace("outbound peer :  %s, %v", p.conn.RemoteAddr())
 			negotiateErr <- p.negotiateOutboundProtocol()
 		}
 	}()
