@@ -16,6 +16,7 @@ import (
 	lpool "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/mempool"
@@ -176,7 +177,7 @@ type SyncManager struct {
 	// callback for transaction And block process
 	ProcessTransactionCallBack 	func(*tx.Tx, int64) ([]*tx.Tx, []util.Hash, error)
 	ProcessBlockCallBack 		func(*block.Block) (bool, error)
-	ProcessBlockHeadCallBack 	func(*block.BlockHeader) error
+	ProcessBlockHeadCallBack 	func([]*block.BlockHeader, *blockindex.BlockIndex) error
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -564,6 +565,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
+	log.Debug("sm.ProcessBlockCallBack=====")
 	_, err := sm.ProcessBlockCallBack(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
@@ -1329,7 +1331,7 @@ func New(config *Config) (*SyncManager, error) {
 		headerList:      list.New(),
 		quit:            make(chan struct{}),
 	}
-
+	chain.InitGlobalChain(nil)
 	best := chain.GetInstance().Tip()
 	if !config.DisableCheckpoints {
 		// Initialize the next checkpoint based on the current height.

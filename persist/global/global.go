@@ -40,12 +40,17 @@ type PersistGlobal struct {
 	GlobalTimeForks int64
 	GlobalTimePostConnect int64
 	GlobalTimeTotal int64
-	
+	GlobalBlockSequenceID       int32
 	
 	
 }
 
-
+func (pg *PersistGlobal) AddDirtyBlockIndex(hash util.Hash, pindex *blockindex.BlockIndex){
+	pg.GlobalDirtyBlockIndex[hash] = pindex
+}
+func (pg *PersistGlobal) AddBlockSequenceID(){
+	pg.GlobalBlockSequenceID += 1
+}
 func InitPersistGlobal() *PersistGlobal {
 	cg := new(PersistGlobal)
 	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)

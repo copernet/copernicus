@@ -24,7 +24,6 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
-	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/bitcointime"
@@ -1046,21 +1045,21 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	var blkIndex *blockindex.BlockIndex
 	send := false
 	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
-		if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex2.BlockValidScripts) &&
-			blkIndex.IsValid(blockindex2.BlockValidTree) {
+		if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
+			blkIndex.IsValid(blockindex.BlockValidTree) {
 		}
 
 		// Check the block whether in main chain.
 		if !activeChain.Contains(blkIndex) {
 			//nOneMonth := 30 * 24 * 60 * 60
 			//todo !!! add time process, exclude too older block.
-			if blkIndex.IsValid(blockindex2.BlockValidScripts) {
+			if blkIndex.IsValid(blockindex.BlockValidScripts) {
 				send = true
 			}
 		}
 	}
 
-	if send && blkIndex.IsValid(blockindex2.BlockHaveData) {
+	if send && blkIndex.IsValid(blockindex.BlockHaveData) {
 		// Fetch the raw block bytes from the database.
 		bl, err := lblock.GetBlock(hash)
 		if err != nil {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
+	
 	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/block"
@@ -19,28 +19,27 @@ import (
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
-
+	
 	"github.com/btcboost/copernicus/log"
-	lbi "github.com/btcboost/copernicus/logic/blockindex"
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/logic/undo"
-
+	
 	mUndo "github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/persist/disk"
-
+	
 	lblock "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/model/pow"
 )
 
 const MinBlocksToKeep = int32(288)
 
-func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *block.ValidationState,
+func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 	fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex, dbp *block.DiskBlockPos, err error) {
 	if pblock != nil {
 		*fNewBlock = false
 	}
-	bIndex, err = AcceptBlockHeader(&pblock.Header, params)
+	bIndex, err = AcceptBlockHeader(&pblock.Header)
 	if err != nil {
 		return
 	}
@@ -73,7 +72,7 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 		}
 	}
 	if bIndex.AllValid() == false {
-		suc := lblock.CheckBlock(params, pblock, state, true, true)
+		suc := lblock.CheckBlock(pblock, state, true, true)
 		if !suc {
 			return
 		}
@@ -81,15 +80,15 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 		bIndex.AddStatus(blockindex.StatusAllValid)
 	}
 	gPersist := global.GetInstance()
-	if !lblock.CheckBlock(params, pblock, state, true, true) {
+	if !lblock.CheckBlock(pblock, state, true, true) {
 		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 		err = errcode.ProjectError{Code: 3005}
 		return
 	}
-	if !lblock.ContextualCheckBlock(params, pblock, state, bIndex.Prev) {
+	if !lblock.ContextualCheckBlock(pblock, state, bIndex.Prev) {
 		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 		err = errcode.ProjectError{Code: 3005}
 		return
 	}
@@ -102,14 +101,14 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 		err = errcode.ProjectError{Code: 3006}
 		return
 	}
+	ReceivedBlockTransactions(pblock, bIndex, dbp)
 	bIndex.SubStatus(blockindex.StatusWaitingData)
 	bIndex.AddStatus(blockindex.StatusDataStored)
-	gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
-
+	gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 	return
 }
 
-func AcceptBlockHeader(bh *block.BlockHeader, params *chainparams.BitcoinParams) (*blockindex.BlockIndex, error) {
+func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	var c = mchain.GetInstance()
 
 	bIndex := c.FindBlockIndex(bh.GetHash())
@@ -118,17 +117,19 @@ func AcceptBlockHeader(bh *block.BlockHeader, params *chainparams.BitcoinParams)
 	}
 
 	//this is a new blockheader
-	err := lblock.CheckBlockHeader(bh, params, true)
+	err := lblock.CheckBlockHeader(bh, true)
 	if err != nil {
 		return nil, err
 	}
 
 	bIndex = blockindex.NewBlockIndex(bh)
-	bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
-	if bIndex.Prev == nil {
-		return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
+	if !bIndex.IsGenesis(){
+		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
+		if bIndex.Prev == nil {
+			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
+		}
 	}
-
+	
 	bIndex.Height = bIndex.Prev.Height + 1
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
@@ -139,7 +140,7 @@ func AcceptBlockHeader(bh *block.BlockHeader, params *chainparams.BitcoinParams)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return bIndex, nil
 }
 
@@ -200,14 +201,14 @@ func IsCashHFEnabled(params *chainparams.BitcoinParams, medianTimePast int64) bo
 
 var HashAssumeValid util.Hash
 
-func ConnectBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *block.ValidationState,
+func ConnectBlock(pblock *block.Block, state *block.ValidationState,
 	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) bool {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()
-
+	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad block in
-	if lblock.CheckBlock(params, pblock, state, true,
+	if lblock.CheckBlock(pblock, state, true,
 		true) {
 		return false
 	}
@@ -319,7 +320,7 @@ func ConnectBlock(params *chainparams.BitcoinParams, pblock *block.Block, state 
 	}
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
-	if UndoPos.IsNull() || !pindex.IsValid(lbi.BlockValidScripts) {
+	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
 		if UndoPos.IsNull() {
 			var pos *block.DiskBlockPos = block.NewDiskBlockPos(pindex.File, 0)
 
@@ -332,9 +333,9 @@ func ConnectBlock(params *chainparams.BitcoinParams, pblock *block.Block, state 
 
 			// update nUndoPos in block index
 			pindex.UndoPos = pos.Pos
-			pindex.Status |= lbi.BlockHaveUndo
+			pindex.Status |= blockindex.BlockHaveUndo
 		}
-		pindex.RaiseValidity(lbi.BlockValidScripts)
+		pindex.RaiseValidity(blockindex.BlockValidScripts)
 		gPersist.GlobalDirtyBlockIndex[*hash] = pindex
 	}
 	// add this block to the view's block chain
@@ -368,7 +369,7 @@ type connectTrace map[*blockindex.BlockIndex]*block.Block
 // The block is always added to connectTrace (either after loading from disk or
 // by copying block) - if that is not intended, care must be taken to remove
 // the last entry in blocksConnected in case of failure.
-func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
+func ConnectTip(state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
 	block *block.Block, connTrace connectTrace) bool {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
@@ -380,7 +381,7 @@ func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, 
 	// Read block from disk.
 	nTime1 := time.Now().UnixNano()
 	if block == nil {
-		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, param)
+		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
 			return disk.AbortNode(state, "Failed to read block", "")
 		}
@@ -399,7 +400,7 @@ func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, 
 	log.Info("  - Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 
 	view := utxo.NewEmptyCoinsMap()
-	rv := ConnectBlock(param, blockConnecting, state, pIndexNew, view, false)
+	rv := ConnectBlock(blockConnecting, state, pIndexNew, view, false)
 	if !rv {
 		if state.IsInvalid() {
 			InvalidBlockFound(pIndexNew, state)
@@ -430,7 +431,7 @@ func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, 
 	// Remove conflicting transactions from the mempool.;
 	mempool.GetInstance().RemoveTxSelf(blockConnecting.Txs)
 	// Update chainActive & related variables.
-	UpdateTip(param, pIndexNew)
+	UpdateTip(pIndexNew)
 	nTime6 := util.GetMicrosTime()
 	gPersist.GlobalTimePostConnect += nTime6 - nTime1
 	gPersist.GlobalTimeTotal += nTime6 - nTime1
@@ -445,14 +446,14 @@ func ConnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, 
 // DisconnectTip Disconnect chainActive's tip. You probably want to call
 // mempool.removeForReorg and manually re-limit mempool size after this, with
 // cs_main held.
-func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationState, fBare bool) bool {
+func DisconnectTip(state *block.ValidationState, fBare bool) bool {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	if tip == nil {
 		panic("the chain tip element should not equal nil")
 	}
 	// Read block from disk.
-	blk, ret := disk.ReadBlockFromDisk(tip, param)
+	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
 		return disk.AbortNode(state, "Failed to read block", "")
 	}
@@ -504,7 +505,7 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 	}
 
 	// Update chainActive and related variables.
-	UpdateTip(param, tip.Prev)
+	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
 
@@ -512,10 +513,10 @@ func DisconnectTip(param *chainparams.BitcoinParams, state *block.ValidationStat
 }
 
 // UpdateTip Update chainActive and related internal data structures.
-func UpdateTip(param *chainparams.BitcoinParams, pindexNew *blockindex.BlockIndex) {
+func UpdateTip(pindexNew *blockindex.BlockIndex) {
 	gChain := mchain.GetInstance()
 	gChain.SetTip(pindexNew)
-
+	param := gChain.GetParams()
 	//	TODO !!! notify mempool update tx
 	warningMessages := make([]string, 0)
 	if !undo.IsInitialBlockDownload() {
@@ -619,4 +620,31 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	}
 
 	return undo.ApplyBlockUndo(blockUndo, pblock, view)
+}
+
+
+// ReceivedBlockTransactions Mark a block as having its data received and checked (up to
+// * BLOCK_VALID_TRANSACTIONS).
+func ReceivedBlockTransactions(pblock *block.Block,
+	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
+	hash := pindexNew.GetBlockHash()
+	pindexNew.TxCount = len(pblock.Txs)
+	pindexNew.ChainTxCount = 0
+	pindexNew.File = pos.File
+	pindexNew.DataPos = pos.Pos
+	pindexNew.UndoPos = 0
+	pindexNew.AddStatus(blockindex.StatusDataStored)
+	gPersist := global.GetInstance()
+	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
+	gChain := mchain.GetInstance()
+	if pindexNew.IsGenesis() || gChain.ParentInBranch(pindexNew) {
+		// If indexNew is the genesis block or all parents are in branch
+		gChain.AddToBranch(pindexNew)
+	} else {
+		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
+			gChain.AddToOrphan(pindexNew)
+		}
+	}
+
+	return true
 }

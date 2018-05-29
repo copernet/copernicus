@@ -7,7 +7,7 @@ import (
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/versionbits"
@@ -43,10 +43,10 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlo
 }
 
 
-func getLockTime(params *chainparams.BitcoinParams, block *block.Block,
-	indexPrev *blockindex.BlockIndex) (int64) {
+
+func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) (int64) {
 	
-	
+	params := chain.GetInstance().GetParams()
 	lockTimeFlags := 0
 	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		lockTimeFlags |= consensus.LocktimeMedianTimePast
@@ -66,9 +66,8 @@ func getLockTime(params *chainparams.BitcoinParams, block *block.Block,
 	return lockTimeCutoff
 }
 
-func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *block.ValidationState,
+func CheckBlock( pblock *block.Block, state *block.ValidationState,
 	checkPOW, checkMerkleRoot bool) bool {
-
 	// These are checks that are independent of context.
 	if pblock.Checked {
 		return true
@@ -78,7 +77,7 @@ func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *b
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
-	if err := CheckBlockHeader(&bh, params, checkPOW); err!=nil {
+	if err := CheckBlockHeader(&bh, checkPOW); err!=nil {
 		return false
 	}
 
@@ -138,14 +137,14 @@ func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *b
 	return true
 }
 
-func ContextualCheckBlock(params *chainparams.BitcoinParams, b *block.Block, state *block.ValidationState,
+func ContextualCheckBlock( b *block.Block, state *block.ValidationState,
 	indexPrev *blockindex.BlockIndex) bool {
 
 	var height int32
 	if indexPrev != nil {
 		height = indexPrev.Height + 1
 	}
-	lockTimeCutoff := getLockTime(params, b, indexPrev)
+	lockTimeCutoff := getLockTime(b, indexPrev)
 
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized block height
