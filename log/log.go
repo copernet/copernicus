@@ -47,11 +47,10 @@ func Print(module string, level string, format string, reason ...interface{}) {
 }
 
 func isIncludeModule(module string) bool {
-	//for _, item := range conf.AppConf.LogModule {
-	//	if item == module {
-	//		return true
-	//	}
-	//}
+	module = strings.ToLower(module)
+	if _, ok := mapModule[module]; ok {
+		return true
+	}
 	return false
 }
 
@@ -73,6 +72,11 @@ func InitLog() {
 		panic(err)
 	}
 	logs.SetLogger(logs.AdapterFile, string(configuration))
+
+	// output filename and line number
+	logs.EnableFuncCallDepth(true)
+	// output async buffer
+	logs.Async(1e3)
 
 	// init mapModule
 	mapModule = make(map[string]struct{})
