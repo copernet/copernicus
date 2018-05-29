@@ -96,7 +96,7 @@ func initConfig() *Configuration {
 	}
 
 	// get config file path from environment
-	conf := viper.GetString("conf")
+	conf := viper.GetString(".conf")
 
 	// parse config
 	file := must(os.Open(conf)).(*os.File)
@@ -200,7 +200,7 @@ func must(i interface{}, err error) interface{} {
 }
 
 func init() {
-	//Cfg = initConfig()
+	Cfg = initConfig()
 }
 
 // Validate validates configuration
