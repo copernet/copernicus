@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"log"
+	//"log"
 	"net"
 	"os"
 	"path"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/btcboost/copernicus/model"
 	"github.com/spf13/viper"
+	"fmt"
 )
 
 const (
@@ -82,21 +83,21 @@ func initConfig() *Configuration {
 			value := field.Tag.Get(tagName)
 			//set default value
 			viper.SetDefault(key, value)
-			log.Printf("key is: %v,value is: %v\n", key, value)
+			//log.Printf("key is: %v,value is: %v\n", key, value)
 		} else {
 			structField := v.Field(i).Type()
 			for j := 0; j < structField.NumField(); j++ {
 				key := structField.Field(j).Name
 				values := structField.Field(j).Tag.Get(tagName)
 				viper.SetDefault(key, values)
-				log.Printf("key is: %v,value is: %v\n", key, values)
+				//log.Printf("key is: %v,value is: %v\n", key, values)
 			}
 			continue
 		}
 	}
 
 	// get config file path from environment
-	conf := viper.GetString(".conf")
+	conf := viper.GetString("conf")
 
 	// parse config
 	file := must(os.Open(conf)).(*os.File)
