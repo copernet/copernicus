@@ -6,18 +6,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
-	"errors"
 
+	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/limits"
 	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/rpc"
-	"github.com/btcboost/copernicus/conf"
 )
 
 const (
@@ -55,6 +56,9 @@ func bchMain(ctx context.Context) error {
 		rpcServer.Start()
 	}
 
+	// init log module
+	log.InitLog()
+
 	server.SetMsgHandle(context.TODO(), s.PhCh, s)
 	if interruptRequested(interrupt) {
 		return nil
@@ -68,7 +72,7 @@ func bchMain(ctx context.Context) error {
 		}
 	}()
 	go func() {
-		<- rpcServer.RequestedProcessShutdown()
+		<-rpcServer.RequestedProcessShutdown()
 		shutdownRequestChannel <- struct{}{}
 	}()
 	<-interrupt
