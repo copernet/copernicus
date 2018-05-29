@@ -2,27 +2,30 @@ package blockindex
 
 import (
 	
-	"sort"
-	"math/big"
-	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/persist/global"
-	"github.com/btcboost/copernicus/util"
-	"gopkg.in/fatih/set.v0"
-	"time"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/persist/blkdb"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/persist/disk"
-	"github.com/btcboost/copernicus/model/pow"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/model/block"
+"math/big"
+"sort"
+"time"
+
+
+
+"github.com/astaxie/beego/logs"
+"github.com/btcboost/copernicus/log"
+"github.com/btcboost/copernicus/model/block"
+"github.com/btcboost/copernicus/model/blockindex"
+"github.com/btcboost/copernicus/model/chain"
+"github.com/btcboost/copernicus/model/pow"
+"github.com/btcboost/copernicus/model/utxo"
+"github.com/btcboost/copernicus/persist/blkdb"
+"github.com/btcboost/copernicus/persist/disk"
+"github.com/btcboost/copernicus/persist/global"
+"github.com/btcboost/copernicus/util"
+"gopkg.in/fatih/set.v0"
+
 	
 )
 
 //on main init call it
-func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
+func LoadBlockIndexDB() bool {
 	gChain := chain.GetInstance()
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
 	branch := make([]*blockindex.BlockIndex, 0, 20)
@@ -88,6 +91,9 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	var bfi *block.BlockFileInfo
 	
 	gPersist.GlobalLastBlockFile, err = btd.ReadLastBlockFile()
+	if err != nil{
+		log.Error("btd.ReadLastBlockFile() err:%#v", err)
+	}
 	GlobalBlockFileInfo := make(global.BlockFileInfoList, gPersist.GlobalLastBlockFile+1)
 	if err != nil{
 		log.Error("Error: GetLastBlockFile err %#v", err)
@@ -96,6 +102,9 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	for nFile := 0; nFile <= gPersist.GlobalLastBlockFile; nFile++ {
 		bfi,err = btd.ReadBlockFileInfo(nFile)
 		if err == nil{
+			if bfi == nil{
+				bfi = block.NewBlockFileInfo()
+			}
 			GlobalBlockFileInfo[nFile] = bfi
 		}else{
 			log.Error("btd.ReadBlockFileInfo(%#v) err:%#v", nFile, err)
@@ -107,7 +116,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
 		if  bfi != nil && err == nil {
-			GlobalBlockFileInfo[nFile] = bfi
+			GlobalBlockFileInfo = append(GlobalBlockFileInfo, bfi)
 		} else {
 			break
 		}

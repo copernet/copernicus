@@ -5,9 +5,11 @@ import (
 	"unsafe"
 
 	"github.com/btcboost/copernicus/log"
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/util"
 	"github.com/hashicorp/golang-lru"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type CoinsLruCache struct {
@@ -22,7 +24,7 @@ var utxoLruTip CacheView
 func InitUtxoLruTip(uc *UtxoConfig) {
 	fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
 
-	db := NewCoinsDB(uc.do)
+	db := NewCoinsDB(uc.Do)
 	utxoLruTip = NewCoinsLruCache(*db)
 
 }
@@ -81,6 +83,9 @@ func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
 func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
+		if err == leveldb.ErrNotFound{
+			return chain.GetInstance().GetParams().GenesisBlock.GetHash()
+		}
 		if err != nil {
 			log.Error("db.GetBestBlock err:%#v", err)
 			panic("db.GetBestBlock read err")

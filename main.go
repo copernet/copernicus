@@ -35,9 +35,9 @@ const (
 func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
-
+	MainInit()
 	interrupt := interruptListener()
-
+	
 	s, err := server.NewServer(&chainparams.TestNet3Params, interrupt)
 	if err != nil {
 		return err

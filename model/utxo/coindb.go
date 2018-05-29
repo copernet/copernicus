@@ -9,6 +9,7 @@ import (
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/persist/db"
 	"github.com/btcboost/copernicus/util"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type CoinsDB struct {
@@ -46,6 +47,9 @@ func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 
 func (coinsViewDB *CoinsDB) GetBestBlock() (*util.Hash, error) {
 	v, err := coinsViewDB.dbw.Read([]byte{db.DbBestBlock})
+	if err == leveldb.ErrNotFound{
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}

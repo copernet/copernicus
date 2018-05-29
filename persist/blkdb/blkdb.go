@@ -10,11 +10,9 @@ import (
 "github.com/btcboost/copernicus/log"
 "github.com/btcboost/copernicus/model/blockindex"
 "github.com/btcboost/copernicus/persist/db"
-
-
-
-
-"github.com/astaxie/beego/logs"
+	"github.com/syndtr/goleveldb/leveldb"
+	
+	"github.com/astaxie/beego/logs"
 "github.com/btcboost/copernicus/model/block"
 "github.com/btcboost/copernicus/model/chainparams"
 "github.com/btcboost/copernicus/model/pow"
@@ -28,12 +26,12 @@ type BlockTreeDB struct {
 var blockTreeDb *BlockTreeDB = nil
 
 type BlockTreeDBConfig struct {
-	do *db.DBOption
+	Do *db.DBOption
 }
 
 func InitBlockTreDB(uc *BlockTreeDBConfig){
 	fmt.Printf("InitBlockTreDB processing ....%v",uc)
-	blockTreeDb = NewBlockTreeDB(uc.do)
+	blockTreeDb = NewBlockTreeDB(uc.Do)
 
 }
 
@@ -64,12 +62,19 @@ func NewBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 }
 
 func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) (*block.BlockFileInfo, error){
-
+	log.Debug("file======%#v", file)
 	keyBuf := bytes.NewBuffer(nil)
 	keyBuf.Write([]byte{db.DbBlockFiles})
 	util.WriteElements(keyBuf, uint64(file))
 	vbytes, err := blockTreeDB.dbw.Read(keyBuf.Bytes())
+	if err == leveldb.ErrNotFound{
+		return nil, nil
+	}
+	log.Debug("file======%#v", file)
+	
 	if err != nil {
+		fmt.Println("ReadBlockFileInfo err: %#v", err.Error())
+		log.Error("ReadBlockFileInfo err: %#v", err.Error())
 		panic("read failed ....")
 	}
 	bufs := bytes.NewBuffer(vbytes)
@@ -95,10 +100,10 @@ func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int, error) {
 	data, err := blockTreeDB.dbw.Read([]byte{db.DbLastBlock})
 	if err != nil{
-		return -2, err
+		return 0, err
 	}
 	buf := bytes.NewBuffer(data)
-	var lastFile int= -2
+	var lastFile int= 0
 	err = util.ReadElements(buf, &lastFile)
 	return lastFile, err
 }
