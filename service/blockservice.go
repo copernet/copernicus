@@ -8,7 +8,6 @@ import (
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/persist/global"
 
 )
@@ -30,8 +29,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 		}
 	}
 
-	params := chainparams.MainNetParams
-	ret := ProcessNewBlock(&params, b, true, &isNewBlock)
+	ret := ProcessNewBlock(b, true, &isNewBlock)
 	// bIndex,err = lchain.AcceptBlock(b, &params)
 	if !ret {
 		return isNewBlock, err
@@ -42,7 +40,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 }
 
 
-func ProcessNewBlock(param *chainparams.BitcoinParams, pblock *block.Block, fForceProcessing bool, fNewBlock *bool) bool {
+func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool) bool {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
@@ -50,15 +48,15 @@ func ProcessNewBlock(param *chainparams.BitcoinParams, pblock *block.Block, fFor
 	state := block.ValidationState{}
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
-	ret := lblock.CheckBlock(param, pblock, &state, true, true, )
+	ret := lblock.CheckBlock(pblock, &state, true, true, )
 
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
 	if ret {
-		lchain.AcceptBlock(param, pblock, &state, fForceProcessing, fNewBlock)
+		lchain.AcceptBlock(pblock, &state, fForceProcessing, fNewBlock)
 	}
 	
-	lchain.CheckBlockIndex(param)
+	lchain.CheckBlockIndex()
 	if !ret {
 		// todo !!! add asynchronous notification
 		logs.Error(" AcceptBlock FAILED ")
@@ -66,7 +64,7 @@ func ProcessNewBlock(param *chainparams.BitcoinParams, pblock *block.Block, fFor
 	}
 
 	// Only used to report errors, not invalidity - ignore it
-	if !lchain.ActivateBestChain(param, &state, pblock) {
+	if !lchain.ActivateBestChain(&state, pblock) {
 		logs.Error(" ActivateBestChain failed ")
 		return false
 	}

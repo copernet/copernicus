@@ -1329,7 +1329,7 @@ func New(config *Config) (*SyncManager, error) {
 		headerList:      list.New(),
 		quit:            make(chan struct{}),
 	}
-
+	chain.InitGlobalChain(nil)
 	best := chain.GetInstance().Tip()
 	if !config.DisableCheckpoints {
 		// Initialize the next checkpoint based on the current height.

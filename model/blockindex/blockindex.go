@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -64,6 +65,7 @@ type BlockIndex struct {
 	SequenceID uint64
 	// (memory only) Maximum time in the chain upto and including this block.
 	TimeMax uint32
+	isGenesis bool
 }
 
 const medianTimeSpan = 11
@@ -251,7 +253,15 @@ func (bIndex *BlockIndex) String() string {
 }
 
 func (bIndex *BlockIndex) IsGenesis() bool{
-	return bIndex.Prev == nil
+	
+	return bIndex.isGenesis
+}
+
+func (bIndex *BlockIndex) SetIsGenesis(params *chainparams.BitcoinParams) bool{
+	bh := bIndex.Header
+	bHash := bh.GetHash()
+	genesisHash := params.GenesisBlock.GetHash()
+	return bHash.IsEqual(&genesisHash)
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
