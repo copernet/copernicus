@@ -11,7 +11,6 @@ import (
 
 	"github.com/btcboost/copernicus/model"
 	"github.com/spf13/viper"
-	"fmt"
 )
 
 const (

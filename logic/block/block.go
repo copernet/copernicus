@@ -125,6 +125,7 @@ func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *b
 		return state.Dos(100, false, block.RejectInvalid, "bad-blk-length",
 			false, "size limits failed")
 	}
+
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil{
 		return state.Dos(100, false, block.RejectInvalid, "bad-blk-tx",

@@ -43,7 +43,6 @@ func bchMain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	//service2.NewMsgHandle(s.mh, )
 	var rpcServer *rpc.Server
 	if !conf.Cfg.P2PNet.DisableRPC {
 		rpcServer, err = rpc.InitRPCServer()
