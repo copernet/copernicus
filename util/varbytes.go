@@ -1,10 +1,9 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 func ReadVarBytes(r io.Reader, maxAllowed uint32, fieldName string) ([]byte, error) {
