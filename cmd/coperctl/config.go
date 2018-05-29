@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
 	"github.com/jessevdk/go-flags"
@@ -88,7 +89,7 @@ func listCommands() {
 	}
 }
 
-// config defines the configuration options for btcctl.
+// config defines the configuration options for coperctl.
 //
 // See loadConfig for details on the configuration load process.
 type config struct {
@@ -168,6 +169,13 @@ func cleanAndExpandPath(path string) string {
 // while still allowing the user to override settings with config files and
 // command line options.  Command line options always take precedence.
 func loadConfig() (*config, []string, error) {
+	if !conf.ExistDataDir(coperctlHomeDir) {
+		err := os.MkdirAll(coperctlHomeDir, os.ModePerm)
+		if err != nil {
+			panic(coperctlHomeDir + " create failed: " + err.Error())
+		}
+	}
+
 	// Default config.
 	cfg := config{
 		ConfigFile: defaultConfigFile,
@@ -211,7 +219,7 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	if _, err := os.Stat(preCfg.ConfigFile); os.IsNotExist(err) {
-		// Use config file for RPC server to create default btcctl config
+		// Use config file for RPC server to create default coperctl config
 		var serverConfigPath string
 		if preCfg.Wallet {
 			serverConfigPath = filepath.Join(coperwalletHomeDir, "btcwallet.conf")
