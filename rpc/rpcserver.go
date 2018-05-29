@@ -265,7 +265,6 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 
 	// Read and close the JSON-RPC request body from the caller.
 	body, err := ioutil.ReadAll(r.Body)
-	fmt.Println(string(body)) // todo delete
 	r.Body.Close()
 	if err != nil {
 		errCode := http.StatusBadRequest
