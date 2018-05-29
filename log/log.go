@@ -2,9 +2,7 @@ package log
 
 import (
 	"encoding/json"
-	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/astaxie/beego/logs"
@@ -141,14 +139,6 @@ func Debug(f interface{}, v ...interface{}) {
 // compatibility alias for Warning()
 func Trace(f interface{}, v ...interface{}) {
 	logs.Trace(f, v)
-}
-
-func TraceLog() string {
-	pc := make([]uintptr, 10) // at least 1 entry needed
-	runtime.Callers(2, pc)
-	f := runtime.FuncForPC(pc[0])
-	_, line := f.FileLine(pc[0])
-	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
 }
 
 func GetLogger() *logs.BeeLogger {
