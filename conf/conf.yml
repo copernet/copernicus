@@ -4,8 +4,8 @@ BuildDate: 20180428
 
 RPC:
   RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
-  RPCUser: xxx
-  RPCPass: xxx
+  RPCUser: copernicus
+  RPCPass: doXT3DXgAQCNU0Li0pujQ6zR3Y
 
 Log:
   FileName: copernicus
