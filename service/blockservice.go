@@ -1,9 +1,7 @@
 package service
 
 import (
-	
-	
-	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	"github.com/btcboost/copernicus/model/block"
@@ -18,6 +16,7 @@ func ProcessBlockHeader(bl * block.BlockHeader) error {
 }
 
 func ProcessBlock(b *block.Block) (bool, error) {
+	log.Debug("ProcessBlock==%#v", b)
 	gChain := chain.GetInstance()
 	isNewBlock := false
 	var err error
@@ -59,13 +58,13 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	lchain.CheckBlockIndex()
 	if !ret {
 		// todo !!! add asynchronous notification
-		logs.Error(" AcceptBlock FAILED ")
+		log.Error(" AcceptBlock FAILED ")
 		return false
 	}
 
 	// Only used to report errors, not invalidity - ignore it
 	if !lchain.ActivateBestChain(&state, pblock) {
-		logs.Error(" ActivateBestChain failed ")
+		log.Error(" ActivateBestChain failed ")
 		return false
 	}
 
