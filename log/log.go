@@ -55,7 +55,7 @@ func isIncludeModule(module string) bool {
 	return false
 }
 
-func init() {
+func InitLog() {
 	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
 
 	logConf := struct {
