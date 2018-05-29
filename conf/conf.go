@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 const (
 	tagName = "default"
 
-	defaultConfigFilename       = "coper.conf"
+	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
 	defaultLogLevel             = "info"
 	defaultLogDirname           = "logs"
@@ -72,6 +73,7 @@ func initConfig() *Configuration {
 			panic("datadir create failed: " + err.Error())
 		}
 	}
+
 	config := &Configuration{}
 	viper.SetConfigType("yaml")
 
@@ -108,6 +110,9 @@ func initConfig() *Configuration {
 
 	// set data dir
 	config.DataDir = datadir
+
+	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
+	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
 	return config
 }
 
@@ -163,7 +168,7 @@ type Configuration struct {
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
 		DisableDNSSeed      bool          //Disable DNS seeding for peers
 		DisableRPC          bool          `default:"false"`
-		DisableTLS          bool
+		DisableTLS          bool          `default:"false"`
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT

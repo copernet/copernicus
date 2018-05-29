@@ -31,7 +31,7 @@ P2PNet:
   DisableRPC: false
   OnOnion: true
   Upnp: false
-  DisableTLS: true
+  DisableTLS: false
 
 Protocal:
   NoPeerBloomFilters: true
