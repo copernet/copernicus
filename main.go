@@ -14,7 +14,6 @@ import (
 	"runtime/debug"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/limits"
 	"github.com/btcboost/copernicus/net/server"
@@ -54,9 +53,6 @@ func bchMain(ctx context.Context) error {
 		//go s.rebroadcastHandler()
 		rpcServer.Start()
 	}
-
-	// init log module
-	log.InitLog()
 
 	server.SetMsgHandle(context.TODO(), s.PhCh, s)
 	if interruptRequested(interrupt) {

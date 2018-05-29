@@ -54,7 +54,7 @@ func isIncludeModule(module string) bool {
 	return false
 }
 
-func InitLog() {
+func init() {
 	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
 
 	logConf := struct {
@@ -75,6 +75,7 @@ func InitLog() {
 
 	// output filename and line number
 	logs.EnableFuncCallDepth(true)
+	logs.SetLogFuncCallDepth(4)
 	// output async buffer
 	logs.Async(1e3)
 
