@@ -1,8 +1,6 @@
 package chain
 
 import (
-	"io"
-
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -28,7 +26,3 @@ func(blt *BlockLocator) GetBlockHashList() []util.Hash{
 	return blt.blockHashList
 }
 
-
-func Serialize(w io.Writer) {
-
-}

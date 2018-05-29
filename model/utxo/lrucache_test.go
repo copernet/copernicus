@@ -10,7 +10,7 @@ import (
 )
 
 func TestMain(m *testing.M){
-	config := UtxoConfig{do: &db.DBOption{CacheSize: 10000}}
+	config := UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
 	InitUtxoLruTip(&config)
 	m.Run()
 }

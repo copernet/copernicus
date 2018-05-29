@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
 	"github.com/jessevdk/go-flags"
@@ -26,13 +27,13 @@ const (
 )
 
 var (
-	btcdHomeDir           = util.AppDataDir("btcd", false)
-	btcctlHomeDir         = util.AppDataDir("btcctl", false)
-	btcwalletHomeDir      = util.AppDataDir("btcwallet", false)
-	defaultConfigFile     = filepath.Join(btcctlHomeDir, "btcctl.conf")
+	coperHomeDir          = util.AppDataDir("coper", false)
+	coperctlHomeDir       = util.AppDataDir("coperctl", false)
+	coperwalletHomeDir    = util.AppDataDir("coperwallet", false)
+	defaultConfigFile     = filepath.Join(coperctlHomeDir, "coperctl.conf")
 	defaultRPCServer      = "localhost"
-	defaultRPCCertFile    = filepath.Join(btcdHomeDir, "rpc.cert")
-	defaultWalletCertFile = filepath.Join(btcwalletHomeDir, "rpc.cert")
+	defaultRPCCertFile    = filepath.Join(coperHomeDir, "rpc.cert")
+	defaultWalletCertFile = filepath.Join(coperwalletHomeDir, "rpc.cert")
 )
 
 // listCommands categorizes and lists all of the usable commands along with
@@ -88,7 +89,7 @@ func listCommands() {
 	}
 }
 
-// config defines the configuration options for btcctl.
+// config defines the configuration options for coperctl.
 //
 // See loadConfig for details on the configuration load process.
 type config struct {
@@ -146,7 +147,7 @@ func normalizeAddress(addr string, useTestNet3, useSimNet, useWallet bool) strin
 func cleanAndExpandPath(path string) string {
 	// Expand initial ~ to OS specific home directory.
 	if strings.HasPrefix(path, "~") {
-		homeDir := filepath.Dir(btcctlHomeDir)
+		homeDir := filepath.Dir(coperctlHomeDir)
 		path = strings.Replace(path, "~", homeDir, 1)
 	}
 
@@ -168,6 +169,13 @@ func cleanAndExpandPath(path string) string {
 // while still allowing the user to override settings with config files and
 // command line options.  Command line options always take precedence.
 func loadConfig() (*config, []string, error) {
+	if !conf.ExistDataDir(coperctlHomeDir) {
+		err := os.MkdirAll(coperctlHomeDir, os.ModePerm)
+		if err != nil {
+			panic(coperctlHomeDir + " create failed: " + err.Error())
+		}
+	}
+
 	// Default config.
 	cfg := config{
 		ConfigFile: defaultConfigFile,
@@ -211,12 +219,12 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	if _, err := os.Stat(preCfg.ConfigFile); os.IsNotExist(err) {
-		// Use config file for RPC server to create default btcctl config
+		// Use config file for RPC server to create default coperctl config
 		var serverConfigPath string
 		if preCfg.Wallet {
-			serverConfigPath = filepath.Join(btcwalletHomeDir, "btcwallet.conf")
+			serverConfigPath = filepath.Join(coperwalletHomeDir, "btcwallet.conf")
 		} else {
-			serverConfigPath = filepath.Join(btcdHomeDir, "btcd.conf")
+			serverConfigPath = filepath.Join(coperHomeDir, "btcd.conf")
 		}
 
 		err := createDefaultConfigFile(preCfg.ConfigFile, serverConfigPath)

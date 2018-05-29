@@ -3,7 +3,9 @@ package chain
 import (
 	"sort"
 	
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
@@ -19,24 +21,32 @@ type Chain struct {
 	indexMap    map[util.Hash]*blockindex.BlockIndex  // selfHash :*index
 	newestBlock *blockindex.BlockIndex
 	receiveID   uint64
+	params      *chainparams.BitcoinParams
 }
 
 var globalChain *Chain
 
 func GetInstance() *Chain {
 	if globalChain == nil {
-		globalChain = NewChain()
+		panic("globalChain do not init")
 	}
-
 	return globalChain
 }
 
+func InitGlobalChain(cfg *conf.Configuration){
+	if globalChain == nil {
+		globalChain = NewChain()
+		globalChain.params = &chainparams.TestNet3Params
+	}
+}
 func NewChain() *Chain {
 
 	return NewFakeChain()
 	//return &Chain{}
 }
-
+func (c *Chain)GetParams() *chainparams.BitcoinParams {
+	return c.params
+}
 func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex){
 	c.indexMap = indexMap
 	c.branch =  branch
