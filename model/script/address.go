@@ -1,4 +1,4 @@
-package bitaddr
+package script
 
 import (
 	"bytes"
@@ -12,8 +12,8 @@ import (
 const (
 	AddressBytesLength       = 25
 	Hash160BytesLength       = 20
-	PublicKeyToAddressInTest = 111
-	PublicKeyToAddress       = 0
+	PublicKeyToAddressInTest = 0x6f
+	PublicKeyToAddress       = 0x00
 	ScriptToAddressInTest    = 196
 	ScriptToAddress          = 5
 )
@@ -67,9 +67,21 @@ func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 
 func AddressVerPubKey() byte {
 	if IsTestNetwork {
-		return PublicKeyToAddressInTest
+		return PublicKeyToAddress
 	}
-	return PublicKeyToAddress
+	//if chainparams.ActiveNetParams.Name == "mainnet" {
+	//	return PublicKeyToAddress
+	//}
+	//if chainparams.ActiveNetParams.Name == "regtest" {
+	//	return PublicKeyToAddressInTest
+	//}
+	//if chainparams.ActiveNetParams.Name == "testnet3" {
+	//	return PublicKeyToAddressInTest
+	//}
+	//if chainparams.ActiveNetParams.Name == "simnet" {
+	//	return 0x3f
+	//}
+	return PublicKeyToAddressInTest
 }
 
 func AddressVerScript() byte {

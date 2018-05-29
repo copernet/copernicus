@@ -92,7 +92,7 @@ func (txOut *TxOut) CheckValue() error {
 }
 
 func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {
-	pubKeyType, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
+	pubKeyType, _, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		return
 	}
@@ -106,7 +106,8 @@ func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {
 }
 
 func (txOut *TxOut) GetPubKeyType() (pubKeyType int, err error) {
-	return txOut.scriptPubKey.CheckScriptPubKeyStandard()
+	pubKeyType, _, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
+	return
 }
 
 func (txOut *TxOut) GetValue() amount.Amount {

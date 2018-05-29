@@ -3,6 +3,7 @@ package script
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
@@ -393,7 +394,53 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 
 }
 
-func (script *Script) ExtractDestinations() (sType int, address [][]byte, sigCountRequired int, err error) {
+func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addresses []*Address, sigCountRequired int, err error) {
+	sType, pubKeys, err := script.CheckScriptPubKeyStandard()
+	if err != nil {
+		return
+	}
+	if sType == ScriptPubkey {
+		sigCountRequired = 1
+		addresses = make([]*Address, 1)
+		address, err := AddressFromPublicKey(pubKeys[0])
+		if err != nil {
+			return sType, nil, 0, err
+		}
+		addresses = append(addresses, address)
+		return sType, addresses, sigCountRequired, nil
+	}
+	if sType == ScriptPubkeyHash {
+		sigCountRequired = 1
+		addresses = make([]*Address, 1)
+		address, err := AddressFromHash160(pubKeys[0], scriptHashAddressID)
+		if err != nil {
+			return sType, nil, 0, err
+		}
+		addresses = append(addresses, address)
+		return sType, addresses, sigCountRequired, nil
+	}
+	if sType == ScriptHash {
+		sigCountRequired = 1
+		addresses = make([]*Address, 1)
+		address, err := AddressFromScriptHash(pubKeys[0])
+		if err != nil {
+			return sType, nil, 0, err
+		}
+		addresses = append(addresses, address)
+		return sType, addresses, sigCountRequired, nil
+	}
+	if sType == ScriptMultiSig {
+		sigCountRequired = int(pubKeys[0][0])
+		addresses = make([]*Address, len(pubKeys)-2)
+		for _, e := range pubKeys[1:] {
+			address, err := AddressFromPublicKey(e)
+			if err != nil {
+				return sType, nil, 0, err
+			}
+			addresses = append(addresses, address)
+		}
+		return
+	}
 	return
 }
 
@@ -431,10 +478,10 @@ func BytesToBool(bytes []byte) bool {
 	return false
 }
 
-func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, err error) {
+func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, err error) {
 	//p2sh scriptPubKey
 	if script.IsPayToScriptHash() {
-		return ScriptHash, nil
+		return ScriptHash, nil, nil
 	}
 	// Provably prunable, data-carrying output
 	//
@@ -443,7 +490,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, err error) {
 	// script.
 	len := len(script.ParsedOpCodes)
 	if len == 0 {
-		return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 	}
 	parsedOpCode0 := script.ParsedOpCodes[0]
 	opValue0 := parsedOpCode0.OpValue
@@ -451,27 +498,32 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, err error) {
 	// OP_RETURN
 	if len == 1 {
 		if parsedOpCode0.OpValue == opcodes.OP_RETURN {
-			return ScriptNullData, nil
+			return ScriptNullData, nil, nil
 		}
-		return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 	}
 
 	// OP_RETURN and DATA
 	if parsedOpCode0.OpValue == opcodes.OP_RETURN {
 		tempScript := NewScriptOps(script.ParsedOpCodes[1:])
 		if tempScript.IsPushOnly() {
-			return ScriptNullData, nil
+			return ScriptNullData, nil, nil
 		}
-		return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 	}
 
 	//PUBKEY OP_CHECKSIG
 	if len == 2 {
 		if opValue0 > opcodes.OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
 			parsedOpCode0.Length > 65 || script.ParsedOpCodes[1].OpValue != opcodes.OP_CHECKSIG {
-			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		return ScriptPubkey, nil
+		pubKeyType = ScriptPubkey
+		pubKeys = make([][]byte, 1)
+		data := parsedOpCode0.Data[:]
+		pubKeys = append(pubKeys, data)
+		err = nil
+		return
 	}
 
 	//OP_DUP OP_HASH160 OP_PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
@@ -481,38 +533,50 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, err error) {
 			script.ParsedOpCodes[2].Length != 20 ||
 			script.ParsedOpCodes[3].OpValue != opcodes.OP_EQUALVERIFY ||
 			script.ParsedOpCodes[4].OpValue != opcodes.OP_CHECKSIG {
-			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		return ScriptPubkeyHash, nil
+
+		pubKeyType = ScriptPubkeyHash
+		pubKeys = make([][]byte, 1)
+		data := script.ParsedOpCodes[2].Data[:]
+		pubKeys = append(pubKeys, data)
+		err = nil
+		return
 	}
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
 		opM, _ := DecodeOPN(opValue0)
-		i := 1
 		pubKeyCount := 0
-		for script.ParsedOpCodes[i].Length >= 33 && script.ParsedOpCodes[i].Length <= 65 {
-			pubKeyCount++
-			i++
-		}
-		opValueI := script.ParsedOpCodes[i].OpValue
-		if opValueI == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
-			opN, _ := DecodeOPN(opValueI)
-			// Support up to x-of-3 multisig txns as standard
-			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
-				return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+		pubKeys = make([][]byte, len-1)
+		data := make([]byte, 1)
+		data = append(data, byte(opM))
+		pubKeys = append(pubKeys, data)
+		for i, e := range script.ParsedOpCodes {
+			if e.Length >= 33 && e.Length <= 65 {
+				pubKeyCount++
+				data := script.ParsedOpCodes[i+1].Data[:]
+				pubKeys = append(pubKeys, data)
+				continue
 			}
-			i++
-		} else {
-			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+			opValueI := e.OpValue
+			if opValueI == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
+				opN, _ := DecodeOPN(opValueI)
+				// Support up to x-of-3 multisig txns as standard
+				if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
+					return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+				}
+			} else {
+				return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			}
 		}
-		if script.ParsedOpCodes[i].OpValue != opcodes.OP_CHECKMULTISIG {
-			return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+		if script.ParsedOpCodes[len-1].OpValue != opcodes.OP_CHECKMULTISIG {
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		return ScriptMultiSig, nil
+		return ScriptMultiSig, pubKeys, nil
 	}
 
-	return ScriptNonStandard, errcode.New(errcode.ScriptErrNonStandard)
+	return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 }
 
 func (script *Script) CheckScriptSigStandard() error {
@@ -653,6 +717,50 @@ func (script *Script) PushData(data []byte) error {
 		return err
 	}
 
+	return nil
+}
+
+func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
+	// Empty signature. Not strictly DER encoded, but allowed to provide a
+	// compact way to provide an invalid signature for use with CHECK(MULTI)SIG
+	vchSigLen := len(vchSig)
+	if vchSigLen == 0 {
+		return nil
+	}
+	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc)) != 0 &&
+		!crypto.IsValidSignatureEncoding(vchSig) {
+		return errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
+
+	}
+	if (flags & ScriptVerifyLowS) != 0 {
+		ret, err := crypto.IsLowDERSignature(vchSig)
+		if err != nil {
+			return err
+		} else if !ret {
+			return err
+		}
+	}
+
+	if (flags & ScriptVerifyStrictEnc) != 0 {
+		if !crypto.IsDefineHashtypeSignature(vchSig) {
+			return errcode.New(errcode.ScriptErrSigHashType)
+		}
+	}
+
+	return nil
+
+}
+
+func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
+	if flags&ScriptVerifyStrictEnc != 0 && !crypto.IsCompressedOrUncompressedPubKey(vchPubKey) {
+		return errcode.New(errcode.ScriptErrPubKeyType)
+
+	}
+	// Only compressed keys are accepted when
+	// ScriptVerifyCompressedPubKeyType is enabled.
+	if flags&ScriptVerifyCompressedPubkeyType != 0 && !crypto.IsCompressedPubKey(vchPubKey) {
+		return errcode.New(errcode.ScriptErrNonCompressedPubKey)
+	}
 	return nil
 }
 

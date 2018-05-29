@@ -3,13 +3,11 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"strconv"
 
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
-	block2 "github.com/btcboost/copernicus/logic/block"
 	"github.com/btcboost/copernicus/logic/merkleroot"
 	tx2 "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/block"
@@ -316,11 +314,11 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.Block.Header.Nonce = 0
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
-	state := block.ValidationState{}
-	err := block2.Check(ba.bt.Block)
-	if err != nil {
-		panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
-	}
+	// state := block.ValidationState{}
+	// err := block2.Check(ba.bt.Block)
+	// if err != nil {
+	// 	panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
+	// }
 
 	time2 := util.GetMockTimeInMicros()
 	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+

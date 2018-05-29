@@ -1,9 +1,8 @@
 package crypto
 
 import (
-	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/secp256k1-go/secp256k1"
 )
 
 const (
@@ -15,7 +14,7 @@ const (
 
 	// sigHashMask defines the number of bits of the hash type which is used
 	// to identify which outputs are signed.
-	SigHashMask         = 0x1f
+	SigHashMask = 0x1f
 )
 
 type Signature secp256k1.EcdsaSignature
@@ -176,35 +175,4 @@ func IsDefineHashtypeSignature(vchSig []byte) bool {
 		return false
 	}
 	return true
-}
-
-func CheckSignatureEncoding(vchSig []byte, flags uint32) (error) {
-	// Empty signature. Not strictly DER encoded, but allowed to provide a
-	// compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-	vchSigLen := len(vchSig)
-	if vchSigLen == 0 {
-		return nil
-	}
-	if (flags & (script.ScriptVerifyDersig | script.ScriptVerifyLowS | script.ScriptVerifyStrictEnc)) != 0 &&
-		!IsValidSignatureEncoding(vchSig) {
-		return errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
-
-	}
-	if (flags & script.ScriptVerifyLowS) != 0 {
-		ret, err := IsLowDERSignature(vchSig)
-		if err != nil {
-			return err
-		} else if !ret {
-			return err
-		}
-	}
-
-	if (flags & script.ScriptVerifyStrictEnc) != 0 {
-		if !IsDefineHashtypeSignature(vchSig) {
-			return errcode.New(errcode.ScriptErrSigHashType)
-		}
-	}
-
-	return nil
-
 }

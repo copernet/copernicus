@@ -7,7 +7,6 @@ import (
 
 	"github.com/btcboost/copernicus/crypto"
 	mempool2 "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
@@ -15,9 +14,9 @@ import (
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 )
@@ -297,7 +296,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 
 	for address, cost := range c.Amounts {
 		// todo do not support the key named 'data' in btcd
-		addr, err := bitaddr.AddressFromString(address)
+		addr, err := script.AddressFromString(address)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidAddressOrKey,

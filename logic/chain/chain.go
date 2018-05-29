@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	
+	
 	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/block"
@@ -35,39 +37,80 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 
 )
+const MinBlocksToKeep = int32(288)
 
-func AcceptBlock(b *block.Block, params *chainparams.BitcoinParams) (*blockindex.BlockIndex, error) {
-
-	var bIndex, err = AcceptBlockHeader(&b.Header, params)
+func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *block.ValidationState,
+	           fRequested bool, fNewBlock *bool)(bIndex *blockindex.BlockIndex, dbp *block.DiskBlockPos, err error) {
+	if pblock != nil{
+		*fNewBlock = false
+	}
+	bIndex, err = AcceptBlockHeader(&pblock.Header, params)
 	if err != nil {
-		return nil, err
+		return
 	}
 	log.Info(bIndex)
 
 	if bIndex.Accepted() {
-		return bIndex,nil
+		err = errcode.ProjectError{Code:3009}
+		
+		return
 	}
-
+	if !fRequested{
+		tip := mchain.GetInstance().Tip()
+		tipWork := tip.ChainWork
+		fHasMoreWork := false
+		if tip == nil{
+			fHasMoreWork = true
+		}else if bIndex.ChainWork.Cmp(&tipWork) == 1{
+			fHasMoreWork = true
+		}
+		if !fHasMoreWork{
+			err = errcode.ProjectError{Code:3008}
+			
+			return
+		}
+		fTooFarAhead := bIndex.Height > tip.Height+MinBlocksToKeep
+		if fTooFarAhead{
+			err = errcode.ProjectError{Code:3007}
+			
+			return
+		}
+	}
 	if bIndex.AllValid() == false {
-		err = lblock.Check(b)
-		if err != nil {
-			return nil,err
+		suc := lblock.CheckBlock(params, pblock, state, true, true)
+		if !suc {
+			return
 		}
 
 		bIndex.AddStatus(blockindex.StatusAllValid)
 	}
-
-
-	err = lblock.WriteToFile(bIndex,b)
-	if err != nil {
-		return bIndex,err
+	gPersist := global.GetInstance()
+	if !lblock.CheckBlock(params, pblock, state, true, true){
+		bIndex.AddStatus(blockindex.StatusFailed)
+		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		err = errcode.ProjectError{Code:3005}
+		return
 	}
-
+	if !lblock.ContextualCheckBlock(params, pblock, state, bIndex.Prev){
+		bIndex.AddStatus(blockindex.StatusFailed)
+		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		err = errcode.ProjectError{Code:3005}
+		return
+	}
+	*fNewBlock = true
+	
+	dbp, err = lblock.WriteBlockToDisk(bIndex,pblock)
+	if err != nil {
+		bIndex.AddStatus(blockindex.StatusFailed)
+		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		err = errcode.ProjectError{Code:3006}
+		return
+	}
 	bIndex.SubStatus(blockindex.StatusWaitingData)
 	bIndex.AddStatus(blockindex.StatusDataStored)
-
+	gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
 	
-	return nil, nil
+	return
 }
 
 func AcceptBlockHeader(bh *block.BlockHeader, params *chainparams.BitcoinParams) (*blockindex.BlockIndex, error) {
@@ -161,28 +204,7 @@ func IsCashHFEnabled(params *chainparams.BitcoinParams, medianTimePast int64) bo
 }
 
 
-func getLockTime(params *chainparams.BitcoinParams, block *block.Block,
-	indexPrev *blockindex.BlockIndex) (int64) {
-	
 
-	lockTimeFlags := 0
-	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
-		lockTimeFlags |= consensus.LocktimeMedianTimePast
-	}
-
-	medianTimePast := indexPrev.GetMedianTimePast()
-	if indexPrev == nil {
-		medianTimePast = 0
-	}
-	bh := block.Header
-	lockTimeCutoff := int64(bh.GetBlockTime())
-	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
-		lockTimeCutoff = medianTimePast
-	}
-
-	
-	return lockTimeCutoff
-}
 
 
 var HashAssumeValid       util.Hash
@@ -192,18 +214,10 @@ func ConnectBlock(params *chainparams.BitcoinParams, pblock *block.Block, state 
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()
-	lockTime := getLockTime(params, pblock, pindex.Prev)
-	blockSize := pblock.EncodeSize()
-	maxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(blockSize))
-	// Start enforcing BIP68 (sequence locks) using versionBits logic.
-	nLockTimeFlags := 0
-	if versionbits.VersionBitsState(pindex.Prev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
-		nLockTimeFlags |= consensus.LocktimeVerifySequence
-	}
 	
 	// Check it again in case a previous version let a bad block in
 	if lblock.CheckBlock(params, pblock, state, true,
-		true, pindex.Height, lockTime, maxBlockSigOps){
+		true){
 			return false
 	}
 	// if err := ltx.CheckBlockTransactions(pblock.Txs, pindex.Height, lockTime, blockReward, maxBlockSigOps); err != nil{

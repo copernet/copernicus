@@ -83,9 +83,9 @@ func (bu *BlockUndo)GetTxundo()[]*TxUndo{
 	return bu.txundo
 }
 
-func NewBlockUndo() *BlockUndo {
+func NewBlockUndo(count int) *BlockUndo {
 	return &BlockUndo{
-		txundo: make([]*TxUndo, 0),
+		txundo: make([]*TxUndo, 0, count),
 	}
 }
 
@@ -124,6 +124,9 @@ func (bu *BlockUndo) Unserialize(r io.Reader) error {
 
 func (bu *BlockUndo) SetTxUndo(txUndo []*TxUndo){
 	bu.txundo = txUndo
+}
+func (bu *BlockUndo) AddTxUndo(txUndo *TxUndo){
+	bu.txundo = append(bu.txundo,txUndo)
 }
 
 

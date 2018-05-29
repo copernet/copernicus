@@ -1,29 +1,28 @@
 package block
 
 import (
-	
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/merkleroot"
+	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
-	ltx "github.com/btcboost/copernicus/logic/tx"
+	"github.com/btcboost/copernicus/model/versionbits"
 	
 	"github.com/btcboost/copernicus/persist/disk"
 	"github.com/btcboost/copernicus/util"
 )
 
-func Check(b *block.Block) error {
-	return nil
-}
 
 func GetBlock(hash *util.Hash) (* block.Block, error) {
 	return nil,nil
 }
-
+func Check(b *block.Block) error{
+	return nil
+}
 
 func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlockPos,error) {
 	
@@ -43,19 +42,39 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlo
 	return pos, nil
 }
 
-func WriteToFile(bi *blockindex.BlockIndex, b *block.Block) error {
-	return nil
+
+func getLockTime(params *chainparams.BitcoinParams, block *block.Block,
+	indexPrev *blockindex.BlockIndex) (int64) {
+	
+	
+	lockTimeFlags := 0
+	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+		lockTimeFlags |= consensus.LocktimeMedianTimePast
+	}
+	
+	medianTimePast := indexPrev.GetMedianTimePast()
+	if indexPrev == nil {
+		medianTimePast = 0
+	}
+	bh := block.Header
+	lockTimeCutoff := int64(bh.GetBlockTime())
+	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
+		lockTimeCutoff = medianTimePast
+	}
+	
+	
+	return lockTimeCutoff
 }
 
-
-
 func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *block.ValidationState,
-	checkPOW, checkMerkleRoot bool, nHeight int32, nLocktime int64, nMaxBlockSigOps uint64) bool {
+	checkPOW, checkMerkleRoot bool) bool {
 
 	// These are checks that are independent of context.
 	if pblock.Checked {
 		return true
 	}
+	blockSize := pblock.EncodeSize()
+	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(blockSize))
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
@@ -106,7 +125,7 @@ func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *b
 		return state.Dos(100, false, block.RejectInvalid, "bad-blk-length",
 			false, "size limits failed")
 	}
-	err := ltx.CheckBlockTransactions(pblock.Txs, nHeight, nLocktime, nMaxBlockSigOps)
+	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil{
 		return state.Dos(100, false, block.RejectInvalid, "bad-blk-tx",
 			false, "CheckBlockTransactions failed")
@@ -115,5 +134,22 @@ func CheckBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *b
 		pblock.Checked = true
 	}
 
+	return true
+}
+
+func ContextualCheckBlock(params *chainparams.BitcoinParams, b *block.Block, state *block.ValidationState,
+	indexPrev *blockindex.BlockIndex) bool {
+
+	var height int32
+	if indexPrev != nil {
+		height = indexPrev.Height + 1
+	}
+	lockTimeCutoff := getLockTime(params, b, indexPrev)
+
+	// Check that all transactions are finalized
+	// Enforce rule that the coinBase starts with serialized block height
+	if err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff);err!=nil {
+		return false
+	}
 	return true
 }

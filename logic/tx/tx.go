@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -174,7 +173,8 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	utxo := utxo.GetUtxoCacheInstance()
 	sigOpsCount := 0
 	var fees amount.Amount = 0
-	bundo = undo.NewBlockUndo()
+	bundo = undo.NewBlockUndo(0)
+	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 	//updateCoins
 	for _, transaction := range txs {
 		//check duplicate out
@@ -211,10 +211,10 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		if sigOpsCount > tx.MaxTxSigOpsCounts {
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
-		//if transaction.IsCoinBase() {
-		//	UpdateCoins(transaction, coinsMap, nil, blockHeight)
-		//	continue
-		//}
+		if transaction.IsCoinBase() {
+			UpdateCoins(transaction, coinsMap, nil, blockHeight)
+			continue
+		}
 		if !transaction.IsCoinBase() {
 			fees += valueIn - transaction.GetValueOut()
 			if needCheckScript {
@@ -226,11 +226,11 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			}
 		}
 		//update temp coinsMap
-		//txundo := undo.NewTxUndo()
-		//UpdateCoins(transaction, coinsMap, txundo, blockHeight)
-		//bundo.AddTxUndo(txundo)
+		txundo := undo.NewTxUndo()
+		UpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		txUndoList = append(txUndoList, txundo)
 	}
-
+	bundo.SetTxUndo(txUndoList)
 	//check blockReward
 	if fees+blockSubSidy > txs[0].GetValueOut() {
 		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
@@ -341,7 +341,8 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, err
 		if coin == nil {
 			return 0, errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		scriptPubKey := coin.GetTxOut().GetScriptPubKey()
+		txOut := coin.GetTxOut()
+		scriptPubKey := txOut.GetScriptPubKey()
 		if !scriptPubKey.IsPayToScriptHash() {
 			sigsCount, err := scriptPubKey.GetSigOpCount(true)
 			if err != nil {
@@ -1414,11 +1415,11 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					}
 
 					vchSigBytes := vchSig.([]byte)
-					err := crypto.CheckSignatureEncoding(vchSigBytes, flags)
+					err := script.CheckSignatureEncoding(vchSigBytes, flags)
 					if err != nil {
 						return err
 					}
-					err = crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+					err = script.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 					if err != nil {
 						return err
 					}
@@ -1544,11 +1545,11 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						// pubkey/signature evaluation distinguishable by
 						// CHECKMULTISIG NOT if the STRICTENC flag is set.
 						// See the script_(in)valid tests for details.
-						err := crypto.CheckSignatureEncoding(vchSig.([]byte), flags)
+						err := script.CheckSignatureEncoding(vchSig.([]byte), flags)
 						if err != nil {
 							return err
 						}
-						err = crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+						err = script.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 						if err != nil {
 							return err
 						}

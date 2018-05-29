@@ -6,8 +6,6 @@ import (
 
 	"github.com/btcboost/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/errcode"
 )
 
 var (
@@ -80,7 +78,6 @@ func IsCompressedOrUncompressedPubKey(bytes []byte) bool {
 		return false
 	}
 	return true
-
 }
 
 func IsCompressedPubKey(bytes []byte) bool {
@@ -91,17 +88,4 @@ func IsCompressedPubKey(bytes []byte) bool {
 		return false
 	}
 	return true
-}
-
-func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) (error) {
-	if flags & script.ScriptVerifyStrictEnc != 0 && !IsCompressedOrUncompressedPubKey(vchPubKey) {
-		return errcode.New(errcode.ScriptErrPubKeyType)
-
-	}
-	// Only compressed keys are accepted when
-	// ScriptVerifyCompressedPubKeyType is enabled.
-	if flags & script.ScriptVerifyCompressedPubkeyType != 0 && !IsCompressedPubKey(vchPubKey) {
-		return errcode.New(errcode.ScriptErrNonCompressedPubKey)
-	}
-	return nil
 }
