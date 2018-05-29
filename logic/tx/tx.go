@@ -174,7 +174,8 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	utxo := utxo.GetUtxoCacheInstance()
 	sigOpsCount := 0
 	var fees amount.Amount = 0
-	bundo = undo.NewBlockUndo(len(txs)-1)
+	bundo = undo.NewBlockUndo(0)
+	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 	//updateCoins
 	for _, transaction := range txs {
 		//check duplicate out
@@ -211,10 +212,10 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		if sigOpsCount > tx.MaxTxSigOpsCounts {
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
-		//if transaction.IsCoinBase() {
-		//	UpdateCoins(transaction, coinsMap, nil, blockHeight)
-		//	continue
-		//}
+		if transaction.IsCoinBase() {
+			UpdateCoins(transaction, coinsMap, nil, blockHeight)
+			continue
+		}
 		if !transaction.IsCoinBase() {
 			fees += valueIn - transaction.GetValueOut()
 			if needCheckScript {
@@ -226,11 +227,11 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			}
 		}
 		//update temp coinsMap
-		//txundo := undo.NewTxUndo()
-		//UpdateCoins(transaction, coinsMap, txundo, blockHeight)
-		//bundo.AddTxUndo(txundo)
+		txundo := undo.NewTxUndo()
+		UpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		txUndoList = append(txUndoList, txundo)
 	}
-
+	bundo.SetTxUndo(txUndoList)
 	//check blockReward
 	if fees+blockSubSidy > txs[0].GetValueOut() {
 		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
