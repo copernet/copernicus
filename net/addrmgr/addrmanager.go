@@ -1111,10 +1111,10 @@ func (a *AddrManager) GetBestLocalAddress(remoteAddr *wire.NetAddress) *wire.Net
 		}
 	}
 	if bestAddress != nil {
-		log.Debug("Suggesting address %s:%d for %s:%d", bestAddress.IP,
+		log.Debug("Suggesting address %v:%d for %v:%d", bestAddress.IP,
 			bestAddress.Port, remoteAddr.IP, remoteAddr.Port)
 	} else {
-		log.Debug("No worthy address for %s:%d", remoteAddr.IP,
+		log.Debug("No worthy address for %v:%d", remoteAddr.IP,
 			remoteAddr.Port)
 
 		// Send something unroutable if nothing suitable.
