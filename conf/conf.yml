@@ -1,7 +1,6 @@
 GoVersion: 1.9.2
 Version: 1.0.0
 BuildDate: 20180428
-DataDir: data
 
 RPC:
   RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
@@ -21,8 +20,9 @@ Mining:
 
 P2PNet:
   ListenAddrs: [127.0.0.1:8333, 127.0.0.1:18333]
-  MaxPeers: 128
-  TargetOutbound: 8
+  MaxPeers: 5
+  TargetOutbound: 3
+  ConnectPeersOnStart:
   DisableBanding: true
   SimNet: false
   DisableListen: false
@@ -31,7 +31,7 @@ P2PNet:
   DisableRPC: false
   OnOnion: true
   Upnp: false
-  DisableTLS: true
+  DisableTLS: false
 
 Protocal:
   NoPeerBloomFilters: true

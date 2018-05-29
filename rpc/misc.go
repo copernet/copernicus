@@ -10,7 +10,6 @@ import (
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcsuite/btcd/mempool"
 )
 
 var miscHandlers = map[string]commandHandler{
@@ -41,7 +40,7 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		Proxy:      "", // todo define in conf
 		Difficulty: getDifficulty(chain.GetInstance().Tip()),
 		TestNet:    chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
-		RelayFee:   float64(mempool.DefaultMinRelayTxFee),
+		RelayFee:   0, // todo define DefaultMinRelayTxFee
 	}
 
 	return ret, nil

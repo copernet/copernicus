@@ -9,14 +9,14 @@ import (
 const defaultLogLevel = logs.LevelDebug
 
 var levelMap = map[string]int{
-	"emergency":     logs.LevelEmergency,
-	"alert":         logs.LevelAlert,
-	"critical":      logs.LevelCritical,
-	"error":         logs.LevelError,
-	"warning":       logs.LevelWarning,
-	"notice":        logs.LevelNotice,
-	"informational": logs.LevelInformational,
-	"debug":         logs.LevelDebug,
+	"emergency": logs.LevelEmergency,
+	"alert":     logs.LevelAlert,
+	"critical":  logs.LevelCritical,
+	"error":     logs.LevelError,
+	"warning":   logs.LevelWarning,
+	"notice":    logs.LevelNotice,
+	"info":      logs.LevelInformational,
+	"debug":     logs.LevelDebug,
 }
 
 func getLevel(level string) int {
