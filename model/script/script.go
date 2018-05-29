@@ -3,6 +3,7 @@ package script
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
@@ -393,55 +394,55 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 
 }
 
-//func (script *Script) ExtractDestinations() (sType int, addresses []*bitaddr.Address, sigCountRequired int, err error) {
-//sType, pubKeys, err := script.CheckScriptPubKeyStandard()
-//if err != nil {
-//	return
-//}
-//if sType == ScriptPubkey {
-//	sigCountRequired = 1
-//	addresses = make([]*bitaddr.Address, 1)
-//	address, err := bitaddr.AddressFromPublicKey(pubKeys[0])
-//	if err != nil {
-//		return
-//	}
-//	addresses = append(addresses, address)
-//	return
-//}
-//if sType == ScriptPubkeyHash {
-//	sigCountRequired = 1
-//	addresses = make([]*bitaddr.Address, 1)
-//	address, err := bitaddr.AddressFromHash160(pubKeys[0], chainparams.ActiveNetParams.ScriptHashAddressID)
-//	if err != nil {
-//		return
-//	}
-//	addresses = append(addresses, address)
-//	return
-//}
-//if sType == ScriptHash {
-//	sigCountRequired = 1
-//	addresses = make([]*bitaddr.Address, 1)
-//	address, err := bitaddr.AddressFromScriptHash(pubKeys[0])
-//	if err != nil {
-//		return
-//	}
-//	addresses = append(addresses, address)
-//	return
-//}
-//if sType == ScriptMultiSig {
-//	sigCountRequired = int(pubKeys[0][0])
-//	addresses = make([]*bitaddr.Address, len(pubKeys)-2)
-//	for _, e := range pubKeys[1:] {
-//		address, err := bitaddr.AddressFromPublicKey(e)
-//		if err != nil {
-//			return
-//		}
-//		addresses = append(addresses, address)
-//	}
-//	return
-//}
-//return
-//}
+func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addresses []*Address, sigCountRequired int, err error) {
+	sType, pubKeys, err := script.CheckScriptPubKeyStandard()
+	if err != nil {
+		return
+	}
+	if sType == ScriptPubkey {
+		sigCountRequired = 1
+		addresses = make([]*Address, 1)
+		address, err := AddressFromPublicKey(pubKeys[0])
+		if err != nil {
+			return sType, nil, 0, err
+		}
+		addresses = append(addresses, address)
+		return sType, addresses, sigCountRequired, nil
+	}
+	if sType == ScriptPubkeyHash {
+		sigCountRequired = 1
+		addresses = make([]*Address, 1)
+		address, err := AddressFromHash160(pubKeys[0], scriptHashAddressID)
+		if err != nil {
+			return sType, nil, 0, err
+		}
+		addresses = append(addresses, address)
+		return sType, addresses, sigCountRequired, nil
+	}
+	if sType == ScriptHash {
+		sigCountRequired = 1
+		addresses = make([]*Address, 1)
+		address, err := AddressFromScriptHash(pubKeys[0])
+		if err != nil {
+			return sType, nil, 0, err
+		}
+		addresses = append(addresses, address)
+		return sType, addresses, sigCountRequired, nil
+	}
+	if sType == ScriptMultiSig {
+		sigCountRequired = int(pubKeys[0][0])
+		addresses = make([]*Address, len(pubKeys)-2)
+		for _, e := range pubKeys[1:] {
+			address, err := AddressFromPublicKey(e)
+			if err != nil {
+				return sType, nil, 0, err
+			}
+			addresses = append(addresses, address)
+		}
+		return
+	}
+	return
+}
 
 func (script *Script) IsCommitment(data []byte) bool {
 	if len(data) > 64 || script.Size() != len(data)+2 {
@@ -716,6 +717,50 @@ func (script *Script) PushData(data []byte) error {
 		return err
 	}
 
+	return nil
+}
+
+func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
+	// Empty signature. Not strictly DER encoded, but allowed to provide a
+	// compact way to provide an invalid signature for use with CHECK(MULTI)SIG
+	vchSigLen := len(vchSig)
+	if vchSigLen == 0 {
+		return nil
+	}
+	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc)) != 0 &&
+		!crypto.IsValidSignatureEncoding(vchSig) {
+		return errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
+
+	}
+	if (flags & ScriptVerifyLowS) != 0 {
+		ret, err := crypto.IsLowDERSignature(vchSig)
+		if err != nil {
+			return err
+		} else if !ret {
+			return err
+		}
+	}
+
+	if (flags & ScriptVerifyStrictEnc) != 0 {
+		if !crypto.IsDefineHashtypeSignature(vchSig) {
+			return errcode.New(errcode.ScriptErrSigHashType)
+		}
+	}
+
+	return nil
+
+}
+
+func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
+	if flags&ScriptVerifyStrictEnc != 0 && !crypto.IsCompressedOrUncompressedPubKey(vchPubKey) {
+		return errcode.New(errcode.ScriptErrPubKeyType)
+
+	}
+	// Only compressed keys are accepted when
+	// ScriptVerifyCompressedPubKeyType is enabled.
+	if flags&ScriptVerifyCompressedPubkeyType != 0 && !crypto.IsCompressedPubKey(vchPubKey) {
+		return errcode.New(errcode.ScriptErrNonCompressedPubKey)
+	}
 	return nil
 }
 

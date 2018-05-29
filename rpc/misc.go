@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/bitaddr"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/rpc/btcjson"
 	"github.com/btcboost/copernicus/util"
@@ -52,7 +52,7 @@ func handleValidateAddress(s *Server, cmd interface{}, closeChan <-chan struct{}
 	c := cmd.(*btcjson.ValidateAddressCmd)
 
 	result := btcjson.ValidateAddressChainResult{}
-	dest, err := bitaddr.AddressFromString(c.Address)
+	dest, err := script.AddressFromString(c.Address)
 	if err != nil {
 		result.IsValid = false
 		return result, nil

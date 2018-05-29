@@ -1,4 +1,4 @@
-package bitaddr
+package script
 
 import (
 	"bytes"

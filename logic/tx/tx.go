@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -1416,11 +1415,11 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					}
 
 					vchSigBytes := vchSig.([]byte)
-					err := crypto.CheckSignatureEncoding(vchSigBytes, flags)
+					err := script.CheckSignatureEncoding(vchSigBytes, flags)
 					if err != nil {
 						return err
 					}
-					err = crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+					err = script.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 					if err != nil {
 						return err
 					}
@@ -1546,11 +1545,11 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						// pubkey/signature evaluation distinguishable by
 						// CHECKMULTISIG NOT if the STRICTENC flag is set.
 						// See the script_(in)valid tests for details.
-						err := crypto.CheckSignatureEncoding(vchSig.([]byte), flags)
+						err := script.CheckSignatureEncoding(vchSig.([]byte), flags)
 						if err != nil {
 							return err
 						}
-						err = crypto.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+						err = script.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
 						if err != nil {
 							return err
 						}
