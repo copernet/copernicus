@@ -91,9 +91,8 @@ func (bl *Block) Unserialize(r io.Reader) error {
 
 
 func (bl *Block) GetHash() util.Hash{
-	buf := bytes.NewBuffer(nil)
-	bl.Serialize(buf)
-	return util.DoubleSha256Hash(buf.Bytes())
+	bh := bl.Header
+	return bh.GetHash()
 }
 func NewBlock() *Block {
 	return &Block{}

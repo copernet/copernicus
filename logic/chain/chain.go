@@ -51,6 +51,8 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 	log.Info(bIndex)
 
 	if bIndex.Accepted() {
+		err = errcode.ProjectError{Code:3009}
+		
 		return
 	}
 	if !fRequested{
@@ -63,10 +65,14 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 			fHasMoreWork = true
 		}
 		if !fHasMoreWork{
+			err = errcode.ProjectError{Code:3008}
+			
 			return
 		}
 		fTooFarAhead := bIndex.Height > tip.Height+MinBlocksToKeep
 		if fTooFarAhead{
+			err = errcode.ProjectError{Code:3007}
+			
 			return
 		}
 	}

@@ -23,25 +23,20 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	isNewBlock := false
 	var err error
 
-	bIndex := gChain.FindBlockIndex(b.Header.GetHash())
+	bIndex := gChain.FindBlockIndex(b.GetHash())
 	if bIndex != nil {
 		if bIndex.Accepted() {
 			return isNewBlock,nil
 		}
 	}
 
-	//
-	// params := chainparams.MainNetParams
-	// // bIndex,err = lchain.AcceptBlock(b, &params)
-	// if err != nil {
-	// 	return isNewBlock, err
-	// }
-
-	isNewBlock = true
-	err = gChain.ActiveBest(bIndex)
-	if err != nil {
+	params := chainparams.MainNetParams
+	ret := ProcessNewBlock(&params, b, true, &isNewBlock)
+	// bIndex,err = lchain.AcceptBlock(b, &params)
+	if !ret {
 		return isNewBlock, err
 	}
+	
 
 	return isNewBlock, err
 }
