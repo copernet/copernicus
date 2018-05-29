@@ -201,6 +201,26 @@ func must(i interface{}, err error) interface{} {
 
 func init() {
 	Cfg = initConfig()
+
+	ok := ExistDataDir(Cfg.DataDir)
+	if !ok {
+		err := os.MkdirAll(Cfg.DataDir, os.ModePerm)
+		if err != nil {
+			panic("datadir create failed: " + err.Error())
+		}
+	}
+}
+
+func ExistDataDir(datadir string) bool {
+	_, err := os.Stat(datadir)
+	if err == nil {
+		return true
+	}
+	if os.IsExist(err) {
+		return false
+	}
+
+	return false
 }
 
 // Validate validates configuration

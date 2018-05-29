@@ -2,9 +2,8 @@ package log
 
 import (
 	"encoding/json"
-	"fmt"
+	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/astaxie/beego/logs"
@@ -52,39 +51,6 @@ func isIncludeModule(module string) bool {
 		return true
 	}
 	return false
-}
-
-func init() {
-	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
-
-	logConf := struct {
-		FileName string `json:"filename"`
-		Level    int    `json:"level"`
-		Daily    bool   `json:"daily"`
-	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    getLevel(conf.Cfg.Log.Level),
-		Daily:    false,
-	}
-
-	configuration, err := json.Marshal(logConf)
-	if err != nil {
-		panic(err)
-	}
-	logs.SetLogger(logs.AdapterFile, string(configuration))
-
-	// output filename and line number
-	logs.EnableFuncCallDepth(true)
-	logs.SetLogFuncCallDepth(4)
-	// output async buffer
-	logs.Async(1e3)
-
-	// init mapModule
-	mapModule = make(map[string]struct{})
-	for _, module := range conf.Cfg.Log.Module {
-		module = strings.ToLower(module)
-		mapModule[module] = struct{}{}
-	}
 }
 
 // Emergency logs a message at emergency level.
@@ -143,14 +109,45 @@ func Trace(f interface{}, v ...interface{}) {
 	logs.Trace(f, v)
 }
 
-func TraceLog() string {
-	pc := make([]uintptr, 10) // at least 1 entry needed
-	runtime.Callers(2, pc)
-	f := runtime.FuncForPC(pc[0])
-	_, line := f.FileLine(pc[0])
-	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
-}
-
 func GetLogger() *logs.BeeLogger {
 	return logs.GetBeeLogger()
+}
+
+func init() {
+	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
+	if !conf.ExistDataDir(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			panic("logdir create failed: " + err.Error())
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+		Daily    bool   `json:"daily"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    getLevel(conf.Cfg.Log.Level),
+		Daily:    false,
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	logs.SetLogger(logs.AdapterFile, string(configuration))
+
+	// output filename and line number
+	logs.EnableFuncCallDepth(true)
+	logs.SetLogFuncCallDepth(4)
+	// output async buffer
+	logs.Async(1e3)
+
+	// init mapModule
+	mapModule = make(map[string]struct{})
+	for _, module := range conf.Cfg.Log.Module {
+		module = strings.ToLower(module)
+		mapModule[module] = struct{}{}
+	}
 }
