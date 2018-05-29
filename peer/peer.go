@@ -5,7 +5,7 @@
 package peer
 
 import (
-	"bytes"
+	//"bytes"
 	"container/list"
 	"errors"
 	"fmt"
