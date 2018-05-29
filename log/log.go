@@ -2,6 +2,7 @@ package log
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -50,39 +51,6 @@ func isIncludeModule(module string) bool {
 		return true
 	}
 	return false
-}
-
-func init() {
-	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
-
-	logConf := struct {
-		FileName string `json:"filename"`
-		Level    int    `json:"level"`
-		Daily    bool   `json:"daily"`
-	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    getLevel(conf.Cfg.Log.Level),
-		Daily:    false,
-	}
-
-	configuration, err := json.Marshal(logConf)
-	if err != nil {
-		panic(err)
-	}
-	logs.SetLogger(logs.AdapterFile, string(configuration))
-
-	// output filename and line number
-	logs.EnableFuncCallDepth(true)
-	logs.SetLogFuncCallDepth(4)
-	// output async buffer
-	logs.Async(1e3)
-
-	// init mapModule
-	mapModule = make(map[string]struct{})
-	for _, module := range conf.Cfg.Log.Module {
-		module = strings.ToLower(module)
-		mapModule[module] = struct{}{}
-	}
 }
 
 // Emergency logs a message at emergency level.
@@ -143,4 +111,43 @@ func Trace(f interface{}, v ...interface{}) {
 
 func GetLogger() *logs.BeeLogger {
 	return logs.GetBeeLogger()
+}
+
+func init() {
+	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
+	if !conf.ExistDataDir(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			panic("logdir create failed: " + err.Error())
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+		Daily    bool   `json:"daily"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    getLevel(conf.Cfg.Log.Level),
+		Daily:    false,
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	logs.SetLogger(logs.AdapterFile, string(configuration))
+
+	// output filename and line number
+	logs.EnableFuncCallDepth(true)
+	logs.SetLogFuncCallDepth(4)
+	// output async buffer
+	logs.Async(1e3)
+
+	// init mapModule
+	mapModule = make(map[string]struct{})
+	for _, module := range conf.Cfg.Log.Module {
+		module = strings.ToLower(module)
+		mapModule[module] = struct{}{}
+	}
 }
