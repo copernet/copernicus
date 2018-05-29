@@ -18,6 +18,7 @@ import (
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/model/block"
+	
 )
 
 //on main init call it
@@ -117,7 +118,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	logs.Debug("Checking all blk files are present...")
 	for _, item := range gChain.GetIndexMap() {
 		index := item
-		if index.Status&BlockHaveData != 0 {
+		if index.Status&blockindex.BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)
 		}
 	}

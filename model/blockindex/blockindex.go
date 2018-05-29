@@ -255,11 +255,10 @@ func (bIndex *BlockIndex) IsGenesis() bool{
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
-	blockIndex := new(BlockIndex)
-	blockIndex.SetNull()
-	blockIndex.Header = *blkHeader
-
-	return blockIndex
+	bi := new(BlockIndex)
+	bi.SetNull()
+	bi.Header = *blkHeader
+	return bi
 }
 
 

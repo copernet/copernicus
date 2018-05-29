@@ -9,7 +9,6 @@ import (
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
 	block2 "github.com/btcboost/copernicus/logic/block"
-	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/logic/undo"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -395,13 +394,13 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	hash := bk.Header.GetHash()
 	bindex := chain.GetInstance().FindBlockIndex(hash)
 	if bindex != nil {
-		if bindex.IsValid(blockindex2.BlockValidScripts) {
+		if bindex.IsValid(blockindex.BlockValidScripts) {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate",
 			}
 		}
-		if bindex.Status&blockindex2.BlockFailedMask != 0 {
+		if bindex.Status&blockindex.BlockFailedMask != 0 {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",

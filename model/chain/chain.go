@@ -1,8 +1,11 @@
 package chain
 
 import (
+	"sort"
 	
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/pow"
+	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
 )
@@ -237,7 +240,13 @@ func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
 	}
 	return false
 }
-
+func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
+	c.branch = append(c.branch, bis)
+	sort.SliceStable(c.branch, func(i, j int) bool {
+		jWork := c.branch[j].ChainWork
+		return c.branch[i].ChainWork.Cmp(&jWork) == -1
+	})
+}
 func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 	
 	q := queue.New()
@@ -259,7 +268,7 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 		//
 		// }
 		if !c.InBranch(pindex){
-			c.branch = append(c.branch, pindex)
+			c.insertToBranch(pindex)
 		}
 		preHash := pindex.GetBlockHash()
 		childList, ok := c.orphan[*preHash]
@@ -272,12 +281,39 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 	}
 }
 
-func (chain *Chain) FindMostWorkChain() *blockindex.BlockIndex {
-
+func (c *Chain) FindMostWorkChain() *blockindex.BlockIndex {
+	if len(c.branch)>0{
+		return c.branch[len(c.branch)-1]
+	}
 	return nil
 }
 
 func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
+	// We assign the sequence id to blocks only when the full data is available,
+	// to avoid miners withholding blocks but broadcasting headers, to get a
+	// competitive advantage.
+	bi.SequenceID = 0
+	hash := bi.GetBlockHash()
+	c.indexMap[*hash] = bi
+	bh := bi.Header
+	pre, ok := c.indexMap[bh.HashPrevBlock]
+	if ok{
+		bi.Prev = pre
+		bi.Height = pre.Height+1
+		bi.BuildSkip()
+	}
+	bi.TimeMax = bi.Header.Time
+	blockProof := pow.GetBlockProof(bi)
+	bi.ChainWork = *blockProof
+	if pre != nil {
+		 if pre.TimeMax > bi.TimeMax{
+		 	bi.TimeMax = pre.TimeMax
+		 }
+		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork,&pre.ChainWork)
+	}
+	bi.AddStatus(blockindex.BlockValidTree)
+	gPersist := global.GetInstance()
+	gPersist.AddDirtyBlockIndex(*bi.GetBlockHash(), bi)
 	return nil
 }
 

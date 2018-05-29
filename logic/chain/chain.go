@@ -1,35 +1,46 @@
 package chain
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
-	"time"
-	"github.com/btcboost/copernicus/errcode"
-	lmp "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	mchain "github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/versionbits"
-	"github.com/btcboost/copernicus/persist/global"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
+"bytes"
+"fmt"
+"strings"
+"time"
+
+
+
+
+
+"github.com/btcboost/copernicus/errcode"
+lmp "github.com/btcboost/copernicus/logic/mempool"
+"github.com/btcboost/copernicus/model/block"
+"github.com/btcboost/copernicus/model/blockindex"
+mchain "github.com/btcboost/copernicus/model/chain"
+"github.com/btcboost/copernicus/model/chainparams"
+"github.com/btcboost/copernicus/model/consensus"
+"github.com/btcboost/copernicus/model/mempool"
+"github.com/btcboost/copernicus/model/script"
+"github.com/btcboost/copernicus/model/versionbits"
+"github.com/btcboost/copernicus/persist/global"
+"github.com/btcboost/copernicus/util"
+"github.com/btcboost/copernicus/util/amount"
+
 	
-	"github.com/btcboost/copernicus/log"
-	lbi "github.com/btcboost/copernicus/logic/blockindex"
-	ltx "github.com/btcboost/copernicus/logic/tx"
-	"github.com/btcboost/copernicus/logic/undo"
 
-	mUndo "github.com/btcboost/copernicus/model/undo"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/persist/disk"
+"github.com/btcboost/copernicus/log"
+ltx "github.com/btcboost/copernicus/logic/tx"
+"github.com/btcboost/copernicus/logic/undo"
 
-	lblock "github.com/btcboost/copernicus/logic/block"
-	"github.com/btcboost/copernicus/model/pow"
+
+
+mUndo "github.com/btcboost/copernicus/model/undo"
+"github.com/btcboost/copernicus/model/utxo"
+"github.com/btcboost/copernicus/persist/disk"
+
+
+
+lblock "github.com/btcboost/copernicus/logic/block"
+"github.com/btcboost/copernicus/model/pow"
+
 )
 
 const MinBlocksToKeep = int32(288)
@@ -82,13 +93,13 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 	gPersist := global.GetInstance()
 	if !lblock.CheckBlock(params, pblock, state, true, true) {
 		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 		err = errcode.ProjectError{Code: 3005}
 		return
 	}
 	if !lblock.ContextualCheckBlock(params, pblock, state, bIndex.Prev) {
 		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 		err = errcode.ProjectError{Code: 3005}
 		return
 	}
@@ -102,7 +113,6 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 		return
 	}
 	ReceivedBlockTransactions(pblock, bIndex, dbp)
-	
 	bIndex.SubStatus(blockindex.StatusWaitingData)
 	bIndex.AddStatus(blockindex.StatusDataStored)
 	gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
@@ -128,7 +138,6 @@ func AcceptBlockHeader(bh *block.BlockHeader, params *chainparams.BitcoinParams)
 	if bIndex.Prev == nil {
 		return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
 	}
-
 	bIndex.Height = bIndex.Prev.Height + 1
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
@@ -139,7 +148,7 @@ func AcceptBlockHeader(bh *block.BlockHeader, params *chainparams.BitcoinParams)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return bIndex, nil
 }
 
@@ -319,7 +328,7 @@ func ConnectBlock(params *chainparams.BitcoinParams, pblock *block.Block, state 
 	}
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
-	if UndoPos.IsNull() || !pindex.IsValid(lbi.BlockValidScripts) {
+	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
 		if UndoPos.IsNull() {
 			var pos *block.DiskBlockPos = block.NewDiskBlockPos(pindex.File, 0)
 
@@ -332,9 +341,9 @@ func ConnectBlock(params *chainparams.BitcoinParams, pblock *block.Block, state 
 
 			// update nUndoPos in block index
 			pindex.UndoPos = pos.Pos
-			pindex.Status |= lbi.BlockHaveUndo
+			pindex.Status |= blockindex.BlockHaveUndo
 		}
-		pindex.RaiseValidity(lbi.BlockValidScripts)
+		pindex.RaiseValidity(blockindex.BlockValidScripts)
 		gPersist.GlobalDirtyBlockIndex[*hash] = pindex
 	}
 	// add this block to the view's block chain
@@ -640,7 +649,7 @@ func ReceivedBlockTransactions(pblock *block.Block,
 		// If indexNew is the genesis block or all parents are in branch
 		gChain.AddToBranch(pindexNew)
 	} else {
-		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(lbi.BlockValidTree) {
+		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
 			gChain.AddToOrphan(pindexNew)
 		}
 	}
