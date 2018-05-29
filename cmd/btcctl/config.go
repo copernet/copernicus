@@ -26,13 +26,13 @@ const (
 )
 
 var (
-	btcdHomeDir           = util.AppDataDir("btcd", false)
-	btcctlHomeDir         = util.AppDataDir("btcctl", false)
-	btcwalletHomeDir      = util.AppDataDir("btcwallet", false)
-	defaultConfigFile     = filepath.Join(btcctlHomeDir, "btcctl.conf")
+	coperHomeDir          = util.AppDataDir("coper", false)
+	coperctlHomeDir       = util.AppDataDir("coperctl", false)
+	coperwalletHomeDir    = util.AppDataDir("coperwallet", false)
+	defaultConfigFile     = filepath.Join(coperctlHomeDir, "coperctl.conf")
 	defaultRPCServer      = "localhost"
-	defaultRPCCertFile    = filepath.Join(btcdHomeDir, "rpc.cert")
-	defaultWalletCertFile = filepath.Join(btcwalletHomeDir, "rpc.cert")
+	defaultRPCCertFile    = filepath.Join(coperHomeDir, "rpc.cert")
+	defaultWalletCertFile = filepath.Join(coperwalletHomeDir, "rpc.cert")
 )
 
 // listCommands categorizes and lists all of the usable commands along with
@@ -146,7 +146,7 @@ func normalizeAddress(addr string, useTestNet3, useSimNet, useWallet bool) strin
 func cleanAndExpandPath(path string) string {
 	// Expand initial ~ to OS specific home directory.
 	if strings.HasPrefix(path, "~") {
-		homeDir := filepath.Dir(btcctlHomeDir)
+		homeDir := filepath.Dir(coperctlHomeDir)
 		path = strings.Replace(path, "~", homeDir, 1)
 	}
 
@@ -214,9 +214,9 @@ func loadConfig() (*config, []string, error) {
 		// Use config file for RPC server to create default btcctl config
 		var serverConfigPath string
 		if preCfg.Wallet {
-			serverConfigPath = filepath.Join(btcwalletHomeDir, "btcwallet.conf")
+			serverConfigPath = filepath.Join(coperwalletHomeDir, "btcwallet.conf")
 		} else {
-			serverConfigPath = filepath.Join(btcdHomeDir, "btcd.conf")
+			serverConfigPath = filepath.Join(coperHomeDir, "btcd.conf")
 		}
 
 		err := createDefaultConfigFile(preCfg.ConfigFile, serverConfigPath)
