@@ -2,9 +2,7 @@ package log
 
 import (
 	"encoding/json"
-	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/astaxie/beego/logs"
@@ -47,11 +45,10 @@ func Print(module string, level string, format string, reason ...interface{}) {
 }
 
 func isIncludeModule(module string) bool {
-	//for _, item := range conf.AppConf.LogModule {
-	//	if item == module {
-	//		return true
-	//	}
-	//}
+	module = strings.ToLower(module)
+	if _, ok := mapModule[module]; ok {
+		return true
+	}
 	return false
 }
 
@@ -63,7 +60,7 @@ func init() {
 		Level    int    `json:"level"`
 		Daily    bool   `json:"daily"`
 	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName,
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
 		Level:    getLevel(conf.Cfg.Log.Level),
 		Daily:    false,
 	}
@@ -73,6 +70,12 @@ func init() {
 		panic(err)
 	}
 	logs.SetLogger(logs.AdapterFile, string(configuration))
+
+	// output filename and line number
+	logs.EnableFuncCallDepth(true)
+	logs.SetLogFuncCallDepth(4)
+	// output async buffer
+	logs.Async(1e3)
 
 	// init mapModule
 	mapModule = make(map[string]struct{})
@@ -136,14 +139,6 @@ func Debug(f interface{}, v ...interface{}) {
 // compatibility alias for Warning()
 func Trace(f interface{}, v ...interface{}) {
 	logs.Trace(f, v)
-}
-
-func TraceLog() string {
-	pc := make([]uintptr, 10) // at least 1 entry needed
-	runtime.Callers(2, pc)
-	f := runtime.FuncForPC(pc[0])
-	_, line := f.FileLine(pc[0])
-	return fmt.Sprintf("%s line : %d\n", f.Name(), line)
 }
 
 func GetLogger() *logs.BeeLogger {

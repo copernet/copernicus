@@ -24,10 +24,12 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
+	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/bitcointime"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/mempool"
@@ -38,18 +40,16 @@ import (
 	"github.com/btcboost/copernicus/net/upnp"
 	"github.com/btcboost/copernicus/net/wire"
 	"github.com/btcboost/copernicus/peer"
+	"github.com/btcboost/copernicus/service"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/btcboost/copernicus/util/bloom"
-	"github.com/btcboost/copernicus/service"
-	"github.com/btcboost/copernicus/model/blockindex"
-	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 )
 
 const (
 	// defaultServices describes the default services that are supported by
 	// the server.
-	defaultServices = wire.SFNodeNetwork | wire.SFNodeBloom | wire.SFNodeWitness
+	defaultServices = wire.SFNodeNetwork // | wire.SFNodeBloom | wire.SFNodeWitness
 
 	// defaultRequiredServices describes the default services that are
 	// required to be supported by outbound peers.
@@ -1060,7 +1060,7 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 		}
 	}
 
-	if send && blkIndex.IsValid(blockindex2.BlockHaveData){
+	if send && blkIndex.IsValid(blockindex2.BlockHaveData) {
 		// Fetch the raw block bytes from the database.
 		bl, err := lblock.GetBlock(hash)
 		if err != nil {
@@ -1101,7 +1101,6 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 			sp.continueHash = nil
 		}
 	}
-
 
 	return nil
 }
@@ -2074,7 +2073,7 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 
 	cfg := conf.Cfg
 
-	fmt.Printf("%+v", cfg)
+	log.Debug("%+v", cfg)
 
 	services := defaultServices
 	if cfg.Protocal.NoPeerBloomFilters {

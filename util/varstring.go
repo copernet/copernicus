@@ -1,10 +1,9 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"io"
-
-	"github.com/pkg/errors"
 )
 
 func ReadVarString(r io.Reader) (string, error) {

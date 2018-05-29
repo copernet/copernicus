@@ -5,7 +5,7 @@
 package peer
 
 import (
-	"bytes"
+	//"bytes"
 	"container/list"
 	"errors"
 	"fmt"
@@ -820,7 +820,7 @@ func (p *Peer) IsWitnessEnabled() bool {
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	var blockNum int32
-	fmt.Printf("remote is :%v\n", p.conn.RemoteAddr())
+	log.Trace("remote is :%v\n", p.conn.RemoteAddr())
 	if p.Cfg.NewestBlock != nil {
 		var err error
 		_, blockNum, err = p.Cfg.NewestBlock()
@@ -1186,10 +1186,11 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	log.Trace("%v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
+	/*
 	log.Trace("%v", newLogClosure(func() string {
 		return spew.Sdump(buf)
 	}))
-
+*/
 	return msg, buf, nil
 }
 
@@ -1215,15 +1216,15 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return spew.Sdump(msg)
 	}))
 
-	log.Trace("%v", newLogClosure(func() string {
-		var buf bytes.Buffer
-		_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
-			p.Cfg.ChainParams.BitcoinNet, enc)
-		if err != nil {
-			return err.Error()
-		}
-		return spew.Sdump(buf.Bytes())
-	}))
+	//log.Trace("%v", newLogClosure(func() string {
+	//	var buf bytes.Buffer
+	//	_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
+	//		p.Cfg.ChainParams.BitcoinNet, enc)
+	//	if err != nil {
+	//		return err.Error()
+	//	}
+	//	return spew.Sdump(buf.Bytes())
+	//}))
 
 	// Write the message to the peer.
 	n, err := wire.WriteMessageWithEncodingN(p.conn, msg,
@@ -2043,6 +2044,7 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		if p.inbound {
 			negotiateErr <- p.negotiateInboundProtocol()
 		} else {
+			log.Trace("outbound peer :  %s, %v", p.conn.RemoteAddr())
 			negotiateErr <- p.negotiateOutboundProtocol()
 		}
 	}()

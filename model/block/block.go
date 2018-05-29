@@ -5,18 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	
+
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
 )
 
 type Block struct {
-	Header BlockHeader
-	Txs    []*tx.Tx
-	serializesize    int
-	Checked bool
-	encodeSize int
+	Header        BlockHeader
+	Txs           []*tx.Tx
+	serializesize int
+	Checked       bool
+	encodeSize    int
 }
 
 func (bl *Block) GetBlockHeader() BlockHeader {
@@ -27,9 +27,6 @@ func (bl *Block) SetNull() {
 	bl.Header.SetNull()
 	bl.Txs = nil
 }
-
-
-
 
 func (bl *Block) Serialize(w io.Writer) error {
 	if err := bl.Header.Serialize(w); err != nil {
@@ -47,7 +44,7 @@ func (bl *Block) Serialize(w io.Writer) error {
 }
 
 func (bl *Block) SerializeSize() int {
-	if bl.serializesize !=0{
+	if bl.serializesize != 0 {
 		return bl.serializesize
 	}
 	buf := bytes.NewBuffer(nil)
@@ -61,7 +58,7 @@ func (bl *Block) Encode(w io.Writer) error {
 }
 
 func (bl *Block) EncodeSize() int {
-	if bl.encodeSize !=0 {
+	if bl.encodeSize != 0 {
 		return bl.encodeSize
 	}
 	return bl.SerializeSize()
@@ -79,19 +76,19 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	if ntx > consensus.MaxTxCount {
 		return errors.New(fmt.Sprintf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount))
 	}
-	txns := make([]*tx.Tx, ntx)
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {
-		if err := txns[i].Unserialize(r); err != nil {
+		var txn tx.Tx
+		txnp := &txn
+		if err := txnp.Unserialize(r); err != nil {
 			return err
 		}
-		bl.Txs[i] = txns[i]
+		bl.Txs[i] = txnp
 	}
 	return nil
 }
 
-
-func (bl *Block) GetHash() util.Hash{
+func (bl *Block) GetHash() util.Hash {
 	bh := bl.Header
 	return bh.GetHash()
 }

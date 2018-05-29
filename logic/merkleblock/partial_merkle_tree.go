@@ -1,10 +1,10 @@
 package merkleblock
 
 import (
+	"crypto/sha256"
 	"io"
 	"math"
 
-	"github.com/NebulousLabs/Sia/crypto"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -182,7 +182,7 @@ func (pmt *PartialMerkleTree) TraverseAndExtract(height uint, pos uint, bitUsed 
 	}
 
 	// combine the before returning
-	ret := make([]byte, 2*crypto.HashSize)
+	ret := make([]byte, 2*sha256.Size)
 	ret = append(ret, left[:]...)
 	ret = append(ret, right[:]...)
 	b := util.DoubleSha256Bytes(ret)

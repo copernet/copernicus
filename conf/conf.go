@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"log"
+	//"log"
 	"net"
 	"os"
 	"path"
@@ -82,14 +82,14 @@ func initConfig() *Configuration {
 			value := field.Tag.Get(tagName)
 			//set default value
 			viper.SetDefault(key, value)
-			log.Printf("key is: %v,value is: %v\n", key, value)
+			//log.Printf("key is: %v,value is: %v\n", key, value)
 		} else {
 			structField := v.Field(i).Type()
 			for j := 0; j < structField.NumField(); j++ {
 				key := structField.Field(j).Name
 				values := structField.Field(j).Tag.Get(tagName)
 				viper.SetDefault(key, values)
-				log.Printf("key is: %v,value is: %v\n", key, values)
+				//log.Printf("key is: %v,value is: %v\n", key, values)
 			}
 			continue
 		}
@@ -117,11 +117,6 @@ type Configuration struct {
 	// Service struct {
 	// 	Address string `default:"1.0.0.1:80"`
 	// }
-	HTTP struct {
-		Host string `validate:"require"`
-		Port int
-		Mode string
-	}
 	RPC struct {
 		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
 		RPCUser              string   // Username for RPC connections

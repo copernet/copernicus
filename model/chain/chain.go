@@ -29,13 +29,14 @@ func GetInstance() *Chain {
 }
 
 func NewChain() *Chain {
-	return &Chain{}
+
+	return NewFakeChain()
+	//return &Chain{}
 }
 
-func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex, orphan map[util.Hash][]*blockindex.BlockIndex, tip util.Hash){
+func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex){
 	c.indexMap = indexMap
 	c.branch =  branch
-	c.orphan = orphan
 }
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
