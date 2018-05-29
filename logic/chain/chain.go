@@ -2,10 +2,12 @@ package chain
 
 import (
 	"bytes"
+	"container/list"
 	"fmt"
 	"strings"
 	"time"
 	
+	"copernicus/core"
 	
 	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
@@ -20,6 +22,7 @@ import (
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
+	"gopkg.in/eapache/queue.v1"
 	
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/undo"
@@ -106,9 +109,7 @@ func AcceptBlock(params *chainparams.BitcoinParams, pblock *block.Block, state *
 		err = errcode.ProjectError{Code:3006}
 		return
 	}
-	bIndex.SubStatus(blockindex.StatusWaitingData)
-	bIndex.AddStatus(blockindex.StatusDataStored)
-	gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+	ret := ReceivedBlockTransactions(pblock, bIndex, dbp)
 	
 	return
 }
@@ -635,4 +636,31 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	}
 
 	return undo.ApplyBlockUndo(blockUndo, pblock, view)
+}
+
+
+// ReceivedBlockTransactions Mark a block as having its data received and checked (up to
+// * BLOCK_VALID_TRANSACTIONS).
+func ReceivedBlockTransactions(pblock *block.Block,
+	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
+	hash := pindexNew.GetBlockHash()
+	pindexNew.TxCount = len(pblock.Txs)
+	pindexNew.ChainTxCount = 0
+	pindexNew.File = pos.File
+	pindexNew.DataPos = pos.Pos
+	pindexNew.UndoPos = 0
+	pindexNew.AddStatus(blockindex.StatusDataStored)
+	gPersist := global.GetInstance()
+	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
+	gChain := mchain.GetInstance()
+	if pindexNew.IsGenesis() || gChain.ParentInBranch(pindexNew) {
+		// If indexNew is the genesis block or all parents are in branch
+		gChain.AddToBranch(pindexNew)
+	} else {
+		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(lbi.BlockValidTree) {
+			gChain.AddToOrphan(pindexNew)
+		}
+	}
+
+	return true
 }

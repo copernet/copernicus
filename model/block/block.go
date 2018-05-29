@@ -30,6 +30,7 @@ func (bl *Block) SetNull() {
 
 
 
+
 func (bl *Block) Serialize(w io.Writer) error {
 	if err := bl.Header.Serialize(w); err != nil {
 		return err

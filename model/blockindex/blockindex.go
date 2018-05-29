@@ -61,7 +61,7 @@ type BlockIndex struct {
 	Status uint32
 	// (memory only) Sequential id assigned to distinguish order in which
 	// blocks are received.
-	SequenceID int32
+	SequenceID uint64
 	// (memory only) Maximum time in the chain upto and including this block.
 	TimeMax uint32
 }
@@ -248,6 +248,10 @@ func (bIndex *BlockIndex) String() string {
 	hash := bIndex.GetBlockHash()
 	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", bIndex.Prev,
 		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
+}
+
+func (bIndex *BlockIndex) IsGenesis() bool{
+	return bIndex.Prev == nil
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {

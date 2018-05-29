@@ -1,8 +1,10 @@
 package chain
 
 import (
+	
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/util"
+	"gopkg.in/eapache/queue.v1"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
@@ -10,8 +12,8 @@ type Chain struct {
 	active      []*blockindex.BlockIndex
 	branch      []*blockindex.BlockIndex
 	waitForTx   map[util.Hash]*blockindex.BlockIndex
-	orphan      []*blockindex.BlockIndex
-	indexMap    map[util.Hash]*blockindex.BlockIndex
+	orphan      map[util.Hash][]*blockindex.BlockIndex  // preHash : *index
+	indexMap    map[util.Hash]*blockindex.BlockIndex  // selfHash :*index
 	newestBlock *blockindex.BlockIndex
 	receiveID   uint64
 }
@@ -30,9 +32,10 @@ func NewChain() *Chain {
 	return &Chain{}
 }
 
-func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex, tip util.Hash){
+func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  []*blockindex.BlockIndex, orphan map[util.Hash][]*blockindex.BlockIndex, tip util.Hash){
 	c.indexMap = indexMap
 	c.branch =  branch
+	c.orphan = orphan
 }
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
@@ -42,6 +45,13 @@ func (c *Chain) Genesis() *blockindex.BlockIndex {
 	}
 
 	return nil
+}
+
+func (c *Chain) AddReceivedID(){
+	c.receiveID += 1
+}
+func (c *Chain) GetReceivedID() uint64{
+	return c.receiveID
 }
 
 //find blockindex from blockIndexMap
@@ -206,8 +216,59 @@ func (chain *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
 
 }
 
-func (chain *Chain) AddToBranch(bis *blockindex.BlockIndex) {
+//find blockindex'parent in branch
+func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
+	for _, bi := range c.branch{
+		bh := pindex.Header
+		if bi.GetBlockHash().IsEqual(&bh.HashPrevBlock) {
+			return true
+		}
+	}
+	return false
+}
+//find blockindex in branch
+func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
+	for _, bi := range c.branch{
+		bh := pindex.GetBlockHash()
+		if bi.GetBlockHash().IsEqual(bh) {
+			return true
+		}
+	}
+	return false
+}
 
+func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
+	
+	q := queue.New()
+	q.Add(bis)
+	// Recursively process any descendant blocks that now may be eligible to
+	// be connected.
+	for q.Length() > 0 {
+		qindex := q.Remove()
+		pindex := qindex.(*blockindex.BlockIndex)
+		if !pindex.IsGenesis() {
+			pindex.ChainTxCount += pindex.Prev.ChainTxCount
+		} else {
+			pindex.ChainTxCount = pindex.TxCount
+		}
+		pindex.SequenceID = c.GetReceivedID()
+		c.AddReceivedID()
+		// todo if pindex's work is less then tip's work
+		// if c.Tip() == nil || (c.Tip() !=nil && pindex.ChainWork.Cmp(&c.Tip().ChainWork)<=1) {
+		//
+		// }
+		if !c.InBranch(pindex){
+			c.branch = append(c.branch, pindex)
+		}
+		preHash := pindex.GetBlockHash()
+		childList, ok := c.orphan[*preHash]
+		if ok{
+			for child := range childList{
+				q.Add(child)
+			}
+			delete(c.orphan, *preHash)
+		}
+	}
 }
 
 func (chain *Chain) FindMostWorkChain() *blockindex.BlockIndex {
@@ -216,6 +277,17 @@ func (chain *Chain) FindMostWorkChain() *blockindex.BlockIndex {
 }
 
 func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
+	return nil
+}
+
+func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
+	bh := bi.Header
+	childList, ok := c.orphan[bh.HashPrevBlock]
+	if !ok{
+		childList = make([]*blockindex.BlockIndex,0,1)
+	}
+	childList = append(childList, bi)
+	c.orphan[bh.HashPrevBlock] = childList
 	return nil
 }
 

@@ -25,6 +25,8 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	gChain := chain.GetInstance()
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
 	GlobalBlocksUnlinked := make([]*blockindex.BlockIndex, 0, 20)
+	branch := make([]*blockindex.BlockIndex, 0, 20)
+	
 	// branchMap := make(map[util.Hash]*blockindex.BlockIndex)
 	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap) {
 		return false
@@ -59,6 +61,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 			if index.Prev != nil {
 				if index.Prev.ChainTxCount != 0 {
 					index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
+					branch = append(branch, index)
 				} else {
 					index.ChainTxCount = 0
 					GlobalBlocksUnlinked = append(GlobalBlocksUnlinked, index)
@@ -139,7 +142,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	// Load pointer to end of best chain todo: coinDB must init!!!
 	tip := utxo.GetUtxoCacheInstance().GetBestBlock()
 	
-	gChain.InitLoad(GlobalBlockIndexMap, GlobalBlocksUnlinked, tip)
+	gChain.InitLoad(GlobalBlockIndexMap, branch, GlobalBlocksUnlinked, tip)
 	
 	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
 		gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
