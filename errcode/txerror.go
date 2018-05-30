@@ -33,6 +33,7 @@ const (
 	TxErrInputsMoneyTooLarge
 	TxErrInputsMoneyBigThanOut
 	ScriptCheckInputsBug
+	TxErrSignRawTransaction
 )
 
 var txErrorToString = map[TxErr]string{
