@@ -1,129 +1,233 @@
 package conf
 
 import (
-	"fmt"
+	"flag"
 	"net"
+	"os"
 	"path/filepath"
-	"strings"
+	"reflect"
 	"time"
 
-	"github.com/astaxie/beego/config"
+	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/util"
+	"github.com/spf13/viper"
 )
-
-var AppConf *AppConfig
 
 const (
-	DefaultConnectTimeout = time.Second * 30
+	tagName = "default"
+
+	defaultConfigFilename       = "conf.yml"
+	defaultDataDirname          = "coper"
+	defaultLogLevel             = "info"
+	defaultLogDirname           = "logs"
+	defaultLogFilename          = "coper.log"
+	defaultMaxPeers             = 125
+	defaultBanDuration          = time.Hour * 24
+	defaultBanThreshold         = 100
+	defaultConnectTimeout       = time.Second * 30
+	defaultMaxRPCClients        = 10
+	defaultMaxRPCWebsockets     = 25
+	defaultMaxRPCConcurrentReqs = 20
+	defaultDbType               = "ffldb"
+	defaultFreeTxRelayLimit     = 15.0
+	defaultBlockMinSize         = 0
+	defaultBlockMaxSize         = 750000
+	defaultBlockMinWeight       = 0
+	defaultBlockMaxWeight       = 3000000
+	blockMaxSizeMin             = 1000
+	blockMaxWeightMin           = 4000
+	// blockMaxSizeMax              = blockchain.MaxBlockBaseSize - 1000
+	// blockMaxWeightMax            = blockchain.MaxBlockWeight - 4000
+	defaultGenerate              = false
+	defaultMaxOrphanTransactions = 100
+	defaultMaxOrphanTxSize       = 100000
+	defaultSigCacheMaxSize       = 100000
+	sampleConfigFilename         = "sample-coper.conf"
+	defaultTxIndex               = false
+	defaultAddrIndex             = false
+	defaultDescendantLimit       = 25
+	defaultDescendantSizeLimit   = 101
+	defaultAncestorSizeLimit     = 101
+	defaultAncestorLimit         = 25
+	defaultMempoolExpiry         = 336
+	defaultMaxMempoolSize        = 300
 )
 
-type AppConfig struct {
-	DataDir            string        `short:"b" long:"datadir" description:"Directory to store data"`
-	ShowVersion        bool          `short:"v" long:"version" description:"Display version in"`
-	NoPeerBloomFilters bool          `long:"nopeerbloomfilters" description:"Disable bloom filtering support"`
-	MaxPeers           int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
-	DisableBanning     bool          `long:"nobanning" description:"Disable banning of misbehaving peers"`
-	BanDuration        time.Duration `long:"banduration" description:"How long to ban misbehaving peers.  Valid time units are {s, m, h}.  Minimum 1 second"`
-	BanThreshold       uint32        `long:"banthreshold" description:"Maximum allowed ban score before disconnecting and banning misbehaving peers."`
+var Cfg *Configuration
 
-	Listeners []string `long:"listen" description:"Add an interface/port to listen for connections (default all interfaces port: 8333, testnet: 18333)"`
+// init configuration
+func initConfig() *Configuration {
+	// parse command line parameter to set program datadir
+	defaultDataDir := util.AppDataDir(defaultDataDirname, false)
+	logs.Info("Default data dir: ", defaultDataDir)
+	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
+	flag.Parse()
 
-	NoOnion        bool `long:"noonion" description:"Disable connecting to tor hidden services"`
-	TorIsolation   bool `long:"torisolation" description:"Enable Tor stream isolation by randomizing user credentials for each connection."`
-	TestNet3       bool `long:"testnet" description:"Use the test network"`
-	RegressionTest bool `long:"regtest" description:"Use the regression test network"`
-	SimNet         bool `long:"simnet" description:"Use the simulation test network"`
+	datadir := defaultDataDir
+	if getdatadir != nil {
+		datadir = *getdatadir
+	}
 
-	DisableListen bool `long:"nolisten" description:"Disable listening for incoming connections -- NOTE: Listening is automatically disabled if the --conn or --proxy options are used without also specifying listen interfaces via --listen"`
+	if !ExistDataDir(datadir) {
+		err := os.MkdirAll(datadir, os.ModePerm)
+		if err != nil {
+			panic("datadir create failed: " + err.Error())
+		}
+	}
 
-	lookup         util.LookupFunc
-	DisableDNSSeed bool `long:"nodnsseed" description:"Disable DNS seeding for peers"`
+	config := &Configuration{}
+	viper.SetConfigType("yaml")
 
-	oniondial func(string, string, time.Duration) (net.Conn, error)
-	dial      func(string, string, time.Duration) (net.Conn, error)
+	//parse struct tag
+	c := Configuration{}
+	t := reflect.TypeOf(c)
+	v := reflect.ValueOf(c)
 
-	LogModule []string
-	LogLevel  string
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if v.Field(i).Type().Kind() != reflect.Struct {
+			key := field.Name
+			value := field.Tag.Get(tagName)
+			//set default value
+			viper.SetDefault(key, value)
+			//log.Printf("key is: %v,value is: %v\n", key, value)
+		} else {
+			structField := v.Field(i).Type()
+			for j := 0; j < structField.NumField(); j++ {
+				key := structField.Field(j).Name
+				values := structField.Field(j).Tag.Get(tagName)
+				viper.SetDefault(key, values)
+				//log.Printf("key is: %v,value is: %v\n", key, values)
+			}
+			continue
+		}
+	}
+
+	// parse config
+	file := must(os.Open(datadir + "/conf.yml")).(*os.File)
+	defer file.Close()
+	must(nil, viper.ReadConfig(file))
+	must(nil, viper.Unmarshal(config))
+
+	// set data dir
+	config.DataDir = datadir
+
+	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
+	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
+	return config
+}
+
+// Configuration defines all configurations for application
+type Configuration struct {
+	GoVersion string `validate:"require"` //description:"Display version information and exit"
+	Version   string `validate:"require"` //description:"Display version information of copernicus"
+	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
+	DataDir   string `default:"data"`
+
+	// Service struct {
+	// 	Address string `default:"1.0.0.1:80"`
+	// }
+	RPC struct {
+		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
+		RPCUser              string   // Username for RPC connections
+		RPCPass              string   // Password for RPC connections
+		RPCLimitUser         string   //Username for limited RPC connections
+		RPCLimitPass         string   //Password for limited RPC connections
+		RPCCert              string   `default:""` //File containing the certificate file
+		RPCKey               string   //File containing the certificate key
+		RPCMaxClients        int      //Max number of RPC clients for standard connections
+		RPCMaxWebsockets     int      //Max number of RPC websocket connections
+		RPCMaxConcurrentReqs int      //Max number of concurrent RPC requests that may be processed concurrently
+		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
+	}
+	Log struct {
+		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+		Module   []string // only output the specified module's log when using log.Print(...)
+		FileName string   // the name of log file
+	}
+	Mempool struct {
+		MinFeeRate           int64 //
+		LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
+		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
+		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
+		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
+		MaxPoolSize          int   // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+	}
+	P2PNet struct {
+		ListenAddrs         []string `validate:"require" default:"1234"`
+		MaxPeers            int      `default:"128"`
+		TargetOutbound      int      `default:"8"`
+		ConnectPeersOnStart []string
+		DisableBanning      bool `default:"true"`
+		BanThreshold        uint32
+		SimNet              bool          `default:"false"`
+		DisableListen       bool          `default:"true"`
+		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
+		BanDuration         time.Duration // How long to ban misbehaving peers
+		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
+		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
+		DisableDNSSeed      bool          //Disable DNS seeding for peers
+		DisableRPC          bool          `default:"false"`
+		DisableTLS          bool          `default:"false"`
+		Whitelists          []*net.IPNet
+		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
+		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
+		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+		AddCheckpoints      []model.Checkpoint
+	}
+	AddrMgr struct {
+		SimNet       bool
+		ConnectPeers []string
+	}
+	Protocal struct {
+		NoPeerBloomFilters bool `default:"true"`
+		DisableCheckpoints bool `default:"true"`
+	}
+	Script struct {
+		AcceptDataCarrier   bool `default:"true"`
+		MaxDatacarrierBytes uint `default:"83"`
+		IsBareMultiSigStd   bool `default:"true"`
+		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
+		PromiscuousMempoolFlags string
+	}
+	TxOut struct {
+		DustRelayFee int64 `default:"83"`
+	}
+	Mining struct {
+		BlockMinTxFee int64  // default DefaultBlockMinTxFee
+		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
+		BlockVersion  int32  `default:"-1"`
+		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
+	}
+}
+
+func must(i interface{}, err error) interface{} {
+	if err != nil {
+		panic(err)
+	}
+	return i
 }
 
 func init() {
-	_, err := config.NewConfig("ini", "init.conf")
-	if err != nil {
-		fmt.Println(err)
-	}
-	// todo unable to pass in unit test
-	// if appConf != nil {
-	// 	contentTimeout := appConf.String("Timeout::connectTimeout")
-	// 	log.Info("read conf timeout is  %s", contentTimeout)
-	// 	logDir := appConf.String("Log::dir")
-	// 	log.Info("logger dir is %s", logDir)
-	// 	logLevel := appConf.String("Log::level")
-	// 	log.Info("logger dir is %s", logLevel)
-	// }
-	AppConf = loadConfig()
+	Cfg = initConfig()
 }
 
-func loadConfig() *AppConfig {
-	appConfig := AppConfig{
-		ShowVersion:        true,
-		NoPeerBloomFilters: true,
-		DataDir:            GetDataPath(),
+func ExistDataDir(datadir string) bool {
+	_, err := os.Stat(datadir)
+	if err == nil {
+		return true
 	}
-	appConfig.dial = net.DialTimeout
-	appConfig.lookup = net.LookupIP
-	return &appConfig
+	if os.IsExist(err) {
+		return false
+	}
+
+	return false
 }
 
-func GetDataPath() string {
-	dataPath := filepath.Clean(util.MergePath("cp"))
-	if util.PathExists(dataPath) {
-		err := util.MakePath(dataPath)
-		if err != nil {
-			panic(err)
-		}
-	}
-	return dataPath
-}
-
-func AppLookup(host string) ([]net.IP, error) {
-	if strings.HasSuffix(host, ".onion") {
-		return nil, fmt.Errorf("attempt to resolve tor address %s", host)
-	}
-	return AppConf.lookup(host)
-}
-func AppDial(address net.Addr) (net.Conn, error) {
-	if strings.Contains(address.String(), ".onion:") {
-		return AppConf.oniondial(address.Network(), address.String(), DefaultConnectTimeout)
-	}
-	return AppConf.dial(address.Network(), address.String(), DefaultConnectTimeout)
-}
-
-var CFG = struct {
-	RPCUser              string
-	RPCPass              string
-	RPCLimitUser         string
-	RPCLimitPass         string
-	RPCListeners         []string
-	RPCCert              string
-	RPCKey               string
-	RPCMaxClients        int
-	RPCMaxWebsockets     int
-	RPCMaxConcurrentReqs int
-	RPCQuirks            bool
-	DisableRPC           bool
-	DisableTLS           bool
-}{
-	RPCUser:              "rpc",
-	RPCPass:              "rpc",
-	RPCLimitUser:         "",
-	RPCLimitPass:         "",
-	RPCListeners:         []string{"127.0.0.1:8334"},
-	RPCCert:              "",
-	RPCKey:               "",
-	RPCMaxClients:        10,
-	RPCMaxWebsockets:     25,
-	RPCMaxConcurrentReqs: 20,
-	RPCQuirks:            false,
-	DisableRPC:           false,
-	DisableTLS:           true,
-}
+// Validate validates configuration
+//func (c Configuration) Validate() error {
+//	validate := validator.New(&validator.Config{TagName: "validate"})
+//	return validate.Struct(c)
+//}

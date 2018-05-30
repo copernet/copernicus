@@ -1,4 +1,4 @@
-// Copyright (c) 2013, 2014 The btcsuite developers
+// Copyright (c) 2015, 2014 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -8,6 +8,8 @@ import (
 	"errors"
 	"math"
 	"strconv"
+
+	"github.com/btcboost/copernicus/util"
 )
 
 // AmountUnit describes a method of converting an Amount to something
@@ -26,9 +28,7 @@ const (
 	AmountMicroBTC AmountUnit = -6
 	AmountSatoshi  AmountUnit = -8
 
-
-	CENT         int64 = 1000000
-
+	CENT int64 = 1000000
 )
 
 // String returns the unit as a string.  For recognized units, the SI
@@ -89,7 +89,7 @@ func NewAmount(f float64) (Amount, error) {
 		return 0, errors.New("invalid bitcoin amount")
 	}
 
-	return round(f * SatoshiPerBitcoin), nil
+	return round(f * util.SatoshiPerBitcoin), nil
 }
 
 // ToUnit converts a monetary amount counted in bitcoin base units to a
@@ -125,6 +125,6 @@ func (a Amount) MulF64(f float64) Amount {
 	return round(float64(a) * f)
 }
 
-func MoneyRange(value int64) bool {
-	return value >= 0 && value <= MaxMoney
+func MoneyRange(value Amount) bool {
+	return value >= 0 && value <= Amount(util.MaxMoney)
 }

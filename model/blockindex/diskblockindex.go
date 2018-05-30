@@ -5,31 +5,44 @@ import (
 	"io"
 
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/persist/db"
+	"bytes"
 )
 
 
 
 
 func (bIndex *BlockIndex)GetSerializeList()[]string{
-	dump_list := []string{"Height","Status", "TxCount", "File", "DataPos","UndoPos","Header"}
-	return dump_list
+	dumpList := []string{"Height","Status", "TxCount", "File", "DataPos","UndoPos","Header"}
+	return dumpList
 }
 
 func (bIndex *BlockIndex) Serialize(w io.Writer) error {
+	buf := bytes.NewBuffer(nil)
 	clientVersion := 160000
-	err := util.WriteVarLenInt(w, uint64(clientVersion))
+	err := util.WriteElements(buf, clientVersion, bIndex.Height, bIndex.Status, bIndex.TxCount, bIndex.File, bIndex.DataPos, bIndex.UndoPos)
 	if err != nil {
 		return err
 	}
-	return db.SerializeOP(w, bIndex)
+	err = bIndex.Header.Serialize(buf)
+	if err != nil {
+		return err
+	}
+	//
+	// dataLen := buf.Len()
+	// util.WriteVarLenInt(w, uint64(dataLen))
+	_, err = w.Write(buf.Bytes())
+	return err
 }
 
 func (bIndex *BlockIndex) Unserialize(r io.Reader) error {
-	_, err := util.ReadVarLenInt(r)
+	// _, err := util.ReadVarLenInt(r)
+	// if err != nil {
+	// 	return err
+	// }
+	err := util.ReadElements(r, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
 	if err != nil {
 		return err
 	}
-
-	return db.UnserializeOP(r, bIndex)
+	err = bIndex.Header.Unserialize(r)
+	return err
 }

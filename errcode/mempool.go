@@ -9,23 +9,21 @@ type MemPoolErr int
 const MemPoolBase MemPoolErr = 1000
 
 const (
-	A MemPoolErr = MemPoolBase + iota
-	B
-	C
-	D
-	E
-	F
-	G
+	MissParent MemPoolErr = MemPoolBase + iota
+	RejectTx
+	AlreadHaveTx
+	Nomature
+	ManyUnspendDepend
+	TooMinFeeRate
 )
 
 var merrToString = map[MemPoolErr]string{
-	A: "fffffffffffff",
-	B: "bxxx fdsafdsa",
-	C: "fewafewafewa",
-	D: "fdsafewafewa",
-	E: "fdsafewafewa",
-	F: "fdsafewafewa",
-	G: "fdsafewafewa",
+	MissParent: "miss input transaction",
+	RejectTx: "the transaction reject by the rule",
+	AlreadHaveTx: "the transaction already in mempool",
+	Nomature: "non-BIP68-final",
+	ManyUnspendDepend: "the transaction depend many unspend transaction",
+	TooMinFeeRate:"the transaction's feerate is too minimal",
 }
 
 func (me MemPoolErr) String() string {

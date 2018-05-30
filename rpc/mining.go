@@ -6,36 +6,45 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/blockchain"
-	"github.com/btcboost/copernicus/consensus"
-	"github.com/btcboost/copernicus/core"
-	"github.com/btcboost/copernicus/internal/btcjson"
-	"github.com/btcboost/copernicus/mining"
-	"github.com/btcboost/copernicus/net/msg"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/log"
+	block2 "github.com/btcboost/copernicus/logic/block"
+	"github.com/btcboost/copernicus/logic/undo"
+	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/model/mempool"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/model/pow"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/versionbits"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/service/mining"
+	"github.com/btcboost/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
 
 var miningHandlers = map[string]commandHandler{
-	"getnetworkhashps":      handleGetNetWorkhashPS,
-	"getmininginfo":         handleGetMiningInfo,
-	"prioritisetransaction": handlePrioritisetransaction,
-	"getblocktemplate":      handleGetblocktemplate,
-	"submitblock":           handleSubmitBlock,
-	"generate":              handleGenerate,
-	"generatetoaddress":     handleGenerateToAddress,
-	"estimatefee":           handleEstimateFee,
-	"estimatepriority":      handleEstimatePriority,
-	"estimatesmartfee":      handleEstimateSmartFee,
-	"estimatesmartpriority": handleEstimateSmartPriority,
+	"getnetworkhashps":      handleGetNetWorkhashPS,      // complete
+	"getmininginfo":         handleGetMiningInfo,         // complete
+	"prioritisetransaction": handlePrioritisetransaction, // do not support at this version
+	"getblocktemplate":      handleGetblocktemplate,      // complete
+	"submitblock":           handleSubmitBlock,           // complete
+	"generate":              handleGenerate,              // deprecated at new version<v0.17.1>
+	"generatetoaddress":     handleGenerateToAddress,     // complete
+	"estimatefee":           handleEstimateFee,           // do not support at this version
+	"estimatepriority":      handleEstimatePriority,      // do not support at this version
+	"estimatesmartfee":      handleEstimateSmartFee,      // do not support at this version
+	"estimatesmartpriority": handleEstimateSmartPriority, // do not support at this version
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetNetworkHashPSCmd)
 
 	lookup := 120
-	height := -1
+	height := int32(-1)
 	if c.Blocks != nil {
 		lookup = *c.Blocks
 	}
@@ -44,24 +53,24 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 		height = *c.Height
 	}
 
-	block := blockchain.GChainActive.Tip()
-	if height > 0 || height < blockchain.GChainActive.Height() {
-		block = blockchain.GChainActive.Chain[height]
+	index := chain.GetInstance().Tip()
+	if height > 0 || height < chain.GetInstance().Height() {
+		index = chain.GetInstance().GetIndex(height)
 	}
 
-	if block == nil || block.Height != 0 {
+	if index == nil || index.Height != 0 {
 		return 0, nil
 	}
 
 	if lookup <= 0 {
-		lookup = block.Height%int(msg.ActiveNetParams.DifficultyAdjustmentInterval()) + 1
+		lookup = int(index.Height%int32(chainparams.ActiveNetParams.DifficultyAdjustmentInterval()) + 1)
 	}
 
-	if lookup > block.Height {
-		lookup = block.Height
+	if lookup > int(index.Height) {
+		lookup = int(index.Height)
 	}
 
-	b := block
+	b := index
 	minTime := b.GetBlockTime()
 	maxTime := minTime
 	for i := 0; i < lookup; i++ {
@@ -75,7 +84,7 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 		return 0, nil
 	}
 
-	workDiff := new(big.Int).Sub(&block.ChainWork, &b.ChainWork)
+	workDiff := new(big.Int).Sub(&index.ChainWork, &b.ChainWork)
 	timeDiff := int64(maxTime - minTime)
 
 	hashesPerSec := new(big.Int).Div(workDiff, big.NewInt(timeDiff))
@@ -83,33 +92,34 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 }
 
 func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
-	networkHashesPerSecIface, err := handleGetNetWorkhashPS(s, gnhpsCmd,
-		closeChan)
-	if err != nil {
-		return nil, err
-	}
-	networkHashesPerSec, ok := networkHashesPerSecIface.(int64)
-	if !ok {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInternal.Code,
-			Message: "networkHashesPerSec is not an int64",
-		}
-	}
+	/*	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
+			networkHashesPerSecIface, err := handleGetNetWorkhashPS(s, gnhpsCmd,
+				closeChan)
+			if err != nil {
+				return nil, err
+			}
+			networkHashesPerSec, ok := networkHashesPerSecIface.(int64)
+			if !ok {
+				return nil, &btcjson.RPCError{
+					Code:    btcjson.ErrRPCInternal.Code,
+					Message: "networkHashesPerSec is not an int64",
+				}
+			}
 
-	block := blockchain.GChainActive.Tip()
-	result := btcjson.GetMiningInfoResult{
-		Blocks:                  int64(block.Height),
-		CurrentBlockSize:        mining.GetLastBlockSize(),
-		CurrentBlockTx:          mining.GetLastBlockTx(),
-		Difficulty:              getDifficulty(block),
-		BlockPriorityPercentage: utils.GetArg("-blockprioritypercentage", 0),
-		//Errors:              ,                            // TODO
-		NetworkHashPS: networkHashesPerSec,
-		//PooledTx:           uint64(mempool.Size()),              TODO
-		Chain: msg.ActiveNetParams.Name,
-	}
-	return &result, nil
+		index := chain.GetInstance().Tip()
+		result := btcjson.GetMiningInfoResult{
+			Blocks:                  int64(index.Height),
+			CurrentBlockSize:        mining.GetLastBlockSize(),
+			CurrentBlockTx:          mining.GetLastBlockTx(),
+			Difficulty:              getDifficulty(index),
+			BlockPriorityPercentage: util.GetArg("-blockprioritypercentage", 0),
+			//Errors:              ,                            // TODO
+			NetworkHashPS: networkHashesPerSec,
+			//PooledTx:           uint64(mempool.Size()),              TODO
+			Chain: consensus.MainNetParams.Name,
+		}
+		return &result, nil*/ // todo open
+	return nil, nil
 }
 
 // priority transaction currently disabled
@@ -120,7 +130,7 @@ func handlePrioritisetransaction(s *Server, cmd interface{}, closeChan <-chan st
 // global variable in package rpc
 var (
 	transactionsUpdatedLast uint64
-	indexPrev               *core.BlockIndex
+	indexPrev               *blockindex.BlockIndex
 	start                   int64
 	blocktemplate           *mining.BlockTemplate
 )
@@ -162,8 +172,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		maxVersionVb = request.MaxVersion
 	}
 
-	// todo handle connMan exception
-	if blockchain.IsInitialBlockDownload() {
+	if undo.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCClientInInitialDownload,
 			Message: "Bitcoin is downloading blocks...",
@@ -179,23 +188,21 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		// todo complete
 	}
 
-	if indexPrev != core.ActiveChain.Tip() ||
-		blockchain.GMemPool.TransactionsUpdated != transactionsUpdatedLast &&
-			utils.GetMockTime()-start > 5 {
+	if indexPrev != chain.GetInstance().Tip() ||
+		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
+			util.GetMockTime()-start > 5 {
 
 		// Clear pindexPrev so future calls make a new block, despite any
 		// failures from here on
 		indexPrev = nil
 		// Store the pindexBest used before CreateNewBlock, to avoid races
-		transactionsUpdatedLast = blockchain.GMemPool.TransactionsUpdated
-		indexPrevNew := blockchain.GChainActive.Tip()
-		start = utils.GetMockTime()
+		transactionsUpdatedLast = mempool.GetInstance().TransactionsUpdated
+		indexPrevNew := chain.GetInstance().Tip()
+		start = util.GetMockTime()
 
 		// Create new block
-		scriptDummy := core.Script{}
-		scriptDummy.PushOpCode(core.OP_TRUE)
-		ba := mining.NewBlockAssembler(msg.ActiveNetParams)
-		blocktemplate = ba.CreateNewBlock()
+		ba := mining.NewBlockAssembler(chainparams.ActiveNetParams)
+		blocktemplate = ba.CreateNewBlock(script.NewScriptRaw([]byte{opcodes.OP_TRUE}))
 		if blocktemplate == nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -206,9 +213,9 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		// Need to update only after we know CreateNewBlock succeeded
 		indexPrev = indexPrevNew
 	}
-	block := blocktemplate.Block
-	block.UpdateTime(indexPrev)
-	block.BlockHeader.Nonce = 0
+	bk := blocktemplate.Block
+	mining.UpdateTime(bk, indexPrev)
+	bk.Header.Nonce = 0
 
 	return blockTemplateResult(blocktemplate, setClientRules, maxVersionVb, transactionsUpdatedLast)
 }
@@ -219,11 +226,11 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 //
 // This function MUST be called with the state locked.
 func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint32, transactionsUpdatedLast uint64) (*btcjson.GetBlockTemplateResult, error) {
-	setTxIndex := make(map[utils.Hash]int)
+	setTxIndex := make(map[util.Hash]int)
 	var i int
 	transactions := make([]btcjson.GetBlockTemplateResultTx, 0, len(bt.Block.Txs))
 	for _, tx := range bt.Block.Txs {
-		txID := tx.TxHash()
+		txID := tx.GetHash()
 		setTxIndex[txID] = i
 		i++
 
@@ -237,11 +244,11 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		tx.Serialize(dataBuf)
 		entry.Data = hex.EncodeToString(dataBuf.Bytes())
 
-		entry.TxID = txID.ToString()
-		entry.Hash = txID.ToString()
+		entry.TxID = txID.String()
+		entry.Hash = txID.String()
 
 		deps := make([]int, 0)
-		for _, in := range tx.Ins {
+		for _, in := range tx.GetIns() {
 			if ele, ok := setTxIndex[in.PreviousOutPoint.Hash]; ok {
 				deps = append(deps, ele)
 			}
@@ -259,30 +266,30 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 	rules := make([]string, 0)
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		pos := consensus.DeploymentPos(i)
-		state := blockchain.VersionBitsState(indexPrev, msg.ActiveNetParams, pos, blockchain.VBCache)
+		state := versionbits.VersionBitsState(indexPrev, chainparams.ActiveNetParams, pos, versionbits.VBCache)
 		switch state {
-		case blockchain.ThresholdDefined:
+		case versionbits.ThresholdDefined:
 			fallthrough
-		case blockchain.ThresholdFailed:
+		case versionbits.ThresholdFailed:
 			// Not exposed to GBT at all and break
-		case blockchain.ThresholdLockedIn:
+		case versionbits.ThresholdLockedIn:
 			// Ensure bit is set in block version, then fallthrough to get
 			// vbavailable set.
-			bt.Block.BlockHeader.Version |= int32(blockchain.VersionBitsMask(msg.ActiveNetParams, pos))
+			bt.Block.Header.Version |= int32(versionbits.VersionBitsMask(chainparams.ActiveNetParams, pos))
 			fallthrough
-		case blockchain.ThresholdStarted:
-			vbinfo := blockchain.VersionBitsDeploymentInfo[pos]
-			vbAvailable[getVbName(pos)] = msg.ActiveNetParams.Deployments[pos].Bit
+		case versionbits.ThresholdStarted:
+			vbinfo := versionbits.VersionBitsDeploymentInfo[pos]
+			vbAvailable[getVbName(pos)] = chainparams.ActiveNetParams.Deployments[pos].Bit
 			if !s.Has(vbinfo.Name) {
 				if !vbinfo.GbtForce {
 					// If the client doesn't support this, don't indicate it
 					// in the [default] version
-					bt.Block.BlockHeader.Version &= int32(^blockchain.VersionBitsMask(msg.ActiveNetParams, pos))
+					bt.Block.Header.Version &= int32(^versionbits.VersionBitsMask(chainparams.ActiveNetParams, pos))
 				}
 			}
-		case blockchain.ThresholdActive:
+		case versionbits.ThresholdActive:
 			// Add to rules only
-			vbinfo := blockchain.VersionBitsDeploymentInfo[pos]
+			vbinfo := versionbits.VersionBitsDeploymentInfo[pos]
 			rules = append(rules, getVbName(pos))
 			if !s.Has(vbinfo.Name) {
 				// Not supported by the client; make sure it's safe to proceed
@@ -313,36 +320,37 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		mutable = append(mutable, "version/force")
 	}
 
+	v := bt.Block.Txs[0].GetTxOut(0).GetValue()
 	return &btcjson.GetBlockTemplateResult{
 		Capabilities:  []string{"proposal"},
-		Version:       bt.Block.BlockHeader.Version,
+		Version:       bt.Block.Header.Version,
 		Rules:         rules,
 		VbAvailable:   vbAvailable,
 		VbRequired:    0,
-		PreviousHash:  bt.Block.Hash.ToString(),
+		PreviousHash:  bt.Block.Header.HashPrevBlock.String(),
 		Transactions:  transactions,
 		CoinbaseAux:   &btcjson.GetBlockTemplateResultAux{Flags: mining.CoinbaseFlag},
-		CoinbaseValue: &bt.Block.Txs[0].Outs[0].Value,
-		LongPollID:    core.ActiveChain.Tip().GetBlockHash().ToString() + fmt.Sprintf("%d", transactionsUpdatedLast),
-		Target:        blockchain.CompactToBig(bt.Block.BlockHeader.Bits).String(),
+		CoinbaseValue: (*int64)(&v),
+		LongPollID:    chain.GetInstance().Tip().GetBlockHash().String() + fmt.Sprintf("%d", transactionsUpdatedLast),
+		Target:        pow.CompactToBig(bt.Block.Header.Bits).String(),
 		MinTime:       indexPrev.GetMedianTimePast() + 1,
 		Mutable:       mutable,
 		NonceRange:    "00000000ffffffff",
 		// FIXME: Allow for mining block greater than 1M.
 		SigOpLimit: int64(consensus.GetMaxBlockSigOpsCount(consensus.DefaultMaxBlockSize)),
 		SizeLimit:  consensus.DefaultMaxBlockSize,
-		CurTime:    int64(bt.Block.BlockHeader.Time),
-		Bits:       fmt.Sprintf("%08x", bt.Block.BlockHeader.Bits),
+		CurTime:    int64(bt.Block.Header.Time),
+		Bits:       fmt.Sprintf("%08x", bt.Block.Header.Bits),
 		Height:     int64(indexPrev.Height) + 1,
 	}, nil
 }
 
 func getVbName(pos consensus.DeploymentPos) string {
-	if int(pos) >= len(blockchain.VersionBitsDeploymentInfo) {
-		logs.Error("the parameter's value out of the range of VersionBitsDeploymentInfo")
+	if int(pos) >= len(versionbits.VersionBitsDeploymentInfo) {
+		log.Error("the parameter's value out of the range of VersionBitsDeploymentInfo")
 		return ""
 	}
-	vbinfo := blockchain.VersionBitsDeploymentInfo[pos]
+	vbinfo := versionbits.VersionBitsDeploymentInfo[pos]
 	s := vbinfo.Name
 	if !vbinfo.GbtForce {
 		s = "!" + s
@@ -362,7 +370,8 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	// Ensure the provided data is sane and deserialize the proposed block.
-	// todo check: whether the length of data source is multiples of 2. That is to say if it is necessary for the following branch
+	// todo check: whether the length of data source is multiples of 2.
+	// That is to say if it is necessary for the following branch
 	if len(hexData)%2 != 0 {
 		hexData = "0" + hexData
 	}
@@ -374,24 +383,24 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 				"hexadecimal string (not %q)", hexData),
 		}
 	}
-	var block core.Block
-	if err := block.Deserialize(bytes.NewReader(dataBytes)); err != nil {
+	var bk block.Block
+	if err := bk.Unserialize(bytes.NewReader(dataBytes)); err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDeserialization,
 			Message: "Block decode failed: " + err.Error(),
 		}
 	}
 
-	hash := block.Hash
-	bindex := blockchain.GChainActive.FetchBlockIndexByHash(hash) // todo realise
+	hash := bk.Header.GetHash()
+	bindex := chain.GetInstance().FindBlockIndex(hash)
 	if bindex != nil {
-		if bindex.IsValid(core.BlockValidScripts) {
+		if bindex.IsValid(blockindex.BlockValidScripts) {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate",
 			}
 		}
-		if bindex.Status&core.BlockFailedMask != 0 {
+		if bindex.Status&blockindex.BlockFailedMask != 0 {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",
@@ -403,42 +412,47 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 		}
 	}
 
-	indexPrev := core.ActiveChain.Tip()
+	indexPrev := chain.GetInstance().Tip()
 	// TestBlockValidity only supports blocks built on the current Tip
-	if block.BlockHeader.HashPrevBlock != indexPrev.BlockHash {
+	if bk.Header.HashPrevBlock != *indexPrev.GetBlockHash() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrUnDefined,
 			Message: "inconclusive-not-best-prevblk",
 		}
 	}
-	state := core.ValidationState{}
-	blockchain.TestBlockValidity(msg.ActiveNetParams, &state, &block, indexPrev, false, true)
-	return BIP22ValidationResult(&state)
+
+	// TODO realise in block model
+	err = block2.Check(&bk)
+	return BIP22ValidationResult(err)
 }
 
-func BIP22ValidationResult(state *core.ValidationState) (interface{}, error) {
-	if state.IsValid() {
-		return nil, nil
-	}
-
-	strRejectReason := state.GetRejectReason()
-	if state.IsError() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCVerify,
-			Message: strRejectReason,
+func BIP22ValidationResult(err error) (interface{}, error) {
+	projectError, ok := err.(errcode.ProjectError) // todo warning: TestBlockValidity should return type errcode.ProjectError
+	if ok {
+		if projectError.Code == int(errcode.ModelValid) {
+			return nil, nil
 		}
-	}
 
-	if state.IsInvalid() {
-		if strRejectReason == "" {
+		strRejectReason := projectError.Desc
+
+		if projectError.Code == int(errcode.ModelError) {
 			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: "rejected",
+				Code:    btcjson.ErrRPCVerify,
+				Message: strRejectReason,
 			}
 		}
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrUnDefined,
-			Message: strRejectReason,
+
+		if projectError.Code == int(errcode.ModelInvalid) {
+			if strRejectReason == "" {
+				return nil, &btcjson.RPCError{
+					Code:    btcjson.ErrUnDefined,
+					Message: "rejected",
+				}
+			}
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrUnDefined,
+				Message: strRejectReason,
+			}
 		}
 	}
 
@@ -451,7 +465,6 @@ func BIP22ValidationResult(state *core.ValidationState) (interface{}, error) {
 
 // handleSubmitBlock implements the submitblock command.
 func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-
 	c := cmd.(*btcjson.SubmitBlockCmd)
 
 	// Deserialize the submitted block.
@@ -464,8 +477,8 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 		return nil, rpcDecodeHexError(hexStr)
 	}
 
-	block := &core.Block{}
-	err = block.Deserialize(bytes.NewBuffer(serializedBlock))
+	bk := &block.Block{}
+	err = bk.Unserialize(bytes.NewBuffer(serializedBlock))
 
 	if err != nil {
 		return nil, &btcjson.RPCError{
@@ -476,56 +489,80 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 
 	// Process this block using the same rules as blocks coming from other
 	// nodes.  This will in turn relay it to the network like normal.
-	//_, err = peer.SubmitBlock(block, blockchain.BFNone)       // TODO
+	//_, err = peer.SubmitBlock(block, chain.BFNone)       // TODO
 	if err != nil {
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
 	}
 
-	logs.Info("Accepted block %s via submitblock", block.Hash)
+	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
 
 	return nil, nil
 }
 
 func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.GenerateCmd)
-	//
-	//var maxTries uint64
-	//maxTries = 1000000
-	//if c.MaxTries != 0 {
-	//	maxTries = c.MaxTries
-	//}
-
-	//core.Script{}
-	/*	// Respond with an error if the client is requesting 0 blocks to be generated.
-		if c.NumBlocks == 0 {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInternal.Code,
-				Message: "Please request a nonzero number of blocks to generate.",
-			}
-		}
-
-		// Create a reply
-		reply := make([]string, c.NumBlocks)
-
-		blockHashes, err := s.cfg.CPUMiner.GenerateNBlocks(c.NumBlocks)
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInternal.Code,
-				Message: err.Error(),
-			}
-		}
-
-		// Mine the correct number of blocks, assigning the hex representation of the
-		// hash of each one to its place in the reply.
-		for i, hash := range blockHashes {
-			reply[i] = hash.String()
-		}
-
-		return reply, nil*/
 	return nil, nil
 }
 
 func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GenerateToAddressCmd)
+
+	addr, err := script.AddressFromString(c.Address)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "Error: Invalid address",
+		}
+	}
+
+	coinbaseScript := script.NewScriptRaw(addr.EncodeToPubKeyHash())
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
+}
+
+const nInnerLoopCount = 0x100000
+
+func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64) (interface{}, error) {
+	/*	heightStart := chain.GetInstance().Height()
+		heightEnd := heightStart + generate
+		height := heightStart
+
+		ret := make([]string, 0)
+		var extraNonce uint
+		for height < heightEnd {
+			ba := mining.NewBlockAssembler(consensus.ActiveNetParams)
+			bt := ba.CreateNewBlock(coinbaseScript)
+			if bt == nil {
+				return nil, btcjson.RPCError{
+					Code:    btcjson.RPCInternalError,
+					Message: "Could not create new block",
+				}
+			}
+
+			extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
+			// blockchain.CheckProofOfWork(bt.Block, consensus.ActiveNetParams.PowLimit) != nil // todo realise <CheckProofOfWork()>
+			for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount {
+				bt.Block.Header.Nonce++
+				maxTries--
+			}
+
+			if maxTries == 0 {
+				break
+			}
+			if bt.Block.Header.Nonce == nInnerLoopCount {
+				continue
+			}
+
+			if ProcessNewBlock(bt.Block, true, nil) { // todo realise <ProcessNewBlock>
+				return nil, btcjson.RPCError{
+					Code:    btcjson.RPCInternalError,
+					Message: "ProcessNewBlock, block not accepted",
+				}
+			}
+			height++
+			ret = append(ret, bt.Block.GetHash().String())
+		}
+		_ = extraNonce
+
+		return ret, nil*/ // TODO open
 	return nil, nil
 }
 

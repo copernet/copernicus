@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -17,33 +18,33 @@ import (
  */
 
  const (
- 	statusHeaderValid uint32 = 1 << iota
- 	statusAllValid
- 	statusIndexStored
- 	statusAllStored
-	statusMissData
-	statusAccepted
+ 	StatusAllValid uint32 = 1 << iota
+ 	StatusIndexStored
+ 	StatusDataStored
+	StatusWaitingData
+	StatusFailed
+	StatusAccepted
 
 	//NOTE: This must be defined last in order to avoid influencing iota
-	statusNone  = 0
+	StatusNone  = 0
  )
 
 type BlockIndex struct {
 	Header block.BlockHeader
 	// pointer to the hash of the block, if any.
-	BlockHash util.Hash
+	blockHash util.Hash
 	// pointer to the index of the predecessor of this block
 	Prev *BlockIndex
 	// pointer to the index of some further predecessor of this block
 	Skip *BlockIndex
 	// height of the entry in the chain. The genesis block has height 0；
-	Height int
+	Height int32
 	// Which # file this block is stored in (blk?????.dat)
 	File int
 	// Byte offset within blk?????.dat where this block's data is stored
-	DataPos int
+	DataPos uint32
 	// Byte offset within rev?????.dat where this block's undo data is stored
-	UndoPos int
+	UndoPos uint32
 	// (memory only) Total amount of work (expected number of hashes) in the
 	// chain up to and including this block
 	ChainWork big.Int
@@ -61,53 +62,62 @@ type BlockIndex struct {
 	Status uint32
 	// (memory only) Sequential id assigned to distinguish order in which
 	// blocks are received.
-	SequenceID int32
+	SequenceID uint64
 	// (memory only) Maximum time in the chain upto and including this block.
 	TimeMax uint32
+	isGenesis bool
 }
 
 const medianTimeSpan = 11
 
 func (bIndex *BlockIndex) SetNull() {
 	bIndex.Header.SetNull()
-	bIndex.BlockHash = util.Hash{}
+	bIndex.blockHash = util.Hash{}
 	bIndex.Prev = nil
 	bIndex.Skip = nil
 
 	bIndex.Height = 0
 	bIndex.File = -1
-	bIndex.DataPos = -1
-	bIndex.UndoPos = -1
+	bIndex.DataPos = 0
+	bIndex.UndoPos = 0
 	bIndex.ChainWork = big.Int{}
 	bIndex.ChainTxCount = 0
 	bIndex.TxCount = 0
-	bIndex.Status = 0
+	bIndex.Status = StatusNone
 	bIndex.SequenceID = 0
 	bIndex.TimeMax = 0
 }
 
-func (bIndex *BlockIndex) HaveData() bool {
-	return bIndex.Status & statusMissData == 0
-}
-
-func (bIndex *BlockIndex) HeaderValid() bool {
-	return bIndex.Status & statusHeaderValid != 0
+func (bIndex *BlockIndex) WaitingData() bool {
+	return bIndex.Status & StatusWaitingData == 0
 }
 
 func (bIndex *BlockIndex) AllValid() bool {
-	return bIndex.Status & statusAllValid != 0
+	return bIndex.Status & StatusAllValid != 0
 }
 
 func (bIndex *BlockIndex) IndexStored() bool {
-	return bIndex.Status & statusIndexStored != 0
+	return bIndex.Status & StatusIndexStored != 0
 }
 
 func (bIndex *BlockIndex) AllStored() bool {
-	return bIndex.Status & statusAllStored != 0
+	return bIndex.Status & StatusDataStored != 0
 }
 
 func (bIndex *BlockIndex) Accepted() bool {
-	return bIndex.Status & statusAccepted != 0
+	return bIndex.Status & StatusAccepted != 0
+}
+
+func (bIndex *BlockIndex) Failed() bool {
+	return bIndex.Status & StatusFailed != 0
+}
+
+func (bIndex *BlockIndex) AddStatus(statu uint32) {
+	bIndex.Status |= statu
+}
+
+func (bIndex *BlockIndex) SubStatus(statu uint32) {
+	bIndex.Status &= ^statu
 }
 
 func (bIndex *BlockIndex) GetDataPos() int {
@@ -115,9 +125,12 @@ func (bIndex *BlockIndex) GetDataPos() int {
 	return 0
 }
 
-func (bIndex *BlockIndex) GetUndoPos() int {
+func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.UndoPos}
+}
 
-	return 0
+func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
+	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.DataPos}
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
@@ -126,8 +139,18 @@ func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
 }
 
 func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
+	bHash := bIndex.blockHash
+	if bHash.IsNull(){
+		bIndex.blockHash = bIndex.Header.GetHash()
+	}
+	if bHash.IsEqual(&util.Hash{}) {
+		bIndex.blockHash = bIndex.Header.GetHash()
+	}
+	return &bIndex.blockHash
+}
 
-	return &bIndex.BlockHash
+func (bIndex *BlockIndex) SetBlockHash(hash util.Hash) {
+	bIndex.blockHash =  hash
 }
 
 func (bIndex *BlockIndex) GetBlockTime() uint32 {
@@ -177,12 +200,12 @@ func (bIndex *BlockIndex) BuildSkip() {
 }
 
 // Turn the lowest '1' bit in the binary representation of a number into a '0'.
-func invertLowestOne(n int) int {
+func invertLowestOne(n int32) int32 {
 	return n & (n - 1)
 }
 
 // getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
-func getSkipHeight(height int) int {
+func getSkipHeight(height int32) int32 {
 	if height < 2 {
 		return 0
 	}
@@ -197,7 +220,7 @@ func getSkipHeight(height int) int {
 }
 
 // GetAncestor efficiently find an ancestor of this block.
-func (bIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
+func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 	if height > bIndex.Height || height < 0 {
 		return nil
 	}
@@ -223,18 +246,32 @@ func (bIndex *BlockIndex) GetAncestor(height int) *BlockIndex {
 	return indexWalk
 }
 
-func (bIndex *BlockIndex) ToString() string {
+func (bIndex *BlockIndex) String() string {
 	hash := bIndex.GetBlockHash()
 	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", bIndex.Prev,
-		bIndex.Height, bIndex.Header.MerkleRoot.ToString(), hash.ToString())
+		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
+}
+
+func (bIndex *BlockIndex) IsGenesis() bool{
+	
+	return bIndex.isGenesis
+}
+
+func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool{
+	return index.GetMedianTimePast() >= params.CashHardForkActivationTime
+}
+func (bIndex *BlockIndex) SetIsGenesis(params *chainparams.BitcoinParams) bool{
+	bh := bIndex.Header
+	bHash := bh.GetHash()
+	genesisHash := params.GenesisBlock.GetHash()
+	return bHash.IsEqual(&genesisHash)
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
-	blockIndex := new(BlockIndex)
-	blockIndex.SetNull()
-	blockIndex.Header = *blkHeader
-
-	return blockIndex
+	bi := new(BlockIndex)
+	bi.SetNull()
+	bi.Header = *blkHeader
+	return bi
 }
 
 

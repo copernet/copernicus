@@ -2,13 +2,14 @@ package utxo
 
 import (
 	"bytes"
-
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/persist/db"
+	"fmt"
+	
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/outpoint"
-
+	"github.com/btcboost/copernicus/persist/db"
+	"github.com/btcboost/copernicus/util"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type CoinsDB struct {
@@ -24,7 +25,8 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 	}
 
 	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
-	if err != nil{
+	if err != nil {
+
 		return nil, err
 	}
 	coin := NewEmptyCoin()
@@ -43,26 +45,28 @@ func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 	return coinsViewDB.dbw.Exists(buf.Bytes())
 }
 
-
 func (coinsViewDB *CoinsDB) GetBestBlock() (*util.Hash, error) {
 	v, err := coinsViewDB.dbw.Read([]byte{db.DbBestBlock})
+	if err == leveldb.ErrNotFound{
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
 	hashBlock := new(util.Hash)
-	if v == nil{
+	if v == nil {
 		return hashBlock, nil
 	}
 	_, err = hashBlock.Unserialize(bytes.NewBuffer(v))
 	return hashBlock, err
 }
 
-func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCache) error {
-	hashBlock := mapCoins.hashBlock
+func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin , hashBlock util.Hash) error {
+	mapCoins := cm
 	batch := db.NewBatchWrapper(coinsViewDB.dbw)
 	count := 0
 	changed := 0
-	for k, v := range mapCoins.cacheCoins {
+	for k, v := range mapCoins {
 		if v.dirty {
 			entry := NewCoinKey(&k)
 			bufEntry := bytes.NewBuffer(nil)
@@ -78,7 +82,7 @@ func (coinsViewDB *CoinsDB) BatchWrite(mapCoins *CoinsCache) error {
 			changed++
 		}
 		count++
-		delete(mapCoins.cacheCoins, k)
+		delete(cm, k)
 	}
 	if !hashBlock.IsNull() {
 		hashByte := bytes.NewBuffer(nil)
@@ -115,6 +119,7 @@ func NewCoinsDB(do *db.DBOption) *CoinsDB {
 	})
 
 	if err != nil {
+		fmt.Println("err======%#v", err)
 		panic("init CoinsDB failed...")
 	}
 

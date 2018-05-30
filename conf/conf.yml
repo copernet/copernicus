@@ -1,19 +1,51 @@
-go_version: 1.9.2
-version: 1.0.0
-build_date: 20180428
+GoVersion: 1.9.2
+Version: 1.0.0
+BuildDate: 20180428
 
-service:
-  address: 10.0.0.0/8
+RPC:
+  RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
+  RPCUser: copernicus
+  RPCPass: doXT3DXgAQCNU0Li0pujQ6zR3Y
 
-http:
-  host: 127.0.0.1
-  port: 8080
-  mode: test
+Log:
+  FileName: copernicus
+  Level: debug
+  Module: mempool utxo
 
-rpc:
-  host: 127.0.0.1
-  port: 9552
+Mining:
+  BlockMinTxFee: 100
+  BlockMaxSize: 2000000
+  BlockVersion: 1
+  Strategy: ancestorfeerate
 
-log:
-  level: error
-  format: json
+P2PNet:
+  ListenAddrs: [127.0.0.1:8333, 127.0.0.1:18333]
+  MaxPeers: 5
+  TargetOutbound: 3
+  ConnectPeersOnStart:
+  DisableBanding: true
+  SimNet: false
+  DisableListen: false
+  BlocksOnly: true
+  DisableDNSSeed: false
+  DisableRPC: false
+  OnOnion: true
+  Upnp: false
+  DisableTLS: false
+
+Protocal:
+  NoPeerBloomFilters: true
+  DisableCheckpoints: true
+
+AddrMgr:
+  SimNet: false
+  ConnectPeers:
+
+Script:
+  AcceptDataCarrier:
+  MaxDatacarrierBytes:
+  IsBareMultiSigStd:
+  PromiscuousMempoolFlags:
+
+TxOut:
+  DustRelayFee:

@@ -3,10 +3,10 @@ package mempool
 import (
 	"unsafe"
 
+	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/util"
 	"github.com/google/btree"
-	"github.com/btcboost/copernicus/model/chain"
 )
 
 type TxEntry struct {
@@ -26,7 +26,7 @@ type TxEntry struct {
 	// parentTx the tx's all Ancestors transaction
 	ParentTx map[*TxEntry]struct{}
 	// lp Track the height and time at which tx was final
-	lp tx.LockPoints
+	lp LockPoints
 	// spendsCoinBase keep track of transactions that spend a coinBase
 	spendsCoinbase bool
 	//Statistics Information for every txentry with its ancestors And descend.
@@ -55,16 +55,20 @@ func (t *TxEntry) GetUsageSize() int64 {
 	return int64(t.usageSize)
 }
 
-func (t *TxEntry) SetLockPointFromTxEntry(lp tx.LockPoints) {
+func (t *TxEntry) SetLockPointFromTxEntry(lp LockPoints) {
 	t.lp = lp
 }
 
-func (t *TxEntry) GetLockPointFromTxEntry() tx.LockPoints {
+func (t *TxEntry) GetLockPointFromTxEntry() LockPoints {
 	return t.lp
 }
 
 func (t *TxEntry) GetSpendsCoinbase() bool {
 	return t.spendsCoinbase
+}
+
+func (t *TxEntry) GetTime() int64 {
+	return t.time
 }
 
 // UpdateParent update the tx's parent transaction.
@@ -104,12 +108,14 @@ func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int,
 func (t *TxEntry) Less(than btree.Item) bool {
 	th := than.(*TxEntry)
 	if t.time == th.time {
-		return t.Tx.Hash.Cmp(&th.Tx.Hash) > 0
+		thash := t.Tx.GetHash()
+		thhash := th.Tx.GetHash()
+		return thash.Cmp(&thhash) > 0
 	}
 	return t.time < th.time
 }
 
-func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int, lp tx.LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
+func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int, lp LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
 	t := new(TxEntry)
 	t.Tx = tx
 	t.time = acceptTime
@@ -148,8 +154,8 @@ func (t *TxEntry) GetInfo() *TxMempoolInfo {
 }
 
 func (t *TxEntry) CheckLockPointValidity(chain *chain.Chain) bool {
-	if t.lp.MaxInputBlock != nil{
-		if !chain.Contains(t.lp.MaxInputBlock){
+	if t.lp.MaxInputBlock != nil {
+		if !chain.Contains(t.lp.MaxInputBlock) {
 			return false
 		}
 	}
@@ -161,7 +167,9 @@ type EntryFeeSort TxEntry
 func (e EntryFeeSort) Less(than btree.Item) bool {
 	t := than.(EntryFeeSort)
 	if e.SumFeeWithAncestors == t.SumFeeWithAncestors {
-		return e.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+		thash := e.Tx.GetHash()
+		thhash := t.Tx.GetHash()
+		return thash.Cmp(&thhash) > 0
 	}
 	return e.SumFeeWithAncestors > than.(EntryFeeSort).SumFeeWithAncestors
 }
@@ -173,7 +181,9 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
 	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
-		return r.Tx.Hash.Cmp(&t.Tx.Hash) > 0
+		rhash := r.Tx.GetHash()
+		thhash := t.Tx.GetHash()
+		return rhash.Cmp(&thhash) > 0
 	}
 	return b1 > b2
 }

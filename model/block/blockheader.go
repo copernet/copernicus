@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/persist/db"
 )
 
 type BlockHeader struct {
@@ -17,6 +15,9 @@ type BlockHeader struct {
 	Time          uint32
 	Bits          uint32
 	Nonce         uint32
+	encodeSize    int
+	serializeSize int
+	hash          util.Hash
 }
 
 const blockHeaderLength = 16 + util.Hash256Size*2
@@ -29,14 +30,18 @@ func (bh *BlockHeader) IsNull() bool {
 	return bh.Bits == 0
 }
 
-func (bh *BlockHeader) GetBlockTime() int64 {
-	return int64(bh.Time)
+func (bh *BlockHeader) GetBlockTime() uint32 {
+	return bh.Time
 }
 
 func (bh *BlockHeader) GetHash() util.Hash {
+	if !bh.hash.IsNull(){
+		return bh.hash
+	}
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
 	bh.SerializeHeader(buf)
-	return crypto.DoubleSha256Hash(buf.Bytes())
+	bh.hash = util.DoubleSha256Hash(buf.Bytes())
+	return bh.hash
 }
 
 func (bh *BlockHeader) SetNull() {
@@ -50,8 +55,35 @@ func (bh *BlockHeader) SerializeHeader(w io.Writer) error {
 func (bh *BlockHeader) UnserializeHeader(r io.Reader) error {
 	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
+
+func (bh *BlockHeader) Encode(w io.Writer) error {
+	return bh.Serialize(w)
+}
+
+func (bh *BlockHeader) EncodeSize() int {
+	if bh.encodeSize > 0{
+		return bh.encodeSize
+	}
+	buf := bytes.NewBuffer(nil)
+	bh.Encode(buf)
+	bh.encodeSize = buf.Len()
+	return bh.encodeSize
+}
+func (bh *BlockHeader) SerializeSize() int {
+	if bh.serializeSize > 0{
+		return bh.serializeSize
+	}
+	buf := bytes.NewBuffer(nil)
+	bh.Serialize(buf)
+	bh.serializeSize = buf.Len()
+	return bh.serializeSize
+}
+func (bh *BlockHeader) Decode(r io.Reader) error {
+	return bh.Decode(r)
+}
+
 func (bh *BlockHeader) Serialize(w io.Writer) error {
-	return db.SerializeOP(w, bh)
+	return util.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
 }
 
 func (bh *BlockHeader) Unserialize(r io.Reader) error {

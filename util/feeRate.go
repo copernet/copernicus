@@ -1,15 +1,15 @@
 package util
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
-	"encoding/binary"
 	"math"
 )
 
 const (
-	COIN         int64 = 100000000
-	MaxMoney           = 21000000 * COIN
+	COIN     int64 = 100000000
+	MaxMoney       = 21000000 * COIN
 	// MinFeeRate minimum and Maximum values for tracking feeRates
 	MinFeeRate  int64   = 10
 	MaxFeeRate  int64   = 1e7
@@ -19,8 +19,8 @@ const (
 	//FeeSpacing we have to lump transactions into buckets based on feeRate, but we want to be
 	// able to give accurate estimates over a large range of potential feeRates.
 	// Therefore it makes sense to exponentially space the buckets
-	FeeSpacing float64 = 1.1
-	CurrencyUnit       = "BCH"
+	FeeSpacing   float64 = 1.1
+	CurrencyUnit         = "BCH"
 )
 
 const (
@@ -111,4 +111,3 @@ func NewFeeRateWithSize(feePaid int64, bytes int64) *FeeRate {
 	}
 	return NewFeeRate(0)
 }
-
