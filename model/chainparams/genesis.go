@@ -66,12 +66,20 @@ var TestNet3GenesisHash = util.Hash([util.Hash256Size]byte{
 
 var TestNet3GenesisMerkleRoot = GenesisMerkleRoot
 
+var genesisMerkleRoot = util.Hash([util.Hash256Size]byte{ // Make go vet happy.
+	0x3b, 0xa3, 0xed, 0xfd, 0x7a, 0x7b, 0x12, 0xb2,
+	0x7a, 0xc7, 0x2c, 0x3e, 0x67, 0x76, 0x8f, 0x61,
+	0x7f, 0xc8, 0x1b, 0xc3, 0x88, 0x8a, 0x51, 0x32,
+	0x3a, 0x9f, 0xb8, 0xaa, 0x4b, 0x1e, 0x5e, 0x4a,
+})
+
+
 var TestNet3GenesisBlock = block.Block{
 		Header: block.BlockHeader{
 			Version:       1,
-			HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
-			MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
-			Time:          uint32(time.Unix(1296688602, 0).Nanosecond()), //2011-02-02 23:16:42 +0000 UTC
+			HashPrevBlock: util.Hash{},
+			MerkleRoot:    genesisMerkleRoot,
+			Time:          uint32(time.Unix(1296688602, 0).Unix()), //2011-02-02 23:16:42 +0000 UTC
 			Bits:          0x1d00ffff,                                    //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
 			Nonce:         0x18aea41a,                                    // 414098458
 		},

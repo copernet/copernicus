@@ -967,7 +967,7 @@ func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash)
 		}
 	}
 	p.QueueMessage(msg, nil)
-
+	log.Trace("send Blocks Msg, Request locator to stop hash for these blocks hash ...")
 	// Update the previous getblocks request information for filtering
 	// duplicates.
 	p.prevGetBlocksMtx.Lock()
