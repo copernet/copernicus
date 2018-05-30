@@ -1162,6 +1162,13 @@ func (p *Peer) HandlePongMsg(msg *wire.MsgPong) {
 
 // readMessage reads the next bitcoin message from the peer with logging.
 func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			log.Erroro("by qiwei readMessage got a error: %v", err)
+		}
+	}()
+
 	n, msg, buf, err := wire.ReadMessageWithEncodingN(p.conn,
 		p.ProtocolVersion(), p.Cfg.ChainParams.BitcoinNet, encoding)
 	atomic.AddUint64(&p.bytesReceived, uint64(n))
