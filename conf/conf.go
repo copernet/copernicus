@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/util"
 	"github.com/spf13/viper"
@@ -56,21 +55,23 @@ const (
 
 var Cfg *Configuration
 
+var DataDir string
+
 // init configuration
 func initConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := util.AppDataDir(defaultDataDirname, false)
-	logs.Info("Default data dir: ", defaultDataDir)
+
 	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
 	flag.Parse()
 
-	datadir := defaultDataDir
+	DataDir = defaultDataDir
 	if getdatadir != nil {
-		datadir = *getdatadir
+		DataDir = *getdatadir
 	}
 
-	if !ExistDataDir(datadir) {
-		err := os.MkdirAll(datadir, os.ModePerm)
+	if !ExistDataDir(DataDir) {
+		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
 		}
@@ -105,13 +106,13 @@ func initConfig() *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(datadir + "/conf.yml")).(*os.File)
+	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
 
 	// set data dir
-	config.DataDir = datadir
+	config.DataDir = DataDir
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
