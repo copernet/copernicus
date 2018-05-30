@@ -125,7 +125,7 @@ func LoadBlockIndexDB() bool {
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
 	logs.Debug("Checking all blk files are present...")
-	for _, item := range gChain.GetIndexMap() {
+	for _, item := range GlobalBlockIndexMap {
 		index := item
 		if index.Status&blockindex.BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)

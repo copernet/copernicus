@@ -4,3 +4,6 @@ copernicus
 *.log
 glide.yaml
 data
+conf.yml
+rpc.cert
+rpc.key

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/util"
 	"github.com/spf13/viper"
@@ -59,6 +60,7 @@ var Cfg *Configuration
 func initConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := util.AppDataDir(defaultDataDirname, false)
+	logs.Info("Default data dir: ", defaultDataDir)
 	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
 	flag.Parse()
 

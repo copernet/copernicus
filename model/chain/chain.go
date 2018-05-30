@@ -6,7 +6,10 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/pow"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
@@ -95,24 +98,60 @@ func (c *Chain) TipHeight() int32 {
 	return 0
 }
 
-func (c *Chain) GetMedianTimePast() int64 {
-
-	return 0
+func (c *Chain) GetSpendHeight(hash *util.Hash) int32{
+	index, _ := c.indexMap[*hash]
+	return index.Height + 1
 }
 
-func (c *Chain) GetVersionState() int {
 
-	return 0
-}
-
-func (c *Chain) GetTipTime() int64 {
-
-	return 0
-}
-
-func (c *Chain) GetScriptFlags() uint32 {
-
-	return 0
+func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
+	// TODO: AssertLockHeld(cs_main);
+	// var sc sync.RWMutex
+	// sc.Lock()
+	// defer sc.Unlock()
+	
+	// BIP16 didn't become active until Apr 1 2012
+	nBIP16SwitchTime := 1333238400
+	fStrictPayToScriptHash := int(pindex.GetBlockTime()) >= nBIP16SwitchTime
+	param := c.params
+	var flags uint32
+	
+	if fStrictPayToScriptHash {
+		flags = script.ScriptVerifyP2SH
+	} else {
+		flags = script.ScriptVerifyNone
+	}
+	
+	// Start enforcing the DERSIG (BIP66) rule
+	if pindex.Height >= param.BIP66Height {
+		flags |= script.ScriptVerifyDersig
+	}
+	
+	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
+	if pindex.Height >= param.BIP65Height {
+		flags |= script.ScriptVerifyCheckLockTimeVerify
+	}
+	
+	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
+	if versionbits.VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+		flags |= script.ScriptVerifyCheckSequenceVerify
+	}
+	// If the UAHF is enabled, we start accepting replay protected txns
+	if chainparams.IsUAHFEnabled(pindex.Height) {
+		flags |= script.ScriptVerifyStrictEnc
+		flags |= script.ScriptEnableSigHashForkId
+	}
+	
+	// If the Cash HF is enabled, we start rejecting transaction that use a high
+	// s in their signature. We also make sure that signature that are supposed
+	// to fail (for instance in multisig or other forms of smart contracts) are
+	// null.
+	if pindex.IsCashHFEnabled(param) {
+		flags |= script.ScriptVerifyLowS
+		flags |= script.ScriptVerifyNullFail
+	}
+	
+	return flags
 }
 
 // GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
@@ -336,18 +375,4 @@ func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
 	childList = append(childList, bi)
 	c.orphan[bh.HashPrevBlock] = childList
 	return nil
-}
-
-func (c *Chain) GetIndexMap() map[util.Hash]*blockindex.BlockIndex{
-	return c.indexMap
-}
-
-func (c *Chain) SetIndexMap(im map[util.Hash]*blockindex.BlockIndex){
-	c.indexMap = im
-}
-func (c *Chain) GetIndexMapSize() int{
-	return len(c.indexMap)
-}
-func (c *Chain) GetActiveHeight(hash *util.Hash) (int32, error) {
-	return 0, nil
 }
