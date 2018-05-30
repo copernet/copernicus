@@ -12,10 +12,7 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	mchain "github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
@@ -101,7 +98,7 @@ func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 		err = errcode.ProjectError{Code: 3006}
 		return
 	}
-	ReceivedBlockTransactions(pblock, bIndex, dbp)
+	lblock.ReceivedBlockTransactions(pblock, bIndex, dbp)
 	bIndex.SubStatus(blockindex.StatusWaitingData)
 	bIndex.AddStatus(blockindex.StatusDataStored)
 	gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
@@ -144,60 +141,6 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	return bIndex, nil
 }
 
-// GetBlockScriptFlags Returns the script flags which should be checked for a given block
-func GetBlockScriptFlags(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) uint32 {
-	// TODO: AssertLockHeld(cs_main);
-	// var sc sync.RWMutex
-	// sc.Lock()
-	// defer sc.Unlock()
-
-	// BIP16 didn't become active until Apr 1 2012
-	nBIP16SwitchTime := 1333238400
-	fStrictPayToScriptHash := int(pindex.GetBlockTime()) >= nBIP16SwitchTime
-
-	var flags uint32
-
-	if fStrictPayToScriptHash {
-		flags = script.ScriptVerifyP2SH
-	} else {
-		flags = script.ScriptVerifyNone
-	}
-
-	// Start enforcing the DERSIG (BIP66) rule
-	if pindex.Height >= param.BIP66Height {
-		flags |= script.ScriptVerifyDersig
-	}
-
-	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-	if pindex.Height >= param.BIP65Height {
-		flags |= script.ScriptVerifyCheckLockTimeVerify
-	}
-
-	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if versionbits.VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
-		flags |= script.ScriptVerifyCheckSequenceVerify
-	}
-	// If the UAHF is enabled, we start accepting replay protected txns
-	if chainparams.IsUAHFEnabled(pindex.Height) {
-		flags |= script.ScriptVerifyStrictEnc
-		flags |= script.ScriptEnableSigHashForkId
-	}
-
-	// If the Cash HF is enabled, we start rejecting transaction that use a high
-	// s in their signature. We also make sure that signature that are supposed
-	// to fail (for instance in multisig or other forms of smart contracts) are
-	// null.
-	if IsCashHFEnabled(param, pindex.GetMedianTimePast()) {
-		flags |= script.ScriptVerifyLowS
-		flags |= script.ScriptVerifyNullFail
-	}
-
-	return flags
-}
-
-func IsCashHFEnabled(params *chainparams.BitcoinParams, medianTimePast int64) bool {
-	return params.CashHardForkActivationTime <= medianTimePast
-}
 
 var HashAssumeValid util.Hash
 
@@ -307,7 +250,7 @@ func ConnectBlock(pblock *block.Block, state *block.ValidationState,
 	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil ||
 		!(hash.IsEqual(&BIP34Hash)))
 
-	flags := GetBlockScriptFlags(pindex, params)
+	flags := lblock.GetBlockScriptFlags(pindex)
 	blockSubSidy := GetBlockSubsidy(pindex.Height, params)
 	nTime2 := util.GetMicrosTime()
 	gPersist.GlobalTimeForks += nTime2 - nTime1
@@ -623,28 +566,4 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 }
 
 
-// ReceivedBlockTransactions Mark a block as having its data received and checked (up to
-// * BLOCK_VALID_TRANSACTIONS).
-func ReceivedBlockTransactions(pblock *block.Block,
-	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
-	hash := pindexNew.GetBlockHash()
-	pindexNew.TxCount = len(pblock.Txs)
-	pindexNew.ChainTxCount = 0
-	pindexNew.File = pos.File
-	pindexNew.DataPos = pos.Pos
-	pindexNew.UndoPos = 0
-	pindexNew.AddStatus(blockindex.StatusDataStored)
-	gPersist := global.GetInstance()
-	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
-	gChain := mchain.GetInstance()
-	if pindexNew.IsGenesis() || gChain.ParentInBranch(pindexNew) {
-		// If indexNew is the genesis block or all parents are in branch
-		gChain.AddToBranch(pindexNew)
-	} else {
-		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
-			gChain.AddToOrphan(pindexNew)
-		}
-	}
 
-	return true
-}

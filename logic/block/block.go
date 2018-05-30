@@ -8,9 +8,11 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/versionbits"
+	"github.com/btcboost/copernicus/persist/global"
 	
 	"github.com/btcboost/copernicus/persist/disk"
 	"github.com/btcboost/copernicus/util"
@@ -152,4 +154,41 @@ func ContextualCheckBlock( b *block.Block, state *block.ValidationState,
 		return false
 	}
 	return true
+}
+
+// ReceivedBlockTransactions Mark a block as having its data received and checked (up to
+// * BLOCK_VALID_TRANSACTIONS).
+func ReceivedBlockTransactions(pblock *block.Block,
+	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
+	hash := pindexNew.GetBlockHash()
+	pindexNew.TxCount = len(pblock.Txs)
+	pindexNew.ChainTxCount = 0
+	pindexNew.File = pos.File
+	pindexNew.DataPos = pos.Pos
+	pindexNew.UndoPos = 0
+	pindexNew.AddStatus(blockindex.StatusDataStored)
+	gPersist := global.GetInstance()
+	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
+	gChain := chain.GetInstance()
+	if pindexNew.IsGenesis() || gChain.ParentInBranch(pindexNew) {
+		// If indexNew is the genesis block or all parents are in branch
+		gChain.AddToBranch(pindexNew)
+	} else {
+		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
+			gChain.AddToOrphan(pindexNew)
+		}
+	}
+	
+	return true
+}
+
+
+// GetBlockScriptFlags Returns the script flags which should be checked for a given block
+func GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
+	gChain := chain.GetInstance()
+	return gChain.GetBlockScriptFlags(pindex)
+}
+
+func IsCashHFEnabled(params *chainparams.BitcoinParams, medianTimePast int64) bool {
+	return params.CashHardForkActivationTime <= medianTimePast
 }
