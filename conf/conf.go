@@ -2,6 +2,7 @@ package conf
 
 import (
 	"flag"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ const (
 
 	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
+	defaultProjectDir           = "github.com/btcboost/copernicus"
 	defaultLogLevel             = "info"
 	defaultLogDirname           = "logs"
 	defaultLogFilename          = "coper.log"
@@ -74,6 +76,23 @@ func initConfig() *Configuration {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
+		}
+
+		// get GOPATH environment and copy conf file to dst dir
+		gopath := os.Getenv("GOPATH")
+		if gopath != "" {
+			// first try
+			projectPath := gopath + "/src/" + defaultProjectDir
+			filePath := projectPath + "/conf/" + defaultConfigFilename
+			_, err = os.Stat(filePath)
+			if !os.IsNotExist(err) {
+				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+			} else {
+				// second try
+				projectPath = gopath + "/src/copernicus"
+				filePath = projectPath + "/conf/" + defaultConfigFilename
+				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+			}
 		}
 	}
 
@@ -225,6 +244,22 @@ func ExistDataDir(datadir string) bool {
 	}
 
 	return false
+}
+
+func CopyFile(src, des string) (w int64, err error) {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer srcFile.Close()
+
+	desFile, err := os.Create(des)
+	if err != nil {
+		return 0, err
+	}
+	defer desFile.Close()
+
+	return io.Copy(desFile, srcFile)
 }
 
 // Validate validates configuration
