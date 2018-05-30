@@ -1187,10 +1187,10 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 		return spew.Sdump(msg)
 	}))
 	/*
-	log.Trace("%v", newLogClosure(func() string {
-		return spew.Sdump(buf)
-	}))
-*/
+		log.Trace("%v", newLogClosure(func() string {
+			return spew.Sdump(buf)
+		}))
+	*/
 	return msg, buf, nil
 }
 
@@ -2044,7 +2044,7 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		if p.inbound {
 			negotiateErr <- p.negotiateInboundProtocol()
 		} else {
-			log.Trace("outbound peer :  %s, %v", p.conn.RemoteAddr())
+			log.Trace("outbound peer :  %v", p.conn.RemoteAddr())
 			negotiateErr <- p.negotiateOutboundProtocol()
 		}
 	}()
