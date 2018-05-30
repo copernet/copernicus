@@ -206,8 +206,11 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	}
 }
 
+// get ancestor from active chain
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
-	// todo
+	if len(c.active) >= int(height){
+		return c.active[height]
+	}
 	return nil
 }
 
@@ -229,7 +232,7 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 		if ch.Contains(index) {
 			index = ch.GetIndex(height)
 		} else {
-			index = ch.GetAncestor(height)
+			index = index.GetAncestor(height)
 		}
 		if len(blockHashList) > 10 {
 			step *= 2
