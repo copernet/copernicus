@@ -222,9 +222,9 @@ func loadConfig() (*config, []string, error) {
 		// Use config file for RPC server to create default coperctl config
 		var serverConfigPath string
 		if preCfg.Wallet {
-			serverConfigPath = filepath.Join(coperwalletHomeDir, "btcwallet.conf")
+			serverConfigPath = filepath.Join(coperwalletHomeDir, "coperwallet.conf")
 		} else {
-			serverConfigPath = filepath.Join(coperHomeDir, "btcd.conf")
+			serverConfigPath = filepath.Join(coperHomeDir, "conf.yml")
 		}
 
 		err := createDefaultConfigFile(preCfg.ConfigFile, serverConfigPath)
@@ -288,8 +288,8 @@ func loadConfig() (*config, []string, error) {
 }
 
 // createDefaultConfig creates a basic config file at the given destination path.
-// For this it tries to read the config file for the RPC server (either btcd or
-// btcwallet), and extract the RPC user and password from it.
+// For this it tries to read the config file for the RPC server (either coper or
+// coperwallet), and extract the RPC user and password from it.
 func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	// Read the RPC server config
 	serverConfigFile, err := os.Open(serverConfigPath)
@@ -303,7 +303,7 @@ func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	}
 
 	// Extract the rpcuser
-	rpcUserRegexp, err := regexp.Compile(`(?m)^\s*rpcuser=([^\s]+)`)
+	rpcUserRegexp, err := regexp.Compile(`(?m)^\s*RPCUser: ([^\s]+)`)
 	if err != nil {
 		return err
 	}
@@ -312,9 +312,8 @@ func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 		// No user found, nothing to do
 		return nil
 	}
-
 	// Extract the rpcpass
-	rpcPassRegexp, err := regexp.Compile(`(?m)^\s*rpcpass=([^\s]+)`)
+	rpcPassRegexp, err := regexp.Compile(`(?m)^\s*RPCPass: ([^\s]+)`)
 	if err != nil {
 		return err
 	}
@@ -325,7 +324,7 @@ func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	}
 
 	// Extract the notls
-	noTLSRegexp, err := regexp.Compile(`(?m)^\s*notls=(0|1)(?:\s|$)`)
+	noTLSRegexp, err := regexp.Compile(`(?m)^\s*DisableTLS: (0|1)(?:\s|$)`)
 	if err != nil {
 		return err
 	}

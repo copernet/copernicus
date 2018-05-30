@@ -8,6 +8,7 @@ import (
 	
 	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
+	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	mchain "github.com/btcboost/copernicus/model/chain"
@@ -105,6 +106,58 @@ func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 	return
 }
 
+func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex)  bool{
+	if preIndex.IsGenesis(){
+		return true
+	}
+	gChain := mchain.GetInstance()
+	nHeight := preIndex.Height + 1
+	// Don't accept any forks from the main chain prior to last checkpoint
+	params := gChain.GetParams()
+	checkPoints := params.Checkpoints
+	var checkPoint *model.Checkpoint
+	for i := len(checkPoints)-1;i>=0;i--{
+		checkPointIndex := gChain.FindBlockIndex(*checkPoints[i].Hash)
+		if checkPointIndex != nil{
+			checkPoint = checkPoints[i]
+			break
+		}
+	}
+	if checkPoint != nil && nHeight < checkPoint.Height{
+		return false
+	}
+	return true
+}
+
+func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.BlockIndex, adjustTime int64) bool {
+	nHeight := int32(0)
+	if preIndex != nil{
+		nHeight = preIndex.Height +1
+	}
+	gChain := mchain.GetInstance()
+	params := gChain.GetParams()
+	
+	p := new(pow.Pow)
+	if header.Bits != p.GetNextWorkRequired(preIndex, header, params){
+		log.Error("ContextualCheckBlockHeader.GetNextWorkRequired err")
+		return false
+	}
+	blocktime := int64(header.GetBlockTime())
+	if blocktime  <= preIndex.GetMedianTimePast(){
+		log.Error("ContextualCheckBlockHeader.GetMedianTimePast err")
+		return false
+	}
+	if blocktime > adjustTime + 2*60*60{
+		log.Error("ContextualCheckBlockHeader > adjustTime err")
+		return false
+	}
+	if (header.Version < 2 && nHeight >= params.BIP34Height)|| (header.Version<3&&nHeight>=params.BIP66Height) ||(header.Version<4&&nHeight>=params.BIP65Height){
+		log.Error("block.version: %d, nheight :%d", header.Version, nHeight)
+		return false
+	}
+	return true
+}
+
 func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	var c = mchain.GetInstance()
 
@@ -121,9 +174,16 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 	bIndex = blockindex.NewBlockIndex(bh)
 	if !bIndex.IsGenesis(){
+		
 		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
+		}
+		if !CheckIndexAgainstCheckpoint(bIndex.Prev){
+			return nil, errcode.ProjectError{Code:3100}
+		}
+		if !ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()){
+			return nil, errcode.ProjectError{Code:3101}
 		}
 	}
 	
