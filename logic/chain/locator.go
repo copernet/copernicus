@@ -26,14 +26,12 @@ func LocateBlocks(locator *mchain.BlockLocator, endHash *util.Hash) []util.Hash 
 	}
 	
 	nLimits := MaxBlocksResults
-	for{
-		if bi == nil&& nLimits <= 0 || bi.GetBlockHash().IsEqual(endHash){
+	for ;bi != nil && nLimits >0 ;bi = gChain.Next(bi){
+		if bi.GetBlockHash().IsEqual(endHash){
 			break
 		}
-		bh := bi.GetBlockHeader()
-		ret = append(ret, bh.GetHash())
+		ret = append(ret, *bi.GetBlockHash())
 		nLimits -= 1
-		bi=gChain.Next(bi)
 	}
 	return ret
 }
@@ -56,14 +54,13 @@ func LocateHeaders(locator *mchain.BlockLocator, endHash *util.Hash) []block.Blo
 		}
 	}
 	nLimits := MaxHeadersResults
-	for{
-		if bi==nil && nLimits <= 0 || bi.GetBlockHash().IsEqual(endHash){
+	for ;bi != nil && nLimits >0 ;bi = gChain.Next(bi){
+		if bi.GetBlockHash().IsEqual(endHash){
 			break
 		}
 		bh := bi.GetBlockHeader()
 		ret = append(ret, *bh)
 		nLimits -= 1
-		bi=gChain.Next(bi)
 	}
 	return ret
 }

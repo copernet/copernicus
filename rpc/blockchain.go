@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	blockindex2 "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/mempool"
@@ -374,19 +373,19 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		if chain.GetInstance().Contains(bindex) {
 			// This block is part of the currently active chain.
 			status = "active"
-		} else if bindex.Status&blockindex2.BlockFailedMask != 0 {
+		} else if bindex.Status&blockindex.BlockFailedMask != 0 {
 			// This block or one of its ancestors is invalid.
 			status = "invalid"
 		} else if bindex.ChainTxCount == 0 {
 			// This block cannot be connected because full block data for it or
 			// one of its parents is missing.
 			status = "headers-only"
-		} else if bindex.IsValid(blockindex2.BlockValidScripts) {
+		} else if bindex.IsValid(blockindex.BlockValidScripts) {
 			// This block is fully validated, but no longer part of the active
 			// chain. It was probably the active block once, but was
 			// reorganized.
 			status = "valid-fork"
-		} else if bindex.IsValid(blockindex2.BlockValidTree) {
+		} else if bindex.IsValid(blockindex.BlockValidTree) {
 			// The headers for this block are valid, but it has not been
 			// validated. It was probably never part of the most-work chain.
 			status = "valid-headers"

@@ -8,7 +8,6 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	mchain "github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/persist/disk"
 )
@@ -17,7 +16,7 @@ import (
 // or an activated best chain. pblock is either nullptr or a pointer to a block
 // that is already loaded (to avoid loading it again from disk).
 // Find the best known block, and make it the tip of the block chain
-func ActivateBestChain(param *chainparams.BitcoinParams, state *block.ValidationState, pblock *block.Block) bool {
+func ActivateBestChain(state *block.ValidationState, pblock *block.Block) bool {
 	// Note that while we're often called here from ProcessNewBlock, this is
 	// far from a guarantee. Things in the P2P/RPC will often end up calling
 	// us in the middle of ProcessNewBlock - do not assume pblock is set
@@ -65,7 +64,7 @@ func ActivateBestChain(param *chainparams.BitcoinParams, state *block.Validation
 				tmpBlock = nullBlockPtr
 			}
 
-			if !ActivateBestChainStep(param, state, pindexMostWork, tmpBlock, &fInvalidFound, connTrace) {
+			if !ActivateBestChainStep(state, pindexMostWork, tmpBlock, &fInvalidFound, connTrace) {
 				return false
 			}
 
@@ -102,7 +101,7 @@ func ActivateBestChain(param *chainparams.BitcoinParams, state *block.Validation
 // ActivateBestChainStep Try to make some progress towards making pindexMostWork
 // the active block. pblock is either nullptr or a pointer to a CBlock corresponding to
 // pindexMostWork.
-func ActivateBestChainStep(param *chainparams.BitcoinParams, state *block.ValidationState, pindexMostWork *blockindex.BlockIndex,
+func ActivateBestChainStep(state *block.ValidationState, pindexMostWork *blockindex.BlockIndex,
 	pblock *block.Block, fInvalidFound *bool, connTrace connectTrace) bool {
 
 	// has held cs_main lock
@@ -113,7 +112,7 @@ func ActivateBestChainStep(param *chainparams.BitcoinParams, state *block.Valida
 	// Disconnect active blocks which are no longer in the best chain.
 	fBlocksDisconnected := false
 	for pindexOldTip != nil && pindexOldTip != pindexFork {
-		if !DisconnectTip(param, state, false) {
+		if !DisconnectTip(state, false) {
 			return false
 		}
 		fBlocksDisconnected = true
@@ -150,7 +149,7 @@ func ActivateBestChainStep(param *chainparams.BitcoinParams, state *block.Valida
 			if pindexConnect != pindexMostWork {
 				tmpBlock = nil
 			}
-			if !ConnectTip(param, state, pindexConnect, tmpBlock, connTrace) {
+			if !ConnectTip(state, pindexConnect, tmpBlock, connTrace) {
 				if state.IsInvalid() {
 					// The block violates a core rule.  todo
 					if !state.CorruptionPossible() {
@@ -188,6 +187,6 @@ func ActivateBestChainStep(param *chainparams.BitcoinParams, state *block.Valida
 
 
 
-func CheckBlockIndex(params *chainparams.BitcoinParams) bool{
+func CheckBlockIndex() bool{
 	return true
 }

@@ -44,7 +44,7 @@ func internalRPCError(errStr, context string) *btcjson.RPCError {
 /**
  * convenience function for returning a nicely formatted
  * RPC error which indicates the provided hex string failed to decode.
-*/
+ */
 func rpcDecodeHexError(gotHex string) *btcjson.RPCError {
 	return btcjson.NewRPCError(btcjson.ErrRPCDecodeHexString,
 		fmt.Sprintf("Argument must be hexadecimal string (not %q)",
@@ -265,7 +265,6 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 
 	// Read and close the JSON-RPC request body from the caller.
 	body, err := ioutil.ReadAll(r.Body)
-	fmt.Println(string(body)) // todo delete
 	r.Body.Close()
 	if err != nil {
 		errCode := http.StatusBadRequest
@@ -581,7 +580,6 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		quit: make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
-		fmt.Println("rpcuser", conf.Cfg.RPC.RPCUser)
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass
 		auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(login))
 		rpc.authsha = sha256.Sum256([]byte(auth))

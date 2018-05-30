@@ -100,7 +100,8 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if err != nil {
 		return err
 	}
-	var currentBlockScriptVerifyFlags uint32 = chain.GetInstance().GetScriptFlags()
+	tip := chain.GetInstance().Tip()
+	var currentBlockScriptVerifyFlags uint32 = chain.GetInstance().GetBlockScriptFlags(tip)
 	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
@@ -416,12 +417,9 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	//check inputs money range
 	bestBlockHash := utxo.GetUtxoCacheInstance().GetBestBlock()
-	spendHeight, err := chain.GetInstance().GetActiveHeight(&bestBlockHash)
-	if err != nil {
-		return err
-	}
-	spendHeight += 1
-	err = CheckInputsMoney(tx, tempCoinMap, spendHeight)
+	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
+	
+	err := CheckInputsMoney(tx, tempCoinMap, spendHeight)
 	if err != nil {
 		return err
 	}
@@ -1770,7 +1768,7 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 
 func CheckSequenceLocks(lp *mempool.LockPoints) bool {
 	activeChain := chain.GetInstance()
-	blockTime := activeChain.GetMedianTimePast()
+	blockTime := activeChain.Tip().GetMedianTimePast()
 	if lp.Height >= activeChain.Height()+1 || lp.Time >= blockTime {
 		return false
 	}

@@ -2,10 +2,10 @@ package crypto
 
 import (
 	"encoding/hex"
+	"errors"
 	"reflect"
 
 	"github.com/btcboost/secp256k1-go/secp256k1"
-	"github.com/pkg/errors"
 )
 
 var (

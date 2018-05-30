@@ -2,29 +2,34 @@ package blockindex
 
 import (
 	
-	"sort"
-	"math/big"
-	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/persist/global"
-	"github.com/btcboost/copernicus/util"
-	"gopkg.in/fatih/set.v0"
-	"time"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/persist/blkdb"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/persist/disk"
-	"github.com/btcboost/copernicus/model/pow"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/model/block"
+"math/big"
+"sort"
+"time"
+
+
+
+"github.com/astaxie/beego/logs"
+"github.com/btcboost/copernicus/log"
+"github.com/btcboost/copernicus/model/block"
+"github.com/btcboost/copernicus/model/blockindex"
+"github.com/btcboost/copernicus/model/chain"
+"github.com/btcboost/copernicus/model/pow"
+"github.com/btcboost/copernicus/model/utxo"
+"github.com/btcboost/copernicus/persist/blkdb"
+"github.com/btcboost/copernicus/persist/disk"
+"github.com/btcboost/copernicus/persist/global"
+"github.com/btcboost/copernicus/util"
+"gopkg.in/fatih/set.v0"
+
+	
 )
 
 //on main init call it
-func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
+func LoadBlockIndexDB() bool {
 	gChain := chain.GetInstance()
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
-	GlobalBlocksUnlinked := make([]*blockindex.BlockIndex, 0, 20)
+	branch := make([]*blockindex.BlockIndex, 0, 20)
+	
 	// branchMap := make(map[util.Hash]*blockindex.BlockIndex)
 	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap) {
 		return false
@@ -59,9 +64,10 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 			if index.Prev != nil {
 				if index.Prev.ChainTxCount != 0 {
 					index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
+					branch = append(branch, index)
 				} else {
 					index.ChainTxCount = 0
-					GlobalBlocksUnlinked = append(GlobalBlocksUnlinked, index)
+					gChain.AddToOrphan(index)
 				}
 			} else {
 				index.ChainTxCount = index.TxCount
@@ -85,6 +91,9 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	var bfi *block.BlockFileInfo
 	
 	gPersist.GlobalLastBlockFile, err = btd.ReadLastBlockFile()
+	if err != nil{
+		log.Error("btd.ReadLastBlockFile() err:%#v", err)
+	}
 	GlobalBlockFileInfo := make(global.BlockFileInfoList, gPersist.GlobalLastBlockFile+1)
 	if err != nil{
 		log.Error("Error: GetLastBlockFile err %#v", err)
@@ -93,6 +102,9 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	for nFile := 0; nFile <= gPersist.GlobalLastBlockFile; nFile++ {
 		bfi,err = btd.ReadBlockFileInfo(nFile)
 		if err == nil{
+			if bfi == nil{
+				bfi = block.NewBlockFileInfo()
+			}
 			GlobalBlockFileInfo[nFile] = bfi
 		}else{
 			log.Error("btd.ReadBlockFileInfo(%#v) err:%#v", nFile, err)
@@ -104,7 +116,7 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
 		if  bfi != nil && err == nil {
-			GlobalBlockFileInfo[nFile] = bfi
+			GlobalBlockFileInfo = append(GlobalBlockFileInfo, bfi)
 		} else {
 			break
 		}
@@ -113,9 +125,9 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
 	logs.Debug("Checking all blk files are present...")
-	for _, item := range gChain.GetIndexMap() {
+	for _, item := range GlobalBlockIndexMap {
 		index := item
-		if index.Status&BlockHaveData != 0 {
+		if index.Status&blockindex.BlockHaveData != 0 {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
@@ -135,12 +147,16 @@ func LoadBlockIndexDB(params *chainparams.BitcoinParams) bool {
 	}
 	
 	
+	gChain.InitLoad(GlobalBlockIndexMap, branch)
 	
 	// Load pointer to end of best chain todo: coinDB must init!!!
-	tip := utxo.GetUtxoCacheInstance().GetBestBlock()
-	
-	gChain.InitLoad(GlobalBlockIndexMap, GlobalBlocksUnlinked, tip)
-	
+	bestHash := utxo.GetUtxoCacheInstance().GetBestBlock()
+	tip, ok := GlobalBlockIndexMap[bestHash]
+	if !ok {
+		return true
+	}
+	// init active chain by tip[load from db]
+	gChain.SetTip(tip)
 	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
 		gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
 		time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),

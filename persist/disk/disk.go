@@ -162,7 +162,7 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.BlockUndo, bool) {
 	file := OpenUndoFile(*pos, true)
 	if file == nil {
-		log.Error(fmt.Sprintf("%s: OpenUndoFile failed", log.TraceLog()))
+		log.Error(fmt.Sprintf("%s: OpenUndoFile failed", pos.String()))
 		return nil, false
 	}
 	defer file.Close()
@@ -223,7 +223,7 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 	// Read block
 	blk := block.NewBlock()
 	if err := blk.Unserialize(buf); err != nil {
-		log.Error("%s: Deserialize or I/O error - %s at %s", log.TraceLog(), err.Error(), pos.String())
+		log.Error("ReadBlockFromDiskByPos: Unserialize or I/O error - %s at %s", err.Error(), pos.String())
 	}
 	
 	// Check the header

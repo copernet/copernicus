@@ -235,8 +235,8 @@ var TestNet3Params = BitcoinParams{
 	BitcoinNet:  wire.TestNet3,
 	DefaultPort: "18333",
 	DNSSeeds: []DNSSeed{
-		{Host: "testnet-seed.bitcoin.schildbach.de", HasFiltering: false},
-		{Host: "testnet-seed.bitcoin.petertodd.org", HasFiltering: true},
+		{Host: "testnet-seed.bitcoinabc.org", HasFiltering: false},
+		{Host: "testnet-seed.deadalnix.me", HasFiltering: true},
 		{Host: "testnet-seed.bluematt.me", HasFiltering: false},
 	},
 	GenesisBlock:             &TestNet3GenesisBlock,

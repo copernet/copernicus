@@ -1,26 +1,27 @@
 package conf
 
 import (
-	"log"
+	"flag"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
 	"reflect"
-	"runtime"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/util"
 	"github.com/spf13/viper"
 )
 
 const (
 	tagName = "default"
 
-	defaultConfigFilename       = "cps.conf"
-	defaultDataDirname          = "data"
+	defaultConfigFilename       = "conf.yml"
+	defaultDataDirname          = "coper"
 	defaultLogLevel             = "info"
 	defaultLogDirname           = "logs"
-	defaultLogFilename          = "btcd.log"
+	defaultLogFilename          = "coper.log"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
 	defaultBanThreshold         = 100
@@ -42,7 +43,7 @@ const (
 	defaultMaxOrphanTransactions = 100
 	defaultMaxOrphanTxSize       = 100000
 	defaultSigCacheMaxSize       = 100000
-	sampleConfigFilename         = "sample-btcd.conf"
+	sampleConfigFilename         = "sample-coper.conf"
 	defaultTxIndex               = false
 	defaultAddrIndex             = false
 	defaultDescendantLimit       = 25
@@ -57,18 +58,26 @@ var Cfg *Configuration
 
 // init configuration
 func initConfig() *Configuration {
-	config := &Configuration{}
-	viper.SetEnvPrefix("copernicus")
-	viper.AutomaticEnv()
-	viper.SetConfigType("yaml")
+	// parse command line parameter to set program datadir
+	defaultDataDir := util.AppDataDir(defaultDataDirname, false)
+	logs.Info("Default data dir: ", defaultDataDir)
+	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
+	flag.Parse()
 
-	// find out where the sample config lives
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		panic("get current file path failed.")
+	datadir := defaultDataDir
+	if getdatadir != nil {
+		datadir = *getdatadir
 	}
-	filePath := path.Join(path.Dir(filename), "./conf.yml")
-	viper.SetDefault("conf", filePath)
+
+	if !ExistDataDir(datadir) {
+		err := os.MkdirAll(datadir, os.ModePerm)
+		if err != nil {
+			panic("datadir create failed: " + err.Error())
+		}
+	}
+
+	config := &Configuration{}
+	viper.SetConfigType("yaml")
 
 	//parse struct tag
 	c := Configuration{}
@@ -82,28 +91,30 @@ func initConfig() *Configuration {
 			value := field.Tag.Get(tagName)
 			//set default value
 			viper.SetDefault(key, value)
-			log.Printf("key is: %v,value is: %v\n", key, value)
+			//log.Printf("key is: %v,value is: %v\n", key, value)
 		} else {
 			structField := v.Field(i).Type()
 			for j := 0; j < structField.NumField(); j++ {
 				key := structField.Field(j).Name
 				values := structField.Field(j).Tag.Get(tagName)
 				viper.SetDefault(key, values)
-				log.Printf("key is: %v,value is: %v\n", key, values)
+				//log.Printf("key is: %v,value is: %v\n", key, values)
 			}
 			continue
 		}
 	}
 
-	// get config file path from environment
-	conf := viper.GetString("conf")
-
 	// parse config
-	file := must(os.Open(conf)).(*os.File)
+	file := must(os.Open(datadir + "/conf.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
 
+	// set data dir
+	config.DataDir = datadir
+
+	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
+	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
 	return config
 }
 
@@ -117,11 +128,6 @@ type Configuration struct {
 	// Service struct {
 	// 	Address string `default:"1.0.0.1:80"`
 	// }
-	HTTP struct {
-		Host string `validate:"require"`
-		Port int
-		Mode string
-	}
 	RPC struct {
 		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
 		RPCUser              string   // Username for RPC connections
@@ -164,7 +170,7 @@ type Configuration struct {
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
 		DisableDNSSeed      bool          //Disable DNS seeding for peers
 		DisableRPC          bool          `default:"false"`
-		DisableTLS          bool
+		DisableTLS          bool          `default:"false"`
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
@@ -206,6 +212,18 @@ func must(i interface{}, err error) interface{} {
 
 func init() {
 	Cfg = initConfig()
+}
+
+func ExistDataDir(datadir string) bool {
+	_, err := os.Stat(datadir)
+	if err == nil {
+		return true
+	}
+	if os.IsExist(err) {
+		return false
+	}
+
+	return false
 }
 
 // Validate validates configuration

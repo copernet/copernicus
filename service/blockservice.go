@@ -1,53 +1,54 @@
 package service
 
 import (
-	
-	
-	"github.com/astaxie/beego/logs"
+	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/persist/global"
 
 )
 
 
-func ProcessBlockHeader(bl * block.BlockHeader) error {
+func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
+	log.Debug("ProcessBlockHeader======%#v", headerList)
+	for _, header := range headerList{
+		index, err :=  lchain.AcceptBlockHeader(header)
+		if err != nil{
+			return err
+		}
+		lastIndex = index
+	}
 	return nil
 }
 
 func ProcessBlock(b *block.Block) (bool, error) {
+	log.Debug("ProcessBlock==%#v", b)
 	gChain := chain.GetInstance()
 	isNewBlock := false
 	var err error
 
-	bIndex := gChain.FindBlockIndex(b.Header.GetHash())
+	bIndex := gChain.FindBlockIndex(b.GetHash())
 	if bIndex != nil {
 		if bIndex.Accepted() {
 			return isNewBlock,nil
 		}
 	}
 
-	//
-	// params := chainparams.MainNetParams
-	// // bIndex,err = lchain.AcceptBlock(b, &params)
-	// if err != nil {
-	// 	return isNewBlock, err
-	// }
-
-	isNewBlock = true
-	err = gChain.ActiveBest(bIndex)
-	if err != nil {
+	ret := ProcessNewBlock(b, true, &isNewBlock)
+	// bIndex,err = lchain.AcceptBlock(b, &params)
+	if !ret {
 		return isNewBlock, err
 	}
+	
 
 	return isNewBlock, err
 }
 
 
-func ProcessNewBlock(param *chainparams.BitcoinParams, pblock *block.Block, fForceProcessing bool, fNewBlock *bool) bool {
+func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool) bool {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
@@ -55,24 +56,24 @@ func ProcessNewBlock(param *chainparams.BitcoinParams, pblock *block.Block, fFor
 	state := block.ValidationState{}
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
-	ret := lblock.CheckBlock(param, pblock, &state, true, true, )
+	ret := lblock.CheckBlock(pblock, &state, true, true, )
 
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
 	if ret {
-		lchain.AcceptBlock(param, pblock, &state, fForceProcessing, fNewBlock)
+		lchain.AcceptBlock(pblock, &state, fForceProcessing, fNewBlock)
 	}
 	
-	lchain.CheckBlockIndex(param)
+	lchain.CheckBlockIndex()
 	if !ret {
 		// todo !!! add asynchronous notification
-		logs.Error(" AcceptBlock FAILED ")
+		log.Error(" AcceptBlock FAILED ")
 		return false
 	}
 
 	// Only used to report errors, not invalidity - ignore it
-	if !lchain.ActivateBestChain(param, &state, pblock) {
-		logs.Error(" ActivateBestChain failed ")
+	if !lchain.ActivateBestChain(&state, pblock) {
+		log.Error(" ActivateBestChain failed ")
 		return false
 	}
 

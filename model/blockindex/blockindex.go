@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -61,9 +62,10 @@ type BlockIndex struct {
 	Status uint32
 	// (memory only) Sequential id assigned to distinguish order in which
 	// blocks are received.
-	SequenceID int32
+	SequenceID uint64
 	// (memory only) Maximum time in the chain upto and including this block.
 	TimeMax uint32
+	isGenesis bool
 }
 
 const medianTimeSpan = 11
@@ -250,12 +252,26 @@ func (bIndex *BlockIndex) String() string {
 		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
-func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
-	blockIndex := new(BlockIndex)
-	blockIndex.SetNull()
-	blockIndex.Header = *blkHeader
+func (bIndex *BlockIndex) IsGenesis() bool{
+	
+	return bIndex.isGenesis
+}
 
-	return blockIndex
+func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool{
+	return index.GetMedianTimePast() >= params.CashHardForkActivationTime
+}
+func (bIndex *BlockIndex) SetIsGenesis(params *chainparams.BitcoinParams) bool{
+	bh := bIndex.Header
+	bHash := bh.GetHash()
+	genesisHash := params.GenesisBlock.GetHash()
+	return bHash.IsEqual(&genesisHash)
+}
+
+func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
+	bi := new(BlockIndex)
+	bi.SetNull()
+	bi.Header = *blkHeader
+	return bi
 }
 
 

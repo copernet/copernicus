@@ -12,7 +12,7 @@ import (
 var utxoTip CacheView
 
 type UtxoConfig struct {
-	do *db.DBOption
+	Do *db.DBOption
 }
 
 // func InitUtxoTip(uc *UtxoConfig) {

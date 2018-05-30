@@ -6,18 +6,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
-	"errors"
 
+	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/net/limits"
 	"github.com/btcboost/copernicus/net/server"
 	"github.com/btcboost/copernicus/rpc"
-	"github.com/btcboost/copernicus/conf"
 )
 
 const (
@@ -35,14 +35,13 @@ const (
 func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
-
+	MainInit()
 	interrupt := interruptListener()
-
+	
 	s, err := server.NewServer(&chainparams.TestNet3Params, interrupt)
 	if err != nil {
 		return err
 	}
-	//service2.NewMsgHandle(s.mh, )
 	var rpcServer *rpc.Server
 	if !conf.Cfg.P2PNet.DisableRPC {
 		rpcServer, err = rpc.InitRPCServer()
@@ -68,7 +67,7 @@ func bchMain(ctx context.Context) error {
 		}
 	}()
 	go func() {
-		<- rpcServer.RequestedProcessShutdown()
+		<-rpcServer.RequestedProcessShutdown()
 		shutdownRequestChannel <- struct{}{}
 	}()
 	<-interrupt

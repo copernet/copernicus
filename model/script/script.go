@@ -3,12 +3,13 @@ package script
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
+
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
 	"github.com/pkg/errors"
-	"io"
 )
 
 const (
