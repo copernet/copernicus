@@ -1162,6 +1162,13 @@ func (p *Peer) HandlePongMsg(msg *wire.MsgPong) {
 
 // readMessage reads the next bitcoin message from the peer with logging.
 func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			log.Error("by qiwei readMessage got a error: %v", err)
+		}
+	}()
+
 	n, msg, buf, err := wire.ReadMessageWithEncodingN(p.conn,
 		p.ProtocolVersion(), p.Cfg.ChainParams.BitcoinNet, encoding)
 	atomic.AddUint64(&p.bytesReceived, uint64(n))
@@ -1187,10 +1194,10 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 		return spew.Sdump(msg)
 	}))
 	/*
-	log.Trace("%v", newLogClosure(func() string {
-		return spew.Sdump(buf)
-	}))
-*/
+		log.Trace("%v", newLogClosure(func() string {
+			return spew.Sdump(buf)
+		}))
+	*/
 	return msg, buf, nil
 }
 
@@ -2044,7 +2051,7 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		if p.inbound {
 			negotiateErr <- p.negotiateInboundProtocol()
 		} else {
-			log.Trace("outbound peer :  %s, %v", p.conn.RemoteAddr())
+			log.Trace("outbound peer :  %v", p.conn.RemoteAddr())
 			negotiateErr <- p.negotiateOutboundProtocol()
 		}
 	}()

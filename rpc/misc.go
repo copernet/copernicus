@@ -202,7 +202,7 @@ func handleStop(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 	case s.requestProcessShutdown <- struct{}{}:
 	default:
 	}
-	return "stopping.", nil
+	return "Copernicus server stopping", nil
 }
 
 func registerMiscRPCCommands() {

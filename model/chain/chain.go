@@ -205,9 +205,34 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 		index = index.Prev
 	}
 }
+// SetTip Set/initialize a chain with a given tip.
+// func (c *Chain) SetTip1(index *blockindex.BlockIndex) {
+// 	if index == nil {
+// 		c.active = []*blockindex.BlockIndex{}
+// 		return
+// 	}
+// 	endHeight := index.Height
+// 	tmp := make([]*blockindex.BlockIndex, 0)
+// 	if int(index.Height) > len(c.active){
+//
+// 	}
+// 	forkHeight := index.Height
+// 	for index != nil {
+// 		if c.Contains(index){
+// 			forkHeight = index.Height
+// 			break
+// 		}
+// 		tmp = append(tmp, index)
+// 		index = index.Prev
+// 	}
+// 	// todo update active
+// }
 
+// get ancestor from active chain
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
-	// todo
+	if len(c.active) >= int(height){
+		return c.active[height]
+	}
 	return nil
 }
 
@@ -229,7 +254,7 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 		if ch.Contains(index) {
 			index = ch.GetIndex(height)
 		} else {
-			index = ch.GetAncestor(height)
+			index = index.GetAncestor(height)
 		}
 		if len(blockHashList) > 10 {
 			step *= 2
@@ -260,10 +285,6 @@ func (chain *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
 	return nil
 }
 
-func (chain *Chain) ActiveBest(bi *blockindex.BlockIndex) error {
-
-	return nil
-}
 
 func (chain *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
 
