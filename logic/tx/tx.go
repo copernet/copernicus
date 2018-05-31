@@ -7,6 +7,7 @@ import (
 	"bytes"
 
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
@@ -342,8 +343,7 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, err
 		if coin == nil {
 			return 0, errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		txOut := coin.GetTxOut()
-		scriptPubKey := txOut.GetScriptPubKey()
+		scriptPubKey := coin.GetScriptPubKey()
 		if !scriptPubKey.IsPayToScriptHash() {
 			sigsCount, err := scriptPubKey.GetSigOpCount(true)
 			if err != nil {
@@ -419,7 +419,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	//check inputs money range
 	bestBlockHash := utxo.GetUtxoCacheInstance().GetBestBlock()
 	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
-	
+
 	err := CheckInputsMoney(tx, tempCoinMap, spendHeight)
 	if err != nil {
 		return err
@@ -433,67 +433,74 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		if coin == nil {
 			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
-		txOut := coin.GetTxOut()
-		scriptPubKey := txOut.GetScriptPubKey()
+		scriptPubKey := coin.GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
-		if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
-			flags |= script.ScriptVerifyStrictEnc
-		}
-		if flags&script.ScriptVerifySigPushOnly == script.ScriptVerifySigPushOnly && !scriptSig.IsPushOnly() {
-			return errcode.New(errcode.ScriptErrSigPushOnly)
-		}
-		stack := util.NewStack()
-		err := evalScript(stack, scriptSig, tx, i, coin.GetAmount(), flags)
+		err := verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
 		if err != nil {
 			return err
 		}
-		stackCopy := stack.Copy()
-		err = evalScript(stack, scriptPubKey, tx, i, coin.GetAmount(), flags)
+	}
+	return nil
+}
+
+func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *script.Script,
+	nIn int, value amount.Amount, flags uint32) error {
+	if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
+		flags |= script.ScriptVerifyStrictEnc
+	}
+	if flags&script.ScriptVerifySigPushOnly == script.ScriptVerifySigPushOnly && !scriptSig.IsPushOnly() {
+		return errcode.New(errcode.ScriptErrSigPushOnly)
+	}
+	stack := util.NewStack()
+	err := evalScript(stack, scriptSig, transaction, nIn, value, flags)
+	if err != nil {
+		return err
+	}
+	stackCopy := stack.Copy()
+	err = evalScript(stack, scriptPubKey, transaction, nIn, value, flags)
+	if err != nil {
+		return err
+	}
+	if stack.Empty() {
+		return errcode.New(errcode.ScriptErrEvalFalse)
+	}
+	if stack.Top(-1).(bool) == false {
+		return errcode.New(errcode.ScriptErrEvalFalse)
+	}
+	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH && scriptPubKey.IsPayToScriptHash() {
+		if !scriptSig.IsPushOnly() {
+			return errcode.New(errcode.ScriptErrSigPushOnly)
+		}
+		util.Swap(stack, stackCopy)
+		topBytes := stack.Top(-1)
+		stack.Pop()
+		scriptPubKey2 := script.NewScriptRaw(topBytes.([]byte))
+		err = evalScript(stack, scriptPubKey2, transaction, nIn, value, flags)
 		if err != nil {
 			return err
 		}
 		if stack.Empty() {
 			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
-		if stack.Top(-1).(bool) == false {
+		if !stack.Top(-1).(bool) {
 			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
-		if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH && scriptPubKey.IsPayToScriptHash() {
-			if !scriptSig.IsPushOnly() {
-				return errcode.New(errcode.ScriptErrSigPushOnly)
-			}
-			util.Swap(stack, stackCopy)
-			topBytes := stack.Top(-1)
-			stack.Pop()
-			scriptPubKey2 := script.NewScriptRaw(topBytes.([]byte))
-			err = evalScript(stack, scriptPubKey2, tx, i, coin.GetAmount(), flags)
-			if err != nil {
-				return err
-			}
-			if stack.Empty() {
-				return errcode.New(errcode.ScriptErrEvalFalse)
-			}
-			if !stack.Top(-1).(bool) {
-				return errcode.New(errcode.ScriptErrEvalFalse)
-			}
-		}
+	}
 
-		// The CLEANSTACK check is only performed after potential P2SH evaluation,
-		// as the non-P2SH evaluation of a P2SH script will obviously not result in
-		// a clean stack (the P2SH inputs remain). The same holds for witness
-		// evaluation.
-		if (flags & script.ScriptVerifyCleanStack) != 0 {
-			// Disallow CLEANSTACK without P2SH, as otherwise a switch
-			// CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
-			// softfork (and P2SH should be one).
-			if flags&script.ScriptVerifyP2SH != 0 {
-				panic("")
-			}
-			if stack.Size() != 1 {
-				return errcode.New(errcode.ScriptErrCleanStack)
-			}
+	// The CLEANSTACK check is only performed after potential P2SH evaluation,
+	// as the non-P2SH evaluation of a P2SH script will obviously not result in
+	// a clean stack (the P2SH inputs remain). The same holds for witness
+	// evaluation.
+	if (flags & script.ScriptVerifyCleanStack) != 0 {
+		// Disallow CLEANSTACK without P2SH, as otherwise a switch
+		// CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
+		// softfork (and P2SH should be one).
+		if flags&script.ScriptVerifyP2SH != 0 {
+			panic("")
 		}
-
+		if stack.Size() != 1 {
+			return errcode.New(errcode.ScriptErrCleanStack)
+		}
 	}
 	return nil
 }
@@ -1421,8 +1428,6 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					if err != nil {
 						return err
 					}
-
-					hashType := vchSigBytes[len(vchSigBytes)-1]
 					// signature is DER format, the second byte + 2 indicates the len of signature
 					// 0x30 if the first byte that indicates the beginning of signature
 					vchSigBytes = vchSigBytes[:vchSigBytes[1]+2]
@@ -1433,11 +1438,11 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					// to sign itself.
 					scriptCode = scriptCode.RemoveOpcodeByData(vchSigBytes)
 
-					txHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
+					fSuccess, err := CheckSig(transaction, vchSigBytes, vchPubkey.([]byte), scriptCode, nIn, money, flags)
 					if err != nil {
 						return err
 					}
-					fSuccess := tx.CheckSig(txHash, vchSigBytes, vchPubkey.([]byte))
+
 					if !fSuccess &&
 						(flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
 						len(vchSig.([]byte)) > 0 {
@@ -1551,12 +1556,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						if err != nil {
 							return err
 						}
-						hashType := vchSig.([]byte)[len(vchSig.([]byte))-1]
-						txHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
+						fOk, err := CheckSig(transaction, vchSig.([]byte), vchPubkey.([]byte), scriptCode, nIn, money, flags)
 						if err != nil {
 							return err
 						}
-						fOk := tx.CheckSig(txHash, vchSig.([]byte), vchPubkey.([]byte))
 						if fOk {
 							iSig++
 							nSigsCount--
@@ -1727,11 +1730,13 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 		if e.Sequence&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 			continue
 		}
+		// Can ignore mempool inputs since we'll fail if they had
+		// non-zero locks
 		if coinHeight != activeChain.Height()+1 && maxHeight < coinHeight {
 			maxInputHeight = coinHeight
 		}
 		if e.Sequence&script.SequenceLockTimeTypeFlag == script.SequenceLockTimeTypeFlag {
-			coinTime = activeChain.GetAncestor(coinHeight).GetMedianTimePast()
+			coinTime = activeChain.GetAncestor(coinHeight - 1).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
 			// BIP 68 relative lock times have the semantics of calculating the
 			// first block or time at which the transaction would be valid. When
@@ -1756,6 +1761,19 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 		}
 	}
 
+	// Also store the hash of the block with the highest height of all
+	// the blocks which have sequence locked prevouts. This hash needs
+	// to still be on the chain for these LockPoint calculations to be
+	// valid.
+	// Note: It is impossible to correctly calculate a maxInputBlock if
+	// any of the sequence locked inputs depend on unconfirmed txs,
+	// except in the special case where the relative lock time/height is
+	// 0, which is equivalent to no sequence lock. Since we assume input
+	// height of tip+1 for mempool txs and test the resulting lockPair
+	// from CalculateSequenceLocks against tip+1. We know
+	// EvaluateSequenceLocks will fail if there was a non-zero sequence
+	// lock on a mempool input, so we can use the return value of
+	// CheckSequenceLocks to indicate the LockPoints validity
 	lp.MaxInputBlock = activeChain.GetAncestor(maxInputHeight)
 	if transaction.GetVersion() < 2 || flags&consensus.LocktimeVerifySequence != consensus.LocktimeVerifySequence {
 		lp.Time = -1
@@ -1808,4 +1826,152 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	return nil
+}
+
+func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *script.Script,
+	nIn int, money amount.Amount, flags uint32) (bool, error) {
+	hashType := signature[len(signature)-1]
+	txHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
+	if err != nil {
+		return false, err
+	}
+	fOk := tx.CheckSig(txHash, signature, pubKey)
+	return fOk, err
+}
+
+// txs, preouts, private key, hash type
+func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
+	hashType uint32) (err error) {
+	coinMap := utxo.NewEmptyCoinsMap()
+	ins := transaction.GetIns()
+	for i, in := range ins {
+		coin := coinMap.FetchCoin(in.PreviousOutPoint)
+		if coin == nil || coin.IsSpent() {
+			return errcode.New(errcode.TxErrNoPreviousOut)
+		}
+		prevPubKey := coin.GetScriptPubKey()
+		var scriptSig *script.Script
+		var sigData [][]byte
+		var scriptType int
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
+			i < transaction.GetOutsCount() {
+			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
+				i, coin.GetAmount())
+			if err != nil {
+				return err
+			}
+			// get signatures and redeemscript
+			if scriptType == script.ScriptHash {
+				redeemScriptPubKey := script.NewScriptRaw(sigData[0])
+				sigData, redeemScriptType, err := transaction.SignStep(redeemScripts, keys, hashType,
+					redeemScriptPubKey, i, coin.GetAmount())
+				if err != nil {
+					return err
+				}
+				if redeemScriptType == script.ScriptHash {
+					return errcode.New(errcode.TxErrSignRawTransaction)
+				}
+				sigData = append(sigData, redeemScriptPubKey.GetData())
+			}
+		}
+		scriptSig = script.NewEmptyScript()
+		scriptSig.PushData(sigData)
+		err = verifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags))
+		if err != nil {
+			return err
+		}
+		scriptSig, err = combineSignature(transaction, prevPubKey, scriptSig, transaction.GetIns()[i].GetScriptSig(),
+			i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags))
+		if err != nil {
+			return err
+		}
+		err = transaction.UpdateInScript(i, scriptSig)
+		if err != nil {
+			return err
+		}
+		err = verifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags))
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *script.Script,
+	txOldScriptSig *script.Script, nIn int, money amount.Amount, flags uint32) (*script.Script, error) {
+	pubKeyType, pubKeys, err := prevPubKey.CheckScriptPubKeyStandard()
+	if err != nil {
+		return nil, err
+	}
+	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
+		if scriptSig.Size() >= txOldScriptSig.Size() {
+			return scriptSig, nil
+		}
+		return txOldScriptSig, nil
+	}
+	if pubKeyType == script.ScriptPubkey || pubKeyType == script.ScriptPubkeyHash {
+		if scriptSig.Size() == 0 {
+			return txOldScriptSig, nil
+		}
+		return scriptSig, nil
+	}
+	if pubKeyType == script.ScriptMultiSig {
+		sigData := make([][]byte, len(scriptSig.ParsedOpCodes)-1)
+		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes)-1)
+		var parsedOpCodes = scriptSig.ParsedOpCodes[:]
+		parsedOpCodes = append(parsedOpCodes, txOldScriptSig.ParsedOpCodes...)
+		for _, opCode := range parsedOpCodes {
+			for _, pubKey := range pubKeys[1 : len(pubKeys)-2] {
+				if okSigs[string(pubKey)] != nil {
+					continue
+				}
+				ok, err := CheckSig(transaction, opCode.Data, pubKey, prevPubKey, nIn, money, flags)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					okSigs[string(pubKey)] = opCode.Data
+					break
+				}
+			}
+		}
+		sigN := 0
+		sigsRequired := int(pubKeys[0][0])
+		for _, pubKey := range pubKeys {
+			if okSigs[string(pubKey)] != nil {
+				sigData = append(sigData, okSigs[string(pubKey)])
+				sigN++
+				if sigN >= sigsRequired {
+					break
+				}
+			}
+		}
+		for sigN < sigsRequired {
+			data := make([]byte, 1)
+			data = append(data, byte(opcodes.OP_0))
+			sigData = append(sigData, data)
+			sigN++
+		}
+		scriptResult := script.NewEmptyScript()
+		scriptResult.PushData(sigData)
+		return scriptResult, nil
+	}
+	if pubKeyType == script.ScriptHash {
+		if scriptSig.Size() == 0 {
+			return txOldScriptSig, nil
+		}
+		if txOldScriptSig.Size() == 0 {
+			return scriptSig, nil
+		}
+		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
+		scriptSig = scriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
+		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
+		scriptResult, err := combineSignature(transaction, redeemScript, scriptSig,
+			txOldScriptSig, nIn, money, flags)
+		if err != nil {
+			return nil, err
+		}
+		return scriptResult, nil
+	}
+	return nil, errcode.New(errcode.TxErrPubKeyType)
 }

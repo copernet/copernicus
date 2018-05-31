@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
@@ -114,6 +115,10 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 }
 
 func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
+	outs = make([]outpoint.OutPoint, len(tx.ins))
+	for _, e := range tx.ins {
+		outs = append(outs, *e.PreviousOutPoint)
+	}
 	return
 
 }
@@ -450,6 +455,102 @@ func (tx *Tx) GetValueOut() amount.Amount {
 		}
 	}
 	return valueOut
+}
+
+func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
+	hashType uint32, scriptPubKey *script.Script, nIn int, value amount.Amount) (sigData [][]byte, pubKeyType int, err error) {
+	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
+	if err != nil {
+		return nil, script.ScriptNonStandard, errcode.New(errcode.TxErrInputsNotAvailable)
+	}
+	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
+		return nil, pubKeyType, errcode.New(errcode.TxErrInputsNotAvailable)
+	}
+	if pubKeyType == script.ScriptMultiSig {
+		sigData = make([][]byte, len(pubKeys)-2)
+	} else {
+		sigData = make([][]byte, 1)
+	}
+
+	// return signatureData|hashType
+	if pubKeyType == script.ScriptPubkey {
+		pubKeyHashString := string(util.Hash160(pubKeys[0]))
+		privateKey := keys[pubKeyHashString]
+		signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
+		if err != nil {
+			return nil, pubKeyType, err
+		}
+		sigBytes := signature.Serialize()
+		sigBytes = append(sigBytes, byte(hashType))
+		sigData = append(sigData, sigBytes)
+		return sigData, pubKeyType, nil
+	}
+	// return signatureData|hashType + pubKeyHashString
+	if pubKeyType == script.ScriptPubkeyHash {
+		pubKeyHashString := string(pubKeys[0])
+		privateKey := keys[pubKeyHashString]
+		signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
+		if err != nil {
+			return nil, pubKeyType, err
+		}
+		sigBytes := signature.Serialize()
+		sigBytes = append(sigBytes, byte(hashType))
+		sigBytes = append(sigBytes, []byte(pubKeyHashString)...)
+		sigData = append(sigData, sigBytes)
+		return sigData, pubKeyType, nil
+	}
+	// signature1|hashType signature2|hashType...signatureM|hashType
+	if pubKeyType == script.ScriptMultiSig {
+		sigBytes := make([]byte, 0)
+		sigBytes = append(sigBytes, byte(0))
+		requiredSigs := int(pubKeys[0][0])
+		signed := 0
+		for _, e := range pubKeys[1 : len(pubKeys)-2] {
+			pubKeyHashString := string(util.Hash160(e))
+			privateKey := keys[pubKeyHashString]
+			signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
+			if err != nil {
+				return nil, pubKeyType, err
+			}
+			sigBytes = append(sigBytes, signature.Serialize()...)
+			sigBytes = append(sigBytes, byte(hashType))
+			sigData = append(sigData, sigBytes)
+			signed++
+		}
+		if signed != requiredSigs {
+			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
+		}
+		return sigData, pubKeyType, nil
+	}
+	// return redeemscript, outside will SignStep again use redeemScript
+	if pubKeyType == script.ScriptHash {
+		scriptHashString := string(pubKeys[0])
+		redeemScriptString := redeemScripts[scriptHashString]
+		if len(redeemScriptString) == 0 {
+			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
+		}
+		sigData = append(sigData, []byte(redeemScriptString))
+		return sigData, pubKeyType, nil
+	}
+	return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
+}
+
+func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey, hashType uint32,
+	nIn int, value amount.Amount) (signature *crypto.Signature, err error) {
+
+	hash, err := SignatureHash(tx, scriptPubKey, hashType, nIn, value, script.ScriptEnableSigHashForkId)
+	if err != nil {
+		return nil, err
+	}
+	signature, err = privateKey.Sign(hash[:])
+	return
+}
+func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
+	if i >= len(tx.ins) || i < 0 {
+		return errcode.New(errcode.TxErrInvalidIndexOfIn)
+	}
+	tx.ins[i].SetScriptSig(scriptSig)
+	return nil
 }
 
 //func (tx *Tx) Copy() *Tx {

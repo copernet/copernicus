@@ -19,7 +19,7 @@ type PublicKey struct {
 
 func ParsePubKey(pubKeyStr []byte) (*PublicKey, error) {
 	_, pubKey, err := secp256k1.EcPubkeyParse(secp256k1Context, pubKeyStr)
-	publicKey := PublicKey{SecpPubKey: pubKey}
+	publicKey := PublicKey{SecpPubKey: pubKey, Compressed: IsCompressedPubKey(pubKeyStr)}
 	return &publicKey, err
 }
 
