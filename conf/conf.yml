@@ -6,6 +6,7 @@ RPC:
   RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
   RPCUser: copernicus
   RPCPass: doXT3DXgAQCNU0Li0pujQ6zR3Y
+  RPCMaxClients: 1000
 
 Log:
   FileName: copernicus

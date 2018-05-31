@@ -22,7 +22,7 @@ type CoinsLruCache struct {
 var utxoLruTip CacheView
 
 func InitUtxoLruTip(uc *UtxoConfig) {
-	fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
+	// fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
 
 	db := NewCoinsDB(uc.Do)
 	utxoLruTip = NewCoinsLruCache(*db)
@@ -83,7 +83,7 @@ func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
 func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
-		if err == leveldb.ErrNotFound{
+		if err == leveldb.ErrNotFound {
 			return chain.GetInstance().GetParams().GenesisBlock.GetHash()
 		}
 		if err != nil {

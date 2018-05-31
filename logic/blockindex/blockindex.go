@@ -10,7 +10,8 @@ import (
 
 "github.com/astaxie/beego/logs"
 "github.com/btcboost/copernicus/log"
-"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model"
+	"github.com/btcboost/copernicus/model/block"
 "github.com/btcboost/copernicus/model/blockindex"
 "github.com/btcboost/copernicus/model/chain"
 "github.com/btcboost/copernicus/model/pow"
@@ -162,5 +163,27 @@ func LoadBlockIndexDB() bool {
 		time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
 		gChain.Tip())
 	
+	return true
+}
+func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex)  bool{
+	if preIndex.IsGenesis(){
+		return true
+	}
+	gChain := chain.GetInstance()
+	nHeight := preIndex.Height + 1
+	// Don't accept any forks from the main chain prior to last checkpoint
+	params := gChain.GetParams()
+	checkPoints := params.Checkpoints
+	var checkPoint *model.Checkpoint
+	for i := len(checkPoints)-1;i>=0;i--{
+		checkPointIndex := gChain.FindBlockIndex(*checkPoints[i].Hash)
+		if checkPointIndex != nil{
+			checkPoint = checkPoints[i]
+			break
+		}
+	}
+	if checkPoint != nil && nHeight < checkPoint.Height{
+		return false
+	}
 	return true
 }

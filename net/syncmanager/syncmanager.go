@@ -202,14 +202,15 @@ func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int3
 // checkpoints.
 func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
 	//checkpoints := sm.chain.Checkpoints()
-	checkpoints := make([]model.Checkpoint, 2)
+	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
+	checkpoints := chainparams.TestNet3Params.Checkpoints
 	if len(checkpoints) == 0 {
 		return nil
 	}
 
 	// There is no next checkpoint if the height is already after the final
 	// checkpoint.
-	finalCheckpoint := &checkpoints[len(checkpoints)-1]
+	finalCheckpoint := checkpoints[len(checkpoints)-1]
 	if height >= finalCheckpoint.Height {
 		return nil
 	}
@@ -220,7 +221,7 @@ func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint 
 		if height >= checkpoints[i].Height {
 			break
 		}
-		nextCheckpoint = &checkpoints[i]
+		nextCheckpoint = checkpoints[i]
 	}
 	return nextCheckpoint
 }
@@ -287,6 +288,9 @@ func (sm *SyncManager) startSync() {
 		// and fully validate them.  Finally, regression test mode does
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
+		log.Trace("nextCheckpoint : %p, bestHeight : %d,  sm.chainParams : %p, " +
+			"&chainparams.RegressionNetParams : %p ", sm.nextCheckpoint, best.Height,
+			 sm.chainParams, &chainparams.RegressionNetParams)
 		if sm.nextCheckpoint != nil &&
 			int32(best.Height) < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chainparams.RegressionNetParams {
@@ -298,6 +302,7 @@ func (sm *SyncManager) startSync() {
 				"%d from peer %s", best.Height+1,
 				sm.nextCheckpoint.Height, bestPeer.Addr())
 		} else {
+			log.Info("no checkpoint in syncmanager, so download block stophash is all zero...")
 			bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
 		}
 		sm.syncPeer = bestPeer
@@ -346,7 +351,7 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		return
 	}
 
-	log.Info("New valid peer %s (%s)", peer, peer.UserAgent())
+	log.Info("New valid peer %s (%s), start height : %d", peer.Addr(), peer.UserAgent(), peer.StartingHeight())
 
 	// Initialize the peer state
 	isSyncCandidate := sm.isSyncCandidate(peer)
@@ -376,7 +381,7 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 	// Remove the peer from the list of candidate peers.
 	delete(sm.peerStates, peer)
 
-	log.Info("Lost peer %s", peer)
+	log.Info("Lost peer %s", peer.Addr())
 
 	// Remove requested transactions from the global map so that they will
 	// be fetched from elsewhere next time we get an inv.
@@ -410,7 +415,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	peer := tmsg.peer
 	state, exists := sm.peerStates[peer]
 	if !exists {
-		log.Warn("Received tx message from unknown peer %s", peer)
+		log.Warn("Received tx message from unknown peer %s", peer.Addr())
 		return
 	}
 
@@ -429,7 +434,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	// rejected, the transaction was unsolicited.
 	if _, exists = sm.rejectedTxns[txHash]; exists {
 		log.Debug("Ignoring unsolicited previously rejected "+
-			"transaction %v from %s", txHash, peer)
+			"transaction %v from %s", txHash, peer.Addr())
 		return
 	}
 
@@ -463,7 +468,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 		// so log it as an actual error.
 		if !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			log.Debug("Rejected transaction %v from %s: %v",
-				txHash, peer, err)
+				txHash, peer.Addr(), err)
 		} else {
 			log.Error("Failed to process transaction %v: %v",
 				txHash.String(), err)
@@ -513,7 +518,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	peer := bmsg.peer
 	state, exists := sm.peerStates[peer]
 	if !exists {
-		log.Warn("Received block message from unknown peer %s", peer)
+		log.Warn("Received block message from unknown peer %s", peer.Addr())
 		return
 	}
 
@@ -735,7 +740,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	peer := hmsg.peer
 	_, exists := sm.peerStates[peer]
 	if !exists {
-		log.Warn("Received headers message from unknown peer %s", peer)
+		log.Warn("Received headers message from unknown peer %s", peer.Addr())
 		return
 	}
 
@@ -886,7 +891,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	peer := imsg.peer
 	state, exists := sm.peerStates[peer]
 	if !exists {
-		log.Warn("Received inv message from unknown peer %s", peer)
+		log.Warn("Received inv message from unknown peer %s", peer.Addr())
 		return
 	}
 
@@ -944,6 +949,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		peer.AddKnownInventory(iv)
 
 		// Ignore inventory when we're in headers-first mode.
+		log.Trace("Received INV msg, And current headerfirstMode is %v", sm.headersFirstMode)
 		if sm.headersFirstMode {
 			continue
 		}
@@ -1336,6 +1342,7 @@ func New(config *Config) (*SyncManager, error) {
 	if !config.DisableCheckpoints {
 		// Initialize the next checkpoint based on the current height.
 		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(int32(best.Height))
+		log.Trace("sm.nextCheckpoint : %p, best height : %d", sm.nextCheckpoint, best.Height)
 		if sm.nextCheckpoint != nil {
 			sm.resetHeaderState(best.GetBlockHash(), int32(best.Height))
 		}

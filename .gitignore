@@ -1,9 +1,11 @@
+# ide
 .idea
 .DS_Store
+
+# project
+vendor
 copernicus
+
 *.log
-glide.yaml
 data
-conf.yml
-rpc.cert
-rpc.key
+*block_test.go

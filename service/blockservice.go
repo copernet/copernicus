@@ -15,7 +15,7 @@ import (
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
 	log.Debug("ProcessBlockHeader======%#v", headerList)
 	for _, header := range headerList{
-		index, err :=  lchain.AcceptBlockHeader(header)
+		index, err :=  lblock.AcceptBlockHeader(header)
 		if err != nil{
 			return err
 		}
@@ -61,7 +61,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
 	if ret {
-		lchain.AcceptBlock(pblock, &state, fForceProcessing, fNewBlock)
+		lblock.AcceptBlock(pblock, &state, fForceProcessing, fNewBlock)
 	}
 	
 	lchain.CheckBlockIndex()
