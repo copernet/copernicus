@@ -617,24 +617,6 @@ func NewSendRawTransactionCmd(hexTx string, allowHighFees *bool) *SendRawTransac
 	}
 }
 
-// SetGenerateCmd defines the setgenerate JSON-RPC command.
-type SetGenerateCmd struct {
-	Generate     bool
-	GenProcLimit *int `jsonrpcdefault:"-1"`
-}
-
-// NewSetGenerateCmd returns a new instance which can be used to issue a
-// setgenerate JSON-RPC command.
-//
-// The parameters which are pointers indicate they are optional.  Passing nil
-// for optional parameters will use the default value.
-func NewSetGenerateCmd(generate bool, genProcLimit *int) *SetGenerateCmd {
-	return &SetGenerateCmd{
-		Generate:     generate,
-		GenProcLimit: genProcLimit,
-	}
-}
-
 // StopCmd defines the stop JSON-RPC command.
 type StopCmd struct{}
 
@@ -855,6 +837,7 @@ func init() {
 	MustRegisterCmd("reconsiderblock", (*ReconsiderBlockCmd)(nil), flags)
 	MustRegisterCmd("searchrawtransactions", (*SearchRawTransactionsCmd)(nil), flags)
 	MustRegisterCmd("sendrawtransaction", (*SendRawTransactionCmd)(nil), flags)
+	MustRegisterCmd("signmessagewithprivkey", (*SignMessageWithPrivkeyCmd)(nil), flags)
 	MustRegisterCmd("setgenerate", (*SetGenerateCmd)(nil), flags)
 	MustRegisterCmd("stop", (*StopCmd)(nil), flags)
 	MustRegisterCmd("submitblock", (*SubmitBlockCmd)(nil), flags)
