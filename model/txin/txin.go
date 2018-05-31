@@ -60,7 +60,7 @@ func (txIn *TxIn) Decode(reader io.Reader) error {
 		return err
 	}
 	txIn.scriptSig = script.NewScriptRaw(bytes)
-	log.Debug("txIn's Script is %s", txIn.scriptSig.GetData())
+	log.Debug("txIn's Script is %v", txIn.scriptSig.GetData())
 	return util.ReadElements(reader, &txIn.Sequence)
 }
 
