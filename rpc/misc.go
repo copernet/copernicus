@@ -29,6 +29,7 @@ var miscHandlers = map[string]commandHandler{
 	"stop":                   handleStop,                   // complete
 }
 
+
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	best := chain.GetInstance().Tip()
 	var height int32

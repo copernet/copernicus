@@ -791,9 +791,19 @@ type SetBanCmd struct {
 	Absolute *bool
 }
 
+type ListBannedCmd struct {
+}
+
+type ClearBannedCmd struct {
+}
+
+type CreateMultiSigCmd struct {
+}
+
 type SetNetWorkActiveCmd struct {
 	State bool `jsonrpcusage:"\"true|false\""`
 }
+
 
 func init() {
 	// No special flags for commands in this file.
@@ -849,4 +859,15 @@ func init() {
 	MustRegisterCmd("signrawtransaction", (*SignRawTransactionCmd)(nil), flags)
 	MustRegisterCmd("verifytxoutproof", (*VerifyTxoutProofCmd)(nil), flags)
 	MustRegisterCmd("setmocktime", (*SetMocktimeCmd)(nil), flags)
+
+	MustRegisterCmd("disconnectnode", (*DisconnectNodeCmd)(nil), flags)
+	MustRegisterCmd("setnetworkactive", (*SetNetWorkActiveCmd)(nil), flags)
+	MustRegisterCmd("setban", (*SetBanCmd)(nil), flags)
+	MustRegisterCmd("listbanned", (*ListBannedCmd)(nil), flags)
+	MustRegisterCmd("clearbanned", (*ClearBannedCmd)(nil), flags)
+	MustRegisterCmd("generatetoaddress", (*GenerateToAddressCmd)(nil), flags)
+	MustRegisterCmd("setexcessiveblock", (*SetExcessiveBlockCmd)(nil), flags)
+	MustRegisterCmd("getexcessiveblock", (*GetExcessiveBlockCmd)(nil), flags)
+	MustRegisterCmd("pruneblockchain", (*PruneBlockChainCmd)(nil), flags)
+	MustRegisterCmd("createmultisig", (*CreateMultiSigCmd)(nil), flags)
 }
