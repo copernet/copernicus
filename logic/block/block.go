@@ -28,9 +28,7 @@ const MinBlocksToKeep = int32(288)
 func GetBlock(hash *util.Hash) (* block.Block, error) {
 	return nil,nil
 }
-func Check(b *block.Block) error{
-	return nil
-}
+
 
 func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlockPos,error) {
 	
@@ -74,38 +72,35 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) (int64) {
 	return lockTimeCutoff
 }
 
-func CheckBlock( pblock *block.Block, state *block.ValidationState,
-	checkPOW, checkMerkleRoot bool) bool {
+func CheckBlock( pblock *block.Block)(error) {
 	// These are checks that are independent of context.
 	if pblock.Checked {
-		return true
+		return nil
 	}
+	
 	blockSize := pblock.EncodeSize()
 	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(blockSize))
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
-	if err := CheckBlockHeader(&bh, checkPOW); err!=nil {
-		return false
+	if err := CheckBlockHeader(&bh); err!=nil {
+		return err
 	}
 
 	// Check the merkle root.
-	if checkMerkleRoot {
-		mutated := false
-		hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock, &mutated)
-		if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
-			return state.Dos(100, false, block.RejectInvalid, "bad-txnMrklRoot",
-				true, "hashMerkleRoot mismatch")
-		}
-
-		// Check for merkle tree malleability (CVE-2012-2459): repeating
-		// sequences of transactions in a block without affecting the merkle
-		// root of a block, while still invalidating it.
-		if mutated {
-			return state.Dos(100, false, block.RejectInvalid, "bad-txns-duplicate",
-				true, "duplicate transaction")
-		}
+	mutated := false
+	hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock, &mutated)
+	if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
+		return errcode.New(errcode.ErrorBadTxnMrklRoot)
 	}
+
+	// Check for merkle tree malleability (CVE-2012-2459): repeating
+	// sequences of transactions in a block without affecting the merkle
+	// root of a block, while still invalidating it.
+	if mutated {
+		return errcode.New(errcode.ErrorbadTxnsDuplicate)
+	}
+	
 
 	// All potential-corruption validation must be done before we do any
 	// transaction validation, as otherwise we may mark the header as invalid
@@ -113,8 +108,7 @@ func CheckBlock( pblock *block.Block, state *block.ValidationState,
 
 	// First transaction must be coinBase.
 	if len(pblock.Txs) == 0 {
-		return state.Dos(100, false, block.RejectInvalid, "bad-cb-missing",
-			false, "first tx is not coinBase")
+		return errcode.New(errcode.ErrorBadCoinBaseMissing)
 	}
 
 	// size limits
@@ -123,30 +117,23 @@ func CheckBlock( pblock *block.Block, state *block.ValidationState,
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := tx.NewEmptyTx().EncodeSize()
 	if len(pblock.Txs) * int(minTransactionSize) > int(nMaxBlockSize) {
-		return state.Dos(100, false, block.RejectInvalid, "bad-blk-length",
-			false, "size limits failed")
+		return errcode.New(errcode.ErrorBadBlkLength)
 	}
 
 	currentBlockSize := pblock.EncodeSize()
 	if currentBlockSize > int(nMaxBlockSize) {
-		return state.Dos(100, false, block.RejectInvalid, "bad-blk-length",
-			false, "size limits failed")
+		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
 
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil{
-		return state.Dos(100, false, block.RejectInvalid, "bad-blk-tx",
-			false, "CheckBlockTransactions failed")
+		return errcode.New(errcode.ErrorBadBlkTx)
 	}
-	if checkPOW && checkMerkleRoot {
-		pblock.Checked = true
-	}
-
-	return true
+	pblock.Checked = true
+	return nil
 }
 
-func ContextualCheckBlock( b *block.Block, state *block.ValidationState,
-	indexPrev *blockindex.BlockIndex) bool {
+func ContextualCheckBlock( b *block.Block, indexPrev *blockindex.BlockIndex) error {
 
 	var height int32
 	if indexPrev != nil {
@@ -157,9 +144,9 @@ func ContextualCheckBlock( b *block.Block, state *block.ValidationState,
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized block height
 	if err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff);err!=nil {
-		return false
+		return err
 	}
-	return true
+	return nil
 }
 
 // ReceivedBlockTransactions Mark a block as having its data received and checked (up to
@@ -209,7 +196,7 @@ func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amo
 	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
-func AcceptBlock( pblock *block.Block, state *block.ValidationState,
+func AcceptBlock( pblock *block.Block,
 	fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex, dbp *block.DiskBlockPos, err error) {
 	if pblock != nil {
 		*fNewBlock = false
@@ -247,24 +234,22 @@ func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 		}
 	}
 	if bIndex.AllValid() == false {
-		suc := CheckBlock(pblock, state, true, true)
-		if !suc {
+		err = CheckBlock(pblock)
+		if err!=nil {
 			return
 		}
 		
 		bIndex.AddStatus(blockindex.StatusAllValid)
 	}
 	gPersist := global.GetInstance()
-	if !CheckBlock(pblock, state, true, true) {
+	if err = CheckBlock(pblock);err!=nil {
 		bIndex.AddStatus(blockindex.StatusFailed)
 		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-		err = errcode.ProjectError{Code: 3005}
 		return
 	}
-	if !ContextualCheckBlock(pblock, state, bIndex.Prev) {
+	if err = ContextualCheckBlock(pblock, bIndex.Prev);err!=nil {
 		bIndex.AddStatus(blockindex.StatusFailed)
 		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-		err = errcode.ProjectError{Code: 3005}
 		return
 	}
 	*fNewBlock = true
@@ -294,7 +279,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	}
 	
 	//this is a new blockheader
-	err := CheckBlockHeader(bh, true)
+	err := CheckBlockHeader(bh)
 	if err != nil {
 		return nil, err
 	}

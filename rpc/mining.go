@@ -422,7 +422,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	// TODO realise in block model
-	err = block2.Check(&bk)
+	err = block2.CheckBlock(&bk)
 	return BIP22ValidationResult(err)
 }
 

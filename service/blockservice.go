@@ -37,45 +37,42 @@ func ProcessBlock(b *block.Block) (bool, error) {
 		}
 	}
 
-	ret := ProcessNewBlock(b, true, &isNewBlock)
+	err = ProcessNewBlock(b, true, &isNewBlock)
 	// bIndex,err = lchain.AcceptBlock(b, &params)
-	if !ret {
+	if err!=nil {
 		return isNewBlock, err
 	}
-	
-
 	return isNewBlock, err
 }
 
 
-func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool) bool {
+func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool) error {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
 	}
-	state := block.ValidationState{}
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
-	ret := lblock.CheckBlock(pblock, &state, true, true, )
+	err := lblock.CheckBlock(pblock)
 
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
-	if ret {
-		lblock.AcceptBlock(pblock, &state, fForceProcessing, fNewBlock)
+	if err != nil {
+		_,_,err = lblock.AcceptBlock(pblock,fForceProcessing, fNewBlock)
 	}
 	
 	lchain.CheckBlockIndex()
-	if !ret {
+	if err!=nil {
 		// todo !!! add asynchronous notification
 		log.Error(" AcceptBlock FAILED ")
-		return false
+		return err
 	}
 
 	// Only used to report errors, not invalidity - ignore it
-	if !lchain.ActivateBestChain(&state, pblock) {
+	if err = lchain.ActivateBestChain(pblock);err!=nil {
 		log.Error(" ActivateBestChain failed ")
-		return false
+		return err
 	}
 
-	return true
+	return nil
 }
