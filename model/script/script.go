@@ -285,9 +285,7 @@ func (script *Script) convertRaw() {
 				script.data = append(script.data, e.Data...)
 			}
 		}
-
 	}
-
 }
 
 func (script *Script) GetData() []byte {
@@ -365,6 +363,23 @@ func (script *Script) RemoveOpcodeByData(data []byte) *Script {
 	return NewScriptOps(parsedOpCodes)
 }
 
+func (script *Script) RemoveOpCodeByIndex(index int) *Script {
+	opCodesLen := len(script.ParsedOpCodes)
+	if index < 0 || index >= opCodesLen {
+		return nil
+	}
+	if index == 0 {
+		return NewScriptOps(script.ParsedOpCodes[1 : opCodesLen-1])
+	}
+	if index == opCodesLen-1 {
+		return NewScriptOps(script.ParsedOpCodes[:index])
+	}
+	parsedOpCodes := make([]opcodes.ParsedOpCode, opCodesLen-1)
+	parsedOpCodes = append(parsedOpCodes, script.ParsedOpCodes[:index-1]...)
+	parsedOpCodes = append(parsedOpCodes, script.ParsedOpCodes[index+1:opCodesLen-1]...)
+	return NewScriptOps(parsedOpCodes)
+}
+
 func (script *Script) RemoveOpcode(code byte) *Script {
 	parsedOpCodes := make([]opcodes.ParsedOpCode, len(script.ParsedOpCodes))
 	for _, e := range script.ParsedOpCodes {
@@ -433,7 +448,7 @@ func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, 
 	if sType == ScriptMultiSig {
 		sigCountRequired = int(pubKeys[0][0])
 		addresses = make([]*Address, len(pubKeys)-2)
-		for _, e := range pubKeys[1:] {
+		for _, e := range pubKeys[1 : len(pubKeys)-2] {
 			address, err := AddressFromPublicKey(e)
 			if err != nil {
 				return sType, nil, 0, err
@@ -567,6 +582,9 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 				if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
 					return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 				}
+				data := make([]byte, 1)
+				data = append(data, byte(opN))
+				pubKeys = append(pubKeys, data)
 			} else {
 				return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 			}
@@ -693,26 +711,32 @@ func (script *Script) PushInt64(n int64) error {
 	return nil
 }
 
-func (script *Script) PushData(data []byte) error {
-	dataLen := len(data)
-	if dataLen < opcodes.OP_PUSHDATA1 {
-		script.data = append(script.data, byte(dataLen))
-	} else if dataLen <= 0xff {
-		script.data = append(script.data, opcodes.OP_PUSHDATA1)
-		script.data = append(script.data, byte(dataLen))
-	} else if dataLen <= 0xffff {
-		script.data = append(script.data, opcodes.OP_PUSHDATA2)
-		buf := make([]byte, 2)
-		binary.LittleEndian.PutUint16(buf, uint16(dataLen))
-		script.data = append(script.data, buf...)
-
-	} else {
-		script.data = append(script.data, opcodes.OP_PUSHDATA4)
-		buf := make([]byte, 4)
-		binary.LittleEndian.PutUint32(script.data, uint32(dataLen))
-		script.data = append(script.data, buf...)
+func (script *Script) PushData(data [][]byte) error {
+	for _, e := range data {
+		dataLen := len(e)
+		if dataLen == 0 {
+			script.data = append(script.data, byte(opcodes.OP_0))
+		} else if dataLen == 1 && e[0] >= 1 && e[0] <= 16 {
+			opN, _ := EncodeOPN(int(e[0]))
+			script.data = append(script.data, byte(opN))
+		} else if dataLen < opcodes.OP_PUSHDATA1 {
+			script.data = append(script.data, byte(dataLen))
+		} else if dataLen <= 0xff {
+			script.data = append(script.data, opcodes.OP_PUSHDATA1)
+			script.data = append(script.data, byte(dataLen))
+		} else if dataLen <= 0xffff {
+			script.data = append(script.data, opcodes.OP_PUSHDATA2)
+			buf := make([]byte, 2)
+			binary.LittleEndian.PutUint16(buf, uint16(dataLen))
+			script.data = append(script.data, buf...)
+		} else {
+			script.data = append(script.data, opcodes.OP_PUSHDATA4)
+			buf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(script.data, uint32(dataLen))
+			script.data = append(script.data, buf...)
+		}
+		script.data = append(script.data, e...)
 	}
-	script.data = append(script.data, data...)
 	err := script.convertOPS()
 	if err != nil {
 		return err

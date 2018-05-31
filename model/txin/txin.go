@@ -65,6 +65,10 @@ func (txIn *TxIn) GetScriptSig() *script.Script {
 	return txIn.scriptSig
 }
 
+func (txIn *TxIn) SetScriptSig(scriptSig *script.Script) {
+	txIn.scriptSig = scriptSig
+}
+
 func (txIn *TxIn) CheckStandard() error {
 	return txIn.scriptSig.CheckScriptSigStandard()
 }
@@ -76,10 +80,6 @@ func (txIn *TxIn) String() string {
 	}
 	return fmt.Sprintf("%s , script:%s , Sequence:%d ", str, hex.EncodeToString(txIn.scriptSig.GetData()), txIn.Sequence)
 
-}
-
-func (txIn *TxIn) SetScript(script *script.Script) {
-	txIn.scriptSig = script
 }
 
 func NewTxIn(previousOutPoint *outpoint.OutPoint, scriptSig *script.Script, sequence uint32) *TxIn {

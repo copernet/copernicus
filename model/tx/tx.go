@@ -12,7 +12,6 @@ import (
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
-	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"github.com/pkg/errors"
@@ -455,36 +454,8 @@ func (tx *Tx) GetValueOut() amount.Amount {
 	return valueOut
 }
 
-// txs, preouts, private key, hash type
-func (tx *Tx) SignRawTransaction(redeemScripts map[string]string, keys map[string]*crypto.PrivateKey, hashType uint32) error {
-	coinMap := utxo.NewEmptyCoinsMap()
-	for i, in := range tx.ins {
-		coin := coinMap.FetchCoin(in.PreviousOutPoint)
-		if coin == nil || coin.IsSpent() {
-			return errcode.New(errcode.TxErrNoPreviousOut)
-		}
-		scriptPubKey := coin.GetScriptPubKey()
-		sigData, scriptType, err := tx.signStep(redeemScripts, keys, hashType, scriptPubKey, i, coin.GetAmount())
-		if err != nil {
-			return err
-		}
-		if scriptType == script.ScriptPubkeyHash {
-			redeemScriptPubKey := script.NewScriptRaw(sigData)
-			redeemSigData, redeemScriptType, err := tx.signStep(redeemScripts, keys, hashType, redeemScriptPubKey, i, coin.GetAmount())
-			if err != nil {
-				return err
-			}
-			if redeemScriptType == script.ScriptHash {
-				return errcode.New(errcode.TxErrSignRawTransaction)
-			}
-			sigData = append(sigData, redeemSigData...)
-		}
-	}
-	return nil
-}
-
-func (tx *Tx) signStep(redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
-	hashType uint32, scriptPubKey *script.Script, nIn int, value amount.Amount) (sigData []byte, pubKeyType int, err error) {
+func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
+	hashType uint32, scriptPubKey *script.Script, nIn int, value amount.Amount) (sigData [][]byte, pubKeyType int, err error) {
 	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		return nil, script.ScriptNonStandard, errcode.New(errcode.TxErrInputsNotAvailable)
@@ -492,6 +463,13 @@ func (tx *Tx) signStep(redeemScripts map[string]string, keys map[string]*crypto.
 	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
 		return nil, pubKeyType, errcode.New(errcode.TxErrInputsNotAvailable)
 	}
+	if pubKeyType == script.ScriptMultiSig {
+		sigData = make([][]byte, len(pubKeys)-2)
+	} else {
+		sigData = make([][]byte, 1)
+	}
+
+	// return signatureData|hashType
 	if pubKeyType == script.ScriptPubkey {
 		pubKeyHashString := string(util.Hash160(pubKeys[0]))
 		privateKey := keys[pubKeyHashString]
@@ -501,8 +479,10 @@ func (tx *Tx) signStep(redeemScripts map[string]string, keys map[string]*crypto.
 		}
 		sigBytes := signature.Serialize()
 		sigBytes = append(sigBytes, byte(hashType))
-		return sigBytes, pubKeyType, nil
+		sigData = append(sigData, sigBytes)
+		return sigData, pubKeyType, nil
 	}
+	// return signatureData|hashType + pubKeyHashString
 	if pubKeyType == script.ScriptPubkeyHash {
 		pubKeyHashString := string(pubKeys[0])
 		privateKey := keys[pubKeyHashString]
@@ -513,14 +493,16 @@ func (tx *Tx) signStep(redeemScripts map[string]string, keys map[string]*crypto.
 		sigBytes := signature.Serialize()
 		sigBytes = append(sigBytes, byte(hashType))
 		sigBytes = append(sigBytes, []byte(pubKeyHashString)...)
-		return sigBytes, pubKeyType, nil
+		sigData = append(sigData, sigBytes)
+		return sigData, pubKeyType, nil
 	}
+	// signature1|hashType signature2|hashType...signatureM|hashType
 	if pubKeyType == script.ScriptMultiSig {
 		sigBytes := make([]byte, 0)
 		sigBytes = append(sigBytes, byte(0))
 		requiredSigs := int(pubKeys[0][0])
 		signed := 0
-		for _, e := range pubKeys[1:] {
+		for _, e := range pubKeys[1 : len(pubKeys)-2] {
 			pubKeyHashString := string(util.Hash160(e))
 			privateKey := keys[pubKeyHashString]
 			signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
@@ -529,20 +511,23 @@ func (tx *Tx) signStep(redeemScripts map[string]string, keys map[string]*crypto.
 			}
 			sigBytes = append(sigBytes, signature.Serialize()...)
 			sigBytes = append(sigBytes, byte(hashType))
+			sigData = append(sigData, sigBytes)
 			signed++
 		}
 		if signed != requiredSigs {
 			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 		}
-		return sigBytes, pubKeyType, nil
+		return sigData, pubKeyType, nil
 	}
+	// return redeemscript, outside will SignStep again use redeemScript
 	if pubKeyType == script.ScriptHash {
 		scriptHashString := string(pubKeys[0])
 		redeemScriptString := redeemScripts[scriptHashString]
 		if len(redeemScriptString) == 0 {
 			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 		}
-		return []byte(redeemScriptString), pubKeyType, nil
+		sigData = append(sigData, []byte(redeemScriptString))
+		return sigData, pubKeyType, nil
 	}
 	return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 }
@@ -556,6 +541,13 @@ func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey
 	}
 	signature, err = privateKey.Sign(hash[:])
 	return
+}
+func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
+	if i >= len(tx.ins) || i < 0 {
+		return errcode.New(errcode.TxErrInvalidIndexOfIn)
+	}
+	tx.ins[i].SetScriptSig(scriptSig)
+	return nil
 }
 
 //func (tx *Tx) Copy() *Tx {
