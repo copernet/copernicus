@@ -2,12 +2,12 @@ package log
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/util"
 )
 
 const (
@@ -15,6 +15,8 @@ const (
 
 	errModuleNotFound = "specified module not found"
 )
+
+var mapModule map[string]struct{}
 
 func Print(module string, level string, format string, reason ...interface{}) {
 	level = strings.ToLower(level)
@@ -38,30 +40,95 @@ func Print(module string, level string, format string, reason ...interface{}) {
 			logs.Notice(format, reason)
 		}
 	} else {
+		logs.GetLogger()
 		logs.Error(errModuleNotFound)
 	}
 }
 
 func isIncludeModule(module string) bool {
-	for _, item := range conf.AppConf.LogModule {
-		if item == module {
-			return true
-		}
+	module = strings.ToLower(module)
+	if _, ok := mapModule[module]; ok {
+		return true
 	}
 	return false
 }
 
+// Emergency logs a message at emergency level.
+func Emergency(f interface{}, v ...interface{}) {
+	logs.Emergency(f, v...)
+}
+
+// Alert logs a message at alert level.
+func Alert(f interface{}, v ...interface{}) {
+	logs.Alert(f, v...)
+}
+
+// Critical logs a message at critical level.
+func Critical(f interface{}, v ...interface{}) {
+	logs.Critical(f, v...)
+}
+
+// Error logs a message at error level.
+func Error(f interface{}, v ...interface{}) {
+	logs.Error(f, v...)
+}
+
+// Warning logs a message at warning level.
+func Warning(f interface{}, v ...interface{}) {
+	logs.Warning(f, v...)
+}
+
+// Warn compatibility alias for Warning()
+func Warn(f interface{}, v ...interface{}) {
+	logs.Warn(f, v...)
+}
+
+// Notice logs a message at notice level.
+func Notice(f interface{}, v ...interface{}) {
+	logs.Notice(f, v...)
+}
+
+// Informational logs a message at info level.
+func Informational(f interface{}, v ...interface{}) {
+	logs.Informational(f, v...)
+}
+
+// Info compatibility alias for Warning()
+func Info(f interface{}, v ...interface{}) {
+	logs.Info(f, v...)
+}
+
+// Debug logs a message at debug level.
+func Debug(f interface{}, v ...interface{}) {
+	logs.Debug(f, v...)
+}
+
+// Trace logs a message at trace level.
+// compatibility alias for Warning()
+func Trace(f interface{}, v ...interface{}) {
+	logs.Trace(f, v...)
+}
+
+func GetLogger() *logs.BeeLogger {
+	return logs.GetBeeLogger()
+}
+
 func init() {
-	defaultHomeDir := util.AppDataDir("copernicus", false)
-	logDir := filepath.Join(defaultHomeDir, defaultLogDirname)
+	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
+	if !conf.ExistDataDir(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			panic("logdir create failed: " + err.Error())
+		}
+	}
 
 	logConf := struct {
 		FileName string `json:"filename"`
 		Level    int    `json:"level"`
 		Daily    bool   `json:"daily"`
 	}{
-		FileName: logDir,
-		Level:    getLevel(conf.AppConf.LogLevel),
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    getLevel(conf.Cfg.Log.Level),
 		Daily:    false,
 	}
 
@@ -70,60 +137,17 @@ func init() {
 		panic(err)
 	}
 	logs.SetLogger(logs.AdapterFile, string(configuration))
-}
 
-// Emergency logs a message at emergency level.
-func Emergency(f interface{}, v ...interface{}) {
-	logs.Emergency(f, v)
-}
+	// output filename and line number
+	logs.EnableFuncCallDepth(true)
+	logs.SetLogFuncCallDepth(4)
+	// output async buffer
+	logs.Async(1e3)
 
-// Alert logs a message at alert level.
-func Alert(f interface{}, v ...interface{}) {
-	logs.Alert(f, v)
-}
-
-// Critical logs a message at critical level.
-func Critical(f interface{}, v ...interface{}) {
-	logs.Critical(f, v)
-}
-
-// Error logs a message at error level.
-func Error(f interface{}, v ...interface{}) {
-	logs.Error(f, v)
-}
-
-// Warning logs a message at warning level.
-func Warning(f interface{}, v ...interface{}) {
-	logs.Warning(f, v)
-}
-
-// Warn compatibility alias for Warning()
-func Warn(f interface{}, v ...interface{}) {
-	logs.Warn(f, v)
-}
-
-// Notice logs a message at notice level.
-func Notice(f interface{}, v ...interface{}) {
-	logs.Notice(f, v)
-}
-
-// Informational logs a message at info level.
-func Informational(f interface{}, v ...interface{}) {
-	logs.Informational(f, v)
-}
-
-// Info compatibility alias for Warning()
-func Info(f interface{}, v ...interface{}) {
-	logs.Info(f, v)
-}
-
-// Debug logs a message at debug level.
-func Debug(f interface{}, v ...interface{}) {
-	logs.Debug(f, v)
-}
-
-// Trace logs a message at trace level.
-// compatibility alias for Warning()
-func Trace(f interface{}, v ...interface{}) {
-	logs.Trace(f, v)
+	// init mapModule
+	mapModule = make(map[string]struct{})
+	for _, module := range conf.Cfg.Log.Module {
+		module = strings.ToLower(module)
+		mapModule[module] = struct{}{}
+	}
 }

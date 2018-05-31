@@ -81,7 +81,7 @@ func WriteVarInt(w io.Writer, val uint64) error {
 
 }
 
-func VarIntSerializeSize(val uint64) int {
+func VarIntSerializeSize(val uint64) uint32 {
 	if val < 0xfd {
 		return 1
 	}

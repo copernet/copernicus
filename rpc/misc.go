@@ -1,43 +1,47 @@
 package rpc
 
 import (
-	"fmt"
+	"encoding/hex"
 
 	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/internal/btcjson"
 	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcsuite/btcd/mempool"
+	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/util"
 )
 
 var miscHandlers = map[string]commandHandler{
-	"getinfo":                handleGetInfo, // complete
-	"validateaddress":        handleValidateAddress,
+	"getinfo":                handleGetInfo,         // complete
+	"validateaddress":        handleValidateAddress, // complete
 	"createmultisig":         handleCreatemultisig,
-	"verifymessage":          handleVerifyMessage,
-	"signmessagewithprivkey": handleSignMessageWithPrivkey,
-	"setmocktime":            handleSetMocktime,
-	"echo":                   handleEcho,
-	"help":                   handleHelp,
-	"stop":                   handleStop,
+	"verifymessage":          handleVerifyMessage,          // complete
+	"signmessagewithprivkey": handleSignMessageWithPrivkey, // complete
+	"setmocktime":            handleSetMocktime,            // complete
+	"echo":                   handleEcho,                   // complete
+	"help":                   handleHelp,                   // complete
+	"stop":                   handleStop,                   // complete
 }
 
+
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	best := chain.GlobalChain.Tip()
+	best := chain.GetInstance().Tip()
 	var height int32
 	if best == nil {
 		height = 0
 	}
 
 	ret := &btcjson.InfoChainResult{
-		Version:         protocol.Copernicus,
-		ProtocolVersion: int32(protocol.BitcoinProtocolVersion),
+		Version:         1000000*conf.AppMajor + 10000*conf.AppMinor + 100*conf.AppPatch,
+		ProtocolVersion: int32(wire.ProtocolVersion),
 		Blocks:          height,
 		TimeOffset:      util.GetTimeOffset(),
 		//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
-		Proxy:      conf.AppConf.Proxy,
-		Difficulty: getDifficulty(chain.GlobalChain.Tip()),
-		TestNet:    conf.AppConf.TestNet3,
-		RelayFee:   float64(mempool.DefaultMinRelayTxFee),
+		Proxy:      "", // todo define in conf
+		Difficulty: getDifficulty(chain.GetInstance().Tip()),
+		TestNet:    chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
+		RelayFee:   0, // todo define DefaultMinRelayTxFee
 	}
 
 	return ret, nil
@@ -45,17 +49,18 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 
 // handleValidateAddress implements the validateaddress command.
 func handleValidateAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.ValidateAddressCmd)
+	c := cmd.(*btcjson.ValidateAddressCmd)
 
 	result := btcjson.ValidateAddressChainResult{}
-	/*	addr, err := utils.DecodeAddress(c.Address, conf.AppConf.ChainParams)
-		if err != nil {
-			// Return the default value (false) for IsValid.
-			return result, nil
-		}
+	dest, err := script.AddressFromString(c.Address)
+	if err != nil {
+		result.IsValid = false
+		return result, nil
+	}
 
-		result.Address = addr.EncodeAddress()   */ // TODO realise
 	result.IsValid = true
+	result.Address = c.Address
+	result.ScriptPubKey = hex.EncodeToString(dest.EncodeToPubKeyHash())
 
 	return result, nil
 }
@@ -65,81 +70,100 @@ func handleCreatemultisig(s *Server, cmd interface{}, closeChan <-chan struct{})
 }
 
 func handleVerifyMessage(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		c := cmd.(*btcjson.VerifyMessageCmd)
+	/*	c := cmd.(*btcjson.VerifyMessageCmd)
 
-		// Decode the provided address.
-		params := msg.ActiveNetParams
-		addr, err := btcutil.DecodeAddress(c.Address, params)
+		addr, err := bitaddr.AddressFromString(c.Address)
 		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidAddressOrKey,
-				Message: "Invalid address or key: " + err.Error(),
-			}
-		}
-
-		// Only P2PKH addresses are valid for signing.
-		if _, ok := addr.(*btcutil.AddressPubKeyHash); !ok {
-			return nil, &btcjson.RPCError{
+			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrRPCType,
-				Message: "Address is not a pay-to-pubkey-hash address",
+				Message: "Invalid address",
 			}
 		}
 
-		// Decode base64 signature.
-		sig, err := base64.StdEncoding.DecodeString(c.Signature)
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCParse.Code,
-				Message: "Malformed base64 encoding: " + err.Error(),
+		hash160 := addr.EncodeToPubKeyHash()
+		if hash160 == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrRPCType,
+				Message: "Address does not refer to key",
 			}
 		}
 
-		// Validate the signature - this just shows that it was valid at all.
-		// we will compare it with the key next.
-		var buf bytes.Buffer
-		wire.WriteVarString(&buf, 0, "Bitcoin Signed Message:\n")
-		wire.WriteVarString(&buf, 0, c.Message)
-		expectedMessageHash := chainhash.DoubleHashB(buf.Bytes())
-		pk, wasCompressed, err := btcec.RecoverCompact(btcec.S256(), sig,
-			expectedMessageHash)
+		data := []byte(strMessageMagic + c.Message)
+		hash := chainhash.DoubleHashB(data)
+		originBytes, err := base64.StdEncoding.DecodeString(c.Signature)
 		if err != nil {
-			// Mirror Bitcoin Core behavior, which treats error in
-			// RecoverCompact as invalid signature.
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Malformed base64 encoding",
+			}
+		}
+
+		var pk crypto.PublicKey
+		pk, wasCompressed, err := RecoverCompact(curveInstance, originBytes, hash) // todo realise
+		if err != nil {
 			return false, nil
 		}
 
-		// Reconstruct the pubkey hash.
-		var serializedPK []byte
-		if wasCompressed {
-			serializedPK = pk.SerializeCompressed()
-		} else {
-			serializedPK = pk.SerializeUncompressed()
-		}
-		address, err := btcutil.NewAddressPubKey(serializedPK, params)
+		pubKeyBytes := pk.ToBytes()
+		addr2, err := bitaddr.AddressFromPublicKey(pubKeyBytes)
 		if err != nil {
-			// Again mirror Bitcoin Core behavior, which treats error in public key
-			// reconstruction as invalid signature.
-			return false, nil
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Invalid Public Key encoding",
+			}
 		}
 
-		// Return boolean if addresses match.
-		return address.EncodeAddress() == c.Address, nil
-	*/
+		return bytes.Equal(addr2.EncodeToPubKeyHash(), hash160), nil*/ //todo open
 	return nil, nil
 }
 
 func handleSignMessageWithPrivkey(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.SignMessageWithPrivkeyCmd)
+	/*	c := cmd.(*btcjson.SignMessageWithPrivkeyCmd)
+
+		bs, _, err := base58.CheckDecode(c.Privkey)
+		if err != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Invalid private key",
+			}
+		}
+		privKey := crypto.PrivateKeyFromBytes(bs)
+
+		data := []byte(strMessageMagic + c.Message) // todo define <strMessageMagic>
+		originBytes := util.DoubleSha256Bytes(data)
+		signature, err := privKey.Sign(originBytes)
+		if err != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Sign failed",
+			}
+		}
+		return base64.StdEncoding.EncodeToString(signature.Serialize()), nil*/ //todo open
 	return nil, nil
 }
 
 func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	/*	c := cmd.(*btcjson.SetMocktimeCmd)
+
+		if !consensus.ActiveNetParams.MineBlocksOnDemands {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCForbiddenBySafeMode,
+				Message: "etmocktime for regression testing (-regtest mode) only",
+			}
+		}
+
+		// For now, don't change mocktime if we're in the middle of validation, as
+		// this could have an effect on mempool time-based eviction, as well as
+		// IsCurrentForFeeEstimation() and IsInitialBlockDownload().
+		// TODO: figure out the right way to synchronize around mocktime, and
+		// ensure all callsites of GetTime() are accessing this safely.
+		util.SetMockTime(c.Timestamp)*/ // todo open
+
 	return nil, nil
 }
 
 func handleEcho(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	return cmd, nil
 }
 
 // handleHelp implements the help command.
@@ -179,7 +203,7 @@ func handleStop(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 	case s.requestProcessShutdown <- struct{}{}:
 	default:
 	}
-	return "stopping.", nil
+	return "Copernicus server stopping", nil
 }
 
 func registerMiscRPCCommands() {

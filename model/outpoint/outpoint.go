@@ -3,9 +3,8 @@ package outpoint
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
-	"strconv"
 	"github.com/btcboost/copernicus/util"
+	"io"
 )
 
 type OutPoint struct {
@@ -21,32 +20,31 @@ func NewOutPoint(hash util.Hash, index uint32) *OutPoint {
 	return &outPoint
 }
 
-/*
-func NewOutPoint() *OutPoint {
-	outPoint := OutPoint {
-		Hash: 0,
-		Index: -1,
-	}
-
-	return &outPoint
+func (outPoint *OutPoint) SerializeSize() uint32 {
+	return outPoint.EncodeSize()
 }
-*/
 
-func (outPoint *OutPoint) Serialize(io io.Writer) (int, error) {
-	// Allocate enough for hash string, colon, and 10 digits.  Although
-	// at the time of writing, the number of digits can be no greater than
-	// the length of the decimal representation of maxTxOutPerMessage, the
-	// maximum message payload may increase in the future and this
-	// optimization may go unnoticed, so allocate space for 10 decimal
-	// digits, which will fit any uint32.
-	buf := make([]byte, 2*util.Hash256Size+1, 2*util.Hash256Size+1+10)
-	copy(buf, outPoint.Hash.ToString())
-	buf[2*util.Hash256Size] = ':'
-	buf = strconv.AppendUint(buf, uint64(outPoint.Index), 10)
-	return io.Write(buf)
+func (outPoint *OutPoint) Serialize(writer io.Writer) error {
+	return outPoint.Encode(writer)
 }
 
 func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
+	return outPoint.Decode(reader)
+}
+
+func (outPoint *OutPoint) EncodeSize() uint32 {
+	return outPoint.Hash.EncodeSize() + 4
+}
+
+func (outPoint *OutPoint) Encode(writer io.Writer) error {
+	_, err := writer.Write(outPoint.Hash[:])
+	if err != nil {
+		return err
+	}
+	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
+}
+
+func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
 	_, err = io.ReadFull(reader, outPoint.Hash[:])
 	if err != nil {
 		return
@@ -55,16 +53,8 @@ func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
 	return
 }
 
-func (outPoint *OutPoint) WriteOutPoint(writer io.Writer) error {
-	_, err := writer.Write(outPoint.Hash.GetCloneBytes())
-	if err != nil {
-		return err
-	}
-	return util.BinarySerializer.PutUint32(writer, binary.LittleEndian, outPoint.Index)
-}
-
 func (outPoint *OutPoint) String() string {
-	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.ToString(), outPoint.Index)
+	return fmt.Sprintf("OutPoint ( hash:%s index: %d)", outPoint.Hash.String(), outPoint.Index)
 }
 
 func (outPoint *OutPoint) IsNull() bool {

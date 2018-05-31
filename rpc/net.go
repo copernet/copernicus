@@ -1,6 +1,16 @@
 package rpc
 
-import "github.com/btcboost/copernicus/service"
+import (
+	"fmt"
+	"math"
+	"time"
+
+	"github.com/btcboost/copernicus/net/server"
+	"github.com/btcboost/copernicus/net/wire"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/service"
+)
 
 var netHandlers = map[string]commandHandler{
 	"getconnectioncount": handleGetConnectionCount,
@@ -10,222 +20,209 @@ var netHandlers = map[string]commandHandler{
 	"disconnectnode":     handleDisconnectNode,
 	"getaddednodeinfo":   handleGetAddedNodeInfo,
 	"getnettotals":       handleGetNetTotals,
-	"getnetworkinfo":     handleGetnetWorkinfo,
+	"getnetworkinfo":     handleGetnetWorkInfo,
 	"setban":             handleSetBan,
 	"listbanned":         handleListBanned,
 	"clearbanned":        handleClearBanned,
-	"setnetworkactive":   handleSetnetWorkActive,
+	"setnetworkactive":   handleSetNetWorkActive,
 }
 
 func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		return s.cfg.ConnMgr.ConnectedCount(), nil
-	*/
-	return nil, nil
+	request := service.GetConnectionCountRequest{}
+	response, err := server.ProcessForRpc(request)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+	count, ok := response.(*service.GetConnectionCountResponse)
+	if !ok {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Server handle error",
+		}
+	}
+
+	return count.Count, nil
 }
 
 func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	// Ask server to ping \o_
-	/*	nonce, err := utils.RandomUint64()
-		if err != nil {
-			return nil, internalRPCError("Not sending ping - failed to "+
-				"generate nonce: "+err.Error(), "")
+	nonce := util.GetRand(math.MaxInt64)
+	pingCmd := wire.NewMsgPing(nonce)
+	_, err := server.ProcessForRpc(pingCmd)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
 		}
-		s.cfg.ConnMgr.BroadcastMessage(msg.InitPingMessage(nonce))
+	}
 
-		return nil, nil*/
 	return nil, nil
 }
 
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		peers := s.cfg.ConnMgr.ConnectedPeers()
-		syncPeerID := s.cfg.SyncMgr.SyncPeerID()
-		infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
-		for _, p := range peers {
-			statsSnap := p.ToPeer().StatsSnapshot()
-			info := &btcjson.GetPeerInfoResult{
-				ID:             statsSnap.ID,
-				Addr:           statsSnap.Addr,
-				AddrLocal:      p.ToPeer().LocalAddr().String(),
-				Services:       fmt.Sprintf("%08d", uint64(statsSnap.Services)),
-				RelayTxes:      !p.IsTxRelayDisabled(),
-				LastSend:       statsSnap.LastSend.Unix(),
-				LastRecv:       statsSnap.LastRecv.Unix(),
-				BytesSent:      statsSnap.BytesSent,
-				BytesRecv:      statsSnap.BytesRecv,
-				ConnTime:       statsSnap.ConnTime.Unix(),
-				PingTime:       float64(statsSnap.LastPingMicros),
-				TimeOffset:     statsSnap.TimeOffset,
-				Version:        statsSnap.Version,
-				SubVer:         statsSnap.UserAgent,
-				Inbound:        statsSnap.Inbound,
-				StartingHeight: statsSnap.StartingHeight,
-				CurrentHeight:  statsSnap.LastBlock,
-				BanScore:       int32(p.BanScore()),
-				FeeFilter:      p.FeeFilter(),
-				SyncNode:       statsSnap.ID == syncPeerID,
-			}
-			if p.ToPeer().LastPingNonce() != 0 {
-				wait := float64(time.Since(statsSnap.LastPingTime).Nanoseconds())
-				// We actually want microseconds.
-				info.PingWait = wait / 1000
-			}
-			infos = append(infos, info)
-		}
-		return infos, nil
-	*/
+	getPeerInfoCmd := &service.GetPeersInfoRequest{}
 
-	return nil, nil
+	ret, _ := server.ProcessForRpc(getPeerInfoCmd) // todo Alert: match with return type
+	peers := ret.([]server.RpcServerPeer)
+	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()
+	infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
+	for _, item := range peers {
+		statsSnap := item.ToPeer().StatsSnapshot()
+		info := &btcjson.GetPeerInfoResult{
+			ID:              statsSnap.ID,
+			Addr:            statsSnap.Addr,
+			AddrLocal:       item.ToPeer().LocalAddr().String(),
+			Services:        fmt.Sprintf("%08d", uint64(statsSnap.Services)),
+			RelayTxes:       !item.IsTxRelayDisabled(),
+			LastSend:        statsSnap.LastSend.Unix(),
+			LastRecv:        statsSnap.LastRecv.Unix(),
+			BytesSent:       statsSnap.BytesSent,
+			BytesRecv:       statsSnap.BytesRecv,
+			ConnTime:        statsSnap.ConnTime.Unix(),
+			TimeOffset:      statsSnap.TimeOffset,
+			PingTime:        float64(statsSnap.LastPingMicros),
+			MinPing:         statsSnap.MingPing,
+			Version:         statsSnap.Version,
+			SubVer:          statsSnap.UserAgent,
+			Inbound:         statsSnap.Inbound,
+			AddNode:         statsSnap.AddNode,
+			StartingHeight:  statsSnap.StartingHeight,
+			BanScore:        int32(item.BanScore()), // TODO
+			SyncedHeaders:   statsSnap.SyncedHeaders,
+			SyncedBlocks:    statsSnap.SyncedBlocks,
+			Inflight:        []int{}, // TODO
+			WhiteListed:     statsSnap.WhiteListed,
+			CashMagic:       statsSnap.UsesCashMagic,
+			BytesSendPerMsg: statsSnap.MapSendBytesPerMsgCmd,
+			BytesRecvPerMsg: statsSnap.MapRecvBytesPerMsgCmd,
+		}
+		if item.ToPeer().LastPingNonce() != 0 {
+			wait := float64(time.Since(statsSnap.LastPingTime).Nanoseconds())
+			// We actually want microseconds.
+			info.PingWait = wait / 1000
+		}
+		infos = append(infos, info)
+	}
+	return infos, nil
 }
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-
-		c := cmd.(*btcjson.AddNodeCmd)
-
-		addr := normalizeAddress(c.Addr, s.cfg.ChainParams.DefaultPort)
-		nodeCmd := service.NodeOperateMsg{addr, 0}
-		_, err := s.Handler.ProcessForRpc(nodeCmd)
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidParameter,
-				Message: err.Error(),
-			}
+	c := cmd.(*btcjson.AddNodeCmd)
+	_, err := server.ProcessForRpc(c)
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidParameter,
+			Message: err.Error(),
 		}
+	}
 
-		// no data returned unless an error.
-		return nil, nil
 	return nil, nil
 }
 
 func handleDisconnectNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.DisconnectNodeCmd)
+
+	_, err := server.ProcessForRpc(c)
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidParameter,
+			Message: err.Error(),
+		}
+	}
+
 	return nil, nil
 }
 
 func handleGetAddedNodeInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		c := cmd.(*btcjson.GetAddedNodeInfoCmd)
+	c := cmd.(*btcjson.GetAddedNodeInfoCmd)
 
-		// Retrieve a list of persistent (added) peers from the server and
-		// filter the list of peers per the specified address (if any).
-		peers := s.cfg.ConnMgr.PersistentPeers()
-		if c.Node != nil {
-			node := *c.Node
-			found := false
-			for i, peer := range peers {
-				if peer.ToPeer().Addr() == node {
-					peers = peers[i : i+1]
-					found = true
-				}
-			}
-			if !found {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCClientNodeNotAdded,
-					Message: "Node has not been added",
-				}
-			}
+	ret, err := server.ProcessForRpc(c)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
 		}
+	}
 
-		// Without the dns flag, the result is just a slice of the addresses as
-		// strings.
-		if !c.DNS {
-			results := make([]string, 0, len(peers))
-			for _, peer := range peers {
-				results = append(results, peer.ToPeer().Addr())
-			}
-			return results, nil
-		}
-
-		// With the dns flag, the result is an array of JSON objects which
-		// include the result of DNS lookups for each peer.
-		results := make([]*btcjson.GetAddedNodeInfoResult, 0, len(peers))
-		for _, rpcPeer := range peers {
-			// Set the "address" of the peer which could be an ip address
-			// or a domain name.
-			peer := rpcPeer.ToPeer()
-			var result btcjson.GetAddedNodeInfoResult
-			result.AddedNode = peer.Addr()
-			result.Connected = btcjson.Bool(peer.Connected())
-
-			// Split the address into host and port portions so we can do
-			// a DNS lookup against the host.  When no port is specified in
-			// the address, just use the address as the host.
-			host, _, err := net.SplitHostPort(peer.Addr())
-			if err != nil {
-				host = peer.Addr()
-			}
-
-			var ipList []string
-			switch {
-			case net.ParseIP(host) != nil, strings.HasSuffix(host, ".onion"):
-				ipList = make([]string, 1)
-				ipList[0] = host
-			default:
-				// Do a DNS lookup for the address.  If the lookup fails, just
-				// use the host.
-				ips, err := btcdLookup(host)
-				if err != nil {
-					ipList = make([]string, 1)
-					ipList[0] = host
-					break
-				}
-				ipList = make([]string, 0, len(ips))
-				for _, ip := range ips {
-					ipList = append(ipList, ip.String())
-				}
-			}
-
-			// Add the addresses and connection info to the result.
-			addrs := make([]btcjson.GetAddedNodeInfoResultAddr, 0, len(ipList))
-			for _, ip := range ipList {
-				var addr btcjson.GetAddedNodeInfoResultAddr
-				addr.Address = ip
-				addr.Connected = "false"
-				if ip == host && peer.Connected() {
-					addr.Connected = directionString(peer.Inbound())
-				}
-				addrs = append(addrs, addr)
-			}
-			result.Addresses = &addrs
-			results = append(results, &result)
-		}
-		return results, nil
-	*/
-
-	return nil, nil
+	return ret, nil
 }
 
 func handleGetNetTotals(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-			totalBytesRecv, totalBytesSent := s.cfg.ConnMgr.NetTotals()
-			reply := &btcjson.GetNetTotalsResult{
-				TotalBytesRecv: totalBytesRecv,
-				TotalBytesSent: totalBytesSent,
-				TimeMillis:     time.Now().UTC().UnixNano() / int64(time.Millisecond),
-			}
+	ret, err := server.ProcessForRpc(&service.GetNetTotalsRequest{})
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidParameter,
+			Message: err.Error(),
 		}
-	*/
-	return nil, nil
+	}
+	return ret, nil
 }
 
-func handleGetnetWorkinfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+func handleGetnetWorkInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GetNetworkInfoCmd)
+
+	ret, err := server.ProcessForRpc(c)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+
+	return ret, nil
 }
 
 func handleSetBan(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.SetBanCmd)
+
+	_, err := server.ProcessForRpc(c)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+
 	return nil, nil
 }
 
 func handleListBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	ret, err := server.ProcessForRpc(&service.ListBannedRequest{})
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+	return ret, nil
 }
 
 func handleClearBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	_, err := server.ProcessForRpc(&service.ClearBannedRequest{})
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+
 	return nil, nil
 }
 
-func handleSetnetWorkActive(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+func handleSetNetWorkActive(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.SetNetWorkActiveCmd)
+
+	ret, err := server.ProcessForRpc(c)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+
+	return ret, nil
 }
 
 func registerNetRPCCommands() {

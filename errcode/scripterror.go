@@ -2,10 +2,8 @@ package errcode
 
 type ScriptErr int
 
-const ScriptErrBase ScriptErr = 2000
-
 const (
-	ScriptErrOK = ScriptErrBase + iota
+	ScriptErrOK ScriptErr = ScriptErrorBase + iota
 	ScriptErrUnknownError
 	ScriptErrEvalFalse
 	ScriptErrOpReturn
@@ -55,7 +53,7 @@ const (
 
 	/* softFork safeness */
 
-	ScriptErrDiscourageUpgradableNOPs
+	ScriptErrDiscourageUpgradableNops
 	ScriptErrDiscourageUpgradableWitnessProgram
 
 	/* misc */
@@ -68,7 +66,17 @@ const (
 	ScriptErrErrorCount
 
 	// other errcode
+	ScriptErrSize
+	ScriptErrNonStandard
+	ScriptErrNullData
+	ScriptErrBareMultiSig
+	ScriptErrMultiOpReturn
+	ScriptErrInvalidSignatureEncoding
 	ScriptErrNumberOverflow
+	ScriptErrNonMinimalEncodedNumber
+	ScriptErrInvalidOpCode
+	ScriptErrInValidPubKeyOrSig
+	ScriptErrScriptSigNotPushOnly
 )
 
 /*
@@ -168,7 +176,7 @@ func scriptErrorString(scriptError ScriptErr) string {
 		return "OP_IF/NOTIF argument must be minimal"
 	case ScriptErrSigNullFail:
 		return "Signature must be zero for failed CHECK(MULTI)SIG operation"
-	case ScriptErrDiscourageUpgradableNOPs:
+	case ScriptErrDiscourageUpgradableNops:
 		return "NOPx reserved for soft-fork upgrades"
 	case ScriptErrDiscourageUpgradableWitnessProgram:
 		return "Witness version reserved for soft-fork upgrades"

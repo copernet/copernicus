@@ -93,8 +93,7 @@ func (parsedOpCode *ParsedOpCode) CheckMinimalDataPush() bool {
 	}
 	if dataLen == 1 {
 		if data[0] >= 1 && data[0] <= 16 {
-			if opcode != OP_1 + data[0] - 1 {
-				// Should have used OP_1 .. OP_16
+			if opcode != OP_1+data[0]-1 {
 				return false
 			}
 		} else if data[0] == 0x81 {

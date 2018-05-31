@@ -2,10 +2,10 @@ package crypto
 
 import (
 	"encoding/hex"
+	"errors"
 	"reflect"
 
 	"github.com/btcboost/secp256k1-go/secp256k1"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -78,7 +78,6 @@ func IsCompressedOrUncompressedPubKey(bytes []byte) bool {
 		return false
 	}
 	return true
-
 }
 
 func IsCompressedPubKey(bytes []byte) bool {
@@ -89,17 +88,4 @@ func IsCompressedPubKey(bytes []byte) bool {
 		return false
 	}
 	return true
-}
-
-func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) (bool, error) {
-	if flags&ScriptVerifyStrictenc != 0 && !IsCompressedOrUncompressedPubKey(vchPubKey) {
-		return false, ScriptErr(ScriptErrPubKeyType)
-
-	}
-	// Only compressed keys are accepted when
-	// ScriptVerifyCompressedPubKeyType is enabled.
-	if flags&ScriptVerifyCompressedPubKeyType != 0 && !IsCompressedPubKey(vchPubKey) {
-		return false, ScriptErr(ScriptErrNonCompressedPubKey)
-	}
-	return true, nil
 }

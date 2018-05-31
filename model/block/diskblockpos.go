@@ -9,45 +9,40 @@ import (
 
 type DiskBlockPos struct {
 	File int
-	Pos  int
+	Pos  uint32
 }
 
 type DiskTxPos struct {
 	BlockIn    *DiskBlockPos
-	TxOffsetIn int
+	TxOffsetIn uint32
 }
 
-// TxOffset is after header
-var TxOffset int
 
 func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
-	err := util.WriteVarInt(writer, uint64(diskBlockPos.File))
-	if err != nil {
-		return err
-	}
-	return util.WriteVarInt(writer, uint64(diskBlockPos.Pos))
+	return  util.WriteElements(writer, &diskBlockPos.File, &diskBlockPos.Pos)
 }
 
-func (diskTxPos *DiskTxPos) SerializeDiskTxPos(writer io.Writer) error {
+func (diskTxPos *DiskTxPos) Serialize(writer io.Writer) error {
 	err := diskTxPos.BlockIn.Serialize(writer)
 	if err != nil {
 		return err
 	}
-	return util.WriteVarInt(writer, uint64(diskTxPos.TxOffsetIn))
+	return util.WriteElements(writer, diskTxPos.TxOffsetIn)
 }
 
-func DeserializeDiskBlock(reader io.Reader) (*DiskBlockPos, error) {
-	file, err := util.ReadVarInt(reader)
-	if err != nil {
-		return nil, err
-	}
-	pos, err := util.ReadVarInt(reader)
+func (dbp *DiskBlockPos) Unserialize(reader io.Reader) (error) {
+	return util.ReadElements(reader, &dbp.File, &dbp.Pos)
+	
+}
 
-	if err != nil {
-		return nil, err
+func (dtp *DiskTxPos) Unserialize(reader io.Reader) (error) {
+	dbp := new(DiskBlockPos)
+	err := dbp.Unserialize(reader)
+	if err != nil{
+		return err
 	}
-	diskBlockPos := DiskBlockPos{File: int(file), Pos: int(pos)}
-	return &diskBlockPos, nil
+	dtp.BlockIn = dbp
+	return util.ReadElements(reader, &dtp.TxOffsetIn)
 }
 
 func (diskBlockPos *DiskBlockPos) SetNull() {
@@ -64,24 +59,19 @@ func (diskBlockPos *DiskBlockPos) IsNull() bool {
 	return diskBlockPos.File == -1
 }
 
-func (diskBlockPos *DiskBlockPos) ToString() string {
+func (diskBlockPos *DiskBlockPos) String() string {
 	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
 }
 
-func NewDiskBlockPos(file int, pos int) *DiskBlockPos {
+func NewDiskBlockPos(file int, pos uint32) *DiskBlockPos {
 	diskBlockPos := DiskBlockPos{File: file, Pos: pos}
 	return &diskBlockPos
 }
 
-func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn int) *DiskTxPos {
+func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn uint32) *DiskTxPos {
 	diskTxPos := &DiskTxPos{
 		BlockIn:    blockIn,
 		TxOffsetIn: offsetIn,
 	}
 	return diskTxPos
-}
-func SetNull() {
-	var blockPos *DiskBlockPos
-	blockPos.SetNull()
-	TxOffset = 0
 }

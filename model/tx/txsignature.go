@@ -1,4 +1,16 @@
 package tx
+
+import (
+	"bytes"
+	"encoding/binary"
+	"github.com/btcboost/copernicus/crypto"
+	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/btcboost/copernicus/model/script"
+	"github.com/btcboost/copernicus/model/txout"
+	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/util/amount"
+)
+
 /*
 import (
 	"bytes"
@@ -60,7 +72,7 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 	bytes = make([]byte, 0, len(stk))
 	for i := 0; i < len(stk); i++ {
 		/** Serialize the passed scriptCode, skipping OP_CODESEPARATORs */
-		/*
+/*
 		parsedOpcode := stk[i]
 		if parsedOpcode.opValue == OP_CODESEPARATOR {
 
@@ -74,51 +86,210 @@ func GetScriptBytes(script *Script) (bytes []byte, err error) {
 }
 
 var NilScript = NewScriptRaw(make([]byte, 0))
+*/
 
-func SignatureHash(tx *Tx, script *Script, hashType uint32, nIn int) (result utils.Hash, err error) {
-	if (hashType&0x1f == crypto.SigHashSingle) &&
-		nIn >= len(tx.Outs) {
-		return utils.HashOne, nil
+func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
+	money amount.Amount, flags uint32) (result util.Hash, err error) {
+
+	var hashBuffer bytes.Buffer
+	var sigHashAnyOneCanPay bool = false
+	if hashType&crypto.SigHashAnyoneCanpay == crypto.SigHashAnyoneCanpay {
+		sigHashAnyOneCanPay = true
+	}
+	var sigHashNone bool = false
+	if hashType&crypto.SigHashMask == crypto.SigHashNone {
+		sigHashNone = true
+	}
+	var sigHashSingle bool = false
+	if hashType&crypto.SigHashMask == crypto.SigHashSingle {
+		sigHashSingle = true
+	}
+	if hashType&crypto.SigHashForkID == crypto.SigHashForkID &&
+		flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
+		var hashPrevouts util.Hash
+		var hashSequence util.Hash
+		var hashOutputs util.Hash
+
+		if !sigHashAnyOneCanPay {
+			hashPrevouts = GetPreviousOutHash(transaction)
+		}
+		if !sigHashAnyOneCanPay && !sigHashSingle && !sigHashNone {
+			hashSequence = GetSequenceHash(transaction)
+		}
+		if !sigHashSingle && !sigHashNone {
+			hashOutputs, _ = GetOutputsHash(transaction.GetOuts())
+		} else if sigHashSingle && nIn < len(transaction.GetOuts()) {
+			hashOutputs, _ = GetOutputsHash(transaction.GetOuts()[nIn : nIn+1])
+		}
+
+		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, uint32(transaction.GetVersion()))
+		hashBuffer.Write(hashPrevouts[:])
+		hashBuffer.Write(hashSequence[:])
+		transaction.GetIns()[nIn].PreviousOutPoint.Encode(&hashBuffer)
+		err = s.Serialize(&hashBuffer)
+		if err != nil {
+			return
+		}
+		//input preout amount
+		util.BinarySerializer.PutUint64(&hashBuffer, binary.LittleEndian, uint64(money))
+		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[nIn].Sequence)
+		hashBuffer.Write(hashOutputs[:])
+		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetLockTime())
+		util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, hashType)
+
+		result = util.Sha256Hash(hashBuffer.Bytes())
+	}
+	// The SigHashSingle signature type signs only the corresponding input
+	// and output (the output with the same index number as the input).
+	//
+	// Since transactions can have more inputs than outputs, this means it
+	// is improper to use SigHashSingle on input indices that don't have a
+	// corresponding output.
+	//
+	// A bug in the original Satoshi client implementation means specifying
+	// an index that is out of range results in a signature hash of 1 (as a
+	// uint256 little endian).  The original intent appeared to be to
+	// indicate failure, but unfortunately, it was never checked and thus is
+	// treated as the actual signature hash.  This buggy behavior is now
+	// part of the consensus and a hard fork would be required to fix it.
+	//
+	// Due to this, care must be taken by software that creates transactions
+	// which make use of SigHashSingle because it can lead to an extremely
+	// dangerous situation where the invalid inputs will end up signing a
+	// hash of 1.  This in turn presents an opportunity for attackers to
+	// cleverly construct transactions which can steal those coins provided
+	// they can reuse signatures.
+	if sigHashSingle && nIn >= len(transaction.GetOuts()) {
+		return util.HashOne, nil
+	}
+	if nIn >= len(transaction.GetIns()) {
+		return util.HashOne, nil
 	}
 
-	txCopy := tx.Copy()
-	for i := range tx.Ins {
-		if i == nIn {
-			scriptBytes, _ := GetScriptBytes(script)
-			txCopy.Ins[i].Script = NewScriptRaw(scriptBytes)
+	util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, uint32(transaction.GetVersion()))
+	var inputsCount int
+	if sigHashAnyOneCanPay {
+		inputsCount = 1
+	} else {
+		inputsCount = len(transaction.GetIns())
+	}
+	util.WriteVarInt(&hashBuffer, uint64(inputsCount))
+
+	ss := s.RemoveOpcode(opcodes.OP_CODESEPARATOR)
+
+	// encode tx.inputs
+	var i int
+	for i = 0; i < inputsCount; i++ {
+		transaction.GetIns()[nIn].PreviousOutPoint.Encode(&hashBuffer)
+		if sigHashAnyOneCanPay {
+			ss.Serialize(&hashBuffer)
+			util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[nIn].Sequence)
 		} else {
-			txCopy.Ins[i].Script = NilScript
-		}
-	}
-	switch hashType & 0x1f {
-	case crypto.SigHashNone:
-		txCopy.Outs = make([]*TxOut, 0)
-		for i := range txCopy.Ins {
-			if nIn != i {
-				txCopy.Ins[i].Sequence = 0
-			}
-		}
-	case crypto.SigHashSingle:
-		txCopy.Outs = txCopy.Outs[:nIn+1]
-		for i := 0; i < nIn; i++ {
-			txCopy.Outs[i].value = -1
-			txCopy.Outs[i].scriptPubKey = NilScript
-		}
-		for i := range txCopy.Ins {
 			if i != nIn {
-				txCopy.Ins[i].Sequence = 0
+				// push empty script
+				util.BinarySerializer.PutUint64(&hashBuffer, binary.LittleEndian, 0)
+				if sigHashSingle || sigHashNone {
+					// push empty sequence
+					util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, 0)
+				} else {
+					util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[i].Sequence)
+				}
+			} else {
+				ss.Serialize(&hashBuffer)
+				util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[i].Sequence)
 			}
 		}
-	case crypto.SigHashAll:
 	}
-	if hashType&crypto.SigHashAnyoneCanpay != 0 {
-		txCopy.Ins = txCopy.Ins[nIn : nIn+1]
+
+	// encode tx.outs
+	var outsCount int
+	if sigHashNone {
+		outsCount = 0
+	} else {
+		if sigHashSingle {
+			outsCount = nIn + 1
+		} else {
+			outsCount = len(transaction.GetIns())
+		}
 	}
-	buf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
-	txCopy.Serialize(buf)
-	binary.Write(buf, binary.LittleEndian, hashType) //todo can't write int
-	sha256 := crypto.DoubleSha256Bytes(buf.Bytes())
-	result = utils.Hash{}
-	result.SetBytes(sha256)
+	util.WriteVarInt(&hashBuffer, uint64(outsCount))
+	for m := 0; m < outsCount; m++ {
+		if sigHashSingle && m != nIn {
+			to := txout.NewTxOut(-1, nil)
+			to.Encode(&hashBuffer)
+		} else {
+			transaction.GetOuts()[m].Encode(&hashBuffer)
+		}
+	}
+
+	// encode tx.locktime
+	util.BinarySerializer.PutUint64(&hashBuffer, binary.LittleEndian, uint64(transaction.GetLockTime()))
+	result = util.Sha256Hash(hashBuffer.Bytes())
 	return
-}*/
+}
+
+func GetPreviousOutHash(tx *Tx) (h util.Hash) {
+	ins := tx.GetIns()
+	var bPreOut bytes.Buffer
+	for _, e := range ins {
+		e.PreviousOutPoint.Encode(&bPreOut)
+	}
+	h = util.Sha256Hash(bPreOut.Bytes())
+	return
+}
+
+func GetSequenceHash(tx *Tx) (h util.Hash) {
+	ins := tx.GetIns()
+	buf := make([]byte, 4*len(ins))
+	for _, e := range ins {
+		tempbuf := make([]byte, 4)
+		binary.LittleEndian.PutUint32(tempbuf, e.Sequence)
+		buf = append(buf, tempbuf...)
+	}
+	h = util.Sha256Hash(buf)
+	return
+}
+
+func GetOutputsHash(outs []*txout.TxOut) (h util.Hash, err error) {
+	var bOut bytes.Buffer
+	for _, e := range outs {
+		err = e.Serialize(&bOut)
+		if err != nil {
+			return
+		}
+	}
+	h = util.Sha256Hash(bOut.Bytes())
+	return
+}
+
+func verifySignature(vchSig []byte, pubkey *crypto.PublicKey, sigHash util.Hash) (bool, error) {
+	sign, err := crypto.ParseDERSignature(vchSig)
+	if err != nil {
+		return false, err
+	}
+	result := sign.Verify(sigHash.GetCloneBytes(), pubkey)
+	return result, nil
+}
+
+func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
+	if len(vchPubKey) == 0 {
+		return false
+	}
+	if len(vchSigIn) == 0 {
+		return false
+	}
+	publicKey, err := crypto.ParsePubKey(vchPubKey)
+	if err != nil {
+		return false
+	}
+
+	ret, err := verifySignature(vchSigIn, publicKey, signHash)
+	if err != nil {
+		return false
+	}
+	if !ret {
+		return false
+	}
+	return true
+
+}

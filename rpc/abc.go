@@ -3,10 +3,10 @@ package rpc
 import (
 	"fmt"
 	"strconv"
-	"sync/atomic"
 
-	"github.com/btcboost/copernicus/consensus"
-	"github.com/btcboost/copernicus/internal/btcjson"
+	"github.com/btcboost/copernicus/model/consensus"
+	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/btcboost/copernicus/service/mining"
 )
 
 var abcHandlers = map[string]commandHandler{
@@ -16,7 +16,7 @@ var abcHandlers = map[string]commandHandler{
 
 func handleGetExcessiveBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return &btcjson.ExcessiveBlockSizeResult{
-		ExcessiveBlockSize: consensus.MaxBlockSize,
+		ExcessiveBlockSize: mining.GetBlockSize(),
 	}, nil
 }
 
@@ -32,13 +32,8 @@ func handleSetExcessiveBlock(s *Server, cmd interface{}, closeChan <-chan struct
 	}
 
 	// Set the new max block size.
-	ok := atomic.CompareAndSwapUint64(&consensus.MaxBlockSize, consensus.MaxBlockSize, c.BlockSize)
-	if !ok {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.ErrInvalidParameter,
-			Message: "Unexpected error",
-		}
-	}
+	mining.SetBlockSize(c.BlockSize)
+
 	// settingsToUserAgentString();
 	return "Excessive Block set to " + fmt.Sprintf("%d", c.BlockSize) + " bytes", nil
 }
