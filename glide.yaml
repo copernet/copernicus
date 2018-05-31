@@ -37,6 +37,8 @@ import:
   version: ^1.1.0
 - package: gopkg.in/fatih/set.v0
   version: ^0.1.0
+- package: gopkg.in/go-playground/validator.v8
+  version: ^8.18.2
 testImport:
 - package: github.com/btcsuite/btcd
   subpackages:

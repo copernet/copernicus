@@ -1,5 +1,5 @@
-hash: b588d637e5eb2fb74f60934593c8ca1c4d1e0a098c696d39dbe0fb8ebac68b98
-updated: 2018-05-31T15:24:49.845078+08:00
+hash: d2d08fd96a2372bac5780bc704d13c2cf40da6b180e35802ae14c69abf2156d0
+updated: 2018-05-31T16:24:23.834051+08:00
 imports:
 - name: github.com/astaxie/beego
   version: bf5c5626ab429e66d88602e1ab1ab5fbf4629a01
@@ -100,6 +100,8 @@ imports:
   version: 44cc805cf13205b55f69e14bcb69867d1ae92f98
 - name: gopkg.in/fatih/set.v0
   version: 168a5d71ba0669ae06888225478d73a113f1687e
+- name: gopkg.in/go-playground/validator.v8
+  version: 5f1438d3fca68893a817e4a66806cea46a9e4ebf
 - name: gopkg.in/yaml.v2
   version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 testImports:
