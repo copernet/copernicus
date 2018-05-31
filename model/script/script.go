@@ -386,6 +386,7 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 		return
 	}
 	//buf := scriptPool.Borrow(count)
+	script = make([]byte, count)
 	_, err = io.ReadFull(reader, script)
 	if err != nil {
 		//scriptPool.Return(buf)
