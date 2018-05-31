@@ -9,14 +9,13 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 )
 
-func CheckBlockHeader(bh * block.BlockHeader,  checkPOW bool) error {
+func CheckBlockHeader(bh * block.BlockHeader) error {
 	hash := bh.GetHash()
 	params := chain.GetInstance().GetParams()
-	if checkPOW{
-		flag := new(pow.Pow).CheckProofOfWork(&hash,bh.Bits, params)
-		if !flag{
-			return  errcode.New(errcode.ErrorPowCheckErr)
-		}
+	flag := new(pow.Pow).CheckProofOfWork(&hash,bh.Bits, params)
+	if !flag{
+		err := errcode.New(errcode.ErrorPowCheckErr)
+		return err
 	}
 	return nil
 }

@@ -16,7 +16,7 @@ import (
 // or an activated best chain. pblock is either nullptr or a pointer to a block
 // that is already loaded (to avoid loading it again from disk).
 // Find the best known block, and make it the tip of the block chain
-func ActivateBestChain(state *block.ValidationState, pblock *block.Block) bool {
+func ActivateBestChain(pblock *block.Block) error {
 	// Note that while we're often called here from ProcessNewBlock, this is
 	// far from a guarantee. Things in the P2P/RPC will often end up calling
 	// us in the middle of ProcessNewBlock - do not assume pblock is set
@@ -50,7 +50,7 @@ func ActivateBestChain(state *block.ValidationState, pblock *block.Block) bool {
 
 			// Whether we have anything to do at all.
 			if pindexMostWork == nil || pindexMostWork == pindexOldTip {
-				return true
+				return nil
 			}
 
 			fInvalidFound := false
@@ -64,8 +64,8 @@ func ActivateBestChain(state *block.ValidationState, pblock *block.Block) bool {
 				tmpBlock = nullBlockPtr
 			}
 
-			if !ActivateBestChainStep(state, pindexMostWork, tmpBlock, &fInvalidFound, connTrace) {
-				return false
+			if err:=ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace);err!=nil {
+				return err
 			}
 
 			if fInvalidFound {
@@ -94,15 +94,15 @@ func ActivateBestChain(state *block.ValidationState, pblock *block.Block) bool {
 		}
 	}
 	// Write changes periodically to disk, after relay.
-	ok := disk.FlushStateToDisk(state, disk.FlushStatePeriodic, 0)
-	return ok
+	err := disk.FlushStateToDisk(disk.FlushStatePeriodic, 0)
+	return err
 }
 
 // ActivateBestChainStep Try to make some progress towards making pindexMostWork
 // the active block. pblock is either nullptr or a pointer to a CBlock corresponding to
 // pindexMostWork.
-func ActivateBestChainStep(state *block.ValidationState, pindexMostWork *blockindex.BlockIndex,
-	pblock *block.Block, fInvalidFound *bool, connTrace connectTrace) bool {
+func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
+	pblock *block.Block, fInvalidFound *bool, connTrace connectTrace) error {
 
 	// has held cs_main lock
 	gChain := mchain.GetInstance()
@@ -112,8 +112,8 @@ func ActivateBestChainStep(state *block.ValidationState, pindexMostWork *blockin
 	// Disconnect active blocks which are no longer in the best chain.
 	fBlocksDisconnected := false
 	for pindexOldTip != nil && pindexOldTip != pindexFork {
-		if !DisconnectTip(state, false) {
-			return false
+		if err := DisconnectTip(false);err!=nil {
+			return err
 		}
 		fBlocksDisconnected = true
 	}
@@ -149,23 +149,14 @@ func ActivateBestChainStep(state *block.ValidationState, pindexMostWork *blockin
 			if pindexConnect != pindexMostWork {
 				tmpBlock = nil
 			}
-			if !ConnectTip(state, pindexConnect, tmpBlock, connTrace) {
-				if state.IsInvalid() {
-					// The block violates a core rule.  todo
-					if !state.CorruptionPossible() {
-						// InvalidChainFound(vpindexToConnect[len(vpindexToConnect)-1])
-					}
-					state = block.NewValidationState()
-					*fInvalidFound = true
-					fContinue = false
-					// If we didn't actually connect the block, don't notify
-					// listeners about it
-					delete(connTrace, pindexConnect)
-					break
-				} else {
-					// A system error occurred (disk space, database error, ...)
-					return false
-				}
+			if err := ConnectTip(pindexConnect, tmpBlock, connTrace);err!=nil {
+				
+				*fInvalidFound = true
+				fContinue = false
+				// If we didn't actually connect the block, don't notify
+				// listeners about it
+				delete(connTrace, pindexConnect)
+				return err
 			} else {
 				currentTip := gChain.Tip()
 				if pindexOldTip == nil || currentTip.ChainWork.Cmp(&pindexOldTip.ChainWork) > 0 {
@@ -182,11 +173,11 @@ func ActivateBestChainStep(state *block.ValidationState, pindexMostWork *blockin
 		lmp.RemoveForReorg( currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
 	}
 	lmp.CheckMempool()
-	return true
+	return nil
 }
 
 
 
-func CheckBlockIndex() bool{
-	return true
+func CheckBlockIndex() error{
+	return nil
 }

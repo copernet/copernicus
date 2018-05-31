@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 	
+	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
@@ -32,21 +33,16 @@ import (
 
 var HashAssumeValid util.Hash
 
-func ConnectBlock(pblock *block.Block, state *block.ValidationState,
-	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) bool {
+func ConnectBlock(pblock *block.Block,
+	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) (error) {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad block in
-	if lblock.CheckBlock(pblock, state, true,
-		true) {
-		return false
+	if err := lblock.CheckBlock(pblock);err!=nil{
+		return err
 	}
-	// if err := ltx.CheckBlockTransactions(pblock.Txs, pindex.Height, lockTime, blockReward, maxBlockSigOps); err != nil{
-	// 	log.Error(fmt.Sprintf("CheckBlock: %#v", state))
-	// 	return false
-	// }
 
 	// Verify that the view's current state corresponds to the previous block
 	hashPrevBlock := *pindex.Prev.GetBlockHash()
@@ -63,7 +59,7 @@ func ConnectBlock(pblock *block.Block, state *block.ValidationState,
 		if !fJustCheck {
 			view.SetBestBlock(*pindex.GetBlockHash())
 		}
-		return true
+		return nil
 	}
 
 	fScriptChecks := true
@@ -147,19 +143,19 @@ func ConnectBlock(pblock *block.Block, state *block.ValidationState,
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags, fScriptChecks, blockSubSidy, pindex.Height)
 	if err != nil {
-		return false
+		return err
 	}
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
 	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
 		if UndoPos.IsNull() {
-			var pos *block.DiskBlockPos = block.NewDiskBlockPos(pindex.File, 0)
+			pos := block.NewDiskBlockPos(pindex.File, 0)
 
-			if err := disk.FindUndoPos(state, pindex.File, pos, blockUndo.SerializeSize()); err != nil {
-				return disk.AbortNode(state, "Failed to FindUndoPos", "")
+			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()); err != nil {
+				return err
 			}
-			if !disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet) {
-				return disk.AbortNode(state, "Failed to write undo data", "")
+			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet);err!=nil {
+				 return err
 			}
 
 			// update nUndoPos in block index
@@ -172,11 +168,11 @@ func ConnectBlock(pblock *block.Block, state *block.ValidationState,
 	// add this block to the view's block chain
 	coinsMap.SetBestBlock(blockHash)
 	*view = *coinsMap
-	return true
+	return nil
 }
 
 //todo
-func InvalidBlockFound(pindex *blockindex.BlockIndex, state *block.ValidationState) {
+func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 
 }
 
@@ -189,8 +185,8 @@ type connectTrace map[*blockindex.BlockIndex]*block.Block
 // The block is always added to connectTrace (either after loading from disk or
 // by copying block) - if that is not intended, care must be taken to remove
 // the last entry in blocksConnected in case of failure.
-func ConnectTip(state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
-	block *block.Block, connTrace connectTrace) bool {
+func ConnectTip(pIndexNew *blockindex.BlockIndex,
+	block *block.Block, connTrace connectTrace) error {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 
@@ -203,7 +199,7 @@ func ConnectTip(state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
-			return disk.AbortNode(state, "Failed to read block", "")
+			return errcode.New(errcode.FailedToReadBlock)
 		}
 		connTrace[pIndexNew] = blockNew
 		block = blockNew
@@ -220,13 +216,11 @@ func ConnectTip(state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
 	log.Info("  - Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 
 	view := utxo.NewEmptyCoinsMap()
-	rv := ConnectBlock(blockConnecting, state, pIndexNew, view, false)
-	if !rv {
-		if state.IsInvalid() {
-			InvalidBlockFound(pIndexNew, state)
-		}
+	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
+	if err !=nil {
+		InvalidBlockFound(pIndexNew)
 		log.Error(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", indexHash.String()))
-		return false
+		return err
 	}
 	nTime3 := util.GetMicrosTime()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
@@ -241,8 +235,8 @@ func ConnectTip(state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
 	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
 		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
 	// Write the chain state to disk, if necessary.
-	if !disk.FlushStateToDisk(state, disk.FlushStateIfNeeded, 0) {
-		return false
+	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0);err!=nil {
+		return err
 	}
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
@@ -260,13 +254,13 @@ func ConnectTip(state *block.ValidationState, pIndexNew *blockindex.BlockIndex,
 	log.Print("bench", "debug", " - Connect block: %.2fms [%.2fs]\n",
 		float64(nTime6-nTime1)*0.001, float64(gPersist.GlobalTimeTotal)*0.000001)
 
-	return true
+	return nil
 }
 
 // DisconnectTip Disconnect chainActive's tip. You probably want to call
 // mempool.removeForReorg and manually re-limit mempool size after this, with
 // cs_main held.
-func DisconnectTip(state *block.ValidationState, fBare bool) bool {
+func DisconnectTip(fBare bool) error {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	if tip == nil {
@@ -275,7 +269,7 @@ func DisconnectTip(state *block.ValidationState, fBare bool) bool {
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
-		return disk.AbortNode(state, "Failed to read block", "")
+		return errcode.New(errcode.FailedToReadBlock)
 	}
 
 	// Apply the block atomically to the chain state.
@@ -286,7 +280,7 @@ func DisconnectTip(state *block.ValidationState, fBare bool) bool {
 		if DisconnectBlock(blk, tip, view) != mUndo.DisconnectOk {
 			hash := tip.GetBlockHash()
 			log.Error(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.String()))
-			return false
+			return errcode.New(errcode.DisconnectTipUndoFailed)
 		}
 		flushed := view.Flush(blk.Header.HashPrevBlock)
 		if !flushed {
@@ -299,8 +293,8 @@ func DisconnectTip(state *block.ValidationState, fBare bool) bool {
 		float64(time.Now().UnixNano()-nStart)*0.001)
 
 	// Write the chain state to disk, if necessary.
-	if !disk.FlushStateToDisk(state, disk.FlushStateIfNeeded, 0) {
-		return false
+	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0);err!=nil {
+		return err
 	}
 
 	if !fBare {
@@ -329,7 +323,7 @@ func DisconnectTip(state *block.ValidationState, fBare bool) bool {
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
 
-	return true
+	return nil
 }
 
 // UpdateTip Update chainActive and related internal data structures.

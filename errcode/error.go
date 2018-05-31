@@ -21,6 +21,7 @@ const (
 	PersistErrorBase
 	CryptoErrorBase
 	ConsensusErrorBase
+	DiskErrorBase
 
 )
 
