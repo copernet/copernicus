@@ -7,6 +7,7 @@ import (
 
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/opcodes"
 	"github.com/btcboost/copernicus/util"
 	"github.com/pkg/errors"
@@ -220,6 +221,7 @@ func (s *Script) EncodeSize() uint32 {
 }
 
 func (s *Script) Encode(writer io.Writer) (err error) {
+	log.Debug("script data %s", s.data)
 	return util.WriteVarBytes(writer, s.data)
 }
 
