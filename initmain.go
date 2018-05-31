@@ -9,7 +9,7 @@ import (
 	"github.com/btcboost/copernicus/persist/global"
 )
 
-func MainInit() {
+func appInitMain() {
 	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
 	utxo.InitUtxoLruTip(&config)
 	chain.InitGlobalChain(nil)

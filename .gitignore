@@ -1,3 +1,4 @@
+.gitignore
 .idea
 .DS_Store
 copernicus
@@ -7,3 +8,4 @@ data
 conf.yml
 rpc.cert
 rpc.key
+*block_test.go

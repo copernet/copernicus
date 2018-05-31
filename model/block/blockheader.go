@@ -9,15 +9,15 @@ import (
 )
 
 type BlockHeader struct {
-	Version       int32
-	HashPrevBlock util.Hash
-	MerkleRoot    util.Hash
-	Time          uint32
-	Bits          uint32
-	Nonce         uint32
+	Version       int32      `json:"version"`
+	HashPrevBlock util.Hash `json:"previousblockhash, string"`
+	MerkleRoot    util.Hash  `json:"merkleroot, string"`
+	Time          uint32    `json:"time"`
+	Bits          uint32     `json:"bits"`
+	Nonce         uint32      `json:"nonce"`
 	encodeSize    int
 	serializeSize int
-	hash          util.Hash
+	hash          util.Hash  `json:"hash"`
 }
 
 const blockHeaderLength = 16 + util.Hash256Size*2

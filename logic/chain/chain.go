@@ -6,9 +6,7 @@ import (
 	"strings"
 	"time"
 	
-	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/model"
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	mchain "github.com/btcboost/copernicus/model/chain"
@@ -16,7 +14,6 @@ import (
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
 	
 	"github.com/btcboost/copernicus/log"
 	ltx "github.com/btcboost/copernicus/logic/tx"
@@ -30,176 +27,7 @@ import (
 	"github.com/btcboost/copernicus/model/pow"
 )
 
-const MinBlocksToKeep = int32(288)
 
-func AcceptBlock( pblock *block.Block, state *block.ValidationState,
-	fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex, dbp *block.DiskBlockPos, err error) {
-	if pblock != nil {
-		*fNewBlock = false
-	}
-	bIndex, err = AcceptBlockHeader(&pblock.Header)
-	if err != nil {
-		return
-	}
-	log.Info(bIndex)
-
-	if bIndex.Accepted() {
-		err = errcode.ProjectError{Code: 3009}
-
-		return
-	}
-	if !fRequested {
-		tip := mchain.GetInstance().Tip()
-		tipWork := tip.ChainWork
-		fHasMoreWork := false
-		if tip == nil {
-			fHasMoreWork = true
-		} else if bIndex.ChainWork.Cmp(&tipWork) == 1 {
-			fHasMoreWork = true
-		}
-		if !fHasMoreWork {
-			err = errcode.ProjectError{Code: 3008}
-
-			return
-		}
-		fTooFarAhead := bIndex.Height > tip.Height+MinBlocksToKeep
-		if fTooFarAhead {
-			err = errcode.ProjectError{Code: 3007}
-
-			return
-		}
-	}
-	if bIndex.AllValid() == false {
-		suc := lblock.CheckBlock(pblock, state, true, true)
-		if !suc {
-			return
-		}
-
-		bIndex.AddStatus(blockindex.StatusAllValid)
-	}
-	gPersist := global.GetInstance()
-	if !lblock.CheckBlock(pblock, state, true, true) {
-		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-		err = errcode.ProjectError{Code: 3005}
-		return
-	}
-	if !lblock.ContextualCheckBlock(pblock, state, bIndex.Prev) {
-		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-		err = errcode.ProjectError{Code: 3005}
-		return
-	}
-	*fNewBlock = true
-
-	dbp, err = lblock.WriteBlockToDisk(bIndex, pblock)
-	if err != nil {
-		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
-		err = errcode.ProjectError{Code: 3006}
-		return
-	}
-	lblock.ReceivedBlockTransactions(pblock, bIndex, dbp)
-	bIndex.SubStatus(blockindex.StatusWaitingData)
-	bIndex.AddStatus(blockindex.StatusDataStored)
-	gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-	return
-}
-
-func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex)  bool{
-	if preIndex.IsGenesis(){
-		return true
-	}
-	gChain := mchain.GetInstance()
-	nHeight := preIndex.Height + 1
-	// Don't accept any forks from the main chain prior to last checkpoint
-	params := gChain.GetParams()
-	checkPoints := params.Checkpoints
-	var checkPoint *model.Checkpoint
-	for i := len(checkPoints)-1;i>=0;i--{
-		checkPointIndex := gChain.FindBlockIndex(*checkPoints[i].Hash)
-		if checkPointIndex != nil{
-			checkPoint = checkPoints[i]
-			break
-		}
-	}
-	if checkPoint != nil && nHeight < checkPoint.Height{
-		return false
-	}
-	return true
-}
-
-func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.BlockIndex, adjustTime int64) bool {
-	nHeight := int32(0)
-	if preIndex != nil{
-		nHeight = preIndex.Height +1
-	}
-	gChain := mchain.GetInstance()
-	params := gChain.GetParams()
-	
-	p := new(pow.Pow)
-	if header.Bits != p.GetNextWorkRequired(preIndex, header, params){
-		log.Error("ContextualCheckBlockHeader.GetNextWorkRequired err")
-		return false
-	}
-	blocktime := int64(header.GetBlockTime())
-	if blocktime  <= preIndex.GetMedianTimePast(){
-		log.Error("ContextualCheckBlockHeader.GetMedianTimePast err")
-		return false
-	}
-	if blocktime > adjustTime + 2*60*60{
-		log.Error("ContextualCheckBlockHeader > adjustTime err")
-		return false
-	}
-	if (header.Version < 2 && nHeight >= params.BIP34Height)|| (header.Version<3&&nHeight>=params.BIP66Height) ||(header.Version<4&&nHeight>=params.BIP65Height){
-		log.Error("block.version: %d, nheight :%d", header.Version, nHeight)
-		return false
-	}
-	return true
-}
-
-func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
-	var c = mchain.GetInstance()
-
-	bIndex := c.FindBlockIndex(bh.GetHash())
-	if bIndex != nil {
-		return bIndex, nil
-	}
-
-	//this is a new blockheader
-	err := lblock.CheckBlockHeader(bh, true)
-	if err != nil {
-		return nil, err
-	}
-
-	bIndex = blockindex.NewBlockIndex(bh)
-	if !bIndex.IsGenesis(){
-		
-		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
-		if bIndex.Prev == nil {
-			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
-		}
-		if !CheckIndexAgainstCheckpoint(bIndex.Prev){
-			return nil, errcode.ProjectError{Code:3100}
-		}
-		if !ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()){
-			return nil, errcode.ProjectError{Code:3101}
-		}
-	}
-	
-	bIndex.Height = bIndex.Prev.Height + 1
-	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
-	work := pow.GetBlockProof(bIndex)
-	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork, work)
-	bIndex.AddStatus(blockindex.StatusWaitingData)
-
-	err = c.AddToIndexMap(bIndex)
-	if err != nil {
-		return nil, err
-	}
-	
-	return bIndex, nil
-}
 
 
 var HashAssumeValid util.Hash
@@ -311,7 +139,7 @@ func ConnectBlock(pblock *block.Block, state *block.ValidationState,
 		!(hash.IsEqual(&BIP34Hash)))
 
 	flags := lblock.GetBlockScriptFlags(pindex)
-	blockSubSidy := GetBlockSubsidy(pindex.Height, params)
+	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
 	nTime2 := util.GetMicrosTime()
 	gPersist.GlobalTimeForks += nTime2 - nTime1
 	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
@@ -352,18 +180,7 @@ func InvalidBlockFound(pindex *blockindex.BlockIndex, state *block.ValidationSta
 
 }
 
-func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
-	halvings := height / params.SubsidyReductionInterval
-	// Force block reward to zero when right shift is undefined.
-	if halvings >= 64 {
-		return 0
-	}
 
-	nSubsidy := amount.Amount(50 * util.COIN)
-	// Subsidy is cut in half every 210,000 blocks which will occur
-	// approximately every 4 years.
-	return amount.Amount(uint(nSubsidy) >> uint(halvings))
-}
 
 type connectTrace map[*blockindex.BlockIndex]*block.Block
 
