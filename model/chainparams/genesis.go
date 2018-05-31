@@ -73,12 +73,11 @@ var genesisMerkleRoot = util.Hash([util.Hash256Size]byte{ // Make go vet happy.
 	0x3a, 0x9f, 0xb8, 0xaa, 0x4b, 0x1e, 0x5e, 0x4a,
 })
 
-
 var TestNet3GenesisBlock = block.Block{
 		Header: block.BlockHeader{
 			Version:       1,
 			HashPrevBlock: util.Hash{},
-			MerkleRoot:    genesisMerkleRoot,
+			MerkleRoot:*util.HashFromString("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
 			Time:          uint32(time.Unix(1296688602, 0).Unix()), //2011-02-02 23:16:42 +0000 UTC
 			Bits:          0x1d00ffff,                                    //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
 			Nonce:         0x18aea41a,                                    // 414098458

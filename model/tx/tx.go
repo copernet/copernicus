@@ -212,6 +212,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 	}
 	if count > uint64(MaxTxInPerMessage) {
 		err = errors.Errorf("too many input tx to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
+		fmt.Println("1111111 , error : ",err)
 		return err
 	}
 
@@ -223,12 +224,14 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		err = txIn.Decode(reader)
 		if err != nil {
+			fmt.Println("222222 , error : ",err)
 			return err
 		}
 		tx.ins[i] = txIn
 	}
 	count, err = util.ReadVarInt(reader)
 	if err != nil {
+		fmt.Println("333333 , error : ",err)
 		return err
 	}
 
@@ -239,6 +242,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txOut := new(txout.TxOut)
 		err = txOut.Decode(reader)
 		if err != nil {
+			fmt.Println("444444 , error : ",err)
 			return err
 		}
 		tx.outs[i] = txOut

@@ -201,9 +201,9 @@ func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int3
 // later than the final checkpoint or some other reason such as disabled
 // checkpoints.
 func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
-	//checkpoints := sm.chain.Checkpoints()
 	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
 	checkpoints := chainparams.TestNet3Params.Checkpoints
+	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
 	if len(checkpoints) == 0 {
 		return nil
 	}
@@ -211,6 +211,7 @@ func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint 
 	// There is no next checkpoint if the height is already after the final
 	// checkpoint.
 	finalCheckpoint := checkpoints[len(checkpoints)-1]
+	log.Trace("finalCheckpoint.Height : %d, current height : %d ", finalCheckpoint.Height, height)
 	if height >= finalCheckpoint.Height {
 		return nil
 	}
@@ -223,6 +224,7 @@ func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint 
 		}
 		nextCheckpoint = checkpoints[i]
 	}
+	log.Trace("return checkpoint heigth : %d", nextCheckpoint.Height)
 	return nextCheckpoint
 }
 
@@ -288,13 +290,9 @@ func (sm *SyncManager) startSync() {
 		// and fully validate them.  Finally, regression test mode does
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
-		log.Trace("nextCheckpoint : %p, bestHeight : %d,  sm.chainParams : %p, " +
-			"&chainparams.RegressionNetParams : %p ", sm.nextCheckpoint, best.Height,
-			 sm.chainParams, &chainparams.RegressionNetParams)
 		if sm.nextCheckpoint != nil &&
 			int32(best.Height) < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chainparams.RegressionNetParams {
-
 			//	3. push peer
 			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
 			sm.headersFirstMode = true
@@ -1341,7 +1339,7 @@ func New(config *Config) (*SyncManager, error) {
 	best := chain.GetInstance().Tip()
 	if !config.DisableCheckpoints {
 		// Initialize the next checkpoint based on the current height.
-		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(int32(best.Height))
+		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(best.Height)
 		log.Trace("sm.nextCheckpoint : %p, best height : %d", sm.nextCheckpoint, best.Height)
 		if sm.nextCheckpoint != nil {
 			sm.resetHeaderState(best.GetBlockHash(), int32(best.Height))

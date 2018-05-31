@@ -1190,9 +1190,6 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 		return fmt.Sprintf("Received %v%s from %s",
 			msg.Command(), summary, p)
 	}))
-	log.Trace("%v", newLogClosure(func() string {
-		return spew.Sdump(msg)
-	}))
 	/*
 		log.Trace("%v", newLogClosure(func() string {
 			return spew.Sdump(buf)
@@ -1435,6 +1432,7 @@ out:
 
 			// Disconnect the peer if any of the pending responses
 			// don't arrive by their adjusted deadline.
+			/*
 			for command, deadline := range pendingResponses {
 				if now.Before(deadline.Add(offset)) {
 					continue
@@ -1446,6 +1444,7 @@ out:
 				p.Disconnect()
 				break
 			}
+			*/
 
 			// Reset the deadline offset for the next tick.
 			deadlineOffset = 0
@@ -2067,18 +2066,17 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	}
 	log.Debug("Connected to %s", p.Addr())
 
+
+	// Send our verack message now that the IO processing machinery has started.
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
+
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
-
 	go p.stallHandler()
-
 	go p.inHandler(phCh)
 	go p.queueHandler()
 	go p.outHandler()
 	go p.pingHandler()
-
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
 	return nil
 }
