@@ -115,6 +115,10 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 }
 
 func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
+	outs = make([]outpoint.OutPoint, len(tx.ins))
+	for _, e := range tx.ins {
+		outs = append(outs, *e.PreviousOutPoint)
+	}
 	return
 
 }
