@@ -1,6 +1,8 @@
 # ide
 .idea
 .DS_Store
+glide.lock
+glide.yaml
 
 # project
 vendor
@@ -9,3 +11,6 @@ copernicus
 *.log
 data
 *block_test.go
+rpc.cert
+rpc.key
+Support
