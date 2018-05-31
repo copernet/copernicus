@@ -221,7 +221,6 @@ func (tx *Tx) Decode(reader io.Reader) error {
 	for i := uint64(0); i < count; i++ {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
-		txIn.PreviousOutPoint.Hash = *new(util.Hash)
 		err = txIn.Decode(reader)
 		if err != nil {
 			return err

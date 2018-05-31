@@ -1,13 +1,14 @@
 package txin
 
 import (
+	"io"
+
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
-	"io"
 )
 
 type TxIn struct {
