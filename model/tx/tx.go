@@ -7,6 +7,7 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
@@ -14,7 +15,6 @@ import (
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
-	"github.com/pkg/errors"
 	"io"
 )
 
@@ -216,13 +216,13 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		return err
 	}
 	if count > uint64(MaxTxInPerMessage) {
-		err = errors.Errorf("too many input tx to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
+		log.Error("too many input txs to fit into max message size [count %d , max %d]", count, MaxTxInPerMessage)
 		return err
 	}
 
 	tx.version = int32(version)
+	log.Debug("tx version %d", tx.version)
 	tx.ins = make([]*txin.TxIn, count)
-
 	for i := uint64(0); i < count; i++ {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)

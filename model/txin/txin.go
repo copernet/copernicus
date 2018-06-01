@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
@@ -59,6 +60,7 @@ func (txIn *TxIn) Decode(reader io.Reader) error {
 		return err
 	}
 	txIn.scriptSig = script.NewScriptRaw(bytes)
+	log.Debug("txIn's Script is %v", txIn.scriptSig.GetData())
 	return util.ReadElements(reader, &txIn.Sequence)
 }
 
