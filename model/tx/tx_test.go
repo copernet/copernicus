@@ -10,8 +10,6 @@ import (
 	"github.com/btcboost/copernicus/model/txin"
 	"github.com/btcboost/copernicus/model/txout"
 	"github.com/btcboost/copernicus/util"
-	wire2 "github.com/btcsuite/btcd/wire"
-	"github.com/davecgh/go-spew/spew"
 )
 
 var tests = []struct {
@@ -107,17 +105,6 @@ var tests = []struct {
 	},
 }
 
-//func TestTxCopy(t *testing.T) {
-//	tx := tests[1].tx
-//	copyTx := tx.Copy()
-//	if len(copyTx.Ins) != 1 {
-//		t.Error("should have 1 input")
-//	}
-//	if len(copyTx.Outs) != 2 {
-//		t.Error("should have 2 outPut")
-//	}
-//}
-
 func TestTxDeSerializeAndSerialize(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	for i, e := range tests {
@@ -136,8 +123,7 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		}
 
 		buf.Reset()
-		tx2 := Tx{}
-		if err := tx2.Serialize(buf); err != nil {
+		if err := e.tx.Serialize(buf); err != nil {
 			t.Errorf("failed Serialize tx %d tx: %v\n", i, err)
 		}
 		h := util.DoubleSha256Hash(buf.Bytes())
@@ -164,8 +150,10 @@ func TestTxSerializeAndTxUnserialize(t *testing.T) {
 		panic(err)
 	}
 	tx := Tx{}
-	tx.Unserialize(bytes.NewReader(originBytes))
-	spew.Dump(tx)
+	err = tx.Unserialize(bytes.NewReader(originBytes))
+	if err != nil {
+		panic(err)
+	}
 
 	buf := bytes.NewBuffer(nil)
 	err = tx.Serialize(buf)
@@ -176,8 +164,4 @@ func TestTxSerializeAndTxUnserialize(t *testing.T) {
 	if !bytes.Equal(originBytes, buf.Bytes()) {
 		t.Error("Serialize or Unserialize error")
 	}
-
-	txMsg := wire2.MsgTx{}
-	txMsg.Deserialize(bytes.NewReader(originBytes))
-	spew.Dump(txMsg)
 }
