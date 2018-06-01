@@ -156,7 +156,8 @@ func messageSummary(msg wire.Message) string {
 	case *wire.MsgBlock:
 		blkmsg := (*block.Block)(msg)
 		header := &msg.Header
-		return fmt.Sprintf("hash %s, ver %d, %d tx, %d", blkmsg.GetHash(),
+		bhash := blkmsg.GetHash()
+		return fmt.Sprintf("hash %s, ver %d, %d tx, %d", &bhash,
 			header.Version, len(msg.Txs), header.Time)
 
 	case *wire.MsgInv:
