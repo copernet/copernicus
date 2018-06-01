@@ -9,6 +9,7 @@ import (
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/crypto"
 	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
@@ -45,21 +46,24 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 
 	// is mempool already have it? conflict tx with mempool
 	if mempool.GetInstance().FindTx(transaction.GetHash()) != nil {
-		return errcode.New(errcode.TxErrMempoolAlreadyExist)
+		log.Debug("tx already known in mempool")
+		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
 	// check preout already spent
 	ins := transaction.GetIns()
 	for _, e := range ins {
 		if mempool.GetInstance().HasSpentOut(e.PreviousOutPoint) {
-			return errcode.New(errcode.TxErrPreOutAlreadySpent)
+			log.Debug("tx ins alread spent out in mempool")
+			return errcode.New(errcode.TxErrRejectConflict)
 		}
 	}
 
 	// check outpoint alread exist
 	exist := areOutputsAlreadExist(transaction)
 	if exist {
-		return errcode.New(errcode.TxErrOutAlreadHave)
+		log.Debug("tx already known in utxo")
+		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
 	// check inputs are avaliable
@@ -77,6 +81,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	// unless we change CheckSequenceLocks to take a CoinsViewCache
 	// instead of create its own.
 	if !CheckSequenceLocks(lp) {
+		log.Debug("tx sequence lock check faild")
 		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
@@ -93,7 +98,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if !chainparams.ActiveNetParams.RequireStandard {
 		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
 		if err != nil {
-			panic("")
+			panic("config PromiscuousMempoolFlags err")
 		}
 		scriptVerifyFlags = uint32(configVerifyFlags)
 	}
@@ -121,6 +126,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
+		log.Debug("block has no transcations")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	err := txs[0].CheckCoinbaseTransaction()
@@ -132,6 +138,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
+			log.Debug("block has too many sigOps:%d", sigOps)
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 		err := transaction.CheckRegularTransaction()
@@ -307,9 +314,11 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 			coin = gMempool.GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
+			log.Debug("inpute can't find coin")
 			return errcode.New(errcode.TxErrNoPreviousOut)
 		}
 		if coin.IsSpent() {
+			log.Debug("inpute coin is already spent out")
 			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
 		coinMap.AddCoin(e.PreviousOutPoint, coin)
@@ -345,16 +354,10 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, err
 		}
 		scriptPubKey := coin.GetScriptPubKey()
 		if !scriptPubKey.IsPayToScriptHash() {
-			sigsCount, err := scriptPubKey.GetSigOpCount(true)
-			if err != nil {
-				return 0, err
-			}
+			sigsCount := scriptPubKey.GetSigOpCount(true)
 			n += sigsCount
 		} else {
-			sigsCount, err := e.GetScriptSig().GetP2SHSigOpCount()
-			if err != nil {
-				return 0, err
-			}
+			sigsCount := e.GetScriptSig().GetP2SHSigOpCount()
 			n += sigsCount
 		}
 	}
@@ -391,7 +394,8 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 	for _, e := range ins {
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			errcode.New(errcode.TxErrInputsNotAvailable)
+			log.Debug("bug! tx input cann't find coin in temp coinsmap")
+			errcode.New(errcode.TxErrRejectNonstandard)
 		}
 		txOut := coin.GetTxOut()
 		pubKeyType, err := txOut.GetPubKeyType()
@@ -401,13 +405,10 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 		if pubKeyType == script.ScriptHash {
 			scriptSig := e.GetScriptSig()
 			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
-			opCount, err := subScript.GetSigOpCount(true)
-
-			if err != nil {
-				return err
-			}
+			opCount := subScript.GetSigOpCount(true)
 			if uint(opCount) > tx.MaxP2SHSigOps {
-				return errcode.New(errcode.TxErrTooManySigOps)
+				log.Debug("transaction has too many sigops")
+				return errcode.New(errcode.TxErrRejectNonstandard)
 			}
 		}
 	}
@@ -431,13 +432,19 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	for i, in := range ins {
 		coin := tempCoinMap.GetCoin(in.PreviousOutPoint)
 		if coin == nil {
-			return errcode.New(errcode.TxErrNoPreviousOut)
+			panic("can't find coin in temp coinsmap")
 		}
 		scriptPubKey := coin.GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
 		err := verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
 		if err != nil {
-			return err
+			if (flags & uint32(script.StandardNotMandatoryVerifyFlags)) == uint32(script.StandardNotMandatoryVerifyFlags) {
+				err = verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
+			}
+			if err == nil {
+				return errcode.New(errcode.TxErrRejectNonstandard)
+			}
+			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
 	return nil

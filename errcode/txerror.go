@@ -13,6 +13,8 @@ const (
 	TxErrRejectDust            TxErr = 0x41
 	TxErrRejectInsufficientFee TxErr = 0x42
 	TxErrRejectCheckPoint      TxErr = 0x43
+	TxErrRejectAlreadyKnown    TxErr = 0x101
+	TxErrRejectConflict        TxErr = 0x102
 
 	TxErrNoPreviousOut TxErr = TxErrorBase + iota
 	TxErrNullPreOut

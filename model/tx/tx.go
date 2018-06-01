@@ -16,7 +16,6 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"io"
-	"math"
 )
 
 const (
@@ -265,29 +264,18 @@ func (tx *Tx) IsCoinBase() bool {
 	if len(tx.ins) != 1 {
 		return false
 	}
-	if tx.ins[0].PreviousOutPoint.Index != math.MaxUint32 {
-		return false
-	}
-	for _, e := range tx.ins[0].PreviousOutPoint.Hash {
-		if e != 0 {
-			return false
-		}
-	}
-	return true
+
+	return tx.ins[0].PreviousOutPoint.IsNull()
 }
 
 func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 	n := 0
 
 	for _, in := range tx.ins {
-		if c, err := in.GetScriptSig().GetSigOpCount(false); err == nil {
-			n += c
-		}
+		n += in.GetScriptSig().GetSigOpCount(false)
 	}
 	for _, out := range tx.outs {
-		if c, err := out.GetScriptPubKey().GetSigOpCount(false); err == nil {
-			n += c
-		}
+		n += out.GetScriptPubKey().GetSigOpCount(false)
 	}
 	return n
 }
@@ -470,7 +458,7 @@ func (tx *Tx) GetValueOut() amount.Amount {
 	var valueOut amount.Amount
 	for _, out := range tx.outs {
 		valueOut += out.GetValue()
-		if !amount.MoneyRange(out.GetValue()) || amount.MoneyRange(valueOut) {
+		if !amount.MoneyRange(out.GetValue()) || !amount.MoneyRange(valueOut) {
 			panic("value out of range")
 		}
 	}

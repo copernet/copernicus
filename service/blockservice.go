@@ -23,6 +23,10 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 		}
 		lastIndex = index
 	}
+	beginHash := headerList[0].GetHash()
+	endHash := headerList[len(headerList) - 1].GetHash()
+	log.Trace("processBlockHeader success, blockNumber : %d, lastBlockHeight : %d, beginBlockHash : %s, " +
+		"endBlockHash : %s. ", len(headerList), lastIndex.Height, beginHash.String(), endHash.String())
 	return nil
 }
 

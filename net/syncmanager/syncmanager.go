@@ -736,6 +736,7 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 				"fetch: %v", err)
 		}
 		if !haveInv {
+			log.Trace("add inv entry to getdata request ...")
 			syncPeerState := sm.peerStates[sm.syncPeer]
 			sm.requestedBlocks[*node.hash] = struct{}{}
 			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
@@ -748,9 +749,11 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 		}
 	}
 
+	log.Trace("ready to send getdata request, inv Number : %d", len(gdmsg.InvList))
 	if len(gdmsg.InvList) > 0 {
 		sm.syncPeer.QueueMessage(gdmsg, nil)
 	}
+	log.Trace("let getdata request to queue, ready to send to peer.")
 }
 
 // handleHeadersMsg handles block header messages from all peers.  Headers are
@@ -880,8 +883,14 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 	case wire.InvTypeBlock:
 		// Ask chain if the block is known to it in any form (main
 		// chain, side chain, or orphan).
-
-		return activeChain.FindBlockIndex(invVect.Hash) != nil, nil
+		blkIndex := activeChain.FindBlockIndex(invVect.Hash)
+		if blkIndex == nil{
+			return false, nil
+		}
+		if blkIndex.WaitingData(){
+			return false, nil
+		}
+		return true, nil
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
