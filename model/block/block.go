@@ -57,6 +57,10 @@ func (bl *Block) Encode(w io.Writer) error {
 	return bl.Serialize(w)
 }
 
+func (bl *Block) Decode(r io.Reader) error {
+	return bl.Unserialize(r)
+}
+
 func (bl *Block) EncodeSize() int {
 	if bl.encodeSize != 0 {
 		return bl.encodeSize
@@ -78,12 +82,11 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	}
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {
-		var txn tx.Tx
-		txnp := &txn
-		if err := txnp.Unserialize(r); err != nil {
+		tx := tx.NewTx(0,0)
+		if err := tx.Unserialize(r); err != nil {
 			return err
 		}
-		bl.Txs[i] = txnp
+		bl.Txs[i] = tx
 	}
 	return nil
 }

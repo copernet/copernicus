@@ -8,6 +8,12 @@ const (
 	ErrorBlockHeaderNoValid ChainErr = ChainErrorBase + iota
 	ErrorBlockHeaderNoParent
 	ErrorPowCheckErr
+	ErrorBadTxnMrklRoot
+	ErrorbadTxnsDuplicate
+	ErrorBadCoinBaseMissing
+	ErrorBadBlkLength
+	ErrorBadBlkTxSize
+	ErrorBadBlkTx
 )
 
 var ChainErrString = map[ChainErr]string {

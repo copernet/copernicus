@@ -134,12 +134,12 @@ func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 	}
 }
 
-func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util.Hash, messageStart wire.BitcoinNet) bool {
+func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util.Hash, messageStart wire.BitcoinNet) error {
 	// Open history file to append
 	undoFile := OpenUndoFile(*pos, false)
 	if undoFile == nil {
 		log.Error("OpenUndoFile failed")
-		return false
+		return errcode.New(errcode.ErrorOpenUndoFileFailed)
 	}
 	defer undoFile.Close()
 	//undoFile.Write(messageStart)
@@ -155,7 +155,7 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 	undoFile.Write(lenBuf.Bytes())
 	undoFile.Write(buf.Bytes())
-	return true
+	return nil
 
 }
 
@@ -271,8 +271,7 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	return true
 }
 
-func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManualPruneHeight int) (ret bool) {
-	ret = true
+func FlushStateToDisk( mode FlushStateMode, nManualPruneHeight int) error {
 	// global.CsMain.Lock()
 	global.CsLastBlockFile.Lock()
 
@@ -280,11 +279,13 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	defer global.CsLastBlockFile.Unlock()
 	
 	gPersist := global.GetInstance()
-	defer func() {
-		if r := recover(); r != nil {
-			ret = AbortNode(state, "System error while flushing:", "")
-		}
-	}()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		log.Error("System error while flushing:", r)
+	// 		// return errcode.New(errcode.SystemErrorWhileFlushing)
+	//
+	// 	}
+	// }()
 	fFlushForPrune := false
 	// todo for prune
 	//if GPruneMode && (GCheckForPruning || nManualPruneHeight > 0) && !GfReindex {
@@ -341,7 +342,7 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 	if fDoFullFlush || fPeriodicWrite {
 		// Depend on nMinDiskSpace to ensure we can write block index
 		if !CheckDiskSpace(0) {
-			ret = state.Error("out of disk space")
+			return errcode.New(errcode.ErrorOutOfDiskSpace)
 		}
 		// First make sure all block and undo data is flushed to disk.
 		FlushBlockFile(false)
@@ -361,7 +362,8 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		btd := blkdb.GetInstance()
 		err := btd.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
 		if err != nil {
-			ret = AbortNode(state, "Failed to write to block index database", "")
+			return errcode.New(errcode.ErrorFailedToWriteToBlockIndexDatabase)
+			
 		}
 		gPersist.GlobalLastWrite = int(nNow)
 	}
@@ -380,7 +382,8 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		// }
 		// Flush the chainState (which may refer to block index entries).
 		if !coinsTip.Flush() {
-			ret = AbortNode(state, "Failed to write to coin database", "")
+			return errcode.New(errcode.ErrorFailedToWriteToCoinDatabase)
+			
 		}
 		gPersist.GlobalLastFlush = int(nNow)
 	}
@@ -390,8 +393,8 @@ func FlushStateToDisk(state *block.ValidationState, mode FlushStateMode, nManual
 		gPersist.GlobalLastSetChain = int(nNow)
 	}
 
-	return
-}
+	return nil
+ }
 
 func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	path := conf.GetDataPath()
@@ -510,7 +513,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	return ret
 }
 
-func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
+func FindUndoPos( nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
 	undoPos.File = nFile
 	global.CsLastBlockFile.Lock()
 	defer global.CsLastBlockFile.Unlock()
@@ -533,12 +536,12 @@ func FindUndoPos(state *block.ValidationState, nFile int, undoPos *block.DiskBlo
 				AllocateFileRange(file, undoPos.Pos, nNewChunks*global.UndoFileChunkSize-uint32(undoPos.Pos))
 				file.Close()
 			} else {
-				return errcode.ProjectError{Code: 1002, Desc: "can not find Undo file"}
+				return errcode.New(errcode.ErrorNotFindUndoFile)
+				
 				
 			}
 		} else {
-			state.Error("out of disk space")
-			return errcode.ProjectError{Code: 1001, Desc: "out of disk space"}
+			return errcode.New(errcode.ErrorOutOfDiskSpace)
 		}
 	}
 	

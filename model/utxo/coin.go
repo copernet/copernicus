@@ -51,6 +51,11 @@ func (coin *Coin) GetTxOut() txout.TxOut {
 	return coin.txOut
 }
 
+func (coin *Coin) GetScriptPubKey() *script.Script {
+	txOut := coin.txOut
+	return txOut.GetScriptPubKey()
+}
+
 func (coin *Coin) GetAmount() amount.Amount {
 	return amount.Amount(coin.txOut.GetValue())
 }

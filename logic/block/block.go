@@ -3,10 +3,9 @@ package block
 import (
 	"github.com/btcboost/copernicus/errcode"
 	"github.com/btcboost/copernicus/log"
+	lbi "github.com/btcboost/copernicus/logic/blockindex"
 	"github.com/btcboost/copernicus/logic/merkleroot"
 	ltx "github.com/btcboost/copernicus/logic/tx"
-	lbi "github.com/btcboost/copernicus/logic/blockindex"
-	
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
@@ -17,23 +16,19 @@ import (
 	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util/amount"
-	
+
 	"github.com/btcboost/copernicus/persist/disk"
 	"github.com/btcboost/copernicus/util"
 )
 
 const MinBlocksToKeep = int32(288)
 
-
-func GetBlock(hash *util.Hash) (* block.Block, error) {
-	return nil,nil
-}
-func Check(b *block.Block) error{
-	return nil
+func GetBlock(hash *util.Hash) (*block.Block, error) {
+	return nil, nil
 }
 
-func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlockPos,error) {
-	
+func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block) (*block.DiskBlockPos, error) {
+
 	height := bi.Height
 	pos := block.NewDiskBlockPos(0, 0)
 	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()), height, uint64(bl.GetBlockHeader().Time), false)
@@ -41,7 +36,7 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlo
 		log.Error("WriteBlockToDisk():FindBlockPos failed")
 		return nil, errcode.ProjectError{Code: 2000}
 	}
-	
+
 	flag = disk.WriteBlockToDisk(bl, pos)
 	if !flag {
 		log.Error("WriteBlockToDisk():WriteBlockToDisk failed")
@@ -50,16 +45,14 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block)(*block.DiskBlo
 	return pos, nil
 }
 
+func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 
-
-func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) (int64) {
-	
 	params := chain.GetInstance().GetParams()
 	lockTimeFlags := 0
 	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		lockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
-	
+
 	medianTimePast := indexPrev.GetMedianTimePast()
 	if indexPrev == nil {
 		medianTimePast = 0
@@ -69,42 +62,36 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) (int64) {
 	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = medianTimePast
 	}
-	
-	
+
 	return lockTimeCutoff
 }
 
-func CheckBlock( pblock *block.Block, state *block.ValidationState,
-	checkPOW, checkMerkleRoot bool) bool {
+func CheckBlock(pblock *block.Block) error {
 	// These are checks that are independent of context.
 	if pblock.Checked {
-		return true
+		return nil
 	}
 	blockSize := pblock.EncodeSize()
 	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(blockSize))
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
-	if err := CheckBlockHeader(&bh, checkPOW); err!=nil {
-		return false
+	if err := CheckBlockHeader(&bh); err != nil {
+		return err
 	}
 
 	// Check the merkle root.
-	if checkMerkleRoot {
-		mutated := false
-		hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock, &mutated)
-		if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
-			return state.Dos(100, false, block.RejectInvalid, "bad-txnMrklRoot",
-				true, "hashMerkleRoot mismatch")
-		}
+	mutated := false
+	hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock, &mutated)
+	if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
+		return errcode.New(errcode.ErrorBadTxnMrklRoot)
+	}
 
-		// Check for merkle tree malleability (CVE-2012-2459): repeating
-		// sequences of transactions in a block without affecting the merkle
-		// root of a block, while still invalidating it.
-		if mutated {
-			return state.Dos(100, false, block.RejectInvalid, "bad-txns-duplicate",
-				true, "duplicate transaction")
-		}
+	// Check for merkle tree malleability (CVE-2012-2459): repeating
+	// sequences of transactions in a block without affecting the merkle
+	// root of a block, while still invalidating it.
+	if mutated {
+		return errcode.New(errcode.ErrorbadTxnsDuplicate)
 	}
 
 	// All potential-corruption validation must be done before we do any
@@ -113,8 +100,7 @@ func CheckBlock( pblock *block.Block, state *block.ValidationState,
 
 	// First transaction must be coinBase.
 	if len(pblock.Txs) == 0 {
-		return state.Dos(100, false, block.RejectInvalid, "bad-cb-missing",
-			false, "first tx is not coinBase")
+		return errcode.New(errcode.ErrorBadCoinBaseMissing)
 	}
 
 	// size limits
@@ -122,31 +108,24 @@ func CheckBlock( pblock *block.Block, state *block.ValidationState,
 
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := tx.NewEmptyTx().EncodeSize()
-	if len(pblock.Txs) * int(minTransactionSize) > int(nMaxBlockSize) {
-		return state.Dos(100, false, block.RejectInvalid, "bad-blk-length",
-			false, "size limits failed")
+	if len(pblock.Txs)*int(minTransactionSize) > int(nMaxBlockSize) {
+		return errcode.New(errcode.ErrorBadBlkLength)
 	}
 
 	currentBlockSize := pblock.EncodeSize()
 	if currentBlockSize > int(nMaxBlockSize) {
-		return state.Dos(100, false, block.RejectInvalid, "bad-blk-length",
-			false, "size limits failed")
+		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
 
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
-	if err != nil{
-		return state.Dos(100, false, block.RejectInvalid, "bad-blk-tx",
-			false, "CheckBlockTransactions failed")
+	if err != nil {
+		return errcode.New(errcode.ErrorBadBlkTx)
 	}
-	if checkPOW && checkMerkleRoot {
-		pblock.Checked = true
-	}
-
-	return true
+	pblock.Checked = true
+	return nil
 }
 
-func ContextualCheckBlock( b *block.Block, state *block.ValidationState,
-	indexPrev *blockindex.BlockIndex) bool {
+func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
 
 	var height int32
 	if indexPrev != nil {
@@ -156,10 +135,10 @@ func ContextualCheckBlock( b *block.Block, state *block.ValidationState,
 
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized block height
-	if err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff);err!=nil {
-		return false
+	if err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff); err != nil {
+		return err
 	}
-	return true
+	return nil
 }
 
 // ReceivedBlockTransactions Mark a block as having its data received and checked (up to
@@ -184,10 +163,9 @@ func ReceivedBlockTransactions(pblock *block.Block,
 			gChain.AddToOrphan(pindexNew)
 		}
 	}
-	
+
 	return true
 }
-
 
 // GetBlockScriptFlags Returns the script flags which should be checked for a given block
 func GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
@@ -195,21 +173,20 @@ func GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	return gChain.GetBlockScriptFlags(pindex)
 }
 
-
 func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
 	halvings := height / params.SubsidyReductionInterval
 	// Force block reward to zero when right shift is undefined.
 	if halvings >= 64 {
 		return 0
 	}
-	
+
 	nSubsidy := amount.Amount(50 * util.COIN)
 	// Subsidy is cut in half every 210,000 blocks which will occur
 	// approximately every 4 years.
 	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
-func AcceptBlock( pblock *block.Block, state *block.ValidationState,
+func AcceptBlock(pblock *block.Block,
 	fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex, dbp *block.DiskBlockPos, err error) {
 	if pblock != nil {
 		*fNewBlock = false
@@ -219,10 +196,10 @@ func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 		return
 	}
 	log.Info(bIndex)
-	
+
 	if bIndex.Accepted() {
 		err = errcode.ProjectError{Code: 3009}
-		
+
 		return
 	}
 	if !fRequested {
@@ -236,39 +213,37 @@ func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 		}
 		if !fHasMoreWork {
 			err = errcode.ProjectError{Code: 3008}
-			
+
 			return
 		}
 		fTooFarAhead := bIndex.Height > tip.Height+MinBlocksToKeep
 		if fTooFarAhead {
 			err = errcode.ProjectError{Code: 3007}
-			
+
 			return
 		}
 	}
 	if bIndex.AllValid() == false {
-		suc := CheckBlock(pblock, state, true, true)
-		if !suc {
+		err = CheckBlock(pblock)
+		if err != nil {
 			return
 		}
-		
+
 		bIndex.AddStatus(blockindex.StatusAllValid)
 	}
 	gPersist := global.GetInstance()
-	if !CheckBlock(pblock, state, true, true) {
+	if err = CheckBlock(pblock); err != nil {
 		bIndex.AddStatus(blockindex.StatusFailed)
 		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-		err = errcode.ProjectError{Code: 3005}
 		return
 	}
-	if !ContextualCheckBlock(pblock, state, bIndex.Prev) {
+	if err = ContextualCheckBlock(pblock, bIndex.Prev); err != nil {
 		bIndex.AddStatus(blockindex.StatusFailed)
 		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
-		err = errcode.ProjectError{Code: 3005}
 		return
 	}
 	*fNewBlock = true
-	
+
 	dbp, err = WriteBlockToDisk(bIndex, pblock)
 	if err != nil {
 		bIndex.AddStatus(blockindex.StatusFailed)
@@ -283,47 +258,45 @@ func AcceptBlock( pblock *block.Block, state *block.ValidationState,
 	return
 }
 
-
-
 func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	var c = chain.GetInstance()
-	
+
 	bIndex := c.FindBlockIndex(bh.GetHash())
 	if bIndex != nil {
 		return bIndex, nil
 	}
-	
+
 	//this is a new blockheader
-	err := CheckBlockHeader(bh, true)
+	err := CheckBlockHeader(bh)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	bIndex = blockindex.NewBlockIndex(bh)
-	if !bIndex.IsGenesis(){
-		
+	if !bIndex.IsGenesis() {
+
 		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
 		}
-		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev){
-			return nil, errcode.ProjectError{Code:3100}
+		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev) {
+			return nil, errcode.ProjectError{Code: 3100}
 		}
-		if !ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()){
-			return nil, errcode.ProjectError{Code:3101}
+		if !ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()) {
+			return nil, errcode.ProjectError{Code: 3101}
 		}
 	}
-	
+
 	bIndex.Height = bIndex.Prev.Height + 1
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork, work)
 	bIndex.AddStatus(blockindex.StatusWaitingData)
-	
+
 	err = c.AddToIndexMap(bIndex)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return bIndex, nil
 }

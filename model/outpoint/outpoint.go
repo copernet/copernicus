@@ -3,9 +3,11 @@ package outpoint
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/util"
 	"io"
-)
+	)
 
 type OutPoint struct {
 	Hash  util.Hash
@@ -50,6 +52,7 @@ func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
 		return
 	}
 	outPoint.Index, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
+	log.Debug("outpoint: prehash:%v, index:%d", outPoint.Hash[:], outPoint.Index)
 	return
 }
 
