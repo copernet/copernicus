@@ -159,6 +159,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
+		log.Debug("no transactions err")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	err := checkBlockContextureCoinBaseTransaction(txs[0], blockHeight)
@@ -176,11 +177,11 @@ func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 }
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
-	blockSubSidy amount.Amount, blockHeight int32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
 	utxo := utxo.GetUtxoCacheInstance()
-	sigOpsCount := 0
+	sigOpsCount := uint64(0)
 	var fees amount.Amount = 0
 	bundo = undo.NewBlockUndo(0)
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
@@ -192,6 +193,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for i, _ := range outs {
 				coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
 				if coin != nil {
+					log.Debug("can't find coin before apply transaction")
 					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 				}
 			}
@@ -202,22 +204,26 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for _, in := range ins {
 				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 				if coin == nil || coin.IsSpent() {
+					log.Debug("can't find coin or has been spent out before apply transaction")
 					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 				}
 				valueIn += coin.GetAmount()
 			}
 			lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
 			if !CheckSequenceLocks(lp) {
+				log.Debug("block contains a non-bip68-final transaction")
 				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
 		//check sigops
-		sigsCount, err := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinMap)
-		if err != nil {
-			return nil, nil, err
+		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinMap)
+		if sigsCount > tx.MaxTxSigOpsCounts {
+			log.Debug("transaction has too many sigops")
+			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
-		sigOpsCount += sigsCount
-		if sigOpsCount > tx.MaxTxSigOpsCounts {
+		sigOpsCount += uint64(sigsCount)
+		if sigOpsCount > blockMaxSigOpsCount {
+			log.Debug("block has too many sigops")
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
@@ -242,6 +248,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	bundo.SetTxUndo(txUndoList)
 	//check blockReward
 	if fees+blockSubSidy > txs[0].GetValueOut() {
+		log.Debug("coinbase pays too much")
 		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 	}
 	return coinsMap, bundo, nil
@@ -255,10 +262,12 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
 		heightData := heightNumb.Serialize()
 		if coinBaseScriptSig.Size() < len(heightData) {
+			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
 		if !bytes.Equal(scriptData, heightData) {
+			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -267,12 +276,14 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
-		return errcode.New(errcode.TxErrNotFinal)
+		log.Debug("transaction is not final")
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
 		if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
-			return errcode.New(errcode.TxErrTxCommitment)
+			log.Debug("transaction is commitment")
+			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
 
@@ -327,30 +338,29 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 	return nil
 }
 
-func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) (int, error) {
+func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
 	sigOpsCount := transaction.GetSigOpCountWithoutP2SH()
-	if transaction.IsCoinBase() || flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		return sigOpsCount, nil
+	if transaction.IsCoinBase() {
+		return sigOpsCount
 	}
-	sigOps, err := GetSigOpCountWithP2SH(transaction, coinMap)
-	if err != nil {
-		return 0, err
+	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
+		sigOpsCount += GetSigOpCountWithP2SH(transaction, coinMap)
 	}
-	return sigOpsCount + sigOps, nil
+	return sigOpsCount
 }
 
 // starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, error) {
+func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) int {
 	n := transaction.GetSigOpCountWithoutP2SH()
 	if transaction.IsCoinBase() {
-		return n, nil
+		return n
 	}
 
 	ins := transaction.GetIns()
 	for _, e := range ins {
 		coin := coinMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			return 0, errcode.New(errcode.TxErrNoPreviousOut)
+			panic("can't find coin in temp coinsmap")
 		}
 		scriptPubKey := coin.GetScriptPubKey()
 		if !scriptPubKey.IsPayToScriptHash() {
@@ -362,7 +372,7 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) (int, err
 		}
 	}
 
-	return n, nil
+	return n
 }
 
 func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) error {
@@ -439,11 +449,13 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		err := verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
 		if err != nil {
 			if (flags & uint32(script.StandardNotMandatoryVerifyFlags)) == uint32(script.StandardNotMandatoryVerifyFlags) {
-				err = verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
+				err = verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags&uint32(^script.StandardNotMandatoryVerifyFlags))
 			}
 			if err == nil {
+				log.Debug("verifyScript err, but without StandardNotMandatoryVerifyFlags success")
 				return errcode.New(errcode.TxErrRejectNonstandard)
 			}
+			log.Debug("verifyScript err")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -1808,28 +1820,34 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 	for _, e := range ins {
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
+			log.Debug("CheckInputsMoney can't find coin")
 			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
 		if coin.IsCoinBase() {
 			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {
+				log.Debug("CheckInputsMoney coinbase can't spend now")
 				return errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
 		txOut := coin.GetTxOut()
 		if !amount.MoneyRange(txOut.GetValue()) {
+			log.Debug("CheckInputsMoney coin money range err")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 		nValue += txOut.GetValue()
-		if amount.MoneyRange(nValue) {
+		if !amount.MoneyRange(nValue) {
+			log.Debug("CheckInputsMoney total coin money range err")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
 	if nValue < transaction.GetValueOut() {
+		log.Debug("CheckInputsMoney coins money little than out's")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	txFee := nValue - transaction.GetValueOut()
 	if !amount.MoneyRange(txFee) {
+		log.Debug("CheckInputsMoney fee err")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	return nil
