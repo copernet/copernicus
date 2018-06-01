@@ -252,9 +252,10 @@ func (bIndex *BlockIndex) String() string {
 		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
-func (bIndex *BlockIndex) IsGenesis() bool{
-	
-	return bIndex.isGenesis
+func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool{
+	bhash := bIndex.GetBlockHash()
+	genesisHash := params.GenesisBlock.GetHash()
+	return bhash.IsEqual(&genesisHash)
 }
 
 func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool{

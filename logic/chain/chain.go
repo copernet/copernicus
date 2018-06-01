@@ -467,6 +467,7 @@ func InitGenesisChain() error{
 	if err != nil {
 		return err
 	}
+	gChain.AddToBranch(bIndex)
 	gChain.SetTip(bIndex)
 	fmt.Println("InitGenesisChain=====%#v",gChain)
 	return nil

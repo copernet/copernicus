@@ -328,7 +328,7 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 	for q.Length() > 0 {
 		qindex := q.Remove()
 		pindex := qindex.(*blockindex.BlockIndex)
-		if !pindex.IsGenesis() {
+		if !pindex.IsGenesis(c.params) {
 			pindex.ChainTxCount += pindex.Prev.ChainTxCount
 		} else {
 			pindex.ChainTxCount = pindex.TxCount

@@ -271,7 +271,8 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	size := buf.Len()
 	lenBuf := bytes.NewBuffer(nil)
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
-	file.Write(lenBuf.Bytes())
+	lenData := lenBuf.Bytes()
+	file.Write(lenData)
 	file.Write(buf.Bytes())
 	return true
 }

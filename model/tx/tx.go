@@ -260,7 +260,7 @@ func (tx *Tx) IsCoinBase() bool {
 	if len(tx.ins) != 1 {
 		return false
 	}
-	if tx.ins[0].PreviousOutPoint.Index != 0xfffffff {
+	if tx.ins[0].PreviousOutPoint.Index != 0xffffffff {
 		return false
 	}
 	for _, e := range tx.ins[0].PreviousOutPoint.Hash {

@@ -155,11 +155,11 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	gPersist := global.GetInstance()
 	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
 	gChain := chain.GetInstance()
-	if pindexNew.IsGenesis() || gChain.ParentInBranch(pindexNew) {
+	if pindexNew.IsGenesis(gChain.GetParams()) || gChain.ParentInBranch(pindexNew) {
 		// If indexNew is the genesis block or all parents are in branch
 		gChain.AddToBranch(pindexNew)
 	} else {
-		if !pindexNew.IsGenesis() && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
+		if !pindexNew.IsGenesis(gChain.GetParams()) && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
 			gChain.AddToOrphan(pindexNew)
 		}
 	}
@@ -271,9 +271,10 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	if err != nil {
 		return nil, err
 	}
+	gChain := chain.GetInstance()
 
 	bIndex = blockindex.NewBlockIndex(bh)
-	if !bIndex.IsGenesis() {
+	if !bIndex.IsGenesis(gChain.GetParams()) {
 
 		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
