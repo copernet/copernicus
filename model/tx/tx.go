@@ -257,7 +257,18 @@ func (tx *Tx) Decode(reader io.Reader) error {
 }
 
 func (tx *Tx) IsCoinBase() bool {
-	return len(tx.ins) == 1 && tx.ins[0].PreviousOutPoint == nil
+	if len(tx.ins) != 1 {
+		return false
+	}
+	if tx.ins[0].PreviousOutPoint.Index != 0xfffffff {
+		return false
+	}
+	for _, e := range tx.ins[0].PreviousOutPoint.Hash {
+		if e != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (tx *Tx) GetSigOpCountWithoutP2SH() int {

@@ -212,8 +212,8 @@ func (s *Script) Serialize(writer io.Writer) (err error) {
 	return s.Encode(writer)
 }
 
-func (s *Script) Unserialize(reader io.Reader) (err error) {
-	return s.Decode(reader)
+func (s *Script) Unserialize(reader io.Reader, isCoinBase bool) (err error) {
+	return s.Decode(reader, isCoinBase)
 }
 
 func (s *Script) EncodeSize() uint32 {
@@ -225,12 +225,15 @@ func (s *Script) Encode(writer io.Writer) (err error) {
 	return util.WriteVarBytes(writer, s.data)
 }
 
-func (s *Script) Decode(reader io.Reader) (err error) {
+func (s *Script) Decode(reader io.Reader, isCoinBase bool) (err error) {
 	bytes, err := ReadScript(reader, MaxMessagePayload, "tx input signature script")
 	if err != nil {
 		return err
 	}
 	s.data = bytes
+	if isCoinBase {
+		return nil
+	}
 	err = s.convertOPS()
 	if err != nil {
 		return err

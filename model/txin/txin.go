@@ -55,11 +55,17 @@ func (txIn *TxIn) Decode(reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	bytes, err := script.ReadScript(reader, script.MaxMessagePayload, "tx input signature script")
+
+	bCoinBase := false
+	if txIn.PreviousOutPoint.Index == 0xffffffff || txIn.PreviousOutPoint.Hash == util.HashZero {
+		bCoinBase = true
+	}
+	scriptSig := script.NewEmptyScript()
+	err = scriptSig.Decode(reader, bCoinBase)
 	if err != nil {
 		return err
 	}
-	txIn.scriptSig = script.NewScriptRaw(bytes)
+	txIn.scriptSig = scriptSig
 	log.Debug("txIn's Script is %v", txIn.scriptSig.GetData())
 	return util.ReadElements(reader, &txIn.Sequence)
 }
