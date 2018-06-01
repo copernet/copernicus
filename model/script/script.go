@@ -291,7 +291,7 @@ func (script *Script) convertRaw() {
 }
 
 func (script *Script) GetData() []byte {
-	retData := make([]byte, len(script.data))
+	retData := make([]byte, 0, len(script.data))
 
 	return append(retData, script.data...)
 }
