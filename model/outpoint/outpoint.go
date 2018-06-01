@@ -1,10 +1,14 @@
 package outpoint
 
 import (
-	"encoding/binary"
-	"fmt"
-	"github.com/btcboost/copernicus/util"
-	"io"
+"encoding/binary"
+"fmt"
+"io"
+
+
+
+"github.com/btcboost/copernicus/util"
+
 )
 
 type OutPoint struct {
@@ -45,7 +49,13 @@ func (outPoint *OutPoint) Encode(writer io.Writer) error {
 }
 
 func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
-	_, err = io.ReadFull(reader, outPoint.Hash[:])
+	buf := make([]byte, 32)
+	var n int
+	n, err = io.ReadFull(reader, buf)
+	fmt.Println("n======", n, err)
+	hash,e := util.BytesToHash(buf)
+	fmt.Println("e=======",hash, e)
+	outPoint.Hash = *hash
 	if err != nil {
 		return
 	}
