@@ -66,7 +66,7 @@ const (
 var (
 	// userAgentName is the user agent name and is used to help identify
 	// ourselves to other bitcoin peers.
-	userAgentName = "copernicus"
+	userAgentName = "copernicus/yyx"
 
 	// userAgentVersion is the user agent version and is used to help
 	// identify ourselves to other bitcoin peers.
@@ -224,7 +224,7 @@ type Server struct {
 	// initial creation of the server and never changed afterwards, so they
 	// do not need to be protected for concurrent access.
 
-	PhCh chan *peer.PeerMessage
+	MsgChan chan *peer.PeerMessage
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
@@ -250,6 +250,7 @@ type serverPeer struct {
 	// The following chans are used to sync blockmanager and server.
 	txProcessed    chan struct{}
 	blockProcessed chan struct{}
+
 }
 
 // newServerPeer returns a new serverPeer instance. The peer needs to be set by
@@ -459,7 +460,6 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 		if len(invMsg.InvList)+1 > wire.MaxInvPerMsg {
 			break
 		}
-		// }
 	}
 
 	// Send the inventory message if there is anything to send.
@@ -472,7 +472,7 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 // until the bitcoin transaction has been fully processed.  Unlock the block
 // handler this does not serialize all transactions through a single thread
 // transactions don't rely on the previous one in a linear fashion like blocks.
-func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
+func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx, done chan<- struct{}) {
 	txn := (*tx.Tx)(msg)
 	if conf.Cfg.P2PNet.BlocksOnly {
 		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
@@ -493,13 +493,24 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx) {
 	// processed and known good or bad.  This helps prevent a malicious peer
 	// from queuing up a bunch of bad transactions before disconnecting (or
 	// being disconnected) and wasting memory.
-	sp.server.syncManager.QueueTx(txn, sp.Peer, sp.txProcessed)
-	<-sp.txProcessed
+	sp.server.syncManager.QueueTx(txn, sp.Peer, done)
+}
+
+func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<- struct{})  {
+	switch dataType := msg.Msg.(type) {
+	case *wire.MsgMemPool:
+		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done )
+	case *wire.MsgGetData:
+		sp.server.syncManager.QueueGetData(dataType, msg.Peerp, done)
+	case *wire.MsgGetBlocks:
+		sp.server.syncManager.QueueGetBlocks(dataType, msg.Peerp, done)
+
+	}
 }
 
 // OnBlock is invoked when a peer receives a block bitcoin message.  It
 // blocks until the bitcoin block has been fully processed.
-func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
+func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte, done chan<- struct{}) {
 	// Convert the raw MsgBlock to a btcutil.Block which provides some
 	// convenience methods and things such as hash caching.
 	//block := btcutil.NewBlockFromBlockAndBytes(msg, buf)
@@ -521,8 +532,7 @@ func (sp *serverPeer) OnBlock(_ *peer.Peer, msg *wire.MsgBlock, buf []byte) {
 	// reference implementation processes blocks in the same
 	// thread and therefore blocks further messages until
 	// the bitcoin block has been fully processed.
-	sp.server.syncManager.QueueBlock(block, buf, sp.Peer, sp.blockProcessed)
-	<-sp.blockProcessed
+	sp.server.syncManager.QueueBlock(block, buf, sp.Peer, done)
 }
 
 // OnInv is invoked when a peer receives an inv bitcoin message and is
@@ -1580,6 +1590,7 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 			OnAddr:    sp.OnAddr,
 			OnRead:    sp.OnRead,
 			OnWrite:   sp.OnWrite,
+			OnTransferMsgToBusinessPro:	sp.TransferMsgToBusinessPro,
 
 			// Note: The reference client currently bans peers that send alerts
 			// not signed with its key.  We could verify against their key, but
@@ -1608,7 +1619,7 @@ func (s *Server) inboundPeerConnected(conn net.Conn) {
 	sp := newServerPeer(s, false)
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
-	sp.AssociateConnection(conn, s.PhCh)
+	sp.AssociateConnection(conn, s.MsgChan)
 	go s.peerDoneHandler(sp)
 }
 
@@ -1627,7 +1638,7 @@ func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp.Peer = p
 	sp.connReq = c
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
-	sp.AssociateConnection(conn, s.PhCh)
+	sp.AssociateConnection(conn, s.MsgChan)
 	go s.peerDoneHandler(sp)
 	s.addrManager.Attempt(sp.NA())
 }
@@ -2093,7 +2104,7 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		return nil, errors.New("no valid listen address")
 	}
 
-	PhCh := make(chan *peer.PeerMessage)
+	msgChan := make(chan *peer.PeerMessage, 1024)
 	// FIXME: remove useless member
 	s := &Server{
 		chainParams:          chainParams,
@@ -2110,7 +2121,7 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		services:             services,
 		nat:                  nat,
 		timeSource:           bitcointime.NewMedianTime(),
-		PhCh:                 PhCh,
+		MsgChan:              msgChan,
 	}
 
 	targetOutbound := defaultTargetOutbound

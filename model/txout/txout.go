@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"github.com/btcboost/copernicus/conf"
 	"github.com/btcboost/copernicus/errcode"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
@@ -79,12 +80,8 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 }
 
 func (txOut *TxOut) CheckValue() error {
-	if txOut.value < 0 {
-		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-negative", false, "")
-		return errcode.New(errcode.TxErrRejectInvalid)
-	}
-	if txOut.value > amount.Amount(util.MaxMoney) {
-		//state.Dos(100, false, RejectInvalid, "bad-txns-vout-toolarge", false, "")
+	if !amount.MoneyRange(txOut.value) {
+		log.Warn("bad txout value :%d", txOut.value)
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 

@@ -15,7 +15,7 @@ import (
 )
 
 type MsgHandle struct {
-	recvFromNet <-chan *peer.PeerMessage
+	recvMsgFromPeers <-chan *peer.PeerMessage
 	*Server
 }
 
@@ -23,9 +23,8 @@ var msgHandle *MsgHandle
 
 // NewMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
-func SetMsgHandle(ctx context.Context, cmdCh <-chan *peer.PeerMessage, server *Server) {
-	msg := &MsgHandle{recvFromNet: cmdCh}
-	msg.Server = server
+func SetMsgHandle(ctx context.Context, msgChan <-chan *peer.PeerMessage, server *Server) {
+	msg := &MsgHandle{msgChan, server}
 	ctxChild, _ := context.WithCancel(ctx)
 	go msg.startProcess(ctxChild)
 	msgHandle = msg
@@ -36,61 +35,69 @@ func (mh *MsgHandle) startProcess(ctx context.Context) {
 out:
 	for {
 		select {
-		case msg := <-mh.recvFromNet:
+		case msg := <-mh.recvMsgFromPeers:
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
 			case *wire.MsgVersion:
 				peerFrom.PushRejectMsg(data.Command(), wire.RejectDuplicate, "duplicate version message",
 					nil, false)
-				break out
+				peerFrom.Disconnect()
+				msg.Done <- struct{}{}
 			case *wire.MsgVerAck:
 				if peerFrom.VerAckReceived() {
 					log.Info("Already received 'verack' from peer %v -- "+
 						"disconnecting", peerFrom)
-					break out
+					peerFrom.Disconnect()
 				}
 				peerFrom.SetAckReceived(true)
 				if peerFrom.Cfg.Listeners.OnVerAck != nil {
 					peerFrom.Cfg.Listeners.OnVerAck(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgGetAddr:
 				if peerFrom.Cfg.Listeners.OnGetAddr != nil {
 					peerFrom.Cfg.Listeners.OnGetAddr(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgAddr:
 				if peerFrom.Cfg.Listeners.OnAddr != nil {
 					peerFrom.Cfg.Listeners.OnAddr(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgPing:
 				peerFrom.HandlePingMsg(data)
 				if peerFrom.Cfg.Listeners.OnPing != nil {
 					peerFrom.Cfg.Listeners.OnPing(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgPong:
 				peerFrom.HandlePongMsg(data)
 				if peerFrom.Cfg.Listeners.OnPong != nil {
 					peerFrom.Cfg.Listeners.OnPong(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgAlert:
 				if peerFrom.Cfg.Listeners.OnAlert != nil {
 					peerFrom.Cfg.Listeners.OnAlert(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgMemPool:
-				if peerFrom.Cfg.Listeners.OnMemPool != nil {
-					peerFrom.Cfg.Listeners.OnMemPool(peerFrom, data)
+				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
+					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
 				}
 			case *wire.MsgTx:
 				if peerFrom.Cfg.Listeners.OnTx != nil {
-					peerFrom.Cfg.Listeners.OnTx(peerFrom, data)
+					peerFrom.Cfg.Listeners.OnTx(peerFrom, data, msg.Done)
 				}
 			case *wire.MsgBlock:
 				if peerFrom.Cfg.Listeners.OnBlock != nil {
-					peerFrom.Cfg.Listeners.OnBlock(peerFrom, data, msg.Buf)
+					peerFrom.Cfg.Listeners.OnBlock(peerFrom, data, msg.Buf, msg.Done)
 				}
 			case *wire.MsgInv:
 				if peerFrom.Cfg.Listeners.OnInv != nil {
 					peerFrom.Cfg.Listeners.OnInv(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgHeaders:
 				if peerFrom.Cfg.Listeners.OnHeaders != nil {
 					peerFrom.Cfg.Listeners.OnHeaders(peerFrom, data)
@@ -100,12 +107,12 @@ out:
 					peerFrom.Cfg.Listeners.OnNotFound(peerFrom, data)
 				}
 			case *wire.MsgGetData:
-				if peerFrom.Cfg.Listeners.OnGetData != nil {
-					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data)
+				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
+					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
 				}
 			case *wire.MsgGetBlocks:
-				if peerFrom.Cfg.Listeners.OnGetBlocks != nil {
-					peerFrom.Cfg.Listeners.OnGetBlocks(peerFrom, data)
+				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil{
+					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
 				}
 			case *wire.MsgGetHeaders:
 				if peerFrom.Cfg.Listeners.OnGetHeaders != nil {
@@ -115,30 +122,37 @@ out:
 				if peerFrom.Cfg.Listeners.OnFeeFilter != nil {
 					peerFrom.Cfg.Listeners.OnFeeFilter(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgFilterAdd:
 				if peerFrom.Cfg.Listeners.OnFilterAdd != nil {
 					peerFrom.Cfg.Listeners.OnFilterAdd(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgFilterClear:
 				if peerFrom.Cfg.Listeners.OnFilterClear != nil {
 					peerFrom.Cfg.Listeners.OnFilterClear(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgFilterLoad:
 				if peerFrom.Cfg.Listeners.OnFilterLoad != nil {
 					peerFrom.Cfg.Listeners.OnFilterLoad(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgMerkleBlock:
 				if peerFrom.Cfg.Listeners.OnMerkleBlock != nil {
 					peerFrom.Cfg.Listeners.OnMerkleBlock(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgReject:
 				if peerFrom.Cfg.Listeners.OnReject != nil {
 					peerFrom.Cfg.Listeners.OnReject(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgSendHeaders:
 				if peerFrom.Cfg.Listeners.OnSendHeaders != nil {
 					peerFrom.Cfg.Listeners.OnSendHeaders(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			default:
 				log.Debug("Received unhandled message of type %v "+
 					"from %v", data.Command())
