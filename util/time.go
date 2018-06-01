@@ -12,7 +12,7 @@ func GetMockTime() int64 {
 	if mockTime > 0 {
 		return mockTime
 	}
-	return int64(time.Now().Second())
+	return int64(time.Now().Unix())
 }
 
 func SetMockTime(time int64) {
