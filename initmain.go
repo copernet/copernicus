@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/btcboost/copernicus/logic/blockindex"
+	lchain "github.com/btcboost/copernicus/logic/chain"
+	
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/persist/blkdb"
@@ -17,4 +19,5 @@ func appInitMain() {
 	blkdb.InitBlockTreDB(&blkdbCfg)
 	global.InitPersistGlobal()
 	blockindex.LoadBlockIndexDB()
+	lchain.InitGenesisChain()
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"fmt"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/model/script"
 	"github.com/btcboost/copernicus/model/txin"
@@ -152,6 +153,9 @@ func TestTxSerializeAndTxUnserialize(t *testing.T) {
 	}
 	tx := Tx{}
 	err = tx.Unserialize(bytes.NewReader(originBytes))
+	testBytes := make([]byte, 64)
+	hex.Encode(testBytes, tx.GetIns()[0].PreviousOutPoint.Hash[:])
+	fmt.Printf("txIn preout hash: %x", testBytes)
 	if err != nil {
 		panic(err)
 	}

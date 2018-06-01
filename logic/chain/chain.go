@@ -438,3 +438,39 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 
 
 
+func InitGenesisChain() error{
+	gChain := mchain.GetInstance()
+	if gChain.Genesis() != nil{
+		return nil
+	}
+	bl := gChain.GetParams().GenesisBlock
+	pos := block.NewDiskBlockPos(0, 0)
+	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()), 0, uint64(bl.GetBlockHeader().Time), false)
+	if !flag {
+		log.Error("InitChain.WriteBlockToDisk():FindBlockPos failed")
+		return  errcode.ProjectError{Code: 2000}
+	}
+	
+	flag = disk.WriteBlockToDisk(bl, pos)
+	if !flag {
+		log.Error("InitChain.WriteBlockToDisk():WriteBlockToDisk failed")
+		return errcode.ProjectError{Code: 2001}
+	}
+	bIndex := blockindex.NewBlockIndex(&bl.Header)
+	bIndex.Height = 0
+	bIndex.TimeMax = util.MaxU32(0, bIndex.Header.GetBlockTime())
+	work := pow.GetBlockProof(bIndex)
+	bIndex.ChainWork = *work
+	bIndex.AddStatus(blockindex.StatusWaitingData)
+	
+	err := gChain.AddToIndexMap(bIndex)
+	if err != nil {
+		return err
+	}
+	gChain.SetTip(bIndex)
+	fmt.Println("InitGenesisChain=====%#v",gChain)
+	return nil
+	
+	
+	
+}

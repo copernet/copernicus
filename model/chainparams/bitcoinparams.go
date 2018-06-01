@@ -103,7 +103,7 @@ var MainNetParams = BitcoinParams{
 		PowLimit:                       mainPowLimit,
 		TargetTimespan:                 60 * 60 * 24 * 14,
 		TargetTimePerBlock:             60 * 10,
-		FPowAllowMinDifficultyBlocks:   false,
+		FPowAllowMinDifficultyBlocks:   true,
 		FPowNoRetargeting:              false,
 		RuleChangeActivationThreshold:  1916,
 		MinerConfirmationWindow:        2016,
