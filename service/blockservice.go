@@ -23,6 +23,10 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 		}
 		lastIndex = index
 	}
+	beginHash := headerList[0].GetHash()
+	endHash := headerList[len(headerList) - 1].GetHash()
+	log.Trace("processBlockHeader success, blockNumber : %d, lastBlockHeight : %d, beginBlockHash : %s, " +
+		"endBlockHash : %s. ", len(headerList), lastIndex.Height, beginHash.String(), endHash.String())
 	return nil
 }
 
@@ -60,7 +64,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
-	if err != nil {
+	if err == nil {
 		_,_,err = lblock.AcceptBlock(pblock,fForceProcessing, fNewBlock)
 	}
 	

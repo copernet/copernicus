@@ -61,7 +61,28 @@ type blockMsg struct {
 	block *block.Block
 	buf   []byte
 	peer  *peer.Peer
-	reply chan struct{}
+	reply chan<- struct{}
+}
+
+// poolMsg package a bitcoin mempool message and peer it come from together
+type poolMsg struct {
+	pool *wire.MsgMemPool
+	peer *peer.Peer
+	reply chan<- struct{}
+}
+
+// getdataMsg package a bitcoin getdata message And peer it come from together
+type getdataMsg struct {
+	getdata *wire.MsgGetData
+	peer	*peer.Peer
+	reply	chan<- struct{}
+}
+
+// getBlocksMsg package a bitcoin getblocks message And peer it come from together
+type getBlocksMsg struct {
+	getblocks *wire.MsgGetBlocks
+	peer 	*peer.Peer
+	reply chan<- struct{}
 }
 
 // invMsg packages a bitcoin inv message and the peer it came from together
@@ -88,7 +109,7 @@ type donePeerMsg struct {
 type txMsg struct {
 	tx    *tx.Tx
 	peer  *peer.Peer
-	reply chan struct{}
+	reply chan<- struct{}
 }
 
 // getSyncPeerMsg is a message type to be sent across the message channel for
@@ -157,7 +178,7 @@ type SyncManager struct {
 	shutdown       int32
 	chainParams    *chainparams.BitcoinParams
 	progressLogger *blockProgressLogger
-	msgChan        chan interface{}
+	processBusinessChan    chan interface{}
 	wg             sync.WaitGroup
 	quit           chan struct{}
 
@@ -201,9 +222,9 @@ func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int3
 // later than the final checkpoint or some other reason such as disabled
 // checkpoints.
 func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
-	//checkpoints := sm.chain.Checkpoints()
 	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
 	checkpoints := chainparams.TestNet3Params.Checkpoints
+	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
 	if len(checkpoints) == 0 {
 		return nil
 	}
@@ -211,6 +232,7 @@ func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint 
 	// There is no next checkpoint if the height is already after the final
 	// checkpoint.
 	finalCheckpoint := checkpoints[len(checkpoints)-1]
+	log.Trace("finalCheckpoint.Height : %d, current height : %d ", finalCheckpoint.Height, height)
 	if height >= finalCheckpoint.Height {
 		return nil
 	}
@@ -223,6 +245,7 @@ func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint 
 		}
 		nextCheckpoint = checkpoints[i]
 	}
+	log.Trace("return checkpoint heigth : %d", nextCheckpoint.Height)
 	return nextCheckpoint
 }
 
@@ -288,13 +311,9 @@ func (sm *SyncManager) startSync() {
 		// and fully validate them.  Finally, regression test mode does
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
-		log.Trace("nextCheckpoint : %p, bestHeight : %d,  sm.chainParams : %p, " +
-			"&chainparams.RegressionNetParams : %p ", sm.nextCheckpoint, best.Height,
-			 sm.chainParams, &chainparams.RegressionNetParams)
 		if sm.nextCheckpoint != nil &&
 			int32(best.Height) < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chainparams.RegressionNetParams {
-
 			//	3. push peer
 			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
 			sm.headersFirstMode = true
@@ -717,6 +736,7 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 				"fetch: %v", err)
 		}
 		if !haveInv {
+			log.Trace("add inv entry to getdata request ...")
 			syncPeerState := sm.peerStates[sm.syncPeer]
 			sm.requestedBlocks[*node.hash] = struct{}{}
 			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
@@ -729,9 +749,11 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 		}
 	}
 
+	log.Trace("ready to send getdata request, inv Number : %d", len(gdmsg.InvList))
 	if len(gdmsg.InvList) > 0 {
 		sm.syncPeer.QueueMessage(gdmsg, nil)
 	}
+	log.Trace("let getdata request to queue, ready to send to peer.")
 }
 
 // handleHeadersMsg handles block header messages from all peers.  Headers are
@@ -814,6 +836,13 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			break
 		}
 	}
+	var lastBlkIndex blockindex.BlockIndex
+	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil{
+		beginHash := msg.Headers[0].GetHash()
+		endHash := msg.Headers[len(msg.Headers) - 1].GetHash()
+		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s," +
+			"error news : %s.", beginHash.String(), endHash.String(), err.Error() )
+	}
 
 	// When this header is a checkpoint, switch to fetching the blocks for
 	// all of the headers since the last checkpoint.
@@ -854,8 +883,14 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 	case wire.InvTypeBlock:
 		// Ask chain if the block is known to it in any form (main
 		// chain, side chain, or orphan).
-
-		return activeChain.FindBlockIndex(invVect.Hash) != nil, nil
+		blkIndex := activeChain.FindBlockIndex(invVect.Hash)
+		if blkIndex == nil{
+			return false, nil
+		}
+		if blkIndex.WaitingData(){
+			return false, nil
+		}
+		return true, nil
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
@@ -1067,7 +1102,7 @@ func (sm *SyncManager) blockHandler() {
 out:
 	for {
 		select {
-		case m := <-sm.msgChan:
+		case m := <-sm.processBusinessChan:
 			switch msg := m.(type) {
 			case *newPeerMsg:
 				sm.handleNewPeerMsg(msg.peer)
@@ -1085,6 +1120,24 @@ out:
 
 			case *headersMsg:
 				sm.handleHeadersMsg(msg)
+
+			case *poolMsg:
+				if msg.peer.Cfg.Listeners.OnMemPool != nil{
+					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
+					msg.reply <- struct{}{}
+				}
+
+			case getdataMsg:
+				if msg.peer.Cfg.Listeners.OnGetData != nil{
+					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
+					msg.reply <- struct{}{}
+				}
+
+			case getBlocksMsg:
+				if msg.peer.Cfg.Listeners.OnGetBlocks != nil{
+					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
+					msg.reply <- struct{}{}
+				}
 
 			case *donePeerMsg:
 				sm.handleDonePeerMsg(msg.peer)
@@ -1199,33 +1252,63 @@ func (sm *SyncManager) NewPeer(peer *peer.Peer) {
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		return
 	}
-	sm.msgChan <- &newPeerMsg{peer: peer}
+	sm.processBusinessChan <- &newPeerMsg{peer: peer}
 }
 
 // QueueTx adds the passed transaction message and peer to the block handling
 // queue. Responds to the done channel argument after the tx message is
 // processed.
-func (sm *SyncManager) QueueTx(tx *tx.Tx, peer *peer.Peer, done chan struct{}) {
+func (sm *SyncManager) QueueTx(tx *tx.Tx, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more transactions if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.msgChan <- &txMsg{tx: tx, peer: peer, reply: done}
+	sm.processBusinessChan <- &txMsg{tx: tx, peer: peer, reply: done}
 }
 
 // QueueBlock adds the passed block message and peer to the block handling
 // queue. Responds to the done channel argument after the block message is
 // processed.
-func (sm *SyncManager) QueueBlock(block *block.Block, buf []byte, peer *peer.Peer, done chan struct{}) {
+func (sm *SyncManager) QueueBlock(block *block.Block, buf []byte, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.msgChan <- &blockMsg{block: block, buf: buf, peer: peer, reply: done}
+	sm.processBusinessChan <- &blockMsg{block: block, buf: buf, peer: peer, reply: done}
+}
+
+func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, done chan<- struct{})  {
+	// Don't accept more blocks if we're shutting down.
+	if atomic.LoadInt32(&sm.shutdown) != 0 {
+		done <- struct{}{}
+		return
+	}
+
+	sm.processBusinessChan <- &poolMsg{pool, peer, done}
+}
+
+func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer2 *peer.Peer, done chan<- struct{})  {
+	// Don't accept more blocks if we're shutting down.
+	if atomic.LoadInt32(&sm.shutdown) != 0 {
+		done <- struct{}{}
+		return
+	}
+
+	sm.processBusinessChan <- &getdataMsg{getdata, peer2, done}
+}
+
+func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer2 *peer.Peer, done chan<- struct{})  {
+	// Don't accept more blocks if we're shutting down.
+	if atomic.LoadInt32(&sm.shutdown) != 0 {
+		done <- struct{}{}
+		return
+	}
+
+	sm.processBusinessChan <- &getBlocksMsg{getblocks, peer2, done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.
@@ -1236,7 +1319,7 @@ func (sm *SyncManager) QueueInv(inv *wire.MsgInv, peer *peer.Peer) {
 		return
 	}
 
-	sm.msgChan <- &invMsg{inv: inv, peer: peer}
+	sm.processBusinessChan <- &invMsg{inv: inv, peer: peer}
 }
 
 // QueueHeaders adds the passed headers message and peer to the block handling
@@ -1248,7 +1331,7 @@ func (sm *SyncManager) QueueHeaders(headers *wire.MsgHeaders, peer *peer.Peer) {
 		return
 	}
 
-	sm.msgChan <- &headersMsg{headers: headers, peer: peer}
+	sm.processBusinessChan <- &headersMsg{headers: headers, peer: peer}
 }
 
 // DonePeer informs the blockmanager that a peer has disconnected.
@@ -1258,7 +1341,7 @@ func (sm *SyncManager) DonePeer(peer *peer.Peer) {
 		return
 	}
 
-	sm.msgChan <- &donePeerMsg{peer: peer}
+	sm.processBusinessChan <- &donePeerMsg{peer: peer}
 }
 
 // Start begins the core block handler which processes block and inv messages.
@@ -1291,7 +1374,7 @@ func (sm *SyncManager) Stop() error {
 // SyncPeerID returns the ID of the current sync peer, or 0 if there is none.
 func (sm *SyncManager) SyncPeerID() int32 {
 	reply := make(chan int32)
-	sm.msgChan <- getSyncPeerMsg{reply: reply}
+	sm.processBusinessChan <- getSyncPeerMsg{reply: reply}
 	return <-reply
 }
 
@@ -1299,7 +1382,7 @@ func (sm *SyncManager) SyncPeerID() int32 {
 // chain.
 func (sm *SyncManager) ProcessBlock(block *block.Block, flags chain.BehaviorFlags) (bool, error) {
 	reply := make(chan processBlockResponse, 1)
-	sm.msgChan <- processBlockMsg{block: block, flags: flags, reply: reply}
+	sm.processBusinessChan <- processBlockMsg{block: block, flags: flags, reply: reply}
 	response := <-reply
 	return response.isOrphan, response.err
 }
@@ -1308,7 +1391,7 @@ func (sm *SyncManager) ProcessBlock(block *block.Block, flags chain.BehaviorFlag
 // the connected peers.
 func (sm *SyncManager) IsCurrent() bool {
 	reply := make(chan bool)
-	sm.msgChan <- isCurrentMsg{reply: reply}
+	sm.processBusinessChan <- isCurrentMsg{reply: reply}
 	return <-reply
 }
 
@@ -1318,7 +1401,7 @@ func (sm *SyncManager) IsCurrent() bool {
 // message sender should avoid pausing the sync manager for long durations.
 func (sm *SyncManager) Pause() chan<- struct{} {
 	c := make(chan struct{})
-	sm.msgChan <- pauseMsg{c}
+	sm.processBusinessChan <- pauseMsg{c}
 	return c
 }
 
@@ -1333,7 +1416,7 @@ func New(config *Config) (*SyncManager, error) {
 		requestedBlocks: make(map[util.Hash]struct{}),
 		peerStates:      make(map[*peer.Peer]*peerSyncState),
 		progressLogger:  newBlockProgressLogger("Processed", log.GetLogger()),
-		msgChan:         make(chan interface{}, config.MaxPeers*3),
+		processBusinessChan:         make(chan interface{}, config.MaxPeers*3),
 		headerList:      list.New(),
 		quit:            make(chan struct{}),
 	}
@@ -1341,7 +1424,7 @@ func New(config *Config) (*SyncManager, error) {
 	best := chain.GetInstance().Tip()
 	if !config.DisableCheckpoints {
 		// Initialize the next checkpoint based on the current height.
-		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(int32(best.Height))
+		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(best.Height)
 		log.Trace("sm.nextCheckpoint : %p, best height : %d", sm.nextCheckpoint, best.Height)
 		if sm.nextCheckpoint != nil {
 			sm.resetHeaderState(best.GetBlockHash(), int32(best.Height))

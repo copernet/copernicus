@@ -10,6 +10,7 @@ import (
 	"io"
 	"unicode/utf8"
 
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/util"
 )
 
@@ -328,10 +329,14 @@ func WriteMessageWithEncodingN(w io.Writer, msg Message, pver uint32,
 func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	enc MessageEncoding) (int, Message, []byte, error) {
 
+	var err error
+	var command string
+
 	totalBytes := 0
 	n, hdr, err := readMessageHeader(r)
 	totalBytes += n
 	if err != nil {
+		log.Error("readMessageheader error: %v", err)
 		return totalBytes, nil, nil, err
 	}
 
@@ -352,7 +357,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	}
 
 	// Check for malformed commands.
-	command := hdr.command
+	command = hdr.command
 	if !utf8.ValidString(command) {
 		discardInput(r, hdr.length)
 		str := fmt.Sprintf("invalid command %v", []byte(command))
@@ -384,6 +389,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	n, err = io.ReadFull(r, payload)
 	totalBytes += n
 	if err != nil {
+		log.Error("readfull error: %v", err)
 		return totalBytes, nil, nil, err
 	}
 
@@ -399,8 +405,10 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	// Unmarshal message.  NOTE: This must be a *bytes.Buffer since the
 	// MsgVersion Decode function requires it.
 	pr := bytes.NewBuffer(payload)
+	log.Trace("begin Decode msg ....")
 	err = msg.Decode(pr, pver, enc)
 	if err != nil {
+		log.Error("decode error: %v", err)
 		return totalBytes, nil, nil, err
 	}
 

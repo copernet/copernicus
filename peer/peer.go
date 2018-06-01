@@ -141,10 +141,10 @@ type MessageListeners struct {
 	OnMemPool func(p *Peer, msg *wire.MsgMemPool)
 
 	// OnTx is invoked when a peer receives a tx bitcoin message.
-	OnTx func(p *Peer, msg *wire.MsgTx)
+	OnTx func(p *Peer, msg *wire.MsgTx, done chan<- struct{})
 
 	// OnBlock is invoked when a peer receives a block bitcoin message.
-	OnBlock func(p *Peer, msg *wire.MsgBlock, buf []byte)
+	OnBlock func(p *Peer, msg *wire.MsgBlock, buf []byte, done chan<- struct{})
 
 	// OnInv is invoked when a peer receives an inv bitcoin message.
 	OnInv func(p *Peer, msg *wire.MsgInv)
@@ -212,6 +212,8 @@ type MessageListeners struct {
 	// not an error in the write occurred.  This can be useful for
 	// circumstances such as keeping track of server-wide byte counts.
 	OnWrite func(p *Peer, bytesWritten int, msg wire.Message, err error)
+
+	OnTransferMsgToBusinessPro func(msg *PeerMessage, done chan<- struct{})
 }
 
 // Config is the struct to hold configuration options useful to Peer.
@@ -1165,7 +1167,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	var err error
 	defer func() {
 		if err != nil {
-			log.Error("by qiwei readMessage got a error: %v", err)
+			log.Error("readMessage got a error: %v", err)
 		}
 	}()
 
@@ -1190,14 +1192,11 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 		return fmt.Sprintf("Received %v%s from %s",
 			msg.Command(), summary, p)
 	}))
+
 	log.Trace("%v", newLogClosure(func() string {
-		return spew.Sdump(msg)
+		return spew.Sdump(buf)
 	}))
-	/*
-		log.Trace("%v", newLogClosure(func() string {
-			return spew.Sdump(buf)
-		}))
-	*/
+
 	return msg, buf, nil
 }
 
@@ -1534,147 +1533,9 @@ out:
 
 		// Handle each supported message type.
 		p.stallControl <- stallControlMsg{sccHandlerStart, rmsg}
-
-		phCh <- NewPeerMessage(p, rmsg, buf, nil)
-
-		// switch msg := rmsg.(type) {
-		// case *wire.MsgVersion:
-
-		// 	p.PushRejectMsg(msg.Command(), wire.RejectDuplicate,
-		// 		"duplicate version message", nil, true)
-		// 	break out
-
-		// case *wire.MsgVerAck:
-
-		// 	// No read lock is necessary because verAckReceived is not written
-		// 	// to in any other goroutine.
-		// 	if p.verAckReceived {
-		// 		log.Info("Already received 'verack' from peer %v -- "+
-		// 			"disconnecting", p)
-		// 		break out
-		// 	}
-		// 	p.flagsMtx.Lock()
-		// 	p.verAckReceived = true
-		// 	p.flagsMtx.Unlock()
-		// 	if p.cfg.Listeners.OnVerAck != nil {
-		// 		p.cfg.Listeners.OnVerAck(p, msg)
-		// 	}
-
-		// case *wire.MsgGetAddr:
-		// 	if p.cfg.Listeners.OnGetAddr != nil {
-		// 		p.cfg.Listeners.OnGetAddr(p, msg)
-		// 	}
-
-		// case *wire.MsgAddr:
-		// 	if p.cfg.Listeners.OnAddr != nil {
-		// 		p.cfg.Listeners.OnAddr(p, msg)
-		// 	}
-
-		// case *wire.MsgPing:
-		// 	p.handlePingMsg(msg)
-		// 	if p.cfg.Listeners.OnPing != nil {
-		// 		p.cfg.Listeners.OnPing(p, msg)
-		// 	}
-
-		// case *wire.MsgPong:
-		// 	p.handlePongMsg(msg)
-		// 	if p.cfg.Listeners.OnPong != nil {
-		// 		p.cfg.Listeners.OnPong(p, msg)
-		// 	}
-
-		// case *wire.MsgAlert:
-		// 	if p.cfg.Listeners.OnAlert != nil {
-		// 		p.cfg.Listeners.OnAlert(p, msg)
-		// 	}
-
-		// case *wire.MsgMemPool:
-		// 	if p.cfg.Listeners.OnMemPool != nil {
-		// 		p.cfg.Listeners.OnMemPool(p, msg)
-		// 	}
-
-		// case *wire.MsgTx:
-		// 	if p.cfg.Listeners.OnTx != nil {
-		// 		p.cfg.Listeners.OnTx(p, msg)
-		// 	}
-
-		// case *wire.MsgBlock:
-		// 	if p.cfg.Listeners.OnBlock != nil {
-		// 		p.cfg.Listeners.OnBlock(p, msg, buf)
-		// 	}
-
-		// case *wire.MsgInv:
-		// 	if p.cfg.Listeners.OnInv != nil {
-		// 		p.cfg.Listeners.OnInv(p, msg)
-		// 	}
-
-		// case *wire.MsgHeaders:
-		// 	if p.cfg.Listeners.OnHeaders != nil {
-		// 		p.cfg.Listeners.OnHeaders(p, msg)
-		// 	}
-
-		// case *wire.MsgNotFound:
-		// 	if p.cfg.Listeners.OnNotFound != nil {
-		// 		p.cfg.Listeners.OnNotFound(p, msg)
-		// 	}
-
-		// case *wire.MsgGetData:
-		// 	if p.cfg.Listeners.OnGetData != nil {
-		// 		p.cfg.Listeners.OnGetData(p, msg)
-		// 	}
-
-		// case *wire.MsgGetBlocks:
-		// 	if p.cfg.Listeners.OnGetBlocks != nil {
-		// 		p.cfg.Listeners.OnGetBlocks(p, msg)
-		// 	}
-
-		// case *wire.MsgGetHeaders:
-		// 	if p.cfg.Listeners.OnGetHeaders != nil {
-		// 		p.cfg.Listeners.OnGetHeaders(p, msg)
-		// 	}
-
-		// case *wire.MsgFeeFilter:
-		// 	if p.cfg.Listeners.OnFeeFilter != nil {
-		// 		p.cfg.Listeners.OnFeeFilter(p, msg)
-		// 	}
-
-		// case *wire.MsgFilterAdd:
-		// 	if p.cfg.Listeners.OnFilterAdd != nil {
-		// 		p.cfg.Listeners.OnFilterAdd(p, msg)
-		// 	}
-
-		// case *wire.MsgFilterClear:
-		// 	if p.cfg.Listeners.OnFilterClear != nil {
-		// 		p.cfg.Listeners.OnFilterClear(p, msg)
-		// 	}
-
-		// case *wire.MsgFilterLoad:
-		// 	if p.cfg.Listeners.OnFilterLoad != nil {
-		// 		p.cfg.Listeners.OnFilterLoad(p, msg)
-		// 	}
-
-		// case *wire.MsgMerkleBlock:
-		// 	if p.cfg.Listeners.OnMerkleBlock != nil {
-		// 		p.cfg.Listeners.OnMerkleBlock(p, msg)
-		// 	}
-
-		// case *wire.MsgReject:
-		// 	if p.cfg.Listeners.OnReject != nil {
-		// 		p.cfg.Listeners.OnReject(p, msg)
-		// 	}
-
-		// case *wire.MsgSendHeaders:
-		// 	p.flagsMtx.Lock()
-		// 	p.sendHeadersPreferred = true
-		// 	p.flagsMtx.Unlock()
-
-		// 	if p.cfg.Listeners.OnSendHeaders != nil {
-		// 		p.cfg.Listeners.OnSendHeaders(p, msg)
-		// 	}
-
-		// default:
-		// 	log.Debugf("Received unhandled message of type %v "+
-		// 		"from %v", rmsg.Command(), p)
-		// }
+		done := make(chan struct{})
+		phCh <- NewPeerMessage(p, rmsg, buf, done)
+		<-done
 		p.stallControl <- stallControlMsg{sccHandlerDone, rmsg}
 
 		// A message was received so reset the idle timer.
@@ -2067,18 +1928,16 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	}
 	log.Debug("Connected to %s", p.Addr())
 
+	// Send our verack message now that the IO processing machinery has started.
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
+
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
-
 	go p.stallHandler()
-
 	go p.inHandler(phCh)
 	go p.queueHandler()
 	go p.outHandler()
 	go p.pingHandler()
-
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
 	return nil
 }

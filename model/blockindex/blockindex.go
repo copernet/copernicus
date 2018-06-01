@@ -89,7 +89,7 @@ func (bIndex *BlockIndex) SetNull() {
 }
 
 func (bIndex *BlockIndex) WaitingData() bool {
-	return bIndex.Status & StatusWaitingData == 0
+	return bIndex.Status & StatusWaitingData != 0
 }
 
 func (bIndex *BlockIndex) AllValid() bool {
@@ -252,9 +252,10 @@ func (bIndex *BlockIndex) String() string {
 		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
-func (bIndex *BlockIndex) IsGenesis() bool{
-	
-	return bIndex.isGenesis
+func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool{
+	bhash := bIndex.GetBlockHash()
+	genesisHash := params.GenesisBlock.GetHash()
+	return bhash.IsEqual(&genesisHash)
 }
 
 func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool{

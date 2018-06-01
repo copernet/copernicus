@@ -62,13 +62,15 @@ type Param struct {
 	TargetTimespan               time.Duration
 
 	// The best chain should have at least this much work.
-	MinimumChainWork big.Int
+	MinimumChainWork util.Hash
 
 	// By default assume that the signatures in ancestors of this block are valid.
-	DefaultAssumeValid big.Int
+	DefaultAssumeValid util.Hash
 
 	//  Activation time at which the cash HF kicks in.
 	CashHardForkActivationTime int64
+
+	CashaddrPrefix 		string
 }
 
 func (pm *Param) DifficultyAdjustmentInterval() int64 {

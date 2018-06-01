@@ -73,7 +73,7 @@ func ConnectBlock(pblock *block.Block,
 		// effectively caching the result of part of the verification.
 		if bi := gChain.FindBlockIndex(HashAssumeValid); bi != nil {
 			if bi.GetAncestor(pindex.Height) == pindex && tip.GetAncestor(pindex.Height) == pindex &&
-				tip.ChainWork.Cmp(&params.MinimumChainWork) > 0 {
+				tip.ChainWork.Cmp(pow.HashToBig(&params.MinimumChainWork)) > 0 {
 				// This block is a member of the assumed verified chain and an
 				// ancestor of the best header. The equivalent time check
 				// discourages hashpower from extorting the network via DOS
@@ -467,6 +467,7 @@ func InitGenesisChain() error{
 	if err != nil {
 		return err
 	}
+	gChain.AddToBranch(bIndex)
 	gChain.SetTip(bIndex)
 	fmt.Println("InitGenesisChain=====%#v",gChain)
 	return nil

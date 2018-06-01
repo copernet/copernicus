@@ -117,6 +117,7 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		if _, err := buf.Write(b); err != nil {
 			t.Errorf("write to buf :%v\n", err)
 		}
+
 		tx1 := Tx{}
 		err = tx1.Unserialize(buf)
 		if err != nil {
