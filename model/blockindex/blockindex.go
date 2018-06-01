@@ -89,7 +89,7 @@ func (bIndex *BlockIndex) SetNull() {
 }
 
 func (bIndex *BlockIndex) WaitingData() bool {
-	return bIndex.Status & StatusWaitingData == 0
+	return bIndex.Status & StatusWaitingData != 0
 }
 
 func (bIndex *BlockIndex) AllValid() bool {
