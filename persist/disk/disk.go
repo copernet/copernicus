@@ -77,7 +77,11 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 		return nil
 	}
 	parentPath := GetBlockPosParentFilename()
-	os.MkdirAll(parentPath, os.ModePerm)
+	e := os.MkdirAll(parentPath, os.ModePerm)
+	if e!=nil{
+		log.Error("e=========",e)
+		panic("OpenDiskFile.os.MkdirAll(parentPath err")
+	}
 	filePath := GetBlockPosFilename(pos, prefix)
 	flag := 0
 	if fReadOnly {
@@ -85,12 +89,13 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	} else {
 		flag |= os.O_APPEND | os.O_WRONLY
 	}
-	if _, err := os.Stat(filePath); os.IsExist(err) {
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		flag |= os.O_CREATE
 	}
 	file, err := os.OpenFile(filePath, flag, os.ModePerm)
 	if file == nil || err != nil {
 		log.Error("Unable to open file %s\n", err)
+		panic("Unable to open file ======")
 		return nil
 	}
 	if pos.Pos > 0 {
@@ -408,7 +413,9 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 
 	// Check for nMinDiskSpace bytes (currently 50MB)
 	MinDiskSpace := 52428800
-	if int(nFreeBytesAvailable) < MinDiskSpace+int(nAdditionalBytes) {
+	n := int(nAdditionalBytes)
+	needSize := uint64(MinDiskSpace+n)
+	if nFreeBytesAvailable < needSize {
 		return AbortNodes("Disk space is low!", "Error: Disk space is low!")
 	}
 	return true

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+	
 	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
 	lchain "github.com/btcboost/copernicus/logic/chain"
@@ -25,8 +27,9 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 }
 
 func ProcessBlock(b *block.Block) (bool, error) {
-	log.Debug("ProcessBlock==%#v", b)
 	gChain := chain.GetInstance()
+	fmt.Println("gchan==%d====%#v",gChain.Height(),gChain.Tip())
+	
 	isNewBlock := false
 	var err error
 
