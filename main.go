@@ -54,7 +54,7 @@ func bchMain(ctx context.Context) error {
 		rpcServer.Start()
 	}
 
-	server.SetMsgHandle(context.TODO(), s.PhCh, s)
+	server.SetMsgHandle(context.TODO(), s.MsgChan, s)
 	if interruptRequested(interrupt) {
 		return nil
 	}

@@ -22,12 +22,11 @@ var (
 	mainPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
 	// 2^255 -1
 	regressingPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
-	testNet3PowLimit   = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
-	simNetPowlimit     = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 225), bigOne)
+	testNet3PowLimit   = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
 )
 
 type ChainTxData struct {
-	Time    time.Time
+	Time    int64
 	TxCount int64
 	TxRate  float64
 }
@@ -46,6 +45,7 @@ type BitcoinParams struct {
 	consensus.Param
 	Name                     string
 	BitcoinNet               wire.BitcoinNet
+	DiskMagic 				 wire.BitcoinNet
 	DefaultPort              string
 	DNSSeeds                 []DNSSeed
 	GenesisBlock             *block.Block
@@ -81,6 +81,9 @@ type BitcoinParams struct {
 
 	PruneAfterHeight int
 	chainTxData      ChainTxData
+	MiningRequiresPeers  bool
+	DefaultConsistencyChecks bool
+	fMineBlocksOnDemand		bool
 }
 
 func (param *BitcoinParams) TxData() *ChainTxData {
@@ -225,14 +228,43 @@ var RegressionNetParams = BitcoinParams{
 
 var TestNet3Params = BitcoinParams{
 	Param: consensus.Param{
-		GenesisHash:        &TestNet3GenesisHash,
+		SubsidyHalvingInterval:210000,
+		BIP34Height:21111,
+		BIP34Hash: *util.HashFromString("0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8"),
+		BIP65Height: 581885,
+		BIP66Height: 330776,
+		AntiReplayOpReturnSunsetHeight: 1250000,
+		AntiReplayOpReturnCommitment: []byte("Bitcoin: A Peer-to-Peer Electronic Cash System"),
 		PowLimit:           testNet3PowLimit,
 		TargetTimespan:     60 * 60 * 24 * 14,
 		TargetTimePerBlock: 60 * 10,
+		FPowAllowMinDifficultyBlocks:true,
+		FPowNoRetargeting:false,
+		RuleChangeActivationThreshold:1512,
+		MinerConfirmationWindow: 2016,
+		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
+			consensus.DeploymentTestDummy:{
+				Bit:28,
+				StartTime:	1199145601,
+				Timeout:1230767999,
+			},
+			consensus.DeploymentCSV:{
+				Bit:0,
+				StartTime:	1456790400,
+				Timeout:1493596800,
+			},
+		},
+		MinimumChainWork: *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
+		DefaultAssumeValid: *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
+		UAHFHeight:1155876,
+		CashHardForkActivationTime: 1510600000,
+		GenesisHash:        &TestNet3GenesisHash,
+		CashaddrPrefix:"xbctest",
 	},
 
 	Name:        "testnet3",
 	BitcoinNet:  wire.TestNet3,
+	DiskMagic:wire.TestDiskMagic,
 	DefaultPort: "18333",
 	DNSSeeds: []DNSSeed{
 		{Host: "testnet-seed.bitcoinabc.org", HasFiltering: false},
@@ -272,52 +304,10 @@ var TestNet3Params = BitcoinParams{
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
 	HDCoinType: 1,
+	MiningRequiresPeers: true,
+	chainTxData:ChainTxData{1483546230, 12834668, 0.15 },
 }
 
-var SimNetParams = BitcoinParams{
-	Param: consensus.Param{
-		GenesisHash:        &SimNetGenesisHash,
-		PowLimit:           simNetPowlimit,
-		TargetTimespan:     60 * 60 * 24 * 14,
-		TargetTimePerBlock: 60 * 10,
-	},
-
-	Name:         "simnet",
-	BitcoinNet:   wire.SimNet,
-	DefaultPort:  "18555",
-	DNSSeeds:     []DNSSeed{},
-	GenesisBlock: &SimNetGenesisBlock,
-
-	PowLimitBits:             SimNetGenesisBlock.Header.Bits,
-	CoinbaseMaturity:         100,
-	SubsidyReductionInterval: 210000,
-
-	RetargetAdjustmentFactor: 4,
-	ReduceMinDifficulty:      true,
-	MinDiffReductionTime:     time.Minute * 20,
-	GenerateSupported:        false,
-	Checkpoints:              nil,
-	// Enforce current block version once majority of the network has
-	// upgraded.
-	// 75% (750 / 1000)
-	// Reject previous block versions once a majority of the network has
-	// upgraded.
-	// 95% (950 / 1000)
-	BlockEnforceNumRequired: 51,
-	BlockRejectNumRequired:  75,
-	BlockUpgradeNumToCheck:  100,
-
-	RelayNonStdTxs:      true,
-	PubKeyHashAddressID: 0x3f, // starts with 1
-	ScriptHashAddressID: 0x7b, // starts with 3
-	PrivatekeyID:        0x64, // starts with 5 (uncompressed) or K (compressed)
-	// BIP32 hierarchical deterministic extended key magics
-	HDPrivateKeyID: [4]byte{0x04, 0x20, 0xb9, 0x00}, // starts with xprv
-	HDPublicKeyID:  [4]byte{0x04, 0x20, 0xbd, 0x3a}, // starts with xpub
-	// BIP44 coin type used in the hierarchical deterministic path for
-	// address generation.
-	HDCoinType: 115,
-}
 
 var (
 	RegisteredNets          = make(map[wire.BitcoinNet]struct{})
@@ -330,8 +320,6 @@ func init() {
 	mustRegister(&MainNetParams)
 	mustRegister(&TestNet3Params)
 	mustRegister(&RegressionNetParams)
-	mustRegister(&SimNetParams)
-
 }
 
 func Register(bitcoinParams *BitcoinParams) error {
@@ -370,16 +358,6 @@ func mustRegister(bp *BitcoinParams) {
 	if err != nil {
 		panic("failed to register network :" + err.Error())
 	}
-	work, ok := big.NewInt(0).SetString("000000000000000000000000000000000000000000796b6d5908f8db26c3cf44", 16)
-	if !ok {
-		panic("error")
-	}
-	bp.MinimumChainWork = *work
-	work, ok = big.NewInt(0).SetString("000000000000000004694d6c74b532faf99fc072181f870bfb4a6c9930f7440c", 16)
-	if !ok {
-		panic("err")
-	}
-	bp.DefaultAssumeValid = *work
 }
 
 //IsUAHFEnabled Check is UAHF has activated.

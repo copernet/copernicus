@@ -1192,11 +1192,11 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 		return fmt.Sprintf("Received %v%s from %s",
 			msg.Command(), summary, p)
 	}))
-	/*
+
 		log.Trace("%v", newLogClosure(func() string {
 			return spew.Sdump(buf)
 		}))
-	*/
+
 	return msg, buf, nil
 }
 

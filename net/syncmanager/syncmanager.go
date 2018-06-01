@@ -833,6 +833,13 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			break
 		}
 	}
+	var lastBlkIndex blockindex.BlockIndex
+	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil{
+		beginHash := msg.Headers[0].GetHash()
+		endHash := msg.Headers[len(msg.Headers) - 1].GetHash()
+		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s," +
+			"error news : %s.", beginHash.String(), endHash.String(), err.Error() )
+	}
 
 	// When this header is a checkpoint, switch to fetching the blocks for
 	// all of the headers since the last checkpoint.
