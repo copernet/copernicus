@@ -33,6 +33,7 @@ func GetInstance() *Chain {
 	if globalChain == nil {
 		panic("globalChain do not init")
 	}
+	// fmt.Println("gchain======%#v", globalChain)
 	return globalChain
 }
 
@@ -44,8 +45,8 @@ func InitGlobalChain(cfg *conf.Configuration){
 }
 func NewChain() *Chain {
 
-	return NewFakeChain()
-	//return &Chain{}
+	// return NewFakeChain()
+	return &Chain{}
 }
 func (c *Chain)GetParams() *chainparams.BitcoinParams {
 	return c.params
@@ -54,6 +55,7 @@ func (c *Chain)InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch  [
 	c.indexMap = indexMap
 	c.branch =  branch
 }
+
 // Genesis Returns the blIndex entry for the genesis block of this chain,
 // or nullptr if none.
 func (c *Chain) Genesis() *blockindex.BlockIndex {

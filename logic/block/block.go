@@ -297,6 +297,5 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return bIndex, nil
 }
