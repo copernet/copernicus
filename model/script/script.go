@@ -181,8 +181,7 @@ const (
 	//
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc |
-		ScriptEnableSigHashForkId | ScriptVerifyLowS | ScriptVerifyNullFail
+	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc | ScriptEnableSigHashForkId
 
 	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
 	 * with. However scripts violating these flags may still be present in valid

@@ -449,7 +449,8 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		err := verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
 		if err != nil {
 			if (flags & uint32(script.StandardNotMandatoryVerifyFlags)) == uint32(script.StandardNotMandatoryVerifyFlags) {
-				err = verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags&uint32(^script.StandardNotMandatoryVerifyFlags))
+				err = verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(),
+					uint32(uint64(flags)&uint64(^script.StandardNotMandatoryVerifyFlags)))
 			}
 			if err == nil {
 				log.Debug("verifyScript err, but without StandardNotMandatoryVerifyFlags success")
