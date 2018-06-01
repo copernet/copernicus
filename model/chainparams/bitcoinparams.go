@@ -26,7 +26,7 @@ var (
 )
 
 type ChainTxData struct {
-	Time    int64
+	Time    time.Time
 	TxCount int64
 	TxRate  float64
 }
@@ -305,9 +305,9 @@ var TestNet3Params = BitcoinParams{
 	// address generation.
 	HDCoinType: 1,
 	MiningRequiresPeers: true,
-	chainTxData:ChainTxData{1483546230, 12834668, 0.15 },
-}
 
+	chainTxData:ChainTxData{time.Unix(1483546230, 0), 12834668, 0.15 },
+}
 
 var (
 	RegisteredNets          = make(map[wire.BitcoinNet]struct{})
