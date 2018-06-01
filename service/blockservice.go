@@ -60,7 +60,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
-	if err != nil {
+	if err == nil {
 		_,_,err = lblock.AcceptBlock(pblock,fForceProcessing, fNewBlock)
 	}
 	
