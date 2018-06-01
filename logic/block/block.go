@@ -146,7 +146,7 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
 	hash := pindexNew.GetBlockHash()
-	pindexNew.TxCount = len(pblock.Txs)
+	pindexNew.TxCount = int32(len(pblock.Txs))
 	pindexNew.ChainTxCount = 0
 	pindexNew.File = pos.File
 	pindexNew.DataPos = pos.Pos

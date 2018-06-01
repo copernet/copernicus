@@ -38,6 +38,7 @@ func ConnectBlock(pblock *block.Block,
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()
+	hash := pindex.GetBlockHash()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad block in
 	if err := lblock.CheckBlock(pblock);err!=nil{
@@ -48,7 +49,7 @@ func ConnectBlock(pblock *block.Block,
 	hashPrevBlock := *pindex.Prev.GetBlockHash()
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash := gUtxo.GetBestBlock()
-	if hashPrevBlock.IsEqual(&bestHash) {
+	if !hashPrevBlock.IsEqual(&bestHash) {
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
 	}
 
@@ -129,10 +130,9 @@ func ConnectBlock(pblock *block.Block,
 	pindexBIP34height := pindex.Prev.GetAncestor(params.BIP34Height)
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
-	hash := pindexBIP34height.GetBlockHash()
 	BIP34Hash := params.BIP34Hash
-	fEnforceBIP30 = fEnforceBIP30 && (&pindexBIP34height == nil ||
-		!(hash.IsEqual(&BIP34Hash)))
+	bip34 := pindexBIP34height == nil || !(pindexBIP34height!=nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
+	fEnforceBIP30 = fEnforceBIP30 && bip34
 
 	flags := lblock.GetBlockScriptFlags(pindex)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
@@ -235,7 +235,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
 		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
 	// Write the chain state to disk, if necessary.
-	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0);err!=nil {
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0);err!=nil {
 		return err
 	}
 	nTime5 := util.GetMicrosTime()

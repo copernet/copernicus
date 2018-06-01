@@ -100,7 +100,7 @@ func LoadBlockIndexDB() bool {
 		log.Error("Error: GetLastBlockFile err %#v", err)
 	}
 	logs.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
-	for nFile := 0; nFile <= gPersist.GlobalLastBlockFile; nFile++ {
+	for nFile := int32(0); nFile <= gPersist.GlobalLastBlockFile; nFile++ {
 		bfi,err = btd.ReadBlockFileInfo(nFile)
 		if err == nil{
 			if bfi == nil{
@@ -137,7 +137,7 @@ func LoadBlockIndexDB() bool {
 	
 	for _, item := range l {
 		pos := &block.DiskBlockPos{
-			File: item.(int),
+			File: item.(int32),
 			Pos:  0,
 		}
 		file := disk.OpenBlockFile(pos, true)

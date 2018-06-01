@@ -57,6 +57,9 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
+	if err != nil && err == leveldb.ErrNotFound{
+		return nil
+	}
 	if err != nil {
 		log.Emergency("CoinsLruCache.GetCoin err:%#v", err)
 		panic("get coin is failed!")

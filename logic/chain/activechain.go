@@ -125,7 +125,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 	if pindexFork != nil {
 		nHeight = pindexFork.Height
 	}
-	for fContinue && nHeight != pindexFork.Height {
+	for fContinue && nHeight != pindexMostWork.Height {
 		// Don't iterate the entire list of potential improvements toward the
 		// best tip, as we likely only need a few blocks along the way.
 		nTargetHeight := pindexMostWork.Height

@@ -18,7 +18,7 @@ func (bIndex *BlockIndex)GetSerializeList()[]string{
 
 func (bIndex *BlockIndex) Serialize(w io.Writer) error {
 	buf := bytes.NewBuffer(nil)
-	clientVersion := 160000
+	clientVersion := int32(160000)
 	err := util.WriteElements(buf, clientVersion, bIndex.Height, bIndex.Status, bIndex.TxCount, bIndex.File, bIndex.DataPos, bIndex.UndoPos)
 	if err != nil {
 		return err
