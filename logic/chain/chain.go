@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	
+
 	"github.com/btcboost/copernicus/errcode"
 	lmp "github.com/btcboost/copernicus/logic/mempool"
 	"github.com/btcboost/copernicus/model/block"
@@ -15,33 +15,31 @@ import (
 	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
-	
+
 	"github.com/btcboost/copernicus/log"
 	ltx "github.com/btcboost/copernicus/logic/tx"
 	"github.com/btcboost/copernicus/logic/undo"
-	
+
 	mUndo "github.com/btcboost/copernicus/model/undo"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/persist/disk"
-	
+
 	lblock "github.com/btcboost/copernicus/logic/block"
+	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/pow"
 )
-
-
-
 
 var HashAssumeValid util.Hash
 
 func ConnectBlock(pblock *block.Block,
-	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) (error) {
+	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()
 	hash := pindex.GetBlockHash()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad block in
-	if err := lblock.CheckBlock(pblock);err!=nil{
+	if err := lblock.CheckBlock(pblock); err != nil {
 		return err
 	}
 
@@ -131,7 +129,7 @@ func ConnectBlock(pblock *block.Block,
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
 	BIP34Hash := params.BIP34Hash
-	bip34 := pindexBIP34height == nil || !(pindexBIP34height!=nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
+	bip34 := pindexBIP34height == nil || !(pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
 	fEnforceBIP30 = fEnforceBIP30 && bip34
 
 	flags := lblock.GetBlockScriptFlags(pindex)
@@ -141,7 +139,8 @@ func ConnectBlock(pblock *block.Block,
 	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
 		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
 
-	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags, fScriptChecks, blockSubSidy, pindex.Height)
+	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags,
+		fScriptChecks, blockSubSidy, pindex.Height, consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize())))
 	if err != nil {
 		return err
 	}
@@ -154,8 +153,8 @@ func ConnectBlock(pblock *block.Block,
 			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()); err != nil {
 				return err
 			}
-			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet);err!=nil {
-				 return err
+			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
+				return err
 			}
 
 			// update nUndoPos in block index
@@ -175,8 +174,6 @@ func ConnectBlock(pblock *block.Block,
 func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 
 }
-
-
 
 type connectTrace map[*blockindex.BlockIndex]*block.Block
 
@@ -217,7 +214,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 
 	view := utxo.NewEmptyCoinsMap()
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
-	if err !=nil {
+	if err != nil {
 		InvalidBlockFound(pIndexNew)
 		log.Error(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", indexHash.String()))
 		return err
@@ -235,7 +232,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
 		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
 	// Write the chain state to disk, if necessary.
-	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0);err!=nil {
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
 	nTime5 := util.GetMicrosTime()
@@ -293,7 +290,7 @@ func DisconnectTip(fBare bool) error {
 		float64(time.Now().UnixNano()-nStart)*0.001)
 
 	// Write the chain state to disk, if necessary.
-	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0);err!=nil {
+	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0); err != nil {
 		return err
 	}
 
@@ -436,11 +433,9 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	return undo.ApplyBlockUndo(blockUndo, pblock, view)
 }
 
-
-
-func InitGenesisChain() error{
+func InitGenesisChain() error {
 	gChain := mchain.GetInstance()
-	if gChain.Genesis() != nil{
+	if gChain.Genesis() != nil {
 		return nil
 	}
 	bl := gChain.GetParams().GenesisBlock
@@ -448,9 +443,9 @@ func InitGenesisChain() error{
 	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()), 0, uint64(bl.GetBlockHeader().Time), false)
 	if !flag {
 		log.Error("InitChain.WriteBlockToDisk():FindBlockPos failed")
-		return  errcode.ProjectError{Code: 2000}
+		return errcode.ProjectError{Code: 2000}
 	}
-	
+
 	flag = disk.WriteBlockToDisk(bl, pos)
 	if !flag {
 		log.Error("InitChain.WriteBlockToDisk():WriteBlockToDisk failed")
@@ -462,16 +457,14 @@ func InitGenesisChain() error{
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *work
 	bIndex.AddStatus(blockindex.StatusWaitingData)
-	
+
 	err := gChain.AddToIndexMap(bIndex)
 	if err != nil {
 		return err
 	}
 	gChain.AddToBranch(bIndex)
 	gChain.SetTip(bIndex)
-	fmt.Println("InitGenesisChain=====%#v",gChain)
+	fmt.Println("InitGenesisChain=====%#v", gChain)
 	return nil
-	
-	
-	
+
 }
