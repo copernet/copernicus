@@ -7,7 +7,8 @@ import (
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/util"
 	"io"
-	)
+	"math"
+)
 
 type OutPoint struct {
 	Hash  util.Hash
@@ -64,7 +65,7 @@ func (outPoint *OutPoint) IsNull() bool {
 	if outPoint == nil {
 		return true
 	}
-	if outPoint.Index != 0xffffffff {
+	if outPoint.Index != math.MaxUint32 {
 		return false
 	}
 	return outPoint.Hash.IsEqual(&util.HashZero)

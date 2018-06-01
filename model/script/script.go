@@ -568,7 +568,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
-		opM, _ := DecodeOPN(opValue0)
+		opM := DecodeOPN(opValue0)
 		pubKeyCount := 0
 		pubKeys = make([][]byte, len-1)
 		data := make([]byte, 1)
@@ -583,7 +583,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 			}
 			opValueI := e.OpValue
 			if opValueI == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
-				opN, _ := DecodeOPN(opValueI)
+				opN := DecodeOPN(opValueI)
 				// Support up to x-of-3 multisig txns as standard
 				if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
 					return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
@@ -640,7 +640,7 @@ func (script *Script) IsPushOnly() bool {
 
 }
 
-func (script *Script) GetSigOpCount(accurate bool) (int, error) {
+func (script *Script) GetSigOpCount(accurate bool) int {
 	n := 0
 	var lastOpcode byte
 	for _, e := range script.ParsedOpCodes {
@@ -649,10 +649,7 @@ func (script *Script) GetSigOpCount(accurate bool) (int, error) {
 			n++
 		} else if opcode == opcodes.OP_CHECKMULTISIG || opcode == opcodes.OP_CHECKMULTISIGVERIFY {
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
-				opn, err := DecodeOPN(lastOpcode)
-				if err != nil {
-					return 0, err
-				}
+				opn := DecodeOPN(lastOpcode)
 				n += opn
 			} else {
 				n += MaxPubKeysPerMultiSig
@@ -660,17 +657,17 @@ func (script *Script) GetSigOpCount(accurate bool) (int, error) {
 		}
 		lastOpcode = opcode
 	}
-	return n, nil
+	return n
 }
 
-func (script *Script) GetP2SHSigOpCount() (int, error) {
+func (script *Script) GetP2SHSigOpCount() int {
 	// This is a pay-to-script-hash scriptPubKey;
 	// get the last item that the scriptSig
 	// pushes onto the stack:
 	for _, e := range script.ParsedOpCodes {
 		opcode := e.OpValue
 		if opcode > opcodes.OP_16 {
-			return 0, nil
+			return 0
 		}
 	}
 	lastOps := script.ParsedOpCodes[len(script.ParsedOpCodes)-1]
@@ -686,11 +683,14 @@ func EncodeOPN(n int) (int, error) {
 	return opcodes.OP_1 + n - 1, nil
 }
 
-func DecodeOPN(opcode byte) (int, error) {
-	if opcode < opcodes.OP_0 || opcode > opcodes.OP_16 {
-		return 0, errors.New(" DecodeOPN opcode is out of bounds")
+func DecodeOPN(opcode byte) int {
+	if opcode == opcodes.OP_0 {
+		return 0
 	}
-	return int(opcode) - int(opcodes.OP_1-1), nil
+	if opcode < opcodes.OP_1 || opcode > opcodes.OP_16 {
+		panic("Decode Opcode err")
+	}
+	return int(opcode) - int(opcodes.OP_1-1)
 }
 
 func (script *Script) Size() int {
