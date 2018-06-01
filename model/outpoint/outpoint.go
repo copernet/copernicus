@@ -3,10 +3,11 @@ package outpoint
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/util"
 	"io"
-)
+	)
 
 type OutPoint struct {
 	Hash  util.Hash
