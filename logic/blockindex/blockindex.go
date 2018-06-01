@@ -22,7 +22,7 @@ import (
 "github.com/btcboost/copernicus/util"
 "gopkg.in/fatih/set.v0"
 
-	
+
 )
 
 //on main init call it
@@ -132,9 +132,9 @@ func LoadBlockIndexDB() bool {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
-	
+
 	l := setBlkDataFiles.List()
-	
+
 	for _, item := range l {
 		pos := &block.DiskBlockPos{
 			File: item.(int32),

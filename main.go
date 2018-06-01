@@ -38,7 +38,7 @@ func bchMain(ctx context.Context) error {
 	appInitMain()
 	interrupt := interruptListener()
 
-	s, err := server.NewServer(&chainparams.TestNet3Params, interrupt)
+	s, err := server.NewServer(chainparams.ActiveNetParams, interrupt)
 	if err != nil {
 		return err
 	}

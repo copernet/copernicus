@@ -223,7 +223,7 @@ func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int3
 // checkpoints.
 func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
 	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
-	checkpoints := chainparams.TestNet3Params.Checkpoints
+	checkpoints := chainparams.ActiveNetParams.Checkpoints
 	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
 	if len(checkpoints) == 0 {
 		return nil
@@ -736,7 +736,6 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 				"fetch: %v", err)
 		}
 		if !haveInv {
-			log.Trace("add inv entry to getdata request ...")
 			syncPeerState := sm.peerStates[sm.syncPeer]
 			sm.requestedBlocks[*node.hash] = struct{}{}
 			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
@@ -1422,6 +1421,9 @@ func New(config *Config) (*SyncManager, error) {
 	}
 	chain.InitGlobalChain(nil)
 	best := chain.GetInstance().Tip()
+	if best == nil{
+		panic("best is nil")
+	}
 	if !config.DisableCheckpoints {
 		// Initialize the next checkpoint based on the current height.
 		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(best.Height)

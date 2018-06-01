@@ -90,6 +90,7 @@ out:
 					peerFrom.Cfg.Listeners.OnTx(peerFrom, data, msg.Done)
 				}
 			case *wire.MsgBlock:
+				log.Trace("recv bitcoin MsgBlock news ...")
 				if peerFrom.Cfg.Listeners.OnBlock != nil {
 					peerFrom.Cfg.Listeners.OnBlock(peerFrom, data, msg.Buf, msg.Done)
 				}
