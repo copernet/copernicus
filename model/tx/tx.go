@@ -16,6 +16,7 @@ import (
 	"github.com/btcboost/copernicus/util"
 	"github.com/btcboost/copernicus/util/amount"
 	"io"
+	"math"
 )
 
 const (
@@ -108,6 +109,7 @@ func (tx *Tx) AddTxOut(txOut *txout.TxOut) {
 
 func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 	if index < 0 || index > len(tx.outs) {
+		log.Warn("GetTxOut index %d over large")
 		return nil
 	}
 
@@ -260,7 +262,7 @@ func (tx *Tx) IsCoinBase() bool {
 	if len(tx.ins) != 1 {
 		return false
 	}
-	if tx.ins[0].PreviousOutPoint.Index != 0xfffffff {
+	if tx.ins[0].PreviousOutPoint.Index != math.MaxUint32 {
 		return false
 	}
 	for _, e := range tx.ins[0].PreviousOutPoint.Hash {
@@ -316,7 +318,8 @@ func (tx *Tx) CheckRegularTransaction() error {
 
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
-		return errcode.New(errcode.TxErrNotCoinBase)
+		log.Warn("CheckCoinBaseTransaction: TxErrNotCoinBase")
+		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	err := tx.checkTransactionCommon(false)
 	if err != nil {
@@ -334,15 +337,16 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
-		//state.Dos(10, false, RejectInvalid, "bad-txns-vin-empty", false, "")
+		log.Warn("bad tx, empty ins")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	if len(tx.outs) == 0 {
-		//state.Dos(10, false, RejectInvalid, "bad-txns-vout-empty", false, "")
+		log.Warn("bad tx, empty out")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
 	if tx.EncodeSize() > consensus.MaxTxSize {
+		log.Warn("bad tx, oversize")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
@@ -355,13 +359,14 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 		}
 		totalOut += out.GetValue()
 		if !amount.MoneyRange(totalOut) {
-			//state.Dos(100, false, RejectInvalid, "bad-txns-txouttotal-toolarge", false, "")
+			log.Debug("bad tx totalOut value :%d", totalOut)
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
 
 	// check sigopcount
 	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
+		log.Debug("bad tx sigops :%d", tx.GetSigOpCountWithoutP2SH())
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
@@ -381,6 +386,7 @@ func (tx *Tx) CheckDuplicateIns(outpoints *map[*outpoint.OutPoint]bool) error {
 		if _, ok := (*outpoints)[in.PreviousOutPoint]; !ok {
 			(*outpoints)[in.PreviousOutPoint] = true
 		} else {
+			log.Debug("bad tx, duplicate inputs")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
