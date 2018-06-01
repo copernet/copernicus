@@ -160,21 +160,18 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		}
 		if _, err := buf.Write(b); err != nil {
 			t.Errorf("write to buf :%v\n", err)
-			return
 		}
 		transaction := Tx{}
 		err = transaction.Decode(buf)
 		//tx, err := DeserializeTx(buf)
 		if err != nil {
 			t.Errorf("Deserialize error :%v\n", err)
-			return
 		}
 		//e.tx = tx
 		buf.Reset()
 		err = transaction.Serialize(buf)
 		if err != nil {
 			t.Errorf("failed Serialize tx %d tx: %v\n", i, err)
-			return
 		}
 		h := util.DoubleSha256Hash(buf.Bytes())
 		hash := h.ToString()
