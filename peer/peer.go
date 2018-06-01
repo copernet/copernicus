@@ -141,7 +141,7 @@ type MessageListeners struct {
 	OnMemPool func(p *Peer, msg *wire.MsgMemPool)
 
 	// OnTx is invoked when a peer receives a tx bitcoin message.
-	OnTx func(p *Peer, msg *wire.MsgTx, done chan <-struct{})
+	OnTx func(p *Peer, msg *wire.MsgTx, done chan<- struct{})
 
 	// OnBlock is invoked when a peer receives a block bitcoin message.
 	OnBlock func(p *Peer, msg *wire.MsgBlock, buf []byte, done chan<- struct{})
@@ -1167,7 +1167,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	var err error
 	defer func() {
 		if err != nil {
-			log.Error("by qiwei readMessage got a error: %v", err)
+			log.Error("readMessage got a error: %v", err)
 		}
 	}()
 
@@ -1193,9 +1193,9 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 			msg.Command(), summary, p)
 	}))
 
-		log.Trace("%v", newLogClosure(func() string {
-			return spew.Sdump(buf)
-		}))
+	log.Trace("%v", newLogClosure(func() string {
+		return spew.Sdump(buf)
+	}))
 
 	return msg, buf, nil
 }
@@ -1446,7 +1446,6 @@ out:
 				break
 			}
 
-
 			// Reset the deadline offset for the next tick.
 			deadlineOffset = 0
 
@@ -1536,7 +1535,7 @@ out:
 		p.stallControl <- stallControlMsg{sccHandlerStart, rmsg}
 		done := make(chan struct{})
 		phCh <- NewPeerMessage(p, rmsg, buf, done)
-		<- done
+		<-done
 		p.stallControl <- stallControlMsg{sccHandlerDone, rmsg}
 
 		// A message was received so reset the idle timer.
@@ -1928,7 +1927,6 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		return errors.New("protocol negotiation timeout")
 	}
 	log.Debug("Connected to %s", p.Addr())
-
 
 	// Send our verack message now that the IO processing machinery has started.
 	p.QueueMessage(wire.NewMsgVerAck(), nil)

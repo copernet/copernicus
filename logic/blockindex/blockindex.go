@@ -166,10 +166,10 @@ func LoadBlockIndexDB() bool {
 	return true
 }
 func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex)  bool{
-	if preIndex.IsGenesis(){
+	gChain := chain.GetInstance()
+	if preIndex.IsGenesis(gChain.GetParams()){
 		return true
 	}
-	gChain := chain.GetInstance()
 	nHeight := preIndex.Height + 1
 	// Don't accept any forks from the main chain prior to last checkpoint
 	params := gChain.GetParams()

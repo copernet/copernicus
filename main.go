@@ -28,7 +28,7 @@ const (
 )
 
 // btcdMain is the real main function for btcd.  It is necessary to work around
-// the fact that deferred functions do not run when os.Exit() is called.  The
+// the fact that deferred functioπns do not run when os.Exit() is called.  The
 // optional serverChan parameter is mainly used by the service code to be
 // notified with the server once it is setup so it can gracefully stop it when
 // requested from the service control manager.

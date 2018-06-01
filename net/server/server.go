@@ -66,7 +66,8 @@ const (
 var (
 	// userAgentName is the user agent name and is used to help identify
 	// ourselves to other bitcoin peers.
-	userAgentName = "copernicus/yyx"
+
+	userAgentName = "copernicus"
 
 	// userAgentVersion is the user agent version and is used to help
 	// identify ourselves to other bitcoin peers.
@@ -250,7 +251,6 @@ type serverPeer struct {
 	// The following chans are used to sync blockmanager and server.
 	txProcessed    chan struct{}
 	blockProcessed chan struct{}
-
 }
 
 // newServerPeer returns a new serverPeer instance. The peer needs to be set by
@@ -496,10 +496,10 @@ func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx, done chan<- struct{}) 
 	sp.server.syncManager.QueueTx(txn, sp.Peer, done)
 }
 
-func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<- struct{})  {
+func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<- struct{}) {
 	switch dataType := msg.Msg.(type) {
 	case *wire.MsgMemPool:
-		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done )
+		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done)
 	case *wire.MsgGetData:
 		sp.server.syncManager.QueueGetData(dataType, msg.Peerp, done)
 	case *wire.MsgGetBlocks:
@@ -1586,11 +1586,11 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 			//OnFilterAdd:   sp.OnFilterAdd,
 			//OnFilterClear: sp.OnFilterClear,
 			//OnFilterLoad:  sp.OnFilterLoad,
-			OnGetAddr: sp.OnGetAddr,
-			OnAddr:    sp.OnAddr,
-			OnRead:    sp.OnRead,
-			OnWrite:   sp.OnWrite,
-			OnTransferMsgToBusinessPro:	sp.TransferMsgToBusinessPro,
+			OnGetAddr:                  sp.OnGetAddr,
+			OnAddr:                     sp.OnAddr,
+			OnRead:                     sp.OnRead,
+			OnWrite:                    sp.OnWrite,
+			OnTransferMsgToBusinessPro: sp.TransferMsgToBusinessPro,
 
 			// Note: The reference client currently bans peers that send alerts
 			// not signed with its key.  We could verify against their key, but
