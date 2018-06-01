@@ -8,7 +8,7 @@ import (
 )
 
 type DiskBlockPos struct {
-	File int
+	File int32
 	Pos  uint32
 }
 
@@ -63,7 +63,7 @@ func (diskBlockPos *DiskBlockPos) String() string {
 	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
 }
 
-func NewDiskBlockPos(file int, pos uint32) *DiskBlockPos {
+func NewDiskBlockPos(file int32, pos uint32) *DiskBlockPos {
 	diskBlockPos := DiskBlockPos{File: file, Pos: pos}
 	return &diskBlockPos
 }

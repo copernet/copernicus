@@ -40,7 +40,7 @@ type BlockIndex struct {
 	// height of the entry in the chain. The genesis block has height 0；
 	Height int32
 	// Which # file this block is stored in (blk?????.dat)
-	File int
+	File int32
 	// Byte offset within blk?????.dat where this block's data is stored
 	DataPos uint32
 	// Byte offset within rev?????.dat where this block's undo data is stored
@@ -51,13 +51,13 @@ type BlockIndex struct {
 	// Number of transactions in this block.
 	// Note: in a potential headers-first mode, this number cannot be relied
 	// upon
-	TxCount int
+	TxCount int32
 	// (memory only) Number of transactions in the chain up to and including
 	// this block.
 	// This value will be non-zero only if and only if transactions for this
 	// block and all its parents are available. Change to 64-bit type when
 	// necessary; won't happen before 2030
-	ChainTxCount int
+	ChainTxCount int32
 	//status of this block. See enum
 	Status uint32
 	// (memory only) Sequential id assigned to distinguish order in which

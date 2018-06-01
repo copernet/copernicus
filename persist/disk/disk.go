@@ -359,7 +359,7 @@ func FlushStateToDisk( mode FlushStateMode, nManualPruneHeight int) error {
 			dirtyBlockFileInfoList = append(dirtyBlockFileInfoList, gPersist.GlobalBlockFileInfo[k])
 			
 		}
-		gPersist.GlobalDirtyFileInfo = make(map[int]bool , 0)
+		gPersist.GlobalDirtyFileInfo = make(map[int32]bool , 0)
 		dirtyBlockIndexList := make([]*blockindex.BlockIndex, 0, len(gPersist.GlobalDirtyBlockIndex))
 		for _, bi := range gPersist.GlobalDirtyBlockIndex {
 			dirtyBlockIndexList = append(dirtyBlockIndexList, bi)
@@ -424,10 +424,10 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 
 
 func FlushBlockFile(fFinalize bool) {
-	global.CsLastBlockFile.Lock()
-	defer global.CsLastBlockFile.Unlock()
+	// global.CsLastBlockFile.Lock()
+	// defer global.CsLastBlockFile.Unlock()
 	gPersist := global.GetInstance()
-	posOld := block.NewDiskBlockPos(int(gPersist.GlobalLastBlockFile), 0)
+	posOld := block.NewDiskBlockPos(gPersist.GlobalLastBlockFile, 0)
 
 	fileOld := OpenBlockFile(posOld, false)
 	if fileOld != nil {
@@ -462,13 +462,13 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	if !fKnown {
 		nFile = gPersist.GlobalLastBlockFile
 	}
-	if len(gPersist.GlobalBlockFileInfo) <= nFile{
+	if len(gPersist.GlobalBlockFileInfo) <= int(nFile){
 		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
 	}
 	if !fKnown {
 		for gPersist.GlobalBlockFileInfo[nFile].Size+nAddSize >= global.MaxBlockFileSize {
 			nFile++
-			if nFile >= len(gPersist.GlobalBlockFileInfo){
+			if int(nFile) >= len(gPersist.GlobalBlockFileInfo){
 				gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
 			}
 		}
@@ -521,7 +521,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	return ret
 }
 
-func FindUndoPos( nFile int, undoPos *block.DiskBlockPos, nAddSize int) error {
+func FindUndoPos( nFile int32, undoPos *block.DiskBlockPos, nAddSize int) error {
 	undoPos.File = nFile
 	global.CsLastBlockFile.Lock()
 	defer global.CsLastBlockFile.Unlock()

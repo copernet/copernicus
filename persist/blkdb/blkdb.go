@@ -56,7 +56,7 @@ func NewBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	}
 }
 
-func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int) (*block.BlockFileInfo, error) {
+func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileInfo, error) {
 	log.Debug("file======%#v", file)
 	keyBuf := bytes.NewBuffer(nil)
 	keyBuf.Write([]byte{db.DbBlockFiles})
@@ -90,13 +90,13 @@ func (blockTreeDB *BlockTreeDB) ReadReindexing() bool {
 	return reindexing
 }
 
-func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int, error) {
+func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int32, error) {
 	data, err := blockTreeDB.dbw.Read([]byte{db.DbLastBlock})
 	if err != nil {
 		return 0, err
 	}
 	buf := bytes.NewBuffer(data)
-	var lastFile int = 0
+	var lastFile int32 = 0
 	err = util.ReadElements(buf, &lastFile)
 	return lastFile, err
 }

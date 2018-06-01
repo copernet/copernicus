@@ -27,10 +27,10 @@ type BlockFileInfoList []*block.BlockFileInfo
 type DirtyBlockIndex  map[util.Hash]*blockindex.BlockIndex
 type PersistGlobal struct {
 	GlobalBlockFileInfo         BlockFileInfoList
-	GlobalLastBlockFile                                  int                //last block file no.
+	GlobalLastBlockFile                                  int32                //last block file no.
 	GlobalLastWrite, GlobalLastFlush, GlobalLastSetChain int                // last update time
 	DefaultMaxMemPoolSize                                uint
-	GlobalDirtyFileInfo                               map[int]bool      // temp for update file info
+	GlobalDirtyFileInfo                               map[int32]bool      // temp for update file info
 	GlobalDirtyBlockIndex        DirtyBlockIndex
 	GlobalTimeReadFromDisk                               int64
 	GlobalTimeConnectTotal                               int64
@@ -54,7 +54,7 @@ func (pg *PersistGlobal) AddBlockSequenceID(){
 func InitPersistGlobal() *PersistGlobal {
 	cg := new(PersistGlobal)
 	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
-	cg.GlobalDirtyFileInfo = make(map[int]bool)
+	cg.GlobalDirtyFileInfo = make(map[int32]bool)
 	cg.GlobalDirtyBlockIndex = make(DirtyBlockIndex)
 	return cg
 }
