@@ -217,7 +217,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 //
 
 // todo for iter and check key、 pow
-func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex) bool {
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
 	cursor := blockTreeDB.dbw.Iterator()
 	defer cursor.Close()
 	hash := util.Hash{}
@@ -228,14 +228,8 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 
 	// Load mapBlockIndex
 	for cursor.Valid() {
-		//todo:boost::this_thread::interruption_point();
-		type key struct {
-			b    byte
-			hash util.Hash
-		}
 		k := cursor.GetKey()
-		kk := key{}
-		if k == nil || kk.b != db.DbBlockIndex {
+		if k == nil || k[0] != db.DbBlockIndex {
 			break
 		}
 
@@ -246,22 +240,34 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 			return false
 		}
 		bi.Unserialize(bytes.NewBuffer(val))
-
+		if bi.TxCount == 0{
+			fmt.Println("err")
+			blockTreeDB.dbw.Erase(k, true)
+			cursor.Next()
+			continue
+		}
 		newIndex := InsertBlockIndex(*bi.GetBlockHash(), GlobalBlockIndexMap)
-		newIndex.Prev = InsertBlockIndex(bi.Header.HashPrevBlock, GlobalBlockIndexMap)
+		if newIndex == nil{
+			cursor.Next()
+			continue
+		}
+		pre := InsertBlockIndex(bi.Header.HashPrevBlock, GlobalBlockIndexMap)
+		newIndex.Prev = pre
 		newIndex.SetBlockHash(*bi.GetBlockHash())
 		newIndex.Height = bi.Height
 		newIndex.File = bi.File
 		newIndex.DataPos = bi.DataPos
 		newIndex.UndoPos = bi.UndoPos
 		newIndex.Header.Version = bi.Header.Version
+		newIndex.Header.HashPrevBlock = bi.Header.HashPrevBlock
 		newIndex.Header.MerkleRoot = bi.Header.MerkleRoot
 		newIndex.Header.Time = bi.Header.Time
 		newIndex.Header.Bits = bi.Header.Bits
 		newIndex.Header.Nonce = bi.Header.Nonce
 		newIndex.Status = bi.Status
 		newIndex.TxCount = bi.TxCount
-		if new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, &chainparams.MainNetParams) {
+		
+		if !new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, params) {
 			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
 		}
@@ -274,6 +280,9 @@ func InsertBlockIndex(hash util.Hash, GlobalBlockIndexMap map[util.Hash]*blockin
 
 	if i, ok := GlobalBlockIndexMap[hash]; ok {
 		return i
+	}
+	if hash.IsNull(){
+		return nil
 	}
 	var bi = blockindex.NewBlockIndex(block.NewBlockHeader())
 

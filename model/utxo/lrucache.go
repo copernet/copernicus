@@ -153,10 +153,12 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 func (coinsCache *CoinsLruCache) Flush() bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
-	ok := coinsCache.db.BatchWrite(coinsCache.dirtyCoins, coinsCache.hashBlock)
-
+	if len(coinsCache.dirtyCoins)>0 && !coinsCache.hashBlock.IsNull(){
+		ok := coinsCache.db.BatchWrite(coinsCache.dirtyCoins, coinsCache.hashBlock)
+		return ok == nil
+	}
+	return true
 	//coinsCache.cacheCoins = make(CacheCoins)
-	return ok == nil
 }
 
 //

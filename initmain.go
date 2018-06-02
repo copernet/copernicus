@@ -19,5 +19,10 @@ func appInitMain() {
 	blkdb.InitBlockTreDB(&blkdbCfg)
 	global.InitPersistGlobal()
 	blockindex.LoadBlockIndexDB()
+	// gChain := chain.GetInstance()
+	// mostWorkChain := gChain.FindMostWorkChain()
+	// if mostWorkChain != gChain.Tip(){
+	// 	lchain.ActivateBestChainStep()
+	// }
 	lchain.InitGenesisChain()
 }

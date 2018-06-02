@@ -32,7 +32,7 @@ func LoadBlockIndexDB() bool {
 	branch := make([]*blockindex.BlockIndex, 0, 20)
 	
 	// branchMap := make(map[util.Hash]*blockindex.BlockIndex)
-	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap) {
+	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap, gChain.GetParams()) {
 		return false
 	}
 	
@@ -40,6 +40,16 @@ func LoadBlockIndexDB() bool {
 	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(GlobalBlockIndexMap))
 	for _, index := range GlobalBlockIndexMap {
 		sortedByHeight = append(sortedByHeight, index)
+	}
+	for idx, bi := range sortedByHeight{
+		if bi.TxCount == 0{
+			log.Error("idx",idx)
+			h:= bi.GetBlockHash()
+			_, ok := GlobalBlockIndexMap[*h]
+			if ok{
+			
+			}
+		}
 	}
 	//sort by decrease
 	sort.SliceStable(sortedByHeight, func(i, j int) bool {
@@ -71,6 +81,8 @@ func LoadBlockIndexDB() bool {
 					gChain.AddToOrphan(index)
 				}
 			} else {
+				branch = append(branch, index)
+				
 				index.ChainTxCount = index.TxCount
 			}
 		}else{
@@ -79,7 +91,7 @@ func LoadBlockIndexDB() bool {
 		}
 		if index.IsValid(blockindex.StatusAllValid) &&
 			(index.ChainTxCount != 0 || index.Prev == nil) {
-			gChain.AddToBranch(index)
+			// gChain.AddToBranch(index)
 		}
 		if index.Prev != nil {
 			index.BuildSkip()
@@ -158,6 +170,7 @@ func LoadBlockIndexDB() bool {
 	}
 	// init active chain by tip[load from db]
 	gChain.SetTip(tip)
+	
 	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
 		gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
 		time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
