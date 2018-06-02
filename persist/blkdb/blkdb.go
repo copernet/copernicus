@@ -35,7 +35,7 @@ func InitBlockTreDB(uc *BlockTreeDBConfig) {
 
 func GetInstance() *BlockTreeDB {
 	if blockTreeDb == nil {
-		log.Error("blockTreeDb has not init !!!")
+		panic("blockTreeDb has not init !!!")
 	}
 	return blockTreeDb
 }

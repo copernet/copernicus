@@ -222,21 +222,21 @@ func (tx *Tx) Decode(reader io.Reader) error {
 	}
 
 	tx.version = int32(version)
-	log.Debug("tx version %d", tx.version)
+	//log.Debug("tx version %d", tx.version)
 	tx.ins = make([]*txin.TxIn, count)
 	for i := uint64(0); i < count; i++ {
 		txIn := new(txin.TxIn)
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		err = txIn.Decode(reader)
 		if err != nil {
-			fmt.Println("222222 , error : ",err)
+			fmt.Println("222222 , error : ", err)
 			return err
 		}
 		tx.ins[i] = txIn
 	}
 	count, err = util.ReadVarInt(reader)
 	if err != nil {
-		fmt.Println("333333 , error : ",err)
+		fmt.Println("333333 , error : ", err)
 		return err
 	}
 
@@ -247,7 +247,7 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txOut := new(txout.TxOut)
 		err = txOut.Decode(reader)
 		if err != nil {
-			fmt.Println("444444 , error : ",err)
+			fmt.Println("444444 , error : ", err)
 			return err
 		}
 		tx.outs[i] = txOut

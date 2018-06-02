@@ -40,7 +40,7 @@ func GetInstance() *Chain {
 func InitGlobalChain(cfg *conf.Configuration){
 	if globalChain == nil {
 		globalChain = NewChain()
-		globalChain.params = &chainparams.TestNet3Params
+		globalChain.params = chainparams.ActiveNetParams
 	}
 }
 func NewChain() *Chain {

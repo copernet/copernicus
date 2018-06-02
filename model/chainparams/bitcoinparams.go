@@ -14,7 +14,7 @@ import (
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
 
-var ActiveNetParams = &MainNetParams
+var ActiveNetParams = &TestNet3Params
 
 var (
 	bigOne = big.NewInt(1)
