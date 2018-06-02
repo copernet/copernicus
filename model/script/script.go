@@ -285,7 +285,6 @@ func (script *Script) convertRaw() {
 			script.data = append(script.data, b...)
 		} else {
 			if e.OpValue < opcodes.OP_PUSHDATA1 && e.Length > 0 {
-				script.data = append(script.data, byte(e.Length))
 				script.data = append(script.data, e.Data...)
 			}
 		}
