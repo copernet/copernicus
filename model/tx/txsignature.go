@@ -209,7 +209,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 		if sigHashSingle {
 			outsCount = nIn + 1
 		} else {
-			outsCount = len(transaction.GetIns())
+			outsCount = len(transaction.GetOuts())
 		}
 	}
 	util.WriteVarInt(&hashBuffer, uint64(outsCount))
