@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"fmt"
 	"sort"
 	
 	"github.com/btcboost/copernicus/conf"
@@ -73,8 +74,22 @@ func (c *Chain) GetReceivedID() uint64{
 	return c.receiveID
 }
 
+//find blockindex from active
+func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
+	bi, ok := c.indexMap[hash]
+	if ok {
+		if c.Contains(bi){
+			return bi
+		}
+		return nil
+	}
+	
+	return nil
+}
+
 //find blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
+	fmt.Println("FindBlockIndex======%d", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
 		return bi

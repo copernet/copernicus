@@ -959,7 +959,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	// If our chain is current and a peer announces a block we already
 	// know of, then update their current block height.
 	if lastBlock != -1 && sm.current() {
-		blkIndex := activeChain.FindBlockIndex(invVects[lastBlock].Hash)
+		blkIndex := activeChain.FindHashInActive(invVects[lastBlock].Hash)
 		if blkIndex != nil {
 			peer.UpdateLastBlockHeight(int32(blkIndex.Height))
 		}
@@ -1021,7 +1021,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				// stop hash).
 
 				activeChain := chain.GetInstance()
-				blkIndex := activeChain.FindBlockIndex(iv.Hash)
+				blkIndex := activeChain.FindHashInActive(iv.Hash)
 				locator := activeChain.GetLocator(blkIndex)
 				peer.PushGetBlocksMsg(*locator, &zeroHash)
 			}

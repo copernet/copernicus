@@ -12,10 +12,10 @@ import (
 )
 
 func appInitMain() {
-	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
+	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 48}}
 	utxo.InitUtxoLruTip(&config)
 	chain.InitGlobalChain(nil)
-	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{CacheSize: 10000}}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{CacheSize: 48}}
 	blkdb.InitBlockTreDB(&blkdbCfg)
 	global.InitPersistGlobal()
 	blockindex.LoadBlockIndexDB()

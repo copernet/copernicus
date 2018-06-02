@@ -1,8 +1,8 @@
 package blockindex
 
 import (
-	
-"math/big"
+	"fmt"
+	"math/big"
 "sort"
 "time"
 
@@ -165,6 +165,8 @@ func LoadBlockIndexDB() bool {
 	// Load pointer to end of best chain todo: coinDB must init!!!
 	bestHash := utxo.GetUtxoCacheInstance().GetBestBlock()
 	tip, ok := GlobalBlockIndexMap[bestHash]
+	indexMapLen := len(GlobalBlockIndexMap)
+	fmt.Println("indexMapLen====", indexMapLen)
 	if !ok {
 		return true
 	}

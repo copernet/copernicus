@@ -6,6 +6,7 @@ import (
 	
 	"github.com/astaxie/beego/logs"
 	"github.com/btcboost/copernicus/conf"
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/model/outpoint"
 	"github.com/btcboost/copernicus/persist/db"
 	"github.com/btcboost/copernicus/util"
@@ -23,7 +24,8 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 		logs.Emergency("db.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
-
+	log.Debug("outpoint==========", outpoint)
+	fmt.Println("outpoint==========", outpoint)
 	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
 	if err != nil {
 
