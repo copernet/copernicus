@@ -39,7 +39,9 @@ func (bIndex *BlockIndex) Unserialize(r io.Reader) error {
 	// if err != nil {
 	// 	return err
 	// }
-	err := util.ReadElements(r, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
+	clientVersion := int32(160000)
+	
+	err := util.ReadElements(r,&clientVersion, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
 	if err != nil {
 		return err
 	}

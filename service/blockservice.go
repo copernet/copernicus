@@ -9,6 +9,7 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chain"
+	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/persist/global"
 
 )
@@ -32,7 +33,8 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 
 func ProcessBlock(b *block.Block) (bool, error) {
 	gChain := chain.GetInstance()
-	fmt.Println("gchan==%d====%#v",gChain.Height(),gChain.Tip())
+	coinsTip := utxo.GetUtxoCacheInstance()
+	fmt.Println("gchan==%d====%#v",gChain.Height(),gChain.Tip(), coinsTip)
 	
 	isNewBlock := false
 	var err error

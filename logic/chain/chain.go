@@ -461,15 +461,20 @@ func InitGenesisChain() error{
 	bIndex.TimeMax = util.MaxU32(0, bIndex.Header.GetBlockTime())
 	work := pow.GetBlockProof(bIndex)
 	bIndex.ChainWork = *work
-	bIndex.AddStatus(blockindex.StatusWaitingData)
+	bIndex.Accepted()
 	
 	err := gChain.AddToIndexMap(bIndex)
 	if err != nil {
 		return err
 	}
 	gChain.AddToBranch(bIndex)
+	if !lblock.ReceivedBlockTransactions(bl, bIndex,pos){
+		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
+	}
 	gChain.SetTip(bIndex)
-	fmt.Println("InitGenesisChain=====%#v",gChain)
+	err = disk.FlushStateToDisk(disk.FlushStatePeriodic, 0)
+	
+	fmt.Println("InitGenesisChain=====%#v",gChain, err)
 	return nil
 	
 	
