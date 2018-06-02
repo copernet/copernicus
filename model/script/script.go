@@ -356,7 +356,7 @@ func (script *Script) convertOPS() error {
 }
 
 func (script *Script) RemoveOpcodeByData(data []byte) *Script {
-	parsedOpCodes := make([]opcodes.ParsedOpCode, len(script.ParsedOpCodes))
+	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, len(script.ParsedOpCodes))
 	for _, e := range script.ParsedOpCodes {
 		if bytes.Contains(e.Data, data) {
 			continue
@@ -377,14 +377,14 @@ func (script *Script) RemoveOpCodeByIndex(index int) *Script {
 	if index == opCodesLen-1 {
 		return NewScriptOps(script.ParsedOpCodes[:index])
 	}
-	parsedOpCodes := make([]opcodes.ParsedOpCode, opCodesLen-1)
+	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, opCodesLen-1)
 	parsedOpCodes = append(parsedOpCodes, script.ParsedOpCodes[:index-1]...)
 	parsedOpCodes = append(parsedOpCodes, script.ParsedOpCodes[index+1:opCodesLen-1]...)
 	return NewScriptOps(parsedOpCodes)
 }
 
 func (script *Script) RemoveOpcode(code byte) *Script {
-	parsedOpCodes := make([]opcodes.ParsedOpCode, len(script.ParsedOpCodes))
+	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, len(script.ParsedOpCodes))
 	for _, e := range script.ParsedOpCodes {
 		if e.OpValue == code {
 			continue
@@ -421,7 +421,7 @@ func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, 
 	}
 	if sType == ScriptPubkey {
 		sigCountRequired = 1
-		addresses = make([]*Address, 1)
+		addresses = make([]*Address, 0, 1)
 		address, err := AddressFromPublicKey(pubKeys[0])
 		if err != nil {
 			return sType, nil, 0, err
@@ -431,7 +431,7 @@ func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, 
 	}
 	if sType == ScriptPubkeyHash {
 		sigCountRequired = 1
-		addresses = make([]*Address, 1)
+		addresses = make([]*Address, 0, 1)
 		address, err := AddressFromHash160(pubKeys[0], scriptHashAddressID)
 		if err != nil {
 			return sType, nil, 0, err
@@ -441,7 +441,7 @@ func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, 
 	}
 	if sType == ScriptHash {
 		sigCountRequired = 1
-		addresses = make([]*Address, 1)
+		addresses = make([]*Address, 0, 1)
 		address, err := AddressFromScriptHash(pubKeys[0])
 		if err != nil {
 			return sType, nil, 0, err
@@ -451,7 +451,7 @@ func (script *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, 
 	}
 	if sType == ScriptMultiSig {
 		sigCountRequired = int(pubKeys[0][0])
-		addresses = make([]*Address, len(pubKeys)-2)
+		addresses = make([]*Address, 0, len(pubKeys)-2)
 		for _, e := range pubKeys[1 : len(pubKeys)-2] {
 			address, err := AddressFromPublicKey(e)
 			if err != nil {
@@ -539,7 +539,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		pubKeyType = ScriptPubkey
-		pubKeys = make([][]byte, 1)
+		pubKeys = make([][]byte, 0, 1)
 		data := parsedOpCode0.Data[:]
 		pubKeys = append(pubKeys, data)
 		err = nil
@@ -557,7 +557,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 		}
 
 		pubKeyType = ScriptPubkeyHash
-		pubKeys = make([][]byte, 1)
+		pubKeys = make([][]byte, 0, 1)
 		data := script.ParsedOpCodes[2].Data[:]
 		pubKeys = append(pubKeys, data)
 		err = nil
@@ -568,8 +568,8 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
 		opM := DecodeOPN(opValue0)
 		pubKeyCount := 0
-		pubKeys = make([][]byte, len-1)
-		data := make([]byte, 1)
+		pubKeys = make([][]byte, 0, len-1)
+		data := make([]byte, 0, 1)
 		data = append(data, byte(opM))
 		pubKeys = append(pubKeys, data)
 		for i, e := range script.ParsedOpCodes {
@@ -586,7 +586,7 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 				if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
 					return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 				}
-				data := make([]byte, 1)
+				data := make([]byte, 0, 1)
 				data = append(data, byte(opN))
 				pubKeys = append(pubKeys, data)
 			} else {
@@ -736,7 +736,7 @@ func (script *Script) PushData(data [][]byte) error {
 		} else {
 			script.data = append(script.data, opcodes.OP_PUSHDATA4)
 			buf := make([]byte, 4)
-			binary.LittleEndian.PutUint32(script.data, uint32(dataLen))
+			binary.LittleEndian.PutUint32(buf, uint32(dataLen))
 			script.data = append(script.data, buf...)
 		}
 		script.data = append(script.data, e...)
