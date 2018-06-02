@@ -1123,21 +1123,18 @@ out:
 			case *poolMsg:
 				if msg.peer.Cfg.Listeners.OnMemPool != nil{
 					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
-					msg.reply <- struct{}{}
 				}
-
+				msg.reply <- struct{}{}
 			case getdataMsg:
 				if msg.peer.Cfg.Listeners.OnGetData != nil{
 					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
-					msg.reply <- struct{}{}
 				}
-
+				msg.reply <- struct{}{}
 			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil{
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
-					msg.reply <- struct{}{}
 				}
-
+				msg.reply <- struct{}{}
 			case *donePeerMsg:
 				sm.handleDonePeerMsg(msg.peer)
 

@@ -103,10 +103,12 @@ out:
 				if peerFrom.Cfg.Listeners.OnHeaders != nil {
 					peerFrom.Cfg.Listeners.OnHeaders(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgNotFound:
 				if peerFrom.Cfg.Listeners.OnNotFound != nil {
 					peerFrom.Cfg.Listeners.OnNotFound(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgGetData:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
@@ -119,6 +121,7 @@ out:
 				if peerFrom.Cfg.Listeners.OnGetHeaders != nil {
 					peerFrom.Cfg.Listeners.OnGetHeaders(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgFeeFilter:
 				if peerFrom.Cfg.Listeners.OnFeeFilter != nil {
 					peerFrom.Cfg.Listeners.OnFeeFilter(peerFrom, data)
