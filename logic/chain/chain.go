@@ -223,6 +223,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
 	log.Print("bench", "debug", " - Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
+	view.SetBestBlock(indexHash)
 	flushed := view.Flush(indexHash)
 	if !flushed {
 		panic("here should be true when view flush state")
@@ -466,7 +467,10 @@ func InitGenesisChain() error {
 		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
 	}
 	gChain.SetTip(bIndex)
-	err = disk.FlushStateToDisk(disk.FlushStatePeriodic, 0)
+	coinsMap := utxo.NewEmptyCoinsMap()
+	bestHash := bIndex.GetBlockHash()
+	coinsMap.SetBestBlock(*bestHash)
+	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
 	
 	fmt.Println("InitGenesisChain=====%#v",gChain, err)
 	return nil
