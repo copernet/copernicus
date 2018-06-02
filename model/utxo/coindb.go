@@ -91,6 +91,11 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin , hashBloc
 	}
 
 	ret := coinsViewDB.dbw.WriteBatch(batch, false)
+	if true{
+		best, err := coinsViewDB.GetBestBlock()
+		fmt.Println("best=======",best, err)
+	}
+	
 	return ret
 }
 

@@ -181,12 +181,13 @@ func xor(val, key []byte) {
 }
 
 func (dbw *DBWrapper) Read(key []byte) ([]byte, error) {
-	value, err := dbw.db.Get(key, &dbw.readOption)
-	if err != nil {
-		return nil, err
-	}
-	xor(value, dbw.obfuscateKey)
-	return value, nil
+	return dbw.db.Get(key, &dbw.readOption)
+	// value, err := dbw.db.Get(key, &dbw.readOption)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// // xor(value, dbw.obfuscateKey)
+	// return value, nil
 }
 
 func (dbw *DBWrapper) Write(key, val []byte, sync bool) error {
@@ -283,12 +284,13 @@ func (bw *BatchWrapper) Clear() {
 }
 
 func (bw *BatchWrapper) Write(key, val []byte) {
-	bw.bkey = append(bw.bkey, key...)
-	bw.bval = append(bw.bval, val...)
+	bw.bat.Put(key, val)
+	// bw.bkey = append(bw.bkey, key...)
+	// bw.bval = append(bw.bval, val...)
 	//log.Printf("key,val:%s,%s\n", bw.bkey, (bw.bval))
 	//log.Printf("bw.parent.GetObfuscateKey():%s\n", bw.parent.GetObfuscateKey())
-	xor(bw.bval, bw.parent.GetObfuscateKey())
-	bw.bat.Put(bw.bkey, bw.bval)
+	// xor(bw.bval, bw.parent.GetObfuscateKey())
+	// bw.bat.Put(bw.bkey, bw.bval)
 	// LevelDB serializes writes as:
 	// - byte: header
 	// - varint: key length (1 byte up to 127B, 2 bytes up to 16383B, ...)
@@ -296,17 +298,17 @@ func (bw *BatchWrapper) Write(key, val []byte) {
 	// - varint: value length
 	// - byte[]: value
 	// The formula below assumes the key and value are both less than 16k.
-	k := 0
-	v := 0
-	if len(bw.bkey) > 127 {
-		k = 1
-	}
-	if len(bw.bval) > 127 {
-		v = 1
-	}
-	bw.sizeEst += 3 + k + len(bw.bkey) + v + len(bw.bval)
-	bw.bkey = bw.bkey[:0]
-	bw.bval = bw.bkey[:0]
+	// k := 0
+	// v := 0
+	// if len(bw.bkey) > 127 {
+	// 	k = 1
+	// }
+	// if len(bw.bval) > 127 {
+	// 	v = 1
+	// }
+	// bw.sizeEst += 3 + k + len(bw.bkey) + v + len(bw.bval)
+	// bw.bkey = bw.bkey[:0]
+	// bw.bval = bw.bkey[:0]
 }
 
 func (bw *BatchWrapper) SizeEstimate() int {
@@ -366,7 +368,7 @@ func (iw *IterWrapper) GetVal() []byte {
 		v := iw.iter.Value()
 		val = append(val, v...)
 	}
-	xor(val, iw.parent.GetObfuscateKey())
+	// xor(val, iw.parent.GetObfuscateKey())
 	return val
 }
 

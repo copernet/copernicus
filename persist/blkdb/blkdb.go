@@ -151,7 +151,13 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*block.BlockFileIn
 		batch.Write(keyBuf.Bytes(), valueBuf.Bytes())
 	}
 
-	return blockTreeDB.dbw.WriteBatch(batch, true)
+	err := blockTreeDB.dbw.WriteBatch(batch, true)
+	if true && err !=nil{
+		lastFile, e := blockTreeDB.ReadLastBlockFile()
+		fmt.Println(lastFile,e)
+		
+	}
+	return err
 }
 
 func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *util.Hash) (*block.DiskTxPos, error) {

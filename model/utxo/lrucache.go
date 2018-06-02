@@ -87,7 +87,9 @@ func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
 		if err == leveldb.ErrNotFound {
-			return chain.GetInstance().GetParams().GenesisBlock.GetHash()
+			genesisHash  := chain.GetInstance().GetParams().GenesisBlock.GetHash()
+			coinsCache.hashBlock = genesisHash
+			return coinsCache.hashBlock
 		}
 		if err != nil {
 			log.Error("db.GetBestBlock err:%#v", err)
@@ -153,7 +155,7 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 func (coinsCache *CoinsLruCache) Flush() bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
-	if len(coinsCache.dirtyCoins)>0 && !coinsCache.hashBlock.IsNull(){
+	if len(coinsCache.dirtyCoins)>0 || !coinsCache.hashBlock.IsNull(){
 		ok := coinsCache.db.BatchWrite(coinsCache.dirtyCoins, coinsCache.hashBlock)
 		return ok == nil
 	}
