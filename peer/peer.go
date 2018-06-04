@@ -1008,7 +1008,8 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 	// Construct the getheaders request and queue it to be sent.
 	msg := wire.NewMsgGetHeaders()
 	msg.HashStop = *stopHash
-	for _, hash := range blkHashs {
+	for i := 0; i < len(blkHashs); i++{
+		hash := blkHashs[i]
 		err := msg.AddBlockLocatorHash(&hash)
 		if err != nil {
 			return err
@@ -1221,7 +1222,6 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 	log.Trace("%v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
-
 	//log.Trace("%v", newLogClosure(func() string {
 	//	var buf bytes.Buffer
 	//	_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
