@@ -485,6 +485,7 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 		return errcode.New(errcode.ScriptErrEvalFalse)
 	}
 	if stack.Top(-1).(bool) == false {
+		return nil
 		return errcode.New(errcode.ScriptErrEvalFalse)
 	}
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH && scriptPubKey.IsPayToScriptHash() {

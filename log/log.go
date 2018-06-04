@@ -113,7 +113,7 @@ func GetLogger() *logs.BeeLogger {
 	return logs.GetBeeLogger()
 }
 
-func init() {
+func Init() {
 	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
 	if !conf.ExistDataDir(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
