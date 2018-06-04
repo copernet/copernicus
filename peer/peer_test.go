@@ -243,7 +243,7 @@ func TestPeerConnection(t *testing.T) {
 		UserAgentVersion:  "1.0",
 		UserAgentComments: []string{"comment"},
 		ChainParams:       &chaincfg.MainNetParams,
-		Services:          wire.SFNodeNetwork | wire.SFNodeWitness,
+		Services:          wire.SFNodeNetwork,
 	}
 
 	wantStats1 := peerStats{
@@ -263,7 +263,7 @@ func TestPeerConnection(t *testing.T) {
 	}
 	wantStats2 := peerStats{
 		wantUserAgent:       wire.DefaultUserAgent + "peer:1.0(comment)/",
-		wantServices:        wire.SFNodeNetwork | wire.SFNodeWitness,
+		wantServices:        wire.SFNodeNetwork,
 		wantProtocolVersion: wire.RejectVersion,
 		wantConnected:       true,
 		wantVersionKnown:    true,
