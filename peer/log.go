@@ -70,14 +70,14 @@ func invSummary(invList []*wire.InvVect) string {
 		iv := invList[0]
 		switch iv.Type {
 		case wire.InvTypeError:
-			return fmt.Sprintf("error %s", iv.Hash)
+			return fmt.Sprintf("error %s", &iv.Hash)
 		case wire.InvTypeBlock:
-			return fmt.Sprintf("block %s", iv.Hash)
+			return fmt.Sprintf("block %s", &iv.Hash)
 		case wire.InvTypeTx:
-			return fmt.Sprintf("tx %s", iv.Hash)
+			return fmt.Sprintf("tx %s", &iv.Hash)
 		}
 
-		return fmt.Sprintf("unknown (%d) %s", uint32(iv.Type), iv.Hash)
+		return fmt.Sprintf("unknown (%d) %s", uint32(iv.Type), &iv.Hash)
 	}
 
 	// More than one inv item.
