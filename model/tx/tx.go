@@ -116,7 +116,7 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 }
 
 func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
-	outs = make([]outpoint.OutPoint, len(tx.ins))
+	outs = make([]outpoint.OutPoint, 0, len(tx.ins))
 	for _, e := range tx.ins {
 		outs = append(outs, *e.PreviousOutPoint)
 	}
@@ -475,9 +475,9 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 		return nil, pubKeyType, errcode.New(errcode.TxErrInputsNotAvailable)
 	}
 	if pubKeyType == script.ScriptMultiSig {
-		sigData = make([][]byte, len(pubKeys)-2)
+		sigData = make([][]byte, 0, len(pubKeys)-2)
 	} else {
-		sigData = make([][]byte, 1)
+		sigData = make([][]byte, 0, 1)
 	}
 
 	// return signatureData|hashType

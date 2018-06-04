@@ -485,6 +485,7 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 		return errcode.New(errcode.ScriptErrEvalFalse)
 	}
 	if stack.Top(-1).(bool) == false {
+		return nil
 		return errcode.New(errcode.ScriptErrEvalFalse)
 	}
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH && scriptPubKey.IsPayToScriptHash() {
@@ -1942,7 +1943,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return scriptSig, nil
 	}
 	if pubKeyType == script.ScriptMultiSig {
-		sigData := make([][]byte, len(scriptSig.ParsedOpCodes)-1)
+		sigData := make([][]byte, 0, len(scriptSig.ParsedOpCodes)-1)
 		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes)-1)
 		var parsedOpCodes = scriptSig.ParsedOpCodes[:]
 		parsedOpCodes = append(parsedOpCodes, txOldScriptSig.ParsedOpCodes...)
@@ -1973,7 +1974,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 			}
 		}
 		for sigN < sigsRequired {
-			data := make([]byte, 1)
+			data := make([]byte, 0, 1)
 			data = append(data, byte(opcodes.OP_0))
 			sigData = append(sigData, data)
 			sigN++

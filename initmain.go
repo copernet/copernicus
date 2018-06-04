@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/blockindex"
 	lchain "github.com/btcboost/copernicus/logic/chain"
 	
@@ -12,10 +13,11 @@ import (
 )
 
 func appInitMain() {
-	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
+	log.Init()
+	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 48}}
 	utxo.InitUtxoLruTip(&config)
 	chain.InitGlobalChain(nil)
-	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{CacheSize: 10000}}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{CacheSize: 48}}
 	blkdb.InitBlockTreDB(&blkdbCfg)
 	global.InitPersistGlobal()
 	blockindex.LoadBlockIndexDB()
