@@ -2,6 +2,7 @@ package pow
 
 import (
 	"math/big"
+
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chainparams"
