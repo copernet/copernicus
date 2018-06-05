@@ -1,12 +1,15 @@
 package pow
 
 import (
-	"math/big"
+	//"math/big"
 	"testing"
 
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"fmt"
+	"math/big"
+	"encoding/hex"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
@@ -398,5 +401,20 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 		i++
 		bits = nextBits
 	}
+
+	b := new(big.Int)
+	by, err := hex.DecodeString("000000000000000000000000000000000000000000000028803b6c018c06d7c5")
+	if err != nil{
+		panic(err)
+	}
+	c := b.SetBytes(by)
+	fmt.Println("height : 1188696, chainwork : ",  c.String())
+
+	c, e := c.SetString("000000000000000000000000000000000000000000000028803b6c018c06d7c5", 16)
+	if e == false{
+		panic(e)
+	}
+	fmt.Println("height : 1188696, chainwork : ",  c.String())
+
 
 }

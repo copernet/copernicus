@@ -11,7 +11,6 @@ import (
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/pow"
 	"github.com/btcboost/copernicus/model/tx"
 	"github.com/btcboost/copernicus/model/versionbits"
 	"github.com/btcboost/copernicus/persist/global"
@@ -290,8 +289,6 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 	bIndex.Height = bIndex.Prev.Height + 1
 	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
-	work := pow.GetBlockProof(bIndex)
-	bIndex.ChainWork = *bIndex.Prev.ChainWork.Add(&bIndex.Prev.ChainWork, work)
 	bIndex.AddStatus(blockindex.StatusWaitingData)
 
 	err = c.AddToIndexMap(bIndex)
