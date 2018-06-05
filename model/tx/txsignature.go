@@ -285,7 +285,7 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	}
 
 	ret, err := verifySignature(vchSigIn, publicKey, signHash)
-	if err != nil {
+	if err != nil || !ret {
 		return false
 	}
 	if !ret {
