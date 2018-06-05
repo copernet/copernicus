@@ -29,8 +29,11 @@ func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.
 	params := gChain.GetParams()
 	
 	p := new(pow.Pow)
-	if header.Bits != p.GetNextWorkRequired(preIndex, header, params){
-		log.Error("ContextualCheckBlockHeader.GetNextWorkRequired err")
+	bi := p.GetNextWorkRequired(preIndex, header, params)
+	if header.Bits != bi {
+		log.Error("ContextualCheckBlockHeader.GetNextWorkRequired err, preIndexHeight : %d, " +
+			"expect bit : %d, actual caculate bit : %d",preIndex.Height, header.Bits, bi )
+
 		return false
 	}
 	blocktime := int64(header.GetBlockTime())

@@ -7,6 +7,7 @@ import (
 	"github.com/btcboost/copernicus/model/blockindex"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/util"
+	"github.com/btcboost/copernicus/log"
 )
 
 type Pow struct{}
@@ -92,7 +93,8 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *blockindex.BlockIndex, blHead
 	if indexFirst == nil {
 		panic("the indexFirst should not equal nil")
 	}
-
+	log.Trace("indexFirst height : %d, time : %d, indexLast height : %d, time : %d\n",
+		indexFirst.Height, indexFirst.Header.Time, indexLast.Height, indexLast.Header.Time)
 	// Compute the target based on time and work done during the interval.
 	nextTarget := pow.computeTarget(indexFirst, indexLast, params)
 	if nextTarget.Cmp(params.PowLimit) > 0 {
@@ -187,7 +189,8 @@ func (pow *Pow) computeTarget(indexFirst, indexLast *blockindex.BlockIndex, para
 	 */
 	work := new(big.Int).Sub(&indexLast.ChainWork, &indexFirst.ChainWork)
 	work.Mul(work, big.NewInt(int64(params.TargetTimePerBlock)))
-
+	log.Trace("blockHeight : %d, chainwork : %s; blockHeight : %d, chainwork : %s",
+		indexFirst.Height, indexFirst.ChainWork.String(), indexLast.Height, indexLast.ChainWork.String())
 	// In order to avoid difficulty cliffs, we bound the amplitude of the
 	// adjustement we are going to do.
 	if indexLast.Header.Time <= indexFirst.Header.Time {

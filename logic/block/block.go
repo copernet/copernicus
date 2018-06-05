@@ -69,6 +69,7 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 func CheckBlock(pblock *block.Block) error {
 	// These are checks that are independent of context.
 	if pblock.Checked {
+		log.Trace("this block have checked ...")
 		return nil
 	}
 	blockSize := pblock.EncodeSize()
@@ -278,6 +279,9 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
+			bhash := bh.GetHash()
+			log.Trace("miss his parent, current block hash : %s, parent hash : %s ",
+				bhash.String(), bh.HashPrevBlock.String())
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
 		}
 		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev) {

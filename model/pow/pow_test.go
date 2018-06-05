@@ -1,14 +1,17 @@
 package pow
 
 import (
-	"math/big"
+	//"math/big"
 	"testing"
 
-	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/btcboost/copernicus/util"
+	"fmt"
+	"math/big"
 )
-
+/*
 func TestPowCalculateNextWorkRequired(t *testing.T) {
 	lastRetargetTime := int64(1261130161) // Block #30240
 	var indexLast blockindex.BlockIndex
@@ -399,4 +402,41 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 		bits = nextBits
 	}
 
+}
+*/
+
+func TestCashPow(t *testing.T)  {
+	b := new(big.Int)
+	c, err := b.SetString("0X00000000000000000000000000000000000000000000002880378e490a7c3efd", 16)
+	if err != true {
+		panic(err)
+	}
+	fmt.Println("height : 1188552, chainwork : ",  c.String())
+return
+	p := new(Pow)
+	preBlockFirst := blockindex.BlockIndex{}
+	preBlockFirst.Height = 1188695
+	preBlockFirst.Header.Time = 1510603640
+	preBlockFirst.ChainWork = *HashToBig(util.HashFromString("000000000000000000000000000000000000000000000028803b64ba9a221e2d"))
+
+	preBlockMedian := blockindex.BlockIndex{}
+	preBlockMedian.Height = 1188696
+	preBlockMedian.Header.Time = 1510603643
+	preBlockMedian.Prev = &preBlockFirst
+	preBlockMedian.ChainWork = *HashToBig(util.HashFromString("000000000000000000000000000000000000000000000028803b6c018c06d7c5"))
+
+	preBlockLast := blockindex.BlockIndex{}
+	preBlockLast.Header.Time = 1510603645
+	preBlockLast.Height = 1188697
+	preBlockLast.Prev = &preBlockMedian
+	preBlockLast.ChainWork = 	*HashToBig(util.HashFromString("000000000000000000000000000000000000000000000028803b73487deb915d"))
+
+	blk := block.BlockHeader{}
+	blk.Time = 1510603670
+	blk.Bits = 0x1b129f99
+
+	bits := p.GetNextWorkRequired(&preBlockLast, &blk, &chainparams.TestNet3Params)
+	if blk.Bits != bits {
+		t.Errorf("expect block Bits : %x, caculate block Bits : %x ", blk.Bits, bits)
+	}
 }

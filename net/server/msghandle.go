@@ -100,6 +100,7 @@ out:
 				}
 				msg.Done <- struct{}{}
 			case *wire.MsgHeaders:
+				log.Trace("received headers message ...")
 				if peerFrom.Cfg.Listeners.OnHeaders != nil {
 					peerFrom.Cfg.Listeners.OnHeaders(peerFrom, data)
 				}

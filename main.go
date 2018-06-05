@@ -40,6 +40,7 @@ func bchMain(ctx context.Context) error {
 
 	s, err := server.NewServer(chainparams.ActiveNetParams, interrupt)
 	if err != nil {
+		fmt.Println("err : ", err)
 		return err
 	}
 	var rpcServer *rpc.Server
@@ -53,7 +54,7 @@ func bchMain(ctx context.Context) error {
 		//go s.rebroadcastHandler()
 		rpcServer.Start()
 	}
-
+	
 	server.SetMsgHandle(context.TODO(), s.MsgChan, s)
 	if interruptRequested(interrupt) {
 		return nil
