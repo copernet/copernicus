@@ -948,22 +948,22 @@ func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash)
 	}
 
 	// Filter duplicate getblocks requests.
-	p.prevGetBlocksMtx.Lock()
-	isDuplicate := p.prevGetBlocksStop != nil && p.prevGetBlocksBegin != nil &&
-		beginHash != nil && stopHash.IsEqual(p.prevGetBlocksStop) &&
-		beginHash.IsEqual(p.prevGetBlocksBegin)
-	p.prevGetBlocksMtx.Unlock()
+	// p.prevGetBlocksMtx.Lock()
+	// isDuplicate := p.prevGetBlocksStop != nil && p.prevGetBlocksBegin != nil &&
+	// 	beginHash != nil && stopHash.IsEqual(p.prevGetBlocksStop) &&
+	// 	beginHash.IsEqual(p.prevGetBlocksBegin)
+	// p.prevGetBlocksMtx.Unlock()
 
-	if isDuplicate {
-		log.Trace("Filtering duplicate [getblocks] with begin "+
-			"hash %v, stop hash %v", beginHash, stopHash)
-		return nil
-	}
+	// if isDuplicate {
+	// 	log.Trace("Filtering duplicate [getblocks] with begin "+
+	// 		"hash %v, stop hash %v", beginHash, stopHash)
+	// 	return nil
+	// }
 
 	// Construct the getblocks request and queue it to be sent.
 	msg := wire.NewMsgGetBlocks(stopHash)
-	for _, hash := range blkHashs {
-		err := msg.AddBlockLocatorHash(&hash)
+	for i := 0; i < len(blkHashs); i++ {
+		err := msg.AddBlockLocatorHash(&blkHashs[i])
 		if err != nil {
 			return err
 		}
@@ -1008,7 +1008,7 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 	// Construct the getheaders request and queue it to be sent.
 	msg := wire.NewMsgGetHeaders()
 	msg.HashStop = *stopHash
-	for i := 0; i < len(blkHashs); i++{
+	for i := 0; i < len(blkHashs); i++ {
 		hash := blkHashs[i]
 		err := msg.AddBlockLocatorHash(&hash)
 		if err != nil {
@@ -1194,9 +1194,9 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 			msg.Command(), summary, p)
 	}))
 
-	log.Trace("%v", newLogClosure(func() string {
-		return spew.Sdump(buf)
-	}))
+	// log.Trace("%v", newLogClosure(func() string {
+	// 	return spew.Sdump(buf)
+	// }))
 
 	return msg, buf, nil
 }

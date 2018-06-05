@@ -142,7 +142,7 @@ func Init() {
 	logs.EnableFuncCallDepth(true)
 	logs.SetLogFuncCallDepth(4)
 	// output async buffer
-	logs.Async(1e3)
+	// logs.Async(1e3)
 
 	// init mapModule
 	mapModule = make(map[string]struct{})

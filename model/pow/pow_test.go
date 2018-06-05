@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/consensus"
 	"github.com/btcboost/copernicus/model/block"
+	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/btcboost/copernicus/model/chainparams"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
@@ -17,7 +17,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	indexLast.Header.Bits = 0x1d00ffff
 
 	pow := Pow{}
-	work := pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, consensus.ActiveNetParams)
+	work := pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, chainparams.ActiveNetParams)
 	if work != 0x1d00d86a {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00d86a, work)
 		return
@@ -27,7 +27,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	indexLast.Height = 2015
 	indexLast.Header.Time = 1233061996
 	indexLast.Header.Bits = 0x1d00ffff
-	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, consensus.ActiveNetParams)
+	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, chainparams.ActiveNetParams)
 	if work != 0x1d00ffff {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00ffff, work)
 		return
@@ -37,7 +37,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	indexLast.Height = 68543
 	indexLast.Header.Time = 1279297671
 	indexLast.Header.Bits = 0x1c05a3f4
-	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, consensus.ActiveNetParams)
+	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, chainparams.ActiveNetParams)
 	if work != 0x1c0168fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1c0168fd, work)
 		return
@@ -47,7 +47,7 @@ func TestPowCalculateNextWorkRequired(t *testing.T) {
 	indexLast.Height = 46367
 	indexLast.Header.Time = 1269211443
 	indexLast.Header.Bits = 0x1c387f6f
-	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, consensus.ActiveNetParams)
+	work = pow.calculateNextWorkRequired(&indexLast, lastRetargetTime, chainparams.ActiveNetParams)
 	if work != 0x1d00e1fd {
 		t.Errorf("expect the next work : %d, but actual work is %d ", 0x1d00e1fd, work)
 		return
@@ -66,7 +66,7 @@ func getBlockIndex(indexPrev *blockindex.BlockIndex, timeInterval int64, bits ui
 
 func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks := make([]*blockindex.BlockIndex, 115)
-	currentPow := big.NewInt(0).Rsh(consensus.ActiveNetParams.PowLimit, 1)
+	currentPow := big.NewInt(0).Rsh(chainparams.ActiveNetParams.PowLimit, 1)
 	initialBits := BigToCompact(currentPow)
 	pow := Pow{}
 
@@ -80,7 +80,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 
 	// Pile up some blocks.
 	for i := 1; i < 100; i++ {
-		blocks[i] = getBlockIndex(blocks[i-1], int64(consensus.ActiveNetParams.TargetTimePerBlock), initialBits)
+		blocks[i] = getBlockIndex(blocks[i-1], int64(chainparams.ActiveNetParams.TargetTimePerBlock), initialBits)
 	}
 
 	blkHeaderDummy := block.BlockHeader{}
@@ -90,7 +90,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	for i := 100; i < 110; i++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 2*3600, initialBits)
 
-		acValue := pow.GetNextWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		acValue := pow.GetNextWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		if acValue != initialBits {
 			t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
 				initialBits, acValue)
@@ -103,7 +103,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks[110] = getBlockIndex(blocks[109], 2*3600, initialBits)
 	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, big.NewInt(0).Rsh(currentPow, 2))
-	acValue := pow.GetNextWorkRequired(blocks[110], &blkHeaderDummy, consensus.ActiveNetParams)
+	acValue := pow.GetNextWorkRequired(blocks[110], &blkHeaderDummy, chainparams.ActiveNetParams)
 	if acValue != BigToCompact(currentPow) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
 			BigToCompact(currentPow), acValue)
@@ -114,7 +114,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks[111] = getBlockIndex(blocks[110], 2*3600, BigToCompact(currentPow))
 	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, new(big.Int).Rsh(currentPow, 2))
-	acValue = pow.GetNextWorkRequired(blocks[111], &blkHeaderDummy, consensus.ActiveNetParams)
+	acValue = pow.GetNextWorkRequired(blocks[111], &blkHeaderDummy, chainparams.ActiveNetParams)
 	if acValue != BigToCompact(currentPow) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
 			BigToCompact(currentPow), acValue)
@@ -125,7 +125,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks[112] = getBlockIndex(blocks[111], 2*3600, BigToCompact(currentPow))
 	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, big.NewInt(0).Rsh(currentPow, 2))
-	acValue = pow.GetNextWorkRequired(blocks[112], &blkHeaderDummy, consensus.ActiveNetParams)
+	acValue = pow.GetNextWorkRequired(blocks[112], &blkHeaderDummy, chainparams.ActiveNetParams)
 	if acValue != BigToCompact(currentPow) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
 			BigToCompact(currentPow), acValue)
@@ -136,34 +136,34 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks[113] = getBlockIndex(blocks[112], 2*3600, BigToCompact(currentPow))
 	currentPow = CompactToBig(BigToCompact(currentPow))
 	currentPow.Add(currentPow, big.NewInt(0).Rsh(currentPow, 2))
-	if BigToCompact(consensus.ActiveNetParams.PowLimit) == BigToCompact(currentPow) {
+	if BigToCompact(chainparams.ActiveNetParams.PowLimit) == BigToCompact(currentPow) {
 		t.Errorf("the two value should not equal ")
 		return
 	}
-	acValue = pow.GetNextWorkRequired(blocks[113], &blkHeaderDummy, consensus.ActiveNetParams)
-	if acValue != BigToCompact(consensus.ActiveNetParams.PowLimit) {
+	acValue = pow.GetNextWorkRequired(blocks[113], &blkHeaderDummy, chainparams.ActiveNetParams)
+	if acValue != BigToCompact(chainparams.ActiveNetParams.PowLimit) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			BigToCompact(consensus.ActiveNetParams.PowLimit), acValue)
+			BigToCompact(chainparams.ActiveNetParams.PowLimit), acValue)
 		return
 	}
 
 	// Once we reached the minimal difficulty, we stick with it.
 	blocks[114] = getBlockIndex(blocks[113], 2*3600, BigToCompact(currentPow))
-	if BigToCompact(consensus.ActiveNetParams.PowLimit) == BigToCompact(currentPow) {
+	if BigToCompact(chainparams.ActiveNetParams.PowLimit) == BigToCompact(currentPow) {
 		t.Errorf("the two value should not equal ")
 		return
 	}
-	acValue = pow.GetNextWorkRequired(blocks[114], &blkHeaderDummy, consensus.ActiveNetParams)
-	if acValue != BigToCompact(consensus.ActiveNetParams.PowLimit) {
+	acValue = pow.GetNextWorkRequired(blocks[114], &blkHeaderDummy, chainparams.ActiveNetParams)
+	if acValue != BigToCompact(chainparams.ActiveNetParams.PowLimit) {
 		t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
-			BigToCompact(consensus.ActiveNetParams.PowLimit), acValue)
+			BigToCompact(chainparams.ActiveNetParams.PowLimit), acValue)
 		return
 	}
 }
 
 func TestPowGetNextCashWorkRequired(t *testing.T) {
 	blocks := make([]*blockindex.BlockIndex, 3000)
-	currentPow := big.NewInt(0).Rsh(consensus.ActiveNetParams.PowLimit, 4)
+	currentPow := big.NewInt(0).Rsh(chainparams.ActiveNetParams.PowLimit, 4)
 	initialBits := BigToCompact(currentPow)
 
 	// Genesis block.
@@ -184,12 +184,12 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 
 	blkHeaderDummy := block.BlockHeader{}
 	pow := Pow{}
-	bits := pow.getNextCashWorkRequired(blocks[2049], &blkHeaderDummy, consensus.ActiveNetParams)
+	bits := pow.getNextCashWorkRequired(blocks[2049], &blkHeaderDummy, chainparams.ActiveNetParams)
 
 	// Difficulty stays the same as long as we produce a block every 10 mins.
 	for j := 0; j < 10; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, bits)
-		work := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		work := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		if work != bits {
 			t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 				bits, work)
@@ -202,7 +202,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// a block that is far in the future, and then produce a block with the
 	// expected timestamp.
 	blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-	work := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+	work := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 	if work != bits {
 		t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 			bits, work)
@@ -210,7 +210,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	}
 	i++
 	blocks[i] = getBlockIndex(blocks[i-1], 2*600-6000, bits)
-	work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+	work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 	if work != bits {
 		t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 			bits, work)
@@ -222,7 +222,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// timestamps.
 	for j := 0; j < 20; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, bits)
-		work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		if work != bits {
 			t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 				bits, work)
@@ -233,7 +233,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 
 	// We start emitting blocks slightly faster. The first block has no impact.
 	blocks[i] = getBlockIndex(blocks[i-1], 550, bits)
-	work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+	work = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 	if work != bits {
 		t.Errorf("the two value should equal, but the expect velue : %d, the actual value : %d",
 			bits, work)
@@ -244,7 +244,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// Now we should see difficulty increase slowly.
 	for j := 0; j < 10; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 550, bits)
-		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		currentTarget := CompactToBig(bits)
 		nextTarget := CompactToBig(nextBits)
 		if nextTarget.Cmp(currentTarget) >= 0 {
@@ -271,7 +271,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// If we dramatically shorten block production, difficulty increases faster.
 	for j := 0; j < 20; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 10, bits)
-		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		currentTarget := CompactToBig(bits)
 		nextTarget := CompactToBig(nextBits)
 		// Make sure that difficulty increases faster.
@@ -299,7 +299,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// We start to emit blocks significantly slower. The first block has no
 	// impact.
 	blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-	bits = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+	bits = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 	i++
 
 	// Check the actual value.
@@ -311,13 +311,13 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// If we dramatically slow down block production, difficulty decreases.
 	for j := 0; j < 93; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		currentTarget := CompactToBig(bits)
 		nextTarget := CompactToBig(nextBits)
 		// Check the difficulty decreases.
-		if nextTarget.Cmp(consensus.ActiveNetParams.PowLimit) > 0 {
+		if nextTarget.Cmp(chainparams.ActiveNetParams.PowLimit) > 0 {
 			t.Errorf("nextTarget value : %d should less or equal powLimit : %d",
-				nextBits, BigToCompact(consensus.ActiveNetParams.PowLimit))
+				nextBits, BigToCompact(chainparams.ActiveNetParams.PowLimit))
 			return
 		}
 		if nextTarget.Cmp(currentTarget) <= 0 {
@@ -343,7 +343,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// Due to the window of time being bounded, next block's difficulty actually
 	// gets harder.
 	blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-	bits = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+	bits = pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 	i++
 	if bits != 0x1c2ee9bf {
 		t.Errorf("the bits value : %d should equal %d \n", bits, 0x1c2ee9bf)
@@ -354,14 +354,14 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// the skewed block causes 2 blocks to get out of the window.
 	for j := 0; j < 192; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		currentTarget := CompactToBig(bits)
 		nextTarget := CompactToBig(nextBits)
 
 		// Check the difficulty decreases.
-		if nextTarget.Cmp(consensus.ActiveNetParams.PowLimit) > 0 {
+		if nextTarget.Cmp(chainparams.ActiveNetParams.PowLimit) > 0 {
 			t.Errorf("nextTarget value : %d should less or equal powLimit : %d",
-				nextBits, BigToCompact(consensus.ActiveNetParams.PowLimit))
+				nextBits, BigToCompact(chainparams.ActiveNetParams.PowLimit))
 			return
 		}
 		if nextTarget.Cmp(currentTarget) <= 0 {
@@ -388,11 +388,11 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	// easier.
 	for j := 0; j < 5; j++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 6000, bits)
-		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, consensus.ActiveNetParams)
+		nextBits := pow.getNextCashWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
 		// Check the difficulty stays constant.
-		if nextBits != BigToCompact(consensus.ActiveNetParams.PowLimit) {
+		if nextBits != BigToCompact(chainparams.ActiveNetParams.PowLimit) {
 			t.Errorf("the nextbits : %d should equal powLimit value : %d",
-				nextBits, BigToCompact(consensus.ActiveNetParams.PowLimit))
+				nextBits, BigToCompact(chainparams.ActiveNetParams.PowLimit))
 			return
 		}
 		i++
