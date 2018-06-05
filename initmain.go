@@ -4,7 +4,7 @@ import (
 	"github.com/btcboost/copernicus/log"
 	"github.com/btcboost/copernicus/logic/blockindex"
 	lchain "github.com/btcboost/copernicus/logic/chain"
-	
+	"github.com/btcboost/copernicus/model/mempool"
 	"github.com/btcboost/copernicus/model/chain"
 	"github.com/btcboost/copernicus/model/utxo"
 	"github.com/btcboost/copernicus/persist/blkdb"
@@ -27,4 +27,5 @@ func appInitMain() {
 	// 	lchain.ActivateBestChainStep()
 	// }
 	lchain.InitGenesisChain()
+	mempool.InitMempool()
 }

@@ -280,8 +280,9 @@ var TestNet3Params = BitcoinParams{
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        false,
 	Checkpoints: []*model.Checkpoint{
-		{546, util.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
-		{1155876, util.HashFromString("00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5")},
+		//{546, util.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
+		//{1155876, util.HashFromString("00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5")},
+		{1200000, util.HashFromString("00000000d91bdbb5394bcf457c0f0b7a7e43eb978e2d881b6c2a4c2756abc558")},
 	},
 	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has

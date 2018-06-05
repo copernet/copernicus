@@ -758,6 +758,7 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 // handleHeadersMsg handles block header messages from all peers.  Headers are
 // requested when performing a headers-first sync.
 func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
+	log.Trace("headers message come into syncmanager ...")
 	peer := hmsg.peer
 	_, exists := sm.peerStates[peer]
 	if !exists {
@@ -810,7 +811,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		} else {
 			log.Warn("Received block header that does not "+
 				"properly connect to the chain from peer %s "+
-				"-- disconnecting", peer.Addr())
+				"-- disconnecting, expect hash : %s, actual hash : %s",
+					peer.Addr(), prevNode.hash.String(), blockHash.String())
 			peer.Disconnect()
 			return
 		}
@@ -835,6 +837,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			break
 		}
 	}
+	log.Trace("begin to processblockheader ...")
 	var lastBlkIndex blockindex.BlockIndex
 	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil{
 		beginHash := msg.Headers[0].GetHash()
