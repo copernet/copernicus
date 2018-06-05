@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	
 	"github.com/btcboost/copernicus/log"
 	lblock "github.com/btcboost/copernicus/logic/block"
@@ -16,7 +15,7 @@ import (
 
 
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
-	log.Debug("ProcessBlockHeader======%#v", headerList)
+	log.Debug("ProcessBlockHeader begin, header number : %d", len(headerList))
 	for _, header := range headerList{
 		index, err :=  lblock.AcceptBlockHeader(header)
 		if err != nil{
@@ -32,9 +31,12 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 }
 
 func ProcessBlock(b *block.Block) (bool, error) {
+	h := b.GetHash()
+	log.Trace("blockservice process block , blockhash : %s", h.String())
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
-	fmt.Println("gchan==%d====%#v",gChain.Height(),gChain.Tip(), coinsTip)
+	_ = coinsTip
+	log.Trace("gchan height : %d, tipHash : %s", gChain.Height(), gChain.Tip().GetBlockHash().String())
 	
 	isNewBlock := false
 	var err error
@@ -42,13 +44,16 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	bIndex := gChain.FindBlockIndex(b.GetHash())
 	if bIndex != nil {
 		if bIndex.Accepted() {
+			log.Trace("this block have be sucessed process, height : %d, hash : %s",
+				bIndex.Height, bIndex.GetBlockHash().String())
 			return isNewBlock,nil
 		}
 	}
-
+	log.Trace("gchan height : %d, begin to processNewBlock ...",gChain.Height() )
 	err = ProcessNewBlock(b, true, &isNewBlock)
 	// bIndex,err = lchain.AcceptBlock(b, &params)
-	if err!=nil {
+	if err != nil {
+		log.Trace("processBlock failed ...")
 		return isNewBlock, err
 	}
 	return isNewBlock, err
@@ -60,6 +65,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	if fNewBlock != nil {
 		*fNewBlock = false
 	}
+
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
 	err := lblock.CheckBlock(pblock)
