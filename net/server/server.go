@@ -2175,14 +2175,12 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
 	})
-	if err != nil {
-		fmt.Println("new syncManager error ...")
-		return nil, err
-	}
 	s.syncManager.ProcessBlockCallBack = service.ProcessBlock
 	s.syncManager.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 	s.syncManager.ProcessTransactionCallBack = service.ProcessTransaction
-
+	if err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }

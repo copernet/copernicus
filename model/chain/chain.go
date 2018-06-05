@@ -14,7 +14,6 @@ import (
 	"github.com/btcboost/copernicus/persist/global"
 	"github.com/btcboost/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
-	"github.com/btcboost/copernicus/log"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
@@ -90,10 +89,9 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 
 //find blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	fmt.Println("FindBlockIndex======", len(c.indexMap))
+	fmt.Println("FindBlockIndex======%d", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
-		log.Trace("current chain Tip header height : %d", bi.Height)
 		return bi
 	}
 
@@ -255,15 +253,11 @@ func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 	return nil
 }
 
-// GetLocator get a series blockHash, which slice contain blocks sort
-// by height from Highest to lowest.
 func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 	step := 1
 	blockHashList := make([]util.Hash, 0, 32)
 	if index == nil {
 		index = ch.Tip()
-		log.Trace("GetLocator Tip hash : %s,  height : %d .",
-			index.GetBlockHash().String(), index.Height)
 	}
 	for {
 		blockHashList = append(blockHashList, *index.GetBlockHash())
@@ -279,8 +273,6 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 		} else {
 			index = index.GetAncestor(height)
 		}
-		log.Trace("GetLocator contain hash : %s, height : %d .",
-			index.GetBlockHash().String(), index.Height)
 		if len(blockHashList) > 10 {
 			step *= 2
 		}

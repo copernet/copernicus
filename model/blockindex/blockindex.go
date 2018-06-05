@@ -8,7 +8,6 @@ import (
 	"github.com/btcboost/copernicus/model/block"
 	"github.com/btcboost/copernicus/model/chainparams"
 	"github.com/btcboost/copernicus/util"
-	//"github.com/btcboost/copernicus/model/pow"
 )
 
 /**
@@ -164,7 +163,6 @@ func (bIndex *BlockIndex) GetBlockTimeMax() uint32 {
 }
 
 func (bIndex *BlockIndex) GetMedianTimePast() int64 {
-	//return 1510600611
 	median := make([]int64, 0, medianTimeSpan)
 	index := bIndex
 	numNodes := 0
@@ -221,27 +219,8 @@ func getSkipHeight(height int32) int32 {
 	return invertLowestOne(height)
 }
 
-var b1  BlockIndex
-var b2 BlockIndex
-
-
 // GetAncestor efficiently find an ancestor of this block.
 func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
-	b1.Height = 1188551
-	b1.Header.Time = 1510590879
-	//b1.ChainWork = *pow.HashToBig(util.HashFromString("0000000000000000000000000000000000000000000000288037870218978565"))
-	//
-	b2.Height = 1188552
-	b2.Header.Time = 1510590881
-	b2.Prev = &b1
-	//b2.ChainWork = *pow.HashToBig(util.HashFromString("0000000000000000000000000000000000000000000000288037870218978565"))
-	//
-	b:= BlockIndex{}
-	b.Header.Time = 1510590883
-	b.Height = 1188553
-	b.Prev = &b2
-	return &b
-
 	if height > bIndex.Height || height < 0 {
 		return nil
 	}
