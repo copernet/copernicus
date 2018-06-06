@@ -23,11 +23,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/chainparams"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential

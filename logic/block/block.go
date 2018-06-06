@@ -1,23 +1,23 @@
 package block
 
 import (
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/log"
-	lbi "github.com/btcboost/copernicus/logic/blockindex"
-	"github.com/btcboost/copernicus/logic/merkleroot"
-	ltx "github.com/btcboost/copernicus/logic/tx"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/versionbits"
-	"github.com/btcboost/copernicus/persist/global"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	lbi "github.com/copernet/copernicus/logic/blockindex"
+	"github.com/copernet/copernicus/logic/merkleroot"
+	ltx "github.com/copernet/copernicus/logic/tx"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/util/amount"
 
-	"github.com/btcboost/copernicus/persist/disk"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/persist/disk"
+	"github.com/copernet/copernicus/util"
 )
 
 const MinBlocksToKeep = int32(288)

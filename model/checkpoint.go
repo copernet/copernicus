@@ -1,6 +1,6 @@
 package model
 
-import "github.com/btcboost/copernicus/util"
+import "github.com/copernet/copernicus/util"
 
 type Checkpoint struct {
 	Height int32

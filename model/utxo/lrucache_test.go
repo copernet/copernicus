@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 	
-	"github.com/btcboost/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

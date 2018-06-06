@@ -1,10 +1,10 @@
-package: github.com/btcboost/copernicus
+package: github.com/copernet/copernicus
 import:
 - package: github.com/astaxie/beego
   version: ^1.9.2
   subpackages:
   - logs
-- package: github.com/btcboost/secp256k1-go
+- package: github.com/copernet/secp256k1-go
   subpackages:
   - secp256k1
 - package: github.com/btcsuite/go-socks

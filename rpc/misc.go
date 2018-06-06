@@ -6,15 +6,15 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/base58"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/base58"
 )
 
 var miscHandlers = map[string]commandHandler{

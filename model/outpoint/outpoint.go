@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	//"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/util"
+	//"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/util"
 	"io"
 	"math"
 )

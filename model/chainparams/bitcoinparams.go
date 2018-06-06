@@ -5,11 +5,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"

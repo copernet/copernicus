@@ -3,10 +3,10 @@ package versionbits
 import (
 	"testing"
 
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/util"
 )
 
 var paramsDummy = chainparams.BitcoinParams{}

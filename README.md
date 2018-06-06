@@ -1,4 +1,4 @@
-## Copernicus  [![Build Status](https://travis-ci.org/btcboost/copernicus.svg?branch=master)](https://travis-ci.org/btcboost/copernicus)
+## Copernicus  [![Build Status](https://travis-ci.org/copernet/copernicus.svg?branch=master)](https://travis-ci.org/copernet/copernicus)
 
 Copernicus is an alternative implementation of the Bitcoin protocol , written in Golang .
 

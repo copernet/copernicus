@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/util"
 	"github.com/jessevdk/go-flags"
 )
 

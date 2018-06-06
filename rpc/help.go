@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
 // helpCacher provides a concurrent safe type that provides help and usage for

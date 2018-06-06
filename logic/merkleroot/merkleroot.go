@@ -1,8 +1,8 @@
 package merkleroot
 
 import (
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/util"
 )
 
 /* This implements a constant-space merkle root/path calculator, limited to 2^32

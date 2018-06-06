@@ -2,8 +2,8 @@ package utxo
 
 import (
 	"fmt"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/util"
 )
 
 type CoinsMap struct {

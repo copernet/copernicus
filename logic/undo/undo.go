@@ -2,11 +2,11 @@ package undo
 
 import (
 	"fmt"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/undo"
-	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/model/utxo"
 )
 
 

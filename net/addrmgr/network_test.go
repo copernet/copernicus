@@ -8,8 +8,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/btcboost/copernicus/net/addrmgr"
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/net/addrmgr"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 // TestIPTypes ensures the various functions which determine the type of an IP

@@ -5,11 +5,11 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/util"
 	"github.com/pkg/errors"
 )
 

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // MsgAlert contains a payload and a signature:

@@ -10,7 +10,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // maxNetAddressPayload returns the max payload size for a bitcoin NetAddress

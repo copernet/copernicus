@@ -10,8 +10,8 @@ import (
 	"io"
 	"unicode/utf8"
 
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/util"
 )
 
 // MessageHeaderSize is the number of bytes in a bitcoin message header.

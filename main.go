@@ -13,11 +13,11 @@ import (
 	"runtime"
 	"runtime/debug"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/net/limits"
-	"github.com/btcboost/copernicus/net/server"
-	"github.com/btcboost/copernicus/rpc"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/net/limits"
+	"github.com/copernet/copernicus/net/server"
+	"github.com/copernet/copernicus/rpc"
 )
 
 const (

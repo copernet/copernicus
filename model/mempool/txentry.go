@@ -3,9 +3,9 @@ package mempool
 import (
 	"unsafe"
 
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
 )
 

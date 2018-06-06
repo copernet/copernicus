@@ -3,9 +3,9 @@ package chainparams
 import (
 	"time"
 
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/block"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/block"
 )
 
 var GenesisCoinbaseTx = tx.Tx{}

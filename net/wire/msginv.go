@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // defaultInvListAlloc is the default size used for the backing array for an

@@ -2,8 +2,8 @@ package mempool
 
 import (
 	"encoding/binary"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 	"io"
 )
 

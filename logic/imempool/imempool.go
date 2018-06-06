@@ -1,13 +1,13 @@
 package imempool
 
 import (
-	"github.com/btcboost/copernicus/model/mempool"
-	core2 "github.com/btcboost/copernicus/model/tx"
-	mempool2 "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/mempool"
+	core2 "github.com/copernet/copernicus/model/tx"
+	mempool2 "github.com/copernet/copernicus/logic/mempool"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 )
 
 type imempool interface {

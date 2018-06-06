@@ -1,7 +1,7 @@
 package chain
 
 import (
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 type BlockLocator struct {

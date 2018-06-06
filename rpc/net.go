@@ -5,11 +5,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/btcboost/copernicus/net/server"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/service"
+	"github.com/copernet/copernicus/net/server"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/service"
 )
 
 var netHandlers = map[string]commandHandler{

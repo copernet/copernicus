@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/btcboost/copernicus/log"
+	"github.com/copernet/copernicus/log"
 	"os"
 	"os/signal"
 	"sync"

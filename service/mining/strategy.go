@@ -2,9 +2,9 @@ package mining
 
 import (
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
 )
 

@@ -3,12 +3,12 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/txout"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 )
 
 /*
@@ -16,8 +16,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/utils"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/utils"
 )
 
 type TxSignatureSerializer struct {

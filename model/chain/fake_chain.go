@@ -1,9 +1,9 @@
 package chain
 
 import (
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/util"
 )
 
 func NewFakeChain() *Chain {

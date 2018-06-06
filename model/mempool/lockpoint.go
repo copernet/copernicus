@@ -1,7 +1,7 @@
 package mempool
 
 import (
-	"github.com/btcboost/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/blockindex"
 )
 
 type LockPoints struct {

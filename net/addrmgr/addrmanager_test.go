@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcboost/copernicus/net/addrmgr"
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/net/addrmgr"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 // naTest is used to describe a test to be performed against the NetAddressKey

@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/util"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
 )
@@ -20,7 +20,7 @@ const (
 
 	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
-	defaultProjectDir           = "github.com/btcboost/copernicus"
+	defaultProjectDir           = "github.com/copernet/copernicus"
 	defaultLogLevel             = "info"
 	defaultLogDirname           = "logs"
 	defaultLogFilename          = "coper.log"

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcboost/copernicus/net/addrmgr"
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/net/addrmgr"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 func TestChance(t *testing.T) {

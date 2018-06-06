@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/model/block"
+	"github.com/copernet/copernicus/model/block"
 )
 
 // blockProgressLogger provides periodic logging for other services in order

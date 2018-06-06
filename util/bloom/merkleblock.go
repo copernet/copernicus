@@ -5,10 +5,10 @@
 package bloom
 
 import (
-	"github.com/btcboost/copernicus/logic/merkleroot"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/logic/merkleroot"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 )
 
 // merkleBlock is used to house intermediate information needed to generate a

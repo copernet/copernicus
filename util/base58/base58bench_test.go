@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/btcboost/copernicus/util/base58"
+	"github.com/copernet/copernicus/util/base58"
 )
 
 func BenchmarkBase58Encode(b *testing.B) {

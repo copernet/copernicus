@@ -4,12 +4,12 @@ import (
 	"bytes"
 	
 	
-	lmp "github.com/btcboost/copernicus/logic/mempool"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	mchain "github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/persist/disk"
+	lmp "github.com/copernet/copernicus/logic/mempool"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	mchain "github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/persist/disk"
 )
 
 // ActivateBestChain Make the best chain active, in multiple steps. The result is either failure

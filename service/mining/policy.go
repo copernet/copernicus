@@ -1,6 +1,6 @@
 package mining
 
-import "github.com/btcboost/copernicus/util"
+import "github.com/copernet/copernicus/util"
 
 const (
 	/*MaxTxSigOpsCount allowed number of signature check operations per transaction. */

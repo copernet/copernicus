@@ -6,9 +6,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
 )
 
 type TxIn struct {

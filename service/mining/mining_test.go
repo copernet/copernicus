@@ -1,15 +1,15 @@
 package mining
 
 import (
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/txin"
-	"github.com/btcboost/copernicus/model/txout"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/txin"
+	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 )
 
 type TestMemPoolEntry struct {

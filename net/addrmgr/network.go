@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 func TestPublicKeyToAddress(t *testing.T) {

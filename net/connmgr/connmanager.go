@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/log"
+	"github.com/copernet/copernicus/log"
 )
 
 // maxFailedAttempts is the maximum number of successive failed connection

@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/persist/db"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/pow"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/util"
 )
 
 type BlockTreeDB struct {

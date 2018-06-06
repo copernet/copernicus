@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
+	"github.com/copernet/copernicus/conf"
 )
 
 const (

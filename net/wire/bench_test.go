@@ -13,7 +13,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // genesisCoinbaseTx is the coinbase transaction for the genesis blocks for

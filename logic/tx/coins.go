@@ -1,10 +1,10 @@
 package tx
 
 import (
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/undo"
-	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/model/utxo"
 )
 
 func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height int32) {

@@ -3,9 +3,9 @@ package global
 import (
 	"sync"
 	
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/util"
 )
 
 const (

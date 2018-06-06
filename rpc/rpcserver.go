@@ -20,9 +20,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
 const (

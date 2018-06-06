@@ -1,11 +1,11 @@
 package chain
 
 import (
-	"github.com/btcboost/copernicus/model/block"
-	mchain "github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/persist/global"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	mchain "github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/util"
 )
 
 const (

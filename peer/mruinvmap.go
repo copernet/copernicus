@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 // mruInventoryMap provides a concurrency safe map that is limited to a maximum

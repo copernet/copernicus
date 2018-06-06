@@ -7,7 +7,7 @@ package wire
 import (
 	"io"
 
-	"github.com/btcboost/copernicus/model/block"
+	"github.com/copernet/copernicus/model/block"
 )
 
 // MaxBlocksPerMsg is the maximum number of blocks allowed per message.

@@ -1,25 +1,25 @@
 package tx
 
 import (
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/utxo"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/utxo"
 
 	"bytes"
 
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/opcodes"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/undo"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 	"strconv"
 )
 

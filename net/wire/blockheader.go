@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // MaxBlockHeaderPayload is the maximum number of bytes a block header can be.

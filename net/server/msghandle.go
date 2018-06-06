@@ -7,11 +7,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/peer"
-	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/service"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/peer"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/service"
 )
 
 type MsgHandle struct {

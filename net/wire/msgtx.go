@@ -7,7 +7,7 @@ package wire
 import (
 	"io"
 
-	"github.com/btcboost/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/tx"
 )
 
 const minTxPayload = 10

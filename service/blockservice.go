@@ -2,14 +2,14 @@ package service
 
 import (
 	
-	"github.com/btcboost/copernicus/log"
-	lblock "github.com/btcboost/copernicus/logic/block"
-	lchain "github.com/btcboost/copernicus/logic/chain"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/persist/global"
+	"github.com/copernet/copernicus/log"
+	lblock "github.com/copernet/copernicus/logic/block"
+	lchain "github.com/copernet/copernicus/logic/chain"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/global"
 
 )
 

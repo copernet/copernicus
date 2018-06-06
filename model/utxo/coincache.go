@@ -2,11 +2,11 @@ package utxo
 
 import (
 	
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/util"
 	
-	"github.com/btcboost/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/db"
 )
 
 var utxoTip CacheView

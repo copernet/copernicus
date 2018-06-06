@@ -7,7 +7,7 @@ package addrmgr
 import (
 	"time"
 
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 // KnownAddress tracks information about a known network address that is used

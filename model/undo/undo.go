@@ -3,9 +3,9 @@ package undo
 import (
 	"bytes"
 	"io"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 )
 
 const MaxInputPerTx = tx.MaxTxInPerMessage

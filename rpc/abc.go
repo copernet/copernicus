@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/service/mining"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/service/mining"
 )
 
 var abcHandlers = map[string]commandHandler{

@@ -9,7 +9,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // AmountUnit describes a method of converting an Amount to something

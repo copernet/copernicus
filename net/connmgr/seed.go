@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/net/wire"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 const (

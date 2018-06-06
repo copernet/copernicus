@@ -2,9 +2,9 @@ package utxo
 
 import (
 	"bytes"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/persist/db"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
 	"io"
 )
 

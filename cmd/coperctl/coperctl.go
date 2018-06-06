@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
 const (

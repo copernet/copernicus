@@ -3,8 +3,8 @@ package server
 import (
 	"sync/atomic"
 
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/peer"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/peer"
 )
 
 // rpcserverPeer represents a peer for use with the RPC server.

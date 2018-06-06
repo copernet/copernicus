@@ -10,7 +10,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/btcboost/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/btcsuite/go-socks/socks"
 )
 

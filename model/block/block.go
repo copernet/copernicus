@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/log"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/log"
 )
 
 type Block struct {

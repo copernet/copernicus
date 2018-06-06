@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // MaxUserAgentLen is the maximum allowed length for the user agent field in a

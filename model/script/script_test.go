@@ -1,7 +1,7 @@
 package script
 
 import (
-	"github.com/btcboost/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/opcodes"
 	"testing"
 )
 

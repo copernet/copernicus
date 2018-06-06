@@ -3,7 +3,7 @@ package blkdb
 import (
 	"testing"
 	
-	"github.com/btcboost/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/db"
 )
 
 

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/persist/db"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 

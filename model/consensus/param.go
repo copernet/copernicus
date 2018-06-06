@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 type DeploymentPos int

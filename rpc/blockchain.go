@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/rpc/btcjson"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
 

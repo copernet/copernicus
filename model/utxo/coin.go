@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/txout"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 	"io"
 )
 

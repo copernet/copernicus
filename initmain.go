@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/logic/blockindex"
-	lchain "github.com/btcboost/copernicus/logic/chain"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/persist/blkdb"
-	"github.com/btcboost/copernicus/persist/db"
-	"github.com/btcboost/copernicus/persist/global"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/blockindex"
+	lchain "github.com/copernet/copernicus/logic/chain"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/global"
 )
 
 func appInitMain() {

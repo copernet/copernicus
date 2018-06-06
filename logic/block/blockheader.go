@@ -1,12 +1,12 @@
 package block
 
 import (
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chain"
-	"github.com/btcboost/copernicus/model/pow"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/pow"
 )
 
 func CheckBlockHeader(bh * block.BlockHeader) error {

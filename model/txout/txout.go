@@ -6,12 +6,12 @@ import (
 	"io"
 
 	"encoding/binary"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/amount"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 )
 
 type TxOut struct {

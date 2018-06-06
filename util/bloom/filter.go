@@ -9,10 +9,10 @@ import (
 	"math"
 	"sync"
 
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 )
 
 type MsgTx tx.Tx

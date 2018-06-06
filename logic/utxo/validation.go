@@ -2,11 +2,11 @@ package utxo
 //
 //import (
 //	"fmt"
-//	"github.com/btcboost/copernicus/model/consensus"
+//	"github.com/copernet/copernicus/model/consensus"
 //	"strconv"
 //	"copernicus/core"
 //	"copernicus/utils"
-//	"github.com/btcboost/copernicus/model/tx"
+//	"github.com/copernet/copernicus/model/tx"
 //)
 //
 //func (coinsViewCache *CoinsViewCache) CheckTxInputs(tx *tx.Tx, state *core.ValidationState, spendHeight int) bool {

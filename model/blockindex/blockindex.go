@@ -5,9 +5,9 @@ import (
 	"sort"
 	"fmt"
 
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/util"
 )
 
 /**

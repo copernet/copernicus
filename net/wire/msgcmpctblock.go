@@ -7,8 +7,8 @@ import (
 	"io"
 	"math"
 
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/util"
 )
 
 const ShortTxIDsLength = 6

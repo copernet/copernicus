@@ -7,7 +7,7 @@ package wire
 import (
 	"io"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 )
 
 // MsgPing implements the Message interface and represents a bitcoin ping

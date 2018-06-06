@@ -9,17 +9,17 @@ import (
 
 
 "github.com/astaxie/beego/logs"
-"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model"
-	"github.com/btcboost/copernicus/model/block"
-"github.com/btcboost/copernicus/model/blockindex"
-"github.com/btcboost/copernicus/model/chain"
-"github.com/btcboost/copernicus/model/pow"
-"github.com/btcboost/copernicus/model/utxo"
-"github.com/btcboost/copernicus/persist/blkdb"
-"github.com/btcboost/copernicus/persist/disk"
-"github.com/btcboost/copernicus/persist/global"
-"github.com/btcboost/copernicus/util"
+"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+"github.com/copernet/copernicus/model/blockindex"
+"github.com/copernet/copernicus/model/chain"
+"github.com/copernet/copernicus/model/pow"
+"github.com/copernet/copernicus/model/utxo"
+"github.com/copernet/copernicus/persist/blkdb"
+"github.com/copernet/copernicus/persist/disk"
+"github.com/copernet/copernicus/persist/global"
+"github.com/copernet/copernicus/util"
 "gopkg.in/fatih/set.v0"
 
 

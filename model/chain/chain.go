@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"sort"
 	
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/chainparams"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/pow"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/versionbits"
-	"github.com/btcboost/copernicus/persist/global"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
-	"github.com/btcboost/copernicus/log"
+	"github.com/copernet/copernicus/log"
 )
 
 // Chain An in-memory blIndexed chain of blocks.

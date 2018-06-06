@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/net/wire"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 )
 
 const (

@@ -3,8 +3,8 @@ package merkleblock
 import (
 	"io"
 
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
 

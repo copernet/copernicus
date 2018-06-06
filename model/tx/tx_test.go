@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"fmt"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/script"
-	"github.com/btcboost/copernicus/model/txin"
-	"github.com/btcboost/copernicus/model/txout"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/txin"
+	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/util"
 )
 
 var tests = []struct {

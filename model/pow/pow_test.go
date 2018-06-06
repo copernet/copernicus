@@ -4,9 +4,9 @@ import (
 	//"math/big"
 	"testing"
 
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chainparams"
 	"fmt"
 	"math/big"
 	"encoding/hex"

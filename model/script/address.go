@@ -3,9 +3,9 @@ package script
 import (
 	"bytes"
 
-	"github.com/btcboost/copernicus/crypto"
-	"github.com/btcboost/copernicus/util"
-	"github.com/btcboost/copernicus/util/base58"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/base58"
 	"github.com/pkg/errors"
 )
 

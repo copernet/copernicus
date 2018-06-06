@@ -13,22 +13,22 @@ import (
 	"time"
 	
 	blogs "github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/conf"
-	"github.com/btcboost/copernicus/log"
-	"github.com/btcboost/copernicus/model/block"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
 	
-	"github.com/btcboost/copernicus/model/blockindex"
-	"github.com/btcboost/copernicus/model/pow"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/pow"
 	
 
-"github.com/btcboost/copernicus/errcode"
-"github.com/btcboost/copernicus/model/chainparams"
-"github.com/btcboost/copernicus/model/undo"
-"github.com/btcboost/copernicus/model/utxo"
-"github.com/btcboost/copernicus/net/wire"
-"github.com/btcboost/copernicus/persist/blkdb"
-"github.com/btcboost/copernicus/persist/global"
-"github.com/btcboost/copernicus/util"
+"github.com/copernet/copernicus/errcode"
+"github.com/copernet/copernicus/model/chainparams"
+"github.com/copernet/copernicus/model/undo"
+"github.com/copernet/copernicus/model/utxo"
+"github.com/copernet/copernicus/net/wire"
+"github.com/copernet/copernicus/persist/blkdb"
+"github.com/copernet/copernicus/persist/global"
+"github.com/copernet/copernicus/util"
 
 )
 

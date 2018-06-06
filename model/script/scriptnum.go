@@ -1,7 +1,7 @@
 package script
 
 import (
-	"github.com/btcboost/copernicus/errcode"
+	"github.com/copernet/copernicus/errcode"
 )
 
 const (

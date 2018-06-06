@@ -1,13 +1,13 @@
 package service
 
 import (
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/log"
-	lmempool "github.com/btcboost/copernicus/logic/mempool"
-	ltx "github.com/btcboost/copernicus/logic/tx"
-	"github.com/btcboost/copernicus/model/mempool"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	lmempool "github.com/copernet/copernicus/logic/mempool"
+	ltx "github.com/copernet/copernicus/logic/tx"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 )
 
 func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash, error) {

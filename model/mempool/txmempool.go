@@ -8,14 +8,14 @@ import (
 	"unsafe"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/btcboost/copernicus/errcode"
-	"github.com/btcboost/copernicus/model/consensus"
-	"github.com/btcboost/copernicus/model/outpoint"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/model/utxo"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
-	"github.com/btcboost/copernicus/conf"
+	"github.com/copernet/copernicus/conf"
 )
 
 const (

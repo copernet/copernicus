@@ -6,9 +6,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/btcboost/copernicus/model/block"
-	"github.com/btcboost/copernicus/model/tx"
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 )
 
 // Older version of the merkle root computation code, for comparison.

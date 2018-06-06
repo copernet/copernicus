@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcboost/copernicus/util"
+	"github.com/copernet/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
 )
 
