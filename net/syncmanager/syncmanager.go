@@ -656,6 +656,11 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Nothing more to do if we aren't in headers-first mode.
 	if !sm.headersFirstMode {
+		if len(sm.requestedBlocks) == 0{
+			activeChain := chain.GetInstance()
+			locator := activeChain.GetLocator(nil)
+			peer.PushGetBlocksMsg(*locator, &zeroHash)
+		}
 		return
 	}
 
