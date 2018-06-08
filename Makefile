@@ -22,6 +22,9 @@ PACKAGES  := $$(go list ./...| grep -vE "vendor")
 FILES     := $$(find . -name "*.go" | grep -vE "vendor")
 TOPDIRS   := $$(ls -d */ | grep -vE "vendor")
 
+GOFAIL_ENABLE  := $$(find $$PWD/ -type d | grep -vE "(\.git|vendor)" | xargs gofail enable)
+GOFAIL_DISABLE := $$(find $$PWD/ -type d | grep -vE "(\.git|vendor)" | xargs gofail disable)
+
 .PHONY: all build update test
 
 RACE_FLAG =
@@ -59,3 +62,11 @@ clean:
 fmt:
 	@echo "gofmt (simplify)"
 	@ gofmt -s -l -w $(FILES) 2>&1 | grep -v "vendor|parser/parser.go" | awk '{print} END{if(NR>0) {exit 1}}'
+
+gofail-enable:
+# Converting gofail failpoints...
+	@$(GOFAIL_ENABLE)
+
+gofail-disable:
+# Restoring gofail failpoints...
+	@$(GOFAIL_DISABLE)
