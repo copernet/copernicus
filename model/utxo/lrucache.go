@@ -16,7 +16,7 @@ type CoinsLruCache struct {
 	db         CoinsDB
 	hashBlock  util.Hash
 	cacheCoins *lru.Cache
-	dirtyCoins map[outpoint.OutPoint]*Coin //写数据库临时缓存
+	dirtyCoins map[outpoint.OutPoint]*Coin //write database temporary cache
 }
 
 var utxoLruTip CacheView
