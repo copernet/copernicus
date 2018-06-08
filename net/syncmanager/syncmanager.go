@@ -20,12 +20,12 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/model/outpoint"
 )
 
 const (
@@ -66,23 +66,23 @@ type blockMsg struct {
 
 // poolMsg package a bitcoin mempool message and peer it come from together
 type poolMsg struct {
-	pool *wire.MsgMemPool
-	peer *peer.Peer
+	pool  *wire.MsgMemPool
+	peer  *peer.Peer
 	reply chan<- struct{}
 }
 
 // getdataMsg package a bitcoin getdata message And peer it come from together
 type getdataMsg struct {
 	getdata *wire.MsgGetData
-	peer	*peer.Peer
-	reply	chan<- struct{}
+	peer    *peer.Peer
+	reply   chan<- struct{}
 }
 
 // getBlocksMsg package a bitcoin getblocks message And peer it come from together
 type getBlocksMsg struct {
 	getblocks *wire.MsgGetBlocks
-	peer 	*peer.Peer
-	reply chan<- struct{}
+	peer      *peer.Peer
+	reply     chan<- struct{}
 }
 
 // invMsg packages a bitcoin inv message and the peer it came from together
@@ -173,14 +173,14 @@ type peerSyncState struct {
 // chain is in sync, the SyncManager handles incoming block and header
 // notifications and relays announcements of new blocks to peers.
 type SyncManager struct {
-	peerNotifier   PeerNotifier
-	started        int32
-	shutdown       int32
-	chainParams    *chainparams.BitcoinParams
-	progressLogger *blockProgressLogger
-	processBusinessChan    chan interface{}
-	wg             sync.WaitGroup
-	quit           chan struct{}
+	peerNotifier        PeerNotifier
+	started             int32
+	shutdown            int32
+	chainParams         *chainparams.BitcoinParams
+	progressLogger      *blockProgressLogger
+	processBusinessChan chan interface{}
+	wg                  sync.WaitGroup
+	quit                chan struct{}
 
 	// These fields should only be accessed from the blockHandler thread
 	rejectedTxns    map[util.Hash]struct{}
@@ -196,9 +196,9 @@ type SyncManager struct {
 	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
-	ProcessTransactionCallBack 	func(*tx.Tx, int64) ([]*tx.Tx, []util.Hash, error)
-	ProcessBlockCallBack 		func(*block.Block) (bool, error)
-	ProcessBlockHeadCallBack 	func([]*block.BlockHeader, *blockindex.BlockIndex) error
+	ProcessTransactionCallBack func(*tx.Tx, int64) ([]*tx.Tx, []util.Hash, error)
+	ProcessBlockCallBack       func(*block.Block) (bool, error)
+	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -459,7 +459,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	// Process the transaction to include validation, insertion in the
 	// memory pool, orphan handling, etc.
-	acceptedTxs, missTx,  err := sm.ProcessTransactionCallBack(tmsg.tx, int64(peer.ID()))
+	acceptedTxs, missTx, err := sm.ProcessTransactionCallBack(tmsg.tx, int64(peer.ID()))
 	// Remove transaction from request maps. Either the mempool/chain
 	// already knows about it and as such we shouldn't have any more
 	// instances of trying to fetch it, or we failed to insert and thus
@@ -467,11 +467,11 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	delete(state.requestedTxns, txHash)
 	delete(sm.requestedTxns, txHash)
 	invMsg := wire.NewMsgInvSizeHint(uint(len(missTx)))
-	for _, hash := range missTx{
+	for _, hash := range missTx {
 		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
 		invMsg.AddInvVect(iv)
 	}
-	if len(missTx) > 0{
+	if len(missTx) > 0 {
 		peer.QueueMessage(invMsg, nil)
 	}
 
@@ -812,7 +812,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			log.Warn("Received block header that does not "+
 				"properly connect to the chain from peer %s "+
 				"-- disconnecting, expect hash : %s, actual hash : %s",
-					peer.Addr(), prevNode.hash.String(), blockHash.String())
+				peer.Addr(), prevNode.hash.String(), blockHash.String())
 			peer.Disconnect()
 			return
 		}
@@ -839,11 +839,11 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	}
 	log.Trace("begin to processblockheader ...")
 	var lastBlkIndex blockindex.BlockIndex
-	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil{
+	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil {
 		beginHash := msg.Headers[0].GetHash()
-		endHash := msg.Headers[len(msg.Headers) - 1].GetHash()
-		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s," +
-			"error news : %s.", beginHash.String(), endHash.String(), err.Error() )
+		endHash := msg.Headers[len(msg.Headers)-1].GetHash()
+		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s,"+
+			"error news : %s.", beginHash.String(), endHash.String(), err.Error())
 	}
 
 	// When this header is a checkpoint, switch to fetching the blocks for
@@ -886,10 +886,10 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		// Ask chain if the block is known to it in any form (main
 		// chain, side chain, or orphan).
 		blkIndex := activeChain.FindBlockIndex(invVect.Hash)
-		if blkIndex == nil{
+		if blkIndex == nil {
 			return false, nil
 		}
-		if blkIndex.WaitingData(){
+		if blkIndex.WaitingData() {
 			return false, nil
 		}
 		return true, nil
@@ -908,7 +908,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			return true, nil
 		}
 		out.Index = 1
-		if pcoins.GetCoin(&out) != nil{
+		if pcoins.GetCoin(&out) != nil {
 			return true, nil
 		}
 		if lpool.FindRejectTxInMempool(invVect.Hash) ||
@@ -1124,17 +1124,17 @@ out:
 				sm.handleHeadersMsg(msg)
 
 			case *poolMsg:
-				if msg.peer.Cfg.Listeners.OnMemPool != nil{
+				if msg.peer.Cfg.Listeners.OnMemPool != nil {
 					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
 				}
 				msg.reply <- struct{}{}
 			case getdataMsg:
-				if msg.peer.Cfg.Listeners.OnGetData != nil{
+				if msg.peer.Cfg.Listeners.OnGetData != nil {
 					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
 				}
 				msg.reply <- struct{}{}
 			case getBlocksMsg:
-				if msg.peer.Cfg.Listeners.OnGetBlocks != nil{
+				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
 				}
 				msg.reply <- struct{}{}
@@ -1233,7 +1233,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Reinsert all of the transactions (except the coinbase) into
 		// the transaction pool.
 		for _, tx := range block.Txs[1:] {
-			_, _,  err := sm.ProcessTransactionCallBack(tx, 0)
+			_, _, err := sm.ProcessTransactionCallBack(tx, 0)
 			if err != nil {
 				// Remove the transaction and all transactions
 				// that depend on it if it wasn't accepted into
@@ -1280,7 +1280,7 @@ func (sm *SyncManager) QueueBlock(block *block.Block, buf []byte, peer *peer.Pee
 	sm.processBusinessChan <- &blockMsg{block: block, buf: buf, peer: peer, reply: done}
 }
 
-func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, done chan<- struct{})  {
+func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
@@ -1290,7 +1290,7 @@ func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, d
 	sm.processBusinessChan <- &poolMsg{pool, peer, done}
 }
 
-func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer2 *peer.Peer, done chan<- struct{})  {
+func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer2 *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
@@ -1300,7 +1300,7 @@ func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer2 *peer.Peer, 
 	sm.processBusinessChan <- &getdataMsg{getdata, peer2, done}
 }
 
-func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer2 *peer.Peer, done chan<- struct{})  {
+func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer2 *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
@@ -1408,20 +1408,20 @@ func (sm *SyncManager) Pause() chan<- struct{} {
 // block, tx, and inv updates.
 func New(config *Config) (*SyncManager, error) {
 	sm := SyncManager{
-		peerNotifier:    config.PeerNotifier,
-		chainParams:     config.ChainParams,
-		rejectedTxns:    make(map[util.Hash]struct{}),
-		requestedTxns:   make(map[util.Hash]struct{}),
-		requestedBlocks: make(map[util.Hash]struct{}),
-		peerStates:      make(map[*peer.Peer]*peerSyncState),
-		progressLogger:  newBlockProgressLogger("Processed", log.GetLogger()),
-		processBusinessChan:         make(chan interface{}, config.MaxPeers*3),
-		headerList:      list.New(),
-		quit:            make(chan struct{}),
+		peerNotifier:        config.PeerNotifier,
+		chainParams:         config.ChainParams,
+		rejectedTxns:        make(map[util.Hash]struct{}),
+		requestedTxns:       make(map[util.Hash]struct{}),
+		requestedBlocks:     make(map[util.Hash]struct{}),
+		peerStates:          make(map[*peer.Peer]*peerSyncState),
+		progressLogger:      newBlockProgressLogger("Processed", log.GetLogger()),
+		processBusinessChan: make(chan interface{}, config.MaxPeers*3),
+		headerList:          list.New(),
+		quit:                make(chan struct{}),
 	}
 	chain.InitGlobalChain(nil)
 	best := chain.GetInstance().Tip()
-	if best == nil{
+	if best == nil {
 		panic("best is nil")
 	}
 	if !config.DisableCheckpoints {
@@ -1435,7 +1435,8 @@ func New(config *Config) (*SyncManager, error) {
 		log.Info("Checkpoints are disabled")
 	}
 
-	//sm.chain.Subscribe(sm.handleBlockchainNotification)
+	// FIXME: add it back when @chain.Subscribe is ready to support inv relay.
+	// sm.chain.Subscribe(sm.handleBlockchainNotification)
 
 	return &sm, nil
 }
