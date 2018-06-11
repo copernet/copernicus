@@ -15,8 +15,8 @@ type Coin struct {
 	txOut         txout.TxOut
 	height        int32
 	isCoinBase    bool
-	dirty         bool //是否修改过
-	fresh         bool //是否是新增
+	dirty         bool //whether modified
+	fresh         bool //whether add new
 	isMempoolCoin bool
 }
 
@@ -32,7 +32,7 @@ func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 
-// todo coinbase检查高度，锁定时间？
+// todo check coinbase height，lock time？
 func (coin *Coin) IsSpendable() bool {
 	return coin.txOut.IsNull()
 }

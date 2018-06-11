@@ -31,6 +31,11 @@ make install
 #### install go dependency
 ```
  glide install
+ 
+ # if encountered some errors from glide, try the following commands:
+ rm -rf vendor
+ glide cc; rm -rf ~/.glide; rm -rf vendor; rm glide.lock
+ glide install --force --strip-vendor
 ```
 
 #### gometalinter

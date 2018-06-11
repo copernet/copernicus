@@ -20,7 +20,7 @@ Mining:
   Strategy: ancestorfeerate
 
 P2PNet:
-  ListenAddrs: [127.0.0.1:8333, 127.0.0.1:18333]
+  ListenAddrs: ["127.0.0.1:8333", "127.0.0.1:18333"]
   MaxPeers: 5
   TargetOutbound: 3
   ConnectPeersOnStart:
