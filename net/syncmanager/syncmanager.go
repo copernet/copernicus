@@ -1419,7 +1419,7 @@ func New(config *Config) (*SyncManager, error) {
 		headerList:      list.New(),
 		quit:            make(chan struct{}),
 	}
-	chain.InitGlobalChain(nil)
+	//chain.InitGlobalChain(nil)
 	best := chain.GetInstance().Tip()
 	if best == nil{
 		panic("best is nil")

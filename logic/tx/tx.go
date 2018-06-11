@@ -307,8 +307,7 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	utxo := utxo.GetUtxoCacheInstance()
 	outs := transaction.GetOuts()
 	for i, _ := range outs {
-		coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
-		if coin != nil {
+		if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 			return true
 		}
 	}
