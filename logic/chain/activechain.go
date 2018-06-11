@@ -111,7 +111,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 
 	// Disconnect active blocks which are no longer in the best chain.
 	fBlocksDisconnected := false
-	for pindexOldTip != nil && pindexOldTip != pindexFork {
+	for gChain.Tip() != nil && gChain.Tip() != pindexFork {
 		if err := DisconnectTip(false);err!=nil {
 			return err
 		}
