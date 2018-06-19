@@ -8,6 +8,6 @@ var (
 	secp256k1Context *secp256k1.Context
 )
 
-func init() {
+func InitSecp256() {
 	secp256k1Context, _ = secp256k1.ContextCreate(secp256k1.ContextSign | secp256k1.ContextVerify)
 }

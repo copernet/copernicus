@@ -42,21 +42,40 @@ func ParseDERSignature(signature []byte) (*Signature, error) {
 	return (*Signature)(sig), nil
 }
 
-func ParseSignature(signature []byte) (*Signature, error) {
-	_, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, signature)
-	if err != nil {
-		return nil, err
+func (sig *Signature)EcdsaNormalize() bool {
+	ret, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, sig.toLibEcdsaSignature(), sig.toLibEcdsaSignature())
+	if ret != 1 || err != nil {
+		return false
 	}
-	return (*Signature)(sig), nil
+
+	return true
 }
 
-func Sign(privKey *PrivateKey, hash []byte) ([]byte, error) {
-	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privKey.bytes)
-	if err != nil {
-		return nil, err
+func IsLowDERSignature(vchSig []byte) (bool, error) {
+	if !IsValidSignatureEncoding(vchSig) {
+		return false, errcode.New(errcode.ScriptErrSigDer)
 	}
-	_, ret, _ := secp256k1.EcdsaSignatureSerializeDer(secp256k1Context, signature)
-	return ret, nil
+	var vchCopy []byte
+	vchCopy = append(vchCopy, vchSig[:]...)
+	ret := checkLowS(vchCopy)
+	if !ret {
+		return false, errcode.New(errcode.ScriptErrSigHighs)
+	}
+	return true, nil
+
+}
+
+func checkLowS(vchSig []byte) bool {
+	ret, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, vchSig)
+	if ret != 1 || err != nil {
+		return false
+	}
+	ret, err = secp256k1.EcdsaSignatureNormalize(secp256k1Context, nil, sig)
+	if ret != 1 || err != nil {
+		return false
+	}
+
+	return true
 }
 
 /**
@@ -131,41 +150,6 @@ func IsValidSignatureEncoding(signs []byte) bool {
 
 }
 
-func GetHashType(chSig []byte) uint32 {
-	if len(chSig) == 0 {
-		return 0
-	}
-	return uint32(chSig[len(chSig)-1])
-
-}
-
-func IsLowDERSignature(vchSig []byte) (bool, error) {
-	if !IsValidSignatureEncoding(vchSig) {
-		return false, errcode.New(errcode.ScriptErrSigDer)
-	}
-	var vchCopy []byte
-	vchCopy = append(vchCopy, vchSig[:]...)
-	ret := CheckLowS(vchCopy)
-	if !ret {
-		return false, errcode.New(errcode.ScriptErrSigHighs)
-	}
-	return true, nil
-
-}
-
-func CheckLowS(vchSig []byte) bool {
-	ret, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, vchSig)
-	if ret != 1 || err != nil {
-		return false
-	}
-	ret, err = secp256k1.EcdsaSignatureNormalize(secp256k1Context, nil, sig)
-	if ret != 1 || err != nil {
-		return false
-	}
-
-	return true
-}
-
 func IsDefineHashtypeSignature(vchSig []byte) bool {
 	if len(vchSig) == 0 {
 		return false
@@ -176,3 +160,26 @@ func IsDefineHashtypeSignature(vchSig []byte) bool {
 	}
 	return true
 }
+
+//func ParseSignature(signature []byte) (*Signature, error) {
+//	_, sig, err := secp256k1.EcdsaSignatureParseCompact(secp256k1Context, signature)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return (*Signature)(sig), nil
+//}
+//func GetHashType(chSig []byte) uint32 {
+//	if len(chSig) == 0 {
+//		return 0
+//	}
+//	return uint32(chSig[len(chSig)-1])
+//
+//}
+//func Sign(privKey *PrivateKey, hash []byte) ([]byte, error) {
+//	_, signature, err := secp256k1.EcdsaSign(secp256k1Context, hash, privKey.bytes)
+//	if err != nil {
+//		return nil, err
+//	}
+//	_, ret, _ := secp256k1.EcdsaSignatureSerializeDer(secp256k1Context, signature)
+//	return ret, nil
+//}

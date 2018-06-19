@@ -10,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/crypto"
 )
 
 func appInitMain() {
@@ -28,4 +29,5 @@ func appInitMain() {
 	// }
 	lchain.InitGenesisChain()
 	mempool.InitMempool()
+	crypto.InitSecp256()
 }

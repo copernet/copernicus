@@ -1449,7 +1449,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					}
 					// signature is DER format, the second byte + 2 indicates the len of signature
 					// 0x30 if the first byte that indicates the beginning of signature
-					vchSigBytes = vchSigBytes[:vchSigBytes[1]+2]
+					//vchSigBytes = vchSigBytes[:vchSigBytes[1]+2]
 					// Subset of script starting at the most recent codeSeparator
 					scriptCode := script.NewScriptOps(s.ParsedOpCodes[beginCodeHash:])
 
@@ -1639,10 +1639,9 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			default:
 				return errcode.New(errcode.ScriptErrBadOpCode)
 			}
-
-			if stack.Size()+stackAlt.Size() > 1000 {
-				return errcode.New(errcode.ScriptErrStackSize)
-			}
+		}
+		if stack.Size()+stackAlt.Size() > 1000 {
+			return errcode.New(errcode.ScriptErrStackSize)
 		}
 	}
 
@@ -1856,11 +1855,15 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *script.Script,
 	nIn int, money amount.Amount, flags uint32) (bool, error) {
 	hashType := signature[len(signature)-1]
-	txHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
+	txSigHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
 	if err != nil {
 		return false, err
 	}
-	fOk := tx.CheckSig(txHash, signature, pubKey)
+	signature = signature[:len(signature)-1]
+	//txHash := transaction.GetHash()
+	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
+	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
+	fOk := tx.CheckSig(txSigHash, signature, pubKey)
 	return fOk, err
 }
 

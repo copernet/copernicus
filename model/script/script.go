@@ -7,7 +7,6 @@ import (
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/util"
 	"github.com/pkg/errors"
@@ -220,7 +219,7 @@ func (s *Script) EncodeSize() uint32 {
 }
 
 func (s *Script) Encode(writer io.Writer) (err error) {
-	log.Debug("script data %v", s.data)
+	//log.Debug("script data %s", hex.EncodeToString(s.data))
 	return util.WriteVarBytes(writer, s.data)
 }
 
@@ -763,9 +762,7 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 	}
 	if (flags & ScriptVerifyLowS) != 0 {
 		ret, err := crypto.IsLowDERSignature(vchSig)
-		if err != nil {
-			return err
-		} else if !ret {
+		if err != nil || !ret {
 			return err
 		}
 	}
@@ -777,7 +774,6 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 	}
 
 	return nil
-
 }
 
 func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {

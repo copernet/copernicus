@@ -27,6 +27,7 @@ import (
 	lblock "github.com/copernet/copernicus/logic/block"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
+	"encoding/hex"
 )
 
 var HashAssumeValid util.Hash
@@ -167,6 +168,7 @@ func ConnectBlock(pblock *block.Block,
 	// add this block to the view's block chain
 	coinsMap.SetBestBlock(blockHash)
 	*view = *coinsMap
+	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, hex.EncodeToString(blockHash[:]))
 	return nil
 }
 
