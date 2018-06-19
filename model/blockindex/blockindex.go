@@ -194,9 +194,9 @@ func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 }
 
 func (bIndex *BlockIndex) BuildSkip() {
-	// if bIndex.Prev != nil {
-	// 	bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
-	// }
+	if bIndex.Prev != nil {
+		bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
+	}
 }
 
 // Turn the lowest '1' bit in the binary representation of a number into a '0'.
@@ -234,24 +234,24 @@ func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 		}
 		indexWalk = indexWalk.Prev
 	}
-	// indexWalk := bIndex
-	// heightWalk := bIndex.Height
-	// for heightWalk > height {
-	// 	heightSkip := getSkipHeight(heightWalk)
-	// 	heightSkipPrev := getSkipHeight(heightWalk - 1)
-	// 	if indexWalk.Skip != nil && (heightSkip == height ||
-	// 		(heightSkip > height && !(heightSkipPrev < heightSkip-2 && heightSkipPrev >= height))) {
-	// 		// Only follow skip if prev->skip isn't better than skip->prev.
-	// 		indexWalk = indexWalk.Skip
-	// 		heightWalk = indexWalk.Height
-	// 	} else {
-	// 		if indexWalk.Prev == nil {
-	// 			panic("The blockIndex pointer should not be nil")
-	// 		}
-	// 		indexWalk = indexWalk.Prev
-	// 		heightWalk--
-	// 	}
-	// }
+	//indexWalk := bIndex
+	//heightWalk := bIndex.Height
+	//for heightWalk > height {
+	//	heightSkip := getSkipHeight(heightWalk)
+	//	heightSkipPrev := getSkipHeight(heightWalk - 1)
+	//	if indexWalk.Skip != nil && (heightSkip == height ||
+	//		(heightSkip > height && !(heightSkipPrev < heightSkip-2 && heightSkipPrev >= height))) {
+	//		// Only follow skip if prev->skip isn't better than skip->prev.
+	//		indexWalk = indexWalk.Skip
+	//		heightWalk = indexWalk.Height
+	//	} else {
+	//		if indexWalk.Prev == nil {
+	//			panic("The blockIndex pointer should not be nil")
+	//		}
+	//		indexWalk = indexWalk.Prev
+	//		heightWalk--
+	//	}
+	//}
 
 	return indexWalk
 }
