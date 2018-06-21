@@ -220,7 +220,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			}
 		}
 		//check sigops
-		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinMap)
+		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
