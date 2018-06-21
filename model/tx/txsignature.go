@@ -9,6 +9,8 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/log"
+	"encoding/hex"
 )
 
 /*
@@ -280,9 +282,9 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	if err != nil {
 		return false
 	}
-	//uncompressedPubKey := publicKey.SerializeUncompressed()
-	//log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
-	//	hex.EncodeToString(signHash[:]), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
+	uncompressedPubKey := publicKey.SerializeUncompressed()
+	log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
+		hex.EncodeToString(signHash[:]), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
 	if !sign.EcdsaNormalize() {
 		return false
 	}

@@ -74,13 +74,17 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// CLTV(CheckLockTimeVerify)
-	lp := CalculateSequenceLocks(transaction, uint32(tx.StandardLockTimeVerifyFlags))
+	lp := CalculateLockPoints(transaction, uint32(tx.StandardLockTimeVerifyFlags))
+	if lp == nil {
+		log.Debug("cann't calculate out lockpoints")
+		return errcode.New(errcode.TxErrRejectNonstandard)
+	}
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
 	// transactions that can't be mined yet. Must keep pool.cs for this
 	// unless we change CheckSequenceLocks to take a CoinsViewCache
 	// instead of create its own.
-	if !CheckSequenceLocks(lp) {
+	if !CheckSequenceLocks(lp.Height, lp.Time) {
 		log.Debug("tx sequence lock check faild")
 		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
@@ -209,8 +213,8 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 				valueIn += coin.GetAmount()
 			}
-			lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
-			if !CheckSequenceLocks(lp) {
+			coinHeight, coinTime := CaculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
+			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
 				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 			}
@@ -530,8 +534,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 	bnZero := script.ScriptNum{0}
 	bnOne := script.ScriptNum{1}
-	bnFalse := script.ScriptNum{0}
-	bnTrue := script.ScriptNum{1}
+	//bnFalse := script.ScriptNum{0}
+	//bnTrue := script.ScriptNum{1}
 
 	beginCodeHash := 0
 	var fRequireMinimal bool
@@ -1106,9 +1110,9 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					stack.Pop()
 					stack.Pop()
 					if fEqual {
-						stack.Push(bnTrue.Value)
+						stack.Push(true)
 					} else {
-						stack.Push(bnFalse.Value)
+						stack.Push(false)
 					}
 					if e.OpValue == opcodes.OP_EQUALVERIFY {
 						if fEqual {
@@ -1722,14 +1726,14 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 }
 
 // caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
-func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
-	lp = mempool.NewLockPoints()
-	var maxHeight int32 = -1
-	var maxTime int64 = -1
+func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
 	var maxInputHeight int32 = 0
 	activeChain := chain.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
+
+	var coinHeight int32
 	ins := transaction.GetIns()
+	preHeights := make([]int32, 0, len(ins))
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
@@ -1738,23 +1742,83 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 		if coin == nil {
 			return nil
 		}
-		var coinHeight int32
-		var coinTime int64
 		if coin.IsMempoolCoin() {
 			coinHeight = activeChain.Height() + 1
 		} else {
 			coinHeight = coin.GetHeight()
+			if maxInputHeight < coinHeight {
+				maxInputHeight = coinHeight
+			}
 		}
+		preHeights = append(preHeights, coinHeight)
+	}
+
+	maxHeight, maxTime := calculateSequenceLockPair(transaction, preHeights, flags)
+	// Also store the hash of the block with the highest height of all
+	// the blocks which have sequence locked prevouts. This hash needs
+	// to still be on the chain for these LockPoint calculations to be
+	// valid.
+	// Note: It is impossible to correctly calculate a maxInputBlock if
+	// any of the sequence locked inputs depend on unconfirmed txs,
+	// except in the special case where the relative lock time/height is
+	// 0, which is equivalent to no sequence lock. Since we assume input
+	// height of tip+1 for mempool txs and test the resulting lockPair
+	// from CalculateSequenceLocks against tip+1. We know
+	// EvaluateSequenceLocks will fail if there was a non-zero sequence
+	// lock on a mempool input, so we can use the return value of
+	// CheckSequenceLocks to indicate the LockPoints validity
+	lp = mempool.NewLockPoints()
+	lp.Height = maxHeight
+	lp.Time = maxTime
+	lp.MaxInputBlock = activeChain.GetAncestor(maxInputHeight)
+
+	return
+}
+
+func CaculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags uint32) (height int32, time int64) {
+	ins := transaction.GetIns()
+	preHeights := make([]int32, 0, len(ins))
+	var coinHeight int32
+	for _, e := range ins {
+		coin := coinsMap.GetCoin(e.PreviousOutPoint)
+		if coin == nil {
+			panic("no coin")
+		}
+		coinHeight = coin.GetHeight()
+		preHeights = append(preHeights, coinHeight)
+	}
+	return calculateSequenceLockPair(transaction, preHeights, flags)
+}
+
+// caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+func calculateSequenceLockPair(transaction *tx.Tx, preHeight []int32, flags uint32) (height int32, time int64) {
+	var maxHeight int32 = -1
+	var maxTime int64 = -1
+
+	// tx.nVersion is signed integer so requires cast to unsigned otherwise
+	// we would be doing a signed comparison and half the range of nVersion
+	// wouldn't support BIP 68.
+	fEnforceBIP68 := false
+	if transaction.GetVersion() >= 2 && flags&consensus.LocktimeVerifySequence == consensus.LocktimeVerifySequence {
+		fEnforceBIP68 = true
+	}
+	if !fEnforceBIP68 {
+		return maxHeight, maxTime
+	}
+
+	activeChain := chain.GetInstance()
+	ins := transaction.GetIns()
+	for i, e := range ins {
+		// Sequence numbers with the most significant bit set are not
+		// treated as relative lock-times, nor are they given any
+		// consensus-enforced meaning at this point.
 		if e.Sequence&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 			continue
 		}
-		// Can ignore mempool inputs since we'll fail if they had
-		// non-zero locks
-		if coinHeight != activeChain.Height()+1 && maxHeight < coinHeight {
-			maxInputHeight = coinHeight
-		}
+
+		coinHeight := preHeight[i]
 		if e.Sequence&script.SequenceLockTimeTypeFlag == script.SequenceLockTimeTypeFlag {
-			coinTime = activeChain.GetAncestor(coinHeight - 1).GetMedianTimePast()
+			coinTime := activeChain.GetAncestor(coinHeight - 1).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
 			// BIP 68 relative lock times have the semantics of calculating the
 			// first block or time at which the transaction would be valid. When
@@ -1779,35 +1843,13 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 		}
 	}
 
-	// Also store the hash of the block with the highest height of all
-	// the blocks which have sequence locked prevouts. This hash needs
-	// to still be on the chain for these LockPoint calculations to be
-	// valid.
-	// Note: It is impossible to correctly calculate a maxInputBlock if
-	// any of the sequence locked inputs depend on unconfirmed txs,
-	// except in the special case where the relative lock time/height is
-	// 0, which is equivalent to no sequence lock. Since we assume input
-	// height of tip+1 for mempool txs and test the resulting lockPair
-	// from CalculateSequenceLocks against tip+1. We know
-	// EvaluateSequenceLocks will fail if there was a non-zero sequence
-	// lock on a mempool input, so we can use the return value of
-	// CheckSequenceLocks to indicate the LockPoints validity
-	lp.MaxInputBlock = activeChain.GetAncestor(maxInputHeight)
-	if transaction.GetVersion() < 2 || flags&consensus.LocktimeVerifySequence != consensus.LocktimeVerifySequence {
-		lp.Time = -1
-		lp.Height = -1
-	} else {
-		lp.Height = maxHeight
-		lp.Time = maxTime
-	}
-
-	return
+	return maxHeight, maxTime
 }
 
-func CheckSequenceLocks(lp *mempool.LockPoints) bool {
+func CheckSequenceLocks(height int32, time int64) bool {
 	activeChain := chain.GetInstance()
 	blockTime := activeChain.Tip().GetMedianTimePast()
-	if lp.Height >= activeChain.Height()+1 || lp.Time >= blockTime {
+	if height >= activeChain.Height()+1 || time >= blockTime {
 		return false
 	}
 	return true
@@ -1864,6 +1906,9 @@ func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *s
 	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
 	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
 	fOk := tx.CheckSig(txSigHash, signature, pubKey)
+	if !fOk {
+		panic("CheckSig failed")
+	}
 	return fOk, err
 }
 

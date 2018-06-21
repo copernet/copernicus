@@ -43,8 +43,8 @@ func ParseDERSignature(signature []byte) (*Signature, error) {
 }
 
 func (sig *Signature)EcdsaNormalize() bool {
-	ret, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, sig.toLibEcdsaSignature(), sig.toLibEcdsaSignature())
-	if ret != 1 || err != nil {
+	_, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, sig.toLibEcdsaSignature(), sig.toLibEcdsaSignature())
+	if err != nil {
 		return false
 	}
 

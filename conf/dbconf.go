@@ -1,5 +1,7 @@
 package conf
 
 func GetDataPath() string{
-	return "/tmp"
+	return DataDir
+
+	//return "/tmp"
 }
