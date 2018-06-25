@@ -45,8 +45,11 @@ func (s *Stack) RemoveAt(index int) bool {
 	if index > s.Size()-1 || index < 0 {
 		return false
 	}
-	s.array = append(s.array[:index], s.array[index+1:])
-
+	if index < s.Size()-1 {
+		s.array = append(s.array[:index], s.array[index+1:]...)
+	} else {
+		s.array = s.array[:index]
+	}
 	return true
 }
 
@@ -67,11 +70,12 @@ func (s *Stack) Insert(index int, value interface{}) bool {
 	if index > s.Size()-1 || index < 0 {
 		return false
 	}
-	lastArray := s.array[index+1:]
-	s.array = append(s.array[:index], value)
-	if len(lastArray) > 0 {
-		s.array = append(s.array, lastArray...)
-	}
+
+	lastArray := make([]interface{}, 0)
+	lastArray = append(lastArray, s.array[index:]...)
+	s.array = s.array[:index]
+	s.array = append(s.array, value)
+	s.array = append(s.array, lastArray...)
 	return true
 }
 
