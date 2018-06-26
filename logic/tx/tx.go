@@ -561,10 +561,13 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 		if len(e.Data) > script.MaxScriptElementSize {
 			return errcode.New(errcode.ScriptErrPushSize)
 		}
-		nOpCount++
+
 		// Note how OP_RESERVED does not count towards the opCode limit.
-		if e.OpValue > opcodes.OP_16 && nOpCount > script.MaxOpsPerScript {
-			return errcode.New(errcode.ScriptErrOpCount)
+		if e.OpValue > opcodes.OP_16 {
+			nOpCount++
+			if nOpCount > script.MaxOpsPerScript {
+				return errcode.New(errcode.ScriptErrOpCount)
+			}
 		}
 
 		if e.OpValue == opcodes.OP_CAT || e.OpValue == opcodes.OP_SUBSTR || e.OpValue == opcodes.OP_LEFT ||
@@ -631,7 +634,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				//
 			case opcodes.OP_NOP:
 			case opcodes.OP_CHECKLOCKTIMEVERIFY:
-				if flags&script.ScriptVerifyCheckLockTimeVerify == script.ScriptVerifyCheckLockTimeVerify {
+				if flags&script.ScriptVerifyCheckLockTimeVerify == 0 {
 					// not enabled; treat as a NOP2
 					if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
 						return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
@@ -678,7 +681,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 
 			case opcodes.OP_CHECKSEQUENCEVERIFY:
-				if flags&script.ScriptVerifyCheckSequenceVerify == script.ScriptVerifyCheckSequenceVerify {
+				if flags&script.ScriptVerifyCheckSequenceVerify == 0 {
 					// not enabled; treat as a NOP3
 					if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
 						return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
@@ -1411,7 +1414,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				case opcodes.OP_HASH160:
 					vchHash = util.Hash160(vch.([]byte))
 				case opcodes.OP_HASH256:
-					vchHash = util.Sha256Bytes(vch.([]byte))
+					vchHash = util.DoubleSha256Bytes(vch.([]byte))
 				}
 				stack.Pop()
 				stack.Push(vchHash)
@@ -1507,6 +1510,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 				pubKeysCount := pubKeysNum.ToInt32()
 				if pubKeysCount < 0 || pubKeysCount > script.MaxOpsPerScript {
+					return errcode.New(errcode.ScriptErrOpCount)
+				}
+				nOpCount += int(pubKeysCount)
+				if nOpCount > script.MaxOpsPerScript {
 					return errcode.New(errcode.ScriptErrOpCount)
 				}
 				// skip N
