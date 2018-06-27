@@ -45,7 +45,7 @@ type BitcoinParams struct {
 	consensus.Param
 	Name                     string
 	BitcoinNet               wire.BitcoinNet
-	DiskMagic 				 wire.BitcoinNet
+	DiskMagic                wire.BitcoinNet
 	DefaultPort              string
 	DNSSeeds                 []DNSSeed
 	GenesisBlock             *block.Block
@@ -79,11 +79,11 @@ type BitcoinParams struct {
 	HDPublicKeyID       [4]byte
 	HDCoinType          uint32
 
-	PruneAfterHeight int
-	chainTxData      ChainTxData
-	MiningRequiresPeers  bool
+	PruneAfterHeight         int
+	chainTxData              ChainTxData
+	MiningRequiresPeers      bool
 	DefaultConsistencyChecks bool
-	fMineBlocksOnDemand		bool
+	fMineBlocksOnDemand      bool
 }
 
 func (param *BitcoinParams) TxData() *ChainTxData {
@@ -119,12 +119,12 @@ var MainNetParams = BitcoinParams{
 	BitcoinNet:  wire.MainNet,
 	DefaultPort: "8333",
 	DNSSeeds: []DNSSeed{
-		{Host: "seed.bitcoin.sipa.be", HasFiltering: true},  // Pieter Wuille
-		{Host: "dnsseed.bluematt.me", HasFiltering: true},   // Matt Corallo
-		{Host: "seed.bitcoinstats.com", HasFiltering: true}, // Chris Decker
-		{Host: "bitseed.xf2.org", HasFiltering: true},
-		{Host: "seed.bitcoinstats.com", HasFiltering: true},
-		{Host: "seed.bitnodes.io", HasFiltering: false},
+		{Host: "seed.bitcoinabc.org", HasFiltering: true},                  // Pieter Wuille
+		{Host: "seed-abc.bitcoinforks.org", HasFiltering: true},            // Matt Corallo
+		{Host: "btccash-seeder.bitcoinunlimited.info", HasFiltering: true}, // Chris Decker
+		{Host: "seed.bitprim.org", HasFiltering: true},
+		{Host: "seed.deadalnix.me", HasFiltering: true},
+		{Host: "seeder.criptolayer.net", HasFiltering: false},
 	},
 	GenesisBlock: &GenesisBlock,
 
@@ -228,48 +228,50 @@ var RegressionNetParams = BitcoinParams{
 
 var TestNet3Params = BitcoinParams{
 	Param: consensus.Param{
-		SubsidyHalvingInterval:210000,
-		BIP34Height:21111,
-		BIP34Hash: *util.HashFromString("0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8"),
-		BIP65Height: 581885,
-		BIP66Height: 330776,
+		SubsidyHalvingInterval:         210000,
+		BIP34Height:                    21111,
+		BIP34Hash:                      *util.HashFromString("0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8"),
+		BIP65Height:                    581885,
+		BIP66Height:                    330776,
 		AntiReplayOpReturnSunsetHeight: 1250000,
-		AntiReplayOpReturnCommitment: []byte("Bitcoin: A Peer-to-Peer Electronic Cash System"),
-		PowLimit:           testNet3PowLimit,
-		TargetTimespan:     60 * 60 * 24 * 14,
-		TargetTimePerBlock: 60 * 10,
-		FPowAllowMinDifficultyBlocks:true,
-		FPowNoRetargeting:false,
-		RuleChangeActivationThreshold:1512,
-		MinerConfirmationWindow: 2016,
+		AntiReplayOpReturnCommitment:   []byte("Bitcoin: A Peer-to-Peer Electronic Cash System"),
+		PowLimit:                       testNet3PowLimit,
+		TargetTimespan:                 60 * 60 * 24 * 14,
+		TargetTimePerBlock:             60 * 10,
+		FPowAllowMinDifficultyBlocks:   true,
+		FPowNoRetargeting:              false,
+		RuleChangeActivationThreshold:  1512,
+		MinerConfirmationWindow:        2016,
 		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
-			consensus.DeploymentTestDummy:{
-				Bit:28,
-				StartTime:	1199145601,
-				Timeout:1230767999,
+			consensus.DeploymentTestDummy: {
+				Bit:       28,
+				StartTime: 1199145601,
+				Timeout:   1230767999,
 			},
-			consensus.DeploymentCSV:{
-				Bit:0,
-				StartTime:	1456790400,
-				Timeout:1493596800,
+			consensus.DeploymentCSV: {
+				Bit:       0,
+				StartTime: 1456790400,
+				Timeout:   1493596800,
 			},
 		},
-		MinimumChainWork: *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
-		DefaultAssumeValid: *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
-		UAHFHeight:1155876,
+		MinimumChainWork:           *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
+		DefaultAssumeValid:         *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
+		UAHFHeight:                 1155876,
 		CashHardForkActivationTime: 1510600000,
-		GenesisHash:        &TestNet3GenesisHash,
-		CashaddrPrefix:"xbctest",
+		GenesisHash:                &TestNet3GenesisHash,
+		CashaddrPrefix:             "xbctest",
 	},
 
 	Name:        "testnet3",
 	BitcoinNet:  wire.TestNet3,
-	DiskMagic:wire.TestDiskMagic,
+	DiskMagic:   wire.TestDiskMagic,
 	DefaultPort: "18333",
 	DNSSeeds: []DNSSeed{
-		{Host: "testnet-seed.bitcoinabc.org", HasFiltering: false},
+		{Host: "testnet-seed.bitcoinabc.org", HasFiltering: true},
+		{Host: "testnet-seed-abc.bitcoinforks.org", HasFiltering: true},
 		{Host: "testnet-seed.deadalnix.me", HasFiltering: true},
-		{Host: "testnet-seed.bluematt.me", HasFiltering: false},
+		{Host: "testnet-seed.bitprim.org", HasFiltering: true},
+		{Host: "testnet-seeder.criptolayer.net", HasFiltering: true},
 	},
 	GenesisBlock:             &TestNet3GenesisBlock,
 	PowLimitBits:             GenesisBlock.Header.Bits,
@@ -304,10 +306,10 @@ var TestNet3Params = BitcoinParams{
 	HDPublicKeyID:  [4]byte{0x04, 0x35, 0x87, 0xcf}, // starts with xpub
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
-	HDCoinType: 1,
+	HDCoinType:          1,
 	MiningRequiresPeers: true,
 
-	chainTxData:ChainTxData{time.Unix(1483546230, 0), 12834668, 0.15 },
+	chainTxData: ChainTxData{time.Unix(1483546230, 0), 12834668, 0.15},
 }
 
 var (

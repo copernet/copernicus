@@ -9,15 +9,15 @@ import (
 )
 
 type BlockHeader struct {
-	Version       int32      `json:"version"`
+	Version       int32     `json:"version"`
 	HashPrevBlock util.Hash `json:"previousblockhash, string"`
-	MerkleRoot    util.Hash  `json:"merkleroot, string"`
+	MerkleRoot    util.Hash `json:"merkleroot, string"`
 	Time          uint32    `json:"time"`
-	Bits          uint32     `json:"bits"`
-	Nonce         uint32      `json:"nonce"`
+	Bits          uint32    `json:"bits"`
+	Nonce         uint32    `json:"nonce"`
 	encodeSize    int
 	serializeSize int
-	hash          util.Hash  `json:"hash"`
+	hash          util.Hash `json:"hash"`
 }
 
 const blockHeaderLength = 16 + util.Hash256Size*2
@@ -35,7 +35,7 @@ func (bh *BlockHeader) GetBlockTime() uint32 {
 }
 
 func (bh *BlockHeader) GetHash() util.Hash {
-	if !bh.hash.IsNull(){
+	if !bh.hash.IsNull() {
 		return bh.hash
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
@@ -61,7 +61,7 @@ func (bh *BlockHeader) Encode(w io.Writer) error {
 }
 
 func (bh *BlockHeader) EncodeSize() int {
-	if bh.encodeSize > 0{
+	if bh.encodeSize > 0 {
 		return bh.encodeSize
 	}
 	buf := bytes.NewBuffer(nil)
@@ -70,7 +70,7 @@ func (bh *BlockHeader) EncodeSize() int {
 	return bh.encodeSize
 }
 func (bh *BlockHeader) SerializeSize() int {
-	if bh.serializeSize > 0{
+	if bh.serializeSize > 0 {
 		return bh.serializeSize
 	}
 	buf := bytes.NewBuffer(nil)
@@ -79,7 +79,7 @@ func (bh *BlockHeader) SerializeSize() int {
 	return bh.serializeSize
 }
 func (bh *BlockHeader) Decode(r io.Reader) error {
-	return bh.Decode(r)
+	return bh.UnserializeHeader(r)
 }
 
 func (bh *BlockHeader) Serialize(w io.Writer) error {
@@ -95,7 +95,7 @@ func (bh *BlockHeader) String() string {
 		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock,
 		bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce, bh.GetHash())
 }
-func (bh *BlockHeader)GetSerializeList()[]string{
-	dump_list := []string{"Version","HashPrevBlock", "MerkleRoot", "Time", "Bits","Nonce"}
+func (bh *BlockHeader) GetSerializeList() []string {
+	dump_list := []string{"Version", "HashPrevBlock", "MerkleRoot", "Time", "Bits", "Nonce"}
 	return dump_list
 }
