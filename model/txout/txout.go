@@ -41,7 +41,7 @@ func (txOut *TxOut) Encode(writer io.Writer) error {
 		return err
 	}
 	if txOut.scriptPubKey == nil {
-		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0)
+		return util.WriteVarInt(writer, 0)
 	} else {
 		return txOut.scriptPubKey.Encode(writer)
 	}
