@@ -265,13 +265,16 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := heightNumb.Serialize()
-		if coinBaseScriptSig.Size() < len(heightData) {
+		heightData := make([][]byte, 0)
+		heightData = append(heightData, heightNumb.Serialize())
+		heightScript := script.NewEmptyScript()
+		heightScript.PushData(heightData)
+		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
-		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
-		if !bytes.Equal(scriptData, heightData) {
+		scriptData := coinBaseScriptSig.GetData()[:heightScript.Size()]
+		if !bytes.Equal(scriptData, heightScript.GetData()) {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
@@ -508,7 +511,8 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 		if stack.Empty() {
 			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
-		if !stack.Top(-1).(bool) {
+		vch1 := stack.Top(-1)
+		if !script.BytesToBool(vch1.([]byte)) {
 			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
 	}
@@ -1908,9 +1912,9 @@ func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *s
 	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
 	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
 	fOk := tx.CheckSig(txSigHash, signature, pubKey)
-	if !fOk {
-		panic("CheckSig failed")
-	}
+	//if !fOk {
+	//	panic("CheckSig failed")
+	//}
 	return fOk, err
 }
 
