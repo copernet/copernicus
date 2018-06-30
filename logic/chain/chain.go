@@ -24,10 +24,10 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/disk"
 
+	"encoding/hex"
 	lblock "github.com/copernet/copernicus/logic/block"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
-	"encoding/hex"
 )
 
 var HashAssumeValid util.Hash
@@ -150,8 +150,8 @@ func ConnectBlock(pblock *block.Block,
 	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
 		if UndoPos.IsNull() {
 			pos := block.NewDiskBlockPos(pindex.File, 0)
-
-			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()); err != nil {
+			//blockUndo size + hash size + 4bytes len
+			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
 				return err
 			}
 			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
@@ -443,7 +443,7 @@ func InitGenesisChain() error {
 	}
 	bl := gChain.GetParams().GenesisBlock
 	pos := block.NewDiskBlockPos(0, 0)
-	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()), 0, uint64(bl.GetBlockHeader().Time), false)
+	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()+4), 0, uint64(bl.GetBlockHeader().Time), false)
 	if !flag {
 		log.Error("InitChain.WriteBlockToDisk():FindBlockPos failed")
 		return errcode.ProjectError{Code: 2000}
@@ -465,7 +465,7 @@ func InitGenesisChain() error {
 		return err
 	}
 	gChain.AddToBranch(bIndex)
-	if !lblock.ReceivedBlockTransactions(bl, bIndex,pos){
+	if !lblock.ReceivedBlockTransactions(bl, bIndex, pos) {
 		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
 	}
 	gChain.SetTip(bIndex)
@@ -473,8 +473,8 @@ func InitGenesisChain() error {
 	bestHash := bIndex.GetBlockHash()
 	coinsMap.SetBestBlock(*bestHash)
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
-	
-	fmt.Println("InitGenesisChain=====%#v",gChain, err)
+
+	fmt.Println("InitGenesisChain=====%#v", gChain, err)
 	return nil
 
 }
