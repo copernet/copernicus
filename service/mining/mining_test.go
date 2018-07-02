@@ -12,6 +12,8 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 	"testing"
 	"github.com/copernet/copernicus/model/chainparams"
+	"math"
+	"github.com/copernet/copernicus/model/chain"
 )
 
 type TestMemPoolEntry struct {
@@ -71,9 +73,10 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 }
 
 func createTx() []*mempool.TxEntry {
+	chain.InitGlobalChain(nil)
 	testEntryHelp := NewTestMemPoolEntry()
 	tx1 := tx.NewTx(0, 0x02)
-	tx1.AddTxIn(txin.NewTxIn(nil, nil, 0xffffffff))
+	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.HashZero, math.MaxUint32), script.NewEmptyScript(), 0xffffffff))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	txEntry1 := testEntryHelp.SetTime(1).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx1)
