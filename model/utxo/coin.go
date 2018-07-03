@@ -63,12 +63,15 @@ func (coin *Coin) GetAmount() amount.Amount {
 func (coin *Coin) DeepCopy() *Coin {
 	newCoin := Coin{height: coin.height, isCoinBase: coin.isCoinBase, dirty: coin.dirty, fresh: coin.fresh, isMempoolCoin: coin.isMempoolCoin}
 	outScript := coin.txOut.GetScriptPubKey()
-	newOutScript := script.NewScriptRaw(outScript.GetData())
-	newOutScript.ParsedOpCodes = outScript.ParsedOpCodes
-	newOut := txout.NewTxOut(coin.txOut.GetValue(), newOutScript)
-	newCoin.txOut = *newOut
+	if coin.txOut.GetScriptPubKey() != nil {
+		newOutScript := script.NewScriptRaw(outScript.GetData())
+		//newOutScript.ParsedOpCodes = outScript.ParsedOpCodes
+		newOut := txout.NewTxOut(coin.txOut.GetValue(), newOutScript)
+		newCoin.txOut = *newOut
+	}
 	return &newCoin
 }
+
 
 func (coin *Coin) DynamicMemoryUsage() int64 {
 	return int64(binary.Size(coin))
