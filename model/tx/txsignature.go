@@ -233,7 +233,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	// encode tx.locktime
 	util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetLockTime())
 	util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, hashType)
-	//fmt.Printf("%s", hex.EncodeToString(hashBuffer.Bytes()))
+	//log.Debug("SignatureHash buf: %s", hex.EncodeToString(hashBuffer.Bytes()))
 	result = util.DoubleSha256Hash(hashBuffer.Bytes())
 	return
 }

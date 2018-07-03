@@ -8,6 +8,7 @@ import (
 
 	"strconv"
 
+	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
@@ -1908,9 +1909,9 @@ func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *s
 		return false, err
 	}
 	signature = signature[:len(signature)-1]
-	//txHash := transaction.GetHash()
-	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
-	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
+	txHash := transaction.GetHash()
+	log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
+		txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
 	fOk := tx.CheckSig(txSigHash, signature, pubKey)
 	//if !fOk {
 	//	panic("CheckSig failed")

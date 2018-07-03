@@ -693,7 +693,10 @@ func (tx *Tx) GetHash() util.Hash {
 	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, tx.EncodeSize()))
-	_ = tx.Encode(buf)
+	err := tx.Encode(buf)
+	if err != nil {
+		panic("there is not enough memory")
+	}
 	hash := util.DoubleSha256Hash(buf.Bytes())
 	tx.hash = hash
 

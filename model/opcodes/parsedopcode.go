@@ -168,3 +168,9 @@ func (parsedOpCode *ParsedOpCode) bytes() ([]byte, error) {
 	}
 	return retBytes, nil
 }
+
+func NewParsedOpCode(opValue byte, length int, Data []byte) *ParsedOpCode {
+	newParsedOpCodeData := make([]byte, len(Data))
+	copy(newParsedOpCodeData, Data)
+	return &ParsedOpCode{OpValue: opValue, Length: length, Data: newParsedOpCodeData}
+}
