@@ -52,6 +52,9 @@ func TestCoin(t *testing.T) {
 	fmt.Printf("whether the tx is coinbase: %v\n", coinbase)
 	gsp := c.GetScriptPubKey()
 	fmt.Printf("the script pub key of tx: %v \n", gsp)
+	dmu := c.DynamicMemoryUsage()
+	fmt.Printf("dmu is : %v\n", dmu)
+
 	c.Clear()
 	fmt.Println("==========after clear=============")
 	cgto := c.GetTxOut()
@@ -63,8 +66,8 @@ func TestCoin(t *testing.T) {
 	fmt.Printf("whether the tx is coinbase: %v, is mempool coin:%v\n", ccoinbase, cmemcoin)
 	cgsp := c.GetScriptPubKey()
 	fmt.Printf("the script pub key of tx: %v \n", cgsp)
-	//dc := c.DeepCopy()
-	//fmt.Printf("deep copy coin : %v \n", dc)
+	dc := c.DeepCopy()
+	fmt.Printf("deep copy coin : %v \n", dc)
 
 	fmt.Println("============test script2 case===========")
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
