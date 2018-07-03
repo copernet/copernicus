@@ -11,14 +11,15 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/conf"
 )
 
 func appInitMain() {
 	log.Init()
-	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 48}}
+	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/chainstate", CacheSize: (1 << 30) * 8}}
 	utxo.InitUtxoLruTip(&config)
 	chain.InitGlobalChain(nil)
-	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{CacheSize: 48}}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/blocks/index", CacheSize: (1 << 20) * 8}}
 	blkdb.InitBlockTreDB(&blkdbCfg)
 	global.InitPersistGlobal()
 	blockindex.LoadBlockIndexDB()
