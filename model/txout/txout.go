@@ -161,7 +161,11 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 func NewTxOut(value amount.Amount, scriptPubKey *script.Script) *TxOut {
 	txOut := TxOut{
 		value:        value,
-		scriptPubKey: script.NewScriptRaw(scriptPubKey.GetData()),
+		scriptPubKey: nil,
 	}
+	if scriptPubKey != nil {
+		txOut.scriptPubKey = script.NewScriptRaw(scriptPubKey.GetData())
+	}
+
 	return &txOut
 }
