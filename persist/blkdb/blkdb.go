@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/persist/db"
@@ -43,11 +42,7 @@ func NewBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	if do == nil {
 		return nil
 	}
-	dbw, err := db.NewDBWrapper(&db.DBOption{
-		FilePath:  conf.GetDataPath() + "/blocks/index",
-		CacheSize: do.CacheSize,
-		Wipe:      false,
-	})
+	dbw, err := db.NewDBWrapper(do)
 	if err != nil {
 		panic("init DBWrapper failed...")
 	}
