@@ -3,16 +3,17 @@ package utxo
 import (
 	"fmt"
 	"testing"
-	
+
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func TestMain(m *testing.M){
-	config := UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
+func TestMain(m *testing.M) {
+	config := UtxoConfig{Do: &db.DBOption{FilePath: "/tmp/db", CacheSize: 10000}}
 	InitUtxoLruTip(&config)
 	m.Run()
 }
+
 // func TestNewCoinsLruCache(t *testing.T) {
 //
 // 	coinsmap := NewEmptyCoinsMap()
@@ -35,7 +36,6 @@ func TestMain(m *testing.M){
 // 	fmt.Println("c===TestCoinsLruCache_GetCoin====%#v", c)
 // }
 
-
 func TestCoinsDB_BatchWrite(t *testing.T) {
 	// d := utxoLruTip.(*CoinsLruCache).db
 	// batch := db.NewBatchWrapper(d.dbw)
@@ -52,9 +52,9 @@ func TestCoinsDB_BatchWrite(t *testing.T) {
 	// fmt.Println(e)
 	// v1, e1 := d.dbw.Read(tv1)
 	// fmt.Println(v1,e1)
-	
+
 	//
-	ldb,_ := leveldb.OpenFile("/tmp/db", nil)
+	ldb, _ := leveldb.OpenFile("/tmp/db", nil)
 	// tk2 := []byte("ffffffffff")
 	// tv2 := []byte("ffffffffff")
 	// data, e2:= ldb.Get(tk2,nil)
@@ -62,20 +62,18 @@ func TestCoinsDB_BatchWrite(t *testing.T) {
 	// ldb.Put(tk2, tv2, nil)
 	// data, e2 = ldb.Get(tk2,nil)
 	// fmt.Println(data,e2)
-	
-	
-	
+
 	bat := new(leveldb.Batch)
 	tk3 := []byte("g")
 	tv3 := []byte("g")
 	tk4 := []byte("h")
-	d3,e3 := ldb.Get(tk3, nil)
-	d4,e4 := ldb.Get(tk4, nil)
-	fmt.Println(d3,d4,e3,e4)
-	bat.Put(tk3,tv3)
-	bat.Put(tk4,tv3)
+	d3, e3 := ldb.Get(tk3, nil)
+	d4, e4 := ldb.Get(tk4, nil)
+	fmt.Println(d3, d4, e3, e4)
+	bat.Put(tk3, tv3)
+	bat.Put(tk4, tv3)
 	ldb.Write(bat, nil)
-	d3,e3 = ldb.Get(tk3, nil)
-	d4,e4 = ldb.Get(tk4, nil)
-	fmt.Println(d3,d4,e3,e4)
+	d3, e3 = ldb.Get(tk3, nil)
+	d4, e4 = ldb.Get(tk4, nil)
+	fmt.Println(d3, d4, e3, e4)
 }

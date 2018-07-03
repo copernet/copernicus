@@ -16,7 +16,7 @@ import (
 
 func appInitMain() {
 	log.Init()
-	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/chainstate", CacheSize: (1 << 30) * 8}}
+	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/chainstate", CacheSize: (1 << 20) * 8}}
 	utxo.InitUtxoLruTip(&config)
 	chain.InitGlobalChain(nil)
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/blocks/index", CacheSize: (1 << 20) * 8}}
