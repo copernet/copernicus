@@ -347,13 +347,13 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 }
 
 func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
-	sigOpsCount := transaction.GetSigOpCountWithoutP2SH()
-	if transaction.IsCoinBase() {
-		return sigOpsCount
-	}
+	sigOpsCount := 0
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		sigOpsCount += GetSigOpCountWithP2SH(transaction, coinMap)
+		sigOpsCount = GetSigOpCountWithP2SH(transaction, coinMap)
+	} else {
+		sigOpsCount = transaction.GetSigOpCountWithoutP2SH()
 	}
+
 	return sigOpsCount
 }
 
