@@ -64,6 +64,8 @@ func TestCoinMap(t *testing.T) {
 	//}
 
 	necm.UnCache(&outpoint1)
+	sc := necm.SpendCoin(&outpoint1)
+	spew.Dump("uncache coin, go on to spend, the value is :%v", sc)
 
 	c1 := necm.GetCoin(&outpoint1)
 	spew.Dump("coin:%v\n", c1)

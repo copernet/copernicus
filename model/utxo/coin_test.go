@@ -9,6 +9,8 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"fmt"
 	"github.com/copernet/copernicus/model/opcodes"
+	"bytes"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // test whether get the expected item by OutPoint struct with a pointer
@@ -101,4 +103,24 @@ func TestCoin(t *testing.T) {
 	fmt.Printf("whether the coin is mempool coin: %v \n", mc)
 	dc22 := c2.DeepCopy()
 	fmt.Printf("deep copy coin : %v \n", dc22)
+}
+
+func TestCoinSec(t *testing.T) {
+	script3 := script.NewScriptRaw([]byte{opcodes.OP_2DROP, opcodes.OP_2MUL})
+	txout3 := txout.NewTxOut(4, script3)
+
+	c3 := NewCoin(txout3, 1000, true)
+	spew.Dump("the coin  is: %v \n ", c3)
+
+
+	w := bytes.NewBuffer(nil)
+	c3.Serialize(w)
+
+	var target Coin
+	err := target.Unserialize(bytes.NewReader(w.Bytes()))
+	if err != nil {
+		t.Errorf("unserlize failed...%v\n", err)
+	}
+
+	spew.Dump("unserlize value is :%v \n",target)
 }
