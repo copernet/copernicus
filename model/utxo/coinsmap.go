@@ -16,6 +16,7 @@ func NewEmptyCoinsMap() *CoinsMap {
 	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
 	return cm
 }
+
 func (cm CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	coin := cm.cacheCoins[*outpoint]
 	return coin
@@ -27,6 +28,7 @@ func (coinsCache CoinsMap) UnCache(point *outpoint.OutPoint) {
 		delete(coinsCache.cacheCoins, *point)
 	}
 }
+
 func (coinsCache CoinsMap) Flush(hashBlock util.Hash) bool {
 	println("flush=============")
 	fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
@@ -39,7 +41,7 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
-	// 脚本不可花
+	//script is not spend
 	txout := coin.GetTxOut()
 	if !txout.IsSpendable() {
 		return
@@ -85,7 +87,7 @@ func (coinsCache CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 	return coin
 }
 
-// different from GetCoin, if not get coin, FetchCoin will get coin from global cache
+// FetchCoin different from GetCoin, if not get coin, FetchCoin will get coin from global cache
 func (coinsMap CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	coin := coinsMap.GetCoin(out)
 	if coin != nil {
@@ -101,7 +103,7 @@ func (coinsMap CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	return newCoin
 }
 
-// different from GetCoin, if not get coin, FetchCoin will get coin from global cache
+// SpendGlobalCoin different from GetCoin, if not get coin, FetchCoin will get coin from global cache
 func (coinsMap CoinsMap) SpendGlobalCoin(out *outpoint.OutPoint) *Coin {
 	coin := coinsMap.FetchCoin(out)
 	if coin == nil {
