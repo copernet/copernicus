@@ -29,7 +29,7 @@ func TestCoinCache(t *testing.T) {
 		isCoinBase:    false,
 		isMempoolCoin: false,
 		dirty:         false,
-		fresh:         false,
+		fresh:         true,
 	}
 
 	hash2 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d012")
@@ -43,29 +43,13 @@ func TestCoinCache(t *testing.T) {
 		height:        100012,
 		isCoinBase:    false,
 		isMempoolCoin: false,
-		dirty:         true,
-		fresh:         false,
+		dirty:         false,
+		fresh:         true,
 	}
 
 	necm.AddCoin(&outpoint1, necm.cacheCoins[outpoint1])
+	spew.Dump(necm.cacheCoins[outpoint1])
 	necm.AddCoin(&outpoint2, necm.cacheCoins[outpoint2])
-
-	//flush
-	necm.SetBestBlock(*hash1)
-	necm.Flush(*hash1)
-	cvt := GetUtxoLruCacheInstance()
-	h := cvt.GetBestBlock()
-	s := cvt.GetCacheSize()//2
-	spew.Dump("get best block hash is :%v, get cache size value is :%v \n", h, s)
-
-	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
-	necm.SetBestBlock(*hash2)
-	//necm.Flush(*hash2)
-	gulci := GetUtxoLruCacheInstance()
-	h1 := gulci.GetBestBlock()
-	s1 := gulci.GetCacheSize()//2
-
-	spew.Dump("get best block hash is :%v, get cache size value is :%v \n", h1, s1)
 
 	fmt.Println("=============create lru cache============")
 
@@ -86,4 +70,34 @@ func TestCoinCache(t *testing.T) {
 		&dbo,
 	}
 	InitUtxoLruTip(uc)
+
+	necm.Flush(*hash1)
+	spew.Dump(necm)
+
+	utxoLruTip.UpdateCoins(necm, hash1)
+
+	cc := utxoLruTip.GetCoin(&outpoint1)
+	spew.Dump("get coin value is :%v", cc)
+
+	ok := utxoLruTip.HaveCoin(&outpoint2)
+	spew.Dump(ok) 
+
+
+	//flush
+	necm.SetBestBlock(*hash1)
+	necm.Flush(*hash1)
+	cvt := GetUtxoLruCacheInstance()
+	h := cvt.GetBestBlock()
+	s := cvt.GetCacheSize() //2
+	spew.Dump("get best block hash is :%v, get cache size value is :%v \n", h, s)
+
+	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
+	necm.SetBestBlock(*hash2)
+	//necm.Flush(*hash2)
+	gulci := GetUtxoLruCacheInstance()
+	h1 := gulci.GetBestBlock()
+	s1 := gulci.GetCacheSize() //2
+
+	spew.Dump("get best block hash is :%v, get cache size value is :%v \n", h1, s1)
+
 }
