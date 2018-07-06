@@ -1474,7 +1474,6 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					(flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
 					len(vchSig.([]byte)) > 0 {
 					return errcode.New(errcode.ScriptErrSigNullFail)
-
 				}
 
 				stack.Pop()
@@ -1903,6 +1902,9 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 
 func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *script.Script,
 	nIn int, money amount.Amount, flags uint32) (bool, error) {
+	if len(signature) == 0 || len(pubKey) == 0 {
+		return false, nil
+	}
 	hashType := signature[len(signature)-1]
 	txSigHash, err := tx.SignatureHash(transaction, scriptCode, uint32(hashType), nIn, money, flags)
 	if err != nil {

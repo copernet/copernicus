@@ -20,10 +20,10 @@ func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height 
 		}
 		txundo.SetUndoCoins(undoCoins)
 	}
-	AddCoins(coinMap, tx, height)
+	AddCoins(tx, coinMap, height)
 }
 
-func AddCoins(coinMap *utxo.CoinsMap, tx *tx.Tx, height int32) {
+func AddCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, height int32) {
 	isCoinbase := tx.IsCoinBase()
 	txid := tx.GetHash()
 	for idx, out := range tx.GetOuts() {

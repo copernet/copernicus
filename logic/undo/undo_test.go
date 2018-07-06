@@ -3,20 +3,20 @@ package undo
 import (
 	"testing"
 
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/logic/tx"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/logic/tx"
-	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
 	mtx "github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
-	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
 )
 
 func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.CoinsMap, param *chainparams.BitcoinParams, height int) {
@@ -51,7 +51,7 @@ func UndoBlock(blocks *block.Block, coinMap *utxo.CoinsMap, undos *undo.BlockUnd
 //	return !cvt.AccessCoin(outpoint.NewOutPoint(*txid, 0)).IsSpent()
 //}
 
-func TestMain(m *testing.M){
+func TestMain(m *testing.M) {
 	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
 	utxo.InitUtxoLruTip(&config)
 	m.Run()
@@ -89,7 +89,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	txs.GetHash()
 
 	prevTx0 := mtx.NewEmptyTx()
-	tx.AddCoins(coinsMap, prevTx0, 100)
+	tx.AddCoins(prevTx0, coinsMap, 100)
 
 	Ins[0].PreviousOutPoint.Hash = txs.GetHash()
 	txs.GetHash()
@@ -124,7 +124,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		return
 	}
 
-	//todo:undo 
+	//todo:undo
 	//if cvt.GetBestBlock() != block.GetBlockHeader().HashPrevBlock {
 	//	t.Error("this block should have been stored in the cache : ", block.GetHash())
 	//}

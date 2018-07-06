@@ -1,5 +1,5 @@
 hash: 14d3b4f603dd19d8f53c0f5fd83366bb6f229177816a7daabd1df2d18fa0626d
-updated: 2018-06-07T12:00:41.783632+08:00
+updated: 2018-07-05T12:34:16.216097+08:00
 imports:
 - name: github.com/astaxie/beego
   version: bf5c5626ab429e66d88602e1ab1ab5fbf4629a01
@@ -17,7 +17,7 @@ imports:
   subpackages:
   - socks
 - name: github.com/copernet/secp256k1-go
-  version: d1d3521a2faf654cee837aad57713ec4c814791f
+  version: 6a100736640733ad151ffe48dcc5b5c41614bea5
   subpackages:
   - secp256k1
 - name: github.com/davecgh/go-spew
@@ -53,7 +53,7 @@ imports:
 - name: github.com/mitchellh/mapstructure
   version: bb74f1db0675b241733089d5a1faa5dd8b0ef57b
 - name: github.com/pelletier/go-toml
-  version: c01d1270ff3e442a8a57cddc1c92dc1138598194
+  version: 603baefff989777996bf283da430d693e78eba3a
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/spf13/afero
@@ -69,7 +69,7 @@ imports:
 - name: github.com/spf13/viper
   version: b5e8006cbee93ec955a89ab31e0e3ce3204f3736
 - name: github.com/syndtr/goleveldb
-  version: 5d6fca44a948d2be89a9702de7717f0168403d3d
+  version: 0d5a0ceb10cf9ab89fdd744cc8c50a83134f6697
   subpackages:
   - leveldb
   - leveldb/cache
@@ -84,15 +84,15 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: golang.org/x/crypto
-  version: b47b1587369238182299fe4dad77d05b8b461e06
+  version: a49355c7e3f8fe157a85be2f77e6e269a0f89602
   subpackages:
   - ripemd160
 - name: golang.org/x/sys
-  version: 9527bec2660bd847c050fda93a0f0c6dee0800bb
+  version: 151529c776cdc58ddbe7963ba9af779f3577b419
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 5c1cf69b5978e5a34c5f9ba09a83e56acc4b7877
+  version: c0fe8dde8a10c9b32154bd9bdf080b8b3d635127
   subpackages:
   - transform
   - unicode/norm
@@ -125,13 +125,13 @@ testImports:
   - bech32
   - bloom
 - name: github.com/gopherjs/gopherjs
-  version: 8dffc02ea1cb8398bb73f30424697c60fcf8d4c5
+  version: 0892b62f0d9fb5857760c3cfca837207185117ee
   subpackages:
   - js
 - name: github.com/jtolds/gls
   version: 77f18212c9c7edc9bd6a33d383a7b545ce62f064
 - name: github.com/smartystreets/assertions
-  version: 7678a5452ebea5b7090a6b163f844c133f523da2
+  version: eb5b59917fa21f01252cee37e84631c7fb502d82
   subpackages:
   - internal/go-render/render
   - internal/oglematchers

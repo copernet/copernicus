@@ -145,6 +145,7 @@ func ComputeMerkleRootFromBranch(leaf *util.Hash, branch []util.Hash, index uint
 func BlockMerkleRoot(bk *block.Block, mutated *bool) util.Hash {
 	leaves := make([]util.Hash, len(bk.Txs))
 	for i := 0; i < len(bk.Txs); i++ {
+		//fmt.Printf("txs[%d] ins:%v, outs:%v\n", i, bk.Txs[i].GetIns(), bk.Txs[i].GetOuts())
 		leaves[i] = bk.Txs[i].GetHash()
 	}
 	return ComputeMerkleRoot(leaves, mutated)

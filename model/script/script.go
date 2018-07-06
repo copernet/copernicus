@@ -7,6 +7,7 @@ import (
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/util"
 	"github.com/pkg/errors"
@@ -251,9 +252,8 @@ func NewScriptRaw(bytes []byte) *Script {
 	newBytes := make([]byte, len(bytes))
 	copy(newBytes, bytes)
 	script := Script{data: newBytes}
-	if script.convertOPS() != nil {
-		return nil
-	}
+	//convertOPS maybe failed, but it doesn't matter
+	script.convertOPS()
 	return &script
 }
 
@@ -303,57 +303,44 @@ func (script *Script) GetData() []byte {
 
 func (script *Script) convertOPS() error {
 	script.ParsedOpCodes = make([]opcodes.ParsedOpCode, 0)
-	scriptLen := len(script.data)
+	scriptLen := uint(len(script.data))
 
-	for i := 0; i < scriptLen; i++ {
-		var nSize int
+	var i uint = 0
+	for i < scriptLen {
+		var nSize uint
 		opcode := script.data[i]
-		parsedopCode := opcodes.ParsedOpCode{OpValue: opcode}
-
+		i++
 		if opcode < opcodes.OP_PUSHDATA1 {
-			nSize = int(opcode)
-			if scriptLen-i < nSize {
-				return errors.New("OP has no enough data")
-			}
-			parsedopCode.Data = script.data[i+1 : i+1+nSize]
+			nSize = uint(opcode)
 		} else if opcode == opcodes.OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
+				log.Debug("OP_PUSHDATA1 has no enough data")
 				return errors.New("OP_PUSHDATA1 has no enough data")
 			}
-
-			nSize = int(script.data[i+1])
-			if scriptLen-i-1 < nSize {
-				return errors.New("OP_PUSHDATA1 has no enough data")
-			}
-			parsedopCode.Data = script.data[i+2 : i+2+nSize]
+			nSize = uint(script.data[i])
 			i++
 		} else if opcode == opcodes.OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
+				log.Debug("OP_PUSHDATA2 has no enough data")
 				return errors.New("OP_PUSHDATA2 has no enough data")
 			}
-			nSize = int(binary.LittleEndian.Uint16(script.data[i+1 : i+3]))
-			if scriptLen-i-3 < nSize {
-				return errors.New("OP_PUSHDATA2 has no enough data")
-			}
-			parsedopCode.Data = script.data[i+3 : i+3+nSize]
+			nSize = uint(binary.LittleEndian.Uint16(script.data[i : i+2]))
 			i += 2
 		} else if opcode == opcodes.OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
+				log.Debug("OP_PUSHDATA4 has no enough data")
 				return errors.New("OP_PUSHDATA4 has no enough data")
 
 			}
-			nSize = int(binary.LittleEndian.Uint32(script.data[i+1 : i+5]))
-			parsedopCode.Data = script.data[i+5 : i+5+nSize]
+			nSize = uint(binary.LittleEndian.Uint32(script.data[i : i+4]))
 			i += 4
 		}
-		if scriptLen-i < 0 || (scriptLen-i) < nSize {
+		if scriptLen-i < 0 || uint(scriptLen-i) < nSize {
+			log.Debug("ConvertOPS script data size is wrong")
 			return errors.New("size is wrong")
-
 		}
-		parsedopCode.Length = nSize
-
-		script.ParsedOpCodes = append(script.ParsedOpCodes, parsedopCode)
-
+		parsedopCode := opcodes.NewParsedOpCode(opcode, int(nSize), script.data[i:i+nSize])
+		script.ParsedOpCodes = append(script.ParsedOpCodes, *parsedopCode)
 		i += nSize
 	}
 	return nil
