@@ -11,7 +11,7 @@ func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height 
 	if !tx.IsCoinBase() {
 		undoCoins := make([]*utxo.Coin, len(tx.GetIns()), len(tx.GetIns()))
 		for idx, txin := range tx.GetIns() {
-			coin := coinMap.FetchCoin(txin.PreviousOutPoint)
+			coin := coinMap.GetCoin(txin.PreviousOutPoint)
 			if coin == nil {
 				panic("no coin find to spend!")
 			}
@@ -31,5 +31,4 @@ func AddCoins(coinMap *utxo.CoinsMap, tx *tx.Tx, height int32) {
 		coin := utxo.NewCoin(out, height, isCoinbase)
 		coinMap.AddCoin(op, coin)
 	}
-
 }

@@ -3,7 +3,9 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
@@ -160,10 +162,14 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	// hash of 1.  This in turn presents an opportunity for attackers to
 	// cleverly construct transactions which can steal those coins provided
 	// they can reuse signatures.
-	if sigHashSingle && nIn >= len(transaction.GetOuts()) {
+	ins := transaction.GetIns()
+	insLen := len(ins)
+	outs := transaction.GetOuts()
+	outsLen := len(outs)
+	if sigHashSingle && nIn >= outsLen {
 		return util.HashOne, nil
 	}
-	if nIn >= len(transaction.GetIns()) {
+	if nIn >= insLen {
 		return util.HashOne, nil
 	}
 
@@ -172,7 +178,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	if sigHashAnyOneCanPay {
 		inputsCount = 1
 	} else {
-		inputsCount = len(transaction.GetIns())
+		inputsCount = insLen
 	}
 	util.WriteVarInt(&hashBuffer, uint64(inputsCount))
 
@@ -181,11 +187,12 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	// encode tx.inputs
 	var i int
 	for i = 0; i < inputsCount; i++ {
-		transaction.GetIns()[i].PreviousOutPoint.Encode(&hashBuffer)
 		if sigHashAnyOneCanPay {
+			ins[nIn].PreviousOutPoint.Encode(&hashBuffer)
 			ss.Serialize(&hashBuffer)
-			util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[nIn].Sequence)
+			util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, ins[nIn].Sequence)
 		} else {
+			ins[i].PreviousOutPoint.Encode(&hashBuffer)
 			if i != nIn {
 				// push empty script
 				util.WriteVarInt(&hashBuffer, 0)
@@ -193,11 +200,11 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 					// push empty sequence
 					util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, 0)
 				} else {
-					util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[i].Sequence)
+					util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, ins[i].Sequence)
 				}
 			} else {
 				ss.Serialize(&hashBuffer)
-				util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[i].Sequence)
+				util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, ins[i].Sequence)
 			}
 		}
 	}
@@ -210,7 +217,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 		if sigHashSingle {
 			outsCount = nIn + 1
 		} else {
-			outsCount = len(transaction.GetOuts())
+			outsCount = outsLen
 		}
 	}
 	util.WriteVarInt(&hashBuffer, uint64(outsCount))
@@ -219,13 +226,14 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 			to := txout.NewTxOut(-1, nil)
 			to.Encode(&hashBuffer)
 		} else {
-			transaction.GetOuts()[m].Encode(&hashBuffer)
+			outs[m].Encode(&hashBuffer)
 		}
 	}
 
 	// encode tx.locktime
 	util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetLockTime())
 	util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, hashType)
+	//log.Debug("SignatureHash buf: %s", hex.EncodeToString(hashBuffer.Bytes()))
 	result = util.DoubleSha256Hash(hashBuffer.Bytes())
 	return
 }
@@ -280,9 +288,9 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	if err != nil {
 		return false
 	}
-	//uncompressedPubKey := publicKey.SerializeUncompressed()
-	//log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
-	//	hex.EncodeToString(signHash[:]), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
+	uncompressedPubKey := publicKey.SerializeUncompressed()
+	log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
+		hex.EncodeToString(signHash[:]), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
 	if !sign.EcdsaNormalize() {
 		return false
 	}
@@ -294,6 +302,7 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	return true
 
 }
+
 //
 //func verifySignature(vchSig []byte, pubkey *crypto.PublicKey, sigHash util.Hash) (bool, error) {
 //	sign, err := crypto.ParseDERSignature(vchSig)

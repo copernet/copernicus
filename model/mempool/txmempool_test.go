@@ -195,13 +195,13 @@ func createTx() []*TxEntry {
 	tx1 := tx.NewTx(0, tx.TxVersion)
 	//ins := txin2.NewTxIn(&outpoint.OutPoint{txParentPtr.Hash, uint32(i)}, script.NewScriptRaw([]byte{opcodes.OP_11}), tx.MaxTxInSequenceNum)
 	//txChild[i].AddTxIn(ins)
-	outs := txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
+	outs := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx1.AddTxOut(outs)
 	_ = tx1.GetHash()
 	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, tx.TxVersion)
-	out2 := txout.NewTxOut(2*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
+	out2 := txout.NewTxOut(amount.Amount(2*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx2.AddTxOut(out2)
 	_ = tx2.GetHash()
 	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2)
@@ -209,13 +209,13 @@ func createTx() []*TxEntry {
 	tx3 := tx.NewTx(0, tx.TxVersion)
 	ins := txin2.NewTxIn(&outpoint.OutPoint{tx1.GetHash(), 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), script.SequenceFinal)
 	tx3.AddTxIn(ins)
-	out3 := txout.NewTxOut(5*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
+	out3 := txout.NewTxOut(amount.Amount(5*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx3.AddTxOut(out3)
 	_ = tx3.GetHash()
 	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, tx.TxVersion)
-	out4 := txout.NewTxOut(6*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
+	out4 := txout.NewTxOut(amount.Amount(6*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx4.AddTxOut(out4)
 	_ = tx4.GetHash()
 	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4)
@@ -251,8 +251,8 @@ func TestMempoolSortTime(t *testing.T) {
 	testPool.timeSortData.Ascend(func(i btree.Item) bool {
 		entry := i.(*TxEntry)
 		if entry.Tx.GetHash() != sortedOrder[index] {
-			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %s\n",
-				index, sortedOrder[index].ToString(), entry.Tx.GetHash().ToString())
+			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %v\n",
+				index, sortedOrder[index].ToString(), entry.Tx.GetHash())
 			return true
 		}
 		index++
@@ -284,7 +284,7 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	for _, e := range set {
 		ancestors, _ := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(e, ancestors)
-		fmt.Printf("entry size : %d, hash : %s, mempool size : %d \n", e.usageSize, e.Tx.GetHash().ToString(), testPool.cacheInnerUsage)
+		fmt.Printf("entry size : %d, hash : %v, mempool size : %d \n", e.usageSize, e.Tx.GetHash(), testPool.cacheInnerUsage)
 	}
 	fmt.Println("mempool usage size : ", testPool.cacheInnerUsage)
 

@@ -30,7 +30,7 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block) (*block.DiskBl
 
 	height := bi.Height
 	pos := block.NewDiskBlockPos(0, 0)
-	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()), height, uint64(bl.GetBlockHeader().Time), false)
+	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize())+4, height, uint64(bl.GetBlockHeader().Time), false)
 	if !flag {
 		log.Error("WriteBlockToDisk():FindBlockPos failed")
 		return nil, errcode.ProjectError{Code: 2000}

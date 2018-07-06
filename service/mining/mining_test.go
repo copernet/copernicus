@@ -10,6 +10,10 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"testing"
+	"github.com/copernet/copernicus/model/chainparams"
+	"math"
+	"github.com/copernet/copernicus/model/chain"
 )
 
 type TestMemPoolEntry struct {
@@ -69,17 +73,18 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 }
 
 func createTx() []*mempool.TxEntry {
+	chain.InitGlobalChain(nil)
 	testEntryHelp := NewTestMemPoolEntry()
 	tx1 := tx.NewTx(0, 0x02)
-	tx1.AddTxIn(txin.NewTxIn(nil, nil, 0xffffffff))
-	tx1.AddTxOut(txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
-	tx1.AddTxOut(txout.NewTxOut(10*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
+	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.HashZero, math.MaxUint32), script.NewEmptyScript(), 0xffffffff))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	txEntry1 := testEntryHelp.SetTime(1).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
 	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
-	tx2.AddTxOut(txout.NewTxOut(5*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(5*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	_ = tx2.GetHash()
 	txEntry2 := testEntryHelp.SetTime(1).SetFee(amount.Amount(5 * util.COIN)).FromTxToEntry(tx2)
 
@@ -87,13 +92,13 @@ func createTx() []*mempool.TxEntry {
 	tx3 := tx.NewTx(0, 0x02)
 	// reference relation(tx3 -> tx1)
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
-	tx3.AddTxOut(txout.NewTxOut(6*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
+	tx3.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	txEntry3 := testEntryHelp.SetTime(1).SetFee(amount.Amount(4 * util.COIN)).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
 	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.GetHash(), 0), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
-	tx4.AddTxOut(txout.NewTxOut(4*util.COIN, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(4*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	_ = tx4.GetHash()
 	txEntry4 := testEntryHelp.SetTime(1).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx4)
 
@@ -105,71 +110,71 @@ func createTx() []*mempool.TxEntry {
 	return t
 }
 
-//func TestCreateNewBlockByFee(t *testing.T) {
-//	// clear mempool data
-//	pool := blockchain.GMemPool
-//	pool.PoolData = make(map[util.Hash]*mempool.TxEntry)
-//	// clean mempool data
-//	defer func() {
-//		pool.PoolData = make(map[util.Hash]*mempool.TxEntry)
-//	}()
-//
-//	txSet := createTx()
-//	noLimit := uint64(math.MaxUint64)
-//	for _, entry := range txSet {
-//		pool.AddTx(entry, noLimit, noLimit, noLimit, noLimit, true)
-//	}
-//	if len(pool.PoolData) != 4 {
-//		t.Error("add txEntry to mempool error")
-//	}
-//
-//	ba := NewBlockAssembler(msg.ActiveNetParams)
-//	strategy = sortByFee
-//	ba.CreateNewBlock()
-//
-//	if len(ba.bt.Block.Txs) != 5 {
-//		t.Error("some transactions are inserted to block error")
-//	}
-//
-//	if ba.bt.Block.Txs[4].Hash != txSet[1].Tx.GetHash() {
-//		t.Error("error sort by tx fee")
-//	}
-//}
+func TestCreateNewBlockByFee(t *testing.T) {
+	// clear mempool data
+	pool := mempool.NewTxMempool()
+	txSet := createTx()
+	hash := txSet[0].Tx.GetHash()
+	ancestors := pool.CalculateMemPoolAncestorsWithLock(&hash)
+	//noLimit := uint64(math.MaxUint64)
+	for _, entry := range txSet {
+		pool.AddTx(entry, ancestors)
+	}
 
-//func TestCreateNewBlockByFeeRate(t *testing.T) {
-//	// clear mempool data
-//	pool := blockchain.GMemPool
-//	pool.PoolData = make(map[util.Hash]*mempool.TxEntry)
-//
-//	txSet := createTx()
-//	noLimit := uint64(math.MaxUint64)
-//	for _, entry := range txSet {
-//		pool.AddTx(entry, noLimit, noLimit, noLimit, noLimit, true)
-//	}
-//	if len(pool.PoolData) != 4 {
-//		t.Error("add txEntry to mempool error")
-//	}
-//
-//	ba := NewBlockAssembler(msg.ActiveNetParams)
-//	strategy = sortByFeeRate
-//	ba.CreateNewBlock()
-//	if len(ba.bt.Block.Txs) != 5 {
-//		t.Error("some transactions are inserted to block error")
-//	}
-//
-//	if ba.bt.Block.Txs[1].Hash != txSet[0].Tx.GetHash() {
-//		t.Error("error sort by tx feerate")
-//	}
-//
-//	if ba.bt.Block.Txs[2].Hash != txSet[1].Tx.GetHash() {
-//		t.Error("error sort by tx feerate")
-//	}
-//
-//	if ba.bt.Block.Txs[3].Hash != txSet[2].Tx.GetHash() {
-//		t.Error("error sort by tx feerate")
-//	}
-//
-//	if ba.bt.Block.Txs[4].Hash != txSet[3].Tx.GetHash() {
-//		t.Error("error sort by tx feerate")
-//	}
-//}
+	if pool.Size() != 4 {
+		t.Error("add txEntry to mempool error")
+	}
+
+	ba := NewBlockAssembler(chainparams.ActiveNetParams)
+	strategy = sortByFee
+	sc := script.NewEmptyScript()
+	ba.CreateNewBlock(sc)
+
+	if len(ba.bt.Block.Txs) != 5 {
+		t.Error("some transactions are inserted to block error")
+	}
+
+	if ba.bt.Block.Txs[4].GetHash() != txSet[1].Tx.GetHash() {
+		t.Error("error sort by tx fee")
+	}
+}
+
+func TestCreateNewBlockByFeeRate(t *testing.T) {
+	// clear mempool data
+	pool := mempool.NewTxMempool()
+
+	txSet := createTx()
+	//noLimit := uint64(math.MaxUint64)
+	hash := txSet[0].Tx.GetHash()
+	ancestors := pool.CalculateMemPoolAncestorsWithLock(&hash)
+	for _, entry := range txSet {
+		pool.AddTx(entry, ancestors)
+	}
+	if pool.Size() != 4 {
+		t.Error("add txEntry to mempool error")
+	}
+
+	ba := NewBlockAssembler(chainparams.ActiveNetParams)
+	strategy = sortByFeeRate
+	sc := script.NewEmptyScript()
+	ba.CreateNewBlock(sc)
+	if len(ba.bt.Block.Txs) != 5 {
+		t.Error("some transactions are inserted to block error")
+	}
+
+	if ba.bt.Block.Txs[1].GetHash() != txSet[0].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+
+	if ba.bt.Block.Txs[2].GetHash() != txSet[1].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+
+	if ba.bt.Block.Txs[3].GetHash() != txSet[2].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+
+	if ba.bt.Block.Txs[4].GetHash() != txSet[3].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+}

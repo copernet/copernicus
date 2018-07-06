@@ -116,8 +116,11 @@ func isAcceptTx(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool
 		return nil, nil, errcode.New(errcode.AlreadHaveTx)
 	}
 
-	lp := ltx.CalculateSequenceLocks(tx, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast)
-	if !ltx.CheckSequenceLocks(lp) {
+	lp := ltx.CalculateLockPoints(tx, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast)
+	if lp == nil {
+		return nil, lp, errcode.New(errcode.Nomature)
+	}
+	if !ltx.CheckSequenceLocks(lp.Height, lp.Time) {
 		return nil, lp, errcode.New(errcode.Nomature)
 	}
 
@@ -183,9 +186,12 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 				}
 			}
 		}
-		tlp := ltx.CalculateSequenceLocks(tx, uint32(flag))
+		tlp := ltx.CalculateLockPoints(tx, uint32(flag))
+		if tlp == nil {
+			panic("nil lockpoint, the transaction has no preout")
+		}
 		if ltx.ContextualCheckTransactionForCurrentBlock(tx, flag) != nil ||
-			!ltx.CheckSequenceLocks(tlp) {
+			!ltx.CheckSequenceLocks(tlp.Height, tlp.Time) {
 			txToRemove[entry] = struct{}{}
 		} else if entry.GetSpendsCoinbase() {
 			for _, preout := range tx.GetAllPreviousOut() {

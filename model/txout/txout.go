@@ -41,7 +41,7 @@ func (txOut *TxOut) Encode(writer io.Writer) error {
 		return err
 	}
 	if txOut.scriptPubKey == nil {
-		return util.BinarySerializer.PutUint64(writer, binary.LittleEndian, 0)
+		return util.WriteVarInt(writer, 0)
 	} else {
 		return txOut.scriptPubKey.Encode(writer)
 	}
@@ -161,7 +161,11 @@ func (txOut *TxOut) IsEqual(out *TxOut) bool {
 func NewTxOut(value amount.Amount, scriptPubKey *script.Script) *TxOut {
 	txOut := TxOut{
 		value:        value,
-		scriptPubKey: scriptPubKey,
+		scriptPubKey: nil,
 	}
+	if scriptPubKey != nil {
+		txOut.scriptPubKey = script.NewScriptRaw(scriptPubKey.GetData())
+	}
+
 	return &txOut
 }

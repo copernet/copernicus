@@ -248,15 +248,22 @@ func (s *Script) IsSpendable() bool {
 }
 
 func NewScriptRaw(bytes []byte) *Script {
-	script := Script{data: bytes}
+	newBytes := make([]byte, len(bytes))
+	copy(newBytes, bytes)
+	script := Script{data: newBytes}
 	if script.convertOPS() != nil {
 		return nil
 	}
 	return &script
 }
 
-func NewScriptOps(parsedOpCodes []opcodes.ParsedOpCode) *Script {
-	script := Script{ParsedOpCodes: parsedOpCodes}
+func NewScriptOps(oldParsedOpCodes []opcodes.ParsedOpCode) *Script {
+	newParsedOpCodes := make([]opcodes.ParsedOpCode, 0, len(oldParsedOpCodes))
+	for _, oldParsedOpCode := range oldParsedOpCodes {
+		newParsedOpCodes = append(newParsedOpCodes, *opcodes.NewParsedOpCode(oldParsedOpCode.OpValue,
+			oldParsedOpCode.Length, oldParsedOpCode.Data))
+	}
+	script := Script{ParsedOpCodes: newParsedOpCodes}
 	script.convertRaw()
 	return &script
 }
@@ -291,9 +298,7 @@ func (script *Script) convertRaw() {
 }
 
 func (script *Script) GetData() []byte {
-	retData := make([]byte, 0, len(script.data))
-
-	return append(retData, script.data...)
+	return script.data
 }
 
 func (script *Script) convertOPS() error {

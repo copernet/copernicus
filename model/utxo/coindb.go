@@ -3,9 +3,8 @@ package utxo
 import (
 	"bytes"
 	"fmt"
-	
+
 	"github.com/astaxie/beego/logs"
-	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/persist/db"
@@ -49,7 +48,7 @@ func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 
 func (coinsViewDB *CoinsDB) GetBestBlock() (*util.Hash, error) {
 	v, err := coinsViewDB.dbw.Read([]byte{db.DbBestBlock})
-	if err == leveldb.ErrNotFound{
+	if err == leveldb.ErrNotFound {
 		return nil, err
 	}
 	if err != nil {
@@ -63,7 +62,7 @@ func (coinsViewDB *CoinsDB) GetBestBlock() (*util.Hash, error) {
 	return hashBlock, err
 }
 
-func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin , hashBlock util.Hash) error {
+func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock util.Hash) error {
 	mapCoins := cm
 	batch := db.NewBatchWrapper(coinsViewDB.dbw)
 	count := 0
@@ -93,11 +92,11 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin , hashBloc
 	}
 
 	ret := coinsViewDB.dbw.WriteBatch(batch, false)
-	if true{
+	if true {
 		best, err := coinsViewDB.GetBestBlock()
-		fmt.Println("best=======",best, err)
+		fmt.Println("best=======", best, err)
 	}
-	
+
 	return ret
 }
 
@@ -118,12 +117,7 @@ func NewCoinsDB(do *db.DBOption) *CoinsDB {
 		return nil
 	}
 
-	dbw, err := db.NewDBWrapper(&db.DBOption{
-		FilePath:      conf.GetDataPath() + "/chainstate",
-		CacheSize:     do.CacheSize,
-		Wipe:          false,
-		DontObfuscate: true,
-	})
+	dbw, err := db.NewDBWrapper(do)
 
 	if err != nil {
 		fmt.Println("err======%#v", err)

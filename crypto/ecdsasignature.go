@@ -35,16 +35,17 @@ func (sig *Signature) Verify(hash []byte, pubKey *PublicKey) bool {
 }
 
 func ParseDERSignature(signature []byte) (*Signature, error) {
-	_, sig, err := secp256k1.EcdsaSignatureParseDer(secp256k1Context, signature)
+	//_, sig, err := secp256k1.EcdsaSignatureParseDer(secp256k1Context, signature)
+	_, sig, err := secp256k1.EcdsaSignatureParseDerLax(secp256k1Context, signature)
 	if err != nil {
 		return nil, err
 	}
 	return (*Signature)(sig), nil
 }
 
-func (sig *Signature)EcdsaNormalize() bool {
-	ret, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, sig.toLibEcdsaSignature(), sig.toLibEcdsaSignature())
-	if ret != 1 || err != nil {
+func (sig *Signature) EcdsaNormalize() bool {
+	_, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, sig.toLibEcdsaSignature(), sig.toLibEcdsaSignature())
+	if err != nil {
 		return false
 	}
 

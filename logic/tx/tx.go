@@ -6,6 +6,9 @@ import (
 
 	"bytes"
 
+	"strconv"
+
+	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
@@ -20,7 +23,6 @@ import (
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"strconv"
 )
 
 // transaction service will use this func to check transaction before accepting to mempool
@@ -74,13 +76,17 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// CLTV(CheckLockTimeVerify)
-	lp := CalculateSequenceLocks(transaction, uint32(tx.StandardLockTimeVerifyFlags))
+	lp := CalculateLockPoints(transaction, uint32(tx.StandardLockTimeVerifyFlags))
+	if lp == nil {
+		log.Debug("cann't calculate out lockpoints")
+		return errcode.New(errcode.TxErrRejectNonstandard)
+	}
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
 	// transactions that can't be mined yet. Must keep pool.cs for this
 	// unless we change CheckSequenceLocks to take a CoinsViewCache
 	// instead of create its own.
-	if !CheckSequenceLocks(lp) {
+	if !CheckSequenceLocks(lp.Height, lp.Time) {
 		log.Debug("tx sequence lock check faild")
 		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
@@ -209,14 +215,14 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 				valueIn += coin.GetAmount()
 			}
-			lp := CalculateSequenceLocks(transaction, scriptCheckFlags)
-			if !CheckSequenceLocks(lp) {
+			coinHeight, coinTime := CaculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
+			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
 				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 			}
 		}
 		//check sigops
-		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinMap)
+		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
@@ -247,7 +253,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	}
 	bundo.SetTxUndo(txUndoList)
 	//check blockReward
-	if fees+blockSubSidy > txs[0].GetValueOut() {
+	if txs[0].GetValueOut() > fees+blockSubSidy {
 		log.Debug("coinbase pays too much")
 		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 	}
@@ -260,13 +266,16 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := heightNumb.Serialize()
-		if coinBaseScriptSig.Size() < len(heightData) {
+		heightData := make([][]byte, 0)
+		heightData = append(heightData, heightNumb.Serialize())
+		heightScript := script.NewEmptyScript()
+		heightScript.PushData(heightData)
+		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
-		scriptData := coinBaseScriptSig.GetData()[:len(heightData)-1]
-		if !bytes.Equal(scriptData, heightData) {
+		scriptData := coinBaseScriptSig.GetData()[:heightScript.Size()]
+		if !bytes.Equal(scriptData, heightScript.GetData()) {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
@@ -338,13 +347,13 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 }
 
 func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
-	sigOpsCount := transaction.GetSigOpCountWithoutP2SH()
-	if transaction.IsCoinBase() {
-		return sigOpsCount
-	}
+	sigOpsCount := 0
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		sigOpsCount += GetSigOpCountWithP2SH(transaction, coinMap)
+		sigOpsCount = GetSigOpCountWithP2SH(transaction, coinMap)
+	} else {
+		sigOpsCount = transaction.GetSigOpCountWithoutP2SH()
 	}
+
 	return sigOpsCount
 }
 
@@ -455,7 +464,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 				log.Debug("verifyScript err, but without StandardNotMandatoryVerifyFlags success")
 				return errcode.New(errcode.TxErrRejectNonstandard)
 			}
-			log.Debug("verifyScript err")
+			log.Debug("verifyScript err, coin:%v, preout:%v", *coin, *in.PreviousOutPoint)
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -483,9 +492,11 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 	if stack.Empty() {
 		return errcode.New(errcode.ScriptErrEvalFalse)
 	}
-	if stack.Top(-1).(bool) == false {
+	vch := stack.Top(-1)
+	if !script.BytesToBool(vch.([]byte)) {
 		return errcode.New(errcode.ScriptErrEvalFalse)
 	}
+
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH && scriptPubKey.IsPayToScriptHash() {
 		if !scriptSig.IsPushOnly() {
 			return errcode.New(errcode.ScriptErrSigPushOnly)
@@ -501,7 +512,8 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 		if stack.Empty() {
 			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
-		if !stack.Top(-1).(bool) {
+		vch1 := stack.Top(-1)
+		if !script.BytesToBool(vch1.([]byte)) {
 			return errcode.New(errcode.ScriptErrEvalFalse)
 		}
 	}
@@ -547,15 +559,20 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 	for i, e := range s.ParsedOpCodes {
 		if stackExec.CountBool(false) == 0 {
 			fExec = true
+		} else {
+			fExec = false
 		}
 
 		if len(e.Data) > script.MaxScriptElementSize {
 			return errcode.New(errcode.ScriptErrPushSize)
 		}
-		nOpCount++
+
 		// Note how OP_RESERVED does not count towards the opCode limit.
-		if e.OpValue > opcodes.OP_16 && nOpCount > script.MaxOpsPerScript {
-			return errcode.New(errcode.ScriptErrOpCount)
+		if e.OpValue > opcodes.OP_16 {
+			nOpCount++
+			if nOpCount > script.MaxOpsPerScript {
+				return errcode.New(errcode.ScriptErrOpCount)
+			}
 		}
 
 		if e.OpValue == opcodes.OP_CAT || e.OpValue == opcodes.OP_SUBSTR || e.OpValue == opcodes.OP_LEFT ||
@@ -577,129 +594,139 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			switch e.OpValue {
 			// Push value
 			case opcodes.OP_1NEGATE:
+				fallthrough
 			case opcodes.OP_1:
+				fallthrough
 			case opcodes.OP_2:
+				fallthrough
 			case opcodes.OP_3:
+				fallthrough
 			case opcodes.OP_4:
+				fallthrough
 			case opcodes.OP_5:
+				fallthrough
 			case opcodes.OP_6:
+				fallthrough
 			case opcodes.OP_7:
+				fallthrough
 			case opcodes.OP_8:
+				fallthrough
 			case opcodes.OP_9:
+				fallthrough
 			case opcodes.OP_10:
+				fallthrough
 			case opcodes.OP_11:
+				fallthrough
 			case opcodes.OP_12:
+				fallthrough
 			case opcodes.OP_13:
+				fallthrough
 			case opcodes.OP_14:
+				fallthrough
 			case opcodes.OP_15:
+				fallthrough
 			case opcodes.OP_16:
-				{
-					// ( -- value)
-					bn := script.NewScriptNum(int64(e.OpValue) - int64(opcodes.OP_1-1))
-					stack.Push(bn.Serialize())
-					// The result of these opcodes should always be the
-					// minimal way to push the data they push, so no need
-					// for a CheckMinimalPush here.
-					break
-				}
+
+				// ( -- value)
+				bn := script.NewScriptNum(int64(e.OpValue) - int64(opcodes.OP_1-1))
+				stack.Push(bn.Serialize())
+				// The result of these opcodes should always be the
+				// minimal way to push the data they push, so no need
+				// for a CheckMinimalPush here.
+
 				//
 				// Control
 				//
 			case opcodes.OP_NOP:
-				break
 			case opcodes.OP_CHECKLOCKTIMEVERIFY:
-				{
-					if flags&script.ScriptVerifyCheckLockTimeVerify == script.ScriptVerifyCheckLockTimeVerify {
-						// not enabled; treat as a NOP2
-						if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
-							return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
-						}
-						break
-					}
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					// Note that elsewhere numeric opcodes are limited to
-					// operands in the range -2**31+1 to 2**31-1, however it
-					// is legal for opcodes to produce results exceeding
-					// that range. This limitation is implemented by
-					// CScriptNum's default 4-byte limit.
-					//
-					// If we kept to that limit we'd have a year 2038
-					// problem, even though the nLockTime field in
-					// transactions themselves is uint32 which only becomes
-					// meaningless after the year 2106.
-					//
-					// Thus as a special case we tell CScriptNum to accept
-					// up to 5-byte bignums, which are good until 2**39-1,
-					// well beyond the 2**32-1 limit of the nLockTime field
-					// itself.
-					topBytes := stack.Top(-1)
-					if topBytes == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					//nLocktime, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
-					nLocktime, err := script.GetScriptNum(topBytes.([]byte), true, 5)
-					if err != nil {
-						return err
-					}
-					// In the rare event that the argument may be < 0 due to
-					// some arithmetic being done first, you can always use
-					// 0 MAX CHECKLOCKTIMEVERIFY.
-					if nLocktime.Value < 0 {
-						return errcode.New(errcode.ScriptErrNegativeLockTime)
-					}
-					// Actually compare the specified lock time with the
-					// transaction.
-					if !checkLockTime(nLocktime.Value, int64(transaction.GetLockTime()), transaction.GetIns()[nIn].Sequence) {
-						return errcode.New(errcode.ScriptErrUnsatisfiedLockTime)
+				if flags&script.ScriptVerifyCheckLockTimeVerify == 0 {
+					// not enabled; treat as a NOP2
+					if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
+						return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
 					}
 					break
 				}
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				// Note that elsewhere numeric opcodes are limited to
+				// operands in the range -2**31+1 to 2**31-1, however it
+				// is legal for opcodes to produce results exceeding
+				// that range. This limitation is implemented by
+				// CScriptNum's default 4-byte limit.
+				//
+				// If we kept to that limit we'd have a year 2038
+				// problem, even though the nLockTime field in
+				// transactions themselves is uint32 which only becomes
+				// meaningless after the year 2106.
+				//
+				// Thus as a special case we tell CScriptNum to accept
+				// up to 5-byte bignums, which are good until 2**39-1,
+				// well beyond the 2**32-1 limit of the nLockTime field
+				// itself.
+				topBytes := stack.Top(-1)
+				if topBytes == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				//nLocktime, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
+				nLocktime, err := script.GetScriptNum(topBytes.([]byte), true, 5)
+				if err != nil {
+					return err
+				}
+				// In the rare event that the argument may be < 0 due to
+				// some arithmetic being done first, you can always use
+				// 0 MAX CHECKLOCKTIMEVERIFY.
+				if nLocktime.Value < 0 {
+					return errcode.New(errcode.ScriptErrNegativeLockTime)
+				}
+				// Actually compare the specified lock time with the
+				// transaction.
+				if !checkLockTime(nLocktime.Value, int64(transaction.GetLockTime()), transaction.GetIns()[nIn].Sequence) {
+					return errcode.New(errcode.ScriptErrUnsatisfiedLockTime)
+				}
+
 			case opcodes.OP_CHECKSEQUENCEVERIFY:
-				{
-					if flags&script.ScriptVerifyCheckSequenceVerify == script.ScriptVerifyCheckSequenceVerify {
-						// not enabled; treat as a NOP3
-						if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
-							return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
+				if flags&script.ScriptVerifyCheckSequenceVerify == 0 {
+					// not enabled; treat as a NOP3
+					if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
+						return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
 
-						}
-						break
-					}
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-
-					// nSequence, like nLockTime, is a 32-bit unsigned
-					// integer field. See the comment in checkLockTimeVerify
-					// regarding 5-byte numeric operands.
-					topBytes := stack.Top(-1)
-					if topBytes == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					nSequence, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
-					//nSequence, err := script.GetScriptNum(topBytes.([]byte), true, 5)
-					if err != nil {
-						return err
-					}
-					// In the rare event that the argument may be < 0 due to
-					// some arithmetic being done first, you can always use
-					// 0 MAX checkSequenceVerify.
-					if nSequence.Value < 0 {
-						return errcode.New(errcode.ScriptErrNegativeLockTime)
-					}
-
-					// To provide for future soft-fork extensibility, if the
-					// operand has the disabled lock-time flag set,
-					// checkSequenceVerify behaves as a NOP.
-					if nSequence.Value&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
-						break
-					}
-					if !checkSequence(nSequence.Value, int64(transaction.GetIns()[nIn].Sequence), uint32(transaction.GetVersion())) {
-						return errcode.New(errcode.ScriptErrUnsatisfiedLockTime)
 					}
 					break
 				}
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				// nSequence, like nLockTime, is a 32-bit unsigned
+				// integer field. See the comment in checkLockTimeVerify
+				// regarding 5-byte numeric operands.
+				topBytes := stack.Top(-1)
+				if topBytes == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				nSequence, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
+				//nSequence, err := script.GetScriptNum(topBytes.([]byte), true, 5)
+				if err != nil {
+					return err
+				}
+				// In the rare event that the argument may be < 0 due to
+				// some arithmetic being done first, you can always use
+				// 0 MAX checkSequenceVerify.
+				if nSequence.Value < 0 {
+					return errcode.New(errcode.ScriptErrNegativeLockTime)
+				}
+
+				// To provide for future soft-fork extensibility, if the
+				// operand has the disabled lock-time flag set,
+				// checkSequenceVerify behaves as a NOP.
+				if nSequence.Value&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
+					break
+				}
+				if !checkSequence(nSequence.Value, int64(transaction.GetIns()[nIn].Sequence), uint32(transaction.GetVersion())) {
+					return errcode.New(errcode.ScriptErrUnsatisfiedLockTime)
+				}
+
 			case opcodes.OP_NOP1:
 				fallthrough
 			case opcodes.OP_NOP4:
@@ -715,365 +742,331 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_NOP9:
 				fallthrough
 			case opcodes.OP_NOP10:
-				{
-					if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
-						return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
-					}
-					break
+				if flags&script.ScriptVerifyDiscourageUpgradableNops == script.ScriptVerifyDiscourageUpgradableNops {
+					return errcode.New(errcode.ScriptErrDiscourageUpgradableNops)
 				}
 			case opcodes.OP_IF:
 				fallthrough
 			case opcodes.OP_NOTIF:
-				{
-					// <expression> if [statements] [else [statements]]
-					// endif
-					fValue := false
-					if fExec {
-						if stack.Size() < 1 {
-							return errcode.New(errcode.ScriptErrUnbalancedConditional)
-						}
-						vch := stack.Top(-1)
-						if vch == nil {
-							return errcode.New(errcode.ScriptErrUnbalancedConditional)
-						}
-						vchBytes := vch.([]byte)
-						if flags&script.ScriptVerifyMinimalIf == script.ScriptVerifyMinimalIf {
-							if len(vchBytes) > 1 {
-								return errcode.New(errcode.ScriptErrMinimalIf)
-							}
-							if len(vchBytes) == 1 && vchBytes[0] != 1 {
-								return errcode.New(errcode.ScriptErrMinimalIf)
-							}
-						}
-						fValue = script.BytesToBool(vchBytes)
-						if e.OpValue == opcodes.OP_NOTIF {
-							fValue = !fValue
-						}
-						stack.Pop()
-					}
-					stackExec.Push(fValue)
-					break
-				}
-			case opcodes.OP_ELSE:
-				{
-					if stackExec.Empty() {
-						return errcode.New(errcode.ScriptErrUnbalancedConditional)
-					}
-					vfBack := !stackExec.Top(-1).(bool)
-					if stackExec.SetTop(-1, vfBack) == false {
-						return errcode.New(errcode.ScriptErrUnbalancedConditional)
-					}
-					break
-				}
-			case opcodes.OP_ENDIF:
-				{
-					if stackExec.Empty() {
-						return errcode.New(errcode.ScriptErrUnbalancedConditional)
-					}
-					stackExec.Pop()
-					break
-				}
-			case opcodes.OP_VERIFY:
-				{
-					// (true -- ) or
-					// (false -- false) and return
+				// <expression> if [statements] [else [statements]]
+				// endif
+				fValue := false
+				if fExec {
 					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
+						return errcode.New(errcode.ScriptErrUnbalancedConditional)
 					}
 					vch := stack.Top(-1)
 					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
+						return errcode.New(errcode.ScriptErrUnbalancedConditional)
 					}
 					vchBytes := vch.([]byte)
-					fValue := script.BytesToBool(vchBytes)
-					if fValue {
-						stack.Pop()
-					} else {
-						return errcode.New(errcode.ScriptErrVerify)
+					if flags&script.ScriptVerifyMinimalIf == script.ScriptVerifyMinimalIf {
+						if len(vchBytes) > 1 {
+							return errcode.New(errcode.ScriptErrMinimalIf)
+						}
+						if len(vchBytes) == 1 && vchBytes[0] != 1 {
+							return errcode.New(errcode.ScriptErrMinimalIf)
+						}
 					}
-					break
+					fValue = script.BytesToBool(vchBytes)
+					if e.OpValue == opcodes.OP_NOTIF {
+						fValue = !fValue
+					}
+					stack.Pop()
 				}
+
+				stackExec.Push(fValue)
+
+			case opcodes.OP_ELSE:
+				if stackExec.Empty() {
+					return errcode.New(errcode.ScriptErrUnbalancedConditional)
+				}
+				vfBack := !stackExec.Top(-1).(bool)
+				if stackExec.SetTop(-1, vfBack) == false {
+					return errcode.New(errcode.ScriptErrUnbalancedConditional)
+				}
+			case opcodes.OP_ENDIF:
+				if stackExec.Empty() {
+					return errcode.New(errcode.ScriptErrUnbalancedConditional)
+				}
+				stackExec.Pop()
+
+			case opcodes.OP_VERIFY:
+
+				// (true -- ) or
+				// (false -- false) and return
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vchBytes := vch.([]byte)
+				fValue := script.BytesToBool(vchBytes)
+				if fValue {
+					stack.Pop()
+				} else {
+					return errcode.New(errcode.ScriptErrVerify)
+				}
+
 			case opcodes.OP_RETURN:
-				{
-					return errcode.New(errcode.ScriptErrOpReturn)
-				}
+				return errcode.New(errcode.ScriptErrOpReturn)
 				//
 				// Stack ops
 				//
 			case opcodes.OP_TOALTSTACK:
-				{
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stackAlt.Push(vch)
-					stack.Pop()
-					break
+
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stackAlt.Push(vch)
+				stack.Pop()
 
 			case opcodes.OP_FROMALTSTACK:
-				{
-					if stackAlt.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
-					}
-					stack.Push(stackAlt.Top(-1))
-					stackAlt.Pop()
-					break
+				if stackAlt.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
 				}
+				stack.Push(stackAlt.Top(-1))
+				stackAlt.Pop()
 			case opcodes.OP_2DROP:
-				{
-					// (x1 x2 -- )
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Pop()
-					stack.Pop()
-					break
+
+				// (x1 x2 -- )
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				stack.Pop()
+				stack.Pop()
+
 			case opcodes.OP_2DUP:
-				{
-					// (x1 x2 -- x1 x2 x1 x2)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
-					}
-					vch1 := stack.Top(-2)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
-					}
-					vch2 := stack.Top(-1)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
-					}
-					stack.Push(vch1)
-					stack.Push(vch2)
-					break
+
+				// (x1 x2 -- x1 x2 x1 x2)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
 				}
+				vch1 := stack.Top(-2)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+				}
+				vch2 := stack.Top(-1)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+				}
+				stack.Push(vch1)
+				stack.Push(vch2)
+
 			case opcodes.OP_3DUP:
-				{
-					// (x1 x2 x3 -- x1 x2 x3 x1 x2 x3)
-					if stack.Size() < 3 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch1 := stack.Top(-3)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch2 := stack.Top(-2)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch3 := stack.Top(-1)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Push(vch1)
-					stack.Push(vch2)
-					stack.Push(vch3)
-					break
+
+				// (x1 x2 x3 -- x1 x2 x3 x1 x2 x3)
+				if stack.Size() < 3 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch1 := stack.Top(-3)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-2)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch3 := stack.Top(-1)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stack.Push(vch1)
+				stack.Push(vch2)
+				stack.Push(vch3)
+
 			case opcodes.OP_2OVER:
-				{
-					// (x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2)
-					if stack.Size() < 4 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch1 := stack.Top(-4)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch2 := stack.Top(-3)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Push(vch1)
-					stack.Push(vch2)
-					break
+
+				// (x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2)
+				if stack.Size() < 4 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch1 := stack.Top(-4)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-3)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stack.Push(vch1)
+				stack.Push(vch2)
+
 			case opcodes.OP_2ROT:
-				{
-					// (x1 x2 x3 x4 x5 x6 -- x3 x4 x5 x6 x1 x2)
-					if stack.Size() < 6 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch1 := stack.Top(-6)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch2 := stack.Top(-5)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Erase(stack.Size()-6, stack.Size()-4)
-					stack.Push(vch1)
-					stack.Push(vch2)
-					break
+
+				// (x1 x2 x3 x4 x5 x6 -- x3 x4 x5 x6 x1 x2)
+				if stack.Size() < 6 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch1 := stack.Top(-6)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-5)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stack.Erase(stack.Size()-6, stack.Size()-4)
+				stack.Push(vch1)
+				stack.Push(vch2)
+
 			case opcodes.OP_2SWAP:
-				{
-					// (x1 x2 x3 x4 -- x3 x4 x1 x2)
-					if stack.Size() < 4 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Swap(stack.Size()-4, stack.Size()-2)
-					stack.Swap(stack.Size()-3, stack.Size()-1)
-					break
+
+				// (x1 x2 x3 x4 -- x3 x4 x1 x2)
+				if stack.Size() < 4 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				stack.Swap(stack.Size()-4, stack.Size()-2)
+				stack.Swap(stack.Size()-3, stack.Size()-1)
+
 			case opcodes.OP_IFDUP:
-				{
-					// (x - 0 | x x)
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vchBytes := vch.([]byte)
-					if script.BytesToBool(vchBytes) {
-						stack.Push(vch)
-					}
-					break
+
+				// (x - 0 | x x)
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vchBytes := vch.([]byte)
+				if script.BytesToBool(vchBytes) {
+					stack.Push(vch)
+				}
+
 			case opcodes.OP_DEPTH:
-				{
-					// -- stacksize
-					bn := script.NewScriptNum(int64(stack.Size()))
-					stack.Push(bn.Serialize())
-					break
-				}
+
+				// -- stacksize
+				bn := script.NewScriptNum(int64(stack.Size()))
+				stack.Push(bn.Serialize())
+
 			case opcodes.OP_DROP:
-				{
-					// (x -- )
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Pop()
-					break
+
+				// (x -- )
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				stack.Pop()
+
 			case opcodes.OP_DUP:
-				{
-					// (x -- x x)
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Push(vch)
-					break
+
+				// (x -- x x)
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stack.Push(vch)
+
 			case opcodes.OP_NIP:
-				{
-					// (x1 x2 -- x2)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.RemoveAt(stack.Size() - 2)
-					break
+
+				// (x1 x2 -- x2)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				stack.RemoveAt(stack.Size() - 2)
+
 			case opcodes.OP_OVER:
-				{
-					// (x1 x2 -- x1 x2 x1)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-2)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Push(vch)
-					break
+
+				// (x1 x2 -- x1 x2 x1)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-2)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stack.Push(vch)
+
 			case opcodes.OP_PICK:
 				fallthrough
 			case opcodes.OP_ROLL:
-				{
-					// (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
-					// (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					scriptNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					//scriptNum, err := script.GetScriptNum(vch.([]byte), true, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
 
-					}
-					n := scriptNum.ToInt32()
-					stack.Pop()
-					if n < 0 || n >= int32(stack.Size()) {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vchn := stack.Top(int(-n - 1))
-					if vchn == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					if e.OpValue == opcodes.OP_ROLL {
-						stack.RemoveAt(stack.Size() - int(n) - 1)
-					}
-					stack.Push(vchn)
-					break
+				// (xn ... x2 x1 x0 n - xn ... x2 x1 x0 xn)
+				// (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				scriptNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//scriptNum, err := script.GetScriptNum(vch.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+
+				}
+				n := scriptNum.ToInt32()
+				stack.Pop()
+				if n < 0 || n >= int32(stack.Size()) {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vchn := stack.Top(int(-n - 1))
+				if vchn == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				if e.OpValue == opcodes.OP_ROLL {
+					stack.RemoveAt(stack.Size() - int(n) - 1)
+				}
+				stack.Push(vchn)
+
 			case opcodes.OP_ROT:
-				{
-					// (x1 x2 x3 -- x2 x3 x1)
-					//  x2 x1 x3  after first swap
-					//  x2 x3 x1  after second swap
-					if stack.Size() < 3 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Swap(stack.Size()-3, stack.Size()-2)
-					stack.Swap(stack.Size()-2, stack.Size()-1)
-					break
-				}
-			case opcodes.OP_SWAP:
-				{
-					// (x1 x2 -- x2 x1)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					stack.Swap(stack.Size()-2, stack.Size()-1)
-					break
-				}
-			case opcodes.OP_TUCK:
-				{
-					// (x1 x2 -- x2 x1 x2)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
 
-					if !stack.Insert(stack.Size()-2, vch) {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					break
+				// (x1 x2 x3 -- x2 x3 x1)
+				//  x2 x1 x3  after first swap
+				//  x2 x3 x1  after second swap
+				if stack.Size() < 3 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				stack.Swap(stack.Size()-3, stack.Size()-2)
+				stack.Swap(stack.Size()-2, stack.Size()-1)
+
+			case opcodes.OP_SWAP:
+
+				// (x1 x2 -- x2 x1)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				stack.Swap(stack.Size()-2, stack.Size()-1)
+
+			case opcodes.OP_TUCK:
+
+				// (x1 x2 -- x2 x1 x2)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				if !stack.Insert(stack.Size()-2, vch) {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
 			case opcodes.OP_SIZE:
-				{
-					// (in -- in size)
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					size := len(vch.([]byte))
-					bn := script.NewScriptNum(int64(size))
-					stack.Push(bn.Serialize())
-					break
+
+				// (in -- in size)
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				size := len(vch.([]byte))
+				bn := script.NewScriptNum(int64(size))
+				stack.Push(bn.Serialize())
+
 				//
 				// Bitwise logic
 				//
@@ -1081,44 +1074,40 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				fallthrough
 			case opcodes.OP_EQUALVERIFY:
 				// case opcodes.OP_NOTEQUAL: // use opcodes.OP_NUMNOTEQUAL
-				{
-					// (x1 x2 - bool)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch1 := stack.Top(-2)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch2 := stack.Top(-1)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
+				// (x1 x2 - bool)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch1 := stack.Top(-2)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-1)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
 
-					fEqual := bytes.Equal(vch1.([]byte), vch2.([]byte))
-					//fEqual := reflect.DeepEqual(vch1, vch2)
-					// opcodes.OP_NOTEQUAL is disabled because it would be too
-					// easy to say something like n != 1 and have some
-					// wiseguy pass in 1 with extra zero bytes after it
-					// (numerically, 0x01 == 0x0001 == 0x000001)
-					// if (opcode == opcodes.OP_NOTEQUAL)
-					//    fEqual = !fEqual;
-					stack.Pop()
-					stack.Pop()
+				fEqual := bytes.Equal(vch1.([]byte), vch2.([]byte))
+				//fEqual := reflect.DeepEqual(vch1, vch2)
+				// opcodes.OP_NOTEQUAL is disabled because it would be too
+				// easy to say something like n != 1 and have some
+				// wiseguy pass in 1 with extra zero bytes after it
+				// (numerically, 0x01 == 0x0001 == 0x000001)
+				// if (opcode == opcodes.OP_NOTEQUAL)
+				//    fEqual = !fEqual;
+				stack.Pop()
+				stack.Pop()
+				if fEqual {
+					stack.Push(bnTrue.Serialize())
+				} else {
+					stack.Push(bnFalse.Serialize())
+				}
+				if e.OpValue == opcodes.OP_EQUALVERIFY {
 					if fEqual {
-						stack.Push(bnTrue.Value)
+						stack.Pop()
 					} else {
-						stack.Push(bnFalse.Value)
+						return errcode.New(errcode.ScriptErrEqualVerify)
 					}
-					if e.OpValue == opcodes.OP_EQUALVERIFY {
-						if fEqual {
-							stack.Pop()
-						} else {
-							return errcode.New(errcode.ScriptErrEqualVerify)
-						}
-					}
-					break
-
 				}
 				//Numeric
 			case opcodes.OP_1ADD:
@@ -1128,64 +1117,125 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_NEGATE:
 				fallthrough
 			case opcodes.OP_ABS:
-				fallthrough
+				// (in -- out)
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				bn, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//bn, err := script.GetScriptNum(vch.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				switch e.OpValue {
+				case opcodes.OP_1ADD:
+					bn.Value += bnOne.Value
+				case opcodes.OP_1SUB:
+					bn.Value -= bnOne.Value
+				case opcodes.OP_NEGATE:
+					bn.Value = -bn.Value
+				case opcodes.OP_ABS:
+					if bn.Value < 0 {
+						bn.Value = -bn.Value
+					}
+				default:
+					return errcode.New(errcode.ScriptErrInvalidOpCode)
+				}
+				stack.Pop()
+				stack.Push(bn.Serialize())
+
 			case opcodes.OP_NOT:
 				fallthrough
 			case opcodes.OP_0NOTEQUAL:
-				{
-					// (in -- out)
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					bn, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					//bn, err := script.GetScriptNum(vch.([]byte), true, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
-					}
-					switch e.OpValue {
-					case opcodes.OP_1ADD:
-						bn.Value += bnOne.Value
-						break
-					case opcodes.OP_1SUB:
-						bn.Value -= bnOne.Value
-						break
-					case opcodes.OP_NEGATE:
-						bn.Value = -bn.Value
-						break
-					case opcodes.OP_ABS:
-						if bn.Value < 0 {
-							bn.Value = -bn.Value
-						}
-						break
-					case opcodes.OP_NOT:
-						if bn.Value == bnZero.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_0NOTEQUAL:
-						if bn.Value != bnZero.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					default:
-						return errcode.New(errcode.ScriptErrInvalidOpCode)
-					}
-					stack.Pop()
-					stack.Push(bn.Serialize())
-					break
+				// (in -- out)
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				bn, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//bn, err := script.GetScriptNum(vch.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				var fValue script.ScriptNum
+				switch e.OpValue {
+				case opcodes.OP_NOT:
+					if bn.Value == bnZero.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_0NOTEQUAL:
+					if bn.Value != bnZero.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				default:
+					return errcode.New(errcode.ScriptErrInvalidOpCode)
+				}
+				stack.Pop()
+				stack.Push(fValue.Serialize())
 			case opcodes.OP_ADD:
 				fallthrough
 			case opcodes.OP_SUB:
 				fallthrough
+			case opcodes.OP_MIN:
+				fallthrough
+			case opcodes.OP_MAX:
+				// (x1 x2 -- out)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch1 := stack.Top(-2)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-1)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//bn1, err := script.GetScriptNum(vch1.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				bn2, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//bn2, err := script.GetScriptNum(vch2.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				bn := script.NewScriptNum(0)
+				switch e.OpValue {
+				case opcodes.OP_ADD:
+					bn.Value = bn1.Value + bn2.Value
+				case opcodes.OP_SUB:
+					bn.Value = bn1.Value - bn2.Value
+				case opcodes.OP_MIN:
+					if bn1.Value < bn2.Value {
+						bn = bn1
+					} else {
+						bn = bn2
+					}
+				case opcodes.OP_MAX:
+					if bn1.Value > bn2.Value {
+						bn = bn1
+					} else {
+						bn = bn2
+					}
+				default:
+					return errcode.New(errcode.ScriptErrInvalidOpCode)
+				}
+				stack.Pop()
+				stack.Pop()
+				stack.Push(bn.Serialize())
+
 			case opcodes.OP_BOOLAND:
 				fallthrough
 			case opcodes.OP_BOOLOR:
@@ -1203,181 +1253,141 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_LESSTHANOREQUAL:
 				fallthrough
 			case opcodes.OP_GREATERTHANOREQUAL:
-				fallthrough
-			case opcodes.OP_MIN:
-				fallthrough
-			case opcodes.OP_MAX:
-				{
-					// (x1 x2 -- out)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch1 := stack.Top(-2)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch2 := stack.Top(-1)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					//bn1, err := script.GetScriptNum(vch1.([]byte), true, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
-					}
-					bn2, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					//bn2, err := script.GetScriptNum(vch2.([]byte), true, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
-					}
-					bn := script.NewScriptNum(0)
-					switch e.OpValue {
-					case opcodes.OP_ADD:
-						bn.Value = bn1.Value + bn2.Value
-						break
-					case opcodes.OP_SUB:
-						bn.Value = bn1.Value - bn2.Value
-						break
-					case opcodes.OP_BOOLAND:
-						if bn1.Value != bnZero.Value && bn2.Value != bnZero.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_BOOLOR:
-						if bn1.Value != bnZero.Value || bn2.Value != bnZero.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_NUMEQUAL:
-						if bn1.Value == bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_NUMEQUALVERIFY:
-						if bn1.Value == bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_NUMNOTEQUAL:
-						if bn1.Value != bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_LESSTHAN:
-						if bn1.Value < bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_GREATERTHAN:
-						if bn1.Value > bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_LESSTHANOREQUAL:
-						if bn1.Value <= bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_GREATERTHANOREQUAL:
-						if bn1.Value >= bn2.Value {
-							bn.Value = 1
-						} else {
-							bn.Value = 0
-						}
-						break
-					case opcodes.OP_MIN:
-						if bn1.Value < bn2.Value {
-							bn = bn1
-						} else {
-							bn = bn2
-						}
-						break
-					case opcodes.OP_MAX:
-						if bn1.Value > bn2.Value {
-							bn = bn1
-						} else {
-							bn = bn2
-						}
-						break
-					default:
-						return errcode.New(errcode.ScriptErrInvalidOpCode)
-					}
-					stack.Pop()
-					stack.Pop()
-					stack.Push(bn.Serialize())
 
-					if e.OpValue == opcodes.OP_NUMEQUALVERIFY {
-						vch := stack.Top(-1)
-						if vch == nil {
-							return errcode.New(errcode.ScriptErrInvalidStackOperation)
-						}
-						if script.BytesToBool(vch.([]byte)) {
-							stack.Pop()
-						} else {
-							return errcode.New(errcode.ScriptErrNumEqualVerify)
-						}
+				// (x1 x2 -- out)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch1 := stack.Top(-2)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-1)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//bn1, err := script.GetScriptNum(vch1.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				bn2, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				//bn2, err := script.GetScriptNum(vch2.([]byte), true, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				var fValue script.ScriptNum
+				switch e.OpValue {
+				case opcodes.OP_BOOLAND:
+					if bn1.Value != bnZero.Value && bn2.Value != bnZero.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
 					}
-					break
+				case opcodes.OP_BOOLOR:
+					if bn1.Value != bnZero.Value || bn2.Value != bnZero.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_NUMEQUAL:
+					if bn1.Value == bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_NUMEQUALVERIFY:
+					if bn1.Value == bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_NUMNOTEQUAL:
+					if bn1.Value != bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_LESSTHAN:
+					if bn1.Value < bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_GREATERTHAN:
+					if bn1.Value > bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_LESSTHANOREQUAL:
+					if bn1.Value <= bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				case opcodes.OP_GREATERTHANOREQUAL:
+					if bn1.Value >= bn2.Value {
+						fValue = bnTrue
+					} else {
+						fValue = bnFalse
+					}
+				default:
+					return errcode.New(errcode.ScriptErrInvalidOpCode)
+				}
+				stack.Pop()
+				stack.Pop()
+				stack.Push(fValue.Serialize())
+
+				if e.OpValue == opcodes.OP_NUMEQUALVERIFY {
+					vch := stack.Top(-1)
+					fValue := script.BytesToBool(vch.([]byte))
+					if fValue {
+						stack.Pop()
+					} else {
+						return errcode.New(errcode.ScriptErrNumEqualVerify)
+					}
 				}
 
 			case opcodes.OP_WITHIN:
-				{
-					// (x min max -- out)
-					if stack.Size() < 3 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch1 := stack.Top(-3)
-					if vch1 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch2 := stack.Top(-2)
-					if vch2 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch3 := stack.Top(-1)
-					if vch3 == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
-					}
-					bn2, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
-					}
-					bn3, err := script.GetScriptNum(vch3.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					if err != nil {
-						return err
-					}
-					var fValue int = 0
-					if bn2.Value <= bn1.Value && bn1.Value < bn3.Value {
-						fValue = 1
-					} else {
-						fValue = 0
-					}
-					stack.Pop()
-					stack.Pop()
-					stack.Pop()
-					stack.Push(fValue)
-					break
+				// (x min max -- out)
+				if stack.Size() < 3 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch1 := stack.Top(-3)
+				if vch1 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-2)
+				if vch2 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch3 := stack.Top(-1)
+				if vch3 == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				bn2, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				bn3, err := script.GetScriptNum(vch3.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					return err
+				}
+				var fValue script.ScriptNum
+				if bn2.Value <= bn1.Value && bn1.Value < bn3.Value {
+					fValue = bnTrue
+				} else {
+					fValue = bnFalse
+				}
+				stack.Pop()
+				stack.Pop()
+				stack.Pop()
+				stack.Push(fValue.Serialize())
 				// Crypto
 			case opcodes.OP_RIPEMD160:
 				fallthrough
@@ -1388,58 +1398,188 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_HASH160:
 				fallthrough
 			case opcodes.OP_HASH256:
-				{
-					// (in -- GetHash)
-					var vchHash []byte
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					vch := stack.Top(-1)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					switch e.OpValue {
-					case opcodes.OP_RIPEMD160:
-						vchHash = util.Ripemd160(vch.([]byte))
-					case opcodes.OP_SHA1:
-						result := util.Sha1(vch.([]byte))
-						vchHash = append(vchHash, result[:]...)
-					case opcodes.OP_SHA256:
-						vchHash = util.Sha256Bytes(vch.([]byte))
-					case opcodes.OP_HASH160:
-						vchHash = util.Hash160(vch.([]byte))
-					case opcodes.OP_HASH256:
-						vchHash = util.Sha256Bytes(vch.([]byte))
-					}
-					stack.Pop()
-					stack.Push(vchHash)
-					break
+
+				// (in -- GetHash)
+				var vchHash []byte
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
+				vch := stack.Top(-1)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				switch e.OpValue {
+				case opcodes.OP_RIPEMD160:
+					vchHash = util.Ripemd160(vch.([]byte))
+				case opcodes.OP_SHA1:
+					result := util.Sha1(vch.([]byte))
+					vchHash = append(vchHash, result[:]...)
+				case opcodes.OP_SHA256:
+					vchHash = util.Sha256Bytes(vch.([]byte))
+				case opcodes.OP_HASH160:
+					vchHash = util.Hash160(vch.([]byte))
+				case opcodes.OP_HASH256:
+					vchHash = util.DoubleSha256Bytes(vch.([]byte))
+				}
+				stack.Pop()
+				stack.Push(vchHash)
+
 			case opcodes.OP_CODESEPARATOR:
-				{
-					// Hash starts after the code separator
-					beginCodeHash = i
-					break
-				}
+
+				// Hash starts after the code separator
+				beginCodeHash = i
+
 			case opcodes.OP_CHECKSIG:
 				fallthrough
 			case opcodes.OP_CHECKSIGVERIFY:
-				{
-					// (sig pubkey -- bool)
-					if stack.Size() < 2 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
+
+				// (sig pubkey -- bool)
+				if stack.Size() < 2 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vchSig := stack.Top(-2)
+				if vchSig == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vchPubkey := stack.Top(-1)
+				if vchPubkey == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vchSigBytes := vchSig.([]byte)
+				err := script.CheckSignatureEncoding(vchSigBytes, flags)
+				if err != nil {
+					return err
+				}
+				err = script.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
+				if err != nil {
+					return err
+				}
+				// signature is DER format, the second byte + 2 indicates the len of signature
+				// 0x30 if the first byte that indicates the beginning of signature
+				//vchSigBytes = vchSigBytes[:vchSigBytes[1]+2]
+				// Subset of script starting at the most recent codeSeparator
+				scriptCode := script.NewScriptOps(s.ParsedOpCodes[beginCodeHash:])
+
+				// Remove the signature since there is no way for a signature
+				// to sign itself.
+				scriptCode = scriptCode.RemoveOpcodeByData(vchSigBytes)
+
+				fSuccess, err := CheckSig(transaction, vchSigBytes, vchPubkey.([]byte), scriptCode, nIn, money, flags)
+				if err != nil {
+					return err
+				}
+
+				if !fSuccess &&
+					(flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
+					len(vchSig.([]byte)) > 0 {
+					return errcode.New(errcode.ScriptErrSigNullFail)
+
+				}
+
+				stack.Pop()
+				stack.Pop()
+				if fSuccess {
+					stack.Push(bnTrue.Serialize())
+				} else {
+					stack.Push(bnFalse.Serialize())
+				}
+				if e.OpValue == opcodes.OP_CHECKSIGVERIFY {
+					if fSuccess {
+						stack.Pop()
+					} else {
+						return errcode.New(errcode.ScriptErrCheckSigVerify)
 					}
-					vchSig := stack.Top(-2)
+				}
+
+			case opcodes.OP_CHECKMULTISIG:
+				fallthrough
+			case opcodes.OP_CHECKMULTISIGVERIFY:
+
+				// ([sig ...] num_of_signatures [pubkey ...]
+				// num_of_pubkeys -- bool)
+				i := 1
+				if stack.Size() < i {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vch := stack.Top(-i)
+				if vch == nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				// ScriptSig1 ScriptSig2...ScriptSigM M PubKey1 PubKey2...PubKey N
+				pubKeysNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				pubKeysCount := pubKeysNum.ToInt32()
+				if pubKeysCount < 0 || pubKeysCount > script.MaxOpsPerScript {
+					return errcode.New(errcode.ScriptErrOpCount)
+				}
+				nOpCount += int(pubKeysCount)
+				if nOpCount > script.MaxOpsPerScript {
+					return errcode.New(errcode.ScriptErrOpCount)
+				}
+				// skip N
+				i++
+				// PubKey start position
+				iPubKey := i
+				// iKey2 is the position of last non-signature item in
+				// the stack. Top stack item = 1. With
+				// ScriptVerifyNullFail, this is used for cleanup if
+				// operation fails.
+				iKey2 := pubKeysCount + 2
+				i += int(pubKeysCount)
+				if stack.Size() < i {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				sigsVch := stack.Top(-i)
+				if err != nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				nSigsNum, err := script.GetScriptNum(sigsVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				nSigsCount := nSigsNum.ToInt32()
+				if nSigsCount < 0 || nSigsCount > pubKeysCount {
+					return errcode.New(errcode.ScriptErrSigCount)
+				}
+				i++
+				/// Sig start position
+				iSig := i
+				i += int(nSigsCount)
+				if stack.Size() < i {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				// Subset of script starting at the most recent codeSeparator
+				scriptCode := script.NewScriptOps(s.ParsedOpCodes[beginCodeHash:])
+
+				// Drop the signature in pre-segwit scripts but not segwit scripts
+				for k := 0; k < int(nSigsCount); k++ {
+					vchSig := stack.Top(-iSig - k)
 					if vchSig == nil {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
-					vchPubkey := stack.Top(-1)
+					scriptCode = scriptCode.RemoveOpcodeByData(vchSig.([]byte))
+				}
+				fSuccess := true
+				for fSuccess && nSigsCount > 0 {
+					vchSig := stack.Top(-iSig)
+					if vchSig == nil {
+						return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					}
+					vchPubkey := stack.Top(-iPubKey)
 					if vchPubkey == nil {
 						return errcode.New(errcode.ScriptErrInvalidStackOperation)
 					}
-
-					vchSigBytes := vchSig.([]byte)
-					err := script.CheckSignatureEncoding(vchSigBytes, flags)
+					// Note how this makes the exact order of
+					// pubkey/signature evaluation distinguishable by
+					// CHECKMULTISIG NOT if the STRICTENC flag is set.
+					// See the script_(in)valid tests for details.
+					err := script.CheckSignatureEncoding(vchSig.([]byte), flags)
 					if err != nil {
 						return err
 					}
@@ -1447,195 +1587,66 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					if err != nil {
 						return err
 					}
-					// signature is DER format, the second byte + 2 indicates the len of signature
-					// 0x30 if the first byte that indicates the beginning of signature
-					//vchSigBytes = vchSigBytes[:vchSigBytes[1]+2]
-					// Subset of script starting at the most recent codeSeparator
-					scriptCode := script.NewScriptOps(s.ParsedOpCodes[beginCodeHash:])
-
-					// Remove the signature since there is no way for a signature
-					// to sign itself.
-					scriptCode = scriptCode.RemoveOpcodeByData(vchSigBytes)
-
-					fSuccess, err := CheckSig(transaction, vchSigBytes, vchPubkey.([]byte), scriptCode, nIn, money, flags)
+					fOk, err := CheckSig(transaction, vchSig.([]byte), vchPubkey.([]byte), scriptCode, nIn, money, flags)
 					if err != nil {
 						return err
 					}
-
-					if !fSuccess &&
-						(flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
-						len(vchSig.([]byte)) > 0 {
+					if fOk {
+						iSig++
+						nSigsCount--
+					}
+					iPubKey++
+					pubKeysCount--
+					// If there are more signatures left than keys left,
+					// then too many signatures have failed. Exit early,
+					// without checking any further signatures.
+					if nSigsCount > pubKeysCount {
+						fSuccess = false
+					}
+				}
+				// Clean up stack of actual arguments
+				for i > 1 {
+					// If the operation failed, we require that all
+					// signatures must be empty vector
+					if !fSuccess && (flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
+						iKey2 == 0 && len(stack.Top(-1).([]byte)) > 0 {
 						return errcode.New(errcode.ScriptErrSigNullFail)
 
 					}
-
-					stack.Pop()
-					stack.Pop()
-					if fSuccess {
-						stack.Push(true)
-					} else {
-						stack.Push(false)
+					if iKey2 > 0 {
+						iKey2--
 					}
-					if e.OpValue == opcodes.OP_CHECKSIGVERIFY {
-						if fSuccess {
-							stack.Pop()
-						} else {
-							return errcode.New(errcode.ScriptErrCheckSigVerify)
-						}
-					}
+					stack.Pop()
+					i--
 				}
-			case opcodes.OP_CHECKMULTISIG:
-				fallthrough
-			case opcodes.OP_CHECKMULTISIGVERIFY:
-				{
-					// ([sig ...] num_of_signatures [pubkey ...]
-					// num_of_pubkeys -- bool)
-					i := 1
-					if stack.Size() < i {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
+				// A bug causes CHECKMULTISIG to consume one extra
+				// argument whose contents were not checked in any way.
+				//
+				// Unfortunately this is a potential source of
+				// mutability, so optionally verify it is exactly equal
+				// to zero prior to removing it from the stack.
+				if stack.Size() < 1 {
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				if flags&script.ScriptVerifyNullDummy == script.ScriptVerifyNullDummy &&
+					len(stack.Top(-1).([]byte)) > 0 {
+					return errcode.New(errcode.ScriptErrSigNullDummy)
 
-					vch := stack.Top(-i)
-					if vch == nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-
-					// ScriptSig1 ScriptSig2...ScriptSigM M PubKey1 PubKey2...PubKey N
-					pubKeysNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					if err != nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					pubKeysCount := pubKeysNum.ToInt32()
-					if pubKeysCount < 0 || pubKeysCount > script.MaxOpsPerScript {
-						return errcode.New(errcode.ScriptErrOpCount)
-					}
-					// skip N
-					i++
-					// PubKey start position
-					iPubKey := i
-					// iKey2 is the position of last non-signature item in
-					// the stack. Top stack item = 1. With
-					// ScriptVerifyNullFail, this is used for cleanup if
-					// operation fails.
-					iKey2 := pubKeysCount + 2
-					i += int(pubKeysCount)
-					if stack.Size() < i {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					sigsVch := stack.Top(-i)
-					if err != nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					nSigsNum, err := script.GetScriptNum(sigsVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
-					if err != nil {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					nSigsCount := nSigsNum.ToInt32()
-					if nSigsCount < 0 || nSigsCount > pubKeysCount {
-						return errcode.New(errcode.ScriptErrSigCount)
-					}
-					i++
-					/// Sig start position
-					iSig := i
-					i += int(nSigsCount)
-					if stack.Size() < i {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-
-					// Subset of script starting at the most recent codeSeparator
-					scriptCode := script.NewScriptOps(s.ParsedOpCodes[beginCodeHash:])
-
-					// Drop the signature in pre-segwit scripts but not segwit scripts
-					for k := 0; k < int(nSigsCount); k++ {
-						vchSig := stack.Top(-iSig - k)
-						if vchSig == nil {
-							return errcode.New(errcode.ScriptErrInvalidStackOperation)
-						}
-						scriptCode = scriptCode.RemoveOpcodeByData(vchSig.([]byte))
-					}
-					fSuccess := true
-					for fSuccess && nSigsCount > 0 {
-						vchSig := stack.Top(-iSig)
-						if vchSig == nil {
-							return errcode.New(errcode.ScriptErrInvalidStackOperation)
-						}
-						vchPubkey := stack.Top(-iPubKey)
-						if vchPubkey == nil {
-							return errcode.New(errcode.ScriptErrInvalidStackOperation)
-						}
-						// Note how this makes the exact order of
-						// pubkey/signature evaluation distinguishable by
-						// CHECKMULTISIG NOT if the STRICTENC flag is set.
-						// See the script_(in)valid tests for details.
-						err := script.CheckSignatureEncoding(vchSig.([]byte), flags)
-						if err != nil {
-							return err
-						}
-						err = script.CheckPubKeyEncoding(vchPubkey.([]byte), flags)
-						if err != nil {
-							return err
-						}
-						fOk, err := CheckSig(transaction, vchSig.([]byte), vchPubkey.([]byte), scriptCode, nIn, money, flags)
-						if err != nil {
-							return err
-						}
-						if fOk {
-							iSig++
-							nSigsCount--
-						}
-						iPubKey++
-						pubKeysCount--
-						// If there are more signatures left than keys left,
-						// then too many signatures have failed. Exit early,
-						// without checking any further signatures.
-						if nSigsCount > pubKeysCount {
-							fSuccess = false
-						}
-					}
-					// Clean up stack of actual arguments
-					for i > 1 {
-						// If the operation failed, we require that all
-						// signatures must be empty vector
-						if !fSuccess && (flags&script.ScriptVerifyNullFail == script.ScriptVerifyNullFail) &&
-							iKey2 == 0 && len(stack.Top(-1).([]byte)) > 0 {
-							return errcode.New(errcode.ScriptErrSigNullFail)
-
-						}
-						if iKey2 > 0 {
-							iKey2--
-						}
+				}
+				stack.Pop()
+				if fSuccess {
+					stack.Push(bnTrue.Serialize())
+				} else {
+					stack.Push(bnFalse.Serialize())
+				}
+				if e.OpValue == opcodes.OP_CHECKMULTISIGVERIFY {
+					if fSuccess {
 						stack.Pop()
-						i--
-					}
-					// A bug causes CHECKMULTISIG to consume one extra
-					// argument whose contents were not checked in any way.
-					//
-					// Unfortunately this is a potential source of
-					// mutability, so optionally verify it is exactly equal
-					// to zero prior to removing it from the stack.
-					if stack.Size() < 1 {
-						return errcode.New(errcode.ScriptErrInvalidStackOperation)
-					}
-					if flags&script.ScriptVerifyNullDummy == script.ScriptVerifyNullDummy &&
-						len(stack.Top(-1).([]byte)) > 0 {
-						return errcode.New(errcode.ScriptErrSigNullDummy)
-
-					}
-					stack.Pop()
-					if fSuccess {
-						stack.Push(true)
 					} else {
-						stack.Push(false)
+						return errcode.New(errcode.ScriptErrCheckMultiSigVerify)
 					}
-					if e.OpValue == opcodes.OP_CHECKMULTISIGVERIFY {
-						if fSuccess {
-							stack.Pop()
-						} else {
-							return errcode.New(errcode.ScriptErrCheckMultiSigVerify)
-						}
-					}
-					break
 				}
+
 			default:
 				return errcode.New(errcode.ScriptErrBadOpCode)
 			}
@@ -1722,14 +1733,14 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 }
 
 // caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
-func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
-	lp = mempool.NewLockPoints()
-	var maxHeight int32 = -1
-	var maxTime int64 = -1
+func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
 	var maxInputHeight int32 = 0
 	activeChain := chain.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
+
+	var coinHeight int32
 	ins := transaction.GetIns()
+	preHeights := make([]int32, 0, len(ins))
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
@@ -1738,23 +1749,83 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 		if coin == nil {
 			return nil
 		}
-		var coinHeight int32
-		var coinTime int64
 		if coin.IsMempoolCoin() {
 			coinHeight = activeChain.Height() + 1
 		} else {
 			coinHeight = coin.GetHeight()
+			if maxInputHeight < coinHeight {
+				maxInputHeight = coinHeight
+			}
 		}
+		preHeights = append(preHeights, coinHeight)
+	}
+
+	maxHeight, maxTime := calculateSequenceLockPair(transaction, preHeights, flags)
+	// Also store the hash of the block with the highest height of all
+	// the blocks which have sequence locked prevouts. This hash needs
+	// to still be on the chain for these LockPoint calculations to be
+	// valid.
+	// Note: It is impossible to correctly calculate a maxInputBlock if
+	// any of the sequence locked inputs depend on unconfirmed txs,
+	// except in the special case where the relative lock time/height is
+	// 0, which is equivalent to no sequence lock. Since we assume input
+	// height of tip+1 for mempool txs and test the resulting lockPair
+	// from CalculateSequenceLocks against tip+1. We know
+	// EvaluateSequenceLocks will fail if there was a non-zero sequence
+	// lock on a mempool input, so we can use the return value of
+	// CheckSequenceLocks to indicate the LockPoints validity
+	lp = mempool.NewLockPoints()
+	lp.Height = maxHeight
+	lp.Time = maxTime
+	lp.MaxInputBlock = activeChain.GetAncestor(maxInputHeight)
+
+	return
+}
+
+func CaculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags uint32) (height int32, time int64) {
+	ins := transaction.GetIns()
+	preHeights := make([]int32, 0, len(ins))
+	var coinHeight int32
+	for _, e := range ins {
+		coin := coinsMap.GetCoin(e.PreviousOutPoint)
+		if coin == nil {
+			panic("no coin")
+		}
+		coinHeight = coin.GetHeight()
+		preHeights = append(preHeights, coinHeight)
+	}
+	return calculateSequenceLockPair(transaction, preHeights, flags)
+}
+
+// caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+func calculateSequenceLockPair(transaction *tx.Tx, preHeight []int32, flags uint32) (height int32, time int64) {
+	var maxHeight int32 = -1
+	var maxTime int64 = -1
+
+	// tx.nVersion is signed integer so requires cast to unsigned otherwise
+	// we would be doing a signed comparison and half the range of nVersion
+	// wouldn't support BIP 68.
+	fEnforceBIP68 := false
+	if transaction.GetVersion() >= 2 && flags&consensus.LocktimeVerifySequence == consensus.LocktimeVerifySequence {
+		fEnforceBIP68 = true
+	}
+	if !fEnforceBIP68 {
+		return maxHeight, maxTime
+	}
+
+	activeChain := chain.GetInstance()
+	ins := transaction.GetIns()
+	for i, e := range ins {
+		// Sequence numbers with the most significant bit set are not
+		// treated as relative lock-times, nor are they given any
+		// consensus-enforced meaning at this point.
 		if e.Sequence&script.SequenceLockTimeDisableFlag == script.SequenceLockTimeDisableFlag {
 			continue
 		}
-		// Can ignore mempool inputs since we'll fail if they had
-		// non-zero locks
-		if coinHeight != activeChain.Height()+1 && maxHeight < coinHeight {
-			maxInputHeight = coinHeight
-		}
+
+		coinHeight := preHeight[i]
 		if e.Sequence&script.SequenceLockTimeTypeFlag == script.SequenceLockTimeTypeFlag {
-			coinTime = activeChain.GetAncestor(coinHeight - 1).GetMedianTimePast()
+			coinTime := activeChain.GetAncestor(coinHeight - 1).GetMedianTimePast()
 			// NOTE: Subtract 1 to maintain nLockTime semantics.
 			// BIP 68 relative lock times have the semantics of calculating the
 			// first block or time at which the transaction would be valid. When
@@ -1779,35 +1850,13 @@ func CalculateSequenceLocks(transaction *tx.Tx, flags uint32) (lp *mempool.LockP
 		}
 	}
 
-	// Also store the hash of the block with the highest height of all
-	// the blocks which have sequence locked prevouts. This hash needs
-	// to still be on the chain for these LockPoint calculations to be
-	// valid.
-	// Note: It is impossible to correctly calculate a maxInputBlock if
-	// any of the sequence locked inputs depend on unconfirmed txs,
-	// except in the special case where the relative lock time/height is
-	// 0, which is equivalent to no sequence lock. Since we assume input
-	// height of tip+1 for mempool txs and test the resulting lockPair
-	// from CalculateSequenceLocks against tip+1. We know
-	// EvaluateSequenceLocks will fail if there was a non-zero sequence
-	// lock on a mempool input, so we can use the return value of
-	// CheckSequenceLocks to indicate the LockPoints validity
-	lp.MaxInputBlock = activeChain.GetAncestor(maxInputHeight)
-	if transaction.GetVersion() < 2 || flags&consensus.LocktimeVerifySequence != consensus.LocktimeVerifySequence {
-		lp.Time = -1
-		lp.Height = -1
-	} else {
-		lp.Height = maxHeight
-		lp.Time = maxTime
-	}
-
-	return
+	return maxHeight, maxTime
 }
 
-func CheckSequenceLocks(lp *mempool.LockPoints) bool {
+func CheckSequenceLocks(height int32, time int64) bool {
 	activeChain := chain.GetInstance()
 	blockTime := activeChain.Tip().GetMedianTimePast()
-	if lp.Height >= activeChain.Height()+1 || lp.Time >= blockTime {
+	if height >= activeChain.Height()+1 || time >= blockTime {
 		return false
 	}
 	return true
@@ -1860,10 +1909,13 @@ func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *s
 		return false, err
 	}
 	signature = signature[:len(signature)-1]
-	//txHash := transaction.GetHash()
-	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
-	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
+	txHash := transaction.GetHash()
+	log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
+		txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
 	fOk := tx.CheckSig(txSigHash, signature, pubKey)
+	//if !fOk {
+	//	panic("CheckSig failed")
+	//}
 	return fOk, err
 }
 
