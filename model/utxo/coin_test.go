@@ -7,10 +7,10 @@ import (
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/script"
-	"fmt"
 	"github.com/copernet/copernicus/model/opcodes"
 	"bytes"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 // test whether get the expected item by OutPoint struct with a pointer
@@ -49,60 +49,76 @@ func TestCoin(t *testing.T) {
 	gto := c.GetTxOut()
 	gh := c.GetHeight()
 	ga := c.GetAmount()
-	fmt.Printf("txout value is :%v\nheight is: %v\namount is: %v\n", gto, gh, ga)
-	coinbase := c.isCoinBase
-	fmt.Printf("whether the tx is coinbase: %v\n", coinbase)
-	gsp := c.GetScriptPubKey()
-	fmt.Printf("the script pub key of tx: %v \n", gsp)
-	dmu := c.DynamicMemoryUsage()
-	fmt.Printf("dmu is : %v\n", dmu)
+
+	if ga != txout1.GetValue() {
+		t.Error("get amount value is error, please check..")
+	}
+
+	if gto != *txout1 || gh != 10 || c.isCoinBase != false {
+		t.Error("get value is faild...")
+	}
+
+	if c.isCoinBase != false {
+		t.Error("the coin is coinbase , please check coin ")
+	}
+
+	exceptScript := c.GetScriptPubKey()
+
+	if !reflect.DeepEqual(exceptScript, script1) {
+		t.Error("get script pubkey is not equal script1, please check...")
+	}
+
+	if c.DynamicMemoryUsage() > 0 {
+		t.Error("DynamicMemoryUsage not need test...")
+	}
+
+	if !reflect.DeepEqual(c.DeepCopy(), c) {
+		t.Error("after deep copy, the value should equal coin")
+	}
 
 	c.Clear()
-	fmt.Println("==========after clear=============")
-	cgto := c.GetTxOut()
-	cgh := c.GetHeight()
-	cga := c.GetAmount()
-	fmt.Printf("txout value is :%v\nheight is: %v\namount is: %v\n", cgto, cgh, cga)
-	ccoinbase := c.isCoinBase
-	cmemcoin := c.isMempoolCoin
-	fmt.Printf("whether the tx is coinbase: %v, is mempool coin:%v\n", ccoinbase, cmemcoin)
-	cgsp := c.GetScriptPubKey()
-	fmt.Printf("the script pub key of tx: %v \n", cgsp)
-	dc := c.DeepCopy()
-	fmt.Printf("deep copy coin : %v \n", dc)
+	if c.GetHeight() == 0 && c.GetAmount() == 0 {
+		t.Error("there is one error in clear func...")
+	}
 
-	fmt.Println("============test script2 case===========")
+	if c.isCoinBase != false && c.isMempoolCoin != false {
+		t.Error("isCoinBase and isMempoolCoin value should false")
+	}
+
+	if c.GetScriptPubKey() != nil {
+		t.Error("the script pubkey should nil")
+	}
+
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout2 := txout.NewTxOut(3, script2)
 	c2 := NewCoin(txout2, 10, false)
-	gto2 := c2.GetTxOut()
-	gh2 := c2.GetHeight()
-	ga2 := c2.GetAmount()
-	fmt.Printf("txout value is :%v\nheight is: %v\namount is: %v\n", gto2, gh2, ga2)
-	coinbase2 := c2.isCoinBase
-	fmt.Printf("whether the tx is coinbase: %v\n", coinbase2)
-	gsp2 := c2.GetScriptPubKey()
-	fmt.Printf("the script pub key of tx: %v \n", gsp2)
-	dc2 := c2.DeepCopy()
-	fmt.Printf("deep copy coin : %v \n", dc2)
+
+	if c2.GetTxOut() != *txout2 || c2.GetHeight() != 10 {
+		t.Error("get coin value is failed, please check..")
+	}
+
+	if c2.GetAmount() != txout2.GetValue() {
+		t.Error("get amount failed, please check...")
+	}
+
+	if c2.isCoinBase != false {
+		t.Error("the tx not is coinbase, please check...")
+	}
+
+	if !reflect.DeepEqual(c2.GetScriptPubKey(), script2) {
+		t.Error("get script error,the value should equal script2, please check..")
+	}
+
+	if !reflect.DeepEqual(c2.DeepCopy(), c2) {
+		t.Error("deep copy coin should equal c2")
+	}
 
 	c2.Clear()
-	fmt.Println("==========after clear=============")
-	cgto2 := c2.GetTxOut()
-	cgh2 := c2.GetHeight()
-	cga2 := c2.GetAmount()
-	fmt.Printf("txout value is :%v\nheight is: %v\namount is: %v\n", cgto2, cgh2, cga2)
-	ccoinbase2 := c2.isCoinBase
-	cmemcoin2 := c.isMempoolCoin
-	fmt.Printf("whether the tx is coinbase: %v, is mempool coin:%v\n", ccoinbase2, cmemcoin2)
-	cgsp2 := c2.GetScriptPubKey()
-	fmt.Printf("the script pub key of tx: %v \n", cgsp2)
-	fmt.Println("=========test mempool coin========")
-	nmc := NewMempoolCoin(txout2)
-	mc := nmc.isMempoolCoin
-	fmt.Printf("whether the coin is mempool coin: %v \n", mc)
-	dc22 := c2.DeepCopy()
-	fmt.Printf("deep copy coin : %v \n", dc22)
+
+	if reflect.DeepEqual(c2.DeepCopy(),c2){
+		t.Error("after clear, the value of deep copy coin not equal coin.")
+	}
+
 }
 
 func TestCoinSec(t *testing.T) {
@@ -111,7 +127,6 @@ func TestCoinSec(t *testing.T) {
 
 	c3 := NewCoin(txout3, 1000, true)
 	spew.Dump("the coin  is: %v \n ", c3)
-
 
 	w := bytes.NewBuffer(nil)
 	c3.Serialize(w)
@@ -122,5 +137,5 @@ func TestCoinSec(t *testing.T) {
 		t.Errorf("unserlize failed...%v\n", err)
 	}
 
-	spew.Dump("unserlize value is :%v \n",target)
+	spew.Dump("unserlize value is :%v \n", target)
 }
