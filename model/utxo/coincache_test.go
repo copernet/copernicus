@@ -7,14 +7,12 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/txout"
-	"fmt"
 	"io/ioutil"
 	"github.com/copernet/copernicus/persist/db"
-	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 func TestCoinCache(t *testing.T) {
-	fmt.Println("========create coinmap cache=========")
 	necm := NewEmptyCoinsMap()
 
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d011")
@@ -48,10 +46,7 @@ func TestCoinCache(t *testing.T) {
 	}
 
 	necm.AddCoin(&outpoint1, necm.cacheCoins[outpoint1])
-	spew.Dump(necm.cacheCoins[outpoint1])
 	necm.AddCoin(&outpoint2, necm.cacheCoins[outpoint2])
-
-	fmt.Println("=============create lru cache============")
 
 	path, err := ioutil.TempDir("", "coindbtest")
 	if err != nil {
@@ -72,32 +67,40 @@ func TestCoinCache(t *testing.T) {
 	InitUtxoLruTip(uc)
 
 	necm.Flush(*hash1)
-	spew.Dump(necm)
 
-	utxoLruTip.UpdateCoins(necm, hash1)
+	err1 := utxoLruTip.UpdateCoins(necm, hash1)
+	if err1 != nil {
+		t.Errorf("update coins failed,the error is :%v", err1)
+	}
 
-	cc := utxoLruTip.GetCoin(&outpoint1)
-	spew.Dump("get coin value is :%v", cc)
+	if reflect.DeepEqual(utxoLruTip.GetCoin(&outpoint1), necm.cacheCoins[outpoint1]) {
+		t.Error("the lru cache shouldn't equal cache coins of coinmap, the cache coin of map is equal nil")
+	}
 
-	ok := utxoLruTip.HaveCoin(&outpoint2)
-	spew.Dump(ok) 
-
+	if utxoLruTip.HaveCoin(&outpoint2) == false {
+		t.Error("the cache should have coin, please check")
+	}
 
 	//flush
 	necm.SetBestBlock(*hash1)
 	necm.Flush(*hash1)
 	cvt := GetUtxoLruCacheInstance()
-	h := cvt.GetBestBlock()
-	s := cvt.GetCacheSize() //2
-	spew.Dump("get best block hash is :%v, get cache size value is :%v \n", h, s)
+	if cvt.GetBestBlock() != *hash1 {
+		t.Error("get best block failed...")
+	}
+	if cvt.GetCacheSize() != 2 {
+		t.Error("the cache size is 2, please check...")
+	}
 
 	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
 	necm.SetBestBlock(*hash2)
 	//necm.Flush(*hash2)
 	gulci := GetUtxoLruCacheInstance()
-	h1 := gulci.GetBestBlock()
-	s1 := gulci.GetCacheSize() //2
-
-	spew.Dump("get best block hash is :%v, get cache size value is :%v \n", h1, s1)
+	if gulci.GetBestBlock() != *hash1 {
+		t.Error("get best block failed...")
+	}
+	if gulci.GetCacheSize() != 2 {
+		t.Error("the cache size is 2, please check...")
+	}
 
 }

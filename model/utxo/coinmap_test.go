@@ -2,18 +2,19 @@ package utxo
 
 import (
 	"testing"
-	"fmt"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/txout"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestCoinMap(t *testing.T) {
 	necm := NewEmptyCoinsMap()
-	fmt.Printf("the coin empty map is : %v \n", necm)
+
+	if len(necm.cacheCoins) != 0 || necm.hashBlock != util.HashZero {
+		t.Error("init empty coin map failed.")
+	}
 
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
 	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
@@ -31,7 +32,9 @@ func TestCoinMap(t *testing.T) {
 	}
 
 	c := necm.GetCoin(&outpoint1)
-	fmt.Printf("coin:%v\n", c)
+	if c != necm.cacheCoins[outpoint1] {
+		t.Error("get coin failed.")
+	}
 
 	hash2 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a7")
 	outpoint2 := outpoint.OutPoint{Hash: *hash2, Index: 0}
@@ -50,13 +53,11 @@ func TestCoinMap(t *testing.T) {
 
 	necm.AddCoin(&outpoint1, necm.cacheCoins[outpoint1])
 	necm.AddCoin(&outpoint2, necm.cacheCoins[outpoint2])
-	spew.Dump("now coin map value is : %v \n", necm)
 
-	fmt.Println("============after spend=============")
+	if necm.SpendCoin(&outpoint1) != c {
+		t.Error("spend coin failed, please check...")
+	}
 
-	cc := necm.SpendCoin(&outpoint1)
-	fmt.Printf("spend coin is :%v \n", cc)
-	spew.Dump("after spend coin, coin map value is :%v \n", necm)
 	//ok := necm.Flush(*hash1)
 	//if ok {
 	//	fmt.Println()
@@ -64,9 +65,11 @@ func TestCoinMap(t *testing.T) {
 	//}
 
 	necm.UnCache(&outpoint1)
-	sc := necm.SpendCoin(&outpoint1)
-	spew.Dump("uncache coin, go on to spend, the value is :%v", sc)
+	if necm.SpendCoin(&outpoint1) != nil {
+		t.Error("the uncache func is failed.")
+	}
 
-	c1 := necm.GetCoin(&outpoint1)
-	spew.Dump("coin:%v\n", c1)
+	if necm.GetCoin(&outpoint1) != nil {
+		t.Error("after spend coin, the coin is empty, please check...")
+	}
 }

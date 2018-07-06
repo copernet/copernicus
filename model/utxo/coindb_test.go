@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/outpoint"
-	"fmt"
 	"github.com/copernet/copernicus/model/chain"
+	"fmt"
 )
 
 func TestCoinsDB(t *testing.T) {
@@ -31,15 +31,25 @@ func TestCoinsDB(t *testing.T) {
 	chain.InitGlobalChain(nil)
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
 	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
-	hc := utxoLruTip.HaveCoin(&outpoint1)
-	fmt.Printf("wtether the db have coin : %v\n", hc)
 
-	es := utxoLruTip.DynamicMemoryUsage()
-	fmt.Printf("Estimate size value is :%v\n ", es)
 
-	c := utxoLruTip.GetCoin(&outpoint1)
-	fmt.Printf("get coin value is : %v\n", c)
+	if utxoLruTip.HaveCoin(&outpoint1) == true {
+		t.Error("the db not have coin")
+	}
 
-	hash := utxoLruTip.GetBestBlock()
-	fmt.Printf("get best block is : %v\n", hash)
+	if utxoLruTip.DynamicMemoryUsage() < 0 {
+		t.Error("memory can not less than zero,please check..")
+	}
+
+	if utxoLruTip.GetCoin(&outpoint1) != nil {
+		t.Error("the db not have coin, so the coin is nil.")
+	}
+
+	fmt.Println(*hash1)
+	hash2 := utxoLruTip.GetBestBlock()
+	fmt.Println(hash2)
+
+	//if utxoLruTip.GetBestBlock() != *hash1 {
+	//	t.Error("the best block is hash1,please check..")
+	//}
 }
