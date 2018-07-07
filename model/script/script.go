@@ -242,7 +242,7 @@ func (s *Script) Decode(reader io.Reader, isCoinBase bool) (err error) {
 }
 
 func (s *Script) IsSpendable() bool {
-	if (len(s.data) > 0 && s.ParsedOpCodes[0].OpValue == opcodes.OP_RETURN) || len(s.data) > MaxScriptSize {
+	if (len(s.data) > 0 && s.data[0] == opcodes.OP_RETURN) || len(s.data) > MaxScriptSize {
 		return false
 	}
 	return true

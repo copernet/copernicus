@@ -192,7 +192,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	bundo = undo.NewBlockUndo(0)
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 	//updateCoins
-	for _, transaction := range txs {
+	for i, transaction := range txs {
 		//check duplicate out
 		if bip30Enable {
 			outs := transaction.GetOuts()
@@ -229,7 +229,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		}
 		sigOpsCount += uint64(sigsCount)
 		if sigOpsCount > blockMaxSigOpsCount {
-			log.Debug("block has too many sigops")
+			log.Debug("block has too many sigops at %d transaction", i)
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
@@ -371,11 +371,8 @@ func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) int {
 			panic("can't find coin in temp coinsmap")
 		}
 		scriptPubKey := coin.GetScriptPubKey()
-		if !scriptPubKey.IsPayToScriptHash() {
+		if scriptPubKey.IsPayToScriptHash() {
 			sigsCount := scriptPubKey.GetSigOpCount(true)
-			n += sigsCount
-		} else {
-			sigsCount := e.GetScriptSig().GetP2SHSigOpCount()
 			n += sigsCount
 		}
 	}
