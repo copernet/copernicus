@@ -1,79 +1,58 @@
 package utxo
 
 import (
-	"fmt"
 	"testing"
-
 	"github.com/copernet/copernicus/persist/db"
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/txout"
 )
 
-func TestMain(m *testing.M) {
-	config := UtxoConfig{Do: &db.DBOption{FilePath: "/tmp/db", CacheSize: 10000}}
-	InitUtxoLruTip(&config)
-	m.Run()
-}
+func TestLRUCache(t *testing.T) {
+	uc := &UtxoConfig{Do: &db.DBOption{
+		FilePath:  "/tmp/dbtest",
+		CacheSize: 1 << 20,
+	},}
 
-// func TestNewCoinsLruCache(t *testing.T) {
-//
-// 	coinsmap := NewEmptyCoinsMap()
-// 	coin := NewEmptyCoin()
-// 	coin.isCoinBase = true
-// 	coin.height = 100
-// 	h := util.HashZero
-// 	op := outpoint.NewOutPoint(h, 0)
-// 	coinsmap.AddCoin(op, coin)
-// 	utxoLruTip.UpdateCoins(coinsmap, &util.HashZero)
-// 	utxoLruTip.Flush()
-// 	c := utxoLruTip.GetCoin(op)
-// 	fmt.Println("c==TestNewCoinsLruCache=====%#v", c)
-// }
-//
-// func TestCoinsLruCache_GetCoin(t *testing.T) {
-// 	h := util.HashZero
-// 	op := outpoint.NewOutPoint(h, 0)
-// 	c := utxoLruTip.GetCoin(op)
-// 	fmt.Println("c===TestCoinsLruCache_GetCoin====%#v", c)
-// }
+	InitUtxoLruTip(uc)
 
-func TestCoinsDB_BatchWrite(t *testing.T) {
-	// d := utxoLruTip.(*CoinsLruCache).db
-	// batch := db.NewBatchWrapper(d.dbw)
-	// tk := []byte("aaaaaaaaaa")
-	// tv := []byte("bbbbbbbbbb")
-	// batch.Write(tk, tv)
-	// err := d.dbw.WriteBatch(batch, true)
-	// fmt.Println(err)
-	// v, e := d.dbw.Read(tv)
-	// fmt.Println(v,e)
-	// tk1 := []byte("cccccccccc")
-	// tv1 := []byte("dddddddddd")
-	// e = d.dbw.Write(tk1,tv1, true)
-	// fmt.Println(e)
-	// v1, e1 := d.dbw.Read(tv1)
-	// fmt.Println(v1,e1)
+	necm := NewEmptyCoinsMap()
+	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
 
-	//
-	ldb, _ := leveldb.OpenFile("/tmp/db", nil)
-	// tk2 := []byte("ffffffffff")
-	// tv2 := []byte("ffffffffff")
-	// data, e2:= ldb.Get(tk2,nil)
-	// fmt.Println(data,e2)
-	// ldb.Put(tk2, tv2, nil)
-	// data, e2 = ldb.Get(tk2,nil)
-	// fmt.Println(data,e2)
+	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
+	txout2 := txout.NewTxOut(3, script2)
 
-	bat := new(leveldb.Batch)
-	tk3 := []byte("g")
-	tv3 := []byte("g")
-	tk4 := []byte("h")
-	d3, e3 := ldb.Get(tk3, nil)
-	d4, e4 := ldb.Get(tk4, nil)
-	fmt.Println(d3, d4, e3, e4)
-	bat.Put(tk3, tv3)
-	bat.Put(tk4, tv3)
-	ldb.Write(bat, nil)
-	d3, e3 = ldb.Get(tk3, nil)
-	d4, e4 = ldb.Get(tk4, nil)
-	fmt.Println(d3, d4, e3, e4)
+	necm.cacheCoins[outpoint1] = &Coin{
+		txOut:         *txout2,
+		height:        10000,
+		isCoinBase:    false,
+		isMempoolCoin: false,
+		dirty:         false,
+		fresh:         false,
+	}
+
+	necm.AddCoin(&outpoint1, necm.cacheCoins[outpoint1])
+
+	ok := necm.Flush(*hash1)
+	if !ok {
+		t.Error("flush failed....", )
+	}
+
+	b := utxoTip.Flush()
+	if !b {
+		t.Error("flush error, the coin not flush to db..")
+	}
+
+	c := utxoTip.GetCoin(&outpoint1)
+	if c == nil  {
+		t.Error("get coin faild...")
+	}
+
+	hv := utxoTip.HaveCoin(&outpoint1)
+	if !hv {
+		t.Error("the cache not have coin, please check...")
+	}
 }
