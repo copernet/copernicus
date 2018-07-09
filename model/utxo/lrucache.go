@@ -19,21 +19,9 @@ type CoinsLruCache struct {
 	dirtyCoins map[outpoint.OutPoint]*Coin //write database temporary cache
 }
 
-var utxoLruTip CacheView
-
 func InitUtxoLruTip(uc *UtxoConfig) {
-	// fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
-
 	db := NewCoinsDB(uc.Do)
-	utxoLruTip = NewCoinsLruCache(*db)
-
-}
-
-func GetUtxoLruCacheInstance() CacheView {
-	if utxoLruTip == nil {
-		log.Error("utxoTip has not init!!")
-	}
-	return utxoLruTip
+	utxoTip = NewCoinsLruCache(*db)
 }
 
 func NewCoinsLruCache(db CoinsDB) CacheView {
@@ -153,6 +141,7 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 }
 
 func (coinsCache *CoinsLruCache) Flush() bool {
+
 	//println("flush=============")
 	//fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
 	if len(coinsCache.dirtyCoins) > 0 || !coinsCache.hashBlock.IsNull() {

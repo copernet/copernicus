@@ -33,20 +33,20 @@ func TestCoinsDB(t *testing.T) {
 	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
 
 
-	if utxoLruTip.HaveCoin(&outpoint1) == true {
+	if utxoTip.HaveCoin(&outpoint1) == true {
 		t.Error("the db not have coin")
 	}
 
-	if utxoLruTip.DynamicMemoryUsage() < 0 {
+	if utxoTip.DynamicMemoryUsage() < 0 {
 		t.Error("memory can not less than zero,please check..")
 	}
 
-	if utxoLruTip.GetCoin(&outpoint1) != nil {
+	if utxoTip.GetCoin(&outpoint1) != nil {
 		t.Error("the db not have coin, so the coin is nil.")
 	}
 
 	fmt.Println(*hash1)
-	hash2 := utxoLruTip.GetBestBlock()
+	hash2 := utxoTip.GetBestBlock()
 	fmt.Println(hash2)
 
 	//if utxoLruTip.GetBestBlock() != *hash1 {
