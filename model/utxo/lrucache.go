@@ -1,7 +1,6 @@
 package utxo
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/copernet/copernicus/log"
@@ -39,7 +38,7 @@ func NewCoinsLruCache(db CoinsDB) CacheView {
 func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	c, ok := coinsCache.cacheCoins.Get(*outpoint)
 	if ok {
-		fmt.Println("getCoin from cache")
+		log.Info("getCoin from cache")
 		return c.(*Coin)
 	}
 	db := coinsCache.db
@@ -60,7 +59,7 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 		// our version as fresh.
 		coin.fresh = true
 	}
-	fmt.Println("getCoin from db")
+	log.Info("getCoin from db")
 
 	return coin
 }
