@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
 	"github.com/hashicorp/golang-lru"
@@ -71,13 +70,14 @@ func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
 	return coin != nil && !coin.IsSpent()
 }
 
-func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
+func (coinsCache *CoinsLruCache) GetBestBlock() (util.Hash, error) {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
 		if err == leveldb.ErrNotFound {
-			genesisHash := chain.GetInstance().GetParams().GenesisBlock.GetHash()
-			coinsCache.hashBlock = genesisHash
-			return coinsCache.hashBlock
+			//genesisHash := chain.GetInstance().GetParams().GenesisBlock.GetHash()
+			//coinsCache.hashBlock = genesisHash
+			//return coinsCache.hashBlock, nil
+			return util.Hash{}, err
 		}
 		if err != nil {
 			log.Error("db.GetBestBlock err:%#v", err)
@@ -85,7 +85,7 @@ func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
 		}
 		coinsCache.hashBlock = *hashBlock
 	}
-	return coinsCache.hashBlock
+	return coinsCache.hashBlock, nil
 }
 
 func (coinsCache *CoinsLruCache) SetBestBlock(hash util.Hash) {

@@ -16,6 +16,7 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util/amount"
 
+	"encoding/hex"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
 )
@@ -281,10 +282,9 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 	bIndex = blockindex.NewBlockIndex(bh)
 	if !bIndex.IsGenesis(gChain.GetParams()) {
-
 		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
-			log.Debug("AcceptBlockHeader err:ErrorBlockHeaderNoParent")
+			log.Debug("Find Block in BlockIndexMap err, hash:%s", hex.EncodeToString(bh.HashPrevBlock[:]))
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
 		}
 		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev) {

@@ -433,7 +433,7 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 
 func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	//check inputs money range
-	bestBlockHash := utxo.GetUtxoCacheInstance().GetBestBlock()
+	bestBlockHash, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
 	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
 
 	err := CheckInputsMoney(tx, tempCoinMap, spendHeight)

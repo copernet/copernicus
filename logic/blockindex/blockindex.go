@@ -158,23 +158,25 @@ func LoadBlockIndexDB() bool {
 	gChain.InitLoad(GlobalBlockIndexMap, branch)
 
 	// Load pointer to end of best chain todo: coinDB must init!!!
-	bestHash := utxo.GetUtxoCacheInstance().GetBestBlock()
-	tip, ok := GlobalBlockIndexMap[bestHash]
-	indexMapLen := len(GlobalBlockIndexMap)
-	fmt.Println("indexMapLen====", indexMapLen)
-	if !ok {
-		//shoud reindex from db
-		log.Debug("can't find tip from blockindex db, please delete blocks and chainstate and run again")
-		panic("can't find tip from blockindex db")
-		//return true
+	bestHash, err := utxo.GetUtxoCacheInstance().GetBestBlock()
+	log.Debug("find bestblock hash:%v and err:%v from utxo", bestHash, err)
+	if err == nil {
+		tip, ok := GlobalBlockIndexMap[bestHash]
+		indexMapLen := len(GlobalBlockIndexMap)
+		fmt.Println("indexMapLen====", indexMapLen)
+		if !ok {
+			//shoud reindex from db
+			log.Debug("can't find tip from blockindex db, please delete blocks and chainstate and run again")
+			panic("can't find tip from blockindex db")
+			//return true
+		}
+		// init active chain by tip[load from db]
+		gChain.SetTip(tip)
+		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
+			gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
+			time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
+			gChain.Tip())
 	}
-	// init active chain by tip[load from db]
-	gChain.SetTip(tip)
-
-	log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
-		gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
-		time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
-		gChain.Tip())
 
 	return true
 }
