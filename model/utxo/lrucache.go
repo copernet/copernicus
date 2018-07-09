@@ -19,21 +19,9 @@ type CoinsLruCache struct {
 	dirtyCoins map[outpoint.OutPoint]*Coin //write database temporary cache
 }
 
-var utxoLruTip CacheView
-
 func InitUtxoLruTip(uc *UtxoConfig) {
-	// fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
-
 	db := NewCoinsDB(uc.Do)
-	utxoLruTip = NewCoinsLruCache(*db)
-
-}
-
-func GetUtxoLruCacheInstance() CacheView {
-	if utxoLruTip == nil {
-		log.Error("utxoTip has not init!!")
-	}
-	return utxoLruTip
+	utxoTip = NewCoinsLruCache(*db)
 }
 
 func NewCoinsLruCache(db CoinsDB) CacheView {
@@ -57,7 +45,7 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
-	if err != nil && err == leveldb.ErrNotFound{
+	if err != nil && err == leveldb.ErrNotFound {
 		return nil
 	}
 	if err != nil {
@@ -87,7 +75,7 @@ func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
 		if err == leveldb.ErrNotFound {
-			genesisHash  := chain.GetInstance().GetParams().GenesisBlock.GetHash()
+			genesisHash := chain.GetInstance().GetParams().GenesisBlock.GetHash()
 			coinsCache.hashBlock = genesisHash
 			return coinsCache.hashBlock
 		}
@@ -153,9 +141,8 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 }
 
 func (coinsCache *CoinsLruCache) Flush() bool {
-	println("flush=============")
-	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
-	if len(coinsCache.dirtyCoins)>0 || !coinsCache.hashBlock.IsNull(){
+	log.Info("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
+	if len(coinsCache.dirtyCoins) > 0 || !coinsCache.hashBlock.IsNull() {
 		ok := coinsCache.db.BatchWrite(coinsCache.dirtyCoins, coinsCache.hashBlock)
 		return ok == nil
 	}

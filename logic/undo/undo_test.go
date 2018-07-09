@@ -104,7 +104,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	UpdateUTXOSet(block, undos, coinsMap, chainparams, 123456)
 
-	cvt := utxo.GetUtxoLruCacheInstance()
+	cvt := utxo.GetUtxoCacheInstance()
 	if cvt.GetBestBlock() != block.GetHash() {
 		t.Error("this block should have been stored in the cache")
 	}
