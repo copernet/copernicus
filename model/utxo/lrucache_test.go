@@ -82,8 +82,11 @@ func TestLRUCache(t *testing.T) {
 	if c2 == nil {
 		t.Error("get coin faild...")
 	}
-	
-	clc := utxoTip.(*CoinsLruCache)
+
+	clc, ok := utxoTip.(*CoinsLruCache)
+	if !ok {
+		panic("the type assertion failed...")
+	}
 	clc.UnCache(&outpoint2)
 
 	hv2 := utxoTip.HaveCoin(&outpoint2)
