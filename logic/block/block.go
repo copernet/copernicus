@@ -83,6 +83,7 @@ func CheckBlock(pblock *block.Block) error {
 	mutated := false
 	hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock, &mutated)
 	if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
+		log.Debug("ErrorBadTxMrklRoot")
 		return errcode.New(errcode.ErrorBadTxnMrklRoot)
 	}
 
@@ -90,6 +91,7 @@ func CheckBlock(pblock *block.Block) error {
 	// sequences of transactions in a block without affecting the merkle
 	// root of a block, while still invalidating it.
 	if mutated {
+		log.Debug("ErrorbadTxnsDuplicate")
 		return errcode.New(errcode.ErrorbadTxnsDuplicate)
 	}
 
@@ -99,6 +101,7 @@ func CheckBlock(pblock *block.Block) error {
 
 	// First transaction must be coinBase.
 	if len(pblock.Txs) == 0 {
+		log.Debug("ErrorBadCoinBaseMissing")
 		return errcode.New(errcode.ErrorBadCoinBaseMissing)
 	}
 
@@ -108,16 +111,19 @@ func CheckBlock(pblock *block.Block) error {
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := tx.NewEmptyTx().EncodeSize()
 	if len(pblock.Txs)*int(minTransactionSize) > int(nMaxBlockSize) {
+		log.Debug("ErrorBadBlkLength")
 		return errcode.New(errcode.ErrorBadBlkLength)
 	}
 
 	currentBlockSize := pblock.EncodeSize()
 	if currentBlockSize > int(nMaxBlockSize) {
+		log.Debug("ErrorBadBlkTxSize")
 		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
 
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
+		log.Debug("ErrorBadBlkTx")
 		return errcode.New(errcode.ErrorBadBlkTx)
 	}
 	pblock.Checked = true
@@ -197,8 +203,8 @@ func AcceptBlock(pblock *block.Block,
 	log.Info(bIndex)
 
 	if bIndex.Accepted() {
+		log.Debug("AcceptBlock err:%d", 3009)
 		err = errcode.ProjectError{Code: 3009}
-
 		return
 	}
 	if !fRequested {
@@ -211,14 +217,14 @@ func AcceptBlock(pblock *block.Block,
 			fHasMoreWork = true
 		}
 		if !fHasMoreWork {
+			log.Debug("AcceptBlockHeader err:%d", 3008)
 			err = errcode.ProjectError{Code: 3008}
-
 			return
 		}
 		fTooFarAhead := bIndex.Height > tip.Height+MinBlocksToKeep
 		if fTooFarAhead {
+			log.Debug("AcceptBlockHeader err:%d", 3007)
 			err = errcode.ProjectError{Code: 3007}
-
 			return
 		}
 	}
@@ -247,6 +253,7 @@ func AcceptBlock(pblock *block.Block,
 	if err != nil {
 		bIndex.AddStatus(blockindex.StatusFailed)
 		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
+		log.Debug("AcceptBlockHeader err:%d", 3006)
 		err = errcode.ProjectError{Code: 3006}
 		return
 	}
@@ -277,12 +284,15 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
+			log.Debug("AcceptBlockHeader err:ErrorBlockHeaderNoParent")
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
 		}
 		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev) {
+			log.Debug("AcceptBlockHeader err:%d", 3100)
 			return nil, errcode.ProjectError{Code: 3100}
 		}
 		if !ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()) {
+			log.Debug("AcceptBlockHeader err:%d", 3101)
 			return nil, errcode.ProjectError{Code: 3101}
 		}
 	}
@@ -293,6 +303,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 	err = c.AddToIndexMap(bIndex)
 	if err != nil {
+		log.Debug("AcceptBlockHeader err")
 		return nil, err
 	}
 	return bIndex, nil

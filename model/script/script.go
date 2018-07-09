@@ -391,7 +391,8 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 		return
 	}
 	if count > uint64(maxAllowed) {
-		err = errors.Errorf("readScript %s is larger than the max allowed size [count %d,max %d]", fieldName, count, maxAllowed)
+		log.Debug("ReadScript size err")
+		err = errcode.New(errcode.ScriptErrScriptSize)
 		return
 	}
 	//buf := scriptPool.Borrow(count)
@@ -595,10 +596,12 @@ func (script *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]b
 
 func (script *Script) CheckScriptSigStandard() error {
 	if script.Size() > 1650 {
+		log.Debug("ScriptErrSize")
 		return errcode.New(errcode.ScriptErrSize)
 	}
 	if !script.IsPushOnly() {
 		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-not-pushonly", false, "")
+		log.Debug("ScriptErrScriptSigNotPushOnly")
 		return errcode.New(errcode.ScriptErrScriptSigNotPushOnly)
 	}
 
@@ -749,6 +752,7 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 	}
 	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc)) != 0 &&
 		!crypto.IsValidSignatureEncoding(vchSig) {
+		log.Debug("ScriptErrInvalidSignatureEncoding")
 		return errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
 
 	}
@@ -761,6 +765,7 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 
 	if (flags & ScriptVerifyStrictEnc) != 0 {
 		if !crypto.IsDefineHashtypeSignature(vchSig) {
+			log.Debug("ScriptErrSigHashType")
 			return errcode.New(errcode.ScriptErrSigHashType)
 		}
 	}
@@ -770,12 +775,14 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 
 func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
 	if flags&ScriptVerifyStrictEnc != 0 && !crypto.IsCompressedOrUncompressedPubKey(vchPubKey) {
+		log.Debug("ScriptErrPubKeyType")
 		return errcode.New(errcode.ScriptErrPubKeyType)
 
 	}
 	// Only compressed keys are accepted when
 	// ScriptVerifyCompressedPubKeyType is enabled.
 	if flags&ScriptVerifyCompressedPubkeyType != 0 && !crypto.IsCompressedPubKey(vchPubKey) {
+		log.Debug("ScriptErrNonCompressedPubKey")
 		return errcode.New(errcode.ScriptErrNonCompressedPubKey)
 	}
 	return nil

@@ -198,6 +198,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
+			log.Error("error: FailedToReadBlock")
 			return errcode.New(errcode.FailedToReadBlock)
 		}
 		connTrace[pIndexNew] = blockNew
@@ -269,6 +270,7 @@ func DisconnectTip(fBare bool) error {
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
+		log.Debug("FailedToReadBlock")
 		return errcode.New(errcode.FailedToReadBlock)
 	}
 

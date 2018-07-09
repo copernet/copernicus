@@ -2,13 +2,14 @@ package script
 
 import (
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
 )
 
 const (
 	DefaultMaxNumSize = 4
 
-	MaxInt32          = 1<<31 - 1
-	MinInt32          = -1 << 31
+	MaxInt32 = 1<<31 - 1
+	MinInt32 = -1 << 31
 )
 
 type ScriptNum struct {
@@ -19,6 +20,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 	vchLen := len(vch)
 
 	if vchLen > maxNumSize {
+		log.Debug("ScriptErrNumberOverflow")
 		err = errcode.New(errcode.ScriptErrNumberOverflow)
 		scriptNum = NewScriptNum(0)
 		return
@@ -32,14 +34,15 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 		// If the most-significant-byte - excluding the sign bit - is zero
 		// then we're not minimal. Note how this test also rejects the
 		// negative-zero encoding, 0x80.
-		if vch[vchLen - 1] & 0x7f == 0 {
+		if vch[vchLen-1]&0x7f == 0 {
 
 			// One exception: if there's more than one byte and the most
 			// significant bit of the second-most-significant-byte is set
 			// it would conflict with the sign bit. An example of this case
 			// is +-255, which encode to 0xff00 and 0xff80 respectively.
 			// (big-endian).
-			if vchLen == 1 || (vch[vchLen - 2] & 0x80) == 0 {
+			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
+				log.Debug("ScriptErrNonMinimalEncodedNumber")
 				err = errcode.New(errcode.ScriptErrNonMinimalEncodedNumber)
 				scriptNum = NewScriptNum(0)
 				return
@@ -54,13 +57,13 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 
 	var v int64
 	for i := 0; i < vchLen; i++ {
-		v |= int64(vch[i]) << uint8(8 * i)
+		v |= int64(vch[i]) << uint8(8*i)
 	}
 
 	// If the input vector's most significant byte is 0x80, remove it from
 	// the result and return a negative(set the sign bit of int64 to 1).
-	if vch[vchLen -  1] & 0x80 != 0 {
-		v &= ^(int64(0x80) << uint8(8 * (vchLen - 1)))
+	if vch[vchLen-1]&0x80 != 0 {
+		v &= ^(int64(0x80) << uint8(8*(vchLen-1)))
 		scriptNum = NewScriptNum(-v)
 		return
 	}
@@ -94,7 +97,7 @@ func (scriptNum *ScriptNum) Serialize() (bytes []byte) {
 	}
 	bytes = make([]byte, 0, 9)
 	for absoluteValue > 0 {
-		bytes = append(bytes, byte(absoluteValue & 0xff))
+		bytes = append(bytes, byte(absoluteValue&0xff))
 		absoluteValue >>= 8
 	}
 	// - If the most significant byte is >= 0x80 and the value is positive, push a
@@ -107,14 +110,14 @@ func (scriptNum *ScriptNum) Serialize() (bytes []byte) {
 	// 0x80 to it, since it will be subtracted and interpreted as a negative when
 	// converting to an integral.
 
-	if bytes[len(bytes) - 1] & 0x80 != 0 {
+	if bytes[len(bytes)-1]&0x80 != 0 {
 		extraByte := byte(0x00)
 		if negative {
 			extraByte = 0x80
 		}
 		bytes = append(bytes, extraByte)
 	} else if negative {
-		bytes[len(bytes) - 1] |= 0x80
+		bytes[len(bytes)-1] |= 0x80
 	}
 
 	return
