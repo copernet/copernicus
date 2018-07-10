@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	TxOrphan = iota
+	TxOrphan   = iota
 	TxInvalid
 	CoinAmount = 100000000
 )
@@ -573,45 +573,40 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	return nil
 }
 
-//func (tx *Tx) Copy() *Tx {
-//	newTx := Tx{
-//		Version:  tx.Version,
-//		LockTime: tx.LockTime,
-//		ins:      make([]*TxIn, 0, len(tx.ins)),
-//		outs:     make([]*TxOut, 0, len(tx.outs)),
-//	}
-//	newTx.GetHash() = Tx.GetHash()
-//
-//	for _, txOut := range tx.outs {
-//		scriptLen := len(txOut.Script.bytes)
-//		newOutScript := make([]byte, scriptLen)
-//		copy(newOutScript, txOut.GetScriptPubKey().GetByteCodes()[:scriptLen])
-//
-//		newTxOut := TxOut{
-//			value:  txOut.value,
-//			scriptPubKey: NewScriptRaw(newOutScript),
-//		}
-//		newTx.outs = append(newTx.outs, &newTxOut)
-//	}
-//	for _, txIn := range tx.ins {
-//		var hashBytes [32]byte
-//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-//		preHash := new(util.Hash)
-//		preHash.SetBytes(hashBytes[:])
-//		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-//		scriptLen := txIn.Script.Size()
-//		newScript := make([]byte, scriptLen)
-//		copy(newScript[:], txIn.Script.GetByteCodes()[:scriptLen])
-//		newTxTmp := TxIn{
-//			Sequence:         txIn.Sequence,
-//			PreviousOutPoint: newOutPoint,
-//			Script:           NewScriptRaw(newScript),
-//		}
-//		newTx.ins = append(newTx.ins, &newTxTmp)
-//	}
-//	return &newTx
-//
-//}
+func (tx *Tx) Copy() *Tx {
+	newTx := Tx{
+		version:  tx.GetVersion(),
+		lockTime: tx.GetLockTime(),
+		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
+		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
+	}
+	//newTx.hash = tx.hash
+
+	for _, txOut := range tx.outs {
+		scriptLen := len(txOut.GetScriptPubKey().GetData())
+		newOutScript := make([]byte, scriptLen)
+		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
+
+		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
+		newTx.outs = append(newTx.outs, newTxOut)
+	}
+	for _, txIn := range tx.ins {
+		var hashBytes [32]byte
+		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
+		preHash := new(util.Hash)
+		preHash.SetBytes(hashBytes[:])
+		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+		scriptLen := txIn.GetScriptSig().Size()
+		newScript := make([]byte, scriptLen)
+		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
+
+		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
+
+		newTx.ins = append(newTx.ins, newTxTmp)
+	}
+	return &newTx
+
+}
 
 //func (tx *Tx) Equal(dstTx *Tx) bool {
 //	originBuf := bytes.NewBuffer(nil)
