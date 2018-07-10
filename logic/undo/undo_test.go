@@ -17,6 +17,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
+	"bytes"
 )
 
 func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.CoinsMap, param *chainparams.BitcoinParams, height int) {
@@ -47,12 +48,12 @@ func UndoBlock(blocks *block.Block, coinMap *utxo.CoinsMap, undos *undo.BlockUnd
 	ApplyBlockUndo(undos, blocks, coinMap)
 }
 
-//func HasSpendableCoin(coinMap *utxo.CoinsMap, txid *util.Hash) bool {
-//	return !cvt.AccessCoin(outpoint.NewOutPoint(*txid, 0)).IsSpent()
-//}
+func HasSpendableCoin(coinMap *utxo.CoinsMap, txid util.Hash) bool {
+	return !coinMap.AccessCoin(outpoint.NewOutPoint(txid, 0)).IsSpent()
+}
 
 func TestMain(m *testing.M) {
-	config := utxo.UtxoConfig{Do: &db.DBOption{CacheSize: 10000}}
+	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: "/tmp/undotest", CacheSize: 10000}}
 	utxo.InitUtxoLruTip(&config)
 	m.Run()
 }
@@ -95,9 +96,9 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	txs.GetHash()
 	block.Txs[1] = txs
 
-	//buf := bytes.NewBuffer(nil)
-	//block.Serialize(buf)
-	//block.GetHash() = util.DoubleSha256Hash(buf.Bytes()[:80])
+	buf := bytes.NewBuffer(nil)
+	block.Serialize(buf)
+	block.GetHash()
 
 	// Now update hte UTXO set
 	undos := undo.NewBlockUndo(10)
@@ -105,18 +106,23 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	UpdateUTXOSet(block, undos, coinsMap, chainparams, 123456)
 
 	cvt := utxo.GetUtxoCacheInstance()
-	if cvt.GetBestBlock() != block.GetHash() {
+	h, err := cvt.GetBestBlock()
+	if err != nil {
+		panic("get best block failed..")
+	}
+	if h != block.GetHash() {
 		t.Error("this block should have been stored in the cache")
 	}
-	//if !HasSpendableCoin(coinsMap, &coinbaseTx.Hash) {
-	//	t.Error("this coinbase transaction should have been unlocked")
-	//}
-	//if !HasSpendableCoin(coinsMap, txs.GetHash()) {
-	//	t.Error("the specified transaction should be spendable")
-	//}
-	//if HasSpendableCoin(coinsMap, &prevTx0.Hash) {
-	//	t.Error("this transaction should be not spendable")
-	//}
+
+	if !HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
+		t.Error("this coinbase transaction should have been unlocked")
+	}
+	if !HasSpendableCoin(coinsMap, txs.GetHash()) {
+		t.Error("the specified transaction should be spendable")
+	}
+	if HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
+		t.Error("this transaction should be not spendable")
+	}
 
 	UndoBlock(block, coinsMap, undos, chainparams, 123456)
 	if len(undos.GetTxundo()) != 1 {
@@ -124,17 +130,22 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		return
 	}
 
-	//todo:undo
-	//if cvt.GetBestBlock() != block.GetBlockHeader().HashPrevBlock {
-	//	t.Error("this block should have been stored in the cache : ", block.GetHash())
-	//}
-	//if HasSpendableCoin(coinsMap, &coinbaseTx.Hash) {
-	//	t.Error("this coinbase transaction should not have been unlocked")
-	//}
-	//if HasSpendableCoin(coinsMap, &txs.GetHash()) {
-	//	t.Error("the specified transaction should not be spendable")
-	//}
-	//if !HasSpendableCoin(coinsMap, &prevTx0.Hash) {
-	//	t.Error("this transaction should be spendable")
-	//}
+	hh2, err1 := cvt.GetBestBlock()
+	if err1 != nil {
+		panic("get best block failed, please check..")
+	}
+
+	if hh2 != block.GetBlockHeader().HashPrevBlock {
+		t.Error("this block should have been stored in the cache : ", block.GetHash())
+	}
+
+	if HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
+		t.Error("this coinbase transaction should not have been unlocked")
+	}
+	if HasSpendableCoin(coinsMap, txs.GetHash()) {
+		t.Error("the specified transaction should not be spendable")
+	}
+	if !HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
+		t.Error("this transaction should be spendable")
+	}
 }

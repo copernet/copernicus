@@ -16,6 +16,14 @@ func NewEmptyCoinsMap() *CoinsMap {
 	return cm
 }
 
+func (cm CoinsMap) AccessCoin(outpoint *outpoint.OutPoint) *Coin {
+	entry := cm.GetCoin(outpoint)
+	if entry == nil {
+		return NewEmptyCoin()
+	}
+	return entry
+}
+
 func (cm CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	coin := cm.cacheCoins[*outpoint]
 	return coin
