@@ -85,7 +85,11 @@ func TestCoinCache(t *testing.T) {
 	necm.SetBestBlock(*hash1)
 	necm.Flush(*hash1)
 	cvt := GetUtxoCacheInstance()
-	if cvt.GetBestBlock() != *hash1 {
+	hash0, err0 := cvt.GetBestBlock()
+	if err0 != nil {
+		panic("get best block failed...")
+	}
+	if hash0 != *hash1 {
 		t.Error("get best block failed...")
 	}
 	if cvt.GetCacheSize() != 2 {
@@ -96,7 +100,11 @@ func TestCoinCache(t *testing.T) {
 	necm.SetBestBlock(*hash2)
 	//necm.Flush(*hash2)
 	gulci := GetUtxoCacheInstance()
-	if gulci.GetBestBlock() != *hash1 {
+	hash3, err3 := gulci.GetBestBlock()
+	if err3 != nil {
+		panic("get best block failed..")
+	}
+	if hash3 != *hash1 {
 		t.Error("get best block failed...")
 	}
 	if gulci.GetCacheSize() != 2 {
