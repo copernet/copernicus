@@ -1,11 +1,9 @@
 package utxo
 
 import (
-	"fmt"
 	"unsafe"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
 	"github.com/hashicorp/golang-lru"
@@ -19,21 +17,9 @@ type CoinsLruCache struct {
 	dirtyCoins map[outpoint.OutPoint]*Coin //write database temporary cache
 }
 
-var utxoLruTip CacheView
-
 func InitUtxoLruTip(uc *UtxoConfig) {
-	// fmt.Printf("InitUtxoLruTip processing ....%v \n", uc)
-
 	db := NewCoinsDB(uc.Do)
-	utxoLruTip = NewCoinsLruCache(*db)
-
-}
-
-func GetUtxoLruCacheInstance() CacheView {
-	if utxoLruTip == nil {
-		log.Error("utxoTip has not init!!")
-	}
-	return utxoLruTip
+	utxoTip = NewCoinsLruCache(*db)
 }
 
 func NewCoinsLruCache(db CoinsDB) CacheView {
@@ -52,12 +38,12 @@ func NewCoinsLruCache(db CoinsDB) CacheView {
 func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	c, ok := coinsCache.cacheCoins.Get(*outpoint)
 	if ok {
-		fmt.Println("getCoin from cache")
+		log.Info("getCoin from cache")
 		return c.(*Coin)
 	}
 	db := coinsCache.db
 	coin, err := db.GetCoin(outpoint)
-	if err != nil && err == leveldb.ErrNotFound{
+	if err != nil && err == leveldb.ErrNotFound {
 		return nil
 	}
 	if err != nil {
@@ -73,7 +59,7 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 		// our version as fresh.
 		coin.fresh = true
 	}
-	fmt.Println("getCoin from db")
+	log.Info("getCoin from db")
 
 	return coin
 }
@@ -83,13 +69,14 @@ func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
 	return coin != nil && !coin.IsSpent()
 }
 
-func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
+func (coinsCache *CoinsLruCache) GetBestBlock() (util.Hash, error) {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()
 		if err == leveldb.ErrNotFound {
-			genesisHash  := chain.GetInstance().GetParams().GenesisBlock.GetHash()
-			coinsCache.hashBlock = genesisHash
-			return coinsCache.hashBlock
+			//genesisHash := chain.GetInstance().GetParams().GenesisBlock.GetHash()
+			//coinsCache.hashBlock = genesisHash
+			//return coinsCache.hashBlock, nil
+			return util.Hash{}, err
 		}
 		if err != nil {
 			log.Error("db.GetBestBlock err:%#v", err)
@@ -97,7 +84,7 @@ func (coinsCache *CoinsLruCache) GetBestBlock() util.Hash {
 		}
 		coinsCache.hashBlock = *hashBlock
 	}
-	return coinsCache.hashBlock
+	return coinsCache.hashBlock, nil
 }
 
 func (coinsCache *CoinsLruCache) SetBestBlock(hash util.Hash) {
@@ -153,9 +140,10 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 }
 
 func (coinsCache *CoinsLruCache) Flush() bool {
-	println("flush=============")
-	fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
-	if len(coinsCache.dirtyCoins)>0 || !coinsCache.hashBlock.IsNull(){
+
+	//println("flush=============")
+	//fmt.Printf("flush...coinsCache.cacheCoins====%#v \n  hashBlock====%#v", coinsCache.cacheCoins, coinsCache.hashBlock)
+	if len(coinsCache.dirtyCoins) > 0 || !coinsCache.hashBlock.IsNull() {
 		ok := coinsCache.db.BatchWrite(coinsCache.dirtyCoins, coinsCache.hashBlock)
 		return ok == nil
 	}

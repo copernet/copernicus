@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/log"
 )
 
 type Block struct {
@@ -84,12 +84,15 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	}
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {
-		tx := tx.NewTx(0,0)
+		tx := tx.NewTx(0, 0)
 		if err := tx.Unserialize(r); err != nil {
 			return err
 		}
 		bl.Txs[i] = tx
+		//fmt.Printf("i:%d, \n%v\n%v\n%v\n%v", i, bl.Txs[i].GetIns(), tx.GetIns(), bl.Txs[i].GetOuts(), tx.GetOuts())
 	}
+	//fmt.Printf("%v\n", bl.Txs[0].GetIns())
+	//fmt.Printf("%v\n", bl.Txs[0].GetOuts())
 	return nil
 }
 

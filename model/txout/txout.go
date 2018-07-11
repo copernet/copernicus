@@ -95,6 +95,7 @@ func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {
 	}
 	if pubKeyType == script.ScriptNullData {
 		if !conf.Cfg.Script.AcceptDataCarrier || uint(txOut.scriptPubKey.Size()) > conf.Cfg.Script.MaxDatacarrierBytes {
+			log.Debug("ScriptErrNullData")
 			return pubKeyType, errcode.New(errcode.ScriptErrNullData)
 		}
 	}

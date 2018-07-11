@@ -68,24 +68,28 @@ func TestCoinCache(t *testing.T) {
 
 	necm.Flush(*hash1)
 
-	err1 := utxoLruTip.UpdateCoins(necm, hash1)
+	err1 := utxoTip.UpdateCoins(necm, hash1)
 	if err1 != nil {
 		t.Errorf("update coins failed,the error is :%v", err1)
 	}
 
-	if reflect.DeepEqual(utxoLruTip.GetCoin(&outpoint1), necm.cacheCoins[outpoint1]) {
+	if reflect.DeepEqual(utxoTip.GetCoin(&outpoint1), necm.cacheCoins[outpoint1]) {
 		t.Error("the lru cache shouldn't equal cache coins of coinmap, the cache coin of map is equal nil")
 	}
 
-	if utxoLruTip.HaveCoin(&outpoint2) == false {
+	if utxoTip.HaveCoin(&outpoint2) == false {
 		t.Error("the cache should have coin, please check")
 	}
 
 	//flush
 	necm.SetBestBlock(*hash1)
 	necm.Flush(*hash1)
-	cvt := GetUtxoLruCacheInstance()
-	if cvt.GetBestBlock() != *hash1 {
+	cvt := GetUtxoCacheInstance()
+	hash0, err0 := cvt.GetBestBlock()
+	if err0 != nil {
+		panic("get best block failed...")
+	}
+	if hash0 != *hash1 {
 		t.Error("get best block failed...")
 	}
 	if cvt.GetCacheSize() != 2 {
@@ -95,8 +99,12 @@ func TestCoinCache(t *testing.T) {
 	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
 	necm.SetBestBlock(*hash2)
 	//necm.Flush(*hash2)
-	gulci := GetUtxoLruCacheInstance()
-	if gulci.GetBestBlock() != *hash1 {
+	gulci := GetUtxoCacheInstance()
+	hash3, err3 := gulci.GetBestBlock()
+	if err3 != nil {
+		panic("get best block failed..")
+	}
+	if hash3 != *hash1 {
 		t.Error("get best block failed...")
 	}
 	if gulci.GetCacheSize() != 2 {

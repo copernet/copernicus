@@ -2,8 +2,6 @@ package utxo
 
 import (
 	"bytes"
-	"fmt"
-
 	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -24,7 +22,6 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 		panic("get coin is failed!")
 	}
 	log.Debug("outpoint==========", outpoint)
-	fmt.Println("outpoint==========", outpoint)
 	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
 	if err != nil {
 
@@ -94,7 +91,7 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 	ret := coinsViewDB.dbw.WriteBatch(batch, false)
 	if true {
 		best, err := coinsViewDB.GetBestBlock()
-		fmt.Println("best=======", best, err)
+		log.Info("best=======", best, err)
 	}
 
 	return ret
@@ -120,7 +117,6 @@ func NewCoinsDB(do *db.DBOption) *CoinsDB {
 	dbw, err := db.NewDBWrapper(do)
 
 	if err != nil {
-		fmt.Println("err======%#v", err)
 		panic("init CoinsDB failed...")
 	}
 

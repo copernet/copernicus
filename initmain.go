@@ -1,17 +1,17 @@
 package main
 
 import (
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/blockindex"
 	lchain "github.com/copernet/copernicus/logic/chain"
-	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/global"
-	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/conf"
 )
 
 func appInitMain() {

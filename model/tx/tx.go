@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	TxOrphan = iota
+	TxOrphan   = iota
 	TxInvalid
 	CoinAmount = 100000000
 )
@@ -229,14 +229,12 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txIn.PreviousOutPoint = new(outpoint.OutPoint)
 		err = txIn.Decode(reader)
 		if err != nil {
-			fmt.Println("222222 , error : ", err)
 			return err
 		}
 		tx.ins[i] = txIn
 	}
 	count, err = util.ReadVarInt(reader)
 	if err != nil {
-		fmt.Println("333333 , error : ", err)
 		return err
 	}
 
@@ -247,7 +245,6 @@ func (tx *Tx) Decode(reader io.Reader) error {
 		txOut := new(txout.TxOut)
 		err = txOut.Decode(reader)
 		if err != nil {
-			fmt.Println("444444 , error : ", err)
 			return err
 		}
 		tx.outs[i] = txOut
@@ -290,6 +287,7 @@ func (tx *Tx) GetVersion() int32 {
 
 func (tx *Tx) CheckRegularTransaction() error {
 	if tx.IsCoinBase() {
+		log.Debug("tx should not be coinbase")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
@@ -300,6 +298,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
+			log.Debug("tx duplicate input")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -319,6 +318,7 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 
 	// coinbase in script check
 	if tx.ins[0].GetScriptSig().Size() < 2 || tx.ins[0].GetScriptSig().Size() > 100 {
+		log.Debug("coinbash input hash err script size")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
@@ -386,11 +386,13 @@ func (tx *Tx) CheckDuplicateIns(outpoints *map[*outpoint.OutPoint]bool) error {
 func (tx *Tx) CheckStandard() error {
 	// check version
 	if tx.version > MaxStandardVersion || tx.version < 1 {
+		log.Debug("TxErrBadVersion")
 		return errcode.New(errcode.TxErrBadVersion)
 	}
 
 	// check size
 	if tx.EncodeSize() > uint32(MaxStandardTxSize) {
+		log.Debug("TxErrBadVersion")
 		return errcode.New(errcode.TxErrOverSize)
 	}
 
@@ -413,18 +415,22 @@ func (tx *Tx) CheckStandard() error {
 			nDataOut++
 			// only one OP_RETURN txout is permitted
 			if nDataOut > 1 {
+				log.Debug("TxErrMultiOpReturn")
 				return errcode.New(errcode.ScriptErrMultiOpReturn)
 			}
 		}
 		if pubKeyType == script.ScriptMultiSig && !conf.Cfg.Script.IsBareMultiSigStd {
+			log.Debug("TxErrBareMultiSig")
 			return errcode.New(errcode.ScriptErrBareMultiSig)
 		}
 		if out.IsDust(util.NewFeeRate(conf.Cfg.TxOut.DustRelayFee)) {
+			log.Debug("TxErrDustOut")
 			return errcode.New(errcode.ScriptErrDustOut)
 		}
 	}
 
 	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
+		log.Debug("TxBadSigOps")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	return nil
@@ -469,9 +475,11 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 	hashType uint32, scriptPubKey *script.Script, nIn int, value amount.Amount) (sigData [][]byte, pubKeyType int, err error) {
 	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
+		log.Debug("SignStep CheckScriptPubKeyStandard err")
 		return nil, script.ScriptNonStandard, errcode.New(errcode.TxErrInputsNotAvailable)
 	}
 	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
+		log.Debug("SignStep CheckScriptPubKeyStandard err")
 		return nil, pubKeyType, errcode.New(errcode.TxErrInputsNotAvailable)
 	}
 	if pubKeyType == script.ScriptMultiSig {
@@ -526,6 +534,7 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 			signed++
 		}
 		if signed != requiredSigs {
+			log.Debug("SignStep signed not equal requiredSigs")
 			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 		}
 		return sigData, pubKeyType, nil
@@ -535,11 +544,13 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 		scriptHashString := string(pubKeys[0])
 		redeemScriptString := redeemScripts[scriptHashString]
 		if len(redeemScriptString) == 0 {
+			log.Debug("SignStep redeemScript len err")
 			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 		}
 		sigData = append(sigData, []byte(redeemScriptString))
 		return sigData, pubKeyType, nil
 	}
+	log.Debug("SignStep err")
 	return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 }
 
@@ -555,51 +566,47 @@ func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey
 }
 func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	if i >= len(tx.ins) || i < 0 {
+		log.Debug("TxErrInvalidIndexOfIn")
 		return errcode.New(errcode.TxErrInvalidIndexOfIn)
 	}
 	tx.ins[i].SetScriptSig(scriptSig)
 	return nil
 }
 
-//func (tx *Tx) Copy() *Tx {
-//	newTx := Tx{
-//		Version:  tx.Version,
-//		LockTime: tx.LockTime,
-//		ins:      make([]*TxIn, 0, len(tx.ins)),
-//		outs:     make([]*TxOut, 0, len(tx.outs)),
-//	}
-//	newTx.GetHash() = Tx.GetHash()
-//
-//	for _, txOut := range tx.outs {
-//		scriptLen := len(txOut.Script.bytes)
-//		newOutScript := make([]byte, scriptLen)
-//		copy(newOutScript, txOut.GetScriptPubKey().GetByteCodes()[:scriptLen])
-//
-//		newTxOut := TxOut{
-//			value:  txOut.value,
-//			scriptPubKey: NewScriptRaw(newOutScript),
-//		}
-//		newTx.outs = append(newTx.outs, &newTxOut)
-//	}
-//	for _, txIn := range tx.ins {
-//		var hashBytes [32]byte
-//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-//		preHash := new(util.Hash)
-//		preHash.SetBytes(hashBytes[:])
-//		newOutPoint := OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-//		scriptLen := txIn.Script.Size()
-//		newScript := make([]byte, scriptLen)
-//		copy(newScript[:], txIn.Script.GetByteCodes()[:scriptLen])
-//		newTxTmp := TxIn{
-//			Sequence:         txIn.Sequence,
-//			PreviousOutPoint: newOutPoint,
-//			Script:           NewScriptRaw(newScript),
-//		}
-//		newTx.ins = append(newTx.ins, &newTxTmp)
-//	}
-//	return &newTx
-//
-//}
+func (tx *Tx) Copy() *Tx {
+	newTx := Tx{
+		version:  tx.GetVersion(),
+		lockTime: tx.GetLockTime(),
+		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
+		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
+	}
+	//newTx.hash = tx.hash
+
+	for _, txOut := range tx.outs {
+		scriptLen := len(txOut.GetScriptPubKey().GetData())
+		newOutScript := make([]byte, scriptLen)
+		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
+
+		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
+		newTx.outs = append(newTx.outs, newTxOut)
+	}
+	for _, txIn := range tx.ins {
+		var hashBytes [32]byte
+		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
+		preHash := new(util.Hash)
+		preHash.SetBytes(hashBytes[:])
+		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+		scriptLen := txIn.GetScriptSig().Size()
+		newScript := make([]byte, scriptLen)
+		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
+
+		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
+
+		newTx.ins = append(newTx.ins, newTxTmp)
+	}
+	return &newTx
+
+}
 
 //func (tx *Tx) Equal(dstTx *Tx) bool {
 //	originBuf := bytes.NewBuffer(nil)

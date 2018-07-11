@@ -11,6 +11,11 @@ import (
 	"bytes"
 	"github.com/davecgh/go-spew/spew"
 	"reflect"
+	"math"
+	"fmt"
+	"encoding/binary"
+	"encoding/hex"
+	"math/rand"
 )
 
 // test whether get the expected item by OutPoint struct with a pointer
@@ -138,4 +143,83 @@ func TestCoinSec(t *testing.T) {
 	}
 
 	spew.Dump("unserlize value is :%v \n", target)
+}
+
+// new a insecure rand creator from crypto/rand seed
+func newInsecureRand() []byte {
+	randByte := make([]byte, 32)
+	_, err := rand.Read(randByte)
+	if err != nil {
+		panic("init rand number creator failed...")
+	}
+	return randByte
+}
+
+// GetRandHash create a random Hash(utils.Hash)
+func GetRandHash() *util.Hash {
+	tmpStr := hex.EncodeToString(newInsecureRand())
+	return util.HashFromString(tmpStr)
+}
+
+// InsecureRandRange create a random number in [0, limit]
+func InsecureRandRange(limit uint64) uint64 {
+	if limit == 0 {
+		fmt.Println("param 0 will be insignificant")
+		return 0
+	}
+	r := newInsecureRand()
+	return binary.LittleEndian.Uint64(r) % (limit + 1)
+}
+
+// InsecureRand32 create a random number in [0 math.MaxUint32]
+func InsecureRand32() uint32 {
+	r := newInsecureRand()
+	return binary.LittleEndian.Uint32(r)
+}
+
+// InsecureRandBits create a random number following  specified bit count
+func InsecureRandBits(bit uint8) uint64 {
+	r := newInsecureRand()
+	maxNum := uint64(((1<<(bit-1))-1)*2 + 1 + 1)
+	return binary.LittleEndian.Uint64(r) % maxNum
+}
+
+// InsecureRandBool create true or false randomly
+func InsecureRandBool() bool {
+	r := newInsecureRand()
+	remainder := binary.LittleEndian.Uint16(r) % 2
+	return remainder == 1
+}
+
+func TestRandomFunction(t *testing.T) {
+	trueCount := 0
+	falseCount := 0
+
+	for i := 0; i < 10000; i++ {
+		NumUint64 := InsecureRandRange(100)
+		if NumUint64 > 100 {
+			t.Error("InsecureRandRange() create a random number bigger than 10000")
+		}
+
+		NumUint32 := InsecureRand32()
+		if NumUint32 > math.MaxUint32 {
+			t.Error("InsecureRand32() creates a random number bigger than math.MaxUint32")
+		}
+
+		NumFromRandBit := InsecureRandBits(6)
+		if NumFromRandBit > (((1<<(6-1))-1)*2 + 1) {
+			t.Error("InsecureRandBits() creates a random numner bigger than bit-specific MaxNumber")
+		}
+
+		BoolFromRandFunc := InsecureRandBool()
+		if BoolFromRandFunc {
+			trueCount++
+		} else {
+			falseCount++
+		}
+	}
+
+	if trueCount == 0 || falseCount == 0 {
+		t.Error("InsecureRandBool() maybe needed to check")
+	}
 }

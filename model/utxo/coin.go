@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
@@ -72,13 +73,13 @@ func (coin *Coin) DeepCopy() *Coin {
 	return &newCoin
 }
 
-
 func (coin *Coin) DynamicMemoryUsage() int64 {
 	return int64(binary.Size(coin))
 }
 
 func (coin *Coin) Serialize(w io.Writer) error {
 	if coin.IsSpent() {
+		log.Debug("already spent")
 		return errors.New("already spent")
 	}
 	var bit int32

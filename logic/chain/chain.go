@@ -47,7 +47,7 @@ func ConnectBlock(pblock *block.Block,
 	// Verify that the view's current state corresponds to the previous block
 	hashPrevBlock := *pindex.Prev.GetBlockHash()
 	gUtxo := utxo.GetUtxoCacheInstance()
-	bestHash := gUtxo.GetBestBlock()
+	bestHash, _ := gUtxo.GetBestBlock()
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
 	}
@@ -198,6 +198,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
+			log.Error("error: FailedToReadBlock")
 			return errcode.New(errcode.FailedToReadBlock)
 		}
 		connTrace[pIndexNew] = blockNew
@@ -269,6 +270,7 @@ func DisconnectTip(fBare bool) error {
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
+		log.Debug("FailedToReadBlock")
 		return errcode.New(errcode.FailedToReadBlock)
 	}
 
@@ -418,7 +420,7 @@ func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.
 func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap) mUndo.DisconnectResult {
 
 	hashA := pindex.GetBlockHash()
-	hashB := utxo.GetUtxoCacheInstance().GetBestBlock()
+	hashB, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
 	if !bytes.Equal(hashA[:], hashB[:]) {
 		panic("the two hash should be equal ...")
 	}
@@ -472,6 +474,8 @@ func InitGenesisChain() error {
 	coinsMap := utxo.NewEmptyCoinsMap()
 	bestHash := bIndex.GetBlockHash()
 	coinsMap.SetBestBlock(*bestHash)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)
+
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
 
 	fmt.Println("InitGenesisChain=====%#v", gChain, err)

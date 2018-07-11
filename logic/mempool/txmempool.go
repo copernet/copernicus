@@ -246,7 +246,8 @@ func CheckMempool() {
 	mempoolDuplicate := utxo.NewEmptyCoinsMap()
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	spentOut := pool.GetAllSpentOutWithoutLock()
-	bestHeigh := activaChain.FindBlockIndex(view.GetBestBlock()).Height + 1
+	bestHash, _ := view.GetBestBlock()
+	bestHeigh := activaChain.FindBlockIndex(bestHash).Height + 1
 	logs.SetLogger("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(allEntry), len(spentOut)))
 	checkTotal := uint64(0)
 
@@ -424,7 +425,7 @@ func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
 	return pool.FindTx(hash)
 }
 
-func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx  {
+func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 	pool := mempool.GetInstance()
 	pool.RLock()
 	if orphan, ok := pool.OrphanTransactions[hash]; ok {
@@ -437,7 +438,7 @@ func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx  {
 func FindRejectTxInMempool(hash util.Hash) bool {
 	pool := mempool.GetInstance()
 	pool.RLock()
-	if _, ok := pool.RecentRejects[hash]; ok{
+	if _, ok := pool.RecentRejects[hash]; ok {
 		return ok
 	}
 	pool.RUnlock()
