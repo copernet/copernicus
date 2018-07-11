@@ -37,7 +37,7 @@ func TestScriptJsonTests(t *testing.T) {
 		test, ok := itest.([]interface{})
 		if ok {
 			if err := doScriptJSONTest(t, test); err != nil {
-				return
+
 			}
 		} else {
 			t.Errorf("test is not []interface{}")
@@ -228,12 +228,11 @@ func parseScriptFlag(s string) (uint32, error) {
 	return res, nil
 }
 
-func doScriptJSONTest(t *testing.T, itest []interface{}) error {
-
+func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 	crypto.InitSecp256()
 
 	if len(itest) == 0 {
-		err := errors.New("empty itest[]")
+		err = fmt.Errorf("empty itest[] %#v", itest)
 		t.Error(err)
 		return err
 	}
@@ -248,45 +247,43 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) error {
 	}
 	test := interface2string(itest)
 	if test == nil {
-		err := errors.New("can not convert a test to a string slice")
+		err = fmt.Errorf("can not convert a test to a string slice, itest[] %#v", itest)
 		t.Error(err)
 		return err
 	}
-	fmt.Printf("%#v\n", itest)
+	// fmt.Printf("%#v\n", itest)
 	opMap := createName2OpCodeMap()
 	scriptSigString, scriptPubKeyString, scriptFlagString, scriptErrorString := test[0], test[1], test[2], test[3]
-	fmt.Printf("sig(%s), pubkey(%s), flag(%s), err(%s)\n",
-		scriptSigString, scriptPubKeyString, scriptFlagString, scriptErrorString)
+	// fmt.Printf("sig(%s), pubkey(%s), flag(%s), err(%s)\n",
+	// 	scriptSigString, scriptPubKeyString, scriptFlagString, scriptErrorString)
 
 	scriptSigBytes, err := parseScriptFrom(scriptSigString, opMap)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("%v itest[] %v", err, itest)
 		return err
 	}
 
 	scriptPubKeyBytes, err := parseScriptFrom(scriptPubKeyString, opMap)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("%v itest[] %v", err, itest)
 		return err
 	}
-	fmt.Printf("sig:%v pub:%v\n", scriptSigBytes, scriptPubKeyBytes)
+	// fmt.Printf("sig:%v pub:%v\n", scriptSigBytes, scriptPubKeyBytes)
 
 	scriptSig := script.NewScriptRaw(scriptSigBytes)
 	if scriptSig == nil {
-		err = errors.New("NewScriptRaw error")
-		t.Error(err)
+		t.Errorf("parse sig script err itest[] %#v", itest)
 		return err
 	}
 	scriptPubKey := script.NewScriptRaw(scriptPubKeyBytes)
 	if scriptPubKey == nil {
-		err = errors.New("NewScriptRaw error")
-		t.Error(err)
+		t.Errorf("new script for pubkey err, itest[] %#v", itest)
 		return err
 	}
 
 	flags, err := parseScriptFlag(scriptFlagString)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("parse script flag err, itest[] %#v", itest)
 		return err
 	}
 	trax := tx.NewTx(0, 1)
@@ -296,7 +293,9 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) error {
 	err = verifyScript(trax, scriptSig, scriptPubKey, 0, amount.Amount(nValue), flags)
 
 	if !(scriptErrorString == "OK" && err == nil || scriptErrorString != "OK" && err != nil) {
-		err = fmt.Errorf("expect error: scriptErrorString(%s) err(%v)", scriptErrorString, err)
+		err = fmt.Errorf("expect error: scriptErrorString(%s) err(%v), sig(%s), pubkey(%s), flag(%s), err(%s) itest[] %v",
+			scriptErrorString, err, scriptSigString,
+			scriptPubKeyString, scriptFlagString, scriptErrorString, itest)
 		t.Error(err)
 		return err
 	}
