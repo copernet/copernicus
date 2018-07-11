@@ -201,6 +201,7 @@ const (
 type Script struct {
 	data          []byte
 	ParsedOpCodes []opcodes.ParsedOpCode
+	badOpCode     bool
 }
 
 func (s *Script) SerializeSize() uint32 {
@@ -253,7 +254,9 @@ func NewScriptRaw(bytes []byte) *Script {
 	copy(newBytes, bytes)
 	script := Script{data: newBytes}
 	//convertOPS maybe failed, but it doesn't matter
-	script.convertOPS()
+	if script.convertOPS() != nil {
+		script.badOpCode = true
+	}
 	return &script
 }
 
@@ -265,6 +268,7 @@ func NewScriptOps(oldParsedOpCodes []opcodes.ParsedOpCode) *Script {
 	}
 	script := Script{ParsedOpCodes: newParsedOpCodes}
 	script.convertRaw()
+	script.badOpCode = false
 	return &script
 }
 
@@ -272,6 +276,7 @@ func NewEmptyScript() *Script {
 	script := Script{}
 	script.data = make([]byte, 0)
 	script.ParsedOpCodes = make([]opcodes.ParsedOpCode, 0)
+	script.badOpCode = false
 	return &script
 }
 
@@ -299,6 +304,10 @@ func (script *Script) convertRaw() {
 
 func (script *Script) GetData() []byte {
 	return script.data
+}
+
+func (script *Script) GetBadOpCode() bool {
+	return script.badOpCode
 }
 
 func (script *Script) convertOPS() error {
