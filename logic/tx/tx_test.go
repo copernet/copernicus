@@ -100,6 +100,56 @@ func reverseBytes(bs []byte) []byte {
 	return bs
 }
 
+func ScriptNumSerialize(n int64) []byte {
+	if n == 0 {
+		return []byte{}
+	}
+	var res []byte
+	neg := false
+	if n < 0 {
+		neg = true
+		n = -n
+	}
+
+	for n > 0 {
+		res = append(res, byte(n&0xff))
+		n >>= 8
+	}
+
+	if res[len(res)-1]&0x80 != 0 {
+		if neg {
+			res = append(res, 0x80)
+		} else {
+			res = append(res, 0)
+		}
+	} else if neg {
+		res[len(res)-1] |= 0x80
+	}
+
+	return res
+}
+
+func appendData(res, w []byte) []byte {
+	if len(w) < opcodes.OP_PUSHDATA1 {
+		res = append(res, byte(len(w)))
+	} else if len(w) <= 0xff {
+		res = append(res, []byte{opcodes.OP_PUSHDATA1, byte(len(w))}...)
+	} else if len(w) <= 0xffff {
+		res = append(res, opcodes.OP_PUSHDATA2)
+		buf := make([]byte, 2)
+		binary.LittleEndian.PutUint16(buf, uint16(len(w)))
+		res = append(res, buf...)
+	} else {
+		res = append(res, opcodes.OP_PUSHDATA4)
+		buf := make([]byte, 4)
+		binary.LittleEndian.PutUint32(buf, uint32(len(w)))
+		res = append(res, buf...)
+	}
+
+	res = append(res, w...)
+	return res
+}
+
 func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 	var res []byte
 	words := strings.Split(s, " ")
@@ -108,23 +158,28 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 		if w == "" {
 			continue
 		}
-		//fmt.Printf("w=%v\n", w)
 
 		if opcode, ok := opMap[w]; ok {
 			res = append(res, opcode)
 		} else if isAllDigitalNumber(w) {
-			i64, _ := strconv.ParseInt(w, 10, 32)
-			buf := make([]byte, 4)
-			binary.LittleEndian.PutUint32(buf, uint32(i64))
-			res = append(res, buf...)
+			n, _ := strconv.ParseInt(w, 10, 64)
+			if n == -1 || (n >= 1 && n <= 16) {
+				res = append(res, byte(n+(opcodes.OP_1-1)))
+			} else if n == 0 {
+				res = append(res, opcodes.OP_0)
+			} else {
+				res = appendData(res, ScriptNumSerialize(n))
+			}
 		} else if strings.HasPrefix(w, "0x") || strings.HasPrefix(w, "0X") {
 			bs, err := hex.DecodeString(w[2:])
 			if err != nil {
 				return nil, err
 			}
+
 			res = append(res, bs...)
-		} else if len(w) > 2 && w[0] == '\'' && w[len(w)-1] == '\'' {
-			res = append(res, []byte(w[1:len(w)-1])...)
+		} else if len(w) >= 2 && w[0] == '\'' && w[len(w)-1] == '\'' {
+			w = w[1 : len(w)-1]
+			res = appendData(res, []byte(w))
 		} else {
 			return nil, errors.New("parse script error")
 		}
@@ -132,27 +187,6 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 
 	return res, nil
 }
-
-// static std::map<std::string, uint32_t> mapFlagNames = {
-//     {"NONE", SCRIPT_VERIFY_NONE},
-//     {"P2SH", SCRIPT_VERIFY_P2SH},
-//     {"STRICTENC", SCRIPT_VERIFY_STRICTENC},
-//     {"DERSIG", SCRIPT_VERIFY_DERSIG},
-//     {"LOW_S", SCRIPT_VERIFY_LOW_S},
-//     {"SIGPUSHONLY", SCRIPT_VERIFY_SIGPUSHONLY},
-//     {"MINIMALDATA", SCRIPT_VERIFY_MINIMALDATA},
-//     {"NULLDUMMY", SCRIPT_VERIFY_NULLDUMMY},
-//     {"DISCOURAGE_UPGRADABLE_NOPS", SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS},
-//     {"CLEANSTACK", SCRIPT_VERIFY_CLEANSTACK},
-//     {"MINIMALIF", SCRIPT_VERIFY_MINIMALIF},
-//     {"NULLFAIL", SCRIPT_VERIFY_NULLFAIL},
-//     {"CHECKLOCKTIMEVERIFY", SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY},
-//     {"CHECKSEQUENCEVERIFY", SCRIPT_VERIFY_CHECKSEQUENCEVERIFY},
-//     {"COMPRESSED_PUBKEYTYPE", SCRIPT_VERIFY_COMPRESSED_PUBKEYTYPE},
-//     {"SIGHASH_FORKID", SCRIPT_ENABLE_SIGHASH_FORKID},
-//     {"REPLAY_PROTECTION", SCRIPT_ENABLE_REPLAY_PROTECTION},
-//     {"MONOLITH_OPCODES", SCRIPT_ENABLE_MONOLITH_OPCODES},
-// };
 
 var scriptFlagMap = map[string]uint32{
 	"NONE":        script.ScriptVerifyNone,
