@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -228,6 +229,9 @@ func parseScriptFlag(s string) (uint32, error) {
 }
 
 func doScriptJSONTest(t *testing.T, itest []interface{}) error {
+
+	crypto.InitSecp256()
+
 	if len(itest) == 0 {
 		err := errors.New("empty itest[]")
 		t.Error(err)
