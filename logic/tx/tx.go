@@ -565,7 +565,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 		} else {
 			fExec = false
 		}
-
+		if s.GetBadOpCode() == true {
+			log.Debug("ScriptErrBadOpCode")
+			return errcode.New(errcode.ScriptErrBadOpCode)
+		}
 		if len(e.Data) > script.MaxScriptElementSize {
 			log.Debug("ScriptErrElementSize")
 			return errcode.New(errcode.ScriptErrPushSize)
