@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -161,7 +162,7 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 
 		if opcode, ok := opMap[w]; ok {
 			res = append(res, opcode)
-		} else if isAllDigitalNumber(w) {
+		} else if isAllDigitalNumber(w) || strings.HasPrefix(w, "-") && isAllDigitalNumber(w[1:]) {
 			n, _ := strconv.ParseInt(w, 10, 64)
 			if n == -1 || (n >= 1 && n <= 16) {
 				res = append(res, byte(n+(opcodes.OP_1-1)))
@@ -215,6 +216,9 @@ func parseScriptFlag(s string) (uint32, error) {
 	var res uint32
 	words := strings.Split(s, ",")
 	for _, w := range words {
+		if w == "" {
+			continue
+		}
 		if flag, ok := scriptFlagMap[w]; ok {
 			res |= flag
 		} else {
@@ -225,6 +229,9 @@ func parseScriptFlag(s string) (uint32, error) {
 }
 
 func doScriptJSONTest(t *testing.T, itest []interface{}) error {
+
+	crypto.InitSecp256()
+
 	if len(itest) == 0 {
 		err := errors.New("empty itest[]")
 		t.Error(err)
