@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 
-	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -391,7 +390,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	bi.SequenceID = 0
 	hash := bi.GetBlockHash()
 	c.indexMap[*hash] = bi
-	log.Debug("AddToIndexMap:%s", hex.EncodeToString(hash[:]))
+	log.Debug("AddToIndexMap:%s", hash.String())
 	bh := bi.Header
 	pre, ok := c.indexMap[bh.HashPrevBlock]
 	if ok {

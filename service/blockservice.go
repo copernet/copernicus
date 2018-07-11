@@ -71,13 +71,13 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	if err == nil {
 		_, _, err = lblock.AcceptBlock(pblock, fForceProcessing, fNewBlock)
 	}
-
-	lchain.CheckBlockIndex()
 	if err != nil {
 		// todo !!! add asynchronous notification
 		log.Error(" AcceptBlock FAILED ")
 		return err
 	}
+
+	lchain.CheckBlockIndex()
 
 	// Only used to report errors, not invalidity - ignore it
 	if err = lchain.ActivateBestChain(pblock); err != nil {

@@ -290,7 +290,7 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	}
 	uncompressedPubKey := publicKey.SerializeUncompressed()
 	log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
-		hex.EncodeToString(signHash[:]), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
+		signHash.String(), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
 	if !sign.EcdsaNormalize() {
 		return false
 	}
