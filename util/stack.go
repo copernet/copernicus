@@ -59,7 +59,7 @@ func (s *Stack) Erase(begin int, end int) bool {
 		return false
 	}
 	for i := begin; i < end; i++ {
-		if !s.RemoveAt(i) {
+		if !s.RemoveAt(begin) {
 			return false
 		}
 	}
