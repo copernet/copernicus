@@ -5,7 +5,7 @@ import:
   subpackages:
   - logs
 - package: github.com/copernet/secp256k1-go
-#- package: github.com/copernet/secp256k1
+- package: github.com/copernet/secp256k1
 - package: github.com/btcsuite/go-socks
   subpackages:
   - socks
