@@ -17,12 +17,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcsuite/go-socks/socks"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
-	"github.com/btcsuite/go-socks/socks"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -1184,7 +1184,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("%v", newLogClosure(func() string {
+	log.Debug("read message: %v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1219,7 +1219,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
 			summary, p)
 	}))
-	log.Trace("%v", newLogClosure(func() string {
+	log.Trace("write message: %v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 	//log.Trace("%v", newLogClosure(func() string {

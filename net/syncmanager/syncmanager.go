@@ -614,6 +614,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// todo !!! need process. yyx
 		//code, reason := mpool.ErrToRejectErr(err)
 		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
+		log.Debug("ProcessBlockCallBack err:%v", err)
 		return
 	}
 
@@ -656,6 +657,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Nothing more to do if we aren't in headers-first mode.
 	if !sm.headersFirstMode {
+		log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
 		if len(sm.requestedBlocks) == 0 {
 			activeChain := chain.GetInstance()
 			locator := activeChain.GetLocator(nil)
