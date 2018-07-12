@@ -2,6 +2,8 @@ package script
 
 import (
 	"encoding/hex"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/copernet/copernicus/util"
@@ -48,6 +50,32 @@ func TestHash160Address(t *testing.T) {
 		return
 	}
 }
+
+func TestAddressMatch(t *testing.T) {
+
+	for v :=0; v<100000;v++{
+		x:=fmt.Sprintf("%x",v)
+		len:=len(x)
+		for i:=len;i<=5;i++{
+			x=fmt.Sprintf("0%s",x)
+		}
+		result :=fmt.Sprintf("00000000000000000000000000000000000%s",x)
+
+		hash160, err := hex.DecodeString(result)
+		fmt.Println(result)
+		address, err := Hash160ToAddressStr(hash160, PublicKeyToAddress)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if  strings.Contains(address,"1whc"){
+			t.Error("address is worng ,", address)
+			return
+		}
+	}
+
+}
+
 
 func TestHash160ToAddress(t *testing.T) {
 	data, err := hex.DecodeString("0014a4b4ca48de0b3fffc15404a1acdc8dbaae226955")
