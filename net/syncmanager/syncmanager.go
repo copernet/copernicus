@@ -614,6 +614,22 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// todo !!! need process. yyx
 		//code, reason := mpool.ErrToRejectErr(err)
 		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
+		if !sm.headersFirstMode {
+			log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
+			if len(sm.requestedBlocks) == 0 {
+				activeChain := chain.GetInstance()
+				locator := activeChain.GetLocator(nil)
+				peer.PushGetBlocksMsg(*locator, &zeroHash)
+			}
+		} else {
+			if !isCheckpointBlock {
+				if sm.startHeader != nil &&
+					len(state.requestedBlocks) < minInFlightBlocks {
+					sm.fetchHeaderBlocks()
+				}
+			}
+		}
+
 		log.Debug("ProcessBlockCallBack err:%v", err)
 		return
 	}
