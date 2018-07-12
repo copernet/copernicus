@@ -28,7 +28,7 @@ type BlockTreeDBConfig struct {
 
 func InitBlockTreDB(uc *BlockTreeDBConfig) {
 	// fmt.Printf("InitBlockTreDB processing ....%v",uc)
-	blockTreeDb = NewBlockTreeDB(uc.Do)
+	blockTreeDb = newBlockTreeDB(uc.Do)
 
 }
 
@@ -38,7 +38,7 @@ func GetInstance() *BlockTreeDB {
 	}
 	return blockTreeDb
 }
-func NewBlockTreeDB(do *db.DBOption) *BlockTreeDB {
+func newBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	if do == nil {
 		return nil
 	}

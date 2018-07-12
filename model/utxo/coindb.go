@@ -109,7 +109,7 @@ func (coinsViewDB *CoinsDB) EstimateSize() uint64 {
 //
 //}
 
-func NewCoinsDB(do *db.DBOption) *CoinsDB {
+func newCoinsDB(do *db.DBOption) *CoinsDB {
 	if do == nil {
 		return nil
 	}
