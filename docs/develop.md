@@ -1,16 +1,16 @@
 
 
 ## glide Package Management
-[glide](https://github.com/Masterminds/glide) is Package Management of Golang
+[glide](https://github.com/Masterminds/glide) is a Package Manager for Golang
 
 #### install glide
- 1. easiest script
+ 1. Universal Installation Script
  ```
  curl https://glide.sh/get | sh
  ```
  2. On Mac OSX install the latest release via Homebrew
  ```
- brew install glide
+ Brew install glide
  ```
  3. On ubuntu install from PPA
  ```
@@ -70,4 +70,3 @@ run `fswatch` in directory in project:
 ```
 fswatch
 ```
-So , You've been using hot compilation

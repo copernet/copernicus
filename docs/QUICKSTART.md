@@ -1,5 +1,5 @@
 
-## bulid secp256k1
+## build secp256k1
 ```
 git clone https://github.com/copernet/secp256k1.git
 cd secp256k1
@@ -13,7 +13,7 @@ make install
 [glide](https://github.com/Masterminds/glide) is Package Management of Golang
 
 #### install glide
-1. easiest script
+1. Universal Installation Script
  ```
  curl https://glide.sh/get | sh
  ```
