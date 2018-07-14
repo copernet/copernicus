@@ -154,7 +154,7 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 
 func TestTestVectors(t *testing.T) {
 	for _, v := range TestVectorsP2PKH {
-		addr, err := btcutil.DecodeAddress(v[0], &chainparams.MainNetParams)
+		addr, err := DecodeAddress(v[0], &chainparams.MainNetParams)
 		if err != nil {
 			t.Error(err)
 			return
@@ -168,7 +168,7 @@ func TestTestVectors(t *testing.T) {
 		}
 	}
 	for _, v := range TestVectorsP2SH {
-		addr, err := btcutil.DecodeAddress(v[0], &chainparams.MainNetParams)
+		addr, err := DecodeAddress(v[0], &chainparams.MainNetParams)
 		if err != nil {
 			t.Error(err)
 			return
