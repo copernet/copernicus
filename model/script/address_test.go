@@ -2,6 +2,8 @@ package script
 
 import (
 	"encoding/hex"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/copernet/copernicus/util"
@@ -47,6 +49,49 @@ func TestHash160Address(t *testing.T) {
 		t.Error("address is worng ,", address)
 		return
 	}
+}
+
+func TestAddressMatch(t *testing.T) {
+	for v := 0; v < 100000; v++ {
+		x := fmt.Sprintf("%02x", v)
+		len1 := len(x)
+		for i := len1; i <= 6; i++ {
+			x = fmt.Sprintf("0%s", x)
+		}
+		result := fmt.Sprintf("000000000000000000000000000000000%s", x) //16进制 length=32
+
+		hash160, err := hex.DecodeString(result)
+		if err != nil {
+			t.Error(err) // encoding/hex: odd length hex string
+		}
+		address, err1 := Hash160ToAddressStr(hash160, PublicKeyToAddress)
+		if err1 != nil {
+			t.Error(err1) //hash160 length 0 not 20
+			return
+		}
+
+		if strings.Contains(address, "bwhc") {
+			fmt.Printf("%v=====%v\n", result, address)
+		}
+
+		if strings.Contains(address, "BWHC") {
+			fmt.Printf("%v=====%v\n", result, address)
+		}
+	}
+}
+
+func TestAdd(t *testing.T) {
+	hash160, err := hex.DecodeString("000000000000000000000000000000000001210f")
+	if err != nil {
+		t.Error(err) // encoding/hex: odd length hex string
+	}
+	address, err1 := Hash160ToAddressStr(hash160, PublicKeyToAddress)
+	if err1 != nil { //
+		t.Error(err1) //hash160 length 0 not 20
+		return
+	}
+
+	fmt.Println(address)
 }
 
 func TestHash160ToAddress(t *testing.T) {
