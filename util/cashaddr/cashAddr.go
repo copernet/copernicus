@@ -3,11 +3,11 @@ package cashaddr
 import (
 	"errors"
 	"fmt"
-	"github.com/btcsuite/btcd/txscript"
 	"golang.org/x/crypto/ripemd160"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/opcodes"
 )
 
 var (
@@ -605,16 +605,16 @@ func cashPayToAddrScript(addr Address) ([]byte, error) {
 // output to a 20-byte pubkey hash. It is expected that the input is a valid
 // hash.
 func payToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
-	return script.NewScriptBuilder().AddOp(txscript.OP_DUP).AddOp(txscript.OP_HASH160).
-		AddData(pubKeyHash).AddOp(txscript.OP_EQUALVERIFY).AddOp(txscript.OP_CHECKSIG).
+	return script.NewScriptBuilder().AddOp(opcodes.OP_DUP).AddOp(opcodes.OP_HASH160).
+		AddData(pubKeyHash).AddOp(opcodes.OP_EQUALVERIFY).AddOp(opcodes.OP_CHECKSIG).
 		Script()
 }
 
 // payToScriptHashScript creates a new script to pay a transaction output to a
 // script hash. It is expected that the input is a valid hash.
 func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
-	return script.NewScriptBuilder().AddOp(txscript.OP_HASH160).AddData(scriptHash).
-		AddOp(txscript.OP_EQUAL).Script()
+	return script.NewScriptBuilder().AddOp(opcodes.OP_HASH160).AddData(scriptHash).
+		AddOp(opcodes.OP_EQUAL).Script()
 }
 
 // ExtractPkScriptAddrs returns the type of script, addresses and required
