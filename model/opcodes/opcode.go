@@ -3,6 +3,7 @@ package opcodes
 const (
 	OP_0         = 0x00
 	OP_FALSE     = OP_0
+	OP_DATA_1    = 0x01 // 1
 	OP_PUSHDATA1 = 0x4c
 	OP_PUSHDATA2 = 0x4d
 	OP_PUSHDATA4 = 0x4e

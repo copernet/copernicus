@@ -294,10 +294,9 @@ func (script *Script) convertRaw() {
 			b := make([]byte, 4)
 			binary.LittleEndian.PutUint32(b, uint32(e.Length))
 			script.data = append(script.data, b...)
-		} else {
-			if e.OpValue < opcodes.OP_PUSHDATA1 && e.Length > 0 {
-				script.data = append(script.data, e.Data...)
-			}
+		}
+		if e.Length > 0 {
+			script.data = append(script.data, e.Data...)
 		}
 	}
 }
@@ -626,9 +625,7 @@ func (script *Script) IsPayToScriptHash() bool {
 }
 
 func (script *Script) IsUnspendable() bool {
-	return script.Size() > 0 &&
-		script.ParsedOpCodes[0].OpValue == opcodes.OP_RETURN ||
-		script.Size() > MaxScriptSize
+	return (script.Size() > 0 && script.data[0] == opcodes.OP_RETURN) || script.Size() > MaxScriptSize
 }
 
 func (script *Script) IsPushOnly() bool {

@@ -18,11 +18,11 @@ type CoinsLruCache struct {
 }
 
 func InitUtxoLruTip(uc *UtxoConfig) {
-	db := NewCoinsDB(uc.Do)
-	utxoTip = NewCoinsLruCache(*db)
+	db := newCoinsDB(uc.Do)
+	utxoTip = newCoinsLruCache(*db)
 }
 
-func NewCoinsLruCache(db CoinsDB) CacheView {
+func newCoinsLruCache(db CoinsDB) CacheView {
 	c := new(CoinsLruCache)
 	c.db = db
 	cache, err := lru.New(1000000)
