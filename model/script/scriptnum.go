@@ -59,7 +59,7 @@ func (n ScriptNum) Bytes() []byte {
 	//
 	// Otherwise, when the most significant byte does not already have the
 	// high bit set, use it to indicate the value is negative, if needed.
-	// 获取result 最后一个字节与 0x80的与值，不等于0时，即第8bit位已被设置。
+	// get the value of the last byte of result and 0x80. If it is not equal to 0, the 8th bit has been set.
 	if result[len(result)-1]&0x80 != 0 {
 		extraByte := byte(0x00)
 		if isNegative {
