@@ -152,37 +152,6 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	}
 }
 
-func TestTestVectors(t *testing.T) {
-	for _, v := range TestVectorsP2PKH {
-		addr, err := DecodeAddress(v[0], &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		addr2, err := NewCashAddressPubKeyHash(addr.ScriptAddress(), &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-		}
-		if addr2.String() != v[1] {
-			t.Error("Failed to derive correct address")
-		}
-	}
-	for _, v := range TestVectorsP2SH {
-		addr, err := DecodeAddress(v[0], &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		addr2, err := NewCashAddressScriptHashFromHash(addr.ScriptAddress(), &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-		}
-		if addr2.String() != v[1] {
-			t.Error("Failed to derive correct address")
-		}
-	}
-}
-
 func TestAddressMatch(t *testing.T) {
 
 	for v := 0; v < 100000; v++ {
