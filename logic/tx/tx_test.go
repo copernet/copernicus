@@ -45,7 +45,6 @@ func TestScriptJsonTests(t *testing.T) {
 		test, ok := itest.([]interface{})
 		if ok {
 			if err := doScriptJSONTest(t, test); err != nil {
-				t.Error(err)
 				break
 			}
 		} else {
@@ -246,8 +245,8 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 	}
 
 	var nValue int64
-	if farr, ok := itest[0].([]int64); ok {
-		nValue = farr[0]
+	if farr, ok := itest[0].([]interface{}); ok {
+		nValue = int64(farr[0].(float64))
 		itest = itest[1:]
 	}
 	if len(itest) < 4 {
@@ -309,9 +308,7 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 	trax.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(pretx.GetHash(), 0), scriptSig, script.SequenceFinal))
 	trax.AddTxOut(txout.NewTxOut(amount.Amount(nValue), script.NewScriptRaw([]byte{})))
 
-	//t.Errorf("Script BadOpcode flag: %v", scriptSig.GetBadOpCode())
 	err = verifyScript(trax, scriptSig, scriptPubKey, 0, amount.Amount(nValue), flags)
-	//t.Error(err)
 
 	if !((scriptErrorString == "OK" && err == nil) || (scriptErrorString != "OK" && err != nil)) {
 		err = fmt.Errorf("expect error: scriptErrorString(%s) err(%v), sig(%s), pubkey(%s), flag(%s), err(%s) itest[] %v",
@@ -320,6 +317,9 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 
 		t.Error(err)
 		return err
+	}
+	if err != nil || scriptErrorString != "OK" {
+		t.Logf("expect:%v err:%v", scriptErrorString, err)
 	}
 	return nil
 }
