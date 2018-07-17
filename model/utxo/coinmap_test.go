@@ -7,6 +7,7 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/txout"
+	"reflect"
 )
 
 func TestCoinMap(t *testing.T) {
@@ -22,7 +23,9 @@ func TestCoinMap(t *testing.T) {
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout2 := txout.NewTxOut(3, script2)
 
-	necm.cacheCoins[outpoint1] = &Coin{
+	coin1 := necm.cacheCoins[outpoint1]
+
+	coin1 = &Coin{
 		txOut:         *txout2,
 		height:        10000,
 		isCoinBase:    false,
@@ -31,9 +34,50 @@ func TestCoinMap(t *testing.T) {
 		fresh:         false,
 	}
 
+	necm.AddCoin(&outpoint1, coin1)
+
 	c := necm.GetCoin(&outpoint1)
-	if c != necm.cacheCoins[outpoint1] {
+
+	if c == nil {
+		t.Error("the coin is nil")
+	}
+
+	if !reflect.DeepEqual(c, coin1) {
 		t.Error("get coin failed.")
+	}
+
+	cc := necm.FetchCoin(&outpoint1)
+	if cc == nil {
+		t.Error("the coin is nil")
+	}
+	if !reflect.DeepEqual(cc, coin1) {
+		t.Error("fetch coin failed.")
+	}
+
+	if !reflect.DeepEqual(necm.SpendCoin(&outpoint1), coin1) {
+		t.Error("spend coin failed, please check...")
+	}
+
+	ccc := necm.GetCoin(&outpoint1)
+	if ccc != nil {
+		t.Error("get coin should nil, because the coin has been spend ")
+	}
+
+	necm.AddCoin(&outpoint1, coin1)
+	if !reflect.DeepEqual(necm.SpendGlobalCoin(&outpoint1), coin1) {
+		t.Error("spend coin should equal coin1, please check.")
+	}
+
+	nc := necm.GetCoin(&outpoint1)
+	if nc != nil {
+		t.Error("get coin should nil, because the coin has been spend ")
+	}
+
+	necm.AddCoin(&outpoint1, coin1)
+	necm.UnCache(&outpoint1)
+	ncc := necm.GetCoin(&outpoint1)
+	if ncc != nil {
+		t.Error("get coin should nil, because the coin has been uncache ")
 	}
 
 	hash2 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a7")
@@ -42,7 +86,8 @@ func TestCoinMap(t *testing.T) {
 	script1 := script.NewEmptyScript()
 	txout1 := txout.NewTxOut(2, script1)
 
-	necm.cacheCoins[outpoint2] = &Coin{
+	coin2 := necm.cacheCoins[outpoint2]
+	coin2 = &Coin{
 		txOut:         *txout1,
 		height:        100012,
 		isCoinBase:    false,
@@ -51,25 +96,49 @@ func TestCoinMap(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint1, necm.cacheCoins[outpoint1])
-	necm.AddCoin(&outpoint2, necm.cacheCoins[outpoint2])
+	necm.AddCoin(&outpoint2, coin2)
 
-	if necm.SpendCoin(&outpoint1) != c {
+	c2 := necm.GetCoin(&outpoint2)
+
+	if c2 == nil {
+		t.Error("the coin is nil")
+	}
+
+	if !reflect.DeepEqual(c2, coin2) {
+		t.Error("get coin failed.")
+	}
+
+	cc2 := necm.FetchCoin(&outpoint2)
+	if cc2 == nil {
+		t.Error("the coin is nil")
+	}
+	if !reflect.DeepEqual(cc2, coin2) {
+		t.Error("fetch coin failed.")
+	}
+
+	if !reflect.DeepEqual(necm.SpendCoin(&outpoint2), coin2) {
 		t.Error("spend coin failed, please check...")
 	}
 
-	//ok := necm.Flush(*hash1)
-	//if ok {
-	//	fmt.Println()
-	//	fmt.Printf("flushing=====%v\n",necm.cacheCoins[outpoint1])
-	//}
-
-	necm.UnCache(&outpoint1)
-	if necm.SpendCoin(&outpoint1) != nil {
-		t.Error("the uncache func is failed.")
+	ccc2 := necm.GetCoin(&outpoint2)
+	if ccc2 != nil {
+		t.Error("get coin should nil, because the coin has been spend ")
 	}
 
-	if necm.GetCoin(&outpoint1) != nil {
-		t.Error("after spend coin, the coin is empty, please check...")
+	necm.AddCoin(&outpoint2, coin2)
+	if !reflect.DeepEqual(necm.SpendGlobalCoin(&outpoint2), coin2) {
+		t.Error("spend coin should equal coin1, please check.")
+	}
+
+	nc2 := necm.GetCoin(&outpoint2)
+	if nc2 != nil {
+		t.Error("get coin should nil, because the coin has been spend ")
+	}
+
+	necm.AddCoin(&outpoint2, coin2)
+	necm.UnCache(&outpoint2)
+	ncc2 := necm.GetCoin(&outpoint2)
+	if ncc2 != nil {
+		t.Error("get coin should nil, because the coin has been uncache ")
 	}
 }

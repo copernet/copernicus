@@ -5,7 +5,8 @@ import (
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
 	"bytes"
-	"fmt"
+	"reflect"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestCoinKey(t *testing.T) {
@@ -19,10 +20,10 @@ func TestCoinKey(t *testing.T) {
 	var target CoinKey
 	target.outpoint = &outpoint.OutPoint{}
 	target.Unserialize(bytes.NewReader(w.Bytes()))
-	if target.outpoint.Hash != *hash1 {
+	if reflect.DeepEqual(ck, target) {
 		t.Errorf("the target outpoint hash:%v not equal hash1:%v\n", target, hash1)
 	}
 
 	gs := ck.GetSerKey()
-	fmt.Printf("get ser key is : %v \n", gs)
+	spew.Dump("get ser key is : %v \n", gs)
 }

@@ -101,14 +101,6 @@ func (coinsViewDB *CoinsDB) EstimateSize() uint64 {
 	return coinsViewDB.dbw.EstimateSize([]byte{db.DbCoin}, []byte{db.DbCoin + 1})
 }
 
-//func (coinsViewDB *CoinsDB) Cursor() *CoinsViewCursor {
-//
-//	// It seems that there are no "const iterators" for LevelDB. Since we only
-//	// need read operations on it, use a const-cast to get around that
-//	// restriction.
-//
-//}
-
 func newCoinsDB(do *db.DBOption) *CoinsDB {
 	if do == nil {
 		return nil

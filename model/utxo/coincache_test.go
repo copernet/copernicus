@@ -45,9 +45,6 @@ func TestCoinCache(t *testing.T) {
 		fresh:         true,
 	}
 
-	necm.AddCoin(&outpoint1, necm.cacheCoins[outpoint1])
-	necm.AddCoin(&outpoint2, necm.cacheCoins[outpoint2])
-
 	path, err := ioutil.TempDir("", "coindbtest")
 	if err != nil {
 		t.Fatalf("generate temp db path failed: %s\n", err)
