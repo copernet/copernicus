@@ -529,7 +529,7 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 		// Disallow CLEANSTACK without P2SH, as otherwise a switch
 		// CLEANSTACK->P2SH+CLEANSTACK would be possible, which is not a
 		// softfork (and P2SH should be one).
-		if flags&script.ScriptVerifyP2SH != 0 {
+		if flags&script.ScriptVerifyP2SH == 0 {
 			panic("flags err")
 		}
 		if stack.Size() != 1 {
@@ -541,6 +541,15 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 
 func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int,
 	money amount.Amount, flags uint32) error {
+
+	if s.GetBadOpCode() == true {
+		log.Debug("ScriptErrBadOpCode")
+		return errcode.New(errcode.ScriptErrBadOpCode)
+	}
+	if s.Size() > script.MaxScriptSize {
+		return errcode.New(errcode.ScriptErrScriptSize)
+	}
+
 	nOpCount := 0
 
 	bnZero := script.ScriptNum{0}
@@ -559,15 +568,12 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 	fExec := false
 	stackExec := util.NewStack()
 	stackAlt := util.NewStack()
+
 	for i, e := range s.ParsedOpCodes {
 		if stackExec.CountBool(false) == 0 {
 			fExec = true
 		} else {
 			fExec = false
-		}
-		if s.GetBadOpCode() == true {
-			log.Debug("ScriptErrBadOpCode")
-			return errcode.New(errcode.ScriptErrBadOpCode)
 		}
 		if len(e.Data) > script.MaxScriptElementSize {
 			log.Debug("ScriptErrElementSize")
@@ -1615,9 +1621,9 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				pubKeysCount := pubKeysNum.ToInt32()
-				if pubKeysCount < 0 || pubKeysCount > script.MaxOpsPerScript {
+				if pubKeysCount < 0 || pubKeysCount > script.MaxPubKeysPerMultiSig {
 					log.Debug("ScriptErrOpCount")
-					return errcode.New(errcode.ScriptErrOpCount)
+					return errcode.New(errcode.ScriptErrPubKeyCount)
 				}
 				nOpCount += int(pubKeysCount)
 				if nOpCount > script.MaxOpsPerScript {

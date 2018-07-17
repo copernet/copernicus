@@ -37,13 +37,13 @@ func TestScriptJsonTests(t *testing.T) {
 		test, ok := itest.([]interface{})
 		if ok {
 			if err := doScriptJSONTest(t, test); err != nil {
-
+				t.Error(err)
+				break
 			}
 		} else {
 			t.Errorf("test is not []interface{}")
 		}
 	}
-
 }
 
 func interface2string(sli []interface{}) []string {
@@ -286,16 +286,30 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 		t.Errorf("parse script flag err, itest[] %#v", itest)
 		return err
 	}
+	scriptNumBytes := make([][]byte, 0)
+	scriptNum := script.NewScriptNum(0)
+	scriptNumBytes = append(scriptNumBytes, scriptNum.Serialize(), scriptNum.Serialize())
+	preScriptSig := script.NewEmptyScript()
+	preScriptSig.PushData(scriptNumBytes)
+
+	pretx := tx.NewTx(0, 1)
+	pretx.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.Hash{}, 0xffffffff),
+		preScriptSig, script.SequenceFinal))
+	pretx.AddTxOut(txout.NewTxOut(amount.Amount(nValue), scriptPubKey))
+
 	trax := tx.NewTx(0, 1)
-	trax.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.Hash{}, 0xffffffff), scriptSig, script.SequenceFinal))
+	trax.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(pretx.GetHash(), 0), scriptSig, script.SequenceFinal))
 	trax.AddTxOut(txout.NewTxOut(amount.Amount(nValue), script.NewScriptRaw([]byte{})))
 
+	//t.Errorf("Script BadOpcode flag: %v", scriptSig.GetBadOpCode())
 	err = verifyScript(trax, scriptSig, scriptPubKey, 0, amount.Amount(nValue), flags)
+	//t.Error(err)
 
-	if !(scriptErrorString == "OK" && err == nil || scriptErrorString != "OK" && err != nil) {
+	if !((scriptErrorString == "OK" && err == nil) || (scriptErrorString != "OK" && err != nil)) {
 		err = fmt.Errorf("expect error: scriptErrorString(%s) err(%v), sig(%s), pubkey(%s), flag(%s), err(%s) itest[] %v",
 			scriptErrorString, err, scriptSigString,
 			scriptPubKeyString, scriptFlagString, scriptErrorString, itest)
+
 		t.Error(err)
 		return err
 	}

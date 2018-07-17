@@ -1045,7 +1045,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				// Request blocks after this one up to the
 				// final one the remote peer knows about (zero
 				// stop hash).
-
+				log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
 				activeChain := chain.GetInstance()
 				blkIndex := activeChain.FindHashInActive(iv.Hash)
 				locator := activeChain.GetLocator(blkIndex)
