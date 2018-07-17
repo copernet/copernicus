@@ -20,7 +20,7 @@ var TestVectorsP2SH = [][]string{
 	{"31nwvkZwyPdgzjBJZXfDmSWsC4ZLKpYyUw", "pqq3728yw0y47sqn6l2na30mcw6zm78dzq5ucqzc37"},
 }
 
-var valid []string = []string{
+var valid = []string{
 	"prefix:x64nx6hz",
 	"PREFIX:X64NX6HZ",
 	"p:gpf8m4h7",
@@ -152,47 +152,16 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	}
 }
 
-func TestTestVectors(t *testing.T) {
-	for _, v := range TestVectorsP2PKH {
-		addr, err := DecodeAddress(v[0], &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		addr2, err := NewCashAddressPubKeyHash(addr.ScriptAddress(), &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-		}
-		if addr2.String() != v[1] {
-			t.Error("Failed to derive correct address")
-		}
-	}
-	for _, v := range TestVectorsP2SH {
-		addr, err := DecodeAddress(v[0], &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		addr2, err := NewCashAddressScriptHashFromHash(addr.ScriptAddress(), &chainparams.MainNetParams)
-		if err != nil {
-			t.Error(err)
-		}
-		if addr2.String() != v[1] {
-			t.Error("Failed to derive correct address")
-		}
-	}
-}
-
 func TestAddressMatch(t *testing.T) {
 
-	for v := 0; v < 1000000000; v++ {
+	for v := 0; v < 100000; v++ {
 		x := fmt.Sprintf("%02x", v)
 		len1 := len(x)
 		for i := len1; i <= 6; i++ {
 			x = fmt.Sprintf("0%s", x)
 		}
 
-		result := fmt.Sprintf("q00000000000000000000000000000000%s", x) //16进制 length=32
+		result := fmt.Sprintf("000000000000000000000000000000000%s", x) //16进制 length=32
 
 		hash160, err := hex.DecodeString(result)
 		if err != nil {
@@ -204,11 +173,11 @@ func TestAddressMatch(t *testing.T) {
 			return
 		}
 
-		if strings.Contains(address.String(), "bwhc") {
+		if strings.Contains(address.String(), "8whc") {
 			fmt.Printf("%v=====%v\n", result, address)
 		}
 
-		if strings.Contains(address.String(), "BWHC") {
+		if strings.Contains(address.String(), "WHC") {
 			fmt.Printf("%v=====%v\n", result, address)
 		}
 

@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -22,10 +23,17 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 )
 
+var opMap map[string]byte
+
+func init() {
+	opMap = createName2OpCodeMap()
+}
+
 func TestScriptJsonTests(t *testing.T) {
-	data, err := ioutil.ReadFile("script_tests.json")
+	data, err := ioutil.ReadFile("test_data/script_tests.json")
 	if err != nil {
 		t.Error(err)
+		return
 	}
 	var tests []interface{}
 	err = json.Unmarshal(data, &tests)
@@ -252,7 +260,7 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 		return err
 	}
 	// fmt.Printf("%#v\n", itest)
-	opMap := createName2OpCodeMap()
+
 	scriptSigString, scriptPubKeyString, scriptFlagString, scriptErrorString := test[0], test[1], test[2], test[3]
 	// fmt.Printf("sig(%s), pubkey(%s), flag(%s), err(%s)\n",
 	// 	scriptSigString, scriptPubKeyString, scriptFlagString, scriptErrorString)
@@ -314,4 +322,70 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 		return err
 	}
 	return nil
+}
+
+func TestSigHash(t *testing.T) {
+	data, err := ioutil.ReadFile("test_data/sighash.json")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var tests [][]interface{}
+	err = json.Unmarshal(data, &tests)
+	if err != nil {
+		t.Fatalf("TestCalcSignatureHash couldn't Unmarshal: %v\n",
+			err)
+	}
+
+	for i, test := range tests[1:] {
+		i++
+		if len(test) < 1 {
+			t.Fatalf("TestCalcSignatureHash: Test #%d has "+
+				"wrong length.", i)
+		}
+		if len(test) == 1 {
+			// comments
+			continue
+		}
+		newTx := tx.NewEmptyTx()
+		rawTx, _ := hex.DecodeString(test[0].(string))
+		err := newTx.Decode(bytes.NewReader(rawTx))
+		if err != nil {
+			t.Errorf("failed to parse transaction for test %d", i)
+			continue
+		}
+
+		subScript, _ := hex.DecodeString(test[1].(string))
+		scriptPubKey := script.NewScriptRaw(subScript)
+
+		nIn := int(test[2].(float64))
+		hashType := uint32(test[3].(float64))
+
+		shreg, err := util.DecodeHash(test[4].(string))
+		if err != nil {
+			t.Errorf("decode hash err for test %d: %v", i, err)
+			continue
+		}
+
+		// hash := calcSignatureHash(parsedScript, hashType, &tx,
+		// 	int(test[2].(float64)))
+
+		// scriptPubKeyBytes, err := parseScriptFrom(test[1].(string), opMap)
+		// if err != nil {
+		// 	t.Errorf("parse script err for test %d, err:%v", i, err)
+		// 	continue
+		// }
+
+		hash, err := tx.SignatureHash(newTx, scriptPubKey, hashType, nIn,
+			amount.Amount(0), script.ScriptEnableSigHashForkId)
+		if err != nil {
+			t.Errorf("verify error for test %d", i)
+			continue
+		}
+		if !bytes.Equal([]byte(hash[:]), shreg) {
+			t.Fatalf("TestCalcSignatureHash failed test #%d: "+
+				"Signature hash mismatch. %v", i, test)
+		}
+	}
 }
