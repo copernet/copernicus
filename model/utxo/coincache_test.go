@@ -78,7 +78,9 @@ func TestCoinCache(t *testing.T) {
 		t.Error("the coin1 should equal get coin value.")
 	}
 
-	necm.Flush(*hash1)
+	hashblock := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d014")
+
+	necm.Flush(*hashblock)
 
 	//err1 := utxoTip.UpdateCoins(necm, hash1)
 	//if err1 != nil {
@@ -98,14 +100,14 @@ func TestCoinCache(t *testing.T) {
 	}
 
 	//flush
-	necm.SetBestBlock(*hash1)
+	//necm.SetBestBlock(*hash1)
 	//necm.Flush(*hash1)
 	cvt := GetUtxoCacheInstance()
 	hash0, err0 := cvt.GetBestBlock()
 	if err0 != nil {
 		panic("get best block failed...")
 	}
-	if hash0 != *hash1 {
+	if hash0 != *hashblock {
 		t.Error("get best block failed...")
 	}
 	if cvt.GetCacheSize() != 2 {
