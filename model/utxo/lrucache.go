@@ -104,7 +104,6 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 			// Lru could have deleted it from cache ,but ok.
 			if !ok {
 				if !(tempCacheCoin.fresh && tempCacheCoin.IsSpent()) {
-					tempCacheCoin.dirty = true
 					coinsCache.cacheCoins.Add(point, tempCacheCoin)
 					coinsCache.dirtyCoins[point] = tempCacheCoin
 					if tempCacheCoin.fresh {
@@ -128,7 +127,6 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 					}
 				} else {
 					*globalCacheCoin = *tempCacheCoin
-					globalCacheCoin.dirty = true
 					coinsCache.dirtyCoins[point] = globalCacheCoin
 				}
 			}

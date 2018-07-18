@@ -403,6 +403,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		// }
 		// Flush the chainState (which may refer to block index entries).
 		if !coinsTip.Flush() {
+			panic("write db failed, please check.")//todo:
 			return errcode.New(errcode.ErrorFailedToWriteToCoinDatabase)
 
 		}
