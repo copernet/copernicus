@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+
 set -ex
 
 if [ ! -x "$(type -p glide)" ]; then
