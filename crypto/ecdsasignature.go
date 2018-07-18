@@ -155,7 +155,7 @@ func IsDefineHashtypeSignature(vchSig []byte) bool {
 	if len(vchSig) == 0 {
 		return false
 	}
-	nHashType := vchSig[len(vchSig)-1] & (^byte(SigHashAnyoneCanpay))
+	nHashType := vchSig[len(vchSig)-1] & (^byte(SigHashAnyoneCanpay | SigHashForkID))
 	if nHashType < SigHashAll || nHashType > SigHashSingle {
 		return false
 	}

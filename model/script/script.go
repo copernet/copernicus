@@ -295,7 +295,7 @@ func (script *Script) convertRaw() {
 			binary.LittleEndian.PutUint32(b, uint32(e.Length))
 			script.data = append(script.data, b...)
 		}
-		if e.Length > 0 {
+		if e.OpValue <= opcodes.OP_PUSHDATA4 && e.Length > 0 {
 			script.data = append(script.data, e.Data...)
 		}
 	}

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	TxOrphan   = iota
+	TxOrphan = iota
 	TxInvalid
 	CoinAmount = 100000000
 )
@@ -337,7 +337,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	}
 
 	if tx.EncodeSize() > consensus.MaxTxSize {
-		log.Warn("bad tx, oversize")
+		log.Warn("tx is oversize, tx:%v, tx size:%d, MaxTxSize:%d", tx, tx.EncodeSize(), consensus.MaxTxSize)
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
