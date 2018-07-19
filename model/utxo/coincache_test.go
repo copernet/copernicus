@@ -21,7 +21,8 @@ func TestCoinCache(t *testing.T) {
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout2 := txout.NewTxOut(3, script2)
 
-	necm.cacheCoins[outpoint1] = &Coin{
+	coin1 := necm.cacheCoins[outpoint1]
+	coin1 = &Coin{
 		txOut:         *txout2,
 		height:        10000,
 		isCoinBase:    false,
@@ -36,7 +37,8 @@ func TestCoinCache(t *testing.T) {
 	script1 := script.NewEmptyScript()
 	txout1 := txout.NewTxOut(2, script1)
 
-	necm.cacheCoins[outpoint2] = &Coin{
+	coin2 := necm.cacheCoins[outpoint2]
+	coin2 = &Coin{
 		txOut:         *txout1,
 		height:        100012,
 		isCoinBase:    false,
@@ -63,14 +65,33 @@ func TestCoinCache(t *testing.T) {
 	}
 	InitUtxoLruTip(uc)
 
-	necm.Flush(*hash1)
+	necm.AddCoin(&outpoint1, coin1)
+	necm.AddCoin(&outpoint2, coin2)
 
-	err1 := utxoTip.UpdateCoins(necm, hash1)
-	if err1 != nil {
-		t.Errorf("update coins failed,the error is :%v", err1)
+	c1 := necm.GetCoin(&outpoint1)
+	if !reflect.DeepEqual(c1, coin1) {
+		t.Error("the coin1 should equal get coin value.")
 	}
 
-	if reflect.DeepEqual(utxoTip.GetCoin(&outpoint1), necm.cacheCoins[outpoint1]) {
+	c2 := necm.GetCoin(&outpoint2)
+	if !reflect.DeepEqual(c2, coin2) {
+		t.Error("the coin1 should equal get coin value.")
+	}
+
+	hashblock := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d014")
+
+	necm.Flush(*hashblock)
+
+	//err1 := utxoTip.UpdateCoins(necm, hash1)
+	//if err1 != nil {
+	//	t.Errorf("update coins failed,the error is :%v", err1)
+	//}
+
+	if !reflect.DeepEqual(utxoTip.GetCoin(&outpoint1), coin1) {
+		t.Error("the lru cache shouldn't equal cache coins of coinmap, the cache coin of map is equal nil")
+	}
+
+	if !reflect.DeepEqual(utxoTip.GetCoin(&outpoint2), coin2) {
 		t.Error("the lru cache shouldn't equal cache coins of coinmap, the cache coin of map is equal nil")
 	}
 
@@ -79,33 +100,51 @@ func TestCoinCache(t *testing.T) {
 	}
 
 	//flush
-	necm.SetBestBlock(*hash1)
-	necm.Flush(*hash1)
+	//necm.SetBestBlock(*hash1)
+	//necm.Flush(*hash1)
 	cvt := GetUtxoCacheInstance()
 	hash0, err0 := cvt.GetBestBlock()
 	if err0 != nil {
 		panic("get best block failed...")
 	}
-	if hash0 != *hash1 {
+	if hash0 != *hashblock {
 		t.Error("get best block failed...")
 	}
 	if cvt.GetCacheSize() != 2 {
 		t.Error("the cache size is 2, please check...")
 	}
 
-	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
-	necm.SetBestBlock(*hash2)
-	//necm.Flush(*hash2)
-	gulci := GetUtxoCacheInstance()
-	hash3, err3 := gulci.GetBestBlock()
-	if err3 != nil {
-		panic("get best block failed..")
-	}
-	if hash3 != *hash1 {
-		t.Error("get best block failed...")
-	}
-	if gulci.GetCacheSize() != 2 {
-		t.Error("the cache size is 2, please check...")
+	hash3 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d010")
+	outpoint3 := outpoint.OutPoint{Hash: *hash3, Index: 0}
+
+	script3 := script.NewScriptRaw([]byte{opcodes.OP_13, opcodes.OP_EQUAL})
+	txout3 := txout.NewTxOut(3, script3)
+
+	coin3 := necm.cacheCoins[outpoint3]
+	coin3 = &Coin{
+		txOut:         *txout3,
+		height:        10000,
+		isCoinBase:    false,
+		isMempoolCoin: false,
+		dirty:         false,
+		fresh:         true,
 	}
 
+	necm.AddCoin(&outpoint3, coin3)
+
+	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
+	necm.SetBestBlock(*hash3)
+	//necm.Flush(*hash3)
+	hash4, err4 := cvt.GetBestBlock()
+	if err4 != nil {
+		panic("get best block failed..")
+	}
+
+	if hash4 == *hash3 {
+		t.Error("get best block failed...")
+	}
+
+	if cvt.GetCacheSize() != 2 {
+		t.Error("the cache size is 2, please check...")
+	}
 }

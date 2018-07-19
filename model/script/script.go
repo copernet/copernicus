@@ -217,7 +217,7 @@ func (s *Script) Unserialize(reader io.Reader, isCoinBase bool) (err error) {
 }
 
 func (s *Script) EncodeSize() uint32 {
-	return 8 + util.VarIntSerializeSize(uint64(len(s.data))) + uint32(len(s.data))
+	return util.VarIntSerializeSize(uint64(len(s.data))) + uint32(len(s.data))
 }
 
 func (s *Script) Encode(writer io.Writer) (err error) {
@@ -295,7 +295,7 @@ func (script *Script) convertRaw() {
 			binary.LittleEndian.PutUint32(b, uint32(e.Length))
 			script.data = append(script.data, b...)
 		}
-		if e.Length > 0 {
+		if e.OpValue <= opcodes.OP_PUSHDATA4 && e.Length > 0 {
 			script.data = append(script.data, e.Data...)
 		}
 	}
