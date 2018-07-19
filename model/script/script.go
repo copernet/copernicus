@@ -217,7 +217,7 @@ func (s *Script) Unserialize(reader io.Reader, isCoinBase bool) (err error) {
 }
 
 func (s *Script) EncodeSize() uint32 {
-	return 8 + util.VarIntSerializeSize(uint64(len(s.data))) + uint32(len(s.data))
+	return util.VarIntSerializeSize(uint64(len(s.data))) + uint32(len(s.data))
 }
 
 func (s *Script) Encode(writer io.Writer) (err error) {

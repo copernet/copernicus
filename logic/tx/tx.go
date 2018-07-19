@@ -25,6 +25,13 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 )
 
+var ScriptVerifyChan chan struct {
+	txHash       util.Hash
+	scriptSig    *script.Script
+	scriptPubKey *script.Script
+	err          error
+}
+
 // transaction service will use this func to check transaction before accepting to mempool
 func CheckRegularTransaction(transaction *tx.Tx) error {
 	err := transaction.CheckRegularTransaction()
@@ -233,7 +240,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
-			UpdateCoins(transaction, coinsMap, nil, blockHeight)
+			TxUpdateCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
 		if !transaction.IsCoinBase() {
@@ -248,7 +255,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		}
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
-		UpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		TxUpdateCoins(transaction, coinsMap, txundo, blockHeight)
 		txUndoList = append(txUndoList, txundo)
 	}
 	bundo.SetTxUndo(txUndoList)
