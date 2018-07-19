@@ -12,29 +12,29 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-// AmountUnit describes a method of converting an Amount to something
-// other than the base unit of a bitcoin.  The value of the AmountUnit
+// Unit describes a method of converting an Amount to something
+// other than the base unit of a bitcoin.  The value of the Unit
 // is the exponent component of the decadic multiple to convert from
 // an amount in bitcoin to an amount counted in units.
-type AmountUnit int
+type Unit int
 
 // These constants define various units used when describing a bitcoin
 // monetary amount.
 const (
-	AmountMegaBTC  AmountUnit = 6
-	AmountKiloBTC  AmountUnit = 3
-	AmountBTC      AmountUnit = 0
-	AmountMilliBTC AmountUnit = -3
-	AmountMicroBTC AmountUnit = -6
-	AmountSatoshi  AmountUnit = -8
+	AmountMegaBTC  Unit = 6
+	AmountKiloBTC  Unit = 3
+	AmountBTC      Unit = 0
+	AmountMilliBTC Unit = -3
+	AmountMicroBTC Unit = -6
+	AmountSatoshi  Unit = -8
 
 	CENT int64 = 1000000
 )
 
 // String returns the unit as a string.  For recognized units, the SI
 // prefix is used, or "Satoshi" for the base unit.  For all unrecognized
-// units, "1eN BTC" is returned, where N is the AmountUnit.
-func (u AmountUnit) String() string {
+// units, "1eN BTC" is returned, where N is the Unit.
+func (u Unit) String() string {
 	switch u {
 	case AmountMegaBTC:
 		return "MBTC"
@@ -94,7 +94,7 @@ func NewAmount(f float64) (Amount, error) {
 
 // ToUnit converts a monetary amount counted in bitcoin base units to a
 // floating point value representing an amount of bitcoin.
-func (a Amount) ToUnit(u AmountUnit) float64 {
+func (a Amount) ToUnit(u Unit) float64 {
 	return float64(a) / math.Pow10(int(u+8))
 }
 
@@ -107,7 +107,7 @@ func (a Amount) ToBTC() float64 {
 // string for a given unit.  The conversion will succeed for any unit,
 // however, known units will be formated with an appended label describing
 // the units with SI notation, or "Satoshi" for the base unit.
-func (a Amount) Format(u AmountUnit) string {
+func (a Amount) Format(u Unit) string {
 	units := " " + u.String()
 	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u+8), 64) + units
 }

@@ -120,7 +120,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return err
 	}
 	tip := chain.GetInstance().Tip()
-	var currentBlockScriptVerifyFlags uint32 = chain.GetInstance().GetBlockScriptFlags(tip)
+	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
 	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
@@ -240,7 +240,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
-			TxUpdateCoins(transaction, coinsMap, nil, blockHeight)
+			UpdateCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
 		if !transaction.IsCoinBase() {
@@ -255,7 +255,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		}
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
-		TxUpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		UpdateCoins(transaction, coinsMap, txundo, blockHeight)
 		txUndoList = append(txUndoList, txundo)
 	}
 	bundo.SetTxUndo(txUndoList)
@@ -1862,7 +1862,7 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 	return true
 }
 
-//  CalculateLockPoints caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+//CalculateLockPoints caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
 	var maxInputHeight int32
 	activeChain := chain.GetInstance()
