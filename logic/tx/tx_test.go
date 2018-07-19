@@ -385,7 +385,7 @@ func TestSigHash(t *testing.T) {
 		}
 		if !bytes.Equal([]byte(hash[:]), shreg) {
 			t.Fatalf("TestCalcSignatureHash failed test #%d: "+
-				"Signature hash mismatch. %v", i, test)
+				"Signature hash mismatch. %v, calculated hash: %x", i, test, hash)
 		}
 	}
 }
