@@ -25,8 +25,7 @@ var msgHandle *MsgHandle
 // Then begins the core block handler which processes block and inv messages.
 func SetMsgHandle(ctx context.Context, msgChan <-chan *peer.PeerMessage, server *Server) {
 	msg := &MsgHandle{msgChan, server}
-	ctxChild, _ := context.WithCancel(ctx)
-	go msg.startProcess(ctxChild)
+	go msg.startProcess(ctx)
 	msgHandle = msg
 }
 
@@ -114,7 +113,7 @@ out:
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
 				}
 			case *wire.MsgGetBlocks:
-				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil{
+				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
 				}
 			case *wire.MsgGetHeaders:

@@ -1,6 +1,6 @@
 package conf
 
-func GetDataPath() string{
+func GetDataPath() string {
 	return DataDir
 
 	//return "/tmp"

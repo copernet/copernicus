@@ -2183,7 +2183,6 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	s.syncManager.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 	s.syncManager.ProcessTransactionCallBack = service.ProcessTransaction
 
-
 	return s, nil
 }
 

@@ -17,7 +17,7 @@ func NewFakeChain() *Chain {
 		receiveID:   0,
 	}
 	c.params = chainparams.ActiveNetParams
-	
+
 	genbi := blockindex.NewBlockIndex(&c.params.GenesisBlock.Header)
 	c.active = append(c.active, genbi)
 	c.branch = append(c.branch, genbi)

@@ -2,7 +2,6 @@ package block
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 
@@ -80,7 +79,7 @@ func (bl *Block) Unserialize(r io.Reader) error {
 		return err
 	}
 	if ntx > consensus.MaxTxCount {
-		return errors.New(fmt.Sprintf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount))
+		return fmt.Errorf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount)
 	}
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {

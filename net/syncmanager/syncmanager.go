@@ -926,7 +926,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		// Check if the transaction exists from the point of view of the
 		// end of the main chain.
 		pcoins := utxo.GetUtxoCacheInstance()
-		out := outpoint.OutPoint{invVect.Hash, 0}
+		out := outpoint.OutPoint{Hash:invVect.Hash, Index:0}
 		if pcoins.GetCoin(&out) != nil {
 			return true, nil
 		}

@@ -17,7 +17,7 @@ type BlockHeader struct {
 	Nonce         uint32    `json:"nonce"`
 	encodeSize    int
 	serializeSize int
-	hash          util.Hash `json:"hash"`
+	Hash          util.Hash `json:"hash"`
 }
 
 const blockHeaderLength = 16 + util.Hash256Size*2
@@ -35,13 +35,13 @@ func (bh *BlockHeader) GetBlockTime() uint32 {
 }
 
 func (bh *BlockHeader) GetHash() util.Hash {
-	if !bh.hash.IsNull() {
-		return bh.hash
+	if !bh.Hash.IsNull() {
+		return bh.Hash
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
 	bh.SerializeHeader(buf)
-	bh.hash = util.DoubleSha256Hash(buf.Bytes())
-	return bh.hash
+	bh.Hash = util.DoubleSha256Hash(buf.Bytes())
+	return bh.Hash
 }
 
 func (bh *BlockHeader) SetNull() {

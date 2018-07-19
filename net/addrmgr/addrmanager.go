@@ -25,9 +25,9 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/chainparams"
 )
 
 // AddrManager provides a concurrency safe address manager for caching potential

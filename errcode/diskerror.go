@@ -20,13 +20,11 @@ const (
 	// ErrorBadBlkTx
 )
 
-var DiskErrString = map[DiskErr]string {
-
-}
+var DiskErrString = map[DiskErr]string{}
 
 func (de DiskErr) String() string {
 	if s, ok := DiskErrString[de]; ok {
 		return s
 	}
-	return fmt.Sprintf("Unknown code (%d)",de)
+	return fmt.Sprintf("Unknown code (%d)", de)
 }

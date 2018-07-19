@@ -8,8 +8,8 @@ import (
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/rpc/btcjson"
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/service"
+	"github.com/copernet/copernicus/util"
 )
 
 var netHandlers = map[string]commandHandler{

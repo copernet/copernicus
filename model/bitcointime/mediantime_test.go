@@ -7,9 +7,9 @@
 package bitcointime
 
 import (
-"strconv"
-"testing"
-"time"
+	"strconv"
+	"testing"
+	"time"
 )
 
 // TestMedianTime tests the medianTime implementation.

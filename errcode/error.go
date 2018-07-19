@@ -14,7 +14,7 @@ const (
 	BlockIndexErrorBase
 	CoinErrorBase
 	MessageErrorBase
-	RpcErrorBase
+	RPCErrorBase
 	NetErrorBase
 	PeerErrorBase
 	ServiceErrorBase
@@ -22,7 +22,6 @@ const (
 	CryptoErrorBase
 	ConsensusErrorBase
 	DiskErrorBase
-
 )
 
 const errDescFmt string = "module: [%s], inner err desc: [%s]"

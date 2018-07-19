@@ -1,20 +1,20 @@
 package utxo
 
 import (
-	"testing"
-	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
+	"testing"
 )
 
 func TestLRUCache(t *testing.T) {
 	uc := &UtxoConfig{Do: &db.DBOption{
 		FilePath:  "/tmp/dbtest",
 		CacheSize: 1 << 20,
-	},}
+	}}
 
 	InitUtxoLruTip(uc)
 
@@ -40,7 +40,7 @@ func TestLRUCache(t *testing.T) {
 
 	ok := necm.Flush(*hash1)
 	if !ok {
-		t.Error("flush failed....", )
+		t.Error("flush failed....")
 	}
 
 	b := utxoTip.Flush()
@@ -79,7 +79,7 @@ func TestLRUCache(t *testing.T) {
 
 	ok2 := necm.Flush(*hash2)
 	if !ok2 {
-		t.Error("flush failed....", )
+		t.Error("flush failed....")
 	}
 
 	c2 := utxoTip.GetCoin(&outpoint2)

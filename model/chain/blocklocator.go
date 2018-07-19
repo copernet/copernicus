@@ -14,15 +14,14 @@ func NewBlockLocator(vHaveIn []util.Hash) *BlockLocator {
 	return &blo
 }
 
-func(blt *BlockLocator) SetNull() {
-	blt.blockHashList = make([]util.Hash, 0,0)
+func (blt *BlockLocator) SetNull() {
+	blt.blockHashList = make([]util.Hash, 0, 0)
 }
 
-func(blt *BlockLocator) IsNull() bool{
+func (blt *BlockLocator) IsNull() bool {
 	return len(blt.blockHashList) == 0
 }
 
-func(blt *BlockLocator) GetBlockHashList() []util.Hash{
+func (blt *BlockLocator) GetBlockHashList() []util.Hash {
 	return blt.blockHashList
 }
-

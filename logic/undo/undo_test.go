@@ -3,6 +3,7 @@ package undo
 import (
 	"testing"
 
+	"bytes"
 	"github.com/copernet/copernicus/logic/tx"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -17,7 +18,6 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
-	"bytes"
 	"github.com/davecgh/go-spew/spew"
 )
 

@@ -3,11 +3,11 @@ package pow
 import (
 	"math/big"
 
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/log"
 )
 
 type Pow struct{}

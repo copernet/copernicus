@@ -1,39 +1,29 @@
 package block
 
 import (
-"bytes"
-"fmt"
-"io"
-"time"
+	"bytes"
+	"fmt"
+	"io"
+	"time"
 
-
-
-
-
-"github.com/copernet/copernicus/util"
-
-
+	"github.com/copernet/copernicus/util"
 )
-
 
 type BlockFileInfo struct {
 	Blocks      uint32 // number of blocks stored in file
 	Size        uint32 // number of used bytes of block file
 	UndoSize    uint32 // number of used bytes in the undo file
-	HeightFirst int32 // lowest height of block in file
-	HeightLast  int32 // highest height of block in file
+	HeightFirst int32  // lowest height of block in file
+	HeightLast  int32  // highest height of block in file
 	timeFirst   uint64 // earliest time of block in file
 	timeLast    uint64 // latest time of block in file
-	index uint32
-
+	index       uint32
 }
 
-
-func (bfi *BlockFileInfo) GetSerializeList()[]string{
-	dumpList := []string{"Blocks","Size", "UndoSize", "HeightFirst", "HeightLast","timeFirst","timeLast","index"}
+func (bfi *BlockFileInfo) GetSerializeList() []string {
+	dumpList := []string{"Blocks", "Size", "UndoSize", "HeightFirst", "HeightLast", "timeFirst", "timeLast", "index"}
 	return dumpList
 }
-
 
 func (bfi *BlockFileInfo) Serialize(w io.Writer) error {
 	buf := bytes.NewBuffer(nil)
@@ -78,10 +68,10 @@ func (bfi *BlockFileInfo) AddBlock(nHeightIn int32, timeIn uint64) {
 	}
 }
 
-func (bfi *BlockFileInfo) GetIndex()uint32{
+func (bfi *BlockFileInfo) GetIndex() uint32 {
 	return bfi.index
 }
-func (bfi *BlockFileInfo) SetIndex(idx uint32){
+func (bfi *BlockFileInfo) SetIndex(idx uint32) {
 	bfi.index = idx
 }
 func (bfi *BlockFileInfo) String() string {

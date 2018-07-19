@@ -95,7 +95,6 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	if file == nil || err != nil {
 		log.Error("Unable to open file %s\n", err)
 		panic("Unable to open file ======")
-		return nil
 	}
 	if pos.Pos > 0 {
 		if _, err := file.Seek(int64(pos.Pos), 0); err != nil {
@@ -405,7 +404,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		// Flush the chainState (which may refer to block index entries).
 		if !coinsTip.Flush() {
 			panic("write db failed, please check.") //todo:
-			return errcode.New(errcode.ErrorFailedToWriteToCoinDatabase)
+			//return errcode.New(errcode.ErrorFailedToWriteToCoinDatabase)
 
 		}
 		gPersist.GlobalLastFlush = int(nNow)

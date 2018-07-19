@@ -69,7 +69,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		if err != nil {
 			return nil, err
 		}
-		return *rawTxn, nil*/ //   TODO open
+		return *rawTxn, nil*///   TODO open
 	return nil, nil
 }
 
@@ -102,7 +102,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		}
 	}
 	return txReply, nil
-}*/ // TODO open
+}*/// TODO open
 
 // createVinList returns a slice of JSON objects for the inputs of the passed
 // transaction.
@@ -120,7 +120,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		vinList[index].Sequence = in.Sequence
 	}
 	return vinList
-}*/ // TODO open
+}*/// TODO open
 
 func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // todo complete
 	/*	var str string
@@ -194,7 +194,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return voutList
-}*/ // TODO open
+}*/// TODO open
 
 /*func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
 	result := btcjson.ScriptPubKeyResult{}
@@ -219,7 +219,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return result
-}*/ //TODO open
+}*///TODO open
 
 /*func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
 	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
@@ -254,21 +254,20 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return nil, nil, false
-}*/ //TODO open
+}*///TODO open
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
 
 	var transaction *tx.Tx
 	// Validate the locktime, if given.
+	transaction = tx.NewTx(uint32(*c.LockTime), 0)
 	if c.LockTime != nil &&
 		(*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
 			Message: "Locktime out of range",
 		}
-
-		transaction = tx.NewTx(uint32(*c.LockTime), 0)
 	}
 
 	for _, input := range c.Inputs {
@@ -372,7 +371,7 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 			ret.P2SH = EncodeDestination(scriptByte) // todo realise
 		}
 
-		return ret, nil*/ // TODO open
+		return ret, nil*/// TODO open
 	return nil, nil
 }
 
@@ -422,10 +421,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                     crypto.SigHashAll,
-	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                        crypto.SigHashAll,
+	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,
@@ -580,7 +579,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		}
 	}
 
-	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
 
 	errors := make([]*btcjson.SignRawTransactionError, 0)
 	for index, in := range transactions[0].GetIns() {
@@ -714,7 +713,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		mb := mblock.NewMerkleBlock(bk, setTxIds)
 		buf := bytes.NewBuffer(nil)
 		mb.Serialize(buf)
-		return hex.EncodeToString(buf.Bytes()), nil*/ //TODO open
+		return hex.EncodeToString(buf.Bytes()), nil*///TODO open
 	return nil, nil
 }
 
@@ -753,7 +752,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 		for _, hash := range matches {
 			ret = append(ret, hash.String())
 		}
-		return ret, nil*/ //TODO open
+		return ret, nil*///TODO open
 	return nil, nil
 }
 

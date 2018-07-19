@@ -3,11 +3,11 @@ package cashaddr
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ripemd160"
 	"github.com/copernet/copernicus/model/chainparams"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
+	"golang.org/x/crypto/ripemd160"
 )
 
 var (
@@ -79,7 +79,7 @@ type Data []byte
 /**
  * The cashaddr character set for encoding.
  */
-const CHARSET  = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 /**
  * The cashaddr character set for decoding.

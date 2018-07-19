@@ -1,11 +1,11 @@
 package cashaddr
 
 import (
-	"testing"
-	"fmt"
 	"encoding/hex"
-	"strings"
+	"fmt"
 	"github.com/copernet/copernicus/model/chainparams"
+	"strings"
+	"testing"
 )
 
 var TestVectorsP2PKH = [][]string{
@@ -95,6 +95,7 @@ func TestDecodeCashAddress(t *testing.T) {
 }
 
 var dataElement = []byte{203, 72, 18, 50, 41, 156, 213, 116, 49, 81, 172, 75, 45, 99, 174, 25, 142, 123, 176, 169}
+
 // Second address of https://github.com/Bitcoin-UAHF/spec/blob/master/cashaddr.md#examples-of-address-translation
 func TestCashAddressPubKeyHash_EncodeAddress(t *testing.T) {
 	// Mainnet
@@ -124,6 +125,7 @@ func TestCashAddressPubKeyHash_EncodeAddress(t *testing.T) {
 }
 
 var dataElement2 = []byte{118, 160, 64, 83, 189, 160, 168, 139, 218, 81, 119, 184, 106, 21, 195, 178, 159, 85, 152, 115}
+
 // 4th address of https://github.com/Bitcoin-UAHF/spec/blob/master/cashaddr.md#examples-of-address-translation
 func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	// Mainnet

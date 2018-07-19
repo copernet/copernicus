@@ -6,8 +6,8 @@ package script
 
 import (
 	"bytes"
-	"testing"
 	"github.com/copernet/copernicus/model/opcodes"
+	"testing"
 )
 
 // TestScriptBuilderAddOp tests that pushing opcodes to a script via the

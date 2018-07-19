@@ -31,7 +31,7 @@ func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash
 		return acceptTx, missTx, nil
 	}
 
-	pool:= mempool.GetInstance()
+	pool := mempool.GetInstance()
 	if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 		fRejectedParents := false
 		for _, preOut := range transaction.GetAllPreviousOut() {

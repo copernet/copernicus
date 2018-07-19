@@ -189,4 +189,3 @@ func bits(w []big.Word) uint {
 	}
 	return 0
 }
-

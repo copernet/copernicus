@@ -28,10 +28,7 @@ func ReadVarLenInt(r io.Reader) (uint64, error) {
 	}
 }
 
-
-
-
-func EncodeVarLenInt(n uint64) ([]byte){
+func EncodeVarLenInt(n uint64) []byte {
 	buf := make([]byte, 10)
 	len := 0
 	mask := uint64(0)

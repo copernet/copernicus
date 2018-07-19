@@ -9,7 +9,7 @@ const (
 	TxOutErrTooLargeValue
 )
 
-var txOutErrorToString = map[TxOutErr]string {
+var txOutErrorToString = map[TxOutErr]string{
 	TxOutErrNegativeValue: "Tx out's value is negative",
 }
 

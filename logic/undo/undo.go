@@ -9,7 +9,6 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 )
 
-
 // IsInitialBlockDownload Check whether we are doing an initial block download
 // (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
@@ -60,7 +59,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			for k := insLen - 1; k > 0; k-- {
 				outpoint := ins[k].PreviousOutPoint
 				undoCoin := txundo.GetUndoCoins()[k]
-				res := UndoCoinSpend(undoCoin, cm, outpoint)
+				res := CoinSpend(undoCoin, cm, outpoint)
 				if res == undo.DisconnectFailed {
 					return undo.DisconnectFailed
 				}
@@ -75,7 +74,8 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 	return undo.DisconnectUnclean
 }
 
-func UndoCoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.DisconnectResult {
+//CoinSpend undo coin of spend
+func CoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.DisconnectResult {
 	clean := true
 	if cm.FetchCoin(out) != nil {
 		// Overwriting transaction output.

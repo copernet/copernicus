@@ -2,36 +2,36 @@ package chain
 
 import (
 	"github.com/copernet/copernicus/model/block"
-	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/blockindex"
+	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 )
 
 const (
 	MaxHeadersResults = 2000
-	MaxBlocksResults = 500
-
+	MaxBlocksResults  = 500
 )
+
 func LocateBlocks(locator *mchain.BlockLocator, endHash *util.Hash) []util.Hash {
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
 	var bi *blockindex.BlockIndex
 	gChain := mchain.GetInstance()
 	ret := make([]util.Hash, 0)
-	
+
 	bi = FindForkInGlobalIndex(gChain, locator)
-	if bi != nil{
-		bi =  gChain.Next(bi)
+	if bi != nil {
+		bi = gChain.Next(bi)
 	}
-	
+
 	nLimits := MaxBlocksResults
-	for ;bi != nil && nLimits >0 ;bi = gChain.Next(bi){
-		if bi.GetBlockHash().IsEqual(endHash){
+	for ; bi != nil && nLimits > 0; bi = gChain.Next(bi) {
+		if bi.GetBlockHash().IsEqual(endHash) {
 			break
 		}
 		ret = append(ret, *bi.GetBlockHash())
-		nLimits -= 1
+		nLimits--
 	}
 	return ret
 }
@@ -42,25 +42,25 @@ func LocateHeaders(locator *mchain.BlockLocator, endHash *util.Hash) []block.Blo
 	var bi *blockindex.BlockIndex
 	gChain := mchain.GetInstance()
 	ret := make([]block.BlockHeader, 0)
-	if locator.IsNull(){
+	if locator.IsNull() {
 		bi = gChain.FindBlockIndex(*endHash)
-		if bi == nil{
+		if bi == nil {
 			return ret
 		}
-	}else{
+	} else {
 		bi = FindForkInGlobalIndex(gChain, locator)
-		if bi != nil{
-			bi =  gChain.Next(bi)
+		if bi != nil {
+			bi = gChain.Next(bi)
 		}
 	}
 	nLimits := MaxHeadersResults
-	for ;bi != nil && nLimits >0 ;bi = gChain.Next(bi){
-		if bi.GetBlockHash().IsEqual(endHash){
+	for ; bi != nil && nLimits > 0; bi = gChain.Next(bi) {
+		if bi.GetBlockHash().IsEqual(endHash) {
 			break
 		}
 		bh := bi.GetBlockHeader()
 		ret = append(ret, *bh)
-		nLimits -= 1
+		nLimits--
 	}
 	return ret
 }
@@ -81,5 +81,3 @@ func FindForkInGlobalIndex(chain *mchain.Chain, locator *mchain.BlockLocator) *b
 	}
 	return chain.Genesis()
 }
-
-
