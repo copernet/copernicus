@@ -57,10 +57,11 @@ func AbortNodes(reason, userMessage string) bool {
 	StartShutdown()
 	return false
 }
-func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
-	AbortNodes(reason, userMessage)
-	return state.Error(reason)
-}
+
+//func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
+//	AbortNodes(reason, userMessage)
+//	return state.Error(reason)
+//}
 
 func OpenBlockFile(pos *block.DiskBlockPos, fReadOnly bool) *os.File {
 	return OpenDiskFile(*pos, "blk", fReadOnly)
@@ -403,7 +404,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		// }
 		// Flush the chainState (which may refer to block index entries).
 		if !coinsTip.Flush() {
-			panic("write db failed, please check.")//todo:
+			panic("write db failed, please check.") //todo:
 			return errcode.New(errcode.ErrorFailedToWriteToCoinDatabase)
 
 		}
