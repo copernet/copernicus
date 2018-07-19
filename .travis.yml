@@ -25,8 +25,8 @@ cache:
     #- /tmp/secp256k1
 before_cache:  # glide touches ORIG_HEAD on `glide install`
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
-  - rm -rf $GOPATH/src/github.com/btcboost/copernicus/*
-  - rm -rf $GOPATH/pkg/**/github.com/btcboost/copernicus
+  - rm -rf $GOPATH/src/github.com/copernet/copernicus/*
+  - rm -rf $GOPATH/pkg/**/github.com/copernet/copernicus
 
 before_install:
   - export GOROOT=$(go env GOROOT)
