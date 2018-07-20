@@ -1,15 +1,15 @@
 package utxo
 
 import (
-	"testing"
-	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/txout"
-	"io/ioutil"
 	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
+	"io/ioutil"
 	"reflect"
+	"testing"
 )
 
 func TestCoinCache(t *testing.T) {

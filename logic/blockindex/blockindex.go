@@ -21,7 +21,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-//on main init call it
+//LoadBlockIndexDB on main init call it
 func LoadBlockIndexDB() bool {
 	gChain := chain.GetInstance()
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)

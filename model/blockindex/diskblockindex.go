@@ -1,18 +1,14 @@
 package blockindex
 
 import (
-
 	"io"
 
-	"github.com/copernet/copernicus/util"
 	"bytes"
+	"github.com/copernet/copernicus/util"
 )
 
-
-
-
-func (bIndex *BlockIndex)GetSerializeList()[]string{
-	dumpList := []string{"Height","Status", "TxCount", "File", "DataPos","UndoPos","Header"}
+func (bIndex *BlockIndex) GetSerializeList() []string {
+	dumpList := []string{"Height", "Status", "TxCount", "File", "DataPos", "UndoPos", "Header"}
 	return dumpList
 }
 
@@ -40,8 +36,8 @@ func (bIndex *BlockIndex) Unserialize(r io.Reader) error {
 	// 	return err
 	// }
 	clientVersion := int32(160000)
-	
-	err := util.ReadElements(r,&clientVersion, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
+
+	err := util.ReadElements(r, &clientVersion, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
 	if err != nil {
 		return err
 	}

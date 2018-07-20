@@ -1,12 +1,12 @@
 package utxo
 
 import (
-	"testing"
-	"github.com/copernet/copernicus/persist/db"
-	"io/ioutil"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
+	"io/ioutil"
+	"testing"
 )
 
 func TestCoinsDB(t *testing.T) {

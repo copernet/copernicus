@@ -17,7 +17,7 @@ import (
 	"math"
 )
 
-// AccpetTxToMemPool add one check corret transaction to mempool.
+// AcceptTxToMemPool add one check corret transaction to mempool.
 func AcceptTxToMemPool(tx *tx.Tx) error {
 
 	//first : check whether enter mempool.
@@ -226,7 +226,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	pool.RemoveStaged(allRemoves, false, mempool.REORG)
 }
 
-// Check If sanity-checking is turned on, check makes sure the pool is consistent
+// CheckMempool check If sanity-checking is turned on, check makes sure the pool is consistent
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
@@ -354,7 +354,7 @@ func CheckMempool() {
 			}
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-				a := outpoint.OutPoint{entry.Tx.GetHash(), uint32(i)}
+				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
 				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
 			}
 		}
@@ -397,7 +397,7 @@ func CheckMempool() {
 			}
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-				a := outpoint.OutPoint{entry.Tx.GetHash(), uint32(i)}
+				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
 				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
 			}
 			stepsSinceLastRemove = 0

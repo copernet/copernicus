@@ -70,7 +70,7 @@ type Param struct {
 	//  Activation time at which the cash HF kicks in.
 	CashHardForkActivationTime int64
 
-	CashaddrPrefix 		string
+	CashaddrPrefix string
 }
 
 func (pm *Param) DifficultyAdjustmentInterval() int64 {

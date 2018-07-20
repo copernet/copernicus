@@ -261,14 +261,13 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 
 	var transaction *tx.Tx
 	// Validate the locktime, if given.
+	transaction = tx.NewTx(uint32(*c.LockTime), 0)
 	if c.LockTime != nil &&
 		(*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
 			Message: "Locktime out of range",
 		}
-
-		transaction = tx.NewTx(uint32(*c.LockTime), 0)
 	}
 
 	for _, input := range c.Inputs {

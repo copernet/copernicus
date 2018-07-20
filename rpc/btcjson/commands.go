@@ -804,7 +804,6 @@ type SetNetWorkActiveCmd struct {
 	State bool `jsonrpcusage:"\"true|false\""`
 }
 
-
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)

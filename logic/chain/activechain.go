@@ -2,8 +2,7 @@ package chain
 
 import (
 	"bytes"
-	
-	
+
 	lmp "github.com/copernet/copernicus/logic/mempool"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -64,7 +63,7 @@ func ActivateBestChain(pblock *block.Block) error {
 				tmpBlock = nullBlockPtr
 			}
 
-			if err:=ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace);err!=nil {
+			if err := ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace); err != nil {
 				return err
 			}
 
@@ -79,7 +78,6 @@ func ActivateBestChain(pblock *block.Block) error {
 		// are notified
 
 		// todo  Transactions in the connnected block are notified
-		
 
 		// When we reach this point, we switched to a new tip (stored in
 		// pindexNewTip).
@@ -88,7 +86,7 @@ func ActivateBestChain(pblock *block.Block) error {
 		// TODO!!! send Asynchronous signal to external listeners.
 
 		// Always notify the UI if a new block tip was connected
-		
+
 		if pindexNewTip == pindexMostWork {
 			break
 		}
@@ -112,7 +110,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 	// Disconnect active blocks which are no longer in the best chain.
 	fBlocksDisconnected := false
 	for gChain.Tip() != nil && gChain.Tip() != pindexFork {
-		if err := DisconnectTip(false);err!=nil {
+		if err := DisconnectTip(false); err != nil {
 			return err
 		}
 		fBlocksDisconnected = true
@@ -142,15 +140,15 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 
 		// Connect new blocks.
 		var pindexConnect *blockindex.BlockIndex
-		
-		for idx := len(vpindexToConnect)-1;idx >= 0;idx-- {
+
+		for idx := len(vpindexToConnect) - 1; idx >= 0; idx-- {
 			pindexConnect = vpindexToConnect[idx]
 			tmpBlock := pblock
 			if pindexConnect != pindexMostWork {
 				tmpBlock = nil
 			}
-			if err := ConnectTip(pindexConnect, tmpBlock, connTrace);err!=nil {
-				
+			if err := ConnectTip(pindexConnect, tmpBlock, connTrace); err != nil {
+
 				*fInvalidFound = true
 				fContinue = false
 				// If we didn't actually connect the block, don't notify
@@ -170,14 +168,12 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 
 	if fBlocksDisconnected {
 		currentTip := gChain.Tip()
-		lmp.RemoveForReorg( currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
+		lmp.RemoveForReorg(currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
 	}
 	lmp.CheckMempool()
 	return nil
 }
 
-
-
-func CheckBlockIndex() error{
+func CheckBlockIndex() error {
 	return nil
 }

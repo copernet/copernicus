@@ -171,7 +171,7 @@ func ConnectBlock(pblock *block.Block,
 	return nil
 }
 
-//todo
+//InvalidBlockFound the found block is invalid
 func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 
 }
@@ -477,7 +477,7 @@ func InitGenesisChain() error {
 
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
 
-	fmt.Println("InitGenesisChain=====%#v", gChain, err)
+	fmt.Printf("initGenesisChain=====%v,error:%v", gChain, err)
 	return nil
 
 }

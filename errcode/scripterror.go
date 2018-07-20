@@ -56,16 +56,16 @@ const (
 	ScriptErrDiscourageUpgradableNops
 	ScriptErrDiscourageUpgradableWitnessProgram
 
-	/* misc */
+	// ScriptErrNonCompressedPubKey description script errors
 	ScriptErrNonCompressedPubKey
 
-	/* anti replay */
-	ScriptErrIllegalForkId
-	ScriptErrMustUseForkId
+	// ScriptErrIllegalForkID anti replay
+	ScriptErrIllegalForkID
+	ScriptErrMustUseForkID
 
 	ScriptErrErrorCount
 
-	// other errcode
+	// ScriptErrSize other errcode
 	ScriptErrSize
 	ScriptErrNonStandard
 	ScriptErrNullData

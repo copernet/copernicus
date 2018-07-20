@@ -3,10 +3,10 @@ package utxo
 import (
 	"testing"
 
-	"github.com/copernet/copernicus/model/txout"
-	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
 	"bytes"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/txout"
 	"github.com/davecgh/go-spew/spew"
 	"reflect"
 )

@@ -32,7 +32,7 @@ var ScriptVerifyChan chan struct {
 	err          error
 }
 
-// transaction service will use this func to check transaction before accepting to mempool
+// CheckRegularTransaction transaction service will use this func to check transaction before accepting to mempool
 func CheckRegularTransaction(transaction *tx.Tx) error {
 	err := transaction.CheckRegularTransaction()
 	if err != nil {
@@ -107,7 +107,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	//check inputs
-	var scriptVerifyFlags uint32 = uint32(script.StandardScriptVerifyFlags)
+	var scriptVerifyFlags = uint32(script.StandardScriptVerifyFlags)
 	if !chainparams.ActiveNetParams.RequireStandard {
 		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
 		if err != nil {
@@ -120,7 +120,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return err
 	}
 	tip := chain.GetInstance().Tip()
-	var currentBlockScriptVerifyFlags uint32 = chain.GetInstance().GetBlockScriptFlags(tip)
+	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
 	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
@@ -135,7 +135,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	return nil
 }
 
-// block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
+// CheckBlockTransactions block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
 func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
@@ -195,7 +195,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	coinsMap := utxo.NewEmptyCoinsMap()
 	utxo := utxo.GetUtxoCacheInstance()
 	sigOpsCount := uint64(0)
-	var fees amount.Amount = 0
+	var fees amount.Amount
 	bundo = undo.NewBlockUndo(0)
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 	//updateCoins
@@ -203,7 +203,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		//check duplicate out
 		if bip30Enable {
 			outs := transaction.GetOuts()
-			for i, _ := range outs {
+			for i := range outs {
 				coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
 				if coin != nil {
 					log.Debug("can't find coin before apply transaction")
@@ -211,7 +211,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 			}
 		}
-		var valueIn amount.Amount = 0
+		var valueIn amount.Amount
 		if !transaction.IsCoinBase() {
 			ins := transaction.GetIns()
 			for _, in := range ins {
@@ -240,7 +240,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
-			TxUpdateCoins(transaction, coinsMap, nil, blockHeight)
+			UpdateCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
 		if !transaction.IsCoinBase() {
@@ -255,7 +255,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		}
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
-		TxUpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		UpdateCoins(transaction, coinsMap, txundo, blockHeight)
 		txUndoList = append(txUndoList, txundo)
 	}
 	bundo.SetTxUndo(txUndoList)
@@ -322,7 +322,7 @@ func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTim
 func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	utxo := utxo.GetUtxoCacheInstance()
 	outs := transaction.GetOuts()
-	for i, _ := range outs {
+	for i := range outs {
 		if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 			return true
 		}
@@ -364,7 +364,7 @@ func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.Co
 	return sigOpsCount
 }
 
-// starting BIP16(Apr 1 2012), we should check p2sh
+// GetSigOpCountWithP2SH starting BIP16(Apr 1 2012), we should check p2sh
 func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) int {
 	n := transaction.GetSigOpCountWithoutP2SH()
 	if transaction.IsCoinBase() {
@@ -399,7 +399,7 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 	}
 
 	activeChain := chain.GetInstance()
-	var nLockTimeCutoff int64 = 0
+	var nLockTimeCutoff int64
 	if flags&consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
 	} else {
@@ -559,10 +559,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 	nOpCount := 0
 
-	bnZero := script.ScriptNum{0}
-	bnOne := script.ScriptNum{1}
-	bnFalse := script.ScriptNum{0}
-	bnTrue := script.ScriptNum{1}
+	bnZero := script.ScriptNum{Value: 0}
+	bnOne := script.ScriptNum{Value: 1}
+	bnFalse := script.ScriptNum{Value: 0}
+	bnTrue := script.ScriptNum{Value: 1}
 
 	beginCodeHash := 0
 	var fRequireMinimal bool
@@ -1862,9 +1862,9 @@ func checkSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 	return true
 }
 
-// caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+//CalculateLockPoints caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
-	var maxInputHeight int32 = 0
+	var maxInputHeight int32
 	activeChain := chain.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 
@@ -2052,7 +2052,7 @@ func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *s
 	return fOk, err
 }
 
-// txs, preouts, private key, hash type
+// SignRawTransaction txs, preouts, private key, hash type
 func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
 	hashType uint32) (err error) {
 	coinMap := utxo.NewEmptyCoinsMap()
@@ -2067,7 +2067,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())

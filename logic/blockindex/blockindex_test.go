@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/util"
 )
 
 const SkipListLength = 30000

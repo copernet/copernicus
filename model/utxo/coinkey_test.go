@@ -1,12 +1,12 @@
 package utxo
 
 import (
-	"testing"
+	"bytes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
-	"bytes"
-	"reflect"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
+	"testing"
 )
 
 func TestCoinKey(t *testing.T) {

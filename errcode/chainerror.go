@@ -16,15 +16,15 @@ const (
 	ErrorBadBlkTx
 )
 
-var ChainErrString = map[ChainErr]string {
-	ErrorBlockHeaderNoValid: "The block header is not valid",
+var ChainErrString = map[ChainErr]string{
+	ErrorBlockHeaderNoValid:  "The block header is not valid",
 	ErrorBlockHeaderNoParent: "Can not find this block header's father ",
-	ErrorPowCheckErr: "ErrorPowCheckErr",
+	ErrorPowCheckErr:         "ErrorPowCheckErr",
 }
 
 func (chainerr ChainErr) String() string {
 	if s, ok := ChainErrString[chainerr]; ok {
 		return s
 	}
-	return fmt.Sprintf("Unknown code (%d)",chainerr)
+	return fmt.Sprintf("Unknown code (%d)", chainerr)
 }
