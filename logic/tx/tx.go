@@ -2067,7 +2067,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())

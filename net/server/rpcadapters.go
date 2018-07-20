@@ -7,7 +7,7 @@ import (
 	"github.com/copernet/copernicus/peer"
 )
 
-// rpcserverPeer represents a peer for use with the RPC server.
+// RpcServerPeer represents a peer for use with the RPC server.
 //
 // The interface contract requires that all of these methods are safe for
 // concurrent access.

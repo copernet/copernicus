@@ -68,14 +68,14 @@ const (
 	/*DefaultMaxMemPoolSize default for -maxMemPool, maximum megabytes of memPool memory usage */
 	//DefaultMaxMemPoolSize uint = 300
 
-	/** Default for -incrementalrelayfee, which sets the minimum feerate increase
-	* for mempool limiting or BIP 125 replacement **/
+	// DefaultIncrementalRelayFee is default for -incrementalrelayfee, which sets the minimum feerate increase
+	// for mempool limiting or BIP 125 replacement
 	DefaultIncrementalRelayFee int64 = 1000
 
-	/** Default for -bytespersigop */
+	// DefaultBytesPerSigop is default for -bytespersigop
 	DefaultBytesPerSigop uint = 20
 
-	/** The maximum number of witness stack items in a standard P2WSH script */
+	// MaxStandardP2WSHStackItems is the maximum number of witness stack items in a standard P2WSH script
 	MaxStandardP2WSHStackItems uint = 100
 
 	/*MaxStandardP2WSHStackItemSize the maximum size of each witness stack item in a standard P2WSH script */

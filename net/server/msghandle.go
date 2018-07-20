@@ -21,7 +21,7 @@ type MsgHandle struct {
 
 var msgHandle *MsgHandle
 
-// NewMsgHandle create a msgHandle for these message from peer And RPC.
+// SetMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
 func SetMsgHandle(ctx context.Context, msgChan <-chan *peer.PeerMessage, server *Server) {
 	msg := &MsgHandle{msgChan, server}
@@ -168,7 +168,7 @@ out:
 
 }
 
-// Rpc process things
+// ProcessForRpc are Rpc process things
 func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 

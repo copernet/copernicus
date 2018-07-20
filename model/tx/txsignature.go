@@ -94,15 +94,15 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	money amount.Amount, flags uint32) (result util.Hash, err error) {
 
 	var hashBuffer bytes.Buffer
-	var sigHashAnyOneCanPay bool = false
+	var sigHashAnyOneCanPay = false
 	if hashType&crypto.SigHashAnyoneCanpay == crypto.SigHashAnyoneCanpay {
 		sigHashAnyOneCanPay = true
 	}
-	var sigHashNone bool = false
+	var sigHashNone = false
 	if hashType&crypto.SigHashMask == crypto.SigHashNone {
 		sigHashNone = true
 	}
-	var sigHashSingle bool = false
+	var sigHashSingle = false
 	if hashType&crypto.SigHashMask == crypto.SigHashSingle {
 		sigHashSingle = true
 	}
