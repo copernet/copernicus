@@ -168,6 +168,9 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 		if w == "" {
 			continue
 		}
+		if strings.HasPrefix(w, "OP_") {
+			w = w[3:]
+		}
 
 		if opcode, ok := opMap[w]; ok {
 			res = append(res, opcode)
@@ -472,15 +475,7 @@ testloop:
 				continue
 			}
 
-			//prevhash, err := chainhash.NewHashFromStr(previoustx)
-			// prevhash, err := hex.DecodeString(previoustx)
-			// if err != nil {
-			// 	t.Errorf("bad test (%dth input hash not hash %v)"+
-			// 		"%d: %v", j, err, i, test)
-			// 	continue
-			// }
 			prevhash := util.HexToHash(previoustx)
-
 			idxf, ok := input[1].(float64)
 			if !ok {
 				t.Errorf("bad test (%dth input idx not number)"+
