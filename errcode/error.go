@@ -41,7 +41,7 @@ func getCodeAndName(errCode fmt.Stringer) (int, string) {
 	name := ""
 
 	switch t := errCode.(type) {
-	case RpcErr:
+	case RPCErr:
 		code = int(t)
 		name = "rpc"
 	case MemPoolErr:

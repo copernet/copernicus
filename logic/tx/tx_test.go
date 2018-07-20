@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"strconv"
@@ -29,6 +28,9 @@ func init() {
 	opMap = createName2OpCodeMap()
 }
 
+func testVecF64ToUint32(f float64) uint32 {
+	return uint32(int32(f))
+}
 func TestScriptJsonTests(t *testing.T) {
 	data, err := ioutil.ReadFile("test_data/script_tests.json")
 	if err != nil {
@@ -162,9 +164,12 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 	var res []byte
 	words := strings.Split(s, " ")
 
-	for _, w := range words {
+	for i, w := range words {
 		if w == "" {
 			continue
+		}
+		if strings.HasPrefix(w, "OP_") {
+			w = w[3:]
 		}
 
 		if opcode, ok := opMap[w]; ok {
@@ -189,7 +194,7 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 			w = w[1 : len(w)-1]
 			res = appendData(res, []byte(w))
 		} else {
-			return nil, errors.New("parse script error")
+			return nil, fmt.Errorf("parse script error when parse %dth with word(%s)", i, w)
 		}
 	}
 
@@ -359,8 +364,8 @@ func TestSigHash(t *testing.T) {
 		subScript, _ := hex.DecodeString(test[1].(string))
 		scriptPubKey := script.NewScriptRaw(subScript)
 
-		nIn := int(test[2].(float64))
-		hashType := uint32(test[3].(float64))
+		nIn := int(testVecF64ToUint32(test[2].(float64)))
+		hashType := testVecF64ToUint32(test[3].(float64))
 
 		shreg, err := util.DecodeHash(test[4].(string))
 		if err != nil {
@@ -385,7 +390,145 @@ func TestSigHash(t *testing.T) {
 		}
 		if !bytes.Equal([]byte(hash[:]), shreg) {
 			t.Fatalf("TestCalcSignatureHash failed test #%d: "+
-				"Signature hash mismatch. %v, calculated hash: %x", i, test, hash)
+				"Signature hash mismatch. %v,  hash: %x", i, test, hash)
+		}
+	}
+}
+
+type scriptWithInputVal struct {
+	inputVal int64
+	pkScript []byte
+}
+
+func TestTxValidTests(t *testing.T) {
+	file, err := ioutil.ReadFile("test_data/tx_valid.json")
+	if err != nil {
+		t.Fatalf("TestTxValidTests: %v\n", err)
+	}
+	var tests [][]interface{}
+	err = json.Unmarshal(file, &tests)
+	if err != nil {
+		t.Fatalf("TestTxValidTests unmarshal err:%v\n", err)
+	}
+
+testloop:
+	for i, test := range tests {
+		inputs, ok := test[0].([]interface{})
+		if !ok {
+			continue
+		}
+
+		if len(test) != 3 {
+			t.Errorf("bad test (bad length) %d: %v", i, test)
+			continue
+		}
+		serializedhex, ok := test[1].(string)
+		if !ok {
+			t.Errorf("bad test (arg 2 not string) %d: %v", i, test)
+			continue
+		}
+		serializedTx, err := hex.DecodeString(serializedhex)
+		if err != nil {
+			t.Errorf("bad test (arg 2 not hex %v) %d: %v", err, i,
+				test)
+			continue
+		}
+		newTx := tx.NewEmptyTx()
+		err = newTx.Decode(bytes.NewReader(serializedTx))
+		if err != nil {
+			t.Errorf("bad test (arg 2 not msgtx %v) %d: %v", err,
+				i, test)
+			continue
+		}
+
+		verifyFlags, ok := test[2].(string)
+		if !ok {
+			t.Errorf("bad test (arg 3 not string) %d: %v", i, test)
+			continue
+		}
+
+		flags, err := parseScriptFlag(verifyFlags)
+		if err != nil {
+			t.Errorf("bad test %d: %v", i, err)
+			continue
+		}
+
+		prevOuts := make(map[outpoint.OutPoint]scriptWithInputVal)
+		for j, iinput := range inputs {
+			input, ok := iinput.([]interface{})
+			if !ok {
+				t.Errorf("bad test (%dth input not array)"+
+					"%d: %v", j, i, test)
+				continue
+			}
+
+			if len(input) < 3 || len(input) > 4 {
+				t.Errorf("bad test (%dth input wrong length)"+
+					"%d: %v", j, i, test)
+				continue
+			}
+
+			previoustx, ok := input[0].(string)
+			if !ok {
+				t.Errorf("bad test (%dth input hash not string)"+
+					"%d: %v", j, i, test)
+				continue
+			}
+
+			prevhash := util.HexToHash(previoustx)
+			idxf, ok := input[1].(float64)
+			if !ok {
+				t.Errorf("bad test (%dth input idx not number)"+
+					"%d: %v", j, i, test)
+				continue
+			}
+			idx := testVecF64ToUint32(idxf)
+
+			oscript, ok := input[2].(string)
+			if !ok {
+				t.Errorf("bad test (%dth input script not "+
+					"string) %d: %v", j, i, test)
+				continue
+			}
+
+			script, err := parseScriptFrom(oscript, opMap)
+			if err != nil {
+				t.Errorf("bad test (%dth input script doesn't "+
+					"parse %v) %d: %v, oscript is:%v", j, err, i, test, oscript)
+				continue
+			}
+
+			var inputValue float64
+			if len(input) == 4 {
+				inputValue, ok = input[3].(float64)
+				if !ok {
+					t.Errorf("bad test (%dth input value not int) "+
+						"%d: %v", j, i, test)
+					continue
+				}
+			}
+
+			v := scriptWithInputVal{
+				inputVal: int64(inputValue),
+				pkScript: script,
+			}
+			prevOuts[*outpoint.NewOutPoint(prevhash, idx)] = v
+		}
+		//for k, txin := range tx.MsgTx().TxIn {
+		for k, txin := range newTx.GetIns() {
+			prevOut, ok := prevOuts[*txin.PreviousOutPoint]
+			if !ok {
+				t.Errorf("bad test (missing %dth input) %d:%v",
+					k, i, test)
+				continue testloop
+			}
+
+			pkscript := script.NewScriptRaw(prevOut.pkScript)
+
+			err := verifyScript(newTx, txin.GetScriptSig(), pkscript, k, amount.Amount(prevOut.inputVal), flags)
+			if err != nil {
+				t.Fatalf("verifyScript error: %v", err)
+			}
 		}
 	}
 }
