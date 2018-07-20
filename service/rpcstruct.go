@@ -13,7 +13,7 @@ type GetConnectionCountResponse struct {
 
 // GetPeersInfoRequest Returns data about each connected network node as a json array
 // of object.
-// return one object implementing []rpc.RpcServerPeer interface
+// return one object implementing []rpc.RPCServerPeer interface
 type GetPeersInfoRequest struct{}
 
 // *btcjson.AddNodeCmd Attempts add or remove a node from the addnode list."

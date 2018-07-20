@@ -107,7 +107,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 		sigHashSingle = true
 	}
 	if hashType&crypto.SigHashForkID == crypto.SigHashForkID &&
-		flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
+		flags&script.ScriptEnableSigHashForkID == script.ScriptEnableSigHashForkID {
 		var hashPrevouts util.Hash
 		var hashSequence util.Hash
 		var hashOutputs util.Hash

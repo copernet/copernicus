@@ -157,7 +157,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 							// If the transaction is using SIGHASH_FORKID, we need
 							// to set the apropriate flag.
 							// TODO: Remove after the Hard Fork.
-							flags |= script.ScriptEnableSigHashForkId
+							flags |= script.ScriptEnableSigHashForkID
 						}
 						if ok, _ := crypto.CheckSignatureEncoding(vch, uint32(flags)); ok {
 							//chsigHashType := vch[len(vch)-1]
@@ -412,7 +412,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
-	_, err = server.ProcessForRpc(txInvMsg)
+	_, err = server.ProcessForRPC(txInvMsg)
 	if err != nil {
 		return nil, btcjson.ErrRPCInternal
 	}
