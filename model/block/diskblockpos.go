@@ -17,16 +17,16 @@ type DiskTxPos struct {
 	TxOffsetIn uint32
 }
 
-func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
-	return util.WriteElements(writer, &diskBlockPos.File, &diskBlockPos.Pos)
+func (dbp *DiskBlockPos) Serialize(writer io.Writer) error {
+	return util.WriteElements(writer, &dbp.File, &dbp.Pos)
 }
 
-func (diskTxPos *DiskTxPos) Serialize(writer io.Writer) error {
-	err := diskTxPos.BlockIn.Serialize(writer)
+func (dtp *DiskTxPos) Serialize(writer io.Writer) error {
+	err := dtp.BlockIn.Serialize(writer)
 	if err != nil {
 		return err
 	}
-	return util.WriteElements(writer, diskTxPos.TxOffsetIn)
+	return util.WriteElements(writer, dtp.TxOffsetIn)
 }
 
 func (dbp *DiskBlockPos) Unserialize(reader io.Reader) error {
@@ -44,22 +44,22 @@ func (dtp *DiskTxPos) Unserialize(reader io.Reader) error {
 	return util.ReadElements(reader, &dtp.TxOffsetIn)
 }
 
-func (diskBlockPos *DiskBlockPos) SetNull() {
-	diskBlockPos.File = -1
-	diskBlockPos.Pos = 0
+func (dbp *DiskBlockPos) SetNull() {
+	dbp.File = -1
+	dbp.Pos = 0
 }
 
-func (diskBlockPos *DiskBlockPos) Equal(other *DiskBlockPos) bool {
-	return diskBlockPos.Pos == other.Pos && diskBlockPos.File == other.File
+func (dbp *DiskBlockPos) Equal(other *DiskBlockPos) bool {
+	return dbp.Pos == other.Pos && dbp.File == other.File
 
 }
 
-func (diskBlockPos *DiskBlockPos) IsNull() bool {
-	return diskBlockPos.File == -1
+func (dbp *DiskBlockPos) IsNull() bool {
+	return dbp.File == -1
 }
 
-func (diskBlockPos *DiskBlockPos) String() string {
-	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", diskBlockPos.File, diskBlockPos.Pos)
+func (dbp *DiskBlockPos) String() string {
+	return fmt.Sprintf("BlcokDiskPos(File=%d, Pos=%d)", dbp.File, dbp.Pos)
 }
 
 func NewDiskBlockPos(file int32, pos uint32) *DiskBlockPos {

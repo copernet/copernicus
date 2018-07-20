@@ -96,6 +96,6 @@ func (bh *BlockHeader) String() string {
 		bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce, bh.GetHash())
 }
 func (bh *BlockHeader) GetSerializeList() []string {
-	dump_list := []string{"Version", "HashPrevBlock", "MerkleRoot", "Time", "Bits", "Nonce"}
-	return dump_list
+	dumplist := []string{"Version", "HashPrevBlock", "MerkleRoot", "Time", "Bits", "Nonce"}
+	return dumplist
 }

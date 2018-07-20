@@ -8,6 +8,7 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	core2 "github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
+	//"github.com/copernet/copernicus/model/utxo"
 )
 
 type imempool interface {

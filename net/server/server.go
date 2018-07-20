@@ -191,7 +191,7 @@ func (ps *peerState) forAllPeers(closure func(sp *serverPeer)) {
 	ps.forAllOutboundPeers(closure)
 }
 
-// server provides a bitcoin server for handling communications to and from
+// Server provides a bitcoin server for handling communications to and from
 // bitcoin peers.
 type Server struct {
 	// The following variables must only be used atomically.
@@ -1004,8 +1004,8 @@ func (s *Server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 	// }
 }
 
-// Transaction has one confirmation on the main chain. Now we can mark it as no
-// longer needing rebroadcasting.
+// TransactionConfirmed marks a Transaction as no longer needing rebroadcasting
+// when it has one confirmation on the main chain.
 func (s *Server) TransactionConfirmed(tx *tx.Tx) {
 	// Rebroadcasting is only necessary when the RPC server is active.
 	hash := tx.GetHash()

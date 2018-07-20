@@ -76,10 +76,12 @@ func init() {
 
 type Data []byte
 
-// CHARSET cashaddr character set for encoding.
+// CHARSET is the cashaddr character set for encoding.
+
 const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
-// CharsetRev cashaddr character set for decoding.
+// CharsetRev is the cashaddr character set for decoding.
+
 var CharsetRev = [128]int8{
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -90,16 +92,16 @@ var CharsetRev = [128]int8{
 	3, 16, 11, 28, 12, 14, 6, 4, 2, -1, -1, -1, -1, -1,
 }
 
-// Cat concatenate two byte arrays.
+// Cat concatenates two byte arrays.
+
 func Cat(x, y Data) Data {
 	return append(x, y...)
 }
 
-/**
- * PolyMod function will compute what 8 5-bit values to XOR into the last 8 input
- * values, in order to make the checksum 0. These 8 values are packed together
- * in a single 40-bit integer. The higher bits correspond to earlier values.
- */
+// PolyMod will compute what 8 5-bit values to XOR into the last 8 input
+// values, in order to make the checksum 0. These 8 values are packed together
+// in a single 40-bit integer. The higher bits correspond to earlier values.
+
 func PolyMod(v Data) uint64 {
 	/**
 	 * The input is interpreted as a list of coefficients of a polynomial over F
@@ -207,13 +209,17 @@ func PolyMod(v Data) uint64 {
 	return c ^ 1
 }
 
-// LowerCase convert to lower case. Assume the input is a character.
+// LowerCase converts the input to lower case.
+//
+// Assume the input is a character.
+
 func LowerCase(c byte) byte {
 	// ASCII black magic.
 	return c | 0x20
 }
 
-// ExpandPrefix the address prefix for the checksum computation.
+// ExpandPrefix expands the address prefix for the checksum computation.
+
 func ExpandPrefix(prefix string) Data {
 	ret := make(Data, len(prefix)+1)
 	for i := 0; i < len(prefix); i++ {
@@ -224,12 +230,14 @@ func ExpandPrefix(prefix string) Data {
 	return ret
 }
 
-// VerifyChecksum a checksum.
+// VerifyChecksum verifies a checksum.
+
 func VerifyChecksum(prefix string, payload Data) bool {
 	return PolyMod(Cat(ExpandPrefix(prefix), payload)) == 0
 }
 
-// CreateChecksum create a checksum.
+// CreateChecksum creates a checksum.
+
 func CreateChecksum(prefix string, payload Data) Data {
 	enc := Cat(ExpandPrefix(prefix), payload)
 	// Append 8 zeroes.
@@ -244,9 +252,8 @@ func CreateChecksum(prefix string, payload Data) Data {
 	return ret
 }
 
-/**
- * Encode a cashaddr string.
- */
+// Encode encodes a cashaddr string.
+
 func Encode(prefix string, payload Data) string {
 	checksum := CreateChecksum(prefix, payload)
 	combined := Cat(payload, checksum)
@@ -259,9 +266,8 @@ func Encode(prefix string, payload Data) string {
 	return ret
 }
 
-/**
- * Decode a cashaddr string.
- */
+// DecodeCashAddress decodes a cashaddr string.
+
 func DecodeCashAddress(str string) (string, Data, error) {
 	// Go over the string and do some sanity checks.
 	lower, upper := false, false
@@ -348,7 +354,7 @@ func CheckEncodeCashAddress(input []byte, prefix string, t AddressType) string {
 	return Encode(prefix, k)
 }
 
-// CheckDecode decodes a string that was encoded with CheckEncode and verifies the checksum.
+// CheckDecodeCashAddress decodes a string that was encoded with CheckEncode and verifies the checksum.
 func CheckDecodeCashAddress(input string) (result []byte, prefix string, t AddressType, err error) {
 	prefix, Data, err := DecodeCashAddress(input)
 	if err != nil {
@@ -417,14 +423,14 @@ func DecodeAddress(addr string, defaultNet *chainparams.BitcoinParams) (Address,
 	}
 }
 
-// AddressPubKeyHash is an Address for a pay-to-pubkey-hash (P2PKH)
+// CashAddressPubKeyHash is an Address for a pay-to-pubkey-hash (P2PKH)
 // transaction.
 type CashAddressPubKeyHash struct {
 	hash   [ripemd160.Size]byte
 	prefix string
 }
 
-// NewAddressPubKeyHash returns a new AddressPubKeyHash.  pkHash mustbe 20
+// NewCashAddressPubKeyHash returns a new AddressPubKeyHash.  pkHash mustbe 20
 // bytes.
 func NewCashAddressPubKeyHash(pkHash []byte, net *chainparams.BitcoinParams) (*CashAddressPubKeyHash, error) {
 	return newCashAddressPubKeyHash(pkHash, net)
@@ -487,20 +493,20 @@ func (a *CashAddressPubKeyHash) Hash160() *[ripemd160.Size]byte {
 	return &a.hash
 }
 
-// AddressScriptHash is an Address for a pay-to-script-hash (P2SH)
+// CashAddressScriptHash is an Address for a pay-to-script-hash (P2SH)
 // transaction.
 type CashAddressScriptHash struct {
 	hash   [ripemd160.Size]byte
 	prefix string
 }
 
-// NewAddressScriptHash returns a new AddressScriptHash.
+// NewCashAddressScriptHash returns a new AddressScriptHash.
 func NewCashAddressScriptHash(serializedScript []byte, net *chainparams.BitcoinParams) (*CashAddressScriptHash, error) {
 	scriptHash := util.Hash160(serializedScript)
 	return newCashAddressScriptHashFromHash(scriptHash, net)
 }
 
-// NewAddressScriptHashFromHash returns a new AddressScriptHash.  scriptHash
+// NewCashAddressScriptHashFromHash returns a new AddressScriptHash.  scriptHash
 // must be 20 bytes.
 func NewCashAddressScriptHashFromHash(scriptHash []byte, net *chainparams.BitcoinParams) (*CashAddressScriptHash, error) {
 	return newCashAddressScriptHashFromHash(scriptHash, net)
