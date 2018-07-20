@@ -52,7 +52,7 @@ const (
 	// applied to extract that lock-time from the sequence field.
 	SequenceLockTimeMask = 0x0000ffff
 
-	// SequenceLockTimeQranularity in order to use the same number of bits to encode roughly the
+	// SequenceLockTimeGranularity in order to use the same number of bits to encode roughly the
 	// same wall-clock duration, and because blocks are naturally
 	// limited to occur every 600s on average, the minimum granularity
 	// for time-based relative lock-time is fixed at 512 seconds.
@@ -147,9 +147,9 @@ const (
 	//
 	ScriptVerifyCompressedPubkeyType = (1 << 15)
 
-	// Do we accept signature using SIGHASH_FORKID
+	// ScriptEnableSigHashForkID Do we accept signature using SIGHASH_FORKID
 	//
-	ScriptEnableSigHashForkId = (1 << 16)
+	ScriptEnableSigHashForkID = (1 << 16)
 
 	// Do we accept activate replay protection using a different fork id.
 	//
@@ -181,7 +181,7 @@ const (
 	//
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc | ScriptEnableSigHashForkId
+	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc | ScriptEnableSigHashForkID
 
 	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
 	 * with. However scripts violating these flags may still be present in valid

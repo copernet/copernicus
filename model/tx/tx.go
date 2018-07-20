@@ -557,7 +557,7 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey, hashType uint32,
 	nIn int, value amount.Amount) (signature *crypto.Signature, err error) {
 
-	hash, err := SignatureHash(tx, scriptPubKey, hashType, nIn, value, script.ScriptEnableSigHashForkId)
+	hash, err := SignatureHash(tx, scriptPubKey, hashType, nIn, value, script.ScriptEnableSigHashForkID)
 	if err != nil {
 		return nil, err
 	}
