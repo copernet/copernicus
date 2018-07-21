@@ -13,7 +13,7 @@ type GetConnectionCountResponse struct {
 
 // GetPeersInfoRequest Returns data about each connected network node as a json array
 // of object.
-// return one object implementing []rpc.RpcServerPeer interface
+// return one object implementing []rpc.RPCServerPeer interface
 type GetPeersInfoRequest struct{}
 
 // *btcjson.AddNodeCmd Attempts add or remove a node from the addnode list."
@@ -28,7 +28,8 @@ type GetPeersInfoRequest struct{}
 // please note the item is optional.
 // return []btcjson.GetAddedNodeInfoResult
 
-// GetNetTotalsRequest return btcjson.GetNetTotalsResult
+// GetNetTotalsRequest returns btcjson.GetNetTotalsResult
+
 type GetNetTotalsRequest struct{}
 
 // *btcjson.GetnetWorkInfo
@@ -37,10 +38,11 @@ type GetNetTotalsRequest struct{}
 // *btcjson.SetBanCmd
 // return error if encountering any error
 
-// ListBannedRequest return btcjson.ListBannedResult and any error
+// ListBannedRequest returns btcjson.ListBannedResult and any error
 type ListBannedRequest struct{}
 
-// ClearBannedRequest return boolean
+// ClearBannedRequest returns boolean
+
 type ClearBannedRequest struct{}
 
 // *InvVect to broadcast a tx inv message

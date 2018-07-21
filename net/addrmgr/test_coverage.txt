@@ -46,7 +46,7 @@ github.com/conformal/btcd/addrmgr/knownaddress.go	 knownAddress.isBad			 0.00% (
 github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.Connected			 0.00% (0/10)
 github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.addressHandler		 0.00% (0/9)
 github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.pickTried			 0.00% (0/8)
-github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.DeserializeNetAddress	 0.00% (0/7)
+github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.UnserializeNetAddress	 0.00% (0/7)
 github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.Stop			 0.00% (0/7)
 github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.Attempt			 0.00% (0/7)
 github.com/conformal/btcd/addrmgr/addrmanager.go	 AddrManager.Start			 0.00% (0/6)

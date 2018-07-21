@@ -55,21 +55,21 @@ func TestTxInSerialize(t *testing.T) {
 	txInRead.PreviousOutPoint.Hash = utils.Hash{}
 	txInRead.Script = new(Script)
 
-	err = txInRead.Deserialize(file, 1)
+	err = txInRead.Unserialize(file, 1)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if !bytes.Equal(txInRead.Script.bytes, testTxIn.Script.bytes) {
-		t.Errorf("Deserialize() return the script data %v "+
+		t.Errorf("Unserialize() return the script data %v "+
 			"should be equal origin srcipt data %v", txInRead.Script.bytes, testTxIn.Script.bytes)
 	}
 	if txInRead.PreviousOutPoint.Index != testTxIn.PreviousOutPoint.Index {
-		t.Errorf("Deserialize() return the index data %d "+
+		t.Errorf("Unserialize() return the index data %d "+
 			"should be equal origin index data %d", txInRead.PreviousOutPoint.Index, testTxIn.PreviousOutPoint.Index)
 	}
 	if !bytes.Equal(txInRead.PreviousOutPoint.Hash[:], testTxIn.PreviousOutPoint.Hash[:]) {
-		t.Errorf("Deserialize() return the preOutputHash data %v "+
+		t.Errorf("Unserialize() return the preOutputHash data %v "+
 			"should be equal origin GetHash data %v", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
 	}
 

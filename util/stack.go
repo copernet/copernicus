@@ -97,7 +97,7 @@ func (s *Stack) SetTop(i int, value interface{}) bool {
 }
 
 func (s *Stack) CountBool(val bool) int {
-	var count = 0
+	var count int
 	for _, e := range s.array {
 		if e.(bool) == val {
 			count++

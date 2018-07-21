@@ -442,7 +442,7 @@ func TestVarIntSerializeSize(t *testing.T) {
 	t.Logf("Running %d tests", len(tests))
 	for i, test := range tests {
 		serializedSize := util.VarIntSerializeSize(test.val)
-		if serializedSize != test.size {
+		if serializedSize != uint32(test.size) {
 			t.Errorf("VarIntSerializeSize #%d got: %d, want: %d", i,
 				serializedSize, test.size)
 			continue

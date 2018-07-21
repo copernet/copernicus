@@ -82,7 +82,7 @@ func (feeRate *FeeRate) Serialize(writer io.Writer) error {
 	return binary.Write(writer, binary.LittleEndian, feeRate.SataoshisPerK)
 }
 
-func Deserialize(reader io.Reader) (*FeeRate, error) {
+func Unserialize(reader io.Reader) (*FeeRate, error) {
 	feeRate := new(FeeRate)
 	var sataoshiaPerK int64
 	err := binary.Read(reader, binary.LittleEndian, &sataoshiaPerK)

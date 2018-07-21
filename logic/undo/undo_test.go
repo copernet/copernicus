@@ -93,7 +93,10 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	Ins2[0] = txin.NewTxIn(nil, script.NewScriptRaw(make([]byte, 10)), 00000000)
 	Outs2[0] = txout.NewTxOut(42, script.NewScriptRaw([]byte{}))
 	prevTx0.GetHash()
-	tx.AddCoins(prevTx0, coinsMap, 100)
+
+	//tx.AddCoins(prevTx0, coinsMap, 100)
+	//////////////////////////////////// todo
+
 	Ins1[0].PreviousOutPoint.Hash = prevTx0.GetHash()
 	prevTx0.GetHash()
 	blocks.Txs[1] = prevTx0
