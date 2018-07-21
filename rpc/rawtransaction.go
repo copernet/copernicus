@@ -323,7 +323,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
-		// Deserialize the transaction.
+		// Unserialize the transaction.
 		serializedTx, err := hex.DecodeString(c.HexTx)
 		if err != nil {
 			return nil, rpcDecodeHexError(c.HexTx)
