@@ -10,8 +10,8 @@ import (
 
 type BlockHeader struct {
 	Version       int32     `json:"version"`
-	HashPrevBlock util.Hash `json:"previousblockhash, string"`
-	MerkleRoot    util.Hash `json:"merkleroot, string"`
+	HashPrevBlock util.Hash `json:"previousblockhash,string"`
+	MerkleRoot    util.Hash `json:"merkleroot,string"`
 	Time          uint32    `json:"time"`
 	Bits          uint32    `json:"bits"`
 	Nonce         uint32    `json:"nonce"`

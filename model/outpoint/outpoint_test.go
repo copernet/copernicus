@@ -50,12 +50,12 @@ func TestOutPointEncode(t *testing.T) {
 	}
 
 	if txOutRead.Index != testOutPoint.Index {
-		t.Errorf("Deserialize() return the index data %d "+
+		t.Errorf("Unserialize() return the index data %d "+
 			"should be equal origin index data %d", txOutRead.Index, testOutPoint.Index)
 	}
 
 	if !bytes.Equal(txOutRead.Hash[:], testOutPoint.Hash[:]) {
-		t.Errorf("Deserialize() return the hash data %v"+
+		t.Errorf("Unserialize() return the hash data %v"+
 			"should be equal origin hash data %v", txOutRead.Hash, testOutPoint.Hash)
 	}
 

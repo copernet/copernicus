@@ -1,5 +1,6 @@
 package imempool
 
+/*
 import (
 	mempool2 "github.com/copernet/copernicus/logic/mempool"
 	"github.com/copernet/copernicus/model/chain"
@@ -8,7 +9,7 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	core2 "github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
-	//"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/model/utxo"
 )
 
 type imempool interface {
@@ -24,3 +25,4 @@ type imempool interface {
 	FindTx(util.Hash) *core2.Tx
 	Size() int
 }
+*/
