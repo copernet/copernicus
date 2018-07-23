@@ -131,12 +131,6 @@ func (txOut *TxOut) IsSpendable() bool {
 	return txOut.scriptPubKey.IsSpendable()
 }
 
-// IsSpent returns whether the TxOut is already spent
-
-func (txOut *TxOut) IsSpent() bool {
-	return true
-}
-
 func (txOut *TxOut) SetNull() {
 	txOut.value = -1
 	txOut.scriptPubKey = nil
