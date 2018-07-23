@@ -56,7 +56,7 @@ func (tu *TxUndo) Unserialize(r io.Reader) error {
 	if count > MaxInputPerTx {
 		panic("Too many input undo records")
 	}
-	preouts := make([]*utxo.Coin, count, count)
+	preouts := make([]*utxo.Coin, count)
 	for i := 0; i < int(count); i++ {
 		coin := utxo.NewEmptyCoin()
 		err := coin.Unserialize(r)
@@ -104,7 +104,7 @@ func (bu *BlockUndo) SerializeSize() int {
 
 func (bu *BlockUndo) Unserialize(r io.Reader) error {
 	count, err := util.ReadVarLenInt(r)
-	txundos := make([]*TxUndo, count, count)
+	txundos := make([]*TxUndo, count)
 	for i := 0; i < int(count); i++ {
 		obj := NewTxUndo()
 		err = obj.Unserialize(r)

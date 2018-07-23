@@ -33,8 +33,8 @@ func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 
-// todo check coinbase height，lock time？
 func (coin *Coin) IsSpendable() bool {
+	// todo check coinbase height，lock time？
 	return coin.txOut.IsNull()
 }
 
@@ -58,7 +58,7 @@ func (coin *Coin) GetScriptPubKey() *script.Script {
 }
 
 func (coin *Coin) GetAmount() amount.Amount {
-	return amount.Amount(coin.txOut.GetValue())
+	return coin.txOut.GetValue()
 }
 
 func (coin *Coin) DeepCopy() *Coin {
@@ -110,7 +110,7 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	return err
 }
 
-//new an confirmed coin
+// NewCoin creates an confirmed coin
 func NewCoin(out *txout.TxOut, height int32, isCoinBase bool) *Coin {
 
 	return &Coin{
@@ -120,7 +120,7 @@ func NewCoin(out *txout.TxOut, height int32, isCoinBase bool) *Coin {
 	}
 }
 
-//new an unconfirmed coin for mempool
+// NewMempoolCoin creates an unconfirmed coin for mempool
 func NewMempoolCoin(out *txout.TxOut) *Coin {
 	return &Coin{
 		txOut:         *out,

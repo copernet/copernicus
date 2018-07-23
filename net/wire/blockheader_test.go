@@ -244,16 +244,16 @@ func TestBlockHeaderSerialize(t *testing.T) {
 			continue
 		}
 
-		// Deserialize the block header.
+		// Unserialize the block header.
 		var bh BlockHeader
 		rbuf := bytes.NewReader(test.buf)
-		err = bh.Deserialize(rbuf)
+		err = bh.Unserialize(rbuf)
 		if err != nil {
-			t.Errorf("Deserialize #%d error %v", i, err)
+			t.Errorf("Unserialize #%d error %v", i, err)
 			continue
 		}
 		if !reflect.DeepEqual(&bh, test.out) {
-			t.Errorf("Deserialize #%d\n got: %s want: %s", i,
+			t.Errorf("Unserialize #%d\n got: %s want: %s", i,
 				spew.Sdump(&bh), spew.Sdump(test.out))
 			continue
 		}

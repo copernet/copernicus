@@ -157,7 +157,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 							// If the transaction is using SIGHASH_FORKID, we need
 							// to set the apropriate flag.
 							// TODO: Remove after the Hard Fork.
-							flags |= script.ScriptEnableSigHashForkId
+							flags |= script.ScriptEnableSigHashForkID
 						}
 						if ok, _ := crypto.CheckSignatureEncoding(vch, uint32(flags)); ok {
 							//chsigHashType := vch[len(vch)-1]
@@ -259,9 +259,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
 
-	var transaction *tx.Tx
-	// Validate the locktime, if given.
-	transaction = tx.NewTx(uint32(*c.LockTime), 0)
+	var transaction = tx.NewTx(uint32(*c.LockTime), 0)
 	if c.LockTime != nil &&
 		(*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
 		return nil, &btcjson.RPCError{
@@ -323,7 +321,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
-		// Deserialize the transaction.
+		// Unserialize the transaction.
 		serializedTx, err := hex.DecodeString(c.HexTx)
 		if err != nil {
 			return nil, rpcDecodeHexError(c.HexTx)
@@ -412,7 +410,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	txInvMsg := wire.NewInvVect(wire.InvTypeTx, &hash)
-	_, err = server.ProcessForRpc(txInvMsg)
+	_, err = server.ProcessForRPC(txInvMsg)
 	if err != nil {
 		return nil, btcjson.ErrRPCInternal
 	}

@@ -70,6 +70,130 @@ func TestBlockIndexGetAncestor(t *testing.T) {
 
 }
 
+func TestGetBlockTimeMax(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	var testValue = uint32(1324)
+	bIndex.TimeMax = testValue
+	if bIndex.GetBlockTimeMax() != testValue {
+		t.Errorf("GetBlockTimeMax is wrong")
+	}
+}
+
+func TestWaitingData(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	bIndex.Status = blockindex.StatusWaitingData
+	if !bIndex.WaitingData() {
+		t.Errorf("WaitingData is wrong")
+	}
+}
+
+func TestAllValid(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	bIndex.Status = blockindex.StatusAllValid
+	if !bIndex.AllValid() {
+		t.Errorf("AllValid is wrong")
+	}
+}
+
+func TestIndexStored(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	bIndex.Status = blockindex.StatusIndexStored
+	if !bIndex.IndexStored() {
+		t.Errorf("IndexStored is wrong")
+	}
+}
+
+func TestAllStored(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	bIndex.Status = blockindex.StatusDataStored
+	if !bIndex.AllStored() {
+		t.Errorf("AllStored is wrong")
+	}
+}
+
+func TestAccepted(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	bIndex.Status = blockindex.StatusAccepted
+	if !bIndex.Accepted() {
+		t.Errorf("Accepted is wrong")
+	}
+}
+
+func TestFailed(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	bIndex.Status = blockindex.StatusFailed
+	if !bIndex.Failed() {
+		t.Errorf("Failed is wrong")
+	}
+}
+
+func TestGetUndoPos(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	var testInt = int32(34536)
+	var testUint = uint32(53645)
+	bIndex.File = testInt
+	bIndex.UndoPos = testUint
+	var ret = bIndex.GetUndoPos()
+	if ret.File != testInt || ret.Pos != testUint {
+		t.Errorf("TestGetUndoPos is wrong")
+	}
+}
+
+
+func TestGetBlockPos(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	var testInt = int32(34536)
+	var testUint = uint32(53645)
+	bIndex.File = testInt
+	bIndex.DataPos = testUint
+	var ret = bIndex.GetBlockPos()
+	if ret.File != testInt || ret.Pos != testUint {
+		t.Errorf("TestGetDataPos is wrong")
+	}
+}
+
+
+func TestGetBlockHash(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	var testHash util.Hash
+	bIndex.SetBlockHash(testHash)
+	if *bIndex.GetBlockHash() != testHash {
+		t.Errorf("GetBlockHash is wrong")
+	}
+}
+
+
+func TestAddStatus(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	var testStatu = uint32(34432)
+	var testStatus = uint32(5666)
+	bIndex.Status = testStatus
+	bIndex.AddStatus(testStatu)
+	if (bIndex.Status & testStatu != testStatu) {
+		t.Errorf("AddStatus is wrong")
+	}
+}
+
+
+func TestSubStatus(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	var testStatu = uint32(34432)
+	var testStatus = uint32(5666)
+	bIndex.Status = testStatus
+	bIndex.SubStatus(testStatu)
+	if (bIndex.Status & testStatu != 0) {
+		t.Errorf("SubStatus is wrong")
+	}
+}
+
+func TestGetBlockHeader(t *testing.T) {
+	var bIndex blockindex.BlockIndex
+	if bIndex.GetBlockHeader() != &bIndex.Header {
+		t.Errorf("GetBlockHeader is wrong")
+	}
+
+}
+
 func TestBlockIndexBuildSkip(t *testing.T) {
 	HashMain := make([]*big.Int, 10000)
 	BlocksMain := make([]blockindex.BlockIndex, 10000)

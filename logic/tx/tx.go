@@ -477,7 +477,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 
 func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *script.Script,
 	nIn int, value amount.Amount, flags uint32) error {
-	if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
+	if flags&script.ScriptEnableSigHashForkID == script.ScriptEnableSigHashForkID {
 		flags |= script.ScriptVerifyStrictEnc
 	}
 	if flags&script.ScriptVerifySigPushOnly == script.ScriptVerifySigPushOnly && !scriptSig.IsPushOnly() {
@@ -549,7 +549,7 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int,
 	money amount.Amount, flags uint32) error {
 
-	if s.GetBadOpCode() == true {
+	if s.GetBadOpCode() {
 		log.Debug("ScriptErrBadOpCode")
 		return errcode.New(errcode.ScriptErrBadOpCode)
 	}
@@ -821,7 +821,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrUnbalancedConditional)
 				}
 				vfBack := !stackExec.Top(-1).(bool)
-				if stackExec.SetTop(-1, vfBack) == false {
+				if !stackExec.SetTop(-1, vfBack) {
 					log.Debug("ScriptErrUnbalancedConditional")
 					return errcode.New(errcode.ScriptErrUnbalancedConditional)
 				}
@@ -2067,7 +2067,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())
