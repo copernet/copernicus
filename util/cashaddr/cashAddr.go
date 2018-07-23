@@ -3,11 +3,11 @@ package cashaddr
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ripemd160"
 	"github.com/copernet/copernicus/model/chainparams"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
+	"golang.org/x/crypto/ripemd160"
 )
 
 var (
@@ -76,14 +76,10 @@ func init() {
 
 type Data []byte
 
-/**
- * The cashaddr character set for encoding.
- */
-const CHARSET  = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+// CHARSET cashaddr character set for encoding.
+const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
-/**
- * The cashaddr character set for decoding.
- */
+// CharsetRev cashaddr character set for decoding.
 var CharsetRev = [128]int8{
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -94,15 +90,13 @@ var CharsetRev = [128]int8{
 	3, 16, 11, 28, 12, 14, 6, 4, 2, -1, -1, -1, -1, -1,
 }
 
-/**
- * Concatenate two byte arrays.
- */
+// Cat concatenate two byte arrays.
 func Cat(x, y Data) Data {
 	return append(x, y...)
 }
 
 /**
- * This function will compute what 8 5-bit values to XOR into the last 8 input
+ * PolyMod function will compute what 8 5-bit values to XOR into the last 8 input
  * values, in order to make the checksum 0. These 8 values are packed together
  * in a single 40-bit integer. The higher bits correspond to earlier values.
  */
@@ -213,19 +207,13 @@ func PolyMod(v Data) uint64 {
 	return c ^ 1
 }
 
-/**
- * Convert to lower case.
- *
- * Assume the input is a character.
- */
+// LowerCase convert to lower case. Assume the input is a character.
 func LowerCase(c byte) byte {
 	// ASCII black magic.
 	return c | 0x20
 }
 
-/**
- * Expand the address prefix for the checksum computation.
- */
+// ExpandPrefix the address prefix for the checksum computation.
 func ExpandPrefix(prefix string) Data {
 	ret := make(Data, len(prefix)+1)
 	for i := 0; i < len(prefix); i++ {
@@ -236,16 +224,12 @@ func ExpandPrefix(prefix string) Data {
 	return ret
 }
 
-/**
- * Verify a checksum.
- */
+// VerifyChecksum a checksum.
 func VerifyChecksum(prefix string, payload Data) bool {
 	return PolyMod(Cat(ExpandPrefix(prefix), payload)) == 0
 }
 
-/**
- * Create a checksum.
- */
+// CreateChecksum create a checksum.
 func CreateChecksum(prefix string, payload Data) Data {
 	enc := Cat(ExpandPrefix(prefix), payload)
 	// Append 8 zeroes.

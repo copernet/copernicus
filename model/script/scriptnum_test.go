@@ -3,8 +3,8 @@ package script
 import (
 	"bytes"
 	"encoding/hex"
-	"testing"
 	"errors"
+	"testing"
 )
 
 func hexToBytes(s string) []byte {

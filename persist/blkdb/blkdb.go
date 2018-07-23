@@ -63,7 +63,6 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileI
 	log.Debug("file======%#v", file)
 
 	if err != nil {
-		fmt.Println("ReadBlockFileInfo err: %#v", err.Error())
 		log.Error("ReadBlockFileInfo err: %#v", err.Error())
 		panic("read failed ....")
 	}
@@ -147,10 +146,10 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*block.BlockFileIn
 	}
 
 	err := blockTreeDB.dbw.WriteBatch(batch, true)
-	if true && err !=nil{
+	if err != nil {
 		lastFile, e := blockTreeDB.ReadLastBlockFile()
-		fmt.Println(lastFile,e)
-		
+		fmt.Println(lastFile, e)
+
 	}
 	return err
 }
@@ -163,7 +162,6 @@ func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *util.Hash) (*block.DiskTxPos, 
 	if err != nil {
 		log.Error("Error: ReadTxIndex======%#v", err)
 		panic("Error: ReadTxIndex======")
-		return nil, err
 	}
 	if vdata == nil {
 		return nil, nil
@@ -241,14 +239,14 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 			return false
 		}
 		bi.Unserialize(bytes.NewBuffer(val))
-		if bi.TxCount == 0{
+		if bi.TxCount == 0 {
 			fmt.Println("err")
 			blockTreeDB.dbw.Erase(k, true)
 			cursor.Next()
 			continue
 		}
 		newIndex := InsertBlockIndex(*bi.GetBlockHash(), GlobalBlockIndexMap)
-		if newIndex == nil{
+		if newIndex == nil {
 			cursor.Next()
 			continue
 		}
@@ -267,7 +265,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 		newIndex.Header.Nonce = bi.Header.Nonce
 		newIndex.Status = bi.Status
 		newIndex.TxCount = bi.TxCount
-		
+
 		if !new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, params) {
 			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
@@ -282,7 +280,7 @@ func InsertBlockIndex(hash util.Hash, GlobalBlockIndexMap map[util.Hash]*blockin
 	if i, ok := GlobalBlockIndexMap[hash]; ok {
 		return i
 	}
-	if hash.IsNull(){
+	if hash.IsNull() {
 		return nil
 	}
 	var bi = blockindex.NewBlockIndex(block.NewBlockHeader())

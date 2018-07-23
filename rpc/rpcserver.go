@@ -136,7 +136,7 @@ func (s *Server) Stop() error {
 	return nil
 }
 
-// returns a channel that is sent to when an authorized
+// RequestedProcessShutdown returns a channel that is sent to when an authorized
 // RPC client requests the process to shutdown.  If the request can not be read
 // immediately, it is dropped.
 func (s *Server) RequestedProcessShutdown() <-chan struct{} {
@@ -377,7 +377,7 @@ func jsonAuthFail(w http.ResponseWriter) {
 	http.Error(w, "401 Unauthorized.", http.StatusUnauthorized)
 }
 
-// start the rpc listener.
+// Start func start the rpc listener.
 func (s *Server) Start() {
 	if atomic.AddInt32(&s.started, 1) != 1 {
 		return

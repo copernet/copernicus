@@ -1,9 +1,9 @@
 package blockindex
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
-	"fmt"
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
@@ -17,17 +17,17 @@ import (
  * one of them can be part of the currently active branch.
  */
 
- const (
- 	StatusAllValid uint32 = 1 << iota
- 	StatusIndexStored
- 	StatusDataStored
+const (
+	StatusAllValid uint32 = 1 << iota
+	StatusIndexStored
+	StatusDataStored
 	StatusWaitingData
 	StatusFailed
 	StatusAccepted
 
 	//NOTE: This must be defined last in order to avoid influencing iota
-	StatusNone  = 0
- )
+	StatusNone = 0
+)
 
 type BlockIndex struct {
 	Header block.BlockHeader
@@ -64,7 +64,7 @@ type BlockIndex struct {
 	// blocks are received.
 	SequenceID uint64
 	// (memory only) Maximum time in the chain upto and including this block.
-	TimeMax uint32
+	TimeMax   uint32
 	isGenesis bool
 }
 
@@ -89,27 +89,27 @@ func (bIndex *BlockIndex) SetNull() {
 }
 
 func (bIndex *BlockIndex) WaitingData() bool {
-	return bIndex.Status & StatusWaitingData != 0
+	return bIndex.Status&StatusWaitingData != 0
 }
 
 func (bIndex *BlockIndex) AllValid() bool {
-	return bIndex.Status & StatusAllValid != 0
+	return bIndex.Status&StatusAllValid != 0
 }
 
 func (bIndex *BlockIndex) IndexStored() bool {
-	return bIndex.Status & StatusIndexStored != 0
+	return bIndex.Status&StatusIndexStored != 0
 }
 
 func (bIndex *BlockIndex) AllStored() bool {
-	return bIndex.Status & StatusDataStored != 0
+	return bIndex.Status&StatusDataStored != 0
 }
 
 func (bIndex *BlockIndex) Accepted() bool {
-	return bIndex.Status & StatusAccepted != 0
+	return bIndex.Status&StatusAccepted != 0
 }
 
 func (bIndex *BlockIndex) Failed() bool {
-	return bIndex.Status & StatusFailed != 0
+	return bIndex.Status&StatusFailed != 0
 }
 
 func (bIndex *BlockIndex) AddStatus(statu uint32) {
@@ -126,11 +126,11 @@ func (bIndex *BlockIndex) GetDataPos() int {
 }
 
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
-	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.UndoPos}
+	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.UndoPos}
 }
 
 func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
-	return block.DiskBlockPos{File:bIndex.File,Pos:bIndex.DataPos}
+	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.DataPos}
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
@@ -140,7 +140,7 @@ func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
 
 func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
 	bHash := bIndex.blockHash
-	if bHash.IsNull(){
+	if bHash.IsNull() {
 		bIndex.blockHash = bIndex.Header.GetHash()
 	}
 	if bHash.IsEqual(&util.Hash{}) {
@@ -150,7 +150,7 @@ func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
 }
 
 func (bIndex *BlockIndex) SetBlockHash(hash util.Hash) {
-	bIndex.blockHash =  hash
+	bIndex.blockHash = hash
 }
 
 func (bIndex *BlockIndex) GetBlockTime() uint32 {
@@ -224,12 +224,12 @@ func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 	if height > bIndex.Height || height < 0 {
 		return nil
 	}
-	if height == bIndex.Height{
-		return  bIndex
+	if height == bIndex.Height {
+		return bIndex
 	}
 	indexWalk := bIndex
-	for indexWalk.Prev != nil{
-		if indexWalk.Prev.Height == height{
+	for indexWalk.Prev != nil {
+		if indexWalk.Prev.Height == height {
 			return indexWalk.Prev
 		}
 		indexWalk = indexWalk.Prev
@@ -262,20 +262,14 @@ func (bIndex *BlockIndex) String() string {
 		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
-func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool{
+func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	bhash := bIndex.GetBlockHash()
 	genesisHash := params.GenesisBlock.GetHash()
 	return bhash.IsEqual(&genesisHash)
 }
 
-func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool{
+func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
 	return index.GetMedianTimePast() >= params.CashHardForkActivationTime
-}
-func (bIndex *BlockIndex) SetIsGenesis(params *chainparams.BitcoinParams) bool{
-	bh := bIndex.Header
-	bHash := bh.GetHash()
-	genesisHash := params.GenesisBlock.GetHash()
-	return bHash.IsEqual(&genesisHash)
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
@@ -284,5 +278,3 @@ func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
 	bi.Header = *blkHeader
 	return bi
 }
-
-

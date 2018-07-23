@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -15,7 +16,6 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
-	"github.com/copernet/copernicus/conf"
 )
 
 const (
@@ -25,7 +25,7 @@ const (
 var gpool *TxMempool
 
 func GetInstance() *TxMempool {
-	if gpool == nil{
+	if gpool == nil {
 		gpool = NewTxMempool()
 	}
 
@@ -76,15 +76,15 @@ type TxMempool struct {
 	OrphanTransactions       map[util.Hash]OrphanTx
 	RecentRejects            map[util.Hash]struct{}
 
-	nextSweep      int
-	MaxMemPoolSize int64
-	incrementalRelayFee	util.FeeRate		//
-	rollingMinimumFeeRate	int64
-	blockSinceLastRollingFeeBump	bool
-	lastRollingFeeUpdate		int64
+	nextSweep                    int
+	MaxMemPoolSize               int64
+	incrementalRelayFee          util.FeeRate //
+	rollingMinimumFeeRate        int64
+	blockSinceLastRollingFeeBump bool
+	lastRollingFeeUpdate         int64
 }
 
-func (m *TxMempool)GetCheckFrequency() float64 {
+func (m *TxMempool) GetCheckFrequency() float64 {
 	return m.checkFrequency
 }
 
@@ -139,8 +139,8 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 	return false
 }
 
-func (m *TxMempool)HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
-	if e, ok := m.nextTx[*out]; ok{
+func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
+	if e, ok := m.nextTx[*out]; ok {
 		return e
 	}
 	return nil
@@ -238,7 +238,6 @@ func (m *TxMempool) GetAllSpentOutWithoutLock() map[outpoint.OutPoint]*TxEntry {
 	return ret
 }
 
-
 // RemoveTxSelf will only remove these transaction self.
 func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 	m.Lock()
@@ -303,29 +302,29 @@ func (m *TxMempool) LimitMempoolSize() []*outpoint.OutPoint {
 	return c
 }
 
-func (m *TxMempool)trackPackageRemoved(rate util.FeeRate) {
-	if rate.GetFeePerK() > m.rollingMinimumFeeRate{
+func (m *TxMempool) trackPackageRemoved(rate util.FeeRate) {
+	if rate.GetFeePerK() > m.rollingMinimumFeeRate {
 		m.rollingMinimumFeeRate = rate.GetFeePerK()
 		m.blockSinceLastRollingFeeBump = false
 	}
 }
 
 func (m *TxMempool) GetMinFee(sizeLimit int) util.FeeRate {
-	if !m.blockSinceLastRollingFeeBump || m.rollingMinimumFeeRate == 0{
+	if !m.blockSinceLastRollingFeeBump || m.rollingMinimumFeeRate == 0 {
 		return *util.NewFeeRate(m.rollingMinimumFeeRate)
 	}
 
 	timeTmp := util.GetMockTime()
-	if timeTmp > m.lastRollingFeeUpdate + 10 {
+	if timeTmp > m.lastRollingFeeUpdate+10 {
 		halfLife := RollingFeeHalfLife
-		if m.cacheInnerUsage < int64(sizeLimit / 4){
+		if m.cacheInnerUsage < int64(sizeLimit/4) {
 			halfLife /= 4
-		}else if m.cacheInnerUsage < int64(sizeLimit / 2){
+		} else if m.cacheInnerUsage < int64(sizeLimit/2) {
 			halfLife /= 2
 		}
-		m.rollingMinimumFeeRate = m.rollingMinimumFeeRate / int64(math.Pow(2.0, float64(timeTmp - m.lastRollingFeeUpdate)) / float64(halfLife))
+		m.rollingMinimumFeeRate = m.rollingMinimumFeeRate / int64(math.Pow(2.0, float64(timeTmp-m.lastRollingFeeUpdate))/float64(halfLife))
 		m.lastRollingFeeUpdate = timeTmp
-		if m.rollingMinimumFeeRate < m.incrementalRelayFee.GetFeePerK() / 2 {
+		if m.rollingMinimumFeeRate < m.incrementalRelayFee.GetFeePerK()/2 {
 			m.rollingMinimumFeeRate = 0
 			return *util.NewFeeRate(0)
 		}
@@ -354,7 +353,6 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		}
 		removed := util.NewFeeRateWithSize(rem.TxFee, int64(rem.TxSize))
 		removed.SataoshisPerK += m.incrementalRelayFee.SataoshisPerK
-		
 
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumFeeWithDescendants, removeIt.SumSizeWithDescendants).SataoshisPerK
 		stage := make(map[*TxEntry]struct{})
@@ -648,8 +646,6 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	m.timeSortData.Delete(removeEntry)
 	m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(*removeEntry))
 }
-
-
 
 func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 	m.RLock()

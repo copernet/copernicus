@@ -1,13 +1,13 @@
 package utxo
 
 import (
-	"testing"
-	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/util"
 	"reflect"
+	"testing"
 )
 
 func TestCoinMap(t *testing.T) {

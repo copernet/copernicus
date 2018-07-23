@@ -1,6 +1,8 @@
 package mining
 
 import (
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -10,10 +12,8 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"testing"
-	"github.com/copernet/copernicus/model/chainparams"
 	"math"
-	"github.com/copernet/copernicus/model/chain"
+	"testing"
 )
 
 type TestMemPoolEntry struct {

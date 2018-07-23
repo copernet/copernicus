@@ -3,9 +3,9 @@ package chainparams
 import (
 	"time"
 
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 )
 
 var GenesisCoinbaseTx = tx.Tx{}
@@ -26,14 +26,14 @@ var GenesisMerkleRoot = util.Hash([util.Hash256Size]byte{
 
 var GenesisBlock = block.Block{
 	Header: block.BlockHeader{
-			Version:       1,
-			HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
-			MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
-			Time:          uint32(time.Unix(0x495fab29, 0).Nanosecond()), //2009-01-03 18:15:05 +0000 UTC
-			Bits:          0x1d00ffff,                                    //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
-			Nonce:         0x7c2bac1d,                                    // 2083236893
-		},
-		Txs: []*tx.Tx{&GenesisCoinbaseTx},
+		Version:       1,
+		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
+		Time:          uint32(time.Unix(0x495fab29, 0).Nanosecond()), //2009-01-03 18:15:05 +0000 UTC
+		Bits:          0x1d00ffff,                                    //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
+		Nonce:         0x7c2bac1d,                                    // 2083236893
+	},
+	Txs: []*tx.Tx{&GenesisCoinbaseTx},
 }
 
 var RegressionTestGenesisHash = util.Hash([util.Hash256Size]byte{
@@ -47,14 +47,14 @@ var RegressionTestGeneisMerkleRoot = GenesisMerkleRoot
 
 var RegressionTestGenesisBlock = block.Block{
 	Header: block.BlockHeader{
-			Version:       1,
-			HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
-			MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
-			Time:          uint32(time.Unix(1296688602, 0).Nanosecond()), // 2011-02-02 23:16:42 +0000 UTC
-			Bits:          0x207fffff,                                    // 545259519 [7fffff0000000000000000000000000000000000000000000000000000000000]
-			Nonce:         2,
-		},
-		Txs: []*tx.Tx{&GenesisCoinbaseTx},
+		Version:       1,
+		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
+		Time:          uint32(time.Unix(1296688602, 0).Nanosecond()), // 2011-02-02 23:16:42 +0000 UTC
+		Bits:          0x207fffff,                                    // 545259519 [7fffff0000000000000000000000000000000000000000000000000000000000]
+		Nonce:         2,
+	},
+	Txs: []*tx.Tx{&GenesisCoinbaseTx},
 }
 
 var TestNet3GenesisHash = util.Hash([util.Hash256Size]byte{
@@ -74,15 +74,15 @@ var genesisMerkleRoot = util.Hash([util.Hash256Size]byte{ // Make go vet happy.
 })
 
 var TestNet3GenesisBlock = block.Block{
-		Header: block.BlockHeader{
-			Version:       1,
-			HashPrevBlock: util.Hash{},
-			MerkleRoot:*util.HashFromString("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
-			Time:          uint32(time.Unix(1296688602, 0).Unix()), //2011-02-02 23:16:42 +0000 UTC
-			Bits:          0x1d00ffff,                                    //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
-			Nonce:         0x18aea41a,                                    // 414098458
-		},
-		Txs: []*tx.Tx{&GenesisCoinbaseTx},
+	Header: block.BlockHeader{
+		Version:       1,
+		HashPrevBlock: util.Hash{},
+		MerkleRoot:    *util.HashFromString("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
+		Time:          uint32(time.Unix(1296688602, 0).Unix()), //2011-02-02 23:16:42 +0000 UTC
+		Bits:          0x1d00ffff,                              //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
+		Nonce:         0x18aea41a,                              // 414098458
+	},
+	Txs: []*tx.Tx{&GenesisCoinbaseTx},
 }
 
 var SimNetGenesisHash = util.Hash([util.Hash256Size]byte{
@@ -94,13 +94,12 @@ var SimNetGenesisHash = util.Hash([util.Hash256Size]byte{
 var SimNetGenesisMerkleRoot = GenesisMerkleRoot
 var SimNetGenesisBlock = block.Block{
 	Header: block.BlockHeader{
-			Version:       1,
-			HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
-			MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
-			Time:          uint32(time.Unix(1401292357, 0).Nanosecond()),
-			Bits:          0x207fffff,
-			Nonce:         2,
-		},
+		Version:       1,
+		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		MerkleRoot:    util.HexToHash("4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"),
+		Time:          uint32(time.Unix(1401292357, 0).Nanosecond()),
+		Bits:          0x207fffff,
+		Nonce:         2,
+	},
 	Txs: []*tx.Tx{&GenesisCoinbaseTx},
 }
-

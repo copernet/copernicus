@@ -4,12 +4,12 @@ import (
 	//"math/big"
 	"testing"
 
-	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chainparams"
-	"fmt"
-	"math/big"
 	"encoding/hex"
+	"fmt"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chainparams"
+	"math/big"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
@@ -404,17 +404,16 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 
 	b := new(big.Int)
 	by, err := hex.DecodeString("000000000000000000000000000000000000000000000028803b6c018c06d7c5")
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	c := b.SetBytes(by)
-	fmt.Println("height : 1188696, chainwork : ",  c.String())
+	fmt.Println("height : 1188696, chainwork : ", c.String())
 
 	c, e := c.SetString("000000000000000000000000000000000000000000000028803b6c018c06d7c5", 16)
-	if e == false{
+	if e == false {
 		panic(e)
 	}
-	fmt.Println("height : 1188696, chainwork : ",  c.String())
-
+	fmt.Println("height : 1188696, chainwork : ", c.String())
 
 }

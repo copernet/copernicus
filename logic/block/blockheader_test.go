@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/util"
 )
 
 // mainNetGenesisHash is the hash of the first block in the block chain for the

@@ -17,9 +17,8 @@ type DiskTxPos struct {
 	TxOffsetIn uint32
 }
 
-
 func (diskBlockPos *DiskBlockPos) Serialize(writer io.Writer) error {
-	return  util.WriteElements(writer, &diskBlockPos.File, &diskBlockPos.Pos)
+	return util.WriteElements(writer, &diskBlockPos.File, &diskBlockPos.Pos)
 }
 
 func (diskTxPos *DiskTxPos) Serialize(writer io.Writer) error {
@@ -30,15 +29,15 @@ func (diskTxPos *DiskTxPos) Serialize(writer io.Writer) error {
 	return util.WriteElements(writer, diskTxPos.TxOffsetIn)
 }
 
-func (dbp *DiskBlockPos) Unserialize(reader io.Reader) (error) {
+func (dbp *DiskBlockPos) Unserialize(reader io.Reader) error {
 	return util.ReadElements(reader, &dbp.File, &dbp.Pos)
-	
+
 }
 
-func (dtp *DiskTxPos) Unserialize(reader io.Reader) (error) {
+func (dtp *DiskTxPos) Unserialize(reader io.Reader) error {
 	dbp := new(DiskBlockPos)
 	err := dbp.Unserialize(reader)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	dtp.BlockIn = dbp

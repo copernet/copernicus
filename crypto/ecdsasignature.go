@@ -12,7 +12,7 @@ const (
 	SigHashForkID       = 0x40
 	SigHashAnyoneCanpay = 0x80
 
-	// sigHashMask defines the number of bits of the hash type which is used
+	// SigHashMask defines the number of bits of the hash type which is used
 	// to identify which outputs are signed.
 	SigHashMask = 0x1f
 )
