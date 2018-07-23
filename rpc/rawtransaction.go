@@ -259,9 +259,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
 
-	var transaction *tx.Tx
-	// Validate the locktime, if given.
-	transaction = tx.NewTx(uint32(*c.LockTime), 0)
+	var transaction = tx.NewTx(uint32(*c.LockTime), 0)
 	if c.LockTime != nil &&
 		(*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
 		return nil, &btcjson.RPCError{

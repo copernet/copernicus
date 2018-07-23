@@ -33,8 +33,8 @@ func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 
-// todo check coinbase height，lock time？
 func (coin *Coin) IsSpendable() bool {
+	// todo check coinbase height，lock time？
 	return coin.txOut.IsNull()
 }
 
@@ -58,7 +58,7 @@ func (coin *Coin) GetScriptPubKey() *script.Script {
 }
 
 func (coin *Coin) GetAmount() amount.Amount {
-	return amount.Amount(coin.txOut.GetValue())
+	return coin.txOut.GetValue()
 }
 
 func (coin *Coin) DeepCopy() *Coin {

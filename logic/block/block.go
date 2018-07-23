@@ -110,13 +110,13 @@ func CheckBlock(pblock *block.Block) error {
 
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := tx.NewEmptyTx().EncodeSize()
-	if len(pblock.Txs)*int(minTransactionSize) > int(nMaxBlockSize) {
+	if len(pblock.Txs)*int(minTransactionSize) > nMaxBlockSize {
 		log.Debug("ErrorBadBlkLength")
 		return errcode.New(errcode.ErrorBadBlkLength)
 	}
 
 	currentBlockSize := pblock.EncodeSize()
-	if currentBlockSize > int(nMaxBlockSize) {
+	if currentBlockSize > nMaxBlockSize {
 		log.Debug("ErrorBadBlkTxSize")
 		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
@@ -140,10 +140,8 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized block height
-	if err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff); err != nil {
-		return err
-	}
-	return nil
+	err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff)
+	return err
 }
 
 // ReceivedBlockTransactions Mark a block as having its data received and checked (up to
@@ -228,7 +226,7 @@ func AcceptBlock(pblock *block.Block,
 			return
 		}
 	}
-	if bIndex.AllValid() == false {
+	if !bIndex.AllValid() {
 		err = CheckBlock(pblock)
 		if err != nil {
 			return

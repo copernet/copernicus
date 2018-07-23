@@ -118,7 +118,7 @@ func (c *Chain) TipHeight() int32 {
 }
 
 func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
-	index, _ := c.indexMap[*hash]
+	index := c.indexMap[*hash]
 	return index.Height + 1
 }
 

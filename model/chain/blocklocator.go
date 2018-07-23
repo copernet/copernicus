@@ -15,7 +15,7 @@ func NewBlockLocator(vHaveIn []util.Hash) *BlockLocator {
 }
 
 func (blt *BlockLocator) SetNull() {
-	blt.blockHashList = make([]util.Hash, 0, 0)
+	blt.blockHashList = make([]util.Hash, 0)
 }
 
 func (blt *BlockLocator) IsNull() bool {

@@ -71,9 +71,7 @@ func createName2OpCodeMap() map[string]byte {
 	n2o := make(map[string]byte)
 	for opc := 0; opc <= opcodes.OP_INVALIDOPCODE; opc++ {
 		if name := opcodes.GetOpName(opc); name != "OP_UNKNOWN" {
-			if strings.HasPrefix(name, "OP_") {
-				name = name[3:]
-			}
+			strings.TrimPrefix(name, "OP_")
 			n2o[name] = byte(opc)
 		}
 	}
@@ -168,10 +166,7 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 		if w == "" {
 			continue
 		}
-		if strings.HasPrefix(w, "OP_") {
-			w = w[3:]
-		}
-
+		strings.TrimPrefix(w, "OP_")
 		if opcode, ok := opMap[w]; ok {
 			res = append(res, opcode)
 		} else if isAllDigitalNumber(w) || strings.HasPrefix(w, "-") && isAllDigitalNumber(w[1:]) {

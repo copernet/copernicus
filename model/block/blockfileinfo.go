@@ -37,9 +37,6 @@ func (bfi *BlockFileInfo) Serialize(w io.Writer) error {
 
 func (bfi *BlockFileInfo) Unserialize(r io.Reader) error {
 	err := util.ReadElements(r, &bfi.Blocks, &bfi.Size, &bfi.UndoSize, &bfi.HeightFirst, &bfi.HeightLast, &bfi.timeFirst, &bfi.timeLast, &bfi.index)
-	if err != nil {
-		return err
-	}
 	return err
 }
 

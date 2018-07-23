@@ -549,7 +549,7 @@ func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int,
 	money amount.Amount, flags uint32) error {
 
-	if s.GetBadOpCode() == true {
+	if s.GetBadOpCode() {
 		log.Debug("ScriptErrBadOpCode")
 		return errcode.New(errcode.ScriptErrBadOpCode)
 	}
@@ -821,7 +821,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrUnbalancedConditional)
 				}
 				vfBack := !stackExec.Top(-1).(bool)
-				if stackExec.SetTop(-1, vfBack) == false {
+				if !stackExec.SetTop(-1, vfBack) {
 					log.Debug("ScriptErrUnbalancedConditional")
 					return errcode.New(errcode.ScriptErrUnbalancedConditional)
 				}

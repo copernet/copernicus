@@ -97,7 +97,6 @@ type Tx struct {
 	outs     []*txout.TxOut
 }
 
-//var scriptPool ScriptFreeList = make(chan []byte, FreeListMaxItems)
 func (tx *Tx) AddTxIn(txIn *txin.TxIn) {
 	tx.ins = append(tx.ins, txIn)
 }
@@ -173,7 +172,7 @@ func (tx *Tx) EncodeSize() uint32 {
 		n += txOut.EncodeSize()
 	}
 
-	return uint32(n)
+	return n
 }
 
 func (tx *Tx) Encode(writer io.Writer) error {
@@ -251,9 +250,6 @@ func (tx *Tx) Decode(reader io.Reader) error {
 	}
 
 	tx.lockTime, err = util.BinarySerializer.Uint32(reader, binary.LittleEndian)
-	if err != nil {
-		return err
-	}
 	return err
 }
 
@@ -646,6 +642,7 @@ func (tx *Tx) CalculateModifiedSize() uint32 {
 	return txSize
 }
 
+// IsFinal proceeds as follows
 // 1. tx.locktime > 0 and tx.locktime < Threshhold, use height to check(tx.locktime > current height)
 // 2. tx.locktime > Threshhold, use time to check(tx.locktime > current blocktime)
 // 3. sequence can disable it

@@ -272,7 +272,7 @@ func newServerPeer(s *Server, isPersistent bool) *serverPeer {
 func (sp *serverPeer) newestBlock() (*util.Hash, int32, error) {
 	tip := chain.GetInstance().Tip()
 	height := chain.GetInstance().TipHeight()
-	return tip.GetBlockHash(), int32(height), nil
+	return tip.GetBlockHash(), height, nil
 }
 
 // addKnownAddresses adds the given addresses to the set of known addresses to

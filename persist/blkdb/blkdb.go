@@ -215,8 +215,8 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 
 //
 
-// todo for iter and check key、 pow
 func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+	// todo for iter and check key、 pow
 	cursor := blockTreeDB.dbw.Iterator()
 	defer cursor.Close()
 	hash := util.Hash{}

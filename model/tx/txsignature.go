@@ -295,11 +295,7 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 		return false
 	}
 	ret := sign.Verify(signHash.GetCloneBytes(), publicKey)
-	if !ret {
-		return false
-	}
-
-	return true
+	return ret
 
 }
 

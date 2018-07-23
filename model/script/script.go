@@ -162,7 +162,7 @@ const (
 
 const (
 	ScriptNonStandard = iota
-	// 'standard' transaction types:
+	// ScriptPubkey and following are 'standard' transaction types:
 	ScriptPubkey
 	ScriptPubkeyHash
 	ScriptHash
@@ -235,11 +235,7 @@ func (s *Script) Decode(reader io.Reader, isCoinBase bool) (err error) {
 		return nil
 	}
 	err = s.convertOPS()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (s *Script) IsSpendable() bool {
@@ -343,7 +339,7 @@ func (s *Script) convertOPS() error {
 			nSize = uint(binary.LittleEndian.Uint32(s.data[i : i+4]))
 			i += 4
 		}
-		if scriptLen-i < 0 || uint(scriptLen-i) < nSize {
+		if scriptLen-i < 0 || scriptLen-i < nSize {
 			log.Debug("ConvertOPS script data size is wrong")
 			return errors.New("size is wrong")
 		}
@@ -488,7 +484,7 @@ func BytesToBool(bytes []byte) bool {
 		return false
 	}
 	for i, e := range bytes {
-		if uint8(e) != 0 {
+		if e != 0 {
 			if i == bytesLen-1 && e == 0x80 {
 				return false
 			}
@@ -709,10 +705,7 @@ func (s *Script) PushInt64(n int64) error {
 		s.data = append(s.data, scriptNum.Serialize()...)
 	}
 	err := s.convertOPS()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (s *Script) PushData(data [][]byte) error {
@@ -742,11 +735,7 @@ func (s *Script) PushData(data [][]byte) error {
 		s.data = append(s.data, e...)
 	}
 	err := s.convertOPS()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
