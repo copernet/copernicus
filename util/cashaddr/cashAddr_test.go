@@ -38,7 +38,7 @@ func TestValid(t *testing.T) {
 	}
 }
 
-var Invalid []string = []string{
+var Invalid = []string{
 	"prefix:x32nx6hz",
 	"prEfix:x64nx6hz",
 	"prefix:x64nx6Hz",

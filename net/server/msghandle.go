@@ -1,7 +1,8 @@
+package server
+
 // Copyright (c) 2013-2017 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
-package server
 
 import (
 	"context"
@@ -21,7 +22,7 @@ type MsgHandle struct {
 
 var msgHandle *MsgHandle
 
-// NewMsgHandle create a msgHandle for these message from peer And RPC.
+// SetMsgHandle create a msgHandle for these message from peer And RPC.
 // Then begins the core block handler which processes block and inv messages.
 func SetMsgHandle(ctx context.Context, msgChan <-chan *peer.PeerMessage, server *Server) {
 	msg := &MsgHandle{msgChan, server}
@@ -168,8 +169,8 @@ out:
 
 }
 
-// Rpc process things
-func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
+// ProcessForRPC are RPC process things
+func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
 	case *service.GetConnectionCountRequest:
@@ -180,18 +181,18 @@ func ProcessForRpc(message interface{}) (rsp interface{}, err error) {
 		return nil, nil
 
 	case *service.GetPeersInfoRequest:
-		return NewRpcConnManager(msgHandle.Server).ConnectedPeers(), nil
+		return NewRPCConnManager(msgHandle.Server).ConnectedPeers(), nil
 
 	case *btcjson.AddNodeCmd:
 		cmd := message.(*btcjson.AddNodeCmd)
 		var err error
 		switch cmd.SubCmd {
 		case "add":
-			err = NewRpcConnManager(msgHandle.Server).Connect(cmd.Addr, true)
+			err = NewRPCConnManager(msgHandle.Server).Connect(cmd.Addr, true)
 		case "remove":
-			err = NewRpcConnManager(msgHandle.Server).RemoveByAddr(cmd.Addr)
+			err = NewRPCConnManager(msgHandle.Server).RemoveByAddr(cmd.Addr)
 		case "onetry":
-			err = NewRpcConnManager(msgHandle.Server).Connect(cmd.Addr, false)
+			err = NewRPCConnManager(msgHandle.Server).Connect(cmd.Addr, false)
 		default:
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,

@@ -328,7 +328,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	blockHeaderReply := btcjson.GetBlockHeaderVerboseResult{
 		Hash:          c.Hash,
 		Confirmations: uint64(confirmations),
-		Height:        int32(blockIndex.Height),
+		Height:        blockIndex.Height,
 		Version:       blockIndex.Header.Version,
 		VersionHex:    fmt.Sprintf("%08x", blockIndex.Header.Version),
 		MerkleRoot:    blockIndex.Header.MerkleRoot.String(),

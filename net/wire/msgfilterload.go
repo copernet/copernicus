@@ -122,7 +122,7 @@ func (msg *MsgFilterLoad) Command() string {
 func (msg *MsgFilterLoad) MaxPayloadLength(pver uint32) uint32 {
 	// Num filter bytes (varInt) + filter + 4 bytes hash funcs +
 	// 4 bytes tweak + 1 byte flags.
-	return uint32(util.VarIntSerializeSize(MaxFilterLoadFilterSize)) +
+	return util.VarIntSerializeSize(MaxFilterLoadFilterSize) +
 		MaxFilterLoadFilterSize + 9
 }
 
