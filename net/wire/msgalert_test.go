@@ -430,9 +430,9 @@ func TestAlertErrors(t *testing.T) {
 
 		var alert Alert
 		r := newFixedReader(test.max, test.buf)
-		err = alert.Deserialize(r, test.pver)
+		err = alert.Unserialize(r, test.pver)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.readErr) {
-			t.Errorf("Alert.Deserialize #%d wrong error got: %v, want: %v",
+			t.Errorf("Alert.Unserialize #%d wrong error got: %v, want: %v",
 				i, err, test.readErr)
 			continue
 		}
@@ -450,9 +450,9 @@ func TestAlertErrors(t *testing.T) {
 	}
 	var alert Alert
 	r := bytes.NewReader(badAlertEncoded)
-	err := alert.Deserialize(r, pver)
+	err := alert.Unserialize(r, pver)
 	if _, ok := err.(*MessageError); !ok {
-		t.Errorf("Alert.Deserialize wrong error got: %T, want: %T",
+		t.Errorf("Alert.Unserialize wrong error got: %T, want: %T",
 			err, MessageError{})
 	}
 
@@ -467,9 +467,9 @@ func TestAlertErrors(t *testing.T) {
 		0x55, 0x52, 0x47, 0x45, 0x4e, 0x54, 0x00, //|URGENT.|
 	}
 	r = bytes.NewReader(badAlertEncoded)
-	err = alert.Deserialize(r, pver)
+	err = alert.Unserialize(r, pver)
 	if _, ok := err.(*MessageError); !ok {
-		t.Errorf("Alert.Deserialize wrong error got: %T, want: %T",
+		t.Errorf("Alert.Unserialize wrong error got: %T, want: %T",
 			err, MessageError{})
 	}
 }

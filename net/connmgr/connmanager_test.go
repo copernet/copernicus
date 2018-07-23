@@ -4,6 +4,7 @@
 
 package connmgr
 
+/*
 import (
 	"errors"
 	"io"
@@ -533,3 +534,4 @@ out:
 	cmgr.Stop()
 	cmgr.Wait()
 }
+*/

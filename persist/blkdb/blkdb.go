@@ -20,7 +20,7 @@ type BlockTreeDB struct {
 	dbw *db.DBWrapper
 }
 
-var blockTreeDb *BlockTreeDB = nil
+var blockTreeDb *BlockTreeDB
 
 type BlockTreeDBConfig struct {
 	Do *db.DBOption
@@ -90,7 +90,7 @@ func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int32, error) {
 		return 0, err
 	}
 	buf := bytes.NewBuffer(data)
-	var lastFile int32 = 0
+	var lastFile int32
 	err = util.ReadElements(buf, &lastFile)
 	return lastFile, err
 }
@@ -107,7 +107,7 @@ func (blockTreeDB *BlockTreeDB) ReadMaxBlockFile() (int, error) {
 		return -2, err
 	}
 	buf := bytes.NewBuffer(data)
-	var lastFile int = -2
+	var lastFile = -2
 	err = util.ReadElements(buf, &lastFile)
 	return lastFile, err
 }

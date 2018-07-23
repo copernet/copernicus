@@ -131,27 +131,27 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 	return
 }
 
-func (scriptNum *ScriptNum) ToInt32() int32 {
-	if scriptNum.Value > MaxInt32 {
+func (n *ScriptNum) ToInt32() int32 {
+	if n.Value > MaxInt32 {
 		return MaxInt32
 	}
-	if scriptNum.Value < MinInt32 {
+	if n.Value < MinInt32 {
 		return MinInt32
 	}
 
-	return int32(scriptNum.Value)
+	return int32(n.Value)
 
 }
-func (scriptNum *ScriptNum) Serialize() (bytes []byte) {
-	if scriptNum.Value == 0 {
+func (n *ScriptNum) Serialize() (bytes []byte) {
+	if n.Value == 0 {
 		return nil
 	}
 
-	negative := scriptNum.Value < 0
-	absoluteValue := scriptNum.Value
+	negative := n.Value < 0
+	absoluteValue := n.Value
 
 	if negative {
-		absoluteValue = -scriptNum.Value
+		absoluteValue = -n.Value
 	}
 	bytes = make([]byte, 0, 9)
 	for absoluteValue > 0 {

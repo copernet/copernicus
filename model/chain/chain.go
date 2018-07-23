@@ -69,13 +69,13 @@ func (c *Chain) Genesis() *blockindex.BlockIndex {
 }
 
 func (c *Chain) AddReceivedID() {
-	c.receiveID += 1
+	c.receiveID++
 }
 func (c *Chain) GetReceivedID() uint64 {
 	return c.receiveID
 }
 
-//find blockindex from active
+// FindHashInActive finds blockindex from active
 func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 	bi, ok := c.indexMap[hash]
 	if ok {
@@ -88,7 +88,7 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 	return nil
 }
 
-//find blockindex from blockIndexMap
+// FindBlockIndex finds blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
@@ -157,7 +157,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	// If the UAHF is enabled, we start accepting replay protected txns
 	if chainparams.IsUAHFEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyStrictEnc
-		flags |= script.ScriptEnableSigHashForkId
+		flags |= script.ScriptEnableSigHashForkID
 	}
 
 	// If the Cash HF is enabled, we start rejecting transaction that use a high
@@ -172,7 +172,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	return flags
 }
 
-// GetSpecIndex Returns the blIndex entry at a particular height in this chain, or nullptr
+// GetIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
 func (c *Chain) GetIndex(height int32) *blockindex.BlockIndex {
 	if height < 0 || height >= int32(len(c.active)) {
@@ -247,7 +247,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 // 	// todo update active
 // }
 
-// get ancestor from active chain
+// GetAncestor gets ancestor from active chain
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 	if len(c.active) >= int(height) {
 		return c.active[height]
@@ -257,11 +257,11 @@ func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 
 // GetLocator get a series blockHash, which slice contain blocks sort
 // by height from Highest to lowest.
-func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
+func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 	step := 1
 	blockHashList := make([]util.Hash, 0, 32)
 	if index == nil {
-		index = ch.Tip()
+		index = c.Tip()
 		log.Trace("GetLocator Tip hash : %s,  height : %d .",
 			index.GetBlockHash().String(), index.Height)
 	}
@@ -274,8 +274,8 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 		if height < 0 {
 			height = 0
 		}
-		if ch.Contains(index) {
-			index = ch.GetIndex(height)
+		if c.Contains(index) {
+			index = c.GetIndex(height)
 		} else {
 			index = index.GetAncestor(height)
 		}
@@ -289,32 +289,32 @@ func (ch *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 }
 
 // FindFork Find the last common block between this chain and a block blIndex entry.
-func (chain *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex {
+func (c *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex {
 	if blIndex == nil {
 		return nil
 	}
 
-	if blIndex.Height > chain.Height() {
-		blIndex = blIndex.GetAncestor(chain.Height())
+	if blIndex.Height > c.Height() {
+		blIndex = blIndex.GetAncestor(c.Height())
 	}
 
-	for blIndex != nil && !chain.Contains(blIndex) {
+	for blIndex != nil && !c.Contains(blIndex) {
 		blIndex = blIndex.Prev
 	}
 	return blIndex
 }
 
 // FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
-func (chain *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
+func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
 
 	return nil
 }
 
-func (chain *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
+func (c *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
 
 }
 
-//find blockindex'parent in branch
+// ParentInBranch finds blockindex'parent in branch
 func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
 	for _, bi := range c.branch {
 		bh := pindex.Header
@@ -325,7 +325,7 @@ func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
 	return false
 }
 
-//find blockindex in branch
+// InBranch finds blockindex in branch
 func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
 	for _, bi := range c.branch {
 		bh := pindex.GetBlockHash()
