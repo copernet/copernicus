@@ -11,7 +11,7 @@ import (
 const (
 	// MaxBlockFileSize is the maximum size of a blk?????.dat file (since 0.8) */
 	MaxBlockFileSize = uint32(0x8000000)
-	// BlockFileChunkSize is the pre-allocation chunk size for blk?????.dat files (since 0.8)  预先分配的文件大小*/
+	// BlockFileChunkSize is the pre-allocation chunk size for blk?????.dat files (since 0.8)
 	BlockFileChunkSize = 0x1000000
 	// UndoFileChunkSize is the pre-allocation chunk size for rev?????.dat files (since 0.8) */
 	UndoFileChunkSize     = 0x100000
