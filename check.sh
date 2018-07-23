@@ -11,6 +11,10 @@ if [ ! -x "$(type -p gometalinter)" ]; then
     exit 1
 fi
 
+git clone https://github.com/copernet/secp256k1.git
+cd secp256k1
+./autogen.sh
+
 linter_targets=$(glide novendor)
 
 find . -name "*.go" -not -path "./vendor/*" -not -path "./git/*" | xargs gofmt -w
