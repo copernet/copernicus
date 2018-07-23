@@ -250,7 +250,7 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 
 	var nValue int64
 	if farr, ok := itest[0].([]interface{}); ok {
-		nValue = int64(farr[0].(float64))
+		nValue = int64(farr[0].(float64)) * 1e8
 		itest = itest[1:]
 	}
 	if len(itest) < 4 {
