@@ -10,8 +10,8 @@ import (
 
 type BlockHeader struct {
 	Version       int32     `json:"version"`
-	HashPrevBlock util.Hash `json:"previousblockhash, string"`
-	MerkleRoot    util.Hash `json:"merkleroot, string"`
+	HashPrevBlock util.Hash `json:"previousblockhash,string"`
+	MerkleRoot    util.Hash `json:"merkleroot,string"`
 	Time          uint32    `json:"time"`
 	Bits          uint32    `json:"bits"`
 	Nonce         uint32    `json:"nonce"`
@@ -96,6 +96,6 @@ func (bh *BlockHeader) String() string {
 		bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce, bh.GetHash())
 }
 func (bh *BlockHeader) GetSerializeList() []string {
-	dump_list := []string{"Version", "HashPrevBlock", "MerkleRoot", "Time", "Bits", "Nonce"}
-	return dump_list
+	dumplist := []string{"Version", "HashPrevBlock", "MerkleRoot", "Time", "Bits", "Nonce"}
+	return dumplist
 }

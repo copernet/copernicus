@@ -23,11 +23,11 @@ func TestCoin(t *testing.T) {
 		t.Error("get amount value is error, please check..")
 	}
 
-	if gto != *txout1 || gh != 10 || c.isCoinBase != false {
+	if gto != *txout1 || gh != 10 || c.isCoinBase {
 		t.Error("get value is faild...")
 	}
 
-	if c.isCoinBase != false {
+	if c.isCoinBase {
 		t.Error("the coin is coinbase , please check coin ")
 	}
 
@@ -50,7 +50,7 @@ func TestCoin(t *testing.T) {
 		t.Error("there is one error in clear func...")
 	}
 
-	if c.isCoinBase != false && c.isMempoolCoin != false {
+	if c.isCoinBase && c.isMempoolCoin {
 		t.Error("isCoinBase and isMempoolCoin value should false")
 	}
 
@@ -70,7 +70,7 @@ func TestCoin(t *testing.T) {
 		t.Error("get amount failed, please check...")
 	}
 
-	if c2.isCoinBase != false {
+	if c2.isCoinBase {
 		t.Error("the tx not is coinbase, please check...")
 	}
 
