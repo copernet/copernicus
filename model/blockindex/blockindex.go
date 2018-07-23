@@ -271,12 +271,6 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
 	return index.GetMedianTimePast() >= params.CashHardForkActivationTime
 }
-func (bIndex *BlockIndex) SetIsGenesis(params *chainparams.BitcoinParams) bool {
-	bh := bIndex.Header
-	bHash := bh.GetHash()
-	genesisHash := params.GenesisBlock.GetHash()
-	return bHash.IsEqual(&genesisHash)
-}
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
 	bi := new(BlockIndex)

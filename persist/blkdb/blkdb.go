@@ -146,7 +146,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*block.BlockFileIn
 	}
 
 	err := blockTreeDB.dbw.WriteBatch(batch, true)
-	if true && err != nil {
+	if err != nil {
 		lastFile, e := blockTreeDB.ReadLastBlockFile()
 		fmt.Println(lastFile, e)
 
