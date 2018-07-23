@@ -10,7 +10,7 @@ import (
 //UpdateCoins update coins about tx
 func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height int32) {
 	if !tx.IsCoinBase() {
-		undoCoins := make([]*utxo.Coin, len(tx.GetIns()), len(tx.GetIns()))
+		undoCoins := make([]*utxo.Coin, len(tx.GetIns()))
 		for idx, txin := range tx.GetIns() {
 			coin := coinMap.GetCoin(txin.PreviousOutPoint)
 			if coin == nil {
