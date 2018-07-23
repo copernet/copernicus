@@ -110,7 +110,7 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	return err
 }
 
-//new an confirmed coin
+// NewCoin creates an confirmed coin
 func NewCoin(out *txout.TxOut, height int32, isCoinBase bool) *Coin {
 
 	return &Coin{
@@ -120,7 +120,7 @@ func NewCoin(out *txout.TxOut, height int32, isCoinBase bool) *Coin {
 	}
 }
 
-//new an unconfirmed coin for mempool
+// NewMempoolCoin creates an unconfirmed coin for mempool
 func NewMempoolCoin(out *txout.TxOut) *Coin {
 	return &Coin{
 		txOut:         *out,

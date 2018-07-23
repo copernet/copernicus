@@ -477,7 +477,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 
 func verifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *script.Script,
 	nIn int, value amount.Amount, flags uint32) error {
-	if flags&script.ScriptEnableSigHashForkId == script.ScriptEnableSigHashForkId {
+	if flags&script.ScriptEnableSigHashForkID == script.ScriptEnableSigHashForkID {
 		flags |= script.ScriptVerifyStrictEnc
 	}
 	if flags&script.ScriptVerifySigPushOnly == script.ScriptVerifySigPushOnly && !scriptSig.IsPushOnly() {
@@ -2067,7 +2067,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())

@@ -467,7 +467,7 @@ func BIP22ValidationResult(err error) (interface{}, error) {
 func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SubmitBlockCmd)
 
-	// Deserialize the submitted block.
+	// Unserialize the submitted block.
 	hexStr := c.HexBlock
 	if len(hexStr)%2 != 0 {
 		hexStr = "0" + c.HexBlock

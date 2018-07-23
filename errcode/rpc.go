@@ -5,7 +5,7 @@ type RPCErr int
 const RPCBase RPCErr = 2000
 
 const (
-	ModelValid   = RPCBase + iota
+	ModelValid = RPCBase + iota
 	ModelInvalid
 	ModelError
 )

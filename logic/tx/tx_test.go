@@ -219,7 +219,7 @@ var scriptFlagMap = map[string]uint32{
 	"CHECKLOCKTIMEVERIFY":        script.ScriptVerifyCheckLockTimeVerify,
 	"CHECKSEQUENCEVERIFY":        script.ScriptVerifyCheckSequenceVerify,
 	"COMPRESSED_PUBKEYTYPE":      script.ScriptVerifyCompressedPubkeyType,
-	"SIGHASH_FORKID":             script.ScriptEnableSigHashForkId,
+	"SIGHASH_FORKID":             script.ScriptEnableSigHashForkID,
 	"REPLAY_PROTECTION":          script.ScriptEnableReplayProtection,
 	"MONOLITH_OPCODES":           script.ScriptEnableMonolithOpcodes,
 }
@@ -383,7 +383,7 @@ func TestSigHash(t *testing.T) {
 		// }
 
 		hash, err := tx.SignatureHash(newTx, scriptPubKey, hashType, nIn,
-			amount.Amount(0), script.ScriptEnableSigHashForkId)
+			amount.Amount(0), script.ScriptEnableSigHashForkID)
 		if err != nil {
 			t.Errorf("verify error for test %d", i)
 			continue

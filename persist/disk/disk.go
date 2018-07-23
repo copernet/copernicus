@@ -370,7 +370,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		// Then update all block file information (which may refer to block and undo files).
 
 		dirtyBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(gPersist.GlobalDirtyFileInfo))
-		for k, _ := range gPersist.GlobalDirtyFileInfo {
+		for k := range gPersist.GlobalDirtyFileInfo {
 			dirtyBlockFileInfoList = append(dirtyBlockFileInfoList, gPersist.GlobalBlockFileInfo[k])
 
 		}
