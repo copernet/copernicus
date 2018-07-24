@@ -71,7 +71,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 
 	//todo !!! modify this transaction send node time .
 	//pfrom->nLastTXTime = GetTime();
-	setMisbehaving := make(map[int64]struct{}, 0)
+	setMisbehaving := make(map[int64]struct{})
 	for len(vWorkQueue) > 0 {
 		prevOut := vWorkQueue[0]
 		vWorkQueue = vWorkQueue[1:]

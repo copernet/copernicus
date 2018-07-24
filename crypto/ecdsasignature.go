@@ -45,11 +45,7 @@ func ParseDERSignature(signature []byte) (*Signature, error) {
 
 func (sig *Signature) EcdsaNormalize() bool {
 	_, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, sig.toLibEcdsaSignature(), sig.toLibEcdsaSignature())
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
 func IsLowDERSignature(vchSig []byte) (bool, error) {

@@ -4,13 +4,14 @@
 
 package peer
 
+/*
 import (
 	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/copernet/copernicus/net/wire"
 )
 
 // TestMruInventoryMap ensures the MruInventoryMap behaves as expected including
@@ -168,3 +169,4 @@ func BenchmarkMruInventoryList(b *testing.B) {
 		mruInvMap.Add(invVects[i%numInvVects])
 	}
 }
+*/

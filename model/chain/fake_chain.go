@@ -11,7 +11,7 @@ func NewFakeChain() *Chain {
 		active:      make([]*blockindex.BlockIndex, 0),
 		branch:      make([]*blockindex.BlockIndex, 0),
 		waitForTx:   make(map[util.Hash]*blockindex.BlockIndex),
-		orphan:      make(map[util.Hash][]*blockindex.BlockIndex, 0),
+		orphan:      make(map[util.Hash][]*blockindex.BlockIndex),
 		indexMap:    make(map[util.Hash]*blockindex.BlockIndex),
 		newestBlock: nil,
 		receiveID:   0,

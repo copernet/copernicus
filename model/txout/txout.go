@@ -42,9 +42,8 @@ func (txOut *TxOut) Encode(writer io.Writer) error {
 	}
 	if txOut.scriptPubKey == nil {
 		return util.WriteVarInt(writer, 0)
-	} else {
-		return txOut.scriptPubKey.Encode(writer)
 	}
+	return txOut.scriptPubKey.Encode(writer)
 }
 
 func (txOut *TxOut) Decode(reader io.Reader) error {
@@ -125,18 +124,11 @@ func (txOut *TxOut) IsCommitment(data []byte) bool {
 	return txOut.scriptPubKey.IsCommitment(data)
 }
 
-/*
-  The TxOut can be spent or not according script, but don't care it is already been spent or not
-*/
+// IsSpendable returns whether the TxOut can be spent or not,
+// but doesn't care whether it has already been spent or not
+
 func (txOut *TxOut) IsSpendable() bool {
 	return txOut.scriptPubKey.IsSpendable()
-}
-
-/*
-  The TxOut already spent
-*/
-func (txOut *TxOut) IsSpent() bool {
-	return true
 }
 
 func (txOut *TxOut) SetNull() {
