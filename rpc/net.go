@@ -29,7 +29,7 @@ var netHandlers = map[string]commandHandler{
 
 func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	request := service.GetConnectionCountRequest{}
-	response, err := server.ProcessForRpc(request)
+	response, err := server.ProcessForRPC(request)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -50,7 +50,7 @@ func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struc
 func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	nonce := util.GetRand(math.MaxInt64)
 	pingCmd := wire.NewMsgPing(nonce)
-	_, err := server.ProcessForRpc(pingCmd)
+	_, err := server.ProcessForRPC(pingCmd)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -64,8 +64,8 @@ func handlePing(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	getPeerInfoCmd := &service.GetPeersInfoRequest{}
 
-	ret, _ := server.ProcessForRpc(getPeerInfoCmd) // todo Alert: match with return type
-	peers := ret.([]server.RpcServerPeer)
+	ret, _ := server.ProcessForRPC(getPeerInfoCmd) // todo Alert: match with return type
+	peers := ret.([]server.RPCServerPeer)
 	//syncPeerID := s.cfg.SyncMgr.SyncPeerID()
 	infos := make([]*btcjson.GetPeerInfoResult, 0, len(peers))
 	for _, item := range peers {
@@ -110,7 +110,7 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.AddNodeCmd)
-	_, err := server.ProcessForRpc(c)
+	_, err := server.ProcessForRPC(c)
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
@@ -124,7 +124,7 @@ func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 func handleDisconnectNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.DisconnectNodeCmd)
 
-	_, err := server.ProcessForRpc(c)
+	_, err := server.ProcessForRPC(c)
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
@@ -138,7 +138,7 @@ func handleDisconnectNode(s *Server, cmd interface{}, closeChan <-chan struct{})
 func handleGetAddedNodeInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetAddedNodeInfoCmd)
 
-	ret, err := server.ProcessForRpc(c)
+	ret, err := server.ProcessForRPC(c)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -150,7 +150,7 @@ func handleGetAddedNodeInfo(s *Server, cmd interface{}, closeChan <-chan struct{
 }
 
 func handleGetNetTotals(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	ret, err := server.ProcessForRpc(&service.GetNetTotalsRequest{})
+	ret, err := server.ProcessForRPC(&service.GetNetTotalsRequest{})
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
@@ -163,7 +163,7 @@ func handleGetNetTotals(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 func handleGetnetWorkInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GetNetworkInfoCmd)
 
-	ret, err := server.ProcessForRpc(c)
+	ret, err := server.ProcessForRPC(c)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -177,7 +177,7 @@ func handleGetnetWorkInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 func handleSetBan(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SetBanCmd)
 
-	_, err := server.ProcessForRpc(c)
+	_, err := server.ProcessForRPC(c)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -189,7 +189,7 @@ func handleSetBan(s *Server, cmd interface{}, closeChan <-chan struct{}) (interf
 }
 
 func handleListBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	ret, err := server.ProcessForRpc(&service.ListBannedRequest{})
+	ret, err := server.ProcessForRPC(&service.ListBannedRequest{})
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -200,7 +200,7 @@ func handleListBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (in
 }
 
 func handleClearBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	_, err := server.ProcessForRpc(&service.ClearBannedRequest{})
+	_, err := server.ProcessForRPC(&service.ClearBannedRequest{})
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -214,7 +214,7 @@ func handleClearBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 func handleSetNetWorkActive(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SetNetWorkActiveCmd)
 
-	ret, err := server.ProcessForRpc(c)
+	ret, err := server.ProcessForRPC(c)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,

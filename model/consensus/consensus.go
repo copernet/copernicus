@@ -1,7 +1,7 @@
 package consensus
 
 const (
-	//OneMegabyte  1MB
+	//OneMegaByte  1MB
 	OneMegaByte = 1000000
 
 	//MaxTxSize  The maximum allowed size for a transaction, in bytes
@@ -21,8 +21,8 @@ const (
 	/*MaxTxSigOpsCount allowed number of signature check operations per transaction. */
 	MaxTxSigOpsCount = 20000
 
-	/** Coinbase transaction outputs can only be spent after this number of new
-	 * blocks (network rule) */
+	// CoinbaseMaturity means Coinbase transaction outputs can only be spent after this number of new
+	// blocks (network rule)
 	CoinbaseMaturity = 100
 )
 

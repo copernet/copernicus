@@ -95,7 +95,7 @@ func TestCoinCache(t *testing.T) {
 		t.Error("the lru cache shouldn't equal cache coins of coinmap, the cache coin of map is equal nil")
 	}
 
-	if utxoTip.HaveCoin(&outpoint2) == false {
+	if !utxoTip.HaveCoin(&outpoint2) {
 		t.Error("the cache should have coin, please check")
 	}
 

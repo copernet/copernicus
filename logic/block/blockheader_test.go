@@ -47,29 +47,29 @@ func TestBlockHeaderGetHash(t *testing.T) {
 	blHe.Serialize(buf)
 	tmpBlk.UnserializeHeader(buf)
 	if tmpBlk.Version != blHe.Version {
-		t.Errorf("Deserialize late version : %d, expect version : %d", tmpBlk.Version, blHe.Version)
+		t.Errorf("Unserialize late version : %d, expect version : %d", tmpBlk.Version, blHe.Version)
 		return
 	}
 	if !bytes.Equal(tmpBlk.HashPrevBlock[:], blHe.HashPrevBlock[:]) {
-		t.Errorf("Deserialize late preHash : %s, expect preHash : %s",
+		t.Errorf("Unserialize late preHash : %s, expect preHash : %s",
 			tmpBlk.HashPrevBlock.ToString(), blHe.HashPrevBlock.ToString())
 		return
 	}
 	if !bytes.Equal(tmpBlk.MerkleRoot[:], blHe.MerkleRoot[:]) {
-		t.Errorf("Deserialize late merkleRoot : %s, expect merkleRoot : %s",
+		t.Errorf("Unserialize late merkleRoot : %s, expect merkleRoot : %s",
 			tmpBlk.MerkleRoot.ToString(), blHe.MerkleRoot.ToString())
 		return
 	}
 	if tmpBlk.Time != blHe.Time {
-		t.Errorf("Deserialize late Time : %d, expect Time : %d", tmpBlk.Time, blHe.Time)
+		t.Errorf("Unserialize late Time : %d, expect Time : %d", tmpBlk.Time, blHe.Time)
 		return
 	}
 	if tmpBlk.Bits != blHe.Bits {
-		t.Errorf("Deserialize late bits : %d, expect bits : %d", tmpBlk.Bits, blHe.Bits)
+		t.Errorf("Unserialize late bits : %d, expect bits : %d", tmpBlk.Bits, blHe.Bits)
 		return
 	}
 	if tmpBlk.Nonce != blHe.Nonce {
-		t.Errorf("Deserialize late Nonce : %d, expect Nonce : %d", tmpBlk.Nonce, blHe.Nonce)
+		t.Errorf("Unserialize late Nonce : %d, expect Nonce : %d", tmpBlk.Nonce, blHe.Nonce)
 		return
 	}
 	if blkHash := blHe.GetHash(); blkHash == util.HashZero {

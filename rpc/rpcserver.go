@@ -377,7 +377,8 @@ func jsonAuthFail(w http.ResponseWriter) {
 	http.Error(w, "401 Unauthorized.", http.StatusUnauthorized)
 }
 
-// Start func start the rpc listener.
+// Start func starts the rpc listener.
+
 func (s *Server) Start() {
 	if atomic.AddInt32(&s.started, 1) != 1 {
 		return

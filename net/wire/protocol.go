@@ -18,7 +18,7 @@ const (
 	// addresses per message (pver >= MultipleAddressVersion).
 	MultipleAddressVersion uint32 = 209
 
-	// In this version, 'getheaders' was introduced.
+	// GetHeadersVersion is where 'getheaders' was introduced.
 	GetHeadersVersion uint32 = 31800
 
 	// NetAddressTimeVersion is the protocol version which added the
@@ -54,10 +54,10 @@ const (
 	// feefilter message.
 	FeeFilterVersion uint32 = 70013
 
-	// short-id-based block download starts with this version
+	// ShortIdsBlocksVersion is the version which short-id-based block download starts with
 	ShortIdsBlocksVersion uint32 = 70014
 
-	//! not banning for invalid compact blocks starts with this version
+	//InvalidCBNoBanVersion is the version which not banning for invalid compact blocks starts with
 	InvalidCBNoBanVersion uint32 = 70015
 )
 

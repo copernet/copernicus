@@ -272,7 +272,7 @@ func (sm *SyncManager) startSync() {
 		// doesn't have a later block when it's equal, it will likely
 		// have one soon so it is a reasonable choice.  It also allows
 		// the case where both are at 0 such as during regression test.
-		if peer.LastBlock() < int32(best.Height) {
+		if peer.LastBlock() < best.Height {
 			state.syncCandidate = false
 			continue
 		}
@@ -312,7 +312,7 @@ func (sm *SyncManager) startSync() {
 		// not support the headers-first approach so do normal block
 		// downloads when in regression test mode.
 		if sm.nextCheckpoint != nil &&
-			int32(best.Height) < sm.nextCheckpoint.Height &&
+			best.Height < sm.nextCheckpoint.Height &&
 			sm.chainParams != &chainparams.RegressionNetParams {
 			//	3. push peer
 			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
@@ -423,7 +423,7 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 		sm.syncPeer = nil
 		if sm.headersFirstMode {
 			best := chain.GetInstance().Tip()
-			sm.resetHeaderState(best.GetBlockHash(), int32(best.Height))
+			sm.resetHeaderState(best.GetBlockHash(), best.Height)
 		}
 		sm.startSync()
 	}
@@ -526,7 +526,7 @@ func (sm *SyncManager) current() bool {
 
 	// No matter what chain thinks, if we are below the block we are syncing
 	// to we are not current.
-	if int32(chain.GetInstance().Tip().Height) < sm.syncPeer.LastBlock() {
+	if chain.GetInstance().Tip().Height < sm.syncPeer.LastBlock() {
 		return false
 	}
 	return true
@@ -653,7 +653,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// Update this peer's latest block height, for future
 	// potential sync node candidacy.
 	best := chain.GetInstance().Tip()
-	heightUpdate = int32(best.Height)
+	heightUpdate = best.Height
 	blkHashUpdate = best.GetBlockHash()
 
 	// Clear the rejected transactions.
@@ -987,7 +987,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	if lastBlock != -1 && sm.current() {
 		blkIndex := activeChain.FindHashInActive(invVects[lastBlock].Hash)
 		if blkIndex != nil {
-			peer.UpdateLastBlockHeight(int32(blkIndex.Height))
+			peer.UpdateLastBlockHeight(blkIndex.Height)
 		}
 	}
 
@@ -1452,7 +1452,7 @@ func New(config *Config) (*SyncManager, error) {
 		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(best.Height)
 		log.Trace("sm.nextCheckpoint : %p, best height : %d", sm.nextCheckpoint, best.Height)
 		if sm.nextCheckpoint != nil {
-			sm.resetHeaderState(best.GetBlockHash(), int32(best.Height))
+			sm.resetHeaderState(best.GetBlockHash(), best.Height)
 		}
 	} else {
 		log.Info("Checkpoints are disabled")

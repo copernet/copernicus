@@ -9,18 +9,18 @@ import (
 )
 
 const (
-	/** The maximum size of a blk?????.dat file (since 0.8) */
+	// MaxBlockFileSize is the maximum size of a blk?????.dat file (since 0.8) */
 	MaxBlockFileSize = uint32(0x8000000)
-	/** The pre-allocation chunk size for blk?????.dat files (since 0.8) Pre-allocated file size*/
+	// BlockFileChunkSize is the pre-allocation chunk size for blk?????.dat files (since 0.8)
 	BlockFileChunkSize = 0x1000000
-	/** The pre-allocation chunk size for rev?????.dat files (since 0.8) */
+	// UndoFileChunkSize is the pre-allocation chunk size for rev?????.dat files (since 0.8) */
 	UndoFileChunkSize     = 0x100000
 	DefaultMaxMemPoolSize = 300
 )
 
-var CsMain *sync.RWMutex = new(sync.RWMutex)
+var CsMain = new(sync.RWMutex)
 
-var CsLastBlockFile *sync.RWMutex = new(sync.RWMutex)
+var CsLastBlockFile = new(sync.RWMutex)
 
 var persistGlobal *PersistGlobal
 
@@ -48,7 +48,7 @@ func (pg *PersistGlobal) AddDirtyBlockIndex(hash util.Hash, pindex *blockindex.B
 	pg.GlobalDirtyBlockIndex[hash] = pindex
 }
 func (pg *PersistGlobal) AddBlockSequenceID() {
-	pg.GlobalBlockSequenceID += 1
+	pg.GlobalBlockSequenceID++
 }
 func InitPersistGlobal() *PersistGlobal {
 	cg := new(PersistGlobal)

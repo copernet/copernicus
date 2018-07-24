@@ -121,7 +121,7 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 		tx1 := Tx{}
 		err = tx1.Unserialize(buf)
 		if err != nil {
-			t.Errorf("Deserialize error :%v\n", err)
+			t.Errorf("Unserialize error :%v\n", err)
 		}
 
 		buf.Reset()
