@@ -411,7 +411,11 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	fmt.Println("height : 1188696, chainwork : ", c.String())
 
 	c, e := c.SetString("000000000000000000000000000000000000000000000028803b6c018c06d7c5", 16)
+<<<<<<< Updated upstream
 	if !e {
+=======
+	if e == false {
+>>>>>>> Stashed changes
 		panic(e)
 	}
 	fmt.Println("height : 1188696, chainwork : ", c.String())
