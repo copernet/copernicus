@@ -7,8 +7,8 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 )
 
-//UpdateCoins update coins about tx
-func UpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height int32) {
+//TxUpdateCoins update coins about tx
+func TxUpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, height int32) {
 	if !tx.IsCoinBase() {
 		undoCoins := make([]*utxo.Coin, len(tx.GetIns()))
 		for idx, txin := range tx.GetIns() {

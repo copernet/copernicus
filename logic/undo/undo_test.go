@@ -25,7 +25,7 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 
 	coinbaseTx := blocks.Txs[0]
 	txundo := undo.NewTxUndo()
-	tx.UpdateCoins(coinbaseTx, coinMap, txundo, int32(height))
+	tx.TxUpdateCoins(coinbaseTx, coinMap, txundo, int32(height))
 
 	for i := 1; i < len(blocks.Txs); i++ {
 		txs := blocks.Txs[1]
@@ -34,7 +34,7 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 		txundo := undos.GetTxundo()
 		txundo = append(txundo, tmp)
 		undos.SetTxUndo(txundo)
-		tx.UpdateCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
+		tx.TxUpdateCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
 	}
 
 	coinMap.SetBestBlock(blocks.GetHash())
@@ -95,7 +95,6 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	prevTx0.GetHash()
 
 	//tx.AddCoins(prevTx0, coinsMap, 100)
-	//////////////////////////////////// todo
 
 	Ins1[0].PreviousOutPoint.Hash = prevTx0.GetHash()
 	prevTx0.GetHash()
@@ -125,7 +124,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	}
 
 	spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
-	if !HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
+	if HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
 		t.Error("this transaction should be not spendable")
 	}
 
@@ -134,4 +133,15 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		t.Error("block undo information number should be 1, because only one common tx ")
 		return
 	}
+
+	spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
+	if HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
+		t.Error("this coinbase transaction should have been unlocked")
+	}
+
+	spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
+	if !HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
+		t.Error("this transaction should be not spendable")
+	}
+
 }
