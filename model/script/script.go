@@ -801,7 +801,7 @@ func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
 //func (script *Script) GetPubKeyTypeString(t int) string {
 //	switch t {
 //	case ScriptNonStandard:
-//		return "nonstandard"
+//		return "nonstandard"g
 //	case ScriptPubkey:
 //		return "pubkey"
 //	case ScriptPubkeyHash:

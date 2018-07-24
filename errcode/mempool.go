@@ -6,10 +6,8 @@ import (
 
 type MemPoolErr int
 
-const MemPoolBase MemPoolErr = 1000
-
 const (
-	MissParent MemPoolErr = MemPoolBase + iota
+	MissParent MemPoolErr = MempoolErrorBase + iota
 	RejectTx
 	AlreadHaveTx
 	Nomature
