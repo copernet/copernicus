@@ -78,10 +78,8 @@ func (pft *PreFilledTransaction) Decode(r io.Reader, pver uint32, enc MessageEnc
 		return messageError("MsgCmpctBlock.Decode", fmt.Sprintf("index overflowed 16-bits"))
 	}
 	pft.Index = uint16(idx)
-	if err := pft.Tx.Decode(r, pver, enc); err != nil {
-		return err
-	}
-	return nil
+	err = pft.Tx.Decode(r, pver, enc)
+	return err
 }
 
 func (pft *PreFilledTransaction) Encode(w io.Writer, pver uint32, enc MessageEncoding) error {

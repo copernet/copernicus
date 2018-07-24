@@ -180,7 +180,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 		log.Error("UndoReadFromDisk===", err)
 		return nil, false
 	}
-	buf := make([]byte, size, size)
+	buf := make([]byte, size)
 	// Read block
 	num, err := file.Read(buf)
 	if uint32(num) < size {
@@ -222,7 +222,7 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 		return nil, false
 	}
 	//read block data to tmp buff
-	tmp := make([]byte, size, size)
+	tmp := make([]byte, size)
 	n, err := file.Read(tmp)
 	if err != nil || n != int(size) {
 		log.Error("ReadBlockFromDisk: read block file len != size failed for %s, %s", pos.String(), err)
@@ -343,7 +343,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
 	// of the limit, but we have time now (not in the middle of a block processing).
 	MinBlockCoinsDBUsage := DBPeakUsageFactor
-	x := math.Max(float64(nTotalSpace/2), float64(nTotalSpace-float64(MinBlockCoinsDBUsage*1024*1024)))
+	x := math.Max(nTotalSpace/2, nTotalSpace-float64(MinBlockCoinsDBUsage*1024*1024))
 	MaxBlockCoinsDBUsage := float64(DBPeakUsageFactor * 200)
 	y := math.Max(9*nTotalSpace/10, nTotalSpace-MaxBlockCoinsDBUsage*1024*1024)
 	fCacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
@@ -370,11 +370,11 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		// Then update all block file information (which may refer to block and undo files).
 
 		dirtyBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(gPersist.GlobalDirtyFileInfo))
-		for k, _ := range gPersist.GlobalDirtyFileInfo {
+		for k := range gPersist.GlobalDirtyFileInfo {
 			dirtyBlockFileInfoList = append(dirtyBlockFileInfoList, gPersist.GlobalBlockFileInfo[k])
 
 		}
-		gPersist.GlobalDirtyFileInfo = make(map[int32]bool, 0)
+		gPersist.GlobalDirtyFileInfo = make(map[int32]bool)
 		dirtyBlockIndexList := make([]*blockindex.BlockIndex, 0, len(gPersist.GlobalDirtyBlockIndex))
 		for _, bi := range gPersist.GlobalDirtyBlockIndex {
 			dirtyBlockIndexList = append(dirtyBlockIndexList, bi)
@@ -501,7 +501,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	}
 	gPersist.GlobalBlockFileInfo[nFile].AddBlock(nHeight, nTime)
 	if fKnown {
-		maxSize := uint32(pos.Pos) + nAddSize
+		maxSize := pos.Pos + nAddSize
 		if maxSize < gPersist.GlobalBlockFileInfo[nFile].Size {
 			maxSize = gPersist.GlobalBlockFileInfo[nFile].Size
 		}
@@ -549,14 +549,14 @@ func FindUndoPos(nFile int32, undoPos *block.DiskBlockPos, nAddSize int) error {
 	nOldChunks := (undoPos.Pos + global.UndoFileChunkSize - 1) / global.UndoFileChunkSize
 	nNewChunks := (nNewSize + global.UndoFileChunkSize - 1) / global.UndoFileChunkSize
 
-	if nNewChunks > uint32(nOldChunks) {
+	if nNewChunks > nOldChunks {
 
 		if CheckDiskSpace(nNewChunks*global.UndoFileChunkSize - undoPos.Pos) {
 			file := OpenUndoFile(*undoPos, false)
 			if file != nil {
 				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
 					nNewChunks*global.UndoFileChunkSize, undoPos.File)
-				AllocateFileRange(file, undoPos.Pos, nNewChunks*global.UndoFileChunkSize-uint32(undoPos.Pos))
+				AllocateFileRange(file, undoPos.Pos, nNewChunks*global.UndoFileChunkSize-undoPos.Pos)
 				file.Close()
 			} else {
 				return errcode.New(errcode.ErrorNotFindUndoFile)

@@ -86,10 +86,7 @@ func (parsedOpCode *ParsedOpCode) CheckMinimalDataPush() bool {
 	dataLen := len(data)
 	opcode := parsedOpCode.OpValue
 	if dataLen == 0 {
-		if opcode != OP_0 {
-			return false
-		}
-		return true
+		return opcode == OP_0
 	}
 	if dataLen == 1 {
 		if data[0] >= 1 && data[0] <= 16 {
@@ -104,22 +101,13 @@ func (parsedOpCode *ParsedOpCode) CheckMinimalDataPush() bool {
 		return true
 	}
 	if dataLen <= 75 {
-		if int(opcode) != dataLen {
-			return false
-		}
-		return true
+		return int(opcode) == dataLen
 	}
 	if dataLen <= 255 {
-		if opcode != OP_PUSHDATA1 {
-			return false
-		}
-		return true
+		return opcode == OP_PUSHDATA1
 	}
 	if dataLen <= 65535 {
-		if opcode != OP_PUSHDATA2 {
-			return false
-		}
-		return true
+		return opcode == OP_PUSHDATA2
 	}
 
 	return true

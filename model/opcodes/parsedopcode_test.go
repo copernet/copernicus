@@ -27,28 +27,28 @@ func TestCheckMinimalPush(t *testing.T) {
 	testParseOpCode.OpValue = OP_0
 	testParseOpCode.Length = 1
 	testParseOpCode.Data = nil
-	err := testParseOpCode.checkMinimalDataPush()
-	if err != nil {
-		t.Error(err)
+	check := testParseOpCode.CheckMinimalDataPush()
+	if !check {
+		t.Error("should not have error, because the datalenth is 0 and OpCode id OP_0 ")
 	}
 
 	testParseOpCode.OpValue = OP_15
-	err = testParseOpCode.checkMinimalDataPush()
-	if err == nil {
-		t.Error("should have error, because the datalenth is ", err)
+	check = testParseOpCode.CheckMinimalDataPush()
+	if check {
+		t.Error("should have error, because the datalenth is 0")
 	}
 
 	testParseOpCode.Data = append(testParseOpCode.Data, 15)
-	err = testParseOpCode.checkMinimalDataPush()
-	if err != nil {
-		t.Error(err)
+	check = testParseOpCode.CheckMinimalDataPush()
+	if !check {
+		t.Error("should not have error, because the data is a single 15 and OpCode id OP_15 ")
 	}
 
 	testParseOpCode.Data = append(testParseOpCode.Data, 15, 1, 2, 3, 4, 5, 6)
 	testParseOpCode.OpValue = byte(len(testParseOpCode.Data))
-	err = testParseOpCode.checkMinimalDataPush()
-	if err != nil {
-		t.Error(err)
+	check = testParseOpCode.CheckMinimalDataPush()
+	if !check {
+		t.Error("should not have error, because the datalenth is 7 and OpCode id 7 ")
 	}
 }
 
