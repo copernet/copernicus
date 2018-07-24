@@ -14,7 +14,7 @@ const (
 	BlockIndexErrorBase
 	CoinErrorBase
 	MessageErrorBase
-	RPCErrorBase
+	RpcErrorBase
 	NetErrorBase
 	PeerErrorBase
 	ServiceErrorBase
@@ -47,6 +47,21 @@ func getCodeAndName(errCode fmt.Stringer) (int, string) {
 	case MemPoolErr:
 		code = int(t)
 		name = "mempool"
+	case ChainErr:
+		code = int(t)
+		name = "chain"
+	case DiskErr:
+		code = int(t)
+		name = "disk"
+	case ScriptErr:
+		code = int(t)
+		name = "script"
+	case TxErr:
+		code = int(t)
+		name = "transaction"
+	case TxOutErr:
+		code = int(t)
+		name = "transaction"
 	default:
 	}
 
