@@ -10,7 +10,6 @@ addons:
       - zlib1g-dev
       - libbz2-dev
 go:
-  - 1.8.x
   - 1.9.x
 
 cache:
@@ -21,8 +20,6 @@ cache:
     - $GOPATH/src
     - $GOPATH/pkg
 
-
-    #- /tmp/secp256k1
 before_cache:  # glide touches ORIG_HEAD on `glide install`
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
   - rm -rf $GOPATH/src/github.com/copernet/copernicus/*
@@ -38,7 +35,7 @@ before_install:
 
 install:
 
-  - git clone https://github.com/bitcoin-core/secp256k1.git /tmp/secp256k1
+  - git clone https://github.com/copernet/secp256k1.git /tmp/secp256k1
   - pushd /tmp/secp256k1
   - ./autogen.sh
   - ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
@@ -49,10 +46,12 @@ install:
   - go get -v github.com/Masterminds/glide
   - cd $GOPATH/src/github.com/Masterminds/glide && git checkout e73500c735917e39a8b782e0632418ab70250341 && go install && cd -
   - glide install
+
   - go get -v github.com/alecthomas/gometalinter
   - gometalinter --install
 script:
   - export PATH=$PATH:$HOME/gopath/bin
+
   - ./check.sh
 
 notifications:

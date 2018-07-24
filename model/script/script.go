@@ -774,6 +774,21 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 			log.Debug("ScriptErrSigHashType")
 			return errcode.New(errcode.ScriptErrSigHashType)
 		}
+		hashType := vchSig[len(vchSig)-1]
+		useForkId := false
+		forkIdEnable := false
+		if hashType&crypto.SigHashForkID != 0 {
+			useForkId = true
+		}
+		if flags&ScriptEnableSigHashForkId != 0 {
+			forkIdEnable = true
+		}
+		if !forkIdEnable && useForkId {
+			return errcode.New(errcode.ScriptErrIllegalForkID)
+		}
+		if forkIdEnable && !useForkId {
+			return errcode.New(errcode.ScriptErrMustUseForkID)
+		}
 	}
 
 	return nil
