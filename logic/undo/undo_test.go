@@ -18,21 +18,22 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
-	"github.com/davecgh/go-spew/spew"
+	"fmt"
 )
 
 func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.CoinsMap, param *chainparams.BitcoinParams, height int) {
 
 	coinbaseTx := blocks.Txs[0]
-	txundo := undo.NewTxUndo()
-	tx.TxUpdateCoins(coinbaseTx, coinMap, txundo, int32(height))
+	txundos := undo.NewTxUndo()
+	tx.TxUpdateCoins(coinbaseTx, coinMap, txundos, int32(height))
 
+	fmt.Println(len(blocks.Txs))
 	for i := 1; i < len(blocks.Txs); i++ {
 		txs := blocks.Txs[1]
-
-		tmp := undo.NewTxUndo()
 		txundo := undos.GetTxundo()
-		txundo = append(txundo, tmp)
+		fmt.Println(txundo)
+		fmt.Println(txundos)
+		txundo = append(txundo, txundos)
 		undos.SetTxUndo(txundo)
 		tx.TxUpdateCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
 	}
@@ -47,6 +48,16 @@ func UndoBlock(blocks *block.Block, coinMap *utxo.CoinsMap, undos *undo.BlockUnd
 	index := blockindex.NewBlockIndex(header)
 	index.Height = int32(height)
 	ApplyBlockUndo(undos, blocks, coinMap)
+}
+
+func AddCoins(txs *mtx.Tx, coinMap *utxo.CoinsMap, height int32) {
+	isCoinbase := txs.IsCoinBase()
+	txid := txs.GetHash()
+	for idx, out := range txs.GetOuts() {
+		op := outpoint.NewOutPoint(txid, uint32(idx))
+		coin := utxo.NewCoin(out, height, isCoinbase)
+		coinMap.AddCoin(op, coin)
+	}
 }
 
 func HasSpendableCoin(coinMap *utxo.CoinsMap, txid util.Hash) bool {
@@ -94,7 +105,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	Outs2[0] = txout.NewTxOut(42, script.NewScriptRaw([]byte{}))
 	prevTx0.GetHash()
 
-	//tx.AddCoins(prevTx0, coinsMap, 100)
+	AddCoins(prevTx0, coinsMap, 100)
 
 	Ins1[0].PreviousOutPoint.Hash = prevTx0.GetHash()
 	prevTx0.GetHash()
@@ -106,11 +117,11 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 
 	// Now update hte UTXO set
 	undos := undo.NewBlockUndo(1)
-
 	UpdateUTXOSet(blocks, undos, coinsMap, chainparam, 123456)
 
 	cvt := utxo.GetUtxoCacheInstance()
 	h, err := cvt.GetBestBlock()
+	fmt.Println(h)
 	if err != nil {
 		panic("get best block failed..")
 	}
@@ -118,12 +129,12 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		t.Error("this block should have been stored in the cache")
 	}
 
-	spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
+	//spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
 	if !HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
 		t.Error("this coinbase transaction should have been unlocked")
 	}
 
-	spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
+	//spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
 	if HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
 		t.Error("this transaction should be not spendable")
 	}
@@ -134,12 +145,12 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		return
 	}
 
-	spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
+	//spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
 	if HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
 		t.Error("this coinbase transaction should have been unlocked")
 	}
 
-	spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
+	//spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
 	if !HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
 		t.Error("this transaction should be not spendable")
 	}
