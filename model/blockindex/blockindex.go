@@ -24,7 +24,6 @@ const (
 	StatusWaitingData
 	StatusFailed
 	StatusAccepted
-
 	// StatusNone NOTE: This must be defined last in order to avoid influencing iota
 	StatusNone = 0
 )

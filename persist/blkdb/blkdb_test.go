@@ -16,4 +16,7 @@ func TestNewCoinsLruCache(t *testing.T) {
 
 	blockTreeDb.LoadBlockIndexGuts()
 }
+<<<<<<< Updated upstream
 */
+=======
+>>>>>>> Stashed changes
