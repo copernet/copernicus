@@ -214,7 +214,7 @@ var scriptFlagMap = map[string]uint32{
 	"CHECKSEQUENCEVERIFY":                   script.ScriptVerifyCheckSequenceVerify,
 	"DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM": script.ScriptVerifyDiscourageUpgradableWitnessProgram,
 	"COMPRESSED_PUBKEYTYPE":                 script.ScriptVerifyCompressedPubkeyType,
-	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkId,
+	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkID,
 	"REPLAY_PROTECTION":                     script.ScriptEnableReplayProtection,
 	"MONOLITH_OPCODES":                      script.ScriptEnableMonolithOpcodes,
 }
