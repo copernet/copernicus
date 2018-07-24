@@ -769,7 +769,7 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 		if hashType&crypto.SigHashForkID != 0 {
 			useForkId = true
 		}
-		if flags&ScriptEnableSigHashForkId != 0 {
+		if flags&ScriptEnableSigHashForkID != 0 {
 			forkIdEnable = true
 		}
 		if !forkIdEnable && useForkId {
@@ -801,7 +801,7 @@ func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
 //func (script *Script) GetPubKeyTypeString(t int) string {
 //	switch t {
 //	case ScriptNonStandard:
-//		return "nonstandard"
+//		return "nonstandard"g
 //	case ScriptPubkey:
 //		return "pubkey"
 //	case ScriptPubkeyHash:
