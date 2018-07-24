@@ -378,7 +378,6 @@ func jsonAuthFail(w http.ResponseWriter) {
 }
 
 // Start func starts the rpc listener.
-
 func (s *Server) Start() {
 	if atomic.AddInt32(&s.started, 1) != 1 {
 		return
