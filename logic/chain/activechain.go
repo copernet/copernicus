@@ -147,21 +147,20 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 			if pindexConnect != pindexMostWork {
 				tmpBlock = nil
 			}
-			if err := ConnectTip(pindexConnect, tmpBlock, connTrace); err != nil {
-
+			err := ConnectTip(pindexConnect, tmpBlock, connTrace)
+			if err != nil {
 				*fInvalidFound = true
 				fContinue = false
 				// If we didn't actually connect the block, don't notify
 				// listeners about it
 				delete(connTrace, pindexConnect)
 				return err
-			} else {
-				currentTip := gChain.Tip()
-				if pindexOldTip == nil || currentTip.ChainWork.Cmp(&pindexOldTip.ChainWork) > 0 {
-					// We're in a better position than we were. Return temporarily to release the lock.
-					fContinue = false
-					break
-				}
+			}
+			currentTip := gChain.Tip()
+			if pindexOldTip == nil || currentTip.ChainWork.Cmp(&pindexOldTip.ChainWork) > 0 {
+				// We're in a better position than we were. Return temporarily to release the lock.
+				fContinue = false
+				break
 			}
 		}
 	}

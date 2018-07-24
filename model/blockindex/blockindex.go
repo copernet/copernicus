@@ -25,7 +25,7 @@ const (
 	StatusFailed
 	StatusAccepted
 
-	//NOTE: This must be defined last in order to avoid influencing iota
+	// StatusNone NOTE: This must be defined last in order to avoid influencing iota
 	StatusNone = 0
 )
 
@@ -268,8 +268,8 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	return bhash.IsEqual(&genesisHash)
 }
 
-func (index *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
-	return index.GetMedianTimePast() >= params.CashHardForkActivationTime
+func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
+	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {

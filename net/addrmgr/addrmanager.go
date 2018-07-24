@@ -463,12 +463,12 @@ func (a *AddrManager) deserializePeers(filePath string) error {
 
 	for _, v := range sam.Addresses {
 		ka := new(KnownAddress)
-		ka.na, err = a.DeserializeNetAddress(v.Addr)
+		ka.na, err = a.UnserializeNetAddress(v.Addr)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize netaddress "+
 				"%s: %v", v.Addr, err)
 		}
-		ka.srcAddr, err = a.DeserializeNetAddress(v.Src)
+		ka.srcAddr, err = a.UnserializeNetAddress(v.Src)
 		if err != nil {
 			return fmt.Errorf("failed to deserialize netaddress "+
 				"%s: %v", v.Src, err)
@@ -524,8 +524,8 @@ func (a *AddrManager) deserializePeers(filePath string) error {
 	return nil
 }
 
-// DeserializeNetAddress converts a given address string to a *wire.NetAddress
-func (a *AddrManager) DeserializeNetAddress(addr string) (*wire.NetAddress, error) {
+// UnserializeNetAddress converts a given address string to a *wire.NetAddress
+func (a *AddrManager) UnserializeNetAddress(addr string) (*wire.NetAddress, error) {
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err

@@ -4,6 +4,7 @@
 
 package peer_test
 
+/*
 import (
 	"errors"
 	"io"
@@ -819,3 +820,4 @@ func init() {
 	// Allow self connection when running the tests.
 	peer.TstAllowSelfConns()
 }
+*/

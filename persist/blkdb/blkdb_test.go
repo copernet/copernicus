@@ -1,5 +1,6 @@
 package blkdb
 
+/*
 import (
 	"testing"
 
@@ -15,3 +16,4 @@ func TestNewCoinsLruCache(t *testing.T) {
 
 	blockTreeDb.LoadBlockIndexGuts()
 }
+*/

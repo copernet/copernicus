@@ -29,22 +29,22 @@ func (cm CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	return coin
 }
 
-func (coinsCache CoinsMap) UnCache(point *outpoint.OutPoint) {
-	_, ok := coinsCache.cacheCoins[*point]
+func (cm CoinsMap) UnCache(point *outpoint.OutPoint) {
+	_, ok := cm.cacheCoins[*point]
 	if ok {
-		delete(coinsCache.cacheCoins, *point)
+		delete(cm.cacheCoins, *point)
 	}
 }
 
-func (coinsCache CoinsMap) Flush(hashBlock util.Hash) bool {
+func (cm CoinsMap) Flush(hashBlock util.Hash) bool {
 	//println("flush=============")
 	//fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
-	ok := GetUtxoCacheInstance().UpdateCoins(&coinsCache, &hashBlock)
-	coinsCache.cacheCoins = make(map[outpoint.OutPoint]*Coin)
+	ok := GetUtxoCacheInstance().UpdateCoins(&cm, &hashBlock)
+	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
 	return ok == nil
 }
 
-func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
+func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
@@ -56,7 +56,7 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	fresh := false
 
 	if true {
-		oldCoin, ok := coinsCache.cacheCoins[*point]
+		oldCoin, ok := cm.cacheCoins[*point]
 		if ok {
 			//exist old Coin in cache
 			if oldCoin.IsSpent() {
@@ -72,7 +72,7 @@ func (coinsCache CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	if fresh {
 		newcoin.fresh = true
 	}
-	coinsCache.cacheCoins[*point] = newcoin
+	cm.cacheCoins[*point] = newcoin
 
 }
 
@@ -80,13 +80,13 @@ func (cm *CoinsMap) SetBestBlock(hash util.Hash) {
 	cm.hashBlock = hash
 }
 
-func (coinsCache CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
-	coin := coinsCache.GetCoin(point)
+func (cm CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
+	coin := cm.GetCoin(point)
 	if coin == nil {
 		return coin
 	}
 	if coin.fresh {
-		delete(coinsCache.cacheCoins, *point)
+		delete(cm.cacheCoins, *point)
 	} else {
 		coin.dirty = true
 		coin.Clear()
@@ -95,8 +95,8 @@ func (coinsCache CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 }
 
 // FetchCoin different from GetCoin, if not get coin, FetchCoin will get coin from global cache
-func (coinsMap CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
-	coin := coinsMap.GetCoin(out)
+func (cm CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
+	coin := cm.GetCoin(out)
 	if coin != nil {
 		return coin
 	}
@@ -106,16 +106,16 @@ func (coinsMap CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 		newCoin.fresh = true
 		newCoin.dirty = false
 	}
-	coinsMap.cacheCoins[*out] = newCoin
+	cm.cacheCoins[*out] = newCoin
 	return newCoin
 }
 
 // SpendGlobalCoin different from GetCoin, if not get coin, FetchCoin will get coin from global cache
-func (coinsMap CoinsMap) SpendGlobalCoin(out *outpoint.OutPoint) *Coin {
-	coin := coinsMap.FetchCoin(out)
+func (cm CoinsMap) SpendGlobalCoin(out *outpoint.OutPoint) *Coin {
+	coin := cm.FetchCoin(out)
 	if coin == nil {
 		return coin
 	}
 
-	return coinsMap.SpendCoin(out)
+	return cm.SpendCoin(out)
 }
