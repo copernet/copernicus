@@ -2,10 +2,8 @@ package errcode
 
 type RPCErr int
 
-const RPCBase RPCErr = 2000
-
 const (
-	ModelValid = RPCBase + iota
+	ModelValid = RpcErrorBase + iota
 	ModelInvalid
 	ModelError
 )
