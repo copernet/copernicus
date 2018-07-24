@@ -213,16 +213,17 @@ var scriptFlagMap = map[string]uint32{
 	"MINIMALDATA": script.ScriptVerifyMinmalData,
 	"NULLDUMMY":   script.ScriptVerifyNullDummy,
 
-	"DISCOURAGE_UPGRADABLE_NOPS": script.ScriptVerifyDiscourageUpgradableNops,
-	"CLEANSTACK":                 script.ScriptVerifyCleanStack,
-	"MINIMALIF":                  script.ScriptVerifyMinimalIf,
-	"NULLFAIL":                   script.ScriptVerifyNullFail,
-	"CHECKLOCKTIMEVERIFY":        script.ScriptVerifyCheckLockTimeVerify,
-	"CHECKSEQUENCEVERIFY":        script.ScriptVerifyCheckSequenceVerify,
-	"COMPRESSED_PUBKEYTYPE":      script.ScriptVerifyCompressedPubkeyType,
-	"SIGHASH_FORKID":             script.ScriptEnableSigHashForkId,
-	"REPLAY_PROTECTION":          script.ScriptEnableReplayProtection,
-	"MONOLITH_OPCODES":           script.ScriptEnableMonolithOpcodes,
+	"DISCOURAGE_UPGRADABLE_NOPS":            script.ScriptVerifyDiscourageUpgradableNops,
+	"CLEANSTACK":                            script.ScriptVerifyCleanStack,
+	"MINIMALIF":                             script.ScriptVerifyMinimalIf,
+	"NULLFAIL":                              script.ScriptVerifyNullFail,
+	"CHECKLOCKTIMEVERIFY":                   script.ScriptVerifyCheckLockTimeVerify,
+	"CHECKSEQUENCEVERIFY":                   script.ScriptVerifyCheckSequenceVerify,
+	"DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM": script.ScriptVerifyDiscourageUpgradableWitnessProgram,
+	"COMPRESSED_PUBKEYTYPE":                 script.ScriptVerifyCompressedPubkeyType,
+	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkId,
+	"REPLAY_PROTECTION":                     script.ScriptEnableReplayProtection,
+	"MONOLITH_OPCODES":                      script.ScriptEnableMonolithOpcodes,
 }
 
 func parseScriptFlag(s string) (uint32, error) {
