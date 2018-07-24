@@ -1,73 +1,76 @@
+## Recommended Dev Environment Setup
 
-
-## glide Package Management
+##glide Package Management
 [glide](https://github.com/Masterminds/glide) is Package Management of Golang
 
 #### install glide
- 1. easiest script
+1. Universal one liner install script
  ```
  curl https://glide.sh/get | sh
  ```
- 2. On Mac OSX install the latest release via Homebrew
+OR if custom install on Mac OSX:
  ```
  brew install glide
  ```
- 3. On ubuntu install from PPA
+OR if custom install on ubuntu:
  ```
     sudo add-apt-repository ppa:masterminds/glide
     sudo apt-get update
     sudo apt-get install glide
-   ```
- 4. On windows
-    go get github.com/Masterminds/glide
+```
+OR if custom install on windows
+```
+   	Download binary from [here](https://github.com/Masterminds/glide/releases)
 
 #### install go dependency
+
 ```
- glide install
+ 	glide install
 ```
-#### add new package
+#### add a new package
 ```
-glide get github.com/Masterminds/cookoo
+	glide get github.com/Masterminds/cookoo
 ```
-or
+	or
 ```
-glide get github.com/Masterminds/cookoo#^1.3.0
+	glide get github.com/Masterminds/cookoo#^1.3.0
 ```
-or add package in `glide.yaml`
+	or add package in `glide.yaml`
 ```
 - package: github.com/Masterminds/cookoo
   version: ~1.3.0
 ```
-#### update package
+#### update a package
 ```
-glide up
-```
-or
-```
-glide update
-```
-#### remove package
-```
-glide rm github.com/Masterminds/cookoo
+	glide up
 ```
 or
 ```
-glide remove github.com/Masterminds/cookoo
+	glide update
+```
+#### remove a package
+```
+	glide rm github.com/Masterminds/cookoo
+```
+or
+```
+	glide remove github.com/Masterminds/cookoo
 ```
 ## Hot compilation
-We use [fswatch](https://github.com/codeskyblue/fswatch),`fswatch` is a developer tool that triggers commands in response to filesystem changes
+	We use [fswatch](https://github.com/codeskyblue/fswatch) for hot compiling while developing. `fswatch` is a developer tool that triggers commands in response to filesystem changes
 #### install fswatch
 ```
-go get -u -v github.com/codeskyblue/fswatch
+	go get -u -v github.com/codeskyblue/fswatch
 ```
-#### config of fswatch
-use `.fsw.yml` as config of `fswatch` , When Go file changes , the fswatch will run a command
+#### fswatch config 
+	Each time file changes the "cmd" value in `.fsw.yml` will be executed.  
 ```
-go build && ./copernicus
+	Default "cmd" is `go build && ./copernicus`
 ```
 #### run
-run `fswatch` in directory in project:
+	run `fswatch` in directory in project:
 ```
-fswatch
+	fswatch
 ```
-So , You've been using hot compilation
+
+That's it for fswatch!
