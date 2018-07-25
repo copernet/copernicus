@@ -31,7 +31,6 @@ var sequence=uint32(script.SequenceFinal)
 
 var testTxIn = NewTxIn(outPut, sigScript ,sequence)
 
-//以上一堆本来在第一个函数体内
 func TestNewTxIn(t *testing.T) {
 
 
