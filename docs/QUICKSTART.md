@@ -1,7 +1,3 @@
-## Install build tools(Mac only)
-```
-brew install automake autoconf libtool
-```
 ## build secp256k1
 ```
 git clone https://github.com/copernet/secp256k1.git
@@ -15,8 +11,8 @@ make install
 ## glide Package Management
 [glide](https://github.com/Masterminds/glide) is a Package Manager for Golang
 
-#### install glide
-1. Universal one liner install script
+#### Install glide
+Universal install script
  ```
  curl https://glide.sh/get | sh
  ```
@@ -31,12 +27,11 @@ OR if custom install on ubuntu:
  sudo apt-get install glide
 ```
 
-#### install go dependency
-```
- glide install
+#### Install go dependency
+ `glide install`
  
- # if you have encountered glide errors, try the following commands:
- rm -rf vendor
+ if you have encountered glide errors, try the following commands:
+``` rm -rf vendor
  glide cc; rm -rf ~/.glide; rm -rf vendor; rm glide.lock
  glide install --force --strip-vendor
 ```
