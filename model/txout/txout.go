@@ -1,8 +1,6 @@
 package txout
 
 import (
-	"encoding/hex"
-	"fmt"
 	"io"
 
 	"encoding/binary"
@@ -12,6 +10,8 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"fmt"
+	"encoding/hex"
 )
 
 type TxOut struct {
@@ -74,11 +74,11 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 		return 0
 	}
 	size := txOut.SerializeSize()
-	size += 32 + 4 + 1 + 107 + 4
+	size += 32 + 4 + 1 + 107 + 4       //=148
 	return 3 * minRelayTxFee.GetFee(int(size))
 }
 
-func (txOut *TxOut) CheckValue() error {
+func (txOut *TxOut) CheckValue() error {          //3
 	if !amount.MoneyRange(txOut.value) {
 		log.Warn("bad txout value :%d", txOut.value)
 		return errcode.New(errcode.TxErrRejectInvalid)
@@ -87,7 +87,7 @@ func (txOut *TxOut) CheckValue() error {
 	return nil
 }
 
-func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {
+func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {            //4
 	pubKeyType, _, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		return
@@ -131,13 +131,14 @@ func (txOut *TxOut) IsSpendable() bool {
 	return txOut.scriptPubKey.IsSpendable()
 }
 
+
 func (txOut *TxOut) SetNull() {
 	txOut.value = -1
 	txOut.scriptPubKey = nil
 }
 
 func (txOut *TxOut) IsNull() bool {
-	return txOut.value == -1
+	return txOut.value == -1 //&& txOut.scriptPubKey == nil
 }
 func (txOut *TxOut) String() string {
 	return fmt.Sprintf("Value :%d Script:%s", txOut.value, hex.EncodeToString(txOut.scriptPubKey.GetData()))

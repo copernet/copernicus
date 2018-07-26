@@ -1,28 +1,42 @@
 package txin
 
-var testTxIn *TxIn
+import (
+	"testing"
+	"bytes"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"os"
+)
 
-/*
+//var testTxIn *TxIn
+
+var preHash = util.Hash{
+	0xc1, 0x60, 0x7e, 0x00, 0x31, 0xbc, 0xb1, 0x57,
+	0xa3, 0xb2, 0xfd, 0x73, 0x0e, 0xcf, 0xac, 0xd1,
+	0x6e, 0xda, 0x9d, 0x95, 0x7c, 0x5e, 0x03, 0xfa,
+	0x34, 0x4e, 0x50, 0x21, 0xbb, 0x07, 0xcc, 0xbe,
+}
+
+var outPut = outpoint.NewOutPoint(preHash, 1)
+
+var myScriptSig = []byte{0x16, 0x00, 0x14, 0xc3, 0xe2, 0x27, 0x9d,
+	0x2a, 0xc7, 0x30, 0xbd, 0x33, 0xc4, 0x61, 0x74,
+	0x4d, 0x8e, 0xd8, 0xe8, 0x11, 0xf8, 0x05, 0xdb}
+
+
+var sigScript= script.NewScriptRaw(myScriptSig)
+
+var sequence=uint32(script.SequenceFinal)
+
+var testTxIn = NewTxIn(outPut, sigScript ,sequence)
+
 func TestNewTxIn(t *testing.T) {
 
-	var preHash = utils.Hash{
-		0xc1, 0x60, 0x7e, 0x00, 0x31, 0xbc, 0xb1, 0x57,
-		0xa3, 0xb2, 0xfd, 0x73, 0x0e, 0xcf, 0xac, 0xd1,
-		0x6e, 0xda, 0x9d, 0x95, 0x7c, 0x5e, 0x03, 0xfa,
-		0x34, 0x4e, 0x50, 0x21, 0xbb, 0x07, 0xcc, 0xbe,
-	}
-	outPut := NewOutPoint(preHash, 1)
 
-	myScriptSig := []byte{0x16, 0x00, 0x14, 0xc3, 0xe2, 0x27, 0x9d,
-		0x2a, 0xc7, 0x30, 0xbd, 0x33, 0xc4, 0x61, 0x74,
-		0x4d, 0x8e, 0xd8, 0xe8, 0x11, 0xf8, 0x05, 0xdb}
-	sigScript := make([]byte, len(myScriptSig))
-	copy(sigScript, myScriptSig)
-
-	testTxIn = NewTxIn(outPut, sigScript)
-	if !bytes.Equal(testTxIn.Script.bytes, myScriptSig) {
+	if !bytes.Equal(testTxIn.scriptSig.GetData(), myScriptSig) {
 		t.Errorf("NewTxIn() assignment txInputScript data %v "+
-			"should be origin scriptSig data %v", testTxIn.Script.bytes, myScriptSig)
+			"should be origin scriptSig data %v", testTxIn.scriptSig.GetData(), myScriptSig)
 	}
 	if testTxIn.PreviousOutPoint.Index != 1 {
 		t.Error("The preOut index should be 1 instead of ", testTxIn.PreviousOutPoint.Index)
@@ -41,7 +55,7 @@ func TestTxInSerialize(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testTxIn.Serialize(file, 1)
+	err = testTxIn.Serialize(file)
 	if err != nil {
 		t.Error(err)
 	}
@@ -50,19 +64,23 @@ func TestTxInSerialize(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	txInRead := &TxIn{}
-	txInRead.PreviousOutPoint = new(OutPoint)
-	txInRead.PreviousOutPoint.Hash = utils.Hash{}
-	txInRead.Script = new(Script)
 
-	err = txInRead.Unserialize(file, 1)
+	txInRead := &TxIn{}
+	txInRead.PreviousOutPoint = &outpoint.OutPoint{}
+	txInRead.PreviousOutPoint.Hash = util.Hash{}
+	txInRead.scriptSig = script.NewEmptyScript()
+
+
+	err = txInRead.Unserialize(file)
+
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !bytes.Equal(txInRead.Script.bytes, testTxIn.Script.bytes) {
-		t.Errorf("Unserialize() return the script data %v "+
-			"should be equal origin srcipt data %v", txInRead.Script.bytes, testTxIn.Script.bytes)
+	if !bytes.Equal(txInRead.scriptSig.GetData(), testTxIn.scriptSig.GetData()) {
+		t.Errorf("Deserialize() return the script data %v "+
+			"should be equal origin srcipt data %v", txInRead.scriptSig.GetData(), testTxIn.scriptSig.GetData())
+
 	}
 	if txInRead.PreviousOutPoint.Index != testTxIn.PreviousOutPoint.Index {
 		t.Errorf("Unserialize() return the index data %d "+
@@ -78,4 +96,4 @@ func TestTxInSerialize(t *testing.T) {
 		t.Error(err)
 	}
 
-}*/
+}

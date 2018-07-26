@@ -17,3 +17,4 @@ func TestNewCoinsLruCache(t *testing.T) {
 	blockTreeDb.LoadBlockIndexGuts()
 }
 */
+

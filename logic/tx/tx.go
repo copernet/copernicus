@@ -694,8 +694,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
-				//nLocktime, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
-				nLocktime, err := script.GetScriptNum(topBytes.([]byte), true, 5)
+				nLocktime, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
+				//nLocktime, err := script.GetScriptNum(topBytes.([]byte), true, 5)
 				if err != nil {
 					return err
 				}

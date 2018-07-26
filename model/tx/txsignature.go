@@ -3,9 +3,7 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
@@ -288,15 +286,11 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	if err != nil {
 		return false
 	}
-	uncompressedPubKey := publicKey.SerializeUncompressed()
-	log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
-		signHash.String(), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
 	if !sign.EcdsaNormalize() {
 		return false
 	}
 	ret := sign.Verify(signHash.GetCloneBytes(), publicKey)
 	return ret
-
 }
 
 //
