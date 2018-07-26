@@ -26,7 +26,6 @@ var opMap map[string]byte
 
 func init() {
 	opMap = createName2OpCodeMap()
-	fmt.Printf("%#v\n", opMap)
 	crypto.InitSecp256()
 }
 
@@ -501,7 +500,7 @@ testloop:
 
 			err := verifyScript(newTx, txin.GetScriptSig(), pkscript, k, amount.Amount(prevOut.inputVal), flags)
 			if err != nil {
-				t.Errorf("verifyScript error: %v, %dth test", err, i)
+				t.Errorf("verifyScript error: %v, %dth test, test=%v", err, i, test)
 			}
 		}
 	}
@@ -646,7 +645,7 @@ testloop:
 			pkscript := script.NewScriptRaw(prevOut.pkScript)
 			err := verifyScript(newTx, txin.GetScriptSig(), pkscript, k, amount.Amount(prevOut.inputVal), flags)
 			if err != nil {
-				continue
+				continue testloop
 			}
 		}
 		t.Errorf("test (%d:%v) succeeded when should fail",

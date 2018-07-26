@@ -18,7 +18,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
-	"fmt"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.CoinsMap, param *chainparams.BitcoinParams, height int) {
@@ -27,12 +27,10 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 	txundos := undo.NewTxUndo()
 	tx.TxUpdateCoins(coinbaseTx, coinMap, txundos, int32(height))
 
-	fmt.Println(len(blocks.Txs))
+	//len(blocks.Txs)=2
 	for i := 1; i < len(blocks.Txs); i++ {
 		txs := blocks.Txs[1]
 		txundo := undos.GetTxundo()
-		fmt.Println(txundo)
-		fmt.Println(txundos)
 		txundo = append(txundo, txundos)
 		undos.SetTxUndo(txundo)
 		tx.TxUpdateCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
@@ -61,6 +59,7 @@ func AddCoins(txs *mtx.Tx, coinMap *utxo.CoinsMap, height int32) {
 }
 
 func HasSpendableCoin(coinMap *utxo.CoinsMap, txid util.Hash) bool {
+	//fmt.Println(coinMap.AccessCoin(outpoint.NewOutPoint(txid, 0)))
 	return !coinMap.AccessCoin(outpoint.NewOutPoint(txid, 0)).IsSpent()
 }
 
@@ -75,68 +74,72 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	blocks := block.NewBlock()
 
 	coinsMap := utxo.NewEmptyCoinsMap()
+	//hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	//outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
+	//script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
+	//txout2 := txout.NewTxOut(3, script2)
+	//coin := utxo.NewCoin(txout2, 123456, false)
+	//coinsMap.AddCoin(&outpoint1, coin)
+	//c := coinsMap.GetCoin(&outpoint1)
+	//spew.Println(c)
+
 	//genesis block hash, and set genesis block to utxo
-	randomHash := *util.GetRandHash()
-	blocks.Header.HashPrevBlock = randomHash
-	coinsMap.SetBestBlock(randomHash)
-	coinsMap.Flush(randomHash)
+	randomhash := *util.GetRandHash()
+	blocks.Header.HashPrevBlock = randomhash
+	coinsMap.SetBestBlock(randomhash)
+	coinsMap.Flush(randomhash)
 
 	coinbaseTx := mtx.NewTx(0, 2)
-	Ins1 := coinbaseTx.GetIns()
-	Ins1 = make([]*txin.TxIn, 1)
-	Outs1 := coinbaseTx.GetOuts()
-	Outs1 = make([]*txout.TxOut, 1)
-	Ins1[0] = txin.NewTxIn(nil, script.NewScriptRaw(make([]byte, 10)), 00000000)
-	Outs1[0] = txout.NewTxOut(42, script.NewScriptRaw([]byte{}))
+	Ins1 := txin.NewTxIn(nil, script.NewScriptRaw(make([]byte, 10)), 00000000)
+	Outs1 := txout.NewTxOut(42, script.NewScriptRaw([]byte{opcodes.OP_2MUL}))
+	Outs1.SetScriptPubKey(script.NewScriptRaw([]byte{opcodes.OP_FALSE}))
+	Ins1.PreviousOutPoint = outpoint.NewOutPoint(*util.GetRandHash(), 0)
+	Ins1.Sequence = script.SequenceFinal
+	Ins1.SetScriptSig(script.NewScriptRaw([]byte{opcodes.OP_2DROP}))
+	coinbaseTx.AddTxIn(Ins1)
+	coinbaseTx.AddTxOut(Outs1)
 	coinbaseTx.GetHash()
+
 	blocks.Txs = make([]*mtx.Tx, 2)
 	blocks.Txs[0] = coinbaseTx
-	Outs1[0].SetScriptPubKey(script.NewScriptRaw([]byte{opcodes.OP_FALSE}))
-	Ins1[0].PreviousOutPoint = outpoint.NewOutPoint(*util.GetRandHash(), 0)
-	Ins1[0].Sequence = script.SequenceFinal
-	Ins1[0].SetScriptSig(script.NewScriptRaw([]byte{}))
+	spew.Dump("coinbasetx", blocks.Txs[0])
 
 	prevTx0 := mtx.NewEmptyTx()
-	Ins2 := prevTx0.GetIns()
-	Ins2 = make([]*txin.TxIn, 1)
-	Outs2 := prevTx0.GetOuts()
-	Outs2 = make([]*txout.TxOut, 1)
-	Ins2[0] = txin.NewTxIn(nil, script.NewScriptRaw(make([]byte, 10)), 00000000)
-	Outs2[0] = txout.NewTxOut(42, script.NewScriptRaw([]byte{}))
-	prevTx0.GetHash()
+	Ins2 := txin.NewTxIn(nil, script.NewScriptRaw(make([]byte, 10)), 00000000)
+	Outs2 := txout.NewTxOut(42, script.NewScriptRaw([]byte{opcodes.OP_0NOTEQUAL}))
+	Outs2.SetScriptPubKey(script.NewScriptRaw([]byte{opcodes.OP_FALSE}))
+	Ins2.PreviousOutPoint = outpoint.NewOutPoint(*util.GetRandHash(), 0)
+	Ins2.Sequence = script.SequenceFinal
+	Ins2.SetScriptSig(script.NewScriptRaw([]byte{opcodes.OP_2DIV}))
+	prevTx0.AddTxOut(Outs2)
+	prevTx0.AddTxIn(Ins2)
+	phash := prevTx0.GetHash()
 
 	AddCoins(prevTx0, coinsMap, 100)
 
-	Ins1[0].PreviousOutPoint.Hash = prevTx0.GetHash()
-	prevTx0.GetHash()
+	Ins1.PreviousOutPoint.Hash = phash
 	blocks.Txs[1] = prevTx0
+	spew.Dump("prevtx0", prevTx0)
 
 	buf := bytes.NewBuffer(nil)
 	blocks.Serialize(buf)
 	blocks.GetHash()
 
+	cvt := utxo.GetUtxoCacheInstance()
+	h, err := cvt.GetBestBlock()
+	if h != randomhash {
+		t.Error("the hash value should equal")
+	}
+	if err != nil {
+		t.Error("get best block failed..")
+	}
+
 	// Now update hte UTXO set
 	undos := undo.NewBlockUndo(1)
 	UpdateUTXOSet(blocks, undos, coinsMap, chainparam, 123456)
 
-	cvt := utxo.GetUtxoCacheInstance()
-	h, err := cvt.GetBestBlock()
-	fmt.Println(h)
-	if err != nil {
-		panic("get best block failed..")
-	}
-	if h != blocks.GetHash() {
-		t.Error("this block should have been stored in the cache")
-	}
-
-	//spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
 	if !HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
 		t.Error("this coinbase transaction should have been unlocked")
-	}
-
-	//spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
-	if HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
-		t.Error("this transaction should be not spendable")
 	}
 
 	UndoBlock(blocks, coinsMap, undos, chainparam, 123456)
@@ -145,12 +148,6 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		return
 	}
 
-	//spew.Dump("coinbaseTx.GetHash()", coinbaseTx.GetHash())
-	if HasSpendableCoin(coinsMap, coinbaseTx.GetHash()) {
-		t.Error("this coinbase transaction should have been unlocked")
-	}
-
-	//spew.Dump("prevTx0.GetHash()", prevTx0.GetHash())
 	if !HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
 		t.Error("this transaction should be not spendable")
 	}
