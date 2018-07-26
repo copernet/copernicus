@@ -250,9 +250,7 @@ func NewScriptRaw(bytes []byte) *Script {
 	copy(newBytes, bytes)
 	s := Script{data: newBytes}
 	//convertOPS maybe failed, but it doesn't matter
-	if s.convertOPS() != nil {
-		s.badOpCode = true
-	}
+	s.convertOPS()
 	return &s
 }
 
@@ -305,9 +303,10 @@ func (s *Script) GetBadOpCode() bool {
 	return s.badOpCode
 }
 
-func (s *Script) convertOPS() error {
+func (s *Script) convertOPS() (err error) {
 	s.ParsedOpCodes = make([]opcodes.ParsedOpCode, 0)
 	scriptLen := uint(len(s.data))
+	err = nil
 
 	var i uint
 	for i < scriptLen {
@@ -319,21 +318,24 @@ func (s *Script) convertOPS() error {
 		} else if opcode == opcodes.OP_PUSHDATA1 {
 			if scriptLen-i < 1 {
 				log.Debug("OP_PUSHDATA1 has no enough data")
-				return errors.New("OP_PUSHDATA1 has no enough data")
+				err = errors.New("OP_PUSHDATA1 has no enough data")
+				break
 			}
 			nSize = uint(s.data[i])
 			i++
 		} else if opcode == opcodes.OP_PUSHDATA2 {
 			if scriptLen-i < 2 {
 				log.Debug("OP_PUSHDATA2 has no enough data")
-				return errors.New("OP_PUSHDATA2 has no enough data")
+				err = errors.New("OP_PUSHDATA2 has no enough data")
+				break
 			}
 			nSize = uint(binary.LittleEndian.Uint16(s.data[i : i+2]))
 			i += 2
 		} else if opcode == opcodes.OP_PUSHDATA4 {
 			if scriptLen-i < 4 {
 				log.Debug("OP_PUSHDATA4 has no enough data")
-				return errors.New("OP_PUSHDATA4 has no enough data")
+				err = errors.New("OP_PUSHDATA4 has no enough data")
+				break
 
 			}
 			nSize = uint(binary.LittleEndian.Uint32(s.data[i : i+4]))
@@ -341,13 +343,19 @@ func (s *Script) convertOPS() error {
 		}
 		if scriptLen-i < 0 || scriptLen-i < nSize {
 			log.Debug("ConvertOPS script data size is wrong")
-			return errors.New("size is wrong")
+			err = errors.New("size is wrong")
+			break
 		}
 		parsedopCode := opcodes.NewParsedOpCode(opcode, int(nSize), s.data[i:i+nSize])
 		s.ParsedOpCodes = append(s.ParsedOpCodes, *parsedopCode)
 		i += nSize
 	}
-	return nil
+	if err != nil {
+		s.badOpCode = true
+	} else {
+		s.badOpCode = false
+	}
+	return
 }
 
 func (s *Script) RemoveOpcodeByData(data []byte) *Script {
@@ -704,6 +712,12 @@ func (s *Script) PushInt64(n int64) error {
 		scriptNum := NewScriptNum(n)
 		s.data = append(s.data, scriptNum.Serialize()...)
 	}
+	err := s.convertOPS()
+	return err
+}
+
+func (s *Script) PushScriptNum(sn *ScriptNum) error {
+	s.data = append(s.data, sn.Serialize()...)
 	err := s.convertOPS()
 	return err
 }

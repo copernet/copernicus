@@ -8,7 +8,7 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-var GenesisCoinbaseTx = tx.Tx{}
+var GenesisCoinbaseTx = tx.NewGenesisCoinbaseTx()
 
 var GenesisHash = util.Hash([util.Hash256Size]byte{
 	0x6f, 0xe2, 0x8c, 0x0a, 0xb6, 0xf1, 0xb3, 0x72,
@@ -33,7 +33,7 @@ var GenesisBlock = block.Block{
 		Bits:          0x1d00ffff,                                    //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
 		Nonce:         0x7c2bac1d,                                    // 2083236893
 	},
-	Txs: []*tx.Tx{&GenesisCoinbaseTx},
+	Txs: []*tx.Tx{GenesisCoinbaseTx},
 }
 
 var RegressionTestGenesisHash = util.Hash([util.Hash256Size]byte{
@@ -54,7 +54,7 @@ var RegressionTestGenesisBlock = block.Block{
 		Bits:          0x207fffff,                                    // 545259519 [7fffff0000000000000000000000000000000000000000000000000000000000]
 		Nonce:         2,
 	},
-	Txs: []*tx.Tx{&GenesisCoinbaseTx},
+	Txs: []*tx.Tx{GenesisCoinbaseTx},
 }
 
 var TestNet3GenesisHash = util.Hash([util.Hash256Size]byte{
@@ -82,7 +82,7 @@ var TestNet3GenesisBlock = block.Block{
 		Bits:          0x1d00ffff,                              //486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
 		Nonce:         0x18aea41a,                              // 414098458
 	},
-	Txs: []*tx.Tx{&GenesisCoinbaseTx},
+	Txs: []*tx.Tx{GenesisCoinbaseTx},
 }
 
 var SimNetGenesisHash = util.Hash([util.Hash256Size]byte{
@@ -101,5 +101,5 @@ var SimNetGenesisBlock = block.Block{
 		Bits:          0x207fffff,
 		Nonce:         2,
 	},
-	Txs: []*tx.Tx{&GenesisCoinbaseTx},
+	Txs: []*tx.Tx{GenesisCoinbaseTx},
 }

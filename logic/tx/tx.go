@@ -189,6 +189,24 @@ func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	return nil
 }
 
+func ApplyGeniusBlockTransactions(txs []*tx.Tx) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+	coinMap = utxo.NewEmptyCoinsMap()
+	bundo = undo.NewBlockUndo(0)
+	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+	for _, transaction := range txs {
+		if transaction.IsCoinBase() {
+			TxUpdateCoins(transaction, coinMap, nil, 0)
+			continue
+		}
+		txundo := undo.NewTxUndo()
+		TxUpdateCoins(transaction, coinMap, txundo, 0)
+		txUndoList = append(txUndoList, txundo)
+	}
+
+	bundo.SetTxUndo(txUndoList)
+	return
+}
+
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
 	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
@@ -243,16 +261,16 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			TxUpdateCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
-		if !transaction.IsCoinBase() {
-			fees += valueIn - transaction.GetValueOut()
-			if needCheckScript {
-				//check inputs
-				err := checkInputs(transaction, coinsMap, scriptCheckFlags)
-				if err != nil {
-					return nil, nil, err
-				}
+
+		fees += valueIn - transaction.GetValueOut()
+		if needCheckScript {
+			//check inputs
+			err := checkInputs(transaction, coinsMap, scriptCheckFlags)
+			if err != nil {
+				return nil, nil, err
 			}
 		}
+
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
 		TxUpdateCoins(transaction, coinsMap, txundo, blockHeight)

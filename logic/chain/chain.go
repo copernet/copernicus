@@ -470,7 +470,8 @@ func InitGenesisChain() error {
 		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
 	}
 	gChain.SetTip(bIndex)
-	coinsMap := utxo.NewEmptyCoinsMap()
+
+	coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
 	bestHash := bIndex.GetBlockHash()
 	coinsMap.SetBestBlock(*bestHash)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)

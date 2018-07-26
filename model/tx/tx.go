@@ -3,12 +3,14 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txin"
@@ -724,6 +726,32 @@ func NewTx(locktime uint32, version int32) *Tx {
 
 func NewEmptyTx() *Tx {
 	return &Tx{}
+}
+
+func NewGenesisCoinbaseTx() *Tx {
+	tx := NewTx(0, 1)
+	scriptSigNum := script.NewScriptNum(4)
+	scriptSigString := "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+	scriptSigData := make([][]byte, 0)
+	scriptSigData = append(scriptSigData, []byte(scriptSigString))
+
+	scriptPubKeyBytes, _ := hex.DecodeString("04678afdb0fe5548271967f1a67130b7105cd6a828e03909" +
+		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +
+		"de5c384df7ba0b8d578a4c702b6bf11d5f")
+	scriptPubKey := script.NewScriptRaw(scriptPubKeyBytes)
+	scriptPubKey.PushInt64(opcodes.OP_CHECKSIG)
+
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushInt64(486604799)
+	scriptSig.PushScriptNum(scriptSigNum)
+	scriptSig.PushData(scriptSigData)
+
+	txIn := txin.NewTxIn(nil, scriptSig, 0)
+	txOut := txout.NewTxOut(50*100000000, scriptPubKey)
+	tx.AddTxIn(txIn)
+	tx.AddTxOut(txOut)
+
+	return tx
 }
 
 /*
