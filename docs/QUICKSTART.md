@@ -28,7 +28,9 @@ OR if custom install on ubuntu:
 ```
 
 #### Install go dependency
- `glide install`
+ ```
+ glide install
+ ```
  
  if you have encountered glide errors, try the following commands:
 ``` rm -rf vendor
