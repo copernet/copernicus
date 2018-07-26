@@ -616,7 +616,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 		if script.IsOpCodeDisabled(e.OpValue, flags) {
 			// Disabled opcodes.
-			log.Debug("ScriptDisabledOpCode:%d", e.OpValue)
+			log.Debug("ScriptDisabledOpCode:%d, flags:%d", e.OpValue, flags)
 			return errcode.New(errcode.ScriptErrDisabledOpCode)
 		}
 
