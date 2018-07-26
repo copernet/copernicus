@@ -1,31 +1,38 @@
 
 
-## glide Package Management
-[glide](https://github.com/Masterminds/glide) is Package Management of Golang
+## Recommended Dev Environment Setup
 
-#### install glide
- 1. easiest script
- ```
- curl https://glide.sh/get | sh
- ```
- 2. On Mac OSX install the latest release via Homebrew
- ```
- brew install glide
- ```
- 3. On ubuntu install from PPA
- ```
-    sudo add-apt-repository ppa:masterminds/glide
-    sudo apt-get update
-    sudo apt-get install glide
-   ```
- 4. On windows
-    go get github.com/Masterminds/glide
+Glide Package Management
+[glide](https://github.com/Masterminds/glide) is a Package Manager for Golang
 
-#### install go dependency
+#### Install glide
+The easiest way to install the latest release on Mac or Linux is with the following script:
+ ```
+curl https://glide.sh/get | sh
+ ```
+On Mac OS X you can also install the latest release via Homebrew:
+ ```
+brew install glide
+ ```
+On Ubuntu Precise (12.04), Trusty (14.04), Wily (15.10) or Xenial (16.04) you can install from our PPA:
+ ```
+ sudo add-apt-repository ppa:masterminds/glide
+ sudo apt-get update
+ apt-get install glide
+```
+On Ubuntu Zesty (17.04) the package is called `golang-glide`.
+
+[Binary Packages](https://github.com/Masterminds/glide/releases) are available for Mac, Linux and Windows.
+
+For a development version it is also possible to 
+```
+go get github.com/Masterminds/glide
+```
+#### Install go dependencies
 ```
  glide install
 ```
-#### add new package
+#### Add a new package
 ```
 glide get github.com/Masterminds/cookoo
 ```
@@ -33,20 +40,21 @@ or
 ```
 glide get github.com/Masterminds/cookoo#^1.3.0
 ```
-or add package in `glide.yaml`
+
+Alternatively, you can add package information in glide.yaml and then glide install to add it
 ```
-- package: github.com/Masterminds/cookoo
-  version: ~1.3.0
+package: github.com/Masterminds/cookoo
+version: ~1.3.0
 ```
-#### update package
+#### Update a package
 ```
 glide up
 ```
-or
+or 
 ```
-glide update
-```
-#### remove package
+glide update`
+```	
+#### remove a package
 ```
 glide rm github.com/Masterminds/cookoo
 ```
@@ -54,20 +62,26 @@ or
 ```
 glide remove github.com/Masterminds/cookoo
 ```
+
 ## Hot compilation
-We use [fswatch](https://github.com/codeskyblue/fswatch),`fswatch` is a developer tool that triggers commands in response to filesystem changes
-#### install fswatch
+We use fswatch (https://github.com/codeskyblue/fswatch) for hot compiling while developing. `fswatch` is a developer tool that triggers commands in response to filesystem changes
+				
+#### Install fswatch
 ```
 go get -u -v github.com/codeskyblue/fswatch
 ```
-#### config of fswatch
-use `.fsw.yml` as config of `fswatch` , When Go file changes , the fswatch will run a command
+
+#### Fswatch config 
+Each time files are updated the "cmd" field in `.fsw.yml` will be executed
+Default "cmd" is 
 ```
 go build && ./copernicus
 ```
-#### run
-run `fswatch` in directory in project:
+
+#### Run
+cd to project root
 ```
 fswatch
 ```
-So , You've been using hot compilation
+
+That's it for fswatch!
