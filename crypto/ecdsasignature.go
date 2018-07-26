@@ -70,8 +70,8 @@ func checkLowS(vchSig []byte) bool {
 		log.Debug("ParseDERSignature failed, sig:%s", hex.EncodeToString(vchSig))
 		return false
 	}
-	_, err = secp256k1.EcdsaSignatureNormalize(secp256k1Context, nil, sig.toLibEcdsaSignature())
-	if err != nil {
+	ret, err := secp256k1.EcdsaSignatureNormalize(secp256k1Context, nil, sig.toLibEcdsaSignature())
+	if ret != 0 || err != nil {
 		log.Debug("EcdsaSignatureNormalize failed, sig:%s", hex.EncodeToString(vchSig))
 		return false
 	}
