@@ -17,8 +17,13 @@ const (
 	ScriptErrSigCount
 	ScriptErrPubKeyCount
 
-	/* Failed verify operations */
+	/* Operands checks */
+	ScriptErrInvalidOperandSize
+	ScriptErrInvalidNumberRange
+	ScriptErrImpossibleEncoding
+	ScriptErrInvalidSplitRange
 
+	/* Failed verify operations */
 	ScriptErrVerify
 	ScriptErrEqualVerify
 	ScriptErrCheckMultiSigVerify
@@ -32,6 +37,10 @@ const (
 	ScriptErrInvalidStackOperation
 	ScriptErrInvalidAltStackOperation
 	ScriptErrUnbalancedConditional
+
+	/* Divisor errors */
+	ScriptErrDivByZero
+	ScriptErrModByZero
 
 	/* CheckLockTimeVerify and CheckSequenceVerify */
 

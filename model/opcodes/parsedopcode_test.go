@@ -4,22 +4,22 @@ import (
 	"testing"
 )
 
-func TestIsDisabled(t *testing.T) {
-
-	tests := []byte{OP_CAT, OP_SUBSTR, OP_LEFT, OP_RIGHT, OP_INVERT,
-		OP_AND, OP_OR, OP_2MUL, OP_2DIV, OP_MUL, OP_DIV, OP_MOD,
-		OP_LSHIFT, OP_RSHIFT,
-	}
-
-	for _, opcodeVal := range tests {
-
-		pop := ParsedOpCode{OpValue: opcodeVal}
-		if !pop.isDisabled() {
-			t.Errorf("%s OpCode should be Disabled ", GetOpName(int(opcodeVal)))
-		}
-	}
-
-}
+//func TestIsDisabled(t *testing.T) {
+//
+//	tests := []byte{OP_CAT, OP_SUBSTR, OP_LEFT, OP_RIGHT, OP_INVERT,
+//		OP_AND, OP_OR, OP_2MUL, OP_2DIV, OP_MUL, OP_DIV, OP_MOD,
+//		OP_LSHIFT, OP_RSHIFT,
+//	}
+//
+//	for _, opcodeVal := range tests {
+//
+//		pop := ParsedOpCode{OpValue: opcodeVal}
+//		if !pop.isDisabled() {
+//			t.Errorf("%s OpCode should be Disabled ", GetOpName(int(opcodeVal)))
+//		}
+//	}
+//
+//}
 
 func TestCheckMinimalPush(t *testing.T) {
 	var testParseOpCode ParsedOpCode
