@@ -14,7 +14,7 @@ On Mac OS X you can also install the latest release via Homebrew:
  ```
 brew install glide
  ```
-On Ubuntu Precise (12.04), Trusty (14.04), Wily (15.10) or Xenial (16.04) you can install from our PPA:
+On Ubuntu Precise (12.04), Trusty (14.04), Wily (15.10) or Xenial (16.04) you can install from the official PPA:
  ```
  sudo add-apt-repository ppa:masterminds/glide
  sudo apt-get update
@@ -41,7 +41,7 @@ or
 glide get github.com/Masterminds/cookoo#^1.3.0
 ```
 
-Alternatively, you can add package information in glide.yaml and then glide install to add it
+Alternatively, you can add package information in glide.yaml and then `glide install` to add it
 ```
 package: github.com/Masterminds/cookoo
 version: ~1.3.0
