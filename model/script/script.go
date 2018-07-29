@@ -158,6 +158,8 @@ const (
 	// Enable new opcodes.
 	//
 	ScriptEnableMonolithOpcodes = (1 << 18)
+
+	ScriptMaxOpReturnRelay uint = 223
 )
 
 const (
@@ -168,9 +170,6 @@ const (
 	ScriptHash
 	ScriptMultiSig
 	ScriptNullData
-
-	MaxOpReturnRelay      uint = 83
-	MaxOpReturnRelayLarge uint = 223
 )
 
 const (

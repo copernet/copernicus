@@ -68,7 +68,15 @@ type Param struct {
 	DefaultAssumeValid util.Hash
 
 	//  Activation time at which the cash HF kicks in.
-	CashHardForkActivationTime int64
+	//CashHardForkActivationTime int64
+	/** Block height at which the new DAA becomes active */
+	DaaHeight int32
+
+	/** Unix time used for MTP activation of May 15 2018, hardfork */
+	MonolithActivationTime int64
+
+	/** Unix time used for MTP activation of Nov 15 2018, hardfork */
+	MagneticAnomalyActivationTime int64
 
 	CashaddrPrefix string
 }

@@ -104,6 +104,14 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	if hashType&crypto.SigHashMask == crypto.SigHashSingle {
 		sigHashSingle = true
 	}
+	if flags&script.ScriptEnableReplayProtection == script.ScriptEnableReplayProtection {
+		// Legacy chain's value for fork id must be of the form 0xffxxxx.
+		// By xoring with 0xdead, we ensure that the value will be different
+		// from the original one, even if it already starts with 0xff.
+		newForkValue := (hashType >> 8) ^ 0xdead
+		hashType = hashType&0xff | ((0xff0000 | newForkValue) << 8)
+	}
+
 	if hashType&crypto.SigHashForkID == crypto.SigHashForkID &&
 		flags&script.ScriptEnableSigHashForkID == script.ScriptEnableSigHashForkID {
 		var hashPrevouts util.Hash
