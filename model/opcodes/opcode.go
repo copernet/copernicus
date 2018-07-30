@@ -261,7 +261,7 @@ func GetOpName(opcode int) string {
 	case OP_CAT:
 		return "OP_CAT"
 	case OP_SPLIT:
-		return "OP_SUBSTR"
+		return "OP_SPLIT"
 	case OP_NUM2BIN:
 		return "OP_NUM2BIN"
 	case OP_BIN2NUM:
