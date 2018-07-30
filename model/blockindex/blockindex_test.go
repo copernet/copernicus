@@ -178,7 +178,7 @@ func TestSubStatus(t *testing.T) {
 	testStatus := uint32(5666)
 	bIndex.Status = testStatus
 	bIndex.SubStatus(testStatu)
-	if (bIndex.Status & testStatu != 0) {
+	if bIndex.Status & testStatu != 0 {
 		t.Errorf("SubStatus is wrong")
 	}
 }
@@ -202,15 +202,15 @@ func TestIsGenesis(t *testing.T) {
 
 }
 
-func TestIsCashHFEnabled(t *testing.T) {
+func TestIsReplayProtectionEnabled(t *testing.T) {
 	var params chainparams.BitcoinParams
 	var bIndex BlockIndex
-	params.CashHardForkActivationTime = bIndex.GetMedianTimePast() + 1
-	if bIndex.IsCashHFEnabled(&params) {
+	params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast() + 1
+	if bIndex.IsReplayProtectionEnabled(&params) {
 		t.Errorf("IsCashHFEnabled is wrong, got true, want false")
 	}
-	params.CashHardForkActivationTime = bIndex.GetMedianTimePast()
-	if !bIndex.IsCashHFEnabled(&params) {
+	params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast()
+	if !bIndex.IsReplayProtectionEnabled(&params) {
 		t.Errorf("IsCashHFEnabled is wrong, got false, want true")
 	}
 }
@@ -237,13 +237,13 @@ func TestGetMedianTimePast(t *testing.T) {
 		}
 	}
 	ret := BlocksMain[medianTimeSpan - 1].GetMedianTimePast()
-	want := int64(4);
+	want := int64(4)
 	if ret != want {
-		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want);
+		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
 	}
 	ret = BlocksMain[medianTimeSpan - 4].GetMedianTimePast()
-	want = int64(4);
+	want = int64(4)
 	if ret != want {
-		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want);
+		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
 	}
 }
