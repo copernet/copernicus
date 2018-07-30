@@ -4,20 +4,23 @@ import (
 	"bytes"
 	"testing"
 	"math/rand"
+	"time"
+	"reflect"
 )
 
-func TestDiskBlockPos_Serialize(t *testing.T) {
+func TestDiskBlockPosSerialize(t *testing.T) {
 	var dbp1, dbp2 DiskBlockPos
 	buf := bytes.NewBuffer(nil)
-	r := rand.New(rand.NewSource(0));
-	for i := 1; i <= 100; i++ {
+	r := rand.New(rand.NewSource(time.Now().Unix()));
+	for i := 0; i < 100; i++ {
 		dbp1.File = r.Int31()
 		dbp2.Pos = r.Uint32()
 		buf.Reset()
 		dbp1.Serialize(buf)
 		dbp2.Unserialize(buf)
 		if !dbp1.Equal(&dbp2) {
-			t.Errorf("Unserialize after Serialize returns differently")
+			t.Errorf("Unserialize after Serialize returns differently, dbp1=%#v, dbp2=%#v",
+				dbp1, dbp2)
 			return
 		}
 	}
@@ -31,11 +34,11 @@ func TestSetNull(t *testing.T) {
 	}
 }
 
-func TestDiskTxPos_Serialize(t *testing.T) {
+func TestDiskTxPosSerialize(t *testing.T) {
 	var dtp2 DiskTxPos
 	buf := bytes.NewBuffer(nil)
-	r := rand.New(rand.NewSource(0));
-	for i := 1; i <= 100; i++ {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for i := 0; i < 100; i++ {
 		file := r.Int31()
 		pos := r.Uint32()
 		offsetIn := r.Uint32()
@@ -49,12 +52,12 @@ func TestDiskTxPos_Serialize(t *testing.T) {
 			t.Errorf("NewDiskTxPos is wrong")
 			return
 		}
-		dtp1.TxOffsetIn = r.Uint32()
 		buf.Reset()
 		dtp1.Serialize(buf)
 		dtp2.Unserialize(buf)
-		if dtp1.TxOffsetIn != dtp2.TxOffsetIn {
-			t.Errorf("Unserialize after Serialize returns differently")
+		if !reflect.DeepEqual(*dtp1, dtp2) {
+			t.Errorf("Unserialize after Serialize returns differently, dtp1=%#v, dtp2=%#v",
+				dtp1, dtp2)
 			return
 		}
 	}

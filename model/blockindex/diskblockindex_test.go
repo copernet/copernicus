@@ -4,13 +4,15 @@ import (
 	"testing"
 	"bytes"
 	"math/rand"
+	"time"
+	"reflect"
 )
 
 func TestSerialize(t *testing.T) {
 	var bIndex1, bIndex2 BlockIndex
 	buf := bytes.NewBuffer(nil);
-	r := rand.New(rand.NewSource(0));
-	for i := 1; i <= 100; i++ {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for i := 0; i < 100; i++ {
 		bIndex1.Height = r.Int31()
 		bIndex1.Status = r.Uint32()
 		bIndex1.TxCount = r.Int31()
@@ -25,10 +27,9 @@ func TestSerialize(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		if bIndex1.Height != bIndex2.Height || bIndex1.Status != bIndex2.Status ||
-			bIndex1.TxCount != bIndex2.TxCount || bIndex1.File != bIndex2.File ||
-			bIndex1.DataPos != bIndex2.DataPos || bIndex1.UndoPos != bIndex2.UndoPos {
-			t.Errorf("Unserialize after Serialize returns differently")
+		if !reflect.DeepEqual(bIndex1, bIndex2) {
+			t.Errorf("Unserialize after Serialize returns differently bIndex1=%#v, bIndex2=%#v",
+				bIndex1, bIndex2)
 			return
 		}
 	}
