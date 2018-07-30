@@ -270,11 +270,13 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	}
 	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
-	if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
-		ba.lockTimeCutoff = indexPrev.GetMedianTimePast() // todo fix
-	} else {
-		ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
-	}
+	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
+
+	//if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast() 
+	//} else {
+	//	ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
+	//}
 
 	descendantsUpdated := ba.addPackageTxs()
 
