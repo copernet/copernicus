@@ -36,7 +36,7 @@ func TestLRUCache(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint1, coin1)
+	necm.AddCoin(&outpoint1, coin1,false)
 
 	ok := necm.Flush(*hash1)
 	if !ok {
@@ -75,7 +75,7 @@ func TestLRUCache(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint2, coin2)
+	necm.AddCoin(&outpoint2, coin2,false)
 
 	ok2 := necm.Flush(*hash2)
 	if !ok2 {

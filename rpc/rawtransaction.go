@@ -545,7 +545,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 		// todo confirm
 		coinsMap := utxo.NewEmptyCoinsMap()
-		coinsMap.AddCoin(out, utxo.NewCoin(txOut, 1, false))
+		coinsMap.AddCoin(out, utxo.NewCoin(txOut, 1, false),true)
 		view.UpdateCoins(coinsMap, hash)
 
 		// If redeemScript given and not using the local wallet (private

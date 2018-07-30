@@ -355,7 +355,7 @@ func CheckMempool() {
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
 				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
+				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 			}
 		}
 	}
@@ -398,7 +398,7 @@ func CheckMempool() {
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
 				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
+				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 			}
 			stepsSinceLastRemove = 0
 		}

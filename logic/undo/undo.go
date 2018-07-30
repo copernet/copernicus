@@ -98,7 +98,7 @@ func CoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.
 	//	// the correct information in there doesn't hurt.
 	//	coin = utxo.NewCoin(coin.GetTxOut(), alternate.GetHeight(), alternate.IsCoinBase())
 	//}
-	cm.AddCoin(out, coin)
+	cm.AddCoin(out, coin, coin.IsCoinBase())
 	if clean {
 		return undo.DisconnectOk
 	}
