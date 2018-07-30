@@ -268,8 +268,20 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	return bhash.IsEqual(&genesisHash)
 }
 
-func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
-	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
+//func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
+//	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
+//}
+
+func (bIndex *BlockIndex) IsDAAEnabled(params *chainparams.BitcoinParams) bool {
+	return bIndex.Height >= params.DaaHeight
+}
+
+func (bIndex *BlockIndex) IsMonolithEnabled(params *chainparams.BitcoinParams) bool {
+	return bIndex.GetMedianTimePast() >= params.MonolithActivationTime
+}
+
+func (bIndex *BlockIndex) IsReplayProtectionEnabled(params *chainparams.BitcoinParams) bool {
+	return bIndex.GetMedianTimePast() >= params.MagneticAnomalyActivationTime
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {

@@ -3,9 +3,7 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
@@ -106,6 +104,14 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	if hashType&crypto.SigHashMask == crypto.SigHashSingle {
 		sigHashSingle = true
 	}
+	if flags&script.ScriptEnableReplayProtection == script.ScriptEnableReplayProtection {
+		// Legacy chain's value for fork id must be of the form 0xffxxxx.
+		// By xoring with 0xdead, we ensure that the value will be different
+		// from the original one, even if it already starts with 0xff.
+		newForkValue := (hashType >> 8) ^ 0xdead
+		hashType = hashType&0xff | ((0xff0000 | newForkValue) << 8)
+	}
+
 	if hashType&crypto.SigHashForkID == crypto.SigHashForkID &&
 		flags&script.ScriptEnableSigHashForkID == script.ScriptEnableSigHashForkID {
 		var hashPrevouts util.Hash
@@ -288,15 +294,11 @@ func CheckSig(signHash util.Hash, vchSigIn []byte, vchPubKey []byte) bool {
 	if err != nil {
 		return false
 	}
-	uncompressedPubKey := publicKey.SerializeUncompressed()
-	log.Debug("sig:%s, hash:%s, pubkey:%s, uncompressedPubKey:%s", hex.EncodeToString(vchSigIn),
-		signHash.String(), hex.EncodeToString(vchPubKey), hex.EncodeToString(uncompressedPubKey))
 	if !sign.EcdsaNormalize() {
 		return false
 	}
 	ret := sign.Verify(signHash.GetCloneBytes(), publicKey)
 	return ret
-
 }
 
 //

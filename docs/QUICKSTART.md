@@ -1,5 +1,4 @@
-
-## bulid secp256k1
+## build secp256k1
 ```
 git clone https://github.com/copernet/secp256k1.git
 cd secp256k1
@@ -10,30 +9,31 @@ make install
 ```
 
 ## glide Package Management
-[glide](https://github.com/Masterminds/glide) is Package Management of Golang
+[glide](https://github.com/Masterminds/glide) is a Package Manager for Golang
 
-#### install glide
-1. easiest script
+#### Install glide
+Universal install script
  ```
  curl https://glide.sh/get | sh
  ```
-2. On Mac OSX install the latest release via Homebrew
+OR if custom install on Mac OSX:
  ```
  brew install glide
  ```
- 3. On ubuntu install from PPA
+OR if custom install on ubuntu:
 ```
  sudo add-apt-repository ppa:masterminds/glide
  sudo apt-get update
  sudo apt-get install glide
 ```
 
-#### install go dependency
-```
+#### Install go dependency
+ ```
  glide install
+ ```
  
- # if encountered some errors from glide, try the following commands:
- rm -rf vendor
+ if you have encountered glide errors, try the following commands:
+``` rm -rf vendor
  glide cc; rm -rf ~/.glide; rm -rf vendor; rm glide.lock
  glide install --force --strip-vendor
 ```
@@ -44,8 +44,12 @@ go get -u github.com/alecthomas/gometalinter
 gometalinter --install
 ```
 
-## run copernicus
+## link missing config file
+```
+cp conf/conf.yml ~/Library/Application\ Support/Coper/conf.yml
+```
 
+## run copernicus
 ```
 go build && ./copernicus
 ```

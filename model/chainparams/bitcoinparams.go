@@ -111,8 +111,15 @@ var MainNetParams = BitcoinParams{
 			consensus.DeploymentTestDummy: {Bit: 28, StartTime: 1199145601, Timeout: 1230767999},
 			consensus.DeploymentCSV:       {Bit: 0, StartTime: 1462060800, Timeout: 1493596800},
 		},
-		UAHFHeight:                 478559,
-		CashHardForkActivationTime: 1510600000,
+		UAHFHeight: 478559,
+
+		DaaHeight: 504031,
+		// May 15, 2018 hard fork
+		MonolithActivationTime: 1526400000,
+
+		// Nov 15, 2018 hard fork
+		MagneticAnomalyActivationTime: 1542300000,
+		//CashHardForkActivationTime: 1510600000,
 	},
 
 	Name:        "mainnet",
@@ -186,6 +193,13 @@ var RegressionNetParams = BitcoinParams{
 		PowLimit:           regressingPowLimit,
 		TargetTimespan:     60 * 60 * 24 * 14,
 		TargetTimePerBlock: 60 * 10,
+		DaaHeight:          0,
+
+		// May 15, 2018 hard fork.
+		MonolithActivationTime: 1526400000,
+
+		// Nov 15, 2018 hard fork
+		MagneticAnomalyActivationTime: 1542300000,
 	},
 
 	Name:         "regtest",
@@ -254,12 +268,19 @@ var TestNet3Params = BitcoinParams{
 				Timeout:   1493596800,
 			},
 		},
-		MinimumChainWork:           *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
-		DefaultAssumeValid:         *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
-		UAHFHeight:                 1155876,
-		CashHardForkActivationTime: 1510600000,
-		GenesisHash:                &TestNet3GenesisHash,
-		CashaddrPrefix:             "xbctest",
+		MinimumChainWork:   *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
+		DefaultAssumeValid: *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
+		UAHFHeight:         1155876,
+		DaaHeight:          1188697,
+		// May 15, 2018 hard fork
+		MonolithActivationTime: 1526400000,
+
+		// Nov 15, 2018 hard fork
+		MagneticAnomalyActivationTime: 1542300000,
+
+		//CashHardForkActivationTime: 1510600000,
+		GenesisHash:    &TestNet3GenesisHash,
+		CashaddrPrefix: "xbctest",
 	},
 
 	Name:        "testnet3",

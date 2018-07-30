@@ -1,9 +1,9 @@
 package opcodes
 
 const (
+	// push value
 	OP_0         = 0x00
 	OP_FALSE     = OP_0
-	OP_DATA_1    = 0x01 // 1
 	OP_PUSHDATA1 = 0x4c
 	OP_PUSHDATA2 = 0x4d
 	OP_PUSHDATA4 = 0x4e
@@ -61,11 +61,11 @@ const (
 	OP_TUCK         = 0x7d
 
 	// splice ops
-	OP_CAT    = 0x7e
-	OP_SUBSTR = 0x7f
-	OP_LEFT   = 0x80
-	OP_RIGHT  = 0x81
-	OP_SIZE   = 0x82
+	OP_CAT     = 0x7e
+	OP_SPLIT   = 0x7f
+	OP_NUM2BIN = 0x80
+	OP_BIN2NUM = 0x81
+	OP_SIZE    = 0x82
 
 	// bit logic
 	OP_INVERT      = 0x83
@@ -134,6 +134,9 @@ const (
 	OP_NOP8                = 0xb7
 	OP_NOP9                = 0xb8
 	OP_NOP10               = 0xb9
+
+	// The first op_code value after all defined opcodes
+	FIRST_UNDEFINED_OP_VALUE
 
 	// template matching params
 	OP_SMALLINTEGER = 0xfa
@@ -257,12 +260,12 @@ func GetOpName(opcode int) string {
 		// splice ops
 	case OP_CAT:
 		return "OP_CAT"
-	case OP_SUBSTR:
-		return "OP_SUBSTR"
-	case OP_LEFT:
-		return "OP_LEFT"
-	case OP_RIGHT:
-		return "OP_RIGHT"
+	case OP_SPLIT:
+		return "OP_SPLIT"
+	case OP_NUM2BIN:
+		return "OP_NUM2BIN"
+	case OP_BIN2NUM:
+		return "OP_BIN2NUM"
 	case OP_SIZE:
 		return "OP_SIZE"
 

@@ -72,7 +72,7 @@ func createName2OpCodeMap() map[string]byte {
 	n2o := make(map[string]byte)
 	for opc := 0; opc <= opcodes.OP_INVALIDOPCODE; opc++ {
 		if name := opcodes.GetOpName(opc); name != "OP_UNKNOWN" {
-			strings.TrimPrefix(name, "OP_")
+			name = strings.TrimPrefix(name, "OP_")
 			n2o[name] = byte(opc)
 		}
 	}
@@ -86,27 +86,6 @@ func isAllDigitalNumber(n string) bool {
 		}
 	}
 	return true
-}
-
-type byteSlice []byte
-
-func (b byteSlice) Less(i, j int) bool {
-	return b[i] < b[j]
-}
-
-func (b byteSlice) Len() int {
-	return len(b)
-}
-
-func (b byteSlice) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
-}
-
-func reverseBytes(bs []byte) []byte {
-	for i := 0; i < len(bs)/2; i++ {
-		bs[i], bs[len(bs)-i] = bs[len(bs)-i], bs[i]
-	}
-	return bs
 }
 
 func ScriptNumSerialize(n int64) []byte {
@@ -167,7 +146,8 @@ func parseScriptFrom(s string, opMap map[string]byte) ([]byte, error) {
 		if w == "" {
 			continue
 		}
-		strings.TrimPrefix(w, "OP_")
+
+		w = strings.TrimPrefix(w, "OP_")
 		if opcode, ok := opMap[w]; ok {
 			res = append(res, opcode)
 		} else if isAllDigitalNumber(w) || strings.HasPrefix(w, "-") && isAllDigitalNumber(w[1:]) {
@@ -520,7 +500,7 @@ testloop:
 
 			err := verifyScript(newTx, txin.GetScriptSig(), pkscript, k, amount.Amount(prevOut.inputVal), flags)
 			if err != nil {
-				t.Errorf("verifyScript error: %v, %dth test", err, i)
+				t.Errorf("verifyScript error: %v, %dth test, test=%v", err, i, test)
 			}
 		}
 	}
@@ -665,7 +645,7 @@ testloop:
 			pkscript := script.NewScriptRaw(prevOut.pkScript)
 			err := verifyScript(newTx, txin.GetScriptSig(), pkscript, k, amount.Amount(prevOut.inputVal), flags)
 			if err != nil {
-				continue
+				continue testloop
 			}
 		}
 		t.Errorf("test (%d:%v) succeeded when should fail",

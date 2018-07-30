@@ -132,7 +132,7 @@ func ConnectBlock(pblock *block.Block,
 	bip34 := pindexBIP34height == nil || !(pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
 	fEnforceBIP30 = fEnforceBIP30 && bip34
 
-	flags := lblock.GetBlockScriptFlags(pindex)
+	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
 	nTime2 := util.GetMicrosTime()
 	gPersist.GlobalTimeForks += nTime2 - nTime1
@@ -167,6 +167,12 @@ func ConnectBlock(pblock *block.Block,
 	// add this block to the view's block chain
 	coinsMap.SetBestBlock(blockHash)
 	*view = *coinsMap
+
+	//if (pindex.IsReplayProtectionEnabled(params) &&
+	//	!pindex.Prev.IsReplayProtectionEnabled(params)) {
+	//	mempool.clear();
+	//}
+
 	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash.String())
 	return nil
 }
@@ -318,7 +324,25 @@ func DisconnectTip(fBare bool) error {
 		// this block that were added back and cleans up the memPool state.
 		//mempool.Gpool.UpdateTransactionsFromBlock(vHashUpdate)
 	}
-
+	// If this block was deactivating the replay protection, then we need to
+	// remove transactions that are replay protected from the mempool. There is
+	// no easy way to do this so we'll just discard the whole mempool and then
+	// add the transaction of the block we just disconnected back.
+	//
+	// Samewise, if this block enabled the monolith opcodes, then we need to
+	// clear the mempool of any transaction using them.
+	//if ((IsReplayProtectionEnabled(config, pindexDelete) &&
+	//	!IsReplayProtectionEnabled(config, pindexDelete->pprev)) ||
+	//	(IsMonolithEnabled(config, pindexDelete) &&
+	//		!IsMonolithEnabled(config, pindexDelete->pprev))) {
+	//	mempool.clear();
+	//	// While not strictly necessary, clearing the disconnect pool is also
+	//	// beneficial so we don't try to reuse its content at the end of the
+	//	// reorg, which we know will fail.
+	//	if (disconnectpool) {
+	//		disconnectpool->clear();
+	//	}
+	//}
 	// Update chainActive and related variables.
 	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
@@ -470,7 +494,8 @@ func InitGenesisChain() error {
 		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
 	}
 	gChain.SetTip(bIndex)
-	coinsMap := utxo.NewEmptyCoinsMap()
+
+	coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
 	bestHash := bIndex.GetBlockHash()
 	coinsMap.SetBestBlock(*bestHash)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)

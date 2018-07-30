@@ -12,10 +12,7 @@ func TxUpdateCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, heigh
 	if !tx.IsCoinBase() {
 		undoCoins := make([]*utxo.Coin, len(tx.GetIns()))
 		for idx, txin := range tx.GetIns() {
-			coin := coinMap.GetCoin(txin.PreviousOutPoint)
-			if coin == nil {
-				panic("no coin find to spend!")
-			}
+			coin := coinMap.AccessCoin(txin.PreviousOutPoint)
 			undoCoins[idx] = coin.DeepCopy()
 			coinMap.SpendCoin(txin.PreviousOutPoint)
 		}
