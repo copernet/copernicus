@@ -44,11 +44,11 @@ func TestScriptJsonTests(t *testing.T) {
 		t.Error(err)
 	}
 
-	for _, itest := range tests {
+	for i, itest := range tests {
 		test, ok := itest.([]interface{})
 		if ok {
 			if err := doScriptJSONTest(t, test); err != nil {
-				break
+				t.Errorf("%dth test error: itest:%#v", i, itest)
 			}
 		} else {
 			t.Errorf("test is not []interface{}")
