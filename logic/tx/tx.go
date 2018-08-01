@@ -1954,6 +1954,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// We already have an element of the right size, we
 				// don't need to do anything.
 				if int64(vchEncodeLen) == size {
+					stack.Pop()
+					stack.Push(vchEncode)
 					break
 				}
 
@@ -2278,7 +2280,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())
