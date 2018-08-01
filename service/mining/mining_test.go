@@ -163,7 +163,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 
 	ba := NewBlockAssembler(chainparams.ActiveNetParams)
 	strategy = sortByFeeRate
-	sc := script.NewEmptyScript()
+	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
 	ba.CreateNewBlock(sc)
 	if len(ba.bt.Block.Txs) != 5 {
 		t.Error("some transactions are inserted to block error")
