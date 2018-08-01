@@ -38,30 +38,30 @@ type scriptErrChecker struct {
 	errtable []string
 }
 
-func newScriptErrChecker() (*scriptErrChecker, error){
+func newScriptErrChecker() (*scriptErrChecker, error) {
 	// Construction of errtable([]string) from errcode/scripterror.go
 	var sec scriptErrChecker
 	b, err := ioutil.ReadFile("../../errcode/scripterror.go")
 	if err != nil {
-		err = fmt.Errorf("scripterr.go not found");
+		err = fmt.Errorf("scripterr.go not found")
 		return nil, err
 	}
 	content := string(b)
 	index := strings.Index(content, "const")
 	if index == -1 {
-		err = fmt.Errorf("scripterr.go does not contain \"const\"");
+		err = fmt.Errorf("scripterr.go does not contain \"const\"")
 		return nil, err
 	}
 	content = content[index:]
 	index = strings.Index(content, ")")
 	if index == -1 {
-		err = fmt.Errorf("scripterr.go const without \")\"");
+		err = fmt.Errorf("scripterr.go const without \")\"")
 		return nil, err
 	}
 	content = content[:index]
 	contents := strings.Split(content, "\n")
 	if contents[0] != "const (" {
-		err = fmt.Errorf("scripterr.go \"const (\" should be the first line");
+		err = fmt.Errorf("scripterr.go \"const (\" should be the first line")
 		return nil, err
 	}
 	if strings.HasSuffix(contents[1], " ScriptErr = ScriptErrorBase + iota") {
@@ -86,9 +86,11 @@ func newScriptErrChecker() (*scriptErrChecker, error){
 }
 
 func (sec *scriptErrChecker) check(err error, scriptErrorString string) error {
-	var actualErr string
-	var actualErrUpper string
-	var perr errcode.ProjectError
+	var (
+		actualErr      string
+		actualErrUpper string
+		perr           errcode.ProjectError
+	)
 	if err == nil {
 		actualErr = "OK"
 		actualErrUpper = "OK"
@@ -96,15 +98,15 @@ func (sec *scriptErrChecker) check(err error, scriptErrorString string) error {
 		var ok bool
 		if perr, ok = err.(errcode.ProjectError);
 			!ok {
-			err = fmt.Errorf("Error in converting err to ProjectErr");
+			err = fmt.Errorf("Error in converting err to ProjectErr")
 			return err
 		}
-		actualErr = sec.errtable[perr.Code - errcode.ScriptErrorBase]
+		actualErr = sec.errtable[perr.Code-errcode.ScriptErrorBase]
 
 		if strings.HasPrefix(actualErr, "ScriptErr") {
 			actualErrUpper = strings.TrimPrefix(actualErr, "ScriptErr")
 		} else {
-			err = fmt.Errorf("ScriptErr should begin with \"ScriptErr\"");
+			err = fmt.Errorf("ScriptErr should begin with \"ScriptErr\"")
 			return err
 		}
 		actualErrUpper = strings.TrimPrefix(actualErrUpper, "Invalid")
