@@ -3,6 +3,9 @@ package block
 import (
 	"bytes"
 	"testing"
+	"time"
+	"math/rand"
+	"github.com/copernet/copernicus/util"
 )
 
 var blockOne = []byte{
@@ -44,6 +47,7 @@ func TestHeadersWire(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	hdr := NewBlockHeader()
 	for i, blk := range testBlocks {
+		buf.Reset()
 		buf.Write(blk)
 		if err := hdr.Decode(buf); err != nil {
 			t.Errorf("test %d , Decode failed :%v", i, err)
@@ -51,6 +55,31 @@ func TestHeadersWire(t *testing.T) {
 		buf.Reset()
 		if err := hdr.Encode(buf); err != nil {
 			t.Errorf("test %d , Encode failed :%v", i, err)
+		}
+	}
+}
+
+func TestBlockHeaderDecodeEncode(t *testing.T) {
+	hdr := NewBlockHeader()
+	buf := bytes.NewBuffer(nil)
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for i := 0; i < 100; i++ {
+		hdr2 := NewBlockHeader()
+		hdr.Version = r.Int31()
+		hdr.Time = r.Uint32()
+		hdr.Bits = r.Uint32()
+		hdr.Nonce = r.Uint32()
+		for j := 0; j < util.Hash256Size; j++ {
+			hdr.MerkleRoot[j] = byte(r.Intn(256))
+			hdr.HashPrevBlock[j] = byte(r.Intn(256))
+		}
+		buf.Reset()
+		hdr.Encode(buf)
+		hdr2.Decode(buf)
+		if *hdr != *hdr2 {
+			t.Errorf("Decode after Encode returns differently: hdr=%#v, hdr2=%#v",
+				hdr, hdr2)
+			return
 		}
 	}
 }
