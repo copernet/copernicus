@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -20,6 +19,7 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/errcode"
 )
 
 var opMap map[string]byte
@@ -32,6 +32,93 @@ func init() {
 func testVecF64ToUint32(f float64) uint32 {
 	return uint32(int32(f))
 }
+
+type scriptErrChecker struct {
+	// compare string in errtable with expected scriptErrorString
+	errtable []string
+}
+
+func newScriptErrChecker() (*scriptErrChecker, error){
+	// Construction of errtable([]string) from errcode/scripterror.go
+	var sec scriptErrChecker
+	b, err := ioutil.ReadFile("../../errcode/scripterror.go")
+	if err != nil {
+		err = fmt.Errorf("scripterr.go not found");
+		return nil, err
+	}
+	content := string(b)
+	index := strings.Index(content, "const")
+	if index == -1 {
+		err = fmt.Errorf("scripterr.go does not contain \"const\"");
+		return nil, err
+	}
+	content = content[index:]
+	index = strings.Index(content, ")")
+	if index == -1 {
+		err = fmt.Errorf("scripterr.go const without \")\"");
+		return nil, err
+	}
+	content = content[:index]
+	contents := strings.Split(content, "\n")
+	if contents[0] != "const (" {
+		err = fmt.Errorf("scripterr.go \"const (\" should be the first line");
+		return nil, err
+	}
+	if strings.HasSuffix(contents[1], " ScriptErr = ScriptErrorBase + iota") {
+		contents[1] = strings.TrimSuffix(contents[1], " ScriptErr = ScriptErrorBase + iota")
+	} else {
+		err = fmt.Errorf("scripterr.go the first const should be declared ending with \" ScriptErr = ScriptErrorBase + iota\"");
+		return nil, err
+	}
+	contents = contents[1:]
+	sec.errtable = []string{}
+	for _, line0 := range contents {
+		line := strings.Replace(line0, "\n", "", -1)
+		line = strings.Replace(line, "\t", "", -1)
+		line = strings.Replace(line, " ", "", -1)
+		if line == "" || strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") {
+			continue
+		}
+		sec.errtable = append(sec.errtable, line)
+	}
+	// got errtable
+	return &sec, nil
+}
+
+func (sec *scriptErrChecker) check(err error, scriptErrorString string) error {
+	var actualErr string
+	var actualErrUpper string
+	var perr errcode.ProjectError
+	if err == nil {
+		actualErr = "OK"
+		actualErrUpper = "OK"
+	} else {
+		var ok bool
+		if perr, ok = err.(errcode.ProjectError);
+			!ok {
+			err = fmt.Errorf("Error in converting err to ProjectErr");
+			return err
+		}
+		actualErr = sec.errtable[perr.Code - errcode.ScriptErrorBase]
+
+		if strings.HasPrefix(actualErr, "ScriptErr") {
+			actualErrUpper = strings.TrimPrefix(actualErr, "ScriptErr")
+		} else {
+			err = fmt.Errorf("ScriptErr should begin with \"ScriptErr\"");
+			return err
+		}
+		actualErrUpper = strings.TrimPrefix(actualErrUpper, "Invalid")
+		actualErrUpper = strings.ToUpper(actualErrUpper)
+	}
+	scriptErrorStringUpper := strings.TrimPrefix(scriptErrorString, "INVALID")
+	scriptErrorStringUpper = strings.Replace(scriptErrorStringUpper, "_", "", -1)
+	if actualErrUpper != scriptErrorStringUpper {
+		err = fmt.Errorf("expect: %v err: %v", scriptErrorString, actualErr)
+		return err
+	}
+	return nil
+}
+
 func TestScriptJsonTests(t *testing.T) {
 	data, err := ioutil.ReadFile("test_data/script_tests.json")
 	if err != nil {
@@ -44,10 +131,15 @@ func TestScriptJsonTests(t *testing.T) {
 		t.Error(err)
 	}
 
+	var sec *scriptErrChecker
+	if sec, err = newScriptErrChecker(); err != nil {
+		t.Errorf("error new scriptErrChecker")
+		return
+	}
 	for i, itest := range tests {
 		test, ok := itest.([]interface{})
 		if ok {
-			if err := doScriptJSONTest(t, test); err != nil {
+			if err := doScriptJSONTest(t, test, *sec); err != nil {
 				t.Errorf("%dth test error: itest:%#v", i, itest)
 			}
 		} else {
@@ -215,7 +307,7 @@ func parseScriptFlag(s string) (uint32, error) {
 	return res, nil
 }
 
-func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
+func doScriptJSONTest(t *testing.T, itest []interface{}, sec scriptErrChecker) (err error) {
 	if len(itest) == 0 {
 		err = fmt.Errorf("empty itest[] %#v", itest)
 		t.Error(err)
@@ -288,16 +380,9 @@ func doScriptJSONTest(t *testing.T, itest []interface{}) (err error) {
 
 	err = verifyScript(trax, scriptSig, scriptPubKey, 0, amount.Amount(nValue), flags)
 
-	if !((scriptErrorString == "OK" && err == nil) || (scriptErrorString != "OK" && err != nil)) {
-		err = fmt.Errorf("expect error: scriptErrorString(%s) err(%v), sig(%s), pubkey(%s), flag(%s), err(%s) itest[] %v",
-			scriptErrorString, err, scriptSigString,
-			scriptPubKeyString, scriptFlagString, scriptErrorString, itest)
-
+	if err = sec.check(err, scriptErrorString); err != nil {
 		t.Error(err)
 		return err
-	}
-	if err != nil || scriptErrorString != "OK" {
-		t.Logf("expect:%v err:%v", scriptErrorString, err)
 	}
 	return nil
 }
