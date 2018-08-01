@@ -52,7 +52,6 @@ func TestHeadersWire(t *testing.T) {
 		if err := hdr.Decode(buf); err != nil {
 			t.Errorf("test %d , Decode failed :%v", i, err)
 		}
-		buf.Reset()
 		if err := hdr.Encode(buf); err != nil {
 			t.Errorf("test %d , Encode failed :%v", i, err)
 		}
