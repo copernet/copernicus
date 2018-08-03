@@ -18,7 +18,7 @@ import (
  */
 
 const (
-	StatusAllValid uint32 = 1 << iota
+	StatusAllValid    uint32 = 1 << iota
 	StatusIndexStored
 	StatusDataStored
 	StatusWaitingData
@@ -176,6 +176,9 @@ func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 		return median[i] < median[j]
 	})
 
+	if len(median) < 11 {
+		return 0
+	}
 	return median[numNodes/2]
 }
 
