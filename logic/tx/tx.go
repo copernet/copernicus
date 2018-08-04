@@ -1713,8 +1713,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// ScriptSig1 ScriptSig2...ScriptSigM M PubKey1 PubKey2...PubKey N
 				pubKeysNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					//log.Debug("ScriptErrInvalidStackOperation")
+					return err
 				}
 				pubKeysCount := pubKeysNum.ToInt32()
 				if pubKeysCount < 0 || pubKeysCount > script.MaxPubKeysPerMultiSig {
@@ -1747,8 +1747,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 				nSigsNum, err := script.GetScriptNum(sigsVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					//log.Debug("ScriptErrInvalidStackOperation")
+					return err
 				}
 				nSigsCount := nSigsNum.ToInt32()
 				if nSigsCount < 0 || nSigsCount > pubKeysCount {

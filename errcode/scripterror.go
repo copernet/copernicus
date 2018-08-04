@@ -81,8 +81,8 @@ const (
 	ScriptErrBareMultiSig
 	ScriptErrMultiOpReturn
 	ScriptErrInvalidSignatureEncoding
-	ScriptErrNumberOverflow
-	ScriptErrNonMinimalEncodedNumber
+	//ScriptErrNumberOverflow
+	//ScriptErrNonMinimalEncodedNumber
 	ScriptErrInvalidOpCode
 	ScriptErrInValidPubKeyOrSig
 	ScriptErrScriptSigNotPushOnly
