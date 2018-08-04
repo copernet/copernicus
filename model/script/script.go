@@ -309,7 +309,7 @@ func (s *Script) convertOPS() (err error) {
 
 	var i uint
 	for i < scriptLen {
-		var nSize uint
+		var nSize uint = 0
 		opcode := s.data[i]
 		i++
 		if opcode < opcodes.OP_PUSHDATA1 {
