@@ -721,7 +721,9 @@ testloop:
 			}
 			prevOuts[*outpoint.NewOutPoint(*prevhash, idx)] = v
 		}
-
+		if i == 29 {
+			fmt.Println("Here")
+		}
 		err = newTx.CheckRegularTransaction()
 		if err != nil {
 			continue

@@ -296,7 +296,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
-			log.Debug("tx duplicate input")
+			log.Debug("tx input prevout null")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
