@@ -721,6 +721,10 @@ testloop:
 			}
 			prevOuts[*outpoint.NewOutPoint(*prevhash, idx)] = v
 		}
+		err = newTx.CheckRegularTransaction()
+		if err != nil {
+			continue
+		}
 
 		for k, txin := range newTx.GetIns() {
 			prevOut, ok := prevOuts[*txin.PreviousOutPoint]

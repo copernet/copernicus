@@ -158,7 +158,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		return err
 	}
 	sigOps := txs[0].GetSigOpCountWithoutP2SH()
-	outPointSet := make(map[*outpoint.OutPoint]bool)
+	outPointSet := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
@@ -922,17 +922,17 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// (x1 x2 -- x1 x2 x1 x2)
 				if stack.Size() < 2 {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
 				if vch1 == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch2 := stack.Top(-1)
 				if vch2 == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				stack.Push(vch1)
 				stack.Push(vch2)
@@ -1933,7 +1933,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				size := scriptNum.Value
-				if size > script.MaxScriptElementSize {
+				if size > script.MaxScriptElementSize || size < 0 {
 					log.Debug("ScriptErrPushSize")
 					return errcode.New(errcode.ScriptErrPushSize)
 				}

@@ -360,7 +360,7 @@ func (s *Script) convertOPS() (err error) {
 func (s *Script) RemoveOpcodeByData(data []byte) *Script {
 	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, len(s.ParsedOpCodes))
 	for _, e := range s.ParsedOpCodes {
-		if bytes.Contains(e.Data, data) {
+		if e.CheckMinimalDataPush() && bytes.Equal(e.Data, data) {
 			continue
 		}
 		parsedOpCodes = append(parsedOpCodes, e)
