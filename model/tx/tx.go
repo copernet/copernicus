@@ -296,7 +296,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
-			log.Debug("tx duplicate input")
+			log.Debug("tx input prevout null")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -361,7 +361,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	// check dup input
 	if checkDupInput {
-		outPointSet := make(map[*outpoint.OutPoint]bool)
+		outPointSet := make(map[outpoint.OutPoint]bool)
 		err := tx.CheckDuplicateIns(&outPointSet)
 		if err != nil {
 			return err
@@ -370,10 +370,10 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	return nil
 }
-func (tx *Tx) CheckDuplicateIns(outpoints *map[*outpoint.OutPoint]bool) error {
+func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
 	for _, in := range tx.ins {
-		if _, ok := (*outpoints)[in.PreviousOutPoint]; !ok {
-			(*outpoints)[in.PreviousOutPoint] = true
+		if _, ok := (*outpoints)[*(in.PreviousOutPoint)]; !ok {
+			(*outpoints)[*(in.PreviousOutPoint)] = true
 		} else {
 			log.Debug("bad tx, duplicate inputs")
 			return errcode.New(errcode.TxErrRejectInvalid)

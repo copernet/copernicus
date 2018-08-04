@@ -721,7 +721,6 @@ testloop:
 			}
 			prevOuts[*outpoint.NewOutPoint(*prevhash, idx)] = v
 		}
-
 		err = newTx.CheckRegularTransaction()
 		if err != nil {
 			continue
