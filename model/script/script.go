@@ -761,7 +761,7 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc)) != 0 &&
 		!crypto.IsValidSignatureEncoding(vchSig) {
 		log.Debug("ScriptErrInvalidSignatureEncoding")
-		return errcode.New(errcode.ScriptErrInvalidSignatureEncoding)
+		return errcode.New(errcode.ScriptErrSigDer)
 
 	}
 	if (flags & ScriptVerifyLowS) != 0 {
