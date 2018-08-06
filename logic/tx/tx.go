@@ -302,10 +302,11 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := make([][]byte, 0)
-		heightData = append(heightData, heightNumb.Serialize())
+		//heightData := make([][]byte, 0)
+		//heightData = append(heightData, heightNumb.Serialize())
 		heightScript := script.NewEmptyScript()
-		heightScript.PushData(heightData)
+		//heightScript.PushData(heightData)
+		heightScript.PushScriptNum(heightNumb)
 		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
@@ -2303,7 +2304,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 			}
 		}
 		scriptSig = script.NewEmptyScript()
-		scriptSig.PushData(sigData)
+		scriptSig.PushMultData(sigData)
 		err = verifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags))
 		if err != nil {
 			return err
@@ -2381,7 +2382,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 			sigN++
 		}
 		scriptResult := script.NewEmptyScript()
-		scriptResult.PushData(sigData)
+		scriptResult.PushMultData(sigData)
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {
