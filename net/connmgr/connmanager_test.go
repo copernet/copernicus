@@ -4,8 +4,8 @@
 
 package connmgr
 
-/*
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -61,7 +61,7 @@ func (c mockConn) SetWriteDeadline(t time.Time) error { return nil }
 
 // mockDialer mocks the net.Dial interface by returning a mock connection to
 // the given address.
-func mockDialer(addr net.Addr) (net.Conn, error) {
+func mockDialer(ctx context.Context, addr net.Addr) (net.Conn, error) {
 	r, w := io.Pipe()
 	c := &mockConn{rAddr: addr}
 	c.Reader = r
@@ -97,7 +97,7 @@ func TestStartStop(t *testing.T) {
 			}, nil
 		},
 		Dial: mockDialer,
-		OnConnection: func(c *ConnReq, conn net.Conn) {
+		OnConnect: func(c *ConnReq, conn net.Conn) {
 			connected <- c
 		},
 		OnDisconnection: func(c *ConnReq) {
@@ -107,7 +107,7 @@ func TestStartStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	cmgr.Start()
+	cmgr.Start(context.TODO())
 	gotConnReq := <-connected
 	cmgr.Stop()
 	// already stopped
@@ -120,7 +120,7 @@ func TestStartStop(t *testing.T) {
 		},
 		Permanent: true,
 	}
-	cmgr.Connect(cr)
+	cmgr.Connect(context.TODO(), cr)
 	if cr.ID() != 0 {
 		t.Fatalf("start/stop: got id: %v, want: 0", cr.ID())
 	}
@@ -143,7 +143,7 @@ func TestConnectMode(t *testing.T) {
 	cmgr, err := New(&Config{
 		TargetOutbound: 2,
 		Dial:           mockDialer,
-		OnConnection: func(c *ConnReq, conn net.Conn) {
+		OnConnect: func(c *ConnReq, conn net.Conn) {
 			connected <- c
 		},
 	})
@@ -157,8 +157,8 @@ func TestConnectMode(t *testing.T) {
 		},
 		Permanent: true,
 	}
-	cmgr.Start()
-	cmgr.Connect(cr)
+	cmgr.Start(context.TODO())
+	cmgr.Connect(context.TODO(), cr)
 	gotConnReq := <-connected
 	wantID := cr.ID()
 	gotID := gotConnReq.ID()
@@ -195,14 +195,14 @@ func TestTargetOutbound(t *testing.T) {
 				Port: 18555,
 			}, nil
 		},
-		OnConnection: func(c *ConnReq, conn net.Conn) {
+		OnConnect: func(c *ConnReq, conn net.Conn) {
 			connected <- c
 		},
 	})
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	cmgr.Start()
+	cmgr.Start(context.TODO())
 	for i := uint32(0); i < targetOutbound; i++ {
 		<-connected
 	}
@@ -227,7 +227,7 @@ func TestRetryPermanent(t *testing.T) {
 		RetryDuration:  time.Millisecond,
 		TargetOutbound: 1,
 		Dial:           mockDialer,
-		OnConnection: func(c *ConnReq, conn net.Conn) {
+		OnConnect: func(c *ConnReq, conn net.Conn) {
 			connected <- c
 		},
 		OnDisconnection: func(c *ConnReq) {
@@ -245,8 +245,8 @@ func TestRetryPermanent(t *testing.T) {
 		},
 		Permanent: true,
 	}
-	go cmgr.Connect(cr)
-	cmgr.Start()
+	go cmgr.Connect(context.TODO(), cr)
+	cmgr.Start(context.TODO())
 	gotConnReq := <-connected
 	wantID := cr.ID()
 	gotID := gotConnReq.ID()
@@ -308,10 +308,10 @@ func TestMaxRetryDuration(t *testing.T) {
 	time.AfterFunc(5*time.Millisecond, func() {
 		close(networkUp)
 	})
-	timedDialer := func(addr net.Addr) (net.Conn, error) {
+	timedDialer := func(ctx context.Context, addr net.Addr) (net.Conn, error) {
 		select {
 		case <-networkUp:
-			return mockDialer(addr)
+			return mockDialer(context.TODO(), addr)
 		default:
 			return nil, errors.New("network down")
 		}
@@ -322,7 +322,7 @@ func TestMaxRetryDuration(t *testing.T) {
 		RetryDuration:  time.Millisecond,
 		TargetOutbound: 1,
 		Dial:           timedDialer,
-		OnConnection: func(c *ConnReq, conn net.Conn) {
+		OnConnect: func(c *ConnReq, conn net.Conn) {
 			connected <- c
 		},
 	})
@@ -337,8 +337,8 @@ func TestMaxRetryDuration(t *testing.T) {
 		},
 		Permanent: true,
 	}
-	go cmgr.Connect(cr)
-	cmgr.Start()
+	go cmgr.Connect(context.TODO(), cr)
+	cmgr.Start(context.TODO())
 	// retry in 1ms
 	// retry in 2ms - max retry duration reached
 	// retry in 2ms - timedDialer returns mockDial
@@ -353,7 +353,7 @@ func TestMaxRetryDuration(t *testing.T) {
 // failure gracefully.
 func TestNetworkFailure(t *testing.T) {
 	var dials uint32
-	errDialer := func(net net.Addr) (net.Conn, error) {
+	errDialer := func(ctx context.Context, net net.Addr) (net.Conn, error) {
 		atomic.AddUint32(&dials, 1)
 		return nil, errors.New("network down")
 	}
@@ -367,14 +367,14 @@ func TestNetworkFailure(t *testing.T) {
 				Port: 18555,
 			}, nil
 		},
-		OnConnection: func(c *ConnReq, conn net.Conn) {
+		OnConnect: func(c *ConnReq, conn net.Conn) {
 			t.Fatalf("network failure: got unexpected connection - %v", c.Addr)
 		},
 	})
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	cmgr.Start()
+	cmgr.Start(context.TODO())
 	time.AfterFunc(10*time.Millisecond, cmgr.Stop)
 	cmgr.Wait()
 	wantMaxDials := uint32(75)
@@ -392,7 +392,7 @@ func TestNetworkFailure(t *testing.T) {
 // the failure.
 func TestStopFailed(t *testing.T) {
 	done := make(chan struct{}, 1)
-	waitDialer := func(addr net.Addr) (net.Conn, error) {
+	waitDialer := func(ctx context.Context, addr net.Addr) (net.Conn, error) {
 		done <- struct{}{}
 		time.Sleep(time.Millisecond)
 		return nil, errors.New("network down")
@@ -403,7 +403,7 @@ func TestStopFailed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	cmgr.Start()
+	cmgr.Start(context.TODO())
 	go func() {
 		<-done
 		atomic.StoreInt32(&cmgr.stop, 1)
@@ -418,7 +418,7 @@ func TestStopFailed(t *testing.T) {
 		},
 		Permanent: true,
 	}
-	go cmgr.Connect(cr)
+	go cmgr.Connect(context.TODO(), cr)
 	cmgr.Wait()
 }
 
@@ -500,7 +500,7 @@ func TestListeners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	cmgr.Start()
+	cmgr.Start(context.TODO())
 
 	// Fake a couple of mock connections to each of the listeners.
 	go func() {
@@ -534,4 +534,3 @@ out:
 	cmgr.Stop()
 	cmgr.Wait()
 }
-*/
