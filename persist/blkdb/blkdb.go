@@ -97,7 +97,10 @@ func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int32, error) {
 
 func (blockTreeDB *BlockTreeDB) WriteMaxBlockFile(file int) error {
 	vbuf := bytes.NewBuffer(nil)
-	util.WriteElements(vbuf, uint64(file))
+	err := util.WriteElements(vbuf, uint64(file))
+	if err != nil {
+		log.Error("write failed, please check.")
+	}
 	return blockTreeDB.dbw.Write([]byte{db.DbMaxBlock}, vbuf.Bytes(), false)
 }
 
