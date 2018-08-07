@@ -309,7 +309,7 @@ func (s *Script) convertOPS() (err error) {
 
 	var i uint
 	for i < scriptLen {
-		var nSize uint
+		var nSize uint = 0
 		opcode := s.data[i]
 		i++
 		if opcode < opcodes.OP_PUSHDATA1 {
@@ -360,7 +360,7 @@ func (s *Script) convertOPS() (err error) {
 func (s *Script) RemoveOpcodeByData(data []byte) *Script {
 	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, len(s.ParsedOpCodes))
 	for _, e := range s.ParsedOpCodes {
-		if e.CheckMinimalDataPush() && bytes.Equal(e.Data, data) {
+		if e.CheckCompactDataPush() && bytes.Equal(e.Data, data) {
 			continue
 		}
 		parsedOpCodes = append(parsedOpCodes, e)
@@ -702,34 +702,119 @@ func (s *Script) IsEqual(script2 *Script) bool {
 	return bytes.Equal(s.data, script2.data)
 }
 
-func (s *Script) PushInt64(n int64) error {
-	if n == -1 || (n >= 1 && n <= 16) {
-		s.data = append(s.data, byte(n+(opcodes.OP_1-1)))
-	} else if n == 0 {
-		s.data = append(s.data, byte(opcodes.OP_0))
-	} else {
-		scriptNum := NewScriptNum(n)
-		s.data = append(s.data, scriptNum.Serialize()...)
+/*
+func (s *Script) FindAndDelete(b *Script) int {
+	var (
+		nFound int
+		pc, pcPre uint64
+		result Script
+	)
+	if len(b.data) == 0 {
+		return nFound
 	}
+	for {
+		for pc + uint64(len(b.data)) <= uint64(len(s.data)) && bytes.Equal(b.data, s.data[pc: pc + uint64(len(b.data))]) {
+			nFound++
+			pc = pc + uint64(len(b.data))
+		}
+		pcPre = pc
+		if !s.getOp(&pc) {
+			break
+		}
+		result.data = bytes.Join([][]byte{result.data, s.data[pcPre: pc]}, []byte(""))
+	}
+	result.data = bytes.Join([][]byte{result.data, s.data[pcPre:]}, []byte(""))
+	*s = result
+	s.convertOPS()
+	return nFound
+}
+
+func (s *Script) getOp(pc *uint64) bool {
+	if *pc >= uint64(len(s.data)) {
+		return false
+	}
+	opcode := uint64(s.data[*pc])
+	*pc++
+	if opcode < opcodes.OP_PUSHDATA1 {
+		*pc += opcode
+	} else if opcode == opcodes.OP_PUSHDATA1 {
+		if *pc >= uint64(len(s.data)) {
+			return false
+		}
+		*pc += opcode + 1 + uint64(s.data[*pc])
+	} else if opcode == opcodes.OP_PUSHDATA2 {
+		if *pc >= uint64(len(s.data)) - 1 {
+			return false
+		}
+		*pc += opcode + 2 + binary.LittleEndian.Uint64(s.data[*pc: 2 + *pc])
+	} else if opcode == opcodes.OP_PUSHDATA4 {
+		if *pc >= uint64(len(s.data)) - 3 {
+			return false
+		}
+		*pc += opcode + 4 + binary.LittleEndian.Uint64(s.data[*pc: 4 + *pc])
+	}
+	return *pc <= uint64(len(s.data))
+}
+*/
+
+func (s *Script) PushOpCode(n int) error {
+	if n < 0 || n > 0xff {
+		return errcode.New(errcode.ScriptErrInvalidOpCode)
+	}
+	s.data = append(s.data, byte(n))
 	err := s.convertOPS()
+	return err
+}
+
+func (s *Script) PushInt64(n int64) error {
+	if n >= -1 && n <= 16 {
+		if n == -1 || (n >= 1 && n <= 16) {
+			s.data = append(s.data, byte(n+(opcodes.OP_1-1)))
+		} else if n == 0 {
+			s.data = append(s.data, byte(opcodes.OP_0))
+		}
+		err := s.convertOPS()
+		return err
+	}
+
+	scriptNum := NewScriptNum(n)
+	err := s.PushScriptNum(scriptNum)
+
 	return err
 }
 
 func (s *Script) PushScriptNum(sn *ScriptNum) error {
-	s.data = append(s.data, sn.Serialize()...)
+	err := s.PushSingleData(sn.Serialize())
+	return err
+}
+
+func (s *Script) PushSingleData(data []byte) error {
+	dataLen := len(data)
+	if dataLen < opcodes.OP_PUSHDATA1 {
+		s.data = append(s.data, byte(dataLen))
+	} else if dataLen <= 0xff {
+		s.data = append(s.data, opcodes.OP_PUSHDATA1)
+		s.data = append(s.data, byte(dataLen))
+	} else if dataLen <= 0xffff {
+		s.data = append(s.data, opcodes.OP_PUSHDATA2)
+		buf := make([]byte, 2)
+		binary.LittleEndian.PutUint16(buf, uint16(dataLen))
+		s.data = append(s.data, buf...)
+	} else {
+		s.data = append(s.data, opcodes.OP_PUSHDATA4)
+		buf := make([]byte, 4)
+		binary.LittleEndian.PutUint32(buf, uint32(dataLen))
+		s.data = append(s.data, buf...)
+	}
+	s.data = append(s.data, data...)
 	err := s.convertOPS()
 	return err
 }
 
-func (s *Script) PushData(data [][]byte) error {
+func (s *Script) PushMultData(data [][]byte) error {
 	for _, e := range data {
 		dataLen := len(e)
-		if dataLen == 0 {
-			s.data = append(s.data, byte(opcodes.OP_0))
-		} else if dataLen == 1 && e[0] >= 1 && e[0] <= 16 {
-			opN, _ := EncodeOPN(int(e[0]))
-			s.data = append(s.data, byte(opN))
-		} else if dataLen < opcodes.OP_PUSHDATA1 {
+		if dataLen < opcodes.OP_PUSHDATA1 {
 			s.data = append(s.data, byte(dataLen))
 		} else if dataLen <= 0xff {
 			s.data = append(s.data, opcodes.OP_PUSHDATA1)

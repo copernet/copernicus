@@ -18,7 +18,7 @@ import (
  */
 
 const (
-	StatusAllValid    uint32 = 1 << iota
+	StatusAllValid uint32 = 1 << iota
 	StatusIndexStored
 	StatusDataStored
 	StatusWaitingData
@@ -276,7 +276,7 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 //}
 
 func (bIndex *BlockIndex) IsDAAEnabled(params *chainparams.BitcoinParams) bool {
-	return bIndex.Height >= params.DaaHeight
+	return bIndex.Height >= params.DAAHeight
 }
 
 func (bIndex *BlockIndex) IsMonolithEnabled(params *chainparams.BitcoinParams) bool {

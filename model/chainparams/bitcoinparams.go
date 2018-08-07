@@ -95,31 +95,31 @@ var MainNetParams = BitcoinParams{
 		GenesisHash:            &GenesisHash,
 		SubsidyHalvingInterval: 210000,
 		BIP34Height:            227931,
-		// BIP34Hash:                   util.Hash{0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8},
-		BIP65Height:                    388381,
-		BIP66Height:                    363725,
-		AntiReplayOpReturnSunsetHeight: 530000,
-		AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
-		PowLimit:                       mainPowLimit,
-		TargetTimespan:                 60 * 60 * 24 * 14,
-		TargetTimePerBlock:             60 * 10,
-		FPowAllowMinDifficultyBlocks:   true,
-		FPowNoRetargeting:              false,
-		RuleChangeActivationThreshold:  1916,
-		MinerConfirmationWindow:        2016,
+		//BIP34Hash:                     util.Hash{0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8},
+		BIP65Height:                   388381,
+		BIP66Height:                   363725,
+		PowLimit:                      mainPowLimit,
+		TargetTimespan:                60 * 60 * 24 * 14,
+		TargetTimePerBlock:            60 * 10,
+		FPowAllowMinDifficultyBlocks:  true,
+		FPowNoRetargeting:             false,
+		RuleChangeActivationThreshold: 1916,
+		MinerConfirmationWindow:       2016,
 		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
 			consensus.DeploymentTestDummy: {Bit: 28, StartTime: 1199145601, Timeout: 1230767999},
 			consensus.DeploymentCSV:       {Bit: 0, StartTime: 1462060800, Timeout: 1493596800},
 		},
 		UAHFHeight: 478559,
 
-		DaaHeight: 504031,
+		DAAHeight: 504031,
 		// May 15, 2018 hard fork
 		MonolithActivationTime: 1526400000,
 
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
 		//CashHardForkActivationTime: 1510600000,
+		AntiReplayOpReturnSunsetHeight: 530000,
+		AntiReplayOpReturnCommitment:   []byte(AntiReplayCommitment),
 	},
 
 	Name:        "mainnet",
@@ -193,7 +193,7 @@ var RegressionNetParams = BitcoinParams{
 		PowLimit:           regressingPowLimit,
 		TargetTimespan:     60 * 60 * 24 * 14,
 		TargetTimePerBlock: 60 * 10,
-		DaaHeight:          0,
+		DAAHeight:          0,
 
 		// May 15, 2018 hard fork.
 		MonolithActivationTime: 1526400000,
@@ -271,7 +271,7 @@ var TestNet3Params = BitcoinParams{
 		MinimumChainWork:   *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
 		DefaultAssumeValid: *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
 		UAHFHeight:         1155876,
-		DaaHeight:          1188697,
+		DAAHeight:          1188697,
 		// May 15, 2018 hard fork
 		MonolithActivationTime: 1526400000,
 
@@ -279,8 +279,8 @@ var TestNet3Params = BitcoinParams{
 		MagneticAnomalyActivationTime: 1542300000,
 
 		//CashHardForkActivationTime: 1510600000,
-		GenesisHash:    &TestNet3GenesisHash,
-		CashaddrPrefix: "xbctest",
+		GenesisHash: &TestNet3GenesisHash,
+		//CashaddrPrefix: "xbctest",
 	},
 
 	Name:        "testnet3",
