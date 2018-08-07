@@ -1663,6 +1663,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 				// Remove the signature since there is no way for a signature
 				// to sign itself.
+
+				/*var vchScript = script.NewEmptyScript()
+				vchScript.PushSingleData(vchSigBytes)
+				scriptCode.FindAndDelete(vchScript)*/
 				scriptCode = scriptCode.RemoveOpcodeByData(vchSigBytes)
 
 				fSuccess, err := CheckSig(transaction, vchSigBytes, vchPubkey.([]byte), scriptCode, nIn, money, flags)

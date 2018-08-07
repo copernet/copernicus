@@ -42,6 +42,22 @@ func (parsedOpCode *ParsedOpCode) isConditional() bool {
 	}
 }
 
+func (parsedOpCode *ParsedOpCode) CheckCompactDataPush() bool {
+	data := parsedOpCode.Data
+	dataLen := len(data)
+	opcode := parsedOpCode.OpValue
+	if dataLen <= 75 {
+		return int(opcode) == dataLen
+	}
+	if dataLen <= 255 {
+		return opcode == OP_PUSHDATA1
+	}
+	if dataLen <= 65535 {
+		return opcode == OP_PUSHDATA2
+	}
+	return true
+}
+
 func (parsedOpCode *ParsedOpCode) CheckMinimalDataPush() bool {
 	data := parsedOpCode.Data
 	dataLen := len(data)

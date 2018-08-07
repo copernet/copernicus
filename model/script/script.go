@@ -360,7 +360,7 @@ func (s *Script) convertOPS() (err error) {
 func (s *Script) RemoveOpcodeByData(data []byte) *Script {
 	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, len(s.ParsedOpCodes))
 	for _, e := range s.ParsedOpCodes {
-		if bytes.Equal(e.Data, data) {
+		if e.CheckCompactDataPush() && bytes.Equal(e.Data, data) {
 			continue
 		}
 		parsedOpCodes = append(parsedOpCodes, e)
@@ -701,6 +701,61 @@ func (s *Script) Size() int {
 func (s *Script) IsEqual(script2 *Script) bool {
 	return bytes.Equal(s.data, script2.data)
 }
+
+/*
+func (s *Script) FindAndDelete(b *Script) int {
+	var (
+		nFound int
+		pc, pcPre uint64
+		result Script
+	)
+	if len(b.data) == 0 {
+		return nFound
+	}
+	for {
+		for pc + uint64(len(b.data)) <= uint64(len(s.data)) && bytes.Equal(b.data, s.data[pc: pc + uint64(len(b.data))]) {
+			nFound++
+			pc = pc + uint64(len(b.data))
+		}
+		pcPre = pc
+		if !s.getOp(&pc) {
+			break
+		}
+		result.data = bytes.Join([][]byte{result.data, s.data[pcPre: pc]}, []byte(""))
+	}
+	result.data = bytes.Join([][]byte{result.data, s.data[pcPre:]}, []byte(""))
+	*s = result
+	s.convertOPS()
+	return nFound
+}
+
+func (s *Script) getOp(pc *uint64) bool {
+	if *pc >= uint64(len(s.data)) {
+		return false
+	}
+	opcode := uint64(s.data[*pc])
+	*pc++
+	if opcode < opcodes.OP_PUSHDATA1 {
+		*pc += opcode
+	} else if opcode == opcodes.OP_PUSHDATA1 {
+		if *pc >= uint64(len(s.data)) {
+			return false
+		}
+		*pc += opcode + 1 + uint64(s.data[*pc])
+	} else if opcode == opcodes.OP_PUSHDATA2 {
+		if *pc >= uint64(len(s.data)) - 1 {
+			return false
+		}
+		*pc += opcode + 2 + binary.LittleEndian.Uint64(s.data[*pc: 2 + *pc])
+	} else if opcode == opcodes.OP_PUSHDATA4 {
+		if *pc >= uint64(len(s.data)) - 3 {
+			return false
+		}
+		*pc += opcode + 4 + binary.LittleEndian.Uint64(s.data[*pc: 4 + *pc])
+	}
+	return *pc <= uint64(len(s.data))
+}
+*/
 
 func (s *Script) PushOpCode(n int) error {
 	if n < 0 || n > 0xff {
