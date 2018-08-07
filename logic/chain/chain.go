@@ -495,7 +495,8 @@ func InitGenesisChain() error {
 	}
 	gChain.SetTip(bIndex)
 
-	coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
+	coinsMap := utxo.NewEmptyCoinsMap()
+	//coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
 	bestHash := bIndex.GetBlockHash()
 	coinsMap.SetBestBlock(*bestHash)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)

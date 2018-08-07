@@ -296,7 +296,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
-			log.Debug("tx duplicate input")
+			log.Debug("tx input prevout null")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -361,7 +361,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	// check dup input
 	if checkDupInput {
-		outPointSet := make(map[*outpoint.OutPoint]bool)
+		outPointSet := make(map[outpoint.OutPoint]bool)
 		err := tx.CheckDuplicateIns(&outPointSet)
 		if err != nil {
 			return err
@@ -370,10 +370,10 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	return nil
 }
-func (tx *Tx) CheckDuplicateIns(outpoints *map[*outpoint.OutPoint]bool) error {
+func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
 	for _, in := range tx.ins {
-		if _, ok := (*outpoints)[in.PreviousOutPoint]; !ok {
-			(*outpoints)[in.PreviousOutPoint] = true
+		if _, ok := (*outpoints)[*(in.PreviousOutPoint)]; !ok {
+			(*outpoints)[*(in.PreviousOutPoint)] = true
 		} else {
 			log.Debug("bad tx, duplicate inputs")
 			return errcode.New(errcode.TxErrRejectInvalid)
@@ -732,19 +732,19 @@ func NewGenesisCoinbaseTx() *Tx {
 	tx := NewTx(0, 1)
 	scriptSigNum := script.NewScriptNum(4)
 	scriptSigString := "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
-	scriptSigData := make([][]byte, 0)
-	scriptSigData = append(scriptSigData, []byte(scriptSigString))
+	//scriptSigData := make([][]byte, 0)
+	//scriptSigData = append(scriptSigData, []byte(scriptSigString))
 
 	scriptPubKeyBytes, _ := hex.DecodeString("04678afdb0fe5548271967f1a67130b7105cd6a828e03909" +
 		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +
 		"de5c384df7ba0b8d578a4c702b6bf11d5f")
 	scriptPubKey := script.NewScriptRaw(scriptPubKeyBytes)
-	scriptPubKey.PushInt64(opcodes.OP_CHECKSIG)
+	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
 
 	scriptSig := script.NewEmptyScript()
 	scriptSig.PushInt64(486604799)
 	scriptSig.PushScriptNum(scriptSigNum)
-	scriptSig.PushData(scriptSigData)
+	scriptSig.PushSingleData([]byte(scriptSigString))
 
 	txIn := txin.NewTxIn(nil, scriptSig, 0)
 	txOut := txout.NewTxOut(50*100000000, scriptPubKey)

@@ -158,7 +158,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		return err
 	}
 	sigOps := txs[0].GetSigOpCountWithoutP2SH()
-	outPointSet := make(map[*outpoint.OutPoint]bool)
+	outPointSet := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
@@ -302,10 +302,11 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := make([][]byte, 0)
-		heightData = append(heightData, heightNumb.Serialize())
+		//heightData := make([][]byte, 0)
+		//heightData = append(heightData, heightNumb.Serialize())
 		heightScript := script.NewEmptyScript()
-		heightScript.PushData(heightData)
+		//heightScript.PushData(heightData)
+		heightScript.PushScriptNum(heightNumb)
 		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
@@ -922,17 +923,17 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// (x1 x2 -- x1 x2 x1 x2)
 				if stack.Size() < 2 {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
 				if vch1 == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch2 := stack.Top(-1)
 				if vch2 == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				stack.Push(vch1)
 				stack.Push(vch2)
@@ -1713,8 +1714,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// ScriptSig1 ScriptSig2...ScriptSigM M PubKey1 PubKey2...PubKey N
 				pubKeysNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					//log.Debug("ScriptErrInvalidStackOperation")
+					return err
 				}
 				pubKeysCount := pubKeysNum.ToInt32()
 				if pubKeysCount < 0 || pubKeysCount > script.MaxPubKeysPerMultiSig {
@@ -1747,8 +1748,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 				nSigsNum, err := script.GetScriptNum(sigsVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					//log.Debug("ScriptErrInvalidStackOperation")
+					return err
 				}
 				nSigsCount := nSigsNum.ToInt32()
 				if nSigsCount < 0 || nSigsCount > pubKeysCount {
@@ -1933,7 +1934,7 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				size := scriptNum.Value
-				if size > script.MaxScriptElementSize {
+				if size > script.MaxScriptElementSize || size < 0 {
 					log.Debug("ScriptErrPushSize")
 					return errcode.New(errcode.ScriptErrPushSize)
 				}
@@ -2303,7 +2304,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 			}
 		}
 		scriptSig = script.NewEmptyScript()
-		scriptSig.PushData(sigData)
+		scriptSig.PushMultData(sigData)
 		err = verifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags))
 		if err != nil {
 			return err
@@ -2381,7 +2382,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 			sigN++
 		}
 		scriptResult := script.NewEmptyScript()
-		scriptResult.PushData(sigData)
+		scriptResult.PushMultData(sigData)
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {

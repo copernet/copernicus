@@ -11,7 +11,7 @@ const (
 	LegacyMaxBlockSize = OneMegaByte
 
 	//DefaultMaxBlockSize  Default setting for maximum allowed size for a block, in bytes
-	DefaultMaxBlockSize = 8 * OneMegaByte
+	DefaultMaxBlockSize = 32 * OneMegaByte
 	MinTxSize           = 62
 	MaxTxCount          = DefaultMaxBlockSize / MinTxSize
 	/*MaxBlockSigopsPerMb  The maximum allowed number of signature check operations per MB in a block

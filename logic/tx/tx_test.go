@@ -110,9 +110,11 @@ func (sec *scriptErrChecker) check(err error, scriptErrorString string) error {
 			return err
 		}
 		actualErrUpper = strings.TrimPrefix(actualErrUpper, "Invalid")
+		actualErrUpper = strings.TrimPrefix(actualErrUpper, "Sig")
 		actualErrUpper = strings.ToUpper(actualErrUpper)
 	}
 	scriptErrorStringUpper := strings.TrimPrefix(scriptErrorString, "INVALID")
+	scriptErrorStringUpper = strings.TrimPrefix(scriptErrorStringUpper, "SIG")
 	scriptErrorStringUpper = strings.Replace(scriptErrorStringUpper, "_", "", -1)
 	if actualErrUpper != scriptErrorStringUpper {
 		err = fmt.Errorf("expect: %v err: %v", scriptErrorString, actualErr)
@@ -721,7 +723,6 @@ testloop:
 			}
 			prevOuts[*outpoint.NewOutPoint(*prevhash, idx)] = v
 		}
-
 		err = newTx.CheckRegularTransaction()
 		if err != nil {
 			continue
