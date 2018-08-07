@@ -37,7 +37,6 @@ func TestBlockDB(t *testing.T) {
 	if err != nil {
 		t.Error("read failed")
 	}
-
 	txpos, err := GetInstance().ReadTxIndex(h)
 	if err != nil {
 		t.Error("read failed")
@@ -61,7 +60,6 @@ func TestBlockDB(t *testing.T) {
 	if err1 != nil {
 		t.Errorf("write flag failed:%v", err1)
 	}
-
 	res := GetInstance().ReadFlag("b")
 	if res != true {
 		t.Errorf("the flag should is true:%v", res)
@@ -72,10 +70,29 @@ func TestBlockDB(t *testing.T) {
 	if err1 != nil {
 		t.Errorf("write flag failed:%v", err2)
 	}
-
 	res2 := GetInstance().ReadFlag("b")
 	if res2 != false {
 		t.Errorf("the flag should is false:%v", res2)
+	}
+
+	//test write reindex: reindexing value is true
+	err3 := GetInstance().WriteReindexing(true)
+	if err3 != nil {
+		t.Errorf("write the index failed:%v", err3)
+	}
+	rr := GetInstance().ReadReindexing()
+	if rr != true {
+		t.Errorf("the reindexing should is true:%v", rr)
+	}
+
+	//test write reindex: reindexing value is false
+	err4 := GetInstance().WriteReindexing(false)
+	if err4 != nil {
+		t.Errorf("write the index failed:%v", err4)
+	}
+	rr1 := GetInstance().ReadReindexing()
+	if rr1 != false {
+		t.Errorf("the reindexing should is false:%v", rr1)
 	}
 
 }
