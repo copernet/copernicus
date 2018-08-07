@@ -95,8 +95,8 @@ func TestBlockDB(t *testing.T) {
 		t.Errorf("the reindexing should is false:%v", rr1)
 	}
 
-	//test write max block file
-	err = GetInstance().WriteMaxBlockFile(0)
+	//test write max block file, file value is:12
+	err = GetInstance().WriteMaxBlockFile(12)
 	if err != nil {
 		t.Errorf("write max block file failed:%v", err)
 	}
@@ -104,7 +104,20 @@ func TestBlockDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("read max block file failed:%v", err)
 	}
-	if bf != 0 {
+	if bf != 12 {
+		t.Errorf("read the max file value error:%v", bf)
+	}
+
+	//test write max block file, file value is:0
+	err = GetInstance().WriteMaxBlockFile(0)
+	if err != nil {
+		t.Errorf("write max block file failed:%v", err)
+	}
+	bf1, err := GetInstance().ReadMaxBlockFile()
+	if err != nil {
+		t.Errorf("read max block file failed:%v", err)
+	}
+	if bf1 != 0 {
 		t.Errorf("read the max file value error:%v", bf)
 	}
 }

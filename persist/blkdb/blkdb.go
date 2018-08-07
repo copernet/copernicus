@@ -104,13 +104,13 @@ func (blockTreeDB *BlockTreeDB) WriteMaxBlockFile(file int) error {
 	return blockTreeDB.dbw.Write([]byte{db.DbMaxBlock}, vbuf.Bytes(), false)
 }
 
-func (blockTreeDB *BlockTreeDB) ReadMaxBlockFile() (int, error) {
+func (blockTreeDB *BlockTreeDB) ReadMaxBlockFile() (int32, error) {
 	data, err := blockTreeDB.dbw.Read([]byte{db.DbMaxBlock})
 	if err != nil {
 		return -2, err
 	}
 	buf := bytes.NewBuffer(data)
-	var lastFile = -2
+	var lastFile int32 = -2
 	err = util.ReadElements(buf, &lastFile)
 	return lastFile, err
 }
