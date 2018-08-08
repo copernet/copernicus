@@ -26,9 +26,7 @@ type BlockTreeDBConfig struct {
 }
 
 func InitBlockTreDB(uc *BlockTreeDBConfig) {
-	// fmt.Printf("InitBlockTreDB processing ....%v",uc)
 	blockTreeDb = newBlockTreeDB(uc.Do)
-
 }
 
 func GetInstance() *BlockTreeDB {
@@ -37,6 +35,7 @@ func GetInstance() *BlockTreeDB {
 	}
 	return blockTreeDb
 }
+
 func newBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	if do == nil {
 		return nil
@@ -171,7 +170,6 @@ func (blockTreeDB *BlockTreeDB) ReadTxIndex(txid *util.Hash) (*block.DiskTxPos, 
 	dtp := block.NewDiskTxPos(nil, 0)
 	err = dtp.Unserialize(bytes.NewBuffer(vdata))
 	return dtp, err
-
 }
 
 func (blockTreeDB *BlockTreeDB) WriteTxIndex(txIndexes map[util.Hash]block.DiskTxPos) error {
@@ -215,9 +213,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 	return false
 }
 
-//
-
-func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(globalBlockIndexMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
 	// todo for iter and check key、 pow
 	cursor := blockTreeDB.dbw.Iterator()
 	defer cursor.Close()
@@ -247,12 +243,12 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 			cursor.Next()
 			continue
 		}
-		newIndex := InsertBlockIndex(*bi.GetBlockHash(), GlobalBlockIndexMap)
+		newIndex := InsertBlockIndex(*bi.GetBlockHash(), globalBlockIndexMap)
 		if newIndex == nil {
 			cursor.Next()
 			continue
 		}
-		pre := InsertBlockIndex(bi.Header.HashPrevBlock, GlobalBlockIndexMap)
+		pre := InsertBlockIndex(bi.Header.HashPrevBlock, globalBlockIndexMap)
 		newIndex.Prev = pre
 		newIndex.SetBlockHash(*bi.GetBlockHash())
 		newIndex.Height = bi.Height
@@ -278,7 +274,6 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 }
 
 func InsertBlockIndex(hash util.Hash, globalBlockIndexMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
-
 	if i, ok := globalBlockIndexMap[hash]; ok {
 		return i
 	}
@@ -286,9 +281,8 @@ func InsertBlockIndex(hash util.Hash, globalBlockIndexMap map[util.Hash]*blockin
 		return nil
 	}
 	var bi = blockindex.NewBlockIndex(block.NewBlockHeader())
-
 	globalBlockIndexMap[hash] = bi
+	bi.SetBlockHash(hash)
 
 	return bi
-
 }
