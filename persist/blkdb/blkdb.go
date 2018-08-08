@@ -95,7 +95,7 @@ func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int32, error) {
 	return lastFile, err
 }
 
-func (blockTreeDB *BlockTreeDB) WriteMaxBlockFile(file int) error {
+func (blockTreeDB *BlockTreeDB) WriteMaxBlockFile(file int32) error {
 	vbuf := bytes.NewBuffer(nil)
 	err := util.WriteElements(vbuf, uint64(file))
 	if err != nil {

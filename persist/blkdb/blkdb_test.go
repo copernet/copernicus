@@ -9,10 +9,12 @@ import (
 )
 
 func initBlockDB() {
-	bc := &BlockTreeDBConfig{Do: &db.DBOption{
-		FilePath:  "/tmp/dbtest",
-		CacheSize: 1 << 20,
-	}}
+	bc := &BlockTreeDBConfig{
+		Do: &db.DBOption{
+			FilePath:  "/tmp/dbtest",
+			CacheSize: 1 << 20,
+		},
+	}
 
 	InitBlockTreDB(bc)
 }
@@ -20,8 +22,7 @@ func initBlockDB() {
 func TestBlockDB(t *testing.T) {
 	initBlockDB()
 
-	// test TxIndex
-	//init block pos
+	// test TxIndex && init block pos
 	dbpos := block.NewDiskBlockPos(12, 12)
 	//init tx pos
 	dtp := block.NewDiskTxPos(dbpos, 1)
@@ -54,9 +55,12 @@ func TestBlockDB(t *testing.T) {
 	if bfi != nil {
 		t.Errorf("the ReadBlockFileInfo faild: %v", bfi)
 	}
+}
 
+func TestWriteFlag(t *testing.T) {
+	initBlockDB()
 	//test flag: value is false
-	err = GetInstance().WriteFlag("b", false)
+	err := GetInstance().WriteFlag("b", false)
 	if err != nil {
 		t.Errorf("write flag failed:%v", err)
 	}
@@ -74,9 +78,12 @@ func TestBlockDB(t *testing.T) {
 	if res2 != false {
 		t.Errorf("the flag should is false:%v", res2)
 	}
+}
 
+func TestWriteReindexing(t *testing.T) {
+	initBlockDB()
 	//test write reindex: reindexing value is true
-	err = GetInstance().WriteReindexing(true)
+	err := GetInstance().WriteReindexing(true)
 	if err != nil {
 		t.Errorf("write the index failed:%v", err)
 	}
@@ -94,9 +101,12 @@ func TestBlockDB(t *testing.T) {
 	if rr1 != false {
 		t.Errorf("the reindexing should is false:%v", rr1)
 	}
+}
 
+func TestWriteMaxBlockFile(t *testing.T) {
+	initBlockDB()
 	//test write max block file, file value is:12
-	err = GetInstance().WriteMaxBlockFile(12)
+	err := GetInstance().WriteMaxBlockFile(12)
 	if err != nil {
 		t.Errorf("write max block file failed:%v", err)
 	}
@@ -118,6 +128,22 @@ func TestBlockDB(t *testing.T) {
 		t.Errorf("read max block file failed:%v", err)
 	}
 	if bf1 != 0 {
-		t.Errorf("read the max file value error:%v", bf)
+		t.Errorf("read the max file value error:%v", bf1)
+	}
+
+	//test write max block file, file value is:-1
+	err = GetInstance().WriteMaxBlockFile(-3)
+	if err != nil {
+		t.Errorf("write max block file failed:%v", err)
+	}
+	bf2, err := GetInstance().ReadMaxBlockFile()
+	if err != nil {
+		t.Errorf("read max block file failed:%v", err)
+	}
+	if bf2 != -3 {
+		t.Errorf("read the max file value error:%v", bf2)
 	}
 }
+
+
+
