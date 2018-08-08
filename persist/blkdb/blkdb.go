@@ -1,9 +1,8 @@
 package blkdb
 
 import (
-	"bytes"
 	"fmt"
-
+	"bytes"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/persist/db"
@@ -126,7 +125,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*block.BlockFileIn
 		keyBuf.Reset()
 		valueBuf.Reset()
 		keyBuf.Write([]byte{db.DbBlockFiles})
-		util.WriteElements(keyBuf, uint64(v.GetIndex()))
+		util.WriteElements(keyBuf, uint64(0))
 		if err := v.Serialize(valueBuf); err != nil {
 			return err
 		}
@@ -278,9 +277,9 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(GlobalBlockIndexMap map[util.
 	return true
 }
 
-func InsertBlockIndex(hash util.Hash, GlobalBlockIndexMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
+func InsertBlockIndex(hash util.Hash, globalBlockIndexMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
 
-	if i, ok := GlobalBlockIndexMap[hash]; ok {
+	if i, ok := globalBlockIndexMap[hash]; ok {
 		return i
 	}
 	if hash.IsNull() {
@@ -288,7 +287,7 @@ func InsertBlockIndex(hash util.Hash, GlobalBlockIndexMap map[util.Hash]*blockin
 	}
 	var bi = blockindex.NewBlockIndex(block.NewBlockHeader())
 
-	GlobalBlockIndexMap[hash] = bi
+	globalBlockIndexMap[hash] = bi
 
 	return bi
 

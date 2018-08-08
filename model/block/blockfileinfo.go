@@ -17,7 +17,7 @@ type BlockFileInfo struct {
 	HeightLast  int32  // highest height of block in file
 	timeFirst   uint64 // earliest time of block in file
 	timeLast    uint64 // latest time of block in file
-	index       uint32
+	//index       uint32
 }
 
 func (bfi *BlockFileInfo) GetSerializeList() []string {
@@ -65,12 +65,6 @@ func (bfi *BlockFileInfo) AddBlock(nHeightIn int32, timeIn uint64) {
 	}
 }
 
-func (bfi *BlockFileInfo) GetIndex() uint32 {
-	return bfi.index
-}
-func (bfi *BlockFileInfo) SetIndex(idx uint32) {
-	bfi.index = idx
-}
 func (bfi *BlockFileInfo) String() string {
 	return fmt.Sprintf("BlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%s...%s)",
 		bfi.Blocks, bfi.Size, bfi.HeightFirst, bfi.HeightLast,
