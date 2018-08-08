@@ -213,7 +213,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 	return false
 }
 
-func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(globalBlockIndexMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
 	// todo for iter and check key、 pow
 	cursor := blockTreeDB.dbw.Iterator()
 	defer cursor.Close()
@@ -243,12 +243,12 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(globalBlockIndexMap map[util.
 			cursor.Next()
 			continue
 		}
-		newIndex := InsertBlockIndex(*bi.GetBlockHash(), globalBlockIndexMap)
+		newIndex := InsertBlockIndex(*bi.GetBlockHash(), blkIdxMap)
 		if newIndex == nil {
 			cursor.Next()
 			continue
 		}
-		pre := InsertBlockIndex(bi.Header.HashPrevBlock, globalBlockIndexMap)
+		pre := InsertBlockIndex(bi.Header.HashPrevBlock, blkIdxMap)
 		newIndex.Prev = pre
 		newIndex.SetBlockHash(*bi.GetBlockHash())
 		newIndex.Height = bi.Height
@@ -273,16 +273,15 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(globalBlockIndexMap map[util.
 	return true
 }
 
-func InsertBlockIndex(hash util.Hash, globalBlockIndexMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
-	if i, ok := globalBlockIndexMap[hash]; ok {
+func InsertBlockIndex(hash util.Hash, blkIdxMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
+	if i, ok := blkIdxMap[hash]; ok {
 		return i
 	}
 	if hash.IsNull() {
 		return nil
 	}
 	var bi = blockindex.NewBlockIndex(block.NewBlockHeader())
-	globalBlockIndexMap[hash] = bi
-	bi.SetBlockHash(hash)
+	blkIdxMap[hash] = bi
 
 	return bi
 }

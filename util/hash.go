@@ -148,6 +148,8 @@ func (hash *Hash) SetBytes(bytes []byte) error {
 	return nil
 }
 
+
+//todo；fix
 func (hash *Hash) IsEqual(target *Hash) bool {
 	if hash == nil && target == nil {
 		return true
