@@ -1,7 +1,12 @@
 package blockindex
 
 import (
+	"bytes"
+	"math/rand"
+	"time"
+	"reflect"
 	"testing"
+
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
@@ -136,7 +141,6 @@ func TestGetUndoPos(t *testing.T) {
 	}
 }
 
-
 func TestGetBlockPos(t *testing.T) {
 	var bIndex BlockIndex
 	testInt := int32(34536)
@@ -149,7 +153,6 @@ func TestGetBlockPos(t *testing.T) {
 	}
 }
 
-
 func TestGetBlockHash(t *testing.T) {
 	var bIndex BlockIndex
 	var testHash util.Hash
@@ -158,7 +161,6 @@ func TestGetBlockHash(t *testing.T) {
 		t.Errorf("GetBlockHash is wrong")
 	}
 }
-
 
 func TestAddStatus(t *testing.T) {
 	var bIndex BlockIndex
@@ -170,7 +172,6 @@ func TestAddStatus(t *testing.T) {
 		t.Errorf("AddStatus is wrong")
 	}
 }
-
 
 func TestSubStatus(t *testing.T) {
 	var bIndex BlockIndex
@@ -245,5 +246,32 @@ func TestGetMedianTimePast(t *testing.T) {
 	want = int64(4)
 	if ret != want {
 		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
+	}
+}
+
+func TestSerialize(t *testing.T) {
+	var bIndex1, bIndex2 BlockIndex
+	buf := bytes.NewBuffer(nil);
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for i := 0; i < 100; i++ {
+		bIndex1.Height = r.Int31()
+		bIndex1.Status = r.Uint32()
+		bIndex1.TxCount = r.Int31()
+		bIndex1.File = r.Int31()
+		bIndex1.DataPos = r.Uint32()
+		bIndex1.UndoPos = r.Uint32()
+		err := bIndex1.Serialize(buf)
+		if err != nil {
+			t.Error(err)
+		}
+		err = bIndex2.Unserialize(buf)
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(bIndex1, bIndex2) {
+			t.Errorf("Unserialize after Serialize returns differently bIndex1=%#v, bIndex2=%#v",
+				bIndex1, bIndex2)
+			return
+		}
 	}
 }

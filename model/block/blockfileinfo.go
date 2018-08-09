@@ -27,7 +27,7 @@ func (bfi *BlockFileInfo) GetSerializeList() []string {
 
 func (bfi *BlockFileInfo) Serialize(w io.Writer) error {
 	buf := bytes.NewBuffer(nil)
-	err := util.WriteElements(buf, bfi.Blocks, bfi.Size, bfi.UndoSize, bfi.HeightFirst, bfi.HeightLast, bfi.timeFirst, bfi.timeLast, bfi.index)
+	err := util.WriteElements(buf, bfi.Blocks, bfi.Size, bfi.UndoSize, bfi.HeightFirst, bfi.HeightLast, bfi.timeFirst, bfi.timeLast)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (bfi *BlockFileInfo) Serialize(w io.Writer) error {
 }
 
 func (bfi *BlockFileInfo) Unserialize(r io.Reader) error {
-	err := util.ReadElements(r, &bfi.Blocks, &bfi.Size, &bfi.UndoSize, &bfi.HeightFirst, &bfi.HeightLast, &bfi.timeFirst, &bfi.timeLast, &bfi.index)
+	err := util.ReadElements(r, &bfi.Blocks, &bfi.Size, &bfi.UndoSize, &bfi.HeightFirst, &bfi.HeightLast, &bfi.timeFirst, &bfi.timeLast)
 	return err
 }
 
