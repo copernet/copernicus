@@ -109,7 +109,7 @@ func NewGenesisBlock() *Block {
 	block.Txs = []*tx.Tx{tx.NewGenesisCoinbaseTx()}
 	block.Header = BlockHeader{
 		Version:       1,
-		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		HashPrevBlock: *util.HashFromString("0000000000000000000000000000000000000000000000000000000000000000"),
 		//2009-01-03 18:15:05 +0000 UTC
 		Time: 1231006505,
 		//Time: uint32(1231006505),
@@ -127,7 +127,7 @@ func NewTestNetGenesisBlock() *Block {
 	block.Txs = []*tx.Tx{tx.NewGenesisCoinbaseTx()}
 	block.Header = BlockHeader{
 		Version:       1,
-		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		HashPrevBlock: *util.HashFromString("0000000000000000000000000000000000000000000000000000000000000000"),
 		Time:          1296688602,
 		Bits:          0x1d00ffff,
 		Nonce:         414098458,
@@ -142,7 +142,7 @@ func NewRegTestGenesisBlock() *Block {
 	block.Txs = []*tx.Tx{tx.NewGenesisCoinbaseTx()}
 	block.Header = BlockHeader{
 		Version:       1,
-		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		HashPrevBlock: *util.HashFromString("0000000000000000000000000000000000000000000000000000000000000000"),
 		Time:          1296688602,
 		Bits:          0x207fffff,
 		Nonce:         2,

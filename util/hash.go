@@ -44,22 +44,6 @@ func DoubleSha256Hash(b []byte) Hash {
 	return Hash(sha256.Sum256(first[:Hash256Size]))
 }
 
-func HexToHash(str string) Hash {
-	bytes := HexToBytes(str)
-	if bytes == nil {
-		return Hash{}
-	}
-	var hashBytes [Hash256Size]byte
-	copy(hashBytes[:], bytes[:Hash256Size])
-	return Hash(hashBytes)
-}
-
-// Calculate the hash of hasher over buf.
-func calcHash(buf []byte, hasher hash.Hash) []byte {
-	hasher.Write(buf)
-	return hasher.Sum(nil)
-}
-
 // Hash160 calculates the hash ripemd160(sha256(b)).
 func Hash160(buf []byte) []byte {
 	return calcHash(calcHash(buf, sha256.New()), ripemd160.New())
@@ -67,6 +51,12 @@ func Hash160(buf []byte) []byte {
 
 func Ripemd160(buf []byte) []byte {
 	return calcHash(buf, ripemd160.New())
+}
+
+// Calculate the hash of hasher over buf.
+func calcHash(buf []byte, hasher hash.Hash) []byte {
+	hasher.Write(buf)
+	return hasher.Sum(nil)
 }
 
 func Sha1(buf []byte) [20]byte {
@@ -135,17 +125,7 @@ func (hash *Hash) Cmp(other *Hash) int {
 	}
 	return hash.ToBigInt().Cmp(other.ToBigInt())
 }
-func (hash *Hash) SetBytes(bytes []byte) error {
-	length := len(bytes)
-	if length != Hash256Size {
-		return fmt.Errorf("invalid hash length of %v , want %v", length, Hash256Size)
-	}
-	copy(hash[:], bytes)
-	return nil
-}
 
-
-//todo；fix
 func (hash *Hash) IsEqual(target *Hash) bool {
 	if hash == nil && target == nil {
 		return true
@@ -162,17 +142,27 @@ func (hash *Hash) IsNull() bool {
 	return true
 }
 
+func HashFromString(hexString string) *Hash {
+	hash, err := GetHashFromStr(hexString)
+	if err != nil {
+		panic(err)
+	}
+	return hash
+}
+
 func GetHashFromStr(hashStr string) (hash *Hash, err error) {
 	hash = new(Hash)
-	bytes, err := DecodeHash(hashStr)
+	bytes, err := GetHashBytesFromStr(hashStr)
 	if err != nil {
 		return
 	}
-	hash.SetBytes(bytes)
+
+	copy(hash[:], bytes)
+
 	return
 }
 
-func DecodeHash(src string) (bytes []byte, err error) {
+func GetHashBytesFromStr(src string) (bytes []byte, err error) {
 	if len(src) > MaxHashStringSize {
 		return nil, fmt.Errorf("max hash string length is %v bytes", MaxHashStringSize)
 	}
@@ -195,14 +185,6 @@ func DecodeHash(src string) (bytes []byte, err error) {
 		bytes[i], bytes[Hash256Size-1-i] = reversedHash[Hash256Size-1-i], b
 	}
 	return
-}
-
-func HashFromString(hexString string) *Hash {
-	hash, err := GetHashFromStr(hexString)
-	if err != nil {
-		panic(err)
-	}
-	return hash
 }
 
 func rotl(x uint64, b uint8) uint64 {

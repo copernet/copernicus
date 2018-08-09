@@ -96,7 +96,7 @@ var MainNetParams = BitcoinParams{
 		SubsidyHalvingInterval: 210000,
 		BIP34Height:            227931,
 		//little endian
-		BIP34Hash:                     util.HexToHash("000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8"),
+		BIP34Hash:                     *util.HashFromString("000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8"),
 		BIP65Height:                   388381,
 		BIP66Height:                   363725,
 		PowLimit:                      mainPowLimit,
@@ -112,11 +112,11 @@ var MainNetParams = BitcoinParams{
 		},
 
 		// The best chain should have at least this much work.
-		MinimumChainWork: util.HexToHash("000000000000000000000000000000000000000000a0f3064330647e2f6c4828"),
+		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000a0f3064330647e2f6c4828"),
 
 		// By default assume that the signatures in ancestors of this block are
 		// valid.
-		DefaultAssumeValid: util.HexToHash("000000000000000000e45ad2fbcc5ff3e85f0868dd8f00ad4e92dffabe28f8d2"),
+		DefaultAssumeValid: *util.HashFromString("000000000000000000e45ad2fbcc5ff3e85f0868dd8f00ad4e92dffabe28f8d2"),
 
 		UAHFHeight: 478559,
 
