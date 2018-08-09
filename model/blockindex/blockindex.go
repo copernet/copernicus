@@ -8,6 +8,8 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
+	"io"
+	"bytes"
 )
 
 /**
@@ -285,6 +287,44 @@ func (bIndex *BlockIndex) IsMonolithEnabled(params *chainparams.BitcoinParams) b
 
 func (bIndex *BlockIndex) IsReplayProtectionEnabled(params *chainparams.BitcoinParams) bool {
 	return bIndex.GetMedianTimePast() >= params.MagneticAnomalyActivationTime
+}
+
+func (bIndex *BlockIndex) GetSerializeList() []string {
+	dumpList := []string{"Height", "Status", "TxCount", "File", "DataPos", "UndoPos", "Header"}
+	return dumpList
+}
+
+func (bIndex *BlockIndex) Serialize(w io.Writer) error {
+	buf := bytes.NewBuffer(nil)
+	clientVersion := int32(160000)
+	err := util.WriteElements(buf, clientVersion, bIndex.Height, bIndex.Status, bIndex.TxCount, bIndex.File, bIndex.DataPos, bIndex.UndoPos)
+	if err != nil {
+		return err
+	}
+	err = bIndex.Header.Serialize(buf)
+	if err != nil {
+		return err
+	}
+	//
+	// dataLen := buf.Len()
+	// util.WriteVarLenInt(w, uint64(dataLen))
+	_, err = w.Write(buf.Bytes())
+	return err
+}
+
+func (bIndex *BlockIndex) Unserialize(r io.Reader) error {
+	// _, err := util.ReadVarLenInt(r)
+	// if err != nil {
+	// 	return err
+	// }
+	clientVersion := int32(160000)
+
+	err := util.ReadElements(r, &clientVersion, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
+	if err != nil {
+		return err
+	}
+	err = bIndex.Header.Unserialize(r)
+	return err
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {
