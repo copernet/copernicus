@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/merkleroot"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
@@ -101,4 +102,52 @@ func (bl *Block) GetHash() util.Hash {
 }
 func NewBlock() *Block {
 	return &Block{}
+}
+
+func NewGenesisBlock() *Block {
+	block := &Block{}
+	block.Txs = []*tx.Tx{tx.NewGenesisCoinbaseTx()}
+	block.Header = BlockHeader{
+		Version:       1,
+		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		//2009-01-03 18:15:05 +0000 UTC
+		Time: 1231006505,
+		//Time: uint32(1231006505),
+		//486604799  [00000000ffff0000000000000000000000000000000000000000000000000000]
+		Bits:  0x1d00ffff,
+		Nonce: 2083236893,
+	}
+	block.Header.MerkleRoot = merkleroot.BlockMerkleRoot(block.Txs, nil)
+
+	return block
+}
+
+func NewTestNetGenesisBlock() *Block {
+	block := &Block{}
+	block.Txs = []*tx.Tx{tx.NewGenesisCoinbaseTx()}
+	block.Header = BlockHeader{
+		Version:       1,
+		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		Time:          1296688602,
+		Bits:          0x1d00ffff,
+		Nonce:         414098458,
+	}
+	block.Header.MerkleRoot = merkleroot.BlockMerkleRoot(block.Txs, nil)
+
+	return block
+}
+
+func NewRegTestGenesisBlock() *Block {
+	block := &Block{}
+	block.Txs = []*tx.Tx{tx.NewGenesisCoinbaseTx()}
+	block.Header = BlockHeader{
+		Version:       1,
+		HashPrevBlock: util.HexToHash("0000000000000000000000000000000000000000000000000000000000000000"),
+		Time:          1296688602,
+		Bits:          0x207fffff,
+		Nonce:         2,
+	}
+	block.Header.MerkleRoot = merkleroot.BlockMerkleRoot(block.Txs, nil)
+
+	return block
 }

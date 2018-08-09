@@ -271,7 +271,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
 	//if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
-	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast() 
+	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 	//} else {
 	//	ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
 	//}
@@ -418,7 +418,7 @@ func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraN
 	coinbaseScript := script.NewScriptRaw(buf.Bytes())
 	bk.Txs[0].GetIns()[0].SetScriptSig(coinbaseScript)
 
-	bk.Header.MerkleRoot = merkleroot.BlockMerkleRoot(bk, nil)
+	bk.Header.MerkleRoot = merkleroot.BlockMerkleRoot(bk.Txs, nil)
 
 	return extraNonce
 }

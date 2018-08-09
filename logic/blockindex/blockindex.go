@@ -173,7 +173,7 @@ func LoadBlockIndexDB() bool {
 		// init active chain by tip[load from db]
 		gChain.SetTip(tip)
 		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
-			gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
+			gChain.Tip().GetBlockHash().String(), gChain.Height(),
 			time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
 			gChain.Tip())
 	}

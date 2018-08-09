@@ -632,6 +632,9 @@ func (s *Script) IsUnspendable() bool {
 }
 
 func (s *Script) IsPushOnly() bool {
+	if s.badOpCode {
+		return false
+	}
 	for _, ops := range s.ParsedOpCodes {
 		if ops.OpValue > opcodes.OP_16 {
 			return false

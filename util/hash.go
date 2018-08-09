@@ -81,10 +81,6 @@ func (hash *Hash) String() string {
 	return hex.EncodeToString(bytes[:])
 }
 
-func (hash *Hash) ToString() string {
-	return hash.String()
-}
-
 func (hash *Hash) SerializeSize() uint32 {
 	return hash.EncodeSize()
 }
@@ -164,16 +160,6 @@ func (hash *Hash) IsNull() bool {
 	return true
 }
 
-func BytesToHash(bytes []byte) (hash *Hash, err error) {
-	length := len(bytes)
-	if length != Hash256Size {
-		return nil, fmt.Errorf("invalid hash length of %v , want %v", length, Hash256Size)
-	}
-	hash = new(Hash)
-	hash.SetBytes(bytes)
-	return
-}
-
 func GetHashFromStr(hashStr string) (hash *Hash, err error) {
 	hash = new(Hash)
 	bytes, err := DecodeHash(hashStr)
@@ -207,13 +193,6 @@ func DecodeHash(src string) (bytes []byte, err error) {
 		bytes[i], bytes[Hash256Size-1-i] = reversedHash[Hash256Size-1-i], b
 	}
 	return
-}
-
-func CompareByHash(a, b interface{}) bool {
-	comA := a.(Hash)
-	comB := b.(Hash)
-	ret := comA.Cmp(&comB)
-	return ret > 0
 }
 
 func HashFromString(hexString string) *Hash {
