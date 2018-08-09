@@ -374,14 +374,17 @@ func (s *Script) RemoveOpCodeByIndex(index int) *Script {
 		return nil
 	}
 	if index == 0 {
-		return NewScriptOps(s.ParsedOpCodes[1 : opCodesLen-1])
+		if opCodesLen == 1 {
+			return NewEmptyScript()
+		}
+		return NewScriptOps(s.ParsedOpCodes[1:])
 	}
 	if index == opCodesLen-1 {
 		return NewScriptOps(s.ParsedOpCodes[:index])
 	}
 	parsedOpCodes := make([]opcodes.ParsedOpCode, 0, opCodesLen-1)
 	parsedOpCodes = append(parsedOpCodes, s.ParsedOpCodes[:index-1]...)
-	parsedOpCodes = append(parsedOpCodes, s.ParsedOpCodes[index+1:opCodesLen-1]...)
+	parsedOpCodes = append(parsedOpCodes, s.ParsedOpCodes[index+1:]...)
 	return NewScriptOps(parsedOpCodes)
 }
 
