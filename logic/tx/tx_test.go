@@ -370,7 +370,7 @@ func doScriptJSONTest(t *testing.T, itest []interface{}, sec scriptErrChecker) (
 	scriptNum := script.NewScriptNum(0)
 	scriptNumBytes = append(scriptNumBytes, scriptNum.Serialize(), scriptNum.Serialize())
 	preScriptSig := script.NewEmptyScript()
-	preScriptSig.PushData(scriptNumBytes)
+	preScriptSig.PushMultData(scriptNumBytes)
 
 	pretx := tx.NewTx(0, 1)
 	pretx.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.Hash{}, 0xffffffff),
