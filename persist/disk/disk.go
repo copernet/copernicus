@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"reflect"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -33,30 +32,30 @@ import (
 type FlushStateMode int
 
 const (
-	FlushStateNone FlushStateMode = iota
+	FlushStateNone     FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
 )
 
-var GRequestShutdown = new(atomic.Value)
+//var GRequestShutdown = new(atomic.Value)
+//
+//func StartShutdown() {
+//	GRequestShutdown.Store(true)
+//}
 
-func StartShutdown() {
-	GRequestShutdown.Store(true)
-}
-
-func AbortNodes(reason, userMessage string) bool {
-	log.Info("*** %s\n", reason)
-
-	//todo:
-	if len(userMessage) == 0 {
-		panic("Error: A fatal internal error occurred, see debug.log for details")
-	} else {
-
-	}
-	StartShutdown()
-	return false
-}
+//func AbortNodes(reason, userMessage string) bool {
+//	log.Info("*** %s\n", reason)
+//
+//	//todo:
+//	if len(userMessage) == 0 {
+//		panic("Error: A fatal internal error occurred, see debug.log for details")
+//	} else {
+//
+//	}
+//	StartShutdown()
+//	return false
+//}
 
 //func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
 //	AbortNodes(reason, userMessage)
@@ -433,7 +432,8 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	n := int(nAdditionalBytes)
 	needSize := uint64(MinDiskSpace + n)
 	if nFreeBytesAvailable < needSize {
-		return AbortNodes("Disk space is low!", "Error: Disk space is low!")
+		log.Error("Error: Disk space is low!")
+		os.Exit(0)
 	}
 	return true
 }
