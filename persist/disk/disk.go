@@ -61,7 +61,8 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	if fReadOnly {
 		flag |= os.O_RDONLY
 	} else {
-		flag |= os.O_APPEND | os.O_WRONLY
+		//flag |= os.O_APPEND | os.O_WRONLY
+		flag |= os.O_WRONLY
 	}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		flag |= os.O_CREATE
@@ -119,24 +120,36 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 	defer undoFile.Close()
 	//undoFile.Write(messageStart)
 	buf := bytes.NewBuffer(nil)
-	bu.Serialize(buf)
+	err := bu.Serialize(buf)
+	if err != nil {
+		log.Error("disk:serialize block undo failed.")
+	}
 	size := buf.Len() + 32
 	buHasher := sha256.New()
-	buHasher.Write(hashBlock[:])
-	buHasher.Write(buf.Bytes())
+	_, err = buHasher.Write(hashBlock[:])
+	if err != nil {
+		log.Error("disk:write hashBlock failed.")
+	}
+	_, err = buHasher.Write(buf.Bytes())
+	if err != nil {
+		log.Error("disk:write buf.Bytes() failed.")
+	}
 	buHash := buHasher.Sum(nil)
-	buf.Write(buHash)
+	_, err = buf.Write(buHash)
+	if err != nil {
+		log.Error("disk:write block undo hash failed.")
+	}
 	lenBuf := bytes.NewBuffer(nil)
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 
-	_, err := undoFile.Write(lenBuf.Bytes())
+	_, err = undoFile.Write(lenBuf.Bytes())
 	if err != nil {
-		log.Error("WriteUndoFile failed")
+		log.Error("disk:WriteUndoFile failed")
 		return err
 	}
 	_, err = undoFile.Write(buf.Bytes())
 	if err != nil {
-		log.Error("WriteUndoFile failed")
+		log.Error("disk:WriteUndoFile failed")
 		return err
 	}
 	return nil
@@ -174,8 +187,14 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 	// Verify checksum
 	buHasher := sha256.New()
-	buHasher.Write(hashblock[:])
-	buHasher.Write(undoData)
+	_, err = buHasher.Write(hashblock[:])
+	if err != nil {
+		log.Error("disk:write block undo hashBlock failed.")
+	}
+	_, err = buHasher.Write(undoData)
+	if err != nil {
+		log.Error("disk:write block undo undoData failed.")
+	}
 	buHash := buHasher.Sum(nil)
 	return bu, reflect.DeepEqual(checkSumData, buHash)
 

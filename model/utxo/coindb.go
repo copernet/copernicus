@@ -68,13 +68,19 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 		if v.dirty {
 			entry := NewCoinKey(&k)
 			bufEntry := bytes.NewBuffer(nil)
-			entry.Serialize(bufEntry)
+			err := entry.Serialize(bufEntry)
+			if err != nil {
+				log.Error("coinDB:serialize bufEntry failed %v", err)
+			}
 
 			if v.IsSpent() {
 				batch.Erase(bufEntry.Bytes())
 			} else {
 				coinByte := bytes.NewBuffer(nil)
-				v.Serialize(coinByte)
+				err := v.Serialize(coinByte)
+				if err != nil {
+					log.Error("coinDB:serialize coinByte failed %v", err)
+				}
 				batch.Write(bufEntry.Bytes(), coinByte.Bytes())
 			}
 			changed++
