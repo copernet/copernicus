@@ -38,30 +38,6 @@ const (
 	FlushStateAlways
 )
 
-//var GRequestShutdown = new(atomic.Value)
-//
-//func StartShutdown() {
-//	GRequestShutdown.Store(true)
-//}
-
-//func AbortNodes(reason, userMessage string) bool {
-//	log.Info("*** %s\n", reason)
-//
-//	//todo:
-//	if len(userMessage) == 0 {
-//		panic("Error: A fatal internal error occurred, see debug.log for details")
-//	} else {
-//
-//	}
-//	StartShutdown()
-//	return false
-//}
-
-//func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
-//	AbortNodes(reason, userMessage)
-//	return state.Error(reason)
-//}
-
 func OpenBlockFile(pos *block.DiskBlockPos, fReadOnly bool) *os.File {
 	return OpenDiskFile(*pos, "blk", fReadOnly)
 }
@@ -269,10 +245,13 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	}
 	defer file.Close()
 	buf := bytes.NewBuffer(nil)
-	block.Serialize(buf)
+	err := block.Serialize(buf)
+	if err != nil {
+		log.Error("Serialize buf failed, please check.")
+	}
 	size := buf.Len()
 	lenBuf := bytes.NewBuffer(nil)
-	err := util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
+	err = util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 	if err != nil {
 		log.Error("Write Block To Disk failed")
 		return false
@@ -433,7 +412,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	needSize := uint64(MinDiskSpace + n)
 	if nFreeBytesAvailable < needSize {
 		log.Error("Error: Disk space is low!")
-		os.Exit(0)
+		panic("Error: Disk space is low!")
 	}
 	return true
 }
