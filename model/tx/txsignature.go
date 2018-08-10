@@ -149,7 +149,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 		}
 		err = s.Serialize(&hashBuffer)
 		if err != nil {
-			return
+			log.Error("txSignature:serialize hashBuffer failed.")
 		}
 		//input preout amount
 		err = util.BinarySerializer.PutUint64(&hashBuffer, binary.LittleEndian, uint64(money))
@@ -173,7 +173,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 			log.Error("txSignature:push hashType to hashBuffer failed.")
 		}
 		result = util.DoubleSha256Hash(hashBuffer.Bytes())
-		return
+		return result, nil
 	}
 	// The SigHashSingle signature type signs only the corresponding input
 	// and output (the output with the same index number as the input).
