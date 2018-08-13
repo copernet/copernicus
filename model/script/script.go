@@ -373,6 +373,9 @@ func (s *Script) RemoveOpCodeByIndex(index int) *Script {
 	if index < 0 || index >= opCodesLen {
 		return nil
 	}
+	if opCodesLen == 1 {
+		return NewEmptyScript()
+	}
 	if index == 0 {
 		return NewScriptOps(s.ParsedOpCodes[1 : opCodesLen-1])
 	}
@@ -552,7 +555,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 	//OP_DUP OP_HASH160 OP_PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
 	if opValue0 == opcodes.OP_DUP {
 		if s.ParsedOpCodes[1].OpValue != opcodes.OP_HASH160 ||
-			s.ParsedOpCodes[2].OpValue != opcodes.OP_PUBKEYHASH ||
+			s.ParsedOpCodes[2].OpValue != opcodes.OP_PUBKEYHASH &&
 			s.ParsedOpCodes[2].Length != 20 ||
 			s.ParsedOpCodes[3].OpValue != opcodes.OP_EQUALVERIFY ||
 			s.ParsedOpCodes[4].OpValue != opcodes.OP_CHECKSIG {
@@ -632,6 +635,9 @@ func (s *Script) IsUnspendable() bool {
 }
 
 func (s *Script) IsPushOnly() bool {
+	if s.badOpCode {
+		return false
+	}
 	for _, ops := range s.ParsedOpCodes {
 		if ops.OpValue > opcodes.OP_16 {
 			return false
