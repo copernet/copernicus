@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"io"
+	"math"
 )
 
 const (
@@ -571,40 +572,40 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	return nil
 }
 
-func (tx *Tx) Copy() *Tx {
-	newTx := Tx{
-		version:  tx.GetVersion(),
-		lockTime: tx.GetLockTime(),
-		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
-		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
-	}
-	//newTx.hash = tx.hash
-
-	for _, txOut := range tx.outs {
-		scriptLen := len(txOut.GetScriptPubKey().GetData())
-		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
-
-		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
-		newTx.outs = append(newTx.outs, newTxOut)
-	}
-	for _, txIn := range tx.ins {
-		var hashBytes [32]byte
-		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-		preHash := new(util.Hash)
-		preHash.SetBytes(hashBytes[:])
-		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-		scriptLen := txIn.GetScriptSig().Size()
-		newScript := make([]byte, scriptLen)
-		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
-
-		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
-
-		newTx.ins = append(newTx.ins, newTxTmp)
-	}
-	return &newTx
-
-}
+//func (tx *Tx) Copy() *Tx {
+//	newTx := Tx{
+//		version:  tx.GetVersion(),
+//		lockTime: tx.GetLockTime(),
+//		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
+//		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
+//	}
+//	//newTx.hash = tx.hash
+//
+//	for _, txOut := range tx.outs {
+//		scriptLen := len(txOut.GetScriptPubKey().GetData())
+//		newOutScript := make([]byte, scriptLen)
+//		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
+//
+//		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
+//		newTx.outs = append(newTx.outs, newTxOut)
+//	}
+//	for _, txIn := range tx.ins {
+//		var hashBytes [32]byte
+//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
+//		preHash := new(util.Hash)
+//		preHash.SetBytes(hashBytes[:])
+//		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+//		scriptLen := txIn.GetScriptSig().Size()
+//		newScript := make([]byte, scriptLen)
+//		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
+//
+//		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
+//
+//		newTx.ins = append(newTx.ins, newTxTmp)
+//	}
+//	return &newTx
+//
+//}
 
 //func (tx *Tx) Equal(dstTx *Tx) bool {
 //	originBuf := bytes.NewBuffer(nil)
@@ -738,7 +739,8 @@ func NewGenesisCoinbaseTx() *Tx {
 	scriptPubKeyBytes, _ := hex.DecodeString("04678afdb0fe5548271967f1a67130b7105cd6a828e03909" +
 		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +
 		"de5c384df7ba0b8d578a4c702b6bf11d5f")
-	scriptPubKey := script.NewScriptRaw(scriptPubKeyBytes)
+	scriptPubKey := script.NewEmptyScript()
+	scriptPubKey.PushSingleData(scriptPubKeyBytes)
 	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
 
 	scriptSig := script.NewEmptyScript()
@@ -746,7 +748,7 @@ func NewGenesisCoinbaseTx() *Tx {
 	scriptSig.PushScriptNum(scriptSigNum)
 	scriptSig.PushSingleData([]byte(scriptSigString))
 
-	txIn := txin.NewTxIn(nil, scriptSig, 0)
+	txIn := txin.NewTxIn(nil, scriptSig, math.MaxUint32)
 	txOut := txout.NewTxOut(50*100000000, scriptPubKey)
 	tx.AddTxIn(txIn)
 	tx.AddTxOut(txOut)

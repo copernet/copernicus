@@ -216,6 +216,9 @@ type Configuration struct {
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
 	}
+	Chain struct {
+		AssumeValid string
+	}
 	Mining struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee
 		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize

@@ -7,6 +7,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"testing"
+	"github.com/copernet/copernicus/log"
 )
 
 func TestCoinKey(t *testing.T) {
@@ -15,11 +16,17 @@ func TestCoinKey(t *testing.T) {
 	ck := NewCoinKey(op)
 
 	w := bytes.NewBuffer(nil)
-	ck.Serialize(w)
+	err := ck.Serialize(w)
+	if err != nil {
+		log.Error("coinKeyTest: serialize failed %v", err)
+	}
 
 	var target CoinKey
 	target.outpoint = &outpoint.OutPoint{}
-	target.Unserialize(bytes.NewReader(w.Bytes()))
+	err = target.Unserialize(bytes.NewReader(w.Bytes()))
+	if err != nil {
+		log.Error("coinKeyTest: unSerialize failed %v", err)
+	}
 	if reflect.DeepEqual(ck, target) {
 		t.Errorf("the target outpoint hash:%v not equal hash1:%v\n", target, hash1)
 	}
