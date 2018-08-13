@@ -54,7 +54,7 @@ func AddCoins(txs *mtx.Tx, coinMap *utxo.CoinsMap, height int32) {
 	for idx, out := range txs.GetOuts() {
 		op := outpoint.NewOutPoint(txid, uint32(idx))
 		coin := utxo.NewCoin(out, height, isCoinbase)
-		coinMap.AddCoin(op, coin,false)
+		coinMap.AddCoin(op, coin, false)
 	}
 }
 
@@ -122,7 +122,10 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	spew.Dump("prevtx0", prevTx0)
 
 	buf := bytes.NewBuffer(nil)
-	blocks.Serialize(buf)
+	err := blocks.Serialize(buf)
+	if err != nil {
+		t.Error("serialize block failed.")
+	}
 	blocks.GetHash()
 
 	cvt := utxo.GetUtxoCacheInstance()
