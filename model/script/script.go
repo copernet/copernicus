@@ -552,10 +552,12 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 		return
 	}
 
-	//OP_DUP OP_HASH160 OP_PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
+	//OP_DUP OP_HASH160 PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
 	if opValue0 == opcodes.OP_DUP {
+		if len != 5 {
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		}
 		if s.ParsedOpCodes[1].OpValue != opcodes.OP_HASH160 ||
-			s.ParsedOpCodes[2].OpValue != opcodes.OP_PUBKEYHASH ||
 			s.ParsedOpCodes[2].Length != 20 ||
 			s.ParsedOpCodes[3].OpValue != opcodes.OP_EQUALVERIFY ||
 			s.ParsedOpCodes[4].OpValue != opcodes.OP_CHECKSIG {
@@ -572,17 +574,21 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
+		if len < 4 {
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		}
 		opM := DecodeOPN(opValue0)
 		pubKeyCount := 0
 		pubKeys = make([][]byte, 0, len-1)
 		data := make([]byte, 0, 1)
 		data = append(data, byte(opM))
 		pubKeys = append(pubKeys, data)
-		for i, e := range s.ParsedOpCodes {
+		for _, e := range s.ParsedOpCodes[1:] {
 			if e.Length >= 33 && e.Length <= 65 {
 				pubKeyCount++
-				data := s.ParsedOpCodes[i+1].Data[:]
-				pubKeys = append(pubKeys, data)
+				//data := s.ParsedOpCodes[i+1].Data[:]
+				//data := s.ParsedOpCodes[i].Data[:]
+				pubKeys = append(pubKeys, e.Data)
 				continue
 			}
 			opValueI := e.OpValue
