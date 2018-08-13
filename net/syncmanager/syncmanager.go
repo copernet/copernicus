@@ -13,6 +13,7 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
+	lc "github.com/copernet/copernicus/logic/chain"
 	lpool "github.com/copernet/copernicus/logic/mempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -45,6 +46,8 @@ const (
 	// maxRequestedTxns is the maximum number of requested transactions
 	// hashes to store in memory.
 	maxRequestedTxns = wire.MaxInvPerMsg
+
+	blockRequestTimeoutTime = 20 * time.Minute
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -164,7 +167,7 @@ type peerSyncState struct {
 	syncCandidate   bool
 	requestQueue    []*wire.InvVect
 	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}
+	requestedBlocks map[util.Hash]time.Time
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -199,6 +202,8 @@ type SyncManager struct {
 	ProcessTransactionCallBack func(*tx.Tx, int64) ([]*tx.Tx, []util.Hash, error)
 	ProcessBlockCallBack       func(*block.Block) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
+
+	requestBlkInvCnt int
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -377,7 +382,7 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	sm.peerStates[peer] = &peerSyncState{
 		syncCandidate:   isSyncCandidate,
 		requestedTxns:   make(map[util.Hash]struct{}),
-		requestedBlocks: make(map[util.Hash]struct{}),
+		requestedBlocks: make(map[util.Hash]time.Time),
 	}
 
 	// Start syncing by choosing the best candidate if needed.
@@ -616,10 +621,21 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
 		if !sm.headersFirstMode {
 			log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
-			if len(sm.requestedBlocks) == 0 {
-				activeChain := chain.GetInstance()
-				locator := activeChain.GetLocator(nil)
-				peer.PushGetBlocksMsg(*locator, &zeroHash)
+			if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
+				timeoutTime := time.Now().Add(-blockRequestTimeoutTime)
+				for blkhash, reqTime := range state.requestedBlocks {
+					if reqTime.Before(timeoutTime) {
+						delete(state.requestedBlocks, blkhash)
+						delete(sm.requestedBlocks, blkhash)
+					}
+				}
+
+				if len(state.requestedBlocks) == 0 {
+					sm.requestBlkInvCnt--
+					activeChain := chain.GetInstance()
+					locator := activeChain.GetLocator(nil)
+					peer.PushGetBlocksMsg(*locator, &zeroHash)
+				}
 			}
 		} else {
 			if !isCheckpointBlock {
@@ -674,10 +690,21 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// Nothing more to do if we aren't in headers-first mode.
 	if !sm.headersFirstMode {
 		log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
-		if len(sm.requestedBlocks) == 0 {
-			activeChain := chain.GetInstance()
-			locator := activeChain.GetLocator(nil)
-			peer.PushGetBlocksMsg(*locator, &zeroHash)
+		if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
+			timeoutTime := time.Now().Add(-blockRequestTimeoutTime)
+			for blkhash, reqTime := range state.requestedBlocks {
+				if reqTime.Before(timeoutTime) {
+					delete(state.requestedBlocks, blkhash)
+					delete(sm.requestedBlocks, blkhash)
+				}
+			}
+
+			if len(state.requestedBlocks) == 0 {
+				sm.requestBlkInvCnt--
+				activeChain := chain.GetInstance()
+				locator := activeChain.GetLocator(nil)
+				peer.PushGetBlocksMsg(*locator, &zeroHash)
+			}
 		}
 		return
 	}
@@ -761,7 +788,7 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 		if !haveInv {
 			syncPeerState := sm.peerStates[sm.syncPeer]
 			sm.requestedBlocks[*node.hash] = struct{}{}
-			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
+			syncPeerState.requestedBlocks[*node.hash] = time.Now()
 			gdmsg.AddInvVect(iv)
 			numRequested++
 		}
@@ -991,6 +1018,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 	}
 
+	var invBlkCnt int
 	// Request the advertised inventory if we don't already have it.  Also,
 	// request parent blocks of orphans if we receive one we already have.
 	// Finally, attempt to detect potential stalls due to long side chains
@@ -999,6 +1027,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		// Ignore unsupported inventory types.
 		switch iv.Type {
 		case wire.InvTypeBlock:
+			invBlkCnt++
 		case wire.InvTypeTx:
 		default:
 			continue
@@ -1054,6 +1083,16 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 	}
 
+	if invBlkCnt == len(invVects) &&
+		invBlkCnt >= lc.MaxBlocksResults && peer == sm.syncPeer {
+
+		sm.requestBlkInvCnt = 2
+	}
+
+	log.Debug(
+		"invBlkCnt=%d len(invVects)=%d sm.requestBlkInv=%v  peer=%p(%#v) sm.syncPeer=%p",
+		invBlkCnt, len(invVects), sm.requestBlkInvCnt, peer, peer, sm.syncPeer)
+
 	// Request as much as possible at once.  Anything that won't fit into
 	// the request will be requested on the next inv message.
 	numRequested := 0
@@ -1071,7 +1110,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			if _, exists := sm.requestedBlocks[iv.Hash]; !exists {
 				sm.requestedBlocks[iv.Hash] = struct{}{}
 				sm.limitMap(sm.requestedBlocks, maxRequestedBlocks)
-				state.requestedBlocks[iv.Hash] = struct{}{}
+				state.requestedBlocks[iv.Hash] = time.Now()
 				gdmsg.AddInvVect(iv)
 				numRequested++
 			}
