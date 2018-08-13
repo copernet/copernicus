@@ -6,6 +6,7 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"io"
+	"github.com/copernet/copernicus/log"
 )
 
 type CoinKey struct {
@@ -35,7 +36,10 @@ func (coinKey *CoinKey) Unserialize(reader io.Reader) error {
 
 func (coinKey *CoinKey) GetSerKey() []byte {
 	buf := bytes.NewBuffer(nil)
-	coinKey.Serialize(buf)
+	err := coinKey.Serialize(buf)
+	if err != nil {
+		log.Error("coinKey:serialize buf failed %v", err)
+	}
 	return buf.Bytes()
 }
 

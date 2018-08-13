@@ -6,11 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"strconv"
-	"strings"
-	"testing"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -19,7 +16,10 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/copernet/copernicus/errcode"
+	"io/ioutil"
+	"strconv"
+	"strings"
+	"testing"
 )
 
 var opMap map[string]byte
@@ -67,7 +67,7 @@ func newScriptErrChecker() (*scriptErrChecker, error) {
 	if strings.HasSuffix(contents[1], " ScriptErr = ScriptErrorBase + iota") {
 		contents[1] = strings.TrimSuffix(contents[1], " ScriptErr = ScriptErrorBase + iota")
 	} else {
-		err = fmt.Errorf("scripterr.go the first const should be declared ending with \" ScriptErr = ScriptErrorBase + iota\"");
+		err = fmt.Errorf("scripterr.go the first const should be declared ending with \" ScriptErr = ScriptErrorBase + iota\"")
 		return nil, err
 	}
 	contents = contents[1:]
@@ -96,8 +96,7 @@ func (sec *scriptErrChecker) check(err error, scriptErrorString string) error {
 		actualErrUpper = "OK"
 	} else {
 		var ok bool
-		if perr, ok = err.(errcode.ProjectError);
-			!ok {
+		if perr, ok = err.(errcode.ProjectError); !ok {
 			err = fmt.Errorf("Error in converting err to ProjectErr")
 			return err
 		}
@@ -429,7 +428,7 @@ func TestSigHash(t *testing.T) {
 		nIn := int(testVecF64ToUint32(test[2].(float64)))
 		hashType := testVecF64ToUint32(test[3].(float64))
 
-		shreg, err := util.DecodeHash(test[4].(string))
+		shreg, err := util.GetHashBytesFromStr(test[4].(string))
 		if err != nil {
 			t.Errorf("decode hash err for test %d: %v", i, err)
 			continue

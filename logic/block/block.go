@@ -81,7 +81,7 @@ func CheckBlock(pblock *block.Block) error {
 
 	// Check the merkle root.
 	mutated := false
-	hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock, &mutated)
+	hashMerkleRoot2 := merkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
 	if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
 		log.Debug("ErrorBadTxMrklRoot")
 		return errcode.New(errcode.ErrorBadTxnMrklRoot)

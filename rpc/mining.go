@@ -118,7 +118,7 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 			//PooledTx:           uint64(mempool.Size()),              TODO
 			Chain: consensus.MainNetParams.Name,
 		}
-		return &result, nil*/ // todo open
+		return &result, nil*/// todo open
 	return nil, nil
 }
 
@@ -241,7 +241,10 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		entry := btcjson.GetBlockTemplateResultTx{}
 
 		dataBuf := bytes.NewBuffer(nil)
-		tx.Serialize(dataBuf)
+		err := tx.Serialize(dataBuf)
+		if err != nil {
+			log.Error("mining:serialize tx failed.")
+		}
 		entry.Data = hex.EncodeToString(dataBuf.Bytes())
 
 		entry.TxID = txID.String()
@@ -562,7 +565,7 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 		}
 		_ = extraNonce
 
-		return ret, nil*/ // TODO open
+		return ret, nil*/// TODO open
 	return nil, nil
 }
 

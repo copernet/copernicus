@@ -30,6 +30,7 @@ type Chain struct {
 }
 
 var globalChain *Chain
+var HashAssumeValid util.Hash
 
 func GetInstance() *Chain {
 	if globalChain == nil {
@@ -43,6 +44,15 @@ func InitGlobalChain(cfg *conf.Configuration) {
 	if globalChain == nil {
 		globalChain = NewChain()
 		globalChain.params = chainparams.ActiveNetParams
+	}
+	if len(cfg.Chain.AssumeValid) > 0 {
+		hash, err := util.GetHashFromStr(cfg.Chain.AssumeValid)
+		if err != nil {
+			panic("AssumeValid config err")
+		}
+		HashAssumeValid = *hash
+	} else {
+		HashAssumeValid = chainparams.ActiveNetParams.DefaultAssumeValid
 	}
 }
 func NewChain() *Chain {

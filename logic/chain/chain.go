@@ -29,8 +29,6 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 )
 
-var HashAssumeValid util.Hash
-
 func ConnectBlock(pblock *block.Block,
 	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := mchain.GetInstance()
@@ -62,7 +60,7 @@ func ConnectBlock(pblock *block.Block,
 	}
 
 	fScriptChecks := true
-	if HashAssumeValid != util.HashZero {
+	if mchain.HashAssumeValid != util.HashZero {
 		// We've been configured with the hash of a block which has been
 		// externally verified to have a valid history. A suitable default value
 		// is included with the software and updated from time to time. Because
@@ -70,7 +68,7 @@ func ConnectBlock(pblock *block.Block,
 		// defaults can be easily reviewed. This setting doesn't force the
 		// selection of any particular chain but makes validating some faster by
 		// effectively caching the result of part of the verification.
-		if bi := gChain.FindBlockIndex(HashAssumeValid); bi != nil {
+		if bi := gChain.FindBlockIndex(mchain.HashAssumeValid); bi != nil {
 			if bi.GetAncestor(pindex.Height) == pindex && tip.GetAncestor(pindex.Height) == pindex &&
 				tip.ChainWork.Cmp(pow.HashToBig(&params.MinimumChainWork)) > 0 {
 				// This block is a member of the assumed verified chain and an

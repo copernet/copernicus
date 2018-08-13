@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"reflect"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -33,35 +32,11 @@ import (
 type FlushStateMode int
 
 const (
-	FlushStateNone FlushStateMode = iota
+	FlushStateNone     FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
 )
-
-var GRequestShutdown = new(atomic.Value)
-
-func StartShutdown() {
-	GRequestShutdown.Store(true)
-}
-
-func AbortNodes(reason, userMessage string) bool {
-	log.Info("*** %s\n", reason)
-
-	//todo:
-	if len(userMessage) == 0 {
-		panic("Error: A fatal internal error occurred, see debug.log for details")
-	} else {
-
-	}
-	StartShutdown()
-	return false
-}
-
-//func AbortNode(state *block.ValidationState, reason, userMessage string) bool {
-//	AbortNodes(reason, userMessage)
-//	return state.Error(reason)
-//}
 
 func OpenBlockFile(pos *block.DiskBlockPos, fReadOnly bool) *os.File {
 	return OpenDiskFile(*pos, "blk", fReadOnly)
@@ -86,7 +61,8 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	if fReadOnly {
 		flag |= os.O_RDONLY
 	} else {
-		flag |= os.O_APPEND | os.O_WRONLY
+		//flag |= os.O_APPEND | os.O_WRONLY
+		flag |= os.O_WRONLY
 	}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		flag |= os.O_CREATE
@@ -144,24 +120,36 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 	defer undoFile.Close()
 	//undoFile.Write(messageStart)
 	buf := bytes.NewBuffer(nil)
-	bu.Serialize(buf)
+	err := bu.Serialize(buf)
+	if err != nil {
+		log.Error("disk:serialize block undo failed.")
+	}
 	size := buf.Len() + 32
 	buHasher := sha256.New()
-	buHasher.Write(hashBlock[:])
-	buHasher.Write(buf.Bytes())
+	_, err = buHasher.Write(hashBlock[:])
+	if err != nil {
+		log.Error("disk:write hashBlock failed.")
+	}
+	_, err = buHasher.Write(buf.Bytes())
+	if err != nil {
+		log.Error("disk:write buf.Bytes() failed.")
+	}
 	buHash := buHasher.Sum(nil)
-	buf.Write(buHash)
+	_, err = buf.Write(buHash)
+	if err != nil {
+		log.Error("disk:write block undo hash failed.")
+	}
 	lenBuf := bytes.NewBuffer(nil)
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 
-	_, err := undoFile.Write(lenBuf.Bytes())
+	_, err = undoFile.Write(lenBuf.Bytes())
 	if err != nil {
-		log.Error("WriteUndoFile failed")
+		log.Error("disk:WriteUndoFile failed")
 		return err
 	}
 	_, err = undoFile.Write(buf.Bytes())
 	if err != nil {
-		log.Error("WriteUndoFile failed")
+		log.Error("disk:WriteUndoFile failed")
 		return err
 	}
 	return nil
@@ -199,8 +187,14 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 	// Verify checksum
 	buHasher := sha256.New()
-	buHasher.Write(hashblock[:])
-	buHasher.Write(undoData)
+	_, err = buHasher.Write(hashblock[:])
+	if err != nil {
+		log.Error("disk:write block undo hashBlock failed.")
+	}
+	_, err = buHasher.Write(undoData)
+	if err != nil {
+		log.Error("disk:write block undo undoData failed.")
+	}
 	buHash := buHasher.Sum(nil)
 	return bu, reflect.DeepEqual(checkSumData, buHash)
 
@@ -270,10 +264,13 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	}
 	defer file.Close()
 	buf := bytes.NewBuffer(nil)
-	block.Serialize(buf)
+	err := block.Serialize(buf)
+	if err != nil {
+		log.Error("Serialize buf failed, please check.")
+	}
 	size := buf.Len()
 	lenBuf := bytes.NewBuffer(nil)
-	err := util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
+	err = util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 	if err != nil {
 		log.Error("Write Block To Disk failed")
 		return false
@@ -433,7 +430,8 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	n := int(nAdditionalBytes)
 	needSize := uint64(MinDiskSpace + n)
 	if nFreeBytesAvailable < needSize {
-		return AbortNodes("Disk space is low!", "Error: Disk space is low!")
+		log.Error("Error: Disk space is low!")
+		panic("Error: Disk space is low!")
 	}
 	return true
 }
