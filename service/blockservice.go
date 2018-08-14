@@ -81,7 +81,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	// Only used to report errors, not invalidity - ignore it
 	if err = lchain.ActivateBestChain(pblock); err != nil {
-		log.Error(" ActivateBestChain failed ")
+		log.Error(" ActivateBestChain failed :%v", err)
 		return err
 	}
 
