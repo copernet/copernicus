@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/copernet/copernicus/conf"
@@ -100,10 +99,10 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 
 // FindBlockIndex finds blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	fmt.Println("FindBlockIndex======", len(c.indexMap))
+	//fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
-		log.Trace("current chain Tip header height : %d", bi.Height)
+		//log.Trace("current chain Tip header height : %d", bi.Height)
 		return bi
 	}
 

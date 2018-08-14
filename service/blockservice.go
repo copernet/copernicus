@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/copernet/copernicus/log"
 	lblock "github.com/copernet/copernicus/logic/block"
 	lchain "github.com/copernet/copernicus/logic/chain"
@@ -29,13 +30,14 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 
 func ProcessBlock(b *block.Block) (bool, error) {
 	h := b.GetHash()
-	log.Trace("blockservice process block , blockhash : %s", h.String())
+	//log.Trace("blockservice process block , blockhash : %s", h.String())
 	//fmt.Printf("txs[0] ins:%v, outs:%v", b.Txs[0].GetIns(), b.Txs[0].GetOuts())
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
 	coinsTipHash, _ := coinsTip.GetBestBlock()
-	log.Trace("Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
-		gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+
+	log.Trace("Begin processing block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
 	isNewBlock := false
 	var err error
@@ -57,9 +59,11 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	}
 
 	coinsTipHash, _ = coinsTip.GetBestBlock()
-	log.Trace("After process block, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
-		gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
+	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s\n",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 	return isNewBlock, err
 }
 

@@ -1,7 +1,6 @@
 package blockindex
 
 import (
-	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -162,8 +161,8 @@ func LoadBlockIndexDB() bool {
 	log.Debug("find bestblock hash:%v and err:%v from utxo", bestHash, err)
 	if err == nil {
 		tip, ok := GlobalBlockIndexMap[bestHash]
-		indexMapLen := len(GlobalBlockIndexMap)
-		fmt.Println("indexMapLen====", indexMapLen)
+		//indexMapLen := len(GlobalBlockIndexMap)
+		//fmt.Println("indexMapLen====", indexMapLen)
 		if !ok {
 			//shoud reindex from db
 			log.Debug("can't find tip from blockindex db, please delete blocks and chainstate and run again")
