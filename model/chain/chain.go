@@ -40,13 +40,13 @@ func GetInstance() *Chain {
 	return globalChain
 }
 
-func InitGlobalChain(cfg *conf.Configuration) {
+func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
 		globalChain.params = chainparams.ActiveNetParams
 	}
-	if len(cfg.Chain.AssumeValid) > 0 {
-		hash, err := util.GetHashFromStr(cfg.Chain.AssumeValid)
+	if len(conf.Cfg.Chain.AssumeValid) > 0 {
+		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
 		if err != nil {
 			panic("AssumeValid config err")
 		}
