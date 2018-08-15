@@ -1,14 +1,13 @@
 package blkdb
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
@@ -233,10 +232,14 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 		var bi = blockindex.NewBlockIndex(block.NewBlockHeader())
 		val := cursor.GetVal()
 		if val == nil {
-			logs.Error("LoadBlockIndex() : failed to read value")
+			log.Error("LoadBlockIndex() : failed to read value")
 			return false
 		}
-		bi.Unserialize(bytes.NewBuffer(val))
+
+		if err := bi.Unserialize(bytes.NewBuffer(val)); err != nil {
+			log.Error("LoadBlockIndexGuts: BlockIndex unserializa err:%v", err)
+		}
+
 		if bi.TxCount == 0 {
 			fmt.Println("err")
 			blockTreeDB.dbw.Erase(k, true)
@@ -265,7 +268,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 		newIndex.TxCount = bi.TxCount
 
 		if !new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, params) {
-			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
+			log.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
 		}
 		cursor.Next()
