@@ -507,7 +507,7 @@ func BytesToBool(bytes []byte) bool {
 func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, err error) {
 	//p2sh scriptPubKey
 	if s.IsPayToScriptHash() {
-		return ScriptHash, nil, nil
+		return ScriptHash, [][]byte{s.ParsedOpCodes[1].Data}, nil
 	}
 	// Provably prunable, data-carrying output
 	//

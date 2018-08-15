@@ -1,7 +1,6 @@
 package db
 
 import (
-	"crypto/rand"
 	"errors"
 	"os"
 	"path/filepath"
@@ -14,10 +13,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const (
-	obfuscateKeyKey = "\000obfuscate_key"
-	obfuscateKeyLen = 8
-)
+//const (
+//	obfuscateKeyKey = "\000obfuscate_key"
+//	obfuscateKeyLen = 8
+//)
 
 const (
 	DbCoin       byte = 'C'
@@ -49,14 +48,14 @@ type DBWrapper struct {
 	obfuscateKey []byte
 }
 
-func genObfuscateKey() []byte {
-	buf := make([]byte, obfuscateKeyLen)
-	_, err := rand.Read(buf)
-	if err != nil {
-		panic("failed read random bytes")
-	}
-	return buf
-}
+//func genObfuscateKey() []byte {
+//	buf := make([]byte, obfuscateKeyLen)
+//	_, err := rand.Read(buf)
+//	if err != nil {
+//		panic("failed read random bytes")
+//	}
+//	return buf
+//}
 
 func getOptions(cacheSize int) opt.Options {
 	var opts opt.Options
@@ -151,34 +150,34 @@ func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 		name:        filepath.Base(do.FilePath),
 		//obfuscateKey: make([]byte, 8),
 	}
-	exists := false
-	obk, err := dbw.Read([]byte(obfuscateKeyKey))
-	if err == nil {
-		dbw.obfuscateKey = obk
-		exists = true
-	}
-	if !exists && !do.DontObfuscate && dbw.IsEmpty() {
-		newKey := genObfuscateKey()
-		if err := dbw.Write([]byte(obfuscateKeyKey), newKey, false); err != nil {
-			return nil, err
-		}
-		dbw.obfuscateKey = newKey
-	}
+	//exists := false
+	//obk, err := dbw.Read([]byte(obfuscateKeyKey))
+	//if err == nil {
+	//	dbw.obfuscateKey = obk
+	//	exists = true
+	//}
+	//if !exists && !do.DontObfuscate && dbw.IsEmpty() {
+	//	newKey := genObfuscateKey()
+	//	if err := dbw.Write([]byte(obfuscateKeyKey), newKey, false); err != nil {
+	//		return nil, err
+	//	}
+	//	dbw.obfuscateKey = newKey
+	//}
 	return dbw, nil
 }
 
-func xor(val, key []byte) {
-	if len(key) == 0 {
-		return
-	}
-	for i, j := 0, 0; i < len(val); i++ {
-		val[i] ^= key[j]
-		j++
-		if j == len(key) {
-			j = 0
-		}
-	}
-}
+//func xor(val, key []byte) {
+//	if len(key) == 0 {
+//		return
+//	}
+//	for i, j := 0, 0; i < len(val); i++ {
+//		val[i] ^= key[j]
+//		j++
+//		if j == len(key) {
+//			j = 0
+//		}
+//	}
+//}
 
 func (dbw *DBWrapper) Read(key []byte) ([]byte, error) {
 	return dbw.db.Get(key, &dbw.readOption)

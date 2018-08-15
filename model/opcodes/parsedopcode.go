@@ -55,7 +55,7 @@ func (parsedOpCode *ParsedOpCode) CheckCompactDataPush() bool {
 	if dataLen <= 65535 {
 		return opcode == OP_PUSHDATA2
 	}
-	return true
+	return opcode == OP_PUSHDATA4
 }
 
 func (parsedOpCode *ParsedOpCode) CheckMinimalDataPush() bool {

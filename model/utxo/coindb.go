@@ -2,7 +2,6 @@ package utxo
 
 import (
 	"bytes"
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/persist/db"
@@ -18,7 +17,7 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinKey(outpoint).Serialize(buf)
 	if err != nil {
-		logs.Emergency("db.GetCoin err:%#v", err)
+		log.Emergency("db.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
 	log.Debug("outpoint==========", outpoint)
@@ -36,7 +35,7 @@ func (coinsViewDB *CoinsDB) HaveCoin(outpoint *outpoint.OutPoint) bool {
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinKey(outpoint).Serialize(buf)
 	if err != nil {
-		logs.Emergency("db.HaveCoin err:%#v", err)
+		log.Emergency("db.HaveCoin err:%#v", err)
 
 		return false
 	}
@@ -90,7 +89,10 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 	}
 	if !hashBlock.IsNull() {
 		hashByte := bytes.NewBuffer(nil)
-		hashBlock.Serialize(hashByte)
+		_, err := hashBlock.Serialize(hashByte)
+		if err != nil {
+			log.Error("coinDB:Serialize hash block failed<%v>, please check.", err)
+		}
 		batch.Write([]byte{db.DbBestBlock}, hashByte.Bytes())
 	}
 
