@@ -521,12 +521,14 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 		sigBytes = append(sigBytes, byte(0))
 		requiredSigs := int(pubKeys[0][0])
 		signed := 0
+		emptyBytes := []byte{}
+		sigData = append(sigData, emptyBytes)
 		for _, e := range pubKeys[1 : len(pubKeys)-2] {
 			pubKeyHashString := string(util.Hash160(e))
 			privateKey := keys[pubKeyHashString]
 			signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
 			if err != nil {
-				return nil, pubKeyType, err
+				continue
 			}
 			sigBytes = append(sigBytes, signature.Serialize()...)
 			sigBytes = append(sigBytes, byte(hashType))
