@@ -988,6 +988,179 @@ func TestScriptCombineSigs(t *testing.T) {
 	if !reflect.DeepEqual(combined, scriptSig) && !reflect.DeepEqual(combined, scriptSigCopy) {
 		t.Errorf("combined should be equal to scriptSig or scriptSigCopy")
 	}
+
+	// dummy scriptSigCopy with placeholder, should always choose
+	// non-placeholder:
+	scriptSigCopy = script.NewEmptyScript()
+	scriptSigCopy.PushOpCode(opcodes.OP_0)
+	scriptSigCopy.PushSingleData(pkSignle.GetData())
+	combined, err = combineSignature(&txTo, scriptPubKey, scriptSigCopy,
+		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, scriptSig) {
+		t.Errorf("combined should be equal to scriptSig")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey, scriptSig,
+		scriptSigCopy, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, scriptSig) {
+		t.Errorf("combined should be equal to scriptSig")
+	}
+
+	// Hardest case:  Multisig 2-of-3
+	scriptPubKey = script.NewEmptyScript()
+	scriptPubKey.PushInt64(2)
+	for i := 0; i < 3; i++ {
+		scriptPubKey.PushSingleData(pubkeys[i].ToBytes())
+	}
+	scriptPubKey.PushInt64(3)
+	scriptPubKey.PushOpCode(opcodes.OP_CHECKMULTISIG)
+	txFrom.GetTxOut(0).SetScriptPubKey(scriptPubKey)
+	coinsMap = utxo.NewEmptyCoinsMap()
+	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+		t.Error(err)
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		scriptSig, script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, scriptSig) {
+		t.Errorf("combined should be equal to scriptSig")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		script.NewEmptyScript(), scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, scriptSig) {
+		t.Errorf("combined should be equal to scriptSig")
+	}
+
+	// A couple of partially-signed versions:
+	hash, err := tx.SignatureHash(&txTo, scriptPubKey, uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
+	if err != nil {
+		t.Error(err)
+	}
+	vchsig, err := keys[0].Sign(hash.GetCloneBytes())
+	if err != nil {
+		t.Error(err)
+	}
+	sig1 := bytes.Join([][]byte{vchsig.Serialize(), {byte(txscript.SigHashAll)}}, []byte{})
+
+	hash, err = tx.SignatureHash(&txTo, scriptPubKey, uint32(txscript.SigHashNone), 0, amount.Amount(0), 0)
+	if err != nil {
+		t.Error(err)
+	}
+	vchsig, err = keys[0].Sign(hash.GetCloneBytes())
+	if err != nil {
+		t.Error(err)
+	}
+	sig2 := bytes.Join([][]byte{vchsig.Serialize(), {byte(txscript.SigHashNone)}}, []byte{})
+
+	hash, err = tx.SignatureHash(&txTo, scriptPubKey, uint32(txscript.SigHashSingle), 0, amount.Amount(0), 0)
+	if err != nil {
+		t.Error(err)
+	}
+	vchsig, err = keys[0].Sign(hash.GetCloneBytes())
+	if err != nil {
+		t.Error(err)
+	}
+	sig3 := bytes.Join([][]byte{vchsig.Serialize(), {byte(txscript.SigHashSingle)}}, []byte{})
+
+	emptyBytes := []byte{}
+	partial1aData := bytes.Join([][]byte{emptyBytes, sig1, emptyBytes}, []byte{})
+	partial1a := script.NewScriptRaw(partial1aData)
+	partial1bData := bytes.Join([][]byte{emptyBytes, emptyBytes, sig1}, []byte{})
+	partial1b := script.NewScriptRaw(partial1bData)
+	partial2aData := bytes.Join([][]byte{emptyBytes, sig2}, []byte{})
+	partial2a := script.NewScriptRaw(partial2aData)
+	partial2bData := bytes.Join([][]byte{sig2, emptyBytes}, []byte{})
+	partial2b := script.NewScriptRaw(partial2bData)
+	partial3aData := bytes.Join([][]byte{sig3}, []byte{})
+	partial3a := script.NewScriptRaw(partial3aData)
+	partial3bData := bytes.Join([][]byte{emptyBytes, emptyBytes, sig3}, []byte{})
+	partial3b := script.NewScriptRaw(partial3bData)
+	partial3cData := bytes.Join([][]byte{emptyBytes, sig3, emptyBytes}, []byte{})
+	partial3c := script.NewScriptRaw(partial3cData)
+	complete12Data := bytes.Join([][]byte{emptyBytes, sig1, sig2}, []byte{})
+	complete12 := script.NewScriptRaw(complete12Data)
+	complete13Data := bytes.Join([][]byte{emptyBytes, sig1, sig3}, []byte{})
+	complete13 := script.NewScriptRaw(complete13Data)
+	complete23Data := bytes.Join([][]byte{emptyBytes, sig3, sig3}, []byte{})
+	complete23 := script.NewScriptRaw(complete23Data)
+
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial1a, partial1b, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, partial1a) {
+		t.Errorf("combined should be equal to partial1a")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial1a, partial2a, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, complete12) {
+		t.Errorf("combined should be equal to complete12")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial2a, partial1a, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, complete12) {
+		t.Errorf("combined should be equal to complete12")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial1b, partial2b, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, complete12) {
+		t.Errorf("combined should be equal to complete12")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial3b, partial1b, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, complete13) {
+		t.Errorf("combined should be equal to complete13")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial2a, partial3a, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, complete23) {
+		t.Errorf("combined should be equal to complete23")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial3b, partial2b, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, complete23) {
+		t.Errorf("combined should be equal to complete23")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey,
+		partial3b, partial3a, 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, partial3c) {
+		t.Errorf("combined should be equal to partial3c")
+	}
 }
 
 func TestScriptPushData(t *testing.T) {
