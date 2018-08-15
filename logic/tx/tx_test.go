@@ -16,18 +16,17 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-<<<<<<< HEAD
-	"github.com/copernet/copernicus/errcode"
 	"reflect"
 	"math/rand"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
-=======
 	"io/ioutil"
 	"strconv"
 	"strings"
 	"testing"
->>>>>>> master
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/conf"
 )
 
 var opMap map[string]byte
@@ -871,12 +870,16 @@ func TestScriptCombineSigs(t *testing.T) {
 		keys []crypto.PrivateKey
 		pubkeys []crypto.PublicKey
 		txFrom, txTo tx.Tx
-
+		keyMap map[string] *crypto.PrivateKey
+		scriptMap map[string] string
 	)
+	keyMap = make(map[string] *crypto.PrivateKey)
+	scriptMap = make(map[string] string)
 	for i := 0; i < 3; i++ {
 		key := NewPrivateKey()
 		keys = append(keys, key)
 		pubkeys = append(pubkeys, *key.PubKey())
+		keyMap[string(util.Hash160((*key.PubKey()).ToBytes()))] = &key
 	}
 	scriptPubKey := script.NewEmptyScript()
 	scriptPubKey.PushOpCode(opcodes.OP_DUP)
@@ -897,15 +900,16 @@ func TestScriptCombineSigs(t *testing.T) {
 	}
 
 	// Single signature case:
-	hash, _ := tx.SignatureHash(&txFrom, scriptPubKey,
-		uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
-	scriptSig0, err := keys[0].Sign(hash.GetCloneBytes())
-	scriptSig := script.NewEmptyScript()
-	scriptSig.PushSingleData(scriptSig0.Serialize())
-	if err != nil {
+	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/chainstate", CacheSize: (1 << 20) * 8}}
+	utxo.InitUtxoLruTip(&config)
+
+	coinsMap := utxo.NewEmptyCoinsMap()
+	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
 		t.Error(err)
 	}
-	txTo.GetIns()[0].SetScriptSig(scriptSig)
+	scriptSig := txTo.GetIns()[0].GetScriptSig()
 	combined, err = combineSignature(&txTo, scriptPubKey,
 		scriptSig, script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags))
 	if err != nil {
@@ -923,15 +927,59 @@ func TestScriptCombineSigs(t *testing.T) {
 		t.Errorf("combined should be equal to scriptSig")
 	}
 	scriptSigCopy := scriptSig
-	hash, _ = tx.SignatureHash(&txFrom, scriptPubKey,
-		uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
-	scriptSig0, err = keys[0].Sign(hash.GetCloneBytes())
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+		t.Error(err)
+	}
+	scriptSig = txTo.GetIns()[0].GetScriptSig()
+	combined, err = combineSignature(&txTo, scriptPubKey, scriptSigCopy,
+		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags))
 	if err != nil {
 		t.Error(err)
 	}
-	scriptSig = script.NewEmptyScript()
-	scriptSig.PushSingleData(scriptSig0.Serialize())
-	txTo.GetIns()[0].SetScriptSig(scriptSig)
+	if !reflect.DeepEqual(combined, scriptSig) && !reflect.DeepEqual(combined, scriptSigCopy) {
+		t.Errorf("combined should be equal to scriptSig or scriptSigCopy")
+	}
+	// P2SH, single-signature case:
+	pkSignle := script.NewEmptyScript();
+	pkSignle.PushSingleData(pubkeys[0].ToBytes())
+	pkSignle.PushOpCode(opcodes.OP_CHECKSIG)
+	scriptMap[string(util.Hash160(pkSignle.GetData()))] = string(pkSignle.GetData())
+	scriptPubKey = script.NewEmptyScript()
+	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
+	scriptPubKey.PushSingleData(util.Hash160(pkSignle.GetData()))
+	scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
+	txFrom.GetTxOut(0).SetScriptPubKey(scriptPubKey)
+	coinsMap = utxo.NewEmptyCoinsMap()
+	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+		t.Error(err)
+	}
+	scriptSig = txTo.GetIns()[0].GetScriptSig()
+	combined, err = combineSignature(&txTo, scriptPubKey, scriptSig,
+		script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, scriptSig) {
+		t.Errorf("combined should be equal to scriptSig")
+	}
+	combined, err = combineSignature(&txTo, scriptPubKey, scriptSig,
+		script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags))
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(combined, scriptSig) {
+		t.Errorf("combined should be equal to scriptSig")
+	}
+	scriptSigCopy = scriptSig
+
+	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+		t.Error(err)
+	}
+	scriptSig = txTo.GetIns()[0].GetScriptSig()
 	combined, err = combineSignature(&txTo, scriptPubKey, scriptSigCopy,
 		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags))
 	if err != nil {
