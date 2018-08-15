@@ -583,7 +583,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 		data := make([]byte, 0, 1)
 		data = append(data, byte(opM))
 		pubKeys = append(pubKeys, data)
-		for _, e := range s.ParsedOpCodes[1:] {
+		for _, e := range s.ParsedOpCodes[1:len - 2] {
 			if e.Length >= 33 && e.Length <= 65 {
 				pubKeyCount++
 				//data := s.ParsedOpCodes[i+1].Data[:]
@@ -591,19 +591,20 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 				pubKeys = append(pubKeys, e.Data)
 				continue
 			}
-			opValueI := e.OpValue
-			if opValueI == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
-				opN := DecodeOPN(opValueI)
-				// Support up to x-of-3 multisig txns as standard
-				if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
-					return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
-				}
-				data := make([]byte, 0, 1)
-				data = append(data, byte(opN))
-				pubKeys = append(pubKeys, data)
-			} else {
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		}
+		opValueI := s.ParsedOpCodes[len - 2].OpValue
+		if opValueI == opcodes.OP_0 || (opValueI >= opcodes.OP_1 && opValueI <= opcodes.OP_16) {
+			opN := DecodeOPN(opValueI)
+			// Support up to x-of-3 multisig txns as standard
+			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
 				return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 			}
+			data := make([]byte, 0, 1)
+			data = append(data, byte(opN))
+			pubKeys = append(pubKeys, data)
+		} else {
+			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		if s.ParsedOpCodes[len-1].OpValue != opcodes.OP_CHECKMULTISIG {
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
