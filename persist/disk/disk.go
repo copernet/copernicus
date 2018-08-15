@@ -32,7 +32,7 @@ import (
 type FlushStateMode int
 
 const (
-	FlushStateNone     FlushStateMode = iota
+	FlushStateNone FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -516,7 +516,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 			if CheckDiskSpace(allocateSize) {
 				file := OpenBlockFile(pos, false)
 				if file != nil {
-					log.Info("pre-allocating up to position %#v in blk%05u.dat\n", nNewChunks*global.BlockFileChunkSize, pos.File)
+					log.Info("pre-allocating up to position %#v in blk%05d.dat\n", nNewChunks*global.BlockFileChunkSize, pos.File)
 					AllocateFileRange(file, pos.Pos, allocateSize)
 					file.Close()
 					ret = true

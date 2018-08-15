@@ -216,7 +216,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	nTime2 := time.Now().UnixNano()
 	gPersist := global.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
-	log.Info("  - Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
+	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 
 	view := utxo.NewEmptyCoinsMap()
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
@@ -225,9 +225,10 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Error(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", indexHash.String()))
 		return err
 	}
+
 	nTime3 := util.GetMicrosTime()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
-	log.Print("bench", "debug", " - Connect total: %.2fms [%.2fs]\n",
+	log.Debug("Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
 	view.SetBestBlock(indexHash)
 	flushed := view.Flush(indexHash)
@@ -501,7 +502,7 @@ func InitGenesisChain() error {
 
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
 
-	fmt.Printf("initGenesisChain=====%v,error:%v", gChain, err)
+	//fmt.Printf("initGenesisChain=====%v,error:%v", gChain, err)
 	return nil
 
 }
