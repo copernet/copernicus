@@ -2344,7 +2344,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return txOldScriptSig, nil
 	}
 	if pubKeyType == script.ScriptPubkey || pubKeyType == script.ScriptPubkeyHash {
-		if scriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes) == 0 {
 			return txOldScriptSig, nil
 		}
 		if  len(scriptSig.ParsedOpCodes[0].Data) == 0 {
@@ -2394,10 +2394,16 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {
-		if scriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes) == 0  {
 			return txOldScriptSig, nil
 		}
-		if txOldScriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes[0].Data) == 0  {
+			return txOldScriptSig, nil
+		}
+		if len(txOldScriptSig.ParsedOpCodes) == 0 {
+			return scriptSig, nil
+		}
+		if len(txOldScriptSig.ParsedOpCodes[0].Data) == 0 {
 			return scriptSig, nil
 		}
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
