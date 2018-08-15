@@ -1,11 +1,11 @@
 package mining
 
 import (
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
+	"github.com/copernet/copernicus/log"
 )
 
 type sortType int
@@ -86,7 +86,7 @@ func init() {
 	sortParam := conf.Cfg.Mining.Strategy
 	ret, ok := strategies[sortParam]
 	if !ok {
-		logs.Error("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)
+		log.Error("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)
 		strategy = defaultSortStrategy
 	}
 	strategy = ret

@@ -11,8 +11,8 @@ import (
 	"math/big"
 
 	"bytes"
-	"github.com/astaxie/beego/logs"
 	"golang.org/x/crypto/ripemd160"
+	"github.com/copernet/copernicus/log"
 )
 
 const (
@@ -90,7 +90,7 @@ func (hash *Hash) EncodeSize() uint32 {
 func (hash *Hash) Encode(w io.Writer) (int, error) {
 	length, err := w.Write(hash[:])
 	if length != Hash256Size || err != nil {
-		logs.Alert("hash.Unserialize err: ", length, err)
+		log.Alert("hash.Unserialize err: ", length, err)
 		return length, err
 	}
 	return length, err
@@ -99,7 +99,7 @@ func (hash *Hash) Encode(w io.Writer) (int, error) {
 func (hash *Hash) Decode(r io.Reader) (int, error) {
 	length, err := io.ReadFull(r, hash[:])
 	if length != Hash256Size || err != nil {
-		logs.Alert("hash.Unserialize err: ", length, err)
+		log.Alert("hash.Unserialize err: ", length, err)
 		return length, err
 	}
 	return length, err

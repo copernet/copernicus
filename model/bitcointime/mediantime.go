@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/astaxie/beego/logs"
+	"github.com/copernet/copernicus/log"
 )
 
 // int64Sorter implements sort.Interface to allow a slice of 64-bit integers to
@@ -77,7 +77,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 	int64Sorter := int64Sorter(sortedOffsets)
 	sort.Sort(int64Sorter)
 	offsetDuration := time.Duration(offsetSecs) * time.Second
-	logs.Debug("added time sample of %v (total:%v)", offsetDuration, numOffsets)
+	log.Debug("added time sample of %v (total:%v)", offsetDuration, numOffsets)
 
 	if numOffsets < 5 || numOffsets&0x01 != 1 {
 		return
@@ -97,7 +97,7 @@ func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) 
 				}
 			}
 			if !removeHasCloseTime {
-				logs.Warn("Please check your date and time are correct!")
+				log.Warn("Please check your date and time are correct!")
 			}
 		}
 	}
