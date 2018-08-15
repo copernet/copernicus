@@ -373,9 +373,6 @@ func (s *Script) RemoveOpCodeByIndex(index int) *Script {
 	if index < 0 || index >= opCodesLen {
 		return nil
 	}
-	if opCodesLen == 1 {
-		return NewEmptyScript()
-	}
 	if index == 0 {
 		if opCodesLen == 1 {
 			return NewEmptyScript()

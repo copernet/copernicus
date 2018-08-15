@@ -511,8 +511,8 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 		sigBytes := signature.Serialize()
 		sigBytes = append(sigBytes, byte(hashType))
 		sigData = append(sigData, sigBytes)
-		sigBytes = privateKey.PubKey().ToBytes()
-		sigData = append(sigData, sigBytes)
+		pkBytes := privateKey.PubKey().ToBytes()
+		sigData = append(sigData, pkBytes)
 		return sigData, pubKeyType, nil
 	}
 	// signature1|hashType signature2|hashType...signatureM|hashType

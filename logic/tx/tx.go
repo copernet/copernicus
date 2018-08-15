@@ -2399,7 +2399,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		}
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 		scriptSig = scriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
-		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes))
+		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(txOldScriptSig.ParsedOpCodes) - 1)
 		scriptResult, err := combineSignature(transaction, redeemScript, scriptSig,
 			txOldScriptSig, nIn, money, flags)
 		if err != nil {
