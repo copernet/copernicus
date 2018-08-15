@@ -1,8 +1,8 @@
 package blkdb
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/persist/db"
@@ -236,7 +236,11 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 			logs.Error("LoadBlockIndex() : failed to read value")
 			return false
 		}
-		bi.Unserialize(bytes.NewBuffer(val))
+
+		if err := bi.Unserialize(bytes.NewBuffer(val)); err != nil {
+			logs.Error("LoadBlockIndexGuts: BlockIndex unserializa err:%v", err)
+		}
+
 		if bi.TxCount == 0 {
 			fmt.Println("err")
 			blockTreeDB.dbw.Erase(k, true)
