@@ -2295,7 +2295,8 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 			// get signatures and redeemscript
 			if scriptType == script.ScriptHash {
 				redeemScriptPubKey := script.NewScriptRaw(sigData[0])
-				sigData, redeemScriptType, err := transaction.SignStep(redeemScripts, keys, hashType,
+				var redeemScriptType int
+				sigData, redeemScriptType, err = transaction.SignStep(redeemScripts, keys, hashType,
 					redeemScriptPubKey, i, coin.GetAmount())
 				if err != nil {
 					return err
@@ -2398,12 +2399,13 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		}
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 		scriptSig = scriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
-		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
+		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(txOldScriptSig.ParsedOpCodes) - 1)
 		scriptResult, err := combineSignature(transaction, redeemScript, scriptSig,
 			txOldScriptSig, nIn, money, flags)
 		if err != nil {
 			return nil, err
 		}
+		scriptResult.PushSingleData(redeemScript.GetData())
 		return scriptResult, nil
 	}
 	log.Debug("TxErrPubKeyType")
