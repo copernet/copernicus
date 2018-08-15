@@ -594,7 +594,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		opValueI := s.ParsedOpCodes[len - 2].OpValue
-		if opValueI == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
+		if opValueI == opcodes.OP_0 || (opValueI >= opcodes.OP_1 && opValueI <= opcodes.OP_16) {
 			opN := DecodeOPN(opValueI)
 			// Support up to x-of-3 multisig txns as standard
 			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {

@@ -2344,7 +2344,10 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return txOldScriptSig, nil
 	}
 	if pubKeyType == script.ScriptPubkey || pubKeyType == script.ScriptPubkeyHash {
-		if scriptSig.Size() == 0 || len(scriptSig.ParsedOpCodes[0].Data) == 0 {
+		if scriptSig.Size() == 0 {
+			return txOldScriptSig, nil
+		}
+		if  len(scriptSig.ParsedOpCodes[0].Data) == 0 {
 			return txOldScriptSig, nil
 		}
 		return scriptSig, nil
