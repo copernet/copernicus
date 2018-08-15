@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/copernet/copernicus/conf"
@@ -40,13 +39,13 @@ func GetInstance() *Chain {
 	return globalChain
 }
 
-func InitGlobalChain(cfg *conf.Configuration) {
+func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
 		globalChain.params = chainparams.ActiveNetParams
 	}
-	if len(cfg.Chain.AssumeValid) > 0 {
-		hash, err := util.GetHashFromStr(cfg.Chain.AssumeValid)
+	if len(conf.Cfg.Chain.AssumeValid) > 0 {
+		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
 		if err != nil {
 			panic("AssumeValid config err")
 		}
@@ -100,10 +99,10 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 
 // FindBlockIndex finds blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	fmt.Println("FindBlockIndex======", len(c.indexMap))
+	//fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
-		log.Trace("current chain Tip header height : %d", bi.Height)
+		//log.Trace("current chain Tip header height : %d", bi.Height)
 		return bi
 	}
 
