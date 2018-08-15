@@ -1745,12 +1745,12 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
-				sigsVch := stack.Top(-i)
+				sigsNumVch := stack.Top(-i)
 				if err != nil {
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
-				nSigsNum, err := script.GetScriptNum(sigsVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				nSigsNum, err := script.GetScriptNum(sigsNumVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					//log.Debug("ScriptErrInvalidStackOperation")
 					return err
@@ -1854,6 +1854,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrSigNullDummy)
 
 				}
+
+				//pop bug byte op_0, format: op0 sig1 sig2 m pubkey1 pubk2 pubkey3 n checkmultisig
 				stack.Pop()
 				if fSuccess {
 					stack.Push(bnTrue.Serialize())

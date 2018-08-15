@@ -158,7 +158,7 @@ func LoadBlockIndexDB() bool {
 
 	// Load pointer to end of best chain todo: coinDB must init!!!
 	bestHash, err := utxo.GetUtxoCacheInstance().GetBestBlock()
-	log.Debug("find bestblock hash:%v and err:%v from utxo", bestHash, err)
+	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash.String(), err)
 	if err == nil {
 		tip, ok := GlobalBlockIndexMap[bestHash]
 		//indexMapLen := len(GlobalBlockIndexMap)
@@ -171,10 +171,10 @@ func LoadBlockIndexDB() bool {
 		}
 		// init active chain by tip[load from db]
 		gChain.SetTip(tip)
-		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
+		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s, tiphash:%s\n",
 			gChain.Tip().GetBlockHash().String(), gChain.Height(),
 			time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
-			gChain.Tip())
+			gChain.Tip().GetBlockHash().String())
 	}
 
 	return true
