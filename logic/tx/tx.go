@@ -2297,7 +2297,8 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 			// get signatures and redeemscript
 			if scriptType == script.ScriptHash {
 				redeemScriptPubKey := script.NewScriptRaw(sigData[0])
-				sigData, redeemScriptType, err := transaction.SignStep(redeemScripts, keys, hashType,
+				var redeemScriptType int
+				sigData, redeemScriptType, err = transaction.SignStep(redeemScripts, keys, hashType,
 					redeemScriptPubKey, i, coin.GetAmount())
 				if err != nil {
 					return err
@@ -2345,7 +2346,10 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return txOldScriptSig, nil
 	}
 	if pubKeyType == script.ScriptPubkey || pubKeyType == script.ScriptPubkeyHash {
-		if scriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes) == 0 {
+			return txOldScriptSig, nil
+		}
+		if  len(scriptSig.ParsedOpCodes[0].Data) == 0 {
 			return txOldScriptSig, nil
 		}
 		return scriptSig, nil
@@ -2392,20 +2396,27 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {
-		if scriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes) == 0  {
 			return txOldScriptSig, nil
 		}
-		if txOldScriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes[0].Data) == 0  {
+			return txOldScriptSig, nil
+		}
+		if len(txOldScriptSig.ParsedOpCodes) == 0 {
+			return scriptSig, nil
+		}
+		if len(txOldScriptSig.ParsedOpCodes[0].Data) == 0 {
 			return scriptSig, nil
 		}
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 		scriptSig = scriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
-		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
+		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(txOldScriptSig.ParsedOpCodes) - 1)
 		scriptResult, err := combineSignature(transaction, redeemScript, scriptSig,
 			txOldScriptSig, nIn, money, flags)
 		if err != nil {
 			return nil, err
 		}
+		scriptResult.PushSingleData(redeemScript.GetData())
 		return scriptResult, nil
 	}
 	log.Debug("TxErrPubKeyType")

@@ -7,7 +7,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/consensus"
@@ -16,6 +15,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
+	"github.com/copernet/copernicus/log"
 )
 
 const (
@@ -383,7 +383,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 
 	}
 
-	logs.SetLogger("mempool", fmt.Sprintf("removed %d txn, rolling minimum fee bumped : %d", nTxnRemoved, maxFeeRateRemove))
+	log.Debug("mempool", fmt.Sprintf("removed %d txn, rolling minimum fee bumped : %d", nTxnRemoved, maxFeeRateRemove))
 	return ret
 }
 

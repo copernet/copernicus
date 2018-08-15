@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	blogs "github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
@@ -248,7 +247,7 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.Bitcoin
 	pos := pindex.GetBlockPos()
 	blockHash := blk.GetHash()
 	if bytes.Equal(blockHash[:], hash[:]) {
-		blogs.Error(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
+		log.Error(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
 			"doesn't match index for %s at %s", pindex.String(), pos.String()))
 		return blk, false
 	}

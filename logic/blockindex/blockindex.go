@@ -5,7 +5,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -106,7 +105,7 @@ func LoadBlockIndexDB() bool {
 	if err != nil {
 		log.Error("Error: GetLastBlockFile err %#v", err)
 	}
-	logs.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
+	log.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
 	for nFile := int32(0); nFile <= gPersist.GlobalLastBlockFile; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
 		if err == nil {
@@ -119,7 +118,7 @@ func LoadBlockIndexDB() bool {
 			panic("btd.ReadBlockFileInfo(nFile) err")
 		}
 	}
-	logs.Debug("LoadBlockIndexDB(): last block file info: %s\n",
+	log.Debug("LoadBlockIndexDB(): last block file info: %s\n",
 		GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String())
 	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
@@ -132,7 +131,7 @@ func LoadBlockIndexDB() bool {
 	gPersist.GlobalBlockFileInfo = GlobalBlockFileInfo
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
-	logs.Debug("Checking all blk files are present...")
+	log.Debug("Checking all blk files are present...")
 	for _, item := range GlobalBlockIndexMap {
 		index := item
 		if index.Status&blockindex.BlockHaveData != 0 {
