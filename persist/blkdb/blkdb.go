@@ -8,7 +8,6 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
@@ -233,7 +232,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 		var bi = blockindex.NewBlockIndex(block.NewBlockHeader())
 		val := cursor.GetVal()
 		if val == nil {
-			logs.Error("LoadBlockIndex() : failed to read value")
+			log.Error("LoadBlockIndex() : failed to read value")
 			return false
 		}
 
@@ -269,7 +268,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 		newIndex.TxCount = bi.TxCount
 
 		if !new(pow.Pow).CheckProofOfWork(bi.GetBlockHash(), bi.Header.Bits, params) {
-			logs.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
+			log.Error("LoadBlockIndex(): CheckProofOfWork failed: %s", bi.String())
 			return false
 		}
 		cursor.Next()
