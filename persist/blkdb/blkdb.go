@@ -237,7 +237,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 		}
 
 		if err := bi.Unserialize(bytes.NewBuffer(val)); err != nil {
-			logs.Error("LoadBlockIndexGuts: BlockIndex unserializa err:%v", err)
+			log.Error("LoadBlockIndexGuts: BlockIndex unserializa err:%v", err)
 		}
 
 		if bi.TxCount == 0 {
