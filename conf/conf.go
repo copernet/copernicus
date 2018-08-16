@@ -9,11 +9,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/util"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
-	"github.com/copernet/copernicus/log"
 )
 
 const (
@@ -58,22 +55,23 @@ const (
 )
 
 var Cfg *Configuration
+var DataDir string
 
 // init configuration
 func initConfig() *Configuration {
 	// parse command line parameter to set program datadir
-	defaultDataDir := util.AppDataDir(defaultDataDirname, false)
+	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
 	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
 	flag.Parse()
 
-	log.DataDir = defaultDataDir
+	DataDir = defaultDataDir
 	if getdatadir != nil {
-		log.DataDir = *getdatadir
+		DataDir = *getdatadir
 	}
 
-	if !log.ExistDataDir(log.DataDir) {
-		err := os.MkdirAll(log.DataDir, os.ModePerm)
+	if !ExistDataDir(DataDir) {
+		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
 		}
@@ -86,12 +84,12 @@ func initConfig() *Configuration {
 			filePath := projectPath + "/conf/" + defaultConfigFilename
 			_, err = os.Stat(filePath)
 			if !os.IsNotExist(err) {
-				CopyFile(filePath, log.DataDir+"/"+defaultConfigFilename)
+				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
 				filePath = projectPath + "/conf/" + defaultConfigFilename
-				CopyFile(filePath, log.DataDir+"/"+defaultConfigFilename)
+				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
 			}
 		}
 	}
@@ -125,13 +123,13 @@ func initConfig() *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(log.DataDir + "/conf.yml")).(*os.File)
+	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
 
 	// set data dir
-	config.DataDir = log.DataDir
+	config.DataDir = DataDir
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
@@ -161,11 +159,11 @@ type Configuration struct {
 		RPCMaxConcurrentReqs int      //Max number of concurrent RPC requests that may be processed concurrently
 		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
 	}
-	//Log struct {
-	//	Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
-	//	Module   []string // only output the specified module's log when using log.Print(...)
-	//	FileName string   // the name of log file
-	//}
+	Log struct {
+		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+		Module   []string // only output the specified module's log when using log.Print(...)
+		FileName string   // the name of log file
+	}
 	Mempool struct {
 		MinFeeRate           int64 //
 		LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
@@ -195,7 +193,7 @@ type Configuration struct {
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
-		AddCheckpoints      []model.Checkpoint
+		//AddCheckpoints      []model.Checkpoint
 	}
 	AddrMgr struct {
 		SimNet       bool
@@ -258,4 +256,17 @@ func (c Configuration) Validate() error {
 	//validate := validator.New(&validator.Config{TagName: "validate"})
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
+}
+
+
+func ExistDataDir(datadir string) bool {
+	_, err := os.Stat(datadir)
+	if err == nil {
+		return true
+	}
+	if os.IsExist(err) {
+		return false
+	}
+
+	return false
 }
