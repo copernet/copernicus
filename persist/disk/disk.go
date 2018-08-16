@@ -87,7 +87,7 @@ func GetBlockPosFilename(pos block.DiskBlockPos, prefix string) string {
 }
 
 func GetBlockPosParentFilename() string {
-	return conf.GetDataPath() + "/blocks/"
+	return conf.Cfg.DataDir + "/blocks/"
 }
 
 func AllocateFileRange(file *os.File, offset uint32, length uint32) {
@@ -415,7 +415,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 }
 
 func CheckDiskSpace(nAdditionalBytes uint32) bool {
-	path := conf.GetDataPath()
+	path := conf.Cfg.DataDir
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {

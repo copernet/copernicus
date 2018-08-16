@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcutil"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -14,19 +17,16 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"reflect"
-	"math/rand"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btcutil"
 	"io/ioutil"
+	"math/rand"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
-	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/conf"
 )
 
 var opMap map[string]byte
@@ -752,7 +752,7 @@ testloop:
 	}
 }
 
-func sign_multisig(scriptPubKey *script.Script, keys []crypto.PrivateKey, transaction *tx.Tx) *script.Script{
+func sign_multisig(scriptPubKey *script.Script, keys []crypto.PrivateKey, transaction *tx.Tx) *script.Script {
 	hash, _ := tx.SignatureHash(transaction, scriptPubKey,
 		uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
 	result := script.NewEmptyScript()
@@ -760,15 +760,15 @@ func sign_multisig(scriptPubKey *script.Script, keys []crypto.PrivateKey, transa
 	for _, key := range keys {
 		vchsig, _ := key.Sign(hash.GetCloneBytes())
 		result.PushSingleData(bytes.Join([][]byte{vchsig.Serialize(),
-		{byte(txscript.SigHashAll)}}, []byte{}))
+			{byte(txscript.SigHashAll)}}, []byte{}))
 	}
 	return result
 }
 
-func NewPrivateKey() crypto.PrivateKey{
+func NewPrivateKey() crypto.PrivateKey {
 	var keyBytes []byte
 	for i := 0; i < 32; i++ {
-		keyBytes = append(keyBytes, byte(rand.Uint32() % 256))
+		keyBytes = append(keyBytes, byte(rand.Uint32()%256))
 	}
 	return *crypto.PrivateKeyFromBytes(keyBytes)
 }
@@ -867,14 +867,14 @@ func TestScriptCHECKMULTISIG23(t *testing.T) {
 
 func TestScriptCombineSigs(t *testing.T) {
 	var (
-		keys []crypto.PrivateKey
-		pubkeys []crypto.PublicKey
+		keys         []crypto.PrivateKey
+		pubkeys      []crypto.PublicKey
 		txFrom, txTo tx.Tx
-		keyMap map[string] *crypto.PrivateKey
-		scriptMap map[string] string
+		keyMap       map[string]*crypto.PrivateKey
+		scriptMap    map[string]string
 	)
-	keyMap = make(map[string] *crypto.PrivateKey)
-	scriptMap = make(map[string] string)
+	keyMap = make(map[string]*crypto.PrivateKey)
+	scriptMap = make(map[string]string)
 	for i := 0; i < 3; i++ {
 		key := NewPrivateKey()
 		keys = append(keys, key)
@@ -900,13 +900,13 @@ func TestScriptCombineSigs(t *testing.T) {
 	}
 
 	// Single signature case:
-	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.GetDataPath() + "/chainstate", CacheSize: (1 << 20) * 8}}
+	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
 	utxo.InitUtxoLruTip(&config)
 
 	coinsMap := utxo.NewEmptyCoinsMap()
 	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
-	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
 		t.Error(err)
 	}
 	scriptSig := txTo.GetIns()[0].GetScriptSig()
@@ -927,7 +927,7 @@ func TestScriptCombineSigs(t *testing.T) {
 		t.Errorf("combined should be equal to scriptSig")
 	}
 	scriptSigCopy := scriptSig
-	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
 		t.Error(err)
 	}
 	scriptSig = txTo.GetIns()[0].GetScriptSig()
@@ -940,7 +940,7 @@ func TestScriptCombineSigs(t *testing.T) {
 		t.Errorf("combined should be equal to scriptSig or scriptSigCopy")
 	}
 	// P2SH, single-signature case:
-	pkSignle := script.NewEmptyScript();
+	pkSignle := script.NewEmptyScript()
 	pkSignle.PushSingleData(pubkeys[0].ToBytes())
 	pkSignle.PushOpCode(opcodes.OP_CHECKSIG)
 	scriptMap[string(util.Hash160(pkSignle.GetData()))] = string(pkSignle.GetData())
@@ -953,7 +953,7 @@ func TestScriptCombineSigs(t *testing.T) {
 	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
 	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
-	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
 		t.Error(err)
 	}
 	scriptSig = txTo.GetIns()[0].GetScriptSig()
@@ -976,7 +976,7 @@ func TestScriptCombineSigs(t *testing.T) {
 	scriptSigCopy = scriptSig
 
 	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
-	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
 		t.Error(err)
 	}
 	scriptSig = txTo.GetIns()[0].GetScriptSig()
@@ -1024,7 +1024,7 @@ func TestScriptCombineSigs(t *testing.T) {
 	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
 	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
-	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll | crypto.SigHashForkID)); err != nil {
+	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
 		t.Error(err)
 	}
 	combined, err = combineSignature(&txTo, scriptPubKey,
@@ -1171,10 +1171,10 @@ func TestScriptPushData(t *testing.T) {
 	pushdatascript := [][]byte{pushdata1, pushdata2, pushdata4}
 	directStack := util.NewStack()
 	if err := evalScript(directStack, script.NewScriptRaw(direct),
-		nil, 0, 0, script.ScriptVerifyP2SH); err!= nil {
-			t.Error(err)
+		nil, 0, 0, script.ScriptVerifyP2SH); err != nil {
+		t.Error(err)
 	}
-	for i := 0; i < 3; i++  {
+	for i := 0; i < 3; i++ {
 		pushdataStack := util.NewStack()
 		if err := evalScript(pushdataStack, script.NewScriptRaw(pushdatascript[i]),
 			nil, 0, 0, script.ScriptVerifyP2SH); err != nil {

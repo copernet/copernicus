@@ -13,10 +13,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/jessevdk/go-flags"
+	"github.com/copernet/copernicus/log"
 )
 
 const (
@@ -169,7 +169,7 @@ func cleanAndExpandPath(path string) string {
 // while still allowing the user to override settings with config files and
 // command line options.  Command line options always take precedence.
 func loadConfig() (*config, []string, error) {
-	if !conf.ExistDataDir(coperctlHomeDir) {
+	if !log.ExistDataDir(coperctlHomeDir) {
 		err := os.MkdirAll(coperctlHomeDir, os.ModePerm)
 		if err != nil {
 			panic(coperctlHomeDir + " create failed: " + err.Error())
