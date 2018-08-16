@@ -87,9 +87,9 @@ func LoadBlockIndexDB() bool {
 			(index.ChainTxCount != 0 || index.Prev == nil) {
 			// gChain.AddToBranch(index)
 		}
-		if index.Prev != nil {
-			index.BuildSkip()
-		}
+		//if index.Prev != nil {
+		//	index.BuildSkip()
+		//}
 	}
 
 	// Load block file info

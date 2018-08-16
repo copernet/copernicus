@@ -1,11 +1,11 @@
 package blkdb
 
 import (
-	"testing"
-	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"reflect"
+	"testing"
 )
 
 func initBlockDB() {
@@ -16,7 +16,7 @@ func initBlockDB() {
 		},
 	}
 
-	InitBlockTreDB(bc)
+	InitBlockTreeDB(bc)
 }
 
 func TestBlockDB(t *testing.T) {
@@ -144,6 +144,3 @@ func TestWriteMaxBlockFile(t *testing.T) {
 		t.Errorf("read the max file value error:%v", bf2)
 	}
 }
-
-
-

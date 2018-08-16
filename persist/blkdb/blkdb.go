@@ -24,7 +24,7 @@ type BlockTreeDBConfig struct {
 	Do *db.DBOption
 }
 
-func InitBlockTreDB(uc *BlockTreeDBConfig) {
+func InitBlockTreeDB(uc *BlockTreeDBConfig) {
 	blockTreeDb = newBlockTreeDB(uc.Do)
 }
 

@@ -419,7 +419,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	if ok {
 		bi.Prev = pre
 		bi.Height = pre.Height + 1
-		bi.BuildSkip()
+		//bi.BuildSkip()
 	}
 	bi.TimeMax = bi.Header.Time
 	blockProof := pow.GetBlockProof(bi)
