@@ -14,9 +14,8 @@ import (
 	"strings"
 
 	"github.com/copernet/copernicus/rpc/btcjson"
-	"github.com/copernet/copernicus/util"
 	"github.com/jessevdk/go-flags"
-	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/conf"
 )
 
 const (
@@ -27,9 +26,9 @@ const (
 )
 
 var (
-	coperHomeDir          = util.AppDataDir("coper", false)
-	coperctlHomeDir       = util.AppDataDir("coperctl", false)
-	coperwalletHomeDir    = util.AppDataDir("coperwallet", false)
+	coperHomeDir          = conf.AppDataDir("coper", false)
+	coperctlHomeDir       = conf.AppDataDir("coperctl", false)
+	coperwalletHomeDir    = conf.AppDataDir("coperwallet", false)
 	defaultConfigFile     = filepath.Join(coperctlHomeDir, "coperctl.conf")
 	defaultRPCServer      = "localhost"
 	defaultRPCCertFile    = filepath.Join(coperHomeDir, "rpc.cert")
@@ -169,7 +168,7 @@ func cleanAndExpandPath(path string) string {
 // while still allowing the user to override settings with config files and
 // command line options.  Command line options always take precedence.
 func loadConfig() (*config, []string, error) {
-	if !log.ExistDataDir(coperctlHomeDir) {
+	if !conf.ExistDataDir(coperctlHomeDir) {
 		err := os.MkdirAll(coperctlHomeDir, os.ModePerm)
 		if err != nil {
 			panic(coperctlHomeDir + " create failed: " + err.Error())
