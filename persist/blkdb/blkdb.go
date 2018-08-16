@@ -251,6 +251,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 			cursor.Next()
 			continue
 		}
+		//???
 		pre := InsertBlockIndex(bi.Header.HashPrevBlock, blkIdxMap)
 		newIndex.Prev = pre
 		newIndex.SetBlockHash(*bi.GetBlockHash())
