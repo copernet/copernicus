@@ -118,21 +118,21 @@ func (blockTreeDB *BlockTreeDB) ReadMaxBlockFile() (int32, error) {
 	return lastFile, err
 }
 
-func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*block.BlockFileInfo, lastFile int, blockIndexes []*blockindex.BlockIndex) error {
+func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.BlockFileInfo, lastFile int, blockIndexes []*blockindex.BlockIndex) error {
 	batch := db.NewBatchWrapper(blockTreeDB.dbw)
 	keytmp := make([]byte, 0, 100)
 	valuetmp := make([]byte, 0, 100)
 	keyBuf := bytes.NewBuffer(keytmp)
 	valueBuf := bytes.NewBuffer(valuetmp)
 
-	for _, v := range fileInfoList {
+	for fileNum, v := range fileInfoList {
 		keyBuf.Reset()
 		valueBuf.Reset()
 		_, err := keyBuf.Write([]byte{db.DbBlockFiles})
 		if err != nil {
 			log.Error("blkDB->WriteBatchSync:write DbBlockFiles failed:%v", err)
 		}
-		err = util.WriteElements(keyBuf, uint64(0))
+		err = util.WriteElements(keyBuf, uint64(fileNum))
 		if err != nil {
 			log.Error("blkDB:write key(DbBlockFiles(f)+lastFile) failed:%v", err)
 		}
@@ -140,7 +140,6 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList []*block.BlockFileIn
 			return err
 		}
 		batch.Write(keyBuf.Bytes(), valueBuf.Bytes())
-
 	}
 	valueBuf.Reset()
 	err := util.WriteElements(valueBuf, uint64(lastFile))

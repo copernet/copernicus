@@ -31,7 +31,7 @@ import (
 type FlushStateMode int
 
 const (
-	FlushStateNone FlushStateMode = iota
+	FlushStateNone     FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -365,10 +365,11 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		FlushBlockFile(false)
 		// Then update all block file information (which may refer to block and undo files).
 
-		dirtyBlockFileInfoList := make([]*block.BlockFileInfo, 0, len(gPersist.GlobalDirtyFileInfo))
-		for k := range gPersist.GlobalDirtyFileInfo {
-			dirtyBlockFileInfoList = append(dirtyBlockFileInfoList, gPersist.GlobalBlockFileInfo[k])
-
+		dirtyBlockFileInfoList := make(map[int32]*block.BlockFileInfo)
+		for k, ok := range gPersist.GlobalDirtyFileInfo {
+			if ok {
+				dirtyBlockFileInfoList[k] = gPersist.GlobalBlockFileInfo[k]
+			}
 		}
 		gPersist.GlobalDirtyFileInfo = make(map[int32]bool)
 		dirtyBlockIndexList := make([]*blockindex.BlockIndex, 0, len(gPersist.GlobalDirtyBlockIndex))
