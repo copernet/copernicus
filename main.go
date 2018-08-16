@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/net/limits"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc"
+	"github.com/copernet/copernicus/log"
 )
 
 const (
@@ -75,7 +76,7 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
+	fmt.Println("Current data dir:\033[0;32m", log.DataDir, "\033[0m")
 
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())

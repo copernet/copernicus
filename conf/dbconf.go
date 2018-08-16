@@ -1,7 +1,7 @@
 package conf
 
-func GetDataPath() string {
-	return DataDir
+import "github.com/copernet/copernicus/log"
 
-	//return "/tmp"
+func GetDataPath() string {
+	return log.DataDir
 }

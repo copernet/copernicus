@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/copernet/copernicus/conf"
 )
 
 const (
@@ -17,6 +16,7 @@ const (
 )
 
 var mapModule map[string]struct{}
+var DataDir string
 
 func Print(module string, level string, format string, reason ...interface{}) {
 	level = strings.ToLower(level)
@@ -113,9 +113,17 @@ func GetLogger() *logs.BeeLogger {
 	return logs.GetBeeLogger()
 }
 
+type Log struct {
+	Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+	Module   []string // only output the specified module's log when using log.Print(...)
+	FileName string   // the name of log file
+}
+
+var logStruct *Log
+
 func Init() {
-	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
-	if !conf.ExistDataDir(logDir) {
+	logDir := filepath.Join(DataDir, defaultLogDirname)
+	if !ExistDataDir(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {
 			panic("logdir create failed: " + err.Error())
@@ -127,8 +135,8 @@ func Init() {
 		Level    int    `json:"level"`
 		Daily    bool   `json:"daily"`
 	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    getLevel(conf.Cfg.Log.Level),
+		FileName: logDir + "/" + logStruct.FileName + ".log",
+		Level:    getLevel(logStruct.Level),
 		Daily:    false,
 	}
 
@@ -146,8 +154,20 @@ func Init() {
 
 	// init mapModule
 	mapModule = make(map[string]struct{})
-	for _, module := range conf.Cfg.Log.Module {
+	for _, module := range logStruct.Module {
 		module = strings.ToLower(module)
 		mapModule[module] = struct{}{}
 	}
+}
+
+func ExistDataDir(datadir string) bool {
+	_, err := os.Stat(datadir)
+	if err == nil {
+		return true
+	}
+	if os.IsExist(err) {
+		return false
+	}
+
+	return false
 }

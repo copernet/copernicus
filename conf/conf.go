@@ -13,6 +13,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
+	"github.com/copernet/copernicus/log"
 )
 
 const (
@@ -58,8 +59,6 @@ const (
 
 var Cfg *Configuration
 
-var DataDir string
-
 // init configuration
 func initConfig() *Configuration {
 	// parse command line parameter to set program datadir
@@ -68,13 +67,13 @@ func initConfig() *Configuration {
 	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
 	flag.Parse()
 
-	DataDir = defaultDataDir
+	log.DataDir = defaultDataDir
 	if getdatadir != nil {
-		DataDir = *getdatadir
+		log.DataDir = *getdatadir
 	}
 
-	if !ExistDataDir(DataDir) {
-		err := os.MkdirAll(DataDir, os.ModePerm)
+	if !log.ExistDataDir(log.DataDir) {
+		err := os.MkdirAll(log.DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
 		}
@@ -87,12 +86,12 @@ func initConfig() *Configuration {
 			filePath := projectPath + "/conf/" + defaultConfigFilename
 			_, err = os.Stat(filePath)
 			if !os.IsNotExist(err) {
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				CopyFile(filePath, log.DataDir+"/"+defaultConfigFilename)
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
 				filePath = projectPath + "/conf/" + defaultConfigFilename
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				CopyFile(filePath, log.DataDir+"/"+defaultConfigFilename)
 			}
 		}
 	}
@@ -126,13 +125,13 @@ func initConfig() *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
+	file := must(os.Open(log.DataDir + "/conf.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
 
 	// set data dir
-	config.DataDir = DataDir
+	config.DataDir = log.DataDir
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
@@ -162,11 +161,11 @@ type Configuration struct {
 		RPCMaxConcurrentReqs int      //Max number of concurrent RPC requests that may be processed concurrently
 		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
 	}
-	Log struct {
-		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
-		Module   []string // only output the specified module's log when using log.Print(...)
-		FileName string   // the name of log file
-	}
+	//Log struct {
+	//	Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+	//	Module   []string // only output the specified module's log when using log.Print(...)
+	//	FileName string   // the name of log file
+	//}
 	Mempool struct {
 		MinFeeRate           int64 //
 		LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
@@ -236,18 +235,6 @@ func must(i interface{}, err error) interface{} {
 
 func init() {
 	Cfg = initConfig()
-}
-
-func ExistDataDir(datadir string) bool {
-	_, err := os.Stat(datadir)
-	if err == nil {
-		return true
-	}
-	if os.IsExist(err) {
-		return false
-	}
-
-	return false
 }
 
 func CopyFile(src, des string) (w int64, err error) {
