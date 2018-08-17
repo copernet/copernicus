@@ -31,7 +31,7 @@ import (
 type FlushStateMode int
 
 const (
-	FlushStateNone     FlushStateMode = iota
+	FlushStateNone FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -361,10 +361,10 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		if !CheckDiskSpace(0) {
 			return errcode.New(errcode.ErrorOutOfDiskSpace)
 		}
-		// First make sure all block and undo data is flushed to disk.
+		// Make sure all block and undo data is flushed to disk.
 		FlushBlockFile(false)
-		// Then update all block file information (which may refer to block and undo files).
 
+		// Update dirty block file information (which may refer to block and undo files).
 		dirtyBlockFileInfoList := make(map[int32]*block.BlockFileInfo)
 		for k, ok := range gPersist.GlobalDirtyFileInfo {
 			if ok {
@@ -372,11 +372,15 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 			}
 		}
 		gPersist.GlobalDirtyFileInfo = make(map[int32]bool)
+
+		// Update dirty block index
 		dirtyBlockIndexList := make([]*blockindex.BlockIndex, 0, len(gPersist.GlobalDirtyBlockIndex))
 		for _, bi := range gPersist.GlobalDirtyBlockIndex {
 			dirtyBlockIndexList = append(dirtyBlockIndexList, bi)
 		}
 		gPersist.GlobalDirtyBlockIndex = make(global.DirtyBlockIndex)
+
+		// Write dirty block file info, last blockfile and dirty blockindex to db
 		btd := blkdb.GetInstance()
 		err := btd.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
 		if err != nil {
@@ -386,7 +390,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		gPersist.GlobalLastWrite = int(nNow)
 	}
 
-	// Flush best chain related state. This can only be done if the blocks /
+	// Flush best chain related state. This can only be done if the blocks
 	// block index write was also done.
 	if fDoFullFlush {
 		// Typical Coin structures on disk are around 48 bytes in size.
