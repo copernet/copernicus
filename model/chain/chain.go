@@ -62,7 +62,7 @@ func NewChain() *Chain {
 }
 func (c *Chain) GetParams() *chainparams.BitcoinParams {
 	return c.params
-}  //获得链c的参数，参数的类型是"比特币参数"
+}
 
 //initially load the maps of the chain
 func (c *Chain) InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch []*blockindex.BlockIndex) {
@@ -121,7 +121,7 @@ func (c *Chain) Tip() *blockindex.BlockIndex {
 	}
 
 	return nil
-}   //返回顶块
+}
 
 func (c *Chain) TipHeight() int32 {
 	if len(c.active) > 0 {
@@ -131,7 +131,7 @@ func (c *Chain) TipHeight() int32 {
 	return 0
 }
 
-func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {     //给一个哈希，求这笔钱是在哪个高度花费的
+func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
 	index := c.indexMap[*hash]
 	return index.Height + 1
 }
@@ -173,7 +173,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
-	if chainparams.IsUAHFEnabled(pindex.Height) {     //1155886
+	if chainparams.IsUAHFEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyStrictEnc
 		flags |= script.ScriptEnableSigHashForkID
 	}
@@ -202,7 +202,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	return flags
-}   //看一个块用的是哪个时代的版本
+}
 
 // GetIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
@@ -215,7 +215,7 @@ func (c *Chain) GetIndex(height int32) *blockindex.BlockIndex {
 }
 
 // Equal Compare two chains efficiently.
-//最后一个块一样则两条链一定一样
+
 func (c *Chain) Equal(dst *Chain) bool {
 	return len(c.active) == len(dst.active) &&
 		c.active[len(c.active)-1] == dst.active[len(dst.active)-1]
@@ -255,7 +255,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 		c.active[index.Height] = index
 		index = index.Prev
 	}
-}   //感觉没法测？
+}
 
 // SetTip Set/initialize a chain with a given tip.
 // func (c *Chain) SetTip1(index *blockindex.BlockIndex) {
@@ -339,7 +339,7 @@ func (c *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex 
 }
 
 // FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
-func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {      //????????
+func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
 
 	return nil
 }
