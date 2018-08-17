@@ -259,6 +259,7 @@ func (c Configuration) Validate() error {
 }
 
 
+
 func ExistDataDir(datadir string) bool {
 	_, err := os.Stat(datadir)
 	if err == nil {

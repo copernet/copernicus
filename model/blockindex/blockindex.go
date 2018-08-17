@@ -20,7 +20,7 @@ import (
  */
 
 const (
-	StatusAllValid uint32 = 1 << iota
+	StatusAllValid    uint32 = 1 << iota
 	StatusIndexStored
 	StatusDataStored
 	StatusWaitingData
@@ -124,17 +124,24 @@ func (bIndex *BlockIndex) SubStatus(statu uint32) {
 	bIndex.Status &= ^statu
 }
 
-func (bIndex *BlockIndex) GetDataPos() int {
-
-	return 0
-}
-
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
-	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.UndoPos}
+	var ret block.DiskBlockPos
+	if (bIndex.Status & BlockHaveUndo) != 0 {
+		ret.File = bIndex.File
+		ret.Pos = bIndex.UndoPos
+	}
+
+	return ret
 }
 
 func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
-	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.DataPos}
+	var ret block.DiskBlockPos
+	if (bIndex.Status & BlockHaveData) != 0 {
+		ret.File = bIndex.File
+		ret.Pos = bIndex.DataPos
+	}
+
+	return ret
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
@@ -189,14 +196,30 @@ func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 // IsValid checks whether this block index entry is valid up to the passed validity
 // level.
 func (bIndex *BlockIndex) IsValid(upto uint32) bool {
-
-	return false
+	// Only validity flags allowed.
+	if upto&(^BlockValidMask) != 0 {
+		panic("Only validity flags allowed.")
+	}
+	if (bIndex.Status & BlockValidMask) != 0 {
+		return false
+	}
+	return (bIndex.Status & BlockValidMask) >= upto
 }
 
 // RaiseValidity Raise the validity level of this block index entry.
 // Returns true if the validity was changed.
 func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
-
+	// Only validity flags allowed.
+	if upto&(^BlockValidMask) != 0 {
+		panic("Only validity flags allowed.")
+	}
+	if bIndex.Status&BlockValidMask != 0 {
+		return false
+	}
+	if (bIndex.Status & BlockValidMask) < upto {
+		bIndex.Status = (bIndex.Status & (^BlockValidMask)) | upto
+		return true
+	}
 	return false
 }
 
@@ -274,6 +297,7 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	genesisHash := params.GenesisBlock.GetHash()
 	return bhash.IsEqual(&genesisHash)
 }
+
 
 //func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
 //	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
