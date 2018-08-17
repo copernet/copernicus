@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/log"
 )
 
 type BlockHeader struct {
@@ -39,7 +40,10 @@ func (bh *BlockHeader) GetHash() util.Hash {
 		return bh.Hash
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
-	bh.SerializeHeader(buf)
+	err := bh.SerializeHeader(buf)
+	if err != nil {
+		log.Error("serialize block header failed, please check.")
+	}
 	bh.Hash = util.DoubleSha256Hash(buf.Bytes())
 	return bh.Hash
 }
@@ -65,7 +69,10 @@ func (bh *BlockHeader) EncodeSize() int {
 		return bh.encodeSize
 	}
 	buf := bytes.NewBuffer(nil)
-	bh.Encode(buf)
+	err := bh.Encode(buf)
+	if err != nil {
+		log.Error("block header encode failed.")
+	}
 	bh.encodeSize = buf.Len()
 	return bh.encodeSize
 }
@@ -74,7 +81,10 @@ func (bh *BlockHeader) SerializeSize() int {
 		return bh.serializeSize
 	}
 	buf := bytes.NewBuffer(nil)
-	bh.Serialize(buf)
+	err := bh.Serialize(buf)
+	if err != nil {
+		log.Error("block header serialize failed.")
+	}
 	bh.serializeSize = buf.Len()
 	return bh.serializeSize
 }

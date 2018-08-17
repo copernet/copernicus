@@ -65,8 +65,8 @@ func TestCoinCache(t *testing.T) {
 	}
 	InitUtxoLruTip(uc)
 
-	necm.AddCoin(&outpoint1, coin1)
-	necm.AddCoin(&outpoint2, coin2)
+	necm.AddCoin(&outpoint1, coin1,false)
+	necm.AddCoin(&outpoint2, coin2,false)
 
 	c1 := necm.GetCoin(&outpoint1)
 	if !reflect.DeepEqual(c1, coin1) {
@@ -130,7 +130,7 @@ func TestCoinCache(t *testing.T) {
 		fresh:         true,
 	}
 
-	necm.AddCoin(&outpoint3, coin3)
+	necm.AddCoin(&outpoint3, coin3,false)
 
 	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
 	necm.SetBestBlock(*hash3)

@@ -1,17 +1,17 @@
 package mining
 
 import (
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
+	"github.com/copernet/copernicus/log"
 )
 
 type sortType int
 
 const (
-	sortByFee sortType = 1 << iota
+	sortByFee     sortType = 1 << iota
 	sortByFeeRate
 )
 
@@ -40,11 +40,15 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 func sortedByFeeWithAncestors() *btree.BTree {
 	b := btree.New(32)
 	mpool := mempool.GetInstance()
-	mpool.Lock()
-	defer mpool.Unlock()
+
 	for _, txEntry := range mpool.GetAllTxEntry() {
 		b.ReplaceOrInsert(EntryFeeSort(*txEntry))
 	}
+
+	b.Descend(func(i btree.Item) bool {
+		_ = i.(EntryFeeSort)
+		return true
+	})
 	return b
 }
 
@@ -66,11 +70,15 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 func sortedByFeeRateWithAncestors() *btree.BTree {
 	b := btree.New(32)
 	mpool := mempool.GetInstance()
-	mpool.Lock()
-	defer mpool.Unlock()
+
 	for _, txEntry := range mpool.GetAllTxEntry() {
 		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
 	}
+
+	b.Descend(func(i btree.Item) bool {
+		_ = i.(EntryAncestorFeeRateSort)
+		return true
+	})
 	return b
 }
 
@@ -78,7 +86,7 @@ func init() {
 	sortParam := conf.Cfg.Mining.Strategy
 	ret, ok := strategies[sortParam]
 	if !ok {
-		logs.Error("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)
+		log.Error("the specified strategy< %s > is not exist, so use default strategy< %s >", sortParam, defaultSortStrategy)
 		strategy = defaultSortStrategy
 	}
 	strategy = ret

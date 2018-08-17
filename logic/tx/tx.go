@@ -113,20 +113,31 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		if err != nil {
 			panic("config PromiscuousMempoolFlags err")
 		}
-		scriptVerifyFlags = uint32(configVerifyFlags)
+		scriptVerifyFlags = uint32(configVerifyFlags) | script.ScriptEnableSigHashForkID
 	}
+
+	var extraFlags uint32 = script.ScriptVerifyNone
+	tip := chain.GetInstance().Tip()
+	if tip.IsMonolithEnabled(chainparams.ActiveNetParams) {
+		extraFlags |= script.ScriptEnableMonolithOpcodes
+	}
+
+	if tip.IsReplayProtectionEnabled(chainparams.ActiveNetParams) {
+		extraFlags |= script.ScriptEnableReplayProtection
+	}
+	scriptVerifyFlags |= extraFlags
+
 	err = checkInputs(transaction, tempCoinsMap, scriptVerifyFlags)
 	if err != nil {
 		return err
 	}
-	tip := chain.GetInstance().Tip()
 	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
 	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
 			return errcode.New(errcode.ScriptCheckInputsBug)
 		}
-		err = checkInputs(transaction, tempCoinsMap, uint32(script.MandatoryScriptVerifyFlags))
+		err = checkInputs(transaction, tempCoinsMap, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
 		if err != nil {
 			return err
 		}
@@ -147,7 +158,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		return err
 	}
 	sigOps := txs[0].GetSigOpCountWithoutP2SH()
-	outPointSet := make(map[*outpoint.OutPoint]bool)
+	outPointSet := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
@@ -187,6 +198,24 @@ func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 		}
 	}
 	return nil
+}
+
+func ApplyGeniusBlockTransactions(txs []*tx.Tx) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+	coinMap = utxo.NewEmptyCoinsMap()
+	bundo = undo.NewBlockUndo(0)
+	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+	for _, transaction := range txs {
+		if transaction.IsCoinBase() {
+			TxUpdateCoins(transaction, coinMap, nil, 0)
+			continue
+		}
+		txundo := undo.NewTxUndo()
+		TxUpdateCoins(transaction, coinMap, txundo, 0)
+		txUndoList = append(txUndoList, txundo)
+	}
+
+	bundo.SetTxUndo(txUndoList)
+	return
 }
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
@@ -243,16 +272,16 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			TxUpdateCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
-		if !transaction.IsCoinBase() {
-			fees += valueIn - transaction.GetValueOut()
-			if needCheckScript {
-				//check inputs
-				err := checkInputs(transaction, coinsMap, scriptCheckFlags)
-				if err != nil {
-					return nil, nil, err
-				}
+
+		fees += valueIn - transaction.GetValueOut()
+		if needCheckScript {
+			//check inputs
+			err := checkInputs(transaction, coinsMap, scriptCheckFlags)
+			if err != nil {
+				return nil, nil, err
 			}
 		}
+
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
 		TxUpdateCoins(transaction, coinsMap, txundo, blockHeight)
@@ -273,10 +302,11 @@ func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
-		heightData := make([][]byte, 0)
-		heightData = append(heightData, heightNumb.Serialize())
+		//heightData := make([][]byte, 0)
+		//heightData = append(heightData, heightNumb.Serialize())
 		heightScript := script.NewEmptyScript()
-		heightScript.PushData(heightData)
+		//heightScript.PushData(heightData)
+		heightScript.PushScriptNum(heightNumb)
 		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
 			return errcode.New(errcode.TxErrRejectInvalid)
@@ -347,7 +377,7 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 			log.Debug("inpute coin is already spent out")
 			return errcode.New(errcode.TxErrInputsNotAvailable)
 		}
-		coinMap.AddCoin(e.PreviousOutPoint, coin)
+		coinMap.AddCoin(e.PreviousOutPoint, coin, coin.IsCoinBase())
 	}
 
 	return nil
@@ -460,9 +490,11 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		scriptSig := in.GetScriptSig()
 		err := verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
 		if err != nil {
-			if (flags & uint32(script.StandardNotMandatoryVerifyFlags)) == uint32(script.StandardNotMandatoryVerifyFlags) {
+			if ((flags & uint32(script.StandardNotMandatoryVerifyFlags)) ==
+				uint32(script.StandardNotMandatoryVerifyFlags)) || (flags&script.ScriptEnableMonolithOpcodes == 0) {
 				err = verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(),
-					uint32(uint64(flags)&uint64(^script.StandardNotMandatoryVerifyFlags)))
+					uint32(uint64(flags)&uint64(^script.StandardNotMandatoryVerifyFlags)|
+						script.ScriptEnableMonolithOpcodes))
 			}
 			if err == nil {
 				log.Debug("verifyScript err, but without StandardNotMandatoryVerifyFlags success")
@@ -596,14 +628,9 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			}
 		}
 
-		if e.OpValue == opcodes.OP_CAT || e.OpValue == opcodes.OP_SUBSTR || e.OpValue == opcodes.OP_LEFT ||
-			e.OpValue == opcodes.OP_RIGHT || e.OpValue == opcodes.OP_INVERT || e.OpValue == opcodes.OP_AND ||
-			e.OpValue == opcodes.OP_OR || e.OpValue == opcodes.OP_XOR || e.OpValue == opcodes.OP_2MUL ||
-			e.OpValue == opcodes.OP_2DIV || e.OpValue == opcodes.OP_MUL || e.OpValue == opcodes.OP_DIV ||
-			e.OpValue == opcodes.OP_MOD || e.OpValue == opcodes.OP_LSHIFT ||
-			e.OpValue == opcodes.OP_RSHIFT {
+		if script.IsOpCodeDisabled(e.OpValue, flags) {
 			// Disabled opcodes.
-			log.Debug("ScriptDisabledOpCode")
+			log.Debug("ScriptDisabledOpCode:%d, flags:%d", e.OpValue, flags)
 			return errcode.New(errcode.ScriptErrDisabledOpCode)
 		}
 
@@ -694,8 +721,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
-				//nLocktime, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
-				nLocktime, err := script.GetScriptNum(topBytes.([]byte), true, 5)
+				nLocktime, err := script.GetScriptNum(topBytes.([]byte), fRequireMinimal, 5)
+				//nLocktime, err := script.GetScriptNum(topBytes.([]byte), true, 5)
 				if err != nil {
 					return err
 				}
@@ -896,17 +923,17 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// (x1 x2 -- x1 x2 x1 x2)
 				if stack.Size() < 2 {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
 				if vch1 == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch2 := stack.Top(-1)
 				if vch2 == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidAltStackOperation)
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				stack.Push(vch1)
 				stack.Push(vch2)
@@ -1152,6 +1179,48 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				//
 				// Bitwise logic
 				//
+			case opcodes.OP_AND:
+				fallthrough
+			case opcodes.OP_OR:
+				fallthrough
+			case opcodes.OP_XOR:
+				// (x1 x2 - out)
+				if stack.Size() < 2 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch1 := stack.Top(-2)
+				vch2 := stack.Top(-1)
+				vch1Bytes := vch1.([]byte)
+				vch2Bytes := vch2.([]byte)
+				lenVch1 := len(vch1Bytes)
+				lenVch2 := len(vch2Bytes)
+				// Inputs must be the same size
+				if lenVch1 != lenVch2 {
+					log.Debug("ScriptErrInvalidOperandSize")
+					return errcode.New(errcode.ScriptErrInvalidOperandSize)
+				}
+
+				// To avoid allocating, we modify vch1 in place.
+				switch e.OpValue {
+				case opcodes.OP_AND:
+					for i := 0; i < len(vch1.([]byte)); i++ {
+						vch1Bytes[i] &= vch2Bytes[i]
+					}
+				case opcodes.OP_OR:
+					for i := 0; i < len(vch1.([]byte)); i++ {
+						vch1Bytes[i] |= vch2Bytes[i]
+					}
+				case opcodes.OP_XOR:
+					for i := 0; i < len(vch1.([]byte)); i++ {
+						vch1Bytes[i] ^= vch2Bytes[i]
+					}
+				default:
+				}
+				// And pop vch2.
+				stack.Pop()
+				stack.Pop()
+				stack.Push(vch1Bytes)
 			case opcodes.OP_EQUAL:
 				fallthrough
 			case opcodes.OP_EQUALVERIFY:
@@ -1278,6 +1347,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				fallthrough
 			case opcodes.OP_SUB:
 				fallthrough
+			case opcodes.OP_DIV:
+				fallthrough
+			case opcodes.OP_MOD:
+				fallthrough
 			case opcodes.OP_MIN:
 				fallthrough
 			case opcodes.OP_MAX:
@@ -1312,6 +1385,23 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					bn.Value = bn1.Value + bn2.Value
 				case opcodes.OP_SUB:
 					bn.Value = bn1.Value - bn2.Value
+				case opcodes.OP_DIV:
+					// denominator must not be 0
+					if bn2.Value == 0 {
+						log.Debug("ScriptErrDivByZero")
+						return errcode.New(errcode.ScriptErrDivByZero)
+					}
+					bn.Value = bn1.Value / bn2.Value
+
+				case opcodes.OP_MOD:
+					// divisor must not be 0
+					if bn2.Value == 0 {
+						log.Debug("ScriptErrModByZero")
+						return errcode.New(errcode.ScriptErrModByZero)
+					}
+					bn.Value = bn1.Value % bn2.Value
+					break
+
 				case opcodes.OP_MIN:
 					if bn1.Value < bn2.Value {
 						bn = bn1
@@ -1573,6 +1663,10 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 				// Remove the signature since there is no way for a signature
 				// to sign itself.
+
+				/*var vchScript = script.NewEmptyScript()
+				vchScript.PushSingleData(vchSigBytes)
+				scriptCode.FindAndDelete(vchScript)*/
 				scriptCode = scriptCode.RemoveOpcodeByData(vchSigBytes)
 
 				fSuccess, err := CheckSig(transaction, vchSigBytes, vchPubkey.([]byte), scriptCode, nIn, money, flags)
@@ -1624,8 +1718,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				// ScriptSig1 ScriptSig2...ScriptSigM M PubKey1 PubKey2...PubKey N
 				pubKeysNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					//log.Debug("ScriptErrInvalidStackOperation")
+					return err
 				}
 				pubKeysCount := pubKeysNum.ToInt32()
 				if pubKeysCount < 0 || pubKeysCount > script.MaxPubKeysPerMultiSig {
@@ -1651,15 +1745,15 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
-				sigsVch := stack.Top(-i)
+				sigsNumVch := stack.Top(-i)
 				if err != nil {
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
-				nSigsNum, err := script.GetScriptNum(sigsVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				nSigsNum, err := script.GetScriptNum(sigsNumVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					//log.Debug("ScriptErrInvalidStackOperation")
+					return err
 				}
 				nSigsCount := nSigsNum.ToInt32()
 				if nSigsCount < 0 || nSigsCount > pubKeysCount {
@@ -1760,6 +1854,8 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrSigNullDummy)
 
 				}
+
+				//pop bug byte op_0, format: op0 sig1 sig2 m pubkey1 pubk2 pubkey3 n checkmultisig
 				stack.Pop()
 				if fSuccess {
 					stack.Push(bnTrue.Serialize())
@@ -1774,7 +1870,131 @@ func evalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						return errcode.New(errcode.ScriptErrCheckMultiSigVerify)
 					}
 				}
+			case opcodes.OP_CAT:
+				// (x1 x2 -- out)
+				if stack.Size() < 2 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch1 := stack.Top(-2)
+				vch2 := stack.Top(-1)
+				vch1Bytes := vch1.([]byte)
+				vch2Bytes := vch2.([]byte)
+				lenVch1 := len(vch1Bytes)
+				lenVch2 := len(vch2Bytes)
+				if lenVch1+lenVch2 > script.MaxScriptElementSize {
+					log.Debug("ScriptErrPushSize")
+					return errcode.New(errcode.ScriptErrPushSize)
+				}
+				stack.Pop()
+				stack.Pop()
+				var vch3Bytes []byte
+				vch3Bytes = append(vch3Bytes, vch1Bytes...)
+				vch3Bytes = append(vch3Bytes, vch2Bytes...)
+				stack.Push(vch3Bytes)
 
+			case opcodes.OP_SPLIT:
+				// (in position -- x1 x2)
+				if stack.Size() < 2 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vch1 := stack.Top(-2)
+				vch2 := stack.Top(-1)
+				scriptNum, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				position := scriptNum.Value
+				// Make sure the split point is apropriate.
+				if uint64(position) > uint64(len(vch1.([]byte))) {
+					log.Debug("ScriptErrInvalidSplitRange")
+					return errcode.New(errcode.ScriptErrInvalidSplitRange)
+				}
+
+				// Prepare the results in their own buffer as `data`
+				// will be invalidated.
+				vch3 := vch1.([]byte)[:position]
+				vch4 := vch1.([]byte)[position:]
+
+				// Replace existing stack values by the new values.
+				stack.Pop()
+				stack.Pop()
+				stack.Push(vch3)
+				stack.Push(vch4)
+				//
+				// Conversion operations
+				//
+			case opcodes.OP_NUM2BIN:
+				// (in size -- out)
+				if stack.Size() < 2 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				vch2 := stack.Top(-1)
+				scriptNum, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
+				if err != nil {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+				size := scriptNum.Value
+				if size > script.MaxScriptElementSize || size < 0 {
+					log.Debug("ScriptErrPushSize")
+					return errcode.New(errcode.ScriptErrPushSize)
+				}
+
+				stack.Pop()
+
+				vch1 := stack.Top(-1)
+				// Try to see if we can fit that number in the number of
+				// byte requested.
+				vchEncode := script.MinimallyEncode(vch1.([]byte))
+				vchEncodeLen := len(vchEncode)
+				if int64(vchEncodeLen) > size {
+					// We definitively cannot.
+					log.Debug("ScriptErrImpossibleEncoding")
+					return errcode.New(errcode.ScriptErrImpossibleEncoding)
+				}
+
+				// We already have an element of the right size, we
+				// don't need to do anything.
+				if int64(vchEncodeLen) == size {
+					stack.Pop()
+					stack.Push(vchEncode)
+					break
+				}
+
+				var signbit uint8 = 0x00
+				if vchEncodeLen > 0 {
+					signbit = vchEncode[vchEncodeLen-1] & 0x80
+					vchEncode[vchEncodeLen-1] &= 0x7f
+				}
+
+				for i := vchEncodeLen; int64(i) < size-1; i++ {
+					vchEncode = append(vchEncode, 0)
+				}
+				vchEncode = append(vchEncode, signbit)
+				stack.Pop()
+				stack.Push(vchEncode)
+			case opcodes.OP_BIN2NUM:
+				// (in -- out)
+				if stack.Size() < 1 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vch := stack.Top(-1)
+				vchEncode := script.MinimallyEncode(vch.([]byte))
+
+				// The resulting number must be a valid number.
+				if !script.IsMinimallyEncoded(vchEncode, script.DefaultMaxNumSize) {
+					log.Debug("ScriptErrInvalidNumberRange")
+					return errcode.New(errcode.ScriptErrInvalidNumberRange)
+				}
+				stack.Pop()
+				stack.Push(vchEncode)
 			default:
 				return errcode.New(errcode.ScriptErrBadOpCode)
 			}
@@ -2077,7 +2297,8 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 			// get signatures and redeemscript
 			if scriptType == script.ScriptHash {
 				redeemScriptPubKey := script.NewScriptRaw(sigData[0])
-				sigData, redeemScriptType, err := transaction.SignStep(redeemScripts, keys, hashType,
+				var redeemScriptType int
+				sigData, redeemScriptType, err = transaction.SignStep(redeemScripts, keys, hashType,
 					redeemScriptPubKey, i, coin.GetAmount())
 				if err != nil {
 					return err
@@ -2090,7 +2311,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 			}
 		}
 		scriptSig = script.NewEmptyScript()
-		scriptSig.PushData(sigData)
+		scriptSig.PushMultData(sigData)
 		err = verifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags))
 		if err != nil {
 			return err
@@ -2125,7 +2346,10 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return txOldScriptSig, nil
 	}
 	if pubKeyType == script.ScriptPubkey || pubKeyType == script.ScriptPubkeyHash {
-		if scriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes) == 0 {
+			return txOldScriptSig, nil
+		}
+		if  len(scriptSig.ParsedOpCodes[0].Data) == 0 {
 			return txOldScriptSig, nil
 		}
 		return scriptSig, nil
@@ -2168,24 +2392,31 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 			sigN++
 		}
 		scriptResult := script.NewEmptyScript()
-		scriptResult.PushData(sigData)
+		scriptResult.PushMultData(sigData)
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {
-		if scriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes) == 0  {
 			return txOldScriptSig, nil
 		}
-		if txOldScriptSig.Size() == 0 {
+		if len(scriptSig.ParsedOpCodes[0].Data) == 0  {
+			return txOldScriptSig, nil
+		}
+		if len(txOldScriptSig.ParsedOpCodes) == 0 {
+			return scriptSig, nil
+		}
+		if len(txOldScriptSig.ParsedOpCodes[0].Data) == 0 {
 			return scriptSig, nil
 		}
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 		scriptSig = scriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
-		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
+		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(txOldScriptSig.ParsedOpCodes) - 1)
 		scriptResult, err := combineSignature(transaction, redeemScript, scriptSig,
 			txOldScriptSig, nIn, money, flags)
 		if err != nil {
 			return nil, err
 		}
+		scriptResult.PushSingleData(redeemScript.GetData())
 		return scriptResult, nil
 	}
 	log.Debug("TxErrPubKeyType")

@@ -1,9 +1,10 @@
 package mempool
 
 import (
-	"container/list"
 	"fmt"
-	"github.com/astaxie/beego/logs"
+	"math"
+	"container/list"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	ltx "github.com/copernet/copernicus/logic/tx"
@@ -14,7 +15,7 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
-	"math"
+	"github.com/copernet/copernicus/log"
 )
 
 // AcceptTxToMemPool add one check corret transaction to mempool.
@@ -248,7 +249,7 @@ func CheckMempool() {
 	spentOut := pool.GetAllSpentOutWithoutLock()
 	bestHash, _ := view.GetBestBlock()
 	bestHeigh := activaChain.FindBlockIndex(bestHash).Height + 1
-	logs.SetLogger("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(allEntry), len(spentOut)))
+	log.Debug("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(allEntry), len(spentOut)))
 	checkTotal := uint64(0)
 
 	waitingOnDependants := list.New()
@@ -355,7 +356,7 @@ func CheckMempool() {
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
 				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
+				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 			}
 		}
 	}
@@ -398,7 +399,7 @@ func CheckMempool() {
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
 				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase))
+				mempoolDuplicate.AddCoin(&a, utxo.NewCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 			}
 			stepsSinceLastRemove = 0
 		}

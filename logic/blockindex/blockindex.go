@@ -1,12 +1,10 @@
 package blockindex
 
 import (
-	"fmt"
 	"math/big"
 	"sort"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -107,7 +105,7 @@ func LoadBlockIndexDB() bool {
 	if err != nil {
 		log.Error("Error: GetLastBlockFile err %#v", err)
 	}
-	logs.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
+	log.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
 	for nFile := int32(0); nFile <= gPersist.GlobalLastBlockFile; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
 		if err == nil {
@@ -120,7 +118,7 @@ func LoadBlockIndexDB() bool {
 			panic("btd.ReadBlockFileInfo(nFile) err")
 		}
 	}
-	logs.Debug("LoadBlockIndexDB(): last block file info: %s\n",
+	log.Debug("LoadBlockIndexDB(): last block file info: %s\n",
 		GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String())
 	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
 		bfi, err = btd.ReadBlockFileInfo(nFile)
@@ -133,7 +131,7 @@ func LoadBlockIndexDB() bool {
 	gPersist.GlobalBlockFileInfo = GlobalBlockFileInfo
 	// Check presence of blk files
 	setBlkDataFiles := set.New()
-	logs.Debug("Checking all blk files are present...")
+	log.Debug("Checking all blk files are present...")
 	for _, item := range GlobalBlockIndexMap {
 		index := item
 		if index.Status&blockindex.BlockHaveData != 0 {
@@ -159,11 +157,11 @@ func LoadBlockIndexDB() bool {
 
 	// Load pointer to end of best chain todo: coinDB must init!!!
 	bestHash, err := utxo.GetUtxoCacheInstance().GetBestBlock()
-	log.Debug("find bestblock hash:%v and err:%v from utxo", bestHash, err)
+	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash.String(), err)
 	if err == nil {
 		tip, ok := GlobalBlockIndexMap[bestHash]
-		indexMapLen := len(GlobalBlockIndexMap)
-		fmt.Println("indexMapLen====", indexMapLen)
+		//indexMapLen := len(GlobalBlockIndexMap)
+		//fmt.Println("indexMapLen====", indexMapLen)
 		if !ok {
 			//shoud reindex from db
 			log.Debug("can't find tip from blockindex db, please delete blocks and chainstate and run again")
@@ -172,10 +170,10 @@ func LoadBlockIndexDB() bool {
 		}
 		// init active chain by tip[load from db]
 		gChain.SetTip(tip)
-		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s progress=%f\n",
-			gChain.Tip().GetBlockHash().ToString(), gChain.Height(),
+		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s, tiphash:%s\n",
+			gChain.Tip().GetBlockHash().String(), gChain.Height(),
 			time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
-			gChain.Tip())
+			gChain.Tip().GetBlockHash().String())
 	}
 
 	return true

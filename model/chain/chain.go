@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/copernet/copernicus/conf"
@@ -30,6 +29,7 @@ type Chain struct {
 }
 
 var globalChain *Chain
+var HashAssumeValid util.Hash
 
 func GetInstance() *Chain {
 	if globalChain == nil {
@@ -39,10 +39,19 @@ func GetInstance() *Chain {
 	return globalChain
 }
 
-func InitGlobalChain(cfg *conf.Configuration) {
+func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
 		globalChain.params = chainparams.ActiveNetParams
+	}
+	if len(conf.Cfg.Chain.AssumeValid) > 0 {
+		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
+		if err != nil {
+			panic("AssumeValid config err")
+		}
+		HashAssumeValid = *hash
+	} else {
+		HashAssumeValid = chainparams.ActiveNetParams.DefaultAssumeValid
 	}
 }
 func NewChain() *Chain {
@@ -90,10 +99,10 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 
 // FindBlockIndex finds blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	fmt.Println("FindBlockIndex======", len(c.indexMap))
+	//fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
-		log.Trace("current chain Tip header height : %d", bi.Height)
+		//log.Trace("current chain Tip header height : %d", bi.Height)
 		return bi
 	}
 
@@ -129,29 +138,29 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	// defer sc.Unlock()
 
 	// BIP16 didn't become active until Apr 1 2012
-	nBIP16SwitchTime := 1333238400
-	fStrictPayToScriptHash := int(pindex.GetBlockTime()) >= nBIP16SwitchTime
-	param := c.params
+	/** Activation time for P2SH (April 1st 2012) */
 	var flags uint32
-
-	if fStrictPayToScriptHash {
+	P2SHActivationTime := 1333234914
+	//nBIP16SwitchTime := 1333238400
+	if pindex.GetMedianTimePast() >= int64(P2SHActivationTime) {
 		flags = script.ScriptVerifyP2SH
 	} else {
 		flags = script.ScriptVerifyNone
 	}
-
+	//fStrictPayToScriptHash := int(pindex.GetBlockTime()) >= nBIP16SwitchTime
+	param := c.params
 	// Start enforcing the DERSIG (BIP66) rule
-	if pindex.Height >= param.BIP66Height {
+	if pindex.Height+1 >= param.BIP66Height {
 		flags |= script.ScriptVerifyDersig
 	}
 
 	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-	if pindex.Height >= param.BIP65Height {
+	if pindex.Height+1 >= param.BIP65Height {
 		flags |= script.ScriptVerifyCheckLockTimeVerify
 	}
 
 	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if versionbits.VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+	if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		flags |= script.ScriptVerifyCheckSequenceVerify
 	}
 	// If the UAHF is enabled, we start accepting replay protected txns
@@ -164,9 +173,23 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	// s in their signature. We also make sure that signature that are supposed
 	// to fail (for instance in multisig or other forms of smart contracts) are
 	// null.
-	if pindex.IsCashHFEnabled(param) {
+	//if pindex.IsCashHFEnabled(param) {
+	//	flags |= script.ScriptVerifyLowS
+	//	flags |= script.ScriptVerifyNullFail
+	//}
+	if pindex.IsDAAEnabled(param) {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
+	}
+	// The monolith HF enable a set of opcodes.
+	if pindex.IsMonolithEnabled(param) {
+		flags |= script.ScriptEnableMonolithOpcodes
+	}
+
+	// We make sure this node will have replay protection during the next hard
+	// fork.
+	if pindex.IsReplayProtectionEnabled(param) {
+		flags |= script.ScriptEnableReplayProtection
 	}
 
 	return flags

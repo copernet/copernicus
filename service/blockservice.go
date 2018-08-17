@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/copernet/copernicus/log"
 	lblock "github.com/copernet/copernicus/logic/block"
 	lchain "github.com/copernet/copernicus/logic/chain"
@@ -29,12 +30,14 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 
 func ProcessBlock(b *block.Block) (bool, error) {
 	h := b.GetHash()
-	log.Trace("blockservice process block , blockhash : %s", h.String())
+	//log.Trace("blockservice process block , blockhash : %s", h.String())
 	//fmt.Printf("txs[0] ins:%v, outs:%v", b.Txs[0].GetIns(), b.Txs[0].GetOuts())
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
-	_ = coinsTip
-	log.Trace("gchan height : %d, tipHash : %s", gChain.Height(), gChain.Tip().GetBlockHash().String())
+	coinsTipHash, _ := coinsTip.GetBestBlock()
+
+	log.Trace("Begin processing block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
 	isNewBlock := false
 	var err error
@@ -42,18 +45,25 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	bIndex := gChain.FindBlockIndex(b.GetHash())
 	if bIndex != nil {
 		if bIndex.Accepted() {
-			log.Trace("this block have be sucessed process, height : %d, hash : %s",
+			log.Trace("this block have be sucessed process, height: %d, hash: %s",
 				bIndex.Height, bIndex.GetBlockHash().String())
 			return isNewBlock, nil
 		}
 	}
-	log.Trace("gchan height : %d, begin to processNewBlock ...", gChain.Height())
+	//log.Trace("gchan height : %d, begin to processNewBlock ...", gChain.Height())
 	err = ProcessNewBlock(b, true, &isNewBlock)
 	// bIndex,err = lchain.AcceptBlock(b, &params)
 	if err != nil {
 		log.Trace("processBlock failed ...")
 		return isNewBlock, err
 	}
+
+	coinsTipHash, _ = coinsTip.GetBestBlock()
+	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+
+	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s\n",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 	return isNewBlock, err
 }
 
@@ -81,7 +91,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	// Only used to report errors, not invalidity - ignore it
 	if err = lchain.ActivateBestChain(pblock); err != nil {
-		log.Error(" ActivateBestChain failed ")
+		log.Error(" ActivateBestChain failed :%v", err)
 		return err
 	}
 

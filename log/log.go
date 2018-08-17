@@ -114,7 +114,7 @@ func GetLogger() *logs.BeeLogger {
 }
 
 func Init() {
-	logDir := filepath.Join(conf.Cfg.DataDir, defaultLogDirname)
+	logDir := filepath.Join(conf.DataDir, defaultLogDirname)
 	if !conf.ExistDataDir(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {
@@ -151,3 +151,4 @@ func Init() {
 		mapModule[module] = struct{}{}
 	}
 }
+

@@ -13,10 +13,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/rpc/btcjson"
-	"github.com/copernet/copernicus/util"
 	"github.com/jessevdk/go-flags"
+	"github.com/copernet/copernicus/conf"
 )
 
 const (
@@ -27,9 +26,9 @@ const (
 )
 
 var (
-	coperHomeDir          = util.AppDataDir("coper", false)
-	coperctlHomeDir       = util.AppDataDir("coperctl", false)
-	coperwalletHomeDir    = util.AppDataDir("coperwallet", false)
+	coperHomeDir          = conf.AppDataDir("coper", false)
+	coperctlHomeDir       = conf.AppDataDir("coperctl", false)
+	coperwalletHomeDir    = conf.AppDataDir("coperwallet", false)
 	defaultConfigFile     = filepath.Join(coperctlHomeDir, "coperctl.conf")
 	defaultRPCServer      = "localhost"
 	defaultRPCCertFile    = filepath.Join(coperHomeDir, "rpc.cert")

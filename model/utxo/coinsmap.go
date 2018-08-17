@@ -44,7 +44,7 @@ func (cm CoinsMap) Flush(hashBlock util.Hash) bool {
 	return ok == nil
 }
 
-func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
+func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwrite bool) {
 	if coin.IsSpent() {
 		panic("param coin should not be null")
 	}
@@ -55,7 +55,7 @@ func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin) {
 	}
 	fresh := false
 
-	if true {
+	if !possibleOverwrite {
 		oldCoin, ok := cm.cacheCoins[*point]
 		if ok {
 			//exist old Coin in cache

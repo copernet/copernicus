@@ -98,10 +98,13 @@ func TestCoinSec(t *testing.T) {
 	spew.Dump("the coin  is: %v \n ", c3)
 
 	w := bytes.NewBuffer(nil)
-	c3.Serialize(w)
+	err := c3.Serialize(w)
+	if err != nil {
+		t.Errorf("serialized faild:%v", err)
+	}
 
 	var target Coin
-	err := target.Unserialize(bytes.NewReader(w.Bytes()))
+	err = target.Unserialize(bytes.NewReader(w.Bytes()))
 	if err != nil {
 		t.Errorf("unserlize failed...%v\n", err)
 	}

@@ -9,8 +9,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/util"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
 )
@@ -57,13 +55,12 @@ const (
 )
 
 var Cfg *Configuration
-
 var DataDir string
 
 // init configuration
 func initConfig() *Configuration {
 	// parse command line parameter to set program datadir
-	defaultDataDir := util.AppDataDir(defaultDataDirname, false)
+	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
 	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
 	flag.Parse()
@@ -196,7 +193,7 @@ type Configuration struct {
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
-		AddCheckpoints      []model.Checkpoint
+		//AddCheckpoints      []model.Checkpoint
 	}
 	AddrMgr struct {
 		SimNet       bool
@@ -216,6 +213,9 @@ type Configuration struct {
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
 	}
+	Chain struct {
+		AssumeValid string
+	}
 	Mining struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee
 		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
@@ -233,18 +233,6 @@ func must(i interface{}, err error) interface{} {
 
 func init() {
 	Cfg = initConfig()
-}
-
-func ExistDataDir(datadir string) bool {
-	_, err := os.Stat(datadir)
-	if err == nil {
-		return true
-	}
-	if os.IsExist(err) {
-		return false
-	}
-
-	return false
 }
 
 func CopyFile(src, des string) (w int64, err error) {
@@ -268,4 +256,17 @@ func (c Configuration) Validate() error {
 	//validate := validator.New(&validator.Config{TagName: "validate"})
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
+}
+
+
+func ExistDataDir(datadir string) bool {
+	_, err := os.Stat(datadir)
+	if err == nil {
+		return true
+	}
+	if os.IsExist(err) {
+		return false
+	}
+
+	return false
 }
