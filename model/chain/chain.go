@@ -78,7 +78,7 @@ func (c *Chain) Genesis() *blockindex.BlockIndex {
 	}
 
 	return nil
-}     //get the genesis of the active chain
+}
 
 func (c *Chain) AddReceivedID() {
 	c.receiveID++
@@ -279,7 +279,6 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 // }
 
 // GetAncestor gets ancestor from active chain.
-// ancestor here means parent
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 	if len(c.active) >= int(height) {
 		return c.active[height]
