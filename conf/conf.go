@@ -269,3 +269,4 @@ func (c Configuration) Validate() error {
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
 }
+

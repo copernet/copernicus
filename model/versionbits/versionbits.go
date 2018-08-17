@@ -7,6 +7,7 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
+
 )
 
 const (
@@ -67,6 +68,7 @@ func NewVersionBitsCache() *VersionBitsCache {
 	var cache [consensus.MaxVersionBitsDeployments]ThresholdConditionCache
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		cache[i] = make(ThresholdConditionCache)
+
 	}
 	return &VersionBitsCache{cache: cache}
 }
@@ -172,7 +174,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.Blo
 	// At this point, cache[indexPrev] is known
 	state, ok := cache[indexPrev]
 	if !ok {
-		panic("there should be a element in cache")
+		panic("there should be an element in cache")
 	}
 
 	// Now walk forward and compute the state of descendants of indexPrev
@@ -309,4 +311,5 @@ func ComputeBlockVersion(indexPrev *blockindex.BlockIndex, params *chainparams.B
 
 func init() {
 	VBCache = NewVersionBitsCache()
+
 }

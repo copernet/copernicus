@@ -269,7 +269,7 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 }
 
 func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
-	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
+	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime   //1510600000
 }
 
 func NewBlockIndex(blkHeader *block.BlockHeader) *BlockIndex {

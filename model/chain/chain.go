@@ -8,14 +8,15 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
-	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
+	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/model/consensus"
 )
+
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
@@ -37,7 +38,7 @@ func GetInstance() *Chain {
 	}
 	// fmt.Println("gchain======%#v", globalChain)
 	return globalChain
-}
+}    //get the current globalchain
 
 func InitGlobalChain(cfg *conf.Configuration) {
 	if globalChain == nil {
@@ -52,7 +53,9 @@ func NewChain() *Chain {
 }
 func (c *Chain) GetParams() *chainparams.BitcoinParams {
 	return c.params
-}
+}  //获得链c的参数，参数的类型是"比特币参数"
+
+//initially load the maps of the chain
 func (c *Chain) InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch []*blockindex.BlockIndex) {
 	c.indexMap = indexMap
 	c.branch = branch
@@ -66,7 +69,7 @@ func (c *Chain) Genesis() *blockindex.BlockIndex {
 	}
 
 	return nil
-}
+}     //get the genesis of the active chain
 
 func (c *Chain) AddReceivedID() {
 	c.receiveID++
@@ -76,6 +79,7 @@ func (c *Chain) GetReceivedID() uint64 {
 }
 
 // FindHashInActive finds blockindex from active
+// findhash means use hash find
 func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 	bi, ok := c.indexMap[hash]
 	if ok {
@@ -89,6 +93,7 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 }
 
 // FindBlockIndex finds blockindex from blockIndexMap
+//returns the same result as the former func , but also print sth.
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
@@ -107,7 +112,7 @@ func (c *Chain) Tip() *blockindex.BlockIndex {
 	}
 
 	return nil
-}
+}   //返回顶块
 
 func (c *Chain) TipHeight() int32 {
 	if len(c.active) > 0 {
@@ -117,7 +122,7 @@ func (c *Chain) TipHeight() int32 {
 	return 0
 }
 
-func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
+func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {     //给一个哈希，求这笔钱是在哪个高度花费的
 	index := c.indexMap[*hash]
 	return index.Height + 1
 }
@@ -141,12 +146,12 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// Start enforcing the DERSIG (BIP66) rule
-	if pindex.Height >= param.BIP66Height {
+	if pindex.Height >= param.BIP66Height  {     //330775
 		flags |= script.ScriptVerifyDersig
 	}
 
 	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-	if pindex.Height >= param.BIP65Height {
+	if pindex.Height >= param.BIP65Height {     //581885
 		flags |= script.ScriptVerifyCheckLockTimeVerify
 	}
 
@@ -154,8 +159,9 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	if versionbits.VersionBitsState(pindex.Prev, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		flags |= script.ScriptVerifyCheckSequenceVerify
 	}
+
 	// If the UAHF is enabled, we start accepting replay protected txns
-	if chainparams.IsUAHFEnabled(pindex.Height) {
+	if chainparams.IsUAHFEnabled(pindex.Height) {     //1155886
 		flags |= script.ScriptVerifyStrictEnc
 		flags |= script.ScriptEnableSigHashForkID
 	}
@@ -170,7 +176,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	return flags
-}
+}   //看一个块用的是哪个时代的版本
 
 // GetIndex Returns the blIndex entry at a particular height in this chain, or nullptr
 // if no such height exists.
@@ -183,6 +189,7 @@ func (c *Chain) GetIndex(height int32) *blockindex.BlockIndex {
 }
 
 // Equal Compare two chains efficiently.
+//最后一个块一样则两条链一定一样
 func (c *Chain) Equal(dst *Chain) bool {
 	return len(c.active) == len(dst.active) &&
 		c.active[len(c.active)-1] == dst.active[len(dst.active)-1]
@@ -222,7 +229,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 		c.active[index.Height] = index
 		index = index.Prev
 	}
-}
+}   //感觉没法测？
 
 // SetTip Set/initialize a chain with a given tip.
 // func (c *Chain) SetTip1(index *blockindex.BlockIndex) {
@@ -247,7 +254,8 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 // 	// todo update active
 // }
 
-// GetAncestor gets ancestor from active chain
+// GetAncestor gets ancestor from active chain.
+// ancestor here means parent
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 	if len(c.active) >= int(height) {
 		return c.active[height]
@@ -305,7 +313,7 @@ func (c *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex 
 }
 
 // FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
-func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
+func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {      //????????
 
 	return nil
 }
@@ -335,6 +343,8 @@ func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
 	}
 	return false
 }
+
+// blocks in the branch ranks in the order of 'proof of work'
 func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	c.branch = append(c.branch, bis)
 	sort.SliceStable(c.branch, func(i, j int) bool {
@@ -390,7 +400,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	bi.SequenceID = 0
 	hash := bi.GetBlockHash()
 	c.indexMap[*hash] = bi
-	log.Debug("AddToIndexMap:%s", hash.String())
+//	log.Debug("AddToIndexMap:%s", hash.String())
 	bh := bi.Header
 	pre, ok := c.indexMap[bh.HashPrevBlock]
 	if ok {
