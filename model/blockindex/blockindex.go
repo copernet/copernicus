@@ -296,6 +296,7 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	return bhash.IsEqual(&genesisHash)
 }
 
+
 //func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
 //	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
 //}

@@ -172,7 +172,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.Blo
 	// At this point, cache[indexPrev] is known
 	state, ok := cache[indexPrev]
 	if !ok {
-		panic("there should be a element in cache")
+		panic("there should be an element in cache")
 	}
 
 	// Now walk forward and compute the state of descendants of indexPrev
