@@ -309,5 +309,4 @@ func ComputeBlockVersion(indexPrev *blockindex.BlockIndex, params *chainparams.B
 
 func init() {
 	VBCache = NewVersionBitsCache()
-
 }
