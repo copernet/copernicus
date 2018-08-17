@@ -38,7 +38,7 @@ func GetInstance() *Chain {
 	}
 	// fmt.Println("gchain======%#v", globalChain)
 	return globalChain
-}    //get the current globalchain
+}
 
 func InitGlobalChain() {
 	if globalChain == nil {
@@ -88,7 +88,6 @@ func (c *Chain) GetReceivedID() uint64 {
 }
 
 // FindHashInActive finds blockindex from active
-// findhash means use hash find
 func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 	bi, ok := c.indexMap[hash]
 	if ok {
@@ -102,7 +101,6 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 }
 
 // FindBlockIndex finds blockindex from blockIndexMap
-//returns the same result as the former func , but also print sth.
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	//fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
@@ -426,7 +424,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	bi.SequenceID = 0
 	hash := bi.GetBlockHash()
 	c.indexMap[*hash] = bi
-//	log.Debug("AddToIndexMap:%s", hash.String())
+	log.Debug("AddToIndexMap:%s", hash.String())
 	bh := bi.Header
 	pre, ok := c.indexMap[bh.HashPrevBlock]
 	if ok {
