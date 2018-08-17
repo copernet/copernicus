@@ -24,7 +24,7 @@ func TestBlockIndexBuildSkip(t *testing.T) {
 			BlocksMain[i].Prev = nil
 		}
 
-		//BlocksMain[i].BuildSkip()
+		BlocksMain[i].BuildSkip()
 		if i < 10 {
 			BlocksMain[i].TimeMax = uint32(i)
 			BlocksMain[i].Header.Time = uint32(i)
