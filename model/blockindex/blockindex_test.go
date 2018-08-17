@@ -220,8 +220,7 @@ func TestNewBlockIndex(t *testing.T) {
 	var bHeader block.BlockHeader
 	var bIndex = NewBlockIndex(&bHeader)
 	if bIndex.Header != bHeader || bIndex.GetBlockTimeMax() != 0 ||
-		bIndex.GetBlockPos().Pos != 0 || bIndex.GetDataPos() != 0 ||
-		bIndex.GetUndoPos().Pos != 0 {
+		bIndex.GetBlockPos().Pos != 0 || bIndex.GetUndoPos().Pos != 0 {
 		t.Errorf("NewBlockIndex is wrong")
 	}
 }

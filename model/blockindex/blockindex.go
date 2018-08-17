@@ -122,11 +122,6 @@ func (bIndex *BlockIndex) SubStatus(statu uint32) {
 	bIndex.Status &= ^statu
 }
 
-func (bIndex *BlockIndex) GetDataPos() int {
-
-	return 0
-}
-
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
 	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.UndoPos}
 }
