@@ -29,8 +29,6 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 )
 
-var HashAssumeValid util.Hash
-
 func ConnectBlock(pblock *block.Block,
 	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := mchain.GetInstance()
@@ -62,7 +60,7 @@ func ConnectBlock(pblock *block.Block,
 	}
 
 	fScriptChecks := true
-	if HashAssumeValid != util.HashZero {
+	if mchain.HashAssumeValid != util.HashZero {
 		// We've been configured with the hash of a block which has been
 		// externally verified to have a valid history. A suitable default value
 		// is included with the software and updated from time to time. Because
@@ -70,7 +68,7 @@ func ConnectBlock(pblock *block.Block,
 		// defaults can be easily reviewed. This setting doesn't force the
 		// selection of any particular chain but makes validating some faster by
 		// effectively caching the result of part of the verification.
-		if bi := gChain.FindBlockIndex(HashAssumeValid); bi != nil {
+		if bi := gChain.FindBlockIndex(mchain.HashAssumeValid); bi != nil {
 			if bi.GetAncestor(pindex.Height) == pindex && tip.GetAncestor(pindex.Height) == pindex &&
 				tip.ChainWork.Cmp(pow.HashToBig(&params.MinimumChainWork)) > 0 {
 				// This block is a member of the assumed verified chain and an
@@ -132,7 +130,7 @@ func ConnectBlock(pblock *block.Block,
 	bip34 := pindexBIP34height == nil || !(pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
 	fEnforceBIP30 = fEnforceBIP30 && bip34
 
-	flags := lblock.GetBlockScriptFlags(pindex)
+	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
 	nTime2 := util.GetMicrosTime()
 	gPersist.GlobalTimeForks += nTime2 - nTime1
@@ -167,6 +165,12 @@ func ConnectBlock(pblock *block.Block,
 	// add this block to the view's block chain
 	coinsMap.SetBestBlock(blockHash)
 	*view = *coinsMap
+
+	//if (pindex.IsReplayProtectionEnabled(params) &&
+	//	!pindex.Prev.IsReplayProtectionEnabled(params)) {
+	//	mempool.clear();
+	//}
+
 	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash.String())
 	return nil
 }
@@ -212,7 +216,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	nTime2 := time.Now().UnixNano()
 	gPersist := global.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
-	log.Info("  - Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
+	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 
 	view := utxo.NewEmptyCoinsMap()
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
@@ -221,9 +225,10 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Error(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", indexHash.String()))
 		return err
 	}
+
 	nTime3 := util.GetMicrosTime()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
-	log.Print("bench", "debug", " - Connect total: %.2fms [%.2fs]\n",
+	log.Debug("Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
 	view.SetBestBlock(indexHash)
 	flushed := view.Flush(indexHash)
@@ -318,7 +323,25 @@ func DisconnectTip(fBare bool) error {
 		// this block that were added back and cleans up the memPool state.
 		//mempool.Gpool.UpdateTransactionsFromBlock(vHashUpdate)
 	}
-
+	// If this block was deactivating the replay protection, then we need to
+	// remove transactions that are replay protected from the mempool. There is
+	// no easy way to do this so we'll just discard the whole mempool and then
+	// add the transaction of the block we just disconnected back.
+	//
+	// Samewise, if this block enabled the monolith opcodes, then we need to
+	// clear the mempool of any transaction using them.
+	//if ((IsReplayProtectionEnabled(config, pindexDelete) &&
+	//	!IsReplayProtectionEnabled(config, pindexDelete->pprev)) ||
+	//	(IsMonolithEnabled(config, pindexDelete) &&
+	//		!IsMonolithEnabled(config, pindexDelete->pprev))) {
+	//	mempool.clear();
+	//	// While not strictly necessary, clearing the disconnect pool is also
+	//	// beneficial so we don't try to reuse its content at the end of the
+	//	// reorg, which we know will fail.
+	//	if (disconnectpool) {
+	//		disconnectpool->clear();
+	//	}
+	//}
 	// Update chainActive and related variables.
 	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
@@ -470,14 +493,16 @@ func InitGenesisChain() error {
 		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
 	}
 	gChain.SetTip(bIndex)
+
 	coinsMap := utxo.NewEmptyCoinsMap()
+	//coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
 	bestHash := bIndex.GetBlockHash()
 	coinsMap.SetBestBlock(*bestHash)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)
 
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
 
-	fmt.Printf("initGenesisChain=====%v,error:%v", gChain, err)
+	//fmt.Printf("initGenesisChain=====%v,error:%v", gChain, err)
 	return nil
 
 }

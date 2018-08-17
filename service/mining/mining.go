@@ -148,8 +148,6 @@ func computeMaxGeneratedBlockSize() uint64 {
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
 	pool := mempool.GetInstance() // todo use global variable
-	pool.RLock()
-	defer pool.RUnlock()
 
 	consecutiveFailed := 0
 
@@ -270,11 +268,13 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	}
 	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
-	if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
-		ba.lockTimeCutoff = indexPrev.GetMedianTimePast() // todo fix
-	} else {
-		ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
-	}
+	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
+
+	//if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
+	//} else {
+	//	ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
+	//}
 
 	descendantsUpdated := ba.addPackageTxs()
 
@@ -287,7 +287,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	// Create coinbase transaction
 	coinbaseTx := tx.NewTx(0, 0x01)
 	buf := bytes.NewBuffer(nil)
-	bs := make([]byte, 4)
+	bs := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
 	buf.Write([]byte{opcodes.OP_0})
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, script.NewScriptRaw(buf.Bytes()), 0xffffffff))
@@ -359,8 +359,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
 	descendantUpdate := 0
 	mpool := mempool.GetInstance()
-	mpool.Lock()
-	defer mpool.Unlock()
+
 	for entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
 		mpool.CalculateDescendants(entry, descendants)
@@ -419,7 +418,7 @@ func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraN
 	coinbaseScript := script.NewScriptRaw(buf.Bytes())
 	bk.Txs[0].GetIns()[0].SetScriptSig(coinbaseScript)
 
-	bk.Header.MerkleRoot = merkleroot.BlockMerkleRoot(bk, nil)
+	bk.Header.MerkleRoot = merkleroot.BlockMerkleRoot(bk.Txs, nil)
 
 	return extraNonce
 }
@@ -457,7 +456,7 @@ func getExcessiveBlockSizeSig() []byte {
 func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	oldTime := int64(bk.Header.Time)
 	var newTime int64
-	mt := indexPrev.GetMedianTimePast() + 1
+	mt := int64(0) + 1
 	at := util.GetAdjustedTime()
 	if mt > at {
 		newTime = mt

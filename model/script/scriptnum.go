@@ -79,7 +79,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 
 	if vchLen > maxNumSize {
 		log.Debug("ScriptErrNumberOverflow")
-		err = errcode.New(errcode.ScriptErrNumberOverflow)
+		err = errcode.New(errcode.ScriptErrUnknownError)
 		scriptNum = NewScriptNum(0)
 		return
 	}
@@ -101,7 +101,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 			// (big-endian).
 			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
 				log.Debug("ScriptErrNonMinimalEncodedNumber")
-				err = errcode.New(errcode.ScriptErrNonMinimalEncodedNumber)
+				err = errcode.New(errcode.ScriptErrUnknownError)
 				scriptNum = NewScriptNum(0)
 				return
 			}
@@ -180,6 +180,82 @@ func (n *ScriptNum) Serialize() (bytes []byte) {
 
 	return
 }
+
+func MinimallyEncode(data []byte) []byte {
+	dataLen := len(data)
+	if dataLen == 0 {
+		return data
+	}
+
+	// If the last byte is not 0x00 or 0x80, we are minimally encoded.
+	last := data[dataLen-1]
+	if (last & 0x7f) != 0 {
+		return data
+	}
+
+	// If the script is one byte long, then we have a zero, which encodes as an
+	// empty array.
+	if len(data) == 1 {
+		data = data[:0]
+		return data
+	}
+
+	// If the next byte has it sign bit set, then we are minimaly encoded.
+	if (data[len(data)-2] & 0x80) != 0 {
+		return data
+	}
+
+	// We are not minimally encoded, we need to figure out how much to trim.
+	for i := len(data) - 1; i > 0; i-- {
+		// We found a non zero byte, time to encode.
+		if data[i-1] != 0 {
+			if (data[i-1] & 0x80) != 0 {
+				// We found a byte with it sign bit set so we need one more
+				// byte.
+				data[i] = last
+				i++
+			} else {
+				// the sign bit is clear, we can use it.
+				data[i-1] |= last
+			}
+			data = data[:i]
+			return data
+		}
+	}
+
+	// If we the whole thing is zeros, then we have a zero.
+	data = data[:0]
+	return data
+}
+
+func IsMinimallyEncoded(data []byte, nMaxNumSize int64) bool {
+	dataLen := len(data)
+	if int64(dataLen) > nMaxNumSize {
+		return false
+	}
+
+	if dataLen > 0 {
+		// Check that the number is encoded with the minimum possible number
+		// of bytes.
+		//
+		// If the most-significant-byte - excluding the sign bit - is zero
+		// then we're not minimal. Note how this test also rejects the
+		// negative-zero encoding, 0x80.
+		if (data[dataLen-1] & 0x7f) == 0 {
+			// One exception: if there's more than one byte and the most
+			// significant bit of the second-most-significant-byte is set it
+			// would conflict with the sign bit. An example of this case is
+			// +-255, which encode to 0xff00 and 0xff80 respectively.
+			// (big-endian).
+			if dataLen <= 1 || (data[dataLen-2]&0x80) == 0 {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 func NewScriptNum(v int64) *ScriptNum {
 	return &ScriptNum{Value: v}
 }

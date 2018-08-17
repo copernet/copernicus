@@ -34,7 +34,7 @@ func TestCoinMap(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint1, coin1)
+	necm.AddCoin(&outpoint1, coin1,false)
 
 	c := necm.GetCoin(&outpoint1)
 
@@ -63,7 +63,7 @@ func TestCoinMap(t *testing.T) {
 		t.Error("get coin should nil, because the coin has been spend ")
 	}
 
-	necm.AddCoin(&outpoint1, coin1)
+	necm.AddCoin(&outpoint1, coin1,false)
 	if !reflect.DeepEqual(necm.SpendGlobalCoin(&outpoint1), coin1) {
 		t.Error("spend coin should equal coin1, please check.")
 	}
@@ -73,7 +73,7 @@ func TestCoinMap(t *testing.T) {
 		t.Error("get coin should nil, because the coin has been spend ")
 	}
 
-	necm.AddCoin(&outpoint1, coin1)
+	necm.AddCoin(&outpoint1, coin1,false)
 	necm.UnCache(&outpoint1)
 	ncc := necm.GetCoin(&outpoint1)
 	if ncc != nil {
@@ -96,7 +96,7 @@ func TestCoinMap(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint2, coin2)
+	necm.AddCoin(&outpoint2, coin2,false)
 
 	c2 := necm.GetCoin(&outpoint2)
 
@@ -125,7 +125,7 @@ func TestCoinMap(t *testing.T) {
 		t.Error("get coin should nil, because the coin has been spend ")
 	}
 
-	necm.AddCoin(&outpoint2, coin2)
+	necm.AddCoin(&outpoint2, coin2,false)
 	if !reflect.DeepEqual(necm.SpendGlobalCoin(&outpoint2), coin2) {
 		t.Error("spend coin should equal coin1, please check.")
 	}
@@ -135,7 +135,7 @@ func TestCoinMap(t *testing.T) {
 		t.Error("get coin should nil, because the coin has been spend ")
 	}
 
-	necm.AddCoin(&outpoint2, coin2)
+	necm.AddCoin(&outpoint2, coin2,false)
 	necm.UnCache(&outpoint2)
 	ncc2 := necm.GetCoin(&outpoint2)
 	if ncc2 != nil {

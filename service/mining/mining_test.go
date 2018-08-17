@@ -87,6 +87,7 @@ func createTx() []*mempool.TxEntry {
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(5*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	_ = tx2.GetHash()
 	txEntry2 := testEntryHelp.SetTime(1).SetFee(amount.Amount(5 * util.COIN)).FromTxToEntry(tx2)
+	txEntry2.ParentTx[txEntry1] = struct{}{}
 
 	//  modify tx3's content to avoid to get the same hash with tx2
 	tx3 := tx.NewTx(0, 0x02)
@@ -94,6 +95,7 @@ func createTx() []*mempool.TxEntry {
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), 0xffffffff))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	txEntry3 := testEntryHelp.SetTime(1).SetFee(amount.Amount(4 * util.COIN)).FromTxToEntry(tx3)
+	txEntry3.ParentTx[txEntry1] = struct{}{}
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
@@ -101,6 +103,8 @@ func createTx() []*mempool.TxEntry {
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(4*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})))
 	_ = tx4.GetHash()
 	txEntry4 := testEntryHelp.SetTime(1).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx4)
+	txEntry4.ParentTx[txEntry1] = struct{}{}
+	txEntry4.ParentTx[txEntry3] = struct{}{}
 
 	t := make([]*mempool.TxEntry, 4)
 	t[0] = txEntry1
@@ -112,15 +116,19 @@ func createTx() []*mempool.TxEntry {
 
 func TestCreateNewBlockByFee(t *testing.T) {
 	// clear mempool data
-	pool := mempool.NewTxMempool()
+	mempool.InitMempool()
 	txSet := createTx()
-	hash := txSet[0].Tx.GetHash()
-	ancestors := pool.CalculateMemPoolAncestorsWithLock(&hash)
+	//hash := txSet[0].Tx.GetHash()
+	pool := mempool.GetInstance()
+	//ancestors := pool.CalculateMemPoolAncestorsWithLock(&hash)
 	//noLimit := uint64(math.MaxUint64)
 	for _, entry := range txSet {
-		pool.AddTx(entry, ancestors)
-	}
 
+		err := pool.AddTx(entry, entry.ParentTx)
+		if err != nil {
+			t.Error(err)
+		}
+	}
 	if pool.Size() != 4 {
 		t.Error("add txEntry to mempool error")
 	}
@@ -140,23 +148,22 @@ func TestCreateNewBlockByFee(t *testing.T) {
 }
 
 func TestCreateNewBlockByFeeRate(t *testing.T) {
-	// clear mempool data
-	pool := mempool.NewTxMempool()
+	mempool.InitMempool()
 
 	txSet := createTx()
-	//noLimit := uint64(math.MaxUint64)
-	hash := txSet[0].Tx.GetHash()
-	ancestors := pool.CalculateMemPoolAncestorsWithLock(&hash)
+
+	pool := mempool.GetInstance()
 	for _, entry := range txSet {
-		pool.AddTx(entry, ancestors)
+		pool.AddTx(entry, entry.ParentTx)
 	}
+
 	if pool.Size() != 4 {
 		t.Error("add txEntry to mempool error")
 	}
 
 	ba := NewBlockAssembler(chainparams.ActiveNetParams)
 	strategy = sortByFeeRate
-	sc := script.NewEmptyScript()
+	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
 	ba.CreateNewBlock(sc)
 	if len(ba.bt.Block.Txs) != 5 {
 		t.Error("some transactions are inserted to block error")

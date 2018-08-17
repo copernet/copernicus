@@ -3,7 +3,6 @@ package utxo
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
@@ -105,7 +104,7 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	if (heightAndIsCoinBase & 1) == 1 {
 		coin.isCoinBase = true
 	}
-	fmt.Println("coin.Unserialize=====", err, coin.height, coin.isCoinBase)
+	//fmt.Println("coin.Unserialize=====", err, coin.height, coin.isCoinBase)
 	err = coin.txOut.Unserialize(r)
 	return err
 }

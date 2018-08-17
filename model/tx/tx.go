@@ -3,12 +3,14 @@ package tx
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txin"
@@ -16,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"io"
+	"math"
 )
 
 const (
@@ -294,7 +297,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
-			log.Debug("tx duplicate input")
+			log.Debug("tx input prevout null")
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
@@ -359,7 +362,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	// check dup input
 	if checkDupInput {
-		outPointSet := make(map[*outpoint.OutPoint]bool)
+		outPointSet := make(map[outpoint.OutPoint]bool)
 		err := tx.CheckDuplicateIns(&outPointSet)
 		if err != nil {
 			return err
@@ -368,10 +371,10 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	return nil
 }
-func (tx *Tx) CheckDuplicateIns(outpoints *map[*outpoint.OutPoint]bool) error {
+func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
 	for _, in := range tx.ins {
-		if _, ok := (*outpoints)[in.PreviousOutPoint]; !ok {
-			(*outpoints)[in.PreviousOutPoint] = true
+		if _, ok := (*outpoints)[*(in.PreviousOutPoint)]; !ok {
+			(*outpoints)[*(in.PreviousOutPoint)] = true
 		} else {
 			log.Debug("bad tx, duplicate inputs")
 			return errcode.New(errcode.TxErrRejectInvalid)
@@ -507,8 +510,9 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 		}
 		sigBytes := signature.Serialize()
 		sigBytes = append(sigBytes, byte(hashType))
-		sigBytes = append(sigBytes, []byte(pubKeyHashString)...)
 		sigData = append(sigData, sigBytes)
+		pkBytes := privateKey.PubKey().ToBytes()
+		sigData = append(sigData, pkBytes)
 		return sigData, pubKeyType, nil
 	}
 	// signature1|hashType signature2|hashType...signatureM|hashType
@@ -517,12 +521,14 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 		sigBytes = append(sigBytes, byte(0))
 		requiredSigs := int(pubKeys[0][0])
 		signed := 0
+		emptyBytes := []byte{}
+		sigData = append(sigData, emptyBytes)
 		for _, e := range pubKeys[1 : len(pubKeys)-2] {
 			pubKeyHashString := string(util.Hash160(e))
 			privateKey := keys[pubKeyHashString]
 			signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
 			if err != nil {
-				return nil, pubKeyType, err
+				continue
 			}
 			sigBytes = append(sigBytes, signature.Serialize()...)
 			sigBytes = append(sigBytes, byte(hashType))
@@ -569,40 +575,40 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	return nil
 }
 
-func (tx *Tx) Copy() *Tx {
-	newTx := Tx{
-		version:  tx.GetVersion(),
-		lockTime: tx.GetLockTime(),
-		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
-		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
-	}
-	//newTx.hash = tx.hash
-
-	for _, txOut := range tx.outs {
-		scriptLen := len(txOut.GetScriptPubKey().GetData())
-		newOutScript := make([]byte, scriptLen)
-		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
-
-		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
-		newTx.outs = append(newTx.outs, newTxOut)
-	}
-	for _, txIn := range tx.ins {
-		var hashBytes [32]byte
-		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-		preHash := new(util.Hash)
-		preHash.SetBytes(hashBytes[:])
-		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-		scriptLen := txIn.GetScriptSig().Size()
-		newScript := make([]byte, scriptLen)
-		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
-
-		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
-
-		newTx.ins = append(newTx.ins, newTxTmp)
-	}
-	return &newTx
-
-}
+//func (tx *Tx) Copy() *Tx {
+//	newTx := Tx{
+//		version:  tx.GetVersion(),
+//		lockTime: tx.GetLockTime(),
+//		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
+//		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
+//	}
+//	//newTx.hash = tx.hash
+//
+//	for _, txOut := range tx.outs {
+//		scriptLen := len(txOut.GetScriptPubKey().GetData())
+//		newOutScript := make([]byte, scriptLen)
+//		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
+//
+//		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
+//		newTx.outs = append(newTx.outs, newTxOut)
+//	}
+//	for _, txIn := range tx.ins {
+//		var hashBytes [32]byte
+//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
+//		preHash := new(util.Hash)
+//		preHash.SetBytes(hashBytes[:])
+//		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
+//		scriptLen := txIn.GetScriptSig().Size()
+//		newScript := make([]byte, scriptLen)
+//		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
+//
+//		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
+//
+//		newTx.ins = append(newTx.ins, newTxTmp)
+//	}
+//	return &newTx
+//
+//}
 
 //func (tx *Tx) Equal(dstTx *Tx) bool {
 //	originBuf := bytes.NewBuffer(nil)
@@ -724,6 +730,33 @@ func NewTx(locktime uint32, version int32) *Tx {
 
 func NewEmptyTx() *Tx {
 	return &Tx{}
+}
+
+func NewGenesisCoinbaseTx() *Tx {
+	tx := NewTx(0, 1)
+	scriptSigNum := script.NewScriptNum(4)
+	scriptSigString := "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+	//scriptSigData := make([][]byte, 0)
+	//scriptSigData = append(scriptSigData, []byte(scriptSigString))
+
+	scriptPubKeyBytes, _ := hex.DecodeString("04678afdb0fe5548271967f1a67130b7105cd6a828e03909" +
+		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +
+		"de5c384df7ba0b8d578a4c702b6bf11d5f")
+	scriptPubKey := script.NewEmptyScript()
+	scriptPubKey.PushSingleData(scriptPubKeyBytes)
+	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
+
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushInt64(486604799)
+	scriptSig.PushScriptNum(scriptSigNum)
+	scriptSig.PushSingleData([]byte(scriptSigString))
+
+	txIn := txin.NewTxIn(nil, scriptSig, math.MaxUint32)
+	txOut := txout.NewTxOut(50*100000000, scriptPubKey)
+	tx.AddTxIn(txIn)
+	tx.AddTxOut(txOut)
+
+	return tx
 }
 
 /*
