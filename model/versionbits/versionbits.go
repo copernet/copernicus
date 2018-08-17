@@ -7,7 +7,6 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
-
 )
 
 const (
@@ -68,7 +67,6 @@ func NewVersionBitsCache() *VersionBitsCache {
 	var cache [consensus.MaxVersionBitsDeployments]ThresholdConditionCache
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		cache[i] = make(ThresholdConditionCache)
-
 	}
 	return &VersionBitsCache{cache: cache}
 }
