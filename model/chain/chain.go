@@ -335,16 +335,6 @@ func (c *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex 
 	return blIndex
 }
 
-// FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
-func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
-
-	return nil
-}
-
-func (c *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
-
-}
-
 // ParentInBranch finds blockindex'parent in branch
 func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
 	for _, bi := range c.branch {
