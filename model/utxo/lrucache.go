@@ -104,14 +104,15 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 			// Lru could have deleted it from cache ,but ok.
 			if !ok {
 				if !(tempCacheCoin.fresh && tempCacheCoin.IsSpent()) {
-					ret := coinsCache.cacheCoins.Add(point, tempCacheCoin)
-					if !ret {
-						log.Error("lruCache:add coin failed, please check")
-					}
+					coinsCache.cacheCoins.Add(point, tempCacheCoin)
+					//ret := coinsCache.cacheCoins.Add(point, tempCacheCoin)
+					//if !ret {
+					//	log.Error("lruCache:add coin failed, please check")
+					//}
 					coinsCache.dirtyCoins[point] = tempCacheCoin
-					if tempCacheCoin.fresh {
-						tempCacheCoin.fresh = true
-					}
+					//if tempCacheCoin.fresh {
+					//	tempCacheCoin.fresh = true
+					//}
 				}
 			} else {
 				globalCacheCoin := coin.(*Coin)

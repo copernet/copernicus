@@ -25,17 +25,15 @@ func LoadBlockIndexDB() bool {
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
 	branch := make([]*blockindex.BlockIndex, 0, 20)
 
-	// branchMap := make(map[util.Hash]*blockindex.BlockIndex)
+	// Load blockindex from DB
 	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap, gChain.GetParams()) {
 		return false
 	}
-
 	gPersist := global.GetInstance()
 	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(GlobalBlockIndexMap))
 	for _, index := range GlobalBlockIndexMap {
 		sortedByHeight = append(sortedByHeight, index)
 	}
-
 	//sort by decrease
 	sort.SliceStable(sortedByHeight, func(i, j int) bool {
 		return sortedByHeight[i].Height < sortedByHeight[j].Height
@@ -53,26 +51,23 @@ func LoadBlockIndexDB() bool {
 			index.ChainWork = *pow.GetBlockProof(index)
 		}
 		index.TimeMax = timeMax
-
 		// We can link the chain of blocks for which we've received transactions
 		// at some point. Pruned nodes may have deleted the block.
-		if index.TxCount > 0 {
-			if index.Prev != nil {
-				if index.Prev.ChainTxCount != 0 {
-					index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
-					branch = append(branch, index)
-				} else {
-					index.ChainTxCount = 0
-					gChain.AddToOrphan(index)
-				}
-			} else {
-				branch = append(branch, index)
-
-				index.ChainTxCount = index.TxCount
-			}
-		} else {
+		if index.TxCount <= 0 {
 			log.Error("index's Txcount is 0 ")
 			panic("index's Txcount is 0 ")
+		}
+		if index.Prev != nil {
+			if index.Prev.ChainTxCount != 0 {
+				index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
+				branch = append(branch, index)
+			} else {
+				index.ChainTxCount = 0
+				gChain.AddToOrphan(index)
+			}
+		} else {
+			branch = append(branch, index)
+			index.ChainTxCount = index.TxCount
 		}
 		if index.IsValid(blockindex.StatusAllValid) &&
 			(index.ChainTxCount != 0 || index.Prev == nil) {
