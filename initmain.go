@@ -16,19 +16,23 @@ import (
 
 func appInitMain() {
 	log.Init()
-	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
-	utxo.InitUtxoLruTip(&config)
+
+	// Init UTXO DB
+	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
 	chain.InitGlobalChain()
+
+	// Init blocktree DB
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/blocks/index", CacheSize: (1 << 20) * 8}}
-	blkdb.InitBlockTreDB(&blkdbCfg)
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+
 	global.InitPersistGlobal()
+
+	// Load blockindex DB
 	blockindex.LoadBlockIndexDB()
-	// gChain := chain.GetInstance()
-	// mostWorkChain := gChain.FindMostWorkChain()
-	// if mostWorkChain != gChain.Tip(){
-	// 	lchain.ActivateBestChainStep()
-	// }
 	lchain.InitGenesisChain()
+
 	mempool.InitMempool()
 	crypto.InitSecp256()
 }

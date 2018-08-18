@@ -35,16 +35,7 @@ func LoadBlockIndexDB() bool {
 	for _, index := range GlobalBlockIndexMap {
 		sortedByHeight = append(sortedByHeight, index)
 	}
-	// for idx, bi := range sortedByHeight{
-	// 	if bi.TxCount == 0{
-	// 		log.Error("idx",idx)
-	// 		h:= bi.GetBlockHash()
-	// 		_, ok := GlobalBlockIndexMap[*h]
-	// 		if ok{
-	//
-	// 		}
-	// 	}
-	// }
+
 	//sort by decrease
 	sort.SliceStable(sortedByHeight, func(i, j int) bool {
 		return sortedByHeight[i].Height < sortedByHeight[j].Height
@@ -86,9 +77,6 @@ func LoadBlockIndexDB() bool {
 		if index.IsValid(blockindex.StatusAllValid) &&
 			(index.ChainTxCount != 0 || index.Prev == nil) {
 			// gChain.AddToBranch(index)
-		}
-		if index.Prev != nil {
-			index.BuildSkip()
 		}
 	}
 
@@ -138,9 +126,7 @@ func LoadBlockIndexDB() bool {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
-
 	l := setBlkDataFiles.List()
-
 	for _, item := range l {
 		pos := &block.DiskBlockPos{
 			File: item.(int32),
@@ -153,9 +139,8 @@ func LoadBlockIndexDB() bool {
 		file.Close()
 	}
 
+	// Build chain's active
 	gChain.InitLoad(GlobalBlockIndexMap, branch)
-
-	// Load pointer to end of best chain todo: coinDB must init!!!
 	bestHash, err := utxo.GetUtxoCacheInstance().GetBestBlock()
 	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash.String(), err)
 	if err == nil {

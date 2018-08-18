@@ -27,7 +27,7 @@ func TestCoinsDB(t *testing.T) {
 		&dbo,
 	}
 	InitUtxoLruTip(uc)
-	chain.InitGlobalChain(nil)
+	chain.InitGlobalChain()
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
 	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
 

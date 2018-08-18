@@ -108,7 +108,7 @@ func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersi
 		}
 		index.Header.Time = uint32(nTime)
 		index.Header.Version = nVersion
-		index.BuildSkip()
+		//index.BuildSkip()
 		versionBitsTester.block = append(versionBitsTester.block, index)
 	}
 	return versionBitsTester

@@ -7,14 +7,15 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
-	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
+	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/model/consensus"
 )
+
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
@@ -62,6 +63,8 @@ func NewChain() *Chain {
 func (c *Chain) GetParams() *chainparams.BitcoinParams {
 	return c.params
 }
+
+//initially load the maps of the chain
 func (c *Chain) InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch []*blockindex.BlockIndex) {
 	c.indexMap = indexMap
 	c.branch = branch
@@ -150,12 +153,15 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//fStrictPayToScriptHash := int(pindex.GetBlockTime()) >= nBIP16SwitchTime
 	param := c.params
 	// Start enforcing the DERSIG (BIP66) rule
+
 	if pindex.Height+1 >= param.BIP66Height {
 		flags |= script.ScriptVerifyDersig
 	}
 
 	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
+
 	if pindex.Height+1 >= param.BIP65Height {
+
 		flags |= script.ScriptVerifyCheckLockTimeVerify
 	}
 
@@ -163,6 +169,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		flags |= script.ScriptVerifyCheckSequenceVerify
 	}
+
 	// If the UAHF is enabled, we start accepting replay protected txns
 	if chainparams.IsUAHFEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyStrictEnc
@@ -206,6 +213,7 @@ func (c *Chain) GetIndex(height int32) *blockindex.BlockIndex {
 }
 
 // Equal Compare two chains efficiently.
+
 func (c *Chain) Equal(dst *Chain) bool {
 	return len(c.active) == len(dst.active) &&
 		c.active[len(c.active)-1] == dst.active[len(dst.active)-1]
@@ -270,7 +278,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 // 	// todo update active
 // }
 
-// GetAncestor gets ancestor from active chain
+// GetAncestor gets ancestor from active chain.
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
 	if len(c.active) >= int(height) {
 		return c.active[height]
@@ -327,16 +335,6 @@ func (c *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex 
 	return blIndex
 }
 
-// FindEarliestAtLeast Find the earliest block with timestamp equal or greater than the given.
-func (c *Chain) FindEarliestAtLeast(time int64) *blockindex.BlockIndex {
-
-	return nil
-}
-
-func (c *Chain) RemoveFromBranch(bis []*blockindex.BlockIndex) {
-
-}
-
 // ParentInBranch finds blockindex'parent in branch
 func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
 	for _, bi := range c.branch {
@@ -358,6 +356,8 @@ func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
 	}
 	return false
 }
+
+// blocks in the branch ranks in the order of 'proof of work'
 func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	c.branch = append(c.branch, bis)
 	sort.SliceStable(c.branch, func(i, j int) bool {
@@ -419,7 +419,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	if ok {
 		bi.Prev = pre
 		bi.Height = pre.Height + 1
-		bi.BuildSkip()
+		//bi.BuildSkip()
 	}
 	bi.TimeMax = bi.Header.Time
 	blockProof := pow.GetBlockProof(bi)

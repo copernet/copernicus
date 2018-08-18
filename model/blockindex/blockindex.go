@@ -5,11 +5,11 @@ import (
 	"math/big"
 	"sort"
 
+	"bytes"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 	"io"
-	"bytes"
 )
 
 /**
@@ -20,7 +20,7 @@ import (
  */
 
 const (
-	StatusAllValid uint32 = 1 << iota
+	StatusAllValid    uint32 = 1 << iota
 	StatusIndexStored
 	StatusDataStored
 	StatusWaitingData
@@ -37,8 +37,10 @@ type BlockIndex struct {
 	blockHash util.Hash
 	// pointer to the index of the predecessor of this block
 	Prev *BlockIndex
+
 	// pointer to the index of some further predecessor of this block
-	Skip *BlockIndex
+	//Skip *BlockIndex
+
 	// height of the entry in the chain. The genesis block has height 0；
 	Height int32
 	// Which # file this block is stored in (blk?????.dat)
@@ -76,7 +78,7 @@ func (bIndex *BlockIndex) SetNull() {
 	bIndex.Header.SetNull()
 	bIndex.blockHash = util.Hash{}
 	bIndex.Prev = nil
-	bIndex.Skip = nil
+	//bIndex.Skip = nil
 
 	bIndex.Height = 0
 	bIndex.File = -1
@@ -122,17 +124,24 @@ func (bIndex *BlockIndex) SubStatus(statu uint32) {
 	bIndex.Status &= ^statu
 }
 
-func (bIndex *BlockIndex) GetDataPos() int {
-
-	return 0
-}
-
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
-	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.UndoPos}
+	var ret block.DiskBlockPos
+	if (bIndex.Status & BlockHaveUndo) != 0 {
+		ret.File = bIndex.File
+		ret.Pos = bIndex.UndoPos
+	}
+
+	return ret
 }
 
 func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
-	return block.DiskBlockPos{File: bIndex.File, Pos: bIndex.DataPos}
+	var ret block.DiskBlockPos
+	if (bIndex.Status & BlockHaveData) != 0 {
+		ret.File = bIndex.File
+		ret.Pos = bIndex.DataPos
+	}
+
+	return ret
 }
 
 func (bIndex *BlockIndex) GetBlockHeader() *block.BlockHeader {
@@ -187,22 +196,38 @@ func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 // IsValid checks whether this block index entry is valid up to the passed validity
 // level.
 func (bIndex *BlockIndex) IsValid(upto uint32) bool {
-
-	return false
+	// Only validity flags allowed.
+	if upto&(^BlockValidMask) != 0 {
+		panic("Only validity flags allowed.")
+	}
+	if (bIndex.Status & BlockValidMask) != 0 {
+		return false
+	}
+	return (bIndex.Status & BlockValidMask) >= upto
 }
 
 // RaiseValidity Raise the validity level of this block index entry.
 // Returns true if the validity was changed.
 func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
-
+	// Only validity flags allowed.
+	if upto&(^BlockValidMask) != 0 {
+		panic("Only validity flags allowed.")
+	}
+	if bIndex.Status&BlockValidMask != 0 {
+		return false
+	}
+	if (bIndex.Status & BlockValidMask) < upto {
+		bIndex.Status = (bIndex.Status & (^BlockValidMask)) | upto
+		return true
+	}
 	return false
 }
 
-func (bIndex *BlockIndex) BuildSkip() {
-	if bIndex.Prev != nil {
-		bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
-	}
-}
+//func (bIndex *BlockIndex) BuildSkip() {
+//	if bIndex.Prev != nil {
+//		bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
+//	}
+//}
 
 // Turn the lowest '1' bit in the binary representation of a number into a '0'.
 func invertLowestOne(n int32) int32 {
@@ -210,19 +235,19 @@ func invertLowestOne(n int32) int32 {
 }
 
 // getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
-func getSkipHeight(height int32) int32 {
-	if height < 2 {
-		return 0
-	}
-
-	// Determine which height to jump back to. Any number strictly lower than
-	// height is acceptable, but the following expression seems to perform well
-	// in simulations (max 110 steps to go back up to 2**18 blocks).
-	if (height & 1) > 0 {
-		return invertLowestOne(invertLowestOne(height-1)) + 1
-	}
-	return invertLowestOne(height)
-}
+//func getSkipHeight(height int32) int32 {
+//	if height < 2 {
+//		return 0
+//	}
+//
+//	// Determine which height to jump back to. Any number strictly lower than
+//	// height is acceptable, but the following expression seems to perform well
+//	// in simulations (max 110 steps to go back up to 2**18 blocks).
+//	if (height & 1) > 0 {
+//		return invertLowestOne(invertLowestOne(height-1)) + 1
+//	}
+//	return invertLowestOne(height)
+//}
 
 // GetAncestor efficiently find an ancestor of this block.
 func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
@@ -272,6 +297,7 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	genesisHash := params.GenesisBlock.GetHash()
 	return bhash.IsEqual(&genesisHash)
 }
+
 
 //func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
 //	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
