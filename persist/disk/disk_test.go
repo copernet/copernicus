@@ -88,6 +88,7 @@ func TestUndoWRToDisk(t *testing.T) {
 		t.Error("read undo block failed.")
 	}
 }
+
 type DiskStatus struct {
 	All  uint64 `json:"all"`
 	Used uint64 `json:"used"`
@@ -108,7 +109,7 @@ func DiskUsage(path string) (disk DiskStatus) {
 }
 
 func TestCheckDiskSpace(t *testing.T) {
-	ds:=DiskUsage(conf.Cfg.DataDir)
+	ds := DiskUsage(conf.Cfg.DataDir)
 	ok := CheckDiskSpace(math.MaxUint32)
 	if !ok {
 		t.Error("the disk space not enough use.")
@@ -118,5 +119,26 @@ func TestCheckDiskSpace(t *testing.T) {
 	}
 }
 
+func TestFindBlockPos(t *testing.T) {
+	pos := block.NewDiskBlockPos(10, 9)
+	timeNow := time.Now().Unix()
 
+	//fKnown:Whether to know the location of the file; if it is false, then the second is an empty
+	//object of CDiskBlockPos; otherwise it is an object with data
+	ok := FindBlockPos(pos, 12345, 100000, uint64(timeNow), false)
+	if !ok {
+		t.Error("when fKnown value is false, find block by pos failed.")
+	}
 
+	pos1 := block.NewDiskBlockPos(100, 100)
+	ret := FindBlockPos(pos1, 12345, 100000, uint64(timeNow), false)
+	if !ret {
+		t.Error("when fKnown value is false, find block by pos failed.")
+	}
+
+	pos2 := block.NewDiskBlockPos(math.MaxInt32, math.MaxInt32)
+	ok1 := FindBlockPos(pos2, 12345, 100000, uint64(timeNow), false)
+	if !ok1 {
+		t.Error("when fKnown value is true, find block by pos failed.")
+	}
+}
