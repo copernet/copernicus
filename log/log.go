@@ -41,7 +41,7 @@ func Print(module string, level string, format string, reason ...interface{}) {
 		}
 	} else {
 		logs.GetLogger()
-		logs.Error(errModuleNotFound)
+		logs.Error("module(%s): %v", module, errModuleNotFound)
 	}
 }
 
@@ -151,4 +151,3 @@ func Init() {
 		mapModule[module] = struct{}{}
 	}
 }
-
