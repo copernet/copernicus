@@ -12,6 +12,9 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
+	"math"
+	"syscall"
+	"github.com/copernet/copernicus/conf"
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -85,3 +88,35 @@ func TestUndoWRToDisk(t *testing.T) {
 		t.Error("read undo block failed.")
 	}
 }
+type DiskStatus struct {
+	All  uint64 `json:"all"`
+	Used uint64 `json:"used"`
+	Free uint64 `json:"free"`
+}
+
+// disk usage of path/disk
+func DiskUsage(path string) (disk DiskStatus) {
+	fs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &fs)
+	if err != nil {
+		return
+	}
+	disk.All = fs.Blocks * uint64(fs.Bsize)
+	disk.Free = fs.Bfree * uint64(fs.Bsize)
+	disk.Used = disk.All - disk.Free
+	return
+}
+
+func TestCheckDiskSpace(t *testing.T) {
+	ds:=DiskUsage(conf.Cfg.DataDir)
+	ok := CheckDiskSpace(math.MaxUint32)
+	if !ok {
+		t.Error("the disk space not enough use.")
+	}
+	if ds.Free < math.MaxUint32 {
+		t.Error("check disk space failed, please check.")
+	}
+}
+
+
+
