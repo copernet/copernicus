@@ -47,6 +47,7 @@ func TestWRBlockToDisk(t *testing.T) {
 	//blkIndex := blockindex.NewBlockIndex(blkHeader)
 	//blkIndex.File = 10
 	//blkIndex.DataPos = 9
+	//blkIndex.Status = 8
 	//blks, ok := ReadBlockFromDisk(blkIndex, &chainparams.TestNetParams)
 	//if !reflect.DeepEqual(blks, blk) && !ok {
 	//	t.Errorf("the blks should equal blk\nblks:%v\nblk:%v", blks, blk)
