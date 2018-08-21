@@ -374,16 +374,12 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 		qindex := q.Remove()
 		pindex := qindex.(*blockindex.BlockIndex)
 		if !pindex.IsGenesis(c.params) {
-			pindex.ChainTxCount += pindex.Prev.ChainTxCount
+			pindex.ChainTxCount = pindex.Prev.ChainTxCount + pindex.TxCount
 		} else {
 			pindex.ChainTxCount = pindex.TxCount
 		}
 		pindex.SequenceID = c.GetReceivedID()
 		c.AddReceivedID()
-		// todo if pindex's work is less then tip's work
-		// if c.Tip() == nil || (c.Tip() !=nil && pindex.ChainWork.Cmp(&c.Tip().ChainWork)<=1) {
-		//
-		// }
 		if !c.InBranch(pindex) {
 			c.insertToBranch(pindex)
 		}

@@ -155,14 +155,16 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew.DataPos = pos.Pos
 	pindexNew.UndoPos = 0
 	pindexNew.AddStatus(blockindex.StatusDataStored)
+
 	gPersist := global.GetInstance()
 	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
+
 	gChain := chain.GetInstance()
 	if pindexNew.IsGenesis(gChain.GetParams()) || gChain.ParentInBranch(pindexNew) {
 		// If indexNew is the genesis block or all parents are in branch
 		gChain.AddToBranch(pindexNew)
 	} else {
-		if !pindexNew.IsGenesis(gChain.GetParams()) && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
+		if pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
 			gChain.AddToOrphan(pindexNew)
 		}
 	}
