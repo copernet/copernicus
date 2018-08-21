@@ -103,8 +103,9 @@ func (cm CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	coin = GetUtxoCacheInstance().GetCoin(out)
 	newCoin := coin.DeepCopy()
 	if newCoin.IsSpent() {
-		newCoin.fresh = true
-		newCoin.dirty = false
+		panic("coin from db should not be spent")
+		//newCoin.fresh = true
+		//newCoin.dirty = false
 	}
 	cm.cacheCoins[*out] = newCoin
 	return newCoin

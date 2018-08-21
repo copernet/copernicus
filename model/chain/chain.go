@@ -7,15 +7,14 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
-	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/model/consensus"
 )
-
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
@@ -293,7 +292,7 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 	blockHashList := make([]util.Hash, 0, 32)
 	if index == nil {
 		index = c.Tip()
-		log.Trace("GetLocator Tip hash : %s,  height : %d .",
+		log.Trace("GetLocator Tip hash: %s,  height: %d",
 			index.GetBlockHash().String(), index.Height)
 	}
 	for {
