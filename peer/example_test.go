@@ -5,24 +5,33 @@
 package peer_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
+	// "github.com/btcsuite/btcd/chaincfg"
+	// "github.com/btcsuite/btcd/peer"
+	// "github.com/btcsuite/btcd/wire"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/peer"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/astaxie/beego/logs"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/net/server"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/peer"
 )
 
 // mockRemotePeer creates a basic inbound peer listening on the simnet port for
 // use with Example_peerConnection.  It does not return until the listner is
 // active.
 func mockRemotePeer() error {
+	msgChan := make(chan *peer.PeerMessage)
+	server.SetMsgHandle(context.TODO(), msgChan, nil)
+
 	// Configure peer to act as a simnet node that offers no services.
 	peerCfg := &peer.Config{
 		UserAgentName:    "peer",  // User agent name to advertise.
 		UserAgentVersion: "1.0.0", // User agent version to advertise.
-		ChainParams:      &chaincfg.SimNetParams,
+		ChainParams:      &chainparams.TestNetParams,
 	}
 
 	// Accept connections on the simnet port.
@@ -39,7 +48,7 @@ func mockRemotePeer() error {
 
 		// Create and start the inbound peer.
 		p := peer.NewInboundPeer(peerCfg)
-		p.AssociateConnection(conn)
+		p.AssociateConnection(conn, msgChan)
 	}()
 
 	return nil
@@ -54,6 +63,13 @@ func Example_newOutboundPeer() {
 	// connecting to a remote peer, however, since this example is executed
 	// and tested, a mock remote peer is needed to listen for the outbound
 	// peer.
+
+	logs.SetLevel(6)
+	peer.TstAllowSelfConns()
+
+	msgChan := make(chan *peer.PeerMessage)
+	server.SetMsgHandle(context.TODO(), msgChan, nil)
+
 	if err := mockRemotePeer(); err != nil {
 		fmt.Printf("mockRemotePeer: unexpected error %v\n", err)
 		return
@@ -67,8 +83,9 @@ func Example_newOutboundPeer() {
 	peerCfg := &peer.Config{
 		UserAgentName:    "peer",  // User agent name to advertise.
 		UserAgentVersion: "1.0.0", // User agent version to advertise.
-		ChainParams:      &chaincfg.SimNetParams,
-		Services:         0,
+		// ChainParams:      &chaincfg.SimNetParams,
+		ChainParams: &chainparams.TestNetParams,
+		Services:    0,
 		Listeners: peer.MessageListeners{
 			OnVersion: func(p *peer.Peer, msg *wire.MsgVersion) {
 				fmt.Println("outbound: received version")
@@ -90,7 +107,7 @@ func Example_newOutboundPeer() {
 		fmt.Printf("net.Dial: error %v\n", err)
 		return
 	}
-	p.AssociateConnection(conn)
+	p.AssociateConnection(conn, msgChan)
 
 	// Wait for the verack message or timeout in case of failure.
 	select {
