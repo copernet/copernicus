@@ -57,7 +57,7 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 		medianTimePast = 0
 	}
 	bh := block.Header
-	lockTimeCutoff := int64(bh.GetBlockTime())
+	lockTimeCutoff := int64(bh.Time)
 	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = medianTimePast
 	}
@@ -145,7 +145,7 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 }
 
 // ReceivedBlockTransactions Mark a block as having its data received and checked (up to
-// * BLOCK_VALID_TRANSACTIONS).
+// * BLOCK_VALID_TRANSACTIONS state).
 func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
 	hash := pindexNew.GetBlockHash()
@@ -155,14 +155,16 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew.DataPos = pos.Pos
 	pindexNew.UndoPos = 0
 	pindexNew.AddStatus(blockindex.StatusDataStored)
+
 	gPersist := global.GetInstance()
 	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
+
 	gChain := chain.GetInstance()
 	if pindexNew.IsGenesis(gChain.GetParams()) || gChain.ParentInBranch(pindexNew) {
 		// If indexNew is the genesis block or all parents are in branch
 		gChain.AddToBranch(pindexNew)
 	} else {
-		if !pindexNew.IsGenesis(gChain.GetParams()) && pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
+		if pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
 			gChain.AddToOrphan(pindexNew)
 		}
 	}
@@ -295,7 +297,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	}
 
 	bIndex.Height = bIndex.Prev.Height + 1
-	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
+	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.Time)
 	bIndex.AddStatus(blockindex.StatusWaitingData)
 
 	err = c.AddToIndexMap(bIndex)

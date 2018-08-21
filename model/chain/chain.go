@@ -7,15 +7,14 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
-	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/model/consensus"
 )
-
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
@@ -293,7 +292,7 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 	blockHashList := make([]util.Hash, 0, 32)
 	if index == nil {
 		index = c.Tip()
-		log.Trace("GetLocator Tip hash : %s,  height : %d .",
+		log.Trace("GetLocator Tip hash: %s,  height: %d",
 			index.GetBlockHash().String(), index.Height)
 	}
 	for {
@@ -375,16 +374,12 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 		qindex := q.Remove()
 		pindex := qindex.(*blockindex.BlockIndex)
 		if !pindex.IsGenesis(c.params) {
-			pindex.ChainTxCount += pindex.Prev.ChainTxCount
+			pindex.ChainTxCount = pindex.Prev.ChainTxCount + pindex.TxCount
 		} else {
 			pindex.ChainTxCount = pindex.TxCount
 		}
 		pindex.SequenceID = c.GetReceivedID()
 		c.AddReceivedID()
-		// todo if pindex's work is less then tip's work
-		// if c.Tip() == nil || (c.Tip() !=nil && pindex.ChainWork.Cmp(&c.Tip().ChainWork)<=1) {
-		//
-		// }
 		if !c.InBranch(pindex) {
 			c.insertToBranch(pindex)
 		}
@@ -411,19 +406,18 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	// to avoid miners withholding blocks but broadcasting headers, to get a
 	// competitive advantage.
 	bi.SequenceID = 0
-	hash := bi.GetBlockHash()
-	c.indexMap[*hash] = bi
-	log.Debug("AddToIndexMap:%s", hash.String())
-	bh := bi.Header
-	pre, ok := c.indexMap[bh.HashPrevBlock]
-	if ok {
-		bi.Prev = pre
-		bi.Height = pre.Height + 1
-		//bi.BuildSkip()
-	}
 	bi.TimeMax = bi.Header.Time
 	blockProof := pow.GetBlockProof(bi)
 	bi.ChainWork = *blockProof
+	hash := bi.GetBlockHash()
+
+	c.indexMap[*hash] = bi
+	log.Debug("AddToIndexMap:%s", hash.String())
+	pre, ok := c.indexMap[bi.Header.HashPrevBlock]
+	if ok {
+		bi.Prev = pre
+		bi.Height = pre.Height + 1
+	}
 	if pre != nil {
 		if pre.TimeMax > bi.TimeMax {
 			bi.TimeMax = pre.TimeMax

@@ -20,10 +20,10 @@ import (
  */
 
 const (
-	StatusAllValid    uint32 = 1 << iota
+	StatusAllValid uint32 = 1 << iota
 	StatusIndexStored
-	StatusDataStored
 	StatusWaitingData
+	StatusDataStored
 	StatusFailed
 	StatusAccepted
 
@@ -154,9 +154,9 @@ func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
 	if bHash.IsNull() {
 		bIndex.blockHash = bIndex.Header.GetHash()
 	}
-	if bHash.IsEqual(&util.Hash{}) {
-		bIndex.blockHash = bIndex.Header.GetHash()
-	}
+	//if bHash.IsEqual(&util.Hash{}) {
+	//	bIndex.blockHash = bIndex.Header.GetHash()
+	//}
 	return &bIndex.blockHash
 }
 
@@ -297,7 +297,6 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	genesisHash := params.GenesisBlock.GetHash()
 	return bhash.IsEqual(&genesisHash)
 }
-
 
 //func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
 //	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime

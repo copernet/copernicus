@@ -66,6 +66,7 @@ func LoadBlockIndexDB() bool {
 				gChain.AddToOrphan(index)
 			}
 		} else {
+			// genesis block
 			branch = append(branch, index)
 			index.ChainTxCount = index.TxCount
 		}

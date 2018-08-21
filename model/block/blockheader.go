@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/util"
 )
 
 type BlockHeader struct {
@@ -29,10 +29,6 @@ func NewBlockHeader() *BlockHeader {
 
 func (bh *BlockHeader) IsNull() bool {
 	return bh.Bits == 0
-}
-
-func (bh *BlockHeader) GetBlockTime() uint32 {
-	return bh.Time
 }
 
 func (bh *BlockHeader) GetHash() util.Hash {
