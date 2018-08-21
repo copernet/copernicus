@@ -246,7 +246,7 @@ func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.Bitcoin
 	hash := pindex.GetBlockHash()
 	pos := pindex.GetBlockPos()
 	blockHash := blk.GetHash()
-	if bytes.Equal(blockHash[:], hash[:]) {
+	if !bytes.Equal(blockHash[:], hash[:]) {
 		log.Error(fmt.Sprintf("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash()"+
 			"doesn't match index for %s at %s", pindex.String(), pos.String()))
 		return blk, false
