@@ -474,15 +474,16 @@ type Peer struct {
 	lastPingTime       time.Time // Time we sent last ping.
 	lastPingMicros     int64     // Time for last ping to return.
 
-	stallControl  chan stallControlMsg
-	outputQueue   chan outMsg
-	sendQueue     chan outMsg
-	sendDoneQueue chan struct{}
-	outputInvChan chan *wire.InvVect
-	inQuit        chan struct{}
-	queueQuit     chan struct{}
-	outQuit       chan struct{}
-	quit          chan struct{}
+	stallControl      chan stallControlMsg
+	outputQueue       chan outMsg
+	sendQueue         chan outMsg
+	sendDoneQueue     chan struct{}
+	outputInvChan     chan *wire.InvVect
+	inQuit            chan struct{}
+	queueQuit         chan struct{}
+	outQuit           chan struct{}
+	quit              chan struct{}
+	requestingDataCnt uint64
 }
 
 // String returns the peer's address and directionality as a human-readable
@@ -1295,7 +1296,7 @@ func (p *Peer) shouldHandleReadError(err error) bool {
 
 // maybeAddDeadline potentially adds a deadline for the appropriate expected
 // response for the passed wire protocol command to the pending responses map.
-func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msgCmd string) {
+func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msg wire.Message) {
 	// Setup a deadline for each message being sent that expects a response.
 	//
 	// NOTE: Pings are intentionally ignored here since they are typically
@@ -1303,7 +1304,7 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msgCmd st
 	// such as is typical in the case of initial block download, the
 	// response won't be received in time.
 	deadline := time.Now().Add(stallResponseTimeout)
-	switch msgCmd {
+	switch msg.Command() {
 	case wire.CmdVersion:
 		// Expects a verack message.
 		pendingResponses[wire.CmdVerAck] = deadline
@@ -1318,6 +1319,7 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msgCmd st
 
 	case wire.CmdGetData:
 		// Expects a block, merkleblock, tx, or notfound message.
+		p.requestingDataCnt += uint64(len(msg.(*wire.MsgGetData).InvList))
 		pendingResponses[wire.CmdBlock] = deadline
 		pendingResponses[wire.CmdMerkleBlock] = deadline
 		pendingResponses[wire.CmdTx] = deadline
@@ -1366,7 +1368,7 @@ out:
 				// Add a deadline for the expected response
 				// message if needed.
 				p.maybeAddDeadline(pendingResponses,
-					msg.message.Command())
+					msg.message)
 
 			case sccReceiveMessage:
 				// Remove received messages from the expected
@@ -1379,8 +1381,20 @@ out:
 				case wire.CmdMerkleBlock:
 					fallthrough
 				case wire.CmdTx:
+					p.requestingDataCnt--
+					if p.requestingDataCnt > 0 {
+						deadline := time.Now().Add(stallResponseTimeout)
+						pendingResponses[wire.CmdBlock] = deadline
+						pendingResponses[wire.CmdMerkleBlock] = deadline
+						pendingResponses[wire.CmdTx] = deadline
+						pendingResponses[wire.CmdNotFound] = deadline
+						continue
+					}
 					fallthrough
 				case wire.CmdNotFound:
+					if msgCmd == wire.CmdNotFound {
+						p.requestingDataCnt = 0
+					}
 					delete(pendingResponses, wire.CmdBlock)
 					delete(pendingResponses, wire.CmdMerkleBlock)
 					delete(pendingResponses, wire.CmdTx)
@@ -1440,8 +1454,8 @@ out:
 				}
 
 				log.Debug("Peer %s appears to be stalled or "+
-					"misbehaving, %s timeout -- "+
-					"disconnecting", p, command)
+					"misbehaving, %s timeout (%d outstanding response for block/merkleblock/tx) -- "+
+					"disconnecting", p, command, p.requestingDataCnt)
 				p.Disconnect()
 				break
 			}
