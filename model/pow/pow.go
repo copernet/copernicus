@@ -75,7 +75,7 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *blockindex.BlockIndex, blHead
 	// Special difficulty rule for testnet:
 	// If the new block's timestamp is more than 2* 10 minutes then allow
 	// mining of a min-difficulty block.
-	if params.FPowAllowMinDifficultyBlocks && (blHeader.GetBlockTime() > indexPrev.GetBlockTime()+uint32(2*params.TargetTimePerBlock)) {
+	if params.FPowAllowMinDifficultyBlocks && (blHeader.Time > indexPrev.GetBlockTime()+uint32(2*params.TargetTimePerBlock)) {
 		return BigToCompact(params.PowLimit)
 	}
 
@@ -134,7 +134,7 @@ func (pow *Pow) getNextEDAWorkRequired(indexPrev *blockindex.BlockIndex, pblock 
 		// Special difficulty rule for testnet:
 		// If the new block's timestamp is more than 2* 10 minutes then allow
 		// mining of a min-difficulty block.
-		if pblock.GetBlockTime() > indexPrev.GetBlockTime()+2*uint32(params.TargetTimePerBlock) {
+		if pblock.Time > indexPrev.GetBlockTime()+2*uint32(params.TargetTimePerBlock) {
 			return nProofOfWorkLimit
 		}
 		// Return the last non-special-min-difficulty-rules-block

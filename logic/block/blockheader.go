@@ -34,7 +34,7 @@ func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.
 		log.Error("ContextualCheckBlockHeader.GetNextWorkRequired err")
 		return false
 	}
-	blocktime := int64(header.GetBlockTime())
+	blocktime := int64(header.Time)
 	if blocktime <= preIndex.GetMedianTimePast() {
 		log.Error("ContextualCheckBlockHeader.GetMedianTimePast err")
 		return false

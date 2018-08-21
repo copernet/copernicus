@@ -57,7 +57,7 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 		medianTimePast = 0
 	}
 	bh := block.Header
-	lockTimeCutoff := int64(bh.GetBlockTime())
+	lockTimeCutoff := int64(bh.Time)
 	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = medianTimePast
 	}
@@ -145,7 +145,7 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 }
 
 // ReceivedBlockTransactions Mark a block as having its data received and checked (up to
-// * BLOCK_VALID_TRANSACTIONS).
+// * BLOCK_VALID_TRANSACTIONS state).
 func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
 	hash := pindexNew.GetBlockHash()
@@ -297,7 +297,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	}
 
 	bIndex.Height = bIndex.Prev.Height + 1
-	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.GetBlockTime())
+	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.Time)
 	bIndex.AddStatus(blockindex.StatusWaitingData)
 
 	err = c.AddToIndexMap(bIndex)

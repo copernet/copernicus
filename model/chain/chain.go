@@ -406,19 +406,18 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	// to avoid miners withholding blocks but broadcasting headers, to get a
 	// competitive advantage.
 	bi.SequenceID = 0
-	hash := bi.GetBlockHash()
-	c.indexMap[*hash] = bi
-	log.Debug("AddToIndexMap:%s", hash.String())
-	bh := bi.Header
-	pre, ok := c.indexMap[bh.HashPrevBlock]
-	if ok {
-		bi.Prev = pre
-		bi.Height = pre.Height + 1
-		//bi.BuildSkip()
-	}
 	bi.TimeMax = bi.Header.Time
 	blockProof := pow.GetBlockProof(bi)
 	bi.ChainWork = *blockProof
+	hash := bi.GetBlockHash()
+
+	c.indexMap[*hash] = bi
+	log.Debug("AddToIndexMap:%s", hash.String())
+	pre, ok := c.indexMap[bi.Header.HashPrevBlock]
+	if ok {
+		bi.Prev = pre
+		bi.Height = pre.Height + 1
+	}
 	if pre != nil {
 		if pre.TimeMax > bi.TimeMax {
 			bi.TimeMax = pre.TimeMax

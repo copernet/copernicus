@@ -465,6 +465,8 @@ func InitGenesisChain() error {
 	if gChain.Genesis() != nil {
 		return nil
 	}
+
+	// Write genesisblock to disk
 	bl := gChain.GetParams().GenesisBlock
 	pos := block.NewDiskBlockPos(0, 0)
 	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize()+4), 0, uint64(bl.GetBlockHeader().Time), false)
@@ -472,28 +474,23 @@ func InitGenesisChain() error {
 		log.Error("InitChain.WriteBlockToDisk():FindBlockPos failed")
 		return errcode.ProjectError{Code: 2000}
 	}
-
 	flag = disk.WriteBlockToDisk(bl, pos)
 	if !flag {
 		log.Error("InitChain.WriteBlockToDisk():WriteBlockToDisk failed")
 		return errcode.ProjectError{Code: 2001}
 	}
+
+	// Add genesis block index to DB
 	bIndex := blockindex.NewBlockIndex(&bl.Header)
 	bIndex.Height = 0
-	bIndex.TimeMax = util.MaxU32(0, bIndex.Header.GetBlockTime())
-	work := pow.GetBlockProof(bIndex)
-	bIndex.ChainWork = *work
-	bIndex.Accepted()
 	err := gChain.AddToIndexMap(bIndex)
 	if err != nil {
 		return err
 	}
-	gChain.AddToBranch(bIndex)
-	if !lblock.ReceivedBlockTransactions(bl, bIndex, pos) {
-		fmt.Println("InitGenesisChain.ReceivedBlockTransactions==err==")
-	}
+	lblock.ReceivedBlockTransactions(bl, bIndex, pos)
 	gChain.SetTip(bIndex)
 
+	// Set bestblockhash to DB
 	coinsMap := utxo.NewEmptyCoinsMap()
 	//coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
 	bestHash := bIndex.GetBlockHash()
@@ -502,7 +499,5 @@ func InitGenesisChain() error {
 
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
 
-	//fmt.Printf("initGenesisChain=====%v,error:%v", gChain, err)
-	return nil
-
+	return err
 }
