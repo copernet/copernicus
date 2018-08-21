@@ -167,7 +167,7 @@ type peerSyncState struct {
 	syncCandidate   bool
 	requestQueue    []*wire.InvVect
 	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]time.Time
+	requestedBlocks map[util.Hash]struct{}
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -330,6 +330,7 @@ func (sm *SyncManager) startSync() {
 			bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
 		}
 		sm.syncPeer = bestPeer
+		sm.requestBlkInvCnt = 1
 	} else {
 		log.Warn("No sync peer candidates available")
 	}
@@ -382,7 +383,7 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	sm.peerStates[peer] = &peerSyncState{
 		syncCandidate:   isSyncCandidate,
 		requestedTxns:   make(map[util.Hash]struct{}),
-		requestedBlocks: make(map[util.Hash]time.Time),
+		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
 	// Start syncing by choosing the best candidate if needed.
@@ -622,14 +623,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		if !sm.headersFirstMode {
 			log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
 			if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
-				timeoutTime := time.Now().Add(-blockRequestTimeoutTime)
-				for blkhash, reqTime := range state.requestedBlocks {
-					if reqTime.Before(timeoutTime) {
-						delete(state.requestedBlocks, blkhash)
-						delete(sm.requestedBlocks, blkhash)
-					}
-				}
-
 				if len(state.requestedBlocks) == 0 {
 					sm.requestBlkInvCnt--
 					activeChain := chain.GetInstance()
@@ -691,14 +684,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	if !sm.headersFirstMode {
 		log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
 		if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
-			timeoutTime := time.Now().Add(-blockRequestTimeoutTime)
-			for blkhash, reqTime := range state.requestedBlocks {
-				if reqTime.Before(timeoutTime) {
-					delete(state.requestedBlocks, blkhash)
-					delete(sm.requestedBlocks, blkhash)
-				}
-			}
-
 			if len(state.requestedBlocks) == 0 {
 				sm.requestBlkInvCnt--
 				activeChain := chain.GetInstance()
@@ -788,7 +773,7 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 		if !haveInv {
 			syncPeerState := sm.peerStates[sm.syncPeer]
 			sm.requestedBlocks[*node.hash] = struct{}{}
-			syncPeerState.requestedBlocks[*node.hash] = time.Now()
+			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
 			gdmsg.AddInvVect(iv)
 			numRequested++
 		}
@@ -1110,7 +1095,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			if _, exists := sm.requestedBlocks[iv.Hash]; !exists {
 				sm.requestedBlocks[iv.Hash] = struct{}{}
 				sm.limitMap(sm.requestedBlocks, maxRequestedBlocks)
-				state.requestedBlocks[iv.Hash] = time.Now()
+				state.requestedBlocks[iv.Hash] = struct{}{}
 				gdmsg.AddInvVect(iv)
 				numRequested++
 			}

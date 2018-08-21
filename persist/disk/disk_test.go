@@ -2,19 +2,20 @@ package disk
 
 import (
 	"time"
+	"math"
 	"testing"
+	"reflect"
+	"syscall"
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/net/wire"
-	"reflect"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
-	"math"
-	"syscall"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/persist/global"
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -46,6 +47,7 @@ func TestWRBlockToDisk(t *testing.T) {
 	//blkIndex := blockindex.NewBlockIndex(blkHeader)
 	//blkIndex.File = 10
 	//blkIndex.DataPos = 9
+	//blkIndex.Status = 8
 	//blks, ok := ReadBlockFromDisk(blkIndex, &chainparams.TestNetParams)
 	//if !reflect.DeepEqual(blks, blk) && !ok {
 	//	t.Errorf("the blks should equal blk\nblks:%v\nblk:%v", blks, blk)
@@ -140,5 +142,19 @@ func TestFindBlockPos(t *testing.T) {
 	ok1 := FindBlockPos(pos2, 12345, 100000, uint64(timeNow), false)
 	if !ok1 {
 		t.Error("when fKnown value is true, find block by pos failed.")
+	}
+}
+
+func TestFindUndoPos(t *testing.T) {
+	pos := block.NewDiskBlockPos(11, 12)
+	gPersist := global.GetInstance()
+	i := len(gPersist.GlobalBlockFileInfo)
+	for i <= int(pos.File) {
+		i++
+		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
+	}
+	err := FindUndoPos(11, pos, 12345)
+	if err != nil {
+		t.Error("find undo by pos failed.")
 	}
 }
