@@ -1,7 +1,6 @@
 package pow
 
 import (
-	//"math/big"
 	"testing"
 
 	"encoding/hex"
@@ -10,6 +9,8 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
 	"math/big"
+	"github.com/copernet/copernicus/util"
+	"math"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
@@ -81,12 +82,35 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blocks[0].Header.Bits = initialBits
 	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
+	blkHeaderDummy := block.BlockHeader{}
+
+	//TestNet3Params EDA will not happened
+	if chainparams.ActiveNetParams.Name == chainparams.TestNet3Params.Name {
+		i := 1
+		for i = 1; i < 10; i++ {
+			blocks[i] = getBlockIndex(blocks[i-1], int64(chainparams.ActiveNetParams.TargetTimePerBlock), initialBits)
+			acValue := pow.GetNextWorkRequired(blocks[i], &blkHeaderDummy, chainparams.ActiveNetParams)
+			if acValue != initialBits {
+				t.Errorf("the two value should be equal, but expect value : %d, actual value : %d",
+					initialBits, acValue)
+				return
+			}
+		}
+		blocks[i] = getBlockIndex(blocks[i-1], 2*600+1, initialBits)
+		acValue := pow.GetNextWorkRequired(blocks[i-1], blocks[i].GetBlockHeader(), chainparams.ActiveNetParams)
+		limitBits := BigToCompact(chainparams.ActiveNetParams.PowLimit)
+		if acValue != limitBits {
+			t.Errorf("the two value should be equal, but expect value : %x, actual value : %x",
+				limitBits, acValue)
+			return
+		}
+		return
+	}
+
 	// Pile up some blocks.
 	for i := 1; i < 100; i++ {
 		blocks[i] = getBlockIndex(blocks[i-1], int64(chainparams.ActiveNetParams.TargetTimePerBlock), initialBits)
 	}
-
-	blkHeaderDummy := block.BlockHeader{}
 	// We start getting 2h blocks time. For the first 5 blocks, it doesn't
 	// matter as the MTP is not affected. For the next 5 block, MTP difference
 	// increases but stays below 12h.
@@ -416,4 +440,25 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	}
 	fmt.Println("height : 1188696, chainwork : ", c.String())
 
+}
+
+func TestPow_CheckProofOfWork(t *testing.T) {
+
+	hash := util.HashFromString("0000000000000000000740e6d6defb455a045d87a4b05a77f84df382a0e6e16b")
+	pow := Pow{}
+	if ok := pow.CheckProofOfWork(hash, 0x172c0da7, chainparams.ActiveNetParams); !ok {
+		t.Errorf("CheckProofOfWork should pass")
+	}
+
+	if ok := pow.CheckProofOfWork(hash, 0x1d00ffff, chainparams.ActiveNetParams); !ok {
+		t.Errorf("CheckProofOfWork should pass")
+	}
+
+	if ok := pow.CheckProofOfWork(hash, 0, chainparams.ActiveNetParams); ok {
+		t.Errorf("CheckProofOfWork should not pass")
+	}
+
+	if ok := pow.CheckProofOfWork(hash, uint32(math.MaxUint32), chainparams.ActiveNetParams); ok {
+		t.Errorf("CheckProofOfWork should not pass")
+	}
 }
