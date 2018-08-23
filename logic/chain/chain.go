@@ -156,7 +156,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 
 			// update nUndoPos in block index
 			pindex.UndoPos = pos.Pos
-			pindex.Status |= blockindex.BlockHaveUndo
+			pindex.AddStatus(blockindex.BlockHaveUndo)
 		}
 		pindex.RaiseValidity(blockindex.BlockValidScripts)
 		gPersist.GlobalDirtyBlockIndex[*hash] = pindex
@@ -479,7 +479,7 @@ func InitGenesisChain() error {
 		return errcode.ProjectError{Code: 2001}
 	}
 
-	// Add genesis block index to DB
+	// Add genesis block index to DB and make the Chain
 	bIndex := blockindex.NewBlockIndex(&bl.Header)
 	bIndex.Height = 0
 	err := gChain.AddToIndexMap(bIndex)

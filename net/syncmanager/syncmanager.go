@@ -924,7 +924,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if blkIndex == nil {
 			return false, nil
 		}
-		if blkIndex.WaitingData() {
+		if blkIndex.HasData() {
 			return false, nil
 		}
 		return true, nil

@@ -373,7 +373,7 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		if chain.GetInstance().Contains(bindex) {
 			// This block is part of the currently active chain.
 			status = "active"
-		} else if bindex.Status&blockindex.BlockFailedMask != 0 {
+		} else if bindex.IsInvalid() {
 			// This block or one of its ancestors is invalid.
 			status = "invalid"
 		} else if bindex.ChainTxCount == 0 {
