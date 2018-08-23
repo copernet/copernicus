@@ -32,7 +32,10 @@ import (
 
 type FlushStateMode int
 
-var ChainActive chain.Chain
+var (
+	ChainActive chain.Chain
+	gps         = global.InitPruneState()
+)
 
 const (
 	FlushStateNone     FlushStateMode = iota
@@ -294,9 +297,8 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 
 func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	var (
-		gps             *global.PruneState
-		params          *chainparams.BitcoinParams
-		setFilesToPrune *set.Set
+		params          = chainparams.ActiveNetParams
+		setFilesToPrune = set.New()
 	)
 
 	global.CsLastBlockFile.Lock()
@@ -307,7 +309,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	gPersist := global.GetInstance()
 	fFlushForPrune := false
 
-	if gps.PruneMode == false && (gps.CheckForPruning == false || nManualPruneHeight > 0) && !gps.Reindex {
+	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !gps.Reindex {
 		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
 	} else {
 		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
@@ -597,7 +599,6 @@ func CalculateCurrentUsage() uint64 {
 // FindFilesToPrune calculate the block/rev files that should be deleted to remain under target
 func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 	gPersist := global.GetInstance()
-	var gps *global.PruneState
 
 	if ChainActive.Tip() == nil || gps.PruneTarget == 0 {
 		return
@@ -641,9 +642,8 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 }
 
 func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
-	var gps *global.PruneState
 	gPersist := global.GetInstance()
-	if gps.PruneMode == false && manualPruneHeight <= 0 {
+	if gps.PruneMode && manualPruneHeight <= 0 {
 		panic("the PruneMode is false and manualPruneHeight equal zero")
 	}
 
