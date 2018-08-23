@@ -20,8 +20,6 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-const MinBlocksToKeep = int32(288)
-
 func GetBlock(hash *util.Hash) (*block.Block, error) {
 	return nil, nil
 }
@@ -215,7 +213,7 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 			err = errcode.ProjectError{Code: 3008}
 			return
 		}
-		fTooFarAhead := bIndex.Height > gChain.Height()+MinBlocksToKeep
+		fTooFarAhead := bIndex.Height > gChain.Height()+block.MinBlocksToKeep
 		if fTooFarAhead {
 			log.Debug("AcceptBlockHeader err:%d", 3007)
 			err = errcode.ProjectError{Code: 3007}

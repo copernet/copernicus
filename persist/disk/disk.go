@@ -14,7 +14,6 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
-	lblock "github.com/copernet/copernicus/logic/block"
 
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/pow"
@@ -28,9 +27,12 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"github.com/copernet/copernicus/model/chain"
 )
 
 type FlushStateMode int
+
+var ChainActive chain.Chain
 
 const (
 	FlushStateNone     FlushStateMode = iota
@@ -597,13 +599,13 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 	gPersist := global.GetInstance()
 	var gps *global.PruneState
 
-	if gps.ChainActive.Tip() == nil || gps.PruneTarget == 0 {
+	if ChainActive.Tip() == nil || gps.PruneTarget == 0 {
 		return
 	}
-	if uint64(gps.ChainActive.Tip().Height) <= nPruneAfterHeight {
+	if uint64(ChainActive.Tip().Height) <= nPruneAfterHeight {
 		return
 	}
-	nLastBlockWeCanPrune := gps.ChainActive.Tip().Height - lblock.MinBlocksToKeep
+	nLastBlockWeCanPrune := ChainActive.Tip().Height - block.MinBlocksToKeep
 	nCurrentUsage := CalculateCurrentUsage()
 	// We don't check to prune until after we've allocated new space for files,
 	// so we should leave a buffer under our target to account for another
@@ -648,12 +650,12 @@ func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 	global.CsLastBlockFile.Lock()
 	defer global.CsLastBlockFile.Unlock()
 
-	if gps.ChainActive.Tip() == nil {
+	if ChainActive.Tip() == nil {
 		return
 	}
 
 	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(gps.ChainActive.Tip().Height-lblock.MinBlocksToKeep))
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(ChainActive.Tip().Height-block.MinBlocksToKeep))
 	count := 0
 	for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
 		if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 || gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > gPersist.GlobalLastBlockFile {
@@ -706,7 +708,6 @@ func PruneOneBlockFile(fileNumber int32) {
 	gPersist.GlobalBlockFileInfo[fileNumber].SetNull()
 	gPersist.GlobalDirtyFileInfo[fileNumber] = true
 }
-
 
 func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 	lists := setFilesToPrune.List()

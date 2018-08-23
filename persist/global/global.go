@@ -6,7 +6,6 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/chain"
 )
 
 const (
@@ -55,7 +54,6 @@ type PruneState struct {
 	HavePruned      bool
 	PruneTarget     uint64
 	CheckForPruning bool
-	ChainActive     *chain.Chain
 	Reindex         bool
 }
 
