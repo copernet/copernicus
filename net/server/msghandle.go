@@ -84,6 +84,8 @@ out:
 			case *wire.MsgMemPool:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnMemPool != nil {
+					peerFrom.Cfg.Listeners.OnMemPool(peerFrom, data)
 				}
 			case *wire.MsgTx:
 				if peerFrom.Cfg.Listeners.OnTx != nil {
@@ -112,10 +114,14 @@ out:
 			case *wire.MsgGetData:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnGetData != nil {
+					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data)
 				}
 			case *wire.MsgGetBlocks:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnGetBlocks != nil {
+					peerFrom.Cfg.Listeners.OnGetBlocks(peerFrom, data)
 				}
 			case *wire.MsgGetHeaders:
 				if peerFrom.Cfg.Listeners.OnGetHeaders != nil {
@@ -159,7 +165,7 @@ out:
 				msg.Done <- struct{}{}
 			default:
 				log.Debug("Received unhandled message of type %v "+
-					"from %v", data.Command())
+					"from %v", data, data.Command())
 			}
 		case <-ctx.Done():
 			log.Info("msgHandle service exit. function : startProcess")
