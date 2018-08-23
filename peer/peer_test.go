@@ -18,11 +18,11 @@ import (
 	// "github.com/btcsuite/btcd/wire"
 	// "github.com/btcsuite/go-socks/socks"
 
-	// "github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
-	// "github.com/copernet/copernicus/model/tx"
-	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
@@ -372,106 +372,79 @@ func TestPeerListeners(t *testing.T) {
 	peerCfg := &peer.Config{
 		Listeners: peer.MessageListeners{
 			OnWrite: func(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
-				log.Info("message %T is written err=%v", msg, err)
+				log.Info("OnWrite message %T is written err=%v by %s", msg, err, p.Addr())
+			},
+			OnRead: func(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
+				log.Info("OnRead message %T is written err=%v by %s", msg, err, p.Addr())
 			},
 			OnGetAddr: func(p *peer.Peer, msg *wire.MsgGetAddr) {
-				t.Log("before GetGetAddr")
 				ok <- msg
-				t.Log("GetGetAddr")
 			},
 			OnAddr: func(p *peer.Peer, msg *wire.MsgAddr) {
 				ok <- msg
-				t.Log("GetAddr")
 			},
 			OnPing: func(p *peer.Peer, msg *wire.MsgPing) {
 				ok <- msg
-				t.Log("OnPing")
 			},
 			OnPong: func(p *peer.Peer, msg *wire.MsgPong) {
 				ok <- msg
-				t.Log("OnPong")
 			},
 			OnAlert: func(p *peer.Peer, msg *wire.MsgAlert) {
 				ok <- msg
-				t.Log("OnAlert")
 			},
 			OnMemPool: func(p *peer.Peer, msg *wire.MsgMemPool) {
-				t.Log("before onmempool")
 				ok <- msg
-				t.Log("OnMemPool")
 			},
 			OnTx: func(p *peer.Peer, msg *wire.MsgTx, done chan<- struct{}) {
-				t.Log("before OnTx")
 				ok <- msg
-				t.Log("OnTx")
 			},
 			OnBlock: func(p *peer.Peer, msg *wire.MsgBlock, buf []byte, done chan<- struct{}) {
-				t.Log("before OnBlock")
 				ok <- msg
-				t.Log("OnBlock")
 			},
 			OnInv: func(p *peer.Peer, msg *wire.MsgInv) {
-				t.Log("before OnInv")
 				ok <- msg
-				t.Log("OnInv")
 			},
 			OnHeaders: func(p *peer.Peer, msg *wire.MsgHeaders) {
-				t.Log("before OnHeaders")
 				ok <- msg
-				t.Log("OnHeaders")
 			},
 			OnNotFound: func(p *peer.Peer, msg *wire.MsgNotFound) {
-				t.Log("before OnNotFound")
 				ok <- msg
-				t.Log("OnNotFound")
 			},
 			OnGetData: func(p *peer.Peer, msg *wire.MsgGetData) {
 				ok <- msg
-				t.Log("OnGetData")
 			},
 			OnGetBlocks: func(p *peer.Peer, msg *wire.MsgGetBlocks) {
 				ok <- msg
-				t.Log("OnGetBlocks")
 			},
 			OnGetHeaders: func(p *peer.Peer, msg *wire.MsgGetHeaders) {
 				ok <- msg
-				t.Log("OnGetHeaders")
 			},
 			OnFeeFilter: func(p *peer.Peer, msg *wire.MsgFeeFilter) {
 				ok <- msg
-				t.Log("OnFeeFilter")
 			},
 			OnFilterAdd: func(p *peer.Peer, msg *wire.MsgFilterAdd) {
 				ok <- msg
-				t.Log("OnFilterAdd")
 			},
 			OnFilterClear: func(p *peer.Peer, msg *wire.MsgFilterClear) {
 				ok <- msg
-				t.Log("OnFilterClear")
 			},
 			OnFilterLoad: func(p *peer.Peer, msg *wire.MsgFilterLoad) {
 				ok <- msg
-				t.Log("OnFilterload")
 			},
 			OnMerkleBlock: func(p *peer.Peer, msg *wire.MsgMerkleBlock) {
 				ok <- msg
-				t.Log("OnMerkleBlock")
 			},
 			OnVersion: func(p *peer.Peer, msg *wire.MsgVersion) {
 				ok <- msg
-				t.Log("OnVersion")
 			},
 			OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
 				verack <- struct{}{}
-				t.Log("OnVerAck")
 			},
 			OnReject: func(p *peer.Peer, msg *wire.MsgReject) {
 				ok <- msg
-				t.Log("OnReject")
 			},
 			OnSendHeaders: func(p *peer.Peer, msg *wire.MsgSendHeaders) {
 				ok <- msg
-				t.Log("OnSendHeaders")
 			},
 		},
 		UserAgentName:     "peer",
@@ -512,50 +485,50 @@ func TestPeerListeners(t *testing.T) {
 		}
 	}
 
-	// bhdr := block.BlockHeader{
-	// 	Version:       1,
-	// 	HashPrevBlock: util.Hash{},
-	// 	MerkleRoot:    util.Hash{},
-	// 	Time:          uint32(time.Now().Unix()),
-	// 	Bits:          1,
-	// 	Nonce:         1}
+	bhdr := block.BlockHeader{
+		Version:       1,
+		HashPrevBlock: util.Hash{},
+		MerkleRoot:    util.Hash{},
+		Time:          uint32(time.Now().Unix()),
+		Bits:          1,
+		Nonce:         1}
 
 	tests := []struct {
 		listener string
 		msg      wire.Message
 	}{
-		// {
-		// 	"OnGetAddr",
-		// 	wire.NewMsgGetAddr(),
-		// },
-		// {
-		// 	"OnAddr",
-		// 	wire.NewMsgAddr(),
-		// },
-		// {
-		// 	"OnPing",
-		// 	wire.NewMsgPing(42),
-		// },
-		// {
-		// 	"OnPong",
-		// 	wire.NewMsgPong(42),
-		// },
-		// {
-		// 	"OnAlert",
-		// 	wire.NewMsgAlert([]byte("payload"), []byte("signature")),
-		// },
-		// {
-		// 	"OnMemPool",
-		// 	wire.NewMsgMemPool(),
-		// },
-		// {
-		// 	"OnTx",
-		// 	(*wire.MsgTx)(tx.NewTx(0, tx.TxVersion)),
-		// },
-		// {
-		// 	"OnBlock",
-		// 	(*wire.MsgBlock)(&block.Block{Header: bhdr}),
-		// },
+		{
+			"OnGetAddr",
+			wire.NewMsgGetAddr(),
+		},
+		{
+			"OnAddr",
+			wire.NewMsgAddr(),
+		},
+		{
+			"OnPing",
+			wire.NewMsgPing(42),
+		},
+		{
+			"OnPong",
+			wire.NewMsgPong(42),
+		},
+		{
+			"OnAlert",
+			wire.NewMsgAlert([]byte("payload"), []byte("signature")),
+		},
+		{
+			"OnMemPool",
+			wire.NewMsgMemPool(),
+		},
+		{
+			"OnTx",
+			(*wire.MsgTx)(tx.NewTx(0, tx.TxVersion)),
+		},
+		{
+			"OnBlock",
+			(*wire.MsgBlock)(&block.Block{Header: bhdr}),
+		},
 		{
 			"OnInv",
 			wire.NewMsgInv(),
@@ -596,11 +569,11 @@ func TestPeerListeners(t *testing.T) {
 			"OnFilterLoad",
 			wire.NewMsgFilterLoad([]byte{0x01}, 10, 0, wire.BloomUpdateNone),
 		},
-		// {
-		// 	"OnMerkleBlock",
-		// 	wire.NewMsgMerkleBlock(wire.NewBlockHeader(1,
-		// 		&chainhash.Hash{}, &chainhash.Hash{}, 1, 1)),
-		// },
+		{
+			"OnMerkleBlock",
+			wire.NewMsgMerkleBlock(&bhdr),
+		},
+
 		// only one version message is allowed
 		// only one verack message is allowed
 		{
