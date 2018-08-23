@@ -67,6 +67,12 @@ func NewDiskBlockPos(file int32, pos uint32) *DiskBlockPos {
 	return &diskBlockPos
 }
 
+func NewDiskBlkPos() DiskBlockPos {
+	var dbp DiskBlockPos
+	dbp.SetNull()
+	return dbp
+}
+
 func NewDiskTxPos(blockIn *DiskBlockPos, offsetIn uint32) *DiskTxPos {
 	diskTxPos := &DiskTxPos{
 		BlockIn:    blockIn,
