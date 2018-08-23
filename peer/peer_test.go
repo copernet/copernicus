@@ -196,12 +196,6 @@ func testPeer(t *testing.T, p *peer.Peer, s peerStats) {
 		return
 	}
 
-	if p.IsWitnessEnabled() != s.wantWitnessEnabled {
-		t.Errorf("testPeer: wrong WitnessEnabled - got %v, want %v",
-			p.IsWitnessEnabled(), s.wantWitnessEnabled)
-		return
-	}
-
 	stats := p.StatsSnapshot()
 
 	if p.ID() != stats.ID {
@@ -267,8 +261,8 @@ func TestPeerConnection(t *testing.T) {
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
 		wantTimeOffset:      int64(0),
-		wantBytesSent:       167, // 143 version + 24 verack
-		wantBytesReceived:   167,
+		wantBytesSent:       164, // 140 version + 24 verack
+		wantBytesReceived:   164,
 		wantWitnessEnabled:  false,
 	}
 	wantStats2 := peerStats{
@@ -282,8 +276,8 @@ func TestPeerConnection(t *testing.T) {
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
 		wantTimeOffset:      int64(0),
-		wantBytesSent:       167, // 143 version + 24 verack
-		wantBytesReceived:   167,
+		wantBytesSent:       164, // 140 version + 24 verack
+		wantBytesReceived:   164,
 		wantWitnessEnabled:  true,
 	}
 
