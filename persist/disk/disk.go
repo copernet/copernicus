@@ -385,8 +385,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		gPersist.GlobalDirtyBlockIndex = make(global.DirtyBlockIndex)
 
 		// Write dirty block file info, last blockfile and dirty blockindex to db
-		btd := blkdb.GetInstance()
-		err := btd.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
+		err := blockTree.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
 		if err != nil {
 			return errcode.New(errcode.ErrorFailedToWriteToBlockIndexDatabase)
 		}
