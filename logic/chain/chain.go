@@ -29,8 +29,7 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 )
 
-func ConnectBlock(pblock *block.Block,
-	pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
+func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()

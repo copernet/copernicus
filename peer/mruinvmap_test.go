@@ -4,14 +4,13 @@
 
 package peer
 
-/*
 import (
 	"crypto/rand"
 	"fmt"
 	"testing"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 )
 
 // TestMruInventoryMap ensures the MruInventoryMap behaves as expected including
@@ -23,7 +22,7 @@ func TestMruInventoryMap(t *testing.T) {
 	numInvVects := 10
 	invVects := make([]*wire.InvVect, 0, numInvVects)
 	for i := 0; i < numInvVects; i++ {
-		hash := &chainhash.Hash{byte(i)}
+		hash := &util.Hash{byte(i)}
 		iv := wire.NewInvVect(wire.InvTypeBlock, hash)
 		invVects = append(invVects, iv)
 	}
@@ -83,7 +82,7 @@ testLoop:
 			mruInvMap.Add(invVects[origLruIndex])
 
 			iv := wire.NewInvVect(wire.InvTypeBlock,
-				&chainhash.Hash{0x00, 0x01})
+				&util.Hash{0x00, 0x01})
 			mruInvMap.Add(iv)
 
 			// Ensure the original lru entry still exists since it
@@ -123,8 +122,8 @@ testLoop:
 func TestMruInventoryMapStringer(t *testing.T) {
 	// Create a couple of fake inventory vectors to use in testing the mru
 	// inventory stringer code.
-	hash1 := &chainhash.Hash{0x01}
-	hash2 := &chainhash.Hash{0x02}
+	hash1 := &util.Hash{0x01}
+	hash2 := &util.Hash{0x02}
 	iv1 := wire.NewInvVect(wire.InvTypeBlock, hash1)
 	iv2 := wire.NewInvVect(wire.InvTypeBlock, hash2)
 
@@ -136,8 +135,8 @@ func TestMruInventoryMapStringer(t *testing.T) {
 	// Ensure the stringer gives the expected result.  Since map iteration
 	// is not ordered, either entry could be first, so account for both
 	// cases.
-	wantStr1 := fmt.Sprintf("<%d>[%s, %s]", 2, *iv1, *iv2)
-	wantStr2 := fmt.Sprintf("<%d>[%s, %s]", 2, *iv2, *iv1)
+	wantStr1 := fmt.Sprintf("<%d>[%v, %v]", 2, *iv1, *iv2)
+	wantStr2 := fmt.Sprintf("<%d>[%v, %v]", 2, *iv2, *iv1)
 	gotStr := mruInvMap.String()
 	if gotStr != wantStr1 && gotStr != wantStr2 {
 		t.Fatalf("unexpected string representation - got %q, want %q "+
@@ -154,10 +153,10 @@ func BenchmarkMruInventoryList(b *testing.B) {
 	numInvVects := 100000
 	invVects := make([]*wire.InvVect, 0, numInvVects)
 	for i := 0; i < numInvVects; i++ {
-		hashBytes := make([]byte, chainhash.HashSize)
-		rand.Read(hashBytes)
-		hash, _ := chainhash.NewHash(hashBytes)
-		iv := wire.NewInvVect(wire.InvTypeBlock, hash)
+		// hashBytes := make([]byte, util.Hash256Size)
+		hash := util.Hash{}
+		rand.Read(hash[:])
+		iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
 		invVects = append(invVects, iv)
 	}
 	b.StartTimer()
@@ -169,4 +168,3 @@ func BenchmarkMruInventoryList(b *testing.B) {
 		mruInvMap.Add(invVects[i%numInvVects])
 	}
 }
-*/
