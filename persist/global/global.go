@@ -74,6 +74,17 @@ func InitPersistGlobal() *PersistGlobal {
 	return pg
 }
 
+func InitPruneState() *PruneState {
+	ps := &PruneState{
+		PruneMode:       false,
+		HavePruned:      false,
+		CheckForPruning: false,
+		Reindex:         false,
+		PruneTarget:     0,
+	}
+	return ps
+}
+
 func GetInstance() *PersistGlobal {
 	if persistGlobal == nil {
 		persistGlobal = InitPersistGlobal()
