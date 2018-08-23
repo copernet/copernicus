@@ -22,6 +22,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	// "github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
@@ -370,7 +371,11 @@ func TestPeerListeners(t *testing.T) {
 	ok := make(chan wire.Message, 20)
 	peerCfg := &peer.Config{
 		Listeners: peer.MessageListeners{
+			OnWrite: func(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
+				log.Info("message %T is written err=%v", msg, err)
+			},
 			OnGetAddr: func(p *peer.Peer, msg *wire.MsgGetAddr) {
+				t.Log("before GetGetAddr")
 				ok <- msg
 				t.Log("GetGetAddr")
 			},
@@ -391,26 +396,32 @@ func TestPeerListeners(t *testing.T) {
 				t.Log("OnAlert")
 			},
 			OnMemPool: func(p *peer.Peer, msg *wire.MsgMemPool) {
+				t.Log("before onmempool")
 				ok <- msg
 				t.Log("OnMemPool")
 			},
 			OnTx: func(p *peer.Peer, msg *wire.MsgTx, done chan<- struct{}) {
+				t.Log("before OnTx")
 				ok <- msg
 				t.Log("OnTx")
 			},
 			OnBlock: func(p *peer.Peer, msg *wire.MsgBlock, buf []byte, done chan<- struct{}) {
+				t.Log("before OnBlock")
 				ok <- msg
 				t.Log("OnBlock")
 			},
 			OnInv: func(p *peer.Peer, msg *wire.MsgInv) {
+				t.Log("before OnInv")
 				ok <- msg
 				t.Log("OnInv")
 			},
 			OnHeaders: func(p *peer.Peer, msg *wire.MsgHeaders) {
+				t.Log("before OnHeaders")
 				ok <- msg
 				t.Log("OnHeaders")
 			},
 			OnNotFound: func(p *peer.Peer, msg *wire.MsgNotFound) {
+				t.Log("before OnNotFound")
 				ok <- msg
 				t.Log("OnNotFound")
 			},
@@ -513,30 +524,30 @@ func TestPeerListeners(t *testing.T) {
 		listener string
 		msg      wire.Message
 	}{
-		{
-			"OnGetAddr",
-			wire.NewMsgGetAddr(),
-		},
-		{
-			"OnAddr",
-			wire.NewMsgAddr(),
-		},
-		{
-			"OnPing",
-			wire.NewMsgPing(42),
-		},
-		{
-			"OnPong",
-			wire.NewMsgPong(42),
-		},
-		{
-			"OnAlert",
-			wire.NewMsgAlert([]byte("payload"), []byte("signature")),
-		},
-		{
-			"OnMemPool",
-			wire.NewMsgMemPool(),
-		},
+		// {
+		// 	"OnGetAddr",
+		// 	wire.NewMsgGetAddr(),
+		// },
+		// {
+		// 	"OnAddr",
+		// 	wire.NewMsgAddr(),
+		// },
+		// {
+		// 	"OnPing",
+		// 	wire.NewMsgPing(42),
+		// },
+		// {
+		// 	"OnPong",
+		// 	wire.NewMsgPong(42),
+		// },
+		// {
+		// 	"OnAlert",
+		// 	wire.NewMsgAlert([]byte("payload"), []byte("signature")),
+		// },
+		// {
+		// 	"OnMemPool",
+		// 	wire.NewMsgMemPool(),
+		// },
 		// {
 		// 	"OnTx",
 		// 	(*wire.MsgTx)(tx.NewTx(0, tx.TxVersion)),
@@ -545,10 +556,10 @@ func TestPeerListeners(t *testing.T) {
 		// 	"OnBlock",
 		// 	(*wire.MsgBlock)(&block.Block{Header: bhdr}),
 		// },
-		// {
-		// 	"OnInv",
-		// 	wire.NewMsgInv(),
-		// },
+		{
+			"OnInv",
+			wire.NewMsgInv(),
+		},
 		{
 			"OnHeaders",
 			wire.NewMsgHeaders(),
@@ -607,7 +618,7 @@ func TestPeerListeners(t *testing.T) {
 		outPeer.QueueMessage(test.msg, nil)
 		select {
 		case <-ok:
-		case <-time.After(time.Second * 3):
+		case <-time.After(time.Second * 60):
 			t.Errorf("TestPeerListeners: %s timeout", test.listener)
 			return
 		}
