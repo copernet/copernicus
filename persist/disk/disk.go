@@ -389,7 +389,11 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		err := btd.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
 		if err != nil {
 			return errcode.New(errcode.ErrorFailedToWriteToBlockIndexDatabase)
+		}
 
+		// Finally remove any pruned files
+		if fFlushForPrune {
+			UnlinkPrunedFiles(setFilesToPrune)
 		}
 		gPersist.GlobalLastWrite = int(nNow)
 	}
@@ -702,4 +706,19 @@ func PruneOneBlockFile(fileNumber int32) {
 
 	gPersist.GlobalBlockFileInfo[fileNumber].SetNull()
 	gPersist.GlobalDirtyFileInfo[fileNumber] = true
+}
+
+
+func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
+	lists := setFilesToPrune.List()
+	for key, value := range lists {
+		v := value.(int32)
+		pos := &block.DiskBlockPos{
+			File: v,
+			Pos:  0,
+		}
+		os.Remove(GetBlockPosFilename(*pos, "blk"))
+		os.Remove(GetBlockPosFilename(*pos, "rev"))
+		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
+	}
 }
