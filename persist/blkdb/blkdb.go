@@ -49,7 +49,6 @@ func newBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 }
 
 func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileInfo, error) {
-	log.Debug("file======%#v", file)
 	keyBuf := bytes.NewBuffer(nil)
 	_, err := keyBuf.Write([]byte{db.DbBlockFiles})
 	if err != nil {
@@ -63,7 +62,6 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileI
 	if err == leveldb.ErrNotFound {
 		return nil, nil
 	}
-	log.Debug("file======%#v", file)
 
 	if err != nil {
 		log.Error("ReadBlockFileInfo err: %#v", err.Error())

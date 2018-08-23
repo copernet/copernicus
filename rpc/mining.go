@@ -118,7 +118,7 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 			//PooledTx:           uint64(mempool.Size()),              TODO
 			Chain: consensus.MainNetParams.Name,
 		}
-		return &result, nil*/// todo open
+		return &result, nil*/ // todo open
 	return nil, nil
 }
 
@@ -403,7 +403,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 				Message: "duplicate",
 			}
 		}
-		if bindex.Status&blockindex.BlockFailedMask != 0 {
+		if bindex.IsInvalid() {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",
@@ -565,7 +565,7 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 		}
 		_ = extraNonce
 
-		return ret, nil*/// TODO open
+		return ret, nil*/ // TODO open
 	return nil, nil
 }
 

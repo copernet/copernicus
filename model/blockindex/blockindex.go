@@ -19,17 +19,17 @@ import (
  * one of them can be part of the currently active branch.
  */
 
-const (
-	StatusAllValid uint32 = 1 << iota
-	StatusIndexStored
-	StatusWaitingData
-	StatusDataStored
-	StatusFailed
-	StatusAccepted
-
-	// StatusNone NOTE: This must be defined last in order to avoid influencing iota
-	StatusNone = 0
-)
+//const (
+//	StatusAllValid uint32 = 1 << iota
+//	StatusIndexStored
+//	StatusWaitingData
+//	StatusDataStored
+//	StatusFailed
+//	StatusAccepted
+//
+//	// StatusNone NOTE: This must be defined last in order to avoid influencing iota
+//	StatusNone = 0
+//)
 
 type BlockIndex struct {
 	Header block.BlockHeader
@@ -87,42 +87,35 @@ func (bIndex *BlockIndex) SetNull() {
 	bIndex.ChainWork = big.Int{}
 	bIndex.ChainTxCount = 0
 	bIndex.TxCount = 0
-	bIndex.Status = StatusNone
+	//bIndex.Status = StatusNone
+	bIndex.Status = 0
 	bIndex.SequenceID = 0
 	bIndex.TimeMax = 0
 }
 
-func (bIndex *BlockIndex) WaitingData() bool {
-	return bIndex.Status&StatusWaitingData != 0
-}
-
-func (bIndex *BlockIndex) AllValid() bool {
-	return bIndex.Status&StatusAllValid != 0
-}
-
-func (bIndex *BlockIndex) IndexStored() bool {
-	return bIndex.Status&StatusIndexStored != 0
-}
-
-func (bIndex *BlockIndex) AllStored() bool {
-	return bIndex.Status&StatusDataStored != 0
-}
-
-func (bIndex *BlockIndex) Accepted() bool {
-	return bIndex.Status&StatusAccepted != 0
-}
-
-func (bIndex *BlockIndex) Failed() bool {
-	return bIndex.Status&StatusFailed != 0
-}
-
-func (bIndex *BlockIndex) AddStatus(statu uint32) {
-	bIndex.Status |= statu
-}
-
-func (bIndex *BlockIndex) SubStatus(statu uint32) {
-	bIndex.Status &= ^statu
-}
+//func (bIndex *BlockIndex) WaitingData() bool {
+//	return bIndex.Status&StatusWaitingData != 0
+//}
+//
+//func (bIndex *BlockIndex) AllValid() bool {
+//	return bIndex.Status&StatusAllValid != 0
+//}
+//
+//func (bIndex *BlockIndex) IndexStored() bool {
+//	return bIndex.Status&StatusIndexStored != 0
+//}
+//
+//func (bIndex *BlockIndex) DataStored() bool {
+//	return bIndex.Status&StatusDataStored != 0
+//}
+//
+//func (bIndex *BlockIndex) Accepted() bool {
+//	return bIndex.Status&StatusAccepted != 0
+//}
+//
+//func (bIndex *BlockIndex) Failed() bool {
+//	return bIndex.Status&StatusFailed != 0
+//}
 
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
 	var ret block.DiskBlockPos
@@ -193,34 +186,50 @@ func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 	return median[numNodes/2]
 }
 
-// IsValid checks whether this block index entry is valid up to the passed validity
-// level.
-func (bIndex *BlockIndex) IsValid(upto uint32) bool {
-	// Only validity flags allowed.
-	if upto&(^BlockValidMask) != 0 {
-		panic("Only validity flags allowed.")
-	}
-	if (bIndex.Status & BlockValidMask) != 0 {
-		return false
-	}
-	return (bIndex.Status & BlockValidMask) >= upto
+func (bIndex *BlockIndex) AddStatus(status uint32) {
+	bIndex.Status |= status
+}
+
+func (bIndex *BlockIndex) HasData() bool {
+	return bIndex.Status&BlockHaveData != 0
+}
+
+func (bIndex *BlockIndex) SubStatus(status uint32) {
+	bIndex.Status &= ^status
 }
 
 // RaiseValidity Raise the validity level of this block index entry.
 // Returns true if the validity was changed.
 func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 	// Only validity flags allowed.
-	if upto&(^BlockValidMask) != 0 {
-		panic("Only validity flags allowed.")
-	}
-	if bIndex.Status&BlockValidMask != 0 {
+	if bIndex.IsInvalid() {
 		return false
 	}
-	if (bIndex.Status & BlockValidMask) < upto {
-		bIndex.Status = (bIndex.Status & (^BlockValidMask)) | upto
-		return true
+
+	if bIndex.getValidity() >= upto {
+		return false
 	}
-	return false
+
+	bIndex.Status = (bIndex.Status & (^BlockValidityMask)) | upto
+
+	return true
+}
+
+// IsValid checks whether this block index entry is valid up to the passed validity level.
+func (bIndex *BlockIndex) IsValid(upto uint32) bool {
+	if bIndex.IsInvalid() {
+		return false
+	}
+	return bIndex.getValidity() >= upto
+}
+
+// IsValid checks whether this block index entry is valid up to the passed validity level.
+func (bIndex *BlockIndex) IsInvalid() bool {
+	return bIndex.Status&BlockInvalidMask != 0
+}
+
+func (bIndex *BlockIndex) getValidity() uint32 {
+	return bIndex.Status & BlockValidityMask
 }
 
 //func (bIndex *BlockIndex) BuildSkip() {
@@ -230,9 +239,9 @@ func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 //}
 
 // Turn the lowest '1' bit in the binary representation of a number into a '0'.
-func invertLowestOne(n int32) int32 {
-	return n & (n - 1)
-}
+//func invertLowestOne(n int32) int32 {
+//	return n & (n - 1)
+//}
 
 // getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
 //func getSkipHeight(height int32) int32 {

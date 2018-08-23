@@ -70,8 +70,6 @@ func CheckBlock(pblock *block.Block) error {
 	if pblock.Checked {
 		return nil
 	}
-	blockSize := pblock.EncodeSize()
-	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(blockSize))
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
@@ -95,38 +93,28 @@ func CheckBlock(pblock *block.Block) error {
 		return errcode.New(errcode.ErrorbadTxnsDuplicate)
 	}
 
-	// All potential-corruption validation must be done before we do any
-	// transaction validation, as otherwise we may mark the header as invalid
-	// because we receive the wrong transactions for it.
-
-	// First transaction must be coinBase.
-	if len(pblock.Txs) == 0 {
-		log.Debug("ErrorBadCoinBaseMissing")
-		return errcode.New(errcode.ErrorBadCoinBaseMissing)
-	}
-
 	// size limits
 	nMaxBlockSize := consensus.DefaultMaxBlockSize
-
 	// Bail early if there is no way this block is of reasonable size.
 	minTransactionSize := tx.NewEmptyTx().EncodeSize()
 	if len(pblock.Txs)*int(minTransactionSize) > nMaxBlockSize {
 		log.Debug("ErrorBadBlkLength")
 		return errcode.New(errcode.ErrorBadBlkLength)
 	}
-
 	currentBlockSize := pblock.EncodeSize()
 	if currentBlockSize > nMaxBlockSize {
 		log.Debug("ErrorBadBlkTxSize")
 		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
 
+	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
 		log.Debug("ErrorBadBlkTx")
 		return errcode.New(errcode.ErrorBadBlkTx)
 	}
 	pblock.Checked = true
+
 	return nil
 }
 
@@ -147,14 +135,15 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 // ReceivedBlockTransactions Mark a block as having its data received and checked (up to
 // * BLOCK_VALID_TRANSACTIONS state).
 func ReceivedBlockTransactions(pblock *block.Block,
-	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) bool {
+	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) {
 	hash := pindexNew.GetBlockHash()
 	pindexNew.TxCount = int32(len(pblock.Txs))
 	pindexNew.ChainTxCount = 0
 	pindexNew.File = pos.File
 	pindexNew.DataPos = pos.Pos
 	pindexNew.UndoPos = 0
-	pindexNew.AddStatus(blockindex.StatusDataStored)
+	pindexNew.AddStatus(blockindex.BlockHaveData)
+	pindexNew.RaiseValidity(blockindex.BlockValidTransactions)
 
 	gPersist := global.GetInstance()
 	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
@@ -169,7 +158,7 @@ func ReceivedBlockTransactions(pblock *block.Block,
 		}
 	}
 
-	return true
+	return
 }
 
 // GetBlockScriptFlags Returns the script flags which should be checked for a given block
@@ -191,8 +180,9 @@ func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amo
 	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
-func AcceptBlock(pblock *block.Block,
-	fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex, dbp *block.DiskBlockPos, err error) {
+// Store a block on disk.
+func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex,
+	dbp *block.DiskBlockPos, err error) {
 	if pblock != nil {
 		*fNewBlock = false
 	}
@@ -200,91 +190,90 @@ func AcceptBlock(pblock *block.Block,
 	if err != nil {
 		return
 	}
-	log.Info(bIndex)
 
-	if bIndex.Accepted() {
+	// Already Accept Block
+	if bIndex.HasData() {
 		log.Debug("AcceptBlock err:%d", 3009)
 		err = errcode.ProjectError{Code: 3009}
 		return
 	}
+
+	gChain := chain.GetInstance()
 	if !fRequested {
-		tip := chain.GetInstance().Tip()
-		tipWork := tip.ChainWork
+		tip := gChain.Tip()
 		fHasMoreWork := false
 		if tip == nil {
 			fHasMoreWork = true
-		} else if bIndex.ChainWork.Cmp(&tipWork) == 1 {
-			fHasMoreWork = true
+		} else {
+			tipWork := tip.ChainWork
+			if bIndex.ChainWork.Cmp(&tipWork) == 1 {
+				fHasMoreWork = true
+			}
 		}
 		if !fHasMoreWork {
 			log.Debug("AcceptBlockHeader err:%d", 3008)
 			err = errcode.ProjectError{Code: 3008}
 			return
 		}
-		fTooFarAhead := bIndex.Height > tip.Height+MinBlocksToKeep
+		fTooFarAhead := bIndex.Height > gChain.Height()+MinBlocksToKeep
 		if fTooFarAhead {
 			log.Debug("AcceptBlockHeader err:%d", 3007)
 			err = errcode.ProjectError{Code: 3007}
 			return
 		}
 	}
-	if !bIndex.AllValid() {
-		err = CheckBlock(pblock)
-		if err != nil {
-			return
-		}
 
-		bIndex.AddStatus(blockindex.StatusAllValid)
-	}
+	*fNewBlock = true
 	gPersist := global.GetInstance()
 	if err = CheckBlock(pblock); err != nil {
-		bIndex.AddStatus(blockindex.StatusFailed)
+		bIndex.AddStatus(blockindex.BlockFailed)
 		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 		return
 	}
 	if err = ContextualCheckBlock(pblock, bIndex.Prev); err != nil {
-		bIndex.AddStatus(blockindex.StatusFailed)
+		bIndex.AddStatus(blockindex.BlockFailed)
 		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 		return
 	}
-	*fNewBlock = true
+
+	// TODO: relay this block
 
 	dbp, err = WriteBlockToDisk(bIndex, pblock)
 	if err != nil {
-		bIndex.AddStatus(blockindex.StatusFailed)
-		gPersist.GlobalDirtyBlockIndex[pblock.GetHash()] = bIndex
-		log.Debug("AcceptBlockHeader err:%d", 3006)
-		err = errcode.ProjectError{Code: 3006}
-		return
+		panic("AcceptBlockHeader WriteBlockTo Disk err")
 	}
 	ReceivedBlockTransactions(pblock, bIndex, dbp)
-	bIndex.SubStatus(blockindex.StatusWaitingData)
-	bIndex.AddStatus(blockindex.StatusDataStored)
-	gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
 	return
 }
 
 func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
-	var c = chain.GetInstance()
-
-	bIndex := c.FindBlockIndex(bh.GetHash())
+	gChain := chain.GetInstance()
+	bIndex := gChain.FindBlockIndex(bh.GetHash())
 	if bIndex != nil {
+		if bIndex.IsInvalid() {
+			log.Debug("AcceptBlockHeader Invalid index")
+			return bIndex, errcode.New(errcode.ErrorBlockHeaderNoValid)
+		}
 		return bIndex, nil
 	}
 
-	//this is a new blockheader
+	// This maybe a new blockheader
 	err := CheckBlockHeader(bh)
 	if err != nil {
 		return nil, err
 	}
-	gChain := chain.GetInstance()
 
 	bIndex = blockindex.NewBlockIndex(bh)
 	if !bIndex.IsGenesis(gChain.GetParams()) {
-		bIndex.Prev = c.FindBlockIndex(bh.HashPrevBlock)
+		bIndex.Prev = gChain.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
 			log.Debug("Find Block in BlockIndexMap err, hash:%s", bh.HashPrevBlock.String())
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
+		}
+		if bIndex.Prev.IsInvalid() {
+			log.Debug("AcceptBlockHeader Invalid Pre index")
+			return nil, errcode.ProjectError{Code: 3100}
+
 		}
 		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev) {
 			log.Debug("AcceptBlockHeader err:%d", 3100)
@@ -296,14 +285,15 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 		}
 	}
 
-	bIndex.Height = bIndex.Prev.Height + 1
-	bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.Time)
-	bIndex.AddStatus(blockindex.StatusWaitingData)
+	//bIndex.Height = bIndex.Prev.Height + 1
+	//bIndex.TimeMax = util.MaxU32(bIndex.Prev.TimeMax, bIndex.Header.Time)
+	//bIndex.AddStatus(blockindex.StatusWaitingData)
 
-	err = c.AddToIndexMap(bIndex)
+	err = gChain.AddToIndexMap(bIndex)
 	if err != nil {
-		log.Debug("AcceptBlockHeader err")
+		log.Debug("AcceptBlockHeader AddToIndexMap err")
 		return nil, err
 	}
+
 	return bIndex, nil
 }

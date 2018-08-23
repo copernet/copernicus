@@ -27,21 +27,22 @@ const (
 	BlockValidScripts uint32 = 5
 
 	// BlockValidMask : All validity bits
-	BlockValidMask = BlockValidHeader |
-		BlockValidTree |
-		BlockValidTransactions |
-		BlockValidChain |
-		BlockValidScripts
+	// BlockValidMask = BlockValidHeader |
+	//	BlockValidTree |
+	//	BlockValidTransactions |
+	//	BlockValidChain |
+	//	BlockValidScripts
+	BlockValidityMask uint32 = 0x07
 
 	// BlockHaveData : full block available in blk*.dat
 	BlockHaveData uint32 = 8
-
+	// Undo data available in rev*.dat
 	BlockHaveUndo uint32 = 16
-	BlockHaveMask        = BlockHaveData | BlockHaveUndo
 
-	// BlockFailedValid : stage after last reached validness failed
-	BlockFailedValid uint32 = 32
-	// BlockFailedChild : descends from failed block
-	BlockFailedChild uint32 = 64
-	BlockFailedMask         = BlockFailedValid | BlockFailedChild
+	// The block is invalid.
+	BlockFailed uint32 = 32
+	// The block has an invalid parent.
+	BlockFailedParent uint32 = 64
+	// Mask used to check if the block failed.
+	BlockInvalidMask = BlockFailed | BlockFailedParent
 )
