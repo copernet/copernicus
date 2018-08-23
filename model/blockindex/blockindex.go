@@ -119,7 +119,7 @@ func (bIndex *BlockIndex) SetNull() {
 
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
 	ret := block.NewDiskBlkPos()
-	if (bIndex.Status & BlockHaveUndo) != 0 {
+	if bIndex.HasUndo() {
 		ret.File = bIndex.File
 		ret.Pos = bIndex.UndoPos
 	}
@@ -129,7 +129,7 @@ func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
 
 func (bIndex *BlockIndex) GetBlockPos() block.DiskBlockPos {
 	ret := block.NewDiskBlkPos()
-	if (bIndex.Status & BlockHaveData) != 0 {
+	if bIndex.HasData() {
 		ret.File = bIndex.File
 		ret.Pos = bIndex.DataPos
 	}
@@ -192,6 +192,10 @@ func (bIndex *BlockIndex) AddStatus(status uint32) {
 
 func (bIndex *BlockIndex) HasData() bool {
 	return bIndex.Status&BlockHaveData != 0
+}
+
+func (bIndex *BlockIndex) HasUndo() bool {
+	return bIndex.Status&BlockHaveUndo != 0
 }
 
 func (bIndex *BlockIndex) SubStatus(status uint32) {
