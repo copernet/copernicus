@@ -49,7 +49,6 @@ func newBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 }
 
 func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileInfo, error) {
-	log.Debug("file======%#v", file)
 	keyBuf := bytes.NewBuffer(nil)
 	_, err := keyBuf.Write([]byte{db.DbBlockFiles})
 	if err != nil {
@@ -63,7 +62,6 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileI
 	if err == leveldb.ErrNotFound {
 		return nil, nil
 	}
-	log.Debug("file======%#v", file)
 
 	if err != nil {
 		log.Error("ReadBlockFileInfo err: %#v", err.Error())
@@ -94,26 +92,6 @@ func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int32, error) {
 	}
 	buf := bytes.NewBuffer(data)
 	var lastFile int32
-	err = util.ReadElements(buf, &lastFile)
-	return lastFile, err
-}
-
-func (blockTreeDB *BlockTreeDB) WriteMaxBlockFile(file int32) error {
-	vbuf := bytes.NewBuffer(nil)
-	err := util.WriteElements(vbuf, uint64(file))
-	if err != nil {
-		log.Error("write failed, please check.")
-	}
-	return blockTreeDB.dbw.Write([]byte{db.DbMaxBlock}, vbuf.Bytes(), false)
-}
-
-func (blockTreeDB *BlockTreeDB) ReadMaxBlockFile() (int32, error) {
-	data, err := blockTreeDB.dbw.Read([]byte{db.DbMaxBlock})
-	if err != nil {
-		return -2, err
-	}
-	buf := bytes.NewBuffer(data)
-	var lastFile int32 = -2
 	err = util.ReadElements(buf, &lastFile)
 	return lastFile, err
 }

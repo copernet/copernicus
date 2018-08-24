@@ -67,55 +67,55 @@ func LoadBlockIndexDB() bool {
 			}
 		} else {
 			// genesis block
-			branch = append(branch, index)
 			index.ChainTxCount = index.TxCount
-		}
-		if index.IsValid(blockindex.StatusAllValid) &&
-			(index.ChainTxCount != 0 || index.Prev == nil) {
-			// gChain.AddToBranch(index)
+			branch = append(branch, index)
 		}
 	}
+	log.Debug("LoadBlockIndexDB, BlockIndexMap len:%d, Branch len:%d, Orphan len:%d",
+		len(GlobalBlockIndexMap), len(branch), gChain.ChainOrphanLen())
 
 	// Load block file info
 	btd := blkdb.GetInstance()
 	var err error
 	var bfi *block.BlockFileInfo
 
-	gPersist.GlobalLastBlockFile, err = btd.ReadLastBlockFile()
+	globalLastBlockFile, err := btd.ReadLastBlockFile()
+	globalBlockFileInfo := make(global.BlockFileInfoList, 0, gPersist.GlobalLastBlockFile+1)
 	if err != nil {
-		log.Error("btd.ReadLastBlockFile() err:%#v", err)
-	}
-	GlobalBlockFileInfo := make(global.BlockFileInfoList, gPersist.GlobalLastBlockFile+1)
-	log.Debug("LoadBlockIndexDB(): last block file = %d", gPersist.GlobalLastBlockFile)
-	for nFile := int32(0); nFile <= gPersist.GlobalLastBlockFile; nFile++ {
-		bfi, err = btd.ReadBlockFileInfo(nFile)
-		if err == nil {
-			if bfi == nil {
-				bfi = block.NewBlockFileInfo()
+		log.Debug("ReadLastBlockFile() from DB err:%#v", err)
+	} else {
+		var nFile int32 = 0
+		for ; nFile <= globalLastBlockFile; nFile++ {
+			bfi, err = btd.ReadBlockFileInfo(nFile)
+			if err != nil || bfi == nil {
+				log.Error("ReadBlockFileInfo(%d) from DB err:%#v", nFile, err)
+				panic("ReadBlockFileInfo err")
 			}
-			GlobalBlockFileInfo[nFile] = bfi
-		} else {
-			log.Error("btd.ReadBlockFileInfo(%#v) err:%#v", nFile, err)
-			panic("btd.ReadBlockFileInfo(nFile) err")
+			globalBlockFileInfo = append(globalBlockFileInfo, bfi)
+		}
+		for nFile = gPersist.GlobalLastBlockFile + 1; true; nFile++ {
+			bfi, err = btd.ReadBlockFileInfo(nFile)
+			if bfi != nil && err == nil {
+				log.Debug("LoadBlockIndexDB: the last block file info: %d is less than real block file info: %d",
+					gPersist.GlobalLastBlockFile, nFile)
+				globalBlockFileInfo = append(globalBlockFileInfo, bfi)
+				globalLastBlockFile = nFile
+			} else {
+				break
+			}
 		}
 	}
-	log.Debug("LoadBlockIndexDB(): last block file info: %s\n",
-		GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].String())
-	for nFile := gPersist.GlobalLastBlockFile + 1; true; nFile++ {
-		bfi, err = btd.ReadBlockFileInfo(nFile)
-		if bfi != nil && err == nil {
-			GlobalBlockFileInfo = append(GlobalBlockFileInfo, bfi)
-		} else {
-			break
-		}
-	}
-	gPersist.GlobalBlockFileInfo = GlobalBlockFileInfo
-	// Check presence of blk files
+	gPersist.GlobalBlockFileInfo = globalBlockFileInfo
+	gPersist.GlobalLastBlockFile = globalLastBlockFile
+	log.Debug("LoadBlockIndexDB: Read last block file info: %d, block file info len:%d",
+		globalLastBlockFile, len(globalBlockFileInfo))
+
+	// Check presence of block index files
 	setBlkDataFiles := set.New()
 	log.Debug("Checking all blk files are present...")
 	for _, item := range GlobalBlockIndexMap {
 		index := item
-		if index.Status&blockindex.BlockHaveData != 0 {
+		if index.HasData() {
 			setBlkDataFiles.Add(index.File)
 		}
 	}
@@ -127,7 +127,8 @@ func LoadBlockIndexDB() bool {
 		}
 		file := disk.OpenBlockFile(pos, true)
 		if file == nil {
-			return false
+			log.Debug("Check block file: %d error, please delete blocks and chainstate and run again", pos.File)
+			panic("LoadBlockIndexDB: check block file err")
 		}
 		file.Close()
 	}
@@ -138,13 +139,10 @@ func LoadBlockIndexDB() bool {
 	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash.String(), err)
 	if err == nil {
 		tip, ok := GlobalBlockIndexMap[bestHash]
-		//indexMapLen := len(GlobalBlockIndexMap)
-		//fmt.Println("indexMapLen====", indexMapLen)
 		if !ok {
 			//shoud reindex from db
-			log.Debug("can't find tip from blockindex db, please delete blocks and chainstate and run again")
+			log.Debug("can't find beskblock from blockindex db, please delete blocks and chainstate and run again")
 			panic("can't find tip from blockindex db")
-			//return true
 		}
 		// init active chain by tip[load from db]
 		gChain.SetTip(tip)

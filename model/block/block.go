@@ -20,6 +20,8 @@ type Block struct {
 	encodeSize    int
 }
 
+const MinBlocksToKeep = int32(288)
+
 func (bl *Block) GetBlockHeader() BlockHeader {
 	return bl.Header
 }

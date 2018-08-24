@@ -1542,6 +1542,7 @@ out:
 			}
 			break out
 		}
+		log.Info("Read message %T inHandle", rmsg)
 		atomic.StoreInt64(&p.lastRecv, time.Now().Unix())
 		p.stallControl <- stallControlMsg{sccReceiveMessage, rmsg}
 
@@ -1738,6 +1739,8 @@ out:
 			err := p.writeMessage(msg.msg, msg.encoding)
 			if err != nil {
 				p.Disconnect()
+				log.Error("Failed to send message to "+
+					"%s: %v", p, err)
 				if p.shouldLogWriteError(err) {
 					log.Error("Failed to send message to "+
 						"%s: %v", p, err)

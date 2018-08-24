@@ -84,16 +84,21 @@ out:
 			case *wire.MsgMemPool:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnMemPool != nil {
+					peerFrom.Cfg.Listeners.OnMemPool(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgTx:
 				if peerFrom.Cfg.Listeners.OnTx != nil {
 					peerFrom.Cfg.Listeners.OnTx(peerFrom, data, msg.Done)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgBlock:
 				log.Trace("recv bitcoin MsgBlock news ...")
 				if peerFrom.Cfg.Listeners.OnBlock != nil {
 					peerFrom.Cfg.Listeners.OnBlock(peerFrom, data, msg.Buf, msg.Done)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgInv:
 				if peerFrom.Cfg.Listeners.OnInv != nil {
 					peerFrom.Cfg.Listeners.OnInv(peerFrom, data)
@@ -112,11 +117,17 @@ out:
 			case *wire.MsgGetData:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnGetData != nil {
+					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgGetBlocks:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnGetBlocks != nil {
+					peerFrom.Cfg.Listeners.OnGetBlocks(peerFrom, data)
 				}
+				msg.Done <- struct{}{}
 			case *wire.MsgGetHeaders:
 				if peerFrom.Cfg.Listeners.OnGetHeaders != nil {
 					peerFrom.Cfg.Listeners.OnGetHeaders(peerFrom, data)
@@ -159,7 +170,7 @@ out:
 				msg.Done <- struct{}{}
 			default:
 				log.Debug("Received unhandled message of type %v "+
-					"from %v", data.Command())
+					"from %v", data, data.Command())
 			}
 		case <-ctx.Done():
 			log.Info("msgHandle service exit. function : startProcess")

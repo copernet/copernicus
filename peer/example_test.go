@@ -65,8 +65,6 @@ func Example_newOutboundPeer() {
 	// peer.
 
 	logs.SetLevel(6)
-	peer.TstAllowSelfConns()
-
 	msgChan := make(chan *peer.PeerMessage)
 	server.SetMsgHandle(context.TODO(), msgChan, nil)
 

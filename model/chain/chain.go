@@ -79,11 +79,9 @@ func (c *Chain) Genesis() *blockindex.BlockIndex {
 	return nil
 }
 
-func (c *Chain) AddReceivedID() {
-	c.receiveID++
-}
 func (c *Chain) GetReceivedID() uint64 {
-	return c.receiveID
+	c.receiveID++
+	return c.receiveID - 1
 }
 
 // FindHashInActive finds blockindex from active
@@ -235,7 +233,11 @@ func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
 // Height Return the maximal height in the chain. Is equal to chain.Tip() ?
 // chain.Tip()->nHeight : -1.
 func (c *Chain) Height() int32 {
-	return int32(len(c.active) - 1)
+	chainLen := int32(len(c.active))
+	if chainLen > 0 {
+		return chainLen - 1
+	}
+	return 0
 }
 
 // SetTip Set/initialize a chain with a given tip.
@@ -379,7 +381,6 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 			pindex.ChainTxCount = pindex.TxCount
 		}
 		pindex.SequenceID = c.GetReceivedID()
-		c.AddReceivedID()
 		if !c.InBranch(pindex) {
 			c.insertToBranch(pindex)
 		}
@@ -424,7 +425,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		}
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
-	bi.AddStatus(blockindex.BlockValidTree)
+	bi.RaiseValidity(blockindex.BlockValidTree)
 	gPersist := global.GetInstance()
 	gPersist.AddDirtyBlockIndex(*bi.GetBlockHash(), bi)
 	return nil
@@ -439,4 +440,13 @@ func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
 	childList = append(childList, bi)
 	c.orphan[bh.HashPrevBlock] = childList
 	return nil
+}
+
+func (c *Chain) ChainOrphanLen() int32 {
+	var orphanLen int32 = 0
+	for childList := range c.orphan {
+		orphanLen += int32(len(childList))
+	}
+
+	return orphanLen
 }

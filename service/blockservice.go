@@ -30,8 +30,6 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 
 func ProcessBlock(b *block.Block) (bool, error) {
 	h := b.GetHash()
-	//log.Trace("blockservice process block , blockhash : %s", h.String())
-	//fmt.Printf("txs[0] ins:%v, outs:%v", b.Txs[0].GetIns(), b.Txs[0].GetOuts())
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
 	coinsTipHash, _ := coinsTip.GetBestBlock()
@@ -42,14 +40,14 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	isNewBlock := false
 	var err error
 
-	bIndex := gChain.FindBlockIndex(b.GetHash())
-	if bIndex != nil {
-		if bIndex.Accepted() {
-			log.Trace("this block have be sucessed process, height: %d, hash: %s",
-				bIndex.Height, bIndex.GetBlockHash().String())
-			return isNewBlock, nil
-		}
-	}
+	//bIndex := gChain.FindBlockIndex(h)
+	//if bIndex != nil {
+	//	if bIndex.Accepted() {
+	//		log.Trace("this block have be sucessed process, height: %d, hash: %s",
+	//			bIndex.Height, bIndex.GetBlockHash().String())
+	//		return isNewBlock, nil
+	//	}
+	//}
 	//log.Trace("gchan height : %d, begin to processNewBlock ...", gChain.Height())
 	err = ProcessNewBlock(b, true, &isNewBlock)
 	// bIndex,err = lchain.AcceptBlock(b, &params)
@@ -64,6 +62,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 
 	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s\n",
 		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+
 	return isNewBlock, err
 }
 
