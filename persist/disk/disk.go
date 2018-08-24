@@ -19,7 +19,9 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
@@ -27,8 +29,6 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/mempool"
 )
 
 type FlushStateMode int
@@ -39,7 +39,7 @@ var (
 )
 
 const (
-	FlushStateNone     FlushStateMode = iota
+	FlushStateNone FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
