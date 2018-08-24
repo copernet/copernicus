@@ -28,6 +28,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 )
 
 type FlushStateMode int
@@ -307,7 +308,14 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	coinsTip := utxo.GetUtxoCacheInstance()
 	blockTree := blkdb.GetInstance()
 	gPersist := global.GetInstance()
-	fFlushForPrune := false
+	mem := mempool.GetInstance()
+	flushForPrune := false
+	dbPeakUsageFactor := int64(2)
+	maxBlockCoinsDBUsage := float64(dbPeakUsageFactor * 200)
+	coinCacheUsage := 5000 * 300
+	dataBaseWriteInterval := 60 * 60
+	dataBaseFlushInterval := 24 * 60 * 60
+	minBlockCoinsDBUsage := 50 * dbPeakUsageFactor
 
 	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !gps.Reindex {
 		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
@@ -316,7 +324,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		gps.CheckForPruning = false
 	}
 	if !setFilesToPrune.IsEmpty() {
-		fFlushForPrune = true
+		flushForPrune = true
 		if !gps.HavePruned {
 			err := blockTree.WriteFlag("prunedblockfiles", true)
 			if err != nil {
@@ -337,34 +345,28 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	if gPersist.GlobalLastSetChain == 0 {
 		gPersist.GlobalLastSetChain = int(nNow)
 	}
-	mempoolUsage := int64(0) // todo mempool.mempoolUsage
 
-	nMempoolSizeMax := int64(global.DefaultMaxMemPoolSize) * 1000000
-	DBPeakUsageFactor := int64(2)
-	cacheSize := coinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
-	nCoinCacheUsage := 5000 * 300
-	nTotalSpace := float64(nCoinCacheUsage) + math.Max(float64(nMempoolSizeMax-mempoolUsage), 0)
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(global.DefaultMaxMemPoolSize) * 1000000
+	cacheSize := coinsTip.DynamicMemoryUsage() * dbPeakUsageFactor
+	totalSpace := float64(coinCacheUsage) + math.Max(float64(mempoolSizeMax-mempoolUsage), 0)
 	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
 	// of the limit, but we have time now (not in the middle of a block processing).
-	MinBlockCoinsDBUsage := DBPeakUsageFactor
-	x := math.Max(nTotalSpace/2, nTotalSpace-float64(MinBlockCoinsDBUsage*1024*1024))
-	MaxBlockCoinsDBUsage := float64(DBPeakUsageFactor * 200)
-	y := math.Max(9*nTotalSpace/10, nTotalSpace-MaxBlockCoinsDBUsage*1024*1024)
-	fCacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
+	x := math.Max(totalSpace/2, totalSpace-float64(minBlockCoinsDBUsage*1024*1024))
+	y := math.Max(9*totalSpace/10, totalSpace-maxBlockCoinsDBUsage*1024*1024)
+	cacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
 	// The cache is over the limit, we have to write now.
-	fCacheCritical := mode == FlushStateIfNeeded && float64(cacheSize) > nTotalSpace
+	cacheCritical := mode == FlushStateIfNeeded && float64(cacheSize) > totalSpace
 	// It's been a while since we wrote the block index to disk. Do this
 	// frequently, so we don't need to redownLoad after a crash.
-	DataBaseWriteInterval := 60 * 60
-	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastWrite+DataBaseWriteInterval*1000000
+	periodicWrite := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastWrite+dataBaseWriteInterval*1000000
 	// It's been very long since we flushed the cache. Do this infrequently,
 	// to optimize cache usage.
-	DataBaseFlushInterval := 24 * 60 * 60
-	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastFlush+DataBaseFlushInterval*1000000
+	periodicFlush := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastFlush+dataBaseFlushInterval*1000000
 	// Combine all conditions that result in a full cache flush.
-	fDoFullFlush := mode == FlushStateAlways || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
+	doFullFlush := mode == FlushStateAlways || cacheLarge || cacheCritical || periodicFlush || flushForPrune
 	// Write blocks and block index to disk.
-	if fDoFullFlush || fPeriodicWrite {
+	if doFullFlush || periodicWrite {
 		// Depend on nMinDiskSpace to ensure we can write block index
 		if !CheckDiskSpace(0) {
 			return errcode.New(errcode.ErrorOutOfDiskSpace)
@@ -395,7 +397,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		}
 
 		// Finally remove any pruned files
-		if fFlushForPrune {
+		if flushForPrune {
 			UnlinkPrunedFiles(setFilesToPrune)
 		}
 		gPersist.GlobalLastWrite = int(nNow)
@@ -403,7 +405,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 
 	// Flush best chain related state. This can only be done if the blocks
 	// block index write was also done.
-	if fDoFullFlush {
+	if doFullFlush {
 		// Typical Coin structures on disk are around 48 bytes in size.
 		// Pushing a new one to the database can cause it to be written
 		// twice (once in the log, and once in the tables). This is already
@@ -420,8 +422,8 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		}
 		gPersist.GlobalLastFlush = int(nNow)
 	}
-	if fDoFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
-		int(nNow) > gPersist.GlobalLastSetChain+DataBaseWriteInterval*1000000) {
+	if doFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
+		int(nNow) > gPersist.GlobalLastSetChain+dataBaseWriteInterval*1000000) {
 		// Update best block in wallet (so we can detect restored wallets).
 		gPersist.GlobalLastSetChain = int(nNow)
 	}
