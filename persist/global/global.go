@@ -24,15 +24,13 @@ var CsLastBlockFile = new(sync.RWMutex)
 
 var persistGlobal *PersistGlobal
 
-type BlockFileInfoList []*block.BlockFileInfo
-type DirtyBlockIndex map[util.Hash]*blockindex.BlockIndex
 type PersistGlobal struct {
-	GlobalBlockFileInfo                                  BlockFileInfoList
+	GlobalBlockFileInfo                                  []*block.BlockFileInfo
 	GlobalLastBlockFile                                  int32 //last block file no.
 	GlobalLastWrite, GlobalLastFlush, GlobalLastSetChain int   // last update time
 	DefaultMaxMemPoolSize                                uint
 	GlobalDirtyFileInfo                                  map[int32]bool // temp for update file info
-	GlobalDirtyBlockIndex                                DirtyBlockIndex
+	GlobalDirtyBlockIndex                                map[util.Hash]*blockindex.BlockIndex
 	GlobalTimeReadFromDisk                               int64
 	GlobalTimeConnectTotal                               int64
 	GlobalTimeChainState                                 int64
@@ -44,8 +42,8 @@ type PersistGlobal struct {
 	GlobalBlockSequenceID                                int32
 }
 
-func (pg *PersistGlobal) AddDirtyBlockIndex(hash util.Hash, pindex *blockindex.BlockIndex) {
-	pg.GlobalDirtyBlockIndex[hash] = pindex
+func (pg *PersistGlobal) AddDirtyBlockIndex(pindex *blockindex.BlockIndex) {
+	pg.GlobalDirtyBlockIndex[*pindex.GetBlockHash()] = pindex
 }
 func (pg *PersistGlobal) AddBlockSequenceID() {
 	pg.GlobalBlockSequenceID++
@@ -54,7 +52,7 @@ func InitPersistGlobal() *PersistGlobal {
 	cg := new(PersistGlobal)
 	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
 	cg.GlobalDirtyFileInfo = make(map[int32]bool)
-	cg.GlobalDirtyBlockIndex = make(DirtyBlockIndex)
+	cg.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
 	return cg
 }
 

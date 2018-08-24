@@ -378,7 +378,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		for _, bi := range gPersist.GlobalDirtyBlockIndex {
 			dirtyBlockIndexList = append(dirtyBlockIndexList, bi)
 		}
-		gPersist.GlobalDirtyBlockIndex = make(global.DirtyBlockIndex)
+		gPersist.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
 
 		// Write dirty block file info, last blockfile and dirty blockindex to db
 		btd := blkdb.GetInstance()

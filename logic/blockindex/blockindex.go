@@ -80,7 +80,7 @@ func LoadBlockIndexDB() bool {
 	var bfi *block.BlockFileInfo
 
 	globalLastBlockFile, err := btd.ReadLastBlockFile()
-	globalBlockFileInfo := make(global.BlockFileInfoList, 0, gPersist.GlobalLastBlockFile+1)
+	globalBlockFileInfo := make([]*block.BlockFileInfo, 0, gPersist.GlobalLastBlockFile+1)
 	if err != nil {
 		log.Debug("ReadLastBlockFile() from DB err:%#v", err)
 	} else {
@@ -93,7 +93,7 @@ func LoadBlockIndexDB() bool {
 			}
 			globalBlockFileInfo = append(globalBlockFileInfo, bfi)
 		}
-		for nFile = gPersist.GlobalLastBlockFile + 1; true; nFile++ {
+		for nFile = globalLastBlockFile + 1; true; nFile++ {
 			bfi, err = btd.ReadBlockFileInfo(nFile)
 			if bfi != nil && err == nil {
 				log.Debug("LoadBlockIndexDB: the last block file info: %d is less than real block file info: %d",
