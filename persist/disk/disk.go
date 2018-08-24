@@ -682,7 +682,7 @@ func PruneOneBlockFile(fileNumber int32) {
 			pindex.File = 0
 			pindex.DataPos = 0
 			pindex.UndoPos = 0
-			gPersist.AddDirtyBlockIndex(*pindex.GetBlockHash(), pindex)
+			gPersist.AddDirtyBlockIndex(pindex)
 
 			// Prune from mapBlocksUnlinked -- any block we prune would have
 			// to be downloaded again in order to consider its chain, at which

@@ -24,10 +24,6 @@ var (
 	persistGlobal   *PersistGlobal
 )
 
-type (
-	MapBlocksUnlinked map[*blockindex.BlockIndex][]*blockindex.BlockIndex
-)
-
 type PersistGlobal struct {
 	GlobalBlockFileInfo                                  []*block.BlockFileInfo
 	GlobalLastBlockFile                                  int32 //last block file no.
@@ -44,7 +40,7 @@ type PersistGlobal struct {
 	GlobalTimePostConnect                                int64
 	GlobalTimeTotal                                      int64
 	GlobalBlockSequenceID                                int32
-	GlobalMapBlocksUnlinked                              MapBlocksUnlinked
+	GlobalMapBlocksUnlinked                              map[*blockindex.BlockIndex][]*blockindex.BlockIndex
 }
 
 type PruneState struct {
@@ -68,7 +64,7 @@ func InitPersistGlobal() *PersistGlobal {
 	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
 	cg.GlobalDirtyFileInfo = make(map[int32]bool)
 	cg.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
-	cg.GlobalMapBlocksUnlinked = make(MapBlocksUnlinked)
+	cg.GlobalMapBlocksUnlinked = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
 	return cg
 }
 
