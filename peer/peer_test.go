@@ -397,9 +397,11 @@ func TestPeerListeners(t *testing.T) {
 			},
 			OnTx: func(p *peer.Peer, msg *wire.MsgTx, done chan<- struct{}) {
 				ok <- msg
+				done <- struct{}{}
 			},
 			OnBlock: func(p *peer.Peer, msg *wire.MsgBlock, buf []byte, done chan<- struct{}) {
 				ok <- msg
+				done <- struct{}{}
 			},
 			OnInv: func(p *peer.Peer, msg *wire.MsgInv) {
 				ok <- msg

@@ -84,6 +84,9 @@ out:
 			case *wire.MsgMemPool:
 				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
 					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				} else if peerFrom.Cfg.Listeners.OnMemPool != nil {
+					peerFrom.Cfg.Listeners.OnMemPool(peerFrom, data)
+					msg.Done <- struct{}{}
 				}
 
 			case *wire.MsgTx:
