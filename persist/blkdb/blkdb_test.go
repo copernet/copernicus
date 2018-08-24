@@ -6,12 +6,13 @@ import (
 	"github.com/copernet/copernicus/util"
 	"reflect"
 	"testing"
+	"github.com/copernet/copernicus/log"
 )
 
 func initBlockDB() {
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/$HOME/.coper/blocks/index",
+			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
 			CacheSize: 1 << 20,
 		},
 	}
@@ -102,16 +103,28 @@ func TestReadBlockFileInfo(t *testing.T) {
 	if err != nil {
 		t.Error("read block file info<000> failed.")
 	}
+	log.Info("blockFileInfo value is:%v", bfi)
 	if bfi == nil {
 		t.Errorf("the block fileInfo not equal nil:%v", bfi)
 	}
 
 	//the block file info not exist
 	bfi, err = GetInstance().ReadBlockFileInfo(1111)
-	if err != nil {
+	if err == nil {
 		t.Error("read block file info<1111> failed.")
 	}
 	if bfi != nil {
 		t.Error("error")
+	}
+}
+
+func TestReadLastBlockFile(t *testing.T) {
+	initBlockDB()
+	lastFile, err := GetInstance().ReadLastBlockFile()
+	if err != nil {
+		t.Error("read last block file failed")
+	}
+	if lastFile != 0 {
+		t.Errorf("read last block file error:%v", lastFile)
 	}
 }
