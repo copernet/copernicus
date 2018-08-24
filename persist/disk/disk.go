@@ -26,12 +26,20 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
+	"gopkg.in/fatih/set.v0"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 )
 
 type FlushStateMode int
 
+var (
+	ChainActive chain.Chain
+	gps         = global.InitPruneState()
+)
+
 const (
-	FlushStateNone FlushStateMode = iota
+	FlushStateNone     FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -199,7 +207,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
+func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
@@ -239,7 +247,7 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 }
 
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) (*block.Block, bool) {
-	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
+	blk, ret := readBlockFromDiskByPos(pindex.GetBlockPos(), param)
 	if !ret {
 		return nil, false
 	}
@@ -289,74 +297,76 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 }
 
 func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
-	// global.CsMain.Lock()
-	global.CsLastBlockFile.Lock()
+	var (
+		params          = chainparams.ActiveNetParams
+		setFilesToPrune = set.New()
+	)
 
-	// defer global.CsMain.Unlock()
+	global.CsLastBlockFile.Lock()
 	defer global.CsLastBlockFile.Unlock()
 
-	gPersist := global.GetInstance()
-	// defer func() {
-	// 	if r := recover(); r != nil {
-	// 		log.Error("System error while flushing:", r)
-	// 		// return errcode.New(errcode.SystemErrorWhileFlushing)
-	//
-	// 	}
-	// }()
-	fFlushForPrune := false
-	// todo for prune
-	//if GPruneMode && (GCheckForPruning || nManualPruneHeight > 0) && !GfReindex {
-	//	FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
-	//} else {
-	//	FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
-	//	GCheckForPruning = false
-	//}
-	//if !setFilesToPrune.IsEmpty() {
-	//	fFlushForPrune = true
-	//	if !GHavePruned {
-	//		// TODO: pblocktree.WriteFlag("prunedblockfiles", true)
-	//		GHavePruned = true
-	//	}
-	//}
-	nNow := time.Now().UnixNano()
-	// todo Avoid writing/flushing immediately after startup.
-	//if gLastWrite == 0 {
-	//	gLastWrite = int(nNow)
-	//}
-	//if gLastFlush == 0 {
-	//	gLastFlush = int(nNow)
-	//}
-	//if gLastSetChain == 0 {
-	//	gLastSetChain = int(nNow)
-	//}
-	mempoolUsage := int64(0) // todo mempool.mempoolUsage
 	coinsTip := utxo.GetUtxoCacheInstance()
-	nMempoolSizeMax := int64(global.DefaultMaxMemPoolSize) * 1000000
-	DBPeakUsageFactor := int64(2)
-	cacheSize := coinsTip.DynamicMemoryUsage() * DBPeakUsageFactor
-	nCoinCacheUsage := 5000 * 300
-	nTotalSpace := float64(nCoinCacheUsage) + math.Max(float64(nMempoolSizeMax-mempoolUsage), 0)
+	blockTree := blkdb.GetInstance()
+	gPersist := global.GetInstance()
+	mem := mempool.GetInstance()
+	flushForPrune := false
+	dbPeakUsageFactor := int64(2)
+	maxBlockCoinsDBUsage := float64(dbPeakUsageFactor * 200)
+	coinCacheUsage := 5000 * 300
+	dataBaseWriteInterval := 60 * 60
+	dataBaseFlushInterval := 24 * 60 * 60
+	minBlockCoinsDBUsage := 50 * dbPeakUsageFactor
+
+	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !gps.Reindex {
+		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
+	} else {
+		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
+		gps.CheckForPruning = false
+	}
+	if !setFilesToPrune.IsEmpty() {
+		flushForPrune = true
+		if !gps.HavePruned {
+			err := blockTree.WriteFlag("prunedblockfiles", true)
+			if err != nil {
+				log.Error("write flag prunedblockfiles failed.")
+			}
+			gps.HavePruned = true
+		}
+	}
+
+	nNow := time.Now().UnixNano()
+	// Avoid writing/flushing immediately after startup.
+	if gPersist.GlobalLastWrite == 0 {
+		gPersist.GlobalLastWrite = int(nNow)
+	}
+	if gPersist.GlobalLastFlush == 0 {
+		gPersist.GlobalLastFlush = int(nNow)
+	}
+	if gPersist.GlobalLastSetChain == 0 {
+		gPersist.GlobalLastSetChain = int(nNow)
+	}
+
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(global.DefaultMaxMemPoolSize) * 1000000
+	cacheSize := coinsTip.DynamicMemoryUsage() * dbPeakUsageFactor
+	totalSpace := float64(coinCacheUsage) + math.Max(float64(mempoolSizeMax-mempoolUsage), 0)
 	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
 	// of the limit, but we have time now (not in the middle of a block processing).
-	MinBlockCoinsDBUsage := DBPeakUsageFactor
-	x := math.Max(nTotalSpace/2, nTotalSpace-float64(MinBlockCoinsDBUsage*1024*1024))
-	MaxBlockCoinsDBUsage := float64(DBPeakUsageFactor * 200)
-	y := math.Max(9*nTotalSpace/10, nTotalSpace-MaxBlockCoinsDBUsage*1024*1024)
-	fCacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
+	x := math.Max(totalSpace/2, totalSpace-float64(minBlockCoinsDBUsage*1024*1024))
+	y := math.Max(9*totalSpace/10, totalSpace-maxBlockCoinsDBUsage*1024*1024)
+	cacheLarge := mode == FlushStatePeriodic && float64(cacheSize) > math.Min(x, y)
 	// The cache is over the limit, we have to write now.
-	fCacheCritical := mode == FlushStateIfNeeded && float64(cacheSize) > nTotalSpace
+	cacheCritical := mode == FlushStateIfNeeded && float64(cacheSize) > totalSpace
 	// It's been a while since we wrote the block index to disk. Do this
 	// frequently, so we don't need to redownLoad after a crash.
-	DataBaseWriteInterval := 60 * 60
-	fPeriodicWrite := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastWrite+DataBaseWriteInterval*1000000
+	periodicWrite := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastWrite+dataBaseWriteInterval*1000000
 	// It's been very long since we flushed the cache. Do this infrequently,
 	// to optimize cache usage.
-	DataBaseFlushInterval := 24 * 60 * 60
-	fPeriodicFlush := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastFlush+DataBaseFlushInterval*1000000
+	periodicFlush := mode == FlushStatePeriodic && int(nNow) > gPersist.GlobalLastFlush+dataBaseFlushInterval*1000000
 	// Combine all conditions that result in a full cache flush.
-	fDoFullFlush := mode == FlushStateAlways || fCacheLarge || fCacheCritical || fPeriodicFlush || fFlushForPrune
+	doFullFlush := mode == FlushStateAlways || cacheLarge || cacheCritical || periodicFlush || flushForPrune
 	// Write blocks and block index to disk.
-	if fDoFullFlush || fPeriodicWrite {
+	if doFullFlush || periodicWrite {
 		// Depend on nMinDiskSpace to ensure we can write block index
 		if !CheckDiskSpace(0) {
 			return errcode.New(errcode.ErrorOutOfDiskSpace)
@@ -381,37 +391,39 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		gPersist.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
 
 		// Write dirty block file info, last blockfile and dirty blockindex to db
-		btd := blkdb.GetInstance()
-		err := btd.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
+		err := blockTree.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
 		if err != nil {
 			return errcode.New(errcode.ErrorFailedToWriteToBlockIndexDatabase)
+		}
 
+		// Finally remove any pruned files
+		if flushForPrune {
+			UnlinkPrunedFiles(setFilesToPrune)
 		}
 		gPersist.GlobalLastWrite = int(nNow)
 	}
 
 	// Flush best chain related state. This can only be done if the blocks
 	// block index write was also done.
-	if fDoFullFlush {
+	if doFullFlush {
 		// Typical Coin structures on disk are around 48 bytes in size.
 		// Pushing a new one to the database can cause it to be written
 		// twice (once in the log, and once in the tables). This is already
 		// an overestimation, as most will delete an existing entry or
 		// overwrite one. Still, use a conservative safety factor of 2.
-		// todo
-		// if !CheckDiskSpace(uint32(48 * 2 * 2 * coinsTip.GetCacheSize())) {
-		// 	ret = state.Error("out of disk space")
-		// }
+		if !CheckDiskSpace(uint32(48 * 2 * 2 * coinsTip.GetCacheSize())) {
+			log.Error("out of disk space!")
+		}
 		// Flush the chainState (which may refer to block index entries).
 		if !coinsTip.Flush() {
-			panic("write db failed, please check.") //todo:
-			//return errcode.New(errcode.ErrorFailedToWriteToCoinDatabase)
+			log.Error(errcode.New(errcode.ErrorFailedToWriteToCoinDatabase))
+			panic("write db failed, please check.")
 
 		}
 		gPersist.GlobalLastFlush = int(nNow)
 	}
-	if fDoFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
-		int(nNow) > gPersist.GlobalLastSetChain+DataBaseWriteInterval*1000000) {
+	if doFullFlush || ((mode == FlushStateAlways || mode == FlushStatePeriodic) &&
+		int(nNow) > gPersist.GlobalLastSetChain+dataBaseWriteInterval*1000000) {
 		// Update best block in wallet (so we can detect restored wallets).
 		gPersist.GlobalLastSetChain = int(nNow)
 	}
@@ -570,4 +582,145 @@ func FindUndoPos(nFile int32, undoPos *block.DiskBlockPos, nAddSize int) error {
 	}
 
 	return nil
+}
+
+/**
+ * BLOCK PRUNING CODE
+ */
+
+// CalculateCurrentUsage Calculate the amount of disk space the block & undo files currently use
+func CalculateCurrentUsage() uint64 {
+	gPersist := global.GetInstance()
+	var retval uint64
+	for _, file := range gPersist.GlobalBlockFileInfo {
+		retval += uint64(file.Size + file.UndoSize)
+	}
+	return retval
+}
+
+// FindFilesToPrune calculate the block/rev files that should be deleted to remain under target
+func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
+	gPersist := global.GetInstance()
+
+	if ChainActive.Tip() == nil || gps.PruneTarget == 0 {
+		return
+	}
+	if uint64(ChainActive.Tip().Height) <= nPruneAfterHeight {
+		return
+	}
+	nLastBlockWeCanPrune := ChainActive.Tip().Height - block.MinBlocksToKeep
+	nCurrentUsage := CalculateCurrentUsage()
+	// We don't check to prune until after we've allocated new space for files,
+	// so we should leave a buffer under our target to account for another
+	// allocation before the next pruning.
+	nBuffer := uint64(global.BlockFileChunkSize + global.UndoFileChunkSize)
+	count := 0
+	if nCurrentUsage+nBuffer >= gps.PruneTarget {
+		for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
+			nBytesToPrune := uint64(gPersist.GlobalBlockFileInfo[fileNumber].Size + gPersist.GlobalBlockFileInfo[fileNumber].UndoSize)
+			if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 {
+				continue
+			}
+			// are we below our target?
+			if nCurrentUsage+nBuffer < gps.PruneTarget {
+				break
+			}
+			// don't prune files that could have a block within
+			// MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
+			if gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > nLastBlockWeCanPrune {
+				continue
+			}
+
+			PruneOneBlockFile(int32(fileNumber))
+			// Queue up the files for removal
+			setFilesToPrune.Add(fileNumber)
+			nCurrentUsage -= nBytesToPrune
+			count++
+		}
+	}
+
+	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+		gps.PruneTarget/1024/1024, nCurrentUsage/1024/1024, (gps.PruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
+}
+
+func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
+	gPersist := global.GetInstance()
+	if gps.PruneMode && manualPruneHeight <= 0 {
+		panic("the PruneMode is false and manualPruneHeight equal zero")
+	}
+
+	global.CsLastBlockFile.Lock()
+	defer global.CsLastBlockFile.Unlock()
+
+	if ChainActive.Tip() == nil {
+		return
+	}
+
+	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(ChainActive.Tip().Height-block.MinBlocksToKeep))
+	count := 0
+	for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
+		if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 || gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > gPersist.GlobalLastBlockFile {
+			continue
+		}
+		PruneOneBlockFile(int32(fileNumber))
+		setFilesToPrune.Add(fileNumber)
+		count++
+	}
+	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+}
+
+// PruneOneBlockFile prune a block file (modify associated database entries)
+func PruneOneBlockFile(fileNumber int32) {
+	bm := make(map[util.Hash]*blockindex.BlockIndex)
+	gPersist := global.GetInstance()
+	for _, value := range bm {
+		pindex := value
+		if pindex.File == fileNumber {
+			pindex.Status &= ^blockindex.BlockHaveData
+			pindex.Status &= ^blockindex.BlockHaveUndo
+			pindex.File = 0
+			pindex.DataPos = 0
+			pindex.UndoPos = 0
+			gPersist.AddDirtyBlockIndex(*pindex.GetBlockHash(), pindex)
+
+			// Prune from mapBlocksUnlinked -- any block we prune would have
+			// to be downloaded again in order to consider its chain, at which
+			// point it would be considered as a candidate for
+			// mapBlocksUnlinked or setBlockIndexCandidates.
+			ranges := gPersist.GlobalMapBlocksUnlinked[pindex.Prev]
+			tmpRange := make([]*blockindex.BlockIndex, len(ranges))
+			copy(tmpRange, ranges)
+			for len(tmpRange) > 0 {
+				v := tmpRange[0]
+				tmpRange = tmpRange[1:]
+				if v == pindex {
+					tmp := make([]*blockindex.BlockIndex, len(ranges)-1)
+					for _, val := range tmpRange {
+						if val != v {
+							tmp = append(tmp, val)
+						}
+					}
+					gPersist.GlobalMapBlocksUnlinked[pindex.Prev] = tmp
+				}
+			}
+		}
+	}
+
+	gPersist.GlobalBlockFileInfo[fileNumber].SetNull()
+	gPersist.GlobalDirtyFileInfo[fileNumber] = true
+}
+
+func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
+	lists := setFilesToPrune.List()
+	for key, value := range lists {
+		v := value.(int32)
+		pos := &block.DiskBlockPos{
+			File: v,
+			Pos:  0,
+		}
+		os.Remove(GetBlockPosFilename(*pos, "blk"))
+		os.Remove(GetBlockPosFilename(*pos, "rev"))
+		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
+	}
 }

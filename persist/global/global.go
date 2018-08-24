@@ -18,11 +18,15 @@ const (
 	DefaultMaxMemPoolSize = 300
 )
 
-var CsMain = new(sync.RWMutex)
+var (
+	CsMain          = new(sync.RWMutex)
+	CsLastBlockFile = new(sync.RWMutex)
+	persistGlobal   *PersistGlobal
+)
 
-var CsLastBlockFile = new(sync.RWMutex)
-
-var persistGlobal *PersistGlobal
+type (
+	MapBlocksUnlinked map[*blockindex.BlockIndex][]*blockindex.BlockIndex
+)
 
 type PersistGlobal struct {
 	GlobalBlockFileInfo                                  []*block.BlockFileInfo
@@ -40,20 +44,43 @@ type PersistGlobal struct {
 	GlobalTimePostConnect                                int64
 	GlobalTimeTotal                                      int64
 	GlobalBlockSequenceID                                int32
+	GlobalMapBlocksUnlinked                              MapBlocksUnlinked
+}
+
+type PruneState struct {
+	PruneMode       bool
+	HavePruned      bool
+	PruneTarget     uint64
+	CheckForPruning bool
+	Reindex         bool
 }
 
 func (pg *PersistGlobal) AddDirtyBlockIndex(pindex *blockindex.BlockIndex) {
 	pg.GlobalDirtyBlockIndex[*pindex.GetBlockHash()] = pindex
 }
+
 func (pg *PersistGlobal) AddBlockSequenceID() {
 	pg.GlobalBlockSequenceID++
 }
+
 func InitPersistGlobal() *PersistGlobal {
 	cg := new(PersistGlobal)
 	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
 	cg.GlobalDirtyFileInfo = make(map[int32]bool)
 	cg.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
+	cg.GlobalMapBlocksUnlinked = make(MapBlocksUnlinked)
 	return cg
+}
+
+func InitPruneState() *PruneState {
+	ps := &PruneState{
+		PruneMode:       false,
+		HavePruned:      false,
+		CheckForPruning: false,
+		Reindex:         false,
+		PruneTarget:     0,
+	}
+	return ps
 }
 
 func GetInstance() *PersistGlobal {
