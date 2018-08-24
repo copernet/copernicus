@@ -124,7 +124,13 @@ func TestReadLastBlockFile(t *testing.T) {
 	if err != nil {
 		t.Error("read last block file failed")
 	}
-	if lastFile != 0 {
-		t.Errorf("read last block file error:%v", lastFile)
+
+	bfi, err := GetInstance().ReadBlockFileInfo(lastFile)
+	if err != nil {
+		t.Error("read last block fileInfo failed")
+	}
+	log.Info("last blockFileInfo value is:%v", bfi)
+	if bfi == nil {
+		t.Errorf("the last blockFileInfo not equal nil, the value is:%v", bfi)
 	}
 }
