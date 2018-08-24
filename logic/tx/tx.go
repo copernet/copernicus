@@ -2263,9 +2263,11 @@ func CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *s
 	}
 	signature = signature[:len(signature)-1]
 	txHash := transaction.GetHash()
-	log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
-		txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
+	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
+	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
 	fOk := tx.CheckSig(txSigHash, signature, pubKey)
+	log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s, result: %v", txHash.String(),
+		txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey), fOk)
 	//if !fOk {
 	//	panic("CheckSig failed")
 	//}
@@ -2349,7 +2351,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		if len(scriptSig.ParsedOpCodes) == 0 {
 			return txOldScriptSig, nil
 		}
-		if  len(scriptSig.ParsedOpCodes[0].Data) == 0 {
+		if len(scriptSig.ParsedOpCodes[0].Data) == 0 {
 			return txOldScriptSig, nil
 		}
 		return scriptSig, nil
@@ -2396,10 +2398,10 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {
-		if len(scriptSig.ParsedOpCodes) == 0  {
+		if len(scriptSig.ParsedOpCodes) == 0 {
 			return txOldScriptSig, nil
 		}
-		if len(scriptSig.ParsedOpCodes[0].Data) == 0  {
+		if len(scriptSig.ParsedOpCodes[0].Data) == 0 {
 			return txOldScriptSig, nil
 		}
 		if len(txOldScriptSig.ParsedOpCodes) == 0 {

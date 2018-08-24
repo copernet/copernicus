@@ -134,7 +134,6 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 // * BLOCK_VALID_TRANSACTIONS state).
 func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew *blockindex.BlockIndex, pos *block.DiskBlockPos) {
-	hash := pindexNew.GetBlockHash()
 	pindexNew.TxCount = int32(len(pblock.Txs))
 	pindexNew.ChainTxCount = 0
 	pindexNew.File = pos.File
@@ -144,7 +143,7 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew.RaiseValidity(blockindex.BlockValidTransactions)
 
 	gPersist := global.GetInstance()
-	gPersist.AddDirtyBlockIndex(*hash, pindexNew)
+	gPersist.AddDirtyBlockIndex(pindexNew)
 
 	gChain := chain.GetInstance()
 	if pindexNew.IsGenesis(gChain.GetParams()) || gChain.ParentInBranch(pindexNew) {
@@ -225,12 +224,12 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 	gPersist := global.GetInstance()
 	if err = CheckBlock(pblock); err != nil {
 		bIndex.AddStatus(blockindex.BlockFailed)
-		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
+		gPersist.AddDirtyBlockIndex(bIndex)
 		return
 	}
 	if err = ContextualCheckBlock(pblock, bIndex.Prev); err != nil {
 		bIndex.AddStatus(blockindex.BlockFailed)
-		gPersist.AddDirtyBlockIndex(pblock.GetHash(), bIndex)
+		gPersist.AddDirtyBlockIndex(bIndex)
 		return
 	}
 

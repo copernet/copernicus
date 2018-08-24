@@ -8,6 +8,7 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/syndtr/goleveldb/leveldb"
 
+	"encoding/hex"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
@@ -60,7 +61,7 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileI
 	}
 	vbytes, err := blockTreeDB.dbw.Read(keyBuf.Bytes())
 	if err == leveldb.ErrNotFound {
-		return nil, nil
+		return nil, err
 	}
 
 	if err != nil {
@@ -96,7 +97,8 @@ func (blockTreeDB *BlockTreeDB) ReadLastBlockFile() (int32, error) {
 	return lastFile, err
 }
 
-func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.BlockFileInfo, lastFile int, blockIndexes []*blockindex.BlockIndex) error {
+func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.BlockFileInfo, lastFile int,
+	blockIndexes []*blockindex.BlockIndex) error {
 	batch := db.NewBatchWrapper(blockTreeDB.dbw)
 	keytmp := make([]byte, 0, 100)
 	valuetmp := make([]byte, 0, 100)
@@ -118,6 +120,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.Blo
 			return err
 		}
 		batch.Write(keyBuf.Bytes(), valueBuf.Bytes())
+		log.Debug("blkDB: write block file info: %d, key: %s, %v", fileNum, hex.EncodeToString(keyBuf.Bytes()), v)
 	}
 	valueBuf.Reset()
 	err := util.WriteElements(valueBuf, uint64(lastFile))
@@ -125,6 +128,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.Blo
 		log.Error("blkDB:write value failed:%v", err)
 	}
 	batch.Write([]byte{db.DbLastBlock}, valueBuf.Bytes())
+	log.Debug("blkDB: write lastFile: %d, key: %s", lastFile, hex.EncodeToString([]byte{db.DbLastBlock}))
 
 	for _, v := range blockIndexes {
 		keyBuf.Reset()
@@ -145,9 +149,8 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.Blo
 
 	err = blockTreeDB.dbw.WriteBatch(batch, true)
 	if err != nil {
-		lastFile, e := blockTreeDB.ReadLastBlockFile()
-		fmt.Println(lastFile, e)
-
+		log.Error("blkDB: sync to DB error: %v", err)
+		panic("blkDB: sync to DB error")
 	}
 	return err
 }
@@ -216,7 +219,8 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 	return false
 }
 
-func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*blockindex.BlockIndex,
+	params *chainparams.BitcoinParams) bool {
 	// todo for iter and check key、 pow
 	cursor := blockTreeDB.dbw.Iterator()
 	defer cursor.Close()
@@ -253,13 +257,13 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 			cursor.Next()
 			continue
 		}
-		newIndex := InsertBlockIndex(*bi.GetBlockHash(), blkIdxMap)
+		newIndex := insertBlockIndex(*bi.GetBlockHash(), blkIdxMap)
 		if newIndex == nil {
 			cursor.Next()
 			continue
 		}
 		//???
-		pre := InsertBlockIndex(bi.Header.HashPrevBlock, blkIdxMap)
+		pre := insertBlockIndex(bi.Header.HashPrevBlock, blkIdxMap)
 		newIndex.Prev = pre
 		newIndex.SetBlockHash(*bi.GetBlockHash())
 		newIndex.Height = bi.Height
@@ -284,7 +288,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 	return true
 }
 
-func InsertBlockIndex(hash util.Hash, blkIdxMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
+func insertBlockIndex(hash util.Hash, blkIdxMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
 	if i, ok := blkIdxMap[hash]; ok {
 		return i
 	}

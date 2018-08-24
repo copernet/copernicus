@@ -24,19 +24,13 @@ var (
 	persistGlobal   *PersistGlobal
 )
 
-type (
-	BlockFileInfoList []*block.BlockFileInfo
-	DirtyBlockIndex map[util.Hash]*blockindex.BlockIndex
-	MapBlocksUnlinked map[*blockindex.BlockIndex][]*blockindex.BlockIndex
-)
-
 type PersistGlobal struct {
-	GlobalBlockFileInfo                                  BlockFileInfoList
+	GlobalBlockFileInfo                                  []*block.BlockFileInfo
 	GlobalLastBlockFile                                  int32 //last block file no.
 	GlobalLastWrite, GlobalLastFlush, GlobalLastSetChain int   // last update time
 	DefaultMaxMemPoolSize                                uint
 	GlobalDirtyFileInfo                                  map[int32]bool // temp for update file info
-	GlobalDirtyBlockIndex                                DirtyBlockIndex
+	GlobalDirtyBlockIndex                                map[util.Hash]*blockindex.BlockIndex
 	GlobalTimeReadFromDisk                               int64
 	GlobalTimeConnectTotal                               int64
 	GlobalTimeChainState                                 int64
@@ -46,7 +40,7 @@ type PersistGlobal struct {
 	GlobalTimePostConnect                                int64
 	GlobalTimeTotal                                      int64
 	GlobalBlockSequenceID                                int32
-	GlobalMapBlocksUnlinked                              MapBlocksUnlinked
+	GlobalMapBlocksUnlinked                              map[*blockindex.BlockIndex][]*blockindex.BlockIndex
 }
 
 type PruneState struct {
@@ -57,8 +51,8 @@ type PruneState struct {
 	Reindex         bool
 }
 
-func (pg *PersistGlobal) AddDirtyBlockIndex(hash util.Hash, pindex *blockindex.BlockIndex) {
-	pg.GlobalDirtyBlockIndex[hash] = pindex
+func (pg *PersistGlobal) AddDirtyBlockIndex(pindex *blockindex.BlockIndex) {
+	pg.GlobalDirtyBlockIndex[*pindex.GetBlockHash()] = pindex
 }
 
 func (pg *PersistGlobal) AddBlockSequenceID() {
@@ -66,12 +60,12 @@ func (pg *PersistGlobal) AddBlockSequenceID() {
 }
 
 func InitPersistGlobal() *PersistGlobal {
-	pg := new(PersistGlobal)
-	pg.GlobalBlockFileInfo = make(BlockFileInfoList, 0, 1000)
-	pg.GlobalDirtyFileInfo = make(map[int32]bool)
-	pg.GlobalDirtyBlockIndex = make(DirtyBlockIndex)
-	pg.GlobalMapBlocksUnlinked = make(MapBlocksUnlinked)
-	return pg
+	cg := new(PersistGlobal)
+	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
+	cg.GlobalDirtyFileInfo = make(map[int32]bool)
+	cg.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
+	cg.GlobalMapBlocksUnlinked = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
+	return cg
 }
 
 func InitPruneState() *PruneState {

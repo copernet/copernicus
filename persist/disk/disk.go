@@ -19,7 +19,9 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
@@ -27,8 +29,6 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/mempool"
 )
 
 type FlushStateMode int
@@ -39,7 +39,7 @@ var (
 )
 
 const (
-	FlushStateNone     FlushStateMode = iota
+	FlushStateNone FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -388,7 +388,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		for _, bi := range gPersist.GlobalDirtyBlockIndex {
 			dirtyBlockIndexList = append(dirtyBlockIndexList, bi)
 		}
-		gPersist.GlobalDirtyBlockIndex = make(global.DirtyBlockIndex)
+		gPersist.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
 
 		// Write dirty block file info, last blockfile and dirty blockindex to db
 		err := blockTree.WriteBatchSync(dirtyBlockFileInfoList, int(gPersist.GlobalLastBlockFile), dirtyBlockIndexList)
@@ -682,7 +682,7 @@ func PruneOneBlockFile(fileNumber int32) {
 			pindex.File = 0
 			pindex.DataPos = 0
 			pindex.UndoPos = 0
-			gPersist.AddDirtyBlockIndex(*pindex.GetBlockHash(), pindex)
+			gPersist.AddDirtyBlockIndex(pindex)
 
 			// Prune from mapBlocksUnlinked -- any block we prune would have
 			// to be downloaded again in order to consider its chain, at which

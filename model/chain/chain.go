@@ -366,6 +366,7 @@ func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 		return c.branch[i].ChainWork.Cmp(&jWork) == -1
 	})
 }
+
 func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 
 	q := queue.New()
@@ -393,6 +394,16 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 			delete(c.orphan, *preHash)
 		}
 	}
+}
+
+func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) {
+	for _, bi := range c.branch {
+		bh := bis.GetBlockHash()
+		if bi.GetBlockHash().IsEqual(bh) {
+			//delete()
+		}
+	}
+	return
 }
 
 func (c *Chain) FindMostWorkChain() *blockindex.BlockIndex {
@@ -427,7 +438,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	}
 	bi.RaiseValidity(blockindex.BlockValidTree)
 	gPersist := global.GetInstance()
-	gPersist.AddDirtyBlockIndex(*bi.GetBlockHash(), bi)
+	gPersist.AddDirtyBlockIndex(bi)
 	return nil
 }
 

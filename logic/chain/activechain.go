@@ -29,52 +29,52 @@ func ActivateBestChain(pblock *block.Block) error {
 	for {
 		//	todo, Add channel for receive interruption from P2P/RPC
 		connTrace := make(connectTrace)
-		{
-			// TODO !!! And sync.lock, cs_main
-			// TODO: Tempoarily ensure that mempool removals are notified
-			// before connected transactions. This shouldn't matter, but the
-			// abandoned state of transactions in our wallet is currently
-			// cleared when we receive another notification and there is a
-			// race condition where notification of a connected conflict
-			// might cause an outside process to abandon a transaction and
-			// then have it inadvertantly cleared by the notification that
-			// the conflicted transaction was evicted.
-			//mrt := mempool.NewMempoolConflictRemoveTrack(GMemPool)
-			//_ = mrt
-			gChain := mchain.GetInstance()
-			pindexOldTip := gChain.Tip()
-			if pindexMostWork == nil {
-				pindexMostWork = gChain.FindMostWorkChain()
-			}
 
-			// Whether we have anything to do at all.
-			if pindexMostWork == nil || pindexMostWork == pindexOldTip {
-				return nil
-			}
+		// TODO !!! And sync.lock, cs_main
+		// TODO: Tempoarily ensure that mempool removals are notified
+		// before connected transactions. This shouldn't matter, but the
+		// abandoned state of transactions in our wallet is currently
+		// cleared when we receive another notification and there is a
+		// race condition where notification of a connected conflict
+		// might cause an outside process to abandon a transaction and
+		// then have it inadvertantly cleared by the notification that
+		// the conflicted transaction was evicted.
+		//mrt := mempool.NewMempoolConflictRemoveTrack(GMemPool)
+		//_ = mrt
+		gChain := mchain.GetInstance()
+		pindexOldTip := gChain.Tip()
+		if pindexMostWork == nil {
+			pindexMostWork = gChain.FindMostWorkChain()
+		}
 
-			fInvalidFound := false
-			var nullBlockPtr *block.Block
-			var tmpBlock *block.Block
-			hashA := pindexMostWork.GetBlockHash()
-			newHash := pblock.GetHash()
-			if pblock != nil && bytes.Equal(newHash[:], hashA[:]) {
-				tmpBlock = pblock
-			} else {
-				tmpBlock = nullBlockPtr
-			}
+		// Whether we have anything to do at all.
+		if pindexMostWork == nil || pindexMostWork == pindexOldTip {
+			return nil
+		}
 
-			if err := ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace); err != nil {
-				return err
-			}
+		fInvalidFound := false
+		var nullBlockPtr *block.Block
+		var tmpBlock *block.Block
+		hashA := pindexMostWork.GetBlockHash()
+		newHash := pblock.GetHash()
+		if pblock != nil && bytes.Equal(newHash[:], hashA[:]) {
+			tmpBlock = pblock
+		} else {
+			tmpBlock = nullBlockPtr
+		}
 
-			if fInvalidFound {
-				// Wipe cache, we may need another branch now.
-				pindexMostWork = nil
-			}
-			pindexNewTip = gChain.Tip()
-			// throw all transactions though the signal-interface
+		if err := ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace); err != nil {
+			return err
+		}
 
-		} // MemPoolConflictRemovalTracker destroyed and conflict evictions
+		if fInvalidFound {
+			// Wipe cache, we may need another branch now.
+			pindexMostWork = nil
+		}
+		pindexNewTip = gChain.Tip()
+		// throw all transactions though the signal-interface
+
+		// MemPoolConflictRemovalTracker destroyed and conflict evictions
 		// are notified
 
 		// todo  Transactions in the connnected block are notified

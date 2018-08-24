@@ -33,7 +33,6 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	gChain := mchain.GetInstance()
 	tip := gChain.Tip()
 	nTimeStart := util.GetMicrosTime()
-	hash := pindex.GetBlockHash()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad block in
 	if err := lblock.CheckBlock(pblock); err != nil {
@@ -159,7 +158,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 			pindex.AddStatus(blockindex.BlockHaveUndo)
 		}
 		pindex.RaiseValidity(blockindex.BlockValidScripts)
-		gPersist.GlobalDirtyBlockIndex[*hash] = pindex
+		gPersist.AddDirtyBlockIndex(pindex)
 	}
 	// add this block to the view's block chain
 	coinsMap.SetBestBlock(blockHash)
@@ -176,7 +175,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 
 //InvalidBlockFound the found block is invalid
 func InvalidBlockFound(pindex *blockindex.BlockIndex) {
-
+	pindex.AddStatus(blockindex.BlockFailed)
+	gChain := mchain.GetInstance()
+	gChain.RemoveFromBranch(pindex)
+	gPersist := global.GetInstance()
+	gPersist.AddDirtyBlockIndex(pindex)
 }
 
 type connectTrace map[*blockindex.BlockIndex]*block.Block
@@ -221,7 +224,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
 	if err != nil {
 		InvalidBlockFound(pIndexNew)
-		log.Error(fmt.Sprintf("ConnectTip(): ConnectBlock %s failed", indexHash.String()))
+		log.Error("ConnectTip(): ConnectBlock %s failed, err:%v", indexHash.String(), err)
 		return err
 	}
 
@@ -408,8 +411,8 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 	tip := mchain.GetInstance().Tip()
 	utxoTip := utxo.GetUtxoCacheInstance()
 	tipHash := tip.GetBlockHash()
-	log.Info("new best=%s height=%d version=0x%08x work=%.8g tx=%lu "+
-		"date='%s' progress=%f cache=%.1f(%utxo)", tipHash.String(),
+	log.Info("new best=%s height=%d version=0x%08x work=%s tx=%d "+
+		"date='%s' progress=%f memory=%d(cache=%d)", tipHash.String(),
 		tip.Height, tip.Header.Version,
 		tip.ChainWork.String(), tip.ChainTxCount,
 		time.Unix(int64(tip.Header.Time), 0).String(),

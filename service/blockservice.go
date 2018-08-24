@@ -40,17 +40,8 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	isNewBlock := false
 	var err error
 
-	//bIndex := gChain.FindBlockIndex(h)
-	//if bIndex != nil {
-	//	if bIndex.Accepted() {
-	//		log.Trace("this block have be sucessed process, height: %d, hash: %s",
-	//			bIndex.Height, bIndex.GetBlockHash().String())
-	//		return isNewBlock, nil
-	//	}
-	//}
-	//log.Trace("gchan height : %d, begin to processNewBlock ...", gChain.Height())
 	err = ProcessNewBlock(b, true, &isNewBlock)
-	// bIndex,err = lchain.AcceptBlock(b, &params)
+
 	if err != nil {
 		log.Trace("processBlock failed ...")
 		return isNewBlock, err

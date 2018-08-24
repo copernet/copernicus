@@ -6,12 +6,15 @@ import (
 	"github.com/copernet/copernicus/util"
 	"reflect"
 	"testing"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chainparams"
 )
 
 func initBlockDB() {
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/tmp/dbtest",
+			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
 			CacheSize: 1 << 20,
 		},
 	}
@@ -19,7 +22,7 @@ func initBlockDB() {
 	InitBlockTreeDB(bc)
 }
 
-func TestBlockDB(t *testing.T) {
+func TestWRTxIndex(t *testing.T) {
 	initBlockDB()
 
 	// test TxIndex && init block pos
@@ -92,5 +95,71 @@ func TestWriteReindexing(t *testing.T) {
 	rr1 := GetInstance().ReadReindexing()
 	if rr1 != false {
 		t.Errorf("the reindexing should is false:%v", rr1)
+	}
+}
+
+func TestReadBlockFileInfo(t *testing.T) {
+	initBlockDB()
+	//the block file info exist
+	bfi, err := GetInstance().ReadBlockFileInfo(0)
+	if err != nil {
+		t.Error("read block file info<000> failed.")
+	}
+	log.Info("blockFileInfo value is:%v", bfi)
+	if bfi == nil {
+		t.Errorf("the block fileInfo not equal nil:%v", bfi)
+	}
+
+	//the block file info not exist
+	bfi, err = GetInstance().ReadBlockFileInfo(1111)
+	if err == nil {
+		t.Error("read block file info<1111> failed.")
+	}
+	if bfi != nil {
+		t.Error("error")
+	}
+}
+
+func TestReadLastBlockFile(t *testing.T) {
+	initBlockDB()
+	lastFile, err := GetInstance().ReadLastBlockFile()
+	if err != nil {
+		t.Error("read last block file failed")
+	}
+
+	bfi, err := GetInstance().ReadBlockFileInfo(lastFile)
+	if err != nil {
+		t.Error("read last block fileInfo failed")
+	}
+	log.Info("last blockFileInfo value is:%v", bfi)
+	if bfi == nil {
+		t.Errorf("the last blockFileInfo not equal nil, the value is:%v", bfi)
+	}
+}
+
+func TestLoadBlockIndexGuts(t *testing.T) {
+	initBlockDB()
+
+	h := util.HashFromString("000000003c6cbebb51b3733fe2804b5a348f9a6d56f98aaee237022e14f0d3bc")
+	blkidxMap := make(map[util.Hash]*blockindex.BlockIndex)
+
+	//init block header
+	blkHeader := block.NewBlockHeader()
+	blkHeader.Time = uint32(1534822771)
+	blkHeader.Version = 536870912
+	blkHeader.Bits = 486604799
+	preHash := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	merkleRoot := util.HashFromString("7e814211a7de289a490380c0c20353e0fd4e62bf55a05b38e1628e0ea0b4fd3d")
+	blkHeader.HashPrevBlock = *preHash
+	blkHeader.Nonce = 1391785674
+	blkHeader.MerkleRoot = *merkleRoot
+
+	//init block index
+	blkidx := blockindex.NewBlockIndex(blkHeader)
+	blkidxMap[*h] = blkidx
+
+	ret := GetInstance().LoadBlockIndexGuts(blkidxMap, chainparams.ActiveNetParams)
+	if !ret {
+		t.Error("load block index guts failed, please check.")
 	}
 }
