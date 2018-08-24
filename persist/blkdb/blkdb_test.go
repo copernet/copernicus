@@ -11,7 +11,7 @@ import (
 func initBlockDB() {
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/tmp/dbtest",
+			FilePath:  "/$HOME/.coper/blocks/index",
 			CacheSize: 1 << 20,
 		},
 	}
@@ -19,7 +19,7 @@ func initBlockDB() {
 	InitBlockTreeDB(bc)
 }
 
-func TestBlockDB(t *testing.T) {
+func TestWRTxIndex(t *testing.T) {
 	initBlockDB()
 
 	// test TxIndex && init block pos
@@ -92,5 +92,26 @@ func TestWriteReindexing(t *testing.T) {
 	rr1 := GetInstance().ReadReindexing()
 	if rr1 != false {
 		t.Errorf("the reindexing should is false:%v", rr1)
+	}
+}
+
+func TestReadBlockFileInfo(t *testing.T) {
+	initBlockDB()
+	//the block file info exist
+	bfi, err := GetInstance().ReadBlockFileInfo(0)
+	if err != nil {
+		t.Error("read block file info<000> failed.")
+	}
+	if bfi == nil {
+		t.Errorf("the block fileInfo not equal nil:%v", bfi)
+	}
+
+	//the block file info not exist
+	bfi, err = GetInstance().ReadBlockFileInfo(1111)
+	if err != nil {
+		t.Error("read block file info<1111> failed.")
+	}
+	if bfi != nil {
+		t.Error("error")
 	}
 }
