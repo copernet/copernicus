@@ -967,6 +967,8 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		return
 	}
 
+	log.Trace("Received INV msg, And current headerfirstMode is %v", sm.headersFirstMode)
+
 	// Attempt to find the final block in the inventory list.  There may
 	// not be one.
 	lastBlock := -1
@@ -1023,7 +1025,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		peer.AddKnownInventory(iv)
 
 		// Ignore inventory when we're in headers-first mode.
-		log.Trace("Received INV msg, And current headerfirstMode is %v", sm.headersFirstMode)
 		if sm.headersFirstMode {
 			continue
 		}
