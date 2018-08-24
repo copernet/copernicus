@@ -85,7 +85,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 	blkHeaderDummy := block.BlockHeader{}
 
 	//TestNet3Params EDA will not happened
-	if chainparams.ActiveNetParams.Name == chainparams.TestNet3Params.Name {
+	if chainparams.ActiveNetParams.Name == chainparams.TestNetParams.Name {
 		i := 1
 		for i = 1; i < 10; i++ {
 			blocks[i] = getBlockIndex(blocks[i-1], int64(chainparams.ActiveNetParams.TargetTimePerBlock), initialBits)

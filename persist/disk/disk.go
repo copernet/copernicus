@@ -207,7 +207,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
+func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
@@ -247,7 +247,7 @@ func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 }
 
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) (*block.Block, bool) {
-	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
+	blk, ret := readBlockFromDiskByPos(pindex.GetBlockPos(), param)
 	if !ret {
 		return nil, false
 	}
