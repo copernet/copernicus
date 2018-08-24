@@ -257,13 +257,13 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 			cursor.Next()
 			continue
 		}
-		newIndex := InsertBlockIndex(*bi.GetBlockHash(), blkIdxMap)
+		newIndex := insertBlockIndex(*bi.GetBlockHash(), blkIdxMap)
 		if newIndex == nil {
 			cursor.Next()
 			continue
 		}
 		//???
-		pre := InsertBlockIndex(bi.Header.HashPrevBlock, blkIdxMap)
+		pre := insertBlockIndex(bi.Header.HashPrevBlock, blkIdxMap)
 		newIndex.Prev = pre
 		newIndex.SetBlockHash(*bi.GetBlockHash())
 		newIndex.Height = bi.Height
@@ -288,7 +288,7 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 	return true
 }
 
-func InsertBlockIndex(hash util.Hash, blkIdxMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
+func insertBlockIndex(hash util.Hash, blkIdxMap map[util.Hash]*blockindex.BlockIndex) *blockindex.BlockIndex {
 	if i, ok := blkIdxMap[hash]; ok {
 		return i
 	}
