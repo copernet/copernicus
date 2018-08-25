@@ -25,7 +25,6 @@ type CacheView interface {
 	GetCoin(outpoint *outpoint.OutPoint) *Coin
 	HaveCoin(point *outpoint.OutPoint) bool
 	GetBestBlock() (util.Hash, error)
-	SetBestBlock(hash util.Hash)
 	UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error
 	DynamicMemoryUsage() int64
 	GetCacheSize() int
