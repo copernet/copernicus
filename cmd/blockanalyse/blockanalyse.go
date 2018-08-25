@@ -53,7 +53,7 @@ func main() {
 	blockHash := pblock.GetHash()
 
 	fmt.Printf("blockhash: %s, block size: %d bytes, intputs: %d, outputs: %d, tx count: %d", blockHash.String(),
-		(readSize-1)/2, inputs, outputs, len(pblock.Txs))
+		pblock.SerializeSize(), inputs, outputs, len(pblock.Txs))
 
 	return
 }
