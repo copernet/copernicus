@@ -18,6 +18,10 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"io/ioutil"
+	"github.com/copernet/copernicus/log"
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -213,5 +217,47 @@ func TestFindUndoPos(t *testing.T) {
 	err := FindUndoPos(11, pos, 12345)
 	if err != nil {
 		t.Error("find undo by pos failed.")
+	}
+}
+
+func initBlockDB() {
+	bc := &blkdb.BlockTreeDBConfig{
+		Do: &db.DBOption{
+			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
+			CacheSize: 1 << 20,
+		},
+	}
+
+	blkdb.InitBlockTreeDB(bc)
+}
+
+func initUtxoDB() {
+	path, err := ioutil.TempDir("", "coindbtest")
+	if err != nil {
+		log.Error("generate temp db path failed: %s\n", err)
+	}
+
+	dbo := db.DBOption{
+		FilePath:       path,
+		CacheSize:      1 << 20,
+		Wipe:           false,
+		DontObfuscate:  false,
+		ForceCompactdb: false,
+	}
+
+	uc := &utxo.UtxoConfig{
+		&dbo,
+	}
+	utxo.InitUtxoLruTip(uc)
+}
+
+func TestFlushStateToDisk(t *testing.T) {
+	initBlockDB()
+	initUtxoDB()
+	for _, mode := range []FlushStateMode{FlushStateNone, FlushStateIfNeeded, FlushStatePeriodic, FlushStateAlways} {
+		err := FlushStateToDisk(mode, 100)
+		if err != nil {
+			t.Errorf("flush state mode to disk failed:%v", err)
+		}
 	}
 }
