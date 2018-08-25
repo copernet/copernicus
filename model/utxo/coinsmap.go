@@ -2,12 +2,10 @@ package utxo
 
 import (
 	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/util"
 )
 
 type CoinsMap struct {
 	cacheCoins map[outpoint.OutPoint]*Coin
-	hashBlock  util.Hash
 }
 
 func NewEmptyCoinsMap() *CoinsMap {
@@ -35,14 +33,6 @@ func (cm CoinsMap) UnCache(point *outpoint.OutPoint) {
 		delete(cm.cacheCoins, *point)
 	}
 }
-
-//func (cm CoinsMap) Flush(hashBlock util.Hash) bool {
-//	//println("flush=============")
-//	//fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
-//	ok := GetUtxoCacheInstance().UpdateCoins(&cm, &hashBlock)
-//	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
-//	return ok == nil
-//}
 
 func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwrite bool) {
 	if coin.IsSpent() {
@@ -74,10 +64,6 @@ func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwri
 	}
 	cm.cacheCoins[*point] = newcoin
 
-}
-
-func (cm *CoinsMap) SetBestBlock(hash util.Hash) {
-	cm.hashBlock = hash
 }
 
 func (cm CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {

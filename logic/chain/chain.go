@@ -52,7 +52,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	blockHash := pblock.GetHash()
 	if blockHash.IsEqual(params.GenesisHash) {
 		if !fJustCheck {
-			view.SetBestBlock(*pindex.GetBlockHash())
+			//view.SetBestBlock(*pindex.GetBlockHash())
 		}
 		return nil
 	}
@@ -161,7 +161,6 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		gPersist.AddDirtyBlockIndex(pindex)
 	}
 	// add this block to the view's block chain
-	coinsMap.SetBestBlock(blockHash)
 	*view = *coinsMap
 
 	//if (pindex.IsReplayProtectionEnabled(params) &&
@@ -232,7 +231,6 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
 	log.Debug("Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
-	view.SetBestBlock(indexHash)
 	//flushed := view.Flush(indexHash)
 	err = utxo.GetUtxoCacheInstance().UpdateCoins(view, &indexHash)
 	if err != nil {
@@ -498,7 +496,6 @@ func InitGenesisChain() error {
 	coinsMap := utxo.NewEmptyCoinsMap()
 	//coinsMap, _, _ := ltx.ApplyGeniusBlockTransactions(bl.Txs)
 	bestHash := bIndex.GetBlockHash()
-	coinsMap.SetBestBlock(*bestHash)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)
 
 	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)

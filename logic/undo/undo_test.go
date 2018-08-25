@@ -37,7 +37,6 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 	}
 
 	blockHash := blocks.GetHash()
-	coinMap.SetBestBlock(blockHash)
 	//coinMap.Flush(blocks.GetHash())
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinMap, &blockHash)
 }
@@ -88,7 +87,6 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	//genesis block hash, and set genesis block to utxo
 	randomhash := *util.GetRandHash()
 	blocks.Header.HashPrevBlock = randomhash
-	coinsMap.SetBestBlock(randomhash)
 	//coinsMap.Flush(randomhash)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &randomhash)
 	coinbaseTx := mtx.NewTx(0, 2)
