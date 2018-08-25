@@ -13,6 +13,10 @@ type CoinsDB struct {
 	dbw *db.DBWrapper
 }
 
+func (coinsViewDB *CoinsDB) GetDBW() *db.DBWrapper {
+	return coinsViewDB.dbw
+}
+
 func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {
 	buf := bytes.NewBuffer(nil)
 	err := NewCoinKey(outpoint).Serialize(buf)

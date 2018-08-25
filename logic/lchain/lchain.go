@@ -3,9 +3,12 @@ package lchain
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
@@ -250,6 +253,26 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
+	var stat stat
+	if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
+		log.Print("test", "debug", "GetUTXOStats() failed with : %s", err)
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+	if err != nil {
+		log.Print("test", "debug", "os.OpenFile() failed with : %s", err)
+		return err
+	}
+	defer f.Close()
+	if _, err := f.WriteString(stat.String()); err != nil {
+		log.Print("test", "debug", "f.WriteString() failed with : %s", err)
+		return err
+	}
+	/*
+		if pIndexNew.Height == 383 {
+			panic("faile 383")
+		}
+	*/
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
