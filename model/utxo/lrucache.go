@@ -82,13 +82,10 @@ func (coinsCache *CoinsLruCache) GetBestBlock() (util.Hash, error) {
 			log.Error("db.GetBestBlock err:%#v", err)
 			panic("db.GetBestBlock read err")
 		}
+		log.Debug("GetBestBlock: set coinsCache's besthash to %s from DB", hashBlock.String())
 		coinsCache.hashBlock = *hashBlock
 	}
 	return coinsCache.hashBlock, nil
-}
-
-func (coinsCache *CoinsLruCache) SetBestBlock(hash util.Hash) {
-	coinsCache.hashBlock = hash
 }
 
 func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) error {
@@ -137,6 +134,7 @@ func (coinsCache *CoinsLruCache) UpdateCoins(cm *CoinsMap, hash *util.Hash) erro
 		}
 		delete(cm.cacheCoins, point)
 	}
+	log.Debug("UpdateCoins: set besthash to %s", hash.String())
 	coinsCache.hashBlock = *hash
 	return nil
 }

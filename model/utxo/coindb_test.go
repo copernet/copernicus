@@ -42,8 +42,9 @@ func TestCoinsDB(t *testing.T) {
 	if utxoTip.GetCoin(&outpoint1) != nil {
 		t.Error("the db not have coin, so the coin is nil.")
 	}
-
-	utxoTip.SetBestBlock(*hash1)
+	cm := NewEmptyCoinsMap()
+	//utxoTip.SetBestBlock(*hash1)
+	utxoTip.UpdateCoins(cm, hash1)
 	utxoTip.Flush()
 
 	hash2, err2 := utxoTip.GetBestBlock()
