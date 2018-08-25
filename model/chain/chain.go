@@ -397,10 +397,16 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 }
 
 func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) {
-	for _, bi := range c.branch {
+	branchLen := len(c.branch)
+	branch := make([]*blockindex.BlockIndex, 0, branchLen)
+	for i, bi := range c.branch {
 		bh := bis.GetBlockHash()
 		if bi.GetBlockHash().IsEqual(bh) {
-			//delete()
+			branch = c.branch[0:i]
+			if branchLen-1 > i {
+				c.branch = append(branch, c.branch[i+1:]...)
+			}
+			return
 		}
 	}
 	return

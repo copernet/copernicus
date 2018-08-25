@@ -270,7 +270,6 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 		if bIndex.Prev.IsInvalid() {
 			log.Debug("AcceptBlockHeader Invalid Pre index")
 			return nil, errcode.ProjectError{Code: 3100}
-
 		}
 		if !lbi.CheckIndexAgainstCheckpoint(bIndex.Prev) {
 			log.Debug("AcceptBlockHeader err:%d", 3100)
