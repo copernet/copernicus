@@ -22,6 +22,8 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"io/ioutil"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/opcodes"
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -254,6 +256,56 @@ func initUtxoDB() {
 func TestFlushStateToDisk(t *testing.T) {
 	initBlockDB()
 	initUtxoDB()
+
+	necm := utxo.NewEmptyCoinsMap()
+	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	hash2 := util.HashFromString("000000003c6cbebb51b3733fe2804b5a348f9a6d56f98aaee237022e14f0d3bc")
+	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
+	script1 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
+	txout1 := txout.NewTxOut(3, script1)
+	coin1 := utxo.NewCoin(txout1, 1, false)
+
+	necm.AddCoin(&outpoint1, coin1, false)
+	guci := utxo.GetUtxoCacheInstance()
+	err := guci.UpdateCoins(necm, hash1)
+	if err != nil {
+		t.Error("update coin failed.")
+	}
+	h, err := guci.GetBestBlock()
+	if err != nil {
+		t.Error("get best block failed")
+	}
+	log.Info("the best block hash value is:%v", h)
+
+	gPersist := global.GetInstance()
+	gdfi := gPersist.GlobalDirtyFileInfo
+	gdfi = make(map[int32]bool)
+	gdfi[0] = true
+	gdfi[1] = false
+	gdfi[2] = false
+
+	blkHeader := block.NewBlockHeader()
+	idx := blockindex.NewBlockIndex(blkHeader)
+
+	blkHeader1 := block.NewBlockHeader()
+	blkHeader.Time = uint32(1534822771)
+	blkHeader.Version = 536870912
+	blkHeader.Bits = 486604799
+	preHash := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	merkleRoot := util.HashFromString("7e814211a7de289a490380c0c20353e0fd4e62bf55a05b38e1628e0ea0b4fd3d")
+	blkHeader.HashPrevBlock = *preHash
+	blkHeader.Nonce = 1391785674
+	blkHeader.MerkleRoot = *merkleRoot
+	//init block index
+	blkidx := blockindex.NewBlockIndex(blkHeader1)
+
+	gdbi := gPersist.GlobalDirtyBlockIndex
+	gdbi = make(map[util.Hash]*blockindex.BlockIndex)
+	gdbi[*hash1] = idx
+	gdbi[*hash2] = blkidx
+
+	gPersist.GlobalLastBlockFile = 1
+
 	for _, mode := range []FlushStateMode{FlushStateNone, FlushStateIfNeeded, FlushStatePeriodic, FlushStateAlways} {
 		err := FlushStateToDisk(mode, 100)
 		if err != nil {
