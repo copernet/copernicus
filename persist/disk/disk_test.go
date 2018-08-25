@@ -15,9 +15,9 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/persist/global"
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -180,6 +180,24 @@ func TestFindBlockPos(t *testing.T) {
 	pos2 := block.NewDiskBlockPos(math.MaxInt32, math.MaxInt32)
 	ok1 := FindBlockPos(pos2, 12345, 100000, uint64(timeNow), false)
 	if !ok1 {
+		t.Error("when fKnown value is true, find block by pos failed.")
+	}
+
+	pos3 := block.NewDiskBlockPos(1, 0)
+	ok2 := FindBlockPos(pos3, 12345, 100000, uint64(timeNow), true)
+	if !ok2 {
+		t.Error("when fKnown value is true, find block by pos failed.")
+	}
+
+	pos4 := block.NewDiskBlockPos(8, 9)
+	gPersist := global.GetInstance()
+	i := len(gPersist.GlobalBlockFileInfo)
+	for i <= int(pos4.File) {
+		i++
+		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
+	}
+	ok3 := FindBlockPos(pos4, 12345, 100000, uint64(timeNow), true)
+	if !ok3 {
 		t.Error("when fKnown value is true, find block by pos failed.")
 	}
 }
