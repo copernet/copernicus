@@ -65,8 +65,8 @@ func TestCoinCache(t *testing.T) {
 	}
 	InitUtxoLruTip(uc)
 
-	necm.AddCoin(&outpoint1, coin1,false)
-	necm.AddCoin(&outpoint2, coin2,false)
+	necm.AddCoin(&outpoint1, coin1, false)
+	necm.AddCoin(&outpoint2, coin2, false)
 
 	c1 := necm.GetCoin(&outpoint1)
 	if !reflect.DeepEqual(c1, coin1) {
@@ -80,8 +80,8 @@ func TestCoinCache(t *testing.T) {
 
 	hashblock := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d014")
 
-	necm.Flush(*hashblock)
-
+	//necm.Flush(*hashblock)
+	GetUtxoCacheInstance().UpdateCoins(necm, hashblock)
 	//err1 := utxoTip.UpdateCoins(necm, hash1)
 	//if err1 != nil {
 	//	t.Errorf("update coins failed,the error is :%v", err1)
@@ -130,7 +130,7 @@ func TestCoinCache(t *testing.T) {
 		fresh:         true,
 	}
 
-	necm.AddCoin(&outpoint3, coin3,false)
+	necm.AddCoin(&outpoint3, coin3, false)
 
 	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
 	necm.SetBestBlock(*hash3)

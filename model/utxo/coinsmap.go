@@ -36,13 +36,13 @@ func (cm CoinsMap) UnCache(point *outpoint.OutPoint) {
 	}
 }
 
-func (cm CoinsMap) Flush(hashBlock util.Hash) bool {
-	//println("flush=============")
-	//fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
-	ok := GetUtxoCacheInstance().UpdateCoins(&cm, &hashBlock)
-	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
-	return ok == nil
-}
+//func (cm CoinsMap) Flush(hashBlock util.Hash) bool {
+//	//println("flush=============")
+//	//fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
+//	ok := GetUtxoCacheInstance().UpdateCoins(&cm, &hashBlock)
+//	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
+//	return ok == nil
+//}
 
 func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwrite bool) {
 	if coin.IsSpent() {

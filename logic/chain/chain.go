@@ -233,8 +233,9 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	log.Debug("Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
 	view.SetBestBlock(indexHash)
-	flushed := view.Flush(indexHash)
-	if !flushed {
+	//flushed := view.Flush(indexHash)
+	err = utxo.GetUtxoCacheInstance().UpdateCoins(view, &indexHash)
+	if err != nil {
 		panic("here should be true when view flush state")
 	}
 	nTime4 := util.GetMicrosTime()
@@ -290,8 +291,9 @@ func DisconnectTip(fBare bool) error {
 			log.Error(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.String()))
 			return errcode.New(errcode.DisconnectTipUndoFailed)
 		}
-		flushed := view.Flush(blk.Header.HashPrevBlock)
-		if !flushed {
+		//flushed := view.Flush(blk.Header.HashPrevBlock)
+		err := utxo.GetUtxoCacheInstance().UpdateCoins(view, &blk.Header.HashPrevBlock)
+		if err != nil {
 			panic("view flush error !!!")
 		}
 

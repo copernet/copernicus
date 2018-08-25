@@ -36,8 +36,10 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 		tx.TxUpdateCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
 	}
 
-	coinMap.SetBestBlock(blocks.GetHash())
-	coinMap.Flush(blocks.GetHash())
+	blockHash := blocks.GetHash()
+	coinMap.SetBestBlock(blockHash)
+	//coinMap.Flush(blocks.GetHash())
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinMap, &blockHash)
 }
 
 func UndoBlock(blocks *block.Block, coinMap *utxo.CoinsMap, undos *undo.BlockUndo, params *chainparams.BitcoinParams, height int) {
@@ -87,8 +89,8 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 	randomhash := *util.GetRandHash()
 	blocks.Header.HashPrevBlock = randomhash
 	coinsMap.SetBestBlock(randomhash)
-	coinsMap.Flush(randomhash)
-
+	//coinsMap.Flush(randomhash)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &randomhash)
 	coinbaseTx := mtx.NewTx(0, 2)
 	Ins1 := txin.NewTxIn(nil, script.NewScriptRaw(make([]byte, 10)), 00000000)
 	Outs1 := txout.NewTxOut(42, script.NewScriptRaw([]byte{opcodes.OP_2MUL}))
