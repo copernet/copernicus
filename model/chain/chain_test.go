@@ -2,7 +2,6 @@ package chain
 
 import (
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 
@@ -69,7 +68,7 @@ func TestGetBlockScriptFlags(t *testing.T) {
 */
 func TestFindHashInActive(t *testing.T) {
 
-	InitGlobalChain(conf.Cfg)
+	InitGlobalChain()
 	testchain = GetInstance()
 	testchain.active = make([]*blockindex.BlockIndex,2000000)
 

@@ -253,7 +253,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
 	nTime6 := util.GetMicrosTime()
-	gPersist.GlobalTimePostConnect += nTime6 - nTime1
+	gPersist.GlobalTimePostConnect += nTime6 - nTime5
 	gPersist.GlobalTimeTotal += nTime6 - nTime1
 	log.Print("bench", "debug", " - Connect postprocess: %.2fms [%.2fs]\n",
 		float64(nTime6-nTime5)*0.001, float64(gPersist.GlobalTimePostConnect)*0.000001)
