@@ -155,63 +155,6 @@ func TestDBWrapperIterator(t *testing.T) {
 
 }
 
-func TestExistingDataNoObfuscate(t *testing.T) {
-	path, err := ioutil.TempDir("", "dbwtest")
-	if err != nil {
-		t.Fatalf("generate temp db path failed: %s\n", err)
-	}
-	defer os.RemoveAll(path)
-
-	dbw, err := NewDBWrapper(&DBOption{
-		FilePath:  path,
-		CacheSize: 1 << 10,
-	})
-	if err != nil {
-		t.Fatalf("NewDBWrapper failed: %s\n", err)
-	}
-
-	key := []byte{'k'}
-	in := rand256()
-	if err := dbw.Write(key, in, false); err != nil {
-		t.Fatalf("dbw.Write(): %s", err)
-	}
-	if res, err := dbw.Read(key); err != nil {
-		t.Fatalf("dbw.Read(): %s", err)
-	} else if err == nil && !bytes.Equal(res, in) {
-		t.Fatalf("res should equal in")
-	}
-
-	dbw.Close()
-
-	odbw, err := NewDBWrapper(&DBOption{
-		FilePath:  path,
-		CacheSize: 1 << 10,
-	})
-	if err != nil {
-		t.Fatalf("NewDBWrapper failed: %s\n", err)
-	}
-	defer odbw.Close()
-
-	if res, err := odbw.Read(key); err != nil {
-		t.Fatalf("dbw.Read(): %s", err)
-	} else if err == nil && !bytes.Equal(res, in) {
-		t.Fatalf("res should equal in")
-	}
-	if odbw.IsEmpty() {
-		t.Fatalf("There should be existing data")
-	}
-
-	in2 := rand256()
-	if err := odbw.Write(key, in2, false); err != nil {
-		t.Fatalf("dbw.Write(): %s", err)
-	}
-	if res, err := odbw.Read(key); err != nil {
-		t.Fatalf("dbw.Read(): %s", err)
-	} else if err == nil && !bytes.Equal(res, in2) {
-		t.Fatalf("res should equal in2")
-	}
-}
-
 func TestExistingDataReindex(t *testing.T) {
 	path, err := ioutil.TempDir("", "dbwtest")
 	if err != nil {

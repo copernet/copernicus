@@ -48,7 +48,7 @@ func getOptions(cacheSize int) opt.Options {
 	opts.WriteBuffer = cacheSize / 4
 	opts.Filter = filter.NewBloomFilter(10)
 	opts.Compression = opt.NoCompression
-	opts.OpenFilesCacheCapacity = 64
+	opts.OpenFilesCacheCapacity = 11000
 
 	return opts
 }
@@ -313,7 +313,6 @@ func (iw *IterWrapper) GetVal() []byte {
 		v := iw.iter.Value()
 		val = append(val, v...)
 	}
-	// xor(val, iw.parent.GetObfuscateKey())
 	return val
 }
 
