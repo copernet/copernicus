@@ -222,7 +222,6 @@ func TestExistingDataReindex(t *testing.T) {
 	dbw, err := NewDBWrapper(&DBOption{
 		FilePath:  path,
 		CacheSize: 1 << 10,
-		//DontObfuscate: true,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)

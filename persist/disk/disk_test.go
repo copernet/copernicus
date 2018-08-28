@@ -243,7 +243,6 @@ func initUtxoDB() {
 		FilePath:       path,
 		CacheSize:      1 << 20,
 		Wipe:           false,
-		DontObfuscate:  false,
 		ForceCompactdb: false,
 	}
 
