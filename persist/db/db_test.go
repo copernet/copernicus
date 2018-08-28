@@ -10,15 +10,6 @@ import (
 	"testing"
 )
 
-func isNullKey(key []byte) bool {
-	for _, b := range key {
-		if b != '\x00' {
-			return false
-		}
-	}
-	return true
-}
-
 func rand256() []byte {
 	b := make([]byte, 256)
 	rand.Read(b)
@@ -26,151 +17,142 @@ func rand256() []byte {
 }
 
 func TestDBWrapper(t *testing.T) {
-	for _, obfuscate := range []bool{false, true} {
-		path, err := ioutil.TempDir("", "dbwtest")
-		if err != nil {
-			t.Fatalf("generate temp db path failed: %s\n", err)
-		}
-		defer os.RemoveAll(path)
-
-		dbw, err := NewDBWrapper(&DBOption{
-			FilePath:      path,
-			CacheSize:     1 << 20,
-			DontObfuscate: !obfuscate,
-		})
-		if err != nil {
-			t.Fatalf("NewDBWrapper failed: %s\n", err)
-		}
-		defer dbw.Close()
-
-		key := []byte{'k'}
-		in := rand256()
-		if obfuscate == isNullKey(dbw.GetObfuscateKey()) {
-			t.Fatalf("isNullKey() should always not equal obfuscate")
-		}
-		if err := dbw.Write(key, in, false); err != nil {
-			t.Fatalf("dbw.Write(): %s", err)
-		}
-		val, err := dbw.Read(key)
-		if err != nil {
-			t.Fatalf("dbw.Read(): %s", err)
-		}
-		if !bytes.Equal(in, val) {
-			t.Fatalf("should read back original data")
-		}
+	path, err := ioutil.TempDir("", "dbwtest")
+	if err != nil {
+		t.Fatalf("generate temp db path failed: %s\n", err)
 	}
+	defer os.RemoveAll(path)
+
+	dbw, err := NewDBWrapper(&DBOption{
+		FilePath:  path,
+		CacheSize: 1 << 20,
+	})
+	if err != nil {
+		t.Fatalf("NewDBWrapper failed: %s\n", err)
+	}
+	defer dbw.Close()
+
+	key := []byte{'k'}
+	in := rand256()
+	if err := dbw.Write(key, in, false); err != nil {
+		t.Fatalf("dbw.Write(): %s", err)
+	}
+	val, err := dbw.Read(key)
+	if err != nil {
+		t.Fatalf("dbw.Read(): %s", err)
+	}
+	if !bytes.Equal(in, val) {
+		t.Fatalf("should read back original data")
+	}
+
 }
 
 func TestDBWrapperBatch(t *testing.T) {
-	for _, obfuscate := range []bool{false, true} {
-		path, err := ioutil.TempDir("", "dbwtest")
-		if err != nil {
-			t.Fatalf("generate temp db path failed: %s\n", err)
-		}
-		defer os.RemoveAll(path)
-
-		dbw, err := NewDBWrapper(&DBOption{
-			FilePath:      path,
-			CacheSize:     1 << 20,
-			DontObfuscate: !obfuscate,
-		})
-		if err != nil {
-			t.Fatalf("NewDBWrapper failed: %s\n", err)
-		}
-		defer dbw.Close()
-
-		key := []byte{'i'}
-		key2 := []byte{'j'}
-		key3 := []byte{'k'}
-		in := rand256()
-		in2 := rand256()
-		in3 := rand256()
-
-		batch := NewBatchWrapper(dbw)
-		batch.Write(key, in)
-		batch.Write(key2, in2)
-		batch.Write(key3, in3)
-
-		batch.Erase(key3)
-		dbw.WriteBatch(batch, false)
-
-		res, err := dbw.Read(key)
-		if err != nil {
-			t.Fatalf("dbw.Read(): %s", err)
-		}
-		if !bytes.Equal(res, in) {
-			t.Fatalf("should read back key 'i' value")
-		}
-
-		res, err = dbw.Read(key2)
-		if err != nil {
-			t.Fatalf("dbw.Read(): %s", err)
-		}
-		if !bytes.Equal(res, in2) {
-			t.Fatalf("should read back key 'j' value")
-		}
-
-		if dbw.Exists(key3) {
-			t.Fatalf("shouldn't read out key 'k' value")
-		}
+	path, err := ioutil.TempDir("", "dbwtest")
+	if err != nil {
+		t.Fatalf("generate temp db path failed: %s\n", err)
 	}
+	defer os.RemoveAll(path)
+
+	dbw, err := NewDBWrapper(&DBOption{
+		FilePath:  path,
+		CacheSize: 1 << 20,
+	})
+	if err != nil {
+		t.Fatalf("NewDBWrapper failed: %s\n", err)
+	}
+	defer dbw.Close()
+
+	key := []byte{'i'}
+	key2 := []byte{'j'}
+	key3 := []byte{'k'}
+	in := rand256()
+	in2 := rand256()
+	in3 := rand256()
+
+	batch := NewBatchWrapper(dbw)
+	batch.Write(key, in)
+	batch.Write(key2, in2)
+	batch.Write(key3, in3)
+
+	batch.Erase(key3)
+	dbw.WriteBatch(batch, false)
+
+	res, err := dbw.Read(key)
+	if err != nil {
+		t.Fatalf("dbw.Read(): %s", err)
+	}
+	if !bytes.Equal(res, in) {
+		t.Fatalf("should read back key 'i' value")
+	}
+
+	res, err = dbw.Read(key2)
+	if err != nil {
+		t.Fatalf("dbw.Read(): %s", err)
+	}
+	if !bytes.Equal(res, in2) {
+		t.Fatalf("should read back key 'j' value")
+	}
+
+	if dbw.Exists(key3) {
+		t.Fatalf("shouldn't read out key 'k' value")
+	}
+
 }
 
 func TestDBWrapperIterator(t *testing.T) {
-	for _, obfuscate := range []bool{false, true} {
-		path, err := ioutil.TempDir("", "dbwtest")
-		if err != nil {
-			t.Fatalf("generate temp db path failed: %s\n", err)
-		}
-		defer os.RemoveAll(path)
-
-		dbw, err := NewDBWrapper(&DBOption{
-			FilePath:      path,
-			CacheSize:     1 << 20,
-			DontObfuscate: !obfuscate,
-		})
-		if err != nil {
-			t.Fatalf("NewDBWrapper failed: %s\n", err)
-		}
-		defer dbw.Close()
-
-		key := []byte{'j'}
-		in := rand256()
-		if err := dbw.Write(key, in, false); err != nil {
-			t.Fatalf("dbw.Write(): %s", err)
-		}
-
-		key2 := []byte{'k'}
-		in2 := rand256()
-		if err := dbw.Write(key2, in2, false); err != nil {
-			t.Fatalf("dbw.Write(): %s", err)
-		}
-
-		iter := dbw.Iterator()
-		defer iter.Close()
-
-		iter.Seek(key)
-		if !bytes.Equal(iter.GetKey(), key) {
-			t.Fatalf("iter.GetKey() should read back key 'j'")
-		}
-		if !bytes.Equal(iter.GetVal(), in) {
-			t.Fatalf("iter.GetVal() should read back key 'j' value")
-		}
-
-		iter.Next()
-
-		if !bytes.Equal(iter.GetKey(), key2) {
-			t.Fatalf("iter.GetKey() should read back key 'k'")
-		}
-		if !bytes.Equal(iter.GetVal(), in2) {
-			t.Fatalf("iter.GetVal() should read back key 'k' value")
-		}
-
-		iter.Next()
-		if iter.Valid() {
-			t.Fatalf("now iter should be invalid")
-		}
+	path, err := ioutil.TempDir("", "dbwtest")
+	if err != nil {
+		t.Fatalf("generate temp db path failed: %s\n", err)
 	}
+	defer os.RemoveAll(path)
+
+	dbw, err := NewDBWrapper(&DBOption{
+		FilePath:  path,
+		CacheSize: 1 << 20,
+	})
+	if err != nil {
+		t.Fatalf("NewDBWrapper failed: %s\n", err)
+	}
+	defer dbw.Close()
+
+	key := []byte{'j'}
+	in := rand256()
+	if err := dbw.Write(key, in, false); err != nil {
+		t.Fatalf("dbw.Write(): %s", err)
+	}
+
+	key2 := []byte{'k'}
+	in2 := rand256()
+	if err := dbw.Write(key2, in2, false); err != nil {
+		t.Fatalf("dbw.Write(): %s", err)
+	}
+
+	iter := dbw.Iterator()
+	defer iter.Close()
+
+	iter.Seek(key)
+	if !bytes.Equal(iter.GetKey(), key) {
+		t.Fatalf("iter.GetKey() should read back key 'j'")
+	}
+	if !bytes.Equal(iter.GetVal(), in) {
+		t.Fatalf("iter.GetVal() should read back key 'j' value")
+	}
+
+	iter.Next()
+
+	if !bytes.Equal(iter.GetKey(), key2) {
+		t.Fatalf("iter.GetKey() should read back key 'k'")
+	}
+	if !bytes.Equal(iter.GetVal(), in2) {
+		t.Fatalf("iter.GetVal() should read back key 'k' value")
+	}
+
+	iter.Next()
+	if iter.Valid() {
+		t.Fatalf("now iter should be invalid")
+	}
+
 }
 
 func TestExistingDataNoObfuscate(t *testing.T) {
@@ -181,9 +163,8 @@ func TestExistingDataNoObfuscate(t *testing.T) {
 	defer os.RemoveAll(path)
 
 	dbw, err := NewDBWrapper(&DBOption{
-		FilePath:      path,
-		CacheSize:     1 << 10,
-		DontObfuscate: true,
+		FilePath:  path,
+		CacheSize: 1 << 10,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)
@@ -203,9 +184,8 @@ func TestExistingDataNoObfuscate(t *testing.T) {
 	dbw.Close()
 
 	odbw, err := NewDBWrapper(&DBOption{
-		FilePath:      path,
-		CacheSize:     1 << 10,
-		DontObfuscate: false,
+		FilePath:  path,
+		CacheSize: 1 << 10,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)
@@ -219,9 +199,6 @@ func TestExistingDataNoObfuscate(t *testing.T) {
 	}
 	if odbw.IsEmpty() {
 		t.Fatalf("There should be existing data")
-	}
-	if !isNullKey(odbw.GetObfuscateKey()) {
-		t.Fatalf("odbw's ObfuscateKey should be null")
 	}
 
 	in2 := rand256()
@@ -243,9 +220,9 @@ func TestExistingDataReindex(t *testing.T) {
 	defer os.RemoveAll(path)
 
 	dbw, err := NewDBWrapper(&DBOption{
-		FilePath:      path,
-		CacheSize:     1 << 10,
-		DontObfuscate: true,
+		FilePath:  path,
+		CacheSize: 1 << 10,
+		//DontObfuscate: true,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)
@@ -265,10 +242,9 @@ func TestExistingDataReindex(t *testing.T) {
 	dbw.Close()
 
 	odbw, err := NewDBWrapper(&DBOption{
-		FilePath:      path,
-		CacheSize:     1 << 10,
-		DontObfuscate: false,
-		Wipe:          true,
+		FilePath:  path,
+		CacheSize: 1 << 10,
+		Wipe: true,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)
@@ -277,9 +253,6 @@ func TestExistingDataReindex(t *testing.T) {
 
 	if odbw.Exists(key) {
 		t.Fatalf("odbw should not contain 'k'")
-	}
-	if isNullKey(odbw.GetObfuscateKey()) {
-		t.Fatalf("odbw's ObfuscateKey should not be null")
 	}
 
 	in2 := rand256()
@@ -301,9 +274,8 @@ func TestIteratorOrdering(t *testing.T) {
 	defer os.RemoveAll(path)
 
 	dbw, err := NewDBWrapper(&DBOption{
-		FilePath:      path,
-		CacheSize:     1 << 20,
-		DontObfuscate: true,
+		FilePath:  path,
+		CacheSize: 1 << 20,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)
@@ -382,9 +354,8 @@ func TestIteratorStringOrdering(t *testing.T) {
 	defer os.RemoveAll(path)
 
 	dbw, err := NewDBWrapper(&DBOption{
-		FilePath:      path,
-		CacheSize:     1 << 20,
-		DontObfuscate: true,
+		FilePath:  path,
+		CacheSize: 1 << 20,
 	})
 	if err != nil {
 		t.Fatalf("NewDBWrapper failed: %s\n", err)

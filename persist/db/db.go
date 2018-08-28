@@ -13,11 +13,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-//const (
-//	obfuscateKeyKey = "\000obfuscate_key"
-//	obfuscateKeyLen = 8
-//)
-
 const (
 	DbCoin       byte = 'C'
 	DbCoins      byte = 'c'
@@ -44,17 +39,7 @@ type DBWrapper struct {
 	syncOption   opt.WriteOptions
 	db           *lvldb.DB
 	name         string
-	obfuscateKey []byte
 }
-
-//func genObfuscateKey() []byte {
-//	buf := make([]byte, obfuscateKeyLen)
-//	_, err := rand.Read(buf)
-//	if err != nil {
-//		panic("failed read random bytes")
-//	}
-//	return buf
-//}
 
 func getOptions(cacheSize int) opt.Options {
 	var opts opt.Options
@@ -95,7 +80,6 @@ type DBOption struct {
 	FilePath       string
 	CacheSize      int
 	Wipe           bool
-	DontObfuscate  bool
 	ForceCompactdb bool
 }
 
@@ -147,45 +131,12 @@ func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 		syncOption:  so,
 		db:          db,
 		name:        filepath.Base(do.FilePath),
-		//obfuscateKey: make([]byte, 8),
 	}
-	//exists := false
-	//obk, err := dbw.Read([]byte(obfuscateKeyKey))
-	//if err == nil {
-	//	dbw.obfuscateKey = obk
-	//	exists = true
-	//}
-	//if !exists && !do.DontObfuscate && dbw.IsEmpty() {
-	//	newKey := genObfuscateKey()
-	//	if err := dbw.Write([]byte(obfuscateKeyKey), newKey, false); err != nil {
-	//		return nil, err
-	//	}
-	//	dbw.obfuscateKey = newKey
-	//}
 	return dbw, nil
 }
 
-//func xor(val, key []byte) {
-//	if len(key) == 0 {
-//		return
-//	}
-//	for i, j := 0, 0; i < len(val); i++ {
-//		val[i] ^= key[j]
-//		j++
-//		if j == len(key) {
-//			j = 0
-//		}
-//	}
-//}
-
 func (dbw *DBWrapper) Read(key []byte) ([]byte, error) {
 	return dbw.db.Get(key, &dbw.readOption)
-	// value, err := dbw.db.Get(key, &dbw.readOption)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // xor(value, dbw.obfuscateKey)
-	// return value, nil
 }
 
 func (dbw *DBWrapper) Write(key, val []byte, sync bool) error {
@@ -248,10 +199,6 @@ func (dbw *DBWrapper) EstimateSize(begin, end []byte) uint64 {
 
 func (dbw *DBWrapper) CompactRange(begin, end []byte) error {
 	return dbw.db.CompactRange(util.Range{Start: begin, Limit: end})
-}
-
-func (dbw *DBWrapper) GetObfuscateKey() []byte {
-	return dbw.obfuscateKey
 }
 
 func (dbw *DBWrapper) Close() {
