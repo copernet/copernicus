@@ -1,20 +1,22 @@
 package blkdb
 
 import (
-	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/util"
 	"reflect"
 	"testing"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
 )
 
 func initBlockDB() {
+	path := "/tmp/blkidx"
+
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
+			FilePath:  path,
 			CacheSize: 1 << 20,
 		},
 	}
@@ -150,15 +152,15 @@ func TestLoadBlockIndexGuts(t *testing.T) {
 
 func TestWriteBatchSync(t *testing.T) {
 	initBlockDB()
-	blkfi := make(map[int32]*block.BlockFileInfo)
+	//blkfi := make(map[int32]*block.BlockFileInfo)
 	blkHeader := block.NewBlockHeader()
-	idx := blockindex.NewBlockIndex(blkHeader)
-	idxs := make([]*blockindex.BlockIndex, 0, 10)
-	idxs = append(idxs, idx)
-	err := GetInstance().WriteBatchSync(blkfi, 0, idxs)
-	if err != nil {
-		t.Errorf("write blockFileInfo failed.")
-	}
+	//idx := blockindex.NewBlockIndex(blkHeader)
+	//idxs := make([]*blockindex.BlockIndex, 0, 10)
+	//idxs = append(idxs, idx)
+	//err := GetInstance().WriteBatchSync(blkfi, 100, idxs)
+	//if err != nil {
+	//	t.Errorf("write blockFileInfo failed.")
+	//}
 
 	bfi1 := make(map[int32]*block.BlockFileInfo)
 	fi := block.NewBlockFileInfo()
@@ -184,8 +186,22 @@ func TestWriteBatchSync(t *testing.T) {
 	blkidx := blockindex.NewBlockIndex(blkHeader1)
 	blkidxs := make([]*blockindex.BlockIndex, 0, 10)
 	blkidxs = append(blkidxs, blkidx)
-	err = GetInstance().WriteBatchSync(bfi1, 0, blkidxs)
+	err := GetInstance().WriteBatchSync(bfi1, 1, blkidxs)
 	if err != nil {
 		t.Errorf("write blockFileInfo failed.")
+	}
+
+	lastFile, err := GetInstance().ReadLastBlockFile()
+	if err != nil {
+		t.Error("read last block file failed")
+	}
+
+	bfi, err := GetInstance().ReadBlockFileInfo(lastFile)
+	if err != nil {
+		t.Error("read last block fileInfo failed")
+	}
+	log.Info("last blockFileInfo value is:%v", bfi)
+	if !reflect.DeepEqual(bfi, bfi1[1]) {
+		t.Errorf("the last blockFileInfo not equal nil, the value is:%v", bfi)
 	}
 }

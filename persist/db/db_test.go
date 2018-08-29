@@ -273,7 +273,7 @@ func TestIteratorOrdering(t *testing.T) {
 				continue
 			}
 			v = binary.LittleEndian.Uint32(iter.GetVal())
-
+			t.Logf("the k value is:%v; x value is:%v; v value is:%v", k, x, v)
 			if k != x {
 				t.Fatalf("key should equal x")
 			}
