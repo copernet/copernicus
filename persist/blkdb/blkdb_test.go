@@ -16,7 +16,7 @@ import (
 func initBlockDB() {
 	path, err := ioutil.TempDir("/tmp", "blockIndex")
 	if err != nil {
-		log.Error("errr%v", err)
+		log.Error("generate temp db path failed: %s\n", err)
 	}
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
@@ -143,17 +143,6 @@ func TestReadLastBlockFile(t *testing.T) {
 	}
 }
 
-func TestLoadBlockIndexGuts(t *testing.T) {
-	initBlockDB()
-	blkidxMap := make(map[util.Hash]*blockindex.BlockIndex)
-
-	ret := GetInstance().LoadBlockIndexGuts(blkidxMap, chainparams.ActiveNetParams)
-	log.Info("the blockIndexMap value is:%v", blkidxMap)
-	if !ret {
-		t.Error("load block index guts failed, please check.")
-	}
-}
-
 func TestWriteBatchSync(t *testing.T) {
 	initBlockDB()
 	blkHeader := block.NewBlockHeader()
@@ -178,6 +167,7 @@ func TestWriteBatchSync(t *testing.T) {
 	blkHeader.MerkleRoot = *merkleRoot
 	//init block index
 	blkidx := blockindex.NewBlockIndex(blkHeader1)
+	hhash := blkidx.GetBlockHash() //14508459b221041eab257d2baaa7459775ba748246c8403609eb708f0e57e74b
 	blkidxs := make([]*blockindex.BlockIndex, 0, 10)
 	blkidxs = append(blkidxs, blkidx)
 	err := GetInstance().WriteBatchSync(bfi1, 1, blkidxs)
@@ -197,5 +187,16 @@ func TestWriteBatchSync(t *testing.T) {
 	log.Info("last blockFileInfo value is:%v", bfi)
 	if !reflect.DeepEqual(bfi, bfi1[1]) {
 		t.Errorf("the last blockFileInfo not equal nil, the value is:%v", bfi)
+	}
+
+	blkidxMap := make(map[util.Hash]*blockindex.BlockIndex)
+	blkidxMap[*hhash] = blkidx
+	ret := GetInstance().LoadBlockIndexGuts(blkidxMap, chainparams.ActiveNetParams)
+	if !ret {
+		t.Error("load block index guts failed, please check.")
+	}
+
+	if !reflect.DeepEqual(blkidxMap[*hhash], blkidx) {
+		t.Error("the blkidxMap should equal blkidx, please check")
 	}
 }
