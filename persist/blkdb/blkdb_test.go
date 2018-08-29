@@ -3,6 +3,8 @@ package blkdb
 import (
 	"reflect"
 	"testing"
+	"io/ioutil"
+
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/block"
@@ -12,8 +14,10 @@ import (
 )
 
 func initBlockDB() {
-	path := "/tmp/blkidx"
-
+	path, err := ioutil.TempDir("/tmp", "blockIndex")
+	if err != nil {
+		log.Error("errr%v", err)
+	}
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
 			FilePath:  path,
@@ -152,16 +156,7 @@ func TestLoadBlockIndexGuts(t *testing.T) {
 
 func TestWriteBatchSync(t *testing.T) {
 	initBlockDB()
-	//blkfi := make(map[int32]*block.BlockFileInfo)
 	blkHeader := block.NewBlockHeader()
-	//idx := blockindex.NewBlockIndex(blkHeader)
-	//idxs := make([]*blockindex.BlockIndex, 0, 10)
-	//idxs = append(idxs, idx)
-	//err := GetInstance().WriteBatchSync(blkfi, 100, idxs)
-	//if err != nil {
-	//	t.Errorf("write blockFileInfo failed.")
-	//}
-
 	bfi1 := make(map[int32]*block.BlockFileInfo)
 	fi := block.NewBlockFileInfo()
 	fi.UndoSize = 0
@@ -169,7 +164,6 @@ func TestWriteBatchSync(t *testing.T) {
 	fi.Blocks = 1
 	fi.HeightFirst = 1
 	fi.HeightLast = 2
-
 	bfi1[1] = fi
 
 	//init block header
