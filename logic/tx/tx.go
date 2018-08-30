@@ -471,9 +471,12 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	//check inputs money range
 	bestBlockHash, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
-	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
+	spendHeight, err := chain.GetInstance().GetSpendHeight(&bestBlockHash)
+	if err != nil {
+		return err
+	}
 
-	err := CheckInputsMoney(tx, tempCoinMap, spendHeight)
+	err = CheckInputsMoney(tx, tempCoinMap, spendHeight)
 	if err != nil {
 		return err
 	}
@@ -2289,7 +2292,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())
