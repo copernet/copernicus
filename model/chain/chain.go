@@ -127,13 +127,13 @@ func (c *Chain) TipHeight() int32 {
 	return 0
 }
 
-func (c *Chain) GetSpendHeight(hash *util.Hash) (int32, error) {
+func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
 	index, ok := c.indexMap[*hash]
 	if ok {
-		return index.Height + 1, nil
+		return index.Height + 1
 	}
 
-	return -1, errors.New("indexMap can`t find index")
+	return -1
 }
 
 func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
@@ -423,7 +423,10 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 	return nil
 }
 
-func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) {
+func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error{
+	if bis == nil {
+		return errors.New("nil blockIndex")
+	}
 	branchLen := len(c.branch)
 	branch := make([]*blockindex.BlockIndex, 0, branchLen)
 	for i, bi := range c.branch {
@@ -433,10 +436,10 @@ func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) {
 			if branchLen-1 > i {
 				c.branch = append(branch, c.branch[i+1:]...)
 			}
-			return
+			return nil
 		}
 	}
-	return
+	return nil
 }
 
 func (c *Chain) FindMostWorkChain() *blockindex.BlockIndex {
@@ -450,6 +453,9 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	// We assign the sequence id to blocks only when the full data is available,
 	// to avoid miners withholding blocks but broadcasting headers, to get a
 	// competitive advantage.
+	if bi == nil {
+		return errors.New("nil blockIndex")
+	}
 	bi.SequenceID = 0
 	bi.TimeMax = bi.Header.Time
 	blockProof := pow.GetBlockProof(bi)

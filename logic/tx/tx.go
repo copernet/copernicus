@@ -23,6 +23,7 @@ import (
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/pkg/errors"
 )
 
 var ScriptVerifyChan chan struct {
@@ -471,12 +472,12 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	//check inputs money range
 	bestBlockHash, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
-	spendHeight, err := chain.GetInstance().GetSpendHeight(&bestBlockHash)
-	if err != nil {
-		return err
+	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
+	if spendHeight == -1 {
+		return errors.New("indexMap can`t find block")
 	}
 
-	err = CheckInputsMoney(tx, tempCoinMap, spendHeight)
+	err := CheckInputsMoney(tx, tempCoinMap, spendHeight)
 	if err != nil {
 		return err
 	}
