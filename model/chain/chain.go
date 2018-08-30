@@ -14,7 +14,7 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
