@@ -92,7 +92,7 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			BanScore:        int32(item.BanScore()), // TODO
 			SyncedHeaders:   statsSnap.SyncedHeaders,
 			SyncedBlocks:    statsSnap.SyncedBlocks,
-			Inflight:        statsSnap.Inflight, // TODO
+			Inflight:        statsSnap.Inflight,
 			WhiteListed:     statsSnap.WhiteListed,
 			CashMagic:       statsSnap.UsesCashMagic,
 			BytesSendPerMsg: statsSnap.MapSendBytesPerMsgCmd,
