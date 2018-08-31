@@ -22,7 +22,7 @@ var (
 	mainPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
 	// 2^255 -1
 	regressingPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
-	testNet3PowLimit   = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
+	testNetPowLimit    = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
 )
 
 type ChainTxData struct {
@@ -96,9 +96,13 @@ var MainNetParams = BitcoinParams{
 		SubsidyHalvingInterval: 210000,
 		BIP34Height:            227931,
 		//little endian
-		BIP34Hash:                     *util.HashFromString("000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8"),
-		BIP65Height:                   388381,
-		BIP66Height:                   363725,
+		BIP34Hash: *util.HashFromString("000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8"),
+		// 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
+		BIP65Height: 388381,
+		// 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
+		BIP66Height: 363725,
+		// 000000000000000004a1b34462cb8aeebd5799177f7a29cf28f2d1961716b5b5
+		CSVHeight:                     419328,
 		PowLimit:                      mainPowLimit,
 		TargetTimespan:                60 * 60 * 24 * 14,
 		TargetTimePerBlock:            60 * 10,
@@ -112,11 +116,11 @@ var MainNetParams = BitcoinParams{
 		},
 
 		// The best chain should have at least this much work.
-		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000a0f3064330647e2f6c4828"),
+		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000b8702680bcb0fec8548e05"),
 
 		// By default assume that the signatures in ancestors of this block are
 		// valid.
-		DefaultAssumeValid: *util.HashFromString("000000000000000000e45ad2fbcc5ff3e85f0868dd8f00ad4e92dffabe28f8d2"),
+		DefaultAssumeValid: *util.HashFromString("0000000000000000007e11995a8969e2d8838e72da271cdd1903ae4c6753064a"),
 
 		UAHFHeight: 478559,
 
@@ -128,6 +132,9 @@ var MainNetParams = BitcoinParams{
 
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
+
+		// Wed, 15 May 2019 12:00:00 UTC hard fork
+		GreatWallActivationTime: 1557921600,
 	},
 
 	Name:        "main",
@@ -202,9 +209,10 @@ var TestNetParams = BitcoinParams{
 		BIP34Hash:                      *util.HashFromString("0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8"),
 		BIP65Height:                    581885,
 		BIP66Height:                    330776,
+		CSVHeight:                      770112,
 		AntiReplayOpReturnSunsetHeight: 1250000,
 		AntiReplayOpReturnCommitment:   []byte("Bitcoin: A Peer-to-Peer Electronic Cash System"),
-		PowLimit:                       testNet3PowLimit,
+		PowLimit:                       testNetPowLimit,
 		TargetTimespan:                 60 * 60 * 24 * 14,
 		TargetTimePerBlock:             60 * 10,
 		FPowAllowMinDifficultyBlocks:   true,
@@ -223,16 +231,17 @@ var TestNetParams = BitcoinParams{
 				Timeout:   1493596800,
 			},
 		},
-		MinimumChainWork:   *util.HashFromString("0000000000000000000000000000000000000000000000288002666863267524"),
-		DefaultAssumeValid: *util.HashFromString("00000000ba37a638c096da8e1a843df68f4cc9754124f11034a0b613bbf4ca3e"),
-		UAHFHeight:         1155876,
+		MinimumChainWork:   *util.HashFromString("000000000000000000000000000000000000000000000030015a07e503af3227"),
+		DefaultAssumeValid: *util.HashFromString("00000000000000ba5624709777f8df34b911c16a33a474562aec7360580218cc"),
+		UAHFHeight:         1155875,
 		DAAHeight:          1188697,
 		// May 15, 2018 hard fork
 		MonolithActivationTime: 1526400000,
 
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
-
+		// Wed, 15 May 2019 12:00:00 UTC hard fork
+		GreatWallActivationTime: 1557921600,
 		//CashHardForkActivationTime: 1510600000,
 		GenesisHash: &TestNetGenesisHash,
 		//CashaddrPrefix: "xbctest",
@@ -290,10 +299,30 @@ var TestNetParams = BitcoinParams{
 
 var RegressionNetParams = BitcoinParams{
 	Param: consensus.Param{
-		GenesisHash:        &RegTestGenesisHash,
-		PowLimit:           regressingPowLimit,
-		TargetTimespan:     60 * 60 * 24 * 14,
-		TargetTimePerBlock: 60 * 10,
+		GenesisHash:                   &RegTestGenesisHash,
+		SubsidyHalvingInterval:        150,
+		BIP34Height:                   100000000,
+		BIP34Hash:                     util.Hash{},
+		BIP65Height:                   1351,
+		BIP66Height:                   1251,
+		CSVHeight:                     576,
+		PowLimit:                      regressingPowLimit,
+		TargetTimespan:                60 * 60 * 24 * 14,
+		TargetTimePerBlock:            60 * 10,
+		FPowAllowMinDifficultyBlocks:  true,
+		FPowNoRetargeting:             true,
+		RuleChangeActivationThreshold: 108,
+		MinerConfirmationWindow:       144,
+		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
+			consensus.DeploymentTestDummy: {
+				Bit:       28,
+				StartTime: 0,
+				Timeout:   999999999999,
+			},
+		},
+		MinimumChainWork:   *util.HashFromString("00"),
+		DefaultAssumeValid: *util.HashFromString("00"),
+		UAHFHeight:         0,
 		DAAHeight:          0,
 
 		// May 15, 2018 hard fork.
@@ -301,6 +330,8 @@ var RegressionNetParams = BitcoinParams{
 
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
+
+		GreatWallActivationTime: 1557921600,
 	},
 
 	Name:         "regtest",

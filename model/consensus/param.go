@@ -38,19 +38,23 @@ type Param struct {
 	BIP65Height int32
 	//  Block height at which BIP66 becomes active
 	BIP66Height int32
+	// Block height at which CSV (BIP68, BIP112 and BIP113) becomes active
+	CSVHeight int32
 	//  Block height at which UAHF kicks in
 	UAHFHeight int32
 
 	//  Activation time at which the cash HF kicks in.
 	//CashHardForkActivationTime int64
-	/** Block height at which the new DAA becomes active */
+	// Block height at which the new DAA becomes active
 	DAAHeight int32
 
-	/** Unix time used for MTP activation of May 15 2018, hardfork */
+	// Unix time used for MTP activation of May 15 2018, hardfork
 	MonolithActivationTime int64
 
-	/** Unix time used for MTP activation of Nov 15 2018, hardfork */
+	// Unix time used for MTP activation of Nov 15 2018, hardfork
 	MagneticAnomalyActivationTime int64
+	// Unix time used for MTP activation of 15 May 2019 12:00:00 UTC upgrade */
+	GreatWallActivationTime int64
 
 	// Minimum blocks including miner confirmation of the total of 2016 blocks
 	// in a retargeting period, (nPowTargetTimespan / nPowTargetSpacing) which
