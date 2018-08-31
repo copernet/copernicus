@@ -14,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
+	"errors"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
@@ -127,8 +128,12 @@ func (c *Chain) TipHeight() int32 {
 }
 
 func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
-	index := c.indexMap[*hash]
-	return index.Height + 1
+	index, ok := c.indexMap[*hash]
+	if ok {
+		return index.Height + 1
+	}
+
+	return -1
 }
 
 func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
@@ -212,18 +217,27 @@ func (c *Chain) GetIndex(height int32) *blockindex.BlockIndex {
 // Equal Compare two chains efficiently.
 
 func (c *Chain) Equal(dst *Chain) bool {
+	if dst == nil {
+		return false
+	}
 	return len(c.active) == len(dst.active) &&
 		c.active[len(c.active)-1] == dst.active[len(dst.active)-1]
 }
 
 // Contains /** Efficiently check whether a block is present in this chain
 func (c *Chain) Contains(index *blockindex.BlockIndex) bool {
+	if index == nil {
+		return false
+	}
 	return c.GetIndex(index.Height) == index
 }
 
 // Next Find the successor of a block in this chain, or nullptr if the given
 // index is not found or is the tip.
 func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
+	if index == nil {
+		return nil
+	}
 	if c.Contains(index) {
 		return c.GetIndex(index.Height + 1)
 	}
@@ -338,6 +352,9 @@ func (c *Chain) FindFork(blIndex *blockindex.BlockIndex) *blockindex.BlockIndex 
 
 // ParentInBranch finds blockindex'parent in branch
 func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
+	if pindex == nil {
+		return false
+	}
 	for _, bi := range c.branch {
 		bh := pindex.Header
 		if bi.GetBlockHash().IsEqual(&bh.HashPrevBlock) {
@@ -349,6 +366,9 @@ func (c *Chain) ParentInBranch(pindex *blockindex.BlockIndex) bool {
 
 // InBranch finds blockindex in branch
 func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
+	if pindex == nil {
+		return false
+	}
 	for _, bi := range c.branch {
 		bh := pindex.GetBlockHash()
 		if bi.GetBlockHash().IsEqual(bh) {
@@ -367,7 +387,13 @@ func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	})
 }
 
-func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
+func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
+	if bis == nil {
+		return errors.New("nil blockIndex")
+	}
+	if bis.Prev == nil && !bis.IsGenesis(c.params) {
+		return errors.New("no blockIndexPrev")
+	}
 
 	q := queue.New()
 	q.Add(bis)
@@ -394,9 +420,13 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) {
 			delete(c.orphan, *preHash)
 		}
 	}
+	return nil
 }
 
-func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) {
+func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error{
+	if bis == nil {
+		return errors.New("nil blockIndex")
+	}
 	branchLen := len(c.branch)
 	branch := make([]*blockindex.BlockIndex, 0, branchLen)
 	for i, bi := range c.branch {
@@ -406,10 +436,10 @@ func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) {
 			if branchLen-1 > i {
 				c.branch = append(branch, c.branch[i+1:]...)
 			}
-			return
+			return nil
 		}
 	}
-	return
+	return nil
 }
 
 func (c *Chain) FindMostWorkChain() *blockindex.BlockIndex {
@@ -423,6 +453,9 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	// We assign the sequence id to blocks only when the full data is available,
 	// to avoid miners withholding blocks but broadcasting headers, to get a
 	// competitive advantage.
+	if bi == nil {
+		return errors.New("nil blockIndex")
+	}
 	bi.SequenceID = 0
 	bi.TimeMax = bi.Header.Time
 	blockProof := pow.GetBlockProof(bi)

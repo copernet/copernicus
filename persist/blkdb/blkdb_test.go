@@ -176,6 +176,9 @@ func TestWriteBatchSync(t *testing.T) {
 	}
 
 	lastFile, err := GetInstance().ReadLastBlockFile()
+	if lastFile != 1 {
+		t.Error("the lastfile value is 1, please check.")
+	}
 	if err != nil {
 		t.Error("read last block file failed")
 	}
