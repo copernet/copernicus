@@ -500,7 +500,8 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 				log.Debug("verifyScript err, but without StandardNotMandatoryVerifyFlags success")
 				return errcode.New(errcode.TxErrRejectNonstandard)
 			}
-			log.Debug("verifyScript err, coin:%v, preout:%v", *coin, *in.PreviousOutPoint)
+			log.Debug("verifyScript err, coin:%v, preout hash: %s, preout index: %d", *coin,
+				in.PreviousOutPoint.Hash.String(), in.PreviousOutPoint.Index)
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
 	}
