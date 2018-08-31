@@ -379,6 +379,7 @@ type StatsSnap struct {
 	PingWait              float64
 	SyncedHeaders         int
 	SyncedBlocks          int
+	Inflight              []int
 	WhiteListed           bool
 	UsesCashMagic         bool
 	MapSendBytesPerMsgCmd map[string]uint64
