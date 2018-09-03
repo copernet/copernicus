@@ -27,11 +27,8 @@ const (
 	blockDbNamePrefix = "blocks"
 )
 
-// btcdMain is the real main function for btcd.  It is necessary to work around
-// the fact that deferred functioπns do not run when os.Exit() is called.  The
-// optional serverChan parameter is mainly used by the service code to be
-// notified with the server once it is setup so it can gracefully stop it when
-// requested from the service control manager.
+// bchMain is the real main function for copernicus.  It is necessary to work around
+// the fact that deferred functions do not run when os.Exit() is called.
 func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
