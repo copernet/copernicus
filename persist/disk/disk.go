@@ -274,6 +274,7 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	err := block.Serialize(buf)
 	if err != nil {
 		log.Error("Serialize buf failed, please check.")
+		return false
 	}
 	size := buf.Len()
 	lenBuf := bytes.NewBuffer(nil)
