@@ -1,12 +1,15 @@
 package cashaddr
 
 import (
-	"errors"
 	"fmt"
-	"github.com/copernet/copernicus/model/chainparams"
-	"github.com/copernet/copernicus/model/opcodes"
-	"github.com/copernet/copernicus/model/script"
+	"errors"
+
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/chainparams"
+
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -70,7 +73,7 @@ const (
 func init() {
 	Prefixes = make(map[string]string)
 	Prefixes[chainparams.MainNetParams.Name] = "bitcoincash"
-	Prefixes[chainparams.TestNet3Params.Name] = "bchtest"
+	Prefixes[chainparams.TestNetParams.Name] = "bchtest"
 	Prefixes[chainparams.RegressionNetParams.Name] = "bchreg"
 }
 
@@ -595,16 +598,51 @@ func cashPayToAddrScript(addr Address) ([]byte, error) {
 // output to a 20-byte pubkey hash. It is expected that the input is a valid
 // hash.
 func payToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
-	return script.NewScriptBuilder().AddOp(opcodes.OP_DUP).AddOp(opcodes.OP_HASH160).
-		AddData(pubKeyHash).AddOp(opcodes.OP_EQUALVERIFY).AddOp(opcodes.OP_CHECKSIG).
-		Script()
+	sc := script.NewEmptyScript()
+	err := sc.PushOpCode(opcodes.OP_DUP)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+	err = sc.PushOpCode(opcodes.OP_HASH160)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+	err = sc.PushSingleData(pubKeyHash)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+	err = sc.PushOpCode(opcodes.OP_EQUALVERIFY)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+	err = sc.PushOpCode(opcodes.OP_CHECKSIG)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+
+	data := sc.GetData()
+	return data, err
 }
 
 // payToScriptHashScript creates a new script to pay a transaction output to a
 // script hash. It is expected that the input is a valid hash.
 func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
-	return script.NewScriptBuilder().AddOp(opcodes.OP_HASH160).AddData(scriptHash).
-		AddOp(opcodes.OP_EQUAL).Script()
+	sc := script.NewEmptyScript()
+	err := sc.PushOpCode(opcodes.OP_HASH160)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+	err = sc.PushSingleData(scriptHash)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+	err = sc.PushOpCode(opcodes.OP_EQUAL)
+	if err != nil {
+		log.Error("push opcode failed")
+	}
+
+	data:=sc.GetData()
+	return data,err
 }
 
 // ExtractPkScriptAddrs returns the type of script, addresses and required
