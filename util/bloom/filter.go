@@ -204,7 +204,7 @@ func (bf *Filter) add(data []byte) {
 	///  filter[arrayIndex] |= 1<<bitOffset
 	for i := uint32(0); i < bf.msgFilterLoad.HashFuncs; i++ {
 		idx := bf.hash(i, data)
-		bf.msgFilterLoad.Filter[idx>>3] |= (1 << (7 & idx))
+		bf.msgFilterLoad.Filter[idx>>3] |= 1 << (7 & idx)
 	}
 }
 
