@@ -119,11 +119,14 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 
 	var extraFlags uint32 = script.ScriptVerifyNone
 	tip := chain.GetInstance().Tip()
-	if tip.IsMonolithEnabled(chainparams.ActiveNetParams) {
+	//if chainparams.IsMagneticAnomalyEnable(tip.GetMedianTimePast()) {
+	//	extraFlags |= script.ScriptEnableCheckDataSig
+	//}
+	if chainparams.IsMonolithEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableMonolithOpcodes
 	}
 
-	if tip.IsReplayProtectionEnabled(chainparams.ActiveNetParams) {
+	if chainparams.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableReplayProtection
 	}
 	scriptVerifyFlags |= extraFlags
@@ -181,13 +184,13 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	return nil
 }
 
-func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
+func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		log.Debug("no transactions err")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
-	err := checkBlockContextureCoinBaseTransaction(txs[0], blockHeight)
+	err := contextureCheckBlockCoinBaseTransaction(txs[0], blockHeight)
 	if err != nil {
 		return err
 	}
@@ -201,23 +204,23 @@ func CheckBlockContextureTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	return nil
 }
 
-func ApplyGeniusBlockTransactions(txs []*tx.Tx) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
-	coinMap = utxo.NewEmptyCoinsMap()
-	bundo = undo.NewBlockUndo(0)
-	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
-	for _, transaction := range txs {
-		if transaction.IsCoinBase() {
-			TxUpdateCoins(transaction, coinMap, nil, 0)
-			continue
-		}
-		txundo := undo.NewTxUndo()
-		TxUpdateCoins(transaction, coinMap, txundo, 0)
-		txUndoList = append(txUndoList, txundo)
-	}
-
-	bundo.SetTxUndo(txUndoList)
-	return
-}
+//func ApplyGeniusBlockTransactions(txs []*tx.Tx) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+//	coinMap = utxo.NewEmptyCoinsMap()
+//	bundo = undo.NewBlockUndo(0)
+//	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+//	for _, transaction := range txs {
+//		if transaction.IsCoinBase() {
+//			TxUpdateCoins(transaction, coinMap, nil, 0)
+//			continue
+//		}
+//		txundo := undo.NewTxUndo()
+//		TxUpdateCoins(transaction, coinMap, txundo, 0)
+//		txUndoList = append(txUndoList, txundo)
+//	}
+//
+//	bundo.SetTxUndo(txUndoList)
+//	return
+//}
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
 	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
@@ -298,7 +301,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 }
 
 // check coinbase with height
-func checkBlockContextureCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
+func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 	// Enforce rule that the coinbase starts with serialized block height
 	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
@@ -327,12 +330,12 @@ func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTim
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 
-	if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
-		if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
-			log.Debug("transaction is commitment")
-			return errcode.New(errcode.TxErrRejectInvalid)
-		}
-	}
+	//if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
+	//	if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
+	//		log.Debug("transaction is commitment")
+	//		return errcode.New(errcode.TxErrRejectInvalid)
+	//	}
+	//}
 
 	return nil
 }
@@ -2294,7 +2297,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		var scriptSig *script.Script
 		var sigData [][]byte
 		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay) | crypto.SigHashForkID)) != crypto.SigHashSingle ||
+		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
 			i < transaction.GetOutsCount() {
 			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
 				i, coin.GetAmount())

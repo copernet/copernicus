@@ -7,6 +7,7 @@ type ChainErr int
 const (
 	ErrorBlockHeaderNoValid ChainErr = ChainErrorBase + iota
 	ErrorBlockHeaderNoParent
+	ErrorBlockSize
 	ErrorPowCheckErr
 	ErrorBadTxnMrklRoot
 	ErrorbadTxnsDuplicate

@@ -158,6 +158,9 @@ const (
 	// Enable new opcodes.
 	//
 	ScriptEnableMonolithOpcodes = (1 << 18)
+	// Is OP_CHECKDATASIG and variant are enabled.
+	//
+	//ScriptEnableCheckDataSig = (1 << 18)
 
 	ScriptMaxOpReturnRelay uint = 223
 )
@@ -583,7 +586,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 		data := make([]byte, 0, 1)
 		data = append(data, byte(opM))
 		pubKeys = append(pubKeys, data)
-		for _, e := range s.ParsedOpCodes[1:len - 2] {
+		for _, e := range s.ParsedOpCodes[1 : len-2] {
 			if e.Length >= 33 && e.Length <= 65 {
 				pubKeyCount++
 				//data := s.ParsedOpCodes[i+1].Data[:]
@@ -593,7 +596,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 			}
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		opValueI := s.ParsedOpCodes[len - 2].OpValue
+		opValueI := s.ParsedOpCodes[len-2].OpValue
 		if opValueI == opcodes.OP_0 || (opValueI >= opcodes.OP_1 && opValueI <= opcodes.OP_16) {
 			opN := DecodeOPN(opValueI)
 			// Support up to x-of-3 multisig txns as standard
@@ -654,6 +657,7 @@ func (s *Script) IsPushOnly() bool {
 
 }
 
+//func (s *Script) GetSigOpCount(flags uint32, accurate bool) int {
 func (s *Script) GetSigOpCount(accurate bool) int {
 	n := 0
 	var lastOpcode byte
@@ -661,6 +665,10 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 		opcode := e.OpValue
 		if opcode == opcodes.OP_CHECKSIG || opcode == opcodes.OP_CHECKSIGVERIFY {
 			n++
+			//} else if opcode == opcodes.OP_CHECKDATASIG || opcode == opcodes.OP_CHECKDATASIGVERIFY {
+			//	if flags&ScriptEnableCheckDataSig == ScriptEnableCheckDataSig {
+			//		n++
+			//	}
 		} else if opcode == opcodes.OP_CHECKMULTISIG || opcode == opcodes.OP_CHECKMULTISIGVERIFY {
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
 				opn := DecodeOPN(lastOpcode)
@@ -674,10 +682,14 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 	return n
 }
 
+//func (s *Script) GetP2SHSigOpCount(flags uint32) int {
 func (s *Script) GetP2SHSigOpCount() int {
 	// This is a pay-to-script-hash scriptPubKey;
 	// get the last item that the scriptSig
 	// pushes onto the stack:
+	if s.badOpCode {
+		return 0
+	}
 	for _, e := range s.ParsedOpCodes {
 		opcode := e.OpValue
 		if opcode > opcodes.OP_16 {
@@ -686,6 +698,7 @@ func (s *Script) GetP2SHSigOpCount() int {
 	}
 	lastOps := s.ParsedOpCodes[len(s.ParsedOpCodes)-1]
 	tempScript := NewScriptRaw(lastOps.Data)
+	//return tempScript.GetSigOpCount(flags, true)
 	return tempScript.GetSigOpCount(true)
 
 }

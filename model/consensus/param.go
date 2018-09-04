@@ -54,7 +54,7 @@ type Param struct {
 	// Unix time used for MTP activation of Nov 15 2018, hardfork
 	MagneticAnomalyActivationTime int64
 	// Unix time used for MTP activation of 15 May 2019 12:00:00 UTC upgrade */
-	GreatWallActivationTime int64
+	//GreatWallActivationTime int64
 
 	// Minimum blocks including miner confirmation of the total of 2016 blocks
 	// in a retargeting period, (nPowTargetTimespan / nPowTargetSpacing) which
@@ -80,8 +80,8 @@ type Param struct {
 	// By default assume that the signatures in ancestors of this block are valid.
 	DefaultAssumeValid util.Hash
 
-	AntiReplayOpReturnSunsetHeight int32
-	AntiReplayOpReturnCommitment   []byte
+	//AntiReplayOpReturnSunsetHeight int32
+	//AntiReplayOpReturnCommitment   []byte
 }
 
 func (pm *Param) DifficultyAdjustmentInterval() int64 {

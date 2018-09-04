@@ -26,7 +26,7 @@ func (pow *Pow) GetNextWorkRequired(indexPrev *blockindex.BlockIndex, blHeader *
 	//if indexPrev.GetMedianTimePast() >= params.CashHardForkActivationTime {
 	//	return pow.getNextCashWorkRequired(indexPrev, blHeader, params)
 	//}
-	if indexPrev.IsDAAEnabled(params) {
+	if chainparams.IsDAAEnabled(indexPrev.Height) {
 		return pow.getNextCashWorkRequired(indexPrev, blHeader, params)
 	}
 

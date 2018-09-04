@@ -315,18 +315,6 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 //	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
 //}
 
-func (bIndex *BlockIndex) IsDAAEnabled(params *chainparams.BitcoinParams) bool {
-	return bIndex.Height >= params.DAAHeight
-}
-
-func (bIndex *BlockIndex) IsMonolithEnabled(params *chainparams.BitcoinParams) bool {
-	return bIndex.GetMedianTimePast() >= params.MonolithActivationTime
-}
-
-func (bIndex *BlockIndex) IsReplayProtectionEnabled(params *chainparams.BitcoinParams) bool {
-	return bIndex.GetMedianTimePast() >= params.MagneticAnomalyActivationTime
-}
-
 func (bIndex *BlockIndex) GetSerializeList() []string {
 	dumpList := []string{"Height", "Status", "TxCount", "File", "DataPos", "UndoPos", "Header"}
 	return dumpList

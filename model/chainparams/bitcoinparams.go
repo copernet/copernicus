@@ -116,11 +116,11 @@ var MainNetParams = BitcoinParams{
 		},
 
 		// The best chain should have at least this much work.
-		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000b8702680bcb0fec8548e05"),
+		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000a0f3064330647e2f6c4828"),
 
 		// By default assume that the signatures in ancestors of this block are
 		// valid.
-		DefaultAssumeValid: *util.HashFromString("0000000000000000007e11995a8969e2d8838e72da271cdd1903ae4c6753064a"),
+		DefaultAssumeValid: *util.HashFromString("000000000000000000e45ad2fbcc5ff3e85f0868dd8f00ad4e92dffabe28f8d2"),
 
 		UAHFHeight: 478559,
 
@@ -134,7 +134,7 @@ var MainNetParams = BitcoinParams{
 		MagneticAnomalyActivationTime: 1542300000,
 
 		// Wed, 15 May 2019 12:00:00 UTC hard fork
-		GreatWallActivationTime: 1557921600,
+		//GreatWallActivationTime: 1557921600,
 	},
 
 	Name:        "main",
@@ -204,21 +204,21 @@ var MainNetParams = BitcoinParams{
 
 var TestNetParams = BitcoinParams{
 	Param: consensus.Param{
-		SubsidyHalvingInterval:         210000,
-		BIP34Height:                    21111,
-		BIP34Hash:                      *util.HashFromString("0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8"),
-		BIP65Height:                    581885,
-		BIP66Height:                    330776,
-		CSVHeight:                      770112,
-		AntiReplayOpReturnSunsetHeight: 1250000,
-		AntiReplayOpReturnCommitment:   []byte("Bitcoin: A Peer-to-Peer Electronic Cash System"),
-		PowLimit:                       testNetPowLimit,
-		TargetTimespan:                 60 * 60 * 24 * 14,
-		TargetTimePerBlock:             60 * 10,
-		FPowAllowMinDifficultyBlocks:   true,
-		FPowNoRetargeting:              false,
-		RuleChangeActivationThreshold:  1512,
-		MinerConfirmationWindow:        2016,
+		SubsidyHalvingInterval: 210000,
+		BIP34Height:            21111,
+		BIP34Hash:              *util.HashFromString("0000000023b3a96d3484e5abb3755c413e7d41500f8e2a5c3f0dd01299cd8ef8"),
+		BIP65Height:            581885,
+		BIP66Height:            330776,
+		CSVHeight:              770112,
+		//AntiReplayOpReturnSunsetHeight: 1250000,
+		//AntiReplayOpReturnCommitment:   []byte("Bitcoin: A Peer-to-Peer Electronic Cash System"),
+		PowLimit:                      testNetPowLimit,
+		TargetTimespan:                60 * 60 * 24 * 14,
+		TargetTimePerBlock:            60 * 10,
+		FPowAllowMinDifficultyBlocks:  true,
+		FPowNoRetargeting:             false,
+		RuleChangeActivationThreshold: 1512,
+		MinerConfirmationWindow:       2016,
 		Deployments: [consensus.MaxVersionBitsDeployments]consensus.BIP9Deployment{
 			consensus.DeploymentTestDummy: {
 				Bit:       28,
@@ -231,8 +231,8 @@ var TestNetParams = BitcoinParams{
 				Timeout:   1493596800,
 			},
 		},
-		MinimumChainWork:   *util.HashFromString("000000000000000000000000000000000000000000000030015a07e503af3227"),
-		DefaultAssumeValid: *util.HashFromString("00000000000000ba5624709777f8df34b911c16a33a474562aec7360580218cc"),
+		MinimumChainWork:   *util.HashFromString("00000000000000000000000000000000000000000000002a650f6ff7649485da"),
+		DefaultAssumeValid: *util.HashFromString("0000000000327972b8470c11755adf8f4319796bafae01f5a6650490b98a17db"),
 		UAHFHeight:         1155875,
 		DAAHeight:          1188697,
 		// May 15, 2018 hard fork
@@ -241,7 +241,7 @@ var TestNetParams = BitcoinParams{
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
 		// Wed, 15 May 2019 12:00:00 UTC hard fork
-		GreatWallActivationTime: 1557921600,
+		//GreatWallActivationTime: 1557921600,
 		//CashHardForkActivationTime: 1510600000,
 		GenesisHash: &TestNetGenesisHash,
 		//CashaddrPrefix: "xbctest",
@@ -319,6 +319,11 @@ var RegressionNetParams = BitcoinParams{
 				StartTime: 0,
 				Timeout:   999999999999,
 			},
+			consensus.DeploymentCSV: {
+				Bit:       0,
+				StartTime: 0,
+				Timeout:   999999999999,
+			},
 		},
 		MinimumChainWork:   *util.HashFromString("00"),
 		DefaultAssumeValid: *util.HashFromString("00"),
@@ -331,7 +336,7 @@ var RegressionNetParams = BitcoinParams{
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
 
-		GreatWallActivationTime: 1557921600,
+		//GreatWallActivationTime: 1557921600,
 	},
 
 	Name:         "regtest",
@@ -426,4 +431,16 @@ func mustRegister(bp *BitcoinParams) {
 //IsUAHFEnabled Check is UAHF has activated.
 func IsUAHFEnabled(height int32) bool {
 	return height >= ActiveNetParams.UAHFHeight
+}
+
+func IsMonolithEnabled(medianTimePast int64) bool {
+	return medianTimePast >= ActiveNetParams.MonolithActivationTime
+}
+
+func IsDAAEnabled(height int32) bool {
+	return height >= ActiveNetParams.DAAHeight
+}
+
+func IsReplayProtectionEnabled(medianTimePast int64) bool {
+	return medianTimePast >= ActiveNetParams.MagneticAnomalyActivationTime
 }

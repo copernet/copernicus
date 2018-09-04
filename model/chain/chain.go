@@ -3,6 +3,7 @@ package chain
 import (
 	"sort"
 
+	"errors"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -14,7 +15,6 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
-	"errors"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
@@ -161,12 +161,14 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-
 	if pindex.Height+1 >= param.BIP65Height {
-
 		flags |= script.ScriptVerifyCheckLockTimeVerify
 	}
 
+	// Start enforcing CSV (BIP68, BIP112 and BIP113) rule.
+	//if pindex.Height+1 >= param.CSVHeight {
+	//	flags |= script.ScriptVerifyCheckSequenceVerify
+	//}
 	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
 	if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		flags |= script.ScriptVerifyCheckSequenceVerify
@@ -186,18 +188,22 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//	flags |= script.ScriptVerifyLowS
 	//	flags |= script.ScriptVerifyNullFail
 	//}
-	if pindex.IsDAAEnabled(param) {
+	if chainparams.IsDAAEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
 	}
-	// The monolith HF enable a set of opcodes.
-	if pindex.IsMonolithEnabled(param) {
+	//The monolith HF enable a set of opcodes.
+	if chainparams.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
-
+	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
+	//	flags |= script.ScriptEnableCheckDataSig
+	//	flags |= script.ScriptVerifySigPushOnly
+	//	flags |= script.ScriptVerifyCleanStack
+	//}
 	// We make sure this node will have replay protection during the next hard
 	// fork.
-	if pindex.IsReplayProtectionEnabled(param) {
+	if chainparams.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableReplayProtection
 	}
 
@@ -423,7 +429,7 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 	return nil
 }
 
-func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error{
+func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error {
 	if bis == nil {
 		return errors.New("nil blockIndex")
 	}

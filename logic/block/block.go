@@ -43,19 +43,18 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block) (*block.DiskBl
 }
 
 func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
-
 	params := chain.GetInstance().GetParams()
 	lockTimeFlags := 0
 	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
 		lockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
 
-	medianTimePast := indexPrev.GetMedianTimePast()
-	if indexPrev == nil {
-		medianTimePast = 0
+	var medianTimePast int64 = 0
+	if indexPrev != nil {
+		medianTimePast = indexPrev.GetMedianTimePast()
 	}
-	bh := block.Header
-	lockTimeCutoff := int64(bh.Time)
+
+	lockTimeCutoff := int64(block.Header.Time)
 	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
 		lockTimeCutoff = medianTimePast
 	}
@@ -118,15 +117,25 @@ func CheckBlock(pblock *block.Block) error {
 
 func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
 
-	var height int32
+	bMonolithEnable := false
+	if indexPrev != nil && chainparams.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
+		bMonolithEnable = true
+	}
+	if !bMonolithEnable {
+		if b.EncodeSize() > 8*consensus.OneMegaByte {
+			return errcode.New(errcode.ErrorBlockSize)
+		}
+	}
+	var height int32 = 0
 	if indexPrev != nil {
 		height = indexPrev.Height + 1
 	}
+
 	lockTimeCutoff := getLockTime(b, indexPrev)
 
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized block height
-	err := ltx.CheckBlockContextureTransactions(b.Txs, height, lockTimeCutoff)
+	err := ltx.ContextureCheckBlockTransactions(b.Txs, height, lockTimeCutoff)
 	return err
 }
 
