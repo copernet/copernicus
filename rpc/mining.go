@@ -75,9 +75,9 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	maxTime := minTime
 	for i := 0; i < lookup; i++ {
 		b = b.Prev
-		// time := b.GetBlockTime()
-		//minTime = utils.Min(time, minTime)          TODO
-		//maxTime = utils.Max(time, maxTime)  		  TODO
+		blockTime := b.GetBlockTime()
+		minTime = util.MinU32(blockTime, minTime)
+		maxTime = util.MaxU32(blockTime, maxTime)
 	}
 
 	if minTime == maxTime {
