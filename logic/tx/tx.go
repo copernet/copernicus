@@ -51,11 +51,12 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	// check common locktime, sequence final can disable it
 	err = ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
-		return err
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	// is mempool already have it? conflict tx with mempool
-	if mempool.GetInstance().FindTx(transaction.GetHash()) != nil {
+	gPool := mempool.GetInstance()
+	if gPool.FindTx(transaction.GetHash()) != nil {
 		log.Debug("tx already known in mempool")
 		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
@@ -63,24 +64,22 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	// check preout already spent
 	ins := transaction.GetIns()
 	for _, e := range ins {
-		if mempool.GetInstance().HasSpentOut(e.PreviousOutPoint) {
+		if gPool.HasSpentOut(e.PreviousOutPoint) {
 			log.Debug("tx ins alread spent out in mempool")
 			return errcode.New(errcode.TxErrRejectConflict)
 		}
 	}
 
 	// check outpoint alread exist
-	exist := areOutputsAlreadExist(transaction)
-	if exist {
+	if areOutputsAlreadExist(transaction) {
 		log.Debug("tx already known in utxo")
 		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
 	// check inputs are avaliable
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
-	err = areInputsAvailable(transaction, tempCoinsMap)
-	if err != nil {
-		return err
+	if !areInputsAvailable(transaction, tempCoinsMap) {
+		return errcode.New(errcode.TxErrNoPreviousOut)
 	}
 
 	// CLTV(CheckLockTimeVerify)
@@ -364,7 +363,7 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	return false
 }
 
-func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
+func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 	gMempool := mempool.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
@@ -375,16 +374,16 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) error {
 		}
 		if coin == nil {
 			log.Debug("inpute can't find coin")
-			return errcode.New(errcode.TxErrNoPreviousOut)
+			return false
 		}
 		if coin.IsSpent() {
 			log.Debug("inpute coin is already spent out")
-			return errcode.New(errcode.TxErrInputsNotAvailable)
+			return false
 		}
 		coinMap.AddCoin(e.PreviousOutPoint, coin, coin.IsCoinBase())
 	}
 
-	return nil
+	return true
 }
 
 func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
@@ -433,6 +432,12 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 	}
 
 	activeChain := chain.GetInstance()
+
+	// BIP113 will require that time-locked transactions have nLockTime set to
+	// less than the median time of the previous block they're contained in.
+	// When the next block is created its previous block will be the current
+	// chain tip, so we use that to calculate the median time passed to
+	// ContextualCheckTransaction() if LOCKTIME_MEDIAN_TIME_PAST is set.
 	var nLockTimeCutoff int64
 	if flags&consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
@@ -2227,7 +2232,7 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
 			log.Debug("CheckInputsMoney can't find coin")
-			return errcode.New(errcode.TxErrInputsNotAvailable)
+			panic("CheckInputsMoney can't find coin")
 		}
 		if coin.IsCoinBase() {
 			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {

@@ -386,13 +386,13 @@ func (tx *Tx) CheckStandard() error {
 	// check version
 	if tx.version > MaxStandardVersion || tx.version < 1 {
 		log.Debug("TxErrBadVersion")
-		return errcode.New(errcode.TxErrBadVersion)
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	// check size
 	if tx.EncodeSize() > uint32(MaxStandardTxSize) {
-		log.Debug("TxErrBadVersion")
-		return errcode.New(errcode.TxErrOverSize)
+		log.Debug("TxErrBadStandardSize")
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	// check inputs script
@@ -412,25 +412,24 @@ func (tx *Tx) CheckStandard() error {
 		}
 		if pubKeyType == script.ScriptNullData {
 			nDataOut++
-			// only one OP_RETURN txout is permitted
-			if nDataOut > 1 {
-				log.Debug("TxErrMultiOpReturn")
-				return errcode.New(errcode.ScriptErrMultiOpReturn)
-			}
-		}
-		if pubKeyType == script.ScriptMultiSig && !conf.Cfg.Script.IsBareMultiSigStd {
+		} else if pubKeyType == script.ScriptMultiSig && !conf.Cfg.Script.IsBareMultiSigStd {
 			log.Debug("TxErrBareMultiSig")
-			return errcode.New(errcode.ScriptErrBareMultiSig)
-		}
-		if out.IsDust(util.NewFeeRate(conf.Cfg.TxOut.DustRelayFee)) {
+			return errcode.New(errcode.TxErrRejectNonstandard)
+		} else if out.IsDust(util.NewFeeRate(conf.Cfg.TxOut.DustRelayFee)) {
 			log.Debug("TxErrDustOut")
-			return errcode.New(errcode.ScriptErrDustOut)
+			return errcode.New(errcode.TxErrRejectNonstandard)
 		}
+	}
+
+	// only one OP_RETURN txout is permitted
+	if nDataOut > 1 {
+		log.Debug("TxErrMultiOpReturn")
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
 		log.Debug("TxBadSigOps")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 	return nil
 }
@@ -475,11 +474,11 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		log.Debug("SignStep CheckScriptPubKeyStandard err")
-		return nil, script.ScriptNonStandard, errcode.New(errcode.TxErrInputsNotAvailable)
+		return nil, pubKeyType, errcode.New(errcode.TxErrRejectInvalid)
 	}
 	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
 		log.Debug("SignStep CheckScriptPubKeyStandard err")
-		return nil, pubKeyType, errcode.New(errcode.TxErrInputsNotAvailable)
+		return nil, pubKeyType, errcode.New(errcode.TxErrRejectInvalid)
 	}
 	if pubKeyType == script.ScriptMultiSig {
 		sigData = make([][]byte, 0, len(pubKeys)-2)

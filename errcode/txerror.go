@@ -29,8 +29,6 @@ const (
 	TxErrNotFinal
 	TxErrTxCommitment
 	TxErrMempoolAlreadyExist
-	TxErrPreOutAlreadySpent
-	TxErrInputsNotAvailable
 	TxErrOutAlreadHave
 	TxErrInputsMoneyTooLarge
 	TxErrInputsMoneyBigThanOut

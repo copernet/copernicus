@@ -205,7 +205,7 @@ type Configuration struct {
 	}
 	Script struct {
 		AcceptDataCarrier   bool `default:"true"`
-		MaxDatacarrierBytes uint `default:"83"`
+		MaxDatacarrierBytes uint `default:"223"`
 		IsBareMultiSigStd   bool `default:"true"`
 		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
 		PromiscuousMempoolFlags string
@@ -257,8 +257,6 @@ func (c Configuration) Validate() error {
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
 }
-
-
 
 func ExistDataDir(datadir string) bool {
 	_, err := os.Stat(datadir)

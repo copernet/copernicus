@@ -185,7 +185,7 @@ type SyncManager struct {
 	wg                  sync.WaitGroup
 	quit                chan struct{}
 
-	// These fields should only be accessed from the blockHandler thread
+	// These fields should only be accessed from the messagesHandler
 	rejectedTxns    map[util.Hash]struct{}
 	requestedTxns   map[util.Hash]struct{}
 	requestedBlocks map[util.Hash]struct{}
@@ -453,6 +453,9 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	// to disconnect peers for sending unsolicited transactions to provide
 	// interoperability.
 	txHash := tmsg.tx.GetHash()
+
+	// TODO: after active chain's tip changed, previously rejected txs might be now valid, e.g. due to nLockTime'd tx
+	// becoming valid, or a double-spend. Reset the rejects filter and give those txs a second chance.
 
 	// Ignore transactions that we have already rejected.  Do not
 	// send a reject message here because if the transaction was already
@@ -1142,13 +1145,13 @@ func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 	}
 }
 
-// blockHandler is the main handler for the sync manager.  It must be run as a
+// messagesHandler is the main handler for the sync manager.  It must be run as a
 // goroutine.  It processes block and inv messages in a separate goroutine
 // from the peer handlers so the block (MsgBlock) messages are handled by a
 // single thread without needing to lock memory data structures.  This is
 // important because the sync manager controls which blocks are needed and how
 // the fetching should proceed.
-func (sm *SyncManager) blockHandler() {
+func (sm *SyncManager) messagesHandler() {
 out:
 	for {
 		select {
@@ -1400,7 +1403,7 @@ func (sm *SyncManager) Start() {
 
 	log.Trace("Starting sync manager")
 	sm.wg.Add(1)
-	go sm.blockHandler()
+	go sm.messagesHandler()
 }
 
 // Stop gracefully shuts down the sync manager by stopping all asynchronous
