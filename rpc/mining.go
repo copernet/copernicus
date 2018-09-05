@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/model/tx"
 	"math/big"
 
 	"github.com/copernet/copernicus/errcode"
@@ -54,11 +55,11 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	index := chain.GetInstance().Tip()
-	if height > 0 || height < chain.GetInstance().Height() {
+	if height > 0 && height < chain.GetInstance().Height() {
 		index = chain.GetInstance().GetIndex(height)
 	}
 
-	if index == nil || index.Height != 0 {
+	if index == nil || index.Height == 0 {
 		return 0, nil
 	}
 
@@ -92,34 +93,27 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 }
 
 func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
-			networkHashesPerSecIface, err := handleGetNetWorkhashPS(s, gnhpsCmd,
-				closeChan)
-			if err != nil {
-				return nil, err
-			}
-			networkHashesPerSec, ok := networkHashesPerSecIface.(int64)
-			if !ok {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInternal.Code,
-					Message: "networkHashesPerSec is not an int64",
-				}
-			}
+	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
+	networkHashesPerSecIface, err := handleGetNetWorkhashPS(s, gnhpsCmd,
+		closeChan)
+	if err != nil {
+		return nil, err
+	}
+	networkHashesPerSec := fmt.Sprintf("%v", networkHashesPerSecIface)
 
-		index := chain.GetInstance().Tip()
-		result := btcjson.GetMiningInfoResult{
-			Blocks:                  int64(index.Height),
-			CurrentBlockSize:        mining.GetLastBlockSize(),
-			CurrentBlockTx:          mining.GetLastBlockTx(),
-			Difficulty:              getDifficulty(index),
-			BlockPriorityPercentage: util.GetArg("-blockprioritypercentage", 0),
-			//Errors:              ,                            // TODO
-			NetworkHashPS: networkHashesPerSec,
-			//PooledTx:           uint64(mempool.Size()),              TODO
-			Chain: consensus.MainNetParams.Name,
-		}
-		return &result, nil*/ // todo open
-	return nil, nil
+	index := chain.GetInstance().Tip()
+	result := &btcjson.GetMiningInfoResult{
+		Blocks:                  int64(index.Height),
+		CurrentBlockSize:        mining.GetLastBlockSize(),
+		CurrentBlockTx:          mining.GetLastBlockTx(),
+		Difficulty:              getDifficulty(index),
+		BlockPriorityPercentage: tx.DefaultBlockPriorityPercentage, // NOT support this parameter yet
+		Errors:                  "",                                // NOT sure if errors are logged
+		NetworkHashPS:           networkHashesPerSec,
+		PooledTx:                uint64(mempool.GetInstance().Size()),
+		Chain:                   chain.GetInstance().GetParams().Name,
+	}
+	return result, nil
 }
 
 // priority transaction currently disabled

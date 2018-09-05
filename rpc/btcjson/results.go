@@ -444,7 +444,7 @@ type GetMiningInfoResult struct {
 	Difficulty              float64 `json:"difficulty"`
 	BlockPriorityPercentage int64   `json:"blockprioritypercentage"`
 	Errors                  string  `json:"errors"`
-	NetworkHashPS           int64   `json:"networkhashps"`
+	NetworkHashPS           string  `json:"networkhashps"`
 	PooledTx                uint64  `json:"pooledtx"`
 	Chain                   string  `json:"chain"`
 }
