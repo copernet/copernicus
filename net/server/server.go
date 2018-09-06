@@ -1663,10 +1663,8 @@ func (s *Server) peerDoneHandler(sp *serverPeer) {
 	close(sp.quit)
 }
 
-// peerHandler is used to handle peer operations such as adding and removing
-// peers to and from the server, banning peers, and broadcasting messages to
-// peers.  It must be run in a goroutine.
-func (s *Server) peerHandler() {
+// cycle is server's main cycle.  It must be run in a goroutine.
+func (s *Server) cycle() {
 	// Start the address manager and sync manager, both of which are needed
 	// by peers.  This is done here since their lifecycle is closely tied
 	// to this handler and rather than adding more channels to sychronize
@@ -1909,7 +1907,8 @@ func (s *Server) Start() {
 	// Start the peer handler which in turn starts the address and block
 	// managers.
 	s.wg.Add(1)
-	go s.peerHandler()
+
+	go s.cycle()
 
 	if s.nat != nil {
 		s.wg.Add(1)

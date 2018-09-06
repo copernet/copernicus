@@ -4,14 +4,14 @@ import (
 	"io"
 
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"fmt"
-	"encoding/hex"
 )
 
 type TxOut struct {
@@ -74,11 +74,11 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 		return 0
 	}
 	size := txOut.SerializeSize()
-	size += 32 + 4 + 1 + 107 + 4       //=148
+	size += 32 + 4 + 1 + 107 + 4 //=148
 	return 3 * minRelayTxFee.GetFee(int(size))
 }
 
-func (txOut *TxOut) CheckValue() error {          //3
+func (txOut *TxOut) CheckValue() error { //3
 	if !amount.MoneyRange(txOut.value) {
 		log.Warn("bad txout value :%d", txOut.value)
 		return errcode.New(errcode.TxErrRejectInvalid)
@@ -87,15 +87,22 @@ func (txOut *TxOut) CheckValue() error {          //3
 	return nil
 }
 
-func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) {            //4
-	pubKeyType, _, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
+func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) { //4
+	//var pubKeys [][]byte
+	pubKeyType, pubKeys, err := txOut.scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
-		return
+		return pubKeyType, errcode.New(errcode.TxErrRejectNonstandard)
 	}
-	if pubKeyType == script.ScriptNullData {
+	if pubKeyType == script.ScriptMultiSig {
+		opM := pubKeys[0][0]
+		opN := pubKeys[len(pubKeys)-1][0]
+		if opN < 1 || opN > 3 || opM < 1 || opM > opN {
+			return pubKeyType, errcode.New(errcode.TxErrRejectNonstandard)
+		}
+	} else if pubKeyType == script.ScriptNullData {
 		if !conf.Cfg.Script.AcceptDataCarrier || uint(txOut.scriptPubKey.Size()) > conf.Cfg.Script.MaxDatacarrierBytes {
 			log.Debug("ScriptErrNullData")
-			return pubKeyType, errcode.New(errcode.ScriptErrNullData)
+			return pubKeyType, errcode.New(errcode.TxErrRejectNonstandard)
 		}
 	}
 
@@ -130,7 +137,6 @@ func (txOut *TxOut) IsCommitment(data []byte) bool {
 func (txOut *TxOut) IsSpendable() bool {
 	return txOut.scriptPubKey.IsSpendable()
 }
-
 
 func (txOut *TxOut) SetNull() {
 	txOut.value = -1

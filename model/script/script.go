@@ -517,15 +517,15 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 	// So long as script passes the IsUnspendable() test and all but the first
 	// byte passes the IsPushOnly() test we don't care what exactly is in the
 	// script.
-	len := len(s.ParsedOpCodes)
-	if len == 0 {
+	opCodesLen := len(s.ParsedOpCodes)
+	if opCodesLen == 0 {
 		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 	}
 	parsedOpCode0 := s.ParsedOpCodes[0]
 	opValue0 := parsedOpCode0.OpValue
 
 	// OP_RETURN
-	if len == 1 {
+	if opCodesLen == 1 {
 		if parsedOpCode0.OpValue == opcodes.OP_RETURN {
 			return ScriptNullData, nil, nil
 		}
@@ -542,7 +542,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 	}
 
 	//PUBKEY OP_CHECKSIG
-	if len == 2 {
+	if opCodesLen == 2 {
 		if opValue0 > opcodes.OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
 			parsedOpCode0.Length > 65 || s.ParsedOpCodes[1].OpValue != opcodes.OP_CHECKSIG {
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
@@ -557,7 +557,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 
 	//OP_DUP OP_HASH160 PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
 	if opValue0 == opcodes.OP_DUP {
-		if len != 5 {
+		if opCodesLen != 5 {
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		if s.ParsedOpCodes[1].OpValue != opcodes.OP_HASH160 ||
@@ -577,18 +577,16 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
-		if len < 4 {
+		if opCodesLen < 4 {
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		opM := DecodeOPN(opValue0)
-		pubKeyCount := 0
-		pubKeys = make([][]byte, 0, len-1)
+		pubKeys = make([][]byte, 0, opCodesLen-1)
 		data := make([]byte, 0, 1)
 		data = append(data, byte(opM))
 		pubKeys = append(pubKeys, data)
-		for _, e := range s.ParsedOpCodes[1 : len-2] {
+		for _, e := range s.ParsedOpCodes[1 : opCodesLen-2] {
 			if e.Length >= 33 && e.Length <= 65 {
-				pubKeyCount++
 				//data := s.ParsedOpCodes[i+1].Data[:]
 				//data := s.ParsedOpCodes[i].Data[:]
 				pubKeys = append(pubKeys, e.Data)
@@ -596,21 +594,23 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 			}
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		opValueI := s.ParsedOpCodes[len-2].OpValue
+
+		opN := 0
+		opValueI := s.ParsedOpCodes[opCodesLen-2].OpValue
 		if opValueI == opcodes.OP_0 || (opValueI >= opcodes.OP_1 && opValueI <= opcodes.OP_16) {
-			opN := DecodeOPN(opValueI)
-			// Support up to x-of-3 multisig txns as standard
-			if opM < 1 || opN < 1 || opN > 3 || opM > opN || opN != pubKeyCount {
-				return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
-			}
+			opN = DecodeOPN(opValueI)
 			data := make([]byte, 0, 1)
 			data = append(data, byte(opN))
 			pubKeys = append(pubKeys, data)
 		} else {
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
-		if s.ParsedOpCodes[len-1].OpValue != opcodes.OP_CHECKMULTISIG {
+		if s.ParsedOpCodes[opCodesLen-1].OpValue != opcodes.OP_CHECKMULTISIG {
 			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		}
+		// Support up to x-of-3 multisig txns as standard
+		if opM < 1 || opN < 1 || opM > opN || opN != len(pubKeys)-2 {
+			return ScriptMultiSig, nil, errcode.New(errcode.ScriptErrNonStandard)
 		}
 		return ScriptMultiSig, pubKeys, nil
 	}
@@ -621,12 +621,12 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 func (s *Script) CheckScriptSigStandard() error {
 	if s.Size() > 1650 {
 		log.Debug("ScriptErrSize")
-		return errcode.New(errcode.ScriptErrSize)
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 	if !s.IsPushOnly() {
 		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-not-pushonly", false, "")
 		log.Debug("ScriptErrScriptSigNotPushOnly")
-		return errcode.New(errcode.ScriptErrScriptSigNotPushOnly)
+		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	return nil
