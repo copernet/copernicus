@@ -157,7 +157,6 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 
 func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
 	var maxVersionVb uint32
-	maxVersionVb = -1
 	setClientRules := set.New()
 	if len(request.Rules) > 0 { // todo check
 		for _, str := range request.Rules {
