@@ -25,6 +25,7 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"github.com/copernet/copernicus/service"
 )
 
 var miningHandlers = map[string]commandHandler{
@@ -156,6 +157,7 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 
 func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
 	var maxVersionVb uint32
+	maxVersionVb = -1
 	setClientRules := set.New()
 	if len(request.Rules) > 0 { // todo check
 		for _, str := range request.Rules {
@@ -518,53 +520,53 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 const nInnerLoopCount = 0x100000
 
 func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64) (interface{}, error) {
-	//	heightStart := chain.GetInstance().Height()
-	//	heightEnd := heightStart + int32(generate)
-	//	height := heightStart
-	//	params := chainparams.ActiveNetParams
-	//
-	//	ret := make([]string, 0)
-	//	var extraNonce uint
-	//	for height < heightEnd {
-	//		ba := mining.NewBlockAssembler(params)
-	//		bt := ba.CreateNewBlock(coinbaseScript)
-	//		if bt == nil {
-	//			return nil, btcjson.RPCError{
-	//				Code:    btcjson.RPCInternalError,
-	//				Message: "Could not create new block",
-	//			}
-	//		}
-	//
-	//		extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
-	//
-	//		powCheck := pow.Pow{}
-	//		hash := bt.Block.GetHash()
-	//		bits := bt.Block.Header.Bits
-	//		for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount && !powCheck.CheckProofOfWork(&hash, bits, params) {
-	//			bt.Block.Header.Nonce++
-	//			maxTries--
-	//		}
-	//
-	//		if maxTries == 0 {
-	//			break
-	//		}
-	//		if bt.Block.Header.Nonce == nInnerLoopCount {
-	//			continue
-	//		}
-	//
-	//		if service.ProcessNewBlock(bt.Block, true, nil) != nil {
-	//			return nil, btcjson.RPCError{
-	//				Code:    btcjson.RPCInternalError,
-	//				Message: "ProcessNewBlock, block not accepted",
-	//			}
-	//		}
-	//		height++
-	//		ret = append(ret, bt.Block.GetHash().String())
-	//	}
-	//	_ = extraNonce
-	//
-	//	return ret, nil
-	return nil, nil
+	heightStart := chain.GetInstance().Height()
+	heightEnd := heightStart + int32(generate)
+	height := heightStart
+	params := chainparams.ActiveNetParams
+
+	ret := make([]string, 0)
+	var extraNonce uint
+	for height < heightEnd {
+		ba := mining.NewBlockAssembler(params)
+		bt := ba.CreateNewBlock(coinbaseScript)
+		if bt == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "Could not create new block",
+			}
+		}
+
+		extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
+
+		powCheck := pow.Pow{}
+		hash := bt.Block.GetHash()
+		bits := bt.Block.Header.Bits
+		for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount && !powCheck.CheckProofOfWork(&hash, bits, params) {
+			bt.Block.Header.Nonce++
+			maxTries--
+		}
+
+		if maxTries == 0 {
+			break
+		}
+		if bt.Block.Header.Nonce == nInnerLoopCount {
+			continue
+		}
+
+		if service.ProcessNewBlock(bt.Block, true, nil) != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "ProcessNewBlock, block not accepted",
+			}
+		}
+		height++
+		blkHash := bt.Block.GetHash()
+		ret = append(ret, blkHash.String())
+	}
+	_ = extraNonce
+
+	return ret, nil
 }
 
 func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
