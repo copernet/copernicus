@@ -109,7 +109,7 @@ func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 			now = int(length)
 		}
 		// Allowed to fail; this function is advisory anyway.
-		_, err := file.Write(buf[:])
+		_, err := file.Write(buf[:now])
 		if err != nil {
 			panic("the file write failed.")
 		}
