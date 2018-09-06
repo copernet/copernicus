@@ -1,7 +1,19 @@
 package db
 
-//
-//
+
+const (
+	DbCoin       byte = 'C'
+	DbCoins      byte = 'c'
+	DbBlockFiles byte = 'f'
+	DbTxIndex    byte = 't'
+	DbBlockIndex byte = 'b'
+
+	DbBestBlock   byte = 'B'
+	DbFlag        byte = 'F'
+	DbReindexFlag byte = 'R'
+	DbLastBlock   byte = 'l'
+)
+
 //type ISerialize interface{
 //	GetSerializeList()[]string
 //	Unserialize(r io.Reader) error

@@ -222,7 +222,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*blockindex.BlockIndex,
 	params *chainparams.BitcoinParams) bool {
 	// todo for iter and check key、 pow
-	cursor := blockTreeDB.dbw.Iterator()
+	cursor := blockTreeDB.dbw.Iterator(nil)
 	defer cursor.Close()
 	hash := util.Hash{}
 	tmp := make([]byte, 0, 100)

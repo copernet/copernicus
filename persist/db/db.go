@@ -1,29 +1,24 @@
 package db
 
 import (
+	"crypto/rand"
 	"errors"
 	"os"
 	"path/filepath"
 
 	lvldb "github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/memdb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 const (
-	DbCoin       byte = 'C'
-	DbCoins      byte = 'c'
-	DbBlockFiles byte = 'f'
-	DbTxIndex    byte = 't'
-	DbBlockIndex byte = 'b'
-
-	DbBestBlock   byte = 'B'
-	DbFlag        byte = 'F'
-	DbReindexFlag byte = 'R'
-	DbLastBlock   byte = 'l'
+	obfuscateKeyKey = "\000obfuscate_key"
+	obfuscateKeyLen = 8
 )
 
 const (
@@ -38,7 +33,18 @@ type DBWrapper struct {
 	writeOption  opt.WriteOptions
 	syncOption   opt.WriteOptions
 	db           *lvldb.DB
+	mdb          *memdb.DB
 	name         string
+	obfuscateKey []byte
+}
+
+func genObfuscateKey() []byte {
+	buf := make([]byte, obfuscateKeyLen)
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic("failed read random bytes")
+	}
+	return buf
 }
 
 func getOptions(cacheSize int) opt.Options {
@@ -48,7 +54,7 @@ func getOptions(cacheSize int) opt.Options {
 	opts.WriteBuffer = cacheSize / 4
 	opts.Filter = filter.NewBloomFilter(10)
 	opts.Compression = opt.NoCompression
-	opts.OpenFilesCacheCapacity = 11000
+	opts.OpenFilesCacheCapacity = 64
 
 	return opts
 }
@@ -80,13 +86,43 @@ type DBOption struct {
 	FilePath       string
 	CacheSize      int
 	Wipe           bool
+	DontObfuscate  bool
 	ForceCompactdb bool
+	UseMemStore    bool
+}
+
+func writeObfuscateKey(do *DBOption, dbw *DBWrapper) error {
+	exists := false
+	obk, err := dbw.Read([]byte(obfuscateKeyKey))
+	if err == nil {
+		dbw.obfuscateKey = obk
+		exists = true
+	}
+	if !exists && !do.DontObfuscate && dbw.IsEmpty() {
+		newKey := genObfuscateKey()
+		if err := dbw.Write([]byte(obfuscateKeyKey), newKey, false); err != nil {
+			return err
+		}
+		dbw.obfuscateKey = newKey
+	}
+	return nil
 }
 
 func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 	if do == nil {
 		return nil, errors.New("DBWrapper: nil DBOption")
 	}
+	if do.UseMemStore {
+		mdb := memdb.New(comparer.DefaultComparer, do.CacheSize)
+		dbw := &DBWrapper{
+			mdb: mdb,
+		}
+		if err := writeObfuscateKey(do, dbw); err != nil {
+			return nil, err
+		}
+		return dbw, nil
+	}
+
 	opts := getOptions(do.CacheSize)
 	if do.Wipe {
 		if err := destroyDB(do.FilePath); err != nil {
@@ -101,7 +137,6 @@ func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 
 	db, err := lvldb.OpenFile(do.FilePath, &opts)
 	if err != nil {
-		// fmt.Println("lvldb.OpenFile=======%#v, %#v, %#v", err,do.FilePath, opts)
 		return nil, err
 	}
 	if do.ForceCompactdb {
@@ -131,21 +166,62 @@ func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 		syncOption:  so,
 		db:          db,
 		name:        filepath.Base(do.FilePath),
+		//obfuscateKey: make([]byte, 8),
+	}
+	if err := writeObfuscateKey(do, dbw); err != nil {
+		return nil, err
 	}
 	return dbw, nil
 }
 
+func xor(val, obkey []byte) {
+	if len(obkey) == 0 {
+		return
+	}
+	for i, j := 0, 0; i < len(val); i++ {
+		val[i] ^= obkey[j]
+		j++
+		if j == len(obkey) {
+			j = 0
+		}
+	}
+}
+
 func (dbw *DBWrapper) Read(key []byte) ([]byte, error) {
-	return dbw.db.Get(key, &dbw.readOption)
+	var (
+		value []byte
+		err   error
+	)
+	if dbw.mdb != nil {
+		origVal, origErr := dbw.mdb.Get(key)
+		value = append(value, origVal...)
+		err = origErr
+	} else {
+		value, err = dbw.db.Get(key, &dbw.readOption)
+	}
+	if err != nil {
+		return nil, err
+	}
+	xor(value, dbw.obfuscateKey)
+	return value, nil
 }
 
 func (dbw *DBWrapper) Write(key, val []byte, sync bool) error {
+	if dbw.mdb != nil {
+		tmpval := []byte{}
+		tmpval = append(tmpval, val...)
+		xor(tmpval, dbw.obfuscateKey)
+		return dbw.mdb.Put(key, tmpval)
+	}
 	bw := NewBatchWrapper(dbw)
 	bw.Write(key, val)
 	return dbw.WriteBatch(bw, sync)
 }
 
 func (dbw *DBWrapper) WriteBatch(bw *BatchWrapper, sync bool) error {
+	if dbw.mdb != nil {
+		return nil
+	}
 	var opts opt.WriteOptions
 	if sync {
 		opts = dbw.syncOption
@@ -156,6 +232,9 @@ func (dbw *DBWrapper) WriteBatch(bw *BatchWrapper, sync bool) error {
 }
 
 func (dbw *DBWrapper) Exists(key []byte) bool {
+	if dbw.mdb != nil {
+		return dbw.mdb.Contains(key)
+	}
 	_, err := dbw.db.Get(key, &dbw.readOption)
 	if err != nil {
 		if err == lvldb.ErrNotFound {
@@ -168,27 +247,46 @@ func (dbw *DBWrapper) Exists(key []byte) bool {
 }
 
 func (dbw *DBWrapper) Erase(key []byte, sync bool) error {
+	if dbw.mdb != nil {
+		return dbw.mdb.Delete(key)
+	}
 	bw := NewBatchWrapper(dbw)
 	bw.Erase(key)
 	return dbw.WriteBatch(bw, sync)
 }
 
 func (dbw *DBWrapper) Sync() error {
+	if dbw.mdb != nil {
+		return nil
+	}
 	bw := NewBatchWrapper(dbw)
 	return dbw.WriteBatch(bw, true)
 }
 
-func (dbw *DBWrapper) Iterator() *IterWrapper {
-	return NewIterWrapper(dbw, dbw.db.NewIterator(nil, &dbw.iterOption))
+func (dbw *DBWrapper) Iterator(slice *util.Range) *IterWrapper {
+	if dbw.mdb != nil {
+		return NewIterWrapper(dbw, dbw.mdb.NewIterator(slice))
+	}
+	return NewIterWrapper(dbw, dbw.db.NewIterator(slice, &dbw.iterOption))
+}
+
+func (dbw *DBWrapper) Prefix(prefix []byte) *IterWrapper {
+	return dbw.Iterator(util.BytesPrefix(prefix))
 }
 
 func (dbw *DBWrapper) IsEmpty() bool {
-	it := dbw.Iterator()
+	if dbw.mdb != nil {
+		return dbw.mdb.Len() == 0
+	}
+	it := dbw.Iterator(nil)
 	it.SeekToFirst()
 	return !it.Valid()
 }
 
 func (dbw *DBWrapper) EstimateSize(begin, end []byte) uint64 {
+	if dbw.mdb != nil {
+		return uint64(dbw.mdb.Size())
+	}
 	r := []util.Range{{Start: begin, Limit: end}}
 	sizes, err := dbw.db.SizeOf(r)
 	if err != nil {
@@ -198,12 +296,28 @@ func (dbw *DBWrapper) EstimateSize(begin, end []byte) uint64 {
 }
 
 func (dbw *DBWrapper) CompactRange(begin, end []byte) error {
+	if dbw.mdb != nil {
+		return nil
+	}
 	return dbw.db.CompactRange(util.Range{Start: begin, Limit: end})
 }
 
+func (dbw *DBWrapper) GetObfuscateKey() []byte {
+	return dbw.obfuscateKey
+}
+
 func (dbw *DBWrapper) Close() {
+	if dbw.mdb != nil {
+		return
+	}
 	if dbw.db != nil {
 		dbw.db.Close()
+	}
+}
+
+func (dbw *DBWrapper) Reset() {
+	if dbw.mdb != nil {
+		dbw.mdb.Reset()
 	}
 }
 
@@ -229,13 +343,12 @@ func (bw *BatchWrapper) Clear() {
 }
 
 func (bw *BatchWrapper) Write(key, val []byte) {
-	bw.bat.Put(key, val)
-	// bw.bkey = append(bw.bkey, key...)
-	// bw.bval = append(bw.bval, val...)
+	bw.bkey = append(bw.bkey, key...)
+	bw.bval = append(bw.bval, val...)
 	//log.Printf("key,val:%s,%s\n", bw.bkey, (bw.bval))
 	//log.Printf("bw.parent.GetObfuscateKey():%s\n", bw.parent.GetObfuscateKey())
-	// xor(bw.bval, bw.parent.GetObfuscateKey())
-	// bw.bat.Put(bw.bkey, bw.bval)
+	xor(bw.bval, bw.parent.GetObfuscateKey())
+	bw.bat.Put(bw.bkey, bw.bval)
 	// LevelDB serializes writes as:
 	// - byte: header
 	// - varint: key length (1 byte up to 127B, 2 bytes up to 16383B, ...)
@@ -243,17 +356,17 @@ func (bw *BatchWrapper) Write(key, val []byte) {
 	// - varint: value length
 	// - byte[]: value
 	// The formula below assumes the key and value are both less than 16k.
-	// k := 0
-	// v := 0
-	// if len(bw.bkey) > 127 {
-	// 	k = 1
-	// }
-	// if len(bw.bval) > 127 {
-	// 	v = 1
-	// }
-	// bw.sizeEst += 3 + k + len(bw.bkey) + v + len(bw.bval)
-	// bw.bkey = bw.bkey[:0]
-	// bw.bval = bw.bkey[:0]
+	k := 0
+	v := 0
+	if len(bw.bkey) > 127 {
+		k = 1
+	}
+	if len(bw.bval) > 127 {
+		v = 1
+	}
+	bw.sizeEst += 3 + k + len(bw.bkey) + v + len(bw.bval)
+	bw.bkey = bw.bkey[:0]
+	bw.bval = bw.bkey[:0]
 }
 
 func (bw *BatchWrapper) SizeEstimate() int {
@@ -313,6 +426,7 @@ func (iw *IterWrapper) GetVal() []byte {
 		v := iw.iter.Value()
 		val = append(val, v...)
 	}
+	xor(val, iw.parent.GetObfuscateKey())
 	return val
 }
 
