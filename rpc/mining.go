@@ -1,10 +1,10 @@
 package rpc
 
 import (
-	"fmt"
 	"bytes"
-	"math/big"
 	"encoding/hex"
+	"fmt"
+	"math/big"
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -21,12 +21,12 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/service"
 
+	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"github.com/btcboost/copernicus/utils"
 )
 
 var miningHandlers = map[string]commandHandler{
