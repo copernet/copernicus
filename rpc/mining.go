@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"fmt"
-	"github.com/copernet/copernicus/model/tx"
 	"bytes"
 	"math/big"
 	"encoding/hex"
@@ -11,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	lblk "github.com/copernet/copernicus/logic/block"
 	"github.com/copernet/copernicus/logic/undo"
+	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -25,7 +25,6 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"github.com/btcboost/copernicus/utils"
 )
 
 var miningHandlers = map[string]commandHandler{
