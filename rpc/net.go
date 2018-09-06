@@ -28,7 +28,7 @@ var netHandlers = map[string]commandHandler{
 }
 
 func handleGetConnectionCount(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	request := service.GetConnectionCountRequest{}
+	request := &service.GetConnectionCountRequest{}
 	response, err := server.ProcessForRPC(request)
 	if err != nil {
 		return nil, btcjson.RPCError{
