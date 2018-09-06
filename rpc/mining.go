@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"fmt"
+	"github.com/copernet/copernicus/model/tx"
 	"bytes"
 	"math/big"
 	"encoding/hex"
@@ -55,11 +56,11 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	index := chain.GetInstance().Tip()
-	if height > 0 || height < chain.GetInstance().Height() {
+	if height > 0 && height < chain.GetInstance().Height() {
 		index = chain.GetInstance().GetIndex(height)
 	}
 
-	if index == nil || index.Height != 0 {
+	if index == nil || index.Height == 0 {
 		return 0, nil
 	}
 
@@ -76,9 +77,9 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	maxTime := minTime
 	for i := 0; i < lookup; i++ {
 		b = b.Prev
-		time := b.GetBlockTime()
-		minTime = uint32(utils.Min(int(time), int(minTime)))
-		maxTime = uint32(utils.Max(int(time), int(maxTime)))
+		blockTime := b.GetBlockTime()
+		minTime = util.MinU32(blockTime, minTime)
+		maxTime = util.MaxU32(blockTime, maxTime)
 	}
 
 	if minTime == maxTime {
@@ -99,27 +100,21 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	if err != nil {
 		return nil, err
 	}
-	networkHashesPerSec, ok := networkHashesPerSecIface.(int64)
-	if !ok {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInternal.Code,
-			Message: "networkHashesPerSec is not an int64",
-		}
-	}
+	networkHashesPerSec := fmt.Sprintf("%v", networkHashesPerSecIface)
 
 	index := chain.GetInstance().Tip()
-	result := btcjson.GetMiningInfoResult{
-		Blocks:           int64(index.Height),
-		CurrentBlockSize: mining.GetLastBlockSize(),
-		CurrentBlockTx:   mining.GetLastBlockTx(),
-		Difficulty:       getDifficulty(index),
-		//BlockPriorityPercentage: util.GetArg("-blockprioritypercentage", 0),
-		//Errors:              ,                            // TODO
-		NetworkHashPS: networkHashesPerSec,
-		PooledTx:      uint64(mempool.GetInstance().Size()),
-		Chain:         chainparams.MainNetParams.Name,
+	result := &btcjson.GetMiningInfoResult{
+		Blocks:                  int64(index.Height),
+		CurrentBlockSize:        mining.GetLastBlockSize(),
+		CurrentBlockTx:          mining.GetLastBlockTx(),
+		Difficulty:              getDifficulty(index),
+		BlockPriorityPercentage: tx.DefaultBlockPriorityPercentage, // NOT support this parameter yet
+		Errors:                  "",                                // NOT sure if errors are logged
+		NetworkHashPS:           networkHashesPerSec,
+		PooledTx:                uint64(mempool.GetInstance().Size()),
+		Chain:                   chain.GetInstance().GetParams().Name,
 	}
-	return &result, nil
+	return result, nil
 }
 
 // priority transaction currently disabled

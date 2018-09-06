@@ -188,7 +188,10 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 	switch m := message.(type) {
 
 	case *service.GetConnectionCountRequest:
-		return msgHandle.ConnectedCount(), nil
+		rsp := &service.GetConnectionCountResponse{
+			Count: int(msgHandle.ConnectedCount()),
+		}
+		return rsp, nil
 
 	case *wire.MsgPing:
 		msgHandle.BroadcastMessage(m)

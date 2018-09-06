@@ -51,7 +51,7 @@ const (
 	/** Default for -blockprioritypercentage, define the amount of block space
 	 * reserved to high priority transactions **/
 
-	//DefaultBlockPriorityPercentage uint64= 5
+	DefaultBlockPriorityPercentage int64 = 5
 
 	/*DefaultBlockMinTxFee default for -blockMinTxFee, which sets the minimum feeRate for a transaction
 	 * in blocks created by mining code **/
