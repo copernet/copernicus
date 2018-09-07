@@ -32,11 +32,6 @@ func (coin *Coin) IsMempoolCoin() bool {
 	return coin.isMempoolCoin
 }
 
-func (coin *Coin) IsSpendable() bool {
-	// todo check coinbase height，lock time？
-	return coin.txOut.IsNull()
-}
-
 func (coin *Coin) IsSpent() bool {
 	return coin.txOut.IsNull()
 }
