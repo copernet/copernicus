@@ -325,7 +325,6 @@ func checkFileSize(f *os.File, size int64) bool {
 
 func allocateFileRangeWithNewFile(t *testing.T, size int64) {
 	f, err := ioutil.TempFile("", "AllocateFileRange.*.txt")
-	t.Log(f.Name())
 	if err != nil {
 		t.Error(err)
 	}
@@ -348,7 +347,7 @@ func allocateFileRangeWithNewFile(t *testing.T, size int64) {
 
 	AllocateFileRange(f, uint32(2*size)-1, uint32(size))
 	if !checkFileSize(f, 2*size-1+size) {
-		t.Errorf("Allocate file from %d to %d failed", 2*size-1, 2*size)
+		t.Errorf("Allocate file from %d to %d failed", 2*size-1, 2*size-1+size)
 	}
 }
 
