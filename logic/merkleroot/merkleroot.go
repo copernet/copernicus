@@ -142,17 +142,14 @@ func ComputeMerkleRootFromBranch(leaf *util.Hash, branch []util.Hash, index uint
 	return hash
 }
 
-//func BlockMerkleRoot(bk *block.Block, mutated *bool) util.Hash {
 func BlockMerkleRoot(txs []*tx.Tx, mutated *bool) util.Hash {
 	leaves := make([]util.Hash, len(txs))
 	for i := 0; i < len(txs); i++ {
-		//fmt.Printf("txs[%d] ins:%v, outs:%v\n", i, bk.Txs[i].GetIns(), bk.Txs[i].GetOuts())
 		leaves[i] = txs[i].GetHash()
 	}
 	return ComputeMerkleRoot(leaves, mutated)
 }
 
-//func BlockMerkleBranch(bk *block.Block, position uint32) []util.Hash {
 func BlockMerkleBranch(txs []*tx.Tx, position uint32) []util.Hash {
 	leaves := make([]util.Hash, len(txs))
 	for i := 0; i < len(txs); i++ {

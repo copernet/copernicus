@@ -25,7 +25,7 @@ func rand256() []byte {
 	return b
 }
 
-func testdbw(t *testing.T, dbw *DBWrapper, obfuscate bool) {
+func testdbw(t *testing.T, dbw *Wrapper, obfuscate bool) {
 	key := []byte{'k'}
 	in := rand256()
 	if obfuscate == isNullKey(dbw.GetObfuscateKey()) {
@@ -135,7 +135,7 @@ func TestDBWrapperBatch(t *testing.T) {
 	}
 }
 
-func testIterator(t *testing.T, dbw *DBWrapper) {
+func testIterator(t *testing.T, dbw *Wrapper) {
 	key := []byte{'j'}
 	in := rand256()
 	if err := dbw.Write(key, in, false); err != nil {
@@ -331,7 +331,7 @@ func TestExistingDataReindex(t *testing.T) {
 	}
 }
 
-func testIteratorOrdering(t *testing.T, dbw *DBWrapper) {
+func testIteratorOrdering(t *testing.T, dbw *Wrapper) {
 	for i := 0; i < 256; i++ {
 		key := uint8(i)
 		val := uint32(i * i)
@@ -433,7 +433,7 @@ func TestIteratorOrderingWithMem(t *testing.T) {
 }
 */
 
-func testIteratorStringOrdering(t *testing.T, dbw *DBWrapper) {
+func testIteratorStringOrdering(t *testing.T, dbw *Wrapper) {
 	for x := 0; x < 10; x++ {
 		for y := 0; y < 10; y++ {
 			key := bytes.NewBuffer(nil)

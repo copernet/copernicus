@@ -16,7 +16,7 @@ import (
 )
 
 type BlockTreeDB struct {
-	dbw *db.DBWrapper
+	dbw *db.Wrapper
 }
 
 var blockTreeDb *BlockTreeDB
@@ -42,7 +42,7 @@ func newBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	}
 	dbw, err := db.NewDBWrapper(do)
 	if err != nil {
-		panic("init DBWrapper failed...")
+		panic("init Wrapper failed...")
 	}
 	return &BlockTreeDB{
 		dbw: dbw,

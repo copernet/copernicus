@@ -84,7 +84,7 @@ func LoadBlockIndexDB() bool {
 	if err != nil {
 		log.Debug("ReadLastBlockFile() from DB err:%#v", err)
 	} else {
-		var nFile int32 = 0
+		var nFile int32
 		for ; nFile <= globalLastBlockFile; nFile++ {
 			bfi, err = btd.ReadBlockFileInfo(nFile)
 			if err != nil || bfi == nil {

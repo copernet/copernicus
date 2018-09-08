@@ -49,7 +49,7 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 		lockTimeFlags |= consensus.LocktimeMedianTimePast
 	}
 
-	var medianTimePast int64 = 0
+	var medianTimePast int64
 	if indexPrev != nil {
 		medianTimePast = indexPrev.GetMedianTimePast()
 	}
@@ -126,7 +126,7 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 			return errcode.New(errcode.ErrorBlockSize)
 		}
 	}
-	var height int32 = 0
+	var height int32
 	if indexPrev != nil {
 		height = indexPrev.Height + 1
 	}
@@ -184,7 +184,7 @@ func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amo
 	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
-// Store a block on disk.
+// AcceptBlock Store a block on disk.
 func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex,
 	dbp *block.DiskBlockPos, err error) {
 	if pblock != nil {

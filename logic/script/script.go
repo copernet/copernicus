@@ -12,7 +12,7 @@ import (
 )
 
 func VerifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *script.Script,
-	nIn int, value amount.Amount, flags uint32, scriptChecker ScriptChecker) error {
+	nIn int, value amount.Amount, flags uint32, scriptChecker Checker) error {
 	if flags&script.ScriptEnableSigHashForkID == script.ScriptEnableSigHashForkID {
 		flags |= script.ScriptVerifyStrictEnc
 	}
@@ -83,7 +83,7 @@ func VerifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 }
 
 func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int,
-	money amount.Amount, flags uint32, scriptChecker ScriptChecker) error {
+	money amount.Amount, flags uint32, scriptChecker Checker) error {
 
 	if s.GetBadOpCode() {
 		log.Debug("ScriptErrBadOpCode")

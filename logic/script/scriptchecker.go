@@ -6,7 +6,7 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 )
 
-type ScriptChecker interface {
+type Checker interface {
 	CheckLockTime(lockTime int64, txLockTime int64, sequence uint32) bool
 	CheckSequence(sequence int64, txToSequence int64, txVersion uint32) bool
 	CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *script.Script,

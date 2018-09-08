@@ -869,7 +869,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 
 func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *script.Script,
 	txOldScriptSig *script.Script, nIn int, money amount.Amount, flags uint32,
-	scriptChecker lscript.ScriptChecker) (*script.Script, error) {
+	scriptChecker lscript.Checker) (*script.Script, error) {
 	pubKeyType, pubKeys, err := prevPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		return nil, err

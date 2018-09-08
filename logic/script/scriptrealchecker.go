@@ -8,10 +8,10 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 )
 
-type ScriptRealChecker struct {
+type RealChecker struct {
 }
 
-func (src *ScriptRealChecker) CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *script.Script,
+func (src *RealChecker) CheckSig(transaction *tx.Tx, signature []byte, pubKey []byte, scriptCode *script.Script,
 	nIn int, money amount.Amount, flags uint32) (bool, error) {
 	if len(signature) == 0 || len(pubKey) == 0 {
 		return false, nil
@@ -34,7 +34,7 @@ func (src *ScriptRealChecker) CheckSig(transaction *tx.Tx, signature []byte, pub
 	return fOk, err
 }
 
-func (src *ScriptRealChecker) CheckLockTime(lockTime int64, txLockTime int64, sequence uint32) bool {
+func (src *RealChecker) CheckLockTime(lockTime int64, txLockTime int64, sequence uint32) bool {
 	// There are two kinds of nLockTime: lock-by-blockheight and
 	// lock-by-blocktime, distinguished by whether nLockTime <
 	// LOCKTIME_THRESHOLD.
@@ -67,7 +67,7 @@ func (src *ScriptRealChecker) CheckLockTime(lockTime int64, txLockTime int64, se
 	return true
 }
 
-func (src *ScriptRealChecker) CheckSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
+func (src *RealChecker) CheckSequence(sequence int64, txToSequence int64, txVersion uint32) bool {
 	// Fail if the transaction's version number is not set high enough to
 	// trigger BIP 68 rules.
 	if txVersion < 2 {
@@ -103,6 +103,6 @@ func (src *ScriptRealChecker) CheckSequence(sequence int64, txToSequence int64, 
 	return true
 }
 
-func NewScriptRealChecker() *ScriptRealChecker {
-	return &ScriptRealChecker{}
+func NewScriptRealChecker() *RealChecker {
+	return &RealChecker{}
 }
