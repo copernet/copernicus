@@ -6,6 +6,8 @@
 vendor
 copernicus
 
+glide.lock
+
 *.log
 data
 rpc.cert
