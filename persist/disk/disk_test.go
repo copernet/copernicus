@@ -2,6 +2,8 @@ package disk
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 	"testing"
@@ -223,9 +225,10 @@ func TestFindUndoPos(t *testing.T) {
 }
 
 func initBlockDB() {
+	dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	bc := &blkdb.BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
+			FilePath:  filepath.Join(dir, "/copernicus/blocks/index"),
 			CacheSize: 1 << 20,
 		},
 	}
