@@ -379,7 +379,7 @@ func (bw *BatchWrapper) Write(key, val []byte) {
 	}
 	bw.sizeEst += 3 + k + len(bw.bkey) + v + len(bw.bval)
 	bw.bkey = bw.bkey[:0]
-	bw.bval = bw.bkey[:0]
+	bw.bval = bw.bval[:0]
 }
 
 func (bw *BatchWrapper) SizeEstimate() int {

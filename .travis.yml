@@ -3,14 +3,16 @@ addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
+      - sourceline: 'ppa:masterminds/glide'
     packages:
       - g++-6
       - gcc-6
       - libsnappy-dev
       - zlib1g-dev
       - libbz2-dev
+      - glide
 go:
-  - 1.9.x
+  - 1.10.x
 
 cache:
   apt: true
@@ -33,6 +35,7 @@ before_install:
   - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags-dev_2.0-1.1ubuntu1_amd64.deb
   - sudo dpkg -i libgflags-dev_2.0-1.1ubuntu1_amd64.deb
 
+
 install:
 
   - git clone https://github.com/copernet/secp256k1.git /tmp/secp256k1
@@ -43,8 +46,6 @@ install:
   - sudo make install
   - cd -
 
-  - go get -v github.com/Masterminds/glide
-  - cd $GOPATH/src/github.com/Masterminds/glide && git checkout e73500c735917e39a8b782e0632418ab70250341 && go install && cd -
   - glide install
 
   - go get -v github.com/alecthomas/gometalinter

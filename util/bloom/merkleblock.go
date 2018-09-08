@@ -5,7 +5,7 @@
 package bloom
 
 import (
-	"github.com/copernet/copernicus/logic/merkleroot"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
@@ -41,7 +41,7 @@ func (m *merkleBlock) calcHash(height, pos uint32) *util.Hash {
 	} else {
 		right = left
 	}
-	return merkleroot.HashMerkleBranches(left, right)
+	return lmerkleroot.HashMerkleBranches(left, right)
 }
 
 // traverseAndBuild builds a partial merkle tree using a recursive depth-first

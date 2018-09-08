@@ -6,14 +6,14 @@ package bloom
 
 import (
 	"encoding/hex"
+	"github.com/copernet/copernicus/crypto"
 	"testing"
 
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/net/wire"
-	"github.com/copernet/copernicus/model/outpoint"
 	"bytes"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/wif"
-	"fmt"
 )
 
 // TestFilterLarge ensures a maximum sized filter can be created.
@@ -209,6 +209,7 @@ func TestFilterInsertWithTweak(t *testing.T) {
 // TestFilterInsertKey ensures inserting public keys and addresses works as
 // expected.
 func TestFilterInsertKey(t *testing.T) {
+	crypto.InitSecp256()
 	secret := "5Kg1gnAjaLfKiwhhPpGS3QfRg2m6awQvaj98JCZBZQ5SuS2F15C"
 
 	wifs, err := wif.DecodeWIF(secret)
@@ -218,9 +219,7 @@ func TestFilterInsertKey(t *testing.T) {
 	}
 
 	f := NewFilter(2, 0, 0.001, wire.BloomUpdateAll)
-	fmt.Println("jinlai")
 	f.Add(wifs.SerializePubKey())
-	fmt.Println("jinublai")
 	f.Add(util.Hash160(wifs.SerializePubKey()))
 
 	want, err := hex.DecodeString("038fc16b080000000000000001")

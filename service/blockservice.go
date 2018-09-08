@@ -3,8 +3,8 @@ package service
 import (
 	"fmt"
 	"github.com/copernet/copernicus/log"
-	lblock "github.com/copernet/copernicus/logic/block"
-	lchain "github.com/copernet/copernicus/logic/chain"
+	"github.com/copernet/copernicus/logic/lblock"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -38,9 +38,8 @@ func ProcessBlock(b *block.Block) (bool, error) {
 		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
 	isNewBlock := false
-	var err error
 
-	err = ProcessNewBlock(b, true, &isNewBlock)
+	err := ProcessNewBlock(b, true, &isNewBlock)
 
 	if err != nil {
 		log.Trace("processBlock failed ...")

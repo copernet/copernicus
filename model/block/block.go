@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/merkleroot"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
@@ -91,10 +91,7 @@ func (bl *Block) Unserialize(r io.Reader) error {
 			return err
 		}
 		bl.Txs[i] = tx
-		//fmt.Printf("i:%d, \n%v\n%v\n%v\n%v", i, bl.Txs[i].GetIns(), tx.GetIns(), bl.Txs[i].GetOuts(), tx.GetOuts())
 	}
-	//fmt.Printf("%v\n", bl.Txs[0].GetIns())
-	//fmt.Printf("%v\n", bl.Txs[0].GetOuts())
 	return nil
 }
 
@@ -119,7 +116,7 @@ func NewGenesisBlock() *Block {
 		Bits:  0x1d00ffff,
 		Nonce: 2083236893,
 	}
-	block.Header.MerkleRoot = merkleroot.BlockMerkleRoot(block.Txs, nil)
+	block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(block.Txs, nil)
 
 	return block
 }
@@ -134,7 +131,7 @@ func NewTestNetGenesisBlock() *Block {
 		Bits:          0x1d00ffff,
 		Nonce:         414098458,
 	}
-	block.Header.MerkleRoot = merkleroot.BlockMerkleRoot(block.Txs, nil)
+	block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(block.Txs, nil)
 
 	return block
 }
@@ -149,7 +146,7 @@ func NewRegTestGenesisBlock() *Block {
 		Bits:          0x207fffff,
 		Nonce:         2,
 	}
-	block.Header.MerkleRoot = merkleroot.BlockMerkleRoot(block.Txs, nil)
+	block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(block.Txs, nil)
 
 	return block
 }

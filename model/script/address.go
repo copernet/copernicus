@@ -67,7 +67,7 @@ func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 
 func AddressVerPubKey() byte {
 	if IsTestNetwork {
-		return PublicKeyToAddress
+		return PublicKeyToAddressInTest
 	}
 	//if chainparams.ActiveNetParams.Name == "mainnet" {
 	//	return PublicKeyToAddress
@@ -81,7 +81,7 @@ func AddressVerPubKey() byte {
 	//if chainparams.ActiveNetParams.Name == "simnet" {
 	//	return 0x3f
 	//}
-	return PublicKeyToAddressInTest
+	return PublicKeyToAddress
 }
 
 func AddressVerScript() byte {

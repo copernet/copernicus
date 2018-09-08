@@ -23,8 +23,8 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	lblock "github.com/copernet/copernicus/logic/block"
-	lchain "github.com/copernet/copernicus/logic/chain"
+	"github.com/copernet/copernicus/logic/lblock"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"

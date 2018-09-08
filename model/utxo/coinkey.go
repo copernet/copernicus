@@ -2,11 +2,11 @@ package utxo
 
 import (
 	"bytes"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"io"
-	"github.com/copernet/copernicus/log"
 )
 
 type CoinKey struct {

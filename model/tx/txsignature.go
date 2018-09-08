@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/copernet/copernicus/log"
 )
 
 /*

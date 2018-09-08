@@ -725,3 +725,7 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
 	}
 }
+
+func GetPruneState() *global.PruneState {
+	return gps
+}

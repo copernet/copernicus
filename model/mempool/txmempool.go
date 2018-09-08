@@ -9,13 +9,13 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
-	"github.com/copernet/copernicus/log"
 )
 
 const (

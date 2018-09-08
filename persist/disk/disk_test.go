@@ -1,9 +1,11 @@
 package disk
 
 import (
+
 	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 	"testing"
@@ -25,6 +27,7 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
+
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -224,9 +227,10 @@ func TestFindUndoPos(t *testing.T) {
 }
 
 func initBlockDB() {
+	dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	bc := &blkdb.BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
+			FilePath:  filepath.Join(dir, "/copernicus/blocks/index"),
 			CacheSize: 1 << 20,
 		},
 	}
