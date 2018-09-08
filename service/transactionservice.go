@@ -3,8 +3,8 @@ package service
 import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	lmempool "github.com/copernet/copernicus/logic/mempool"
-	ltx "github.com/copernet/copernicus/logic/tx"
+	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"

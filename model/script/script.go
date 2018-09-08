@@ -223,7 +223,6 @@ func (s *Script) EncodeSize() uint32 {
 }
 
 func (s *Script) Encode(writer io.Writer) (err error) {
-	//log.Debug("script data %s", hex.EncodeToString(s.data))
 	return util.WriteVarBytes(writer, s.data)
 }
 

@@ -8,8 +8,8 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	lblk "github.com/copernet/copernicus/logic/block"
-	"github.com/copernet/copernicus/logic/undo"
+	"github.com/copernet/copernicus/logic/lblock"
+	"github.com/copernet/copernicus/logic/lundo"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -31,15 +31,11 @@ import (
 var miningHandlers = map[string]commandHandler{
 	"getnetworkhashps":      handleGetNetWorkhashPS,      // complete
 	"getmininginfo":         handleGetMiningInfo,         // complete
-	"prioritisetransaction": handlePrioritisetransaction, // do not support at this version
 	"getblocktemplate":      handleGetblocktemplate,      // complete
 	"submitblock":           handleSubmitBlock,           // complete
 	"generate":              handleGenerate,              // deprecated at new version<v0.17.1>
 	"generatetoaddress":     handleGenerateToAddress,     // complete
 	"estimatefee":           handleEstimateFee,           // do not support at this version
-	"estimatepriority":      handleEstimatePriority,      // do not support at this version
-	"estimatesmartfee":      handleEstimateSmartFee,      // do not support at this version
-	"estimatesmartpriority": handleEstimateSmartPriority, // do not support at this version
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -117,11 +113,6 @@ func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	return result, nil
 }
 
-// priority transaction currently disabled
-func handlePrioritisetransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
-}
-
 // global variable in package rpc
 var (
 	transactionsUpdatedLast uint64
@@ -167,7 +158,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		maxVersionVb = request.MaxVersion
 	}
 
-	if undo.IsInitialBlockDownload() {
+	if lundo.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCClientInInitialDownload,
 			Message: "Bitcoin is downloading blocks...",
@@ -420,7 +411,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	// TODO realise in block model
-	err = lblk.CheckBlock(&bk)
+	err = lblock.CheckBlock(&bk)
 	return BIP22ValidationResult(err)
 }
 
@@ -569,19 +560,6 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 }
 
 func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
-}
-
-func handleEstimatePriority(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-
-	return nil, nil
-}
-
-func handleEstimateSmartFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
-}
-
-func handleEstimateSmartPriority(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return nil, nil
 }
 

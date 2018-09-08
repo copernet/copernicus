@@ -13,8 +13,8 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	lc "github.com/copernet/copernicus/logic/chain"
-	lpool "github.com/copernet/copernicus/logic/mempool"
+	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -511,7 +511,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	}
 	txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 	for _, tx := range acceptedTxs {
-		if entry := lpool.FindTxInMempool(tx.GetHash()); entry != nil {
+		if entry := lmempool.FindTxInMempool(tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
 		} else {
 			panic("the transaction must be in mempool")
@@ -935,7 +935,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
 		// to it in any form (main pool or orphan).
-		if lpool.FindTxInMempool(invVect.Hash) != nil {
+		if lmempool.FindTxInMempool(invVect.Hash) != nil {
 			return true, nil
 		}
 		// Check if the transaction exists from the point of view of the
@@ -949,8 +949,8 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if pcoins.GetCoin(&out) != nil {
 			return true, nil
 		}
-		if lpool.FindRejectTxInMempool(invVect.Hash) ||
-			lpool.FindOrphanTxInMemPool(invVect.Hash) != nil {
+		if lmempool.FindRejectTxInMempool(invVect.Hash) ||
+			lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
 			return true, nil
 		}
 	}
@@ -1073,7 +1073,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	if invBlkCnt == len(invVects) &&
-		invBlkCnt >= lc.MaxBlocksResults && peer == sm.syncPeer {
+		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
 
 		sm.requestBlkInvCnt = 2
 	}
@@ -1260,13 +1260,13 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// no longer an orphan. Transactions which depend on a confirmed
 		// transaction are NOT removed recursively because they are still
 		// valid.
-		lpool.RemoveTxSelf(block.Txs[1:])
+		lmempool.RemoveTxSelf(block.Txs[1:])
 		for _, tx := range block.Txs[1:] {
 			sm.peerNotifier.TransactionConfirmed(tx)
-			acceptedTxs := lpool.ProcessOrphan(tx)
+			acceptedTxs := lmempool.ProcessOrphan(tx)
 			txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 			for _, tx := range acceptedTxs {
-				if find := lpool.FindTxInMempool(tx.GetHash()); find != nil {
+				if find := lmempool.FindTxInMempool(tx.GetHash()); find != nil {
 					txentrys = append(txentrys, find)
 				}
 			}
@@ -1289,7 +1289,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 				// Remove the transaction and all transactions
 				// that depend on it if it wasn't accepted into
 				// the transaction pool.
-				lpool.RemoveTxRecursive(tx, mempool.REORG)
+				lmempool.RemoveTxRecursive(tx, mempool.REORG)
 			}
 		}
 	}
@@ -1428,8 +1428,7 @@ func (sm *SyncManager) SyncPeerID() int32 {
 	return <-reply
 }
 
-// ProcessBlock makes use of ProcessBlock on an internal instance of a block
-// chain.
+// ProcessBlock makes use of ProcessBlock on an internal instance of a block chain.
 func (sm *SyncManager) ProcessBlock(block *block.Block, flags chain.BehaviorFlags) (bool, error) {
 	reply := make(chan processBlockResponse, 1)
 	sm.processBusinessChan <- processBlockMsg{block: block, flags: flags, reply: reply}

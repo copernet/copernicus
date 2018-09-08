@@ -4,8 +4,8 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/blockindex"
-	lchain "github.com/copernet/copernicus/logic/chain"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/utxo"
@@ -30,7 +30,7 @@ func appInitMain() {
 	global.InitPersistGlobal()
 
 	// Load blockindex DB
-	blockindex.LoadBlockIndexDB()
+	lblockindex.LoadBlockIndexDB()
 	lchain.InitGenesisChain()
 
 	mempool.InitMempool()

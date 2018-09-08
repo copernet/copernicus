@@ -7,7 +7,7 @@ import (
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
-	mempool2 "github.com/copernet/copernicus/logic/mempool"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -404,7 +404,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	entry := mempool.GetInstance().FindTx(hash)
 	if entry == nil && !haveChain {
-		err = mempool2.AcceptTxToMemPool(&transaction)
+		err = lmempool.AcceptTxToMemPool(&transaction)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,

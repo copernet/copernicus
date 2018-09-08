@@ -3,8 +3,8 @@ package service
 import (
 	"fmt"
 	"github.com/copernet/copernicus/log"
-	lblock "github.com/copernet/copernicus/logic/block"
-	lchain "github.com/copernet/copernicus/logic/chain"
+	"github.com/copernet/copernicus/logic/lblock"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
