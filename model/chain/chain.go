@@ -64,7 +64,7 @@ func (c *Chain) GetParams() *chainparams.BitcoinParams {
 	return c.params
 }
 
-//initially load the maps of the chain
+//InitLoad load the maps of the chain
 func (c *Chain) InitLoad(indexMap map[util.Hash]*blockindex.BlockIndex, branch []*blockindex.BlockIndex) {
 	c.indexMap = indexMap
 	c.branch = branch
@@ -499,7 +499,7 @@ func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
 }
 
 func (c *Chain) ChainOrphanLen() int32 {
-	var orphanLen int32 = 0
+	var orphanLen int32
 	for childList := range c.orphan {
 		orphanLen += int32(len(childList))
 	}

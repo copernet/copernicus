@@ -223,7 +223,6 @@ func (s *Script) EncodeSize() uint32 {
 }
 
 func (s *Script) Encode(writer io.Writer) (err error) {
-	//log.Debug("script data %s", hex.EncodeToString(s.data))
 	return util.WriteVarBytes(writer, s.data)
 }
 
@@ -312,7 +311,7 @@ func (s *Script) convertOPS() (err error) {
 
 	var i uint
 	for i < scriptLen {
-		var nSize uint = 0
+		var nSize uint
 		opcode := s.data[i]
 		i++
 		if opcode < opcodes.OP_PUSHDATA1 {
@@ -657,7 +656,6 @@ func (s *Script) IsPushOnly() bool {
 
 }
 
-//func (s *Script) GetSigOpCount(flags uint32, accurate bool) int {
 func (s *Script) GetSigOpCount(accurate bool) int {
 	n := 0
 	var lastOpcode byte
@@ -682,7 +680,6 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 	return n
 }
 
-//func (s *Script) GetP2SHSigOpCount(flags uint32) int {
 func (s *Script) GetP2SHSigOpCount() int {
 	// This is a pay-to-script-hash scriptPubKey;
 	// get the last item that the scriptSig
@@ -888,18 +885,18 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 			return errcode.New(errcode.ScriptErrSigHashType)
 		}
 		hashType := vchSig[len(vchSig)-1]
-		useForkId := false
-		forkIdEnable := false
+		useForkID := false
+		forkIDEnable := false
 		if hashType&crypto.SigHashForkID != 0 {
-			useForkId = true
+			useForkID = true
 		}
 		if flags&ScriptEnableSigHashForkID != 0 {
-			forkIdEnable = true
+			forkIDEnable = true
 		}
-		if !forkIdEnable && useForkId {
+		if !forkIDEnable && useForkID {
 			return errcode.New(errcode.ScriptErrIllegalForkID)
 		}
-		if forkIdEnable && !useForkId {
+		if forkIDEnable && !useForkID {
 			return errcode.New(errcode.ScriptErrMustUseForkID)
 		}
 	}

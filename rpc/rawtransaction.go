@@ -6,7 +6,8 @@ import (
 	"math"
 
 	"github.com/copernet/copernicus/crypto"
-	mempool2 "github.com/copernet/copernicus/logic/mempool"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -19,7 +20,6 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/copernet/copernicus/log"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -70,7 +70,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		if err != nil {
 			return nil, err
 		}
-		return *rawTxn, nil*///   TODO open
+		return *rawTxn, nil*/ //   TODO open
 	return nil, nil
 }
 
@@ -103,7 +103,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		}
 	}
 	return txReply, nil
-}*/// TODO open
+}*/ // TODO open
 
 // createVinList returns a slice of JSON objects for the inputs of the passed
 // transaction.
@@ -121,7 +121,7 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		vinList[index].Sequence = in.Sequence
 	}
 	return vinList
-}*/// TODO open
+}*/ // TODO open
 
 func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // todo complete
 	/*	var str string
@@ -195,7 +195,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return voutList
-}*/// TODO open
+}*/ // TODO open
 
 /*func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
 	result := btcjson.ScriptPubKeyResult{}
@@ -220,7 +220,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return result
-}*///TODO open
+}*/ //TODO open
 
 /*func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
 	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
@@ -255,7 +255,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	}
 
 	return nil, nil, false
-}*///TODO open
+}*/ //TODO open
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
@@ -373,7 +373,7 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 			ret.P2SH = EncodeDestination(scriptByte) // todo realise
 		}
 
-		return ret, nil*/// TODO open
+		return ret, nil*/ // TODO open
 	return nil, nil
 }
 
@@ -404,7 +404,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	entry := mempool.GetInstance().FindTx(hash)
 	if entry == nil && !haveChain {
-		err = mempool2.AcceptTxToMemPool(&transaction)
+		err = lmempool.AcceptTxToMemPool(&transaction)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -581,7 +581,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		}
 	}
 
-	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
 
 	errors := make([]*btcjson.SignRawTransactionError, 0)
 	for index, in := range transactions[0].GetIns() {
@@ -718,7 +718,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		mb := mblock.NewMerkleBlock(bk, setTxIds)
 		buf := bytes.NewBuffer(nil)
 		mb.Serialize(buf)
-		return hex.EncodeToString(buf.Bytes()), nil*///TODO open
+		return hex.EncodeToString(buf.Bytes()), nil*/ //TODO open
 	return nil, nil
 }
 
@@ -757,7 +757,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 		for _, hash := range matches {
 			ret = append(ret, hash.String())
 		}
-		return ret, nil*///TODO open
+		return ret, nil*/ //TODO open
 	return nil, nil
 }
 

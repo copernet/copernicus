@@ -1,16 +1,16 @@
 package blkdb
 
 import (
+	"io/ioutil"
 	"reflect"
 	"testing"
-	"io/ioutil"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/util"
 )
 
 func initBlockDB() {
@@ -66,7 +66,7 @@ func TestWriteFlag(t *testing.T) {
 		t.Errorf("write flag failed:%v", err)
 	}
 	res := GetInstance().ReadFlag("b")
-	if res != true {
+	if !res {
 		t.Errorf("the flag should is true:%v", res)
 	}
 
@@ -76,7 +76,7 @@ func TestWriteFlag(t *testing.T) {
 		t.Errorf("write flag failed:%v", err)
 	}
 	res2 := GetInstance().ReadFlag("b")
-	if res2 != false {
+	if res2 {
 		t.Errorf("the flag should is false:%v", res2)
 	}
 }
@@ -88,9 +88,9 @@ func TestWriteReindexing(t *testing.T) {
 	if err != nil {
 		t.Errorf("write the index failed:%v", err)
 	}
-	rr := GetInstance().ReadReindexing()
-	if rr != true {
-		t.Errorf("the reindexing should is true:%v", rr)
+	readReindex := GetInstance().ReadReindexing()
+	if !readReindex {
+		t.Errorf("the reindexing should is true:%v", readReindex)
 	}
 
 	//test write reindex: reindexing value is false
@@ -98,9 +98,9 @@ func TestWriteReindexing(t *testing.T) {
 	if err != nil {
 		t.Errorf("write the index failed:%v", err)
 	}
-	rr1 := GetInstance().ReadReindexing()
-	if rr1 != false {
-		t.Errorf("the reindexing should is false:%v", rr1)
+	readReindexAgain := GetInstance().ReadReindexing()
+	if readReindexAgain {
+		t.Errorf("the reindexing should is false:%v", readReindexAgain)
 	}
 }
 

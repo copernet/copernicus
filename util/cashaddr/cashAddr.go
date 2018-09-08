@@ -1,14 +1,14 @@
 package cashaddr
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -641,8 +641,8 @@ func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
 		log.Error("push opcode failed")
 	}
 
-	data:=sc.GetData()
-	return data,err
+	data := sc.GetData()
+	return data, err
 }
 
 // ExtractPkScriptAddrs returns the type of script, addresses and required

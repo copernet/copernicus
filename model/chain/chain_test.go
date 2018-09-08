@@ -3,13 +3,13 @@ package chain
 import (
 	"github.com/copernet/copernicus/model/blockindex"
 
-	"testing"
-	"github.com/copernet/copernicus/model/chainparams"
-	"math/big"
-	"github.com/copernet/copernicus/model/pow"
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
+	"math/big"
+	"testing"
 )
 
 var testChain *Chain
@@ -125,7 +125,7 @@ func TestChain(t *testing.T) {
 		t.Errorf("FindFork "+
 			"expect: %s, actual: %s", blockIdx[10].GetBlockHash(), testChain.FindFork(blockIdx[15]).GetBlockHash())
 	}
-	for i := 0; i < 16; i ++ {
+	for i := 0; i < 16; i++ {
 		if !testChain.InBranch(blockIdx[i]) {
 			t.Errorf("branch should contains this blockindex, pls check")
 		}

@@ -1,12 +1,12 @@
 package txin
 
 import (
-	"testing"
 	"bytes"
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/util"
 	"os"
+	"testing"
 )
 
 //var testTxIn *TxIn
@@ -24,15 +24,13 @@ var myScriptSig = []byte{0x16, 0x00, 0x14, 0xc3, 0xe2, 0x27, 0x9d,
 	0x2a, 0xc7, 0x30, 0xbd, 0x33, 0xc4, 0x61, 0x74,
 	0x4d, 0x8e, 0xd8, 0xe8, 0x11, 0xf8, 0x05, 0xdb}
 
+var sigScript = script.NewScriptRaw(myScriptSig)
 
-var sigScript= script.NewScriptRaw(myScriptSig)
+var sequence = uint32(script.SequenceFinal)
 
-var sequence=uint32(script.SequenceFinal)
-
-var testTxIn = NewTxIn(outPut, sigScript ,sequence)
+var testTxIn = NewTxIn(outPut, sigScript, sequence)
 
 func TestNewTxIn(t *testing.T) {
-
 
 	if !bytes.Equal(testTxIn.scriptSig.GetData(), myScriptSig) {
 		t.Errorf("NewTxIn() assignment txInputScript data %v "+
@@ -69,7 +67,6 @@ func TestTxInSerialize(t *testing.T) {
 	txInRead.PreviousOutPoint = &outpoint.OutPoint{}
 	txInRead.PreviousOutPoint.Hash = util.Hash{}
 	txInRead.scriptSig = script.NewEmptyScript()
-
 
 	err = txInRead.Unserialize(file)
 

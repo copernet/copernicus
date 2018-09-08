@@ -8,8 +8,8 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/merkleroot"
-	tx2 "github.com/copernet/copernicus/logic/tx"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
+	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -270,7 +270,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
-	//if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+	//if ltx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
 	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 	//} else {
 	//	ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
@@ -342,7 +342,7 @@ func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}
 func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]struct{}) bool {
 	potentialBlockSize := ba.blockSize
 	for entry := range entrySet {
-		err := tx2.ContextualCheckTransaction(entry.Tx, ba.height, ba.lockTimeCutoff)
+		err := ltx.ContextualCheckTransaction(entry.Tx, ba.height, ba.lockTimeCutoff)
 		if err != nil {
 			return false
 		}
@@ -403,7 +403,7 @@ func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraN
 	// Height first in coinbase required for block.version=2
 	height := bindex.Height + 1
 
-	// TODO lack of script builder to construct script conveniently<script>
+	// TODO lack of lscript builder to construct script conveniently<lscript>
 	buf := bytes.NewBuffer(nil)
 	bytesEight := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytesEight, uint64(height))
@@ -418,7 +418,7 @@ func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraN
 	coinbaseScript := script.NewScriptRaw(buf.Bytes())
 	bk.Txs[0].GetIns()[0].SetScriptSig(coinbaseScript)
 
-	bk.Header.MerkleRoot = merkleroot.BlockMerkleRoot(bk.Txs, nil)
+	bk.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bk.Txs, nil)
 
 	return extraNonce
 }

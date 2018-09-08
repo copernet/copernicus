@@ -133,7 +133,7 @@ func TestCoinCache(t *testing.T) {
 	necm.AddCoin(&outpoint3, coin3, false)
 
 	//no flush, get best block hash is hash1 ,when use flush,get best block hash is hash2.
-	necm.SetBestBlock(*hash3)
+	//necm.SetBestBlock(*hash3)
 	//necm.Flush(*hash3)
 	hash4, err4 := cvt.GetBestBlock()
 	if err4 != nil {

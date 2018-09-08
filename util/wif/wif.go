@@ -8,10 +8,10 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/copernet/copernicus/util/base58"
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/base58"
 )
 
 // ErrMalformedPrivateKey describes an error where a WIF-encoded private
@@ -19,6 +19,7 @@ import (
 // if the byte length is incorrect or an unexpected magic number was
 // encountered.
 var ErrMalformedPrivateKey = errors.New("malformed private key")
+
 // ErrChecksumMismatch describes an error where decoding failed due
 // to a bad checksum.
 var ErrChecksumMismatch = errors.New("checksum mismatch")
@@ -154,7 +155,7 @@ func (w *WIF) String() string {
 // exported private key in either a compressed or uncompressed format.  The
 // serialization format chosen depends on the value of w.CompressPubKey.
 func (w *WIF) SerializePubKey() []byte {
-	pk := (*crypto.PublicKey)(w.PrivKey.PubKey())
+	pk := w.PrivKey.PubKey()
 	if w.CompressPubKey {
 		return pk.SerializeCompressed()
 	}

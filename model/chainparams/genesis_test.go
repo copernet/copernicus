@@ -38,6 +38,4 @@ func TestGenesis(t *testing.T) {
 		t.Error("RegTestGensisBlockHash error")
 		return
 	}
-
-	return
 }

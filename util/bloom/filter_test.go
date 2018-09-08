@@ -8,12 +8,12 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/net/wire"
-	"github.com/copernet/copernicus/model/outpoint"
 	"bytes"
-	"github.com/copernet/copernicus/util/wif"
 	"fmt"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/wif"
 )
 
 // TestFilterLarge ensures a maximum sized filter can be created.
