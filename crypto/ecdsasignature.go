@@ -2,10 +2,10 @@ package crypto
 
 import (
 	"encoding/hex"
-	"github.com/NebulousLabs/errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/secp256k1-go/secp256k1"
+	"github.com/pkg/errors"
 )
 
 const (

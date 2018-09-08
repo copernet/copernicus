@@ -2,14 +2,14 @@ package script
 
 import (
 	"encoding/hex"
-	"fmt"
-	"strings"
+	"github.com/copernet/copernicus/crypto"
 	"testing"
 
 	"github.com/copernet/copernicus/util"
 )
 
 func TestPublicKeyToAddress(t *testing.T) {
+
 	publicKey := "03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd"
 	bytes, err := hex.DecodeString(publicKey)
 	if err != nil {
@@ -51,48 +51,6 @@ func TestHash160Address(t *testing.T) {
 	}
 }
 
-func TestAddressMatch(t *testing.T) {
-	for v := 0; v < 100000; v++ {
-		x := fmt.Sprintf("%02x", v)
-		len1 := len(x)
-		for i := len1; i <= 6; i++ {
-			x = fmt.Sprintf("0%s", x)
-		}
-		result := fmt.Sprintf("000000000000000000000000000000000%s", x) //16进制 length=32
-
-		hash160, err := hex.DecodeString(result)
-		if err != nil {
-			t.Error(err) // encoding/hex: odd length hex string
-		}
-		address, err1 := Hash160ToAddressStr(hash160, PublicKeyToAddress)
-		if err1 != nil {
-			t.Error(err1) //hash160 length 0 not 20
-			return
-		}
-
-		if strings.Contains(address, "bwhc") {
-			fmt.Printf("%v=====%v\n", result, address)
-		}
-
-		if strings.Contains(address, "BWHC") {
-			fmt.Printf("%v=====%v\n", result, address)
-		}
-	}
-}
-
-func TestAdd(t *testing.T) {
-	hash160, err := hex.DecodeString("000000000000000000000000000000000001210f")
-	if err != nil {
-		t.Error(err) // encoding/hex: odd length hex string
-	}
-	address, err1 := Hash160ToAddressStr(hash160, PublicKeyToAddress)
-	if err1 != nil { //
-		t.Error(err1) //hash160 length 0 not 20
-		return
-	}
-
-	fmt.Println(address)
-}
 
 func TestHash160ToAddress(t *testing.T) {
 	data, err := hex.DecodeString("0014a4b4ca48de0b3fffc15404a1acdc8dbaae226955")
@@ -117,6 +75,7 @@ func TestHash160ToAddress(t *testing.T) {
 }
 
 func TestPrivateKeyToAddress(t *testing.T) {
+	crypto.InitSecp256()
 	address, err := AddressFromPrivateKey("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss")
 	if err != nil {
 		t.Error(err)
