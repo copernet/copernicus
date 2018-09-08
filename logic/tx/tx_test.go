@@ -744,7 +744,7 @@ func TestTxInvalidTests(t *testing.T) {
 	//	}
 }
 
-func sign_multisig(scriptPubKey *script.Script, keys []crypto.PrivateKey, transaction *tx.Tx) *script.Script {
+func signMultisig(scriptPubKey *script.Script, keys []crypto.PrivateKey, transaction *tx.Tx) *script.Script {
 	hash, _ := tx.SignatureHash(transaction, scriptPubKey,
 		uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
 	result := script.NewEmptyScript()
@@ -781,7 +781,7 @@ func TestScriptCHECKMULTISIG12(t *testing.T) {
 	//txFrom12.AddTxOut(txout.NewTxOut(0, scriptPubKey12))
 	//txTo12.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(txFrom12.GetHash(), 0),
 	//	script.NewEmptyScript(), script.SequenceFinal))
-	//goodsig1 := sign_multisig(scriptPubKey12, []crypto.PrivateKey{key1}, &txTo12)
+	//goodsig1 := signMultisig(scriptPubKey12, []crypto.PrivateKey{key1}, &txTo12)
 	//if err := verifyScript(&txTo12, goodsig1, scriptPubKey12, 0, 0, flag); err != nil {
 	//	t.Errorf("checkMultiSig fail, sk = key1, pk = key12")
 	//}
@@ -791,12 +791,12 @@ func TestScriptCHECKMULTISIG12(t *testing.T) {
 	//	t.Errorf("checkMultiSig should fail, sk = key1, pk = key12, bug sig damaged")
 	//}
 	//
-	//goodsig2 := sign_multisig(scriptPubKey12, []crypto.PrivateKey{key2}, &txTo12)
+	//goodsig2 := signMultisig(scriptPubKey12, []crypto.PrivateKey{key2}, &txTo12)
 	//if err := verifyScript(&txTo12, goodsig2, scriptPubKey12, 0, 0, flag); err != nil {
 	//	t.Errorf("checkMultiSig fail, sk = key2, pk = key12")
 	//}
 	//
-	//badsig1 := sign_multisig(scriptPubKey12, []crypto.PrivateKey{key3}, &txTo12)
+	//badsig1 := signMultisig(scriptPubKey12, []crypto.PrivateKey{key3}, &txTo12)
 	//if err := verifyScript(&txTo12, badsig1, scriptPubKey12, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key3, pk = key12")
 	//}
@@ -819,39 +819,39 @@ func TestScriptCHECKMULTISIG23(t *testing.T) {
 	//txFrom23.AddTxOut(txout.NewTxOut(0, scriptPubKey23))
 	//txTo23.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(txFrom23.GetHash(), 0),
 	//	script.NewEmptyScript(), script.SequenceFinal))
-	//goodsig1 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key1, key2}, &txTo23)
+	//goodsig1 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key1, key2}, &txTo23)
 	//if err := verifyScript(&txTo23, goodsig1, scriptPubKey23, 0, 0, flag); err != nil {
 	//	t.Errorf("checkMultiSig fail, sk = key12, pk = key123")
 	//}
-	//goodsig2 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key1, key3}, &txTo23)
+	//goodsig2 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key1, key3}, &txTo23)
 	//if err := verifyScript(&txTo23, goodsig2, scriptPubKey23, 0, 0, flag); err != nil {
 	//	t.Errorf("checkMultiSig fail, sk = key13, pk = key123")
 	//}
-	//goodsig3 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key2, key3}, &txTo23)
+	//goodsig3 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key2, key3}, &txTo23)
 	//if err := verifyScript(&txTo23, goodsig3, scriptPubKey23, 0, 0, flag); err != nil {
 	//	t.Errorf("checkMultiSig fail, sk = key23, pk = key123")
 	//}
-	//badsig1 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key2, key2}, &txTo23)
+	//badsig1 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key2, key2}, &txTo23)
 	//if err := verifyScript(&txTo23, badsig1, scriptPubKey23, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key22, pk = key123")
 	//}
-	//badsig2 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key2, key1}, &txTo23)
+	//badsig2 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key2, key1}, &txTo23)
 	//if err := verifyScript(&txTo23, badsig2, scriptPubKey23, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key21, pk = key123")
 	//}
-	//badsig3 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key3, key2}, &txTo23)
+	//badsig3 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key3, key2}, &txTo23)
 	//if err := verifyScript(&txTo23, badsig3, scriptPubKey23, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key32, pk = key123")
 	//}
-	//badsig4 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key4, key2}, &txTo23)
+	//badsig4 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key4, key2}, &txTo23)
 	//if err := verifyScript(&txTo23, badsig4, scriptPubKey23, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key42, pk = key123")
 	//}
-	//badsig5 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{key1, key4}, &txTo23)
+	//badsig5 := signMultisig(scriptPubKey23, []crypto.PrivateKey{key1, key4}, &txTo23)
 	//if err := verifyScript(&txTo23, badsig5, scriptPubKey23, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key14, pk = key123")
 	//}
-	//badsig6 := sign_multisig(scriptPubKey23, []crypto.PrivateKey{}, &txTo23)
+	//badsig6 := signMultisig(scriptPubKey23, []crypto.PrivateKey{}, &txTo23)
 	//if err := verifyScript(&txTo23, badsig6, scriptPubKey23, 0, 0, flag); err == nil {
 	//	t.Errorf("checkMultiSig should fail, sk = key{empty}, pk = key123")
 	//}

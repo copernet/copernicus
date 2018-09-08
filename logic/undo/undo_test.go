@@ -25,7 +25,7 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 
 	coinbaseTx := blocks.Txs[0]
 	txundos := undo.NewTxUndo()
-	tx.TxUpdateCoins(coinbaseTx, coinMap, txundos, int32(height))
+	tx.UpdateTxCoins(coinbaseTx, coinMap, txundos, int32(height))
 
 	//len(blocks.Txs)=2
 	for i := 1; i < len(blocks.Txs); i++ {
@@ -33,7 +33,7 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 		txundo := undos.GetTxundo()
 		txundo = append(txundo, txundos)
 		undos.SetTxUndo(txundo)
-		tx.TxUpdateCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
+		tx.UpdateTxCoins(txs, coinMap, undos.GetTxundo()[len(undos.GetTxundo())-1], int32(height))
 	}
 
 	blockHash := blocks.GetHash()

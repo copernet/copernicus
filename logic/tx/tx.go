@@ -213,11 +213,11 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 //	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 //	for _, transaction := range txs {
 //		if transaction.IsCoinBase() {
-//			TxUpdateCoins(transaction, coinMap, nil, 0)
+//			UpdateTxCoins(transaction, coinMap, nil, 0)
 //			continue
 //		}
 //		txundo := undo.NewTxUndo()
-//		TxUpdateCoins(transaction, coinMap, txundo, 0)
+//		UpdateTxCoins(transaction, coinMap, txundo, 0)
 //		txUndoList = append(txUndoList, txundo)
 //	}
 //
@@ -276,7 +276,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 		}
 		if transaction.IsCoinBase() {
-			TxUpdateCoins(transaction, coinsMap, nil, blockHeight)
+			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
 
@@ -291,7 +291,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
-		TxUpdateCoins(transaction, coinsMap, txundo, blockHeight)
+		UpdateTxCoins(transaction, coinsMap, txundo, blockHeight)
 		txUndoList = append(txUndoList, txundo)
 	}
 	bundo.SetTxUndo(txUndoList)
@@ -644,7 +644,7 @@ func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoin
 	lp.Height = maxHeight
 	lp.Time = maxTime
 
-	var maxInputHeight int32 = 0
+	var maxInputHeight int32
 	for _, height := range preHeights {
 		if height != tipHeight+1 {
 			if maxInputHeight < height {
