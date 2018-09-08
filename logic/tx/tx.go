@@ -110,16 +110,6 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		}
 	}
 
-	//check inputs
-	var scriptVerifyFlags = uint32(script.StandardScriptVerifyFlags)
-	if !chainparams.ActiveNetParams.RequireStandard {
-		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
-		if err != nil {
-			panic("config PromiscuousMempoolFlags err")
-		}
-		scriptVerifyFlags = uint32(configVerifyFlags) | script.ScriptEnableSigHashForkID
-	}
-
 	var extraFlags uint32 = script.ScriptVerifyNone
 	tip := chain.GetInstance().Tip()
 	//if chainparams.IsMagneticAnomalyEnable(tip.GetMedianTimePast()) {
@@ -132,12 +122,40 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if chainparams.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableReplayProtection
 	}
+
+	//check inputs
+	var scriptVerifyFlags = uint32(script.StandardScriptVerifyFlags)
+	if !chainparams.ActiveNetParams.RequireStandard {
+		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
+		if err != nil {
+			panic("config PromiscuousMempoolFlags err")
+		}
+		scriptVerifyFlags = uint32(configVerifyFlags) | script.ScriptEnableSigHashForkID
+	}
 	scriptVerifyFlags |= extraFlags
 
+	// Check against previous transactions. This is done last to help
+	// prevent CPU exhaustion denial-of-service attacks.
 	err = checkInputs(transaction, tempCoinsMap, scriptVerifyFlags)
 	if err != nil {
 		return err
 	}
+
+	// Check again against the current block tip's script verification flags
+	// to cache our script execution flags. This is, of course, useless if
+	// the next block has different script flags from the previous one, but
+	// because the cache tracks script flags for us it will auto-invalidate
+	// and we'll just have a few blocks of extra misses on soft-fork
+	// activation.
+	//
+	// This is also useful in case of bugs in the standard flags that cause
+	// transactions to pass as valid when they're actually invalid. For
+	// instance the STRICTENC flag was incorrectly allowing certain CHECKSIG
+	// NOT scripts to pass, even though they were invalid.
+	//
+	// There is a similar check in CreateNewBlock() to prevent creating
+	// invalid blocks (using TestBlockValidity), however allowing such
+	// transactions into the mempool can be exploited as a DoS attack.
 	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
 	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
 	if err != nil {
@@ -148,6 +166,9 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		if err != nil {
 			return err
 		}
+
+		log.Debug("Warning: -promiscuousmempool flags set to not include currently enforced soft forks, " +
+			"this may break mining or otherwise cause instability!\n")
 	}
 
 	return nil
