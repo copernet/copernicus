@@ -2,16 +2,16 @@ package block
 
 import (
 	"bytes"
-	"testing"
 	"math/rand"
-	"time"
 	"reflect"
+	"testing"
+	"time"
 )
 
 func TestDiskBlockPosSerialize(t *testing.T) {
 	var dbp1, dbp2 DiskBlockPos
 	buf := bytes.NewBuffer(nil)
-	r := rand.New(rand.NewSource(time.Now().Unix()));
+	r := rand.New(rand.NewSource(time.Now().Unix()))
 	for i := 0; i < 100; i++ {
 		dbp1.File = r.Int31()
 		dbp2.Pos = r.Uint32()

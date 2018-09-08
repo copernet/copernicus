@@ -14,7 +14,7 @@ const (
 	BlockIndexErrorBase
 	CoinErrorBase
 	MessageErrorBase
-	RpcErrorBase
+	RPCErrorBase
 	NetErrorBase
 	PeerErrorBase
 	ServiceErrorBase

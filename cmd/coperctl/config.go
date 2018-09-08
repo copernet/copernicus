@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/jessevdk/go-flags"
-	"github.com/copernet/copernicus/conf"
 )
 
 const (

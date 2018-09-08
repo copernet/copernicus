@@ -10,8 +10,8 @@ import (
 	"io"
 	"math/big"
 
-	"golang.org/x/crypto/ripemd160"
 	"github.com/copernet/copernicus/log"
+	"golang.org/x/crypto/ripemd160"
 )
 
 const (

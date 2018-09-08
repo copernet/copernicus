@@ -1,32 +1,29 @@
 package block
 
 import (
-
-	"testing"
 	"os"
+	"testing"
 )
 
 var testblockfileinfo = NewBlockFileInfo()
+
 const (
-	timefst    =uint64(1399703554)
-	timelst	   =uint64(1513622125)
+	timefst = uint64(1399703554)
+	timelst = uint64(1513622125)
 )
 
-
-
 func TestNewBlockFileInfo(t *testing.T) {
-	if testblockfileinfo.Blocks!=0 || testblockfileinfo.timeFirst!=0 || testblockfileinfo.timeLast != 0 ||
+	if testblockfileinfo.Blocks != 0 || testblockfileinfo.timeFirst != 0 || testblockfileinfo.timeLast != 0 ||
 		testblockfileinfo.HeightFirst != 0 || testblockfileinfo.HeightLast != 0 || testblockfileinfo.Size != 0 ||
 		testblockfileinfo.UndoSize != 0 || testblockfileinfo.index != 0 {
-			t.Error("new BlockFileInfo not null")
+		t.Error("new BlockFileInfo not null")
 	}
 }
-
 
 func TestSetNull(t *testing.T) {
 
 	testblockfileinfo.SetNull()
-	if testblockfileinfo.Blocks!=0 || testblockfileinfo.timeFirst!=0 || testblockfileinfo.timeLast != 0 ||
+	if testblockfileinfo.Blocks != 0 || testblockfileinfo.timeFirst != 0 || testblockfileinfo.timeLast != 0 ||
 		testblockfileinfo.HeightFirst != 0 || testblockfileinfo.HeightLast != 0 || testblockfileinfo.Size != 0 ||
 		testblockfileinfo.UndoSize != 0 {
 		t.Error("function 'Setnull' out of order")
@@ -43,15 +40,13 @@ func TestSetNull(t *testing.T) {
 
 	testblockfileinfo.SetNull()
 
-	if testblockfileinfo.Blocks!=0 || testblockfileinfo.timeFirst!=0 || testblockfileinfo.timeLast != 0 ||
+	if testblockfileinfo.Blocks != 0 || testblockfileinfo.timeFirst != 0 || testblockfileinfo.timeLast != 0 ||
 		testblockfileinfo.HeightFirst != 0 || testblockfileinfo.HeightLast != 0 || testblockfileinfo.Size != 0 ||
 		testblockfileinfo.UndoSize != 0 {
 		t.Error("function 'Setnull' out of order")
 	}
 
-
 }
-
 
 func TestSetIndex(t *testing.T) {
 	testblockfileinfo.SetIndex(4567743)
@@ -65,7 +60,7 @@ func TestGetSerializeList(t *testing.T) {
 	var list = []string{"Blocks", "Size", "UndoSize", "HeightFirst", "HeightLast", "timeFirst", "timeLast", "index"}
 	testlist := testblockfileinfo.GetSerializeList()
 
-	for i:=0;i<8;i++ {
+	for i := 0; i < 8; i++ {
 		if testlist[i] != list[i] {
 			t.Error("wrong list")
 			break
@@ -73,7 +68,6 @@ func TestGetSerializeList(t *testing.T) {
 	}
 
 }
-
 
 func TestSerialize(t *testing.T) {
 
@@ -147,7 +141,6 @@ func TestSerialize(t *testing.T) {
 	}
 }
 
-
 func TestAddBlock(t *testing.T) {
 
 	testblockfileinfo.Blocks = 20
@@ -162,7 +155,7 @@ func TestAddBlock(t *testing.T) {
 	heightofadd := int32(400000)
 	timeofadd := uint64(1400000000)
 
-	testblockfileinfo.AddBlock(heightofadd,timeofadd)
+	testblockfileinfo.AddBlock(heightofadd, timeofadd)
 
 	if testblockfileinfo.Blocks != 21 {
 		t.Error("num of blocks didn't += 1")
@@ -177,7 +170,7 @@ func TestAddBlock(t *testing.T) {
 	}
 
 	heightofadd = int32(200000)
-	testblockfileinfo.AddBlock(heightofadd,timeofadd)
+	testblockfileinfo.AddBlock(heightofadd, timeofadd)
 	if testblockfileinfo.Blocks != 22 {
 		t.Error("num of blocks didn't += 1")
 	}
@@ -187,7 +180,7 @@ func TestAddBlock(t *testing.T) {
 	}
 
 	timeofadd = uint64(1600000000)
-	testblockfileinfo.AddBlock(heightofadd,timeofadd)
+	testblockfileinfo.AddBlock(heightofadd, timeofadd)
 	if testblockfileinfo.Blocks != 23 {
 		t.Error("num of blocks didn't += 1")
 	}
@@ -200,9 +193,9 @@ func TestAddBlock(t *testing.T) {
 func TestString(t *testing.T) {
 
 	testblockfileinfo.SetNull()
-	if testblockfileinfo.String() != "BlockFileInfo(blocks=0, size=0, heights=0...0," +
+	if testblockfileinfo.String() != "BlockFileInfo(blocks=0, size=0, heights=0...0,"+
 		" time=1970-01-01T08:00:00+08:00...1970-01-01T08:00:00+08:00)" {
-			t.Error("initial state of testblockfileinfo is wrongly stringed")
+		t.Error("initial state of testblockfileinfo is wrongly stringed")
 
 	}
 
@@ -215,10 +208,8 @@ func TestString(t *testing.T) {
 	testblockfileinfo.Size = 256
 	testblockfileinfo.UndoSize = 60
 
-	if testblockfileinfo.String() != "BlockFileInfo(blocks=20, size=256, heights=300000...500000," +
+	if testblockfileinfo.String() != "BlockFileInfo(blocks=20, size=256, heights=300000...500000,"+
 		" time=2014-05-10T14:32:34+08:00...2017-12-19T02:35:25+08:00)" {
 		t.Error("state of testblockfileinfo is wrongly stringed")
 	}
 }
-
-

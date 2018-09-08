@@ -111,7 +111,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		!((pindex.Height == 91842 &&
 			blockHash.IsEqual(util.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
 			(pindex.Height == 91880 &&
-			blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
+				blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
 
 	// Once BIP34 activated it was not possible to create new duplicate
 	// coinBases and thus other than starting with the 2 existing duplicate

@@ -3,7 +3,7 @@ package errcode
 type RPCErr int
 
 const (
-	ModelValid = RpcErrorBase + iota
+	ModelValid = RPCErrorBase + iota
 	ModelInvalid
 	ModelError
 )

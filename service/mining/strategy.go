@@ -2,16 +2,16 @@ package mining
 
 import (
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
-	"github.com/copernet/copernicus/log"
 )
 
 type sortType int
 
 const (
-	sortByFee     sortType = 1 << iota
+	sortByFee sortType = 1 << iota
 	sortByFeeRate
 )
 
