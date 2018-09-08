@@ -102,14 +102,14 @@ func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 	// Fallback version
 	// TODO: just write one byte per block
 	var buf [65536]byte
-	file.Seek(int64(offset), 0)
+	file.Seek(int64(offset), os.SEEK_SET)
 	for length > 0 {
 		now := 65536
 		if int(length) < now {
 			now = int(length)
 		}
 		// Allowed to fail; this function is advisory anyway.
-		_, err := file.Write(buf[:])
+		_, err := file.Write(buf[:now])
 		if err != nil {
 			panic("the file write failed.")
 		}

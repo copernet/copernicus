@@ -1,6 +1,8 @@
 package disk
 
 import (
+
+	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -25,7 +27,7 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
-	"io/ioutil"
+
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -313,5 +315,49 @@ func TestFlushStateToDisk(t *testing.T) {
 		if err != nil {
 			t.Errorf("flush state mode to disk failed:%v", err)
 		}
+	}
+}
+
+func checkFileSize(f *os.File, size int64) bool {
+	fs, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	return fs.Size() == size
+}
+
+func allocateFileRangeWithNewFile(t *testing.T, size int64) {
+	f, err := ioutil.TempFile("", "AllocateFileRange.*.txt")
+	if err != nil {
+		t.Error(err)
+	}
+	defer func() {
+		defer os.Remove(f.Name())
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	AllocateFileRange(f, 0, uint32(size))
+	if !checkFileSize(f, size) {
+		t.Errorf("Allocate file from %d to %d failed", 0, size)
+	}
+
+	AllocateFileRange(f, uint32(size), uint32(size))
+	if !checkFileSize(f, 2*size) {
+		t.Errorf("Allocate file from %d to %d failed", size, 2*size)
+	}
+
+	AllocateFileRange(f, uint32(2*size)-1, uint32(size))
+	if !checkFileSize(f, 2*size-1+size) {
+		t.Errorf("Allocate file from %d to %d failed", 2*size-1, 2*size-1+size)
+	}
+}
+
+func TestAllocateFileRange(t *testing.T) {
+	sizes := []int64{1, 99, 34, 65536, 88888}
+	for _, size := range sizes {
+		allocateFileRangeWithNewFile(t, size)
 	}
 }
