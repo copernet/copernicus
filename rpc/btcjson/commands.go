@@ -160,12 +160,12 @@ func NewGetBlockCountCmd() *GetBlockCountCmd {
 
 // GetBlockHashCmd defines the getblockhash JSON-RPC command.
 type GetBlockHashCmd struct {
-	Height int
+	Height int32
 }
 
 // NewGetBlockHashCmd returns a new instance which can be used to issue a
 // getblockhash JSON-RPC command.
-func NewGetBlockHashCmd(index int) *GetBlockHashCmd {
+func NewGetBlockHashCmd(index int32) *GetBlockHashCmd {
 	return &GetBlockHashCmd{
 		Height: index,
 	}

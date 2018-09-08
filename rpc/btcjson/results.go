@@ -32,23 +32,22 @@ type GetBlockHeaderVerboseResult struct {
 // verbose flag is set.  When the verbose flag is not set, getblock returns a
 // hex-encoded string.
 type GetBlockVerboseResult struct {
-	Hash          string        `json:"hash"`
-	Confirmations uint64        `json:"confirmations"`
-	StrippedSize  int32         `json:"strippedsize"`
-	Size          uint          `json:"size"`
-	Height        int           `json:"height"`
-	Version       int32         `json:"version"`
-	VersionHex    string        `json:"versionHex"`
-	MerkleRoot    string        `json:"merkleroot"`
-	Tx            []TxRawResult `json:"rawtx,omitempty"`
-	Time          int64         `json:"time"`
-	Mediantime    int64         `json:"mediantime"`
-	Nonce         uint32        `json:"nonce"`
-	Bits          string        `json:"bits"`
-	Difficulty    float64       `json:"difficulty"`
-	ChainWork     string        `json:"chainwork"`
-	PreviousHash  string        `json:"previousblockhash,omitempty"`
-	NextHash      string        `json:"nextblockhash,omitempty"`
+	Hash          string   `json:"hash"`
+	Confirmations int32    `json:"confirmations"`
+	Size          int      `json:"size"`
+	Height        int32    `json:"height"`
+	Version       int32    `json:"version"`
+	VersionHex    string   `json:"versionHex"`
+	MerkleRoot    string   `json:"merkleroot"`
+	Tx            []string `json:"tx,omitempty"`
+	Time          int64    `json:"time"`
+	Mediantime    int64    `json:"mediantime"`
+	Nonce         uint32   `json:"nonce"`
+	Bits          string   `json:"bits"`
+	Difficulty    float64  `json:"difficulty"`
+	ChainWork     string   `json:"chainwork"`
+	PreviousHash  string   `json:"previousblockhash,omitempty"`
+	NextHash      string   `json:"nextblockhash,omitempty"`
 }
 
 // CreateMultiSigResult models the data returned from the createmultisig
