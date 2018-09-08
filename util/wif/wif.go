@@ -155,7 +155,7 @@ func (w *WIF) String() string {
 // exported private key in either a compressed or uncompressed format.  The
 // serialization format chosen depends on the value of w.CompressPubKey.
 func (w *WIF) SerializePubKey() []byte {
-	pk := (*crypto.PublicKey)(w.PrivKey.PubKey())
+	pk := w.PrivKey.PubKey()
 	if w.CompressPubKey {
 		return pk.SerializeCompressed()
 	}
