@@ -32,17 +32,17 @@ const (
 	//	BlockValidTransactions |
 	//	BlockValidChain |
 	//	BlockValidScripts
-	BlockValidityMask uint32 = 0x07
+	BlockValidMask uint32 = 0x07
 
 	// BlockHaveData : full block available in blk*.dat
 	BlockHaveData uint32 = 8
-	// Undo data available in rev*.dat
+	// BlockHaveUndo Undo data available in rev*.dat
 	BlockHaveUndo uint32 = 16
 
-	// The block is invalid.
+	// BlockFailed The block is invalid.
 	BlockFailed uint32 = 32
-	// The block has an invalid parent.
+	// BlockFailedParent The block has an invalid parent.
 	BlockFailedParent uint32 = 64
-	// Mask used to check if the block failed.
+	// BlockInvalidMask Mask used to check if the block failed.
 	BlockInvalidMask = BlockFailed | BlockFailedParent
 )

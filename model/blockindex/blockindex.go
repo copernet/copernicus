@@ -214,7 +214,7 @@ func (bIndex *BlockIndex) RaiseValidity(upto uint32) bool {
 		return false
 	}
 
-	bIndex.Status = (bIndex.Status & (^BlockValidityMask)) | upto
+	bIndex.Status = (bIndex.Status & (^BlockValidMask)) | upto
 
 	return true
 }
@@ -227,13 +227,13 @@ func (bIndex *BlockIndex) IsValid(upto uint32) bool {
 	return bIndex.getValidity() >= upto
 }
 
-// IsValid checks whether this block index entry is valid up to the passed validity level.
+// IsInvalid checks whether this block index entry is valid up to the passed validity level.
 func (bIndex *BlockIndex) IsInvalid() bool {
 	return bIndex.Status&BlockInvalidMask != 0
 }
 
 func (bIndex *BlockIndex) getValidity() uint32 {
-	return bIndex.Status & BlockValidityMask
+	return bIndex.Status & BlockValidMask
 }
 
 //func (bIndex *BlockIndex) BuildSkip() {

@@ -10,7 +10,7 @@ addons:
       - zlib1g-dev
       - libbz2-dev
 go:
-  - 1.11.x
+  - 1.10.x
 
 cache:
   apt: true
