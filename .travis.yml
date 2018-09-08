@@ -3,7 +3,7 @@ addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
-      - ppa:masterminds/glide
+      - sourceline: 'ppa:masterminds/glide'
     packages:
       - g++-6
       - gcc-6
