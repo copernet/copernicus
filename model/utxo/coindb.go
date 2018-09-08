@@ -10,7 +10,7 @@ import (
 )
 
 type CoinsDB struct {
-	dbw *db.Wrapper
+	dbw *db.DBWrapper
 }
 
 func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {

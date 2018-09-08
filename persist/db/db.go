@@ -39,7 +39,7 @@ const (
 	preallocValueSize = 1024
 )
 
-type Wrapper struct {
+type DBWrapper struct {
 	option       opt.Options
 	readOption   opt.ReadOptions
 	iterOption   opt.ReadOptions
@@ -104,7 +104,7 @@ type DBOption struct {
 	UseMemStore    bool
 }
 
-func writeObfuscateKey(do *DBOption, dbw *Wrapper) error {
+func writeObfuscateKey(do *DBOption, dbw *DBWrapper) error {
 	exists := false
 	obk, err := dbw.Read([]byte(obfuscateKeyKey))
 	if err == nil {
@@ -121,13 +121,13 @@ func writeObfuscateKey(do *DBOption, dbw *Wrapper) error {
 	return nil
 }
 
-func NewDBWrapper(do *DBOption) (*Wrapper, error) {
+func NewDBWrapper(do *DBOption) (*DBWrapper, error) {
 	if do == nil {
-		return nil, errors.New("Wrapper: nil DBOption")
+		return nil, errors.New("DBWrapper: nil DBOption")
 	}
 	if do.UseMemStore {
 		mdb := memdb.New(comparer.DefaultComparer, do.CacheSize)
-		dbw := &Wrapper{
+		dbw := &DBWrapper{
 			mdb: mdb,
 		}
 		if err := writeObfuscateKey(do, dbw); err != nil {
@@ -171,7 +171,7 @@ func NewDBWrapper(do *DBOption) (*Wrapper, error) {
 		Sync: true,
 	}
 
-	dbw := &Wrapper{
+	dbw := &DBWrapper{
 		option:      opts,
 		readOption:  ro,
 		iterOption:  io,
@@ -200,7 +200,7 @@ func xor(val, obkey []byte) {
 	}
 }
 
-func (dbw *Wrapper) Read(key []byte) ([]byte, error) {
+func (dbw *DBWrapper) Read(key []byte) ([]byte, error) {
 	var (
 		value []byte
 		err   error
@@ -219,7 +219,7 @@ func (dbw *Wrapper) Read(key []byte) ([]byte, error) {
 	return value, nil
 }
 
-func (dbw *Wrapper) Write(key, val []byte, sync bool) error {
+func (dbw *DBWrapper) Write(key, val []byte, sync bool) error {
 	if dbw.mdb != nil {
 		tmpval := []byte{}
 		tmpval = append(tmpval, val...)
@@ -231,7 +231,7 @@ func (dbw *Wrapper) Write(key, val []byte, sync bool) error {
 	return dbw.WriteBatch(bw, sync)
 }
 
-func (dbw *Wrapper) WriteBatch(bw *BatchWrapper, sync bool) error {
+func (dbw *DBWrapper) WriteBatch(bw *BatchWrapper, sync bool) error {
 	if dbw.mdb != nil {
 		return nil
 	}
@@ -244,7 +244,7 @@ func (dbw *Wrapper) WriteBatch(bw *BatchWrapper, sync bool) error {
 	return dbw.db.Write(&bw.bat, &opts)
 }
 
-func (dbw *Wrapper) Exists(key []byte) bool {
+func (dbw *DBWrapper) Exists(key []byte) bool {
 	if dbw.mdb != nil {
 		return dbw.mdb.Contains(key)
 	}
@@ -253,13 +253,13 @@ func (dbw *Wrapper) Exists(key []byte) bool {
 		if err == lvldb.ErrNotFound {
 			return false
 		}
-		panic("Wrapper :" + err.Error())
+		panic("DBWrapper :" + err.Error())
 
 	}
 	return true
 }
 
-func (dbw *Wrapper) Erase(key []byte, sync bool) error {
+func (dbw *DBWrapper) Erase(key []byte, sync bool) error {
 	if dbw.mdb != nil {
 		return dbw.mdb.Delete(key)
 	}
@@ -268,7 +268,7 @@ func (dbw *Wrapper) Erase(key []byte, sync bool) error {
 	return dbw.WriteBatch(bw, sync)
 }
 
-func (dbw *Wrapper) Sync() error {
+func (dbw *DBWrapper) Sync() error {
 	if dbw.mdb != nil {
 		return nil
 	}
@@ -276,18 +276,18 @@ func (dbw *Wrapper) Sync() error {
 	return dbw.WriteBatch(bw, true)
 }
 
-func (dbw *Wrapper) Iterator(slice *util.Range) *IterWrapper {
+func (dbw *DBWrapper) Iterator(slice *util.Range) *IterWrapper {
 	if dbw.mdb != nil {
 		return NewIterWrapper(dbw, dbw.mdb.NewIterator(slice))
 	}
 	return NewIterWrapper(dbw, dbw.db.NewIterator(slice, &dbw.iterOption))
 }
 
-func (dbw *Wrapper) Prefix(prefix []byte) *IterWrapper {
+func (dbw *DBWrapper) Prefix(prefix []byte) *IterWrapper {
 	return dbw.Iterator(util.BytesPrefix(prefix))
 }
 
-func (dbw *Wrapper) IsEmpty() bool {
+func (dbw *DBWrapper) IsEmpty() bool {
 	if dbw.mdb != nil {
 		return dbw.mdb.Len() == 0
 	}
@@ -296,7 +296,7 @@ func (dbw *Wrapper) IsEmpty() bool {
 	return !it.Valid()
 }
 
-func (dbw *Wrapper) EstimateSize(begin, end []byte) uint64 {
+func (dbw *DBWrapper) EstimateSize(begin, end []byte) uint64 {
 	if dbw.mdb != nil {
 		return uint64(dbw.mdb.Size())
 	}
@@ -308,18 +308,18 @@ func (dbw *Wrapper) EstimateSize(begin, end []byte) uint64 {
 	return uint64(sizes.Sum())
 }
 
-func (dbw *Wrapper) CompactRange(begin, end []byte) error {
+func (dbw *DBWrapper) CompactRange(begin, end []byte) error {
 	if dbw.mdb != nil {
 		return nil
 	}
 	return dbw.db.CompactRange(util.Range{Start: begin, Limit: end})
 }
 
-func (dbw *Wrapper) GetObfuscateKey() []byte {
+func (dbw *DBWrapper) GetObfuscateKey() []byte {
 	return dbw.obfuscateKey
 }
 
-func (dbw *Wrapper) Close() {
+func (dbw *DBWrapper) Close() {
 	if dbw.mdb != nil {
 		return
 	}
@@ -328,7 +328,7 @@ func (dbw *Wrapper) Close() {
 	}
 }
 
-func (dbw *Wrapper) Reset() {
+func (dbw *DBWrapper) Reset() {
 	if dbw.mdb != nil {
 		dbw.mdb.Reset()
 	}
@@ -336,13 +336,13 @@ func (dbw *Wrapper) Reset() {
 
 type BatchWrapper struct {
 	bat     lvldb.Batch
-	parent  *Wrapper
+	parent  *DBWrapper
 	bkey    []byte
 	bval    []byte
 	sizeEst int
 }
 
-func NewBatchWrapper(parent *Wrapper) *BatchWrapper {
+func NewBatchWrapper(parent *DBWrapper) *BatchWrapper {
 	return &BatchWrapper{
 		parent: parent,
 		bkey:   make([]byte, 0, preallocKeySize),
@@ -398,11 +398,11 @@ func (bw *BatchWrapper) Erase(key []byte) {
 }
 
 type IterWrapper struct {
-	parent *Wrapper
+	parent *DBWrapper
 	iter   iterator.Iterator
 }
 
-func NewIterWrapper(parent *Wrapper, iter iterator.Iterator) *IterWrapper {
+func NewIterWrapper(parent *DBWrapper, iter iterator.Iterator) *IterWrapper {
 	return &IterWrapper{
 		parent: parent,
 		iter:   iter,
