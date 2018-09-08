@@ -132,7 +132,7 @@ func TestMerkle(t *testing.T) {
 
 				// Compute the root of the block before mutating it.
 				var unmutatedMutated bool
-				unmutateRoot := BlockMerkleRoot(bk, &unmutatedMutated)
+				unmutateRoot := BlockMerkleRoot(bk.Txs, &unmutatedMutated)
 				if unmutatedMutated {
 					t.Error("calculate error")
 				}
@@ -154,7 +154,7 @@ func TestMerkle(t *testing.T) {
 				oldRoot, merkletree := BlockBuildMerkleTree(bk, &oldMutated)
 				// Compute the merkle root using the new mechanism.
 				var newMutated bool
-				newRoot := BlockMerkleRoot(bk, &newMutated)
+				newRoot := BlockMerkleRoot(bk.Txs, &newMutated)
 				if oldRoot != newRoot {
 					t.Error("error")
 				}
@@ -179,7 +179,7 @@ func TestMerkle(t *testing.T) {
 						if ntx > 16 {
 							mtx = util.GetRandInt(math.MaxUint32) % ntx
 						}
-						newBranch := BlockMerkleBranch(bk, uint32(mtx))
+						newBranch := BlockMerkleBranch(bk.Txs, uint32(mtx))
 						oldBranch := BlockGetMerkleBranch(bk, merkletree, mtx)
 						if len(newBranch) != len(oldBranch) {
 							t.Error("error")

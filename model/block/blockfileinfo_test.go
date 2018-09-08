@@ -15,12 +15,12 @@ const (
 func TestNewBlockFileInfo(t *testing.T) {
 	if testblockfileinfo.Blocks != 0 || testblockfileinfo.timeFirst != 0 || testblockfileinfo.timeLast != 0 ||
 		testblockfileinfo.HeightFirst != 0 || testblockfileinfo.HeightLast != 0 || testblockfileinfo.Size != 0 ||
-		testblockfileinfo.UndoSize != 0 || testblockfileinfo.index != 0 {
+		testblockfileinfo.UndoSize != 0 {
 		t.Error("new BlockFileInfo not null")
 	}
 }
 
-func TestSetNull(t *testing.T) {
+func TestBlockFileInfoSetNull(t *testing.T) {
 
 	testblockfileinfo.SetNull()
 	if testblockfileinfo.Blocks != 0 || testblockfileinfo.timeFirst != 0 || testblockfileinfo.timeLast != 0 ||
@@ -30,7 +30,7 @@ func TestSetNull(t *testing.T) {
 	}
 
 	testblockfileinfo.Blocks = 20
-	testblockfileinfo.index = 1
+	//testblockfileinfo.index = 1
 	testblockfileinfo.HeightFirst = 300000
 	testblockfileinfo.HeightLast = 500000
 	testblockfileinfo.timeFirst = timefst
@@ -49,11 +49,11 @@ func TestSetNull(t *testing.T) {
 }
 
 func TestSetIndex(t *testing.T) {
-	testblockfileinfo.SetIndex(4567743)
-	i := testblockfileinfo.GetIndex()
-	if i != 4567743 {
-		t.Error("there exists sth. wrong in setting or getting")
-	}
+	//testblockfileinfo.SetIndex(4567743)
+	//i := testblockfileinfo.GetIndex()
+	//if i != 4567743 {
+	//	t.Error("there exists sth. wrong in setting or getting")
+	//}
 }
 
 func TestGetSerializeList(t *testing.T) {
@@ -72,7 +72,7 @@ func TestGetSerializeList(t *testing.T) {
 func TestSerialize(t *testing.T) {
 
 	testblockfileinfo.Blocks = 20
-	testblockfileinfo.index = 1
+	//testblockfileinfo.index = 1
 	testblockfileinfo.HeightFirst = 300000
 	testblockfileinfo.HeightLast = 500000
 	testblockfileinfo.timeFirst = timefst
@@ -107,9 +107,9 @@ func TestSerialize(t *testing.T) {
 		t.Error("the 'blocks' should be equal to the one of testblockfileinfo's but not")
 	}
 
-	if blockfileinforead.index != 1 {
-		t.Error("the 'index' should be equal to the one of testblockfileinfo's but not")
-	}
+	//if blockfileinforead.index != 1 {
+	//	t.Error("the 'index' should be equal to the one of testblockfileinfo's but not")
+	//}
 
 	if blockfileinforead.HeightFirst != 300000 {
 		t.Error("the 'blocks' should be equal to the one of testblockfileinfo's but not")
@@ -144,7 +144,7 @@ func TestSerialize(t *testing.T) {
 func TestAddBlock(t *testing.T) {
 
 	testblockfileinfo.Blocks = 20
-	testblockfileinfo.index = 1
+	//testblockfileinfo.index = 1
 	testblockfileinfo.HeightFirst = 300000
 	testblockfileinfo.HeightLast = 500000
 	testblockfileinfo.timeFirst = timefst
@@ -200,7 +200,7 @@ func TestString(t *testing.T) {
 	}
 
 	testblockfileinfo.Blocks = 20
-	testblockfileinfo.index = 1
+	//testblockfileinfo.index = 1
 	testblockfileinfo.HeightFirst = 300000
 	testblockfileinfo.HeightLast = 500000
 	testblockfileinfo.timeFirst = timefst

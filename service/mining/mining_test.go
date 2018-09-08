@@ -73,7 +73,7 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 }
 
 func createTx() []*mempool.TxEntry {
-	chain.InitGlobalChain(nil)
+	chain.InitGlobalChain()
 	testEntryHelp := NewTestMemPoolEntry()
 	tx1 := tx.NewTx(0, 0x02)
 	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.HashZero, math.MaxUint32), script.NewEmptyScript(), 0xffffffff))
