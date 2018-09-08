@@ -163,8 +163,6 @@ func ReceivedBlockTransactions(pblock *block.Block,
 			gChain.AddToOrphan(pindexNew)
 		}
 	}
-
-	return
 }
 
 // GetBlockScriptFlags Returns the script flags which should be checked for a given block

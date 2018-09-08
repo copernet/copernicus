@@ -38,7 +38,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
 	isNewBlock := false
-	
+
 	err := ProcessNewBlock(b, true, &isNewBlock)
 
 	if err != nil {

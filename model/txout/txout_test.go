@@ -16,11 +16,11 @@ import (
 var myscript = []byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 	0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31} //21 bytes
 
-var script1 = script.NewScriptRaw(myscript) //提示script已被使用，所以我随手加了个1
+var script1 = script.NewScriptRaw(myscript)
 
 var testTxout = NewTxOut(9, script1)
 
-var minRelayTxFee = util.NewFeeRate(9766) //gzq自己编的数据，根据"手续费=0.00001BTC/kb"换算得出
+var minRelayTxFee = util.NewFeeRate(9766)
 
 func TestNewTxOut(t *testing.T) {
 
@@ -152,10 +152,7 @@ func TestCheckStandard(t *testing.T) {
 
 func TestIsCommitment(t *testing.T) {
 
-	var p bool
-
-	p = testTxout.scriptPubKey.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4})
-
+	p := testTxout.scriptPubKey.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4})
 	if p {
 		t.Error("not qualified committing data but not detected")
 	}
@@ -179,11 +176,7 @@ func TestIsCommitment(t *testing.T) {
 	if !p {
 		t.Error("func IsCommitment never returns true")
 	}
-
-	var b []byte
-
-	b = make([]byte, 10001)
-
+	b := make([]byte, 10001)
 	p = testTxout.scriptPubKey.IsCommitment(b)
 
 	if p {
@@ -193,11 +186,7 @@ func TestIsCommitment(t *testing.T) {
 }
 
 func TestIsSpendable(t *testing.T) {
-
-	var p bool
-
-	p = testTxout.IsSpendable()
-
+	p := testTxout.IsSpendable()
 	if !p {
 		t.Error("the txout is spendable but misjudged")
 	}

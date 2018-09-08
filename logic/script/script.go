@@ -904,7 +904,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 						return errcode.New(errcode.ScriptErrModByZero)
 					}
 					bn.Value = bn1.Value % bn2.Value
-					break
 
 				case opcodes.OP_MIN:
 					if bn1.Value < bn2.Value {
