@@ -42,7 +42,7 @@ func newBlockTreeDB(do *db.DBOption) *BlockTreeDB {
 	}
 	dbw, err := db.NewDBWrapper(do)
 	if err != nil {
-		panic("init DBWrapper failed...")
+		panic("init DBWrapper failed..." + err.Error())
 	}
 	return &BlockTreeDB{
 		dbw: dbw,
