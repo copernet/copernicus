@@ -51,7 +51,6 @@ func TestHash160Address(t *testing.T) {
 	}
 }
 
-
 func TestHash160ToAddress(t *testing.T) {
 	data, err := hex.DecodeString("0014a4b4ca48de0b3fffc15404a1acdc8dbaae226955")
 	if err != nil {
