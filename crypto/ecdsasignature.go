@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"encoding/hex"
+	"github.com/NebulousLabs/errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/secp256k1-go/secp256k1"
@@ -42,7 +43,9 @@ func (sig *Signature) EcdsaNormalize() bool {
 }
 
 func ParseDERSignature(signature []byte) (*Signature, error) {
-	//_, sig, err := secp256k1.EcdsaSignatureParseDer(secp256k1Context, signature)
+	if secp256k1Context == nil {
+		return nil, errors.New("secp256k1Context is nil")
+	}
 	ret, sig, err := secp256k1.EcdsaSignatureParseDerLax(secp256k1Context, signature)
 	if ret != 1 || err != nil {
 		return nil, err
