@@ -1,7 +1,6 @@
 package disk
 
 import (
-
 	"io/ioutil"
 	"math"
 	"os"
@@ -27,7 +26,6 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
-
 )
 
 func TestWRBlockToDisk(t *testing.T) {
