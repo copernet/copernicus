@@ -5,10 +5,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
+	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
@@ -43,123 +49,108 @@ var blockchainHandlers = map[string]commandHandler{
 }
 
 func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	gChain := chain.GetInstance()
+	params := gChain.GetParams()
+	tip := gChain.Tip()
 
-	/*	// Obtain a snapshot of the current best known blockchain state. We'll
-		// populate the response to this call primarily from this snapshot.
-		var headers int32
-		if chain.GIndexBestHeader != nil {
-			headers = int32(chain.GIndexBestHeader.Height)
-		} else {
-			headers = -1
-		}
+	chainInfo := &btcjson.GetBlockChainInfoResult{
+		Chain:                params.Name,
+		Blocks:               gChain.Height(),
+		BestBlockHash:        tip.GetBlockHash().String(),
+		Difficulty:           getDifficulty(tip),
+		MedianTime:           tip.GetMedianTimePast(),
+		VerificationProgress: lchain.GuessVerificationProgress(params.TxData(), tip),
+		ChainWork:            tip.ChainWork.Text(16),
+		Pruned:               false,
+		Bip9SoftForks:        make(map[string]*btcjson.Bip9SoftForkDescription),
+		//Headers:            lblockindex.indexBestHeader.Height,   // TODO: NOT support yet
+	}
 
+	// Next, populate the response with information describing the current
+	// status of soft-forks deployed via the super-majority block
+	// signalling mechanism.
 
-		tip := chain.GetInstance().Tip()
-		chainInfo := &btcjson.GetBlockChainInfoResult{
-			//Chain:         Params().NetworkingIDString(),            // todo
-			Blocks:        int32(chain.GetInstance().Height()),
-			Headers:       headers,
-			BestBlockHash: tip.GetBlockHash().ToString(),
-			Difficulty:    getDifficulty(tip),
-			MedianTime:    tip.GetMedianTimePast(),
-			//VerificationProgress: chain.GuessVerificationProgress(Params().TxData(),
-			//	chain.GetInstance().Tip())            // todo
-			ChainWork:     tip.ChainWork.String(),
-			Pruned:        false,
-			Bip9SoftForks: make(map[string]*btcjson.Bip9SoftForkDescription),
-		}
-
-		// Next, populate the response with information describing the current
-		// status of soft-forks deployed via the super-majority block
-		// signalling mechanism.
-		height := chainSnapshot.Height
-		chainInfo.SoftForks = []*btcjson.SoftForkDescription{
-			{
-				ID:      "bip34",
-				Version: 2,
-				Reject: struct {
-					Status bool `json:"status"`
-				}{
-					Status: height >= params.BIP0034Height,
-				},
+	height := tip.Height
+	chainInfo.SoftForks = []*btcjson.SoftForkDescription{
+		{
+			ID:      "bip34",
+			Version: 2,
+			Reject: struct {
+				Status bool `json:"status"`
+			}{
+				Status: height >= params.BIP34Height,
 			},
-			{
-				ID:      "bip66", f
-				Version: 3,
-				Reject: struct {
-					Status bool `json:"status"`
-				}{
-					Status: height >= params.BIP0066Height,
-				},
+		},
+		{
+			ID:      "bip66",
+			Version: 3,
+			Reject: struct {
+				Status bool `json:"status"`
+			}{
+				Status: height >= params.BIP66Height,
 			},
-			{
-				ID:      "bip65",
-				Version: 4,
-				Reject: struct {
-					Status bool `json:"status"`
-				}{
-					Status: height >= params.BIP0065Height,
-				},
+		},
+		{
+			ID:      "bip65",
+			Version: 4,
+			Reject: struct {
+				Status bool `json:"status"`
+			}{
+				Status: height >= params.BIP65Height,
 			},
-		}
+		},
+	}
 
-		// Finally, query the BIP0009 version bits state for all currently
-		// defined BIP0009 soft-fork deployments.
-		for deployment, deploymentDetails := range params.Deployments {
-			// Map the integer deployment ID into a human readable
-			// fork-name.
-			var forkName string
-			switch deployment {
-			case chaincfg.DeploymentTestDummy:
-				forkName = "dummy"
+	// Finally, query the BIP0009 version bits state for all currently
+	// defined BIP0009 soft-fork deployments.
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
+		pos := consensus.DeploymentPos(i)
+		state := versionbits.VersionBitsState(indexPrev, params, pos, versionbits.VBCache)
+		forkName := getVbName(pos)
 
-			case chaincfg.DeploymentCSV:
-				forkName = "csv"
-
-			case chaincfg.DeploymentSegwit:
-				forkName = "segwit"
-
-			default:
-				return nil, &btcjson.RPCError{
-					Code: btcjson.ErrRPCInternal.Code,
-					Message: fmt.Sprintf("Unknown deployment %v "+
-						"detected", deployment),
-				}
-			}
-
-			// Query the chain for the current status of the deployment as
-			// identified by its deployment ID.
-			deploymentStatus, err := chain.ThresholdState(uint32(deployment))
-			if err != nil {
-				context := "Failed to obtain deployment status"
-				return nil, internalRPCError(err.Error(), context)
-			}
-
-			// Attempt to convert the current deployment status into a
-			// human readable string. If the status is unrecognized, then a
-			// non-nil error is returned.
-			statusString, err := softForkStatus(deploymentStatus)
-			if err != nil {
-				return nil, &btcjson.RPCError{
-					Code: btcjson.ErrRPCInternal.Code,
-					Message: fmt.Sprintf("unknown deployment status: %v",
-						deploymentStatus),
-				}
-			}
-
-			// Finally, populate the soft-fork description with all the
-			// information gathered above.
-			chainInfo.Bip9SoftForks[forkName] = &btcjson.Bip9SoftForkDescription{
-				Status:    strings.ToLower(statusString),
-				Bit:       deploymentDetails.BitNumber,
-				StartTime: int64(deploymentDetails.StartTime),
-				Timeout:   int64(deploymentDetails.ExpireTime),
+		// Attempt to convert the current deployment status into a
+		// human readable string. If the status is unrecognized, then a
+		// non-nil error is returned.
+		statusString, err := softForkStatus(state)
+		if err != nil {
+			return nil, &btcjson.RPCError{
+				Code: btcjson.ErrRPCInternal.Code,
+				Message: fmt.Sprintf("unknown deployment status: %v",
+					state),
 			}
 		}
 
-		return chainInfo, nil
-	*/
-	return nil, nil
+		// Finally, populate the soft-fork description with all the
+		// information gathered above.
+		deploymentDetails := &params.Deployments[pos]
+		chainInfo.Bip9SoftForks[forkName] = &btcjson.Bip9SoftForkDescription{
+			Status:    strings.ToLower(statusString),
+			Bit:       uint8(deploymentDetails.Bit),
+			StartTime: deploymentDetails.StartTime,
+			Timeout:   deploymentDetails.Timeout,
+		}
+	}
+
+	return chainInfo, nil
+}
+
+// softForkStatus converts a ThresholdState state into a human readable string
+// corresponding to the particular state.
+func softForkStatus(state versionbits.ThresholdState) (string, error) {
+	switch state {
+	case versionbits.ThresholdDefined:
+		return "defined", nil
+	case versionbits.ThresholdStarted:
+		return "started", nil
+	case versionbits.ThresholdLockedIn:
+		return "lockedin", nil
+	case versionbits.ThresholdActive:
+		return "active", nil
+	case versionbits.ThresholdFailed:
+		return "failed", nil
+	default:
+		return "", fmt.Errorf("unknown deployment state: %v", state)
+	}
 }
 
 func handleGetBestBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -171,111 +162,106 @@ func handleGetBlockCount(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleGetBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.GetBlockCmd)
+	c := cmd.(*btcjson.GetBlockCmd)
 
-		// Load the raw block bytes from the database.
-		hash, err := util.GetHashFromStr(c.Hash)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.Hash)
-		}
-
-		index := chain.GetInstance().FindBlockIndex(*hash)
-		if index == nil {
-			return false, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidAddressOrKey,
-				Message: "Block not found",
-			}
-		}
-
-		if chain.GHavePruned && !index.HaveData() && index.TxCount > 0 {
-			return false, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCMisc,
-				Message: "Block not available (pruned data)",
-			}
-		}
-
-		block := block.Block{}
-		if chain.ReadBlockFromDisk(&block, index, consensus.ActiveNetParams) {
-			return false, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCMisc,
-				Message: "Block not found on disk",
-			}
-		}
-
-		if !*c.Verbose {
-			buf := bytes.NewBuffer(nil)
-			block.Serialize(buf)
-			strHex := hex.EncodeToString(buf.Bytes())
-			return strHex, nil
-		}
-
-		return blockToJSON(&block, index, false), nil*/ //todo open
-	return nil, nil
-}
-
-/*func blockToJSON(block *block.Block, index *blockindex.BlockIndex, txDetails bool) *btcjson.GetBlockVerboseResult {
-	confirmations := -1
-	// Only report confirmations if the block is on the main chain
-	if chain.GetInstance().Contains(index) {
-		confirmations = chain.GetInstance().Height() - index.Height + 1
+	// Load the raw block bytes from the database.
+	hash, err := util.GetHashFromStr(c.Hash)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Hash)
 	}
 
-	txs := make([]btcjson.TxRawResult, len(block.Txs))
-	for i, tx := range block.Txs {
-		// todo: I think GetHash() function should return the pointer of hash install of the value
-		hash := block.Header.GetHash()
-		rawTx, err := createTxRawResult(tx, &hash, consensus.ActiveNetParams)
-		if err != nil {
-			return nil
+	blockIndex := chain.GetInstance().FindBlockIndex(*hash)
+	if blockIndex == nil {
+		return false, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidAddressOrKey,
+			Message: "Block not found",
 		}
-		txs[i] = *rawTx
+	}
+
+	pruneState := disk.GetPruneState()
+	if pruneState.HavePruned && !blockIndex.HasData() && blockIndex.TxCount > 0 {
+		return false, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCMisc,
+			Message: "Block not available (pruned data)",
+		}
+	}
+
+	blk, ret := disk.ReadBlockFromDisk(blockIndex, chain.GetInstance().GetParams())
+	if !ret {
+		return false, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCMisc,
+			Message: "Block not found on disk",
+		}
+	}
+
+	if c.Verbose != nil && !*c.Verbose {
+		blkBuf := bytes.NewBuffer(nil)
+		blk.Serialize(blkBuf)
+		strHex := hex.EncodeToString(blkBuf.Bytes())
+		return strHex, nil
+	}
+
+	blockReply := blockToJSON(blk, blockIndex)
+
+	return blockReply, nil
+}
+
+func blockToJSON(blk *block.Block, blockIndex *blockindex.BlockIndex) *btcjson.GetBlockVerboseResult {
+	confirmations := int32(-1)
+	// Only report confirmations if the block is on the main chain
+	if chain.GetInstance().Contains(blockIndex) {
+		confirmations = chain.GetInstance().TipHeight() - blockIndex.Height + 1
 	}
 
 	var previousHash string
-	if index.Prev != nil {
-		previousHash = index.Prev.BlockHash.String()
+	if blockIndex.Prev != nil {
+		previousHash = blockIndex.Prev.GetBlockHash().String()
 	}
 
-	var nextBlockHash string
-	next := chain.GetInstance().Next(index)
+	var nextHash string
+	next := chain.GetInstance().Next(blockIndex)
 	if next != nil {
-		nextBlockHash = next.BlockHash.String()
+		nextHash = next.GetBlockHash().String()
 	}
-	return &btcjson.GetBlockVerboseResult{
-		Hash:          index.GetBlockHash().String(),
-		Confirmations: uint64(confirmations),
-		Size:          block.SerializeSize(),
-		Height:        index.Height,
-		Version:       block.Header.Version,
-		MerkleRoot:    block.Header.MerkleRoot.String(),
-		Tx:            txs,
-		Time:          int64(block.Header.Time),
-		Mediantime:    index.GetMedianTimePast(),
-		Nonce:         block.Header.Nonce,
-		Bits:          fmt.Sprintf("%08x", block.Header.Bits),
-		Difficulty:    getDifficulty(index),
-		ChainWork:     index.ChainWork.String(), // todo check
+
+	blockHeader := &blk.Header
+	blockReply := &btcjson.GetBlockVerboseResult{
+		Hash:          blockIndex.GetBlockHash().String(),
+		Confirmations: confirmations,
+		Size:          blk.SerializeSize(),
+		Height:        blockIndex.Height,
+		Version:       blockHeader.Version,
+		VersionHex:    strconv.FormatInt(int64(blockHeader.Version), 16),
+		MerkleRoot:    blockHeader.MerkleRoot.String(),
+		Tx:            make([]string, len(blk.Txs)),
+		Time:          int64(blockHeader.Time),
+		Mediantime:    blockIndex.GetMedianTimePast(),
+		Nonce:         blockHeader.Nonce,
+		Bits:          strconv.FormatInt(int64(blockHeader.Bits), 16),
+		Difficulty:    getDifficulty(blockIndex),
+		ChainWork:     blockIndex.ChainWork.Text(16),
 		PreviousHash:  previousHash,
-		NextHash:      nextBlockHash,
+		NextHash:      nextHash,
 	}
-}*/ // todo open
+
+	for i, tx := range blk.Txs {
+		txHash := tx.GetHash()
+		blockReply.Tx[i] = txHash.String()
+	}
+	return blockReply
+}
 
 func handleGetBlockHash(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*
-		c := cmd.(*btcjson.GetBlockHashCmd)
+	c := cmd.(*btcjson.GetBlockHashCmd)
 
-		height := c.Height
-		if height < 0 || height > chain.GetInstance().Height() {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCOutOfRange,
-				Message: "Block number out of range",
-			}
+	blockIndex := chain.GetInstance().GetIndex(c.Height)
+	if blockIndex == nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCOutOfRange,
+			Message: "Block height out of range",
 		}
-
-		blockIndex := chain.GetInstance().GetSpecIndex(height) // todo realise
-
-		return blockIndex.BlockHash, nil*/ //todo open
-	return nil, nil
+	}
+	return blockIndex.GetBlockHash().String(), nil
 }
 
 func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -306,12 +292,10 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 		return hex.EncodeToString(headerBuf.Bytes()), nil
 	}
 
-	//best := s.cfg.Chain.BestSnapshot()
-	best := chain.GetInstance().Tip()
 	confirmations := int32(-1)
 	// Only report confirmations if the block is on the main chain
 	if chain.GetInstance().Contains(blockIndex) {
-		confirmations = best.Height - blockIndex.Height + 1
+		confirmations = chain.GetInstance().TipHeight() - blockIndex.Height + 1
 	}
 
 	var previousblockhash string
@@ -413,16 +397,17 @@ func getDifficulty(bi *blockindex.BlockIndex) float64 {
 // getDifficultyRatio returns the proof-of-work difficulty as a multiple of the
 // minimum difficulty using the passed bits field from the header of a block.
 func getDifficultyFromBits(bits uint32) float64 {
-	shift := bits >> 24 & 0xff
-	diff := 0x0000ffff / float64(bits&0x00ffffff)
+	shift := (bits >> 24) & 0xff
+	diff := float64(0x0000ffff) / float64(bits&0x00ffffff)
+	const factor = float64(256.0)
 
 	for shift < 29 {
-		diff *= 256
+		diff *= factor
 		shift++
 	}
 
 	for shift > 29 {
-		diff /= 256
+		diff /= factor
 		shift--
 	}
 
