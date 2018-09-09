@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"bytes"
+
 	"testing"
 )
 
@@ -49,12 +50,13 @@ func TestIsValidSignatureEncoding(t *testing.T) {
 //}
 
 func TestParseSignature(t *testing.T) {
+
+	InitSecp256()
 	sig := validSig[:len(validSig)-1]
 	signature, err := ParseDERSignature(sig)
 	if err != nil {
 		t.Error(err)
 	}
-
 	sigByte := signature.Serialize()
 	if !bytes.Equal(sigByte, sig) {
 		t.Errorf("the new serialize signature %v should be equal origin sig %v: ", sigByte, sig)

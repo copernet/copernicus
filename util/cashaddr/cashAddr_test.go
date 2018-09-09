@@ -1,10 +1,10 @@
 package cashaddr
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
-	"encoding/hex"
 
 	"github.com/copernet/copernicus/model/chainparams"
 )
@@ -192,4 +192,3 @@ func TestFindwhcAddress(t *testing.T) {
 		}
 	}
 }
-

@@ -8,9 +8,9 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
-	"math/big"
 	"github.com/copernet/copernicus/util"
 	"math"
+	"math/big"
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {

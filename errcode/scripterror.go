@@ -17,13 +17,15 @@ const (
 	ScriptErrSigCount
 	ScriptErrPubKeyCount
 
-	/* Operands checks */
+	/*  Operands checks */
+
 	ScriptErrInvalidOperandSize
 	ScriptErrInvalidNumberRange
 	ScriptErrImpossibleEncoding
 	ScriptErrInvalidSplitRange
 
-	/* Failed verify operations */
+	/*  Failed verify operations */
+
 	ScriptErrVerify
 	ScriptErrEqualVerify
 	ScriptErrCheckMultiSigVerify
@@ -39,6 +41,7 @@ const (
 	ScriptErrUnbalancedConditional
 
 	/* Divisor errors */
+
 	ScriptErrDivByZero
 	ScriptErrModByZero
 
@@ -66,9 +69,11 @@ const (
 	ScriptErrDiscourageUpgradableWitnessProgram
 
 	// ScriptErrNonCompressedPubKey description script errors
+
 	ScriptErrNonCompressedPubKey
 
 	// ScriptErrIllegalForkID anti replay
+
 	ScriptErrIllegalForkID
 	ScriptErrMustUseForkID
 
@@ -81,8 +86,10 @@ const (
 	ScriptErrBareMultiSig
 	ScriptErrMultiOpReturn
 	ScriptErrInvalidSignatureEncoding
+
 	//ScriptErrNumberOverflow
 	//ScriptErrNonMinimalEncodedNumber
+
 	ScriptErrInvalidOpCode
 	ScriptErrInValidPubKeyOrSig
 	ScriptErrScriptSigNotPushOnly

@@ -123,6 +123,7 @@ func TestCheckSigHash(t *testing.T) {
 
 //address : 1F3sAm6ZtwLAUnj7d38pGFxtP3RVEvtsbV PrivateKey : L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1
 func TestSignHash(t *testing.T) {
+	crypto.InitSecp256()
 	var testTxs = []struct {
 		txHash string
 		txRaw  string

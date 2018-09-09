@@ -1,29 +1,31 @@
 package disk
 
 import (
-	"time"
+	"io/ioutil"
 	"math"
-	"testing"
+	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
+	"testing"
+	"time"
 
-	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/undo"
-	"github.com/copernet/copernicus/net/wire"
-	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/txout"
-	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chainparams"
-	"github.com/copernet/copernicus/persist/global"
-	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/persist/blkdb"
-	"io/ioutil"
-	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/util"
 )
 
 func TestWRBlockToDisk(t *testing.T) {
@@ -223,9 +225,10 @@ func TestFindUndoPos(t *testing.T) {
 }
 
 func initBlockDB() {
+	dir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	bc := &blkdb.BlockTreeDBConfig{
 		Do: &db.DBOption{
-			FilePath:  "/Users/wolf4j/Library/Application Support/Coper/blocks/index",
+			FilePath:  filepath.Join(dir, "/copernicus/blocks/index"),
 			CacheSize: 1 << 20,
 		},
 	}
@@ -310,5 +313,49 @@ func TestFlushStateToDisk(t *testing.T) {
 		if err != nil {
 			t.Errorf("flush state mode to disk failed:%v", err)
 		}
+	}
+}
+
+func checkFileSize(f *os.File, size int64) bool {
+	fs, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	return fs.Size() == size
+}
+
+func allocateFileRangeWithNewFile(t *testing.T, size int64) {
+	f, err := ioutil.TempFile("", "AllocateFileRange.*.txt")
+	if err != nil {
+		t.Error(err)
+	}
+	defer func() {
+		defer os.Remove(f.Name())
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	AllocateFileRange(f, 0, uint32(size))
+	if !checkFileSize(f, size) {
+		t.Errorf("Allocate file from %d to %d failed", 0, size)
+	}
+
+	AllocateFileRange(f, uint32(size), uint32(size))
+	if !checkFileSize(f, 2*size) {
+		t.Errorf("Allocate file from %d to %d failed", size, 2*size)
+	}
+
+	AllocateFileRange(f, uint32(2*size)-1, uint32(size))
+	if !checkFileSize(f, 2*size-1+size) {
+		t.Errorf("Allocate file from %d to %d failed", 2*size-1, 2*size-1+size)
+	}
+}
+
+func TestAllocateFileRange(t *testing.T) {
+	sizes := []int64{1, 99, 34, 65536, 88888}
+	for _, size := range sizes {
+		allocateFileRangeWithNewFile(t, size)
 	}
 }

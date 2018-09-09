@@ -2,11 +2,11 @@
 .idea
 .DS_Store
 
-glide.lock
-
 # project
 vendor
 copernicus
+
+glide.lock
 
 *.log
 data

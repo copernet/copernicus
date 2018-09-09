@@ -9,8 +9,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
 )
 
 // This example demonstrates how to create a new bloom filter, add a transaction

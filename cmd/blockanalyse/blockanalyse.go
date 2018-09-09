@@ -54,8 +54,6 @@ func main() {
 
 	fmt.Printf("blockhash: %s, block size: %d bytes, intputs: %d, outputs: %d, tx count: %d", blockHash.String(),
 		pblock.SerializeSize(), inputs, outputs, len(pblock.Txs))
-
-	return
 }
 
 func getBlockInputsOutputs(pblock *block.Block) (inputs, outputs int) {

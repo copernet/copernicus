@@ -5,9 +5,9 @@
 package pow
 
 import (
+	"github.com/copernet/copernicus/model/blockindex"
 	"math/big"
 	"testing"
-	"github.com/copernet/copernicus/model/blockindex"
 )
 
 // TestBigToCompact ensures BigToCompact converts big integers to the expected

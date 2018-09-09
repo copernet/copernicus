@@ -10,9 +10,8 @@ import (
 	"io"
 	"math/big"
 
-	"bytes"
-	"golang.org/x/crypto/ripemd160"
 	"github.com/copernet/copernicus/log"
+	"golang.org/x/crypto/ripemd160"
 )
 
 const (
@@ -130,7 +129,10 @@ func (hash *Hash) IsEqual(target *Hash) bool {
 	if hash == nil && target == nil {
 		return true
 	}
-	return bytes.Equal(hash[:], target[:])
+	if hash == nil || target == nil {
+		return false
+	}
+	return *hash == *target
 }
 
 func (hash *Hash) IsNull() bool {
