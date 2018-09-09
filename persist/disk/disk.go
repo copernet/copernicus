@@ -201,10 +201,12 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	_, err = buHasher.Write(hashblock[:])
 	if err != nil {
 		log.Error("disk:write block undo hashBlock failed.")
+		return bu, false
 	}
 	_, err = buHasher.Write(undoData)
 	if err != nil {
 		log.Error("disk:write block undo undoData failed.")
+		return bu, false
 	}
 	buHash := buHasher.Sum(nil)
 	return bu, reflect.DeepEqual(checkSumData, buHash)
@@ -238,6 +240,7 @@ func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 	blk := block.NewBlock()
 	if err := blk.Unserialize(buf); err != nil {
 		log.Error("ReadBlockFromDiskByPos: Unserialize or I/O error - %s at %s", err.Error(), pos.String())
+		return nil, false
 	}
 
 	// Check the header
