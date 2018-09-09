@@ -104,6 +104,9 @@ func (bu *BlockUndo) SerializeSize() int {
 
 func (bu *BlockUndo) Unserialize(r io.Reader) error {
 	count, err := util.ReadVarLenInt(r)
+	if err != nil {
+		return err
+	}
 	txundos := make([]*TxUndo, count)
 	for i := 0; i < int(count); i++ {
 		obj := NewTxUndo()
