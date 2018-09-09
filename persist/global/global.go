@@ -22,6 +22,7 @@ var (
 	CsMain          = new(sync.RWMutex)
 	CsLastBlockFile = new(sync.RWMutex)
 	persistGlobal   *PersistGlobal
+	once            sync.Once
 )
 
 type PersistGlobal struct {
@@ -59,13 +60,8 @@ func (pg *PersistGlobal) AddBlockSequenceID() {
 	pg.GlobalBlockSequenceID++
 }
 
-func InitPersistGlobal() *PersistGlobal {
-	cg := new(PersistGlobal)
-	cg.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
-	cg.GlobalDirtyFileInfo = make(map[int32]bool)
-	cg.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
-	cg.GlobalMapBlocksUnlinked = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
-	return cg
+func InitPersistGlobal() {
+	GetInstance()
 }
 
 func InitPruneState() *PruneState {
@@ -80,8 +76,14 @@ func InitPruneState() *PruneState {
 }
 
 func GetInstance() *PersistGlobal {
-	if persistGlobal == nil {
-		persistGlobal = InitPersistGlobal()
-	}
+	once.Do(func() {
+		persistGlobal = new(PersistGlobal)
+		persistGlobal.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
+		persistGlobal.GlobalDirtyFileInfo = make(map[int32]bool)
+		persistGlobal.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
+		persistGlobal.GlobalMapBlocksUnlinked = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
+
+	})
+
 	return persistGlobal
 }
