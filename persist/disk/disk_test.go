@@ -1,6 +1,7 @@
 package disk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
@@ -239,7 +240,7 @@ func initBlockDB() {
 func initUtxoDB() {
 	path, err := ioutil.TempDir("", "coindbtest")
 	if err != nil {
-		log.Error("generate temp db path failed: %s\n", err)
+		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
 	}
 
 	dbo := db.DBOption{

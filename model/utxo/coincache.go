@@ -1,7 +1,6 @@
 package utxo
 
 import (
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
 
@@ -16,7 +15,7 @@ type UtxoConfig struct {
 
 func GetUtxoCacheInstance() CacheView {
 	if utxoTip == nil {
-		log.Error("utxoTip has not init!!")
+		panic("utxoTip has not init!!")
 	}
 	return utxoTip
 }
