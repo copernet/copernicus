@@ -31,7 +31,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		// Check that all outputs are available and match the outputs in the
 		// block itself exactly.
 		for j := 0; j < tx.GetOutsCount(); j++ {
-			if tx.GetTxOut(j).IsSpendable() {
+			if !tx.GetTxOut(j).IsSpendable() {
 				continue
 			}
 			out := outpoint.NewOutPoint(txid, uint32(j))
