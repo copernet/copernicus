@@ -1079,8 +1079,9 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	log.Debug(
-		"invBlkCnt=%d len(invVects)=%d sm.requestBlkInv=%v  peer=%p(%#v) sm.syncPeer=%p",
-		invBlkCnt, len(invVects), sm.requestBlkInvCnt, peer, peer, sm.syncPeer)
+		"invBlkCnt=%d len(invVects)=%d sm.requestBlkInv=%v  peer=%p(%s) sm.syncPeer=%p",
+		invBlkCnt, len(invVects), sm.requestBlkInvCnt,
+		peer, peer.Addr(), sm.syncPeer)
 
 	// Request as much as possible at once.  Anything that won't fit into
 	// the request will be requested on the next inv message.
