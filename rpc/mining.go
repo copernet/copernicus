@@ -29,13 +29,13 @@ import (
 )
 
 var miningHandlers = map[string]commandHandler{
-	"getnetworkhashps":      handleGetNetWorkhashPS,      // complete
-	"getmininginfo":         handleGetMiningInfo,         // complete
-	"getblocktemplate":      handleGetblocktemplate,      // complete
-	"submitblock":           handleSubmitBlock,           // complete
-	"generate":              handleGenerate,              // deprecated at new version<v0.17.1>
-	"generatetoaddress":     handleGenerateToAddress,     // complete
-	"estimatefee":           handleEstimateFee,           // do not support at this version
+	"getnetworkhashps":  handleGetNetWorkhashPS,  // complete
+	"getmininginfo":     handleGetMiningInfo,     // complete
+	"getblocktemplate":  handleGetblocktemplate,  // complete
+	"submitblock":       handleSubmitBlock,       // complete
+	"generate":          handleGenerate,          // deprecated at new version<v0.17.1>
+	"generatetoaddress": handleGenerateToAddress, // complete
+	"estimatefee":       handleEstimateFee,       // do not support at this version
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

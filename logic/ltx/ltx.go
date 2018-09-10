@@ -257,13 +257,12 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 	//updateCoins
 	for i, transaction := range txs {
-		//check duplicate out
+		// check BIP30: do not allow overwriting unspent old transactions
 		if bip30Enable {
 			outs := transaction.GetOuts()
 			for i := range outs {
-				coin := utxo.GetCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i)))
-				if coin != nil {
-					log.Debug("can't find coin before apply transaction")
+				if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
+					log.Debug("tried to overwrite transaction")
 					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
 				}
 			}

@@ -1,4 +1,4 @@
-package lmerkleroot
+package lmerkleroot_test
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
@@ -132,7 +133,7 @@ func TestMerkle(t *testing.T) {
 
 				// Compute the root of the block before mutating it.
 				var unmutatedMutated bool
-				unmutateRoot := BlockMerkleRoot(bk.Txs, &unmutatedMutated)
+				unmutateRoot := lmerkleroot.BlockMerkleRoot(bk.Txs, &unmutatedMutated)
 				if unmutatedMutated {
 					t.Error("calculate error")
 				}
@@ -154,7 +155,7 @@ func TestMerkle(t *testing.T) {
 				oldRoot, merkletree := BlockBuildMerkleTree(bk, &oldMutated)
 				// Compute the merkle root using the new mechanism.
 				var newMutated bool
-				newRoot := BlockMerkleRoot(bk.Txs, &newMutated)
+				newRoot := lmerkleroot.BlockMerkleRoot(bk.Txs, &newMutated)
 				if oldRoot != newRoot {
 					t.Error("error")
 				}
@@ -179,7 +180,7 @@ func TestMerkle(t *testing.T) {
 						if ntx > 16 {
 							mtx = util.GetRandInt(math.MaxUint32) % ntx
 						}
-						newBranch := BlockMerkleBranch(bk.Txs, uint32(mtx))
+						newBranch := lmerkleroot.BlockMerkleBranch(bk.Txs, uint32(mtx))
 						oldBranch := BlockGetMerkleBranch(bk, merkletree, mtx)
 						if len(newBranch) != len(oldBranch) {
 							t.Error("error")
@@ -192,7 +193,7 @@ func TestMerkle(t *testing.T) {
 						}
 
 						hash := bk.Txs[mtx].GetHash()
-						if ComputeMerkleRootFromBranch(&hash, newBranch, uint32(mtx)) != oldRoot {
+						if lmerkleroot.ComputeMerkleRootFromBranch(&hash, newBranch, uint32(mtx)) != oldRoot {
 							t.Error("error")
 						}
 					}

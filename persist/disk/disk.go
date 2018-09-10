@@ -102,14 +102,14 @@ func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 	// Fallback version
 	// TODO: just write one byte per block
 	var buf [65536]byte
-	file.Seek(int64(offset), 0)
+	file.Seek(int64(offset), os.SEEK_SET)
 	for length > 0 {
 		now := 65536
 		if int(length) < now {
 			now = int(length)
 		}
 		// Allowed to fail; this function is advisory anyway.
-		_, err := file.Write(buf[:])
+		_, err := file.Write(buf[:now])
 		if err != nil {
 			panic("the file write failed.")
 		}
@@ -130,21 +130,25 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 	err := bu.Serialize(buf)
 	if err != nil {
 		log.Error("disk:serialize block undo failed.")
+		return err
 	}
 	size := buf.Len() + 32
 	buHasher := sha256.New()
 	_, err = buHasher.Write(hashBlock[:])
 	if err != nil {
 		log.Error("disk:write hashBlock failed.")
+		return err
 	}
 	_, err = buHasher.Write(buf.Bytes())
 	if err != nil {
 		log.Error("disk:write buf.Bytes() failed.")
+		return err
 	}
 	buHash := buHasher.Sum(nil)
 	_, err = buf.Write(buHash)
 	if err != nil {
 		log.Error("disk:write block undo hash failed.")
+		return err
 	}
 	lenBuf := bytes.NewBuffer(nil)
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
@@ -159,8 +163,8 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 		log.Error("disk:WriteUndoFile failed")
 		return err
 	}
-	return nil
 
+	return nil
 }
 
 func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.BlockUndo, bool) {
@@ -197,10 +201,12 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	_, err = buHasher.Write(hashblock[:])
 	if err != nil {
 		log.Error("disk:write block undo hashBlock failed.")
+		return bu, false
 	}
 	_, err = buHasher.Write(undoData)
 	if err != nil {
 		log.Error("disk:write block undo undoData failed.")
+		return bu, false
 	}
 	buHash := buHasher.Sum(nil)
 	return bu, reflect.DeepEqual(checkSumData, buHash)
@@ -234,6 +240,7 @@ func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 	blk := block.NewBlock()
 	if err := blk.Unserialize(buf); err != nil {
 		log.Error("ReadBlockFromDiskByPos: Unserialize or I/O error - %s at %s", err.Error(), pos.String())
+		return nil, false
 	}
 
 	// Check the header
@@ -724,4 +731,8 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 		os.Remove(GetBlockPosFilename(*pos, "rev"))
 		log.Info("Prune: %s deleted blk/rev (%05u)\n", key)
 	}
+}
+
+func GetPruneState() *global.PruneState {
+	return gps
 }
