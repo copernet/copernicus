@@ -910,8 +910,8 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return scriptSig, nil
 	}
 	if pubKeyType == script.ScriptMultiSig {
-		sigData := make([][]byte, 0, len(scriptSig.ParsedOpCodes)-1)
-		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes)-1)
+		sigData := make([][]byte, 0, len(scriptSig.ParsedOpCodes))
+		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes))
 		var parsedOpCodes = scriptSig.ParsedOpCodes[:]
 		parsedOpCodes = append(parsedOpCodes, txOldScriptSig.ParsedOpCodes...)
 		for _, opCode := range parsedOpCodes {
