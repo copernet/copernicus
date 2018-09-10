@@ -82,7 +82,7 @@ func (c *helpCacher) rpcMethodHelp(method string) (string, error) {
 	defer c.Unlock()
 	help, exists := c.methodHelp[method]
 
-	if exists {
+	if !exists {
 		return "", nil
 	}
 
