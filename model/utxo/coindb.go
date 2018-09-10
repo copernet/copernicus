@@ -70,6 +70,7 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 			err := entry.Serialize(bufEntry)
 			if err != nil {
 				log.Error("coinDB:serialize bufEntry failed %v", err)
+				return err
 			}
 
 			if v.IsSpent() {
@@ -79,6 +80,7 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 				err := v.Serialize(coinByte)
 				if err != nil {
 					log.Error("coinDB:serialize coinByte failed %v", err)
+					return err
 				}
 				batch.Write(bufEntry.Bytes(), coinByte.Bytes())
 			}
@@ -92,6 +94,7 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 		_, err := hashBlock.Serialize(hashByte)
 		if err != nil {
 			log.Error("coinDB:Serialize hash block failed<%v>, please check.", err)
+			return err
 		}
 		batch.Write([]byte{db.DbBestBlock}, hashByte.Bytes())
 	}

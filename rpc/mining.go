@@ -230,6 +230,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		err := tx.Serialize(dataBuf)
 		if err != nil {
 			log.Error("mining:serialize tx failed.")
+			return nil, err
 		}
 		entry.Data = hex.EncodeToString(dataBuf.Bytes())
 

@@ -2,7 +2,6 @@ package blkdb
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/persist/db"
@@ -54,10 +53,12 @@ func (blockTreeDB *BlockTreeDB) ReadBlockFileInfo(file int32) (*block.BlockFileI
 	_, err := keyBuf.Write([]byte{db.DbBlockFiles})
 	if err != nil {
 		log.Error("blkDB:write DbBlockFiles flag failed<%v>, please check.", err)
+		return nil, err
 	}
 	err = util.WriteElements(keyBuf, uint64(file))
 	if err != nil {
 		log.Error("blkDB:write key[DbBlockFiles+file] failed:%v", err)
+		return nil, err
 	}
 	vbytes, err := blockTreeDB.dbw.Read(keyBuf.Bytes())
 	if err == leveldb.ErrNotFound {
@@ -111,10 +112,12 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.Blo
 		_, err := keyBuf.Write([]byte{db.DbBlockFiles})
 		if err != nil {
 			log.Error("blkDB->WriteBatchSync:write DbBlockFiles failed:%v", err)
+			return err
 		}
 		err = util.WriteElements(keyBuf, uint64(fileNum))
 		if err != nil {
 			log.Error("blkDB:write key(DbBlockFiles(f)+lastFile) failed:%v", err)
+			return err
 		}
 		if err = v.Serialize(valueBuf); err != nil {
 			return err
@@ -126,6 +129,7 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.Blo
 	err := util.WriteElements(valueBuf, uint64(lastFile))
 	if err != nil {
 		log.Error("blkDB:write value failed:%v", err)
+		return err
 	}
 	batch.Write([]byte{db.DbLastBlock}, valueBuf.Bytes())
 	log.Debug("blkDB: write lastFile: %d, key: %s", lastFile, hex.EncodeToString([]byte{db.DbLastBlock}))
@@ -136,10 +140,12 @@ func (blockTreeDB *BlockTreeDB) WriteBatchSync(fileInfoList map[int32]*block.Blo
 		_, err = keyBuf.Write([]byte{db.DbBlockIndex})
 		if err != nil {
 			log.Error("blkDB: write DbBlockIndex failed:%v", err)
+			return err
 		}
 		_, err = v.GetBlockHash().Serialize(keyBuf)
 		if err != nil {
 			log.Error("blkDB: Serialize keyBuf failed:%v", err)
+			return err
 		}
 		if err := v.Serialize(valueBuf); err != nil {
 			return err
@@ -184,10 +190,12 @@ func (blockTreeDB *BlockTreeDB) WriteTxIndex(txIndexes map[util.Hash]block.DiskT
 		_, err := keyBuf.Write([]byte{db.DbTxIndex})
 		if err != nil {
 			log.Error("blkDB: write DbTxIndex flag failed:%v", err)
+			return err
 		}
 		_, err = keyBuf.Write(k[:])
 		if err != nil {
 			log.Error("blkDB: write k failed:%v", err)
+			return err
 		}
 		if err := v.Serialize(valueBuf); err != nil {
 			return err
@@ -246,13 +254,14 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 
 		if err := bi.Unserialize(bytes.NewBuffer(val)); err != nil {
 			log.Error("LoadBlockIndexGuts: BlockIndex unserializa err:%v", err)
+			return false
 		}
 
 		if bi.TxCount == 0 {
-			fmt.Println("err")
 			err := blockTreeDB.dbw.Erase(k, true)
 			if err != nil {
-				log.Error("blkDB: Erase k failed:%v", err)
+				log.Error("LoadBlockIndexGuts: BlockIndex erase err:%v", err)
+				return false
 			}
 			cursor.Next()
 			continue

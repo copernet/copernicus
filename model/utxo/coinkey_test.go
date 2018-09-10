@@ -2,7 +2,6 @@ package utxo
 
 import (
 	"bytes"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
@@ -18,14 +17,14 @@ func TestCoinKey(t *testing.T) {
 	w := bytes.NewBuffer(nil)
 	err := ck.Serialize(w)
 	if err != nil {
-		log.Error("coinKeyTest: serialize failed %v", err)
+		t.Errorf("coinKeyTest: serialize failed %v", err)
 	}
 
 	var target CoinKey
 	target.outpoint = &outpoint.OutPoint{}
 	err = target.Unserialize(bytes.NewReader(w.Bytes()))
 	if err != nil {
-		log.Error("coinKeyTest: unSerialize failed %v", err)
+		t.Errorf("coinKeyTest: unSerialize failed %v", err)
 	}
 	if reflect.DeepEqual(ck, target) {
 		t.Errorf("the target outpoint hash:%v not equal hash1:%v\n", target, hash1)
