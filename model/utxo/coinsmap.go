@@ -1,6 +1,7 @@
 package utxo
 
 import (
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 )
 
@@ -86,6 +87,10 @@ func (cm CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 		return coin
 	}
 	coin = GetUtxoCacheInstance().GetCoin(out)
+	if coin == nil {
+		log.Error("not found coin by outpoint(%v)", out)
+		return nil
+	}
 	newCoin := coin.DeepCopy()
 	if newCoin.IsSpent() {
 		panic("coin from db should not be spent")
