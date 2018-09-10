@@ -317,6 +317,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 	err := transaction.Serialize(buf)
 	if err != nil {
 		log.Error("rawTransaction:serialize tx failed.")
+		return "", err
 	}
 
 	return hex.EncodeToString(buf.Bytes()), nil
@@ -606,6 +607,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	err = transactions[0].Serialize(buf)
 	if err != nil {
 		log.Error("rawTransaction:serialize tx[0] failed.")
+		return nil, err
 	}
 	return btcjson.SignRawTransactionResult{
 		Hex:      hex.EncodeToString(buf.Bytes()),

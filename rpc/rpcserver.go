@@ -363,11 +363,13 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 	}
 	if _, err := buf.Write(msg); err != nil {
 		log.Error("Failed to write marshalled reply: %v", err)
+		return
 	}
 
 	// Terminate with newline to maintain compatibility.
 	if err := buf.WriteByte('\n'); err != nil {
 		log.Error("Failed to append terminating newline to reply: %v", err)
+		return
 	}
 }
 

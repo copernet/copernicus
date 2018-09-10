@@ -1,6 +1,7 @@
 package blkdb
 
 import (
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -16,7 +17,7 @@ import (
 func initBlockDB() {
 	path, err := ioutil.TempDir("/tmp", "blockIndex")
 	if err != nil {
-		log.Error("generate temp db path failed: %s\n", err)
+		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
 	}
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{

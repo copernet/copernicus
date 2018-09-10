@@ -337,6 +337,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 			err := blockTree.WriteFlag("prunedblockfiles", true)
 			if err != nil {
 				log.Error("write flag prunedblockfiles failed.")
+				return err
 			}
 			gps.HavePruned = true
 		}
@@ -420,7 +421,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		// an overestimation, as most will delete an existing entry or
 		// overwrite one. Still, use a conservative safety factor of 2.
 		if !CheckDiskSpace(uint32(48 * 2 * 2 * coinsTip.GetCacheSize())) {
-			log.Error("out of disk space!")
+			panic("out of disk space!")
 		}
 		// Flush the chainState (which may refer to block index entries).
 		if !coinsTip.Flush() {

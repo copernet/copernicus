@@ -39,6 +39,7 @@ func (bh *BlockHeader) GetHash() util.Hash {
 	err := bh.SerializeHeader(buf)
 	if err != nil {
 		log.Error("serialize block header failed, please check.")
+		return util.HashOne
 	}
 	bh.Hash = util.DoubleSha256Hash(buf.Bytes())
 	return bh.Hash
@@ -68,6 +69,7 @@ func (bh *BlockHeader) EncodeSize() int {
 	err := bh.Encode(buf)
 	if err != nil {
 		log.Error("block header encode failed.")
+		return -1
 	}
 	bh.encodeSize = buf.Len()
 	return bh.encodeSize
@@ -80,6 +82,7 @@ func (bh *BlockHeader) SerializeSize() int {
 	err := bh.Serialize(buf)
 	if err != nil {
 		log.Error("block header serialize failed.")
+		return -1
 	}
 	bh.serializeSize = buf.Len()
 	return bh.serializeSize
