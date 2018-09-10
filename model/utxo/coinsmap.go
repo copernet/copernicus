@@ -39,8 +39,7 @@ func (cm CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwri
 		panic("param coin should not be null")
 	}
 	//script is not spend
-	txout := coin.GetTxOut()
-	if !txout.IsSpendable() {
+	if !coin.IsSpendable() {
 		return
 	}
 	fresh := false

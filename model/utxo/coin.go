@@ -33,7 +33,6 @@ func (coin *Coin) IsMempoolCoin() bool {
 }
 
 func (coin *Coin) IsSpendable() bool {
-	// todo check coinbase height，lock time？
 	return coin.txOut.IsSpendable()
 }
 
