@@ -192,7 +192,7 @@ type GetChainTxStatsCmd struct {
 	BlockHash *string
 }
 
-// NewGetBlockCmd returns a new instance which can be used to issue a getchaintxstats
+// NewGetChainTxStatsCmd returns a new instance which can be used to issue a getchaintxstats
 // JSON-RPC command.
 //
 // The parameters which are pointers indicate they are optional.  Passing nil
