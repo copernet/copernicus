@@ -27,6 +27,7 @@ var methodHelp = map[string]string{
 	"getblockhash":          getblockhashDesc,
 	"getblockheader":        getblockheader,
 	"getchaintips":          getchaintipsDesc,
+	"getchaintxstats":       getchaintxstatsDesc,
 	"getdifficulty":         getdifficultyDesc,
 	"getmempoolancestors":   getmempoolancestorsDesc,
 	"getmempooldescendants": getmempooldescendantsDesc,

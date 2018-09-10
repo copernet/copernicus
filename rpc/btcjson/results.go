@@ -50,6 +50,16 @@ type GetBlockVerboseResult struct {
 	NextHash      string   `json:"nextblockhash,omitempty"`
 }
 
+// GetChainTxStatsResult models the data from the getchaintxstats command.
+type GetChainTxStatsResult struct {
+	FinalTime      uint32  `json:"time"`
+	TxCount        int32   `json:"txcount"`
+	BlockCount     int32   `json:"window_block_count"`
+	WindowTxCount  int32   `json:"window_tx_count,omitempty"`
+	WindowInterval int64   `json:"window_interval,omitempty"`
+	TxRate         float64 `json:"txrate,omitempty"`
+}
+
 // CreateMultiSigResult models the data returned from the createmultisig
 // command.
 type CreateMultiSigResult struct {
