@@ -232,7 +232,7 @@ func must(i interface{}, err error) interface{} {
 }
 
 func init() {
-	Cfg = initConfig()
+	//Cfg = initConfig()
 }
 
 func CopyFile(src, des string) (w int64, err error) {

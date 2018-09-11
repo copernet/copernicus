@@ -3,12 +3,13 @@ package lchain
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
+	//"os"
+	//"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/copernet/copernicus/conf"
+	//"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
@@ -51,7 +52,9 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
+	log.Debug("bestHash = %s\n", bestHash.String())
 	if !hashPrevBlock.IsEqual(&bestHash) {
+		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
 	}
 
@@ -253,21 +256,23 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
-	var stat stat
-	if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
-		log.Print("test", "debug", "GetUTXOStats() failed with : %s", err)
-		return err
-	}
-	f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
-	if err != nil {
-		log.Print("test", "debug", "os.OpenFile() failed with : %s", err)
-		return err
-	}
-	defer f.Close()
-	if _, err := f.WriteString(stat.String()); err != nil {
-		log.Print("test", "debug", "f.WriteString() failed with : %s", err)
-		return err
-	}
+	/*
+		var stat stat
+		if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
+			log.Debug("GetUTXOStats() failed with : %s", err)
+			return err
+		}
+		f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+		if err != nil {
+			log.Debug("os.OpenFile() failed with : %s", err)
+			return err
+		}
+		defer f.Close()
+		if _, err := f.WriteString(stat.String()); err != nil {
+			log.Debug("f.WriteString() failed with : %s", err)
+			return err
+		}
+	*/
 	/*
 		if pIndexNew.Height == 383 {
 			panic("faile 383")
