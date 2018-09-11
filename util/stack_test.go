@@ -4,6 +4,28 @@ import (
 	"testing"
 )
 
+func TestStackCountBool(t *testing.T) {
+	stack := NewStack()
+	stack.Push(1)
+	stack.Push(2)
+	n := stack.CountBool(false)
+	if n > 0 {
+		t.Errorf("Want %d, got %d", 0, n)
+	}
+
+	stack.Push(false)
+	n = stack.CountBool(false)
+	if n != 1 {
+		t.Errorf("Want %d, got %d", 1, n)
+	}
+
+	stack.Push(true)
+	n = stack.CountBool(true)
+	if n != 1 {
+		t.Errorf("Want %d, got %d", 1, n)
+	}
+}
+
 func TestStack(t *testing.T) {
 
 	stack := NewStack()
