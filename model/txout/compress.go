@@ -1,10 +1,8 @@
 package txout
 
 import (
-	"encoding/hex"
 	"errors"
 	"io"
-	"log"
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -166,7 +164,6 @@ func (scr *scriptCompressor) Decompress(size uint64, in []byte) bool {
 		copy(bs[3:], in[0:20])
 		bs[23] = opcodes.OP_EQUALVERIFY
 		bs[24] = opcodes.OP_CHECKSIG
-		log.Printf("after case 0x00\n")
 	case 0x01:
 		bs = make([]byte, 23)
 		bs[0] = opcodes.OP_HASH160
@@ -187,7 +184,6 @@ func (scr *scriptCompressor) Decompress(size uint64, in []byte) bool {
 		tmp := make([]byte, 33)
 		tmp[0] = byte(size - 2)
 		copy(tmp[1:], in[0:32])
-		log.Printf("tmp=%s\n", hex.EncodeToString(tmp))
 		pubkey, err := crypto.ParsePubKey(tmp)
 		if err != nil {
 			return false
@@ -200,7 +196,6 @@ func (scr *scriptCompressor) Decompress(size uint64, in []byte) bool {
 	}
 	if bs != nil {
 		*scr.sp = script.NewScriptRaw(bs)
-		//log.Printf("scr.script=%+v\n", *scr.sp)
 		return true
 	}
 	return false
@@ -228,9 +223,7 @@ func (scr *scriptCompressor) Unserialize(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("after readvarlenint\n")
 	if size < numSpecialScripts {
-		log.Printf("size  = %d, less than 6\n", size)
 		vch := make([]byte, getSpecialSize(size))
 		_, err := io.ReadFull(r, vch)
 		scr.Decompress(size, vch)

@@ -99,12 +99,14 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 		bw.Write(iter.GetKey())
 		entry := utxo.NewCoinKey(&outpoint)
 		if err := entry.Unserialize(bw); err != nil {
+			fmt.Printf("key unser:%v\n", err)
 			return err
 		}
 		bw.Reset()
 		bw.Write(iter.GetVal())
 		coin := new(utxo.Coin)
 		if err := coin.Unserialize(bw); err != nil {
+			fmt.Printf("val unser:%v\n", err)
 			return err
 		}
 		fmt.Fprintf(logf, "outpoint=(%s,%d)\n", outpoint.Hash.String(), outpoint.Index)
