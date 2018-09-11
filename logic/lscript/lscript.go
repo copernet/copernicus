@@ -430,15 +430,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-1)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch1)
 				stack.Push(vch2)
 
@@ -450,20 +442,8 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-3)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-2)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch3 := stack.Top(-1)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch1)
 				stack.Push(vch2)
 				stack.Push(vch3)
@@ -476,15 +456,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-4)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-3)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch1)
 				stack.Push(vch2)
 
@@ -496,15 +468,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-6)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-5)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Erase(stack.Size()-6, stack.Size()-4)
 				stack.Push(vch1)
 				stack.Push(vch2)
@@ -527,10 +491,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vchBytes := vch.([]byte)
 				if script.BytesToBool(vchBytes) {
 					stack.Push(vch)
