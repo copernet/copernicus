@@ -29,13 +29,12 @@ import (
 )
 
 var miningHandlers = map[string]commandHandler{
-	"getnetworkhashps":  handleGetNetWorkhashPS,  // complete
-	"getmininginfo":     handleGetMiningInfo,     // complete
-	"getblocktemplate":  handleGetblocktemplate,  // complete
-	"submitblock":       handleSubmitBlock,       // complete
-	"generate":          handleGenerate,          // deprecated at new version<v0.17.1>
-	"generatetoaddress": handleGenerateToAddress, // complete
-	"estimatefee":       handleEstimateFee,       // do not support at this version
+	"getnetworkhashps":  handleGetNetWorkhashPS,
+	"getmininginfo":     handleGetMiningInfo,
+	"getblocktemplate":  handleGetblocktemplate,
+	"submitblock":       handleSubmitBlock,
+	"generatetoaddress": handleGenerateToAddress,
+	"estimatefee":       handleEstimateFee,
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -121,9 +120,9 @@ var (
 	blocktemplate           *mining.BlockTemplate
 )
 
+// See https://en.bitcoin.it/wiki/BIP_0022 and
+// https://en.bitcoin.it/wiki/BIP_0023 for more details.
 func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	// See https://en.bitcoin.it/wiki/BIP_0022 and
-	// https://en.bitcoin.it/wiki/BIP_0023 for more details.
 	c := cmd.(*btcjson.GetBlockTemplateCmd)
 	request := c.Request
 
@@ -147,16 +146,16 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 }
 
 func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
-	var maxVersionVb uint32
+	maxVersionVb := int64(-1)
 	setClientRules := set.New()
-	if len(request.Rules) > 0 { // todo check
-		for _, str := range request.Rules {
-			setClientRules.Add(str)
-		}
-	} else {
-		// NOTE: It is important that this NOT be read if versionbits is supported
-		maxVersionVb = request.MaxVersion
-	}
+	//if len(request.Rules) > 0 { // todo check
+	//	for _, str := range request.Rules {
+	//		setClientRules.Add(str)
+	//	}
+	//} else {
+	//	// NOTE: It is important that this NOT be read if versionbits is supported
+	//	maxVersionVb = int64(request.MaxVersion)
+	//}
 
 	if lundo.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
@@ -165,7 +164,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		}
 	}
 
-	if request.LongPollID != "" {
+	if request != nil && request.LongPollID != "" {
 		// Wait to respond until either the best block changes, OR a minute has
 		// passed and there are more transactions
 		//var hashWatchedChain utils.Hash
@@ -203,7 +202,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	mining.UpdateTime(bk, indexPrev)
 	bk.Header.Nonce = 0
 
-	return blockTemplateResult(blocktemplate, setClientRules, maxVersionVb, transactionsUpdatedLast)
+	return blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
 }
 
 // blockTemplateResult returns the current block template associated with the
@@ -360,8 +359,6 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	}
 
 	// Ensure the provided data is sane and deserialize the proposed block.
-	// todo check: whether the length of data source is multiples of 2.
-	// That is to say if it is necessary for the following branch
 	if len(hexData)%2 != 0 {
 		hexData = "0" + hexData
 	}
@@ -411,7 +408,6 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 		}
 	}
 
-	// TODO realise in block model
 	err = lblock.CheckBlock(&bk)
 	return BIP22ValidationResult(err)
 }
@@ -469,7 +465,6 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 
 	bk := &block.Block{}
 	err = bk.Unserialize(bytes.NewBuffer(serializedBlock))
-
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDeserialization,
@@ -479,17 +474,13 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 
 	// Process this block using the same rules as blocks coming from other
 	// nodes.  This will in turn relay it to the network like normal.
-	//_, err = peer.SubmitBlock(block, chain.BFNone)       // TODO
+	_, err = service.ProcessBlock(bk)
 	if err != nil {
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
 	}
 
 	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
 
-	return nil, nil
-}
-
-func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return nil, nil
 }
 

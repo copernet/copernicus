@@ -229,7 +229,7 @@ type TemplateRequest struct {
 	WorkID string `json:"workid,omitempty"`
 
 	// BCH
-	Rules []string `json:"rules"`
+	Rules []string `json:"rules,omitempty"`
 }
 
 // convertTemplateRequestField potentially converts the provided value as
