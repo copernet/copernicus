@@ -430,15 +430,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-1)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch1)
 				stack.Push(vch2)
 
@@ -450,20 +442,8 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-3)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-2)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch3 := stack.Top(-1)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch1)
 				stack.Push(vch2)
 				stack.Push(vch3)
@@ -476,15 +456,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-4)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-3)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch1)
 				stack.Push(vch2)
 
@@ -496,15 +468,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-6)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-5)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Erase(stack.Size()-6, stack.Size()-4)
 				stack.Push(vch1)
 				stack.Push(vch2)
@@ -527,10 +491,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vchBytes := vch.([]byte)
 				if script.BytesToBool(vchBytes) {
 					stack.Push(vch)
@@ -559,10 +519,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch)
 
 			case opcodes.OP_NIP:
@@ -582,10 +538,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-2)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				stack.Push(vch)
 
 			case opcodes.OP_PICK:
@@ -599,10 +551,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				scriptNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					return err
@@ -615,10 +563,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vchn := stack.Top(int(-n - 1))
-				if vchn == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				if e.OpValue == opcodes.OP_ROLL {
 					stack.RemoveAt(stack.Size() - int(n) - 1)
 				}
@@ -653,11 +597,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
-
 				if !stack.Insert(stack.Size()-2, vch) {
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
@@ -671,10 +610,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				size := len(vch.([]byte))
 				bn := script.NewScriptNum(int64(size))
 				stack.Push(bn.Serialize())
@@ -734,15 +669,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-1)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 
 				fEqual := bytes.Equal(vch1.([]byte), vch2.([]byte))
 				//fEqual := reflect.DeepEqual(vch1, vch2)
@@ -781,10 +708,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				bn, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					return err
@@ -816,10 +739,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				bn, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					return err
@@ -861,15 +780,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-2)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-1)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					return err
@@ -1043,20 +954,8 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch1 := stack.Top(-3)
-				if vch1 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch2 := stack.Top(-2)
-				if vch2 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vch3 := stack.Top(-1)
-				if vch3 == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				bn1, err := script.GetScriptNum(vch1.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					return err
@@ -1097,10 +996,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vch := stack.Top(-1)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				switch e.OpValue {
 				case opcodes.OP_RIPEMD160:
 					vchHash = util.Ripemd160(vch.([]byte))
@@ -1132,15 +1027,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				vchSig := stack.Top(-2)
-				if vchSig == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				vchPubkey := stack.Top(-1)
-				if vchPubkey == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 
 				vchSigBytes := vchSig.([]byte)
 				err := script.CheckSignatureEncoding(vchSigBytes, flags)
@@ -1206,10 +1093,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 
 				vch := stack.Top(-i)
-				if vch == nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 
 				// ScriptSig1 ScriptSig2...ScriptSigM M PubKey1 PubKey2...PubKey N
 				pubKeysNum, err := script.GetScriptNum(vch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
@@ -1242,10 +1125,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				sigsNumVch := stack.Top(-i)
-				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
-				}
 				nSigsNum, err := script.GetScriptNum(sigsNumVch.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
 					//log.Debug("ScriptErrInvalidStackOperation")
