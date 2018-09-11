@@ -29,6 +29,11 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
+func TestMain(m *testing.M) {
+	global.InitPersistGlobal()
+	os.Exit(m.Run())
+}
+
 func TestWRBlockToDisk(t *testing.T) {
 	//init block header
 	blkHeader := block.NewBlockHeader()
