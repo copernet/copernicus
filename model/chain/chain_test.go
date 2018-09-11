@@ -2,6 +2,8 @@ package chain
 
 import (
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/persist/global"
+	"os"
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
@@ -13,6 +15,11 @@ import (
 )
 
 var testChain *Chain
+
+func TestMain(m *testing.M) {
+	global.InitPersistGlobal()
+	os.Exit(m.Run())
+}
 
 func getBlockIndex(indexPrev *blockindex.BlockIndex, timeInterval int64, bits uint32) *blockindex.BlockIndex {
 	blockIdx := new(blockindex.BlockIndex)
