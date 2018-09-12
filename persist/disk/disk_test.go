@@ -15,6 +15,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -264,6 +265,7 @@ func initUtxoDB() {
 func TestFlushStateToDisk(t *testing.T) {
 	initBlockDB()
 	initUtxoDB()
+	chain.InitGlobalChain()
 
 	necm := utxo.NewEmptyCoinsMap()
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")

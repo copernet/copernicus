@@ -6,12 +6,12 @@ import (
 
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 )
@@ -19,6 +19,7 @@ import (
 // IsInitialBlockDownload Check whether we are doing an initial block download
 // (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
+	gChainActive := chain.GetInstance()
 	latchToFalse := atomic.Value{}
 	// Once this function has returned false, it must remain false.
 	latchToFalse.Store(false)
@@ -33,14 +34,15 @@ func IsInitialBlockDownload() bool {
 	if global.Reindex {
 		return true
 	}
-	if disk.ChainActive.Tip() == nil {
+	if gChainActive.Tip() == nil {
 		return true
 	}
 	minWorkSum := pow.HashToBig(&chainparams.ActiveNetParams.MinimumChainWork)
-	if disk.ChainActive.Tip().ChainWork.Cmp(minWorkSum) < 0 {
+	if gChainActive.Tip().ChainWork.Cmp(minWorkSum) < 0 {
 		return true
 	}
-	if int64(disk.ChainActive.Tip().GetBlockTime()) < util.GetTime()-global.DefaultMaxTipAge {
+
+	if int64(gChainActive.Tip().GetBlockTime()) < util.GetTime()-global.DefaultMaxTipAge {
 		return true
 	}
 	latchToFalse.Store(true)

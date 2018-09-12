@@ -33,10 +33,7 @@ import (
 
 type FlushStateMode int
 
-var (
-	ChainActive chain.Chain
-	gps         = global.InitPruneState()
-)
+var gps = global.InitPruneState()
 
 const (
 	FlushStateNone FlushStateMode = iota
@@ -610,14 +607,14 @@ func CalculateCurrentUsage() uint64 {
 // FindFilesToPrune calculate the block/rev files that should be deleted to remain under target
 func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 	gPersist := global.GetInstance()
-
-	if ChainActive.Tip() == nil || gps.PruneTarget == 0 {
+	gChainActive := chain.GetInstance()
+	if gChainActive.Tip() == nil || gps.PruneTarget == 0 {
 		return
 	}
-	if uint64(ChainActive.Tip().Height) <= nPruneAfterHeight {
+	if uint64(gChainActive.Tip().Height) <= nPruneAfterHeight {
 		return
 	}
-	nLastBlockWeCanPrune := ChainActive.Tip().Height - block.MinBlocksToKeep
+	nLastBlockWeCanPrune := gChainActive.Tip().Height - block.MinBlocksToKeep
 	nCurrentUsage := CalculateCurrentUsage()
 	// We don't check to prune until after we've allocated new space for files,
 	// so we should leave a buffer under our target to account for another
@@ -654,6 +651,7 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 
 func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 	gPersist := global.GetInstance()
+	gChainActive := chain.GetInstance()
 	if gps.PruneMode && manualPruneHeight <= 0 {
 		panic("the PruneMode is false and manualPruneHeight equal zero")
 	}
@@ -661,12 +659,12 @@ func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 	global.CsLastBlockFile.Lock()
 	defer global.CsLastBlockFile.Unlock()
 
-	if ChainActive.Tip() == nil {
+	if gChainActive.Tip() == nil {
 		return
 	}
 
 	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(ChainActive.Tip().Height-block.MinBlocksToKeep))
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(gChainActive.Tip().Height-block.MinBlocksToKeep))
 	count := 0
 	for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
 		if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 || gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > gPersist.GlobalLastBlockFile {
