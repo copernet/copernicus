@@ -27,6 +27,7 @@ var methodHelp = map[string]string{
 	"getblockhash":          getblockhashDesc,
 	"getblockheader":        getblockheader,
 	"getchaintips":          getchaintipsDesc,
+	"getchaintxstats":       getchaintxstatsDesc,
 	"getdifficulty":         getdifficultyDesc,
 	"getmempoolancestors":   getmempoolancestorsDesc,
 	"getmempooldescendants": getmempooldescendantsDesc,
@@ -81,7 +82,7 @@ func (c *helpCacher) rpcMethodHelp(method string) (string, error) {
 	defer c.Unlock()
 	help, exists := c.methodHelp[method]
 
-	if exists {
+	if !exists {
 		return "", nil
 	}
 

@@ -1,6 +1,7 @@
 package disk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
@@ -27,6 +28,11 @@ import (
 	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 )
+
+func TestMain(m *testing.M) {
+	global.InitPersistGlobal()
+	os.Exit(m.Run())
+}
 
 func TestWRBlockToDisk(t *testing.T) {
 	//init block header
@@ -239,7 +245,7 @@ func initBlockDB() {
 func initUtxoDB() {
 	path, err := ioutil.TempDir("", "coindbtest")
 	if err != nil {
-		log.Error("generate temp db path failed: %s\n", err)
+		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
 	}
 
 	dbo := db.DBOption{

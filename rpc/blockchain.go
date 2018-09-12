@@ -29,6 +29,7 @@ var blockchainHandlers = map[string]commandHandler{
 	"getblockheader":        handleGetBlockHeader,        // complete
 	"getchaintips":          handleGetChainTips,          // partial complete
 	"getdifficulty":         handleGetDifficulty,         //complete
+	"getchaintxstats":       handleGetChainTxStats,       // complete
 	"getmempoolancestors":   handleGetMempoolAncestors,   // complete
 	"getmempooldescendants": handleGetMempoolDescendants, //complete
 	"getmempoolentry":       handleGetMempoolEntry,       // complete
@@ -309,7 +310,7 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 		nextblockhash = next.GetBlockHash().String()
 	}
 
-	blockHeaderReply := btcjson.GetBlockHeaderVerboseResult{
+	blockHeaderReply := &btcjson.GetBlockHeaderVerboseResult{
 		Hash:          c.Hash,
 		Confirmations: uint64(confirmations),
 		Height:        blockIndex.Height,
@@ -417,6 +418,66 @@ func getDifficultyFromBits(bits uint32) float64 {
 func handleGetDifficulty(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	best := chain.GetInstance().Tip()
 	return getDifficulty(best), nil
+}
+
+func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GetChainTxStatsCmd)
+
+	gChan := chain.GetInstance()
+	blockIndex := gChan.Tip()
+	if c.BlockHash != nil {
+		blockHash, err := util.GetHashFromStr(*c.BlockHash)
+		if err != nil {
+			return nil, rpcDecodeHexError(*c.BlockHash)
+		}
+		blockIndex = gChan.FindBlockIndex(*blockHash)
+		if blockIndex == nil {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCBlockNotFound,
+				Message: "Block not found",
+			}
+		}
+		if !gChan.Contains(blockIndex) {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Block is not in main chain",
+			}
+		}
+	}
+
+	blockcount := int32(0)
+	maxcount := util.MaxI32(0, blockIndex.Height-1)
+	if c.Blocks != nil {
+		blockcount = *c.Blocks
+		if blockcount < 0 || blockcount > maxcount {
+			return false, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid block count: should be between 0 and the block's height - 1",
+			}
+		}
+	} else {
+		// By default: 1 month
+		blockcount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
+		blockcount = util.MinI32(blockcount, maxcount)
+	}
+
+	chainTxStatsReply := &btcjson.GetChainTxStatsResult{
+		FinalTime:  blockIndex.GetBlockTime(),
+		TxCount:    blockIndex.ChainTxCount,
+		BlockCount: blockcount,
+	}
+	if blockcount > 0 {
+		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockcount)
+		txDiff := blockIndex.ChainTxCount - indexPast.ChainTxCount
+		timeDiff := blockIndex.GetMedianTimePast() - indexPast.GetMedianTimePast()
+		chainTxStatsReply.WindowTxCount = txDiff
+		chainTxStatsReply.WindowInterval = timeDiff
+		if timeDiff > 0 {
+			txRate := float64(txDiff) / float64(timeDiff)
+			chainTxStatsReply.TxRate = txRate
+		}
+	}
+	return chainTxStatsReply, nil
 }
 
 func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
