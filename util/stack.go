@@ -34,9 +34,6 @@ func (s *Stack) Pop() interface{} {
 		return nil
 	}
 	e := s.array[stackLen-1]
-	if e == nil {
-		return nil
-	}
 	s.array = s.array[:stackLen-1]
 
 	return e

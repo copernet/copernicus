@@ -1,6 +1,7 @@
 package util
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -41,7 +42,8 @@ func TestStack(t *testing.T) {
 		return
 	}
 	value := stack.Pop()
-	if value != nil {
+	//var nilValue interface{}
+	if reflect.TypeOf(value) != nil {
 		t.Errorf("PopStack failed ,Got %d ,expected 5", value)
 		return
 	}
