@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/utxo"
 	"strconv"
 	"strings"
 
@@ -500,7 +502,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	h := entry.Tx.GetHash()
 	txSet := mempool.GetInstance().CalculateMemPoolAncestorsWithLock(&h)
 
-	if !c.Verbose {
+	if c.Verbose == nil || !*c.Verbose {
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
@@ -567,7 +569,7 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
-	if !c.Verbose {
+	if c.Verbose == nil || !*c.Verbose {
 		des := make([]string, 0)
 		for item := range descendants {
 			hash := item.Tx.GetHash()
@@ -605,36 +607,34 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 }
 
 func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	pool := mempool.GetInstance()
 	ret := &btcjson.GetMempoolInfoResult{
-		Size:          mempool.GetInstance().Size(),
-		Bytes:         mempool.GetInstance().GetPoolAllTxSize(),
-		Usage:         mempool.GetInstance().GetPoolUsage(),
-		MaxMempool:    mempool.GetInstance().MaxMemPoolSize,
-		MempoolMinFee: valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
+		Size:          pool.Size(),
+		Bytes:         pool.GetPoolAllTxSize(),
+		Usage:         pool.GetPoolUsage(),
+		MaxMempool:    pool.MaxMemPoolSize,
+		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil
 }
 
 func valueFromAmount(sizeLimit int64) float64 {
-	sign := sizeLimit < 0
 	var nAbs int64
-	if sign {
+	var strFormat string
+	if sizeLimit < 0 {
 		nAbs = -sizeLimit
+		strFormat = "-%d.%08d"
 	} else {
 		nAbs = sizeLimit
+		strFormat = "%d.%08d"
 	}
 
 	quotient := nAbs / util.COIN
 	remainder := nAbs % util.COIN
-
-	var strValue string
-	if sign {
-		strValue = fmt.Sprintf("-%d.%08d", quotient, remainder)
-	}
-	strValue = fmt.Sprintf("%d.%08d", quotient, remainder)
+	strValue := fmt.Sprintf(strFormat, quotient, remainder)
 
 	result, err := strconv.ParseFloat(strValue, 64)
-	if err == nil {
+	if err != nil {
 		return 0
 	}
 	return result
@@ -661,48 +661,54 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.GetTxOutCmd)
+	c := cmd.(*btcjson.GetTxOutCmd)
 
-		// Convert the provided transaction hash hex to a Hash.
-		hash, err := util.GetHashFromStr(c.Txid)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.Txid)
-		}
+	// Convert the provided transaction hash hex to a Hash.
+	hash, err := util.GetHashFromStr(c.Txid)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Txid)
+	}
 
-		out := outpoint.OutPoint{Hash: *hash, Index: c.Vout}
+	outPoint := outpoint.NewOutPoint(*hash, c.Vout)
+	coinView := utxo.GetUtxoCacheInstance()
 
-		coin := &utxo.Coin{}
-		coinView := utxo.GetUtxoCacheInstance()
-		if *c.IncludeMempool {
-			// todo realise CoinsViewMemPool{} in mempool
-		} else {
-			if c, err := coinView.GetCoin(&out); err != nil || c == nil {
-				return nil, err
+	coin := coinView.GetCoin(outPoint)
+	if coin == nil {
+		if c.IncludeMempool == nil || *c.IncludeMempool {
+			coin = mempool.GetInstance().GetCoin(outPoint)
+			if coin == nil || mempool.GetInstance().HasSpentOut(outPoint) {
+				return nil, nil
 			}
-
-		}
-
-		bestHash := coinView.GetBestBlock()
-		index := chain.GetInstance().FindBlockIndex(bestHash)
-
-		var confirmations int
-		if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
-			confirmations = 0
 		} else {
-			confirmations = index.Height - int(coin.GetHeight()) + 1
+			return nil, nil
 		}
+	}
 
-		txout := coin.GetTxOut()
-		txOutReply := &btcjson.GetTxOutResult{
-			BestBlock:     index.BlockHash.String(),
-			Confirmations: int64(confirmations),
-			Value:         valueFromAmount(int64(coin.GetAmount())),
-			ScriptPubKey:  ScriptPubKeyToJSON(txout.GetScriptPubKey(), true),
-			Coinbase:      coin.IsCoinBase(),
+	bestHash, err := coinView.GetBestBlock()
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCNoNewestBlockInfo,
+			Message: "Cannot get best block",
 		}
+	}
+	index := chain.GetInstance().FindBlockIndex(bestHash)
 
-		return &txOutReply, nil*/ // todo open
-	return nil, nil
+	confirmations := int32(0)
+	if !coin.IsMempoolCoin() {
+		confirmations = index.Height - coin.GetHeight() + 1
+	}
+
+	txOut := coin.GetTxOut()
+	amountValue := valueFromAmount(int64(coin.GetAmount()))
+	txOutReply := &btcjson.GetTxOutResult{
+		BestBlock:     index.GetBlockHash().String(),
+		Confirmations: confirmations,
+		Value:         strconv.FormatFloat(amountValue, 'f', -1, 64),
+		ScriptPubKey:  ScriptPubKeyToJSON(txOut.GetScriptPubKey(), true),
+		Coinbase:      coin.IsCoinBase(),
+	}
+
+	return &txOutReply, nil
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

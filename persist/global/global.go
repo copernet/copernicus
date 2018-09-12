@@ -16,12 +16,14 @@ const (
 	// UndoFileChunkSize is the pre-allocation chunk size for rev?????.dat files (since 0.8) */
 	UndoFileChunkSize     = 0x100000
 	DefaultMaxMemPoolSize = 300
+	DefaultMaxTipAge      = 24 * 60 * 60
 )
 
 var (
 	CsMain          = new(sync.RWMutex)
 	CsLastBlockFile = new(sync.RWMutex)
 	persistGlobal   *PersistGlobal
+	Reindex         bool
 )
 
 type PersistGlobal struct {
@@ -48,7 +50,6 @@ type PruneState struct {
 	HavePruned      bool
 	PruneTarget     uint64
 	CheckForPruning bool
-	Reindex         bool
 }
 
 func (pg *PersistGlobal) AddDirtyBlockIndex(pindex *blockindex.BlockIndex) {
@@ -72,7 +73,6 @@ func InitPruneState() *PruneState {
 		PruneMode:       false,
 		HavePruned:      false,
 		CheckForPruning: false,
-		Reindex:         false,
 		PruneTarget:     0,
 	}
 	return ps
