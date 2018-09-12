@@ -572,13 +572,13 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 	limitAncestorSize uint64, limitDescendantCount uint64, limitDescendantSize uint64,
 	searchForParent bool) (ancestors map[*TxEntry]struct{}, err error) {
 
-	ancestors = make(map[*TxEntry]struct{})
-	parent := make(map[*TxEntry]struct{})
+	parents := make(map[*TxEntry]struct{})
+	txIns := tx.GetIns()
 	if searchForParent {
-		for _, preout := range tx.GetAllPreviousOut() {
-			if entry, ok := m.poolData[preout.Hash]; ok {
-				parent[entry] = struct{}{}
-				if uint64(len(parent))+1 > limitAncestorCount {
+		for _, txIn := range txIns {
+			if entry, ok := m.poolData[txIn.PreviousOutPoint.Hash]; ok {
+				parents[entry] = struct{}{}
+				if uint64(len(parents))+1 > limitAncestorCount {
 					return nil, errcode.New(errcode.ManyUnspendDepend)
 				}
 			}
@@ -587,40 +587,45 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 		// If we're not searching for parents, we require this to be an entry in
 		// the mempool already.
 		if entry, ok := m.poolData[tx.GetHash()]; ok {
-			parent = entry.ParentTx
+			parents = entry.ParentTx
 		} else {
 			panic("the tx must be in mempool")
 		}
 	}
 
-	totalSizeWithAncestors := int64(tx.EncodeSize())
-	paSLice := make([]*TxEntry, len(parent))
+	tempParents := make([]*TxEntry, len(parents))
 	j := 0
-	for entry := range parent {
-		paSLice[j] = entry
+	for entry := range parents {
+		tempParents[j] = entry
 		j++
 	}
 
-	for len(paSLice) > 0 {
-		entry := paSLice[0]
-		paSLice = paSLice[1:]
-		//delete(parent, entry)
+	totalSizeWithAncestors := int64(tx.EncodeSize())
+	ancestors = make(map[*TxEntry]struct{})
+	for len(tempParents) > 0 {
+		entry := tempParents[0]
+		tempParents = tempParents[1:]
+
 		ancestors[entry] = struct{}{}
-		totalSizeWithAncestors += int64(entry.TxSize)
 		if uint64(entry.SumSizeWithDescendants+int64(entry.TxSize)) > limitDescendantSize {
-			return nil, errcode.New(errcode.ManyUnspendDepend)
-		} else if uint64(entry.SumTxCountWithDescendants+1) > limitDescendantCount {
-			return nil, errcode.New(errcode.ManyUnspendDepend)
-		} else if uint64(totalSizeWithAncestors) > limitAncestorSize {
 			return nil, errcode.New(errcode.ManyUnspendDepend)
 		}
 
-		graTxentrys := entry.ParentTx
-		for gentry := range graTxentrys {
-			if _, ok := ancestors[gentry]; !ok {
-				paSLice = append(paSLice, gentry)
+		if uint64(entry.SumTxCountWithDescendants+1) > limitDescendantCount {
+			return nil, errcode.New(errcode.ManyUnspendDepend)
+		}
+
+		totalSizeWithAncestors += int64(entry.TxSize)
+		if uint64(totalSizeWithAncestors) > limitAncestorSize {
+			return nil, errcode.New(errcode.ManyUnspendDepend)
+		}
+
+		grandTxentrys := entry.ParentTx
+		for grandEntry := range grandTxentrys {
+			if _, ok := ancestors[grandEntry]; !ok {
+				tempParents = append(tempParents, grandEntry)
 			}
-			if uint64(len(parent)+len(ancestors)+1) > limitAncestorCount {
+			if uint64(len(tempParents)+len(ancestors)+1) > limitAncestorCount {
 				return nil, errcode.New(errcode.ManyUnspendDepend)
 			}
 		}
