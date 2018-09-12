@@ -27,9 +27,6 @@ func IsInitialBlockDownload() bool {
 		return false
 	}
 
-	global.CsMain.Lock()
-	defer global.CsMain.Unlock()
-
 	if latchToFalse.Load().(bool) {
 		return false
 	}
