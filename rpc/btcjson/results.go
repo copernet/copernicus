@@ -312,7 +312,7 @@ type ScriptPubKeyResult struct {
 // GetTxOutResult models the data from the gettxout command.
 type GetTxOutResult struct {
 	BestBlock     string             `json:"bestblock"`
-	Confirmations int64              `json:"confirmations"`
+	Confirmations int32              `json:"confirmations"`
 	Value         string             `json:"value"`
 	ScriptPubKey  ScriptPubKeyResult `json:"scriptPubKey"`
 	Version       int32              `json:"version"`
