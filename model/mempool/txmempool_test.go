@@ -19,7 +19,7 @@ type TestMemPoolEntry struct {
 	Fee            amount.Amount
 	Time           int64
 	Priority       float64
-	Height         int
+	Height         int32
 	SpendsCoinbase bool
 	SigOpCost      int
 	lp             *LockPoints
@@ -47,7 +47,7 @@ func (t *TestMemPoolEntry) SetTime(time int64) *TestMemPoolEntry {
 	return t
 }
 
-func (t *TestMemPoolEntry) SetHeight(height int) *TestMemPoolEntry {
+func (t *TestMemPoolEntry) SetHeight(height int32) *TestMemPoolEntry {
 	t.Height = height
 	return t
 }
@@ -67,7 +67,7 @@ func (t *TestMemPoolEntry) FromTxToEntry(tx *tx.Tx) *TxEntry {
 	if t.lp != nil {
 		lp = *(t.lp)
 	}
-	entry := NewTxentry(tx, int64(t.Fee), t.Time, int(t.Height), lp, int(t.SigOpCost), t.SpendsCoinbase)
+	entry := NewTxentry(tx, int64(t.Fee), t.Time, t.Height, lp, int(t.SigOpCost), t.SpendsCoinbase)
 	return entry
 }
 

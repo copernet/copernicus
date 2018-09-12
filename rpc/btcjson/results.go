@@ -538,7 +538,7 @@ type GetMempoolEntryRelativeInfoVerbose struct {
 	Fee              float64  `json:"fee"`
 	ModifiedFee      float64  `json:"modifiedfee"`
 	Time             int64    `json:"time"`
-	Height           int      `json:"height"`
+	Height           int32    `json:"height"`
 	StartingPriority float64  `json:"startingpriority"`
 	CurrentPriority  float64  `json:"currentpriority"`
 	DescendantCount  int64    `json:"descendantcount"`

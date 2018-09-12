@@ -259,7 +259,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 		}
 		m.removeConflicts(tx)
 	}
-	m.lastRollingFeeUpdate = util.GetMockTime()
+	m.lastRollingFeeUpdate = util.GetTime()
 	m.blockSinceLastRollingFeeBump = true
 }
 
@@ -314,7 +314,7 @@ func (m *TxMempool) GetMinFee(sizeLimit int) util.FeeRate {
 		return *util.NewFeeRate(m.rollingMinimumFeeRate)
 	}
 
-	timeTmp := util.GetMockTime()
+	timeTmp := util.GetTime()
 	if timeTmp > m.lastRollingFeeUpdate+10 {
 		halfLife := RollingFeeHalfLife
 		if m.cacheInnerUsage < int64(sizeLimit/4) {

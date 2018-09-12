@@ -25,20 +25,28 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
+	gChain := chain.GetInstance()
 	utxoTip := utxo.GetUtxoCacheInstance()
-	mpHeight := 0
+	//mpHeight := 0
 	allPreout := tx.GetAllPreviousOut()
 	coins := make([]*utxo.Coin, len(allPreout))
 	var txfee int64
 	var inputValue int64
+	spendCoinbase := false
 	for i, preout := range allPreout {
 		if coin := utxoTip.GetCoin(&preout); coin != nil {
 			coins[i] = coin
 			inputValue += int64(coin.GetAmount())
+			if coin.IsCoinBase() {
+				spendCoinbase = true
+			}
 		} else {
 			if coin := pool.GetCoin(&preout); coin != nil {
 				coins[i] = coin
 				inputValue += int64(coin.GetAmount())
+				if coin.IsCoinBase() {
+					spendCoinbase = true
+				}
 			} else {
 				panic("the transaction in mempool, not found its parent " +
 					"transaction in local node and utxo")
@@ -46,13 +54,13 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 		}
 	}
 	txfee = inputValue - int64(tx.GetValueOut())
-	ancestors, lp, err := isAcceptTx(tx, txfee)
+	ancestors, lp, err := isTxAcceptable(tx, txfee)
 	if err != nil {
 		return err
 	}
-
 	//second : add transaction to mempool.
-	txentry := mempool.NewTxentry(tx, txfee, 0, mpHeight, *lp, 0, false)
+	txentry := mempool.NewTxentry(tx, txfee, util.GetTime(), gChain.Height(), *lp,
+		tx.GetSigOpCountWithoutP2SH(), spendCoinbase)
 	pool.AddTx(txentry, ancestors)
 
 	return nil
@@ -110,7 +118,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 	return acceptTx
 }
 
-func isAcceptTx(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
+func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
 	pool := mempool.GetInstance()
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	if _, ok := allEntry[tx.GetHash()]; ok {

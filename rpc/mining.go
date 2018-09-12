@@ -174,7 +174,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 
 	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
-			util.GetMockTime()-start > 5 {
+			util.GetTime()-start > 5 {
 
 		// Clear pindexPrev so future calls make a new block, despite any
 		// failures from here on
@@ -182,7 +182,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		// Store the pindexBest used before CreateNewBlock, to avoid races
 		transactionsUpdatedLast = mempool.GetInstance().TransactionsUpdated
 		indexPrevNew := chain.GetInstance().Tip()
-		start = util.GetMockTime()
+		start = util.GetTime()
 
 		// Create new block
 		ba := mining.NewBlockAssembler(chainparams.ActiveNetParams)
