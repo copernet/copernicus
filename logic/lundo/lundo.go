@@ -40,7 +40,7 @@ func IsInitialBlockDownload() bool {
 	if disk.ChainActive.Tip().ChainWork.Cmp(minWorkSum) < 0 {
 		return true
 	}
-	if int64(disk.ChainActive.Tip().GetBlockTime()) < util.GetMockTime()-global.DefaultMaxTipAge {
+	if int64(disk.ChainActive.Tip().GetBlockTime()) < util.GetTime()-global.DefaultMaxTipAge {
 		return true
 	}
 	latchToFalse.Store(true)
