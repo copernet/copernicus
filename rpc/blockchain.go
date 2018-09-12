@@ -699,10 +699,11 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	}
 
 	txOut := coin.GetTxOut()
+	amountValue := valueFromAmount(int64(coin.GetAmount()))
 	txOutReply := &btcjson.GetTxOutResult{
 		BestBlock:     index.GetBlockHash().String(),
 		Confirmations: confirmations,
-		Value:         valueFromAmount(int64(coin.GetAmount())),
+		Value:         strconv.FormatFloat(amountValue, 'f', -1, 64),
 		ScriptPubKey:  ScriptPubKeyToJSON(txOut.GetScriptPubKey(), true),
 		Coinbase:      coin.IsCoinBase(),
 	}

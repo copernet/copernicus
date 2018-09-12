@@ -3,6 +3,8 @@ package rpc
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
+	"github.com/copernet/copernicus/model/opcodes"
 	"math"
 
 	"github.com/copernet/copernicus/crypto"
@@ -123,64 +125,61 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 	return vinList
 }*/ // TODO open
 
-func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // todo complete
-	/*	var str string
-		var opcode byte
-		vch := make([]byte, 0)
-		b := s.GetData()
-		for i := 0; i < len(b); i++ {
-			if len(str) != 0 {
-				str += " "
-			}
-
-			if !s.GetOp(&i, &opcode, &vch) {
-				str += "[error]"
-				return str
-			}
-
-			if opcode >= 0 && opcode <= opcodes.OP_PUSHDATA4 {
-				if len(vch) <= 4 {
-					num, _ := script.GetCScriptNum(vch, false, script.DefaultMaxNumSize)
-					str += fmt.Sprintf("%d", num.Value)
-				} else {
-					// the IsUnspendable check makes sure not to try to decode
-					// OP_RETURN data that may match the format of a signature
-					if attemptSighashDecode && !s.IsUnspendable() {
-						var strSigHashDecode string
-						// goal: only attempt to decode a defined sighash type from
-						// data that looks like a signature within a scriptSig. This
-						// won't decode correctly formatted public keys in Pubkey or
-						// Multisig scripts due to the restrictions on the pubkey
-						// formats (see IsCompressedOrUncompressedPubKey) being
-						// incongruous with the checks in CheckSignatureEncoding.
-						flags := script.ScriptVerifyStrictEnc
-						if vch[len(vch)-1]&script.SigHashForkID != 0 {
-							// If the transaction is using SIGHASH_FORKID, we need
-							// to set the apropriate flag.
-							// TODO: Remove after the Hard Fork.
-							flags |= script.ScriptEnableSigHashForkID
-						}
-						if ok, _ := crypto.CheckSignatureEncoding(vch, uint32(flags)); ok {
-							//chsigHashType := vch[len(vch)-1]
-							//if t, ok := crypto.MapSigHashTypes[chsigHashType]; ok { // todo realise define
-							//	strSigHashDecode = "[" + t + "]"
-							//	// remove the sighash type byte. it will be replaced
-							//	// by the decode.
-							//	vch = vch[:len(vch)-1]
-							//}
-						}
-
-						str += hex.EncodeToString(vch) + strSigHashDecode
-					} else {
-						str += hex.EncodeToString(vch)
-					}
-				}
-			} else {
-				str += opcodes.GetOpName(int(opcode))
-			}
+func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string {
+	var str string
+	for _, scriptOpcodes := range s.ParsedOpCodes {
+		if len(str) > 0 {
+			str += " "
 		}
-		return str*/
-	return ""
+		opcode := scriptOpcodes.OpValue
+		vch := make([]byte, len(scriptOpcodes.Data))
+		copy(vch, scriptOpcodes.Data)
+
+		if opcode >= 0 && opcode <= opcodes.OP_PUSHDATA4 {
+			if len(vch) <= 4 {
+				num, _ := script.GetScriptNum(vch, false, script.DefaultMaxNumSize)
+				str += fmt.Sprintf("%d", num.Value)
+			} else {
+				// the IsUnspendable check makes sure not to try to decode
+				// OP_RETURN data that may match the format of a signature
+				if attemptSighashDecode && !s.IsUnspendable() {
+					var strSigHashDecode string
+					// goal: only attempt to decode a defined sighash type from
+					// data that looks like a signature within a scriptSig. This
+					// won't decode correctly formatted public keys in Pubkey or
+					// Multisig scripts due to the restrictions on the pubkey
+					// formats (see IsCompressedOrUncompressedPubKey) being
+					// incongruous with the checks in CheckSignatureEncoding.
+					flags := script.ScriptVerifyStrictEnc
+					if vch[len(vch)-1]&crypto.SigHashForkID != 0 {
+						// If the transaction is using SIGHASH_FORKID, we need
+						// to set the apropriate flag.
+						// TODO: Remove after the Hard Fork.
+						flags |= script.ScriptEnableSigHashForkID
+					}
+					err := script.CheckSignatureEncoding(vch, uint32(flags))
+					if err == nil {
+						sigHashType := int(vch[len(vch)-1])
+						for desc, hashType := range mapSigHashValues {
+							if hashType == sigHashType {
+								strSigHashDecode = "[" + desc + "]"
+								// remove the sighash type byte. it will be replaced
+								// by the decode.
+								vch = vch[:len(vch)-1]
+								break
+							}
+						}
+					}
+					str += hex.EncodeToString(vch) + strSigHashDecode
+				} else {
+					str += hex.EncodeToString(vch)
+				}
+			}
+		} else {
+			str += opcodes.GetOpName(int(opcode))
+		}
+	}
+	return str
 }
 
 // createVoutList returns a slice of JSON objects for the outputs of the passed
@@ -197,30 +196,52 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string { // tod
 	return voutList
 }*/ // TODO open
 
-/*func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult { // todo complete
+func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult {
 	result := btcjson.ScriptPubKeyResult{}
+
+	if script == nil {
+		return result
+	}
 
 	result.Asm = ScriptToAsmStr(script, includeHex)
 	if includeHex {
 		result.Hex = hex.EncodeToString(script.GetData())
 	}
 
-	t, addresses, required, ok := script.ExtractDestinations(script)
-	if !ok {
-		result.Type = script.GetTxnOutputType(t)
+	t, addresses, required, err := script.ExtractDestinations()
+	result.Type = GetTxnOutputType(t)
+
+	if err != nil {
 		return result
 	}
 
-	result.ReqSigs = required
-	result.Type = script.GetTxnOutputType(t)
-
+	result.ReqSigs = int32(required)
 	result.Addresses = make([]string, 0, len(addresses))
 	for _, address := range addresses {
 		result.Addresses = append(result.Addresses, address.String())
 	}
 
 	return result
-}*/ //TODO open
+}
+
+func GetTxnOutputType(sType int) string {
+	switch sType {
+	case script.ScriptNonStandard:
+		return "nonstandard"
+	case script.ScriptPubkey:
+		return "pubkey"
+	case script.ScriptPubkeyHash:
+		return "pubkeyhash"
+	case script.ScriptHash:
+		return "scripthash"
+	case script.ScriptMultiSig:
+		return "multisig"
+	case script.ScriptNullData:
+		return "nulldata"
+	default:
+		return "unknown"
+	}
+}
 
 /*func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
 	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
@@ -424,10 +445,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                     crypto.SigHashAll,
-	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                        crypto.SigHashAll,
+	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,

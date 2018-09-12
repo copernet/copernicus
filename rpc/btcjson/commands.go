@@ -768,13 +768,13 @@ func NewPruneBlockChainCmd(height *int) *PruneBlockChainCmd {
 
 type GetMempoolAncestorsCmd struct {
 	TxID    string `json:"txid"`
-	Verbose bool   //`json: "verbose";jsonrpcdefault: "false"`
+	Verbose *bool  `json: "verbose";jsonrpcdefault: "false"`
 	// todo
 }
 
 type GetMempoolDescendantsCmd struct {
 	TxID    string `json:"txid"`
-	Verbose bool   //`json: "verbose";jsonrpcdefault: "false"`
+	Verbose *bool  `json: "verbose";jsonrpcdefault: "false"`
 	// todo
 }
 

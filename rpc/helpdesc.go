@@ -485,7 +485,8 @@ const (
 		"1. \"txid\"       (string, required) The transaction id\n" +
 		"2. n              (numeric, required) vout number\n" +
 		"3. include_mempool  (boolean, optional) Whether to include the " +
-		"mempool\n" +
+		"mempool. Default: true. " +
+		"Note that an unspent output that is spent in the mempool won't appear.\n" +
 		"\nResult:\n" +
 		"{\n" +
 		"  \"bestblock\" : \"hash\",    (string) the block hash\n" +
@@ -508,7 +509,6 @@ const (
 		"  },\n" +
 		"  \"coinbase\" : true|false   (boolean) Coinbase or not\n" +
 		"}\n" +
-
 		"\nExamples:\n" +
 		"\nGet unspent transactions\n" +
 		"> coperctl listunspent\n" +
