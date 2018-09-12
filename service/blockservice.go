@@ -64,22 +64,25 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
-	err := lblock.CheckBlock(pblock)
+	if err := lblock.CheckBlock(pblock); err != nil {
+		log.Error("check block failed, please check.")
+		return err
+	}
 	global.CsMain.Lock()
 	defer global.CsMain.Unlock()
-	if err == nil {
-		_, _, err = lblock.AcceptBlock(pblock, fForceProcessing, fNewBlock)
-	}
-	if err != nil {
+
+	if _, _, err := lblock.AcceptBlock(pblock, fForceProcessing, fNewBlock); err != nil {
 		// todo !!! add asynchronous notification
 		log.Error(" AcceptBlock FAILED ")
 		return err
 	}
 
-	lchain.CheckBlockIndex()
-
+	if err := lchain.CheckBlockIndex(); err != nil {
+		log.Error("check block index failed, please check.")
+		return err
+	}
 	// Only used to report errors, not invalidity - ignore it
-	if err = lchain.ActivateBestChain(pblock); err != nil {
+	if err := lchain.ActivateBestChain(pblock); err != nil {
 		log.Error(" ActivateBestChain failed :%v", err)
 		return err
 	}

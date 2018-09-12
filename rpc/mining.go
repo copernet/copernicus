@@ -34,7 +34,6 @@ var miningHandlers = map[string]commandHandler{
 	"getblocktemplate":  handleGetblocktemplate,
 	"submitblock":       handleSubmitBlock,
 	"generatetoaddress": handleGenerateToAddress,
-	"estimatefee":       handleEstimateFee,
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -549,10 +548,6 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	_ = extraNonce
 
 	return ret, nil
-}
-
-func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
 }
 
 func registerMiningRPCCommands() {
