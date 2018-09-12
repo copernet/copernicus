@@ -2,16 +2,52 @@ package lundo
 
 import (
 	"fmt"
+	"sync/atomic"
+
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/disk"
+	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/util"
 )
 
 // IsInitialBlockDownload Check whether we are doing an initial block download
 // (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
+	latchToFalse := atomic.Value{}
+	// Once this function has returned false, it must remain false.
+	latchToFalse.Store(false)
+	// latchToFalse: pre-test latch before taking the lock.
+	if latchToFalse.Load().(bool) {
+		return false
+	}
+
+	global.CsMain.Lock()
+	defer global.CsMain.Unlock()
+
+	if latchToFalse.Load().(bool) {
+		return false
+	}
+	if global.Reindex {
+		return true
+	}
+	if disk.ChainActive.Tip() == nil {
+		return true
+	}
+	minWorkSum := pow.HashToBig(&chainparams.ActiveNetParams.MinimumChainWork)
+	if disk.ChainActive.Tip().ChainWork.Cmp(minWorkSum) < 0 {
+		return true
+	}
+	if int64(disk.ChainActive.Tip().GetBlockTime()) < util.GetMockTime()-global.DefaultMaxTipAge {
+		return true
+	}
+	latchToFalse.Store(true)
+
 	return false
 }
 

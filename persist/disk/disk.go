@@ -325,7 +325,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	dataBaseFlushInterval := 24 * 60 * 60
 	minBlockCoinsDBUsage := 50 * dbPeakUsageFactor
 
-	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !gps.Reindex {
+	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !global.Reindex {
 		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
 	} else {
 		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
