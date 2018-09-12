@@ -1,8 +1,11 @@
 package txout
 
 import (
+	//"encoding/hex"
 	"errors"
+	//"fmt"
 	"io"
+	//"os"
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -118,14 +121,14 @@ func (scr *scriptCompressor) Compress() []byte {
 	if len(keyId) > 0 {
 		out = make([]byte, 21)
 		out[0] = 0x00
-		out = append(out[1:], keyId...)
+		copy(out[1:], keyId)
 		return out
 	}
 	scriptId := scr.isToScriptId()
 	if len(scriptId) > 0 {
 		out = make([]byte, 21)
 		out[0] = 0x01
-		out = append(out[1:], scriptId...)
+		copy(out[1:], scriptId)
 		return out
 	}
 	pubKey := scr.isToPubKey()
@@ -164,6 +167,7 @@ func (scr *scriptCompressor) Decompress(size uint64, in []byte) bool {
 		copy(bs[3:], in[0:20])
 		bs[23] = opcodes.OP_EQUALVERIFY
 		bs[24] = opcodes.OP_CHECKSIG
+		//fmt.Fprintf(os.Stderr, "after case 0x00,bs=%s\n", hex.EncodeToString(bs))
 	case 0x01:
 		bs = make([]byte, 23)
 		bs[0] = opcodes.OP_HASH160
@@ -223,23 +227,30 @@ func (scr *scriptCompressor) Unserialize(r io.Reader) error {
 	if err != nil {
 		return err
 	}
+	//fmt.Fprintf(os.Stderr, "got size=%d\n", size)
 	if size < numSpecialScripts {
 		vch := make([]byte, getSpecialSize(size))
-		_, err := io.ReadFull(r, vch)
-		scr.Decompress(size, vch)
-		return err
+		if _, err := io.ReadFull(r, vch); err != nil {
+			//fmt.Fprintf(os.Stderr, "io.ReadFull=%v\n", err)
+			return err
+		}
+		//fmt.Fprintf(os.Stderr, "got vch=%s\n", hex.EncodeToString(vch))
+		if !scr.Decompress(size, vch) {
+			return errors.New("scriptCompressor.Decompress: return false")
+		}
+		return nil
 	}
 	size -= numSpecialScripts
-	so := *scr.sp
 	if size > script.MaxScriptSize {
-		so.PushOpCode(opcodes.OP_RETURN)
+		(*scr.sp).PushOpCode(opcodes.OP_RETURN)
 		tmp := make([]byte, size)
 		_, err = io.ReadFull(r, tmp)
 	} else {
 		tmp := make([]byte, size)
 		_, err = io.ReadFull(r, tmp)
+		//fmt.Fprintf(os.Stderr, "after readfull tmp=%s, err=%v\n", hex.EncodeToString(tmp), err)
 		if err == nil {
-			so = script.NewScriptRaw(tmp)
+			*scr.sp = script.NewScriptRaw(tmp)
 		}
 	}
 	return err

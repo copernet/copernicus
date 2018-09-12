@@ -2,7 +2,6 @@ package chain
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -93,24 +92,22 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 		return err
 	}
 	defer logf.Close()
-	fmt.Fprintf(logf, "besthash=%s\n", stat.bestblock.String())
+	//fmt.Fprintf(logf, "besthash=%s\n", stat.bestblock.String())
 	for ; iter.Valid(); iter.Next() {
 		bw.Reset()
 		bw.Write(iter.GetKey())
 		entry := utxo.NewCoinKey(&outpoint)
 		if err := entry.Unserialize(bw); err != nil {
-			fmt.Printf("key unser:%v\n", err)
 			return err
 		}
 		bw.Reset()
 		bw.Write(iter.GetVal())
 		coin := new(utxo.Coin)
 		if err := coin.Unserialize(bw); err != nil {
-			fmt.Printf("val unser:%v\n", err)
 			return err
 		}
-		fmt.Fprintf(logf, "outpoint=(%s,%d)\n", outpoint.Hash.String(), outpoint.Index)
-		fmt.Fprintf(logf, "coin=%+v,script=%s\n", coin, hex.EncodeToString(coin.GetScriptPubKey().GetData()))
+		//fmt.Fprintf(logf, "outpoint=(%s,%d)\n", outpoint.Hash.String(), outpoint.Index)
+		//fmt.Fprintf(logf, "coin=%+v,script=%s\n", coin, hex.EncodeToString(coin.GetScriptPubKey().GetData()))
 		if len(outputs) > 0 && outpoint.Hash != prevkey {
 			applyStats(stat, hashbuf, &prevkey, outputs)
 			for k := range outputs {

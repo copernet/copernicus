@@ -1,6 +1,7 @@
 package utxo
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/copernet/copernicus/log"
@@ -45,7 +46,11 @@ func (cm *CoinsMap) UnCache(point *outpoint.OutPoint) {
 
 func DisplayCoinMap(cm *CoinsMap) {
 	for k, v := range cm.GetMap() {
-		fmt.Printf("k=%+v, v=%+v\n", k.String(), v)
+		if v.GetScriptPubKey() != nil {
+			fmt.Printf("k=%+v, v=%+v, script=%s\n", k.String(), v, hex.EncodeToString(v.GetScriptPubKey().GetData()))
+		} else {
+			fmt.Printf("k=%+v, v=%+v\n", k.String(), v)
+		}
 	}
 }
 

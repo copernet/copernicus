@@ -18,14 +18,15 @@ func UpdateTxCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, heigh
 			undoCoins[idx] = coin.DeepCopy()
 			coinMap.SpendCoin(txin.PreviousOutPoint)
 		}
-		if txHash.String() == "f261dfa4519e8dd75112ad987d9c822a92cd236d57d7a48603f96bfff2683524" {
+		if txHash.String() == "7e621eeb02874ab039a8566fd36f4591e65eca65313875221842c53de6907d6c" {
+			fmt.Println("after spend coin*************************")
 			utxo.DisplayCoinMap(coinMap)
 		}
 		txundo.SetUndoCoins(undoCoins)
 	}
 	txAddCoins(tx, coinMap, height)
-	if txHash.String() == "f261dfa4519e8dd75112ad987d9c822a92cd236d57d7a48603f96bfff2683524" {
-		fmt.Println("*************************")
+	if txHash.String() == "7e621eeb02874ab039a8566fd36f4591e65eca65313875221842c53de6907d6c" {
+		fmt.Println("after add coin*************************")
 		utxo.DisplayCoinMap(coinMap)
 	}
 }
