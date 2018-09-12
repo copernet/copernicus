@@ -511,7 +511,7 @@ const (
 
 		"\nExamples:\n" +
 		"\nGet unspent transactions\n" +
-		"> coperctl bitcoin-cli listunspent\n" +
+		"> coperctl listunspent\n" +
 		"\nView the details\n" +
 		`> coperctl gettxout "txid" 1` +
 		"\nAs a json rpc call\n" +
