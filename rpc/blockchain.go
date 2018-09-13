@@ -592,9 +592,6 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	mempool.GetInstance().Lock()
-	defer mempool.GetInstance().Unlock()
-
 	entry := mempool.GetInstance().FindTx(*hash)
 	if entry == nil {
 		return nil, btcjson.RPCError{
