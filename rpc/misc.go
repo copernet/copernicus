@@ -17,16 +17,25 @@ import (
 	"github.com/copernet/copernicus/util/base58"
 )
 
+// API version constants
+const (
+	jsonrpcSemverString = "1.0.0"
+	jsonrpcSemverMajor  = 1
+	jsonrpcSemverMinor  = 1
+	jsonrpcSemverPatch  = 0
+)
+
 var miscHandlers = map[string]commandHandler{
-	"getinfo":                handleGetInfo,         // complete
-	"validateaddress":        handleValidateAddress, // complete
+	"getinfo":                handleGetInfo,
+	"validateaddress":        handleValidateAddress,
 	"createmultisig":         handleCreatemultisig,
-	"verifymessage":          handleVerifyMessage,          // complete
-	"signmessagewithprivkey": handleSignMessageWithPrivkey, // complete
-	"setmocktime":            handleSetMocktime,            // complete
-	"echo":                   handleEcho,                   // complete
-	"help":                   handleHelp,                   // complete
-	"stop":                   handleStop,                   // complete
+	"verifymessage":          handleVerifyMessage,
+	"signmessagewithprivkey": handleSignMessageWithPrivkey,
+	"setmocktime":            handleSetMocktime,
+	"echo":                   handleEcho,
+	"help":                   handleHelp,
+	"stop":                   handleStop,
+	"version":                handleVersion,
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -216,6 +225,18 @@ func handleStop(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 	default:
 	}
 	return "Copernicus server stopping", nil
+}
+
+func handleVersion(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	result := map[string]btcjson.VersionResult{
+		"btcdjsonrpcapi": {
+			VersionString: jsonrpcSemverString,
+			Major:         jsonrpcSemverMajor,
+			Minor:         jsonrpcSemverMinor,
+			Patch:         jsonrpcSemverPatch,
+		},
+	}
+	return result, nil
 }
 
 func registerMiscRPCCommands() {

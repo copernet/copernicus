@@ -541,6 +541,13 @@ func NewHelpCmd(command *string) *HelpCmd {
 	}
 }
 
+// VersionCmd defines the version JSON-RPC command.
+type VersionCmd struct{}
+
+// NewVersionCmd returns a new instance which can be used to issue a JSON-RPC
+// version command.
+func NewVersionCmd() *VersionCmd { return new(VersionCmd) }
+
 // InvalidateBlockCmd defines the invalidateblock JSON-RPC command.
 type InvalidateBlockCmd struct {
 	BlockHash string
@@ -861,6 +868,7 @@ func init() {
 	MustRegisterCmd("gettxoutsetinfo", (*GetTxOutSetInfoCmd)(nil), flags)
 	MustRegisterCmd("getwork", (*GetWorkCmd)(nil), flags)
 	MustRegisterCmd("help", (*HelpCmd)(nil), flags)
+	MustRegisterCmd("version", (*VersionCmd)(nil), flags)
 	MustRegisterCmd("invalidateblock", (*InvalidateBlockCmd)(nil), flags)
 	MustRegisterCmd("ping", (*PingCmd)(nil), flags)
 	MustRegisterCmd("preciousblock", (*PreciousBlockCmd)(nil), flags)

@@ -34,6 +34,7 @@ var miningHandlers = map[string]commandHandler{
 	"getblocktemplate":  handleGetblocktemplate,
 	"submitblock":       handleSubmitBlock,
 	"generatetoaddress": handleGenerateToAddress,
+	"generate":          handleGenerate,
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -495,6 +496,29 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 	}
 
 	coinbaseScript := script.NewScriptRaw(addr.EncodeToPubKeyHash())
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
+}
+
+// handleGenerate handles generate commands.
+func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GenerateCmd)
+
+	// Respond with an error if the client is requesting 0 blocks to be generated.
+	if c.NumBlocks == 0 {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInternal.Code,
+			Message: "Please request a nonzero number of blocks to generate.",
+		}
+	}
+
+	coinbaseScript := script.NewScriptRaw(nil)
+	if coinbaseScript == nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "No coinbase script available (mining requires a wallet)",
+		}
+	}
+
 	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
 }
 
