@@ -278,7 +278,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 				valueIn += coin.GetAmount()
 			}
-			coinHeight, coinTime := CaculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
+			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
 				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
@@ -620,7 +620,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 //	return true
 //}
 
-//CalculateLockPoints caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+//CalculateLockPoints calculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
 	activeChain := chain.GetInstance()
 	tipHeight := activeChain.Height()
@@ -677,7 +677,7 @@ func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoin
 	return
 }
 
-func CaculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags uint32) (height int32, time int64) {
+func CalculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags uint32) (height int32, time int64) {
 	ins := transaction.GetIns()
 	preHeights := make([]int32, 0, len(ins))
 	var coinHeight int32
@@ -692,7 +692,7 @@ func CaculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags ui
 	return calculateSequenceLockPair(transaction, preHeights, flags)
 }
 
-// caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+// calculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func calculateSequenceLockPair(transaction *tx.Tx, preHeight []int32, flags uint32) (height int32, time int64) {
 	var maxHeight int32 = -1
 	var maxTime int64 = -1
