@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/copernet/copernicus/model/opcodes"
 	"math"
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/logic/lmerkleblock"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
@@ -746,42 +748,41 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.VerifyTxoutProofCmd)
+	c := cmd.(*btcjson.VerifyTxoutProofCmd)
 
-		b, err := hex.DecodeString(c.Proof)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.Proof)
-		}
+	b, err := hex.DecodeString(c.Proof)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Proof)
+	}
 
-		mb := mblock.MerkleBlock{}
-		err = mb.Unserialize(bytes.NewReader(b))
-		if err != nil {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCDeserializationError,
-				Message: "MerkleBlock Unserialize error",
-			}
+	mb := &lmerkleblock.MerkleBlock{}
+	err = mb.Unserialize(bytes.NewReader(b))
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCDeserializationError,
+			Message: "MerkleBlock Unserialize error",
 		}
+	}
 
-		matches := make([]util.Hash, 0)
-		items := make([]int, 0)
-		if mb.Txn.ExtractMatches(matches, items).IsEqual(&mb.Header.MerkleRoot) {
-			return nil, nil
-		}
+	matches := make([]util.Hash, 0)
+	items := make([]int, 0)
+	if mb.Txn.ExtractMatches(matches, items).IsEqual(&mb.Header.MerkleRoot) {
+		return nil, nil
+	}
 
-		bindex := LookupBlockIndex(mb.Header.GetHash()) // todo realize
-		if bindex == nil || !chain.GetInstance.Contains(bindex) {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInvalidAddressOrKey,
-				Message: "Block not found in chain",
-			}
+	bindex := chain.GetInstance().FindBlockIndex(mb.Header.GetHash())
+	if bindex == nil || !chain.GetInstance().Contains(bindex) {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "Block not found in chain",
 		}
+	}
 
-		ret := make([]string, 0, len(matches))
-		for _, hash := range matches {
-			ret = append(ret, hash.String())
-		}
-		return ret, nil*/ //TODO open
-	return nil, nil
+	ret := make([]string, 0, len(matches))
+	for _, hash := range matches {
+		ret = append(ret, hash.String())
+	}
+	return ret, nil
 }
 
 func registeRawTransactionRPCCommands() {

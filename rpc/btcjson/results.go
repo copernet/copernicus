@@ -589,3 +589,13 @@ type BannedINfo struct {
 	BanCreated  int64  `json:"ban_created"`
 	BanReason   string `json:"ban_reason"`
 }
+
+// VersionResult models objects included in the version response.
+type VersionResult struct {
+	VersionString string `json:"versionstring"`
+	Major         uint32 `json:"major"`
+	Minor         uint32 `json:"minor"`
+	Patch         uint32 `json:"patch"`
+	Prerelease    string `json:"prerelease"`
+	BuildMetadata string `json:"buildmetadata"`
+}

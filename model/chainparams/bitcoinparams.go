@@ -354,7 +354,7 @@ var RegressionNetParams = BitcoinParams{
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        true,
 	Checkpoints:              nil,
-	MineBlocksOnDemands:      false,
+	MineBlocksOnDemands:      true,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)

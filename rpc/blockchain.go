@@ -592,9 +592,6 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	mempool.GetInstance().Lock()
-	defer mempool.GetInstance().Unlock()
-
 	entry := mempool.GetInstance().FindTx(*hash)
 	if entry == nil {
 		return nil, btcjson.RPCError{
@@ -644,10 +641,8 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	c := cmd.(*btcjson.GetRawMempoolCmd)
 
 	pool := mempool.GetInstance()
-	pool.Lock()
-	defer pool.Unlock()
 
-	if *c.Verbose {
+	if c.Verbose != nil && *c.Verbose {
 		infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 		for hash, entry := range pool.GetAllTxEntry() {
 			infos[hash.String()] = entryToJSON(entry)
@@ -655,9 +650,15 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		return infos, nil
 	}
 
-	// CompareEntryByDepthAndScore() txenry in mempool sorted by depth and score
-	//return mempool.CompareEntryByDepthAndScore(), nil // todo mempool to realise (open)
-	return nil, nil
+	// The response is simply an array of the transaction hashes if the verbose flag is not set.
+	txAll := pool.TxInfoAll()
+	txIds := make([]string, 0, len(txAll))
+	for _, txInfo := range txAll {
+		txHash := txInfo.Tx.GetHash()
+		txIds = append(txIds, txHash.String())
+	}
+
+	return txIds, nil
 }
 
 func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

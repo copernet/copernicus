@@ -265,7 +265,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 
 func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
 	m.RLock()
-	m.RUnlock()
+	defer m.RUnlock()
 	if find, ok := m.poolData[hash]; ok {
 		return find
 	}

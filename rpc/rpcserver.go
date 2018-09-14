@@ -22,6 +22,7 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
@@ -453,6 +454,7 @@ type ServerConfig struct {
 	Listeners []net.Listener
 	// unix timestamp for when the server that is hosting the RPC server started.
 	StartupTime int64
+	ConnMgr     server.RPCConnManager
 }
 
 // SetupRPCListeners returns a slice of listeners that are configured for use
