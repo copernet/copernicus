@@ -12,7 +12,6 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-
 //todo the unit test did not pass
 
 const SkipListLength = 30000
