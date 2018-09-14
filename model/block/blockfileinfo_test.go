@@ -193,7 +193,7 @@ func TestAddBlock(t *testing.T) {
 func TestString(t *testing.T) {
 	testblockfileinfo.SetNull()
 	if testblockfileinfo.String() != "BlockFileInfo(blocks=0, size=0, heights=0...0,"+
-		" time=1970-01-01T08:00:00+08:00...1970-01-01T08:00:00+08:00)" {
+		" time=0...0)" {
 		t.Error("initial state of testblockfileinfo is wrongly string :", testblockfileinfo.String())
 
 	}
@@ -206,7 +206,7 @@ func TestString(t *testing.T) {
 	testblockfileinfo.UndoSize = 60
 
 	if testblockfileinfo.String() != "BlockFileInfo(blocks=20, size=256, heights=300000...500000,"+
-		" time=2014-05-10T14:32:34+08:00...2017-12-19T02:35:25+08:00)" {
+		" time=1399703554...1513622125)" {
 		t.Error("state of testblockfileinfo is wrongly string :", testblockfileinfo.String())
 	}
 }
