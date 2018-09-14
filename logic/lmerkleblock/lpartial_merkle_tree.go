@@ -209,7 +209,7 @@ func (pmt *PartialMerkleTree) Serialize(w io.Writer) (err error) {
 		}
 	}
 
-	bs := make([]byte, 0, (len(pmt.bits)+7)/8)
+	bs := make([]byte, (len(pmt.bits)+7)/8)
 	for p := 0; p < len(pmt.bits); p++ {
 		if pmt.bits[p] {
 			bs[p/8] |= uint8(1 << uint(p%8))
