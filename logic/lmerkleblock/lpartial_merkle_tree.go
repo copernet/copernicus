@@ -81,7 +81,7 @@ func (pmt *PartialMerkleTree) calcHash(height uint, pos uint, txids []util.Hash)
 	}
 
 	// Combine subhashes.
-	ret := make([]byte, 2*util.Hash256Size)
+	ret := make([]byte, 0, 2*util.Hash256Size)
 	ret = append(ret, left[:]...)
 	ret = append(ret, right[:]...)
 	b := util.DoubleSha256Bytes(ret)
@@ -91,8 +91,8 @@ func (pmt *PartialMerkleTree) calcHash(height uint, pos uint, txids []util.Hash)
 	return h
 }
 
-func (pmt *PartialMerkleTree) ExtractMatches(matches []util.Hash, items []int) *util.Hash {
-	matches = matches[:0]
+func (pmt *PartialMerkleTree) ExtractMatches(matches *[]util.Hash, items *[]int) *util.Hash {
+	*matches = (*matches)[:0]
 	// An empty set will not work
 	if pmt.txs == 0 {
 		return &util.Hash{}
@@ -115,8 +115,10 @@ func (pmt *PartialMerkleTree) ExtractMatches(matches []util.Hash, items []int) *
 		height++
 	}
 	// traverse the partial tree.
-	var bitUsed, hashUsed int
-	hashMerkleRoot := pmt.TraverseAndExtract(height, 0, bitUsed, hashUsed, matches, items)
+	bitUsed := int(0)
+	hashUsed := int(0)
+	hashMerkleRoot := pmt.TraverseAndExtract(height, 0, &bitUsed, &hashUsed, matches, items)
+
 	// verify that no problems occurred during the tree traversal.
 	if pmt.bad {
 		return &util.Hash{}
@@ -133,32 +135,32 @@ func (pmt *PartialMerkleTree) ExtractMatches(matches []util.Hash, items []int) *
 	return hashMerkleRoot
 }
 
-func (pmt *PartialMerkleTree) TraverseAndExtract(height uint, pos uint, bitUsed int, hashUsed int,
-	matches []util.Hash, items []int) *util.Hash {
+func (pmt *PartialMerkleTree) TraverseAndExtract(height uint, pos uint, bitUsed *int, hashUsed *int,
+	matches *[]util.Hash, items *[]int) *util.Hash {
 
-	if bitUsed >= len(pmt.bits) {
+	if *bitUsed >= len(pmt.bits) {
 		// Overflowed the bits array - failure
 		pmt.bad = true
 		return &util.Hash{}
 	}
 
-	parentOfMatch := pmt.bits[bitUsed]
-	bitUsed++
-	if height == 0 && !parentOfMatch {
+	parentOfMatch := pmt.bits[*bitUsed]
+	*bitUsed++
+	if height == 0 || !parentOfMatch {
 		// If at height 0, or nothing interesting below, use stored hash and do
 		// not descend.
-		if hashUsed >= len(pmt.hashes) {
+		if *hashUsed >= len(pmt.hashes) {
 			// Overflowed the hash array - failure
 			pmt.bad = true
 			return &util.Hash{}
 		}
 
-		hash := pmt.hashes[hashUsed]
-		hashUsed++
+		hash := pmt.hashes[*hashUsed]
+		*hashUsed++
 		// In case of height 0, we have a matched txid.
 		if height == 0 && parentOfMatch {
-			matches = append(matches, hash)
-			items = append(items, int(pos))
+			*matches = append(*matches, hash)
+			*items = append(*items, int(pos))
 		}
 
 		return &hash
@@ -182,7 +184,7 @@ func (pmt *PartialMerkleTree) TraverseAndExtract(height uint, pos uint, bitUsed 
 	}
 
 	// combine the before returning
-	ret := make([]byte, 2*sha256.Size)
+	ret := make([]byte, 0, 2*sha256.Size)
 	ret = append(ret, left[:]...)
 	ret = append(ret, right[:]...)
 	b := util.DoubleSha256Bytes(ret)

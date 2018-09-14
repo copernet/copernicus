@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"strconv"
@@ -609,7 +610,7 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 		Size:          pool.Size(),
 		Bytes:         pool.GetPoolAllTxSize(),
 		Usage:         pool.GetPoolUsage(),
-		MaxMempool:    pool.MaxMemPoolSize,
+		MaxMempool:    conf.Cfg.Mempool.MaxPoolSize,
 		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil
