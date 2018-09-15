@@ -204,6 +204,9 @@ type SyncManager struct {
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
 	requestBlkInvCnt int
+
+	// An optional fee estimator.
+	feeEstimator *mempool.FeeEstimator
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -1272,6 +1275,20 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 				}
 			}
 			sm.peerNotifier.AnnounceNewTransactions(txentrys)
+		}
+
+		// Register block with the fee estimator, if it exists.
+		if sm.feeEstimator != nil {
+			err := sm.feeEstimator.RegisterBlock(block)
+
+			// If an error is somehow generated then the fee estimator
+			// has entered an invalid state. Since it doesn't know how
+			// to recover, create a new one.
+			if err != nil {
+				sm.feeEstimator = mempool.NewFeeEstimator(
+					mempool.DefaultEstimateFeeMaxRollback,
+					mempool.DefaultEstimateFeeMinRegisteredBlocks)
+			}
 		}
 
 		// A block has been disconnected from the main block chain.
