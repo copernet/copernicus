@@ -115,12 +115,12 @@ func TestUndoWRToDisk(t *testing.T) {
 	hash := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d012")
 	err := UndoWriteToDisk(blkUndo, pos, *hash, wire.MainNet)
 	if err != nil {
-		t.Error("write failed.")
+		t.Errorf("write to disk failed: %v\n", err)
 	}
 
 	bundo, ok := UndoReadFromDisk(pos, *hash)
 	if !ok && reflect.DeepEqual(bundo, blkUndo) {
-		t.Error("read undo block failed.")
+		t.Errorf("the wantVal not equal except value: %v, %v\n", blkUndo, bundo)
 	}
 
 	//block undo add txundo info
@@ -136,7 +136,7 @@ func TestUndoWRToDisk(t *testing.T) {
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d012")
 	err1 := UndoWriteToDisk(blkUndo1, pos1, *hash1, wire.MainNet)
 	if err1 != nil {
-		t.Error("write failed.")
+		t.Errorf("write to disk failed: %v\n", err1)
 	}
 
 	bundo1, ok1 := UndoReadFromDisk(pos, *hash)
@@ -227,7 +227,7 @@ func TestFindUndoPos(t *testing.T) {
 	}
 	err := FindUndoPos(11, pos, 12345)
 	if err != nil {
-		t.Error("find undo by pos failed.")
+		t.Errorf("find undo by pos failed: %v", err)
 	}
 }
 
@@ -279,13 +279,13 @@ func TestFlushStateToDisk(t *testing.T) {
 	guci := utxo.GetUtxoCacheInstance()
 	err := guci.UpdateCoins(necm, hash1)
 	if err != nil {
-		t.Error("update coin failed.")
+		t.Errorf("update coin failed: %v\n", err)
 	}
 	h, err := guci.GetBestBlock()
 	if err != nil {
-		t.Error("get best block failed")
+		t.Errorf("get best block failed: %v\n", err)
 	}
-	log.Info("the best block hash value is:%v", h)
+	log.Info("the best block hash value is: %v\n", h)
 
 	gPersist := global.GetInstance()
 	gdfi := gPersist.GlobalDirtyFileInfo
