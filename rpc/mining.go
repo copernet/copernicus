@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -35,6 +36,7 @@ var miningHandlers = map[string]commandHandler{
 	"submitblock":       handleSubmitBlock,
 	"generatetoaddress": handleGenerateToAddress,
 	"generate":          handleGenerate,
+	"estimatefee":       handleEstimateFee,
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -589,6 +591,28 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	_ = extraNonce
 
 	return ret, nil
+}
+
+// handleEstimateFee handles estimatefee commands.
+func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.EstimateFeeCmd)
+
+	if s.cfg.FeeEstimator == nil {
+		return nil, errors.New("Fee estimation disabled")
+	}
+
+	if c.NumBlocks <= 0 {
+		return -1.0, errors.New("Parameter NumBlocks must be positive")
+	}
+
+	feeRate, err := s.cfg.FeeEstimator.EstimateFee(uint32(c.NumBlocks))
+
+	if err != nil {
+		return -1.0, err
+	}
+
+	// Convert to satoshis per kb.
+	return float64(feeRate), nil
 }
 
 func registerMiningRPCCommands() {

@@ -898,4 +898,5 @@ func init() {
 	MustRegisterCmd("getexcessiveblock", (*GetExcessiveBlockCmd)(nil), flags)
 	MustRegisterCmd("pruneblockchain", (*PruneBlockChainCmd)(nil), flags)
 	MustRegisterCmd("createmultisig", (*CreateMultiSigCmd)(nil), flags)
+	MustRegisterCmd("estimatefee", (*EstimateFeeCmd)(nil), flags)
 }
