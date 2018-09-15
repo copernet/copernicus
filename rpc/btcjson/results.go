@@ -214,7 +214,7 @@ type GetMempoolInfoResult struct {
 	Size          int     `json:"size"`
 	Bytes         uint64  `json:"bytes"`
 	Usage         int64   `json:"usage"`
-	MaxMempool    int64   `json:"maxmempool"`
+	MaxMempool    int     `json:"maxmempool"`
 	MempoolMinFee float64 `json:"mempoolminfee"`
 }
 

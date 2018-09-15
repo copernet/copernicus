@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"gopkg.in/fatih/set.v0"
 	"math"
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleblock"
+	"github.com/copernet/copernicus/logic/lutxo"
+	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -21,6 +24,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
@@ -245,40 +249,41 @@ func GetTxnOutputType(sType int) string {
 	}
 }
 
-/*func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
-	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
+func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
+	entry := mempool.GetInstance().FindTx(*hash)
 	if entry != nil {
 		return entry.Tx, nil, true
 	}
 
+	/* TODO: NOT support txindex yet
 	if chain.GTxIndex {
 		chain.GBlockTree.ReadTxIndex(hash)
-		//blockchain.OpenBlockFile(, true)
-		// todo complete
+	}*/
+
+	if !allowSlow {
+		return nil, nil, false
 	}
 
 	// use coin database to locate block that contains transaction, and scan it
 	var indexSlow *blockindex.BlockIndex
-	if allowSlow {
-		coin := utxo2.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
-		if !coin.IsSpent() {
-			indexSlow = chain.GetInstance.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
-		}
+	coin := lutxo.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
+	if coin.IsSpent() {
+		return nil, nil, false
 	}
 
+	indexSlow = chain.GetInstance().GetIndex(coin.GetHeight())
 	if indexSlow != nil {
-		var bk *block.Block
-		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
+		bk, ok := disk.ReadBlockFromDisk(indexSlow, chain.GetInstance().GetParams())
+		if ok {
 			for _, item := range bk.Txs {
 				if *hash == item.GetHash() {
-					return item, &indexSlow.BlockHash, true
+					return item, indexSlow.GetBlockHash(), true
 				}
 			}
 		}
 	}
-
 	return nil, nil, false
-}*/ //TODO open
+}
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
@@ -447,10 +452,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                     crypto.SigHashAll,
-	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                        crypto.SigHashAll,
+	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,
@@ -650,66 +655,62 @@ func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransac
 }
 
 func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.GetTxOutProofCmd)
+	c := cmd.(*btcjson.GetTxOutProofCmd)
 
-		setTxIds := set.New() // element type: util.Hash
-		var oneTxId util.Hash
-		txIds := c.TxIDs
+	setTxIds := set.New()
+	var oneTxID util.Hash
+	txIds := c.TxIDs
 
-		for idx := 0; idx < len(txIds); idx++ {
-			txId := txIds[idx]
-			hash, err := util.GetHashFromStr(txId)
-			if len(txId) != 64 || err != nil {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidParameter,
-					Message: "Invalid txid " + txId,
-				}
+	for _, txID := range txIds {
+		hash, err := util.GetHashFromStr(txID)
+		if len(txID) != 64 || err != nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid txid " + txID,
 			}
-
-			if setTxIds.Has(*hash) {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidParameter,
-					Message: "Invalid parameter, duplicated txid: " + txId,
-				}
+		}
+		if setTxIds.Has(*hash) {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid parameter, duplicated txid: " + txID,
 			}
-			setTxIds.Add(*hash)
-			oneTxId = *hash
+		}
+		setTxIds.Add(*hash)
+		oneTxID = *hash
+	}
+
+	var bindex *blockindex.BlockIndex
+	var hashBlock *util.Hash
+	if c.BlockHash != nil {
+		var err error
+		hashBlock, err = util.GetHashFromStr(*c.BlockHash)
+		if err != nil {
+			return nil, rpcDecodeHexError(*c.BlockHash)
 		}
 
-		var bindex *blockindex.BlockIndex
-		var hashBlock *util.Hash
-		if c.BlockHash != nil {
-			var err error
-			hashBlock, err = util.GetHashFromStr(*c.BlockHash)
-			if err != nil {
-				return nil, rpcDecodeHexError(*c.BlockHash)
+		bindex = chain.GetInstance().FindBlockIndex(*hashBlock)
+		if bindex == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Block not found",
 			}
-
-			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
-			if bindex == nil {
-				return nil, btcjson.RPCError{
-					Code:    btcjson.RPCInvalidAddressOrKey,
-					Message: "Block not found",
-				}
-			}
-		} else {
-			view := utxo.GetUtxoCacheInstance()
-			coin := utxo2.AccessByTxid(view, &oneTxId)
-			if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GetInstance.Height() {
-				bindex = chain.GetInstance.GetIndex(int(coin.GetHeight()))
-			}
+		}
+	} else {
+		view := utxo.GetUtxoCacheInstance()
+		coin := lutxo.AccessByTxid(view, &oneTxID)
+		if !coin.IsSpent() && coin.GetHeight() > 0 && coin.GetHeight() <= chain.GetInstance().Height() {
+			bindex = chain.GetInstance().GetIndex(coin.GetHeight())
 		}
 
 		if bindex == nil {
-			tx, hashBlock, ok := GetTransaction(&oneTxId, false)
-			if !ok || hashBlock.IsNull() {
+			_, hashBlock, ok := GetTransaction(&oneTxID, false)
+			if !ok || hashBlock == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInvalidAddressOrKey,
 					Message: "Transaction not yet in block",
 				}
 			}
-
-			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
+			bindex = chain.GetInstance().FindBlockIndex(*hashBlock)
 			if bindex == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInternalError,
@@ -717,34 +718,34 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				}
 			}
 		}
+	}
 
-		bk, ok := ReadBlockFromDisk(bindex)
-		if !ok {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInternalError,
-				Message: "Can not read block from disk",
-			}
+	bk, ok := disk.ReadBlockFromDisk(bindex, chain.GetInstance().GetParams())
+	if !ok {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not read block from disk",
 		}
+	}
 
-		found := 0
-		for _, transaction := range bk.Txs {
-			if setTxIds.Has(transaction.GetHash()) {
-				found++
-			}
+	found := 0
+	for _, transaction := range bk.Txs {
+		if setTxIds.Has(transaction.GetHash()) {
+			found++
 		}
+	}
 
-		if found != setTxIds.Size() {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInvalidAddressOrKey,
-				Message: "(Not all) transactions not found in specified block",
-			}
+	if found != setTxIds.Size() {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "(Not all) transactions not found in specified block",
 		}
+	}
 
-		mb := mblock.NewMerkleBlock(bk, setTxIds)
-		buf := bytes.NewBuffer(nil)
-		mb.Serialize(buf)
-		return hex.EncodeToString(buf.Bytes()), nil*/ //TODO open
-	return nil, nil
+	mb := lmerkleblock.NewMerkleBlock(bk, setTxIds)
+	buf := bytes.NewBuffer(nil)
+	mb.Serialize(buf)
+	return hex.EncodeToString(buf.Bytes()), nil
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -766,7 +767,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 
 	matches := make([]util.Hash, 0)
 	items := make([]int, 0)
-	if mb.Txn.ExtractMatches(matches, items).IsEqual(&mb.Header.MerkleRoot) {
+	if !mb.Txn.ExtractMatches(&matches, &items).IsEqual(&mb.Header.MerkleRoot) {
 		return nil, nil
 	}
 
