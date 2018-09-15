@@ -368,7 +368,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		m.RemoveStaged(stage, false, SIZELIMIT)
 		for e := range stage {
 			hash := e.Tx.GetHash()
-			fmt.Printf("remove tx hash : %s, mempool size : %d\n", hash.String(), m.cacheInnerUsage)
+			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.cacheInnerUsage)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {
@@ -415,7 +415,7 @@ func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDe
 			delete(m.rootTx, rem.Tx.GetHash())
 		}
 		m.delTxentry(rem, reason)
-		fmt.Println("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
+		log.Debug("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
 	}
 }
 
@@ -534,7 +534,7 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 		} else {
 			hash := txentry.Tx.GetHash()
 			phash := piter.Tx.GetHash()
-			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", hash.String(), ", tx1 : ", phash.String())
+			log.Debug("tx will romove tx3's from its'parent, tx3 : ", hash.String(), ", tx1 : ", phash.String())
 			piter.UpdateChild(txentry, &m.cacheInnerUsage, false)
 		}
 	}
@@ -547,7 +547,6 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 	updateFee := int64(updateCount) * txentry.TxFee
 	// update each of ancestors transaction state;
 	for ancestorit := range ancestors {
-		//fmt.Println("ancestor hash : ", ancestorit.Tx.GetHash().ToString())
 		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
 	}
 }
