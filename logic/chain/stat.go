@@ -3,13 +3,14 @@ package chain
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
+	//"os"
+	//"path/filepath"
 	"sort"
 
-	"github.com/copernet/copernicus/conf"
+	//"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
 	mchain "github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/outpoint"
+	//"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
@@ -25,9 +26,14 @@ type stat struct {
 }
 
 func (s *stat) String() string {
-	return fmt.Sprintf("height=%d,bestblock=%s,transactions=%d,txouts=%d,"+
-		"hash_serialized=%s,total_amount=%d\n",
-		s.height, s.bestblock.String(), s.nTx, s.nTxOuts, s.hashSerialized.String(), s.amount)
+	/*
+		return fmt.Sprintf("height=%d,bestblock=%s,transactions=%d,txouts=%d,"+
+			"hash_serialized=%s,total_amount=%d\n",
+			s.height, s.bestblock.String(), s.nTx, s.nTxOuts, s.hashSerialized.String(), s.amount)
+	*/
+	return fmt.Sprintf("height=%d,bestblock=%s,hash_serialized=%s\n",
+		s.height, s.bestblock.String(), s.hashSerialized.String())
+
 }
 
 func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[uint32]*utxo.Coin) error {
@@ -70,7 +76,7 @@ func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[
 func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 	besthash, err := cdb.GetBestBlock()
 	if err != nil {
-		fmt.Printf("GetBestBlock(), failed=%v\n", err)
+		log.Debug("in GetUTXOStats, GetBestBlock(), failed=%v\n", err)
 		return err
 	}
 	stat.bestblock = *besthash
@@ -78,48 +84,15 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 
 	hashbuf := bytes.NewBuffer(nil)
 	hashbuf.Write(stat.bestblock[:])
-	prevkey := util.Hash{}
-	outpoint := outpoint.OutPoint{}
-	bw := bytes.NewBuffer(nil)
-	outputs := make(map[uint32]*utxo.Coin)
 
 	iter := cdb.GetDBW().Iterator(nil)
 	defer iter.Close()
 	iter.Seek([]byte{db.DbCoin})
 
-	logf, err := os.OpenFile(filepath.Join(conf.DataDir, "coins.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
-	if err != nil {
-		return err
-	}
-	defer logf.Close()
-	//fmt.Fprintf(logf, "besthash=%s\n", stat.bestblock.String())
 	for ; iter.Valid(); iter.Next() {
-		bw.Reset()
-		bw.Write(iter.GetKey())
-		entry := utxo.NewCoinKey(&outpoint)
-		if err := entry.Unserialize(bw); err != nil {
-			return err
-		}
-		bw.Reset()
-		bw.Write(iter.GetVal())
-		coin := new(utxo.Coin)
-		if err := coin.Unserialize(bw); err != nil {
-			return err
-		}
-		//fmt.Fprintf(logf, "outpoint=(%s,%d)\n", outpoint.Hash.String(), outpoint.Index)
-		//fmt.Fprintf(logf, "coin=%+v,script=%s\n", coin, hex.EncodeToString(coin.GetScriptPubKey().GetData()))
-		if len(outputs) > 0 && outpoint.Hash != prevkey {
-			applyStats(stat, hashbuf, &prevkey, outputs)
-			for k := range outputs {
-				delete(outputs, k)
-			}
-		}
-		outputs[outpoint.Index] = coin
-		prevkey = outpoint.Hash
+		hashbuf.Write(iter.GetKey())
+		hashbuf.Write(iter.GetVal())
 	}
-	if len(outputs) > 0 {
-		applyStats(stat, hashbuf, &prevkey, outputs)
-	}
-	stat.hashSerialized = util.DoubleSha256Hash(hashbuf.Bytes())
+	stat.hashSerialized = util.Sha256Hash(hashbuf.Bytes())
 	return nil
 }
