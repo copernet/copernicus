@@ -47,15 +47,15 @@ func TestWRTxIndex(t *testing.T) {
 	//test Write and Read TxIndex
 	err := GetInstance().WriteTxIndex(txindexs)
 	if err != nil {
-		t.Error("read failed")
+		t.Errorf("write tx index failed: %v\n", err)
 	}
 	txpos, err := GetInstance().ReadTxIndex(h)
 	if err != nil {
-		t.Error("read failed")
+		t.Errorf("read tx index failed: %v\n", err)
 	}
 
 	if !reflect.DeepEqual(wantVal, txpos) {
-		t.Errorf("the wantVal not equal except value: %v:%v", wantVal, txpos)
+		t.Errorf("the wantVal not equal except value: %v, %v\n", wantVal, txpos)
 	}
 }
 
@@ -64,21 +64,21 @@ func TestWriteFlag(t *testing.T) {
 	//test flag: value is false
 	err := GetInstance().WriteFlag("b", false)
 	if err != nil {
-		t.Errorf("write flag failed:%v", err)
+		t.Errorf("write flag failed: %v\n", err)
 	}
 	res := GetInstance().ReadFlag("b")
 	if !res {
-		t.Errorf("the flag should is true:%v", res)
+		t.Errorf("the flag should is true: %v\n", res)
 	}
 
 	//test flag: value is true
 	err = GetInstance().WriteFlag("b", true)
 	if err != nil {
-		t.Errorf("write flag failed:%v", err)
+		t.Errorf("write flag failed: %v\n", err)
 	}
 	res2 := GetInstance().ReadFlag("b")
 	if res2 {
-		t.Errorf("the flag should is false:%v", res2)
+		t.Errorf("the flag should is false: %v\n", res2)
 	}
 }
 
@@ -87,21 +87,21 @@ func TestWriteReindexing(t *testing.T) {
 	//test write reindex: reindexing value is true
 	err := GetInstance().WriteReindexing(true)
 	if err != nil {
-		t.Errorf("write the index failed:%v", err)
+		t.Errorf("write the index failed: %v\n", err)
 	}
 	readReindex := GetInstance().ReadReindexing()
 	if !readReindex {
-		t.Errorf("the reindexing should is true:%v", readReindex)
+		t.Errorf("the reindexing should is true: %v\n", readReindex)
 	}
 
 	//test write reindex: reindexing value is false
 	err = GetInstance().WriteReindexing(false)
 	if err != nil {
-		t.Errorf("write the index failed:%v", err)
+		t.Errorf("write the index failed: %v\n", err)
 	}
 	readReindexAgain := GetInstance().ReadReindexing()
 	if readReindexAgain {
-		t.Errorf("the reindexing should is false:%v", readReindexAgain)
+		t.Errorf("the reindexing should is false: %v\n", readReindexAgain)
 	}
 }
 
@@ -110,24 +110,24 @@ func TestReadBlockFileInfo(t *testing.T) {
 	//the block file info exist
 	_, err := writeBlockFile()
 	if err != nil {
-		t.Error("write block file ", err)
+		t.Errorf("write block file: %v\n ", err)
 	}
 	bfi, err := GetInstance().ReadBlockFileInfo(1)
 	if err != nil {
-		t.Error("read block file info<000> failed.", err)
+		t.Errorf("read block file info<000> failed: %v\n", err)
 	}
 	log.Info("blockFileInfo value is:%v", bfi)
 	if bfi == nil {
-		t.Errorf("the block fileInfo not equal nil:%v", bfi)
+		t.Errorf("the block fileInfo not equal nil: %v\n", bfi)
 	}
 
 	//the block file info not exist
 	bfi, err = GetInstance().ReadBlockFileInfo(1111)
 	if err == nil {
-		t.Error("read block file info<1111> failed.")
+		t.Errorf("read block file info<1111> failed: %v\n", err)
 	}
 	if bfi != nil {
-		t.Error("error")
+		t.Errorf("the block file info error, please check: %v\n", bfi)
 	}
 }
 
@@ -166,20 +166,20 @@ func TestReadLastBlockFile(t *testing.T) {
 	initBlockDB()
 	_, err := writeBlockFile()
 	if err != nil {
-		t.Errorf("write blockFileInfo failed.")
+		t.Errorf("write blockFileInfo failed: %v\n", err)
 	}
 	lastFile, err := GetInstance().ReadLastBlockFile()
 	if err != nil {
-		t.Error("read last block file failed -", err)
+		t.Errorf("read last block file failed: %v\n", err)
 	}
 
 	bfi, err := GetInstance().ReadBlockFileInfo(lastFile)
 	if err != nil {
-		t.Error("read last block fileInfo failed", err)
+		t.Errorf("read last block fileInfo failed: %v\n", err)
 	}
-	log.Info("last blockFileInfo value is:%v", bfi)
+	log.Info("last blockFileInfo value is: %v\n", bfi)
 	if bfi == nil {
-		t.Errorf("the last blockFileInfo not equal nil, the value is:%v", bfi)
+		t.Errorf("the last blockFileInfo not equal nil, the value is: %v\n", bfi)
 	}
 }
 
@@ -212,7 +212,7 @@ func TestWriteBatchSync(t *testing.T) {
 	blkidxs = append(blkidxs, blkidx)
 	err := GetInstance().WriteBatchSync(bfi1, 1, blkidxs)
 	if err != nil {
-		t.Errorf("write blockFileInfo failed.")
+		t.Errorf("write blockFileInfo failed:%v", err)
 	}
 
 	lastFile, err := GetInstance().ReadLastBlockFile()
@@ -220,16 +220,16 @@ func TestWriteBatchSync(t *testing.T) {
 		t.Error("the lastfile value is 1, please check.")
 	}
 	if err != nil {
-		t.Error("read last block file failed")
+		t.Errorf("read last block file failed: %v\n", err)
 	}
 
 	bfi, err := GetInstance().ReadBlockFileInfo(lastFile)
 	if err != nil {
-		t.Error("read last block fileInfo failed")
+		t.Errorf("read last block fileInfo failed: %v\n", err)
 	}
 	log.Info("last blockFileInfo value is:%v", bfi)
 	if !reflect.DeepEqual(bfi, bfi1[1]) {
-		t.Errorf("the last blockFileInfo not equal nil, the value is:%v", bfi)
+		t.Errorf("the last blockFileInfo not equal nil, the value is: %v\n", bfi)
 	}
 
 	blkidxMap := make(map[util.Hash]*blockindex.BlockIndex)
