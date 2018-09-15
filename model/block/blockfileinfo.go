@@ -3,10 +3,8 @@ package block
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"time"
-
 	"github.com/copernet/copernicus/util"
+	"io"
 )
 
 type BlockFileInfo struct {
@@ -66,10 +64,10 @@ func (bfi *BlockFileInfo) AddBlock(nHeightIn int32, timeIn uint64) {
 }
 
 func (bfi *BlockFileInfo) String() string {
-	return fmt.Sprintf("BlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%s...%s)",
+	return fmt.Sprintf("BlockFileInfo(blocks=%d, size=%d, heights=%d...%d, time=%d...%d)",
 		bfi.Blocks, bfi.Size, bfi.HeightFirst, bfi.HeightLast,
-		time.Unix(int64(bfi.timeFirst), 0).Format(time.RFC3339),
-		time.Unix(int64(bfi.timeLast), 0).Format(time.RFC3339))
+		bfi.timeFirst,
+		bfi.timeLast)
 }
 
 func NewBlockFileInfo() *BlockFileInfo {

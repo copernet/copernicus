@@ -471,6 +471,24 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			Message: "Block decode failed: " + err.Error(),
 		}
 	}
+	hash := bk.GetHash()
+	ch := chain.GetInstance()
+	blkIdx := ch.FindBlockIndex(hash)
+	if blkIdx != nil {
+		if blkIdx.IsValid(blockindex.BlockValidScripts) {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.RPCTransactionAlreadyInChain,
+				Message: "duplicate",
+			}
+		}
+
+		if (blkIdx.Status & blockindex.BlockInvalidMask) < 0 {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.RPCTransactionError,
+				Message: "duplicate-invalid",
+			}
+		}
+	}
 
 	// Process this block using the same rules as blocks coming from other
 	// nodes.  This will in turn relay it to the network like normal.
@@ -480,7 +498,6 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	}
 
 	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
-
 	return nil, nil
 }
 

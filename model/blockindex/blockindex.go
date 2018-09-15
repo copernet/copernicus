@@ -147,9 +147,6 @@ func (bIndex *BlockIndex) GetBlockHash() *util.Hash {
 	if bHash.IsNull() {
 		bIndex.blockHash = bIndex.Header.GetHash()
 	}
-	//if bHash.IsEqual(&util.Hash{}) {
-	//	bIndex.blockHash = bIndex.Header.GetHash()
-	//}
 	return &bIndex.blockHash
 }
 
@@ -236,32 +233,6 @@ func (bIndex *BlockIndex) getValidity() uint32 {
 	return bIndex.Status & BlockValidMask
 }
 
-//func (bIndex *BlockIndex) BuildSkip() {
-//	if bIndex.Prev != nil {
-//		bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
-//	}
-//}
-
-// Turn the lowest '1' bit in the binary representation of a number into a '0'.
-//func invertLowestOne(n int32) int32 {
-//	return n & (n - 1)
-//}
-
-// getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer.
-//func getSkipHeight(height int32) int32 {
-//	if height < 2 {
-//		return 0
-//	}
-//
-//	// Determine which height to jump back to. Any number strictly lower than
-//	// height is acceptable, but the following expression seems to perform well
-//	// in simulations (max 110 steps to go back up to 2**18 blocks).
-//	if (height & 1) > 0 {
-//		return invertLowestOne(invertLowestOne(height-1)) + 1
-//	}
-//	return invertLowestOne(height)
-//}
-
 // GetAncestor efficiently find an ancestor of this block.
 func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 	if height > bIndex.Height || height < 0 {
@@ -277,24 +248,6 @@ func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 		}
 		indexWalk = indexWalk.Prev
 	}
-	//indexWalk := bIndex
-	//heightWalk := bIndex.Height
-	//for heightWalk > height {
-	//	heightSkip := getSkipHeight(heightWalk)
-	//	heightSkipPrev := getSkipHeight(heightWalk - 1)
-	//	if indexWalk.Skip != nil && (heightSkip == height ||
-	//		(heightSkip > height && !(heightSkipPrev < heightSkip-2 && heightSkipPrev >= height))) {
-	//		// Only follow skip if prev->skip isn't better than skip->prev.
-	//		indexWalk = indexWalk.Skip
-	//		heightWalk = indexWalk.Height
-	//	} else {
-	//		if indexWalk.Prev == nil {
-	//			panic("The blockIndex pointer should not be nil")
-	//		}
-	//		indexWalk = indexWalk.Prev
-	//		heightWalk--
-	//	}
-	//}
 
 	return indexWalk
 }
@@ -310,10 +263,6 @@ func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
 	genesisHash := params.GenesisBlock.GetHash()
 	return bhash.IsEqual(&genesisHash)
 }
-
-//func (bIndex *BlockIndex) IsCashHFEnabled(params *chainparams.BitcoinParams) bool {
-//	return bIndex.GetMedianTimePast() >= params.CashHardForkActivationTime
-//}
 
 func (bIndex *BlockIndex) GetSerializeList() []string {
 	dumpList := []string{"Height", "Status", "TxCount", "File", "DataPos", "UndoPos", "Header"}
@@ -331,18 +280,11 @@ func (bIndex *BlockIndex) Serialize(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	//
-	// dataLen := buf.Len()
-	// util.WriteVarLenInt(w, uint64(dataLen))
 	_, err = w.Write(buf.Bytes())
 	return err
 }
 
 func (bIndex *BlockIndex) Unserialize(r io.Reader) error {
-	// _, err := util.ReadVarLenInt(r)
-	// if err != nil {
-	// 	return err
-	// }
 	clientVersion := int32(160000)
 
 	err := util.ReadElements(r, &clientVersion, &bIndex.Height, &bIndex.Status, &bIndex.TxCount, &bIndex.File, &bIndex.DataPos, &bIndex.UndoPos)
