@@ -11,7 +11,7 @@ RPC:
 Log:
   FileName: copernicus
   Level: debug
-  Module: mempool utxo
+  Module: mempool,utxo,bench,service
 
 Mining:
   BlockMinTxFee: 100
