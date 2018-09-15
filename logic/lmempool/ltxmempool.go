@@ -48,8 +48,9 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 					spendCoinbase = true
 				}
 			} else {
-				panic("the transaction in mempool, not found its parent " +
+				log.Error("the transaction in mempool, not found its parent " +
 					"transaction in local node and utxo")
+				return errcode.New(errcode.TxErrNoPreviousOut)
 			}
 		}
 	}
