@@ -412,7 +412,7 @@ func CheckMempool() {
 	for _, entry := range spentOut {
 		txid := entry.Tx.GetHash()
 		if e, ok := allEntry[txid]; !ok {
-			panic("the transaction not exsit mempool. . .")
+			panic("the transaction not exist in mempool. . .")
 		} else {
 			if e.Tx != entry.Tx {
 				panic("mempool store the transaction is different with it's two struct . . .")

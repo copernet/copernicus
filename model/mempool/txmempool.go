@@ -706,8 +706,8 @@ func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
 	o := OrphanTx{Tx: orphantx, NodeID: nodeID, Expiration: time.Now().Second() + OrphanTxExpireTime}
 	m.OrphanTransactions[orphantx.GetHash()] = o
 	for _, preout := range orphantx.GetAllPreviousOut() {
-		if exsit, ok := m.OrphanTransactionsByPrev[preout]; ok {
-			exsit[orphantx.GetHash()] = o
+		if exist, ok := m.OrphanTransactionsByPrev[preout]; ok {
+			exist[orphantx.GetHash()] = o
 		} else {
 			mi := make(map[util.Hash]OrphanTx)
 			mi[orphantx.GetHash()] = o
@@ -720,7 +720,7 @@ func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 
 	if orphanTx, ok := m.OrphanTransactions[txHash]; ok {
 		for _, preout := range orphanTx.Tx.GetAllPreviousOut() {
-			if orphans, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
+			if orphans, exist := m.OrphanTransactionsByPrev[preout]; exist {
 				delete(orphans, txHash)
 				if len(orphans) == 0 {
 					delete(m.OrphanTransactionsByPrev, preout)
