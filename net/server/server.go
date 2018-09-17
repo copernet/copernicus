@@ -1071,7 +1071,7 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 
 	if send && blkIndex.IsValid(blockindex.BlockHaveData) {
 		// Fetch the raw block bytes from the database.
-		bl, err := lblock.GetBlock(hash)
+		bl, err := lblock.GetBlockByIndex(blkIndex, s.chainParams)
 		if err != nil {
 			log.Trace("Unable to fetch requested block hash %v: %v",
 				hash, err)

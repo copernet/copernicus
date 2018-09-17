@@ -1,6 +1,8 @@
 package lblock
 
 import (
+	"errors"
+
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
@@ -14,14 +16,17 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
-	"github.com/copernet/copernicus/util/amount"
-
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 )
 
-func GetBlock(hash *util.Hash) (*block.Block, error) {
-	return nil, nil
+func GetBlockByIndex(bi *blockindex.BlockIndex, param *chainparams.BitcoinParams) (blk *block.Block, err error) {
+	blk, ret := disk.ReadBlockFromDisk(bi, param)
+	if !ret {
+		err = errors.New("disk.ReadBlockFromDisk error")
+	}
+	return
 }
 
 func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block) (*block.DiskBlockPos, error) {
