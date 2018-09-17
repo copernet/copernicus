@@ -40,7 +40,12 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 
 	// Verify that the view's current state corresponds to the previous lblock
-	hashPrevBlock := *pindex.Prev.GetBlockHash()
+	var hashPrevBlock *util.Hash
+	if pindex.Prev == nil {
+		hashPrevBlock = &util.Hash{}
+	} else {
+		hashPrevBlock = pindex.Prev.GetBlockHash()
+	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
 	if !hashPrevBlock.IsEqual(&bestHash) {
