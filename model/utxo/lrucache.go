@@ -59,7 +59,6 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 		// our version as fresh.
 		coin.fresh = true
 	}
-	log.Info("getCoin from db")
 
 	return coin
 }
