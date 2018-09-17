@@ -84,11 +84,8 @@ func (pmt *PartialMerkleTree) calcHash(height uint, pos uint, txids []util.Hash)
 	ret := make([]byte, 0, 2*util.Hash256Size)
 	ret = append(ret, left[:]...)
 	ret = append(ret, right[:]...)
-	b := util.DoubleSha256Bytes(ret)
-
-	var h util.Hash
-	copy(h[:], b)
-	return h
+	newHash := util.DoubleSha256Hash(ret)
+	return newHash
 }
 
 func (pmt *PartialMerkleTree) ExtractMatches(matches *[]util.Hash, items *[]int) *util.Hash {

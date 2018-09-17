@@ -1189,8 +1189,6 @@ const (
 		"\nExamples:\n" +
 		`> coperctl createrawtransaction "[{\"txid\":\"myid\",\"vout\":0}]" "{\"address\":0.01}"` +
 		"\n" +
-		`> coperctl createrawtransaction "[{\"txid\":\"myid\",\"vout\":0}]" "{\"address\":0.01}"` +
-		"\n" +
 		`> coperctl createrawtransaction "[{\"txid\":\"myid\",\"vout\":0}]" "{\"data\":\"00010203\"}"` +
 		"\n" +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "createrawtransaction", "params": ["[{\"txid\":\"myid\",\"vout\":0}]", "{\"address\":0.01}"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/` +
