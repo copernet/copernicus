@@ -660,15 +660,19 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 }
 
 func NewTxMempool() *TxMempool {
-	t := &TxMempool{}
-	t.feeRate = util.FeeRate{SataoshisPerK: 1}
-	t.nextTx = make(map[outpoint.OutPoint]*TxEntry)
-	t.poolData = make(map[util.Hash]*TxEntry)
-	t.timeSortData = *btree.New(32)
-	t.rootTx = make(map[util.Hash]*TxEntry)
-	t.txByAncestorFeeRateSort = *btree.New(32)
-	t.incrementalRelayFee = *util.NewFeeRate(1)
-	return t
+	return &TxMempool{
+		feeRate:                 util.FeeRate{SataoshisPerK: 1},
+		poolData:                make(map[util.Hash]*TxEntry),
+		nextTx:                  make(map[outpoint.OutPoint]*TxEntry),
+		rootTx:                  make(map[util.Hash]*TxEntry),
+		txByAncestorFeeRateSort: *btree.New(32),
+		timeSortData:            *btree.New(32),
+		incrementalRelayFee:     *util.NewFeeRate(1),
+
+		OrphanTransactionsByPrev: make(map[outpoint.OutPoint]map[util.Hash]OrphanTx),
+		OrphanTransactions:       make(map[util.Hash]OrphanTx),
+		RecentRejects:            make(map[util.Hash]struct{}),
+	}
 }
 
 func InitMempool() {
