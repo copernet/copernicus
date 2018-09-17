@@ -1183,12 +1183,13 @@ out:
 					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
 				}
 				msg.reply <- struct{}{}
-			case getdataMsg:
+			case *getdataMsg:
 				if msg.peer.Cfg.Listeners.OnGetData != nil {
 					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
 				}
+
 				msg.reply <- struct{}{}
-			case getBlocksMsg:
+			case *getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
 				}
