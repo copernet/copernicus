@@ -14,7 +14,7 @@ type TxEntry struct {
 	TxSize int
 	// txFee tis transaction fee
 	TxFee    int64
-	TxHeight int
+	TxHeight int32
 	// sigOpCount sigop plus P2SH sigops count
 	SigOpCount int
 	// time Local time when entering the memPool
@@ -115,7 +115,8 @@ func (t *TxEntry) Less(than btree.Item) bool {
 	return t.time < th.time
 }
 
-func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int, lp LockPoints, sigOpsCount int, spendCoinbase bool) *TxEntry {
+func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int32, lp LockPoints, sigOpsCount int,
+	spendCoinbase bool) *TxEntry {
 	t := new(TxEntry)
 	t.Tx = tx
 	t.time = acceptTime
@@ -125,6 +126,7 @@ func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int, lp LockPoi
 	t.spendsCoinbase = spendCoinbase
 	t.lp = lp
 	t.TxHeight = height
+	t.SigOpCount = sigOpsCount
 
 	t.SumSizeWithDescendants = int64(t.TxSize)
 	t.SumFeeWithDescendants = txFee

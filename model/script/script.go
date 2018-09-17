@@ -422,7 +422,7 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 
 }
 
-func (s *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addresses []*Address, sigCountRequired int, err error) {
+func (s *Script) ExtractDestinations() (sType int, addresses []*Address, sigCountRequired int, err error) {
 	sType, pubKeys, err := s.CheckScriptPubKeyStandard()
 	if err != nil {
 		return
@@ -440,7 +440,7 @@ func (s *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addre
 	if sType == ScriptPubkeyHash {
 		sigCountRequired = 1
 		addresses = make([]*Address, 0, 1)
-		address, err := AddressFromHash160(pubKeys[0], scriptHashAddressID)
+		address, err := AddressFromHash160(pubKeys[0], AddressVerPubKey())
 		if err != nil {
 			return sType, nil, 0, err
 		}
@@ -704,6 +704,11 @@ func EncodeOPN(n int) (int, error) {
 	if n < 0 || n > 16 {
 		return 0, errors.New("EncodeOPN n is out of bounds")
 	}
+
+	if n == 0 {
+		return opcodes.OP_0, nil
+	}
+
 	return opcodes.OP_1 + n - 1, nil
 }
 

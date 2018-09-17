@@ -25,18 +25,15 @@ import (
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
-	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
 
 type FlushStateMode int
 
-var (
-	ChainActive chain.Chain
-	gps         = global.InitPruneState()
-)
+var gps = persist.InitPruneState()
 
 const (
 	FlushStateNone FlushStateMode = iota
@@ -310,12 +307,12 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		setFilesToPrune = set.New()
 	)
 
-	global.CsLastBlockFile.Lock()
-	defer global.CsLastBlockFile.Unlock()
+	persist.CsLastBlockFile.Lock()
+	defer persist.CsLastBlockFile.Unlock()
 
 	coinsTip := utxo.GetUtxoCacheInstance()
 	blockTree := blkdb.GetInstance()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	mem := mempool.GetInstance()
 	flushForPrune := false
 	dbPeakUsageFactor := int64(2)
@@ -325,7 +322,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	dataBaseFlushInterval := 24 * 60 * 60
 	minBlockCoinsDBUsage := 50 * dbPeakUsageFactor
 
-	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !gps.Reindex {
+	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !persist.Reindex {
 		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
 	} else {
 		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
@@ -356,7 +353,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	}
 
 	mempoolUsage := mem.GetPoolUsage()
-	mempoolSizeMax := int64(global.DefaultMaxMemPoolSize) * 1000000
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
 	cacheSize := coinsTip.DynamicMemoryUsage() * dbPeakUsageFactor
 	totalSpace := float64(coinCacheUsage) + math.Max(float64(mempoolSizeMax-mempoolUsage), 0)
 	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
@@ -464,7 +461,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 func FlushBlockFile(fFinalize bool) {
 	// global.CsLastBlockFile.Lock()
 	// defer global.CsLastBlockFile.Unlock()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	posOld := block.NewDiskBlockPos(gPersist.GlobalLastBlockFile, 0)
 
 	fileOld := OpenBlockFile(posOld, false)
@@ -488,13 +485,13 @@ func FlushBlockFile(fFinalize bool) {
 
 func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	nHeight int32, nTime uint64, fKnown bool) bool {
-	global.CsLastBlockFile.Lock()
-	defer global.CsLastBlockFile.Unlock()
-	if nAddSize > global.MaxBlockFileSize {
+	persist.CsLastBlockFile.Lock()
+	defer persist.CsLastBlockFile.Unlock()
+	if nAddSize > persist.MaxBlockFileSize {
 		log.Error("FindBlockPos nAddSize [%#v] is too large more then global.MaxBlockFileSize ", nAddSize)
 		panic("FindBlockPos nAddSize  is too large more then global.MaxBlockFileSize")
 	}
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	ret := false
 	nFile := pos.File
 	if !fKnown {
@@ -504,7 +501,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
 	}
 	if !fKnown {
-		for gPersist.GlobalBlockFileInfo[nFile].Size+nAddSize >= global.MaxBlockFileSize {
+		for gPersist.GlobalBlockFileInfo[nFile].Size+nAddSize >= persist.MaxBlockFileSize {
 			nFile++
 			if len(gPersist.GlobalBlockFileInfo) <= int(nFile) {
 				gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
@@ -534,14 +531,14 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 		gPersist.GlobalBlockFileInfo[nFile].Size += nAddSize
 		nNewSize := gPersist.GlobalBlockFileInfo[nFile].Size
 
-		nOldChunks := (pos.Pos + global.BlockFileChunkSize - 1) / global.BlockFileChunkSize
-		nNewChunks := (nNewSize + global.BlockFileChunkSize - 1) / global.BlockFileChunkSize
+		nOldChunks := (pos.Pos + persist.BlockFileChunkSize - 1) / persist.BlockFileChunkSize
+		nNewChunks := (nNewSize + persist.BlockFileChunkSize - 1) / persist.BlockFileChunkSize
 		if nNewChunks > nOldChunks {
-			allocateSize := nNewChunks*global.BlockFileChunkSize - pos.Pos
+			allocateSize := nNewChunks*persist.BlockFileChunkSize - pos.Pos
 			if CheckDiskSpace(allocateSize) {
 				file := OpenBlockFile(pos, false)
 				if file != nil {
-					log.Info("pre-allocating up to position %#v in blk%05d.dat\n", nNewChunks*global.BlockFileChunkSize, pos.File)
+					log.Info("pre-allocating up to position %#v in blk%05d.dat\n", nNewChunks*persist.BlockFileChunkSize, pos.File)
 					AllocateFileRange(file, pos.Pos, allocateSize)
 					file.Close()
 					ret = true
@@ -561,25 +558,25 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 
 func FindUndoPos(nFile int32, undoPos *block.DiskBlockPos, nAddSize int) error {
 	undoPos.File = nFile
-	global.CsLastBlockFile.Lock()
-	defer global.CsLastBlockFile.Unlock()
-	gPersist := global.GetInstance()
+	persist.CsLastBlockFile.Lock()
+	defer persist.CsLastBlockFile.Unlock()
+	gPersist := persist.GetInstance()
 	undoPos.Pos = (gPersist.GlobalBlockFileInfo)[nFile].UndoSize
 	gPersist.GlobalBlockFileInfo[nFile].UndoSize += uint32(nAddSize)
 	nNewSize := gPersist.GlobalBlockFileInfo[nFile].UndoSize
 	gPersist.GlobalDirtyFileInfo[nFile] = true
 
-	nOldChunks := (undoPos.Pos + global.UndoFileChunkSize - 1) / global.UndoFileChunkSize
-	nNewChunks := (nNewSize + global.UndoFileChunkSize - 1) / global.UndoFileChunkSize
+	nOldChunks := (undoPos.Pos + persist.UndoFileChunkSize - 1) / persist.UndoFileChunkSize
+	nNewChunks := (nNewSize + persist.UndoFileChunkSize - 1) / persist.UndoFileChunkSize
 
 	if nNewChunks > nOldChunks {
 
-		if CheckDiskSpace(nNewChunks*global.UndoFileChunkSize - undoPos.Pos) {
+		if CheckDiskSpace(nNewChunks*persist.UndoFileChunkSize - undoPos.Pos) {
 			file := OpenUndoFile(*undoPos, false)
 			if file != nil {
 				log.Info("Pre-allocating up to position 0x%x in rev%05u.dat\n",
-					nNewChunks*global.UndoFileChunkSize, undoPos.File)
-				AllocateFileRange(file, undoPos.Pos, nNewChunks*global.UndoFileChunkSize-undoPos.Pos)
+					nNewChunks*persist.UndoFileChunkSize, undoPos.File)
+				AllocateFileRange(file, undoPos.Pos, nNewChunks*persist.UndoFileChunkSize-undoPos.Pos)
 				file.Close()
 			} else {
 				return errcode.New(errcode.ErrorNotFindUndoFile)
@@ -599,7 +596,7 @@ func FindUndoPos(nFile int32, undoPos *block.DiskBlockPos, nAddSize int) error {
 
 // CalculateCurrentUsage Calculate the amount of disk space the block & undo files currently use
 func CalculateCurrentUsage() uint64 {
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	var retval uint64
 	for _, file := range gPersist.GlobalBlockFileInfo {
 		retval += uint64(file.Size + file.UndoSize)
@@ -609,20 +606,20 @@ func CalculateCurrentUsage() uint64 {
 
 // FindFilesToPrune calculate the block/rev files that should be deleted to remain under target
 func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
-	gPersist := global.GetInstance()
-
-	if ChainActive.Tip() == nil || gps.PruneTarget == 0 {
+	gPersist := persist.GetInstance()
+	gChainActive := chain.GetInstance()
+	if gChainActive.Tip() == nil || gps.PruneTarget == 0 {
 		return
 	}
-	if uint64(ChainActive.Tip().Height) <= nPruneAfterHeight {
+	if uint64(gChainActive.Tip().Height) <= nPruneAfterHeight {
 		return
 	}
-	nLastBlockWeCanPrune := ChainActive.Tip().Height - block.MinBlocksToKeep
+	nLastBlockWeCanPrune := gChainActive.Tip().Height - block.MinBlocksToKeep
 	nCurrentUsage := CalculateCurrentUsage()
 	// We don't check to prune until after we've allocated new space for files,
 	// so we should leave a buffer under our target to account for another
 	// allocation before the next pruning.
-	nBuffer := uint64(global.BlockFileChunkSize + global.UndoFileChunkSize)
+	nBuffer := uint64(persist.BlockFileChunkSize + persist.UndoFileChunkSize)
 	count := 0
 	if nCurrentUsage+nBuffer >= gps.PruneTarget {
 		for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
@@ -653,20 +650,21 @@ func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
 }
 
 func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
+	gChainActive := chain.GetInstance()
 	if gps.PruneMode && manualPruneHeight <= 0 {
 		panic("the PruneMode is false and manualPruneHeight equal zero")
 	}
 
-	global.CsLastBlockFile.Lock()
-	defer global.CsLastBlockFile.Unlock()
+	persist.CsLastBlockFile.Lock()
+	defer persist.CsLastBlockFile.Unlock()
 
-	if ChainActive.Tip() == nil {
+	if gChainActive.Tip() == nil {
 		return
 	}
 
 	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(ChainActive.Tip().Height-block.MinBlocksToKeep))
+	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(gChainActive.Tip().Height-block.MinBlocksToKeep))
 	count := 0
 	for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
 		if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 || gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > gPersist.GlobalLastBlockFile {
@@ -682,7 +680,7 @@ func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
 // PruneOneBlockFile prune a block file (modify associated database entries)
 func PruneOneBlockFile(fileNumber int32) {
 	bm := make(map[util.Hash]*blockindex.BlockIndex)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	for _, value := range bm {
 		pindex := value
 		if pindex.File == fileNumber {
@@ -734,6 +732,6 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 	}
 }
 
-func GetPruneState() *global.PruneState {
+func GetPruneState() *persist.PruneState {
 	return gps
 }

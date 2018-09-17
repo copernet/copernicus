@@ -12,9 +12,9 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/disk"
-	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 )
@@ -29,7 +29,7 @@ func LoadBlockIndexDB() bool {
 	if !blkdb.GetInstance().LoadBlockIndexGuts(GlobalBlockIndexMap, gChain.GetParams()) {
 		return false
 	}
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(GlobalBlockIndexMap))
 	for _, index := range GlobalBlockIndexMap {
 		sortedByHeight = append(sortedByHeight, index)

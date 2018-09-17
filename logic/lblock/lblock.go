@@ -13,7 +13,7 @@ import (
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util/amount"
 
 	"github.com/copernet/copernicus/persist/disk"
@@ -151,7 +151,7 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew.AddStatus(blockindex.BlockHaveData)
 	pindexNew.RaiseValidity(blockindex.BlockValidTransactions)
 
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(pindexNew)
 
 	gChain := chain.GetInstance()
@@ -228,7 +228,7 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 	}
 
 	*fNewBlock = true
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	if err = CheckBlock(pblock); err != nil {
 		bIndex.AddStatus(blockindex.BlockFailed)
 		gPersist.AddDirtyBlockIndex(bIndex)

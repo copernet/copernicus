@@ -17,16 +17,25 @@ import (
 	"github.com/copernet/copernicus/util/base58"
 )
 
+// API version constants
+const (
+	jsonrpcSemverString = "1.0.0"
+	jsonrpcSemverMajor  = 1
+	jsonrpcSemverMinor  = 1
+	jsonrpcSemverPatch  = 0
+)
+
 var miscHandlers = map[string]commandHandler{
-	"getinfo":                handleGetInfo,         // complete
-	"validateaddress":        handleValidateAddress, // complete
+	"getinfo":                handleGetInfo,
+	"validateaddress":        handleValidateAddress,
 	"createmultisig":         handleCreatemultisig,
-	"verifymessage":          handleVerifyMessage,          // complete
-	"signmessagewithprivkey": handleSignMessageWithPrivkey, // complete
-	"setmocktime":            handleSetMocktime,            // complete
-	"echo":                   handleEcho,                   // complete
-	"help":                   handleHelp,                   // complete
-	"stop":                   handleStop,                   // complete
+	"verifymessage":          handleVerifyMessage,
+	"signmessagewithprivkey": handleSignMessageWithPrivkey,
+	"setmocktime":            handleSetMocktime,
+	"echo":                   handleEcho,
+	"help":                   handleHelp,
+	"stop":                   handleStop,
+	"version":                handleVersion,
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -41,11 +50,11 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		ProtocolVersion: int32(wire.ProtocolVersion),
 		Blocks:          height,
 		TimeOffset:      util.GetTimeOffset(),
-		//Connections: s.cfg.ConnMgr.ConnectedCount(),		// todo open
-		Proxy:      "", // todo define in conf
-		Difficulty: getDifficulty(chain.GetInstance().Tip()),
-		TestNet:    chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
-		RelayFee:   0, // todo define DefaultMinRelayTxFee
+		Connections:     s.cfg.ConnMgr.ConnectedCount(),
+		Proxy:           conf.Cfg.P2PNet.Proxy,
+		Difficulty:      getDifficulty(chain.GetInstance().Tip()),
+		TestNet:         chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
+		RelayFee:        0, // todo define DefaultMinRelayTxFee
 	}
 
 	return ret, nil
@@ -155,21 +164,21 @@ func handleSignMessageWithPrivkey(s *Server, cmd interface{}, closeChan <-chan s
 }
 
 func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.SetMocktimeCmd)
+	c := cmd.(*btcjson.SetMocktimeCmd)
 
-		if !consensus.ActiveNetParams.MineBlocksOnDemands {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCForbiddenBySafeMode,
-				Message: "etmocktime for regression testing (-regtest mode) only",
-			}
+	if !chainparams.ActiveNetParams.MineBlocksOnDemands {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCForbiddenBySafeMode,
+			Message: "etmocktime for regression testing (-regtest mode) only",
 		}
+	}
 
-		// For now, don't change mocktime if we're in the middle of validation, as
-		// this could have an effect on mempool time-based eviction, as well as
-		// IsCurrentForFeeEstimation() and IsInitialBlockDownload().
-		// TODO: figure out the right way to synchronize around mocktime, and
-		// ensure all callsites of GetTime() are accessing this safely.
-		util.SetMockTime(c.Timestamp)*/ // todo open
+	// For now, don't change mocktime if we're in the middle of validation, as
+	// this could have an effect on mempool time-based eviction, as well as
+	// IsCurrentForFeeEstimation() and IsInitialBlockDownload().
+	// figure out the right way to synchronize around mocktime, and
+	// ensure all callsites of GetTime() are accessing this safely.
+	util.SetMockTime(c.Timestamp)
 
 	return nil, nil
 }
@@ -216,6 +225,18 @@ func handleStop(s *Server, cmd interface{}, closeChan <-chan struct{}) (interfac
 	default:
 	}
 	return "Copernicus server stopping", nil
+}
+
+func handleVersion(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	result := map[string]btcjson.VersionResult{
+		"btcdjsonrpcapi": {
+			VersionString: jsonrpcSemverString,
+			Major:         jsonrpcSemverMajor,
+			Minor:         jsonrpcSemverMinor,
+			Patch:         jsonrpcSemverPatch,
+		},
+	}
+	return result, nil
 }
 
 func registerMiscRPCCommands() {

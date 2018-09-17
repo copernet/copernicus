@@ -214,7 +214,7 @@ type GetMempoolInfoResult struct {
 	Size          int     `json:"size"`
 	Bytes         uint64  `json:"bytes"`
 	Usage         int64   `json:"usage"`
-	MaxMempool    int64   `json:"maxmempool"`
+	MaxMempool    int     `json:"maxmempool"`
 	MempoolMinFee float64 `json:"mempoolminfee"`
 }
 
@@ -312,7 +312,7 @@ type ScriptPubKeyResult struct {
 // GetTxOutResult models the data from the gettxout command.
 type GetTxOutResult struct {
 	BestBlock     string             `json:"bestblock"`
-	Confirmations int64              `json:"confirmations"`
+	Confirmations int32              `json:"confirmations"`
 	Value         string             `json:"value"`
 	ScriptPubKey  ScriptPubKeyResult `json:"scriptPubKey"`
 	Version       int32              `json:"version"`
@@ -538,7 +538,7 @@ type GetMempoolEntryRelativeInfoVerbose struct {
 	Fee              float64  `json:"fee"`
 	ModifiedFee      float64  `json:"modifiedfee"`
 	Time             int64    `json:"time"`
-	Height           int      `json:"height"`
+	Height           int32    `json:"height"`
 	StartingPriority float64  `json:"startingpriority"`
 	CurrentPriority  float64  `json:"currentpriority"`
 	DescendantCount  int64    `json:"descendantcount"`
@@ -588,4 +588,14 @@ type BannedINfo struct {
 	BannedUntil int64  `json:"banned_until"`
 	BanCreated  int64  `json:"ban_created"`
 	BanReason   string `json:"ban_reason"`
+}
+
+// VersionResult models objects included in the version response.
+type VersionResult struct {
+	VersionString string `json:"versionstring"`
+	Major         uint32 `json:"major"`
+	Minor         uint32 `json:"minor"`
+	Patch         uint32 `json:"patch"`
+	Prerelease    string `json:"prerelease"`
+	BuildMetadata string `json:"buildmetadata"`
 }

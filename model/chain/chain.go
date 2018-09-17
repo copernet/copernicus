@@ -12,7 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
 )
@@ -36,7 +36,6 @@ func GetInstance() *Chain {
 	if globalChain == nil {
 		panic("globalChain do not init")
 	}
-	// fmt.Println("gchain======%#v", globalChain)
 	return globalChain
 }
 
@@ -100,7 +99,6 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 
 // FindBlockIndex finds blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	//fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
 		//log.Trace("current chain Tip header height : %d", bi.Height)
@@ -482,7 +480,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
 	bi.RaiseValidity(blockindex.BlockValidTree)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)
 	return nil
 }

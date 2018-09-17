@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -34,6 +35,7 @@ var miningHandlers = map[string]commandHandler{
 	"getblocktemplate":  handleGetblocktemplate,
 	"submitblock":       handleSubmitBlock,
 	"generatetoaddress": handleGenerateToAddress,
+	"generate":          handleGenerate,
 	"estimatefee":       handleEstimateFee,
 }
 
@@ -175,7 +177,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 
 	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
-			util.GetMockTime()-start > 5 {
+			util.GetTime()-start > 5 {
 
 		// Clear pindexPrev so future calls make a new block, despite any
 		// failures from here on
@@ -183,7 +185,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		// Store the pindexBest used before CreateNewBlock, to avoid races
 		transactionsUpdatedLast = mempool.GetInstance().TransactionsUpdated
 		indexPrevNew := chain.GetInstance().Tip()
-		start = util.GetMockTime()
+		start = util.GetTime()
 
 		// Create new block
 		ba := mining.NewBlockAssembler(chainparams.ActiveNetParams)
@@ -471,6 +473,24 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			Message: "Block decode failed: " + err.Error(),
 		}
 	}
+	hash := bk.GetHash()
+	ch := chain.GetInstance()
+	blkIdx := ch.FindBlockIndex(hash)
+	if blkIdx != nil {
+		if blkIdx.IsValid(blockindex.BlockValidScripts) {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.RPCTransactionAlreadyInChain,
+				Message: "duplicate",
+			}
+		}
+
+		if (blkIdx.Status & blockindex.BlockInvalidMask) < 0 {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.RPCTransactionError,
+				Message: "duplicate-invalid",
+			}
+		}
+	}
 
 	// Process this block using the same rules as blocks coming from other
 	// nodes.  This will in turn relay it to the network like normal.
@@ -480,7 +500,6 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	}
 
 	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
-
 	return nil, nil
 }
 
@@ -496,6 +515,29 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 	}
 
 	coinbaseScript := script.NewScriptRaw(addr.EncodeToPubKeyHash())
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
+}
+
+// handleGenerate handles generate commands.
+func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GenerateCmd)
+
+	// Respond with an error if the client is requesting 0 blocks to be generated.
+	if c.NumBlocks == 0 {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCInternal.Code,
+			Message: "Please request a nonzero number of blocks to generate.",
+		}
+	}
+
+	coinbaseScript := script.NewScriptRaw(nil)
+	if coinbaseScript == nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "No coinbase script available (mining requires a wallet)",
+		}
+	}
+
 	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
 }
 
@@ -551,8 +593,26 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	return ret, nil
 }
 
+// handleEstimateFee handles estimatefee commands.
 func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	c := cmd.(*btcjson.EstimateFeeCmd)
+
+	if s.cfg.FeeEstimator == nil {
+		return nil, errors.New("Fee estimation disabled")
+	}
+
+	if c.NumBlocks <= 0 {
+		return -1.0, errors.New("Parameter NumBlocks must be positive")
+	}
+
+	feeRate, err := s.cfg.FeeEstimator.EstimateFee(uint32(c.NumBlocks))
+
+	if err != nil {
+		return -1.0, err
+	}
+
+	// Convert to satoshis per kb.
+	return float64(feeRate), nil
 }
 
 func registerMiningRPCCommands() {

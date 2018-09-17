@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"fmt"
 	"github.com/astaxie/beego/logs"
 	"github.com/copernet/copernicus/conf"
 )
@@ -21,27 +22,28 @@ var mapModule map[string]struct{}
 func Print(module string, level string, format string, reason ...interface{}) {
 	level = strings.ToLower(level)
 	if isIncludeModule(module) {
+		format = fmt.Sprintf("module[%s]: %s", module, format)
 		switch level {
 		case "emergency":
-			logs.Emergency(format, reason)
+			logs.Emergency(format, reason...)
 		case "alert":
-			logs.Alert(format, reason)
+			logs.Alert(format, reason...)
 		case "critical":
-			logs.Critical(format, reason)
+			logs.Critical(format, reason...)
 		case "error":
-			logs.Error(format, reason)
+			logs.Error(format, reason...)
 		case "warn":
-			logs.Warn(format, reason)
+			logs.Warn(format, reason...)
 		case "info":
-			logs.Info(format, reason)
+			logs.Info(format, reason...)
 		case "debug":
-			logs.Debug(format, reason)
+			logs.Debug(format, reason...)
 		case "notice":
-			logs.Notice(format, reason)
+			logs.Notice(format, reason...)
 		}
 	} else {
 		logs.GetLogger()
-		logs.Error("module(%s): %v", module, errModuleNotFound)
+		logs.Debug("module(%s): %v", module, errModuleNotFound)
 	}
 }
 

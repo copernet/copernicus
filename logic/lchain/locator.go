@@ -4,7 +4,7 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 )
 
@@ -14,8 +14,8 @@ const (
 )
 
 func LocateBlocks(locator *chain.BlockLocator, endHash *util.Hash) []util.Hash {
-	global.CsMain.Lock()
-	defer global.CsMain.Unlock()
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 	var bi *blockindex.BlockIndex
 	gChain := chain.GetInstance()
 	ret := make([]util.Hash, 0)
@@ -37,8 +37,8 @@ func LocateBlocks(locator *chain.BlockLocator, endHash *util.Hash) []util.Hash {
 }
 
 func LocateHeaders(locator *chain.BlockLocator, endHash *util.Hash) []block.BlockHeader {
-	global.CsMain.Lock()
-	defer global.CsMain.Unlock()
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 	var bi *blockindex.BlockIndex
 	gChain := chain.GetInstance()
 	ret := make([]block.BlockHeader, 0)
