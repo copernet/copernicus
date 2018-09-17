@@ -1,16 +1,12 @@
-package chain
+package lchain
 
 import (
 	"bytes"
 	"fmt"
-	//"os"
-	//"path/filepath"
 	"sort"
 
-	//"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	mchain "github.com/copernet/copernicus/model/chain"
-	//"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
@@ -26,14 +22,8 @@ type stat struct {
 }
 
 func (s *stat) String() string {
-	/*
-		return fmt.Sprintf("height=%d,bestblock=%s,transactions=%d,txouts=%d,"+
-			"hash_serialized=%s,total_amount=%d\n",
-			s.height, s.bestblock.String(), s.nTx, s.nTxOuts, s.hashSerialized.String(), s.amount)
-	*/
 	return fmt.Sprintf("height=%d,bestblock=%s,hash_serialized=%s\n",
 		s.height, s.bestblock.String(), s.hashSerialized.String())
-
 }
 
 func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[uint32]*utxo.Coin) error {
