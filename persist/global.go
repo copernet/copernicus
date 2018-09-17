@@ -1,4 +1,4 @@
-package global
+package persist
 
 import (
 	"sync"

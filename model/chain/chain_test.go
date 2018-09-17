@@ -2,7 +2,7 @@ package chain
 
 import (
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"os"
 
 	"github.com/copernet/copernicus/model/block"
@@ -17,7 +17,7 @@ import (
 var testChain *Chain
 
 func TestMain(m *testing.M) {
-	global.InitPersistGlobal()
+	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
 
