@@ -1212,7 +1212,7 @@ out:
 
 			default:
 				log.Warn("Invalid message type in block "+
-					"handler: %T", msg)
+					"handler: %T, %#v", msg, msg)
 			}
 
 		case <-sm.quit:
@@ -1483,7 +1483,7 @@ func New(config *Config) (*SyncManager, error) {
 		requestedBlocks:     make(map[util.Hash]struct{}),
 		peerStates:          make(map[*peer.Peer]*peerSyncState),
 		progressLogger:      newBlockProgressLogger("Processed", log.GetLogger()),
-		processBusinessChan: make(chan interface{}, config.MaxPeers*3),
+		processBusinessChan: make(chan interface{}),
 		headerList:          list.New(),
 		quit:                make(chan struct{}),
 	}
