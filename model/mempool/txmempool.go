@@ -737,15 +737,14 @@ func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 	delete(m.OrphanTransactions, txHash)
 }
 
-func (m *TxMempool) LimitOrphanTx() int {
-
-	removeNum := 0
+func (m *TxMempool) LimitOrphanTx() (removeNum int) {
 	now := time.Now().Second()
 	if m.nextSweep <= now {
 		minExpTime := now + OrphanTxExpireTime - OrphanTxExpireInterval
 		for hash, orphan := range m.OrphanTransactions {
 			if orphan.Expiration <= now {
 				m.EraseOrphanTx(hash, true)
+				removeNum++
 			} else {
 				if minExpTime > orphan.Expiration {
 					minExpTime = orphan.Expiration
@@ -755,15 +754,16 @@ func (m *TxMempool) LimitOrphanTx() int {
 		m.nextSweep = minExpTime + OrphanTxExpireInterval
 	}
 
-	for {
-		if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
-			break
-		}
-		for hash := range m.OrphanTransactions {
-			m.EraseOrphanTx(hash, true)
-		}
+	if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
+		return
 	}
-	return removeNum
+
+	for hash := range m.OrphanTransactions {
+		m.EraseOrphanTx(hash, true)
+		removeNum++
+		break
+	}
+	return
 }
 
 func (m *TxMempool) RemoveOrphansByTag(nodeID int64) int {
