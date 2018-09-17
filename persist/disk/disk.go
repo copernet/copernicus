@@ -5,9 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -213,7 +216,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
+func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
@@ -254,7 +257,7 @@ func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 }
 
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) (*block.Block, bool) {
-	blk, ret := readBlockFromDiskByPos(pindex.GetBlockPos(), param)
+	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
 	if !ret {
 		return nil, false
 	}
@@ -736,4 +739,87 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 
 func GetPruneState() *global.PruneState {
 	return gps
+}
+
+func isBlkDataFile(name string) (ok bool) {
+	return len(name) == 12 && name[8:12] == ".dat"
+}
+
+func isBlkFile(name string) (ok bool) {
+	return isBlkDataFile(name) && name[0:3] == "blk"
+}
+
+func isRevFile(name string) (ok bool) {
+	return isBlkDataFile(name) && name[0:3] == "rev"
+}
+
+func GetBlkFiles() (blkFiles []string, err error) {
+
+	blkFiles = make([]string, 0, 50)
+	dataDir := filepath.Join(conf.DataDir, "blocks")
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		return nil, errcode.New(errcode.ErrorOpenBlockDataDir)
+	}
+
+	for _, file := range files {
+		if isBlkFile(file.Name()) {
+			fileAbPath := filepath.Join(dataDir, file.Name())
+			blkFiles = append(blkFiles, fileAbPath)
+		}
+	}
+
+	return blkFiles, nil
+
+}
+
+func CleanupBlockRevFiles() (err error) {
+
+	type blockFileIndex struct {
+		index  string
+		abPath string
+	}
+
+	dataDir := filepath.Join(conf.DataDir, "blocks")
+	blkFiles := make([]blockFileIndex, 0, 50)
+
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		return errcode.New(errcode.ErrorOpenBlockDataDir)
+	}
+
+	for _, file := range files {
+		fileAbPath := filepath.Join(dataDir, file.Name())
+		if file.Mode().IsRegular() {
+			if isBlkFile(file.Name()) {
+				item := blockFileIndex{file.Name()[3:8], fileAbPath}
+				blkFiles = append(blkFiles, item)
+
+			} else if isRevFile(file.Name()) {
+				err = os.Remove(fileAbPath)
+				if err != nil {
+					log.Error("delete rev file failed: %s", fileAbPath)
+					err = errcode.New(errcode.ErrorDeleteBlockFile)
+				} else {
+					log.Info("have delete rev file: %s", fileAbPath)
+				}
+			}
+		}
+	}
+
+	for count, item := range blkFiles {
+		index, _ := strconv.Atoi(item.index)
+		if index == count {
+			continue
+		}
+		err = os.Remove(item.abPath)
+		if err != nil {
+			log.Error("delete blk file failed: %s", item.abPath)
+			err = errcode.New(errcode.ErrorDeleteBlockFile)
+		} else {
+			log.Info("have delete blk file: %s", item.abPath)
+		}
+	}
+
+	return err
 }

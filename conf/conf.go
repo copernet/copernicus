@@ -63,6 +63,7 @@ func initConfig() *Configuration {
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
 	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
+	reindex := flag.Bool("reindex", false, "reindex")
 	flag.Parse()
 
 	DataDir = defaultDataDir
@@ -130,6 +131,7 @@ func initConfig() *Configuration {
 
 	// set data dir
 	config.DataDir = DataDir
+	config.Reindex = *reindex
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
@@ -142,6 +144,7 @@ type Configuration struct {
 	Version   string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
 	DataDir   string `default:"data"`
+	Reindex   bool
 
 	// Service struct {
 	// 	Address string `default:"1.0.0.1:80"`

@@ -365,3 +365,7 @@ func TestAllocateFileRange(t *testing.T) {
 		allocateFileRangeWithNewFile(t, size)
 	}
 }
+
+func TestCleanupBlockRevFiles(t *testing.T) {
+	CleanupBlockRevFiles()
+}

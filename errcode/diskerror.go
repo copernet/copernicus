@@ -15,6 +15,8 @@ const (
 	ErrorOpenUndoFileFailed
 	FailedToReadBlock
 	DisconnectTipUndoFailed
+	ErrorOpenBlockDataDir
+	ErrorDeleteBlockFile
 	// ErrorBadBlkLength
 	// ErrorBadBlkTxSize
 	// ErrorBadBlkTx
