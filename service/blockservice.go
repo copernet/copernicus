@@ -9,7 +9,7 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 )
 
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
@@ -68,8 +68,8 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 		log.Error("check block failed, please check.")
 		return err
 	}
-	global.CsMain.Lock()
-	defer global.CsMain.Unlock()
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 
 	if _, _, err := lblock.AcceptBlock(pblock, fForceProcessing, fNewBlock); err != nil {
 		// todo !!! add asynchronous notification

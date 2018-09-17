@@ -12,7 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
 )
@@ -480,7 +480,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
 	bi.RaiseValidity(blockindex.BlockValidTree)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)
 	return nil
 }

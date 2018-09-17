@@ -13,7 +13,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 
 	"github.com/copernet/copernicus/log"
@@ -88,7 +88,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 
 	nTime1 := util.GetMicrosTime()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
 	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n",
 		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
@@ -178,7 +178,7 @@ func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 	pindex.AddStatus(blockindex.BlockFailed)
 	gChain := chain.GetInstance()
 	gChain.RemoveFromBranch(pindex)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(pindex)
 }
 
@@ -216,7 +216,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	indexHash := blockConnecting.GetHash()
 	// Apply the block atomically to the chain state.
 	nTime2 := time.Now().UnixNano()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
 	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 

@@ -24,14 +24,14 @@ import (
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 )
 
 func TestMain(m *testing.M) {
-	global.InitPersistGlobal()
+	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
 
@@ -205,7 +205,7 @@ func TestFindBlockPos(t *testing.T) {
 	}
 
 	pos4 := block.NewDiskBlockPos(8, 9)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	i := len(gPersist.GlobalBlockFileInfo)
 	for i <= int(pos4.File) {
 		i++
@@ -219,7 +219,7 @@ func TestFindBlockPos(t *testing.T) {
 
 func TestFindUndoPos(t *testing.T) {
 	pos := block.NewDiskBlockPos(11, 12)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	i := len(gPersist.GlobalBlockFileInfo)
 	for i <= int(pos.File) {
 		i++
@@ -287,7 +287,7 @@ func TestFlushStateToDisk(t *testing.T) {
 	}
 	log.Info("the best block hash value is: %v\n", h)
 
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gdfi := gPersist.GlobalDirtyFileInfo
 	gdfi = make(map[int32]bool)
 	gdfi[0] = true
