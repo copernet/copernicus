@@ -441,7 +441,7 @@ func (v *VinPrevOut) MarshalJSON() ([]byte, error) {
 // getrawtransaction and decoderawtransaction use the same structure.
 type Vout struct {
 	Value        int64              `json:"value"`
-	N            uint32             `json:"n"`
+	N            int                `json:"n"`
 	ScriptPubKey ScriptPubKeyResult `json:"scriptPubKey"`
 }
 
@@ -491,7 +491,7 @@ type TxRawResult struct {
 	Vin           []Vin  `json:"vin"`
 	Vout          []Vout `json:"vout"`
 	BlockHash     string `json:"blockhash"`
-	Confirmations int    `json:"confirmations"`
+	Confirmations int32  `json:"confirmations"`
 	Time          uint32 `json:"time"`
 	Blocktime     uint32 `json:"blocktime"`
 }
