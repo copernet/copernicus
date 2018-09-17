@@ -502,7 +502,6 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 // it are already in setDescendants as well, so that we can save time by not
 // iterating over those entries.
 func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntry]struct{}) {
-	//stage := make(map[*TxEntry]struct{})
 	stage := make([]*TxEntry, 0)
 	if _, ok := descendants[entry]; !ok {
 		stage = append(stage, entry)
@@ -529,14 +528,7 @@ func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntr
 func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[*TxEntry]struct{}) {
 	// update the parent's child transaction set;
 	for piter := range txentry.ParentTx {
-		if add {
-			piter.UpdateChild(txentry, &m.cacheInnerUsage, true)
-		} else {
-			hash := txentry.Tx.GetHash()
-			phash := piter.Tx.GetHash()
-			log.Debug("tx will romove tx3's from its'parent, tx3 : ", hash.String(), ", tx1 : ", phash.String())
-			piter.UpdateChild(txentry, &m.cacheInnerUsage, false)
-		}
+		piter.UpdateChild(txentry, &m.cacheInnerUsage, add)
 	}
 
 	updateCount := -1
