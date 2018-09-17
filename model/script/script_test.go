@@ -28,8 +28,8 @@ var p2PKHScript = [...]byte{
 }
 
 func TestScriptEncodeOPN(t *testing.T) {
-	tests := []struct{
-		input int
+	tests := []struct {
+		input    int
 		expected int
 	}{
 		// for i in $(seq 0 16); do echo "{$i, opcodes.OP_$i},"; done
@@ -62,16 +62,15 @@ func TestScriptEncodeOPN(t *testing.T) {
 		}
 	}
 
-	_, err := EncodeOPN(opcodes.OP_16+1)
+	_, err := EncodeOPN(opcodes.OP_16 + 1)
 	if err == nil {
 		t.Error("EncodeOPN(OP_16+1) expect error")
 	}
 }
 
-
 func TestScriptDecodeOPN(t *testing.T) {
-	tests := []struct{
-		input int
+	tests := []struct {
+		input    int
 		expected int
 	}{
 		// for i in $(seq 0 16); do echo "{opcodes.OP_$i, $i},"; done
