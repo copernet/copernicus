@@ -956,6 +956,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
 			return true, nil
 		}
+		return false, nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
