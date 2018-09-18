@@ -37,7 +37,7 @@ var (
 
 	// defaultTargetOutbound is the default number of outbound connections to
 	// maintain.
-	defaultTargetOutbound = uint32(8)
+	defaultTargetOutbound = int32(8)
 )
 
 // ConnState represents the state of the requested connection.
@@ -124,7 +124,7 @@ type Config struct {
 
 	// TargetOutbound is the number of outbound network connections to
 	// maintain. Defaults to 8.
-	TargetOutbound uint32
+	TargetOutbound int32
 
 	// RetryDuration is the duration to wait before retrying connection
 	// requests. Defaults to 5s.
@@ -252,7 +252,7 @@ out:
 						go cm.cfg.OnDisconnection(connReq)
 					}
 
-					if uint32(len(conns)) < cm.cfg.TargetOutbound && msg.retry {
+					if int32(len(conns)) < cm.cfg.TargetOutbound && msg.retry {
 						cm.handleFailedConn(connReq)
 					}
 				} else {
@@ -415,7 +415,7 @@ func New(cfg *Config) (*ConnManager, error) {
 	if cfg.RetryDuration <= 0 {
 		cfg.RetryDuration = defaultRetryDuration
 	}
-	if cfg.TargetOutbound == 0 {
+	if cfg.TargetOutbound < 0 {
 		cfg.TargetOutbound = defaultTargetOutbound
 	}
 	cm := ConnManager{

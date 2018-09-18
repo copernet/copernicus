@@ -184,7 +184,7 @@ func TestConnectMode(t *testing.T) {
 // We wait until all connections are established, then test they there are the
 // only connections made.
 func TestTargetOutbound(t *testing.T) {
-	targetOutbound := uint32(10)
+	targetOutbound := int32(10)
 	connected := make(chan *ConnReq)
 	cmgr, err := New(&Config{
 		TargetOutbound: targetOutbound,
@@ -203,7 +203,7 @@ func TestTargetOutbound(t *testing.T) {
 		t.Fatalf("New error: %v", err)
 	}
 	cmgr.Start(context.TODO())
-	for i := uint32(0); i < targetOutbound; i++ {
+	for i := int32(0); i < targetOutbound; i++ {
 		<-connected
 	}
 

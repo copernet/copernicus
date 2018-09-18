@@ -1047,7 +1047,6 @@ func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 
 // pushBlockMsg sends a block message for the provided block hash to the
 // connected peer.  An error is returned if the block hash is not known.
-// FIXME by qiw: read block data from chain and make a msg block.
 func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
@@ -2123,9 +2122,11 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 		MsgChan:              msgChan,
 	}
 
-	targetOutbound := defaultTargetOutbound
-	if cfg.P2PNet.MaxPeers < targetOutbound {
-		targetOutbound = cfg.P2PNet.MaxPeers
+	if cfg.P2PNet.TargetOutbound < 0 {
+		cfg.P2PNet.TargetOutbound = defaultTargetOutbound
+	}
+	if cfg.P2PNet.MaxPeers < cfg.P2PNet.TargetOutbound {
+		cfg.P2PNet.TargetOutbound = cfg.P2PNet.MaxPeers
 	}
 
 	// Merge given checkpoints with the default ones unless they are disabled.
@@ -2138,7 +2139,7 @@ func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}
 	cmgr, err := connmgr.New(&connmgr.Config{
 		Listeners:      listeners,
 		RetryDuration:  connectionRetryInterval,
-		TargetOutbound: uint32(targetOutbound),
+		TargetOutbound: int32(cfg.P2PNet.TargetOutbound),
 
 		Dial: func(ctx context.Context, netaddr net.Addr) (net.Conn, error) {
 			var d net.Dialer
