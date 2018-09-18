@@ -33,6 +33,9 @@ var (
 	defaultRPCServer      = "localhost"
 	defaultRPCCertFile    = filepath.Join(coperHomeDir, "rpc.cert")
 	defaultWalletCertFile = filepath.Join(coperwalletHomeDir, "rpc.cert")
+	rpcUserRegexp         = regexp.MustCompile(`(?m)^\s*RPCUser: ([^\s]+)`)
+	rpcPassRegexp         = regexp.MustCompile(`(?m)^\s*RPCPass: ([^\s]+)`)
+	noTLSRegexp           = regexp.MustCompile(`(?m)^\s*DisableTLS: (0|1)(?:\s|$)`)
 )
 
 // listCommands categorizes and lists all of the usable commands along with
@@ -302,20 +305,12 @@ func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	}
 
 	// Extract the rpcuser
-	rpcUserRegexp, err := regexp.Compile(`(?m)^\s*RPCUser: ([^\s]+)`)
-	if err != nil {
-		return err
-	}
 	userSubmatches := rpcUserRegexp.FindSubmatch(content)
 	if userSubmatches == nil {
 		// No user found, nothing to do
 		return nil
 	}
 	// Extract the rpcpass
-	rpcPassRegexp, err := regexp.Compile(`(?m)^\s*RPCPass: ([^\s]+)`)
-	if err != nil {
-		return err
-	}
 	passSubmatches := rpcPassRegexp.FindSubmatch(content)
 	if passSubmatches == nil {
 		// No password found, nothing to do
@@ -323,10 +318,6 @@ func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	}
 
 	// Extract the notls
-	noTLSRegexp, err := regexp.Compile(`(?m)^\s*DisableTLS: (0|1)(?:\s|$)`)
-	if err != nil {
-		return err
-	}
 	noTLSSubmatches := noTLSRegexp.FindSubmatch(content)
 
 	// Create the destination directory if it does not exists
