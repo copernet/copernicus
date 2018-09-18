@@ -821,8 +821,7 @@ func (s *Script) PushSingleData(data []byte) error {
 	if dataLen < opcodes.OP_PUSHDATA1 {
 		s.data = append(s.data, byte(dataLen))
 	} else if dataLen <= 0xff {
-		s.data = append(s.data, opcodes.OP_PUSHDATA1)
-		s.data = append(s.data, byte(dataLen))
+		s.data = append(s.data, opcodes.OP_PUSHDATA1, byte(dataLen))
 	} else if dataLen <= 0xffff {
 		s.data = append(s.data, opcodes.OP_PUSHDATA2)
 		buf := make([]byte, 2)
@@ -845,8 +844,7 @@ func (s *Script) PushMultData(data [][]byte) error {
 		if dataLen < opcodes.OP_PUSHDATA1 {
 			s.data = append(s.data, byte(dataLen))
 		} else if dataLen <= 0xff {
-			s.data = append(s.data, opcodes.OP_PUSHDATA1)
-			s.data = append(s.data, byte(dataLen))
+			s.data = append(s.data, opcodes.OP_PUSHDATA1, byte(dataLen))
 		} else if dataLen <= 0xffff {
 			s.data = append(s.data, opcodes.OP_PUSHDATA2)
 			buf := make([]byte, 2)
