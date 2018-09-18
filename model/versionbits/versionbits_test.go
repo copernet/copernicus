@@ -39,11 +39,7 @@ func (tc *ConditionChecker) Condition(index *blockindex.BlockIndex, params *chai
 }
 
 func (tc *ConditionChecker) GetStateFor(indexPrev *blockindex.BlockIndex) ThresholdState {
-	v := GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
-	if indexPrev != nil && indexPrev.Height == 2999 {
-		//fmt.Println("state : ", v)
-	}
-	return v
+	return GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 }
 
 func (tc *ConditionChecker) GetStateSinceHeightFor(indexPrev *blockindex.BlockIndex) int {
