@@ -548,7 +548,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 		}
 		pubKeyType = ScriptPubkey
 		pubKeys = make([][]byte, 0, 1)
-		data := parsedOpCode0.Data[:]
+		data := parsedOpCode0.Data
 		pubKeys = append(pubKeys, data)
 		err = nil
 		return
@@ -568,7 +568,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 
 		pubKeyType = ScriptPubkeyHash
 		pubKeys = make([][]byte, 0, 1)
-		data := s.ParsedOpCodes[2].Data[:]
+		data := s.ParsedOpCodes[2].Data
 		pubKeys = append(pubKeys, data)
 		err = nil
 		return

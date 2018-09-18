@@ -912,7 +912,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 	if pubKeyType == script.ScriptMultiSig {
 		sigData := make([][]byte, 0, len(scriptSig.ParsedOpCodes))
 		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes))
-		var parsedOpCodes = scriptSig.ParsedOpCodes[:]
+		var parsedOpCodes = scriptSig.ParsedOpCodes
 		parsedOpCodes = append(parsedOpCodes, txOldScriptSig.ParsedOpCodes...)
 		for _, opCode := range parsedOpCodes {
 			for _, pubKey := range pubKeys[1 : len(pubKeys)-2] {

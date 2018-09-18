@@ -67,7 +67,7 @@ func (hash *Hash) String() string {
 	for i := 0; i < Hash256Size/2; i++ {
 		bytes[i], bytes[Hash256Size-1-i] = bytes[Hash256Size-1-i], bytes[i]
 	}
-	return hex.EncodeToString(bytes[:])
+	return hex.EncodeToString(bytes)
 }
 
 func (hash *Hash) SerializeSize() uint32 {
