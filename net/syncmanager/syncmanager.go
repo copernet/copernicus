@@ -1184,13 +1184,13 @@ out:
 					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
 				}
 				msg.reply <- struct{}{}
-			case *getdataMsg:
+			case getdataMsg:
 				if msg.peer.Cfg.Listeners.OnGetData != nil {
 					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
 				}
 
 				msg.reply <- struct{}{}
-			case *getBlocksMsg:
+			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
 				}
@@ -1368,17 +1368,17 @@ func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer *peer.Peer, d
 		return
 	}
 
-	sm.processBusinessChan <- &getdataMsg{getdata, peer, done}
+	sm.processBusinessChan <- getdataMsg{getdata, peer, done}
 }
 
-func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer2 *peer.Peer, done chan<- struct{}) {
+func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.processBusinessChan <- &getBlocksMsg{getblocks, peer2, done}
+	sm.processBusinessChan <- getBlocksMsg{getblocks, peer, done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.
