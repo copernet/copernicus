@@ -1,14 +1,14 @@
 package conf
 
 import (
-	"os"
 	"fmt"
-	"testing"
 	"io/ioutil"
 	"math/rand"
+	"os"
+	"testing"
 
-	"github.com/spf13/viper"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/spf13/viper"
 )
 
 var confData = []byte(`
@@ -23,7 +23,7 @@ RPC:
 Log:
   FileName: copernicus
   Level: debug
-  Module: mempool,utxo,bench,service
+  Module: [mempool,utxo,bench,service]
 Mining:
   BlockMinTxFee: 100
   BlockMaxSize: 2000000
@@ -36,15 +36,6 @@ P2PNet:
   MaxPeers: 5
   TargetOutbound: 3
   ConnectPeersOnStart:
-  DisableBanding: true
-  SimNet: false
-  DisableListen: false
-  BlocksOnly: true
-  DisableDNSSeed: false
-  DisableRPC: false
-  OnOnion: true
-  Upnp: false
-  DisableTLS: false
 Protocal:
   NoPeerBloomFilters: true
   DisableCheckpoints: true
@@ -113,14 +104,7 @@ func TestInitConfig(t *testing.T) {
 				expected.P2PNet.ListenAddrs = netList
 				expected.P2PNet.MaxPeers = 5
 				expected.P2PNet.TargetOutbound = 3
-				expected.P2PNet.DisableBanning = false
-				expected.P2PNet.SimNet = false
-				expected.P2PNet.DisableListen = false
 				expected.P2PNet.BlocksOnly = true
-				expected.P2PNet.DisableDNSSeed = false
-				expected.P2PNet.DisableRPC = false
-				expected.P2PNet.Upnp = false
-				expected.P2PNet.DisableTLS = false
 
 				expected.Protocal.NoPeerBloomFilters = true
 				expected.Protocal.DisableCheckpoints = true
