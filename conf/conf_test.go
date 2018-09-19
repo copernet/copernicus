@@ -1,14 +1,14 @@
 package conf
 
 import (
-	"os"
 	"fmt"
-	"testing"
 	"io/ioutil"
 	"math/rand"
+	"os"
+	"testing"
 
-	"github.com/spf13/viper"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/spf13/viper"
 )
 
 var confData = []byte(`

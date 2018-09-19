@@ -57,10 +57,8 @@ func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[
 		stat.nTxOuts++
 		stat.amount += int64(v.GetAmount())
 	}
-	if err := util.WriteVarLenInt(hashbuf, uint64(0)); err != nil {
-		return err
-	}
-	return nil
+	err := util.WriteVarLenInt(hashbuf, uint64(0))
+	return err
 }
 
 func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {

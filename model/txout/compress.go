@@ -29,15 +29,14 @@ func CompressAmount(amt amount.Amount) uint64 {
 		e++
 	}
 	if e < 9 {
-		d := uint64(n % 10)
+		d := n % 10
 		if d < 1 || d > 9 {
 			panic("CompressAmount: d should in range [1,9]")
 		}
 		n /= 10
 		return 1 + (9*n+d-1)*10 + e
-	} else {
-		return 1 + (n-1)*10 + 9
 	}
+	return 1 + (n-1)*10 + 9
 }
 
 func DecompressAmount(x uint64) amount.Amount {
@@ -78,7 +77,7 @@ func newScriptCompressor(sp **script.Script) *scriptCompressor {
 	}
 }
 
-func (scr *scriptCompressor) isToKeyId() []byte {
+func (scr *scriptCompressor) isToKeyID() []byte {
 	so := *scr.sp
 	bs := so.GetData()
 	if len(bs) == 25 && bs[0] == opcodes.OP_DUP && bs[1] == opcodes.OP_HASH160 &&
@@ -88,7 +87,7 @@ func (scr *scriptCompressor) isToKeyId() []byte {
 	return nil
 }
 
-func (scr *scriptCompressor) isToScriptId() []byte {
+func (scr *scriptCompressor) isToScriptID() []byte {
 	so := *scr.sp
 	bs := so.GetData()
 	if len(bs) == 23 && bs[0] == opcodes.OP_HASH160 &&
@@ -117,18 +116,18 @@ func (scr *scriptCompressor) isToPubKey() []byte {
 
 func (scr *scriptCompressor) Compress() []byte {
 	var out []byte
-	keyId := scr.isToKeyId()
-	if len(keyId) > 0 {
+	keyID := scr.isToKeyID()
+	if len(keyID) > 0 {
 		out = make([]byte, 21)
 		out[0] = 0x00
-		copy(out[1:], keyId)
+		copy(out[1:], keyID)
 		return out
 	}
-	scriptId := scr.isToScriptId()
-	if len(scriptId) > 0 {
+	scriptID := scr.isToScriptID()
+	if len(scriptID) > 0 {
 		out = make([]byte, 21)
 		out[0] = 0x01
-		copy(out[1:], scriptId)
+		copy(out[1:], scriptID)
 		return out
 	}
 	pubKey := scr.isToPubKey()

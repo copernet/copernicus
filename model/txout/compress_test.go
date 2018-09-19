@@ -3,6 +3,7 @@ package txout
 import (
 	"testing"
 
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 )
 
@@ -43,14 +44,14 @@ func TestCompressAmount(t *testing.T) {
 	if !testPair(uint64(amount.CENT), 0x7) {
 		t.Errorf("testPair(%d, %d) failed", amount.CENT, 0x7)
 	}
-	if !testPair(uint64(amount.COIN), 0x9) {
-		t.Errorf("testPair(%d, %d) failed", amount.COIN, 0x9)
+	if !testPair(uint64(util.COIN), 0x9) {
+		t.Errorf("testPair(%d, %d) failed", util.COIN, 0x9)
 	}
-	if !testPair(50*uint64(amount.COIN), 0x32) {
-		t.Errorf("testPair(%d, %d) failed", 50*amount.COIN, 0x32)
+	if !testPair(50*uint64(util.COIN), 0x32) {
+		t.Errorf("testPair(%d, %d) failed", 50*util.COIN, 0x32)
 	}
-	if !testPair(21000000*uint64(amount.COIN), 0x1406f40) {
-		t.Errorf("testPair(%d, %d) failed", 21000000*amount.COIN, 0x1406f40)
+	if !testPair(21000000*uint64(util.COIN), 0x1406f40) {
+		t.Errorf("testPair(%d, %d) failed", 21000000*util.COIN, 0x1406f40)
 	}
 
 	for i := 1; i <= numMultiplesUnit; i++ {
@@ -64,13 +65,13 @@ func TestCompressAmount(t *testing.T) {
 		}
 	}
 	for i := int64(1); i <= numMultiples1BCH; i++ {
-		if !testEncode(uint64(i * amount.COIN)) {
-			t.Errorf("testEncode(%d) failed", i*amount.COIN)
+		if !testEncode(uint64(i * util.COIN)) {
+			t.Errorf("testEncode(%d) failed", i*util.COIN)
 		}
 	}
 	for i := int64(1); i <= numMultiples50BCH; i++ {
-		if !testEncode(uint64(i * 50 * amount.COIN)) {
-			t.Errorf("testEncode(%d) failed", i*50*amount.COIN)
+		if !testEncode(uint64(i * 50 * util.COIN)) {
+			t.Errorf("testEncode(%d) failed", i*50*util.COIN)
 		}
 	}
 	for i := 0; i < 100000; i++ {
