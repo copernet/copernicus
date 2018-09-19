@@ -213,7 +213,8 @@ type Configuration struct {
 		DustRelayFee int64 `default:"83"`
 	}
 	Chain struct {
-		AssumeValid string
+		AssumeValid    string
+		StartLogHeight int32 `default:"2147483647"`
 	}
 	Mining struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee

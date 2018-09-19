@@ -255,26 +255,25 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
-	var stat stat
-	if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
-		log.Debug("GetUTXOStats() failed with : %s", err)
-		return err
-	}
-	f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
-	if err != nil {
-		log.Debug("os.OpenFile() failed with : %s", err)
-		return err
-	}
-	defer f.Close()
-	if _, err := f.WriteString(stat.String()); err != nil {
-		log.Debug("f.WriteString() failed with : %s", err)
-		return err
-	}
-	/*
-		if pIndexNew.Height == 383 {
-			panic("faile 383")
+
+	if pIndexNew.Height >= conf.Cfg.Chain.StartLogHeight {
+		var stat stat
+		if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
+			log.Debug("GetUTXOStats() failed with : %s", err)
+			return err
 		}
-	*/
+		f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+		if err != nil {
+			log.Debug("os.OpenFile() failed with : %s", err)
+			return err
+		}
+		defer f.Close()
+		if _, err := f.WriteString(stat.String()); err != nil {
+			log.Debug("f.WriteString() failed with : %s", err)
+			return err
+		}
+	}
+
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
