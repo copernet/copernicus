@@ -1,7 +1,6 @@
 package conf
 
 import (
-	"flag"
 	"io"
 	"net"
 	"os"
@@ -62,13 +61,13 @@ func initConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
-	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
-	flag.Parse()
+	//getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
+	//flag.Parse()
 
 	DataDir = defaultDataDir
-	if getdatadir != nil {
-		DataDir = *getdatadir
-	}
+	//if getdatadir != nil {
+	//	DataDir = *getdatadir
+	//}
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)

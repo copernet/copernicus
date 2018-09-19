@@ -1,63 +1,172 @@
 package conf
 
-//
-//import (
-//	"fmt"
-//	"io/ioutil"
-//	"math/rand"
-//	"os"
-//	"testing"
-//
-//	. "github.com/smartystreets/goconvey/convey"
-//)
-//
-//var confData = []byte(`
-//go_version: 1.9.2
-//version: 1.0.0
-//build_date: 20180428
-//service:
-//  address: 10.0.0.0/8
-//http:
-//  host: 127.0.0.1
-//  port: 8080
-//  mode: test
-//rpc:
-//  host: 127.0.0.1
-//  port: 9552
-//log:
-//  level: error
-//  format: json
-//`)
-//
-//func TestInitConfig(t *testing.T) {
-//	Convey("Given config file", t, func() {
-//		filename := fmt.Sprintf("conf_test%04d.yml", rand.Intn(9999))
-//		os.Setenv(ConfEnv, filename)
-//		ioutil.WriteFile(filename, confData, 0664)
-//
-//		Convey("When init configuration", func() {
-//			config := initConfig()
-//
-//			Convey("Configuration should resemble default configuration", func() {
-//				expected := &Configuration{}
-//				expected.Service.Address = "10.0.0.0/8"
-//				expected.HTTP.Host = "127.0.0.1"
-//				expected.HTTP.Port = 8080
-//				expected.HTTP.Mode = "test"
-//				expected.Log.Format = "json"
-//				expected.Log.Level = "error"
-//				expected.GoVersion = "1.9.2"
-//				expected.Version = "1.0.0"
-//				expected.BuildDate = "20180428"
-//				expected.RPC.Host = "127.0.0.1"
-//				expected.RPC.Port = 9552
-//				So(config, ShouldResemble, expected)
-//			})
-//		})
-//
-//		Reset(func() {
-//			os.Unsetenv(ConfEnv)
-//			os.Remove(filename)
-//		})
-//	})
-//}
+import (
+	"fmt"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/spf13/viper"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"testing"
+)
+
+var confData = []byte(`
+GoVersion: 1.9.2
+Version: 1.0.0
+BuildDate: 20180428
+RPC:
+  RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
+  RPCUser: copernicus
+  RPCPass: doXT3DXgAQCNU0Li0pujQ6zR3Y
+  RPCMaxClients: 1000
+Log:
+  FileName: copernicus
+  Level: debug
+  Module: mempool,utxo
+Mining:
+  BlockMinTxFee: 100
+  BlockMaxSize: 2000000
+  BlockVersion: 1
+  Strategy: ancestorfeerate
+Chain:
+  AssumeValid:
+P2PNet:
+  ListenAddrs: ["127.0.0.1:8333", "127.0.0.1:18333"]
+  MaxPeers: 5
+  TargetOutbound: 3
+  ConnectPeersOnStart:
+  DisableBanding: true
+  SimNet: false
+  DisableListen: false
+  BlocksOnly: true
+  DisableDNSSeed: false
+  DisableRPC: false
+  OnOnion: true
+  Upnp: false
+  DisableTLS: false
+Protocal:
+  NoPeerBloomFilters: true
+  DisableCheckpoints: true
+AddrMgr:
+  SimNet: false
+  ConnectPeers:
+Script:
+  AcceptDataCarrier:
+  MaxDatacarrierBytes:
+  IsBareMultiSigStd:
+  PromiscuousMempoolFlags:
+TxOut:
+  DustRelayFee:
+`)
+
+func TestInitConfig(t *testing.T) {
+	Convey("Given config file", t, func() {
+		filename := fmt.Sprintf("conf_test%04d.yml", rand.Intn(9999))
+		err := ioutil.WriteFile(filename, confData, 0664)
+		if err != nil {
+			t.Error("write config file failed", err)
+		}
+
+		Convey("When init configuration", func() {
+			config := initConfig()
+			defaultDataDir := AppDataDir(defaultDataDirname, false)
+
+			Convey("Configuration should resemble default configuration", func() {
+				expected := &Configuration{}
+				expected.GoVersion = "1.9.2"
+				expected.Version = "1.0.0"
+				expected.BuildDate = "20180428"
+				expected.DataDir = defaultDataDir
+
+				//rpc
+				str := make([]string, 0)
+				listeners := append(str, "127.0.0.1:8334")
+				listeners = append(listeners, "127.0.0.1:18334")
+				expected.RPC.RPCListeners = listeners
+				expected.RPC.RPCUser = "copernicus"
+				expected.RPC.RPCPass = "doXT3DXgAQCNU0Li0pujQ6zR3Y"
+				expected.RPC.RPCCert = defaultDataDir + "/rpc.cert"
+				expected.RPC.RPCKey = defaultDataDir + "/rpc.key"
+				expected.RPC.RPCMaxClients = 1000
+
+				//mining
+				expected.Mining.BlockMaxSize = 2000000
+				expected.Mining.BlockMinTxFee = 100
+				expected.Mining.BlockVersion = 1
+				expected.Mining.Strategy = "ancestorfeerate"
+
+				//log
+				log := make([]string, 0)
+				logList := append(log, "mempool utxo")
+				expected.Log.Module = logList
+				expected.Log.FileName = "copernicus"
+				expected.Log.Level = "debug"
+
+				//net
+				net := make([]string, 0)
+				netList := append(net, "127.0.0.1:8333")
+				netList = append(netList, "127.0.0.1:18333")
+				expected.P2PNet.ListenAddrs = netList
+				expected.P2PNet.MaxPeers = 5
+				expected.P2PNet.TargetOutbound = 3
+				expected.P2PNet.DisableBanning = false
+				expected.P2PNet.SimNet = false
+				expected.P2PNet.DisableListen = false
+				expected.P2PNet.BlocksOnly = true
+				expected.P2PNet.DisableDNSSeed = false
+				expected.P2PNet.DisableRPC = false
+				expected.P2PNet.Upnp = false
+				expected.P2PNet.DisableTLS = false
+
+				expected.Protocal.NoPeerBloomFilters = true
+				expected.Protocal.DisableCheckpoints = true
+
+				So(config, ShouldResemble, expected)
+			})
+		})
+
+		Reset(func() {
+			os.Remove(filename)
+		})
+	})
+}
+
+func TestSetDefault(t *testing.T) {
+	viper.SetDefault("key", 100)
+	if viper.GetInt("key") != 100 {
+		t.Error("set default(key) error")
+	}
+
+	viper.SetDefault("rpc.user", "admin")
+	if viper.GetString("rpc.user") != "admin" {
+		t.Error("set default(rpc.user) error")
+	}
+	viper.SetDefault("Log.Level", "debug")
+
+	if viper.GetString("Log.Level") != "debug" {
+		t.Error("set default(Log.Level) error")
+	}
+}
+
+func TestCopyFile(t *testing.T) {
+	nameSRC := "conf.txt"
+	nameDES := "copy_conf.txt"
+	content := "hello,copernicus"
+	data := []byte(content)
+	err := ioutil.WriteFile(nameSRC, data, 0644)
+	if err != nil {
+		t.Errorf("write conf file failed: %s\n ", err)
+	}
+	defer os.Remove(nameSRC)
+
+	writeNum, err := CopyFile(nameSRC, nameDES)
+	if err != nil {
+		t.Errorf("copy file failed: %s\n", err)
+	}
+
+	readNum, err := ioutil.ReadFile(nameDES)
+	if int64(len(readNum)) != writeNum {
+		t.Errorf("error copying the contents of the file: %s\n", err)
+	}
+	defer os.Remove(nameDES)
+}
