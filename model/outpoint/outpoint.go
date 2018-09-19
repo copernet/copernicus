@@ -28,11 +28,24 @@ func (outPoint *OutPoint) SerializeSize() uint32 {
 }
 
 func (outPoint *OutPoint) Serialize(writer io.Writer) error {
-	return outPoint.Encode(writer)
+	_, err := writer.Write(outPoint.Hash[:])
+	if err != nil {
+		return err
+	}
+	return util.WriteVarLenInt(writer, uint64(outPoint.Index))
 }
 
 func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
-	return outPoint.Decode(reader)
+	_, err = io.ReadFull(reader, outPoint.Hash[:])
+	if err != nil {
+		return
+	}
+	n, err := util.ReadVarLenInt(reader)
+	if err != nil {
+		return
+	}
+	outPoint.Index = uint32(n)
+	return
 }
 
 func (outPoint *OutPoint) EncodeSize() uint32 {
