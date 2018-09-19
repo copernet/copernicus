@@ -1,13 +1,14 @@
 package conf
 
 import (
+	"os"
 	"fmt"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/spf13/viper"
+	"testing"
 	"io/ioutil"
 	"math/rand"
-	"os"
-	"testing"
+
+	"github.com/spf13/viper"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 var confData = []byte(`
@@ -22,7 +23,7 @@ RPC:
 Log:
   FileName: copernicus
   Level: debug
-  Module: mempool,utxo
+  Module: [mempool,utxo,bench,service]
 Mining:
   BlockMinTxFee: 100
   BlockMaxSize: 2000000
@@ -31,17 +32,16 @@ Mining:
 Chain:
   AssumeValid:
 P2PNet:
-  ListenAddrs: ["127.0.0.1:8333", "127.0.0.1:18333"]
+  ListenAddrs: ["127.0.0.1:8333","127.0.0.1:18333"]
   MaxPeers: 5
   TargetOutbound: 3
   ConnectPeersOnStart:
-  DisableBanding: true
+  DisableBanning: true
   SimNet: false
   DisableListen: false
-  BlocksOnly: true
+  BlocksOnly: false
   DisableDNSSeed: false
   DisableRPC: false
-  OnOnion: true
   Upnp: false
   DisableTLS: false
 Protocal:
@@ -97,7 +97,10 @@ func TestInitConfig(t *testing.T) {
 
 				//log
 				log := make([]string, 0)
-				logList := append(log, "mempool utxo")
+				logList := append(log, "mempool")
+				logList = append(logList, "utxo")
+				logList = append(logList, "bench")
+				logList = append(logList, "service")
 				expected.Log.Module = logList
 				expected.Log.FileName = "copernicus"
 				expected.Log.Level = "debug"
@@ -109,14 +112,7 @@ func TestInitConfig(t *testing.T) {
 				expected.P2PNet.ListenAddrs = netList
 				expected.P2PNet.MaxPeers = 5
 				expected.P2PNet.TargetOutbound = 3
-				expected.P2PNet.DisableBanning = false
-				expected.P2PNet.SimNet = false
-				expected.P2PNet.DisableListen = false
-				expected.P2PNet.BlocksOnly = true
-				expected.P2PNet.DisableDNSSeed = false
-				expected.P2PNet.DisableRPC = false
-				expected.P2PNet.Upnp = false
-				expected.P2PNet.DisableTLS = false
+				expected.P2PNet.DisableBanning = true
 
 				expected.Protocal.NoPeerBloomFilters = true
 				expected.Protocal.DisableCheckpoints = true
@@ -169,4 +165,23 @@ func TestCopyFile(t *testing.T) {
 		t.Errorf("error copying the contents of the file: %s\n", err)
 	}
 	defer os.Remove(nameDES)
+}
+
+func TestExistDataDir(t *testing.T) {
+	fileTrue := "conf.txt"
+	fileFalse := "confNo.txt"
+
+	fileTrue, err := ioutil.TempDir("", fileTrue)
+	if err != nil {
+		t.Fatalf("generate temp db path failed: %s\n", err)
+	}
+	defer os.Remove(fileTrue)
+
+	if !ExistDataDir(fileTrue) {
+		t.Errorf("the fileTrue file should exist!")
+	}
+
+	if ExistDataDir(fileFalse) {
+		t.Errorf("the fileFalse file shouldn't exist!")
+	}
 }

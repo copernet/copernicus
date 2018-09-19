@@ -1054,9 +1054,11 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	var blkIndex *blockindex.BlockIndex
 	send := false
 	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
-		if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
-			blkIndex.IsValid(blockindex.BlockValidTree) {
-		}
+
+		// TODO: we may add it back when we support header-first mode
+		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
+		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
+		// }
 
 		// Check the block whether in main chain.
 		if activeChain.Contains(blkIndex) {
