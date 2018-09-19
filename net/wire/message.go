@@ -305,7 +305,7 @@ func WriteMessageWithEncodingN(w io.Writer, msg Message, pver uint32,
 	// rather than directly to the writer since writeElements doesn't
 	// return the number of bytes written.
 	hw := bytes.NewBuffer(make([]byte, 0, MessageHeaderSize))
-	util.WriteElements(hw, (uint32)(hdr.magic), command, hdr.length, hdr.checksum)
+	util.WriteElements(hw, uint32(hdr.magic), command, hdr.length, hdr.checksum)
 
 	// Write header.
 	n, err := w.Write(hw.Bytes())
@@ -395,7 +395,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 
 	// Test checksum.
 	checksum := util.DoubleSha256Bytes(payload)[0:4]
-	if !bytes.Equal(checksum[:], hdr.checksum[:]) {
+	if !bytes.Equal(checksum, hdr.checksum[:]) {
 		str := fmt.Sprintf("payload checksum failed - header "+
 			"indicates %v, but actual checksum is %v.",
 			hdr.checksum, checksum)

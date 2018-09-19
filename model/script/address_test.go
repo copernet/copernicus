@@ -2,8 +2,9 @@ package script
 
 import (
 	"encoding/hex"
-	"github.com/copernet/copernicus/crypto"
 	"testing"
+
+	"github.com/copernet/copernicus/crypto"
 
 	"github.com/copernet/copernicus/util"
 )
@@ -22,7 +23,7 @@ func TestPublicKeyToAddress(t *testing.T) {
 		return
 	}
 	hash160 := make([]byte, 20)
-	copy(hash160[:], address.hash160[:])
+	copy(hash160, address.hash160[:])
 	hash160Hex := hex.EncodeToString(hash160)
 	if hash160Hex != "9a1c78a507689f6f54b847ad1cef1e614ee23f1e" {
 		t.Errorf("hash160Hex is wrong 9a1c78a507689f6f54b847ad1cef1e614ee23f1e  --  %s", hash160Hex)
