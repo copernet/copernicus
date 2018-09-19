@@ -1,13 +1,14 @@
 package conf
 
 import (
+	"os"
 	"fmt"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/spf13/viper"
+	"testing"
 	"io/ioutil"
 	"math/rand"
-	"os"
-	"testing"
+
+	"github.com/spf13/viper"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 var confData = []byte(`
@@ -22,7 +23,7 @@ RPC:
 Log:
   FileName: copernicus
   Level: debug
-  Module: mempool,utxo
+  Module: mempool,utxo,bench,service
 Mining:
   BlockMinTxFee: 100
   BlockMaxSize: 2000000
@@ -97,7 +98,10 @@ func TestInitConfig(t *testing.T) {
 
 				//log
 				log := make([]string, 0)
-				logList := append(log, "mempool utxo")
+				logList := append(log, "mempool")
+				logList = append(logList, "utxo")
+				logList = append(logList, "bench")
+				logList = append(logList, "service")
 				expected.Log.Module = logList
 				expected.Log.FileName = "copernicus"
 				expected.Log.Level = "debug"
@@ -169,4 +173,23 @@ func TestCopyFile(t *testing.T) {
 		t.Errorf("error copying the contents of the file: %s\n", err)
 	}
 	defer os.Remove(nameDES)
+}
+
+func TestExistDataDir(t *testing.T) {
+	fileTrue := "conf.txt"
+	fileFalse := "confNo.txt"
+
+	fileTrue, err := ioutil.TempDir("", fileTrue)
+	if err != nil {
+		t.Fatalf("generate temp db path failed: %s\n", err)
+	}
+	defer os.Remove(fileTrue)
+
+	if !ExistDataDir(fileTrue) {
+		t.Errorf("the fileTrue file should exist!")
+	}
+
+	if ExistDataDir(fileFalse) {
+		t.Errorf("the fileFalse file shouldn't exist!")
+	}
 }
