@@ -1059,7 +1059,7 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 		}
 
 		// Check the block whether in main chain.
-		if !activeChain.Contains(blkIndex) {
+		if activeChain.Contains(blkIndex) {
 			//nOneMonth := 30 * 24 * 60 * 60
 			//todo !!! add time process, exclude too older block.
 			if blkIndex.IsValid(blockindex.BlockValidScripts) {
@@ -1068,7 +1068,7 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 		}
 	}
 
-	if send && blkIndex.IsValid(blockindex.BlockHaveData) {
+	if send && blkIndex.HasData() {
 		// Fetch the raw block bytes from the database.
 		bl, err := lblock.GetBlockByIndex(blkIndex, s.chainParams)
 		if err != nil {
