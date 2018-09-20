@@ -148,11 +148,12 @@ func computeMaxGeneratedBlockSize() uint64 {
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
 	pool := mempool.GetInstance() // todo use global variable
+	tmpStrategy := *getStrategy()
 
 	consecutiveFailed := 0
 
 	var txSet *btree.BTree
-	switch strategy {
+	switch tmpStrategy {
 	case sortByFee:
 		txSet = sortedByFeeWithAncestors()
 	case sortByFeeRate:
@@ -165,7 +166,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		// select the max value item, and delete it. select strategy is descent.
 		var entry mempool.TxEntry
 
-		switch strategy {
+		switch tmpStrategy {
 		case sortByFee:
 			entry = mempool.TxEntry(txSet.Max().(EntryFeeSort))
 			txSet.DeleteMax()
@@ -188,7 +189,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 
 		// deal with several different mining strategies
 		isEnd := false
-		switch strategy {
+		switch tmpStrategy {
 		case sortByFee:
 			// if the current fee lower than the specified min fee rate, stop loop directly.
 			// because the following after this item must be lower than this
@@ -359,6 +360,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
 	descendantUpdate := 0
 	mpool := mempool.GetInstance()
+	tmpStrategy := *getStrategy()
 
 	for entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
@@ -367,7 +369,7 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
 			descendantUpdate++
-			switch strategy {
+			switch tmpStrategy {
 			case sortByFee:
 				item := EntryFeeSort(*desc)
 				// remove the old one

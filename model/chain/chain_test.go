@@ -5,6 +5,7 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"os"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
@@ -18,6 +19,7 @@ var testChain *Chain
 
 func TestMain(m *testing.M) {
 	persist.InitPersistGlobal()
+	conf.Cfg = conf.InitConfig()
 	os.Exit(m.Run())
 }
 

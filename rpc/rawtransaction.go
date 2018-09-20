@@ -143,8 +143,8 @@ func getVoutList(tx *tx.Tx) []btcjson.Vout {
 	for i := 0; i < tx.GetOutsCount(); i++ {
 		out := tx.GetTxOut(i)
 		voutList[i] = btcjson.Vout{
-			Value:        int64(out.GetValue()),
-			N:            i,
+			Value:        valueFromAmount(int64(out.GetValue())),
+			N:            uint32(i),
 			ScriptPubKey: ScriptPubKeyToJSON(out.GetScriptPubKey(), true),
 		}
 	}
@@ -361,8 +361,8 @@ func createRawTxInput(input *btcjson.TransactionInput, lockTime uint32) (*txin.T
 }
 
 func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
-	var scriptPubKey *script.Script
 	var txAmount amount.Amount
+	scriptPubKey := script.NewEmptyScript()
 
 	if address == "data" {
 		data, ok := cost.(string)
@@ -377,7 +377,6 @@ func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
 			return nil, rpcDecodeHexError(data)
 		}
 		txAmount = amount.Amount(0)
-		scriptPubKey = script.NewEmptyScript()
 		scriptPubKey.PushOpCode(opcodes.OP_RETURN)
 		scriptPubKey.PushSingleData(dataBuf)
 	} else {
@@ -413,7 +412,9 @@ func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
 				Message: "Invalid amount",
 			}
 		}
-		scriptPubKey = script.NewScriptRaw(addr.EncodeToPubKeyHash())
+		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
+		scriptPubKey.PushSingleData(addr.EncodeToPubKeyHash())
+		scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
 	}
 
 	txOut := txout.NewTxOut(txAmount, scriptPubKey)
@@ -421,58 +422,60 @@ func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
 }
 
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
+	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
-		// Unserialize the transaction.
-		serializedTx, err := hex.DecodeString(c.HexTx)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.HexTx)
+	// Unserialize the transaction.
+	serializedTx, err := hex.DecodeString(c.HexTx)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
+
+	transaction := tx.NewEmptyTx()
+	err = transaction.Unserialize(bytes.NewReader(serializedTx))
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCDeserialization,
+			Message: "TX decode failed: " + err.Error(),
 		}
+	}
+	txHash := transaction.GetHash()
 
-		var transaction tx.Tx
-		err = transaction.Unserialize(bytes.NewReader(serializedTx))
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDeserialization,
-				Message: "TX decode failed: " + err.Error(),
-			}
-		}
+	// Create and return the result.
+	txReply := &btcjson.TxRawDecodeResult{
+		Txid:     txHash.String(),
+		Hash:     txHash.String(),
+		Size:     transaction.SerializeSize(),
+		Version:  transaction.GetVersion(),
+		Locktime: transaction.GetLockTime(),
+		Vin:      getVinList(transaction),
+		Vout:     getVoutList(transaction),
+	}
 
-		// Create and return the result.
-		txReply := btcjson.TxRawDecodeResult{
-			Txid:     transaction.Hash.String(),
-			Hash:     transaction.Hash.String(),
-			Size:     transaction.SerializeSize(),
-			Version:  transaction.GetVersion(),
-			Locktime: transaction.GetLockTime(),
-			Vin:      createVinList(&transaction),
-			Vout:     createVoutList(&transaction, consensus.ActiveNetParams),
-		}
-
-		return txReply, nil*/
-	return nil, nil
+	return txReply, nil
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeScriptCmd)
+	c := cmd.(*btcjson.DecodeScriptCmd)
 
-		// Convert the hex script to bytes.
-		scriptByte, err := hex.DecodeString(c.HexScript)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.HexScript)
+	// Convert the hex script to bytes.
+	scriptByte, err := hex.DecodeString(c.HexScript)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexScript)
+	}
+	st := script.NewScriptRaw(scriptByte)
+
+	ret := ScriptPubKeyToJSON(st, false)
+
+	if ret.Type != "scripthash" {
+		// P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
+		// don't return the address for a P2SH of the P2SH.
+		addr, err := script.AddressFromScriptHash(scriptByte)
+		if err == nil {
+			ret.P2SH = addr.String()
 		}
-		st := script.NewScriptRaw(scriptByte)
+	}
 
-		ret := ScriptPubKeyToJSON(st, false)
-
-		if ret.Type != "scripthash" {
-			// P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
-			// don't return the address for a P2SH of the P2SH.
-			ret.P2SH = EncodeDestination(scriptByte) // todo realise
-		}
-
-		return ret, nil*/ // TODO open
-	return nil, nil
+	return ret, nil
 }
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -487,7 +490,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	hash := transaction.GetHash()
 
-	// todo open
+	// NOT support high fee limit yet
 	//maxRawTxFee := mining.MaxTxFee
 	//if c.AllowHighFees != nil && *c.AllowHighFees {
 	//	maxRawTxFee = 0
@@ -521,10 +524,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                        crypto.SigHashAll,
-	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                     crypto.SigHashAll,
+	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,

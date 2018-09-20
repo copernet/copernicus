@@ -6,6 +6,7 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"testing"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/util"
@@ -16,14 +17,13 @@ import (
 var myscript = []byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 	0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31} //21 bytes
 
-var script1 = script.NewScriptRaw(myscript)
-
-var testTxout = NewTxOut(9, script1)
-
-var minRelayTxFee = util.NewFeeRate(9766)
+var (
+	script1       = script.NewScriptRaw(myscript)
+	testTxout     = NewTxOut(9, script1)
+	minRelayTxFee = util.NewFeeRate(9766)
+)
 
 func TestNewTxOut(t *testing.T) {
-
 	if testTxout.value != 9 {
 		t.Error("The value should be 9 instead of ", testTxout.value)
 	}
@@ -33,7 +33,6 @@ func TestNewTxOut(t *testing.T) {
 }
 
 func TestSerialize(t *testing.T) {
-
 	file, err := os.OpenFile("tmp.txt", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		t.Error(err)
@@ -95,7 +94,6 @@ func TestIsDust(t *testing.T) {
 }
 
 func TestCheckValue(t *testing.T) {
-
 	testTxout.value = amount.Amount(util.MaxMoney) + 1
 	if testTxout.CheckValue() == nil {
 		t.Error("the value of textTxout is in the wrong range but not detected")
@@ -118,7 +116,7 @@ func TestCheckValue(t *testing.T) {
 }
 
 func TestCheckStandard(t *testing.T) {
-
+	conf.Cfg = conf.InitConfig()
 	testTxout.scriptPubKey.ParsedOpCodes = make([]opcodes.ParsedOpCode, 5)
 
 	poc := opcodes.NewParsedOpCode(opcodes.OP_RETURN, 1, []byte{0x6a})
@@ -151,7 +149,6 @@ func TestCheckStandard(t *testing.T) {
 }
 
 func TestIsCommitment(t *testing.T) {
-
 	p := testTxout.scriptPubKey.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4})
 	if p {
 		t.Error("not qualified committing data but not detected")
@@ -206,7 +203,6 @@ func TestIsSpendable(t *testing.T) {
 }
 
 func TestIsEqual(t *testing.T) {
-
 	//myscript = []byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 	//	0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
 	//script1 = script.NewScriptRaw(myscript)

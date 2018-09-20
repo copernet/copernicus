@@ -15,6 +15,10 @@ import (
 )
 
 func appInitMain() {
+	//init config
+	conf.Cfg = conf.InitConfig()
+
+	//init log
 	log.Init()
 
 	// Init UTXO DB
