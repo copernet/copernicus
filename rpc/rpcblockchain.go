@@ -5,22 +5,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/utxo"
-	"strconv"
-	"strings"
-
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"strconv"
+	"strings"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -610,7 +609,7 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 		Size:          pool.Size(),
 		Bytes:         pool.GetPoolAllTxSize(),
 		Usage:         pool.GetPoolUsage(),
-		MaxMempool:    conf.Cfg.Mempool.MaxPoolSize,
+		MaxMempool:    int(conf.Cfg.Mempool.MaxPoolSize),
 		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil
