@@ -25,9 +25,7 @@ func TestLRUCache(t *testing.T) {
 	script1 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout1 := txout.NewTxOut(3, script1)
 
-	coin1 := necm.cacheCoins[outpoint1]
-
-	coin1 = &Coin{
+	necm.cacheCoins[outpoint1] = &Coin{
 		txOut:         *txout1,
 		height:        10000,
 		isCoinBase:    false,
@@ -35,8 +33,6 @@ func TestLRUCache(t *testing.T) {
 		dirty:         false,
 		fresh:         false,
 	}
-
-	necm.AddCoin(&outpoint1, coin1, false)
 
 	err := GetUtxoCacheInstance().UpdateCoins(necm, hash1)
 	//ok := necm.Flush(*hash1)

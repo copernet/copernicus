@@ -55,11 +55,6 @@ func DisplayCoinMap(cm *CoinsMap) {
 }
 
 func (cm *CoinsMap) Flush(hashBlock util.Hash) bool {
-	//println("flush=============")
-	//fmt.Printf("flush...coinsCache.====%#v \n  hashBlock====%#v", coinsCache, hashBlock)
-	//fmt.Println("in Flush(), before inspect cm")
-	//DisplayCoinMap(cm)
-	//fmt.Println("in Flush(), after inspect cm")
 	ok := GetUtxoCacheInstance().UpdateCoins(cm, &hashBlock)
 	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
 	return ok == nil
@@ -90,6 +85,7 @@ func (cm *CoinsMap) SetBestBlock(hash util.Hash) {
 	cm.hashBlock = hash
 }
 
+// SpendCoin spend a specified coin
 func (cm *CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 	coin := cm.GetCoin(point)
 	if coin == nil {
@@ -127,8 +123,6 @@ func (cm *CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	newCoin := coin.DeepCopy()
 	if newCoin.IsSpent() {
 		panic("coin from db should not be spent")
-		//newCoin.fresh = true
-		//newCoin.dirty = false
 	}
 	cm.cacheCoins[*out] = newCoin
 	return newCoin
