@@ -170,7 +170,7 @@ type Configuration struct {
 		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
 		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
 		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
-		MaxPoolSize          int   `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
 		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
 	}
 	P2PNet struct {

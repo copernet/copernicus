@@ -66,8 +66,9 @@ type TxMempool struct {
 	rootTx                  map[util.Hash]*TxEntry
 	txByAncestorFeeRateSort btree.BTree
 	timeSortData            btree.BTree
-	cacheInnerUsage         int64
-	checkFrequency          float64
+	//
+	cacheInnerUsage int64
+	checkFrequency  float64
 	// sum of all mempool tx's size.
 	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
@@ -76,8 +77,9 @@ type TxMempool struct {
 	OrphanTransactions       map[util.Hash]OrphanTx
 	RecentRejects            map[util.Hash]struct{}
 
-	nextSweep                    int
-	MaxMemPoolSize               int64
+	nextSweep int
+
+	//MaxMemPoolSize               int64
 	incrementalRelayFee          util.FeeRate //
 	rollingMinimumFeeRate        int64
 	blockSinceLastRollingFeeBump bool
@@ -114,7 +116,8 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 
 	for hash := range setParentTransactions {
 		if parent, ok := m.poolData[hash]; ok {
-			txentry.UpdateParent(parent, &m.cacheInnerUsage, true)
+			txentry.UpdateParent(parent, true)
+			m.cacheInnerUsage += int64(unsafe.Sizeof(parent))
 		}
 	}
 
@@ -309,7 +312,7 @@ func (m *TxMempool) trackPackageRemoved(rate util.FeeRate) {
 	}
 }
 
-func (m *TxMempool) GetMinFee(sizeLimit int) util.FeeRate {
+func (m *TxMempool) GetMinFee(sizeLimit int64) util.FeeRate {
 	if !m.blockSinceLastRollingFeeBump || m.rollingMinimumFeeRate == 0 {
 		return *util.NewFeeRate(m.rollingMinimumFeeRate)
 	}
@@ -450,7 +453,8 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 
 	for removeIt := range entriesToRemove {
 		for updateIt := range removeIt.ChildTx {
-			updateIt.UpdateParent(removeIt, &m.cacheInnerUsage, false)
+			updateIt.UpdateParent(removeIt, false)
+			m.cacheInnerUsage -= int64(unsafe.Sizeof(updateIt))
 		}
 	}
 
@@ -530,12 +534,14 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 	// update the parent's child transaction set;
 	for piter := range txentry.ParentTx {
 		if add {
-			piter.UpdateChild(txentry, &m.cacheInnerUsage, true)
+			piter.UpdateChild(txentry, true)
+			m.cacheInnerUsage += int64(unsafe.Sizeof(piter))
 		} else {
 			hash := txentry.Tx.GetHash()
 			phash := piter.Tx.GetHash()
 			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", hash.String(), ", tx1 : ", phash.String())
-			piter.UpdateChild(txentry, &m.cacheInnerUsage, false)
+			piter.UpdateChild(txentry, false)
+			m.cacheInnerUsage -= int64(unsafe.Sizeof(piter))
 		}
 	}
 

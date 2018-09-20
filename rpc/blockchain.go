@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -606,10 +607,11 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	pool := mempool.GetInstance()
 	ret := &btcjson.GetMempoolInfoResult{
-		Size:          pool.Size(),
-		Bytes:         pool.GetPoolAllTxSize(),
-		Usage:         pool.GetPoolUsage(),
-		MaxMempool:    pool.MaxMemPoolSize,
+		Size:  pool.Size(),
+		Bytes: pool.GetPoolAllTxSize(),
+		Usage: pool.GetPoolUsage(),
+		//MaxMempool:    pool.MaxMemPoolSize,
+		MaxMempool:    conf.Cfg.Mempool.MaxPoolSize,
 		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil

@@ -19,7 +19,7 @@ type TxEntry struct {
 	SigOpCount int
 	// time Local time when entering the memPool
 	time int64
-	// usageSize and total memory usage
+	// usageSize and total memory usage;
 	usageSize int
 	// childTx the tx's all Descendants transaction
 	ChildTx map[*TxEntry]struct{}
@@ -72,24 +72,21 @@ func (t *TxEntry) GetTime() int64 {
 }
 
 // UpdateParent update the tx's parent transaction.
-func (t *TxEntry) UpdateParent(parent *TxEntry, innerUsage *int64, add bool) {
+func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
 	if add {
 		t.ParentTx[parent] = struct{}{}
-		*innerUsage += int64(unsafe.Sizeof(parent))
+		t.usageSize += int(unsafe.Sizeof(parent))
 		return
 	}
 	delete(t.ParentTx, parent)
-	*innerUsage -= int64(unsafe.Sizeof(parent))
 }
 
-func (t *TxEntry) UpdateChild(child *TxEntry, innerUsage *int64, add bool) {
+func (t *TxEntry) UpdateChild(child *TxEntry, add bool) {
 	if add {
 		t.ChildTx[child] = struct{}{}
-		*innerUsage += int64(unsafe.Sizeof(child))
 		return
 	}
 	delete(t.ChildTx, child)
-	*innerUsage -= int64(unsafe.Sizeof(child))
 }
 
 func (t *TxEntry) UpdateDescendantState(updateCount, updateSize int, updateFee int64) {
@@ -122,7 +119,7 @@ func NewTxentry(tx *tx.Tx, txFee int64, acceptTime int64, height int32, lp LockP
 	t.time = acceptTime
 	t.TxSize = int(tx.SerializeSize())
 	t.TxFee = txFee
-	t.usageSize = t.TxSize + int(unsafe.Sizeof(t.lp))
+	t.usageSize = t.TxSize + int(unsafe.Sizeof(*t))
 	t.spendsCoinbase = spendCoinbase
 	t.lp = lp
 	t.TxHeight = height
