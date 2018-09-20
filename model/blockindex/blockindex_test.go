@@ -12,6 +12,8 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
+//todo the unit test did not pass
+
 const SkipListLength = 30000
 
 func TestBlockIndexGetAncestor(t *testing.T) {
@@ -130,6 +132,7 @@ func TestGetBlockTimeMax(t *testing.T) {
 //}
 
 func TestGetUndoPos(t *testing.T) {
+
 	//var bIndex BlockIndex
 	//testInt := int32(34536)
 	//testUint := uint32(53645)
@@ -207,13 +210,7 @@ func TestIsReplayProtectionEnabled(t *testing.T) {
 	var params chainparams.BitcoinParams
 	var bIndex BlockIndex
 	params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast() + 1
-	//if bIndex.IsReplayProtectionEnabled(&params) {
-	//	t.Errorf("IsCashHFEnabled is wrong, got true, want false")
-	//}
-	//params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast()
-	//if !bIndex.IsReplayProtectionEnabled(&params) {
-	//	t.Errorf("IsCashHFEnabled is wrong, got false, want true")
-	//}
+
 }
 
 func TestNewBlockIndex(t *testing.T) {

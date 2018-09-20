@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -35,6 +36,7 @@ var miningHandlers = map[string]commandHandler{
 	"submitblock":       handleSubmitBlock,
 	"generatetoaddress": handleGenerateToAddress,
 	"generate":          handleGenerate,
+	"estimatefee":       handleEstimateFee,
 }
 
 func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -471,6 +473,24 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			Message: "Block decode failed: " + err.Error(),
 		}
 	}
+	hash := bk.GetHash()
+	ch := chain.GetInstance()
+	blkIdx := ch.FindBlockIndex(hash)
+	if blkIdx != nil {
+		if blkIdx.IsValid(blockindex.BlockValidScripts) {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.RPCTransactionAlreadyInChain,
+				Message: "duplicate",
+			}
+		}
+
+		if (blkIdx.Status & blockindex.BlockInvalidMask) < 0 {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.RPCTransactionError,
+				Message: "duplicate-invalid",
+			}
+		}
+	}
 
 	// Process this block using the same rules as blocks coming from other
 	// nodes.  This will in turn relay it to the network like normal.
@@ -480,7 +500,6 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	}
 
 	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
-
 	return nil, nil
 }
 
@@ -572,6 +591,28 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	_ = extraNonce
 
 	return ret, nil
+}
+
+// handleEstimateFee handles estimatefee commands.
+func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.EstimateFeeCmd)
+
+	if s.cfg.FeeEstimator == nil {
+		return nil, errors.New("Fee estimation disabled")
+	}
+
+	if c.NumBlocks <= 0 {
+		return -1.0, errors.New("Parameter NumBlocks must be positive")
+	}
+
+	feeRate, err := s.cfg.FeeEstimator.EstimateFee(uint32(c.NumBlocks))
+
+	if err != nil {
+		return -1.0, err
+	}
+
+	// Convert to satoshis per kb.
+	return float64(feeRate), nil
 }
 
 func registerMiningRPCCommands() {

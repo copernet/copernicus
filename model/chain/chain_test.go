@@ -2,9 +2,10 @@ package chain
 
 import (
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"os"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
@@ -17,7 +18,8 @@ import (
 var testChain *Chain
 
 func TestMain(m *testing.M) {
-	global.InitPersistGlobal()
+	persist.InitPersistGlobal()
+	conf.Cfg = conf.InitConfig()
 	os.Exit(m.Run())
 }
 

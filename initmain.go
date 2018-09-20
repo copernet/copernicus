@@ -9,12 +9,16 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/persist/global"
 )
 
 func appInitMain() {
+	//init config
+	conf.Cfg = conf.InitConfig()
+
+	//init log
 	log.Init()
 
 	// Init UTXO DB
@@ -27,7 +31,7 @@ func appInitMain() {
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/blocks/index", CacheSize: (1 << 20) * 8}}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	global.InitPersistGlobal()
+	persist.InitPersistGlobal()
 
 	// Load blockindex DB
 	lblockindex.LoadBlockIndexDB()

@@ -1,7 +1,6 @@
 package conf
 
 import (
-	"flag"
 	"io"
 	"net"
 	"os"
@@ -54,21 +53,23 @@ const (
 	defaultMaxMempoolSize        = 300
 )
 
-var Cfg *Configuration
-var DataDir string
+var (
+	Cfg     *Configuration
+	DataDir string
+)
 
-// init configuration
-func initConfig() *Configuration {
+// InitConfig init configuration
+func InitConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
-	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
-	flag.Parse()
+	//getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
+	//flag.Parse()
 
 	DataDir = defaultDataDir
-	if getdatadir != nil {
-		DataDir = *getdatadir
-	}
+	//if getdatadir != nil {
+	//	DataDir = *getdatadir
+	//}
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
@@ -214,7 +215,8 @@ type Configuration struct {
 		DustRelayFee int64 `default:"83"`
 	}
 	Chain struct {
-		AssumeValid string
+		AssumeValid    string
+		StartLogHeight int32 `default:"2147483647"`
 	}
 	Mining struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee
@@ -229,10 +231,6 @@ func must(i interface{}, err error) interface{} {
 		panic(err)
 	}
 	return i
-}
-
-func init() {
-	Cfg = initConfig()
 }
 
 func CopyFile(src, des string) (w int64, err error) {

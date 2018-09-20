@@ -371,7 +371,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		m.RemoveStaged(stage, false, SIZELIMIT)
 		for e := range stage {
 			hash := e.Tx.GetHash()
-			fmt.Printf("remove tx hash : %s, mempool size : %d\n", hash.String(), m.cacheInnerUsage)
+			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.cacheInnerUsage)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {
@@ -418,7 +418,7 @@ func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDe
 			delete(m.rootTx, rem.Tx.GetHash())
 		}
 		m.delTxentry(rem, reason)
-		fmt.Println("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
+		log.Debug("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
 	}
 }
 
@@ -506,7 +506,6 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 // it are already in setDescendants as well, so that we can save time by not
 // iterating over those entries.
 func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntry]struct{}) {
-	//stage := make(map[*TxEntry]struct{})
 	stage := make([]*TxEntry, 0)
 	if _, ok := descendants[entry]; !ok {
 		stage = append(stage, entry)
@@ -553,7 +552,6 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 	updateFee := int64(updateCount) * txentry.TxFee
 	// update each of ancestors transaction state;
 	for ancestorit := range ancestors {
-		//fmt.Println("ancestor hash : ", ancestorit.Tx.GetHash().ToString())
 		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
 	}
 }
@@ -675,15 +673,19 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 }
 
 func NewTxMempool() *TxMempool {
-	t := &TxMempool{}
-	t.feeRate = util.FeeRate{SataoshisPerK: 1}
-	t.nextTx = make(map[outpoint.OutPoint]*TxEntry)
-	t.poolData = make(map[util.Hash]*TxEntry)
-	t.timeSortData = *btree.New(32)
-	t.rootTx = make(map[util.Hash]*TxEntry)
-	t.txByAncestorFeeRateSort = *btree.New(32)
-	t.incrementalRelayFee = *util.NewFeeRate(1)
-	return t
+	return &TxMempool{
+		feeRate:                 util.FeeRate{SataoshisPerK: 1},
+		poolData:                make(map[util.Hash]*TxEntry),
+		nextTx:                  make(map[outpoint.OutPoint]*TxEntry),
+		rootTx:                  make(map[util.Hash]*TxEntry),
+		txByAncestorFeeRateSort: *btree.New(32),
+		timeSortData:            *btree.New(32),
+		incrementalRelayFee:     *util.NewFeeRate(1),
+
+		OrphanTransactionsByPrev: make(map[outpoint.OutPoint]map[util.Hash]OrphanTx),
+		OrphanTransactions:       make(map[util.Hash]OrphanTx),
+		RecentRejects:            make(map[util.Hash]struct{}),
+	}
 }
 
 func InitMempool() {
@@ -713,8 +715,8 @@ func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
 	o := OrphanTx{Tx: orphantx, NodeID: nodeID, Expiration: time.Now().Second() + OrphanTxExpireTime}
 	m.OrphanTransactions[orphantx.GetHash()] = o
 	for _, preout := range orphantx.GetAllPreviousOut() {
-		if exsit, ok := m.OrphanTransactionsByPrev[preout]; ok {
-			exsit[orphantx.GetHash()] = o
+		if exist, ok := m.OrphanTransactionsByPrev[preout]; ok {
+			exist[orphantx.GetHash()] = o
 		} else {
 			mi := make(map[util.Hash]OrphanTx)
 			mi[orphantx.GetHash()] = o
@@ -727,7 +729,7 @@ func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 
 	if orphanTx, ok := m.OrphanTransactions[txHash]; ok {
 		for _, preout := range orphanTx.Tx.GetAllPreviousOut() {
-			if orphans, exsit := m.OrphanTransactionsByPrev[preout]; exsit {
+			if orphans, exist := m.OrphanTransactionsByPrev[preout]; exist {
 				delete(orphans, txHash)
 				if len(orphans) == 0 {
 					delete(m.OrphanTransactionsByPrev, preout)
@@ -748,15 +750,14 @@ func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 	delete(m.OrphanTransactions, txHash)
 }
 
-func (m *TxMempool) LimitOrphanTx() int {
-
-	removeNum := 0
+func (m *TxMempool) LimitOrphanTx() (removeNum int) {
 	now := time.Now().Second()
 	if m.nextSweep <= now {
 		minExpTime := now + OrphanTxExpireTime - OrphanTxExpireInterval
 		for hash, orphan := range m.OrphanTransactions {
 			if orphan.Expiration <= now {
 				m.EraseOrphanTx(hash, true)
+				removeNum++
 			} else {
 				if minExpTime > orphan.Expiration {
 					minExpTime = orphan.Expiration
@@ -766,15 +767,16 @@ func (m *TxMempool) LimitOrphanTx() int {
 		m.nextSweep = minExpTime + OrphanTxExpireInterval
 	}
 
-	for {
-		if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
-			break
-		}
-		for hash := range m.OrphanTransactions {
-			m.EraseOrphanTx(hash, true)
-		}
+	if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
+		return
 	}
-	return removeNum
+
+	for hash := range m.OrphanTransactions {
+		m.EraseOrphanTx(hash, true)
+		removeNum++
+		break
+	}
+	return
 }
 
 func (m *TxMempool) RemoveOrphansByTag(nodeID int64) int {

@@ -44,14 +44,15 @@ type DisconnectNodeCmd struct {
 // TransactionInput represents the inputs to a transaction.  Specifically a
 // transaction hash and output number pair.
 type TransactionInput struct {
-	Txid string `json:"txid"`
-	Vout uint32 `json:"vout"`
+	Txid     string `json:"txid"`
+	Vout     uint32 `json:"vout"`
+	Sequence *int64 `json:"sequence"`
 }
 
 // CreateRawTransactionCmd defines the createrawtransaction JSON-RPC command.
 type CreateRawTransactionCmd struct {
 	Inputs   []TransactionInput
-	Amounts  map[string]float64 `jsonrpcusage:"{\"address\":amount,...}"` // In BTC
+	Outputs  map[string]interface{}
 	LockTime *int64
 }
 
@@ -59,12 +60,12 @@ type CreateRawTransactionCmd struct {
 // a createrawtransaction JSON-RPC command.
 //
 // Amounts are in BTC.
-func NewCreateRawTransactionCmd(inputs []TransactionInput, amounts map[string]float64,
+func NewCreateRawTransactionCmd(inputs []TransactionInput, outputs map[string]interface{},
 	lockTime *int64) *CreateRawTransactionCmd {
 
 	return &CreateRawTransactionCmd{
 		Inputs:   inputs,
-		Amounts:  amounts,
+		Outputs:  outputs,
 		LockTime: lockTime,
 	}
 }
@@ -447,7 +448,7 @@ func NewGetRawMempoolCmd(verbose *bool) *GetRawMempoolCmd {
 // Core even though it really should be a bool.
 type GetRawTransactionCmd struct {
 	Txid    string
-	Verbose *int `jsonrpcdefault:"0"`
+	Verbose *bool `jsonrpcdefault:"false"`
 }
 
 // NewGetRawTransactionCmd returns a new instance which can be used to issue a
@@ -455,7 +456,7 @@ type GetRawTransactionCmd struct {
 //
 // The parameters which are pointers indicate they are optional.  Passing nil
 // for optional parameters will use the default value.
-func NewGetRawTransactionCmd(txHash string, verbose *int) *GetRawTransactionCmd {
+func NewGetRawTransactionCmd(txHash string, verbose *bool) *GetRawTransactionCmd {
 	return &GetRawTransactionCmd{
 		Txid:    txHash,
 		Verbose: verbose,
@@ -898,4 +899,5 @@ func init() {
 	MustRegisterCmd("getexcessiveblock", (*GetExcessiveBlockCmd)(nil), flags)
 	MustRegisterCmd("pruneblockchain", (*PruneBlockChainCmd)(nil), flags)
 	MustRegisterCmd("createmultisig", (*CreateMultiSigCmd)(nil), flags)
+	MustRegisterCmd("estimatefee", (*EstimateFeeCmd)(nil), flags)
 }

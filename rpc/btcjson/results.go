@@ -214,7 +214,7 @@ type GetMempoolInfoResult struct {
 	Size          int     `json:"size"`
 	Bytes         uint64  `json:"bytes"`
 	Usage         int64   `json:"usage"`
-	MaxMempool    int64   `json:"maxmempool"`
+	MaxMempool    int     `json:"maxmempool"`
 	MempoolMinFee float64 `json:"mempoolminfee"`
 }
 
@@ -440,7 +440,7 @@ func (v *VinPrevOut) MarshalJSON() ([]byte, error) {
 // Vout models parts of the tx data.  It is defined separately since both
 // getrawtransaction and decoderawtransaction use the same structure.
 type Vout struct {
-	Value        int64              `json:"value"`
+	Value        float64            `json:"value"`
 	N            uint32             `json:"n"`
 	ScriptPubKey ScriptPubKeyResult `json:"scriptPubKey"`
 }
@@ -491,7 +491,7 @@ type TxRawResult struct {
 	Vin           []Vin  `json:"vin"`
 	Vout          []Vout `json:"vout"`
 	BlockHash     string `json:"blockhash"`
-	Confirmations int    `json:"confirmations"`
+	Confirmations int32  `json:"confirmations"`
 	Time          uint32 `json:"time"`
 	Blocktime     uint32 `json:"blocktime"`
 }
@@ -518,7 +518,7 @@ type SearchRawTransactionsResult struct {
 type TxRawDecodeResult struct {
 	Txid     string `json:"txid"`
 	Hash     string `json:"hash"`
-	Size     uint   `json:"size"`
+	Size     uint32 `json:"size"`
 	Version  int32  `json:"version"`
 	Locktime uint32 `json:"locktime"`
 	Vin      []Vin  `json:"vin"`

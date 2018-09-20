@@ -3,9 +3,12 @@ package lchain
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
@@ -13,7 +16,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 
 	"github.com/copernet/copernicus/log"
@@ -40,10 +43,17 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 
 	// Verify that the view's current state corresponds to the previous lblock
-	hashPrevBlock := *pindex.Prev.GetBlockHash()
+	var hashPrevBlock *util.Hash
+	if pindex.Prev == nil {
+		hashPrevBlock = &util.Hash{}
+	} else {
+		hashPrevBlock = pindex.Prev.GetBlockHash()
+	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
+	log.Debug("bestHash = %s\n", bestHash.String())
 	if !hashPrevBlock.IsEqual(&bestHash) {
+		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
 	}
 
@@ -88,7 +98,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 
 	nTime1 := util.GetMicrosTime()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
 	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n",
 		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
@@ -178,7 +188,7 @@ func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 	pindex.AddStatus(blockindex.BlockFailed)
 	gChain := chain.GetInstance()
 	gChain.RemoveFromBranch(pindex)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(pindex)
 }
 
@@ -216,7 +226,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	indexHash := blockConnecting.GetHash()
 	// Apply the block atomically to the chain state.
 	nTime2 := time.Now().UnixNano()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
 	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 
@@ -245,6 +255,25 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
+
+	if pIndexNew.Height >= conf.Cfg.Chain.StartLogHeight {
+		var stat stat
+		if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
+			log.Debug("GetUTXOStats() failed with : %s", err)
+			return err
+		}
+		f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+		if err != nil {
+			log.Debug("os.OpenFile() failed with : %s", err)
+			return err
+		}
+		defer f.Close()
+		if _, err := f.WriteString(stat.String()); err != nil {
+			log.Debug("f.WriteString() failed with : %s", err)
+			return err
+		}
+	}
+
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",

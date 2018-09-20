@@ -48,8 +48,9 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 					spendCoinbase = true
 				}
 			} else {
-				panic("the transaction in mempool, not found its parent " +
+				log.Error("the transaction in mempool, not found its parent " +
 					"transaction in local node and utxo")
+				return errcode.New(errcode.TxErrNoPreviousOut)
 			}
 		}
 	}
@@ -73,28 +74,23 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 
 	// first collect this tx all outPoint.
 	for i := 0; i < transaction.GetOutsCount(); i++ {
-
 		o := outpoint.OutPoint{Hash: transaction.GetHash(), Index: uint32(i)}
 		vWorkQueue = append(vWorkQueue, o)
 	}
 
-	//todo !!! modify this transaction send node time .
-	//pfrom->nLastTXTime = GetTime();
 	setMisbehaving := make(map[int64]struct{})
 	for len(vWorkQueue) > 0 {
 		prevOut := vWorkQueue[0]
 		vWorkQueue = vWorkQueue[1:]
-		if orphans, ok := pool.OrphanTransactionsByPrev[prevOut]; !ok {
-			continue
-		} else {
+		if orphans, ok := pool.OrphanTransactionsByPrev[prevOut]; ok {
 			for _, iOrphanTx := range orphans {
 				fromPeer := iOrphanTx.NodeID
 				if _, ok := setMisbehaving[fromPeer]; ok {
 					continue
 				}
 
-				err2 := AcceptTxToMemPool(iOrphanTx.Tx)
-				if err2 == nil {
+				err := AcceptTxToMemPool(iOrphanTx.Tx)
+				if err == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
 						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.GetHash(), Index: uint32(i)}
@@ -104,9 +100,9 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 					break
 				}
 
-				if !errcode.IsErrorCode(err2, errcode.TxErrNoPreviousOut) {
+				if !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 					pool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), true)
-					if errcode.IsErrorCode(err2, errcode.RejectTx) {
+					if errcode.IsErrorCode(err, errcode.RejectTx) {
 						pool.RecentRejects[iOrphanTx.Tx.GetHash()] = struct{}{}
 					}
 					break
@@ -416,7 +412,7 @@ func CheckMempool() {
 	for _, entry := range spentOut {
 		txid := entry.Tx.GetHash()
 		if e, ok := allEntry[txid]; !ok {
-			panic("the transaction not exsit mempool. . .")
+			panic("the transaction not exist in mempool. . .")
 		} else {
 			if e.Tx != entry.Tx {
 				panic("mempool store the transaction is different with it's two struct . . .")

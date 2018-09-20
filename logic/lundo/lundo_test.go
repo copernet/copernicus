@@ -60,7 +60,6 @@ func AddCoins(txs *tx.Tx, coinMap *utxo.CoinsMap, height int32) {
 }
 
 func HasSpendableCoin(coinMap *utxo.CoinsMap, txid util.Hash) bool {
-	//fmt.Println(coinMap.AccessCoin(outpoint.NewOutPoint(txid, 0)))
 	return !coinMap.AccessCoin(outpoint.NewOutPoint(txid, 0)).IsSpent()
 }
 

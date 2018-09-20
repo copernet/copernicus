@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"gopkg.in/fatih/set.v0"
 	"math"
+	"strconv"
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleblock"
+	"github.com/copernet/copernicus/logic/lutxo"
+	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -21,6 +25,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
@@ -38,67 +43,66 @@ var rawTransactionHandlers = map[string]commandHandler{
 }
 
 func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.GetRawTransactionCmd)
+	c := cmd.(*btcjson.GetRawTransactionCmd)
 
-		// Convert the provided transaction hash hex to a Hash.
-		txHash, err := util.GetHashFromStr(c.Txid)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.Txid)
-		}
+	// Convert the provided transaction hash hex to a Hash.
+	txHash, err := util.GetHashFromStr(c.Txid)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Txid)
+	}
 
-		verbose := false
-		if c.Verbose != nil {
-			verbose = *c.Verbose != 0
-		}
+	verbose := false
+	if c.Verbose != nil {
+		verbose = *c.Verbose
+	}
 
-		tx, hashBlock, ok := GetTransaction(txHash, true)
-		if !ok {
-			if chain.GTxIndex { // todo define
-				return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey,
-					"No such mempool or blockchain transaction")
-			}
-			return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey,
-				"No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.")
+	tx, hashBlock, ok := GetTransaction(txHash, true)
+	if !ok {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidAddressOrKey,
+			Message: "No such mempool or blockchain transaction. Use gettransaction for wallet transactions.",
 		}
+	}
 
-		buf := bytes.NewBuffer(nil)
-		err = tx.Serialize(buf)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.Txid)
-		}
-		strHex := hex.EncodeToString(buf.Bytes())
-		if !verbose {
-			return strHex, nil
-		}
-		rawTxn, err := createTxRawResult(tx, hashBlock, consensus.ActiveNetParams)
-		if err != nil {
-			return nil, err
-		}
-		return *rawTxn, nil*/ //   TODO open
-	return nil, nil
+	buf := bytes.NewBuffer(nil)
+	err = tx.Serialize(buf)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Txid)
+	}
+	strHex := hex.EncodeToString(buf.Bytes())
+	if !verbose {
+		return strHex, nil
+	}
+
+	rawTxn, err := getTxRawResult(tx, hashBlock, strHex)
+	if err != nil {
+		return nil, err
+	}
+	return rawTxn, nil
 }
 
-// createTxRawResult converts the passed transaction and associated parameters
+// getTxRawResult converts the passed transaction and associated parameters
 // to a raw transaction JSON object.
-/*func createTxRawResult(tx *tx.Tx, hashBlock *util.Hash, params *consensus.BitcoinParams) (*btcjson.TxRawResult, error) {
+func getTxRawResult(tx *tx.Tx, hashBlock *util.Hash, strHex string) (*btcjson.TxRawResult, error) {
 
 	hash := tx.GetHash()
 	txReply := &btcjson.TxRawResult{
+		Hex:      strHex,
 		TxID:     hash.String(),
 		Hash:     hash.String(),
 		Size:     int(tx.SerializeSize()),
 		Version:  tx.GetVersion(),
 		LockTime: tx.GetLockTime(),
-		Vin:      createVinList(tx),
-		Vout:     createVoutList(tx, params),
+		Vin:      getVinList(tx),
+		Vout:     getVoutList(tx),
 	}
 
 	if !hashBlock.IsNull() {
 		txReply.BlockHash = hashBlock.String()
-		bindex := chain.GetInstance.FindBlockIndex(*hashBlock) // todo realise: get *BlockIndex by blockhash
+		bindex := chain.GetInstance().FindBlockIndex(*hashBlock)
 		if bindex != nil {
-			if chain.GetInstance.Contains(bindex) {
-				txReply.Confirmations = chain.GetInstance.Height() - bindex.Height + 1
+			if chain.GetInstance().Contains(bindex) {
+				txReply.Confirmations = chain.GetInstance().TipHeight() - bindex.Height + 1
 				txReply.Time = bindex.Header.Time
 				txReply.Blocktime = bindex.Header.Time
 			} else {
@@ -107,25 +111,45 @@ func handleGetRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct
 		}
 	}
 	return txReply, nil
-}*/ // TODO open
+}
 
-// createVinList returns a slice of JSON objects for the inputs of the passed
-// transaction.
-/*func createVinList(tx *tx.Tx) []btcjson.Vin {
+// getVinList returns a slice of JSON objects for the inputs of the passed transaction.
+func getVinList(tx *tx.Tx) []btcjson.Vin {
 	vinList := make([]btcjson.Vin, len(tx.GetIns()))
-	for index, in := range tx.GetIns() {
+	for i, in := range tx.GetIns() {
 		if tx.IsCoinBase() {
-			vinList[index].Coinbase = hex.EncodeToString(in.GetScriptSig().GetData())
+			vinList[i] = btcjson.Vin{
+				Coinbase: hex.EncodeToString(in.GetScriptSig().GetData()),
+				Sequence: in.Sequence,
+			}
 		} else {
-			vinList[index].Txid = in.PreviousOutPoint.Hash.String()
-			vinList[index].Vout = in.PreviousOutPoint.Index
-			vinList[index].ScriptSig.Asm = ScriptToAsmStr(in.GetScriptSig(), true)
-			vinList[index].ScriptSig.Hex = hex.EncodeToString(in.GetScriptSig().GetData())
+			vinList[i] = btcjson.Vin{
+				Txid: in.PreviousOutPoint.Hash.String(),
+				Vout: in.PreviousOutPoint.Index,
+				ScriptSig: &btcjson.ScriptSig{
+					Asm: ScriptToAsmStr(in.GetScriptSig(), true),
+					Hex: hex.EncodeToString(in.GetScriptSig().GetData()),
+				},
+				Sequence: in.Sequence,
+			}
 		}
-		vinList[index].Sequence = in.Sequence
 	}
 	return vinList
-}*/ // TODO open
+}
+
+// getVoutList returns a slice of JSON objects for the outputs of the passed transaction.
+func getVoutList(tx *tx.Tx) []btcjson.Vout {
+	voutList := make([]btcjson.Vout, tx.GetOutsCount())
+	for i := 0; i < tx.GetOutsCount(); i++ {
+		out := tx.GetTxOut(i)
+		voutList[i] = btcjson.Vout{
+			Value:        valueFromAmount(int64(out.GetValue())),
+			N:            uint32(i),
+			ScriptPubKey: ScriptPubKeyToJSON(out.GetScriptPubKey(), true),
+		}
+	}
+	return voutList
+}
 
 func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string {
 	var str string
@@ -184,20 +208,6 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string {
 	return str
 }
 
-// createVoutList returns a slice of JSON objects for the outputs of the passed
-// transaction.
-/*func createVoutList(tx *tx.Tx, params *consensus.BitcoinParams) []btcjson.Vout {
-	voutList := make([]btcjson.Vout, tx.GetOutsCount())
-	for i := 0; i < tx.GetOutsCount(); i++ {
-		out := tx.GetTxOut(i)
-		voutList[i].Value = out.GetValue()
-		voutList[i].N = uint32(i)
-		voutList[i].ScriptPubKey = ScriptPubKeyToJSON(out.GetScriptPubKey(), true)
-	}
-
-	return voutList
-}*/ // TODO open
-
 func ScriptPubKeyToJSON(script *script.Script, includeHex bool) btcjson.ScriptPubKeyResult {
 	result := btcjson.ScriptPubKeyResult{}
 
@@ -245,95 +255,69 @@ func GetTxnOutputType(sType int) string {
 	}
 }
 
-/*func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
-	entry := mempool.Gpool.FindTx(*hash) // todo realize: in mempool get *core.Tx by hash
+func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
+	entry := mempool.GetInstance().FindTx(*hash)
 	if entry != nil {
 		return entry.Tx, nil, true
 	}
 
+	/* TODO: NOT support txindex yet
 	if chain.GTxIndex {
 		chain.GBlockTree.ReadTxIndex(hash)
-		//blockchain.OpenBlockFile(, true)
-		// todo complete
+	}*/
+
+	if !allowSlow {
+		return nil, nil, false
 	}
 
 	// use coin database to locate block that contains transaction, and scan it
 	var indexSlow *blockindex.BlockIndex
-	if allowSlow {
-		coin := utxo2.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
-		if !coin.IsSpent() {
-			indexSlow = chain.GetInstance.GetIndex(int(coin.GetHeight())) // todo realise : get *BlockIndex by height
-		}
+	coin := lutxo.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
+	if coin.IsSpent() {
+		return nil, nil, false
 	}
 
+	indexSlow = chain.GetInstance().GetIndex(coin.GetHeight())
 	if indexSlow != nil {
-		var bk *block.Block
-		if chain.ReadBlockFromDisk(bk, indexSlow, consensus.ActiveNetParams) {
+		bk, ok := disk.ReadBlockFromDisk(indexSlow, chain.GetInstance().GetParams())
+		if ok {
 			for _, item := range bk.Txs {
 				if *hash == item.GetHash() {
-					return item, &indexSlow.BlockHash, true
+					return item, indexSlow.GetBlockHash(), true
 				}
 			}
 		}
 	}
-
 	return nil, nil, false
-}*/ //TODO open
+}
 
 func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.CreateRawTransactionCmd)
 
-	var transaction = tx.NewTx(uint32(*c.LockTime), 0)
-	if c.LockTime != nil &&
-		(*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
+	lockTime := uint32(0)
+	if c.LockTime != nil && (*c.LockTime < 0 || *c.LockTime > int64(script.SequenceFinal)) {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
 			Message: "Locktime out of range",
 		}
+		lockTime = uint32(*c.LockTime)
 	}
+	transaction := tx.NewTx(lockTime, 0)
 
 	for _, input := range c.Inputs {
-		hash, err := util.GetHashFromStr(input.Txid)
+		txIn, err := createRawTxInput(&input, lockTime)
 		if err != nil {
-			return nil, rpcDecodeHexError(input.Txid)
+			return nil, err
 		}
-
-		if input.Vout < 0 {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrInvalidParameter,
-				Message: "Invalid parameter, vout must be positive",
-			}
-		}
-
-		sequence := uint32(math.MaxUint32)
-		if transaction.GetLockTime() != 0 {
-			sequence = math.MaxUint32 - 1
-		}
-
-		// todo lack handle with sequence parameter(optional), is reasonable?
-		in := txin.NewTxIn(outpoint.NewOutPoint(*hash, input.Vout), &script.Script{}, sequence)
-		transaction.AddTxIn(in)
+		transaction.AddTxIn(txIn)
 	}
 
-	for address, cost := range c.Amounts {
-		// todo do not support the key named 'data' in btcd
-		addr, err := script.AddressFromString(address)
+	for address, cost := range c.Outputs {
+		txOut, err := createRawTxOutput(address, cost)
 		if err != nil {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidAddressOrKey,
-				Message: "Invalid Bitcoin address: " + address,
-			}
+			return nil, err
 		}
-
-		outValue := int64(cost * 1e8)
-		if !amount.MoneyRange(amount.Amount(outValue)) {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrInvalidParameter,
-				Message: "Invalid amount",
-			}
-		}
-		out := txout.NewTxOut(amount.Amount(outValue), script.NewScriptRaw(addr.EncodeToPubKeyHash()))
-		transaction.AddTxOut(out)
+		transaction.AddTxOut(txOut)
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -346,59 +330,152 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 	return hex.EncodeToString(buf.Bytes()), nil
 }
 
-func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeRawTransactionCmd)
+func createRawTxInput(input *btcjson.TransactionInput, lockTime uint32) (*txin.TxIn, error) {
+	hash, err := util.GetHashFromStr(input.Txid)
+	if err != nil {
+		return nil, rpcDecodeHexError(input.Txid)
+	}
 
-		// Unserialize the transaction.
-		serializedTx, err := hex.DecodeString(c.HexTx)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.HexTx)
+	if input.Vout < 0 {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.ErrInvalidParameter,
+			Message: "Invalid parameter, vout must be positive",
 		}
+	}
 
-		var transaction tx.Tx
-		err = transaction.Unserialize(bytes.NewReader(serializedTx))
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDeserialization,
-				Message: "TX decode failed: " + err.Error(),
+	sequence := uint32(math.MaxUint32)
+	if input.Sequence != nil {
+		if *input.Sequence < 0 || *input.Sequence > math.MaxUint32 {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid parameter, sequence number is out of range",
 			}
 		}
+		sequence = uint32(*input.Sequence)
+	} else if lockTime != 0 {
+		sequence = math.MaxUint32 - 1
+	}
 
-		// Create and return the result.
-		txReply := btcjson.TxRawDecodeResult{
-			Txid:     transaction.Hash.String(),
-			Hash:     transaction.Hash.String(),
-			Size:     transaction.SerializeSize(),
-			Version:  transaction.GetVersion(),
-			Locktime: transaction.GetLockTime(),
-			Vin:      createVinList(&transaction),
-			Vout:     createVoutList(&transaction, consensus.ActiveNetParams),
+	txIn := txin.NewTxIn(outpoint.NewOutPoint(*hash, input.Vout), &script.Script{}, sequence)
+	return txIn, nil
+}
+
+func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
+	var txAmount amount.Amount
+	scriptPubKey := script.NewEmptyScript()
+
+	if address == "data" {
+		data, ok := cost.(string)
+		if !ok {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid parameter, value of data must be string",
+			}
 		}
+		dataBuf, err := hex.DecodeString(data)
+		if err != nil {
+			return nil, rpcDecodeHexError(data)
+		}
+		txAmount = amount.Amount(0)
+		scriptPubKey.PushOpCode(opcodes.OP_RETURN)
+		scriptPubKey.PushSingleData(dataBuf)
+	} else {
+		costVal, ok := cost.(float64)
+		if !ok {
+			costData, ok := cost.(string)
+			if !ok {
+				return nil, btcjson.RPCError{
+					Code:    btcjson.ErrInvalidParameter,
+					Message: "Invalid parameter, value of amount must be numeric or string",
+				}
+			}
+			var err error
+			costVal, err = strconv.ParseFloat(costData, 64)
+			if err != nil {
+				return nil, btcjson.RPCError{
+					Code:    btcjson.ErrInvalidParameter,
+					Message: "Invalid parameter, value of amount must be numeric",
+				}
+			}
+		}
+		addr, err := script.AddressFromString(address)
+		if err != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidAddressOrKey,
+				Message: "Invalid Bitcoin address: " + address,
+			}
+		}
+		txAmount = amount.Amount(int64(costVal * 1e8))
+		if !amount.MoneyRange(txAmount) {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrInvalidParameter,
+				Message: "Invalid amount",
+			}
+		}
+		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
+		scriptPubKey.PushSingleData(addr.EncodeToPubKeyHash())
+		scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
+	}
 
-		return txReply, nil*/
-	return nil, nil
+	txOut := txout.NewTxOut(txAmount, scriptPubKey)
+	return txOut, nil
+}
+
+func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.DecodeRawTransactionCmd)
+
+	// Unserialize the transaction.
+	serializedTx, err := hex.DecodeString(c.HexTx)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
+
+	transaction := tx.NewEmptyTx()
+	err = transaction.Unserialize(bytes.NewReader(serializedTx))
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCDeserialization,
+			Message: "TX decode failed: " + err.Error(),
+		}
+	}
+	txHash := transaction.GetHash()
+
+	// Create and return the result.
+	txReply := &btcjson.TxRawDecodeResult{
+		Txid:     txHash.String(),
+		Hash:     txHash.String(),
+		Size:     transaction.SerializeSize(),
+		Version:  transaction.GetVersion(),
+		Locktime: transaction.GetLockTime(),
+		Vin:      getVinList(transaction),
+		Vout:     getVoutList(transaction),
+	}
+
+	return txReply, nil
 }
 
 func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.DecodeScriptCmd)
+	c := cmd.(*btcjson.DecodeScriptCmd)
 
-		// Convert the hex script to bytes.
-		scriptByte, err := hex.DecodeString(c.HexScript)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.HexScript)
+	// Convert the hex script to bytes.
+	scriptByte, err := hex.DecodeString(c.HexScript)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.HexScript)
+	}
+	st := script.NewScriptRaw(scriptByte)
+
+	ret := ScriptPubKeyToJSON(st, false)
+
+	if ret.Type != "scripthash" {
+		// P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
+		// don't return the address for a P2SH of the P2SH.
+		addr, err := script.AddressFromScriptHash(scriptByte)
+		if err == nil {
+			ret.P2SH = addr.String()
 		}
-		st := script.NewScriptRaw(scriptByte)
+	}
 
-		ret := ScriptPubKeyToJSON(st, false)
-
-		if ret.Type != "scripthash" {
-			// P2SH cannot be wrapped in a P2SH. If this script is already a P2SH,
-			// don't return the address for a P2SH of the P2SH.
-			ret.P2SH = EncodeDestination(scriptByte) // todo realise
-		}
-
-		return ret, nil*/ // TODO open
-	return nil, nil
+	return ret, nil
 }
 
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -413,7 +490,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 
 	hash := transaction.GetHash()
 
-	// todo open
+	// NOT support high fee limit yet
 	//maxRawTxFee := mining.MaxTxFee
 	//if c.AllowHighFees != nil && *c.AllowHighFees {
 	//	maxRawTxFee = 0
@@ -447,10 +524,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                     crypto.SigHashAll,
-	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                        crypto.SigHashAll,
+	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,
@@ -650,66 +727,62 @@ func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransac
 }
 
 func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.GetTxOutProofCmd)
+	c := cmd.(*btcjson.GetTxOutProofCmd)
 
-		setTxIds := set.New() // element type: util.Hash
-		var oneTxId util.Hash
-		txIds := c.TxIDs
+	setTxIds := set.New()
+	var oneTxID util.Hash
+	txIds := c.TxIDs
 
-		for idx := 0; idx < len(txIds); idx++ {
-			txId := txIds[idx]
-			hash, err := util.GetHashFromStr(txId)
-			if len(txId) != 64 || err != nil {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidParameter,
-					Message: "Invalid txid " + txId,
-				}
+	for _, txID := range txIds {
+		hash, err := util.GetHashFromStr(txID)
+		if len(txID) != 64 || err != nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid txid " + txID,
 			}
-
-			if setTxIds.Has(*hash) {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrRPCInvalidParameter,
-					Message: "Invalid parameter, duplicated txid: " + txId,
-				}
+		}
+		if setTxIds.Has(*hash) {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Invalid parameter, duplicated txid: " + txID,
 			}
-			setTxIds.Add(*hash)
-			oneTxId = *hash
+		}
+		setTxIds.Add(*hash)
+		oneTxID = *hash
+	}
+
+	var bindex *blockindex.BlockIndex
+	var hashBlock *util.Hash
+	if c.BlockHash != nil {
+		var err error
+		hashBlock, err = util.GetHashFromStr(*c.BlockHash)
+		if err != nil {
+			return nil, rpcDecodeHexError(*c.BlockHash)
 		}
 
-		var bindex *blockindex.BlockIndex
-		var hashBlock *util.Hash
-		if c.BlockHash != nil {
-			var err error
-			hashBlock, err = util.GetHashFromStr(*c.BlockHash)
-			if err != nil {
-				return nil, rpcDecodeHexError(*c.BlockHash)
+		bindex = chain.GetInstance().FindBlockIndex(*hashBlock)
+		if bindex == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInvalidAddressOrKey,
+				Message: "Block not found",
 			}
-
-			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
-			if bindex == nil {
-				return nil, btcjson.RPCError{
-					Code:    btcjson.RPCInvalidAddressOrKey,
-					Message: "Block not found",
-				}
-			}
-		} else {
-			view := utxo.GetUtxoCacheInstance()
-			coin := utxo2.AccessByTxid(view, &oneTxId)
-			if !coin.IsSpent() && coin.GetHeight() > 0 && int(coin.GetHeight()) <= chain.GetInstance.Height() {
-				bindex = chain.GetInstance.GetIndex(int(coin.GetHeight()))
-			}
+		}
+	} else {
+		view := utxo.GetUtxoCacheInstance()
+		coin := lutxo.AccessByTxid(view, &oneTxID)
+		if !coin.IsSpent() && coin.GetHeight() > 0 && coin.GetHeight() <= chain.GetInstance().Height() {
+			bindex = chain.GetInstance().GetIndex(coin.GetHeight())
 		}
 
 		if bindex == nil {
-			tx, hashBlock, ok := GetTransaction(&oneTxId, false)
-			if !ok || hashBlock.IsNull() {
+			_, hashBlock, ok := GetTransaction(&oneTxID, false)
+			if !ok || hashBlock == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInvalidAddressOrKey,
 					Message: "Transaction not yet in block",
 				}
 			}
-
-			bindex = chain.GetInstance.FindBlockIndex(*hashBlock)
+			bindex = chain.GetInstance().FindBlockIndex(*hashBlock)
 			if bindex == nil {
 				return nil, btcjson.RPCError{
 					Code:    btcjson.RPCInternalError,
@@ -717,34 +790,34 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 				}
 			}
 		}
+	}
 
-		bk, ok := ReadBlockFromDisk(bindex)
-		if !ok {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInternalError,
-				Message: "Can not read block from disk",
-			}
+	bk, ok := disk.ReadBlockFromDisk(bindex, chain.GetInstance().GetParams())
+	if !ok {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not read block from disk",
 		}
+	}
 
-		found := 0
-		for _, transaction := range bk.Txs {
-			if setTxIds.Has(transaction.GetHash()) {
-				found++
-			}
+	found := 0
+	for _, transaction := range bk.Txs {
+		if setTxIds.Has(transaction.GetHash()) {
+			found++
 		}
+	}
 
-		if found != setTxIds.Size() {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInvalidAddressOrKey,
-				Message: "(Not all) transactions not found in specified block",
-			}
+	if found != setTxIds.Size() {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInvalidAddressOrKey,
+			Message: "(Not all) transactions not found in specified block",
 		}
+	}
 
-		mb := mblock.NewMerkleBlock(bk, setTxIds)
-		buf := bytes.NewBuffer(nil)
-		mb.Serialize(buf)
-		return hex.EncodeToString(buf.Bytes()), nil*/ //TODO open
-	return nil, nil
+	mb := lmerkleblock.NewMerkleBlock(bk, setTxIds)
+	buf := bytes.NewBuffer(nil)
+	mb.Serialize(buf)
+	return hex.EncodeToString(buf.Bytes()), nil
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -766,7 +839,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 
 	matches := make([]util.Hash, 0)
 	items := make([]int, 0)
-	if mb.Txn.ExtractMatches(matches, items).IsEqual(&mb.Header.MerkleRoot) {
+	if !mb.Txn.ExtractMatches(&matches, &items).IsEqual(&mb.Header.MerkleRoot) {
 		return nil, nil
 	}
 

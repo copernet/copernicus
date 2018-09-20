@@ -22,6 +22,7 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc/btcjson"
 )
@@ -455,6 +456,9 @@ type ServerConfig struct {
 	// unix timestamp for when the server that is hosting the RPC server started.
 	StartupTime int64
 	ConnMgr     server.RPCConnManager
+	// The fee estimator keeps track of how long transactions are left in
+	// the mempool before they are mined into blocks.
+	FeeEstimator *mempool.FeeEstimator
 }
 
 // SetupRPCListeners returns a slice of listeners that are configured for use
@@ -530,8 +534,7 @@ func parseListeners(addrs []string) ([]net.Addr, error) {
 
 		// Empty host or host of * on plan9 is both IPv4 and IPv6.
 		if host == "" || (host == "*" && runtime.GOOS == "plan9") {
-			netAddrs = append(netAddrs, simpleAddr{net: "tcp4", addr: addr})
-			netAddrs = append(netAddrs, simpleAddr{net: "tcp6", addr: addr})
+			netAddrs = append(netAddrs, simpleAddr{net: "tcp4", addr: addr}, simpleAddr{net: "tcp6", addr: addr})
 			continue
 		}
 

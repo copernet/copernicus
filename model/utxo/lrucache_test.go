@@ -26,7 +26,6 @@ func TestLRUCache(t *testing.T) {
 	txout1 := txout.NewTxOut(3, script1)
 
 	coin1 := necm.cacheCoins[outpoint1]
-
 	coin1 = &Coin{
 		txOut:         *txout1,
 		height:        10000,
@@ -36,10 +35,9 @@ func TestLRUCache(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint1, coin1, false)
+	necm.AddCoin(&outpoint1, coin1, true)
 
 	err := GetUtxoCacheInstance().UpdateCoins(necm, hash1)
-	//ok := necm.Flush(*hash1)
 	if err != nil {
 		t.Error("flush failed....")
 	}
@@ -76,10 +74,9 @@ func TestLRUCache(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint2, coin2, false)
+	necm.AddCoin(&outpoint2, coin2, true)
 
 	err = GetUtxoCacheInstance().UpdateCoins(necm, hash2)
-	//ok2 := necm.Flush(*hash2)
 	if err != nil {
 		t.Error("flush failed....")
 	}

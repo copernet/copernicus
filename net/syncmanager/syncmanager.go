@@ -204,6 +204,9 @@ type SyncManager struct {
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
 	requestBlkInvCnt int
+
+	// An optional fee estimator.
+	feeEstimator *mempool.FeeEstimator
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -953,6 +956,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
 			return true, nil
 		}
+		return false, nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
@@ -1184,6 +1188,7 @@ out:
 				if msg.peer.Cfg.Listeners.OnGetData != nil {
 					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
 				}
+
 				msg.reply <- struct{}{}
 			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
@@ -1209,7 +1214,7 @@ out:
 
 			default:
 				log.Warn("Invalid message type in block "+
-					"handler: %T", msg)
+					"handler: %T, %#v", msg, msg)
 			}
 
 		case <-sm.quit:
@@ -1272,6 +1277,20 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 				}
 			}
 			sm.peerNotifier.AnnounceNewTransactions(txentrys)
+		}
+
+		// Register block with the fee estimator, if it exists.
+		if sm.feeEstimator != nil {
+			err := sm.feeEstimator.RegisterBlock(block)
+
+			// If an error is somehow generated then the fee estimator
+			// has entered an invalid state. Since it doesn't know how
+			// to recover, create a new one.
+			if err != nil {
+				sm.feeEstimator = mempool.NewFeeEstimator(
+					mempool.DefaultEstimateFeeMaxRollback,
+					mempool.DefaultEstimateFeeMinRegisteredBlocks)
+			}
 		}
 
 		// A block has been disconnected from the main block chain.
@@ -1342,24 +1361,24 @@ func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, d
 	sm.processBusinessChan <- &poolMsg{pool, peer, done}
 }
 
-func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer2 *peer.Peer, done chan<- struct{}) {
+func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.processBusinessChan <- &getdataMsg{getdata, peer2, done}
+	sm.processBusinessChan <- getdataMsg{getdata, peer, done}
 }
 
-func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer2 *peer.Peer, done chan<- struct{}) {
+func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.processBusinessChan <- &getBlocksMsg{getblocks, peer2, done}
+	sm.processBusinessChan <- getBlocksMsg{getblocks, peer, done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.

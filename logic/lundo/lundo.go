@@ -12,7 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 )
 
@@ -31,7 +31,7 @@ func IsInitialBlockDownload() bool {
 	if latchToFalse.Load().(bool) {
 		return false
 	}
-	if global.Reindex {
+	if persist.Reindex {
 		return true
 	}
 	if gChainActive.Tip() == nil {
@@ -42,7 +42,7 @@ func IsInitialBlockDownload() bool {
 		return true
 	}
 
-	if int64(gChainActive.Tip().GetBlockTime()) < util.GetTime()-global.DefaultMaxTipAge {
+	if int64(gChainActive.Tip().GetBlockTime()) < util.GetTime()-persist.DefaultMaxTipAge {
 		return true
 	}
 	latchToFalse.Store(true)
