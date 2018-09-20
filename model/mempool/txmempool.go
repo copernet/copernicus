@@ -2,11 +2,6 @@ package mempool
 
 import (
 	"fmt"
-	"math"
-	"sync"
-	"time"
-	"unsafe"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -16,6 +11,9 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
+	"math"
+	"sync"
+	"time"
 )
 
 const (
@@ -100,34 +98,31 @@ func (m *TxMempool) GetMinFeeRate() util.FeeRate {
 // AddTx operator is safe for concurrent write And read access.
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
-func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) error {
+func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) error {
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
-	m.timeSortData.ReplaceOrInsert(txentry)
-	m.poolData[txentry.Tx.GetHash()] = txentry
-	m.usageSize += int64(txentry.usageSize) + int64(unsafe.Sizeof(txentry))
+	m.timeSortData.ReplaceOrInsert(txEntry)
+	m.poolData[txEntry.Tx.GetHash()] = txEntry
+	m.usageSize += int64(txEntry.usageSize)
 
 	// Update ancestors with information about this tx
-	setParentTransactions := make(map[util.Hash]struct{})
-	tx := txentry.Tx
-	for _, preout := range tx.GetAllPreviousOut() {
-		m.nextTx[preout] = txentry
-		setParentTransactions[preout.Hash] = struct{}{}
-	}
+	parentSet := m.updateNextTx(txEntry)
 
-	for hash := range setParentTransactions {
+	// Update txEntry's parents
+	for hash := range parentSet {
 		if parent, ok := m.poolData[hash]; ok {
-			txentry.UpdateParent(parent, true)
-			m.usageSize += int64(unsafe.Sizeof(parent))
+			txEntry.UpdateParent(parent, true)
 		}
 	}
 
-	m.updateAncestorsOf(true, txentry, ancestors)
-	m.updateEntryForAncestors(txentry, ancestors)
-	m.totalTxSize += uint64(txentry.TxSize)
+	// Update txEntry's parents' child
+	txEntry.UpdateChildOfParents(true)
+	m.updateAncestors(true, txEntry, ancestors)
+	m.updateEntryForAncestors(txEntry, ancestors)
+	m.totalTxSize += uint64(txEntry.TxSize)
 	m.TransactionsUpdated++
-	m.txByAncestorFeeRateSort.ReplaceOrInsert(EntryAncestorFeeRateSort(*txentry))
-	if txentry.SumTxCountWithAncestors == 1 {
-		m.rootTx[txentry.Tx.GetHash()] = txentry
+	m.txByAncestorFeeRateSort.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
+	if txEntry.SumTxCountWithAncestors == 1 {
+		m.rootTx[txEntry.Tx.GetHash()] = txEntry
 	}
 	return nil
 }
@@ -357,7 +352,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		removed := util.NewFeeRateWithSize(rem.TxFee, int64(rem.TxSize))
 		removed.SataoshisPerK += m.incrementalRelayFee.SataoshisPerK
 
-		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumFeeWithDescendants, removeIt.SumSizeWithDescendants).SataoshisPerK
+		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumTxFeeWithDescendants, removeIt.SumTxSizeWithDescendants).SataoshisPerK
 		stage := make(map[*TxEntry]struct{})
 		m.CalculateDescendants(&removeIt, stage)
 		nTxnRemoved += len(stage)
@@ -454,7 +449,6 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	for removeIt := range entriesToRemove {
 		for updateIt := range removeIt.ChildTx {
 			updateIt.UpdateParent(removeIt, false)
-			m.usageSize -= int64(unsafe.Sizeof(updateIt))
 		}
 	}
 
@@ -463,7 +457,8 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 		if err != nil {
 			return
 		}
-		m.updateAncestorsOf(false, removeIt, ancestors)
+		removeIt.UpdateChildOfParents(false)
+		m.updateAncestors(false, removeIt, ancestors)
 	}
 }
 
@@ -527,29 +522,26 @@ func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntr
 	}
 }
 
-// updateAncestorsOf update each of ancestors transaction state; add or remove this
-// txentry txfee, txsize, txcount.
-func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[*TxEntry]struct{}) {
-	// update the parent's child transaction set;
-	for piter := range txentry.ParentTx {
-		if add {
-			piter.UpdateChild(txentry, true)
-			m.usageSize += int64(unsafe.Sizeof(piter))
-		} else {
-			hash := txentry.Tx.GetHash()
-			phash := piter.Tx.GetHash()
-			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", hash.String(), ", tx1 : ", phash.String())
-			piter.UpdateChild(txentry, false)
-			m.usageSize -= int64(unsafe.Sizeof(piter))
-		}
+func (m *TxMempool) updateNextTx(txEntry *TxEntry) (parentSet map[util.Hash]struct{}) {
+	parentSet = make(map[util.Hash]struct{})
+	ins := txEntry.Tx.GetIns()
+	for _, in := range ins {
+		m.nextTx[*in.PreviousOutPoint] = txEntry
+		parentSet[in.PreviousOutPoint.Hash] = struct{}{}
 	}
 
+	return
+}
+
+// updateAncestorsOf update each of ancestors transaction state; add or remove this
+// txentry txfee, txsize, txcount.
+func (m *TxMempool) updateAncestors(add bool, txEntry *TxEntry, ancestors map[*TxEntry]struct{}) {
 	updateCount := -1
 	if add {
 		updateCount = 1
 	}
-	updateSize := updateCount * txentry.TxSize
-	updateFee := int64(updateCount) * txentry.TxFee
+	updateSize := updateCount * txEntry.TxSize
+	updateFee := int64(updateCount) * txEntry.TxFee
 	// update each of ancestors transaction state;
 	for ancestorit := range ancestors {
 		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
@@ -611,7 +603,7 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 		tempParents = tempParents[1:]
 
 		ancestors[entry] = struct{}{}
-		if uint64(entry.SumSizeWithDescendants+int64(entry.TxSize)) > limitDescendantSize {
+		if uint64(entry.SumTxSizeWithDescendants+int64(entry.TxSize)) > limitDescendantSize {
 			return nil, errcode.New(errcode.ManyUnspendDepend)
 		}
 
@@ -648,7 +640,7 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	if _, ok := m.rootTx[removeEntry.Tx.GetHash()]; ok {
 		delete(m.rootTx, removeEntry.Tx.GetHash())
 	}
-	m.usageSize -= int64(removeEntry.usageSize) + int64(unsafe.Sizeof(removeEntry))
+	m.usageSize -= int64(removeEntry.usageSize)
 	m.TransactionsUpdated++
 	m.totalTxSize -= uint64(removeEntry.TxSize)
 	delete(m.poolData, removeEntry.Tx.GetHash())

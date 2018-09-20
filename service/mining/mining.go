@@ -183,9 +183,9 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			continue
 		}
 
-		packageSize := entry.SumSizeWitAncestors
-		packageFee := entry.SumFeeWithAncestors
-		packageSigOps := entry.SumSigOpCountWithAncestors
+		packageSize := entry.SumTxSizeWitAncestors
+		packageFee := entry.SumTxFeeWithAncestors
+		packageSigOps := entry.SumTxSigOpCountWithAncestors
 
 		// deal with several different mining strategies
 		isEnd := false
@@ -375,9 +375,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
-				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
-				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			case sortByFeeRate:
@@ -385,9 +385,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
-				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
-				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			}

@@ -532,10 +532,10 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	result.StartingPriority = 0
 	result.CurrentPriority = 0
 	result.DescendantCount = entry.SumTxCountWithDescendants
-	result.DescendantSize = entry.SumSizeWithDescendants
-	result.DescendantFees = entry.SumFeeWithDescendants
+	result.DescendantSize = entry.SumTxSizeWithDescendants
+	result.DescendantFees = entry.SumTxFeeWithDescendants
 	result.AncestorCount = entry.SumTxCountWithAncestors
-	result.AncestorSize = entry.SumSizeWitAncestors
+	result.AncestorSize = entry.SumTxSizeWitAncestors
 	result.AncestorFees = entry.SumFeeWithAncestors
 
 	setDepends := make([]string, 0)

@@ -308,13 +308,13 @@ func CheckMempool() {
 		if entry.SumTxCountWithAncestors != nCountCheck {
 			panic("the txentry's ancestors number is incorrect .")
 		}
-		if entry.SumSizeWitAncestors != nSizeCheck {
+		if entry.SumTxSizeWitAncestors != nSizeCheck {
 			panic("the txentry's ancestors size is incorrect .")
 		}
-		if entry.SumSigOpCountWithAncestors != nSigOpCheck {
+		if entry.SumTxSigOpCountWithAncestors != nSigOpCheck {
 			panic("the txentry's ancestors sigopcount is incorrect .")
 		}
-		if entry.SumFeeWithAncestors != nFeesCheck {
+		if entry.SumTxFeeWithAncestors != nFeesCheck {
 			panic("the txentry's ancestors fee is incorrect .")
 		}
 
@@ -336,7 +336,7 @@ func CheckMempool() {
 		if len(setChildrenCheck) != len(entry.ChildTx) {
 			panic("the transaction children set is different ...")
 		}
-		if entry.SumSizeWithDescendants < int64(childSize+entry.TxSize) {
+		if entry.SumTxSizeWithDescendants < int64(childSize+entry.TxSize) {
 			panic("the transaction descendant's fee is less its children fee ...")
 		}
 

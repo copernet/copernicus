@@ -57,8 +57,8 @@ type EntryAncestorFeeRateSort mempool.TxEntry
 
 func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	t := than.(EntryAncestorFeeRateSort)
-	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumSizeWitAncestors).SataoshisPerK
-	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumSizeWitAncestors).SataoshisPerK
+	b1 := util.NewFeeRateWithSize((r).SumFeeWithAncestors, r.SumTxSizeWitAncestors).SataoshisPerK
+	b2 := util.NewFeeRateWithSize(t.SumFeeWithAncestors, t.SumTxSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
 		rHash := r.Tx.GetHash()
 		tHash := t.Tx.GetHash()
