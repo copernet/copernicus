@@ -284,11 +284,11 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	for _, e := range set {
 		ancestors, _ := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		testPool.AddTx(e, ancestors)
-		fmt.Printf("entry size : %d, hash : %v, mempool size : %d \n", e.usageSize, e.Tx.GetHash(), testPool.cacheInnerUsage)
+		fmt.Printf("entry size : %d, hash : %v, mempool size : %d \n", e.usageSize, e.Tx.GetHash(), testPool.usageSize)
 	}
-	fmt.Println("mempool usage size : ", testPool.cacheInnerUsage)
+	fmt.Println("mempool usage size : ", testPool.usageSize)
 
-	testPool.trimToSize(testPool.cacheInnerUsage)
+	testPool.trimToSize(testPool.usageSize)
 	if testPool.Size() != len(set) {
 		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", len(set), testPool.Size())
 	}
@@ -299,8 +299,8 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	if testPool.Size() != 0 {
 		t.Errorf("the pool element number is error, expect number is : %d, actual number is : %d", 0, testPool.Size())
 	}
-	if testPool.cacheInnerUsage != 0 {
-		t.Errorf("current the mempool size should be 0 byte, actual pool size is %d\n", testPool.cacheInnerUsage)
+	if testPool.usageSize != 0 {
+		t.Errorf("current the mempool size should be 0 byte, actual pool size is %d\n", testPool.usageSize)
 	}
 	fmt.Printf("============= end ============\n")
 }

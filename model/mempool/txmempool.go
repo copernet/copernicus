@@ -67,8 +67,8 @@ type TxMempool struct {
 	txByAncestorFeeRateSort btree.BTree
 	timeSortData            btree.BTree
 	//
-	cacheInnerUsage int64
-	checkFrequency  float64
+	usageSize      int64
+	checkFrequency float64
 	// sum of all mempool tx's size.
 	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
@@ -104,7 +104,7 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
 	m.timeSortData.ReplaceOrInsert(txentry)
 	m.poolData[txentry.Tx.GetHash()] = txentry
-	m.cacheInnerUsage += int64(txentry.usageSize) + int64(unsafe.Sizeof(txentry))
+	m.usageSize += int64(txentry.usageSize) + int64(unsafe.Sizeof(txentry))
 
 	// Update ancestors with information about this tx
 	setParentTransactions := make(map[util.Hash]struct{})
@@ -117,7 +117,7 @@ func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	for hash := range setParentTransactions {
 		if parent, ok := m.poolData[hash]; ok {
 			txentry.UpdateParent(parent, true)
-			m.cacheInnerUsage += int64(unsafe.Sizeof(parent))
+			m.usageSize += int64(unsafe.Sizeof(parent))
 		}
 	}
 
@@ -158,7 +158,7 @@ func (m *TxMempool) GetPoolAllTxSize() uint64 {
 
 func (m *TxMempool) GetPoolUsage() int64 {
 	m.RLock()
-	size := m.cacheInnerUsage
+	size := m.usageSize
 	m.RUnlock()
 	return size
 }
@@ -320,9 +320,9 @@ func (m *TxMempool) GetMinFee(sizeLimit int64) util.FeeRate {
 	timeTmp := util.GetTime()
 	if timeTmp > m.lastRollingFeeUpdate+10 {
 		halfLife := RollingFeeHalfLife
-		if m.cacheInnerUsage < sizeLimit/4 {
+		if m.usageSize < sizeLimit/4 {
 			halfLife /= 4
-		} else if m.cacheInnerUsage < sizeLimit/2 {
+		} else if m.usageSize < sizeLimit/2 {
 			halfLife /= 2
 		}
 		m.rollingMinimumFeeRate = m.rollingMinimumFeeRate / int64(math.Pow(2.0, float64(timeTmp-m.lastRollingFeeUpdate))/float64(halfLife))
@@ -348,7 +348,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 	ret := make([]*outpoint.OutPoint, 0)
 	maxFeeRateRemove := int64(0)
 
-	for len(m.poolData) > 0 && m.cacheInnerUsage > sizeLimit {
+	for len(m.poolData) > 0 && m.usageSize > sizeLimit {
 		removeIt := TxEntry(m.txByAncestorFeeRateSort.Min().(EntryAncestorFeeRateSort))
 		rem := m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(removeIt)).(EntryAncestorFeeRateSort)
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
@@ -371,7 +371,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		m.RemoveStaged(stage, false, SIZELIMIT)
 		for e := range stage {
 			hash := e.Tx.GetHash()
-			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.cacheInnerUsage)
+			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.usageSize)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {
@@ -418,7 +418,7 @@ func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDe
 			delete(m.rootTx, rem.Tx.GetHash())
 		}
 		m.delTxentry(rem, reason)
-		log.Debug("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
+		log.Debug("remove one transaction late, the mempool size : ", m.usageSize)
 	}
 }
 
@@ -454,7 +454,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	for removeIt := range entriesToRemove {
 		for updateIt := range removeIt.ChildTx {
 			updateIt.UpdateParent(removeIt, false)
-			m.cacheInnerUsage -= int64(unsafe.Sizeof(updateIt))
+			m.usageSize -= int64(unsafe.Sizeof(updateIt))
 		}
 	}
 
@@ -534,13 +534,13 @@ func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[
 	for piter := range txentry.ParentTx {
 		if add {
 			piter.UpdateChild(txentry, true)
-			m.cacheInnerUsage += int64(unsafe.Sizeof(piter))
+			m.usageSize += int64(unsafe.Sizeof(piter))
 		} else {
 			hash := txentry.Tx.GetHash()
 			phash := piter.Tx.GetHash()
 			fmt.Println("tx will romove tx3's from its'parent, tx3 : ", hash.String(), ", tx1 : ", phash.String())
 			piter.UpdateChild(txentry, false)
-			m.cacheInnerUsage -= int64(unsafe.Sizeof(piter))
+			m.usageSize -= int64(unsafe.Sizeof(piter))
 		}
 	}
 
@@ -648,7 +648,7 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	if _, ok := m.rootTx[removeEntry.Tx.GetHash()]; ok {
 		delete(m.rootTx, removeEntry.Tx.GetHash())
 	}
-	m.cacheInnerUsage -= int64(removeEntry.usageSize) + int64(unsafe.Sizeof(removeEntry))
+	m.usageSize -= int64(removeEntry.usageSize) + int64(unsafe.Sizeof(removeEntry))
 	m.TransactionsUpdated++
 	m.totalTxSize -= uint64(removeEntry.TxSize)
 	delete(m.poolData, removeEntry.Tx.GetHash())
