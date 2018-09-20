@@ -440,8 +440,8 @@ func (v *VinPrevOut) MarshalJSON() ([]byte, error) {
 // Vout models parts of the tx data.  It is defined separately since both
 // getrawtransaction and decoderawtransaction use the same structure.
 type Vout struct {
-	Value        int64              `json:"value"`
-	N            int                `json:"n"`
+	Value        float64            `json:"value"`
+	N            uint32             `json:"n"`
 	ScriptPubKey ScriptPubKeyResult `json:"scriptPubKey"`
 }
 
@@ -518,7 +518,7 @@ type SearchRawTransactionsResult struct {
 type TxRawDecodeResult struct {
 	Txid     string `json:"txid"`
 	Hash     string `json:"hash"`
-	Size     uint   `json:"size"`
+	Size     uint32 `json:"size"`
 	Version  int32  `json:"version"`
 	Locktime uint32 `json:"locktime"`
 	Vin      []Vin  `json:"vin"`
