@@ -161,7 +161,7 @@ func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason) {
 }
 
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
-	gChain := chain.GetInstance()
+	//gChain := chain.GetInstance()
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
@@ -172,8 +172,8 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	txToRemove := make(map[*mempool.TxEntry]struct{})
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
-		lp := entry.GetLockPointFromTxEntry()
-		validLP := entry.CheckLockPointValidity(gChain)
+		//lp := entry.GetLockPointFromTxEntry()
+		//validLP := entry.CheckLockPointValidity(gChain)
 		//state := NewValidationState()
 
 		tx := entry.Tx
@@ -219,9 +219,9 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 			}
 		}
 
-		if !validLP {
-			entry.SetLockPointFromTxEntry(lp)
-		}
+		//if !validLP {
+		entry.SetLockPointFromTxEntry(*tlp)
+		//}
 	}
 
 	allRemoves := make(map[*mempool.TxEntry]struct{})
