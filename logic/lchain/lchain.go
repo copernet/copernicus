@@ -51,7 +51,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
-	log.Debug("bestHash = %s\n", bestHash.String())
+	log.Debug("bestHash = %s", bestHash.String())
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
@@ -100,7 +100,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	nTime1 := util.GetMicrosTime()
 	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
-	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n",
+	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fsn",
 		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
@@ -143,7 +143,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
 	nTime2 := util.GetMicrosTime()
 	gPersist.GlobalTimeForks += nTime2 - nTime1
-	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
+	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]",
 		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags,
