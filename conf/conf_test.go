@@ -68,7 +68,7 @@ func TestInitConfig(t *testing.T) {
 		}
 
 		Convey("When init configuration", func() {
-			config := initConfig()
+			config := InitConfig()
 			defaultDataDir := AppDataDir(defaultDataDirname, false)
 
 			Convey("Configuration should resemble default configuration", func() {

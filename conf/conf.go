@@ -53,11 +53,13 @@ const (
 	defaultMaxMempoolSize        = 300
 )
 
-var Cfg *Configuration
-var DataDir string
+var (
+	Cfg     *Configuration
+	DataDir string
+)
 
-// init configuration
-func initConfig() *Configuration {
+// InitConfig init configuration
+func InitConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
@@ -229,10 +231,6 @@ func must(i interface{}, err error) interface{} {
 		panic(err)
 	}
 	return i
-}
-
-func init() {
-	Cfg = initConfig()
 }
 
 func CopyFile(src, des string) (w int64, err error) {

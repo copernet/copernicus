@@ -82,7 +82,11 @@ func sortedByFeeRateWithAncestors() *btree.BTree {
 	return b
 }
 
-func init() {
+func getStrategy() *sortType {
+	if strategy != 0 {
+		return &strategy
+	}
+
 	sortParam := conf.Cfg.Mining.Strategy
 	ret, ok := strategies[sortParam]
 	if !ok {
@@ -90,4 +94,5 @@ func init() {
 		strategy = defaultSortStrategy
 	}
 	strategy = ret
+	return &strategy
 }

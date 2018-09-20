@@ -31,6 +31,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	conf.Cfg = conf.InitConfig()
 	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
