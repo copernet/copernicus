@@ -219,8 +219,8 @@ func createTx() []*TxEntry {
 	tx4.AddTxOut(out4)
 	_ = tx4.GetHash()
 	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4)
-	t := make([]*TxEntry, 4)
 
+	t := make([]*TxEntry, 4)
 	t[0] = txentry1
 	t[1] = txentry2
 	t[2] = txentry3

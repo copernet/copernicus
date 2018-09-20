@@ -79,14 +79,17 @@ func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
 		return
 	}
 	delete(t.ParentTx, parent)
+	t.usageSize -= int(unsafe.Sizeof(parent))
 }
 
 func (t *TxEntry) UpdateChild(child *TxEntry, add bool) {
 	if add {
 		t.ChildTx[child] = struct{}{}
+		t.usageSize += int(unsafe.Sizeof(child))
 		return
 	}
 	delete(t.ChildTx, child)
+	t.usageSize -= int(unsafe.Sizeof(child))
 }
 
 func (t *TxEntry) UpdateDescendantState(updateCount, updateSize int, updateFee int64) {
