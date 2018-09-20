@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
 )
@@ -63,13 +64,13 @@ func InitConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
-	//getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
-	//flag.Parse()
+	getdatadir := pflag.String("datadir", defaultDataDir, "specified program data dir")
+	pflag.Parse()
 
 	DataDir = defaultDataDir
-	//if getdatadir != nil {
-	//	DataDir = *getdatadir
-	//}
+	if getdatadir != nil {
+		DataDir = *getdatadir
+	}
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)

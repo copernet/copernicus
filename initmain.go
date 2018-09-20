@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -17,6 +18,7 @@ import (
 func appInitMain() {
 	//init config
 	conf.Cfg = conf.InitConfig()
+	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
 
 	//init log
 	log.Init()
