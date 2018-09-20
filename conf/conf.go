@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -105,15 +106,23 @@ func initConfig() *Configuration {
 		field := t.Field(i)
 		if v.Field(i).Type().Kind() != reflect.Struct {
 			key := field.Name
-			value := field.Tag.Get(tagName)
+			value, ok := field.Tag.Lookup(tagName)
+			if !ok {
+				continue
+			}
 			//set default value
 			viper.SetDefault(key, value)
 			//log.Printf("key is: %v,value is: %v\n", key, value)
 		} else {
 			structField := v.Field(i).Type()
+			structName := t.Field(i).Name
 			for j := 0; j < structField.NumField(); j++ {
-				key := structField.Field(j).Name
-				values := structField.Field(j).Tag.Get(tagName)
+				fieldName := structField.Field(j).Name
+				key := fmt.Sprintf("%s.%s", structName, fieldName)
+				values, ok := structField.Field(j).Tag.Lookup(tagName)
+				if !ok {
+					continue
+				}
 				viper.SetDefault(key, values)
 				//log.Printf("key is: %v,value is: %v\n", key, values)
 			}
