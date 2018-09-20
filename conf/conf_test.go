@@ -31,6 +31,7 @@ Mining:
   Strategy: ancestorfeerate
 Chain:
   AssumeValid:
+  StartLogHeight: 2147483647
 P2PNet:
   ListenAddrs: ["127.0.0.1:8333","127.0.0.1:18333"]
   MaxPeers: 5
@@ -116,6 +117,8 @@ func TestInitConfig(t *testing.T) {
 
 				expected.Protocal.NoPeerBloomFilters = true
 				expected.Protocal.DisableCheckpoints = true
+
+				expected.Chain.StartLogHeight = 2147483647
 
 				So(config, ShouldResemble, expected)
 			})
