@@ -73,8 +73,11 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 	return entry
 }
 
-func createTx() []*mempool.TxEntry {
+func TestMain(t *testing.M) {
 	conf.Cfg = conf.InitConfig()
+}
+
+func createTx() []*mempool.TxEntry {
 	chain.InitGlobalChain()
 	testEntryHelp := NewTestMemPoolEntry()
 	tx1 := tx.NewTx(0, 0x02)

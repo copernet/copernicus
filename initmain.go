@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -12,7 +13,6 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
-	"fmt"
 )
 
 func appInitMain() {

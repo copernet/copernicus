@@ -1,12 +1,12 @@
 package conf
 
 import (
-	"os"
 	"fmt"
-	"reflect"
-	"testing"
 	"io/ioutil"
 	"math/rand"
+	"os"
+	"reflect"
+	"testing"
 
 	"github.com/spf13/viper"
 )
@@ -36,7 +36,7 @@ func initConfig() *configuration {
 	filename := fmt.Sprintf("conf_test%04d.yml", rand.Intn(9999))
 	err := ioutil.WriteFile(filename, confData, 0664)
 	if err != nil {
-		fmt.Errorf("write config file failed:%s\n", err)
+		fmt.Errorf("write config file failed:%s", err)
 	}
 
 	//parse struct tag
@@ -77,7 +77,7 @@ type configuration struct {
 	GoVersion string
 	Version   string
 	BuildDate string
-	Service struct {
+	Service   struct {
 		Address string
 	}
 	HTTP struct {
@@ -124,11 +124,6 @@ func TestSetDefault(t *testing.T) {
 	viper.SetDefault("rpc.user", "admin")
 	if viper.GetString("rpc.user") != "admin" {
 		t.Error("set default(rpc.user) error")
-	}
-	viper.SetDefault("Log.Level", "debug")
-
-	if viper.GetString("Log.Level") != "debug" {
-		t.Error("set default(Log.Level) error")
 	}
 }
 
