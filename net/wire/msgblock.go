@@ -14,7 +14,7 @@ import (
 const MaxBlocksPerMsg = 500
 
 // MaxBlockPayload is the maximum bytes a block message can be in bytes.
-const MaxBlockPayload = 8000000
+const MaxBlockPayload = 32000000
 
 const maxTxPerBlock = (MaxBlockPayload / minTxPayload) + 1
 
