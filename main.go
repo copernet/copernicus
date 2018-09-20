@@ -72,8 +72,6 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
-
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 

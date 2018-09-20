@@ -12,11 +12,13 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
+	"fmt"
 )
 
 func appInitMain() {
 	//init config
 	conf.Cfg = conf.InitConfig()
+	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
 
 	//init log
 	log.Init()
