@@ -320,9 +320,9 @@ func (m *TxMempool) GetMinFee(sizeLimit int64) util.FeeRate {
 	timeTmp := util.GetTime()
 	if timeTmp > m.lastRollingFeeUpdate+10 {
 		halfLife := RollingFeeHalfLife
-		if m.cacheInnerUsage < int64(sizeLimit/4) {
+		if m.cacheInnerUsage < sizeLimit/4 {
 			halfLife /= 4
-		} else if m.cacheInnerUsage < int64(sizeLimit/2) {
+		} else if m.cacheInnerUsage < sizeLimit/2 {
 			halfLife /= 2
 		}
 		m.rollingMinimumFeeRate = m.rollingMinimumFeeRate / int64(math.Pow(2.0, float64(timeTmp-m.lastRollingFeeUpdate))/float64(halfLife))
