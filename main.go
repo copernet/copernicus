@@ -81,11 +81,6 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
-	// Work around defer not working after os.Exit()
-	if err := bchMain(context.Background()); err != nil {
-		os.Exit(1)
-	}
-
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -98,6 +93,11 @@ func main() {
 	// Up some limits.
 	if err := limits.SetLimits(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Work around defer not working after os.Exit()
+	if err := bchMain(context.Background()); err != nil {
 		os.Exit(1)
 	}
 }
