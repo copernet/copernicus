@@ -1,6 +1,9 @@
 package chain
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/copernet/copernicus/model/blockindex"
+)
 
 // NotificationType represents the type of a notification message.
 type NotificationType int
@@ -23,6 +26,9 @@ const (
 	// NTBlockDisconnected indicates the associated block was disconnected
 	// from the main chain.
 	NTBlockDisconnected
+
+	// NTChainTipUpdated indicates the associated blocks leads to the new main chain.
+	NTChainTipUpdated
 )
 
 // notificationTypeStrings is a map of notification types back to their constant
@@ -39,6 +45,12 @@ func (n NotificationType) String() string {
 		return s
 	}
 	return fmt.Sprintf("Unknown Notification Type (%d)", int(n))
+}
+
+type TipUpdatedEvent struct {
+	TipIndex          *blockindex.BlockIndex
+	ForkIndex         *blockindex.BlockIndex
+	IsInitialDownload bool
 }
 
 // Notification defines notification that is sent to the caller via the callback
@@ -61,12 +73,12 @@ func (c *Chain) Subscribe(callback NotificationCallback) {
 	c.notificationsLock.Unlock()
 }
 
-// sendNotification sends a notification with the passed type and data if the
+// SendNotification sends a notification with the passed type and data if the
 // caller requested notifications by providing a callback function in the call
 // to New.
 func (c *Chain) SendNotification(typ NotificationType, data interface{}) {
-	// Generate and send the notification.
 	n := Notification{Type: typ, Data: data}
+
 	c.notificationsLock.RLock()
 	for _, callback := range c.notifications {
 		callback(&n)

@@ -1231,6 +1231,15 @@ out:
 // connected peers.
 func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notification) {
 	switch notification.Type {
+
+	case chain.NTChainTipUpdated:
+		event, ok := notification.Data.(*chain.TipUpdatedEvent)
+		if !ok {
+			panic("TipUpdatedEvent: malformed event payload")
+		}
+
+		sm.peerNotifier.RelayUpdatedTipBlocks(event)
+
 	// A block has been accepted into the block chain.  Relay it to other
 	// peers.
 	case chain.NTBlockAccepted:
@@ -1249,7 +1258,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Generate the inventory vector and relay it.
 		blkHash := block.GetHash()
 		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
-		sm.peerNotifier.RelayInventory(iv, block.Header)
+		sm.peerNotifier.RelayInventory(iv, &block.Header)
 
 		// A block has been connected to the main block chain.
 	case chain.NTBlockConnected:
@@ -1505,8 +1514,7 @@ func New(config *Config) (*SyncManager, error) {
 		log.Info("Checkpoints are disabled")
 	}
 
-	// FIXME: add it back when @chain.Subscribe is ready to support inv relay.
-	// sm.chain.Subscribe(sm.handleBlockchainNotification)
+	chain.GetInstance().Subscribe(sm.handleBlockchainNotification)
 
 	return &sm, nil
 }
@@ -1520,6 +1528,8 @@ type PeerNotifier interface {
 	UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer)
 
 	RelayInventory(invVect *wire.InvVect, data interface{})
+
+	RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)
 
 	TransactionConfirmed(tx *tx.Tx)
 }

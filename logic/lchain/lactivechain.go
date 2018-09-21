@@ -2,6 +2,7 @@ package lchain
 
 import (
 	"bytes"
+	"github.com/copernet/copernicus/logic/lundo"
 
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
@@ -71,7 +72,10 @@ func ActivateBestChain(pblock *block.Block) error {
 			// Wipe cache, we may need another branch now.
 			pindexMostWork = nil
 		}
+
 		pindexNewTip = gChain.Tip()
+		pindexFork := gChain.FindFork(pindexOldTip)
+
 		// throw all transactions though the signal-interface
 
 		// MemPoolConflictRemovalTracker destroyed and conflict evictions
@@ -84,6 +88,9 @@ func ActivateBestChain(pblock *block.Block) error {
 		// Notifications/callbacks that can run without cs_main
 		// Notify external listeners about the new tip.
 		// TODO!!! send Asynchronous signal to external listeners.
+
+		event := chain.TipUpdatedEvent{pindexNewTip, pindexFork, lundo.IsInitialBlockDownload()}
+		gChain.SendNotification(chain.NTChainTipUpdated, &event)
 
 		// Always notify the UI if a new block tip was connected
 
