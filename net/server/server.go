@@ -61,6 +61,9 @@ const (
 	// retries when connecting to persistent peers.  It is adjusted by the
 	// number of retries such that there is a retry backoff.
 	connectionRetryInterval = time.Second * 5
+
+	// max blocks to announce during inventory relay
+	maxBlocksToAnnounce = 8
 )
 
 var (
@@ -1328,14 +1331,14 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 		// generate and send a headers message instead of an inventory
 		// message.
 		if msg.invVect.Type == wire.InvTypeBlock && sp.WantsHeaders() {
-			blockHeader, ok := msg.data.(block.BlockHeader)
+			blockHeader, ok := msg.data.(*block.BlockHeader)
 			if !ok {
 				log.Warn("Underlying data for headers" +
 					" is not a block header")
 				return
 			}
 			msgHeaders := wire.NewMsgHeaders()
-			if err := msgHeaders.AddBlockHeader(&blockHeader); err != nil {
+			if err := msgHeaders.AddBlockHeader(blockHeader); err != nil {
 				log.Error("Failed to add block"+
 					" header: %v", err)
 				return
@@ -1777,6 +1780,28 @@ func (s *Server) BanPeer(sp *serverPeer) {
 // that are not already known to have it.
 func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 	s.relayInv <- relayMsg{invVect: invVect, data: data}
+}
+
+// RelayUpdatedTipBlocks relays blocks leads to new main chain
+func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
+	if !event.IsInitialDownload {
+		return
+	}
+
+	blockIndexes := make([]*blockindex.BlockIndex, 0)
+	for tmp := event.TipIndex; tmp != event.ForkIndex; tmp = tmp.Prev {
+		blockIndexes = append(blockIndexes, tmp)
+
+		if len(blockIndexes) >= maxBlocksToAnnounce {
+			break
+		}
+	}
+
+	for i := len(blockIndexes) - 1; i >= 0; i-- {
+		index := blockIndexes[i]
+		iv := wire.NewInvVect(wire.InvTypeBlock, index.GetBlockHash())
+		s.RelayInventory(iv, index.GetBlockHeader())
+	}
 }
 
 // BroadcastMessage sends msg to all peers currently connected to the server
