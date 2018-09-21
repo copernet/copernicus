@@ -19,6 +19,7 @@ import (
 	"github.com/copernet/copernicus/net/limits"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc"
+	"net"
 )
 
 const (
@@ -34,6 +35,13 @@ func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
 	appInitMain()
+	go func() {
+		listenAddr := net.JoinHostPort(conf.Cfg.PProf.IP, conf.Cfg.PProf.Port)
+		fmt.Printf("Profile server listening on %s\n", listenAddr)
+		profileRedirect := http.RedirectHandler("/debug/pprof", http.StatusSeeOther)
+		http.Handle("/", profileRedirect)
+		fmt.Errorf("%v", http.ListenAndServe(listenAddr, nil))
+	}()
 	interrupt := interruptListener()
 
 	s, err := server.NewServer(chainparams.ActiveNetParams, interrupt)
@@ -73,9 +81,11 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
-	go func() {
-		fmt.Println(http.ListenAndServe("localhost:8000", nil))
-	}()
+	// Work around defer not working after os.Exit()
+	if err := bchMain(context.Background()); err != nil {
+		os.Exit(1)
+	}
+
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -88,11 +98,6 @@ func main() {
 	// Up some limits.
 	if err := limits.SetLimits(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Work around defer not working after os.Exit()
-	if err := bchMain(context.Background()); err != nil {
 		os.Exit(1)
 	}
 }

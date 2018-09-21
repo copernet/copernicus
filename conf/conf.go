@@ -234,6 +234,10 @@ type Configuration struct {
 		BlockVersion  int32  `default:"-1"`
 		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
 	}
+	PProf struct {
+		IP   string `default:"localhost"`
+		Port string	`default:"6060"`
+	}
 }
 
 func must(i interface{}, err error) interface{} {
