@@ -2,6 +2,7 @@ package chain
 
 import (
 	"sort"
+	"sync"
 
 	"errors"
 	"github.com/copernet/copernicus/conf"
@@ -27,6 +28,11 @@ type Chain struct {
 	newestBlock *blockindex.BlockIndex
 	receiveID   uint64
 	params      *chainparams.BitcoinParams
+
+	// The notifications field stores a slice of callbacks to be executed on
+	// certain blockchain events.
+	notificationsLock sync.RWMutex
+	notifications     []NotificationCallback
 }
 
 var globalChain *Chain
