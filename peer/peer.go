@@ -1170,7 +1170,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	var err error
 	defer func() {
 		if err != nil {
-			log.Error("readMessage got a error: %v", err)
+			log.Error("peer(%s): readMessage got a error: %v", p, err)
 		}
 	}()
 
