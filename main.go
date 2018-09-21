@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
@@ -72,6 +73,9 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:8000", nil))
+	}()
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
