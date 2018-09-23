@@ -64,13 +64,15 @@ func InitConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 	DataDir = defaultDataDir
-	opts := InitArgs()
+	opts := InitArgs(os.Args)
 	if len(opts.DataDir) > 0 {
 		DataDir = opts.DataDir
 	}
-
 	discover := opts.Discover
 	fmt.Println("discover:%d", discover)
+
+
+
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
