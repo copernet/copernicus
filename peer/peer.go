@@ -19,8 +19,8 @@ import (
 
 	"github.com/btcsuite/go-socks/socks"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
@@ -251,7 +251,7 @@ type Config struct {
 	// ChainParams identifies which chain parameters the peer is associated
 	// with.  It is highly recommended to specify this field, however it can
 	// be omitted in which case the test network will be used.
-	ChainParams *chainparams.BitcoinParams
+	ChainParams *model.BitcoinParams
 
 	// Services specifies which services to advertise as supported by the
 	// local peer.  This field can be omitted in which case it will be 0
@@ -2043,7 +2043,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 
 	// Set the chain parameters to testnet if the caller did not specify any.
 	if cfg.ChainParams == nil {
-		cfg.ChainParams = chainparams.ActiveNetParams
+		cfg.ChainParams = model.ActiveNetParams
 	}
 
 	p := Peer{

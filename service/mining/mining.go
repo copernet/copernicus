@@ -10,10 +10,10 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -76,10 +76,10 @@ type BlockAssembler struct {
 	inBlock               map[util.Hash]struct{}
 	height                int32
 	lockTimeCutoff        int64
-	chainParams           *chainparams.BitcoinParams
+	chainParams           *model.BitcoinParams
 }
 
-func NewBlockAssembler(params *chainparams.BitcoinParams) *BlockAssembler {
+func NewBlockAssembler(params *model.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
@@ -259,7 +259,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.height = indexPrev.Height + 1
 	}
-	ba.bt.Block.Header.Version = int32(versionbits.ComputeBlockVersion(indexPrev, chainparams.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
+	ba.bt.Block.Header.Version = int32(versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
@@ -470,15 +470,15 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	}
 
 	// Updating time can change work required on testnet:
-	if chainparams.ActiveNetParams.FPowAllowMinDifficultyBlocks {
+	if model.ActiveNetParams.FPowAllowMinDifficultyBlocks {
 		p := pow.Pow{}
-		bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, chainparams.ActiveNetParams)
+		bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, model.ActiveNetParams)
 	}
 
 	return newTime - oldTime
 }
 
-func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
+func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 	halvings := height / params.SubsidyReductionInterval
 	// Force block reward to zero when right shift is undefined.
 	if halvings >= 64 {

@@ -236,7 +236,7 @@ type Configuration struct {
 	}
 	PProf struct {
 		IP   string `default:"localhost"`
-		Port string	`default:"6060"`
+		Port string `default:"6060"`
 	}
 }
 

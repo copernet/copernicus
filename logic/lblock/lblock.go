@@ -8,10 +8,10 @@ import (
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
@@ -21,7 +21,7 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 )
 
-func GetBlockByIndex(bi *blockindex.BlockIndex, param *chainparams.BitcoinParams) (blk *block.Block, err error) {
+func GetBlockByIndex(bi *blockindex.BlockIndex, param *model.BitcoinParams) (blk *block.Block, err error) {
 	blk, ret := disk.ReadBlockFromDisk(bi, param)
 	if !ret {
 		err = errors.New("disk.ReadBlockFromDisk error")
@@ -123,7 +123,7 @@ func CheckBlock(pblock *block.Block) error {
 func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
 
 	bMonolithEnable := false
-	if indexPrev != nil && chainparams.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
+	if indexPrev != nil && model.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
 		bMonolithEnable = true
 	}
 	if !bMonolithEnable {
@@ -176,7 +176,7 @@ func GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	return gChain.GetBlockScriptFlags(pindex)
 }
 
-func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
+func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 	halvings := height / params.SubsidyReductionInterval
 	// Force lblock reward to zero when right shift is undefined.
 	if halvings >= 64 {

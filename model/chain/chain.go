@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/copernet/copernicus/model"
 	"sort"
 	"sync"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
+
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -27,7 +28,7 @@ type Chain struct {
 	indexMap    map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
 	newestBlock *blockindex.BlockIndex
 	receiveID   uint64
-	params      *chainparams.BitcoinParams
+	params      *model.BitcoinParams
 
 	// The notifications field stores a slice of callbacks to be executed on
 	// certain blockchain events.
@@ -48,7 +49,7 @@ func GetInstance() *Chain {
 func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
-		globalChain.params = chainparams.ActiveNetParams
+		globalChain.params = model.ActiveNetParams
 	}
 	if len(conf.Cfg.Chain.AssumeValid) > 0 {
 		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
@@ -57,7 +58,7 @@ func InitGlobalChain() {
 		}
 		HashAssumeValid = *hash
 	} else {
-		HashAssumeValid = chainparams.ActiveNetParams.DefaultAssumeValid
+		HashAssumeValid = model.ActiveNetParams.DefaultAssumeValid
 	}
 }
 func NewChain() *Chain {
@@ -65,7 +66,7 @@ func NewChain() *Chain {
 	// return NewFakeChain()
 	return &Chain{}
 }
-func (c *Chain) GetParams() *chainparams.BitcoinParams {
+func (c *Chain) GetParams() *model.BitcoinParams {
 	return c.params
 }
 
@@ -179,7 +180,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
-	if chainparams.IsUAHFEnabled(pindex.Height) {
+	if model.IsUAHFEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyStrictEnc
 		flags |= script.ScriptEnableSigHashForkID
 	}
@@ -192,12 +193,12 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//	flags |= script.ScriptVerifyLowS
 	//	flags |= script.ScriptVerifyNullFail
 	//}
-	if chainparams.IsDAAEnabled(pindex.Height) {
+	if model.IsDAAEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
 	}
 	//The monolith HF enable a set of opcodes.
-	if chainparams.IsMonolithEnabled(pindex.GetMedianTimePast()) {
+	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
 	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
@@ -207,7 +208,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//}
 	// We make sure this node will have replay protection during the next hard
 	// fork.
-	if chainparams.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
+	if model.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableReplayProtection
 	}
 

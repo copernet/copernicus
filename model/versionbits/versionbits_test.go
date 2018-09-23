@@ -3,13 +3,13 @@ package versionbits
 import (
 	"testing"
 
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/util"
 )
 
-var paramsDummy = chainparams.BitcoinParams{}
+var paramsDummy = model.BitcoinParams{}
 
 func testTime(Height int) int64 {
 	return 1415926536 + int64(600*Height)
@@ -21,20 +21,20 @@ type ConditionChecker struct {
 
 var randomNum = util.InsecureRand32()
 
-func (tc *ConditionChecker) BeginTime(params *chainparams.BitcoinParams) int64 {
+func (tc *ConditionChecker) BeginTime(params *model.BitcoinParams) int64 {
 	return testTime(10000)
 }
 
-func (tc *ConditionChecker) EndTime(params *chainparams.BitcoinParams) int64 {
+func (tc *ConditionChecker) EndTime(params *model.BitcoinParams) int64 {
 	return testTime(20000)
 }
-func (tc *ConditionChecker) Period(params *chainparams.BitcoinParams) int {
+func (tc *ConditionChecker) Period(params *model.BitcoinParams) int {
 	return 1000
 }
-func (tc *ConditionChecker) Threshold(params *chainparams.BitcoinParams) int {
+func (tc *ConditionChecker) Threshold(params *model.BitcoinParams) int {
 	return 900
 }
-func (tc *ConditionChecker) Condition(index *blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (tc *ConditionChecker) Condition(index *blockindex.BlockIndex, params *model.BitcoinParams) bool {
 	return index.Header.Version&0x100 != 0
 }
 
@@ -403,7 +403,7 @@ func TestVersionBits(t *testing.T) {
 		TestStateSinceHeight(6000, t)
 
 	// Sanity checks of version bit deployments
-	mainnetParams := chainparams.MainNetParams
+	mainnetParams := model.MainNetParams
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		bitmask := VersionBitsMask(&mainnetParams, consensus.DeploymentPos(i))
 		// Make sure that no deployment tries to set an invalid bit.
@@ -431,7 +431,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	vbc := NewVersionBitsCache()
 
 	// Check that ComputeBlockVersion will set the appropriate bit correctly on mainnet.
-	mainnetParams := chainparams.MainNetParams
+	mainnetParams := model.MainNetParams
 
 	// Use the TESTDUMMY deployment for testing purposes.
 	bit := mainnetParams.Deployments[consensus.DeploymentTestDummy].Bit

@@ -8,8 +8,8 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/rpc/btcjson"
@@ -53,7 +53,7 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		Connections:     s.cfg.ConnMgr.ConnectedCount(),
 		Proxy:           conf.Cfg.P2PNet.Proxy,
 		Difficulty:      getDifficulty(chain.GetInstance().Tip()),
-		TestNet:         chainparams.ActiveNetParams.BitcoinNet == wire.TestNet3,
+		TestNet:         model.ActiveNetParams.BitcoinNet == wire.TestNet3,
 		RelayFee:        0, // todo define DefaultMinRelayTxFee
 	}
 
@@ -166,7 +166,7 @@ func handleSignMessageWithPrivkey(s *Server, cmd interface{}, closeChan <-chan s
 func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SetMocktimeCmd)
 
-	if !chainparams.ActiveNetParams.MineBlocksOnDemands {
+	if !model.ActiveNetParams.MineBlocksOnDemands {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCForbiddenBySafeMode,
 			Message: "etmocktime for regression testing (-regtest mode) only",

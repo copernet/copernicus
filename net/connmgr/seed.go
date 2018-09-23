@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/wire"
 )
 
@@ -31,7 +31,7 @@ type OnSeed func(addrs []*wire.NetAddress)
 type LookupFunc func(string) ([]net.IP, error)
 
 // SeedFromDNS uses DNS seeding to populate the address manager with peers.
-func SeedFromDNS(chainParams *chainparams.BitcoinParams, reqServices wire.ServiceFlag,
+func SeedFromDNS(chainParams *model.BitcoinParams, reqServices wire.ServiceFlag,
 	lookupFn LookupFunc, seedFn OnSeed) {
 
 	for _, dnsseed := range chainParams.DNSSeeds {

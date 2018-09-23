@@ -15,7 +15,7 @@ import (
 	"runtime/debug"
 
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/limits"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc"
@@ -44,7 +44,7 @@ func bchMain(ctx context.Context) error {
 	}()
 	interrupt := interruptListener()
 
-	s, err := server.NewServer(chainparams.ActiveNetParams, interrupt)
+	s, err := server.NewServer(model.ActiveNetParams, interrupt)
 	if err != nil {
 		return err
 	}

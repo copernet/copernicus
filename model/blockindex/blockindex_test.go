@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 )
 
@@ -196,7 +196,7 @@ func TestGetBlockHeader(t *testing.T) {
 }
 
 func TestIsGenesis(t *testing.T) {
-	var params chainparams.BitcoinParams
+	var params model.BitcoinParams
 	var bIndex BlockIndex
 	params.GenesisBlock = new(block.Block)
 	bIndex.SetBlockHash(params.GenesisBlock.GetHash())
@@ -207,7 +207,7 @@ func TestIsGenesis(t *testing.T) {
 }
 
 func TestIsReplayProtectionEnabled(t *testing.T) {
-	var params chainparams.BitcoinParams
+	var params model.BitcoinParams
 	var bIndex BlockIndex
 	params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast() + 1
 

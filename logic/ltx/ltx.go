@@ -12,8 +12,8 @@ import (
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -40,7 +40,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// check standard
-	if chainparams.ActiveNetParams.RequireStandard {
+	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
 			return err
@@ -103,7 +103,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	//check standard inputs
-	if chainparams.ActiveNetParams.RequireStandard {
+	if model.ActiveNetParams.RequireStandard {
 		err = checkInputsStandard(transaction, tempCoinsMap)
 		if err != nil {
 			return err
@@ -115,17 +115,17 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	//if chainparams.IsMagneticAnomalyEnable(tip.GetMedianTimePast()) {
 	//	extraFlags |= script.ScriptEnableCheckDataSig
 	//}
-	if chainparams.IsMonolithEnabled(tip.GetMedianTimePast()) {
+	if model.IsMonolithEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableMonolithOpcodes
 	}
 
-	if chainparams.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
+	if model.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableReplayProtection
 	}
 
 	//check inputs
 	var scriptVerifyFlags = uint32(script.StandardScriptVerifyFlags)
-	if !chainparams.ActiveNetParams.RequireStandard {
+	if !model.ActiveNetParams.RequireStandard {
 		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
 		if err != nil {
 			panic("config PromiscuousMempoolFlags err")
@@ -326,7 +326,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 // check coinbase with height
 func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 	// Enforce rule that the coinbase starts with serialized block height
-	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
+	if blockHeight > model.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
 		//heightData := make([][]byte, 0)
