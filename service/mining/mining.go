@@ -10,10 +10,10 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -76,10 +76,10 @@ type BlockAssembler struct {
 	inBlock               map[util.Hash]struct{}
 	height                int32
 	lockTimeCutoff        int64
-	chainParams           *chainparams.BitcoinParams
+	chainParams           *model.BitcoinParams
 }
 
-func NewBlockAssembler(params *chainparams.BitcoinParams) *BlockAssembler {
+func NewBlockAssembler(params *model.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
@@ -148,11 +148,12 @@ func computeMaxGeneratedBlockSize() uint64 {
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
 	pool := mempool.GetInstance() // todo use global variable
+	tmpStrategy := *getStrategy()
 
 	consecutiveFailed := 0
 
 	var txSet *btree.BTree
-	switch strategy {
+	switch tmpStrategy {
 	case sortByFee:
 		txSet = sortedByFeeWithAncestors()
 	case sortByFeeRate:
@@ -165,7 +166,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		// select the max value item, and delete it. select strategy is descent.
 		var entry mempool.TxEntry
 
-		switch strategy {
+		switch tmpStrategy {
 		case sortByFee:
 			entry = mempool.TxEntry(txSet.Max().(EntryFeeSort))
 			txSet.DeleteMax()
@@ -182,13 +183,13 @@ func (ba *BlockAssembler) addPackageTxs() int {
 			continue
 		}
 
-		packageSize := entry.SumSizeWitAncestors
-		packageFee := entry.SumFeeWithAncestors
-		packageSigOps := entry.SumSigOpCountWithAncestors
+		packageSize := entry.SumTxSizeWitAncestors
+		packageFee := entry.SumTxFeeWithAncestors
+		packageSigOps := entry.SumTxSigOpCountWithAncestors
 
 		// deal with several different mining strategies
 		isEnd := false
-		switch strategy {
+		switch tmpStrategy {
 		case sortByFee:
 			// if the current fee lower than the specified min fee rate, stop loop directly.
 			// because the following after this item must be lower than this
@@ -258,7 +259,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.height = indexPrev.Height + 1
 	}
-	ba.bt.Block.Header.Version = int32(versionbits.ComputeBlockVersion(indexPrev, chainparams.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
+	ba.bt.Block.Header.Version = int32(versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
@@ -359,6 +360,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
 	descendantUpdate := 0
 	mpool := mempool.GetInstance()
+	tmpStrategy := *getStrategy()
 
 	for entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
@@ -367,15 +369,15 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
 			descendantUpdate++
-			switch strategy {
+			switch tmpStrategy {
 			case sortByFee:
 				item := EntryFeeSort(*desc)
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
-				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
-				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			case sortByFeeRate:
@@ -383,9 +385,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumSizeWitAncestors -= entry.SumSizeWitAncestors
-				desc.SumFeeWithAncestors -= entry.SumFeeWithAncestors
-				desc.SumSigOpCountWithAncestors -= entry.SumSigOpCountWithAncestors
+				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			}
@@ -468,15 +470,15 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	}
 
 	// Updating time can change work required on testnet:
-	if chainparams.ActiveNetParams.FPowAllowMinDifficultyBlocks {
+	if model.ActiveNetParams.FPowAllowMinDifficultyBlocks {
 		p := pow.Pow{}
-		bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, chainparams.ActiveNetParams)
+		bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, model.ActiveNetParams)
 	}
 
 	return newTime - oldTime
 }
 
-func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
+func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 	halvings := height / params.SubsidyReductionInterval
 	// Force block reward to zero when right shift is undefined.
 	if halvings >= 64 {

@@ -13,6 +13,9 @@ Log:
   Level: debug
   Module: [mempool,utxo,bench,service]
 
+Mempool:
+  MaxPoolSize: 300000000
+
 Mining:
   BlockMinTxFee: 100
   BlockMaxSize: 2000000
@@ -51,3 +54,7 @@ Script:
 
 TxOut:
   DustRelayFee:
+
+PProf:
+  IP:
+  Port: 6060

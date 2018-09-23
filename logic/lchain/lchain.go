@@ -11,10 +11,10 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
@@ -51,7 +51,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
-	log.Debug("bestHash = %s\n", bestHash.String())
+	log.Debug("bestHash = %s", bestHash.String())
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
@@ -100,7 +100,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	nTime1 := util.GetMicrosTime()
 	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
-	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n",
+	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fsn",
 		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
@@ -143,7 +143,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
 	nTime2 := util.GetMicrosTime()
 	gPersist.GlobalTimeForks += nTime2 - nTime1
-	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
+	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]",
 		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags,
@@ -454,7 +454,7 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 }
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
-func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.BlockIndex) float64 {
+func GuessVerificationProgress(data *model.ChainTxData, index *blockindex.BlockIndex) float64 {
 	if index == nil {
 		return float64(0)
 	}

@@ -8,16 +8,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
 
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/limits"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc"
+	"net"
 )
 
 const (
@@ -33,9 +35,16 @@ func bchMain(ctx context.Context) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
 	appInitMain()
+	go func() {
+		listenAddr := net.JoinHostPort(conf.Cfg.PProf.IP, conf.Cfg.PProf.Port)
+		fmt.Printf("Profile server listening on %s\n", listenAddr)
+		profileRedirect := http.RedirectHandler("/debug/pprof", http.StatusSeeOther)
+		http.Handle("/", profileRedirect)
+		fmt.Errorf("%v", http.ListenAndServe(listenAddr, nil))
+	}()
 	interrupt := interruptListener()
 
-	s, err := server.NewServer(chainparams.ActiveNetParams, interrupt)
+	s, err := server.NewServer(model.ActiveNetParams, interrupt)
 	if err != nil {
 		return err
 	}
@@ -72,8 +81,6 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
-
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 

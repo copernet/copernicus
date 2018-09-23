@@ -161,7 +161,7 @@ func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason) {
 }
 
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
-	gChain := chain.GetInstance()
+	//gChain := chain.GetInstance()
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
@@ -172,8 +172,8 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	txToRemove := make(map[*mempool.TxEntry]struct{})
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
-		lp := entry.GetLockPointFromTxEntry()
-		validLP := entry.CheckLockPointValidity(gChain)
+		//lp := entry.GetLockPointFromTxEntry()
+		//validLP := entry.CheckLockPointValidity(gChain)
 		//state := NewValidationState()
 
 		tx := entry.Tx
@@ -219,9 +219,9 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 			}
 		}
 
-		if !validLP {
-			entry.SetLockPointFromTxEntry(lp)
-		}
+		//if !validLP {
+		entry.SetLockPointFromTxEntry(*tlp)
+		//}
 	}
 
 	allRemoves := make(map[*mempool.TxEntry]struct{})
@@ -308,13 +308,13 @@ func CheckMempool() {
 		if entry.SumTxCountWithAncestors != nCountCheck {
 			panic("the txentry's ancestors number is incorrect .")
 		}
-		if entry.SumSizeWitAncestors != nSizeCheck {
+		if entry.SumTxSizeWitAncestors != nSizeCheck {
 			panic("the txentry's ancestors size is incorrect .")
 		}
-		if entry.SumSigOpCountWithAncestors != nSigOpCheck {
+		if entry.SumTxSigOpCountWithAncestors != nSigOpCheck {
 			panic("the txentry's ancestors sigopcount is incorrect .")
 		}
-		if entry.SumFeeWithAncestors != nFeesCheck {
+		if entry.SumTxFeeWithAncestors != nFeesCheck {
 			panic("the txentry's ancestors fee is incorrect .")
 		}
 
@@ -336,7 +336,7 @@ func CheckMempool() {
 		if len(setChildrenCheck) != len(entry.ChildTx) {
 			panic("the transaction children set is different ...")
 		}
-		if entry.SumSizeWithDescendants < int64(childSize+entry.TxSize) {
+		if entry.SumTxSizeWithDescendants < int64(childSize+entry.TxSize) {
 			panic("the transaction descendant's fee is less its children fee ...")
 		}
 
@@ -433,19 +433,20 @@ func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
 func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 	pool := mempool.GetInstance()
 	pool.RLock()
+	defer pool.RUnlock()
 	if orphan, ok := pool.OrphanTransactions[hash]; ok {
 		return orphan.Tx
 	}
-	pool.RUnlock()
+
 	return nil
 }
 
 func FindRejectTxInMempool(hash util.Hash) bool {
 	pool := mempool.GetInstance()
 	pool.RLock()
+	defer pool.RUnlock()
 	if _, ok := pool.RecentRejects[hash]; ok {
 		return ok
 	}
-	pool.RUnlock()
 	return false
 }

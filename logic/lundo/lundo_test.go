@@ -5,9 +5,9 @@ import (
 
 	"bytes"
 	"github.com/copernet/copernicus/logic/ltx"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -21,7 +21,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.CoinsMap, param *chainparams.BitcoinParams, height int) {
+func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.CoinsMap, param *model.BitcoinParams, height int) {
 
 	coinbaseTx := blocks.Txs[0]
 	txundos := undo.NewTxUndo()
@@ -41,7 +41,7 @@ func UpdateUTXOSet(blocks *block.Block, undos *undo.BlockUndo, coinMap *utxo.Coi
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinMap, &blockHash)
 }
 
-func UndoBlock(blocks *block.Block, coinMap *utxo.CoinsMap, undos *undo.BlockUndo, params *chainparams.BitcoinParams, height int) {
+func UndoBlock(blocks *block.Block, coinMap *utxo.CoinsMap, undos *undo.BlockUndo, params *model.BitcoinParams, height int) {
 
 	header := block.NewBlockHeader()
 	index := blockindex.NewBlockIndex(header)
@@ -70,7 +70,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestConnectUtxoExtBlock(t *testing.T) {
-	chainparam := chainparams.ActiveNetParams
+	chainparam := model.ActiveNetParams
 	blocks := block.NewBlock()
 
 	coinsMap := utxo.NewEmptyCoinsMap()

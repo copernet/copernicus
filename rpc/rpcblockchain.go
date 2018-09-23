@@ -5,22 +5,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/utxo"
-	"strconv"
-	"strings"
-
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"strconv"
+	"strings"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -526,18 +525,18 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	result := btcjson.GetMempoolEntryRelativeInfoVerbose{}
 	result.Size = entry.TxSize
 	result.Fee = valueFromAmount(entry.TxFee)
-	result.ModifiedFee = valueFromAmount(entry.SumFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
+	result.ModifiedFee = valueFromAmount(entry.SumTxFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
 	result.Time = entry.GetTime()
 	result.Height = entry.TxHeight
 	// remove priority at current version
 	result.StartingPriority = 0
 	result.CurrentPriority = 0
 	result.DescendantCount = entry.SumTxCountWithDescendants
-	result.DescendantSize = entry.SumSizeWithDescendants
-	result.DescendantFees = entry.SumFeeWithDescendants
+	result.DescendantSize = entry.SumTxSizeWithDescendants
+	result.DescendantFees = entry.SumTxFeeWithDescendants
 	result.AncestorCount = entry.SumTxCountWithAncestors
-	result.AncestorSize = entry.SumSizeWitAncestors
-	result.AncestorFees = entry.SumFeeWithAncestors
+	result.AncestorSize = entry.SumTxSizeWitAncestors
+	result.AncestorFees = entry.SumTxFeeWithAncestors
 
 	setDepends := make([]string, 0)
 	for _, in := range entry.Tx.GetIns() {
@@ -610,7 +609,7 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 		Size:          pool.Size(),
 		Bytes:         pool.GetPoolAllTxSize(),
 		Usage:         pool.GetPoolUsage(),
-		MaxMempool:    conf.Cfg.Mempool.MaxPoolSize,
+		MaxMempool:    int(conf.Cfg.Mempool.MaxPoolSize),
 		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil

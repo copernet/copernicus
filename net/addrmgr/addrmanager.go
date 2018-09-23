@@ -25,7 +25,7 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 )
@@ -1081,7 +1081,7 @@ func (a *AddrManager) NewAddress(filterOut func(gKey string) bool) (string, erro
 
 			// allow nondefault ports after 50 failed tries.
 			if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
-				chainparams.ActiveNetParams.DefaultPort {
+				model.ActiveNetParams.DefaultPort {
 				continue
 			}
 

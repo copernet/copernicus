@@ -1,8 +1,9 @@
 package mining
 
 import (
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -72,6 +73,10 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 	return entry
 }
 
+func TestMain(t *testing.M) {
+	conf.Cfg = conf.InitConfig()
+}
+
 func createTx() []*mempool.TxEntry {
 	chain.InitGlobalChain()
 	testEntryHelp := NewTestMemPoolEntry()
@@ -133,8 +138,9 @@ func TestCreateNewBlockByFee(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ba := NewBlockAssembler(chainparams.ActiveNetParams)
-	strategy = sortByFee
+	ba := NewBlockAssembler(model.ActiveNetParams)
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFee
 	sc := script.NewEmptyScript()
 	ba.CreateNewBlock(sc)
 
@@ -161,8 +167,10 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ba := NewBlockAssembler(chainparams.ActiveNetParams)
-	strategy = sortByFeeRate
+	ba := NewBlockAssembler(model.ActiveNetParams)
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFeeRate
+
 	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
 	ba.CreateNewBlock(sc)
 	if len(ba.bt.Block.Txs) != 5 {

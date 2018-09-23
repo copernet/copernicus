@@ -19,7 +19,6 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/tx"
@@ -179,7 +178,7 @@ type SyncManager struct {
 	peerNotifier        PeerNotifier
 	started             int32
 	shutdown            int32
-	chainParams         *chainparams.BitcoinParams
+	chainParams         *model.BitcoinParams
 	progressLogger      *blockProgressLogger
 	processBusinessChan chan interface{}
 	wg                  sync.WaitGroup
@@ -231,7 +230,7 @@ func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int3
 // checkpoints.
 func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
 	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
-	checkpoints := chainparams.ActiveNetParams.Checkpoints
+	checkpoints := model.ActiveNetParams.Checkpoints
 	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
 	if len(checkpoints) == 0 {
 		return nil
@@ -321,7 +320,7 @@ func (sm *SyncManager) startSync() {
 		// downloads when in regression test mode.
 		if sm.nextCheckpoint != nil &&
 			best.Height < sm.nextCheckpoint.Height &&
-			sm.chainParams != &chainparams.RegressionNetParams {
+			sm.chainParams != &model.RegressionNetParams {
 			//	3. push peer
 			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
 			sm.headersFirstMode = true
@@ -345,7 +344,7 @@ func (sm *SyncManager) isSyncCandidate(peer *peer.Peer) bool {
 	// Typically a peer is not a candidate for sync if it's not a full node,
 	// however regression test is special in that the regression tool is
 	// not a full node and still needs to be considered a sync candidate.
-	if sm.chainParams == &chainparams.RegressionNetParams {
+	if sm.chainParams == &model.RegressionNetParams {
 		// The peer is not a candidate if it's not coming from localhost
 		// or the hostname can't be determined for some reason.
 		host, _, err := net.SplitHostPort(peer.Addr())
@@ -561,7 +560,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// the peer or ignore the block when we're in regression test
 		// mode in this case so the chain code is actually fed the
 		// duplicate blocks.
-		if sm.chainParams != &chainparams.RegressionNetParams {
+		if sm.chainParams != &model.RegressionNetParams {
 			log.Warn("Got unrequested block %v from %s -- "+
 				"disconnecting", blockHash, peer.Addr())
 			peer.Disconnect()
@@ -1231,6 +1230,15 @@ out:
 // connected peers.
 func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notification) {
 	switch notification.Type {
+
+	case chain.NTChainTipUpdated:
+		event, ok := notification.Data.(*chain.TipUpdatedEvent)
+		if !ok {
+			panic("TipUpdatedEvent: malformed event payload")
+		}
+
+		sm.peerNotifier.RelayUpdatedTipBlocks(event)
+
 	// A block has been accepted into the block chain.  Relay it to other
 	// peers.
 	case chain.NTBlockAccepted:
@@ -1249,7 +1257,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Generate the inventory vector and relay it.
 		blkHash := block.GetHash()
 		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
-		sm.peerNotifier.RelayInventory(iv, block.Header)
+		sm.peerNotifier.RelayInventory(iv, &block.Header)
 
 		// A block has been connected to the main block chain.
 	case chain.NTBlockConnected:
@@ -1505,8 +1513,7 @@ func New(config *Config) (*SyncManager, error) {
 		log.Info("Checkpoints are disabled")
 	}
 
-	// FIXME: add it back when @chain.Subscribe is ready to support inv relay.
-	// sm.chain.Subscribe(sm.handleBlockchainNotification)
+	chain.GetInstance().Subscribe(sm.handleBlockchainNotification)
 
 	return &sm, nil
 }
@@ -1521,13 +1528,15 @@ type PeerNotifier interface {
 
 	RelayInventory(invVect *wire.InvVect, data interface{})
 
+	RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)
+
 	TransactionConfirmed(tx *tx.Tx)
 }
 
 // Config is a configuration struct used to initialize a new SyncManager.
 type Config struct {
 	PeerNotifier PeerNotifier
-	ChainParams  *chainparams.BitcoinParams
+	ChainParams  *model.BitcoinParams
 
 	DisableCheckpoints bool
 	MaxPeers           int

@@ -1,4 +1,4 @@
-package chainparams
+package model
 
 import (
 	"encoding/hex"

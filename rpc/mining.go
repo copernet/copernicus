@@ -11,10 +11,10 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lundo"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -62,7 +62,7 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	if lookup <= 0 {
-		lookup = int(index.Height%int32(chainparams.ActiveNetParams.DifficultyAdjustmentInterval()) + 1)
+		lookup = int(index.Height%int32(model.ActiveNetParams.DifficultyAdjustmentInterval()) + 1)
 	}
 
 	if lookup > int(index.Height) {
@@ -188,7 +188,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		start = util.GetTime()
 
 		// Create new block
-		ba := mining.NewBlockAssembler(chainparams.ActiveNetParams)
+		ba := mining.NewBlockAssembler(model.ActiveNetParams)
 		blocktemplate = ba.CreateNewBlock(script.NewScriptRaw([]byte{opcodes.OP_TRUE}))
 		if blocktemplate == nil {
 			return nil, &btcjson.RPCError{
@@ -257,7 +257,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 	rules := make([]string, 0)
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		pos := consensus.DeploymentPos(i)
-		state := versionbits.VersionBitsState(indexPrev, chainparams.ActiveNetParams, pos, versionbits.VBCache)
+		state := versionbits.VersionBitsState(indexPrev, model.ActiveNetParams, pos, versionbits.VBCache)
 		switch state {
 		case versionbits.ThresholdDefined:
 			fallthrough
@@ -266,16 +266,16 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		case versionbits.ThresholdLockedIn:
 			// Ensure bit is set in block version, then fallthrough to get
 			// vbavailable set.
-			bt.Block.Header.Version |= int32(versionbits.VersionBitsMask(chainparams.ActiveNetParams, pos))
+			bt.Block.Header.Version |= int32(versionbits.VersionBitsMask(model.ActiveNetParams, pos))
 			fallthrough
 		case versionbits.ThresholdStarted:
 			vbinfo := versionbits.VersionBitsDeploymentInfo[pos]
-			vbAvailable[getVbName(pos)] = chainparams.ActiveNetParams.Deployments[pos].Bit
+			vbAvailable[getVbName(pos)] = model.ActiveNetParams.Deployments[pos].Bit
 			if !s.Has(vbinfo.Name) {
 				if !vbinfo.GbtForce {
 					// If the client doesn't support this, don't indicate it
 					// in the [default] version
-					bt.Block.Header.Version &= int32(^versionbits.VersionBitsMask(chainparams.ActiveNetParams, pos))
+					bt.Block.Header.Version &= int32(^versionbits.VersionBitsMask(model.ActiveNetParams, pos))
 				}
 			}
 		case versionbits.ThresholdActive:
@@ -547,7 +547,7 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	heightStart := chain.GetInstance().Height()
 	heightEnd := heightStart + int32(generate)
 	height := heightStart
-	params := chainparams.ActiveNetParams
+	params := model.ActiveNetParams
 
 	ret := make([]string, 0)
 	var extraNonce uint

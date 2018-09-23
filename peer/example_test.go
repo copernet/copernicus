@@ -8,11 +8,8 @@ import (
 	"context"
 	"fmt"
 	"net"
-	// "github.com/btcsuite/btcd/chaincfg"
-	// "github.com/btcsuite/btcd/peer"
-	// "github.com/btcsuite/btcd/wire"
 
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/peer"
 )
@@ -28,7 +25,7 @@ func mockRemotePeer() error {
 	peerCfg := &peer.Config{
 		UserAgentName:    "peer",  // User agent name to advertise.
 		UserAgentVersion: "1.0.0", // User agent version to advertise.
-		ChainParams:      &chainparams.TestNetParams,
+		ChainParams:      &model.TestNetParams,
 	}
 
 	// Accept connections on the simnet port.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
@@ -60,7 +60,7 @@ type Address interface {
 
 	// IsForNet returns whether or not the address is associated with the
 	// passed bitcoin network.
-	IsForNet(*chainparams.BitcoinParams) bool
+	IsForNet(*model.BitcoinParams) bool
 }
 
 type AddressType int
@@ -72,9 +72,9 @@ const (
 
 func init() {
 	Prefixes = make(map[string]string)
-	Prefixes[chainparams.MainNetParams.Name] = "bitcoincash"
-	Prefixes[chainparams.TestNetParams.Name] = "bchtest"
-	Prefixes[chainparams.RegressionNetParams.Name] = "bchreg"
+	Prefixes[model.MainNetParams.Name] = "bitcoincash"
+	Prefixes[model.TestNetParams.Name] = "bchtest"
+	Prefixes[model.RegressionNetParams.Name] = "bchreg"
 }
 
 type Data []byte
@@ -391,7 +391,7 @@ func encodeCashAddress(hash160 []byte, prefix string, t AddressType) string {
 // the Address if addr is a valid encoding for a known address type.
 //
 // The bitcoin cash network the address is associated with is extracted if possible.
-func DecodeAddress(addr string, defaultNet *chainparams.BitcoinParams) (Address, error) {
+func DecodeAddress(addr string, defaultNet *model.BitcoinParams) (Address, error) {
 	pre, ok := Prefixes[defaultNet.Name]
 	if !ok {
 		return nil, errors.New("unknown network parameters")
@@ -435,7 +435,7 @@ type CashAddressPubKeyHash struct {
 
 // NewCashAddressPubKeyHash returns a new AddressPubKeyHash.  pkHash mustbe 20
 // bytes.
-func NewCashAddressPubKeyHash(pkHash []byte, net *chainparams.BitcoinParams) (*CashAddressPubKeyHash, error) {
+func NewCashAddressPubKeyHash(pkHash []byte, net *model.BitcoinParams) (*CashAddressPubKeyHash, error) {
 	return newCashAddressPubKeyHash(pkHash, net)
 }
 
@@ -444,7 +444,7 @@ func NewCashAddressPubKeyHash(pkHash []byte, net *chainparams.BitcoinParams) (*C
 // it up through its parameters.  This is useful when creating a new address
 // structure from a string encoding where the identifer byte is already
 // known.
-func newCashAddressPubKeyHash(pkHash []byte, net *chainparams.BitcoinParams) (*CashAddressPubKeyHash, error) {
+func newCashAddressPubKeyHash(pkHash []byte, net *model.BitcoinParams) (*CashAddressPubKeyHash, error) {
 	// Check for a valid pubkey hash length.
 	if len(pkHash) != ripemd160.Size {
 		return nil, errors.New("pkHash must be 20 bytes")
@@ -474,7 +474,7 @@ func (a *CashAddressPubKeyHash) ScriptAddress() []byte {
 
 // IsForNet returns whether or not the pay-to-pubkey-hash address is associated
 // with the passed bitcoin cash network.
-func (a *CashAddressPubKeyHash) IsForNet(net *chainparams.BitcoinParams) bool {
+func (a *CashAddressPubKeyHash) IsForNet(net *model.BitcoinParams) bool {
 	checkPre, ok := Prefixes[net.Name]
 	if !ok {
 		return false
@@ -504,14 +504,14 @@ type CashAddressScriptHash struct {
 }
 
 // NewCashAddressScriptHash returns a new AddressScriptHash.
-func NewCashAddressScriptHash(serializedScript []byte, net *chainparams.BitcoinParams) (*CashAddressScriptHash, error) {
+func NewCashAddressScriptHash(serializedScript []byte, net *model.BitcoinParams) (*CashAddressScriptHash, error) {
 	scriptHash := util.Hash160(serializedScript)
 	return newCashAddressScriptHashFromHash(scriptHash, net)
 }
 
 // NewCashAddressScriptHashFromHash returns a new AddressScriptHash.  scriptHash
 // must be 20 bytes.
-func NewCashAddressScriptHashFromHash(scriptHash []byte, net *chainparams.BitcoinParams) (*CashAddressScriptHash, error) {
+func NewCashAddressScriptHashFromHash(scriptHash []byte, net *model.BitcoinParams) (*CashAddressScriptHash, error) {
 	return newCashAddressScriptHashFromHash(scriptHash, net)
 }
 
@@ -520,7 +520,7 @@ func NewCashAddressScriptHashFromHash(scriptHash []byte, net *chainparams.Bitcoi
 // looking it up through its parameters.  This is useful when creating a new
 // address structure from a string encoding where the identifer byte is already
 // known.
-func newCashAddressScriptHashFromHash(scriptHash []byte, net *chainparams.BitcoinParams) (*CashAddressScriptHash, error) {
+func newCashAddressScriptHashFromHash(scriptHash []byte, net *model.BitcoinParams) (*CashAddressScriptHash, error) {
 	// Check for a valid script hash length.
 	if len(scriptHash) != ripemd160.Size {
 		return nil, errors.New("scriptHash must be 20 bytes")
@@ -550,7 +550,7 @@ func (a *CashAddressScriptHash) ScriptAddress() []byte {
 
 // IsForNet returns whether or not the pay-to-script-hash address is associated
 // with the passed bitcoin cash network.
-func (a *CashAddressScriptHash) IsForNet(net *chainparams.BitcoinParams) bool {
+func (a *CashAddressScriptHash) IsForNet(net *model.BitcoinParams) bool {
 	pre, ok := Prefixes[net.Name]
 	if !ok {
 		return false
@@ -657,7 +657,7 @@ func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
 // signatures associated with the passed PkScript.  Note that it only works for
 // 'standard' transaction script types.  Any Data such as public keys which are
 // invalid are omitted from the results.
-func ExtractPkScriptAddrs(pkScript []byte, chainParams *chainparams.BitcoinParams) (Address, error) {
+func ExtractPkScriptAddrs(pkScript []byte, chainParams *model.BitcoinParams) (Address, error) {
 	// No valid addresses or required signatures if the script doesn't
 	// parse.
 	if len(pkScript) == 1+1+20+1 && pkScript[0] == 0xa9 && pkScript[1] == 0x14 && pkScript[22] == 0x87 {

@@ -6,8 +6,8 @@ import (
 	"sort"
 
 	"bytes"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 	"io"
 )
@@ -258,7 +258,7 @@ func (bIndex *BlockIndex) String() string {
 		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
 }
 
-func (bIndex *BlockIndex) IsGenesis(params *chainparams.BitcoinParams) bool {
+func (bIndex *BlockIndex) IsGenesis(params *model.BitcoinParams) bool {
 	bhash := bIndex.GetBlockHash()
 	genesisHash := params.GenesisBlock.GetHash()
 	return bhash.IsEqual(&genesisHash)

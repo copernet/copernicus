@@ -2,11 +2,6 @@ package mempool
 
 import (
 	"fmt"
-	"math"
-	"sync"
-	"time"
-	"unsafe"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -16,6 +11,9 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
+	"math"
+	"sync"
+	"time"
 )
 
 const (
@@ -66,8 +64,9 @@ type TxMempool struct {
 	rootTx                  map[util.Hash]*TxEntry
 	txByAncestorFeeRateSort btree.BTree
 	timeSortData            btree.BTree
-	cacheInnerUsage         int64
-	checkFrequency          float64
+	//
+	usageSize      int64
+	checkFrequency float64
 	// sum of all mempool tx's size.
 	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
@@ -76,8 +75,9 @@ type TxMempool struct {
 	OrphanTransactions       map[util.Hash]OrphanTx
 	RecentRejects            map[util.Hash]struct{}
 
-	nextSweep                    int
-	MaxMemPoolSize               int64
+	nextSweep int
+
+	//MaxMemPoolSize               int64
 	incrementalRelayFee          util.FeeRate //
 	rollingMinimumFeeRate        int64
 	blockSinceLastRollingFeeBump bool
@@ -98,33 +98,31 @@ func (m *TxMempool) GetMinFeeRate() util.FeeRate {
 // AddTx operator is safe for concurrent write And read access.
 // this function is used to add tx to the memPool, and now the tx should
 // be passed all appropriate checks.
-func (m *TxMempool) AddTx(txentry *TxEntry, ancestors map[*TxEntry]struct{}) error {
+func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) error {
 	// insert new txEntry to the memPool; and update the memPool's memory consume.
-	m.timeSortData.ReplaceOrInsert(txentry)
-	m.poolData[txentry.Tx.GetHash()] = txentry
-	m.cacheInnerUsage += int64(txentry.usageSize) + int64(unsafe.Sizeof(txentry))
+	m.timeSortData.ReplaceOrInsert(txEntry)
+	m.poolData[txEntry.Tx.GetHash()] = txEntry
+	m.usageSize += int64(txEntry.usageSize)
 
 	// Update ancestors with information about this tx
-	setParentTransactions := make(map[util.Hash]struct{})
-	tx := txentry.Tx
-	for _, preout := range tx.GetAllPreviousOut() {
-		m.nextTx[preout] = txentry
-		setParentTransactions[preout.Hash] = struct{}{}
-	}
+	parentSet := m.updateNextTx(txEntry)
 
-	for hash := range setParentTransactions {
+	// Update txEntry's parents
+	for hash := range parentSet {
 		if parent, ok := m.poolData[hash]; ok {
-			txentry.UpdateParent(parent, &m.cacheInnerUsage, true)
+			txEntry.UpdateParent(parent, true)
 		}
 	}
 
-	m.updateAncestorsOf(true, txentry, ancestors)
-	m.updateEntryForAncestors(txentry, ancestors)
-	m.totalTxSize += uint64(txentry.TxSize)
+	// Update txEntry's parents' child
+	txEntry.UpdateChildOfParents(true)
+	m.updateAncestors(true, txEntry, ancestors)
+	m.updateEntryForAncestors(txEntry, ancestors)
+	m.totalTxSize += uint64(txEntry.TxSize)
 	m.TransactionsUpdated++
-	m.txByAncestorFeeRateSort.ReplaceOrInsert(EntryAncestorFeeRateSort(*txentry))
-	if txentry.SumTxCountWithAncestors == 1 {
-		m.rootTx[txentry.Tx.GetHash()] = txentry
+	m.txByAncestorFeeRateSort.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
+	if txEntry.SumTxCountWithAncestors == 1 {
+		m.rootTx[txEntry.Tx.GetHash()] = txEntry
 	}
 	return nil
 }
@@ -155,7 +153,7 @@ func (m *TxMempool) GetPoolAllTxSize() uint64 {
 
 func (m *TxMempool) GetPoolUsage() int64 {
 	m.RLock()
-	size := m.cacheInnerUsage
+	size := m.usageSize
 	m.RUnlock()
 	return size
 }
@@ -309,7 +307,7 @@ func (m *TxMempool) trackPackageRemoved(rate util.FeeRate) {
 	}
 }
 
-func (m *TxMempool) GetMinFee(sizeLimit int) util.FeeRate {
+func (m *TxMempool) GetMinFee(sizeLimit int64) util.FeeRate {
 	if !m.blockSinceLastRollingFeeBump || m.rollingMinimumFeeRate == 0 {
 		return *util.NewFeeRate(m.rollingMinimumFeeRate)
 	}
@@ -317,9 +315,9 @@ func (m *TxMempool) GetMinFee(sizeLimit int) util.FeeRate {
 	timeTmp := util.GetTime()
 	if timeTmp > m.lastRollingFeeUpdate+10 {
 		halfLife := RollingFeeHalfLife
-		if m.cacheInnerUsage < int64(sizeLimit/4) {
+		if m.usageSize < sizeLimit/4 {
 			halfLife /= 4
-		} else if m.cacheInnerUsage < int64(sizeLimit/2) {
+		} else if m.usageSize < sizeLimit/2 {
 			halfLife /= 2
 		}
 		m.rollingMinimumFeeRate = m.rollingMinimumFeeRate / int64(math.Pow(2.0, float64(timeTmp-m.lastRollingFeeUpdate))/float64(halfLife))
@@ -345,7 +343,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 	ret := make([]*outpoint.OutPoint, 0)
 	maxFeeRateRemove := int64(0)
 
-	for len(m.poolData) > 0 && m.cacheInnerUsage > sizeLimit {
+	for len(m.poolData) > 0 && m.usageSize > sizeLimit {
 		removeIt := TxEntry(m.txByAncestorFeeRateSort.Min().(EntryAncestorFeeRateSort))
 		rem := m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(removeIt)).(EntryAncestorFeeRateSort)
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
@@ -354,7 +352,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		removed := util.NewFeeRateWithSize(rem.TxFee, int64(rem.TxSize))
 		removed.SataoshisPerK += m.incrementalRelayFee.SataoshisPerK
 
-		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumFeeWithDescendants, removeIt.SumSizeWithDescendants).SataoshisPerK
+		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumTxFeeWithDescendants, removeIt.SumTxSizeWithDescendants).SataoshisPerK
 		stage := make(map[*TxEntry]struct{})
 		m.CalculateDescendants(&removeIt, stage)
 		nTxnRemoved += len(stage)
@@ -368,7 +366,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		m.RemoveStaged(stage, false, SIZELIMIT)
 		for e := range stage {
 			hash := e.Tx.GetHash()
-			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.cacheInnerUsage)
+			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.usageSize)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {
@@ -415,7 +413,7 @@ func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDe
 			delete(m.rootTx, rem.Tx.GetHash())
 		}
 		m.delTxentry(rem, reason)
-		log.Debug("remove one transaction late, the mempool size : ", m.cacheInnerUsage)
+		log.Debug("remove one transaction late, the mempool size : ", m.usageSize)
 	}
 }
 
@@ -450,7 +448,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 
 	for removeIt := range entriesToRemove {
 		for updateIt := range removeIt.ChildTx {
-			updateIt.UpdateParent(removeIt, &m.cacheInnerUsage, false)
+			updateIt.UpdateParent(removeIt, false)
 		}
 	}
 
@@ -459,7 +457,8 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 		if err != nil {
 			return
 		}
-		m.updateAncestorsOf(false, removeIt, ancestors)
+		removeIt.UpdateChildOfParents(false)
+		m.updateAncestors(false, removeIt, ancestors)
 	}
 }
 
@@ -523,20 +522,26 @@ func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntr
 	}
 }
 
-// updateAncestorsOf update each of ancestors transaction state; add or remove this
-// txentry txfee, txsize, txcount.
-func (m *TxMempool) updateAncestorsOf(add bool, txentry *TxEntry, ancestors map[*TxEntry]struct{}) {
-	// update the parent's child transaction set;
-	for piter := range txentry.ParentTx {
-		piter.UpdateChild(txentry, &m.cacheInnerUsage, add)
+func (m *TxMempool) updateNextTx(txEntry *TxEntry) (parentSet map[util.Hash]struct{}) {
+	parentSet = make(map[util.Hash]struct{})
+	ins := txEntry.Tx.GetIns()
+	for _, in := range ins {
+		m.nextTx[*in.PreviousOutPoint] = txEntry
+		parentSet[in.PreviousOutPoint.Hash] = struct{}{}
 	}
 
+	return
+}
+
+// updateAncestorsOf update each of ancestors transaction state; add or remove this
+// txentry txfee, txsize, txcount.
+func (m *TxMempool) updateAncestors(add bool, txEntry *TxEntry, ancestors map[*TxEntry]struct{}) {
 	updateCount := -1
 	if add {
 		updateCount = 1
 	}
-	updateSize := updateCount * txentry.TxSize
-	updateFee := int64(updateCount) * txentry.TxFee
+	updateSize := updateCount * txEntry.TxSize
+	updateFee := int64(updateCount) * txEntry.TxFee
 	// update each of ancestors transaction state;
 	for ancestorit := range ancestors {
 		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
@@ -598,7 +603,7 @@ func (m *TxMempool) CalculateMemPoolAncestors(tx *tx.Tx, limitAncestorCount uint
 		tempParents = tempParents[1:]
 
 		ancestors[entry] = struct{}{}
-		if uint64(entry.SumSizeWithDescendants+int64(entry.TxSize)) > limitDescendantSize {
+		if uint64(entry.SumTxSizeWithDescendants+int64(entry.TxSize)) > limitDescendantSize {
 			return nil, errcode.New(errcode.ManyUnspendDepend)
 		}
 
@@ -635,7 +640,7 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	if _, ok := m.rootTx[removeEntry.Tx.GetHash()]; ok {
 		delete(m.rootTx, removeEntry.Tx.GetHash())
 	}
-	m.cacheInnerUsage -= int64(removeEntry.usageSize) + int64(unsafe.Sizeof(removeEntry))
+	m.usageSize -= int64(removeEntry.usageSize)
 	m.TransactionsUpdated++
 	m.totalTxSize -= uint64(removeEntry.TxSize)
 	delete(m.poolData, removeEntry.Tx.GetHash())

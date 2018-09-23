@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
 )
@@ -54,21 +55,23 @@ const (
 	defaultMaxMempoolSize        = 300
 )
 
-var Cfg *Configuration
-var DataDir string
+var (
+	Cfg     *Configuration
+	DataDir string
+)
 
-// init configuration
-func initConfig() *Configuration {
+// InitConfig init configuration
+func InitConfig() *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
-	//getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
-	//flag.Parse()
+	getdatadir := pflag.String("datadir", defaultDataDir, "specified program data dir")
+	pflag.Parse()
 
 	DataDir = defaultDataDir
-	//if getdatadir != nil {
-	//	DataDir = *getdatadir
-	//}
+	if getdatadir != nil {
+		DataDir = *getdatadir
+	}
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
@@ -178,7 +181,7 @@ type Configuration struct {
 		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
 		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
 		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
-		MaxPoolSize          int   `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
 		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
 	}
 	P2PNet struct {
@@ -231,6 +234,10 @@ type Configuration struct {
 		BlockVersion  int32  `default:"-1"`
 		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
 	}
+	PProf struct {
+		IP   string `default:"localhost"`
+		Port string `default:"6060"`
+	}
 }
 
 func must(i interface{}, err error) interface{} {
@@ -238,10 +245,6 @@ func must(i interface{}, err error) interface{} {
 		panic(err)
 	}
 	return i
-}
-
-func init() {
-	Cfg = initConfig()
 }
 
 func CopyFile(src, des string) (w int64, err error) {
