@@ -113,6 +113,6 @@ func sendPostRequest(marshalledJSON []byte, cfg *config) ([]byte, error) {
 		return nil, fmt.Errorf("%s", respBytes)
 	}
 
-	return respBytes,nil
+	return respBytes, nil
 
 }
