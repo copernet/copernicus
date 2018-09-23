@@ -15,9 +15,9 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 )
 
-func appInitMain() {
+func appInitMain(args []string) {
 	//init config
-	conf.Cfg = conf.InitConfig()
+	conf.Cfg = conf.InitConfig(args)
 	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
 
 	//init log

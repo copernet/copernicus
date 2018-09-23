@@ -74,7 +74,7 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 }
 
 func TestMain(t *testing.M) {
-	conf.Cfg = conf.InitConfig()
+	conf.Cfg = conf.InitConfig([]string{})
 }
 
 func createTx() []*mempool.TxEntry {
