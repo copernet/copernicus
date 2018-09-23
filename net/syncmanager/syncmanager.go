@@ -1268,7 +1268,8 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// valid.
 		lmempool.RemoveTxSelf(block.Txs[1:])
 		for _, tx := range block.Txs[1:] {
-			sm.peerNotifier.TransactionConfirmed(tx)
+			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
+			// sm.peerNotifier.TransactionConfirmed(tx)
 			acceptedTxs := lmempool.ProcessOrphan(tx)
 			txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
 			for _, tx := range acceptedTxs {

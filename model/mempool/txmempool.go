@@ -241,12 +241,12 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 	m.Lock()
 	defer m.Unlock()
 
-	entries := make([]*TxEntry, 0, len(txs))
-	for _, tx := range txs {
-		if entry, ok := m.poolData[tx.GetHash()]; ok {
-			entries = append(entries, entry)
-		}
-	}
+	// entries := make([]*TxEntry, 0, len(txs))
+	// for _, tx := range txs {
+	// 	if entry, ok := m.poolData[tx.GetHash()]; ok {
+	// 		entries = append(entries, entry)
+	// 	}
+	// }
 
 	// todo base on entries to set the new feerate for mempool.
 	for _, tx := range txs {
@@ -476,9 +476,7 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 		// for any reason.
 		for i := 0; i < origTx.GetOutsCount(); i++ {
 			outPoint := outpoint.OutPoint{Hash: origTx.GetHash(), Index: uint32(i)}
-			if en, ok := m.nextTx[outPoint]; !ok {
-				continue
-			} else {
+			if en, found := m.nextTx[outPoint]; found {
 				if find, ok := m.poolData[en.Tx.GetHash()]; ok {
 					txToRemove[find] = struct{}{}
 				} else {
