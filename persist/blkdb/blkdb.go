@@ -8,8 +8,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"encoding/hex"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/util"
 )
@@ -228,7 +228,7 @@ func (blockTreeDB *BlockTreeDB) ReadFlag(name string) bool {
 }
 
 func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*blockindex.BlockIndex,
-	params *chainparams.BitcoinParams) bool {
+	params *model.BitcoinParams) bool {
 	// todo for iter and check key、 pow
 	cursor := blockTreeDB.dbw.Iterator(nil)
 	defer cursor.Close()

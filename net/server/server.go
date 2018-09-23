@@ -30,7 +30,6 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/net/addrmgr"
@@ -61,6 +60,9 @@ const (
 	// retries when connecting to persistent peers.  It is adjusted by the
 	// number of retries such that there is a retry backoff.
 	connectionRetryInterval = time.Second * 5
+
+	// max blocks to announce during inventory relay
+	maxBlocksToAnnounce = 8
 )
 
 var (
@@ -202,7 +204,7 @@ type Server struct {
 	shutdown             int32
 	shutdownSched        int32
 	startupTime          int64
-	chainParams          *chainparams.BitcoinParams
+	chainParams          *model.BitcoinParams
 	addrManager          *addrmgr.AddrManager
 	connManager          *connmgr.ConnManager
 	syncManager          *syncmanager.SyncManager
@@ -1328,14 +1330,14 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 		// generate and send a headers message instead of an inventory
 		// message.
 		if msg.invVect.Type == wire.InvTypeBlock && sp.WantsHeaders() {
-			blockHeader, ok := msg.data.(block.BlockHeader)
+			blockHeader, ok := msg.data.(*block.BlockHeader)
 			if !ok {
 				log.Warn("Underlying data for headers" +
 					" is not a block header")
 				return
 			}
 			msgHeaders := wire.NewMsgHeaders()
-			if err := msgHeaders.AddBlockHeader(&blockHeader); err != nil {
+			if err := msgHeaders.AddBlockHeader(blockHeader); err != nil {
 				log.Error("Failed to add block"+
 					" header: %v", err)
 				return
@@ -1779,6 +1781,28 @@ func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 	s.relayInv <- relayMsg{invVect: invVect, data: data}
 }
 
+// RelayUpdatedTipBlocks relays blocks leads to new main chain
+func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
+	if !event.IsInitialDownload {
+		return
+	}
+
+	blockIndexes := make([]*blockindex.BlockIndex, 0)
+	for tmp := event.TipIndex; tmp != event.ForkIndex; tmp = tmp.Prev {
+		blockIndexes = append(blockIndexes, tmp)
+
+		if len(blockIndexes) >= maxBlocksToAnnounce {
+			break
+		}
+	}
+
+	for i := len(blockIndexes) - 1; i >= 0; i-- {
+		index := blockIndexes[i]
+		iv := wire.NewInvVect(wire.InvTypeBlock, index.GetBlockHash())
+		s.RelayInventory(iv, index.GetBlockHeader())
+	}
+}
+
 // BroadcastMessage sends msg to all peers currently connected to the server
 // except those in the passed peers to exclude.
 func (s *Server) BroadcastMessage(msg wire.Message, exclPeers ...*serverPeer) {
@@ -2030,7 +2054,7 @@ func (s *Server) upnpUpdateThread() {
 	// Go off immediately to prevent code duplication, thereafter we renew
 	// lease every 15 minutes.
 	timer := time.NewTimer(0 * time.Second)
-	lport, _ := strconv.ParseInt(chainparams.ActiveNetParams.DefaultPort, 10, 16)
+	lport, _ := strconv.ParseInt(model.ActiveNetParams.DefaultPort, 10, 16)
 	first := true
 out:
 	for {
@@ -2080,7 +2104,7 @@ out:
 	s.wg.Done()
 }
 
-func NewServer(chainParams *chainparams.BitcoinParams, interrupt <-chan struct{}) (*Server, error) {
+func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
 
@@ -2211,10 +2235,10 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 
 	var nat upnp.NAT
 	if len(conf.Cfg.P2PNet.ExternalIPs) != 0 {
-		defaultPort, err := strconv.ParseUint(chainparams.ActiveNetParams.DefaultPort, 10, 16)
+		defaultPort, err := strconv.ParseUint(model.ActiveNetParams.DefaultPort, 10, 16)
 		if err != nil {
 			log.Error("Can not parse default port %s for active chain: %v",
-				chainparams.ActiveNetParams.DefaultPort, err)
+				model.ActiveNetParams.DefaultPort, err)
 			return nil, nil, err
 		}
 

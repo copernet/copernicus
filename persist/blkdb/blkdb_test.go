@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 )
@@ -234,7 +234,7 @@ func TestWriteBatchSync(t *testing.T) {
 
 	blkidxMap := make(map[util.Hash]*blockindex.BlockIndex)
 	blkidxMap[*hhash] = blkidx
-	ret := GetInstance().LoadBlockIndexGuts(blkidxMap, chainparams.ActiveNetParams)
+	ret := GetInstance().LoadBlockIndexGuts(blkidxMap, model.ActiveNetParams)
 	if !ret {
 		t.Error("load block index guts failed, please check.")
 	}

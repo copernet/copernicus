@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
@@ -38,12 +38,12 @@ func TestChain(t *testing.T) {
 	testChain = GetInstance()
 	testChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
 	blockIdx := make([]*blockindex.BlockIndex, 50)
-	initBits := chainparams.ActiveNetParams.PowLimitBits
-	timePerBlock := int64(chainparams.ActiveNetParams.TargetTimePerBlock)
+	initBits := model.ActiveNetParams.PowLimitBits
+	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
 	height := 0
 
 	// Pile up some blocks.
-	blockIdx[height] = blockindex.NewBlockIndex(&chainparams.ActiveNetParams.GenesisBlock.Header)
+	blockIdx[height] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
 	testChain.AddToBranch(blockIdx[0])
 	testChain.AddToIndexMap(blockIdx[0])
 	testChain.active = append(testChain.active, blockIdx[0])
@@ -60,9 +60,9 @@ func TestChain(t *testing.T) {
 		testChain.AddToIndexMap(blockIdx[height])
 	}
 
-	if testChain.GetParams() != chainparams.ActiveNetParams {
+	if testChain.GetParams() != model.ActiveNetParams {
 		t.Errorf("GetParams "+
-			"expect: %s, actual: %s", chainparams.ActiveNetParams.Name, testChain.GetParams().Name)
+			"expect: %s, actual: %s", model.ActiveNetParams.Name, testChain.GetParams().Name)
 	}
 	if testChain.Genesis() != blockIdx[0] {
 		t.Errorf("Genesis "+
@@ -155,17 +155,17 @@ func TestChain_AddToBranch(t *testing.T) {
 	testChain = GetInstance()
 	testChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
 	blockIdx := make([]*blockindex.BlockIndex, 50)
-	initBits := chainparams.ActiveNetParams.PowLimitBits
-	timePerBlock := int64(chainparams.ActiveNetParams.TargetTimePerBlock)
-	dummyPow := big.NewInt(0).Rsh(chainparams.ActiveNetParams.PowLimit, uint(0))
+	initBits := model.ActiveNetParams.PowLimitBits
+	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
+	dummyPow := big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, uint(0))
 	height := 0
 
 	//Pile up some blocks
-	blockIdx[height] = blockindex.NewBlockIndex(&chainparams.ActiveNetParams.GenesisBlock.Header)
+	blockIdx[height] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
 	testChain.AddToBranch(blockIdx[0])
 	for height = 1; height < 11; height++ {
 		i := height
-		dummyPow = big.NewInt(0).Rsh(chainparams.ActiveNetParams.PowLimit, uint(i))
+		dummyPow = big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, uint(i))
 		blockIdx[height] = getBlockIndex(blockIdx[height-1], timePerBlock, pow.BigToCompact(dummyPow))
 		testChain.AddToBranch(blockIdx[height])
 	}
@@ -188,8 +188,8 @@ func TestChain_AddToBranch(t *testing.T) {
 func TestChain_GetBlockScriptFlags(t *testing.T) {
 	InitGlobalChain()
 	testChain = GetInstance()
-	timePerBlock := int64(chainparams.ActiveNetParams.TargetTimePerBlock)
-	initBits := chainparams.ActiveNetParams.PowLimitBits
+	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
+	initBits := model.ActiveNetParams.PowLimitBits
 
 	blockIdx := make([]*blockindex.BlockIndex, 100)
 	blockheader := block.NewBlockHeader()
@@ -221,7 +221,7 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	blockheader = block.NewBlockHeader()
 	blockheader.Time = 1435974872
 	blockIdx[0] = blockindex.NewBlockIndex(blockheader)
-	blockIdx[0].Height = chainparams.ActiveNetParams.BIP66Height
+	blockIdx[0].Height = model.ActiveNetParams.BIP66Height
 	for i := 1; i < 20; i++ {
 		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock, initBits)
 	}
@@ -234,7 +234,7 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	blockheader = block.NewBlockHeader()
 	blockheader.Time = 1450113884
 	blockIdx[0] = blockindex.NewBlockIndex(blockheader)
-	blockIdx[0].Height = chainparams.ActiveNetParams.BIP65Height
+	blockIdx[0].Height = model.ActiveNetParams.BIP65Height
 	for i := 1; i < 20; i++ {
 		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock, initBits)
 	}

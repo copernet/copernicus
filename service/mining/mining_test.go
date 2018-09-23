@@ -2,8 +2,8 @@ package mining
 
 import (
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -138,7 +138,7 @@ func TestCreateNewBlockByFee(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ba := NewBlockAssembler(chainparams.ActiveNetParams)
+	ba := NewBlockAssembler(model.ActiveNetParams)
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFee
 	sc := script.NewEmptyScript()
@@ -167,7 +167,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ba := NewBlockAssembler(chainparams.ActiveNetParams)
+	ba := NewBlockAssembler(model.ActiveNetParams)
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFeeRate
 

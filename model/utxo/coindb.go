@@ -129,7 +129,7 @@ func newCoinsDB(do *db.DBOption) *CoinsDB {
 	dbw, err := db.NewDBWrapper(do)
 
 	if err != nil {
-		panic("init CoinsDB failed...")
+		panic("init CoinsDB failed..." + err.Error())
 	}
 
 	return &CoinsDB{

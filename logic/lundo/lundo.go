@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/undo"
@@ -37,7 +37,7 @@ func IsInitialBlockDownload() bool {
 	if gChainActive.Tip() == nil {
 		return true
 	}
-	minWorkSum := pow.HashToBig(&chainparams.ActiveNetParams.MinimumChainWork)
+	minWorkSum := pow.HashToBig(&model.ActiveNetParams.MinimumChainWork)
 	if gChainActive.Tip().ChainWork.Cmp(minWorkSum) < 0 {
 		return true
 	}

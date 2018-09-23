@@ -19,8 +19,8 @@ import (
 	"github.com/copernet/copernicus/model/pow"
 
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
@@ -210,7 +210,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinParams) (*block.Block, bool) {
+func readBlockFromDiskByPos(pos block.DiskBlockPos, param *model.BitcoinParams) (*block.Block, bool) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
@@ -250,7 +250,7 @@ func readBlockFromDiskByPos(pos block.DiskBlockPos, param *chainparams.BitcoinPa
 	return blk, true
 }
 
-func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *chainparams.BitcoinParams) (*block.Block, bool) {
+func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *model.BitcoinParams) (*block.Block, bool) {
 	blk, ret := readBlockFromDiskByPos(pindex.GetBlockPos(), param)
 	if !ret {
 		return nil, false
@@ -303,7 +303,7 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 
 func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	var (
-		params          = chainparams.ActiveNetParams
+		params          = model.ActiveNetParams
 		setFilesToPrune = set.New()
 	)
 

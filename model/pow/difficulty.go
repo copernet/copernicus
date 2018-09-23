@@ -8,8 +8,8 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 )
 
@@ -158,7 +158,7 @@ func GetBlockProof(blIn *blockindex.BlockIndex) *big.Int {
 // GetBlockProofEquivalentTime Return the time it would take to redo the work difference
 // between from and to, assuming the current hashrate corresponds to the difficulty
 // at tip, in seconds.
-func GetBlockProofEquivalentTime(to, from, tip *blockindex.BlockIndex, params *chainparams.BitcoinParams) int64 {
+func GetBlockProofEquivalentTime(to, from, tip *blockindex.BlockIndex, params *model.BitcoinParams) int64 {
 	ret := new(big.Int)
 	sign := int64(1)
 	if to.ChainWork.Cmp(&from.ChainWork) > 0 {
