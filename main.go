@@ -31,10 +31,10 @@ const (
 
 // bchMain is the real main function for copernicus.  It is necessary to work around
 // the fact that deferred functions do not run when os.Exit() is called.
-func bchMain(ctx context.Context) error {
+func bchMain(ctx context.Context, args []string) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
-	appInitMain()
+	appInitMain(args)
 	go func() {
 		listenAddr := net.JoinHostPort(conf.Cfg.PProf.IP, conf.Cfg.PProf.Port)
 		fmt.Printf("Profile server listening on %s\n", listenAddr)
@@ -96,8 +96,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	args := os.Args
 	// Work around defer not working after os.Exit()
-	if err := bchMain(context.Background()); err != nil {
+	if err := bchMain(context.Background(), args); err != nil {
 		os.Exit(1)
 	}
 }

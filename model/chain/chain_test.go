@@ -19,7 +19,7 @@ var testChain *Chain
 
 func TestMain(m *testing.M) {
 	persist.InitPersistGlobal()
-	conf.Cfg = conf.InitConfig()
+	conf.Cfg = conf.InitConfig([]string{})
 	os.Exit(m.Run())
 }
 

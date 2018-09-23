@@ -60,11 +60,11 @@ var (
 )
 
 // InitConfig init configuration
-func InitConfig() *Configuration {
+func InitConfig(args []string) *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 	DataDir = defaultDataDir
-	opts := InitArgs(os.Args)
+	opts := InitArgs(args)
 	if len(opts.DataDir) > 0 {
 		DataDir = opts.DataDir
 	}
