@@ -7,16 +7,18 @@ import (
 
 type Opts struct {
 	DataDir  string `long:"datadir" description:"specified program data dir"`
-	Discover int    `long:"discover" description:"Discover own IP addresses (default: 1 when listening and no -externalip or -proxy)"`
+	Discover int    `long:"discover" default:"1" description:"
+Discover own IP addresses (default: 1 when listening and no -externalip or -proxy) , Set -discover=0 in regtest framework"`
+
 }
 
-func InitArgs(args []string) *Opts {
+func InitArgs(args []string) (*Opts, error) {
 	opts := new(Opts)
 	_, err := flags.ParseArgs(opts, args)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return opts
+	return opts, nil
 }
 
 func (opts *Opts) String() string {
