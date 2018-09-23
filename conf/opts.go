@@ -6,10 +6,10 @@ import (
 )
 
 type Opts struct {
-	DataDir  string `long:"datadir" description:"specified program data dir"`
-	Discover int    `long:"discover" default:"1" description:"
-Discover own IP addresses (default: 1 when listening and no -externalip or -proxy) , Set -discover=0 in regtest framework"`
+	DataDir string `long:"datadir" description:"specified program data dir"`
 
+	//Set -discover=0 in regtest framework
+	Discover int `long:"discover" default:"1" description:"Discover own IP addresses (default: 1 when listening and no -externalip or -proxy) "`
 }
 
 func InitArgs(args []string) (*Opts, error) {
