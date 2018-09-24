@@ -2,7 +2,7 @@ package conf
 
 import (
 	"fmt"
-	"github.com/labstack/gommon/log"
+
 	"io"
 	"net"
 	"os"
@@ -68,7 +68,6 @@ func InitConfig(args []string) *Configuration {
 
 	opts, err := InitArgs(args)
 	if err != nil {
-		log.Error(err)
 		panic(err)
 	}
 	if len(opts.DataDir) > 0 {

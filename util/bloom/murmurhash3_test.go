@@ -6,8 +6,6 @@ package bloom
 
 import (
 	"testing"
-
-	"github.com/btcsuite/btcutil/bloom"
 )
 
 // TestMurmurHash3 ensure the MurmurHash3 function produces the correct hash
@@ -35,7 +33,7 @@ func TestMurmurHash3(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		result := bloom.MurmurHash3(test.seed, test.data)
+		result := MurmurHash3(test.seed, test.data)
 		if result != test.out {
 			t.Errorf("MurmurHash3 test #%d failed: got %v want %v\n",
 				i, result, test.out)

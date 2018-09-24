@@ -11,9 +11,11 @@ if [ ! -x "$(type -p gometalinter)" ]; then
     exit 1
 fi
 
-linter_targets=$(glide novendor)
+
 
 find . -name "*.go" -not -path "./vendor/*" -not -path "./git/*" | xargs gofmt -w
+
+linter_targets=$(glide novendor)
 
 test -z "$(gometalinter -j 4 --disable-all \
 --enable=gofmt \
