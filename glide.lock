@@ -12,10 +12,6 @@ imports:
   - session
   - toolbox
   - utils
-- name: github.com/btcsuite/go-socks
-  version: 4720035b7bfd2a9bb130b1c184f8bbe41b6f0d0f
-  subpackages:
-  - socks
 - name: github.com/copernet/secp256k1
   version: 5ace5d10cf35281acba5dd8b7a5da934167db9c4
 - name: github.com/copernet/secp256k1-go

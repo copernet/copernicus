@@ -5,11 +5,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/copernet/copernicus/net/socks"
 	"io/ioutil"
 	"net"
 	"net/http"
-
-	"github.com/btcsuite/go-socks/socks"
 )
 
 // newHTTPClient returns a new HTTP client that is configured according to the

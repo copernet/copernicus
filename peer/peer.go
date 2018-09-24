@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/net/socks"
 	"io"
 	"math/rand"
 	"net"
@@ -17,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/go-socks/socks"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
