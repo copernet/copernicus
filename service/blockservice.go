@@ -72,7 +72,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	defer persist.CsMain.Unlock()
 
 	if _, _, err := lblock.AcceptBlock(pblock, fForceProcessing, fNewBlock); err != nil {
-		log.Error(" AcceptBlock FAILED ")
+		log.Error(" AcceptBlock FAILED: ", pblock.GetHash())
 		return err
 	}
 

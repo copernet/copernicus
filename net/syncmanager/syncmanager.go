@@ -1245,7 +1245,6 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Don't relay if we are not current. Other peers that are
 		// current should already know about it.
 		if !sm.current() {
-			log.Error("[relay]not current, skip relay")
 			return
 		}
 
