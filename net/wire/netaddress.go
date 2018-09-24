@@ -6,6 +6,7 @@ package wire
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -46,6 +47,12 @@ type NetAddress struct {
 	// Port the peer is using.  This is encoded in big endian on the wire
 	// which differs from most everything else.
 	Port uint16
+}
+
+func (na *NetAddress) String() string {
+	return fmt.Sprintf("ip:%s port:%d timestamp:%d serviceFlag:%d",
+		na.IP, na.Port, na.Timestamp.Unix(), na.Services)
+
 }
 
 // HasService returns whether the specified service is supported by the address.

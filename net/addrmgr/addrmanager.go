@@ -164,6 +164,14 @@ const (
 // updateAddress is a helper function to either update an address already known
 // to the address manager, or to add the address if not already known.
 func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
+
+	log.Trace("updateAddress netAddr(%s), srcAddr(%s)\n", netAddr.String(), srcAddr.String())
+
+	//todo  external IP is no longer added
+	if !conf.Cfg.P2PNet.Discover {
+		return
+	}
+
 	// Filter out non-routable addresses. Note that non-routable
 	// also includes invalid and local addresses.
 	if !IsRoutable(netAddr) {

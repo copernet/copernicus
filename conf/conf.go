@@ -2,7 +2,6 @@ package conf
 
 import (
 	"fmt"
-
 	"io"
 	"net"
 	"os"
@@ -75,7 +74,6 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	discover := opts.Discover
-	fmt.Printf("discover:%d/n", discover)
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
@@ -148,6 +146,7 @@ func InitConfig(args []string) *Configuration {
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
+	config.P2PNet.Discover = discover == 1
 	return config
 }
 
@@ -209,6 +208,7 @@ type Configuration struct {
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
 		//AddCheckpoints      []model.Checkpoint
+		Discover bool // Is our peer's addrLocal potentially useful as an external IP source
 	}
 	AddrMgr struct {
 		SimNet       bool
