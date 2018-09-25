@@ -102,7 +102,7 @@ func (bh *BlockHeader) Unserialize(r io.Reader) error {
 func (bh *BlockHeader) String() string {
 	hash := bh.GetHash()
 	return fmt.Sprintf("Block version : %d, hashPrevBlock : %s, hashMerkleRoot : %s,"+
-		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, bh.HashPrevBlock,
+		"Time : %d, Bits : %d, nonce : %d, BlockHash : %s\n", bh.Version, &bh.HashPrevBlock,
 		&bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce, &hash)
 }
 
