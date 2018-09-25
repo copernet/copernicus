@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"math"
 	"strconv"
 
@@ -69,6 +70,7 @@ func newBlockTemplate() *BlockTemplate {
 
 // BlockAssembler Generate a new block, without valid proof-of-work
 type BlockAssembler struct {
+	sync.RWMutex
 	bt                    *BlockTemplate
 	maxGeneratedBlockSize uint64
 	blockMinFeeRate       util.FeeRate
@@ -253,7 +255,8 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, -1)
 
-	// todo LOCK2(cs_main);
+	ba.Lock()
+	defer ba.Unlock()
 	indexPrev := chain.GetInstance().Tip()
 
 	// genesis block
