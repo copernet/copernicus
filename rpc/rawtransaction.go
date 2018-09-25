@@ -302,7 +302,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 		}
 		lockTime = uint32(*c.LockTime)
 	}
-	transaction := tx.NewTx(lockTime, 0)
+	transaction := tx.NewTx(lockTime, tx.DefaultVersion)
 
 	for _, input := range c.Inputs {
 		txIn, err := createRawTxInput(&input, lockTime)

@@ -29,6 +29,7 @@ const (
 
 const (
 	RequireStandard = 1
+	DefaultVersion  = 0x01
 )
 
 const (
@@ -732,7 +733,7 @@ func NewEmptyTx() *Tx {
 }
 
 func NewGenesisCoinbaseTx() *Tx {
-	tx := NewTx(0, 1)
+	tx := NewTx(0, DefaultVersion)
 	scriptSigNum := script.NewScriptNum(4)
 	scriptSigString := "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 	//scriptSigData := make([][]byte, 0)

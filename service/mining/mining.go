@@ -3,11 +3,14 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"sync"
 	"math"
 	"strconv"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
@@ -26,6 +29,7 @@ import (
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+
 	"github.com/google/btree"
 )
 
@@ -66,6 +70,7 @@ func newBlockTemplate() *BlockTemplate {
 
 // BlockAssembler Generate a new block, without valid proof-of-work
 type BlockAssembler struct {
+	sync.RWMutex
 	bt                    *BlockTemplate
 	maxGeneratedBlockSize uint64
 	blockMinFeeRate       util.FeeRate
@@ -244,13 +249,14 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// add dummy coinbase tx as first transaction
 	ba.bt.Block.Txs = make([]*tx.Tx, 0, 100000)
-	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0x01)) // todo default version
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, tx.DefaultVersion))
 	ba.bt.TxFees = make([]amount.Amount, 0, 100000)
 	ba.bt.TxFees = append(ba.bt.TxFees, -1)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, -1)
 
-	// todo LOCK2(cs_main);
+	ba.Lock()
+	defer ba.Unlock()
 	indexPrev := chain.GetInstance().Tip()
 
 	// genesis block
@@ -259,7 +265,9 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.height = indexPrev.Height + 1
 	}
-	ba.bt.Block.Header.Version = int32(versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
+
+	blkVersion := versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)
+	ba.bt.Block.Header.Version = int32(blkVersion)
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
@@ -271,14 +279,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
-	//if ltx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
-	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
-	//} else {
-	//	ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
-	//}
-
 	descendantsUpdated := ba.addPackageTxs()
-
 	time1 := util.GetMockTimeInMicros()
 
 	// record last mining info for getmininginfo rpc using
@@ -286,12 +287,19 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	lastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
-	coinbaseTx := tx.NewTx(0, 0x01)
+	coinbaseTx := tx.NewTx(0, tx.DefaultVersion)
 	buf := bytes.NewBuffer(nil)
 	bs := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
-	buf.Write([]byte{opcodes.OP_0})
-	coinbaseTx.AddTxIn(txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, script.NewScriptRaw(buf.Bytes()), 0xffffffff))
+	_, err := buf.Write([]byte{opcodes.OP_0})
+	if err != nil {
+		log.Error("write OP_0 of opcodes failed:%v", err)
+		return nil
+	}
+
+	outPoint := outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}
+	sc := script.NewScriptRaw(buf.Bytes())
+	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, sc, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
 	value := ba.fees + GetBlockSubsidy(ba.height, ba.chainParams)
@@ -309,17 +317,17 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.bt.Block.Header.HashPrevBlock = *indexPrev.GetBlockHash()
 	}
-	UpdateTime(ba.bt.Block, indexPrev) // todo fix
+	UpdateTime(ba.bt.Block, indexPrev)
 	p := pow.Pow{}
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
-	// state := block.ValidationState{}
-	// err := block2.Check(ba.bt.Block)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
-	// }
+	//check the validity of the block
+	err = lblock.CheckBlock(ba.bt.Block)
+	if err != nil {
+		panic(fmt.Sprintf("CreateNewBlock(): check Block failed: %s", err))
+	}
 
 	time2 := util.GetMockTimeInMicros()
 	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+
