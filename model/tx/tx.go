@@ -118,6 +118,15 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 	return tx.outs[index]
 }
 
+func (tx *Tx) GetTxIn(index int) (out *txin.TxIn) {
+	if index < 0 || index > len(tx.ins) {
+		log.Warn("GetTxOut index %d over large")
+		return nil
+	}
+
+	return tx.ins[index]
+}
+
 func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
 	outs = make([]outpoint.OutPoint, 0, len(tx.ins))
 	for _, e := range tx.ins {
@@ -129,7 +138,9 @@ func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
 
 func (tx *Tx) GetOutsCount() int {
 	return len(tx.outs)
-
+}
+func (tx *Tx) GetInsCount() int {
+	return len(tx.ins)
 }
 
 func (tx *Tx) RemoveTxIn(txIn *txin.TxIn) {
