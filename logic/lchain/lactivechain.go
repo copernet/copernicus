@@ -81,7 +81,7 @@ func ActivateBestChain(pblock *block.Block) error {
 		// MemPoolConflictRemovalTracker destroyed and conflict evictions
 		// are notified
 
-		// todo  Transactions in the connnected block are notified
+		gChain.SendNotification(chain.NTBlockConnected, pblock)
 
 		// When we reach this point, we switched to a new tip (stored in
 		// pindexNewTip).

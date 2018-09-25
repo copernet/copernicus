@@ -36,6 +36,7 @@ func IsInitialBlockDownload() bool {
 	if persist.Reindex {
 		return true
 	}
+
 	if gChainActive.Tip() == nil {
 		return true
 	}
