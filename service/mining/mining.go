@@ -29,12 +29,10 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 
+	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/google/btree"
-
-	"github.com/btcboost/copernicus/utils"
-	"github.com/copernet/copernicus/logic/lblockindex"
 )
 
 const (
@@ -525,7 +523,7 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	indexDummy.Height = indexPrev.Height + 1
 
 	// NOTE: CheckBlockHeader is called by CheckBlock
-	if !lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, utils.GetAdjustedTime()) {
+	if !lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()) {
 		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlockHeader failed, please check.")
 		return false
 	}
