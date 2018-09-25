@@ -3,11 +3,13 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"strconv"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
@@ -26,6 +28,7 @@ import (
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+
 	"github.com/google/btree"
 )
 
@@ -319,11 +322,11 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.Block.Header.Nonce = 0
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
-	// state := block.ValidationState{}
-	// err := block2.Check(ba.bt.Block)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("CreateNewBlock(): TestBlockValidity failed: %s", state.FormatStateMessage()))
-	// }
+	//check the validity of the block
+	err = lblock.CheckBlock(ba.bt.Block)
+	if err != nil {
+		panic(fmt.Sprintf("CreateNewBlock(): check Block failed: %s", err))
+	}
 
 	time2 := util.GetMockTimeInMicros()
 	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+
