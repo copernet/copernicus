@@ -1240,8 +1240,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 
 		sm.peerNotifier.RelayUpdatedTipBlocks(event)
 
-	// A block has been accepted into the block chain.  Relay it to other
-	// peers.
+	// A block has been accepted into the block chain.  Relay it to other peers.
 	case chain.NTBlockAccepted:
 		// Don't relay if we are not current. Other peers that are
 		// current should already know about it.
@@ -1260,7 +1259,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
 		sm.peerNotifier.RelayInventory(iv, &block.Header)
 
-		// A block has been connected to the main block chain.
+	// A block has been connected to the main block chain.
 	case chain.NTBlockConnected:
 		block, ok := notification.Data.(*block.Block)
 		if !ok {
@@ -1279,14 +1278,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		for _, tx := range block.Txs[1:] {
 			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
 			// sm.peerNotifier.TransactionConfirmed(tx)
-			acceptedTxs := lmempool.ProcessOrphan(tx)
-			txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
-			for _, tx := range acceptedTxs {
-				if find := lmempool.FindTxInMempool(tx.GetHash()); find != nil {
-					txentrys = append(txentrys, find)
-				}
-			}
-			sm.peerNotifier.AnnounceNewTransactions(txentrys)
+			lmempool.ProcessOrphan(tx)
 		}
 
 		// Register block with the fee estimator, if it exists.
