@@ -287,4 +287,3 @@ func TestRaiseValidity(t *testing.T) {
 		t.Error("bIndex.RaiseValidity failed")
 	}
 }
-

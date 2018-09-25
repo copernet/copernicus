@@ -390,54 +390,54 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 	param := gChain.GetParams()
 	//	TODO !!! notify mempool update tx
 	warningMessages := make([]string, 0)
-	if !lundo.IsInitialBlockDownload() {
-		// todo check block version and warn it
-		// nUpgraded := 0
-		// pindex := gChain.Tip()
-		// for bit := 0; bit < versionbits.VersionBitsNumBits; bit++ {
-		// 	checker := versionbits.NewWarningBitsConChecker(bit)
-		// 	state := versionbits.GetStateFor(checker, pindex, param, GWarningCache[bit])
-		// 	if state == versionbits.ThresholdActive || state == versionbits.ThresholdLockedIn {
-		// 		if state == versionbits.ThresholdActive {
-		// 			strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
-		// 			msg.SetMiscWarning(strWaring)
-		// 			if !gWarned {
-		// 				AlertNotify(strWaring)
-		// 				gWarned = true
-		// 			}
-		// 		} else {
-		// 			warningMessages = append(warningMessages,
-		// 				fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
-		// 		}
-		// 	}
-		// }
-		// // Check the version of the last 100 blocks to see if we need to
-		// // upgrade:
-		// for i := 0; i < 100 && index != nil; i++ {
-		// 	nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
-		// 	if index.Header.Version > VersionBitsLastOldBlockVersion &&
-		// 		(int(index.Header.Version)&(^nExpectedVersion) != 0) {
-		// 		nUpgraded++
-		// 		index = index.Prev
-		// 	}
-		// }
-		// if nUpgraded > 0 {
-		// 	warningMessages = append(warningMessages,
-		// 		fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
-		// }
-		// if nUpgraded > 100/2 {
-		// 	strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
-		// 		" It's possible unknown rules are in effect")
-		// 	// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
-		// 	// the user:
-		// 	msg.SetMiscWarning(strWarning)
-		// 	if !gWarned {
-		// 		AlertNotify(strWarning)
-		//
-		// 		gWarned = true
-		// 	}
-		// }
-	}
+	// if !lundo.IsInitialBlockDownload() {
+	// todo check block version and warn it
+	// nUpgraded := 0
+	// pindex := gChain.Tip()
+	// for bit := 0; bit < versionbits.VersionBitsNumBits; bit++ {
+	// 	checker := versionbits.NewWarningBitsConChecker(bit)
+	// 	state := versionbits.GetStateFor(checker, pindex, param, GWarningCache[bit])
+	// 	if state == versionbits.ThresholdActive || state == versionbits.ThresholdLockedIn {
+	// 		if state == versionbits.ThresholdActive {
+	// 			strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
+	// 			msg.SetMiscWarning(strWaring)
+	// 			if !gWarned {
+	// 				AlertNotify(strWaring)
+	// 				gWarned = true
+	// 			}
+	// 		} else {
+	// 			warningMessages = append(warningMessages,
+	// 				fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
+	// 		}
+	// 	}
+	// }
+	// // Check the version of the last 100 blocks to see if we need to
+	// // upgrade:
+	// for i := 0; i < 100 && index != nil; i++ {
+	// 	nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
+	// 	if index.Header.Version > VersionBitsLastOldBlockVersion &&
+	// 		(int(index.Header.Version)&(^nExpectedVersion) != 0) {
+	// 		nUpgraded++
+	// 		index = index.Prev
+	// 	}
+	// }
+	// if nUpgraded > 0 {
+	// 	warningMessages = append(warningMessages,
+	// 		fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
+	// }
+	// if nUpgraded > 100/2 {
+	// 	strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
+	// 		" It's possible unknown rules are in effect")
+	// 	// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
+	// 	// the user:
+	// 	msg.SetMiscWarning(strWarning)
+	// 	if !gWarned {
+	// 		AlertNotify(strWarning)
+	//
+	// 		gWarned = true
+	// 	}
+	// }
+	// }
 	txdata := param.TxData()
 	tip := chain.GetInstance().Tip()
 	utxoTip := utxo.GetUtxoCacheInstance()
