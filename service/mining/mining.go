@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sync"
 	"math"
 	"strconv"
+	"sync"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"

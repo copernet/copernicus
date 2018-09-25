@@ -6,6 +6,7 @@ package btcjson
 
 import (
 	"encoding/json"
+	"github.com/btcsuite/btcd/btcjson"
 	"reflect"
 	"testing"
 )
@@ -156,4 +157,18 @@ func TestRPCError(t *testing.T) {
 			continue
 		}
 	}
+}
+
+func TestUnmarshalRequest(t *testing.T) {
+	str := `{"version": "1.1", "method": "getblockcount", "params": [], "id": 40}`
+	var request btcjson.Request
+	err := json.Unmarshal([]byte(str), &request)
+	if err != nil {
+		t.Error(err)
+	}
+	//str = `{"version": "1.1", "method": "getblockcount", "params": {}, "id": 40}`
+	//err = jsoniter.Unmarshal([]byte(str), &request)
+	//if err != nil {
+	//	t.Error(err)
+	//}
 }
