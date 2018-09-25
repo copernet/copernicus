@@ -244,7 +244,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// add dummy coinbase tx as first transaction
 	ba.bt.Block.Txs = make([]*tx.Tx, 0, 100000)
-	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, 0x01)) // todo default version
+	ba.bt.Block.Txs = append(ba.bt.Block.Txs, tx.NewTx(0, tx.DefaultVersion))
 	ba.bt.TxFees = make([]amount.Amount, 0, 100000)
 	ba.bt.TxFees = append(ba.bt.TxFees, -1)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
@@ -286,11 +286,15 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	lastBlockSize = ba.blockSize
 
 	// Create coinbase transaction
-	coinbaseTx := tx.NewTx(0, 0x01)
+	coinbaseTx := tx.NewTx(0, tx.DefaultVersion)
 	buf := bytes.NewBuffer(nil)
 	bs := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
-	buf.Write([]byte{opcodes.OP_0})
+	_, err := buf.Write([]byte{opcodes.OP_0})
+	if err != nil {
+		log.Error("write OP_0 of opcodes failed:%v", err)
+		return nil
+	}
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, script.NewScriptRaw(buf.Bytes()), 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)

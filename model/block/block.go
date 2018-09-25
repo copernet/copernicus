@@ -86,7 +86,7 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	}
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {
-		tx := tx.NewTx(0, 0)
+		tx := tx.NewTx(0, tx.DefaultVersion)
 		if err := tx.Unserialize(r); err != nil {
 			return err
 		}
