@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/net/socks"
 	"io"
 	"math/rand"
 	"net"
@@ -17,10 +18,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/go-socks/socks"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
@@ -251,7 +251,7 @@ type Config struct {
 	// ChainParams identifies which chain parameters the peer is associated
 	// with.  It is highly recommended to specify this field, however it can
 	// be omitted in which case the test network will be used.
-	ChainParams *chainparams.BitcoinParams
+	ChainParams *model.BitcoinParams
 
 	// Services specifies which services to advertise as supported by the
 	// local peer.  This field can be omitted in which case it will be 0
@@ -1170,7 +1170,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	var err error
 	defer func() {
 		if err != nil {
-			log.Error("readMessage got a error: %v", err)
+			log.Error("peer(%s): readMessage got a error: %v", p, err)
 		}
 	}()
 
@@ -1925,7 +1925,7 @@ func (p *Peer) Disconnect() {
 func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	log.Trace("Starting peer %s", p)
 
-	negotiateErr := make(chan error)
+	negotiateErr := make(chan error, 1)
 	go func() {
 		if p.inbound {
 			negotiateErr <- p.negotiateInboundProtocol()
@@ -2043,7 +2043,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 
 	// Set the chain parameters to testnet if the caller did not specify any.
 	if cfg.ChainParams == nil {
-		cfg.ChainParams = chainparams.ActiveNetParams
+		cfg.ChainParams = model.ActiveNetParams
 	}
 
 	p := Peer{

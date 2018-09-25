@@ -13,10 +13,10 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -31,7 +31,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	conf.Cfg = conf.InitConfig()
+	conf.Cfg = conf.InitConfig([]string{})
 	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
@@ -98,7 +98,7 @@ func TestWRBlockToDisk(t *testing.T) {
 	blkIndex.File = 11
 	blkIndex.DataPos = 9
 	blkIndex.Status = 8
-	blks, ok := ReadBlockFromDisk(blkIndex, &chainparams.TestNetParams)
+	blks, ok := ReadBlockFromDisk(blkIndex, &model.TestNetParams)
 
 	if !ok {
 		t.Error("check proof work failed.")

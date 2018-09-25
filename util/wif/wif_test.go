@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 )
 
 func TestEncodeDecodeWIF(t *testing.T) {
@@ -23,11 +23,11 @@ func TestEncodeDecodeWIF(t *testing.T) {
 		0x4e, 0x39, 0x6f, 0xb5, 0xdc, 0x29, 0x5f, 0xe9,
 		0x94, 0xb9, 0x67, 0x89, 0xb2, 0x1a, 0x03, 0x98})
 
-	wif1, err := NewWIF(priv1, &chainparams.MainNetParams, false)
+	wif1, err := NewWIF(priv1, &model.MainNetParams, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wif2, err := NewWIF(priv2, &chainparams.TestNetParams, true)
+	wif2, err := NewWIF(priv2, &model.TestNetParams, true)
 	if err != nil {
 		t.Fatal(err)
 	}

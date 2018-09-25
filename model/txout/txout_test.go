@@ -116,7 +116,7 @@ func TestCheckValue(t *testing.T) {
 }
 
 func TestCheckStandard(t *testing.T) {
-	conf.Cfg = conf.InitConfig()
+	conf.Cfg = conf.InitConfig([]string{})
 	testTxout.scriptPubKey.ParsedOpCodes = make([]opcodes.ParsedOpCode, 5)
 
 	poc := opcodes.NewParsedOpCode(opcodes.OP_RETURN, 1, []byte{0x6a})

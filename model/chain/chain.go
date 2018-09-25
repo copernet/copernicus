@@ -1,13 +1,16 @@
 package chain
 
 import (
+	"github.com/copernet/copernicus/model"
 	"sort"
+	"sync"
+	"time"
 
 	"errors"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
+
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -26,7 +29,12 @@ type Chain struct {
 	indexMap    map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
 	newestBlock *blockindex.BlockIndex
 	receiveID   uint64
-	params      *chainparams.BitcoinParams
+	params      *model.BitcoinParams
+
+	// The notifications field stores a slice of callbacks to be executed on
+	// certain blockchain events.
+	notificationsLock sync.RWMutex
+	notifications     []NotificationCallback
 }
 
 var globalChain *Chain
@@ -42,7 +50,7 @@ func GetInstance() *Chain {
 func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
-		globalChain.params = chainparams.ActiveNetParams
+		globalChain.params = model.ActiveNetParams
 	}
 	if len(conf.Cfg.Chain.AssumeValid) > 0 {
 		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
@@ -51,15 +59,15 @@ func InitGlobalChain() {
 		}
 		HashAssumeValid = *hash
 	} else {
-		HashAssumeValid = chainparams.ActiveNetParams.DefaultAssumeValid
+		HashAssumeValid = model.ActiveNetParams.DefaultAssumeValid
 	}
 }
-func NewChain() *Chain {
 
-	// return NewFakeChain()
+func NewChain() *Chain {
 	return &Chain{}
 }
-func (c *Chain) GetParams() *chainparams.BitcoinParams {
+
+func (c *Chain) GetParams() *model.BitcoinParams {
 	return c.params
 }
 
@@ -125,6 +133,27 @@ func (c *Chain) TipHeight() int32 {
 	return 0
 }
 
+// IsCurrent returns whether or not the chain believes it is current.  Several
+// factors are used to guess, but the key factors that allow the chain to
+// believe it is current are:
+//  - Latest block height is after the latest checkpoint (if enabled)
+//  - Latest block has a timestamp newer than 24 hours ago
+func (c *Chain) IsCurrent() bool {
+	// Not current if the latest main (best) chain height is before the
+	// latest known good checkpoint (when checkpoints are enabled).
+	//TODO: checkpoint
+	//checkpoint := b.LatestCheckpoint()
+	//if checkpoint != nil && b.bestChain.Tip().height < checkpoint.Height {
+	//	return false
+	//}
+
+	// Not current if the latest best block has a timestamp before 24 hours ago.
+	minus24Hours := time.Now().Add(-24 * time.Hour).Unix()
+	tipTime := int64(c.Tip().GetBlockTime())
+
+	return tipTime >= minus24Hours
+}
+
 func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
 	index, ok := c.indexMap[*hash]
 	if ok {
@@ -173,7 +202,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
-	if chainparams.IsUAHFEnabled(pindex.Height) {
+	if model.IsUAHFEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyStrictEnc
 		flags |= script.ScriptEnableSigHashForkID
 	}
@@ -186,12 +215,12 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//	flags |= script.ScriptVerifyLowS
 	//	flags |= script.ScriptVerifyNullFail
 	//}
-	if chainparams.IsDAAEnabled(pindex.Height) {
+	if model.IsDAAEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
 	}
 	//The monolith HF enable a set of opcodes.
-	if chainparams.IsMonolithEnabled(pindex.GetMedianTimePast()) {
+	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
 	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
@@ -201,7 +230,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//}
 	// We make sure this node will have replay protection during the next hard
 	// fork.
-	if chainparams.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
+	if model.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableReplayProtection
 	}
 

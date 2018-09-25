@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -8,7 +9,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
 )
@@ -60,17 +60,20 @@ var (
 )
 
 // InitConfig init configuration
-func InitConfig() *Configuration {
+func InitConfig(args []string) *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
-
-	getdatadir := pflag.String("datadir", defaultDataDir, "specified program data dir")
-	pflag.Parse()
-
 	DataDir = defaultDataDir
-	if getdatadir != nil {
-		DataDir = *getdatadir
+
+	opts, err := InitArgs(args)
+	if err != nil {
+		panic(err)
 	}
+	if len(opts.DataDir) > 0 {
+		DataDir = opts.DataDir
+	}
+
+	discover := opts.Discover
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
@@ -108,15 +111,23 @@ func InitConfig() *Configuration {
 		field := t.Field(i)
 		if v.Field(i).Type().Kind() != reflect.Struct {
 			key := field.Name
-			value := field.Tag.Get(tagName)
+			value, ok := field.Tag.Lookup(tagName)
+			if !ok {
+				continue
+			}
 			//set default value
 			viper.SetDefault(key, value)
 			//log.Printf("key is: %v,value is: %v\n", key, value)
 		} else {
 			structField := v.Field(i).Type()
+			structName := t.Field(i).Name
 			for j := 0; j < structField.NumField(); j++ {
-				key := structField.Field(j).Name
-				values := structField.Field(j).Tag.Get(tagName)
+				fieldName := structField.Field(j).Name
+				key := fmt.Sprintf("%s.%s", structName, fieldName)
+				values, ok := structField.Field(j).Tag.Lookup(tagName)
+				if !ok {
+					continue
+				}
 				viper.SetDefault(key, values)
 				//log.Printf("key is: %v,value is: %v\n", key, values)
 			}
@@ -135,6 +146,7 @@ func InitConfig() *Configuration {
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
+	config.P2PNet.Discover = discover == 1
 	return config
 }
 
@@ -196,6 +208,7 @@ type Configuration struct {
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
 		//AddCheckpoints      []model.Checkpoint
+		Discover bool // Is our peer's addrLocal potentially useful as an external IP source
 	}
 	AddrMgr struct {
 		SimNet       bool
@@ -224,6 +237,10 @@ type Configuration struct {
 		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
 		BlockVersion  int32  `default:"-1"`
 		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
+	}
+	PProf struct {
+		IP   string `default:"localhost"`
+		Port string `default:"6060"`
 	}
 }
 

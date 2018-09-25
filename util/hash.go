@@ -6,12 +6,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"golang.org/x/crypto/ripemd160"
+
 	"hash"
 	"io"
 	"math/big"
 
 	"github.com/copernet/copernicus/log"
-	"golang.org/x/crypto/ripemd160"
 )
 
 const (

@@ -11,10 +11,10 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
@@ -455,7 +455,7 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 }
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
-func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.BlockIndex) float64 {
+func GuessVerificationProgress(data *model.ChainTxData, index *blockindex.BlockIndex) float64 {
 	if index == nil {
 		return float64(0)
 	}

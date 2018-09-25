@@ -9,7 +9,7 @@ import (
 	"errors"
 
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/base58"
 )
@@ -53,7 +53,7 @@ type WIF struct {
 // as a string encoded in the Wallet Import Format.  The compress argument
 // specifies whether the address intended to be imported or exported was created
 // by serializing the public key compressed rather than uncompressed.
-func NewWIF(privKey *crypto.PrivateKey, net *chainparams.BitcoinParams, compress bool) (*WIF, error) {
+func NewWIF(privKey *crypto.PrivateKey, net *model.BitcoinParams, compress bool) (*WIF, error) {
 	if net == nil {
 		return nil, errors.New("no network")
 	}
@@ -62,7 +62,7 @@ func NewWIF(privKey *crypto.PrivateKey, net *chainparams.BitcoinParams, compress
 
 // IsForNet returns whether or not the decoded WIF structure is associated
 // with the passed bitcoin network.
-func (w *WIF) IsForNet(net *chainparams.BitcoinParams) bool {
+func (w *WIF) IsForNet(net *model.BitcoinParams) bool {
 	return w.netID == net.PrivatekeyID
 }
 

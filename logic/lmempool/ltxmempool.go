@@ -433,19 +433,20 @@ func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
 func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 	pool := mempool.GetInstance()
 	pool.RLock()
+	defer pool.RUnlock()
 	if orphan, ok := pool.OrphanTransactions[hash]; ok {
 		return orphan.Tx
 	}
-	pool.RUnlock()
+
 	return nil
 }
 
 func FindRejectTxInMempool(hash util.Hash) bool {
 	pool := mempool.GetInstance()
 	pool.RLock()
+	defer pool.RUnlock()
 	if _, ok := pool.RecentRejects[hash]; ok {
 		return ok
 	}
-	pool.RUnlock()
 	return false
 }

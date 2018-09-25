@@ -4,16 +4,16 @@ import (
 	"math/big"
 
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 )
 
 type Pow struct{}
 
 func (pow *Pow) GetNextWorkRequired(indexPrev *blockindex.BlockIndex, blHeader *block.BlockHeader,
-	params *chainparams.BitcoinParams) uint32 {
+	params *model.BitcoinParams) uint32 {
 	if indexPrev == nil {
 		return BigToCompact(params.PowLimit)
 	}
@@ -26,7 +26,7 @@ func (pow *Pow) GetNextWorkRequired(indexPrev *blockindex.BlockIndex, blHeader *
 	//if indexPrev.GetMedianTimePast() >= params.CashHardForkActivationTime {
 	//	return pow.getNextCashWorkRequired(indexPrev, blHeader, params)
 	//}
-	if chainparams.IsDAAEnabled(indexPrev.Height) {
+	if model.IsDAAEnabled(indexPrev.Height) {
 		return pow.getNextCashWorkRequired(indexPrev, blHeader, params)
 	}
 
@@ -34,7 +34,7 @@ func (pow *Pow) GetNextWorkRequired(indexPrev *blockindex.BlockIndex, blHeader *
 }
 
 func (pow *Pow) calculateNextWorkRequired(indexPrev *blockindex.BlockIndex, firstBlockTime int64,
-	params *chainparams.BitcoinParams) uint32 {
+	params *model.BitcoinParams) uint32 {
 	if params.FPowNoRetargeting {
 		return indexPrev.Header.Bits
 	}
@@ -67,7 +67,7 @@ func (pow *Pow) calculateNextWorkRequired(indexPrev *blockindex.BlockIndex, firs
 // block. Because timestamps are the least trustworthy information we have as
 // input, this ensures the algorithm is more resistant to malicious inputs.
 func (pow *Pow) getNextCashWorkRequired(indexPrev *blockindex.BlockIndex, blHeader *block.BlockHeader,
-	params *chainparams.BitcoinParams) uint32 {
+	params *model.BitcoinParams) uint32 {
 	if indexPrev == nil {
 		panic("This cannot handle the genesis block and early blocks in general.")
 	}
@@ -110,7 +110,7 @@ func (pow *Pow) getNextCashWorkRequired(indexPrev *blockindex.BlockIndex, blHead
 // getNextEDAWorkRequired Compute the next required proof of work using the
 // legacy Bitcoin difficulty adjustment + Emergency Difficulty Adjustment (EDA).
 func (pow *Pow) getNextEDAWorkRequired(indexPrev *blockindex.BlockIndex, pblock *block.BlockHeader,
-	params *chainparams.BitcoinParams) uint32 {
+	params *model.BitcoinParams) uint32 {
 
 	// Only change once per difficulty adjustment interval
 	nHeight := indexPrev.Height + 1
@@ -180,7 +180,7 @@ func (pow *Pow) getNextEDAWorkRequired(indexPrev *blockindex.BlockIndex, pblock 
 
 // computeTarget Compute the a target based on the work done between 2 blocks and the time
 // required to produce that work.
-func (pow *Pow) computeTarget(indexFirst, indexLast *blockindex.BlockIndex, params *chainparams.BitcoinParams) *big.Int {
+func (pow *Pow) computeTarget(indexFirst, indexLast *blockindex.BlockIndex, params *model.BitcoinParams) *big.Int {
 	if indexLast.Height <= indexFirst.Height {
 		panic("indexLast height should greater the indexFirst height ")
 	}
@@ -245,7 +245,7 @@ func (pow *Pow) getSuitableBlock(index *blockindex.BlockIndex) *blockindex.Block
 	return blocks[1]
 }
 
-func (pow *Pow) CheckProofOfWork(hash *util.Hash, bits uint32, params *chainparams.BitcoinParams) bool {
+func (pow *Pow) CheckProofOfWork(hash *util.Hash, bits uint32, params *model.BitcoinParams) bool {
 	target := CompactToBig(bits)
 	if target.Sign() <= 0 || target.Cmp(params.PowLimit) > 0 ||
 		HashToBig(hash).Cmp(target) > 0 {

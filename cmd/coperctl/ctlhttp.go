@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
+	"github.com/copernet/copernicus/net/socks"
 	"io/ioutil"
 	"net"
 	"net/http"
-
-	"github.com/btcsuite/go-socks/socks"
-	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
 // newHTTPClient returns a new HTTP client that is configured according to the
@@ -115,14 +112,6 @@ func sendPostRequest(marshalledJSON []byte, cfg *config) ([]byte, error) {
 		return nil, fmt.Errorf("%s", respBytes)
 	}
 
-	// Unmarshal the response.
-	var resp btcjson.Response
-	if err := json.Unmarshal(respBytes, &resp); err != nil {
-		return nil, err
-	}
+	return respBytes, nil
 
-	if resp.Error != nil {
-		return nil, resp.Error
-	}
-	return resp.Result, nil
 }

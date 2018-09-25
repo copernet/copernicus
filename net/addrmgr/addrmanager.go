@@ -25,7 +25,7 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 )
@@ -164,6 +164,17 @@ const (
 // updateAddress is a helper function to either update an address already known
 // to the address manager, or to add the address if not already known.
 func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
+	if netAddr != nil {
+		log.Trace("updateAddress netAddr(%s)\n", netAddr.String())
+	}
+	if netAddr != nil {
+		log.Trace("updateAddress srcAddr(%s)\n", srcAddr.String())
+	}
+	//todo  external IP is no longer added
+	if conf.Cfg != nil && !conf.Cfg.P2PNet.Discover {
+		return
+	}
+
 	// Filter out non-routable addresses. Note that non-routable
 	// also includes invalid and local addresses.
 	if !IsRoutable(netAddr) {
@@ -1081,7 +1092,7 @@ func (a *AddrManager) NewAddress(filterOut func(gKey string) bool) (string, erro
 
 			// allow nondefault ports after 50 failed tries.
 			if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
-				chainparams.ActiveNetParams.DefaultPort {
+				model.ActiveNetParams.DefaultPort {
 				continue
 			}
 
