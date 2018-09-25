@@ -511,7 +511,8 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
 		return
 	}
-	txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
+
+	txentrys := make([]*mempool.TxEntry, 0, len(acceptedTxs))
 	for _, tx := range acceptedTxs {
 		if entry := lmempool.FindTxInMempool(tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
