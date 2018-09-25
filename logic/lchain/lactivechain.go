@@ -87,8 +87,6 @@ func ActivateBestChain(pblock *block.Block) error {
 		// pindexNewTip).
 		// Notifications/callbacks that can run without cs_main
 		// Notify external listeners about the new tip.
-		// TODO!!! send Asynchronous signal to external listeners.
-
 		event := chain.TipUpdatedEvent{pindexNewTip, pindexFork, lundo.IsInitialBlockDownload()}
 		gChain.SendNotification(chain.NTChainTipUpdated, &event)
 

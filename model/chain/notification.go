@@ -80,8 +80,9 @@ func (c *Chain) SendNotification(typ NotificationType, data interface{}) {
 	n := Notification{Type: typ, Data: data}
 
 	c.notificationsLock.RLock()
+	defer c.notificationsLock.RUnlock()
+
 	for _, callback := range c.notifications {
 		callback(&n)
 	}
-	c.notificationsLock.RUnlock()
 }

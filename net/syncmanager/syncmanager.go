@@ -525,9 +525,9 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 // current returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
 func (sm *SyncManager) current() bool {
-	//if !sm.chain.IsCurrent() {
-	//	return false
-	//}
+	if !chain.GetInstance().IsCurrent() {
+		return false
+	}
 
 	// if blockChain thinks we are current and we have no syncPeer it
 	// is probably right.

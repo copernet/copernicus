@@ -1783,7 +1783,7 @@ func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 
 // RelayUpdatedTipBlocks relays blocks leads to new main chain
 func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
-	if !event.IsInitialDownload {
+	if event.IsInitialDownload {
 		return
 	}
 
