@@ -3,7 +3,6 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -30,6 +29,9 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/google/btree"
 )
 
@@ -324,9 +326,8 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	//check the validity of the block
-	err = lblock.CheckBlock(ba.bt.Block)
-	if err != nil {
-		panic(fmt.Sprintf("CreateNewBlock(): check Block failed: %s", err))
+	if !TestBlockValidity(ba.bt.Block, indexPrev) {
+		panic("TestBlockValidity failed.")
 	}
 
 	time2 := util.GetMockTimeInMicros()
@@ -497,4 +498,50 @@ func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 	// Subsidy is cut in half every 210,000 blocks which will occur
 	// approximately every 4 years.
 	return amount.Amount(uint(nSubsidy) >> uint(halvings))
+}
+
+func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
+	//persist.CsMain.Lock()
+	//defer persist.CsMain.Unlock()
+	if indexPrev == nil {
+		return true
+	}
+	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
+		panic("error")
+	}
+
+	if !lblockindex.CheckIndexAgainstCheckpoint(indexPrev) {
+		log.Error("mining: CheckIndexAgainstCheckpoint() failed, please check.")
+		return false
+	}
+
+	coinMap := utxo.NewEmptyCoinsMap()
+	coinMap.GetMap()
+	blkHeader := block.GetBlockHeader()
+	indexDummy := blockindex.NewBlockIndex(&blkHeader)
+	indexDummy.Prev = indexPrev
+	indexDummy.Height = indexPrev.Height + 1
+
+	// NOTE: CheckBlockHeader is called by CheckBlock
+	if !lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()) {
+		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlockHeader failed, please check.")
+		return false
+	}
+
+	if err := lblock.CheckBlock(block); err != nil {
+		log.Error("TestBlockValidity(): Consensus::CheckBlock failed, please check.")
+		return false
+	}
+
+	if err := lblock.ContextualCheckBlock(block, indexPrev); err != nil {
+		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlock failed, please check.")
+		return false
+	}
+
+	if err := lchain.ConnectBlock(block, indexPrev, coinMap, true); err != nil {
+		log.Error("trying to connect to the block failed:%v", err)
+		return false
+	}
+
+	return true
 }
