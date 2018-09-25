@@ -32,6 +32,7 @@ import (
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
 	"github.com/google/btree"
 )
 
@@ -501,13 +502,11 @@ func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 }
 
 func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
-	//persist.CsMain.Lock()
-	//defer persist.CsMain.Unlock()
-	if indexPrev == nil {
-		return true
-	}
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
-		panic("error")
+		panic("TestBlockValidity(): error")
 	}
 
 	if !lblockindex.CheckIndexAgainstCheckpoint(indexPrev) {
