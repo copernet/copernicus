@@ -12,8 +12,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
 	"math"
-	//"sync"
-	sync "github.com/sasha-s/go-deadlock"
+	"sync"
 	"time"
 )
 
