@@ -17,7 +17,6 @@ import (
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
-	"gopkg.in/fatih/set.v0"
 	"strconv"
 	"strings"
 )
@@ -699,17 +698,17 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		confirmations = index.Height - coin.GetHeight() + 1
 	}
 
-	txOut := coin.GetTxOut()
 	amountValue := valueFromAmount(int64(coin.GetAmount()))
+	scriptPubKeyJSON := ScriptPubKeyToJSON(coin.GetScriptPubKey(), true)
 	txOutReply := &btcjson.GetTxOutResult{
 		BestBlock:     index.GetBlockHash().String(),
 		Confirmations: confirmations,
 		Value:         strconv.FormatFloat(amountValue, 'f', -1, 64),
-		ScriptPubKey:  ScriptPubKeyToJSON(txOut.GetScriptPubKey(), true),
+		ScriptPubKey:  *scriptPubKeyJSON,
 		Coinbase:      coin.IsCoinBase(),
 	}
 
-	return &txOutReply, nil
+	return txOutReply, nil
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

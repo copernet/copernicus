@@ -789,19 +789,19 @@ type GetMempoolDescendantsCmd struct {
 // RawTxInput models the data needed for raw transaction input that is used in
 // the SignRawTransactionCmd struct.
 type RawTxInput struct {
-	Txid         string `json:"txid"`
-	Vout         uint32 `json:"vout"`
-	ScriptPubKey string `json:"scriptPubKey"`
-	RedeemScript string `json:"redeemScript"`
-	Amount       *int   `json:"amount"`
+	Txid         string  `json:"txid"`
+	Vout         uint32  `json:"vout"`
+	ScriptPubKey string  `json:"scriptPubKey"`
+	RedeemScript *string `json:"redeemScript"`
+	Amount       float64 `json:"amount"`
 }
 
 // SignRawTransactionCmd defines the signrawtransaction JSON-RPC command.
 type SignRawTransactionCmd struct {
-	RawTx    string
-	Inputs   *[]RawTxInput
-	PrivKeys *[]string
-	Flags    *string `jsonrpcdefault:"\"ALL\""`
+	HexTx       string
+	PrevTxs     *[]RawTxInput
+	PrivKeys    *[]string
+	SigHashType *string
 }
 
 type VerifyTxoutProofCmd struct {
