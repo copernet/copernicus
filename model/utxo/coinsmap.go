@@ -11,7 +11,6 @@ import (
 
 type CoinsMap struct {
 	cacheCoins map[outpoint.OutPoint]*Coin
-	hashBlock  util.Hash
 }
 
 func (cm *CoinsMap) GetMap() map[outpoint.OutPoint]*Coin {
@@ -79,10 +78,6 @@ func (cm *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwr
 	coin.fresh = true
 	cm.cacheCoins[*point] = coin
 
-}
-
-func (cm *CoinsMap) SetBestBlock(hash util.Hash) {
-	cm.hashBlock = hash
 }
 
 // SpendCoin spend a specified coin
