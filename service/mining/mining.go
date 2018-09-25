@@ -262,7 +262,9 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.height = indexPrev.Height + 1
 	}
-	ba.bt.Block.Header.Version = int32(versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)) // todo deal with nil param
+
+	blkVersion := versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)
+	ba.bt.Block.Header.Version = int32(blkVersion)
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
@@ -274,14 +276,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
-	//if ltx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
-	//	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
-	//} else {
-	//	ba.lockTimeCutoff = int64(ba.bt.Block.Header.Time)
-	//}
-
 	descendantsUpdated := ba.addPackageTxs()
-
 	time1 := util.GetMockTimeInMicros()
 
 	// record last mining info for getmininginfo rpc using
@@ -298,7 +293,10 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 		log.Error("write OP_0 of opcodes failed:%v", err)
 		return nil
 	}
-	coinbaseTx.AddTxIn(txin.NewTxIn(&outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}, script.NewScriptRaw(buf.Bytes()), 0xffffffff))
+
+	outPoint := outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}
+	sc := script.NewScriptRaw(buf.Bytes())
+	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, sc, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
 	value := ba.fees + GetBlockSubsidy(ba.height, ba.chainParams)
@@ -316,7 +314,7 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	} else {
 		ba.bt.Block.Header.HashPrevBlock = *indexPrev.GetBlockHash()
 	}
-	UpdateTime(ba.bt.Block, indexPrev) // todo fix
+	UpdateTime(ba.bt.Block, indexPrev)
 	p := pow.Pow{}
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
