@@ -450,7 +450,7 @@ func (s *Script) ExtractDestinations() (sType int, addresses []*Address, sigCoun
 	if sType == ScriptHash {
 		sigCountRequired = 1
 		addresses = make([]*Address, 0, 1)
-		address, err := AddressFromScriptHash(pubKeys[0])
+		address, err := AddressFromHash160(pubKeys[0], AddressVerScript())
 		if err != nil {
 			return sType, nil, 0, err
 		}

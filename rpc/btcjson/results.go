@@ -238,19 +238,19 @@ type LocalAddressesResult struct {
 // GetNetworkInfoResult models the data returned from the getnetworkinfo
 // command.
 type GetNetworkInfoResult struct {
-	Version         int32                  `json:"version"`
-	SubVersion      string                 `json:"subversion"`
-	ProtocolVersion int32                  `json:"protocolversion"`
-	LocalServices   string                 `json:"localservices"`
-	LocalRelay      bool                   `json:"localrelay"`
-	TimeOffset      int64                  `json:"timeoffset"`
-	NetworkActive   bool                   `json:"networkactive"`
-	Connections     int32                  `json:"connections"`
-	Networks        []NetworksResult       `json:"networks"`
-	RelayFee        float64                `json:"relayfee"`
-	IncrementalFee  float64                `json:"incrementalfee"`
-	LocalAddresses  []LocalAddressesResult `json:"localaddresses"`
-	Warnings        string                 `json:"warnings"`
+	Version          int                    `json:"version"`
+	SubVersion       string                 `json:"subversion"`
+	ProtocolVersion  uint32                 `json:"protocolversion"`
+	LocalServices    string                 `json:"localservices"`
+	LocalRelay       bool                   `json:"localrelay"`
+	TimeOffset       int64                  `json:"timeoffset"`
+	NetworkActive    bool                   `json:"networkactive"`
+	Connections      int32                  `json:"connections"`
+	Networks         []NetworksResult       `json:"networks"`
+	RelayFee         float64                `json:"relayfee"`
+	ExcessUtxoCharge float64                `json:"excessutxocharge"`
+	LocalAddresses   []LocalAddressesResult `json:"localaddresses"`
+	Warnings         string                 `json:"warnings"`
 }
 
 // GetPeerInfoResult models the data returned from the getpeerinfo command.
@@ -315,7 +315,6 @@ type GetTxOutResult struct {
 	Confirmations int32              `json:"confirmations"`
 	Value         string             `json:"value"`
 	ScriptPubKey  ScriptPubKeyResult `json:"scriptPubKey"`
-	Version       int32              `json:"version"`
 	Coinbase      bool               `json:"coinbase"`
 }
 

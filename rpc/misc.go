@@ -11,8 +11,10 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/base58"
 )
@@ -45,12 +47,28 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		height = 0
 	}
 
+	request := &service.GetConnectionCountRequest{}
+	response, err := server.ProcessForRPC(request)
+	if err != nil {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Can not acquire connection count",
+		}
+	}
+	count, ok := response.(*service.GetConnectionCountResponse)
+	if !ok {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCInternalError,
+			Message: "Server handle error",
+		}
+	}
+
 	ret := &btcjson.InfoChainResult{
 		Version:         1000000*conf.AppMajor + 10000*conf.AppMinor + 100*conf.AppPatch,
 		ProtocolVersion: int32(wire.ProtocolVersion),
 		Blocks:          height,
 		TimeOffset:      util.GetTimeOffset(),
-		Connections:     s.cfg.ConnMgr.ConnectedCount(),
+		Connections:     int32(count.Count),
 		Proxy:           conf.Cfg.P2PNet.Proxy,
 		Difficulty:      getDifficulty(chain.GetInstance().Tip()),
 		TestNet:         model.ActiveNetParams.BitcoinNet == wire.TestNet3,
