@@ -177,9 +177,9 @@ func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 		return median[i] < median[j]
 	})
 
-	if len(median) < 11 {
-		return 0
-	}
+	//if len(median) < 11 {
+	//	return 0
+	//}
 	return median[numNodes/2]
 }
 
