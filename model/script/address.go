@@ -40,6 +40,10 @@ func (addr *Address) String() string {
 	return base58.CheckEncode(addr.publicKey, addr.version)
 }
 
+func (addr *Address) GetVersion() byte {
+	return addr.version
+}
+
 func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 	decodes := base58.Decode(addressStr) // todo check whether is CheckDecode() or not
 	if decodes == nil {
