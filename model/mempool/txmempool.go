@@ -220,12 +220,10 @@ func (m *TxMempool) GetAllTxEntry() map[util.Hash]*TxEntry {
 }
 
 func (m *TxMempool) GetAllTxEntryWithoutLock() map[util.Hash]*TxEntry {
-	m.RLock()
 	ret := make(map[util.Hash]*TxEntry, len(m.poolData))
 	for k, v := range m.poolData {
 		ret[k] = v
 	}
-	m.RUnlock()
 	return ret
 }
 
