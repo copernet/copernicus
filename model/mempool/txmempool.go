@@ -269,8 +269,8 @@ func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
 }
 
 func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
-	m.RLock()
-	defer m.RUnlock()
+	// m.RLock()
+	// defer m.RUnlock()
 
 	txMempoolEntry, ok := m.poolData[outpoint.Hash]
 	if !ok {
