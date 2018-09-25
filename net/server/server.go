@@ -998,7 +998,7 @@ func (s *Server) relayTransactions(txns []*mempool.TxEntry) {
 func (s *Server) AnnounceNewTransactions(txns []*mempool.TxEntry) {
 	// Generate and relay inventory vectors for all newly accepted
 	// transactions.
-	// s.relayTransactions(txns)
+	s.relayTransactions(txns)
 
 	// Notify both websocket and getblocktemplate long poll clients of all
 	// newly accepted transactions.
