@@ -16,19 +16,21 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
+var latchToFalse int32
+
 // IsInitialBlockDownload Check whether we are doing an initial block download
 // (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
 	gChainActive := chain.GetInstance()
-	latchToFalse := atomic.Value{}
-	// Once this function has returned false, it must remain false.
-	latchToFalse.Store(false)
 	// latchToFalse: pre-test latch before taking the lock.
-	if latchToFalse.Load().(bool) {
+	if atomic.LoadInt32(&latchToFalse) != 0 {
 		return false
 	}
 
-	if latchToFalse.Load().(bool) {
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+
+	if atomic.LoadInt32(&latchToFalse) != 0 {
 		return false
 	}
 	if persist.Reindex {
@@ -45,7 +47,7 @@ func IsInitialBlockDownload() bool {
 	if int64(gChainActive.Tip().GetBlockTime()) < util.GetTime()-persist.DefaultMaxTipAge {
 		return true
 	}
-	latchToFalse.Store(true)
+	atomic.AddInt32(&latchToFalse, 1)
 
 	return false
 }
