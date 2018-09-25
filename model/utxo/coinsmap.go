@@ -69,12 +69,12 @@ func (cm *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwr
 		return
 	}
 
-	if !possibleOverwrite {
-		oldcoin := cm.FetchCoin(point)
-		if oldcoin != nil {
-			panic("Adding new coin that is in coincache or db")
-		}
-	}
+	//if !possibleOverwrite {
+	//	oldcoin := cm.FetchCoin(point)
+	//	if oldcoin != nil {
+	//		panic("Adding new coin that is in coincache or db")
+	//	}
+	//}
 	coin.dirty = false
 	coin.fresh = true
 	cm.cacheCoins[*point] = coin

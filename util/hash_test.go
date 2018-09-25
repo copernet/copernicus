@@ -86,3 +86,12 @@ func TestSipHash(t *testing.T) {
 			(uint64(i+6) << 48) | (uint64(i+7) << 56))
 	}
 }
+
+func TestHash_IsEqual(t *testing.T) {
+	hash1 := HashFromString("00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
+	hash2 := HashFromString("00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
+	if !hash1.IsEqual(hash2) {
+		t.Errorf("IsEqual test failed")
+		return
+	}
+}

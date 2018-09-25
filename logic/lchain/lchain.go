@@ -116,12 +116,14 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	// applied to all blocks except the two in the chain that violate it. This
 	// prevents exploiting the issue against nodes during their initial block
 	// download.
-	zHash := util.HashZero
-	fEnforceBIP30 := (!blockHash.IsEqual(&zHash)) ||
-		!((pindex.Height == 91842 &&
-			blockHash.IsEqual(util.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
-			(pindex.Height == 91880 &&
-				blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
+	//zHash := util.HashZero
+	//fEnforceBIP30 := (!blockHash.IsEqual(&zHash)) ||
+	//	!((pindex.Height == 91842 &&
+	//		blockHash.IsEqual(util.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
+	//		(pindex.Height == 91880 &&
+	//			blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
+	bip30Enable := !((pindex.Height == 91842 && blockHash.IsEqual(util.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
+		(pindex.Height == 91880 && blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
 
 	// Once BIP34 activated it was not possible to create new duplicate
 	// coinBases and thus other than starting with the 2 existing duplicate
@@ -135,9 +137,8 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	pindexBIP34height := pindex.Prev.GetAncestor(params.BIP34Height)
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
-	BIP34Hash := params.BIP34Hash
-	bip34 := pindexBIP34height == nil || !(pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
-	fEnforceBIP30 = fEnforceBIP30 && bip34
+	bip34Enable := pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&params.BIP34Hash)
+	bip30Enable = bip30Enable && !bip34Enable
 
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
@@ -146,7 +147,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]",
 		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
 
-	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags,
+	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize())))
 	if err != nil {
 		return err
