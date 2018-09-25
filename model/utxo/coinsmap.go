@@ -75,6 +75,7 @@ func (cm *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwr
 	//		panic("Adding new coin that is in coincache or db")
 	//	}
 	//}
+
 	coin.dirty = false
 	coin.fresh = true
 	cm.cacheCoins[*point] = coin
