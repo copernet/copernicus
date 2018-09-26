@@ -291,14 +291,6 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// Create coinbase transaction
 	coinbaseTx := tx.NewTx(0, tx.DefaultVersion)
-	// buf := bytes.NewBuffer(nil)
-	// bs := make([]byte, 8)
-	// binary.LittleEndian.PutUint64(bs, uint64(ba.height))
-	// _, err := buf.Write([]byte("copernicus client"))
-	// if err != nil {
-	// 	log.Error("write OP_0 of opcodes failed:%v", err)
-	// 	return nil
-	// }
 
 	outPoint := outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}
 	heightNumb := script.NewScriptNum(int64(ba.height))
@@ -332,7 +324,8 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	//check the validity of the block
 	if !TestBlockValidity(ba.bt.Block, indexPrev) {
-		panic("TestBlockValidity failed.")
+		log.Error("CreateNewBlock: TestBlockValidity failed.")
+		return nil
 	}
 
 	time2 := util.GetMockTimeInMicros()
@@ -510,7 +503,8 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	defer persist.CsMain.Unlock()
 
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
-		panic("TestBlockValidity(): error")
+		log.Error("TestBlockValidity(): error")
+		return false
 	}
 
 	if !lblockindex.CheckIndexAgainstCheckpoint(indexPrev) {
@@ -532,17 +526,17 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	}
 
 	if err := lblock.CheckBlock(block, false, false); err != nil {
-		log.Error("TestBlockValidity(): Consensus::CheckBlock failed, please check.")
+		log.Error("TestBlockValidity(): Consensus::CheckBlock failed: %v", err)
 		return false
 	}
 
 	if err := lblock.ContextualCheckBlock(block, indexPrev); err != nil {
-		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlock failed, please check.")
+		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlock failed: %v", err)
 		return false
 	}
 
 	if err := lchain.ConnectBlock(block, indexPrev, coinMap, true); err != nil {
-		log.Error("trying to connect to the block failed:%v", err)
+		log.Error("trying to connect to the block failed: %v", err)
 		return false
 	}
 

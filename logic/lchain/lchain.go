@@ -225,7 +225,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
-			log.Error("error: FailedToReadBlock")
+			log.Error("error: FailedToReadBlock: %v", err)
 			return errcode.New(errcode.FailedToReadBlock)
 		}
 		connTrace[pIndexNew] = blockNew
@@ -492,7 +492,7 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	}
 	pos := pindex.GetUndoPos()
 	if pos.IsNull() {
-		log.Error("DisconnectBlock(): no undo data available")
+		log.Error("DisconnectBlock(): no undo data available.")
 		return undo.DisconnectFailed
 	}
 	blockUndo, ret := disk.UndoReadFromDisk(&pos, *pindex.Prev.GetBlockHash())

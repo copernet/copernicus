@@ -601,27 +601,27 @@ func payToPubKeyHashScript(pubKeyHash []byte) ([]byte, error) {
 	sc := script.NewEmptyScript()
 	err := sc.PushOpCode(opcodes.OP_DUP)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed: %v", err)
 		return nil, err
 	}
 	err = sc.PushOpCode(opcodes.OP_HASH160)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed: %v", err)
 		return nil, err
 	}
 	err = sc.PushSingleData(pubKeyHash)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed: %v", err)
 		return nil, err
 	}
 	err = sc.PushOpCode(opcodes.OP_EQUALVERIFY)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed: %v", err)
 		return nil, err
 	}
 	err = sc.PushOpCode(opcodes.OP_CHECKSIG)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed: %v", err)
 		return nil, err
 	}
 
@@ -635,17 +635,17 @@ func payToScriptHashScript(scriptHash []byte) ([]byte, error) {
 	sc := script.NewEmptyScript()
 	err := sc.PushOpCode(opcodes.OP_HASH160)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed: %v", err)
 		return nil, err
 	}
 	err = sc.PushSingleData(scriptHash)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed:%v", err)
 		return nil, err
 	}
 	err = sc.PushOpCode(opcodes.OP_EQUAL)
 	if err != nil {
-		log.Error("push opcode failed")
+		log.Error("push opcode failed:%v", err)
 		return nil, err
 	}
 

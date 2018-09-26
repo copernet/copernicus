@@ -600,6 +600,6 @@ type VersionResult struct {
 }
 
 type WaitForBlockHeight struct {
-	Hash      string `json:"hash"`
-	Height    int32  `json:"height"`
+	Hash   string `json:"hash"`
+	Height int32  `json:"height"`
 }

@@ -65,7 +65,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
 	if err := lblock.CheckBlock(pblock, true, true); err != nil {
-		log.Error("check block failed, please check.")
+		log.Error("check block failed, please check: %v", err)
 		return err
 	}
 	persist.CsMain.Lock()
@@ -80,7 +80,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	chain.GetInstance().SendNotification(chain.NTBlockAccepted, pblock)
 
 	if err := lchain.CheckBlockIndex(); err != nil {
-		log.Error("check block index failed, please check.")
+		log.Error("check block index failed, please check: %v", err)
 		return err
 	}
 

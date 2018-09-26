@@ -326,7 +326,7 @@ func handleCreateRawTransaction(s *Server, cmd interface{}, closeChan <-chan str
 	buf := bytes.NewBuffer(nil)
 	err := transaction.Serialize(buf)
 	if err != nil {
-		log.Error("rawTransaction:serialize tx failed.")
+		log.Error("rawTransaction:serialize tx failed: %v", err)
 		return "", err
 	}
 
@@ -552,10 +552,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                        crypto.SigHashAll,
-	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                     crypto.SigHashAll,
+	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,
@@ -677,7 +677,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	buf := bytes.NewBuffer(nil)
 	err = transaction.Serialize(buf)
 	if err != nil {
-		log.Error("rawTransaction:serialize transaction failed.")
+		log.Error("rawTransaction:serialize transaction failed: %v", err)
 		return nil, err
 	}
 	return &btcjson.SignRawTransactionResult{
