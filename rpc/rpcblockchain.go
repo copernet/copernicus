@@ -875,10 +875,10 @@ func handleWaitForBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//todo handle args
+	//todo handle args: WaitForBlockHeightCmd
 
 	gchain := chain.GetInstance()
-	ret := btcjson.WaitForBlockHeight{
+	ret := &btcjson.WaitForBlockHeightResult{
 		Hash:   gchain.Tip().GetBlockHash().String(),
 		Height: gchain.TipHeight(),
 	}
