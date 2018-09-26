@@ -16,7 +16,6 @@ const (
 	// UndoFileChunkSize is the pre-allocation chunk size for rev?????.dat files (since 0.8) */
 	UndoFileChunkSize     = 0x100000
 	DefaultMaxMemPoolSize = 300
-	DefaultMaxTipAge      = 24 * 60 * 60
 )
 
 var (

@@ -584,7 +584,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}),
-		quit: make(chan int),
+		quit:                   make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass

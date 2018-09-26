@@ -598,3 +598,8 @@ type VersionResult struct {
 	Prerelease    string `json:"prerelease"`
 	BuildMetadata string `json:"buildmetadata"`
 }
+
+type WaitForBlockHeight struct {
+	Hash      string `json:"hash"`
+	Height    int32  `json:"height"`
+}
