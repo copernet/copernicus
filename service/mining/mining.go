@@ -18,7 +18,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/model/opcodes"
+	//"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -291,17 +291,21 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 
 	// Create coinbase transaction
 	coinbaseTx := tx.NewTx(0, tx.DefaultVersion)
-	buf := bytes.NewBuffer(nil)
-	bs := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bs, uint64(ba.height))
-	_, err := buf.Write([]byte{opcodes.OP_0})
-	if err != nil {
-		log.Error("write OP_0 of opcodes failed:%v", err)
-		return nil
-	}
+	// buf := bytes.NewBuffer(nil)
+	// bs := make([]byte, 8)
+	// binary.LittleEndian.PutUint64(bs, uint64(ba.height))
+	// _, err := buf.Write([]byte("copernicus client"))
+	// if err != nil {
+	// 	log.Error("write OP_0 of opcodes failed:%v", err)
+	// 	return nil
+	// }
 
 	outPoint := outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}
-	sc := script.NewScriptRaw(buf.Bytes())
+	heightNumb := script.NewScriptNum(int64(ba.height))
+
+	//sc := script.NewScriptRaw(buf.Bytes())
+	sc := script.NewEmptyScript()
+	sc.PushScriptNum(heightNumb)
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, sc, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
@@ -527,7 +531,7 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 		return false
 	}
 
-	if err := lblock.CheckBlock(block); err != nil {
+	if err := lblock.CheckBlock(block, false, false); err != nil {
 		log.Error("TestBlockValidity(): Consensus::CheckBlock failed, please check.")
 		return false
 	}

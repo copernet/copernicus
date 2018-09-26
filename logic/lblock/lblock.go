@@ -67,7 +67,7 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	return lockTimeCutoff
 }
 
-func CheckBlock(pblock *block.Block) error {
+func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 	// These are checks that are independent of context.
 	if pblock.Checked {
 		return nil
@@ -75,16 +75,20 @@ func CheckBlock(pblock *block.Block) error {
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
-	if err := CheckBlockHeader(&bh); err != nil {
-		return err
+	if checkHeader {
+		if err := CheckBlockHeader(&bh); err != nil {
+			return err
+		}
 	}
 
 	// Check the merkle root.
 	mutated := false
-	hashMerkleRoot2 := lmerkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
-	if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
-		log.Debug("ErrorBadTxMrklRoot")
-		return errcode.New(errcode.ErrorBadTxnMrklRoot)
+	if checkMerlke {
+		hashMerkleRoot2 := lmerkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
+		if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
+			log.Debug("ErrorBadTxMrklRoot")
+			return errcode.New(errcode.ErrorBadTxnMrklRoot)
+		}
 	}
 
 	// Check for merkle tree malleability (CVE-2012-2459): repeating
@@ -112,7 +116,7 @@ func CheckBlock(pblock *block.Block) error {
 	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
-		log.Debug("ErrorBadBlkTx")
+		log.Debug("ErrorBadBlkTx: %v", err)
 		return errcode.New(errcode.ErrorBadBlkTx)
 	}
 	pblock.Checked = true
@@ -234,7 +238,7 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 
 	*fNewBlock = true
 	gPersist := persist.GetInstance()
-	if err = CheckBlock(pblock); err != nil {
+	if err = CheckBlock(pblock, true, true); err != nil {
 		bIndex.AddStatus(blockindex.BlockFailed)
 		gPersist.AddDirtyBlockIndex(bIndex)
 		return

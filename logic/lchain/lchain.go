@@ -38,7 +38,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	nTimeStart := util.GetMicrosTime()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad lblock in
-	if err := lblock.CheckBlock(pblock); err != nil {
+	if err := lblock.CheckBlock(pblock, true, true); err != nil {
 		return err
 	}
 
@@ -47,11 +47,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	if pindex.Prev == nil {
 		hashPrevBlock = &util.Hash{}
 	} else {
-		hashPrevBlock = pindex.Prev.GetBlockHash()
+		hashPrevBlock = pindex.GetBlockHash()
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
-	log.Debug("bestHash = %s", bestHash.String())
+	log.Debug("bestHash = %s, hashPrevBloc = %s", bestHash.String(), hashPrevBlock)
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")

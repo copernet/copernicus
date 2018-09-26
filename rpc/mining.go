@@ -158,6 +158,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	//	// NOTE: It is important that this NOT be read if versionbits is supported
 	//	maxVersionVb = int64(request.MaxVersion)
 	//}
+	log.Debug("getblocktemplate %#v", request)
 
 	if lundo.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
@@ -220,10 +221,6 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		txID := tx.GetHash()
 		setTxIndex[txID] = i
 		i++
-
-		if tx.IsCoinBase() {
-			continue
-		}
 
 		entry := btcjson.GetBlockTemplateResultTx{}
 
@@ -410,7 +407,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 		}
 	}
 
-	err = lblock.CheckBlock(&bk)
+	err = lblock.CheckBlock(&bk, true, true)
 	return BIP22ValidationResult(err)
 }
 

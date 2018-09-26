@@ -64,7 +64,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
-	if err := lblock.CheckBlock(pblock); err != nil {
+	if err := lblock.CheckBlock(pblock, true, true); err != nil {
 		log.Error("check block failed, please check.")
 		return err
 	}
