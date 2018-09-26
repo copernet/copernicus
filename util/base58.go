@@ -83,7 +83,7 @@ func Base58DecodeCheck(str string) ([]byte, byte, error) {
 
 	ndata := len(data)
 
-	// version + data + checsum
+	// version + data + checksum
 	if ndata < 5 {
 		return nil, 0, ErrInvalidFormat
 	}
