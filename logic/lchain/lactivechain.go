@@ -72,7 +72,6 @@ func ActivateBestChain(pblock *block.Block) error {
 		// MemPoolConflictRemovalTracker destroyed and conflict evictions
 		// are notified
 
-		gChain.UpdateSyncingState()
 		sendNotifications(pindexOldTip, pblock)
 
 		if gChain.Tip() == pindexMostWork {
