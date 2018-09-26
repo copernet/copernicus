@@ -11,7 +11,6 @@ import (
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/util/base58"
 )
 
 // ErrMalformedPrivateKey describes an error where a WIF-encoded private
@@ -87,7 +86,11 @@ func (w *WIF) IsForNet(net *model.BitcoinParams) bool {
 // does not equal the expected value of 0x01.  ErrChecksumMismatch is returned
 // if the expected WIF checksum does not match the calculated checksum.
 func DecodeWIF(wif string) (*WIF, error) {
-	decoded := base58.Decode(wif)
+	decoded, err := util.Base58Decode(wif)
+	if err != nil {
+		return nil, err
+	}
+
 	decodedLen := len(decoded)
 	var compress bool
 
@@ -148,7 +151,7 @@ func (w *WIF) String() string {
 	}
 	cksum := util.DoubleSha256Bytes(a)[:4]
 	a = append(a, cksum...)
-	return base58.Encode(a)
+	return util.Base58Encode(a)
 }
 
 // SerializePubKey serializes the associated public key of the imported or
