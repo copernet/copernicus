@@ -832,6 +832,18 @@ type SetNetWorkActiveCmd struct {
 	State bool `jsonrpcusage:"\"true|false\""`
 }
 
+// WaitForBlockHeightCmd defines the waitforblockheight JSON-RPC command.
+type WaitForBlockHeightCmd struct {
+	Height  int
+	Timeout int
+}
+
+// NewWaitForBlockHeightCmd returns a new instance which can be used to issue a
+// waitforblockheight JSON-RPC command.
+func NewWaitForBlockHeightCmd() *WaitForBlockHeightCmd {
+	return &WaitForBlockHeightCmd{}
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -900,4 +912,7 @@ func init() {
 	MustRegisterCmd("pruneblockchain", (*PruneBlockChainCmd)(nil), flags)
 	MustRegisterCmd("createmultisig", (*CreateMultiSigCmd)(nil), flags)
 	MustRegisterCmd("estimatefee", (*EstimateFeeCmd)(nil), flags)
+
+	MustRegisterCmd("waitforblockheight", (*WaitForBlockHeightCmd)(nil), flags)
+
 }

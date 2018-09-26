@@ -599,7 +599,7 @@ type VersionResult struct {
 	BuildMetadata string `json:"buildmetadata"`
 }
 
-type WaitForBlockHeight struct {
+type WaitForBlockHeightResult struct {
 	Hash   string `json:"hash"`
 	Height int32  `json:"height"`
 }
