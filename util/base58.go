@@ -100,7 +100,7 @@ func Base58Encode(data []byte) string {
 	return trezorBase58Encode(data)
 }
 
-// Base58Encode represents base58 decode method
+// Base58Decode represents base58 decode method
 func Base58Decode(str string) ([]byte, error) {
 	return trezorBase58Decode(str)
 }
@@ -139,7 +139,7 @@ func bigintBase58Decode(str string) ([]byte, error) {
 	right := big.NewInt(1)
 
 	for i := len(str) - 1; i >= 0; i-- {
-		base := alphabetLookupTable[byte(str[i])]
+		base := alphabetLookupTable[str[i]]
 		if base == 255 {
 			return nil, ErrInvalidCharacter
 		}
