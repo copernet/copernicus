@@ -136,6 +136,7 @@ func bigintBase58Encode(data []byte) string {
 func bigintBase58Decode(str string) ([]byte, error) {
 	rv := big.NewInt(0)
 	nth := big.NewInt(1)
+	right := big.NewInt(1)
 
 	for i := len(str) - 1; i >= 0; i-- {
 		base := alphabetLookupTable[byte(str[i])]
@@ -144,7 +145,7 @@ func bigintBase58Decode(str string) ([]byte, error) {
 		}
 
 		// rv = rv + 58 ^ nth * base
-		right := big.NewInt(int64(base))
+		right.SetInt64(int64(base))
 		right.Mul(nth, right)
 		rv.Add(rv, right)
 		nth.Mul(nth, big58)
