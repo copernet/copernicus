@@ -222,6 +222,10 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		setTxIndex[txID] = i
 		i++
 
+		if tx.IsCoinBase() {
+			continue
+		}
+
 		entry := btcjson.GetBlockTemplateResultTx{}
 
 		dataBuf := bytes.NewBuffer(nil)
@@ -452,6 +456,7 @@ func BIP22ValidationResult(err error) (interface{}, error) {
 func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SubmitBlockCmd)
 
+	log.Debug("handle submitblock request: %#v", c)
 	// Unserialize the submitted block.
 	hexStr := c.HexBlock
 	if len(hexStr)%2 != 0 {
@@ -493,6 +498,7 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	// nodes.  This will in turn relay it to the network like normal.
 	_, err = service.ProcessBlock(bk)
 	if err != nil {
+		log.Error("rejected: %s, blk=%+v txs=%+v", err.Error(), bk, bk.Txs)
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
 	}
 
