@@ -2,8 +2,6 @@ package lchain
 
 import (
 	"bytes"
-	//"github.com/copernet/copernicus/logic/lundo"
-
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -21,10 +19,8 @@ func ActivateBestChain(pblock *block.Block) error {
 	// far from a guarantee. Things in the P2P/RPC will often end up calling
 	// us in the middle of ProcessNewBlock - do not assume pblock is set
 	// sanely for performance or correctness!
-	var (
-		pindexMostWork *blockindex.BlockIndex
-		pindexNewTip   *blockindex.BlockIndex
-	)
+	var pindexMostWork *blockindex.BlockIndex
+
 	// global.CsMain.Lock()
 	// defer global.CsMain.Unlock()
 	for {
@@ -73,33 +69,31 @@ func ActivateBestChain(pblock *block.Block) error {
 			pindexMostWork = nil
 		}
 
-		pindexNewTip = gChain.Tip()
-		pindexFork := gChain.FindFork(pindexOldTip)
-
-		// throw all transactions though the signal-interface
-
 		// MemPoolConflictRemovalTracker destroyed and conflict evictions
 		// are notified
 
-		gChain.SendNotification(chain.NTBlockConnected, pblock)
+		gChain.UpdateSyncingState()
+		sendNotifications(pindexOldTip, pblock)
 
-		// When we reach this point, we switched to a new tip (stored in
-		// pindexNewTip).
-		// Notifications/callbacks that can run without cs_main
-		// Notify external listeners about the new tip.
-		//event := chain.TipUpdatedEvent{pindexNewTip, pindexFork, lundo.IsInitialBlockDownload()}
-		event := chain.TipUpdatedEvent{pindexNewTip, pindexFork, false}
-		gChain.SendNotification(chain.NTChainTipUpdated, &event)
-
-		// Always notify the UI if a new block tip was connected
-
-		if pindexNewTip == pindexMostWork {
+		if gChain.Tip() == pindexMostWork {
 			break
 		}
 	}
 	// Write changes periodically to disk, after relay.
 	err := disk.FlushStateToDisk(disk.FlushStatePeriodic, 0)
 	return err
+}
+
+// sendNotifications When we reach this point, we switched to a new tip.
+// Notify external listeners about the new tip.
+func sendNotifications(pindexOldTip *blockindex.BlockIndex, pblock *block.Block) {
+	gChain := chain.GetInstance()
+
+	gChain.SendNotification(chain.NTBlockConnected, pblock)
+
+	forkIndex := gChain.FindFork(pindexOldTip)
+	event := chain.TipUpdatedEvent{gChain.Tip(), forkIndex, IsInitialBlockDownload()}
+	gChain.SendNotification(chain.NTChainTipUpdated, &event)
 }
 
 // ActivateBestChainStep Try to make some progress towards making pindexMostWork

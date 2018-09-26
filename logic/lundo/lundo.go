@@ -2,56 +2,12 @@ package lundo
 
 import (
 	"fmt"
-	"sync/atomic"
-
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist"
-	"github.com/copernet/copernicus/util"
 )
-
-var latchToFalse int32
-
-// IsInitialBlockDownload Check whether we are doing an initial block download
-// (synchronizing from disk or network)
-func IsInitialBlockDownload() bool {
-	gChainActive := chain.GetInstance()
-	// latchToFalse: pre-test latch before taking the lock.
-	if atomic.LoadInt32(&latchToFalse) != 0 {
-		return false
-	}
-
-	persist.CsMain.Lock()
-	defer persist.CsMain.Unlock()
-
-	if atomic.LoadInt32(&latchToFalse) != 0 {
-		return false
-	}
-	if persist.Reindex {
-		return true
-	}
-
-	if gChainActive.Tip() == nil {
-		return true
-	}
-	minWorkSum := pow.HashToBig(&model.ActiveNetParams.MinimumChainWork)
-	if gChainActive.Tip().ChainWork.Cmp(minWorkSum) < 0 {
-		return true
-	}
-
-	if int64(gChainActive.Tip().GetBlockTime()) < util.GetTime()-persist.DefaultMaxTipAge {
-		return true
-	}
-	atomic.AddInt32(&latchToFalse, 1)
-
-	return false
-}
 
 func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 	cm *utxo.CoinsMap) undo.DisconnectResult {

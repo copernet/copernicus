@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/logic/lchain"
 	"math/big"
 
 	"errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
-	"github.com/copernet/copernicus/logic/lundo"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -159,7 +159,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	//	maxVersionVb = int64(request.MaxVersion)
 	//}
 
-	if lundo.IsInitialBlockDownload() {
+	if lchain.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCClientInInitialDownload,
 			Message: "Bitcoin is downloading blocks...",

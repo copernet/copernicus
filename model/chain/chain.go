@@ -35,6 +35,8 @@ type Chain struct {
 	// certain blockchain events.
 	notificationsLock sync.RWMutex
 	notifications     []NotificationCallback
+
+	*SyncingState
 }
 
 var globalChain *Chain
@@ -50,7 +52,6 @@ func GetInstance() *Chain {
 func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
-		globalChain.params = model.ActiveNetParams
 	}
 	if len(conf.Cfg.Chain.AssumeValid) > 0 {
 		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
@@ -64,7 +65,10 @@ func InitGlobalChain() {
 }
 
 func NewChain() *Chain {
-	return &Chain{}
+	c := &Chain{}
+	c.params = model.ActiveNetParams
+	c.SyncingState = &SyncingState{}
+	return c
 }
 
 func (c *Chain) GetParams() *model.BitcoinParams {
