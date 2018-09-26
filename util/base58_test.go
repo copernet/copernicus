@@ -221,13 +221,6 @@ func TestBase58EncodeAndDecodeFuzzy(t *testing.T) {
 	}
 }
 
-func BenchmarkBigintBase58EncodeAndDecode(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		bigintBase58Decode(bigintBase58Encode(benchbuf))
-	}
-}
-
 func TestBase58Check(t *testing.T) {
 	var checkEncodingStringTests = []struct {
 		version byte
@@ -287,6 +280,13 @@ func TestBase58Check(t *testing.T) {
 		t.Error("Checkdecode test failed, expected ErrInvalidCharacter")
 	}
 
+}
+
+func BenchmarkBigintBase58EncodeAndDecode(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bigintBase58Decode(bigintBase58Encode(benchbuf))
+	}
 }
 
 func BenchmarkTrezorBase58EncodeAndDecode(b *testing.B) {
