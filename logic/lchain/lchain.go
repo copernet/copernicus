@@ -35,7 +35,6 @@ import (
 // IsInitialBlockDownload Check whether we are doing an initial block download
 // (synchronizing from disk or network)
 func IsInitialBlockDownload() bool {
-	return false
 	return persist.Reindex || !chain.GetInstance().IsAlmostSynced()
 }
 

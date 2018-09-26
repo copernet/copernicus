@@ -305,6 +305,8 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 		c.active[index.Height] = index
 		index = index.Prev
 	}
+
+	c.UpdateSyncingState()
 }
 
 // SetTip Set/initialize a chain with a given tip.
