@@ -315,7 +315,7 @@ func DisconnectTip(fBare bool) error {
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
-		log.Debug("FailedToReadBlock")
+		log.Error("DisconnectTip: read block from disk failed, the block is:%+v ", blk)
 		return errcode.New(errcode.FailedToReadBlock)
 	}
 
@@ -495,7 +495,7 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	}
 	blockUndo, ret := disk.UndoReadFromDisk(&pos, *pindex.Prev.GetBlockHash())
 	if !ret {
-		log.Error("DisconnectBlock(): failure reading undo data")
+		log.Error("DisconnectBlock(): reading undo data failed, pos is: %s, block undo is: %+v", pos.String(), blockUndo)
 		return undo.DisconnectFailed
 	}
 

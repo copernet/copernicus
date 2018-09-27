@@ -36,7 +36,7 @@ type FlushStateMode int
 var gps = persist.InitPruneState()
 
 const (
-	FlushStateNone     FlushStateMode = iota
+	FlushStateNone FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -57,7 +57,7 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	parentPath := GetBlockPosParentFilename()
 	e := os.MkdirAll(parentPath, os.ModePerm)
 	if e != nil {
-		log.Error("e=========", e)
+		log.Error("creates a directory error: %v", e)
 		panic("OpenDiskFile.os.MkdirAll(parentPath err")
 	}
 	filePath := GetBlockPosFilename(pos, prefix)
@@ -74,7 +74,7 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	file, err := os.OpenFile(filePath, flag, os.ModePerm)
 	if file == nil || err != nil {
 		log.Error("Unable to open file %s\n", err)
-		panic("Unable to open file ======")
+		panic("Unable to open file...")
 	}
 	if pos.Pos > 0 {
 		if _, err := file.Seek(int64(pos.Pos), 0); err != nil {
@@ -106,9 +106,10 @@ func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 			now = int(length)
 		}
 		// Allowed to fail; this function is advisory anyway.
-		_, err := file.Write(buf[:now])
+		size, err := file.Write(buf[:now])
 		if err != nil {
-			panic("the file write failed.")
+			log.Error("AllocateFileRange: file write error: %v, write size: %d", err, size)
+			panic("AllocateFileRange:the file write failed")
 		}
 		length -= uint32(now)
 	}
@@ -278,25 +279,25 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	buf := bytes.NewBuffer(nil)
 	err := block.Serialize(buf)
 	if err != nil {
-		log.Error("Serialize buf failed, please check.")
+		log.Error("Serialize buf error: %v", err)
 		return false
 	}
 	size := buf.Len()
 	lenBuf := bytes.NewBuffer(nil)
 	err = util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 	if err != nil {
-		log.Error("Write Block To Disk failed")
+		log.Error("WriteBlockToDisk: put size error: %v", err)
 		return false
 	}
 	lenData := lenBuf.Bytes()
 	_, err = file.Write(lenData)
 	if err != nil {
-		log.Error("Write Block To Disk failed")
+		log.Error("WriteBlockToDisk: write lenData error: %v", err)
 		return false
 	}
 	_, err = file.Write(buf.Bytes())
 	if err != nil {
-		log.Error("Write Block To Disk failed")
+		log.Error("WriteBlockToDisk: write buf.Bytes() error: %v", err)
 		return false
 	}
 	return true
@@ -334,7 +335,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		if !gps.HavePruned {
 			err := blockTree.WriteFlag("prunedblockfiles", true)
 			if err != nil {
-				log.Error("write flag prunedblockfiles failed.")
+				log.Error("write flag prunedblockfiles error: %v", err)
 				return err
 			}
 			gps.HavePruned = true
@@ -443,7 +444,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {
-		log.Error("can not get disk info")
+		log.Error("CheckDiskSpace:can not get disk info:%v", err)
 		return false
 	}
 	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
@@ -453,7 +454,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	n := int(nAdditionalBytes)
 	needSize := uint64(MinDiskSpace + n)
 	if nFreeBytesAvailable < needSize {
-		log.Error("Error: Disk space is low!")
+		log.Error("CheckDiskSpace: Disk space is low, free size: %d, need size: %d", nFreeBytesAvailable, needSize)
 		panic("Error: Disk space is low!")
 	}
 	return true
@@ -489,7 +490,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	persist.CsLastBlockFile.Lock()
 	defer persist.CsLastBlockFile.Unlock()
 	if nAddSize > persist.MaxBlockFileSize {
-		log.Error("FindBlockPos nAddSize [%#v] is too large more then global.MaxBlockFileSize ", nAddSize)
+		log.Error("FindBlockPos nAddSize [%d] is too large more then global.MaxBlockFileSize ", nAddSize)
 		panic("FindBlockPos nAddSize  is too large more then global.MaxBlockFileSize")
 	}
 	gPersist := persist.GetInstance()
