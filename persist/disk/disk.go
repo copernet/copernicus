@@ -126,38 +126,38 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 	buf := bytes.NewBuffer(nil)
 	err := bu.Serialize(buf)
 	if err != nil {
-		log.Error("disk:serialize block undo failed.")
+		log.Error("UndoWriteToDisk:serialize block undo failed: %v", err)
 		return err
 	}
 	size := buf.Len() + 32
 	buHasher := sha256.New()
-	_, err = buHasher.Write(hashBlock[:])
+	length, err := buHasher.Write(hashBlock[:])
 	if err != nil {
-		log.Error("disk:write hashBlock failed.")
+		log.Error("UndoWriteToDisk:write hashBlock failed: %v, the write size is: %d", err, length)
 		return err
 	}
-	_, err = buHasher.Write(buf.Bytes())
+	length, err = buHasher.Write(buf.Bytes())
 	if err != nil {
-		log.Error("disk:write buf.Bytes() failed.")
+		log.Error("UndoWriteToDisk:write buf.Bytes() failed: %v, the write size is: %d", err, length)
 		return err
 	}
 	buHash := buHasher.Sum(nil)
-	_, err = buf.Write(buHash)
+	length, err = buf.Write(buHash)
 	if err != nil {
-		log.Error("disk:write block undo hash failed.")
+		log.Error("UndoWriteToDisk:write block undo hash failed, the write size is: %d: %v", err, length)
 		return err
 	}
 	lenBuf := bytes.NewBuffer(nil)
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 
-	_, err = undoFile.Write(lenBuf.Bytes())
+	length, err = undoFile.Write(lenBuf.Bytes())
 	if err != nil {
-		log.Error("disk:WriteUndoFile failed")
+		log.Error("UndoWriteToDisk:WriteUndoFile failed: %v, the write size is: %d", err, length)
 		return err
 	}
-	_, err = undoFile.Write(buf.Bytes())
+	length, err = undoFile.Write(buf.Bytes())
 	if err != nil {
-		log.Error("disk:WriteUndoFile failed")
+		log.Error("UndoWriteToDisk:WriteUndoFile failed: %v, the write size is: %d", err, length)
 		return err
 	}
 
@@ -173,14 +173,14 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	defer file.Close()
 	size, err := util.BinarySerializer.Uint32(file, binary.LittleEndian)
 	if err != nil {
-		log.Error("UndoReadFromDisk===", err)
+		log.Error("UndoReadFromDisk error: %v, pos is:%s", err, pos.String())
 		return nil, false
 	}
 	buf := make([]byte, size)
 	// Read block
 	num, err := file.Read(buf)
 	if uint32(num) < size {
-		log.Error("UndoReadFromDisk===read undo num < size")
+		log.Error("UndoReadFromDisk: read undo num(%d) < size(%d)", num, size)
 		return nil, false
 	}
 	bu := undo.NewBlockUndo(0)
@@ -189,20 +189,20 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	buff := bytes.NewBuffer(undoData)
 	err = bu.Unserialize(buff)
 	if err != nil {
-		log.Error("UndoReadFromDisk===", err)
+		log.Error("unserialize UndoReadFromDisk error:%v, pos is: %s", err, pos.String())
 		return bu, false
 	}
 
 	// Verify checksum
 	buHasher := sha256.New()
-	_, err = buHasher.Write(hashblock[:])
+	length, err := buHasher.Write(hashblock[:])
 	if err != nil {
-		log.Error("disk:write block undo hashBlock failed.")
+		log.Error("UndoReadFromDisk:write hashBlock size:%d, error: %v", length, err)
 		return bu, false
 	}
-	_, err = buHasher.Write(undoData)
+	length, err = buHasher.Write(undoData)
 	if err != nil {
-		log.Error("disk:write block undo undoData failed.")
+		log.Error("UndoReadFromDisk:write undoData size:%d,error: %v", length, err)
 		return bu, false
 	}
 	buHash := buHasher.Sum(nil)
