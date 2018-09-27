@@ -205,7 +205,9 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	mining.UpdateTime(bk, indexPrev)
 	bk.Header.Nonce = 0
 
-	return blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
+	res, err := blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
+	log.Debug("getblocktemplate response: %+v", res)
+	return res, err
 }
 
 // blockTemplateResult returns the current block template associated with the
@@ -501,8 +503,8 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 		log.Error("rejected: %s, blk=%+v txs=%+v", err.Error(), bk, bk.Txs)
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
 	}
-
-	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
+	blkhash := bk.Header.GetHash()
+	log.Debug("Accepted block %s via submitblock", blkhash)
 	return nil, nil
 }
 
