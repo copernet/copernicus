@@ -160,26 +160,29 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
-	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
-		if UndoPos.IsNull() {
-			pos := block.NewDiskBlockPos(pindex.File, 0)
-			//blockUndo size + hash size + 4bytes len
-			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
-				return err
-			}
-			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
-				return err
-			}
+	if !fJustCheck {
+		if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
+			if UndoPos.IsNull() {
+				pos := block.NewDiskBlockPos(pindex.File, 0)
+				//blockUndo size + hash size + 4bytes len
+				if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
+					return err
+				}
+				if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
+					return err
+				}
 
-			// update nUndoPos in block index
-			pindex.UndoPos = pos.Pos
-			pindex.AddStatus(blockindex.BlockHaveUndo)
+				// update nUndoPos in block index
+				pindex.UndoPos = pos.Pos
+				pindex.AddStatus(blockindex.BlockHaveUndo)
+			}
+			pindex.RaiseValidity(blockindex.BlockValidScripts)
+			gPersist.AddDirtyBlockIndex(pindex)
 		}
-		pindex.RaiseValidity(blockindex.BlockValidScripts)
-		gPersist.AddDirtyBlockIndex(pindex)
+
+		// add this block to the view's block chain
+		*view = *coinsMap
 	}
-	// add this block to the view's block chain
-	*view = *coinsMap
 
 	//if (pindex.IsReplayProtectionEnabled(params) &&
 	//	!pindex.Prev.IsReplayProtectionEnabled(params)) {
