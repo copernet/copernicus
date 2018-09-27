@@ -15,12 +15,14 @@ const (
 	ErrorBadBlkLength
 	ErrorBadBlkTxSize
 	ErrorBadBlkTx
+	ErrorBlockAlreadyExists
 )
 
 var ChainErrString = map[ChainErr]string{
 	ErrorBlockHeaderNoValid:  "The block header is not valid",
 	ErrorBlockHeaderNoParent: "Can not find this block header's father ",
 	ErrorPowCheckErr:         "ErrorPowCheckErr",
+	ErrorBlockAlreadyExists:  "block already exists",
 }
 
 func (chainerr ChainErr) String() string {
