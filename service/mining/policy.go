@@ -12,7 +12,7 @@ const (
 	 * mining code will create **/
 	DefaultMaxGeneratedBlockSize uint64 = 2 * OneMegaByte
 
-	DefaultMaxBlockSize = 8 * OneMegaByte
+	DefaultMaxBlockSize = 32 * OneMegaByte
 
 	/*DefaultBlockPrioritySize default for -blockPrioritySize, maximum space for zero/low-fee transactions*/
 	DefaultBlockPrioritySize uint64 = 0

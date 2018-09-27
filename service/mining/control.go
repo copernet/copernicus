@@ -3,7 +3,7 @@ package mining
 import "sync/atomic"
 
 var (
-	maxBlockSize  = 4 * DefaultMaxBlockSize
+	maxBlockSize  = DefaultMaxBlockSize
 	//blockPriorityPercentage uint64		// not be used at current version
 )
 
