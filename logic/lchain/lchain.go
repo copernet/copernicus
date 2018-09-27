@@ -53,11 +53,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	if pindex.Prev == nil {
 		hashPrevBlock = &util.Hash{}
 	} else {
-		if fJustCheck {
-			hashPrevBlock = pindex.GetBlockHash()
-		} else {
-			hashPrevBlock = pindex.Prev.GetBlockHash()
-		}
+		hashPrevBlock = pindex.Prev.GetBlockHash()
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()

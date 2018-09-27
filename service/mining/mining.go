@@ -535,8 +535,8 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 		return false
 	}
 
-	if err := lchain.ConnectBlock(block, indexPrev, coinMap, true); err != nil {
-		log.Error("trying to connect to the block failed: %v", err)
+	if err := lchain.ConnectBlock(block, indexDummy, coinMap, true); err != nil {
+		log.Error("trying to connect to the block failed:%v", err)
 		return false
 	}
 
