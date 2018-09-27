@@ -25,7 +25,7 @@ func handleSetExcessiveBlock(s *Server, cmd interface{}, closeChan <-chan struct
 
 	// Do not allow maxBlockSize to be set below historic 1MB limit
 	if c.BlockSize <= consensus.LegacyMaxBlockSize {
-		return nil, btcjson.RPCError{
+		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidParameter,
 			Message: "Invalid parameter, excessiveblock must be larger than " + strconv.Itoa(consensus.LegacyMaxBlockSize),
 		}
