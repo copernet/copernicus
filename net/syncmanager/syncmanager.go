@@ -500,7 +500,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 			log.Debug("Rejected transaction %v from %s: %v",
 				txHash, peer.Addr(), err)
 		} else {
-			log.Error("Failed to process transaction %v: %v",
+			log.Warn("Failed to process transaction %v: %v",
 				txHash.String(), err)
 		}
 
