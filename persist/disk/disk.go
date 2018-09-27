@@ -36,7 +36,7 @@ type FlushStateMode int
 var gps = persist.InitPruneState()
 
 const (
-	FlushStateNone FlushStateMode = iota
+	FlushStateNone     FlushStateMode = iota
 	FlushStateIfNeeded
 	FlushStatePeriodic
 	FlushStateAlways
@@ -179,6 +179,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	buf := make([]byte, size)
 	// Read block
 	num, err := file.Read(buf)
+	log.Debug("UndoReadFromDisk: read undo file size: %d and num: %d.", size, num)
 	if uint32(num) < size {
 		log.Error("UndoReadFromDisk: read undo num(%d) < size(%d)", num, size)
 		return nil, false
@@ -189,7 +190,7 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	buff := bytes.NewBuffer(undoData)
 	err = bu.Unserialize(buff)
 	if err != nil {
-		log.Error("unserialize UndoReadFromDisk error:%v, pos is: %s", err, pos.String())
+		log.Error("UndoReadFromDisk: unserialize error: %v, pos is: %s, undoData is: %v", err, pos.String(), undoData)
 		return bu, false
 	}
 
