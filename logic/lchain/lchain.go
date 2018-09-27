@@ -41,7 +41,7 @@ func IsInitialBlockDownload() bool {
 func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := chain.GetInstance()
 	tip := gChain.Tip()
-	nTimeStart := util.GetMicrosTime()
+	start := time.Now()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad lblock in
 	if err := lblock.CheckBlock(pblock, true, true); err != nil {
@@ -103,11 +103,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		}
 	}
 
-	nTime1 := util.GetMicrosTime()
+	time1 := time.Now()
 	gPersist := persist.GetInstance()
-	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
-	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fsn",
-		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
+	gPersist.GlobalTimeCheck += time1.Sub(start)
+	log.Print("bench", "debug", " - Sanity checks: current %v [total %v]",
+		time1.Sub(start), gPersist.GlobalTimeCheck)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
 	// transactions, unless those are already completely spent. If such
@@ -148,10 +148,10 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
-	nTime2 := util.GetMicrosTime()
-	gPersist.GlobalTimeForks += nTime2 - nTime1
-	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]",
-		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
+	time2 := time.Now()
+	gPersist.GlobalTimeForks += time2.Sub(time1)
+	log.Print("bench", "debug", " - Fork checks: current %v [total %v]",
+		time2.Sub(time1), gPersist.GlobalTimeForks)
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize())))

@@ -2,6 +2,7 @@ package persist
 
 import (
 	"sync"
+	"time"
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -36,8 +37,8 @@ type PersistGlobal struct {
 	GlobalTimeConnectTotal                               int64
 	GlobalTimeChainState                                 int64
 	GlobalTimeFlush                                      int64
-	GlobalTimeCheck                                      int64
-	GlobalTimeForks                                      int64
+	GlobalTimeCheck                                      time.Duration
+	GlobalTimeForks                                      time.Duration
 	GlobalTimePostConnect                                int64
 	GlobalTimeTotal                                      int64
 	GlobalBlockSequenceID                                int32
