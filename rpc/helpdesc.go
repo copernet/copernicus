@@ -576,6 +576,24 @@ const (
 		"\nExamples:\n" +
 		`> coperctl preciousblock "blockhash"` + "\n" +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "preciousblock", "params": ["blockhash"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/`
+
+	waitforblockheightDesc = "waitforblockheight \"height\" (timeout)\n" +
+		"\nWaits for (at least) block height and returns the height and " +
+		"hash\n" +
+		"of the current tip.\n" +
+		"\nReturns the current block on timeout or exit.\n" +
+		"\nArguments:\n" +
+		"1. height  (required, int) Block height to wait for (int)\n" +
+		"2. timeout (int, optional, default=0) Time in milliseconds to " +
+		"wait for a response. 0 indicates no timeout.\n" +
+		"\nResult:\n" +
+		"{                           (json object)\n" +
+		"  \"hash\" : {       (string) The blockhash\n" +
+		"  \"height\" : {     (int) Block height\n" +
+		"}\n" +
+		"\nExamples:\n" +
+		`> coperctl waitforblockheight "height"` + "\n" +
+		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "waitforblockheight", "params": ["height"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/`
 )
 
 //mining

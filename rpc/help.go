@@ -40,6 +40,8 @@ var methodHelp = map[string]string{
 	"verifychain":           verifychainDesc,
 	"preciousblock":         preciousblockDesc,
 
+	"waitforblockheight": waitforblockheightDesc,
+
 	"getnetworkhashps":  getnetworkhashpsDesc,
 	"getmininginfo":     getmininginfoDesc,
 	"getblocktemplate":  getblocktemplateDesc,

@@ -20,6 +20,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -720,7 +721,7 @@ func getPrunMode() (bool, error) {
 	/*	pruneArg := util.GetArg("-prune", 0)
 		if pruneArg < 0 {
 			return false, errors.New("Prune cannot be configured with a negative value")
-		}*/ // todo open
+		}*/// todo open
 	return true, nil
 }
 
@@ -771,7 +772,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 
 		chain.PruneBlockFilesManual(*height)
-		return uint64(*height), nil*/ // todo realise
+		return uint64(*height), nil*/// todo realise
 
 	return nil, nil
 }
@@ -788,7 +789,7 @@ func handleVerifyChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			checkDepth = *c.CheckDepth
 		}
 
-		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // todo open
+		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/// todo open
 	return nil, nil
 }
 
@@ -809,7 +810,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 		if !state.IsValid() {
 
-		}*/ // todo open
+		}*/// todo open
 	return nil, nil
 }
 
@@ -836,7 +837,7 @@ func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{})
 				Code:    btcjson.ErrRPCDatabase,
 				Message: state.GetRejectReason(),
 			}
-		}*/ // todo open
+		}*/// todo open
 
 	return nil, nil
 }
@@ -862,7 +863,7 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 				Code:    btcjson.ErrRPCDatabase,
 				Message: state.FormatStateMessage(),
 			}
-		}*/ // todo open
+		}*/// todo open
 	return nil, nil
 }
 
@@ -875,14 +876,50 @@ func handleWaitForBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//todo handle args: WaitForBlockHeightCmd
+	//todo notify tipchange
+	c := cmd.(*btcjson.WaitForBlockHeightCmd)
+	height := c.Height
+	timeout := c.Timeout
 
 	gchain := chain.GetInstance()
-	ret := &btcjson.WaitForBlockHeightResult{
-		Hash:   gchain.Tip().GetBlockHash().String(),
-		Height: gchain.TipHeight(),
+	tipHeight := gchain.TipHeight()
+	ret := &btcjson.WaitForBlockHeightResult{}
+
+	if height <= tipHeight {
+		ret = &btcjson.WaitForBlockHeightResult{
+			Hash:   gchain.Tip().GetBlockHash().String(),
+			Height: gchain.TipHeight(),
+		}
+		return ret, nil
 	}
-	return ret, nil
+
+	waitFlag := make(chan bool)
+	go func() {
+		for {
+			if height <= gchain.TipHeight() {
+				waitFlag <- false
+				break
+			}
+			time.Sleep(time.Second)
+		}
+
+	}()
+
+	select {
+	case <-waitFlag:
+		ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+		ret.Height = height
+		return ret, nil
+	case <-time.After(time.Millisecond * time.Duration(timeout)):
+		if height <= gchain.TipHeight() {
+			ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+			ret.Height = height
+		}
+		ret.Hash = gchain.Tip().GetBlockHash().String()
+		ret.Height = gchain.TipHeight()
+		return ret, nil
+	}
+
 }
 
 func registerBlockchainRPCCommands() {
