@@ -249,8 +249,6 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 		return
 	}
 
-	// TODO: relay this lblock
-
 	dbp, err = WriteBlockToDisk(bIndex, pblock)
 	if err != nil {
 		panic("AcceptBlockHeader WriteBlockTo Disk err")
