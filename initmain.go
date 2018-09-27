@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/utxo"
@@ -16,8 +18,14 @@ import (
 )
 
 func appInitMain(args []string) {
-	//init config
 	conf.Cfg = conf.InitConfig(args)
+
+	if conf.Cfg.P2PNet.TestNet {
+		model.SetTestNetParams()
+	} else if conf.Cfg.P2PNet.RegTest {
+		model.SetRegTestParams()
+	}
+
 	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
 
 	//init log

@@ -170,10 +170,6 @@ func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
 	if netAddr != nil {
 		log.Trace("updateAddress srcAddr(%s)\n", srcAddr.String())
 	}
-	//todo  external IP is no longer added
-	if conf.Cfg != nil && !conf.Cfg.P2PNet.Discover {
-		return
-	}
 
 	// Filter out non-routable addresses. Note that non-routable
 	// also includes invalid and local addresses.

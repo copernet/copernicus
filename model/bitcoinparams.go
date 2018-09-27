@@ -13,7 +13,7 @@ import (
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
 
-var ActiveNetParams = &TestNetParams
+var ActiveNetParams = &MainNetParams
 
 var (
 	bigOne = big.NewInt(1)
@@ -442,4 +442,12 @@ func IsDAAEnabled(height int32) bool {
 
 func IsReplayProtectionEnabled(medianTimePast int64) bool {
 	return medianTimePast >= ActiveNetParams.MagneticAnomalyActivationTime
+}
+
+func SetTestNetParams() {
+	ActiveNetParams = &TestNetParams
+}
+
+func SetRegTestParams() {
+	ActiveNetParams = &RegressionNetParams
 }

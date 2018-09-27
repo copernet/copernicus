@@ -9,8 +9,10 @@ import (
 	"reflect"
 	"time"
 
+	"errors"
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
+	"path"
 )
 
 const (
@@ -69,11 +71,19 @@ func InitConfig(args []string) *Configuration {
 	if err != nil {
 		panic(err)
 	}
+	if opts.RegTest && opts.TestNet {
+		panic("Both testnet and regtest are true")
+	}
+
 	if len(opts.DataDir) > 0 {
 		DataDir = opts.DataDir
 	}
 
-	discover := opts.Discover
+	if opts.TestNet {
+		DataDir = path.Join(DataDir, "testnet")
+	} else if opts.RegTest {
+		DataDir = path.Join(DataDir, "regtest")
+	}
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
@@ -146,7 +156,13 @@ func InitConfig(args []string) *Configuration {
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
-	config.P2PNet.Discover = discover == 1
+
+	if opts.RegTest {
+		config.P2PNet.RegTest = true
+	}
+	if opts.TestNet {
+		config.P2PNet.TestNet = true
+	}
 	return config
 }
 
@@ -194,7 +210,9 @@ type Configuration struct {
 		ConnectPeersOnStart []string
 		DisableBanning      bool `default:"true"`
 		BanThreshold        uint32
-		SimNet              bool          `default:"false"`
+		TestNet             bool
+		RegTest             bool `default:"false"`
+		SimNet              bool
 		DisableListen       bool          `default:"true"`
 		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
 		BanDuration         time.Duration // How long to ban misbehaving peers
@@ -208,7 +226,6 @@ type Configuration struct {
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
 		//AddCheckpoints      []model.Checkpoint
-		Discover bool // Is our peer's addrLocal potentially useful as an external IP source
 	}
 	AddrMgr struct {
 		SimNet       bool
