@@ -10,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist"
+	"time"
 )
 
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
@@ -50,8 +51,8 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
 		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
-	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s\n",
-		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s currenttime:%v\n",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String(), time.Now())
 
 	return isNewBlock, err
 }
