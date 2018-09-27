@@ -167,14 +167,14 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		}
 	}
 
-	if request != nil && request.LongPollID != "" {
-		// Wait to respond until either the best block changes, OR a minute has
-		// passed and there are more transactions
-		//var hashWatchedChain utils.Hash
-		//checktxtime := time.Now()
-		//transactionsUpdatedLastLP := 0
-		// todo complete
-	}
+	//if request != nil && request.LongPollID != "" {
+	// Wait to respond until either the best block changes, OR a minute has
+	// passed and there are more transactions
+	//var hashWatchedChain utils.Hash
+	//checktxtime := time.Now()
+	//transactionsUpdatedLastLP := 0
+	// todo complete
+	//}
 
 	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
@@ -316,7 +316,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 
 	v := bt.Block.Txs[0].GetTxOut(0).GetValue()
 	return &btcjson.GetBlockTemplateResult{
-		Capabilities:  []string{"proposal"},
+		//Capabilities:  []string{"proposal"},
 		Version:       bt.Block.Header.Version,
 		Rules:         rules,
 		VbAvailable:   vbAvailable,
