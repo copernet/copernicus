@@ -207,7 +207,6 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 	// Already Accept Block
 	if bIndex.HasData() {
 		log.Warn("AcceptBlock blk(%s) already received", pblock.GetHash())
-		err = errcode.New(errcode.ErrorBlockAlreadyExists)
 		return
 	}
 
