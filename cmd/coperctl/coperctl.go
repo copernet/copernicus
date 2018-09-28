@@ -147,7 +147,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	} else if resp.Error != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, resp.Error)
 		os.Exit(1)
 	}
 
