@@ -18,7 +18,6 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
-	//"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -41,6 +40,7 @@ const (
 	// close to full; this is just a simple heuristic to finish quickly if the
 	// mempool has a lot of entries.
 	maxConsecutiveFailures = 1000
+	CoinbaseFlag           = ""
 )
 
 // global value for getmininginfo rpc use
@@ -225,7 +225,11 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		}
 		// add the ancestors of the current item to block
 		noLimit := uint64(math.MaxUint64)
+
+		pool.RLock()
 		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		pool.RUnlock()
+
 		ba.onlyUnconfirmed(ancestors)
 		ancestors[&entry] = struct{}{} // add current item
 		if !ba.testPackageTransactions(ancestors) {
@@ -535,8 +539,8 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 		return false
 	}
 
-	if err := lchain.ConnectBlock(block, indexPrev, coinMap, true); err != nil {
-		log.Error("trying to connect to the block failed: %v", err)
+	if err := lchain.ConnectBlock(block, indexDummy, coinMap, true); err != nil {
+		log.Error("trying to connect to the block failed:%v", err)
 		return false
 	}
 

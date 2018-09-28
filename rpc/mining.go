@@ -167,14 +167,14 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		}
 	}
 
-	if request != nil && request.LongPollID != "" {
-		// Wait to respond until either the best block changes, OR a minute has
-		// passed and there are more transactions
-		//var hashWatchedChain utils.Hash
-		//checktxtime := time.Now()
-		//transactionsUpdatedLastLP := 0
-		// todo complete
-	}
+	//if request != nil && request.LongPollID != "" {
+	// Wait to respond until either the best block changes, OR a minute has
+	// passed and there are more transactions
+	//var hashWatchedChain utils.Hash
+	//checktxtime := time.Now()
+	//transactionsUpdatedLastLP := 0
+	// todo complete
+	//}
 
 	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
@@ -205,7 +205,9 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	mining.UpdateTime(bk, indexPrev)
 	bk.Header.Nonce = 0
 
-	return blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
+	res, err := blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
+	log.Debug("getblocktemplate response: %+v", res)
+	return res, err
 }
 
 // blockTemplateResult returns the current block template associated with the
@@ -314,7 +316,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 
 	v := bt.Block.Txs[0].GetTxOut(0).GetValue()
 	return &btcjson.GetBlockTemplateResult{
-		Capabilities:  []string{"proposal"},
+		//Capabilities:  []string{"proposal"},
 		Version:       bt.Block.Header.Version,
 		Rules:         rules,
 		VbAvailable:   vbAvailable,
@@ -501,8 +503,8 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 		log.Error("rejected: %s, blk=%+v txs=%+v", err.Error(), bk, bk.Txs)
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
 	}
-
-	log.Info("Accepted block %s via submitblock", bk.Header.GetHash())
+	log.Debug("Accepted block %s via submitblock",
+		hex.EncodeToString(hash[:]))
 	return nil, nil
 }
 

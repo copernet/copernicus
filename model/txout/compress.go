@@ -8,6 +8,7 @@ import (
 	//"os"
 
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
@@ -276,8 +277,8 @@ func (tc *TxoutCompressor) Serialize(w io.Writer) error {
 	if tc == nil {
 		return ErrCompress
 	}
-	amount := CompressAmount(tc.txout.value)
-	if err := util.WriteVarLenInt(w, amount); err != nil {
+	count := CompressAmount(tc.txout.value)
+	if err := util.WriteVarLenInt(w, count); err != nil {
 		return err
 	}
 	return tc.sc.Serialize(w)
@@ -287,10 +288,11 @@ func (tc *TxoutCompressor) Unserialize(r io.Reader) error {
 	if tc == nil {
 		return ErrCompress
 	}
-	amount, err := util.ReadVarLenInt(r)
+	count, err := util.ReadVarLenInt(r)
 	if err != nil {
+		log.Error("TxoutCompressor Unserialize: the read count is: %d, error: %v", count, err)
 		return err
 	}
-	tc.txout.value = DecompressAmount(amount)
+	tc.txout.value = DecompressAmount(count)
 	return tc.sc.Unserialize(r)
 }

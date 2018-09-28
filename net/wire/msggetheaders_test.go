@@ -36,7 +36,7 @@ func TestGetHeaders(t *testing.T) {
 	// Ensure max payload is expected value for latest protocol version.
 	// Protocol version 4 bytes + num hashes (varInt) + max block locator
 	// hashes + hash stop.
-	wantPayload := uint32(16045)
+	wantPayload := uint64(16045)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+

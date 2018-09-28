@@ -57,7 +57,7 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	parentPath := GetBlockPosParentFilename()
 	e := os.MkdirAll(parentPath, os.ModePerm)
 	if e != nil {
-		log.Error("e=========", e)
+		log.Error("creates a directory error: %v", e)
 		panic("OpenDiskFile.os.MkdirAll(parentPath err")
 	}
 	filePath := GetBlockPosFilename(pos, prefix)
@@ -74,7 +74,7 @@ func OpenDiskFile(pos block.DiskBlockPos, prefix string, fReadOnly bool) *os.Fil
 	file, err := os.OpenFile(filePath, flag, os.ModePerm)
 	if file == nil || err != nil {
 		log.Error("Unable to open file %s\n", err)
-		panic("Unable to open file ======")
+		panic("Unable to open file...")
 	}
 	if pos.Pos > 0 {
 		if _, err := file.Seek(int64(pos.Pos), 0); err != nil {
@@ -106,9 +106,10 @@ func AllocateFileRange(file *os.File, offset uint32, length uint32) {
 			now = int(length)
 		}
 		// Allowed to fail; this function is advisory anyway.
-		_, err := file.Write(buf[:now])
+		size, err := file.Write(buf[:now])
 		if err != nil {
-			panic("the file write failed.")
+			log.Error("AllocateFileRange: file write error: %v, write size: %d", err, size)
+			panic("AllocateFileRange:the file write failed")
 		}
 		length -= uint32(now)
 	}
@@ -126,38 +127,38 @@ func UndoWriteToDisk(bu *undo.BlockUndo, pos *block.DiskBlockPos, hashBlock util
 	buf := bytes.NewBuffer(nil)
 	err := bu.Serialize(buf)
 	if err != nil {
-		log.Error("disk:serialize block undo failed.")
+		log.Error("UndoWriteToDisk:serialize block undo failed: %v", err)
 		return err
 	}
 	size := buf.Len() + 32
 	buHasher := sha256.New()
-	_, err = buHasher.Write(hashBlock[:])
+	length, err := buHasher.Write(hashBlock[:])
 	if err != nil {
-		log.Error("disk:write hashBlock failed.")
+		log.Error("UndoWriteToDisk:write hashBlock failed: %v, the write size is: %d", err, length)
 		return err
 	}
-	_, err = buHasher.Write(buf.Bytes())
+	length, err = buHasher.Write(buf.Bytes())
 	if err != nil {
-		log.Error("disk:write buf.Bytes() failed.")
+		log.Error("UndoWriteToDisk:write buf.Bytes() failed: %v, the write size is: %d", err, length)
 		return err
 	}
 	buHash := buHasher.Sum(nil)
-	_, err = buf.Write(buHash)
+	length, err = buf.Write(buHash)
 	if err != nil {
-		log.Error("disk:write block undo hash failed.")
+		log.Error("UndoWriteToDisk:write block undo hash failed, the write size is: %d: %v", err, length)
 		return err
 	}
 	lenBuf := bytes.NewBuffer(nil)
 	util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 
-	_, err = undoFile.Write(lenBuf.Bytes())
+	length, err = undoFile.Write(lenBuf.Bytes())
 	if err != nil {
-		log.Error("disk:WriteUndoFile failed")
+		log.Error("UndoWriteToDisk:WriteUndoFile failed: %v, the write size is: %d", err, length)
 		return err
 	}
-	_, err = undoFile.Write(buf.Bytes())
+	length, err = undoFile.Write(buf.Bytes())
 	if err != nil {
-		log.Error("disk:WriteUndoFile failed")
+		log.Error("UndoWriteToDisk:WriteUndoFile failed: %v, the write size is: %d", err, length)
 		return err
 	}
 
@@ -173,14 +174,15 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	defer file.Close()
 	size, err := util.BinarySerializer.Uint32(file, binary.LittleEndian)
 	if err != nil {
-		log.Error("UndoReadFromDisk===", err)
+		log.Error("UndoReadFromDisk error: %v, pos is:%s", err, pos.String())
 		return nil, false
 	}
 	buf := make([]byte, size)
 	// Read block
 	num, err := file.Read(buf)
+	log.Debug("UndoReadFromDisk: read undo file size: %d and num: %d.", size, num)
 	if uint32(num) < size {
-		log.Error("UndoReadFromDisk===read undo num < size")
+		log.Error("UndoReadFromDisk: read undo num(%d) < size(%d)", num, size)
 		return nil, false
 	}
 	bu := undo.NewBlockUndo(0)
@@ -189,20 +191,20 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	buff := bytes.NewBuffer(undoData)
 	err = bu.Unserialize(buff)
 	if err != nil {
-		log.Error("UndoReadFromDisk===", err)
+		log.Error("UndoReadFromDisk: unserialize error: %v, pos is: %s, undoData is: %v", err, pos.String(), undoData)
 		return bu, false
 	}
 
 	// Verify checksum
 	buHasher := sha256.New()
-	_, err = buHasher.Write(hashblock[:])
+	length, err := buHasher.Write(hashblock[:])
 	if err != nil {
-		log.Error("disk:write block undo hashBlock failed.")
+		log.Error("UndoReadFromDisk:write hashBlock size:%d, error: %v", length, err)
 		return bu, false
 	}
-	_, err = buHasher.Write(undoData)
+	length, err = buHasher.Write(undoData)
 	if err != nil {
-		log.Error("disk:write block undo undoData failed.")
+		log.Error("UndoReadFromDisk:write undoData size:%d,error: %v", length, err)
 		return bu, false
 	}
 	buHash := buHasher.Sum(nil)
@@ -277,25 +279,25 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	buf := bytes.NewBuffer(nil)
 	err := block.Serialize(buf)
 	if err != nil {
-		log.Error("Serialize buf failed, please check.")
+		log.Error("Serialize buf error: %v", err)
 		return false
 	}
 	size := buf.Len()
 	lenBuf := bytes.NewBuffer(nil)
 	err = util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
 	if err != nil {
-		log.Error("Write Block To Disk failed")
+		log.Error("WriteBlockToDisk: put size error: %v", err)
 		return false
 	}
 	lenData := lenBuf.Bytes()
 	_, err = file.Write(lenData)
 	if err != nil {
-		log.Error("Write Block To Disk failed")
+		log.Error("WriteBlockToDisk: write lenData error: %v", err)
 		return false
 	}
 	_, err = file.Write(buf.Bytes())
 	if err != nil {
-		log.Error("Write Block To Disk failed")
+		log.Error("WriteBlockToDisk: write buf.Bytes() error: %v", err)
 		return false
 	}
 	return true
@@ -333,7 +335,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		if !gps.HavePruned {
 			err := blockTree.WriteFlag("prunedblockfiles", true)
 			if err != nil {
-				log.Error("write flag prunedblockfiles failed.")
+				log.Error("write flag prunedblockfiles error: %v", err)
 				return err
 			}
 			gps.HavePruned = true
@@ -442,7 +444,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {
-		log.Error("can not get disk info")
+		log.Error("CheckDiskSpace:can not get disk info:%v", err)
 		return false
 	}
 	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
@@ -452,7 +454,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 	n := int(nAdditionalBytes)
 	needSize := uint64(MinDiskSpace + n)
 	if nFreeBytesAvailable < needSize {
-		log.Error("Error: Disk space is low!")
+		log.Error("CheckDiskSpace: Disk space is low, free size: %d, need size: %d", nFreeBytesAvailable, needSize)
 		panic("Error: Disk space is low!")
 	}
 	return true
@@ -488,7 +490,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	persist.CsLastBlockFile.Lock()
 	defer persist.CsLastBlockFile.Unlock()
 	if nAddSize > persist.MaxBlockFileSize {
-		log.Error("FindBlockPos nAddSize [%#v] is too large more then global.MaxBlockFileSize ", nAddSize)
+		log.Error("FindBlockPos nAddSize [%d] is too large more then global.MaxBlockFileSize ", nAddSize)
 		panic("FindBlockPos nAddSize  is too large more then global.MaxBlockFileSize")
 	}
 	gPersist := persist.GetInstance()

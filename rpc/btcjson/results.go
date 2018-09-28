@@ -232,7 +232,7 @@ type NetworksResult struct {
 type LocalAddressesResult struct {
 	Address string `json:"address"`
 	Port    uint16 `json:"port"`
-	Score   int32  `json:"score"`
+	Score   int    `json:"score"`
 }
 
 // GetNetworkInfoResult models the data returned from the getnetworkinfo

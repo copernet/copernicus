@@ -583,7 +583,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		statusLines: make(map[int]string),
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
-		requestProcessShutdown: make(chan struct{}),
+		requestProcessShutdown: make(chan struct{}, 1),
 		quit: make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {

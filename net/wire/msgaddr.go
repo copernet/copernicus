@@ -126,14 +126,14 @@ func (msg *MsgAddr) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgAddr) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgAddr) MaxPayloadLength(pver uint32) uint64 {
 	if pver < MultipleAddressVersion {
 		// Num addresses (varInt) + a single net addresses.
-		return MaxVarIntPayload + maxNetAddressPayload(pver)
+		return uint64(MaxVarIntPayload + maxNetAddressPayload(pver))
 	}
 
 	// Num addresses (varInt) + max allowed addresses.
-	return MaxVarIntPayload + (MaxAddrPerMsg * maxNetAddressPayload(pver))
+	return uint64(MaxVarIntPayload + (MaxAddrPerMsg * maxNetAddressPayload(pver)))
 }
 
 // NewMsgAddr returns a new bitcoin addr message that conforms to the

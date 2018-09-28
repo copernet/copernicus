@@ -278,15 +278,23 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 	verNum := 0
 	vers := strings.Split(conf.Cfg.Version, ".")
-	for i, ver := range vers {
+	for _, ver := range vers {
 		subVer, err := strconv.Atoi(ver)
-		if err != nil {
-			verNum = verNum + subVer<<uint(len(vers)-1-i)
+		if err == nil {
+			verNum = verNum*1000 + subVer
 		}
 	}
 
-	localAddresses := make([]btcjson.LocalAddressesResult, 0)
-	// TODO: get local address
+	localAddrInfo := msgHandle.addrManager.GetAllLocalAddress()
+	rpcLocalAddrList := make([]btcjson.LocalAddressesResult, 0, len(localAddrInfo))
+	for _, localAddr := range localAddrInfo {
+		rpcLocalAddr := btcjson.LocalAddressesResult{
+			Address: localAddr.Na.IP.String(),
+			Port:    localAddr.Na.Port,
+			Score:   localAddr.Score,
+		}
+		rpcLocalAddrList = append(rpcLocalAddrList, rpcLocalAddr)
+	}
 
 	chainInfo := &btcjson.GetNetworkInfoResult{
 		Version:          verNum,
@@ -294,13 +302,13 @@ func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		ProtocolVersion:  wire.ProtocolVersion,
 		LocalServices:    "0", // TODO:
 		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,
-		TimeOffset:       0, //TODO:
+		TimeOffset:       util.GetTimeOffset(),
 		Connections:      msgHandle.ConnectedCount(),
 		NetworkActive:    true, // NOT support RPC 'setnetworkactive'
 		Networks:         getNetworksInfo(),
 		RelayFee:         valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
-		ExcessUtxoCharge: 0, // TODO:
-		LocalAddresses:   localAddresses,
+		ExcessUtxoCharge: 0,
+		LocalAddresses:   rpcLocalAddrList,
 		Warnings:         "", // TODO: network warnings
 	}
 	return chainInfo, nil

@@ -74,6 +74,12 @@ type localAddress struct {
 	score AddressPriority
 }
 
+// LocalAddressInfo is used to return local address for RPC
+type LocalAddressInfo struct {
+	Na    *wire.NetAddress
+	Score int
+}
+
 // AddressPriority type is used to describe the hierarchy of local address
 // discovery methods.
 type AddressPriority int
@@ -169,10 +175,6 @@ func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
 	}
 	if netAddr != nil {
 		log.Trace("updateAddress srcAddr(%s)\n", srcAddr.String())
-	}
-	//todo  external IP is no longer added
-	if conf.Cfg != nil && !conf.Cfg.P2PNet.Discover {
-		return
 	}
 
 	// Filter out non-routable addresses. Note that non-routable
@@ -1140,6 +1142,21 @@ func (a *AddrManager) GetBestLocalAddress(remoteAddr *wire.NetAddress) *wire.Net
 	}
 
 	return bestAddress
+}
+
+func (a *AddrManager) GetAllLocalAddress() []LocalAddressInfo {
+	a.lamtx.Lock()
+	defer a.lamtx.Unlock()
+
+	localAddressesInfo := make([]LocalAddressInfo, 0, len(a.localAddresses))
+	for _, la := range a.localAddresses {
+		localAddrInfo := LocalAddressInfo{
+			Na:    wire.NewNetAddressIPPort(la.na.IP, la.na.Port, la.na.Services),
+			Score: int(la.score),
+		}
+		localAddressesInfo = append(localAddressesInfo, localAddrInfo)
+	}
+	return localAddressesInfo
 }
 
 // New returns a new bitcoin address manager.

@@ -1,7 +1,6 @@
 package lundo
 
 import (
-	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -14,7 +13,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 	clean := true
 	txUndos := blockUndo.GetTxundo()
 	if len(txUndos)+1 != len(blk.Txs) {
-		fmt.Println("DisconnectBlock(): block and undo data inconsistent")
+		log.Error("DisconnectBlock(): block(%d) and undo(%d) data inconsistent", len(txUndos)+1, len(blk.Txs))
 		return undo.DisconnectFailed
 	}
 	// Undo transactions in reverse order.
@@ -46,7 +45,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			ins := tx.GetIns()
 			insLen := len(ins)
 			if len(txundo.GetUndoCoins()) != insLen {
-				log.Error("DisconnectBlock(): transaction and undo data inconsistent")
+				log.Error("DisconnectBlock(): transaction(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
 				return undo.DisconnectFailed
 			}
 

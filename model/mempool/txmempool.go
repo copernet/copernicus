@@ -2,6 +2,10 @@ package mempool
 
 import (
 	"fmt"
+	"math"
+	"sync"
+	"time"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -11,9 +15,6 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/google/btree"
-	"math"
-	"sync"
-	"time"
 )
 
 const (

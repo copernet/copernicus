@@ -25,7 +25,7 @@ func TestVerAck(t *testing.T) {
 	}
 
 	// Ensure max payload is expected value.
-	wantPayload := uint32(0)
+	var wantPayload uint64
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+

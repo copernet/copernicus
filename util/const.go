@@ -13,4 +13,7 @@ const (
 
 	// MaxSatoshi is the maximum transaction amount allowed in satoshi.
 	MaxSatoshi = 21e6 * SatoshiPerBitcoin
+
+	/*OneMegaByte 1MB */
+	OneMegaByte uint64 = 1000000
 )
