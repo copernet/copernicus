@@ -1,18 +1,20 @@
 package mining
 
-import "github.com/copernet/copernicus/util"
+import (
+	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/util"
+)
 
 const (
 	/*MaxTxSigOpsCount allowed number of signature check operations per transaction. */
 	MaxTxSigOpsCount uint64 = 20000
-	/*OneMegaByte 1MB */
-	OneMegaByte uint64 = 1000000
 
 	/*DefaultMaxGeneratedBlockSize default for -blockMaxsize, which controls the maximum size of block the
 	 * mining code will create **/
-	DefaultMaxGeneratedBlockSize uint64 = 2 * OneMegaByte
+	DefaultMaxGeneratedBlockSize uint64 = 2 * util.OneMegaByte
 
-	DefaultMaxBlockSize = 32 * OneMegaByte
+	//DefaultMaxBlockSize = 32 * OneMegaByte
+	DefaultMaxBlockSize = wire.MaxBlockPayload
 
 	/*DefaultBlockPrioritySize default for -blockPrioritySize, maximum space for zero/low-fee transactions*/
 	DefaultBlockPrioritySize uint64 = 0

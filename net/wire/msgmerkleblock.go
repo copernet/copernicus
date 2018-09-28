@@ -32,7 +32,7 @@ type MsgMerkleBlock struct {
 
 // AddTxHash adds a new transaction hash to the message.
 func (msg *MsgMerkleBlock) AddTxHash(hash *util.Hash) error {
-	if len(msg.Hashes)+1 > maxTxPerBlock {
+	if uint64(len(msg.Hashes)+1) > maxTxPerBlock {
 		str := fmt.Sprintf("too many tx hashes for message [max %v]",
 			maxTxPerBlock)
 		return messageError("MsgMerkleBlock.AddTxHash", str)
@@ -100,13 +100,13 @@ func (msg *MsgMerkleBlock) Encode(w io.Writer, pver uint32, enc MessageEncoding)
 	}
 
 	// Read num transaction hashes and limit to max.
-	numHashes := len(msg.Hashes)
+	numHashes := uint64(len(msg.Hashes))
 	if numHashes > maxTxPerBlock {
 		str := fmt.Sprintf("too many transaction hashes for message "+
 			"[count %v, max %v]", numHashes, maxTxPerBlock)
 		return messageError("MsgMerkleBlock.Decode", str)
 	}
-	numFlagBytes := len(msg.Flags)
+	numFlagBytes := uint64(len(msg.Flags))
 	if numFlagBytes > maxFlagsPerMerkleBlock {
 		str := fmt.Sprintf("too many flag bytes for message [count %v, "+
 			"max %v]", numFlagBytes, maxFlagsPerMerkleBlock)
@@ -123,7 +123,7 @@ func (msg *MsgMerkleBlock) Encode(w io.Writer, pver uint32, enc MessageEncoding)
 		return err
 	}
 
-	err = util.WriteVarInt(w, uint64(numHashes))
+	err = util.WriteVarInt(w, numHashes)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (msg *MsgMerkleBlock) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgMerkleBlock) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgMerkleBlock) MaxPayloadLength(pver uint32) uint64 {
 	return MaxBlockPayload
 }
 
