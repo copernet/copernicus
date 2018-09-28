@@ -2,10 +2,10 @@ package lchain
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"sort"
-        "time"
-        "crypto/sha256"
+	"time"
 
 	"github.com/copernet/copernicus/log"
 	mchain "github.com/copernet/copernicus/model/chain"
@@ -65,7 +65,7 @@ func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[
 
 func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 	b := time.Now()
-        besthash, err := cdb.GetBestBlock()
+	besthash, err := cdb.GetBestBlock()
 	if err != nil {
 		log.Debug("in GetUTXOStats, GetBestBlock(), failed=%v\n", err)
 		return err
@@ -89,6 +89,6 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 	}
 	//stat.hashSerialized = util.Sha256Hash(hashbuf.Bytes())
 	copy(stat.hashSerialized[:], h.Sum(nil))
-	fmt.Printf("iter utxo db time: %f ms\n", float64(time.Since(b))/10e6)
+	fmt.Printf("iter utxo db time: %v\n", time.Since(b))
 	return nil
 }
