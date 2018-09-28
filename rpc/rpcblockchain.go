@@ -60,6 +60,7 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 	chainInfo := &btcjson.GetBlockChainInfoResult{
 		Chain:                params.Name,
 		Blocks:               gChain.Height(),
+		Headers:              gChain.Height(), // TODO: NOT support header-first yet
 		BestBlockHash:        tip.GetBlockHash().String(),
 		Difficulty:           getDifficulty(tip),
 		MedianTime:           tip.GetMedianTimePast(),
@@ -67,7 +68,6 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 		ChainWork:            tip.ChainWork.Text(16),
 		Pruned:               false,
 		Bip9SoftForks:        make(map[string]*btcjson.Bip9SoftForkDescription),
-		//Headers:            lblockindex.indexBestHeader.Height,   // TODO: NOT support yet
 	}
 
 	// Next, populate the response with information describing the current
