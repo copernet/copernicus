@@ -1463,6 +1463,16 @@ const (
 		"> coperctl getinfo\n" +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getinfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:8334/`
 
+	helpDesc = "help ( \"command\" )\n" +
+		"\nList all commands, or get help for a specified command.\n" +
+		"\nArguments:\n" +
+		"1. \"command\"     (string, optional) The command to get help on\n" +
+		"\nResult:\n" +
+		"\"text\"     (string) The help text\n"
+
+	stopDesc = "stop\n" +
+		"\nStop Copernicus server."
+
 	validateaddressDesc = "validateaddress \"address\"\n" +
 		"\nReturn information about the given bitcoin address.\n" +
 		"\nArguments:\n" +
