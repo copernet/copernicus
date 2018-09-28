@@ -37,7 +37,7 @@ func TestPing(t *testing.T) {
 	}
 
 	// Ensure max payload is expected value for latest protocol version.
-	wantPayload := uint32(8)
+	wantPayload := uint64(8)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+
@@ -64,7 +64,7 @@ func TestPingBIP0031(t *testing.T) {
 	}
 
 	// Ensure max payload is expected value for old protocol version.
-	wantPayload := uint32(0)
+	wantPayload := uint64(0)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+

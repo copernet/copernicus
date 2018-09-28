@@ -29,7 +29,7 @@ func TestAddr(t *testing.T) {
 
 	// Ensure max payload is expected value for latest protocol version.
 	// Num addresses (varInt) + max allowed addresses.
-	wantPayload := uint32(30009)
+	wantPayload := uint64(30009)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+
@@ -76,7 +76,7 @@ func TestAddr(t *testing.T) {
 	// timestamp was added to NetAddress.
 	// Num addresses (varInt) + max allowed addresses.
 	pver = NetAddressTimeVersion - 1
-	wantPayload = uint32(26009)
+	wantPayload = 26009
 	maxPayload = msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+
@@ -88,7 +88,7 @@ func TestAddr(t *testing.T) {
 	// multiple addresses were allowed.
 	// Num addresses (varInt) + a single net addresses.
 	pver = MultipleAddressVersion - 1
-	wantPayload = uint32(35)
+	wantPayload = 35
 	maxPayload = msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+
