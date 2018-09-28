@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+        "time"
+        "crypto/sha256"
 
 	"github.com/copernet/copernicus/log"
 	mchain "github.com/copernet/copernicus/model/chain"
@@ -62,7 +64,8 @@ func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[
 }
 
 func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
-	besthash, err := cdb.GetBestBlock()
+	b := time.Now()
+        besthash, err := cdb.GetBestBlock()
 	if err != nil {
 		log.Debug("in GetUTXOStats, GetBestBlock(), failed=%v\n", err)
 		return err
@@ -70,17 +73,22 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 	stat.bestblock = *besthash
 	stat.height = int(mchain.GetInstance().FindBlockIndex(*besthash).Height)
 
-	hashbuf := bytes.NewBuffer(nil)
-	hashbuf.Write(stat.bestblock[:])
+	//hashbuf := bytes.NewBuffer(nil)
+	//hashbuf.Write(stat.bestblock[:])
+	h := sha256.New()
+	h.Write(stat.bestblock[:])
 
 	iter := cdb.GetDBW().Iterator(nil)
 	defer iter.Close()
 	iter.Seek([]byte{db.DbCoin})
-
 	for ; iter.Valid(); iter.Next() {
-		hashbuf.Write(iter.GetKey())
-		hashbuf.Write(iter.GetVal())
+		//hashbuf.Write(iter.GetKey())
+		//hashbuf.Write(iter.GetVal())
+		h.Write(iter.GetKey())
+		h.Write(iter.GetVal())
 	}
-	stat.hashSerialized = util.Sha256Hash(hashbuf.Bytes())
+	//stat.hashSerialized = util.Sha256Hash(hashbuf.Bytes())
+	copy(stat.hashSerialized[:], h.Sum(nil))
+	fmt.Printf("iter utxo db time: %f ms\n", float64(time.Since(b))/10e6)
 	return nil
 }

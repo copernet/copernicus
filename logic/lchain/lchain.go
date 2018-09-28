@@ -272,6 +272,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 			log.Debug("GetUTXOStats() failed with : %s", err)
 			return err
 		}
+		b := time.Now()
 		f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
 		if err != nil {
 			log.Debug("os.OpenFile() failed with : %s", err)
@@ -282,6 +283,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 			log.Debug("f.WriteString() failed with : %s", err)
 			return err
 		}
+		fmt.Printf("open,write:%f\n", float64(time.Since(b))/10e6)
 	}
 
 	nTime5 := util.GetMicrosTime()
