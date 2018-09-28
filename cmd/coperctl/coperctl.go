@@ -141,22 +141,30 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Unmarshal the response.
+	var resp btcjson.Response
+	if err = json.Unmarshal(result, &resp); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	} else if resp.Error != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	// Choose how to display the result based on its type.
-	strResult := string(result)
+	strResult := string(resp.Result)
 	if strings.HasPrefix(strResult, "{") || strings.HasPrefix(strResult, "[") {
 		var dst bytes.Buffer
-		if err := json.Indent(&dst, result, "", "  "); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to format result: %v",
-				err)
+		if err := json.Indent(&dst, resp.Result, "", "  "); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to format result: %v", err)
 			os.Exit(1)
 		}
 		fmt.Println(dst.String())
 
 	} else if strings.HasPrefix(strResult, `"`) {
 		var str string
-		if err := json.Unmarshal(result, &str); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to unmarshal result: %v",
-				err)
+		if err := json.Unmarshal(resp.Result, &str); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to unmarshal result: %v", err)
 			os.Exit(1)
 		}
 		fmt.Println(str)
