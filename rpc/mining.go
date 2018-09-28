@@ -503,8 +503,8 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 		log.Error("rejected: %s, blk=%+v txs=%+v", err.Error(), bk, bk.Txs)
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
 	}
-	blkhash := bk.Header.GetHash()
-	log.Debug("Accepted block %s via submitblock", blkhash)
+	log.Debug("Accepted block %s via submitblock",
+		hex.EncodeToString(hash[:]))
 	return nil, nil
 }
 
