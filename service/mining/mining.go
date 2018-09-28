@@ -18,7 +18,6 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
-	//"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -41,6 +40,7 @@ const (
 	// close to full; this is just a simple heuristic to finish quickly if the
 	// mempool has a lot of entries.
 	maxConsecutiveFailures = 1000
+	CoinbaseFlag           = ""
 )
 
 // global value for getmininginfo rpc use
