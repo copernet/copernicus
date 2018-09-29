@@ -1633,17 +1633,16 @@ func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp.connReq = c
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
 	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
-		if !sp.Inbound() {
-			// Request known addresses if the server address manager needs
-			// more and the peer has a protocol version new enough to
-			// include a timestamp with addresses.
-			addrManager := sp.server.addrManager
-			hasTimestamp := sp.ProtocolVersion() >=
-				wire.NetAddressTimeVersion
-			if addrManager.NeedMoreAddresses() && hasTimestamp {
-				sp.QueueMessage(wire.NewMsgGetAddr(), nil)
-			}
+		// Request known addresses if the server address manager needs
+		// more and the peer has a protocol version new enough to
+		// include a timestamp with addresses.
+		addrManager := sp.server.addrManager
+		hasTimestamp := sp.ProtocolVersion() >=
+			wire.NetAddressTimeVersion
+		if addrManager.NeedMoreAddresses() && hasTimestamp {
+			sp.QueueMessage(wire.NewMsgGetAddr(), nil)
 		}
+
 		s.syncManager.NewPeer(peer)
 	})
 	go s.peerDoneHandler(sp)
