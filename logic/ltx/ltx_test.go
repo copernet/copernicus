@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -595,7 +594,7 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	empty := script.NewEmptyScript()
 	realChecker := lscript.NewScriptRealChecker()
 	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
-	hashType := uint32(txscript.SigHashAll | crypto.SigHashForkID)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	err := SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
@@ -745,7 +744,7 @@ func TestCombineSignature(t *testing.T) {
 	v.spender.GetIns()[0].SetScriptSig(empty)
 	check(v, P2SHLockingScript, t)
 
-	hashType := uint32(txscript.SigHashAll | crypto.SigHashForkID)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
@@ -753,7 +752,7 @@ func TestCombineSignature(t *testing.T) {
 	// dummy scriptSigCopy with placeHolder, should always choose
 	// non-placeholder:
 	dummyLockingScript := script.NewEmptyScript()
-	dummyLockingScript.PushOpCode(txscript.OP_0)
+	dummyLockingScript.PushOpCode(opcodes.OP_0)
 	dummyLockingScript.PushSingleData(pubKey.GetData())
 
 	combineSig, err = CombineSignature(
@@ -852,23 +851,23 @@ func TestCombineSignature(t *testing.T) {
 
 	// A couple of partially-signed versions:
 	hash, err := tx.SignatureHash(
-		&v.spender, MultiLockingScript, uint32(txscript.SigHashAll), 0, 0, 0)
+		&v.spender, MultiLockingScript, uint32(crypto.SigHashAll), 0, 0, 0)
 	checkError(err, t)
 	vchSig, err := v.priKeys[0].Sign(hash.GetCloneBytes())
 	checkError(err, t)
-	sig1 := bytes.Join([][]byte{vchSig.Serialize(), {byte(txscript.SigHashAll)}}, []byte{})
+	sig1 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashAll)}}, []byte{})
 
 	hash, err = tx.SignatureHash(
-		&v.spender, MultiLockingScript, uint32(txscript.SigHashNone), 0, 0, 0)
+		&v.spender, MultiLockingScript, uint32(crypto.SigHashNone), 0, 0, 0)
 	checkError(err, t)
 	vchSig, err = v.priKeys[1].Sign(hash.GetCloneBytes())
-	sig2 := bytes.Join([][]byte{vchSig.Serialize(), {byte(txscript.SigHashNone)}}, []byte{})
+	sig2 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashNone)}}, []byte{})
 
 	hash, err = tx.SignatureHash(
-		&v.spender, MultiLockingScript, uint32(txscript.SigHashSingle), 0, 0, 0)
+		&v.spender, MultiLockingScript, uint32(crypto.SigHashSingle), 0, 0, 0)
 	checkError(err, t)
 	vchSig, err = v.priKeys[2].Sign(hash.GetCloneBytes())
-	sig3 := bytes.Join([][]byte{vchSig.Serialize(), {byte(txscript.SigHashSingle)}}, []byte{})
+	sig3 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashSingle)}}, []byte{})
 
 	// By sig1, sig2, sig3 generate some different combination to check
 	partial1a := script.NewEmptyScript()
