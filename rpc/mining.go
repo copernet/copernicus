@@ -543,7 +543,7 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
 }
 
 const nInnerLoopCount = 0x100000
