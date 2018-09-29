@@ -4,9 +4,13 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/utxo"
@@ -91,4 +95,105 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 	copy(stat.hashSerialized[:], h.Sum(nil))
 	fmt.Printf("iter utxo db time: %v\n", time.Since(b))
 	return nil
+}
+
+type utxoTaskArg struct {
+	iter *db.IterWrapper
+	stat *stat
+}
+
+type utxoTaskControl struct {
+	utxoResult chan string
+	utxoTask   chan utxoTaskArg
+	done       chan struct{}
+	numWorker  int
+	numTask    int
+	logOnce    sync.Once
+	utxoOnce   sync.Once
+}
+
+var taskControl *utxoTaskControl
+
+func init() {
+	taskControl = newUtxoTaskControl(10000, 4)
+}
+
+func newUtxoTaskControl(numTask, numWorker int) *utxoTaskControl {
+	if numTask < 0 {
+		numTask = 0
+	}
+	if numWorker < 0 {
+		numWorker = 1
+	}
+	return &utxoTaskControl{
+		utxoResult: make(chan string, numTask),
+		utxoTask:   make(chan utxoTaskArg, numTask),
+		numWorker:  numWorker,
+		numTask:    numTask,
+		done:       make(chan struct{}),
+	}
+}
+
+func (tc *utxoTaskControl) PushUtxoTask(arg utxoTaskArg) {
+	tc.utxoTask <- arg
+}
+
+func (tc *utxoTaskControl) StartLogTask() {
+	tc.logOnce.Do(tc.startLogTask)
+}
+
+func (tc *utxoTaskControl) StartUtxoTask() {
+	tc.utxoOnce.Do(tc.startUtxoTask)
+}
+
+func (tc *utxoTaskControl) Stop() {
+	close(tc.done)
+}
+
+func (tc *utxoTaskControl) startLogTask() {
+	f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+	if err != nil {
+		log.Debug("os.OpenFile() failed with : %s", err)
+		return
+	}
+	go func() {
+		for {
+			select {
+			case <-tc.done:
+				return
+			case str := <-tc.utxoResult:
+				if _, err := f.WriteString(str); err != nil {
+					log.Debug("f.WriteString() failed with : %s", err)
+					return
+				}
+			}
+		}
+	}()
+}
+
+func (tc *utxoTaskControl) startUtxoTask() {
+	for i := 0; i < tc.numWorker; i++ {
+		go func() {
+			for {
+				select {
+				case <-tc.done:
+					return
+				case arg := <-tc.utxoTask:
+					utxoStat(arg.iter, arg.stat, tc.utxoResult)
+				}
+			}
+		}()
+	}
+}
+
+func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
+	defer iter.Close()
+	h := sha256.New()
+	h.Write(stat.bestblock[:])
+	for ; iter.Valid(); iter.Next() {
+		h.Write(iter.GetKey())
+		h.Write(iter.GetVal())
+	}
+	copy(stat.hashSerialized[:], h.Sum(nil))
+	res <- stat.String()
 }

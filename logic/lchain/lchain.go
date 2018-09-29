@@ -3,8 +3,6 @@ package lchain
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,8 +26,10 @@ import (
 	"github.com/copernet/copernicus/persist/disk"
 
 	"github.com/copernet/copernicus/logic/lblock"
+	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/persist/db"
 )
 
 // IsInitialBlockDownload Check whether we are doing an initial block download
@@ -265,25 +265,21 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
-
 	if pIndexNew.Height >= conf.Cfg.Chain.StartLogHeight {
-		var stat stat
-		if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
-			log.Debug("GetUTXOStats() failed with : %s", err)
-			return err
-		}
-		b := time.Now()
-		f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+		cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+		besthash, err := cdb.GetBestBlock()
 		if err != nil {
-			log.Debug("os.OpenFile() failed with : %s", err)
+			log.Debug("in utxostats, GetBestBlock(), failed=%v\n", err)
 			return err
 		}
-		defer f.Close()
-		if _, err := f.WriteString(stat.String()); err != nil {
-			log.Debug("f.WriteString() failed with : %s", err)
-			return err
-		}
-		fmt.Printf("open,write:%f\n", float64(time.Since(b))/10e6)
+		var stat stat
+		stat.bestblock = *besthash
+		stat.height = int(mchain.GetInstance().FindBlockIndex(*besthash).Height)
+		iter := cdb.GetDBW().Iterator(nil)
+		iter.Seek([]byte{db.DbCoin})
+		taskControl.StartLogTask()
+		taskControl.StartUtxoTask()
+		taskControl.PushUtxoTask(utxoTaskArg{iter, &stat})
 	}
 
 	nTime5 := util.GetMicrosTime()
