@@ -282,8 +282,7 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 
 	indexSlow = chain.GetInstance().GetIndex(coin.GetHeight())
 	if indexSlow != nil {
-		bk, ok := disk.ReadBlockFromDisk(indexSlow, chain.GetInstance().GetParams())
-		if ok {
+		if bk, ok := disk.ReadBlockFromDisk(indexSlow, chain.GetInstance().GetParams()); ok {
 			for _, item := range bk.Txs {
 				if *hash == item.GetHash() {
 					return item, indexSlow.GetBlockHash(), true
@@ -369,7 +368,6 @@ func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
 	var err error
 
 	if address == "data" {
-		var ok bool
 		data, ok := cost.(string)
 		if !ok {
 			return nil, btcjson.RPCError{
@@ -552,10 +550,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                     crypto.SigHashAll,
-	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                        crypto.SigHashAll,
+	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,
@@ -615,8 +613,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	hashType := crypto.SigHashAll | crypto.SigHashForkID
 	if c.SigHashType != nil {
 		var ok bool
-		hashType, ok = mapSigHashValues[*c.SigHashType]
-		if !ok {
+		if hashType, ok = mapSigHashValues[*c.SigHashType]; !ok {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid sighash param",
@@ -644,7 +641,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		scriptSig := script.NewEmptyScript()
 
 		// Only sign SIGHASH_SINGLE if there's a corresponding output
-		if hashSingle || index < transaction.GetOutsCount() {
+		if !hashSingle || index < transaction.GetOutsCount() {
 			redeemScript := redeemScripts[*in.PreviousOutPoint]
 			scriptSig, err = getScriptSig(transaction, index, scriptPubKey, priKeys,
 				uint32(hashType), coin.GetAmount(), redeemScript)
