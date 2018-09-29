@@ -73,6 +73,13 @@ type Request struct {
 	ID      interface{}       `json:"id"`
 }
 
+type JSONParamRequest struct {
+	Jsonrpc string                     `json:"jsonrpc"`
+	Method  string                     `json:"method"`
+	Params  map[string]json.RawMessage `json:"params"`
+	ID      interface{}                `json:"id"`
+}
+
 // NewRequest returns a new JSON-RPC 1.0 request object given the provided id,
 // method, and parameters.  The parameters are marshalled into a json.RawMessage
 // for the Params field of the returned request object.  This function is only

@@ -160,6 +160,76 @@ func UnmarshalCmd(r *Request) (interface{}, error) {
 	return rvp.Interface(), nil
 }
 
+// UnmarshalJSONCmd unmarshals a JSON-RPC request whose parameters
+// are wrapped in json format into a suitable concrete command
+// so long as the method type contained within the marshalled request is
+// registered. Only for request
+func UnmarshalJSONCmd(r *Request, jsonParam *map[string]json.RawMessage) (interface{}, error) {
+	registerLock.RLock()
+	rtp, ok := methodToConcreteType[r.Method]
+	info := methodToInfo[r.Method]
+	registerLock.RUnlock()
+	if !ok {
+		str := fmt.Sprintf("%q is not registered", r.Method)
+		return nil, makeError(ErrUnregisteredMethod, str)
+	}
+
+	rt := rtp.Elem()
+	rvp := reflect.New(rt)
+	rv := rvp.Elem()
+
+	// Ensure the number of parameters are correct.
+	numParams := len(*jsonParam)
+
+	if err := checkNumParams(numParams, &info); err != nil {
+		return nil, err
+	}
+
+	params := *jsonParam
+	for i := 0; i < rv.NumField(); i++ {
+		rvf := rv.Field(i)
+		// Unmarshal the parameter into the struct field.
+		concreteVal := rvf.Addr().Interface()
+		paramName := info.paramNames[rt.Field(i).Name]
+		if len(paramName) == 0 {
+			paramName = strings.ToLower(rt.Field(i).Name)
+		}
+		if value, ok := params[paramName]; ok {
+			if err := json.Unmarshal(value, &concreteVal); err != nil {
+				// The most common error is the wrong type, so
+				// explicitly detect that error and make it nicer.
+				if jerr, ok := err.(*json.UnmarshalTypeError); ok {
+					str := fmt.Sprintf("parameter '%s' must "+
+						"be type %v (got %v)", paramName, jerr.Type, jerr.Value)
+					return nil, makeError(ErrInvalidType, str)
+				}
+				// Fallback to showing the underlying error.
+				str := fmt.Sprintf("parameter '%s' failed to "+
+					"unmarshal: %v", paramName, err)
+				return nil, makeError(ErrInvalidType, str)
+			}
+			delete(params, paramName)
+		} else if defaultValue, ok := info.defaultsByName[rt.Field(i).Name]; ok {
+			if defaultValue.IsValid() {
+				rvf.Set(defaultValue)
+			}
+		} else {
+			str := fmt.Sprintf("parameter '%s' is missing", paramName)
+			return nil, makeError(ErrInvalidType, str)
+		}
+	}
+	if len(params) > 0 {
+		unknowns := ""
+		for unknown := range params {
+			unknowns += "'" + unknown + "' "
+		}
+		str := fmt.Sprintf("Unknown named parameter %s", unknowns)
+		return nil, makeError(ErrInvalidType, str)
+	}
+
+	return rvp.Interface(), nil
+}
+
 // isNumeric returns whether the passed reflect kind is a signed or unsigned
 // integer of any magnitude or a float of any magnitude.
 func isNumeric(kind reflect.Kind) bool {

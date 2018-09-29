@@ -161,7 +161,7 @@ func NewGetBlockCountCmd() *GetBlockCountCmd {
 
 // GetBlockHashCmd defines the getblockhash JSON-RPC command.
 type GetBlockHashCmd struct {
-	Height int32
+	Height int32 `json:"height"`
 }
 
 // NewGetBlockHashCmd returns a new instance which can be used to issue a
@@ -447,8 +447,8 @@ func NewGetRawMempoolCmd(verbose *bool) *GetRawMempoolCmd {
 // NOTE: This field is an int versus a bool to remain compatible with Bitcoin
 // Core even though it really should be a bool.
 type GetRawTransactionCmd struct {
-	Txid    string
-	Verbose *bool `jsonrpcdefault:"false"`
+	Txid    string `json:"txid"`
+	Verbose *bool  `json: "verbose";jsonrpcdefault:"false"`
 }
 
 // NewGetRawTransactionCmd returns a new instance which can be used to issue a
@@ -798,10 +798,10 @@ type RawTxInput struct {
 
 // SignRawTransactionCmd defines the signrawtransaction JSON-RPC command.
 type SignRawTransactionCmd struct {
-	HexTx       string
-	PrevTxs     *[]RawTxInput
-	PrivKeys    *[]string
-	SigHashType *string
+	HexTx       string        `json:"hexstring"`
+	PrevTxs     *[]RawTxInput `json:"prevtxs"`
+	PrivKeys    *[]string     `json:"privkeys"`
+	SigHashType *string       `json:"sighashtype"`
 }
 
 type VerifyTxoutProofCmd struct {

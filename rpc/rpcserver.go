@@ -219,12 +219,19 @@ handled:
 	return handler(s, cmd.cmd, closeChan)
 }
 
-func parseCmd(request *btcjson.Request) *parsedRPCCmd {
+func parseCmd(request *btcjson.Request, jsonParam *map[string]json.RawMessage) *parsedRPCCmd {
 	var parsedCmd parsedRPCCmd
+	var cmd interface{}
+	var err error
+
 	parsedCmd.id = request.ID
 	parsedCmd.method = request.Method
+	if jsonParam == nil {
+		cmd, err = btcjson.UnmarshalCmd(request)
+	} else {
+		cmd, err = btcjson.UnmarshalJSONCmd(request, jsonParam)
+	}
 
-	cmd, err := btcjson.UnmarshalCmd(request)
 	if err != nil {
 		if jerr, ok := err.(btcjson.Error); ok &&
 			jerr.ErrorCode == btcjson.ErrUnregisteredMethod {
@@ -305,10 +312,21 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 	var jsonErr error
 	var result interface{}
 	var request btcjson.Request
+	var jsonParamRequest btcjson.JSONParamRequest
+	var jsonParams *map[string]json.RawMessage
 	if err := json.Unmarshal(body, &request); err != nil {
-		jsonErr = &btcjson.RPCError{
-			Code:    btcjson.ErrRPCParse.Code,
-			Message: "Failed to parse request: " + err.Error(),
+		if err = json.Unmarshal(body, &jsonParamRequest); err != nil {
+			jsonErr = &btcjson.RPCError{
+				Code:    btcjson.ErrRPCParse.Code,
+				Message: "Failed to parse request: " + err.Error(),
+			}
+		} else {
+			jsonParams = &jsonParamRequest.Params
+			request = btcjson.Request{
+				Jsonrpc: jsonParamRequest.Jsonrpc,
+				Method:  jsonParamRequest.Method,
+				ID:      jsonParamRequest.ID,
+			}
 		}
 	}
 	if jsonErr == nil {
@@ -341,7 +359,7 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 		//}
 
 		if jsonErr == nil {
-			parsedCmd := parseCmd(&request)
+			parsedCmd := parseCmd(&request, jsonParams)
 			if parsedCmd.err != nil {
 				jsonErr = parsedCmd.err
 			} else {
@@ -584,7 +602,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}, 1),
-		quit: make(chan int),
+		quit:                   make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass

@@ -74,12 +74,14 @@ func (fl UsageFlag) String() string {
 // methodInfo keeps track of information about each registered method such as
 // the parameter information.
 type methodInfo struct {
-	maxParams    int
-	numReqParams int
-	numOptParams int
-	defaults     map[int]reflect.Value
-	flags        UsageFlag
-	usage        string
+	maxParams      int
+	numReqParams   int
+	numOptParams   int
+	paramNames     map[string]string
+	defaults       map[int]reflect.Value
+	defaultsByName map[string]reflect.Value
+	flags          UsageFlag
+	usage          string
 }
 
 var (
@@ -187,7 +189,9 @@ func RegisterCmd(method string, cmd interface{}, flags UsageFlag) error {
 	// information.
 	numFields := rt.NumField()
 	numOptFields := 0
+	paramNames := make(map[string]string)
 	defaults := make(map[int]reflect.Value)
+	defaultsByName := make(map[string]reflect.Value)
 	for i := 0; i < numFields; i++ {
 		rtf := rt.Field(i)
 		if rtf.Anonymous {
@@ -250,17 +254,27 @@ func RegisterCmd(method string, cmd interface{}, flags UsageFlag) error {
 				return makeError(ErrMismatchedDefault, str)
 			}
 			defaults[i] = rvf
+			defaultsByName[rtf.Name] = rvf
+			if paramName := rtf.Tag.Get("json"); paramName != "" {
+				paramNames[rtf.Name] = paramName
+			} else {
+				paramNames[rtf.Name] = strings.ToLower(rtf.Name)
+			}
+		} else if isOptional {
+			defaultsByName[rtf.Name] = reflect.Value{}
 		}
 	}
 
 	// Update the registration maps.
 	methodToConcreteType[method] = rtp
 	methodToInfo[method] = methodInfo{
-		maxParams:    numFields,
-		numReqParams: numFields - numOptFields,
-		numOptParams: numOptFields,
-		defaults:     defaults,
-		flags:        flags,
+		maxParams:      numFields,
+		numReqParams:   numFields - numOptFields,
+		numOptParams:   numOptFields,
+		paramNames:     paramNames,
+		defaults:       defaults,
+		defaultsByName: defaultsByName,
+		flags:          flags,
 	}
 	concreteTypeToMethod[rtp] = method
 	return nil
