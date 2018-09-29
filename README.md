@@ -26,3 +26,4 @@ All documentation will be continually updated and can be found at [docs](https:/
 ## Acknowledgments
 * Thank [btcd](https://github.com/btcsuite/btcd) for full node bitcoin implementation with Go. [Click here for more details](https://www.copernicuscore.org/btcd.html)
 * Thank [secp256k1-go](https://github.com/btccom/secp256k1-go) for bindings to lib-secp256k1 for golang
+* Thank [testify](https://github.com/stretchr/testify) for convenient testing support 

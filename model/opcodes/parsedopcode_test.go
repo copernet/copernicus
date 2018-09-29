@@ -1,6 +1,7 @@
 package opcodes
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -27,29 +28,17 @@ func TestCheckMinimalPush(t *testing.T) {
 	testParseOpCode.OpValue = OP_0
 	testParseOpCode.Length = 1
 	testParseOpCode.Data = nil
-	check := testParseOpCode.CheckMinimalDataPush()
-	if !check {
-		t.Error("should not have error, because the datalenth is 0 and OpCode id OP_0 ")
-	}
+	assert.True(t, testParseOpCode.CheckMinimalDataPush())
 
 	testParseOpCode.OpValue = OP_15
-	check = testParseOpCode.CheckMinimalDataPush()
-	if check {
-		t.Error("should have error, because the datalenth is 0")
-	}
+	assert.False(t, testParseOpCode.CheckMinimalDataPush(), "check should failed, because the datalenth is 0")
 
 	testParseOpCode.Data = append(testParseOpCode.Data, 15)
-	check = testParseOpCode.CheckMinimalDataPush()
-	if !check {
-		t.Error("should not have error, because the data is a single 15 and OpCode id OP_15 ")
-	}
+	assert.True(t, testParseOpCode.CheckMinimalDataPush())
 
 	testParseOpCode.Data = append(testParseOpCode.Data, 15, 1, 2, 3, 4, 5, 6)
 	testParseOpCode.OpValue = byte(len(testParseOpCode.Data))
-	check = testParseOpCode.CheckMinimalDataPush()
-	if !check {
-		t.Error("should not have error, because the datalenth is 7 and OpCode id 7 ")
-	}
+	assert.True(t, testParseOpCode.CheckMinimalDataPush())
 }
 
 func TestBytes(t *testing.T) {

@@ -6,7 +6,6 @@ import:
   - logs
 - package: github.com/copernet/secp256k1-go
 - package: github.com/copernet/secp256k1
-
 - package: github.com/davecgh/go-spew
   version: ^1.1.0
   subpackages:
@@ -36,7 +35,8 @@ import:
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
-
+- package: github.com/stretchr/testify
+  version: v1.2.2
 testImport:
 - package: github.com/smartystreets/goconvey
   version: ^1.6.3
