@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 )
 
 // shutdownRequestChannel is used to initiate shutdown from one of the
@@ -38,13 +37,10 @@ func interruptListener() <-chan struct{} {
 
 			case <-shutdownRequestChannel:
 				log.Info("Shutdown requested. shutting down...")
-				//sleep 1s to give the response message of 'stop' a chance to send out
-				time.Sleep(time.Second)
 			}
 
 			closeOnce.Do(
 				func() {
-					log.Error("[stop]3")
 					close(c)
 				})
 		}
