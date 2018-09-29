@@ -25,7 +25,7 @@ cache:
     - depends/built
     - depends/sdk-sources
 
-before_cache:  # glide touches ORIG_HEAD on `glide install`
+before_cache:
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
   - rm -rf $GOPATH/src/github.com/copernet/copernicus/*
   - rm -rf $GOPATH/pkg/**/github.com/copernet/copernicus
@@ -33,10 +33,7 @@ before_cache:  # glide touches ORIG_HEAD on `glide install`
 before_install:
   - export GOROOT=$(go env GOROOT)
   - export CXX="g++-6" CC="gcc-6"
-#  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags2_2.0-1.1ubuntu1_amd64.deb
-#  - sudo dpkg -i libgflags2_2.0-1.1ubuntu1_amd64.deb
-#  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags-dev_2.0-1.1ubuntu1_amd64.deb
-#  - sudo dpkg -i libgflags-dev_2.0-1.1ubuntu1_amd64.deb
+  - export PATH=$PATH:$HOME/gopath/bin
 
 
 install:
@@ -54,8 +51,6 @@ install:
   - go get -v github.com/alecthomas/gometalinter
   - gometalinter --install
 script:
-  - export PATH=$PATH:$HOME/gopath/bin
-
   - ./check.sh
 
 notifications:
