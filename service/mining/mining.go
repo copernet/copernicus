@@ -313,8 +313,8 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, scriptSig, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
-	value := ba.fees + GetBlockSubsidy(ba.height, ba.chainParams)
-	coinbaseTx.AddTxOut(txout.NewTxOut(value, scriptPubKey))
+	value := ba.fees + model.GetBlockSubsidy(ba.height, ba.chainParams)
+	coinbaseTx.AddTxOut(txout.NewTxOut(value, coinbaseScript))
 	ba.bt.Block.Txs[0] = coinbaseTx
 	ba.bt.TxFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
 
@@ -496,19 +496,6 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	}
 
 	return newTime - oldTime
-}
-
-func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
-	halvings := height / params.SubsidyReductionInterval
-	// Force block reward to zero when right shift is undefined.
-	if halvings >= 64 {
-		return 0
-	}
-
-	nSubsidy := amount.Amount(50 * util.COIN)
-	// Subsidy is cut in half every 210,000 blocks which will occur
-	// approximately every 4 years.
-	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
 func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
