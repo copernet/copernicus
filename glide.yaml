@@ -35,8 +35,12 @@ import:
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
+
 - package: github.com/stretchr/testify
   version: v1.2.2
+  subpackages:
+  - assert
+
 testImport:
 - package: github.com/smartystreets/goconvey
   version: ^1.6.3
