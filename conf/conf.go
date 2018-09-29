@@ -158,6 +158,9 @@ func InitConfig(args []string) *Configuration {
 
 	if opts.RegTest {
 		config.P2PNet.RegTest = true
+		if !viper.IsSet("BlockIndex.CheckBlockIndex") {
+			config.BlockIndex.CheckBlockIndex = true
+		}
 	}
 	if opts.TestNet {
 		config.P2PNet.TestNet = true
@@ -257,6 +260,9 @@ type Configuration struct {
 	PProf struct {
 		IP   string `default:"localhost"`
 		Port string `default:"6060"`
+	}
+	BlockIndex struct {
+		CheckBlockIndex bool
 	}
 }
 

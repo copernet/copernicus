@@ -58,3 +58,6 @@ TxOut:
 PProf:
   IP:
   Port: 6060
+
+BlockIndex:
+  CheckBlockIndex:
