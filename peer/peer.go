@@ -1866,7 +1866,9 @@ func (p *Peer) QueueInventory(invVect *wire.InvVect) {
 
 // AssociateConnection associates the given conn to the peer.   Calling this
 // function when the peer is already connected will have no effect.
-func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
+func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage,
+	newPeerCallback func(*Peer)) {
+
 	// Already connected?
 	if !atomic.CompareAndSwapInt32(&p.connected, 0, 1) {
 		return
@@ -1891,7 +1893,7 @@ func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
 	}
 
 	go func() {
-		if err := p.start(phCh); err != nil {
+		if err := p.start(phCh, newPeerCallback); err != nil {
 			log.Debug("Cannot start peer %v: %v", p, err)
 			p.Disconnect()
 		}
@@ -1922,7 +1924,7 @@ func (p *Peer) Disconnect() {
 }
 
 // start begins processing input and output messages.
-func (p *Peer) start(phCh chan<- *PeerMessage) error {
+func (p *Peer) start(phCh chan<- *PeerMessage, newPeerCallback func(*Peer)) error {
 	log.Trace("Starting peer %s", p)
 
 	negotiateErr := make(chan error, 1)
@@ -1945,7 +1947,10 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		return errors.New("protocol negotiation timeout")
 	}
 	log.Debug("Connected to %s", p.Addr())
+	// Send our verack message now that the IO processing machinery has started.
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
+	newPeerCallback(p)
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
 	go p.stallHandler()
@@ -1953,9 +1958,6 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	go p.queueHandler()
 	go p.outHandler()
 	go p.pingHandler()
-
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
 	return nil
 }

@@ -377,9 +377,6 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 	// the local clock to keep the network time in sync.
 	sp.server.timeSource.AddTimeSample(sp.Addr(), time.Unix(msg.Timestamp.Unix(), 0))
 
-	// Signal the sync manager this peer is a new sync candidate.
-	sp.server.syncManager.NewPeer(sp.Peer)
-
 	// Choose whether or not to relay transactions before a filter command
 	// is received.
 	sp.setDisableRelayTx(msg.DisableRelayTx)
@@ -404,15 +401,6 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 					addresses := []*wire.NetAddress{lna}
 					sp.pushAddrMsg(addresses)
 				}
-			}
-
-			// Request known addresses if the server address manager needs
-			// more and the peer has a protocol version new enough to
-			// include a timestamp with addresses.
-			hasTimestamp := sp.ProtocolVersion() >=
-				wire.NetAddressTimeVersion
-			if addrManager.NeedMoreAddresses() && hasTimestamp {
-				sp.QueueMessage(wire.NewMsgGetAddr(), nil)
 			}
 
 			// Mark the address as a known good address.
@@ -1253,7 +1241,7 @@ func (s *Server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	}
 
 	// Add the new peer and start it.
-	log.Debug("New peer %s", sp)
+	log.Debug("Add new peer %s", sp)
 	if sp.Inbound() {
 		state.inboundPeers[sp.ID()] = sp
 	} else {
@@ -1623,7 +1611,9 @@ func (s *Server) inboundPeerConnected(conn net.Conn) {
 	sp := newServerPeer(s, false)
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
-	sp.AssociateConnection(conn, s.MsgChan)
+	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
+		s.syncManager.NewPeer(peer)
+	})
 	go s.peerDoneHandler(sp)
 }
 
@@ -1642,7 +1632,20 @@ func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp.Peer = p
 	sp.connReq = c
 	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
-	sp.AssociateConnection(conn, s.MsgChan)
+	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
+		if !sp.Inbound() {
+			// Request known addresses if the server address manager needs
+			// more and the peer has a protocol version new enough to
+			// include a timestamp with addresses.
+			addrManager := sp.server.addrManager
+			hasTimestamp := sp.ProtocolVersion() >=
+				wire.NetAddressTimeVersion
+			if addrManager.NeedMoreAddresses() && hasTimestamp {
+				sp.QueueMessage(wire.NewMsgGetAddr(), nil)
+			}
+		}
+		s.syncManager.NewPeer(peer)
+	})
 	go s.peerDoneHandler(sp)
 	s.addrManager.Attempt(sp.NA())
 }
