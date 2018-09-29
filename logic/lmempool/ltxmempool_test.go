@@ -5,10 +5,15 @@ import (
 	"time"
 
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/model"
+	lmempool "github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/txin"
+	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 )
 
@@ -92,8 +97,7 @@ type spendableOutput struct {
 func txOutToSpendableOut(tx *tx.Tx, outputNum uint32) spendableOutput {
 	return spendableOutput{
 		outPoint: outpoint.OutPoint{Hash: *tx.Hash(), Index: outputNum},
-		//amount:   amount.Amount(tx.MsgTx().TxOut[outputNum].Value),
-		amount: amount.Amount(tx.GetTxOut(outputNum).GetValue()),
+		amount:   amount.Amount(tx.GetTxOut(outputNum).GetValue()),
 	}
 }
 
@@ -109,10 +113,10 @@ type poolHarness struct {
 	signKey     *crypto.PrivateKey
 	payAddr     *script.Address
 	payScript   []byte
-	chainParams *chaincfg.Params
+	chainParams *model.BitcoinParams
 
 	chain  *fakeChain
-	txPool *TxPool
+	txPool *lmempool.TxMempool
 }
 
 // CreateCoinbaseTx returns a coinbase transaction with the requested number of
@@ -120,25 +124,27 @@ type poolHarness struct {
 // address associated with the harness.  It automatically uses a standard
 // signature script that starts with the block height that is required by
 // version 2 blocks.
-func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*btcutil.Tx, error) {
+func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*tx.Tx, error) {
 	// Create standard coinbase script.
 	extraNonce := int64(0)
-	coinbaseScript, err := txscript.NewScriptBuilder().
-		AddInt64(int64(blockHeight)).AddInt64(extraNonce).Script()
+	// coinbaseScript, err := txscript.NewScriptBuilder().
+	// 	AddInt64(int64(blockHeight)).AddInt64(extraNonce).Script()
+	coinbaseScript := script.NewEmptyScript()
+	coinbaseScript.PushInt64(int64(blockHeight))
+	coinbaseScript.PushInt64(extraNonce)
 	if err != nil {
 		return nil, err
 	}
 
-	tx := wire.NewMsgTx(wire.TxVersion)
-	tx.AddTxIn(&wire.TxIn{
+	tx := tx.NewTx(0, tx.TxVersion)
+	tx.AddTxIn(&txin.TxIn{
 		// Coinbase transactions have no inputs, so previous outpoint is
 		// zero hash and max index.
-		PreviousOutPoint: *wire.NewOutPoint(&chainhash.Hash{},
-			wire.MaxPrevOutIndex),
-		SignatureScript: coinbaseScript,
-		Sequence:        wire.MaxTxInSequenceNum,
+		PreviousOutPoint: *outpoint.NewOutPoint(&util.Hash{}, math.MaxUint32),
+		SignatureScript:  coinbaseScript,
+		Sequence:         math.MaxUint32,
 	})
-	totalInput := blockchain.CalcBlockSubsidy(blockHeight, p.chainParams)
+	totalInput := model.GetBlockSubsidy(blockHeight, p.chainParams)
 	amountPerOutput := totalInput / int64(numOutputs)
 	remainder := totalInput - amountPerOutput*int64(numOutputs)
 	for i := uint32(0); i < numOutputs; i++ {
@@ -148,13 +154,13 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*b
 		if i == numOutputs-1 {
 			amount = amountPerOutput + remainder
 		}
-		tx.AddTxOut(&wire.TxOut{
+		tx.AddTxOut(&txout.TxOut{
 			PkScript: p.payScript,
 			Value:    amount,
 		})
 	}
 
-	return btcutil.NewTx(tx), nil
+	return tx, nil
 }
 
 // CreateSignedTx creates a new signed transaction that consumes the provided
@@ -280,25 +286,8 @@ func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutp
 		payScript:   pkScript,
 		chainParams: chainParams,
 
-		chain: chain,
-		txPool: New(&Config{
-			Policy: Policy{
-				DisableRelayPriority: true,
-				FreeTxRelayLimit:     15.0,
-				MaxOrphanTxs:         5,
-				MaxOrphanTxSize:      1000,
-				MaxSigOpCostPerTx:    blockchain.MaxBlockSigOpsCost / 4,
-				MinRelayTxFee:        1000, // 1 Satoshi per byte
-				MaxTxVersion:         1,
-			},
-			ChainParams:      chainParams,
-			FetchUtxoView:    chain.FetchUtxoView,
-			BestHeight:       chain.BestHeight,
-			MedianTimePast:   chain.MedianTimePast,
-			CalcSequenceLock: chain.CalcSequenceLock,
-			SigCache:         nil,
-			AddrIndex:        nil,
-		}),
+		chain:  chain,
+		txPool: lmempool.NewTxMempool(),
 	}
 
 	// Create a single coinbase transaction and add it to the harness
