@@ -478,7 +478,7 @@ func GuessVerificationProgress(data *model.ChainTxData, index *blockindex.BlockI
 	if int64(index.ChainTxCount) <= data.TxCount {
 		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
 	} else {
-		txTotal = float64(index.ChainTxCount) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
+		txTotal = float64(index.ChainTxCount) + float64(now.Unix() -int64(index.GetBlockTime()))*data.TxRate
 	}
 	return float64(index.ChainTxCount) / txTotal
 }
