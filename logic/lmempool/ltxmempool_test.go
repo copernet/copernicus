@@ -15,6 +15,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"math"
 )
 
 type fakeChain struct {
@@ -127,8 +128,6 @@ type poolHarness struct {
 func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*tx.Tx, error) {
 	// Create standard coinbase script.
 	extraNonce := int64(0)
-	// coinbaseScript, err := txscript.NewScriptBuilder().
-	// 	AddInt64(int64(blockHeight)).AddInt64(extraNonce).Script()
 	coinbaseScript := script.NewEmptyScript()
 	coinbaseScript.PushInt64(int64(blockHeight))
 	coinbaseScript.PushInt64(extraNonce)
@@ -167,23 +166,22 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*t
 // inputs and generates the provided number of outputs by evenly splitting the
 // total input amount.  All outputs will be to the payment script associated
 // with the harness and all inputs are assumed to do the same.
-func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32) (*btcutil.Tx, error) {
+func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32) (*tx.Tx, error) {
 	// Calculate the total input amount and split it amongst the requested
 	// number of outputs.
-	var totalInput btcutil.Amount
+	var totalInput amount.Amount
 	for _, input := range inputs {
 		totalInput += input.amount
 	}
 	amountPerOutput := int64(totalInput) / int64(numOutputs)
 	remainder := int64(totalInput) - amountPerOutput*int64(numOutputs)
 
-	tx := wire.NewMsgTx(wire.TxVersion)
+	tx := tx.NewTx(0, tx.TxVersion)
 	for _, input := range inputs {
-		tx.AddTxIn(&wire.TxIn{
-			PreviousOutPoint: input.outPoint,
-			SignatureScript:  nil,
-			Sequence:         wire.MaxTxInSequenceNum,
-		})
+		tx.AddTxIn(txin.NewTxIn(
+			input.outPoint,
+			nil,
+			math.MaxUint32))
 	}
 	for i := uint32(0); i < numOutputs; i++ {
 		// Ensure the final output accounts for any remainder that might
@@ -192,10 +190,7 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 		if i == numOutputs-1 {
 			amount = amountPerOutput + remainder
 		}
-		tx.AddTxOut(&wire.TxOut{
-			PkScript: p.payScript,
-			Value:    amount,
-		})
+		tx.AddTxOut(txout.NewTxOut(amount, script.NewScriptRaw(p.payScript)))
 	}
 
 	// Sign the new transaction.
@@ -208,7 +203,7 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 		tx.TxIn[i].SignatureScript = sigScript
 	}
 
-	return btcutil.NewTx(tx), nil
+	return tx, nil
 }
 
 // CreateTxChain creates a chain of zero-fee transactions (each subsequent
