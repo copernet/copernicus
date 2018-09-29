@@ -6,7 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/btcd/txscript"
+	"io/ioutil"
+	"math/rand"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -21,12 +28,6 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"io/ioutil"
-	"math/rand"
-	"reflect"
-	"strconv"
-	"strings"
-	"testing"
 )
 
 var opMap map[string]byte
@@ -668,11 +669,11 @@ func TestCombineSignature(t *testing.T) {
 
 	// Create a p2PKHLockingScript script
 	p2PKHLockingScript := script.NewEmptyScript()
-	p2PKHLockingScript.PushOpCode(txscript.OP_DUP)
-	p2PKHLockingScript.PushOpCode(txscript.OP_HASH160)
+	p2PKHLockingScript.PushOpCode(opcodes.OP_DUP)
+	p2PKHLockingScript.PushOpCode(opcodes.OP_HASH160)
 	p2PKHLockingScript.PushSingleData(btcutil.Hash160(v.pubKeys[0].ToBytes()))
-	p2PKHLockingScript.PushOpCode(txscript.OP_EQUALVERIFY)
-	p2PKHLockingScript.PushOpCode(txscript.OP_CHECKSIG)
+	p2PKHLockingScript.PushOpCode(opcodes.OP_EQUALVERIFY)
+	p2PKHLockingScript.PushOpCode(opcodes.OP_CHECKSIG)
 
 	// Add locking script to prevHolder
 	v.prevHolder.AddTxOut(txout.NewTxOut(0, p2PKHLockingScript))
@@ -721,15 +722,15 @@ func TestCombineSignature(t *testing.T) {
 	// Create a P2SHLockingScript script
 	pubKey := script.NewEmptyScript()
 	pubKey.PushSingleData(v.pubKeys[0].ToBytes())
-	pubKey.PushOpCode(txscript.OP_CHECKSIG)
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
 
 	pubKeyHash160 := util.Hash160(pubKey.GetData())
 	v.redeemScripts[string(pubKeyHash160)] = string(pubKey.GetData())
 
 	P2SHLockingScript := script.NewEmptyScript()
-	P2SHLockingScript.PushOpCode(txscript.OP_HASH160)
+	P2SHLockingScript.PushOpCode(opcodes.OP_HASH160)
 	P2SHLockingScript.PushSingleData(pubKeyHash160)
-	P2SHLockingScript.PushOpCode(txscript.OP_EQUAL)
+	P2SHLockingScript.PushOpCode(opcodes.OP_EQUAL)
 
 	v.prevHolder.GetTxOut(0).SetScriptPubKey(P2SHLockingScript)
 
@@ -795,7 +796,7 @@ func TestCombineSignature(t *testing.T) {
 	}
 	MultiLockingScript.PushInt64(3)
 
-	MultiLockingScript.PushOpCode(txscript.OP_CHECKMULTISIG)
+	MultiLockingScript.PushOpCode(opcodes.OP_CHECKMULTISIG)
 
 	// Add multi sig script to out
 	v.prevHolder.GetTxOut(0).SetScriptPubKey(MultiLockingScript)
@@ -871,48 +872,48 @@ func TestCombineSignature(t *testing.T) {
 
 	// By sig1, sig2, sig3 generate some different combination to check
 	partial1a := script.NewEmptyScript()
-	partial1a.PushOpCode(txscript.OP_0)
+	partial1a.PushOpCode(opcodes.OP_0)
 	partial1a.PushSingleData(sig1)
-	partial1a.PushOpCode(txscript.OP_0)
+	partial1a.PushOpCode(opcodes.OP_0)
 
 	partial1b := script.NewEmptyScript()
-	partial1b.PushOpCode(txscript.OP_0)
-	partial1b.PushOpCode(txscript.OP_0)
+	partial1b.PushOpCode(opcodes.OP_0)
+	partial1b.PushOpCode(opcodes.OP_0)
 	partial1b.PushSingleData(sig1)
 
 	partial2a := script.NewEmptyScript()
-	partial2a.PushOpCode(txscript.OP_0)
+	partial2a.PushOpCode(opcodes.OP_0)
 	partial2a.PushSingleData(sig2)
 
 	partial2b := script.NewEmptyScript()
 	partial2b.PushSingleData(sig2)
-	partial2b.PushOpCode(txscript.OP_0)
+	partial2b.PushOpCode(opcodes.OP_0)
 
 	partial3a := script.NewEmptyScript()
 	partial3a.PushSingleData(sig3)
 
 	partial3b := script.NewEmptyScript()
-	partial3b.PushOpCode(txscript.OP_0)
-	partial3b.PushOpCode(txscript.OP_0)
+	partial3b.PushOpCode(opcodes.OP_0)
+	partial3b.PushOpCode(opcodes.OP_0)
 	partial3b.PushSingleData(sig3)
 
 	partial3c := script.NewEmptyScript()
-	partial3c.PushOpCode(txscript.OP_0)
+	partial3c.PushOpCode(opcodes.OP_0)
 	partial3c.PushSingleData(sig3)
-	partial3c.PushOpCode(txscript.OP_0)
+	partial3c.PushOpCode(opcodes.OP_0)
 
 	complete12 := script.NewEmptyScript()
-	complete12.PushOpCode(txscript.OP_0)
+	complete12.PushOpCode(opcodes.OP_0)
 	complete12.PushSingleData(sig1)
 	complete12.PushSingleData(sig2)
 
 	complete13 := script.NewEmptyScript()
-	complete13.PushOpCode(txscript.OP_0)
+	complete13.PushOpCode(opcodes.OP_0)
 	complete13.PushSingleData(sig1)
 	complete13.PushSingleData(sig3)
 
 	complete23 := script.NewEmptyScript()
-	complete23.PushOpCode(txscript.OP_0)
+	complete23.PushOpCode(opcodes.OP_0)
 	complete23.PushSingleData(sig2)
 	complete23.PushSingleData(sig3)
 
