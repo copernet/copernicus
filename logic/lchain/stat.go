@@ -115,7 +115,7 @@ type utxoTaskControl struct {
 var taskControl *utxoTaskControl
 
 func init() {
-	taskControl = newUtxoTaskControl(10000, 4)
+	taskControl = newUtxoTaskControl(1, 20)
 }
 
 func newUtxoTaskControl(numTask, numWorker int) *utxoTaskControl {
@@ -157,6 +157,7 @@ func (tc *utxoTaskControl) startLogTask() {
 		return
 	}
 	go func() {
+		defer f.Close()
 		for {
 			select {
 			case <-tc.done:
