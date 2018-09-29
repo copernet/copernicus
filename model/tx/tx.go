@@ -528,25 +528,24 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 	}
 	// signature1|hashType signature2|hashType...signatureM|hashType
 	if pubKeyType == script.ScriptMultiSig {
-		sigBytes := make([]byte, 0)
-		sigBytes = append(sigBytes, byte(0))
-		requiredSigs := int(pubKeys[0][0])
-		signed := 0
 		emptyBytes := []byte{}
 		sigData = append(sigData, emptyBytes)
-		for _, e := range pubKeys[1 : len(pubKeys)-2] {
-			pubKeyHashString := string(util.Hash160(e))
-			privateKey := keys[pubKeyHashString]
-			signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
-			if err != nil {
-				continue
+		nSigned := 0
+		nRequired := int(pubKeys[0][0])
+		for _, v := range pubKeys[1 : len(pubKeys)-1] {
+			if nSigned < nRequired {
+				pubKyHash := string(util.Hash160(v))
+				privateKey := keys[pubKyHash]
+				signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
+				if err != nil {
+					continue
+				}
+				sigData = append(sigData, append(signature.Serialize(), byte(hashType)))
+				nSigned++
 			}
-			sigBytes = append(sigBytes, signature.Serialize()...)
-			sigBytes = append(sigBytes, byte(hashType))
-			sigData = append(sigData, sigBytes)
-			signed++
 		}
-		if signed != requiredSigs {
+
+		if nSigned != nRequired {
 			log.Debug("SignStep signed not equal requiredSigs")
 			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
 		}

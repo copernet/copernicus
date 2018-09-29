@@ -16,7 +16,6 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/undo"
@@ -911,11 +910,16 @@ func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 	}
 	if pubKeyType == script.ScriptMultiSig {
 		sigData := make([][]byte, 0, len(scriptSig.ParsedOpCodes))
+		sigData = append(sigData, []byte{})
+
 		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes))
+
+		// parseOpCodes is the variable of script, put the two script signature to a slice,
+		// find both script's signature and check it, then combine them to a result slice
 		var parsedOpCodes = scriptSig.ParsedOpCodes
 		parsedOpCodes = append(parsedOpCodes, txOldScriptSig.ParsedOpCodes...)
 		for _, opCode := range parsedOpCodes {
-			for _, pubKey := range pubKeys[1 : len(pubKeys)-2] {
+			for _, pubKey := range pubKeys[1 : len(pubKeys)-1] {
 				if okSigs[string(pubKey)] != nil {
 					continue
 				}
@@ -940,10 +944,10 @@ func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 				}
 			}
 		}
+
+		// if the amount of signature is not the required, then put the OP_0
 		for sigN < sigsRequired {
-			data := make([]byte, 0, 1)
-			data = append(data, byte(opcodes.OP_0))
-			sigData = append(sigData, data)
+			sigData = append(sigData, []byte{})
 			sigN++
 		}
 		scriptResult := script.NewEmptyScript()
