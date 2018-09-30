@@ -879,7 +879,7 @@ func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struc
 	//todo notify tipchange
 	c := cmd.(*btcjson.WaitForBlockHeightCmd)
 	height := c.Height
-	timeout := c.Timeout
+	timeout := *c.Timeout
 
 	gchain := chain.GetInstance()
 	tipHeight := gchain.TipHeight()

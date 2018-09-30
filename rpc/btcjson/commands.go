@@ -834,8 +834,8 @@ type SetNetWorkActiveCmd struct {
 
 // WaitForBlockHeightCmd defines the waitforblockheight JSON-RPC command.
 type WaitForBlockHeightCmd struct {
-	Height  int32
-	Timeout int
+	Height  int32 `json:"height"`
+	Timeout *int  `json:"timeout" jsonrpcdefault:"0"`
 }
 
 // NewWaitForBlockHeightCmd returns a new instance which can be used to issue a
