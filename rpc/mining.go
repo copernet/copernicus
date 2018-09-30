@@ -568,11 +568,14 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 		extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
 
 		powCheck := pow.Pow{}
-		hash := bt.Block.GetHash()
 		bits := bt.Block.Header.Bits
-		for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount && !powCheck.CheckProofOfWork(&hash, bits, params) {
-			bt.Block.Header.Nonce++
+		for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount {
 			maxTries--
+			bt.Block.Header.Nonce++
+			hash := bt.Block.GetHash()
+			if powCheck.CheckProofOfWork(&hash, bits, params) {
+				break
+			}
 		}
 
 		if maxTries == 0 {
@@ -582,7 +585,8 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 			continue
 		}
 
-		if service.ProcessNewBlock(bt.Block, true, nil) != nil {
+		fNewBlock := false
+		if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,
 				Message: "ProcessNewBlock, block not accepted",
