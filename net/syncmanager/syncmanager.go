@@ -930,7 +930,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			return false, nil
 		}
 		if blkIndex.HasData() {
-			return false, nil
+			return true, nil
 		}
 		return true, nil
 
