@@ -255,13 +255,15 @@ func RegisterCmd(method string, cmd interface{}, flags UsageFlag) error {
 			}
 			defaults[i] = rvf
 			defaultsByName[rtf.Name] = rvf
-			if paramName := rtf.Tag.Get("json"); paramName != "" {
-				paramNames[rtf.Name] = paramName
-			} else {
-				paramNames[rtf.Name] = strings.ToLower(rtf.Name)
-			}
 		} else if isOptional {
 			defaultsByName[rtf.Name] = reflect.Value{}
+		}
+
+		if jsonTag := rtf.Tag.Get("json"); jsonTag != "" {
+			tags := strings.Split(jsonTag, ",")
+			paramNames[rtf.Name] = tags[0]
+		} else {
+			paramNames[rtf.Name] = strings.ToLower(rtf.Name)
 		}
 	}
 

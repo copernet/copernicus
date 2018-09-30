@@ -448,7 +448,7 @@ func NewGetRawMempoolCmd(verbose *bool) *GetRawMempoolCmd {
 // Core even though it really should be a bool.
 type GetRawTransactionCmd struct {
 	Txid    string `json:"txid"`
-	Verbose *bool  `json: "verbose";jsonrpcdefault:"false"`
+	Verbose *bool  `json:"verbose" jsonrpcdefault:"false"`
 }
 
 // NewGetRawTransactionCmd returns a new instance which can be used to issue a
@@ -776,13 +776,13 @@ func NewPruneBlockChainCmd(height *int) *PruneBlockChainCmd {
 
 type GetMempoolAncestorsCmd struct {
 	TxID    string `json:"txid"`
-	Verbose *bool  `json: "verbose";jsonrpcdefault: "false"`
+	Verbose *bool  `json:"verbose" jsonrpcdefault:"false"`
 	// todo
 }
 
 type GetMempoolDescendantsCmd struct {
 	TxID    string `json:"txid"`
-	Verbose *bool  `json: "verbose";jsonrpcdefault: "false"`
+	Verbose *bool  `json:"verbose" jsonrpcdefault:"false"`
 	// todo
 }
 
