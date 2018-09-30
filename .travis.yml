@@ -24,6 +24,7 @@ cache:
     - $GOPATH/pkg
     - depends/built
     - depends/sdk-sources
+    - .autoconf
 
 before_cache:
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
