@@ -601,7 +601,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	log.Debug("sm.ProcessBlockCallBack=====")
 	_, err := sm.ProcessBlockCallBack(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
