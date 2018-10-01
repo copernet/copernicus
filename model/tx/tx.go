@@ -576,12 +576,18 @@ func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey
 	signature, err = privateKey.Sign(hash[:])
 	return
 }
+
 func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	if i >= len(tx.ins) || i < 0 {
 		log.Debug("TxErrInvalidIndexOfIn")
 		return errcode.New(errcode.TxErrInvalidIndexOfIn)
 	}
 	tx.ins[i].SetScriptSig(scriptSig)
+
+	if !tx.hash.IsNull() {
+		tx.hash = tx.calHash()
+	}
+
 	return nil
 }
 
@@ -712,15 +718,17 @@ func (tx *Tx) GetHash() util.Hash {
 		return tx.hash
 	}
 
+	tx.hash = tx.calHash()
+	return tx.hash
+}
+
+func (tx *Tx) calHash() util.Hash {
 	buf := bytes.NewBuffer(make([]byte, 0, tx.EncodeSize()))
 	err := tx.Encode(buf)
 	if err != nil {
-		panic("there is not enough memory")
+		panic("tx encode failed: " + err.Error())
 	}
-	hash := util.DoubleSha256Hash(buf.Bytes())
-	tx.hash = hash
-
-	return tx.hash
+	return util.DoubleSha256Hash(buf.Bytes())
 }
 
 func (tx *Tx) GetIns() []*txin.TxIn {
