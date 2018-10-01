@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -880,6 +881,11 @@ func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struc
 	c := cmd.(*btcjson.WaitForBlockHeightCmd)
 	height := c.Height
 	timeout := *c.Timeout
+
+	if timeout == 0 {
+		//0 indicates no timeout.
+		timeout = math.MaxInt32
+	}
 
 	gchain := chain.GetInstance()
 	tipHeight := gchain.TipHeight()
