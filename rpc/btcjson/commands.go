@@ -72,7 +72,7 @@ func NewCreateRawTransactionCmd(inputs []TransactionInput, outputs map[string]in
 
 // DecodeRawTransactionCmd defines the decoderawtransaction JSON-RPC command.
 type DecodeRawTransactionCmd struct {
-	HexTx string
+	HexTx string `json:"hexstring"`
 }
 
 // NewDecodeRawTransactionCmd returns a new instance which can be used to issue
@@ -85,7 +85,7 @@ func NewDecodeRawTransactionCmd(hexTx string) *DecodeRawTransactionCmd {
 
 // DecodeScriptCmd defines the decodescript JSON-RPC command.
 type DecodeScriptCmd struct {
-	HexScript string
+	HexScript string `json:"hexstring"`
 }
 
 // NewDecodeScriptCmd returns a new instance which can be used to issue a
@@ -282,7 +282,7 @@ func (t *TemplateRequest) UnmarshalJSON(data []byte) error {
 
 // GetBlockTemplateCmd defines the getblocktemplate JSON-RPC command.
 type GetBlockTemplateCmd struct {
-	Request *TemplateRequest
+	Request *TemplateRequest `json:"template_request" jsonrpcusage:"template_request"`
 }
 
 // NewGetBlockTemplateCmd returns a new instance which can be used to issue a
@@ -627,8 +627,8 @@ func NewSearchRawTransactionsCmd(address string, verbose, skip, count *int, vinE
 
 // SendRawTransactionCmd defines the sendrawtransaction JSON-RPC command.
 type SendRawTransactionCmd struct {
-	HexTx         string
-	AllowHighFees *bool `jsonrpcdefault:"false"`
+	HexTx         string `json:"hexstring"`
+	AllowHighFees *bool  `json:"allowhighfees" jsonrpcdefault:"false"`
 }
 
 // NewSendRawTransactionCmd returns a new instance which can be used to issue a

@@ -213,10 +213,9 @@ type parsedRPCCmd struct {
 func (s *Server) standardCmdResult(cmd *parsedRPCCmd, closeChan <-chan struct{}) (interface{}, error) {
 	handler, ok := rpcHandlers[cmd.method]
 	if ok {
-		goto handled
+		return handler(s, cmd.cmd, closeChan)
 	}
-handled:
-	return handler(s, cmd.cmd, closeChan)
+	return nil, btcjson.ErrRPCMethodNotFound
 }
 
 func parseCmd(request *btcjson.Request, jsonParam *map[string]json.RawMessage) *parsedRPCCmd {
