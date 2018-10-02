@@ -73,9 +73,9 @@ func NewEstimateFeeCmd(numBlocks int64) *EstimateFeeCmd {
 
 // GenerateToAddressCmd defines the generatetoaddress JSON-RPC command.
 type GenerateToAddressCmd struct {
-	NumBlocks uint32
-	Address   string
-	MaxTries  uint64
+	NumBlocks uint32  `json:"nblocks"`
+	Address   string  `json:"address"`
+	MaxTries  *uint64 `json:"maxtries" jsonrpcdefault:"1000000"`
 }
 
 // GetBestBlockCmd defines the getbestblock JSON-RPC command.

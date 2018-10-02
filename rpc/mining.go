@@ -510,16 +510,12 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GenerateToAddressCmd)
 
-	addr, err := script.AddressFromString(c.Address)
+	coinbaseScript, err := getStandardScriptPubKey(c.Address, nil)
 	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInvalidAddressOrKey,
-			Message: "Error: Invalid address",
-		}
+		return nil, err
 	}
 
-	coinbaseScript := script.NewScriptRaw(addr.EncodeToPubKeyHash())
-	return generateBlocks(coinbaseScript, int(c.NumBlocks), c.MaxTries)
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
 }
 
 // handleGenerate handles generate commands.

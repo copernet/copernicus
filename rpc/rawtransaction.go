@@ -442,6 +442,11 @@ func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, e
 		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
 		scriptPubKey.PushSingleData(legacyAddr.EncodeToPubKeyHash())
 		scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
+	} else {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidAddressOrKey,
+			Message: "Invalid Bitcoin address: " + address,
+		}
 	}
 
 	return scriptPubKey, nil
