@@ -15,6 +15,7 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+
 	bcrypto "github.com/detailyang/go-bcrypto"
 )
 

@@ -6,6 +6,7 @@ import:
   - logs
 - package: github.com/copernet/secp256k1-go
 - package: github.com/copernet/secp256k1
+- package: github.com/detailyang/go-bcrypto
 - package: github.com/davecgh/go-spew
   version: ^1.1.0
   subpackages:
