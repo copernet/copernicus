@@ -5,14 +5,22 @@ import (
 	"fmt"
 
 	//"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/util"
 	"io"
 	"math"
+
+	"github.com/copernet/copernicus/util"
 )
 
 type OutPoint struct {
 	Hash  util.Hash
 	Index uint32
+}
+
+func NewDefaultOutPoint() *OutPoint {
+	return &OutPoint{
+		Hash:  util.HashZero,
+		Index: 0xffffffff,
+	}
 }
 
 func NewOutPoint(hash util.Hash, index uint32) *OutPoint {

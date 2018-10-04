@@ -816,6 +816,11 @@ func (s *Script) PushScriptNum(sn *ScriptNum) error {
 	return err
 }
 
+func (s *Script) PushData(data []byte) error {
+	s.data = append(s.data, data...)
+	return s.convertOPS()
+}
+
 func (s *Script) PushSingleData(data []byte) error {
 	dataLen := len(data)
 	if dataLen < opcodes.OP_PUSHDATA1 {
@@ -860,6 +865,10 @@ func (s *Script) PushMultData(data [][]byte) error {
 	}
 	err := s.convertOPS()
 	return err
+}
+
+func (s *Script) Bytes() []byte {
+	return s.data
 }
 
 func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
