@@ -121,7 +121,7 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	m.updateEntryForAncestors(txEntry, ancestors)
 	m.totalTxSize += uint64(txEntry.TxSize)
 	m.TransactionsUpdated++
-	m.txByAncestorFeeRateSort.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
+	m.txByAncestorFeeRateSort.ReplaceOrInsert((*EntryAncestorFeeRateSort)(txEntry))
 	if txEntry.SumTxCountWithAncestors == 1 {
 		m.rootTx[txEntry.Tx.GetHash()] = txEntry
 	}
@@ -343,8 +343,8 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 	maxFeeRateRemove := int64(0)
 
 	for len(m.poolData) > 0 && m.usageSize > sizeLimit {
-		removeIt := TxEntry(m.txByAncestorFeeRateSort.Min().(EntryAncestorFeeRateSort))
-		rem := m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(removeIt)).(EntryAncestorFeeRateSort)
+		removeIt := m.txByAncestorFeeRateSort.Min().(*EntryAncestorFeeRateSort)
+		rem := m.txByAncestorFeeRateSort.Delete(removeIt).(*EntryAncestorFeeRateSort)
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
 			panic("the two element should have the same Txhash")
 		}
@@ -353,7 +353,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumTxFeeWithDescendants, removeIt.SumTxSizeWithDescendants).SataoshisPerK
 		stage := make(map[*TxEntry]struct{})
-		m.CalculateDescendants(&removeIt, stage)
+		m.CalculateDescendants((*TxEntry)(removeIt), stage)
 		nTxnRemoved += len(stage)
 		txn := make([]*tx.Tx, 0, len(stage))
 		for iter := range stage {
@@ -440,7 +440,14 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 			modifySigOps := -removeIt.SigOpCount
 
 			for dit := range setDescendants {
+				// Google's btree library use binary search and Less() to find item.However we want to do
+				// set[key] = value to update exited item. The dit will change SumTxSizeWitAncestors and
+				// its key also change which looks like dead lock:(.So temporarily use delete and insert to instead.
+				m.timeSortData.Delete(dit)
+				m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(dit))
 				dit.UpdateAncestorState(-1, modifySize, modifySigOps, modifyFee)
+				m.timeSortData.ReplaceOrInsert(dit)
+				m.txByAncestorFeeRateSort.ReplaceOrInsert((*EntryAncestorFeeRateSort)(dit))
 			}
 		}
 	}
@@ -484,6 +491,7 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 			}
 		}
 	}
+
 	allRemoves := make(map[*TxEntry]struct{})
 	for it := range txToRemove {
 		m.CalculateDescendants(it, allRemoves)
@@ -642,7 +650,7 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	m.totalTxSize -= uint64(removeEntry.TxSize)
 	delete(m.poolData, removeEntry.Tx.GetHash())
 	m.timeSortData.Delete(removeEntry)
-	m.txByAncestorFeeRateSort.Delete(EntryAncestorFeeRateSort(*removeEntry))
+	m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(removeEntry))
 }
 
 func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
@@ -652,7 +660,7 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 	ret := make([]*TxMempoolInfo, len(m.poolData))
 	index := 0
 	m.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
-		entry := TxEntry(i.(EntryAncestorFeeRateSort))
+		entry := TxEntry(*i.(*EntryAncestorFeeRateSort))
 		ret[index] = entry.GetInfo()
 		index++
 		return true
