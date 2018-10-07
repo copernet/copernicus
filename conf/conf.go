@@ -15,6 +15,16 @@ import (
 )
 
 const (
+	AppMajor uint = 0
+	AppMinor uint = 0
+	AppPatch uint = 1
+
+	// AppPreRelease MUST only contain characters from semanticAlphabet
+	// per the semantic versioning spec.
+	AppPreRelease = "beta"
+)
+
+const (
 	tagName = "default"
 
 	defaultConfigFilename       = "conf.yml"
