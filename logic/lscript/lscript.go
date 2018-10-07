@@ -1404,7 +1404,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				position := scriptNum.Value
-				// Make sure the split point is apropriate.
+				// Make sure the split point is appropriate.
 				if uint64(position) > uint64(len(vch1.([]byte))) {
 					log.Debug("ScriptErrInvalidSplitRange")
 					return errcode.New(errcode.ScriptErrInvalidSplitRange)
