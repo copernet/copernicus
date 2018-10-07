@@ -182,7 +182,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string {
 					flags := script.ScriptVerifyStrictEnc
 					if vch[len(vch)-1]&crypto.SigHashForkID != 0 {
 						// If the transaction is using SIGHASH_FORKID, we need
-						// to set the apropriate flag.
+						// to set the appropriate flag.
 						// TODO: Remove after the Hard Fork.
 						flags |= script.ScriptEnableSigHashForkID
 					}

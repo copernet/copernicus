@@ -233,7 +233,7 @@ type Configuration struct {
 		SimNet       bool
 		ConnectPeers []string
 	}
-	Protocal struct {
+	Protocol struct {
 		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}
