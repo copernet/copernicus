@@ -592,51 +592,6 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	return nil
 }
 
-//func (tx *Tx) Copy() *Tx {
-//	newTx := Tx{
-//		version:  tx.GetVersion(),
-//		lockTime: tx.GetLockTime(),
-//		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
-//		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
-//	}
-//	//newTx.hash = tx.hash
-//
-//	for _, txOut := range tx.outs {
-//		scriptLen := len(txOut.GetScriptPubKey().GetData())
-//		newOutScript := make([]byte, scriptLen)
-//		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
-//
-//		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
-//		newTx.outs = append(newTx.outs, newTxOut)
-//	}
-//	for _, txIn := range tx.ins {
-//		var hashBytes [32]byte
-//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-//		preHash := new(util.Hash)
-//		preHash.SetBytes(hashBytes[:])
-//		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-//		scriptLen := txIn.GetScriptSig().Size()
-//		newScript := make([]byte, scriptLen)
-//		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
-//
-//		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
-//
-//		newTx.ins = append(newTx.ins, newTxTmp)
-//	}
-//	return &newTx
-//
-//}
-
-//func (tx *Tx) Equal(dstTx *Tx) bool {
-//	originBuf := bytes.NewBuffer(nil)
-//	tx.Serialize(originBuf)
-//
-//	dstBuf := bytes.NewBuffer(nil)
-//	dstTx.Serialize(dstBuf)
-//
-//	return bytes.Equal(originBuf.Bytes(), dstBuf.Bytes())
-//}
-
 func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	txModifiedSize := tx.CalculateModifiedSize()
 	if txModifiedSize == 0 {
@@ -666,8 +621,8 @@ func (tx *Tx) CalculateModifiedSize() uint32 {
 }
 
 // IsFinal proceeds as follows
-// 1. tx.locktime > 0 and tx.locktime < Threshhold, use height to check(tx.locktime > current height)
-// 2. tx.locktime > Threshhold, use time to check(tx.locktime > current blocktime)
+// 1. tx.locktime > 0 and tx.locktime < Threshold, use height to check(tx.locktime > current height)
+// 2. tx.locktime > Threshold, use time to check(tx.locktime > current blocktime)
 // 3. sequence can disable it
 func (tx *Tx) IsFinal(Height int32, time int64) bool {
 	if tx.lockTime == 0 {
@@ -777,23 +732,3 @@ func NewGenesisCoinbaseTx() *Tx {
 
 	return tx
 }
-
-/*
-// PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing
-type PrecomputedTransactionData struct {
-	HashPrevout  *util.Hash
-	HashSequence *util.Hash
-	HashOutputs  *util.Hash
-}
-
-func NewPrecomputedTransactionData(tx *Tx) *PrecomputedTransactionData {
-	hashPrevout, _ := GetPrevoutHash(tx)
-	hashSequence, _ := GetSequenceHash(tx)
-	hashOutputs, _ := GetOutputsHash(tx)
-
-	return &PrecomputedTransactionData{
-		HashPrevout:  &hashPrevout,
-		HashSequence: &hashSequence,
-		HashOutputs:  &hashOutputs,
-	}
-}*/
