@@ -318,6 +318,18 @@ type GetTxOutResult struct {
 	Coinbase      bool               `json:"coinbase"`
 }
 
+// GetTxOutSetInfoResult models the data from the gettxoutsetinfo command.
+type GetTxOutSetInfoResult struct {
+	Height         int     `json:"height"`
+	BestBlock      string  `json:"bestblock"`
+	Transactions   uint64  `json:"transactions"`
+	TxOuts         uint64  `json:"txouts"`
+	BogoSize       uint64  `json:"bogosize"`
+	HashSerialized string  `json:"hash_serialized"`
+	DiskSize       uint64  `json:"disk_size"`
+	TotalAmount    float64 `json:"total_amount"`
+}
+
 // GetNetTotalsResult models the data returned from the getnettotals command.
 type GetNetTotalsResult struct {
 	TotalBytesRecv uint64       `json:"totalbytesrecv"`

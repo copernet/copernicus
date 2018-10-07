@@ -12,7 +12,8 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	mchain "github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
@@ -25,6 +26,18 @@ type stat struct {
 	nTxOuts        uint64
 	hashSerialized util.Hash
 	amount         int64
+	bogoSize       uint64
+}
+
+type UTXOStat struct {
+	Height         int
+	BestBlock      util.Hash
+	TxCount        uint64
+	TxOutsCount    uint64
+	HashSerialized util.Hash
+	Amount         int64
+	BogoSize       uint64
+	DiskSize       uint64
 }
 
 func (s *stat) String() string {
@@ -60,41 +73,79 @@ func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[
 		if err := util.WriteVarLenInt(hashbuf, uint64(v.GetAmount())); err != nil {
 			return err
 		}
+		txOut := v.GetTxOut()
 		stat.nTxOuts++
 		stat.amount += int64(v.GetAmount())
+		stat.bogoSize += 32 /* txid */ + 4 /* vout index */ + 4 /* height + coinbase */ +
+			8 /* amount */ + 2 /* scriptPubKey len */ +
+			uint64(txOut.GetScriptPubKey().SerializeSize()) /* scriptPubKey */
 	}
 	err := util.WriteVarLenInt(hashbuf, uint64(0))
 	return err
 }
 
-func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
+func GetUTXOStats(cdb utxo.CoinsDB) (*UTXOStat, error) {
+	stat := &stat{}
 	b := time.Now()
 	besthash, err := cdb.GetBestBlock()
 	if err != nil {
 		log.Debug("in GetUTXOStats, GetBestBlock(), failed=%v\n", err)
-		return err
+		return nil, err
 	}
 	stat.bestblock = *besthash
-	stat.height = int(mchain.GetInstance().FindBlockIndex(*besthash).Height)
+	stat.height = int(chain.GetInstance().FindBlockIndex(*besthash).Height)
 
-	//hashbuf := bytes.NewBuffer(nil)
-	//hashbuf.Write(stat.bestblock[:])
 	h := sha256.New()
 	h.Write(stat.bestblock[:])
 
 	iter := cdb.GetDBW().Iterator(nil)
 	defer iter.Close()
 	iter.Seek([]byte{db.DbCoin})
+
+	var prevHash util.Hash
+	outputs := make(map[uint32]*utxo.Coin)
 	for ; iter.Valid(); iter.Next() {
-		//hashbuf.Write(iter.GetKey())
-		//hashbuf.Write(iter.GetVal())
-		h.Write(iter.GetKey())
-		h.Write(iter.GetVal())
+		outPoint := &outpoint.OutPoint{}
+		if err = outPoint.Unserialize(bytes.NewBuffer(iter.GetKey())); err != nil {
+			return nil, err
+		}
+		coin := utxo.NewEmptyCoin()
+		if err = coin.Unserialize(bytes.NewBuffer(iter.GetVal())); err != nil {
+			return nil, err
+		}
+		if outPoint.Hash != prevHash && len(outputs) > 0 {
+			hashBuf := bytes.NewBuffer(nil)
+			if err = applyStats(stat, hashBuf, &prevHash, outputs); err != nil {
+				return nil, err
+			}
+			h.Write(hashBuf.Bytes())
+			outputs = make(map[uint32]*utxo.Coin)
+		}
+		prevHash = outPoint.Hash
+		outputs[outPoint.Index] = coin
 	}
-	//stat.hashSerialized = util.Sha256Hash(hashbuf.Bytes())
+	if len(outputs) > 0 {
+		hashBuf := bytes.NewBuffer(nil)
+		if err = applyStats(stat, hashBuf, &prevHash, outputs); err != nil {
+			return nil, err
+		}
+		h.Write(hashBuf.Bytes())
+	}
 	copy(stat.hashSerialized[:], h.Sum(nil))
-	fmt.Printf("iter utxo db time: %v\n", time.Since(b))
-	return nil
+
+	utxoStat := &UTXOStat{
+		Height:         stat.height,
+		BestBlock:      stat.bestblock,
+		TxCount:        stat.nTx,
+		TxOutsCount:    stat.nTxOuts,
+		HashSerialized: stat.hashSerialized,
+		Amount:         stat.amount,
+		BogoSize:       stat.bogoSize,
+		DiskSize:       cdb.EstimateSize(),
+	}
+
+	log.Info("GetUTXOStats iter utxo db time: %s", time.Since(b).String())
+	return utxoStat, nil
 }
 
 type utxoTaskArg struct {

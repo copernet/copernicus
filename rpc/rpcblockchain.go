@@ -715,7 +715,28 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	// Write the chain state to disk, if necessary.
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
+		return nil, err
+	}
+
+	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+	stat, err := lchain.GetUTXOStats(cdb)
+	if err != nil {
+		return nil, err
+	}
+
+	reply := &btcjson.GetTxOutSetInfoResult{
+		Height:         stat.Height,
+		BestBlock:      stat.BestBlock.String(),
+		Transactions:   stat.TxCount,
+		TxOuts:         stat.TxOutsCount,
+		BogoSize:       stat.BogoSize,
+		HashSerialized: stat.HashSerialized.String(),
+		DiskSize:       stat.DiskSize,
+		TotalAmount:    valueFromAmount(stat.Amount),
+	}
+	return reply, nil
 }
 
 func getPrunMode() (bool, error) {
