@@ -28,6 +28,7 @@ cache:
     - .autoconf
 
 before_cache:
+  - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
   - rm -rf $GOPATH/src/github.com/copernet/copernicus/*
   - rm -rf $GOPATH/pkg/**/github.com/copernet/copernicus
@@ -50,8 +51,11 @@ install:
 
   - glide install
 
-  - go get -v github.com/alecthomas/gometalinter
+  - go get  github.com/alecthomas/gometalinter
   - gometalinter --install
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
+
 script:
   - ./check.sh
 
