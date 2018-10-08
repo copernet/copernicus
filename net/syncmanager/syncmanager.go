@@ -1012,6 +1012,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	var invBlkCnt int
+	var isPushGetBlockMsg bool
 	// Request the advertised inventory if we don't already have it.  Also,
 	// request parent blocks of orphans if we receive one we already have.
 	// Finally, attempt to detect potential stalls due to long side chains
@@ -1071,11 +1072,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				blkIndex := activeChain.FindHashInActive(iv.Hash)
 				locator := activeChain.GetLocator(blkIndex)
 				peer.PushGetBlocksMsg(*locator, &zeroHash)
+				isPushGetBlockMsg = true
 			}
 		}
 	}
 
-	if invBlkCnt == len(invVects) &&
+	if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
 		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
 
 		sm.requestBlkInvCnt = 2

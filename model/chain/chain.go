@@ -502,7 +502,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	hash := bi.GetBlockHash()
 
 	c.indexMap[*hash] = bi
-	log.Debug("AddToIndexMap:%s", hash.String())
+
 	pre, ok := c.indexMap[bi.Header.HashPrevBlock]
 	if ok {
 		bi.Prev = pre
@@ -514,6 +514,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		}
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
+	log.Debug("AddToIndexMap:%s index height:%d", hash.String(), bi.Height)
 	bi.RaiseValidity(blockindex.BlockValidTree)
 	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)
