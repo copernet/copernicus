@@ -541,3 +541,7 @@ func (c *Chain) ChainOrphanLen() int32 {
 
 	return orphanLen
 }
+
+func (c *Chain) IndexMapSize() int {
+	return len(c.indexMap)
+}
