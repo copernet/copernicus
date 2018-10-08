@@ -285,10 +285,7 @@ func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
 // chain.Tip()->nHeight : -1.
 func (c *Chain) Height() int32 {
 	chainLen := int32(len(c.active))
-	if chainLen > 0 {
-		return chainLen - 1
-	}
-	return 0
+	return chainLen - 1
 }
 
 // SetTip Set/initialize a chain with a given tip.
@@ -334,6 +331,9 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 // GetAncestor gets ancestor from active chain.
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
+	if height < 0 {
+		return nil
+	}
 	if len(c.active) > int(height) {
 		return c.active[height]
 	}
