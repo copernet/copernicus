@@ -1,6 +1,7 @@
 package opcodes
 
 import (
+	"encoding/binary"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -23,26 +24,6 @@ import (
 //}
 
 const unused int = 0
-
-func TestBytes(t *testing.T) {
-	var testParseOpCode ParsedOpCode
-
-	testParseOpCode.OpValue = OP_0
-	testParseOpCode.Length = 1
-	testParseOpCode.Data = nil
-	testBytes, err := testParseOpCode.bytes()
-	if len(testBytes) != 1 || err != nil {
-		t.Error("The bytes should have only OpCode, err : ", err)
-	}
-
-	testParseOpCode.Length = -1
-	testParseOpCode.Data = append(testParseOpCode.Data, 1, 2, 3, 4, 5, 6, 7, 8)
-	testParseOpCode.OpValue = byte(len(testParseOpCode.Data))
-	testBytes, err = testParseOpCode.bytes()
-	if len(testBytes) != 10 || err != nil {
-		t.Error("The bytes should have 10 byte: OpCode(1), lenth(1), data(8), err : ", err)
-	}
-}
 
 func TestCheckCompactDataPush___happy_path(t *testing.T) {
 	assert.True(t, NewParsedOpCode(OP_0, unused, nil).CheckCompactDataPush())
@@ -78,23 +59,61 @@ func TestCheckCompactDataPush___opcode_is_not_for_data_push(t *testing.T) {
 }
 
 func TestCheckMinimalDataPush___happy_path(t *testing.T) {
-	data := []byte {'h', 'e', 'l', 'l', 'o'}
+	data := []byte{'h', 'e', 'l', 'l', 'o'}
 	dataLenAsOpCode := byte(len(data))
 
 	assert.True(t, NewParsedOpCode(dataLenAsOpCode, unused, data).CheckMinimalDataPush())
 }
 
-func TestCheckMinimalDataPush___corner_case___op_1__to__op_16(t *testing.T) {
-	assert.True(t, NewParsedOpCode(OP_0, 1, nil).CheckMinimalDataPush())
+func TestCheckMinimalDataPush___corner_case___op_0__to__op_16(t *testing.T) {
+	assert.True(t, NewParsedOpCode(OP_0, unused, nil).CheckMinimalDataPush())
 
-	assert.True(t, NewParsedOpCode(OP_1, 1, []byte{OP_1}).CheckMinimalDataPush())
-	assert.False(t, NewParsedOpCode(OP_1, 1, nil).CheckMinimalDataPush(), "invalid object: without Data")
+	assert.True(t, NewParsedOpCode(OP_1, unused, []byte{OP_1}).CheckMinimalDataPush())
+	assert.False(t, NewParsedOpCode(OP_1, unused, nil).CheckMinimalDataPush(), "invalid object: without Data")
 }
 
 func TestCheckMinimalDataPush___corner_case__negative_1(t *testing.T) {
-	assert.True(t, NewParsedOpCode(OP_1NEGATE, 1, []byte{0x81}).CheckMinimalDataPush())
+	assert.True(t, NewParsedOpCode(OP_1NEGATE, unused, []byte{0x81}).CheckMinimalDataPush())
 }
 
 func TestCheckMinimalDataPush___should_return_false_when_opcode_is_not_for_data_push(t *testing.T) {
 	assert.False(t, NewParsedOpCode(OP_1NEGATE, unused, make([]byte, 65536)).CheckMinimalDataPush())
+}
+
+func TestBytes___case___op_0__to__op_16(t *testing.T) {
+	bytes, err := NewParsedOpCode(OP_0, 1, nil).bytes()
+	assert.Nil(t, err)
+	assert.Equal(t, []byte{0}, bytes)
+
+	bytes, err = NewParsedOpCode(OP_1, 1, nil).bytes()
+	assert.Nil(t, err)
+	assert.Equal(t, []byte{0x51}, bytes)
+
+	bytes, err = NewParsedOpCode(OP_9, 1, nil).bytes()
+	assert.Nil(t, err)
+	assert.Equal(t, []byte{0x59}, bytes)
+}
+
+func TestBytes___case___encoding_op_pushdata1(t *testing.T) {
+	const dataLen int = 200
+
+	data := make([]byte, dataLen)
+	bytes, err := NewParsedOpCode(OP_PUSHDATA1, -1, data).bytes()
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1 /*OP_PUSHDATA1*/ +1 /*length*/ +len(data) /*data*/, len(bytes))
+	assert.Equal(t, byte(dataLen), bytes[1], "the length byte should be equal to len(data), which is 200")
+}
+
+func TestBytes___case___encoding_op_pushdata2(t *testing.T) {
+	const dataLen int = 65535
+
+	data := make([]byte, dataLen)
+	bytes, err := NewParsedOpCode(OP_PUSHDATA1, -2, data).bytes()
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1 /*OP_PUSHDATA1*/ +2 /*2 byte length*/ +len(data) /*data*/, len(bytes))
+
+	encodedLength := binary.LittleEndian.Uint16(bytes[1:])
+	assert.Equal(t, uint16(dataLen), encodedLength, "should correctly encode the 2 bytes length in LittleEndian")
 }
