@@ -334,7 +334,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 // GetAncestor gets ancestor from active chain.
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
-	if len(c.active) >= int(height) {
+	if len(c.active) > int(height) {
 		return c.active[height]
 	}
 	return nil
