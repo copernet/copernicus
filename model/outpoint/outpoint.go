@@ -32,7 +32,7 @@ func NewOutPoint(hash util.Hash, index uint32) *OutPoint {
 }
 
 func (outPoint *OutPoint) SerializeSize() uint32 {
-	return outPoint.EncodeSize()
+	return outPoint.Hash.SerializeSize() + uint32(len(util.EncodeVarLenInt(uint64(outPoint.Index))))
 }
 
 func (outPoint *OutPoint) Serialize(writer io.Writer) error {

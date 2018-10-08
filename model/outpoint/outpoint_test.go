@@ -9,9 +9,11 @@ import (
 )
 
 var testOutPoint *OutPoint
+var nullOutPoint *OutPoint
+var preHash util.Hash
 
-func TestNewOutPoint(t *testing.T) {
-	var preHash = util.Hash{
+func initTestOutPoint() {
+	preHash = util.Hash{
 		0xc1, 0x60, 0x7e, 0x00, 0x31, 0xbc, 0xb1, 0x57,
 		0xa3, 0xb2, 0xfd, 0x73, 0x0e, 0xcf, 0xac, 0xd1,
 		0x6e, 0xda, 0x9d, 0x95, 0x7c, 0x5e, 0x03, 0xfa,
@@ -19,6 +21,12 @@ func TestNewOutPoint(t *testing.T) {
 	}
 
 	testOutPoint = NewOutPoint(preHash, 1)
+
+	nullOutPoint = NewOutPoint(util.HashZero, 0xffffffff)
+}
+
+func TestNewOutPoint(t *testing.T) {
+	initTestOutPoint()
 	if testOutPoint.Index != 1 {
 		t.Errorf("NewOutPoint() assignment index data %d should be equal 1 ", testOutPoint.Index)
 	}
@@ -26,15 +34,15 @@ func TestNewOutPoint(t *testing.T) {
 		t.Errorf("NewOutPoint() assignment hash data %v "+
 			"should be equal origin hash data %v", testOutPoint.Hash, preHash)
 	}
-
 }
 
-func TestOutPointEncode(t *testing.T) {
+func TestOutPointEncodeAndDecode(t *testing.T) {
 	file, err := os.OpenFile("tmp.txt", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		t.Error(err)
 	}
 
+	initTestOutPoint()
 	err = testOutPoint.Encode(file)
 	if err != nil {
 		t.Error(err)
@@ -44,7 +52,7 @@ func TestOutPointEncode(t *testing.T) {
 	txOutRead := &OutPoint{}
 	txOutRead.Hash = util.Hash{}
 
-	err = txOutRead.Unserialize(file)
+	err = txOutRead.Decode(file)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,4 +72,18 @@ func TestOutPointEncode(t *testing.T) {
 		t.Error(err)
 	}
 
+	encodeSize := testOutPoint.EncodeSize()
+	if encodeSize != 36 {
+		t.Errorf("EncodeSize: %d err which should be 36", encodeSize)
+	}
+
+	serializeSize := testOutPoint.SerializeSize()
+	mustSerializeSize := 32 + uint32(len(util.EncodeVarLenInt(uint64(testOutPoint.Index))))
+	if serializeSize != mustSerializeSize {
+		t.Errorf("SerializeSize: %d err which should be: %d", serializeSize, mustSerializeSize)
+	}
+
+	if !nullOutPoint.IsNull() {
+		t.Errorf("OutPoint IsNull test failed")
+	}
 }
