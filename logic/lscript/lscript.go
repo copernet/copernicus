@@ -108,7 +108,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 		fRequireMinimal = false
 	}
 
-	fExec := false
+	var fExec bool
 	stackExec := util.NewStack()
 	stackAlt := util.NewStack()
 
