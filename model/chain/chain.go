@@ -285,10 +285,7 @@ func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
 // chain.Tip()->nHeight : -1.
 func (c *Chain) Height() int32 {
 	chainLen := int32(len(c.active))
-	if chainLen > 0 {
-		return chainLen - 1
-	}
-	return 0
+	return chainLen - 1
 }
 
 // SetTip Set/initialize a chain with a given tip.
@@ -334,7 +331,10 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 // GetAncestor gets ancestor from active chain.
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
-	if len(c.active) >= int(height) {
+	if height < 0 {
+		return nil
+	}
+	if len(c.active) > int(height) {
 		return c.active[height]
 	}
 	return nil
@@ -467,13 +467,14 @@ func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error {
 		return errors.New("nil blockIndex")
 	}
 	branchLen := len(c.branch)
-	branch := make([]*blockindex.BlockIndex, 0, branchLen)
 	for i, bi := range c.branch {
 		bh := bis.GetBlockHash()
 		if bi.GetBlockHash().IsEqual(bh) {
-			branch = c.branch[0:i]
+			branch := c.branch[0:i]
 			if branchLen-1 > i {
 				c.branch = append(branch, c.branch[i+1:]...)
+			} else {
+				c.branch = branch
 			}
 			return nil
 		}
@@ -539,4 +540,8 @@ func (c *Chain) ChainOrphanLen() int32 {
 	}
 
 	return orphanLen
+}
+
+func (c *Chain) IndexMapSize() int {
+	return len(c.indexMap)
 }
