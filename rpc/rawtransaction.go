@@ -182,7 +182,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string {
 					flags := script.ScriptVerifyStrictEnc
 					if vch[len(vch)-1]&crypto.SigHashForkID != 0 {
 						// If the transaction is using SIGHASH_FORKID, we need
-						// to set the apropriate flag.
+						// to set the appropriate flag.
 						// TODO: Remove after the Hard Fork.
 						flags |= script.ScriptEnableSigHashForkID
 					}
@@ -442,6 +442,11 @@ func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, e
 		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
 		scriptPubKey.PushSingleData(legacyAddr.EncodeToPubKeyHash())
 		scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
+	} else {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.ErrRPCInvalidAddressOrKey,
+			Message: "Invalid Bitcoin address: " + address,
+		}
 	}
 
 	return scriptPubKey, nil
@@ -550,10 +555,10 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                        crypto.SigHashAll,
-	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                     crypto.SigHashAll,
+	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,

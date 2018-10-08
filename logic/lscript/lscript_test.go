@@ -383,7 +383,7 @@ func parseScriptFlag(s string) (uint32, error) {
 		if flag, ok := scriptFlagMap[w]; ok {
 			res |= flag
 		} else {
-			return 0, fmt.Errorf("not found scirpt flag for name %s", w)
+			return 0, fmt.Errorf("not found script flag for name %s", w)
 		}
 	}
 	return res, nil

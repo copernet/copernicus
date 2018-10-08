@@ -453,7 +453,7 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 		preHash := pindex.GetBlockHash()
 		childList, ok := c.orphan[*preHash]
 		if ok {
-			for child := range childList {
+			for _, child := range childList {
 				q.Add(child)
 			}
 			delete(c.orphan, *preHash)
@@ -534,7 +534,7 @@ func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
 
 func (c *Chain) ChainOrphanLen() int32 {
 	var orphanLen int32
-	for childList := range c.orphan {
+	for _, childList := range c.orphan {
 		orphanLen += int32(len(childList))
 	}
 

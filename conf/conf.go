@@ -15,6 +15,16 @@ import (
 )
 
 const (
+	AppMajor uint = 0
+	AppMinor uint = 0
+	AppPatch uint = 1
+
+	// AppPreRelease MUST only contain characters from semanticAlphabet
+	// per the semantic versioning spec.
+	AppPreRelease = "beta"
+)
+
+const (
 	tagName = "default"
 
 	defaultConfigFilename       = "conf.yml"
@@ -233,7 +243,7 @@ type Configuration struct {
 		SimNet       bool
 		ConnectPeers []string
 	}
-	Protocal struct {
+	Protocol struct {
 		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}

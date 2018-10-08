@@ -213,10 +213,9 @@ type parsedRPCCmd struct {
 func (s *Server) standardCmdResult(cmd *parsedRPCCmd, closeChan <-chan struct{}) (interface{}, error) {
 	handler, ok := rpcHandlers[cmd.method]
 	if ok {
-		goto handled
+		return handler(s, cmd.cmd, closeChan)
 	}
-handled:
-	return handler(s, cmd.cmd, closeChan)
+	return nil, btcjson.ErrRPCMethodNotFound
 }
 
 func parseCmd(request *btcjson.Request, jsonParam *map[string]json.RawMessage) *parsedRPCCmd {
@@ -602,7 +601,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}, 1),
-		quit:                   make(chan int),
+		quit: make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass

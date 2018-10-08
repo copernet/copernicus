@@ -2113,7 +2113,7 @@ func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Se
 	log.Debug("%+v", cfg)
 
 	services := defaultServices
-	if cfg.Protocal.NoPeerBloomFilters {
+	if cfg.Protocol.NoPeerBloomFilters {
 		services &^= wire.SFNodeBloom
 	}
 
@@ -2201,7 +2201,7 @@ func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Se
 	s.syncManager, err = syncmanager.New(&syncmanager.Config{
 		PeerNotifier:       s,
 		ChainParams:        s.chainParams,
-		DisableCheckpoints: cfg.Protocal.DisableCheckpoints,
+		DisableCheckpoints: cfg.Protocol.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
 	})
 	if err != nil {

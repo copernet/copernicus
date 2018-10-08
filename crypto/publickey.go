@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/secp256k1-go/secp256k1"
 )
 
@@ -30,6 +31,11 @@ func (publicKey *PublicKey) ToSecp256k() *secp256k1.PublicKey {
 func (publicKey *PublicKey) ToHexString() string {
 	bytes := publicKey.ToBytes()
 	return hex.EncodeToString(bytes)
+}
+
+func (publicKey *PublicKey) ToHash160() []byte {
+	bytes := publicKey.ToBytes()
+	return util.Hash160(bytes)
 }
 
 func (publicKey *PublicKey) ToBytes() []byte {

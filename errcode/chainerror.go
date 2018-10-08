@@ -16,12 +16,20 @@ const (
 	ErrorBadBlkTxSize
 	ErrorBadBlkTx
 	ErrorBlockAlreadyExists
+	ErrorNotExistsInChainMap // errorTest
 )
 
 var ChainErrString = map[ChainErr]string{
 	ErrorBlockHeaderNoValid:  "The block header is not valid",
-	ErrorBlockHeaderNoParent: "Can not find this block header's father ",
+	ErrorBlockHeaderNoParent: "Can not find this block header's father",
+	ErrorBlockSize:           "ErrorBlockSize",
 	ErrorPowCheckErr:         "ErrorPowCheckErr",
+	ErrorBadTxnMrklRoot:      "ErrorBadTxnMrklRoot",
+	ErrorbadTxnsDuplicate:    "ErrorbadTxnsDuplicate",
+	ErrorBadCoinBaseMissing:  "ErrorBadCoinBaseMissing",
+	ErrorBadBlkLength:        "ErrorBadBlkLength",
+	ErrorBadBlkTxSize:        "ErrorBadBlkTxSize",
+	ErrorBadBlkTx:            "ErrorBadBlkTx",
 	ErrorBlockAlreadyExists:  "block already exists",
 }
 

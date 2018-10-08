@@ -36,10 +36,42 @@ const (
 	TxErrSignRawTransaction
 	TxErrInvalidIndexOfIn
 	TxErrPubKeyType
+
+	ErrorNotInTxMap /* Error test */
 )
 
 var txErrorToString = map[TxErr]string{
-	TxErrNoPreviousOut: "There is no previousout",
+	TxErrRejectMalformed:       "TxErrRejectMalformed",
+	TxErrRejectInvalid:         "TxErrRejectInvalid",
+	TxErrRejectObsolete:        "TxErrRejectObsolete",
+	TxErrRejectDuplicate:       "TxErrRejectDuplicate",
+	TxErrRejectNonstandard:     "TxErrRejectNonstandard",
+	TxErrRejectDust:            "TxErrRejectDust",
+	TxErrRejectInsufficientFee: "TxErrRejectInsufficientFee",
+	TxErrRejectCheckPoint:      "TxErrRejectCheckPoint",
+	TxErrRejectAlreadyKnown:    "TxErrRejectAlreadyKnown",
+	TxErrRejectConflict:        "TxErrRejectConflict",
+
+	TxErrNoPreviousOut:         "There is no previousout",
+	TxErrNullPreOut:            "TxErrNullPreOut",
+	TxErrNotCoinBase:           "TxErrNotCoinBase",
+	TxErrEmptyInputs:           "TxErrEmptyInputs",
+	TxErrTotalMoneyTooLarge:    "TxErrTotalMoneyTooLarge",
+	TxErrTooManySigOps:         "TxErrTooManySigOps",
+	TxErrDupIns:                "TxErrDupIns",
+	TxErrBadVersion:            "TxErrBadVersion",
+	TxErrOverSize:              "TxErrOverSize",
+	ScriptErrDustOut:           "ScriptErrDustOut",
+	TxErrNotFinal:              "TxErrNotFinal",
+	TxErrTxCommitment:          "TxErrTxCommitment",
+	TxErrMempoolAlreadyExist:   "TxErrMempoolAlreadyExist",
+	TxErrOutAlreadHave:         "TxErrOutAlreadHave",
+	TxErrInputsMoneyTooLarge:   "TxErrInputsMoneyTooLarge",
+	TxErrInputsMoneyBigThanOut: "TxErrInputsMoneyBigThanOut",
+	ScriptCheckInputsBug:       "ScriptCheckInputsBug",
+	TxErrSignRawTransaction:    "TxErrSignRawTransaction",
+	TxErrInvalidIndexOfIn:      "TxErrInvalidIndexOfIn",
+	TxErrPubKeyType:            "TxErrPubKeyType",
 }
 
 func (te TxErr) String() string {

@@ -39,6 +39,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// check standard
+	// ToDo: config
 	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
@@ -74,7 +75,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
-	// check inputs are avaliable
+	// check inputs are available
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
 	if !areInputsAvailable(transaction, tempCoinsMap) {
 		return errcode.New(errcode.TxErrNoPreviousOut)
@@ -177,7 +178,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
-		log.Debug("block has no transcations")
+		log.Debug("block has no transactions")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	err := txs[0].CheckCoinbaseTransaction()

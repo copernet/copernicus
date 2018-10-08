@@ -5,6 +5,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"math"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
@@ -17,8 +20,6 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"io"
-	"math"
 )
 
 const (
@@ -576,59 +577,20 @@ func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey
 	signature, err = privateKey.Sign(hash[:])
 	return
 }
+
 func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	if i >= len(tx.ins) || i < 0 {
 		log.Debug("TxErrInvalidIndexOfIn")
 		return errcode.New(errcode.TxErrInvalidIndexOfIn)
 	}
 	tx.ins[i].SetScriptSig(scriptSig)
+
+	if !tx.hash.IsNull() {
+		tx.hash = tx.calHash()
+	}
+
 	return nil
 }
-
-//func (tx *Tx) Copy() *Tx {
-//	newTx := Tx{
-//		version:  tx.GetVersion(),
-//		lockTime: tx.GetLockTime(),
-//		ins:      make([]*txin.TxIn, 0, len(tx.ins)),
-//		outs:     make([]*txout.TxOut, 0, len(tx.outs)),
-//	}
-//	//newTx.hash = tx.hash
-//
-//	for _, txOut := range tx.outs {
-//		scriptLen := len(txOut.GetScriptPubKey().GetData())
-//		newOutScript := make([]byte, scriptLen)
-//		copy(newOutScript, txOut.GetScriptPubKey().GetData()[:scriptLen])
-//
-//		newTxOut := txout.NewTxOut(txOut.GetValue(), script.NewScriptRaw(newOutScript))
-//		newTx.outs = append(newTx.outs, newTxOut)
-//	}
-//	for _, txIn := range tx.ins {
-//		var hashBytes [32]byte
-//		copy(hashBytes[:], txIn.PreviousOutPoint.Hash[:])
-//		preHash := new(util.Hash)
-//		preHash.SetBytes(hashBytes[:])
-//		newOutPoint := outpoint.OutPoint{Hash: *preHash, Index: txIn.PreviousOutPoint.Index}
-//		scriptLen := txIn.GetScriptSig().Size()
-//		newScript := make([]byte, scriptLen)
-//		copy(newScript[:], txIn.GetScriptSig().GetData()[:scriptLen])
-//
-//		newTxTmp := txin.NewTxIn(&newOutPoint, script.NewScriptRaw(newScript), txIn.Sequence)
-//
-//		newTx.ins = append(newTx.ins, newTxTmp)
-//	}
-//	return &newTx
-//
-//}
-
-//func (tx *Tx) Equal(dstTx *Tx) bool {
-//	originBuf := bytes.NewBuffer(nil)
-//	tx.Serialize(originBuf)
-//
-//	dstBuf := bytes.NewBuffer(nil)
-//	dstTx.Serialize(dstBuf)
-//
-//	return bytes.Equal(originBuf.Bytes(), dstBuf.Bytes())
-//}
 
 func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
 	txModifiedSize := tx.CalculateModifiedSize()
@@ -659,8 +621,8 @@ func (tx *Tx) CalculateModifiedSize() uint32 {
 }
 
 // IsFinal proceeds as follows
-// 1. tx.locktime > 0 and tx.locktime < Threshhold, use height to check(tx.locktime > current height)
-// 2. tx.locktime > Threshhold, use time to check(tx.locktime > current blocktime)
+// 1. tx.locktime > 0 and tx.locktime < Threshold, use height to check(tx.locktime > current height)
+// 2. tx.locktime > Threshold, use time to check(tx.locktime > current blocktime)
 // 3. sequence can disable it
 func (tx *Tx) IsFinal(Height int32, time int64) bool {
 	if tx.lockTime == 0 {
@@ -712,15 +674,17 @@ func (tx *Tx) GetHash() util.Hash {
 		return tx.hash
 	}
 
+	tx.hash = tx.calHash()
+	return tx.hash
+}
+
+func (tx *Tx) calHash() util.Hash {
 	buf := bytes.NewBuffer(make([]byte, 0, tx.EncodeSize()))
 	err := tx.Encode(buf)
 	if err != nil {
-		panic("there is not enough memory")
+		panic("tx encode failed: " + err.Error())
 	}
-	hash := util.DoubleSha256Hash(buf.Bytes())
-	tx.hash = hash
-
-	return tx.hash
+	return util.DoubleSha256Hash(buf.Bytes())
 }
 
 func (tx *Tx) GetIns() []*txin.TxIn {
@@ -768,23 +732,3 @@ func NewGenesisCoinbaseTx() *Tx {
 
 	return tx
 }
-
-/*
-// PrecomputedTransactionData Precompute sighash midstate to avoid quadratic hashing
-type PrecomputedTransactionData struct {
-	HashPrevout  *util.Hash
-	HashSequence *util.Hash
-	HashOutputs  *util.Hash
-}
-
-func NewPrecomputedTransactionData(tx *Tx) *PrecomputedTransactionData {
-	hashPrevout, _ := GetPrevoutHash(tx)
-	hashSequence, _ := GetSequenceHash(tx)
-	hashOutputs, _ := GetOutputsHash(tx)
-
-	return &PrecomputedTransactionData{
-		HashPrevout:  &hashPrevout,
-		HashSequence: &hashSequence,
-		HashOutputs:  &hashOutputs,
-	}
-}*/
