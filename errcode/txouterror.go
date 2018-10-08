@@ -8,8 +8,7 @@ const (
 	TxOutErrNegativeValue TxOutErr = TxOutErrorBase + iota
 	TxOutErrTooLargeValue
 
-	// Error test
-	ErrorNotInTxOutMap
+	ErrorNotInTxOutMap // Error test
 )
 
 var txOutErrorToString = map[TxOutErr]string{

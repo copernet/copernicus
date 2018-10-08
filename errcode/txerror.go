@@ -37,8 +37,7 @@ const (
 	TxErrInvalidIndexOfIn
 	TxErrPubKeyType
 
-	// Error test
-	ErrorNotInTxMap
+	ErrorNotInTxMap /* Error test */
 )
 
 var txErrorToString = map[TxErr]string{

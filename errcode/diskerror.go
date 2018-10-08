@@ -18,7 +18,7 @@ const (
 	// ErrorBadBlkLength
 	// ErrorBadBlkTxSize
 	// ErrorBadBlkTx
-	ErrorNotExistsInDiskMap    // errorTest
+	ErrorNotExistsInDiskMap // errorTest
 )
 
 var DiskErrString = map[DiskErr]string{

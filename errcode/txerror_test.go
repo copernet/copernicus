@@ -41,10 +41,10 @@ func TestTxErr_String(t *testing.T) {
 		{TxErrSignRawTransaction, "TxErrSignRawTransaction"},
 		{TxErrInvalidIndexOfIn, "TxErrInvalidIndexOfIn"},
 		{TxErrPubKeyType, "TxErrPubKeyType"},
-		{ErrorNotInTxMap, "Unknown code ("+strconv.Itoa(int(ErrorNotInTxMap))+")"},
+		{ErrorNotInTxMap, "Unknown code (" + strconv.Itoa(int(ErrorNotInTxMap)) + ")"},
 	}
 
-	if len(tests) - 1 != int(ErrorNotInTxMap) - int(TxErrNoPreviousOut) + 10 {
+	if len(tests)-1 != int(ErrorNotInTxMap)-int(TxErrNoPreviousOut)+10 {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}

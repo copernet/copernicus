@@ -13,10 +13,9 @@ func TestRPCErr_String(t *testing.T) {
 		{ModelInvalid, "Invalid"},
 		{ModelError, "Error"},
 		{ErrorNotExistInRPCMap, "Unknown error code!"},
-
 	}
 
-	if len(tests) - 1 != int(ErrorNotExistInRPCMap) - int(ModelValid) {
+	if len(tests)-1 != int(ErrorNotExistInRPCMap)-int(ModelValid) {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}

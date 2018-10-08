@@ -16,11 +16,10 @@ func TestMemPoolErr_String(t *testing.T) {
 		{Nomature, "Non-BIP68-final"},
 		{ManyUnspendDepend, "The transaction depend many unspend transaction"},
 		{TooMinFeeRate, "The transaction's feerate is too minimal"},
-		{ErrorNotExistsInMemMap, "Unknown code ("+strconv.Itoa(int(ErrorNotExistsInMemMap))+")"},
-
+		{ErrorNotExistsInMemMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInMemMap)) + ")"},
 	}
 
-	if len(tests) - 1 != int(ErrorNotExistsInMemMap) - int(MissParent) {
+	if len(tests)-1 != int(ErrorNotExistsInMemMap)-int(MissParent) {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}

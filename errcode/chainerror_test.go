@@ -21,10 +21,10 @@ func TestChainErr_String(t *testing.T) {
 		{ErrorBadBlkTxSize, "ErrorBadBlkTxSize"},
 		{ErrorBadBlkTx, "ErrorBadBlkTx"},
 		{ErrorBlockAlreadyExists, "block already exists"},
-		{ErrorNotExistsInChainMap, "Unknown code ("+strconv.Itoa(int(ErrorNotExistsInChainMap))+")"},
+		{ErrorNotExistsInChainMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInChainMap)) + ")"},
 	}
 
-	if len(tests) - 1 != int(ErrorNotExistsInChainMap) - int(ErrorBlockHeaderNoValid) {
+	if len(tests)-1 != int(ErrorNotExistsInChainMap)-int(ErrorBlockHeaderNoValid) {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}

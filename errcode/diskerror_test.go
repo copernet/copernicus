@@ -10,18 +10,18 @@ func TestDiskErr_String(t *testing.T) {
 		in   DiskErr
 		want string
 	}{
-		{ErrorOutOfDiskSpace,                    "ErrorOutOfDiskSpace"},
+		{ErrorOutOfDiskSpace, "ErrorOutOfDiskSpace"},
 		{ErrorNotFindUndoFile, "ErrorNotFindUndoFile"},
 		{ErrorFailedToWriteToCoinDatabase, "ErrorFailedToWriteToCoinDatabase"},
 		{ErrorFailedToWriteToBlockIndexDatabase, "ErrorFailedToWriteToBlockIndexDatabase"},
-		{SystemErrorWhileFlushing,"SystemErrorWhileFlushing"},
-		{ErrorOpenUndoFileFailed,"ErrorOpenUndoFileFailed"},
-		{FailedToReadBlock,"FailedToReadBlock"},
-		{DisconnectTipUndoFailed,"DisconnectTipUndoFailed"},
-		{ErrorNotExistsInDiskMap, "Unknown code ("+strconv.Itoa(int(ErrorNotExistsInDiskMap))+")"},
+		{SystemErrorWhileFlushing, "SystemErrorWhileFlushing"},
+		{ErrorOpenUndoFileFailed, "ErrorOpenUndoFileFailed"},
+		{FailedToReadBlock, "FailedToReadBlock"},
+		{DisconnectTipUndoFailed, "DisconnectTipUndoFailed"},
+		{ErrorNotExistsInDiskMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInDiskMap)) + ")"},
 	}
 
-	if len(tests) - 1 != int(ErrorNotExistsInDiskMap) - int(ErrorOutOfDiskSpace) {
+	if len(tests)-1 != int(ErrorNotExistsInDiskMap)-int(ErrorOutOfDiskSpace) {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}

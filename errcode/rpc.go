@@ -3,7 +3,7 @@ package errcode
 type RPCErr int
 
 const (
-	ModelValid RPCErr= RPCErrorBase + iota
+	ModelValid RPCErr = RPCErrorBase + iota
 	ModelInvalid
 	ModelError
 	ErrorNotExistInRPCMap

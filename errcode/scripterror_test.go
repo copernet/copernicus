@@ -71,10 +71,9 @@ func TestScriptErr_String(t *testing.T) {
 		{ScriptErrInvalidOpCode, "unknown error"},
 		{ScriptErrInValidPubKeyOrSig, "unknown error"},
 		{ScriptErrScriptSigNotPushOnly, "unknown error"},
-
 	}
 
-	if len(tests) - 1 != int(ScriptErrScriptSigNotPushOnly) - int(ScriptErrOK) {
+	if len(tests)-1 != int(ScriptErrScriptSigNotPushOnly)-int(ScriptErrOK) {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}

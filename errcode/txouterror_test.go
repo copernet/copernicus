@@ -12,11 +12,10 @@ func TestTxOutErr_String(t *testing.T) {
 	}{
 		{TxOutErrNegativeValue, "Tx out's value is negative"},
 		{TxOutErrTooLargeValue, "TxOutErrTooLargeValue"},
-		{ErrorNotInTxOutMap, "Unknown code ("+strconv.Itoa(int(ErrorNotInTxOutMap))+")"},
-
+		{ErrorNotInTxOutMap, "Unknown code (" + strconv.Itoa(int(ErrorNotInTxOutMap)) + ")"},
 	}
 
-	if len(tests) - 1 != int(ErrorNotInTxOutMap) - int(TxOutErrNegativeValue) {
+	if len(tests)-1 != int(ErrorNotInTxOutMap)-int(TxOutErrNegativeValue) {
 		t.Errorf("It appears an error code was added without adding an " +
 			"associated stringer test")
 	}
