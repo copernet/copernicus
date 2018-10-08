@@ -39,6 +39,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// check standard
+	// ToDo: config
 	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
