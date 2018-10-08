@@ -2122,8 +2122,7 @@ func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Se
 	var listeners []net.Listener
 	var nat upnp.NAT
 
-	var err error
-	listeners, nat, err = initListeners(amgr, cfg.P2PNet.ListenAddrs, services)
+	listeners, nat, err := initListeners(amgr, cfg.P2PNet.ListenAddrs, services)
 	if err != nil {
 		return nil, err
 	}

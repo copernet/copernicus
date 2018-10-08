@@ -449,11 +449,11 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	}
 
-	blockcount := int32(0)
-	maxcount := util.MaxI32(0, blockIndex.Height-1)
+	var blockCount int32
+	maxCount := util.MaxI32(0, blockIndex.Height-1)
 	if c.Blocks != nil {
-		blockcount = *c.Blocks
-		if blockcount < 0 || blockcount > maxcount {
+		blockCount = *c.Blocks
+		if blockCount < 0 || blockCount > maxCount {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid block count: should be between 0 and the block's height - 1",
@@ -461,17 +461,17 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	} else {
 		// By default: 1 month
-		blockcount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
-		blockcount = util.MinI32(blockcount, maxcount)
+		blockCount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
+		blockCount = util.MinI32(blockCount, maxCount)
 	}
 
 	chainTxStatsReply := &btcjson.GetChainTxStatsResult{
 		FinalTime:  blockIndex.GetBlockTime(),
 		TxCount:    blockIndex.ChainTxCount,
-		BlockCount: blockcount,
+		BlockCount: blockCount,
 	}
-	if blockcount > 0 {
-		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockcount)
+	if blockCount > 0 {
+		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockCount)
 		txDiff := blockIndex.ChainTxCount - indexPast.ChainTxCount
 		timeDiff := blockIndex.GetMedianTimePast() - indexPast.GetMedianTimePast()
 		chainTxStatsReply.WindowTxCount = txDiff

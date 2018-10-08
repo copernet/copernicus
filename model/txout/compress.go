@@ -47,7 +47,7 @@ func DecompressAmount(x uint64) amount.Amount {
 	x--
 	e := x % 10
 	x /= 10
-	n := uint64(0)
+	var n uint64
 	if e < 9 {
 		d := (x % 9) + 1
 		x /= 9
