@@ -15,9 +15,6 @@ const (
 	ErrorOpenUndoFileFailed
 	FailedToReadBlock
 	DisconnectTipUndoFailed
-	// ErrorBadBlkLength
-	// ErrorBadBlkTxSize
-	// ErrorBadBlkTx
 	ErrorNotExistsInDiskMap // errorTest
 )
 
