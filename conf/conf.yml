@@ -3,7 +3,7 @@ Version: 1.0.0
 BuildDate: 20180428
 
 RPC:
-  RPCListeners: [127.0.0.1:8334, 127.0.0.1:18334]
+  RPCListeners: [127.0.0.1:18334]
   RPCUser: copernicus
   RPCPass: doXT3DXgAQCNU0Li0pujQ6zR3Y
   RPCMaxClients: 1000
@@ -25,7 +25,7 @@ Chain:
   AssumeValid:
   StartLogHeight: 2147483647
 P2PNet:
-  ListenAddrs: ["127.0.0.1:8333","127.0.0.1:18333"]
+  ListenAddrs: [127.0.0.1:18333]
   MaxPeers: 5
   TargetOutbound: 3
   ConnectPeersOnStart:
