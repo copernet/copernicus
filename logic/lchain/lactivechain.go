@@ -115,8 +115,6 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 		fBlocksDisconnected = true
 	}
 
-	// Build list of new blocks to connect.
-	vpindexToConnect := make([]*blockindex.BlockIndex, 0)
 	fContinue := true
 	nHeight := int32(-1)
 	if pindexFork != nil {
@@ -129,7 +127,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 		if nHeight+32 < pindexMostWork.Height {
 			nTargetHeight = nHeight + 32
 		}
-		vpindexToConnect = make([]*blockindex.BlockIndex, 0, nTargetHeight-nHeight)
+		vpindexToConnect := make([]*blockindex.BlockIndex, 0, nTargetHeight-nHeight)
 		pindexIter := pindexMostWork.GetAncestor(nTargetHeight)
 		for pindexIter != nil && pindexIter.Height != nHeight {
 			vpindexToConnect = append(vpindexToConnect, pindexIter)

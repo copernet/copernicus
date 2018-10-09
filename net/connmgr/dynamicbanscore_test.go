@@ -5,7 +5,6 @@
 package connmgr
 
 import (
-	"math"
 	"testing"
 	"time"
 )
@@ -37,9 +36,7 @@ func TestDynamicBanScoreDecay(t *testing.T) {
 func TestDynamicBanScoreLifetime(t *testing.T) {
 	var bs DynamicBanScore
 	base := time.Now()
-
-	r := bs.increase(0, math.MaxUint32, base)
-	r = bs.int(base.Add(Lifetime * time.Second))
+	r := bs.int(base.Add(Lifetime * time.Second))
 	if r != 3 { // 3, not 4 due to precision loss and truncating 3.999...
 		t.Errorf("Pre max age check with MaxUint32 failed - %d", r)
 	}

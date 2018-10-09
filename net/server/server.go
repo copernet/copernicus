@@ -2185,6 +2185,9 @@ func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Se
 			return addrStringToNetAddr(addr)
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 	for _, addr := range cfg.P2PNet.ConnectPeersOnStart {
 		netAddr, err := addrStringToNetAddr(addr)
 		if err != nil {

@@ -577,13 +577,11 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// since it is needed to verify the next round of headers links
 	// properly.
 	isCheckpointBlock := false
-	behaviorFlags := chain.BFNone
 	if sm.headersFirstMode {
 		firstNodeEl := sm.headerList.Front()
 		if firstNodeEl != nil {
 			firstNode := firstNodeEl.Value.(*headerNode)
 			if blockHash.IsEqual(firstNode.hash) {
-				behaviorFlags |= chain.BFFastAdd
 				if firstNode.hash.IsEqual(sm.nextCheckpoint.Hash) {
 					isCheckpointBlock = true
 				} else {
