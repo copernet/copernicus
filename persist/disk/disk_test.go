@@ -31,7 +31,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	conf.Cfg = conf.InitConfig([]string{})
+	conf.Cfg = conf.InitConfig([]string{"--datadir=" + conf.DataDir, "--testnet"})
 	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
