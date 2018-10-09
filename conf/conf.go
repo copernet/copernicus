@@ -30,9 +30,6 @@ const (
 	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
 	defaultProjectDir           = "github.com/copernet/copernicus"
-	defaultLogLevel             = "info"
-	defaultLogDirname           = "logs"
-	defaultLogFilename          = "coper.log"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
 	defaultBanThreshold         = 100
@@ -40,7 +37,6 @@ const (
 	defaultMaxRPCClients        = 10
 	defaultMaxRPCWebsockets     = 25
 	defaultMaxRPCConcurrentReqs = 20
-	defaultDbType               = "ffldb"
 	defaultFreeTxRelayLimit     = 15.0
 	defaultBlockMinSize         = 0
 	defaultBlockMaxSize         = 750000
@@ -308,12 +304,9 @@ func (c Configuration) Validate() error {
 
 func ExistDataDir(datadir string) bool {
 	_, err := os.Stat(datadir)
-	if err == nil {
-		return true
-	}
-	if os.IsExist(err) {
+	if err != nil && os.IsNotExist(err) {
 		return false
 	}
 
-	return false
+	return true
 }
