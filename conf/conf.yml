@@ -15,6 +15,10 @@ Log:
 
 Mempool:
   MaxPoolSize: 300000000
+  LimitAncestorCount: 50000
+  LimitAncestorSize: 5000
+  LimitDescendantCount: 50000
+  LimitDescendantSize: 5000
 
 Mining:
   BlockMinTxFee: 100
