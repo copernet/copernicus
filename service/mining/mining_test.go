@@ -1,8 +1,9 @@
 package mining
 
 import (
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -20,7 +21,7 @@ type TestMemPoolEntry struct {
 	Fee            amount.Amount
 	Time           int64
 	Priority       float64
-	Height         int
+	Height         int32
 	SpendsCoinbase bool
 	SigOpCost      int
 	lp             *mempool.LockPoints
@@ -48,7 +49,7 @@ func (t *TestMemPoolEntry) SetTime(time int64) *TestMemPoolEntry {
 	return t
 }
 
-func (t *TestMemPoolEntry) SetHeight(height int) *TestMemPoolEntry {
+func (t *TestMemPoolEntry) SetHeight(height int32) *TestMemPoolEntry {
 	t.Height = height
 	return t
 }
@@ -68,8 +69,12 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 	if t.lp != nil {
 		lp = *(t.lp)
 	}
-	entry := mempool.NewTxentry(transaction, int64(t.Fee), t.Time, int(t.Height), lp, int(t.SigOpCost), t.SpendsCoinbase)
+	entry := mempool.NewTxentry(transaction, int64(t.Fee), t.Time, t.Height, lp, int(t.SigOpCost), t.SpendsCoinbase)
 	return entry
+}
+
+func TestMain(t *testing.M) {
+	conf.Cfg = conf.InitConfig([]string{})
 }
 
 func createTx() []*mempool.TxEntry {
@@ -133,8 +138,9 @@ func TestCreateNewBlockByFee(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ba := NewBlockAssembler(chainparams.ActiveNetParams)
-	strategy = sortByFee
+	ba := NewBlockAssembler(model.ActiveNetParams)
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFee
 	sc := script.NewEmptyScript()
 	ba.CreateNewBlock(sc)
 
@@ -161,8 +167,10 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ba := NewBlockAssembler(chainparams.ActiveNetParams)
-	strategy = sortByFeeRate
+	ba := NewBlockAssembler(model.ActiveNetParams)
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFeeRate
+
 	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
 	ba.CreateNewBlock(sc)
 	if len(ba.bt.Block.Txs) != 5 {

@@ -2,6 +2,7 @@ package undo
 
 import (
 	"bytes"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
@@ -48,9 +49,9 @@ func (tu *TxUndo) Serialize(w io.Writer) error {
 }
 
 func (tu *TxUndo) Unserialize(r io.Reader) error {
-
 	count, err := util.ReadVarInt(r)
 	if err != nil {
+		log.Error("TxUndo UnSerialize: the read count is: %d, error: %v", count, err)
 		return err
 	}
 	if count > MaxInputPerTx {
@@ -62,6 +63,7 @@ func (tu *TxUndo) Unserialize(r io.Reader) error {
 		err := coin.Unserialize(r)
 
 		if err != nil {
+			log.Error("TxUndo UnSerialize: the utxo Unserialize error: %v", err)
 			return err
 		}
 		preouts[i] = coin
@@ -105,6 +107,7 @@ func (bu *BlockUndo) SerializeSize() int {
 func (bu *BlockUndo) Unserialize(r io.Reader) error {
 	count, err := util.ReadVarLenInt(r)
 	if err != nil {
+		log.Error("BlockUndo UnSerialize: the read count is: %d, error: %v", count, err)
 		return err
 	}
 	txundos := make([]*TxUndo, count)
@@ -112,6 +115,7 @@ func (bu *BlockUndo) Unserialize(r io.Reader) error {
 		obj := NewTxUndo()
 		err = obj.Unserialize(r)
 		if err != nil {
+			log.Error("BlockUndo UnSerialize: the txUndo UnSerialize error: %v", err)
 			return err
 		}
 		txundos[i] = obj

@@ -84,7 +84,7 @@ type Message interface {
 	Decode(io.Reader, uint32, MessageEncoding) error
 	Encode(io.Writer, uint32, MessageEncoding) error
 	Command() string
-	MaxPayloadLength(uint32) uint32
+	MaxPayloadLength(uint32) uint64
 }
 
 // makeEmptyMessage creates a message of the appropriate concrete type based
@@ -287,7 +287,7 @@ func WriteMessageWithEncodingN(w io.Writer, msg Message, pver uint32,
 
 	// Enforce maximum message payload based on the message type.
 	mpl := msg.MaxPayloadLength(pver)
-	if uint32(lenp) > mpl {
+	if uint64(lenp) > mpl {
 		str := fmt.Sprintf("message payload is too large - encoded "+
 			"%d bytes, but maximum message payload size for "+
 			"messages of type [%s] is %d.", lenp, cmd, mpl)
@@ -305,7 +305,7 @@ func WriteMessageWithEncodingN(w io.Writer, msg Message, pver uint32,
 	// rather than directly to the writer since writeElements doesn't
 	// return the number of bytes written.
 	hw := bytes.NewBuffer(make([]byte, 0, MessageHeaderSize))
-	util.WriteElements(hw, (uint32)(hdr.magic), command, hdr.length, hdr.checksum)
+	util.WriteElements(hw, uint32(hdr.magic), command, hdr.length, hdr.checksum)
 
 	// Write header.
 	n, err := w.Write(hw.Bytes())
@@ -376,7 +376,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	// could otherwise create a well-formed header and set the length to max
 	// numbers in order to exhaust the machine's memory.
 	mpl := msg.MaxPayloadLength(pver)
-	if hdr.length > mpl {
+	if uint64(hdr.length) > mpl {
 		discardInput(r, hdr.length)
 		str := fmt.Sprintf("payload exceeds max length - header "+
 			"indicates %v bytes, but max payload size for "+
@@ -395,7 +395,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 
 	// Test checksum.
 	checksum := util.DoubleSha256Bytes(payload)[0:4]
-	if !bytes.Equal(checksum[:], hdr.checksum[:]) {
+	if !bytes.Equal(checksum, hdr.checksum[:]) {
 		str := fmt.Sprintf("payload checksum failed - header "+
 			"indicates %v, but actual checksum is %v.",
 			hdr.checksum, checksum)

@@ -8,16 +8,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
 
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/limits"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc"
+	"net"
 )
 
 const (
@@ -29,13 +31,21 @@ const (
 
 // bchMain is the real main function for copernicus.  It is necessary to work around
 // the fact that deferred functions do not run when os.Exit() is called.
-func bchMain(ctx context.Context) error {
+func bchMain(ctx context.Context, args []string) error {
 	// Load configuration and parse command line.  This function also
 	// initializes logging and configures it accordingly.
-	appInitMain()
+	appInitMain(args)
+	go func() {
+		listenAddr := net.JoinHostPort(conf.Cfg.PProf.IP, conf.Cfg.PProf.Port)
+		fmt.Printf("Profile server listening on %s\n", listenAddr)
+		profileRedirect := http.RedirectHandler("/debug/pprof", http.StatusSeeOther)
+		http.Handle("/", profileRedirect)
+		err := fmt.Errorf("%v", http.ListenAndServe(listenAddr, nil))
+		fmt.Println(err.Error())
+	}()
 	interrupt := interruptListener()
 
-	s, err := server.NewServer(chainparams.ActiveNetParams, interrupt)
+	s, err := server.NewServer(model.ActiveNetParams, interrupt)
 	if err != nil {
 		return err
 	}
@@ -72,8 +82,6 @@ func bchMain(ctx context.Context) error {
 }
 
 func main() {
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
-
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -89,8 +97,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	args := os.Args
 	// Work around defer not working after os.Exit()
-	if err := bchMain(context.Background()); err != nil {
+	if err := bchMain(context.Background(), args); err != nil {
 		os.Exit(1)
 	}
 }

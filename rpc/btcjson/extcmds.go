@@ -46,8 +46,8 @@ func NewNodeCmd(subCmd NodeSubCmd, target string, connectSubCmd *string) *NodeCm
 
 // GenerateCmd defines the generate JSON-RPC command.
 type GenerateCmd struct {
-	NumBlocks uint32
-	MaxTries  uint64
+	NumBlocks uint32  `json:"nblocks"`
+	MaxTries  *uint64 `json:"maxtries" jsonrpcdefault:"1000000"`
 }
 
 // NewGenerateCmd returns a new instance which can be used to issue a generate
@@ -58,11 +58,24 @@ func NewGenerateCmd(numBlocks uint32) *GenerateCmd {
 	}
 }
 
+// EstimateFeeCmd defines the estimatefee JSON-RPC command.
+type EstimateFeeCmd struct {
+	NumBlocks int64
+}
+
+// NewEstimateFeeCmd returns a new instance which can be used to issue a
+// estimatefee JSON-RPC command.
+func NewEstimateFeeCmd(numBlocks int64) *EstimateFeeCmd {
+	return &EstimateFeeCmd{
+		NumBlocks: numBlocks,
+	}
+}
+
 // GenerateToAddressCmd defines the generatetoaddress JSON-RPC command.
 type GenerateToAddressCmd struct {
-	NumBlocks uint32
-	Address   string
-	MaxTries  uint64
+	NumBlocks uint32  `json:"nblocks"`
+	Address   string  `json:"address"`
+	MaxTries  *uint64 `json:"maxtries" jsonrpcdefault:"1000000"`
 }
 
 // GetBestBlockCmd defines the getbestblock JSON-RPC command.

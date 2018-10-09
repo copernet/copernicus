@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"encoding/hex"
+	"github.com/copernet/copernicus/log"
 	lvldb "github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/filter"
@@ -213,6 +215,7 @@ func (dbw *DBWrapper) Read(key []byte) ([]byte, error) {
 		value, err = dbw.db.Get(key, &dbw.readOption)
 	}
 	if err != nil {
+		log.Debug("Read DB key: %s err: %v", hex.EncodeToString(key), err)
 		return nil, err
 	}
 	xor(value, dbw.obfuscateKey)

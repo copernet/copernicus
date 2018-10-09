@@ -2,6 +2,7 @@ package lreindex
 
 import (
 	"container/list"
+	"github.com/copernet/copernicus.bak/persist/global"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -12,7 +13,6 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/disk"
-	"github.com/copernet/copernicus/persist/global"
 	"github.com/copernet/copernicus/util"
 	"os"
 	"time"

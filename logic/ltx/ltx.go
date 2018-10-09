@@ -12,11 +12,10 @@ import (
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/undo"
@@ -40,7 +39,8 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	// check standard
-	if chainparams.ActiveNetParams.RequireStandard {
+	// ToDo: config
+	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
 			return err
@@ -75,7 +75,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
-	// check inputs are avaliable
+	// check inputs are available
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
 	if !areInputsAvailable(transaction, tempCoinsMap) {
 		return errcode.New(errcode.TxErrNoPreviousOut)
@@ -103,7 +103,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	//check standard inputs
-	if chainparams.ActiveNetParams.RequireStandard {
+	if model.ActiveNetParams.RequireStandard {
 		err = checkInputsStandard(transaction, tempCoinsMap)
 		if err != nil {
 			return err
@@ -115,17 +115,17 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	//if chainparams.IsMagneticAnomalyEnable(tip.GetMedianTimePast()) {
 	//	extraFlags |= script.ScriptEnableCheckDataSig
 	//}
-	if chainparams.IsMonolithEnabled(tip.GetMedianTimePast()) {
+	if model.IsMonolithEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableMonolithOpcodes
 	}
 
-	if chainparams.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
+	if model.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableReplayProtection
 	}
 
 	//check inputs
 	var scriptVerifyFlags = uint32(script.StandardScriptVerifyFlags)
-	if !chainparams.ActiveNetParams.RequireStandard {
+	if !model.ActiveNetParams.RequireStandard {
 		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
 		if err != nil {
 			panic("config PromiscuousMempoolFlags err")
@@ -178,7 +178,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
-		log.Debug("block has no transcations")
+		log.Debug("block has no transactions")
 		return errcode.New(errcode.TxErrRejectInvalid)
 	}
 	err := txs[0].CheckCoinbaseTransaction()
@@ -278,7 +278,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 				valueIn += coin.GetAmount()
 			}
-			coinHeight, coinTime := CaculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
+			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
 				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
@@ -326,7 +326,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 // check coinbase with height
 func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error {
 	// Enforce rule that the coinbase starts with serialized block height
-	if blockHeight > chainparams.ActiveNetParams.BIP34Height {
+	if blockHeight > model.ActiveNetParams.BIP34Height {
 		heightNumb := script.NewScriptNum(int64(blockHeight))
 		coinBaseScriptSig := tx.GetIns()[0].GetScriptSig()
 		//heightData := make([][]byte, 0)
@@ -620,7 +620,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 //	return true
 //}
 
-//CalculateLockPoints caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+//CalculateLockPoints calculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
 	activeChain := chain.GetInstance()
 	tipHeight := activeChain.Height()
@@ -677,7 +677,7 @@ func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoin
 	return
 }
 
-func CaculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags uint32) (height int32, time int64) {
+func CalculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags uint32) (height int32, time int64) {
 	ins := transaction.GetIns()
 	preHeights := make([]int32, 0, len(ins))
 	var coinHeight int32
@@ -692,7 +692,7 @@ func CaculateSequenceLocks(transaction *tx.Tx, coinsMap *utxo.CoinsMap, flags ui
 	return calculateSequenceLockPair(transaction, preHeights, flags)
 }
 
-// caculate lockpoint(all ins' max time or height at which it can be spent) of transaction
+// calculate lockpoint(all ins' max time or height at which it can be spent) of transaction
 func calculateSequenceLockPair(transaction *tx.Tx, preHeight []int32, flags uint32) (height int32, time int64) {
 	var maxHeight int32 = -1
 	var maxTime int64 = -1
@@ -869,7 +869,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 		if err != nil {
 			return err
 		}
-		scriptSig, err = combineSignature(transaction, prevPubKey, scriptSig, transaction.GetIns()[i].GetScriptSig(),
+		scriptSig, err = CombineSignature(transaction, prevPubKey, scriptSig, transaction.GetIns()[i].GetScriptSig(),
 			i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 		if err != nil {
 			return err
@@ -887,7 +887,7 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 	return
 }
 
-func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *script.Script,
+func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *script.Script,
 	txOldScriptSig *script.Script, nIn int, money amount.Amount, flags uint32,
 	scriptChecker lscript.Checker) (*script.Script, error) {
 	pubKeyType, pubKeys, err := prevPubKey.CheckScriptPubKeyStandard()
@@ -911,11 +911,16 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 	}
 	if pubKeyType == script.ScriptMultiSig {
 		sigData := make([][]byte, 0, len(scriptSig.ParsedOpCodes))
+		sigData = append(sigData, []byte{})
+
 		okSigs := make(map[string][]byte, len(scriptSig.ParsedOpCodes))
-		var parsedOpCodes = scriptSig.ParsedOpCodes[:]
+
+		// parseOpCodes is the variable of script, put the two script signature to a slice,
+		// find both script's signature and check it, then combine them to a result slice
+		var parsedOpCodes = scriptSig.ParsedOpCodes
 		parsedOpCodes = append(parsedOpCodes, txOldScriptSig.ParsedOpCodes...)
 		for _, opCode := range parsedOpCodes {
-			for _, pubKey := range pubKeys[1 : len(pubKeys)-2] {
+			for _, pubKey := range pubKeys[1 : len(pubKeys)-1] {
 				if okSigs[string(pubKey)] != nil {
 					continue
 				}
@@ -940,10 +945,10 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 				}
 			}
 		}
+
+		// if the amount of signature is not the required, then put the OP_0
 		for sigN < sigsRequired {
-			data := make([]byte, 0, 1)
-			data = append(data, byte(opcodes.OP_0))
-			sigData = append(sigData, data)
+			sigData = append(sigData, []byte{})
 			sigN++
 		}
 		scriptResult := script.NewEmptyScript()
@@ -966,7 +971,7 @@ func combineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 		scriptSig = scriptSig.RemoveOpCodeByIndex(len(scriptSig.ParsedOpCodes) - 1)
 		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(txOldScriptSig.ParsedOpCodes) - 1)
-		scriptResult, err := combineSignature(transaction, redeemScript, scriptSig,
+		scriptResult, err := CombineSignature(transaction, redeemScript, scriptSig,
 			txOldScriptSig, nIn, money, flags, scriptChecker)
 		if err != nil {
 			return nil, err

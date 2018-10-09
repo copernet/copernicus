@@ -25,7 +25,7 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/chainparams"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 )
@@ -72,6 +72,12 @@ type serializedAddrManager struct {
 type localAddress struct {
 	na    *wire.NetAddress
 	score AddressPriority
+}
+
+// LocalAddressInfo is used to return local address for RPC
+type LocalAddressInfo struct {
+	Na    *wire.NetAddress
+	Score int
 }
 
 // AddressPriority type is used to describe the hierarchy of local address
@@ -164,6 +170,13 @@ const (
 // updateAddress is a helper function to either update an address already known
 // to the address manager, or to add the address if not already known.
 func (a *AddrManager) updateAddress(netAddr, srcAddr *wire.NetAddress) {
+	if netAddr != nil {
+		log.Trace("updateAddress netAddr(%s)\n", netAddr.String())
+	}
+	if netAddr != nil {
+		log.Trace("updateAddress srcAddr(%s)\n", srcAddr.String())
+	}
+
 	// Filter out non-routable addresses. Note that non-routable
 	// also includes invalid and local addresses.
 	if !IsRoutable(netAddr) {
@@ -1081,7 +1094,7 @@ func (a *AddrManager) NewAddress(filterOut func(gKey string) bool) (string, erro
 
 			// allow nondefault ports after 50 failed tries.
 			if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
-				chainparams.ActiveNetParams.DefaultPort {
+				model.ActiveNetParams.DefaultPort {
 				continue
 			}
 
@@ -1129,6 +1142,21 @@ func (a *AddrManager) GetBestLocalAddress(remoteAddr *wire.NetAddress) *wire.Net
 	}
 
 	return bestAddress
+}
+
+func (a *AddrManager) GetAllLocalAddress() []LocalAddressInfo {
+	a.lamtx.Lock()
+	defer a.lamtx.Unlock()
+
+	localAddressesInfo := make([]LocalAddressInfo, 0, len(a.localAddresses))
+	for _, la := range a.localAddresses {
+		localAddrInfo := LocalAddressInfo{
+			Na:    wire.NewNetAddressIPPort(la.na.IP, la.na.Port, la.na.Services),
+			Score: int(la.score),
+		}
+		localAddressesInfo = append(localAddressesInfo, localAddrInfo)
+	}
+	return localAddressesInfo
 }
 
 // New returns a new bitcoin address manager.

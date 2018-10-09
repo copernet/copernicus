@@ -25,34 +25,43 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
+	gChain := chain.GetInstance()
 	utxoTip := utxo.GetUtxoCacheInstance()
-	mpHeight := 0
+	//mpHeight := 0
 	allPreout := tx.GetAllPreviousOut()
 	coins := make([]*utxo.Coin, len(allPreout))
 	var txfee int64
 	var inputValue int64
+	spendCoinbase := false
 	for i, preout := range allPreout {
 		if coin := utxoTip.GetCoin(&preout); coin != nil {
 			coins[i] = coin
 			inputValue += int64(coin.GetAmount())
+			if coin.IsCoinBase() {
+				spendCoinbase = true
+			}
 		} else {
 			if coin := pool.GetCoin(&preout); coin != nil {
 				coins[i] = coin
 				inputValue += int64(coin.GetAmount())
+				if coin.IsCoinBase() {
+					spendCoinbase = true
+				}
 			} else {
-				panic("the transaction in mempool, not found its parent " +
+				log.Error("the transaction in mempool, not found its parent " +
 					"transaction in local node and utxo")
+				return errcode.New(errcode.TxErrNoPreviousOut)
 			}
 		}
 	}
 	txfee = inputValue - int64(tx.GetValueOut())
-	ancestors, lp, err := isAcceptTx(tx, txfee)
+	ancestors, lp, err := isTxAcceptable(tx, txfee)
 	if err != nil {
 		return err
 	}
-
 	//second : add transaction to mempool.
-	txentry := mempool.NewTxentry(tx, txfee, 0, mpHeight, *lp, 0, false)
+	txentry := mempool.NewTxentry(tx, txfee, util.GetTime(), gChain.Height(), *lp,
+		tx.GetSigOpCountWithoutP2SH(), spendCoinbase)
 	pool.AddTx(txentry, ancestors)
 
 	return nil
@@ -65,28 +74,23 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 
 	// first collect this tx all outPoint.
 	for i := 0; i < transaction.GetOutsCount(); i++ {
-
 		o := outpoint.OutPoint{Hash: transaction.GetHash(), Index: uint32(i)}
 		vWorkQueue = append(vWorkQueue, o)
 	}
 
-	//todo !!! modify this transaction send node time .
-	//pfrom->nLastTXTime = GetTime();
 	setMisbehaving := make(map[int64]struct{})
 	for len(vWorkQueue) > 0 {
 		prevOut := vWorkQueue[0]
 		vWorkQueue = vWorkQueue[1:]
-		if orphans, ok := pool.OrphanTransactionsByPrev[prevOut]; !ok {
-			continue
-		} else {
+		if orphans, ok := pool.OrphanTransactionsByPrev[prevOut]; ok {
 			for _, iOrphanTx := range orphans {
 				fromPeer := iOrphanTx.NodeID
 				if _, ok := setMisbehaving[fromPeer]; ok {
 					continue
 				}
 
-				err2 := AcceptTxToMemPool(iOrphanTx.Tx)
-				if err2 == nil {
+				err := AcceptTxToMemPool(iOrphanTx.Tx)
+				if err == nil {
 					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
 						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.GetHash(), Index: uint32(i)}
@@ -96,9 +100,9 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 					break
 				}
 
-				if !errcode.IsErrorCode(err2, errcode.TxErrNoPreviousOut) {
+				if !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 					pool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), true)
-					if errcode.IsErrorCode(err2, errcode.RejectTx) {
+					if errcode.IsErrorCode(err, errcode.RejectTx) {
 						pool.RecentRejects[iOrphanTx.Tx.GetHash()] = struct{}{}
 					}
 					break
@@ -110,7 +114,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 	return acceptTx
 }
 
-func isAcceptTx(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
+func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
 	pool := mempool.GetInstance()
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	if _, ok := allEntry[tx.GetHash()]; ok {
@@ -157,7 +161,7 @@ func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason) {
 }
 
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
-	gChain := chain.GetInstance()
+	//gChain := chain.GetInstance()
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
@@ -168,8 +172,8 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	txToRemove := make(map[*mempool.TxEntry]struct{})
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
-		lp := entry.GetLockPointFromTxEntry()
-		validLP := entry.CheckLockPointValidity(gChain)
+		//lp := entry.GetLockPointFromTxEntry()
+		//validLP := entry.CheckLockPointValidity(gChain)
 		//state := NewValidationState()
 
 		tx := entry.Tx
@@ -215,9 +219,9 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 			}
 		}
 
-		if !validLP {
-			entry.SetLockPointFromTxEntry(lp)
-		}
+		//if !validLP {
+		entry.SetLockPointFromTxEntry(*tlp)
+		//}
 	}
 
 	allRemoves := make(map[*mempool.TxEntry]struct{})
@@ -304,13 +308,13 @@ func CheckMempool() {
 		if entry.SumTxCountWithAncestors != nCountCheck {
 			panic("the txentry's ancestors number is incorrect .")
 		}
-		if entry.SumSizeWitAncestors != nSizeCheck {
+		if entry.SumTxSizeWitAncestors != nSizeCheck {
 			panic("the txentry's ancestors size is incorrect .")
 		}
-		if entry.SumSigOpCountWithAncestors != nSigOpCheck {
+		if entry.SumTxSigOpCountWithAncestors != nSigOpCheck {
 			panic("the txentry's ancestors sigopcount is incorrect .")
 		}
-		if entry.SumFeeWithAncestors != nFeesCheck {
+		if entry.SumTxFeeWithAncestors != nFeesCheck {
 			panic("the txentry's ancestors fee is incorrect .")
 		}
 
@@ -332,7 +336,7 @@ func CheckMempool() {
 		if len(setChildrenCheck) != len(entry.ChildTx) {
 			panic("the transaction children set is different ...")
 		}
-		if entry.SumSizeWithDescendants < int64(childSize+entry.TxSize) {
+		if entry.SumTxSizeWithDescendants < int64(childSize+entry.TxSize) {
 			panic("the transaction descendant's fee is less its children fee ...")
 		}
 
@@ -408,7 +412,7 @@ func CheckMempool() {
 	for _, entry := range spentOut {
 		txid := entry.Tx.GetHash()
 		if e, ok := allEntry[txid]; !ok {
-			panic("the transaction not exsit mempool. . .")
+			panic("the transaction not exist in mempool. . .")
 		} else {
 			if e.Tx != entry.Tx {
 				panic("mempool store the transaction is different with it's two struct . . .")
@@ -429,19 +433,20 @@ func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
 func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 	pool := mempool.GetInstance()
 	pool.RLock()
+	defer pool.RUnlock()
 	if orphan, ok := pool.OrphanTransactions[hash]; ok {
 		return orphan.Tx
 	}
-	pool.RUnlock()
+
 	return nil
 }
 
 func FindRejectTxInMempool(hash util.Hash) bool {
 	pool := mempool.GetInstance()
 	pool.RLock()
+	defer pool.RUnlock()
 	if _, ok := pool.RecentRejects[hash]; ok {
 		return ok
 	}
-	pool.RUnlock()
 	return false
 }

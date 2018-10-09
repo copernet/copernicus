@@ -161,8 +161,8 @@ func (msg *MsgReject) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgReject) MaxPayloadLength(pver uint32) uint32 {
-	plen := uint32(0)
+func (msg *MsgReject) MaxPayloadLength(pver uint32) uint64 {
+	plen := uint64(0)
 	// The reject message did not exist before protocol version
 	// RejectVersion.
 	if pver >= RejectVersion {

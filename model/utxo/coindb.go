@@ -2,6 +2,8 @@ package utxo
 
 import (
 	"bytes"
+	"encoding/hex"
+
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/persist/db"
@@ -11,6 +13,10 @@ import (
 
 type CoinsDB struct {
 	dbw *db.DBWrapper
+}
+
+func (coinsViewDB *CoinsDB) GetDBW() *db.DBWrapper {
+	return coinsViewDB.dbw
 }
 
 func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) {
@@ -28,6 +34,9 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 	}
 	coin := NewEmptyCoin()
 	err = coin.Unserialize(bytes.NewBuffer(coinBuff))
+	if outpoint.Hash.String() == "7e621eeb02874ab039a8566fd36f4591e65eca65313875221842c53de6907d6c" {
+		log.Debug("coinsViewDB.GetCoin coin=%+v,script=%s\n", coin, hex.EncodeToString(coin.GetScriptPubKey().GetData()))
+	}
 	return coin, err
 }
 
@@ -82,6 +91,10 @@ func (coinsViewDB *CoinsDB) BatchWrite(cm map[outpoint.OutPoint]*Coin, hashBlock
 					log.Error("coinDB:serialize coinByte failed %v", err)
 					return err
 				}
+				if k.Hash.String() == "7e621eeb02874ab039a8566fd36f4591e65eca65313875221842c53de6907d6c" {
+					log.Debug("BatchWrite,coin=%+v,script=%s,coinByte=%s\n", v, hex.EncodeToString(v.GetScriptPubKey().GetData()),
+						hex.EncodeToString(coinByte.Bytes()))
+				}
 				batch.Write(bufEntry.Bytes(), coinByte.Bytes())
 			}
 			changed++
@@ -116,7 +129,7 @@ func newCoinsDB(do *db.DBOption) *CoinsDB {
 	dbw, err := db.NewDBWrapper(do)
 
 	if err != nil {
-		panic("init CoinsDB failed...")
+		panic("init CoinsDB failed..." + err.Error())
 	}
 
 	return &CoinsDB{

@@ -36,8 +36,7 @@ func interruptListener() <-chan struct{} {
 					"shutting down...", sig)
 
 			case <-shutdownRequestChannel:
-				log.Info("Shutdown requested.  " +
-					"shutting down...")
+				log.Info("Shutdown requested. shutting down...")
 			}
 
 			closeOnce.Do(

@@ -214,7 +214,7 @@ type GetMempoolInfoResult struct {
 	Size          int     `json:"size"`
 	Bytes         uint64  `json:"bytes"`
 	Usage         int64   `json:"usage"`
-	MaxMempool    int64   `json:"maxmempool"`
+	MaxMempool    int     `json:"maxmempool"`
 	MempoolMinFee float64 `json:"mempoolminfee"`
 }
 
@@ -232,25 +232,25 @@ type NetworksResult struct {
 type LocalAddressesResult struct {
 	Address string `json:"address"`
 	Port    uint16 `json:"port"`
-	Score   int32  `json:"score"`
+	Score   int    `json:"score"`
 }
 
 // GetNetworkInfoResult models the data returned from the getnetworkinfo
 // command.
 type GetNetworkInfoResult struct {
-	Version         int32                  `json:"version"`
-	SubVersion      string                 `json:"subversion"`
-	ProtocolVersion int32                  `json:"protocolversion"`
-	LocalServices   string                 `json:"localservices"`
-	LocalRelay      bool                   `json:"localrelay"`
-	TimeOffset      int64                  `json:"timeoffset"`
-	NetworkActive   bool                   `json:"networkactive"`
-	Connections     int32                  `json:"connections"`
-	Networks        []NetworksResult       `json:"networks"`
-	RelayFee        float64                `json:"relayfee"`
-	IncrementalFee  float64                `json:"incrementalfee"`
-	LocalAddresses  []LocalAddressesResult `json:"localaddresses"`
-	Warnings        string                 `json:"warnings"`
+	Version          int                    `json:"version"`
+	SubVersion       string                 `json:"subversion"`
+	ProtocolVersion  uint32                 `json:"protocolversion"`
+	LocalServices    string                 `json:"localservices"`
+	LocalRelay       bool                   `json:"localrelay"`
+	TimeOffset       int64                  `json:"timeoffset"`
+	NetworkActive    bool                   `json:"networkactive"`
+	Connections      int32                  `json:"connections"`
+	Networks         []NetworksResult       `json:"networks"`
+	RelayFee         float64                `json:"relayfee"`
+	ExcessUtxoCharge float64                `json:"excessutxocharge"`
+	LocalAddresses   []LocalAddressesResult `json:"localaddresses"`
+	Warnings         string                 `json:"warnings"`
 }
 
 // GetPeerInfoResult models the data returned from the getpeerinfo command.
@@ -312,11 +312,22 @@ type ScriptPubKeyResult struct {
 // GetTxOutResult models the data from the gettxout command.
 type GetTxOutResult struct {
 	BestBlock     string             `json:"bestblock"`
-	Confirmations int64              `json:"confirmations"`
+	Confirmations int32              `json:"confirmations"`
 	Value         string             `json:"value"`
 	ScriptPubKey  ScriptPubKeyResult `json:"scriptPubKey"`
-	Version       int32              `json:"version"`
 	Coinbase      bool               `json:"coinbase"`
+}
+
+// GetTxOutSetInfoResult models the data from the gettxoutsetinfo command.
+type GetTxOutSetInfoResult struct {
+	Height         int     `json:"height"`
+	BestBlock      string  `json:"bestblock"`
+	Transactions   uint64  `json:"transactions"`
+	TxOuts         uint64  `json:"txouts"`
+	BogoSize       uint64  `json:"bogosize"`
+	HashSerialized string  `json:"hash_serialized"`
+	DiskSize       uint64  `json:"disk_size"`
+	TotalAmount    float64 `json:"total_amount"`
 }
 
 // GetNetTotalsResult models the data returned from the getnettotals command.
@@ -440,7 +451,7 @@ func (v *VinPrevOut) MarshalJSON() ([]byte, error) {
 // Vout models parts of the tx data.  It is defined separately since both
 // getrawtransaction and decoderawtransaction use the same structure.
 type Vout struct {
-	Value        int64              `json:"value"`
+	Value        float64            `json:"value"`
 	N            uint32             `json:"n"`
 	ScriptPubKey ScriptPubKeyResult `json:"scriptPubKey"`
 }
@@ -491,7 +502,7 @@ type TxRawResult struct {
 	Vin           []Vin  `json:"vin"`
 	Vout          []Vout `json:"vout"`
 	BlockHash     string `json:"blockhash"`
-	Confirmations int    `json:"confirmations"`
+	Confirmations int32  `json:"confirmations"`
 	Time          uint32 `json:"time"`
 	Blocktime     uint32 `json:"blocktime"`
 }
@@ -518,7 +529,7 @@ type SearchRawTransactionsResult struct {
 type TxRawDecodeResult struct {
 	Txid     string `json:"txid"`
 	Hash     string `json:"hash"`
-	Size     uint   `json:"size"`
+	Size     uint32 `json:"size"`
 	Version  int32  `json:"version"`
 	Locktime uint32 `json:"locktime"`
 	Vin      []Vin  `json:"vin"`
@@ -538,7 +549,7 @@ type GetMempoolEntryRelativeInfoVerbose struct {
 	Fee              float64  `json:"fee"`
 	ModifiedFee      float64  `json:"modifiedfee"`
 	Time             int64    `json:"time"`
-	Height           int      `json:"height"`
+	Height           int32    `json:"height"`
 	StartingPriority float64  `json:"startingpriority"`
 	CurrentPriority  float64  `json:"currentpriority"`
 	DescendantCount  int64    `json:"descendantcount"`
@@ -588,4 +599,19 @@ type BannedINfo struct {
 	BannedUntil int64  `json:"banned_until"`
 	BanCreated  int64  `json:"ban_created"`
 	BanReason   string `json:"ban_reason"`
+}
+
+// VersionResult models objects included in the version response.
+type VersionResult struct {
+	VersionString string `json:"versionstring"`
+	Major         uint32 `json:"major"`
+	Minor         uint32 `json:"minor"`
+	Patch         uint32 `json:"patch"`
+	Prerelease    string `json:"prerelease"`
+	BuildMetadata string `json:"buildmetadata"`
+}
+
+type WaitForBlockHeightResult struct {
+	Hash   string `json:"hash"`
+	Height int32  `json:"height"`
 }

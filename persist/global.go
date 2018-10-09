@@ -1,7 +1,8 @@
-package global
+package persist
 
 import (
 	"sync"
+	"time"
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -22,6 +23,7 @@ var (
 	CsMain          = new(sync.RWMutex)
 	CsLastBlockFile = new(sync.RWMutex)
 	persistGlobal   *PersistGlobal
+	Reindex         bool
 )
 
 type PersistGlobal struct {
@@ -35,8 +37,8 @@ type PersistGlobal struct {
 	GlobalTimeConnectTotal                               int64
 	GlobalTimeChainState                                 int64
 	GlobalTimeFlush                                      int64
-	GlobalTimeCheck                                      int64
-	GlobalTimeForks                                      int64
+	GlobalTimeCheck                                      time.Duration
+	GlobalTimeForks                                      time.Duration
 	GlobalTimePostConnect                                int64
 	GlobalTimeTotal                                      int64
 	GlobalBlockSequenceID                                int32
@@ -48,7 +50,6 @@ type PruneState struct {
 	HavePruned      bool
 	PruneTarget     uint64
 	CheckForPruning bool
-	Reindex         bool
 }
 
 func (pg *PersistGlobal) AddDirtyBlockIndex(pindex *blockindex.BlockIndex) {
@@ -72,7 +73,6 @@ func InitPruneState() *PruneState {
 		PruneMode:       false,
 		HavePruned:      false,
 		CheckForPruning: false,
-		Reindex:         false,
 		PruneTarget:     0,
 	}
 	return ps

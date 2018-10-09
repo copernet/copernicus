@@ -1,11 +1,10 @@
-package chainparams
+package model
 
 import (
 	"errors"
 	"math/big"
 	"time"
 
-	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/net/wire"
@@ -14,7 +13,7 @@ import (
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
 
-var ActiveNetParams = &TestNetParams
+var ActiveNetParams = &MainNetParams
 
 var (
 	bigOne = big.NewInt(1)
@@ -56,7 +55,7 @@ type BitcoinParams struct {
 	ReduceMinDifficulty      bool
 	MinDiffReductionTime     time.Duration
 	GenerateSupported        bool
-	Checkpoints              []*model.Checkpoint
+	Checkpoints              []*Checkpoint
 	MineBlocksOnDemands      bool
 
 	// Enforce current block version once network has
@@ -158,7 +157,7 @@ var MainNetParams = BitcoinParams{
 	ReduceMinDifficulty:      false,
 	MinDiffReductionTime:     0,
 	GenerateSupported:        false,
-	Checkpoints: []*model.Checkpoint{
+	Checkpoints: []*Checkpoint{
 		{11111, util.HashFromString("0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
 		{33333, util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")},
 		{74000, util.HashFromString("0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20")},
@@ -266,7 +265,7 @@ var TestNetParams = BitcoinParams{
 	ReduceMinDifficulty:      true,
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        false,
-	Checkpoints: []*model.Checkpoint{
+	Checkpoints: []*Checkpoint{
 		//{546, util.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
 		//{1155876, util.HashFromString("00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5")},
 		{1200000, util.HashFromString("00000000d91bdbb5394bcf457c0f0b7a7e43eb978e2d881b6c2a4c2756abc558")},
@@ -354,7 +353,7 @@ var RegressionNetParams = BitcoinParams{
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        true,
 	Checkpoints:              nil,
-	MineBlocksOnDemands:      false,
+	MineBlocksOnDemands:      true,
 	// Enforce current block version once majority of the network has
 	// upgraded.
 	// 75% (750 / 1000)
@@ -443,4 +442,12 @@ func IsDAAEnabled(height int32) bool {
 
 func IsReplayProtectionEnabled(medianTimePast int64) bool {
 	return medianTimePast >= ActiveNetParams.MagneticAnomalyActivationTime
+}
+
+func SetTestNetParams() {
+	ActiveNetParams = &TestNetParams
+}
+
+func SetRegTestParams() {
+	ActiveNetParams = &RegressionNetParams
 }

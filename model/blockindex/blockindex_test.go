@@ -7,10 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/util"
 )
+
+//todo the unit test did not pass
 
 const SkipListLength = 30000
 
@@ -130,15 +132,16 @@ func TestGetBlockTimeMax(t *testing.T) {
 //}
 
 func TestGetUndoPos(t *testing.T) {
-	//var bIndex BlockIndex
-	//testInt := int32(34536)
-	//testUint := uint32(53645)
-	//bIndex.File = testInt
-	//bIndex.UndoPos = testUint
-	//var ret = bIndex.GetUndoPos()
-	//if ret.File != testInt || ret.Pos != testUint {
-	//	t.Errorf("TestGetUndoPos is wrong")
-	//}
+	var bIndex BlockIndex
+	testInt := int32(34536)
+	testUint := uint32(53645)
+	bIndex.File = testInt
+	bIndex.UndoPos = testUint
+	bIndex.AddStatus(BlockHaveUndo)
+	var ret = bIndex.GetUndoPos()
+	if ret.File != testInt || ret.Pos != testUint {
+		t.Errorf("TestGetUndoPos is wrong")
+	}
 }
 
 func TestGetBlockPos(t *testing.T) {
@@ -193,7 +196,7 @@ func TestGetBlockHeader(t *testing.T) {
 }
 
 func TestIsGenesis(t *testing.T) {
-	var params chainparams.BitcoinParams
+	var params model.BitcoinParams
 	var bIndex BlockIndex
 	params.GenesisBlock = new(block.Block)
 	bIndex.SetBlockHash(params.GenesisBlock.GetHash())
@@ -204,16 +207,10 @@ func TestIsGenesis(t *testing.T) {
 }
 
 func TestIsReplayProtectionEnabled(t *testing.T) {
-	var params chainparams.BitcoinParams
+	var params model.BitcoinParams
 	var bIndex BlockIndex
 	params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast() + 1
-	//if bIndex.IsReplayProtectionEnabled(&params) {
-	//	t.Errorf("IsCashHFEnabled is wrong, got true, want false")
-	//}
-	//params.MagneticAnomalyActivationTime = bIndex.GetMedianTimePast()
-	//if !bIndex.IsReplayProtectionEnabled(&params) {
-	//	t.Errorf("IsCashHFEnabled is wrong, got false, want true")
-	//}
+
 }
 
 func TestNewBlockIndex(t *testing.T) {
@@ -226,26 +223,26 @@ func TestNewBlockIndex(t *testing.T) {
 }
 
 func TestGetMedianTimePast(t *testing.T) {
-	//BlocksMain := make([]BlockIndex, 11)
-	//Times := [medianTimeSpan]uint32{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5}
-	//for i := 0; i < medianTimeSpan; i++ {
-	//	BlocksMain[i].Header.Time = Times[i]
-	//	if i > 0 {
-	//		BlocksMain[i].Prev = &BlocksMain[i-1]
-	//	} else {
-	//		BlocksMain[i].Prev = nil
-	//	}
-	//}
-	//ret := BlocksMain[medianTimeSpan-1].GetMedianTimePast()
-	//want := int64(4)
-	//if ret != want {
-	//	t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
-	//}
-	//ret = BlocksMain[medianTimeSpan-4].GetMedianTimePast()
-	//want = int64(4)
-	//if ret != want {
-	//	t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
-	//}
+	BlocksMain := make([]BlockIndex, 11)
+	Times := [medianTimeSpan]uint32{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5}
+	for i := 0; i < medianTimeSpan; i++ {
+		BlocksMain[i].Header.Time = Times[i]
+		if i > 0 {
+			BlocksMain[i].Prev = &BlocksMain[i-1]
+		} else {
+			BlocksMain[i].Prev = nil
+		}
+	}
+	ret := BlocksMain[medianTimeSpan-1].GetMedianTimePast()
+	want := int64(4)
+	if ret != want {
+		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
+	}
+	ret = BlocksMain[medianTimeSpan-4].GetMedianTimePast()
+	want = int64(4)
+	if ret != want {
+		t.Errorf("GetMedianTimePast is wrong, got %d, want %d", ret, want)
+	}
 }
 
 func TestSerialize(t *testing.T) {
@@ -272,5 +269,21 @@ func TestSerialize(t *testing.T) {
 				bIndex1, bIndex2)
 			return
 		}
+	}
+}
+
+func TestRaiseValidity(t *testing.T) {
+	var bIndex BlockIndex
+	bIndex.AddStatus(BlockValidTransactions)
+	ret1 := bIndex.RaiseValidity(BlockValidTree)
+	if ret1 {
+		t.Error("bIndex.getValidity() >= upto, should return false")
+	}
+	ret2 := bIndex.RaiseValidity(BlockValidChain)
+	if !ret2 {
+		t.Error("bIndex.getValidity() < upto, should return true")
+	}
+	if bIndex.getValidity() != BlockValidChain {
+		t.Error("bIndex.RaiseValidity failed")
 	}
 }

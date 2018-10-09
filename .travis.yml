@@ -15,14 +15,20 @@ go:
   - 1.10.x
 
 cache:
+  ccache: true
   apt: true
   directories:
-    - $HOME/.glide/cache
+    - ${TRAVIS_BUILD_DIR}/vendor
+    - $HOME/.glide
     - _venv
     - $GOPATH/src
     - $GOPATH/pkg
+    - depends/built
+    - depends/sdk-sources
+    - .autoconf
 
-before_cache:  # glide touches ORIG_HEAD on `glide install`
+before_cache:
+  - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
   - find $HOME/.glide/cache -name ORIG_HEAD -exec rm {} \;
   - rm -rf $GOPATH/src/github.com/copernet/copernicus/*
   - rm -rf $GOPATH/pkg/**/github.com/copernet/copernicus
@@ -30,10 +36,7 @@ before_cache:  # glide touches ORIG_HEAD on `glide install`
 before_install:
   - export GOROOT=$(go env GOROOT)
   - export CXX="g++-6" CC="gcc-6"
-  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags2_2.0-1.1ubuntu1_amd64.deb
-  - sudo dpkg -i libgflags2_2.0-1.1ubuntu1_amd64.deb
-  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags-dev_2.0-1.1ubuntu1_amd64.deb
-  - sudo dpkg -i libgflags-dev_2.0-1.1ubuntu1_amd64.deb
+  - export PATH=$PATH:$HOME/gopath/bin
 
 
 install:
@@ -48,11 +51,12 @@ install:
 
   - glide install
 
-  - go get -v github.com/alecthomas/gometalinter
+  - go get  github.com/alecthomas/gometalinter
   - gometalinter --install
-script:
-  - export PATH=$PATH:$HOME/gopath/bin
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
 
+script:
   - ./check.sh
 
 notifications:

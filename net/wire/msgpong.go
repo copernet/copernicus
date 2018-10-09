@@ -58,8 +58,8 @@ func (msg *MsgPong) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgPong) MaxPayloadLength(pver uint32) uint32 {
-	plen := uint32(0)
+func (msg *MsgPong) MaxPayloadLength(pver uint32) uint64 {
+	plen := uint64(0)
 	// The pong message did not exist for BIP0031Version and earlier.
 	// NOTE: > is not a mistake here.  The BIP0031 was defined as AFTER
 	// the version unlike most others.

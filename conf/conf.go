@@ -1,7 +1,7 @@
 package conf
 
 import (
-	"flag"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -11,6 +11,17 @@ import (
 
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
+	"path"
+)
+
+const (
+	AppMajor uint = 0
+	AppMinor uint = 0
+	AppPatch uint = 1
+
+	// AppPreRelease MUST only contain characters from semanticAlphabet
+	// per the semantic versioning spec.
+	AppPreRelease = "beta"
 )
 
 const (
@@ -54,21 +65,33 @@ const (
 	defaultMaxMempoolSize        = 300
 )
 
-var Cfg *Configuration
-var DataDir string
+var (
+	Cfg     *Configuration
+	DataDir string
+)
 
-// init configuration
-func initConfig() *Configuration {
+// InitConfig init configuration
+func InitConfig(args []string) *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
-
-	getdatadir := flag.String("datadir", defaultDataDir, "specified program data dir")
-	reindex := flag.Bool("reindex", false, "reindex")
-	flag.Parse()
-
 	DataDir = defaultDataDir
-	if getdatadir != nil {
-		DataDir = *getdatadir
+
+	opts, err := InitArgs(args)
+	if err != nil {
+		panic(err)
+	}
+	if opts.RegTest && opts.TestNet {
+		panic("Both testnet and regtest are true")
+	}
+
+	if len(opts.DataDir) > 0 {
+		DataDir = opts.DataDir
+	}
+
+	if opts.TestNet {
+		DataDir = path.Join(DataDir, "testnet")
+	} else if opts.RegTest {
+		DataDir = path.Join(DataDir, "regtest")
 	}
 
 	if !ExistDataDir(DataDir) {
@@ -107,15 +130,23 @@ func initConfig() *Configuration {
 		field := t.Field(i)
 		if v.Field(i).Type().Kind() != reflect.Struct {
 			key := field.Name
-			value := field.Tag.Get(tagName)
+			value, ok := field.Tag.Lookup(tagName)
+			if !ok {
+				continue
+			}
 			//set default value
 			viper.SetDefault(key, value)
 			//log.Printf("key is: %v,value is: %v\n", key, value)
 		} else {
 			structField := v.Field(i).Type()
+			structName := t.Field(i).Name
 			for j := 0; j < structField.NumField(); j++ {
-				key := structField.Field(j).Name
-				values := structField.Field(j).Tag.Get(tagName)
+				fieldName := structField.Field(j).Name
+				key := fmt.Sprintf("%s.%s", structName, fieldName)
+				values, ok := structField.Field(j).Tag.Lookup(tagName)
+				if !ok {
+					continue
+				}
 				viper.SetDefault(key, values)
 				//log.Printf("key is: %v,value is: %v\n", key, values)
 			}
@@ -131,10 +162,20 @@ func initConfig() *Configuration {
 
 	// set data dir
 	config.DataDir = DataDir
-	config.Reindex = *reindex
+	config.Reindex = opts.Reindex
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
+
+	if opts.RegTest {
+		config.P2PNet.RegTest = true
+		if !viper.IsSet("BlockIndex.CheckBlockIndex") {
+			config.BlockIndex.CheckBlockIndex = true
+		}
+	}
+	if opts.TestNet {
+		config.P2PNet.TestNet = true
+	}
 	return config
 }
 
@@ -173,7 +214,7 @@ type Configuration struct {
 		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
 		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
 		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
-		MaxPoolSize          int   // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
 		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
 	}
 	P2PNet struct {
@@ -183,7 +224,9 @@ type Configuration struct {
 		ConnectPeersOnStart []string
 		DisableBanning      bool `default:"true"`
 		BanThreshold        uint32
-		SimNet              bool          `default:"false"`
+		TestNet             bool
+		RegTest             bool `default:"false"`
+		SimNet              bool
 		DisableListen       bool          `default:"true"`
 		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
 		BanDuration         time.Duration // How long to ban misbehaving peers
@@ -202,7 +245,7 @@ type Configuration struct {
 		SimNet       bool
 		ConnectPeers []string
 	}
-	Protocal struct {
+	Protocol struct {
 		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}
@@ -217,13 +260,21 @@ type Configuration struct {
 		DustRelayFee int64 `default:"83"`
 	}
 	Chain struct {
-		AssumeValid string
+		AssumeValid    string
+		StartLogHeight int32 `default:"2147483647"`
 	}
 	Mining struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee
 		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
 		BlockVersion  int32  `default:"-1"`
 		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
+	}
+	PProf struct {
+		IP   string `default:"localhost"`
+		Port string `default:"6060"`
+	}
+	BlockIndex struct {
+		CheckBlockIndex bool
 	}
 }
 
@@ -232,10 +283,6 @@ func must(i interface{}, err error) interface{} {
 		panic(err)
 	}
 	return i
-}
-
-func init() {
-	Cfg = initConfig()
 }
 
 func CopyFile(src, des string) (w int64, err error) {

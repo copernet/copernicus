@@ -9,7 +9,8 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
+	"time"
 )
 
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
@@ -50,8 +51,8 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
 		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
 
-	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s\n",
-		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s currenttime:%v\n",
+		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String(), time.Now())
 
 	return isNewBlock, err
 }
@@ -64,22 +65,28 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 
 	// Ensure that CheckBlock() passes before calling AcceptBlock, as
 	// belt-and-suspenders.
-	err := lblock.CheckBlock(pblock)
-	global.CsMain.Lock()
-	defer global.CsMain.Unlock()
-	if err == nil {
-		_, _, err = lblock.AcceptBlock(pblock, fForceProcessing, nil, fNewBlock)
+	if err := lblock.CheckBlock(pblock, true, true); err != nil {
+		log.Error("check block failed, please check: %v", err)
+		return err
 	}
-	if err != nil {
-		// todo !!! add asynchronous notification
-		log.Error(" AcceptBlock FAILED ")
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+
+	if _, _, err := lblock.AcceptBlock(pblock, fForceProcessing, nil, fNewBlock); err != nil {
+		h := pblock.GetHash()
+		log.Error(" AcceptBlock FAILED: %s err:%v", h.String(), err)
 		return err
 	}
 
-	lchain.CheckBlockIndex()
+	chain.GetInstance().SendNotification(chain.NTBlockAccepted, pblock)
+
+	if err := lchain.CheckBlockIndex(); err != nil {
+		log.Error("check block index failed, please check: %v", err)
+		return err
+	}
 
 	// Only used to report errors, not invalidity - ignore it
-	if err = lchain.ActivateBestChain(pblock); err != nil {
+	if err := lchain.ActivateBestChain(pblock); err != nil {
 		log.Error(" ActivateBestChain failed :%v", err)
 		return err
 	}

@@ -85,7 +85,7 @@ const maxAlertSize = MaxMessagePayload - maxSignatureSize - MaxVarIntPayload - 1
 // fit into a maximum size alert.
 //
 // maxAlertSize = fixedAlertSize + max(SetCancel) + max(SetSubVer) + 3*(string)
-// for caculating maximum number of cancel IDs, set all other var  sizes to 0
+// for calculating maximum number of cancel IDs, set all other var  sizes to 0
 // maxAlertSize = fixedAlertSize + (MaxVarIntPayload-1) + x*sizeOf(int32)
 // x = (maxAlertSize - fixedAlertSize - MaxVarIntPayload + 1) / 4
 const maxCountSetCancel = (maxAlertSize - fixedAlertSize - MaxVarIntPayload + 1) / 4
@@ -94,7 +94,7 @@ const maxCountSetCancel = (maxAlertSize - fixedAlertSize - MaxVarIntPayload + 1)
 // fit into a maximum size alert.
 //
 // maxAlertSize = fixedAlertSize + max(SetCancel) + max(SetSubVer) + 3*(string)
-// for caculating maximum number of subversions, set all other var sizes to 0
+// for calculating maximum number of subversions, set all other var sizes to 0
 // maxAlertSize = fixedAlertSize + (MaxVarIntPayload-1) + x*sizeOf(string)
 // x = (maxAlertSize - fixedAlertSize - MaxVarIntPayload + 1) / sizeOf(string)
 // subversion would typically be something like "/Satoshi:0.7.2/" (15 bytes)
@@ -392,7 +392,7 @@ func (msg *MsgAlert) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgAlert) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgAlert) MaxPayloadLength(pver uint32) uint64 {
 	// Since this can vary depending on the message, make it the max
 	// size allowed.
 	return MaxMessagePayload

@@ -22,6 +22,8 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
@@ -211,18 +213,24 @@ type parsedRPCCmd struct {
 func (s *Server) standardCmdResult(cmd *parsedRPCCmd, closeChan <-chan struct{}) (interface{}, error) {
 	handler, ok := rpcHandlers[cmd.method]
 	if ok {
-		goto handled
+		return handler(s, cmd.cmd, closeChan)
 	}
-handled:
-	return handler(s, cmd.cmd, closeChan)
+	return nil, btcjson.ErrRPCMethodNotFound
 }
 
-func parseCmd(request *btcjson.Request) *parsedRPCCmd {
+func parseCmd(request *btcjson.Request, jsonParam *map[string]json.RawMessage) *parsedRPCCmd {
 	var parsedCmd parsedRPCCmd
+	var cmd interface{}
+	var err error
+
 	parsedCmd.id = request.ID
 	parsedCmd.method = request.Method
+	if jsonParam == nil {
+		cmd, err = btcjson.UnmarshalCmd(request)
+	} else {
+		cmd, err = btcjson.UnmarshalJSONCmd(request, jsonParam)
+	}
 
-	cmd, err := btcjson.UnmarshalCmd(request)
 	if err != nil {
 		if jerr, ok := err.(btcjson.Error); ok &&
 			jerr.ErrorCode == btcjson.ErrUnregisteredMethod {
@@ -303,10 +311,21 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 	var jsonErr error
 	var result interface{}
 	var request btcjson.Request
+	var jsonParamRequest btcjson.JSONParamRequest
+	var jsonParams *map[string]json.RawMessage
 	if err := json.Unmarshal(body, &request); err != nil {
-		jsonErr = &btcjson.RPCError{
-			Code:    btcjson.ErrRPCParse.Code,
-			Message: "Failed to parse request: " + err.Error(),
+		if err = json.Unmarshal(body, &jsonParamRequest); err != nil {
+			jsonErr = &btcjson.RPCError{
+				Code:    btcjson.ErrRPCParse.Code,
+				Message: "Failed to parse request: " + err.Error(),
+			}
+		} else {
+			jsonParams = &jsonParamRequest.Params
+			request = btcjson.Request{
+				Jsonrpc: jsonParamRequest.Jsonrpc,
+				Method:  jsonParamRequest.Method,
+				ID:      jsonParamRequest.ID,
+			}
 		}
 	}
 	if jsonErr == nil {
@@ -339,7 +358,7 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 		//}
 
 		if jsonErr == nil {
-			parsedCmd := parseCmd(&request)
+			parsedCmd := parseCmd(&request, jsonParams)
 			if parsedCmd.err != nil {
 				jsonErr = parsedCmd.err
 			} else {
@@ -453,6 +472,10 @@ type ServerConfig struct {
 	Listeners []net.Listener
 	// unix timestamp for when the server that is hosting the RPC server started.
 	StartupTime int64
+	ConnMgr     server.RPCConnManager
+	// The fee estimator keeps track of how long transactions are left in
+	// the mempool before they are mined into blocks.
+	FeeEstimator *mempool.FeeEstimator
 }
 
 // SetupRPCListeners returns a slice of listeners that are configured for use
@@ -528,8 +551,7 @@ func parseListeners(addrs []string) ([]net.Addr, error) {
 
 		// Empty host or host of * on plan9 is both IPv4 and IPv6.
 		if host == "" || (host == "*" && runtime.GOOS == "plan9") {
-			netAddrs = append(netAddrs, simpleAddr{net: "tcp4", addr: addr})
-			netAddrs = append(netAddrs, simpleAddr{net: "tcp6", addr: addr})
+			netAddrs = append(netAddrs, simpleAddr{net: "tcp4", addr: addr}, simpleAddr{net: "tcp6", addr: addr})
 			continue
 		}
 
@@ -578,8 +600,8 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		statusLines: make(map[int]string),
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
-		requestProcessShutdown: make(chan struct{}),
-		quit: make(chan int),
+		requestProcessShutdown: make(chan struct{}, 1),
+		quit:                   make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass

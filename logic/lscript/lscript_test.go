@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/btcsuite/btcd/txscript"
+
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -383,7 +383,7 @@ func parseScriptFlag(s string) (uint32, error) {
 		if flag, ok := scriptFlagMap[w]; ok {
 			res |= flag
 		} else {
-			return 0, fmt.Errorf("not found scirpt flag for name %s", w)
+			return 0, fmt.Errorf("not found script flag for name %s", w)
 		}
 	}
 	return res, nil
@@ -391,13 +391,13 @@ func parseScriptFlag(s string) (uint32, error) {
 
 func signMultisig(scriptPubKey *script.Script, keys []crypto.PrivateKey, transaction *tx.Tx) *script.Script {
 	hash, _ := tx.SignatureHash(transaction, scriptPubKey,
-		uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
+		uint32(crypto.SigHashAll), 0, amount.Amount(0), 0)
 	result := script.NewEmptyScript()
 	result.PushOpCode(opcodes.OP_0)
 	for _, key := range keys {
 		vchsig, _ := key.Sign(hash.GetCloneBytes())
 		result.PushSingleData(bytes.Join([][]byte{vchsig.Serialize(),
-			{byte(txscript.SigHashAll)}}, []byte{}))
+			{byte(crypto.SigHashAll)}}, []byte{}))
 	}
 	return result
 }

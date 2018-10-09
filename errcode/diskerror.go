@@ -20,9 +20,19 @@ const (
 	// ErrorBadBlkLength
 	// ErrorBadBlkTxSize
 	// ErrorBadBlkTx
+	ErrorNotExistsInDiskMap // errorTest
 )
 
-var DiskErrString = map[DiskErr]string{}
+var DiskErrString = map[DiskErr]string{
+	ErrorOutOfDiskSpace:                    "ErrorOutOfDiskSpace",
+	ErrorNotFindUndoFile:                   "ErrorNotFindUndoFile",
+	ErrorFailedToWriteToCoinDatabase:       "ErrorFailedToWriteToCoinDatabase",
+	ErrorFailedToWriteToBlockIndexDatabase: "ErrorFailedToWriteToBlockIndexDatabase",
+	SystemErrorWhileFlushing:               "SystemErrorWhileFlushing",
+	ErrorOpenUndoFileFailed:                "ErrorOpenUndoFileFailed",
+	FailedToReadBlock:                      "FailedToReadBlock",
+	DisconnectTipUndoFailed:                "DisconnectTipUndoFailed",
+}
 
 func (de DiskErr) String() string {
 	if s, ok := DiskErrString[de]; ok {

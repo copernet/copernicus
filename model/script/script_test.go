@@ -27,6 +27,80 @@ var p2PKHScript = [...]byte{
 	opcodes.OP_CHECKSIG,
 }
 
+func TestScriptEncodeOPN(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		// for i in $(seq 0 16); do echo "{$i, opcodes.OP_$i},"; done
+		{0, opcodes.OP_0},
+		{1, opcodes.OP_1},
+		{2, opcodes.OP_2},
+		{3, opcodes.OP_3},
+		{4, opcodes.OP_4},
+		{5, opcodes.OP_5},
+		{6, opcodes.OP_6},
+		{7, opcodes.OP_7},
+		{8, opcodes.OP_8},
+		{9, opcodes.OP_9},
+		{10, opcodes.OP_10},
+		{11, opcodes.OP_11},
+		{12, opcodes.OP_12},
+		{13, opcodes.OP_13},
+		{14, opcodes.OP_14},
+		{15, opcodes.OP_15},
+		{16, opcodes.OP_16},
+	}
+
+	for _, test := range tests {
+		rv, err := EncodeOPN(test.input)
+		if err != nil {
+			t.Error(err)
+		}
+		if rv != test.expected {
+			t.Errorf("EncodeOPN: expect %d got %d", test.expected, rv)
+		}
+	}
+
+	_, err := EncodeOPN(opcodes.OP_16 + 1)
+	if err == nil {
+		t.Error("EncodeOPN(OP_16+1) expect error")
+	}
+}
+
+func TestScriptDecodeOPN(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected int
+	}{
+		// for i in $(seq 0 16); do echo "{opcodes.OP_$i, $i},"; done
+		{opcodes.OP_0, 0},
+		{opcodes.OP_1, 1},
+		{opcodes.OP_2, 2},
+		{opcodes.OP_3, 3},
+		{opcodes.OP_4, 4},
+		{opcodes.OP_5, 5},
+		{opcodes.OP_6, 6},
+		{opcodes.OP_7, 7},
+		{opcodes.OP_8, 8},
+		{opcodes.OP_9, 9},
+		{opcodes.OP_10, 10},
+		{opcodes.OP_11, 11},
+		{opcodes.OP_12, 12},
+		{opcodes.OP_13, 13},
+		{opcodes.OP_14, 14},
+		{opcodes.OP_15, 15},
+		{opcodes.OP_16, 16},
+	}
+
+	for _, test := range tests {
+		rv := DecodeOPN(byte(test.input))
+		if rv != test.expected {
+			t.Errorf("EncodeOPN: expect %d got %d", test.expected, rv)
+		}
+	}
+}
+
 func TestScriptParseScript(t *testing.T) {
 	p2shScript := NewScriptRaw(p2SHScript[:])
 	if !p2shScript.IsPayToScriptHash() {

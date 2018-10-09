@@ -28,7 +28,7 @@ func TestFilterLoadLatest(t *testing.T) {
 	}
 
 	// Ensure max payload is expected value for latest protocol version.
-	wantPayload := uint32(36012)
+	wantPayload := uint64(36012)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayLoadLength: wrong max payload length for "+

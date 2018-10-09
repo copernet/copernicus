@@ -1,18 +1,21 @@
 package chain
 
 import (
+	"github.com/copernet/copernicus/model"
 	"sort"
+	"sync"
+	"time"
 
 	"errors"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
+
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
 )
@@ -26,7 +29,14 @@ type Chain struct {
 	indexMap    map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
 	newestBlock *blockindex.BlockIndex
 	receiveID   uint64
-	params      *chainparams.BitcoinParams
+	params      *model.BitcoinParams
+
+	// The notifications field stores a slice of callbacks to be executed on
+	// certain blockchain events.
+	notificationsLock sync.RWMutex
+	notifications     []NotificationCallback
+
+	*SyncingState
 }
 
 var globalChain *Chain
@@ -36,14 +46,12 @@ func GetInstance() *Chain {
 	if globalChain == nil {
 		panic("globalChain do not init")
 	}
-	// fmt.Println("gchain======%#v", globalChain)
 	return globalChain
 }
 
 func InitGlobalChain() {
 	if globalChain == nil {
 		globalChain = NewChain()
-		globalChain.params = chainparams.ActiveNetParams
 	}
 	if len(conf.Cfg.Chain.AssumeValid) > 0 {
 		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
@@ -52,15 +60,18 @@ func InitGlobalChain() {
 		}
 		HashAssumeValid = *hash
 	} else {
-		HashAssumeValid = chainparams.ActiveNetParams.DefaultAssumeValid
+		HashAssumeValid = model.ActiveNetParams.DefaultAssumeValid
 	}
 }
-func NewChain() *Chain {
 
-	// return NewFakeChain()
-	return &Chain{}
+func NewChain() *Chain {
+	c := &Chain{}
+	c.params = model.ActiveNetParams
+	c.SyncingState = &SyncingState{}
+	return c
 }
-func (c *Chain) GetParams() *chainparams.BitcoinParams {
+
+func (c *Chain) GetParams() *model.BitcoinParams {
 	return c.params
 }
 
@@ -100,7 +111,6 @@ func (c *Chain) FindHashInActive(hash util.Hash) *blockindex.BlockIndex {
 
 // FindBlockIndex finds blockindex from blockIndexMap
 func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
-	//fmt.Println("FindBlockIndex======", len(c.indexMap))
 	bi, ok := c.indexMap[hash]
 	if ok {
 		//log.Trace("current chain Tip header height : %d", bi.Height)
@@ -125,6 +135,27 @@ func (c *Chain) TipHeight() int32 {
 	}
 
 	return 0
+}
+
+// IsCurrent returns whether or not the chain believes it is current.  Several
+// factors are used to guess, but the key factors that allow the chain to
+// believe it is current are:
+//  - Latest block height is after the latest checkpoint (if enabled)
+//  - Latest block has a timestamp newer than 24 hours ago
+func (c *Chain) IsCurrent() bool {
+	// Not current if the latest main (best) chain height is before the
+	// latest known good checkpoint (when checkpoints are enabled).
+	//TODO: checkpoint
+	//checkpoint := b.LatestCheckpoint()
+	//if checkpoint != nil && b.bestChain.Tip().height < checkpoint.Height {
+	//	return false
+	//}
+
+	// Not current if the latest best block has a timestamp before 24 hours ago.
+	minus24Hours := time.Now().Add(-24 * time.Hour).Unix()
+	tipTime := int64(c.Tip().GetBlockTime())
+
+	return tipTime >= minus24Hours
 }
 
 func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
@@ -175,7 +206,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
-	if chainparams.IsUAHFEnabled(pindex.Height) {
+	if model.IsUAHFEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyStrictEnc
 		flags |= script.ScriptEnableSigHashForkID
 	}
@@ -188,12 +219,12 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//	flags |= script.ScriptVerifyLowS
 	//	flags |= script.ScriptVerifyNullFail
 	//}
-	if chainparams.IsDAAEnabled(pindex.Height) {
+	if model.IsDAAEnabled(pindex.Height) {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
 	}
 	//The monolith HF enable a set of opcodes.
-	if chainparams.IsMonolithEnabled(pindex.GetMedianTimePast()) {
+	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
 	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
@@ -203,7 +234,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	//}
 	// We make sure this node will have replay protection during the next hard
 	// fork.
-	if chainparams.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
+	if model.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableReplayProtection
 	}
 
@@ -254,10 +285,7 @@ func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
 // chain.Tip()->nHeight : -1.
 func (c *Chain) Height() int32 {
 	chainLen := int32(len(c.active))
-	if chainLen > 0 {
-		return chainLen - 1
-	}
-	return 0
+	return chainLen - 1
 }
 
 // SetTip Set/initialize a chain with a given tip.
@@ -274,6 +302,8 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 		c.active[index.Height] = index
 		index = index.Prev
 	}
+
+	c.UpdateSyncingState()
 }
 
 // SetTip Set/initialize a chain with a given tip.
@@ -301,7 +331,10 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 // GetAncestor gets ancestor from active chain.
 func (c *Chain) GetAncestor(height int32) *blockindex.BlockIndex {
-	if len(c.active) >= int(height) {
+	if height < 0 {
+		return nil
+	}
+	if len(c.active) > int(height) {
 		return c.active[height]
 	}
 	return nil
@@ -420,7 +453,7 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 		preHash := pindex.GetBlockHash()
 		childList, ok := c.orphan[*preHash]
 		if ok {
-			for child := range childList {
+			for _, child := range childList {
 				q.Add(child)
 			}
 			delete(c.orphan, *preHash)
@@ -434,13 +467,14 @@ func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error {
 		return errors.New("nil blockIndex")
 	}
 	branchLen := len(c.branch)
-	branch := make([]*blockindex.BlockIndex, 0, branchLen)
 	for i, bi := range c.branch {
 		bh := bis.GetBlockHash()
 		if bi.GetBlockHash().IsEqual(bh) {
-			branch = c.branch[0:i]
+			branch := c.branch[0:i]
 			if branchLen-1 > i {
 				c.branch = append(branch, c.branch[i+1:]...)
+			} else {
+				c.branch = branch
 			}
 			return nil
 		}
@@ -469,7 +503,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	hash := bi.GetBlockHash()
 
 	c.indexMap[*hash] = bi
-	log.Debug("AddToIndexMap:%s", hash.String())
+
 	pre, ok := c.indexMap[bi.Header.HashPrevBlock]
 	if ok {
 		bi.Prev = pre
@@ -481,8 +515,9 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		}
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
+	log.Debug("AddToIndexMap:%s index height:%d", hash.String(), bi.Height)
 	bi.RaiseValidity(blockindex.BlockValidTree)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)
 	return nil
 }
@@ -500,7 +535,7 @@ func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
 
 func (c *Chain) ChainOrphanLen() int32 {
 	var orphanLen int32
-	for childList := range c.orphan {
+	for _, childList := range c.orphan {
 		orphanLen += int32(len(childList))
 	}
 
@@ -509,4 +544,8 @@ func (c *Chain) ChainOrphanLen() int32 {
 
 func (c *Chain) ClearActive() {
 	c.active = make([]*blockindex.BlockIndex, 100)
+}
+
+func (c *Chain) IndexMapSize() int {
+	return len(c.indexMap)
 }

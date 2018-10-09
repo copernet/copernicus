@@ -19,7 +19,6 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/tx"
@@ -179,7 +178,7 @@ type SyncManager struct {
 	peerNotifier        PeerNotifier
 	started             int32
 	shutdown            int32
-	chainParams         *chainparams.BitcoinParams
+	chainParams         *model.BitcoinParams
 	progressLogger      *blockProgressLogger
 	processBusinessChan chan interface{}
 	wg                  sync.WaitGroup
@@ -204,6 +203,9 @@ type SyncManager struct {
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
 	requestBlkInvCnt int
+
+	// An optional fee estimator.
+	feeEstimator *mempool.FeeEstimator
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -228,7 +230,7 @@ func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int3
 // checkpoints.
 func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
 	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
-	checkpoints := chainparams.ActiveNetParams.Checkpoints
+	checkpoints := model.ActiveNetParams.Checkpoints
 	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
 	if len(checkpoints) == 0 {
 		return nil
@@ -318,7 +320,7 @@ func (sm *SyncManager) startSync() {
 		// downloads when in regression test mode.
 		if sm.nextCheckpoint != nil &&
 			best.Height < sm.nextCheckpoint.Height &&
-			sm.chainParams != &chainparams.RegressionNetParams {
+			sm.chainParams != &model.RegressionNetParams {
 			//	3. push peer
 			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
 			sm.headersFirstMode = true
@@ -342,7 +344,7 @@ func (sm *SyncManager) isSyncCandidate(peer *peer.Peer) bool {
 	// Typically a peer is not a candidate for sync if it's not a full node,
 	// however regression test is special in that the regression tool is
 	// not a full node and still needs to be considered a sync candidate.
-	if sm.chainParams == &chainparams.RegressionNetParams {
+	if sm.chainParams == &model.RegressionNetParams {
 		// The peer is not a candidate if it's not coming from localhost
 		// or the hostname can't be determined for some reason.
 		host, _, err := net.SplitHostPort(peer.Addr())
@@ -498,7 +500,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 			log.Debug("Rejected transaction %v from %s: %v",
 				txHash, peer.Addr(), err)
 		} else {
-			log.Error("Failed to process transaction %v: %v",
+			log.Warn("Failed to process transaction %v: %v",
 				txHash.String(), err)
 		}
 
@@ -509,7 +511,8 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
 		return
 	}
-	txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
+
+	txentrys := make([]*mempool.TxEntry, 0, len(acceptedTxs))
 	for _, tx := range acceptedTxs {
 		if entry := lmempool.FindTxInMempool(tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
@@ -523,9 +526,9 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 // current returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
 func (sm *SyncManager) current() bool {
-	//if !sm.chain.IsCurrent() {
-	//	return false
-	//}
+	if !chain.GetInstance().IsCurrent() {
+		return false
+	}
 
 	// if blockChain thinks we are current and we have no syncPeer it
 	// is probably right.
@@ -558,7 +561,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// the peer or ignore the block when we're in regression test
 		// mode in this case so the chain code is actually fed the
 		// duplicate blocks.
-		if sm.chainParams != &chainparams.RegressionNetParams {
+		if sm.chainParams != &model.RegressionNetParams {
 			log.Warn("Got unrequested block %v from %s -- "+
 				"disconnecting", blockHash, peer.Addr())
 			peer.Disconnect()
@@ -598,7 +601,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	log.Debug("sm.ProcessBlockCallBack=====")
 	_, err := sm.ProcessBlockCallBack(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
@@ -928,7 +930,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			return false, nil
 		}
 		if blkIndex.HasData() {
-			return false, nil
+			return true, nil
 		}
 		return true, nil
 
@@ -953,6 +955,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
 			return true, nil
 		}
+		return false, nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
@@ -1009,6 +1012,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	var invBlkCnt int
+	var isPushGetBlockMsg bool
 	// Request the advertised inventory if we don't already have it.  Also,
 	// request parent blocks of orphans if we receive one we already have.
 	// Finally, attempt to detect potential stalls due to long side chains
@@ -1068,11 +1072,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				blkIndex := activeChain.FindHashInActive(iv.Hash)
 				locator := activeChain.GetLocator(blkIndex)
 				peer.PushGetBlocksMsg(*locator, &zeroHash)
+				isPushGetBlockMsg = true
 			}
 		}
 	}
 
-	if invBlkCnt == len(invVects) &&
+	if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
 		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
 
 		sm.requestBlkInvCnt = 2
@@ -1184,6 +1189,7 @@ out:
 				if msg.peer.Cfg.Listeners.OnGetData != nil {
 					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
 				}
+
 				msg.reply <- struct{}{}
 			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
@@ -1209,7 +1215,7 @@ out:
 
 			default:
 				log.Warn("Invalid message type in block "+
-					"handler: %T", msg)
+					"handler: %T, %#v", msg, msg)
 			}
 
 		case <-sm.quit:
@@ -1226,8 +1232,16 @@ out:
 // connected peers.
 func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notification) {
 	switch notification.Type {
-	// A block has been accepted into the block chain.  Relay it to other
-	// peers.
+
+	case chain.NTChainTipUpdated:
+		event, ok := notification.Data.(*chain.TipUpdatedEvent)
+		if !ok {
+			panic("TipUpdatedEvent: malformed event payload")
+		}
+
+		sm.peerNotifier.RelayUpdatedTipBlocks(event)
+
+	// A block has been accepted into the block chain.  Relay it to other peers.
 	case chain.NTBlockAccepted:
 		// Don't relay if we are not current. Other peers that are
 		// current should already know about it.
@@ -1244,9 +1258,9 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// Generate the inventory vector and relay it.
 		blkHash := block.GetHash()
 		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
-		sm.peerNotifier.RelayInventory(iv, block.Header)
+		sm.peerNotifier.RelayInventory(iv, &block.Header)
 
-		// A block has been connected to the main block chain.
+	// A block has been connected to the main block chain.
 	case chain.NTBlockConnected:
 		block, ok := notification.Data.(*block.Block)
 		if !ok {
@@ -1263,15 +1277,23 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// valid.
 		lmempool.RemoveTxSelf(block.Txs[1:])
 		for _, tx := range block.Txs[1:] {
-			sm.peerNotifier.TransactionConfirmed(tx)
-			acceptedTxs := lmempool.ProcessOrphan(tx)
-			txentrys := make([]*mempool.TxEntry, len(acceptedTxs))
-			for _, tx := range acceptedTxs {
-				if find := lmempool.FindTxInMempool(tx.GetHash()); find != nil {
-					txentrys = append(txentrys, find)
-				}
+			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
+			// sm.peerNotifier.TransactionConfirmed(tx)
+			lmempool.ProcessOrphan(tx)
+		}
+
+		// Register block with the fee estimator, if it exists.
+		if sm.feeEstimator != nil {
+			err := sm.feeEstimator.RegisterBlock(block)
+
+			// If an error is somehow generated then the fee estimator
+			// has entered an invalid state. Since it doesn't know how
+			// to recover, create a new one.
+			if err != nil {
+				sm.feeEstimator = mempool.NewFeeEstimator(
+					mempool.DefaultEstimateFeeMaxRollback,
+					mempool.DefaultEstimateFeeMinRegisteredBlocks)
 			}
-			sm.peerNotifier.AnnounceNewTransactions(txentrys)
 		}
 
 		// A block has been disconnected from the main block chain.
@@ -1342,24 +1364,24 @@ func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, d
 	sm.processBusinessChan <- &poolMsg{pool, peer, done}
 }
 
-func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer2 *peer.Peer, done chan<- struct{}) {
+func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.processBusinessChan <- &getdataMsg{getdata, peer2, done}
+	sm.processBusinessChan <- getdataMsg{getdata, peer, done}
 }
 
-func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer2 *peer.Peer, done chan<- struct{}) {
+func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
 		done <- struct{}{}
 		return
 	}
 
-	sm.processBusinessChan <- &getBlocksMsg{getblocks, peer2, done}
+	sm.processBusinessChan <- getBlocksMsg{getblocks, peer, done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.
@@ -1486,8 +1508,7 @@ func New(config *Config) (*SyncManager, error) {
 		log.Info("Checkpoints are disabled")
 	}
 
-	// FIXME: add it back when @chain.Subscribe is ready to support inv relay.
-	// sm.chain.Subscribe(sm.handleBlockchainNotification)
+	chain.GetInstance().Subscribe(sm.handleBlockchainNotification)
 
 	return &sm, nil
 }
@@ -1502,13 +1523,15 @@ type PeerNotifier interface {
 
 	RelayInventory(invVect *wire.InvVect, data interface{})
 
+	RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)
+
 	TransactionConfirmed(tx *tx.Tx)
 }
 
 // Config is a configuration struct used to initialize a new SyncManager.
 type Config struct {
 	PeerNotifier PeerNotifier
-	ChainParams  *chainparams.BitcoinParams
+	ChainParams  *model.BitcoinParams
 
 	DisableCheckpoints bool
 	MaxPeers           int

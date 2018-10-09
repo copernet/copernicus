@@ -1,6 +1,7 @@
 package utxo
 
 import (
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/persist/db"
@@ -10,6 +11,7 @@ import (
 )
 
 func TestCoinsDB(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{})
 	path, err := ioutil.TempDir("", "coindbtest")
 	if err != nil {
 		t.Fatalf("generate temp db path failed: %s\n", err)

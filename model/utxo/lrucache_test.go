@@ -25,9 +25,7 @@ func TestLRUCache(t *testing.T) {
 	script1 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout1 := txout.NewTxOut(3, script1)
 
-	coin1 := necm.cacheCoins[outpoint1]
-
-	coin1 = &Coin{
+	coin1 := &Coin{
 		txOut:         *txout1,
 		height:        10000,
 		isCoinBase:    false,
@@ -36,10 +34,9 @@ func TestLRUCache(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint1, coin1, false)
+	necm.AddCoin(&outpoint1, coin1, true)
 
 	err := GetUtxoCacheInstance().UpdateCoins(necm, hash1)
-	//ok := necm.Flush(*hash1)
 	if err != nil {
 		t.Error("flush failed....")
 	}
@@ -65,9 +62,7 @@ func TestLRUCache(t *testing.T) {
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_12, opcodes.OP_EQUAL})
 	txout2 := txout.NewTxOut(3, script2)
 
-	coin2 := necm.cacheCoins[outpoint2]
-
-	coin2 = &Coin{
+	coin2 := &Coin{
 		txOut:         *txout2,
 		height:        1 << 20,
 		isCoinBase:    false,
@@ -76,10 +71,9 @@ func TestLRUCache(t *testing.T) {
 		fresh:         false,
 	}
 
-	necm.AddCoin(&outpoint2, coin2, false)
+	necm.AddCoin(&outpoint2, coin2, true)
 
 	err = GetUtxoCacheInstance().UpdateCoins(necm, hash2)
-	//ok2 := necm.Flush(*hash2)
 	if err != nil {
 		t.Error("flush failed....")
 	}

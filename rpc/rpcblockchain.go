@@ -4,20 +4,24 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"strconv"
-	"strings"
-
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"math"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -57,6 +61,7 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 	chainInfo := &btcjson.GetBlockChainInfoResult{
 		Chain:                params.Name,
 		Blocks:               gChain.Height(),
+		Headers:              gChain.Height(), // TODO: NOT support header-first yet
 		BestBlockHash:        tip.GetBlockHash().String(),
 		Difficulty:           getDifficulty(tip),
 		MedianTime:           tip.GetMedianTimePast(),
@@ -64,7 +69,6 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 		ChainWork:            tip.ChainWork.Text(16),
 		Pruned:               false,
 		Bip9SoftForks:        make(map[string]*btcjson.Bip9SoftForkDescription),
-		//Headers:            lblockindex.indexBestHeader.Height,   // TODO: NOT support yet
 	}
 
 	// Next, populate the response with information describing the current
@@ -445,11 +449,11 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	}
 
-	blockcount := int32(0)
-	maxcount := util.MaxI32(0, blockIndex.Height-1)
+	var blockCount int32
+	maxCount := util.MaxI32(0, blockIndex.Height-1)
 	if c.Blocks != nil {
-		blockcount = *c.Blocks
-		if blockcount < 0 || blockcount > maxcount {
+		blockCount = *c.Blocks
+		if blockCount < 0 || blockCount > maxCount {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid block count: should be between 0 and the block's height - 1",
@@ -457,17 +461,17 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	} else {
 		// By default: 1 month
-		blockcount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
-		blockcount = util.MinI32(blockcount, maxcount)
+		blockCount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
+		blockCount = util.MinI32(blockCount, maxCount)
 	}
 
 	chainTxStatsReply := &btcjson.GetChainTxStatsResult{
 		FinalTime:  blockIndex.GetBlockTime(),
 		TxCount:    blockIndex.ChainTxCount,
-		BlockCount: blockcount,
+		BlockCount: blockCount,
 	}
-	if blockcount > 0 {
-		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockcount)
+	if blockCount > 0 {
+		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockCount)
 		txDiff := blockIndex.ChainTxCount - indexPast.ChainTxCount
 		timeDiff := blockIndex.GetMedianTimePast() - indexPast.GetMedianTimePast()
 		chainTxStatsReply.WindowTxCount = txDiff
@@ -500,7 +504,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 	h := entry.Tx.GetHash()
 	txSet := mempool.GetInstance().CalculateMemPoolAncestorsWithLock(&h)
 
-	if !c.Verbose {
+	if c.Verbose == nil || !*c.Verbose {
 		s := make([]string, len(txSet))
 		i := 0
 		for index := range txSet {
@@ -523,18 +527,18 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 	result := btcjson.GetMempoolEntryRelativeInfoVerbose{}
 	result.Size = entry.TxSize
 	result.Fee = valueFromAmount(entry.TxFee)
-	result.ModifiedFee = valueFromAmount(entry.SumFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
+	result.ModifiedFee = valueFromAmount(entry.SumTxFeeWithAncestors) // todo check: GetModifiedFee() is equal to SumFeeWithAncestors
 	result.Time = entry.GetTime()
 	result.Height = entry.TxHeight
 	// remove priority at current version
 	result.StartingPriority = 0
 	result.CurrentPriority = 0
 	result.DescendantCount = entry.SumTxCountWithDescendants
-	result.DescendantSize = entry.SumSizeWithDescendants
-	result.DescendantFees = entry.SumFeeWithDescendants
+	result.DescendantSize = entry.SumTxSizeWithDescendants
+	result.DescendantFees = entry.SumTxFeeWithDescendants
 	result.AncestorCount = entry.SumTxCountWithAncestors
-	result.AncestorSize = entry.SumSizeWitAncestors
-	result.AncestorFees = entry.SumFeeWithAncestors
+	result.AncestorSize = entry.SumTxSizeWitAncestors
+	result.AncestorFees = entry.SumTxFeeWithAncestors
 
 	setDepends := make([]string, 0)
 	for _, in := range entry.Tx.GetIns() {
@@ -567,7 +571,7 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 	// CTxMemPool::CalculateDescendants will include the given tx
 	delete(descendants, entry)
 
-	if !c.Verbose {
+	if c.Verbose == nil || !*c.Verbose {
 		des := make([]string, 0)
 		for item := range descendants {
 			hash := item.Tx.GetHash()
@@ -590,9 +594,6 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	mempool.GetInstance().Lock()
-	defer mempool.GetInstance().Unlock()
-
 	entry := mempool.GetInstance().FindTx(*hash)
 	if entry == nil {
 		return nil, btcjson.RPCError{
@@ -605,36 +606,34 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 }
 
 func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	pool := mempool.GetInstance()
 	ret := &btcjson.GetMempoolInfoResult{
-		Size:          mempool.GetInstance().Size(),
-		Bytes:         mempool.GetInstance().GetPoolAllTxSize(),
-		Usage:         mempool.GetInstance().GetPoolUsage(),
-		MaxMempool:    mempool.GetInstance().MaxMemPoolSize,
-		MempoolMinFee: valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
+		Size:          pool.Size(),
+		Bytes:         pool.GetPoolAllTxSize(),
+		Usage:         pool.GetPoolUsage(),
+		MaxMempool:    int(conf.Cfg.Mempool.MaxPoolSize),
+		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),
 	}
 	return ret, nil
 }
 
 func valueFromAmount(sizeLimit int64) float64 {
-	sign := sizeLimit < 0
 	var nAbs int64
-	if sign {
+	var strFormat string
+	if sizeLimit < 0 {
 		nAbs = -sizeLimit
+		strFormat = "-%d.%08d"
 	} else {
 		nAbs = sizeLimit
+		strFormat = "%d.%08d"
 	}
 
 	quotient := nAbs / util.COIN
 	remainder := nAbs % util.COIN
-
-	var strValue string
-	if sign {
-		strValue = fmt.Sprintf("-%d.%08d", quotient, remainder)
-	}
-	strValue = fmt.Sprintf("%d.%08d", quotient, remainder)
+	strValue := fmt.Sprintf(strFormat, quotient, remainder)
 
 	result, err := strconv.ParseFloat(strValue, 64)
-	if err == nil {
+	if err != nil {
 		return 0
 	}
 	return result
@@ -644,10 +643,8 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	c := cmd.(*btcjson.GetRawMempoolCmd)
 
 	pool := mempool.GetInstance()
-	pool.Lock()
-	defer pool.Unlock()
 
-	if *c.Verbose {
+	if c.Verbose != nil && *c.Verbose {
 		infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
 		for hash, entry := range pool.GetAllTxEntry() {
 			infos[hash.String()] = entryToJSON(entry)
@@ -655,58 +652,91 @@ func handleGetRawMempool(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		return infos, nil
 	}
 
-	// CompareEntryByDepthAndScore() txenry in mempool sorted by depth and score
-	//return mempool.CompareEntryByDepthAndScore(), nil // todo mempool to realise (open)
-	return nil, nil
+	// The response is simply an array of the transaction hashes if the verbose flag is not set.
+	txAll := pool.TxInfoAll()
+	txIds := make([]string, 0, len(txAll))
+	for _, txInfo := range txAll {
+		txHash := txInfo.Tx.GetHash()
+		txIds = append(txIds, txHash.String())
+	}
+
+	return txIds, nil
 }
 
 func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.GetTxOutCmd)
+	c := cmd.(*btcjson.GetTxOutCmd)
 
-		// Convert the provided transaction hash hex to a Hash.
-		hash, err := util.GetHashFromStr(c.Txid)
-		if err != nil {
-			return nil, rpcDecodeHexError(c.Txid)
-		}
+	// Convert the provided transaction hash hex to a Hash.
+	hash, err := util.GetHashFromStr(c.Txid)
+	if err != nil {
+		return nil, rpcDecodeHexError(c.Txid)
+	}
 
-		out := outpoint.OutPoint{Hash: *hash, Index: c.Vout}
+	outPoint := outpoint.NewOutPoint(*hash, c.Vout)
+	coinView := utxo.GetUtxoCacheInstance()
 
-		coin := &utxo.Coin{}
-		coinView := utxo.GetUtxoCacheInstance()
-		if *c.IncludeMempool {
-			// todo realise CoinsViewMemPool{} in mempool
-		} else {
-			if c, err := coinView.GetCoin(&out); err != nil || c == nil {
-				return nil, err
+	coin := coinView.GetCoin(outPoint)
+	if coin == nil {
+		if c.IncludeMempool == nil || *c.IncludeMempool {
+			coin = mempool.GetInstance().GetCoin(outPoint)
+			if coin == nil || mempool.GetInstance().HasSpentOut(outPoint) {
+				return nil, nil
 			}
-
-		}
-
-		bestHash := coinView.GetBestBlock()
-		index := chain.GetInstance().FindBlockIndex(bestHash)
-
-		var confirmations int
-		if coin.GetHeight() == mempool.MEMPOOL_HEIGHT {
-			confirmations = 0
 		} else {
-			confirmations = index.Height - int(coin.GetHeight()) + 1
+			return nil, nil
 		}
+	}
 
-		txout := coin.GetTxOut()
-		txOutReply := &btcjson.GetTxOutResult{
-			BestBlock:     index.BlockHash.String(),
-			Confirmations: int64(confirmations),
-			Value:         valueFromAmount(int64(coin.GetAmount())),
-			ScriptPubKey:  ScriptPubKeyToJSON(txout.GetScriptPubKey(), true),
-			Coinbase:      coin.IsCoinBase(),
+	bestHash, err := coinView.GetBestBlock()
+	if err != nil {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCNoNewestBlockInfo,
+			Message: "Cannot get best block",
 		}
+	}
+	index := chain.GetInstance().FindBlockIndex(bestHash)
 
-		return &txOutReply, nil*/ // todo open
-	return nil, nil
+	confirmations := int32(0)
+	if !coin.IsMempoolCoin() {
+		confirmations = index.Height - coin.GetHeight() + 1
+	}
+
+	amountValue := valueFromAmount(int64(coin.GetAmount()))
+	scriptPubKeyJSON := ScriptPubKeyToJSON(coin.GetScriptPubKey(), true)
+	txOutReply := &btcjson.GetTxOutResult{
+		BestBlock:     index.GetBlockHash().String(),
+		Confirmations: confirmations,
+		Value:         strconv.FormatFloat(amountValue, 'f', -1, 64),
+		ScriptPubKey:  *scriptPubKeyJSON,
+		Coinbase:      coin.IsCoinBase(),
+	}
+
+	return txOutReply, nil
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	// Write the chain state to disk, if necessary.
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
+		return nil, err
+	}
+
+	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+	stat, err := lchain.GetUTXOStats(cdb)
+	if err != nil {
+		return nil, err
+	}
+
+	reply := &btcjson.GetTxOutSetInfoResult{
+		Height:         stat.Height,
+		BestBlock:      stat.BestBlock.String(),
+		Transactions:   stat.TxCount,
+		TxOuts:         stat.TxOutsCount,
+		BogoSize:       stat.BogoSize,
+		HashSerialized: stat.HashSerialized.String(),
+		DiskSize:       stat.DiskSize,
+		TotalAmount:    valueFromAmount(stat.Amount),
+	}
+	return reply, nil
 }
 
 func getPrunMode() (bool, error) {
@@ -868,7 +898,55 @@ func handleWaitForBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	//todo notify tipchange
+	c := cmd.(*btcjson.WaitForBlockHeightCmd)
+	height := c.Height
+	timeout := *c.Timeout
+
+	if timeout == 0 {
+		//0 indicates no timeout.
+		timeout = math.MaxInt32
+	}
+
+	gchain := chain.GetInstance()
+	tipHeight := gchain.TipHeight()
+	ret := &btcjson.WaitForBlockHeightResult{}
+
+	if height <= tipHeight {
+		ret = &btcjson.WaitForBlockHeightResult{
+			Hash:   gchain.Tip().GetBlockHash().String(),
+			Height: gchain.TipHeight(),
+		}
+		return ret, nil
+	}
+
+	waitFlag := make(chan bool)
+	go func() {
+		for {
+			if height <= gchain.TipHeight() {
+				waitFlag <- false
+				break
+			}
+			time.Sleep(time.Second)
+		}
+
+	}()
+
+	select {
+	case <-waitFlag:
+		ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+		ret.Height = height
+		return ret, nil
+	case <-time.After(time.Millisecond * time.Duration(timeout)):
+		if height <= gchain.TipHeight() {
+			ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+			ret.Height = height
+		}
+		ret.Hash = gchain.Tip().GetBlockHash().String()
+		ret.Height = gchain.TipHeight()
+		return ret, nil
+	}
+
 }
 
 func registerBlockchainRPCCommands() {

@@ -7,12 +7,18 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/service"
+	"github.com/copernet/copernicus/util"
 )
 
 type MsgHandle struct {
@@ -95,7 +101,6 @@ out:
 				}
 
 			case *wire.MsgBlock:
-				log.Trace("recv bitcoin MsgBlock news ...")
 				if peerFrom.Cfg.Listeners.OnBlock != nil {
 					peerFrom.Cfg.Listeners.OnBlock(peerFrom, data, msg.Buf, msg.Done)
 				}
@@ -235,7 +240,7 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 		return
 
 	case *btcjson.GetNetworkInfoCmd:
-		return
+		return GetNetworkInfo()
 
 	case *btcjson.SetBanCmd:
 		return
@@ -265,8 +270,94 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 		//	case BlockState:
 		//		return r, nil
 		//	}
-
 	}
 
 	return nil, errors.New("unknown rpc request")
+}
+
+func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
+	verNum := 0
+	vers := strings.Split(conf.Cfg.Version, ".")
+	for _, ver := range vers {
+		subVer, err := strconv.Atoi(ver)
+		if err == nil {
+			verNum = verNum*1000 + subVer
+		}
+	}
+
+	localAddrInfo := msgHandle.addrManager.GetAllLocalAddress()
+	rpcLocalAddrList := make([]btcjson.LocalAddressesResult, 0, len(localAddrInfo))
+	for _, localAddr := range localAddrInfo {
+		rpcLocalAddr := btcjson.LocalAddressesResult{
+			Address: localAddr.Na.IP.String(),
+			Port:    localAddr.Na.Port,
+			Score:   localAddr.Score,
+		}
+		rpcLocalAddrList = append(rpcLocalAddrList, rpcLocalAddr)
+	}
+
+	chainInfo := &btcjson.GetNetworkInfoResult{
+		Version:          verNum,
+		SubVersion:       "/Copernicus:" + conf.Cfg.Version + "/",
+		ProtocolVersion:  wire.ProtocolVersion,
+		LocalServices:    "0", // TODO:
+		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,
+		TimeOffset:       util.GetTimeOffset(),
+		Connections:      msgHandle.ConnectedCount(),
+		NetworkActive:    true, // NOT support RPC 'setnetworkactive'
+		Networks:         getNetworksInfo(),
+		RelayFee:         valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
+		ExcessUtxoCharge: 0,
+		LocalAddresses:   rpcLocalAddrList,
+		Warnings:         "", // TODO: network warnings
+	}
+	return chainInfo, nil
+}
+
+func getNetworksInfo() []btcjson.NetworksResult {
+	networkInfos := make([]btcjson.NetworksResult, 0)
+	ipv4NetWork := btcjson.NetworksResult{
+		Name:      "ipv4",
+		Limited:   false,
+		Reachable: true,
+		//Proxy                     string `json:"proxy"`
+		//ProxyRandomizeCredentials bool   `json:"proxy_randomize_credentials"`
+	}
+	ipv6NetWork := btcjson.NetworksResult{
+		Name:      "ipv6",
+		Limited:   false,
+		Reachable: true,
+		//Proxy                     string `json:"proxy"`
+		//ProxyRandomizeCredentials bool   `json:"proxy_randomize_credentials"`
+	}
+	onionNetWork := btcjson.NetworksResult{
+		Name:      "ipv4",
+		Limited:   conf.Cfg.P2PNet.NoOnion,
+		Reachable: !conf.Cfg.P2PNet.NoOnion,
+		//Proxy                     string `json:"proxy"`
+		//ProxyRandomizeCredentials bool   `json:"proxy_randomize_credentials"`
+	}
+	networkInfos = append(networkInfos, ipv4NetWork, ipv6NetWork, onionNetWork)
+	return networkInfos
+}
+
+func valueFromAmount(sizeLimit int64) float64 {
+	var nAbs int64
+	var strFormat string
+	if sizeLimit < 0 {
+		nAbs = -sizeLimit
+		strFormat = "-%d.%08d"
+	} else {
+		nAbs = sizeLimit
+		strFormat = "%d.%08d"
+	}
+	quotient := nAbs / util.COIN
+	remainder := nAbs % util.COIN
+	strValue := fmt.Sprintf(strFormat, quotient, remainder)
+
+	result, err := strconv.ParseFloat(strValue, 64)
+	if err != nil {
+		return 0
+	}
+	return result
 }

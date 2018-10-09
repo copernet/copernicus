@@ -6,19 +6,27 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/btcsuite/btcutil"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/logic/lscript"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/txin"
+	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"io/ioutil"
-	"math/rand"
-	"strconv"
-	"strings"
-	"testing"
 )
 
 var opMap map[string]byte
@@ -75,7 +83,7 @@ func parseScriptFlag(s string) (uint32, error) {
 		if flag, ok := scriptFlagMap[w]; ok {
 			res |= flag
 		} else {
-			return 0, fmt.Errorf("not found scirpt flag for name %s", w)
+			return 0, fmt.Errorf("not found script flag for name %s", w)
 		}
 	}
 	return res, nil
@@ -544,300 +552,489 @@ func NewPrivateKey() crypto.PrivateKey {
 	return *crypto.PrivateKeyFromBytes(keyBytes)
 }
 
-//func TestTxCombineSigs(t *testing.T) {
-//	var (
-//		keys         []crypto.PrivateKey
-//		pubkeys      []crypto.PublicKey
-//		txFrom, txTo tx.Tx
-//		keyMap       map[string]*crypto.PrivateKey
-//		scriptMap    map[string]string
-//	)
-//	keyMap = make(map[string]*crypto.PrivateKey)
-//	scriptMap = make(map[string]string)
-//	for i := 0; i < 3; i++ {
-//		key := NewPrivateKey()
-//		keys = append(keys, key)
-//		pubkeys = append(pubkeys, *key.PubKey())
-//		keyMap[string(util.Hash160((*key.PubKey()).ToBytes()))] = &key
-//	}
-//	scriptPubKey := script.NewEmptyScript()
-//	scriptPubKey.PushOpCode(opcodes.OP_DUP)
-//	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-//	scriptPubKey.PushSingleData(btcutil.Hash160(pubkeys[0].ToBytes()))
-//	scriptPubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
-//	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
-//	txFrom.AddTxOut(txout.NewTxOut(0, scriptPubKey))
-//	txTo.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(txFrom.GetHash(), 0),
-//		script.NewEmptyScript(), script.SequenceFinal))
-//	combined, err := combineSignature(&txTo, scriptPubKey,
-//		script.NewEmptyScript(), script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, script.NewEmptyScript()) {
-//		t.Errorf("combined should be empty")
-//	}
-//
-//	// Single signature case:
-//	config := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
-//	utxo.InitUtxoLruTip(&config)
-//
-//	coinsMap := utxo.NewEmptyCoinsMap()
-//	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
-//	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
-//	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
-//		t.Error(err)
-//	}
-//	scriptSig := txTo.GetIns()[0].GetScriptSig()
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		scriptSig, script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey, script.NewEmptyScript(),
-//		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//	scriptSigCopy := scriptSig
-//	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
-//		t.Error(err)
-//	}
-//	scriptSig = txTo.GetIns()[0].GetScriptSig()
-//	combined, err = combineSignature(&txTo, scriptPubKey, scriptSigCopy,
-//		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) && !reflect.DeepEqual(combined, scriptSigCopy) {
-//		t.Errorf("combined should be equal to scriptSig or scriptSigCopy")
-//	}
-//	// P2SH, single-signature case:
-//	pkSignle := script.NewEmptyScript()
-//	pkSignle.PushSingleData(pubkeys[0].ToBytes())
-//	pkSignle.PushOpCode(opcodes.OP_CHECKSIG)
-//	scriptMap[string(util.Hash160(pkSignle.GetData()))] = string(pkSignle.GetData())
-//	scriptPubKey = script.NewEmptyScript()
-//	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-//	scriptPubKey.PushSingleData(util.Hash160(pkSignle.GetData()))
-//	scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
-//	txFrom.GetTxOut(0).SetScriptPubKey(scriptPubKey)
-//	coinsMap = utxo.NewEmptyCoinsMap()
-//	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
-//	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
-//	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
-//	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
-//		t.Error(err)
-//	}
-//	scriptSig = txTo.GetIns()[0].GetScriptSig()
-//	combined, err = combineSignature(&txTo, scriptPubKey, scriptSig,
-//		script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey, scriptSig,
-//		script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//	scriptSigCopy = scriptSig
-//
-//	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
-//	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
-//		t.Error(err)
-//	}
-//	scriptSig = txTo.GetIns()[0].GetScriptSig()
-//	combined, err = combineSignature(&txTo, scriptPubKey, scriptSigCopy,
-//		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) && !reflect.DeepEqual(combined, scriptSigCopy) {
-//		t.Errorf("combined should be equal to scriptSig or scriptSigCopy")
-//	}
-//
-//	// dummy scriptSigCopy with placeholder, should always choose
-//	// non-placeholder:
-//	scriptSigCopy = script.NewEmptyScript()
-//	scriptSigCopy.PushOpCode(opcodes.OP_0)
-//	scriptSigCopy.PushSingleData(pkSignle.GetData())
-//	combined, err = combineSignature(&txTo, scriptPubKey, scriptSigCopy,
-//		scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey, scriptSig,
-//		scriptSigCopy, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//
-//	// Hardest case:  Multisig 2-of-3
-//	scriptPubKey = script.NewEmptyScript()
-//	scriptPubKey.PushInt64(2)
-//	for i := 0; i < 3; i++ {
-//		scriptPubKey.PushSingleData(pubkeys[i].ToBytes())
-//	}
-//	scriptPubKey.PushInt64(3)
-//	scriptPubKey.PushOpCode(opcodes.OP_CHECKMULTISIG)
-//	txFrom.GetTxOut(0).SetScriptPubKey(scriptPubKey)
-//	coinsMap = utxo.NewEmptyCoinsMap()
-//	coinsMap.AddCoin(txTo.GetIns()[0].PreviousOutPoint, utxo.NewCoin(txFrom.GetTxOut(0), 1, false), true)
-//	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
-//	txTo.GetIns()[0].SetScriptSig(script.NewEmptyScript())
-//	if err = SignRawTransaction(&txTo, scriptMap, keyMap, uint32(txscript.SigHashAll|crypto.SigHashForkID)); err != nil {
-//		t.Error(err)
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		scriptSig, script.NewEmptyScript(), 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		script.NewEmptyScript(), scriptSig, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, scriptSig) {
-//		t.Errorf("combined should be equal to scriptSig")
-//	}
-//
-//	// A couple of partially-signed versions:
-//	hash, err := tx.SignatureHash(&txTo, scriptPubKey, uint32(txscript.SigHashAll), 0, amount.Amount(0), 0)
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	vchsig, err := keys[0].Sign(hash.GetCloneBytes())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	sig1 := bytes.Join([][]byte{vchsig.Serialize(), {byte(txscript.SigHashAll)}}, []byte{})
-//
-//	hash, err = tx.SignatureHash(&txTo, scriptPubKey, uint32(txscript.SigHashNone), 0, amount.Amount(0), 0)
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	vchsig, err = keys[0].Sign(hash.GetCloneBytes())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	sig2 := bytes.Join([][]byte{vchsig.Serialize(), {byte(txscript.SigHashNone)}}, []byte{})
-//
-//	hash, err = tx.SignatureHash(&txTo, scriptPubKey, uint32(txscript.SigHashSingle), 0, amount.Amount(0), 0)
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	vchsig, err = keys[0].Sign(hash.GetCloneBytes())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	sig3 := bytes.Join([][]byte{vchsig.Serialize(), {byte(txscript.SigHashSingle)}}, []byte{})
-//
-//	emptyBytes := []byte{}
-//	partial1aData := bytes.Join([][]byte{emptyBytes, sig1, emptyBytes}, []byte{})
-//	partial1a := script.NewScriptRaw(partial1aData)
-//	partial1bData := bytes.Join([][]byte{emptyBytes, emptyBytes, sig1}, []byte{})
-//	partial1b := script.NewScriptRaw(partial1bData)
-//	partial2aData := bytes.Join([][]byte{emptyBytes, sig2}, []byte{})
-//	partial2a := script.NewScriptRaw(partial2aData)
-//	partial2bData := bytes.Join([][]byte{sig2, emptyBytes}, []byte{})
-//	partial2b := script.NewScriptRaw(partial2bData)
-//	partial3aData := bytes.Join([][]byte{sig3}, []byte{})
-//	partial3a := script.NewScriptRaw(partial3aData)
-//	partial3bData := bytes.Join([][]byte{emptyBytes, emptyBytes, sig3}, []byte{})
-//	partial3b := script.NewScriptRaw(partial3bData)
-//	partial3cData := bytes.Join([][]byte{emptyBytes, sig3, emptyBytes}, []byte{})
-//	partial3c := script.NewScriptRaw(partial3cData)
-//	complete12Data := bytes.Join([][]byte{emptyBytes, sig1, sig2}, []byte{})
-//	complete12 := script.NewScriptRaw(complete12Data)
-//	complete13Data := bytes.Join([][]byte{emptyBytes, sig1, sig3}, []byte{})
-//	complete13 := script.NewScriptRaw(complete13Data)
-//	complete23Data := bytes.Join([][]byte{emptyBytes, sig3, sig3}, []byte{})
-//	complete23 := script.NewScriptRaw(complete23Data)
-//
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial1a, partial1b, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, partial1a) {
-//		t.Errorf("combined should be equal to partial1a")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial1a, partial2a, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, complete12) {
-//		t.Errorf("combined should be equal to complete12")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial2a, partial1a, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, complete12) {
-//		t.Errorf("combined should be equal to complete12")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial1b, partial2b, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, complete12) {
-//		t.Errorf("combined should be equal to complete12")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial3b, partial1b, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, complete13) {
-//		t.Errorf("combined should be equal to complete13")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial2a, partial3a, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, complete23) {
-//		t.Errorf("combined should be equal to complete23")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial3b, partial2b, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, complete23) {
-//		t.Errorf("combined should be equal to complete23")
-//	}
-//	combined, err = combineSignature(&txTo, scriptPubKey,
-//		partial3b, partial3a, 0, 0, uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-//	if err != nil {
-//		t.Error(err)
-//	}
-//	if !reflect.DeepEqual(combined, partial3c) {
-//		t.Errorf("combined should be equal to partial3c")
-//	}
-//}
+// The struct Var contains some variable which testing using.
+// keyMap is used to save the relation publicKeyHash and privateKey, k is publicKeyHash, v is privateKey.
+type Var struct {
+	priKeys       []crypto.PrivateKey
+	pubKeys       []crypto.PublicKey
+	prevHolder    tx.Tx
+	spender       tx.Tx
+	keyMap        map[string]*crypto.PrivateKey
+	redeemScripts map[string]string
+}
+
+// Initial the test variable
+func initVar() *Var {
+	var v Var
+	v.keyMap = make(map[string]*crypto.PrivateKey)
+	v.redeemScripts = make(map[string]string)
+
+	for i := 0; i < 3; i++ {
+		privateKey := NewPrivateKey()
+		v.priKeys = append(v.priKeys, privateKey)
+
+		pubKey := *privateKey.PubKey()
+		v.pubKeys = append(v.pubKeys, pubKey)
+
+		pubKeyHash := string(util.Hash160(pubKey.ToBytes()))
+		v.keyMap[pubKeyHash] = &privateKey
+	}
+
+	return &v
+}
+
+func checkError(err error, t *testing.T) {
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func check(v *Var, lockingScript *script.Script, t *testing.T) {
+
+	empty := script.NewEmptyScript()
+	realChecker := lscript.NewScriptRealChecker()
+	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+
+	err := SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	checkError(err, t)
+	scriptSig := v.spender.GetIns()[0].GetScriptSig()
+
+	combineSig, err := CombineSignature(
+		&v.spender,
+		lockingScript,
+		scriptSig,
+		empty,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	// swap the position of empty and scriptSig
+	combineSig, err = CombineSignature(
+		&v.spender,
+		lockingScript,
+		empty,
+		scriptSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	// Signing again will give a different, valid signature:
+	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	checkError(err, t)
+	scriptSig = v.spender.GetIns()[0].GetScriptSig()
+	fmt.Println(hex.EncodeToString(scriptSig.GetData()))
+	combineSig, err = CombineSignature(
+		&v.prevHolder,
+		lockingScript,
+		scriptSig,
+		empty,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+}
+
+// Test the CombineSignature function
+func TestCombineSignature(t *testing.T) {
+	v := initVar()
+
+	// Initial the coin cache
+	conf.Cfg = conf.InitConfig([]string{})
+	config := utxo.UtxoConfig{
+		Do: &db.DBOption{
+			FilePath:  conf.Cfg.DataDir + "/chainstate",
+			CacheSize: (1 << 20) * 8,
+		},
+	}
+	utxo.InitUtxoLruTip(&config)
+
+	coinsMap := utxo.NewEmptyCoinsMap()
+
+	// Create a p2PKHLockingScript script
+	p2PKHLockingScript := script.NewEmptyScript()
+	p2PKHLockingScript.PushOpCode(opcodes.OP_DUP)
+	p2PKHLockingScript.PushOpCode(opcodes.OP_HASH160)
+	p2PKHLockingScript.PushSingleData(btcutil.Hash160(v.pubKeys[0].ToBytes()))
+	p2PKHLockingScript.PushOpCode(opcodes.OP_EQUALVERIFY)
+	p2PKHLockingScript.PushOpCode(opcodes.OP_CHECKSIG)
+
+	// Add locking script to prevHolder
+	v.prevHolder.AddTxOut(txout.NewTxOut(0, p2PKHLockingScript))
+
+	v.spender.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(v.prevHolder.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+
+	coinsMap.AddCoin(
+		v.spender.GetIns()[0].PreviousOutPoint,
+		utxo.NewCoin(v.prevHolder.GetTxOut(0), 1, false),
+		true,
+	)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+
+	// Some variable used in all function
+	empty := script.NewEmptyScript()
+	realChecker := lscript.NewScriptRealChecker()
+	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
+
+	combineSig, err := CombineSignature(
+		&v.prevHolder,
+		p2PKHLockingScript,
+		empty,
+		empty,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, empty) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	scriptSig := v.spender.GetIns()[0].GetScriptSig()
+	// Single signature case:
+	check(v, p2PKHLockingScript, t)
+
+	// P2SHLockingScript, single-signature case
+
+	// Create a P2SHLockingScript script
+	pubKey := script.NewEmptyScript()
+	pubKey.PushSingleData(v.pubKeys[0].ToBytes())
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
+
+	pubKeyHash160 := util.Hash160(pubKey.GetData())
+	v.redeemScripts[string(pubKeyHash160)] = string(pubKey.GetData())
+
+	P2SHLockingScript := script.NewEmptyScript()
+	P2SHLockingScript.PushOpCode(opcodes.OP_HASH160)
+	P2SHLockingScript.PushSingleData(pubKeyHash160)
+	P2SHLockingScript.PushOpCode(opcodes.OP_EQUAL)
+
+	v.prevHolder.GetTxOut(0).SetScriptPubKey(P2SHLockingScript)
+
+	coinsMap = utxo.NewEmptyCoinsMap()
+	coinsMap.AddCoin(
+		v.spender.GetIns()[0].PreviousOutPoint,
+		utxo.NewCoin(v.prevHolder.GetTxOut(0), 1, false),
+		true,
+	)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+
+	v.spender.GetIns()[0].SetScriptSig(empty)
+	check(v, P2SHLockingScript, t)
+
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	checkError(err, t)
+	scriptSig = v.spender.GetIns()[0].GetScriptSig()
+
+	// dummy scriptSigCopy with placeHolder, should always choose
+	// non-placeholder:
+	dummyLockingScript := script.NewEmptyScript()
+	dummyLockingScript.PushOpCode(opcodes.OP_0)
+	dummyLockingScript.PushSingleData(pubKey.GetData())
+
+	combineSig, err = CombineSignature(
+		&v.prevHolder,
+		P2SHLockingScript,
+		dummyLockingScript,
+		scriptSig,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	combineSig, err = CombineSignature(
+		&v.prevHolder,
+		P2SHLockingScript,
+		scriptSig,
+		dummyLockingScript,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	// Hardest case: Multisig 2-of-3
+	// the stack like this: 2 << <pubKey1> << <pubKey2> << <pubKey3> << 3 << OP_CHECKMULTISIG
+	MultiLockingScript := script.NewEmptyScript()
+	MultiLockingScript.PushInt64(2)
+
+	for i := 0; i < 3; i++ {
+		MultiLockingScript.PushSingleData(v.pubKeys[i].ToBytes())
+	}
+	MultiLockingScript.PushInt64(3)
+
+	MultiLockingScript.PushOpCode(opcodes.OP_CHECKMULTISIG)
+
+	// Add multi sig script to out
+	v.prevHolder.GetTxOut(0).SetScriptPubKey(MultiLockingScript)
+
+	// Add tx to coinsMap and update coins
+	coinsMap = utxo.NewEmptyCoinsMap()
+	coinsMap.AddCoin(
+		v.spender.GetIns()[0].PreviousOutPoint,
+		utxo.NewCoin(v.prevHolder.GetTxOut(0), 1, false),
+		true,
+	)
+	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+
+	v.spender.GetIns()[0].SetScriptSig(empty)
+
+	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	checkError(err, t)
+	scriptSig = v.spender.GetIns()[0].GetScriptSig()
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		scriptSig,
+		empty,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	if err != nil {
+		t.Error(err, t)
+	}
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	// swap the position of empty and scriptSig
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		empty,
+		scriptSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	//check(v, MultiLockingScript, t, true)
+
+	// A couple of partially-signed versions:
+	hash, err := tx.SignatureHash(
+		&v.spender, MultiLockingScript, uint32(crypto.SigHashAll), 0, 0, 0)
+	checkError(err, t)
+	vchSig, err := v.priKeys[0].Sign(hash.GetCloneBytes())
+	checkError(err, t)
+	sig1 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashAll)}}, []byte{})
+
+	hash, err = tx.SignatureHash(
+		&v.spender, MultiLockingScript, uint32(crypto.SigHashNone), 0, 0, 0)
+	checkError(err, t)
+	vchSig, err = v.priKeys[1].Sign(hash.GetCloneBytes())
+	sig2 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashNone)}}, []byte{})
+
+	hash, err = tx.SignatureHash(
+		&v.spender, MultiLockingScript, uint32(crypto.SigHashSingle), 0, 0, 0)
+	checkError(err, t)
+	vchSig, err = v.priKeys[2].Sign(hash.GetCloneBytes())
+	sig3 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashSingle)}}, []byte{})
+
+	// By sig1, sig2, sig3 generate some different combination to check
+	partial1a := script.NewEmptyScript()
+	partial1a.PushOpCode(opcodes.OP_0)
+	partial1a.PushSingleData(sig1)
+	partial1a.PushOpCode(opcodes.OP_0)
+
+	partial1b := script.NewEmptyScript()
+	partial1b.PushOpCode(opcodes.OP_0)
+	partial1b.PushOpCode(opcodes.OP_0)
+	partial1b.PushSingleData(sig1)
+
+	partial2a := script.NewEmptyScript()
+	partial2a.PushOpCode(opcodes.OP_0)
+	partial2a.PushSingleData(sig2)
+
+	partial2b := script.NewEmptyScript()
+	partial2b.PushSingleData(sig2)
+	partial2b.PushOpCode(opcodes.OP_0)
+
+	partial3a := script.NewEmptyScript()
+	partial3a.PushSingleData(sig3)
+
+	partial3b := script.NewEmptyScript()
+	partial3b.PushOpCode(opcodes.OP_0)
+	partial3b.PushOpCode(opcodes.OP_0)
+	partial3b.PushSingleData(sig3)
+
+	partial3c := script.NewEmptyScript()
+	partial3c.PushOpCode(opcodes.OP_0)
+	partial3c.PushSingleData(sig3)
+	partial3c.PushOpCode(opcodes.OP_0)
+
+	complete12 := script.NewEmptyScript()
+	complete12.PushOpCode(opcodes.OP_0)
+	complete12.PushSingleData(sig1)
+	complete12.PushSingleData(sig2)
+
+	complete13 := script.NewEmptyScript()
+	complete13.PushOpCode(opcodes.OP_0)
+	complete13.PushSingleData(sig1)
+	complete13.PushSingleData(sig3)
+
+	complete23 := script.NewEmptyScript()
+	complete23.PushOpCode(opcodes.OP_0)
+	complete23.PushSingleData(sig2)
+	complete23.PushSingleData(sig3)
+
+	// Begin to check the combineSignature
+	scriptSig = v.spender.GetIns()[0].GetScriptSig()
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial1a,
+		partial1b,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, partial1a) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial1a,
+		partial2a,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, complete12) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial2a,
+		partial1a,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, complete12) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial1b,
+		partial2b,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, complete12) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial3b,
+		partial1b,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, complete13) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial2a,
+		partial3a,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, complete23) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial3b,
+		partial2b,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, complete23) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	combineSig, err = CombineSignature(
+		&v.spender,
+		MultiLockingScript,
+		partial3b,
+		partial3a,
+		0,
+		0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, partial3c) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+}

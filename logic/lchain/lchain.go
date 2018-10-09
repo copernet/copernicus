@@ -6,14 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/persist/global"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 
 	"github.com/copernet/copernicus/log"
@@ -25,25 +26,40 @@ import (
 	"github.com/copernet/copernicus/persist/disk"
 
 	"github.com/copernet/copernicus/logic/lblock"
+	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/persist/db"
 )
+
+// IsInitialBlockDownload Check whether we are doing an initial block download
+// (synchronizing from disk or network)
+func IsInitialBlockDownload() bool {
+	return persist.Reindex || !chain.GetInstance().IsAlmostSynced()
+}
 
 func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := chain.GetInstance()
 	tip := gChain.Tip()
-	nTimeStart := util.GetMicrosTime()
+	start := time.Now()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad lblock in
-	if err := lblock.CheckBlock(pblock); err != nil {
+	if err := lblock.CheckBlock(pblock, true, true); err != nil {
 		return err
 	}
 
 	// Verify that the view's current state corresponds to the previous lblock
-	hashPrevBlock := *pindex.Prev.GetBlockHash()
+	var hashPrevBlock *util.Hash
+	if pindex.Prev == nil {
+		hashPrevBlock = &util.Hash{}
+	} else {
+		hashPrevBlock = pindex.Prev.GetBlockHash()
+	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
+	log.Debug("bestHash = %s, hashPrevBloc = %s", bestHash.String(), hashPrevBlock)
 	if !hashPrevBlock.IsEqual(&bestHash) {
+		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
 	}
 
@@ -87,11 +103,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		}
 	}
 
-	nTime1 := util.GetMicrosTime()
-	gPersist := global.GetInstance()
-	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
-	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fs]\n",
-		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
+	time1 := time.Now()
+	gPersist := persist.GetInstance()
+	gPersist.GlobalTimeCheck += time1.Sub(start)
+	log.Print("bench", "debug", " - Sanity checks: current %v [total %v]",
+		time1.Sub(start), gPersist.GlobalTimeCheck)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
 	// transactions, unless those are already completely spent. If such
@@ -106,12 +122,14 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	// applied to all blocks except the two in the chain that violate it. This
 	// prevents exploiting the issue against nodes during their initial block
 	// download.
-	zHash := util.HashZero
-	fEnforceBIP30 := (!blockHash.IsEqual(&zHash)) ||
-		!((pindex.Height == 91842 &&
-			blockHash.IsEqual(util.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
-			(pindex.Height == 91880 &&
-				blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
+	//zHash := util.HashZero
+	//fEnforceBIP30 := (!blockHash.IsEqual(&zHash)) ||
+	//	!((pindex.Height == 91842 &&
+	//		blockHash.IsEqual(util.HashFromString("0x00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
+	//		(pindex.Height == 91880 &&
+	//			blockHash.IsEqual(util.HashFromString("0x00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
+	bip30Enable := !((pindex.Height == 91842 && blockHash.IsEqual(util.HashFromString("00000000000a4d0a398161ffc163c503763b1f4360639393e0e4c8e300e0caec"))) ||
+		(pindex.Height == 91880 && blockHash.IsEqual(util.HashFromString("00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721"))))
 
 	// Once BIP34 activated it was not possible to create new duplicate
 	// coinBases and thus other than starting with the 2 existing duplicate
@@ -125,44 +143,46 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	pindexBIP34height := pindex.Prev.GetAncestor(params.BIP34Height)
 	// Only continue to enforce if we're below BIP34 activation height or the
 	// block hash at that height doesn't correspond.
-	BIP34Hash := params.BIP34Hash
-	bip34 := pindexBIP34height == nil || !(pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&BIP34Hash))
-	fEnforceBIP30 = fEnforceBIP30 && bip34
+	bip34Enable := pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&params.BIP34Hash)
+	bip30Enable = bip30Enable && !bip34Enable
 
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
-	nTime2 := util.GetMicrosTime()
-	gPersist.GlobalTimeForks += nTime2 - nTime1
-	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]\n",
-		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
+	time2 := time.Now()
+	gPersist.GlobalTimeForks += time2.Sub(time1)
+	log.Print("bench", "debug", " - Fork checks: current %v [total %v]",
+		time2.Sub(time1), gPersist.GlobalTimeForks)
 
-	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, fEnforceBIP30, flags,
+	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize())))
 	if err != nil {
 		return err
 	}
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
-	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
-		if UndoPos.IsNull() {
-			pos := block.NewDiskBlockPos(pindex.File, 0)
-			//blockUndo size + hash size + 4bytes len
-			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
-				return err
-			}
-			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
-				return err
-			}
+	if !fJustCheck {
+		if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
+			if UndoPos.IsNull() {
+				pos := block.NewDiskBlockPos(pindex.File, 0)
+				//blockUndo size + hash size + 4bytes len
+				if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
+					return err
+				}
+				if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
+					return err
+				}
 
-			// update nUndoPos in block index
-			pindex.UndoPos = pos.Pos
-			pindex.AddStatus(blockindex.BlockHaveUndo)
+				// update nUndoPos in block index
+				pindex.UndoPos = pos.Pos
+				pindex.AddStatus(blockindex.BlockHaveUndo)
+			}
+			pindex.RaiseValidity(blockindex.BlockValidScripts)
+			gPersist.AddDirtyBlockIndex(pindex)
 		}
-		pindex.RaiseValidity(blockindex.BlockValidScripts)
-		gPersist.AddDirtyBlockIndex(pindex)
+
+		// add this block to the view's block chain
+		*view = *coinsMap
 	}
-	// add this block to the view's block chain
-	*view = *coinsMap
 
 	//if (pindex.IsReplayProtectionEnabled(params) &&
 	//	!pindex.Prev.IsReplayProtectionEnabled(params)) {
@@ -178,7 +198,7 @@ func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 	pindex.AddStatus(blockindex.BlockFailed)
 	gChain := chain.GetInstance()
 	gChain.RemoveFromBranch(pindex)
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(pindex)
 }
 
@@ -203,7 +223,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
-			log.Error("error: FailedToReadBlock")
+			log.Error("error: FailedToReadBlock: %v", err)
 			return errcode.New(errcode.FailedToReadBlock)
 		}
 		connTrace[pIndexNew] = blockNew
@@ -216,7 +236,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	indexHash := blockConnecting.GetHash()
 	// Apply the block atomically to the chain state.
 	nTime2 := time.Now().UnixNano()
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
 	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
 
@@ -245,6 +265,23 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
+	if pIndexNew.Height >= conf.Cfg.Chain.StartLogHeight {
+		cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+		besthash, err := cdb.GetBestBlock()
+		if err != nil {
+			log.Debug("in utxostats, GetBestBlock(), failed=%v\n", err)
+			return err
+		}
+		var stat stat
+		stat.bestblock = *besthash
+		stat.height = int(mchain.GetInstance().FindBlockIndex(*besthash).Height)
+		iter := cdb.GetDBW().Iterator(nil)
+		iter.Seek([]byte{db.DbCoin})
+		taskControl.StartLogTask()
+		taskControl.StartUtxoTask()
+		taskControl.PushUtxoTask(utxoTaskArg{iter, &stat})
+	}
+
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
@@ -276,7 +313,7 @@ func DisconnectTip(fBare bool) error {
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
-		log.Debug("FailedToReadBlock")
+		log.Error("DisconnectTip: read block from disk failed, the block is:%+v ", blk)
 		return errcode.New(errcode.FailedToReadBlock)
 	}
 
@@ -360,54 +397,54 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 	param := gChain.GetParams()
 	//	TODO !!! notify mempool update tx
 	warningMessages := make([]string, 0)
-	if !lundo.IsInitialBlockDownload() {
-		// todo check block version and warn it
-		// nUpgraded := 0
-		// pindex := gChain.Tip()
-		// for bit := 0; bit < versionbits.VersionBitsNumBits; bit++ {
-		// 	checker := versionbits.NewWarningBitsConChecker(bit)
-		// 	state := versionbits.GetStateFor(checker, pindex, param, GWarningCache[bit])
-		// 	if state == versionbits.ThresholdActive || state == versionbits.ThresholdLockedIn {
-		// 		if state == versionbits.ThresholdActive {
-		// 			strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
-		// 			msg.SetMiscWarning(strWaring)
-		// 			if !gWarned {
-		// 				AlertNotify(strWaring)
-		// 				gWarned = true
-		// 			}
-		// 		} else {
-		// 			warningMessages = append(warningMessages,
-		// 				fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
-		// 		}
-		// 	}
-		// }
-		// // Check the version of the last 100 blocks to see if we need to
-		// // upgrade:
-		// for i := 0; i < 100 && index != nil; i++ {
-		// 	nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
-		// 	if index.Header.Version > VersionBitsLastOldBlockVersion &&
-		// 		(int(index.Header.Version)&(^nExpectedVersion) != 0) {
-		// 		nUpgraded++
-		// 		index = index.Prev
-		// 	}
-		// }
-		// if nUpgraded > 0 {
-		// 	warningMessages = append(warningMessages,
-		// 		fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
-		// }
-		// if nUpgraded > 100/2 {
-		// 	strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
-		// 		" It's possible unknown rules are in effect")
-		// 	// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
-		// 	// the user:
-		// 	msg.SetMiscWarning(strWarning)
-		// 	if !gWarned {
-		// 		AlertNotify(strWarning)
-		//
-		// 		gWarned = true
-		// 	}
-		// }
-	}
+	// if !lundo.IsInitialBlockDownload() {
+	// todo check block version and warn it
+	// nUpgraded := 0
+	// pindex := gChain.Tip()
+	// for bit := 0; bit < versionbits.VersionBitsNumBits; bit++ {
+	// 	checker := versionbits.NewWarningBitsConChecker(bit)
+	// 	state := versionbits.GetStateFor(checker, pindex, param, GWarningCache[bit])
+	// 	if state == versionbits.ThresholdActive || state == versionbits.ThresholdLockedIn {
+	// 		if state == versionbits.ThresholdActive {
+	// 			strWaring := fmt.Sprintf("Warning: unknown new rules activated (versionbit %d)", bit)
+	// 			msg.SetMiscWarning(strWaring)
+	// 			if !gWarned {
+	// 				AlertNotify(strWaring)
+	// 				gWarned = true
+	// 			}
+	// 		} else {
+	// 			warningMessages = append(warningMessages,
+	// 				fmt.Sprintf("unknown new rules are about to activate (versionbit %d)", bit))
+	// 		}
+	// 	}
+	// }
+	// // Check the version of the last 100 blocks to see if we need to
+	// // upgrade:
+	// for i := 0; i < 100 && index != nil; i++ {
+	// 	nExpectedVersion := ComputeBlockVersion(index.Prev, param, VBCache)
+	// 	if index.Header.Version > VersionBitsLastOldBlockVersion &&
+	// 		(int(index.Header.Version)&(^nExpectedVersion) != 0) {
+	// 		nUpgraded++
+	// 		index = index.Prev
+	// 	}
+	// }
+	// if nUpgraded > 0 {
+	// 	warningMessages = append(warningMessages,
+	// 		fmt.Sprintf("%d of last 100 blocks have unexpected version", nUpgraded))
+	// }
+	// if nUpgraded > 100/2 {
+	// 	strWarning := fmt.Sprintf("Warning: Unknown block versions being mined!" +
+	// 		" It's possible unknown rules are in effect")
+	// 	// notify GetWarnings(), called by Qt and the JSON-RPC code to warn
+	// 	// the user:
+	// 	msg.SetMiscWarning(strWarning)
+	// 	if !gWarned {
+	// 		AlertNotify(strWarning)
+	//
+	// 		gWarned = true
+	// 	}
+	// }
+	// }
 	txdata := param.TxData()
 	tip := chain.GetInstance().Tip()
 	utxoTip := utxo.GetUtxoCacheInstance()
@@ -425,7 +462,7 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 }
 
 // GuessVerificationProgress Guess how far we are in the verification process at the given block index
-func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.BlockIndex) float64 {
+func GuessVerificationProgress(data *model.ChainTxData, index *blockindex.BlockIndex) float64 {
 	if index == nil {
 		return float64(0)
 	}
@@ -437,7 +474,7 @@ func GuessVerificationProgress(data *chainparams.ChainTxData, index *blockindex.
 	if int64(index.ChainTxCount) <= data.TxCount {
 		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
 	} else {
-		txTotal = float64(index.ChainTxCount) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
+		txTotal = float64(index.ChainTxCount) + float64(now.Unix()-int64(index.GetBlockTime()))*data.TxRate
 	}
 	return float64(index.ChainTxCount) / txTotal
 }
@@ -451,12 +488,12 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	}
 	pos := pindex.GetUndoPos()
 	if pos.IsNull() {
-		log.Error("DisconnectBlock(): no undo data available")
+		log.Error("DisconnectBlock(): no undo data available.")
 		return undo.DisconnectFailed
 	}
 	blockUndo, ret := disk.UndoReadFromDisk(&pos, *pindex.Prev.GetBlockHash())
 	if !ret {
-		log.Error("DisconnectBlock(): failure reading undo data")
+		log.Error("DisconnectBlock(): reading undo data failed, pos is: %s, block undo is: %+v", pos.String(), blockUndo)
 		return undo.DisconnectFailed
 	}
 

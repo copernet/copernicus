@@ -4,8 +4,8 @@ import (
 	"math"
 	"sync"
 
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 )
 
@@ -49,11 +49,11 @@ var VersionBitsDeploymentInfo = []BIP9DeploymentInfo{
 }
 
 type AbstractThresholdConditionChecker interface {
-	Condition(index *blockindex.BlockIndex, params *chainparams.BitcoinParams) bool
-	BeginTime(params *chainparams.BitcoinParams) int64
-	EndTime(params *chainparams.BitcoinParams) int64
-	Period(params *chainparams.BitcoinParams) int
-	Threshold(params *chainparams.BitcoinParams) int
+	Condition(index *blockindex.BlockIndex, params *model.BitcoinParams) bool
+	BeginTime(params *model.BitcoinParams) int64
+	EndTime(params *model.BitcoinParams) int64
+	Period(params *model.BitcoinParams) int
+	Threshold(params *model.BitcoinParams) int
 }
 
 var VBCache *VersionBitsCache // todo waring: there is a global variable(used as cache)
@@ -87,17 +87,17 @@ func NewWarnBitsCache(bitNum int) []ThresholdConditionCache {
 	return w
 }
 
-func VersionBitsState(indexPrev *blockindex.BlockIndex, params *chainparams.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
+func VersionBitsState(indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
 	vc := &VersionBitsConditionChecker{id: pos}
 	return GetStateFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsStateSinceHeight(indexPrev *blockindex.BlockIndex, params *chainparams.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) int {
+func VersionBitsStateSinceHeight(indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) int {
 	vc := &VersionBitsConditionChecker{id: pos}
 	return GetStateSinceHeightFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
-func VersionBitsMask(params *chainparams.BitcoinParams, pos consensus.DeploymentPos) uint32 {
+func VersionBitsMask(params *model.BitcoinParams, pos consensus.DeploymentPos) uint32 {
 	vc := VersionBitsConditionChecker{id: pos}
 	return uint32(vc.Mask(params))
 }
@@ -106,33 +106,33 @@ type VersionBitsConditionChecker struct {
 	id consensus.DeploymentPos
 }
 
-func (vc *VersionBitsConditionChecker) BeginTime(params *chainparams.BitcoinParams) int64 {
+func (vc *VersionBitsConditionChecker) BeginTime(params *model.BitcoinParams) int64 {
 	return params.Deployments[vc.id].StartTime
 }
 
-func (vc *VersionBitsConditionChecker) EndTime(params *chainparams.BitcoinParams) int64 {
+func (vc *VersionBitsConditionChecker) EndTime(params *model.BitcoinParams) int64 {
 	return params.Deployments[vc.id].Timeout
 }
 
-func (vc *VersionBitsConditionChecker) Period(params *chainparams.BitcoinParams) int {
+func (vc *VersionBitsConditionChecker) Period(params *model.BitcoinParams) int {
 	return int(params.MinerConfirmationWindow)
 }
 
-func (vc *VersionBitsConditionChecker) Threshold(params *chainparams.BitcoinParams) int {
+func (vc *VersionBitsConditionChecker) Threshold(params *model.BitcoinParams) int {
 	return int(params.RuleChangeActivationThreshold)
 }
 
-func (vc *VersionBitsConditionChecker) Condition(index *blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (vc *VersionBitsConditionChecker) Condition(index *blockindex.BlockIndex, params *model.BitcoinParams) bool {
 	return ((int64(index.Header.Version) & VersionBitsTopMask) == VersionBitsTopBits) &&
 		(index.Header.Version&vc.Mask(params)) != 0
 }
 
-func (vc *VersionBitsConditionChecker) Mask(params *chainparams.BitcoinParams) int32 {
+func (vc *VersionBitsConditionChecker) Mask(params *model.BitcoinParams) int32 {
 	return int32(1) << uint(params.Deployments[vc.id].Bit)
 }
 
 func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.BlockIndex,
-	params *chainparams.BitcoinParams, cache ThresholdConditionCache) ThresholdState {
+	params *model.BitcoinParams, cache ThresholdConditionCache) ThresholdState {
 
 	nPeriod := vc.Period(params)
 	nThreshold := vc.Threshold(params)
@@ -226,7 +226,7 @@ func GetStateFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.Blo
 	return state
 }
 
-func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.BlockIndex, params *chainparams.BitcoinParams, cache ThresholdConditionCache) int {
+func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, cache ThresholdConditionCache) int {
 	initialState := GetStateFor(vc, indexPrev, params, cache)
 	// BIP 9 about state DEFINED: "The genesis block is by definition in this
 	// state for each deployment."
@@ -265,30 +265,30 @@ func NewWarningBitsConChecker(bitIn int) *WarningBitsConditionChecker {
 	return w
 }
 
-func (w *WarningBitsConditionChecker) BeginTime(params *chainparams.BitcoinParams) int64 {
+func (w *WarningBitsConditionChecker) BeginTime(params *model.BitcoinParams) int64 {
 	return 0
 }
 
-func (w *WarningBitsConditionChecker) EndTime(params *chainparams.BitcoinParams) int64 {
+func (w *WarningBitsConditionChecker) EndTime(params *model.BitcoinParams) int64 {
 	return math.MaxInt64
 }
 
-func (w *WarningBitsConditionChecker) Period(params *chainparams.BitcoinParams) int {
+func (w *WarningBitsConditionChecker) Period(params *model.BitcoinParams) int {
 	return int(params.MinerConfirmationWindow)
 }
 
-func (w *WarningBitsConditionChecker) Threshold(params *chainparams.BitcoinParams) int {
+func (w *WarningBitsConditionChecker) Threshold(params *model.BitcoinParams) int {
 	return int(params.RuleChangeActivationThreshold)
 }
 
-func (w *WarningBitsConditionChecker) Condition(index *blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (w *WarningBitsConditionChecker) Condition(index *blockindex.BlockIndex, params *model.BitcoinParams) bool {
 
 	return int64(index.Header.Version)&VersionBitsTopMask == VersionBitsTopBits &&
 		((index.Header.Version)>>uint(w.bit))&1 != 0 &&
 		(ComputeBlockVersion(index.Prev, params, VBCache)>>uint(w.bit))&1 == 0
 }
 
-func ComputeBlockVersion(indexPrev *blockindex.BlockIndex, params *chainparams.BitcoinParams, t *VersionBitsCache) int {
+func ComputeBlockVersion(indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, t *VersionBitsCache) int {
 	version := VersionBitsTopBits
 
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {

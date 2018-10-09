@@ -34,9 +34,6 @@ func (s *Stack) Pop() interface{} {
 		return nil
 	}
 	e := s.array[stackLen-1]
-	if e == nil {
-		return nil
-	}
 	s.array = s.array[:stackLen-1]
 
 	return e
@@ -99,7 +96,7 @@ func (s *Stack) SetTop(i int, value interface{}) bool {
 func (s *Stack) CountBool(val bool) int {
 	var count int
 	for _, e := range s.array {
-		if e.(bool) == val {
+		if v, ok := e.(bool); ok && v == val {
 			count++
 		}
 	}

@@ -134,53 +134,53 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 
 		err := util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, uint32(transaction.GetVersion()))
 		if err != nil {
-			log.Error("txSignature:push transaction.GetVersion() to hashBuffer failed.")
+			log.Error("txSignature:push transaction.GetVersion() to hashBuffer failed: %v", err)
 			return util.HashOne, err
 		}
 		_, err = hashBuffer.Write(hashPrevouts[:])
 		if err != nil {
-			log.Error("txSignature:write hashPrevouts failed.")
+			log.Error("txSignature:write hashPrevouts failed: %v", err)
 			return util.HashOne, err
 		}
 		_, err = hashBuffer.Write(hashSequence[:])
 		if err != nil {
-			log.Error("txSignature:write hashSequence failed.")
+			log.Error("txSignature:write hashSequence failed: %v", err)
 			return util.HashOne, err
 		}
 		err = transaction.GetIns()[nIn].PreviousOutPoint.Encode(&hashBuffer)
 		if err != nil {
-			log.Error("txSignature:Previous OutPoint encode failed.")
+			log.Error("txSignature:Previous OutPoint encode failed: %v", err)
 			return util.HashOne, err
 		}
 		err = s.Serialize(&hashBuffer)
 		if err != nil {
-			log.Error("txSignature:serialize hashBuffer failed.")
+			log.Error("txSignature:serialize hashBuffer failed: %v", err)
 			return util.HashOne, err
 		}
 		//input preout amount
 		err = util.BinarySerializer.PutUint64(&hashBuffer, binary.LittleEndian, uint64(money))
 		if err != nil {
-			log.Error("txSignature:push money to hashBuffer failed.")
+			log.Error("txSignature:push money to hashBuffer failed: %v", err)
 			return util.HashOne, err
 		}
 		err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetIns()[nIn].Sequence)
 		if err != nil {
-			log.Error("txSignature:push transaction.GetIns()[nIn].Sequence to hashBuffer failed.")
+			log.Error("txSignature:push transaction.GetIns()[nIn].Sequence to hashBuffer failed: %v", err)
 			return util.HashOne, err
 		}
 		_, err = hashBuffer.Write(hashOutputs[:])
 		if err != nil {
-			log.Error("txSignature:write hashOutputs failed.")
+			log.Error("txSignature:write hashOutputs failed: %v", err)
 			return util.HashOne, err
 		}
 		err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetLockTime())
 		if err != nil {
-			log.Error("txSignature:push transaction.GetLockTime() to hashBuffer failed.")
+			log.Error("txSignature:push transaction.GetLockTime() to hashBuffer failed: %v", err)
 			return util.HashOne, err
 		}
 		err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, hashType)
 		if err != nil {
-			log.Error("txSignature:push hashType to hashBuffer failed.")
+			log.Error("txSignature:push hashType to hashBuffer failed: %v", err)
 			return util.HashOne, err
 		}
 		result = util.DoubleSha256Hash(hashBuffer.Bytes())
@@ -219,7 +219,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 
 	err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, uint32(transaction.GetVersion()))
 	if err != nil {
-		log.Error("txSignature:push transaction.GetVersion() to hashBuffer failed.")
+		log.Error("txSignature:push transaction.GetVersion() to hashBuffer failed: %v", err)
 		return util.HashOne, err
 	}
 	var inputsCount int
@@ -230,7 +230,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	}
 	err = util.WriteVarInt(&hashBuffer, uint64(inputsCount))
 	if err != nil {
-		log.Error("txSignature:push inputsCount to hashBuffer failed.")
+		log.Error("txSignature:push inputsCount to hashBuffer failed: %v", err)
 		return util.HashOne, err
 	}
 
@@ -243,12 +243,12 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 			ins[nIn].PreviousOutPoint.Encode(&hashBuffer)
 			err = ss.Serialize(&hashBuffer)
 			if err != nil {
-				log.Error("txSignature:serialize hashBuffer failed.")
+				log.Error("txSignature:serialize hashBuffer failed: %v", err)
 				return util.HashOne, err
 			}
 			err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, ins[nIn].Sequence)
 			if err != nil {
-				log.Error("txSignature:push ins[nIn].Sequence to hashBuffer failed.")
+				log.Error("txSignature:push ins[nIn].Sequence to hashBuffer failed: %v", err)
 				return util.HashOne, err
 			}
 		} else {
@@ -257,32 +257,32 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 				// push empty script
 				err = util.WriteVarInt(&hashBuffer, 0)
 				if err != nil {
-					log.Error("txSignature:push empty script to hashBuffer failed.")
+					log.Error("txSignature:push empty script to hashBuffer failed: %v", err)
 					return util.HashOne, err
 				}
 				if sigHashSingle || sigHashNone {
 					// push empty sequence
 					err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, 0)
 					if err != nil {
-						log.Error("txSignature:push empty sequence to hashBuffer failed.")
+						log.Error("txSignature:push empty sequence to hashBuffer failed: %v", err)
 						return util.HashOne, err
 					}
 				} else {
 					err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, ins[i].Sequence)
 					if err != nil {
-						log.Error("txSignature:ins[i].Sequence put hashBuffer failed.")
+						log.Error("txSignature:ins[i].Sequence put hashBuffer failed: %v", err)
 						return util.HashOne, err
 					}
 				}
 			} else {
 				err = ss.Serialize(&hashBuffer)
 				if err != nil {
-					log.Error("txSignature:hashBuffer serialize failed.")
+					log.Error("txSignature:hashBuffer serialize failed: %v", err)
 					return util.HashOne, err
 				}
 				err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, ins[i].Sequence)
 				if err != nil {
-					log.Error("txSignature:ins[i].Sequence put hashBuffer failed.")
+					log.Error("txSignature:ins[i].Sequence put hashBuffer failed: %v", err)
 					return util.HashOne, err
 				}
 			}
@@ -302,7 +302,7 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	}
 	err = util.WriteVarInt(&hashBuffer, uint64(outsCount))
 	if err != nil {
-		log.Error("txSignature:write outsCount failed.")
+		log.Error("txSignature:write outsCount failed: %v", err)
 		return util.HashOne, err
 	}
 	for m := 0; m < outsCount; m++ {
@@ -310,13 +310,13 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 			to := txout.NewTxOut(-1, nil)
 			err = to.Encode(&hashBuffer)
 			if err != nil {
-				log.Error("txSignature:txOut encode failed.")
+				log.Error("txSignature:txOut encode failed: %v", err)
 				return util.HashOne, err
 			}
 		} else {
 			err = outs[m].Encode(&hashBuffer)
 			if err != nil {
-				log.Error("txSignature:tx's out encode failed.")
+				log.Error("txSignature:tx's out encode failed: %v", err)
 				return util.HashOne, err
 			}
 		}
@@ -325,12 +325,12 @@ func SignatureHash(transaction *Tx, s *script.Script, hashType uint32, nIn int,
 	// encode tx.locktime
 	err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, transaction.GetLockTime())
 	if err != nil {
-		log.Error("txSignature:tx's lockTime put hashBuffer failed.")
+		log.Error("txSignature:tx's lockTime put hashBuffer failed: %v", err)
 		return util.HashOne, err
 	}
 	err = util.BinarySerializer.PutUint32(&hashBuffer, binary.LittleEndian, hashType)
 	if err != nil {
-		log.Error("txSignature:hashType put hashBuffer failed.")
+		log.Error("txSignature:hashType put hashBuffer failed: %v", err)
 		return util.HashOne, err
 	}
 	//log.Debug("SignatureHash buf: %s", hex.EncodeToString(hashBuffer.Bytes()))
@@ -344,7 +344,7 @@ func GetPreviousOutHash(tx *Tx) (h util.Hash) {
 	for _, e := range ins {
 		err := e.PreviousOutPoint.Encode(&bPreOut)
 		if err != nil {
-			log.Error("txSignature:previous outPoint encode failed.")
+			log.Error("txSignature:previous outPoint encode failed: %v", err)
 			return util.HashOne
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/net/socks"
 	"io"
 	"math/rand"
 	"net"
@@ -17,10 +18,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/go-socks/socks"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 	"github.com/davecgh/go-spew/spew"
@@ -251,7 +251,7 @@ type Config struct {
 	// ChainParams identifies which chain parameters the peer is associated
 	// with.  It is highly recommended to specify this field, however it can
 	// be omitted in which case the test network will be used.
-	ChainParams *chainparams.BitcoinParams
+	ChainParams *model.BitcoinParams
 
 	// Services specifies which services to advertise as supported by the
 	// local peer.  This field can be omitted in which case it will be 0
@@ -1170,7 +1170,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	var err error
 	defer func() {
 		if err != nil {
-			log.Error("readMessage got a error: %v", err)
+			log.Error("peer(%s): readMessage got a error: %v", p, err)
 		}
 	}()
 
@@ -1866,7 +1866,9 @@ func (p *Peer) QueueInventory(invVect *wire.InvVect) {
 
 // AssociateConnection associates the given conn to the peer.   Calling this
 // function when the peer is already connected will have no effect.
-func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
+func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage,
+	newPeerCallback func(*Peer)) {
+
 	// Already connected?
 	if !atomic.CompareAndSwapInt32(&p.connected, 0, 1) {
 		return
@@ -1891,7 +1893,7 @@ func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
 	}
 
 	go func() {
-		if err := p.start(phCh); err != nil {
+		if err := p.start(phCh, newPeerCallback); err != nil {
 			log.Debug("Cannot start peer %v: %v", p, err)
 			p.Disconnect()
 		}
@@ -1922,10 +1924,10 @@ func (p *Peer) Disconnect() {
 }
 
 // start begins processing input and output messages.
-func (p *Peer) start(phCh chan<- *PeerMessage) error {
+func (p *Peer) start(phCh chan<- *PeerMessage, newPeerCallback func(*Peer)) error {
 	log.Trace("Starting peer %s", p)
 
-	negotiateErr := make(chan error)
+	negotiateErr := make(chan error, 1)
 	go func() {
 		if p.inbound {
 			negotiateErr <- p.negotiateInboundProtocol()
@@ -1945,7 +1947,10 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		return errors.New("protocol negotiation timeout")
 	}
 	log.Debug("Connected to %s", p.Addr())
+	// Send our verack message now that the IO processing machinery has started.
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
+	newPeerCallback(p)
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
 	go p.stallHandler()
@@ -1953,9 +1958,6 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	go p.queueHandler()
 	go p.outHandler()
 	go p.pingHandler()
-
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
 	return nil
 }
@@ -2043,7 +2045,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 
 	// Set the chain parameters to testnet if the caller did not specify any.
 	if cfg.ChainParams == nil {
-		cfg.ChainParams = chainparams.ActiveNetParams
+		cfg.ChainParams = model.ActiveNetParams
 	}
 
 	p := Peer{

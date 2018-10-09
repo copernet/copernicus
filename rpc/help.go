@@ -13,65 +13,86 @@ import (
 type helpCacher struct {
 	sync.Mutex
 	usage      string
-	methodHelp map[string]string
+	methodHelp map[string]helpDescInfo
 }
 
-var methodHelp = map[string]string{
-	"getexcessiveblock": getexcessiveblockDesc,
-	"setexcessiveblock": setexcessiveblockDesc,
+type helpDescInfo struct {
+	category    string
+	description string
+}
 
-	"getblockchaininfo":     getblockchaininfoDesc,
-	"getbestblockhash":      getbestblockhashDesc,
-	"getblockcount":         getblockcountDesc,
-	"getblock":              getblockDesc,
-	"getblockhash":          getblockhashDesc,
-	"getblockheader":        getblockheader,
-	"getchaintips":          getchaintipsDesc,
-	"getchaintxstats":       getchaintxstatsDesc,
-	"getdifficulty":         getdifficultyDesc,
-	"getmempoolancestors":   getmempoolancestorsDesc,
-	"getmempooldescendants": getmempooldescendantsDesc,
-	"getmempoolentry":       getmempoolentryDesc,
-	"getmempoolinfo":        getmempoolinfoDesc,
-	"getrawmempool":         getrawmempoolDesc,
-	"gettxout":              gettxoutDesc,
-	"gettxoutsetinfo":       gettxoutsetinfoDesc,
-	"pruneblockchain":       pruneblockchainDesc,
-	"verifychain":           verifychainDesc,
-	"preciousblock":         preciousblockDesc,
+const (
+	DebugCmd           = ""
+	BlockChainCmd      = "BlockChain"
+	ControlCmd         = "Control"
+	GeneratingCmd      = "Generating"
+	MiningCmd          = "Mining"
+	NetworkCmd         = "Network"
+	RawTransactionsCmd = "RawTransactions"
+	UtilCmd            = "Util"
+)
 
-	"getnetworkhashps":  getnetworkhashpsDesc,
-	"getmininginfo":     getmininginfoDesc,
-	"getblocktemplate":  getblocktemplateDesc,
-	"submitblock":       submitblockDesc,
-	"generate":          generateDesc,
-	"generatetoaddress": generatetoaddressDesc,
+var allMethodHelp = map[string]helpDescInfo{
+	"getblockchaininfo":     {BlockChainCmd, getblockchaininfoDesc},
+	"getbestblockhash":      {BlockChainCmd, getbestblockhashDesc},
+	"getblockcount":         {BlockChainCmd, getblockcountDesc},
+	"getblock":              {BlockChainCmd, getblockDesc},
+	"getblockhash":          {BlockChainCmd, getblockhashDesc},
+	"getblockheader":        {BlockChainCmd, getblockheader},
+	"getchaintips":          {BlockChainCmd, getchaintipsDesc},
+	"getchaintxstats":       {BlockChainCmd, getchaintxstatsDesc},
+	"getdifficulty":         {BlockChainCmd, getdifficultyDesc},
+	"getmempoolancestors":   {BlockChainCmd, getmempoolancestorsDesc},
+	"getmempooldescendants": {BlockChainCmd, getmempooldescendantsDesc},
+	"getmempoolentry":       {BlockChainCmd, getmempoolentryDesc},
+	"getmempoolinfo":        {BlockChainCmd, getmempoolinfoDesc},
+	"getrawmempool":         {BlockChainCmd, getrawmempoolDesc},
+	"gettxout":              {BlockChainCmd, gettxoutDesc},
+	"gettxoutsetinfo":       {BlockChainCmd, gettxoutsetinfoDesc},
+	"pruneblockchain":       {BlockChainCmd, pruneblockchainDesc},
+	"verifychain":           {BlockChainCmd, verifychainDesc},
+	"preciousblock":         {BlockChainCmd, preciousblockDesc},
 
-	"getconnectioncount": getconnectioncountDesc,
-	"ping":               pingDesc,
-	"getpeerinfo":        getpeerinfoDesc,
-	"addnode":            addnodeDesc,
-	"disconnectnode":     disconnectnodeDesc,
-	"getaddednodeinfo":   getaddednodeinfoDesc,
-	"getnettotals":       getnettotalsDesc,
-	"getnetworkinfo":     getnetworkinfoDesc,
-	"setban":             setbanDesc,
-	"listbanned":         listbannedDesc,
-	"clearbanned":        clearbannedDesc,
-	"setnetworkactive":   setnetworkactiveDesc,
+	"getnetworkhashps": {MiningCmd, getnetworkhashpsDesc},
+	"getmininginfo":    {MiningCmd, getmininginfoDesc},
+	"getblocktemplate": {MiningCmd, getblocktemplateDesc},
+	"submitblock":      {MiningCmd, submitblockDesc},
 
-	"getrawtransaction":    getrawtransactionDesc,
-	"createrawtransaction": createrawtransactionDesc,
-	"decoderawtransaction": decoderawtransactionDesc,
-	"decodescript":         decodescriptDesc,
-	"sendrawtransaction":   sendrawtransactionDesc,
-	"signrawtransaction":   signrawtransactionDesc,
-	"gettxoutproof":        gettxoutproofDesc,
-	"verifytxoutproof":     verifytxoutproofDesc,
+	"generate":          {GeneratingCmd, generateDesc},
+	"generatetoaddress": {GeneratingCmd, generatetoaddressDesc},
 
-	"getinfo":         getinfoDesc,
-	"validateaddress": validateaddressDesc,
-	"createmultisig":  createmultisigDesc,
+	"getconnectioncount": {NetworkCmd, getconnectioncountDesc},
+	"ping":               {NetworkCmd, pingDesc},
+	"getpeerinfo":        {NetworkCmd, getpeerinfoDesc},
+	"addnode":            {NetworkCmd, addnodeDesc},
+	"disconnectnode":     {NetworkCmd, disconnectnodeDesc},
+	"getaddednodeinfo":   {NetworkCmd, getaddednodeinfoDesc},
+	"getnettotals":       {NetworkCmd, getnettotalsDesc},
+	"getnetworkinfo":     {NetworkCmd, getnetworkinfoDesc},
+	"setban":             {NetworkCmd, setbanDesc},
+	"listbanned":         {NetworkCmd, listbannedDesc},
+	"clearbanned":        {NetworkCmd, clearbannedDesc},
+	"setnetworkactive":   {NetworkCmd, setnetworkactiveDesc},
+
+	"getrawtransaction":    {RawTransactionsCmd, getrawtransactionDesc},
+	"createrawtransaction": {RawTransactionsCmd, createrawtransactionDesc},
+	"decoderawtransaction": {RawTransactionsCmd, decoderawtransactionDesc},
+	"decodescript":         {RawTransactionsCmd, decodescriptDesc},
+	"sendrawtransaction":   {RawTransactionsCmd, sendrawtransactionDesc},
+	"signrawtransaction":   {RawTransactionsCmd, signrawtransactionDesc},
+	"gettxoutproof":        {RawTransactionsCmd, gettxoutproofDesc},
+	"verifytxoutproof":     {RawTransactionsCmd, verifytxoutproofDesc},
+
+	"getinfo": {ControlCmd, getinfoDesc},
+	"help":    {ControlCmd, helpDesc},
+	"stop":    {ControlCmd, stopDesc},
+
+	"validateaddress": {UtilCmd, validateaddressDesc},
+	"createmultisig":  {UtilCmd, createmultisigDesc},
+
+	"getexcessiveblock":  {DebugCmd, getexcessiveblockDesc},
+	"setexcessiveblock":  {DebugCmd, setexcessiveblockDesc},
+	"waitforblockheight": {DebugCmd, waitforblockheightDesc},
 }
 
 // rpcMethodHelp returns an RPC help string for the provided method.
@@ -86,7 +107,7 @@ func (c *helpCacher) rpcMethodHelp(method string) (string, error) {
 		return "", nil
 	}
 
-	return help, nil
+	return help.description, nil
 }
 
 // rpcUsage returns one-line usage for all support RPC commands.
@@ -102,18 +123,34 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 	}
 
 	// Generate a list of one-line usage for every command.
-	usageTexts := make([]string, 0, len(methodHelp))
-	for k := range methodHelp {
-
-		usage, err := btcjson.MethodUsageText(k)
+	usageTexts := make(map[string]*[]string)
+	for method, info := range allMethodHelp {
+		// Debug command is not shown in help
+		if info.category == DebugCmd {
+			continue
+		}
+		if _, ok := usageTexts[info.category]; !ok {
+			category := make([]string, 0)
+			usageTexts[info.category] = &category
+		}
+		usage, err := btcjson.MethodUsageText(method)
 		if err != nil {
 			return "", err
 		}
-		usageTexts = append(usageTexts, usage)
+		*usageTexts[info.category] = append(*usageTexts[info.category], usage)
 	}
 
-	sort.Sort(sort.StringSlice(usageTexts))
-	c.usage = strings.Join(usageTexts, "\n")
+	categories := make([]string, 0)
+	for category := range usageTexts {
+		categories = append(categories, category)
+	}
+	sort.Strings(categories)
+
+	for _, category := range categories {
+		sort.Strings(*usageTexts[category])
+		c.usage += "--- " + category + " ---\n" +
+			strings.Join(*usageTexts[category], "\n") + "\n\n"
+	}
 	return c.usage, nil
 }
 
@@ -121,6 +158,6 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 // usage for the RPC server commands and caches the results for future calls.
 func newHelpCacher() *helpCacher {
 	return &helpCacher{
-		methodHelp: methodHelp,
+		methodHelp: allMethodHelp,
 	}
 }

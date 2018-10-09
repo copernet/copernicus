@@ -157,3 +157,12 @@ func TestRPCError(t *testing.T) {
 		}
 	}
 }
+
+func TestUnmarshalRequest(t *testing.T) {
+	str := `{"version": "1.1", "method": "getblockcount", "params": [], "id": 40}`
+	var request Request
+	err := json.Unmarshal([]byte(str), &request)
+	if err != nil {
+		t.Error(err)
+	}
+}

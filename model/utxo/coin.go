@@ -88,14 +88,15 @@ func (coin *Coin) Serialize(w io.Writer) error {
 	if err := util.WriteVarLenInt(w, uint64(heightAndIsCoinBase)); err != nil {
 		return err
 	}
-	tc := coin.txOut
+	tc := txout.NewTxoutCompressor(&coin.txOut)
 	return tc.Serialize(w)
 }
 
 func (coin *Coin) Unserialize(r io.Reader) error {
-
+	//hicb means heightAndIsCoinBase
 	hicb, err := util.ReadVarLenInt(r)
 	if err != nil {
+		log.Error("Coin UnSerialize: the read count is: %d, error: %v", hicb, err)
 		return err
 	}
 	heightAndIsCoinBase := int32(hicb)
@@ -103,9 +104,8 @@ func (coin *Coin) Unserialize(r io.Reader) error {
 	if (heightAndIsCoinBase & 1) == 1 {
 		coin.isCoinBase = true
 	}
-	//fmt.Println("coin.Unserialize=====", err, coin.height, coin.isCoinBase)
-	err = coin.txOut.Unserialize(r)
-	return err
+	tc := txout.NewTxoutCompressor(&coin.txOut)
+	return tc.Unserialize(r)
 }
 
 // NewCoin creates an confirmed coin

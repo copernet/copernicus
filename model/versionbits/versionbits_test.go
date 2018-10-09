@@ -3,13 +3,13 @@ package versionbits
 import (
 	"testing"
 
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/util"
 )
 
-var paramsDummy = chainparams.BitcoinParams{}
+var paramsDummy = model.BitcoinParams{}
 
 func testTime(Height int) int64 {
 	return 1415926536 + int64(600*Height)
@@ -19,31 +19,27 @@ type ConditionChecker struct {
 	cache ThresholdConditionCache
 }
 
-// var tcc = ConditionChecker{cache: make(ThresholdConditionCache)}
+var randomNum = util.InsecureRand32()
 
-func (tc *ConditionChecker) BeginTime(params *chainparams.BitcoinParams) int64 {
+func (tc *ConditionChecker) BeginTime(params *model.BitcoinParams) int64 {
 	return testTime(10000)
 }
 
-func (tc *ConditionChecker) EndTime(params *chainparams.BitcoinParams) int64 {
+func (tc *ConditionChecker) EndTime(params *model.BitcoinParams) int64 {
 	return testTime(20000)
 }
-func (tc *ConditionChecker) Period(params *chainparams.BitcoinParams) int {
+func (tc *ConditionChecker) Period(params *model.BitcoinParams) int {
 	return 1000
 }
-func (tc *ConditionChecker) Threshold(params *chainparams.BitcoinParams) int {
+func (tc *ConditionChecker) Threshold(params *model.BitcoinParams) int {
 	return 900
 }
-func (tc *ConditionChecker) Condition(index *blockindex.BlockIndex, params *chainparams.BitcoinParams) bool {
+func (tc *ConditionChecker) Condition(index *blockindex.BlockIndex, params *model.BitcoinParams) bool {
 	return index.Header.Version&0x100 != 0
 }
 
 func (tc *ConditionChecker) GetStateFor(indexPrev *blockindex.BlockIndex) ThresholdState {
-	v := GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
-	if indexPrev != nil && indexPrev.Height == 2999 {
-		//fmt.Println("state : ", v)
-	}
-	return v
+	return GetStateFor(tc, indexPrev, &paramsDummy, tc.cache)
 }
 
 func (tc *ConditionChecker) GetStateSinceHeightFor(indexPrev *blockindex.BlockIndex) int {
@@ -116,7 +112,7 @@ func (versionBitsTester *VersionBitsTester) Mine(height int, nTime int64, nVersi
 
 func (versionBitsTester *VersionBitsTester) TestStateSinceHeight(height int, t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (randomNum & ((1 << uint(i)) - 1)) == 0 {
 			var tmpHeight int
 			if len(versionBitsTester.block) == 0 {
 				tmpHeight = versionBitsTester.checker[i].GetStateSinceHeightFor(nil)
@@ -136,7 +132,7 @@ func (versionBitsTester *VersionBitsTester) TestStateSinceHeight(height int, t *
 
 func (versionBitsTester *VersionBitsTester) TestDefined(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (randomNum & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -156,7 +152,7 @@ func (versionBitsTester *VersionBitsTester) TestDefined(t *testing.T) *VersionBi
 
 func (versionBitsTester *VersionBitsTester) TestStarted(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (randomNum & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -176,7 +172,7 @@ func (versionBitsTester *VersionBitsTester) TestStarted(t *testing.T) *VersionBi
 
 func (versionBitsTester *VersionBitsTester) TestLockedIn(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (randomNum & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -196,7 +192,7 @@ func (versionBitsTester *VersionBitsTester) TestLockedIn(t *testing.T) *VersionB
 
 func (versionBitsTester *VersionBitsTester) TestActive(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (randomNum & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -215,7 +211,7 @@ func (versionBitsTester *VersionBitsTester) TestActive(t *testing.T) *VersionBit
 
 func (versionBitsTester *VersionBitsTester) TestFailed(t *testing.T) *VersionBitsTester {
 	for i := 0; i < CHECKERS; i++ {
-		if (util.InsecureRand32() & ((1 << uint(i)) - 1)) == 0 {
+		if (randomNum & ((1 << uint(i)) - 1)) == 0 {
 			var tmpThreshold ThresholdState
 			if len(versionBitsTester.block) == 0 {
 				tmpThreshold = versionBitsTester.checker[i].GetStateFor(nil)
@@ -232,212 +228,202 @@ func (versionBitsTester *VersionBitsTester) TestFailed(t *testing.T) *VersionBit
 }
 
 func TestVersionBits(t *testing.T) {
-	for i := 0; i < 64; i++ {
-		// DEFINED -> FAILED
-		vt := newVersionBitsTester()
-		vt.TestDefined(t).
-			TestStateSinceHeight(0, t).Mine(1, testTime(1), 0x100).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(11, testTime(11), 0x100).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(989, testTime(989), 0x100).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(999, testTime(20000), 0x100).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1000, testTime(20000), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(1000, t).
-			Mine(1999, testTime(30001), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(1000, t).
-			Mine(2000, testTime(30002), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(1000, t).
-			Mine(2001, testTime(30003), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(1000, t).
-			Mine(2999, testTime(30004), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(1000, t).
-			Mine(3000, testTime(30005), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(1000, t)
 
-		/*
-			// DEFINED -> STARTED -> FAILED
-			//	Reset().
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1, testTime(1), 0).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1000, testTime(10000)-1, 0x100).
-			TestDefined(t).
-			// One second more and it would be defined
-			TestStateSinceHeight(0, t).
-			Mine(2000, testTime(10000), 0x100).
-			TestStarted(t).
-			// So that's what happens the next period
-			TestStateSinceHeight(2000, t).
-			Mine(2051, testTime(10010), 0).
-			TestStarted(t).
-			// 51 old blocks
-			TestStateSinceHeight(2000, t).
-			Mine(2950, testTime(10020), 0x100).
-			TestStarted(t).
-			// 899 new blocks
-			TestStateSinceHeight(2000, t).
-			Mine(3000, testTime(20000), 0).
-			TestFailed(t)
+	// DEFINED -> FAILED
+	vt := newVersionBitsTester()
+	vt.TestDefined(t).
+		TestStateSinceHeight(0, t).Mine(1, testTime(1), 0x100).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(11, testTime(11), 0x100).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(989, testTime(989), 0x100).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(999, testTime(20000), 0x100).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1000, testTime(20000), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(1000, t).
+		Mine(1999, testTime(30001), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(1000, t).
+		Mine(2000, testTime(30002), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(1000, t).
+		Mine(2001, testTime(30003), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(1000, t).
+		Mine(2999, testTime(30004), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(1000, t).
+		Mine(3000, testTime(30005), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(1000, t).
 
+		// DEFINED -> STARTED -> FAILED
+		Reset().
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1, testTime(1), 0).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1000, testTime(10000)-1, 0x100).
+		TestDefined(t).
+		// One second more and it would be defined
+		TestStateSinceHeight(0, t).
+		Mine(2000, testTime(10000), 0x100).
+		TestStarted(t).
+		// So that's what happens the next period
+		TestStateSinceHeight(2000, t).
+		Mine(2051, testTime(10010), 0).
+		TestStarted(t).
+		// 51 old blocks
+		TestStateSinceHeight(2000, t).
+		Mine(2950, testTime(10020), 0x100).
+		TestStarted(t).
+		// 899 new blocks
+		TestStateSinceHeight(2000, t).
+		Mine(3000, testTime(20000), 0).
+		TestFailed(t).
+		// 50 old blocks (so 899 out of the past 1000)
+		TestStateSinceHeight(3000, t).
+		Mine(4000, testTime(20010), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(3000, t).
 
-			// 50 old blocks (so 899 out of the past 1000)
-			TestStateSinceHeight(3000, t)
+		// DEFINED -> STARTED -> FAILED while threshold reached
+		Reset().
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1, testTime(1), 0).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1000, testTime(10000)-1, 0x101).
+		TestDefined(t).
+		// One second more and it would be defined
+		TestStateSinceHeight(0, t).
+		Mine(2000, testTime(10000), 0x101).
+		TestStarted(t).
+		// So that's what happens the next period
+		TestStateSinceHeight(2000, t).
+		Mine(2999, testTime(30000), 0x100).
+		TestStarted(t).
+		// 999 new blocks
+		TestStateSinceHeight(2000, t).
+		Mine(3000, testTime(30000), 0x100).
+		TestFailed(t).
+		//1 new block (so 1000 out of the past 1000 are new)
+		TestStateSinceHeight(3000, t).
+		Mine(3999, testTime(30001), 0).
+		TestFailed(t).
+		TestStateSinceHeight(3000, t).
+		Mine(4000, testTime(30002), 0).
+		TestFailed(t).
+		TestStateSinceHeight(3000, t).
+		Mine(14333, testTime(30003), 0).
+		TestFailed(t).
+		TestStateSinceHeight(3000, t).
+		Mine(24000, testTime(40000), 0).
+		TestFailed(t).
+		TestStateSinceHeight(3000, t).
 
+		// DEFINED -> STARTED -> LOCKEDIN at the last minute -> ACTIVE
+		Reset().
+		TestDefined(t).
+		Mine(1, testTime(1), 0).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1000, testTime(10000)-1, 0x101).
+		TestDefined(t).
+		// One second more and it would be defined
+		TestStateSinceHeight(0, t).
+		Mine(2000, testTime(10000), 0x101).
+		TestStarted(t).
+		// So that's what happens the next period
+		TestStateSinceHeight(2000, t).
+		Mine(2050, testTime(10010), 0x200).
+		TestStarted(t).
+		// 50 old blocks
+		TestStateSinceHeight(2000, t).
+		Mine(2950, testTime(10020), 0x100).
+		TestStarted(t).
+		// 900 new blocks
+		TestStateSinceHeight(2000, t).
+		Mine(2999, testTime(19999), 0x200).
+		TestStarted(t).
+		// 49 old blocks
+		TestStateSinceHeight(2000, t).
+		Mine(3000, testTime(29999), 0x200).
+		TestLockedIn(t).
+		// 1 old block (so 900 out of the past 1000)
+		TestStateSinceHeight(3000, t).
+		Mine(3999, testTime(30001), 0).
+		TestLockedIn(t).
+		TestStateSinceHeight(3000, t).
+		Mine(4000, testTime(30002), 0).
+		TestActive(t).
+		TestStateSinceHeight(4000, t).
+		Mine(14333, testTime(30003), 0).
+		TestActive(t).
+		TestStateSinceHeight(4000, t).
+		Mine(24000, testTime(40000), 0).
+		TestActive(t).
+		TestStateSinceHeight(4000, t).
 
-			Mine(4000, testTime(20010), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(3000, t)
-			fmt.Println("last block height : ", vt.block[len(vt.block) - 1].Height, ", Time : ", vt.block[len(vt.block) - 1].GetBlockTime(),
-				", endTime : ", vt.checker[0].EndTime(nil), ", period : ", vt.checker[0].Period(nil))
+		// DEFINED multiple periods -> STARTED multiple periods -> FAILED
+		Reset().
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(999, testTime(999), 0).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(1000, testTime(1000), 0).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(2000, testTime(2000), 0).
+		TestDefined(t).
+		TestStateSinceHeight(0, t).
+		Mine(3000, testTime(10000), 0).
+		TestStarted(t).
+		TestStateSinceHeight(3000, t).
+		Mine(4000, testTime(10000), 0).
+		TestStarted(t).
+		TestStateSinceHeight(3000, t).
+		Mine(5000, testTime(10000), 0).
+		TestStarted(t).
+		TestStateSinceHeight(3000, t).
+		Mine(6000, testTime(20000), 0).
+		TestFailed(t).
+		TestStateSinceHeight(6000, t).
+		Mine(7000, testTime(20000), 0x100).
+		TestFailed(t).
+		TestStateSinceHeight(6000, t)
 
-			/*
-			// DEFINED -> STARTED -> FAILED while threshold reached
-			Reset().
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1, testTime(1), 0).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1000, testTime(10000)-1, 0x101).
-			TestDefined(t).
-			// One second more and it would be defined
-			TestStateSinceHeight(0, t).
-			Mine(2000, testTime(10000), 0x101).
-			TestStarted(t).
-			// So that's what happens the next period
-			TestStateSinceHeight(2000, t).
-			Mine(2999, testTime(30000), 0x100).
-			TestStarted(t).
-			// 999 new blocks
-			TestStateSinceHeight(2000, t).
-			Mine(3000, testTime(30000), 0x100).
-			TestFailed(t).
-			// 1 new block (so 1000 out of the past 1000 are new)
-			TestStateSinceHeight(3000, t).
-			Mine(3999, testTime(30001), 0).
-			TestFailed(t).
-			TestStateSinceHeight(3000, t).
-			Mine(4000, testTime(30002), 0).
-			TestFailed(t).
-			TestStateSinceHeight(3000, t).
-			Mine(14333, testTime(30003), 0).
-			TestFailed(t).
-			TestStateSinceHeight(3000, t).
-			Mine(24000, testTime(40000), 0).
-			TestFailed(t).
-			TestStateSinceHeight(3000, t)
-
-			// DEFINED -> STARTED -> LOCKEDIN at the last minute -> ACTIVE
-			Reset().
-			TestDefined(t).
-			Mine(1, testTime(1), 0).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1000, testTime(10000)-1, 0x101).
-			TestDefined(t).
-			// One second more and it would be defined
-			TestStateSinceHeight(0, t).
-			Mine(2000, testTime(10000), 0x101).
-			TestStarted(t).
-			// So that's what happens the next period
-			TestStateSinceHeight(2000, t).
-			Mine(2050, testTime(10010), 0x200).
-			TestStarted(t).
-			// 50 old blocks
-			TestStateSinceHeight(2000, t).
-			Mine(2950, testTime(10020), 0x100).
-			TestStarted(t).
-			// 900 new blocks
-			TestStateSinceHeight(2000, t).
-			Mine(2999, testTime(19999), 0x200).
-			TestStarted(t).
-			// 49 old blocks
-			TestStateSinceHeight(2000, t).
-			Mine(3000, testTime(29999), 0x200).
-			TestLockedIn(t).
-			// 1 old block (so 900 out of the past 1000)
-			TestStateSinceHeight(3000, t).
-			Mine(3999, testTime(30001), 0).
-			TestLockedIn(t).
-			TestStateSinceHeight(3000, t).
-			Mine(4000, testTime(30002), 0).
-			TestActive(t).
-			TestStateSinceHeight(4000, t).
-			Mine(14333, testTime(30003), 0).
-			TestActive(t).
-			TestStateSinceHeight(4000, t).
-			Mine(24000, testTime(40000), 0).
-			TestActive(t).
-			TestStateSinceHeight(4000, t).
-
-			// DEFINED multiple periods -> STARTED multiple periods -> FAILED
-			Reset().
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(999, testTime(999), 0).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(1000, testTime(1000), 0).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(2000, testTime(2000), 0).
-			TestDefined(t).
-			TestStateSinceHeight(0, t).
-			Mine(3000, testTime(10000), 0).
-			TestStarted(t).
-			TestStateSinceHeight(3000, t).
-			Mine(4000, testTime(10000), 0).
-			TestStarted(t).
-			TestStateSinceHeight(3000, t).
-			Mine(5000, testTime(10000), 0).
-			TestStarted(t).
-			TestStateSinceHeight(3000, t).
-			Mine(6000, testTime(20000), 0).
-			TestFailed(t).
-			TestStateSinceHeight(6000, t).
-			Mine(7000, testTime(20000), 0x100).
-			TestFailed(t).
-			TestStateSinceHeight(6000, t)
-			}
-
-			// Sanity checks of version bit deployments
-			mainnetParams := msg.MainNetParams
-			for i := 0; i < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); i++ {
-			bitmask := VersionBitsMask(&mainnetParams, msg.DeploymentPos(i))
-			// Make sure that no deployment tries to set an invalid bit.
-			if int64(bitmask)&int64(^VERSIONBITS_TOP_MASK) != int64(bitmask) {
+	// Sanity checks of version bit deployments
+	mainnetParams := model.MainNetParams
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
+		bitmask := VersionBitsMask(&mainnetParams, consensus.DeploymentPos(i))
+		// Make sure that no deployment tries to set an invalid bit.
+		if int64(bitmask)&int64(^VersionBitsTopMask) != int64(bitmask) {
 			t.Error("there is am invalid bit to be set")
-			}
+		}
 
-			// Verify that the deployment windows of different deployment using the
-			// same bit are disjoint. This test may need modification at such time
-			// as a new deployment is proposed that reuses the bit of an activated
-			// soft fork, before the end time of that soft fork.  (Alternatively,
-			// the end time of that activated soft fork could be later changed to be
-			// earlier to avoid overlap.)
-			for j := i + 1; j < int(msg.MAX_VERSION_BITS_DEPLOYMENTS); j++ {
-			if VersionBitsMask(&mainnetParams, msg.DeploymentPos(j)) == bitmask {
-			if !(mainnetParams.Deployments[j].StartTime > mainnetParams.Deployments[i].Timeout || mainnetParams.Deployments[i].StartTime > mainnetParams.Deployments[j].Timeout) {
-				t.Error("logic error")
+		// Verify that the deployment windows of different deployment using the
+		// same bit are disjoint. This test may need modification at such time
+		// as a new deployment is proposed that reuses the bit of an activated
+		// soft fork, before the end time of that soft fork.  (Alternatively,
+		// the end time of that activated soft fork could be later changed to be
+		// earlier to avoid overlap.)
+		for j := i + 1; j < int(consensus.MaxVersionBitsDeployments); j++ {
+			if VersionBitsMask(&mainnetParams, consensus.DeploymentPos(j)) == bitmask {
+				if !(mainnetParams.Deployments[j].StartTime > mainnetParams.Deployments[i].Timeout || mainnetParams.Deployments[i].StartTime > mainnetParams.Deployments[j].Timeout) {
+					t.Error("logic error")
+				}
 			}
-			}
-			}
-			}*/
+		}
 	}
 }
 
@@ -445,7 +431,7 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 	vbc := NewVersionBitsCache()
 
 	// Check that ComputeBlockVersion will set the appropriate bit correctly on mainnet.
-	mainnetParams := chainparams.MainNetParams
+	mainnetParams := model.MainNetParams
 
 	// Use the TESTDUMMY deployment for testing purposes.
 	bit := mainnetParams.Deployments[consensus.DeploymentTestDummy].Bit

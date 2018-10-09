@@ -422,7 +422,7 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 
 }
 
-func (s *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addresses []*Address, sigCountRequired int, err error) {
+func (s *Script) ExtractDestinations() (sType int, addresses []*Address, sigCountRequired int, err error) {
 	sType, pubKeys, err := s.CheckScriptPubKeyStandard()
 	if err != nil {
 		return
@@ -440,7 +440,7 @@ func (s *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addre
 	if sType == ScriptPubkeyHash {
 		sigCountRequired = 1
 		addresses = make([]*Address, 0, 1)
-		address, err := AddressFromHash160(pubKeys[0], scriptHashAddressID)
+		address, err := AddressFromHash160(pubKeys[0], AddressVerPubKey())
 		if err != nil {
 			return sType, nil, 0, err
 		}
@@ -450,7 +450,7 @@ func (s *Script) ExtractDestinations(scriptHashAddressID byte) (sType int, addre
 	if sType == ScriptHash {
 		sigCountRequired = 1
 		addresses = make([]*Address, 0, 1)
-		address, err := AddressFromScriptHash(pubKeys[0])
+		address, err := AddressFromHash160(pubKeys[0], AddressVerScript())
 		if err != nil {
 			return sType, nil, 0, err
 		}
@@ -548,7 +548,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 		}
 		pubKeyType = ScriptPubkey
 		pubKeys = make([][]byte, 0, 1)
-		data := parsedOpCode0.Data[:]
+		data := parsedOpCode0.Data
 		pubKeys = append(pubKeys, data)
 		err = nil
 		return
@@ -568,7 +568,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 
 		pubKeyType = ScriptPubkeyHash
 		pubKeys = make([][]byte, 0, 1)
-		data := s.ParsedOpCodes[2].Data[:]
+		data := s.ParsedOpCodes[2].Data
 		pubKeys = append(pubKeys, data)
 		err = nil
 		return
@@ -704,6 +704,11 @@ func EncodeOPN(n int) (int, error) {
 	if n < 0 || n > 16 {
 		return 0, errors.New("EncodeOPN n is out of bounds")
 	}
+
+	if n == 0 {
+		return opcodes.OP_0, nil
+	}
+
 	return opcodes.OP_1 + n - 1, nil
 }
 
@@ -811,13 +816,17 @@ func (s *Script) PushScriptNum(sn *ScriptNum) error {
 	return err
 }
 
+func (s *Script) PushData(data []byte) error {
+	s.data = append(s.data, data...)
+	return s.convertOPS()
+}
+
 func (s *Script) PushSingleData(data []byte) error {
 	dataLen := len(data)
 	if dataLen < opcodes.OP_PUSHDATA1 {
 		s.data = append(s.data, byte(dataLen))
 	} else if dataLen <= 0xff {
-		s.data = append(s.data, opcodes.OP_PUSHDATA1)
-		s.data = append(s.data, byte(dataLen))
+		s.data = append(s.data, opcodes.OP_PUSHDATA1, byte(dataLen))
 	} else if dataLen <= 0xffff {
 		s.data = append(s.data, opcodes.OP_PUSHDATA2)
 		buf := make([]byte, 2)
@@ -840,8 +849,7 @@ func (s *Script) PushMultData(data [][]byte) error {
 		if dataLen < opcodes.OP_PUSHDATA1 {
 			s.data = append(s.data, byte(dataLen))
 		} else if dataLen <= 0xff {
-			s.data = append(s.data, opcodes.OP_PUSHDATA1)
-			s.data = append(s.data, byte(dataLen))
+			s.data = append(s.data, opcodes.OP_PUSHDATA1, byte(dataLen))
 		} else if dataLen <= 0xffff {
 			s.data = append(s.data, opcodes.OP_PUSHDATA2)
 			buf := make([]byte, 2)
@@ -857,6 +865,10 @@ func (s *Script) PushMultData(data [][]byte) error {
 	}
 	err := s.convertOPS()
 	return err
+}
+
+func (s *Script) Bytes() []byte {
+	return s.data
 }
 
 func CheckSignatureEncoding(vchSig []byte, flags uint32) error {

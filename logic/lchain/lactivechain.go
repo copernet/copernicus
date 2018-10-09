@@ -2,7 +2,6 @@ package lchain
 
 import (
 	"bytes"
-
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -20,10 +19,8 @@ func ActivateBestChain(pblock *block.Block) error {
 	// far from a guarantee. Things in the P2P/RPC will often end up calling
 	// us in the middle of ProcessNewBlock - do not assume pblock is set
 	// sanely for performance or correctness!
-	var (
-		pindexMostWork *blockindex.BlockIndex
-		pindexNewTip   *blockindex.BlockIndex
-	)
+	var pindexMostWork *blockindex.BlockIndex
+
 	// global.CsMain.Lock()
 	// defer global.CsMain.Unlock()
 	for {
@@ -37,7 +34,7 @@ func ActivateBestChain(pblock *block.Block) error {
 		// cleared when we receive another notification and there is a
 		// race condition where notification of a connected conflict
 		// might cause an outside process to abandon a transaction and
-		// then have it inadvertantly cleared by the notification that
+		// then have it inadvertently cleared by the notification that
 		// the conflicted transaction was evicted.
 		//mrt := mempool.NewMempoolConflictRemoveTrack(GMemPool)
 		//_ = mrt
@@ -71,29 +68,31 @@ func ActivateBestChain(pblock *block.Block) error {
 			// Wipe cache, we may need another branch now.
 			pindexMostWork = nil
 		}
-		pindexNewTip = gChain.Tip()
-		// throw all transactions though the signal-interface
 
 		// MemPoolConflictRemovalTracker destroyed and conflict evictions
 		// are notified
 
-		// todo  Transactions in the connnected block are notified
+		sendNotifications(pindexOldTip, pblock)
 
-		// When we reach this point, we switched to a new tip (stored in
-		// pindexNewTip).
-		// Notifications/callbacks that can run without cs_main
-		// Notify external listeners about the new tip.
-		// TODO!!! send Asynchronous signal to external listeners.
-
-		// Always notify the UI if a new block tip was connected
-
-		if pindexNewTip == pindexMostWork {
+		if gChain.Tip() == pindexMostWork {
 			break
 		}
 	}
 	// Write changes periodically to disk, after relay.
 	err := disk.FlushStateToDisk(disk.FlushStatePeriodic, 0)
 	return err
+}
+
+// sendNotifications When we reach this point, we switched to a new tip.
+// Notify external listeners about the new tip.
+func sendNotifications(pindexOldTip *blockindex.BlockIndex, pblock *block.Block) {
+	gChain := chain.GetInstance()
+
+	gChain.SendNotification(chain.NTBlockConnected, pblock)
+
+	forkIndex := gChain.FindFork(pindexOldTip)
+	event := chain.TipUpdatedEvent{gChain.Tip(), forkIndex, IsInitialBlockDownload()}
+	gChain.SendNotification(chain.NTChainTipUpdated, &event)
 }
 
 // ActivateBestChainStep Try to make some progress towards making pindexMostWork

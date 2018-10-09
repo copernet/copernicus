@@ -1,27 +1,32 @@
 package lblock
 
 import (
+	"errors"
+
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/chainparams"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/persist/global"
-	"github.com/copernet/copernicus/util/amount"
-
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 )
 
-func GetBlock(hash *util.Hash) (*block.Block, error) {
-	return nil, nil
+func GetBlockByIndex(bi *blockindex.BlockIndex, param *model.BitcoinParams) (blk *block.Block, err error) {
+	blk, ret := disk.ReadBlockFromDisk(bi, param)
+	if !ret {
+		err = errors.New("disk.ReadBlockFromDisk error")
+	}
+	return
 }
 
 func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block, inDbp *block.DiskBlockPos) (*block.DiskBlockPos, error) {
@@ -72,7 +77,7 @@ func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	return lockTimeCutoff
 }
 
-func CheckBlock(pblock *block.Block) error {
+func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 	// These are checks that are independent of context.
 	if pblock.Checked {
 		return nil
@@ -80,16 +85,20 @@ func CheckBlock(pblock *block.Block) error {
 	bh := pblock.Header
 	// Check that the header is valid (particularly PoW).  This is mostly
 	// redundant with the call in AcceptBlockHeader.
-	if err := CheckBlockHeader(&bh); err != nil {
-		return err
+	if checkHeader {
+		if err := CheckBlockHeader(&bh); err != nil {
+			return err
+		}
 	}
 
 	// Check the merkle root.
 	mutated := false
-	hashMerkleRoot2 := lmerkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
-	if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
-		log.Debug("ErrorBadTxMrklRoot")
-		return errcode.New(errcode.ErrorBadTxnMrklRoot)
+	if checkMerlke {
+		hashMerkleRoot2 := lmerkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
+		if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
+			log.Debug("ErrorBadTxMrklRoot")
+			return errcode.New(errcode.ErrorBadTxnMrklRoot)
+		}
 	}
 
 	// Check for merkle tree malleability (CVE-2012-2459): repeating
@@ -117,7 +126,7 @@ func CheckBlock(pblock *block.Block) error {
 	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
-		log.Debug("ErrorBadBlkTx")
+		log.Debug("ErrorBadBlkTx: %v", err)
 		return errcode.New(errcode.ErrorBadBlkTx)
 	}
 	pblock.Checked = true
@@ -128,7 +137,7 @@ func CheckBlock(pblock *block.Block) error {
 func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
 
 	bMonolithEnable := false
-	if indexPrev != nil && chainparams.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
+	if indexPrev != nil && model.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
 		bMonolithEnable = true
 	}
 	if !bMonolithEnable {
@@ -161,7 +170,7 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	pindexNew.AddStatus(blockindex.BlockHaveData)
 	pindexNew.RaiseValidity(blockindex.BlockValidTransactions)
 
-	gPersist := global.GetInstance()
+	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(pindexNew)
 
 	gChain := chain.GetInstance()
@@ -181,7 +190,7 @@ func GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	return gChain.GetBlockScriptFlags(pindex)
 }
 
-func GetBlockSubsidy(height int32, params *chainparams.BitcoinParams) amount.Amount {
+func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 	halvings := height / params.SubsidyReductionInterval
 	// Force lblock reward to zero when right shift is undefined.
 	if halvings >= 64 {
@@ -207,8 +216,8 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 
 	// Already Accept Block
 	if bIndex.HasData() {
-		log.Debug("AcceptBlock err:%d", 3009)
-		err = errcode.ProjectError{Code: 3009}
+		hash := pblock.GetHash()
+		log.Warn("AcceptBlock blk(%s) already received", &hash)
 		return
 	}
 
@@ -238,8 +247,8 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 	}
 
 	*fNewBlock = true
-	gPersist := global.GetInstance()
-	if err = CheckBlock(pblock); err != nil {
+	gPersist := persist.GetInstance()
+	if err = CheckBlock(pblock, true, true); err != nil {
 		bIndex.AddStatus(blockindex.BlockFailed)
 		gPersist.AddDirtyBlockIndex(bIndex)
 		return

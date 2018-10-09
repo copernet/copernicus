@@ -10,7 +10,7 @@ func AccessByTxid(coinsCache utxo.CacheView, hash *util.Hash) *utxo.Coin {
 	out := outpoint.OutPoint{Hash: *hash, Index: 0}
 	for int(out.Index) < 11000 { // todo modify to be precise
 		alternate := coinsCache.GetCoin(&out)
-		if !alternate.IsSpent() {
+		if alternate != nil && !alternate.IsSpent() {
 			return alternate
 		}
 		out.Index++

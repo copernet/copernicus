@@ -28,7 +28,7 @@ func (msg *MsgGetBlockTxn) Encode(w io.Writer, pver uint32, enc MessageEncoding)
 		return err
 	}
 	for i := 0; i < len(msg.Indexes); i++ {
-		index := uint16(0)
+		var index uint16
 		if i == 0 {
 			index = msg.Indexes[i]
 		} else {
@@ -81,6 +81,6 @@ func (msg *MsgGetBlockTxn) Command() string {
 	return CmdGetBlockTxn
 }
 
-func (msg *MsgGetBlockTxn) MaxPayloadLength(pver uint32) uint32 {
-	return 32 + 3 + uint32(len(msg.Indexes))*3
+func (msg *MsgGetBlockTxn) MaxPayloadLength(pver uint32) uint64 {
+	return 32 + 3 + uint64(len(msg.Indexes))*3
 }

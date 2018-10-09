@@ -5,14 +5,22 @@ import (
 	"fmt"
 
 	//"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/util"
 	"io"
 	"math"
+
+	"github.com/copernet/copernicus/util"
 )
 
 type OutPoint struct {
 	Hash  util.Hash
 	Index uint32
+}
+
+func NewDefaultOutPoint() *OutPoint {
+	return &OutPoint{
+		Hash:  util.HashZero,
+		Index: 0xffffffff,
+	}
 }
 
 func NewOutPoint(hash util.Hash, index uint32) *OutPoint {
@@ -24,15 +32,28 @@ func NewOutPoint(hash util.Hash, index uint32) *OutPoint {
 }
 
 func (outPoint *OutPoint) SerializeSize() uint32 {
-	return outPoint.EncodeSize()
+	return outPoint.Hash.SerializeSize() + uint32(len(util.EncodeVarLenInt(uint64(outPoint.Index))))
 }
 
 func (outPoint *OutPoint) Serialize(writer io.Writer) error {
-	return outPoint.Encode(writer)
+	_, err := writer.Write(outPoint.Hash[:])
+	if err != nil {
+		return err
+	}
+	return util.WriteVarLenInt(writer, uint64(outPoint.Index))
 }
 
 func (outPoint *OutPoint) Unserialize(reader io.Reader) (err error) {
-	return outPoint.Decode(reader)
+	_, err = io.ReadFull(reader, outPoint.Hash[:])
+	if err != nil {
+		return
+	}
+	n, err := util.ReadVarLenInt(reader)
+	if err != nil {
+		return
+	}
+	outPoint.Index = uint32(n)
+	return
 }
 
 func (outPoint *OutPoint) EncodeSize() uint32 {
