@@ -50,10 +50,11 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			}
 
 			for k := insLen - 1; k > 0; k-- {
-				outpoint := ins[k].PreviousOutPoint
+				outPoint := ins[k].PreviousOutPoint
 				undoCoin := txundo.GetUndoCoins()[k]
-				res := CoinSpend(undoCoin, cm, outpoint)
+				res := CoinSpend(undoCoin, cm, outPoint)
 				if res == undo.DisconnectFailed {
+					log.Error("DisconnectBlock(): the undo coin(%+v) had spend, the outpoint is:%+v", undoCoin, outPoint)
 					return undo.DisconnectFailed
 				}
 				clean = clean && (res != undo.DisconnectUnclean)
@@ -62,6 +63,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 	}
 
 	if clean {
+		log.Debug("DisconnectBlock(): disconnect block success.")
 		return undo.DisconnectOk
 	}
 	return undo.DisconnectUnclean
@@ -74,25 +76,9 @@ func CoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.
 		// Overwriting transaction output.
 		clean = false
 	}
-	// delete this logic from core-abc
-	//if coin.GetHeight() == 0 {
-	//	// Missing undo metadata (height and coinbase). Older versions included
-	//	// this information only in undo records for the last spend of a
-	//	// transactions' outputs. This implies that it must be present for some
-	//	// other output of the same tx.
-	//	alternate := utxo.AccessByTxid(cache, &out.Hash)
-	//	if alternate.IsSpent() {
-	//		// Adding output for transaction without known metadata
-	//		return DisconnectFailed
-	//	}
-	//
-	//	// This is somewhat ugly, but hopefully utility is limited. This is only
-	//	// useful when working from legacy on disck data. In any case, putting
-	//	// the correct information in there doesn't hurt.
-	//	coin = utxo.NewCoin(coin.GetTxOut(), alternate.GetHeight(), alternate.IsCoinBase())
-	//}
 	cm.AddCoin(out, coin, coin.IsCoinBase())
 	if clean {
+		log.Debug("CoinSpend(): disconnect block success.")
 		return undo.DisconnectOk
 	}
 	return undo.DisconnectUnclean
