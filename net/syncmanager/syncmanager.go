@@ -333,6 +333,9 @@ func (sm *SyncManager) startSync() {
 		}
 		sm.syncPeer = bestPeer
 		sm.requestBlkInvCnt = 1
+		if sm.current() {
+			bestPeer.RequestMemPool()
+		}
 	} else {
 		log.Warn("No sync peer candidates available")
 	}
@@ -677,9 +680,10 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// if we're syncing the chain from scratch.
 	if blkHashUpdate != nil && heightUpdate != 0 {
 		peer.UpdateLastBlockHeight(heightUpdate)
-		if sm.current() {
+		if sm.current() && peer == sm.syncPeer {
 			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate,
 				peer)
+			peer.RequestMemPool()
 		}
 	}
 

@@ -485,6 +485,14 @@ type Peer struct {
 	outQuit           chan struct{}
 	quit              chan struct{}
 	requestingDataCnt uint64
+
+	reqMempoolOnce sync.Once
+}
+
+func (p *Peer) RequestMemPool() {
+	p.reqMempoolOnce.Do(func() {
+		p.QueueMessage(wire.NewMsgMemPool(), nil)
+	})
 }
 
 // String returns the peer's address and directionality as a human-readable
