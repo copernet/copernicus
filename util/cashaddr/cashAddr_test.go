@@ -4,19 +4,8 @@ import (
 	"testing"
 
 	"github.com/copernet/copernicus/model"
+	"reflect"
 )
-
-var TestVectorsP2PKH = [][]string{
-	{"1BpEi6DfDAUFd7GtittLSdBeYJvcoaVggu", "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"},
-	{"1KXrWXciRDZUpQwQmuM1DbwsKDLYAYsVLR", "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy"},
-	{"16w1D5WRVKJuZUsSRzdLp9w3YGcgoxDXb", "qqq3728yw0y47sqn6l2na30mcw6zm78dzqre909m2r"},
-}
-
-var TestVectorsP2SH = [][]string{
-	{"3CWFddi6m4ndiGyKqzYvsFYagqDLPVMTzC", "ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq"},
-	{"3LDsS579y7sruadqu11beEJoTjdFiFCdX4", "pr95sy3j9xwd2ap32xkykttr4cvcu7as4yc93ky28e"},
-	{"31nwvkZwyPdgzjBJZXfDmSWsC4ZLKpYyUw", "pqq3728yw0y47sqn6l2na30mcw6zm78dzq5ucqzc37"},
-}
 
 var valid = []string{
 	"prefix:x64nx6hz",
@@ -149,5 +138,69 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	}
 	if addr.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvdp9ptp96" {
 		t.Error("Address decoding error")
+	}
+}
+
+func TestCashAddressPubKeyHash_ScriptAddress(t *testing.T) {
+	// MainNet
+	addr, err := NewCashAddressPubKeyHash(dataElement, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	addrByte := addr.ScriptAddress()
+	if !reflect.DeepEqual(addrByte, dataElement) {
+		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement)
+	}
+
+	//TestNet
+	addr, err = NewCashAddressPubKeyHash(dataElement, &model.TestNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	addrByte = addr.ScriptAddress()
+	if !reflect.DeepEqual(addrByte, dataElement) {
+		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement)
+	}
+
+	//RegressionNet
+	addr, err = NewCashAddressPubKeyHash(dataElement, &model.RegressionNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	addrByte = addr.ScriptAddress()
+	if !reflect.DeepEqual(addrByte, dataElement) {
+		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement)
+	}
+}
+
+func TestCashAddressScriptHash_ScriptAddress(t *testing.T) {
+	// MainNet
+	addr, err := NewCashAddressScriptHashFromHash(dataElement2, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	addrByte := addr.ScriptAddress()
+	if !reflect.DeepEqual(addrByte, dataElement2) {
+		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement2)
+	}
+
+	//TestNet
+	addr, err = NewCashAddressScriptHashFromHash(dataElement2, &model.TestNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	addrByte = addr.ScriptAddress()
+	if !reflect.DeepEqual(addrByte, dataElement2) {
+		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement2)
+	}
+
+	//RegressionNet
+	addr, err = NewCashAddressScriptHashFromHash(dataElement2, &model.RegressionNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	addrByte = addr.ScriptAddress()
+	if !reflect.DeepEqual(addrByte, dataElement2) {
+		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement2)
 	}
 }
