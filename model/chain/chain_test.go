@@ -242,3 +242,67 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 		t.Errorf("GetBlockScriptFlags wrong: %d", flag)
 	}
 }
+
+func TestBuildForwardTree(t *testing.T) {
+	globalChain = nil
+	InitGlobalChain()
+	testChain = GetInstance()
+	testChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
+	blockIdx := make([]*blockindex.BlockIndex, 50)
+	initBits := model.ActiveNetParams.PowLimitBits
+	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
+	height := 0
+
+	//Pile up some blocks
+	blockIdx[height] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
+	testChain.AddToIndexMap(blockIdx[height])
+	for height = 1; height < 11; height++ {
+		i := height
+		dummyPow := big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, uint(i))
+		blockIdx[height] = getBlockIndex(blockIdx[height-1], timePerBlock, pow.BigToCompact(dummyPow))
+		testChain.AddToIndexMap(blockIdx[height])
+	}
+	for height = 11; height < 21; height++ {
+		blockIdx[height] = getBlockIndex(blockIdx[height-11], timePerBlock, initBits)
+		testChain.AddToIndexMap(blockIdx[height])
+	}
+
+	forward := testChain.BuildForwardTree()
+	forwardCount := 0
+	for _, v := range forward {
+		forwardCount += len(v)
+	}
+	indexCount := testChain.IndexMapSize()
+	if forwardCount != indexCount {
+		t.Errorf("forward tree node count wrong, expect:%d, actual:%d", indexCount, forwardCount)
+	}
+
+	genesisSlice, ok := forward[nil]
+	if ok {
+		if len(genesisSlice) != 1 {
+			t.Errorf("genesis block number wrong, expect only 1, actual:%d, info:%v", len(genesisSlice), genesisSlice)
+		}
+		if genesisSlice[0] != blockIdx[0] {
+			t.Errorf("genesis block wrong, expect:%v, actual:%v", blockIdx[0], genesisSlice[0])
+		}
+	} else {
+		t.Errorf("no any genesis block, expect 1")
+	}
+
+	height1Slice, ok := forward[genesisSlice[0]]
+	if ok {
+		if len(height1Slice) != 2 {
+			t.Errorf("height1 block number wrong, expect 2, actual:%d, info:%v", len(height1Slice), height1Slice)
+		}
+		if (height1Slice[0] != blockIdx[1] && height1Slice[0] != blockIdx[11]) || (height1Slice[1] != blockIdx[1] && height1Slice[1] != blockIdx[11]) {
+			t.Errorf("height1 block wrong, expect1:%v, expect2:%v, actual:%v", blockIdx[1], blockIdx[11], height1Slice)
+		}
+	} else {
+		t.Errorf("no any height1 block, expect 2")
+	}
+
+	height11Slice, ok := forward[blockIdx[10]]
+	if ok {
+		t.Errorf("height 10 should not have any son, but now have:%v", height11Slice)
+	}
+}
