@@ -629,8 +629,7 @@ func (tx *Tx) IsFinal(Height int32, time int64) bool {
 		return true
 	}
 
-	lockTimeLimit := int64(0)
-
+	var lockTimeLimit int64
 	if tx.lockTime < script.LockTimeThreshold {
 		lockTimeLimit = int64(Height)
 	} else {

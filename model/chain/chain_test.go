@@ -157,7 +157,6 @@ func TestChain_AddToBranch(t *testing.T) {
 	blockIdx := make([]*blockindex.BlockIndex, 50)
 	initBits := model.ActiveNetParams.PowLimitBits
 	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
-	dummyPow := big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, uint(0))
 	height := 0
 
 	//Pile up some blocks
@@ -165,7 +164,7 @@ func TestChain_AddToBranch(t *testing.T) {
 	testChain.AddToBranch(blockIdx[0])
 	for height = 1; height < 11; height++ {
 		i := height
-		dummyPow = big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, uint(i))
+		dummyPow := big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, uint(i))
 		blockIdx[height] = getBlockIndex(blockIdx[height-1], timePerBlock, pow.BigToCompact(dummyPow))
 		testChain.AddToBranch(blockIdx[height])
 	}

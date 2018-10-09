@@ -180,6 +180,11 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 	buf := make([]byte, size)
 	// Read block
 	num, err := file.Read(buf)
+	if err != nil {
+		log.Error("UndoReadFromDisk error: %v, file is:%s", err, file.Name())
+		return nil, false
+	}
+
 	log.Debug("UndoReadFromDisk: read undo file size: %d and num: %d.", size, num)
 	if uint32(num) < size {
 		log.Error("UndoReadFromDisk: read undo num(%d) < size(%d)", num, size)
@@ -494,7 +499,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 		panic("FindBlockPos nAddSize  is too large more then global.MaxBlockFileSize")
 	}
 	gPersist := persist.GetInstance()
-	ret := false
+	var ret bool
 	nFile := pos.File
 	if !fKnown {
 		nFile = gPersist.GlobalLastBlockFile

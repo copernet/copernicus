@@ -124,7 +124,6 @@ func TestMempoolRemove(t *testing.T) {
 	}
 
 	// Remove parent, all children/grandchildren should go:
-	ps = mp.Size()
 	mp.RemoveTxRecursive(txParent, UNKNOWN)
 	if mp.Size() != 0 {
 		t.Errorf("expect %d got %d", 0, mp.Size())
