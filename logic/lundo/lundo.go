@@ -17,7 +17,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		return undo.DisconnectFailed
 	}
 	// Undo transactions in reverse order.
-	for i := len(blk.Txs) - 1; i > 0; i-- {
+	for i := len(blk.Txs) - 1; i >= 0; i-- {
 		tx := blk.Txs[i]
 		txid := tx.GetHash()
 
@@ -36,31 +36,30 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
 				clean = false
 			}
+		}
+		// Restore inputs
+		if i < 1 {
+			// Skip the coinbase
+			continue
+		}
 
-			// Restore inputs
-			if i < 1 {
-				// Skip the coinbase
-				break
-			}
+		txundo := txUndos[i-1]
+		ins := tx.GetIns()
+		insLen := len(ins)
+		if len(txundo.GetUndoCoins()) != insLen {
+			log.Error("DisconnectBlock(): transaction(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
+			return undo.DisconnectFailed
+		}
 
-			txundo := txUndos[i-1]
-			ins := tx.GetIns()
-			insLen := len(ins)
-			if len(txundo.GetUndoCoins()) != insLen {
-				log.Error("DisconnectBlock(): transaction(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
+		for k := insLen - 1; k >= 0; k-- {
+			outpoint := ins[k].PreviousOutPoint
+			undoCoin := txundo.GetUndoCoins()[k]
+			res := CoinSpend(undoCoin, cm, outpoint)
+			if res == undo.DisconnectFailed {
+				log.Error("coin spend error in loop")
 				return undo.DisconnectFailed
 			}
-
-			for k := insLen - 1; k > 0; k-- {
-				outPoint := ins[k].PreviousOutPoint
-				undoCoin := txundo.GetUndoCoins()[k]
-				res := CoinSpend(undoCoin, cm, outPoint)
-				if res == undo.DisconnectFailed {
-					log.Error("DisconnectBlock(): the undo coin(%+v) had spend, the outpoint is:%+v", undoCoin, outPoint)
-					return undo.DisconnectFailed
-				}
-				clean = clean && (res != undo.DisconnectUnclean)
-			}
+			clean = clean && (res != undo.DisconnectUnclean)
 		}
 	}
 
@@ -68,6 +67,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		log.Debug("DisconnectBlock(): disconnect block success.")
 		return undo.DisconnectOk
 	}
+	log.Error("ApplyBlockUndo DisconnectUnclean")
 	return undo.DisconnectUnclean
 }
 
