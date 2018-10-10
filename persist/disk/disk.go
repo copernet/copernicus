@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -220,49 +221,49 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *model.BitcoinParams) (*block.Block, bool) {
+func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *model.BitcoinParams) (blk *block.Block, err error) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
 	if file == nil {
 		log.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.String())
-		return nil, false
+		return nil, errors.New("ErrOpenBlockFile")
 	}
 	defer file.Close()
 
 	size, err := util.BinarySerializer.Uint32(file, binary.LittleEndian)
 	if err != nil {
 		log.Error("ReadBlockFromDisk: read block file len failed for %s", pos.String())
-		return nil, false
+		return nil, err
 	}
 	//read block data to tmp buff
 	tmp := make([]byte, size)
 	n, err := file.Read(tmp)
 	if err != nil || n != int(size) {
 		log.Error("ReadBlockFromDisk: read block file len != size failed for %s, %s", pos.String(), err)
-		return nil, false
+		return nil, err
 	}
 	buf := bytes.NewBuffer(tmp)
 	// Read block
-	blk := block.NewBlock()
+	blk = block.NewBlock()
 	if err := blk.Unserialize(buf); err != nil {
 		log.Error("ReadBlockFromDiskByPos: Unserialize or I/O error - %s at %s", err.Error(), pos.String())
-		return nil, false
+		return nil, err
 	}
 
 	// Check the header
-	pow := pow.Pow{}
+	objPow := pow.Pow{}
 	blockHash := blk.GetHash()
-	if !pow.CheckProofOfWork(&blockHash, blk.Header.Bits, param) {
+	if !objPow.CheckProofOfWork(&blockHash, blk.Header.Bits, param) {
 		log.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.String()))
-		return nil, false
+		return nil, errors.New("ErrCheckProofOfWork")
 	}
-	return blk, true
+	return blk, err
 }
 
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *model.BitcoinParams) (*block.Block, bool) {
-	blk, ret := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
-	if !ret {
+	blk, err := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
+	if err != nil {
 		return nil, false
 	}
 	hash := pindex.GetBlockHash()

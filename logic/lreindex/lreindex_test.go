@@ -2,7 +2,6 @@ package lreindex
 
 import (
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/persist"
 	"os"
@@ -14,7 +13,7 @@ func TestMain(m *testing.M) {
 	conf.Cfg = conf.InitConfig(args)
 	persist.InitPersistGlobal()
 	chain.InitGlobalChain()
-	log.Init()
+	//log.Init(args)
 	os.Exit(m.Run())
 }
 

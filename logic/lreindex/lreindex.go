@@ -14,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
+	"io"
 	"os"
 	"time"
 )
@@ -27,13 +28,14 @@ func Reindex() (err error) {
 	log.Info("Start reindexing")
 
 	for index, filePath := range blkFiles {
-		if index == 1 {
-			break
-		}
 		dbp := block.NewDiskBlockPos(int32(index), uint32(0))
 		err = loadExternalBlockFile(filePath, dbp)
 		if err != nil {
-			log.Error("When reindex, load block file <%s> failed!", filePath)
+			if err.Error() == io.EOF.Error() {
+				log.Error("have read full data from file<%s>, next", filePath)
+			} else {
+				log.Error("When reindex, load block file <%s> failed!", filePath)
+			}
 		}
 	}
 
@@ -68,8 +70,11 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 	fileSize := uint32(fileInfo.Size())
 	for dbp.Pos < fileSize {
 		log.Info("pos: %d", dbp.Pos)
-		blk, ok := disk.ReadBlockFromDiskByPos(*dbp, params)
-		if !ok {
+		blk, err := disk.ReadBlockFromDiskByPos(*dbp, params)
+		if err != nil {
+			if err.Error() == io.EOF.Error() {
+				return err
+			}
 			log.Error("fail to read block from pos<%d, %d>", dbp.File, dbp.Pos)
 			return errcode.New(errcode.FailedToReadBlock)
 		}
@@ -88,6 +93,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 				}
 				mapBlocksUnknownParent[blkPreHash].PushBack(dbp)
 			}
+			dbp.Pos = dbp.Pos + uint32(blk.EncodeSize()) + 4
 			continue
 
 		}
@@ -132,8 +138,8 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 				val := itemList.Remove(itemList.Front())
 				diskBlkPos, _ := val.(*block.DiskBlockPos)
 
-				blk, ok := disk.ReadBlockFromDiskByPos(*diskBlkPos, params)
-				if !ok {
+				blk, err := disk.ReadBlockFromDiskByPos(*diskBlkPos, params)
+				if err != nil {
 					log.Error("when process successors, fail to read block from pos<%d, %d>", diskBlkPos.File, diskBlkPos.Pos)
 					continue
 				}
