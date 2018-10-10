@@ -12,7 +12,6 @@ const (
 	AlreadHaveTx
 	Nomature
 	ManyUnspendDepend
-	TooMinFeeRate
 	ErrorNotExistsInMemMap
 )
 
@@ -22,7 +21,6 @@ var merrToString = map[MemPoolErr]string{
 	AlreadHaveTx:      "The transaction already in mempool",
 	Nomature:          "Non-BIP68-final",
 	ManyUnspendDepend: "The transaction depend many unspend transaction",
-	TooMinFeeRate:     "The transaction's feerate is too minimal",
 }
 
 func (me MemPoolErr) String() string {
