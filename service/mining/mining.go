@@ -463,7 +463,7 @@ func getExcessiveBlockSizeSig() []byte {
 func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	oldTime := int64(bk.Header.Time)
 	var newTime int64
-	mt := int64(0) + 1
+	mt := indexPrev.GetMedianTimePast() + 1
 	at := util.GetAdjustedTime()
 	if mt > at {
 		newTime = mt
