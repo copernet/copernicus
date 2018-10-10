@@ -95,7 +95,7 @@ func sendNotifications(pindexOldTip *blockindex.BlockIndex, pblock *block.Block)
 	gChain.SendNotification(chain.NTBlockConnected, pblock)
 
 	forkIndex := gChain.FindFork(pindexOldTip)
-	event := chain.TipUpdatedEvent{gChain.Tip(), forkIndex, IsInitialBlockDownload()}
+	event := chain.TipUpdatedEvent{TipIndex: gChain.Tip(), ForkIndex: forkIndex, IsInitialDownload: IsInitialBlockDownload()}
 	gChain.SendNotification(chain.NTChainTipUpdated, &event)
 }
 
