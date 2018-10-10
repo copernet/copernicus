@@ -29,6 +29,8 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"encoding/binary"
+	"math/rand"
 )
 
 var miningHandlers = map[string]commandHandler{
@@ -540,7 +542,12 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	coinbaseScript := script.NewScriptRaw(nil)
+	//todo after add wallet,remove this pkScript
+	seedBuffer := bytes.NewBuffer([]byte{})
+	binary.Write(seedBuffer, binary.BigEndian, rand.Int31())
+	pkScript := seedBuffer.Bytes()
+
+	coinbaseScript := script.NewScriptRaw(pkScript)
 	if coinbaseScript == nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
