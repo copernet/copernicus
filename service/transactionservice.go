@@ -41,8 +41,7 @@ func handleRejectedTx(transaction *tx.Tx, err error,
 	return
 }
 
-func ProcessTransaction(transaction *tx.Tx,
-	nodeID int64) ([]*tx.Tx, []util.Hash, error) {
+func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash, error) {
 
 	err := ltx.CheckRegularTransaction(transaction)
 	if err != nil {

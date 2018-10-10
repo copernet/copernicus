@@ -43,7 +43,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
-			return err
+			return errcode.New(errcode.TxErrRejectNonstandard)
 		}
 	}
 
@@ -106,7 +106,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if model.ActiveNetParams.RequireStandard {
 		err = checkInputsStandard(transaction, tempCoinsMap)
 		if err != nil {
-			return err
+			return errcode.New(errcode.TxErrRejectNonstandard)
 		}
 	}
 
@@ -281,7 +281,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+				return nil, nil, errcode.New(errcode.TxErrRejectNonstandard)
 			}
 		}
 		//check sigops
