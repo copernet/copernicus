@@ -334,6 +334,7 @@ func (sm *SyncManager) startSync() {
 		sm.syncPeer = bestPeer
 		sm.requestBlkInvCnt = 1
 		if sm.current() {
+			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
 		}
 	} else {
@@ -683,6 +684,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		if sm.current() && peer == sm.syncPeer {
 			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate,
 				peer)
+			log.Debug("request mempool in handleBlockMsg")
 			peer.RequestMemPool()
 		}
 	}
