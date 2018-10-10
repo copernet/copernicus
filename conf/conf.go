@@ -74,7 +74,8 @@ func InitConfig(args []string) *Configuration {
 
 	opts, err := InitArgs(args)
 	if err != nil {
-		panic(err)
+		fmt.Printf("\033[0;31mparse cmd line fail: %v\033[0m\n", err)
+		return nil
 	}
 	if opts.RegTest && opts.TestNet {
 		panic("Both testnet and regtest are true")
