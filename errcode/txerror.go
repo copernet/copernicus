@@ -5,6 +5,8 @@ import "fmt"
 type TxErr int
 
 const (
+	//standard reject code defined in bip-0061 from 0x01-0x43
+
 	TxErrRejectMalformed       TxErr = 0x01
 	TxErrRejectInvalid         TxErr = 0x10
 	TxErrRejectObsolete        TxErr = 0x11
@@ -13,8 +15,9 @@ const (
 	TxErrRejectDust            TxErr = 0x41
 	TxErrRejectInsufficientFee TxErr = 0x42
 	TxErrRejectCheckPoint      TxErr = 0x43
-	TxErrRejectAlreadyKnown    TxErr = 0x101
-	TxErrRejectConflict        TxErr = 0x102
+
+	TxErrRejectAlreadyKnown TxErr = 0x101
+	TxErrRejectConflict     TxErr = 0x102
 
 	TxErrNoPreviousOut TxErr = TxErrorBase + iota
 	TxErrNullPreOut
