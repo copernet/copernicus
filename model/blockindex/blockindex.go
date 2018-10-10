@@ -166,13 +166,10 @@ func (bIndex *BlockIndex) GetBlockTimeMax() uint32 {
 func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 	median := make([]int64, 0, medianTimeSpan)
 	index := bIndex
-	numNodes := 0
 	for i := 0; i < medianTimeSpan && index != nil; i++ {
 		median = append(median, int64(index.GetBlockTime()))
 		index = index.Prev
-		numNodes++
 	}
-	median = median[:numNodes]
 	sort.Slice(median, func(i, j int) bool {
 		return median[i] < median[j]
 	})
@@ -180,7 +177,7 @@ func (bIndex *BlockIndex) GetMedianTimePast() int64 {
 	//if len(median) < 11 {
 	//	return 0
 	//}
-	return median[numNodes/2]
+	return median[len(median)/2]
 }
 
 func (bIndex *BlockIndex) AddStatus(status uint32) {
