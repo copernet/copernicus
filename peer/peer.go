@@ -491,7 +491,9 @@ type Peer struct {
 
 func (p *Peer) RequestMemPool() {
 	p.reqMempoolOnce.Do(func() {
-		p.QueueMessage(wire.NewMsgMemPool(), nil)
+		if p.services&wire.SFNodeBloom == wire.SFNodeBloom {
+			p.QueueMessage(wire.NewMsgMemPool(), nil)
+		}
 	})
 }
 
