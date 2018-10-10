@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/logic/lchain"
+	"math"
 	"math/big"
+	"strconv"
 
 	"errors"
 	"github.com/copernet/copernicus/errcode"
@@ -84,10 +86,17 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	workDiff := new(big.Int).Sub(&index.ChainWork, &b.ChainWork)
-	timeDiff := int64(maxTime - minTime)
+	timeDiff := big.NewInt(int64(maxTime - minTime))
 
-	hashesPerSec := new(big.Int).Div(workDiff, big.NewInt(timeDiff))
-	return hashesPerSec, nil
+	var hashesPerSecText string
+	if workDiff.Cmp(big.NewInt(math.MaxInt64)) >= 0 {
+		hashesPerSecText = new(big.Int).Div(workDiff, timeDiff).String()
+	} else {
+		hashesPerSec := float64(workDiff.Int64()) / float64(maxTime-minTime)
+		hashesPerSecText = strconv.FormatFloat(hashesPerSec, 'e', -1, 64)
+	}
+
+	return hashesPerSecText, nil
 }
 
 func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

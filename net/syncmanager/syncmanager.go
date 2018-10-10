@@ -508,11 +508,8 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 				txHash.String(), err)
 		}
 
-		// Convert the error into an appropriate reject message and
-		// send it.
-		//todo !!! need process for error code. yyx
-		//code := err.(errcode.TxErr)
-		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
+		//TODO: [errorcode] translate internal error code bip-0061 reject code
+		peer.PushRejectMsg(wire.CmdTx, wire.RejectInvalid, err.Error(), &txHash, false)
 		return
 	}
 
