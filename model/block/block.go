@@ -52,10 +52,6 @@ func (bl *Block) SerializeSize() int {
 		return bl.serializesize
 	}
 
-	return bl.UpdateSerializeSize()
-}
-
-func (bl *Block) UpdateSerializeSize() int {
 	buf := bytes.NewBuffer(nil)
 	bl.Serialize(buf)
 	bl.serializesize = buf.Len()
