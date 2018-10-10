@@ -190,7 +190,8 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 
 		// Create new block
 		ba := mining.NewBlockAssembler(model.ActiveNetParams)
-		blocktemplate = ba.CreateNewBlock(script.NewScriptRaw([]byte{opcodes.OP_TRUE}))
+		scriptPubKey := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
+		blocktemplate = ba.CreateNewBlock(scriptPubKey, mining.BasicScriptSig())
 		if blocktemplate == nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -543,7 +544,7 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 
 const nInnerLoopCount = 0x100000
 
-func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64) (interface{}, error) {
+func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) (interface{}, error) {
 	heightStart := chain.GetInstance().Height()
 	heightEnd := heightStart + int32(generate)
 	height := heightStart
@@ -553,15 +554,13 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	var extraNonce uint
 	for height < heightEnd {
 		ba := mining.NewBlockAssembler(params)
-		bt := ba.CreateNewBlock(coinbaseScript)
+		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,
 				Message: "Could not create new block",
 			}
 		}
-
-		extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
 
 		powCheck := pow.Pow{}
 		bits := bt.Block.Header.Bits
@@ -577,7 +576,9 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 		if maxTries == 0 {
 			break
 		}
+
 		if bt.Block.Header.Nonce == nInnerLoopCount {
+			extraNonce++
 			continue
 		}
 
@@ -588,11 +589,13 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 				Message: "ProcessNewBlock, block not accepted",
 			}
 		}
+
 		height++
+		extraNonce = 0
+
 		blkHash := bt.Block.GetHash()
 		ret = append(ret, blkHash.String())
 	}
-	_ = extraNonce
 
 	return ret, nil
 }
