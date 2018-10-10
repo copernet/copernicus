@@ -712,7 +712,6 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 	// Single signature case:
 	check(v, p2PKHLockingScript, t)
 
@@ -747,7 +746,7 @@ func TestCombineSignature(t *testing.T) {
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
-	scriptSig = v.spender.GetIns()[0].GetScriptSig()
+	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
 	// dummy scriptSigCopy with placeHolder, should always choose
 	// non-placeholder:
@@ -861,12 +860,14 @@ func TestCombineSignature(t *testing.T) {
 		&v.spender, MultiLockingScript, uint32(crypto.SigHashNone), 0, 0, 0)
 	checkError(err, t)
 	vchSig, err = v.priKeys[1].Sign(hash.GetCloneBytes())
+	checkError(err, t)
 	sig2 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashNone)}}, []byte{})
 
 	hash, err = tx.SignatureHash(
 		&v.spender, MultiLockingScript, uint32(crypto.SigHashSingle), 0, 0, 0)
 	checkError(err, t)
 	vchSig, err = v.priKeys[2].Sign(hash.GetCloneBytes())
+	checkError(err, t)
 	sig3 := bytes.Join([][]byte{vchSig.Serialize(), {byte(crypto.SigHashSingle)}}, []byte{})
 
 	// By sig1, sig2, sig3 generate some different combination to check
@@ -915,9 +916,6 @@ func TestCombineSignature(t *testing.T) {
 	complete23.PushOpCode(opcodes.OP_0)
 	complete23.PushSingleData(sig2)
 	complete23.PushSingleData(sig3)
-
-	// Begin to check the combineSignature
-	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 
 	combineSig, err = CombineSignature(
 		&v.spender,

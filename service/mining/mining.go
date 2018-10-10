@@ -3,6 +3,7 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"math"
 	"strconv"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
-	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -249,7 +249,14 @@ func (ba *BlockAssembler) addPackageTxs() int {
 	return descendantsUpdated
 }
 
-func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTemplate {
+func BasicScriptSig() *script.Script {
+	height := script.NewScriptNum(int64(chain.GetInstance().Tip().Height + 1))
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushScriptNum(height)
+	return scriptSig
+}
+
+func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script) *BlockTemplate {
 	timeStart := util.GetMockTimeInMicros()
 
 	ba.resetBlockAssembler()
@@ -297,16 +304,12 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	coinbaseTx := tx.NewTx(0, tx.DefaultVersion)
 
 	outPoint := outpoint.OutPoint{Hash: util.HashZero, Index: 0xffffffff}
-	heightNumb := script.NewScriptNum(int64(ba.height))
 
-	//sc := script.NewScriptRaw(buf.Bytes())
-	sc := script.NewEmptyScript()
-	sc.PushScriptNum(heightNumb)
-	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, sc, 0xffffffff))
+	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, scriptSig, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
 	value := ba.fees + GetBlockSubsidy(ba.height, ba.chainParams)
-	coinbaseTx.AddTxOut(txout.NewTxOut(value, coinbaseScript))
+	coinbaseTx.AddTxOut(txout.NewTxOut(value, scriptPubKey))
 	ba.bt.Block.Txs[0] = coinbaseTx
 	ba.bt.TxFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
 
@@ -324,6 +327,8 @@ func (ba *BlockAssembler) CreateNewBlock(coinbaseScript *script.Script) *BlockTe
 	p := pow.Pow{}
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
+	ba.bt.Block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(ba.bt.Block.Txs, nil)
+
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	//check the validity of the block
@@ -407,19 +412,13 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	return descendantUpdate
 }
 
-func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraNonce uint) {
-	// Update nExtraNonce
-	if bk.Header.HashPrevBlock != util.HashZero {
-		extraNonce = 0
-	}
-	extraNonce++
-	// Height first in coinbase required for block.version=2
-	height := bindex.Height + 1
-
+func CoinbaseScriptSig(extraNonce uint) *script.Script {
 	// TODO lack of lscript builder to construct script conveniently<lscript>
 	buf := bytes.NewBuffer(nil)
 	bytesEight := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bytesEight, uint64(height))
+
+	height := uint64(chain.GetInstance().Tip().Height + 1)
+	binary.LittleEndian.PutUint64(bytesEight, height)
 	buf.Write(bytesEight)
 
 	binary.LittleEndian.PutUint64(bytesEight, uint64(extraNonce))
@@ -428,12 +427,7 @@ func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraN
 	buf.Write(getExcessiveBlockSizeSig())
 	buf.Write([]byte(CoinbaseFlag))
 
-	coinbaseScript := script.NewScriptRaw(buf.Bytes())
-	bk.Txs[0].UpdateInScript(0, coinbaseScript)
-
-	bk.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bk.Txs, nil)
-
-	return extraNonce
+	return script.NewScriptRaw(buf.Bytes())
 }
 
 // This function convert MaxBlockSize from byte to

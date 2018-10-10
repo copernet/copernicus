@@ -34,9 +34,9 @@ func handleRejectedTx(transaction *tx.Tx, err error,
 			log.Print("service", "debug", "Orphan transaction "+
 				"overflow, removed %d tx", evicted)
 		}
+	} else {
+		pool.RecentRejects[transaction.GetHash()] = struct{}{}
 	}
-
-	pool.RecentRejects[transaction.GetHash()] = struct{}{}
 
 	return
 }

@@ -23,7 +23,8 @@ test -z "$(gometalinter -j 4 --disable-all \
 --enable=gosimple \
 --enable=unconvert \
 --exclude='should have comment' \
---deadline=10m $linter_targets 2>&1 | grep -v 'and that stutters;' | grep -v 'ALL_CAPS\|OP_' 2>&1 | tee /dev/stderr)"
+--exclude='and that stutters;' \
+--deadline=10m $linter_targets 2>&1 | grep -v 'ALL_CAPS\|OP_' 2>&1 | tee /dev/stderr)"
 
 go test  -covermode=atomic -coverprofile=coverage.out -race -tags rpctest $linter_targets
 

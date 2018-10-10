@@ -135,6 +135,9 @@ func (txOut *TxOut) IsCommitment(data []byte) bool {
 // but doesn't care whether it has already been spent or not
 
 func (txOut *TxOut) IsSpendable() bool {
+	if txOut == nil || txOut.scriptPubKey == nil {
+		return false
+	}
 	return txOut.scriptPubKey.IsSpendable()
 }
 

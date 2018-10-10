@@ -175,13 +175,12 @@ func (m *TxMempool) CalculateDescendantsWithLock(txHash *util.Hash) map[*TxEntry
 func (m *TxMempool) CalculateMemPoolAncestorsWithLock(txhash *util.Hash) map[*TxEntry]struct{} {
 	m.RLock()
 	defer m.RUnlock()
-	ancestors := make(map[*TxEntry]struct{})
 	entry, ok := m.poolData[*txhash]
 	if !ok {
 		return nil
 	}
 	noLimit := uint64(math.MaxUint64)
-	ancestors, _ = m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+	ancestors, _ := m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
 	return ancestors
 }
 

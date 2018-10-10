@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -16,10 +17,16 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/disk"
+	"os"
+	"path/filepath"
 )
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
+	if conf.Cfg == nil {
+		log.Error("please run `./copernicus -h` for usage.")
+		os.Exit(0)
+	}
 
 	if conf.Cfg.P2PNet.TestNet {
 		model.SetTestNetParams()
@@ -30,7 +37,29 @@ func appInitMain(args []string) {
 	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
 
 	//init log
-	log.Init()
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.ExistDataDir(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			panic("logdir create failed: " + err.Error())
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+		Daily    bool   `json:"daily"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+		Daily:    false,
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	log.Init(string(configuration))
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
