@@ -29,9 +29,11 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			}
 			out := outpoint.NewOutPoint(txid, uint32(j))
 			coin := cm.SpendGlobalCoin(out)
-			coinOut := coin.GetTxOut()
-			if coin == nil || !tx.GetTxOut(j).IsEqual(&coinOut) {
-				// transaction output mismatch
+
+			// transaction output mismatch
+			if coin == nil {
+				clean = false
+			} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
 				clean = false
 			}
 
