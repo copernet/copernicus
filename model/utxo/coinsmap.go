@@ -85,7 +85,7 @@ func (cm *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwr
 func (cm *CoinsMap) SpendCoin(point *outpoint.OutPoint) *Coin {
 	coin := cm.GetCoin(point)
 	if coin == nil {
-		return coin
+		return nil
 	}
 	if coin.fresh {
 		if coin.dirty {
@@ -128,8 +128,11 @@ func (cm *CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 func (cm *CoinsMap) SpendGlobalCoin(out *outpoint.OutPoint) *Coin {
 	coin := cm.FetchCoin(out)
 	if coin == nil {
-		return coin
+		return nil
 	}
-
-	return cm.SpendCoin(out)
+	copied := coin.DeepCopy()
+	if cm.SpendCoin(out) != nil {
+		return copied
+	}
+	return nil
 }
