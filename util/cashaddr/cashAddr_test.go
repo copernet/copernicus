@@ -151,6 +151,9 @@ func TestCashAddressPubKeyHash_ScriptAddress(t *testing.T) {
 	if !reflect.DeepEqual(addrByte, dataElement) {
 		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement)
 	}
+	if ok := addr.IsForNet(&model.MainNetParams); !ok {
+		t.Errorf("the P2PKH address isn't associated with the bch MainNetWork")
+	}
 
 	//TestNet
 	addr, err = NewCashAddressPubKeyHash(dataElement, &model.TestNetParams)
@@ -161,6 +164,9 @@ func TestCashAddressPubKeyHash_ScriptAddress(t *testing.T) {
 	if !reflect.DeepEqual(addrByte, dataElement) {
 		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement)
 	}
+	if ok := addr.IsForNet(&model.TestNetParams); !ok {
+		t.Errorf("the P2PKH address isn't associated with the bch TestNetWork")
+	}
 
 	//RegressionNet
 	addr, err = NewCashAddressPubKeyHash(dataElement, &model.RegressionNetParams)
@@ -170,6 +176,9 @@ func TestCashAddressPubKeyHash_ScriptAddress(t *testing.T) {
 	addrByte = addr.ScriptAddress()
 	if !reflect.DeepEqual(addrByte, dataElement) {
 		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement)
+	}
+	if ok := addr.IsForNet(&model.RegressionNetParams); !ok {
+		t.Errorf("the P2PKH address isn't associated with the bch RegressionNetWork")
 	}
 }
 
@@ -183,6 +192,9 @@ func TestCashAddressScriptHash_ScriptAddress(t *testing.T) {
 	if !reflect.DeepEqual(addrByte, dataElement2) {
 		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement2)
 	}
+	if ok := addr.IsForNet(&model.MainNetParams); !ok {
+		t.Errorf("the P2SH address isn't associated with the bch MainNetWork")
+	}
 
 	//TestNet
 	addr, err = NewCashAddressScriptHashFromHash(dataElement2, &model.TestNetParams)
@@ -193,6 +205,9 @@ func TestCashAddressScriptHash_ScriptAddress(t *testing.T) {
 	if !reflect.DeepEqual(addrByte, dataElement2) {
 		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement2)
 	}
+	if ok := addr.IsForNet(&model.TestNetParams); !ok {
+		t.Errorf("the P2SH address isn't associated with the bch TestNetWork")
+	}
 
 	//RegressionNet
 	addr, err = NewCashAddressScriptHashFromHash(dataElement2, &model.RegressionNetParams)
@@ -202,5 +217,96 @@ func TestCashAddressScriptHash_ScriptAddress(t *testing.T) {
 	addrByte = addr.ScriptAddress()
 	if !reflect.DeepEqual(addrByte, dataElement2) {
 		t.Errorf("addrByte:%v not equal dataElement:%v", addrByte, dataElement2)
+	}
+	if ok := addr.IsForNet(&model.RegressionNetParams); !ok {
+		t.Errorf("the P2SH address isn't associated with the bch RegressionNetWork")
+	}
+}
+
+func TestNewCashAddressScriptHash(t *testing.T) {
+	//MainNet
+	addr, err := NewCashAddressScriptHash(dataElement2, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	if addr.String() != "pqgml2l4azsajnfqp30pmetax3ek9wc9lvghvvkx6d" {
+		t.Error("Address decoding error")
+	}
+
+	//TestNet
+	addr, err = NewCashAddressScriptHash(dataElement2, &model.TestNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	if addr.String() != "pqgml2l4azsajnfqp30pmetax3ek9wc9lvv9gt53a3" {
+		t.Error("Address decoding error")
+	}
+
+	//RegressionNet
+	addr, err = NewCashAddressScriptHash(dataElement2, &model.RegressionNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	if addr.String() != "pqgml2l4azsajnfqp30pmetax3ek9wc9lvke72hz7h" {
+		t.Error("Address decoding error")
+	}
+}
+
+var (
+	P2SHPKScript  = []byte{169, 20, 118, 160, 64, 83, 189, 160, 168, 139, 218, 81, 119, 184, 106, 21, 195, 178, 159, 85, 152, 115, 135}
+	P2PKHPKScript = []byte{118, 169, 20, 203, 72, 18, 50, 41, 156, 213, 116, 49, 81, 172, 75, 45, 99, 174, 25, 142, 123, 176, 169, 136, 172}
+	ErrorPKScript = []byte{20, 118, 160, 64, 83, 189, 160, 168, 139, 218, 81, 119, 184, 106, 21, 195, 178, 159, 85, 152, 115}
+)
+
+func TestExtractPkScriptAddrs(t *testing.T) {
+	p2shAddr, err := ExtractPkScriptAddrs(P2SHPKScript, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	if p2shAddr.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
+		t.Errorf("p2shAddr:%s parse error", p2shAddr.String())
+	}
+
+	p2pkhAddr, err := ExtractPkScriptAddrs(P2PKHPKScript, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	if p2pkhAddr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
+		t.Errorf("p2pkhAddr:%s parse error", p2pkhAddr.String())
+	}
+
+	errAddr, err := ExtractPkScriptAddrs(ErrorPKScript, &model.MainNetParams)
+	if err == nil {
+		t.Error(err)
+	}
+	if errAddr != nil {
+		t.Errorf("the errAddr:%s should equal nil.", errAddr.String())
+	}
+}
+
+func TestCashPayToAddrScript(t *testing.T) {
+	addr, err := NewCashAddressPubKeyHash(dataElement, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	pkScript, err := cashPayToAddrScript(addr)
+	if err != nil {
+		t.Error(err)
+	}
+	if !(len(pkScript) == 1+1+1+20+1+1 && pkScript[0] == 0x76 && pkScript[1] == 0xa9 && pkScript[2] == 0x14 && pkScript[23] == 0x88 && pkScript[24] == 0xac) {
+		t.Errorf("the pkScript: %v is not p2pkh script", pkScript)
+	}
+
+	addr1, err := NewCashAddressScriptHashFromHash(dataElement2, &model.MainNetParams)
+	if err != nil {
+		t.Error(err)
+	}
+	p2pkhScript, err := cashPayToAddrScript(addr1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !(len(p2pkhScript) == 1+1+20+1 && p2pkhScript[0] == 0xa9 && p2pkhScript[1] == 0x14 && p2pkhScript[22] == 0x87) {
+		t.Errorf("the pkScript: %v is not p2sh script", p2pkhScript)
 	}
 }
