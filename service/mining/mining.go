@@ -430,6 +430,7 @@ func IncrementExtraNonce(bk *block.Block, bindex *blockindex.BlockIndex) (extraN
 
 	coinbaseScript := script.NewScriptRaw(buf.Bytes())
 	bk.Txs[0].UpdateInScript(0, coinbaseScript)
+	bk.UpdateSerializeSize()
 
 	bk.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bk.Txs, nil)
 

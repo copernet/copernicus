@@ -539,3 +539,16 @@ func (c *Chain) ChainOrphanLen() int32 {
 func (c *Chain) IndexMapSize() int {
 	return len(c.indexMap)
 }
+
+//BuildForwardTree Build forward-pointing map of the entire block tree.
+func (c *Chain) BuildForwardTree() (forward map[*blockindex.BlockIndex][]*blockindex.BlockIndex) {
+	forward = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
+	for _, v := range c.indexMap {
+		if len(forward[v.Prev]) == 0 {
+			forward[v.Prev] = []*blockindex.BlockIndex{v}
+		} else {
+			forward[v.Prev] = append(forward[v.Prev], v)
+		}
+	}
+	return
+}

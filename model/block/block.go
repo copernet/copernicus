@@ -51,6 +51,11 @@ func (bl *Block) SerializeSize() int {
 	if bl.serializesize != 0 {
 		return bl.serializesize
 	}
+
+	return bl.UpdateSerializeSize()
+}
+
+func (bl *Block) UpdateSerializeSize() int {
 	buf := bytes.NewBuffer(nil)
 	bl.Serialize(buf)
 	bl.serializesize = buf.Len()
@@ -99,6 +104,7 @@ func (bl *Block) GetHash() util.Hash {
 	bh := bl.Header
 	return bh.GetHash()
 }
+
 func NewBlock() *Block {
 	return &Block{}
 }
