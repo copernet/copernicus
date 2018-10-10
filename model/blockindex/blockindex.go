@@ -112,10 +112,10 @@ func (bIndex *BlockIndex) SetNull() {
 //func (bIndex *BlockIndex) Accepted() bool {
 //	return bIndex.Status&StatusAccepted != 0
 //}
-//
-//func (bIndex *BlockIndex) Failed() bool {
-//	return bIndex.Status&StatusFailed != 0
-//}
+
+func (bIndex *BlockIndex) Failed() bool {
+	return bIndex.Status&BlockFailed != 0
+}
 
 func (bIndex *BlockIndex) GetUndoPos() block.DiskBlockPos {
 	ret := block.NewDiskBlkPos()
