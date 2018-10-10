@@ -120,6 +120,11 @@ func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	return nil
 }
 
+//Return copy for safe
+func (c *Chain) GetIndexMap() map[util.Hash]*blockindex.BlockIndex {
+	return c.indexMap
+}
+
 // Tip Returns the blIndex entry for the tip of this chain, or nullptr if none.
 func (c *Chain) Tip() *blockindex.BlockIndex {
 	if len(c.active) > 0 {
