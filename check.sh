@@ -23,6 +23,7 @@ test -z "$(gometalinter -j 4 --disable-all \
 --enable=gosimple \
 --enable=ineffassign \
 --enable=vet \
+--enable=misspell \
 --enable=unconvert \
 --exclude='should have comment' \
 --exclude='and that stutters;' \

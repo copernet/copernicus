@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"strconv"
 
+	"encoding/binary"
 	"errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -29,7 +30,6 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"encoding/binary"
 	"math/rand"
 )
 

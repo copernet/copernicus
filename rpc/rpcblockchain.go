@@ -760,7 +760,7 @@ func getPrunMode() (bool, error) {
 	/*	pruneArg := util.GetArg("-prune", 0)
 		if pruneArg < 0 {
 			return false, errors.New("Prune cannot be configured with a negative value")
-		}*/// todo open
+		}*/ // todo open
 	return true, nil
 }
 
@@ -811,7 +811,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 
 		chain.PruneBlockFilesManual(*height)
-		return uint64(*height), nil*/// todo realise
+		return uint64(*height), nil*/ // todo realise
 
 	return nil, nil
 }
@@ -828,7 +828,7 @@ func handleVerifyChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			checkDepth = *c.CheckDepth
 		}
 
-		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/// todo open
+		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // todo open
 	return nil, nil
 }
 
@@ -849,7 +849,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 		if !state.IsValid() {
 
-		}*/// todo open
+		}*/ // todo open
 	return nil, nil
 }
 
@@ -876,7 +876,7 @@ func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{})
 				Code:    btcjson.ErrRPCDatabase,
 				Message: state.GetRejectReason(),
 			}
-		}*/// todo open
+		}*/ // todo open
 
 	return nil, nil
 }
@@ -902,7 +902,7 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 				Code:    btcjson.ErrRPCDatabase,
 				Message: state.FormatStateMessage(),
 			}
-		}*/// todo open
+		}*/ // todo open
 	return nil, nil
 }
 
