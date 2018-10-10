@@ -332,7 +332,7 @@ func (sm *SyncManager) startSync() {
 			bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
 		}
 		sm.syncPeer = bestPeer
-		sm.requestBlkInvCnt = 1
+		sm.requestBlkInvCnt = 0
 		if sm.current() {
 			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
@@ -1084,7 +1084,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
 		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
 
-		sm.requestBlkInvCnt = 2
+		sm.requestBlkInvCnt = 1
 	}
 
 	log.Debug(
