@@ -2,7 +2,6 @@ package lreindex
 
 import (
 	"container/list"
-	"github.com/copernet/copernicus.bak/persist/global"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -11,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
@@ -32,7 +32,17 @@ func Reindex() (err error) {
 		}
 		dbp := block.NewDiskBlockPos(int32(index), uint32(0))
 		err = loadExternalBlockFile(filePath, dbp)
+		if err != nil {
+			log.Error("When reindex, load block file <%s> failed!", filePath)
+		}
 	}
+
+	err = lchain.ActivateBestChain(nil)
+	if err != nil {
+		log.Error("ActivateBestChain failed after reindex")
+		return err
+	}
+
 	blkdb.GetInstance().WriteReindexing(false)
 	conf.Cfg.Reindex = false
 	log.Info("Reindexing finished")
@@ -59,7 +69,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 	for dbp.Pos < fileSize {
 		log.Info("pos: %d", dbp.Pos)
 		blk, ok := disk.ReadBlockFromDiskByPos(*dbp, params)
-		if ok != true {
+		if !ok {
 			log.Error("fail to read block from pos<%d, %d>", dbp.File, dbp.Pos)
 			return errcode.New(errcode.FailedToReadBlock)
 		}
@@ -83,15 +93,17 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 		}
 
 		if blkIndex := mchain.FindBlockIndex(blkHash); blkIndex == nil || !blkIndex.HasData() {
-			global.CsMain.Lock()
+			persist.CsMain.Lock()
 			fNewBlock := false
 			_, _, err = lblock.AcceptBlock(blk, true, dbp, &fNewBlock)
 			if err != nil {
+				log.Error("accept block error: %s", err)
 				break
 			}
 
 			nLoaded++
-			global.CsMain.Unlock()
+			persist.CsMain.Unlock()
+			log.Debug("already accept block: %s", blk.Header.Hash.String())
 		} else if blkIndex := mchain.FindBlockIndex(blkHash); blkHash != *params.GenesisHash && blkIndex.Height%1000 == 0 {
 			log.Info("already had block %s at height %d", blkHash.String(), blkIndex.Height)
 		}
@@ -128,7 +140,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 				hash := blk.GetHash()
 				//hex.EncodeToString(blk.GetHash()[:])
 				log.Info("Processing out of order child %s of %s", hash.String(), blkHash.String())
-				global.CsMain.Lock()
+				persist.CsMain.Lock()
 				fNewBlock := false
 				_, _, err = lblock.AcceptBlock(blk, true, diskBlkPos, &fNewBlock)
 				if err == nil {
@@ -138,7 +150,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 					log.Error("Error accept out of order block: %s", hash.String())
 
 				}
-				global.CsMain.Unlock()
+				persist.CsMain.Unlock()
 			}
 		}
 
@@ -157,10 +169,10 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 }
 
 func UnloadBlockIndex() {
-	global.CsMain.Lock()
-	defer global.CsMain.Unlock()
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 
-	persistGlobal := global.GetInstance()
+	persistGlobal := persist.GetInstance()
 	persistGlobal.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
 	persistGlobal.GlobalDirtyFileInfo = make(map[int32]bool)
 	persistGlobal.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)

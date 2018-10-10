@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -68,8 +67,24 @@ func appInitMain(args []string) {
 
 	if conf.Cfg.Reindex {
 		disk.CleanupBlockRevFiles()
-		lreindex.Reindex()
+		err := lreindex.Reindex()
+		if err != nil {
+			log.Error("fatal error occurred when reindex: %s, will shutdown!", err)
+			shutdownRequestChannel <- struct{}{}
+		}
+
+		gChain := chain.GetInstance()
+		log.Info(`
+----After reindex----
+    chain height: <%d>
+    chain's index map count: %d
+    tip block index: %s
+---------------------`, gChain.Height(), gChain.IndexMapSize(), gChain.Tip().String())
+
+		if chain.GetInstance().Genesis() == nil {
+			log.Warn("after reindex, genesis block is not init, reindex may not worked, init genesis block now")
+			lchain.InitGenesisChain()
+		}
 		fmt.Println("reindex finish")
-		//os.Exit(0)
 	}
 }
