@@ -1,8 +1,8 @@
 package util
 
 import (
-	"testing"
 	"bytes"
+	"testing"
 )
 
 func TestVarString(t *testing.T) {

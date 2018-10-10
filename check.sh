@@ -21,6 +21,7 @@ test -z "$(gometalinter -j 4 --disable-all \
 --enable=gofmt \
 --enable=golint \
 --enable=gosimple \
+--enable=ineffassign \
 --enable=unconvert \
 --exclude='should have comment' \
 --exclude='and that stutters;' \
