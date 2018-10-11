@@ -41,6 +41,7 @@ P2PNet:
   DisableRPC: false
   Upnp: false
   DisableTLS: false
+  UserAgentComments:
 
 Protocal:
   NoPeerBloomFilters: true

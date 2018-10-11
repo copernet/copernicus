@@ -37,7 +37,7 @@ func NewAddNodeCmd(addr string, subCmd AddNodeSubCmd) *AddNodeCmd {
 }
 
 type DisconnectNodeCmd struct {
-	Target string
+	Target string `json:"target"`
 }
 
 // TransactionInput represents the inputs to a transaction.  Specifically a
