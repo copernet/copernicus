@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/net/socks"
 	"io"
 	"math/rand"
@@ -1046,7 +1047,7 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 // function to block until the reject message has actually been sent.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushRejectMsg(command string, code wire.RejectCode, reason string, hash *util.Hash, wait bool) {
+func (p *Peer) PushRejectMsg(command string, code errcode.RejectCode, reason string, hash *util.Hash, wait bool) {
 	// Don't bother sending the reject message if the protocol version
 	// is too low.
 	if p.VersionKnown() && p.ProtocolVersion() < wire.RejectVersion {
@@ -1550,7 +1551,7 @@ out:
 				// at least that much of the message was valid, but that is not
 				// currently exposed by wire, so just used malformed for the
 				// command.
-				p.PushRejectMsg("malformed", wire.RejectMalformed, errMsg, nil,
+				p.PushRejectMsg("malformed", errcode.RejectMalformed, errMsg, nil,
 					true)
 			}
 			break out
@@ -1997,7 +1998,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 		errStr := "A version message must precede all others"
 		log.Error(errStr)
 
-		rejectMsg := wire.NewMsgReject(msg.Command(), wire.RejectMalformed,
+		rejectMsg := wire.NewMsgReject(msg.Command(), errcode.RejectMalformed,
 			errStr)
 		return p.writeMessage(rejectMsg, wire.LatestEncoding)
 	}
