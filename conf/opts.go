@@ -34,6 +34,10 @@ func InitArgs(args []string) (*Opts, error) {
 }
 
 func checkArgs(args []string) error {
+	if len(args) < 1 {
+		return nil
+	}
+
 	for _, v := range args[1:] {
 		if len(v) == 1 || !strings.HasPrefix(v, "-") || v == "--" {
 			return errors.New("args error")
