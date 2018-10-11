@@ -362,43 +362,24 @@ func createRawTxInput(input *btcjson.TransactionInput, lockTime uint32) (*txin.T
 }
 
 func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
-	var txAmount amount.Amount
 	var nullData []byte
 	var err error
+	txAmount := amount.Amount(0)
 
 	if address == "data" {
 		data, ok := cost.(string)
 		if !ok {
 			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrInvalidParameter,
-				Message: "Invalid parameter, value of data must be string",
+				Code:    btcjson.ErrRPCType,
+				Message: "Data is not a string",
 			}
 		}
-		nullData, err = hex.DecodeString(data)
-		if err != nil {
+		if nullData, err = hex.DecodeString(data); err != nil {
 			return nil, rpcDecodeHexError(data)
 		}
-		txAmount = amount.Amount(0)
 	} else {
-		costVal, ok := cost.(float64)
-		if !ok {
-			costData, ok := cost.(string)
-			if ok {
-				costVal, err = strconv.ParseFloat(costData, 64)
-			}
-			if !ok || err != nil {
-				return nil, btcjson.RPCError{
-					Code:    btcjson.ErrInvalidParameter,
-					Message: "Invalid parameter, value of amount must be numeric",
-				}
-			}
-		}
-		txAmount, err = amount.NewAmount(costVal)
-		if err != nil || !amount.MoneyRange(txAmount) {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrInvalidParameter,
-				Message: "Invalid amount",
-			}
+		if txAmount, err = amountFromValue(cost); err != nil {
+			return nil, err
 		}
 	}
 
@@ -409,6 +390,34 @@ func createRawTxOutput(address string, cost interface{}) (*txout.TxOut, error) {
 
 	txOut := txout.NewTxOut(txAmount, scriptPubKey)
 	return txOut, nil
+}
+
+func amountFromValue(amountParam interface{}) (amount.Amount, error) {
+	amountVal, ok := amountParam.(float64)
+	if !ok {
+		amountValStr, ok := amountParam.(string)
+		if !ok {
+			return 0, btcjson.RPCError{
+				Code:    btcjson.ErrRPCType,
+				Message: "Amount is not a number or string",
+			}
+		}
+		var err error
+		if amountVal, err = strconv.ParseFloat(amountValStr, 64); err != nil {
+			return 0, btcjson.RPCError{
+				Code:    btcjson.ErrRPCType,
+				Message: "Invalid amount",
+			}
+		}
+	}
+	amt, err := amount.NewAmount(amountVal)
+	if err != nil || !amount.MoneyRange(amt) {
+		return 0, btcjson.RPCError{
+			Code:    btcjson.ErrRPCType,
+			Message: "Amount out of range",
+		}
+	}
+	return amt, nil
 }
 
 func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, error) {
@@ -736,12 +745,9 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 					"\nvs:\n" + ScriptToAsmStr(scriptPubKey, false),
 			}
 		}
-		outAmount, err := amount.NewAmount(prevTx.Amount)
-		if err != nil || !amount.MoneyRange(outAmount) {
-			return nil, nil, btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidParameter,
-				Message: "Amount out of range",
-			}
+		outAmount, err := amountFromValue(prevTx.Amount)
+		if err != nil {
+			return nil, nil, err
 		}
 		txOut := txout.NewTxOut(outAmount, scriptPubKey)
 		coin = utxo.NewCoin(txOut, 1, false)
