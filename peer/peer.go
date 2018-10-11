@@ -1234,7 +1234,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
 			summary, p)
 	}))
-	log.Trace("write message: %v", newLogClosure(func() string {
+	log.Trace("write message to (%s) : %v", p.Addr(), newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 	//log.Trace("%v", newLogClosure(func() string {

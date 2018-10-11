@@ -120,6 +120,7 @@ func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	return nil
 }
 
+// GetIndexMap Returns indexMap copy for safe
 func (c *Chain) GetIndexMap() map[util.Hash]*blockindex.BlockIndex {
 	return c.indexMap
 }
