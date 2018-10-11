@@ -105,12 +105,18 @@ func InitConfig(args []string) *Configuration {
 			filePath := projectPath + "/conf/" + defaultConfigFilename
 			_, err = os.Stat(filePath)
 			if !os.IsNotExist(err) {
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic("from src/defaultProjectDir copy conf.yml failed.")
+				}
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
 				filePath = projectPath + "/conf/" + defaultConfigFilename
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic(" from src/copernicus copy conf.yml failed.")
+				}
 			}
 		}
 	}
