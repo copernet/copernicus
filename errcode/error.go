@@ -78,14 +78,27 @@ func NewError(errCode fmt.Stringer, desc string) error {
 	}
 }
 
+func MakeError(code RejectCode, format string, innerErr error) error {
+	return NewError(code, fmt.Sprintf(format, shortDesc(innerErr)))
+}
+
 func IsRejectCode(err error) (RejectCode, string, bool) {
-	pe, ok := err.(ProjectError)
-	if ok && pe.ErrorCode != nil {
-		switch t := pe.ErrorCode.(type) {
+	e, ok := err.(ProjectError)
+	if ok && e.ErrorCode != nil {
+		switch t := e.ErrorCode.(type) {
 		case RejectCode:
-			return t, pe.Desc, true
+			return t, e.Desc, true
 		}
 	}
 
 	return 0, "", false
+}
+
+func shortDesc(err error) string {
+	e, ok := err.(ProjectError)
+	if ok && e.ErrorCode != nil {
+		return e.ErrorCode.String()
+	}
+
+	return e.Error()
 }
