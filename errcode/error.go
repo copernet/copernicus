@@ -78,14 +78,14 @@ func NewError(errCode fmt.Stringer, desc string) error {
 	}
 }
 
-func HasRejectCode(err error) (RejectCode, bool) {
+func IsRejectCode(err error) (RejectCode, string, bool) {
 	pe, ok := err.(ProjectError)
 	if ok && pe.ErrorCode != nil {
 		switch t := pe.ErrorCode.(type) {
 		case RejectCode:
-			return t, true
+			return t, pe.Desc, true
 		}
 	}
 
-	return 0, false
+	return 0, "", false
 }

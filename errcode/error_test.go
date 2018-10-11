@@ -42,10 +42,10 @@ func TestIsErrorCode(t *testing.T) {
 }
 
 func TestIsRejectCode(t *testing.T) {
-	code, ok := HasRejectCode(New(RejectNonstandard))
+	code, _, ok := IsRejectCode(New(RejectNonstandard))
 	assert.Equal(t, code, RejectNonstandard)
 	assert.True(t, ok)
 
-	_, ok = HasRejectCode(New(ErrorOutOfDiskSpace))
+	_, _, ok = IsRejectCode(New(ErrorOutOfDiskSpace))
 	assert.False(t, ok)
 }

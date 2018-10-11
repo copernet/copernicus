@@ -300,7 +300,7 @@ func (tx *Tx) GetVersion() int32 {
 func (tx *Tx) CheckRegularTransaction() error {
 	if tx.IsCoinBase() {
 		log.Debug("tx should not be coinbase")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	err := tx.checkTransactionCommon(true)
@@ -311,7 +311,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
 			log.Debug("tx input prevout null")
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 	}
 
@@ -321,7 +321,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
 		log.Warn("CheckCoinBaseTransaction: TxErrNotCoinBase")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 	err := tx.checkTransactionCommon(false)
 	if err != nil {
@@ -331,7 +331,7 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 	// coinbase in script check
 	if tx.ins[0].GetScriptSig().Size() < 2 || tx.ins[0].GetScriptSig().Size() > 100 {
 		log.Debug("coinbash input hash err script size")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	return nil
@@ -341,16 +341,16 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
 		log.Warn("bad tx, empty ins")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 	if len(tx.outs) == 0 {
 		log.Warn("bad tx, empty out")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	if tx.EncodeSize() > consensus.MaxTxSize {
 		log.Warn("tx is oversize, tx:%v, tx size:%d, MaxTxSize:%d", tx, tx.EncodeSize(), consensus.MaxTxSize)
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	// check outputs money
@@ -363,14 +363,14 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 		totalOut += out.GetValue()
 		if !amount.MoneyRange(totalOut) {
 			log.Debug("bad tx totalOut value :%d", totalOut)
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 	}
 
 	// check sigopcount
 	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
 		log.Debug("bad tx sigops :%d", tx.GetSigOpCountWithoutP2SH())
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	// check dup input
@@ -390,7 +390,7 @@ func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
 			(*outpoints)[*(in.PreviousOutPoint)] = true
 		} else {
 			log.Debug("bad tx, duplicate inputs")
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 	}
 	return nil
@@ -399,13 +399,13 @@ func (tx *Tx) CheckStandard() error {
 	// check version
 	if tx.version > MaxStandardVersion || tx.version < 1 {
 		log.Debug("TxErrBadVersion")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.New(errcode.RejectNonstandard)
 	}
 
 	// check size
 	if tx.EncodeSize() > uint32(MaxStandardTxSize) {
 		log.Debug("TxErrBadStandardSize")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.New(errcode.RejectNonstandard)
 	}
 
 	// check inputs script
@@ -427,22 +427,22 @@ func (tx *Tx) CheckStandard() error {
 			nDataOut++
 		} else if pubKeyType == script.ScriptMultiSig && !conf.Cfg.Script.IsBareMultiSigStd {
 			log.Debug("TxErrBareMultiSig")
-			return errcode.New(errcode.TxErrRejectNonstandard)
+			return errcode.New(errcode.RejectNonstandard)
 		} else if out.IsDust(util.NewFeeRate(conf.Cfg.TxOut.DustRelayFee)) {
 			log.Debug("TxErrDustOut")
-			return errcode.New(errcode.TxErrRejectNonstandard)
+			return errcode.New(errcode.RejectNonstandard)
 		}
 	}
 
 	// only one OP_RETURN txout is permitted
 	if nDataOut > 1 {
 		log.Debug("TxErrMultiOpReturn")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.New(errcode.RejectNonstandard)
 	}
 
 	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
 		log.Debug("TxBadSigOps")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.New(errcode.RejectNonstandard)
 	}
 	return nil
 }
@@ -487,11 +487,11 @@ func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.
 	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
 		log.Debug("SignStep CheckScriptPubKeyStandard err")
-		return nil, pubKeyType, errcode.New(errcode.TxErrRejectInvalid)
+		return nil, pubKeyType, errcode.New(errcode.RejectInvalid)
 	}
 	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
 		log.Debug("SignStep CheckScriptPubKeyStandard err")
-		return nil, pubKeyType, errcode.New(errcode.TxErrRejectInvalid)
+		return nil, pubKeyType, errcode.New(errcode.RejectInvalid)
 	}
 	if pubKeyType == script.ScriptMultiSig {
 		sigData = make([][]byte, 0, len(pubKeys)-2)
