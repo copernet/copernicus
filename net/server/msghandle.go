@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/errcode"
 	"strconv"
 	"strings"
 
@@ -45,7 +46,7 @@ out:
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
 			case *wire.MsgVersion:
-				peerFrom.PushRejectMsg(data.Command(), wire.RejectDuplicate, "duplicate version message",
+				peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "duplicate version message",
 					nil, false)
 				peerFrom.Disconnect()
 				msg.Done <- struct{}{}

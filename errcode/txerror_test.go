@@ -1,7 +1,6 @@
 package errcode
 
 import (
-	"strconv"
 	"testing"
 )
 
@@ -10,7 +9,6 @@ func TestTxErr_String(t *testing.T) {
 		in   TxErr
 		want string
 	}{
-		{TxErrRejectMalformed, "TxErrRejectMalformed"},
 		{TxErrRejectInvalid, "TxErrRejectInvalid"},
 		{TxErrRejectObsolete, "TxErrRejectObsolete"},
 		{TxErrRejectDuplicate, "TxErrRejectDuplicate"},
@@ -20,33 +18,11 @@ func TestTxErr_String(t *testing.T) {
 		{TxErrRejectCheckPoint, "TxErrRejectCheckPoint"},
 		{TxErrRejectAlreadyKnown, "TxErrRejectAlreadyKnown"},
 		{TxErrRejectConflict, "TxErrRejectConflict"},
-
 		{TxErrNoPreviousOut, "There is no previousout"},
-		{TxErrNullPreOut, "TxErrNullPreOut"},
-		{TxErrNotCoinBase, "TxErrNotCoinBase"},
-		{TxErrEmptyInputs, "TxErrEmptyInputs"},
-		{TxErrTotalMoneyTooLarge, "TxErrTotalMoneyTooLarge"},
-		{TxErrTooManySigOps, "TxErrTooManySigOps"},
-		{TxErrDupIns, "TxErrDupIns"},
-		{TxErrBadVersion, "TxErrBadVersion"},
-		{TxErrOverSize, "TxErrOverSize"},
-		{ScriptErrDustOut, "ScriptErrDustOut"},
-		{TxErrNotFinal, "TxErrNotFinal"},
-		{TxErrTxCommitment, "TxErrTxCommitment"},
-		{TxErrMempoolAlreadyExist, "TxErrMempoolAlreadyExist"},
-		{TxErrOutAlreadHave, "TxErrOutAlreadHave"},
-		{TxErrInputsMoneyTooLarge, "TxErrInputsMoneyTooLarge"},
-		{TxErrInputsMoneyBigThanOut, "TxErrInputsMoneyBigThanOut"},
 		{ScriptCheckInputsBug, "ScriptCheckInputsBug"},
 		{TxErrSignRawTransaction, "TxErrSignRawTransaction"},
 		{TxErrInvalidIndexOfIn, "TxErrInvalidIndexOfIn"},
 		{TxErrPubKeyType, "TxErrPubKeyType"},
-		{ErrorNotInTxMap, "Unknown code (" + strconv.Itoa(int(ErrorNotInTxMap)) + ")"},
-	}
-
-	if len(tests)-1 != int(ErrorNotInTxMap)-int(TxErrNoPreviousOut)+10 {
-		t.Errorf("It appears an error code was added without adding an " +
-			"associated stringer test")
 	}
 
 	t.Logf("Running %d tests", len(tests))

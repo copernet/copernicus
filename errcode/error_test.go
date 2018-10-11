@@ -2,6 +2,7 @@ package errcode
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
 )
@@ -13,19 +14,17 @@ func TestIsErrorCode(t *testing.T) {
 		descriptor string
 	}{
 		{ErrorBlockHeaderNoValid, true,
-			"module: chain, global errcode: " + strconv.Itoa(int(ErrorBlockHeaderNoValid)) + ",  errdesc: The block header is not valid"},
+			"module: chain, global errcode: " + strconv.Itoa(int(ErrorBlockHeaderNoValid)) + ",  desc: The block header is not valid"},
 		{ErrorOutOfDiskSpace, true,
-			"module: disk, global errcode: " + strconv.Itoa(int(ErrorOutOfDiskSpace)) + ",  errdesc: ErrorOutOfDiskSpace"},
+			"module: disk, global errcode: " + strconv.Itoa(int(ErrorOutOfDiskSpace)) + ",  desc: ErrorOutOfDiskSpace"},
 		{MissParent, true,
-			"module: mempool, global errcode: " + strconv.Itoa(int(MissParent)) + ",  errdesc: Miss input transaction"},
+			"module: mempool, global errcode: " + strconv.Itoa(int(MissParent)) + ",  desc: Miss input transaction"},
 		{ModelValid, true,
-			"module: rpc, global errcode: " + strconv.Itoa(int(ModelValid)) + ",  errdesc: Valid"},
+			"module: rpc, global errcode: " + strconv.Itoa(int(ModelValid)) + ",  desc: Valid"},
 		{ScriptErrOK, true,
-			"module: script, global errcode: " + strconv.Itoa(int(ScriptErrOK)) + ",  errdesc: No error"},
+			"module: script, global errcode: " + strconv.Itoa(int(ScriptErrOK)) + ",  desc: No error"},
 		{TxErrNoPreviousOut, true,
-			"module: transaction, global errcode: " + strconv.Itoa(int(TxErrNoPreviousOut)) + ",  errdesc: There is no previousout"},
-		{TxOutErrNegativeValue, true,
-			"module: transaction, global errcode: " + strconv.Itoa(int(TxOutErrNegativeValue)) + ",  errdesc: Tx out's value is negative"},
+			"module: transaction, global errcode: " + strconv.Itoa(int(TxErrNoPreviousOut)) + ",  desc: There is no previousout"},
 	}
 
 	t.Logf("Running %d tests", len(tests))
@@ -40,4 +39,13 @@ func TestIsErrorCode(t *testing.T) {
 		}
 		fmt.Println(i, '\t', err.Error())
 	}
+}
+
+func TestIsRejectCode(t *testing.T) {
+	code, ok := HasRejectCode(New(RejectNonstandard))
+	assert.Equal(t, code, RejectNonstandard)
+	assert.True(t, ok)
+
+	_, ok = HasRejectCode(New(ErrorOutOfDiskSpace))
+	assert.False(t, ok)
 }
