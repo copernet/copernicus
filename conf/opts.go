@@ -3,6 +3,7 @@ package conf
 import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	"os"
 )
 
 type Opts struct {
@@ -18,6 +19,9 @@ func InitArgs(args []string) (*Opts, error) {
 	opts := new(Opts)
 	_, err := flags.ParseArgs(opts, args)
 	if err != nil {
+		if flasgErr, ok := err.(*flags.Error); ok && flasgErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		}
 		return nil, err
 	}
 	return opts, nil

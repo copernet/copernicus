@@ -30,9 +30,6 @@ const (
 	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
 	defaultProjectDir           = "github.com/copernet/copernicus"
-	defaultLogLevel             = "info"
-	defaultLogDirname           = "logs"
-	defaultLogFilename          = "coper.log"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
 	defaultBanThreshold         = 100
@@ -40,7 +37,6 @@ const (
 	defaultMaxRPCClients        = 10
 	defaultMaxRPCWebsockets     = 25
 	defaultMaxRPCConcurrentReqs = 20
-	defaultDbType               = "ffldb"
 	defaultFreeTxRelayLimit     = 15.0
 	defaultBlockMinSize         = 0
 	defaultBlockMaxSize         = 750000
@@ -78,7 +74,8 @@ func InitConfig(args []string) *Configuration {
 
 	opts, err := InitArgs(args)
 	if err != nil {
-		panic(err)
+		//fmt.Println("\033[0;31mparse cmd line fail: %v\033[0m\n")
+		return nil
 	}
 	if opts.RegTest && opts.TestNet {
 		panic("Both testnet and regtest are true")
@@ -309,12 +306,9 @@ func (c Configuration) Validate() error {
 
 func ExistDataDir(datadir string) bool {
 	_, err := os.Stat(datadir)
-	if err == nil {
-		return true
-	}
-	if os.IsExist(err) {
+	if err != nil && os.IsNotExist(err) {
 		return false
 	}
 
-	return false
+	return true
 }

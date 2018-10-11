@@ -218,7 +218,7 @@ func ScriptPubKeyToJSON(script *script.Script, includeHex bool) *btcjson.ScriptP
 		return result
 	}
 
-	result.Asm = ScriptToAsmStr(script, includeHex)
+	result.Asm = ScriptToAsmStr(script, false)
 	if includeHex {
 		result.Hex = hex.EncodeToString(script.GetData())
 	}

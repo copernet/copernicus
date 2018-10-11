@@ -136,7 +136,7 @@ func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mem
 	ancestors, err := pool.CalculateMemPoolAncestors(tx, uint64(ancestorNum), uint64(ancestorSize*1000),
 		uint64(descendantNum), uint64(descendantSize*1000), true)
 	if err != nil {
-		return nil, lp, err
+		return nil, lp, errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	txsize := int64(tx.EncodeSize())
@@ -144,7 +144,7 @@ func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mem
 	rejectFee := minfeeRate.GetFee(int(txsize))
 	// compare the transaction feeRate with enter mempool min txfeeRate
 	if txfee < rejectFee {
-		return nil, lp, errcode.New(errcode.TooMinFeeRate)
+		return nil, lp, errcode.New(errcode.TxErrRejectInsufficientFee)
 	}
 
 	return ancestors, lp, nil

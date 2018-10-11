@@ -343,9 +343,26 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	//	  another orphan, it is a chain tip.
 	//	- add chainActive.Tip()
 	setTips := set.New() // element type:
+	setOrphans := set.New()
+	setPrevs := set.New()
 
-	// todo add orphan blockindex, lack of chain's support<orphan>
 	setTips.Add(chain.GetInstance().Tip())
+
+	gchain := chain.GetInstance()
+	for _, index := range gchain.GetIndexMap() {
+		if !gchain.Contains(index) {
+			setOrphans.Add(index)
+			setPrevs.Add(index.Prev)
+		}
+	}
+
+	setOrphans.Each(func(item interface{}) bool {
+		bindex := item.(*blockindex.BlockIndex)
+		if !setPrevs.Has(bindex) {
+			setTips.Add(bindex)
+		}
+		return true
+	})
 
 	ret := btcjson.GetChainTipsResult{
 		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),

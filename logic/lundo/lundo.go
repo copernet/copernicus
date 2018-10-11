@@ -17,7 +17,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		return undo.DisconnectFailed
 	}
 	// Undo transactions in reverse order.
-	for i := len(blk.Txs) - 1; i > 0; i-- {
+	for i := len(blk.Txs) - 1; i >= 0; i-- {
 		tx := blk.Txs[i]
 		txid := tx.GetHash()
 
@@ -29,41 +29,45 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 			}
 			out := outpoint.NewOutPoint(txid, uint32(j))
 			coin := cm.SpendGlobalCoin(out)
-			coinOut := coin.GetTxOut()
-			if coin == nil || !tx.GetTxOut(j).IsEqual(&coinOut) {
-				// transaction output mismatch
+
+			// transaction output mismatch
+			if coin == nil {
+				clean = false
+			} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
 				clean = false
 			}
+		}
+		// Restore inputs
+		if i < 1 {
+			// Skip the coinbase
+			continue
+		}
 
-			// Restore inputs
-			if i < 1 {
-				// Skip the coinbase
-				break
-			}
+		txundo := txUndos[i-1]
+		ins := tx.GetIns()
+		insLen := len(ins)
+		if len(txundo.GetUndoCoins()) != insLen {
+			log.Error("DisconnectBlock(): transaction(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
+			return undo.DisconnectFailed
+		}
 
-			txundo := txUndos[i-1]
-			ins := tx.GetIns()
-			insLen := len(ins)
-			if len(txundo.GetUndoCoins()) != insLen {
-				log.Error("DisconnectBlock(): transaction(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
+		for k := insLen - 1; k >= 0; k-- {
+			outpoint := ins[k].PreviousOutPoint
+			undoCoin := txundo.GetUndoCoins()[k]
+			res := CoinSpend(undoCoin, cm, outpoint)
+			if res == undo.DisconnectFailed {
+				log.Error("coin spend error in loop")
 				return undo.DisconnectFailed
 			}
-
-			for k := insLen - 1; k > 0; k-- {
-				outpoint := ins[k].PreviousOutPoint
-				undoCoin := txundo.GetUndoCoins()[k]
-				res := CoinSpend(undoCoin, cm, outpoint)
-				if res == undo.DisconnectFailed {
-					return undo.DisconnectFailed
-				}
-				clean = clean && (res != undo.DisconnectUnclean)
-			}
+			clean = clean && (res != undo.DisconnectUnclean)
 		}
 	}
 
 	if clean {
+		log.Debug("DisconnectBlock(): disconnect block success.")
 		return undo.DisconnectOk
 	}
+	log.Error("ApplyBlockUndo DisconnectUnclean")
 	return undo.DisconnectUnclean
 }
 
@@ -74,25 +78,9 @@ func CoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.
 		// Overwriting transaction output.
 		clean = false
 	}
-	// delete this logic from core-abc
-	//if coin.GetHeight() == 0 {
-	//	// Missing undo metadata (height and coinbase). Older versions included
-	//	// this information only in undo records for the last spend of a
-	//	// transactions' outputs. This implies that it must be present for some
-	//	// other output of the same tx.
-	//	alternate := utxo.AccessByTxid(cache, &out.Hash)
-	//	if alternate.IsSpent() {
-	//		// Adding output for transaction without known metadata
-	//		return DisconnectFailed
-	//	}
-	//
-	//	// This is somewhat ugly, but hopefully utility is limited. This is only
-	//	// useful when working from legacy on disck data. In any case, putting
-	//	// the correct information in there doesn't hurt.
-	//	coin = utxo.NewCoin(coin.GetTxOut(), alternate.GetHeight(), alternate.IsCoinBase())
-	//}
 	cm.AddCoin(out, coin, coin.IsCoinBase())
 	if clean {
+		log.Debug("CoinSpend(): disconnect block success.")
 		return undo.DisconnectOk
 	}
 	return undo.DisconnectUnclean

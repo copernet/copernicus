@@ -23,6 +23,10 @@ import (
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
+	if conf.Cfg == nil {
+		fmt.Println("please run `./copernicus -h` for usage.")
+		os.Exit(0)
+	}
 
 	if conf.Cfg.P2PNet.TestNet {
 		model.SetTestNetParams()

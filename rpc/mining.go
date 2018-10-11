@@ -5,8 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/logic/lchain"
+	"math"
 	"math/big"
+	"strconv"
 
+	"encoding/binary"
 	"errors"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -27,6 +30,7 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"math/rand"
 )
 
 var miningHandlers = map[string]commandHandler{
@@ -84,10 +88,17 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	workDiff := new(big.Int).Sub(&index.ChainWork, &b.ChainWork)
-	timeDiff := int64(maxTime - minTime)
+	timeDiff := big.NewInt(int64(maxTime - minTime))
 
-	hashesPerSec := new(big.Int).Div(workDiff, big.NewInt(timeDiff))
-	return hashesPerSec, nil
+	var hashesPerSecText string
+	if workDiff.Cmp(big.NewInt(math.MaxInt64)) >= 0 {
+		hashesPerSecText = new(big.Int).Div(workDiff, timeDiff).String()
+	} else {
+		hashesPerSec := float64(workDiff.Int64()) / float64(maxTime-minTime)
+		hashesPerSecText = strconv.FormatFloat(hashesPerSec, 'e', -1, 64)
+	}
+
+	return hashesPerSecText, nil
 }
 
 func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -190,7 +201,8 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 
 		// Create new block
 		ba := mining.NewBlockAssembler(model.ActiveNetParams)
-		blocktemplate = ba.CreateNewBlock(script.NewScriptRaw([]byte{opcodes.OP_TRUE}))
+		scriptPubKey := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
+		blocktemplate = ba.CreateNewBlock(scriptPubKey, mining.BasicScriptSig())
 		if blocktemplate == nil {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
@@ -530,7 +542,12 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	coinbaseScript := script.NewScriptRaw(nil)
+	//todo after add wallet,remove this pkScript
+	seedBuffer := bytes.NewBuffer([]byte{})
+	binary.Write(seedBuffer, binary.BigEndian, rand.Int31())
+	pkScript := seedBuffer.Bytes()
+
+	coinbaseScript := script.NewScriptRaw(pkScript)
 	if coinbaseScript == nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
@@ -543,7 +560,7 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 
 const nInnerLoopCount = 0x100000
 
-func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64) (interface{}, error) {
+func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) (interface{}, error) {
 	heightStart := chain.GetInstance().Height()
 	heightEnd := heightStart + int32(generate)
 	height := heightStart
@@ -553,15 +570,13 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 	var extraNonce uint
 	for height < heightEnd {
 		ba := mining.NewBlockAssembler(params)
-		bt := ba.CreateNewBlock(coinbaseScript)
+		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,
 				Message: "Could not create new block",
 			}
 		}
-
-		extraNonce = mining.IncrementExtraNonce(bt.Block, chain.GetInstance().Tip())
 
 		powCheck := pow.Pow{}
 		bits := bt.Block.Header.Bits
@@ -577,7 +592,9 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 		if maxTries == 0 {
 			break
 		}
+
 		if bt.Block.Header.Nonce == nInnerLoopCount {
+			extraNonce++
 			continue
 		}
 
@@ -588,11 +605,13 @@ func generateBlocks(coinbaseScript *script.Script, generate int, maxTries uint64
 				Message: "ProcessNewBlock, block not accepted",
 			}
 		}
+
 		height++
+		extraNonce = 0
+
 		blkHash := bt.Block.GetHash()
 		ret = append(ret, blkHash.String())
 	}
-	_ = extraNonce
 
 	return ret, nil
 }

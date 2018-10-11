@@ -5,13 +5,19 @@
 package addrmgr_test
 
 import (
+	"compress/bzip2"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand"
 	"net"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/net/addrmgr"
 	"github.com/copernet/copernicus/net/wire"
 )
@@ -102,10 +108,33 @@ func lookupFunc(host string) ([]net.IP, error) {
 	return nil, errors.New("not implemented")
 }
 
+func loadAddr() (string, error) {
+	zpf, err := os.Open("peers.json.bz2")
+	if err != nil {
+		return "", err
+	}
+	defer zpf.Close()
+	path := filepath.Join(os.TempDir(), "peers.json")
+	pf, err := os.Create(path)
+	if err != nil {
+		return "", err
+	}
+	defer pf.Close()
+	if _, err := io.Copy(pf, bzip2.NewReader(zpf)); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
 func TestStartStop(t *testing.T) {
-	n := addrmgr.New("teststartstop", lookupFunc)
+	path, err := loadAddr()
+	if err != nil {
+		t.Errorf("decompress peers.json.bz2 and copy failed: %v\n", err)
+	}
+	defer os.Remove(path)
+	n := addrmgr.New(os.TempDir(), lookupFunc)
 	n.Start()
-	err := n.Stop()
+	err = n.Stop()
 	if err != nil {
 		t.Fatalf("Address Manager failed to stop: %v", err)
 	}
@@ -118,6 +147,10 @@ func TestAddAddressByIP(t *testing.T) {
 		addrIP string
 		err    error
 	}{
+		{
+			someIP + ":8333",
+			nil,
+		},
 		{
 			someIP + ":8333",
 			nil,
@@ -194,6 +227,7 @@ func TestAddLocalAddress(t *testing.T) {
 	}
 	amgr := addrmgr.New("testaddlocaladdress", nil)
 	for x, test := range tests {
+		test := test
 		result := amgr.AddLocalAddress(&test.address, test.priority)
 		if result == nil && !test.valid {
 			t.Errorf("TestAddLocalAddress test #%d failed: %s should have "+
@@ -204,6 +238,55 @@ func TestAddLocalAddress(t *testing.T) {
 			t.Errorf("TestAddLocalAddress test #%d failed: %s should not have "+
 				"been accepted", x, test.address.IP)
 			continue
+		}
+	}
+}
+
+func TestGetAllLocalAddress(t *testing.T) {
+	var tests = []struct {
+		address  wire.NetAddress
+		priority addrmgr.AddressPriority
+	}{
+		{
+			wire.NetAddress{IP: net.ParseIP("204.124.1.1")},
+			addrmgr.InterfacePrio,
+		},
+		{
+			wire.NetAddress{IP: net.ParseIP(someIP)},
+			addrmgr.BoundPrio,
+		},
+		{
+			wire.NetAddress{IP: net.ParseIP("2620:100::1")},
+			addrmgr.InterfacePrio,
+		},
+	}
+	amgr := addrmgr.New("testgetalllocaladdress", nil)
+	for x, test := range tests {
+		test := test
+		result := amgr.AddLocalAddress(&test.address, test.priority)
+		if result != nil {
+			t.Errorf("addlocaladdress test #%d failed: %s should been accepted", x, test.address.IP)
+			continue
+		}
+	}
+	addrs := amgr.GetAllLocalAddress()
+	if len(addrs) != len(tests) {
+		t.Errorf("localaddress shoud equal number of test addr")
+	}
+	inSet := func(ip string, ipset []string) bool {
+		found := false
+		for _, elem := range ipset {
+			if ip == elem {
+				found = true
+				break
+			}
+		}
+		return found
+	}
+	for _, addr := range addrs {
+		t.Logf("ip =%s\n", addr.Na.IP.String())
+		if !inSet(addr.Na.IP.String(), []string{"204.124.1.1", someIP, "2620:100::1"}) {
+			t.Errorf("not found in expected ipset")
 		}
 	}
 }
@@ -405,6 +488,7 @@ func TestGetBestLocalAddress(t *testing.T) {
 
 	// Test against default when there's no address
 	for x, test := range tests {
+		test := test
 		got := amgr.GetBestLocalAddress(&test.remoteAddr)
 		if !test.want0.IP.Equal(got.IP) {
 			t.Errorf("TestGetBestLocalAddress test1 #%d failed for remote address %s: want %s got %s",
@@ -419,6 +503,7 @@ func TestGetBestLocalAddress(t *testing.T) {
 
 	// Test against want1
 	for x, test := range tests {
+		test := test
 		got := amgr.GetBestLocalAddress(&test.remoteAddr)
 		if !test.want1.IP.Equal(got.IP) {
 			t.Errorf("TestGetBestLocalAddress test1 #%d failed for remote address %s: want %s got %s",
@@ -433,6 +518,7 @@ func TestGetBestLocalAddress(t *testing.T) {
 
 	// Test against want2
 	for x, test := range tests {
+		test := test
 		got := amgr.GetBestLocalAddress(&test.remoteAddr)
 		if !test.want2.IP.Equal(got.IP) {
 			t.Errorf("TestGetBestLocalAddress test2 #%d failed for remote address %s: want %s got %s",
@@ -469,4 +555,44 @@ func TestNetAddressKey(t *testing.T) {
 		}
 	}
 
+}
+
+func TestHostToNetAddress(t *testing.T) {
+	var tests = []string{
+		someIP,
+		"3g2upl4pq6kufc4m.onion",
+		"cn.bing.com",
+	}
+	amgr := addrmgr.New("testhosttonetaddress", net.LookupIP)
+	for i, test := range tests {
+		if _, err := amgr.HostToNetAddress(test, 8333, 0); err != nil {
+			t.Errorf("test %d:  error :%v", i, err)
+		}
+	}
+}
+
+func TestNewAddress(t *testing.T) {
+	path, err := loadAddr()
+	if err != nil {
+		t.Errorf("decompress peers.json.bz2 and copy failed: %v\n", err)
+	}
+	defer os.Remove(path)
+	amgr := addrmgr.New(os.TempDir(), net.LookupIP)
+	amgr.Start()
+	err = amgr.Stop()
+	if err != nil {
+		t.Fatalf("Address Manager failed to stop: %v", err)
+	}
+
+	conf.Cfg = conf.InitConfig(nil)
+	for i := 0; i < 100; i++ {
+		addr, err := amgr.NewAddress(func(s string) bool {
+			ret := []bool{true, false}
+			return ret[rand.Intn(2)]
+		})
+		t.Logf("got addr = %s, err=%v\n", addr, err)
+		if err != nil {
+			t.Errorf("not found new address: %v\n", err)
+		}
+	}
 }

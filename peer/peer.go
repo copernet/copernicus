@@ -485,6 +485,16 @@ type Peer struct {
 	outQuit           chan struct{}
 	quit              chan struct{}
 	requestingDataCnt uint64
+
+	reqMempoolOnce sync.Once
+}
+
+func (p *Peer) RequestMemPool() {
+	p.reqMempoolOnce.Do(func() {
+		if p.services&wire.SFNodeBloom == wire.SFNodeBloom {
+			p.QueueMessage(wire.NewMsgMemPool(), nil)
+		}
+	})
 }
 
 // String returns the peer's address and directionality as a human-readable
@@ -500,9 +510,11 @@ func (p *Peer) String() string {
 // This function is safe for concurrent access.
 func (p *Peer) UpdateLastBlockHeight(newHeight int32) {
 	p.statsMtx.Lock()
-	log.Trace("Updating last block height of peer %v from %v to %v",
-		p.addr, p.lastBlock, newHeight)
-	p.lastBlock = newHeight
+	if p.lastBlock < newHeight {
+		log.Trace("Updating last block height of peer %v from %v to %v",
+			p.addr, p.lastBlock, newHeight)
+		p.lastBlock = newHeight
+	}
 	p.statsMtx.Unlock()
 }
 

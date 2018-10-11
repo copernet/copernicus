@@ -120,6 +120,10 @@ func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	return nil
 }
 
+func (c *Chain) GetIndexMap() map[util.Hash]*blockindex.BlockIndex {
+	return c.indexMap
+}
+
 // Tip Returns the blIndex entry for the tip of this chain, or nullptr if none.
 func (c *Chain) Tip() *blockindex.BlockIndex {
 	if len(c.active) > 0 {
@@ -466,16 +470,10 @@ func (c *Chain) RemoveFromBranch(bis *blockindex.BlockIndex) error {
 	if bis == nil {
 		return errors.New("nil blockIndex")
 	}
-	branchLen := len(c.branch)
+	bh := bis.GetBlockHash()
 	for i, bi := range c.branch {
-		bh := bis.GetBlockHash()
 		if bi.GetBlockHash().IsEqual(bh) {
-			branch := c.branch[0:i]
-			if branchLen-1 > i {
-				c.branch = append(branch, c.branch[i+1:]...)
-			} else {
-				c.branch = branch
-			}
+			c.branch = append(c.branch[0:i], c.branch[i+1:]...)
 			return nil
 		}
 	}
@@ -544,4 +542,17 @@ func (c *Chain) ChainOrphanLen() int32 {
 
 func (c *Chain) IndexMapSize() int {
 	return len(c.indexMap)
+}
+
+//BuildForwardTree Build forward-pointing map of the entire block tree.
+func (c *Chain) BuildForwardTree() (forward map[*blockindex.BlockIndex][]*blockindex.BlockIndex) {
+	forward = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
+	for _, v := range c.indexMap {
+		if len(forward[v.Prev]) == 0 {
+			forward[v.Prev] = []*blockindex.BlockIndex{v}
+		} else {
+			forward[v.Prev] = append(forward[v.Prev], v)
+		}
+	}
+	return
 }

@@ -387,6 +387,8 @@ func DisconnectTip(fBare bool) error {
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
 
+	gChain.SendNotification(chain.NTBlockDisconnected, blk)
+
 	return nil
 }
 
