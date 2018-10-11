@@ -2,18 +2,17 @@ package rpc
 
 import (
 	"bytes"
-	"encoding/hex"
-	"fmt"
-	"github.com/copernet/copernicus/logic/lchain"
-	"math"
-	"math/big"
-	"strconv"
-
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"math/big"
+	"math/rand"
+
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -30,7 +29,6 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"math/rand"
 )
 
 var miningHandlers = map[string]commandHandler{
@@ -43,40 +41,27 @@ var miningHandlers = map[string]commandHandler{
 	"estimatefee":       handleEstimateFee,
 }
 
-func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.GetNetworkHashPSCmd)
-
-	lookup := 120
-	height := int32(-1)
-	if c.Blocks != nil {
-		lookup = *c.Blocks
-	}
-
-	if c.Height != nil {
-		height = *c.Height
-	}
-
+func GetNetworkHashPS(lookup int32, height int32) float64 {
 	index := chain.GetInstance().Tip()
 	if height > 0 && height < chain.GetInstance().Height() {
 		index = chain.GetInstance().GetIndex(height)
 	}
 
 	if index == nil || index.Height == 0 {
-		return 0, nil
+		return 0
 	}
 
 	if lookup <= 0 {
-		lookup = int(index.Height%int32(model.ActiveNetParams.DifficultyAdjustmentInterval()) + 1)
+		lookup = index.Height%int32(model.ActiveNetParams.DifficultyAdjustmentInterval()) + 1
 	}
-
-	if lookup > int(index.Height) {
-		lookup = int(index.Height)
+	if lookup > index.Height {
+		lookup = index.Height
 	}
 
 	b := index
 	minTime := b.GetBlockTime()
 	maxTime := minTime
-	for i := 0; i < lookup; i++ {
+	for i := int32(0); i < lookup; i++ {
 		b = b.Prev
 		blockTime := b.GetBlockTime()
 		minTime = util.MinU32(blockTime, minTime)
@@ -84,41 +69,40 @@ func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 
 	if minTime == maxTime {
-		return 0, nil
+		return 0
 	}
 
-	workDiff := new(big.Int).Sub(&index.ChainWork, &b.ChainWork)
-	timeDiff := big.NewInt(int64(maxTime - minTime))
+	workDiff := new(big.Float).SetInt(new(big.Int).Sub(&index.ChainWork, &b.ChainWork))
+	timeDiff := new(big.Float).SetInt64(int64(maxTime - minTime))
+	hashesPerSec, _ := new(big.Float).Quo(workDiff, timeDiff).Float64()
 
-	var hashesPerSecText string
-	if workDiff.Cmp(big.NewInt(math.MaxInt64)) >= 0 {
-		hashesPerSecText = new(big.Int).Div(workDiff, timeDiff).String()
-	} else {
-		hashesPerSec := float64(workDiff.Int64()) / float64(maxTime-minTime)
-		hashesPerSecText = strconv.FormatFloat(hashesPerSec, 'e', -1, 64)
-	}
+	return hashesPerSec
+}
 
-	return hashesPerSecText, nil
+func handleGetNetWorkhashPS(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.GetNetworkHashPSCmd)
+
+	lookup := *c.Blocks
+	height := *c.Height
+
+	hashesPerSec := GetNetworkHashPS(lookup, height)
+
+	return hashesPerSec, nil
 }
 
 func handleGetMiningInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	gnhpsCmd := btcjson.NewGetNetworkHashPSCmd(nil, nil)
-	networkHashesPerSecIface, err := handleGetNetWorkhashPS(s, gnhpsCmd,
-		closeChan)
-	if err != nil {
-		return nil, err
-	}
-	networkHashesPerSec := fmt.Sprintf("%v", networkHashesPerSecIface)
+	const defaultLookup = 120
+	const defaultHeight = -1
 
 	index := chain.GetInstance().Tip()
 	result := &btcjson.GetMiningInfoResult{
-		Blocks:                  int64(index.Height),
+		Blocks:                  index.Height,
 		CurrentBlockSize:        mining.GetLastBlockSize(),
 		CurrentBlockTx:          mining.GetLastBlockTx(),
 		Difficulty:              getDifficulty(index),
-		BlockPriorityPercentage: tx.DefaultBlockPriorityPercentage, // NOT support this parameter yet
-		Errors:                  "",                                // NOT sure if errors are logged
-		NetworkHashPS:           networkHashesPerSec,
+		BlockPriorityPercentage: tx.DefaultBlockPriorityPercentage, // NOT support
+		Errors:                  "",                                // NOT support
+		NetworkHashPS:           GetNetworkHashPS(defaultLookup, defaultHeight),
 		PooledTx:                uint64(mempool.GetInstance().Size()),
 		Chain:                   chain.GetInstance().GetParams().Name,
 	}

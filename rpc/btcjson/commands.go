@@ -401,8 +401,8 @@ func NewGetNetTotalsCmd() *GetNetTotalsCmd {
 
 // GetNetworkHashPSCmd defines the getnetworkhashps JSON-RPC command.
 type GetNetworkHashPSCmd struct {
-	Blocks *int   `jsonrpcdefault:"120"`
-	Height *int32 `jsonrpcdefault:"-1"`
+	Blocks *int32 `json:"nblocks" jsonrpcdefault:"120"`
+	Height *int32 `json:"height" jsonrpcdefault:"-1"`
 }
 
 // NewGetNetworkHashPSCmd returns a new instance which can be used to issue a
@@ -410,7 +410,7 @@ type GetNetworkHashPSCmd struct {
 //
 // The parameters which are pointers indicate they are optional.  Passing nil
 // for optional parameters will use the default value.
-func NewGetNetworkHashPSCmd(numBlocks *int, height *int32) *GetNetworkHashPSCmd {
+func NewGetNetworkHashPSCmd(numBlocks *int32, height *int32) *GetNetworkHashPSCmd {
 	return &GetNetworkHashPSCmd{
 		Blocks: numBlocks,
 		Height: height,
