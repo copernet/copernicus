@@ -51,6 +51,7 @@ Script:
   MaxDatacarrierBytes:
   IsBareMultiSigStd:
   PromiscuousMempoolFlags:
+  Par:
 
 TxOut:
   DustRelayFee:

@@ -8,6 +8,7 @@ import (
 
 	"strconv"
 
+	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
@@ -24,11 +25,40 @@ import (
 	"github.com/pkg/errors"
 )
 
-var ScriptVerifyChan chan struct {
-	txHash       util.Hash
-	scriptSig    *script.Script
-	scriptPubKey *script.Script
-	err          error
+type ScriptVerifyJob struct {
+	Tx            *tx.Tx
+	ScriptSig     *script.Script
+	ScriptPubKey  *script.Script
+	IputNum       int
+	Value         amount.Amount
+	Flags         uint32
+	ScriptChecker lscript.Checker
+}
+
+type ScriptVerifyResult struct {
+	TxHash       util.Hash
+	ScriptSig    *script.Script
+	ScriptPubKey *script.Script
+	InputNum     int
+	Err          error
+}
+
+const (
+	MaxScriptVerifyJobNum = 50000
+)
+
+var (
+	scriptVerifyJobChan    chan ScriptVerifyJob
+	scriptVerifyResultChan chan ScriptVerifyResult
+)
+
+func ScriptVerifyInit() {
+	scriptVerifyJobChan = make(chan ScriptVerifyJob, MaxScriptVerifyJobNum)
+	scriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
+
+	for i := 0; i < conf.Cfg.Script.Par; i++ {
+		go checkScript()
+	}
 }
 
 // CheckRegularTransaction transaction service will use this func to check transaction before accepting to mempool
@@ -524,31 +554,105 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		return err
 	}
 	ins := tx.GetIns()
-	for i, in := range ins {
-		coin := tempCoinMap.GetCoin(in.PreviousOutPoint)
-		if coin == nil {
-			panic("can't find coin in temp coinsmap")
+	insLen := len(ins)
+
+	if insLen <= MaxScriptVerifyJobNum {
+		for i := 0; i < insLen; i++ {
+			coin := tempCoinMap.GetCoin(ins[i].PreviousOutPoint)
+			if coin == nil {
+				panic("can't find coin in temp coinsmap")
+			}
+			scriptPubKey := coin.GetScriptPubKey()
+			scriptSig := ins[i].GetScriptSig()
+			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey, i,
+				coin.GetAmount(), flags, lscript.NewScriptRealChecker()}
 		}
-		scriptPubKey := coin.GetScriptPubKey()
-		scriptSig := in.GetScriptSig()
-		err := lscript.VerifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags, lscript.NewScriptRealChecker())
-		if err != nil {
-			if ((flags & uint32(script.StandardNotMandatoryVerifyFlags)) ==
-				uint32(script.StandardNotMandatoryVerifyFlags)) || (flags&script.ScriptEnableMonolithOpcodes == 0) {
-				err = lscript.VerifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(),
-					uint32(uint64(flags)&uint64(^script.StandardNotMandatoryVerifyFlags)|
-						script.ScriptEnableMonolithOpcodes), lscript.NewScriptRealChecker())
+
+		for j := 0; j < insLen; j++ {
+			result := <-scriptVerifyResultChan
+			if result.Err != nil {
+				return result.Err
 			}
-			if err == nil {
-				log.Debug("verifyScript err, but without StandardNotMandatoryVerifyFlags success")
-				return errcode.New(errcode.TxErrRejectNonstandard)
+		}
+		return nil
+	}
+
+	multipleNum := insLen / MaxScriptVerifyJobNum
+	remainderNum := insLen % MaxScriptVerifyJobNum
+	if remainderNum > 0 {
+		multipleNum++
+	}
+
+	for i := 0; i < multipleNum; i++ {
+		lineCount := 0
+		if i+1 == multipleNum && remainderNum > 0 {
+			lineCount = remainderNum
+		} else {
+			lineCount = MaxScriptVerifyJobNum
+		}
+		for j := 0; j < lineCount; j++ {
+			coin := tempCoinMap.GetCoin(ins[i*MaxScriptVerifyJobNum+j].PreviousOutPoint)
+			if coin == nil {
+				panic("can't find coin in temp coinsmap")
 			}
-			log.Debug("verifyScript err, coin:%v, preout hash: %s, preout index: %d", *coin,
-				in.PreviousOutPoint.Hash.String(), in.PreviousOutPoint.Index)
-			return errcode.New(errcode.TxErrRejectInvalid)
+			scriptPubKey := coin.GetScriptPubKey()
+			scriptSig := ins[i].GetScriptSig()
+			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey,
+				i*MaxScriptVerifyJobNum + j, coin.GetAmount(), flags,
+				lscript.NewScriptRealChecker()}
+		}
+		for h := 0; h < lineCount; h++ {
+			result := <-scriptVerifyResultChan
+			if result.Err != nil {
+				return result.Err
+			}
 		}
 	}
+
 	return nil
+}
+
+//func checkScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *script.Script,
+//	nIn int, value amount.Amount, flags uint32, scriptChecker lscript.Checker, resultChan chan ScriptVerifyResult) {
+func checkScript() {
+	for {
+		scriptVerifyJob := <-scriptVerifyJobChan
+
+		err := lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+			scriptVerifyJob.IputNum, scriptVerifyJob.Value, scriptVerifyJob.Flags, scriptVerifyJob.ScriptChecker)
+		if err != nil {
+			if ((scriptVerifyJob.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) ==
+				uint32(script.StandardNotMandatoryVerifyFlags)) || (scriptVerifyJob.Flags&script.ScriptEnableMonolithOpcodes == 0) {
+				err = lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+					scriptVerifyJob.IputNum, scriptVerifyJob.Value,
+					uint32(uint64(scriptVerifyJob.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags)|
+						script.ScriptEnableMonolithOpcodes), scriptVerifyJob.ScriptChecker)
+			}
+			if err == nil {
+				log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
+					"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", scriptVerifyJob.Tx.GetHash(),
+					scriptVerifyJob.IputNum, hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
+					hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err)
+				scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
+					scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+					scriptVerifyJob.IputNum, errcode.New(errcode.TxErrRejectNonstandard)}
+				return
+			}
+
+			log.Debug("VerifyScript err, tx hash: %s, input: %d, scriptSig: %s, scriptPubKey: %s, err: %v",
+				scriptVerifyJob.Tx.GetHash(), scriptVerifyJob.IputNum,
+				hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
+				hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err)
+			scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
+				scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+				scriptVerifyJob.IputNum, errcode.New(errcode.TxErrRejectNonstandard)}
+			return
+		}
+		scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
+			scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+			scriptVerifyJob.IputNum, nil}
+	}
+	return
 }
 
 //func checkLockTime(lockTime int64, txLockTime int64, sequence uint32) bool {

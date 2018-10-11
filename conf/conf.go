@@ -252,7 +252,8 @@ type Configuration struct {
 		MaxDatacarrierBytes uint `default:"223"`
 		IsBareMultiSigStd   bool `default:"true"`
 		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-		PromiscuousMempoolFlags string
+		PromiscuousMempoolFlags string `default:"0"`
+		Par                     int    `default:"32"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
