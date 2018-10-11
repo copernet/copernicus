@@ -71,7 +71,6 @@ func InitConfig(args []string) *Configuration {
 	// parse command line parameter to set program datadir
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 	DataDir = defaultDataDir
-	BaseDataDir := defaultDataDir
 
 	opts, err := InitArgs(args)
 	if err != nil {
@@ -84,7 +83,6 @@ func InitConfig(args []string) *Configuration {
 
 	if len(opts.DataDir) > 0 {
 		DataDir = opts.DataDir
-		BaseDataDir = opts.DataDir
 	}
 
 	if opts.TestNet {
@@ -154,7 +152,7 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(BaseDataDir + "/conf.yml")).(*os.File)
+	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
