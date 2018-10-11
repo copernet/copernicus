@@ -445,7 +445,7 @@ func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 }
 
 func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
-	sigOpsCount := 0
+	var sigOpsCount int
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
 		sigOpsCount = GetSigOpCountWithP2SH(transaction, coinMap)
 	} else {
@@ -588,7 +588,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	}
 
 	for i := 0; i < multipleNum; i++ {
-		lineCount := 0
+		var lineCount int
 		if i+1 == multipleNum && remainderNum > 0 {
 			lineCount = remainderNum
 		} else {
@@ -656,7 +656,6 @@ func checkScript() {
 			scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
 			scriptVerifyJob.IputNum, nil}
 	}
-	return
 }
 
 //func checkLockTime(lockTime int64, txLockTime int64, sequence uint32) bool {

@@ -202,8 +202,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
 	// Block counter.
-	i := 0
-
+	var i int
 	// Pile up some blocks every 10 mins to establish some history.
 	for i = 1; i < 2050; i++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, initialBits)
