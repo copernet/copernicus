@@ -2,6 +2,7 @@ package ltx
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/copernet/copernicus/logic/lscript"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
@@ -213,7 +214,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		log.Debug("block has no transactions")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 	err := txs[0].CheckCoinbaseTransaction()
 	if err != nil {
@@ -225,7 +226,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
 			log.Debug("block has too many sigOps:%d", sigOps)
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 		err := transaction.CheckRegularTransaction()
 		if err != nil {
@@ -246,7 +247,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	txsLen := len(txs)
 	if txsLen == 0 {
 		log.Debug("no transactions err")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 	err := contextureCheckBlockCoinBaseTransaction(txs[0], blockHeight)
 	if err != nil {
@@ -297,7 +298,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for i := range outs {
 				if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 					log.Debug("tried to overwrite transaction")
-					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+					return nil, nil, errcode.New(errcode.RejectInvalid)
 				}
 			}
 		}
@@ -308,7 +309,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 				if coin == nil || coin.IsSpent() {
 					log.Debug("can't find coin or has been spent out before apply transaction")
-					return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+					return nil, nil, errcode.New(errcode.RejectInvalid)
 				}
 				valueIn += coin.GetAmount()
 			}
@@ -322,12 +323,12 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
-			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+			return nil, nil, errcode.New(errcode.RejectInvalid)
 		}
 		sigOpsCount += uint64(sigsCount)
 		if sigOpsCount > blockMaxSigOpsCount {
 			log.Debug("block has too many sigops at %d transaction", i)
-			return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+			return nil, nil, errcode.New(errcode.RejectInvalid)
 		}
 		if transaction.IsCoinBase() {
 			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
@@ -352,7 +353,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	//check blockReward
 	if txs[0].GetValueOut() > fees+blockSubSidy {
 		log.Debug("coinbase pays too much")
-		return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+		return nil, nil, errcode.New(errcode.RejectInvalid)
 	}
 	return coinsMap, bundo, nil
 }
@@ -370,12 +371,12 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 		heightScript.PushScriptNum(heightNumb)
 		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 		scriptData := coinBaseScriptSig.GetData()[:heightScript.Size()]
 		if !bytes.Equal(scriptData, heightScript.GetData()) {
 			log.Debug("coinbase err, not start with blockheight")
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 	}
 	return nil
@@ -384,13 +385,13 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		log.Debug("transaction is not final")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	//if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
 	//	if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
 	//		log.Debug("transaction is commitment")
-	//		return errcode.New(errcode.TxErrRejectInvalid)
+	//		return errcode.New(errcode.RejectInvalid)
 	//	}
 	//}
 
@@ -622,36 +623,42 @@ func checkScript() {
 	for {
 		scriptVerifyJob := <-scriptVerifyJobChan
 
-		err := lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+		err1 := lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
 			scriptVerifyJob.IputNum, scriptVerifyJob.Value, scriptVerifyJob.Flags, scriptVerifyJob.ScriptChecker)
-		if err != nil {
-			if ((scriptVerifyJob.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) ==
-				uint32(script.StandardNotMandatoryVerifyFlags)) || (scriptVerifyJob.Flags&script.ScriptEnableMonolithOpcodes == 0) {
-				err = lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+		if err1 != nil {
+
+			hasNonMandatoryFlags := (scriptVerifyJob.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) != 0
+			doesNotHaveMonolith := scriptVerifyJob.Flags&script.ScriptEnableMonolithOpcodes == 0
+
+			if hasNonMandatoryFlags || doesNotHaveMonolith {
+				err2 := lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
 					scriptVerifyJob.IputNum, scriptVerifyJob.Value,
 					uint32(uint64(scriptVerifyJob.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags)|
 						script.ScriptEnableMonolithOpcodes), scriptVerifyJob.ScriptChecker)
-			}
-			if err == nil {
-				log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
-					"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", scriptVerifyJob.Tx.GetHash(),
-					scriptVerifyJob.IputNum, hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
-					hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err)
-				scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
-					scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-					scriptVerifyJob.IputNum, errcode.New(errcode.TxErrRejectNonstandard)}
-				return
+
+				if err2 == nil {
+					log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
+						"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", scriptVerifyJob.Tx.GetHash(),
+						scriptVerifyJob.IputNum, hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
+						hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err1)
+
+					scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
+						scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
+						scriptVerifyJob.IputNum, errcode.NewError(errcode.RejectNonstandard, fmt.Sprintf("non-mandatory-script-verify-flag (%s)", err1))}
+					return
+				}
 			}
 
 			log.Debug("VerifyScript err, tx hash: %s, input: %d, scriptSig: %s, scriptPubKey: %s, err: %v",
 				scriptVerifyJob.Tx.GetHash(), scriptVerifyJob.IputNum,
 				hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
-				hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err)
+				hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err1)
 			scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
 				scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-				scriptVerifyJob.IputNum, errcode.New(errcode.TxErrRejectNonstandard)}
+				scriptVerifyJob.IputNum, errcode.NewError(errcode.RejectInvalid, fmt.Sprintf("mandatory-script-verify-flag-failed (%s)", err1))}
 			return
 		}
+
 		scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
 			scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
 			scriptVerifyJob.IputNum, nil}
@@ -880,29 +887,29 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 		if coin.IsCoinBase() {
 			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {
 				log.Debug("CheckInputsMoney coinbase can't spend now")
-				return errcode.New(errcode.TxErrRejectInvalid)
+				return errcode.New(errcode.RejectInvalid)
 			}
 		}
 		txOut := coin.GetTxOut()
 		if !amount.MoneyRange(txOut.GetValue()) {
 			log.Debug("CheckInputsMoney coin money range err")
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 		nValue += txOut.GetValue()
 		if !amount.MoneyRange(nValue) {
 			log.Debug("CheckInputsMoney total coin money range err")
-			return errcode.New(errcode.TxErrRejectInvalid)
+			return errcode.New(errcode.RejectInvalid)
 		}
 	}
 	if nValue < transaction.GetValueOut() {
 		log.Debug("CheckInputsMoney coins money little than out's")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	txFee := nValue - transaction.GetValueOut()
 	if !amount.MoneyRange(txFee) {
 		log.Debug("CheckInputsMoney fee err")
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 	return nil
 }

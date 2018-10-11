@@ -508,8 +508,10 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 				txHash.String(), err)
 		}
 
-		//TODO: [errorcode] translate internal error code bip-0061 reject code
-		peer.PushRejectMsg(wire.CmdTx, errcode.RejectInvalid, err.Error(), &txHash, false)
+		// Sending BIP61 reject code; never send internal reject codes over P2P.
+		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
+			peer.PushRejectMsg(wire.CmdTx, rejectCode, reason, &txHash, false)
+		}
 		return
 	}
 
