@@ -43,7 +43,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
-			return err
+			return errcode.New(errcode.TxErrRejectNonstandard)
 		}
 	}
 
@@ -106,7 +106,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if model.ActiveNetParams.RequireStandard {
 		err = checkInputsStandard(transaction, tempCoinsMap)
 		if err != nil {
-			return err
+			return errcode.New(errcode.TxErrRejectNonstandard)
 		}
 	}
 
@@ -126,11 +126,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	//check inputs
 	var scriptVerifyFlags = uint32(script.StandardScriptVerifyFlags)
 	if !model.ActiveNetParams.RequireStandard {
-		configVerifyFlags, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
-		if err != nil {
-			panic("config PromiscuousMempoolFlags err")
-		}
-		scriptVerifyFlags = uint32(configVerifyFlags) | script.ScriptEnableSigHashForkID
+		scriptVerifyFlags = promiscuousMempoolFlags() | script.ScriptEnableSigHashForkID
 	}
 	scriptVerifyFlags |= extraFlags
 
@@ -172,6 +168,14 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	}
 
 	return nil
+}
+
+func promiscuousMempoolFlags() uint32 {
+	flag, err := strconv.Atoi(conf.Cfg.Script.PromiscuousMempoolFlags)
+	if err != nil {
+		return uint32(script.StandardScriptVerifyFlags)
+	}
+	return uint32(flag)
 }
 
 // CheckBlockTransactions block service use these 3 func to check transactions or to apply transaction while connecting block to active chain
@@ -281,7 +285,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.New(errcode.TxErrRejectInvalid)
+				return nil, nil, errcode.New(errcode.TxErrRejectNonstandard)
 			}
 		}
 		//check sigops

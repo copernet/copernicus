@@ -23,7 +23,7 @@ type GetBlockHeaderVerboseResult struct {
 	Nonce         uint64  `json:"nonce"`
 	Bits          string  `json:"bits"`
 	Difficulty    float64 `json:"difficulty"`
-	Chainwork     string  `josn:"chainwork"`
+	Chainwork     string  `json:"chainwork"`
 	PreviousHash  string  `json:"previousblockhash,omitempty"`
 	NextHash      string  `json:"nextblockhash,omitempty"`
 }

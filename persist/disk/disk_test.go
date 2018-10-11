@@ -258,7 +258,7 @@ func initUtxoDB() {
 	}
 
 	uc := &utxo.UtxoConfig{
-		&dbo,
+		Do: &dbo,
 	}
 	utxo.InitUtxoLruTip(uc)
 }

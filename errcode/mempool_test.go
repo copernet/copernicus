@@ -15,7 +15,6 @@ func TestMemPoolErr_String(t *testing.T) {
 		{AlreadHaveTx, "The transaction already in mempool"},
 		{Nomature, "Non-BIP68-final"},
 		{ManyUnspendDepend, "The transaction depend many unspend transaction"},
-		{TooMinFeeRate, "The transaction's feerate is too minimal"},
 		{ErrorNotExistsInMemMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInMemMap)) + ")"},
 	}
 

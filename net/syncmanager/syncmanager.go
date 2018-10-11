@@ -508,11 +508,8 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 				txHash.String(), err)
 		}
 
-		// Convert the error into an appropriate reject message and
-		// send it.
-		//todo !!! need process for error code. yyx
-		//code := err.(errcode.TxErr)
-		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
+		//TODO: [errorcode] translate internal error code bip-0061 reject code
+		peer.PushRejectMsg(wire.CmdTx, wire.RejectInvalid, err.Error(), &txHash, false)
 		return
 	}
 
@@ -1260,8 +1257,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		}
 
 		// Generate the inventory vector and relay it.
-		blkHash := block.GetHash()
-		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
+		iv := wire.NewInvVect(wire.InvTypeBlock, &block.Header.Hash)
 		sm.peerNotifier.RelayInventory(iv, &block.Header)
 
 	// A block has been connected to the main block chain.
@@ -1308,16 +1304,9 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 			break
 		}
 
-		// Reinsert all of the transactions (except the coinbase) into
-		// the transaction pool.
-		for _, tx := range block.Txs[1:] {
-			_, _, err := sm.ProcessTransactionCallBack(tx, 0)
-			if err != nil {
-				// Remove the transaction and all transactions
-				// that depend on it if it wasn't accepted into
-				// the transaction pool.
-				lmempool.RemoveTxRecursive(tx, mempool.REORG)
-			}
+		// Rollback previous block recorded by the fee estimator.
+		if sm.feeEstimator != nil {
+			sm.feeEstimator.Rollback(&block.Header.Hash)
 		}
 	}
 }
