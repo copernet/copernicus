@@ -73,7 +73,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if model.ActiveNetParams.RequireStandard {
 		err := transaction.CheckStandard()
 		if err != nil {
-			return errcode.New(errcode.TxErrRejectNonstandard)
+			return err
 		}
 	}
 
@@ -136,7 +136,7 @@ func CheckRegularTransaction(transaction *tx.Tx) error {
 	if model.ActiveNetParams.RequireStandard {
 		err = checkInputsStandard(transaction, tempCoinsMap)
 		if err != nil {
-			return errcode.New(errcode.TxErrRejectNonstandard)
+			return err
 		}
 	}
 
