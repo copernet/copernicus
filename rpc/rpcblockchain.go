@@ -275,7 +275,10 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	// Fetch the header from chain.
 	hash, err := util.GetHashFromStr(c.Hash)
 	if err != nil {
-		return nil, rpcDecodeHexError(c.Hash)
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCBlockNotFound,
+			Message: "Block not found",
+		}
 	}
 	blockIndex := chain.GetInstance().FindBlockIndex(*hash)
 
