@@ -3,7 +3,9 @@ package conf
 import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	"github.com/pkg/errors"
 	"os"
+	"strings"
 )
 
 type Opts struct {
@@ -16,6 +18,10 @@ type Opts struct {
 }
 
 func InitArgs(args []string) (*Opts, error) {
+	e := checkArgs(args)
+	if e != nil {
+		return nil, e
+	}
 	opts := new(Opts)
 	_, err := flags.ParseArgs(opts, args)
 	if err != nil {
@@ -25,6 +31,15 @@ func InitArgs(args []string) (*Opts, error) {
 		return nil, err
 	}
 	return opts, nil
+}
+
+func checkArgs(args []string) error {
+	for _, v := range args[1:] {
+		if len(v) == 1 || !strings.HasPrefix(v, "-") || v == "--" {
+			return errors.New("args error")
+		}
+	}
+	return nil
 }
 
 func (opts *Opts) String() string {

@@ -23,7 +23,7 @@ import (
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
 	if conf.Cfg == nil {
-		log.Error("please run `./copernicus -h` for usage.")
+		fmt.Println("please run `./copernicus -h` for usage.")
 		os.Exit(0)
 	}
 
