@@ -2,7 +2,6 @@ package ltx
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/copernet/copernicus/logic/lscript"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
@@ -42,6 +41,10 @@ type ScriptVerifyResult struct {
 	ScriptPubKey *script.Script
 	InputNum     int
 	Err          error
+}
+
+func verifyResult(j ScriptVerifyJob, err error) ScriptVerifyResult {
+	return ScriptVerifyResult{j.Tx.GetHash(), j.ScriptSig, j.ScriptPubKey, j.IputNum, err}
 }
 
 const (
@@ -621,48 +624,46 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 //	nIn int, value amount.Amount, flags uint32, scriptChecker lscript.Checker, resultChan chan ScriptVerifyResult) {
 func checkScript() {
 	for {
-		scriptVerifyJob := <-scriptVerifyJobChan
+		j := <-scriptVerifyJobChan
 
-		err1 := lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-			scriptVerifyJob.IputNum, scriptVerifyJob.Value, scriptVerifyJob.Flags, scriptVerifyJob.ScriptChecker)
+		err1 := lscript.VerifyScript(j.Tx, j.ScriptSig, j.ScriptPubKey, j.IputNum, j.Value, j.Flags, j.ScriptChecker)
 		if err1 != nil {
 
-			hasNonMandatoryFlags := (scriptVerifyJob.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) != 0
-			doesNotHaveMonolith := scriptVerifyJob.Flags&script.ScriptEnableMonolithOpcodes == 0
-
+			hasNonMandatoryFlags := (j.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) != 0
+			doesNotHaveMonolith := j.Flags&script.ScriptEnableMonolithOpcodes == 0
 			if hasNonMandatoryFlags || doesNotHaveMonolith {
-				err2 := lscript.VerifyScript(scriptVerifyJob.Tx, scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-					scriptVerifyJob.IputNum, scriptVerifyJob.Value,
-					uint32(uint64(scriptVerifyJob.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags)|
-						script.ScriptEnableMonolithOpcodes), scriptVerifyJob.ScriptChecker)
 
+				fallbackFlags := uint32(uint64(j.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags) | script.ScriptEnableMonolithOpcodes)
+				err2 := lscript.VerifyScript(j.Tx, j.ScriptSig, j.ScriptPubKey, j.IputNum, j.Value, fallbackFlags, j.ScriptChecker)
 				if err2 == nil {
-					log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
-						"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", scriptVerifyJob.Tx.GetHash(),
-						scriptVerifyJob.IputNum, hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
-						hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err1)
-
-					scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
-						scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-						scriptVerifyJob.IputNum, errcode.NewError(errcode.RejectNonstandard, fmt.Sprintf("non-mandatory-script-verify-flag (%s)", err1))}
+					scriptVerifyResultChan <- verifyResult(j, errorNonMandatoryPass(j, err1))
 					return
 				}
 			}
 
-			log.Debug("VerifyScript err, tx hash: %s, input: %d, scriptSig: %s, scriptPubKey: %s, err: %v",
-				scriptVerifyJob.Tx.GetHash(), scriptVerifyJob.IputNum,
-				hex.EncodeToString(scriptVerifyJob.ScriptSig.GetData()),
-				hex.EncodeToString(scriptVerifyJob.ScriptPubKey.GetData()), err1)
-			scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
-				scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-				scriptVerifyJob.IputNum, errcode.NewError(errcode.RejectInvalid, fmt.Sprintf("mandatory-script-verify-flag-failed (%s)", err1))}
+			scriptVerifyResultChan <- verifyResult(j, errorMandatoryFailed(j, err1))
 			return
 		}
 
-		scriptVerifyResultChan <- ScriptVerifyResult{scriptVerifyJob.Tx.GetHash(),
-			scriptVerifyJob.ScriptSig, scriptVerifyJob.ScriptPubKey,
-			scriptVerifyJob.IputNum, nil}
+		scriptVerifyResultChan <- verifyResult(j, nil)
 	}
+}
+
+func errorMandatoryFailed(j ScriptVerifyJob, innerErr error) error {
+	log.Debug("VerifyScript err, tx hash: %s, input: %d, scriptSig: %s, scriptPubKey: %s, err: %v",
+		j.Tx.GetHash(), j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
+		hex.EncodeToString(j.ScriptPubKey.GetData()), innerErr)
+
+	return errcode.MakeError(errcode.RejectInvalid, "mandatory-script-verify-flag-failed (%s)", innerErr)
+}
+
+func errorNonMandatoryPass(j ScriptVerifyJob, innerErr error) error {
+	log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
+		"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", j.Tx.GetHash(),
+		j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
+		hex.EncodeToString(j.ScriptPubKey.GetData()), innerErr)
+
+	return errcode.MakeError(errcode.RejectNonstandard, "non-mandatory-script-verify-flag (%s)", innerErr)
 }
 
 //func checkLockTime(lockTime int64, txLockTime int64, sequence uint32) bool {
