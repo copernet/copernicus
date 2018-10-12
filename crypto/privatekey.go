@@ -1,8 +1,6 @@
 package crypto
 
 import (
-	"fmt"
-
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
