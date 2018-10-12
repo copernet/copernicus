@@ -17,7 +17,10 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
+	"strconv"
 )
+
+var timeFile *os.File
 
 type stat struct {
 	height         int
@@ -202,7 +205,7 @@ func (tc *utxoTaskControl) Stop() {
 }
 
 func (tc *utxoTaskControl) startLogTask() {
-	f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+	f, err := os.OpenFile(filepath.Join(conf.DataDir, "logs/utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
 	if err != nil {
 		log.Debug("os.OpenFile() failed with : %s", err)
 		return
@@ -224,6 +227,12 @@ func (tc *utxoTaskControl) startLogTask() {
 }
 
 func (tc *utxoTaskControl) startUtxoTask() {
+	var err error
+	timeFile, err = os.OpenFile(filepath.Join(conf.DataDir, "logs/utxo_stat.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+	if err != nil {
+		log.Debug("os.OpenFile() failed with : %s", err)
+		return
+	}
 	for i := 0; i < tc.numWorker; i++ {
 		go func() {
 			for {
@@ -231,7 +240,12 @@ func (tc *utxoTaskControl) startUtxoTask() {
 				case <-tc.done:
 					return
 				case arg := <-tc.utxoTask:
+					t1 := time.Now()
 					utxoStat(arg.iter, arg.stat, tc.utxoResult)
+					statElasped := time.Since(t1)
+					if _, err := timeFile.WriteString("height: " + strconv.Itoa(arg.stat.height) + ", stat time: " + statElasped.String() + "\n"); err != nil {
+						panic("write file failed")
+					}
 				}
 			}
 		}()
@@ -240,12 +254,28 @@ func (tc *utxoTaskControl) startUtxoTask() {
 
 func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 	defer iter.Close()
-	h := sha256.New()
-	h.Write(stat.bestblock[:])
+	t1 := time.Now()
+	var content []byte
+	i := 0
 	for ; iter.Valid(); iter.Next() {
-		h.Write(iter.GetKey())
-		h.Write(iter.GetVal())
+		//content = iter.GetKey()
+		//content = iter.GetVal()
+		content = append(content, iter.GetKey()...)
+		content = append(content, iter.GetVal()...)
+		i++
 	}
-	copy(stat.hashSerialized[:], h.Sum(nil))
+	readTime := time.Since(t1)
+	timeFile.WriteString("height: " + strconv.Itoa(stat.height) + ", read " + strconv.Itoa(i) + " utxos from db with time: " + readTime.String() + "\n")
+	t2 := time.Now()
+	copy(stat.hashSerialized[:], util.Sha256Bytes(content))
+	sha256Time := time.Since(t2)
+	timeFile.WriteString("height: " + strconv.Itoa(stat.height) + ", sha256 utxos time: " + sha256Time.String() + "\n")
+	//h := sha256.New()
+	//h.Write(stat.bestblock[:])
+	//for ; iter.Valid(); iter.Next() {
+	//	h.Write(iter.GetKey())
+	//	h.Write(iter.GetVal())
+	//}
+	//copy(stat.hashSerialized[:], h.Sum(nil))
 	res <- stat.String()
 }

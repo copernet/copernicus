@@ -627,7 +627,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		//code, reason := mpool.ErrToRejectErr(err)
 		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
 		if !sm.headersFirstMode {
-			log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
+			log.Debug("len of Requested block:%d, sm.requestBlockInvCnt: %d", len(sm.requestedBlocks), sm.requestBlkInvCnt)
 			if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
 				if len(state.requestedBlocks) == 0 {
 					sm.requestBlkInvCnt--
@@ -690,7 +690,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Nothing more to do if we aren't in headers-first mode.
 	if !sm.headersFirstMode {
-		log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
+		log.Debug("len of Requested block:%d, requestBlkInvCnt: %d", len(sm.requestedBlocks), sm.requestBlkInvCnt)
 		if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
 			if len(state.requestedBlocks) == 0 {
 				sm.requestBlkInvCnt--
