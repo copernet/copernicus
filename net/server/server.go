@@ -465,8 +465,8 @@ func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 func (sp *serverPeer) OnTx(_ *peer.Peer, msg *wire.MsgTx, done chan<- struct{}) {
 	txn := (*tx.Tx)(msg)
 	if conf.Cfg.P2PNet.BlocksOnly {
-		log.Trace("Ignoring tx %v from %v - blocksonly enabled",
-			txn.GetHash(), sp)
+		//TODO: relay tx for whitelistrelay node even BlocksOnly mode
+		log.Trace("Ignoring tx %v from %v - blocksonly enabled", txn.GetHash(), sp)
 		return
 	}
 
@@ -540,11 +540,9 @@ func (sp *serverPeer) OnInv(_ *peer.Peer, msg *wire.MsgInv) {
 	newInv := wire.NewMsgInvSizeHint(uint(len(msg.InvList)))
 	for _, invVect := range msg.InvList {
 		if invVect.Type == wire.InvTypeTx {
-			log.Trace("Ignoring tx %v in inv from %v -- "+
-				"blocksonly enabled", invVect.Hash, sp)
+			log.Trace("Ignoring tx %v in inv from %v -- blocksonly enabled", invVect.Hash, sp)
 			if sp.ProtocolVersion() >= wire.BIP0037Version {
-				log.Info("Peer %v is announcing "+
-					"transactions -- disconnecting", sp)
+				log.Info("Peer %v is announcing transactions -- disconnecting", sp)
 				sp.Disconnect()
 				return
 			}
