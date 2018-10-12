@@ -279,7 +279,7 @@ func (sm *SyncManager) startSync() {
 		// doesn't have a later block when it's equal, it will likely
 		// have one soon so it is a reasonable choice.  It also allows
 		// the case where both are at 0 such as during regression test.
-		if peer.LastBlock() <= best.Height {
+		if peer.LastBlock() < best.Height {
 			state.syncCandidate = false
 			continue
 		}
@@ -329,7 +329,9 @@ func (sm *SyncManager) startSync() {
 				sm.nextCheckpoint.Height, bestPeer.Addr())
 		} else {
 			log.Info("no checkpoint in syncmanager, so download block stophash is all zero...")
-			bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
+			if bestPeer.LastBlock() > best.Height {
+				bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
+			}
 		}
 		sm.syncPeer = bestPeer
 		sm.requestBlkInvCnt = 0
