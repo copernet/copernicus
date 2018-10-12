@@ -319,10 +319,10 @@ func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 
 	totalStatTime := time.Since(tStatStart)
 
-	timeFile.WriteString("time: " + time.Now().String() + ", height: " + strconv.Itoa(stat.height) + ", count: " + strconv.Itoa(i) +
+	timeFile.WriteString(time.Now().String() + ", height: " + strconv.Itoa(stat.height) + ", count: " + strconv.Itoa(i) +
 		", size: " + strconv.Itoa(dataSize) + " bytes, read time: " + tReadElasp.String() + ", sha256 time: " +
 		tSha256Elasp.String() + ", iter valid time: " + tIterValidElasp.String() + ", iter next time: " +
 		tIterNextElasp.String() + ", total time:" + totalStatTime.String() + "\n")
-
+	timeFile.Sync()
 	res <- stat.String()
 }
