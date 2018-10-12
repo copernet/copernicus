@@ -1080,7 +1080,8 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 	}
 
-	if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
+	//if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
+	if !isPushGetBlockMsg &&
 		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
 
 		sm.requestBlkInvCnt = 1
