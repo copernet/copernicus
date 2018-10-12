@@ -65,3 +65,11 @@ func TestDynamicBanScoreReset(t *testing.T) {
 		t.Errorf("Failed to reset ban score.")
 	}
 }
+
+func TestDynamicBanScoreString(t *testing.T) {
+	var bs DynamicBanScore
+	expect := "persistent 0 + transient 0 at 0 = 0 as of now"
+	if ret := bs.String(); ret != expect {
+		t.Errorf("String method return %s, expect %s\n", ret, expect)
+	}
+}

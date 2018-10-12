@@ -69,7 +69,6 @@ func SeedFromDNS(chainParams *model.BitcoinParams, reqServices wire.ServiceFlag,
 						randSource.Int31n(secondsIn4Days))),
 					0, peer, uint16(intPort))
 			}
-
 			seedFn(addresses)
 		}(host)
 	}
