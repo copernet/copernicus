@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
+	"gopkg.in/fatih/set.v0"
 )
 
 // Chain An in-memory blIndexed chain of blocks.
@@ -120,9 +121,30 @@ func (c *Chain) FindBlockIndex(hash util.Hash) *blockindex.BlockIndex {
 	return nil
 }
 
-// GetIndexMap Returns indexMap copy for safe
-func (c *Chain) GetIndexMap() map[util.Hash]*blockindex.BlockIndex {
-	return c.indexMap
+// GetChainTips Returns fork tip, no activate chain tip
+func (c *Chain) GetChainTips() *set.Set {
+	setTips := set.New() // element type:
+	setOrphans := set.New()
+	setPrevs := set.New()
+
+	gchain := GetInstance()
+	setTips.Add(gchain.Tip())
+	for _, index := range gchain.indexMap {
+		if !gchain.Contains(index) {
+			setOrphans.Add(index)
+			setPrevs.Add(index.Prev)
+		}
+	}
+
+	setOrphans.Each(func(item interface{}) bool {
+		bindex := item.(*blockindex.BlockIndex)
+		if !setPrevs.Has(bindex) {
+			setTips.Add(bindex)
+		}
+		return true
+	})
+
+	return setTips
 }
 
 // Tip Returns the blIndex entry for the tip of this chain, or nullptr if none.
