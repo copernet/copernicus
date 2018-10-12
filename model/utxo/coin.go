@@ -93,9 +93,10 @@ func (coin *Coin) Serialize(w io.Writer) error {
 }
 
 func (coin *Coin) Unserialize(r io.Reader) error {
-
+	//hicb means heightAndIsCoinBase
 	hicb, err := util.ReadVarLenInt(r)
 	if err != nil {
+		log.Error("Coin UnSerialize: the read count is: %d, error: %v", hicb, err)
 		return err
 	}
 	heightAndIsCoinBase := int32(hicb)

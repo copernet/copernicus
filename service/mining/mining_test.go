@@ -142,7 +142,7 @@ func TestCreateNewBlockByFee(t *testing.T) {
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFee
 	sc := script.NewEmptyScript()
-	ba.CreateNewBlock(sc)
+	ba.CreateNewBlock(sc, BasicScriptSig())
 
 	if len(ba.bt.Block.Txs) != 5 {
 		t.Error("some transactions are inserted to block error")
@@ -172,7 +172,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 	*tmpStrategy = sortByFeeRate
 
 	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
-	ba.CreateNewBlock(sc)
+	ba.CreateNewBlock(sc, BasicScriptSig())
 	if len(ba.bt.Block.Txs) != 5 {
 		t.Error("some transactions are inserted to block error")
 	}

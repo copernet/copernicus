@@ -6,6 +6,7 @@ package wire
 
 import (
 	"bytes"
+	. "github.com/copernet/copernicus/errcode"
 	"io"
 	"reflect"
 	"testing"
@@ -77,7 +78,7 @@ func TestRejectLatest(t *testing.T) {
 	}
 
 	// Ensure max payload is expected value for latest protocol version.
-	wantPayload := uint32(MaxMessagePayload)
+	wantPayload := uint64(MaxMessagePayload)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+

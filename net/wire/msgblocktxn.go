@@ -67,6 +67,6 @@ func (msg *MsgBlockTxn) Command() string {
 	return CmdBlockTxn
 }
 
-func (msg *MsgBlockTxn) MaxPayloadLength(pver uint32) uint32 {
-	return 32 + 3 + uint32(len(msg.Txn))*MaxBlockPayload
+func (msg *MsgBlockTxn) MaxPayloadLength(pver uint32) uint64 {
+	return 32 + 3 + uint64(len(msg.Txn))*MaxBlockPayload
 }

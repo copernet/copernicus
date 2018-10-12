@@ -31,7 +31,6 @@ func hasEnoughWork(tip *blockindex.BlockIndex) bool {
 	return tip.ChainWork.Cmp(minWorkSum) > 0
 }
 
-
 func (ds *SyncingState) IsAlmostSynced() bool {
 	return ds.isAlmostSynced
 }

@@ -9,15 +9,16 @@ import (
 )
 
 const (
-	AddressBytesLength       = 25
-	Hash160BytesLength       = 20
-	PublicKeyToAddressInTest = 0x6f
-	PublicKeyToAddress       = 0x00
-	ScriptToAddressInTest    = 196
-	ScriptToAddress          = 5
+	AddressBytesLength = 25
+	Hash160BytesLength = 20
+	PublicKeyToAddress = 0x00
+	ScriptToAddress    = 5
 )
 
-var IsTestNetwork = false
+var activeNetAddressParam = &AddressParam {
+	PubKeyHashAddressVer: PublicKeyToAddress,
+	ScriptHashAddressVer: ScriptToAddress,
+}
 
 type Address struct {
 	key        *crypto.PrivateKey
@@ -25,6 +26,11 @@ type Address struct {
 	publicKey  []byte
 	addressStr string
 	hash160    [20]byte
+}
+
+type AddressParam struct {
+	PubKeyHashAddressVer byte
+	ScriptHashAddressVer byte
 }
 
 func (addr *Address) EncodeToPubKeyHash() []byte {
@@ -41,6 +47,10 @@ func (addr *Address) String() string {
 
 func (addr *Address) GetVersion() byte {
 	return addr.version
+}
+
+func InitAddressParam(addressParam *AddressParam) {
+	activeNetAddressParam = addressParam
 }
 
 func AddressFromString(addressStr string) (btcAddress *Address, err error) {
@@ -68,29 +78,11 @@ func AddressFromString(addressStr string) (btcAddress *Address, err error) {
 }
 
 func AddressVerPubKey() byte {
-	if IsTestNetwork {
-		return PublicKeyToAddressInTest
-	}
-	//if chainparams.ActiveNetParams.Name == "mainnet" {
-	//	return PublicKeyToAddress
-	//}
-	//if chainparams.ActiveNetParams.Name == "regtest" {
-	//	return PublicKeyToAddressInTest
-	//}
-	//if chainparams.ActiveNetParams.Name == "testnet3" {
-	//	return PublicKeyToAddressInTest
-	//}
-	//if chainparams.ActiveNetParams.Name == "simnet" {
-	//	return 0x3f
-	//}
-	return PublicKeyToAddress
+	return activeNetAddressParam.PubKeyHashAddressVer
 }
 
 func AddressVerScript() byte {
-	if IsTestNetwork {
-		return ScriptToAddressInTest
-	}
-	return ScriptToAddress
+	return activeNetAddressParam.ScriptHashAddressVer
 }
 
 func AddressFromHash160(hash160 []byte, version byte) (address *Address, err error) {

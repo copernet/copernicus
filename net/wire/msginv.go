@@ -108,7 +108,7 @@ func (msg *MsgInv) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgInv) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgInv) MaxPayloadLength(pver uint32) uint64 {
 	// Num inventory vectors (varInt) + max allowed inventory vectors.
 	return MaxVarIntPayload + (MaxInvPerMsg * maxInvVectPayload)
 }

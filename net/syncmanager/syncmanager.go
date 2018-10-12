@@ -279,7 +279,7 @@ func (sm *SyncManager) startSync() {
 		// doesn't have a later block when it's equal, it will likely
 		// have one soon so it is a reasonable choice.  It also allows
 		// the case where both are at 0 such as during regression test.
-		if peer.LastBlock() < best.Height {
+		if peer.LastBlock() <= best.Height {
 			state.syncCandidate = false
 			continue
 		}
@@ -332,7 +332,11 @@ func (sm *SyncManager) startSync() {
 			bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
 		}
 		sm.syncPeer = bestPeer
-		sm.requestBlkInvCnt = 1
+		sm.requestBlkInvCnt = 0
+		if sm.current() {
+			log.Debug("request mempool in startSync")
+			bestPeer.RequestMemPool()
+		}
 	} else {
 		log.Warn("No sync peer candidates available")
 	}
@@ -500,15 +504,14 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 			log.Debug("Rejected transaction %v from %s: %v",
 				txHash, peer.Addr(), err)
 		} else {
-			log.Error("Failed to process transaction %v: %v",
+			log.Warn("Failed to process transaction %v: %v",
 				txHash.String(), err)
 		}
 
-		// Convert the error into an appropriate reject message and
-		// send it.
-		//todo !!! need process for error code. yyx
-		//code := err.(errcode.TxErr)
-		//peer.PushRejectMsg(wire.CmdTx, code, code.String(), &txHash, false)
+		// Sending BIP61 reject code; never send internal reject codes over P2P.
+		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
+			peer.PushRejectMsg(wire.CmdTx, rejectCode, reason, &txHash, false)
+		}
 		return
 	}
 
@@ -577,13 +580,11 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// since it is needed to verify the next round of headers links
 	// properly.
 	isCheckpointBlock := false
-	behaviorFlags := chain.BFNone
 	if sm.headersFirstMode {
 		firstNodeEl := sm.headerList.Front()
 		if firstNodeEl != nil {
 			firstNode := firstNodeEl.Value.(*headerNode)
 			if blockHash.IsEqual(firstNode.hash) {
-				behaviorFlags |= chain.BFFastAdd
 				if firstNode.hash.IsEqual(sm.nextCheckpoint.Hash) {
 					isCheckpointBlock = true
 				} else {
@@ -601,7 +602,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	log.Debug("sm.ProcessBlockCallBack=====")
 	_, err := sm.ProcessBlockCallBack(bmsg.block)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
@@ -680,9 +680,11 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// if we're syncing the chain from scratch.
 	if blkHashUpdate != nil && heightUpdate != 0 {
 		peer.UpdateLastBlockHeight(heightUpdate)
-		if sm.current() {
+		if sm.current() && peer == sm.syncPeer {
 			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate,
 				peer)
+			log.Debug("request mempool in handleBlockMsg")
+			peer.RequestMemPool()
 		}
 	}
 
@@ -931,7 +933,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 			return false, nil
 		}
 		if blkIndex.HasData() {
-			return false, nil
+			return true, nil
 		}
 		return true, nil
 
@@ -998,9 +1000,9 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 
 	// Ignore invs from peers that aren't the sync if we are not current.
 	// Helps prevent fetching a mass of orphans.
-	if peer != sm.syncPeer && !sm.current() {
-		return
-	}
+	// if peer != sm.syncPeer && !sm.current() {
+	// 	return
+	// }
 
 	activeChain := chain.GetInstance()
 	// If our chain is current and a peer announces a block we already
@@ -1013,6 +1015,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	var invBlkCnt int
+	var isPushGetBlockMsg bool
 	// Request the advertised inventory if we don't already have it.  Also,
 	// request parent blocks of orphans if we receive one we already have.
 	// Finally, attempt to detect potential stalls due to long side chains
@@ -1072,14 +1075,15 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 				blkIndex := activeChain.FindHashInActive(iv.Hash)
 				locator := activeChain.GetLocator(blkIndex)
 				peer.PushGetBlocksMsg(*locator, &zeroHash)
+				isPushGetBlockMsg = true
 			}
 		}
 	}
 
-	if invBlkCnt == len(invVects) &&
+	if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
 		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
 
-		sm.requestBlkInvCnt = 2
+		sm.requestBlkInvCnt = 1
 	}
 
 	log.Debug(
@@ -1255,8 +1259,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		}
 
 		// Generate the inventory vector and relay it.
-		blkHash := block.GetHash()
-		iv := wire.NewInvVect(wire.InvTypeBlock, &blkHash)
+		iv := wire.NewInvVect(wire.InvTypeBlock, &block.Header.Hash)
 		sm.peerNotifier.RelayInventory(iv, &block.Header)
 
 	// A block has been connected to the main block chain.
@@ -1303,16 +1306,9 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 			break
 		}
 
-		// Reinsert all of the transactions (except the coinbase) into
-		// the transaction pool.
-		for _, tx := range block.Txs[1:] {
-			_, _, err := sm.ProcessTransactionCallBack(tx, 0)
-			if err != nil {
-				// Remove the transaction and all transactions
-				// that depend on it if it wasn't accepted into
-				// the transaction pool.
-				lmempool.RemoveTxRecursive(tx, mempool.REORG)
-			}
+		// Rollback previous block recorded by the fee estimator.
+		if sm.feeEstimator != nil {
+			sm.feeEstimator.Rollback(&block.Header.Hash)
 		}
 	}
 }

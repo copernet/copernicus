@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/errcode"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
+	"net"
 )
 
 type MsgHandle struct {
@@ -45,7 +47,7 @@ out:
 			peerFrom := msg.Peerp
 			switch data := msg.Msg.(type) {
 			case *wire.MsgVersion:
-				peerFrom.PushRejectMsg(data.Command(), wire.RejectDuplicate, "duplicate version message",
+				peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "duplicate version message",
 					nil, false)
 				peerFrom.Disconnect()
 				msg.Done <- struct{}{}
@@ -231,7 +233,36 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 		return nil, nil
 
 	case *btcjson.DisconnectNodeCmd:
-		return
+		cmd := message.(*btcjson.DisconnectNodeCmd)
+
+		var addr string
+		var nodeID uint64
+		var errN, err error
+
+		// If we have a valid uint disconnect by node id. Otherwise,
+		// attempt to disconnect by address, returning an error if a
+		// valid IP address is not supplied.
+		if nodeID, errN = strconv.ParseUint(cmd.Target, 10, 32); errN == nil {
+			err = NewRPCConnManager(msgHandle.Server).DisconnectByID(int32(nodeID))
+		} else {
+			if host, port, errP := net.SplitHostPort(cmd.Target); errP == nil {
+				addr = net.JoinHostPort(host, port)
+				err = NewRPCConnManager(msgHandle.Server).DisconnectByAddr(addr)
+			} else {
+				return nil, &btcjson.RPCError{
+					Code:    btcjson.ErrRPCInvalidParameter,
+					Message: "invalid address or node ID",
+				}
+			}
+		}
+		if err != nil && peerExists(addr, int32(nodeID)) {
+
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCMisc,
+				Message: "can't disconnect a permanent peer, use remove",
+			}
+		}
+		return nil, nil
 
 		//case *btcjson.GetAddedNodeInfoCmd:
 		//	return msgHandle.connManager.PersistentPeers(), nil
@@ -278,15 +309,23 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 	verNum := 0
 	vers := strings.Split(conf.Cfg.Version, ".")
-	for i, ver := range vers {
+	for _, ver := range vers {
 		subVer, err := strconv.Atoi(ver)
-		if err != nil {
-			verNum = verNum + subVer<<uint(len(vers)-1-i)
+		if err == nil {
+			verNum = verNum*1000 + subVer
 		}
 	}
 
-	localAddresses := make([]btcjson.LocalAddressesResult, 0)
-	// TODO: get local address
+	localAddrInfo := msgHandle.addrManager.GetAllLocalAddress()
+	rpcLocalAddrList := make([]btcjson.LocalAddressesResult, 0, len(localAddrInfo))
+	for _, localAddr := range localAddrInfo {
+		rpcLocalAddr := btcjson.LocalAddressesResult{
+			Address: localAddr.Na.IP.String(),
+			Port:    localAddr.Na.Port,
+			Score:   localAddr.Score,
+		}
+		rpcLocalAddrList = append(rpcLocalAddrList, rpcLocalAddr)
+	}
 
 	chainInfo := &btcjson.GetNetworkInfoResult{
 		Version:          verNum,
@@ -294,13 +333,13 @@ func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		ProtocolVersion:  wire.ProtocolVersion,
 		LocalServices:    "0", // TODO:
 		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,
-		TimeOffset:       0, //TODO:
+		TimeOffset:       util.GetTimeOffset(),
 		Connections:      msgHandle.ConnectedCount(),
 		NetworkActive:    true, // NOT support RPC 'setnetworkactive'
 		Networks:         getNetworksInfo(),
 		RelayFee:         valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
-		ExcessUtxoCharge: 0, // TODO:
-		LocalAddresses:   localAddresses,
+		ExcessUtxoCharge: 0,
+		LocalAddresses:   rpcLocalAddrList,
 		Warnings:         "", // TODO: network warnings
 	}
 	return chainInfo, nil
@@ -352,4 +391,18 @@ func valueFromAmount(sizeLimit int64) float64 {
 		return 0
 	}
 	return result
+}
+
+// peerExists determines if a certain peer is currently connected given
+// information about all currently connected peers. Peer existence is
+// determined using either a target address or node id.
+func peerExists(addr string, nodeID int32) bool {
+	connected := NewRPCConnManager(msgHandle.Server).ConnectedPeers()
+
+	for _, p := range connected {
+		if p.ToPeer().ID() == nodeID || p.ToPeer().Addr() == addr {
+			return true
+		}
+	}
+	return false
 }

@@ -1,4 +1,6 @@
-## Copernicus  [![Build Status](https://travis-ci.org/copernet/copernicus.svg?branch=master)](https://travis-ci.org/copernet/copernicus)
+## Copernicus  
+
+[![Build Status](https://travis-ci.org/copernet/copernicus.svg?branch=master)](https://travis-ci.org/copernet/copernicus) [![Go Report Card](https://goreportcard.com/badge/github.com/copernet/copernicus)](https://goreportcard.com/report/github.com/copernet/copernicus) [![Coverage Status](https://coveralls.io/repos/github/copernet/copernicus/badge.svg)](https://coveralls.io/github/copernet/copernicus)
 
 Copernicus is an alternative implementation of the Bitcoin protocol, written in Golang .
 
@@ -26,3 +28,4 @@ All documentation will be continually updated and can be found at [docs](https:/
 ## Acknowledgments
 * Thank [btcd](https://github.com/btcsuite/btcd) for full node bitcoin implementation with Go. [Click here for more details](https://www.copernicuscore.org/btcd.html)
 * Thank [secp256k1-go](https://github.com/btccom/secp256k1-go) for bindings to lib-secp256k1 for golang
+* Thank [testify](https://github.com/stretchr/testify) for convenient testing support 

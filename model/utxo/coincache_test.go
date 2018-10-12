@@ -21,8 +21,7 @@ func TestCoinCache(t *testing.T) {
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout2 := txout.NewTxOut(3, script2)
 
-	coin1 := necm.cacheCoins[outpoint1]
-	coin1 = &Coin{
+	coin1 := &Coin{
 		txOut:         *txout2,
 		height:        10000,
 		isCoinBase:    false,
@@ -37,8 +36,7 @@ func TestCoinCache(t *testing.T) {
 	script1 := script.NewEmptyScript()
 	txout1 := txout.NewTxOut(2, script1)
 
-	coin2 := necm.cacheCoins[outpoint2]
-	coin2 = &Coin{
+	coin2 := &Coin{
 		txOut:         *txout1,
 		height:        100012,
 		isCoinBase:    false,
@@ -120,8 +118,7 @@ func TestCoinCache(t *testing.T) {
 	script3 := script.NewScriptRaw([]byte{opcodes.OP_13, opcodes.OP_EQUAL})
 	txout3 := txout.NewTxOut(3, script3)
 
-	coin3 := necm.cacheCoins[outpoint3]
-	coin3 = &Coin{
+	coin3 := &Coin{
 		txOut:         *txout3,
 		height:        10000,
 		isCoinBase:    false,

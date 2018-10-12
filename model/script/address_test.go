@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/copernet/copernicus/crypto"
-
 	"github.com/copernet/copernicus/util"
 )
 
@@ -110,4 +109,27 @@ func TestPrivateKeyFromHex(t *testing.T) {
 	//if err != nil {
 	//	t.Error(err.Error())
 	//}
+}
+
+func TestInitAddressParam(t *testing.T) {
+	InitAddressParam(&AddressParam{
+		PubKeyHashAddressVer: 11,
+		ScriptHashAddressVer: 96,
+	})
+	if AddressVerPubKey() != 11 {
+		t.Errorf("TestInitAddressParam test failed, pubKeyAddressVer(%v) not init", AddressVerPubKey())
+	}
+	if AddressVerScript() != 96 {
+		t.Errorf("TestInitAddressParam test failed, scriptAddressVer(%v) not init", AddressVerScript())
+	}
+	InitAddressParam(&AddressParam{
+		PubKeyHashAddressVer: PublicKeyToAddress,
+		ScriptHashAddressVer: ScriptToAddress,
+	})
+	if AddressVerPubKey() != PublicKeyToAddress {
+		t.Errorf("TestInitAddressParam test failed, pubKeyAddressVer(%v) not init", AddressVerPubKey())
+	}
+	if AddressVerScript() != ScriptToAddress {
+		t.Errorf("TestInitAddressParam test failed, scriptAddressVer(%v) not init", AddressVerScript())
+	}
 }

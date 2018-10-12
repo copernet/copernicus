@@ -179,21 +179,22 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 	if e.SumTxFeeWithAncestors == t.SumTxFeeWithAncestors {
 		thash := e.Tx.GetHash()
 		thhash := t.Tx.GetHash()
-		return thash.Cmp(&thhash) > 0
+		return thash.Cmp(&thhash) < 0
 	}
 	return e.SumTxFeeWithAncestors > than.(EntryFeeSort).SumTxFeeWithAncestors
 }
 
 type EntryAncestorFeeRateSort TxEntry
 
-func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
-	t := than.(EntryAncestorFeeRateSort)
+func (r *EntryAncestorFeeRateSort) Less(than btree.Item) bool {
+	t := than.(*EntryAncestorFeeRateSort)
+
 	b1 := util.NewFeeRateWithSize((r).SumTxFeeWithAncestors, r.SumTxSizeWitAncestors).SataoshisPerK
 	b2 := util.NewFeeRateWithSize(t.SumTxFeeWithAncestors, t.SumTxSizeWitAncestors).SataoshisPerK
 	if b1 == b2 {
 		rhash := r.Tx.GetHash()
 		thhash := t.Tx.GetHash()
-		return rhash.Cmp(&thhash) > 0
+		return rhash.Cmp(&thhash) < 0
 	}
 	return b1 > b2
 }

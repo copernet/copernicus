@@ -81,7 +81,7 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 func (txOut *TxOut) CheckValue() error { //3
 	if !amount.MoneyRange(txOut.value) {
 		log.Warn("bad txout value :%d", txOut.value)
-		return errcode.New(errcode.TxErrRejectInvalid)
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	return nil
@@ -135,6 +135,9 @@ func (txOut *TxOut) IsCommitment(data []byte) bool {
 // but doesn't care whether it has already been spent or not
 
 func (txOut *TxOut) IsSpendable() bool {
+	if txOut == nil || txOut.scriptPubKey == nil {
+		return false
+	}
 	return txOut.scriptPubKey.IsSpendable()
 }
 

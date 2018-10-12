@@ -392,7 +392,7 @@ func (msg *MsgAlert) Command() string {
 
 // MaxPayloadLength returns the maximum length the payload can be for the
 // receiver.  This is part of the Message interface implementation.
-func (msg *MsgAlert) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgAlert) MaxPayloadLength(pver uint32) uint64 {
 	// Since this can vary depending on the message, make it the max
 	// size allowed.
 	return MaxMessagePayload

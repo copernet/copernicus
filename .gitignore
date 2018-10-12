@@ -13,3 +13,4 @@ data
 rpc.cert
 rpc.key
 Support
+coverage.out

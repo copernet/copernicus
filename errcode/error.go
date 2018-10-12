@@ -8,78 +8,97 @@ const (
 	MempoolErrorBase = iota * 1000
 	ScriptErrorBase
 	TxErrorBase
-	TxOutErrorBase
 	ChainErrorBase
-	BlockErrorBase
-	BlockIndexErrorBase
-	CoinErrorBase
-	MessageErrorBase
 	RPCErrorBase
-	NetErrorBase
-	PeerErrorBase
-	ServiceErrorBase
-	PersistErrorBase
-	CryptoErrorBase
-	ConsensusErrorBase
 	DiskErrorBase
 )
-
-const errDescFmt string = "module: [%s], inner err desc: [%s]"
 
 type ProjectError struct {
 	Module string
 	Code   int
 	Desc   string
+
+	ErrorCode fmt.Stringer
 }
 
 func (e ProjectError) Error() string {
-	return fmt.Sprintf("module: %s, global errcode: %v,  errdesc: %s", e.Module, e.Code, e.Desc)
+	return fmt.Sprintf("module: %s, global errcode: %v,  desc: %s", e.Module, e.Code, e.Desc)
 }
 
-func getCodeAndName(errCode fmt.Stringer) (int, string) {
+func getCode(errCode fmt.Stringer) (int, string) {
 	code := 0
-	name := ""
+	module := ""
 
 	switch t := errCode.(type) {
 	case RPCErr:
 		code = int(t)
-		name = "rpc"
+		module = "rpc"
 	case MemPoolErr:
 		code = int(t)
-		name = "mempool"
+		module = "mempool"
 	case ChainErr:
 		code = int(t)
-		name = "chain"
+		module = "chain"
 	case DiskErr:
 		code = int(t)
-		name = "disk"
+		module = "disk"
 	case ScriptErr:
 		code = int(t)
-		name = "script"
+		module = "script"
 	case TxErr:
 		code = int(t)
-		name = "transaction"
-	case TxOutErr:
+		module = "transaction"
+	case RejectCode:
 		code = int(t)
-		name = "transaction"
+		module = "tx_validation"
 	default:
 	}
 
-	return code, name
+	return code, module
 }
 
 func IsErrorCode(err error, errCode fmt.Stringer) bool {
 	e, ok := err.(ProjectError)
-	icode, _ := getCodeAndName(errCode)
-	return ok && icode == e.Code
+	code, _ := getCode(errCode)
+	return ok && code == e.Code
 }
 
 func New(errCode fmt.Stringer) error {
-	code, name := getCodeAndName(errCode)
+	return NewError(errCode, errCode.String())
+}
+
+func NewError(errCode fmt.Stringer, desc string) error {
+	code, module := getCode(errCode)
 
 	return ProjectError{
-		Module: name,
-		Code:   code,
-		Desc:   errCode.String(),
+		Module:    module,
+		Code:      code,
+		Desc:      desc,
+		ErrorCode: errCode,
 	}
+}
+
+func MakeError(code RejectCode, format string, innerErr error) error {
+	return NewError(code, fmt.Sprintf(format, shortDesc(innerErr)))
+}
+
+func IsRejectCode(err error) (RejectCode, string, bool) {
+	e, ok := err.(ProjectError)
+	if ok && e.ErrorCode != nil {
+		switch t := e.ErrorCode.(type) {
+		case RejectCode:
+			return t, e.Desc, true
+		}
+	}
+
+	return 0, "", false
+}
+
+func shortDesc(err error) string {
+	e, ok := err.(ProjectError)
+	if ok && e.ErrorCode != nil {
+		return e.ErrorCode.String()
+	}
+
+	return e.Error()
 }

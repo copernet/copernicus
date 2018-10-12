@@ -3,15 +3,16 @@ package errcode
 type RPCErr int
 
 const (
-	ModelValid = RPCErrorBase + iota
+	ModelValid RPCErr = RPCErrorBase + iota
 	ModelInvalid
 	ModelError
+	ErrorNotExistInRPCMap
 )
 
 var rpcDesc = map[RPCErr]string{
-	ModelValid:   "valid",
-	ModelInvalid: "invalid",
-	ModelError:   "error",
+	ModelValid:   "Valid",
+	ModelInvalid: "Invalid",
+	ModelError:   "Error",
 }
 
 func (re RPCErr) String() string {

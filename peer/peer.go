@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/net/socks"
 	"io"
 	"math/rand"
@@ -485,6 +486,16 @@ type Peer struct {
 	outQuit           chan struct{}
 	quit              chan struct{}
 	requestingDataCnt uint64
+
+	reqMempoolOnce sync.Once
+}
+
+func (p *Peer) RequestMemPool() {
+	p.reqMempoolOnce.Do(func() {
+		if p.services&wire.SFNodeBloom == wire.SFNodeBloom {
+			p.QueueMessage(wire.NewMsgMemPool(), nil)
+		}
+	})
 }
 
 // String returns the peer's address and directionality as a human-readable
@@ -500,9 +511,11 @@ func (p *Peer) String() string {
 // This function is safe for concurrent access.
 func (p *Peer) UpdateLastBlockHeight(newHeight int32) {
 	p.statsMtx.Lock()
-	log.Trace("Updating last block height of peer %v from %v to %v",
-		p.addr, p.lastBlock, newHeight)
-	p.lastBlock = newHeight
+	if p.lastBlock < newHeight {
+		log.Trace("Updating last block height of peer %v from %v to %v",
+			p.addr, p.lastBlock, newHeight)
+		p.lastBlock = newHeight
+	}
 	p.statsMtx.Unlock()
 }
 
@@ -1034,7 +1047,7 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 // function to block until the reject message has actually been sent.
 //
 // This function is safe for concurrent access.
-func (p *Peer) PushRejectMsg(command string, code wire.RejectCode, reason string, hash *util.Hash, wait bool) {
+func (p *Peer) PushRejectMsg(command string, code errcode.RejectCode, reason string, hash *util.Hash, wait bool) {
 	// Don't bother sending the reject message if the protocol version
 	// is too low.
 	if p.VersionKnown() && p.ProtocolVersion() < wire.RejectVersion {
@@ -1221,7 +1234,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
 			summary, p)
 	}))
-	log.Trace("write message: %v", newLogClosure(func() string {
+	log.Trace("write message to (%s) : %v", p.Addr(), newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 	//log.Trace("%v", newLogClosure(func() string {
@@ -1538,7 +1551,7 @@ out:
 				// at least that much of the message was valid, but that is not
 				// currently exposed by wire, so just used malformed for the
 				// command.
-				p.PushRejectMsg("malformed", wire.RejectMalformed, errMsg, nil,
+				p.PushRejectMsg("malformed", errcode.RejectMalformed, errMsg, nil,
 					true)
 			}
 			break out
@@ -1866,7 +1879,9 @@ func (p *Peer) QueueInventory(invVect *wire.InvVect) {
 
 // AssociateConnection associates the given conn to the peer.   Calling this
 // function when the peer is already connected will have no effect.
-func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
+func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage,
+	newPeerCallback func(*Peer)) {
+
 	// Already connected?
 	if !atomic.CompareAndSwapInt32(&p.connected, 0, 1) {
 		return
@@ -1891,7 +1906,7 @@ func (p *Peer) AssociateConnection(conn net.Conn, phCh chan<- *PeerMessage) {
 	}
 
 	go func() {
-		if err := p.start(phCh); err != nil {
+		if err := p.start(phCh, newPeerCallback); err != nil {
 			log.Debug("Cannot start peer %v: %v", p, err)
 			p.Disconnect()
 		}
@@ -1922,7 +1937,7 @@ func (p *Peer) Disconnect() {
 }
 
 // start begins processing input and output messages.
-func (p *Peer) start(phCh chan<- *PeerMessage) error {
+func (p *Peer) start(phCh chan<- *PeerMessage, newPeerCallback func(*Peer)) error {
 	log.Trace("Starting peer %s", p)
 
 	negotiateErr := make(chan error, 1)
@@ -1945,7 +1960,10 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 		return errors.New("protocol negotiation timeout")
 	}
 	log.Debug("Connected to %s", p.Addr())
+	// Send our verack message now that the IO processing machinery has started.
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
+	newPeerCallback(p)
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
 	go p.stallHandler()
@@ -1953,9 +1971,6 @@ func (p *Peer) start(phCh chan<- *PeerMessage) error {
 	go p.queueHandler()
 	go p.outHandler()
 	go p.pingHandler()
-
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
 	return nil
 }
@@ -1983,7 +1998,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 		errStr := "A version message must precede all others"
 		log.Error(errStr)
 
-		rejectMsg := wire.NewMsgReject(msg.Command(), wire.RejectMalformed,
+		rejectMsg := wire.NewMsgReject(msg.Command(), errcode.RejectMalformed,
 			errStr)
 		return p.writeMessage(rejectMsg, wire.LatestEncoding)
 	}

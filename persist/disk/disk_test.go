@@ -31,7 +31,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	conf.Cfg = conf.InitConfig([]string{})
+	conf.Cfg = conf.InitConfig([]string{"--datadir=" + conf.DataDir, "--testnet"})
 	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
@@ -258,7 +258,7 @@ func initUtxoDB() {
 	}
 
 	uc := &utxo.UtxoConfig{
-		&dbo,
+		Do: &dbo,
 	}
 	utxo.InitUtxoLruTip(uc)
 }
@@ -289,8 +289,7 @@ func TestFlushStateToDisk(t *testing.T) {
 	log.Info("the best block hash value is: %v\n", h)
 
 	gPersist := persist.GetInstance()
-	gdfi := gPersist.GlobalDirtyFileInfo
-	gdfi = make(map[int32]bool)
+	gdfi := make(map[int32]bool)
 	gdfi[0] = true
 	gdfi[1] = false
 	gdfi[2] = false
@@ -310,8 +309,7 @@ func TestFlushStateToDisk(t *testing.T) {
 	//init block index
 	blkidx := blockindex.NewBlockIndex(blkHeader1)
 
-	gdbi := gPersist.GlobalDirtyBlockIndex
-	gdbi = make(map[util.Hash]*blockindex.BlockIndex)
+	gdbi := make(map[util.Hash]*blockindex.BlockIndex)
 	gdbi[*hash1] = idx
 	gdbi[*hash2] = blkidx
 

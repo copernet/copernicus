@@ -37,8 +37,7 @@ func NewAddNodeCmd(addr string, subCmd AddNodeSubCmd) *AddNodeCmd {
 }
 
 type DisconnectNodeCmd struct {
-	Address *string
-	ID      *int
+	Target string `json:"target"`
 }
 
 // TransactionInput represents the inputs to a transaction.  Specifically a
@@ -72,7 +71,7 @@ func NewCreateRawTransactionCmd(inputs []TransactionInput, outputs map[string]in
 
 // DecodeRawTransactionCmd defines the decoderawtransaction JSON-RPC command.
 type DecodeRawTransactionCmd struct {
-	HexTx string
+	HexTx string `json:"hexstring"`
 }
 
 // NewDecodeRawTransactionCmd returns a new instance which can be used to issue
@@ -85,7 +84,7 @@ func NewDecodeRawTransactionCmd(hexTx string) *DecodeRawTransactionCmd {
 
 // DecodeScriptCmd defines the decodescript JSON-RPC command.
 type DecodeScriptCmd struct {
-	HexScript string
+	HexScript string `json:"hexstring"`
 }
 
 // NewDecodeScriptCmd returns a new instance which can be used to issue a
@@ -161,7 +160,7 @@ func NewGetBlockCountCmd() *GetBlockCountCmd {
 
 // GetBlockHashCmd defines the getblockhash JSON-RPC command.
 type GetBlockHashCmd struct {
-	Height int32
+	Height int32 `json:"height"`
 }
 
 // NewGetBlockHashCmd returns a new instance which can be used to issue a
@@ -282,7 +281,7 @@ func (t *TemplateRequest) UnmarshalJSON(data []byte) error {
 
 // GetBlockTemplateCmd defines the getblocktemplate JSON-RPC command.
 type GetBlockTemplateCmd struct {
-	Request *TemplateRequest
+	Request *TemplateRequest `json:"template_request" jsonrpcusage:"template_request"`
 }
 
 // NewGetBlockTemplateCmd returns a new instance which can be used to issue a
@@ -401,8 +400,8 @@ func NewGetNetTotalsCmd() *GetNetTotalsCmd {
 
 // GetNetworkHashPSCmd defines the getnetworkhashps JSON-RPC command.
 type GetNetworkHashPSCmd struct {
-	Blocks *int   `jsonrpcdefault:"120"`
-	Height *int32 `jsonrpcdefault:"-1"`
+	Blocks *int32 `json:"nblocks" jsonrpcdefault:"120"`
+	Height *int32 `json:"height" jsonrpcdefault:"-1"`
 }
 
 // NewGetNetworkHashPSCmd returns a new instance which can be used to issue a
@@ -410,7 +409,7 @@ type GetNetworkHashPSCmd struct {
 //
 // The parameters which are pointers indicate they are optional.  Passing nil
 // for optional parameters will use the default value.
-func NewGetNetworkHashPSCmd(numBlocks *int, height *int32) *GetNetworkHashPSCmd {
+func NewGetNetworkHashPSCmd(numBlocks *int32, height *int32) *GetNetworkHashPSCmd {
 	return &GetNetworkHashPSCmd{
 		Blocks: numBlocks,
 		Height: height,
@@ -447,8 +446,8 @@ func NewGetRawMempoolCmd(verbose *bool) *GetRawMempoolCmd {
 // NOTE: This field is an int versus a bool to remain compatible with Bitcoin
 // Core even though it really should be a bool.
 type GetRawTransactionCmd struct {
-	Txid    string
-	Verbose *bool `jsonrpcdefault:"false"`
+	Txid    string `json:"txid"`
+	Verbose *bool  `json:"verbose" jsonrpcdefault:"false"`
 }
 
 // NewGetRawTransactionCmd returns a new instance which can be used to issue a
@@ -627,8 +626,8 @@ func NewSearchRawTransactionsCmd(address string, verbose, skip, count *int, vinE
 
 // SendRawTransactionCmd defines the sendrawtransaction JSON-RPC command.
 type SendRawTransactionCmd struct {
-	HexTx         string
-	AllowHighFees *bool `jsonrpcdefault:"false"`
+	HexTx         string `json:"hexstring"`
+	AllowHighFees *bool  `json:"allowhighfees" jsonrpcdefault:"false"`
 }
 
 // NewSendRawTransactionCmd returns a new instance which can be used to issue a
@@ -776,32 +775,32 @@ func NewPruneBlockChainCmd(height *int) *PruneBlockChainCmd {
 
 type GetMempoolAncestorsCmd struct {
 	TxID    string `json:"txid"`
-	Verbose *bool  `json: "verbose";jsonrpcdefault: "false"`
+	Verbose *bool  `json:"verbose" jsonrpcdefault:"false"`
 	// todo
 }
 
 type GetMempoolDescendantsCmd struct {
 	TxID    string `json:"txid"`
-	Verbose *bool  `json: "verbose";jsonrpcdefault: "false"`
+	Verbose *bool  `json:"verbose" jsonrpcdefault:"false"`
 	// todo
 }
 
 // RawTxInput models the data needed for raw transaction input that is used in
 // the SignRawTransactionCmd struct.
 type RawTxInput struct {
-	Txid         string  `json:"txid"`
-	Vout         uint32  `json:"vout"`
-	ScriptPubKey string  `json:"scriptPubKey"`
-	RedeemScript *string `json:"redeemScript"`
-	Amount       float64 `json:"amount"`
+	Txid         string      `json:"txid"`
+	Vout         uint32      `json:"vout"`
+	ScriptPubKey string      `json:"scriptPubKey"`
+	RedeemScript *string     `json:"redeemScript"`
+	Amount       interface{} `json:"amount"`
 }
 
 // SignRawTransactionCmd defines the signrawtransaction JSON-RPC command.
 type SignRawTransactionCmd struct {
-	HexTx       string
-	PrevTxs     *[]RawTxInput
-	PrivKeys    *[]string
-	SigHashType *string
+	HexTx       string        `json:"hexstring"`
+	PrevTxs     *[]RawTxInput `json:"prevtxs"`
+	PrivKeys    *[]string     `json:"privkeys"`
+	SigHashType *string       `json:"sighashtype"`
 }
 
 type VerifyTxoutProofCmd struct {
@@ -834,8 +833,8 @@ type SetNetWorkActiveCmd struct {
 
 // WaitForBlockHeightCmd defines the waitforblockheight JSON-RPC command.
 type WaitForBlockHeightCmd struct {
-	Height  int
-	Timeout int
+	Height  int32 `json:"height"`
+	Timeout *int  `json:"timeout" jsonrpcdefault:"0"`
 }
 
 // NewWaitForBlockHeightCmd returns a new instance which can be used to issue a

@@ -8,13 +8,14 @@ import (
 	"io"
 
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/util"
 )
 
 // MaxBlocksPerMsg is the maximum number of blocks allowed per message.
 const MaxBlocksPerMsg = 500
 
 // MaxBlockPayload is the maximum bytes a block message can be in bytes.
-const MaxBlockPayload = 32000000
+const MaxBlockPayload = 32 * util.OneMegaByte
 
 const maxTxPerBlock = (MaxBlockPayload / minTxPayload) + 1
 
@@ -32,6 +33,6 @@ func (msg *MsgBlock) Command() string {
 	return CmdBlock
 }
 
-func (msg *MsgBlock) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgBlock) MaxPayloadLength(pver uint32) uint64 {
 	return MaxBlockPayload
 }

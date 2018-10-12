@@ -36,7 +36,7 @@ func initConfig() *configuration {
 	filename := fmt.Sprintf("conf_test%04d.yml", rand.Intn(9999))
 	err := ioutil.WriteFile(filename, confData, 0664)
 	if err != nil {
-		fmt.Errorf("write config file failed:%s", err)
+		fmt.Printf("write config file failed:%s", err)
 	}
 
 	//parse struct tag

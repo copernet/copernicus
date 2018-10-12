@@ -122,14 +122,14 @@ func TestGetBlockTimeMax(t *testing.T) {
 //		t.Errorf("Accepted is wrong")
 //	}
 //}
-//
-//func TestFailed(t *testing.T) {
-//	var bIndex BlockIndex
-//	bIndex.Status = StatusFailed
-//	if !bIndex.Failed() {
-//		t.Errorf("Failed is wrong")
-//	}
-//}
+
+func TestFailed(t *testing.T) {
+	var bIndex BlockIndex
+	bIndex.Status = BlockFailed
+	if !bIndex.Failed() {
+		t.Errorf("Failed is wrong")
+	}
+}
 
 func TestGetUndoPos(t *testing.T) {
 	var bIndex BlockIndex

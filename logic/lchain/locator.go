@@ -55,12 +55,13 @@ func LocateHeaders(locator *chain.BlockLocator, endHash *util.Hash) []block.Bloc
 	}
 	nLimits := MaxHeadersResults
 	for ; bi != nil && nLimits > 0; bi = gChain.Next(bi) {
-		if bi.GetBlockHash().IsEqual(endHash) {
-			break
-		}
 		bh := bi.GetBlockHeader()
 		ret = append(ret, *bh)
 		nLimits--
+
+		if bi.GetBlockHash().IsEqual(endHash) {
+			break
+		}
 	}
 	return ret
 }

@@ -34,7 +34,7 @@ func (msg *MsgSendCmpct) Command() string {
 	return CmdSendCmpct
 }
 
-func (msg *MsgSendCmpct) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgSendCmpct) MaxPayloadLength(pver uint32) uint64 {
 	return 9
 }
 

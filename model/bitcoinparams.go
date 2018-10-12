@@ -7,13 +7,14 @@ import (
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
 
-var ActiveNetParams = &TestNetParams
+var ActiveNetParams = &MainNetParams
 
 var (
 	bigOne = big.NewInt(1)
@@ -442,4 +443,21 @@ func IsDAAEnabled(height int32) bool {
 
 func IsReplayProtectionEnabled(medianTimePast int64) bool {
 	return medianTimePast >= ActiveNetParams.MagneticAnomalyActivationTime
+}
+
+func SetTestNetParams() {
+	ActiveNetParams = &TestNetParams
+	setActiveNetAddressParams()
+}
+
+func SetRegTestParams() {
+	ActiveNetParams = &RegressionNetParams
+	setActiveNetAddressParams()
+}
+
+func setActiveNetAddressParams() {
+	script.InitAddressParam(&script.AddressParam{
+		PubKeyHashAddressVer: ActiveNetParams.PubKeyHashAddressID,
+		ScriptHashAddressVer: ActiveNetParams.ScriptHashAddressID,
+	})
 }

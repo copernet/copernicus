@@ -206,8 +206,8 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 
 	// Already Accept Block
 	if bIndex.HasData() {
-		log.Debug("AcceptBlock err:%d", 3009)
-		err = errcode.ProjectError{Code: 3009}
+		hash := pblock.GetHash()
+		log.Warn("AcceptBlock blk(%s) already received", &hash)
 		return
 	}
 
@@ -248,8 +248,6 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 		gPersist.AddDirtyBlockIndex(bIndex)
 		return
 	}
-
-	// TODO: relay this lblock
 
 	dbp, err = WriteBlockToDisk(bIndex, pblock)
 	if err != nil {

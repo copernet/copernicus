@@ -18,8 +18,10 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -59,6 +61,7 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 	chainInfo := &btcjson.GetBlockChainInfoResult{
 		Chain:                params.Name,
 		Blocks:               gChain.Height(),
+		Headers:              gChain.Height(), // TODO: NOT support header-first yet
 		BestBlockHash:        tip.GetBlockHash().String(),
 		Difficulty:           getDifficulty(tip),
 		MedianTime:           tip.GetMedianTimePast(),
@@ -66,7 +69,6 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 		ChainWork:            tip.ChainWork.Text(16),
 		Pruned:               false,
 		Bip9SoftForks:        make(map[string]*btcjson.Bip9SoftForkDescription),
-		//Headers:            lblockindex.indexBestHeader.Height,   // TODO: NOT support yet
 	}
 
 	// Next, populate the response with information describing the current
@@ -273,7 +275,10 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	// Fetch the header from chain.
 	hash, err := util.GetHashFromStr(c.Hash)
 	if err != nil {
-		return nil, rpcDecodeHexError(c.Hash)
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCBlockNotFound,
+			Message: "Block not found",
+		}
 	}
 	blockIndex := chain.GetInstance().FindBlockIndex(*hash)
 
@@ -341,9 +346,26 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	//	  another orphan, it is a chain tip.
 	//	- add chainActive.Tip()
 	setTips := set.New() // element type:
+	setOrphans := set.New()
+	setPrevs := set.New()
 
-	// todo add orphan blockindex, lack of chain's support<orphan>
 	setTips.Add(chain.GetInstance().Tip())
+
+	gchain := chain.GetInstance()
+	for _, index := range gchain.GetIndexMap() {
+		if !gchain.Contains(index) {
+			setOrphans.Add(index)
+			setPrevs.Add(index.Prev)
+		}
+	}
+
+	setOrphans.Each(func(item interface{}) bool {
+		bindex := item.(*blockindex.BlockIndex)
+		if !setPrevs.Has(bindex) {
+			setTips.Add(bindex)
+		}
+		return true
+	})
 
 	ret := btcjson.GetChainTipsResult{
 		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),
@@ -447,11 +469,11 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	}
 
-	blockcount := int32(0)
-	maxcount := util.MaxI32(0, blockIndex.Height-1)
+	var blockCount int32
+	maxCount := util.MaxI32(0, blockIndex.Height-1)
 	if c.Blocks != nil {
-		blockcount = *c.Blocks
-		if blockcount < 0 || blockcount > maxcount {
+		blockCount = *c.Blocks
+		if blockCount < 0 || blockCount > maxCount {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid block count: should be between 0 and the block's height - 1",
@@ -459,17 +481,17 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	} else {
 		// By default: 1 month
-		blockcount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
-		blockcount = util.MinI32(blockcount, maxcount)
+		blockCount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
+		blockCount = util.MinI32(blockCount, maxCount)
 	}
 
 	chainTxStatsReply := &btcjson.GetChainTxStatsResult{
 		FinalTime:  blockIndex.GetBlockTime(),
 		TxCount:    blockIndex.ChainTxCount,
-		BlockCount: blockcount,
+		BlockCount: blockCount,
 	}
-	if blockcount > 0 {
-		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockcount)
+	if blockCount > 0 {
+		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockCount)
 		txDiff := blockIndex.ChainTxCount - indexPast.ChainTxCount
 		timeDiff := blockIndex.GetMedianTimePast() - indexPast.GetMedianTimePast()
 		chainTxStatsReply.WindowTxCount = txDiff
@@ -713,7 +735,28 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	// Write the chain state to disk, if necessary.
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
+		return nil, err
+	}
+
+	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+	stat, err := lchain.GetUTXOStats(cdb)
+	if err != nil {
+		return nil, err
+	}
+
+	reply := &btcjson.GetTxOutSetInfoResult{
+		Height:         stat.Height,
+		BestBlock:      stat.BestBlock.String(),
+		Transactions:   stat.TxCount,
+		TxOuts:         stat.TxOutsCount,
+		BogoSize:       stat.BogoSize,
+		HashSerialized: stat.HashSerialized.String(),
+		DiskSize:       stat.DiskSize,
+		TotalAmount:    valueFromAmount(stat.Amount),
+	}
+	return reply, nil
 }
 
 func getPrunMode() (bool, error) {
@@ -875,14 +918,55 @@ func handleWaitForBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//todo handle args: WaitForBlockHeightCmd
+	//todo notify tipchange
+	c := cmd.(*btcjson.WaitForBlockHeightCmd)
+	height := c.Height
+	timeout := *c.Timeout
+
+	if timeout == 0 {
+		//0 indicates no timeout.
+		timeout = math.MaxInt32
+	}
 
 	gchain := chain.GetInstance()
-	ret := &btcjson.WaitForBlockHeightResult{
-		Hash:   gchain.Tip().GetBlockHash().String(),
-		Height: gchain.TipHeight(),
+	tipHeight := gchain.TipHeight()
+	ret := &btcjson.WaitForBlockHeightResult{}
+
+	if height <= tipHeight {
+		ret = &btcjson.WaitForBlockHeightResult{
+			Hash:   gchain.Tip().GetBlockHash().String(),
+			Height: gchain.TipHeight(),
+		}
+		return ret, nil
 	}
-	return ret, nil
+
+	waitFlag := make(chan bool)
+	go func() {
+		for {
+			if height <= gchain.TipHeight() {
+				waitFlag <- false
+				break
+			}
+			time.Sleep(time.Second)
+		}
+
+	}()
+
+	select {
+	case <-waitFlag:
+		ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+		ret.Height = height
+		return ret, nil
+	case <-time.After(time.Millisecond * time.Duration(timeout)):
+		if height <= gchain.TipHeight() {
+			ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+			ret.Height = height
+		}
+		ret.Hash = gchain.Tip().GetBlockHash().String()
+		ret.Height = gchain.TipHeight()
+		return ret, nil
+	}
+
 }
 
 func registerBlockchainRPCCommands() {

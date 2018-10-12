@@ -144,7 +144,7 @@ func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mem
 	rejectFee := minfeeRate.GetFee(int(txsize))
 	// compare the transaction feeRate with enter mempool min txfeeRate
 	if txfee < rejectFee {
-		return nil, lp, errcode.New(errcode.TooMinFeeRate)
+		return nil, lp, errcode.New(errcode.TxErrRejectInsufficientFee)
 	}
 
 	return ancestors, lp, nil

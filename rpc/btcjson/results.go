@@ -23,7 +23,7 @@ type GetBlockHeaderVerboseResult struct {
 	Nonce         uint64  `json:"nonce"`
 	Bits          string  `json:"bits"`
 	Difficulty    float64 `json:"difficulty"`
-	Chainwork     string  `josn:"chainwork"`
+	Chainwork     string  `json:"chainwork"`
 	PreviousHash  string  `json:"previousblockhash,omitempty"`
 	NextHash      string  `json:"nextblockhash,omitempty"`
 }
@@ -232,7 +232,7 @@ type NetworksResult struct {
 type LocalAddressesResult struct {
 	Address string `json:"address"`
 	Port    uint16 `json:"port"`
-	Score   int32  `json:"score"`
+	Score   int    `json:"score"`
 }
 
 // GetNetworkInfoResult models the data returned from the getnetworkinfo
@@ -316,6 +316,18 @@ type GetTxOutResult struct {
 	Value         string             `json:"value"`
 	ScriptPubKey  ScriptPubKeyResult `json:"scriptPubKey"`
 	Coinbase      bool               `json:"coinbase"`
+}
+
+// GetTxOutSetInfoResult models the data from the gettxoutsetinfo command.
+type GetTxOutSetInfoResult struct {
+	Height         int     `json:"height"`
+	BestBlock      string  `json:"bestblock"`
+	Transactions   uint64  `json:"transactions"`
+	TxOuts         uint64  `json:"txouts"`
+	BogoSize       uint64  `json:"bogosize"`
+	HashSerialized string  `json:"hash_serialized"`
+	DiskSize       uint64  `json:"disk_size"`
+	TotalAmount    float64 `json:"total_amount"`
 }
 
 // GetNetTotalsResult models the data returned from the getnettotals command.
@@ -446,13 +458,13 @@ type Vout struct {
 
 // GetMiningInfoResult models the data from the getmininginfo command.
 type GetMiningInfoResult struct {
-	Blocks                  int64   `json:"blocks"`
+	Blocks                  int32   `json:"blocks"`
 	CurrentBlockSize        uint64  `json:"currentblocksize"`
 	CurrentBlockTx          uint64  `json:"currentblocktx"`
 	Difficulty              float64 `json:"difficulty"`
 	BlockPriorityPercentage int64   `json:"blockprioritypercentage"`
 	Errors                  string  `json:"errors"`
-	NetworkHashPS           string  `json:"networkhashps"`
+	NetworkHashPS           float64 `json:"networkhashps"`
 	PooledTx                uint64  `json:"pooledtx"`
 	Chain                   string  `json:"chain"`
 }

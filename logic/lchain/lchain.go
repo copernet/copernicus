@@ -3,8 +3,6 @@ package lchain
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,8 +26,10 @@ import (
 	"github.com/copernet/copernicus/persist/disk"
 
 	"github.com/copernet/copernicus/logic/lblock"
+	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/persist/db"
 )
 
 // IsInitialBlockDownload Check whether we are doing an initial block download
@@ -41,7 +41,7 @@ func IsInitialBlockDownload() bool {
 func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := chain.GetInstance()
 	tip := gChain.Tip()
-	nTimeStart := util.GetMicrosTime()
+	start := time.Now()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad lblock in
 	if err := lblock.CheckBlock(pblock, true, true); err != nil {
@@ -53,11 +53,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	if pindex.Prev == nil {
 		hashPrevBlock = &util.Hash{}
 	} else {
-		if fJustCheck {
-			hashPrevBlock = pindex.GetBlockHash()
-		} else {
-			hashPrevBlock = pindex.Prev.GetBlockHash()
-		}
+		hashPrevBlock = pindex.Prev.GetBlockHash()
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
@@ -107,11 +103,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		}
 	}
 
-	nTime1 := util.GetMicrosTime()
+	time1 := time.Now()
 	gPersist := persist.GetInstance()
-	gPersist.GlobalTimeCheck += nTime1 - nTimeStart
-	log.Print("bench", "debug", " - Sanity checks: %.2fms [%.2fsn",
-		0.001*float64(nTime1-nTimeStart), float64(gPersist.GlobalTimeCheck)*0.000001)
+	gPersist.GlobalTimeCheck += time1.Sub(start)
+	log.Print("bench", "debug", " - Sanity checks: current %v [total %v]",
+		time1.Sub(start), gPersist.GlobalTimeCheck)
 
 	// Do not allow blocks that contain transactions which 'overwrite' older
 	// transactions, unless those are already completely spent. If such
@@ -152,10 +148,10 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := lblock.GetBlockSubsidy(pindex.Height, params)
-	nTime2 := util.GetMicrosTime()
-	gPersist.GlobalTimeForks += nTime2 - nTime1
-	log.Print("bench", "debug", " - Fork checks: %.2fms [%.2fs]",
-		0.001*float64(nTime2-nTime1), float64(gPersist.GlobalTimeForks)*0.000001)
+	time2 := time.Now()
+	gPersist.GlobalTimeForks += time2.Sub(time1)
+	log.Print("bench", "debug", " - Fork checks: current %v [total %v]",
+		time2.Sub(time1), gPersist.GlobalTimeForks)
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize())))
@@ -164,26 +160,29 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
-	if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
-		if UndoPos.IsNull() {
-			pos := block.NewDiskBlockPos(pindex.File, 0)
-			//blockUndo size + hash size + 4bytes len
-			if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
-				return err
-			}
-			if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
-				return err
-			}
+	if !fJustCheck {
+		if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
+			if UndoPos.IsNull() {
+				pos := block.NewDiskBlockPos(pindex.File, 0)
+				//blockUndo size + hash size + 4bytes len
+				if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
+					return err
+				}
+				if err := disk.UndoWriteToDisk(blockUndo, pos, *pindex.Prev.GetBlockHash(), params.BitcoinNet); err != nil {
+					return err
+				}
 
-			// update nUndoPos in block index
-			pindex.UndoPos = pos.Pos
-			pindex.AddStatus(blockindex.BlockHaveUndo)
+				// update nUndoPos in block index
+				pindex.UndoPos = pos.Pos
+				pindex.AddStatus(blockindex.BlockHaveUndo)
+			}
+			pindex.RaiseValidity(blockindex.BlockValidScripts)
+			gPersist.AddDirtyBlockIndex(pindex)
 		}
-		pindex.RaiseValidity(blockindex.BlockValidScripts)
-		gPersist.AddDirtyBlockIndex(pindex)
+
+		// add this block to the view's block chain
+		*view = *coinsMap
 	}
-	// add this block to the view's block chain
-	*view = *coinsMap
 
 	//if (pindex.IsReplayProtectionEnabled(params) &&
 	//	!pindex.Prev.IsReplayProtectionEnabled(params)) {
@@ -266,23 +265,21 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
-
 	if pIndexNew.Height >= conf.Cfg.Chain.StartLogHeight {
-		var stat stat
-		if err := GetUTXOStats(utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB(), &stat); err != nil {
-			log.Debug("GetUTXOStats() failed with : %s", err)
-			return err
-		}
-		f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+		cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+		besthash, err := cdb.GetBestBlock()
 		if err != nil {
-			log.Debug("os.OpenFile() failed with : %s", err)
+			log.Debug("in utxostats, GetBestBlock(), failed=%v\n", err)
 			return err
 		}
-		defer f.Close()
-		if _, err := f.WriteString(stat.String()); err != nil {
-			log.Debug("f.WriteString() failed with : %s", err)
-			return err
-		}
+		var stat stat
+		stat.bestblock = *besthash
+		stat.height = int(mchain.GetInstance().FindBlockIndex(*besthash).Height)
+		iter := cdb.GetDBW().Iterator(nil)
+		iter.Seek([]byte{db.DbCoin})
+		taskControl.StartLogTask()
+		taskControl.StartUtxoTask()
+		taskControl.PushUtxoTask(utxoTaskArg{iter, &stat})
 	}
 
 	nTime5 := util.GetMicrosTime()
@@ -316,7 +313,7 @@ func DisconnectTip(fBare bool) error {
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
-		log.Debug("FailedToReadBlock")
+		log.Error("DisconnectTip: read block from disk failed, the block is:%+v ", blk)
 		return errcode.New(errcode.FailedToReadBlock)
 	}
 
@@ -389,6 +386,8 @@ func DisconnectTip(fBare bool) error {
 	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
+
+	gChain.SendNotification(chain.NTBlockDisconnected, blk)
 
 	return nil
 }
@@ -477,7 +476,7 @@ func GuessVerificationProgress(data *model.ChainTxData, index *blockindex.BlockI
 	if int64(index.ChainTxCount) <= data.TxCount {
 		txTotal = float64(data.TxCount) + (now.Sub(data.Time).Seconds())*data.TxRate
 	} else {
-		txTotal = float64(index.ChainTxCount) + float64(now.Second()-int(index.GetBlockTime()))*data.TxRate
+		txTotal = float64(index.ChainTxCount) + float64(now.Unix()-int64(index.GetBlockTime()))*data.TxRate
 	}
 	return float64(index.ChainTxCount) / txTotal
 }
@@ -496,7 +495,7 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 	}
 	blockUndo, ret := disk.UndoReadFromDisk(&pos, *pindex.Prev.GetBlockHash())
 	if !ret {
-		log.Error("DisconnectBlock(): failure reading undo data")
+		log.Error("DisconnectBlock(): reading undo data failed, pos is: %s, block undo is: %+v", pos.String(), blockUndo)
 		return undo.DisconnectFailed
 	}
 

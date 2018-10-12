@@ -11,6 +11,17 @@ import (
 
 	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
+	"path"
+)
+
+const (
+	AppMajor uint = 0
+	AppMinor uint = 0
+	AppPatch uint = 1
+
+	// AppPreRelease MUST only contain characters from semanticAlphabet
+	// per the semantic versioning spec.
+	AppPreRelease = "beta"
 )
 
 const (
@@ -19,9 +30,6 @@ const (
 	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
 	defaultProjectDir           = "github.com/copernet/copernicus"
-	defaultLogLevel             = "info"
-	defaultLogDirname           = "logs"
-	defaultLogFilename          = "coper.log"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
 	defaultBanThreshold         = 100
@@ -29,7 +37,6 @@ const (
 	defaultMaxRPCClients        = 10
 	defaultMaxRPCWebsockets     = 25
 	defaultMaxRPCConcurrentReqs = 20
-	defaultDbType               = "ffldb"
 	defaultFreeTxRelayLimit     = 15.0
 	defaultBlockMinSize         = 0
 	defaultBlockMaxSize         = 750000
@@ -67,13 +74,22 @@ func InitConfig(args []string) *Configuration {
 
 	opts, err := InitArgs(args)
 	if err != nil {
-		panic(err)
+		//fmt.Println("\033[0;31mparse cmd line fail: %v\033[0m\n")
+		return nil
 	}
+	if opts.RegTest && opts.TestNet {
+		panic("Both testnet and regtest are true")
+	}
+
 	if len(opts.DataDir) > 0 {
 		DataDir = opts.DataDir
 	}
 
-	discover := opts.Discover
+	if opts.TestNet {
+		DataDir = path.Join(DataDir, "testnet")
+	} else if opts.RegTest {
+		DataDir = path.Join(DataDir, "regtest")
+	}
 
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
@@ -89,12 +105,18 @@ func InitConfig(args []string) *Configuration {
 			filePath := projectPath + "/conf/" + defaultConfigFilename
 			_, err = os.Stat(filePath)
 			if !os.IsNotExist(err) {
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic("from src/defaultProjectDir copy conf.yml failed.")
+				}
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
 				filePath = projectPath + "/conf/" + defaultConfigFilename
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic(" from src/copernicus copy conf.yml failed.")
+				}
 			}
 		}
 	}
@@ -146,7 +168,16 @@ func InitConfig(args []string) *Configuration {
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
-	config.P2PNet.Discover = discover == 1
+
+	if opts.RegTest {
+		config.P2PNet.RegTest = true
+		if !viper.IsSet("BlockIndex.CheckBlockIndex") {
+			config.BlockIndex.CheckBlockIndex = true
+		}
+	}
+	if opts.TestNet {
+		config.P2PNet.TestNet = true
+	}
 	return config
 }
 
@@ -194,7 +225,9 @@ type Configuration struct {
 		ConnectPeersOnStart []string
 		DisableBanning      bool `default:"true"`
 		BanThreshold        uint32
-		SimNet              bool          `default:"false"`
+		TestNet             bool
+		RegTest             bool `default:"false"`
+		SimNet              bool
 		DisableListen       bool          `default:"true"`
 		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
 		BanDuration         time.Duration // How long to ban misbehaving peers
@@ -208,13 +241,12 @@ type Configuration struct {
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
 		//AddCheckpoints      []model.Checkpoint
-		Discover bool // Is our peer's addrLocal potentially useful as an external IP source
 	}
 	AddrMgr struct {
 		SimNet       bool
 		ConnectPeers []string
 	}
-	Protocal struct {
+	Protocol struct {
 		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}
@@ -223,7 +255,8 @@ type Configuration struct {
 		MaxDatacarrierBytes uint `default:"223"`
 		IsBareMultiSigStd   bool `default:"true"`
 		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-		PromiscuousMempoolFlags string
+		PromiscuousMempoolFlags string `default:"0"`
+		Par                     int    `default:"32"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
@@ -241,6 +274,9 @@ type Configuration struct {
 	PProf struct {
 		IP   string `default:"localhost"`
 		Port string `default:"6060"`
+	}
+	BlockIndex struct {
+		CheckBlockIndex bool
 	}
 }
 
@@ -269,19 +305,15 @@ func CopyFile(src, des string) (w int64, err error) {
 
 // Validate validates configuration
 func (c Configuration) Validate() error {
-	//validate := validator.New(&validator.Config{TagName: "validate"})
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
 }
 
 func ExistDataDir(datadir string) bool {
 	_, err := os.Stat(datadir)
-	if err == nil {
-		return true
-	}
-	if os.IsExist(err) {
+	if err != nil && os.IsNotExist(err) {
 		return false
 	}
 
-	return false
+	return true
 }
