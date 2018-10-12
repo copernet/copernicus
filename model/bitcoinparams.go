@@ -7,6 +7,7 @@ import (
 
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
 )
@@ -446,8 +447,17 @@ func IsReplayProtectionEnabled(medianTimePast int64) bool {
 
 func SetTestNetParams() {
 	ActiveNetParams = &TestNetParams
+	setActiveNetAddressParams()
 }
 
 func SetRegTestParams() {
 	ActiveNetParams = &RegressionNetParams
+	setActiveNetAddressParams()
+}
+
+func setActiveNetAddressParams() {
+	script.InitAddressParam(&script.AddressParam{
+		PubKeyHashAddressVer: ActiveNetParams.PubKeyHashAddressID,
+		ScriptHashAddressVer: ActiveNetParams.ScriptHashAddressID,
+	})
 }
