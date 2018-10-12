@@ -441,6 +441,19 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 	}
 }
 
+func (sm *SyncManager) alreadyHave(txHash *util.Hash) bool {
+	// Ignore transactions that we have already rejected.  Do not
+	// send a reject message here because if the transaction was already
+	// rejected, the transaction was unsolicited.
+	if _, exists := sm.rejectedTxns[*txHash]; exists {
+		log.Debug("Ignoring unsolicited previously rejected transaction %v", txHash)
+		return true
+	}
+
+	have, err := sm.haveInventory(wire.NewInvVect(wire.InvTypeTx, txHash))
+	return err == nil && have
+}
+
 // handleTxMsg handles transaction messages from all peers.
 func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	peer := tmsg.peer
@@ -450,25 +463,11 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 		return
 	}
 
-	// NOTE:  BitcoinJ, and possibly other wallets, don't follow the spec of
-	// sending an inventory message and allowing the remote peer to decide
-	// whether or not they want to request the transaction via a getdata
-	// message.  Unfortunately, the reference implementation permits
-	// unrequested data, so it has allowed wallets that don't follow the
-	// spec to proliferate.  While this is not ideal, there is no check here
-	// to disconnect peers for sending unsolicited transactions to provide
-	// interoperability.
 	txHash := tmsg.tx.GetHash()
 
-	// TODO: after active chain's tip changed, previously rejected txs might be now valid, e.g. due to nLockTime'd tx
-	// becoming valid, or a double-spend. Reset the rejects filter and give those txs a second chance.
-
-	// Ignore transactions that we have already rejected.  Do not
-	// send a reject message here because if the transaction was already
-	// rejected, the transaction was unsolicited.
-	if _, exists = sm.rejectedTxns[txHash]; exists {
-		log.Debug("Ignoring unsolicited previously rejected "+
-			"transaction %v from %s", txHash, peer.Addr())
+	if sm.alreadyHave(&txHash) {
+		//TODO: relay tx for whitelistrelay node
+		log.Trace("ignore already processed tx from %s", peer.Addr())
 		return
 	}
 
@@ -523,6 +522,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 			panic("the transaction must be in mempool")
 		}
 	}
+
 	sm.peerNotifier.AnnounceNewTransactions(txentrys)
 }
 

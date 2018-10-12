@@ -1081,6 +1081,10 @@ func (p *Peer) PushRejectMsg(command string, code errcode.RejectCode, reason str
 // from the remote peer.  It will return an error if the remote peer's version
 // is not compatible with ours.
 func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
+	//TODO: REJECT_DUPLICATE version message
+	//TODO: REJECT_NONSTANDARD services field
+	//TODO: REJECT_OBSOLETE versio < minAcceptableProtocolVersion
+
 	// Detect self connections.
 	if !allowSelfConns && sentNonces.Exists(msg.Nonce) {
 		return errors.New("disconnecting peer connected to self")

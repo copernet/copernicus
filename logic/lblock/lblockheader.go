@@ -45,6 +45,7 @@ func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.
 	}
 	if (header.Version < 2 && nHeight >= params.BIP34Height) || (header.Version < 3 && nHeight >= params.BIP66Height) || (header.Version < 4 && nHeight >= params.BIP65Height) {
 		log.Error("block.version: %d, nheight :%d", header.Version, nHeight)
+		//TODO: reject outdated version blocks: REJECT_OBSOLETE
 		return false
 	}
 	return true

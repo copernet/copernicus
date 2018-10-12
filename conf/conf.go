@@ -235,7 +235,7 @@ type Configuration struct {
 		RegTest             bool `default:"false"`
 		SimNet              bool
 		DisableListen       bool          `default:"true"`
-		BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
+		BlocksOnly          bool          `default:"false"` //Do not accept transactions from remote peers.
 		BanDuration         time.Duration // How long to ban misbehaving peers
 		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
 		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
