@@ -40,7 +40,8 @@ func bchMain(ctx context.Context, args []string) error {
 		fmt.Printf("Profile server listening on %s\n", listenAddr)
 		profileRedirect := http.RedirectHandler("/debug/pprof", http.StatusSeeOther)
 		http.Handle("/", profileRedirect)
-		fmt.Errorf("%v", http.ListenAndServe(listenAddr, nil))
+		err := fmt.Errorf("%v", http.ListenAndServe(listenAddr, nil))
+		fmt.Println(err.Error())
 	}()
 	interrupt := interruptListener()
 

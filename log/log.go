@@ -1,9 +1,6 @@
 package log
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"fmt"
@@ -12,8 +9,7 @@ import (
 )
 
 const (
-	defaultLogDirname = "logs"
-
+	DefaultLogDirname = "logs"
 	errModuleNotFound = "specified module not found"
 )
 
@@ -22,7 +18,7 @@ var mapModule map[string]struct{}
 func Print(module string, level string, format string, reason ...interface{}) {
 	level = strings.ToLower(level)
 	if isIncludeModule(module) {
-		format = fmt.Sprintf("module[%s]: %s", module, format)
+		format = fmt.Sprintf("module[%s]: level[%s]", module, level)
 		switch level {
 		case "emergency":
 			logs.Emergency(format, reason...)
@@ -115,30 +111,8 @@ func GetLogger() *logs.BeeLogger {
 	return logs.GetBeeLogger()
 }
 
-func Init() {
-	logDir := filepath.Join(conf.DataDir, defaultLogDirname)
-	if !conf.ExistDataDir(logDir) {
-		err := os.MkdirAll(logDir, os.ModePerm)
-		if err != nil {
-			panic("logdir create failed: " + err.Error())
-		}
-	}
-
-	logConf := struct {
-		FileName string `json:"filename"`
-		Level    int    `json:"level"`
-		Daily    bool   `json:"daily"`
-	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    getLevel(conf.Cfg.Log.Level),
-		Daily:    false,
-	}
-
-	configuration, err := json.Marshal(logConf)
-	if err != nil {
-		panic(err)
-	}
-	logs.SetLogger(logs.AdapterFile, string(configuration))
+func Init(logConf string) {
+	logs.SetLogger(logs.AdapterFile, logConf)
 
 	// output filename and line number
 	logs.EnableFuncCallDepth(true)

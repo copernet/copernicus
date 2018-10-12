@@ -534,11 +534,6 @@ func TestVersionBitsComputeBlockVersion(t *testing.T) {
 		t.Error("the bit should not set")
 	}
 
-	// On a new chain:
-	// verify that the bit will be set after lock-in, and then stop being set
-	// after activation.
-	Time = startTime
-
 	// Mine one period worth of blocks, and check that the bit will be on for
 	// the next period.
 	lastBlock = secondChain.Mine(2016, startTime, VersionBitsLastOldBlockVersion).Tip()

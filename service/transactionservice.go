@@ -34,15 +34,14 @@ func handleRejectedTx(transaction *tx.Tx, err error,
 			log.Print("service", "debug", "Orphan transaction "+
 				"overflow, removed %d tx", evicted)
 		}
+	} else {
+		pool.RecentRejects[transaction.GetHash()] = struct{}{}
 	}
-
-	pool.RecentRejects[transaction.GetHash()] = struct{}{}
 
 	return
 }
 
-func ProcessTransaction(transaction *tx.Tx,
-	nodeID int64) ([]*tx.Tx, []util.Hash, error) {
+func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash, error) {
 
 	err := ltx.CheckRegularTransaction(transaction)
 	if err != nil {

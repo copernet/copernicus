@@ -88,9 +88,8 @@ func TestMerkle(t *testing.T) {
 	for i := 0; i < 32; i++ {
 		// Try 32 block sizes: all sizes from 0 to 16 inclusive, and then 15
 		// random sizes.
-		ntx := i
 		if i<<16 == 0 {
-			ntx = 17 + util.GetRandInt(math.MaxUint32)%4000
+			ntx := 17 + util.GetRandInt(math.MaxUint32)%4000
 			// Try up to 3 mutations.
 			for mutate := 0; mutate <= 3; mutate++ {
 				// The last how many transactions to duplicate first.

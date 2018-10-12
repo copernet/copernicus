@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -274,7 +275,10 @@ func handleGetBlockHeader(s *Server, cmd interface{}, closeChan <-chan struct{})
 	// Fetch the header from chain.
 	hash, err := util.GetHashFromStr(c.Hash)
 	if err != nil {
-		return nil, rpcDecodeHexError(c.Hash)
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCBlockNotFound,
+			Message: "Block not found",
+		}
 	}
 	blockIndex := chain.GetInstance().FindBlockIndex(*hash)
 
@@ -342,9 +346,26 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	//	  another orphan, it is a chain tip.
 	//	- add chainActive.Tip()
 	setTips := set.New() // element type:
+	setOrphans := set.New()
+	setPrevs := set.New()
 
-	// todo add orphan blockindex, lack of chain's support<orphan>
 	setTips.Add(chain.GetInstance().Tip())
+
+	gchain := chain.GetInstance()
+	for _, index := range gchain.GetIndexMap() {
+		if !gchain.Contains(index) {
+			setOrphans.Add(index)
+			setPrevs.Add(index.Prev)
+		}
+	}
+
+	setOrphans.Each(func(item interface{}) bool {
+		bindex := item.(*blockindex.BlockIndex)
+		if !setPrevs.Has(bindex) {
+			setTips.Add(bindex)
+		}
+		return true
+	})
 
 	ret := btcjson.GetChainTipsResult{
 		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),
@@ -448,11 +469,11 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	}
 
-	blockcount := int32(0)
-	maxcount := util.MaxI32(0, blockIndex.Height-1)
+	var blockCount int32
+	maxCount := util.MaxI32(0, blockIndex.Height-1)
 	if c.Blocks != nil {
-		blockcount = *c.Blocks
-		if blockcount < 0 || blockcount > maxcount {
+		blockCount = *c.Blocks
+		if blockCount < 0 || blockCount > maxCount {
 			return false, &btcjson.RPCError{
 				Code:    btcjson.ErrRPCInvalidParameter,
 				Message: "Invalid block count: should be between 0 and the block's height - 1",
@@ -460,17 +481,17 @@ func handleGetChainTxStats(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 	} else {
 		// By default: 1 month
-		blockcount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
-		blockcount = util.MinI32(blockcount, maxcount)
+		blockCount = int32(30 * 24 * 60 * 60 / chain.GetInstance().GetParams().TargetTimePerBlock)
+		blockCount = util.MinI32(blockCount, maxCount)
 	}
 
 	chainTxStatsReply := &btcjson.GetChainTxStatsResult{
 		FinalTime:  blockIndex.GetBlockTime(),
 		TxCount:    blockIndex.ChainTxCount,
-		BlockCount: blockcount,
+		BlockCount: blockCount,
 	}
-	if blockcount > 0 {
-		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockcount)
+	if blockCount > 0 {
+		indexPast := blockIndex.GetAncestor(blockIndex.Height - blockCount)
 		txDiff := blockIndex.ChainTxCount - indexPast.ChainTxCount
 		timeDiff := blockIndex.GetMedianTimePast() - indexPast.GetMedianTimePast()
 		chainTxStatsReply.WindowTxCount = txDiff
@@ -714,14 +735,35 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	// Write the chain state to disk, if necessary.
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
+		return nil, err
+	}
+
+	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+	stat, err := lchain.GetUTXOStats(cdb)
+	if err != nil {
+		return nil, err
+	}
+
+	reply := &btcjson.GetTxOutSetInfoResult{
+		Height:         stat.Height,
+		BestBlock:      stat.BestBlock.String(),
+		Transactions:   stat.TxCount,
+		TxOuts:         stat.TxOutsCount,
+		BogoSize:       stat.BogoSize,
+		HashSerialized: stat.HashSerialized.String(),
+		DiskSize:       stat.DiskSize,
+		TotalAmount:    valueFromAmount(stat.Amount),
+	}
+	return reply, nil
 }
 
 func getPrunMode() (bool, error) {
 	/*	pruneArg := util.GetArg("-prune", 0)
 		if pruneArg < 0 {
 			return false, errors.New("Prune cannot be configured with a negative value")
-		}*/// todo open
+		}*/ // todo open
 	return true, nil
 }
 
@@ -772,7 +814,7 @@ func handlePruneBlockChain(s *Server, cmd interface{}, closeChan <-chan struct{}
 		}
 
 		chain.PruneBlockFilesManual(*height)
-		return uint64(*height), nil*/// todo realise
+		return uint64(*height), nil*/ // todo realise
 
 	return nil, nil
 }
@@ -789,7 +831,7 @@ func handleVerifyChain(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			checkDepth = *c.CheckDepth
 		}
 
-		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/// todo open
+		return VerifyDB(consensus.ActiveNetParams, utxo.GetUtxoCacheInstance(), checkLevel, checkDepth), nil*/ // todo open
 	return nil, nil
 }
 
@@ -810,7 +852,7 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		chain.PreciousBlock(consensus.ActiveNetParams, &state, blockIndex)
 		if !state.IsValid() {
 
-		}*/// todo open
+		}*/ // todo open
 	return nil, nil
 }
 
@@ -837,7 +879,7 @@ func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{})
 				Code:    btcjson.ErrRPCDatabase,
 				Message: state.GetRejectReason(),
 			}
-		}*/// todo open
+		}*/ // todo open
 
 	return nil, nil
 }
@@ -863,7 +905,7 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 				Code:    btcjson.ErrRPCDatabase,
 				Message: state.FormatStateMessage(),
 			}
-		}*/// todo open
+		}*/ // todo open
 	return nil, nil
 }
 
@@ -879,7 +921,12 @@ func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struc
 	//todo notify tipchange
 	c := cmd.(*btcjson.WaitForBlockHeightCmd)
 	height := c.Height
-	timeout := c.Timeout
+	timeout := *c.Timeout
+
+	if timeout == 0 {
+		//0 indicates no timeout.
+		timeout = math.MaxInt32
+	}
 
 	gchain := chain.GetInstance()
 	tipHeight := gchain.TipHeight()

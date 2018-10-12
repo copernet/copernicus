@@ -363,8 +363,7 @@ func testIteratorOrdering(t *testing.T, dbw *DBWrapper) {
 	for _, seekStart := range []byte{0x00, 0x80} {
 		iter.Seek([]byte{seekStart})
 		for x := uint32(seekStart); x < 0xff; x++ {
-			k := uint32(0)
-			v := uint32(0)
+
 			if !iter.Valid() {
 				t.Fatalf("iter should be valid")
 			}
@@ -375,7 +374,7 @@ func testIteratorOrdering(t *testing.T, dbw *DBWrapper) {
 			if len(ks) == 0 {
 				t.Fatalf("iter.GetKey() should return non empty key")
 			}
-			k = uint32(ks[0])
+			k := uint32(ks[0])
 
 			if x&1 != 0 {
 				if k != x+1 {
@@ -383,7 +382,7 @@ func testIteratorOrdering(t *testing.T, dbw *DBWrapper) {
 				}
 				continue
 			}
-			v = binary.LittleEndian.Uint32(iter.GetVal())
+			v := binary.LittleEndian.Uint32(iter.GetVal())
 
 			if k != x {
 				t.Fatalf("key should equal x")

@@ -19,6 +19,14 @@ const (
 	DumpedPrivateKeyVersion = 128
 )
 
+func NewPrivateKeyFromBytes(data []byte, compressed bool) *PrivateKey {
+	return &PrivateKey{
+		bytes:      data,
+		compressed: compressed,
+		version:    DumpedPrivateKeyVersion,
+	}
+}
+
 func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
 
 	privateKey := PrivateKey{
@@ -29,10 +37,17 @@ func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
 	return &privateKey
 }
 
+func (privateKey *PrivateKey) IsCompressed() bool {
+	return privateKey.compressed
+}
+
+func (privateKey *PrivateKey) GetBytes() []byte {
+	return privateKey.bytes
+}
+
 func (privateKey *PrivateKey) PubKey() *PublicKey {
 	_, secp256k1PublicKey, err := secp256k1.EcPubkeyCreate(secp256k1Context, privateKey.bytes)
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil
 	}
 	publicKey := PublicKey{SecpPubKey: secp256k1PublicKey, Compressed: privateKey.compressed}

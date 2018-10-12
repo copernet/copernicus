@@ -15,14 +15,21 @@ import (
 )
 
 const (
+	AppMajor uint = 0
+	AppMinor uint = 0
+	AppPatch uint = 1
+
+	// AppPreRelease MUST only contain characters from semanticAlphabet
+	// per the semantic versioning spec.
+	AppPreRelease = "beta"
+)
+
+const (
 	tagName = "default"
 
 	defaultConfigFilename       = "conf.yml"
 	defaultDataDirname          = "coper"
 	defaultProjectDir           = "github.com/copernet/copernicus"
-	defaultLogLevel             = "info"
-	defaultLogDirname           = "logs"
-	defaultLogFilename          = "coper.log"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
 	defaultBanThreshold         = 100
@@ -30,7 +37,6 @@ const (
 	defaultMaxRPCClients        = 10
 	defaultMaxRPCWebsockets     = 25
 	defaultMaxRPCConcurrentReqs = 20
-	defaultDbType               = "ffldb"
 	defaultFreeTxRelayLimit     = 15.0
 	defaultBlockMinSize         = 0
 	defaultBlockMaxSize         = 750000
@@ -68,7 +74,8 @@ func InitConfig(args []string) *Configuration {
 
 	opts, err := InitArgs(args)
 	if err != nil {
-		panic(err)
+		//fmt.Println("\033[0;31mparse cmd line fail: %v\033[0m\n")
+		return nil
 	}
 	if opts.RegTest && opts.TestNet {
 		panic("Both testnet and regtest are true")
@@ -98,12 +105,18 @@ func InitConfig(args []string) *Configuration {
 			filePath := projectPath + "/conf/" + defaultConfigFilename
 			_, err = os.Stat(filePath)
 			if !os.IsNotExist(err) {
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic("from src/defaultProjectDir copy conf.yml failed.")
+				}
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
 				filePath = projectPath + "/conf/" + defaultConfigFilename
-				CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic(" from src/copernicus copy conf.yml failed.")
+				}
 			}
 		}
 	}
@@ -158,6 +171,9 @@ func InitConfig(args []string) *Configuration {
 
 	if opts.RegTest {
 		config.P2PNet.RegTest = true
+		if !viper.IsSet("BlockIndex.CheckBlockIndex") {
+			config.BlockIndex.CheckBlockIndex = true
+		}
 	}
 	if opts.TestNet {
 		config.P2PNet.TestNet = true
@@ -230,7 +246,7 @@ type Configuration struct {
 		SimNet       bool
 		ConnectPeers []string
 	}
-	Protocal struct {
+	Protocol struct {
 		NoPeerBloomFilters bool `default:"true"`
 		DisableCheckpoints bool `default:"true"`
 	}
@@ -239,7 +255,8 @@ type Configuration struct {
 		MaxDatacarrierBytes uint `default:"223"`
 		IsBareMultiSigStd   bool `default:"true"`
 		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-		PromiscuousMempoolFlags string
+		PromiscuousMempoolFlags string `default:"0"`
+		Par                     int    `default:"32"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
@@ -257,6 +274,9 @@ type Configuration struct {
 	PProf struct {
 		IP   string `default:"localhost"`
 		Port string `default:"6060"`
+	}
+	BlockIndex struct {
+		CheckBlockIndex bool
 	}
 }
 
@@ -285,19 +305,15 @@ func CopyFile(src, des string) (w int64, err error) {
 
 // Validate validates configuration
 func (c Configuration) Validate() error {
-	//validate := validator.New(&validator.Config{TagName: "validate"})
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
 }
 
 func ExistDataDir(datadir string) bool {
 	_, err := os.Stat(datadir)
-	if err == nil {
-		return true
-	}
-	if os.IsExist(err) {
+	if err != nil && os.IsNotExist(err) {
 		return false
 	}
 
-	return false
+	return true
 }

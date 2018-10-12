@@ -86,7 +86,7 @@ func TestPowGetNextWorkRequired(t *testing.T) {
 
 	//TestNet3Params EDA will not happened
 	if model.ActiveNetParams.Name == model.TestNetParams.Name {
-		i := 1
+		var i int
 		for i = 1; i < 10; i++ {
 			blocks[i] = getBlockIndex(blocks[i-1], int64(model.ActiveNetParams.TargetTimePerBlock), initialBits)
 			acValue := pow.GetNextWorkRequired(blocks[i], &blkHeaderDummy, model.ActiveNetParams)
@@ -202,8 +202,7 @@ func TestPowGetNextCashWorkRequired(t *testing.T) {
 	blocks[0].ChainWork = *GetBlockProof(blocks[0])
 
 	// Block counter.
-	i := 0
-
+	var i int
 	// Pile up some blocks every 10 mins to establish some history.
 	for i = 1; i < 2050; i++ {
 		blocks[i] = getBlockIndex(blocks[i-1], 600, initialBits)

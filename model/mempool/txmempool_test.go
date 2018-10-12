@@ -2,6 +2,9 @@ package mempool
 
 import (
 	"fmt"
+	"math"
+	"testing"
+
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -11,8 +14,6 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/google/btree"
-	"math"
-	"testing"
 )
 
 type TestMemPoolEntry struct {

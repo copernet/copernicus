@@ -150,6 +150,10 @@ func fieldUsage(structField reflect.StructField, defaultVal *reflect.Value) stri
 
 	// Handle certain types uniquely to provide nicer usage.
 	fieldName := strings.ToLower(structField.Name)
+	if jsonTag := structField.Tag.Get("json"); jsonTag != "" {
+		tags := strings.Split(jsonTag, ",")
+		fieldName = tags[0]
+	}
 	switch fieldType.Kind() {
 	case reflect.String:
 		if defaultVal != nil {

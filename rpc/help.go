@@ -123,10 +123,9 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 	}
 
 	// Generate a list of one-line usage for every command.
-
 	usageTexts := make(map[string]*[]string)
 	for method, info := range allMethodHelp {
-		// Debug command si not been shown in help
+		// Debug command is not shown in help
 		if info.category == DebugCmd {
 			continue
 		}
@@ -141,10 +140,16 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 		*usageTexts[info.category] = append(*usageTexts[info.category], usage)
 	}
 
-	for categoryName, usageCategory := range usageTexts {
-		sort.Sort(sort.StringSlice(*usageCategory))
-		c.usage += "--- " + categoryName + " ---\n" +
-			strings.Join(*usageCategory, "\n") + "\n\n"
+	categories := make([]string, 0)
+	for category := range usageTexts {
+		categories = append(categories, category)
+	}
+	sort.Strings(categories)
+
+	for _, category := range categories {
+		sort.Strings(*usageTexts[category])
+		c.usage += "--- " + category + " ---\n" +
+			strings.Join(*usageTexts[category], "\n") + "\n\n"
 	}
 	return c.usage, nil
 }

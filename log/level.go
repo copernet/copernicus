@@ -19,7 +19,7 @@ var levelMap = map[string]int{
 	"debug":     logs.LevelDebug,
 }
 
-func getLevel(level string) int {
+func GetLevel(level string) int {
 	level = strings.ToLower(level)
 	ele, ok := levelMap[level]
 	if !ok {

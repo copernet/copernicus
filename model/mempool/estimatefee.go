@@ -499,7 +499,7 @@ func (b *estimateFeeSet) estimateFee(confirmations int) SatoshiPerByte {
 		return 0
 	}
 
-	var min, max int = 0, 0
+	var min, max int
 	for i := 0; i < confirmations-1; i++ {
 		min += int(b.bin[i])
 	}
