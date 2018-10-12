@@ -62,7 +62,8 @@ const (
 	connectionRetryInterval = time.Second * 5
 
 	// max blocks to announce during inventory relay
-	maxBlocksToAnnounce = 8
+	// increase the num in case cut out inv
+	maxBlocksToAnnounce = 10
 )
 
 var (
