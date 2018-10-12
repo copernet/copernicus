@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/script"
@@ -460,4 +461,5 @@ func setActiveNetAddressParams() {
 		PubKeyHashAddressVer: ActiveNetParams.PubKeyHashAddressID,
 		ScriptHashAddressVer: ActiveNetParams.ScriptHashAddressID,
 	})
+	crypto.InitPrivateKeyVersion(ActiveNetParams.PrivatekeyID)
 }

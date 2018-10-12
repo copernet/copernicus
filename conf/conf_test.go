@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -167,4 +170,146 @@ func TestExistDataDir(t *testing.T) {
 	if ExistDataDir(fileFalse) {
 		t.Errorf("the fileFalse file shouldn't exist!")
 	}
+}
+
+func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configuration {
+	defaultDataDir := AppDataDir(defaultDataDirname, false)
+
+	testnet := testNet
+	regTest := regTestNet
+	return &Configuration{
+		DataDir: dataDir,
+		RPC: struct {
+			RPCListeners         []string
+			RPCUser              string
+			RPCPass              string
+			RPCLimitUser         string
+			RPCLimitPass         string
+			RPCCert              string `default:""`
+			RPCKey               string
+			RPCMaxClients        int
+			RPCMaxWebsockets     int
+			RPCMaxConcurrentReqs int
+			RPCQuirks            bool
+		}{
+			RPCCert: filepath.Join(defaultDataDir, "rpc.cert"),
+			RPCKey:  filepath.Join(defaultDataDir, "rpc.key"),
+		},
+		Mempool: struct {
+			MinFeeRate           int64 //
+			LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
+			LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
+			LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
+			LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
+			MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+			MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+		}{
+			MaxPoolSize: 300000000,
+		},
+		P2PNet: struct {
+			ListenAddrs         []string `validate:"require" default:"1234"`
+			MaxPeers            int      `default:"128"`
+			TargetOutbound      int      `default:"8"`
+			ConnectPeersOnStart []string
+			DisableBanning      bool `default:"true"`
+			BanThreshold        uint32
+			TestNet             bool
+			RegTest             bool `default:"false"`
+			SimNet              bool
+			DisableListen       bool          `default:"true"`
+			BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
+			BanDuration         time.Duration // How long to ban misbehaving peers
+			Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
+			UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
+			DisableDNSSeed      bool          //Disable DNS seeding for peers
+			DisableRPC          bool          `default:"false"`
+			DisableTLS          bool          `default:"false"`
+			Whitelists          []*net.IPNet
+			NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
+			Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
+			ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+			//AddCheckpoints      []model.Checkpoint
+		}{
+			ListenAddrs:    []string{"1234"},
+			MaxPeers:       128,
+			TargetOutbound: 8,
+			DisableBanning: true,
+			DisableListen:  true,
+			BlocksOnly:     true,
+			DisableRPC:     false,
+			Upnp:           false,
+			DisableTLS:     false,
+			NoOnion:        true,
+			TestNet:        testnet,
+			RegTest:        regTest,
+		},
+		Protocol: struct {
+			NoPeerBloomFilters bool `default:"true"`
+			DisableCheckpoints bool `default:"true"`
+		}{NoPeerBloomFilters: true, DisableCheckpoints: true},
+		Script: struct {
+			AcceptDataCarrier   bool `default:"true"`
+			MaxDatacarrierBytes uint `default:"223"`
+			IsBareMultiSigStd   bool `default:"true"`
+			//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
+			PromiscuousMempoolFlags string `default:"0"`
+			Par                     int    `default:"32"`
+		}{
+			AcceptDataCarrier:       true,
+			MaxDatacarrierBytes:     223,
+			IsBareMultiSigStd:       true,
+			PromiscuousMempoolFlags: "0",
+			Par: 32,
+		},
+		TxOut: struct {
+			DustRelayFee int64 `default:"83"`
+		}{DustRelayFee: 83},
+		Chain: struct {
+			AssumeValid    string
+			StartLogHeight int32 `default:"2147483647"`
+		}{StartLogHeight: 2147483647},
+		Mining: struct {
+			BlockMinTxFee int64  // default DefaultBlockMinTxFee
+			BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
+			BlockVersion  int32  `default:"-1"`
+			Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
+		}{
+			BlockVersion: -1,
+			Strategy:     "ancestorfeerate",
+		},
+		PProf: struct {
+			IP   string `default:"localhost"`
+			Port string `default:"6060"`
+		}{IP: "localhost", Port: "6060"},
+		AddrMgr: struct {
+			SimNet       bool
+			ConnectPeers []string
+		}{SimNet: false},
+	}
+}
+
+func TestInitConfig2(t *testing.T) {
+	//tests := []struct {
+	//	in   []string
+	//	want *Configuration
+	//}{
+	//	{[]string{"--datadir=/tmp/Coper"}, getDefaultConfiguration("/tmp/Coper", false, false)},
+	//	//{[]string{"--datadir=/tmp/Coper", "--testnet"}, getDefaultConfiguration("/tmp/Coper", true, false)},
+	//	//{[]string{"--datadir=/tmp/Coper", "--regtest"}, getDefaultConfiguration("/tmp/Coper", false, true)},
+	//}
+	//
+	//file, err := os.Create("/tmp/Coper/conf.yml")
+	//if err != nil {
+	//	t.Error("create file error")
+	//}
+	//defer file.Close()
+	//defer os.Remove("/tmp/Coper/conf.yml")
+	//
+	//for i, v := range tests {
+	//	value := v
+	//	result := InitConfig(value.in)
+	//	if !reflect.DeepEqual(result, value.want) {
+	//		t.Errorf(" %d it not expect", i)
+	//	}
+	//}
 }
