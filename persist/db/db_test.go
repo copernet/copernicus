@@ -41,6 +41,20 @@ func testdbw(t *testing.T, dbw *DBWrapper, obfuscate bool) {
 	if !bytes.Equal(in, val) {
 		t.Fatalf("should read back original data")
 	}
+
+	key1 := []byte{'m'}
+	in1 := rand256()
+	if err := dbw.Write(key1, in1, false); err != nil {
+		t.Fatalf("dbw.Write(): %s", err)
+	}
+	err = dbw.Erase(key1, false)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	val1, err := dbw.Read(key1)
+	if val1 != nil && err != nil {
+		t.Error(err.Error())
+	}
 }
 
 func TestDBWrapper(t *testing.T) {
@@ -110,6 +124,10 @@ func TestDBWrapperBatch(t *testing.T) {
 		batch.Write(key2, in2)
 		batch.Write(key3, in3)
 
+		if batch.SizeEstimate() != 783 {
+			t.Fatalf("SizeEstimate failed: %d\n", batch.SizeEstimate())
+		}
+
 		batch.Erase(key3)
 		dbw.WriteBatch(batch, false)
 
@@ -131,6 +149,10 @@ func TestDBWrapperBatch(t *testing.T) {
 
 		if dbw.Exists(key3) {
 			t.Fatalf("shouldn't read out key 'k' value")
+		}
+		batch.Clear()
+		if batch.SizeEstimate() != 0 {
+			t.Fatalf("batch clear failed.")
 		}
 	}
 }
@@ -157,6 +179,13 @@ func testIterator(t *testing.T, dbw *DBWrapper) {
 	}
 	if !bytes.Equal(iter.GetVal(), in) {
 		t.Fatalf("iter.GetVal() should read back key 'j' value")
+	}
+	if iter.GetKeySize() != 1 {
+		t.Fatalf("iter.GetKeySize() should equal 1 .")
+	}
+
+	if iter.GetValSize() != 256 {
+		t.Fatalf("iter.GetValSize() should equal 256 .")
 	}
 
 	iter.Next()
