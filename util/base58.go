@@ -183,7 +183,7 @@ func trezorBase58Encode(data []byte) string {
 	// log(256,10)/log(58,10)
 	size := (ndata-zcount)*137/100 + 1
 	high := size - 1
-	j := size - 1
+	var j int
 	i := zcount
 	buf := make([]byte, size)
 
@@ -229,7 +229,7 @@ func trezorBase58Decode(str string) ([]byte, error) {
 	// log(58, 10)/log(256, 10)
 	size := (nstr-zcount)*733/1000 + 1
 	high := size - 1
-	j := size - 1
+	var j int
 	i := zcount
 	buf := make([]byte, size)
 

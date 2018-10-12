@@ -131,7 +131,7 @@ func TestBase58EncodeAndDecode(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := bigintBase58Decode(bigintBase58Encode(buf))
+		data, _ := bigintBase58Decode(bigintBase58Encode(buf))
 		if !bytes.Equal(buf, data) {
 			t.Fatalf("expect %x got %x", buf, data)
 		}
@@ -144,7 +144,7 @@ func TestBase58EncodeAndDecode(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := bigintBase58Decode(bigintBase58Encode(zerobuf))
+		data, _ := bigintBase58Decode(bigintBase58Encode(zerobuf))
 		if !bytes.Equal(zerobuf, data) {
 			t.Fatalf("expect %x got %x", zerobuf, data)
 		}
@@ -157,7 +157,7 @@ func TestBase58EncodeAndDecode(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := trezorBase58Decode(trezorBase58Encode(buf))
+		data, _ := trezorBase58Decode(trezorBase58Encode(buf))
 		if !bytes.Equal(buf, data) {
 			t.Fatalf("expect %x got %x", buf, data)
 		}
@@ -170,7 +170,7 @@ func TestBase58EncodeAndDecode(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := trezorBase58Decode(trezorBase58Encode(zerobuf))
+		data, _ := trezorBase58Decode(trezorBase58Encode(zerobuf))
 		if !bytes.Equal(zerobuf, data) {
 			t.Fatalf("expect %x got %x", zerobuf, data)
 		}
@@ -209,12 +209,12 @@ func TestBase58EncodeAndDecodeFuzzy(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		data, err := bigintBase58Decode(bigintBase58Encode(buf))
+		data, _ := bigintBase58Decode(bigintBase58Encode(buf))
 		if !bytes.Equal(buf, data) {
 			t.Fatalf("expect %x got %x", buf, data)
 		}
 
-		data, err = trezorBase58Decode(trezorBase58Encode(buf))
+		data, _ = trezorBase58Decode(trezorBase58Encode(buf))
 		if !bytes.Equal(buf, data) {
 			t.Fatalf("expect %x got %x", buf, data)
 		}
