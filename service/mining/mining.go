@@ -3,7 +3,6 @@ package mining
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"math"
 	"strconv"
 	"sync"
@@ -327,7 +326,6 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	p := pow.Pow{}
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
-	ba.bt.Block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(ba.bt.Block.Txs, nil)
 
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 

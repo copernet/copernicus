@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"math/big"
 	"math/rand"
 
@@ -561,6 +562,8 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 				Message: "Could not create new block",
 			}
 		}
+
+		bt.Block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bt.Block.Txs, nil)
 
 		powCheck := pow.Pow{}
 		bits := bt.Block.Header.Bits
