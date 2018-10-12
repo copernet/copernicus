@@ -289,7 +289,7 @@ func TestCashPayToAddrScript(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	pkScript, err := cashPayToAddrScript(addr)
+	pkScript, err := CashPayToAddrScript(addr)
 	if err != nil {
 		t.Error(err)
 	}
@@ -301,7 +301,7 @@ func TestCashPayToAddrScript(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	p2pkhScript, err := cashPayToAddrScript(addr1)
+	p2pkhScript, err := CashPayToAddrScript(addr1)
 	if err != nil {
 		t.Error(err)
 	}

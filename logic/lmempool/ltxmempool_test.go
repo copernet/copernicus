@@ -4,7 +4,9 @@ import (
 	"sync"
 	"time"
 
+	"encoding/hex"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	lmempool "github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -15,7 +17,11 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/util/cashaddr"
 	"math"
+	"math/rand"
+	"runtime"
+	"testing"
 )
 
 type fakeChain struct {
@@ -30,17 +36,17 @@ func (s *fakeChain) FetchUtxoView(tx *tx.Tx) (*utxo.CoinsMap, error) {
 	defer s.RUnlock()
 
 	viewpoint := utxo.NewEmptyCoinsMap()
-	prevOut := outpoint.OutPoint{Hash: *tx.Hash()}
-	for txOutIdx := 0; i < tx.GetOutsCount(); i++ {
+	prevOut := &outpoint.OutPoint{Hash: tx.GetHash()}
+	for txOutIdx := 0; txOutIdx < tx.GetOutsCount(); txOutIdx++ {
 		prevOut.Index = uint32(txOutIdx)
 		entry := s.utxos.GetCoin(prevOut)
-		viewpoint.GetMap()[prevOut] = entry.DeepCopy()
+		viewpoint.GetMap()[*prevOut] = entry.DeepCopy()
 	}
 
 	for txInIdx := 0; txInIdx < tx.GetInsCount(); txInIdx++ {
 		txIn := tx.GetTxIn(txInIdx)
 		entry := s.utxos.GetCoin(txIn.PreviousOutPoint)
-		viewpoint.GetMap()[txIn.PreviousOutPoint] = entry.DeepCopy()
+		viewpoint.GetMap()[*txIn.PreviousOutPoint] = entry.DeepCopy()
 	}
 
 	return viewpoint, nil
@@ -76,14 +82,14 @@ func (s *fakeChain) SetMedianTimePast(mtp time.Time) {
 
 // CalcSequenceLock returns the current sequence lock for the passed
 // transaction associated with the fake chain instance.
-func (s *fakeChain) CalcSequenceLock(tx *tx.Tx,
-	view *utxo.CoinsMap) (*blockchain.SequenceLock, error) {
+// func (s *fakeChain) CalcSequenceLock(tx *tx.Tx,
+// 	view *utxo.CoinsMap) (*blockchain.SequenceLock, error) {
 
-	return &blockchain.SequenceLock{
-		Seconds:     -1,
-		BlockHeight: -1,
-	}, nil
-}
+// 	return &blockchain.SequenceLock{
+// 		Seconds:     -1,
+// 		BlockHeight: -1,
+// 	}, nil
+// }
 
 // spendableOutput is a convenience type that houses a particular utxo and the
 // amount associated with it.
@@ -97,8 +103,8 @@ type spendableOutput struct {
 // transactions.
 func txOutToSpendableOut(tx *tx.Tx, outputNum uint32) spendableOutput {
 	return spendableOutput{
-		outPoint: outpoint.OutPoint{Hash: *tx.Hash(), Index: outputNum},
-		amount:   amount.Amount(tx.GetTxOut(outputNum).GetValue()),
+		outPoint: outpoint.OutPoint{Hash: tx.GetHash(), Index: outputNum},
+		amount:   amount.Amount(tx.GetTxOut(int(outputNum)).GetValue()),
 	}
 }
 
@@ -111,13 +117,16 @@ type poolHarness struct {
 	//
 	// payAddr is the p2sh address for the signing key and is used for the
 	// payment address throughout the tests.
-	signKey     *crypto.PrivateKey
-	payAddr     *script.Address
+	signKey crypto.PrivateKey
+	//payAddr     *script.Address
+	payAddr     cashaddr.Address
 	payScript   []byte
 	chainParams *model.BitcoinParams
 
 	chain  *fakeChain
 	txPool *lmempool.TxMempool
+
+	keys map[string]*crypto.PrivateKey
 }
 
 // CreateCoinbaseTx returns a coinbase transaction with the requested number of
@@ -131,32 +140,29 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*t
 	coinbaseScript := script.NewEmptyScript()
 	coinbaseScript.PushInt64(int64(blockHeight))
 	coinbaseScript.PushInt64(extraNonce)
-	if err != nil {
-		return nil, err
-	}
 
 	tx := tx.NewTx(0, tx.TxVersion)
-	tx.AddTxIn(&txin.TxIn{
+	tx.AddTxIn(txin.NewTxIn(
 		// Coinbase transactions have no inputs, so previous outpoint is
 		// zero hash and max index.
-		PreviousOutPoint: *outpoint.NewOutPoint(&util.Hash{}, math.MaxUint32),
-		SignatureScript:  coinbaseScript,
-		Sequence:         math.MaxUint32,
-	})
+		outpoint.NewOutPoint(util.Hash{}, math.MaxUint32),
+		coinbaseScript,
+		math.MaxUint32,
+	))
 	totalInput := model.GetBlockSubsidy(blockHeight, p.chainParams)
-	amountPerOutput := totalInput / int64(numOutputs)
-	remainder := totalInput - amountPerOutput*int64(numOutputs)
+	amountPerOutput := int64(totalInput) / int64(numOutputs)
+	remainder := int64(totalInput) - amountPerOutput*int64(numOutputs)
 	for i := uint32(0); i < numOutputs; i++ {
 		// Ensure the final output accounts for any remainder that might
 		// be left from splitting the input amount.
-		amount := amountPerOutput
+		amount1 := amountPerOutput
 		if i == numOutputs-1 {
-			amount = amountPerOutput + remainder
+			amount1 = amountPerOutput + remainder
 		}
-		tx.AddTxOut(&txout.TxOut{
-			PkScript: p.payScript,
-			Value:    amount,
-		})
+		tx.AddTxOut(txout.NewTxOut(
+			amount.Amount(amount1),
+			script.NewScriptRaw(p.payScript),
+		))
 	}
 
 	return tx, nil
@@ -179,29 +185,30 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 	tx := tx.NewTx(0, tx.TxVersion)
 	for _, input := range inputs {
 		tx.AddTxIn(txin.NewTxIn(
-			input.outPoint,
+			&input.outPoint,
 			nil,
 			math.MaxUint32))
 	}
 	for i := uint32(0); i < numOutputs; i++ {
 		// Ensure the final output accounts for any remainder that might
 		// be left from splitting the input amount.
-		amount := amountPerOutput
+		amount1 := amountPerOutput
 		if i == numOutputs-1 {
-			amount = amountPerOutput + remainder
+			amount1 = amountPerOutput + remainder
 		}
-		tx.AddTxOut(txout.NewTxOut(amount, script.NewScriptRaw(p.payScript)))
+		tx.AddTxOut(txout.NewTxOut(amount.Amount(amount1), script.NewScriptRaw(p.payScript)))
 	}
 
 	// Sign the new transaction.
-	for i := range tx.TxIn {
-		sigScript, err := txscript.SignatureScript(tx, i, p.payScript,
-			txscript.SigHashAll, p.signKey, true)
-		if err != nil {
-			return nil, err
-		}
-		tx.TxIn[i].SignatureScript = sigScript
-	}
+	// for i := range tx.TxIn {
+	// 	sigScript, err := txscript.SignatureScript(tx, i, p.payScript,
+	// 		txscript.SigHashAll, p.signKey, true)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	tx.TxIn[i].SignatureScript = sigScript
+	// }
+	ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll)
 
 	return tx, nil
 }
@@ -210,40 +217,60 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 // transaction spends the entire amount from the previous one) with the first
 // one spending the provided outpoint.  Each transaction spends the entire
 // amount of the previous one and as such does not include any fees.
-func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32) ([]*btcutil.Tx, error) {
-	txChain := make([]*btcutil.Tx, 0, numTxns)
+func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32) ([]*tx.Tx, error) {
+	txChain := make([]*tx.Tx, 0, numTxns)
 	prevOutPoint := firstOutput.outPoint
 	spendableAmount := firstOutput.amount
 	for i := uint32(0); i < numTxns; i++ {
 		// Create the transaction using the previous transaction output
 		// and paying the full amount to the payment address associated
 		// with the harness.
-		tx := wire.NewMsgTx(wire.TxVersion)
-		tx.AddTxIn(&wire.TxIn{
-			PreviousOutPoint: prevOutPoint,
-			SignatureScript:  nil,
-			Sequence:         wire.MaxTxInSequenceNum,
-		})
-		tx.AddTxOut(&wire.TxOut{
-			PkScript: p.payScript,
-			Value:    int64(spendableAmount),
-		})
+		tx := tx.NewTx(0, tx.TxVersion)
+		tx.AddTxIn(txin.NewTxIn(
+			&prevOutPoint,
+			nil,
+			math.MaxUint32,
+		))
+		tx.AddTxOut(txout.NewTxOut(
+			spendableAmount,
+			script.NewScriptRaw(p.payScript),
+		))
 
 		// Sign the new transaction.
-		sigScript, err := txscript.SignatureScript(tx, 0, p.payScript,
-			txscript.SigHashAll, p.signKey, true)
+		// sigScript, err := txscript.SignatureScript(tx, 0, p.payScript,
+		// 	txscript.SigHashAll, p.signKey, true)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// tx.TxIn[0].SignatureScript = sigScript
+		err := ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
-		tx.TxIn[0].SignatureScript = sigScript
-
-		txChain = append(txChain, btcutil.NewTx(tx))
+		txChain = append(txChain, tx)
 
 		// Next transaction uses outputs from this one.
-		prevOutPoint = wire.OutPoint{Hash: tx.TxHash(), Index: 0}
+		prevOutPoint = outpoint.OutPoint{Hash: tx.GetHash(), Index: 0}
 	}
 
 	return txChain, nil
+}
+
+func NewPrivateKey() crypto.PrivateKey {
+	var keyBytes []byte
+	for i := 0; i < 32; i++ {
+		keyBytes = append(keyBytes, byte(rand.Uint32()%256))
+	}
+	return *crypto.PrivateKeyFromBytes(keyBytes)
+}
+
+func generateKeys(keyBytes []byte) (crypto.PrivateKey, crypto.PublicKey) {
+	// var keyBytes []byte
+	// for i := 0; i < 32; i++ {
+	// 	keyBytes = append(keyBytes, byte(rand.Uint32()%256))
+	// }
+	privKey := *crypto.PrivateKeyFromBytes(keyBytes)
+	return privKey, *privKey.PubKey()
 }
 
 // newPoolHarness returns a new instance of a pool harness initialized with a
@@ -251,30 +278,34 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 // for testing.  Also, the fake chain is populated with the returned spendable
 // outputs so the caller can easily create new valid transactions which build
 // off of it.
-func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutput, error) {
+func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendableOutput, error) {
 	// Use a hard coded key pair for deterministic results.
 	keyBytes, err := hex.DecodeString("700868df1838811ffbdf918fb482c1f7e" +
 		"ad62db4b97bd7012c23e726485e577d")
 	if err != nil {
 		return nil, nil, err
 	}
-	signKey, signPub := btcec.PrivKeyFromBytes(btcec.S256(), keyBytes)
+	//signKey, signPub := btcec.PrivKeyFromBytes(btcec.S256(), keyBytes)
+	signKey, signPub := generateKeys(keyBytes)
 
 	// Generate associated pay-to-script-hash address and resulting payment
 	// script.
 	pubKeyBytes := signPub.SerializeCompressed()
-	payPubKeyAddr, err := btcutil.NewAddressPubKey(pubKeyBytes, chainParams)
+	//payPubKeyAddr, err := btcutil.NewAddressPubKey(pubKeyBytes, chainParams)
+	var payAddr cashaddr.Address
+	payAddr, err = cashaddr.NewCashAddressPubKeyHash(util.Hash160(pubKeyBytes), chainParams)
 	if err != nil {
 		return nil, nil, err
 	}
-	payAddr := payPubKeyAddr.AddressPubKeyHash()
-	pkScript, err := txscript.PayToAddrScript(payAddr)
+	// payAddr := payPubKeyAddr.AddressPubKeyHash()
+	// pkScript, err := txscript.PayToAddrScript(payAddr)
+	pkScript, err := cashaddr.CashPayToAddrScript(payAddr)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Create a new fake chain and harness bound to it.
-	chain := &fakeChain{utxos: blockchain.NewUtxoViewpoint()}
+	chain := &fakeChain{utxos: utxo.NewEmptyCoinsMap()}
 	harness := poolHarness{
 		signKey:     signKey,
 		payAddr:     payAddr,
@@ -283,7 +314,10 @@ func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutp
 
 		chain:  chain,
 		txPool: lmempool.NewTxMempool(),
+		keys:   make(map[string]*crypto.PrivateKey),
 	}
+
+	harness.keys[string(signPub.ToHash160())] = &signKey
 
 	// Create a single coinbase transaction and add it to the harness
 	// chain's utxo set and set the harness chain height such that the
@@ -297,7 +331,12 @@ func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutp
 	if err != nil {
 		return nil, nil, err
 	}
-	harness.chain.utxos.AddTxOuts(coinbase, curHeight+1)
+	//harness.chain.utxos.AddTxOuts(coinbase, curHeight+1)
+	for outIdx := 0; outIdx < coinbase.GetOutsCount(); outIdx++ {
+		harness.chain.utxos.AddCoin(outpoint.NewOutPoint(coinbase.GetHash(), uint32(outIdx)),
+			utxo.NewCoin(coinbase.GetTxOut(outIdx), curHeight+1, true),
+			false)
+	}
 	for i := uint32(0); i < numOutputs; i++ {
 		outputs = append(outputs, txOutToSpendableOut(coinbase, i))
 	}
@@ -319,23 +358,21 @@ type testContext struct {
 // orphan pool and transaction pool status.  It also further determines if it
 // should be reported as available by the HaveTransaction function based upon
 // the two flags and tests that condition as well.
-func testPoolMembership(tc *testContext, tx *btcutil.Tx, inOrphanPool, inTxPool bool) {
-	txHash := tx.Hash()
-	gotOrphanPool := tc.harness.txPool.IsOrphanInPool(txHash)
+func testPoolMembership(tc *testContext, tx *tx.Tx, inOrphanPool, inTxPool bool) {
+	gotOrphanPool := tc.harness.txPool.IsOrphanInPool(tx)
 	if inOrphanPool != gotOrphanPool {
 		_, file, line, _ := runtime.Caller(1)
 		tc.t.Fatalf("%s:%d -- IsOrphanInPool: want %v, got %v", file,
 			line, inOrphanPool, gotOrphanPool)
 	}
 
-	gotTxPool := tc.harness.txPool.IsTransactionInPool(txHash)
+	gotTxPool := tc.harness.txPool.IsTransactionInPool(tx)
 	if inTxPool != gotTxPool {
 		_, file, line, _ := runtime.Caller(1)
 		tc.t.Fatalf("%s:%d -- IsTransactionInPool: want %v, got %v",
 			file, line, inTxPool, gotTxPool)
 	}
-
-	gotHaveTx := tc.harness.txPool.HaveTransaction(txHash)
+	gotHaveTx := tc.harness.txPool.HaveTransaction(tx)
 	wantHaveTx := inOrphanPool || inTxPool
 	if wantHaveTx != gotHaveTx {
 		_, file, line, _ := runtime.Caller(1)
@@ -352,7 +389,7 @@ func testPoolMembership(tc *testContext, tx *btcutil.Tx, inOrphanPool, inTxPool 
 func TestSimpleOrphanChain(t *testing.T) {
 	t.Parallel()
 
-	harness, spendableOuts, err := newPoolHarness(&chaincfg.MainNetParams)
+	harness, spendableOuts, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
 		t.Fatalf("unable to create test pool: %v", err)
 	}
@@ -761,7 +798,7 @@ func TestMultiInputOrphanDoubleSpend(t *testing.T) {
 func TestCheckSpend(t *testing.T) {
 	t.Parallel()
 
-	harness, outputs, err := newPoolHarness(&chaincfg.MainNetParams)
+	harness, outputs, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
 		t.Fatalf("unable to create test pool: %v", err)
 	}

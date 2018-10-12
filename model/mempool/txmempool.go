@@ -723,6 +723,20 @@ func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
 	}
 }
 
+func (m *TxMempool) IsTransactionInPool(tx *tx.Tx) bool {
+	_, exists := m.poolData[tx.GetHash()]
+	return exists
+}
+
+func (m *TxMempool) IsOrphanInPool(tx *tx.Tx) bool {
+	_, exists := m.OrphanTransactions[tx.GetHash()]
+	return exists
+}
+
+func (m *TxMempool) HaveTransaction(tx *tx.Tx) bool {
+	return m.IsTransactionInPool(tx) || m.IsOrphanInPool(tx)
+}
+
 func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 
 	if orphanTx, ok := m.OrphanTransactions[txHash]; ok {
