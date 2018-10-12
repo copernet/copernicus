@@ -265,7 +265,8 @@ func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 		i++
 	}
 	readTime := time.Since(t1)
-	timeFile.WriteString("height: " + strconv.Itoa(stat.height) + ", read " + strconv.Itoa(i) + " utxos from db with time: " + readTime.String() + "\n")
+	timeFile.WriteString("height: " + strconv.Itoa(stat.height) + ", read " + strconv.Itoa(i) +
+		" utxos size: " + strconv.Itoa(len(content)) + "bytes from db with time: " + readTime.String() + "\n")
 	t2 := time.Now()
 	copy(stat.hashSerialized[:], util.Sha256Bytes(content))
 	sha256Time := time.Since(t2)

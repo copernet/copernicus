@@ -16,7 +16,7 @@ const (
 	ScriptToAddress    = 5
 )
 
-var activeNetAddressParam = &AddressParam {
+var activeNetAddressParam = &AddressParam{
 	PubKeyHashAddressVer: PublicKeyToAddress,
 	ScriptHashAddressVer: ScriptToAddress,
 }
