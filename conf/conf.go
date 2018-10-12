@@ -153,7 +153,7 @@ func InitConfig(args []string) *Configuration {
 	return config
 }
 
-func createFile(Datadir string) {
+func createFile(DataDir string) {
 	if !ExistDataDir(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
