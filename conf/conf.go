@@ -305,7 +305,6 @@ func CopyFile(src, des string) (w int64, err error) {
 
 // Validate validates configuration
 func (c Configuration) Validate() error {
-	//validate := validator.New(&validator.Config{TagName: "validate"})
 	validate := validator.New(&validator.Config{TagName: "validate"})
 	return validate.Struct(c)
 }

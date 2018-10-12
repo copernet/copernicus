@@ -1,6 +1,8 @@
 package conf
 
-import "testing"
+import (
+	"testing"
+)
 
 var args = []string{
 	"--datadir=/test",
@@ -11,19 +13,29 @@ var args = []string{
 var empty []string
 
 func TestInitArgs(t *testing.T) {
-
 	opts, err := InitArgs(args)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	// if opts.Discover != 1 {
-	// 	t.Errorf("format error  discover is %d", opts.Discover)
-	// }
 	if opts.DataDir != "/test" {
-		t.Errorf("format error ")
+		t.Errorf("format DataDir error ")
 	}
 
+	if !opts.RegTest {
+		t.Errorf("format RegTest error ")
+	}
+
+	if !opts.TestNet {
+		t.Errorf("format TestNet error ")
+	}
+
+	// test args error case
+	argsErr := []string{"-err"}
+	_, err = InitArgs(argsErr)
+	if err == nil {
+		t.Error(err.Error())
+	}
 }
 
 func TestOpts_String(t *testing.T) {
