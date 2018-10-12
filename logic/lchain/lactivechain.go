@@ -430,7 +430,8 @@ func CheckBlockIndex() error {
 			if ok {
 				siblingNumber := len(siblingNodes)
 				i := 0
-				for i, value := range siblingNodes {
+				var value *blockindex.BlockIndex
+				for i, value = range siblingNodes {
 					if value == pindex {
 						if i+1 < siblingNumber {
 							// Move to the sibling.
@@ -443,6 +444,8 @@ func CheckBlockIndex() error {
 					// Move up further
 					pindex = pindexPar
 					nHeight--
+				} else {
+					break
 				}
 			} else {
 				return errors.New("will never go here")
