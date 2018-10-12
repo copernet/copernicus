@@ -43,8 +43,8 @@ var miscHandlers = map[string]commandHandler{
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	best := chain.GetInstance().Tip()
 	var height int32
-	if best == nil {
-		height = 0
+	if best != nil {
+		height = best.Height
 	}
 
 	request := &service.GetConnectionCountRequest{}
