@@ -17,11 +17,17 @@ const (
 	DumpedPrivateKeyVersion = 128
 )
 
+var activeNetPrivateKeyVer byte = DumpedPrivateKeyVersion
+
+func InitPrivateKeyVersion(privateKeyVer byte) {
+	activeNetPrivateKeyVer = privateKeyVer
+}
+
 func NewPrivateKeyFromBytes(data []byte, compressed bool) *PrivateKey {
 	return &PrivateKey{
 		bytes:      data,
 		compressed: compressed,
-		version:    DumpedPrivateKeyVersion,
+		version:    activeNetPrivateKeyVer,
 	}
 }
 
@@ -30,7 +36,7 @@ func PrivateKeyFromBytes(privateKeyBytes []byte) *PrivateKey {
 	privateKey := PrivateKey{
 		//D:         new(big.Int).SetBytes(privateKeyBytes),
 		bytes:   privateKeyBytes,
-		version: DumpedPrivateKeyVersion,
+		version: activeNetPrivateKeyVer,
 	}
 	return &privateKey
 }
@@ -83,7 +89,7 @@ func DecodePrivateKey(encoded string) (*PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	if version != DumpedPrivateKeyVersion {
+	if version != activeNetPrivateKeyVer {
 		return nil, errors.Errorf("Mismatched version number ,trying to cross network , got version is %d", version)
 	}
 	var compressed bool

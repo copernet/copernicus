@@ -90,3 +90,16 @@ func TestEncodePrivateKey(t *testing.T) {
 	}
 
 }
+
+func TestInitPrivateKeyVersion(t *testing.T) {
+	InitPrivateKeyVersion(39)
+	privateKey := PrivateKeyFromBytes([]byte{})
+	if privateKey.version != 39 {
+		t.Errorf("TestInitAddressParam test failed, privateKeyVer(%v) not init", privateKey.version)
+	}
+	InitPrivateKeyVersion(DumpedPrivateKeyVersion)
+	privateKey = PrivateKeyFromBytes([]byte{})
+	if privateKey.version != DumpedPrivateKeyVersion {
+		t.Errorf("TestInitAddressParam test failed, privateKeyVer(%v) not init", privateKey.version)
+	}
+}
