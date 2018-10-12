@@ -12,6 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
+	"os"
 )
 
 func initBlockDB() {
@@ -19,6 +20,7 @@ func initBlockDB() {
 	if err != nil {
 		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
 	}
+	defer os.Remove(path)
 	bc := &BlockTreeDBConfig{
 		Do: &db.DBOption{
 			FilePath:  path,
@@ -241,5 +243,49 @@ func TestWriteBatchSync(t *testing.T) {
 
 	if !reflect.DeepEqual(blkidxMap[*hhash], blkidx) {
 		t.Error("the blkidxMap should equal blkidx, please check")
+	}
+}
+
+func createBlkIdx() *blockindex.BlockIndex {
+	blkHeader := block.NewBlockHeader()
+	blkHeader.Time = uint32(1534822771)
+	blkHeader.Version = 536870912
+	blkHeader.Bits = 486604799
+	preHash := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	merkleRoot := util.HashFromString("7e814211a7de289a490380c0c20353e0fd4e62bf55a05b38e1628e0ea0b4fd3d")
+	blkHeader.HashPrevBlock = *preHash
+	blkHeader.Nonce = 1391785674
+	blkHeader.MerkleRoot = *merkleRoot
+	//init block index
+	blkidx := blockindex.NewBlockIndex(blkHeader)
+	return blkidx
+}
+
+func TestInsertBlockIndex(t *testing.T) {
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	blkidxMap1 := make(map[util.Hash]*blockindex.BlockIndex)
+
+	index := createBlkIdx()
+	blkidxMap1[*hash1] = index
+	blkIdx := insertBlockIndex(*hash1, blkidxMap1)
+	if blkIdx != index {
+		t.Errorf("the blkIdx:%v should equal index:%v", blkIdx, index)
+	}
+
+	hash2 := util.HashZero
+	if !hash2.IsNull() {
+		t.Errorf("the hash:%v should is null", hash2)
+	}
+
+	blkIdx = insertBlockIndex(hash2, blkidxMap1)
+	if blkIdx != nil {
+		t.Errorf("the blkIdx:%v should equal nil", blkIdx)
+	}
+
+	blkidxMap1 = make(map[util.Hash]*blockindex.BlockIndex)
+	blkIdx = insertBlockIndex(*hash1, blkidxMap1)
+	idx := blockindex.NewBlockIndex(block.NewBlockHeader())
+	if !reflect.DeepEqual(idx, blkIdx) {
+		t.Errorf("the blkIdx:%v should equal idx:%v", blkIdx, idx)
 	}
 }
