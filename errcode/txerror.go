@@ -5,7 +5,6 @@ import "fmt"
 type TxErr int
 
 const (
-	TxErrRejectObsolete        TxErr = 0x11
 	TxErrRejectDuplicate       TxErr = 0x12
 	TxErrRejectNonstandard     TxErr = 0x40
 	TxErrRejectDust            TxErr = 0x41
@@ -23,7 +22,6 @@ const (
 )
 
 var txErrorToString = map[TxErr]string{
-	TxErrRejectObsolete:        "TxErrRejectObsolete",
 	TxErrRejectDuplicate:       "TxErrRejectDuplicate",
 	TxErrRejectNonstandard:     "TxErrRejectNonstandard",
 	TxErrRejectDust:            "TxErrRejectDust",

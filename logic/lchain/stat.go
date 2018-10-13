@@ -240,12 +240,12 @@ func (tc *utxoTaskControl) startUtxoTask() {
 				case <-tc.done:
 					return
 				case arg := <-tc.utxoTask:
-					t1 := time.Now()
+					//t1 := time.Now()
 					utxoStat(arg.iter, arg.stat, tc.utxoResult)
-					statElasped := time.Since(t1)
-					if _, err := timeFile.WriteString("height: " + strconv.Itoa(arg.stat.height) + ", stat time: " + statElasped.String() + "\n"); err != nil {
-						panic("write file failed")
-					}
+					//statElasped := time.Since(t1)
+					//if _, err := timeFile.WriteString("height: " + strconv.Itoa(arg.stat.height) + ", stat time: " + statElasped.String() + "\n"); err != nil {
+					//	panic("write file failed")
+					//}
 				}
 			}
 		}()
@@ -254,29 +254,75 @@ func (tc *utxoTaskControl) startUtxoTask() {
 
 func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 	defer iter.Close()
-	t1 := time.Now()
-	var content []byte
-	i := 0
-	for ; iter.Valid(); iter.Next() {
-		//content = iter.GetKey()
-		//content = iter.GetVal()
-		content = append(content, iter.GetKey()...)
-		content = append(content, iter.GetVal()...)
+
+	tStatStart := time.Now()
+
+	h := sha256.New()
+	var key []byte
+	var value []byte
+	var tReadElasp time.Duration
+	var tSha256Elasp time.Duration
+	var tIterValidElasp time.Duration
+	var tIterNextElasp time.Duration
+
+	var dataSize int
+	var i int
+
+	for {
+		tIterValidStart := time.Now()
+		if !iter.Valid() {
+			break
+		}
+		tIterValidElasp += time.Since(tIterValidStart)
+		tReadStart := time.Now()
+		key = iter.GetKey()
+		value = iter.GetVal()
+		tReadElasp += time.Since(tReadStart)
+
+		dataSize += len(key) + len(value)
+
+		tSha256Start := time.Now()
+		h.Write(key)
+		h.Write(value)
+		tSha256Elasp += time.Since(tSha256Start)
+
+		tIterNextStart := time.Now()
+		iter.Next()
+		tIterNextElasp += time.Since(tIterNextStart)
+
 		i++
 	}
-	readTime := time.Since(t1)
-	timeFile.WriteString("height: " + strconv.Itoa(stat.height) + ", read " + strconv.Itoa(i) +
-		" utxos size: " + strconv.Itoa(len(content)) + "bytes from db with time: " + readTime.String() + "\n")
-	t2 := time.Now()
-	copy(stat.hashSerialized[:], util.Sha256Bytes(content))
-	sha256Time := time.Since(t2)
-	timeFile.WriteString("height: " + strconv.Itoa(stat.height) + ", sha256 utxos time: " + sha256Time.String() + "\n")
-	//h := sha256.New()
-	//h.Write(stat.bestblock[:])
+
 	//for ; iter.Valid(); iter.Next() {
+	//	//tReadStart := time.Now()
+	//	//key = iter.GetKey()
+	//	//value = iter.GetVal()
+	//	//tReadElasp += time.Since(tReadStart)
+	//	//
+	//	//dataSize += len(key) + len(value)
+	//	//
+	//	//tSha256Start := time.Now()
+	//	//h.Write(key)
+	//	//h.Write(value)
+	//	//tSha256Elasp += time.Since(tSha256Start)
+	//	tSha256Start := time.Now()
 	//	h.Write(iter.GetKey())
 	//	h.Write(iter.GetVal())
+	//	tSha256Elasp += time.Since(tSha256Start)
+	//
+	//	i++
 	//}
-	//copy(stat.hashSerialized[:], h.Sum(nil))
+
+	tSha256SumStart := time.Now()
+	copy(stat.hashSerialized[:], h.Sum(nil))
+	tSha256Elasp += time.Since(tSha256SumStart)
+
+	totalStatTime := time.Since(tStatStart)
+
+	timeFile.WriteString(time.Now().String() + ", height: " + strconv.Itoa(stat.height) + ", count: " + strconv.Itoa(i) +
+		", size: " + strconv.Itoa(dataSize) + " bytes, read time: " + tReadElasp.String() + ", sha256 time: " +
+		tSha256Elasp.String() + ", iter valid time: " + tIterValidElasp.String() + ", iter next time: " +
+		tIterNextElasp.String() + ", total time:" + totalStatTime.String() + "\n")
+	timeFile.Sync()
 	res <- stat.String()
 }
