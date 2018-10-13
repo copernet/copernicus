@@ -127,7 +127,7 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	return nil
 }
 
-func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
+func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) *TxEntry {
 	m.RLock()
 	defer m.RUnlock()
 
