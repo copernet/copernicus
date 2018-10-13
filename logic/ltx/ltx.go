@@ -67,22 +67,18 @@ func ScriptVerifyInit() {
 
 // CheckRegularTransaction transaction service will use this func to check transaction before accepting to mempool
 func CheckRegularTransaction(transaction *tx.Tx) error {
-	err := transaction.CheckRegularTransaction()
-	if err != nil {
+	if err := transaction.CheckRegularTransaction(); err != nil {
 		return err
 	}
 
-	// check standard
-	// ToDo: config
 	if model.ActiveNetParams.RequireStandard {
-		err := transaction.CheckStandard()
-		if err != nil {
+		if err := transaction.CheckStandard(); err != nil {
 			return err
 		}
 	}
 
 	// check common locktime, sequence final can disable it
-	err = ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
+	err := ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
 		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
@@ -651,7 +647,7 @@ func checkScript() {
 
 func errorMandatoryFailed(j ScriptVerifyJob, innerErr error) error {
 	log.Debug("VerifyScript err, tx hash: %s, input: %d, scriptSig: %s, scriptPubKey: %s, err: %v",
-		j.Tx.GetHash(), j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
+		j.Tx.GetHash().String(), j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
 		hex.EncodeToString(j.ScriptPubKey.GetData()), innerErr)
 
 	return errcode.MakeError(errcode.RejectInvalid, "mandatory-script-verify-flag-failed (%s)", innerErr)
@@ -659,7 +655,7 @@ func errorMandatoryFailed(j ScriptVerifyJob, innerErr error) error {
 
 func errorNonMandatoryPass(j ScriptVerifyJob, innerErr error) error {
 	log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
-		"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", j.Tx.GetHash(),
+		"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", j.Tx.GetHash().String(),
 		j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
 		hex.EncodeToString(j.ScriptPubKey.GetData()), innerErr)
 
