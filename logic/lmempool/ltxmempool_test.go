@@ -15,15 +15,21 @@ import (
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/copernet/copernicus/util/cashaddr"
 	"math"
 	"math/rand"
+	"os"
 	"runtime"
 	"testing"
 )
+
+func init() {
+	crypto.InitSecp256()
+}
 
 type fakeChain struct {
 	sync.RWMutex
@@ -209,7 +215,7 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 	// 	}
 	// 	tx.TxIn[i].SignatureScript = sigScript
 	// }
-	ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll)
+	ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll, p.chain.utxos)
 
 	return tx, nil
 }
@@ -244,7 +250,7 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 		// 	return nil, err
 		// }
 		// tx.TxIn[0].SignatureScript = sigScript
-		err := ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll)
+		err := ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll|crypto.SigHashForkID, p.chain.utxos)
 		if err != nil {
 			panic(err)
 		}
@@ -252,6 +258,10 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 
 		// Next transaction uses outputs from this one.
 		prevOutPoint = outpoint.OutPoint{Hash: tx.GetHash(), Index: 0}
+
+		p.chain.utxos.AddCoin(&prevOutPoint,
+			utxo.NewCoin(tx.GetTxOut(0), 0, true),
+			false)
 	}
 
 	return txChain, nil
@@ -291,10 +301,10 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 
 	// Generate associated pay-to-script-hash address and resulting payment
 	// script.
-	pubKeyBytes := signPub.SerializeCompressed()
+	//pubKeyBytes := signPub.SerializeCompressed()
 	//payPubKeyAddr, err := btcutil.NewAddressPubKey(pubKeyBytes, chainParams)
 	var payAddr cashaddr.Address
-	payAddr, err = cashaddr.NewCashAddressPubKeyHash(util.Hash160(pubKeyBytes), chainParams)
+	payAddr, err = cashaddr.NewCashAddressPubKeyHash(signPub.ToHash160(), chainParams)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,7 +314,6 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 	if err != nil {
 		return nil, nil, err
 	}
-
 	// Create a new fake chain and harness bound to it.
 	chain := &fakeChain{utxos: utxo.NewEmptyCoinsMap()}
 	harness := poolHarness{
@@ -314,7 +323,7 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 		chainParams: chainParams,
 
 		chain:  chain,
-		txPool: mmempool.NewTxMempool(),
+		txPool: mmempool.GetInstance(),
 		keys:   make(map[string]*crypto.PrivateKey),
 	}
 
@@ -388,7 +397,7 @@ func testPoolMembership(tc *testContext, tx *tx.Tx, inOrphanPool, inTxPool bool)
 // they are all orphans.  Finally, it adds the linking transaction and ensures
 // the entire orphan chain is moved to the transaction pool.
 func TestSimpleOrphanChain(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	harness, spendableOuts, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -454,7 +463,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 // TestOrphanReject ensures that orphans are properly rejected when the allow
 // orphans flag is not set on ProcessTransaction.
 func TestOrphanReject(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -512,7 +521,7 @@ func TestOrphanReject(t *testing.T) {
 // TestOrphanEviction ensures that exceeding the maximum number of orphans
 // evicts entries to make room for the new ones.
 func TestOrphanEviction(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 
 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -557,7 +566,7 @@ func TestOrphanEviction(t *testing.T) {
 	// evicted matches the expected number.
 	var evictedTxns []*tx.Tx
 	for _, tx := range chainedTxns[1:] {
-		if !harness.txPool.IsOrphanInPool(tx.GetHash()) {
+		if !harness.txPool.IsOrphanInPool(tx) {
 			evictedTxns = append(evictedTxns, tx)
 		}
 	}
@@ -805,7 +814,13 @@ func TestOrphanEviction(t *testing.T) {
 // TestCheckSpend tests that CheckSpend returns the expected spends found in
 // the mempool.
 func TestCheckSpend(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
+	uc := &utxo.UtxoConfig{Do: &db.DBOption{
+		FilePath:  "/tmp/dbtest",
+		CacheSize: 1 << 20,
+	}}
+
+	utxo.InitUtxoLruTip(uc)
 
 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -870,4 +885,5 @@ func TestCheckSpend(t *testing.T) {
 	if spend != nil {
 		t.Fatalf("Unexpeced spend found in pool: %v", spend)
 	}
+	os.RemoveAll("tmp/dbtest")
 }
