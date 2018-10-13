@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleblock"
@@ -463,18 +462,17 @@ func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, e
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.DecodeRawTransactionCmd)
 
+	transaction := tx.NewEmptyTx()
+
 	// Unserialize the transaction.
 	serializedTx, err := hex.DecodeString(c.HexTx)
-	if err != nil {
-		return nil, rpcDecodeHexError(c.HexTx)
+	if err == nil {
+		err = transaction.Unserialize(bytes.NewReader(serializedTx))
 	}
-
-	transaction := tx.NewEmptyTx()
-	err = transaction.Unserialize(bytes.NewReader(serializedTx))
-	if err != nil {
+	if err != nil || int(transaction.SerializeSize()) != len(serializedTx) {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDeserialization,
-			Message: "TX decode failed: " + err.Error(),
+			Message: "TX decode failed",
 		}
 	}
 	txHash := transaction.GetHash()
@@ -595,16 +593,23 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		return nil, rpcDecodeHexError(c.HexTx)
 	}
 
-	transaction := tx.NewEmptyTx()
-	err = transaction.Unserialize(bytes.NewReader(txData))
-	if err != nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCDeserialization,
-			Message: "TX decode failed: " + err.Error(),
+	txVariants := make([]*tx.Tx, 0)
+	totalSerializeSize := 0
+	for totalSerializeSize < len(txData) {
+		transaction := tx.NewEmptyTx()
+		err = transaction.Unserialize(bytes.NewReader(txData[totalSerializeSize:]))
+		if err != nil {
+			return nil, &btcjson.RPCError{
+				Code:    btcjson.ErrRPCDeserialization,
+				Message: "TX decode failed: " + err.Error(),
+			}
 		}
+		txVariants = append(txVariants, transaction)
+		totalSerializeSize += int(transaction.SerializeSize())
 	}
 
-	coinsMap, redeemScripts, err := getCoins(transaction.GetIns(), c.PrevTxs)
+	mergedTx := txVariants[0]
+	coinsMap, redeemScripts, err := getCoins(mergedTx.GetIns(), c.PrevTxs)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +648,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
 
 	errors := make([]*btcjson.SignRawTransactionError, 0)
-	for index, in := range transaction.GetIns() {
+	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)
 		if coin == nil || isCoinSpent(coin, in.PreviousOutPoint) {
 			errors = append(errors, TxInErrorToJSON(in, "Input not found or already spent"))
@@ -654,38 +659,41 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		scriptSig := script.NewEmptyScript()
 
 		// Only sign SIGHASH_SINGLE if there's a corresponding output
-		if !hashSingle || index < transaction.GetOutsCount() {
+		if !hashSingle || index < mergedTx.GetOutsCount() {
 			redeemScript := redeemScripts[*in.PreviousOutPoint]
-			scriptSig, err = getScriptSig(transaction, index, scriptPubKey, priKeys,
+			// Sign what we can
+			scriptSig = produceScriptSig(mergedTx, index, scriptPubKey, priKeys,
 				uint32(hashType), coin.GetAmount(), redeemScript)
-			if err != nil {
-				errors = append(errors, TxInErrorToJSON(in, err.Error()))
-				continue
+		}
+
+		// ... and merge in other signatures
+		for _, transaction := range txVariants {
+			if len(transaction.GetIns()) > index {
+				scriptSig, err = ltx.CombineSignature(transaction, scriptPubKey, scriptSig,
+					transaction.GetIns()[index].GetScriptSig(), index, coin.GetAmount(),
+					uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
+				if err != nil {
+					log.Info("CombineSignature error:%s", err.Error())
+				}
 			}
 		}
 
-		scriptSig, err = ltx.CombineSignature(transaction, scriptPubKey, scriptSig,
-			transaction.GetIns()[index].GetScriptSig(), index, coin.GetAmount(),
+		err = mergedTx.UpdateInScript(index, scriptSig)
+		if err != nil {
+			log.Info("UpdateInScript error:%s", err.Error())
+		}
+
+		err = lscript.VerifyScript(mergedTx, scriptSig, scriptPubKey, index, coin.GetAmount(),
 			uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 		if err != nil {
 			errors = append(errors, TxInErrorToJSON(in, err.Error()))
 			continue
-		}
-		err = transaction.UpdateInScript(index, scriptSig)
-		if err != nil {
-			errors = append(errors, TxInErrorToJSON(in, err.Error()))
-			continue
-		}
-		err = lscript.VerifyScript(transaction, scriptSig, scriptPubKey, index, coin.GetAmount(),
-			uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-		if err != nil {
-			return nil, err
 		}
 	}
 
 	complete := len(errors) == 0
 	buf := bytes.NewBuffer(nil)
-	err = transaction.Serialize(buf)
+	err = mergedTx.Serialize(buf)
 	if err != nil {
 		log.Error("rawTransaction:serialize transaction failed: %v", err)
 		return nil, err
@@ -764,54 +772,66 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 	return coinsMap, redeemScripts, nil
 }
 
-func getScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, privateKeys []*crypto.PrivateKey,
-	hashType uint32, value amount.Amount, scriptRedeem *script.Script) (*script.Script, error) {
+func findPrivateKey(privateKeys []*crypto.PrivateKey, pubKey *[]byte) *crypto.PrivateKey {
+	for _, privateKey := range privateKeys {
+		if bytes.Equal(privateKey.PubKey().ToBytes(), *pubKey) {
+			return privateKey
+		}
+	}
+	return nil
+}
+
+func findPrivateKeyByHash(privateKeys []*crypto.PrivateKey, pubKeyHash *[]byte) *crypto.PrivateKey {
+	for _, privateKey := range privateKeys {
+		keyHash := util.Hash160(privateKey.PubKey().ToBytes())
+		if bytes.Equal(keyHash, *pubKeyHash) {
+			return privateKey
+		}
+	}
+	return nil
+}
+
+func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, privateKeys []*crypto.PrivateKey,
+	hashType uint32, value amount.Amount, scriptRedeem *script.Script) *script.Script {
 
 	sigScriptPubKey := scriptPubKey
 	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
-		return nil, err
+		return nil
 	}
 	if pubKeyType == script.ScriptHash {
 		if scriptRedeem == nil {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInvalidParams,
-				Message: "Redeem script not found",
-			}
+			return nil
 		}
 		sigScriptPubKey = scriptRedeem
 		pubKeyType, pubKeys, err = scriptRedeem.CheckScriptPubKeyStandard()
 		if err != nil {
-			return nil, err
+			return nil
 		}
 	}
 
 	scriptSigData := make([][]byte, 0)
 	if pubKeyType == script.ScriptPubkey {
-		if len(privateKeys) == 0 {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInvalidAddressOrKey,
-				Message: "Invalid private key",
-			}
+		privateKey := findPrivateKey(privateKeys, &pubKeys[0])
+		if privateKey == nil {
+			return nil
 		}
-		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKeys[0], hashType, value)
+		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
 		if err != nil {
-			return nil, err
+			return nil
 		}
 		// <signature>
 		scriptSigData = append(scriptSigData, sigData)
 	} else if pubKeyType == script.ScriptPubkeyHash {
-		if len(privateKeys) == 0 {
-			return nil, btcjson.RPCError{
-				Code:    btcjson.RPCInvalidAddressOrKey,
-				Message: "Invalid private key",
-			}
+		privateKey := findPrivateKeyByHash(privateKeys, &pubKeys[0])
+		if privateKey == nil {
+			return nil
 		}
-		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKeys[0], hashType, value)
+		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
 		if err != nil {
-			return nil, err
+			return nil
 		}
-		pubKeyBuf := privateKeys[0].PubKey().ToBytes()
+		pubKeyBuf := privateKey.PubKey().ToBytes()
 		// <signature> <pubkey>
 		scriptSigData = append(scriptSigData, sigData, pubKeyBuf)
 	} else if pubKeyType == script.ScriptMultiSig {
@@ -820,7 +840,11 @@ func getScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, priv
 		// <OP_0> <signature0> ... <signatureM>
 		sigData := []byte{0}
 		scriptSigData = append(scriptSigData, sigData)
-		for _, privateKey := range privateKeys {
+		for _, pubKey := range pubKeys[1:] {
+			privateKey := findPrivateKey(privateKeys, &pubKey)
+			if privateKey == nil {
+				continue
+			}
 			sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
 			if err != nil {
 				continue
@@ -832,10 +856,10 @@ func getScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, priv
 			}
 		}
 		if signed != required {
-			return nil, errcode.New(errcode.TxErrSignRawTransaction)
+			return nil
 		}
 	} else {
-		return nil, errcode.New(errcode.TxErrPubKeyType)
+		return nil
 	}
 
 	if sigScriptPubKey == scriptRedeem {
@@ -848,10 +872,10 @@ func getScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, priv
 	err = lscript.VerifyScript(transaction, scriptSig, scriptPubKey, nIn, value,
 		uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
-	return scriptSig, nil
+	return scriptSig
 }
 
 func getSignatureData(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, privateKey *crypto.PrivateKey,

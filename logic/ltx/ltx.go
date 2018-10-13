@@ -1005,9 +1005,17 @@ func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, key
 func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *script.Script,
 	txOldScriptSig *script.Script, nIn int, money amount.Amount, flags uint32,
 	scriptChecker lscript.Checker) (*script.Script, error) {
+	if scriptSig == nil {
+		scriptSig = script.NewEmptyScript()
+	}
 	pubKeyType, pubKeys, err := prevPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
-		return nil, err
+		// ScriptErrNonStandard returns error
+		// Don't know anything about this, assume bigger one is correct
+		if scriptSig.Size() >= txOldScriptSig.Size() {
+			return scriptSig, nil
+		}
+		return txOldScriptSig, nil
 	}
 	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
 		if scriptSig.Size() >= txOldScriptSig.Size() {
@@ -1040,10 +1048,7 @@ func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 					continue
 				}
 				ok, err := scriptChecker.CheckSig(transaction, opCode.Data, pubKey, prevPubKey, nIn, money, flags)
-				if err != nil {
-					return nil, err
-				}
-				if ok {
+				if err == nil && ok {
 					okSigs[string(pubKey)] = opCode.Data
 					break
 				}
@@ -1088,12 +1093,9 @@ func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		txOldScriptSig = txOldScriptSig.RemoveOpCodeByIndex(len(txOldScriptSig.ParsedOpCodes) - 1)
 		scriptResult, err := CombineSignature(transaction, redeemScript, scriptSig,
 			txOldScriptSig, nIn, money, flags, scriptChecker)
-		if err != nil {
-			return nil, err
-		}
 		scriptResult.PushSingleData(redeemScript.GetData())
-		return scriptResult, nil
+		return scriptResult, err
 	}
 	log.Debug("TxErrPubKeyType")
-	return nil, errcode.New(errcode.TxErrPubKeyType)
+	return script.NewEmptyScript(), errcode.New(errcode.TxErrPubKeyType)
 }
