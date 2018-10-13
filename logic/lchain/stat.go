@@ -45,7 +45,7 @@ type UTXOStat struct {
 
 func (s *stat) String() string {
 	return fmt.Sprintf("height=%d,bestblock=%s,hash_serialized=%s\n",
-		s.height, s.bestblock.String(), s.hashSerialized.String())
+		s.height, s.bestblock, s.hashSerialized)
 }
 
 func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[uint32]*utxo.Coin) error {

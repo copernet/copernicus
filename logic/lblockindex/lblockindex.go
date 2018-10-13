@@ -136,7 +136,7 @@ func LoadBlockIndexDB() bool {
 	// Build chain's active
 	gChain.InitLoad(GlobalBlockIndexMap, branch)
 	bestHash, err := utxo.GetUtxoCacheInstance().GetBestBlock()
-	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash.String(), err)
+	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash, err)
 	if err == nil {
 		tip, ok := GlobalBlockIndexMap[bestHash]
 		if !ok {
@@ -147,9 +147,9 @@ func LoadBlockIndexDB() bool {
 		// init active chain by tip[load from db]
 		gChain.SetTip(tip)
 		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s, tiphash:%s\n",
-			gChain.Tip().GetBlockHash().String(), gChain.Height(),
+			gChain.Tip().GetBlockHash(), gChain.Height(),
 			time.Unix(int64(gChain.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
-			gChain.Tip().GetBlockHash().String())
+			gChain.Tip().GetBlockHash())
 	}
 
 	return true

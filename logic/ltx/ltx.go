@@ -647,7 +647,7 @@ func checkScript() {
 
 func errorMandatoryFailed(j ScriptVerifyJob, innerErr error) error {
 	log.Debug("VerifyScript err, tx hash: %s, input: %d, scriptSig: %s, scriptPubKey: %s, err: %v",
-		j.Tx.GetHash().String(), j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
+		j.Tx.GetHash(), j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
 		hex.EncodeToString(j.ScriptPubKey.GetData()), innerErr)
 
 	return errcode.MakeError(errcode.RejectInvalid, "mandatory-script-verify-flag-failed (%s)", innerErr)
@@ -655,7 +655,7 @@ func errorMandatoryFailed(j ScriptVerifyJob, innerErr error) error {
 
 func errorNonMandatoryPass(j ScriptVerifyJob, innerErr error) error {
 	log.Debug("VerifyScript err, but without StandardNotMandatoryVerifyFlags success, tx hash: %s, "+
-		"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", j.Tx.GetHash().String(),
+		"input: %d, scriptSig: %s, scriptPubKey: %s, err: %v", j.Tx.GetHash(),
 		j.IputNum, hex.EncodeToString(j.ScriptSig.GetData()),
 		hex.EncodeToString(j.ScriptPubKey.GetData()), innerErr)
 

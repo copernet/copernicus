@@ -262,7 +262,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
-				index, sortedOrder[index].String(), entry.Tx.GetHash())
+				index, sortedOrder[index], entry.Tx.GetHash())
 			return true
 		}
 		index++
@@ -297,7 +297,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
-				index, sortedOrder[index].String(), entry.Tx.GetHash())
+				index, sortedOrder[index], entry.Tx.GetHash())
 			return true
 		}
 		index++
@@ -332,7 +332,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
-				index, sortedOrder[index].String(), entry.Tx.GetHash())
+				index, sortedOrder[index], entry.Tx.GetHash())
 			return false
 		}
 		index++
@@ -357,7 +357,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		h := entry.Tx.GetHash()
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by ancestor fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
-				index, sortedOrder[index].String(), &h)
+				index, sortedOrder[index], &h)
 			return false
 		}
 		index++

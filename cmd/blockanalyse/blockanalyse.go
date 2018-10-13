@@ -50,9 +50,7 @@ func main() {
 		panic("Unable to unserialize block ======")
 	}
 	inputs, outputs := getBlockInputsOutputs(pblock)
-	blockHash := pblock.GetHash()
-
-	fmt.Printf("blockhash: %s, block size: %d bytes, intputs: %d, outputs: %d, tx count: %d", blockHash.String(),
+	fmt.Printf("blockhash: %s, block size: %d bytes, intputs: %d, outputs: %d, tx count: %d", pblock.GetHash(),
 		pblock.SerializeSize(), inputs, outputs, len(pblock.Txs))
 }
 

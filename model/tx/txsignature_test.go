@@ -846,7 +846,7 @@ func TestNonForkSignatureHash(t *testing.T) {
 		}
 
 		if hash.String() != test.expect {
-			t.Fatalf("signature hash: expect %s got %s", test.expect, hash.String())
+			t.Fatalf("signature hash: expect %s got %s", test.expect, hash)
 		}
 	}
 }
