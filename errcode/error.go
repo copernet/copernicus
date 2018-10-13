@@ -82,6 +82,7 @@ func MakeError(code RejectCode, format string, innerErr error) error {
 	return NewError(code, fmt.Sprintf(format, shortDesc(innerErr)))
 }
 
+// IsRejectCode BIP61 reject code; never send internal reject codes over P2P.
 func IsRejectCode(err error) (RejectCode, string, bool) {
 	e, ok := err.(ProjectError)
 	if ok && e.ErrorCode != nil {

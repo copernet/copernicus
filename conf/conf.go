@@ -122,7 +122,6 @@ func InitConfig(args []string) *Configuration {
 		}
 	}
 
-
 	config := &Configuration{}
 	viper.SetConfigType("yaml")
 
