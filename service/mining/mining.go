@@ -313,8 +313,9 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, scriptSig, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
+
 	value := ba.fees + model.GetBlockSubsidy(ba.height, ba.chainParams)
-	coinbaseTx.AddTxOut(txout.NewTxOut(value, coinbaseScript))
+	coinbaseTx.AddTxOut(txout.NewTxOut(value, scriptPubKey))
 	ba.bt.Block.Txs[0] = coinbaseTx
 	ba.bt.TxFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
 

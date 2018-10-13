@@ -97,10 +97,12 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
 	}
 
-	for _, txin := range txn.GetIns() {
-		if gPool.HasSpentOut(txin.PreviousOutPoint) {
-			log.Debug("tx ins alread spent out in mempool, tx hash:%s", txn.GetHash())
-			return nil, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict")
+	// check preout already spent
+	ins := transaction.GetIns()
+	for _, e := range ins {
+		if gPool.HasSpentOut(e.PreviousOutPoint) != nil {
+			log.Debug("tx ins alread spent out in mempool")
+			return errcode.New(errcode.TxErrRejectConflict)
 		}
 	}
 

@@ -131,8 +131,11 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) *TxEntry {
 	m.RLock()
 	defer m.RUnlock()
 
-	_, ok := m.nextTx[*out]
-	return ok
+	txe, ok := m.nextTx[*out]
+	if ok {
+		return txe
+	}
+	return nil
 }
 
 func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {

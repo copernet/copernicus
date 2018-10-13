@@ -682,7 +682,7 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	if coin == nil {
 		if c.IncludeMempool == nil || *c.IncludeMempool {
 			coin = mempool.GetInstance().GetCoin(outPoint)
-			if coin == nil || mempool.GetInstance().HasSpentOut(outPoint) {
+			if coin == nil || mempool.GetInstance().HasSpentOut(outPoint) != nil {
 				return nil, nil
 			}
 		} else {
