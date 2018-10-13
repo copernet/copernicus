@@ -18,7 +18,7 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func AcceptTxToMemPool(txn *tx.Tx) error {
+func AcceptTxToMemPool(txn *tx.Tx, chainHeight int32, checkLockPoint bool) error {
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 	if err != nil {
 		return err
@@ -46,7 +46,7 @@ func addTxToMemPool(txe *mempool.TxEntry) error {
 	return nil
 }
 
-func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
+func TryAcceptOrphansTxs(transaction *tx.Tx, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	pool := mempool.GetInstance()
 
@@ -67,7 +67,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 					continue
 				}
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx, chain.GetInstance().Height())
+				err := AcceptTxToMemPool(iOrphanTx.Tx, chain.GetInstance().Height(), checkLockPoint)
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -88,7 +88,6 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 			}
 		}
 	}
-
 	return
 }
 

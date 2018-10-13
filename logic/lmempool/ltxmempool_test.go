@@ -854,7 +854,7 @@ func TestCheckSpend(t *testing.T) {
 		// 	false, 0)
 		fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
 		//_, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight())
+		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tx.GetHash(), err)

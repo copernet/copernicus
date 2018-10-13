@@ -1283,7 +1283,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		for _, tx := range block.Txs[1:] {
 			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
 			// sm.peerNotifier.TransactionConfirmed(tx)
-			lmempool.TryAcceptOrphansTxs(tx)
+			lmempool.TryAcceptOrphansTxs(tx, true)
 		}
 
 		// Register block with the fee estimator, if it exists.
