@@ -797,15 +797,18 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 	sigScriptPubKey := scriptPubKey
 	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
 	if err != nil {
+		log.Info("scriptPubKey CheckScriptPubKeyStandard error:%s", err.Error())
 		return nil
 	}
 	if pubKeyType == script.ScriptHash {
 		if scriptRedeem == nil {
+			log.Info("ScriptHash redeem script is null")
 			return nil
 		}
 		sigScriptPubKey = scriptRedeem
 		pubKeyType, pubKeys, err = scriptRedeem.CheckScriptPubKeyStandard()
 		if err != nil {
+			log.Info("scriptRedeem CheckScriptPubKeyStandard error:%s", err.Error())
 			return nil
 		}
 	}
@@ -814,10 +817,12 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 	if pubKeyType == script.ScriptPubkey {
 		privateKey := findPrivateKey(privateKeys, &pubKeys[0])
 		if privateKey == nil {
+			log.Info("can not find private key:%s", hex.EncodeToString(pubKeys[0]))
 			return nil
 		}
 		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
 		if err != nil {
+			log.Info("getSignatureData error:%s", err.Error())
 			return nil
 		}
 		// <signature>
@@ -825,10 +830,12 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 	} else if pubKeyType == script.ScriptPubkeyHash {
 		privateKey := findPrivateKeyByHash(privateKeys, &pubKeys[0])
 		if privateKey == nil {
+			log.Info("can not find private key:%s", hex.EncodeToString(pubKeys[0]))
 			return nil
 		}
 		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
 		if err != nil {
+			log.Info("getSignatureData error:%s", err.Error())
 			return nil
 		}
 		pubKeyBuf := privateKey.PubKey().ToBytes()
@@ -843,10 +850,12 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 		for _, pubKey := range pubKeys[1:] {
 			privateKey := findPrivateKey(privateKeys, &pubKey)
 			if privateKey == nil {
+				log.Info("can not find private key:%s", hex.EncodeToString(pubKey))
 				continue
 			}
 			sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
 			if err != nil {
+				log.Info("getSignatureData error:%s", err.Error())
 				continue
 			}
 			scriptSigData = append(scriptSigData, sigData)
@@ -856,9 +865,11 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 			}
 		}
 		if signed != required {
+			log.Info("ScriptMultiSig signed number %d does not match required %d", signed, required)
 			return nil
 		}
 	} else {
+		log.Info("unexpected script type:%d", pubKeyType)
 		return nil
 	}
 
@@ -872,6 +883,7 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 	err = lscript.VerifyScript(transaction, scriptSig, scriptPubKey, nIn, value,
 		uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 	if err != nil {
+		log.Info("VerifyScript error:%s", err.Error())
 		return nil
 	}
 
