@@ -63,7 +63,7 @@ func Sha1(buf []byte) [20]byte {
 	return sha1.Sum(buf)
 }
 
-func (hash *Hash) String() string {
+func (hash Hash) String() string {
 	bytes := hash.GetCloneBytes()
 	for i := 0; i < Hash256Size/2; i++ {
 		bytes[i], bytes[Hash256Size-1-i] = bytes[Hash256Size-1-i], bytes[i]

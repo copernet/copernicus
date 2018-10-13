@@ -250,9 +250,8 @@ func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 }
 
 func (bIndex *BlockIndex) String() string {
-	hash := bIndex.GetBlockHash()
 	return fmt.Sprintf("BlockIndex(pprev=%p, height=%d, merkle=%s, hashBlock=%s)\n", bIndex.Prev,
-		bIndex.Height, bIndex.Header.MerkleRoot.String(), hash.String())
+		bIndex.Height, bIndex.Header.MerkleRoot, bIndex.GetBlockHash())
 }
 
 func (bIndex *BlockIndex) IsGenesis(params *model.BitcoinParams) bool {

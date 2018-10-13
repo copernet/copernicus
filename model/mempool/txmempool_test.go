@@ -253,7 +253,7 @@ func TestMempoolSortTime(t *testing.T) {
 		entry := i.(*TxEntry)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %v\n",
-				index, sortedOrder[index].String(), entry.Tx.GetHash())
+				index, sortedOrder[index], entry.Tx.GetHash())
 			return true
 		}
 		index++

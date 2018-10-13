@@ -363,8 +363,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		// all Descendant transaction of the removed tx also will be removed.
 		m.RemoveStaged(stage, false, SIZELIMIT)
 		for e := range stage {
-			hash := e.Tx.GetHash()
-			log.Debug("remove tx hash : %s, mempool size : %d\n", hash.String(), m.usageSize)
+			log.Debug("remove tx hash : %s, mempool size : %d\n", e.Tx.GetHash(), m.usageSize)
 		}
 		for _, tx := range txn {
 			for _, preout := range tx.GetAllPreviousOut() {

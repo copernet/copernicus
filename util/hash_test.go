@@ -1,6 +1,8 @@
 package util
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -94,4 +96,26 @@ func TestHash_IsEqual(t *testing.T) {
 		t.Errorf("IsEqual test failed")
 		return
 	}
+}
+
+func TestHashObjectToString(t *testing.T) {
+	hash := *HashFromString("00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
+	s1 := fmt.Sprintf("hash: %s", hash)
+	s2 := fmt.Sprintf("hash: %v", hash)
+	s3 := fmt.Sprintf("hash: %s", hash.String())
+
+	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s1)
+	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s2)
+	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s3)
+}
+
+func TestHashPointerToString(t *testing.T) {
+	hash := HashFromString("00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721")
+	s1 := fmt.Sprintf("hash: %s", hash)
+	s2 := fmt.Sprintf("hash: %v", hash)
+	s3 := fmt.Sprintf("hash: %s", hash.String())
+
+	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s1)
+	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s2)
+	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s3)
 }

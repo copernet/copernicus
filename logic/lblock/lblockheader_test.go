@@ -55,12 +55,12 @@ func TestBlockHeaderGetHash(t *testing.T) {
 	}
 	if !bytes.Equal(tmpBlk.HashPrevBlock[:], blHe.HashPrevBlock[:]) {
 		t.Errorf("Unserialize late preHash : %s, expect preHash : %s",
-			tmpBlk.HashPrevBlock.String(), blHe.HashPrevBlock.String())
+			tmpBlk.HashPrevBlock, blHe.HashPrevBlock)
 		return
 	}
 	if !bytes.Equal(tmpBlk.MerkleRoot[:], blHe.MerkleRoot[:]) {
 		t.Errorf("Unserialize late merkleRoot : %s, expect merkleRoot : %s",
-			tmpBlk.MerkleRoot.String(), blHe.MerkleRoot.String())
+			tmpBlk.MerkleRoot, blHe.MerkleRoot)
 		return
 	}
 	if tmpBlk.Time != blHe.Time {
@@ -80,7 +80,7 @@ func TestBlockHeaderGetHash(t *testing.T) {
 	} else {
 		if !bytes.Equal(blkHash[:], firstBlockHash[:]) {
 			t.Errorf("the get block hash is error, actual hash : %s, expect hash : %s\n",
-				blkHash.String(), firstBlockHash.String())
+				blkHash, firstBlockHash)
 		}
 	}
 }

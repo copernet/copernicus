@@ -483,11 +483,11 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	if err != nil {
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
 			peer.PushRejectMsg(wire.CmdTx, rejectCode, reason, &txHash, false)
-			log.Debug("Reject tx %s from %s: %v", txHash.String(), peer.Addr(), err)
+			log.Debug("Reject tx %s from %s: %v", txHash, peer.Addr(), err)
 			return
 		}
 
-		log.Warn("Failed to process transaction %s: %v", txHash.String(), err)
+		log.Warn("Failed to process transaction %s: %v", txHash, err)
 		return
 	}
 
@@ -857,7 +857,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			log.Warn("Received block header that does not "+
 				"properly connect to the chain from peer %s "+
 				"-- disconnecting, expect hash : %s, actual hash : %s",
-				peer.Addr(), prevNode.hash.String(), blockHash.String())
+				peer.Addr(), prevNode.hash, blockHash)
 			peer.Disconnect()
 			return
 		}
@@ -888,7 +888,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		beginHash := msg.Headers[0].GetHash()
 		endHash := msg.Headers[len(msg.Headers)-1].GetHash()
 		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s,"+
-			"error news : %s.", beginHash.String(), endHash.String(), err.Error())
+			"error news : %s.", beginHash, endHash, err.Error())
 	}
 
 	// When this header is a checkpoint, switch to fetching the blocks for

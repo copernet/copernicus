@@ -80,7 +80,7 @@ func (outPoint *OutPoint) Decode(reader io.Reader) (err error) {
 }
 
 func (outPoint *OutPoint) String() string {
-	return fmt.Sprintf("OutPoint (hash:%s index: %d)", outPoint.Hash.String(), outPoint.Index)
+	return fmt.Sprintf("OutPoint (hash:%s index: %d)", outPoint.Hash, outPoint.Index)
 }
 
 func (outPoint *OutPoint) IsNull() bool {

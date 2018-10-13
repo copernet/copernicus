@@ -57,7 +57,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 	gUtxo := utxo.GetUtxoCacheInstance()
 	bestHash, _ := gUtxo.GetBestBlock()
-	log.Debug("bestHash = %s, hashPrevBloc = %s", bestHash.String(), hashPrevBlock)
+	log.Debug("bestHash = %s, hashPrevBloc = %s", bestHash, hashPrevBlock)
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		log.Debug("will panic in ConnectBlock()")
 		panic("error: hashPrevBlock not equal view.GetBestBlock()")
@@ -189,7 +189,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	//	lmempool.clear();
 	//}
 
-	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash.String())
+	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash)
 	return nil
 }
 
@@ -244,7 +244,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
 	if err != nil {
 		InvalidBlockFound(pIndexNew)
-		log.Error("ConnectTip(): ConnectBlock %s failed, err:%v", indexHash.String(), err)
+		log.Error("ConnectTip(): ConnectBlock %s failed, err:%v", indexHash, err)
 		return err
 	}
 
@@ -323,8 +323,7 @@ func DisconnectTip(fBare bool) error {
 		view := utxo.NewEmptyCoinsMap()
 
 		if DisconnectBlock(blk, tip, view) != undo.DisconnectOk {
-			hash := tip.GetBlockHash()
-			log.Error(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", hash.String()))
+			log.Error(fmt.Sprintf("DisconnectTip(): DisconnectBlock %s failed ", tip.GetBlockHash()))
 			return errcode.New(errcode.DisconnectTipUndoFailed)
 		}
 		//flushed := view.Flush(blk.Header.HashPrevBlock)
@@ -450,9 +449,8 @@ func UpdateTip(pindexNew *blockindex.BlockIndex) {
 	txdata := param.TxData()
 	tip := chain.GetInstance().Tip()
 	utxoTip := utxo.GetUtxoCacheInstance()
-	tipHash := tip.GetBlockHash()
 	log.Info("new best=%s height=%d version=0x%08x work=%s tx=%d "+
-		"date='%s' progress=%f memory=%d(cache=%d)", tipHash.String(),
+		"date='%s' progress=%f memory=%d(cache=%d)", tip.GetBlockHash(),
 		tip.Height, tip.Header.Version,
 		tip.ChainWork.String(), tip.ChainTxCount,
 		time.Unix(int64(tip.Header.Time), 0).String(),

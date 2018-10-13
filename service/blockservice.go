@@ -25,7 +25,7 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 	beginHash := headerList[0].GetHash()
 	endHash := headerList[len(headerList)-1].GetHash()
 	log.Trace("processBlockHeader success, blockNumber : %d, lastBlockHeight : %d, beginBlockHash : %s, "+
-		"endBlockHash : %s. ", len(headerList), lastIndex.Height, beginHash.String(), endHash.String())
+		"endBlockHash : %s. ", len(headerList), lastIndex.Height, beginHash, endHash)
 	return nil
 }
 
@@ -36,7 +36,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	coinsTipHash, _ := coinsTip.GetBestBlock()
 
 	log.Trace("Begin processing block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
-		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
 
 	isNewBlock := false
 
@@ -49,10 +49,10 @@ func ProcessBlock(b *block.Block) (bool, error) {
 
 	coinsTipHash, _ = coinsTip.GetBestBlock()
 	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
-		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String())
+		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
 
 	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s currenttime:%v\n",
-		h.String(), gChain.Height(), gChain.Tip().GetBlockHash().String(), coinsTipHash.String(), time.Now())
+		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, time.Now())
 
 	return isNewBlock, err
 }
@@ -73,8 +73,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	defer persist.CsMain.Unlock()
 
 	if _, _, err := lblock.AcceptBlock(pblock, fForceProcessing, fNewBlock); err != nil {
-		h := pblock.GetHash()
-		log.Error(" AcceptBlock FAILED: %s err:%v", h.String(), err)
+		log.Error(" AcceptBlock FAILED: %s err:%v", pblock.GetHash(), err)
 		return err
 	}
 

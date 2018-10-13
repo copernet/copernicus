@@ -278,7 +278,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	if !bIndex.IsGenesis(gChain.GetParams()) {
 		bIndex.Prev = gChain.FindBlockIndex(bh.HashPrevBlock)
 		if bIndex.Prev == nil {
-			log.Debug("Find Block in BlockIndexMap err, hash:%s", bh.HashPrevBlock.String())
+			log.Debug("Find Block in BlockIndexMap err, hash:%s", bh.HashPrevBlock)
 			return nil, errcode.New(errcode.ErrorBlockHeaderNoParent)
 		}
 		if bIndex.Prev.IsInvalid() {

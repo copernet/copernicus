@@ -133,8 +133,7 @@ func TestOutPointSerializeAndUnserialize(t *testing.T) {
 func TestOutPoint_String(t *testing.T) {
 	initTestOutPoint()
 	strOutPoint := testOutPoint.String()
-	strHash := preHash.String()
-	strMust := fmt.Sprintf("OutPoint (hash:%s index: %d)", strHash, testOutPoint.Index)
+	strMust := fmt.Sprintf("OutPoint (hash:%s index: %d)", preHash, testOutPoint.Index)
 	if strOutPoint != strMust {
 		t.Errorf("OutPoint String should be %s", strMust)
 	}

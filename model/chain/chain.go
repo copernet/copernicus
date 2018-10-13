@@ -375,7 +375,7 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 	if index == nil {
 		index = c.Tip()
 		log.Trace("GetLocator Tip hash: %s,  height: %d",
-			index.GetBlockHash().String(), index.Height)
+			index.GetBlockHash(), index.Height)
 	}
 	for {
 		blockHashList = append(blockHashList, *index.GetBlockHash())
@@ -392,7 +392,7 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 			index = index.GetAncestor(height)
 		}
 		log.Trace("GetLocator contain hash : %s, height : %d .",
-			index.GetBlockHash().String(), index.Height)
+			index.GetBlockHash(), index.Height)
 		if len(blockHashList) > 10 {
 			step *= 2
 		}
@@ -536,7 +536,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		}
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
-	log.Debug("AddToIndexMap:%s index height:%d", hash.String(), bi.Height)
+	log.Debug("AddToIndexMap:%s index height:%d", hash, bi.Height)
 	bi.RaiseValidity(blockindex.BlockValidTree)
 	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)

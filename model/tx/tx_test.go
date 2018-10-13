@@ -129,9 +129,8 @@ func TestTxDeSerializeAndSerialize(t *testing.T) {
 			t.Errorf("failed Serialize tx %d tx: %v\n", i, err)
 		}
 		h := util.DoubleSha256Hash(buf.Bytes())
-		hash := h.String()
-		if e.GetHash != hash {
-			t.Errorf("failed compute GetHash for tx %d, expect=(%s), but got %s\n", i, e.GetHash, hash)
+		if e.GetHash != h.String() {
+			t.Errorf("failed compute GetHash for tx %d, expect=(%s), but got %s\n", i, e.GetHash, h)
 		}
 	}
 }
