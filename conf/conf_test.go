@@ -215,7 +215,7 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			RegTest             bool `default:"false"`
 			SimNet              bool
 			DisableListen       bool          `default:"true"`
-			BlocksOnly          bool          `default:"true"` //Do not accept transactions from remote peers.
+			BlocksOnly          bool          `default:"false"` //Do not accept transactions from remote peers.
 			BanDuration         time.Duration // How long to ban misbehaving peers
 			Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
 			UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
@@ -233,7 +233,7 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			TargetOutbound: 8,
 			DisableBanning: true,
 			DisableListen:  true,
-			BlocksOnly:     true,
+			BlocksOnly:     false,
 			DisableRPC:     false,
 			Upnp:           false,
 			DisableTLS:     false,
@@ -321,6 +321,8 @@ func TestInitConfig2(t *testing.T) {
 	for i, v := range tests {
 		value := v
 		result := InitConfig(value.in)
+		fmt.Println(*result)
+		fmt.Println(*value.want)
 		if !reflect.DeepEqual(result, value.want) {
 			t.Errorf(" %d it not expect", i)
 		}
