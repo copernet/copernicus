@@ -840,6 +840,7 @@ func TestCombineSignature(t *testing.T) {
 
 	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
 	checkErrors(errs, t)
+
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 
 	combineSig, err = ltx.CombineSignature(
