@@ -97,13 +97,11 @@ func TestCheckBlockIndex_NoFork(t *testing.T) {
 		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock, initBits)
 		err := gChain.AddToIndexMap(blockIdx[i])
 		if err != nil {
-			panic("AddToIndexMap fail")
+			t.Errorf("AddToIndexMap fail")
 		}
 	}
 
 	gChain.SetTip(blockIdx[9])
-	print(gChain.Height())
-	print(gChain.IndexMapSize())
 	if err := CheckBlockIndex(); err != nil {
 		t.Errorf("should return nil:%v", err)
 	}
