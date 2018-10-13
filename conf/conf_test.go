@@ -257,7 +257,7 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
 			PromiscuousMempoolFlags: "0",
-			Par: 32,
+			Par:                     32,
 		},
 		TxOut: struct {
 			DustRelayFee int64 `default:"83"`

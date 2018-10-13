@@ -469,50 +469,25 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	if sm.alreadyHave(&txHash) {
 		//TODO: relay tx for whitelistrelay node
-		log.Trace("ignore already processed tx from %s", peer.Addr())
+		log.Trace("Ignore already processed tx from %s", peer.Addr())
 		return
 	}
 
-	// Process the transaction to include validation, insertion in the
-	// memory pool, orphan handling, etc.
+	// Process the transaction to include validation, insertion in the memory pool, orphan handling, etc.
 	acceptedTxs, missTx, err := sm.ProcessTransactionCallBack(tmsg.tx, int64(peer.ID()))
-	// Remove transaction from request maps. Either the mempool/chain
-	// already knows about it and as such we shouldn't have any more
-	// instances of trying to fetch it, or we failed to insert and thus
-	// we'll retry next time we get an inv.
-	delete(state.requestedTxns, txHash)
-	delete(sm.requestedTxns, txHash)
-	invMsg := wire.NewMsgInvSizeHint(uint(len(missTx)))
-	for _, hash := range missTx {
-		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
-		invMsg.AddInvVect(iv)
-	}
-	if len(missTx) > 0 {
-		peer.QueueMessage(invMsg, nil)
-	}
+
+	sm.updateTxRequestState(state, txHash, err)
+
+	fetchMissingTx(missTx, peer)
 
 	if err != nil {
-		// Do not request this transaction again until a new block
-		// has been processed.
-		sm.rejectedTxns[txHash] = struct{}{}
-		sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
-
-		// When the error is a rule error, it means the transaction was
-		// simply rejected as opposed to something actually going wrong,
-		// so log it as such.  Otherwise, something really did go wrong,
-		// so log it as an actual error.
-		if !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
-			log.Debug("Rejected transaction %v from %s: %v",
-				txHash, peer.Addr(), err)
-		} else {
-			log.Warn("Failed to process transaction %v: %v",
-				txHash.String(), err)
-		}
-
-		// Sending BIP61 reject code; never send internal reject codes over P2P.
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
 			peer.PushRejectMsg(wire.CmdTx, rejectCode, reason, &txHash, false)
+			log.Debug("Reject tx %s from %s: %v", txHash.String(), peer.Addr(), err)
+			return
 		}
+
+		log.Warn("Failed to process transaction %s: %v", txHash.String(), err)
 		return
 	}
 
@@ -526,6 +501,31 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	}
 
 	sm.peerNotifier.AnnounceNewTransactions(txentrys)
+}
+
+func (sm *SyncManager) updateTxRequestState(state *peerSyncState, txHash util.Hash, err error) {
+	// Remove transaction from request maps. Either the mempool/chain already knows about it
+	// and as such we shouldn't have any more instances of trying to fetch it, or we failed to
+	// insert and thus we'll retry next time we get an inv.
+	delete(state.requestedTxns, txHash)
+	delete(sm.requestedTxns, txHash)
+
+	if err != nil {
+		// Do not request this transaction again until a new block has been processed.
+		sm.rejectedTxns[txHash] = struct{}{}
+		sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
+	}
+}
+
+func fetchMissingTx(missTx []util.Hash, peer *peer.Peer) {
+	invMsg := wire.NewMsgInvSizeHint(uint(len(missTx)))
+	for _, hash := range missTx {
+		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
+		invMsg.AddInvVect(iv)
+	}
+	if len(missTx) > 0 {
+		peer.QueueMessage(invMsg, nil)
+	}
 }
 
 // current returns true if we believe we are synced with our peers, false if we
