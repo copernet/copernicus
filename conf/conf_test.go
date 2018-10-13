@@ -175,8 +175,6 @@ func TestExistDataDir(t *testing.T) {
 func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configuration {
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
-	testnet := testNet
-	regTest := regTestNet
 	return &Configuration{
 		DataDir: dataDir,
 		RPC: struct {
@@ -240,8 +238,8 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			Upnp:           false,
 			DisableTLS:     false,
 			NoOnion:        true,
-			TestNet:        testnet,
-			RegTest:        regTest,
+			TestNet:        testNet,
+			RegTest:        regTestNet,
 		},
 		Protocol: struct {
 			NoPeerBloomFilters bool `default:"true"`
@@ -285,31 +283,46 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			SimNet       bool
 			ConnectPeers []string
 		}{SimNet: false},
+		BlockIndex: struct{ CheckBlockIndex bool }{CheckBlockIndex: regTestNet},
 	}
 }
 
+func createTmpFile() {
+	confFile := os.Getenv("GOPATH") + "/src/" + defaultProjectDir + "/conf/"
+	CopyFile(confFile+"conf.yml", confFile+"conf.yml.tmp")
+	os.Remove(confFile + "conf.yml")
+	f, err := os.Create(confFile + "conf.yml")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+}
+
+func revert() {
+	confFile := os.Getenv("GOPATH") + "/src/" + defaultProjectDir + "/conf/"
+	os.Remove(confFile + "conf.yml")
+	CopyFile(confFile+"conf.yml.tmp", confFile+"conf.yml")
+	os.Remove(confFile + "conf.yml.tmp")
+}
+
 func TestInitConfig2(t *testing.T) {
-	//tests := []struct {
-	//	in   []string
-	//	want *Configuration
-	//}{
-	//	{[]string{"--datadir=/tmp/Coper"}, getDefaultConfiguration("/tmp/Coper", false, false)},
-	//	//{[]string{"--datadir=/tmp/Coper", "--testnet"}, getDefaultConfiguration("/tmp/Coper", true, false)},
-	//	//{[]string{"--datadir=/tmp/Coper", "--regtest"}, getDefaultConfiguration("/tmp/Coper", false, true)},
-	//}
-	//
-	//file, err := os.Create("/tmp/Coper/conf.yml")
-	//if err != nil {
-	//	t.Error("create file error")
-	//}
-	//defer file.Close()
-	//defer os.Remove("/tmp/Coper/conf.yml")
-	//
-	//for i, v := range tests {
-	//	value := v
-	//	result := InitConfig(value.in)
-	//	if !reflect.DeepEqual(result, value.want) {
-	//		t.Errorf(" %d it not expect", i)
-	//	}
-	//}
+	tests := []struct {
+		in   []string
+		want *Configuration
+	}{
+		{[]string{"--datadir=/tmp/Coper"}, getDefaultConfiguration("/tmp/Coper", false, false)},
+		{[]string{"--datadir=/tmp/Coper", "--testnet"}, getDefaultConfiguration("/tmp/Coper/testnet", true, false)},
+		{[]string{"--datadir=/tmp/Coper", "--regtest"}, getDefaultConfiguration("/tmp/Coper/regtest", false, true)},
+	}
+	createTmpFile()
+	defer os.RemoveAll("/tmp/Coper")
+	defer revert()
+
+	for i, v := range tests {
+		value := v
+		result := InitConfig(value.in)
+		if !reflect.DeepEqual(result, value.want) {
+			t.Errorf(" %d it not expect", i)
+		}
+	}
 }

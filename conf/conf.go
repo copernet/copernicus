@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"gopkg.in/go-playground/validator.v8"
 	"io"
 	"net"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"gopkg.in/go-playground/validator.v8"
 	"path"
 )
 
@@ -91,7 +91,37 @@ func InitConfig(args []string) *Configuration {
 		DataDir = path.Join(DataDir, "regtest")
 	}
 
-	createFile(DataDir)
+	if !ExistDataDir(DataDir) {
+		err := os.MkdirAll(DataDir, os.ModePerm)
+		if err != nil {
+			panic("datadir create failed: " + err.Error())
+		}
+
+		// get GOPATH environment and copy conf file to dst dir
+		gopath := os.Getenv("GOPATH")
+		if gopath != "" {
+			// first try
+			projectPath := gopath + "/src/" + defaultProjectDir
+			filePath := projectPath + "/conf/" + defaultConfigFilename
+			_, err = os.Stat(filePath)
+			if !os.IsNotExist(err) {
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+
+				if err != nil {
+					//panic("from src/defaultProjectDir copy conf.yml failed.")
+				}
+			} else {
+				// second try
+				projectPath = gopath + "/src/copernicus"
+				filePath = projectPath + "/conf/" + defaultConfigFilename
+				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				if err != nil {
+					panic(" from src/copernicus copy conf.yml failed.")
+				}
+			}
+		}
+	}
+
 
 	config := &Configuration{}
 	viper.SetConfigType("yaml")
@@ -151,40 +181,6 @@ func InitConfig(args []string) *Configuration {
 		config.P2PNet.TestNet = true
 	}
 	return config
-}
-
-func createFile(DataDir string) {
-	if !ExistDataDir(DataDir) {
-		err := os.MkdirAll(DataDir, os.ModePerm)
-		if err != nil {
-			panic("datadir create failed: " + err.Error())
-		}
-
-		// get GOPATH environment and copy conf file to dst dir
-		gopath := os.Getenv("GOPATH")
-		if gopath != "" {
-			// first try
-			projectPath := gopath + "/src/" + defaultProjectDir
-			filePath := projectPath + "/conf/" + defaultConfigFilename
-			_, err = os.Stat(filePath)
-			if !os.IsNotExist(err) {
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
-
-				if err != nil {
-					//panic("from src/defaultProjectDir copy conf.yml failed.")
-				}
-			} else {
-				// second try
-				projectPath = gopath + "/src/copernicus"
-				filePath = projectPath + "/conf/" + defaultConfigFilename
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
-				if err != nil {
-					panic(" from src/copernicus copy conf.yml failed.")
-				}
-			}
-		}
-	}
-
 }
 
 // Configuration defines all configurations for application
