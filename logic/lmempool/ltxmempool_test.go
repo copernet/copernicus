@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"encoding/hex"
+	"fmt"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	mmempool "github.com/copernet/copernicus/model/mempool"
@@ -226,7 +229,7 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 // amount of the previous one and as such does not include any fees.
 func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32) ([]*tx.Tx, error) {
 	txChain := make([]*tx.Tx, 0, numTxns)
-	prevOutPoint := firstOutput.outPoint
+	prevOutPoint := &firstOutput.outPoint
 	spendableAmount := firstOutput.amount
 	for i := uint32(0); i < numTxns; i++ {
 		// Create the transaction using the previous transaction output
@@ -234,7 +237,7 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 		// with the harness.
 		tx := tx.NewTx(0, tx.TxVersion)
 		tx.AddTxIn(txin.NewTxIn(
-			&prevOutPoint,
+			prevOutPoint,
 			nil,
 			math.MaxUint32,
 		))
@@ -255,15 +258,14 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 			panic(err)
 		}
 		txChain = append(txChain, tx)
-
+		fmt.Printf("prev:%v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
 		// Next transaction uses outputs from this one.
-		prevOutPoint = outpoint.OutPoint{Hash: tx.GetHash(), Index: 0}
-
-		p.chain.utxos.AddCoin(&prevOutPoint,
+		prevOutPoint = &outpoint.OutPoint{Hash: tx.GetHash(), Index: 0}
+		p.chain.utxos.AddCoin(prevOutPoint,
 			utxo.NewCoin(tx.GetTxOut(0), 0, true),
 			false)
 	}
-
+	fmt.Printf("txchain: %v\n", txChain)
 	return txChain, nil
 }
 
@@ -346,6 +348,7 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 		harness.chain.utxos.AddCoin(outpoint.NewOutPoint(coinbase.GetHash(), uint32(outIdx)),
 			utxo.NewCoin(coinbase.GetTxOut(outIdx), curHeight+1, true),
 			false)
+		fmt.Printf("add %v to utxo\n", outpoint.NewOutPoint(coinbase.GetHash(), uint32(outIdx)))
 	}
 	for i := uint32(0); i < numOutputs; i++ {
 		outputs = append(outputs, txOutToSpendableOut(coinbase, i))
@@ -353,6 +356,8 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 	harness.chain.SetHeight(int32(chainParams.CoinbaseMaturity) + curHeight)
 	harness.chain.SetMedianTimePast(time.Now())
 
+	utxo.GetUtxoCacheInstance().UpdateCoins(harness.chain.utxos, &util.Hash{})
+	//utxo.GetUtxoCacheInstance().Flush()
 	return &harness, outputs, nil
 }
 
@@ -814,6 +819,7 @@ func TestOrphanEviction(t *testing.T) {
 // TestCheckSpend tests that CheckSpend returns the expected spends found in
 // the mempool.
 func TestCheckSpend(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{})
 	// t.Parallel()
 	uc := &utxo.UtxoConfig{Do: &db.DBOption{
 		FilePath:  "/tmp/dbtest",
@@ -846,10 +852,12 @@ func TestCheckSpend(t *testing.T) {
 	for _, tx := range chainedTxns {
 		// _, err := harness.txPool.ProcessTransaction(tx, true,
 		// 	false, 0)
-		_, _, err := service.ProcessTransaction(tx, 0)
+		fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
+		//_, _, err := service.ProcessTransaction(tx, 0)
+		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight())
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
-				"tx: %v", err)
+				"tx(%s): %v", tx.GetHash(), err)
 		}
 	}
 
@@ -885,5 +893,5 @@ func TestCheckSpend(t *testing.T) {
 	if spend != nil {
 		t.Fatalf("Unexpeced spend found in pool: %v", spend)
 	}
-	os.RemoveAll("tmp/dbtest")
+	os.RemoveAll("/tmp/dbtest")
 }

@@ -24,6 +24,7 @@ func handleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[ut
 
 func ProcessTransaction(txn *tx.Tx, recentRejects *map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
 	err := lmempool.AcceptTxToMemPool(txn)
+
 	if err == nil {
 		lmempool.CheckMempool()
 

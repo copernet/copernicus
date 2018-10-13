@@ -67,7 +67,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 					continue
 				}
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx)
+				err := AcceptTxToMemPool(iOrphanTx.Tx, chain.GetInstance().Height())
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
