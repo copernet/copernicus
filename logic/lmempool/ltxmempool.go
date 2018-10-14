@@ -46,7 +46,7 @@ func addTxToMemPool(txe *mempool.TxEntry) error {
 	return nil
 }
 
-func TryAcceptOrphansTxs(transaction *tx.Tx, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
+func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	pool := mempool.GetInstance()
 
@@ -67,7 +67,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, checkLockPoint bool) (acceptTxs []*
 					continue
 				}
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx, chain.GetInstance().Height(), checkLockPoint)
+				err := AcceptTxToMemPool(iOrphanTx.Tx, chainHeight, checkLockPoint)
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {

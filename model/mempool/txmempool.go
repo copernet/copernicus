@@ -782,7 +782,7 @@ func (m *TxMempool) limitOrphanTx() (removeNum int) {
 		m.nextSweep = minExpTime + OrphanTxExpireInterval
 	}
 
-	if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
+	if len(m.OrphanTransactions) <= DefaultMaxOrphanTransaction {
 		return
 	}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func handleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[util.Hash]struct{}) (missTxs []util.Hash, rejectTxs []util.Hash) {
+func HandleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[util.Hash]struct{}) (missTxs []util.Hash, rejectTxs []util.Hash) {
 	missingInputs := errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut)
 	isNormalOrphan := missingInputs && !txn.AnyInputTxIn(recentRejects)
 
@@ -27,7 +27,6 @@ func ProcessTransaction(txn *tx.Tx, recentRejects *map[util.Hash]struct{}, nodeI
 
 	if err == nil {
 		lmempool.CheckMempool()
-
 		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn)
 
 		acceptedTxs := append([]*tx.Tx{txn}, acceptedOrphans...)
