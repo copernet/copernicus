@@ -225,6 +225,17 @@ func parseCmd(request *btcjson.Request, jsonParam *map[string]json.RawMessage) *
 
 	parsedCmd.id = request.ID
 	parsedCmd.method = request.Method
+
+	// DO NOT parse the parameter of echo
+	if request.Method == "echo" {
+		if jsonParam == nil {
+			parsedCmd.cmd = request.Params
+		} else {
+			parsedCmd.cmd = jsonParam
+		}
+		return &parsedCmd
+	}
+
 	if jsonParam == nil {
 		cmd, err = btcjson.UnmarshalCmd(request)
 	} else {

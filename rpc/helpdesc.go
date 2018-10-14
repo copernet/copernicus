@@ -1514,7 +1514,6 @@ const (
 		"\nCreates a multi-signature address with n signature of m keys " +
 		"required.\n" +
 		"It returns a json object with the address and redeemScript.\n" +
-
 		"\nArguments:\n" +
 		"1. nrequired      (numeric, required) The number of required " +
 		"signatures out of the n keys or addresses.\n" +
@@ -1525,7 +1524,6 @@ const (
 		"key\n" +
 		"       ,...\n" +
 		"     ]\n" +
-
 		"\nResult:\n" +
 		"{\n" +
 		"  \"address\":\"multisigaddress\",  (string) The value of the new " +
@@ -1533,10 +1531,12 @@ const (
 		"  \"redeemScript\":\"script\"       (string) The string value of " +
 		"the hex-encoded redemption script.\n" +
 		"}\n" +
-
 		"\nExamples:\n" +
 		"\nCreate a multisig address from 2 addresses\n" +
 		`> coperctl createmultisig 2 "[\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\",\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\"]"` +
 		"\nAs a json rpc call\n" +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "createmultisig", "params": [2, "[\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\",\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\"]"] }' -H 'content-type: text/plain;' http://127.0.0.1:8334/`
+
+	echoDesc = "echo \"message\" ...\n" +
+		"\nSimply echo back the input arguments. This command is for testing."
 )

@@ -93,6 +93,7 @@ var allMethodHelp = map[string]helpDescInfo{
 	"getexcessiveblock":  {DebugCmd, getexcessiveblockDesc},
 	"setexcessiveblock":  {DebugCmd, setexcessiveblockDesc},
 	"waitforblockheight": {DebugCmd, waitforblockheightDesc},
+	"echo":               {DebugCmd, echoDesc},
 }
 
 // rpcMethodHelp returns an RPC help string for the provided method.

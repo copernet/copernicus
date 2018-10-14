@@ -95,6 +95,26 @@ func NewDecodeScriptCmd(hexScript string) *DecodeScriptCmd {
 	}
 }
 
+// EchoCmd defines the echo JSON-RPC command.
+type EchoCmd struct {
+	Arg0 *string
+	Arg1 *string
+	Arg2 *string
+	Arg3 *string
+	Arg4 *string
+	Arg5 *string
+	Arg6 *string
+	Arg7 *string
+	Arg8 *string
+	Arg9 *string
+}
+
+// NewEchoCmd returns a new instance which can be used to issue a echo JSON-RPC
+// command.
+func NewEchoCmd() *EchoCmd {
+	return &EchoCmd{}
+}
+
 // GetAddedNodeInfoCmd defines the getaddednodeinfo JSON-RPC command.
 type GetAddedNodeInfoCmd struct {
 	Node *string
@@ -912,5 +932,6 @@ func init() {
 	MustRegisterCmd("estimatefee", (*EstimateFeeCmd)(nil), flags)
 
 	MustRegisterCmd("waitforblockheight", (*WaitForBlockHeightCmd)(nil), flags)
+	MustRegisterCmd("echo", (*EchoCmd)(nil), flags)
 
 }

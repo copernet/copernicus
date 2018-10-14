@@ -5,6 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
+	"strconv"
+	"strings"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -202,7 +205,34 @@ func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 }
 
 func handleEcho(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return cmd, nil
+	const echoArgPrefix = "arg"
+	if _, ok := cmd.(*map[string]json.RawMessage); !ok {
+		return cmd, nil
+	}
+	// JSON format
+	params := cmd.(*map[string]json.RawMessage)
+	retLen := 0
+	args := make(map[int]interface{})
+	for argName, arg := range *params {
+		if !strings.HasPrefix(strings.ToLower(argName), echoArgPrefix) {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.ErrRPCInvalidParameter,
+				Message: "Unknown named parameter " + argName,
+			}
+		}
+		argIdx := argName[len(echoArgPrefix):]
+		if index, err := strconv.Atoi(argIdx); err == nil {
+			args[index] = arg
+			if index >= retLen {
+				retLen = index + 1
+			}
+		}
+	}
+	result := make([]interface{}, retLen)
+	for index, arg := range args {
+		result[index] = arg
+	}
+	return result, nil
 }
 
 // handleHelp implements the help command.
