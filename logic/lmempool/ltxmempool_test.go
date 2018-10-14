@@ -373,14 +373,16 @@ type testContext struct {
 // should be reported as available by the HaveTransaction function based upon
 // the two flags and tests that condition as well.
 func testPoolMembership(tc *testContext, tx *tx.Tx, inOrphanPool, inTxPool bool) {
-	gotOrphanPool := tc.harness.txPool.IsOrphanInPool(tx)
+	//gotOrphanPool := tc.harness.txPool.IsOrphanInPool(tx)
+	gotOrphanPool := lmempool.FindOrphanTxInMemPool(tx.GetHash()) != nil
 	if inOrphanPool != gotOrphanPool {
 		_, file, line, _ := runtime.Caller(1)
 		tc.t.Fatalf("%s:%d -- IsOrphanInPool: want %v, got %v", file,
 			line, inOrphanPool, gotOrphanPool)
 	}
 
-	gotTxPool := tc.harness.txPool.IsTransactionInPool(tx)
+	//gotTxPool := tc.harness.txPool.IsTransactionInPool(tx)
+	gotTxPool := lmempool.FindTxInMempool(tx.GetHash()) != nil
 	if inTxPool != gotTxPool {
 		_, file, line, _ := runtime.Caller(1)
 		tc.t.Fatalf("%s:%d -- IsTransactionInPool: want %v, got %v",
@@ -444,6 +446,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 		// Ensure the transaction is in the orphan pool, is not in the
 		// transaction pool, and is reported as available.
 		testPoolMembership(tc, tx, true, false)
+		lmempool.CheckMempool()
 	}
 
 	// Add the transaction which completes the orphan chain and ensure they
@@ -458,12 +461,14 @@ func TestSimpleOrphanChain(t *testing.T) {
 		t.Fatalf("ProcessTransaction: failed to accept valid "+
 			"orphan %v", err)
 	}
+	lmempool.CheckMempool()
 	acceptedTxns := lmempool.ProcessOrphan(chainedTxns[0], harness.chain.BestHeight(), false)
 	if len(acceptedTxns) != len(chainedTxns)-1 {
 		t.Fatalf("ProcessTransaction: reported accepted transactions "+
 			"length does not match expected -- got %d, want %d",
 			len(acceptedTxns), len(chainedTxns))
 	}
+	lmempool.CheckMempool()
 	for _, tx := range acceptedTxns {
 		// Ensure the transaction is no longer in the orphan pool, is
 		// now in the transaction pool, and is reported as available.
