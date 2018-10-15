@@ -29,10 +29,11 @@ func Reindex() (err error) {
 
 	for index, filePath := range blkFiles {
 		dbp := block.NewDiskBlockPos(int32(index), uint32(0))
-		err = loadExternalBlockFile(filePath, dbp)
+		_, err := loadExternalBlockFile(filePath, dbp)
+		_, err := loadExternalBlockFile(filePath, dbp)
 		if err != nil {
 			if err.Error() == io.EOF.Error() {
-				log.Error("have read full data from file<%s>, next", filePath)
+				log.Info("have read full data from file<%s>, next", filePath)
 			} else {
 				log.Error("When reindex, load block file <%s> failed!", filePath)
 			}
@@ -52,12 +53,12 @@ func Reindex() (err error) {
 	return err
 }
 
-func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error) {
+func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (nLoaded int, err error) {
 	mapBlocksUnknownParent := make(map[util.Hash]*list.List)
 	log.Info("file: %s", filePath)
 	mchain := chain.GetInstance()
 	params := mchain.GetParams()
-	nLoaded := 0
+	nLoaded = 0
 
 	nStartTime := time.Now()
 
@@ -68,15 +69,15 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 	}
 
 	fileSize := uint32(fileInfo.Size())
-	for dbp.Pos < fileSize {
+	for dbp.Pos < fileSize+1 {
 		log.Info("pos: %d", dbp.Pos)
 		blk, err := disk.ReadBlockFromDiskByPos(*dbp, params)
 		if err != nil {
 			if err.Error() == io.EOF.Error() {
-				return err
+				return nLoaded, err
 			}
 			log.Error("fail to read block from pos<%d, %d>", dbp.File, dbp.Pos)
-			return errcode.New(errcode.FailedToReadBlock)
+			return nLoaded, errcode.New(errcode.FailedToReadBlock)
 		}
 
 		blkHash := blk.GetHash()
@@ -91,7 +92,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 				if !exist {
 					mapBlocksUnknownParent[blkPreHash] = list.New()
 				}
-				mapBlocksUnknownParent[blkPreHash].PushBack(dbp)
+				mapBlocksUnknownParent[blkPreHash].PushBack(*dbp)
 			}
 			dbp.Pos = dbp.Pos + uint32(blk.EncodeSize()) + 4
 			continue
@@ -110,7 +111,8 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 			nLoaded++
 			persist.CsMain.Unlock()
 			log.Debug("already accept block: %s", blk.Header.Hash.String())
-		} else if blkIndex := mchain.FindBlockIndex(blkHash); blkHash != *params.GenesisHash && blkIndex.Height%1000 == 0 {
+			//		} else if blkIndex := mchain.FindBlockIndex(blkHash); blkHash != *params.GenesisHash && blkIndex.Height%1000 == 0 {
+		} else {
 			log.Info("already had block %s at height %d", blkHash.String(), blkIndex.Height)
 		}
 
@@ -136,19 +138,19 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 			}
 			for itemList.Len() > 0 {
 				val := itemList.Remove(itemList.Front())
-				diskBlkPos, _ := val.(*block.DiskBlockPos)
+				diskBlkPos, _ := val.(block.DiskBlockPos)
 
-				blk, err := disk.ReadBlockFromDiskByPos(*diskBlkPos, params)
+				blk, err := disk.ReadBlockFromDiskByPos(diskBlkPos, params)
 				if err != nil {
 					log.Error("when process successors, fail to read block from pos<%d, %d>", diskBlkPos.File, diskBlkPos.Pos)
 					continue
 				}
 				hash := blk.GetHash()
 				//hex.EncodeToString(blk.GetHash()[:])
-				log.Info("Processing out of order child %s of %s", hash.String(), blkHash.String())
+				log.Info("Processing out of order child %s of %s", hash.String(), head.String())
 				persist.CsMain.Lock()
 				fNewBlock := false
-				_, _, err = lblock.AcceptBlock(blk, true, diskBlkPos, &fNewBlock)
+				_, _, err = lblock.AcceptBlock(blk, true, &diskBlkPos, &fNewBlock)
 				if err == nil {
 					nLoaded++
 					queue.PushBack(blk.GetHash())
@@ -161,7 +163,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 		}
 
 		dbp.Pos = dbp.Pos + uint32(blk.EncodeSize()) + 4
-		nLoaded++
+		//nLoaded++
 	}
 	log.Info("end-pos: %d", dbp.Pos)
 	log.Info("file size: %d", fileInfo.Size())
@@ -171,7 +173,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (err error)
 		log.Info("Loaded %d blocks from external file in %f seconds", nLoaded, nEndTime.Sub(nStartTime).Seconds())
 	}
 
-	return
+	return nLoaded, err
 }
 
 func UnloadBlockIndex() {
