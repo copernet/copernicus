@@ -1,7 +1,7 @@
 package txout
 
 import (
-	"bytes"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/copernet/copernicus/model/script"
 	"testing"
@@ -24,29 +24,19 @@ var (
 )
 
 func TestNewTxOut(t *testing.T) {
-	if testTxout.value != 9 {
-		t.Error("The value should be 9 instead of ", testTxout.value)
-	}
-	if !bytes.Equal(testTxout.GetScriptPubKey().GetData(), myscript) {
-		t.Error("this data should be equal")
-	}
+	assert.Equal(t, amount.Amount(9), testTxout.value)
+	assert.Equal(t, myscript, testTxout.GetScriptPubKey().GetData())
 }
 
 func TestSerialize(t *testing.T) {
 	file, err := os.OpenFile("tmp.txt", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	err = testTxout.Serialize(file)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	_, err = file.Seek(0, 0)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
 	txOutRead := &TxOut{}
 
@@ -54,67 +44,49 @@ func TestSerialize(t *testing.T) {
 	txOutRead.scriptPubKey = script.NewEmptyScript()
 
 	err = txOutRead.Unserialize(file)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
 
-	if txOutRead.value != testTxout.value {
-		t.Error("The value should be equal", txOutRead.value, " : ", testTxout.value)
-	}
+	assert.Equal(t, testTxout.value, txOutRead.value)
 
-	if !bytes.Equal(txOutRead.GetScriptPubKey().GetData(), testTxout.GetScriptPubKey().GetData()) {
-		t.Error("The two []byte data should be equal ", txOutRead.GetScriptPubKey(), " : ", testTxout.GetScriptPubKey())
+	assert.Equal(t, testTxout.GetScriptPubKey().GetData(), txOutRead.GetScriptPubKey().GetData())
 
-	}
-
-	if testTxout.SerializeSize() != 30 {
-		t.Error("the serialSize should be 29 instead of ", testTxout.SerializeSize())
-	}
+	assert.Equal(t, uint32(30), testTxout.SerializeSize())
 
 	err = os.Remove("tmp.txt")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(t, err)
+}
 
+func TestTxOut_UnspendableOpReturnScript(t *testing.T) {
+	opReturnScript := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 0x01, 0x01})
+	unspendableTxout := NewTxOut(9, opReturnScript)
+
+	assert.True(t, unspendableTxout.scriptPubKey.IsUnspendable())
+}
+
+func TestTxOut_ScriptSizeTooLarge(t *testing.T) {
+	bytes := make([]byte, script.MaxScriptSize+1)
+	opReturnScript := script.NewScriptRaw(bytes)
+	unspendableTxout := NewTxOut(9, opReturnScript)
+
+	assert.True(t, unspendableTxout.scriptPubKey.IsUnspendable())
 }
 
 func TestIsDust(t *testing.T) {
-	if testTxout.scriptPubKey.IsUnspendable() && testTxout.GetDustThreshold(minRelayTxFee) != 0 {
-		t.Error("the txout is unspendable but GetDustThreshold of which doesn't return 0")
-	}
+	expected := 3 * minRelayTxFee.GetFee(int(testTxout.SerializeSize()+32+4+1+107+4))
 
-	if testTxout.GetDustThreshold(minRelayTxFee) != 5214 {
-		t.Error("there must exist something wrong in calculation")
-	}
+	assert.Equal(t, expected, testTxout.GetDustThreshold(minRelayTxFee))
 
-	if !testTxout.IsDust(minRelayTxFee) {
-		t.Error("there must exist something wrong in the function IsDust")
-	}
-
+	assert.True(t, testTxout.IsDust(minRelayTxFee))
 }
 
 func TestCheckValue(t *testing.T) {
 	testTxout.value = amount.Amount(util.MaxMoney) + 1
-	if testTxout.CheckValue() == nil {
-		t.Error("the value of textTxout is in the wrong range but not detected")
-	}
-
-	expectedError := errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-out-range")
-
-	if testTxout.CheckValue().Error() != expectedError.Error() {
-		t.Error("the return of error is not well defined")
-	}
+	expectedError := errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-toolarge")
+	assert.Error(t, expectedError, testTxout.CheckValue().Error())
 
 	testTxout.value = amount.Amount(-1)
-
-	if testTxout.CheckValue() == nil {
-		t.Error("the value of textTxout is in the wrong range but not detected")
-	}
-
-	if testTxout.CheckValue().Error() != expectedError.Error() {
-		t.Error("the return of error is not well defined")
-	}
-
+	expectedError = errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-negative")
+	assert.Error(t, expectedError, testTxout.CheckValue().Error())
 }
 
 func TestCheckStandard(t *testing.T) {
@@ -127,9 +99,7 @@ func TestCheckStandard(t *testing.T) {
 	var p int
 	p, _ = testTxout.CheckStandard()
 
-	if p != 5 {
-		t.Error("should return 5 but not")
-	}
+	assert.Equal(t, 5, p)
 
 	poc = opcodes.NewParsedOpCode(opcodes.OP_DUP, 1, []byte{0x76})
 	testTxout.scriptPubKey.ParsedOpCodes[0] = *poc
@@ -143,25 +113,16 @@ func TestCheckStandard(t *testing.T) {
 	testTxout.scriptPubKey.ParsedOpCodes[4] = *poc
 
 	p, _ = testTxout.CheckStandard()
-
-	if p != 2 {
-		t.Error("should return 2 but not")
-	}
-
+	assert.Equal(t, 2, p)
 }
 
 func TestIsCommitment(t *testing.T) {
 	p := testTxout.scriptPubKey.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4})
-	if p {
-		t.Error("not qualified committing data but not detected")
-	}
+	assert.False(t, p, "not qualified committing data")
 
 	p = testTxout.scriptPubKey.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31})
-
-	if p {
-		t.Error("header of script not OP_RETURN but not detected")
-	}
+	assert.False(t, p, "header of script not OP_RETURN")
 
 	myscript = []byte{0x6a, 0x13, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
@@ -171,17 +132,11 @@ func TestIsCommitment(t *testing.T) {
 
 	p = testTxout.scriptPubKey.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
 		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31})
+	assert.True(t, p)
 
-	if !p {
-		t.Error("func IsCommitment never returns true")
-	}
 	b := make([]byte, 10001)
 	p = testTxout.scriptPubKey.IsCommitment(b)
-
-	if p {
-		t.Error("data too much to commit but misjudged")
-	}
-
+	assert.False(t, p, "data too much to commit but misjudged")
 }
 
 func TestIsSpendable(t *testing.T) {
