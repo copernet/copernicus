@@ -5,12 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/copernet/copernicus/logic/lmerkleroot"
-	"math/big"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -27,7 +27,7 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"github.com/copernet/copernicus/conf"
+	"math/big"
 	"strings"
 )
 
@@ -528,8 +528,8 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 
 	//TODO: after add wallet,remove this dummy coinbaseAddr
 	coinbaseAddr := ""
-	coinbaseExpMap := make(map[string]string, 8)
-	coinbaseExpMap = map[string]string{
+	//coinbaseExpMap := make(map[string]string)
+	coinbaseExpMap := map[string]string{
 		"testnode0": "mqS85dyRhDfiU1GUiqMpFDpzTRpknqnZEU",
 		"testnode1": "mnMkwTM3N3omYXN3Yptm5k1WEPCiA9t8LQ",
 		"testnode2": "mkNUWsZR8VdpvxoyMwhAfMBVqU7cZjfrLb",
@@ -544,7 +544,6 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 			coinbaseAddr = coinbaseExpMap[str]
 		}
 	}
-	println(coinbaseAddr)
 	coinbaseScript, err := getStandardScriptPubKey(coinbaseAddr, nil)
 	if err != nil {
 		return nil, err
