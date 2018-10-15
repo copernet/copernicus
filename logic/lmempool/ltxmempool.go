@@ -67,8 +67,9 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 	return nil
 }
 
-func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
+func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
+	acceptTx := make([]*tx.Tx, 0)
 	pool := mempool.GetInstance()
 
 	// first collect this tx all outPoint.
@@ -90,7 +91,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 
 				err := AcceptTxToMemPool(iOrphanTx.Tx)
 				if err == nil {
-					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
+					acceptTx = append(acceptTx, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
 						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.GetHash(), Index: uint32(i)}
 						vWorkQueue = append(vWorkQueue, o)
@@ -102,7 +103,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 				if !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 					pool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), true)
 					if errcode.IsErrorCode(err, errcode.RejectTx) {
-						rejectTxs = append(rejectTxs, iOrphanTx.Tx.GetHash())
+						pool.RecentRejects[iOrphanTx.Tx.GetHash()] = struct{}{}
 					}
 					break
 				}
@@ -110,7 +111,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 		}
 	}
 
-	return
+	return acceptTx
 }
 
 func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
@@ -143,7 +144,7 @@ func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mem
 	rejectFee := minfeeRate.GetFee(int(txsize))
 	// compare the transaction feeRate with enter mempool min txfeeRate
 	if txfee < rejectFee {
-		return nil, lp, errcode.New(errcode.RejectInsufficientFee)
+		return nil, lp, errcode.New(errcode.TxErrRejectInsufficientFee)
 	}
 
 	return ancestors, lp, nil
@@ -438,4 +439,14 @@ func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 	}
 
 	return nil
+}
+
+func FindRejectTxInMempool(hash util.Hash) bool {
+	pool := mempool.GetInstance()
+	pool.RLock()
+	defer pool.RUnlock()
+	if _, ok := pool.RecentRejects[hash]; ok {
+		return ok
+	}
+	return false
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model/mempool"
@@ -9,36 +10,52 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func handleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[util.Hash]struct{}) (missTxs []util.Hash, rejectTxs []util.Hash) {
-	missingInputs := errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut)
-	isNormalOrphan := missingInputs && !txn.AnyInputTxIn(recentRejects)
+func handleRejectedTx(transaction *tx.Tx, err error,
+	nodeID int64) (lostTx []util.Hash) {
 
-	if isNormalOrphan {
-		mempool.GetInstance().AddOrphanTx(txn, nodeID)
-		missTxs = txn.PrevoutHashs()
-		return
+	pool := mempool.GetInstance()
+	if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
+		fRejectedParents := false
+		prevouts := transaction.GetAllPreviousOut()
+		for _, preOut := range prevouts {
+			if _, ok := pool.RecentRejects[preOut.Hash]; ok {
+				fRejectedParents = true
+				break
+			}
+		}
+		if !fRejectedParents {
+			for _, preOut := range prevouts {
+				lostTx = append(lostTx, preOut.Hash)
+			}
+			pool.AddOrphanTx(transaction, nodeID)
+		}
+		evicted := pool.LimitOrphanTx()
+		if evicted > 0 {
+			log.Print("service", "debug", "Orphan transaction "+
+				"overflow, removed %d tx", evicted)
+		}
+	} else {
+		pool.RecentRejects[transaction.GetHash()] = struct{}{}
 	}
 
-	rejectTxs = append(rejectTxs, txn.GetHash())
 	return
 }
 
-func ProcessTransaction(txn *tx.Tx, recentRejects *map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
-	err := ltx.CheckRegularTransaction(txn)
-	if err == nil {
+func ProcessTransaction(transaction *tx.Tx, nodeID int64) ([]*tx.Tx, []util.Hash, error) {
 
-		err = lmempool.AcceptTxToMemPool(txn)
-		if err == nil {
-
-			lmempool.CheckMempool()
-
-			acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn)
-
-			acceptedTxs := append([]*tx.Tx{txn}, acceptedOrphans...)
-			return acceptedTxs, nil, rejectTxs, nil
-		}
+	err := ltx.CheckRegularTransaction(transaction)
+	if err != nil {
+		lostTx := handleRejectedTx(transaction, err, nodeID)
+		return nil, lostTx, err
 	}
 
-	missTxs, rejectTxs := handleRejectedTx(txn, err, nodeID, recentRejects)
-	return nil, missTxs, rejectTxs, err
+	err = lmempool.AcceptTxToMemPool(transaction)
+	if err == nil {
+		lmempool.CheckMempool()
+		// Firstly, place the first accepted @transaction for a peer,
+		// Otherwise, it may discard other orphan transactions.
+		return append([]*tx.Tx{transaction}, lmempool.ProcessOrphan(transaction)...), nil, nil
+	}
+	lostTx := handleRejectedTx(transaction, err, nodeID)
+	return nil, lostTx, err
 }

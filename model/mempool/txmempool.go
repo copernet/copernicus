@@ -74,6 +74,7 @@ type TxMempool struct {
 	TransactionsUpdated      uint64
 	OrphanTransactionsByPrev map[outpoint.OutPoint]map[util.Hash]OrphanTx
 	OrphanTransactions       map[util.Hash]OrphanTx
+	RecentRejects            map[util.Hash]struct{}
 
 	nextSweep int
 
@@ -678,6 +679,7 @@ func NewTxMempool() *TxMempool {
 
 		OrphanTransactionsByPrev: make(map[outpoint.OutPoint]map[util.Hash]OrphanTx),
 		OrphanTransactions:       make(map[util.Hash]OrphanTx),
+		RecentRejects:            make(map[util.Hash]struct{}),
 	}
 }
 
@@ -705,23 +707,16 @@ func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
 	if sz >= consensus.MaxTxSize {
 		return
 	}
-
 	o := OrphanTx{Tx: orphantx, NodeID: nodeID, Expiration: time.Now().Second() + OrphanTxExpireTime}
-
 	m.OrphanTransactions[orphantx.GetHash()] = o
 	for _, preout := range orphantx.GetAllPreviousOut() {
 		if exist, ok := m.OrphanTransactionsByPrev[preout]; ok {
-			exist[o.Tx.GetHash()] = o
+			exist[orphantx.GetHash()] = o
 		} else {
 			mi := make(map[util.Hash]OrphanTx)
-			mi[o.Tx.GetHash()] = o
+			mi[orphantx.GetHash()] = o
 			m.OrphanTransactionsByPrev[preout] = mi
 		}
-	}
-
-	evicted := m.limitOrphanTx()
-	if evicted > 0 {
-		log.Debug("Orphan transaction overflow, removed %d orphan tx", evicted)
 	}
 }
 
@@ -750,7 +745,7 @@ func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 	delete(m.OrphanTransactions, txHash)
 }
 
-func (m *TxMempool) limitOrphanTx() (removeNum int) {
+func (m *TxMempool) LimitOrphanTx() (removeNum int) {
 	now := time.Now().Second()
 	if m.nextSweep <= now {
 		minExpTime := now + OrphanTxExpireTime - OrphanTxExpireInterval

@@ -81,7 +81,7 @@ func (txOut *TxOut) GetDustThreshold(minRelayTxFee *util.FeeRate) int64 {
 func (txOut *TxOut) CheckValue() error { //3
 	if !amount.MoneyRange(txOut.value) {
 		log.Warn("bad txout value :%d", txOut.value)
-		return errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-out-range")
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	return nil
