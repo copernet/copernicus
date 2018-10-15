@@ -30,7 +30,6 @@ func Reindex() (err error) {
 	for index, filePath := range blkFiles {
 		dbp := block.NewDiskBlockPos(int32(index), uint32(0))
 		_, err := loadExternalBlockFile(filePath, dbp)
-		_, err := loadExternalBlockFile(filePath, dbp)
 		if err != nil {
 			if err.Error() == io.EOF.Error() {
 				log.Info("have read full data from file<%s>, next", filePath)
