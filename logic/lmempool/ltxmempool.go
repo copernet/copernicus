@@ -67,9 +67,8 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 	return nil
 }
 
-func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
+func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
-	acceptTx := make([]*tx.Tx, 0)
 	pool := mempool.GetInstance()
 
 	// first collect this tx all outPoint.
@@ -91,7 +90,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 
 				err := AcceptTxToMemPool(iOrphanTx.Tx)
 				if err == nil {
-					acceptTx = append(acceptTx, iOrphanTx.Tx)
+					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
 						o := outpoint.OutPoint{Hash: iOrphanTx.Tx.GetHash(), Index: uint32(i)}
 						vWorkQueue = append(vWorkQueue, o)
@@ -103,7 +102,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 				if !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 					pool.EraseOrphanTx(iOrphanTx.Tx.GetHash(), true)
 					if errcode.IsErrorCode(err, errcode.RejectTx) {
-						pool.RecentRejects[iOrphanTx.Tx.GetHash()] = struct{}{}
+						rejectTxs = append(rejectTxs, iOrphanTx.Tx.GetHash())
 					}
 					break
 				}
@@ -111,7 +110,7 @@ func ProcessOrphan(transaction *tx.Tx) []*tx.Tx {
 		}
 	}
 
-	return acceptTx
+	return
 }
 
 func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
@@ -144,7 +143,7 @@ func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mem
 	rejectFee := minfeeRate.GetFee(int(txsize))
 	// compare the transaction feeRate with enter mempool min txfeeRate
 	if txfee < rejectFee {
-		return nil, lp, errcode.New(errcode.TxErrRejectInsufficientFee)
+		return nil, lp, errcode.New(errcode.RejectInsufficientFee)
 	}
 
 	return ancestors, lp, nil
@@ -439,14 +438,4 @@ func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 	}
 
 	return nil
-}
-
-func FindRejectTxInMempool(hash util.Hash) bool {
-	pool := mempool.GetInstance()
-	pool.RLock()
-	defer pool.RUnlock()
-	if _, ok := pool.RecentRejects[hash]; ok {
-		return ok
-	}
-	return false
 }
