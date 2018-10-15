@@ -2,14 +2,11 @@ package rpc
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"math/big"
-	"math/rand"
-
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -30,6 +27,8 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
+	"github.com/copernet/copernicus/conf"
+	"strings"
 )
 
 var miningHandlers = map[string]commandHandler{
@@ -527,12 +526,30 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	//todo after add wallet,remove this pkScript
-	seedBuffer := bytes.NewBuffer([]byte{})
-	binary.Write(seedBuffer, binary.BigEndian, rand.Int31())
-	pkScript := seedBuffer.Bytes()
+	//TODO: after add wallet,remove this dummy coinbaseAddr
+	coinbaseAddr := ""
+	coinbaseExpMap := make(map[string]string, 8)
+	coinbaseExpMap = map[string]string{
+		"testnode0": "mqS85dyRhDfiU1GUiqMpFDpzTRpknqnZEU",
+		"testnode1": "mnMkwTM3N3omYXN3Yptm5k1WEPCiA9t8LQ",
+		"testnode2": "mkNUWsZR8VdpvxoyMwhAfMBVqU7cZjfrLb",
+		"testnode3": "mnmz9XZnEqzRvFYy7mQYb5iPzM6QAHAnQ8",
+		"testnode4": "mkGAgGutUFYgVhm1FjAzSUcu3wPm2Fc4X5",
+		"testnode5": "miRRxnjfPcmjh5nv6rzAT2oMY4SwCbhJkq",
+		"testnode6": "mg2s7t69gYVZBPqjX31KhHSKMrztvbvkrJ",
+		"testnode7": "mj31AKn4CcT9Vpf8mXPV6gqoyUULZSySKi",
+	}
+	for _, str := range conf.Cfg.P2PNet.UserAgentComments {
+		if strings.Contains(str, "testnode") {
+			coinbaseAddr = coinbaseExpMap[str]
+		}
+	}
+	println(coinbaseAddr)
+	coinbaseScript, err := getStandardScriptPubKey(coinbaseAddr, nil)
+	if err != nil {
+		return nil, err
+	}
 
-	coinbaseScript := script.NewScriptRaw(pkScript)
 	if coinbaseScript == nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
