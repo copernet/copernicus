@@ -260,7 +260,7 @@ func (bf *Filter) maybeAddOutpoint(outHash *util.Hash, outIdx uint32) {
 	// 	bf.addOutPoint(outpoint)
 	// case wire.BloomUpdateP2PubkeyOnly:
 	// 	var sc *script.Script
-	// 	class, err := sc.CheckScriptPubKeyStandard()
+	// 	class, err := sc.IsStandardScriptPubKey()
 	// 	if err != nil {
 	// 		errors.New("The script not standard...")
 	// 	} else if class == script.ScriptPubkey || class == script.ScriptMultiSig {

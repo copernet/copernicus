@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
 	"math"
@@ -799,18 +800,18 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 	hashType uint32, value amount.Amount, scriptRedeem *script.Script) (*script.Script, error) {
 
 	sigScriptPubKey := scriptPubKey
-	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
-	if err != nil {
-		return nil, err
+	pubKeyType, pubKeys, isStandard := scriptPubKey.IsStandardScriptPubKey()
+	if !isStandard {
+		return nil, errcode.New(errcode.RejectNonstandard)
 	}
 	if pubKeyType == script.ScriptHash {
 		if scriptRedeem == nil {
 			return nil, errors.New("Redeem script not found")
 		}
 		sigScriptPubKey = scriptRedeem
-		pubKeyType, pubKeys, err = scriptRedeem.CheckScriptPubKeyStandard()
-		if err != nil {
-			return nil, err
+		pubKeyType, pubKeys, isStandard = scriptRedeem.IsStandardScriptPubKey()
+		if !isStandard {
+			return nil, errcode.New(errcode.RejectNonstandard)
 		}
 	}
 
@@ -876,7 +877,7 @@ func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, 
 
 	scriptSig := script.NewEmptyScript()
 	scriptSig.PushMultData(scriptSigData)
-	err = lscript.VerifyScript(transaction, scriptSig, scriptPubKey, nIn, value,
+	err := lscript.VerifyScript(transaction, scriptSig, scriptPubKey, nIn, value,
 		uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 	if err != nil {
 		return nil, err

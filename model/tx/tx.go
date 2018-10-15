@@ -299,7 +299,6 @@ func (tx *Tx) IsCoinBase() bool {
 
 func (tx *Tx) GetSigOpCountWithoutP2SH() int {
 	n := 0
-
 	for _, in := range tx.ins {
 		n += in.GetScriptSig().GetSigOpCount(false)
 	}
@@ -390,8 +389,8 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 
 	// check sigopcount
 	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
-		log.Debug("bad tx sigops :%d", tx.GetSigOpCountWithoutP2SH())
-		return errcode.New(errcode.RejectInvalid)
+		log.Debug("bad tx: %s bad-txn-sigops :%d", tx.hash, tx.GetSigOpCountWithoutP2SH())
+		return errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 	}
 
 	// check dup input
@@ -407,65 +406,63 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 }
 func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
 	for _, in := range tx.ins {
-		if _, ok := (*outpoints)[*(in.PreviousOutPoint)]; !ok {
+		if _, exists := (*outpoints)[*(in.PreviousOutPoint)]; !exists {
 			(*outpoints)[*(in.PreviousOutPoint)] = true
 		} else {
-			log.Debug("bad tx, duplicate inputs")
-			return errcode.New(errcode.RejectInvalid)
+			log.Debug("bad tx: %s, duplicate inputs:[%s:%d]",
+				tx.hash, in.PreviousOutPoint.Hash, in.PreviousOutPoint.Index)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate")
 		}
 	}
 	return nil
 }
-func (tx *Tx) CheckStandard() error {
+
+func (tx *Tx) IsStandard() (bool, string) {
 	// check version
 	if tx.version > MaxStandardVersion || tx.version < 1 {
-		log.Debug("TxErrBadVersion")
-		return errcode.New(errcode.RejectNonstandard)
+		return false, "version"
 	}
 
 	// check size
 	if tx.EncodeSize() > uint32(MaxStandardTxSize) {
-		log.Debug("TxErrBadStandardSize")
-		return errcode.New(errcode.RejectNonstandard)
+		return false, "tx-size"
 	}
 
 	// check inputs script
 	for _, in := range tx.ins {
-		err := in.CheckStandard()
-		if err != nil {
-			return err
+		ok, reason := in.CheckStandard()
+		if !ok {
+			return false, reason
 		}
 	}
 
 	// check output scriptpubkey and inputs scriptsig
 	nDataOut := 0
 	for _, out := range tx.outs {
-		pubKeyType, err := out.CheckStandard()
-		if err != nil {
-			return err
+		pubKeyType, isStandard := out.IsStandard()
+		if !isStandard {
+			return false, "scriptpubkey"
 		}
+
 		if pubKeyType == script.ScriptNullData {
 			nDataOut++
 		} else if pubKeyType == script.ScriptMultiSig && !conf.Cfg.Script.IsBareMultiSigStd {
-			log.Debug("TxErrBareMultiSig")
-			return errcode.New(errcode.RejectNonstandard)
+			return false, "bare-multisig"
 		} else if out.IsDust(util.NewFeeRate(conf.Cfg.TxOut.DustRelayFee)) {
-			log.Debug("TxErrDustOut")
-			return errcode.New(errcode.RejectNonstandard)
+			return false, "dust"
 		}
 	}
 
 	// only one OP_RETURN txout is permitted
 	if nDataOut > 1 {
-		log.Debug("TxErrMultiOpReturn")
-		return errcode.New(errcode.RejectNonstandard)
+		return false, "multi-op-return"
 	}
 
 	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
-		log.Debug("TxBadSigOps")
-		return errcode.New(errcode.RejectNonstandard)
+		return false, "tx-bad-sigops-count"
 	}
-	return nil
+
+	return true, ""
 }
 
 func (tx *Tx) IsCommitment(data []byte) bool {
@@ -505,15 +502,17 @@ func (tx *Tx) GetValueOut() amount.Amount {
 
 func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
 	hashType uint32, scriptPubKey *script.Script, nIn int, value amount.Amount) (sigData [][]byte, pubKeyType int, err error) {
-	pubKeyType, pubKeys, err := scriptPubKey.CheckScriptPubKeyStandard()
-	if err != nil {
-		log.Debug("SignStep CheckScriptPubKeyStandard err")
-		return nil, pubKeyType, errcode.New(errcode.RejectInvalid)
+	pubKeyType, pubKeys, isStandard := scriptPubKey.IsStandardScriptPubKey()
+	if !isStandard {
+		log.Debug("SignStep IsStandardScriptPubKey err")
+		return nil, pubKeyType, errcode.New(errcode.RejectNonstandard)
 	}
+
 	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
-		log.Debug("SignStep CheckScriptPubKeyStandard err")
-		return nil, pubKeyType, errcode.New(errcode.RejectInvalid)
+		log.Debug("SignStep IsStandardScriptPubKey err")
+		return nil, pubKeyType, errcode.New(errcode.RejectNonstandard)
 	}
+
 	if pubKeyType == script.ScriptMultiSig {
 		sigData = make([][]byte, 0, len(pubKeys)-2)
 	} else {

@@ -91,30 +91,29 @@ func (txOut *TxOut) CheckValue() error { //3
 	return nil
 }
 
-func (txOut *TxOut) CheckStandard() (pubKeyType int, err error) { //4
+func (txOut *TxOut) IsStandard() (pubKeyType int, isStandard bool) { //4
 	//var pubKeys [][]byte
-	pubKeyType, pubKeys, err := txOut.scriptPubKey.CheckScriptPubKeyStandard()
-	if err != nil {
-		return pubKeyType, errcode.New(errcode.TxErrRejectNonstandard)
+	pubKeyType, pubKeys, isStandard := txOut.scriptPubKey.IsStandardScriptPubKey()
+	if !isStandard {
+		return pubKeyType, false
 	}
 	if pubKeyType == script.ScriptMultiSig {
 		opM := pubKeys[0][0]
 		opN := pubKeys[len(pubKeys)-1][0]
 		if opN < 1 || opN > 3 || opM < 1 || opM > opN {
-			return pubKeyType, errcode.New(errcode.TxErrRejectNonstandard)
+			return pubKeyType, false
 		}
 	} else if pubKeyType == script.ScriptNullData {
 		if !conf.Cfg.Script.AcceptDataCarrier || uint(txOut.scriptPubKey.Size()) > conf.Cfg.Script.MaxDatacarrierBytes {
-			log.Debug("ScriptErrNullData")
-			return pubKeyType, errcode.New(errcode.TxErrRejectNonstandard)
+			return pubKeyType, false
 		}
 	}
 
-	return
+	return pubKeyType, true
 }
 
-func (txOut *TxOut) GetPubKeyType() (pubKeyType int, err error) {
-	pubKeyType, _, err = txOut.scriptPubKey.CheckScriptPubKeyStandard()
+func (txOut *TxOut) GetPubKeyType() (pubKeyType int, isStandard bool) {
+	pubKeyType, _, isStandard = txOut.scriptPubKey.IsStandardScriptPubKey()
 	return
 }
 

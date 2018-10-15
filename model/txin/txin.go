@@ -78,7 +78,7 @@ func (txIn *TxIn) SetScriptSig(scriptSig *script.Script) {
 	txIn.scriptSig = scriptSig
 }
 
-func (txIn *TxIn) CheckStandard() error {
+func (txIn *TxIn) CheckStandard() (bool, string) {
 	return txIn.scriptSig.CheckScriptSigStandard()
 }
 
