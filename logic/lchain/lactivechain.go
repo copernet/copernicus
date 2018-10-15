@@ -12,6 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
+	"github.com/copernet/copernicus/util"
 )
 
 // ActivateBestChain Make the best chain active, in multiple steps. The result is either failure
@@ -57,7 +58,10 @@ func ActivateBestChain(pblock *block.Block) error {
 		var nullBlockPtr *block.Block
 		var tmpBlock *block.Block
 		hashA := pindexMostWork.GetBlockHash()
-		newHash := pblock.GetHash()
+		var newHash util.Hash
+		if pblock != nil {
+			newHash = pblock.GetHash()
+		}
 		if pblock != nil && bytes.Equal(newHash[:], hashA[:]) {
 			tmpBlock = pblock
 		} else {

@@ -1,9 +1,11 @@
 package conf
 
 import (
+	"errors"
 	"fmt"
 	"gopkg.in/go-playground/validator.v8"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -166,6 +168,7 @@ func InitConfig(args []string) *Configuration {
 
 	// set data dir
 	config.DataDir = DataDir
+	config.Reindex = opts.Reindex
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
@@ -188,6 +191,7 @@ type Configuration struct {
 	Version   string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
 	DataDir   string `default:"data"`
+	Reindex   bool
 
 	// Service struct {
 	// 	Address string `default:"1.0.0.1:80"`
@@ -317,4 +321,26 @@ func ExistDataDir(datadir string) bool {
 	}
 
 	return true
+}
+
+func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
+	oldDirParent := filepath.Dir(DataDir)
+	testDataDir, err := ioutil.TempDir(oldDirParent, "unitTestDataDir")
+	if err != nil {
+		return "", errors.New("test data directory create failed: " + err.Error())
+	}
+
+	_, err = CopyFile(filepath.Join(DataDir, defaultConfigFilename), filepath.Join(testDataDir, defaultConfigFilename))
+	if err != nil {
+		return "", err
+	}
+
+	DataDir = testDataDir
+	config.DataDir = testDataDir
+
+	return testDataDir, nil
+}
+
+func CleanUnitTestDataDir(dirpath string) (err error) {
+	return os.RemoveAll(dirpath)
 }

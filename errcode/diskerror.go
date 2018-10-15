@@ -15,7 +15,14 @@ const (
 	ErrorOpenUndoFileFailed
 	FailedToReadBlock
 	DisconnectTipUndoFailed
-	ErrorNotExistsInDiskMap // errorTest
+	ErrorOpenBlockDataDir
+	ErrorDeleteBlockFile
+	// ErrorBadBlkLength
+	// ErrorBadBlkTxSize
+	// ErrorBadBlkTx
+
+	// ErrorNotExistsInDiskMap used in error test
+	ErrorNotExistsInDiskMap
 )
 
 var DiskErrString = map[DiskErr]string{
@@ -27,6 +34,8 @@ var DiskErrString = map[DiskErr]string{
 	ErrorOpenUndoFileFailed:                "ErrorOpenUndoFileFailed",
 	FailedToReadBlock:                      "FailedToReadBlock",
 	DisconnectTipUndoFailed:                "DisconnectTipUndoFailed",
+	ErrorOpenBlockDataDir:                  "ErrorOpenBlockDataDir",
+	ErrorDeleteBlockFile:                   "ErrorDeleteBlockFile",
 }
 
 func (de DiskErr) String() string {
