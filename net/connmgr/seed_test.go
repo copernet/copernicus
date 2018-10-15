@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/net/wire"
@@ -63,5 +62,4 @@ func TestSeedFromDNS(t *testing.T) {
 	for _, test := range tests {
 		SeedFromDNS(test.param, test.flag, test.lookupFn, test.checkFn)
 	}
-	time.Sleep(5 * time.Millisecond)
 }
