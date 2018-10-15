@@ -72,8 +72,10 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	}
 
 	if model.ActiveNetParams.RequireStandard {
-		if err := txn.CheckStandard(); err != nil {
-			return err
+		ok, reason := txn.IsStandard()
+		if !ok {
+			log.Debug("non standard tx: %s, reason: %s", txn.GetHash(), reason)
+			return errcode.NewError(errcode.RejectNonstandard, reason)
 		}
 	}
 
@@ -517,14 +519,14 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 			panic("bug! tx input cann't find coin in temp coinsmap")
 		}
 		txOut := coin.GetTxOut()
-		pubKeyType, err := txOut.GetPubKeyType()
-		if err != nil {
-			log.Debug("checkInputsStandard GetPubkeyType err: %v", err)
+		pubKeyType, isStandard := txOut.GetPubKeyType()
+		if !isStandard {
+			log.Debug("checkInputsStandard GetPubkeyType err: not StandardScriptPubKey")
 			return errcode.New(errcode.TxErrRejectNonstandard)
 		}
 		if pubKeyType == script.ScriptHash {
 			scriptSig := e.GetScriptSig()
-			err = lscript.EvalScript(util.NewStack(), scriptSig, transaction, i, amount.Amount(0), script.ScriptVerifyNone,
+			err := lscript.EvalScript(util.NewStack(), scriptSig, transaction, i, amount.Amount(0), script.ScriptVerifyNone,
 				lscript.NewScriptEmptyChecker())
 			if err != nil {
 				log.Debug("checkInputsStandard EvalScript err: %v", err)
@@ -1004,8 +1006,8 @@ func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 	if scriptSig == nil {
 		scriptSig = script.NewEmptyScript()
 	}
-	pubKeyType, pubKeys, err := prevPubKey.CheckScriptPubKeyStandard()
-	if err != nil {
+	pubKeyType, pubKeys, isStandard := prevPubKey.IsStandardScriptPubKey()
+	if !isStandard {
 		// ScriptErrNonStandard returns error
 		// Don't know anything about this, assume bigger one is correct
 		if scriptSig.Size() >= txOldScriptSig.Size() {

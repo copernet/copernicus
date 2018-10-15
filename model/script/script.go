@@ -423,8 +423,8 @@ func ReadScript(reader io.Reader, maxAllowed uint32, fieldName string) (script [
 }
 
 func (s *Script) ExtractDestinations() (sType int, addresses []*Address, sigCountRequired int, err error) {
-	sType, pubKeys, err := s.CheckScriptPubKeyStandard()
-	if err != nil {
+	sType, pubKeys, isStandard := s.IsStandardScriptPubKey()
+	if !isStandard {
 		return
 	}
 	if sType == ScriptPubkey {
@@ -506,10 +506,10 @@ func BytesToBool(bytes []byte) bool {
 	return false
 }
 
-func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, err error) {
+func (s *Script) IsStandardScriptPubKey() (pubKeyType int, pubKeys [][]byte, isStandard bool) {
 	//p2sh scriptPubKey
 	if s.IsPayToScriptHash() {
-		return ScriptHash, [][]byte{s.ParsedOpCodes[1].Data}, nil
+		return ScriptHash, [][]byte{s.ParsedOpCodes[1].Data}, true
 	}
 	// Provably prunable, data-carrying output
 	//
@@ -518,7 +518,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 	// script.
 	opCodesLen := len(s.ParsedOpCodes)
 	if opCodesLen == 0 {
-		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		return ScriptNonStandard, nil, false
 	}
 	parsedOpCode0 := s.ParsedOpCodes[0]
 	opValue0 := parsedOpCode0.OpValue
@@ -526,58 +526,58 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 	// OP_RETURN
 	if opCodesLen == 1 {
 		if parsedOpCode0.OpValue == opcodes.OP_RETURN {
-			return ScriptNullData, nil, nil
+			return ScriptNullData, nil, true
 		}
-		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		return ScriptNonStandard, nil, false
 	}
 
 	// OP_RETURN and DATA
 	if parsedOpCode0.OpValue == opcodes.OP_RETURN {
 		tempScript := NewScriptOps(s.ParsedOpCodes[1:])
 		if tempScript.IsPushOnly() {
-			return ScriptNullData, nil, nil
+			return ScriptNullData, nil, true
 		}
-		return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+		return ScriptNonStandard, nil, false
 	}
 
 	//PUBKEY OP_CHECKSIG
 	if opCodesLen == 2 {
 		if opValue0 > opcodes.OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
 			parsedOpCode0.Length > 65 || s.ParsedOpCodes[1].OpValue != opcodes.OP_CHECKSIG {
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 		pubKeyType = ScriptPubkey
 		pubKeys = make([][]byte, 0, 1)
 		data := parsedOpCode0.Data
 		pubKeys = append(pubKeys, data)
-		err = nil
+		isStandard = true
 		return
 	}
 
 	//OP_DUP OP_HASH160 PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
 	if opValue0 == opcodes.OP_DUP {
 		if opCodesLen != 5 {
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 		if s.ParsedOpCodes[1].OpValue != opcodes.OP_HASH160 ||
 			s.ParsedOpCodes[2].Length != 20 ||
 			s.ParsedOpCodes[3].OpValue != opcodes.OP_EQUALVERIFY ||
 			s.ParsedOpCodes[4].OpValue != opcodes.OP_CHECKSIG {
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 
 		pubKeyType = ScriptPubkeyHash
 		pubKeys = make([][]byte, 0, 1)
 		data := s.ParsedOpCodes[2].Data
 		pubKeys = append(pubKeys, data)
-		err = nil
+		isStandard = true
 		return
 	}
 
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
 		if opCodesLen < 4 {
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 		opM := DecodeOPN(opValue0)
 		pubKeys = make([][]byte, 0, opCodesLen-1)
@@ -591,7 +591,7 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 				pubKeys = append(pubKeys, e.Data)
 				continue
 			}
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 
 		opN := 0
@@ -602,33 +602,36 @@ func (s *Script) CheckScriptPubKeyStandard() (pubKeyType int, pubKeys [][]byte, 
 			data = append(data, byte(opN))
 			pubKeys = append(pubKeys, data)
 		} else {
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 		if s.ParsedOpCodes[opCodesLen-1].OpValue != opcodes.OP_CHECKMULTISIG {
-			return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptNonStandard, nil, false
 		}
 		// Support up to x-of-3 multisig txns as standard
 		if opM < 1 || opN < 1 || opM > opN || opN != len(pubKeys)-2 {
-			return ScriptMultiSig, nil, errcode.New(errcode.ScriptErrNonStandard)
+			return ScriptMultiSig, nil, false
 		}
-		return ScriptMultiSig, pubKeys, nil
+		return ScriptMultiSig, pubKeys, true
 	}
 
-	return ScriptNonStandard, nil, errcode.New(errcode.ScriptErrNonStandard)
+	return ScriptNonStandard, nil, false
 }
 
-func (s *Script) CheckScriptSigStandard() error {
+func (s *Script) CheckScriptSigStandard() (bool, string) {
+	// Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
+	// keys (remember the 520 byte limit on redeemScript size). That works
+	// out to a (15*(33+1))+3=513 byte redeemScript, 513+1+15*(73+1)+3=1627
+	// bytes of scriptSig, which we round off to 1650 bytes for some minor
+	// future-proofing. That's also enough to spend a 20-of-20 CHECKMULTISIG
+	// scriptPubKey, though such a scriptPubKey is not considered standard.
 	if s.Size() > 1650 {
-		log.Debug("ScriptErrSize")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return false, "scriptsig-size"
 	}
 	if !s.IsPushOnly() {
-		//state.Dos(100, false, RejectInvalid, "bad-tx-input-script-not-pushonly", false, "")
-		log.Debug("ScriptErrScriptSigNotPushOnly")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return false, "scriptsig-not-pushonly"
 	}
 
-	return nil
+	return true, ""
 }
 
 func (s *Script) IsPayToScriptHash() bool {
@@ -669,8 +672,7 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 			//	}
 		} else if opcode == opcodes.OP_CHECKMULTISIG || opcode == opcodes.OP_CHECKMULTISIGVERIFY {
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
-				opn := DecodeOPN(lastOpcode)
-				n += opn
+				n += DecodeOPN(lastOpcode)
 			} else {
 				n += MaxPubKeysPerMultiSig
 			}

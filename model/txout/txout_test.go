@@ -97,7 +97,7 @@ func TestCheckStandard(t *testing.T) {
 	testTxout.scriptPubKey.ParsedOpCodes[0] = *poc
 
 	var p int
-	p, _ = testTxout.CheckStandard()
+	p, _ = testTxout.IsStandard()
 
 	assert.Equal(t, 5, p)
 
@@ -112,7 +112,7 @@ func TestCheckStandard(t *testing.T) {
 	poc = opcodes.NewParsedOpCode(opcodes.OP_CHECKSIG, 1, []byte{0xac})
 	testTxout.scriptPubKey.ParsedOpCodes[4] = *poc
 
-	p, _ = testTxout.CheckStandard()
+	p, _ = testTxout.IsStandard()
 	assert.Equal(t, 2, p)
 }
 
