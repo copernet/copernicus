@@ -99,7 +99,9 @@ func TestCheckValue(t *testing.T) {
 		t.Error("the value of textTxout is in the wrong range but not detected")
 	}
 
-	if testTxout.CheckValue().Error() != errcode.New(errcode.RejectInvalid).Error() {
+	expectedError := errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-out-range")
+
+	if testTxout.CheckValue().Error() != expectedError.Error() {
 		t.Error("the return of error is not well defined")
 	}
 
@@ -109,7 +111,7 @@ func TestCheckValue(t *testing.T) {
 		t.Error("the value of textTxout is in the wrong range but not detected")
 	}
 
-	if testTxout.CheckValue().Error() != errcode.New(errcode.RejectInvalid).Error() {
+	if testTxout.CheckValue().Error() != expectedError.Error() {
 		t.Error("the return of error is not well defined")
 	}
 
