@@ -563,6 +563,10 @@ func (c *Chain) ChainOrphanLen() int32 {
 	return orphanLen
 }
 
+func (c *Chain) ClearActive() {
+	c.active = make([]*blockindex.BlockIndex, 100)
+}
+
 func (c *Chain) IndexMapSize() int {
 	return len(c.indexMap)
 }

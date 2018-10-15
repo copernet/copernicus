@@ -18,6 +18,8 @@ func TestDiskErr_String(t *testing.T) {
 		{ErrorOpenUndoFileFailed, "ErrorOpenUndoFileFailed"},
 		{FailedToReadBlock, "FailedToReadBlock"},
 		{DisconnectTipUndoFailed, "DisconnectTipUndoFailed"},
+		{ErrorOpenBlockDataDir, "ErrorOpenBlockDataDir"},
+		{ErrorDeleteBlockFile, "ErrorDeleteBlockFile"},
 		{ErrorNotExistsInDiskMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInDiskMap)) + ")"},
 	}
 

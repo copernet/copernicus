@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -217,49 +221,49 @@ func UndoReadFromDisk(pos *block.DiskBlockPos, hashblock util.Hash) (*undo.Block
 
 }
 
-func readBlockFromDiskByPos(pos block.DiskBlockPos, param *model.BitcoinParams) (*block.Block, bool) {
+func ReadBlockFromDiskByPos(pos block.DiskBlockPos, param *model.BitcoinParams) (blk *block.Block, err error) {
 
 	// Open history file to read
 	file := OpenBlockFile(&pos, true)
 	if file == nil {
 		log.Error("ReadBlockFromDisk: OpenBlockFile failed for %s", pos.String())
-		return nil, false
+		return nil, errors.New("ErrOpenBlockFile")
 	}
 	defer file.Close()
 
 	size, err := util.BinarySerializer.Uint32(file, binary.LittleEndian)
 	if err != nil {
 		log.Error("ReadBlockFromDisk: read block file len failed for %s", pos.String())
-		return nil, false
+		return nil, err
 	}
 	//read block data to tmp buff
 	tmp := make([]byte, size)
 	n, err := file.Read(tmp)
 	if err != nil || n != int(size) {
 		log.Error("ReadBlockFromDisk: read block file len != size failed for %s, %s", pos.String(), err)
-		return nil, false
+		return nil, err
 	}
 	buf := bytes.NewBuffer(tmp)
 	// Read block
-	blk := block.NewBlock()
+	blk = block.NewBlock()
 	if err := blk.Unserialize(buf); err != nil {
 		log.Error("ReadBlockFromDiskByPos: Unserialize or I/O error - %s at %s", err.Error(), pos.String())
-		return nil, false
+		return nil, err
 	}
 
 	// Check the header
-	pow := pow.Pow{}
+	objPow := pow.Pow{}
 	blockHash := blk.GetHash()
-	if !pow.CheckProofOfWork(&blockHash, blk.Header.Bits, param) {
+	if !objPow.CheckProofOfWork(&blockHash, blk.Header.Bits, param) {
 		log.Error(fmt.Sprintf("ReadBlockFromDisk: Errors in block header at %s", pos.String()))
-		return nil, false
+		return nil, errors.New("ErrCheckProofOfWork")
 	}
-	return blk, true
+	return blk, err
 }
 
 func ReadBlockFromDisk(pindex *blockindex.BlockIndex, param *model.BitcoinParams) (*block.Block, bool) {
-	blk, ret := readBlockFromDiskByPos(pindex.GetBlockPos(), param)
-	if !ret {
+	blk, err := ReadBlockFromDiskByPos(pindex.GetBlockPos(), param)
+	if err != nil {
 		return nil, false
 	}
 	hash := pindex.GetBlockHash()
@@ -741,4 +745,87 @@ func UnlinkPrunedFiles(setFilesToPrune *set.Set) {
 
 func GetPruneState() *persist.PruneState {
 	return gps
+}
+
+func isBlkDataFile(name string) (ok bool) {
+	return len(name) == 12 && name[8:12] == ".dat"
+}
+
+func isBlkFile(name string) (ok bool) {
+	return isBlkDataFile(name) && name[0:3] == "blk"
+}
+
+func isRevFile(name string) (ok bool) {
+	return isBlkDataFile(name) && name[0:3] == "rev"
+}
+
+func GetBlkFiles() (blkFiles []string, err error) {
+
+	blkFiles = make([]string, 0, 50)
+	dataDir := filepath.Join(conf.DataDir, "blocks")
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		return nil, errcode.New(errcode.ErrorOpenBlockDataDir)
+	}
+
+	for _, file := range files {
+		if isBlkFile(file.Name()) {
+			fileAbPath := filepath.Join(dataDir, file.Name())
+			blkFiles = append(blkFiles, fileAbPath)
+		}
+	}
+
+	return blkFiles, nil
+
+}
+
+func CleanupBlockRevFiles() (err error) {
+
+	type blockFileIndex struct {
+		index  string
+		abPath string
+	}
+
+	dataDir := filepath.Join(conf.DataDir, "blocks")
+	blkFiles := make([]blockFileIndex, 0, 50)
+
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		return errcode.New(errcode.ErrorOpenBlockDataDir)
+	}
+
+	for _, file := range files {
+		fileAbPath := filepath.Join(dataDir, file.Name())
+		if file.Mode().IsRegular() {
+			if isBlkFile(file.Name()) {
+				item := blockFileIndex{file.Name()[3:8], fileAbPath}
+				blkFiles = append(blkFiles, item)
+
+			} else if isRevFile(file.Name()) {
+				err = os.Remove(fileAbPath)
+				if err != nil {
+					log.Error("delete rev file failed: %s", fileAbPath)
+					err = errcode.New(errcode.ErrorDeleteBlockFile)
+				} else {
+					log.Info("have delete rev file: %s", fileAbPath)
+				}
+			}
+		}
+	}
+
+	for count, item := range blkFiles {
+		index, _ := strconv.Atoi(item.index)
+		if index == count {
+			continue
+		}
+		err = os.Remove(item.abPath)
+		if err != nil {
+			log.Error("delete blk file failed: %s", item.abPath)
+			err = errcode.New(errcode.ErrorDeleteBlockFile)
+		} else {
+			log.Info("have delete blk file: %s", item.abPath)
+		}
+	}
+
+	return err
 }

@@ -29,20 +29,30 @@ func GetBlockByIndex(bi *blockindex.BlockIndex, param *model.BitcoinParams) (blk
 	return
 }
 
-func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block) (*block.DiskBlockPos, error) {
+func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block, inDbp *block.DiskBlockPos) (*block.DiskBlockPos, error) {
 
 	height := bi.Height
-	pos := block.NewDiskBlockPos(0, 0)
-	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize())+4, height, uint64(bl.GetBlockHeader().Time), false)
+
+	var pos *block.DiskBlockPos
+	if inDbp == nil {
+		pos = block.NewDiskBlockPos(0, 0)
+	} else {
+		pos = inDbp
+	}
+
+	flag := disk.FindBlockPos(pos, uint32(bl.SerializeSize())+4, height, uint64(bl.GetBlockHeader().Time), inDbp != nil)
 	if !flag {
 		log.Error("WriteBlockToDisk():FindBlockPos failed")
 		return nil, errcode.ProjectError{Code: 2000}
 	}
 
-	flag = disk.WriteBlockToDisk(bl, pos)
-	if !flag {
-		log.Error("WriteBlockToDisk():WriteBlockToDisk failed")
-		return nil, errcode.ProjectError{Code: 2001}
+	if inDbp == nil {
+		flag = disk.WriteBlockToDisk(bl, pos)
+		if !flag {
+			log.Error("WriteBlockToDisk():WriteBlockToDisk failed")
+			return nil, errcode.ProjectError{Code: 2001}
+		}
+		log.Debug("block(hash: %s) data is written to disk", bl.GetHash())
 	}
 	return pos, nil
 }
@@ -194,8 +204,8 @@ func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
 }
 
 // AcceptBlock Store a block on disk.
-func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex *blockindex.BlockIndex,
-	dbp *block.DiskBlockPos, err error) {
+func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos, fNewBlock *bool) (bIndex *blockindex.BlockIndex,
+	outDbp *block.DiskBlockPos, err error) {
 	if pblock != nil {
 		*fNewBlock = false
 	}
@@ -249,11 +259,16 @@ func AcceptBlock(pblock *block.Block, fRequested bool, fNewBlock *bool) (bIndex 
 		return
 	}
 
-	dbp, err = WriteBlockToDisk(bIndex, pblock)
+	// TODO: relay this lblock
+
+	// inDbp is nil indicate that this block haven't been write to disk
+	// when reindex, inDbp is not nil, and outDbp will be same as inDbp, and block will not be write to disk
+	outDbp, err = WriteBlockToDisk(bIndex, pblock, inDbp)
 	if err != nil {
 		panic("AcceptBlockHeader WriteBlockTo Disk err")
 	}
-	ReceivedBlockTransactions(pblock, bIndex, dbp)
+
+	ReceivedBlockTransactions(pblock, bIndex, outDbp)
 	return
 }
 
