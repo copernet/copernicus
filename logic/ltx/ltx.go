@@ -66,32 +66,32 @@ func ScriptVerifyInit() {
 }
 
 // CheckRegularTransaction transaction service will use this func to check transaction before accepting to mempool
-func CheckRegularTransaction(txn *tx.Tx) error {
-	if err := txn.CheckRegularTransaction(); err != nil {
+func CheckRegularTransaction(transaction *tx.Tx) error {
+	if err := transaction.CheckRegularTransaction(); err != nil {
 		return err
 	}
 
 	if model.ActiveNetParams.RequireStandard {
-		if err := txn.CheckStandard(); err != nil {
+		if err := transaction.CheckStandard(); err != nil {
 			return err
 		}
 	}
 
 	// check common locktime, sequence final can disable it
-	err := ContextualCheckTransactionForCurrentBlock(txn, int(tx.StandardLockTimeVerifyFlags))
+	err := ContextualCheckTransactionForCurrentBlock(transaction, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
 		return errcode.New(errcode.TxErrRejectNonstandard)
 	}
 
 	// is mempool already have it? conflict tx with mempool
 	gPool := mempool.GetInstance()
-	if gPool.FindTx(txn.GetHash()) != nil {
+	if gPool.FindTx(transaction.GetHash()) != nil {
 		log.Debug("tx already known in mempool")
 		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
 	// check preout already spent
-	ins := txn.GetIns()
+	ins := transaction.GetIns()
 	for _, e := range ins {
 		if gPool.HasSpentOut(e.PreviousOutPoint) {
 			log.Debug("tx ins alread spent out in mempool")
@@ -100,14 +100,14 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	}
 
 	// check outpoint alread exist
-	if areOutputsAlreadExist(txn) {
+	if areOutputsAlreadExist(transaction) {
 		log.Debug("tx already known in utxo")
 		return errcode.New(errcode.TxErrRejectAlreadyKnown)
 	}
 
 	// check inputs are available
 	tempCoinsMap := utxo.NewEmptyCoinsMap()
-	if !areInputsAvailable(txn, tempCoinsMap) {
+	if !areInputsAvailable(transaction, tempCoinsMap) {
 		return errcode.New(errcode.TxErrNoPreviousOut)
 	}
 
@@ -117,7 +117,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// transactions that can't be mined yet. Must keep pool.cs for this
 	// unless we change CheckSequenceLocks to take a CoinsViewCache
 	// instead of create its own.
-	lp := CalculateLockPoints(txn, uint32(tx.StandardLockTimeVerifyFlags))
+	lp := CalculateLockPoints(transaction, uint32(tx.StandardLockTimeVerifyFlags))
 	if lp == nil {
 		log.Debug("cann't calculate out lockpoints")
 		return errcode.New(errcode.TxErrRejectNonstandard)
@@ -134,7 +134,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 
 	//check standard inputs
 	if model.ActiveNetParams.RequireStandard {
-		err = checkInputsStandard(txn, tempCoinsMap)
+		err = checkInputsStandard(transaction, tempCoinsMap)
 		if err != nil {
 			return err
 		}
@@ -162,7 +162,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 
 	// Check against previous transactions. This is done last to help
 	// prevent CPU exhaustion denial-of-service attacks.
-	err = checkInputs(txn, tempCoinsMap, scriptVerifyFlags)
+	err = checkInputs(transaction, tempCoinsMap, scriptVerifyFlags)
 	if err != nil {
 		return err
 	}
@@ -183,12 +183,12 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// invalid blocks (using TestBlockValidity), however allowing such
 	// transactions into the mempool can be exploited as a DoS attack.
 	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
-	err = checkInputs(txn, tempCoinsMap, currentBlockScriptVerifyFlags)
+	err = checkInputs(transaction, tempCoinsMap, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
 			return errcode.New(errcode.ScriptCheckInputsBug)
 		}
-		err = checkInputs(txn, tempCoinsMap, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
+		err = checkInputs(transaction, tempCoinsMap, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
 		if err != nil {
 			return err
 		}

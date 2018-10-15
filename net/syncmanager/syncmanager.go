@@ -198,7 +198,7 @@ type SyncManager struct {
 	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
-	ProcessTransactionCallBack func(*tx.Tx, *map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
+	ProcessTransactionCallBack func(*tx.Tx, int64) ([]*tx.Tx, []util.Hash, error)
 	ProcessBlockCallBack       func(*block.Block) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
@@ -474,11 +474,11 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	}
 
 	// Process the transaction to include validation, insertion in the memory pool, orphan handling, etc.
-	acceptTxs, missTxs, rejectTxs, err := sm.ProcessTransactionCallBack(tmsg.tx, &sm.rejectedTxns, int64(peer.ID()))
+	acceptedTxs, missTx, err := sm.ProcessTransactionCallBack(tmsg.tx, int64(peer.ID()))
 
-	sm.updateTxRequestState(state, txHash, rejectTxs)
+	sm.updateTxRequestState(state, txHash, err)
 
-	fetchMissingTx(missTxs, peer)
+	fetchMissingTx(missTx, peer)
 
 	if err != nil {
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
@@ -491,8 +491,8 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 		return
 	}
 
-	txentrys := make([]*mempool.TxEntry, 0, len(acceptTxs))
-	for _, tx := range acceptTxs {
+	txentrys := make([]*mempool.TxEntry, 0, len(acceptedTxs))
+	for _, tx := range acceptedTxs {
 		if entry := lmempool.FindTxInMempool(tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
 		} else {
@@ -503,27 +503,27 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	sm.peerNotifier.AnnounceNewTransactions(txentrys)
 }
 
-func (sm *SyncManager) updateTxRequestState(state *peerSyncState, txHash util.Hash, rejectTxs []util.Hash) {
+func (sm *SyncManager) updateTxRequestState(state *peerSyncState, txHash util.Hash, err error) {
 	// Remove transaction from request maps. Either the mempool/chain already knows about it
 	// and as such we shouldn't have any more instances of trying to fetch it, or we failed to
 	// insert and thus we'll retry next time we get an inv.
 	delete(state.requestedTxns, txHash)
 	delete(sm.requestedTxns, txHash)
 
-	// Do not request these transactions again until a new block has been processed.
-	for _, rejectTx := range rejectTxs {
-		sm.rejectedTxns[rejectTx] = struct{}{}
+	if err != nil {
+		// Do not request this transaction again until a new block has been processed.
+		sm.rejectedTxns[txHash] = struct{}{}
+		sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
 	}
-	sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
 }
 
-func fetchMissingTx(missTxs []util.Hash, peer *peer.Peer) {
-	invMsg := wire.NewMsgInvSizeHint(uint(len(missTxs)))
-	for _, hash := range missTxs {
+func fetchMissingTx(missTx []util.Hash, peer *peer.Peer) {
+	invMsg := wire.NewMsgInvSizeHint(uint(len(missTx)))
+	for _, hash := range missTx {
 		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
 		invMsg.AddInvVect(iv)
 	}
-	if len(missTxs) > 0 {
+	if len(missTx) > 0 {
 		peer.QueueMessage(invMsg, nil)
 	}
 }
@@ -956,7 +956,8 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if pcoins.GetCoin(&out) != nil {
 			return true, nil
 		}
-		if lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
+		if lmempool.FindRejectTxInMempool(invVect.Hash) ||
+			lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
 			return true, nil
 		}
 		return false, nil
@@ -1283,7 +1284,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		for _, tx := range block.Txs[1:] {
 			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
 			// sm.peerNotifier.TransactionConfirmed(tx)
-			lmempool.TryAcceptOrphansTxs(tx)
+			lmempool.ProcessOrphan(tx)
 		}
 
 		// Register block with the fee estimator, if it exists.
