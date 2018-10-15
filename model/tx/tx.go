@@ -130,11 +130,31 @@ func (tx *Tx) GetTxIn(index int) (out *txin.TxIn) {
 
 func (tx *Tx) GetAllPreviousOut() (outs []outpoint.OutPoint) {
 	outs = make([]outpoint.OutPoint, 0, len(tx.ins))
-	for _, e := range tx.ins {
-		outs = append(outs, *e.PreviousOutPoint)
+	for _, txin := range tx.ins {
+		outs = append(outs, *txin.PreviousOutPoint)
 	}
 	return
+}
 
+func (tx *Tx) PrevoutHashs() (outs []util.Hash) {
+	outs = make([]util.Hash, 0, len(tx.ins))
+	for _, txin := range tx.ins {
+		outs = append(outs, txin.PreviousOutPoint.Hash)
+	}
+	return
+}
+
+func (tx *Tx) AnyInputTxIn(container *map[util.Hash]struct{}) bool {
+	if container != nil {
+		for _, txin := range tx.ins {
+			prevout := txin.PreviousOutPoint.Hash
+			if _, exists := (*container)[prevout]; exists {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (tx *Tx) GetOutsCount() int {
@@ -299,8 +319,8 @@ func (tx *Tx) GetVersion() int32 {
 
 func (tx *Tx) CheckRegularTransaction() error {
 	if tx.IsCoinBase() {
-		log.Debug("tx should not be coinbase")
-		return errcode.New(errcode.RejectInvalid)
+		log.Debug("tx should not be coinbase, hash: %s", tx.hash)
+		return errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase")
 	}
 
 	err := tx.checkTransactionCommon(true)
@@ -340,17 +360,17 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
-		log.Warn("bad tx, empty ins")
-		return errcode.New(errcode.RejectInvalid)
+		log.Warn("bad tx: %s, empty ins", tx.hash)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-vin-empty")
 	}
 	if len(tx.outs) == 0 {
-		log.Warn("bad tx, empty out")
-		return errcode.New(errcode.RejectInvalid)
+		log.Warn("bad tx: %s, empty out", tx.hash)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-empty")
 	}
 
 	if tx.EncodeSize() > consensus.MaxTxSize {
 		log.Warn("tx is oversize, tx:%v, tx size:%d, MaxTxSize:%d", tx, tx.EncodeSize(), consensus.MaxTxSize)
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-oversize")
 	}
 
 	// check outputs money
@@ -360,10 +380,11 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 		if err != nil {
 			return err
 		}
+
 		totalOut += out.GetValue()
 		if !amount.MoneyRange(totalOut) {
-			log.Debug("bad tx totalOut value :%d", totalOut)
-			return errcode.New(errcode.RejectInvalid)
+			log.Debug("bad tx: %s totalOut value :%d", tx.hash, totalOut)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-txouttotal-toolarge")
 		}
 	}
 
