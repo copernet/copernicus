@@ -106,3 +106,41 @@ func TestCheckBlockIndex_NoFork(t *testing.T) {
 		t.Errorf("should return nil:%v", err)
 	}
 }
+
+func TestCheckBlockIndex_TwoBranch(t *testing.T) {
+	initEnv()
+	gChain := chain.GetInstance()
+	genesisIndex := gChain.FindBlockIndex(*gChain.GetParams().GenesisHash)
+	if genesisIndex == nil {
+		t.Errorf("genesis index find fail")
+	}
+
+	blockIdx := make([]*blockindex.BlockIndex, 20)
+	blockIdx[0] = genesisIndex
+	for i := 1; i < 10; i++ {
+		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock, initBits)
+		err := gChain.AddToIndexMap(blockIdx[i])
+		if err != nil {
+			t.Errorf("AddToIndexMap fail")
+		}
+	}
+
+	blockIdx[10] = getBlockIndex(blockIdx[3], timePerBlock+1, initBits)
+	err := gChain.AddToIndexMap(blockIdx[10])
+	if err != nil {
+		t.Errorf("AddToIndexMap fail")
+	}
+
+	for i := 11; i < 20; i++ {
+		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock+1, initBits)
+		err := gChain.AddToIndexMap(blockIdx[i])
+		if err != nil {
+			t.Errorf("AddToIndexMap fail")
+		}
+	}
+
+	gChain.SetTip(blockIdx[19])
+	if err := CheckBlockIndex(); err != nil {
+		t.Errorf("should return nil:%v", err)
+	}
+}
