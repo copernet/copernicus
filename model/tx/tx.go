@@ -388,8 +388,9 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	}
 
 	// check sigopcount
-	if tx.GetSigOpCountWithoutP2SH() > MaxTxSigOpsCounts {
-		log.Debug("bad tx: %s bad-txn-sigops :%d", tx.hash, tx.GetSigOpCountWithoutP2SH())
+	sigOpCount := tx.GetSigOpCountWithoutP2SH()
+	if sigOpCount > MaxTxSigOpsCounts {
+		log.Debug("bad tx: %s bad-txn-sigops :%d", tx.hash, sigOpCount)
 		return errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 	}
 
@@ -459,7 +460,7 @@ func (tx *Tx) IsStandard() (bool, string) {
 	}
 
 	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
-		return false, "tx-bad-sigops-count"
+		return false, "bad-txns-too-many-sigops"
 	}
 
 	return true, ""

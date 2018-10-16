@@ -25,14 +25,16 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 	pool := mempool.GetInstance()
 	pool.Lock()
 	defer pool.Unlock()
+
 	gChain := chain.GetInstance()
 	utxoTip := utxo.GetUtxoCacheInstance()
-	//mpHeight := 0
+
 	allPreout := tx.GetAllPreviousOut()
 	coins := make([]*utxo.Coin, len(allPreout))
 	var txfee int64
 	var inputValue int64
 	spendCoinbase := false
+
 	for i, preout := range allPreout {
 		if coin := utxoTip.GetCoin(&preout); coin != nil {
 			coins[i] = coin
@@ -54,14 +56,19 @@ func AcceptTxToMemPool(tx *tx.Tx) error {
 			}
 		}
 	}
+
 	txfee = inputValue - int64(tx.GetValueOut())
 	ancestors, lp, err := isTxAcceptable(tx, txfee)
 	if err != nil {
 		return err
 	}
+
+	//TODO: sigsCount := ltx.GetTransactionSigOpCount(tx, script.StandardScriptVerifyFlags,
+
 	//second : add transaction to mempool.
 	txentry := mempool.NewTxentry(tx, txfee, util.GetTime(), gChain.Height(), *lp,
 		tx.GetSigOpCountWithoutP2SH(), spendCoinbase)
+
 	pool.AddTx(txentry, ancestors)
 
 	return nil
@@ -88,7 +95,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 					continue
 				}
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx)
+				err := AcceptTxToMemPool(iOrphanTx.Tx) //TODO: check transaction before add to mempool
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {

@@ -82,35 +82,37 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// check common locktime, sequence final can disable it
 	err := ContextualCheckTransactionForCurrentBlock(txn, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.New(errcode.RejectNonstandard)
 	}
 
 	// is mempool already have it? conflict tx with mempool
 	gPool := mempool.GetInstance()
 	if gPool.FindTx(txn.GetHash()) != nil {
-		log.Debug("tx already known in mempool")
-		return errcode.New(errcode.TxErrRejectAlreadyKnown)
+		log.Debug("tx already known in mempool, hash: %s", txn.GetHash())
+		return errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
 	}
 
-	// check preout already spent
-	ins := txn.GetIns()
-	for _, e := range ins {
-		if gPool.HasSpentOut(e.PreviousOutPoint) {
-			log.Debug("tx ins alread spent out in mempool")
-			return errcode.New(errcode.TxErrRejectConflict)
+	for _, txin := range txn.GetIns() {
+		if gPool.HasSpentOut(txin.PreviousOutPoint) {
+			log.Debug("tx ins alread spent out in mempool, tx hash:%s", txn.GetHash())
+			return errcode.NewError(errcode.TxErrRejectConflict, "txn-mempool-conflict")
 		}
 	}
 
 	// check outpoint alread exist
 	if areOutputsAlreadExist(txn) {
-		log.Debug("tx already known in utxo")
-		return errcode.New(errcode.TxErrRejectAlreadyKnown)
+		log.Debug("tx's outpoint already known in utxo, tx hash: %s", txn.GetHash())
+		return errcode.NewError(errcode.TxErrRejectAlreadyKnown, "txn-already-known")
 	}
 
-	// check inputs are available
-	tempCoinsMap := utxo.NewEmptyCoinsMap()
-	if !areInputsAvailable(txn, tempCoinsMap) {
+	// are inputs are exists and available?
+	tempCoinsMap, missingInput, alreadySpent := inputCoinsOf(txn)
+	if missingInput {
 		return errcode.New(errcode.TxErrNoPreviousOut)
+	}
+
+	if alreadySpent {
+		return errcode.NewError(errcode.RejectDuplicate, "bad-txns-inputs-spent")
 	}
 
 	// CLTV(CheckLockTimeVerify)
@@ -122,7 +124,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	lp := CalculateLockPoints(txn, uint32(tx.StandardLockTimeVerifyFlags))
 	if lp == nil {
 		log.Debug("cann't calculate out lockpoints")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.New(errcode.RejectNonstandard)
 	}
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
@@ -131,7 +133,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// instead of create its own.
 	if !CheckSequenceLocks(lp.Height, lp.Time) {
 		log.Debug("tx sequence lock check faild")
-		return errcode.New(errcode.TxErrRejectNonstandard)
+		return errcode.NewError(errcode.RejectNonstandard, "non-BIP68-final")
 	}
 
 	//check standard inputs
@@ -383,15 +385,15 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	return nil
 }
 
-func ContextualCheckTransaction(transaction *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
-	if !transaction.IsFinal(nBlockHeight, nLockTimeCutoff) {
-		log.Debug("transaction is not final")
-		return errcode.New(errcode.RejectInvalid)
+func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
+	if !txn.IsFinal(nBlockHeight, nLockTimeCutoff) {
+		log.Debug("txn is not final, hash: %s", txn.GetHash())
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
 	}
 
 	//if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {
-	//	if transaction.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
-	//		log.Debug("transaction is commitment")
+	//	if txn.IsCommitment(chainparams.ActiveNetParams.AntiReplayOpReturnCommitment) {
+	//		log.Debug("txn is commitment")
 	//		return errcode.New(errcode.RejectInvalid)
 	//	}
 	//}
@@ -423,24 +425,53 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	return false
 }
 
+func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput, alreadySpent bool) {
+	coinMap = utxo.NewEmptyCoinsMap()
+
+	for _, txin := range txn.GetIns() {
+		prevout := txin.PreviousOutPoint
+
+		coin := utxo.GetUtxoCacheInstance().GetCoin(prevout)
+		if coin == nil {
+			coin = mempool.GetInstance().GetCoin(prevout)
+		}
+
+		if coin == nil {
+			return nil, true, false
+		}
+
+		if coin.IsSpent() {
+			return nil, false, true
+		}
+
+		coinMap.AddCoin(prevout, coin, coin.IsCoinBase())
+	}
+
+	return coinMap, false, false
+}
+
 func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
 	gMempool := mempool.GetInstance()
 	utxo := utxo.GetUtxoCacheInstance()
 	ins := transaction.GetIns()
-	for _, e := range ins {
-		coin := utxo.GetCoin(e.PreviousOutPoint)
+	for _, txin := range ins {
+		prevout := txin.PreviousOutPoint
+
+		coin := utxo.GetCoin(prevout)
 		if coin == nil {
-			coin = gMempool.GetCoin(e.PreviousOutPoint)
+			coin = gMempool.GetCoin(prevout)
 		}
+
 		if coin == nil {
-			log.Debug("inpute can't find coin")
+			log.Debug("can't find coin from prev output[%s,%d]", prevout.Hash, prevout.Index)
 			return false
 		}
+
 		if coin.IsSpent() {
-			log.Debug("inpute coin is already spent out")
+			log.Debug("prev output[%s,%d] coin is already spent out", prevout.Hash, prevout.Index)
 			return false
 		}
-		coinMap.AddCoin(e.PreviousOutPoint, coin, coin.IsCoinBase())
+		coinMap.AddCoin(prevout, coin, coin.IsCoinBase())
 	}
 
 	return true

@@ -9,10 +9,8 @@ func TestTxErr_String(t *testing.T) {
 		in   TxErr
 		want string
 	}{
-		{TxErrRejectDuplicate, "TxErrRejectDuplicate"},
 		{TxErrRejectNonstandard, "TxErrRejectNonstandard"},
 		{TxErrRejectDust, "TxErrRejectDust"},
-		{TxErrRejectInsufficientFee, "TxErrRejectInsufficientFee"},
 		{TxErrRejectCheckPoint, "TxErrRejectCheckPoint"},
 		{TxErrRejectAlreadyKnown, "TxErrRejectAlreadyKnown"},
 		{TxErrRejectConflict, "TxErrRejectConflict"},
