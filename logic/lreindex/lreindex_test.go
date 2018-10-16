@@ -38,6 +38,7 @@ func initTestEnv(t *testing.T) {
 		fmt.Printf("Error: %s", err)
 		os.Exit(1)
 	}
+	defer os.RemoveAll(unitTestDataDirPath)
 
 	if conf.Cfg.P2PNet.TestNet {
 		model.SetTestNetParams()
@@ -125,6 +126,7 @@ func TestLoadExternalBlockFile(t *testing.T) {
 	if err != nil {
 		t.Errorf("init test block file failed: %s", err)
 	}
+	defer os.RemoveAll(testFileName)
 
 	nLoaded, err := loadExternalBlockFile(testFileName, &testFilePos)
 	if err != nil {
@@ -138,15 +140,6 @@ func TestLoadExternalBlockFile(t *testing.T) {
 	if nLoaded != blockNumsInTestFile {
 		t.Errorf("should load %d blocks, but load %d blocks", blockNumsInTestFile, nLoaded)
 	}
-
-	err = os.Remove(testFileName)
-	if err != nil {
-		t.Errorf("clean test block file <%s> failed", testFileName)
-	}
-
-	conf.CleanUnitTestDataDir(unitTestDataDirPath)
-	t.Logf("clean temp directory <%s>", unitTestDataDirPath)
-
 }
 
 func TestReindex(t *testing.T) {
@@ -157,9 +150,8 @@ func TestReindex(t *testing.T) {
 	if err != nil {
 		t.Errorf("init test block file failed: %s", err)
 	}
+	defer os.RemoveAll(testFileName)
 	Reindex()
-	conf.CleanUnitTestDataDir(unitTestDataDirPath)
-	t.Logf("clean temp directory <%s>", unitTestDataDirPath)
 }
 
 func TestUnloadBlockIndex(t *testing.T) {

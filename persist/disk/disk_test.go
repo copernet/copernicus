@@ -31,7 +31,14 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	conf.Cfg = conf.InitConfig([]string{"--datadir=" + conf.DataDir, "--testnet"})
+	conf.Cfg = conf.InitConfig([]string{"--testnet"})
+	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
+	fmt.Printf("test in temp dir: %s", unitTestDataDirPath)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		os.Exit(1)
+	}
+	defer os.RemoveAll(unitTestDataDirPath)
 	persist.InitPersistGlobal()
 	os.Exit(m.Run())
 }
