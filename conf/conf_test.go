@@ -328,3 +328,19 @@ func TestInitConfig2(t *testing.T) {
 		}
 	}
 }
+
+func TestSetUnitTestDataDir(t *testing.T) {
+	args := []string{"--testnet"}
+	Cfg = InitConfig(args)
+	testDir, err := SetUnitTestDataDir(Cfg)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		os.Exit(1)
+	}
+	t.Logf("generated file path is: %v", testDir)
+	defer os.RemoveAll(testDir)
+	_, err = os.Stat(testDir)
+	if err != nil && os.IsNotExist(err) {
+		t.Errorf("SetUnitTestDataDir implementation error:%v", err)
+	}
+}
