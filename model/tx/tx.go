@@ -459,10 +459,6 @@ func (tx *Tx) IsStandard() (bool, string) {
 		return false, "multi-op-return"
 	}
 
-	if tx.GetSigOpCountWithoutP2SH() > int(MaxStandardTxSigOps) {
-		return false, "bad-txns-too-many-sigops"
-	}
-
 	return true, ""
 }
 
