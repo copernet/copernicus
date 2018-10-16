@@ -351,7 +351,3 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 
 	return testDataDir, nil
 }
-
-func CleanUnitTestDataDir(dirpath string) (err error) {
-	return os.RemoveAll(dirpath)
-}
