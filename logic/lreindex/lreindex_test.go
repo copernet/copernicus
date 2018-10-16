@@ -1,23 +1,23 @@
 package lreindex
 
 import (
-    "encoding/hex"
-    "github.com/copernet/copernicus/conf"
-    "github.com/copernet/copernicus/crypto"
-    "github.com/copernet/copernicus/logic/lblockindex"
-    "github.com/copernet/copernicus/model"
-    "github.com/copernet/copernicus/model/block"
-    "github.com/copernet/copernicus/model/chain"
-    "github.com/copernet/copernicus/model/mempool"
-    "github.com/copernet/copernicus/model/utxo"
-    "github.com/copernet/copernicus/persist"
-    "github.com/copernet/copernicus/persist/blkdb"
-    "github.com/copernet/copernicus/persist/db"
-    "github.com/copernet/copernicus/persist/disk"
-    "github.com/copernet/copernicus/util"
-    "os"
-    "strings"
-    "testing"
+	"encoding/hex"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/disk"
+	"github.com/copernet/copernicus/util"
+	"os"
+	"strings"
+	"testing"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 	testFileName        string
 )
 
-func initTestEnv(t *testing.T) (dirpath string, err error){
+func initTestEnv(t *testing.T) (dirpath string, err error) {
 	args := []string{"--testnet", "--reindex"}
 	conf.Cfg = conf.InitConfig(args)
 
@@ -120,9 +120,9 @@ func initTestBlockFile() (testFileName string, err error) {
 func TestLoadExternalBlockFile(t *testing.T) {
 	testDirPath, err := initTestEnv(t)
 	if err != nil {
-	    t.Fatalf("init test environment failed: %s", err)
-    }
-    defer os.RemoveAll(testDirPath)
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 
 	testFileName, err = initTestBlockFile()
 	if err != nil {
@@ -146,9 +146,9 @@ func TestLoadExternalBlockFile(t *testing.T) {
 func TestReindex(t *testing.T) {
 	testDirPath, err := initTestEnv(t)
 	if err != nil {
-	    t.Fatalf("init test environment failed: %s", err)
-    }
-    defer os.RemoveAll(testDirPath)
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 
 	UnloadBlockIndex()
 	testFileName, err = initTestBlockFile()
