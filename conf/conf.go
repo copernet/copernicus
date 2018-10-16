@@ -63,6 +63,107 @@ const (
 	defaultMaxMempoolSize        = 300
 )
 
+// Configuration defines all configurations for application
+type Configuration struct {
+	GoVersion string `validate:"require"` //description:"Display version information and exit"
+	Version   string `validate:"require"` //description:"Display version information of copernicus"
+	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
+	DataDir   string `default:"data"`
+	Reindex   bool
+
+	// Service struct {
+	// 	Address string `default:"1.0.0.1:80"`
+	// }
+	RPC struct {
+		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
+		RPCUser              string   // Username for RPC connections
+		RPCPass              string   // Password for RPC connections
+		RPCLimitUser         string   //Username for limited RPC connections
+		RPCLimitPass         string   //Password for limited RPC connections
+		RPCCert              string   `default:""` //File containing the certificate file
+		RPCKey               string   //File containing the certificate key
+		RPCMaxClients        int      //Max number of RPC clients for standard connections
+		RPCMaxWebsockets     int      //Max number of RPC websocket connections
+		RPCMaxConcurrentReqs int      //Max number of concurrent RPC requests that may be processed concurrently
+		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
+	}
+	Log struct {
+		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
+		Module   []string // only output the specified module's log when using log.Print(...)
+		FileName string   // the name of log file
+	}
+	Mempool struct {
+		MinFeeRate           int64 //
+		LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
+		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
+		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
+		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
+		MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+	}
+	P2PNet struct {
+		ListenAddrs         []string `validate:"require" default:"1234"`
+		MaxPeers            int      `default:"128"`
+		TargetOutbound      int      `default:"8"`
+		ConnectPeersOnStart []string
+		DisableBanning      bool `default:"true"`
+		BanThreshold        uint32
+		TestNet             bool
+		RegTest             bool `default:"false"`
+		SimNet              bool
+		DisableListen       bool          `default:"true"`
+		BlocksOnly          bool          `default:"false"` //Do not accept transactions from remote peers.
+		BanDuration         time.Duration // How long to ban misbehaving peers
+		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
+		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
+		DisableDNSSeed      bool          //Disable DNS seeding for peers
+		DisableRPC          bool          `default:"false"`
+		DisableTLS          bool          `default:"false"`
+		Whitelists          []*net.IPNet
+		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
+		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
+		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+		//AddCheckpoints      []model.Checkpoint
+	}
+	AddrMgr struct {
+		SimNet       bool
+		ConnectPeers []string
+	}
+	Protocol struct {
+		NoPeerBloomFilters bool `default:"true"`
+		DisableCheckpoints bool `default:"true"`
+	}
+	Script struct {
+		AcceptDataCarrier   bool `default:"true"`
+		MaxDatacarrierBytes uint `default:"223"`
+		IsBareMultiSigStd   bool `default:"true"`
+		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
+		PromiscuousMempoolFlags string `default:"0"`
+		Par                     int    `default:"32"`
+	}
+	TxOut struct {
+		DustRelayFee int64 `default:"83"`
+	}
+	Chain struct {
+		AssumeValid         string
+		UtxoHashStartHeight int32 `default:"-1"`
+		UtxoHashEndHeight   int32 `default:"-1"`
+	}
+	Mining struct {
+		BlockMinTxFee int64  // default DefaultBlockMinTxFee
+		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
+		BlockVersion  int32  `default:"-1"`
+		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
+	}
+	PProf struct {
+		IP   string `default:"localhost"`
+		Port string `default:"6060"`
+	}
+	BlockIndex struct {
+		CheckBlockIndex bool
+	}
+}
+
 var (
 	Cfg     *Configuration
 	DataDir string
@@ -182,107 +283,17 @@ func InitConfig(args []string) *Configuration {
 	if opts.TestNet {
 		config.P2PNet.TestNet = true
 	}
+
+	if opts.UtxoHashStartHeigh >= 0 && opts.UtxoHashEndHeigh <= opts.UtxoHashStartHeigh {
+		panic("utxohashstartheight should less than utxohashendheight")
+	}
+
+	if opts.UtxoHashStartHeigh >= 0 {
+		config.Chain.UtxoHashStartHeight = opts.UtxoHashStartHeigh
+		config.Chain.UtxoHashEndHeight = opts.UtxoHashEndHeigh
+	}
+
 	return config
-}
-
-// Configuration defines all configurations for application
-type Configuration struct {
-	GoVersion string `validate:"require"` //description:"Display version information and exit"
-	Version   string `validate:"require"` //description:"Display version information of copernicus"
-	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
-	DataDir   string `default:"data"`
-	Reindex   bool
-
-	// Service struct {
-	// 	Address string `default:"1.0.0.1:80"`
-	// }
-	RPC struct {
-		RPCListeners         []string // Add an interface/port to listen for RPC connections (default port: 8334, testnet: 18334)
-		RPCUser              string   // Username for RPC connections
-		RPCPass              string   // Password for RPC connections
-		RPCLimitUser         string   //Username for limited RPC connections
-		RPCLimitPass         string   //Password for limited RPC connections
-		RPCCert              string   `default:""` //File containing the certificate file
-		RPCKey               string   //File containing the certificate key
-		RPCMaxClients        int      //Max number of RPC clients for standard connections
-		RPCMaxWebsockets     int      //Max number of RPC websocket connections
-		RPCMaxConcurrentReqs int      //Max number of concurrent RPC requests that may be processed concurrently
-		RPCQuirks            bool     //Mirror some JSON-RPC quirks of Bitcoin Core -- NOTE: Discouraged unless interoperability issues need to be worked around
-	}
-	Log struct {
-		Level    string   //description:"Define level of log,include trace, debug, info, warn, error"
-		Module   []string // only output the specified module's log when using log.Print(...)
-		FileName string   // the name of log file
-	}
-	Mempool struct {
-		MinFeeRate           int64 //
-		LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
-		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
-		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
-		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
-		MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
-		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
-	}
-	P2PNet struct {
-		ListenAddrs         []string `validate:"require" default:"1234"`
-		MaxPeers            int      `default:"128"`
-		TargetOutbound      int      `default:"8"`
-		ConnectPeersOnStart []string
-		DisableBanning      bool `default:"true"`
-		BanThreshold        uint32
-		TestNet             bool
-		RegTest             bool `default:"false"`
-		SimNet              bool
-		DisableListen       bool          `default:"true"`
-		BlocksOnly          bool          `default:"false"` //Do not accept transactions from remote peers.
-		BanDuration         time.Duration // How long to ban misbehaving peers
-		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
-		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
-		DisableDNSSeed      bool          //Disable DNS seeding for peers
-		DisableRPC          bool          `default:"false"`
-		DisableTLS          bool          `default:"false"`
-		Whitelists          []*net.IPNet
-		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
-		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
-		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
-		//AddCheckpoints      []model.Checkpoint
-	}
-	AddrMgr struct {
-		SimNet       bool
-		ConnectPeers []string
-	}
-	Protocol struct {
-		NoPeerBloomFilters bool `default:"true"`
-		DisableCheckpoints bool `default:"true"`
-	}
-	Script struct {
-		AcceptDataCarrier   bool `default:"true"`
-		MaxDatacarrierBytes uint `default:"223"`
-		IsBareMultiSigStd   bool `default:"true"`
-		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-		PromiscuousMempoolFlags string `default:"0"`
-		Par                     int    `default:"32"`
-	}
-	TxOut struct {
-		DustRelayFee int64 `default:"83"`
-	}
-	Chain struct {
-		AssumeValid    string
-		StartLogHeight int32 `default:"2147483647"`
-	}
-	Mining struct {
-		BlockMinTxFee int64  // default DefaultBlockMinTxFee
-		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
-		BlockVersion  int32  `default:"-1"`
-		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
-	}
-	PProf struct {
-		IP   string `default:"localhost"`
-		Port string `default:"6060"`
-	}
-	BlockIndex struct {
-		CheckBlockIndex bool
-	}
 }
 
 func must(i interface{}, err error) interface{} {

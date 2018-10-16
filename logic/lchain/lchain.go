@@ -265,7 +265,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
 	}
-	if pIndexNew.Height >= conf.Cfg.Chain.StartLogHeight {
+	if pIndexNew.Height >= conf.Cfg.Chain.UtxoHashStartHeight && pIndexNew.Height < conf.Cfg.Chain.UtxoHashEndHeight {
 		cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
 		besthash, err := cdb.GetBestBlock()
 		if err != nil {
