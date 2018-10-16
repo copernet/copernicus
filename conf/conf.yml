@@ -27,7 +27,7 @@ Mining:
   Strategy: ancestorfeerate
 Chain:
   AssumeValid:
-  StartLogHeight: 2147483647
+
 P2PNet:
   ListenAddrs: [127.0.0.1:18333]
   MaxPeers: 5
