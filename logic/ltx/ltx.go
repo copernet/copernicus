@@ -106,7 +106,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	}
 
 	// are inputs are exists and available?
-	tempCoinsMap, missingInput, alreadySpent := inputCoinsOf(txn)
+	inputCoins, missingInput, alreadySpent := inputCoinsOf(txn)
 	if missingInput {
 		return errcode.New(errcode.TxErrNoPreviousOut)
 	}
@@ -138,10 +138,19 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 
 	//check standard inputs
 	if model.ActiveNetParams.RequireStandard {
-		err = checkInputsStandard(txn, tempCoinsMap)
-		if err != nil {
-			return err
+		if areInputsStandard(txn, inputCoins) {
+			return errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs")
 		}
+	}
+
+	// Check that the transaction doesn't have an excessive number of
+	// sigops, making it impossible to mine. Since the coinbase transaction
+	// itself can contain sigops MAX_STANDARD_TX_SIGOPS is less than
+	// MAX_BLOCK_SIGOPS_PER_MB; we still consider this an invalid rather
+	// than merely non-standard transaction.
+	sigOpsCount := GetTransactionSigOpCount(txn, uint32(script.StandardScriptVerifyFlags), inputCoins)
+	if uint(sigOpsCount) > tx.MaxStandardTxSigOps {
+		return errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops")
 	}
 
 	var extraFlags uint32 = script.ScriptVerifyNone
@@ -166,7 +175,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 
 	// Check against previous transactions. This is done last to help
 	// prevent CPU exhaustion denial-of-service attacks.
-	err = checkInputs(txn, tempCoinsMap, scriptVerifyFlags)
+	err = checkInputs(txn, inputCoins, scriptVerifyFlags)
 	if err != nil {
 		return err
 	}
@@ -187,12 +196,12 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// invalid blocks (using TestBlockValidity), however allowing such
 	// transactions into the mempool can be exploited as a DoS attack.
 	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
-	err = checkInputs(txn, tempCoinsMap, currentBlockScriptVerifyFlags)
+	err = checkInputs(txn, inputCoins, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
 			return errcode.New(errcode.ScriptCheckInputsBug)
 		}
-		err = checkInputs(txn, tempCoinsMap, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
+		err = checkInputs(txn, inputCoins, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
 		if err != nil {
 			return err
 		}
@@ -450,57 +459,30 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput, alreadySpen
 	return coinMap, false, false
 }
 
-func areInputsAvailable(transaction *tx.Tx, coinMap *utxo.CoinsMap) bool {
-	gMempool := mempool.GetInstance()
-	utxo := utxo.GetUtxoCacheInstance()
-	ins := transaction.GetIns()
-	for _, txin := range ins {
-		prevout := txin.PreviousOutPoint
-
-		coin := utxo.GetCoin(prevout)
-		if coin == nil {
-			coin = gMempool.GetCoin(prevout)
-		}
-
-		if coin == nil {
-			log.Debug("can't find coin from prev output[%s,%d]", prevout.Hash, prevout.Index)
-			return false
-		}
-
-		if coin.IsSpent() {
-			log.Debug("prev output[%s,%d] coin is already spent out", prevout.Hash, prevout.Index)
-			return false
-		}
-		coinMap.AddCoin(prevout, coin, coin.IsCoinBase())
-	}
-
-	return true
-}
-
-func GetTransactionSigOpCount(transaction *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
+func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
 	var sigOpsCount int
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		sigOpsCount = GetSigOpCountWithP2SH(transaction, coinMap)
+		sigOpsCount = GetSigOpCountWithP2SH(txn, coinMap)
 	} else {
-		sigOpsCount = transaction.GetSigOpCountWithoutP2SH()
+		sigOpsCount = txn.GetSigOpCountWithoutP2SH()
 	}
 
 	return sigOpsCount
 }
 
 // GetSigOpCountWithP2SH starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(transaction *tx.Tx, coinMap *utxo.CoinsMap) int {
-	n := transaction.GetSigOpCountWithoutP2SH()
-	if transaction.IsCoinBase() {
+func GetSigOpCountWithP2SH(txn *tx.Tx, coinMap *utxo.CoinsMap) int {
+	n := txn.GetSigOpCountWithoutP2SH()
+	if txn.IsCoinBase() {
 		return n
 	}
 
-	ins := transaction.GetIns()
-	for _, e := range ins {
-		coin := coinMap.GetCoin(e.PreviousOutPoint)
+	for _, txin := range txn.GetIns() {
+		coin := coinMap.GetCoin(txin.PreviousOutPoint)
 		if coin == nil {
 			panic("can't find coin in temp coinsmap")
 		}
+
 		scriptPubKey := coin.GetScriptPubKey()
 		if scriptPubKey.IsPayToScriptHash() {
 			sigsCount := scriptPubKey.GetSigOpCount(true)
@@ -541,7 +523,7 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
 }
 
-func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
+func areInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 	ins := transaction.GetIns()
 	for i, e := range ins {
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
@@ -552,27 +534,27 @@ func checkInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) error {
 		txOut := coin.GetTxOut()
 		pubKeyType, isStandard := txOut.GetPubKeyType()
 		if !isStandard {
-			log.Debug("checkInputsStandard GetPubkeyType err: not StandardScriptPubKey")
-			return errcode.New(errcode.TxErrRejectNonstandard)
+			log.Debug("areInputsStandard GetPubkeyType err: not StandardScriptPubKey")
+			return false
 		}
 		if pubKeyType == script.ScriptHash {
 			scriptSig := e.GetScriptSig()
 			err := lscript.EvalScript(util.NewStack(), scriptSig, transaction, i, amount.Amount(0), script.ScriptVerifyNone,
 				lscript.NewScriptEmptyChecker())
 			if err != nil {
-				log.Debug("checkInputsStandard EvalScript err: %v", err)
-				return errcode.New(errcode.TxErrRejectNonstandard)
+				log.Debug("areInputsStandard EvalScript err: %v", err)
+				return false
 			}
 			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 			opCount := subScript.GetSigOpCount(true)
 			if uint(opCount) > tx.MaxP2SHSigOps {
 				log.Debug("transaction has too many sigops")
-				return errcode.New(errcode.TxErrRejectNonstandard)
+				return false
 			}
 		}
 	}
 
-	return nil
+	return true
 }
 
 func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
@@ -587,9 +569,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
+
 	ins := tx.GetIns()
 	insLen := len(ins)
 
@@ -649,8 +629,6 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	return nil
 }
 
-//func checkScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *script.Script,
-//	nIn int, value amount.Amount, flags uint32, scriptChecker lscript.Checker, resultChan chan ScriptVerifyResult) {
 func checkScript() {
 	for {
 		j := <-scriptVerifyJobChan
@@ -917,29 +895,29 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 		if coin.IsCoinBase() {
 			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {
 				log.Debug("CheckInputsMoney coinbase can't spend now")
-				return errcode.New(errcode.RejectInvalid)
+				return errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase")
 			}
 		}
 		txOut := coin.GetTxOut()
 		if !amount.MoneyRange(txOut.GetValue()) {
 			log.Debug("CheckInputsMoney coin money range err")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputvalues-outofrange")
 		}
 		nValue += txOut.GetValue()
 		if !amount.MoneyRange(nValue) {
 			log.Debug("CheckInputsMoney total coin money range err")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputvalues-outofrange")
 		}
 	}
 	if nValue < transaction.GetValueOut() {
 		log.Debug("CheckInputsMoney coins money little than out's")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-in-belowout")
 	}
 
 	txFee := nValue - transaction.GetValueOut()
 	if !amount.MoneyRange(txFee) {
 		log.Debug("CheckInputsMoney fee err")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-fee-outofrange")
 	}
 	return nil
 }
