@@ -50,7 +50,11 @@ func TestCoin(t *testing.T) {
 		t.Error("there is one error in clear func...")
 	}
 
-	if c.isCoinBase && c.isMempoolCoin {
+	if c.IsMempoolCoin() {
+	    t.Errorf("isMempoolCoin default should false")
+    }
+
+	if c.IsCoinBase() && c.IsMempoolCoin() {
 		t.Error("isCoinBase and isMempoolCoin value should false")
 	}
 
@@ -112,4 +116,13 @@ func TestCoinSec(t *testing.T) {
 	if reflect.DeepEqual(c3, target) {
 		t.Error("after clear, the value of deep copy coin not equal coin.")
 	}
+}
+
+func TestMempoolCoin(t *testing.T) {
+    scriptM := script.NewEmptyScript()
+    txoutM := txout.NewTxOut(1, scriptM)
+    coinM := NewMempoolCoin(txoutM)
+    if !coinM.IsMempoolCoin() {
+       t.Errorf("coinM should be a mempool coin")
+    }
 }
