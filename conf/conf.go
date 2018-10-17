@@ -293,7 +293,41 @@ func InitConfig(args []string) *Configuration {
 		config.Chain.UtxoHashEndHeight = opts.UtxoHashEndHeigh
 	}
 
+	if len(opts.Whitelists) > 0 {
+		initWhitelists(config, opts)
+	}
+
 	return config
+}
+
+func initWhitelists(config *Configuration, opts *Opts) {
+	var ip net.IP
+	config.P2PNet.Whitelists = make([]*net.IPNet, 0, len(opts.Whitelists))
+	for _, addr := range opts.Whitelists {
+		_, ipnet, err := net.ParseCIDR(addr)
+
+		if err != nil {
+			ip = net.ParseIP(addr)
+			if ip == nil {
+				fmt.Fprintln(os.Stderr, fmt.Sprintf("[Error]The whitelist value of '%s' is invalid", addr))
+				continue
+			}
+
+			var bits int
+			if ip.To4() == nil {
+				// IPv6
+				bits = 128
+			} else {
+				bits = 32
+			}
+
+			ipnet = &net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(bits, bits),
+			}
+		}
+		config.P2PNet.Whitelists = append(config.P2PNet.Whitelists, ipnet)
+	}
 }
 
 func must(i interface{}, err error) interface{} {
