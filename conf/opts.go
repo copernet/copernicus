@@ -15,8 +15,8 @@ type Opts struct {
 	RegTest bool `long:"regtest" description:"initiate regtest"`
 	TestNet bool `long:"testnet" description:"initiate testnet"`
 
-	UtxoHashStartHeigh int32 `long:"utxohashstartheigh" default:"-1" description:"Which height begin logging out the utxos hash at"`
-	UtxoHashEndHeigh   int32 `long:"utxohashendheigh" default:"-1" description:"Which height finish logging out the utxos hash at"`
+	UtxoHashStartHeigh int32 `long:"utxohashstartheight" default:"-1" description:"Which height begin logging out the utxos hash at"`
+	UtxoHashEndHeigh   int32 `long:"utxohashendheight" default:"-1" description:"Which height finish logging out the utxos hash at"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
