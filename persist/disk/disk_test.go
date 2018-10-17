@@ -30,20 +30,26 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func TestMain(m *testing.M) {
-	conf.Cfg = conf.InitConfig([]string{"--testnet"})
+func initTestEnv(t *testing.T) (dirpath string, err error) {
+	args := []string{"--testnet"}
+	conf.Cfg = conf.InitConfig(args)
+
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
-	fmt.Printf("test in temp dir: %s", unitTestDataDirPath)
+	t.Logf("test in temp dir: %s", unitTestDataDirPath)
 	if err != nil {
-		fmt.Printf("Error: %s", err)
-		os.Exit(1)
+		return "", err
 	}
-	defer os.RemoveAll(unitTestDataDirPath)
 	persist.InitPersistGlobal()
-	os.Exit(m.Run())
+
+	return unitTestDataDirPath, nil
 }
 
 func TestWRBlockToDisk(t *testing.T) {
+	testDirPath, err := initTestEnv(t)
+	if err != nil {
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 	//init block header
 	blkHeader := block.NewBlockHeader()
 	//bitcoin-cli getblock 000000003c6cbebb51b3733fe2804b5a348f9a6d56f98aaee237022e14f0d3bc
@@ -117,11 +123,16 @@ func TestWRBlockToDisk(t *testing.T) {
 }
 
 func TestUndoWRToDisk(t *testing.T) {
+	testDirPath, err := initTestEnv(t)
+	if err != nil {
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 	//block undo value is nil
 	blkUndo := undo.NewBlockUndo(1)
 	pos := block.NewDiskBlockPos(11, 12)
 	hash := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d012")
-	err := UndoWriteToDisk(blkUndo, pos, *hash, wire.MainNet)
+	err = UndoWriteToDisk(blkUndo, pos, *hash, wire.MainNet)
 	if err != nil {
 		t.Errorf("write to disk failed: %v\n", err)
 	}
@@ -173,6 +184,11 @@ func DiskUsage(path string) (disk DiskStatus) {
 }
 
 func TestCheckDiskSpace(t *testing.T) {
+	testDirPath, err := initTestEnv(t)
+	if err != nil {
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 	ds := DiskUsage(conf.Cfg.DataDir)
 	ok := CheckDiskSpace(math.MaxUint32)
 	if !ok {
@@ -184,6 +200,11 @@ func TestCheckDiskSpace(t *testing.T) {
 }
 
 func TestFindBlockPos(t *testing.T) {
+	testDirPath, err := initTestEnv(t)
+	if err != nil {
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 	pos := block.NewDiskBlockPos(10, 9)
 	timeNow := time.Now().Unix()
 
@@ -226,6 +247,11 @@ func TestFindBlockPos(t *testing.T) {
 }
 
 func TestFindUndoPos(t *testing.T) {
+	testDirPath, err := initTestEnv(t)
+	if err != nil {
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 	pos := block.NewDiskBlockPos(11, 12)
 	gPersist := persist.GetInstance()
 	i := len(gPersist.GlobalBlockFileInfo)
@@ -233,7 +259,7 @@ func TestFindUndoPos(t *testing.T) {
 		i++
 		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
 	}
-	err := FindUndoPos(11, pos, 12345)
+	err = FindUndoPos(11, pos, 12345)
 	if err != nil {
 		t.Errorf("find undo by pos failed: %v", err)
 	}
@@ -271,6 +297,11 @@ func initUtxoDB() {
 }
 
 func TestFlushStateToDisk(t *testing.T) {
+	testDirPath, err := initTestEnv(t)
+	if err != nil {
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 	initBlockDB()
 	initUtxoDB()
 	chain.InitGlobalChain()
@@ -285,7 +316,7 @@ func TestFlushStateToDisk(t *testing.T) {
 
 	necm.AddCoin(&outpoint1, coin1, false)
 	guci := utxo.GetUtxoCacheInstance()
-	err := guci.UpdateCoins(necm, hash1)
+	err = guci.UpdateCoins(necm, hash1)
 	if err != nil {
 		t.Errorf("update coin failed: %v\n", err)
 	}

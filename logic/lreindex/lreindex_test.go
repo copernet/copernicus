@@ -1,23 +1,24 @@
 package lreindex
 
 import (
-    "encoding/hex"
-    "github.com/copernet/copernicus/conf"
-    "github.com/copernet/copernicus/crypto"
-    "github.com/copernet/copernicus/logic/lblockindex"
-    "github.com/copernet/copernicus/model"
-    "github.com/copernet/copernicus/model/block"
-    "github.com/copernet/copernicus/model/chain"
-    "github.com/copernet/copernicus/model/mempool"
-    "github.com/copernet/copernicus/model/utxo"
-    "github.com/copernet/copernicus/persist"
-    "github.com/copernet/copernicus/persist/blkdb"
-    "github.com/copernet/copernicus/persist/db"
-    "github.com/copernet/copernicus/persist/disk"
-    "github.com/copernet/copernicus/util"
-    "os"
-    "strings"
-    "testing"
+	"encoding/hex"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/persist/disk"
+	"math/rand"
+	"os"
+	"strings"
+	"testing"
+	"time"
 )
 
 var (
@@ -27,7 +28,7 @@ var (
 	testFileName        string
 )
 
-func initTestEnv(t *testing.T) (dirpath string, err error){
+func initTestEnv(t *testing.T) (dirpath string, err error) {
 	args := []string{"--testnet", "--reindex"}
 	conf.Cfg = conf.InitConfig(args)
 
@@ -75,6 +76,15 @@ func initTestEnv(t *testing.T) (dirpath string, err error){
 	return unitTestDataDirPath, nil
 }
 
+func shuffle(vals []string) {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for len(vals) > 0 {
+		n := len(vals)
+		randIndex := r.Intn(n)
+		vals[n-1], vals[randIndex] = vals[randIndex], vals[n-1]
+		vals = vals[:n-1]
+	}
+}
 func initTestBlockFile() (testFileName string, err error) {
 
 	blocks := make([][]byte, 0)
@@ -93,8 +103,7 @@ func initTestBlockFile() (testFileName string, err error) {
 		"BE 00 00 00 01 00 00 00 DD E5 B6 48 F5 94 FD D2 EC 1C 40 83 76 2D D1 3B 19 7B B1 38 1E 74 B1 FF F9 0A 5D 8B 00 00 00 00 B3 C6 C6 C1 11 8C 3B 6A BA A1 7C 5A A7 4E E2 79 08 9A D3 4D C3 CE C3 64 05 22 73 75 41 CB 01 68 18 E8 49 4D FF FF 00 1D 02 DA 84 C0 01 01 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF FF FF 0E 04 18 E8 49 4D 01 6A 06 2F 50 32 53 48 2F FF FF FF FF 01 00 F2 05 2A 01 00 00 00 23 21 03 73 EA 73 9A 7E 74 DE EE B4 43 1A 6D 77 DF 41 97 2C 18 5E 6E 83 E1 C3 00 EB 91 31 09 63 39 83 E7 AC 00 00 00 00",
 	}
 
-	util.Shuffle(blockStrs)
-
+	shuffle(blockStrs)
 	blockNumsInTestFile = len(blockStrs)
 
 	for _, strData := range blockStrs {
@@ -120,9 +129,9 @@ func initTestBlockFile() (testFileName string, err error) {
 func TestLoadExternalBlockFile(t *testing.T) {
 	testDirPath, err := initTestEnv(t)
 	if err != nil {
-	    t.Fatalf("init test environment failed: %s", err)
-    }
-    defer os.RemoveAll(testDirPath)
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 
 	testFileName, err = initTestBlockFile()
 	if err != nil {
@@ -146,9 +155,9 @@ func TestLoadExternalBlockFile(t *testing.T) {
 func TestReindex(t *testing.T) {
 	testDirPath, err := initTestEnv(t)
 	if err != nil {
-	    t.Fatalf("init test environment failed: %s", err)
-    }
-    defer os.RemoveAll(testDirPath)
+		t.Fatalf("init test environment failed: %s", err)
+	}
+	defer os.RemoveAll(testDirPath)
 
 	UnloadBlockIndex()
 	testFileName, err = initTestBlockFile()

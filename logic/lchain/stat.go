@@ -169,7 +169,7 @@ type utxoTaskControl struct {
 var taskControl *utxoTaskControl
 
 func init() {
-	taskControl = newUtxoTaskControl(1, 20)
+	taskControl = newUtxoTaskControl(1, 16)
 }
 
 func newUtxoTaskControl(numTask, numWorker int) *utxoTaskControl {

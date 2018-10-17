@@ -51,8 +51,8 @@ func TestCoin(t *testing.T) {
 	}
 
 	if c.IsMempoolCoin() {
-	    t.Errorf("isMempoolCoin default should false")
-    }
+		t.Errorf("isMempoolCoin default should false")
+	}
 
 	if c.IsCoinBase() && c.IsMempoolCoin() {
 		t.Error("isCoinBase and isMempoolCoin value should false")
@@ -119,10 +119,10 @@ func TestCoinSec(t *testing.T) {
 }
 
 func TestMempoolCoin(t *testing.T) {
-    scriptM := script.NewEmptyScript()
-    txoutM := txout.NewTxOut(1, scriptM)
-    coinM := NewMempoolCoin(txoutM)
-    if !coinM.IsMempoolCoin() {
-       t.Errorf("coinM should be a mempool coin")
-    }
+	scriptM := script.NewEmptyScript()
+	txoutM := txout.NewTxOut(1, scriptM)
+	coinM := NewMempoolCoin(txoutM)
+	if !coinM.IsMempoolCoin() {
+		t.Errorf("coinM should be a mempool coin")
+	}
 }

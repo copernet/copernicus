@@ -257,15 +257,20 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
 			PromiscuousMempoolFlags: "0",
-			Par: 32,
+			Par:                     32,
 		},
 		TxOut: struct {
 			DustRelayFee int64 `default:"83"`
 		}{DustRelayFee: 83},
 		Chain: struct {
-			AssumeValid    string
-			StartLogHeight int32 `default:"2147483647"`
-		}{StartLogHeight: 2147483647},
+			AssumeValid         string
+			UtxoHashStartHeight int32 `default:"-1"`
+			UtxoHashEndHeight   int32 `default:"-1"`
+		}{
+			AssumeValid:         "",
+			UtxoHashStartHeight: -1,
+			UtxoHashEndHeight:   -1,
+		},
 		Mining: struct {
 			BlockMinTxFee int64  // default DefaultBlockMinTxFee
 			BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
