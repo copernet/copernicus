@@ -1,9 +1,9 @@
 package util
 
 import (
-	"testing"
-	"fmt"
 	"bytes"
+	"fmt"
+	"testing"
 )
 
 func TestFeeRate(t *testing.T) {
