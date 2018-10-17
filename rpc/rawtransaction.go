@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/copernet/copernicus/errcode"
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
 	"math"
 	"strconv"
 
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleblock"
@@ -33,6 +33,7 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/util/cashaddr"
 )
 
 var rawTransactionHandlers = map[string]commandHandler{
@@ -431,25 +432,37 @@ func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, e
 		return scriptPubKey, nil
 	}
 
-	legacyAddr, err := script.AddressFromString(address)
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidAddressOrKey,
-			Message: "Invalid Bitcoin address: " + address,
+	var addrData []byte
+	addrType := script.ScriptNonStandard
+	if legacyAddr, err := script.AddressFromString(address); err == nil {
+		switch legacyAddr.GetVersion() {
+		case script.AddressVerPubKey():
+			addrType = script.ScriptPubkeyHash
+		case script.AddressVerScript():
+			addrType = script.ScriptHash
 		}
+		addrData = legacyAddr.EncodeToPubKeyHash()
+	} else if cashAddr, err := cashaddr.DecodeAddress(address, chain.GetInstance().GetParams()); err == nil {
+		switch cashAddr.(type) {
+		case *cashaddr.CashAddressPubKeyHash:
+			addrType = script.ScriptPubkeyHash
+		case *cashaddr.CashAddressScriptHash:
+			addrType = script.ScriptHash
+		}
+		addrData = cashAddr.ScriptAddress()
 	}
 
-	if legacyAddr.GetVersion() == script.AddressVerPubKey() {
+	if addrType == script.ScriptPubkeyHash {
 		// P2PKH
 		scriptPubKey.PushOpCode(opcodes.OP_DUP)
 		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-		scriptPubKey.PushSingleData(legacyAddr.EncodeToPubKeyHash())
+		scriptPubKey.PushSingleData(addrData)
 		scriptPubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
 		scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
-	} else if legacyAddr.GetVersion() == script.AddressVerScript() {
+	} else if addrType == script.ScriptHash {
 		// P2SH
 		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-		scriptPubKey.PushSingleData(legacyAddr.EncodeToPubKeyHash())
+		scriptPubKey.PushSingleData(addrData)
 		scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
 	} else {
 		return nil, btcjson.RPCError{
