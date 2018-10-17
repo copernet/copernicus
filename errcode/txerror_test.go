@@ -9,11 +9,7 @@ func TestTxErr_String(t *testing.T) {
 		in   TxErr
 		want string
 	}{
-		{TxErrRejectNonstandard, "TxErrRejectNonstandard"},
-		{TxErrRejectDust, "TxErrRejectDust"},
 		{TxErrRejectCheckPoint, "TxErrRejectCheckPoint"},
-		{TxErrRejectAlreadyKnown, "TxErrRejectAlreadyKnown"},
-		{TxErrRejectConflict, "TxErrRejectConflict"},
 		{TxErrNoPreviousOut, "There is no previousout"},
 		{ScriptCheckInputsBug, "ScriptCheckInputsBug"},
 		{TxErrSignRawTransaction, "TxErrSignRawTransaction"},

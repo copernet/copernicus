@@ -18,59 +18,31 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-// AcceptTxToMemPool add one check corret transaction to mempool.
-func AcceptTxToMemPool(tx *tx.Tx) error {
-
-	//first : check whether enter mempool.
-	pool := mempool.GetInstance()
-	pool.Lock()
-	defer pool.Unlock()
-
-	gChain := chain.GetInstance()
-	utxoTip := utxo.GetUtxoCacheInstance()
-
-	allPreout := tx.GetAllPreviousOut()
-	coins := make([]*utxo.Coin, len(allPreout))
-	var txfee int64
-	var inputValue int64
-	spendCoinbase := false
-
-	for i, preout := range allPreout {
-		if coin := utxoTip.GetCoin(&preout); coin != nil {
-			coins[i] = coin
-			inputValue += int64(coin.GetAmount())
-			if coin.IsCoinBase() {
-				spendCoinbase = true
-			}
-		} else {
-			if coin := pool.GetCoin(&preout); coin != nil {
-				coins[i] = coin
-				inputValue += int64(coin.GetAmount())
-				if coin.IsCoinBase() {
-					spendCoinbase = true
-				}
-			} else {
-				log.Error("the transaction in mempool, not found its parent " +
-					"transaction in local node and utxo")
-				return errcode.New(errcode.TxErrNoPreviousOut)
-			}
-		}
-	}
-
-	txfee = inputValue - int64(tx.GetValueOut())
-	ancestors, lp, err := isTxAcceptable(tx, txfee)
+func AcceptTxToMemPool(txn *tx.Tx) error {
+	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 	if err != nil {
 		return err
 	}
 
-	//TODO: sigsCount := ltx.GetTransactionSigOpCount(tx, script.StandardScriptVerifyFlags,
+	return addTxToMemPool(txEntry)
+}
 
-	//second : add transaction to mempool.
-	txentry := mempool.NewTxentry(tx, txfee, util.GetTime(), gChain.Height(), *lp,
-		tx.GetSigOpCountWithoutP2SH(), spendCoinbase)
+func addTxToMemPool(txe *mempool.TxEntry) error {
+	pool := mempool.GetInstance()
 
-	pool.AddTx(txentry, ancestors)
+	ancestorNum := conf.Cfg.Mempool.LimitAncestorCount
+	ancestorSize := conf.Cfg.Mempool.LimitAncestorSize
+	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
+	descendantSize := conf.Cfg.Mempool.LimitDescendantSize
 
+	ancestors, err := pool.CalculateMemPoolAncestors(txe.Tx, uint64(ancestorNum), uint64(ancestorSize*1000),
+		uint64(descendantNum), uint64(descendantSize*1000), true)
+
+	if err != nil {
+		return err
+	}
+
+	pool.AddTx(txe, ancestors)
 	return nil
 }
 
@@ -95,7 +67,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 					continue
 				}
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx) //TODO: check transaction before add to mempool
+				err := AcceptTxToMemPool(iOrphanTx.Tx)
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -120,50 +92,9 @@ func TryAcceptOrphansTxs(transaction *tx.Tx) (acceptTxs []*tx.Tx, rejectTxs []ut
 	return
 }
 
-func isTxAcceptable(tx *tx.Tx, txfee int64) (map[*mempool.TxEntry]struct{}, *mempool.LockPoints, error) {
-	pool := mempool.GetInstance()
-	allEntry := pool.GetAllTxEntryWithoutLock()
-	if _, ok := allEntry[tx.GetHash()]; ok {
-		return nil, nil, errcode.New(errcode.AlreadHaveTx)
-	}
-
-	lp := ltx.CalculateLockPoints(tx, consensus.LocktimeVerifySequence|consensus.LocktimeMedianTimePast)
-	if lp == nil {
-		return nil, lp, errcode.New(errcode.Nomature)
-	}
-	if !ltx.CheckSequenceLocks(lp.Height, lp.Time) {
-		return nil, lp, errcode.New(errcode.Nomature)
-	}
-
-	ancestorNum := conf.Cfg.Mempool.LimitAncestorCount
-	ancestorSize := conf.Cfg.Mempool.LimitAncestorSize
-	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
-	descendantSize := conf.Cfg.Mempool.LimitDescendantSize
-	ancestors, err := pool.CalculateMemPoolAncestors(tx, uint64(ancestorNum), uint64(ancestorSize*1000),
-		uint64(descendantNum), uint64(descendantSize*1000), true)
-	if err != nil {
-		return nil, lp, err
-	}
-
-	txsize := int64(tx.EncodeSize())
-	minfeeRate := pool.GetMinFee(conf.Cfg.Mempool.MaxPoolSize)
-	rejectFee := minfeeRate.GetFee(int(txsize))
-	// compare the transaction feeRate with enter mempool min txfeeRate
-	if txfee < rejectFee {
-		return nil, lp, errcode.New(errcode.RejectInsufficientFee)
-	}
-
-	return ancestors, lp, nil
-}
-
 func RemoveTxSelf(txs []*tx.Tx) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxSelf(txs)
-}
-
-func RemoveTxRecursive(origTx *tx.Tx, reason mempool.PoolRemovalReason) {
-	pool := mempool.GetInstance()
-	pool.RemoveTxRecursive(origTx, reason)
 }
 
 func RemoveForReorg(nMemPoolHeight int32, flag int) {

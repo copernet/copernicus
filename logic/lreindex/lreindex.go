@@ -23,6 +23,7 @@ func Reindex() (err error) {
 	blkFiles, err := disk.GetBlkFiles()
 	if err != nil {
 		log.Error("reindex: get blk files failed, err:%s", err)
+		return err
 	}
 
 	log.Info("Start reindexing")

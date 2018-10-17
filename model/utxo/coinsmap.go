@@ -3,6 +3,8 @@ package utxo
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util/amount"
 
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -34,6 +36,19 @@ func (cm *CoinsMap) AccessCoin(outpoint *outpoint.OutPoint) *Coin {
 func (cm *CoinsMap) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	coin := cm.cacheCoins[*outpoint]
 	return coin
+}
+
+func (cm *CoinsMap) GetValueIn(txn *tx.Tx) amount.Amount {
+	if txn.IsCoinBase() {
+		return amount.Amount(0)
+	}
+
+	valueIn := amount.Amount(0)
+	for _, txin := range txn.GetIns() {
+		valueIn += cm.GetCoin(txin.PreviousOutPoint).GetAmount()
+	}
+
+	return valueIn
 }
 
 func (cm *CoinsMap) UnCache(point *outpoint.OutPoint) {

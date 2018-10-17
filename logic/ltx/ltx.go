@@ -2,6 +2,7 @@ package ltx
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/copernet/copernicus/logic/lscript"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
@@ -65,54 +66,49 @@ func ScriptVerifyInit() {
 	}
 }
 
-// CheckRegularTransaction transaction service will use this func to check transaction before accepting to mempool
-func CheckRegularTransaction(txn *tx.Tx) error {
+func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 	if err := txn.CheckRegularTransaction(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if model.ActiveNetParams.RequireStandard {
 		ok, reason := txn.IsStandard()
 		if !ok {
 			log.Debug("non standard tx: %s, reason: %s", txn.GetHash(), reason)
-			return errcode.NewError(errcode.RejectNonstandard, reason)
+			return nil, errcode.NewError(errcode.RejectNonstandard, reason)
 		}
 	}
 
 	// check common locktime, sequence final can disable it
 	err := ContextualCheckTransactionForCurrentBlock(txn, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
-		return errcode.New(errcode.RejectNonstandard)
+		return nil, errcode.New(errcode.RejectNonstandard)
 	}
 
 	// is mempool already have it? conflict tx with mempool
 	gPool := mempool.GetInstance()
 	if gPool.FindTx(txn.GetHash()) != nil {
 		log.Debug("tx already known in mempool, hash: %s", txn.GetHash())
-		return errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
+		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
 	}
 
 	for _, txin := range txn.GetIns() {
 		if gPool.HasSpentOut(txin.PreviousOutPoint) {
 			log.Debug("tx ins alread spent out in mempool, tx hash:%s", txn.GetHash())
-			return errcode.NewError(errcode.TxErrRejectConflict, "txn-mempool-conflict")
+			return nil, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict")
 		}
 	}
 
 	// check outpoint alread exist
 	if areOutputsAlreadExist(txn) {
 		log.Debug("tx's outpoint already known in utxo, tx hash: %s", txn.GetHash())
-		return errcode.NewError(errcode.TxErrRejectAlreadyKnown, "txn-already-known")
+		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-known")
 	}
 
 	// are inputs are exists and available?
-	inputCoins, missingInput, alreadySpent := inputCoinsOf(txn)
+	inputCoins, missingInput, spendCoinbase := inputCoinsOf(txn)
 	if missingInput {
-		return errcode.New(errcode.TxErrNoPreviousOut)
-	}
-
-	if alreadySpent {
-		return errcode.NewError(errcode.RejectDuplicate, "bad-txns-inputs-spent")
+		return nil, errcode.New(errcode.TxErrNoPreviousOut)
 	}
 
 	// CLTV(CheckLockTimeVerify)
@@ -124,7 +120,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	lp := CalculateLockPoints(txn, uint32(tx.StandardLockTimeVerifyFlags))
 	if lp == nil {
 		log.Debug("cann't calculate out lockpoints")
-		return errcode.New(errcode.RejectNonstandard)
+		return nil, errcode.New(errcode.RejectNonstandard)
 	}
 	// Only accept BIP68 sequence locked transactions that can be mined
 	// in the next block; we don't want our mempool filled up with
@@ -133,13 +129,13 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// instead of create its own.
 	if !CheckSequenceLocks(lp.Height, lp.Time) {
 		log.Debug("tx sequence lock check faild")
-		return errcode.NewError(errcode.RejectNonstandard, "non-BIP68-final")
+		return nil, errcode.NewError(errcode.RejectNonstandard, "non-BIP68-final")
 	}
 
 	//check standard inputs
 	if model.ActiveNetParams.RequireStandard {
 		if areInputsStandard(txn, inputCoins) {
-			return errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs")
+			return nil, errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs")
 		}
 	}
 
@@ -150,8 +146,17 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// than merely non-standard transaction.
 	sigOpsCount := GetTransactionSigOpCount(txn, uint32(script.StandardScriptVerifyFlags), inputCoins)
 	if uint(sigOpsCount) > tx.MaxStandardTxSigOps {
-		return errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops")
+		return nil, errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops")
 	}
+
+	txFee, err := checkFee(txn, inputCoins)
+	if err != nil {
+		return nil, err
+	}
+
+	//TODO: Require that free transactions have sufficient priority to be mined in the next block
+	//TODO: Continuously rate-limit free (really, very-low-fee) transactions.
+	//TODO: check absurdly-high-fee (nFees > nAbsurdFee)
 
 	var extraFlags uint32 = script.ScriptVerifyNone
 	tip := chain.GetInstance().Tip()
@@ -177,7 +182,7 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	// prevent CPU exhaustion denial-of-service attacks.
 	err = checkInputs(txn, inputCoins, scriptVerifyFlags)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Check again against the current block tip's script verification flags
@@ -199,18 +204,38 @@ func CheckRegularTransaction(txn *tx.Tx) error {
 	err = checkInputs(txn, inputCoins, currentBlockScriptVerifyFlags)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
-			return errcode.New(errcode.ScriptCheckInputsBug)
+			return nil, errcode.New(errcode.ScriptCheckInputsBug)
 		}
 		err = checkInputs(txn, inputCoins, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		log.Debug("Warning: -promiscuousmempool flags set to not include currently enforced soft forks, " +
 			"this may break mining or otherwise cause instability!\n")
 	}
 
-	return nil
+	txEntry := mempool.NewTxentry(txn, txFee, util.GetTime(),
+		chain.GetInstance().Height(), *lp, sigOpsCount, spendCoinbase)
+
+	return txEntry, nil
+}
+
+func checkFee(txn *tx.Tx, inputCoins *utxo.CoinsMap) (int64, error) {
+	inputValue := inputCoins.GetValueIn(txn)
+	txFee := inputValue - txn.GetValueOut()
+
+	txsize := int64(txn.EncodeSize())
+	minfeeRate := mempool.GetInstance().GetMinFee(conf.Cfg.Mempool.MaxPoolSize)
+	rejectFee := minfeeRate.GetFee(int(txsize))
+
+	if int64(txFee) < rejectFee {
+		reason := fmt.Sprintf("mempool min fee not met %d < %d", txFee, rejectFee)
+		log.Debug("reject tx:%s, for %s", txn.GetHash(), reason)
+		return 0, errcode.NewError(errcode.RejectInsufficientFee, reason)
+	}
+
+	return int64(txFee), nil
 }
 
 func promiscuousMempoolFlags() uint32 {
@@ -328,7 +353,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.New(errcode.TxErrRejectNonstandard)
+				return nil, nil, errcode.New(errcode.RejectNonstandard)
 			}
 		}
 		//check sigops
@@ -434,7 +459,7 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	return false
 }
 
-func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput, alreadySpent bool) {
+func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendCoinbase bool) {
 	coinMap = utxo.NewEmptyCoinsMap()
 
 	for _, txin := range txn.GetIns() {
@@ -445,18 +470,18 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput, alreadySpen
 			coin = mempool.GetInstance().GetCoin(prevout)
 		}
 
-		if coin == nil {
-			return nil, true, false
+		if coin == nil || coin.IsSpent() {
+			return coinMap, true, spendCoinbase
 		}
 
-		if coin.IsSpent() {
-			return nil, false, true
+		if coin.IsCoinBase() {
+			spendCoinbase = true
 		}
 
 		coinMap.AddCoin(prevout, coin, coin.IsCoinBase())
 	}
 
-	return coinMap, false, false
+	return coinMap, false, spendCoinbase
 }
 
 func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
