@@ -3,7 +3,6 @@ package service
 import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
-	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
@@ -24,19 +23,14 @@ func handleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[ut
 }
 
 func ProcessTransaction(txn *tx.Tx, recentRejects *map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
-	err := ltx.CheckRegularTransaction(txn)
+	err := lmempool.AcceptTxToMemPool(txn)
 	if err == nil {
+		lmempool.CheckMempool()
 
-		err = lmempool.AcceptTxToMemPool(txn)
-		if err == nil {
+		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn)
 
-			lmempool.CheckMempool()
-
-			acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn)
-
-			acceptedTxs := append([]*tx.Tx{txn}, acceptedOrphans...)
-			return acceptedTxs, nil, rejectTxs, nil
-		}
+		acceptedTxs := append([]*tx.Tx{txn}, acceptedOrphans...)
+		return acceptedTxs, nil, rejectTxs, nil
 	}
 
 	missTxs, rejectTxs := handleRejectedTx(txn, err, nodeID, recentRejects)

@@ -521,13 +521,13 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	c := cmd.(*btcjson.SendRawTransactionCmd)
 
 	buf := bytes.NewBufferString(c.HexTx)
-	transaction := tx.Tx{}
-	err := transaction.Unserialize(buf)
+	txn := tx.Tx{}
+	err := txn.Unserialize(buf)
 	if err != nil {
 		return nil, rpcDecodeHexError(c.HexTx)
 	}
 
-	hash := transaction.GetHash()
+	hash := txn.GetHash()
 
 	// NOT support high fee limit yet
 	//maxRawTxFee := mining.MaxTxFee
@@ -536,20 +536,26 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	//}
 
 	view := utxo.GetUtxoCacheInstance()
-	var haveChain bool
-	for i := 0; !haveChain && i < transaction.GetOutsCount(); i++ {
+	var inChain bool
+	for i := 0; !inChain && i < txn.GetOutsCount(); i++ {
 		existingCoin := view.GetCoin(outpoint.NewOutPoint(hash, uint32(i)))
-		haveChain = !existingCoin.IsSpent()
+		inChain = existingCoin != nil && !existingCoin.IsSpent()
 	}
 
 	entry := mempool.GetInstance().FindTx(hash)
-	if entry == nil && !haveChain {
-		err = lmempool.AcceptTxToMemPool(&transaction)
+	if entry == nil && !inChain {
+		err = lmempool.AcceptTxToMemPool(&txn)
+
 		if err != nil {
 			return nil, btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: "mempool reject the specified transaction for undefined reason",
+				Code:    rpcErrorOfAcceptTx(err),
+				Message: "mempool reject the transaction for: " + err.Error(),
 			}
+		}
+	} else if inChain {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.RPCTransactionAlreadyInChain,
+			Message: "transaction already in block chain",
 		}
 	}
 
@@ -560,6 +566,20 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	return hash.String(), nil
+}
+
+func rpcErrorOfAcceptTx(err error) btcjson.RPCErrorCode {
+	missingInputs := errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut)
+	if missingInputs {
+		return btcjson.RPCTransactionError
+	}
+
+	_, _, isReject := errcode.IsRejectCode(err)
+	if isReject {
+		return btcjson.RPCTransactionRejected
+	}
+
+	return btcjson.ErrUnDefined
 }
 
 var mapSigHashValues = map[string]int{
