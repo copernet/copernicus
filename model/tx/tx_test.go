@@ -3,6 +3,7 @@ package tx
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"fmt"
@@ -168,4 +169,14 @@ func TestTxSerializeAndTxUnserialize(t *testing.T) {
 	if !bytes.Equal(originBytes, buf.Bytes()) {
 		t.Error("Serialize or Unserialize error")
 	}
+}
+
+func Test_should_able_to_decode_bch_testnet_tx(t *testing.T) {
+	//testnet tx hash: 661d4380878bf997c751252b4cee5784c732646c116eeccc8057d0e565122c69
+	txstr := "0200000001bebf7bab9021fd3422231e13b39744ee788584bc42b63d15d163d26860d2ea5b010000006b4830450221009439545e50e255cc03d9685c9182415fa1c31bdae1c74fb41cf55ef371e9c5ac022070367d1685deec304bc92863d291788f4355ab3e1ab755afb1189cee4403a891412102413ce16bc4975dcc6945febd4b4786e0d0006c1ac4ff49cdbf71cc2cb5734b70feffffff030000000000000000456a4362636e73000001f4676f626162793200626368746573743a71716b35396a736870386c7934793667346c35686e6565766871663334347a647271756879306e657178008d340f00000000001976a9142d42ca1709fe4a9348afe979e72cb8131ad44d1888ac22020000000000001976a9142d42ca1709fe4a9348afe979e72cb8131ad44d1888acb83d1300"
+
+	txn := NewEmptyTx()
+	rawTx, _ := hex.DecodeString(txstr)
+	assert.NoError(t, txn.Decode(bytes.NewReader(rawTx)))
+	assert.NoError(t, txn.CheckRegularTransaction())
 }
