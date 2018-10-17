@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
@@ -87,7 +86,6 @@ func (txOut *TxOut) CheckValue() error { //3
 		return errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-toolarge")
 	}
 
-	log.Warn("bad txout value :%d", txOut.value)
 	return nil
 }
 
