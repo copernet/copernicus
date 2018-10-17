@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -118,4 +119,92 @@ func TestHashPointerToString(t *testing.T) {
 	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s1)
 	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s2)
 	assert.Equal(t, "hash: 00000000000743f190a18c5577a3c2d2a1f610ae9601ac046a38084ccb7cd721", s3)
+}
+
+func TestHash_IsNull(t *testing.T) {
+	tests := []struct {
+		hash Hash
+		want bool
+	}{
+		{HashZero, true},
+		{HashOne, false},
+	}
+
+	for i, v := range tests {
+		value := v
+		result := value.hash.IsNull()
+		if result != value.want {
+			t.Errorf("The %d value is not expect.", i)
+		}
+	}
+}
+
+func TestHash_Cmp(t *testing.T) {
+	tests := []struct {
+		hash     *Hash
+		target   *Hash
+		wantBool bool
+		wantNum  int
+	}{
+		{&HashZero, &HashZero, true, 0},
+		{&HashZero, &HashOne, false, -1},
+		{nil, nil, true, 0},
+		{&HashZero, nil, false, 0},
+	}
+
+	for i, v := range tests {
+		value := v
+		result := value.hash.Cmp(value.target)
+		if result != value.wantNum {
+			t.Errorf("The %d value exec function Cmp is not expect.", i)
+		}
+
+		flag := value.hash.IsEqual(value.target)
+		if flag != value.wantBool {
+			t.Errorf("The %d value exec function IsEqual is not expect.", i)
+		}
+
+	}
+}
+
+func TestHash_EncodeDecode(t *testing.T) {
+	tests := []struct {
+		hash Hash
+		want int
+	}{
+		{HashZero, int(HashZero.SerializeSize())},
+	}
+
+	for i, v := range tests {
+		value := v
+		var buf bytes.Buffer
+		result, err := value.hash.Serialize(&buf)
+		if err != nil {
+			t.Error(err)
+		}
+		if result != value.want {
+			t.Errorf("The %d value is not expect.", i)
+		}
+
+		readResult, err := value.hash.Unserialize(&buf)
+		if err != nil {
+			t.Error(err)
+		}
+		if readResult != value.want {
+			t.Errorf("The %d value is not expect.", i)
+		}
+	}
+}
+
+func TestFunctions(t *testing.T) {
+	HashZero.SerializeSize()
+
+	var a []byte
+	Sha256Bytes(a)
+	Sha256Hash(a)
+	DoubleSha256Bytes(a)
+	DoubleSha256Hash(a)
+	Hash160(a)
+	Ripemd160(a)
+	Sha1(a)
 }
