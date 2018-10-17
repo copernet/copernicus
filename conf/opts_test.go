@@ -38,6 +38,26 @@ func TestInitArgs(t *testing.T) {
 	}
 }
 
+func TestInitArgs_ignore_unknown_args_during_regtest(t *testing.T) {
+	argsErr := []string{"--regtest", "-err"}
+	opts, err := InitArgs(argsErr)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	if !opts.RegTest {
+		t.Error("should correctly parsed the regtest option.")
+	}
+}
+
+func TestInitArgs_do_not_ignore_unknown_args_during_testnet(t *testing.T) {
+	argsErr := []string{"--testnet", "-err"}
+	_, err := InitArgs(argsErr)
+	if err == nil {
+		t.Error(err.Error())
+	}
+}
+
 func TestOpts_String(t *testing.T) {
 	opts, err := InitArgs(args)
 	if err != nil {
