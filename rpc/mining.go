@@ -311,6 +311,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 	}
 
 	v := bt.Block.Txs[0].GetTxOut(0).GetValue()
+	target := pow.CompactToBig(bt.Block.Header.Bits)
 	return &btcjson.GetBlockTemplateResult{
 		//Capabilities:  []string{"proposal"},
 		Version:       bt.Block.Header.Version,
@@ -322,7 +323,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		CoinbaseAux:   &btcjson.GetBlockTemplateResultAux{Flags: mining.CoinbaseFlag},
 		CoinbaseValue: (*int64)(&v),
 		LongPollID:    chain.GetInstance().Tip().GetBlockHash().String() + fmt.Sprintf("%d", transactionsUpdatedLast),
-		Target:        pow.CompactToBig(bt.Block.Header.Bits).Text(16),
+		Target:        fmt.Sprintf("%064x", &target),
 		MinTime:       indexPrev.GetMedianTimePast() + 1,
 		Mutable:       mutable,
 		NonceRange:    "00000000ffffffff",
