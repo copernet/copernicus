@@ -479,18 +479,18 @@ func FlushBlockFile(fFinalize bool) {
 	if fileOld != nil {
 		if fFinalize {
 			os.Truncate(fileOld.Name(), int64(gPersist.GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].Size))
-			fileOld.Sync()
-			fileOld.Close()
 		}
+		fileOld.Sync()
+		fileOld.Close()
 	}
 
 	fileOld = OpenUndoFile(*posOld, false)
 	if fileOld != nil {
 		if fFinalize {
 			os.Truncate(fileOld.Name(), int64(gPersist.GlobalBlockFileInfo[gPersist.GlobalLastBlockFile].UndoSize))
-			fileOld.Sync()
-			fileOld.Close()
 		}
+		fileOld.Sync()
+		fileOld.Close()
 	}
 }
 
