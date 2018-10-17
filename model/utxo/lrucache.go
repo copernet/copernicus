@@ -1,14 +1,14 @@
 package utxo
 
 import (
-	//"fmt"
-	"unsafe"
+    //"fmt"
+    "unsafe"
 
-	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/util"
-	"github.com/hashicorp/golang-lru"
-	"github.com/syndtr/goleveldb/leveldb"
+    "github.com/copernet/copernicus/log"
+    "github.com/copernet/copernicus/model/outpoint"
+    "github.com/copernet/copernicus/util"
+    "github.com/hashicorp/golang-lru"
+    "github.com/syndtr/goleveldb/leveldb"
 )
 
 type CoinsLruCache struct {
