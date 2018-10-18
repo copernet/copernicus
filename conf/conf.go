@@ -211,7 +211,7 @@ func InitConfig(args []string) *Configuration {
 				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
 
 				if err != nil {
-					//panic("from src/defaultProjectDir copy conf.yml failed.")
+					panic("from src/defaultProjectDir copy conf.yml failed.")
 				}
 			} else {
 				// second try
