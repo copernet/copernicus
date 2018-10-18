@@ -357,7 +357,7 @@ func CheckMempool() {
 		}
 	}
 
-	if pool.GetPoolAllTxSize() != checkTotal {
+	if pool.GetPoolAllTxSize(false) != checkTotal {
 		panic("mempool have all transaction size state is incorrect ...")
 	}
 }

@@ -149,10 +149,12 @@ func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
 	return nil
 }
 
-func (m *TxMempool) GetPoolAllTxSize() uint64 {
-	m.RLock()
+func (m *TxMempool) GetPoolAllTxSize(lock bool) uint64 {
+	if lock {
+		m.RLock()
+		defer m.RUnlock()
+	}
 	size := m.totalTxSize
-	m.RUnlock()
 	return size
 }
 
