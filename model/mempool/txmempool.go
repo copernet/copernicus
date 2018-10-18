@@ -31,6 +31,11 @@ func GetInstance() *TxMempool {
 	return gpool
 }
 
+// FIXME: this is only for test. We must do it in a graceful way
+func Close() {
+	gpool = nil
+}
+
 type PoolRemovalReason int
 
 // Reason why a transaction was removed from the memPool, this is passed to the
