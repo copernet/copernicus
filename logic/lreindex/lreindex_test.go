@@ -14,10 +14,10 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/disk"
+	"math/rand"
 	"os"
 	"strings"
 	"testing"
-	"math/rand"
 	"time"
 )
 

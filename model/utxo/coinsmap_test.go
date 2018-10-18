@@ -6,8 +6,8 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
-    "github.com/stretchr/testify/assert"
-    "reflect"
+	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -43,20 +43,19 @@ func TestCoinsMap(t *testing.T) {
 
 	cByAccess := necm.AccessCoin(&outpoint1)
 	if !reflect.DeepEqual(c, cByAccess) {
-        t.Error("coins art got by GetCoin and AccessCoin should be equal")
-    }
+		t.Error("coins art got by GetCoin and AccessCoin should be equal")
+	}
 
-    outpointNotExist := outpoint.OutPoint{Hash: *hash1, Index: 1}
-    emptyCoin := necm.AccessCoin(&outpointNotExist)
-    if !reflect.DeepEqual(emptyCoin, NewEmptyCoin()) {
-        t.Error("empty Coin that is got by AccessCoin should deeply equal to which return by NewEmptyCoin")
-    }
-
+	outpointNotExist := outpoint.OutPoint{Hash: *hash1, Index: 1}
+	emptyCoin := necm.AccessCoin(&outpointNotExist)
+	if !reflect.DeepEqual(emptyCoin, NewEmptyCoin()) {
+		t.Error("empty Coin that is got by AccessCoin should deeply equal to which return by NewEmptyCoin")
+	}
 
 	coinsMap := necm.GetMap()
-	if len(coinsMap) == 0  {
-	    t.Error("GetMap invoked failed")
-    }
+	if len(coinsMap) == 0 {
+		t.Error("GetMap invoked failed")
+	}
 
 	cc := necm.FetchCoin(&outpoint1)
 	if cc == nil {
@@ -107,23 +106,22 @@ func TestCoinsMap(t *testing.T) {
 		fresh:         false,
 	}
 
-    coin3 := coin2.DeepCopy()
+	coin3 := coin2.DeepCopy()
 
 	coinf := necm.FetchCoin(&outpoint2)
 	assert.Nil(t, coinf, "coin fetch by outpoin2 from coins map should be nil")
 
 	necm.AddCoin(&outpoint2, coin2, false)
-    coin2.Clear()
+	coin2.Clear()
 	coin2.fresh = true
 	coin2.dirty = true
 
 	assert.Panics(t,
-	    func () {
-	        necm.SpendCoin(&outpoint2)
-	    },
+		func() {
+			necm.SpendCoin(&outpoint2)
+		},
 	)
 	necm.UnCache(&outpoint2)
-
 
 	necm.AddCoin(&outpoint2, coin3, false)
 	ok := necm.Flush(*hash2)
@@ -132,5 +130,5 @@ func TestCoinsMap(t *testing.T) {
 	coinf = necm.FetchCoin(&outpoint2)
 	assert.Equal(t, coin3, coinf, "coin fetch from lrucache should be equal to defined")
 
-    DisplayCoinMap(necm)
+	DisplayCoinMap(necm)
 }
