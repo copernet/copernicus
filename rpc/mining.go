@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -28,7 +27,6 @@ import (
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 	"math/big"
-	"strings"
 )
 
 var miningHandlers = map[string]commandHandler{
@@ -527,28 +525,9 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	//TODO: after add wallet,remove this dummy coinbaseAddr
-	coinbaseAddr := ""
-	//coinbaseExpMap := make(map[string]string)
-	coinbaseExpMap := map[string]string{
-		"testnode0": "mqS85dyRhDfiU1GUiqMpFDpzTRpknqnZEU",
-		"testnode1": "mnMkwTM3N3omYXN3Yptm5k1WEPCiA9t8LQ",
-		"testnode2": "mkNUWsZR8VdpvxoyMwhAfMBVqU7cZjfrLb",
-		"testnode3": "mnmz9XZnEqzRvFYy7mQYb5iPzM6QAHAnQ8",
-		"testnode4": "mkGAgGutUFYgVhm1FjAzSUcu3wPm2Fc4X5",
-		"testnode5": "miRRxnjfPcmjh5nv6rzAT2oMY4SwCbhJkq",
-		"testnode6": "mg2s7t69gYVZBPqjX31KhHSKMrztvbvkrJ",
-		"testnode7": "mj31AKn4CcT9Vpf8mXPV6gqoyUULZSySKi",
-	}
-	for _, str := range conf.Cfg.P2PNet.UserAgentComments {
-		if strings.Contains(str, "testnode") {
-			coinbaseAddr = coinbaseExpMap[str]
-		}
-	}
-	coinbaseScript, err := getStandardScriptPubKey(coinbaseAddr, nil)
-	if err != nil {
-		return nil, err
-	}
+	//TODO: after add wallet,remove opcode_True.
+	opcodeTrue := []byte{0x51}
+	coinbaseScript := script.NewScriptRaw(opcodeTrue)
 
 	if coinbaseScript == nil {
 		return nil, &btcjson.RPCError{

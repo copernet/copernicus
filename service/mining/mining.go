@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/copernet/copernicus/conf"
@@ -418,6 +419,17 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 	height := uint64(chain.GetInstance().Tip().Height + 1)
 	binary.LittleEndian.PutUint64(bytesEight, height)
 	buf.Write(bytesEight)
+
+	///TODO: after add wallet,remove this. fill the sctiptSig in case generate same block
+	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
+		for _, str := range conf.Cfg.P2PNet.UserAgentComments {
+			if strings.Contains(str, "testnode") {
+				testnode, _ := strconv.Atoi(str[8:])
+				binary.LittleEndian.PutUint64(bytesEight, uint64(testnode))
+				buf.Write(bytesEight)
+			}
+		}
+	}
 
 	binary.LittleEndian.PutUint64(bytesEight, uint64(extraNonce))
 	buf.Write(bytesEight)
