@@ -330,7 +330,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
 			log.Debug("tx input prevout null")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-prevout-null")
 		}
 	}
 
