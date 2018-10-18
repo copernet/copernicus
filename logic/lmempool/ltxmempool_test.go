@@ -474,77 +474,89 @@ func TestSimpleOrphanChain(t *testing.T) {
 		// now in the transaction pool, and is reported as available.
 		testPoolMembership(tc, tx, false, true)
 	}
+	if harness.txPool.Size() == 0 {
+		t.Fatalf("tx pool's size shoud not be 0 ")
+	}
+	lmempool.RemoveTxSelf(chainedTxns)
+	if harness.txPool.Size() != 0 {
+		t.Fatalf("tx pool's size shoud be 0 ")
+	}
+
+	utxo.Close()
+	mmempool.Close()
 	os.RemoveAll("/tmp/dbtest")
 }
 
 // TestOrphanReject ensures that orphans are properly rejected when the allow
 // orphans flag is not set on ProcessTransaction.
-// func TestOrphanReject(t *testing.T) {
-// 	// t.Parallel()
-// 	os.RemoveAll("/tmp/dbtest")
+func TestOrphanReject(t *testing.T) {
+	// t.Parallel()
+	os.RemoveAll("/tmp/dbtest")
 
-// 	conf.Cfg = conf.InitConfig([]string{})
-// 	// t.Parallel()
-// 	uc := &utxo.UtxoConfig{Do: &db.DBOption{
-// 		FilePath:  "/tmp/dbtest",
-// 		CacheSize: 1 << 20,
-// 	}}
+	conf.Cfg = conf.InitConfig([]string{})
+	// t.Parallel()
+	uc := &utxo.UtxoConfig{Do: &db.DBOption{
+		FilePath:  "/tmp/dbtest",
+		CacheSize: 1 << 20,
+	}}
 
-// 	utxo.InitUtxoLruTip(uc)
+	utxo.InitUtxoLruTip(uc)
 
-// 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
-// 	if err != nil {
-// 		t.Fatalf("unable to create test pool: %v", err)
-// 	}
-// 	tc := &testContext{t, harness}
+	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	if err != nil {
+		t.Fatalf("unable to create test pool: %v", err)
+	}
+	tc := &testContext{t, harness}
 
-// 	// Create a chain of transactions rooted with the first spendable output
-// 	// provided by the harness.
-// 	//maxOrphans := uint32(harness.txPool.cfg.Policy.MaxOrphanTxs)
-// 	maxOrphans := uint32(mmempool.DefaultMaxOrphanTransaction)
-// 	chainedTxns, err := harness.CreateTxChain(outputs[0], maxOrphans+1)
-// 	if err != nil {
-// 		t.Fatalf("unable to create transaction chain: %v", err)
-// 	}
+	// Create a chain of transactions rooted with the first spendable output
+	// provided by the harness.
+	//maxOrphans := uint32(harness.txPool.cfg.Policy.MaxOrphanTxs)
+	maxOrphans := uint32(mmempool.DefaultMaxOrphanTransaction)
+	chainedTxns, err := harness.CreateTxChain(outputs[0], maxOrphans+1)
+	if err != nil {
+		t.Fatalf("unable to create transaction chain: %v", err)
+	}
 
-// 	// Ensure orphans are rejected when the allow orphans flag is not set.
-// 	for _, tx := range chainedTxns[1:] {
-// 		// acceptedTxns, err := harness.txPool.ProcessTransaction(tx, false,
-// 		// 	false, 0)
-// 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
-// 		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
-// 		service.HandleRejectedTx(tx, err, 0)
-// 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
-// 			t.Fatalf("ProcessTransaction: did not fail on orphan "+
-// 				"%v when allow orphans flag is false", tx.GetHash())
-// 		}
-// 		// TODO: add it back
-// 		// expectedErr := RuleError{}
-// 		// if reflect.TypeOf(err) != reflect.TypeOf(expectedErr) {
-// 		// 	t.Fatalf("ProcessTransaction: wrong error got: <%T> %v, "+
-// 		// 		"want: <%T>", err, err, expectedErr)
-// 		// }
-// 		// code, extracted := extractRejectCode(err)
-// 		// if !extracted {
-// 		// 	t.Fatalf("ProcessTransaction: failed to extract reject "+
-// 		// 		"code from error %q", err)
-// 		// }
-// 		// if code != wire.RejectDuplicate {
-// 		// 	t.Fatalf("ProcessTransaction: unexpected reject code "+
-// 		// 		"-- got %v, want %v", code, wire.RejectDuplicate)
-// 		// }
+	// Ensure orphans are rejected when the allow orphans flag is not set.
+	for _, tx := range chainedTxns[1:] {
+		// acceptedTxns, err := harness.txPool.ProcessTransaction(tx, false,
+		// 	false, 0)
+		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
+		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
+		service.HandleRejectedTx(tx, err, 0)
+		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
+			t.Fatalf("ProcessTransaction: did not fail on orphan "+
+				"%v when allow orphans flag is false", tx.GetHash())
+		}
+		// TODO: add it back
+		// expectedErr := RuleError{}
+		// if reflect.TypeOf(err) != reflect.TypeOf(expectedErr) {
+		// 	t.Fatalf("ProcessTransaction: wrong error got: <%T> %v, "+
+		// 		"want: <%T>", err, err, expectedErr)
+		// }
+		// code, extracted := extractRejectCode(err)
+		// if !extracted {
+		// 	t.Fatalf("ProcessTransaction: failed to extract reject "+
+		// 		"code from error %q", err)
+		// }
+		// if code != wire.RejectDuplicate {
+		// 	t.Fatalf("ProcessTransaction: unexpected reject code "+
+		// 		"-- got %v, want %v", code, wire.RejectDuplicate)
+		// }
 
-// 		// Ensure no transactions were reported as accepted.
-// 		// if len(acceptedTxns) != 0 {
-// 		// 	t.Fatal("ProcessTransaction: reported %d accepted "+
-// 		// 		"transactions from failed orphan attempt",
-// 		// 		len(acceptedTxns))
-// 		// }
+		// Ensure no transactions were reported as accepted.
+		// if len(acceptedTxns) != 0 {
+		// 	t.Fatal("ProcessTransaction: reported %d accepted "+
+		// 		"transactions from failed orphan attempt",
+		// 		len(acceptedTxns))
+		// }
 
-// 		testPoolMembership(tc, tx, true, false)
-// 	}
-// 	os.RemoveAll("/tmp/dbtest")
-// }
+		testPoolMembership(tc, tx, true, false)
+	}
+	utxo.Close()
+	mmempool.Close()
+	os.RemoveAll("/tmp/dbtest")
+}
 
 // TestOrphanEviction ensures that exceeding the maximum number of orphans
 // evicts entries to make room for the new ones.
@@ -848,81 +860,85 @@ func TestSimpleOrphanChain(t *testing.T) {
 
 // TestCheckSpend tests that CheckSpend returns the expected spends found in
 // the mempool.
-// func TestCheckSpend(t *testing.T) {
-// 	os.RemoveAll("/tmp/dbtest")
-// 	conf.Cfg = conf.InitConfig([]string{})
-// 	// t.Parallel()
-// 	uc := &utxo.UtxoConfig{Do: &db.DBOption{
-// 		FilePath:  "/tmp/dbtest",
-// 		CacheSize: 1 << 20,
-// 	}}
+func TestCheckSpend(t *testing.T) {
+	os.RemoveAll("/tmp/dbtest")
+	conf.Cfg = conf.InitConfig([]string{})
+	// t.Parallel()
+	uc := &utxo.UtxoConfig{Do: &db.DBOption{
+		FilePath:  "/tmp/dbtest",
+		CacheSize: 1 << 20,
+	}}
 
-// 	utxo.InitUtxoLruTip(uc)
+	utxo.InitUtxoLruTip(uc)
 
-// 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
-// 	if err != nil {
-// 		t.Fatalf("unable to create test pool: %v", err)
-// 	}
-// 	// The mempool is empty, so none of the spendable outputs should have a
-// 	// spend there.
-// 	for _, op := range outputs {
-// 		//spend := harness.txPool.CheckSpend(op.outPoint)
-// 		spend := harness.txPool.HasSpentOut(&op.outPoint)
-// 		if spend != nil {
-// 			t.Fatalf("Unexpeced spend found in pool: %v", spend)
-// 		}
-// 	}
+	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	if err != nil {
+		t.Fatalf("unable to create test pool: %v", err)
+	}
+	// The mempool is empty, so none of the spendable outputs should have a
+	// spend there.
+	for _, op := range outputs {
+		//spend := harness.txPool.CheckSpend(op.outPoint)
+		spend := harness.txPool.HasSpentOut(&op.outPoint)
+		if spend != nil {
+			t.Fatalf("Unexpeced spend found in pool: %v", spend)
+		}
+	}
 
-// 	// Create a chain of transactions rooted with the first spendable
-// 	// output provided by the harness.
-// 	const txChainLength = 5
-// 	chainedTxns, err := harness.CreateTxChain(outputs[0], txChainLength)
-// 	if err != nil {
-// 		t.Fatalf("unable to create transaction chain: %v", err)
-// 	}
-// 	for _, tx := range chainedTxns {
-// 		// _, err := harness.txPool.ProcessTransaction(tx, true,
-// 		// 	false, 0)
-// 		//fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
-// 		//_, _, err := service.ProcessTransaction(tx, 0)
-// 		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
-// 		if err != nil {
-// 			t.Fatalf("ProcessTransaction: failed to accept "+
-// 				"tx(%s): %v", tx.GetHash(), err)
-// 		}
-// 	}
+	// Create a chain of transactions rooted with the first spendable
+	// output provided by the harness.
+	const txChainLength = 5
+	chainedTxns, err := harness.CreateTxChain(outputs[0], txChainLength)
+	if err != nil {
+		t.Fatalf("unable to create transaction chain: %v", err)
+	}
+	for _, tx := range chainedTxns {
+		// _, err := harness.txPool.ProcessTransaction(tx, true,
+		// 	false, 0)
+		//fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
+		//_, _, err := service.ProcessTransaction(tx, 0)
+		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
+		if err != nil {
+			t.Fatalf("ProcessTransaction: failed to accept "+
+				"tx(%s): %v", tx.GetHash(), err)
+		}
+		lmempool.CheckMempool()
+	}
 
-// 	// The first tx in the chain should be the spend of the spendable
-// 	// output.
-// 	op := outputs[0].outPoint
-// 	spend := harness.txPool.HasSpentOut(&op)
-// 	if spend.Tx != chainedTxns[0] {
-// 		t.Fatalf("expected %v to be spent by %v, instead "+
-// 			"got %v", op, chainedTxns[0], spend)
-// 	}
+	// The first tx in the chain should be the spend of the spendable
+	// output.
+	op := outputs[0].outPoint
+	spend := harness.txPool.HasSpentOut(&op)
+	if spend.Tx != chainedTxns[0] {
+		t.Fatalf("expected %v to be spent by %v, instead "+
+			"got %v", op, chainedTxns[0], spend)
+	}
 
-// 	// Now all but the last tx should be spent by the next.
-// 	for i := 0; i < len(chainedTxns)-1; i++ {
-// 		op = outpoint.OutPoint{
-// 			Hash:  chainedTxns[i].GetHash(),
-// 			Index: 0,
-// 		}
-// 		expSpend := chainedTxns[i+1]
-// 		spend = harness.txPool.HasSpentOut(&op)
-// 		if spend.Tx != expSpend {
-// 			t.Fatalf("expected %v to be spent by %v, instead "+
-// 				"got %v", op, expSpend, spend)
-// 		}
-// 	}
+	// Now all but the last tx should be spent by the next.
+	for i := 0; i < len(chainedTxns)-1; i++ {
+		op = outpoint.OutPoint{
+			Hash:  chainedTxns[i].GetHash(),
+			Index: 0,
+		}
+		expSpend := chainedTxns[i+1]
+		spend = harness.txPool.HasSpentOut(&op)
+		if spend.Tx != expSpend {
+			t.Fatalf("expected %v to be spent by %v, instead "+
+				"got %v", op, expSpend, spend)
+		}
+	}
 
-// 	// The last tx should have no spend.
-// 	op = outpoint.OutPoint{
-// 		Hash:  chainedTxns[txChainLength-1].GetHash(),
-// 		Index: 0,
-// 	}
-// 	spend = harness.txPool.HasSpentOut(&op)
-// 	if spend != nil {
-// 		t.Fatalf("Unexpeced spend found in pool: %v", spend)
-// 	}
-// 	os.RemoveAll("/tmp/dbtest")
-// }
+	// The last tx should have no spend.
+	op = outpoint.OutPoint{
+		Hash:  chainedTxns[txChainLength-1].GetHash(),
+		Index: 0,
+	}
+	spend = harness.txPool.HasSpentOut(&op)
+	if spend != nil {
+		t.Fatalf("Unexpeced spend found in pool: %v", spend)
+	}
+	lmempool.CheckMempool()
+	utxo.Close()
+	mmempool.Close()
+	os.RemoveAll("/tmp/dbtest")
+}
