@@ -533,7 +533,9 @@ func handleDecodeScript(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SendRawTransactionCmd)
 
-	buf := bytes.NewBufferString(c.HexTx)
+	b, _ := hex.DecodeString(c.HexTx)
+	buf := bytes.NewBuffer(b)
+
 	txn := tx.Tx{}
 	err := txn.Unserialize(buf)
 	if err != nil {
