@@ -66,8 +66,7 @@ type TxMempool struct {
 	txByAncestorFeeRateSort btree.BTree
 	timeSortData            btree.BTree
 	//
-	usageSize      int64
-	checkFrequency float64
+	usageSize int64
 	// sum of all mempool tx's size.
 	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
@@ -84,8 +83,8 @@ type TxMempool struct {
 	lastRollingFeeUpdate         int64
 }
 
-func (m *TxMempool) GetCheckFrequency() float64 {
-	return m.checkFrequency
+func (m *TxMempool) GetCheckFrequency() uint64 {
+	return conf.Cfg.Mempool.CheckFrequency
 }
 
 func (m *TxMempool) GetMinFeeRate() util.FeeRate {

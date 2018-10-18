@@ -9,7 +9,6 @@ import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/ltx"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -180,15 +179,15 @@ func CheckMempool() {
 	if pool.GetCheckFrequency() == 0 {
 		return
 	}
-	if float64(util.GetRand(math.MaxUint32)) >= pool.GetCheckFrequency() {
+	if util.GetRand(math.MaxUint32) >= pool.GetCheckFrequency() {
 		return
 	}
-	activaChain := chain.GetInstance()
+	// activaChain := chain.GetInstance()
 	mempoolDuplicate := utxo.NewEmptyCoinsMap()
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	spentOut := pool.GetAllSpentOutWithoutLock()
-	bestHash, _ := view.GetBestBlock()
-	bestHeigh := activaChain.FindBlockIndex(bestHash).Height + 1
+	//bestHash, _ := view.GetBestBlock()
+	//bestHeigh := activaChain.FindBlockIndex(bestHash).Height + 1
 	log.Debug("mempool", fmt.Sprintf("checking mempool with %d transaction and %d inputs ...", len(allEntry), len(spentOut)))
 	checkTotal := uint64(0)
 
@@ -288,10 +287,12 @@ func CheckMempool() {
 			//	panic("the txentry check failed with utxo set...")
 			//}
 			//ltx.CheckInputsMoney(entry.Tx, view, bestHeigh)
-			_ = bestHeigh
+			// _ = bestHeigh
 
 			for _, preout := range entry.Tx.GetAllPreviousOut() {
-				mempoolDuplicate.SpendCoin(&preout)
+				if mempoolDuplicate.SpendCoin(&preout) == nil {
+					panic(fmt.Sprintf("not found coin for prevout(%v)", preout))
+				}
 			}
 			isCoinBase := entry.Tx.IsCoinBase()
 			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
