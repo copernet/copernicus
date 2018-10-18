@@ -477,7 +477,8 @@ func TestSimpleOrphanChain(t *testing.T) {
 	if harness.txPool.Size() == 0 {
 		t.Fatalf("tx pool's size shoud not be 0 ")
 	}
-	lmempool.RemoveTxSelf(chainedTxns)
+	lmempool.RemoveTxRecursive(chainedTxns[5], 0)
+	lmempool.RemoveTxSelf(chainedTxns[0:5])
 	if harness.txPool.Size() != 0 {
 		t.Fatalf("tx pool's size shoud be 0 ")
 	}
