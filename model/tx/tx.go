@@ -340,7 +340,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
 		log.Warn("CheckCoinBaseTransaction: TxErrNotCoinBase")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-missing")
 	}
 	err := tx.checkTransactionCommon(false)
 	if err != nil {
@@ -350,7 +350,7 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 	// coinbase in script check
 	if tx.ins[0].GetScriptSig().Size() < 2 || tx.ins[0].GetScriptSig().Size() > 100 {
 		log.Debug("coinbash input hash err script size")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-length")
 	}
 
 	return nil
@@ -726,8 +726,6 @@ func NewGenesisCoinbaseTx() *Tx {
 	tx := NewTx(0, DefaultVersion)
 	scriptSigNum := script.NewScriptNum(4)
 	scriptSigString := "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
-	//scriptSigData := make([][]byte, 0)
-	//scriptSigData = append(scriptSigData, []byte(scriptSigString))
 
 	scriptPubKeyBytes, _ := hex.DecodeString("04678afdb0fe5548271967f1a67130b7105cd6a828e03909" +
 		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +

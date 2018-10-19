@@ -3,8 +3,10 @@ package tx
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -204,8 +206,7 @@ func Test_should_able_to_check_duplicate_txins(t *testing.T) {
 }
 
 func Test_should_able_to_reject_empty_vin_txn(t *testing.T) {
-	txn := mainNetTx(t)
-	txn.ins = []*txin.TxIn{}
+	txn := NewTx(0, 1)
 
 	err := txn.CheckRegularTransaction()
 
@@ -233,7 +234,7 @@ func Test_should_able_to_reject_too_large_txn(t *testing.T) {
 func Test_should_able_to_reject_txn_with__too_large_output_value(t *testing.T) {
 	txn := mainNetTx(t)
 	assert.Equal(t, 2, len(txn.outs))
-	txn.outs[0].SetValue(amount.Amount(util.MaxMoney + 1))
+	txn.GetTxOut(0).SetValue(amount.Amount(util.MaxMoney + 1))
 
 	err := txn.CheckRegularTransaction()
 
@@ -261,6 +262,36 @@ func Test_should_able_to_reject_txn_with__negative_output_value(t *testing.T) {
 	assertError(err, errcode.RejectInvalid, "bad-txns-vout-negative", t)
 }
 
+func Test_should_able_to_reject_txn_with__total_negative_output_value(t *testing.T) {
+	txn := mainNetTx(t)
+	assert.Equal(t, 2, len(txn.outs))
+	txn.outs[0].SetValue(amount.Amount(-2))
+	txn.outs[1].SetValue(amount.Amount(1))
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-vout-negative", t)
+}
+
+func Test_should_able_to_reject_txn_with__too_many_sigops(t *testing.T) {
+	txn := mainNetTx(t)
+	txn.outs[0].SetScriptPubKey(makeDummyScript(MaxTxSigOpsCounts))
+	txn.outs[1].SetScriptPubKey(makeDummyScript(1))
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txn-sigops", t)
+}
+
+func makeDummyScript(size int) *script.Script {
+	op := opcodes.NewParsedOpCode(opcodes.OP_CHECKSIG, 1, nil)
+	ops := make([]opcodes.ParsedOpCode, size)
+	for i := 0; i < size; i++ {
+		ops[i] = *op
+	}
+	return script.NewScriptOps(ops)
+}
+
 func Test_should_able_to_reject_coinbase_tx__during_regular_tx_check(t *testing.T) {
 	o := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
 	coinbaseTx := newCoinbaseTx(o)
@@ -282,6 +313,100 @@ func Test_should_able_to_reject_tx_with_null_prevout__during_regular_tx_check(t 
 
 	err := txn.CheckRegularTransaction()
 	assertError(err, errcode.RejectInvalid, "bad-txns-prevout-null", t)
+}
+
+func Test_genesis_coinbase_tx_should_be_valid_coinbase_tx(t *testing.T) {
+	err := NewGenesisCoinbaseTx().CheckCoinbaseTransaction()
+	assert.NoError(t, err)
+}
+
+func Test_should_able_to_check_coinbase_txn(t *testing.T) {
+	o := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+	coinbaseTx := newCoinbaseTx(o)
+
+	err := coinbaseTx.CheckCoinbaseTransaction()
+
+	assert.NoError(t, err)
+}
+
+func Test_should_able_to_reject_invalid_coinbase_txn___with_non_null_pre_hash(t *testing.T) {
+	coinbaseTx := newCoinbaseTx(outpoint.NewOutPoint(util.HashOne, 0xffffffff))
+
+	err := coinbaseTx.CheckCoinbaseTransaction()
+	assertError(err, errcode.RejectInvalid, "bad-cb-missing", t)
+}
+
+func Test_should_able_to_reject_invalid_coinbase_txn___with_empty_ins(t *testing.T) {
+	coinbaseTx := newCoinbaseTx(outpoint.NewOutPoint(util.HashZero, 0xffffffff))
+	coinbaseTx.outs = []*txout.TxOut{}
+
+	err := coinbaseTx.CheckCoinbaseTransaction()
+	assertError(err, errcode.RejectInvalid, "bad-txns-vout-empty", t)
+}
+
+func Test_should_able_to_reject_invalid_coinbase_txn___with_too_short_scriptsig(t *testing.T) {
+	coinbaseTx := newCoinbaseTx(outpoint.NewOutPoint(util.HashZero, 0xffffffff))
+	coinbaseTx.ins[0].SetScriptSig(makeDummyScript(1))
+
+	err := coinbaseTx.CheckCoinbaseTransaction()
+	assertError(err, errcode.RejectInvalid, "bad-cb-length", t)
+}
+
+func Test_should_able_to_reject_invalid_coinbase_txn___with_too_long_scriptsig(t *testing.T) {
+	coinbaseTx := newCoinbaseTx(outpoint.NewOutPoint(util.HashZero, 0xffffffff))
+	coinbaseTx.ins[0].SetScriptSig(makeDummyScript(101))
+
+	err := coinbaseTx.CheckCoinbaseTransaction()
+	assertError(err, errcode.RejectInvalid, "bad-cb-length", t)
+}
+
+func Test_is_starndard_tx(t *testing.T) {
+	conf.Cfg = &conf.Configuration{}
+	conf.Cfg.TxOut.DustRelayFee = 83
+
+	tx := mainNetTx(t)
+	is, _ := tx.IsStandard()
+	assert.True(t, is)
+}
+
+func Test_should_reject_tx_with__wrong_version(t *testing.T) {
+	tx := mainNetTx(t)
+	tx.version = 0
+
+	isStandard, reason := tx.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "version", reason)
+}
+
+func Test_should_reject_tx_with__unknown_new_version(t *testing.T) {
+	tx := mainNetTx(t)
+	tx.version = MaxStandardVersion + 1
+
+	isStandard, reason := tx.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "version", reason)
+}
+
+func Test_should_reject_standard_tx__of_too_large_size(t *testing.T) {
+	tx := mainNetTx(t)
+	tx.ins[0].SetScriptSig(makeDummyScript(int(MaxStandardTxSize)))
+
+	isStandard, reason := tx.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "tx-size", reason)
+}
+
+func Test_should_reject_standard_tx__(t *testing.T) {
+	tx := mainNetTx(t)
+	tx.ins[0].SetScriptSig(makeDummyScript(100))
+
+	isStandard, reason := tx.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "scriptsig-not-pushonly", reason)
 }
 
 func newCoinbaseTx(outpoint *outpoint.OutPoint) *Tx {
@@ -316,6 +441,14 @@ func assertError(err error, code errcode.RejectCode, reason string, t *testing.T
 	assert.True(t, isReject)
 	assert.Equal(t, code, c)
 	assert.Equal(t, reason, r)
+}
+
+func Test_should_able_to_correctly_calculate_hash(t *testing.T) {
+	txn := mainNetTx(t)
+	txnHash := txn.GetHash()
+	assert.Equal(t, "e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436", txnHash.String())
+	assert.Equal(t, "e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436", txn.GetHash().String())
+	assert.Equal(t, "e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436", txn.calHash().String())
 }
 
 func mainNetTx(t *testing.T) *Tx {
