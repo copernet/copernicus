@@ -18,4 +18,4 @@ RUN glide install
 Run go get -u github.com/alecthomas/gometalinter
 RUN gometalinter --install
 
-#ENTRYPOINT ["/go/src/copernet/copernicus/check.sh"]
+ENTRYPOINT ["/go/src/github.com/copernet/copernicus/check.sh"]

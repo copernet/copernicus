@@ -9,4 +9,4 @@ before_install:
   - docker build -t copernet/copernicus .
 
 script:
-  - docker run --
+  - docker run --rm -it copernet/copernicus
