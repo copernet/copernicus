@@ -108,6 +108,12 @@ func TestMiscErrors(t *testing.T) {
 		return
 	}
 
+	_, err = NewRequest([]int{0, 1}, "test", []interface{}{make(chan int)})
+	if err == nil {
+		t.Error("NewRequest: did not receive error")
+		return
+	}
+
 	// Force an error in MarshalResponse by giving it an id type that is not
 	// supported.
 	wantErr := Error{ErrorCode: ErrInvalidType}

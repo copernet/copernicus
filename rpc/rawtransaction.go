@@ -1046,7 +1046,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.VerifyTxoutProofCmd)
+	c := cmd.(*btcjson.VerifyTxOutProofCmd)
 
 	b, err := hex.DecodeString(c.Proof)
 	if err != nil {
