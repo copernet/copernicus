@@ -8,6 +8,7 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -49,6 +50,7 @@ func TestCoinCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate temp db path failed: %s\n", err)
 	}
+	defer os.RemoveAll(path)
 
 	dbo := db.DBOption{
 		FilePath:       path,
