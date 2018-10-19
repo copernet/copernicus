@@ -12,7 +12,7 @@ RUN ./autogen.sh
 RUN ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
 RUN make -j16
 RUN make install
-RUN mv /usr/local/lib/libsecp256k1.so.0 /usr/lib/
+RUN cp /usr/local/lib/libsecp256k1.so.0 /usr/lib/
 WORKDIR /go/src/github.com/copernet/copernicus
 COPY . .
 RUN glide install
