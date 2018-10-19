@@ -10,8 +10,9 @@ RUN git clone https://github.com/copernet/secp256k1.git
 WORKDIR /secp256k1
 RUN ./autogen.sh
 RUN ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
-RUN make -j4
+RUN make -j16
 RUN make install
+RUN mv /usr/local/lib/libsecp256k1.so.0 /use/lib/
 WORKDIR /go/src/github.com/copernet/copernicus
 COPY . .
 RUN glide install
