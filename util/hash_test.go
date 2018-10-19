@@ -70,6 +70,10 @@ func TestSipHash(t *testing.T) {
 		t.Errorf("expect SipHash() = 0x7127512f72f27cce, but go result = 0x%08x", result)
 	}
 
+	if result := SipHashExtra(0x0706050403020100, 0x0F0E0D0C0B0A0908, (*h)[:], 0x0F0E0D0C); result != 0x3c3d63ef2df6c576 {
+		t.Errorf("expect SipHashExtra() = 0x3c3d63ef2df6c576, but go result = 0x%08x", result)
+	}
+
 	sip2 := NewSipHasher(0x0706050403020100, 0x0F0E0D0C0B0A0908)
 	for i := byte(0); i < byte(len(siphash24TestVec)); i++ {
 		if result := sip2.Finalize(); result != siphash24TestVec[i] {
