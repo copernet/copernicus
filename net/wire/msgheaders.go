@@ -16,6 +16,11 @@ import (
 // a single bitcoin headers message.
 const MaxBlockHeadersPerMsg = 2000
 
+// MaxBlockHeaderPayload is the maximum number of bytes a block header can be.
+// Version 4 bytes + Timestamp 4 bytes + Bits 4 bytes + Nonce 4 bytes +
+// PrevBlock and MerkleRoot hashes.
+const MaxBlockHeaderPayload = 16 + (util.Hash256Size * 2)
+
 // MsgHeaders implements the Message interface and represents a bitcoin headers
 // message.  It is used to deliver block header information in response
 // to a getheaders message (MsgGetHeaders).  The maximum number of block headers
