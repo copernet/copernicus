@@ -10,4 +10,6 @@ before_install:
 
 script:
   - docker run copernet/copernicus /go/src/github.com/copernet/copernicus/check.sh
+  - docker run copernet/copernicus ls /
+  - docker run copernet/copernicus ls /go/bin
   - docker run copernet/copernicus /go/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN 
