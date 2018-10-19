@@ -5,7 +5,7 @@ import "fmt"
 type TxErr int
 
 const (
-	TxErrRejectCheckPoint      TxErr = 0x43
+	TxErrRejectCheckPoint TxErr = 0x43
 
 	TxErrNoPreviousOut TxErr = TxErrorBase + iota
 	ScriptCheckInputsBug
@@ -15,12 +15,12 @@ const (
 )
 
 var txErrorToString = map[TxErr]string{
-	TxErrRejectCheckPoint:      "TxErrRejectCheckPoint",
-	TxErrNoPreviousOut:         "There is no previousout",
-	ScriptCheckInputsBug:       "ScriptCheckInputsBug",
-	TxErrSignRawTransaction:    "TxErrSignRawTransaction",
-	TxErrInvalidIndexOfIn:      "TxErrInvalidIndexOfIn",
-	TxErrPubKeyType:            "TxErrPubKeyType",
+	TxErrRejectCheckPoint:   "TxErrRejectCheckPoint",
+	TxErrNoPreviousOut:      "There is no previousout",
+	ScriptCheckInputsBug:    "ScriptCheckInputsBug",
+	TxErrSignRawTransaction: "TxErrSignRawTransaction",
+	TxErrInvalidIndexOfIn:   "TxErrInvalidIndexOfIn",
+	TxErrPubKeyType:         "TxErrPubKeyType",
 }
 
 func (te TxErr) String() string {

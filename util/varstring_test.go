@@ -2,11 +2,11 @@ package util
 
 import (
 	"bytes"
-	"testing"
+	"errors"
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"strings"
-	"fmt"
-	"errors"
+	"testing"
 )
 
 func TestVarString(t *testing.T) {
@@ -20,11 +20,11 @@ func TestVarString(t *testing.T) {
 	}{
 		// Latest protocol version.
 		// Empty string
-		{"", "", []byte{0x00},},
+		{"", "", []byte{0x00}},
 		// Single byte varint + string
-		{"Test", "Test", append([]byte{0x04}, []byte("Test")...),},
+		{"Test", "Test", append([]byte{0x04}, []byte("Test")...)},
 		// 2-byte varint + string
-		{str256, str256, append([]byte{0xfd, 0x00, 0x01}, []byte(str256)...),},
+		{str256, str256, append([]byte{0xfd, 0x00, 0x01}, []byte(str256)...)},
 	}
 
 	t.Logf("Running %d tests", len(tests))
