@@ -209,7 +209,7 @@ func (blockTreeDB *BlockTreeDB) WriteFlag(name string, value bool) error {
 	tmp := make([]byte, 0, 100)
 	tmp = append(tmp, db.DbFlag)
 	tmp = append(tmp, name...)
-	if !value {
+	if value {
 		return blockTreeDB.dbw.Write(tmp, []byte{'1'}, value)
 	}
 	return blockTreeDB.dbw.Write(tmp, []byte{'0'}, value)

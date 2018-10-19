@@ -70,8 +70,8 @@ func TestWriteFlag(t *testing.T) {
 		t.Errorf("write flag failed: %v\n", err)
 	}
 	res := GetInstance().ReadFlag("b")
-	if !res {
-		t.Errorf("the flag should is true: %v\n", res)
+	if res {
+		t.Errorf("the flag should is false: %v\n", res)
 	}
 
 	//test flag: value is true
@@ -80,8 +80,8 @@ func TestWriteFlag(t *testing.T) {
 		t.Errorf("write flag failed: %v\n", err)
 	}
 	res2 := GetInstance().ReadFlag("b")
-	if res2 {
-		t.Errorf("the flag should is false: %v\n", res2)
+	if !res2 {
+		t.Errorf("the flag should is true: %v\n", res2)
 	}
 }
 
