@@ -15,6 +15,6 @@ WORKDIR /go/src/github.com/copernet/copernicus
 COPY . .
 RUN glide install
 Run go get -u github.com/alecthomas/gometalinter
-RUN gometalinter --instale
+RUN gometalinter --install
 
 ENTRYPOINT ["/go/src/copernet/copernicus/check.sh"]
