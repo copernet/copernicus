@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/util/amount"
 	"github.com/stretchr/testify/assert"
 	"testing"
 
@@ -194,11 +196,69 @@ func Test_should_able_to_decode_bch_mainnet_tx(t *testing.T) {
 
 func Test_should_able_to_check_duplicate_txins(t *testing.T) {
 	txn := mainNetTx(t)
-
 	txn.ins = append(txn.ins, txn.ins[0])
+
 	err := txn.CheckRegularTransaction()
 
 	assertError(err, errcode.RejectInvalid, "bad-txns-inputs-duplicate", t)
+}
+
+func Test_should_able_to_reject_empty_vin_txn(t *testing.T) {
+	txn := mainNetTx(t)
+	txn.ins = []*txin.TxIn{}
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-vin-empty", t)
+}
+
+func Test_should_able_to_reject_empty_out_txn(t *testing.T) {
+	txn := mainNetTx(t)
+	txn.outs = []*txout.TxOut{}
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-vout-empty", t)
+}
+
+func Test_should_able_to_reject_too_large_txn(t *testing.T) {
+	txn := mainNetTx(t)
+	txn.outs[0].SetScriptPubKey(script.NewScriptRaw(make([]byte, consensus.MaxTxSize)))
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-oversize", t)
+}
+
+func Test_should_able_to_reject_txn_with__too_large_output_value(t *testing.T) {
+	txn := mainNetTx(t)
+	assert.Equal(t, 2, len(txn.outs))
+	txn.outs[0].SetValue(amount.Amount(util.MaxMoney + 1))
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-vout-toolarge", t)
+}
+
+func Test_should_able_to_reject_txn_with__txout_total_too_large_output_value(t *testing.T) {
+	txn := mainNetTx(t)
+	assert.Equal(t, 2, len(txn.outs))
+	txn.outs[0].SetValue(amount.Amount(util.MaxMoney / 2))
+	txn.outs[1].SetValue(amount.Amount(util.MaxMoney/2 + 1))
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-txouttotal-toolarge", t)
+}
+
+func Test_should_able_to_reject_txn_with__negative_output_value(t *testing.T) {
+	txn := mainNetTx(t)
+	assert.Equal(t, 2, len(txn.outs))
+	txn.outs[0].SetValue(amount.Amount(-1))
+
+	err := txn.CheckRegularTransaction()
+
+	assertError(err, errcode.RejectInvalid, "bad-txns-vout-negative", t)
 }
 
 func Test_should_able_to_reject_coinbase_tx__during_regular_tx_check(t *testing.T) {
