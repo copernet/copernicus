@@ -96,7 +96,9 @@ func (bu *BlockUndo) Serialize(w io.Writer) error {
 	}
 	for _, obj := range bu.txundo {
 		err := obj.Serialize(w)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 
