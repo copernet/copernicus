@@ -15,4 +15,3 @@ script:
   - docker exec copernicus /go/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
   - docker images
   - docker ps
-  - docker kill copernicus
