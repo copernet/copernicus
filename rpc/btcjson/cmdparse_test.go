@@ -4,7 +4,6 @@
 
 package btcjson
 
-/*
 import (
 	"encoding/json"
 	"math"
@@ -516,4 +515,93 @@ func TestUnmarshalCmdErrors(t *testing.T) {
 		}
 	}
 }
-*/
+
+// TestUnmarshalJSONCmdErrors  tests the error paths of the UnmarshalJSONCmd function.
+func TestUnmarshalJSONCmdErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		request   Request
+		jsonParam map[string]json.RawMessage
+		err       Error
+	}{
+		{
+			name: "unregistered type",
+			request: Request{
+				Jsonrpc: "1.0",
+				Method:  "bogusmethod",
+				ID:      nil,
+			},
+			jsonParam: nil,
+			err:       Error{ErrorCode: ErrUnregisteredMethod},
+		},
+		{
+			name: "incorrect number of params",
+			request: Request{
+				Jsonrpc: "1.0",
+				Method:  "getblockcount",
+				ID:      nil,
+			},
+			jsonParam: map[string]json.RawMessage{"arg": []byte(`"bogusparam"`)},
+			err:       Error{ErrorCode: ErrNumParams},
+		},
+		{
+			name: "invalid type for a parameter",
+			request: Request{
+				Jsonrpc: "1.0",
+				Method:  "getblock",
+				ID:      nil,
+			},
+			jsonParam: map[string]json.RawMessage{"blockhash": []byte(`\"1\"`)},
+			err:       Error{ErrorCode: ErrInvalidType},
+		},
+		{
+			name: "invalid JSON for a parameter",
+			request: Request{
+				Jsonrpc: "1.0",
+				Method:  "getblock",
+				ID:      nil,
+			},
+			jsonParam: map[string]json.RawMessage{"blockhash": []byte(`\"1`)},
+			err:       Error{ErrorCode: ErrInvalidType},
+		},
+		{
+			name: "parameter is missing",
+			request: Request{
+				Jsonrpc: "1.0",
+				Method:  "getblock",
+				ID:      nil,
+			},
+			jsonParam: map[string]json.RawMessage{"arg": []byte(`1`)},
+			err:       Error{ErrorCode: ErrInvalidType},
+		},
+		{
+			name: "invalid JSON for a parameter",
+			request: Request{
+				Jsonrpc: "1.0",
+				Method:  "getblockheader",
+				ID:      nil,
+			},
+			jsonParam: map[string]json.RawMessage{"hash": []byte(`"abc""`), "arg": []byte(`1`)},
+			err:       Error{ErrorCode: ErrInvalidType},
+		},
+	}
+
+	t.Logf("Running %d tests", len(tests))
+	for i, test := range tests {
+		_, err := UnmarshalJSONCmd(&test.request, &test.jsonParam)
+		if reflect.TypeOf(err) != reflect.TypeOf(test.err) {
+			t.Errorf("Test #%d (%s) wrong error - got %T (%[2]v), "+
+				"want %T", i, test.name, err, test.err)
+			continue
+		}
+		gotErrorCode := err.(Error).ErrorCode
+		if gotErrorCode != test.err.ErrorCode {
+			t.Errorf("Test #%d (%s) mismatched error code - got "+
+				"%v (%v), want %v", i, test.name, gotErrorCode,
+				err, test.err.ErrorCode)
+			continue
+		}
+	}
+}
