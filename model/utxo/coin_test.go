@@ -14,7 +14,7 @@ import (
 func TestCoin(t *testing.T) {
 	script1 := script.NewEmptyScript()
 	txout1 := txout.NewTxOut(2, script1)
-	c := NewCoin(txout1, 10, false)
+	c := NewFreshCoin(txout1, 10, false)
 	gto := c.GetTxOut()
 	gh := c.GetHeight()
 	ga := c.GetAmount()
@@ -64,7 +64,7 @@ func TestCoin(t *testing.T) {
 
 	script2 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout2 := txout.NewTxOut(3, script2)
-	c2 := NewCoin(txout2, 10, false)
+	c2 := NewFreshCoin(txout2, 10, false)
 
 	if c2.GetTxOut() != *txout2 || c2.GetHeight() != 10 {
 		t.Error("get coin value is failed, please check..")
@@ -98,7 +98,7 @@ func TestCoinSec(t *testing.T) {
 	script3 := script.NewScriptRaw([]byte{opcodes.OP_2DROP, opcodes.OP_2MUL})
 	txout3 := txout.NewTxOut(4, script3)
 
-	c3 := NewCoin(txout3, 1000, true)
+	c3 := NewFreshCoin(txout3, 1000, true)
 	spew.Dump("the coin  is: %v \n ", c3)
 
 	w := bytes.NewBuffer(nil)

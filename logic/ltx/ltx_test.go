@@ -687,7 +687,7 @@ func TestCombineSignature(t *testing.T) {
 
 	coinsMap.AddCoin(
 		v.spender.GetIns()[0].PreviousOutPoint,
-		utxo.NewCoin(v.prevHolder.GetTxOut(0), 1, false),
+		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
 		true,
 	)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
@@ -735,7 +735,7 @@ func TestCombineSignature(t *testing.T) {
 	coinsMap = utxo.NewEmptyCoinsMap()
 	coinsMap.AddCoin(
 		v.spender.GetIns()[0].PreviousOutPoint,
-		utxo.NewCoin(v.prevHolder.GetTxOut(0), 1, false),
+		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
 		true,
 	)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
@@ -803,7 +803,7 @@ func TestCombineSignature(t *testing.T) {
 	coinsMap = utxo.NewEmptyCoinsMap()
 	coinsMap.AddCoin(
 		v.spender.GetIns()[0].PreviousOutPoint,
-		utxo.NewCoin(v.prevHolder.GetTxOut(0), 1, false),
+		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
 		true,
 	)
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})

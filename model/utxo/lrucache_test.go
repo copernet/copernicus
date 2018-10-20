@@ -45,7 +45,7 @@ func TestGetBestBlock(t *testing.T) {
 		isCoinBase:    false,
 		isMempoolCoin: false,
 		dirty:         false,
-		fresh:         false,
+		fresh:         true,
 	}
 
 	necm.AddCoin(&outpoint1, coin1, true)
@@ -89,7 +89,7 @@ func TestLRUCache(t *testing.T) {
 		isCoinBase:    false,
 		isMempoolCoin: false,
 		dirty:         false,
-		fresh:         false,
+		fresh:         true,
 	}
 
 	necm.AddCoin(&outpoint1, coin1, true)
@@ -139,7 +139,7 @@ func TestUpdateCoins(t *testing.T) {
 		isCoinBase:    false,
 		isMempoolCoin: false,
 		dirty:         false,
-		fresh:         false,
+		fresh:         true,
 	}
 
 	necm.AddCoin(&outPoint, ncoin, true)
@@ -149,16 +149,6 @@ func TestUpdateCoins(t *testing.T) {
 
 	c2 := utxoTip.GetCoin(&outPoint)
 	assert.NotNil(t, c2, "get coin failed!")
-
-	clc, ok := utxoTip.(*CoinsLruCache)
-	assert.True(t, ok, "type assertion failed!")
-
-	ncoin.dirty = false
-	ncoin.fresh = false
-	clc.UnCache(&outPoint)
-
-	hv2 := utxoTip.HaveCoin(&outPoint)
-	assert.False(t, hv2, "the cache should not have coin, please check!")
 
 	coinCopy := ncoin.DeepCopy()
 	coinCopy.dirty = true

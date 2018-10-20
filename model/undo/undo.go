@@ -60,7 +60,7 @@ func (tu *TxUndo) Unserialize(r io.Reader) error {
 	}
 	preouts := make([]*utxo.Coin, count)
 	for i := 0; i < int(count); i++ {
-		coin := utxo.NewEmptyCoin()
+		coin := utxo.NewFreshEmptyCoin()
 		err := coin.Unserialize(r)
 
 		if err != nil {

@@ -37,7 +37,7 @@ func TestAccessByTxid(t *testing.T) {
 	script1 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout1 := txout.NewTxOut(3, script1)
 
-	coin1 := utxo.NewCoin(txout1, 10000, false)
+	coin1 := utxo.NewFreshCoin(txout1, 10000, false)
 
 	necm.AddCoin(&outpoint1, coin1, true)
 	necm.AddCoin(&outpoint2, coin1, true)
@@ -49,9 +49,7 @@ func TestAccessByTxid(t *testing.T) {
 	assert.True(t, b, "flush error, the coin not flush to db..")
 
 	rCoin := AccessByTxid(utxo.GetUtxoCacheInstance(), hash1)
-	assert.Equal(t, utxo.NewCoin(txout1, 10000, false), rCoin)
-	// spend rCoin
-	rCoin.Clear()
-	rCoin = AccessByTxid(utxo.GetUtxoCacheInstance(), hash1)
-	assert.Equal(t, utxo.NewCoin(txout1, 10000, false), rCoin)
+
+	unspendCoinFromDB := utxo.NewFreshCoin(txout1, 10000, false)
+	assert.Equal(t, unspendCoinFromDB.GetTxOut(), rCoin.GetTxOut())
 }
