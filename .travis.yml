@@ -9,4 +9,4 @@ before_install:
   - docker build -t copernet/copernicus .
 
 script:
-  - docker run copernet/copernicus $GOPATH/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
+  - docker run copernet/copernicus /go/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
