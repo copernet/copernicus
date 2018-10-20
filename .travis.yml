@@ -10,3 +10,8 @@ before_install:
 
 script:
   - docker run copernet/copernicus /go/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
+
+notifications:
+  email:
+    on_success: change
+    on_failure: alwayss
