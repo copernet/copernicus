@@ -7,6 +7,7 @@ services:
 
 before_install:
   - docker build -t copernet/copernicus .
-
+  - docker run -d --name copernicus
 script:
-  - docker run copernet/copernicus /go/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
+  - docker exec copernicus -e TRAVIS_JOB_ID="$TRAVIS_JOB_ID" -e TRAVIS_BRANCH="$TRAVIS_BRANCH"
+  - docker exec copernicus /go/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
