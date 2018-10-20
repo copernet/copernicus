@@ -553,7 +553,7 @@ func TestUnmarshalJSONCmdErrors(t *testing.T) {
 				Method:  "getblock",
 				ID:      nil,
 			},
-			jsonParam: map[string]json.RawMessage{"blockhash": []byte(`\"1\"`)},
+			jsonParam: map[string]json.RawMessage{"blockhash": []byte(`1`)},
 			err:       Error{ErrorCode: ErrInvalidType},
 		},
 		{
@@ -567,7 +567,7 @@ func TestUnmarshalJSONCmdErrors(t *testing.T) {
 			err:       Error{ErrorCode: ErrInvalidType},
 		},
 		{
-			name: "parameter is missing",
+			name: "required parameter is missing",
 			request: Request{
 				Jsonrpc: "1.0",
 				Method:  "getblock",
@@ -577,13 +577,13 @@ func TestUnmarshalJSONCmdErrors(t *testing.T) {
 			err:       Error{ErrorCode: ErrInvalidType},
 		},
 		{
-			name: "invalid JSON for a parameter",
+			name: "unknown named parameter",
 			request: Request{
 				Jsonrpc: "1.0",
 				Method:  "getblockheader",
 				ID:      nil,
 			},
-			jsonParam: map[string]json.RawMessage{"hash": []byte(`"abc""`), "arg": []byte(`1`)},
+			jsonParam: map[string]json.RawMessage{"hash": []byte(`"abc"`), "arg": []byte(`1`)},
 			err:       Error{ErrorCode: ErrInvalidType},
 		},
 	}
@@ -603,5 +603,29 @@ func TestUnmarshalJSONCmdErrors(t *testing.T) {
 				err, test.err.ErrorCode)
 			continue
 		}
+	}
+}
+
+func TestUnmarshalJSONCmd(t *testing.T) {
+	type UTest struct {
+		TestName string `json:",omitempty"`
+	}
+	MustRegisterCmd("utest", (*UTest)(nil), UsageFlag(0))
+	defer delete(methodToInfo, "utest")
+	defer delete(methodToConcreteType, "utest")
+
+	if _, err := UnmarshalJSONCmd(&Request{Jsonrpc: "1.0", Method: "getblock", ID: nil},
+		&map[string]json.RawMessage{"blockhash": []byte(`"abc"`), "verbose": []byte(`true`)}); err != nil {
+		t.Errorf("Test valid json parameter fail, error:%s", err.Error())
+	}
+
+	if _, err := UnmarshalJSONCmd(&Request{Jsonrpc: "1.0", Method: "getblock", ID: nil},
+		&map[string]json.RawMessage{"blockhash": []byte(`"abc"`)}); err != nil {
+		t.Errorf("Test valid json parameter with default value fail, error:%s", err.Error())
+	}
+
+	if _, err := UnmarshalJSONCmd(&Request{Jsonrpc: "1.0", Method: "utest", ID: nil},
+		&map[string]json.RawMessage{"testname": []byte(`"abc"`)}); err != nil {
+		t.Errorf("Test valid json parameter (without json name) fail, error:%s", err.Error())
 	}
 }

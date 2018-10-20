@@ -1,18 +1,18 @@
 package mempool
 
 import (
-	"math"
-	"testing"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/tx"
-	"github.com/copernet/copernicus/model/txin"
+	"bytes"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/opcodes"
-	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
-	"bytes"
+	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
+	"math"
 	"reflect"
+	"testing"
 )
 
 func TestTxMempoolInfo(t *testing.T) {

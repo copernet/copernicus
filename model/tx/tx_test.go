@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"testing"
 
 	"github.com/copernet/copernicus/model/outpoint"
@@ -429,20 +431,63 @@ func Test_tx_with_non_standard_scriptpubkey___should_be_non_standard(t *testing.
 	assert.Equal(t, "scriptpubkey", reason)
 }
 
-//if !conf.Cfg.Script.AcceptDataCarrier || uint(txOut.scriptPubKey.Size()) > conf.Cfg.Script.MaxDatacarrierBytes {
-//return pubKeyType, false
+func NewPrivateKey() crypto.PrivateKey {
+	var keyBytes []byte
+	for i := 0; i < 32; i++ {
+		keyBytes = append(keyBytes, byte(rand.Uint32()%256))
+	}
+	return *crypto.PrivateKeyFromBytes(keyBytes)
+}
+
+func Test_when_configured_not_BareMultiSigStd___tx_with_multisig_pubkey_should_be_non_standard(t *testing.T) {
+	givenNoDustRelayFeeLimits()
+	crypto.InitSecp256()
+	txn := mainNetTx(t)
+
+	key1 := NewPrivateKey()
+	key2 := NewPrivateKey()
+	multisig := script.NewEmptyScript()
+	multisig.PushOpCode(opcodes.OP_1)
+	multisig.PushSingleData(key1.PubKey().ToBytes())
+	multisig.PushSingleData(key2.PubKey().ToBytes())
+	multisig.PushOpCode(opcodes.OP_2)
+	multisig.PushOpCode(opcodes.OP_CHECKMULTISIG)
+
+	txn.outs[0].SetScriptPubKey(multisig)
+	txn.outs[1].SetScriptPubKey(multisig)
+
+	isStandard, reason := txn.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "bare-multisig", reason)
+}
+
+func Test_tx_with_any_dust_outs___should_be_non_standard(t *testing.T) {
+	givenDustRelayFeeLimits(100)
+	givenAcceptDataCarrier()
+
+	txn := mainNetTx(t)
+	minNonDustValue := amount.Amount(txn.outs[1].GetDustThreshold(util.NewFeeRate(conf.Cfg.TxOut.DustRelayFee)))
+	txn.outs[1].SetValue(minNonDustValue - 1)
+
+	isStandard, reason := txn.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "dust", reason)
+}
 
 func Test_tx_with_multiple_null_data_opreturn_outs___should_be_non_standard(t *testing.T) {
 	givenNoDustRelayFeeLimits()
-	txn := mainNetTx(t)
+	givenAcceptDataCarrier()
 
+	txn := mainNetTx(t)
 	txn.outs[0].SetScriptPubKey(nullDataOpReturnScriptPubKey())
 	txn.outs[1].SetScriptPubKey(nullDataOpReturnScriptPubKey())
 
 	isStandard, reason := txn.IsStandard()
 
 	assert.False(t, isStandard)
-	assert.Equal(t, "scriptpubkey", reason)
+	assert.Equal(t, "multi-op-return", reason)
 }
 
 func nullDataOpReturnScriptPubKey() *script.Script {
@@ -452,8 +497,26 @@ func nullDataOpReturnScriptPubKey() *script.Script {
 }
 
 func givenNoDustRelayFeeLimits() {
-	conf.Cfg = &conf.Configuration{}
+	if conf.Cfg == nil {
+		conf.Cfg = &conf.Configuration{}
+	}
 	conf.Cfg.TxOut.DustRelayFee = 0
+}
+
+func givenDustRelayFeeLimits(minRelayFee int64) {
+	if conf.Cfg == nil {
+		conf.Cfg = &conf.Configuration{}
+	}
+	conf.Cfg.TxOut.DustRelayFee = minRelayFee
+}
+
+func givenAcceptDataCarrier() {
+	if conf.Cfg == nil {
+		conf.Cfg = &conf.Configuration{}
+	}
+
+	conf.Cfg.Script.AcceptDataCarrier = true
+	conf.Cfg.Script.MaxDatacarrierBytes = 223
 }
 
 func newCoinbaseTx(outpoint *outpoint.OutPoint) *Tx {
