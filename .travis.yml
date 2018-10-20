@@ -7,7 +7,7 @@ services:
 
 before_install:
   - docker build -t copernet/copernicus .
-  - docker run -it -d --name copernicus
+  - docker run -it -d --name copernicu copernet/copernicuss
 script:
   - docker images
   - docker ps
