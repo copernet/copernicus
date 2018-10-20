@@ -1,8 +1,8 @@
 package mempool
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 func TestNewLockPoints(t *testing.T) {
