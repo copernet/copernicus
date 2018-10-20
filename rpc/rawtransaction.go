@@ -798,7 +798,7 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 			return nil, nil, err
 		}
 		txOut := txout.NewTxOut(outAmount, scriptPubKey)
-		coin = utxo.NewCoin(txOut, 1, false)
+		coin = utxo.NewFreshCoin(txOut, 1, false)
 		coinsMap.AddCoin(out, coin, true)
 
 		if prevTx.RedeemScript != nil {

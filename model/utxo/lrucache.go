@@ -212,15 +212,6 @@ func (coinsCache *CoinsLruCache) Flush() bool {
 //	return entry, err
 //}
 
-func (coinsCache *CoinsLruCache) UnCache(point *outpoint.OutPoint) {
-	c, ok := coinsCache.cacheCoins.Get(*point)
-	coin := c.(*Coin)
-	if ok && !coin.dirty && !coin.fresh {
-		coinsCache.cacheCoins.Remove(*point)
-		// donot delete from dirty map
-	}
-}
-
 func (coinsCache *CoinsLruCache) GetCacheSize() int {
 	return coinsCache.cacheCoins.Len()
 }

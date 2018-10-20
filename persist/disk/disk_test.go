@@ -148,7 +148,7 @@ func TestUndoWRToDisk(t *testing.T) {
 	//init coin
 	script1 := script.NewEmptyScript()
 	txout1 := txout.NewTxOut(2, script1)
-	c := utxo.NewCoin(txout1, 10, false)
+	c := utxo.NewFreshCoin(txout1, 10, false)
 	txundo.SetUndoCoins([]*utxo.Coin{c})
 	blkUndo1.AddTxUndo(txundo)
 	pos1 := block.NewDiskBlockPos(11, 12)
@@ -312,7 +312,7 @@ func TestFlushStateToDisk(t *testing.T) {
 	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
 	script1 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
 	txout1 := txout.NewTxOut(3, script1)
-	coin1 := utxo.NewCoin(txout1, 1, false)
+	coin1 := utxo.NewFreshCoin(txout1, 1, false)
 
 	necm.AddCoin(&outpoint1, coin1, false)
 	guci := utxo.GetUtxoCacheInstance()

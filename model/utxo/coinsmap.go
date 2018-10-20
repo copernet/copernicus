@@ -75,6 +75,8 @@ func (cm *CoinsMap) Flush(hashBlock util.Hash) bool {
 }
 
 func (cm *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwrite bool) {
+	coin = coin.DeepCopy()
+
 	if coin.IsSpent() {
 		panic("add a spent coin")
 	}
@@ -91,7 +93,6 @@ func (cm *CoinsMap) AddCoin(point *outpoint.OutPoint, coin *Coin, possibleOverwr
 	//}
 
 	coin.dirty = false
-	coin.fresh = true
 	cm.cacheCoins[*point] = coin
 
 }
