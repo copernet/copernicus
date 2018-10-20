@@ -3,6 +3,6 @@
 ./check.sh
 ls
 $GOPATH/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $1
-sleep 1
+sleep 5
 
 
