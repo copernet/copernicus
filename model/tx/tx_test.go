@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"testing"
 
-	"fmt"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txin"
@@ -153,27 +152,17 @@ func TestTxSerializeAndTxUnserialize(t *testing.T) {
 		"c6c400a000000000017a914abaad350c1c83d2f33cc35e8c1c886cd1287bda98700000000"
 
 	originBytes, err := hex.DecodeString(rawTxString)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
+
 	tx := Tx{}
 	err = tx.Unserialize(bytes.NewReader(originBytes))
-	testBytes := make([]byte, 64)
-	hex.Encode(testBytes, tx.GetIns()[0].PreviousOutPoint.Hash[:])
-	fmt.Printf("txIn preout hash: %x", testBytes)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	buf := bytes.NewBuffer(nil)
 	err = tx.Serialize(buf)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
-	if !bytes.Equal(originBytes, buf.Bytes()) {
-		t.Error("Serialize or Unserialize error")
-	}
+	assert.Equal(t, originBytes, buf.Bytes())
 }
 
 func Test_should_able_to_decode_bch_testnet_tx(t *testing.T) {
@@ -360,16 +349,15 @@ func Test_should_able_to_reject_invalid_coinbase_txn___with_too_long_scriptsig(t
 	assertError(err, errcode.RejectInvalid, "bad-cb-length", t)
 }
 
-func Test_is_starndard_tx(t *testing.T) {
-	conf.Cfg = &conf.Configuration{}
-	conf.Cfg.TxOut.DustRelayFee = 83
+func Test_assure_the_mainnet_tx_example__is_standard(t *testing.T) {
+	givenNoDustRelayFeeLimits()
 
 	tx := mainNetTx(t)
 	is, _ := tx.IsStandard()
 	assert.True(t, is)
 }
 
-func Test_should_reject_tx_with__wrong_version(t *testing.T) {
+func Test_tx_with_wrong_version___should_be_non_standard(t *testing.T) {
 	tx := mainNetTx(t)
 	tx.version = 0
 
@@ -379,7 +367,7 @@ func Test_should_reject_tx_with__wrong_version(t *testing.T) {
 	assert.Equal(t, "version", reason)
 }
 
-func Test_should_reject_tx_with__unknown_new_version(t *testing.T) {
+func Test_tx_with_unknown_new_version___should_be_non_standard(t *testing.T) {
 	tx := mainNetTx(t)
 	tx.version = MaxStandardVersion + 1
 
@@ -389,7 +377,7 @@ func Test_should_reject_tx_with__unknown_new_version(t *testing.T) {
 	assert.Equal(t, "version", reason)
 }
 
-func Test_should_reject_standard_tx__of_too_large_size(t *testing.T) {
+func Test_tx_of_too_large_size__should_be_non_standard(t *testing.T) {
 	tx := mainNetTx(t)
 	tx.ins[0].SetScriptSig(makeDummyScript(int(MaxStandardTxSize)))
 
@@ -399,14 +387,73 @@ func Test_should_reject_standard_tx__of_too_large_size(t *testing.T) {
 	assert.Equal(t, "tx-size", reason)
 }
 
-func Test_should_reject_standard_tx__(t *testing.T) {
+func Test_tx_with__non_pushonly_scriptsig___should_be_non_standard(t *testing.T) {
 	tx := mainNetTx(t)
-	tx.ins[0].SetScriptSig(makeDummyScript(100))
+	tx.ins[0].SetScriptSig(makeDummyScript(80))
 
 	isStandard, reason := tx.IsStandard()
 
 	assert.False(t, isStandard)
 	assert.Equal(t, "scriptsig-not-pushonly", reason)
+}
+
+func Test_tx_with_too_large_scriptsig___should_be_non_standard(t *testing.T) {
+	tx := mainNetTx(t)
+	tx.ins[0].SetScriptSig(makeDummyScript(script.MaxStandardScriptSigSize + 1))
+
+	isStandard, reason := tx.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "scriptsig-size", reason)
+}
+
+func Test_tx_with_too_large_scriptsig_in_any_ins___should_be_non_standard(t *testing.T) {
+	txn := mainNetTx(t)
+	txn.ins = append(txn.ins, txn.ins[0])
+	txn.ins[1].SetScriptSig(makeDummyScript(script.MaxStandardScriptSigSize + 1))
+
+	isStandard, reason := txn.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "scriptsig-size", reason)
+}
+
+func Test_tx_with_non_standard_scriptpubkey___should_be_non_standard(t *testing.T) {
+	givenNoDustRelayFeeLimits()
+	txn := mainNetTx(t)
+	txn.outs[1].SetScriptPubKey(makeDummyScript(100))
+
+	isStandard, reason := txn.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "scriptpubkey", reason)
+}
+
+//if !conf.Cfg.Script.AcceptDataCarrier || uint(txOut.scriptPubKey.Size()) > conf.Cfg.Script.MaxDatacarrierBytes {
+//return pubKeyType, false
+
+func Test_tx_with_multiple_null_data_opreturn_outs___should_be_non_standard(t *testing.T) {
+	givenNoDustRelayFeeLimits()
+	txn := mainNetTx(t)
+
+	txn.outs[0].SetScriptPubKey(nullDataOpReturnScriptPubKey())
+	txn.outs[1].SetScriptPubKey(nullDataOpReturnScriptPubKey())
+
+	isStandard, reason := txn.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "scriptpubkey", reason)
+}
+
+func nullDataOpReturnScriptPubKey() *script.Script {
+	nullDataOpReturn := opcodes.NewParsedOpCode(opcodes.OP_RETURN, 1, nil)
+	nullDataOpReturnScript := script.NewScriptOps([]opcodes.ParsedOpCode{*nullDataOpReturn})
+	return nullDataOpReturnScript
+}
+
+func givenNoDustRelayFeeLimits() {
+	conf.Cfg = &conf.Configuration{}
+	conf.Cfg.TxOut.DustRelayFee = 0
 }
 
 func newCoinbaseTx(outpoint *outpoint.OutPoint) *Tx {
@@ -476,8 +523,63 @@ func mainNetTx(t *testing.T) *Tx {
 		0x97, 0x2d, 0x7b, 0x88, 0xac, 0x40, 0x94, 0xa8, 0x02, 0x00, 0x00, 0x00,
 		0x00, 0x19, 0x76, 0xa9, 0x14, 0xc1, 0x09, 0x32, 0x48, 0x3f, 0xec, 0x93,
 		0xed, 0x51, 0xf5, 0xfe, 0x95, 0xe7, 0x25, 0x59, 0xf2, 0xcc, 0x70, 0x43,
-		0xf9, 0x88, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00}
+		0xf9, 0x88, 0xac, 0x00, 0x00, 0x00, 0x00}
 	txn := NewEmptyTx()
 	assert.NoError(t, txn.Decode(bytes.NewReader(txBytes)))
+
+	txn2 := &Tx{
+		version: 1,
+		ins: []*txin.TxIn{
+			txin.NewTxIn(outpoint.NewOutPoint(util.Hash{
+				0x6b, 0xff, 0x7f, 0xcd, 0x4f, 0x85, 0x65, 0xef,
+				0x40, 0x6d, 0xd5, 0xd6, 0x3d, 0x4f, 0xf9, 0x4f,
+				0x31, 0x8f, 0xe8, 0x20, 0x27, 0xfd, 0x4d, 0xc4,
+				0x51, 0xb0, 0x44, 0x74, 0x01, 0x9f, 0x74, 0xb4,
+			}, 0),
+				script.NewScriptRaw([]byte{0x49, 0x30, 0x46, 0x02, 0x21, 0x00,
+					0xda, 0x0d, 0xc6, 0xae, 0xce, 0xfe, 0x1e, 0x06, 0xef, 0xdf, 0x05, 0x77,
+					0x37, 0x57, 0xde, 0xb1, 0x68, 0x82, 0x09, 0x30, 0xe3, 0xb0, 0xd0, 0x3f,
+					0x46, 0xf5, 0xfc, 0xf1, 0x50, 0xbf, 0x99, 0x0c, 0x02, 0x21, 0x00, 0xd2,
+					0x5b, 0x5c, 0x87, 0x04, 0x00, 0x76, 0xe4, 0xf2, 0x53, 0xf8, 0x26, 0x2e,
+					0x76, 0x3e, 0x2d, 0xd5, 0x1e, 0x7f, 0xf0, 0xbe, 0x15, 0x77, 0x27, 0xc4,
+					0xbc, 0x42, 0x80, 0x7f, 0x17, 0xbd, 0x39, 0x01, 0x41, 0x04, 0xe6, 0xc2,
+					0x6e, 0xf6, 0x7d, 0xc6, 0x10, 0xd2, 0xcd, 0x19, 0x24, 0x84, 0x78, 0x9a,
+					0x6c, 0xf9, 0xae, 0xa9, 0x93, 0x0b, 0x94, 0x4b, 0x7e, 0x2d, 0xb5, 0x34,
+					0x2b, 0x9d, 0x9e, 0x5b, 0x9f, 0xf7, 0x9a, 0xff, 0x9a, 0x2e, 0xe1, 0x97,
+					0x8d, 0xd7, 0xfd, 0x01, 0xdf, 0xc5, 0x22, 0xee, 0x02, 0x28, 0x3d, 0x3b,
+					0x06, 0xa9, 0xd0, 0x3a, 0xcf, 0x80, 0x96, 0x96, 0x8d, 0x7d, 0xbb, 0x0f,
+					0x91, 0x78}),
+				0xffffffff),
+		},
+		outs: []*txout.TxOut{
+			txout.NewTxOut(0x0e94a78b, script.NewScriptRaw([]byte{
+				0x76, // OP_DUP
+				0xa9, // OP_HASH160
+				0x14, // length
+				0xba, 0xde, 0xec, 0xfd, 0xef, 0x05, 0x07, 0x24, 0x7f, 0xc8,
+				0xf7, 0x42, 0x41, 0xd7, 0x3b, 0xc0, 0x39, 0x97, 0x2d, 0x7b,
+				0x88, // OP_EQUALVERIFY
+				0xac, // OP_CHECKSIG
+
+			})),
+			txout.NewTxOut(0x02a89440, script.NewScriptRaw([]byte{
+				0x76, // OP_DUP
+				0xa9, // OP_HASH160
+				0x14, // length
+				0xc1, 0x09, 0x32, 0x48, 0x3f, 0xec, 0x93, 0xed, 0x51, 0xf5,
+				0xfe, 0x95, 0xe7, 0x25, 0x59, 0xf2, 0xcc, 0x70, 0x43, 0xf9,
+				0x88, // OP_EQUALVERIFY
+				0xac, // OP_CHECKSIG
+			})),
+		},
+		lockTime: 0,
+	}
+
+	buf := bytes.NewBuffer(nil)
+	err := txn2.Serialize(buf)
+	assert.NoError(t, err)
+
+	assert.Equal(t, txBytes, buf.Bytes())
+
 	return txn
 }
