@@ -21,4 +21,3 @@ RUN gometalinter --install
 RUN go get golang.org/x/tools/cmd/cover
 RUN go get github.com/mattn/goveralls
 
-ENTRYPOINT ["/go/src/github.com/copernet/copernicus/check.sh"]
