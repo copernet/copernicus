@@ -16,7 +16,7 @@ RUN cp /usr/local/lib/libsecp256k1.so.0 /usr/lib/
 WORKDIR /go/src/github.com/copernet/copernicus
 COPY . .
 RUN glide install
-Run go get -u github.com/alecthomas/gometalinter
+RUN go get -u github.com/alecthomas/gometalinter
 RUN gometalinter --install
 RUN go get golang.org/x/tools/cmd/cover
 RUN go get github.com/mattn/goveralls
