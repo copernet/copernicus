@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/util"
 )
 
@@ -82,5 +84,58 @@ func TestBlockHeaderGetHash(t *testing.T) {
 			t.Errorf("the get block hash is error, actual hash : %s, expect hash : %s\n",
 				blkHash, firstBlockHash)
 		}
+	}
+}
+
+func TestCheckBlockHeader(t *testing.T) {
+	blk1 := getBlock(blk1str)
+	badHeader := &blk1.Header
+	badHeader.Nonce = 12345
+	if err := CheckBlockHeader(badHeader); err == nil {
+		t.Errorf("TestCheckBlockHeader test 1 check invalid header failed")
+	}
+
+	blk2 := getBlock(blk2str)
+	goodHeader := &blk2.Header
+	if err := CheckBlockHeader(goodHeader); err != nil {
+		t.Errorf("TestCheckBlockHeader test 2 check valid header failed, error:%s", err.Error())
+	}
+
+	genesisBlockHeader := &chain.GetInstance().GetParams().GenesisBlock.Header
+	if err := CheckBlockHeader(genesisBlockHeader); err != nil {
+		t.Errorf("TestCheckBlockHeader test 3 check genesis block header failed")
+	}
+}
+
+func TestContextualCheckBlockHeader(t *testing.T) {
+	blk1 := getBlock(blk1str)
+	blk2 := getBlock(blk2str)
+	blk1Index := blockindex.NewBlockIndex(&blk1.Header)
+	testHeader := blk2.Header
+
+	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(blk2.Header.Time)); !ok {
+		t.Errorf("TestContextualCheckBlockHeader test 1 check valid header failed")
+	}
+
+	testHeader = blk2.Header
+	testHeader.Bits = 123456
+	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)); ok {
+		t.Errorf("TestContextualCheckBlockHeader test 2 check bits failed")
+	}
+
+	testHeader = blk2.Header
+	testHeader.Time = blk1.Header.Time - 1
+	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)); ok {
+		t.Errorf("TestContextualCheckBlockHeader test 3 check median time failed")
+	}
+
+	testHeader = blk2.Header
+	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time-7201)); ok {
+		t.Errorf("TestContextualCheckBlockHeader test 4 check adjust time failed")
+	}
+
+	blk1Index.Height = chain.GetInstance().GetParams().BIP66Height
+	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)); ok {
+		t.Errorf("TestContextualCheckBlockHeader test 5 check version failed")
 	}
 }

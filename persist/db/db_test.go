@@ -547,3 +547,43 @@ func TestIteratorStringOrderingWithMem(t *testing.T) {
 	defer dbw.Close()
 	testIteratorStringOrdering(t, dbw)
 }
+
+func TestDBWrapper_EstimateSize(t *testing.T) {
+	path, err := ioutil.TempDir("", "dbwtest")
+	if err != nil {
+		t.Fatalf("generate temp db path failed: %s\n", err)
+	}
+	defer os.RemoveAll(path)
+
+	dbw, err := NewDBWrapper(&DBOption{
+		FilePath:      path,
+		CacheSize:     1 << 20,
+		DontObfuscate: true,
+	})
+	if err != nil {
+		t.Fatalf("NewDBWrapper failed: %s\n", err)
+	}
+	defer dbw.Close()
+
+	if err := dbw.CompactRange(nil, nil); err != nil {
+		t.Fatalf("compact range err:%v", err)
+	}
+
+	batch := NewBatchWrapper(dbw)
+
+	var s string
+	for i := 0; i < 1e4; i++ {
+		s = fmt.Sprintf("%d", i)
+		batch.Write([]byte(s), rand256())
+	}
+
+	if err := dbw.WriteBatch(batch, true); err != nil {
+		t.Fatalf("batch write err:%d", err)
+	}
+
+	num := dbw.EstimateSize([]byte{'0'}, []byte(s))
+	t.Logf("the Estimate Size is:%d", num)
+	if num == 0 {
+		t.Fatalf("the Estimate Size is:%d", num)
+	}
+}

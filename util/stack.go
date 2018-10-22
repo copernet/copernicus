@@ -152,17 +152,17 @@ func NewStack() *Stack {
 //	}
 //}
 
-//func (s *Stack) Equal(other *Stack) bool {
-//	if s.Size() != other.Size() {
-//		return false
-//	}
-//	for i := 0; i < s.Size(); i++ {
-//		if s.array[i] != other.array[i] {
-//			return false
-//		}
-//	}
-//	return true
-//}
+func (s *Stack) Equal(other *Stack) bool {
+	if s.Size() != other.Size() {
+		return false
+	}
+	for i := 0; i < s.Size(); i++ {
+		if s.array[i] != other.array[i] {
+			return false
+		}
+	}
+	return true
+}
 
 //func (s *Stack) Last() interface{} {
 //	if s.Size() == 0 {

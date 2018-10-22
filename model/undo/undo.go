@@ -37,6 +37,7 @@ func (tu *TxUndo) GetUndoCoins() []*utxo.Coin {
 func (tu *TxUndo) Serialize(w io.Writer) error {
 	err := util.WriteVarInt(w, uint64(len(tu.undoCoins)))
 	if err != nil {
+		log.Error("TxUndo Serialize: serialize error: %v", err)
 		return err
 	}
 	for _, coin := range tu.undoCoins {
@@ -59,7 +60,7 @@ func (tu *TxUndo) Unserialize(r io.Reader) error {
 	}
 	preouts := make([]*utxo.Coin, count)
 	for i := 0; i < int(count); i++ {
-		coin := utxo.NewEmptyCoin()
+		coin := utxo.NewFreshEmptyCoin()
 		err := coin.Unserialize(r)
 
 		if err != nil {
@@ -88,10 +89,16 @@ func NewBlockUndo(count int) *BlockUndo {
 
 func (bu *BlockUndo) Serialize(w io.Writer) error {
 	count := len(bu.txundo)
-	util.WriteVarLenInt(w, uint64(count))
+	err := util.WriteVarLenInt(w, uint64(count))
+	if err != nil {
+		log.Error("BlockUndo Serialize: serialize block undo failed:%v", err)
+		return err
+	}
 	for _, obj := range bu.txundo {
 		err := obj.Serialize(w)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 
@@ -99,7 +106,11 @@ func (bu *BlockUndo) Serialize(w io.Writer) error {
 
 func (bu *BlockUndo) SerializeSize() int {
 	buf := bytes.NewBuffer(nil)
-	bu.Serialize(buf)
+	err := bu.Serialize(buf)
+	if err != nil {
+		log.Error("BlockUndo SerializeSize: serialize block undo failed:%v", err)
+		return 0
+	}
 	return buf.Len()
 
 }

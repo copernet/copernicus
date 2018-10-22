@@ -125,7 +125,7 @@ type GetAddedNodeInfoCmd struct {
 //
 // The parameters which are pointers indicate they are optional.  Passing nil
 // for optional parameters will use the default value.
-func NewGetAddedNodeInfoCmd(dns bool, node *string) *GetAddedNodeInfoCmd {
+func NewGetAddedNodeInfoCmd(node *string) *GetAddedNodeInfoCmd {
 	return &GetAddedNodeInfoCmd{
 		Node: node,
 	}
@@ -703,14 +703,14 @@ func NewUptimeCmd() *UptimeCmd {
 	return &UptimeCmd{}
 }
 
-// SignMessageWithPrivkeyCmd defines the handleSignMessageWithprivkey JSON-RPC command.
+// SignMessageWithPrivkeyCmd defines the signmessagewithprivkey JSON-RPC command.
 type SignMessageWithPrivkeyCmd struct {
 	Privkey string
 	Message string
 }
 
 // NewSignMessageWithPrivkeyCmd returns a new instance which can be used to issue a
-// validateaddress JSON-RPC command.
+// signmessagewithprivkey JSON-RPC command.
 func NewSignMessageWithPrivkeyCmd(privkey string, msg string) *SignMessageWithPrivkeyCmd {
 	return &SignMessageWithPrivkeyCmd{
 		Privkey: privkey,
@@ -781,12 +781,12 @@ func NewVerifyTxOutProofCmd(proof string) *VerifyTxOutProofCmd {
 
 // PruneBlockChainCmd defines the pruneblockchain JSON-RPC command.
 type PruneBlockChainCmd struct {
-	Height *int
+	Height int
 }
 
 // NewPruneBlockChainCmd returns a new instance which can be used to issue a
 // pruneblockchain JSON-RPC command.
-func NewPruneBlockChainCmd(height *int) *PruneBlockChainCmd {
+func NewPruneBlockChainCmd(height int) *PruneBlockChainCmd {
 	return &PruneBlockChainCmd{
 		Height: height,
 	}
@@ -822,10 +822,6 @@ type SignRawTransactionCmd struct {
 	SigHashType *string       `json:"sighashtype"`
 }
 
-type VerifyTxoutProofCmd struct {
-	Proof string
-}
-
 type SetMocktimeCmd struct {
 	Timestamp int64
 }
@@ -858,8 +854,11 @@ type WaitForBlockHeightCmd struct {
 
 // NewWaitForBlockHeightCmd returns a new instance which can be used to issue a
 // waitforblockheight JSON-RPC command.
-func NewWaitForBlockHeightCmd() *WaitForBlockHeightCmd {
-	return &WaitForBlockHeightCmd{}
+func NewWaitForBlockHeightCmd(height int32, timeout *int) *WaitForBlockHeightCmd {
+	return &WaitForBlockHeightCmd{
+		Height:  height,
+		Timeout: timeout,
+	}
 }
 
 func init() {
@@ -916,7 +915,7 @@ func init() {
 	MustRegisterCmd("getmempoolancestors", (*GetMempoolAncestorsCmd)(nil), flags)
 	MustRegisterCmd("getmempooldescendants", (*GetMempoolDescendantsCmd)(nil), flags)
 	MustRegisterCmd("signrawtransaction", (*SignRawTransactionCmd)(nil), flags)
-	MustRegisterCmd("verifytxoutproof", (*VerifyTxoutProofCmd)(nil), flags)
+	MustRegisterCmd("verifytxoutproof", (*VerifyTxOutProofCmd)(nil), flags)
 	MustRegisterCmd("setmocktime", (*SetMocktimeCmd)(nil), flags)
 
 	MustRegisterCmd("disconnectnode", (*DisconnectNodeCmd)(nil), flags)

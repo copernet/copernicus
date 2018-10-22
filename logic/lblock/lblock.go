@@ -176,10 +176,18 @@ func ReceivedBlockTransactions(pblock *block.Block,
 	gChain := chain.GetInstance()
 	if pindexNew.IsGenesis(gChain.GetParams()) || gChain.ParentInBranch(pindexNew) {
 		// If indexNew is the genesis lblock or all parents are in branch
-		gChain.AddToBranch(pindexNew)
+		err := gChain.AddToBranch(pindexNew)
+		if err != nil {
+			log.Error("add block index to branch error:%d", err)
+			return
+		}
 	} else {
 		if pindexNew.Prev.IsValid(blockindex.BlockValidTree) {
-			gChain.AddToOrphan(pindexNew)
+			err := gChain.AddToOrphan(pindexNew)
+			if err != nil {
+				log.Error("add block index to orphan error:%d", err)
+				return
+			}
 		}
 	}
 }

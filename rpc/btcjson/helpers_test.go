@@ -90,6 +90,16 @@ func TestHelpers(t *testing.T) {
 			}(),
 		},
 		{
+			name: "float64",
+			f: func() interface{} {
+				return Float64(0.5)
+			},
+			expected: func() interface{} {
+				val := float64(0.5)
+				return &val
+			}(),
+		},
+		{
 			name: "string",
 			f: func() interface{} {
 				return String("abc")

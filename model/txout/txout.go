@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
@@ -87,7 +86,6 @@ func (txOut *TxOut) CheckValue() error { //3
 		return errcode.NewError(errcode.RejectInvalid, "bad-txns-vout-toolarge")
 	}
 
-	log.Warn("bad txout value :%d", txOut.value)
 	return nil
 }
 
@@ -128,10 +126,6 @@ func (txOut *TxOut) GetScriptPubKey() *script.Script {
 }
 func (txOut *TxOut) SetScriptPubKey(s *script.Script) {
 	txOut.scriptPubKey = s
-}
-
-func (txOut *TxOut) IsCommitment(data []byte) bool {
-	return txOut.scriptPubKey.IsCommitment(data)
 }
 
 // IsSpendable returns whether the TxOut can be spent or not,

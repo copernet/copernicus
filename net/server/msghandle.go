@@ -281,6 +281,8 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 
 	case *service.ClearBannedRequest:
 		return
+	case *wire.InvVect:
+		return
 
 		//case *tx.Tx:
 		//	msgHandle.recvChannel <- m

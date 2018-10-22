@@ -68,6 +68,7 @@ func InitGlobalChain() {
 func NewChain() *Chain {
 	c := &Chain{}
 	c.params = model.ActiveNetParams
+	c.orphan = make(map[util.Hash][]*blockindex.BlockIndex)
 	c.SyncingState = &SyncingState{}
 	return c
 }

@@ -111,7 +111,7 @@ func (tx *Tx) AddTxOut(txOut *txout.TxOut) {
 }
 
 func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
-	if index < 0 || index > len(tx.outs) {
+	if index < 0 || index >= len(tx.outs) {
 		log.Warn("GetTxOut index %d over large")
 		return nil
 	}
@@ -120,7 +120,7 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 }
 
 func (tx *Tx) GetTxIn(index int) (out *txin.TxIn) {
-	if index < 0 || index > len(tx.ins) {
+	if index < 0 || index >= len(tx.ins) {
 		log.Warn("GetTxOut index %d over large")
 		return nil
 	}
@@ -162,26 +162,6 @@ func (tx *Tx) GetOutsCount() int {
 }
 func (tx *Tx) GetInsCount() int {
 	return len(tx.ins)
-}
-
-func (tx *Tx) RemoveTxIn(txIn *txin.TxIn) {
-	ret := tx.ins[:0]
-	for _, e := range tx.ins {
-		if e != txIn {
-			ret = append(ret, e)
-		}
-	}
-	tx.ins = ret
-}
-
-func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
-	ret := tx.outs[:0]
-	for _, e := range tx.outs {
-		if e != txOut {
-			ret = append(ret, e)
-		}
-	}
-	tx.outs = ret
 }
 
 func (tx *Tx) SerializeSize() uint32 {
@@ -330,7 +310,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 	for _, in := range tx.ins {
 		if in.PreviousOutPoint.IsNull() {
 			log.Debug("tx input prevout null")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-prevout-null")
 		}
 	}
 
@@ -340,7 +320,7 @@ func (tx *Tx) CheckRegularTransaction() error {
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
 		log.Warn("CheckCoinBaseTransaction: TxErrNotCoinBase")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-missing")
 	}
 	err := tx.checkTransactionCommon(false)
 	if err != nil {
@@ -350,7 +330,7 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 	// coinbase in script check
 	if tx.ins[0].GetScriptSig().Size() < 2 || tx.ins[0].GetScriptSig().Size() > 100 {
 		log.Debug("coinbash input hash err script size")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-length")
 	}
 
 	return nil
@@ -461,30 +441,6 @@ func (tx *Tx) IsStandard() (bool, string) {
 
 	return true, ""
 }
-
-func (tx *Tx) IsCommitment(data []byte) bool {
-	for _, e := range tx.outs {
-		if e.IsCommitment(data) {
-			return true
-		}
-	}
-	return false
-}
-
-//func (tx *Tx) returnScriptBuffers() {
-//	for _, txIn := range tx.ins {
-//		if txIn == nil || txIn.scriptSig == nil {
-//			continue
-//		}
-//		scriptPool.Return(txIn.scriptSig.bytes)
-//	}
-//	for _, txOut := range tx.outs {
-//		if txOut == nil || txOut.scriptPubKey == nil {
-//			continue
-//		}
-//		scriptPool.Return(txOut.scriptPubKey.bytes)
-//	}
-//}
 
 func (tx *Tx) GetValueOut() amount.Amount {
 	var valueOut amount.Amount
@@ -609,34 +565,6 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	return nil
 }
 
-func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
-	txModifiedSize := tx.CalculateModifiedSize()
-	if txModifiedSize == 0 {
-		return 0
-	}
-	return priorityInputs / float64(txModifiedSize)
-}
-
-func (tx *Tx) CalculateModifiedSize() uint32 {
-	// In order to avoid disincentivizing cleaning up the UTXO set we don't
-	// count the constant overhead for each txin and up to 110 bytes of
-	// scriptSig (which is enough to cover a compressed pubkey p2sh redemption)
-	// for priority. Providing any more cleanup incentive than making additional
-	// inputs free would risk encouraging people to create junk outputs to
-	// redeem later.
-	txSize := tx.EncodeSize()
-	/*for _, in := range tx.ins {
-
-		InscriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
-		offset := 41 + int(InScriptModifiedSize)
-		if txSize > offset {
-			txSize -= offset
-		}
-	}*/
-
-	return txSize
-}
-
 // IsFinal proceeds as follows
 // 1. tx.locktime > 0 and tx.locktime < Threshold, use height to check final (tx.locktime < current height)
 // 2. tx.locktime > Threshold, use time to check final (tx.locktime < current blocktime)
@@ -726,8 +654,6 @@ func NewGenesisCoinbaseTx() *Tx {
 	tx := NewTx(0, DefaultVersion)
 	scriptSigNum := script.NewScriptNum(4)
 	scriptSigString := "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
-	//scriptSigData := make([][]byte, 0)
-	//scriptSigData = append(scriptSigData, []byte(scriptSigString))
 
 	scriptPubKeyBytes, _ := hex.DecodeString("04678afdb0fe5548271967f1a67130b7105cd6a828e03909" +
 		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +

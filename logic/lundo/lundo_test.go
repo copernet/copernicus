@@ -54,7 +54,7 @@ func AddCoins(txs *tx.Tx, coinMap *utxo.CoinsMap, height int32) {
 	txid := txs.GetHash()
 	for idx, out := range txs.GetOuts() {
 		op := outpoint.NewOutPoint(txid, uint32(idx))
-		coin := utxo.NewCoin(out, height, isCoinbase)
+		coin := utxo.NewFreshCoin(out, height, isCoinbase)
 		coinMap.AddCoin(op, coin, false)
 	}
 }
@@ -136,7 +136,7 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		t.Error("get best block failed..")
 	}
 
-	// Now update hte UTXO set
+	// Now update the UTXO set
 	undos := undo.NewBlockUndo(1)
 	UpdateUTXOSet(blocks, undos, coinsMap, chainparam, 123456)
 
@@ -150,8 +150,8 @@ func TestConnectUtxoExtBlock(t *testing.T) {
 		return
 	}
 
-	if !HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
-		t.Error("this transaction should be not spendable")
+	if HasSpendableCoin(coinsMap, prevTx0.GetHash()) {
+		t.Error("already undo the block, so no coins should exists.")
 	}
 
 }

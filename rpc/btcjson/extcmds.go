@@ -52,9 +52,10 @@ type GenerateCmd struct {
 
 // NewGenerateCmd returns a new instance which can be used to issue a generate
 // JSON-RPC command.
-func NewGenerateCmd(numBlocks uint32) *GenerateCmd {
+func NewGenerateCmd(numBlocks uint32, maxTries *uint64) *GenerateCmd {
 	return &GenerateCmd{
 		NumBlocks: numBlocks,
+		MaxTries:  maxTries,
 	}
 }
 
@@ -76,6 +77,16 @@ type GenerateToAddressCmd struct {
 	NumBlocks uint32  `json:"nblocks"`
 	Address   string  `json:"address"`
 	MaxTries  *uint64 `json:"maxtries" jsonrpcdefault:"1000000"`
+}
+
+// NewGenerateToAddressCmd returns a new instance which can be used to issue a
+// generatetoaddress JSON-RPC command.
+func NewGenerateToAddressCmd(numBlocks uint32, address string, maxTries *uint64) *GenerateToAddressCmd {
+	return &GenerateToAddressCmd{
+		NumBlocks: numBlocks,
+		Address:   address,
+		MaxTries:  maxTries,
+	}
 }
 
 // GetBestBlockCmd defines the getbestblock JSON-RPC command.

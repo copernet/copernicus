@@ -17,18 +17,31 @@ type Opts struct {
 
 	UtxoHashStartHeigh int32 `long:"utxohashstartheight" default:"-1" description:"Which height begin logging out the utxos hash at"`
 	UtxoHashEndHeigh   int32 `long:"utxohashendheight" default:"-1" description:"Which height finish logging out the utxos hash at"`
+
+	Whitelists []string `long:"whitelist" description:"whitelist"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
 	opts := new(Opts)
-	_, err := flags.ParseArgs(opts, args)
-	if err != nil {
-		if flasgErr, ok := err.(*flags.Error); ok && flasgErr.Type == flags.ErrHelp {
-			os.Exit(0)
+
+	_, err := flags.NewParser(opts, flags.Default|flags.IgnoreUnknown).ParseArgs(args)
+	if err == nil {
+
+		if !opts.RegTest {
+			return strictParseArgs(err, args)
 		}
-		return nil, err
 	}
-	return opts, nil
+
+	return opts, err
+}
+
+func strictParseArgs(err error, args []string) (*Opts, error) {
+	opts := new(Opts)
+	_, err = flags.NewParser(opts, flags.Default).ParseArgs(args)
+	if flasgErr, ok := err.(*flags.Error); ok && flasgErr.Type == flags.ErrHelp {
+		os.Exit(0)
+	}
+	return opts, err
 }
 
 func (opts *Opts) String() string {

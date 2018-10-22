@@ -331,7 +331,7 @@ func DisconnectTip(fBare bool) error {
 		if err != nil {
 			panic("view flush error !!!")
 		}
-
+		utxo.GetUtxoCacheInstance().Flush()
 	}
 	// replace implement with log.Print(in C++).
 	log.Info("bench-debug - Disconnect block : %.2fms\n",
