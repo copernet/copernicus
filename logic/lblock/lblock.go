@@ -123,7 +123,10 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
 
-	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
+	nMaxBlockSigOps, errSig := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
+	if errSig != nil {
+		return errSig
+	}
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
 		log.Debug("ErrorBadBlkTx: %v", err)
