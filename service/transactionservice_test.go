@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/copernet/copernicus.bak/service"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model"
@@ -66,7 +65,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 		}
 
 		fNewBlock := false
-		if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+		if ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
 			return nil, errors.New("ProcessNewBlock, block not accepted")
 		}
 
