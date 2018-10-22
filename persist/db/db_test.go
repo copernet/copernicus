@@ -578,7 +578,7 @@ func TestDBWrapper_EstimateSize(t *testing.T) {
 	}
 
 	if err := dbw.WriteBatch(batch, true); err != nil {
-		t.Fatalf("batch write err:%d", err)
+		t.Fatalf("batch write err:%v", err)
 	}
 
 	num := dbw.EstimateSize([]byte{'0'}, []byte(s))
