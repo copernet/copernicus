@@ -172,7 +172,20 @@ func TestExistDataDir(t *testing.T) {
 	}
 }
 
-func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configuration {
+type defaultArgs struct {
+	dataDir             string
+	testNet             bool
+	regTestNet          bool
+	whiteList           []*net.IPNet
+	UtxoHashStartHeight int32
+	UtxoHashEndHeight   int32
+}
+
+func getDefaultConfiguration(args defaultArgs) *Configuration {
+	dataDir := args.dataDir
+	testNet := args.testNet
+	regTestNet := args.regTestNet
+	whiteList := args.whiteList
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
 
 	return &Configuration{
@@ -240,6 +253,7 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			NoOnion:        true,
 			TestNet:        testNet,
 			RegTest:        regTestNet,
+			Whitelists:     whiteList,
 		},
 		Protocol: struct {
 			NoPeerBloomFilters bool `default:"true"`
@@ -268,8 +282,8 @@ func getDefaultConfiguration(dataDir string, testNet, regTestNet bool) *Configur
 			UtxoHashEndHeight   int32 `default:"-1"`
 		}{
 			AssumeValid:         "",
-			UtxoHashStartHeight: -1,
-			UtxoHashEndHeight:   -1,
+			UtxoHashStartHeight: args.UtxoHashStartHeight,
+			UtxoHashEndHeight:   args.UtxoHashEndHeight,
 		},
 		Mining: struct {
 			BlockMinTxFee int64  // default DefaultBlockMinTxFee
@@ -310,14 +324,103 @@ func revert() {
 	os.Remove(confFile + "conf.yml.tmp")
 }
 
+func createNet(nets []string) []*net.IPNet {
+	netReuslt := make([]*net.IPNet, 0)
+	for _, addr := range nets {
+		_, ipnet, err := net.ParseCIDR(addr)
+		if err != nil {
+			ip := net.ParseIP(addr)
+			if ip == nil {
+				continue
+			}
+
+			var bits int
+			if ip.To4() == nil {
+				bits = 128
+			} else {
+				bits = 32
+			}
+
+			ipnet = &net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(bits, bits),
+			}
+		}
+
+		netReuslt = append(netReuslt, ipnet)
+	}
+
+	return netReuslt
+}
+
 func TestInitConfig2(t *testing.T) {
 	tests := []struct {
 		in   []string
 		want *Configuration
 	}{
-		{[]string{"--datadir=/tmp/Coper"}, getDefaultConfiguration("/tmp/Coper", false, false)},
-		{[]string{"--datadir=/tmp/Coper", "--testnet"}, getDefaultConfiguration("/tmp/Coper/testnet", true, false)},
-		{[]string{"--datadir=/tmp/Coper", "--regtest"}, getDefaultConfiguration("/tmp/Coper/regtest", false, true)},
+		{[]string{"--datadir=/tmp/Coper"},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper",
+				testNet:             false,
+				regTestNet:          false,
+				whiteList:           nil,
+				UtxoHashStartHeight: -1,
+				UtxoHashEndHeight:   -1,
+			})},
+		{[]string{"--datadir=/tmp/Coper", "--testnet"},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper/testnet",
+				testNet:             true,
+				regTestNet:          false,
+				whiteList:           nil,
+				UtxoHashStartHeight: -1,
+				UtxoHashEndHeight:   -1,
+			})},
+		{[]string{"--datadir=/tmp/Coper", "--regtest"},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper/regtest",
+				testNet:             false,
+				regTestNet:          true,
+				whiteList:           nil,
+				UtxoHashStartHeight: -1,
+				UtxoHashEndHeight:   -1,
+			})},
+		{[]string{"--datadir=/tmp/Coper", "--whitelist=127.0.0.1/24"},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper",
+				testNet:             false,
+				regTestNet:          false,
+				whiteList:           createNet([]string{"127.0.0.1/24"}),
+				UtxoHashStartHeight: -1,
+				UtxoHashEndHeight:   -1,
+			})},
+		{[]string{"--datadir=/tmp/Coper", "--whitelist="},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper",
+				testNet:             false,
+				regTestNet:          false,
+				whiteList:           createNet([]string{""}),
+				UtxoHashStartHeight: -1,
+				UtxoHashEndHeight:   -1,
+			})},
+		{[]string{"--datadir=/tmp/Coper", "--whitelist=127.0.0.1"},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper",
+				testNet:             false,
+				regTestNet:          false,
+				whiteList:           createNet([]string{"127.0.0.1"}),
+				UtxoHashStartHeight: -1,
+				UtxoHashEndHeight:   -1,
+			})},
+		{[]string{"--datadir=/tmp/Coper", "--utxohashstartheight=0", "--utxohashendheight=1"},
+			getDefaultConfiguration(defaultArgs{
+				dataDir:             "/tmp/Coper",
+				testNet:             false,
+				regTestNet:          false,
+				whiteList:           nil,
+				UtxoHashStartHeight: 0,
+				UtxoHashEndHeight:   1,
+			})},
 	}
 	createTmpFile()
 	defer os.RemoveAll("/tmp/Coper")
@@ -326,8 +429,7 @@ func TestInitConfig2(t *testing.T) {
 	for i, v := range tests {
 		value := v
 		result := InitConfig(value.in)
-		fmt.Println(*result)
-		fmt.Println(*value.want)
+
 		if !reflect.DeepEqual(result, value.want) {
 			t.Errorf(" %d it not expect", i)
 		}
