@@ -29,8 +29,8 @@ const (
 const (
 	tagName = "default"
 
-	defaultConfigFilename       = "conf.yml"
-	defaultDataDirname          = "coper"
+	defaultConfigFilename       = "bitcoincash.yml"
+	defaultDataDirname          = "bitcoincash"
 	defaultProjectDir           = "github.com/copernet/copernicus"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
@@ -211,7 +211,7 @@ func InitConfig(args []string) *Configuration {
 				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
 
 				if err != nil {
-					panic("from src/defaultProjectDir copy conf.yml failed.")
+					panic("from src/defaultProjectDir copy bitcoincash.yml failed.")
 				}
 			} else {
 				// second try
@@ -219,7 +219,7 @@ func InitConfig(args []string) *Configuration {
 				filePath = projectPath + "/conf/" + defaultConfigFilename
 				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
 				if err != nil {
-					panic(" from src/copernicus copy conf.yml failed.")
+					panic(" from src/copernicus copy bitcoincash.yml failed.")
 				}
 			}
 		}
@@ -262,7 +262,7 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
+	file := must(os.Open(DataDir + "/bitcoincash.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))

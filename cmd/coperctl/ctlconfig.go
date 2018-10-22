@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	coperHomeDir          = conf.AppDataDir("coper", false)
+	coperHomeDir          = conf.AppDataDir("bitcoincash", false)
 	coperctlHomeDir       = conf.AppDataDir("coperctl", false)
 	coperwalletHomeDir    = conf.AppDataDir("coperwallet", false)
 	defaultConfigFile     = filepath.Join(coperctlHomeDir, "coperctl.conf")
@@ -226,7 +226,7 @@ func loadConfig() (*config, []string, error) {
 		if preCfg.Wallet {
 			serverConfigPath = filepath.Join(coperwalletHomeDir, "coperwallet.conf")
 		} else {
-			serverConfigPath = filepath.Join(coperHomeDir, "conf.yml")
+			serverConfigPath = filepath.Join(coperHomeDir, "bitcoincash.yml")
 		}
 
 		err := createDefaultConfigFile(preCfg.ConfigFile, serverConfigPath)
@@ -290,8 +290,8 @@ func loadConfig() (*config, []string, error) {
 }
 
 // createDefaultConfig creates a basic config file at the given destination path.
-// For this it tries to read the config file for the RPC server (either coper or
-// coperwallet), and extract the RPC user and password from it.
+// For this it tries to read the config file for the RPC server (either bitcoincash or
+// bitcoincashwallet), and extract the RPC user and password from it.
 func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	// Read the RPC server config
 	serverConfigFile, err := os.Open(serverConfigPath)
