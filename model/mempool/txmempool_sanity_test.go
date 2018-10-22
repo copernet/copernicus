@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/btree"
 	"github.com/stretchr/testify/assert"
+	"reflect"
 )
 
 func TestMempoolRemove(t *testing.T) {
@@ -74,6 +75,17 @@ func TestMempoolRemove(t *testing.T) {
 
 	mp := NewTxMempool()
 	ps := mp.Size()
+	tmpTxEntry := make(map[util.Hash]*TxEntry)
+	if !reflect.DeepEqual(mp.GetAllTxEntry(), tmpTxEntry) {
+		t.Errorf("expect zero value got %v", mp.GetAllTxEntry())
+	}
+
+	if !reflect.DeepEqual(mp.GetAllTxEntryWithoutLock(), tmpTxEntry) {
+		t.Errorf("expect zero value got %v", mp.GetAllTxEntryWithoutLock())
+	}
+
+	assert.Equal(t, mp.GetPoolUsage(), int64(0))
+	assert.Equal(t, mp.GetPoolAllTxSize(), uint64(0))
 
 	mp.RemoveTxRecursive(txParent, UNKNOWN)
 	if mp.Size() != ps {
@@ -105,6 +117,13 @@ func TestMempoolRemove(t *testing.T) {
 		mp.AddTx(entry, ancestors)
 	}
 	ps = mp.Size()
+
+	txentry := mp.GetAllTxEntry()
+	noLockTxEntry := mp.GetAllTxEntryWithoutLock()
+	if len(txentry) != 7 || len(noLockTxEntry) != 7 {
+		t.Errorf("tx entry map expected 7 got %d", len(txentry))
+	}
+
 	mp.RemoveTxRecursive(txChild[0], UNKNOWN)
 	if mp.Size() != ps-2 {
 		t.Errorf("expect %d got %d", ps-2, mp.Size())
@@ -150,30 +169,42 @@ func TestMempoolRemove(t *testing.T) {
 	}
 }
 
-func TestMempoolClearTest(t *testing.T) {
-	// TODO
-	// scriptSig := script.NewEmptyScript()
-	// scriptSig.PushOpCode(opcodes.OP_11)
-	// scriptPubkey := script.NewEmptyScript()
-	// scriptPubkey.PushOpCode(opcodes.OP_11)
-	// scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+func TestMempoolOrphan(t *testing.T) {
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushOpCode(opcodes.OP_11)
+	scriptPubkey := script.NewEmptyScript()
+	scriptPubkey.PushOpCode(opcodes.OP_11)
+	scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
 
-	// txParent := tx.NewTx(0, 0)
-	// ti := txin.NewTxIn(
-	// 	outpoint.NewOutPoint(util.HashZero, 0),
-	// 	scriptSig,
-	// 	0,
-	// )
-	// txParent.AddTxIn(ti)
-	// for i := 0; i < 3; i++ {
-	// 	txParent.AddTxOut(txout.NewTxOut(
-	// 		amount.Amount(33000),
-	// 		scriptPubkey,
-	// 	))
-	// }
+	txParent := tx.NewTx(0, 0)
+	ti := txin.NewTxIn(
+		outpoint.NewOutPoint(util.HashZero, 0),
+		scriptSig,
+		0,
+	)
+	txParent.AddTxIn(ti)
+	for i := 0; i < 3; i++ {
+		txParent.AddTxOut(txout.NewTxOut(
+			amount.Amount(33000),
+			scriptPubkey,
+		))
+	}
 
-	// mp := NewTxMempool()
-	// mp.Clear
+	mp := NewTxMempool()
+	hash := txParent.GetHash()
+
+	for _, ok := range []bool{true, false} {
+		mp.AddOrphanTx(txParent, 0x01)
+		mp.EraseOrphanTx(hash, ok)
+	}
+
+	tmpOrphanTx := make(map[util.Hash]OrphanTx)
+	assert.Equal(t, mp.OrphanTransactions, tmpOrphanTx)
+
+	mp.AddOrphanTx(txParent, 0x01)
+	numEvicted := mp.RemoveOrphansByTag(0x01)
+	assert.Equal(t, numEvicted, 1)
+
 }
 
 func TestMempoolAncestorIndexing(t *testing.T) {
