@@ -111,7 +111,7 @@ func (tx *Tx) AddTxOut(txOut *txout.TxOut) {
 }
 
 func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
-	if index < 0 || index > len(tx.outs) {
+	if index < 0 || index >= len(tx.outs) {
 		log.Warn("GetTxOut index %d over large")
 		return nil
 	}
@@ -120,7 +120,7 @@ func (tx *Tx) GetTxOut(index int) (out *txout.TxOut) {
 }
 
 func (tx *Tx) GetTxIn(index int) (out *txin.TxIn) {
-	if index < 0 || index > len(tx.ins) {
+	if index < 0 || index >= len(tx.ins) {
 		log.Warn("GetTxOut index %d over large")
 		return nil
 	}
@@ -162,26 +162,6 @@ func (tx *Tx) GetOutsCount() int {
 }
 func (tx *Tx) GetInsCount() int {
 	return len(tx.ins)
-}
-
-func (tx *Tx) RemoveTxIn(txIn *txin.TxIn) {
-	ret := tx.ins[:0]
-	for _, e := range tx.ins {
-		if e != txIn {
-			ret = append(ret, e)
-		}
-	}
-	tx.ins = ret
-}
-
-func (tx *Tx) RemoveTxOut(txOut *txout.TxOut) {
-	ret := tx.outs[:0]
-	for _, e := range tx.outs {
-		if e != txOut {
-			ret = append(ret, e)
-		}
-	}
-	tx.outs = ret
 }
 
 func (tx *Tx) SerializeSize() uint32 {
@@ -607,34 +587,6 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 	}
 
 	return nil
-}
-
-func (tx *Tx) ComputePriority(priorityInputs float64, txSize int) float64 {
-	txModifiedSize := tx.CalculateModifiedSize()
-	if txModifiedSize == 0 {
-		return 0
-	}
-	return priorityInputs / float64(txModifiedSize)
-}
-
-func (tx *Tx) CalculateModifiedSize() uint32 {
-	// In order to avoid disincentivizing cleaning up the UTXO set we don't
-	// count the constant overhead for each txin and up to 110 bytes of
-	// scriptSig (which is enough to cover a compressed pubkey p2sh redemption)
-	// for priority. Providing any more cleanup incentive than making additional
-	// inputs free would risk encouraging people to create junk outputs to
-	// redeem later.
-	txSize := tx.EncodeSize()
-	/*for _, in := range tx.ins {
-
-		InscriptModifiedSize := math.Min(110, float64(len(in.Script.bytes)))
-		offset := 41 + int(InScriptModifiedSize)
-		if txSize > offset {
-			txSize -= offset
-		}
-	}*/
-
-	return txSize
 }
 
 // IsFinal proceeds as follows

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
+	"testing/quick"
 
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -441,9 +442,31 @@ func NewPrivateKey() crypto.PrivateKey {
 
 func Test_when_configured_not_BareMultiSigStd___tx_with_multisig_pubkey_should_be_non_standard(t *testing.T) {
 	givenNoDustRelayFeeLimits()
-	crypto.InitSecp256()
 	txn := mainNetTx(t)
+	txn.outs[0].SetScriptPubKey(createMultiSigScript())
+	txn.outs[1].SetScriptPubKey(createMultiSigScript())
 
+	isStandard, reason := txn.IsStandard()
+
+	assert.False(t, isStandard)
+	assert.Equal(t, "bare-multisig", reason)
+}
+
+func Test_when_configured_BareMultiSigStd___tx_with_multisig_pubkey_should_be_standard(t *testing.T) {
+	givenNoDustRelayFeeLimits()
+	givenBareMultiSigAsStandardScriptPubKey()
+
+	txn := mainNetTx(t)
+	txn.outs[0].SetScriptPubKey(createMultiSigScript())
+	txn.outs[1].SetScriptPubKey(createMultiSigScript())
+
+	isStandard, _ := txn.IsStandard()
+
+	assert.True(t, isStandard)
+}
+
+func createMultiSigScript() *script.Script {
+	crypto.InitSecp256()
 	key1 := NewPrivateKey()
 	key2 := NewPrivateKey()
 	multisig := script.NewEmptyScript()
@@ -452,14 +475,7 @@ func Test_when_configured_not_BareMultiSigStd___tx_with_multisig_pubkey_should_b
 	multisig.PushSingleData(key2.PubKey().ToBytes())
 	multisig.PushOpCode(opcodes.OP_2)
 	multisig.PushOpCode(opcodes.OP_CHECKMULTISIG)
-
-	txn.outs[0].SetScriptPubKey(multisig)
-	txn.outs[1].SetScriptPubKey(multisig)
-
-	isStandard, reason := txn.IsStandard()
-
-	assert.False(t, isStandard)
-	assert.Equal(t, "bare-multisig", reason)
+	return multisig
 }
 
 func Test_tx_with_any_dust_outs___should_be_non_standard(t *testing.T) {
@@ -490,6 +506,72 @@ func Test_tx_with_multiple_null_data_opreturn_outs___should_be_non_standard(t *t
 	assert.Equal(t, "multi-op-return", reason)
 }
 
+func Test_tx_with_lock_time_equal_to_zero___should_be_final_tx(t *testing.T) {
+	txn := &Tx{lockTime: 0}
+
+	assert.True(t, txn.IsFinal(0 /*unused*/, 0 /*unused*/))
+}
+
+func Test_tx_with_zero_locktime__and_any_ins_sequence___is_final_tx(t *testing.T) {
+	f := func(anySeq uint32, anyHeight int32, anyTime int64) bool {
+		txn := newTxWith(0, anySeq)
+		return txn.IsFinal(anyHeight, anyTime)
+	}
+
+	assert.NoError(t, quick.Check(f, nil))
+}
+
+func Test_tx_is_final___when_locktime_as_height_lock_less_than_tip_height(t *testing.T) {
+	f := func(anySeq uint32, anyTime int64) bool {
+		heightLock100 := uint32(100)
+
+		txn := newTxWith(heightLock100, anySeq)
+		return txn.IsFinal(101, anyTime)
+	}
+	assert.NoError(t, quick.Check(f, nil))
+}
+
+func Test_check_final_tx___when_locktime_as_time_lock__less_than_target_time(t *testing.T) {
+	f := func(anySeq uint32, anyHeight int32) bool {
+		timeLock := uint32(script.LockTimeThreshold + 1)
+
+		txn := newTxWith(timeLock, anySeq)
+		return txn.IsFinal(anyHeight, int64(script.LockTimeThreshold+2))
+	}
+	assert.NoError(t, quick.Check(f, nil))
+}
+
+func Test_tx_is_final___when_script_sequence_is_final__even_height_lock_is_still_locked(t *testing.T) {
+	f := func(anyTime int64) bool {
+		lockHeight100 := uint32(100)
+
+		txn := newTxWith(lockHeight100, script.SequenceFinal)
+		return txn.IsFinal(99, anyTime)
+	}
+	assert.NoError(t, quick.Check(f, nil))
+
+	f2 := func(anyTime int64) bool {
+		heightLock100 := uint32(100)
+		nonFinalSequence := uint32(0)
+
+		txn := newTxWith(heightLock100, nonFinalSequence)
+		return !txn.IsFinal(99, anyTime)
+	}
+	assert.NoError(t, quick.Check(f2, nil))
+}
+
+func newTxWith(lockTime uint32, sequence uint32) *Tx {
+	txn := &Tx{
+		lockTime: lockTime,
+		ins: []*txin.TxIn{
+			{
+				Sequence: sequence,
+			},
+		},
+	}
+	return txn
+}
+
 func nullDataOpReturnScriptPubKey() *script.Script {
 	nullDataOpReturn := opcodes.NewParsedOpCode(opcodes.OP_RETURN, 1, nil)
 	nullDataOpReturnScript := script.NewScriptOps([]opcodes.ParsedOpCode{*nullDataOpReturn})
@@ -508,6 +590,13 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 		conf.Cfg = &conf.Configuration{}
 	}
 	conf.Cfg.TxOut.DustRelayFee = minRelayFee
+}
+
+func givenBareMultiSigAsStandardScriptPubKey() {
+	if conf.Cfg == nil {
+		conf.Cfg = &conf.Configuration{}
+	}
+	conf.Cfg.Script.IsBareMultiSigStd = true
 }
 
 func givenAcceptDataCarrier() {
@@ -599,13 +688,26 @@ func mainNetTx(t *testing.T) *Tx {
 				0x31, 0x8f, 0xe8, 0x20, 0x27, 0xfd, 0x4d, 0xc4,
 				0x51, 0xb0, 0x44, 0x74, 0x01, 0x9f, 0x74, 0xb4,
 			}, 0),
-				script.NewScriptRaw([]byte{0x49, 0x30, 0x46, 0x02, 0x21, 0x00,
+				script.NewScriptRaw([]byte{
+					0x49, //pushdata opcode 73bytes
+					0x30, //signature header
+					0x46, //sig length
+					0x02, //integer
+					0x21, //R length 33bytes
+					0x00,
 					0xda, 0x0d, 0xc6, 0xae, 0xce, 0xfe, 0x1e, 0x06, 0xef, 0xdf, 0x05, 0x77,
 					0x37, 0x57, 0xde, 0xb1, 0x68, 0x82, 0x09, 0x30, 0xe3, 0xb0, 0xd0, 0x3f,
-					0x46, 0xf5, 0xfc, 0xf1, 0x50, 0xbf, 0x99, 0x0c, 0x02, 0x21, 0x00, 0xd2,
+					0x46, 0xf5, 0xfc, 0xf1, 0x50, 0xbf, 0x99, 0x0c,
+					0x02, //integer
+					0x21, //S Length 33bytes
+					0x00, 0xd2,
 					0x5b, 0x5c, 0x87, 0x04, 0x00, 0x76, 0xe4, 0xf2, 0x53, 0xf8, 0x26, 0x2e,
 					0x76, 0x3e, 0x2d, 0xd5, 0x1e, 0x7f, 0xf0, 0xbe, 0x15, 0x77, 0x27, 0xc4,
-					0xbc, 0x42, 0x80, 0x7f, 0x17, 0xbd, 0x39, 0x01, 0x41, 0x04, 0xe6, 0xc2,
+					0xbc, 0x42, 0x80, 0x7f, 0x17, 0xbd, 0x39,
+					0x01, //sighash code
+					0x41, //pushdata opcode 65
+					0x04, //prefix, uncompressed public keys are 64bytes ples a prefix of 04
+					0xe6, 0xc2,
 					0x6e, 0xf6, 0x7d, 0xc6, 0x10, 0xd2, 0xcd, 0x19, 0x24, 0x84, 0x78, 0x9a,
 					0x6c, 0xf9, 0xae, 0xa9, 0x93, 0x0b, 0x94, 0x4b, 0x7e, 0x2d, 0xb5, 0x34,
 					0x2b, 0x9d, 0x9e, 0x5b, 0x9f, 0xf7, 0x9a, 0xff, 0x9a, 0x2e, 0xe1, 0x97,
@@ -645,4 +747,33 @@ func mainNetTx(t *testing.T) *Tx {
 	assert.Equal(t, txBytes, buf.Bytes())
 
 	return txn
+}
+
+func Test_basic_tx_methods(t *testing.T) {
+	txn := mainNetTx(t)
+
+	assert.Nil(t, txn.GetTxIn(-1))
+	assert.Nil(t, txn.GetTxIn(txn.GetInsCount()))
+	assert.Nil(t, txn.GetTxOut(-1))
+	assert.Nil(t, txn.GetTxOut(txn.GetOutsCount()))
+
+	prevouts := txn.GetAllPreviousOut()
+	hashes := txn.PrevoutHashs()
+	assert.Equal(t, len(txn.GetIns()), len(prevouts))
+	assert.Equal(t, len(txn.GetIns()), len(hashes))
+
+	txHashes := make(map[util.Hash]struct{})
+	assert.False(t, txn.AnyInputTxIn(&txHashes))
+
+	txHashes[txn.ins[0].PreviousOutPoint.Hash] = struct{}{}
+	assert.True(t, txn.AnyInputTxIn(&txHashes))
+
+	outValue := txn.GetValueOut()
+	expectOutValue := amount.Amount(0)
+	for _, out := range txn.GetOuts() {
+		expectOutValue += out.GetValue()
+	}
+	assert.Equal(t, expectOutValue, outValue)
+
+	assert.Equal(t, txn.EncodeSize(), txn.SerializeSize())
 }
