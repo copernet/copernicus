@@ -442,30 +442,6 @@ func (tx *Tx) IsStandard() (bool, string) {
 	return true, ""
 }
 
-func (tx *Tx) IsCommitment(data []byte) bool {
-	for _, e := range tx.outs {
-		if e.IsCommitment(data) {
-			return true
-		}
-	}
-	return false
-}
-
-//func (tx *Tx) returnScriptBuffers() {
-//	for _, txIn := range tx.ins {
-//		if txIn == nil || txIn.scriptSig == nil {
-//			continue
-//		}
-//		scriptPool.Return(txIn.scriptSig.bytes)
-//	}
-//	for _, txOut := range tx.outs {
-//		if txOut == nil || txOut.scriptPubKey == nil {
-//			continue
-//		}
-//		scriptPool.Return(txOut.scriptPubKey.bytes)
-//	}
-//}
-
 func (tx *Tx) GetValueOut() amount.Amount {
 	var valueOut amount.Amount
 	for _, out := range tx.outs {

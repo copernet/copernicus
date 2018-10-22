@@ -180,10 +180,10 @@ func Test_should_able_to_decode_bch_testnet_tx(t *testing.T) {
 
 func Test_should_able_to_decode_bch_mainnet_tx(t *testing.T) {
 	txn := mainNetTx(t)
-	assert.Equal(t, int32(1), txn.version)
-	assert.Equal(t, 1, len(txn.ins))
-	assert.Equal(t, 2, len(txn.outs))
-	assert.Equal(t, uint32(0), txn.lockTime)
+	assert.Equal(t, int32(1), txn.GetVersion())
+	assert.Equal(t, 1, len(txn.GetIns()))
+	assert.Equal(t, 2, len(txn.GetOuts()))
+	assert.Equal(t, uint32(0), txn.GetLockTime())
 
 	assert.NoError(t, txn.CheckRegularTransaction())
 }

@@ -58,7 +58,7 @@ func TestTxentry(t *testing.T) {
 
 	fee := txentry.GetFeeRate()
 	amounts := txentry.TxFee * 1000 / int64(txentry.TxSize)
-	assert.Equal(t, fee, &util.FeeRate{amounts})
+	assert.Equal(t, fee, &util.FeeRate{SataoshisPerK: amounts})
 
 	txmeminfo := txentry.GetInfo()
 	assert.Equal(t, txmeminfo.Tx, txentry.Tx)

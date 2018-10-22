@@ -128,10 +128,6 @@ func (txOut *TxOut) SetScriptPubKey(s *script.Script) {
 	txOut.scriptPubKey = s
 }
 
-func (txOut *TxOut) IsCommitment(data []byte) bool {
-	return txOut.scriptPubKey.IsCommitment(data)
-}
-
 // IsSpendable returns whether the TxOut can be spent or not,
 // but doesn't care whether it has already been spent or not
 
