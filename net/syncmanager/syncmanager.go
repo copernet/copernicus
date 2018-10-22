@@ -205,7 +205,7 @@ type SyncManager struct {
 	requestBlkInvCnt int
 
 	// An optional fee estimator.
-	feeEstimator *mempool.FeeEstimator
+	//feeEstimator *mempool.FeeEstimator
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -1287,31 +1287,31 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		}
 
 		// Register block with the fee estimator, if it exists.
-		if sm.feeEstimator != nil {
-			err := sm.feeEstimator.RegisterBlock(block)
-
-			// If an error is somehow generated then the fee estimator
-			// has entered an invalid state. Since it doesn't know how
-			// to recover, create a new one.
-			if err != nil {
-				sm.feeEstimator = mempool.NewFeeEstimator(
-					mempool.DefaultEstimateFeeMaxRollback,
-					mempool.DefaultEstimateFeeMinRegisteredBlocks)
-			}
-		}
+		//if sm.feeEstimator != nil {
+		//	err := sm.feeEstimator.RegisterBlock(block)
+		//
+		//	// If an error is somehow generated then the fee estimator
+		//	// has entered an invalid state. Since it doesn't know how
+		//	// to recover, create a new one.
+		//	if err != nil {
+		//		sm.feeEstimator = mempool.NewFeeEstimator(
+		//			mempool.DefaultEstimateFeeMaxRollback,
+		//			mempool.DefaultEstimateFeeMinRegisteredBlocks)
+		//	}
+		//}
 
 		// A block has been disconnected from the main block chain.
 	case chain.NTBlockDisconnected:
-		block, ok := notification.Data.(*block.Block)
+		_, ok := notification.Data.(*block.Block)
 		if !ok {
 			log.Warn("Chain disconnected notification is not a block.")
 			break
 		}
 
 		// Rollback previous block recorded by the fee estimator.
-		if sm.feeEstimator != nil {
-			sm.feeEstimator.Rollback(&block.Header.Hash)
-		}
+		//if sm.feeEstimator != nil {
+		//	sm.feeEstimator.Rollback(&block.Header.Hash)
+		//}
 	}
 }
 
