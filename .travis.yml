@@ -9,8 +9,8 @@ before_install:
   - docker build -t copernet/copernicus .
   - docker run -it -d --name copernicus -e TRAVIS_JOB_ID="$TRAVIS_JOB_ID" -e TRAVIS_BRANCH="$TRAVIS_BRANCH" copernet/copernicus
 script:
-  - docker exec copernicus ls /go/src/github.com/copernet/copernicus
-  - docker exec copernicus /go/src/github.com/copernet/copernicus/ci.sh $COVERALLS_TOKEN
+  - docker exec copernicus /go/src/github.com/copernet/copernicus/check.sh
+  - docker exec copernicus goveralls -coverprofile=/go/src/github.com/coperrnet/copernicus/coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
   - docker exec copernicus pipenv run python /walle/example_test.py
 
 notifications:

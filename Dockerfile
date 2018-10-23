@@ -30,5 +30,7 @@ RUN mkdir .venv
 RUN pipenv --python 3.7
 RUN pipenv install
 
+WORKDIR /
+
 
 
