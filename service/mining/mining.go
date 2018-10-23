@@ -516,7 +516,7 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	defer persist.CsMain.Unlock()
 
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
-		log.Error("TestBlockValidity(): error")
+		log.Error("TestBlockValidity(): indexPrev:%  chain tip:%v", indexPrev, chain.GetInstance().Tip())
 		return false
 	}
 
