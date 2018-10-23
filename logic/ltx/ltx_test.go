@@ -10,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
@@ -1291,22 +1292,16 @@ func generateTestBlocks(t *testing.T) []*block.Block {
 	return blocks
 }
 
-func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
-	cleanup, err := initTestEnv()
-	assert.NoError(t, err)
-	defer cleanup()
-	givenDustRelayFeeLimits(0)
-
-	blocks := generateTestBlocks(t)
-	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-
-	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
-	assert.NoError(t, err)
-}
-
 func makeNormalTx(prevout util.Hash) *tx.Tx {
 	outpoint := outpoint.NewOutPoint(prevout, 0)
 	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), 0xffffffff)
+	txn := newTestTx(txin, 0, 0)
+	return txn
+}
+
+func makeUniqueNormalTx(prevout util.Hash, variant uint32) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), variant)
 	txn := newTestTx(txin, 0, 0)
 	return txn
 }
@@ -1330,4 +1325,50 @@ func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 
 	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
 	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
+}
+
+func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
+	cleanup, err := initTestEnv()
+	assert.NoError(t, err)
+	defer cleanup()
+	givenDustRelayFeeLimits(0)
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.NoError(t, err)
+}
+
+func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup, err := initTestEnv()
+	assert.NoError(t, err)
+	defer cleanup()
+	givenDustRelayFeeLimits(0)
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	err = lmempool.AcceptTxToMemPool(txn)
+	assert.NoError(t, err)
+
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.Equal(t, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool"), err)
+}
+
+func Test_tx_with_already_spent_prev_outpoint_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup, err := initTestEnv()
+	assert.NoError(t, err)
+	defer cleanup()
+	givenDustRelayFeeLimits(0)
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	fmt.Println(txn.GetHash())
+	err = lmempool.AcceptTxToMemPool(txn)
+	assert.NoError(t, err)
+
+	newTx := makeUniqueNormalTx(blocks[0].Txs[0].GetHash(), 1)
+	fmt.Println(newTx.GetHash())
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(newTx)
+	assert.Equal(t, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict"), err)
 }
