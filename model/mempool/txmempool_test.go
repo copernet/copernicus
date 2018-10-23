@@ -354,3 +354,25 @@ func TestTxMempool_PoolData(t *testing.T) {
 	tmpRes3[set[1]] = struct{}{}
 	assert.Equal(t, res3, tmpRes3)
 }
+
+func TestTxMempool_RootTx(t *testing.T) {
+	set := createTx()
+
+	hash1 := set[0].Tx.GetHash()
+	mp := NewTxMempool()
+	mp.rootTx[hash1] = set[0]
+	rootTx := mp.GetRootTx()
+	assert.Equal(t, rootTx[hash1], *mp.rootTx[hash1])
+
+	outpoint1 := outpoint.NewOutPoint(hash1, 0x01)
+	mp.nextTx[*outpoint1] = set[0]
+	res := mp.GetAllSpentOutWithoutLock()
+	assert.Equal(t, res, mp.nextTx)
+
+	ok := mp.HasSpentOut(outpoint1)
+	assert.Equal(t, ok, true)
+
+	txentry := mp.HasSPentOutWithoutLock(outpoint1)
+	wantTxEntry := mp.nextTx[*outpoint1]
+	assert.Equal(t, txentry, wantTxEntry)
+}
