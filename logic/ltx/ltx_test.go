@@ -6,24 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/copernet/copernicus/errcode"
-	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblockindex"
-	"github.com/copernet/copernicus/logic/lchain"
-	"github.com/copernet/copernicus/logic/lmempool"
-	"github.com/copernet/copernicus/logic/lmerkleroot"
-	"github.com/copernet/copernicus/logic/ltx"
-	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/block"
-	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/mempool"
-	"github.com/copernet/copernicus/model/pow"
-	"github.com/copernet/copernicus/persist"
-	"github.com/copernet/copernicus/persist/blkdb"
-	"github.com/copernet/copernicus/rpc/btcjson"
-	"github.com/copernet/copernicus/service"
-	"github.com/copernet/copernicus/service/mining"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -35,17 +17,35 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/lscript"
+	"github.com/copernet/copernicus/logic/ltx"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/service"
+	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/stretchr/testify/assert"
 )
 
 var opMap map[string]byte
@@ -578,15 +578,16 @@ type Var struct {
 	pubKeys       []crypto.PublicKey
 	prevHolder    tx.Tx
 	spender       tx.Tx
-	keyMap        map[string]*crypto.PrivateKey
-	redeemScripts map[string]string
+	keyMap        []*crypto.PrivateKey
+	redeemScripts map[outpoint.OutPoint]*script.Script
+	coins         *utxo.CoinsMap
 }
 
 // Initial the test variable
 func initVar() *Var {
 	var v Var
-	v.keyMap = make(map[string]*crypto.PrivateKey)
-	v.redeemScripts = make(map[string]string)
+	v.keyMap = make([]*crypto.PrivateKey, 0)
+	v.redeemScripts = make(map[outpoint.OutPoint]*script.Script)
 
 	for i := 0; i < 3; i++ {
 		privateKey := NewPrivateKey()
@@ -595,8 +596,7 @@ func initVar() *Var {
 		pubKey := *privateKey.PubKey()
 		v.pubKeys = append(v.pubKeys, pubKey)
 
-		pubKeyHash := string(util.Hash160(pubKey.ToBytes()))
-		v.keyMap[pubKeyHash] = &privateKey
+		v.keyMap = append(v.keyMap, &privateKey)
 	}
 
 	return &v
@@ -608,6 +608,12 @@ func checkError(err error, t *testing.T) {
 	}
 }
 
+func checkErrors(errs []*ltx.SignError, t *testing.T) {
+	for index, err := range errs {
+		t.Errorf("error[%d]:%s", index, err.ErrMsg)
+	}
+}
+
 func check(v *Var, lockingScript *script.Script, t *testing.T) {
 
 	empty := script.NewEmptyScript()
@@ -615,8 +621,10 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
-	err := ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
-	checkError(err, t)
+	txns := make([]*tx.Tx, 0, 1)
+	txns = append(txns, &v.spender)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	checkErrors(errs, t)
 	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
 	combineSig, err := ltx.CombineSignature(
@@ -649,8 +657,8 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	}
 
 	// Signing again will give a different, valid signature:
-	err = ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
-	checkError(err, t)
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	checkErrors(errs, t)
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 	fmt.Println(hex.EncodeToString(scriptSig.GetData()))
 	combineSig, err = ltx.CombineSignature(
@@ -709,7 +717,7 @@ func TestCombineSignature(t *testing.T) {
 		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
 		true,
 	)
-	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
+	v.coins = coinsMap
 
 	// Some variable used in all function
 	empty := script.NewEmptyScript()
@@ -742,7 +750,8 @@ func TestCombineSignature(t *testing.T) {
 	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
 
 	pubKeyHash160 := util.Hash160(pubKey.GetData())
-	v.redeemScripts[string(pubKeyHash160)] = string(pubKey.GetData())
+	prevOut := outpoint.NewOutPoint(v.prevHolder.GetHash(), 0)
+	v.redeemScripts[*prevOut] = pubKey
 
 	P2SHLockingScript := script.NewEmptyScript()
 	P2SHLockingScript.PushOpCode(opcodes.OP_HASH160)
@@ -757,14 +766,15 @@ func TestCombineSignature(t *testing.T) {
 		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
 		true,
 	)
-	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
-
+	v.coins = coinsMap
 	v.spender.GetIns()[0].SetScriptSig(empty)
 	check(v, P2SHLockingScript, t)
 
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
-	err = ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
-	checkError(err, t)
+	txns := make([]*tx.Tx, 0, 1)
+	txns = append(txns, &v.spender)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	checkErrors(errs, t)
 	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
 	// dummy scriptSigCopy with placeHolder, should always choose
@@ -825,12 +835,11 @@ func TestCombineSignature(t *testing.T) {
 		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
 		true,
 	)
-	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &util.Hash{})
-
+	v.coins = coinsMap
 	v.spender.GetIns()[0].SetScriptSig(empty)
 
-	err = ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
-	checkError(err, t)
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	checkErrors(errs, t)
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 
 	combineSig, err = ltx.CombineSignature(

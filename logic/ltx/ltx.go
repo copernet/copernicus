@@ -2,25 +2,25 @@ package ltx
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
-	"github.com/copernet/copernicus/logic/lscript"
-	"github.com/copernet/copernicus/model/tx"
-	"github.com/copernet/copernicus/model/utxo"
-
 	"strconv"
 
-	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lscript"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/undo"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/pkg/errors"
@@ -42,6 +42,11 @@ type ScriptVerifyResult struct {
 	ScriptPubKey *script.Script
 	InputNum     int
 	Err          error
+}
+
+type SignError struct {
+	TxIn   *txin.TxIn
+	ErrMsg string
 }
 
 func verifyResult(j ScriptVerifyJob, err error) ScriptVerifyResult {
@@ -860,67 +865,85 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 	return nil
 }
 
-// SignRawTransaction txs, preouts, private key, hash type
-func SignRawTransaction(transaction *tx.Tx, redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
-	hashType uint32) (err error) {
-	coinMap := utxo.NewEmptyCoinsMap()
-	ins := transaction.GetIns()
-	for i, in := range ins {
-		coin := coinMap.FetchCoin(in.PreviousOutPoint)
-		if coin == nil || coin.IsSpent() {
-			log.Debug("TxErrNoPreviousOut")
-			return errcode.New(errcode.TxErrNoPreviousOut)
+func isCoinValid(coin *utxo.Coin, out *outpoint.OutPoint) bool {
+	if coin == nil {
+		return false
+	}
+	if coin.IsMempoolCoin() {
+		return !mempool.GetInstance().HasSpentOut(out)
+	}
+	return !coin.IsSpent()
+}
+
+func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoint]*script.Script,
+	keys []*crypto.PrivateKey, coinsMap *utxo.CoinsMap, hashType uint32) []*SignError {
+
+	var err error
+	signErrors := make([]*SignError, 0)
+
+	mergedTx := transactions[0]
+	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
+
+	for index, in := range mergedTx.GetIns() {
+		coin := coinsMap.GetCoin(in.PreviousOutPoint)
+		if !isCoinValid(coin, in.PreviousOutPoint) {
+			signErrors = append(signErrors, &SignError{
+				TxIn:   in,
+				ErrMsg: "Input not found or already spent",
+			})
+			continue
 		}
-		prevPubKey := coin.GetScriptPubKey()
-		var scriptSig *script.Script
-		var sigData [][]byte
-		var scriptType int
-		if hashType&(^(uint32(crypto.SigHashAnyoneCanpay)|crypto.SigHashForkID)) != crypto.SigHashSingle ||
-			i < transaction.GetOutsCount() {
-			sigData, scriptType, err = transaction.SignStep(redeemScripts, keys, hashType, prevPubKey,
-				i, coin.GetAmount())
+
+		scriptSig := script.NewEmptyScript()
+		scriptPubKey := coin.GetScriptPubKey()
+		value := coin.GetAmount()
+
+		// Only sign SIGHASH_SINGLE if there's a corresponding output
+		if !hashSingle || index < mergedTx.GetOutsCount() {
+			redeemScript := redeemScripts[*in.PreviousOutPoint]
+			// Sign what we can
+			sigData, err := mergedTx.SignStep(index, keys, redeemScript, hashType, scriptPubKey, value)
 			if err != nil {
-				return err
-			}
-			// get signatures and redeemscript
-			if scriptType == script.ScriptHash {
-				redeemScriptPubKey := script.NewScriptRaw(sigData[0])
-				var redeemScriptType int
-				sigData, redeemScriptType, err = transaction.SignStep(redeemScripts, keys, hashType,
-					redeemScriptPubKey, i, coin.GetAmount())
+				log.Info("SignStep error:%s", err.Error())
+			} else {
+				scriptSig.PushMultData(sigData)
+				err = lscript.VerifyScript(mergedTx, scriptSig, scriptPubKey, index, value,
+					uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 				if err != nil {
-					return err
+					scriptSig = script.NewEmptyScript()
+					log.Info("VerifyScript error:%s", err.Error())
 				}
-				if redeemScriptType == script.ScriptHash {
-					log.Debug("TxErrSignRawTransaction")
-					return errcode.New(errcode.TxErrSignRawTransaction)
-				}
-				sigData = append(sigData, redeemScriptPubKey.GetData())
 			}
 		}
-		scriptSig = script.NewEmptyScript()
-		scriptSig.PushMultData(sigData)
-		err = lscript.VerifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(),
+
+		// ... and merge in other signatures
+		for _, transaction := range transactions {
+			if len(transaction.GetIns()) > index {
+				scriptSig, err = CombineSignature(transaction, scriptPubKey, scriptSig,
+					transaction.GetIns()[index].GetScriptSig(), index, value,
+					uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
+				if err != nil {
+					log.Info("CombineSignature error:%s", err.Error())
+				}
+			}
+		}
+
+		err = mergedTx.UpdateInScript(index, scriptSig)
+		if err != nil {
+			log.Info("UpdateInScript error:%s", err.Error())
+		}
+
+		err = lscript.VerifyScript(mergedTx, scriptSig, scriptPubKey, index, value,
 			uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
 		if err != nil {
-			return err
-		}
-		scriptSig, err = CombineSignature(transaction, prevPubKey, scriptSig, transaction.GetIns()[i].GetScriptSig(),
-			i, coin.GetAmount(), uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-		if err != nil {
-			return err
-		}
-		err = transaction.UpdateInScript(i, scriptSig)
-		if err != nil {
-			return err
-		}
-		err = lscript.VerifyScript(transaction, scriptSig, prevPubKey, i, coin.GetAmount(),
-			uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-		if err != nil {
-			return err
+			signErrors = append(signErrors, &SignError{
+				TxIn:   in,
+				ErrMsg: err.Error(),
+			})
+			continue
 		}
 	}
-	return
+	return signErrors
 }
 
 func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *script.Script,
