@@ -12,6 +12,7 @@ RUN cd /usr/src
 RUN wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tgz
 RUN tar xzf Python-3.7.0.tgz
 RUN cd ./Python-3.7.0
+RUN ls
 RUN ./configure --enable-optimizations
 RUN make altinstall
 
