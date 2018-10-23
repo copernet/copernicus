@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/copernet/copernicus/model/consensus"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -1328,8 +1329,7 @@ func makeNotFinalTx(prevout util.Hash) *tx.Tx {
 }
 
 func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
@@ -1338,9 +1338,30 @@ func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
 }
 
+func txWithInvalidOutputValue(prevout util.Hash) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), uint32(0))
+
+	txn := newTestTx(txin, 0, 1)
+
+	txout := txout.NewTxOut(amount.Amount(util.MaxMoney), script.NewScriptRaw([]byte{}))
+	txn.AddTxOut(txout)
+
+	return txn
+}
+
+func Test_tx_with_total_too_large_output_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	blocks := generateTestBlocks(t)
+	txn := txWithInvalidOutputValue(blocks[0].Txs[0].GetHash())
+
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-txouttotal-toolarge"), err)
+}
+
 func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1350,8 +1371,7 @@ func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1363,8 +1383,7 @@ func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_tx_with_already_spent_prev_outpoint_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1388,8 +1407,7 @@ func given_coins_of_tx_already_exists(txn *tx.Tx, t *testing.T) {
 }
 
 func Test_tx_with_existing_output_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 	blocks := generateTestBlocks(t)
 
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1401,8 +1419,7 @@ func Test_tx_with_existing_output_should_NOT_be_accepted_into_mempool(t *testing
 }
 
 func Test_tx_without_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 	generateTestBlocks(t)
 
 	inputNotExisting := util.HashOne
@@ -1424,8 +1441,7 @@ func makeNonBIP68FinalTx(prevout util.Hash) *tx.Tx {
 }
 
 func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNonBIP68FinalTx(blocks[0].Txs[0].GetHash())
@@ -1435,8 +1451,8 @@ func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_tx_with_non_standard_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
+
 	model.ActiveNetParams.RequireStandard = true
 
 	blocks := generateTestBlocks(t)
@@ -1455,10 +1471,10 @@ func makeDummyScript(size int) *script.Script {
 	return script.NewScriptOps(ops)
 }
 
-func txWithTooManyScriptOps(prevout util.Hash) *tx.Tx {
-	outpoint := outpoint.NewOutPoint(prevout, 0)
+func txWithTooManyScriptOps(prevout util.Hash, variant uint) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, uint32(variant))
 
-	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + 1))
+	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + variant))
 	txin := txin.NewTxIn(outpoint, hugeScript, script.SequenceFinal)
 
 	txn := newTestTx(txin, 0, 1)
@@ -1466,12 +1482,111 @@ func txWithTooManyScriptOps(prevout util.Hash) *tx.Tx {
 }
 
 func Test_tx_with_too_many_script_ops_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
-	txn := txWithTooManyScriptOps(blocks[0].Txs[0].GetHash())
+	txn := txWithTooManyScriptOps(blocks[0].Txs[0].GetHash(), 0)
 	err := lmempool.AcceptTxToMemPool(txn)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops"), err)
+}
+
+func Test_tx_with_too_low_fee_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	lmempool.AcceptTxToMemPool(txn)
+
+	txns := make([]*tx.Tx, 0)
+	txns = append(txns, txn)
+	lmempool.RemoveTxSelf(txns)
+
+	//err = lmempool.AcceptTxToMemPool(txn)
+
+	//code, _, isRejectCode := errcode.IsRejectCode(err)
+	//assert.True(t, isRejectCode)
+	//assert.Equal(t, errcode.RejectInsufficientFee, code)
+	//TODO: after fix mempool always rollingMinimumFeeRate==0
+}
+
+func Test_tx_spend_premature_coinbase_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[len(blocks)-1].Txs[0].GetHash())
+
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase"), err)
+}
+
+//test block txns: ltx.CheckBlockTransactions
+func Test_block_txns__should_contains_one_coinbase_tx(t *testing.T) {
+	txn := mainNetTx(1)
+	txns := []*tx.Tx{txn}
+
+	err := ltx.CheckBlockTransactions(txns, 0)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-missing"), err)
+}
+
+func newCoinbaseTx() *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	outpoint := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+	scriptsig := makeDummyScript(20)
+	txin := txin.NewTxIn(outpoint, scriptsig, script.SequenceFinal)
+
+	txout := txout.NewTxOut(0, script.NewEmptyScript())
+	txn.AddTxIn(txin)
+	txn.AddTxOut(txout)
+	return txn
+}
+
+func Test_block_txns__should_at_least_contains_one_txn(t *testing.T) {
+	txns := []*tx.Tx{}
+
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-missing"), err)
+}
+
+func Test_block_txns__should_contains_one_coinbase_tx__happy_case(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txns := []*tx.Tx{coinbaseTx}
+
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.NoError(t, err)
+}
+
+func Test_block_txns__should_only_has_one_coinbase_tx(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txns := []*tx.Tx{coinbaseTx, coinbaseTx}
+
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase"), err)
+}
+
+func Test_each_block_txn__should_not_contains_too_much_script_ops(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
+	txn2 := txWithTooManyScriptOps(util.HashOne, 2)
+	txn3 := txWithTooManyScriptOps(util.HashOne, 3)
+	txn4 := txWithTooManyScriptOps(util.HashOne, 4)
+	txn5 := txWithTooManyScriptOps(util.HashOne, 5)
+
+	txns := []*tx.Tx{coinbaseTx, txn1, txn2, txn3, txn4, txn5}
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops"), err)
+}
+
+func Test_each_block_txn__should_not_contains_duplicate_prev_outpoints(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
+	txns := []*tx.Tx{coinbaseTx, txn1, txn1}
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate"), err)
 }
