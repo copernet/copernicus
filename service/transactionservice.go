@@ -26,8 +26,9 @@ func ProcessTransaction(txn *tx.Tx, recentRejects *map[util.Hash]struct{}, nodeI
 	err := lmempool.AcceptTxToMemPool(txn)
 
 	if err == nil {
+
 		lmempool.CheckMempool()
-		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn)
+		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn, chain.GetInstance().Height(), true)
 
 		acceptedTxs := append([]*tx.Tx{txn}, acceptedOrphans...)
 		return acceptedTxs, nil, rejectTxs, nil

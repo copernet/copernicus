@@ -166,11 +166,39 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	pool.RemoveStaged(allRemoves, false, mempool.REORG)
 }
 
+func updateCoins(coinsMap *utxo.CoinsMap, trax *tx.Tx) {
+	isCoinBase := trax.IsCoinBase()
+	if !isCoinBase {
+		for _, preout := range trax.GetAllPreviousOut() {
+			if coinsMap.SpendCoin(&preout) == nil {
+				panic(fmt.Sprintf("no spentable coin for prevout(%v)", preout))
+			}
+		}
+	}
+	for i := 0; i < trax.GetOutsCount(); i++ {
+		a := outpoint.OutPoint{Hash: trax.GetHash(), Index: uint32(i)}
+		coinsMap.AddCoin(&a, utxo.NewCoin(trax.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
+	}
+}
+
+func haveInputs(coinsMap *utxo.CoinsMap, trax *tx.Tx) bool {
+	if trax.IsCoinBase() {
+		return true
+	}
+	for _, preout := range trax.GetAllPreviousOut() {
+		if coinsMap.FetchCoin(&preout) == nil {
+			return false
+		}
+	}
+	return true
+}
+
 // CheckMempool check If sanity-checking is turned on, check makes sure the pool is consistent
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
-func CheckMempool() {
+func CheckMempool(bestHeight int32) {
+	spentHeight := bestHeight + 1
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()

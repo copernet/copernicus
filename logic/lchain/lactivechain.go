@@ -174,7 +174,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 		currentTip := gChain.Tip()
 		lmempool.RemoveForReorg(currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
 	}
-	lmempool.CheckMempool()
+	lmempool.CheckMempool(chain.GetInstance().Height())
 	return nil
 }
 
