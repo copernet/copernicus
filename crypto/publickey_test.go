@@ -246,7 +246,7 @@ func TestPublicKeyIsEqual(t *testing.T) {
 	}
 
 	byteHash := pubKey1.ToHash160()
-	assert.Equal(t, len(byteHash), 33)
+	assert.Equal(t, len(byteHash), 20)
 
 }
 
