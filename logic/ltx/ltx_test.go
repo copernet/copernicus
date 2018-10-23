@@ -1184,12 +1184,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func initTestEnv() (func(), error) {
+func initTestEnv() func() {
 	conf.Cfg = conf.InitConfig([]string{})
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 	if err != nil {
-		return nil, err
+		panic("init test env failed:" + err.Error())
 	}
 
 	model.SetRegTestParams()
@@ -1224,6 +1224,9 @@ func initTestEnv() (func(), error) {
 	mempool.InitMempool()
 	crypto.InitSecp256()
 
+	//default testing parameters
+	givenDustRelayFeeLimits(0)
+
 	cleanup := func() {
 		os.RemoveAll(unitTestDataDirPath)
 		log.Debug("cleanup test dir: %s", unitTestDataDirPath)
@@ -1231,7 +1234,7 @@ func initTestEnv() (func(), error) {
 		*gChain = *chain.NewChain()
 	}
 
-	return cleanup, nil
+	return cleanup
 }
 
 const nInnerLoopCount = 0x100000
@@ -1296,14 +1299,14 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 func generateTestBlocks(t *testing.T) []*block.Block {
 	pubKey := script.NewEmptyScript()
 	pubKey.PushOpCode(opcodes.OP_TRUE)
-	blocks, _ := generateBlocks(t, pubKey, 101, 1000000)
-	assert.Equal(t, 101, len(blocks))
+	blocks, _ := generateBlocks(t, pubKey, 200, 1000000)
+	assert.Equal(t, 200, len(blocks))
 	return blocks
 }
 
 func makeNormalTx(prevout util.Hash) *tx.Tx {
 	outpoint := outpoint.NewOutPoint(prevout, 0)
-	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), 0xffffffff)
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), script.SequenceFinal)
 	txn := newTestTx(txin, 0, 0)
 	return txn
 }
@@ -1324,40 +1327,34 @@ func makeNotFinalTx(prevout util.Hash) *tx.Tx {
 }
 
 func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup, err := initTestEnv()
-	assert.NoError(t, err)
+	cleanup := initTestEnv()
 	defer cleanup()
-	givenDustRelayFeeLimits(0)
 
 	blocks := generateTestBlocks(t)
 	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
 
-	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
 }
 
 func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
-	cleanup, err := initTestEnv()
-	assert.NoError(t, err)
+	cleanup := initTestEnv()
 	defer cleanup()
-	givenDustRelayFeeLimits(0)
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
 
-	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 	assert.NoError(t, err)
 }
 
 func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup, err := initTestEnv()
-	assert.NoError(t, err)
+	cleanup := initTestEnv()
 	defer cleanup()
-	givenDustRelayFeeLimits(0)
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-	err = lmempool.AcceptTxToMemPool(txn)
+	err := lmempool.AcceptTxToMemPool(txn)
 	assert.NoError(t, err)
 
 	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
@@ -1365,19 +1362,73 @@ func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_tx_with_already_spent_prev_outpoint_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup, err := initTestEnv()
-	assert.NoError(t, err)
+	cleanup := initTestEnv()
 	defer cleanup()
-	givenDustRelayFeeLimits(0)
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-	fmt.Println(txn.GetHash())
-	err = lmempool.AcceptTxToMemPool(txn)
+	err := lmempool.AcceptTxToMemPool(txn)
 	assert.NoError(t, err)
 
 	newTx := makeUniqueNormalTx(blocks[0].Txs[0].GetHash(), 1)
-	fmt.Println(newTx.GetHash())
 	_, err = ltx.CheckTxBeforeAcceptToMemPool(newTx)
 	assert.Equal(t, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict"), err)
+}
+
+func given_coins_of_tx_already_exists(txn *tx.Tx, t *testing.T) {
+	outpoint0 := outpoint.NewOutPoint(txn.GetHash(), 0)
+	coin := utxo.NewFreshCoin(txn.GetTxOut(0), 1, false)
+
+	coinMap := utxo.NewEmptyCoinsMap()
+	coinMap.AddCoin(outpoint0, coin, false)
+
+	err := utxo.GetUtxoCacheInstance().UpdateCoins(coinMap, &util.HashOne)
+	assert.NoError(t, err)
+}
+
+func Test_tx_with_existing_output_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+	blocks := generateTestBlocks(t)
+
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	given_coins_of_tx_already_exists(txn, t)
+
+	err := lmempool.AcceptTxToMemPool(txn)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-known"), err)
+}
+
+func Test_tx_without_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+	generateTestBlocks(t)
+
+	inputNotExisting := util.HashOne
+	noInputTx := makeNormalTx(inputNotExisting)
+	err := lmempool.AcceptTxToMemPool(noInputTx)
+
+	assert.Equal(t, errcode.New(errcode.TxErrNoPreviousOut), err)
+}
+
+func makeNonBIP68FinalTx(prevout util.Hash) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+
+	blockHeight := chain.GetInstance().Height()
+	lockHeight := blockHeight + 1
+
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), uint32(lockHeight))
+	txn := newTestTx(txin, 100, 2)
+	return txn
+}
+
+func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+
+	blocks := generateTestBlocks(t)
+	txn := makeNonBIP68FinalTx(blocks[0].Txs[0].GetHash())
+	err := lmempool.AcceptTxToMemPool(txn)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "non-BIP68-final"), err)
 }
