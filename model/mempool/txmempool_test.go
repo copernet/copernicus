@@ -376,3 +376,30 @@ func TestTxMempool_RootTx(t *testing.T) {
 	wantTxEntry := mp.nextTx[*outpoint1]
 	assert.Equal(t, txentry, wantTxEntry)
 }
+
+func TestTxMempool_GetCoin(t *testing.T) {
+	mp := NewTxMempool()
+	set := createTx()
+	hash1 := set[0].Tx.GetHash()
+
+	//return nil
+	outpoint1 := outpoint.NewOutPoint(hash1, 0x01)
+	coin1 := mp.GetCoin(outpoint1)
+	if coin1 != nil {
+		t.Errorf("error coin1:%v", coin1)
+	}
+
+	//return nil
+	mp.poolData[hash1] = set[0]
+	coin2 := mp.GetCoin(outpoint1)
+	if coin2 != nil {
+		t.Errorf("error coin2:%v", coin2)
+	}
+
+	//return coin
+	out := set[0].Tx.GetTxOut(0x00)
+	outpoint2 := outpoint.NewOutPoint(hash1, 0x00)
+	coin3 := mp.GetCoin(outpoint2)
+	assert.Equal(t, out.GetValue(), coin3.GetAmount())
+	assert.Equal(t, out.GetScriptPubKey(), coin3.GetScriptPubKey())
+}
