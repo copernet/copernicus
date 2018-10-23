@@ -1226,6 +1226,7 @@ func initTestEnv() func() {
 
 	//default testing parameters
 	givenDustRelayFeeLimits(0)
+	model.ActiveNetParams.RequireStandard = false
 
 	cleanup := func() {
 		os.RemoveAll(unitTestDataDirPath)
@@ -1307,7 +1308,7 @@ func generateTestBlocks(t *testing.T) []*block.Block {
 func makeNormalTx(prevout util.Hash) *tx.Tx {
 	outpoint := outpoint.NewOutPoint(prevout, 0)
 	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), script.SequenceFinal)
-	txn := newTestTx(txin, 0, 0)
+	txn := newTestTx(txin, 0, 1)
 	return txn
 }
 
@@ -1431,4 +1432,46 @@ func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	err := lmempool.AcceptTxToMemPool(txn)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "non-BIP68-final"), err)
+}
+
+func Test_tx_with_non_standard_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+	model.ActiveNetParams.RequireStandard = true
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	err := lmempool.AcceptTxToMemPool(txn)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs"), err)
+}
+
+func makeDummyScript(size int) *script.Script {
+	op := opcodes.NewParsedOpCode(opcodes.OP_CHECKSIG, 1, nil)
+	ops := make([]opcodes.ParsedOpCode, size)
+	for i := 0; i < size; i++ {
+		ops[i] = *op
+	}
+	return script.NewScriptOps(ops)
+}
+
+func txWithTooManyScriptOps(prevout util.Hash) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+
+	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + 1))
+	txin := txin.NewTxIn(outpoint, hugeScript, script.SequenceFinal)
+
+	txn := newTestTx(txin, 0, 1)
+	return txn
+}
+
+func Test_tx_with_too_many_script_ops_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+
+	blocks := generateTestBlocks(t)
+	txn := txWithTooManyScriptOps(blocks[0].Txs[0].GetHash())
+	err := lmempool.AcceptTxToMemPool(txn)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops"), err)
 }

@@ -139,7 +139,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 
 	//check standard inputs
 	if model.ActiveNetParams.RequireStandard {
-		if areInputsStandard(txn, inputCoins) {
+		if !areInputsStandard(txn, inputCoins) {
 			return nil, errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs")
 		}
 	}
