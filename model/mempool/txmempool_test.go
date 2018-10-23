@@ -14,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/google/btree"
+	"github.com/magiconair/properties/assert"
 )
 
 type TestMemPoolEntry struct {
@@ -304,4 +305,52 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 		t.Errorf("current the mempool size should be 0 byte, actual pool size is %d\n", testPool.usageSize)
 	}
 	fmt.Printf("============= end ============\n")
+}
+
+func TestTxMempool_GetCheckFrequency(t *testing.T) {
+	mp := NewTxMempool()
+	mp.checkFrequency = 10.0
+	res := mp.GetCheckFrequency()
+	assert.Equal(t, res, 10.0)
+
+	res = GetInstance().GetCheckFrequency()
+	assert.Equal(t, res, 0.0)
+}
+
+func TestTxMempool_PoolData(t *testing.T) {
+	set := createTx()
+	hash1 := set[0].Tx.GetHash()
+	hash2 := set[2].Tx.GetHash()
+	hash3 := set[1].Tx.GetHash()
+	hash4 := set[3].Tx.GetHash()
+
+	mp := NewTxMempool()
+	mp.poolData[hash1] = set[0]
+	mp.poolData[hash2] = set[1]
+	mp.poolData[hash3] = set[2]
+	mp.poolData[hash4] = set[3]
+
+	txentry1 := mp.FindTx(hash1)
+	assert.Equal(t, txentry1, set[0])
+	txentry2 := mp.FindTx(hash2)
+	assert.Equal(t, txentry2, set[1])
+	txentry3 := mp.FindTx(hash3)
+	assert.Equal(t, txentry3, set[2])
+	txentry4 := mp.FindTx(hash4)
+	assert.Equal(t, txentry4, set[3])
+
+	res := mp.GetAllTxEntryWithoutLock()
+	assert.Equal(t, res, mp.poolData)
+
+	res1 := mp.GetAllTxEntry()
+	assert.Equal(t, res1, mp.poolData)
+
+	res2 := mp.CalculateMemPoolAncestorsWithLock(&hash2)
+	tmpRes2 := make(map[*TxEntry]struct{})
+	assert.Equal(t, res2, tmpRes2)
+
+	res3 := mp.CalculateDescendantsWithLock(&hash2)
+	tmpRes3 := make(map[*TxEntry]struct{})
+	tmpRes3[set[1]] = struct{}{}
+	assert.Equal(t, res3, tmpRes3)
 }

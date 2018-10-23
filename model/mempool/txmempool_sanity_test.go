@@ -16,6 +16,7 @@ import (
 	"github.com/google/btree"
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"github.com/copernet/copernicus/conf"
 )
 
 func TestMempoolRemove(t *testing.T) {
@@ -394,4 +395,37 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		index++
 		return true
 	})
+}
+
+func TestTxMempool_GetMinFee(t *testing.T) {
+	mp := NewTxMempool()
+	mp.rollingMinimumFeeRate = 10
+	mp.blockSinceLastRollingFeeBump = false
+	res := mp.GetMinFee(1000)
+	assert.Equal(t, res, *util.NewFeeRate(mp.rollingMinimumFeeRate))
+
+	mp.blockSinceLastRollingFeeBump = true
+	mp.lastRollingFeeUpdate = 1540260957
+	res = mp.GetMinFee(1000)
+	assert.Equal(t, res, *util.NewFeeRate(1))
+
+	mp.usageSize = 1000
+	mp.rollingMinimumFeeRate = 10
+	mp.lastRollingFeeUpdate = 10
+	res = mp.GetMinFee(1000)
+	assert.Equal(t, res, *util.NewFeeRate(1))
+
+	mp1 := NewTxMempool()
+	mp1.rollingMinimumFeeRate = 100
+	mp1.blockSinceLastRollingFeeBump = true
+	mp1.usageSize = 1000
+	mp1.incrementalRelayFee = *util.NewFeeRate(1000)
+	res1 := mp1.GetMinFee(1000)
+	assert.Equal(t, res1, *util.NewFeeRate(0))
+
+	mp2 := NewTxMempool()
+	conf.Cfg = conf.InitConfig(nil)
+	tmpFeeRate := mp2.GetMinFee(conf.Cfg.Mempool.MaxPoolSize)
+	feeRate := mp2.GetMinFeeRate()
+	assert.Equal(t, tmpFeeRate, feeRate)
 }
