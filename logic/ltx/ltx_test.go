@@ -1606,6 +1606,16 @@ func newCoinbaseTxWithEmptyScriptSig() *tx.Tx {
 	return txn
 }
 
+func Test_block_should_contains_at_least_one_tx(t *testing.T) {
+	txns := []*tx.Tx{}
+
+	height := model.ActiveNetParams.BIP34Height - 1
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.Equal(t, errcode.New(errcode.RejectInvalid), err)
+}
+
 func Test_block_coinbase_tx___can_contains_empty_script_sig___before_BIP34_height(t *testing.T) {
 	coinbaseTx := newCoinbaseTxWithEmptyScriptSig()
 	txns := []*tx.Tx{coinbaseTx}
@@ -1679,4 +1689,50 @@ func Test_ApplyBlockTransactions__generated_block_should_contains_tx_in_mempool(
 	assert.Equal(t, 3, len(blocks[0].Txs))
 	assert.Contains(t, blocks[0].Txs, txn)
 	assert.Contains(t, blocks[0].Txs, txn2)
+}
+
+//tests for ltx.CheckInputsMoney
+func Test_can_not_spend__premature_coinbase_tx_output(t *testing.T) {
+	txn := mainNetTx(1)
+
+	outpoint0 := txn.GetIns()[0].PreviousOutPoint
+	txout := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewEmptyScript())
+	coin := utxo.NewFreshCoin(txout, 100, true)
+	coinMap := utxo.NewEmptyCoinsMap()
+	coinMap.AddCoin(outpoint0, coin, false)
+
+	err := ltx.CheckInputsMoney(txn, coinMap, 101)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase"), err)
+}
+
+func given_input_value_is_10_coins(txn *tx.Tx, height int32) *utxo.CoinsMap {
+	outpoint0 := txn.GetIns()[0].PreviousOutPoint
+	txout := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewEmptyScript())
+	coin := utxo.NewFreshCoin(txout, height, true)
+	coinMap := utxo.NewEmptyCoinsMap()
+	coinMap.AddCoin(outpoint0, coin, false)
+	return coinMap
+}
+
+func Test_should_be_able_to_spend_matured_coinbase_tx_output(t *testing.T) {
+	txn := mainNetTx(1)
+
+	height := int32(100)
+	maturedHeight := height + consensus.CoinbaseMaturity
+	coinMap := given_input_value_is_10_coins(txn, height)
+
+	err := ltx.CheckInputsMoney(txn, coinMap, maturedHeight)
+	assert.NoError(t, err)
+}
+
+func Test_tx_output_value_should_in_valid_range(t *testing.T) {
+	txn := mainNetTx(1)
+	txn.GetTxOut(0).SetValue(amount.Amount(11 * util.COIN))
+
+	height := int32(100)
+	maturedHeight := height + consensus.CoinbaseMaturity
+	coinMap := given_input_value_is_10_coins(txn, height)
+
+	err := ltx.CheckInputsMoney(txn, coinMap, maturedHeight)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-in-belowout"), err)
 }
