@@ -177,7 +177,7 @@ func updateCoins(coinsMap *utxo.CoinsMap, trax *tx.Tx) {
 	}
 	for i := 0; i < trax.GetOutsCount(); i++ {
 		a := outpoint.OutPoint{Hash: trax.GetHash(), Index: uint32(i)}
-		coinsMap.AddCoin(&a, utxo.NewCoin(trax.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
+		coinsMap.AddCoin(&a, utxo.NewFreshCoin(trax.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
 	}
 }
 
@@ -231,10 +231,8 @@ func CheckMempool(bestHeight int32) {
 		for _, preout := range entry.Tx.GetAllPreviousOut() {
 			if entry, ok := allEntry[preout.Hash]; ok {
 				tx2 := entry.Tx
-				if !(tx2.GetOutsCount() > int(preout.Index)) {
-					if !tx2.GetTxOut(int(preout.Index)).IsNull() {
-						panic("the tx introduced input dose not exist, or the input amount is nil ")
-					}
+				if !(tx2.GetOutsCount() > int(preout.Index) && !tx2.GetTxOut(int(preout.Index)).IsNull()) {
+					panic("the tx introduced input dose not exist, or the input amount is nil ")
 				}
 
 				fDependsWait = true
@@ -309,24 +307,19 @@ func CheckMempool(bestHeight int32) {
 		if fDependsWait {
 			waitingOnDependants.PushBack(entry)
 		} else {
-			//todo !!! need to fix error in here by yyx.
-			//fCheckResult := entry.Tx.IsCoinBase() || ltx.CheckInputsMoney(entry.Tx, ) == nil
-			//if !fCheckResult {
-			//	panic("the txentry check failed with utxo set...")
-			//}
-			//ltx.CheckInputsMoney(entry.Tx, view, bestHeigh)
-			// _ = bestHeigh
-
-			for _, preout := range entry.Tx.GetAllPreviousOut() {
-				if mempoolDuplicate.SpendCoin(&preout) == nil {
-					panic(fmt.Sprintf("not found coin for prevout(%v)", preout))
+			fCheckResult := entry.Tx.IsCoinBase()
+			if !fCheckResult {
+				for _, e := range entry.Tx.GetIns() {
+					mempoolDuplicate.FetchCoin(e.PreviousOutPoint)
 				}
+				fCheckResult = ltx.CheckInputsMoney(entry.Tx, mempoolDuplicate,
+					spentHeight) == nil
 			}
-			isCoinBase := entry.Tx.IsCoinBase()
-			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewFreshCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
+
+			if !fCheckResult {
+				panic("the txentry check failed with utxo set1...")
 			}
+			updateCoins(mempoolDuplicate, entry.Tx)
 		}
 	}
 
@@ -335,41 +328,28 @@ func CheckMempool(bestHeight int32) {
 		it := waitingOnDependants.Front()
 		entry := it.Value.(*mempool.TxEntry)
 		waitingOnDependants.Remove(it)
-		spend := false
-		for _, preOut := range entry.Tx.GetAllPreviousOut() {
-			co := mempoolDuplicate.GetCoin(&preOut)
-			if !(co != nil && !co.IsSpent()) {
-				waitingOnDependants.PushBack(entry)
-				stepsSinceLastRemove++
-				if !(stepsSinceLastRemove < waitingOnDependants.Len()) {
-					panic("the waitingOnDependants list have incorrect number ...")
-				}
-				spend = true
-				break
+
+		if !haveInputs(mempoolDuplicate, entry.Tx) {
+			waitingOnDependants.PushBack(entry)
+			stepsSinceLastRemove++
+			if stepsSinceLastRemove >= waitingOnDependants.Len() {
+				panic(fmt.Sprintf(
+					"stepsSinceLastRemove(%d) should be less then lenght of waitingOnDependants(%d)",
+					stepsSinceLastRemove, waitingOnDependants.Len()))
 			}
-		}
-
-		if spend {
+		} else {
 			fCheckResult := entry.Tx.IsCoinBase()
-
-			for _, preOut := range entry.Tx.GetAllPreviousOut() {
-				co := mempoolDuplicate.GetCoin(&preOut)
-				if !(co != nil && !co.IsSpent()) {
-					fCheckResult = false
-					break
+			if !fCheckResult {
+				for _, e := range entry.Tx.GetIns() {
+					mempoolDuplicate.FetchCoin(e.PreviousOutPoint)
 				}
+				fCheckResult = ltx.CheckInputsMoney(entry.Tx, mempoolDuplicate,
+					int32(spentHeight)) == nil
 			}
 			if !fCheckResult {
-				panic("this transaction all parent have spent...")
+				panic("the txentry check failed with utxo set2...")
 			}
-			for _, preout := range entry.Tx.GetAllPreviousOut() {
-				mempoolDuplicate.SpendCoin(&preout)
-			}
-			isCoinBase := entry.Tx.IsCoinBase()
-			for i := 0; i < entry.Tx.GetOutsCount(); i++ {
-				a := outpoint.OutPoint{Hash: entry.Tx.GetHash(), Index: uint32(i)}
-				mempoolDuplicate.AddCoin(&a, utxo.NewFreshCoin(entry.Tx.GetTxOut(i), 1000000, isCoinBase), isCoinBase)
-			}
+			updateCoins(mempoolDuplicate, entry.Tx)
 			stepsSinceLastRemove = 0
 		}
 	}
