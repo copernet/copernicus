@@ -60,7 +60,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	log.Debug("bestHash = %s, hashPrevBloc = %s", bestHash, hashPrevBlock)
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		log.Debug("will panic in ConnectBlock()")
-		panic("error: hashPrevBlock not equal view.GetBestBlock()")
+		panic(fmt.Sprintf("error: hashPrevBlock:%s not equal view.GetBestBlock():%s", hashPrevBlock, bestHash))
 	}
 
 	// Special case for the genesis lblock, skipping connection of its

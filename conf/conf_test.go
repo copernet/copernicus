@@ -163,11 +163,11 @@ func TestExistDataDir(t *testing.T) {
 	}
 	defer os.Remove(fileTrue)
 
-	if !ExistDataDir(fileTrue) {
+	if !FileExists(fileTrue) {
 		t.Errorf("the fileTrue file should exist!")
 	}
 
-	if ExistDataDir(fileFalse) {
+	if FileExists(fileFalse) {
 		t.Errorf("the fileFalse file shouldn't exist!")
 	}
 }

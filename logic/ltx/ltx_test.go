@@ -1,4 +1,4 @@
-package ltx
+package ltx_test
 
 import (
 	"bytes"
@@ -7,10 +7,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
+	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/service"
+	"github.com/copernet/copernicus/service/mining"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -599,11 +614,11 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
-	err := SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	err := ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
 	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
-	combineSig, err := CombineSignature(
+	combineSig, err := ltx.CombineSignature(
 		&v.spender,
 		lockingScript,
 		scriptSig,
@@ -618,7 +633,7 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	}
 
 	// swap the position of empty and scriptSig
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		lockingScript,
 		empty,
@@ -633,11 +648,11 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	}
 
 	// Signing again will give a different, valid signature:
-	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	err = ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 	fmt.Println(hex.EncodeToString(scriptSig.GetData()))
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.prevHolder,
 		lockingScript,
 		scriptSig,
@@ -700,7 +715,7 @@ func TestCombineSignature(t *testing.T) {
 	realChecker := lscript.NewScriptRealChecker()
 	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
 
-	combineSig, err := CombineSignature(
+	combineSig, err := ltx.CombineSignature(
 		&v.prevHolder,
 		p2PKHLockingScript,
 		empty,
@@ -747,7 +762,7 @@ func TestCombineSignature(t *testing.T) {
 	check(v, P2SHLockingScript, t)
 
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
-	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	err = ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
 	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
@@ -757,7 +772,7 @@ func TestCombineSignature(t *testing.T) {
 	dummyLockingScript.PushOpCode(opcodes.OP_0)
 	dummyLockingScript.PushSingleData(pubKey.GetData())
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.prevHolder,
 		P2SHLockingScript,
 		dummyLockingScript,
@@ -772,7 +787,7 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.prevHolder,
 		P2SHLockingScript,
 		scriptSig,
@@ -813,11 +828,11 @@ func TestCombineSignature(t *testing.T) {
 
 	v.spender.GetIns()[0].SetScriptSig(empty)
 
-	err = SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
+	err = ltx.SignRawTransaction(&v.spender, v.redeemScripts, v.keyMap, hashType)
 	checkError(err, t)
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		scriptSig,
@@ -835,7 +850,7 @@ func TestCombineSignature(t *testing.T) {
 	}
 
 	// swap the position of empty and scriptSig
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		empty,
@@ -920,7 +935,7 @@ func TestCombineSignature(t *testing.T) {
 	complete23.PushSingleData(sig2)
 	complete23.PushSingleData(sig3)
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial1a,
@@ -935,7 +950,7 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial1a,
@@ -951,7 +966,7 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial2a,
@@ -966,7 +981,7 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial1b,
@@ -981,7 +996,7 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial3b,
@@ -995,7 +1010,7 @@ func TestCombineSignature(t *testing.T) {
 	if !reflect.DeepEqual(combineSig, complete13) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial2a,
@@ -1009,7 +1024,7 @@ func TestCombineSignature(t *testing.T) {
 	if !reflect.DeepEqual(combineSig, complete23) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial3b,
@@ -1024,7 +1039,7 @@ func TestCombineSignature(t *testing.T) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 
-	combineSig, err = CombineSignature(
+	combineSig, err = ltx.CombineSignature(
 		&v.spender,
 		MultiLockingScript,
 		partial3b,
@@ -1050,7 +1065,6 @@ func assertError(err error, code errcode.RejectCode, reason string, t *testing.T
 func mainNetTx(version int32) *tx.Tx {
 	// Random real transaction
 	// (e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436)
-	txn := tx.NewTx(0, version)
 
 	txin := txin.NewTxIn(outpoint.NewOutPoint(util.Hash{
 		0x6b, 0xff, 0x7f, 0xcd, 0x4f, 0x85, 0x65, 0xef,
@@ -1086,6 +1100,13 @@ func mainNetTx(version int32) *tx.Tx {
 			0x91, 0x78}),
 		0xffffffff)
 
+	return newTestTx(txin, 0, version)
+}
+
+func newTestTx(txin *txin.TxIn, locktime uint32, version int32) *tx.Tx {
+	// Random real transaction
+	// (e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436)
+	txn := tx.NewTx(locktime, version)
 	txn.AddTxIn(txin)
 
 	txOuts := []*txout.TxOut{
@@ -1112,7 +1133,6 @@ func mainNetTx(version int32) *tx.Tx {
 
 	txn.AddTxOut(txOuts[0])
 	txn.AddTxOut(txOuts[1])
-
 	return txn
 }
 
@@ -1126,7 +1146,7 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 func Test_coinbase_tx_should_not_be_accepted_into_mempool(t *testing.T) {
 	txn := tx.NewGenesisCoinbaseTx()
 
-	_, err := CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 
 	assertError(err, errcode.RejectInvalid, "bad-tx-coinbase", t)
 }
@@ -1135,15 +1155,179 @@ func Test_non_standard_tx_should_not_be_accepted_into_mempool(t *testing.T) {
 	model.ActiveNetParams.RequireStandard = true
 	txnWithInvalidVersion := mainNetTx(0)
 
-	_, err := CheckTxBeforeAcceptToMemPool(txnWithInvalidVersion)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txnWithInvalidVersion)
 	assertError(err, errcode.RejectNonstandard, "version", t)
 }
 
-func Test_dust_tx_should_not_be_accepted_into_mempool(t *testing.T) {
+func Test_dust_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	txn := mainNetTx(1)
 
 	givenDustRelayFeeLimits(int64(txn.GetValueOut() - 1))
 
-	_, err := CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 	assertError(err, errcode.RejectNonstandard, "dust", t)
+}
+
+func TestMain(m *testing.M) {
+	conf.Cfg = conf.InitConfig([]string{})
+	ltx.ScriptVerifyInit()
+	os.Exit(m.Run())
+}
+
+func initTestEnv() (func(), error) {
+	conf.Cfg = conf.InitConfig([]string{})
+
+	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	model.SetRegTestParams()
+
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
+	chain.InitGlobalChain()
+
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+
+	persist.InitPersistGlobal()
+
+	// Load blockindex DB
+	lblockindex.LoadBlockIndexDB()
+
+	lchain.InitGenesisChain()
+
+	mempool.InitMempool()
+	crypto.InitSecp256()
+
+	cleanup := func() {
+		os.RemoveAll(unitTestDataDirPath)
+		log.Debug("cleanup test dir: %s", unitTestDataDirPath)
+		gChain := chain.GetInstance()
+		*gChain = *chain.NewChain()
+	}
+
+	return cleanup, nil
+}
+
+const nInnerLoopCount = 0x100000
+
+func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, maxTries uint64) ([]*block.Block, error) {
+	heightStart := chain.GetInstance().Height()
+	heightEnd := heightStart + int32(generate)
+	height := heightStart
+	params := model.ActiveNetParams
+
+	ret := make([]*block.Block, 0)
+	var extraNonce uint
+	for height < heightEnd {
+		ba := mining.NewBlockAssembler(params)
+		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
+		if bt == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "Could not create new block",
+			}
+		}
+
+		bt.Block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bt.Block.Txs, nil)
+
+		powCheck := pow.Pow{}
+		bits := bt.Block.Header.Bits
+		for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount {
+			maxTries--
+			bt.Block.Header.Nonce++
+			hash := bt.Block.GetHash()
+			if powCheck.CheckProofOfWork(&hash, bits, params) {
+				break
+			}
+		}
+
+		if maxTries == 0 {
+			break
+		}
+
+		if bt.Block.Header.Nonce == nInnerLoopCount {
+			extraNonce++
+			continue
+		}
+
+		fNewBlock := false
+		if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "ProcessNewBlock, block not accepted",
+			}
+		}
+
+		height++
+		extraNonce = 0
+
+		ret = append(ret, bt.Block)
+	}
+
+	return ret, nil
+}
+
+func generateTestBlocks(t *testing.T) []*block.Block {
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
+	blocks, _ := generateBlocks(t, pubKey, 101, 1000000)
+	assert.Equal(t, 101, len(blocks))
+	return blocks
+}
+
+func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
+	cleanup, err := initTestEnv()
+	assert.NoError(t, err)
+	defer cleanup()
+	givenDustRelayFeeLimits(0)
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.NoError(t, err)
+}
+
+func makeNormalTx(prevout util.Hash) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), 0xffffffff)
+	txn := newTestTx(txin, 0, 0)
+	return txn
+}
+
+func makeNotFinalTx(prevout util.Hash) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), 0)
+	txn := newTestTx(txin, 5000000, 1)
+	//transaction with still locked height 5000000, and not equal 0xffffffff sequence, is not final tx
+	return txn
+}
+
+func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	cleanup, err := initTestEnv()
+	assert.NoError(t, err)
+	defer cleanup()
+	givenDustRelayFeeLimits(0)
+
+	blocks := generateTestBlocks(t)
+	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
+
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
 }
