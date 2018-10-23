@@ -395,12 +395,12 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 		heightScript.PushScriptNum(heightNumb)
 		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-cb-height")
 		}
 		scriptData := coinBaseScriptSig.GetData()[:heightScript.Size()]
 		if !bytes.Equal(scriptData, heightScript.GetData()) {
 			log.Debug("coinbase err, not start with blockheight")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-cb-height")
 		}
 	}
 	return nil

@@ -1568,7 +1568,7 @@ func Test_block_txns__should_only_has_one_coinbase_tx(t *testing.T) {
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase"), err)
 }
 
-func Test_each_block_txn__should_not_contains_too_much_script_ops(t *testing.T) {
+func Test_block_txns__should_not_contains_too_much_script_ops__in_total(t *testing.T) {
 	coinbaseTx := newCoinbaseTx()
 	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
 	txn2 := txWithTooManyScriptOps(util.HashOne, 2)
@@ -1582,11 +1582,101 @@ func Test_each_block_txn__should_not_contains_too_much_script_ops(t *testing.T) 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops"), err)
 }
 
-func Test_each_block_txn__should_not_contains_duplicate_prev_outpoints(t *testing.T) {
+func Test_block_txns__should_not_contains_duplicate_prev_outpoints(t *testing.T) {
 	coinbaseTx := newCoinbaseTx()
 	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
 	txns := []*tx.Tx{coinbaseTx, txn1, txn1}
 	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate"), err)
+}
+
+//test cases for ltx.ContextureCheckBlockTransactions
+//model.ActiveNetParams.BIP34Height
+
+func newCoinbaseTxWithEmptyScriptSig() *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	outpoint := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+	scriptsig := script.NewEmptyScript()
+	txin := txin.NewTxIn(outpoint, scriptsig, script.SequenceFinal)
+
+	txout := txout.NewTxOut(0, script.NewEmptyScript())
+	txn.AddTxIn(txin)
+	txn.AddTxOut(txout)
+	return txn
+}
+
+func Test_block_coinbase_tx___can_contains_empty_script_sig___before_BIP34_height(t *testing.T) {
+	coinbaseTx := newCoinbaseTxWithEmptyScriptSig()
+	txns := []*tx.Tx{coinbaseTx}
+
+	height := model.ActiveNetParams.BIP34Height - 1
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.NoError(t, err)
+}
+
+func Test_block_coinbase_tx___can_NOT_contains_empty_script_sig___after_BIP34_height(t *testing.T) {
+	coinbaseTx := newCoinbaseTxWithEmptyScriptSig()
+	txns := []*tx.Tx{coinbaseTx}
+
+	height := model.ActiveNetParams.BIP34Height + 1
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
+}
+
+func newCoinbaseOnHeight(height int32) *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	outpoint := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+
+	scriptsig := script.NewEmptyScript()
+	scriptsig.PushScriptNum(script.NewScriptNum(int64(height)))
+
+	txn.AddTxIn(txin.NewTxIn(outpoint, scriptsig, script.SequenceFinal))
+	txn.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	return txn
+}
+
+func Test_block_coinbase_tx___should_contains_height_in_script_sig___after_BIP34_height(t *testing.T) {
+	height := model.ActiveNetParams.BIP34Height + 1
+
+	coinbaseTx := newCoinbaseOnHeight(height)
+	txns := []*tx.Tx{coinbaseTx}
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.NoError(t, err)
+}
+
+func Test_block_coinbase_tx___should_contains_correct_height_in_script_sig___after_BIP34_height(t *testing.T) {
+	height := model.ActiveNetParams.BIP34Height + 1
+
+	coinbaseTx := newCoinbaseOnHeight(height)
+	txns := []*tx.Tx{coinbaseTx}
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height+100, 0)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
+}
+
+//testcases for ltx.ApplyBlockTransactions
+func Test_ApplyBlockTransactions__generated_block_should_contains_tx_in_mempool(t *testing.T) {
+	defer initTestEnv()()
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	txn2 := makeNormalTx(blocks[1].Txs[0].GetHash())
+
+	err := lmempool.AcceptTxToMemPool(txn)
+	assert.NoError(t, err)
+	err = lmempool.AcceptTxToMemPool(txn2)
+	assert.NoError(t, err)
+
+	blocks = generateTestBlocks(t)
+
+	assert.Equal(t, 3, len(blocks[0].Txs))
+	assert.Contains(t, blocks[0].Txs, txn)
+	assert.Contains(t, blocks[0].Txs, txn2)
 }
