@@ -44,7 +44,7 @@ func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath st
 
 	//init log
 	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
-	if !conf.ExistDataDir(logDir) {
+	if !conf.FileExists(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {
 			return "", err

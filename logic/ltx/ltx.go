@@ -82,7 +82,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 	// check common locktime, sequence final can disable it
 	err := ContextualCheckTransactionForCurrentBlock(txn, int(tx.StandardLockTimeVerifyFlags))
 	if err != nil {
-		return nil, errcode.New(errcode.RejectNonstandard)
+		return nil, err
 	}
 
 	// is mempool already have it? conflict tx with mempool
@@ -404,7 +404,7 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !txn.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		log.Debug("txn is not final, hash: %s", txn.GetHash())
-		return errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
+		return errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonfinal")
 	}
 
 	//if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {

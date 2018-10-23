@@ -60,7 +60,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	log.Debug("bestHash = %s, hashPrevBloc = %s", bestHash, hashPrevBlock)
 	if !hashPrevBlock.IsEqual(&bestHash) {
 		log.Debug("will panic in ConnectBlock()")
-		panic("error: hashPrevBlock not equal view.GetBestBlock()")
+		panic(fmt.Sprintf("error: hashPrevBlock:%s not equal view.GetBestBlock():%s", hashPrevBlock, bestHash))
 	}
 
 	// Special case for the genesis lblock, skipping connection of its
@@ -153,8 +153,12 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	log.Print("bench", "debug", " - Fork checks: current %v [total %v]",
 		time2.Sub(time1), gPersist.GlobalTimeForks)
 
+	maxSigOps, errSig := consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize()))
+	if errSig != nil {
+		return errSig
+	}
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
-		fScriptChecks, blockSubSidy, pindex.Height, consensus.GetMaxBlockSigOpsCount(uint64(pblock.EncodeSize())))
+		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps)
 	if err != nil {
 		return err
 	}
@@ -228,7 +232,6 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		}
 		connTrace[pIndexNew] = blockNew
 		block = blockNew
-
 	} else {
 		connTrace[pIndexNew] = block
 	}
@@ -247,11 +250,11 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Error("ConnectTip(): ConnectBlock %s failed, err:%v", indexHash, err)
 		return err
 	}
-
 	nTime3 := util.GetMicrosTime()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
 	log.Debug("Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
+
 	//flushed := view.Flush(indexHash)
 	err = utxo.GetUtxoCacheInstance().UpdateCoins(view, &indexHash)
 	if err != nil {
@@ -261,6 +264,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	gPersist.GlobalTimeFlush += nTime4 - nTime3
 	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
 		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
+
 	// Write the chain state to disk, if necessary.
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return err
@@ -281,11 +285,11 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		taskControl.StartUtxoTask()
 		taskControl.PushUtxoTask(utxoTaskArg{iter, &stat})
 	}
-
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
 		float64(nTime5-nTime4)*0.001, float64(gPersist.GlobalTimeChainState)*0.000001)
+
 	// Remove conflicting transactions from the mempool.;
 	mempool.GetInstance().RemoveTxSelf(blockConnecting.Txs)
 	// Update chainActive & related variables.

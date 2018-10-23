@@ -598,10 +598,10 @@ func rpcErrorOfAcceptTx(err error) btcjson.RPCErrorCode {
 }
 
 var mapSigHashValues = map[string]int{
-	"ALL":                     crypto.SigHashAll,
-	"ALL|ANYONECANPAY":        crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
-	"ALL|FORKID":              crypto.SigHashAll | crypto.SigHashForkID,
-	"ALL|FORKID|ANYONECANPAY": crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
+	"ALL":                        crypto.SigHashAll,
+	"ALL|ANYONECANPAY":           crypto.SigHashAll | crypto.SigHashAnyoneCanpay,
+	"ALL|FORKID":                 crypto.SigHashAll | crypto.SigHashForkID,
+	"ALL|FORKID|ANYONECANPAY":    crypto.SigHashAll | crypto.SigHashForkID | crypto.SigHashAnyoneCanpay,
 	"NONE":                       crypto.SigHashNone,
 	"NONE|ANYONECANPAY":          crypto.SigHashNone | crypto.SigHashAnyoneCanpay,
 	"NONE|FORKID":                crypto.SigHashNone | crypto.SigHashForkID,

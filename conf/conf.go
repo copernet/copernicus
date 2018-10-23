@@ -194,7 +194,9 @@ func InitConfig(args []string) *Configuration {
 		DataDir = path.Join(DataDir, "regtest")
 	}
 
-	if !ExistDataDir(DataDir) {
+	destConfig := DataDir + "/" + defaultConfigFilename
+
+	if !FileExists(DataDir) || !FileExists(destConfig) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
@@ -205,10 +207,10 @@ func InitConfig(args []string) *Configuration {
 		if gopath != "" {
 			// first try
 			projectPath := gopath + "/src/" + defaultProjectDir
-			filePath := projectPath + "/conf/" + defaultConfigFilename
-			_, err = os.Stat(filePath)
-			if !os.IsNotExist(err) {
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+			srcConfig := projectPath + "/conf/" + defaultConfigFilename
+
+			if FileExists(srcConfig) {
+				_, err := CopyFile(srcConfig, destConfig)
 
 				if err != nil {
 					panic("from src/defaultProjectDir copy bitcoincash.yml failed.")
@@ -216,8 +218,8 @@ func InitConfig(args []string) *Configuration {
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
-				filePath = projectPath + "/conf/" + defaultConfigFilename
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				srcConfig = projectPath + "/conf/" + defaultConfigFilename
+				_, err := CopyFile(srcConfig, destConfig)
 				if err != nil {
 					panic(" from src/copernicus copy bitcoincash.yml failed.")
 				}
@@ -359,7 +361,7 @@ func (c Configuration) Validate() error {
 	return validate.Struct(c)
 }
 
-func ExistDataDir(datadir string) bool {
+func FileExists(datadir string) bool {
 	_, err := os.Stat(datadir)
 	if err != nil && os.IsNotExist(err) {
 		return false

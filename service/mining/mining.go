@@ -113,7 +113,12 @@ func (ba *BlockAssembler) testPackage(packageSize uint64, packageSigOps int64, a
 	if blockSizeWithPackage >= ba.maxGeneratedBlockSize {
 		return false
 	}
-	if ba.blockSigOps+uint64(packageSigOps) >= consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage) {
+	maxSigOps, errSig := consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage)
+	if errSig != nil {
+		log.Error("testPackage err :%v", errSig)
+		return false
+	}
+	if ba.blockSigOps+uint64(packageSigOps) >= maxSigOps {
 		return false
 	}
 	return true
