@@ -11,7 +11,7 @@ RUN apt-get -y install libreadline-gplv2-dev libncursesw5-dev libssl-dev \
 RUN cd /usr/src
 RUN wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tgz
 RUN tar xzf Python-3.7.0.tgz
-RUN cd Python-3.7.0
+RUN cd ./Python-3.7.0
 RUN ./configure --enable-optimizations
 RUN make altinstall
 
