@@ -2,6 +2,8 @@ package script
 
 import (
 	"encoding/hex"
+	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"testing"
 
 	"github.com/copernet/copernicus/crypto"
@@ -132,4 +134,74 @@ func TestInitAddressParam(t *testing.T) {
 	if AddressVerScript() != ScriptToAddress {
 		t.Errorf("TestInitAddressParam test failed, scriptAddressVer(%v) not init", AddressVerScript())
 	}
+}
+
+//test address transform: script.AddressFromString
+func Test_Address_parse_from_string(t *testing.T) {
+	address := "mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB"
+
+	_, err := AddressFromString(address)
+
+	assert.NoError(t, err)
+}
+
+func Test_Address_should_not_be_decoded(t *testing.T) {
+	address := ""
+
+	_, err := AddressFromString(address)
+
+	assert.EqualError(t, err, "addressStr length is 0 ,not 25")
+}
+
+//test address from scriptHash: script.AddressFromScriptHash
+func Test_Address_From_ScriptHash(t *testing.T) {
+	scriptBytes, err := createScriptHash()
+	if err != nil {
+		t.Error("create scripthash error")
+	}
+
+	_, err = AddressFromScriptHash(scriptBytes)
+
+	assert.NoError(t, err)
+}
+
+func createScriptHash() ([]byte, error) {
+	hexScript := "a9146102362b0068a4cd8719e47b4a0d09076a76404387"
+	scriptBytes, err := hex.DecodeString(hexScript)
+	if err != nil {
+		return nil, err
+	}
+	return scriptBytes, nil
+}
+
+// test address form hash160: script.AddressFromHash160
+func Test_Address_From_Hash160(t *testing.T) {
+	hash160 := createHash160()
+
+	address, err := AddressFromHash160(hash160, crypto.DumpedPrivateKeyVersion)
+
+	assert.NoError(t, err)
+
+	// test some Address function
+
+	version := address.GetVersion()
+	assert.Equal(t, int(version), crypto.DumpedPrivateKeyVersion)
+
+	PKHash := address.EncodeToPubKeyHash()
+	assert.Equal(t, hash160, PKHash)
+
+	addrStr := address.String()
+	t.Log(addrStr)
+	address.addressStr = ""
+	t.Log(address.String())
+}
+
+func createHash160() []byte {
+	var keyBytes []byte
+	for i := 0; i < 32; i++ {
+		keyBytes = append(keyBytes, byte(rand.Uint32()%256))
+	}
+	privKey := crypto.PrivateKeyFromBytes(keyBytes)
+	hash160 := privKey.PubKey().ToHash160()
+	return hash160
 }
