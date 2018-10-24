@@ -681,17 +681,6 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 // Test the CombineSignature function
 func TestCombineSignature(t *testing.T) {
 	v := initVar()
-
-	// Initial the coin cache
-	conf.Cfg = conf.InitConfig([]string{})
-	config := utxo.UtxoConfig{
-		Do: &db.DBOption{
-			FilePath:  conf.Cfg.DataDir + "/chainstate",
-			CacheSize: (1 << 20) * 8,
-		},
-	}
-	utxo.InitUtxoLruTip(&config)
-
 	coinsMap := utxo.NewEmptyCoinsMap()
 
 	// Create a p2PKHLockingScript script
@@ -1062,6 +1051,138 @@ func TestCombineSignature(t *testing.T) {
 	)
 	checkError(err, t)
 	if !reflect.DeepEqual(combineSig, partial3c) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+}
+
+// TestSignRawTransactionErrors tests the SignRawTransaction function error paths.
+func TestSignRawTransactionErrors(t *testing.T) {
+	v := initVar()
+	coinsMap := utxo.NewEmptyCoinsMap()
+
+	// Create a P2SHLockingScript script
+	pubKey := script.NewEmptyScript()
+	pubKey.PushSingleData(v.pubKeys[0].ToBytes())
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
+
+	pubKeyHash160 := util.Hash160(pubKey.GetData())
+	prevOut := outpoint.NewOutPoint(v.prevHolder.GetHash(), 0)
+	v.redeemScripts[*prevOut] = pubKey
+
+	P2SHLockingScript := script.NewEmptyScript()
+	P2SHLockingScript.PushOpCode(opcodes.OP_HASH160)
+	P2SHLockingScript.PushSingleData(pubKeyHash160)
+	P2SHLockingScript.PushOpCode(opcodes.OP_EQUAL)
+
+	// Add locking script to prevHolder
+	v.prevHolder.AddTxOut(txout.NewTxOut(0, P2SHLockingScript))
+
+	v.spender.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(v.prevHolder.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+	coinsMap.AddCoin(
+		v.spender.GetIns()[0].PreviousOutPoint,
+		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
+		true,
+	)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+
+	// coin map empty
+	v.coins = utxo.NewEmptyCoinsMap()
+	txns := make([]*tx.Tx, 0, 1)
+	txns = append(txns, &v.spender)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	assert.Equal(t, len(errs), len(txns))
+	v.coins = coinsMap
+
+	// redeemScripts empty
+	v.redeemScripts = nil
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	assert.Equal(t, len(errs), len(txns))
+}
+
+func TestNonStandardCombineSignature(t *testing.T) {
+	v := initVar()
+
+	NonStandardLockingScript := script.NewEmptyScript()
+	NonStandardLockingScript.PushSingleData([]byte{0})
+	NonStandardLockingScript.PushOpCode(opcodes.OP_EQUAL)
+
+	// Some variable used in all function
+	realChecker := lscript.NewScriptRealChecker()
+	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
+
+	scriptOldSig := script.NewEmptyScript()
+	scriptOldSig.PushSingleData([]byte{0})
+	combineSig, err := ltx.CombineSignature(
+		&v.spender,
+		NonStandardLockingScript,
+		nil,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptOldSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushSingleData([]byte{0})
+	scriptSig.PushSingleData([]byte{1})
+	combineSig, err = ltx.CombineSignature(
+		&v.spender,
+		NonStandardLockingScript,
+		scriptSig,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	NullDataLockingScript := script.NewEmptyScript()
+	NullDataLockingScript.PushOpCode(opcodes.OP_RETURN)
+	NullDataLockingScript.PushSingleData([]byte{0})
+
+	scriptOldSig = script.NewEmptyScript()
+	scriptOldSig.PushSingleData([]byte{0})
+	combineSig, err = ltx.CombineSignature(
+		&v.spender,
+		NullDataLockingScript,
+		nil,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptOldSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	scriptSig = script.NewEmptyScript()
+	scriptSig.PushSingleData([]byte{0})
+	scriptSig.PushSingleData([]byte{1})
+	combineSig, err = ltx.CombineSignature(
+		&v.spender,
+		NullDataLockingScript,
+		scriptSig,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
 		t.Error("SIGNATURE NOT EXPECTED")
 	}
 }
