@@ -13,10 +13,10 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/google/btree"
 	"github.com/stretchr/testify/assert"
 	"reflect"
-	"github.com/copernet/copernicus/conf"
 )
 
 func TestMempoolRemove(t *testing.T) {
@@ -86,7 +86,7 @@ func TestMempoolRemove(t *testing.T) {
 	}
 
 	assert.Equal(t, mp.GetPoolUsage(), int64(0))
-	assert.Equal(t, mp.GetPoolAllTxSize(), uint64(0))
+	assert.Equal(t, mp.GetPoolAllTxSize(true), uint64(0))
 
 	mp.RemoveTxRecursive(txParent, UNKNOWN)
 	if mp.Size() != ps {
