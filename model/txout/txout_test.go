@@ -1,7 +1,12 @@
 package txout
 
 import (
+	"bytes"
+	"github.com/copernet/copernicus/crypto"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"strings"
 
 	"github.com/copernet/copernicus/model/script"
 	"testing"
@@ -12,6 +17,62 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"os"
+)
+
+type TestWriter struct {
+}
+
+func (tw *TestWriter) Write(p []byte) (n int, err error) {
+	return 0, errors.New("test writer error")
+}
+
+type ScriptBuilder struct {
+	s *script.Script
+}
+
+func NewScriptBuilder() *ScriptBuilder {
+	return &ScriptBuilder{
+		s: script.NewEmptyScript(),
+	}
+}
+
+func (sb *ScriptBuilder) PushNumber(n int) *ScriptBuilder {
+	sb.s.PushScriptNum(script.NewScriptNum(int64(n)))
+	return sb
+}
+
+func (sb *ScriptBuilder) PushOPCode(n int) *ScriptBuilder {
+	sb.s.PushOpCode(n)
+	return sb
+}
+
+func (sb *ScriptBuilder) PushBytesWithOP(data []byte) *ScriptBuilder {
+	sb.s.PushSingleData(data)
+	return sb
+}
+
+func (sb *ScriptBuilder) Script() *script.Script {
+	return sb.s
+}
+
+func (sb *ScriptBuilder) Bytes() []byte {
+	buf := bytes.NewBuffer(nil)
+	sb.s.Serialize(buf)
+	return buf.Bytes()
+}
+
+var (
+	key0bytes = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+
+	key1bytes = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0}
+
+	key2bytes = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}
+
+	key3bytes = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0}
 )
 
 var myscript = []byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
@@ -139,51 +200,193 @@ func TestIsCommitment(t *testing.T) {
 	assert.False(t, p, "data too much to commit but misjudged")
 }
 
-func TestIsSpendable(t *testing.T) {
-	//p := testTxout.IsSpendable()
-	//if !p {
-	//	t.Error("the txout is spendable but misjudged")
-	//}
-	//
-	//myscript = []byte{0x6a, 0x13, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
-	//	0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
-	//script1 = script.NewScriptRaw(myscript)
-	//var t1 = NewTxOut(9, script1)
-	//testTxout = t1
-	//
-	//p = testTxout.IsSpendable()
-	//
-	//if p {
-	//	t.Error("the txout has 'returned' but still judged spendable")
-	//}
+func TestTxOut_Encode(t *testing.T) {
+	var buf bytes.Buffer
+	txout := NewTxOut(9, nil)
+	assert.Nil(t, txout.Encode(&buf))
 
+	var w TestWriter
+	txout = NewTxOut(-1, nil)
+	assert.NotNil(t, txout.Encode(&w))
 }
 
-func TestIsEqual(t *testing.T) {
-	//myscript = []byte{0x14, 0x69, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
-	//	0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
-	//script1 = script.NewScriptRaw(myscript)
-	//var t0 = NewTxOut(9, script1)
-	//var testTxout1 = t0
-	//
-	//if !testTxout.IsEqual(testTxout1) {
-	//	t.Error("totally the same but misjudged")
-	//}
-	//
-	//testTxout1.value = 8
-	//
-	//if testTxout.IsEqual(testTxout1) {
-	//	t.Error("value mismatched but misjudged")
-	//}
-	//
-	//myscript = []byte{0x7a, 0x13, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
-	//	0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
-	//script1 = script.NewScriptRaw(myscript)
-	//var t1 = NewTxOut(9, script1)
-	//testTxout1 = t1
-	//
-	//if testTxout.IsEqual(testTxout1) {
-	//	t.Error("data mismatched but misjudged")
-	//}
+func TestTxOut_Decode(t *testing.T) {
+	var r io.Reader = strings.NewReader("ABCDEFG")
+	txout := NewTxOut(9, nil)
+	assert.NotNil(t, txout.Decode(r))
+}
 
+func TestTxOut_GetDustThreshold(t *testing.T) {
+	script := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 0x01, 0x01})
+	txout := NewTxOut(9, script)
+
+	assert.Equal(t, int64(0), txout.GetDustThreshold(&util.FeeRate{SataoshisPerK: 1}))
+}
+
+func TestTxOut_CheckValue(t *testing.T) {
+	txout := NewTxOut(9, nil)
+	assert.Nil(t, txout.CheckValue())
+}
+
+func TestTxOut_IsStandard(t *testing.T) {
+	scriptarr := script.NewScriptRaw([]byte{
+		opcodes.OP_DUP,
+		opcodes.OP_HASH160,
+		0x14,
+		0x41, 0xc5, 0xda, 0x42, 0x2d,
+		0x1d, 0x3e, 0x6c, 0x06, 0xaf,
+		0xb1, 0x9c, 0xa6, 0x2d, 0x83,
+		0xb1, 0x57, 0xfc, 0x93, 0x55,
+		opcodes.OP_EQUALVERIFY,
+		opcodes.OP_CHECKSIG})
+	txout := NewTxOut(9, scriptarr)
+	pubKeyType, isStandard := txout.IsStandard()
+	assert.Equal(t, script.ScriptPubkeyHash, pubKeyType)
+	assert.True(t, isStandard)
+
+	scriptarr2 := script.NewScriptRaw([]byte{
+		opcodes.OP_DUP,
+		0x00,
+		opcodes.OP_HASH160,
+		0x14,
+		0x41, 0xc5, 0xda, 0x42, 0x2d,
+		0x1d, 0x3e, 0x6c, 0x06, 0xaf,
+		0xb1, 0x9c, 0xa6, 0x2d, 0x83,
+		0xb1, 0x57, 0xfc, 0x93, 0x55,
+		opcodes.OP_EQUALVERIFY,
+		opcodes.OP_CHECKSIG})
+	txout = NewTxOut(9, scriptarr2)
+	pubKeyType, isStandard = txout.IsStandard()
+	assert.Equal(t, script.ScriptNonStandard, pubKeyType)
+	assert.False(t, isStandard)
+
+	crypto.InitSecp256()
+	key0c := crypto.NewPrivateKeyFromBytes(key0bytes[:], true)
+	pubkey0c := key0c.PubKey()
+	key1c := crypto.NewPrivateKeyFromBytes(key1bytes[:], true)
+	pubkey1c := key1c.PubKey()
+	key2c := crypto.NewPrivateKeyFromBytes(key2bytes[:], true)
+	pubkey2c := key2c.PubKey()
+	key3c := crypto.NewPrivateKeyFromBytes(key3bytes[:], true)
+	pubkey3c := key3c.PubKey()
+	scriptarr3 := NewScriptBuilder().PushOPCode(opcodes.OP_4).PushBytesWithOP(pubkey2c.ToBytes()).
+		PushBytesWithOP(pubkey1c.ToBytes()).PushBytesWithOP(pubkey0c.ToBytes()).PushBytesWithOP(pubkey3c.ToBytes()).
+		PushOPCode(opcodes.OP_4).PushOPCode(opcodes.OP_CHECKMULTISIG).Script()
+	txout = NewTxOut(9, scriptarr3)
+	pubKeyType, isStandard = txout.IsStandard()
+	assert.Equal(t, script.ScriptMultiSig, pubKeyType)
+	assert.False(t, isStandard)
+
+	scriptarr4 := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 1, 1})
+	conf.Cfg.Script.AcceptDataCarrier = false
+
+	txout = NewTxOut(9, scriptarr4)
+	pubKeyType, isStandard = txout.IsStandard()
+	assert.Equal(t, script.ScriptNullData, pubKeyType)
+	assert.False(t, isStandard)
+}
+
+func TestTxOut_GetPubKeyType(t *testing.T) {
+	scriptarr := script.NewScriptRaw([]byte{
+		opcodes.OP_DUP,
+		opcodes.OP_HASH160,
+		0x14,
+		0x41, 0xc5, 0xda, 0x42, 0x2d,
+		0x1d, 0x3e, 0x6c, 0x06, 0xaf,
+		0xb1, 0x9c, 0xa6, 0x2d, 0x83,
+		0xb1, 0x57, 0xfc, 0x93, 0x55,
+		opcodes.OP_EQUALVERIFY,
+		opcodes.OP_CHECKSIG})
+	txout := NewTxOut(9, scriptarr)
+
+	pubKeyType, isStandard := txout.GetPubKeyType()
+
+	assert.Equal(t, script.ScriptPubkeyHash, pubKeyType)
+	assert.True(t, isStandard)
+}
+
+func TestTxOut_GetValue(t *testing.T) {
+	txout := NewTxOut(9, nil)
+	assert.Equal(t, amount.Amount(9), txout.GetValue())
+}
+
+func TestTxOut_SetValue(t *testing.T) {
+	txout := NewTxOut(9, nil)
+	txout.SetValue(8)
+	assert.Equal(t, amount.Amount(8), txout.value)
+}
+
+func TestTxOut_SetScriptPubKey(t *testing.T) {
+	txout := NewTxOut(9, nil)
+	script := script.NewScriptRaw([]byte{
+		opcodes.OP_DUP,
+		opcodes.OP_HASH160,
+		0x14,
+		0x41, 0xc5, 0xda, 0x42, 0x2d,
+		0x1d, 0x3e, 0x6c, 0x06, 0xaf,
+		0xb1, 0x9c, 0xa6, 0x2d, 0x83,
+		0xb1, 0x57, 0xfc, 0x93, 0x55,
+		opcodes.OP_EQUALVERIFY,
+		opcodes.OP_CHECKSIG})
+
+	txout.SetScriptPubKey(script)
+	assert.Equal(t, script, txout.scriptPubKey)
+}
+
+func TestTxOut_IsSpendable(t *testing.T) {
+	script := script.NewScriptRaw([]byte{
+		opcodes.OP_DUP,
+		opcodes.OP_HASH160,
+		0x14,
+		0x41, 0xc5, 0xda, 0x42, 0x2d,
+		0x1d, 0x3e, 0x6c, 0x06, 0xaf,
+		0xb1, 0x9c, 0xa6, 0x2d, 0x83,
+		0xb1, 0x57, 0xfc, 0x93, 0x55,
+		opcodes.OP_EQUALVERIFY,
+		opcodes.OP_CHECKSIG})
+	txout := NewTxOut(9, script)
+
+	assert.True(t, txout.IsSpendable())
+
+	txout.SetNull()
+
+	assert.False(t, txout.IsSpendable())
+}
+
+func TestTxOut_SetNull(t *testing.T) {
+	script := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 0x01, 0x01})
+	txout := NewTxOut(9, script)
+
+	txout.SetNull()
+	assert.Equal(t, amount.Amount(-1), txout.value)
+	assert.Nil(t, txout.scriptPubKey)
+}
+
+func TestTxOut_IsNull(t *testing.T) {
+	script := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 0x01, 0x01})
+	txout := NewTxOut(9, script)
+
+	txout.SetNull()
+
+	assert.True(t, txout.IsNull())
+}
+
+func TestTxOut_String(t *testing.T) {
+	script := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 0x01, 0x01})
+	txout := NewTxOut(9, script)
+
+	s := txout.String()
+	assert.Equal(t, "Value :9 Script:6a0101", s)
+}
+
+func TestTxOut_IsEqual(t *testing.T) {
+	script := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 0x01, 0x01})
+	txout := NewTxOut(9, script)
+
+	txout2 := NewTxOut(9, script)
+
+	assert.True(t, txout.IsEqual(txout2))
+
+	txout2.value = 8
+	assert.False(t, txout.IsEqual(txout2))
 }
