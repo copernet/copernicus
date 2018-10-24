@@ -214,10 +214,10 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
 			MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
 			MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
-			CheckFrequency       uint64 `default:"4294967295"`
+			CheckFrequency       uint64 `default:"0"`
 		}{
 			MaxPoolSize:    300000000,
-			CheckFrequency: 4294967295,
+			CheckFrequency: 0,
 		},
 		P2PNet: struct {
 			ListenAddrs         []string `validate:"require" default:"1234"`
@@ -273,7 +273,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
 			PromiscuousMempoolFlags: "0",
-			Par: 32,
+			Par:                     32,
 		},
 		TxOut: struct {
 			DustRelayFee int64 `default:"83"`

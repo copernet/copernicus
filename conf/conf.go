@@ -100,7 +100,7 @@ type Configuration struct {
 		LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
 		MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
 		MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
-		CheckFrequency       uint64 `default:"4294967295"`
+		CheckFrequency       uint64 `default:"0"`
 	}
 	P2PNet struct {
 		ListenAddrs         []string `validate:"require" default:"1234"`
