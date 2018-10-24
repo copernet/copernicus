@@ -558,7 +558,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	entry := mempool.GetInstance().FindTx(hash)
 
 	if entry == nil && !inChain {
-		err = lmempool.AcceptTxToMemPool(&txn, chain.GetInstance().Height(), true)
+		err = lmempool.AcceptTxToMemPool(&txn)
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    rpcErrorOfAcceptTx(err),

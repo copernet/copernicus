@@ -17,7 +17,7 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func AcceptTxToMemPool(txn *tx.Tx, chainHeight int32, checkLockPoint bool) error {
+func AcceptTxToMemPool(txn *tx.Tx) error {
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint b
 					continue
 				}
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx, chainHeight, checkLockPoint)
+				err := AcceptTxToMemPool(iOrphanTx.Tx)
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -334,7 +334,7 @@ func CheckMempool(bestHeight int32) {
 			stepsSinceLastRemove++
 			if stepsSinceLastRemove >= waitingOnDependants.Len() {
 				panic(fmt.Sprintf(
-					"stepsSinceLastRemove(%d) should be less then lenght of waitingOnDependants(%d)",
+					"stepsSinceLastRemove(%d) should be less then length of waitingOnDependants(%d)",
 					stepsSinceLastRemove, waitingOnDependants.Len()))
 			}
 		} else {

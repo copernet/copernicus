@@ -353,7 +353,7 @@ func DisconnectTip(fBare bool) error {
 			if tx.IsCoinBase() {
 				mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
 			} else {
-				e := lmempool.AcceptTxToMemPool(tx, chain.GetInstance().Height(), true)
+				e := lmempool.AcceptTxToMemPool(tx)
 				if e != nil {
 					mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
 				}
