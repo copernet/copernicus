@@ -881,7 +881,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 	keys []*crypto.PrivateKey, coinsMap *utxo.CoinsMap, hashType uint32) []*SignError {
 
 	var err error
-	signErrors := make([]*SignError, 0)
+	var signErrors []*SignError
 
 	mergedTx := transactions[0]
 	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
