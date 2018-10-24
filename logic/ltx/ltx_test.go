@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/copernet/copernicus/model/consensus"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -680,17 +681,6 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 // Test the CombineSignature function
 func TestCombineSignature(t *testing.T) {
 	v := initVar()
-
-	// Initial the coin cache
-	conf.Cfg = conf.InitConfig([]string{})
-	config := utxo.UtxoConfig{
-		Do: &db.DBOption{
-			FilePath:  conf.Cfg.DataDir + "/chainstate",
-			CacheSize: (1 << 20) * 8,
-		},
-	}
-	utxo.InitUtxoLruTip(&config)
-
 	coinsMap := utxo.NewEmptyCoinsMap()
 
 	// Create a p2PKHLockingScript script
@@ -1066,6 +1056,138 @@ func TestCombineSignature(t *testing.T) {
 	}
 }
 
+// TestSignRawTransactionErrors tests the SignRawTransaction function error paths.
+func TestSignRawTransactionErrors(t *testing.T) {
+	v := initVar()
+	coinsMap := utxo.NewEmptyCoinsMap()
+
+	// Create a P2SHLockingScript script
+	pubKey := script.NewEmptyScript()
+	pubKey.PushSingleData(v.pubKeys[0].ToBytes())
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
+
+	pubKeyHash160 := util.Hash160(pubKey.GetData())
+	prevOut := outpoint.NewOutPoint(v.prevHolder.GetHash(), 0)
+	v.redeemScripts[*prevOut] = pubKey
+
+	P2SHLockingScript := script.NewEmptyScript()
+	P2SHLockingScript.PushOpCode(opcodes.OP_HASH160)
+	P2SHLockingScript.PushSingleData(pubKeyHash160)
+	P2SHLockingScript.PushOpCode(opcodes.OP_EQUAL)
+
+	// Add locking script to prevHolder
+	v.prevHolder.AddTxOut(txout.NewTxOut(0, P2SHLockingScript))
+
+	v.spender.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(v.prevHolder.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+	coinsMap.AddCoin(
+		v.spender.GetIns()[0].PreviousOutPoint,
+		utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false),
+		true,
+	)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+
+	// coin map empty
+	v.coins = utxo.NewEmptyCoinsMap()
+	txns := make([]*tx.Tx, 0, 1)
+	txns = append(txns, &v.spender)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	assert.Equal(t, len(errs), len(txns))
+	v.coins = coinsMap
+
+	// redeemScripts empty
+	v.redeemScripts = nil
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	assert.Equal(t, len(errs), len(txns))
+}
+
+func TestNonStandardCombineSignature(t *testing.T) {
+	v := initVar()
+
+	NonStandardLockingScript := script.NewEmptyScript()
+	NonStandardLockingScript.PushSingleData([]byte{0})
+	NonStandardLockingScript.PushOpCode(opcodes.OP_EQUAL)
+
+	// Some variable used in all function
+	realChecker := lscript.NewScriptRealChecker()
+	standardScriptVerifyFlags := uint32(script.StandardScriptVerifyFlags)
+
+	scriptOldSig := script.NewEmptyScript()
+	scriptOldSig.PushSingleData([]byte{0})
+	combineSig, err := ltx.CombineSignature(
+		&v.spender,
+		NonStandardLockingScript,
+		nil,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptOldSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushSingleData([]byte{0})
+	scriptSig.PushSingleData([]byte{1})
+	combineSig, err = ltx.CombineSignature(
+		&v.spender,
+		NonStandardLockingScript,
+		scriptSig,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	NullDataLockingScript := script.NewEmptyScript()
+	NullDataLockingScript.PushOpCode(opcodes.OP_RETURN)
+	NullDataLockingScript.PushSingleData([]byte{0})
+
+	scriptOldSig = script.NewEmptyScript()
+	scriptOldSig.PushSingleData([]byte{0})
+	combineSig, err = ltx.CombineSignature(
+		&v.spender,
+		NullDataLockingScript,
+		nil,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptOldSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	scriptSig = script.NewEmptyScript()
+	scriptSig.PushSingleData([]byte{0})
+	scriptSig.PushSingleData([]byte{1})
+	combineSig, err = ltx.CombineSignature(
+		&v.spender,
+		NullDataLockingScript,
+		scriptSig,
+		scriptOldSig,
+		0, 0,
+		standardScriptVerifyFlags,
+		realChecker,
+	)
+	checkError(err, t)
+	if !reflect.DeepEqual(combineSig, scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+}
+
 func assertError(err error, code errcode.RejectCode, reason string, t *testing.T) {
 	c, r, isReject := errcode.IsRejectCode(err)
 	assert.True(t, isReject)
@@ -1329,8 +1451,7 @@ func makeNotFinalTx(prevout util.Hash) *tx.Tx {
 }
 
 func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
@@ -1339,9 +1460,30 @@ func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
 }
 
+func txWithInvalidOutputValue(prevout util.Hash) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, 0)
+	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), uint32(0))
+
+	txn := newTestTx(txin, 0, 1)
+
+	txout := txout.NewTxOut(amount.Amount(util.MaxMoney), script.NewScriptRaw([]byte{}))
+	txn.AddTxOut(txout)
+
+	return txn
+}
+
+func Test_tx_with_total_too_large_output_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	blocks := generateTestBlocks(t)
+	txn := txWithInvalidOutputValue(blocks[0].Txs[0].GetHash())
+
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-txouttotal-toolarge"), err)
+}
+
 func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1351,8 +1493,7 @@ func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1364,8 +1505,7 @@ func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_tx_with_already_spent_prev_outpoint_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1389,8 +1529,7 @@ func given_coins_of_tx_already_exists(txn *tx.Tx, t *testing.T) {
 }
 
 func Test_tx_with_existing_output_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 	blocks := generateTestBlocks(t)
 
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
@@ -1402,8 +1541,7 @@ func Test_tx_with_existing_output_should_NOT_be_accepted_into_mempool(t *testing
 }
 
 func Test_tx_without_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 	generateTestBlocks(t)
 
 	inputNotExisting := util.HashOne
@@ -1425,8 +1563,7 @@ func makeNonBIP68FinalTx(prevout util.Hash) *tx.Tx {
 }
 
 func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
 	txn := makeNonBIP68FinalTx(blocks[0].Txs[0].GetHash())
@@ -1436,8 +1573,8 @@ func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 }
 
 func Test_tx_with_non_standard_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
+
 	model.ActiveNetParams.RequireStandard = true
 
 	blocks := generateTestBlocks(t)
@@ -1456,10 +1593,10 @@ func makeDummyScript(size int) *script.Script {
 	return script.NewScriptOps(ops)
 }
 
-func txWithTooManyScriptOps(prevout util.Hash) *tx.Tx {
-	outpoint := outpoint.NewOutPoint(prevout, 0)
+func txWithTooManyScriptOps(prevout util.Hash, variant uint) *tx.Tx {
+	outpoint := outpoint.NewOutPoint(prevout, uint32(variant))
 
-	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + 1))
+	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + variant))
 	txin := txin.NewTxIn(outpoint, hugeScript, script.SequenceFinal)
 
 	txn := newTestTx(txin, 0, 1)
@@ -1467,12 +1604,257 @@ func txWithTooManyScriptOps(prevout util.Hash) *tx.Tx {
 }
 
 func Test_tx_with_too_many_script_ops_should_NOT_be_accepted_into_mempool(t *testing.T) {
-	cleanup := initTestEnv()
-	defer cleanup()
+	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
-	txn := txWithTooManyScriptOps(blocks[0].Txs[0].GetHash())
+	txn := txWithTooManyScriptOps(blocks[0].Txs[0].GetHash(), 0)
 	err := lmempool.AcceptTxToMemPool(txn)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops"), err)
+}
+
+func Test_tx_with_too_low_fee_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	lmempool.AcceptTxToMemPool(txn)
+
+	txns := make([]*tx.Tx, 0)
+	txns = append(txns, txn)
+	lmempool.RemoveTxSelf(txns)
+
+	//err = lmempool.AcceptTxToMemPool(txn)
+
+	//code, _, isRejectCode := errcode.IsRejectCode(err)
+	//assert.True(t, isRejectCode)
+	//assert.Equal(t, errcode.RejectInsufficientFee, code)
+	//TODO: after fix mempool always rollingMinimumFeeRate==0
+}
+
+func Test_tx_spend_premature_coinbase_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[len(blocks)-1].Txs[0].GetHash())
+
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase"), err)
+}
+
+//test block txns: ltx.CheckBlockTransactions
+func Test_block_txns__should_contains_one_coinbase_tx(t *testing.T) {
+	txn := mainNetTx(1)
+	txns := []*tx.Tx{txn}
+
+	err := ltx.CheckBlockTransactions(txns, 0)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-missing"), err)
+}
+
+func newCoinbaseTx() *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	outpoint := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+	scriptsig := makeDummyScript(20)
+	txin := txin.NewTxIn(outpoint, scriptsig, script.SequenceFinal)
+
+	txout := txout.NewTxOut(0, script.NewEmptyScript())
+	txn.AddTxIn(txin)
+	txn.AddTxOut(txout)
+	return txn
+}
+
+func Test_block_txns__should_at_least_contains_one_txn(t *testing.T) {
+	txns := []*tx.Tx{}
+
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-missing"), err)
+}
+
+func Test_block_txns__should_contains_one_coinbase_tx__happy_case(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txns := []*tx.Tx{coinbaseTx}
+
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.NoError(t, err)
+}
+
+func Test_block_txns__should_only_has_one_coinbase_tx(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txns := []*tx.Tx{coinbaseTx, coinbaseTx}
+
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase"), err)
+}
+
+func Test_block_txns__should_not_contains_too_much_script_ops__in_total(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
+	txn2 := txWithTooManyScriptOps(util.HashOne, 2)
+	txn3 := txWithTooManyScriptOps(util.HashOne, 3)
+	txn4 := txWithTooManyScriptOps(util.HashOne, 4)
+	txn5 := txWithTooManyScriptOps(util.HashOne, 5)
+
+	txns := []*tx.Tx{coinbaseTx, txn1, txn2, txn3, txn4, txn5}
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops"), err)
+}
+
+func Test_block_txns__should_not_contains_duplicate_prev_outpoints(t *testing.T) {
+	coinbaseTx := newCoinbaseTx()
+	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
+	txns := []*tx.Tx{coinbaseTx, txn1, txn1}
+	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate"), err)
+}
+
+//test cases for ltx.ContextureCheckBlockTransactions
+//model.ActiveNetParams.BIP34Height
+
+func newCoinbaseTxWithEmptyScriptSig() *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	outpoint := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+	scriptsig := script.NewEmptyScript()
+	txin := txin.NewTxIn(outpoint, scriptsig, script.SequenceFinal)
+
+	txout := txout.NewTxOut(0, script.NewEmptyScript())
+	txn.AddTxIn(txin)
+	txn.AddTxOut(txout)
+	return txn
+}
+
+func Test_block_should_contains_at_least_one_tx(t *testing.T) {
+	txns := []*tx.Tx{}
+
+	height := model.ActiveNetParams.BIP34Height - 1
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.Equal(t, errcode.New(errcode.RejectInvalid), err)
+}
+
+func Test_block_coinbase_tx___can_contains_empty_script_sig___before_BIP34_height(t *testing.T) {
+	coinbaseTx := newCoinbaseTxWithEmptyScriptSig()
+	txns := []*tx.Tx{coinbaseTx}
+
+	height := model.ActiveNetParams.BIP34Height - 1
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.NoError(t, err)
+}
+
+func Test_block_coinbase_tx___can_NOT_contains_empty_script_sig___after_BIP34_height(t *testing.T) {
+	coinbaseTx := newCoinbaseTxWithEmptyScriptSig()
+	txns := []*tx.Tx{coinbaseTx}
+
+	height := model.ActiveNetParams.BIP34Height + 1
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
+}
+
+func newCoinbaseOnHeight(height int32) *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	outpoint := outpoint.NewOutPoint(util.HashZero, 0xffffffff)
+
+	scriptsig := script.NewEmptyScript()
+	scriptsig.PushScriptNum(script.NewScriptNum(int64(height)))
+
+	txn.AddTxIn(txin.NewTxIn(outpoint, scriptsig, script.SequenceFinal))
+	txn.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	return txn
+}
+
+func Test_block_coinbase_tx___should_contains_height_in_script_sig___after_BIP34_height(t *testing.T) {
+	height := model.ActiveNetParams.BIP34Height + 1
+
+	coinbaseTx := newCoinbaseOnHeight(height)
+	txns := []*tx.Tx{coinbaseTx}
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+
+	assert.NoError(t, err)
+}
+
+func Test_block_coinbase_tx___should_contains_correct_height_in_script_sig___after_BIP34_height(t *testing.T) {
+	height := model.ActiveNetParams.BIP34Height + 1
+
+	coinbaseTx := newCoinbaseOnHeight(height)
+	txns := []*tx.Tx{coinbaseTx}
+
+	err := ltx.ContextureCheckBlockTransactions(txns, height+100, 0)
+
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
+}
+
+//testcases for ltx.ApplyBlockTransactions
+func Test_ApplyBlockTransactions__generated_block_should_contains_tx_in_mempool(t *testing.T) {
+	defer initTestEnv()()
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	txn2 := makeNormalTx(blocks[1].Txs[0].GetHash())
+
+	err := lmempool.AcceptTxToMemPool(txn)
+	assert.NoError(t, err)
+	err = lmempool.AcceptTxToMemPool(txn2)
+	assert.NoError(t, err)
+
+	blocks = generateTestBlocks(t)
+
+	assert.Equal(t, 3, len(blocks[0].Txs))
+	assert.Contains(t, blocks[0].Txs, txn)
+	assert.Contains(t, blocks[0].Txs, txn2)
+}
+
+//tests for ltx.CheckInputsMoney
+func Test_can_not_spend__premature_coinbase_tx_output(t *testing.T) {
+	txn := mainNetTx(1)
+
+	outpoint0 := txn.GetIns()[0].PreviousOutPoint
+	txout := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewEmptyScript())
+	coin := utxo.NewFreshCoin(txout, 100, true)
+	coinMap := utxo.NewEmptyCoinsMap()
+	coinMap.AddCoin(outpoint0, coin, false)
+
+	err := ltx.CheckInputsMoney(txn, coinMap, 101)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase"), err)
+}
+
+func given_input_value_is_10_coins(txn *tx.Tx, height int32) *utxo.CoinsMap {
+	outpoint0 := txn.GetIns()[0].PreviousOutPoint
+	txout := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewEmptyScript())
+	coin := utxo.NewFreshCoin(txout, height, true)
+	coinMap := utxo.NewEmptyCoinsMap()
+	coinMap.AddCoin(outpoint0, coin, false)
+	return coinMap
+}
+
+func Test_should_be_able_to_spend_matured_coinbase_tx_output(t *testing.T) {
+	txn := mainNetTx(1)
+
+	height := int32(100)
+	maturedHeight := height + consensus.CoinbaseMaturity
+	coinMap := given_input_value_is_10_coins(txn, height)
+
+	err := ltx.CheckInputsMoney(txn, coinMap, maturedHeight)
+	assert.NoError(t, err)
+}
+
+func Test_tx_output_value_should_in_valid_range(t *testing.T) {
+	txn := mainNetTx(1)
+	txn.GetTxOut(0).SetValue(amount.Amount(11 * util.COIN))
+
+	height := int32(100)
+	maturedHeight := height + consensus.CoinbaseMaturity
+	coinMap := given_input_value_is_10_coins(txn, height)
+
+	err := ltx.CheckInputsMoney(txn, coinMap, maturedHeight)
+	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-in-belowout"), err)
 }

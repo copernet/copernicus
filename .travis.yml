@@ -11,7 +11,7 @@ before_install:
 script:
   - docker exec copernicus /bin/bash -c 'cd /go/src/github.com/copernet/copernicus && ./check.sh'
   - docker exec copernicus goveralls -coverprofile=/go/src/github.com/copernet/copernicus/coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
-  - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python /walle/example_test.py'
+  - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python test_runner.py'
 
 notifications:
   email:

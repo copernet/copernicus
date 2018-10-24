@@ -570,9 +570,9 @@ func (tx *Tx) UpdateInScript(i int, scriptSig *script.Script) error {
 }
 
 // IsFinal proceeds as follows
-// 1. tx.locktime > 0 and tx.locktime < Threshold, use height to check(tx.locktime > current height)
-// 2. tx.locktime > Threshold, use time to check(tx.locktime > current blocktime)
-// 3. sequence can disable it
+// 1. tx.locktime > 0 and tx.locktime < Threshold, use height to check final (tx.locktime < current height)
+// 2. tx.locktime > Threshold, use time to check final (tx.locktime < current blocktime)
+// 3. sequence can disable it(sequence == sequencefinal)
 func (tx *Tx) IsFinal(Height int32, time int64) bool {
 	if tx.lockTime == 0 {
 		return true

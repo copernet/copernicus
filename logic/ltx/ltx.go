@@ -256,7 +256,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		log.Debug("block has no transactions")
-		return errcode.New(errcode.RejectInvalid)
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-missing")
 	}
 	err := txs[0].CheckCoinbaseTransaction()
 	if err != nil {
@@ -268,7 +268,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
 		if uint64(sigOps) > maxBlockSigOps {
 			log.Debug("block has too many sigOps:%d", sigOps)
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
 		err := transaction.CheckRegularTransaction()
 		if err != nil {
@@ -395,12 +395,12 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 		heightScript.PushScriptNum(heightNumb)
 		if coinBaseScriptSig.Size() < heightScript.Size() {
 			log.Debug("coinbase err, not start with blockheight")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-cb-height")
 		}
 		scriptData := coinBaseScriptSig.GetData()[:heightScript.Size()]
 		if !bytes.Equal(scriptData, heightScript.GetData()) {
 			log.Debug("coinbase err, not start with blockheight")
-			return errcode.New(errcode.RejectInvalid)
+			return errcode.NewError(errcode.RejectInvalid, "bad-cb-height")
 		}
 	}
 	return nil
