@@ -17,7 +17,6 @@ import (
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
-	//"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
@@ -47,7 +46,7 @@ func appInitMain(args []string) {
 
 	//init log
 	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
-	if !conf.ExistDataDir(logDir) {
+	if !conf.FileExists(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {
 			panic("logdir create failed: " + err.Error())
