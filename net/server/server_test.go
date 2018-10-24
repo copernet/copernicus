@@ -193,8 +193,8 @@ func TestRemoveRebroadcastInventory(t *testing.T) {
 	s.WaitForShutdown()
 }
 
-func makeTx(t *testing.T) (*tx.Tx, error) {
-	tx := tx.Tx{}
+func makeTx() (*tx.Tx, error) {
+	tmpTx := tx.Tx{}
 	rawTxString := "0100000002f6b52b137227b1992a6289e2c1b265953b559d782faba905c209ddf1c7a48fb8" +
 		"000000006b48304502200a0c787cb9c132584e640b7686a8f6a78d9c4a41201a0c7a139d5383970b39c50" +
 		"22100d6fdc88b87328cdd772ed4dd9f15fea84c85968fe84308bb4a207ba03889cd680121020b76df009c" +
@@ -209,10 +209,10 @@ func makeTx(t *testing.T) (*tx.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Unserialize(bytes.NewReader(originBytes)); err != nil {
+	if err := tmpTx.Unserialize(bytes.NewReader(originBytes)); err != nil {
 		return nil, err
 	}
-	return &tx, nil
+	return &tmpTx, nil
 }
 
 func TestAnnounceNewTransactions(t *testing.T) {
@@ -222,11 +222,11 @@ func TestAnnounceNewTransactions(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 	s.Start()
-	tx, err := makeTx(t)
+	tmpTx, err := makeTx()
 	if err != nil {
 		t.Fatalf("makeTx() failed: %v\n", err)
 	}
-	s.AnnounceNewTransactions([]*mempool.TxEntry{&mempool.TxEntry{Tx: tx}})
+	s.AnnounceNewTransactions([]*mempool.TxEntry{{Tx: tmpTx}})
 	s.Stop()
 	s.WaitForShutdown()
 }
@@ -295,11 +295,11 @@ func TestTransactionConfirmed(t *testing.T) {
 	s.wg.Add(1)
 	go s.rebroadcastHandler()
 
-	tx, err := makeTx(t)
+	tmpTx, err := makeTx()
 	if err != nil {
 		t.Fatalf("makeTx() failed: %v\n", err)
 	}
-	s.TransactionConfirmed(tx)
+	s.TransactionConfirmed(tmpTx)
 	s.Stop()
 	s.WaitForShutdown()
 }
