@@ -67,6 +67,45 @@ func newBlockUndo(amount amount.Amount, scriptPK *script.Script, height int32) *
 	return bkundo
 }
 
+type MockWriter struct {
+	size int
+	n    int
+}
+
+func (mw *MockWriter) Write(p []byte) (size int, err error) {
+	mw.n = mw.n + len(p)
+	if mw.n >= mw.size {
+		mw.size--
+		mw.n = 0
+		return 0, errors.New("EOF")
+	}
+
+	return len(p), nil
+}
+
+func Test_txundo_serialize_failure_case(t *testing.T) {
+	crypto.InitSecp256()
+	txoutSpent := txout.NewTxOut(amount.Amount(1), makeDummyScriptPubKey())
+	coin := utxo.NewFreshCoin(txoutSpent, 100, true)
+
+	txundo := undo.NewTxUndo()
+	txundo.SetUndoCoins([]*utxo.Coin{coin})
+
+	bkundo := undo.NewBlockUndo(1)
+	bkundo.SetTxUndo([]*undo.TxUndo{txundo})
+
+	buf := bytes.NewBuffer(nil)
+	bkundo.Serialize(buf)
+	sz := buf.Len()
+
+	writer := &MockWriter{size: sz}
+
+	for i := 0; i < sz; i++ {
+		err := bkundo.Serialize(writer)
+		assert.Error(t, err)
+	}
+}
+
 func Test_txundo_serialize(t *testing.T) {
 	txoutSpent := txout.NewTxOut(amount.Amount(-1), makeDummyScriptPubKey())
 	coin := utxo.NewFreshCoin(txoutSpent, 100, true)
@@ -78,6 +117,36 @@ func Test_txundo_serialize(t *testing.T) {
 	err := txundo.Serialize(buf)
 
 	assert.Equal(t, errors.New("already spent"), err)
+}
+
+func Test_txundo_unserialize(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+
+	txundo2 := undo.NewTxUndo()
+	err := txundo2.Unserialize(buf)
+	assert.Equal(t, errors.New("EOF"), err)
+}
+
+func Test_unserialize_failure_case(t *testing.T) {
+	crypto.InitSecp256()
+	expectedAmount := amount.Amount(1 * util.COIN)
+	expectedScriptPK := makeDummyScriptPubKey()
+	expectedHeight := int32(12345)
+
+	bkundo1 := newBlockUndo(expectedAmount, expectedScriptPK, expectedHeight)
+
+	buf := bytes.NewBuffer(nil)
+	assert.NoError(t, bkundo1.Serialize(buf))
+
+	for i := 0; i < buf.Len(); i++ {
+		buf := bytes.NewBuffer(nil)
+		assert.NoError(t, bkundo1.Serialize(buf))
+		buf.Truncate(i)
+
+		blundo2 := undo.NewBlockUndo(1)
+		err := blundo2.Unserialize(buf)
+		assert.Error(t, err)
+	}
 }
 
 func Test_too_many_inputs_when_txundo_unserialize_from_buf(t *testing.T) {
