@@ -257,6 +257,7 @@ func TestTxOut_IsStandard_ScriptNonStandard_false(t *testing.T) {
 		0xb1, 0x57, 0xfc, 0x93, 0x55,
 		opcodes.OP_EQUALVERIFY,
 		opcodes.OP_CHECKSIG})
+
 	txout := NewTxOut(9, scriptarr2)
 	pubKeyType, isStandard := txout.IsStandard()
 	assert.Equal(t, script.ScriptNonStandard, pubKeyType)
@@ -276,6 +277,7 @@ func TestTxOut_IsStandard_ScriptMultiSig_false(t *testing.T) {
 	scriptarr3 := NewScriptBuilder().PushOPCode(opcodes.OP_4).PushBytesWithOP(pubkey2c.ToBytes()).
 		PushBytesWithOP(pubkey1c.ToBytes()).PushBytesWithOP(pubkey0c.ToBytes()).PushBytesWithOP(pubkey3c.ToBytes()).
 		PushOPCode(opcodes.OP_4).PushOPCode(opcodes.OP_CHECKMULTISIG).Script()
+
 	txout := NewTxOut(9, scriptarr3)
 	pubKeyType, isStandard := txout.IsStandard()
 	assert.Equal(t, script.ScriptMultiSig, pubKeyType)
@@ -287,6 +289,7 @@ func TestTxOut_IsStandard_ScriptNullData_false(t *testing.T) {
 	conf.Cfg.Script.AcceptDataCarrier = false
 	txout := NewTxOut(9, scriptarr4)
 	pubKeyType, isStandard := txout.IsStandard()
+
 	assert.Equal(t, script.ScriptNullData, pubKeyType)
 	assert.False(t, isStandard)
 }
