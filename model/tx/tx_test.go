@@ -777,3 +777,131 @@ func Test_basic_tx_methods(t *testing.T) {
 
 	assert.Equal(t, txn.EncodeSize(), txn.SerializeSize())
 }
+
+// The struct Var contains some variable which testing using.
+// keyMap is used to save the relation publicKeyHash and privateKey, k is publicKeyHash, v is privateKey.
+type Var struct {
+	priKeys       []crypto.PrivateKey
+	pubKeys       []crypto.PublicKey
+	prevHolder    Tx
+	spender       Tx
+	keyMap        []*crypto.PrivateKey
+}
+
+// Initial the test variable
+func initVar() *Var {
+	var v Var
+	v.keyMap = make([]*crypto.PrivateKey, 0)
+
+	for i := 0; i < 3; i++ {
+		privateKey := NewPrivateKey()
+		v.priKeys = append(v.priKeys, privateKey)
+
+		pubKey := *privateKey.PubKey()
+		v.pubKeys = append(v.pubKeys, pubKey)
+
+		v.keyMap = append(v.keyMap, &privateKey)
+	}
+
+	return &v
+}
+
+func TestSignStepP2PKH(t *testing.T) {
+	v := initVar()
+
+	// Create a P2PKHLockingScript script
+	scriptPubKey := script.NewEmptyScript()
+	scriptPubKey.PushOpCode(opcodes.OP_DUP)
+	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
+	scriptPubKey.PushSingleData(btcutil.Hash160(v.pubKeys[0].ToBytes()))
+	scriptPubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
+	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
+
+	// Add locking script to prevHolder
+	v.prevHolder.AddTxOut(txout.NewTxOut(0, scriptPubKey))
+
+	v.spender.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(v.prevHolder.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+
+	coin := utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+
+	// Single signature case:
+	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, coin.GetAmount())
+	assert.Nil(t, err)
+	t.Logf("sign data:%v", sigData)
+}
+
+func TestSignStepP2SH(t *testing.T) {
+	v := initVar()
+
+	// Create a P2SHLockingScript script
+	pubKey := script.NewEmptyScript()
+	pubKey.PushSingleData(v.pubKeys[0].ToBytes())
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
+
+	pubKeyHash160 := util.Hash160(pubKey.GetData())
+
+	scriptPubKey := script.NewEmptyScript()
+	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
+	scriptPubKey.PushSingleData(pubKeyHash160)
+	scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
+
+	// Add locking script to prevHolder
+	v.prevHolder.AddTxOut(txout.NewTxOut(0, scriptPubKey))
+
+	v.spender.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(v.prevHolder.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+
+	coin := utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+
+	// Single signature case:
+	sigData, err := v.spender.SignStep(0, v.keyMap, pubKey, hashType, scriptPubKey, coin.GetAmount())
+	assert.Nil(t, err)
+	t.Logf("sign data:%v", sigData)
+}
+
+func TestSignStepMultiSig(t *testing.T) {
+	v := initVar()
+
+	// Hardest case: Multisig 2-of-3
+	// the stack like this: 2 << <pubKey1> << <pubKey2> << <pubKey3> << 3 << OP_CHECKMULTISIG
+	scriptPubKey := script.NewEmptyScript()
+	scriptPubKey.PushInt64(2)
+
+	for i := 0; i < 3; i++ {
+		scriptPubKey.PushSingleData(v.pubKeys[i].ToBytes())
+	}
+	scriptPubKey.PushInt64(3)
+	scriptPubKey.PushOpCode(opcodes.OP_CHECKMULTISIG)
+
+	// Add locking script to prevHolder
+	v.prevHolder.AddTxOut(txout.NewTxOut(0, scriptPubKey))
+
+	v.spender.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(v.prevHolder.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+
+	coin := utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false)
+	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
+
+	// Single signature case:
+	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, coin.GetAmount())
+	assert.Nil(t, err)
+	t.Logf("sign data:%v", sigData)
+}
