@@ -663,9 +663,9 @@ func TestOutboundPeer(t *testing.T) {
 	var newestBlock = func() (*util.Hash, int32, error) {
 		hashStr := "14a0810ac680a3eb3f82edc878cea25ec41d6b790744e5daeef"
 		hash := util.HashFromString(hashStr)
-		if err != nil {
-			return nil, 0, err
-		}
+		//if err != nil {
+		//	return nil, 0, err
+		//}
 		return hash, 234439, nil
 	}
 
@@ -709,7 +709,7 @@ func TestOutboundPeer(t *testing.T) {
 	c2 := &conn{raddr: "10.0.0.1:8333", Writer: w2, Reader: r2}
 	p2, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333")
 	if err != nil {
-		t.Errorf("NewOutboundPeer: unexpected err - %v\n", err)
+		t.Errorf("NewOutboundPeer: unexpected err - %s\n", err.Error())
 		return
 	}
 	p2.AssociateConnection(c2, msgChan2, func(*peer.Peer) {})
