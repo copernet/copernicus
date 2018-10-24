@@ -1858,3 +1858,185 @@ func Test_tx_output_value_should_in_valid_range(t *testing.T) {
 	err := ltx.CheckInputsMoney(txn, coinMap, maturedHeight)
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-in-belowout"), err)
 }
+
+/////more test cases
+type ScriptBuilder struct {
+	s *script.Script
+}
+
+func NewScriptBuilder() *ScriptBuilder {
+	return &ScriptBuilder{
+		s: script.NewEmptyScript(),
+	}
+}
+
+func (sb *ScriptBuilder) PushNumber(n int) *ScriptBuilder {
+	sb.s.PushScriptNum(script.NewScriptNum(int64(n)))
+	return sb
+}
+
+func (sb *ScriptBuilder) PushOPCode(n int) *ScriptBuilder {
+	sb.s.PushOpCode(n)
+	return sb
+}
+
+func (sb *ScriptBuilder) PushBytesWithOP(data []byte) *ScriptBuilder {
+	sb.s.PushSingleData(data)
+	return sb
+}
+
+func (sb *ScriptBuilder) Script() *script.Script {
+	return sb.s
+}
+
+func (sb *ScriptBuilder) Bytes() []byte {
+	buf := bytes.NewBuffer(nil)
+	sb.s.Serialize(buf)
+	return buf.Bytes()
+}
+
+func P2PK(pk *crypto.PublicKey) *script.Script {
+	return NewScriptBuilder().PushBytesWithOP(pk.ToBytes()).PushOPCode(opcodes.OP_CHECKSIG).Script()
+}
+
+func P2PKH(pk *crypto.PublicKey) *script.Script {
+	return NewScriptBuilder().
+		PushOPCode(opcodes.OP_DUP).
+		PushOPCode(opcodes.OP_HASH160).
+		PushBytesWithOP(pk.ToHash160()).
+		PushOPCode(opcodes.OP_EQUALVERIFY).
+		PushOPCode(opcodes.OP_CHECKSIG).Script()
+}
+
+func MULTISIG(pks []*crypto.PublicKey) *script.Script {
+	return NewScriptBuilder().PushOPCode(opcodes.OP_2).PushBytesWithOP(pks[0].ToBytes()).
+		PushBytesWithOP(pks[1].ToBytes()).
+		PushBytesWithOP(pks[2].ToBytes()).PushOPCode(opcodes.OP_3).
+		PushOPCode(opcodes.OP_CHECKMULTISIG).Script()
+}
+
+func P2SH(pk *crypto.PublicKey) *script.Script {
+	return NewScriptBuilder().PushOPCode(opcodes.OP_HASH160).
+		PushBytesWithOP(util.Hash160(pk.ToBytes())).
+		PushOPCode(opcodes.OP_EQUAL).
+		Script()
+}
+
+func setupDummyInputs() ([]*tx.Tx, *utxo.CoinsMap, []*crypto.PublicKey) {
+	pks := make([]*crypto.PublicKey, 4)
+	for i := 0; i < 4; i++ {
+		key := NewPrivateKey()
+		pks[i] = key.PubKey()
+	}
+
+	txns := []*tx.Tx{
+		tx.NewTx(0, 1),
+		tx.NewTx(0, 1),
+	}
+
+	txns[0].AddTxOut(txout.NewTxOut(amount.Amount(11*util.COIN), P2PK(pks[0])))
+	txns[0].AddTxOut(txout.NewTxOut(amount.Amount(50*util.COIN), P2PK(pks[1])))
+	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(21*util.COIN), P2PKH(pks[2])))
+	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(22*util.COIN), P2PKH(pks[3])))
+	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(99*util.COIN), MULTISIG(pks)))
+	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), P2SH(pks[3])))
+
+	return txns, coinsOf(txns), pks
+}
+
+func coinsOf(txns []*tx.Tx) *utxo.CoinsMap {
+	coinsMap := utxo.NewEmptyCoinsMap()
+
+	for _, txn := range txns {
+		for i, txout := range txn.GetOuts() {
+			coin := utxo.NewFreshCoin(txout, 1, false)
+			coinsMap.AddCoin(outpoint.NewOutPoint(txn.GetHash(), uint32(i)), coin, false)
+		}
+	}
+
+	return coinsMap
+}
+
+func TestAreInputStandard_for_P2PK_and_P2PKH(t *testing.T) {
+	txn := tx.NewTx(0, 1)
+
+	inputTxns, coins, _ := setupDummyInputs()
+
+	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[0].GetHash(), 1), script.NewEmptyScript(), script.SequenceFinal)
+	txin2 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 0), script.NewEmptyScript(), script.SequenceFinal)
+	txin3 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 1), script.NewEmptyScript(), script.SequenceFinal)
+
+	txn.AddTxIn(txin1)
+	txn.AddTxIn(txin2)
+	txn.AddTxIn(txin3)
+
+	txn.AddTxOut(txout.NewTxOut(amount.Amount(90*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+
+	assert.True(t, ltx.AreInputsStandard(txn, coins))
+}
+
+func TestAreInputStandard_for_checkmultisig(t *testing.T) {
+	txn := tx.NewTx(0, 1)
+
+	inputTxns, coins, _ := setupDummyInputs()
+
+	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 2), script.NewEmptyScript(), script.SequenceFinal)
+	txn.AddTxIn(txin1)
+
+	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+	assert.True(t, ltx.AreInputsStandard(txn, coins))
+}
+
+func TestAreInputStandard_empty_script_sig__can_not_unlock_P2SH(t *testing.T) {
+	inputTxns, coins, _ := setupDummyInputs()
+
+	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 3), script.NewEmptyScript(), script.SequenceFinal)
+	txn := tx.NewTx(0, 1)
+	txn.AddTxIn(txin1)
+
+	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+	assert.False(t, ltx.AreInputsStandard(txn, coins))
+}
+
+func TestAreInputStandard_correct_script_sig__to_unlock_P2SH(t *testing.T) {
+	inputTxns, coins, pks := setupDummyInputs()
+
+	redeemScript := NewScriptBuilder().PushBytesWithOP(util.Hash160(pks[3].ToBytes())).Script()
+
+	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 3), redeemScript, script.SequenceFinal)
+	txn := tx.NewTx(0, 1)
+	txn.AddTxIn(txin1)
+
+	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+	assert.True(t, ltx.AreInputsStandard(txn, coins))
+}
+
+func TestAreInputStandard_too_large_scriptsig__is_non_standard(t *testing.T) {
+	inputTxns, coins, _ := setupDummyInputs()
+
+	redeemScript := NewScriptBuilder().PushBytesWithOP(makeDummyScript(script.MaxScriptSize + 1).Bytes()).Script()
+
+	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 3), redeemScript, script.SequenceFinal)
+	txn := tx.NewTx(0, 1)
+	txn.AddTxIn(txin1)
+	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+
+	assert.False(t, ltx.AreInputsStandard(txn, coins))
+}
+
+func TestAreInputStandard_scriptsig_with_too_much_extra_sigops_is_not_standard(t *testing.T) {
+	txn := tx.NewTx(0, 1)
+
+	inputTxns, coins, pks := setupDummyInputs()
+
+	redeemScript := NewScriptBuilder().
+		PushBytesWithOP(util.Hash160(pks[3].ToBytes())).
+		PushBytesWithOP(makeDummyScript(int(tx.MaxP2SHSigOps + 1)).Bytes()).
+		Script()
+
+	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 3), redeemScript, script.SequenceFinal)
+	txn.AddTxIn(txin1)
+
+	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+	assert.False(t, ltx.AreInputsStandard(txn, coins))
+}

@@ -139,7 +139,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 
 	//check standard inputs
 	if model.ActiveNetParams.RequireStandard {
-		if !areInputsStandard(txn, inputCoins) {
+		if !AreInputsStandard(txn, inputCoins) {
 			return nil, errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs")
 		}
 	}
@@ -535,7 +535,7 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
 }
 
-func areInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
+func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 	ins := transaction.GetIns()
 	for i, e := range ins {
 		coin := coinsMap.GetCoin(e.PreviousOutPoint)
@@ -546,17 +546,23 @@ func areInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 		txOut := coin.GetTxOut()
 		pubKeyType, isStandard := txOut.GetPubKeyType()
 		if !isStandard {
-			log.Debug("areInputsStandard GetPubkeyType err: not StandardScriptPubKey")
+			log.Debug("AreInputsStandard GetPubkeyType err: not StandardScriptPubKey")
 			return false
 		}
 		if pubKeyType == script.ScriptHash {
 			scriptSig := e.GetScriptSig()
-			err := lscript.EvalScript(util.NewStack(), scriptSig, transaction, i, amount.Amount(0), script.ScriptVerifyNone,
+			stack := util.NewStack()
+			err := lscript.EvalScript(stack, scriptSig, transaction, i, amount.Amount(0), script.ScriptVerifyNone,
 				lscript.NewScriptEmptyChecker())
 			if err != nil {
-				log.Debug("areInputsStandard EvalScript err: %v", err)
+				log.Debug("AreInputsStandard EvalScript err: %v", err)
 				return false
 			}
+
+			if stack.Empty() {
+				return false
+			}
+
 			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
 			opCount := subScript.GetSigOpCount(true)
 			if uint(opCount) > tx.MaxP2SHSigOps {
