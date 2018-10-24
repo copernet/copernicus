@@ -344,7 +344,7 @@ func CheckMempool(bestHeight int32) {
 					mempoolDuplicate.FetchCoin(e.PreviousOutPoint)
 				}
 				fCheckResult = ltx.CheckInputsMoney(entry.Tx, mempoolDuplicate,
-					int32(spentHeight)) == nil
+					spentHeight) == nil
 			}
 			if !fCheckResult {
 				panic("the txentry check failed with utxo set2...")

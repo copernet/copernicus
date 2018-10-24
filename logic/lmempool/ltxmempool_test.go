@@ -8,21 +8,35 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	mmempool "github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/service"
+	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/copernet/copernicus/util/cashaddr"
+	"github.com/stretchr/testify/assert"
 	"math"
 	"math/rand"
 	"os"
@@ -30,8 +44,13 @@ import (
 	"testing"
 )
 
+const nInnerLoopCount = 0x100000
+
 func init() {
 	crypto.InitSecp256()
+	cleanup := initTestEnv()
+	defer cleanup()
+	ltx.ScriptVerifyInit()
 }
 
 type fakeChain struct {
@@ -136,7 +155,7 @@ type poolHarness struct {
 	chain  *fakeChain
 	txPool *mmempool.TxMempool
 
-	keys map[string]*crypto.PrivateKey
+	keys []*crypto.PrivateKey
 }
 
 // CreateCoinbaseTx returns a coinbase transaction with the requested number of
@@ -192,9 +211,9 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 	amountPerOutput := int64(totalInput) / int64(numOutputs)
 	remainder := int64(totalInput) - amountPerOutput*int64(numOutputs)
 
-	tx := tx.NewTx(0, tx.TxVersion)
+	txn := tx.NewTx(0, tx.TxVersion)
 	for _, input := range inputs {
-		tx.AddTxIn(txin.NewTxIn(
+		txn.AddTxIn(txin.NewTxIn(
 			&input.outPoint,
 			nil,
 			math.MaxUint32))
@@ -206,7 +225,7 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 		if i == numOutputs-1 {
 			amount1 = amountPerOutput + remainder
 		}
-		tx.AddTxOut(txout.NewTxOut(amount.Amount(amount1), script.NewScriptRaw(p.payScript)))
+		txn.AddTxOut(txout.NewTxOut(amount.Amount(amount1), script.NewScriptRaw(p.payScript)))
 	}
 
 	// Sign the new transaction.
@@ -218,9 +237,9 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 	// 	}
 	// 	tx.TxIn[i].SignatureScript = sigScript
 	// }
-	ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll, p.chain.utxos)
+	ltx.SignRawTransaction([]*tx.Tx{txn}, nil, p.keys, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
 
-	return tx, nil
+	return txn, nil
 }
 
 // CreateTxChain creates a chain of zero-fee transactions (each subsequent
@@ -231,17 +250,18 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 	txChain := make([]*tx.Tx, 0, numTxns)
 	prevOutPoint := &firstOutput.outPoint
 	spendableAmount := firstOutput.amount
+
 	for i := uint32(0); i < numTxns; i++ {
 		// Create the transaction using the previous transaction output
 		// and paying the full amount to the payment address associated
 		// with the harness.
-		tx := tx.NewTx(0, tx.TxVersion)
-		tx.AddTxIn(txin.NewTxIn(
+		txn := tx.NewTx(0, tx.TxVersion)
+		txn.AddTxIn(txin.NewTxIn(
 			prevOutPoint,
 			nil,
 			math.MaxUint32,
 		))
-		tx.AddTxOut(txout.NewTxOut(
+		txn.AddTxOut(txout.NewTxOut(
 			spendableAmount,
 			script.NewScriptRaw(p.payScript),
 		))
@@ -253,19 +273,21 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 		// 	return nil, err
 		// }
 		// tx.TxIn[0].SignatureScript = sigScript
-		err := ltx.SignRawTransaction(tx, nil, p.keys, crypto.SigHashAll|crypto.SigHashForkID, p.chain.utxos)
-		if err != nil {
-			panic(err)
+		errs := ltx.SignRawTransaction([]*tx.Tx{txn}, nil, p.keys, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
+		if len(errs) > 0 {
+			log.Error("%#v, %#v", errs, p.chain.utxos)
+			panic(errs)
 		}
-		txChain = append(txChain, tx)
+		txChain = append(txChain, txn)
 		// fmt.Printf("prev:%v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
 		// Next transaction uses outputs from this one.
-		prevOutPoint = &outpoint.OutPoint{Hash: tx.GetHash(), Index: 0}
+		prevOutPoint = &outpoint.OutPoint{Hash: txn.GetHash(), Index: 0}
 		p.chain.utxos.AddCoin(prevOutPoint,
-			utxo.NewCoin(tx.GetTxOut(0), 0, true),
+			utxo.NewFreshCoin(txn.GetTxOut(0), 0, true),
 			false)
 	}
 	// fmt.Printf("txchain: %v\n", txChain)
+	// utxo.GetUtxoCacheInstance().UpdateCoins(p.chain.utxos, &util.Hash{})
 	return txChain, nil
 }
 
@@ -326,10 +348,10 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 
 		chain:  chain,
 		txPool: mmempool.GetInstance(),
-		keys:   make(map[string]*crypto.PrivateKey),
+		keys:   nil,
 	}
 
-	harness.keys[string(signPub.ToHash160())] = &signKey
+	harness.keys = []*crypto.PrivateKey{&signKey}
 
 	// Create a single coinbase transaction and add it to the harness
 	// chain's utxo set and set the harness chain height such that the
@@ -346,7 +368,7 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 	//harness.chain.utxos.AddTxOuts(coinbase, curHeight+1)
 	for outIdx := 0; outIdx < coinbase.GetOutsCount(); outIdx++ {
 		harness.chain.utxos.AddCoin(outpoint.NewOutPoint(coinbase.GetHash(), uint32(outIdx)),
-			utxo.NewCoin(coinbase.GetTxOut(outIdx), curHeight+1, true),
+			utxo.NewFreshCoin(coinbase.GetTxOut(outIdx), curHeight+1, true),
 			false)
 		//fmt.Printf("add %v to utxo\n", outpoint.NewOutPoint(coinbase.GetHash(), uint32(outIdx)))
 	}
@@ -356,7 +378,8 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 	harness.chain.SetHeight(int32(chainParams.CoinbaseMaturity) + curHeight)
 	harness.chain.SetMedianTimePast(time.Now())
 
-	utxo.GetUtxoCacheInstance().UpdateCoins(harness.chain.utxos, &util.Hash{})
+	cmcopy := harness.chain.utxos.DeepCopy()
+	utxo.GetUtxoCacheInstance().UpdateCoins(cmcopy, &util.Hash{})
 	return &harness, outputs, nil
 }
 
@@ -404,16 +427,19 @@ func testPoolMembership(tc *testContext, tx *tx.Tx, inOrphanPool, inTxPool bool)
 // the entire orphan chain is moved to the transaction pool.
 func TestSimpleOrphanChain(t *testing.T) {
 	// t.Parallel()
-	os.RemoveAll("/tmp/dbtest")
+	// os.RemoveAll("/tmp/dbtest")
 
-	conf.Cfg = conf.InitConfig([]string{})
-	// t.Parallel()
-	uc := &utxo.UtxoConfig{Do: &db.DBOption{
-		FilePath:  "/tmp/dbtest",
-		CacheSize: 1 << 20,
-	}}
+	// conf.Cfg = conf.InitConfig([]string{})
+	// // t.Parallel()
+	// uc := &utxo.UtxoConfig{Do: &db.DBOption{
+	// 	FilePath:  "/tmp/dbtest",
+	// 	CacheSize: 1 << 20,
+	// }}
 
-	utxo.InitUtxoLruTip(uc)
+	// utxo.InitUtxoLruTip(uc)
+	cleanup := initTestEnv()
+	defer cleanup()
+	// ltx.ScriptVerifyInit()
 
 	harness, spendableOuts, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -430,14 +456,17 @@ func TestSimpleOrphanChain(t *testing.T) {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
 
+	generateTestBlocks(t)
+
+	recentRejects := make(map[util.Hash]struct{})
 	// Ensure the orphans are accepted (only up to the maximum allowed so
 	// none are evicted).
 	for _, tx := range chainedTxns[1 : maxOrphans+1] {
 		// acceptedTxns, err := harness.txPool.ProcessTransaction(tx, true,
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
-		service.HandleRejectedTx(tx, err, 0)
+		err := lmempool.AcceptTxToMemPool(tx)
+		service.HandleRejectedTx(tx, err, 0, recentRejects)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: failed to accept valid "+
 				"orphan %v", err)
@@ -456,13 +485,13 @@ func TestSimpleOrphanChain(t *testing.T) {
 	// acceptedTxns, err := harness.txPool.ProcessTransaction(chainedTxns[0],
 	// 	false, false, 0)
 	// acceptedTxns, _, err := service.ProcessTransaction(chainedTxns[0], 0)
-	err = lmempool.AcceptTxToMemPool(chainedTxns[0], harness.chain.BestHeight(), false)
+	err = lmempool.AcceptTxToMemPool(chainedTxns[0])
 	if err != nil {
 		t.Fatalf("ProcessTransaction: failed to accept valid "+
 			"orphan %v", err)
 	}
 	lmempool.CheckMempool(harness.chain.BestHeight())
-	acceptedTxns := lmempool.ProcessOrphan(chainedTxns[0], harness.chain.BestHeight(), false)
+	acceptedTxns, _ := lmempool.TryAcceptOrphansTxs(chainedTxns[0], harness.chain.BestHeight(), false)
 	if len(acceptedTxns) != len(chainedTxns)-1 {
 		t.Fatalf("ProcessTransaction: reported accepted transactions "+
 			"length does not match expected -- got %d, want %d",
@@ -477,10 +506,12 @@ func TestSimpleOrphanChain(t *testing.T) {
 	if harness.txPool.Size() == 0 {
 		t.Fatalf("tx pool's size shoud not be 0 ")
 	}
-	lmempool.RemoveTxRecursive(chainedTxns[5], 0)
+	// lmempool.RemoveTxRecursive(chainedTxns[5], 0)
+	harness.txPool.RemoveTxRecursive(chainedTxns[5], 0)
 	lmempool.RemoveTxSelf(chainedTxns[0:5])
 	if harness.txPool.Size() != 0 {
-		t.Fatalf("tx pool's size shoud be 0 ")
+		t.Fatalf("tx pool's size shoud be 0 (%v)",
+			harness.txPool.Size())
 	}
 
 	utxo.Close()
@@ -492,16 +523,19 @@ func TestSimpleOrphanChain(t *testing.T) {
 // orphans flag is not set on ProcessTransaction.
 func TestOrphanReject(t *testing.T) {
 	// t.Parallel()
-	os.RemoveAll("/tmp/dbtest")
+	// os.RemoveAll("/tmp/dbtest")
 
-	conf.Cfg = conf.InitConfig([]string{})
-	// t.Parallel()
-	uc := &utxo.UtxoConfig{Do: &db.DBOption{
-		FilePath:  "/tmp/dbtest",
-		CacheSize: 1 << 20,
-	}}
+	// conf.Cfg = conf.InitConfig([]string{})
+	// // t.Parallel()
+	// uc := &utxo.UtxoConfig{Do: &db.DBOption{
+	// 	FilePath:  "/tmp/dbtest",
+	// 	CacheSize: 1 << 20,
+	// }}
 
-	utxo.InitUtxoLruTip(uc)
+	// utxo.InitUtxoLruTip(uc)
+	cleanup := initTestEnv()
+	defer cleanup()
+	// ltx.ScriptVerifyInit()
 
 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -518,13 +552,14 @@ func TestOrphanReject(t *testing.T) {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
 
+	recentRejects := make(map[util.Hash]struct{})
 	// Ensure orphans are rejected when the allow orphans flag is not set.
 	for _, tx := range chainedTxns[1:] {
 		// acceptedTxns, err := harness.txPool.ProcessTransaction(tx, false,
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
-		service.HandleRejectedTx(tx, err, 0)
+		err := lmempool.AcceptTxToMemPool(tx)
+		service.HandleRejectedTx(tx, err, 0, recentRejects)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: did not fail on orphan "+
 				"%v when allow orphans flag is false", tx.GetHash())
@@ -862,15 +897,20 @@ func TestOrphanReject(t *testing.T) {
 // TestCheckSpend tests that CheckSpend returns the expected spends found in
 // the mempool.
 func TestCheckSpend(t *testing.T) {
-	os.RemoveAll("/tmp/dbtest")
-	conf.Cfg = conf.InitConfig([]string{})
-	// t.Parallel()
-	uc := &utxo.UtxoConfig{Do: &db.DBOption{
-		FilePath:  "/tmp/dbtest",
-		CacheSize: 1 << 20,
-	}}
+	// os.RemoveAll("/tmp/dbtest")
+	// conf.Cfg = conf.InitConfig([]string{})
+	// // t.Parallel()
+	// uc := &utxo.UtxoConfig{Do: &db.DBOption{
+	// 	FilePath:  "/tmp/dbtest",
+	// 	CacheSize: 1 << 20,
+	// }}
 
-	utxo.InitUtxoLruTip(uc)
+	// utxo.InitUtxoLruTip(uc)
+	// chain.InitGlobalChain()
+
+	cleanup := initTestEnv()
+	defer cleanup()
+	// ltx.ScriptVerifyInit()
 
 	harness, outputs, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
@@ -881,7 +921,7 @@ func TestCheckSpend(t *testing.T) {
 	for _, op := range outputs {
 		//spend := harness.txPool.CheckSpend(op.outPoint)
 		spend := harness.txPool.HasSpentOut(&op.outPoint)
-		if spend != nil {
+		if spend {
 			t.Fatalf("Unexpeced spend found in pool: %v", spend)
 		}
 	}
@@ -893,12 +933,14 @@ func TestCheckSpend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
+	generateTestBlocks(t)
+
 	for _, tx := range chainedTxns {
 		// _, err := harness.txPool.ProcessTransaction(tx, true,
 		// 	false, 0)
 		//fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
 		//_, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx, harness.chain.BestHeight(), false)
+		err := lmempool.AcceptTxToMemPool(tx)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tx.GetHash(), err)
@@ -909,7 +951,7 @@ func TestCheckSpend(t *testing.T) {
 	// The first tx in the chain should be the spend of the spendable
 	// output.
 	op := outputs[0].outPoint
-	spend := harness.txPool.HasSpentOut(&op)
+	spend := harness.txPool.HasSPentOutWithoutLock(&op)
 	if spend.Tx != chainedTxns[0] {
 		t.Fatalf("expected %v to be spent by %v, instead "+
 			"got %v", op, chainedTxns[0], spend)
@@ -922,7 +964,7 @@ func TestCheckSpend(t *testing.T) {
 			Index: 0,
 		}
 		expSpend := chainedTxns[i+1]
-		spend = harness.txPool.HasSpentOut(&op)
+		spend = harness.txPool.HasSPentOutWithoutLock(&op)
 		if spend.Tx != expSpend {
 			t.Fatalf("expected %v to be spent by %v, instead "+
 				"got %v", op, expSpend, spend)
@@ -934,12 +976,138 @@ func TestCheckSpend(t *testing.T) {
 		Hash:  chainedTxns[txChainLength-1].GetHash(),
 		Index: 0,
 	}
-	spend = harness.txPool.HasSpentOut(&op)
+	spend = harness.txPool.HasSPentOutWithoutLock(&op)
 	if spend != nil {
 		t.Fatalf("Unexpeced spend found in pool: %v", spend)
 	}
 	lmempool.CheckMempool(harness.chain.BestHeight())
-	utxo.Close()
-	mmempool.Close()
-	os.RemoveAll("/tmp/dbtest")
+	// utxo.Close()
+	// mmempool.Close()
+	// os.RemoveAll("/tmp/dbtest")
+}
+
+func initTestEnv() func() {
+	conf.Cfg = conf.InitConfig([]string{})
+
+	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
+	if err != nil {
+		panic("init test env failed:" + err.Error())
+	}
+
+	model.SetRegTestParams()
+
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
+	chain.InitGlobalChain()
+
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+
+	persist.InitPersistGlobal()
+
+	// Load blockindex DB
+	lblockindex.LoadBlockIndexDB()
+
+	lchain.InitGenesisChain()
+
+	mempool.InitMempool()
+	crypto.InitSecp256()
+
+	//default testing parameters
+	givenDustRelayFeeLimits(0)
+	model.ActiveNetParams.RequireStandard = false
+
+	cleanup := func() {
+		os.RemoveAll(unitTestDataDirPath)
+		log.Debug("cleanup test dir: %s", unitTestDataDirPath)
+		gChain := chain.GetInstance()
+		*gChain = *chain.NewChain()
+	}
+
+	return cleanup
+}
+
+func givenDustRelayFeeLimits(minRelayFee int64) {
+	if conf.Cfg == nil {
+		conf.Cfg = &conf.Configuration{}
+	}
+	conf.Cfg.TxOut.DustRelayFee = minRelayFee
+}
+
+func generateTestBlocks(t *testing.T) []*block.Block {
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
+	blocks, _ := generateBlocks(t, pubKey, 200, 1000000)
+	assert.Equal(t, 200, len(blocks))
+	return blocks
+}
+
+func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, maxTries uint64) ([]*block.Block, error) {
+	heightStart := chain.GetInstance().Height()
+	heightEnd := heightStart + int32(generate)
+	height := heightStart
+	params := model.ActiveNetParams
+
+	ret := make([]*block.Block, 0)
+	var extraNonce uint
+	for height < heightEnd {
+		ba := mining.NewBlockAssembler(params)
+		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
+		if bt == nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "Could not create new block",
+			}
+		}
+
+		bt.Block.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bt.Block.Txs, nil)
+
+		powCheck := pow.Pow{}
+		bits := bt.Block.Header.Bits
+		for maxTries > 0 && bt.Block.Header.Nonce < nInnerLoopCount {
+			maxTries--
+			bt.Block.Header.Nonce++
+			hash := bt.Block.GetHash()
+			if powCheck.CheckProofOfWork(&hash, bits, params) {
+				break
+			}
+		}
+
+		if maxTries == 0 {
+			break
+		}
+
+		if bt.Block.Header.Nonce == nInnerLoopCount {
+			extraNonce++
+			continue
+		}
+
+		fNewBlock := false
+		if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+			return nil, btcjson.RPCError{
+				Code:    btcjson.RPCInternalError,
+				Message: "ProcessNewBlock, block not accepted",
+			}
+		}
+
+		height++
+		extraNonce = 0
+
+		ret = append(ret, bt.Block)
+	}
+
+	return ret, nil
 }
