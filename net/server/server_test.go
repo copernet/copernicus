@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/copernet/copernicus/conf"
@@ -27,6 +28,8 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 )
+
+var once sync.Once
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
@@ -66,7 +69,9 @@ func appInitMain(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	log.Init(string(configuration))
+	once.Do(func() {
+		log.Init(string(configuration))
+	})
 
 	// Init UTXO DB
 	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
