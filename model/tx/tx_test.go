@@ -3,6 +3,7 @@ package tx
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/btcsuite/btcutil"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
@@ -11,6 +12,7 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
+	"reflect"
 	"testing"
 	"testing/quick"
 
@@ -781,11 +783,11 @@ func Test_basic_tx_methods(t *testing.T) {
 // The struct Var contains some variable which testing using.
 // keyMap is used to save the relation publicKeyHash and privateKey, k is publicKeyHash, v is privateKey.
 type Var struct {
-	priKeys       []crypto.PrivateKey
-	pubKeys       []crypto.PublicKey
-	prevHolder    Tx
-	spender       Tx
-	keyMap        []*crypto.PrivateKey
+	priKeys    []crypto.PrivateKey
+	pubKeys    []crypto.PublicKey
+	prevHolder Tx
+	spender    Tx
+	keyMap     []*crypto.PrivateKey
 }
 
 // Initial the test variable
@@ -827,14 +829,14 @@ func TestSignStepP2PKH(t *testing.T) {
 			script.SequenceFinal,
 		),
 	)
-
-	coin := utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false)
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	// Single signature case:
-	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, coin.GetAmount())
+	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
-	t.Logf("sign data:%v", sigData)
+	// <signature> <pubkey>
+	assert.Equal(t, len(sigData), 2)
+	assert.Equal(t, sigData[1], v.pubKeys[0].ToBytes())
 }
 
 func TestSignStepP2SH(t *testing.T) {
@@ -863,13 +865,14 @@ func TestSignStepP2SH(t *testing.T) {
 		),
 	)
 
-	coin := utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false)
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	// Single signature case:
-	sigData, err := v.spender.SignStep(0, v.keyMap, pubKey, hashType, scriptPubKey, coin.GetAmount())
+	sigData, err := v.spender.SignStep(0, v.keyMap, pubKey, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
-	t.Logf("sign data:%v", sigData)
+	// <signature> <redeemscript>
+	assert.Equal(t, len(sigData), 2)
+	assert.Equal(t, sigData[1], pubKey.GetData())
 }
 
 func TestSignStepMultiSig(t *testing.T) {
@@ -879,7 +882,6 @@ func TestSignStepMultiSig(t *testing.T) {
 	// the stack like this: 2 << <pubKey1> << <pubKey2> << <pubKey3> << 3 << OP_CHECKMULTISIG
 	scriptPubKey := script.NewEmptyScript()
 	scriptPubKey.PushInt64(2)
-
 	for i := 0; i < 3; i++ {
 		scriptPubKey.PushSingleData(v.pubKeys[i].ToBytes())
 	}
@@ -897,11 +899,39 @@ func TestSignStepMultiSig(t *testing.T) {
 		),
 	)
 
-	coin := utxo.NewFreshCoin(v.prevHolder.GetTxOut(0), 1, false)
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	// Single signature case:
-	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, coin.GetAmount())
+	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
-	t.Logf("sign data:%v", sigData)
+	// <OP_0> <signature0> ... <signatureM>
+	assert.Equal(t, len(sigData), 3)
+	assert.Equal(t, sigData[0], []byte{})
+}
+
+func TestUpdateInScript(t *testing.T) {
+	scriptSig := script.NewEmptyScript()
+	scriptSig.PushSingleData([]byte{0})
+
+	txPrev := NewTx(0, DefaultVersion)
+
+	tx := NewTx(0, DefaultVersion)
+	tx.AddTxIn(
+		txin.NewTxIn(
+			outpoint.NewOutPoint(txPrev.GetHash(), 0),
+			script.NewEmptyScript(),
+			script.SequenceFinal,
+		),
+	)
+
+	// update scriptSig for an valid index
+	err := tx.UpdateInScript(0, scriptSig)
+	assert.Nil(t, err)
+	if !reflect.DeepEqual(tx.GetIns()[0].GetScriptSig(), scriptSig) {
+		t.Error("SIGNATURE NOT EXPECTED")
+	}
+
+	// update scriptSig for an invalid index
+	err = tx.UpdateInScript(1, scriptSig)
+	assert.NotNil(t, err)
 }
