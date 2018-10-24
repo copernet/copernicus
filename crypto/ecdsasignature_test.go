@@ -244,7 +244,6 @@ func TestIsValidSignatureEncoding(t *testing.T) {
 }
 
 func TestParseSignature(t *testing.T) {
-
 	InitSecp256()
 	sig := validSig[:len(validSig)-1]
 	signature, err := ParseDERSignature(sig)
@@ -255,4 +254,35 @@ func TestParseSignature(t *testing.T) {
 	if !bytes.Equal(sigByte, sig) {
 		t.Errorf("the new serialize signature %v should be equal origin sig %v: ", sigByte, sig)
 	}
+	ret := signature.EcdsaNormalize()
+	assert.Equal(t, ret, true)
+
+
+	secp256k1Context = nil
+	_, err = ParseDERSignature(sig)
+	if err == nil {
+		t.Errorf("secp256k1Context is nil")
+	}
+}
+
+func TestIsLowDERSignature(t *testing.T) {
+	ret, err := IsLowDERSignature(validSig)
+	if err == nil {
+		t.Errorf("IsLowDERSignature error:%v", err)
+	}
+	assert.Equal(t, ret, false)
+
+	InitSecp256()
+	ret, err = IsLowDERSignature(validSig)
+	if err == nil {
+		t.Errorf("IsLowDERSignature error:%v", err)
+	}
+	assert.Equal(t, ret, false)
+
+	sig1 := []byte{0x30, 0x3a, 0xd1, 0x5c, 0x20, 0x92, 0x75, 0xca,}
+	ret, err = IsLowDERSignature(sig1)
+	if err == nil {
+		t.Errorf("IsLowDERSignature error:%v", err)
+	}
+	assert.Equal(t, ret, false)
 }
