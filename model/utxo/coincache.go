@@ -20,7 +20,7 @@ func GetUtxoCacheInstance() CacheView {
 	return utxoTip
 }
 
-// FIXME: this is only for test. We must do it in a graceful way
+// Close FIXME: this is only for test. We must do it in a graceful way
 func Close() {
 	utxoTip = nil
 }
