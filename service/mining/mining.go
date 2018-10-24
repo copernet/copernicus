@@ -2,10 +2,10 @@ package mining
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"math"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/copernet/copernicus/conf"
@@ -428,13 +428,15 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 
 	///TODO: after add wallet,remove this. fill the sctiptSig in case generate same block
 	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
-		for _, str := range conf.Cfg.P2PNet.UserAgentComments {
-			if strings.Contains(str, "testnode") {
-				testnode, _ := strconv.Atoi(str[8:])
-				binary.LittleEndian.PutUint64(bytesEight, uint64(testnode))
-				buf.Write(bytesEight)
-			}
-		}
+		seed := make([]byte, 8)
+		rand.Read(seed)
+
+		bytesBuffer := bytes.NewBuffer(seed)
+		var tmp uint64
+		binary.Read(bytesBuffer, binary.BigEndian, &tmp)
+
+		binary.LittleEndian.PutUint64(bytesEight, tmp)
+		buf.Write(bytesEight)
 	}
 
 	binary.LittleEndian.PutUint64(bytesEight, uint64(extraNonce))
