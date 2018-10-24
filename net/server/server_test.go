@@ -15,7 +15,6 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
-	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
@@ -87,7 +86,6 @@ func appInitMain(args []string) {
 
 	mempool.InitMempool()
 	crypto.InitSecp256()
-	ltx.ScriptVerifyInit()
 }
 
 func makeTestServer() (*Server, string, chan struct{}, error) {
