@@ -47,7 +47,7 @@ func TestBlockHeaderGetHash(t *testing.T) {
 	tmpBlk := block.NewBlockHeader()
 	buf := bytes.NewBuffer(nil)
 	blHe.Serialize(buf)
-	err := tmpBlk.UnserializeHeader(buf)
+	err := tmpBlk.Unserialize(buf)
 	if err != nil {
 		t.Error("unserialize block header failed.")
 	}
