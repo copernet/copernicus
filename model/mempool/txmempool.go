@@ -131,15 +131,12 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	return nil
 }
 
-func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) *TxEntry {
+func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 	m.RLock()
 	defer m.RUnlock()
 
-	txe, ok := m.nextTx[*out]
-	if ok {
-		return txe
-	}
-	return nil
+	_, ok := m.nextTx[*out]
+	return ok
 }
 
 func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {

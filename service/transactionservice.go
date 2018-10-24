@@ -3,12 +3,13 @@ package service
 import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
 )
 
-func HandleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[util.Hash]struct{}) (missTxs []util.Hash, rejectTxs []util.Hash) {
+func HandleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects map[util.Hash]struct{}) (missTxs []util.Hash, rejectTxs []util.Hash) {
 	missingInputs := errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut)
 	isNormalOrphan := missingInputs && !txn.AnyInputTxIn(recentRejects)
 
@@ -22,18 +23,18 @@ func HandleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects *map[ut
 	return
 }
 
-func ProcessTransaction(txn *tx.Tx, recentRejects *map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
+func ProcessTransaction(txn *tx.Tx, recentRejects map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
 	err := lmempool.AcceptTxToMemPool(txn)
 
 	if err == nil {
 
-		lmempool.CheckMempool()
+		lmempool.CheckMempool(chain.GetInstance().Height())
 		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn, chain.GetInstance().Height(), true)
 
 		acceptedTxs := append([]*tx.Tx{txn}, acceptedOrphans...)
 		return acceptedTxs, nil, rejectTxs, nil
 	}
 
-	missTxs, rejectTxs := handleRejectedTx(txn, err, nodeID, recentRejects)
+	missTxs, rejectTxs := HandleRejectedTx(txn, err, nodeID, recentRejects)
 	return nil, missTxs, rejectTxs, err
 }

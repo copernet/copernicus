@@ -198,7 +198,7 @@ type SyncManager struct {
 	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
-	ProcessTransactionCallBack func(*tx.Tx, *map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
+	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
 	ProcessBlockCallBack       func(*block.Block) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
@@ -474,7 +474,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	}
 
 	// Process the transaction to include validation, insertion in the memory pool, orphan handling, etc.
-	acceptTxs, missTxs, rejectTxs, err := sm.ProcessTransactionCallBack(tmsg.tx, &sm.rejectedTxns, int64(peer.ID()))
+	acceptTxs, missTxs, rejectTxs, err := sm.ProcessTransactionCallBack(tmsg.tx, sm.rejectedTxns, int64(peer.ID()))
 
 	sm.updateTxRequestState(state, txHash, rejectTxs)
 

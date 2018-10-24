@@ -763,10 +763,10 @@ func Test_basic_tx_methods(t *testing.T) {
 	assert.Equal(t, len(txn.GetIns()), len(hashes))
 
 	txHashes := make(map[util.Hash]struct{})
-	assert.False(t, txn.AnyInputTxIn(&txHashes))
+	assert.False(t, txn.AnyInputTxIn(txHashes))
 
 	txHashes[txn.ins[0].PreviousOutPoint.Hash] = struct{}{}
-	assert.True(t, txn.AnyInputTxIn(&txHashes))
+	assert.True(t, txn.AnyInputTxIn(txHashes))
 
 	outValue := txn.GetValueOut()
 	expectOutValue := amount.Amount(0)

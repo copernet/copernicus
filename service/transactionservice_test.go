@@ -90,7 +90,7 @@ func TestProcessTransaction(t *testing.T) {
 
 	nodeID := int64(0)
 	recentRejects := make(map[util.Hash]struct{})
-	acceptedTxs, missTxHash, rejectTxHash, err := ProcessTransaction(txs[1], &recentRejects, nodeID)
+	acceptedTxs, missTxHash, rejectTxHash, err := ProcessTransaction(txs[1], recentRejects, nodeID)
 	assert.NotNil(t, err)
 	assert.Empty(t, missTxHash)
 	assert.Equal(t, txs[1].GetHash(), rejectTxHash[0])
@@ -132,7 +132,7 @@ func TestProcessTransactionNormal(t *testing.T) {
 
 	nodeID := int64(0)
 	recentRejects := make(map[util.Hash]struct{})
-	acceptedTxs, missTxHash, rejectTxHash, err := ProcessTransaction(transaction, &recentRejects, nodeID)
+	acceptedTxs, missTxHash, rejectTxHash, err := ProcessTransaction(transaction, recentRejects, nodeID)
 	assert.Nil(t, err)
 	assert.Equal(t, transaction, acceptedTxs[0])
 	assert.Empty(t, missTxHash)
@@ -147,7 +147,7 @@ func TestProcessTransactionNormal(t *testing.T) {
 
 	txOut = txout.NewTxOut(10, pubKey)
 	tscaOrphan.AddTxOut(txOut)
-	acceptedTxs, missTxHash, rejectTxHash, err = ProcessTransaction(tscaOrphan, &recentRejects, nodeID)
+	acceptedTxs, missTxHash, rejectTxHash, err = ProcessTransaction(tscaOrphan, recentRejects, nodeID)
 	assert.Equal(t, errcode.New(errcode.TxErrNoPreviousOut), err)
 	assert.Equal(t, 1, len(missTxHash))
 	assert.Empty(t, acceptedTxs)

@@ -615,7 +615,7 @@ func isCoinSpent(coin *utxo.Coin, out *outpoint.OutPoint) bool {
 		return false
 	}
 	if coin.IsMempoolCoin() {
-		return mempool.GetInstance().HasSpentOut(out) != nil
+		return mempool.GetInstance().HasSpentOut(out)
 	}
 	return coin.IsSpent()
 }
