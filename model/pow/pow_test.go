@@ -461,3 +461,13 @@ func TestPow_CheckProofOfWork(t *testing.T) {
 		t.Errorf("CheckProofOfWork should not pass")
 	}
 }
+
+func TestPow_GetNextWorkRequired(t *testing.T) {
+	pow := Pow{}
+
+	exp := uint32(0x1D00FFFF)
+	actual := pow.GetNextWorkRequired(nil, nil, model.ActiveNetParams)
+	if actual != exp {
+		t.Errorf("GetNextWorkRequired Error,check exp = 0x%x, actual = 0x%x", exp, actual)
+	}
+}

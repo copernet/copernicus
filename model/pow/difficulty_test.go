@@ -5,6 +5,7 @@
 package pow
 
 import (
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
 	"math/big"
 	"testing"
@@ -75,5 +76,34 @@ func TestGetBlockProof(t *testing.T) {
 				x, r.Int64(), test.out)
 			return
 		}
+	}
+}
+
+func TestGetBlockProofEquivalentTime(t *testing.T) {
+	blocks := make([]*blockindex.BlockIndex, 115)
+	currentPow := big.NewInt(0).Rsh(model.ActiveNetParams.PowLimit, 1)
+	initialBits := BigToCompact(currentPow)
+
+	// Genesis block.
+	blocks[0] = new(blockindex.BlockIndex)
+	blocks[0].SetNull()
+	blocks[0].Height = 0
+	blocks[0].Header.Time = 1269211443
+	blocks[0].Header.Bits = initialBits
+	blocks[0].ChainWork = *GetBlockProof(blocks[0])
+
+	for i := 1; i < 100; i++ {
+		blocks[i] = getBlockIndex(blocks[i-1], int64(model.ActiveNetParams.TargetTimePerBlock), initialBits)
+	}
+
+	actual := GetBlockProofEquivalentTime(blocks[10], blocks[20], blocks[99], model.ActiveNetParams)
+	exp := int64(-6000)
+	if actual != exp {
+		t.Errorf("GetBlockProofEquivalentTime1 Error, exp = %d, actual = %d", exp, actual)
+	}
+	actual = GetBlockProofEquivalentTime(blocks[20], blocks[10], blocks[99], model.ActiveNetParams)
+	exp = int64(6000)
+	if actual != exp {
+		t.Errorf("GetBlockProofEquivalentTime2 Error, exp = %d, actual = %d", exp, actual)
 	}
 }

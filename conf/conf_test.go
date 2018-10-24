@@ -163,11 +163,11 @@ func TestExistDataDir(t *testing.T) {
 	}
 	defer os.Remove(fileTrue)
 
-	if !ExistDataDir(fileTrue) {
+	if !FileExists(fileTrue) {
 		t.Errorf("the fileTrue file should exist!")
 	}
 
-	if ExistDataDir(fileFalse) {
+	if FileExists(fileFalse) {
 		t.Errorf("the fileFalse file shouldn't exist!")
 	}
 }
@@ -271,7 +271,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
 			PromiscuousMempoolFlags: "0",
-			Par: 32,
+			Par:                     32,
 		},
 		TxOut: struct {
 			DustRelayFee int64 `default:"83"`
@@ -308,9 +308,9 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 
 func createTmpFile() {
 	confFile := os.Getenv("GOPATH") + "/src/" + defaultProjectDir + "/conf/"
-	CopyFile(confFile+"conf.yml", confFile+"conf.yml.tmp")
-	os.Remove(confFile + "conf.yml")
-	f, err := os.Create(confFile + "conf.yml")
+	CopyFile(confFile+"bitcoincash.yml", confFile+"bitcoincash.yml.tmp")
+	os.Remove(confFile + "bitcoincash.yml")
+	f, err := os.Create(confFile + "bitcoincash.yml")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -319,9 +319,9 @@ func createTmpFile() {
 
 func revert() {
 	confFile := os.Getenv("GOPATH") + "/src/" + defaultProjectDir + "/conf/"
-	os.Remove(confFile + "conf.yml")
-	CopyFile(confFile+"conf.yml.tmp", confFile+"conf.yml")
-	os.Remove(confFile + "conf.yml.tmp")
+	os.Remove(confFile + "bitcoincash.yml")
+	CopyFile(confFile+"bitcoincash.yml.tmp", confFile+"bitcoincash.yml")
+	os.Remove(confFile + "bitcoincash.yml.tmp")
 }
 
 func createNet(nets []string) []*net.IPNet {

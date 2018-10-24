@@ -22,7 +22,6 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc/btcjson"
 )
@@ -486,7 +485,7 @@ type ServerConfig struct {
 	ConnMgr     server.RPCConnManager
 	// The fee estimator keeps track of how long transactions are left in
 	// the mempool before they are mined into blocks.
-	FeeEstimator *mempool.FeeEstimator
+	//FeeEstimator *mempool.FeeEstimator
 }
 
 // SetupRPCListeners returns a slice of listeners that are configured for use
@@ -612,7 +611,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}, 1),
-		quit: make(chan int),
+		quit:                   make(chan int),
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass

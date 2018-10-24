@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPrivKeys(t *testing.T) {
@@ -56,6 +57,20 @@ func TestEncodePrivateKey(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	//base58 check decode err
+	_, err = DecodePrivateKey("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjs")
+	if err == nil {
+		t.Error(err)
+	}
+
+	//version is error
+	activeNetPrivateKeyVer = DumpedPrivateKeyVersion + 1
+	_, err = DecodePrivateKey("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss")
+	if err == nil {
+		t.Error(err)
+	}
+
 	if originalKey.compressed {
 		t.Errorf("5KYZdUEo39z3FPrtuX2QbbwGnNP5zTd7yyr2SC1j299sBCnWjss is UnCompreeed key")
 	}
@@ -101,5 +116,19 @@ func TestInitPrivateKeyVersion(t *testing.T) {
 	privateKey = PrivateKeyFromBytes([]byte{})
 	if privateKey.version != DumpedPrivateKeyVersion {
 		t.Errorf("TestInitAddressParam test failed, privateKeyVer(%v) not init", privateKey.version)
+	}
+}
+
+func TestPrivateKeyFromBytes(t *testing.T) {
+	key0bytes := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+
+	for _, compressed := range []bool{false, true} {
+		key0 := NewPrivateKeyFromBytes(key0bytes[:], compressed)
+		ok := key0.IsCompressed()
+		assert.Equal(t, ok, compressed)
+
+		byteSlice := key0.GetBytes()
+		assert.Equal(t, byteSlice, key0bytes)
 	}
 }

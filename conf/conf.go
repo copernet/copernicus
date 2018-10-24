@@ -29,8 +29,8 @@ const (
 const (
 	tagName = "default"
 
-	defaultConfigFilename       = "conf.yml"
-	defaultDataDirname          = "coper"
+	defaultConfigFilename       = "bitcoincash.yml"
+	defaultDataDirname          = "bitcoincash"
 	defaultProjectDir           = "github.com/copernet/copernicus"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
@@ -194,7 +194,9 @@ func InitConfig(args []string) *Configuration {
 		DataDir = path.Join(DataDir, "regtest")
 	}
 
-	if !ExistDataDir(DataDir) {
+	destConfig := DataDir + "/" + defaultConfigFilename
+
+	if !FileExists(DataDir) || !FileExists(destConfig) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
@@ -205,21 +207,21 @@ func InitConfig(args []string) *Configuration {
 		if gopath != "" {
 			// first try
 			projectPath := gopath + "/src/" + defaultProjectDir
-			filePath := projectPath + "/conf/" + defaultConfigFilename
-			_, err = os.Stat(filePath)
-			if !os.IsNotExist(err) {
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+			srcConfig := projectPath + "/conf/" + defaultConfigFilename
+
+			if FileExists(srcConfig) {
+				_, err := CopyFile(srcConfig, destConfig)
 
 				if err != nil {
-					panic("from src/defaultProjectDir copy conf.yml failed.")
+					panic("from src/defaultProjectDir copy bitcoincash.yml failed.")
 				}
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
-				filePath = projectPath + "/conf/" + defaultConfigFilename
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				srcConfig = projectPath + "/conf/" + defaultConfigFilename
+				_, err := CopyFile(srcConfig, destConfig)
 				if err != nil {
-					panic(" from src/copernicus copy conf.yml failed.")
+					panic(" from src/copernicus copy bitcoincash.yml failed.")
 				}
 			}
 		}
@@ -262,7 +264,7 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
+	file := must(os.Open(DataDir + "/bitcoincash.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
@@ -359,7 +361,7 @@ func (c Configuration) Validate() error {
 	return validate.Struct(c)
 }
 
-func ExistDataDir(datadir string) bool {
+func FileExists(datadir string) bool {
 	_, err := os.Stat(datadir)
 	if err != nil && os.IsNotExist(err) {
 		return false

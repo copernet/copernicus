@@ -3,7 +3,6 @@ package rpc
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -36,7 +35,7 @@ var miningHandlers = map[string]commandHandler{
 	"submitblock":       handleSubmitBlock,
 	"generatetoaddress": handleGenerateToAddress,
 	"generate":          handleGenerate,
-	"estimatefee":       handleEstimateFee,
+	//"estimatefee":       handleEstimateFee,
 }
 
 func GetNetworkHashPS(lookup int32, height int32) float64 {
@@ -310,6 +309,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 
 	v := bt.Block.Txs[0].GetTxOut(0).GetValue()
 	target := pow.CompactToBig(bt.Block.Header.Bits)
+	maxSigOps, _ := consensus.GetMaxBlockSigOpsCount(consensus.DefaultMaxBlockSize)
 	return &btcjson.GetBlockTemplateResult{
 		//Capabilities:  []string{"proposal"},
 		Version:       bt.Block.Header.Version,
@@ -326,7 +326,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 		Mutable:       mutable,
 		NonceRange:    "00000000ffffffff",
 		// FIXME: Allow for mining block greater than 1M.
-		SigOpLimit: int64(consensus.GetMaxBlockSigOpsCount(consensus.DefaultMaxBlockSize)),
+		SigOpLimit: int64(maxSigOps),
 		SizeLimit:  consensus.DefaultMaxBlockSize,
 		CurTime:    int64(bt.Block.Header.Time),
 		Bits:       fmt.Sprintf("%08x", bt.Block.Header.Bits),
@@ -600,26 +600,26 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 }
 
 // handleEstimateFee handles estimatefee commands.
-func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.EstimateFeeCmd)
-
-	if s.cfg.FeeEstimator == nil {
-		return nil, errors.New("Fee estimation disabled")
-	}
-
-	if c.NumBlocks <= 0 {
-		return -1.0, errors.New("Parameter NumBlocks must be positive")
-	}
-
-	feeRate, err := s.cfg.FeeEstimator.EstimateFee(uint32(c.NumBlocks))
-
-	if err != nil {
-		return -1.0, err
-	}
-
-	// Convert to satoshis per kb.
-	return float64(feeRate), nil
-}
+//func handleEstimateFee(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+//	c := cmd.(*btcjson.EstimateFeeCmd)
+//
+//	if s.cfg.FeeEstimator == nil {
+//		return nil, errors.New("Fee estimation disabled")
+//	}
+//
+//	if c.NumBlocks <= 0 {
+//		return -1.0, errors.New("Parameter NumBlocks must be positive")
+//	}
+//
+//	feeRate, err := s.cfg.FeeEstimator.EstimateFee(uint32(c.NumBlocks))
+//
+//	if err != nil {
+//		return -1.0, err
+//	}
+//
+//	// Convert to satoshis per kb.
+//	return float64(feeRate), nil
+//}
 
 func registerMiningRPCCommands() {
 	for name, handler := range miningHandlers {

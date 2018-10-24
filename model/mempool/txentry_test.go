@@ -1,19 +1,19 @@
 package mempool
 
 import (
-	"math"
-	"testing"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
-	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/stretchr/testify/assert"
-	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/block"
+	"math"
+	"testing"
 )
 
 func TestTxentry(t *testing.T) {

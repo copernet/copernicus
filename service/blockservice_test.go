@@ -3,10 +3,13 @@ package service
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
@@ -17,12 +20,14 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func initTestEnv(t *testing.T) (dirpath string, err error) {
-	args := []string{"--testnet"}
+// initScriptVerify is true when first invoke initTestEnv, after that, param should be false, avoid script channel race
+
+func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath string, err error) {
 	conf.Cfg = conf.InitConfig(args)
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
@@ -36,6 +41,31 @@ func initTestEnv(t *testing.T) (dirpath string, err error) {
 	} else if conf.Cfg.P2PNet.RegTest {
 		model.SetRegTestParams()
 	}
+
+	//init log
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.FileExists(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+		Daily    bool   `json:"daily"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+		Daily:    false,
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	log.Init(string(configuration))
 
 	persist.InitPersistGlobal()
 
@@ -68,6 +98,10 @@ func initTestEnv(t *testing.T) (dirpath string, err error) {
 	mempool.InitMempool()
 
 	crypto.InitSecp256()
+
+	if initScriptVerify {
+		ltx.ScriptVerifyInit()
+	}
 
 	return unitTestDataDirPath, nil
 }
@@ -112,7 +146,7 @@ func getTestBlocks() (blocks []block.Block, err error) {
 }
 
 func TestProcessBlockHeader(t *testing.T) {
-	tempDir, err := initTestEnv(t)
+	tempDir, err := initTestEnv(t, []string{"--testnet"}, true)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
 
@@ -135,7 +169,7 @@ func TestProcessBlock(t *testing.T) {
 	gChain := chain.GetInstance()
 	*gChain = *chain.NewChain()
 
-	tempDir, err := initTestEnv(t)
+	tempDir, err := initTestEnv(t, []string{"--testnet"}, false)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
 
@@ -149,4 +183,8 @@ func TestProcessBlock(t *testing.T) {
 		_, err = ProcessBlock(&bl)
 		assert.Nil(t, err)
 	}
+
+	newBlock := block.NewBlock()
+	_, err = ProcessBlock(newBlock)
+	assert.NotNil(t, err)
 }

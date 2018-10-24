@@ -39,7 +39,7 @@ func appInitMain(args []string) {
 
 	//init log
 	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
-	if !conf.ExistDataDir(logDir) {
+	if !conf.FileExists(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {
 			panic("logdir create failed: " + err.Error())

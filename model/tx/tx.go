@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -453,91 +454,94 @@ func (tx *Tx) GetValueOut() amount.Amount {
 	return valueOut
 }
 
-func (tx *Tx) SignStep(redeemScripts map[string]string, keys map[string]*crypto.PrivateKey,
-	hashType uint32, scriptPubKey *script.Script, nIn int, value amount.Amount) (sigData [][]byte, pubKeyType int, err error) {
+func (tx *Tx) SignStep(nIn int, keys []*crypto.PrivateKey, redeemScript *script.Script, hashType uint32,
+	scriptPubKey *script.Script, value amount.Amount) (sigData [][]byte, err error) {
 	pubKeyType, pubKeys, isStandard := scriptPubKey.IsStandardScriptPubKey()
-	if !isStandard {
+	if !isStandard || pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
 		log.Debug("SignStep IsStandardScriptPubKey err")
-		return nil, pubKeyType, errcode.New(errcode.RejectNonstandard)
+		return nil, errcode.New(errcode.RejectNonstandard)
+	}
+	scriptPubKeySign := scriptPubKey
+
+	isScriptHash := false
+	if pubKeyType == script.ScriptHash {
+		if redeemScript == nil {
+			return nil, errors.New("redeem script not found")
+		}
+		isScriptHash = true
+		scriptPubKeySign = redeemScript
+		pubKeyType, pubKeys, isStandard = scriptPubKeySign.IsStandardScriptPubKey()
+		if !isStandard || pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
+			return nil, errcode.New(errcode.RejectNonstandard)
+		}
 	}
 
-	if pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
-		log.Debug("SignStep IsStandardScriptPubKey err")
-		return nil, pubKeyType, errcode.New(errcode.RejectNonstandard)
-	}
-
-	if pubKeyType == script.ScriptMultiSig {
-		sigData = make([][]byte, 0, len(pubKeys)-2)
-	} else {
-		sigData = make([][]byte, 0, 1)
-	}
-
-	// return signatureData|hashType
+	sigData = make([][]byte, 0)
 	if pubKeyType == script.ScriptPubkey {
-		pubKeyHashString := string(util.Hash160(pubKeys[0]))
-		privateKey := keys[pubKeyHashString]
-		signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
-		if err != nil {
-			return nil, pubKeyType, err
+		privateKey := findPrivateKey(keys, &pubKeys[0])
+		if privateKey == nil {
+			return nil, errors.New("private key not found")
 		}
-		sigBytes := signature.Serialize()
-		sigBytes = append(sigBytes, byte(hashType))
-		sigData = append(sigData, sigBytes)
-		return sigData, pubKeyType, nil
-	}
-	// return signatureData|hashType + pubKeyHashString
-	if pubKeyType == script.ScriptPubkeyHash {
-		pubKeyHashString := string(pubKeys[0])
-		privateKey := keys[pubKeyHashString]
-		signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
+		signature, err := tx.signOne(scriptPubKeySign, privateKey, hashType, nIn, value)
 		if err != nil {
-			return nil, pubKeyType, err
+			return nil, err
 		}
-		sigBytes := signature.Serialize()
-		sigBytes = append(sigBytes, byte(hashType))
+		sigBytes := append(signature.Serialize(), byte(hashType))
+		// <signature>
 		sigData = append(sigData, sigBytes)
+
+	} else if pubKeyType == script.ScriptPubkeyHash {
+		privateKey := findPrivateKeyByHash(keys, &pubKeys[0])
+		if privateKey == nil {
+			return nil, errors.New("private key not found")
+		}
+		signature, err := tx.signOne(scriptPubKeySign, privateKey, hashType, nIn, value)
+		if err != nil {
+			return nil, err
+		}
+		sigBytes := append(signature.Serialize(), byte(hashType))
 		pkBytes := privateKey.PubKey().ToBytes()
-		sigData = append(sigData, pkBytes)
-		return sigData, pubKeyType, nil
-	}
-	// signature1|hashType signature2|hashType...signatureM|hashType
-	if pubKeyType == script.ScriptMultiSig {
-		emptyBytes := []byte{}
-		sigData = append(sigData, emptyBytes)
-		nSigned := 0
-		nRequired := int(pubKeys[0][0])
-		for _, v := range pubKeys[1 : len(pubKeys)-1] {
-			if nSigned < nRequired {
-				pubKyHash := string(util.Hash160(v))
-				privateKey := keys[pubKyHash]
-				signature, err := tx.signOne(scriptPubKey, privateKey, hashType, nIn, value)
-				if err != nil {
-					continue
-				}
-				sigData = append(sigData, append(signature.Serialize(), byte(hashType)))
-				nSigned++
+		// <signature> <pubkey>
+		sigData = append(sigData, sigBytes, pkBytes)
+
+	} else if pubKeyType == script.ScriptMultiSig {
+		signed := 0
+		required := int(pubKeys[0][0])
+		// <OP_0> <signature0> ... <signatureM>
+		sigData = append(sigData, []byte{})
+		for _, pubKey := range pubKeys[1:] {
+			privateKey := findPrivateKey(keys, &pubKey)
+			if privateKey == nil {
+				log.Info("Private key not found:%s", hex.EncodeToString(pubKey))
+				continue
+			}
+			signature, err := tx.signOne(scriptPubKeySign, privateKey, hashType, nIn, value)
+			if err != nil {
+				log.Info("getSignatureData error:%s", err.Error())
+				continue
+			}
+			sigBytes := append(signature.Serialize(), byte(hashType))
+			sigData = append(sigData, sigBytes)
+			signed++
+			if signed == required {
+				break
 			}
 		}
+		if signed != required {
+			errMsg := fmt.Sprintf("ScriptMultiSig signed(%d) does not match required(%d)", signed, required)
+			return nil, errors.New(errMsg)
+		}
+	} else {
+		errMsg := fmt.Sprintf("unexpected script type(%d)", pubKeyType)
+		return nil, errors.New(errMsg)
+	}
 
-		if nSigned != nRequired {
-			log.Debug("SignStep signed not equal requiredSigs")
-			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
-		}
-		return sigData, pubKeyType, nil
+	if isScriptHash {
+		// <signature> <redeemscript>
+		sigData = append(sigData, redeemScript.GetData())
 	}
-	// return redeemscript, outside will SignStep again use redeemScript
-	if pubKeyType == script.ScriptHash {
-		scriptHashString := string(pubKeys[0])
-		redeemScriptString := redeemScripts[scriptHashString]
-		if len(redeemScriptString) == 0 {
-			log.Debug("SignStep redeemScript len err")
-			return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
-		}
-		sigData = append(sigData, []byte(redeemScriptString))
-		return sigData, pubKeyType, nil
-	}
-	log.Debug("SignStep err")
-	return nil, pubKeyType, errcode.New(errcode.TxErrSignRawTransaction)
+
+	return sigData, nil
 }
 
 func (tx *Tx) signOne(scriptPubKey *script.Script, privateKey *crypto.PrivateKey, hashType uint32,
@@ -673,4 +677,23 @@ func NewGenesisCoinbaseTx() *Tx {
 	tx.AddTxOut(txOut)
 
 	return tx
+}
+
+func findPrivateKey(privateKeys []*crypto.PrivateKey, pubKey *[]byte) *crypto.PrivateKey {
+	for _, privateKey := range privateKeys {
+		if bytes.Equal(privateKey.PubKey().ToBytes(), *pubKey) {
+			return privateKey
+		}
+	}
+	return nil
+}
+
+func findPrivateKeyByHash(privateKeys []*crypto.PrivateKey, pubKeyHash *[]byte) *crypto.PrivateKey {
+	for _, privateKey := range privateKeys {
+		keyHash := util.Hash160(privateKey.PubKey().ToBytes())
+		if bytes.Equal(keyHash, *pubKeyHash) {
+			return privateKey
+		}
+	}
+	return nil
 }
