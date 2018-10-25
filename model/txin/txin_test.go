@@ -2,15 +2,12 @@ package txin
 
 import (
 	"bytes"
+	"errors"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
-	"math"
-
-	//"github.com/magiconair/properties/assert"
-	"errors"
 	"github.com/stretchr/testify/assert"
-	"os"
+	"math"
 	"testing"
 )
 
@@ -41,8 +38,6 @@ func (tr *TestReader) Read(p []byte) (n int, err error) {
 	return 1, nil
 }
 
-//var testTxIn *TxIn
-
 var preHash = util.Hash{
 	0xc1, 0x60, 0x7e, 0x00, 0x31, 0xbc, 0xb1, 0x57,
 	0xa3, 0xb2, 0xfd, 0x73, 0x0e, 0xcf, 0xac, 0xd1,
@@ -63,34 +58,15 @@ var sequence = uint32(script.SequenceFinal)
 var testTxIn = NewTxIn(outPut, sigScript, sequence)
 
 func TestNewTxIn(t *testing.T) {
-
-	if !bytes.Equal(testTxIn.scriptSig.GetData(), myScriptSig) {
-		t.Errorf("NewTxIn() assignment txInputScript data %v "+
-			"should be origin scriptSig data %v", testTxIn.scriptSig.GetData(), myScriptSig)
-	}
-	if testTxIn.PreviousOutPoint.Index != 1 {
-		t.Error("The preOut index should be 1 instead of ", testTxIn.PreviousOutPoint.Index)
-	}
-	if !bytes.Equal(testTxIn.PreviousOutPoint.Hash[:], preHash[:]) {
-		t.Errorf("NewTxIn() assignment PreOutputHash data %v "+
-			"should be origin preHash data %v", testTxIn.PreviousOutPoint.Hash, preHash)
-	}
-
+	assert.Equal(t, testTxIn.scriptSig.GetData(), myScriptSig)
+	assert.Equal(t, uint32(1), testTxIn.PreviousOutPoint.Index)
+	assert.Equal(t, testTxIn.PreviousOutPoint.Hash[:], preHash[:])
 }
 
 func TestTxInSerialize(t *testing.T) {
+	var buf bytes.Buffer
 
-	file, err := os.OpenFile("tmp1.txt", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testTxIn.Serialize(file)
-	if err != nil {
-		t.Error(err)
-	}
-
-	_, err = file.Seek(0, 0)
+	err := testTxIn.Serialize(&buf)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,31 +76,14 @@ func TestTxInSerialize(t *testing.T) {
 	txInRead.PreviousOutPoint.Hash = util.Hash{}
 	txInRead.scriptSig = script.NewEmptyScript()
 
-	err = txInRead.Unserialize(file)
-
+	err = txInRead.Unserialize(&buf)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !bytes.Equal(txInRead.scriptSig.GetData(), testTxIn.scriptSig.GetData()) {
-		t.Errorf("Deserialize() return the script data %v "+
-			"should be equal origin srcipt data %v", txInRead.scriptSig.GetData(), testTxIn.scriptSig.GetData())
-
-	}
-	if txInRead.PreviousOutPoint.Index != testTxIn.PreviousOutPoint.Index {
-		t.Errorf("Unserialize() return the index data %d "+
-			"should be equal origin index data %d", txInRead.PreviousOutPoint.Index, testTxIn.PreviousOutPoint.Index)
-	}
-	if !bytes.Equal(txInRead.PreviousOutPoint.Hash[:], testTxIn.PreviousOutPoint.Hash[:]) {
-		t.Errorf("Unserialize() return the preOutputHash data %v "+
-			"should be equal origin GetHash data %v", txInRead.PreviousOutPoint.Hash, testTxIn.PreviousOutPoint.Hash)
-	}
-
-	err = os.Remove("tmp1.txt")
-	if err != nil {
-		t.Error(err)
-	}
-
+	assert.Equal(t, txInRead.scriptSig.GetData(), testTxIn.scriptSig.GetData())
+	assert.Equal(t, txInRead.PreviousOutPoint.Index, testTxIn.PreviousOutPoint.Index)
+	assert.Equal(t, txInRead.PreviousOutPoint.Hash[:], testTxIn.PreviousOutPoint.Hash[:])
 }
 
 func TestTxIn_SerializeSize(t *testing.T) {
@@ -149,25 +108,11 @@ func TestTxIn_Decode_PreviousOutputPoint_false(t *testing.T) {
 }
 
 func TestTxIn_Decode_Codebase_true(t *testing.T) {
-	file, err := os.OpenFile("tmp2.txt", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		t.Error(err)
-	}
-	defer func() {
-		err := os.Remove("tmp2.txt")
-		if err != nil {
-			t.Error(err)
-		}
-	}()
+	var buf bytes.Buffer
 
 	txin := testTxIn
 	txin.PreviousOutPoint.Index = 0xffffffff
-	err = txin.Serialize(file)
-	if err != nil {
-		t.Error(err)
-	}
-
-	_, err = file.Seek(0, 0)
+	err := txin.Serialize(&buf)
 	if err != nil {
 		t.Error(err)
 	}
@@ -177,7 +122,7 @@ func TestTxIn_Decode_Codebase_true(t *testing.T) {
 	txInRead.PreviousOutPoint.Hash = util.Hash{}
 	txInRead.scriptSig = script.NewEmptyScript()
 
-	err = txInRead.Unserialize(file)
+	err = txInRead.Unserialize(&buf)
 	assert.NoError(t, err)
 }
 
