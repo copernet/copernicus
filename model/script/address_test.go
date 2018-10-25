@@ -137,7 +137,7 @@ func TestInitAddressParam(t *testing.T) {
 }
 
 //test address transform: script.AddressFromString
-func Test_Address_parse_from_string(t *testing.T) {
+func TestAddressFromString(t *testing.T) {
 	address := "mpLQjfK79b7CCV4VMJWEWAj5Mpx8Up5zxB"
 
 	_, err := AddressFromString(address)
@@ -145,7 +145,7 @@ func Test_Address_parse_from_string(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_Address_should_not_be_decoded(t *testing.T) {
+func TestAddressFromStringError(t *testing.T) {
 	address := ""
 
 	_, err := AddressFromString(address)
@@ -154,7 +154,7 @@ func Test_Address_should_not_be_decoded(t *testing.T) {
 }
 
 //test address from scriptHash: script.AddressFromScriptHash
-func Test_Address_From_ScriptHash(t *testing.T) {
+func TestAddressFromScriptHash(t *testing.T) {
 	scriptBytes, err := createScriptHash()
 	if err != nil {
 		t.Error("create scripthash error")
@@ -175,7 +175,7 @@ func createScriptHash() ([]byte, error) {
 }
 
 // test address form hash160: script.AddressFromHash160
-func Test_Address_From_Hash160(t *testing.T) {
+func TestAddressFromHash160(t *testing.T) {
 	hash160 := createHash160()
 
 	address, err := AddressFromHash160(hash160, crypto.DumpedPrivateKeyVersion)

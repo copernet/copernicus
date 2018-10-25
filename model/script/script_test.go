@@ -1,30 +1,33 @@
 package script
 
 import (
-	"github.com/copernet/copernicus/model/opcodes"
+	"github.com/copernet/copernicus/errcode"
+	"github.com/stretchr/testify/assert"
 	"testing"
+
+	. "github.com/copernet/copernicus/model/opcodes"
 )
 
 var p2SHScript = [23]byte{
-	opcodes.OP_HASH160,
+	OP_HASH160,
 	0x14, //length
 	0x89, 0xAB, 0xCD, 0xEF, 0xAB,
 	0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
 	0xAB, 0xBA, 0xAB, 0xBA, 0xAB,
 	0xBA, 0xAB, 0xBA, 0xAB, 0xBA, //script GetHash
-	opcodes.OP_EQUAL,
+	OP_EQUAL,
 }
 
 var p2PKHScript = [...]byte{
-	opcodes.OP_DUP,
-	opcodes.OP_HASH160,
+	OP_DUP,
+	OP_HASH160,
 	0x14,
 	0x41, 0xc5, 0xda, 0x42, 0x2d,
 	0x1d, 0x3e, 0x6c, 0x06, 0xaf,
 	0xb1, 0x9c, 0xa6, 0x2d, 0x83,
 	0xb1, 0x57, 0xfc, 0x93, 0x55,
-	opcodes.OP_EQUALVERIFY,
-	opcodes.OP_CHECKSIG,
+	OP_EQUALVERIFY,
+	OP_CHECKSIG,
 }
 
 func TestScriptEncodeOPN(t *testing.T) {
@@ -33,23 +36,23 @@ func TestScriptEncodeOPN(t *testing.T) {
 		expected int
 	}{
 		// for i in $(seq 0 16); do echo "{$i, opcodes.OP_$i},"; done
-		{0, opcodes.OP_0},
-		{1, opcodes.OP_1},
-		{2, opcodes.OP_2},
-		{3, opcodes.OP_3},
-		{4, opcodes.OP_4},
-		{5, opcodes.OP_5},
-		{6, opcodes.OP_6},
-		{7, opcodes.OP_7},
-		{8, opcodes.OP_8},
-		{9, opcodes.OP_9},
-		{10, opcodes.OP_10},
-		{11, opcodes.OP_11},
-		{12, opcodes.OP_12},
-		{13, opcodes.OP_13},
-		{14, opcodes.OP_14},
-		{15, opcodes.OP_15},
-		{16, opcodes.OP_16},
+		{0, OP_0},
+		{1, OP_1},
+		{2, OP_2},
+		{3, OP_3},
+		{4, OP_4},
+		{5, OP_5},
+		{6, OP_6},
+		{7, OP_7},
+		{8, OP_8},
+		{9, OP_9},
+		{10, OP_10},
+		{11, OP_11},
+		{12, OP_12},
+		{13, OP_13},
+		{14, OP_14},
+		{15, OP_15},
+		{16, OP_16},
 	}
 
 	for _, test := range tests {
@@ -62,7 +65,7 @@ func TestScriptEncodeOPN(t *testing.T) {
 		}
 	}
 
-	_, err := EncodeOPN(opcodes.OP_16 + 1)
+	_, err := EncodeOPN(OP_16 + 1)
 	if err == nil {
 		t.Error("EncodeOPN(OP_16+1) expect error")
 	}
@@ -74,23 +77,23 @@ func TestScriptDecodeOPN(t *testing.T) {
 		expected int
 	}{
 		// for i in $(seq 0 16); do echo "{opcodes.OP_$i, $i},"; done
-		{opcodes.OP_0, 0},
-		{opcodes.OP_1, 1},
-		{opcodes.OP_2, 2},
-		{opcodes.OP_3, 3},
-		{opcodes.OP_4, 4},
-		{opcodes.OP_5, 5},
-		{opcodes.OP_6, 6},
-		{opcodes.OP_7, 7},
-		{opcodes.OP_8, 8},
-		{opcodes.OP_9, 9},
-		{opcodes.OP_10, 10},
-		{opcodes.OP_11, 11},
-		{opcodes.OP_12, 12},
-		{opcodes.OP_13, 13},
-		{opcodes.OP_14, 14},
-		{opcodes.OP_15, 15},
-		{opcodes.OP_16, 16},
+		{OP_0, 0},
+		{OP_1, 1},
+		{OP_2, 2},
+		{OP_3, 3},
+		{OP_4, 4},
+		{OP_5, 5},
+		{OP_6, 6},
+		{OP_7, 7},
+		{OP_8, 8},
+		{OP_9, 9},
+		{OP_10, 10},
+		{OP_11, 11},
+		{OP_12, 12},
+		{OP_13, 13},
+		{OP_14, 14},
+		{OP_15, 15},
+		{OP_16, 16},
 	}
 
 	for _, test := range tests {
@@ -234,3 +237,126 @@ func TestScriptPushInt64(t *testing.T) {
 	}
 }
 */
+
+/**
+ * IsValidSignatureEncoding  A canonical signature exists of: <30> <total len> <02> <len R> <R> <02> <len S> <S> <hashtype>
+ * Where R and S are not negative (their first byte has its highest bit not set), and not
+ * excessively padded (do not start with a 0 byte, unless an otherwise negative number follows,
+ * in which case a single 0 byte is necessary and even required).
+ *
+ * See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
+ *
+ * This function is consensus-critical since BIP66.
+ */
+
+func TestCheckSignatureEncoding(t *testing.T) {
+	validSig := hexToBytes("3045022100d83c96e2656d8c91bf508c4dda68e13f6ea55cfd728e9f55d841d9e32d9325d302201673c42ba6b6546bda1fa0e072c5a423cb02d156406c8a5b59310aa86cab4af701")
+	notValidSig := hexToBytes("3145022100d83c96e2656d8c91bf508c4dda68e13f6ea55cfd728e9f55d841d9e32d9325d302201673c42ba6b6546bda1fa0e072c5a423cb02d156406c8a5b59310aa86cab4af701")
+	//errSig := hexToBytes("3045022100d83c96e2656d8c91bf508c4dda68e13f6ea55cfd728e9f55d841d9e32d9325d30221673c42ba6b6546bda1fa0e072c5a423cb02d156406c8a5b59310aa86cab4af701")
+	notDefinedHashTypeSig := hexToBytes("3045022100d83c96e2656d8c91bf508c4dda68e13f6ea55cfd728e9f55d841d9e32d9325d302201673c42ba6b6546bda1fa0e072c5a423cb02d156406c8a5b59310aa86cab4af700")
+	validSigWithSigHashForkID := hexToBytes("3045022100d83c96e2656d8c91bf508c4dda68e13f6ea55cfd728e9f55d841d9e32d9325d302201673c42ba6b6546bda1fa0e072c5a423cb02d156406c8a5b59310aa86cab4af741")
+
+	tests := []struct {
+		vchSig      []byte
+		flags       uint32
+		want        error
+		description string
+	}{
+		{nil, 0, nil,
+			"Non vchSig test, should return nil"},
+		{
+			notValidSig,
+			ScriptVerifyDersig,
+			errcode.New(errcode.ScriptErrSigDer),
+			"Signature is not valid and flag is ScriptVerifyDersig, should return error.",
+		},
+		//{
+		//	notValidSig,
+		//	ScriptVerifyLowS,
+		//	errcode.New(errcode.ScriptErrSigHighs),
+		//	"Signature is valid but flag is Script verify lows, should return error.",
+		//},
+		{
+			notDefinedHashTypeSig,
+			ScriptVerifyStrictEnc,
+			errcode.New(errcode.ScriptErrSigHashType),
+			"Signature is valid but hashtype is not defined, and flag is ScriptVerifyStrictEnc, should return error.",
+		},
+		{
+			validSigWithSigHashForkID,
+			ScriptVerifyStrictEnc,
+			errcode.New(errcode.ScriptErrIllegalForkID),
+			"Signature with SigHashForkID, should return illegal forkID error.",
+		},
+		{
+			validSig,
+			ScriptEnableSigHashForkID | ScriptVerifyStrictEnc,
+			errcode.New(errcode.ScriptErrMustUseForkID),
+			"Signature is valid, flag is ScriptEnableSigHashForkID xor ScriptVerifyStrictEnc, should return error",
+		},
+		{
+			validSig,
+			0,
+			nil,
+			"Without error, return nil",
+		},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		err := CheckSignatureEncoding(value.vchSig, value.flags)
+		assert.Equal(t, err, value.want, value.description)
+	}
+}
+
+func TestCheckPubKeyEncoding(t *testing.T) {
+	CompressPubKey := hexToBytes("0338131e766199b56abd45b07fec07b39b7143dacb2111551ba15207c9f20dca58")
+	err := CheckPubKeyEncoding(CompressPubKey, ScriptVerifyStrictEnc)
+	assert.NoError(t, err,
+		"Without compress's pubKey with ScriptVerifyStrictEnc check encoding error.")
+
+	NoCompressPubkey := hexToBytes("04c4f74f58fe4b365037b79ed89d517db597cde8e375aad7cd3e173e887ac4939095b84d6d7c732921ec96df868c9d52dc645c3ab0dbe796af805f65cea8b9062d")
+	err = CheckPubKeyEncoding(NoCompressPubkey, ScriptVerifyCompressedPubkeyType)
+	assert.Equal(t, err, errcode.New(errcode.ScriptErrNonCompressedPubKey),
+		"Without compress's pubKey with ScriptVerifyCompressedPubkeyType check encoding error.")
+
+	err = CheckPubKeyEncoding(CompressPubKey[:len(CompressPubKey)-1], ScriptVerifyStrictEnc)
+	assert.Equal(t, err, errcode.New(errcode.ScriptErrPubKeyType),
+		"Without compress's pubKey with ScriptVerifyCompressedPubkeyType check encoding error.")
+
+}
+
+func TestIsOpCodeDisabled(t *testing.T) {
+	tests := []struct {
+		in      byte
+		flags   uint32
+		want    bool
+		message string
+	}{
+		{OP_INVERT, 0, true, "OP_INVERT"},
+		{OP_2MUL, 0, true, "OP_2MUL"},
+		{OP_2DIV, 0, true, "OP_2DIV"},
+		{OP_MUL, 0, true, "OP_MUL"},
+		{OP_LSHIFT, 0, true, "OP_LSHIFT"},
+		{OP_RSHIFT, 0, true, "OP_RSHIFT"},
+
+		{OP_CAT, ScriptEnableMonolithOpcodes, false, "OP_CAT"},
+		{OP_SPLIT, ScriptEnableMonolithOpcodes, false, "OP_SPLIT"},
+		{OP_AND, ScriptEnableMonolithOpcodes, false, "OP_AND"},
+		{OP_OR, ScriptEnableMonolithOpcodes, false, "OP_OR"},
+		{OP_XOR, ScriptEnableMonolithOpcodes, false, "OP_XOR"},
+		{OP_NUM2BIN, ScriptEnableMonolithOpcodes, false, "OP_NUM2BIN"},
+		{OP_BIN2NUM, ScriptEnableMonolithOpcodes, false, "OP_BIN2NUM"},
+		{OP_DIV, ScriptEnableMonolithOpcodes, false, "OP_DIV"},
+		{OP_MOD, 0, true, "OP_MOD, flag is 262144"},
+		{OP_MOD, ScriptEnableMonolithOpcodes, false, "OP_MOD, flag is 0"},
+		{OP_TRUE, 0, false, "OTHER MESSAGE"},
+	}
+
+	for _, v := range tests {
+		value := v
+		result := IsOpCodeDisabled(value.in, value.flags)
+		assert.Equal(t, result, value.want, value.message)
+	}
+}
