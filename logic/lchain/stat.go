@@ -265,9 +265,13 @@ func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 	var tIterValidElasp time.Duration
 	var tIterNextElasp time.Duration
 
+	tSha256Start := time.Now()
+	h.Write(stat.bestblock[:])
+	tSha256Elasp += time.Since(tSha256Start)
+
 	var dataSize int
 	var i int
-
+	//timeFile.WriteString(time.Now().String() + ", height: " + strconv.Itoa(stat.height) + ", Data: ")
 	for {
 		tIterValidStart := time.Now()
 		if !iter.Valid() {
@@ -282,6 +286,7 @@ func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 		dataSize += len(key) + len(value)
 
 		tSha256Start := time.Now()
+		//timeFile.WriteString(hex.EncodeToString(key) + hex.EncodeToString(value))
 		h.Write(key)
 		h.Write(value)
 		tSha256Elasp += time.Since(tSha256Start)
@@ -292,7 +297,7 @@ func utxoStat(iter *db.IterWrapper, stat *stat, res chan<- string) {
 
 		i++
 	}
-
+	//timeFile.WriteString("\n")
 	//for ; iter.Valid(); iter.Next() {
 	//	//tReadStart := time.Now()
 	//	//key = iter.GetKey()
