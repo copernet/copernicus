@@ -1,31 +1,18 @@
-package block
+package syncmanager
 
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/copernet/copernicus/util"
-	"github.com/stretchr/testify/assert"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
+	"time"
+
+	"github.com/astaxie/beego/logs"
+
+	"github.com/copernet/copernicus/model/block"
 )
-
-func TestBlockEncodeAndDecode(t *testing.T) {
-	rawBlockBytes, err := hex.DecodeString(rawBlock)
-	if err != nil {
-		t.Error("block decode string error:", err)
-	}
-	bk := NewBlock()
-	err = bk.Decode(bytes.NewReader(rawBlockBytes))
-	if err != nil {
-		t.Error("block decode error:", err)
-	}
-
-	buf := bytes.NewBuffer(nil)
-	bk.Encode(buf)
-
-	if !bytes.Equal(buf.Bytes(), rawBlockBytes) {
-		t.Error("block decode or encode error")
-	}
-}
 
 var rawBlock = "00000020d2d497201d88978b326a12f04f609a6f1f1425ae63c46c8ac72a200000000000dd241423caab3" +
 	"a32cdcd498a0762293787c3db01710812b901af822e2b019c5410afe05affff001d70baa7f70d0100000001000000000" +
@@ -103,76 +90,35 @@ var rawBlock = "00000020d2d497201d88978b326a12f04f609a6f1f1425ae63c46c8ac72a2000
 	"f026c4100000000000017a914464d99892db654911b87d5c188071ac76b571c4187ca4907000000000017a914bf65f7" +
 	"e9f560f9030904efa760352f7f5aeeff9d8700000000"
 
-func TestBlockSerialize(t *testing.T) {
-	blk1 := NewRegTestGenesisBlock()
-	blk2 := NewBlock()
-	buf1 := bytes.NewBuffer(nil)
-	buf2 := bytes.NewBuffer(nil)
-
-	err := blk1.Serialize(buf1)
-	assert.Nil(t, err)
-	assert.Equal(t, blk1.SerializeSize(), blk1.EncodeSize())
-	blk1Data := buf1.Bytes()
-
-	// check new block serialize size
-	err = blk2.Unserialize(buf1)
-	assert.Nil(t, err)
-	assert.Equal(t, blk1.SerializeSize(), blk2.SerializeSize())
-
-	err = blk2.Serialize(buf2)
-	assert.Nil(t, err)
-	blk2Data := buf2.Bytes()
-
-	// check normal block serialize
-	assert.Equal(t, blk1Data, blk2Data)
-	assert.Equal(t, blk1.GetHash(), blk2.GetHash())
-
-	// check empty block serialize
-	buf2.Reset()
-	blk2.SetNull()
-	err = blk2.Serialize(buf2)
-	assert.Nil(t, err)
-
-	blk1.Unserialize(buf2)
-	assert.Equal(t, blk1.GetHash(), NewBlock().GetHash())
-}
-
-func TestCreateGenesisBlock(t *testing.T) {
-	tests := []struct {
-		name        string
-		block       *Block
-		genesisHash string
-		merkleRoot  string
-	}{
-		{
-			name:        "NewGenesisBlock",
-			block:       NewGenesisBlock(),
-			genesisHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
-			merkleRoot:  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-		},
-		{
-			name:        "NewTestNetGenesisBlock",
-			block:       NewTestNetGenesisBlock(),
-			genesisHash: "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943",
-			merkleRoot:  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-		},
-		{
-			name:        "NewRegTestGenesisBlock",
-			block:       NewRegTestGenesisBlock(),
-			genesisHash: "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206",
-			merkleRoot:  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
-		},
+func TestLogBlockHeight(t *testing.T) {
+	logger := logs.NewLogger(100)
+	f, err := ioutil.TempFile("", "blockLogger")
+	if err != nil {
+		t.Fatalf("faile create tmp file:%v\n", err)
 	}
-	for _, test := range tests {
-		genesisHash, _ := util.GetHashFromStr(test.genesisHash)
-		blockHash := test.block.GetHash()
-		if !blockHash.IsEqual(genesisHash) {
-			t.Errorf("Test %s fail, hash:%s", test.name, blockHash.String())
-		}
-		genesisMerkleRoot, _ := util.GetHashFromStr(test.merkleRoot)
-		blockMerkleRoot := test.block.GetBlockHeader().MerkleRoot
-		if !blockMerkleRoot.IsEqual(genesisMerkleRoot) {
-			t.Errorf("Test %s fail, merkle root:%s", test.name, blockMerkleRoot.String())
-		}
+	defer os.Remove(f.Name())
+	config := fmt.Sprintf(`{"filename":"%s"}`, f.Name())
+	logger.SetLogger(logs.AdapterFile, config)
+
+	rawBlockBytes, err := hex.DecodeString(rawBlock)
+	if err != nil {
+		t.Fatalf("hex decode block failed:%v\n", err)
+	}
+	bk := block.Block{}
+	err = bk.Decode(bytes.NewReader(rawBlockBytes))
+	if err != nil {
+		t.Fatalf("block decode error: %v\n", err)
+	}
+
+	pl := newBlockProgressLogger("Processed", logger)
+	pl.lastBlockLogTime = time.Now().Add(-10 * time.Second)
+	pl.LogBlockHeight(&bk)
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		t.Fatalf("read tmp file failed: %v\n", err)
+	}
+	t.Logf("b=%s\n", b)
+	if !bytes.HasSuffix(b, []byte("Processed 1 block in the last 10s (13 transactions, 1524674320)\n")) {
+		t.Fatalf("not expected output")
 	}
 }

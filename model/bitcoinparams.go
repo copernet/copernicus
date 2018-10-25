@@ -11,6 +11,7 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
 )
 
 const AntiReplayCommitment = "Bitcoin: A Peer-to-Peer Electronic Cash System"
@@ -462,4 +463,17 @@ func setActiveNetAddressParams() {
 		ScriptHashAddressVer: ActiveNetParams.ScriptHashAddressID,
 	})
 	crypto.InitPrivateKeyVersion(ActiveNetParams.PrivatekeyID)
+}
+
+func GetBlockSubsidy(height int32, params *BitcoinParams) amount.Amount {
+	halvings := height / params.SubsidyReductionInterval
+	// Force block reward to zero when right shift is undefined.
+	if halvings >= 64 {
+		return 0
+	}
+
+	nSubsidy := amount.Amount(50 * util.COIN)
+	// Subsidy is cut in half every 210,000 blocks which will occur
+	// approximately every 4 years.
+	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }

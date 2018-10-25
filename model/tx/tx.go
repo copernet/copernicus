@@ -145,11 +145,11 @@ func (tx *Tx) PrevoutHashs() (outs []util.Hash) {
 	return
 }
 
-func (tx *Tx) AnyInputTxIn(container *map[util.Hash]struct{}) bool {
+func (tx *Tx) AnyInputTxIn(container map[util.Hash]struct{}) bool {
 	if container != nil {
 		for _, txin := range tx.ins {
 			prevout := txin.PreviousOutPoint.Hash
-			if _, exists := (*container)[prevout]; exists {
+			if _, exists := container[prevout]; exists {
 				return true
 			}
 		}

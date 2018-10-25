@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -308,13 +309,10 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 }
 
 func TestTxMempool_GetCheckFrequency(t *testing.T) {
-	mp := NewTxMempool()
-	mp.checkFrequency = 10.0
-	res := mp.GetCheckFrequency()
-	assert.Equal(t, res, 10.0)
+	conf.Cfg = conf.InitConfig([]string{})
 
-	res = GetInstance().GetCheckFrequency()
-	assert.Equal(t, res, 0.0)
+	res := GetInstance().GetCheckFrequency()
+	assert.Equal(t, res, uint64(0))
 }
 
 func TestTxMempool_PoolData(t *testing.T) {

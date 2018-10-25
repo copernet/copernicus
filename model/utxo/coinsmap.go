@@ -19,6 +19,14 @@ func (cm *CoinsMap) GetMap() map[outpoint.OutPoint]*Coin {
 	return cm.cacheCoins
 }
 
+func (cm *CoinsMap) DeepCopy() *CoinsMap {
+	newcm := NewEmptyCoinsMap()
+	for op, coin := range cm.GetMap() {
+		newcm.AddCoin(&op, coin, false)
+	}
+	return newcm
+}
+
 func NewEmptyCoinsMap() *CoinsMap {
 	cm := new(CoinsMap)
 	cm.cacheCoins = make(map[outpoint.OutPoint]*Coin)
