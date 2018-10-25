@@ -29,7 +29,7 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-var once sync.Once
+var initLock sync.Mutex
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
@@ -69,9 +69,8 @@ func appInitMain(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	once.Do(func() {
-		log.Init(string(configuration))
-	})
+
+	log.Init(string(configuration))
 
 	// Init UTXO DB
 	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
@@ -94,6 +93,8 @@ func appInitMain(args []string) {
 }
 
 func makeTestServer() (*Server, string, chan struct{}, error) {
+	initLock.Lock()
+	defer initLock.Unlock()
 	dir, err := ioutil.TempDir("", "server")
 	if err != nil {
 		return nil, "", nil, err

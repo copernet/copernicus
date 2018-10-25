@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/copernet/copernicus/conf"
@@ -104,6 +105,8 @@ func appInitMain(args []string) {
 	crypto.InitSecp256()
 }
 
+var initLock sync.Mutex
+
 func makeSyncManager() (*SyncManager, string, error) {
 	mp := mockPeerNotifier{}
 
@@ -111,6 +114,8 @@ func makeSyncManager() (*SyncManager, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	initLock.Lock()
+	defer initLock.Unlock()
 	appInitMain([]string{"--datadir", dir, "--regtest"})
 	sm, err := New(&Config{
 		PeerNotifier:       &mp,
