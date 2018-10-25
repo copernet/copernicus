@@ -260,7 +260,7 @@ func CreateChecksum(prefix string, payload Data) Data {
 func Encode(prefix string, payload Data) string {
 	checksum := CreateChecksum(prefix, payload)
 	combined := Cat(payload, checksum)
-	ret := ""
+	ret := prefix + ":"
 
 	for _, c := range combined {
 		ret += string(CHARSET[c])

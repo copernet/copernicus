@@ -53,14 +53,14 @@ func TestDecodeCashAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
+	if addr.String() != "bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
 		t.Error("Address decoding error")
 	}
 	addr1, err := DecodeAddress("bitcoincash:ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq", &model.MainNetParams)
 	if err != nil {
 		t.Error(err)
 	}
-	if addr1.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
+	if addr1.String() != "bitcoincash:ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
 		t.Error("Address decoding error")
 	}
 	// Testnet
@@ -68,7 +68,7 @@ func TestDecodeCashAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4ytjg7p7mc" {
+	if addr.String() != "bchtest:qr95sy3j9xwd2ap32xkykttr4cvcu7as4ytjg7p7mc" {
 		t.Error("Address decoding error")
 	}
 	// Regtest
@@ -76,7 +76,7 @@ func TestDecodeCashAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y3w7lzdc7" {
+	if addr.String() != "bchreg:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y3w7lzdc7" {
 		t.Error("Address decoding error")
 	}
 }
@@ -90,7 +90,7 @@ func TestCashAddressPubKeyHash_EncodeAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
+	if addr.String() != "bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
 		t.Error("Address decoding error")
 	}
 	// Testnet
@@ -98,7 +98,7 @@ func TestCashAddressPubKeyHash_EncodeAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4ytjg7p7mc" {
+	if addr.String() != "bchtest:qr95sy3j9xwd2ap32xkykttr4cvcu7as4ytjg7p7mc" {
 		t.Error("Address decoding error")
 	}
 	// Regtest
@@ -106,7 +106,7 @@ func TestCashAddressPubKeyHash_EncodeAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y3w7lzdc7" {
+	if addr.String() != "bchreg:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y3w7lzdc7" {
 		t.Error("Address decoding error")
 	}
 }
@@ -120,7 +120,7 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
+	if addr.String() != "bitcoincash:ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
 		t.Error("Address decoding error")
 	}
 	// Testnet
@@ -128,7 +128,7 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvhanqgjxu" {
+	if addr.String() != "bchtest:ppm2qsznhks23z7629mms6s4cwef74vcwvhanqgjxu" {
 		t.Error("Address decoding error")
 	}
 	// Regtest
@@ -136,7 +136,7 @@ func TestCashAddressScriptHash_EncodeAddress(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvdp9ptp96" {
+	if addr.String() != "bchreg:ppm2qsznhks23z7629mms6s4cwef74vcwvdp9ptp96" {
 		t.Error("Address decoding error")
 	}
 }
@@ -229,7 +229,7 @@ func TestNewCashAddressScriptHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "pqgml2l4azsajnfqp30pmetax3ek9wc9lvghvvkx6d" {
+	if addr.String() != "bitcoincash:pqgml2l4azsajnfqp30pmetax3ek9wc9lvghvvkx6d" {
 		t.Error("Address decoding error")
 	}
 
@@ -238,7 +238,7 @@ func TestNewCashAddressScriptHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "pqgml2l4azsajnfqp30pmetax3ek9wc9lvv9gt53a3" {
+	if addr.String() != "bchtest:pqgml2l4azsajnfqp30pmetax3ek9wc9lvv9gt53a3" {
 		t.Error("Address decoding error")
 	}
 
@@ -247,7 +247,7 @@ func TestNewCashAddressScriptHash(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if addr.String() != "pqgml2l4azsajnfqp30pmetax3ek9wc9lvke72hz7h" {
+	if addr.String() != "bchreg:pqgml2l4azsajnfqp30pmetax3ek9wc9lvke72hz7h" {
 		t.Error("Address decoding error")
 	}
 }
@@ -263,7 +263,7 @@ func TestExtractPkScriptAddrs(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if p2shAddr.String() != "ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
+	if p2shAddr.String() != "bitcoincash:ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq" {
 		t.Errorf("p2shAddr:%s parse error", p2shAddr.String())
 	}
 
@@ -271,7 +271,7 @@ func TestExtractPkScriptAddrs(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if p2pkhAddr.String() != "qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
+	if p2pkhAddr.String() != "bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy" {
 		t.Errorf("p2pkhAddr:%s parse error", p2pkhAddr.String())
 	}
 
