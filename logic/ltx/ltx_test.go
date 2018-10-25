@@ -1350,6 +1350,7 @@ func initTestEnv() func() {
 	//default testing parameters
 	givenDustRelayFeeLimits(0)
 	model.ActiveNetParams.RequireStandard = false
+	conf.Cfg.Script.MaxDatacarrierBytes = 223
 
 	cleanup := func() {
 		os.RemoveAll(unitTestDataDirPath)
@@ -1448,6 +1449,25 @@ func makeNotFinalTx(prevout util.Hash) *tx.Tx {
 	txn := newTestTx(txin, 5000000, 1)
 	//transaction with still locked height 5000000, and not equal 0xffffffff sequence, is not final tx
 	return txn
+}
+
+func Test_tx_with_too_much_opreturn_data_should_NOT_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+	model.ActiveNetParams.RequireStandard = true
+	conf.Cfg.Script.MaxDatacarrierBytes = 100
+
+	scriptPK := NewScriptBuilder().
+		PushOPCode(opcodes.OP_RETURN).
+		PushBytesWithOP(makeDummyScript(int(conf.Cfg.Script.MaxDatacarrierBytes - 3 + 1)).Bytes()).Script()
+	//3 == 1byte OP_RETURN 1byte OP_PUSHDATA1 and 1 byte push_data_length
+	assert.Equal(t, int(conf.Cfg.Script.MaxDatacarrierBytes)+1, len(scriptPK.Bytes()))
+
+	blocks := generateTestBlocks(t)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+	txn.GetOuts()[0].SetScriptPubKey(scriptPK)
+
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "scriptpubkey"), err)
 }
 
 func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {

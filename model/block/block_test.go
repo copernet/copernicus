@@ -3,15 +3,17 @@ package block
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/copernet/copernicus/util"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestBlockEncodeAndDecode(t *testing.T) {
 	rawBlockBytes, err := hex.DecodeString(rawBlock)
 	if err != nil {
-		panic(err)
+		t.Error("block decode string error:", err)
 	}
-	bk := Block{}
+	bk := NewBlock()
 	err = bk.Decode(bytes.NewReader(rawBlockBytes))
 	if err != nil {
 		t.Error("block decode error:", err)
@@ -100,3 +102,77 @@ var rawBlock = "00000020d2d497201d88978b326a12f04f609a6f1f1425ae63c46c8ac72a2000
 	"1354f156516f20122103d178e289d93cf13cad072c34245beb2946522fddb6fe900fe9d1107f2137e96a53aefffffff" +
 	"f026c4100000000000017a914464d99892db654911b87d5c188071ac76b571c4187ca4907000000000017a914bf65f7" +
 	"e9f560f9030904efa760352f7f5aeeff9d8700000000"
+
+func TestBlockSerialize(t *testing.T) {
+	blk1 := NewRegTestGenesisBlock()
+	blk2 := NewBlock()
+	buf1 := bytes.NewBuffer(nil)
+	buf2 := bytes.NewBuffer(nil)
+
+	err := blk1.Serialize(buf1)
+	assert.Nil(t, err)
+	assert.Equal(t, blk1.SerializeSize(), blk1.EncodeSize())
+	blk1Data := buf1.Bytes()
+
+	// check new block serialize size
+	err = blk2.Unserialize(buf1)
+	assert.Nil(t, err)
+	assert.Equal(t, blk1.SerializeSize(), blk2.SerializeSize())
+
+	err = blk2.Serialize(buf2)
+	assert.Nil(t, err)
+	blk2Data := buf2.Bytes()
+
+	// check normal block serialize
+	assert.Equal(t, blk1Data, blk2Data)
+	assert.Equal(t, blk1.GetHash(), blk2.GetHash())
+
+	// check empty block serialize
+	buf2.Reset()
+	blk2.SetNull()
+	err = blk2.Serialize(buf2)
+	assert.Nil(t, err)
+
+	blk1.Unserialize(buf2)
+	assert.Equal(t, blk1.GetHash(), NewBlock().GetHash())
+}
+
+func TestCreateGenesisBlock(t *testing.T) {
+	tests := []struct {
+		name        string
+		block       *Block
+		genesisHash string
+		merkleRoot  string
+	}{
+		{
+			name:        "NewGenesisBlock",
+			block:       NewGenesisBlock(),
+			genesisHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+			merkleRoot:  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
+		},
+		{
+			name:        "NewTestNetGenesisBlock",
+			block:       NewTestNetGenesisBlock(),
+			genesisHash: "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943",
+			merkleRoot:  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
+		},
+		{
+			name:        "NewRegTestGenesisBlock",
+			block:       NewRegTestGenesisBlock(),
+			genesisHash: "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206",
+			merkleRoot:  "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
+		},
+	}
+	for _, test := range tests {
+		genesisHash, _ := util.GetHashFromStr(test.genesisHash)
+		blockHash := test.block.GetHash()
+		if !blockHash.IsEqual(genesisHash) {
+			t.Errorf("Test %s fail, hash:%s", test.name, blockHash.String())
+		}
+		genesisMerkleRoot, _ := util.GetHashFromStr(test.merkleRoot)
+		blockMerkleRoot := test.block.GetBlockHeader().MerkleRoot
+		if !blockMerkleRoot.IsEqual(genesisMerkleRoot) {
+			t.Errorf("Test %s fail, merkle root:%s", test.name, blockMerkleRoot.String())
+		}
+	}
+}

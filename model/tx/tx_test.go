@@ -901,7 +901,7 @@ func TestSignStepMultiSig(t *testing.T) {
 
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
-	// Single signature case:
+	// Multiple signature case:
 	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
 	// <OP_0> <signature0> ... <signatureM>

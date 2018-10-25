@@ -36,7 +36,7 @@ func (bh *BlockHeader) GetHash() util.Hash {
 		return bh.Hash
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, blockHeaderLength))
-	err := bh.SerializeHeader(buf)
+	err := bh.Serialize(buf)
 	if err != nil {
 		log.Error("serialize block header failed, please check: %v", err)
 		return util.HashOne
@@ -47,14 +47,6 @@ func (bh *BlockHeader) GetHash() util.Hash {
 
 func (bh *BlockHeader) SetNull() {
 	*bh = BlockHeader{}
-}
-
-func (bh *BlockHeader) SerializeHeader(w io.Writer) error {
-	return util.WriteElements(w, bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, bh.Time, bh.Bits, bh.Nonce)
-}
-
-func (bh *BlockHeader) UnserializeHeader(r io.Reader) error {
-	return util.ReadElements(r, &bh.Version, &bh.HashPrevBlock, &bh.MerkleRoot, &bh.Time, &bh.Bits, &bh.Nonce)
 }
 
 func (bh *BlockHeader) Encode(w io.Writer) error {
@@ -88,7 +80,7 @@ func (bh *BlockHeader) SerializeSize() int {
 	return bh.serializeSize
 }
 func (bh *BlockHeader) Decode(r io.Reader) error {
-	return bh.UnserializeHeader(r)
+	return bh.Unserialize(r)
 }
 
 func (bh *BlockHeader) Serialize(w io.Writer) error {

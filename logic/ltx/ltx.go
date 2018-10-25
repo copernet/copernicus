@@ -560,6 +560,7 @@ func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 			}
 
 			if stack.Empty() {
+				log.Trace("AreInputsStandard: empty stack after EvalScript")
 				return false
 			}
 
