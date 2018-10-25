@@ -18,7 +18,7 @@ type TestWriter struct {
 
 func (tw *TestWriter) Write(p []byte) (n int, err error) {
 	ret := tw.Rets[tw.Cnt]
-	tw.Cnt += 1
+	tw.Cnt++
 	if ret {
 		return 1, nil
 	}
@@ -34,7 +34,7 @@ func (tr *TestReader) Read(p []byte) (n int, err error) {
 	if tr.Cnt == tr.Idx {
 		return 0, errors.New("test reader error")
 	}
-	tr.Cnt += 1
+	tr.Cnt++
 	return 1, nil
 }
 

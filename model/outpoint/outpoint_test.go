@@ -2,12 +2,33 @@ package outpoint
 
 import (
 	"bytes"
-	"os"
-	"testing"
-
+	"errors"
 	"fmt"
 	"github.com/copernet/copernicus/util"
+	"github.com/stretchr/testify/assert"
+	"os"
+	"testing"
 )
+
+type TestWriter struct {
+}
+
+func (tw *TestWriter) Write(p []byte) (n int, err error) {
+	return 0, errors.New("test writer error")
+}
+
+type TestReader struct {
+	Cnt int
+	Idx int
+}
+
+func (tr *TestReader) Read(p []byte) (n int, err error) {
+	if tr.Cnt == tr.Idx {
+		return 0, errors.New("test reader error")
+	}
+	tr.Cnt++
+	return 1, nil
+}
 
 var testOutPoint *OutPoint
 var nullOutPoint *OutPoint
@@ -137,4 +158,40 @@ func TestOutPoint_String(t *testing.T) {
 	if strOutPoint != strMust {
 		t.Errorf("OutPoint String should be %s", strMust)
 	}
+}
+
+func TestOutPoint_Serialize(t *testing.T) {
+	w := TestWriter{}
+	initTestOutPoint()
+	assert.NotNil(t, testOutPoint.Serialize(&w))
+}
+
+func TestOutPoint_Unserialize_hash_false(t *testing.T) {
+	r := TestReader{Cnt: 0, Idx: 0}
+	op := OutPoint{}
+	assert.NotNil(t, op.Unserialize(&r))
+}
+
+func TestOutPoint_Unserialize_index_false(t *testing.T) {
+	r := TestReader{Cnt: 0, Idx: 32}
+	op := OutPoint{}
+	assert.NotNil(t, op.Unserialize(&r))
+}
+
+func TestOutPoint_Encode(t *testing.T) {
+	w := TestWriter{}
+	initTestOutPoint()
+	assert.NotNil(t, testOutPoint.Encode(&w))
+}
+
+func TestOutPoint_Decode(t *testing.T) {
+	r := TestReader{Cnt: 0, Idx: 0}
+	op := OutPoint{}
+	assert.NotNil(t, op.Decode(&r))
+}
+
+func TestOutPoint_IsNull(t *testing.T) {
+	initTestOutPoint()
+	testOutPoint.Index = 1
+	assert.False(t, testOutPoint.IsNull())
 }
