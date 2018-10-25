@@ -1242,6 +1242,14 @@ func newTestTx(txin *txin.TxIn, locktime uint32, version int32) *tx.Tx {
 	txn := tx.NewTx(locktime, version)
 	txn.AddTxIn(txin)
 
+	txOuts := makeOuts()
+
+	txn.AddTxOut(txOuts[0])
+	txn.AddTxOut(txOuts[1])
+	return txn
+}
+
+func makeOuts() []*txout.TxOut {
 	txOuts := []*txout.TxOut{
 		txout.NewTxOut(0x0e94a78b, script.NewScriptRaw([]byte{
 			0x76, // OP_DUP
@@ -1251,7 +1259,6 @@ func newTestTx(txin *txin.TxIn, locktime uint32, version int32) *tx.Tx {
 			0xf7, 0x42, 0x41, 0xd7, 0x3b, 0xc0, 0x39, 0x97, 0x2d, 0x7b,
 			0x88, // OP_EQUALVERIFY
 			0xac, // OP_CHECKSIG
-
 		})),
 		txout.NewTxOut(0x02a89440, script.NewScriptRaw([]byte{
 			0x76, // OP_DUP
@@ -1263,10 +1270,7 @@ func newTestTx(txin *txin.TxIn, locktime uint32, version int32) *tx.Tx {
 			0xac, // OP_CHECKSIG
 		})),
 	}
-
-	txn.AddTxOut(txOuts[0])
-	txn.AddTxOut(txOuts[1])
-	return txn
+	return txOuts
 }
 
 func givenDustRelayFeeLimits(minRelayFee int64) {
@@ -1424,14 +1428,22 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 func generateTestBlocks(t *testing.T) []*block.Block {
 	pubKey := script.NewEmptyScript()
 	pubKey.PushOpCode(opcodes.OP_TRUE)
-	blocks, _ := generateBlocks(t, pubKey, 200, 1000000)
+	return generateTestBlocksWithPK(t, pubKey)
+}
+
+func generateTestBlocksWithPK(t *testing.T, scriptPubKey *script.Script) []*block.Block {
+	blocks, _ := generateBlocks(t, scriptPubKey, 200, 1000000)
 	assert.Equal(t, 200, len(blocks))
 	return blocks
 }
 
 func makeNormalTx(prevout util.Hash) *tx.Tx {
+	return makeNormalTxWithScripgSig(prevout, script.NewScriptRaw([]byte{}))
+}
+
+func makeNormalTxWithScripgSig(prevout util.Hash, scriptSig *script.Script) *tx.Tx {
 	outpoint := outpoint.NewOutPoint(prevout, 0)
-	txin := txin.NewTxIn(outpoint, script.NewScriptRaw([]byte{}), script.SequenceFinal)
+	txin := txin.NewTxIn(outpoint, scriptSig, script.SequenceFinal)
 	txn := newTestTx(txin, 0, 1)
 	return txn
 }
@@ -1502,14 +1514,44 @@ func Test_tx_with_total_too_large_output_should_NOT_be_accepted_into_mempool(t *
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-txouttotal-toolarge"), err)
 }
 
+func makeTxWith2ErrorIns(blocks []*block.Block, scriptSig *script.Script) *tx.Tx {
+	txn := tx.NewTx(0, 1)
+	txn.AddTxOut(makeOuts()[0])
+	txn.AddTxOut(makeOuts()[1])
+
+	for i := 0; i < 2; i++ {
+		out := outpoint.NewOutPoint(blocks[i].Txs[0].GetHash(), 0)
+		txnin := txin.NewTxIn(out, script.NewScriptRaw([]byte{opcodes.OP_TRUE}), script.SequenceFinal)
+		txn.AddTxIn(txnin)
+	}
+
+	return txn
+}
+
 func Test_normal_tx_should_be_accepted_into_mempool(t *testing.T) {
 	defer initTestEnv()()
 
 	blocks := generateTestBlocks(t)
-	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
 
+	assert_normal_tx_should_be_accepted_into_mempool(blocks, t)
+}
+
+func Test_normal_tx_should_be_accepted_into_mempool_____without_influence_of_previous_tx_accept_failure(t *testing.T) {
+	defer initTestEnv()()
+	blocks := generateTestBlocks(t)
+
+	txn := makeTxWith2ErrorIns(blocks, script.NewEmptyScript())
 	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
-	assert.NoError(t, err)
+	expectedErr := errcode.NewError(errcode.RejectNonstandard, "non-mandatory-script-verify-flag (Script did not clean its stack)")
+	assert.Equal(t, expectedErr, err)
+
+	assert_normal_tx_should_be_accepted_into_mempool(blocks, t)
+}
+
+func assert_normal_tx_should_be_accepted_into_mempool(blocks []*block.Block, t *testing.T) {
+	okTx := makeNormalTx(blocks[0].Txs[0].GetHash())
+	_, err2 := ltx.CheckTxBeforeAcceptToMemPool(okTx)
+	assert.NoError(t, err2)
 }
 
 func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
@@ -1733,6 +1775,24 @@ func Test_block_txns__should_not_contains_duplicate_prev_outpoints(t *testing.T)
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate"), err)
 }
 
+func Test_tx_script_with_non_clean_stack_after_eval__should_not_be_accepted_into_mempool(t *testing.T) {
+	defer initTestEnv()()
+
+	scriptPK := NewScriptBuilder().
+		PushOPCode(opcodes.OP_TRUE).
+		PushOPCode(opcodes.OP_TRUE). //one more opcode left in stack
+		Script()
+
+	blocks := generateTestBlocksWithPK(t, scriptPK)
+	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
+
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+
+	expectedErr := errcode.NewError(errcode.RejectNonstandard,
+		"non-mandatory-script-verify-flag (Script did not clean its stack)")
+	assert.Equal(t, expectedErr, err)
+}
+
 //test cases for ltx.ContextureCheckBlockTransactions
 //model.ActiveNetParams.BIP34Height
 
@@ -1928,18 +1988,18 @@ func P2PKH(pk *crypto.PublicKey) *script.Script {
 		PushOPCode(opcodes.OP_CHECKSIG).Script()
 }
 
+func P2SH(script []byte) *script.Script {
+	return NewScriptBuilder().PushOPCode(opcodes.OP_HASH160).
+		PushBytesWithOP(util.Hash160(script)).
+		PushOPCode(opcodes.OP_EQUAL).
+		Script()
+}
+
 func MULTISIG(pks []*crypto.PublicKey) *script.Script {
 	return NewScriptBuilder().PushOPCode(opcodes.OP_2).PushBytesWithOP(pks[0].ToBytes()).
 		PushBytesWithOP(pks[1].ToBytes()).
 		PushBytesWithOP(pks[2].ToBytes()).PushOPCode(opcodes.OP_3).
 		PushOPCode(opcodes.OP_CHECKMULTISIG).Script()
-}
-
-func P2SH(pk *crypto.PublicKey) *script.Script {
-	return NewScriptBuilder().PushOPCode(opcodes.OP_HASH160).
-		PushBytesWithOP(util.Hash160(pk.ToBytes())).
-		PushOPCode(opcodes.OP_EQUAL).
-		Script()
 }
 
 func setupDummyInputs() ([]*tx.Tx, *utxo.CoinsMap, []*crypto.PublicKey) {
@@ -1956,10 +2016,11 @@ func setupDummyInputs() ([]*tx.Tx, *utxo.CoinsMap, []*crypto.PublicKey) {
 
 	txns[0].AddTxOut(txout.NewTxOut(amount.Amount(11*util.COIN), P2PK(pks[0])))
 	txns[0].AddTxOut(txout.NewTxOut(amount.Amount(50*util.COIN), P2PK(pks[1])))
+
 	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(21*util.COIN), P2PKH(pks[2])))
 	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(22*util.COIN), P2PKH(pks[3])))
 	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(99*util.COIN), MULTISIG(pks)))
-	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), P2SH(pks[3])))
+	txns[1].AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), P2SH(pks[3].ToBytes())))
 
 	return txns, coinsOf(txns), pks
 }
@@ -1996,39 +2057,25 @@ func TestAreInputStandard_for_P2PK_and_P2PKH(t *testing.T) {
 }
 
 func TestAreInputStandard_for_checkmultisig(t *testing.T) {
-	txn := tx.NewTx(0, 1)
-
 	inputTxns, coins, _ := setupDummyInputs()
 
 	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 2), script.NewEmptyScript(), script.SequenceFinal)
+	txn := tx.NewTx(0, 1)
 	txn.AddTxIn(txin1)
 
 	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
 	assert.True(t, ltx.AreInputsStandard(txn, coins))
 }
 
-func TestAreInputStandard_empty_script_sig__can_not_unlock_P2SH(t *testing.T) {
+func TestAreInputStandard_empty_script_sig___is_non_standard(t *testing.T) {
 	inputTxns, coins, _ := setupDummyInputs()
 
 	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 3), script.NewEmptyScript(), script.SequenceFinal)
 	txn := tx.NewTx(0, 1)
 	txn.AddTxIn(txin1)
-
 	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
+
 	assert.False(t, ltx.AreInputsStandard(txn, coins))
-}
-
-func TestAreInputStandard_correct_script_sig__to_unlock_P2SH(t *testing.T) {
-	inputTxns, coins, pks := setupDummyInputs()
-
-	redeemScript := NewScriptBuilder().PushBytesWithOP(util.Hash160(pks[3].ToBytes())).Script()
-
-	txin1 := txin.NewTxIn(outpoint.NewOutPoint(inputTxns[1].GetHash(), 3), redeemScript, script.SequenceFinal)
-	txn := tx.NewTx(0, 1)
-	txn.AddTxIn(txin1)
-
-	txn.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_TRUE})))
-	assert.True(t, ltx.AreInputsStandard(txn, coins))
 }
 
 func TestAreInputStandard_too_large_scriptsig__is_non_standard(t *testing.T) {

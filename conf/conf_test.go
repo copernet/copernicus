@@ -266,13 +266,13 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxDatacarrierBytes uint `default:"223"`
 			IsBareMultiSigStd   bool `default:"true"`
 			//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-			PromiscuousMempoolFlags string `default:"0"`
-			Par                     int    `default:"32"`
+			PromiscuousMempoolFlags string
+			Par                     int `default:"32"`
 		}{
 			AcceptDataCarrier:       true,
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
-			PromiscuousMempoolFlags: "0",
+			PromiscuousMempoolFlags: "",
 			Par:                     32,
 		},
 		TxOut: struct {

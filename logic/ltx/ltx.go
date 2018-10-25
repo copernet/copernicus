@@ -592,56 +592,44 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	ins := tx.GetIns()
 	insLen := len(ins)
 
-	if insLen <= MaxScriptVerifyJobNum {
-		for i := 0; i < insLen; i++ {
-			coin := tempCoinMap.GetCoin(ins[i].PreviousOutPoint)
+	batches := insLen / MaxScriptVerifyJobNum
+	reminder := insLen % MaxScriptVerifyJobNum
+	if reminder > 0 {
+		batches++
+	}
+
+	for batch := 0; batch < batches; batch++ {
+
+		jobNum := MaxScriptVerifyJobNum
+		if batch+1 == batches && reminder > 0 {
+			jobNum = reminder
+		}
+
+		for j := 0; j < jobNum; j++ {
+			index := batch*MaxScriptVerifyJobNum + j
+
+			coin := tempCoinMap.GetCoin(ins[index].PreviousOutPoint)
 			if coin == nil {
 				panic("can't find coin in temp coinsmap")
 			}
 			scriptPubKey := coin.GetScriptPubKey()
-			scriptSig := ins[i].GetScriptSig()
-			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey, i,
+			scriptSig := ins[index].GetScriptSig()
+			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey, index,
 				coin.GetAmount(), flags, lscript.NewScriptRealChecker()}
 		}
 
-		for j := 0; j < insLen; j++ {
-			result := <-scriptVerifyResultChan
-			if result.Err != nil {
-				return result.Err
-			}
-		}
-		return nil
-	}
+		var err error
 
-	multipleNum := insLen / MaxScriptVerifyJobNum
-	remainderNum := insLen % MaxScriptVerifyJobNum
-	if remainderNum > 0 {
-		multipleNum++
-	}
-
-	for i := 0; i < multipleNum; i++ {
-		var lineCount int
-		if i+1 == multipleNum && remainderNum > 0 {
-			lineCount = remainderNum
-		} else {
-			lineCount = MaxScriptVerifyJobNum
-		}
-		for j := 0; j < lineCount; j++ {
-			coin := tempCoinMap.GetCoin(ins[i*MaxScriptVerifyJobNum+j].PreviousOutPoint)
-			if coin == nil {
-				panic("can't find coin in temp coinsmap")
-			}
-			scriptPubKey := coin.GetScriptPubKey()
-			scriptSig := ins[i].GetScriptSig()
-			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey,
-				i*MaxScriptVerifyJobNum + j, coin.GetAmount(), flags,
-				lscript.NewScriptRealChecker()}
-		}
-		for h := 0; h < lineCount; h++ {
+		//drain all result from channel
+		for k := 0; k < jobNum; k++ {
 			result := <-scriptVerifyResultChan
-			if result.Err != nil {
-				return result.Err
+			if result.Err != nil && err == nil {
+				err = result.Err
 			}
+		}
+
+		if err != nil {
+			return err
 		}
 	}
 
