@@ -203,7 +203,7 @@ func TestIsCommitment(t *testing.T) {
 func TestTxOut_Encode(t *testing.T) {
 	var buf bytes.Buffer
 	txout := NewTxOut(9, nil)
-	assert.Nil(t, txout.Encode(&buf))
+	assert.NoError(t, txout.Encode(&buf))
 
 	var w TestWriter
 	txout = NewTxOut(-1, nil)
@@ -225,10 +225,10 @@ func TestTxOut_GetDustThreshold(t *testing.T) {
 
 func TestTxOut_CheckValue(t *testing.T) {
 	txout := NewTxOut(9, nil)
-	assert.Nil(t, txout.CheckValue())
+	assert.NoError(t, txout.CheckValue())
 }
 
-func TestTxOut_IsStandard(t *testing.T) {
+func TestTxOut_IsStandard_true(t *testing.T) {
 	scriptarr := script.NewScriptRaw([]byte{
 		opcodes.OP_DUP,
 		opcodes.OP_HASH160,
@@ -243,7 +243,9 @@ func TestTxOut_IsStandard(t *testing.T) {
 	pubKeyType, isStandard := txout.IsStandard()
 	assert.Equal(t, script.ScriptPubkeyHash, pubKeyType)
 	assert.True(t, isStandard)
+}
 
+func TestTxOut_IsStandard_ScriptNonStandard_false(t *testing.T) {
 	scriptarr2 := script.NewScriptRaw([]byte{
 		opcodes.OP_DUP,
 		0x00,
@@ -255,11 +257,13 @@ func TestTxOut_IsStandard(t *testing.T) {
 		0xb1, 0x57, 0xfc, 0x93, 0x55,
 		opcodes.OP_EQUALVERIFY,
 		opcodes.OP_CHECKSIG})
-	txout = NewTxOut(9, scriptarr2)
-	pubKeyType, isStandard = txout.IsStandard()
+	txout := NewTxOut(9, scriptarr2)
+	pubKeyType, isStandard := txout.IsStandard()
 	assert.Equal(t, script.ScriptNonStandard, pubKeyType)
 	assert.False(t, isStandard)
+}
 
+func TestTxOut_IsStandard_ScriptMultiSig_false(t *testing.T) {
 	crypto.InitSecp256()
 	key0c := crypto.NewPrivateKeyFromBytes(key0bytes[:], true)
 	pubkey0c := key0c.PubKey()
@@ -272,16 +276,17 @@ func TestTxOut_IsStandard(t *testing.T) {
 	scriptarr3 := NewScriptBuilder().PushOPCode(opcodes.OP_4).PushBytesWithOP(pubkey2c.ToBytes()).
 		PushBytesWithOP(pubkey1c.ToBytes()).PushBytesWithOP(pubkey0c.ToBytes()).PushBytesWithOP(pubkey3c.ToBytes()).
 		PushOPCode(opcodes.OP_4).PushOPCode(opcodes.OP_CHECKMULTISIG).Script()
-	txout = NewTxOut(9, scriptarr3)
-	pubKeyType, isStandard = txout.IsStandard()
+	txout := NewTxOut(9, scriptarr3)
+	pubKeyType, isStandard := txout.IsStandard()
 	assert.Equal(t, script.ScriptMultiSig, pubKeyType)
 	assert.False(t, isStandard)
+}
 
+func TestTxOut_IsStandard_ScriptNullData_false(t *testing.T) {
 	scriptarr4 := script.NewScriptRaw([]byte{opcodes.OP_RETURN, 1, 1})
 	conf.Cfg.Script.AcceptDataCarrier = false
-
-	txout = NewTxOut(9, scriptarr4)
-	pubKeyType, isStandard = txout.IsStandard()
+	txout := NewTxOut(9, scriptarr4)
+	pubKeyType, isStandard := txout.IsStandard()
 	assert.Equal(t, script.ScriptNullData, pubKeyType)
 	assert.False(t, isStandard)
 }
