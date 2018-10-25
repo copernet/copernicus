@@ -30,6 +30,7 @@ import (
 )
 
 var initLock sync.Mutex
+var once sync.Once
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
@@ -70,7 +71,9 @@ func appInitMain(args []string) {
 		panic(err)
 	}
 
-	log.Init(string(configuration))
+	once.Do(func() {
+		log.Init(string(configuration))
+	})
 
 	// Init UTXO DB
 	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}

@@ -83,7 +83,9 @@ func appInitMain(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	log.Init(string(configuration))
+	once.Do(func() {
+		log.Init(string(configuration))
+	})
 
 	// Init UTXO DB
 	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
@@ -106,6 +108,7 @@ func appInitMain(args []string) {
 }
 
 var initLock sync.Mutex
+var once sync.Once
 
 func makeSyncManager() (*SyncManager, string, error) {
 	mp := mockPeerNotifier{}
