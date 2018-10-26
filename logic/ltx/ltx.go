@@ -830,23 +830,27 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 			log.Debug("CheckInputsMoney can't find coin")
 			panic("CheckInputsMoney can't find coin")
 		}
+
 		if coin.IsCoinBase() {
 			if spendHeight-coin.GetHeight() < consensus.CoinbaseMaturity {
 				log.Debug("CheckInputsMoney coinbase can't spend now")
 				return errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase")
 			}
 		}
-		txOut := coin.GetTxOut()
-		if !amount.MoneyRange(txOut.GetValue()) {
+
+		coinOut := coin.GetTxOut()
+		if !amount.MoneyRange(coinOut.GetValue()) {
 			log.Debug("CheckInputsMoney coin money range err")
 			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputvalues-outofrange")
 		}
-		nValue += txOut.GetValue()
+
+		nValue += coinOut.GetValue()
 		if !amount.MoneyRange(nValue) {
 			log.Debug("CheckInputsMoney total coin money range err")
 			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputvalues-outofrange")
 		}
 	}
+
 	if nValue < transaction.GetValueOut() {
 		log.Debug("CheckInputsMoney coins money little than out's")
 		return errcode.NewError(errcode.RejectInvalid, "bad-txns-in-belowout")

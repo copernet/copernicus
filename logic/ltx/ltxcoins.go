@@ -19,6 +19,7 @@ func UpdateTxCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, heigh
 		}
 		txundo.SetUndoCoins(undoCoins)
 	}
+
 	txAddCoins(tx, coinMap, height)
 }
 

@@ -64,7 +64,6 @@ func (coin *Coin) DeepCopy() *Coin {
 	outScript := coin.txOut.GetScriptPubKey()
 	if coin.txOut.GetScriptPubKey() != nil {
 		newOutScript := script.NewScriptRaw(outScript.GetData())
-		//newOutScript.ParsedOpCodes = outScript.ParsedOpCodes
 		newOut := txout.NewTxOut(coin.txOut.GetValue(), newOutScript)
 		newCoin.txOut = *newOut
 	}

@@ -8,35 +8,34 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 )
 
-func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
-	cm *utxo.CoinsMap) undo.DisconnectResult {
+func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsMap) undo.DisconnectResult {
 	clean := true
 	txUndos := blockUndo.GetTxundo()
 	if len(txUndos)+1 != len(blk.Txs) {
 		log.Error("DisconnectBlock(): block(%d) and undo(%d) data inconsistent", len(txUndos)+1, len(blk.Txs))
 		return undo.DisconnectFailed
 	}
+
 	// Undo transactions in reverse order.
 	for i := len(blk.Txs) - 1; i >= 0; i-- {
 		tx := blk.Txs[i]
 		txid := tx.GetHash()
 
-		// Check that all outputs are available and match the outputs in the
-		// block itself exactly.
+		// Check that all outputs are available and match the outputs in the block itself exactly.
+		// and cancel tx outs by spend
 		for j := 0; j < tx.GetOutsCount(); j++ {
 			if !tx.GetTxOut(j).IsSpendable() {
 				continue
 			}
-			out := outpoint.NewOutPoint(txid, uint32(j))
-			coin := cm.SpendGlobalCoin(out)
+			coin := cm.SpendGlobalCoin(outpoint.NewOutPoint(txid, uint32(j)))
 
-			// transaction output mismatch
 			if coin == nil {
 				clean = false
 			} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
 				clean = false
 			}
 		}
+
 		// Restore inputs
 		if i < 1 {
 			// Skip the coinbase
@@ -67,7 +66,8 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block,
 		log.Debug("DisconnectBlock(): disconnect block success.")
 		return undo.DisconnectOk
 	}
-	log.Error("ApplyBlockUndo DisconnectUnclean")
+
+	log.Error("ApplyBlockUndo DisconnectUnclean, block: %s", blk.GetHash())
 	return undo.DisconnectUnclean
 }
 
