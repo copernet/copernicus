@@ -390,7 +390,7 @@ func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
 		if _, exists := (*outpoints)[*(in.PreviousOutPoint)]; !exists {
 			(*outpoints)[*(in.PreviousOutPoint)] = true
 		} else {
-			log.Debug("bad tx: %s, duplicate inputs:[%s:%d]",
+			log.Error("bad tx: %s, duplicate inputs:[%s:%d]",
 				tx.hash, in.PreviousOutPoint.Hash, in.PreviousOutPoint.Index)
 			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate")
 		}

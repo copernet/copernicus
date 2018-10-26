@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -148,6 +149,25 @@ func computeMaxGeneratedBlockSize() uint64 {
 	return maxGeneratedBlockSize
 }
 
+type ByAncsCount []*mempool.TxEntry
+
+func (a ByAncsCount) Len() int      { return len(a) }
+func (a ByAncsCount) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByAncsCount) Less(i, j int) bool {
+	return a[i].SumTxCountWithAncestors < a[j].SumTxCountWithAncestors
+}
+
+func sortTxsByAncestorCount(ancestors map[*mempool.TxEntry]struct{}) (result []*mempool.TxEntry) {
+
+	result = make([]*mempool.TxEntry, 0, len(ancestors))
+	for item := range ancestors {
+		result = append(result, item)
+	}
+
+	sort.Sort(ByAncsCount(result))
+	return result
+}
+
 // This transaction selection algorithm orders the mempool based on feerate of a
 // transaction including all unconfirmed ancestors. Since we don't remove
 // transactions from the mempool as we select them for block inclusion, we need
@@ -230,21 +250,24 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		pool.RUnlock()
 
-		ba.onlyUnconfirmed(ancestors)
 		ancestors[&entry] = struct{}{} // add current item
-		if !ba.testPackageTransactions(ancestors) {
+		ancestorsList := sortTxsByAncestorCount(ancestors)
+		ancestorsList = ba.onlyUnconfirmed(ancestorsList)
+
+		if !ba.testPackageTransactions(ancestorsList) {
 			continue
 		}
 
 		// This transaction will make it in; reset the failed counter.
 		consecutiveFailed = 0
 		addset := make(map[util.Hash]mempool.TxEntry)
-		for add := range ancestors {
-			ba.addToBlock(add)
-			addset[add.Tx.GetHash()] = *add
+
+		for _, item := range ancestorsList {
+			ba.addToBlock(item)
+			addset[item.Tx.GetHash()] = *item
 		}
 
-		descendantsUpdated += ba.updatePackagesForAdded(txSet, ancestors)
+		descendantsUpdated += ba.updatePackagesForAdded(txSet, ancestorsList)
 	}
 	return descendantsUpdated
 }
@@ -344,20 +367,22 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	return ba.bt
 }
 
-func (ba *BlockAssembler) onlyUnconfirmed(entrySet map[*mempool.TxEntry]struct{}) {
-	for entry := range entrySet {
-		if _, ok := ba.inBlock[entry.Tx.GetHash()]; ok {
-			delete(entrySet, entry)
+func (ba *BlockAssembler) onlyUnconfirmed(entryList []*mempool.TxEntry) []*mempool.TxEntry {
+	result := make([]*mempool.TxEntry, 0)
+	for _, entry := range entryList {
+		if _, ok := ba.inBlock[entry.Tx.GetHash()]; !ok {
+			result = append(result, entry)
 		}
 	}
+	return result
 }
 
 // Perform transaction-level checks before adding to block:
 // - transaction finality (locktime)
 // - serialized size (in case -blockmaxsize is in use)
-func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]struct{}) bool {
+func (ba *BlockAssembler) testPackageTransactions(entrySet []*mempool.TxEntry) bool {
 	potentialBlockSize := ba.blockSize
-	for entry := range entrySet {
+	for _, entry := range entrySet {
 		err := ltx.ContextualCheckTransaction(entry.Tx, ba.height, ba.lockTimeCutoff)
 		if err != nil {
 			return false
@@ -372,12 +397,12 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet map[*mempool.TxEntry]
 	return true
 }
 
-func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded map[*mempool.TxEntry]struct{}) int {
+func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded []*mempool.TxEntry) int {
 	descendantUpdate := 0
 	mpool := mempool.GetInstance()
 	tmpStrategy := *getStrategy()
 
-	for entry := range alreadyAdded {
+	for _, entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
 		mpool.CalculateDescendants(entry, descendants)
 		// Insert all descendants (not yet in block) into the modified set.

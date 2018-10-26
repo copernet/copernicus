@@ -45,10 +45,6 @@ func sortedByFeeWithAncestors() *btree.BTree {
 		b.ReplaceOrInsert(EntryFeeSort(*txEntry))
 	}
 
-	b.Descend(func(i btree.Item) bool {
-		_ = i.(EntryFeeSort)
-		return true
-	})
 	return b
 }
 
@@ -75,10 +71,6 @@ func sortedByFeeRateWithAncestors() *btree.BTree {
 		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
 	}
 
-	b.Descend(func(i btree.Item) bool {
-		_ = i.(EntryAncestorFeeRateSort)
-		return true
-	})
 	return b
 }
 
