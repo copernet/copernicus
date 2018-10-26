@@ -2,13 +2,13 @@ package txout
 
 import (
 	"bytes"
+	"errors"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/stretchr/testify/assert"
-	"testing"
-	"errors"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 const (
@@ -114,18 +114,18 @@ func TestCompressAmount(t *testing.T) {
 func Test_scriptCompressor_newScriptCompressor(t *testing.T) {
 	assert.Nil(t, newScriptCompressor(nil))
 
-	var s *script.Script = nil
+	var s *script.Script
 	assert.Equal(t, script.NewEmptyScript(), *newScriptCompressor(&s).sp)
 }
 
 func Test_scriptCompressor_isToKeyID(t *testing.T) {
-	var s *script.Script = nil
+	var s *script.Script
 	sc := newScriptCompressor(&s)
 	assert.Nil(t, sc.isToKeyID())
 }
 
 func Test_scriptCompressor_isToScriptID(t *testing.T) {
-	var s *script.Script = nil
+	var s *script.Script
 	sc := newScriptCompressor(&s)
 	assert.Nil(t, sc.isToScriptID())
 
@@ -139,7 +139,7 @@ func Test_scriptCompressor_isToScriptID(t *testing.T) {
 }
 
 func Test_scriptCompressor_isToPubKey(t *testing.T) {
-	var s *script.Script = nil
+	var s *script.Script
 	sc := newScriptCompressor(&s)
 	assert.Nil(t, sc.isToPubKey())
 
@@ -214,28 +214,28 @@ func Test_scriptCompressor_Decompress(t *testing.T) {
 }
 
 func Test_scriptCompressor_Serialize(t *testing.T) {
-	var s *script.Script = nil
+	var s *script.Script
 	sc := newScriptCompressor(&s)
-	w := DummyWriter{ Cnt : 0, Idx : 0 }
+	w := DummyWriter{Cnt: 0, Idx: 0}
 	assert.NotNil(t, sc.Serialize(&w))
 
-	w = DummyWriter{ Cnt : 0, Idx : 1 }
+	w = DummyWriter{Cnt: 0, Idx: 1}
 	assert.NotNil(t, sc.Serialize(&w))
 
-	w = DummyWriter{ Cnt : 0, Idx : 2 }
+	w = DummyWriter{Cnt: 0, Idx: 2}
 	assert.Nil(t, sc.Serialize(&w))
 }
 
 func Test_scriptCompressor_Unserialize(t *testing.T) {
-	var s *script.Script = nil
+	var s *script.Script
 	sc := newScriptCompressor(&s)
-	r := DummyReader{ Cnt : 0, Idx : 0 }
+	r := DummyReader{Cnt: 0, Idx: 0}
 	assert.NotNil(t, sc.Unserialize(&r))
 
-	r = DummyReader{ Cnt : 0, Idx : 1 }
+	r = DummyReader{Cnt: 0, Idx: 1}
 	assert.NotNil(t, sc.Unserialize(&r))
 
-	r = DummyReader{ Cnt : 0, Idx : 2 }
+	r = DummyReader{Cnt: 0, Idx: 2}
 	assert.NotNil(t, sc.Unserialize(&r))
 
 	var buf bytes.Buffer
@@ -272,7 +272,7 @@ func Test_TxoutCompressor_NewTxoutCompressor(t *testing.T) {
 }
 
 func Test_TxoutCompressor_Serialize(t *testing.T) {
-	w := DummyWriter{ Cnt : 0, Idx : 0 }
+	w := DummyWriter{Cnt: 0, Idx: 0}
 	txoutCompressor := NewTxoutCompressor(nil)
 	assert.Equal(t, ErrCompress, txoutCompressor.Serialize(&w))
 
@@ -294,12 +294,12 @@ func Test_TxoutCompressor_Serialize(t *testing.T) {
 	var buf bytes.Buffer
 	assert.NoError(t, txoutCompressor.Serialize(&buf))
 
-	w = DummyWriter{ Cnt : 0, Idx : 0 }
+	w = DummyWriter{Cnt: 0, Idx: 0}
 	assert.NotNil(t, txoutCompressor.Serialize(&w))
 }
 
 func Test_TxoutCompressor_Unserialize(t *testing.T) {
-	r := DummyReader{ Cnt : 0, Idx : 0 }
+	r := DummyReader{Cnt: 0, Idx: 0}
 	txoutCompressor := NewTxoutCompressor(nil)
 	assert.Equal(t, ErrCompress, txoutCompressor.Unserialize(&r))
 
