@@ -32,7 +32,7 @@ import (
 	"testing"
 )
 
-func initTestEnv(t *testing.T) (dirpath string, err error) {
+func initTestEnv(t *testing.T, initScriptVerify bool) (dirpath string, err error) {
 	args := []string{"--regtest"}
 	conf.Cfg = conf.InitConfig(args)
 
@@ -79,7 +79,9 @@ func initTestEnv(t *testing.T) (dirpath string, err error) {
 
 	crypto.InitSecp256()
 
-	ltx.ScriptVerifyInit()
+	if initScriptVerify {
+		ltx.ScriptVerifyInit()
+	}
 
 	return unitTestDataDirPath, nil
 }
@@ -236,7 +238,7 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 }
 
 func TestCreateNewBlockByFee(t *testing.T) {
-	tempDir, err := initTestEnv(t)
+	tempDir, err := initTestEnv(t, true)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
 
@@ -286,44 +288,66 @@ func TestCreateNewBlockByFee(t *testing.T) {
 	}
 }
 
-//func TestCreateNewBlockByFeeRate(t *testing.T) {
-//	mempool.InitMempool()
-//
-//	txSet := createTx()
-//
-//	pool := mempool.GetInstance()
-//	for _, entry := range txSet {
-//		pool.AddTx(entry, entry.ParentTx)
-//	}
-//
-//	if pool.Size() != 4 {
-//		t.Error("add txEntry to mempool error")
-//	}
-//
-//	ba := NewBlockAssembler(model.ActiveNetParams)
-//	tmpStrategy := getStrategy()
-//	*tmpStrategy = sortByFeeRate
-//
-//	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
-//	ba.CreateNewBlock(sc, BasicScriptSig())
-//	if len(ba.bt.Block.Txs) != 5 {
-//		t.Error("some transactions are inserted to block error")
-//	}
-//	// todo  test failed
-//
-//	//if ba.bt.Block.Txs[1].GetHash() != txSet[0].Tx.GetHash() {
-//	//	t.Error("error sort by tx feerate")
-//	//}
-//	//
-//	//if ba.bt.Block.Txs[2].GetHash() != txSet[1].Tx.GetHash() {
-//	//	t.Error("error sort by tx feerate")
-//	//}
-//	//
-//	//if ba.bt.Block.Txs[3].GetHash() != txSet[2].Tx.GetHash() {
-//	//	t.Error("error sort by tx feerate")
-//  	//}
-//  	//
-//  	//if ba.bt.Block.Txs[4].GetHash() != txSet[3].Tx.GetHash() {
-//  	//	t.Error("error sort by tx feerate")
-//  	//}
-//}
+func TestCreateNewBlockByFeeRate(t *testing.T) {
+	// clear chain data of last test case
+	gChain := chain.GetInstance()
+	*gChain = *chain.NewChain()
+
+	tempDir, err := initTestEnv(t, false)
+	assert.Nil(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// clear mempool data
+	mempool.InitMempool()
+	pool := mempool.GetInstance()
+
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
+
+	_, err = generateBlocks(pubKey, 101, 1000000)
+	assert.Nil(t, err)
+
+	bl1Index := gChain.GetIndex(1)
+	assert.NotNil(t, bl1Index)
+
+	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
+	assert.True(t, ok)
+
+	txSet := createTx(t, block1.Txs[0], pubKey)
+
+	for _, entry := range txSet {
+		pool.AddTx(entry, entry.ParentTx)
+	}
+
+	if pool.Size() != 4 {
+		t.Error("add txEntry to mempool error")
+	}
+
+	ba := NewBlockAssembler(model.ActiveNetParams)
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFeeRate
+
+	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
+	ba.CreateNewBlock(sc, BasicScriptSig())
+	if len(ba.bt.Block.Txs) != 5 {
+		t.Error("some transactions are inserted to block error")
+	}
+
+	// todo  test failed
+
+	if ba.bt.Block.Txs[1].GetHash() != txSet[0].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+
+	if ba.bt.Block.Txs[2].GetHash() != txSet[1].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+
+	if ba.bt.Block.Txs[3].GetHash() != txSet[2].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+
+	if ba.bt.Block.Txs[4].GetHash() != txSet[3].Tx.GetHash() {
+		t.Error("error sort by tx feerate")
+	}
+}
