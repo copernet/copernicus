@@ -29,8 +29,8 @@ const (
 const (
 	tagName = "default"
 
-	defaultConfigFilename       = "conf.yml"
-	defaultDataDirname          = "coper"
+	defaultConfigFilename       = "bitcoincash.yml"
+	defaultDataDirname          = "bitcoincash"
 	defaultProjectDir           = "github.com/copernet/copernicus"
 	defaultMaxPeers             = 125
 	defaultBanDuration          = time.Hour * 24
@@ -93,13 +93,14 @@ type Configuration struct {
 		FileName string   // the name of log file
 	}
 	Mempool struct {
-		MinFeeRate           int64 //
-		LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
-		LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
-		LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
-		LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
-		MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
-		MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+		MinFeeRate           int64  //
+		LimitAncestorCount   int    // Default for -limitancestorcount, max number of in-mempool ancestors
+		LimitAncestorSize    int    // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
+		LimitDescendantCount int    // Default for -limitdescendantcount, max number of in-mempool descendants
+		LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
+		MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+		MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+		CheckFrequency       uint64 `default:"0"`
 	}
 	P2PNet struct {
 		ListenAddrs         []string `validate:"require" default:"1234"`
@@ -138,8 +139,8 @@ type Configuration struct {
 		MaxDatacarrierBytes uint `default:"223"`
 		IsBareMultiSigStd   bool `default:"true"`
 		//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-		PromiscuousMempoolFlags string `default:"0"`
-		Par                     int    `default:"32"`
+		PromiscuousMempoolFlags string
+		Par                     int `default:"32"`
 	}
 	TxOut struct {
 		DustRelayFee int64 `default:"83"`
@@ -194,7 +195,9 @@ func InitConfig(args []string) *Configuration {
 		DataDir = path.Join(DataDir, "regtest")
 	}
 
-	if !ExistDataDir(DataDir) {
+	destConfig := DataDir + "/" + defaultConfigFilename
+
+	if !FileExists(DataDir) || !FileExists(destConfig) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
@@ -205,21 +208,21 @@ func InitConfig(args []string) *Configuration {
 		if gopath != "" {
 			// first try
 			projectPath := gopath + "/src/" + defaultProjectDir
-			filePath := projectPath + "/conf/" + defaultConfigFilename
-			_, err = os.Stat(filePath)
-			if !os.IsNotExist(err) {
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+			srcConfig := projectPath + "/conf/" + defaultConfigFilename
+
+			if FileExists(srcConfig) {
+				_, err := CopyFile(srcConfig, destConfig)
 
 				if err != nil {
-					panic("from src/defaultProjectDir copy conf.yml failed.")
+					panic("from src/defaultProjectDir copy bitcoincash.yml failed.")
 				}
 			} else {
 				// second try
 				projectPath = gopath + "/src/copernicus"
-				filePath = projectPath + "/conf/" + defaultConfigFilename
-				_, err := CopyFile(filePath, DataDir+"/"+defaultConfigFilename)
+				srcConfig = projectPath + "/conf/" + defaultConfigFilename
+				_, err := CopyFile(srcConfig, destConfig)
 				if err != nil {
-					panic(" from src/copernicus copy conf.yml failed.")
+					panic(" from src/copernicus copy bitcoincash.yml failed.")
 				}
 			}
 		}
@@ -262,7 +265,7 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(DataDir + "/conf.yml")).(*os.File)
+	file := must(os.Open(DataDir + "/bitcoincash.yml")).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
@@ -359,7 +362,7 @@ func (c Configuration) Validate() error {
 	return validate.Struct(c)
 }
 
-func ExistDataDir(datadir string) bool {
+func FileExists(datadir string) bool {
 	_, err := os.Stat(datadir)
 	if err != nil && os.IsNotExist(err) {
 		return false

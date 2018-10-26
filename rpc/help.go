@@ -141,7 +141,7 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 		*usageTexts[info.category] = append(*usageTexts[info.category], usage)
 	}
 
-	categories := make([]string, 0)
+	categories := make([]string, 0, len(usageTexts))
 	for category := range usageTexts {
 		categories = append(categories, category)
 	}

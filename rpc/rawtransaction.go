@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
 	"math"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleblock"
-	"github.com/copernet/copernicus/logic/lscript"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/logic/lutxo"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -558,9 +556,9 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	}
 
 	entry := mempool.GetInstance().FindTx(hash)
+
 	if entry == nil && !inChain {
 		err = lmempool.AcceptTxToMemPool(&txn)
-
 		if err != nil {
 			return nil, btcjson.RPCError{
 				Code:    rpcErrorOfAcceptTx(err),
@@ -682,53 +680,10 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		}
 	}
 
-	hashSingle := hashType & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
-
-	errors := make([]*btcjson.SignRawTransactionError, 0)
-	for index, in := range mergedTx.GetIns() {
-		coin := coinsMap.GetCoin(in.PreviousOutPoint)
-		if coin == nil || isCoinSpent(coin, in.PreviousOutPoint) {
-			errors = append(errors, TxInErrorToJSON(in, "Input not found or already spent"))
-			continue
-		}
-
-		scriptPubKey := coin.GetScriptPubKey()
-		scriptSig := script.NewEmptyScript()
-
-		// Only sign SIGHASH_SINGLE if there's a corresponding output
-		if !hashSingle || index < mergedTx.GetOutsCount() {
-			redeemScript := redeemScripts[*in.PreviousOutPoint]
-			// Sign what we can
-			scriptSig, err = produceScriptSig(mergedTx, index, scriptPubKey, priKeys,
-				uint32(hashType), coin.GetAmount(), redeemScript)
-			if err != nil {
-				log.Info("produceScriptSig error:%s", err.Error())
-			}
-		}
-
-		// ... and merge in other signatures
-		for _, transaction := range txVariants {
-			if len(transaction.GetIns()) > index {
-				scriptSig, err = ltx.CombineSignature(transaction, scriptPubKey, scriptSig,
-					transaction.GetIns()[index].GetScriptSig(), index, coin.GetAmount(),
-					uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-				if err != nil {
-					log.Info("CombineSignature error:%s", err.Error())
-				}
-			}
-		}
-
-		err = mergedTx.UpdateInScript(index, scriptSig)
-		if err != nil {
-			log.Info("UpdateInScript error:%s", err.Error())
-		}
-
-		err = lscript.VerifyScript(mergedTx, scriptSig, scriptPubKey, index, coin.GetAmount(),
-			uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-		if err != nil {
-			errors = append(errors, TxInErrorToJSON(in, err.Error()))
-			continue
-		}
+	signErrors := ltx.SignRawTransaction(txVariants, redeemScripts, priKeys, coinsMap, uint32(hashType))
+	errors := make([]*btcjson.SignRawTransactionError, 0, len(signErrors))
+	for _, signErr := range signErrors {
+		errors = append(errors, TxInErrorToJSON(signErr.TxIn, signErr.ErrMsg))
 	}
 
 	complete := len(errors) == 0
@@ -810,134 +765,6 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 		}
 	}
 	return coinsMap, redeemScripts, nil
-}
-
-func findPrivateKey(privateKeys []*crypto.PrivateKey, pubKey *[]byte) *crypto.PrivateKey {
-	for _, privateKey := range privateKeys {
-		if bytes.Equal(privateKey.PubKey().ToBytes(), *pubKey) {
-			return privateKey
-		}
-	}
-	return nil
-}
-
-func findPrivateKeyByHash(privateKeys []*crypto.PrivateKey, pubKeyHash *[]byte) *crypto.PrivateKey {
-	for _, privateKey := range privateKeys {
-		keyHash := util.Hash160(privateKey.PubKey().ToBytes())
-		if bytes.Equal(keyHash, *pubKeyHash) {
-			return privateKey
-		}
-	}
-	return nil
-}
-
-func produceScriptSig(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, privateKeys []*crypto.PrivateKey,
-	hashType uint32, value amount.Amount, scriptRedeem *script.Script) (*script.Script, error) {
-
-	sigScriptPubKey := scriptPubKey
-	pubKeyType, pubKeys, isStandard := scriptPubKey.IsStandardScriptPubKey()
-	if !isStandard {
-		return nil, errcode.New(errcode.RejectNonstandard)
-	}
-	if pubKeyType == script.ScriptHash {
-		if scriptRedeem == nil {
-			return nil, errors.New("Redeem script not found")
-		}
-		sigScriptPubKey = scriptRedeem
-		pubKeyType, pubKeys, isStandard = scriptRedeem.IsStandardScriptPubKey()
-		if !isStandard {
-			return nil, errcode.New(errcode.RejectNonstandard)
-		}
-	}
-
-	scriptSigData := make([][]byte, 0)
-	if pubKeyType == script.ScriptPubkey {
-		privateKey := findPrivateKey(privateKeys, &pubKeys[0])
-		if privateKey == nil {
-			return nil, errors.New("Private key not found")
-		}
-		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
-		if err != nil {
-			return nil, err
-		}
-		// <signature>
-		scriptSigData = append(scriptSigData, sigData)
-	} else if pubKeyType == script.ScriptPubkeyHash {
-		privateKey := findPrivateKeyByHash(privateKeys, &pubKeys[0])
-		if privateKey == nil {
-			return nil, errors.New("Private key not found")
-		}
-		sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
-		if err != nil {
-			return nil, err
-		}
-		pubKeyBuf := privateKey.PubKey().ToBytes()
-		// <signature> <pubkey>
-		scriptSigData = append(scriptSigData, sigData, pubKeyBuf)
-	} else if pubKeyType == script.ScriptMultiSig {
-		required := int(pubKeys[0][0])
-		signed := 0
-		// <OP_0> <signature0> ... <signatureM>
-		sigData := []byte{0}
-		scriptSigData = append(scriptSigData, sigData)
-		for _, pubKey := range pubKeys[1:] {
-			privateKey := findPrivateKey(privateKeys, &pubKey)
-			if privateKey == nil {
-				log.Info("Private key not found:%s", hex.EncodeToString(pubKey))
-				continue
-			}
-			sigData, err := getSignatureData(transaction, nIn, sigScriptPubKey, privateKey, hashType, value)
-			if err != nil {
-				log.Info("getSignatureData error:%s", err.Error())
-				continue
-			}
-			scriptSigData = append(scriptSigData, sigData)
-			signed++
-			if signed == required {
-				break
-			}
-		}
-		if signed != required {
-			errmsg := fmt.Sprintf("ScriptMultiSig signed(%d) does not match required(%d)", signed, required)
-			return nil, errors.New(errmsg)
-		}
-	} else {
-		return nil, errors.New("unexpected script type")
-	}
-
-	if sigScriptPubKey == scriptRedeem {
-		// <signature> <redeemscript>
-		scriptSigData = append(scriptSigData, scriptRedeem.GetData())
-	}
-
-	scriptSig := script.NewEmptyScript()
-	scriptSig.PushMultData(scriptSigData)
-	err := lscript.VerifyScript(transaction, scriptSig, scriptPubKey, nIn, value,
-		uint32(script.StandardScriptVerifyFlags), lscript.NewScriptRealChecker())
-	if err != nil {
-		return nil, err
-	}
-
-	return scriptSig, nil
-}
-
-func getSignatureData(transaction *tx.Tx, nIn int, scriptPubKey *script.Script, privateKey *crypto.PrivateKey,
-	hashType uint32, value amount.Amount) ([]byte, error) {
-
-	txSigHash, err := tx.SignatureHash(transaction, scriptPubKey, hashType, nIn,
-		value, script.ScriptEnableSigHashForkID)
-	if err != nil {
-		return nil, err
-	}
-
-	signature, err := privateKey.Sign(txSigHash[:])
-	if err != nil {
-		return nil, err
-	}
-
-	sigBuf := signature.Serialize()
-	sigBuf = append(sigBuf, byte(hashType))
-	return sigBuf, nil
 }
 
 func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransactionError {

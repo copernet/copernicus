@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/model/script"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -18,27 +19,139 @@ func TestBitcoinParamsTxData(t *testing.T) {
 }
 
 func TestInitActiveNetAddressParams(t *testing.T) {
-	setActiveNetAddressParams()
-	if script.AddressVerPubKey() != MainNetParams.PubKeyHashAddressID {
-		t.Errorf("TestInitAddressParam test failed, mainnet pubKeyAddressVer(%v) not init", script.AddressVerPubKey())
-	}
-	if script.AddressVerScript() != MainNetParams.ScriptHashAddressID {
-		t.Errorf("TestInitAddressParam test failed, mainnet scriptAddressVer(%v) not init", script.AddressVerScript())
-	}
+	ActiveNetParams = &MainNetParams
+	assert.Equal(t, MainNetParams.PubKeyHashAddressID, script.AddressVerPubKey())
+	assert.Equal(t, MainNetParams.ScriptHashAddressID, script.AddressVerScript())
+	assert.True(t, IsPublicKeyHashAddressID(MainNetParams.PubKeyHashAddressID))
+	assert.True(t, IsScriptHashAddressid(MainNetParams.ScriptHashAddressID))
 
 	SetTestNetParams()
-	if script.AddressVerPubKey() != TestNetParams.PubKeyHashAddressID {
-		t.Errorf("TestInitAddressParam test failed, testnet pubKeyAddressVer(%v) not init", script.AddressVerPubKey())
-	}
-	if script.AddressVerScript() != TestNetParams.ScriptHashAddressID {
-		t.Errorf("TestInitAddressParam test failed, testnet scriptAddressVer(%v) not init", script.AddressVerScript())
-	}
+	assert.Equal(t, TestNetParams.PubKeyHashAddressID, script.AddressVerPubKey())
+	assert.Equal(t, TestNetParams.ScriptHashAddressID, script.AddressVerScript())
+	assert.True(t, IsPublicKeyHashAddressID(TestNetParams.PubKeyHashAddressID))
+	assert.True(t, IsScriptHashAddressid(TestNetParams.ScriptHashAddressID))
 
 	SetRegTestParams()
-	if script.AddressVerPubKey() != RegressionNetParams.PubKeyHashAddressID {
-		t.Errorf("TestInitAddressParam test failed, regtest pubKeyAddressVer(%v) not init", script.AddressVerPubKey())
+	assert.Equal(t, RegressionNetParams.PubKeyHashAddressID, script.AddressVerPubKey())
+	assert.Equal(t, RegressionNetParams.ScriptHashAddressID, script.AddressVerScript())
+	assert.True(t, IsPublicKeyHashAddressID(RegressionNetParams.PubKeyHashAddressID))
+	assert.True(t, IsScriptHashAddressid(RegressionNetParams.ScriptHashAddressID))
+}
+
+func TestHDPrivateKeyToPublicKeyID(t *testing.T) {
+	tests := []struct {
+		name       string
+		hdPriKeyID []byte
+		hdPubKeyID []byte
+		isOK       bool
+	}{
+		{
+			name:       "mainnet",
+			hdPriKeyID: MainNetParams.HDPrivateKeyID[:],
+			hdPubKeyID: MainNetParams.HDPublicKeyID[:],
+			isOK:       true,
+		},
+		{
+			name:       "testnet",
+			hdPriKeyID: TestNetParams.HDPrivateKeyID[:],
+			hdPubKeyID: TestNetParams.HDPublicKeyID[:],
+			isOK:       true,
+		},
+		{
+			name:       "regtest",
+			hdPriKeyID: RegressionNetParams.HDPrivateKeyID[:],
+			hdPubKeyID: RegressionNetParams.HDPublicKeyID[:],
+			isOK:       true,
+		},
+		{
+			name:       "unknown",
+			hdPriKeyID: []byte{0},
+			hdPubKeyID: []byte{0},
+			isOK:       false,
+		},
 	}
-	if script.AddressVerScript() != RegressionNetParams.ScriptHashAddressID {
-		t.Errorf("TestInitAddressParam test failed, regtest scriptAddressVer(%v) not init", script.AddressVerScript())
+	for _, test := range tests {
+		t.Logf("testing net:%s", test.name)
+		hdPubKeyID, err := HDPrivateKeyToPublicKeyID(test.hdPriKeyID)
+		if test.isOK {
+			assert.Nil(t, err)
+			assert.Equal(t, test.hdPubKeyID, hdPubKeyID)
+		} else {
+			assert.NotNil(t, err)
+		}
+	}
+}
+
+func TestIsUAHFEnabled(t *testing.T) {
+	ActiveNetParams = &MainNetParams
+
+	isEnable := IsUAHFEnabled(0)
+	assert.False(t, isEnable)
+
+	isEnable = IsUAHFEnabled(MainNetParams.UAHFHeight)
+	assert.True(t, isEnable)
+}
+
+func TestIsMonolithEnabled(t *testing.T) {
+	ActiveNetParams = &MainNetParams
+
+	isEnable := IsMonolithEnabled(0)
+	assert.False(t, isEnable)
+
+	isEnable = IsMonolithEnabled(MainNetParams.MonolithActivationTime)
+	assert.True(t, isEnable)
+}
+
+func TestIsDAAEnabled(t *testing.T) {
+	ActiveNetParams = &MainNetParams
+
+	isEnable := IsDAAEnabled(0)
+	assert.False(t, isEnable)
+
+	isEnable = IsDAAEnabled(MainNetParams.DAAHeight)
+	assert.True(t, isEnable)
+}
+
+func TestIsReplayProtectionEnabled(t *testing.T) {
+	ActiveNetParams = &MainNetParams
+
+	isEnable := IsReplayProtectionEnabled(0)
+	assert.False(t, isEnable)
+
+	isEnable = IsReplayProtectionEnabled(MainNetParams.MagneticAnomalyActivationTime)
+	assert.True(t, isEnable)
+}
+
+func TestGetBlockSubsidy(t *testing.T) {
+	netParams := &MainNetParams
+	halfSubsidyHeight := netParams.SubsidyReductionInterval
+	nonSubsidyHeight := netParams.SubsidyReductionInterval * 64
+
+	tests := []struct {
+		name   string
+		height int32
+		expect float64
+	}{
+		{
+			name:   "genesis",
+			height: 0,
+			expect: 50,
+		},
+		{
+			name:   "first half subsidy",
+			height: halfSubsidyHeight,
+			expect: 25,
+		},
+		{
+			name:   "no subsidy",
+			height: nonSubsidyHeight,
+			expect: 0,
+		},
+	}
+	for _, test := range tests {
+		t.Logf("testing case:%s", test.name)
+		amt := GetBlockSubsidy(test.height, netParams)
+		assert.Equal(t, test.expect, amt.ToBTC())
+
 	}
 }

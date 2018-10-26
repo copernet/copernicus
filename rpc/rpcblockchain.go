@@ -612,7 +612,7 @@ func handleGetMempoolInfo(s *Server, cmd interface{}, closeChan <-chan struct{})
 	pool := mempool.GetInstance()
 	ret := &btcjson.GetMempoolInfoResult{
 		Size:          pool.Size(),
-		Bytes:         pool.GetPoolAllTxSize(),
+		Bytes:         pool.GetPoolAllTxSize(true),
 		Usage:         pool.GetPoolUsage(),
 		MaxMempool:    int(conf.Cfg.Mempool.MaxPoolSize),
 		MempoolMinFee: valueFromAmount(pool.GetMinFeeRate().SataoshisPerK),

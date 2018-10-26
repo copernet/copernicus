@@ -2,11 +2,11 @@ package mining
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"math"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/copernet/copernicus/conf"
@@ -114,7 +114,12 @@ func (ba *BlockAssembler) testPackage(packageSize uint64, packageSigOps int64, a
 	if blockSizeWithPackage >= ba.maxGeneratedBlockSize {
 		return false
 	}
-	if ba.blockSigOps+uint64(packageSigOps) >= consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage) {
+	maxSigOps, errSig := consensus.GetMaxBlockSigOpsCount(blockSizeWithPackage)
+	if errSig != nil {
+		log.Error("testPackage err :%v", errSig)
+		return false
+	}
+	if ba.blockSigOps+uint64(packageSigOps) >= maxSigOps {
 		return false
 	}
 	return true
@@ -331,7 +336,8 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, scriptSig, 0xffffffff))
 
 	// value represents total reward(fee and block generate reward)
-	value := ba.fees + GetBlockSubsidy(ba.height, ba.chainParams)
+
+	value := ba.fees + model.GetBlockSubsidy(ba.height, ba.chainParams)
 	coinbaseTx.AddTxOut(txout.NewTxOut(value, scriptPubKey))
 	ba.bt.Block.Txs[0] = coinbaseTx
 	ba.bt.TxFees[0] = -1 * ba.fees // coinbase's fee item is equal to tx fee sum for negative value
@@ -355,7 +361,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 
 	//check the validity of the block
 	if !TestBlockValidity(ba.bt.Block, indexPrev) {
-		log.Error("CreateNewBlock: TestBlockValidity failed.")
+		log.Error("CreateNewBlock: TestBlockValidity failed, block is:%v, indexPrev:%v", ba.bt.Block, indexPrev)
 		return nil
 	}
 
@@ -447,13 +453,15 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 
 	///TODO: after add wallet,remove this. fill the sctiptSig in case generate same block
 	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
-		for _, str := range conf.Cfg.P2PNet.UserAgentComments {
-			if strings.Contains(str, "testnode") {
-				testnode, _ := strconv.Atoi(str[8:])
-				binary.LittleEndian.PutUint64(bytesEight, uint64(testnode))
-				buf.Write(bytesEight)
-			}
-		}
+		seed := make([]byte, 8)
+		rand.Read(seed)
+
+		bytesBuffer := bytes.NewBuffer(seed)
+		var tmp uint64
+		binary.Read(bytesBuffer, binary.BigEndian, &tmp)
+
+		binary.LittleEndian.PutUint64(bytesEight, tmp)
+		buf.Write(bytesEight)
 	}
 
 	binary.LittleEndian.PutUint64(bytesEight, uint64(extraNonce))
@@ -518,30 +526,17 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	return newTime - oldTime
 }
 
-func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
-	halvings := height / params.SubsidyReductionInterval
-	// Force block reward to zero when right shift is undefined.
-	if halvings >= 64 {
-		return 0
-	}
-
-	nSubsidy := amount.Amount(50 * util.COIN)
-	// Subsidy is cut in half every 210,000 blocks which will occur
-	// approximately every 4 years.
-	return amount.Amount(uint(nSubsidy) >> uint(halvings))
-}
-
 func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
 	persist.CsMain.Lock()
 	defer persist.CsMain.Unlock()
 
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
-		log.Error("TestBlockValidity(): error")
+		log.Error("TestBlockValidity(): indexPrev:%v, chain tip:%v.", indexPrev, chain.GetInstance().Tip())
 		return false
 	}
 
 	if !lblockindex.CheckIndexAgainstCheckpoint(indexPrev) {
-		log.Error("mining: CheckIndexAgainstCheckpoint() failed, please check.")
+		log.Error("TestBlockValidity(): check index against check point failed, indexPrev:%v.", indexPrev)
 		return false
 	}
 
@@ -554,22 +549,22 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 
 	// NOTE: CheckBlockHeader is called by CheckBlock
 	if !lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()) {
-		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlockHeader failed, please check.")
+		log.Error("TestBlockValidity():ContextualCheckBlockHeader failed, blkHeader:%v, indexPrev:%v.", blkHeader, indexPrev)
 		return false
 	}
 
 	if err := lblock.CheckBlock(block, false, false); err != nil {
-		log.Error("TestBlockValidity(): Consensus::CheckBlock failed: %v", err)
+		log.Error("TestBlockValidity(): check block:%v error: %v,", block, err)
 		return false
 	}
 
 	if err := lblock.ContextualCheckBlock(block, indexPrev); err != nil {
-		log.Error("TestBlockValidity(): Consensus::ContextualCheckBlock failed: %v", err)
+		log.Error("TestBlockValidity(): contextual check block:%v, indexPrev:%v error: %v", block, indexPrev, err)
 		return false
 	}
 
 	if err := lchain.ConnectBlock(block, indexDummy, coinMap, true); err != nil {
-		log.Error("trying to connect to the block failed:%v", err)
+		log.Error("trying to connect to the block:%v, indexDummy:%v, coinMap:%v, error:%v", block, indexDummy, coinMap, err)
 		return false
 	}
 

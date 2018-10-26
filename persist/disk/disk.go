@@ -508,7 +508,7 @@ func FindBlockPos(pos *block.DiskBlockPos, nAddSize uint32,
 	if !fKnown {
 		nFile = gPersist.GlobalLastBlockFile
 	}
-	if len(gPersist.GlobalBlockFileInfo) <= int(nFile) {
+	for len(gPersist.GlobalBlockFileInfo) <= int(nFile) {
 		gPersist.GlobalBlockFileInfo = append(gPersist.GlobalBlockFileInfo, block.NewBlockFileInfo())
 	}
 	if !fKnown {

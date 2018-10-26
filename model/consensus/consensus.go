@@ -1,5 +1,7 @@
 package consensus
 
+import "errors"
+
 const (
 	//OneMegaByte  1MB
 	OneMegaByte = 1000000
@@ -39,7 +41,10 @@ const (
 // MAX_BLOCK_SIGOPS_PER_MB by the size of the block in MB rounded up to the
 // closest integer.
 
-func GetMaxBlockSigOpsCount(blockSize uint64) uint64 {
+func GetMaxBlockSigOpsCount(blockSize uint64) (uint64, error) {
+	if blockSize < 1 {
+		return 0, errors.New("block size is wrong")
+	}
 	roundedUp := 1 + ((blockSize - 1) / OneMegaByte)
-	return roundedUp * MaxBlockSigopsPerMb
+	return roundedUp * MaxBlockSigopsPerMb, nil
 }

@@ -198,14 +198,14 @@ type SyncManager struct {
 	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
-	ProcessTransactionCallBack func(*tx.Tx, *map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
+	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
 	ProcessBlockCallBack       func(*block.Block) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
 	requestBlkInvCnt int
 
 	// An optional fee estimator.
-	feeEstimator *mempool.FeeEstimator
+	//feeEstimator *mempool.FeeEstimator
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -474,7 +474,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 	}
 
 	// Process the transaction to include validation, insertion in the memory pool, orphan handling, etc.
-	acceptTxs, missTxs, rejectTxs, err := sm.ProcessTransactionCallBack(tmsg.tx, &sm.rejectedTxns, int64(peer.ID()))
+	acceptTxs, missTxs, rejectTxs, err := sm.ProcessTransactionCallBack(tmsg.tx, sm.rejectedTxns, int64(peer.ID()))
 
 	sm.updateTxRequestState(state, txHash, rejectTxs)
 
@@ -1283,35 +1283,36 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		for _, tx := range block.Txs[1:] {
 			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
 			// sm.peerNotifier.TransactionConfirmed(tx)
-			lmempool.TryAcceptOrphansTxs(tx)
+
+			lmempool.TryAcceptOrphansTxs(tx, chain.GetInstance().Height(), true)
 		}
 
 		// Register block with the fee estimator, if it exists.
-		if sm.feeEstimator != nil {
-			err := sm.feeEstimator.RegisterBlock(block)
-
-			// If an error is somehow generated then the fee estimator
-			// has entered an invalid state. Since it doesn't know how
-			// to recover, create a new one.
-			if err != nil {
-				sm.feeEstimator = mempool.NewFeeEstimator(
-					mempool.DefaultEstimateFeeMaxRollback,
-					mempool.DefaultEstimateFeeMinRegisteredBlocks)
-			}
-		}
+		//if sm.feeEstimator != nil {
+		//	err := sm.feeEstimator.RegisterBlock(block)
+		//
+		//	// If an error is somehow generated then the fee estimator
+		//	// has entered an invalid state. Since it doesn't know how
+		//	// to recover, create a new one.
+		//	if err != nil {
+		//		sm.feeEstimator = mempool.NewFeeEstimator(
+		//			mempool.DefaultEstimateFeeMaxRollback,
+		//			mempool.DefaultEstimateFeeMinRegisteredBlocks)
+		//	}
+		//}
 
 		// A block has been disconnected from the main block chain.
 	case chain.NTBlockDisconnected:
-		block, ok := notification.Data.(*block.Block)
+		_, ok := notification.Data.(*block.Block)
 		if !ok {
 			log.Warn("Chain disconnected notification is not a block.")
 			break
 		}
 
 		// Rollback previous block recorded by the fee estimator.
-		if sm.feeEstimator != nil {
-			sm.feeEstimator.Rollback(&block.Header.Hash)
-		}
+		//if sm.feeEstimator != nil {
+		//	sm.feeEstimator.Rollback(&block.Header.Hash)
+		//}
 	}
 }
 

@@ -3,11 +3,13 @@ package lchain
 import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -143,4 +145,46 @@ func TestCheckBlockIndex_TwoBranch(t *testing.T) {
 	if err := CheckBlockIndex(); err != nil {
 		t.Errorf("should return nil:%v", err)
 	}
+}
+
+func TestCheckBlockIndex_Invalid(t *testing.T) {
+	conf.Cfg = &conf.Configuration{}
+	conf.Cfg.BlockIndex.CheckBlockIndex = true
+
+	chain.InitGlobalChain()
+	gChain := chain.GetInstance()
+	gChain.SetTip(nil)
+
+	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
+	branch := make([]*blockindex.BlockIndex, 0, 20)
+	gChain.InitLoad(GlobalBlockIndexMap, branch)
+
+	persist.InitPersistGlobal()
+
+	err := CheckBlockIndex()
+	assert.NotNil(t, err)
+
+	bl := gChain.GetParams().GenesisBlock
+	bIndex := blockindex.NewBlockIndex(&bl.Header)
+	bIndex.Height = 0
+	bIndex.TxCount = 0
+	bIndex.ChainTxCount = 0
+	bIndex.AddStatus(blockindex.BlockValidUnknown)
+	bIndex.RaiseValidity(blockindex.BlockFailed)
+	err = gChain.AddToIndexMap(bIndex)
+	if err != nil {
+		panic("AddToIndexMap fail")
+	}
+
+	err = CheckBlockIndex()
+	assert.NotNil(t, err)
+}
+
+func TestActivateBestChainStep_Invalid(t *testing.T) {
+	initEnv()
+	connTrace := make(connectTrace)
+	invalid := false
+	err := ActivateBestChainStep(blockindex.NewBlockIndex(block.NewBlockHeader()),
+		block.NewBlock(), &invalid, connTrace)
+	assert.NotNil(t, err)
 }

@@ -1,14 +1,11 @@
-package main
+package lchain
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
-	"github.com/copernet/copernicus/logic/lchain"
-	"github.com/copernet/copernicus/logic/lreindex"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
@@ -17,16 +14,20 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
-	"github.com/copernet/copernicus/persist/disk"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
+	"testing"
+	"time"
 )
 
-func appInitMain(args []string) {
+func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath string, err error) {
 	conf.Cfg = conf.InitConfig(args)
-	if conf.Cfg == nil {
-		fmt.Println("please run `./copernicus -h` for usage.")
-		os.Exit(0)
+
+	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
+	t.Logf("test in temp dir: %s", unitTestDataDirPath)
+	if err != nil {
+		return "", err
 	}
 
 	if conf.Cfg.P2PNet.TestNet {
@@ -35,14 +36,12 @@ func appInitMain(args []string) {
 		model.SetRegTestParams()
 	}
 
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
-
 	//init log
 	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
 	if !conf.FileExists(logDir) {
 		err := os.MkdirAll(logDir, os.ModePerm)
 		if err != nil {
-			panic("logdir create failed: " + err.Error())
+			return "", err
 		}
 	}
 
@@ -62,6 +61,8 @@ func appInitMain(args []string) {
 	}
 	log.Init(string(configuration))
 
+	persist.InitPersistGlobal()
+
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
 		FilePath:  conf.Cfg.DataDir + "/chainstate",
@@ -70,8 +71,6 @@ func appInitMain(args []string) {
 	}
 	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
 	utxo.InitUtxoLruTip(&utxoConfig)
-
-	chain.InitGlobalChain()
 
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
@@ -82,39 +81,54 @@ func appInitMain(args []string) {
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	persist.InitPersistGlobal()
+	chain.InitGlobalChain()
+	tchain := chain.GetInstance()
+	*tchain = *chain.NewChain()
 
 	// Load blockindex DB
 	lblockindex.LoadBlockIndexDB()
 
-	// when reindexing, we reuse the genesis block already on the disk
-	if !conf.Cfg.Reindex {
-		lchain.InitGenesisChain()
-	}
+	err = InitGenesisChain()
+	assert.Nil(t, err)
 
 	mempool.InitMempool()
+
 	crypto.InitSecp256()
 
-	ltx.ScriptVerifyInit()
-	if conf.Cfg.Reindex {
-		disk.CleanupBlockRevFiles()
-		err := lreindex.Reindex()
-		if err != nil {
-			log.Error("fatal error occurred when reindex: %s, will shutdown!", err)
-			shutdownRequestChannel <- struct{}{}
-		}
-
-		if chain.GetInstance().Genesis() == nil {
-			log.Warn("after reindex, genesis block is not init, reindex may not worked, init genesis block now")
-			lchain.InitGenesisChain()
-		}
-
-		gChain := chain.GetInstance()
-		log.Info(`
-----After reindex----
-    chain height: <%d>
-    chain's index map count: %d
-    tip block index: %s
----------------------`, gChain.Height(), gChain.IndexMapSize(), gChain.Tip().String())
+	if initScriptVerify {
+		ltx.ScriptVerifyInit()
 	}
+
+	return unitTestDataDirPath, nil
+}
+
+func TestStat(t *testing.T) {
+	// set params, don't modify!
+	model.SetRegTestParams()
+	// clear chain data of last test case
+	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	assert.Nil(t, err)
+	defer os.RemoveAll(testDir)
+
+	done := make(chan struct{}, 1)
+	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+	besthash, _ := cdb.GetBestBlock()
+
+	var stat stat
+	stat.bestblock = *besthash
+	stat.height = int(chain.GetInstance().FindBlockIndex(*besthash).Height)
+	iter := cdb.GetDBW().Iterator(nil)
+	iter.Seek([]byte{db.DbCoin})
+	taskControl.StartLogTask()
+	taskControl.StartUtxoTask()
+	taskControl.PushUtxoTask(utxoTaskArg{iter, &stat})
+	done <- struct{}{}
+
+	select {
+	case <-done:
+
+	case <-time.After(time.Second * 10):
+		assert.Fail(t, "taskControl timeout")
+	}
+
 }

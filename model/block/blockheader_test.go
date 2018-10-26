@@ -3,6 +3,7 @@ package block
 import (
 	"bytes"
 	"github.com/copernet/copernicus/util"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"testing"
 	"time"
@@ -64,6 +65,7 @@ func TestBlockHeaderDecodeEncode(t *testing.T) {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	for i := 0; i < 100; i++ {
 		hdr2 := NewBlockHeader()
+		hdr.SetNull()
 		hdr.Version = r.Int31()
 		hdr.Time = r.Uint32()
 		hdr.Bits = r.Uint32()
@@ -72,6 +74,9 @@ func TestBlockHeaderDecodeEncode(t *testing.T) {
 			hdr.MerkleRoot[j] = byte(r.Intn(256))
 			hdr.HashPrevBlock[j] = byte(r.Intn(256))
 		}
+		assert.Equal(t, blockHeaderLength, hdr.SerializeSize())
+		assert.Equal(t, blockHeaderLength, hdr.EncodeSize())
+
 		buf.Reset()
 		err := hdr.Encode(buf)
 		if err != nil {
@@ -81,10 +86,39 @@ func TestBlockHeaderDecodeEncode(t *testing.T) {
 		if err != nil {
 			t.Error("block header decode failed.")
 		}
-		if *hdr != *hdr2 {
-			t.Errorf("Decode after Encode returns differently: hdr=%#v, hdr2=%#v",
-				hdr, hdr2)
-			return
-		}
+
+		// check serialize size
+		assert.Equal(t, hdr.SerializeSize(), hdr2.SerializeSize())
+		assert.Equal(t, hdr.EncodeSize(), hdr2.EncodeSize())
+
+		// check block header hash
+		assert.Equal(t, hdr.GetHash(), hdr2.GetHash())
+		assert.Equal(t, hdr.String(), hdr2.String())
 	}
+}
+
+func TestBlockHeaderNull(t *testing.T) {
+	hdr := NewBlockHeader()
+	assert.True(t, hdr.IsNull())
+
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	hdr.Version = r.Int31()
+	hdr.Time = r.Uint32()
+	hdr.Bits = r.Uint32()
+	hdr.Nonce = r.Uint32()
+	for j := 0; j < util.Hash256Size; j++ {
+		hdr.MerkleRoot[j] = byte(r.Intn(256))
+		hdr.HashPrevBlock[j] = byte(r.Intn(256))
+	}
+	assert.False(t, hdr.IsNull())
+
+	hdr.SetNull()
+	assert.True(t, hdr.IsNull())
+}
+
+func TestGetHeaderSerializeList(t *testing.T) {
+	hdr := NewBlockHeader()
+	expects := []string{"Version", "HashPrevBlock", "MerkleRoot", "Time", "Bits", "Nonce"}
+	dumplist := hdr.GetSerializeList()
+	assert.Equal(t, expects, dumplist)
 }

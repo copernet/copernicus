@@ -18,7 +18,6 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/util/amount"
 )
 
 func GetBlockByIndex(bi *blockindex.BlockIndex, param *model.BitcoinParams) (blk *block.Block, err error) {
@@ -123,7 +122,10 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 		return errcode.New(errcode.ErrorBadBlkTxSize)
 	}
 
-	nMaxBlockSigOps := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
+	nMaxBlockSigOps, errSig := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
+	if errSig != nil {
+		return errSig
+	}
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
 		log.Debug("ErrorBadBlkTx: %v", err)
@@ -196,19 +198,6 @@ func ReceivedBlockTransactions(pblock *block.Block,
 func GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	gChain := chain.GetInstance()
 	return gChain.GetBlockScriptFlags(pindex)
-}
-
-func GetBlockSubsidy(height int32, params *model.BitcoinParams) amount.Amount {
-	halvings := height / params.SubsidyReductionInterval
-	// Force lblock reward to zero when right shift is undefined.
-	if halvings >= 64 {
-		return 0
-	}
-
-	nSubsidy := amount.Amount(50 * util.COIN)
-	// Subsidy is cut in half every 210,000 blocks which will occur
-	// approximately every 4 years.
-	return amount.Amount(uint(nSubsidy) >> uint(halvings))
 }
 
 // AcceptBlock Store a block on disk.

@@ -163,11 +163,11 @@ func TestExistDataDir(t *testing.T) {
 	}
 	defer os.Remove(fileTrue)
 
-	if !ExistDataDir(fileTrue) {
+	if !FileExists(fileTrue) {
 		t.Errorf("the fileTrue file should exist!")
 	}
 
-	if ExistDataDir(fileFalse) {
+	if FileExists(fileFalse) {
 		t.Errorf("the fileFalse file shouldn't exist!")
 	}
 }
@@ -207,15 +207,17 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			RPCKey:  filepath.Join(defaultDataDir, "rpc.key"),
 		},
 		Mempool: struct {
-			MinFeeRate           int64 //
-			LimitAncestorCount   int   // Default for -limitancestorcount, max number of in-mempool ancestors
-			LimitAncestorSize    int   // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
-			LimitDescendantCount int   // Default for -limitdescendantcount, max number of in-mempool descendants
-			LimitDescendantSize  int   // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
-			MaxPoolSize          int64 `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
-			MaxPoolExpiry        int   // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+			MinFeeRate           int64  //
+			LimitAncestorCount   int    // Default for -limitancestorcount, max number of in-mempool ancestors
+			LimitAncestorSize    int    // Default for -limitancestorsize, maximum kilobytes of tx + all in-mempool ancestors
+			LimitDescendantCount int    // Default for -limitdescendantcount, max number of in-mempool descendants
+			LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
+			MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
+			MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+			CheckFrequency       uint64 `default:"0"`
 		}{
-			MaxPoolSize: 300000000,
+			MaxPoolSize:    300000000,
+			CheckFrequency: 0,
 		},
 		P2PNet: struct {
 			ListenAddrs         []string `validate:"require" default:"1234"`
@@ -264,14 +266,14 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxDatacarrierBytes uint `default:"223"`
 			IsBareMultiSigStd   bool `default:"true"`
 			//use promiscuousMempoolFlags to make more or less check of script, the type of value is uint
-			PromiscuousMempoolFlags string `default:"0"`
-			Par                     int    `default:"32"`
+			PromiscuousMempoolFlags string
+			Par                     int `default:"32"`
 		}{
 			AcceptDataCarrier:       true,
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
-			PromiscuousMempoolFlags: "0",
-			Par: 32,
+			PromiscuousMempoolFlags: "",
+			Par:                     32,
 		},
 		TxOut: struct {
 			DustRelayFee int64 `default:"83"`
@@ -308,9 +310,9 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 
 func createTmpFile() {
 	confFile := os.Getenv("GOPATH") + "/src/" + defaultProjectDir + "/conf/"
-	CopyFile(confFile+"conf.yml", confFile+"conf.yml.tmp")
-	os.Remove(confFile + "conf.yml")
-	f, err := os.Create(confFile + "conf.yml")
+	CopyFile(confFile+"bitcoincash.yml", confFile+"bitcoincash.yml.tmp")
+	os.Remove(confFile + "bitcoincash.yml")
+	f, err := os.Create(confFile + "bitcoincash.yml")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -319,9 +321,9 @@ func createTmpFile() {
 
 func revert() {
 	confFile := os.Getenv("GOPATH") + "/src/" + defaultProjectDir + "/conf/"
-	os.Remove(confFile + "conf.yml")
-	CopyFile(confFile+"conf.yml.tmp", confFile+"conf.yml")
-	os.Remove(confFile + "conf.yml.tmp")
+	os.Remove(confFile + "bitcoincash.yml")
+	CopyFile(confFile+"bitcoincash.yml.tmp", confFile+"bitcoincash.yml")
+	os.Remove(confFile + "bitcoincash.yml.tmp")
 }
 
 func createNet(nets []string) []*net.IPNet {

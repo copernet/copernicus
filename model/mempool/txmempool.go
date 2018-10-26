@@ -31,6 +31,11 @@ func GetInstance() *TxMempool {
 	return gpool
 }
 
+// Close FIXME this is only for test. We must do it in a graceful way
+func Close() {
+	gpool = nil
+}
+
 type PoolRemovalReason int
 
 // Reason why a transaction was removed from the memPool, this is passed to the
@@ -66,8 +71,7 @@ type TxMempool struct {
 	txByAncestorFeeRateSort btree.BTree
 	timeSortData            btree.BTree
 	//
-	usageSize      int64
-	checkFrequency float64
+	usageSize int64
 	// sum of all mempool tx's size.
 	totalTxSize uint64
 	//transactionsUpdated mempool update transaction total number when create mempool late.
@@ -84,8 +88,8 @@ type TxMempool struct {
 	lastRollingFeeUpdate         int64
 }
 
-func (m *TxMempool) GetCheckFrequency() float64 {
-	return m.checkFrequency
+func (m *TxMempool) GetCheckFrequency() uint64 {
+	return conf.Cfg.Mempool.CheckFrequency
 }
 
 func (m *TxMempool) GetMinFeeRate() util.FeeRate {
@@ -142,10 +146,12 @@ func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
 	return nil
 }
 
-func (m *TxMempool) GetPoolAllTxSize() uint64 {
-	m.RLock()
+func (m *TxMempool) GetPoolAllTxSize(lock bool) uint64 {
+	if lock {
+		m.RLock()
+		defer m.RUnlock()
+	}
 	size := m.totalTxSize
-	m.RUnlock()
 	return size
 }
 
@@ -723,6 +729,20 @@ func (m *TxMempool) AddOrphanTx(orphantx *tx.Tx, nodeID int64) {
 	}
 }
 
+func (m *TxMempool) IsTransactionInPool(tx *tx.Tx) bool {
+	_, exists := m.poolData[tx.GetHash()]
+	return exists
+}
+
+func (m *TxMempool) IsOrphanInPool(tx *tx.Tx) bool {
+	_, exists := m.OrphanTransactions[tx.GetHash()]
+	return exists
+}
+
+func (m *TxMempool) HaveTransaction(tx *tx.Tx) bool {
+	return m.IsTransactionInPool(tx) || m.IsOrphanInPool(tx)
+}
+
 func (m *TxMempool) EraseOrphanTx(txHash util.Hash, removeRedeemers bool) {
 
 	if orphanTx, ok := m.OrphanTransactions[txHash]; ok {
@@ -765,7 +785,7 @@ func (m *TxMempool) limitOrphanTx() (removeNum int) {
 		m.nextSweep = minExpTime + OrphanTxExpireInterval
 	}
 
-	if len(m.OrphanTransactions) < DefaultMaxOrphanTransaction {
+	if len(m.OrphanTransactions) <= DefaultMaxOrphanTransaction {
 		return
 	}
 

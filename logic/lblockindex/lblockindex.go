@@ -97,7 +97,7 @@ func LoadBlockIndexDB() bool {
 			bfi, err = btd.ReadBlockFileInfo(nFile)
 			if bfi != nil && err == nil {
 				log.Debug("LoadBlockIndexDB: the last block file info: %d is less than real block file info: %d",
-					gPersist.GlobalLastBlockFile, nFile)
+					globalLastBlockFile, nFile)
 				globalBlockFileInfo = append(globalBlockFileInfo, bfi)
 				globalLastBlockFile = nFile
 			} else {

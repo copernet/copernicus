@@ -306,19 +306,19 @@ func TestGetBlockScriptFlags(t *testing.T) {
 }
 
 func TestGetBlockSubsidy(t *testing.T) {
-	amt := GetBlockSubsidy(0, chain.GetInstance().GetParams())
+	amt := model.GetBlockSubsidy(0, chain.GetInstance().GetParams())
 	if amt.ToBTC() != 50 {
 		t.Errorf("TestGetBlockSubsidy test 1 check height=0 failed. amount:%v", amt.ToBTC())
 	}
 
 	height := chain.GetInstance().GetParams().SubsidyReductionInterval
-	amt = GetBlockSubsidy(height, chain.GetInstance().GetParams())
+	amt = model.GetBlockSubsidy(height, chain.GetInstance().GetParams())
 	if amt.ToBTC() != 25 {
 		t.Errorf("TestGetBlockSubsidy test 2 check reduce half failed. amount:%v", amt.ToBTC())
 	}
 
 	height = chain.GetInstance().GetParams().SubsidyReductionInterval * 64
-	amt = GetBlockSubsidy(height, chain.GetInstance().GetParams())
+	amt = model.GetBlockSubsidy(height, chain.GetInstance().GetParams())
 	if amt.ToBTC() != 0 {
 		t.Errorf("TestGetBlockSubsidy test 3 check reduce to zero failed. amount:%v", amt.ToBTC())
 	}

@@ -1,8 +1,6 @@
 package lscript
 
 import (
-	"encoding/hex"
-	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util/amount"
@@ -22,11 +20,10 @@ func (src *RealChecker) CheckSig(transaction *tx.Tx, signature []byte, pubKey []
 		return false, err
 	}
 	signature = signature[:len(signature)-1]
-	//log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s", txHash.String(),
-	//	txSigHash.String(), hex.EncodeToString(signature), hex.EncodeToString(pubKey))
 	fOk := tx.CheckSig(txSigHash, signature, pubKey)
-	log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s, result: %v", transaction.GetHash(),
-		txSigHash, hex.EncodeToString(signature), hex.EncodeToString(pubKey), fOk)
+	// log.Debug("CheckSig: txid: %s, txSigHash: %s, signature: %s, pubkey: %s, result: %v", transaction.GetHash(),
+	// 	txSigHash, hex.EncodeToString(signature), hex.EncodeToString(pubKey), fOk)
+
 	//if !fOk {
 	//	panic("CheckSig failed")
 	//}

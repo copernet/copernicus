@@ -1,10 +1,5 @@
-FROM golang:1.10
+FROM copernet/copernicus:basic
 
-RUN apt-get update \ 
-	&& apt-get install -y autoconf automake libtool
-RUN apt-get install libffi-dev
-
-RUN curl https://glide.sh/get | sh
 WORKDIR /
 RUN git clone https://github.com/copernet/secp256k1.git
 WORKDIR /secp256k1
@@ -13,11 +8,29 @@ RUN ./configure --enable-experimental --enable-module-ecdh --enable-module-recov
 RUN make -j16
 RUN make install
 RUN cp /usr/local/lib/libsecp256k1.so.0 /usr/lib/
-WORKDIR /go/src/github.com/copernet/copernicus
-COPY . .
-RUN glide install
-Run go get -u github.com/alecthomas/gometalinter
-RUN gometalinter --install
+
+RUN curl https://glide.sh/get | sh
 RUN go get golang.org/x/tools/cmd/cover
 RUN go get github.com/mattn/goveralls
+
+WORKDIR /go/src/github.com/copernet/
+RUN git clone https://github.com/copernet/copernicus.git
+WORKDIR /go/src/github.com/copernet/copernicus
+RUN glide install
+RUN go get -u github.com/alecthomas/gometalinter
+RUN gometalinter --install
+RUN go build
+RUN go install
+
+WORKDIR /
+RUN git clone https://github.com/copernet/walle.git
+RUN cp $GOPATH/bin/copernicus /walle
+WORKDIR /walle
+RUN mkdir .venv
+RUN pipenv --python 3.7
+RUN pipenv install
+
+WORKDIR /
+
+
 
