@@ -5,9 +5,14 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/script"
+	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/amount"
+	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -84,5 +89,39 @@ func TestCoinsDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clean temp directory failed: %s", path)
 	}
+	assert.NoError(t, err)
+}
 
+func TestMain(m *testing.M) {
+	path, _ := ioutil.TempDir("/tmp", "undotest")
+	defer os.RemoveAll(path)
+
+	config := UtxoConfig{Do: &db.DBOption{FilePath: path, CacheSize: 10000}}
+	InitUtxoLruTip(&config)
+
+	m.Run()
+}
+
+func Test_should_able_to_write_new_coin_into_db(t *testing.T) {
+
+	coinMap, outpoint := givenCoinsmapContainsAFreshCoin()
+
+	GetUtxoCacheInstance().UpdateCoins(coinMap, &util.HashOne)
+	GetUtxoCacheInstance().Flush()
+
+	loadedCoin := GetUtxoCacheInstance().GetCoin(outpoint)
+
+	assert.Equal(t, amount.Amount(50), loadedCoin.GetAmount())
+	assert.False(t, loadedCoin.fresh)
+}
+
+func givenCoinsmapContainsAFreshCoin() (*CoinsMap, *outpoint.OutPoint) {
+	coinMap := NewEmptyCoinsMap()
+
+	outpoint := outpoint.NewOutPoint(util.HashOne, 0)
+	txout := txout.NewTxOut(amount.Amount(50), script.NewEmptyScript())
+	coin := NewFreshCoin(txout, 1, true)
+	coinMap.AddCoin(outpoint, coin, false)
+
+	return coinMap, outpoint
 }

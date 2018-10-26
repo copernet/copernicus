@@ -174,24 +174,3 @@ func Test_test_unserialize_failure(t *testing.T) {
 
 	assert.Equal(t, errors.New("EOF"), err)
 }
-
-//func Test_txundo_serialize(t *testing.T) {
-//	txoutSpent := txout.NewTxOut(amount.Amount(-1), makeDummyScriptPubKey())
-//	coin := utxo.NewFreshCoin(txoutSpent, 100, true)
-//
-//	txundo := undo.NewTxUndo()
-//	txundo.SetUndoCoins([]*utxo.Coin{coin})
-//
-//	buf := bytes.NewBuffer(nil)
-//	err := txundo.Serialize(buf)
-//
-//	assert.Equal(t, errors.New("already spent"), err)
-//}
-//
-//func Test_txundo_unserialize(t *testing.T) {
-//	buf := bytes.NewBuffer(nil)
-//
-//	txundo2 := undo.NewTxUndo()
-//	err := txundo2.Unserialize(buf)
-//	assert.Equal(t, errors.New("EOF"), err)
-//}
