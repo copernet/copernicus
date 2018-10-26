@@ -109,26 +109,9 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 	}
 	// one byte should > 0
 	// two bytes should > 255 or < -255
-	if requireMinimal && vchLen > 0 {
-		// Check that the number is encoded with the minimum possible
-		// number of bytes.
-		//
-		// If the most-significant-byte - excluding the sign bit - is zero
-		// then we're not minimal. Note how this test also rejects the
-		// negative-zero encoding, 0x80.
-		if vch[vchLen-1]&0x7f == 0 {
-
-			// One exception: if there's more than one byte and the most
-			// significant bit of the second-most-significant-byte is set
-			// it would conflict with the sign bit. An example of this case
-			// is +-255, which encode to 0xff00 and 0xff80 respectively.
-			// (big-endian).
-			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
-				log.Debug("ScriptErrNonMinimalEncodedNumber")
-				err = errcode.New(errcode.ScriptErrUnknownError)
-				scriptNum = NewScriptNum(0)
-				return
-			}
+	if requireMinimal {
+		if !IsMinimallyEncoded(vch, int64(maxNumSize)) {
+			return NewScriptNum(0), errcode.New(errcode.ScriptErrUnknownError)
 		}
 	}
 
