@@ -1,7 +1,6 @@
 package utxo
 
 import (
-	//"fmt"
 	"unsafe"
 
 	"github.com/copernet/copernicus/log"
@@ -20,10 +19,6 @@ type CoinsLruCache struct {
 
 func (coinsCache *CoinsLruCache) GetCoinsDB() CoinsDB {
 	return coinsCache.db
-}
-
-func (coinsCache *CoinsLruCache) GetMap() map[outpoint.OutPoint]*Coin {
-	return coinsCache.dirtyCoins
 }
 
 func InitUtxoLruTip(uc *UtxoConfig) {
@@ -162,56 +157,6 @@ func (coinsCache *CoinsLruCache) Flush() bool {
 	return true
 }
 
-//
-//func (coinsCache *CoinsLruCache) AddCoin(point *outpoint.OutPoint, coin Coin, possibleOverwrite bool) {
-//	if coin.IsSpent() {
-//		panic("param coin should not be null")
-//	}
-//	if !coin.GetTxOut().IsSpendable() {
-//		return
-//	}
-//	fresh := false
-//	_, ok := coinsCache.cacheCoins[*point]
-//	if !ok {
-//		coinsCache.cacheCoins[*point] = NewEmptyCoin()
-//	} else {
-//		coinsCache.cachedCoinsUsage -= coinsCache.cacheCoins[*point].DynamicMemoryUsage()
-//	}
-//
-//	if !possibleOverwrite {
-//		if !coinsCache.cacheCoins[*point].IsSpent() {
-//			panic("Adding new coin that replaces non-pruned entry")
-//		}
-//		fresh = coinsCache.cacheCoins[*point].dirty == false
-//	}
-//
-//	*coinsCache.cacheCoins[*point] = coin
-//
-//	if fresh {
-//		coinsCache.cacheCoins[*point].dirty = true
-//		coinsCache.cacheCoins[*point].fresh = true
-//	} else {
-//		coinsCache.cacheCoins[*point].dirty = true
-//	}
-//	coinsCache.cachedCoinsUsage += coinsCache.cacheCoins[*point].DynamicMemoryUsage()
-//}
-//
-//func (coinsCache *CoinsLruCache) SpendCoin(point *outpoint.OutPoint) (*Coin, error) {
-//	entry, err := coinsCache.GetCoin(point)
-//	if entry == nil || err != nil {
-//		return entry, err
-//	}
-//
-//	if entry.fresh {
-//		delete(coinsCache.cacheCoins, *point)
-//		coinsCache.cachedCoinsUsage -= entry.DynamicMemoryUsage()
-//	} else {
-//		entry.dirty = true
-//		entry.Clear()
-//	}
-//	return entry, err
-//}
-
 func (coinsCache *CoinsLruCache) GetCacheSize() int {
 	return coinsCache.cacheCoins.Len()
 }
@@ -219,62 +164,3 @@ func (coinsCache *CoinsLruCache) GetCacheSize() int {
 func (coinsCache *CoinsLruCache) DynamicMemoryUsage() int64 {
 	return int64(unsafe.Sizeof(coinsCache.cacheCoins))
 }
-
-//
-//func (coinsCache *CoinsLruCache) GetOutputFor(tx *txin.TxIn) *txout.TxOut {
-//	point := outpoint.OutPoint{
-//		Hash:  tx.PreviousOutPoint.Hash,
-//		Index: tx.PreviousOutPoint.Index,
-//	}
-//	coin, _ := coinsCache.GetCoin(&point)
-//	if coin.IsSpent() {
-//		panic("coin should not be null")
-//	}
-//	return coin.txOut
-//}
-//
-//func (coinsCache *CoinsLruCache) GetValueIn(tx *tx.Tx) amount.Amount {
-//	if tx.IsCoinBase() {
-//		return amount.Amount(0)
-//	}
-//
-//	var result int64
-//	for _, item := range tx.GetIns() {
-//		result += coinsCache.GetOutputFor(item).GetValue()
-//	}
-//	return amount.Amount(result)
-//}
-//
-//func (coinsCache *CoinsLruCache) HaveInputs(tx *tx.Tx) bool {
-//	if tx.IsCoinBase() {
-//		return true
-//	}
-//	point := outpoint.OutPoint{}
-//	for _, item := range tx.GetIns() {
-//		point.Hash = item.PreviousOutPoint.Hash
-//
-//		point.Index = item.PreviousOutPoint.Index
-//		if !coinsCache.HaveCoin(&point) {
-//			return false
-//		}
-//	}
-//	return true
-//}
-//
-//func (coinsCache *CoinsLruCache) GetPriority(tx *tx.Tx, height uint32, chainInputValue *amount.Amount) float64 {
-//	if tx.IsCoinBase() {
-//		return 0.0
-//	}
-//	var result float64
-//	for _, item := range tx.Ins {
-//		coin,_ := coinsCache.GetCoin(item.PreviousOutPoint)
-//		if coin.IsSpent() {
-//			continue
-//		}
-//		if coin.GetHeight() <= height {
-//			result += float64(coin.GetTxOut().GetValue() * int64(height-coin.GetHeight()))
-//			*chainInputValue += amount.Amount(coin.GetTxOut().GetValue())
-//		}
-//	}
-//	return tx.ComputePriority(result, 0)
-//}

@@ -1,6 +1,9 @@
 package utxo
 
 import (
+	"errors"
+	"github.com/copernet/copernicus/util/amount"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"bytes"
@@ -126,3 +129,69 @@ func TestMempoolCoin(t *testing.T) {
 		t.Errorf("coinM should be a mempool coin")
 	}
 }
+
+func TestFreshCoinState(t *testing.T) {
+	coin := NewFreshCoin(txout.NewTxOut(amount.Amount(1), script.NewEmptyScript()), 1, true)
+
+	assert.True(t, coin.isCoinBase)
+	assert.True(t, coin.fresh)
+	assert.False(t, coin.dirty)
+}
+
+func Test_do_not_serialize_spent_coin(t *testing.T) {
+	scriptPK := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
+	coin := NewFreshCoin(txout.NewTxOut(amount.Amount(1), scriptPK), 1, true)
+	coin.Clear()
+
+	buf := bytes.NewBuffer(nil)
+	err := coin.Serialize(buf)
+
+	assert.Equal(t, errors.New("already spent"), err)
+}
+
+type MockWriter struct {
+}
+
+func (mw *MockWriter) Write(p []byte) (size int, err error) {
+	return 0, errors.New("EOF")
+}
+
+func Test_can_return_serialize_failure(t *testing.T) {
+	scriptPK := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
+	coin := NewFreshCoin(txout.NewTxOut(amount.Amount(1), scriptPK), 1, true)
+
+	writer := &MockWriter{}
+	err := coin.Serialize(writer)
+
+	assert.Equal(t, errors.New("EOF"), err)
+}
+
+func Test_test_unserialize_failure(t *testing.T) {
+	coin := NewFreshEmptyCoin()
+
+	buf := bytes.NewBuffer(nil)
+	err := coin.Unserialize(buf)
+
+	assert.Equal(t, errors.New("EOF"), err)
+}
+
+//func Test_txundo_serialize(t *testing.T) {
+//	txoutSpent := txout.NewTxOut(amount.Amount(-1), makeDummyScriptPubKey())
+//	coin := utxo.NewFreshCoin(txoutSpent, 100, true)
+//
+//	txundo := undo.NewTxUndo()
+//	txundo.SetUndoCoins([]*utxo.Coin{coin})
+//
+//	buf := bytes.NewBuffer(nil)
+//	err := txundo.Serialize(buf)
+//
+//	assert.Equal(t, errors.New("already spent"), err)
+//}
+//
+//func Test_txundo_unserialize(t *testing.T) {
+//	buf := bytes.NewBuffer(nil)
+//
+//	txundo2 := undo.NewTxUndo()
+//	err := txundo2.Unserialize(buf)
+//	assert.Equal(t, errors.New("EOF"), err)
+//}
