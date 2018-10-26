@@ -12,6 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
+	"github.com/magiconair/properties/assert"
 	"gopkg.in/fatih/set.v0"
 	"math"
 	"os"
@@ -43,22 +44,22 @@ func TestMerkleBlock(t *testing.T) {
 		transaction.AddTxOut(txOut)
 
 		bk.Txs = append(bk.Txs, transaction)
-	}
 
-	for i, tx := range bk.Txs {
-		if i > 47 {
-			break
+		if i < 47 {
+			setTxIds.Add(transaction.GetHash())
 		}
-		setTxIds.Add(tx.GetHash())
+
 	}
 
 	mb := NewMerkleBlock(bk, setTxIds)
 	buf := bytes.NewBuffer(nil)
 	mb.Serialize(buf)
-	mb.Unserialize(buf)
+	exp := NewMerkleBlock(block.NewBlock(), set.New())
+	exp.Unserialize(buf)
 
-	matches := make([]util.Hash, 0)
-	items := make([]int, 0)
-	mb.Txn.ExtractMatches(&matches, &items)
+	assert.Equal(t, exp.Header, mb.Header)
+	assert.Equal(t, exp.Txn.bad, mb.Txn.bad)
+	assert.Equal(t, exp.Txn.txs, mb.Txn.txs)
+	assert.Equal(t, exp.Txn.hashes, mb.Txn.hashes)
 
 }
