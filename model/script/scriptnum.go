@@ -74,12 +74,36 @@ func (n ScriptNum) Bytes() []byte {
 	return result
 }
 
+// GetScriptNum interprets the passed serialized bytes as an encoded integer
+// and returns the result as a script number.
+//
+// Since the consensus rules dictate that serialized bytes interpreted as ints
+// are only allowed to be in the range determined by a maximum number of bytes,
+// on a per opcode basis, an error will be returned when the provided bytes
+// would result in a number outside of that range.  In particular, the range for
+// the vast majority of opcodes dealing with numeric values are limited to 4
+// bytes and therefore will pass that value to this function resulting in an
+// allowed range of [-2^31 + 1, 2^31 - 1].
+//
+// The requireMinimal flag causes an error to be returned if additional checks
+// on the encoding determine it is not represented with the smallest possible
+// number of bytes or is the negative 0 encoding, [0x80].  For example, consider
+// the number 127.  It could be encoded as [0x7f], [0x7f 0x00],
+// [0x7f 0x00 0x00 ...], etc.  All forms except [0x7f] will return an error with
+// requireMinimal enabled.
+//
+// The scriptNumLen is the maximum number of bytes the encoded value can be
+// before an ErrStackNumberTooBig is returned.  This effectively limits the
+// range of allowed values.
+// WARNING:  Great care should be taken if passing a value larger than
+// defaultScriptNumLen, which could lead to addition and multiplication
+// overflows.
 func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *ScriptNum, err error) {
 	vchLen := len(vch)
 
 	if vchLen > maxNumSize {
 		log.Debug("ScriptErrNumberOverflow")
-		err = errcode.New(errcode.ScriptErrUnknownError)
+		err = errcode.New(errcode.ScriptErrNumberOverflow)
 		scriptNum = NewScriptNum(0)
 		return
 	}
@@ -101,7 +125,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 			// (big-endian).
 			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
 				log.Debug("ScriptErrNonMinimalEncodedNumber")
-				err = errcode.New(errcode.ScriptErrUnknownError)
+				err = errcode.New(errcode.ScriptErrNonMinimalEncodedNumber)
 				scriptNum = NewScriptNum(0)
 				return
 			}

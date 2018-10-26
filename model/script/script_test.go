@@ -270,12 +270,6 @@ func TestCheckSignatureEncoding(t *testing.T) {
 			errcode.New(errcode.ScriptErrSigDer),
 			"Signature is not valid and flag is ScriptVerifyDersig, should return error.",
 		},
-		//{
-		//	notValidSig,
-		//	ScriptVerifyLowS,
-		//	errcode.New(errcode.ScriptErrSigHighs),
-		//	"Signature is valid but flag is Script verify lows, should return error.",
-		//},
 		{
 			notDefinedHashTypeSig,
 			ScriptVerifyStrictEnc,

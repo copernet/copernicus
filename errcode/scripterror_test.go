@@ -71,6 +71,9 @@ func TestScriptErr_String(t *testing.T) {
 		{ScriptErrInvalidOpCode, "unknown error"},
 		{ScriptErrInValidPubKeyOrSig, "unknown error"},
 		{ScriptErrScriptSigNotPushOnly, "unknown error"},
+
+		{ScriptErrNumberOverflow, "Script number overflow"},
+		{ScriptErrNonMinimalEncodedNumber, "Non-minimally encoded script number"},
 	}
 
 	if len(tests)-1 != int(ScriptErrScriptSigNotPushOnly)-int(ScriptErrOK) {
