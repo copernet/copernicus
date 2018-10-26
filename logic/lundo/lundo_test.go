@@ -48,7 +48,7 @@ func AddCoins(txs *tx.Tx, coinMap *utxo.CoinsMap, height int32) {
 	}
 }
 
-func HasSpendableCoin(coinMap *utxo.CoinsMap, txid util.Hash) bool {
+func HasSpendableCoin(txid util.Hash) bool {
 	coin := utxo.GetUtxoCacheInstance().GetCoin(outpoint.NewOutPoint(txid, 0))
 	return coin != nil && !coin.IsSpent()
 }
@@ -77,8 +77,8 @@ func TestBlockUndo__single_tx_case(t *testing.T) {
 	undos := undo.NewBlockUndo(2)
 	UpdateUTXOSet(block, undos, coinsMap, 100)
 
-	assert.True(t, HasSpendableCoin(coinsMap, coinbaseTx.GetHash()))
-	assert.True(t, HasSpendableCoin(coinsMap, txn1.GetHash()))
+	assert.True(t, HasSpendableCoin(coinbaseTx.GetHash()))
+	assert.True(t, HasSpendableCoin(txn1.GetHash()))
 
 	ret := ApplyBlockUndo(undos, block, coinsMap)
 	blockHash := block.GetHash()
@@ -87,8 +87,8 @@ func TestBlockUndo__single_tx_case(t *testing.T) {
 
 	assert.Equal(t, undo.DisconnectOk, ret)
 	assert.Equal(t, 1, len(undos.GetTxundo()))
-	assert.False(t, HasSpendableCoin(coinsMap, coinbaseTx.GetHash()))
-	assert.False(t, HasSpendableCoin(coinsMap, txn1.GetHash()), "already undo the block, so no coins should exists.")
+	assert.False(t, HasSpendableCoin(coinbaseTx.GetHash()))
+	assert.False(t, HasSpendableCoin(txn1.GetHash()), "already undo the block, so no coins should exists.")
 }
 
 func TestBlockUndo__should_fail__when_txundo_count_not_equal_to__txns_count_in_block(t *testing.T) {
@@ -139,10 +139,10 @@ func TestBlockUndo__2_normal_tx_and_1_unspendable_opreturn_tx(t *testing.T) {
 	undos := undo.NewBlockUndo(2)
 	UpdateUTXOSet(block, undos, coinsMap, 100)
 
-	assert.True(t, HasSpendableCoin(coinsMap, coinbaseTx.GetHash()))
-	assert.True(t, HasSpendableCoin(coinsMap, txn1.GetHash()))
-	assert.False(t, HasSpendableCoin(coinsMap, txn2.GetHash()))
-	assert.True(t, HasSpendableCoin(coinsMap, txn3.GetHash()))
+	assert.True(t, HasSpendableCoin(coinbaseTx.GetHash()))
+	assert.True(t, HasSpendableCoin(txn1.GetHash()))
+	assert.False(t, HasSpendableCoin(txn2.GetHash()))
+	assert.True(t, HasSpendableCoin(txn3.GetHash()))
 
 	ret := ApplyBlockUndo(undos, block, coinsMap)
 	blockHash := block.GetHash()
@@ -151,10 +151,10 @@ func TestBlockUndo__2_normal_tx_and_1_unspendable_opreturn_tx(t *testing.T) {
 
 	assert.Equal(t, undo.DisconnectOk, ret)
 	assert.Equal(t, 3, len(undos.GetTxundo()))
-	assert.False(t, HasSpendableCoin(coinsMap, coinbaseTx.GetHash()))
-	assert.False(t, HasSpendableCoin(coinsMap, txn1.GetHash()), "already undo the block, so no coins should exists.")
-	assert.False(t, HasSpendableCoin(coinsMap, txn2.GetHash()), "already undo the block, so no coins should exists.")
-	assert.False(t, HasSpendableCoin(coinsMap, txn3.GetHash()), "already undo the block, so no coins should exists.")
+	assert.False(t, HasSpendableCoin(coinbaseTx.GetHash()))
+	assert.False(t, HasSpendableCoin(txn1.GetHash()), "already undo the block, so no coins should exists.")
+	assert.False(t, HasSpendableCoin(txn2.GetHash()), "already undo the block, so no coins should exists.")
+	assert.False(t, HasSpendableCoin(txn3.GetHash()), "already undo the block, so no coins should exists.")
 }
 
 func makeNormalTx() *tx.Tx {

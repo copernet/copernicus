@@ -4,84 +4,99 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 )
 
 func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsMap) undo.DisconnectResult {
 	clean := true
-	txUndos := blockUndo.GetTxundo()
-	if len(txUndos)+1 != len(blk.Txs) {
-		log.Error("DisconnectBlock(): block(%d) and undo(%d) data inconsistent", len(txUndos)+1, len(blk.Txs))
+
+	if !checkUndoData(blockUndo, blk) {
 		return undo.DisconnectFailed
 	}
 
 	// Undo transactions in reverse order.
 	for i := len(blk.Txs) - 1; i >= 0; i-- {
 		tx := blk.Txs[i]
-		txid := tx.GetHash()
 
-		// Check that all outputs are available and match the outputs in the block itself exactly.
-		// and cancel tx outs by spend
-		for j := 0; j < tx.GetOutsCount(); j++ {
-			if !tx.GetTxOut(j).IsSpendable() {
-				continue
-			}
-			coin := cm.SpendGlobalCoin(outpoint.NewOutPoint(txid, uint32(j)))
-
-			if coin == nil {
-				clean = false
-			} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
-				clean = false
-			}
+		if !clearTxOuts(tx, cm) {
+			clean = false
 		}
 
-		// Restore inputs
 		if i < 1 {
-			// Skip the coinbase
+			continue // Skip the coinbase
+		}
+
+		if !restoreTxInputs(tx, blockUndo.GetTxundo()[i-1], cm) {
+			clean = false
+		}
+	}
+
+	if !clean {
+		log.Error("ApplyBlockUndo unclean, block: %s", blk.GetHash())
+		return undo.DisconnectUnclean
+	}
+
+	log.Debug("ApplyBlockUndo: success. block: %s", blk.GetHash())
+	return undo.DisconnectOk
+}
+
+func clearTxOuts(tx *tx.Tx, cm *utxo.CoinsMap) bool {
+	clean := true
+
+	for j := 0; j < tx.GetOutsCount(); j++ {
+		if !tx.GetTxOut(j).IsSpendable() {
 			continue
 		}
 
-		txundo := txUndos[i-1]
-		ins := tx.GetIns()
-		insLen := len(ins)
-		if len(txundo.GetUndoCoins()) != insLen {
-			log.Error("DisconnectBlock(): transaction(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
-			return undo.DisconnectFailed
-		}
+		coin := cm.SpendGlobalCoin(outpoint.NewOutPoint(tx.GetHash(), uint32(j)))
 
-		for k := insLen - 1; k >= 0; k-- {
-			outpoint := ins[k].PreviousOutPoint
-			undoCoin := txundo.GetUndoCoins()[k]
-			res := UndoCoinSpend(undoCoin, cm, outpoint)
-			if res == undo.DisconnectFailed {
-				log.Error("coin spend error in loop")
-				return undo.DisconnectFailed
-			}
-			clean = clean && (res != undo.DisconnectUnclean)
+		if coin == nil {
+			clean = false
+		} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
+			clean = false
 		}
 	}
 
-	if clean {
-		log.Debug("DisconnectBlock(): disconnect block success.")
-		return undo.DisconnectOk
-	}
-
-	log.Error("ApplyBlockUndo DisconnectUnclean, block: %s", blk.GetHash())
-	return undo.DisconnectUnclean
+	return clean
 }
 
-//UndoCoinSpend undo coin of spend
-func UndoCoinSpend(coin *utxo.Coin, cm *utxo.CoinsMap, out *outpoint.OutPoint) undo.DisconnectResult {
+func restoreTxInputs(tx *tx.Tx, txundo *undo.TxUndo, cm *utxo.CoinsMap) bool {
 	clean := true
-	if cm.FetchCoin(out) != nil {
-		// Overwriting transaction output.
-		clean = false
+	ins := tx.GetIns()
+
+	for k := len(ins) - 1; k >= 0; k-- {
+		coin := txundo.GetUndoCoins()[k]
+		out := ins[k].PreviousOutPoint
+
+		if cm.FetchCoin(out) != nil {
+			clean = false // Overwriting transaction output.
+		}
+
+		cm.AddCoin(out, coin, coin.IsCoinBase())
 	}
-	cm.AddCoin(out, coin, coin.IsCoinBase())
-	if clean {
-		log.Debug("CoinSpend(): disconnect block success.")
-		return undo.DisconnectOk
+
+	return clean
+}
+
+func checkUndoData(blockUndo *undo.BlockUndo, blk *block.Block) bool {
+	txUndos := blockUndo.GetTxundo()
+
+	if len(txUndos)+1 != len(blk.Txs) {
+		log.Error("checkUndoData: block(%d) and undo(%d) data inconsistent", len(blk.Txs), len(txUndos)+1)
+		return false
 	}
-	return undo.DisconnectUnclean
+
+	for i := 1; i < len(blk.Txs); i++ {
+		txundo := txUndos[i-1]
+		insLen := len(blk.Txs[i].GetIns())
+
+		if len(txundo.GetUndoCoins()) != insLen {
+			log.Error("checkUndoData: tx(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
+			return false
+		}
+	}
+
+	return true
 }
