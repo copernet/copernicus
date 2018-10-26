@@ -821,18 +821,6 @@ func (p *Peer) WantsHeaders() bool {
 	return sendHeadersPreferred
 }
 
-// IsWitnessEnabled returns true if the peer has signalled that it supports
-// segregated witness.
-//
-// This function is safe for concurrent access.
-func (p *Peer) IsWitnessEnabled() bool {
-	p.flagsMtx.Lock()
-	witnessEnabled := p.witnessEnabled
-	p.flagsMtx.Unlock()
-
-	return witnessEnabled
-}
-
 // localVersionMsg creates a version message that can be used to send to the
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {

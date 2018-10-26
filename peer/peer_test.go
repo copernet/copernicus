@@ -22,6 +22,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/stretchr/testify/assert"
 )
 
 // conn mocks a network connection by implementing the net.Conn interface.  It
@@ -106,6 +107,7 @@ type peerStats struct {
 	wantConnected       bool
 	wantVersionKnown    bool
 	wantVerAckReceived  bool
+	wantHeaders         bool
 	wantLastBlock       int32
 	wantStartingHeight  int32
 	wantLastPingTime    time.Time
@@ -213,6 +215,11 @@ func testPeer(t *testing.T, p *peer.Peer, s peerStats) {
 		t.Errorf("testPeer: wrong LastRecv - got %v, want %v", p.LastRecv(), stats.LastRecv)
 		return
 	}
+
+	if p.WantsHeaders() != s.wantHeaders {
+		t.Errorf("testPeer: wrong headers - got %v, want %v", p.WantsHeaders(), s.wantHeaders)
+		return
+	}
 }
 
 // TestPeerConnection tests connection between inbound and outbound peers.
@@ -253,6 +260,7 @@ func TestPeerConnection(t *testing.T) {
 		wantConnected:       true,
 		wantVersionKnown:    true,
 		wantVerAckReceived:  true,
+		wantHeaders:         false,
 		wantLastPingTime:    time.Time{},
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
@@ -268,6 +276,7 @@ func TestPeerConnection(t *testing.T) {
 		wantConnected:       true,
 		wantVersionKnown:    true,
 		wantVerAckReceived:  true,
+		wantHeaders:         false,
 		wantLastPingTime:    time.Time{},
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
@@ -285,13 +294,20 @@ func TestPeerConnection(t *testing.T) {
 			"basic handshake",
 			func() (*peer.Peer, *peer.Peer, error) {
 				inConn, outConn := pipe(
-					&conn{raddr: "10.0.0.1:8333"},
-					&conn{raddr: "10.0.0.2:8333"},
+					&conn{raddr: "10.0.0.1:8333", laddr: "10.0.0.1:18333"},
+					&conn{raddr: "10.0.0.2:8333", laddr: "10.0.0.2:18333"},
 				)
 				inMsgChan := make(chan *peer.PeerMessage)
 				server.SetMsgHandle(context.TODO(), inMsgChan, nil)
 				inPeer := peer.NewInboundPeer(peer1Cfg)
 				inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
+				inNA := inPeer.NA()
+				assert.Equal(t, inNA.IP.String(), "10.0.0.1")
+				assert.Equal(t, inNA.Port, uint16(8333))
+				assert.Equal(t, inNA.Services.String(), "0x0")
+
+				laddr := inPeer.LocalAddr().String()
+				assert.Equal(t, laddr, "10.0.0.1:18333")
 
 				outPeer, err := peer.NewOutboundPeer(peer2Cfg, "10.0.0.2:8333")
 				if err != nil {
@@ -300,6 +316,14 @@ func TestPeerConnection(t *testing.T) {
 				outMsgChan := make(chan *peer.PeerMessage)
 				server.SetMsgHandle(context.TODO(), outMsgChan, nil)
 				outPeer.AssociateConnection(outConn, outMsgChan, func(*peer.Peer) {})
+
+				outNA := outPeer.NA()
+				assert.Equal(t, outNA.IP.String(), "10.0.0.2")
+				assert.Equal(t, outNA.Port, uint16(8333))
+				assert.Equal(t, outNA.Services.String(), "SFNodeNetwork")
+
+				laddr = outPeer.LocalAddr().String()
+				assert.Equal(t, laddr, "10.0.0.2:18333")
 
 				for i := 0; i < 4; i++ {
 					select {
@@ -459,6 +483,8 @@ func TestPeerListeners(t *testing.T) {
 	inPeer := peer.NewInboundPeer(peerCfg)
 	inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 
+	ret := inPeer.WantsHeaders()
+	assert.Equal(t, ret, false)
 	peerCfg.Listeners = peer.MessageListeners{
 		OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
 			verack <- struct{}{}
@@ -593,8 +619,15 @@ func TestPeerListeners(t *testing.T) {
 			return
 		}
 	}
+	inTimeLen := inPeer.TimeConnected()
+	ret = inPeer.Inbound()
+	assert.Equal(t, ret, true)
 	inPeer.Disconnect()
+	outTimeLen := outPeer.TimeConnected()
 	outPeer.Disconnect()
+	if inTimeLen.Unix() > outTimeLen.Unix() {
+		t.Errorf("time calculation error,inPeer time:%d, outPeer time:%d", inTimeLen.Unix(), outTimeLen.Unix())
+	}
 }
 
 // TestOutboundPeer tests that the outbound peer works as expected.
@@ -698,6 +731,8 @@ func TestOutboundPeer(t *testing.T) {
 
 	// Test Queue Inv after connection
 	p1.QueueInventory(fakeInv)
+	ret := p1.WantsHeaders()
+	assert.Equal(t, ret, false)
 	p1.Disconnect()
 
 	msgChan2 := make(chan *peer.PeerMessage)
@@ -781,6 +816,8 @@ func TestUnsupportedVersionPeer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewOutboundPeer: unexpected err - %v\n", err)
 	}
+	ret := p.WantsHeaders()
+	assert.Equal(t, ret, false)
 	p.AssociateConnection(localConn, msgChan, func(*peer.Peer) {})
 
 	// Read outbound messages to peer into a channel
