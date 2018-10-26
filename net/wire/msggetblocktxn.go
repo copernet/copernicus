@@ -1,5 +1,6 @@
 package wire
 
+/*
 import (
 	"fmt"
 	"io"
@@ -84,3 +85,4 @@ func (msg *MsgGetBlockTxn) Command() string {
 func (msg *MsgGetBlockTxn) MaxPayloadLength(pver uint32) uint64 {
 	return 32 + 3 + uint64(len(msg.Indexes))*3
 }
+*/

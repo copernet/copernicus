@@ -160,19 +160,20 @@ func makeEmptyMessage(command string) (Message, error) {
 
 	case CmdFeeFilter:
 		msg = &MsgFeeFilter{}
+		/*
+			case CmdSendCmpct:
+				msg = &MsgSendCmpct{}
 
-	case CmdSendCmpct:
-		msg = &MsgSendCmpct{}
+			case CmdCmpctBlock:
+				msg = &MsgCmpctBlock{}
 
-	case CmdCmpctBlock:
-		msg = &MsgCmpctBlock{}
+			case CmdGetBlockTxn:
+				msg = &MsgGetBlockTxn{}
 
-	case CmdGetBlockTxn:
-		msg = &MsgGetBlockTxn{}
+			case CmdBlockTxn:
+				msg = &MsgBlockTxn{}
 
-	case CmdBlockTxn:
-		msg = &MsgBlockTxn{}
-
+		*/
 	default:
 		return nil, fmt.Errorf("unhandled command [%s]", command)
 	}

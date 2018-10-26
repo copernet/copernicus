@@ -1,5 +1,6 @@
 package wire
 
+/*
 import (
 	"fmt"
 	"io"
@@ -44,3 +45,4 @@ func NewMsgSendCmpct(announce bool, version uint64) *MsgSendCmpct {
 		CmpctBlockVersion:       version,
 	}
 }
+*/

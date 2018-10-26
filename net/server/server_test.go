@@ -5,11 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -21,6 +24,7 @@ import (
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/net/connmgr"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/persist"
@@ -309,4 +313,188 @@ func TestTransactionConfirmed(t *testing.T) {
 	s.TransactionConfirmed(tmpTx)
 	s.Stop()
 	s.WaitForShutdown()
+}
+
+func TestPeerState(t *testing.T) {
+	ps := peerState{
+		inboundPeers:    make(map[int32]*serverPeer),
+		outboundPeers:   make(map[int32]*serverPeer),
+		persistentPeers: make(map[int32]*serverPeer),
+	}
+	ps.inboundPeers[1] = newServerPeer(nil, true)
+	ps.inboundPeers[2] = newServerPeer(nil, false)
+	ps.outboundPeers[10] = newServerPeer(nil, false)
+	ps.persistentPeers[14] = newServerPeer(nil, true)
+	if ps.Count() != 4 {
+		t.Errorf("expect peer count equal 4")
+	}
+	count := 0
+	ps.forAllPeers(func(sp *serverPeer) {
+		count++
+	})
+	if count != 4 {
+		t.Errorf("expect count equal 4")
+	}
+}
+
+func TestNewestBlock(t *testing.T) {
+	sp := newServerPeer(nil, true)
+	hash, height, _ := sp.newestBlock()
+	if hash.String() != "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206" && height != 0 {
+		t.Errorf("tip hash should be regtest genesis block hash")
+	}
+}
+
+func TestKnownAddresses(t *testing.T) {
+	sp := newServerPeer(nil, true)
+	addrs := []*wire.NetAddress{
+		{
+			Timestamp: time.Unix(0x495fab29, 0),
+			Services:  wire.SFNodeNetwork,
+			IP:        net.ParseIP("127.0.0.1"),
+			Port:      8333,
+		},
+		{
+			Timestamp: time.Unix(0x5beda160, 0),
+			Services:  wire.SFNodeNetwork,
+			IP:        net.ParseIP("204.124.8.100"),
+			Port:      8333,
+		},
+	}
+	sp.addKnownAddresses(addrs)
+	if !sp.addressKnown(&wire.NetAddress{
+		Timestamp: time.Unix(0x5beda160, 0),
+		Services:  wire.SFNodeNetwork,
+		IP:        net.ParseIP("204.124.8.100"),
+		Port:      8333,
+	}) {
+		t.Errorf("not find expect addr")
+	}
+}
+
+func TestDisableRelayTx(t *testing.T) {
+	sp := newServerPeer(nil, true)
+	sp.setDisableRelayTx(true)
+	if !sp.relayTxDisabled() {
+		t.Errorf("relayTx should be true")
+	}
+}
+
+type conn struct {
+	io.Reader
+	io.Writer
+	io.Closer
+
+	// local network, address for the connection.
+	lnet, laddr string
+
+	// remote network, address for the connection.
+	rnet, raddr string
+}
+
+// LocalAddr returns the local address for the connection.
+func (c conn) LocalAddr() net.Addr {
+	return &addr{c.lnet, c.laddr}
+}
+
+// Remote returns the remote address for the connection.
+func (c conn) RemoteAddr() net.Addr {
+	return &addr{c.rnet, c.raddr}
+}
+
+// Close handles closing the connection.
+func (c conn) Close() error {
+	if c.Closer == nil {
+		return nil
+	}
+	return c.Closer.Close()
+}
+
+func (c conn) SetDeadline(t time.Time) error      { return nil }
+func (c conn) SetReadDeadline(t time.Time) error  { return nil }
+func (c conn) SetWriteDeadline(t time.Time) error { return nil }
+
+// addr mocks a network address
+type addr struct {
+	net, address string
+}
+
+func (m addr) Network() string { return m.net }
+func (m addr) String() string  { return m.address }
+
+// pipe turns two mock connections into a full-duplex connection similar to
+// net.Pipe to allow pipe's with (fake) addresses.
+func pipe(c1, c2 *conn) (*conn, *conn) {
+	r1, w1 := io.Pipe()
+	r2, w2 := io.Pipe()
+
+	c1.Writer = w1
+	c1.Closer = w1
+	c2.Reader = r1
+	c1.Reader = r2
+	c2.Writer = w2
+	c2.Closer = w2
+
+	return c1, c2
+}
+
+func TestInboundPeerConnected(t *testing.T) {
+	inConn, _ := pipe(
+		&conn{raddr: "10.0.0.1:8333"},
+		&conn{raddr: "10.0.0.2:8333"},
+	)
+	s, dir, _, err := makeTestServer()
+	if err != nil {
+		t.Fatalf("makeTestServer() failed: %v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	s.Start()
+	s.inboundPeerConnected(inConn)
+	s.Stop()
+	s.WaitForShutdown()
+}
+
+func TestOutboundPeerConnected(t *testing.T) {
+	s, dir, _, err := makeTestServer()
+	if err != nil {
+		t.Fatalf("makeTestServer() failed: %v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	s.Start()
+	cq := &connmgr.ConnReq{
+		Addr: &net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 18555,
+		},
+		Permanent: true,
+	}
+	inConn, _ := pipe(
+		&conn{raddr: "10.0.0.1:8333"},
+		&conn{raddr: "10.0.0.2:8333"},
+	)
+
+	s.outboundPeerConnected(cq, inConn)
+}
+
+func TestPushAddrMsg(t *testing.T) {
+	sp := newServerPeer(nil, true)
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp.Peer = in
+
+	addrs := []*wire.NetAddress{
+		{
+			Timestamp: time.Unix(0x495fab29, 0),
+			Services:  wire.SFNodeNetwork,
+			IP:        net.ParseIP("127.0.0.1"),
+			Port:      8333,
+		},
+		{
+			Timestamp: time.Unix(0x5beda160, 0),
+			Services:  wire.SFNodeNetwork,
+			IP:        net.ParseIP("204.124.8.100"),
+			Port:      8333,
+		},
+	}
+	sp.pushAddrMsg(addrs)
 }

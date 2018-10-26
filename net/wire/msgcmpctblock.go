@@ -1,5 +1,6 @@
 package wire
 
+/*
 import (
 	"bytes"
 	"encoding/binary"
@@ -182,3 +183,4 @@ func (msg *MsgCmpctBlock) Command() string {
 func (msg *MsgCmpctBlock) MaxPayloadLength(pver uint32) uint64 {
 	return 80 + 8 + 3 + uint64(len(msg.ShortTxids))*6 + 3 + uint64(len(msg.PreFilledTxn))*(3+MaxBlockPayload)
 }
+*/
