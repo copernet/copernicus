@@ -12,6 +12,7 @@ import (
 	"github.com/astaxie/beego/logs"
 
 	"github.com/copernet/copernicus/model/block"
+	"github.com/stretchr/testify/assert"
 )
 
 var rawBlock = "00000020d2d497201d88978b326a12f04f609a6f1f1425ae63c46c8ac72a200000000000dd241423caab3" +
@@ -121,4 +122,8 @@ func TestLogBlockHeight(t *testing.T) {
 	if !bytes.HasSuffix(b, []byte("Processed 1 block in the last 10s (13 transactions, 1524674320)\n")) {
 		t.Fatalf("not expected output")
 	}
+
+	lastTime := time.Unix(1540537873, 1540537873)
+	pl.SetLastLogTime(lastTime)
+	assert.Equal(t, lastTime, pl.lastBlockLogTime)
 }

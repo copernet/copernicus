@@ -28,22 +28,17 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/magiconair/properties/assert"
 )
 
-type mockPeerNotifier struct {
-}
+type mockPeerNotifier struct{}
 
-func (m *mockPeerNotifier) AnnounceNewTransactions(newTxs []*mempool.TxEntry) {
-}
-
-func (m *mockPeerNotifier) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {
-}
-func (m *mockPeerNotifier) RelayInventory(invVect *wire.InvVect, data interface{}) {
-}
-func (m *mockPeerNotifier) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
-}
-func (m *mockPeerNotifier) TransactionConfirmed(tx *tx.Tx) {
-}
+func (m *mockPeerNotifier) AnnounceNewTransactions(newTxs []*mempool.TxEntry)                                       {}
+func (m *mockPeerNotifier) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {}
+func (m *mockPeerNotifier) RelayInventory(invVect *wire.InvVect, data interface{})                                  {}
+func (m *mockPeerNotifier) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)                                      {}
+func (m *mockPeerNotifier) TransactionConfirmed(tx *tx.Tx)                                                          {}
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
@@ -298,4 +293,88 @@ func TestPause(t *testing.T) {
 	defer os.RemoveAll(dir)
 	sm.Start()
 	sm.Pause() <- struct{}{}
+}
+
+func createBlkIdx() *blockindex.BlockIndex {
+	blkHeader := block.NewBlockHeader()
+	blkHeader.Time = uint32(1534822771)
+	blkHeader.Version = 536870912
+	blkHeader.Bits = 486604799
+	preHash := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	merkleRoot := util.HashFromString("7e814211a7de289a490380c0c20353e0fd4e62bf55a05b38e1628e0ea0b4fd3d")
+	blkHeader.HashPrevBlock = *preHash
+	blkHeader.Nonce = 1391785674
+	blkHeader.MerkleRoot = *merkleRoot
+	//init block index
+	blkidx := blockindex.NewBlockIndex(blkHeader)
+	return blkidx
+}
+
+func getBlock(blockstr string) *block.Block {
+	blk := block.NewBlock()
+	blkBuf, _ := hex.DecodeString(blockstr)
+	err := blk.Unserialize(bytes.NewReader(blkBuf))
+	if err != nil {
+		return nil
+	}
+	return blk
+}
+
+var blk1str = "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA330900000000" +
+	"BAC8B0FA927C0AC8234287E33C5F74D38D354820E24756AD709D7038FC5F31F020E7494DFFFF00" +
+	"1D03E4B67201010000000100000000000000000000000000000000000000000000000000000000" +
+	"00000000FFFFFFFF0E0420E7494D017F062F503253482FFFFFFFFF0100F2052A01000000232102" +
+	"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00000000"
+
+func TestSyncManager_handleBlockchainNotification(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	sm.Start()
+
+	//test NTChainTipUpdated
+	blkidx := createBlkIdx()
+	tipEvent := &chain.TipUpdatedEvent{
+		TipIndex:          blkidx,
+		ForkIndex:         blkidx,
+		IsInitialDownload: false,
+	}
+
+	notification := &chain.Notification{
+		Type: chain.NTChainTipUpdated,
+		Data: tipEvent,
+	}
+	sm.handleBlockchainNotification(notification)
+
+	//test NTBlockAccepted, NTBlockConnected, NTBlockDisconnected
+	blk := getBlock(blk1str)
+	notificationTypes := []chain.NotificationType{chain.NTBlockAccepted, chain.NTBlockDisconnected, chain.NTBlockConnected}
+
+	for _, notificationType := range notificationTypes {
+		notification = &chain.Notification{
+			Type: notificationType,
+			Data: blk,
+		}
+		sm.handleBlockchainNotification(notification)
+	}
+}
+
+func TestSyncManager_limitMap(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	sm.Start()
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
+	mp := make(map[util.Hash]struct{})
+	mp[*hash1] = struct{}{}
+	mp[*hash2] = struct{}{}
+	assert.Equal(t, len(mp), 2)
+	sm.limitMap(mp, 2)
+	assert.Equal(t, len(mp), 1)
 }
