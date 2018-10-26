@@ -103,7 +103,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 
 	if vchLen > maxNumSize {
 		log.Debug("ScriptErrNumberOverflow")
-		err = errcode.New(errcode.ScriptErrNumberOverflow)
+		err = errcode.New(errcode.ScriptErrUnknownError)
 		scriptNum = NewScriptNum(0)
 		return
 	}
@@ -125,7 +125,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 			// (big-endian).
 			if vchLen == 1 || (vch[vchLen-2]&0x80) == 0 {
 				log.Debug("ScriptErrNonMinimalEncodedNumber")
-				err = errcode.New(errcode.ScriptErrNonMinimalEncodedNumber)
+				err = errcode.New(errcode.ScriptErrUnknownError)
 				scriptNum = NewScriptNum(0)
 				return
 			}

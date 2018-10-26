@@ -87,9 +87,6 @@ const (
 	ScriptErrMultiOpReturn
 	ScriptErrInvalidSignatureEncoding
 
-	ScriptErrNumberOverflow
-	ScriptErrNonMinimalEncodedNumber
-
 	ScriptErrInvalidOpCode
 	ScriptErrInValidPubKeyOrSig
 	ScriptErrScriptSigNotPushOnly
@@ -200,10 +197,6 @@ func scriptErrorString(scriptError ScriptErr) string {
 		return "NOPx reserved for soft-fork upgrades"
 	case ScriptErrDiscourageUpgradableWitnessProgram:
 		return "Witness version reserved for soft-fork upgrades"
-	case ScriptErrNumberOverflow:
-		return "Script number overflow"
-	case ScriptErrNonMinimalEncodedNumber:
-		return "Non-minimally encoded script number"
 	default:
 		break
 	}

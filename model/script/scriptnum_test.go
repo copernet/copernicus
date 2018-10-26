@@ -21,8 +21,8 @@ func TestGetScriptNum(t *testing.T) {
 
 	//errNumTooBig := errors.New("script number overflow")
 	//errMinimalData := errors.New("non-minimally encoded script number")
-	errNumOverflow := errcode.New(errcode.ScriptErrNumberOverflow)
-	errNonMinimal := errcode.New(errcode.ScriptErrNonMinimalEncodedNumber)
+	errNumOverflow := errcode.New(errcode.ScriptErrUnknownError)
+	errNonMinimal := errcode.New(errcode.ScriptErrUnknownError)
 
 	tests := []struct {
 		serialized      []byte
