@@ -1,9 +1,6 @@
 package mining
 
 import (
-	"bytes"
-	"crypto/rand"
-	"encoding/binary"
 	"math"
 	"sort"
 	"strconv"
@@ -443,34 +440,18 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 }
 
 func CoinbaseScriptSig(extraNonce uint) *script.Script {
-	// TODO lack of lscript builder to construct script conveniently<lscript>
-	buf := bytes.NewBuffer(nil)
-	bytesEight := make([]byte, 8)
+	scriptSig := script.NewEmptyScript()
 
 	height := uint64(chain.GetInstance().Tip().Height + 1)
-	binary.LittleEndian.PutUint64(bytesEight, height)
-	buf.Write(bytesEight)
+	heightNum := script.NewScriptNum(int64(height))
+	scriptSig.PushScriptNum(heightNum)
 
-	///TODO: after add wallet,remove this. fill the sctiptSig in case generate same block
-	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
-		seed := make([]byte, 8)
-		rand.Read(seed)
+	extraNonceNum := script.NewScriptNum(int64(extraNonce))
+	scriptSig.PushScriptNum(extraNonceNum)
 
-		bytesBuffer := bytes.NewBuffer(seed)
-		var tmp uint64
-		binary.Read(bytesBuffer, binary.BigEndian, &tmp)
+	scriptSig.PushData(append(getExcessiveBlockSizeSig(), []byte(CoinbaseFlag)...))
 
-		binary.LittleEndian.PutUint64(bytesEight, tmp)
-		buf.Write(bytesEight)
-	}
-
-	binary.LittleEndian.PutUint64(bytesEight, uint64(extraNonce))
-	buf.Write(bytesEight)
-
-	buf.Write(getExcessiveBlockSizeSig())
-	buf.Write([]byte(CoinbaseFlag))
-
-	return script.NewScriptRaw(buf.Bytes())
+	return scriptSig
 }
 
 // This function convert MaxBlockSize from byte to

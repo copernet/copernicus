@@ -37,6 +37,18 @@ import (
 	"testing"
 )
 
+func coinbaseScriptSigWithHeight(extraNonce uint, height int32) *script.Script {
+	scriptSig := script.NewEmptyScript()
+
+	heightNum := script.NewScriptNum(int64(height))
+	scriptSig.PushScriptNum(heightNum)
+
+	extraNonceNum := script.NewScriptNum(int64(extraNonce))
+	scriptSig.PushScriptNum(extraNonceNum)
+
+	return scriptSig
+}
+
 func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uint64,
 	preHeight int32, txs []*tx.Tx) ([]util.Hash, error) {
 	heightEnd := preHeight + int32(generate)
@@ -48,7 +60,7 @@ func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uin
 	blkHash := *chain.GetInstance().GetIndex(preHeight).GetBlockHash()
 	for height < heightEnd {
 		bk := block.NewBlock()
-		bk = createDummyBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce), bk, blkHash)
+		bk = createDummyBlock(scriptPubKey, coinbaseScriptSigWithHeight(extraNonce, height+1), bk, blkHash)
 		bk.Txs = append(bk.Txs, txs...)
 		bk.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bk.Txs, nil)
 
@@ -252,7 +264,6 @@ func TestActivateBestChain(t *testing.T) {
 	assert.Nil(t, err)
 	height := tChain.TipHeight()
 	assert.Equal(t, int32(103), height)
-
 }
 
 func TestGetUTXOStats(t *testing.T) {
