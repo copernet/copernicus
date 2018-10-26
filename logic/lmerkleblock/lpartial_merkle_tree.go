@@ -67,6 +67,9 @@ func (pmt *PartialMerkleTree) TraverseAndBuild(height uint, pos uint, txids []ut
 func (pmt *PartialMerkleTree) calcHash(height uint, pos uint, txids []util.Hash) util.Hash {
 	if height == 0 {
 		// hash at height 0 is the txids themself.
+		if len(txids) == 0 {
+			return util.Hash{}
+		}
 		return txids[pos]
 	}
 	// Calculate left hash.
