@@ -755,15 +755,18 @@ func Test_SignatureHash(t *testing.T) {
 
 	txHash, err := SignatureHash(&testTx.tx, preTestTx.tx.GetTxOut(0).GetScriptPubKey(),
 		crypto.SigHashAll, 0, preTestTx.tx.GetTxOut(0).GetValue(), uint32(script.StandardScriptVerifyFlags))
+	assert.NoError(t, err)
 	assert.Equal(t, "L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8TrisoyY1", privateKey.ToString())
 	assert.Equal(t, "3417281973223488255177313250047195462208622636649993559694809589307248577318", txHash.ToBigInt().String())
 
 	txHash, err = SignatureHash(&testTx.tx, preTestTx.tx.GetTxOut(0).GetScriptPubKey(),
 		crypto.SigHashAll, 0, preTestTx.tx.GetTxOut(0).GetValue(), uint32(script.ScriptEnableReplayProtection))
+	assert.NoError(t, err)
 	assert.Equal(t, "c639a06c749f918e1e8040f1a92739b2706e0cdfedf10d828d17381de18fc4de", txHash.String())
 
 	txHash, err = SignatureHash(&testTx.tx, preTestTx.tx.GetTxOut(0).GetScriptPubKey(),
 		crypto.SigHashForkID, 0, preTestTx.tx.GetTxOut(0).GetValue(), uint32(script.ScriptEnableSigHashForkID))
+	assert.NoError(t, err)
 	assert.Equal(t, "29326e5bd1237ef68ea1ceaad654d08dc987f568b175aedf3054e17d307359a1", txHash.String())
 }
 
