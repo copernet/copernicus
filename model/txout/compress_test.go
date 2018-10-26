@@ -249,22 +249,25 @@ func Test_scriptCompressor_Unserialize(t *testing.T) {
 	sc.Unserialize(&buf)
 }
 
+func getTestScript() *script.Script {
+	return script.NewScriptRaw(
+		[]byte{
+			0x76, // OP_DUP
+			0xa9, // OP_HASH160
+			0x14, // OP_DATA_20
+			0x03, 0xef, 0xb6, 0xc9,
+			0xd3, 0x87, 0xb9, 0x7b,
+			0x59, 0x8a, 0x26, 0x64,
+			0x22, 0x5f, 0xe7, 0xb7,
+			0x9a, 0x0a, 0xe0, 0x55,
+			0x88, // OP_EQUALVERIFY
+			0xac, // OP_CHECKSIG
+		},
+	)
+}
+
 func Test_TxoutCompressor_NewTxoutCompressor(t *testing.T) {
-	txoutCompressor := NewTxoutCompressor(NewTxOut(0x33a478,
-		script.NewScriptRaw(
-			[]byte{
-				0x76, // OP_DUP
-				0xa9, // OP_HASH160
-				0x14, // OP_DATA_20
-				0x03, 0xef, 0xb6, 0xc9,
-				0xd3, 0x87, 0xb9, 0x7b,
-				0x59, 0x8a, 0x26, 0x64,
-				0x22, 0x5f, 0xe7, 0xb7,
-				0x9a, 0x0a, 0xe0, 0x55,
-				0x88, // OP_EQUALVERIFY
-				0xac, // OP_CHECKSIG
-			},
-		)))
+	txoutCompressor := NewTxoutCompressor(NewTxOut(0x33a478, getTestScript()))
 	assert.NotNil(t, txoutCompressor)
 
 	txoutCompressor = NewTxoutCompressor(nil)
@@ -276,21 +279,7 @@ func Test_TxoutCompressor_Serialize(t *testing.T) {
 	txoutCompressor := NewTxoutCompressor(nil)
 	assert.Equal(t, ErrCompress, txoutCompressor.Serialize(&w))
 
-	txoutCompressor = NewTxoutCompressor(NewTxOut(0x33a478,
-		script.NewScriptRaw(
-			[]byte{
-				0x76, // OP_DUP
-				0xa9, // OP_HASH160
-				0x14, // OP_DATA_20
-				0x03, 0xef, 0xb6, 0xc9,
-				0xd3, 0x87, 0xb9, 0x7b,
-				0x59, 0x8a, 0x26, 0x64,
-				0x22, 0x5f, 0xe7, 0xb7,
-				0x9a, 0x0a, 0xe0, 0x55,
-				0x88, // OP_EQUALVERIFY
-				0xac, // OP_CHECKSIG
-			},
-		)))
+	txoutCompressor = NewTxoutCompressor(NewTxOut(0x33a478, getTestScript()))
 	var buf bytes.Buffer
 	assert.NoError(t, txoutCompressor.Serialize(&buf))
 
@@ -303,21 +292,7 @@ func Test_TxoutCompressor_Unserialize(t *testing.T) {
 	txoutCompressor := NewTxoutCompressor(nil)
 	assert.Equal(t, ErrCompress, txoutCompressor.Unserialize(&r))
 
-	txoutCompressor = NewTxoutCompressor(NewTxOut(0x33a478,
-		script.NewScriptRaw(
-			[]byte{
-				0x76, // OP_DUP
-				0xa9, // OP_HASH160
-				0x14, // OP_DATA_20
-				0x03, 0xef, 0xb6, 0xc9,
-				0xd3, 0x87, 0xb9, 0x7b,
-				0x59, 0x8a, 0x26, 0x64,
-				0x22, 0x5f, 0xe7, 0xb7,
-				0x9a, 0x0a, 0xe0, 0x55,
-				0x88, // OP_EQUALVERIFY
-				0xac, // OP_CHECKSIG
-			},
-		)))
+	txoutCompressor = NewTxoutCompressor(NewTxOut(0x33a478, getTestScript()))
 	assert.NotNil(t, txoutCompressor.Unserialize(&r))
 
 	var buf bytes.Buffer
