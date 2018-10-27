@@ -180,11 +180,12 @@ func TestScriptParseScript(t *testing.T) {
 
 }
 
+
 /*
 func TestCScriptPushData(t *testing.T) {
 	script := NewScriptRaw(make([]byte, 0))
 
-	err := script.PushOpCode(opcodes.OP_HASH160)
+	err := script.PushOpCode(OP_HASH160)
 	if err != nil {
 		t.Error(err)
 	}
@@ -197,45 +198,46 @@ func TestCScriptPushData(t *testing.T) {
 	}
 
 	script.PushData(data[:])
-	err = script.PushOpCode(opcodes.OP_EQUAL)
+	err = script.PushOpCode(OP_EQUAL)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !bytes.Equal(script.bytes, p2SHScript[:]) {
+	if !bytes.Equal(script.data, p2SHScript[:]) {
 		t.Errorf("push data and OpCode composition script %v "+
-			"should be equal origin script data %v", script.bytes, p2SHScript)
+			"should be equal origin script data %v", script.data, p2SHScript)
 	}
 }
 
 func TestScriptPushInt64(t *testing.T) {
 	var script Script
 	script.PushInt64(3)
-	if len(script.bytes) != 1 {
+	if len(script.data) != 1 {
 		t.Error("func PushInt64() error: should have one element")
 	}
-	if script.bytes[0] != opcodes.OP_3 {
-		t.Error("func PushInt64() error: the element should be 83 instead of : ", script.bytes[0])
+	if script.data[0] != OP_3 {
+		t.Error("func PushInt64() error: the element should be 83 instead of : ", script.data[0])
 	}
 
-	script.bytes = make([]byte, 0)
+	script.data = make([]byte, 0)
 	script.PushInt64(35)
-	if len(script.bytes) != 1 {
+	if len(script.data) != 1 {
 		t.Error("func PushInt64() error: should have one element")
 	}
-	if script.bytes[0] != 35 {
-		t.Error("func PushInt64() error: the element should be 35 instead of : ", script.bytes[0])
+	if script.data[0] != 35 {
+		t.Error("func PushInt64() error: the element should be 35 instead of : ", script.data[0])
 	}
 
-	script.bytes = make([]byte, 0)
+	script.data = make([]byte, 0)
 	script.PushInt64(235)
-	if len(script.bytes) != 2 {
-		t.Errorf("func PushInt64() error: should have two element instead of %d element", len(script.bytes))
+	if len(script.data) != 2 {
+		t.Errorf("func PushInt64() error: should have two element instead of %d element", len(script.data))
 	}
-	if script.bytes[0] != 235 && script.bytes[1] != 0 {
-		t.Errorf("func PushInt64() error: the element should be 235 instead of : %d", script.bytes[0])
+	if script.data[0] != 235 && script.data[1] != 0 {
+		t.Errorf("func PushInt64() error: the element should be 235 instead of : %d", script.data[0])
 	}
 }
+
 */
 
 /**
