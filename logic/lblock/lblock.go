@@ -262,7 +262,7 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 	// when reindex, inDbp is not nil, and outDbp will be same as inDbp, and block will not be write to disk
 	outDbp, err = WriteBlockToDisk(bIndex, pblock, inDbp)
 	if err != nil {
-		panic("AcceptBlockHeader WriteBlockTo Disk err")
+		panic("AcceptBlockHeader WriteBlockTo Disk err" + err.Error())
 	}
 
 	ReceivedBlockTransactions(pblock, bIndex, outDbp)

@@ -556,10 +556,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	for height < heightEnd {
 		ba := mining.NewBlockAssembler(params)
 
-		persist.CsMain.Lock()
-		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
-		persist.CsMain.Unlock()
-
+		bt := createBlockForCPUMining(ba, scriptPubKey, extraNonce)
 		if bt == nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,
@@ -605,6 +602,12 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	}
 
 	return ret, nil
+}
+
+func createBlockForCPUMining(ba *mining.BlockAssembler, scriptPK *script.Script, extraNonce uint) *mining.BlockTemplate {
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+	return ba.CreateNewBlock(scriptPK, mining.CoinbaseScriptSig(extraNonce))
 }
 
 // handleEstimateFee handles estimatefee commands.
