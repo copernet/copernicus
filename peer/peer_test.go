@@ -5,23 +5,23 @@
 package peer_test
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net"
-	"time"
-	"errors"
-	"context"
 	"testing"
+	"time"
 
+	"github.com/copernet/copernicus/errcode"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
-	"github.com/copernet/copernicus/net/server"
-	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/tx"
-	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/errcode"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/stretchr/testify/assert"
 )
 

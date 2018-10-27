@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
@@ -28,17 +29,17 @@ import (
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/magiconair/properties/assert"
 )
 
 type mockPeerNotifier struct{}
 
-func (m *mockPeerNotifier) AnnounceNewTransactions(newTxs []*mempool.TxEntry)                                       {}
-func (m *mockPeerNotifier) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {}
-func (m *mockPeerNotifier) RelayInventory(invVect *wire.InvVect, data interface{})                                  {}
-func (m *mockPeerNotifier) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)                                      {}
-func (m *mockPeerNotifier) TransactionConfirmed(tx *tx.Tx)                                                          {}
+func (m *mockPeerNotifier) AnnounceNewTransactions(newTxs []*mempool.TxEntry) {}
+func (m *mockPeerNotifier) UpdatePeerHeights(latestBlkHash *util.Hash, latestHeight int32, updateSource *peer.Peer) {
+}
+func (m *mockPeerNotifier) RelayInventory(invVect *wire.InvVect, data interface{}) {}
+func (m *mockPeerNotifier) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)     {}
+func (m *mockPeerNotifier) TransactionConfirmed(tx *tx.Tx)                         {}
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)

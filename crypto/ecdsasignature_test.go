@@ -2,8 +2,8 @@ package crypto
 
 import (
 	"bytes"
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 //the sigScript from TxID : fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4
@@ -26,7 +26,7 @@ func TestIsValidSignatureEncoding(t *testing.T) {
 	ret := IsValidSignatureEncoding(validSig)
 	assert.Equal(t, ret, true)
 
-	sig1 := []byte{0x30, 0x3a, 0xd1, 0x5c, 0x20, 0x92, 0x75, 0xca,}
+	sig1 := []byte{0x30, 0x3a, 0xd1, 0x5c, 0x20, 0x92, 0x75, 0xca}
 	ret = IsValidSignatureEncoding(sig1)
 	assert.Equal(t, ret, false)
 
@@ -278,7 +278,7 @@ func TestIsLowDERSignature(t *testing.T) {
 	}
 	assert.Equal(t, ret, false)
 
-	sig1 := []byte{0x30, 0x3a, 0xd1, 0x5c, 0x20, 0x92, 0x75, 0xca,}
+	sig1 := []byte{0x30, 0x3a, 0xd1, 0x5c, 0x20, 0x92, 0x75, 0xca}
 	ret, err = IsLowDERSignature(sig1)
 	if err == nil {
 		t.Errorf("IsLowDERSignature error:%v", err)

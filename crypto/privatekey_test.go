@@ -3,8 +3,8 @@ package crypto
 import (
 	"bytes"
 	"encoding/hex"
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestPrivKeys(t *testing.T) {
