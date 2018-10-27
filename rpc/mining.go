@@ -20,6 +20,7 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/service/mining"
@@ -167,6 +168,9 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 	//transactionsUpdatedLastLP := 0
 	// todo complete
 	//}
+
+	persist.CsMain.Lock() //lock chain tip for CreateNewBlock
+	defer persist.CsMain.Unlock()
 
 	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
@@ -551,7 +555,11 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	var extraNonce uint
 	for height < heightEnd {
 		ba := mining.NewBlockAssembler(params)
+
+		persist.CsMain.Lock()
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
+		persist.CsMain.Unlock()
+
 		if bt == nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,

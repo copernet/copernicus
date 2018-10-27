@@ -420,25 +420,25 @@ func TestPushAddrMsg(t *testing.T) {
 
 func TestMergeCheckpoints(t *testing.T) {
 	a := []model.Checkpoint{
-		{478558, util.HashFromString("0000000000000000011865af4122fe3b144e2cbeea86142e8ff2fb4107352d43")},
-		{504031, util.HashFromString("0000000000000000011ebf65b60d0a3de80b8175be709d653b4c1a1beeb6ab9c")},
-		{530359, util.HashFromString("0000000000000000011ada8bd08f46074f44a8f155396f43e38acf9501c49103")},
-		{105000, util.HashFromString("00000000000291ce28027faea320c8d2b054b2e0fe44a773f3eefb151d6bdc97")},
-		{134444, util.HashFromString("00000000000005b12ffd4cd315cd34ffd4a594f430ac814c91184a0d42d2b0fe")},
-		{168000, util.HashFromString("000000000000099e61ea72015e79632f216fe6cb33d7899acb35b75c8303b763")},
-		{193000, util.HashFromString("000000000000059f452a5f7340de6682a977387c17010ff6e6c3bd83ca8b1317")},
-		{295000, util.HashFromString("00000000000000004d9b4ef50f0f9d686fd69db2e03af35a100370c64632a983")},
-		{11111, util.HashFromString("0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
+		{Height: 478558, Hash: util.HashFromString("0000000000000000011865af4122fe3b144e2cbeea86142e8ff2fb4107352d43")},
+		{Height: 504031, Hash: util.HashFromString("0000000000000000011ebf65b60d0a3de80b8175be709d653b4c1a1beeb6ab9c")},
+		{Height: 530359, Hash: util.HashFromString("0000000000000000011ada8bd08f46074f44a8f155396f43e38acf9501c49103")},
+		{Height: 105000, Hash: util.HashFromString("00000000000291ce28027faea320c8d2b054b2e0fe44a773f3eefb151d6bdc97")},
+		{Height: 134444, Hash: util.HashFromString("00000000000005b12ffd4cd315cd34ffd4a594f430ac814c91184a0d42d2b0fe")},
+		{Height: 168000, Hash: util.HashFromString("000000000000099e61ea72015e79632f216fe6cb33d7899acb35b75c8303b763")},
+		{Height: 193000, Hash: util.HashFromString("000000000000059f452a5f7340de6682a977387c17010ff6e6c3bd83ca8b1317")},
+		{Height: 295000, Hash: util.HashFromString("00000000000000004d9b4ef50f0f9d686fd69db2e03af35a100370c64632a983")},
+		{Height: 11111, Hash: util.HashFromString("0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
 	}
 	b := []model.Checkpoint{
-		{11111, util.HashFromString("0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
-		{33333, util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")},
-		{74000, util.HashFromString("0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20")},
-		{279000, util.HashFromString("0000000000000001ae8c72a0b0c301f67e3afca10e819efa9041e458e9bd7e40")},
-		{210000, util.HashFromString("000000000000048b95347e83192f69cf0366076336c639f9b7228e9ba171342e")},
-		{216116, util.HashFromString("00000000000001b4f4b433e81ee46494af945cf96014816a4e2370f11b23df4e")},
-		{225430, util.HashFromString("00000000000001c108384350f74090433e7fcf79a606b8e797f065b130575932")},
-		{250000, util.HashFromString("000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214")},
+		{Height: 11111, Hash: util.HashFromString("0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")},
+		{Height: 33333, Hash: util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")},
+		{Height: 74000, Hash: util.HashFromString("0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20")},
+		{Height: 279000, Hash: util.HashFromString("0000000000000001ae8c72a0b0c301f67e3afca10e819efa9041e458e9bd7e40")},
+		{Height: 210000, Hash: util.HashFromString("000000000000048b95347e83192f69cf0366076336c639f9b7228e9ba171342e")},
+		{Height: 216116, Hash: util.HashFromString("00000000000001b4f4b433e81ee46494af945cf96014816a4e2370f11b23df4e")},
+		{Height: 225430, Hash: util.HashFromString("00000000000001c108384350f74090433e7fcf79a606b8e797f065b130575932")},
+		{Height: 250000, Hash: util.HashFromString("000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214")},
 	}
 	c := mergeCheckpoints(a, b)
 	if len(c) != 16 || !sort.IsSorted(checkpointSorter(c)) {

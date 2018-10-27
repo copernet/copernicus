@@ -422,7 +422,6 @@ func TestScript_PushInt64(t *testing.T) {
 	}
 }
 
-
 func TestScript_PushSingleData(t *testing.T) {
 	tests := []struct {
 		in             []byte

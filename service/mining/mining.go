@@ -1,11 +1,6 @@
 package mining
 
 import (
-	"math"
-	"sort"
-	"strconv"
-	"sync"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -25,11 +20,13 @@ import (
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"math"
+	"sort"
+	"strconv"
 
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/utxo"
-	"github.com/copernet/copernicus/persist"
 	"github.com/google/btree"
 )
 
@@ -71,7 +68,6 @@ func newBlockTemplate() *BlockTemplate {
 
 // BlockAssembler Generate a new block, without valid proof-of-work
 type BlockAssembler struct {
-	sync.RWMutex
 	bt                    *BlockTemplate
 	maxGeneratedBlockSize uint64
 	blockMinFeeRate       util.FeeRate
@@ -294,8 +290,6 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.bt.TxSigOpsCount = make([]int, 0, 100000)
 	ba.bt.TxSigOpsCount = append(ba.bt.TxSigOpsCount, -1)
 
-	ba.Lock()
-	defer ba.Unlock()
 	indexPrev := chain.GetInstance().Tip()
 
 	// genesis block
@@ -508,9 +502,6 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 }
 
 func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
-	persist.CsMain.Lock()
-	defer persist.CsMain.Unlock()
-
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
 		log.Error("TestBlockValidity(): indexPrev:%v, chain tip:%v.", indexPrev, chain.GetInstance().Tip())
 		return false
