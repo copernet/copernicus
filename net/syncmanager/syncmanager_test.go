@@ -383,50 +383,6 @@ func TestSyncManager_limitMap(t *testing.T) {
 	assert.Equal(t, len(mp), 1)
 }
 
-//func TestSyncManager_handleInvMsg(t *testing.T) {
-//	sm, dir, err := makeSyncManager()
-//	if err != nil {
-//		t.Fatalf("construct syncmanager failed :%v\n", err)
-//	}
-//	defer os.RemoveAll(dir)
-//
-//
-//	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-//	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
-//	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
-//	//invVect2 := wire.NewInvVect(wire.InvTypeBlock, hash2)
-//
-//	msgInv := wire.NewMsgInv()
-//	msgInv.AddInvVect(invVect1)
-//	//msgInv.AddInvVect(invVect2)
-//
-//	p := &peer.Peer{}
-//
-//	//inv := &invMsg{
-//	//	inv:  msgInv,
-//	//	peer: p,
-//	//}
-//
-//	requestedTxns := make(map[util.Hash]struct{})
-//	requestedTxns[*hash1] = struct{}{}
-//	requestedTxns[*hash2] = struct{}{}
-//
-//	requestedBlocks := make(map[util.Hash]struct{})
-//	requestedBlocks[*hash1] = struct{}{}
-//	requestedBlocks[*hash2] = struct{}{}
-//
-//	syncState := &peerSyncState{
-//		syncCandidate:   false,
-//		requestQueue:    msgInv.InvList,
-//		requestedTxns:   requestedTxns,
-//		requestedBlocks: requestedBlocks,
-//	}
-//
-//	sm.peerStates[p] = syncState
-//	sm.Start()
-//
-//}
-
 func TestSyncManager_resetHeaderState(t *testing.T) {
 	sm, dir, err := makeSyncManager()
 	if err != nil {
@@ -552,6 +508,49 @@ func pipe(c1, c2 *conn) (*conn, *conn) {
 	return c1, c2
 }
 
+var verack = make(chan struct{})
+var peer1Cfg = &peer.Config{
+	Listeners: peer.MessageListeners{
+		OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
+			verack <- struct{}{}
+		},
+		OnWrite: func(p *peer.Peer, bytesWritten int, msg wire.Message,
+			err error) {
+			if _, ok := msg.(*wire.MsgVerAck); ok {
+				verack <- struct{}{}
+			}
+		},
+	},
+	UserAgentName:     "peer",
+	UserAgentVersion:  "1.0",
+	UserAgentComments: []string{"comment"},
+	ChainParams:       &model.MainNetParams,
+	ProtocolVersion:   wire.RejectVersion, // Configure with older version
+	Services:          0,
+}
+
+func getpeerState() *peerSyncState {
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
+	msgInv := wire.NewMsgInv()
+	msgInv.AddInvVect(invVect1)
+
+	requestedTxns := make(map[util.Hash]struct{})
+	requestedTxns[*hash1] = struct{}{}
+
+	requestedBlocks := make(map[util.Hash]struct{})
+	requestedBlocks[*hash1] = struct{}{}
+
+	//test one case
+	syncState := &peerSyncState{
+		syncCandidate:   true,
+		requestQueue:    msgInv.InvList,
+		requestedTxns:   requestedTxns,
+		requestedBlocks: requestedBlocks,
+	}
+	return syncState
+}
+
 func TestSyncManager_isSyncCandidate(t *testing.T) {
 	sm, dir, err := makeSyncManager()
 	if err != nil {
@@ -560,27 +559,6 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 	defer os.RemoveAll(dir)
 	sm.chainParams = &model.TestNetParams
 	sm.Start()
-
-	verack := make(chan struct{})
-	peer1Cfg := &peer.Config{
-		Listeners: peer.MessageListeners{
-			OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
-				verack <- struct{}{}
-			},
-			OnWrite: func(p *peer.Peer, bytesWritten int, msg wire.Message,
-				err error) {
-				if _, ok := msg.(*wire.MsgVerAck); ok {
-					verack <- struct{}{}
-				}
-			},
-		},
-		UserAgentName:     "peer",
-		UserAgentVersion:  "1.0",
-		UserAgentComments: []string{"comment"},
-		ChainParams:       &model.MainNetParams,
-		ProtocolVersion:   wire.RejectVersion, // Configure with older version
-		Services:          0,
-	}
 
 	tests := []struct {
 		name  string
@@ -607,25 +585,8 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 			return
 		}
 		sm.isSyncCandidate(inPeer)
-
 		hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-		invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
-		msgInv := wire.NewMsgInv()
-		msgInv.AddInvVect(invVect1)
-
-		requestedTxns := make(map[util.Hash]struct{})
-		requestedTxns[*hash1] = struct{}{}
-
-		requestedBlocks := make(map[util.Hash]struct{})
-		requestedBlocks[*hash1] = struct{}{}
-
-		//test one case
-		syncState := &peerSyncState{
-			syncCandidate:   true,
-			requestQueue:    msgInv.InvList,
-			requestedTxns:   requestedTxns,
-			requestedBlocks: requestedBlocks,
-		}
+		syncState := getpeerState()
 		sm.peerStates[inPeer] = syncState
 		chain.GetInstance().Tip().Height = 10
 		sm.startSync()
@@ -649,4 +610,111 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 		//close connection
 		inPeer.Disconnect()
 	}
+}
+
+func TestSyncManager_alreadyHave(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	ret := sm.alreadyHave(hash1)
+	assert.Equal(t, ret, false)
+
+	rejectedTxns := make(map[util.Hash]struct{})
+	rejectedTxns[*hash1] = struct{}{}
+	sm.rejectedTxns = rejectedTxns
+	ret = sm.alreadyHave(hash1)
+	assert.Equal(t, ret, true)
+}
+
+func TestSyncManager_current(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	ret := sm.current()
+	assert.Equal(t, ret, false)
+}
+
+func TestSyncManager_handleInvMsg(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+	syncState := getpeerState()
+	sm.peerStates[inpeer] = syncState
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
+	invVect2 := wire.NewInvVect(wire.InvTypeBlock, hash1)
+	msgInv := wire.NewMsgInv()
+	msgInv.AddInvVect(invVect1)
+	msgInv.AddInvVect(invVect2)
+
+	invMsg := &invMsg{
+		inv:  msgInv,
+		peer: inpeer,
+	}
+
+	sm.handleInvMsg(invMsg)
+}
+
+func TestSyncManager_handleHeadersMsg(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+	syncState := getpeerState()
+	sm.peerStates[inpeer] = syncState
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
+	bh := block.NewBlockHeader()
+	headerMsg := wire.NewMsgHeaders()
+	err = headerMsg.AddBlockHeader(bh)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	//test first case
+	hmsg := &headersMsg{
+		headers: headerMsg,
+		peer:    inpeer,
+	}
+	sm.handleHeadersMsg(hmsg)
+
+	//test second case
+	sm.headersFirstMode = true
+	sm.handleHeadersMsg(hmsg)
+
+	//test third case
+	node := headerNode{
+		height: 10,
+		hash:   hash1,
+	}
+	sm.headerList.PushBack(&node)
+	sm.handleHeadersMsg(hmsg)
+
+	node1 := headerNode{
+		height: 11,
+		hash:   hash2,
+	}
+	sm.headerList.PushBack(&node1)
+	bh2 := block.NewBlockHeader()
+	err = headerMsg.AddBlockHeader(bh2)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	bh2.HashPrevBlock = *hash1
+	sm.handleHeadersMsg(hmsg)
 }
