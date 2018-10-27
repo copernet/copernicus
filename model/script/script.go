@@ -801,10 +801,10 @@ func (s *Script) PushOpCode(n int) error {
 
 func (s *Script) PushInt64(n int64) error {
 	if n >= -1 && n <= 16 {
-		if n == -1 || (n >= 1 && n <= 16) {
-			s.data = append(s.data, byte(n+(opcodes.OP_1-1)))
-		} else if n == 0 {
+		if n == 0 {
 			s.data = append(s.data, byte(opcodes.OP_0))
+		} else {
+			s.data = append(s.data, byte(n+(opcodes.OP_1-1)))
 		}
 		err := s.convertOPS()
 		return err

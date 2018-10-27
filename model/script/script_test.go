@@ -1,6 +1,8 @@
 package script
 
 import (
+	"bytes"
+	"encoding/hex"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -104,141 +106,449 @@ func TestScriptDecodeOPN(t *testing.T) {
 	}
 }
 
-func TestScriptParseScript(t *testing.T) {
-	p2shScript := NewScriptRaw(p2SHScript[:])
-	if !p2shScript.IsPayToScriptHash() {
-		t.Errorf("the script is P2SH should be true instead of false")
+func TestScript_IsStandardScriptPubKey_ScriptHash(t *testing.T) {
+	wantPubKeyType := ScriptHash
+	wantPubKeys := [][]byte{hexToBytes(
+		"23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1")}
+	wantIsStandard := true
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_HASH160)
+	testScript.PushData(hexToBytes("14"))
+	testScript.PushData(hexToBytes("23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1"))
+	testScript.PushOpCode(OP_EQUAL)
+
+	pubKeyType, pubKeys, isStandart := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandart)
+}
+
+func TestScript_IsStandardScriptPubKey_NotStandard(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_Op_Return_Non_Data(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNullData
+	wantPubKeys = nil
+	wantIsStandard := true
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_RETURN)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_Op_Return_Error(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_EQUAL)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_OP_RETURN_WITHDATA(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNullData
+	wantPubKeys = nil
+	wantIsStandard := true
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_RETURN)
+	testScript.PushData(hexToBytes("0001020304"))
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+
+	wantPubKeyType = ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard = false
+
+	testScript1 := NewEmptyScript()
+	testScript1.PushOpCode(OP_RETURN)
+	testScript1.PushData(hexToBytes("00ffffff"))
+
+	pubKeyType, pubKeys, isStandard = testScript1.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_OP_CHECKSIG(t *testing.T) {
+	wantPubKeyType := ScriptPubkey
+	wantPubKeys := [][]byte{hexToBytes(
+		"0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8")}
+	wantIsStandard := true
+
+	testScript := NewEmptyScript()
+	testScript.PushData(hexToBytes("41"))
+	testScript.PushData(hexToBytes("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"))
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_OP_CHECKSIG_Not_Standard(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushData(hexToBytes("14"))
+	testScript.PushData(hexToBytes("23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1"))
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_P2PKH(t *testing.T) {
+	wantPubKeyType := ScriptPubkeyHash
+	wantPubKeys := [][]byte{hexToBytes(
+		"e2b7f7d12a70737429066a449615270b6851d164")}
+	wantIsStandard := true
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_DUP)
+	testScript.PushOpCode(OP_HASH160)
+	testScript.PushSingleData(hexToBytes("e2b7f7d12a70737429066a449615270b6851d164"))
+	testScript.PushOpCode(OP_EQUALVERIFY)
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_P2PKH_NotStandard(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_DUP)
+	testScript.PushOpCode(OP_HASH160)
+	testScript.PushOpCode(OP_EQUALVERIFY)
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_P2PKH_NotStandard1(t *testing.T) {
+	var wantPubKeys [][]byte
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_DUP)
+	testScript.PushOpCode(OP_HASH160)
+	testScript.PushSingleData(hexToBytes("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"))
+	testScript.PushOpCode(OP_EQUALVERIFY)
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_MultiSig(t *testing.T) {
+	pubKeysData := []string{
+		"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+		"038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
+		"03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640",
 	}
-	/*
-		stk, err := p2shScript.ParseScript()
-		if len(stk) != 3 || err != nil {
-			t.Errorf("the P2SH script should have 3 ParsedOpCode struct instead of %d"+
-				" The err : %v", len(stk), err)
-		}
 
-		for i, parseCode := range stk {
-			if i == 0 {
-				if stk[i].opValue != opcodes.OP_HASH160 || len(stk[i].data) != 0 {
-					t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			} else if i == 1 {
-				if stk[i].opValue != 0x14 || len(stk[i].data) != 0x14 {
-					t.Errorf("parse index %d value should be 0x14 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			} else if i == 2 {
-				if stk[i].opValue != opcodes.OP_EQUAL || len(stk[i].data) != 0 {
-					t.Errorf("parse index %d value should be 0x87 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			}
-		}
+	wantPubKeyType := ScriptMultiSig
+	wantPubKeys := [][]byte{
+		hexToBytes("02"),
+		hexToBytes(pubKeysData[0]),
+		hexToBytes(pubKeysData[1]),
+		hexToBytes(pubKeysData[2]),
+		hexToBytes("03"),
+	}
+	wantIsStandard := true
 
-		num, err := p2shScript.GetSigOpCount()
-		if err != nil || num != 0 {
-			t.Errorf("Error : P2SH script have 0 OpCode instead of %d\n", num)
-		}
+	testScript := NewEmptyScript()
+	testScript.PushInt64(2)
+	for _, v := range pubKeysData {
+		testScript.PushSingleData(hexToBytes(v))
+	}
+	testScript.PushInt64(3)
+	testScript.PushOpCode(OP_CHECKMULTISIG)
 
-		p2pkhScript := NewScriptRaw(p2PKHScript[:])
-		if p2pkhScript.IsPayToScriptHash() {
-			t.Error("script is P2PKH should be false instead of true")
-		}
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
 
-		stk, err = p2pkhScript.ParseScript()
-		if len(stk) != 5 || err != nil {
-			t.Errorf("the P2PKH script should have 5 ParsedOpCode struct instead of %d"+
-				" The err : %v", len(stk), err)
-		}
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
 
-		for i, parseCode := range stk {
-			if i == 0 {
-				if stk[i].opValue != opcodes.OP_DUP || len(stk[i].data) != 0 {
-					t.Errorf("parse index %d value should be 0x76 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			} else if i == 1 {
-				if stk[i].opValue != opcodes.OP_HASH160 || len(stk[i].data) != 0 {
-					t.Errorf("parse index %d value should be 0xa9 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			} else if i == 2 {
-				if stk[i].opValue != 0x14 || len(stk[i].data) != 0x14 {
-					t.Errorf("parse index %d value should be 0x14 instead of 0x%x, dataLenth should be 20 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			} else if i == 3 {
-				if stk[i].opValue != opcodes.OP_EQUALVERIFY || len(stk[i].data) != 0 {
-					t.Errorf("parse index %d value should be 0x88 instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			} else if i == 4 {
-				if stk[i].opValue != opcodes.OP_CHECKSIG || len(stk[i].data) != 0 {
-					t.Errorf("parse index %d value should be 0xac instead of 0x%x, dataLenth should be 0 instead of %d ", i, parseCode.opValue, len(stk[i].data))
-				}
-			}
-		}
+func TestScript_CheckScriptSigStandard_ScriptPubKeyHash(t *testing.T) {
+	wantPubkeyType := ScriptPubkeyHash
+	wantPubkeys := [][]byte{hexToBytes(
+		"23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1")}
+	wantIsStandard := true
 
-		num, err = p2pkhScript.GetSigOpCount()
-		if err != nil || num != 1 {
-			t.Errorf("Error : P2PKH script have 1 OpCode instead of %d\n", num)
-		}
-	*/
+	testScript := NewEmptyScript()
+	testScript.PushOpCode(OP_DUP)
+	testScript.PushOpCode(OP_HASH160)
+	testScript.PushData(hexToBytes("14"))
+	testScript.PushData(hexToBytes("23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1"))
+	testScript.PushOpCode(OP_EQUALVERIFY)
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubkeyType, pubKeyType)
+	assert.Equal(t, wantPubkeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_ScriptPubkey(t *testing.T) {
+	wantPubkeyType := ScriptPubkey
+	wantPubkeys := [][]byte{hexToBytes(
+		"0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8")}
+	wantIsStandard := true
+
+	testScript := NewEmptyScript()
+	testScript.PushData(hexToBytes("41"))
+	testScript.PushData(hexToBytes("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"))
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubkeyType, pubKeyType)
+	assert.Equal(t, wantPubkeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
 
 }
 
+//func TestScript_PushData(t *testing.T) {
+//	scripts := NewScriptRaw(make([]byte, 0))
+//
+//	err := scripts.PushOpCode(OP_HASH160)
+//	if err != nil {
+//		t.Error(err)
+//	}
+//
+//	data := [...]byte{
+//		0x89, 0xAB, 0xCD, 0xEF, 0xAB,
+//		0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
+//		0xAB, 0xBA, 0xAB, 0xBA, 0xAB,
+//		0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
+//	}
+//	scripts.PushData(data[:])
+//	err = scripts.PushOpCode(OP_EQUAL)
+//	var buf bytes.Buffer
+//	scripts.Serialize(&buf)
+//	//assert.Equal(t, p2SHScript[:], buf.Bytes())
+//}
 
-/*
-func TestCScriptPushData(t *testing.T) {
-	script := NewScriptRaw(make([]byte, 0))
+func TestScript_PushOpCode(t *testing.T) {
+	//OP_EQUAL
+}
 
-	err := script.PushOpCode(OP_HASH160)
-	if err != nil {
-		t.Error(err)
+func TestScript_PushInt64(t *testing.T) {
+	tests := []struct {
+		in          int64
+		want        error
+		wantData    []byte
+		description string
+	}{
+		{-2, nil, []byte{0x01, 0x82}, "Input data is -2"},
+		{-1, nil, []byte{0x4f}, "Input data is -1"},
+		{0, nil, []byte{0x00}, "Input data is 0"},
+		{1, nil, []byte{0x51}, "Input data is 1"},
+		{16, nil, []byte{0x60}, "Input data is 16"},
+		{17, nil, []byte{0x01, 0x11}, "Input data is 17"},
 	}
 
-	data := [...]byte{
-		0x89, 0xAB, 0xCD, 0xEF, 0xAB,
-		0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
-		0xAB, 0xBA, 0xAB, 0xBA, 0xAB,
-		0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
-	}
+	for _, v := range tests {
+		value := v
 
-	script.PushData(data[:])
-	err = script.PushOpCode(OP_EQUAL)
-	if err != nil {
-		t.Error(err)
-	}
+		bScript := NewEmptyScript()
+		result := bScript.PushInt64(value.in)
+		assert.Equal(t, value.want, result, value.description)
 
-	if !bytes.Equal(script.data, p2SHScript[:]) {
-		t.Errorf("push data and OpCode composition script %v "+
-			"should be equal origin script data %v", script.data, p2SHScript)
+		data := bScript.GetData()
+		assert.Equal(t, value.wantData, data, value.description)
 	}
 }
 
-func TestScriptPushInt64(t *testing.T) {
-	var script Script
-	script.PushInt64(3)
-	if len(script.data) != 1 {
-		t.Error("func PushInt64() error: should have one element")
-	}
-	if script.data[0] != OP_3 {
-		t.Error("func PushInt64() error: the element should be 83 instead of : ", script.data[0])
+
+func TestScript_PushSingleData(t *testing.T) {
+	tests := []struct {
+		in             []byte
+		wantScriptData []byte
+		wantError      error
+		description    string
+	}{
+		{nil, []byte{0x00}, nil, "Nil data to test."},
+		{
+			bytes.Repeat([]byte{0x00}, OP_PUSHDATA1),
+			combineBytes([]byte{0x4c, 0x4c}, bytes.Repeat([]byte{0x00}, 0x4c)),
+			nil,
+			"Push 0X4c data to test.",
+		},
+		{
+			bytes.Repeat([]byte{0x00}, 0xff),
+			combineBytes([]byte{0x4c, 0xff}, bytes.Repeat([]byte{0x00}, 0xff)),
+			nil,
+			"Push 0xff data to test.",
+		},
+		{
+			bytes.Repeat([]byte{0x00}, 0xffff),
+			combineBytes([]byte{0x4d, 0xff, 0xff}, bytes.Repeat([]byte{0x00}, 0xffff)),
+			nil,
+			"Push 0xffff data to test.",
+		},
+		{
+			bytes.Repeat([]byte{0x00}, 0x010000),
+			combineBytes([]byte{0x4e, 0x00, 0x00, 0x01, 0x00}, bytes.Repeat([]byte{0x00}, 0x010000)),
+			nil,
+			"Push 0x010000 data to test.",
+		},
 	}
 
-	script.data = make([]byte, 0)
-	script.PushInt64(35)
-	if len(script.data) != 1 {
-		t.Error("func PushInt64() error: should have one element")
-	}
-	if script.data[0] != 35 {
-		t.Error("func PushInt64() error: the element should be 35 instead of : ", script.data[0])
-	}
+	for _, v := range tests {
+		value := v
 
-	script.data = make([]byte, 0)
-	script.PushInt64(235)
-	if len(script.data) != 2 {
-		t.Errorf("func PushInt64() error: should have two element instead of %d element", len(script.data))
-	}
-	if script.data[0] != 235 && script.data[1] != 0 {
-		t.Errorf("func PushInt64() error: the element should be 235 instead of : %d", script.data[0])
+		nullScript := NewEmptyScript()
+		err := nullScript.PushSingleData(value.in)
+		assert.Equal(t, value.wantError, err, value.description)
+		data := nullScript.Bytes()
+		assert.Equal(t, hex.EncodeToString(value.wantScriptData), hex.EncodeToString(data), value.description)
 	}
 }
 
-*/
+func combineBytes(pBytes ...[]byte) []byte {
+	return bytes.Join(pBytes, []byte{})
+}
+
+func TestScript_PushMultData(t *testing.T) {
+	tests := []struct {
+		in             [][]byte
+		wantScriptData []byte
+		wantError      error
+		description    string
+	}{
+		// Single data
+		{nil, []byte{}, nil, "Nil data to test."},
+		{[][]byte{{0x00}, {0x00}, {0x00}}, []byte{0x01, 0x00, 0x01, 0x00, 0x01, 0x00}, nil, "Less 0x4c data to test."},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, OP_PUSHDATA1)},
+			combineBytes([]byte{0x4c, 0x4c}, bytes.Repeat([]byte{0x00}, 0x4c)),
+			nil,
+			"Push 0X4c data to test.",
+		},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, 0xff)},
+			combineBytes([]byte{0x4c, 0xff}, bytes.Repeat([]byte{0x00}, 0xff)),
+			nil,
+			"Push 0xff data to test.",
+		},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, 0xffff)},
+			combineBytes([]byte{0x4d, 0xff, 0xff}, bytes.Repeat([]byte{0x00}, 0xffff)),
+			nil,
+			"Push 0xffff data to test.",
+		},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, 0x010000)},
+			combineBytes([]byte{0x4e, 0x00, 0x00, 0x01, 0x00}, bytes.Repeat([]byte{0x00}, 0x010000)),
+			nil,
+			"Push 0x010000 data to test.",
+		},
+
+		// Multi data
+		{[][]byte{nil, nil, nil}, []byte{0x00, 0x00, 0x00}, nil, "Multi Nil data to test."},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, OP_PUSHDATA1), bytes.Repeat([]byte{0x00}, OP_PUSHDATA1)},
+			combineBytes([]byte{0x4c, 0x4c}, bytes.Repeat([]byte{0x00}, 0x4c),
+				[]byte{0x4c, 0x4c}, bytes.Repeat([]byte{0x00}, 0x4c)),
+			nil,
+			"Multi Push 0X4c data to test.",
+		},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, 0xff), bytes.Repeat([]byte{0x00}, 0xff)},
+			combineBytes([]byte{0x4c, 0xff}, bytes.Repeat([]byte{0x00}, 0xff),
+				[]byte{0x4c, 0xff}, bytes.Repeat([]byte{0x00}, 0xff)),
+			nil,
+			"Multi Push 0xff data to test.",
+		},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, 0x1fff), bytes.Repeat([]byte{0x00}, 0x1fff)},
+			combineBytes([]byte{0x4d, 0xff, 0x1f}, bytes.Repeat([]byte{0x00}, 0x1fff),
+				[]byte{0x4d, 0xff, 0x1f}, bytes.Repeat([]byte{0x00}, 0x1fff)),
+			nil,
+			"Multi Push 0xffff data to test.",
+		},
+		{
+			[][]byte{bytes.Repeat([]byte{0x00}, 0x010000), bytes.Repeat([]byte{0x00}, 0x010000)},
+			combineBytes([]byte{0x4e, 0x00, 0x00, 0x01, 0x00}, bytes.Repeat([]byte{0x00}, 0x010000),
+				[]byte{0x4e, 0x00, 0x00, 0x01, 0x00}, bytes.Repeat([]byte{0x00}, 0x010000)),
+			nil,
+			"Push 0x010000 data to test.",
+		},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		nullScript := NewEmptyScript()
+		err := nullScript.PushMultData(value.in)
+		assert.Equal(t, value.wantError, err, value.description)
+		data := nullScript.Bytes()
+		assert.Equal(t, value.wantScriptData, data, value.description)
+	}
+}
 
 /**
  * IsValidSignatureEncoding  A canonical signature exists of: <30> <total len> <02> <len R> <R> <02> <len S> <S> <hashtype>
