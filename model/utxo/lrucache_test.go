@@ -171,6 +171,9 @@ func TestUpdateCoins(t *testing.T) {
 	coinCopy3.dirty = true
 	err = GetUtxoCacheInstance().UpdateCoins(necm, hash)
 	assert.Nil(t, err, "update copy coin failed")
+
+	usage := GetUtxoCacheInstance().DynamicMemoryUsage()
+	assert.NotEmpty(t, usage)
 }
 
 func TestUpdateCoins2(t *testing.T) {
@@ -214,4 +217,9 @@ func TestUpdateCoins2(t *testing.T) {
 	newCoin.fresh = true
 	err = GetUtxoCacheInstance().UpdateCoins(necm, hash)
 	assert.Nil(t, err, "flush failed!")
+}
+
+func TestCoinsLruCache_GetCoinsDB(t *testing.T) {
+	cdb := GetUtxoCacheInstance().(*CoinsLruCache).GetCoinsDB()
+	assert.NotNil(t, cdb)
 }
