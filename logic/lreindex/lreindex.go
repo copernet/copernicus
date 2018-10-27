@@ -27,7 +27,7 @@ func Reindex() (err error) {
 	}
 
 	log.Info("Start reindexing")
-
+	blkdb.GetInstance().WriteReindexing(true)
 	for index, filePath := range blkFiles {
 		dbp := block.NewDiskBlockPos(int32(index), uint32(0))
 		_, err := loadExternalBlockFile(filePath, dbp)
@@ -71,10 +71,12 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (nLoaded in
 	fileSize := uint32(fileInfo.Size())
 	for dbp.Pos < fileSize+1 {
 		log.Info("pos: %d", dbp.Pos)
-		blk, err := disk.ReadBlockFromDiskByPos(*dbp, params)
+		var blk *block.Block
+		blk, err = disk.ReadBlockFromDiskByPos(*dbp, params)
 		if err != nil {
 			if err.Error() == io.EOF.Error() {
-				return nLoaded, err
+				log.Debug("read to the end of file")
+				break
 			}
 			log.Error("fail to read block from pos<%d, %d>", dbp.File, dbp.Pos)
 			return nLoaded, errcode.New(errcode.FailedToReadBlock)
@@ -163,11 +165,10 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (nLoaded in
 		}
 
 		dbp.Pos = dbp.Pos + uint32(blk.EncodeSize()) + 4
-		//nLoaded++
 	}
+
 	log.Info("end-pos: %d", dbp.Pos)
 	log.Info("file size: %d", fileInfo.Size())
-
 	nEndTime := time.Now()
 	if nLoaded > 0 {
 		log.Info("Loaded %d blocks from external file in %f seconds", nLoaded, nEndTime.Sub(nStartTime).Seconds())
