@@ -792,13 +792,3 @@ func TestSyncManager_fetchMissingTx(t *testing.T) {
 
 	fetchMissingTx(missTxs, inpeer)
 }
-
-func TestSyncManager_handleBlockMsg(t *testing.T) {
-	sm, dir, err := makeSyncManager()
-	if err != nil {
-		t.Fatalf("construct syncmanager failed :%v\n", err)
-	}
-	defer os.RemoveAll(dir)
-
-	sm.handleBlockMsg()
-}
