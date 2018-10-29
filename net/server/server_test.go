@@ -603,10 +603,7 @@ func TestTransferMsgToBusinessPro(t *testing.T) {
 		peer.NewPeerMessage(in, getblocksMsg, buf, done),
 	}
 	go func() {
-		for i := 0; i < 3; i++ {
-			select {
-			case <-done:
-			}
+		for range done {
 		}
 	}()
 	for _, msg := range msgs {
