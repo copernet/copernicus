@@ -787,13 +787,13 @@ type Var struct {
 	pubKeys    []crypto.PublicKey
 	prevHolder Tx
 	spender    Tx
-	keyMap     []*crypto.PrivateKey
+	keyStore   *crypto.KeyStore
 }
 
 // Initial the test variable
 func initVar() *Var {
 	var v Var
-	v.keyMap = make([]*crypto.PrivateKey, 0)
+	v.keyStore = crypto.NewKeyStore()
 
 	for i := 0; i < 3; i++ {
 		privateKey := NewPrivateKey()
@@ -802,7 +802,7 @@ func initVar() *Var {
 		pubKey := *privateKey.PubKey()
 		v.pubKeys = append(v.pubKeys, pubKey)
 
-		v.keyMap = append(v.keyMap, &privateKey)
+		v.keyStore.AddKey(&privateKey)
 	}
 
 	return &v
@@ -832,7 +832,7 @@ func TestSignStepP2PKH(t *testing.T) {
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	// Single signature case:
-	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, 1)
+	sigData, err := v.spender.SignStep(0, v.keyStore, nil, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
 	// <signature> <pubkey>
 	assert.Equal(t, len(sigData), 2)
@@ -868,7 +868,7 @@ func TestSignStepP2SH(t *testing.T) {
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	// Single signature case:
-	sigData, err := v.spender.SignStep(0, v.keyMap, pubKey, hashType, scriptPubKey, 1)
+	sigData, err := v.spender.SignStep(0, v.keyStore, pubKey, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
 	// <signature> <redeemscript>
 	assert.Equal(t, len(sigData), 2)
@@ -902,7 +902,7 @@ func TestSignStepMultiSig(t *testing.T) {
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 
 	// Multiple signature case:
-	sigData, err := v.spender.SignStep(0, v.keyMap, nil, hashType, scriptPubKey, 1)
+	sigData, err := v.spender.SignStep(0, v.keyStore, nil, hashType, scriptPubKey, 1)
 	assert.Nil(t, err)
 	// <OP_0> <signature0> ... <signatureM>
 	assert.Equal(t, len(sigData), 3)

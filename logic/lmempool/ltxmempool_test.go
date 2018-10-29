@@ -197,6 +197,14 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*t
 	return tx, nil
 }
 
+func getKeyStore(pkeys []*crypto.PrivateKey) *crypto.KeyStore {
+	keyStore := crypto.NewKeyStore()
+	for _, pkey := range pkeys {
+		keyStore.AddKey(pkey)
+	}
+	return keyStore
+}
+
 // CreateSignedTx creates a new signed transaction that consumes the provided
 // inputs and generates the provided number of outputs by evenly splitting the
 // total input amount.  All outputs will be to the payment script associated
@@ -237,7 +245,8 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 	// 	}
 	// 	tx.TxIn[i].SignatureScript = sigScript
 	// }
-	ltx.SignRawTransaction([]*tx.Tx{txn}, nil, p.keys, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
+	keyStore := getKeyStore(p.keys)
+	ltx.SignRawTransaction([]*tx.Tx{txn}, nil, keyStore, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
 
 	return txn, nil
 }
@@ -273,7 +282,8 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 		// 	return nil, err
 		// }
 		// tx.TxIn[0].SignatureScript = sigScript
-		errs := ltx.SignRawTransaction([]*tx.Tx{txn}, nil, p.keys, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
+		keyStore := getKeyStore(p.keys)
+		errs := ltx.SignRawTransaction([]*tx.Tx{txn}, nil, keyStore, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
 		if len(errs) > 0 {
 			log.Error("%#v, %#v", errs, p.chain.utxos)
 			panic(errs)

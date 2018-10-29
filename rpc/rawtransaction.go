@@ -629,18 +629,9 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		return nil, rpcErr
 	}
 
-	priKeys := make([]*crypto.PrivateKey, 0)
-	if c.PrivKeys != nil {
-		for _, key := range *c.PrivKeys {
-			priKey, err := crypto.DecodePrivateKey(key)
-			if err != nil {
-				return nil, btcjson.RPCError{
-					Code:    btcjson.RPCInvalidAddressOrKey,
-					Message: "Invalid private key",
-				}
-			}
-			priKeys = append(priKeys, priKey)
-		}
+	keyStore, rpcErr := getKeys(c.PrivKeys, coinsMap, redeemScripts)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	hashType := crypto.SigHashAll | crypto.SigHashForkID
@@ -654,7 +645,7 @@ func handleSignRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		}
 	}
 
-	signErrors := ltx.SignRawTransaction(txVariants, redeemScripts, priKeys, coinsMap, uint32(hashType))
+	signErrors := ltx.SignRawTransaction(txVariants, redeemScripts, keyStore, coinsMap, uint32(hashType))
 	errors := make([]*btcjson.SignRawTransactionError, 0, len(signErrors))
 	for _, signErr := range signErrors {
 		errors = append(errors, TxInErrorToJSON(signErr.TxIn, signErr.ErrMsg))
@@ -734,6 +725,40 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 		}
 	}
 	return coinsMap, redeemScripts, nil
+}
+
+func getPubKeyHash(scriptPubKey *script.Script) [][]byte {
+	pubKeyHash := make([][]byte, 0)
+	pubKeyType, pubKeys, _ := scriptPubKey.IsStandardScriptPubKey()
+
+	if pubKeyType == script.ScriptPubkey {
+		pubKeyHash = append(pubKeyHash, util.Hash160(pubKeys[0]))
+
+	} else if pubKeyType == script.ScriptPubkeyHash {
+		pubKeyHash = append(pubKeyHash, pubKeys[0])
+
+	} else if pubKeyType == script.ScriptMultiSig {
+		for _, pubKey := range pubKeys[1:] {
+			pubKeyHash = append(pubKeyHash, util.Hash160(pubKey))
+		}
+	}
+	return pubKeyHash
+}
+
+func getKeys(privateKeys *[]string, coinsMap *utxo.CoinsMap,
+	redeemScripts map[outpoint.OutPoint]*script.Script) (*crypto.KeyStore, *btcjson.RPCError) {
+
+	keyStore := crypto.NewKeyStore()
+	if privateKeys != nil {
+		for _, key := range *privateKeys {
+			privateKey, err := crypto.DecodePrivateKey(key)
+			if err != nil {
+				return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Invalid private key")
+			}
+			keyStore.AddKey(privateKey)
+		}
+	}
+	return keyStore, nil
 }
 
 func TxInErrorToJSON(in *txin.TxIn, errorMessage string) *btcjson.SignRawTransactionError {

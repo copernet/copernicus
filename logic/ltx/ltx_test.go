@@ -579,7 +579,7 @@ type Var struct {
 	pubKeys       []crypto.PublicKey
 	prevHolder    tx.Tx
 	spender       tx.Tx
-	keyMap        []*crypto.PrivateKey
+	keyStore      *crypto.KeyStore
 	redeemScripts map[outpoint.OutPoint]*script.Script
 	coins         *utxo.CoinsMap
 }
@@ -587,7 +587,7 @@ type Var struct {
 // Initial the test variable
 func initVar() *Var {
 	var v Var
-	v.keyMap = make([]*crypto.PrivateKey, 0)
+	v.keyStore = crypto.NewKeyStore()
 	v.redeemScripts = make(map[outpoint.OutPoint]*script.Script)
 
 	for i := 0; i < 3; i++ {
@@ -597,7 +597,7 @@ func initVar() *Var {
 		pubKey := *privateKey.PubKey()
 		v.pubKeys = append(v.pubKeys, pubKey)
 
-		v.keyMap = append(v.keyMap, &privateKey)
+		v.keyStore.AddKey(&privateKey)
 	}
 
 	return &v
@@ -624,7 +624,7 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 
 	txns := make([]*tx.Tx, 0, 1)
 	txns = append(txns, &v.spender)
-	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyStore, v.coins, hashType)
 	checkErrors(errs, t)
 	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
@@ -658,7 +658,7 @@ func check(v *Var, lockingScript *script.Script, t *testing.T) {
 	}
 
 	// Signing again will give a different, valid signature:
-	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyStore, v.coins, hashType)
 	checkErrors(errs, t)
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
 	fmt.Println(hex.EncodeToString(scriptSig.GetData()))
@@ -763,7 +763,7 @@ func TestCombineSignature(t *testing.T) {
 	hashType := uint32(crypto.SigHashAll | crypto.SigHashForkID)
 	txns := make([]*tx.Tx, 0, 1)
 	txns = append(txns, &v.spender)
-	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyStore, v.coins, hashType)
 	checkErrors(errs, t)
 	scriptSig := v.spender.GetIns()[0].GetScriptSig()
 
@@ -828,7 +828,7 @@ func TestCombineSignature(t *testing.T) {
 	v.coins = coinsMap
 	v.spender.GetIns()[0].SetScriptSig(empty)
 
-	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyStore, v.coins, hashType)
 	checkErrors(errs, t)
 
 	scriptSig = v.spender.GetIns()[0].GetScriptSig()
@@ -1096,13 +1096,13 @@ func TestSignRawTransactionErrors(t *testing.T) {
 	v.coins = utxo.NewEmptyCoinsMap()
 	txns := make([]*tx.Tx, 0, 1)
 	txns = append(txns, &v.spender)
-	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	errs := ltx.SignRawTransaction(txns, v.redeemScripts, v.keyStore, v.coins, hashType)
 	assert.Equal(t, len(errs), len(txns))
 	v.coins = coinsMap
 
 	// redeemScripts empty
 	v.redeemScripts = nil
-	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyMap, v.coins, hashType)
+	errs = ltx.SignRawTransaction(txns, v.redeemScripts, v.keyStore, v.coins, hashType)
 	assert.Equal(t, len(errs), len(txns))
 }
 

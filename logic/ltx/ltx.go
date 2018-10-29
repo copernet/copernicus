@@ -875,8 +875,7 @@ func isCoinValid(coin *utxo.Coin, out *outpoint.OutPoint) bool {
 }
 
 func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoint]*script.Script,
-	keys []*crypto.PrivateKey, coinsMap *utxo.CoinsMap, hashType uint32) []*SignError {
-
+	keyStore *crypto.KeyStore, coinsMap *utxo.CoinsMap, hashType uint32) []*SignError {
 	var err error
 	var signErrors []*SignError
 
@@ -901,7 +900,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 		if !hashSingle || index < mergedTx.GetOutsCount() {
 			redeemScript := redeemScripts[*in.PreviousOutPoint]
 			// Sign what we can
-			sigData, err := mergedTx.SignStep(index, keys, redeemScript, hashType, scriptPubKey, value)
+			sigData, err := mergedTx.SignStep(index, keyStore, redeemScript, hashType, scriptPubKey, value)
 			if err != nil {
 				log.Info("SignStep error:%s", err.Error())
 			} else {
