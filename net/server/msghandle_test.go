@@ -11,6 +11,7 @@ var clfunc context.CancelFunc
 
 func init() {
 	ctxTest, clfunc = context.WithCancel(pctx)
+	defer clfunc()
 }
 
 func TestSetMsgHandle(t *testing.T) {
