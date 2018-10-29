@@ -20,35 +20,22 @@ func TestHeight(t *testing.T) {
 }
 
 func testsort(t *testing.T, testdata []intless) {
-	sk := New(256)
-	assert.Equal(t, len(sk.header.nexts), 8)
+	sk := New(len(testdata))
 
 	nodesMap := make(map[intless]*node)
 	for _, td := range testdata {
 		nodesMap[td] = sk.ReplaceOrInsert(intless(td)).(*node)
 	}
-
-	iter := sk.CreateIterator()
-
-	nless, ok := iter.Next()
-	if !ok {
-		return
-	}
-	cnt := 1
-	prev := nless.(intless)
-	assert.Contains(t, nodesMap, prev)
-	for {
-		nless, ok := iter.Next()
-		if !ok {
-			break
-		}
+	prev := intless(-1)
+	cnt := 0
+	sk.Ascend(func(item mapcontainer.Lesser) bool {
+		cur := item.(intless)
+		assert.Contains(t, nodesMap, cur)
+		assert.True(t, prev < cur, "%v not less than %v", prev, cur)
+		prev = cur
 		cnt++
-		cur := nless.(intless)
-
-		assert.True(t, prev < cur,
-			"%v not less than %v", prev, cur)
-	}
-
+		return true
+	})
 	assert.Equal(t, cnt, len(nodesMap))
 }
 
@@ -102,6 +89,67 @@ func TestSearch(t *testing.T) {
 	}
 	_, found := sk.Search(intless(1001))
 	assert.False(t, found)
+}
+
+func findMin(data []mapcontainer.Lesser) mapcontainer.Lesser {
+	minp := data[0]
+	for _, item := range data {
+		if item.Less(minp) {
+			minp = item
+		}
+	}
+	return minp
+}
+
+func TestMin(t *testing.T) {
+	insertP := perm(1000)
+	sk := New(len(insertP))
+
+	for i, item := range insertP {
+		sk.ReplaceOrInsert(item)
+		minp := findMin(insertP[:i+1])
+		assert.Equal(t, minp, sk.Min())
+	}
+}
+
+func TestDelete(t *testing.T) {
+	insertP := perm(1000)
+	sk := New(len(insertP))
+
+	keySet := make(map[mapcontainer.Lesser]struct{})
+	for _, item := range insertP {
+		sk.ReplaceOrInsert(item)
+		keySet[item] = struct{}{}
+	}
+	for i, _ := range keySet {
+		_, found := sk.Delete(i)
+		assert.True(t, found)
+
+		_, found = sk.Search(i)
+		assert.False(t, found)
+	}
+
+	_, found := sk.Delete(intless(33333))
+	assert.False(t, found)
+}
+
+func TestAscend(t *testing.T) {
+	insertP := perm(1000)
+	cnt := 0
+	sk := New(len(insertP))
+
+	for _, item := range insertP {
+		sk.ReplaceOrInsert(item)
+	}
+
+	sk.Ascend(func(item mapcontainer.Lesser) bool {
+		if cnt == 456 {
+			return false
+		}
+		cnt++
+		return true
+	})
+	assert.Equal(t, 456, cnt)
 }
 
 func perm(n int) (out []mapcontainer.Lesser) {

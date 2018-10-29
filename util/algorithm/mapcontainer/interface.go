@@ -9,7 +9,3 @@ type MapContainer interface {
 	Search(Lesser) (Lesser, bool)
 	ReplaceOrInsert(Lesser) Lesser
 }
-
-type MapContainerIterator interface {
-	Next() (Lesser, bool)
-}
