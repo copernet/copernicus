@@ -285,25 +285,18 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 		return false
 	}
 	defer file.Close()
+
 	buf := bytes.NewBuffer(nil)
+	buf.Write(make([]byte, 4)) //reserve 4 bytes for block data length
 	err := block.Serialize(buf)
 	if err != nil {
 		log.Error("Serialize buf error: %v", err)
 		return false
 	}
-	size := buf.Len()
-	lenBuf := bytes.NewBuffer(nil)
-	err = util.BinarySerializer.PutUint32(lenBuf, binary.LittleEndian, uint32(size))
-	if err != nil {
-		log.Error("WriteBlockToDisk: put size error: %v", err)
-		return false
-	}
-	lenData := lenBuf.Bytes()
-	_, err = file.Write(lenData)
-	if err != nil {
-		log.Error("WriteBlockToDisk: write lenData error: %v", err)
-		return false
-	}
+
+	//fill actual block data length in leading 4 bytes
+	binary.LittleEndian.PutUint32(buf.Bytes(), uint32(buf.Len()-4))
+
 	_, err = file.Write(buf.Bytes())
 	if err != nil {
 		log.Error("WriteBlockToDisk: write buf.Bytes() error: %v", err)
@@ -456,8 +449,7 @@ func CheckDiskSpace(nAdditionalBytes uint32) bool {
 		log.Error("CheckDiskSpace:can not get disk info:%v", err)
 		return false
 	}
-	nFreeBytesAvailable := fs.Ffree * uint64(fs.Bsize)
-
+	nFreeBytesAvailable := fs.Bavail * uint64(fs.Bsize)
 	// Check for nMinDiskSpace bytes (currently 50MB)
 	MinDiskSpace := 52428800
 	n := int(nAdditionalBytes)
