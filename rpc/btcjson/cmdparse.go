@@ -256,6 +256,11 @@ func typesMaybeCompatible(dest reflect.Type, src reflect.Type) bool {
 	// When both types are numeric, they are potentially compatible.
 	srcKind := src.Kind()
 	destKind := dest.Kind()
+
+	if destKind == reflect.Interface {
+		return true
+	}
+
 	if isNumeric(destKind) && isNumeric(srcKind) {
 		return true
 	}
@@ -311,6 +316,11 @@ func assignField(paramNum int, fieldName string, dest reflect.Value, src reflect
 		str := fmt.Sprintf("parameter #%d '%s' must be type %v (got "+
 			"%v)", paramNum, fieldName, destBaseType, srcBaseType)
 		return makeError(ErrInvalidType, str)
+	}
+
+	if destBaseType.Kind() == reflect.Interface {
+		dest.Set(src)
+		return nil
 	}
 
 	// Check if it's possible to simply set the dest to the provided source.

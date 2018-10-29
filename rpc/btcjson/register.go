@@ -118,8 +118,6 @@ func isAcceptableKind(kind reflect.Kind) bool {
 	case reflect.Func:
 		fallthrough
 	case reflect.Ptr:
-		fallthrough
-	case reflect.Interface:
 		return false
 	}
 
