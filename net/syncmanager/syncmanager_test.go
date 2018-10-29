@@ -33,6 +33,7 @@ import (
 	"io"
 	"net"
 	"time"
+	"github.com/copernet/copernicus/service"
 )
 
 type mockPeerNotifier struct{}
@@ -330,6 +331,12 @@ var blk1str = "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA33090
 	"00000000FFFFFFFF0E0420E7494D017F062F503253482FFFFFFFFF0100F2052A01000000232102" +
 	"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00000000"
 
+var blk2str = "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA330900000000" +
+	"BAC8B0FA927C0AC8234287E33C5F74D38D354820E24756AD709D7038FC5F31F020E7494DFFFF00" +
+	"1D03E4B67201010000000100000000000000000000000000000000000000000000000000000000" +
+	"00000000FFFFFFFF0E0420E7494D017F062F503253482FFFFFFFFF0100F2052A01000000232102" +
+	"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00232102"
+
 func TestSyncManager_handleBlockchainNotification(t *testing.T) {
 	sm, dir, err := makeSyncManager()
 	if err != nil {
@@ -530,7 +537,7 @@ var peer1Cfg = &peer.Config{
 }
 
 func getpeerState() *peerSyncState {
-	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	hash1 := util.HashFromString("00000000b873e79784647a6c82962c70d228557d24a747ea4d1b8bbe878e1206")
 	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
 	msgInv := wire.NewMsgInv()
 	msgInv.AddInvVect(invVect1)
@@ -791,4 +798,71 @@ func TestSyncManager_fetchMissingTx(t *testing.T) {
 	missTxs = append(missTxs, *hash2)
 
 	fetchMissingTx(missTxs, inpeer)
+}
+
+func TestSyncManager_handleBlockMsg(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+	syncState := getpeerState()
+	sm.peerStates[inpeer] = syncState
+
+	blk := getBlock(blk1str)
+
+	bmsg := &blockMsg{
+		block: blk,
+		buf:   make([]byte, 10),
+		peer:  inpeer,
+	}
+
+	sm.ProcessBlockCallBack = service.ProcessBlock
+	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
+	sm.ProcessTransactionCallBack = service.ProcessTransaction
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	node := headerNode{
+		height: 10,
+		hash:   hash1,
+	}
+	sm.headerList.PushBack(&node)
+	sm.handleBlockMsg(bmsg)
+
+	sm.requestBlkInvCnt = 1
+	sm.headersFirstMode = true
+	sm.handleBlockMsg(bmsg)
+
+	blk1 := getBlock(blk2str)
+	bmsg1 := &blockMsg{
+		block: blk1,
+		buf:   make([]byte, 10),
+		peer:  inpeer,
+	}
+	sm.handleBlockMsg(bmsg1)
+}
+
+func TestSyncManager_handleTxMsg(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	sm.ProcessBlockCallBack = service.ProcessBlock
+	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
+	sm.ProcessTransactionCallBack = service.ProcessTransaction
+
+	tmpTX := tx.NewTx(0x01, 0x02)
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+	syncState := getpeerState()
+	sm.peerStates[inpeer] = syncState
+
+	tmsg := &txMsg{
+		tx:   tmpTX,
+		peer: inpeer,
+	}
+
+	sm.handleTxMsg(tmsg)
 }
