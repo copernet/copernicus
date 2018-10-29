@@ -4,6 +4,8 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
+	"github.com/copernet/copernicus/logic/lblockindex"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -17,17 +19,15 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/google/btree"
 	"math"
+	"math/rand"
 	"sort"
 	"strconv"
-
-	"github.com/copernet/copernicus/logic/lblockindex"
-	"github.com/copernet/copernicus/logic/lchain"
-	"github.com/copernet/copernicus/model/utxo"
-	"github.com/google/btree"
 )
 
 const (
@@ -444,6 +444,13 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 	scriptSig.PushScriptNum(extraNonceNum)
 
 	scriptSig.PushData(append(getExcessiveBlockSizeSig(), []byte(CoinbaseFlag)...))
+
+	//avoid generate same block header during regtest
+	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
+		seed := make([]byte, 8)
+		rand.Read(seed)
+		scriptSig.PushData(seed)
+	}
 
 	return scriptSig
 }
