@@ -106,6 +106,206 @@ func TestScriptDecodeOPN(t *testing.T) {
 	}
 }
 
+func TestScript_SerializeUnSerialize(t *testing.T) {
+	var buf bytes.Buffer
+
+	testScript := NewEmptyScript()
+	testScript.Serialize(&buf)
+
+	serializeSize := testScript.SerializeSize()
+	encodeSize := testScript.EncodeSize()
+
+	resultScript := NewEmptyScript()
+	resultScript.Unserialize(&buf, false)
+
+	flag := testScript.IsEqual(resultScript)
+
+	assert.Equal(t, testScript, resultScript)
+	assert.Equal(t, serializeSize, encodeSize)
+	assert.Equal(t, true, flag)
+}
+
+func TestScript_IsSpendable(t *testing.T) {
+	tests := []struct {
+		in   []byte
+		want bool
+	}{
+		{[]byte{OP_RETURN, 0x00}, false},
+		{[]byte{}, true},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		scripts := NewScriptRaw(value.in)
+		isSpendAble := scripts.IsSpendable()
+		assert.Equal(t, value.want, isSpendAble)
+	}
+}
+
+func TestScript_RemoveOpcode(t *testing.T) {
+	tests := []struct {
+		name   string
+		before []byte
+		remove byte
+		after  []byte
+	}{
+		{
+			// Nothing to remove.
+			name:   "nothing to remove",
+			before: []byte{OP_NOP},
+			remove: OP_CODESEPARATOR,
+			after:  []byte{OP_NOP},
+		},
+		{
+			// Test basic opcode removal.
+			name:   "codeseparator 1",
+			before: []byte{OP_NOP, OP_CODESEPARATOR, OP_TRUE},
+			remove: OP_CODESEPARATOR,
+			after:  []byte{OP_NOP, OP_TRUE},
+		},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		testScript := NewScriptRaw(value.before)
+		afterRemove := testScript.RemoveOpcode(value.remove)
+		wantScript := NewScriptRaw(value.after)
+
+		assert.Equal(t, wantScript, afterRemove, value.name)
+	}
+}
+
+func TestScript_RemoveOpcodeByData(t *testing.T) {
+	tests := []struct {
+		name   string
+		before []byte
+		remove []byte
+		err    error
+		after  []byte
+	}{
+		{
+			name:   "nothing to do",
+			before: []byte{OP_NOP},
+			remove: []byte{1, 2, 3, 4},
+			after:  []byte{OP_NOP},
+		},
+		{
+			name: "simple case (pushdata1 miss)",
+			before: append(append([]byte{OP_PUSHDATA1, 76},
+				bytes.Repeat([]byte{0}, 72)...),
+				[]byte{1, 2, 3, 4}...),
+			remove: []byte{1, 2, 3, 5},
+			after: append(append([]byte{OP_PUSHDATA1, 76},
+				bytes.Repeat([]byte{0}, 72)...),
+				[]byte{1, 2, 3, 4}...),
+		},
+		{
+			name:   "simple case (pushdata1 miss noncanonical)",
+			before: []byte{OP_PUSHDATA1, 4, 1, 2, 3, 4},
+			remove: []byte{1, 2, 3, 4},
+			after:  []byte{OP_PUSHDATA1, 4, 1, 2, 3, 4},
+		},
+		{
+			name: "simple case (pushdata2 miss)",
+			before: append(append([]byte{OP_PUSHDATA2, 0, 1},
+				bytes.Repeat([]byte{0}, 252)...),
+				[]byte{1, 2, 3, 4}...),
+			remove: []byte{1, 2, 3, 4, 5},
+			after: append(append([]byte{OP_PUSHDATA2, 0, 1},
+				bytes.Repeat([]byte{0}, 252)...),
+				[]byte{1, 2, 3, 4}...),
+		},
+		{
+			name:   "simple case (pushdata2 miss noncanonical)",
+			before: []byte{OP_PUSHDATA2, 4, 0, 1, 2, 3, 4},
+			remove: []byte{1, 2, 3, 4},
+			after:  []byte{OP_PUSHDATA2, 4, 0, 1, 2, 3, 4},
+		},
+		{
+			name:   "simple case (pushdata4 miss noncanonical)",
+			before: []byte{OP_PUSHDATA4, 4, 0, 0, 0, 1, 2, 3, 4},
+			remove: []byte{1, 2, 3, 4},
+			after:  []byte{OP_PUSHDATA4, 4, 0, 0, 0, 1, 2, 3, 4},
+		},
+		{
+			// This is padded to make the push canonical.
+			name: "simple case (pushdata4 miss)",
+			before: append(append([]byte{OP_PUSHDATA4, 0, 0, 1, 0},
+				bytes.Repeat([]byte{0}, 65532)...), []byte{1, 2, 3, 4}...),
+			remove: []byte{1, 2, 3, 4, 5},
+			after: append(append([]byte{OP_PUSHDATA4, 0, 0, 1, 0},
+				bytes.Repeat([]byte{0}, 65532)...), []byte{1, 2, 3, 4}...),
+		},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		testScript := NewScriptRaw(value.before)
+		afterRemove := testScript.RemoveOpcodeByData(value.remove)
+
+		wantScript := NewScriptRaw(value.after)
+
+		assert.Equal(t, wantScript, afterRemove, value.name)
+	}
+}
+
+func TestScript_RemoveOpCodeByIndex(t *testing.T) {
+	tests := []struct {
+		name   string
+		before []byte
+		remove int
+		after  []byte
+	}{
+		{
+			// Nothing to remove.
+			name:   "nothing to remove",
+			before: []byte{OP_NOP},
+			remove: 0,
+			after:  []byte{},
+		},
+		{
+			// Test basic opcode removal.
+			name:   "codeseparator 1",
+			before: []byte{OP_NOP, OP_CODESEPARATOR, OP_TRUE},
+			remove: 1,
+			after:  []byte{OP_NOP, OP_TRUE},
+		},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		testScript := NewScriptRaw(value.before)
+		afterRemove := testScript.RemoveOpCodeByIndex(value.remove)
+		wantScript := NewScriptRaw(value.after)
+
+		assert.Equal(t, wantScript, afterRemove, value.name)
+	}
+}
+
+func TestBytesToBool(t *testing.T) {
+	tests := []struct {
+		in   []byte
+		want bool
+	}{
+		{[]byte{}, false},
+		{[]byte{0x80}, false},
+		{[]byte{0x00}, false},
+		{[]byte{0x01}, true},
+	}
+
+	for _, v := range tests {
+		value := v
+
+		result := BytesToBool(value.in)
+
+		assert.Equal(t, value.want, result)
+	}
+}
+
 func TestScript_IsStandardScriptPubKey_ScriptHash(t *testing.T) {
 	wantPubKeyType := ScriptHash
 	wantPubKeys := [][]byte{hexToBytes(
@@ -140,7 +340,7 @@ func TestScript_IsStandardScriptPubKey_NotStandard(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_Op_Return_Non_Data(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_OPRETURNNonData(t *testing.T) {
 	var wantPubKeys [][]byte
 	wantPubKeyType := ScriptNullData
 	wantPubKeys = nil
@@ -156,7 +356,7 @@ func TestScript_IsStandardScriptPubKey_Op_Return_Non_Data(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_Op_Return_Error(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_OPRETURNError(t *testing.T) {
 	var wantPubKeys [][]byte
 	wantPubKeyType := ScriptNonStandard
 	wantPubKeys = nil
@@ -172,7 +372,7 @@ func TestScript_IsStandardScriptPubKey_Op_Return_Error(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_OP_RETURN_WITHDATA(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_OPRETURNWithData(t *testing.T) {
 	var wantPubKeys [][]byte
 	wantPubKeyType := ScriptNullData
 	wantPubKeys = nil
@@ -203,7 +403,7 @@ func TestScript_IsStandardScriptPubKey_OP_RETURN_WITHDATA(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_OP_CHECKSIG(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_OPCHECKSIG(t *testing.T) {
 	wantPubKeyType := ScriptPubkey
 	wantPubKeys := [][]byte{hexToBytes(
 		"0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8")}
@@ -221,7 +421,7 @@ func TestScript_IsStandardScriptPubKey_OP_CHECKSIG(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_OP_CHECKSIG_Not_Standard(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_OPCHECKSIGNotStandard(t *testing.T) {
 	var wantPubKeys [][]byte
 	wantPubKeyType := ScriptNonStandard
 	wantPubKeys = nil
@@ -259,7 +459,7 @@ func TestScript_IsStandardScriptPubKey_P2PKH(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_P2PKH_NotStandard(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_P2PKHNotStandard_WithoutPubKeyHash(t *testing.T) {
 	var wantPubKeys [][]byte
 	wantPubKeyType := ScriptNonStandard
 	wantPubKeys = nil
@@ -278,7 +478,7 @@ func TestScript_IsStandardScriptPubKey_P2PKH_NotStandard(t *testing.T) {
 	assert.Equal(t, wantIsStandard, isStandard)
 }
 
-func TestScript_IsStandardScriptPubKey_P2PKH_NotStandard1(t *testing.T) {
+func TestScript_IsStandardScriptPubKey_P2PKHNotStandard_PubKeyLengthError(t *testing.T) {
 	var wantPubKeys [][]byte
 	wantPubKeyType := ScriptNonStandard
 	wantPubKeys = nil
@@ -287,7 +487,7 @@ func TestScript_IsStandardScriptPubKey_P2PKH_NotStandard1(t *testing.T) {
 	testScript := NewEmptyScript()
 	testScript.PushOpCode(OP_DUP)
 	testScript.PushOpCode(OP_HASH160)
-	testScript.PushSingleData(hexToBytes("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"))
+	testScript.PushSingleData(hexToBytes("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"))
 	testScript.PushOpCode(OP_EQUALVERIFY)
 	testScript.PushOpCode(OP_CHECKSIG)
 
@@ -317,6 +517,164 @@ func TestScript_IsStandardScriptPubKey_MultiSig(t *testing.T) {
 
 	testScript := NewEmptyScript()
 	testScript.PushInt64(2)
+	for _, v := range pubKeysData {
+		testScript.PushSingleData(hexToBytes(v))
+	}
+	testScript.PushInt64(3)
+	testScript.PushOpCode(OP_CHECKMULTISIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_MultiSig_PubKeyLengthError(t *testing.T) {
+	pubKeysData := []string{
+		"23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1",
+		"7f67f0521934a57d3039f77f9f32cf313f3ac74b",
+		"2df519943d5acc0ef5222091f9dfe3543f489a82",
+	}
+
+	var wantPubKeys [][]byte
+
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushInt64(2)
+	for _, v := range pubKeysData {
+		testScript.PushSingleData(hexToBytes(v))
+	}
+	testScript.PushInt64(3)
+	testScript.PushOpCode(OP_CHECKMULTISIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_MultiSig_PubKeyNumError(t *testing.T) {
+	pubKeysData := []string{
+		"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+		"038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
+		"03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640",
+	}
+
+	var wantPubKeys [][]byte
+
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushInt64(2)
+	for _, v := range pubKeysData {
+		testScript.PushSingleData(hexToBytes(v))
+	}
+	testScript.PushInt64(17)
+	testScript.PushOpCode(OP_CHECKMULTISIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_MultiSig_OPCODEError(t *testing.T) {
+	pubKeysData := []string{
+		"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+		"038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
+		"03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640",
+	}
+
+	var wantPubKeys [][]byte
+
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushInt64(2)
+	for _, v := range pubKeysData {
+		testScript.PushSingleData(hexToBytes(v))
+	}
+	testScript.PushInt64(3)
+	testScript.PushOpCode(OP_CHECKSIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_MultiSig_SigNumError(t *testing.T) {
+	pubKeysData := []string{
+		"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+		"038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
+		"03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640",
+	}
+
+	var wantPubKeys [][]byte
+
+	wantPubKeyType := ScriptMultiSig
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushInt64(4)
+	for _, v := range pubKeysData {
+		testScript.PushSingleData(hexToBytes(v))
+	}
+	testScript.PushInt64(3)
+	testScript.PushOpCode(OP_CHECKMULTISIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_MultiSig_OpCodesLenError(t *testing.T) {
+	var wantPubKeys [][]byte
+
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
+	testScript.PushInt64(2)
+	testScript.PushInt64(3)
+	testScript.PushOpCode(OP_CHECKMULTISIG)
+
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
+
+	assert.Equal(t, wantPubKeyType, pubKeyType)
+	assert.Equal(t, wantPubKeys, pubKeys)
+	assert.Equal(t, wantIsStandard, isStandard)
+}
+
+func TestScript_IsStandardScriptPubKey_Error(t *testing.T) {
+	pubKeysData := []string{
+		"0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+		"038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508",
+		"03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640",
+	}
+
+	var wantPubKeys [][]byte
+
+	wantPubKeyType := ScriptNonStandard
+	wantPubKeys = nil
+	wantIsStandard := false
+
+	testScript := NewEmptyScript()
 	for _, v := range pubKeysData {
 		testScript.PushSingleData(hexToBytes(v))
 	}
@@ -421,7 +779,6 @@ func TestScript_PushInt64(t *testing.T) {
 		assert.Equal(t, value.wantData, data, value.description)
 	}
 }
-
 
 func TestScript_PushSingleData(t *testing.T) {
 	tests := []struct {
