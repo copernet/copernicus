@@ -26,7 +26,8 @@ func registerAllRPCCommands() {
 	registerMiningRPCCommands()
 	registerMiscRPCCommands()
 	registerNetRPCCommands()
-	registeRawTransactionRPCCommands()
+	registerRawTransactionRPCCommands()
+	registerWalletRPCCommands()
 }
 
 func init() {

@@ -643,6 +643,16 @@ func (tx *Tx) GetOuts() []*txout.TxOut {
 	return tx.outs
 }
 
+func (tx *Tx) InsertTxOut(pos int, txOut *txout.TxOut) {
+	if pos > len(tx.outs) {
+		tx.outs = append(tx.outs, txOut)
+		return
+	}
+	rear := append([]*txout.TxOut{}, tx.outs[pos:]...)
+	tx.outs = append(tx.outs[:pos], txOut)
+	tx.outs = append(tx.outs, rear...)
+}
+
 func NewTx(locktime uint32, version int32) *Tx {
 	tx := &Tx{lockTime: locktime, version: version}
 	tx.ins = make([]*txin.TxIn, 0)

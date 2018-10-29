@@ -9,6 +9,7 @@ import (
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
+	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -509,9 +510,9 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GenerateToAddressCmd)
 
-	coinbaseScript, err := getStandardScriptPubKey(c.Address, nil)
-	if err != nil {
-		return nil, err
+	coinbaseScript, rpcErr := getStandardScriptPubKey(c.Address, nil)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
@@ -521,6 +522,13 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.GenerateCmd)
 
+	if !lwallet.IsWalletEnable() {
+		return nil, btcjson.RPCError{
+			Code:    btcjson.ErrRPCMethodNotFound.Code,
+			Message: "Method not found (wallet method is disabled because no wallet is loaded)",
+		}
+	}
+
 	// Respond with an error if the client is requesting 0 blocks to be generated.
 	if c.NumBlocks == 0 {
 		return nil, &btcjson.RPCError{
@@ -529,11 +537,14 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	//TODO: after add wallet,remove opcode_True.
-	opcodeTrue := []byte{0x51}
-	coinbaseScript := script.NewScriptRaw(opcodeTrue)
+	addr, err := lwallet.GetMiningAddress()
+	if err != nil {
+		log.Info("GetMiningAddress error:%s", err.Error())
+		return nil, btcjson.ErrRPCInternal
+	}
 
-	if coinbaseScript == nil {
+	coinbaseScript, rpcErr := getStandardScriptPubKey(addr, nil)
+	if rpcErr != nil || coinbaseScript == nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.RPCInternalError,
 			Message: "No coinbase script available (mining requires a wallet)",
@@ -599,6 +610,11 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 
 		blkHash := bt.Block.GetHash()
 		ret = append(ret, blkHash.String())
+
+		// TODO: simple implementation just for testing
+		if lwallet.IsWalletEnable() {
+			lwallet.AddToWallet(bt.Block.Txs[0], nil)
+		}
 	}
 
 	return ret, nil

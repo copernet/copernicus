@@ -28,12 +28,12 @@ import (
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
 	"github.com/magiconair/properties/assert"
 	"io"
 	"net"
 	"time"
-	"github.com/copernet/copernicus/service"
 )
 
 type mockPeerNotifier struct{}

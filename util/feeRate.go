@@ -12,9 +12,11 @@ const (
 	MaxMoney       = 21000000 * COIN
 	// MinFeeRate minimum and Maximum values for tracking feeRates
 	MinFeeRate  int64   = 10
-	MaxFeeRate  int64   = 1e7
+	MaxFee      int64   = 1e7
 	InfFeeRate  int64   = MaxMoney
 	InfPriority float64 = 1e9 * float64(MaxMoney)
+
+	DefaultMinRelayTxFeePerK int64 = 1000
 
 	//FeeSpacing we have to lump transactions into buckets based on feeRate, but we want to be
 	// able to give accurate estimates over a large range of potential feeRates.

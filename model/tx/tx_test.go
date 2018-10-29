@@ -935,3 +935,48 @@ func TestUpdateInScript(t *testing.T) {
 	err = tx.UpdateInScript(1, scriptSig)
 	assert.NotNil(t, err)
 }
+
+func TestInsertTxOut(t *testing.T) {
+	v := initVar()
+
+	scriptPubKey0 := script.NewEmptyScript()
+	scriptPubKey0.PushInt64(2)
+	for i := 0; i < 3; i++ {
+		scriptPubKey0.PushSingleData(v.pubKeys[i].ToBytes())
+	}
+	scriptPubKey0.PushInt64(3)
+	scriptPubKey0.PushOpCode(opcodes.OP_CHECKMULTISIG)
+
+	scriptPubKey1 := script.NewEmptyScript()
+	scriptPubKey1.PushOpCode(opcodes.OP_DUP)
+	scriptPubKey1.PushOpCode(opcodes.OP_HASH160)
+	scriptPubKey1.PushSingleData(btcutil.Hash160(v.pubKeys[0].ToBytes()))
+	scriptPubKey1.PushOpCode(opcodes.OP_EQUALVERIFY)
+	scriptPubKey1.PushOpCode(opcodes.OP_CHECKSIG)
+
+	pubKey := script.NewEmptyScript()
+	pubKey.PushSingleData(v.pubKeys[0].ToBytes())
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
+	pubKeyHash160 := util.Hash160(pubKey.GetData())
+	scriptPubKey2 := script.NewEmptyScript()
+	scriptPubKey2.PushOpCode(opcodes.OP_HASH160)
+	scriptPubKey2.PushSingleData(pubKeyHash160)
+	scriptPubKey2.PushOpCode(opcodes.OP_EQUAL)
+
+	scriptPubKey3 := script.NewEmptyScript()
+	scriptPubKey3.PushSingleData([]byte{})
+
+	txn := NewTx(0, DefaultVersion)
+	txn.AddTxOut(txout.NewTxOut(0, scriptPubKey0))
+	txn.AddTxOut(txout.NewTxOut(0, scriptPubKey1))
+	assert.Equal(t, scriptPubKey0, txn.GetTxOut(0).GetScriptPubKey())
+	assert.Equal(t, scriptPubKey1, txn.GetTxOut(1).GetScriptPubKey())
+
+	txn.InsertTxOut(1, txout.NewTxOut(0, scriptPubKey2))
+	assert.Equal(t, scriptPubKey0, txn.GetTxOut(0).GetScriptPubKey())
+	assert.Equal(t, scriptPubKey2, txn.GetTxOut(1).GetScriptPubKey())
+	assert.Equal(t, scriptPubKey1, txn.GetTxOut(2).GetScriptPubKey())
+
+	txn.InsertTxOut(100, txout.NewTxOut(0, scriptPubKey3))
+	assert.Equal(t, scriptPubKey3, txn.GetTxOut(3).GetScriptPubKey())
+}

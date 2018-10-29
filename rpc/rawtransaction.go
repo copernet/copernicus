@@ -15,6 +15,7 @@ import (
 	"github.com/copernet/copernicus/logic/lmerkleblock"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/logic/lutxo"
+	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
@@ -757,6 +758,18 @@ func getKeys(privateKeys *[]string, coinsMap *utxo.CoinsMap,
 			}
 			keyStore.AddKey(privateKey)
 		}
+	} else if lwallet.IsWalletEnable() {
+		pubKeyHashList := make([][]byte, 0)
+		for _, coin := range coinsMap.GetMap() {
+			pubKeyHash := getPubKeyHash(coin.GetScriptPubKey())
+			pubKeyHashList = append(pubKeyHashList, pubKeyHash...)
+		}
+		for _, redeemScript := range redeemScripts {
+			pubKeyHash := getPubKeyHash(redeemScript)
+			pubKeyHashList = append(pubKeyHashList, pubKeyHash...)
+		}
+		keyPairs := lwallet.GetKeyPairs(pubKeyHashList)
+		keyStore.AddKeyPairs(keyPairs)
 	}
 	return keyStore, nil
 }
@@ -880,7 +893,7 @@ func handleVerifyTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{
 	return ret, nil
 }
 
-func registeRawTransactionRPCCommands() {
+func registerRawTransactionRPCCommands() {
 	for name, handler := range rawTransactionHandlers {
 		appendCommand(name, handler)
 	}

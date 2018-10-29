@@ -30,6 +30,7 @@ const (
 	NetworkCmd         = "Network"
 	RawTransactionsCmd = "RawTransactions"
 	UtilCmd            = "Util"
+	WalletCmd          = "Wallet"
 )
 
 var allMethodHelp = map[string]helpDescInfo{
@@ -94,6 +95,11 @@ var allMethodHelp = map[string]helpDescInfo{
 	"setexcessiveblock":  {DebugCmd, setexcessiveblockDesc},
 	"waitforblockheight": {DebugCmd, waitforblockheightDesc},
 	"echo":               {DebugCmd, echoDesc},
+
+	"getnewaddress": {WalletCmd, getnewaddressDesc},
+	"listunspent":   {WalletCmd, listunspentDesc},
+	"settxfee":      {WalletCmd, settxfeeDesc},
+	"sendtoaddress": {WalletCmd, sendtoaddressDesc},
 }
 
 // rpcMethodHelp returns an RPC help string for the provided method.
