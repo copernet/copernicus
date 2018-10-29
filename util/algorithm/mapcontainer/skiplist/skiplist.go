@@ -50,8 +50,6 @@ func (sl *skiplist) CreateIterator() mapcontainer.MapContainerIterator {
 
 func (sl *skiplist) ReplaceOrInsert(elem mapcontainer.Lesser) mapcontainer.Lesser {
 	insertToHeight := calcInsertionHeight(len(sl.header.nexts))
-	// newNode := nodepool.Get().(*node)
-	// newNode.Lesser, newNode.nexts = elem, make([]*node, insertToHeight)
 	newNode := &node{elem, make([]*node, insertToHeight)}
 	prevs := sl.removeIfAny(elem)
 
@@ -62,10 +60,14 @@ func (sl *skiplist) ReplaceOrInsert(elem mapcontainer.Lesser) mapcontainer.Lesse
 	return newNode
 }
 
-func (sl *skiplist) searchPrev(level int, target mapcontainer.Lesser) []*node {
-	prevs := make([]*node, level+1)
+func (sl *skiplist) getMaxHeight() int {
+	return len(sl.header.nexts)
+}
 
-	for h := level; h >= 0; h-- {
+func (sl *skiplist) searchPrev(target mapcontainer.Lesser) []*node {
+	prevs := make([]*node, sl.getMaxHeight())
+
+	for h := sl.getMaxHeight() - 1; h >= 0; h-- {
 		prevs[h] = &sl.header
 		for pv := prevs[h].nexts[h]; pv != nil && pv.Lesser.Less(target); pv = pv.nexts[h] {
 			prevs[h] = pv
@@ -75,14 +77,14 @@ func (sl *skiplist) searchPrev(level int, target mapcontainer.Lesser) []*node {
 }
 
 func (sl *skiplist) Search(target mapcontainer.Lesser) (mapcontainer.Lesser, bool) {
-	prevs := sl.searchPrev(len(sl.header.nexts)-1, target)
+	prevs := sl.searchPrev(target)
 	if prevs[0].nexts[0] != nil && isEqual(prevs[0].nexts[0].Lesser, target) {
 		return prevs[0].nexts[0].Lesser, true
 	}
 	return nil, false
 }
 func (sl *skiplist) removeIfAny(target mapcontainer.Lesser) []*node {
-	prevs := sl.searchPrev(len(sl.header.nexts)-1, target)
+	prevs := sl.searchPrev(target)
 	for i := 0; i < len(prevs) && prevs[i].nexts[i] != nil && isEqual(prevs[i].nexts[i].Lesser, target); i++ {
 		prevs[i].nexts[i] = prevs[i].nexts[i].nexts[i]
 	}
