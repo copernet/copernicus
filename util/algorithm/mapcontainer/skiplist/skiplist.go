@@ -4,33 +4,21 @@ import (
 	"math"
 	"math/rand"
 	"time"
+
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 )
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
-}
 
-type Lesser interface {
-	Less(other Lesser) bool
-}
-
-type MapContainer interface {
-	Insert(Lesser) bool
-	Search(Lesser)
-}
-
-type MapContainerIterator interface {
-	Next() (Lesser, bool)
 }
 
 type node struct {
-	Lesser
+	mapcontainer.Lesser
 	nexts []*node
 }
 
 type skiplist struct {
-	//headers []*node
-
 	header node
 }
 
@@ -38,7 +26,7 @@ type skiplistIterator struct {
 	cur *node
 }
 
-func (sli *skiplistIterator) Next() (elem Lesser, found bool) {
+func (sli *skiplistIterator) Next() (elem mapcontainer.Lesser, found bool) {
 	if sli.cur.nexts[0] != nil {
 		sli.cur = sli.cur.nexts[0]
 		return sli.cur.Lesser, true
@@ -52,21 +40,21 @@ func New(estimatedNodeCount int) *skiplist {
 		int64(math.Ceil(math.Log2(float64(estimatedNodeCount)))))}}
 }
 
-func isEqual(ls1 Lesser, ls2 Lesser) bool {
+func isEqual(ls1 mapcontainer.Lesser, ls2 mapcontainer.Lesser) bool {
 	return !ls1.Less(ls2) && !ls2.Less(ls1)
 }
 
-func (sl *skiplist) CreateIterator() MapContainerIterator {
+func (sl *skiplist) CreateIterator() mapcontainer.MapContainerIterator {
 	return &skiplistIterator{&sl.header}
 }
 
-func (sl *skiplist) InsertOrReplace(elem Lesser) Lesser {
+func (sl *skiplist) ReplaceOrInsert(elem mapcontainer.Lesser) mapcontainer.Lesser {
 	insertToHeight := calcInsertionHeight(len(sl.header.nexts))
-
+	// newNode := nodepool.Get().(*node)
+	// newNode.Lesser, newNode.nexts = elem, make([]*node, insertToHeight)
 	newNode := &node{elem, make([]*node, insertToHeight)}
-
 	prevs := sl.removeIfAny(elem)
-	// do insertion
+
 	for i := 0; i < len(newNode.nexts); i++ {
 		newNode.nexts[i] = prevs[i].nexts[i]
 		prevs[i].nexts[i] = newNode
@@ -74,15 +62,11 @@ func (sl *skiplist) InsertOrReplace(elem Lesser) Lesser {
 	return newNode
 }
 
-var none Lesser
-
-func (sl *skiplist) searchPrev(level int, target Lesser) []*node {
+func (sl *skiplist) searchPrev(level int, target mapcontainer.Lesser) []*node {
 	prevs := make([]*node, level+1)
-	for i := 0; i < len(prevs); i++ {
-		prevs[i] = &sl.header
-	}
 
 	for h := level; h >= 0; h-- {
+		prevs[h] = &sl.header
 		for pv := prevs[h].nexts[h]; pv != nil && pv.Lesser.Less(target); pv = pv.nexts[h] {
 			prevs[h] = pv
 		}
@@ -90,16 +74,16 @@ func (sl *skiplist) searchPrev(level int, target Lesser) []*node {
 	return prevs
 }
 
-func (sl *skiplist) Search(target Lesser) (Lesser, bool) {
+func (sl *skiplist) Search(target mapcontainer.Lesser) (mapcontainer.Lesser, bool) {
 	prevs := sl.searchPrev(len(sl.header.nexts)-1, target)
 	if prevs[0].nexts[0] != nil && isEqual(prevs[0].nexts[0].Lesser, target) {
 		return prevs[0].nexts[0].Lesser, true
 	}
 	return nil, false
 }
-func (sl *skiplist) removeIfAny(target Lesser) []*node {
+func (sl *skiplist) removeIfAny(target mapcontainer.Lesser) []*node {
 	prevs := sl.searchPrev(len(sl.header.nexts)-1, target)
-	for i := 0; i < len(prevs) && prevs[i] != nil && prevs[i].nexts[i] != nil && isEqual(prevs[i].nexts[i].Lesser, target); i++ {
+	for i := 0; i < len(prevs) && prevs[i].nexts[i] != nil && isEqual(prevs[i].nexts[i].Lesser, target); i++ {
 		prevs[i].nexts[i] = prevs[i].nexts[i].nexts[i]
 	}
 	return prevs
