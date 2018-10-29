@@ -718,3 +718,87 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	bh2.HashPrevBlock = *hash1
 	sm.handleHeadersMsg(hmsg)
 }
+
+func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	sm.fetchHeaderBlocks()
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	node := headerNode{
+		height: 10,
+		hash:   hash1,
+	}
+	e := sm.headerList.PushBack(&node)
+	sm.startHeader = e
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+
+	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
+	msgInv := wire.NewMsgInv()
+	msgInv.AddInvVect(invVect1)
+
+	requestedTxns := make(map[util.Hash]struct{})
+	requestedBlocks := make(map[util.Hash]struct{})
+
+	syncState := &peerSyncState{
+		syncCandidate:   true,
+		requestQueue:    msgInv.InvList,
+		requestedTxns:   requestedTxns,
+		requestedBlocks: requestedBlocks,
+	}
+
+	sm.peerStates[inpeer] = syncState
+	sm.requestedBlocks = make(map[util.Hash]struct{})
+	sm.syncPeer = inpeer
+	sm.fetchHeaderBlocks()
+}
+
+func TestSyncManager_updateTxRequestState(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+	syncState := getpeerState()
+	sm.peerStates[inpeer] = syncState
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+
+	sm.rejectedTxns[*hash1] = struct{}{}
+
+	rejectedTxns := make([]util.Hash, 10)
+	rejectedTxns = append(rejectedTxns, *hash1)
+
+	sm.updateTxRequestState(syncState, *hash1, rejectedTxns)
+}
+
+func TestSyncManager_fetchMissingTx(t *testing.T) {
+	_, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
+	inpeer := peer.NewInboundPeer(peer1Cfg)
+	missTxs := make([]util.Hash, 10)
+	missTxs = append(missTxs, *hash1)
+	missTxs = append(missTxs, *hash2)
+
+	fetchMissingTx(missTxs, inpeer)
+}
+
+func TestSyncManager_handleBlockMsg(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	sm.handleBlockMsg()
+}
