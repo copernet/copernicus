@@ -6,6 +6,7 @@ import (
 
 	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/stretchr/testify/assert"
+	"sort"
 )
 
 type intless int
@@ -15,16 +16,43 @@ func (il intless) Less(other mapcontainer.Lesser) bool {
 }
 
 func TestHeight(t *testing.T) {
-	sk := New(1 << 7)
+	mapper := New(1 << 7)
+	sk := mapper.(*skiplist)
 	assert.Equal(t, len(sk.header.nexts), 7)
+
+	mapper = New(3)
+	sk = mapper.(*skiplist)
+	assert.Equal(t, len(sk.header.nexts), 2)
+
+	mapper = New(1)
+	sk = mapper.(*skiplist)
+	assert.Equal(t, len(sk.header.nexts), 1)
+
+	mapper = New(6)
+	sk = mapper.(*skiplist)
+	assert.Equal(t, len(sk.header.nexts), 3)
 }
 
 func testsort(t *testing.T, testdata []intless) {
 	sk := New(len(testdata))
 
+	_, found := sk.Min()
+	assert.False(t, found)
+	_, found = sk.Max()
+	assert.False(t, found)
+
 	nodesMap := make(map[intless]*node)
-	for _, td := range testdata {
+	for i, td := range testdata {
 		nodesMap[td] = sk.ReplaceOrInsert(intless(td)).(*node)
+		minp, maxp := findMinMax(testdata[:i+1])
+
+		minc, found := sk.Min()
+		assert.True(t, found)
+		assert.Equal(t, minp, minc)
+
+		maxc, found := sk.Max()
+		assert.True(t, found)
+		assert.Equal(t, maxp, maxc)
 	}
 	prev := intless(-1)
 	cnt := 0
@@ -37,6 +65,7 @@ func testsort(t *testing.T, testdata []intless) {
 		return true
 	})
 	assert.Equal(t, cnt, len(nodesMap))
+	assert.Equal(t, cnt, sk.Len())
 }
 
 func TestSorted1(t *testing.T) {
@@ -91,25 +120,18 @@ func TestSearch(t *testing.T) {
 	assert.False(t, found)
 }
 
-func findMin(data []mapcontainer.Lesser) mapcontainer.Lesser {
-	minp := data[0]
+func findMinMax(data []intless) (minp intless, maxp intless) {
+	minp = data[0]
+	maxp = data[0]
 	for _, item := range data {
 		if item.Less(minp) {
 			minp = item
 		}
+		if maxp.Less(item) {
+			maxp = item
+		}
 	}
-	return minp
-}
-
-func TestMin(t *testing.T) {
-	insertP := perm(1000)
-	sk := New(len(insertP))
-
-	for i, item := range insertP {
-		sk.ReplaceOrInsert(item)
-		minp := findMin(insertP[:i+1])
-		assert.Equal(t, minp, sk.Min())
-	}
+	return
 }
 
 func TestDelete(t *testing.T) {
@@ -121,7 +143,7 @@ func TestDelete(t *testing.T) {
 		sk.ReplaceOrInsert(item)
 		keySet[item] = struct{}{}
 	}
-	for i, _ := range keySet {
+	for i := range keySet {
 		_, found := sk.Delete(i)
 		assert.True(t, found)
 
@@ -141,7 +163,6 @@ func TestAscend(t *testing.T) {
 	for _, item := range insertP {
 		sk.ReplaceOrInsert(item)
 	}
-
 	sk.Ascend(func(item mapcontainer.Lesser) bool {
 		if cnt == 456 {
 			return false
@@ -150,6 +171,34 @@ func TestAscend(t *testing.T) {
 		return true
 	})
 	assert.Equal(t, 456, cnt)
+}
+
+func TestDeleteMax(t *testing.T) {
+	insertP := perm(1000)
+	intP := make([]int, 0, len(insertP))
+	intMap := make(map[int]struct{})
+
+	sk := New(len(insertP))
+	// _, found := sk.DeleteMax()
+	// assert.False(t, found)
+
+	for _, item := range insertP {
+		if _, ok := intMap[int(item.(intless))]; !ok {
+			intP = append(intP, int(item.(intless)))
+			intMap[int(item.(intless))] = struct{}{}
+		}
+
+		sk.ReplaceOrInsert(item)
+	}
+
+	sort.Ints(intP)
+	for i := len(intP) - 1; i >= 0; i-- {
+		less, found := sk.DeleteMax()
+		assert.True(t, found)
+		assert.Equal(t, intless(intP[i]), less)
+	}
+	_, found := sk.DeleteMax()
+	assert.False(t, found)
 }
 
 func perm(n int) (out []mapcontainer.Lesser) {
