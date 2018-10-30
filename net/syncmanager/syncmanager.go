@@ -397,14 +397,19 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	// Start syncing by choosing the best candidate if needed.
 	if isSyncCandidate && sm.syncPeer == nil {
 		sm.startSync()
+		return
+	}
+
+	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
+		if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
+			sm.clearSyncPeerState(sm.syncPeer)
+			sm.syncPeer = nil
+			sm.startSync()
+		}
 	}
 }
 
-// handleDonePeerMsg deals with peers that have signalled they are done.  It
-// removes the peer as a candidate for syncing and in the case where it was
-// the current sync peer, attempts to select a new best peer to sync from.  It
-// is invoked from the syncHandler goroutine.
-func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
+func (sm *SyncManager) clearSyncPeerState(peer *peer.Peer) {
 	state, exists := sm.peerStates[peer]
 	if !exists {
 		log.Warn("Received done peer message for unknown peer %s", peer)
@@ -429,6 +434,14 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 	for blockHash := range state.requestedBlocks {
 		delete(sm.requestedBlocks, blockHash)
 	}
+}
+
+// handleDonePeerMsg deals with peers that have signalled they are done.  It
+// removes the peer as a candidate for syncing and in the case where it was
+// the current sync peer, attempts to select a new best peer to sync from.  It
+// is invoked from the syncHandler goroutine.
+func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
+	sm.clearSyncPeerState(peer)
 
 	// Attempt to find a new peer to sync from if the quitting peer is the
 	// sync peer.  Also, reset the headers-first state if in headers-first
@@ -1063,6 +1076,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 
 		if iv.Type == wire.InvTypeBlock {
+
+			if haveInv {
+				log.Debug("ignore known block inv msg, block: %s", iv.Hash)
+				continue
+			}
+
 			// We already have the final block advertised by this
 			// inventory message, so force a request for more.  This
 			// should only happen if we're on a really long side

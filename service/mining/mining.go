@@ -25,7 +25,6 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/google/btree"
 	"math"
-	"math/rand"
 	"sort"
 	"strconv"
 )
@@ -444,13 +443,6 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 	scriptSig.PushScriptNum(extraNonceNum)
 
 	scriptSig.PushData(append(getExcessiveBlockSizeSig(), []byte(CoinbaseFlag)...))
-
-	//avoid generate same block header during regtest
-	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
-		seed := make([]byte, 8)
-		rand.Read(seed)
-		scriptSig.PushData(seed)
-	}
 
 	return scriptSig
 }
