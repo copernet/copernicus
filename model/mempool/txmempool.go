@@ -14,7 +14,8 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
-	"github.com/google/btree"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer/skiplist"
 )
 
 const (
@@ -67,9 +68,12 @@ type TxMempool struct {
 	//NextTx key is txPrevout, value is tx.
 	nextTx map[outpoint.OutPoint]*TxEntry
 	//RootTx contain all root transaction in mempool.
-	rootTx                  map[util.Hash]*TxEntry
-	txByAncestorFeeRateSort btree.BTree
-	timeSortData            btree.BTree
+	rootTx map[util.Hash]*TxEntry
+	// txByAncestorFeeRateSort btree.BTree
+	// timeSortData            btree.BTree
+	txByAncestorFeeRateSort mapcontainer.MapContainer
+	timeSortData            mapcontainer.MapContainer
+
 	//
 	usageSize int64
 	// sum of all mempool tx's size.
@@ -345,8 +349,12 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 	maxFeeRateRemove := int64(0)
 
 	for len(m.poolData) > 0 && m.usageSize > sizeLimit {
-		removeIt := m.txByAncestorFeeRateSort.Min().(*EntryAncestorFeeRateSort)
-		rem := m.txByAncestorFeeRateSort.Delete(removeIt).(*EntryAncestorFeeRateSort)
+		less, _ := m.txByAncestorFeeRateSort.Min()
+		removeIt := less.(*EntryAncestorFeeRateSort)
+
+		//rem := m.txByAncestorFeeRateSort.Delete(removeIt).(*EntryAncestorFeeRateSort)
+		rmless, _ := m.txByAncestorFeeRateSort.Delete(removeIt)
+		rem := rmless.(*EntryAncestorFeeRateSort)
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
 			panic("the two element should have the same Txhash")
 		}
@@ -389,7 +397,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 // than time. Return the number of removed transactions.
 func (m *TxMempool) expire(time int64) int {
 	toremove := make(map[*TxEntry]struct{}, 100)
-	m.timeSortData.Ascend(func(i btree.Item) bool {
+	m.timeSortData.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*TxEntry)
 		if entry.time < time {
 			toremove[entry] = struct{}{}
@@ -660,7 +668,7 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 
 	ret := make([]*TxMempoolInfo, len(m.poolData))
 	index := 0
-	m.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	m.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := TxEntry(*i.(*EntryAncestorFeeRateSort))
 		ret[index] = entry.GetInfo()
 		index++
@@ -672,12 +680,14 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 
 func NewTxMempool() *TxMempool {
 	return &TxMempool{
-		feeRate:                 util.FeeRate{SataoshisPerK: 1},
-		poolData:                make(map[util.Hash]*TxEntry),
-		nextTx:                  make(map[outpoint.OutPoint]*TxEntry),
-		rootTx:                  make(map[util.Hash]*TxEntry),
-		txByAncestorFeeRateSort: *btree.New(32),
-		timeSortData:            *btree.New(32),
+		feeRate:  util.FeeRate{SataoshisPerK: 1},
+		poolData: make(map[util.Hash]*TxEntry),
+		nextTx:   make(map[outpoint.OutPoint]*TxEntry),
+		rootTx:   make(map[util.Hash]*TxEntry),
+		// txByAncestorFeeRateSort: *btree.New(32),
+		// timeSortData:            *btree.New(32),
+		txByAncestorFeeRateSort: skiplist.New(30000),
+		timeSortData:            skiplist.New(30000),
 		incrementalRelayFee:     *util.NewFeeRate(1),
 
 		OrphanTransactionsByPrev: make(map[outpoint.OutPoint]map[util.Hash]OrphanTx),

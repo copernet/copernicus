@@ -5,7 +5,8 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/util"
-	"github.com/google/btree"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer/skiplist"
 )
 
 type sortType int
@@ -27,7 +28,7 @@ var strategies = map[string]sortType{
 // EntryFeeSort TxEntry sorted by feeWithAncestors
 type EntryFeeSort mempool.TxEntry
 
-func (e EntryFeeSort) Less(than btree.Item) bool {
+func (e EntryFeeSort) Less(than mapcontainer.Lesser) bool {
 	t := than.(EntryFeeSort)
 	if e.SumTxFeeWithAncestors == t.SumTxFeeWithAncestors {
 		eHash := e.Tx.GetHash()
@@ -37,21 +38,21 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 	return e.SumTxFeeWithAncestors < than.(EntryFeeSort).SumTxFeeWithAncestors
 }
 
-func sortedByFeeWithAncestors() *btree.BTree {
-	b := btree.New(32)
+func sortedByFeeWithAncestors() mapcontainer.MapContainer {
+	sk := skiplist.New(1 << 32)
 	mpool := mempool.GetInstance()
 
 	for _, txEntry := range mpool.GetAllTxEntry() {
-		b.ReplaceOrInsert(EntryFeeSort(*txEntry))
+		sk.ReplaceOrInsert(EntryFeeSort(*txEntry))
 	}
 
-	return b
+	return sk
 }
 
 // EntryAncestorFeeRateSort TxEntry sorted by feeRateWithAncestors
 type EntryAncestorFeeRateSort mempool.TxEntry
 
-func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
+func (r EntryAncestorFeeRateSort) Less(than mapcontainer.Lesser) bool {
 	t := than.(EntryAncestorFeeRateSort)
 	b1 := util.NewFeeRateWithSize((r).SumTxFeeWithAncestors, r.SumTxSizeWitAncestors).SataoshisPerK
 	b2 := util.NewFeeRateWithSize(t.SumTxFeeWithAncestors, t.SumTxSizeWitAncestors).SataoshisPerK
@@ -63,15 +64,15 @@ func (r EntryAncestorFeeRateSort) Less(than btree.Item) bool {
 	return b1 < b2
 }
 
-func sortedByFeeRateWithAncestors() *btree.BTree {
-	b := btree.New(32)
+func sortedByFeeRateWithAncestors() mapcontainer.MapContainer {
+	sk := skiplist.New(1 << 32)
 	mpool := mempool.GetInstance()
 
 	for _, txEntry := range mpool.GetAllTxEntry() {
-		b.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
+		sk.ReplaceOrInsert(EntryAncestorFeeRateSort(*txEntry))
 	}
 
-	return b
+	return sk
 }
 
 func getStrategy() *sortType {

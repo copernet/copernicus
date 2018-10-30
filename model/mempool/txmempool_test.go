@@ -13,8 +13,8 @@ import (
 	txin2 "github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/google/btree"
 	"github.com/magiconair/properties/assert"
 )
 
@@ -251,7 +251,7 @@ func TestMempoolSortTime(t *testing.T) {
 		t.Error("the pool element number is error, expect 4, but actual is ", len(testPool.poolData))
 	}
 	index := 0
-	testPool.timeSortData.Ascend(func(i btree.Item) bool {
+	testPool.timeSortData.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*TxEntry)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %v\n",

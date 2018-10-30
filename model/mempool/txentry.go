@@ -6,7 +6,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
-	"github.com/google/btree"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 )
 
 type TxEntry struct {
@@ -113,7 +113,7 @@ func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int,
 	t.SumTxFeeWithAncestors += updateFee
 }
 
-func (t *TxEntry) Less(than btree.Item) bool {
+func (t *TxEntry) Less(than mapcontainer.Lesser) bool {
 	th := than.(*TxEntry)
 	if t.time == th.time {
 		thash := t.Tx.GetHash()
@@ -174,7 +174,7 @@ func (t *TxEntry) CheckLockPointValidity(chain *chain.Chain) bool {
 
 type EntryFeeSort TxEntry
 
-func (e EntryFeeSort) Less(than btree.Item) bool {
+func (e EntryFeeSort) Less(than mapcontainer.Lesser) bool {
 	t := than.(EntryFeeSort)
 	if e.SumTxFeeWithAncestors == t.SumTxFeeWithAncestors {
 		thash := e.Tx.GetHash()
@@ -186,7 +186,7 @@ func (e EntryFeeSort) Less(than btree.Item) bool {
 
 type EntryAncestorFeeRateSort TxEntry
 
-func (r *EntryAncestorFeeRateSort) Less(than btree.Item) bool {
+func (r *EntryAncestorFeeRateSort) Less(than mapcontainer.Lesser) bool {
 	t := than.(*EntryAncestorFeeRateSort)
 
 	b1 := util.NewFeeRateWithSize((r).SumTxFeeWithAncestors, r.SumTxSizeWitAncestors).SataoshisPerK

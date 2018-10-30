@@ -22,6 +22,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/google/btree"
 	"math"
@@ -177,7 +178,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 
 	consecutiveFailed := 0
 
-	var txSet *btree.BTree
+	var txSet mapcontainer.MapContainer
 	switch tmpStrategy {
 	case sortByFee:
 		txSet = sortedByFeeWithAncestors()
@@ -193,10 +194,12 @@ func (ba *BlockAssembler) addPackageTxs() int {
 
 		switch tmpStrategy {
 		case sortByFee:
-			entry = mempool.TxEntry(txSet.Max().(EntryFeeSort))
+			less, _ := txSet.Max()
+			entry = mempool.TxEntry(less.(EntryFeeSort))
 			txSet.DeleteMax()
 		case sortByFeeRate:
-			entry = mempool.TxEntry(txSet.Max().(EntryAncestorFeeRateSort))
+			less, _ := txSet.Max()
+			entry = mempool.TxEntry(less.(EntryAncestorFeeRateSort))
 			txSet.DeleteMax()
 		}
 		// if inBlock has the item, continue next loop
@@ -393,7 +396,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet []*mempool.TxEntry) b
 	return true
 }
 
-func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded []*mempool.TxEntry) int {
+func (ba *BlockAssembler) updatePackagesForAdded(txSet mapcontainer.MapContainer, alreadyAdded []*mempool.TxEntry) int {
 	descendantUpdate := 0
 	mpool := mempool.GetInstance()
 	tmpStrategy := *getStrategy()

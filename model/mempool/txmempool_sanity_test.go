@@ -14,7 +14,7 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 
 	"github.com/copernet/copernicus/conf"
-	"github.com/google/btree"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 )
@@ -290,7 +290,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	sortedOrder[4] = tx3.GetHash() //0
 
 	index := 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -325,7 +325,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	}
 
 	index = 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -360,7 +360,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	sortedOrder = tmpOrder
 
 	index = 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -384,7 +384,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	sortedOrder = append([]util.Hash{tx7.GetHash()}, sortedOrder...)
 
 	index = 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		h := entry.Tx.GetHash()
 		if entry.Tx.GetHash() != sortedOrder[index] {
