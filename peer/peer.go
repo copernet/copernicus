@@ -863,6 +863,7 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	// Generate a unique nonce for this peer so self connections can be
 	// detected.  This is accomplished by adding it to a size-limited map of
 	// recently seen nonces.
+	rand.Seed(time.Now().UTC().UnixNano())
 	nonce := uint64(rand.Int63())
 	sentNonces.Add(nonce)
 

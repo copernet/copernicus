@@ -2,7 +2,6 @@ package lblock
 
 import (
 	"errors"
-
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
@@ -256,13 +255,12 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 		return
 	}
 
-	// TODO: relay this lblock
-
 	// inDbp is nil indicate that this block haven't been write to disk
 	// when reindex, inDbp is not nil, and outDbp will be same as inDbp, and block will not be write to disk
 	outDbp, err = WriteBlockToDisk(bIndex, pblock, inDbp)
 	if err != nil {
-		panic("AcceptBlockHeader WriteBlockTo Disk err" + err.Error())
+		log.Error("AcceptBlockHeader WriteBlockTo Disk err" + err.Error())
+		return
 	}
 
 	ReceivedBlockTransactions(pblock, bIndex, outDbp)

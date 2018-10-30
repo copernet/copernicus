@@ -19,6 +19,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -353,6 +354,7 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	ret := btcjson.GetChainTipsResult{
 		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),
 	}
+
 	setTips.Each(func(item interface{}) bool {
 		bindex := item.(*blockindex.BlockIndex)
 		tipInfo := btcjson.ChainTipsInfo{
@@ -390,6 +392,14 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		ret.Tips = append(ret.Tips, tipInfo)
 
 		return true
+	})
+
+	sort.Slice(ret.Tips, func(i, j int) bool {
+		if ret.Tips[i].Height != ret.Tips[j].Height {
+			return ret.Tips[i].Height > ret.Tips[j].Height
+		}
+
+		return i < j
 	})
 
 	return ret, nil
