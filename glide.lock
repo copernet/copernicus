@@ -8,7 +8,7 @@ imports:
 - name: github.com/copernet/secp256k1
   version: 5ace5d10cf35281acba5dd8b7a5da934167db9c4
 - name: github.com/copernet/secp256k1-go
-  version: 957104906e2800d810e8f8a95040fb77f4716029
+  version: 9754f07cc8d310fddc59f4fd7f3000220752edbf
   subpackages:
   - secp256k1
 - name: github.com/davecgh/go-spew
