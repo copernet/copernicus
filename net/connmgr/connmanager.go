@@ -290,7 +290,9 @@ func (cm *ConnManager) NewConnReq(ctx context.Context) {
 
 	addr, err := cm.cfg.GetNewAddress()
 	if err != nil {
-		cm.requests <- handleFailed{c, err}
+		if c.Addr != nil {
+			cm.requests <- handleFailed{c, err}
+		}
 		return
 	}
 
