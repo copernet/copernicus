@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -712,4 +713,50 @@ func TestOnAddr(t *testing.T) {
 		t.Errorf("AddAddress: %v", err)
 	}
 	sp.OnAddr(in, msg)
+}
+
+func TestOnReadWrite(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	atomic.StoreUint64(&s.bytesReceived, 0)
+	atomic.StoreUint64(&s.bytesSent, 0)
+	sp.OnRead(nil, 10, nil, nil)
+	sp.OnWrite(nil, 20, nil, nil)
+	if r, w := sp.server.NetTotals(); r != 10 || w != 20 {
+		t.Errorf("set read write number failed")
+	}
+}
+
+func TestRandomUint16Number(t *testing.T) {
+	tests := []struct {
+		in uint16
+	}{
+		{in: 50},
+		{in: 100},
+		{in: 1000},
+		{in: 65000},
+	}
+	for _, test := range tests {
+		if randomUint16Number(test.in) > test.in {
+			t.Errorf("randomUint16Number failed return expected value")
+		}
+	}
+}
+
+func TestHandleAddPeerMsg(t *testing.T) {
+	config := peer.Config{}
+	out, _ := peer.NewOutboundPeer(&config, "192.168.1.32:8333")
+	sp := newServerPeer(s, false)
+	sp.Peer = out
+	ps := peerState{
+		inboundPeers:    make(map[int32]*serverPeer),
+		outboundPeers:   make(map[int32]*serverPeer),
+		persistentPeers: make(map[int32]*serverPeer),
+		banned:          make(map[string]time.Time),
+		outboundGroups:  make(map[string]int),
+	}
+	s.AddPeer(sp)
+	s.handleAddPeerMsg(&ps, sp)
 }
