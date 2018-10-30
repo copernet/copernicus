@@ -901,7 +901,7 @@ func handleWaitForBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 }
 
 func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//todo notify tipchange
+	//TODO notify tipchange
 	c := cmd.(*btcjson.WaitForBlockHeightCmd)
 	height := c.Height
 	timeout := *c.Timeout
@@ -911,11 +911,11 @@ func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struc
 		timeout = math.MaxInt32
 	}
 
+	timeEnd := time.Now().Add(time.Duration(timeout) * time.Millisecond)
 	gchain := chain.GetInstance()
-	tipHeight := gchain.TipHeight()
 	ret := &btcjson.WaitForBlockHeightResult{}
 
-	if height <= tipHeight {
+	if height <= gchain.TipHeight() {
 		ret = &btcjson.WaitForBlockHeightResult{
 			Hash:   gchain.Tip().GetBlockHash().String(),
 			Height: gchain.TipHeight(),
@@ -923,33 +923,24 @@ func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struc
 		return ret, nil
 	}
 
-	waitFlag := make(chan bool)
-	go func() {
-		for {
-			if height <= gchain.TipHeight() {
-				waitFlag <- false
-				break
-			}
-			time.Sleep(time.Second)
-		}
-
-	}()
-
-	select {
-	case <-waitFlag:
-		ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
-		ret.Height = height
-		return ret, nil
-	case <-time.After(time.Millisecond * time.Duration(timeout)):
+	for {
 		if height <= gchain.TipHeight() {
 			ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
 			ret.Height = height
+			return ret, nil
 		}
-		ret.Hash = gchain.Tip().GetBlockHash().String()
-		ret.Height = gchain.TipHeight()
-		return ret, nil
+		if time.Now().After(timeEnd) {
+			if height <= gchain.TipHeight() {
+				ret.Hash = gchain.GetIndex(height).GetBlockHash().String()
+				ret.Height = height
+				return ret, nil
+			}
+			ret.Hash = gchain.Tip().GetBlockHash().String()
+			ret.Height = gchain.TipHeight()
+			return ret, nil
+		}
+		time.Sleep(time.Second)
 	}
-
 }
 
 func registerBlockchainRPCCommands() {
