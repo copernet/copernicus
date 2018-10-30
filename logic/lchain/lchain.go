@@ -67,9 +67,6 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	// transactions (its coinbase is unspendable)
 	blockHash := pblock.GetHash()
 	if blockHash.IsEqual(params.GenesisHash) {
-		if !fJustCheck {
-			//view.SetBestBlock(*pindex.GetBlockHash())
-		}
 		return nil
 	}
 
