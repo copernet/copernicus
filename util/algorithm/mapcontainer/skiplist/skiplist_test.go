@@ -93,7 +93,7 @@ func TestSorted_duplicated(t *testing.T) {
 }
 
 func TestSorted_randomdata(t *testing.T) {
-	size := rand.Intn(1 << 18)
+	size := rand.Intn(1 << 13)
 	testdata := make([]intless, 0, size)
 	for i := 0; i < size; i++ {
 		testdata = append(testdata, intless(rand.Intn(1000)))
