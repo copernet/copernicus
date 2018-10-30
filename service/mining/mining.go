@@ -1,6 +1,10 @@
 package mining
 
 import (
+	"math"
+	"sort"
+	"strconv"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
@@ -24,10 +28,6 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/google/btree"
-	"math"
-	"sort"
-	"strconv"
 )
 
 const (
