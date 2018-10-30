@@ -160,15 +160,6 @@ func TestRegisterCmdErrors(t *testing.T) {
 			err: Error{ErrorCode: ErrUnsupportedFieldType},
 		},
 		{
-			name:   "unsupported field type 6",
-			method: "registertestcmd",
-			cmdFunc: func() interface{} {
-				type test struct{ A interface{} }
-				return (*test)(nil)
-			},
-			err: Error{ErrorCode: ErrUnsupportedFieldType},
-		},
-		{
 			name:   "required after optional",
 			method: "registertestcmd",
 			cmdFunc: func() interface{} {

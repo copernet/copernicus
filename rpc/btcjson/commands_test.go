@@ -48,13 +48,13 @@ func TestChainSvrCmds(t *testing.T) {
 				txInputs := []TransactionInput{
 					{Txid: "123", Vout: 1},
 				}
-				amounts := map[string]interface{}{"456": .0123}
+				amounts := map[string]AmountType{"456": .0123}
 				return NewCreateRawTransactionCmd(txInputs, amounts, nil)
 			},
 			marshalled: `{"jsonrpc":"1.0","method":"createrawtransaction","params":[[{"txid":"123","vout":1,"sequence":null}],{"456":0.0123}],"id":1}`,
 			unmarshalled: &CreateRawTransactionCmd{
 				Inputs:  []TransactionInput{{Txid: "123", Vout: 1}},
-				Outputs: map[string]interface{}{"456": .0123},
+				Outputs: map[string]AmountType{"456": .0123},
 			},
 		},
 		{
@@ -67,13 +67,13 @@ func TestChainSvrCmds(t *testing.T) {
 				txInputs := []TransactionInput{
 					{Txid: "123", Vout: 1, Sequence: Int64(1)},
 				}
-				amounts := map[string]interface{}{"456": .0123}
+				amounts := map[string]AmountType{"456": .0123}
 				return NewCreateRawTransactionCmd(txInputs, amounts, Int64(12312333333))
 			},
 			marshalled: `{"jsonrpc":"1.0","method":"createrawtransaction","params":[[{"txid":"123","vout":1,"sequence":1}],{"456":0.0123},12312333333],"id":1}`,
 			unmarshalled: &CreateRawTransactionCmd{
 				Inputs:   []TransactionInput{{Txid: "123", Vout: 1, Sequence: Int64(1)}},
-				Outputs:  map[string]interface{}{"456": .0123},
+				Outputs:  map[string]AmountType{"456": .0123},
 				LockTime: Int64(12312333333),
 			},
 		},
@@ -1289,6 +1289,108 @@ func TestChainSvrCmds(t *testing.T) {
 				SubCmd:        "test",
 				Target:        "abc",
 				ConnectSubCmd: String("xyz"),
+			},
+		},
+		{
+			name: "getnewaddress",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("getnewaddress")
+			},
+			staticCmd: func() interface{} {
+				return NewGetNewAddressCmd(nil)
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"getnewaddress","params":[],"id":1}`,
+			unmarshalled: &GetNewAddressCmd{
+				Account: String(""),
+			},
+		},
+		{
+			name: "getnewaddress optional",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("getnewaddress", "abc")
+			},
+			staticCmd: func() interface{} {
+				return NewGetNewAddressCmd(String("abc"))
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"getnewaddress","params":["abc"],"id":1}`,
+			unmarshalled: &GetNewAddressCmd{
+				Account: String("abc"),
+			},
+		},
+		{
+			name: "listunspent",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("listunspent")
+			},
+			staticCmd: func() interface{} {
+				return NewListUnspentCmd(nil, nil, nil, nil)
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"listunspent","params":[],"id":1}`,
+			unmarshalled: &ListUnspentCmd{
+				MinConf:       Int32(1),
+				MaxConf:       Int32(9999999),
+				IncludeUnsafe: Bool(true),
+			},
+		},
+		{
+			name: "listunspent optional",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("listunspent", 3, 100, []string{"abc", "xyz"}, false)
+			},
+			staticCmd: func() interface{} {
+				return NewListUnspentCmd(Int32(3), Int32(100), &[]string{"abc", "xyz"}, Bool(false))
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"listunspent","params":[3,100,["abc","xyz"],false],"id":1}`,
+			unmarshalled: &ListUnspentCmd{
+				MinConf:       Int32(3),
+				MaxConf:       Int32(100),
+				Addresses:     &[]string{"abc", "xyz"},
+				IncludeUnsafe: Bool(false),
+			},
+		},
+		{
+			name: "settxfee",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("settxfee", 0.01)
+			},
+			staticCmd: func() interface{} {
+				return NewSetTxFeeCmd(0.01)
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"settxfee","params":[0.01],"id":1}`,
+			unmarshalled: &SetTxFeeCmd{
+				Amount: 0.01,
+			},
+		},
+		{
+			name: "sendtoaddress",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("sendtoaddress", "abc", "0.01")
+			},
+			staticCmd: func() interface{} {
+				return NewSendToAddressCmd("abc", "0.01", nil, nil, nil)
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"sendtoaddress","params":["abc","0.01"],"id":1}`,
+			unmarshalled: &SendToAddressCmd{
+				Address:               "abc",
+				Amount:                "0.01",
+				SubtractFeeFromAmount: Bool(false),
+			},
+		},
+		{
+			name: "sendtoaddress optional",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("sendtoaddress", "abc", 0.01, "test", "xyz", true)
+			},
+			staticCmd: func() interface{} {
+				return NewSendToAddressCmd("abc", 0.01, String("test"), String("xyz"), Bool(true))
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"sendtoaddress","params":["abc",0.01,"test","xyz",true],"id":1}`,
+			unmarshalled: &SendToAddressCmd{
+				Address:               "abc",
+				Amount:                0.01,
+				Comment:               String("test"),
+				CommentTo:             String("xyz"),
+				SubtractFeeFromAmount: Bool(true),
 			},
 		},
 	}

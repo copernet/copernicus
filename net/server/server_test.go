@@ -9,6 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,6 +23,7 @@ import (
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
@@ -507,4 +510,103 @@ func TestOnMemPool(t *testing.T) {
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnMemPool(in, msg)
+}
+
+func TestOnTx(t *testing.T) {
+	msgTx := (*wire.MsgTx)(tx.NewTx(0, 1))
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	done := make(chan struct{})
+	sp.OnTx(in, msgTx, done)
+	<-done
+}
+
+func TestOnBlock(t *testing.T) {
+	msgBlock := (*wire.MsgBlock)(&block.Block{})
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	done := make(chan struct{})
+	buf := make([]byte, 100)
+	sp.OnBlock(in, msgBlock, buf, done)
+	<-done
+}
+
+func TestOnInv(t *testing.T) {
+	msgInv := wire.NewMsgInv()
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	sp.OnInv(in, msgInv)
+}
+
+func TestOnHeaders(t *testing.T) {
+	msgHeaders := wire.NewMsgHeaders()
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	sp.OnHeaders(in, msgHeaders)
+}
+
+/*
+func TestOnGetData(t *testing.T) {
+	hashStr := "3264bc2ac36a60840790ba1d475d01367e7c723da941069e9dc"
+	blockHash, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	hashStr = "d28a3dc7392bf00a9855ee93dd9a81eff82a2c4fe57fbd42cfe71b487accfaf0"
+	txHash, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	iv := wire.NewInvVect(wire.InvTypeBlock, blockHash)
+	iv2 := wire.NewInvVect(wire.InvTypeTx, txHash)
+
+	m1 := wire.NewMsgGetData()
+	m2 := wire.NewMsgGetData()
+	m1.AddInvVect(iv)
+	m2.AddInvVect(iv2)
+
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	sp.OnGetData(in, m1)
+	sp.OnGetData(in, m2)
+}
+*/
+
+func TestTransferMsgToBusinessPro(t *testing.T) {
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	mempoolMsg := wire.NewMsgMemPool()
+	getdataMsg := wire.NewMsgGetData()
+	getblocksMsg := wire.NewMsgGetBlocks(&util.HashZero)
+	buf := make([]byte, 100)
+	done := make(chan struct{})
+	msgs := []*peer.PeerMessage{
+		peer.NewPeerMessage(in, mempoolMsg, buf, done),
+		peer.NewPeerMessage(in, getdataMsg, buf, done),
+		peer.NewPeerMessage(in, getblocksMsg, buf, done),
+	}
+	go func() {
+		for range done {
+		}
+	}()
+	for _, msg := range msgs {
+		sp.TransferMsgToBusinessPro(msg, done)
+	}
 }

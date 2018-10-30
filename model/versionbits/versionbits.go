@@ -72,6 +72,8 @@ func NewVersionBitsCache() *VersionBitsCache {
 }
 
 func (vbc *VersionBitsCache) Clear() {
+	vbc.Lock()
+	defer vbc.Unlock()
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		vbc.cache[i] = make(ThresholdConditionCache)
 	}
@@ -89,11 +91,15 @@ func NewWarnBitsCache(bitNum int) []ThresholdConditionCache {
 
 func VersionBitsState(indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) ThresholdState {
 	vc := &VersionBitsConditionChecker{id: pos}
+	vbc.Lock()
+	defer vbc.Unlock()
 	return GetStateFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
 func VersionBitsStateSinceHeight(indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, pos consensus.DeploymentPos, vbc *VersionBitsCache) int {
 	vc := &VersionBitsConditionChecker{id: pos}
+	vbc.Lock()
+	defer vbc.Unlock()
 	return GetStateSinceHeightFor(vc, indexPrev, params, vbc.cache[pos])
 }
 
@@ -293,8 +299,6 @@ func ComputeBlockVersion(indexPrev *blockindex.BlockIndex, params *model.Bitcoin
 
 	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
 		state := func() ThresholdState {
-			t.Lock()
-			defer t.Unlock()
 			v := VersionBitsState(indexPrev, params, consensus.DeploymentPos(i), t)
 			return v
 		}()

@@ -615,3 +615,17 @@ type WaitForBlockHeightResult struct {
 	Hash   string `json:"hash"`
 	Height int32  `json:"height"`
 }
+
+type ListUnspentResult struct {
+	TxID          string  `json:"txid"`
+	Vout          uint32  `json:"vout"`
+	Address       string  `json:"address"`
+	Account       string  `json:"account,omitempty"`
+	ScriptPubKey  string  `json:"scriptPubKey"`
+	Amount        float64 `json:"amount"`
+	Confirmations int32   `json:"confirmations"`
+	RedeemScript  string  `json:"redeemScript,omitempty"`
+	Spendable     bool    `json:"spendable"`
+	Solvable      bool    `json:"solvable"`
+	Safe          bool    `json:"safe"`
+}

@@ -454,7 +454,7 @@ func (tx *Tx) GetValueOut() amount.Amount {
 	return valueOut
 }
 
-func (tx *Tx) SignStep(nIn int, keys []*crypto.PrivateKey, redeemScript *script.Script, hashType uint32,
+func (tx *Tx) SignStep(nIn int, keyStore *crypto.KeyStore, redeemScript *script.Script, hashType uint32,
 	scriptPubKey *script.Script, value amount.Amount) (sigData [][]byte, err error) {
 	pubKeyType, pubKeys, isStandard := scriptPubKey.IsStandardScriptPubKey()
 	if !isStandard || pubKeyType == script.ScriptNonStandard || pubKeyType == script.ScriptNullData {
@@ -478,11 +478,11 @@ func (tx *Tx) SignStep(nIn int, keys []*crypto.PrivateKey, redeemScript *script.
 
 	sigData = make([][]byte, 0)
 	if pubKeyType == script.ScriptPubkey {
-		privateKey := findPrivateKey(keys, &pubKeys[0])
-		if privateKey == nil {
+		keyPair := keyStore.GetKeyPairByPubKey(pubKeys[0])
+		if keyPair == nil {
 			return nil, errors.New("private key not found")
 		}
-		signature, err := tx.signOne(scriptPubKeySign, privateKey, hashType, nIn, value)
+		signature, err := tx.signOne(scriptPubKeySign, keyPair.GetPrivateKey(), hashType, nIn, value)
 		if err != nil {
 			return nil, err
 		}
@@ -491,16 +491,16 @@ func (tx *Tx) SignStep(nIn int, keys []*crypto.PrivateKey, redeemScript *script.
 		sigData = append(sigData, sigBytes)
 
 	} else if pubKeyType == script.ScriptPubkeyHash {
-		privateKey := findPrivateKeyByHash(keys, &pubKeys[0])
-		if privateKey == nil {
+		keyPair := keyStore.GetKeyPair(pubKeys[0])
+		if keyPair == nil {
 			return nil, errors.New("private key not found")
 		}
-		signature, err := tx.signOne(scriptPubKeySign, privateKey, hashType, nIn, value)
+		signature, err := tx.signOne(scriptPubKeySign, keyPair.GetPrivateKey(), hashType, nIn, value)
 		if err != nil {
 			return nil, err
 		}
 		sigBytes := append(signature.Serialize(), byte(hashType))
-		pkBytes := privateKey.PubKey().ToBytes()
+		pkBytes := keyPair.GetPublicKey().ToBytes()
 		// <signature> <pubkey>
 		sigData = append(sigData, sigBytes, pkBytes)
 
@@ -510,12 +510,12 @@ func (tx *Tx) SignStep(nIn int, keys []*crypto.PrivateKey, redeemScript *script.
 		// <OP_0> <signature0> ... <signatureM>
 		sigData = append(sigData, []byte{})
 		for _, pubKey := range pubKeys[1:] {
-			privateKey := findPrivateKey(keys, &pubKey)
-			if privateKey == nil {
+			keyPair := keyStore.GetKeyPairByPubKey(pubKey)
+			if keyPair == nil {
 				log.Info("Private key not found:%s", hex.EncodeToString(pubKey))
 				continue
 			}
-			signature, err := tx.signOne(scriptPubKeySign, privateKey, hashType, nIn, value)
+			signature, err := tx.signOne(scriptPubKeySign, keyPair.GetPrivateKey(), hashType, nIn, value)
 			if err != nil {
 				log.Info("getSignatureData error:%s", err.Error())
 				continue
@@ -643,6 +643,16 @@ func (tx *Tx) GetOuts() []*txout.TxOut {
 	return tx.outs
 }
 
+func (tx *Tx) InsertTxOut(pos int, txOut *txout.TxOut) {
+	if pos > len(tx.outs) {
+		tx.outs = append(tx.outs, txOut)
+		return
+	}
+	rear := append([]*txout.TxOut{}, tx.outs[pos:]...)
+	tx.outs = append(tx.outs[:pos], txOut)
+	tx.outs = append(tx.outs, rear...)
+}
+
 func NewTx(locktime uint32, version int32) *Tx {
 	tx := &Tx{lockTime: locktime, version: version}
 	tx.ins = make([]*txin.TxIn, 0)
@@ -677,23 +687,4 @@ func NewGenesisCoinbaseTx() *Tx {
 	tx.AddTxOut(txOut)
 
 	return tx
-}
-
-func findPrivateKey(privateKeys []*crypto.PrivateKey, pubKey *[]byte) *crypto.PrivateKey {
-	for _, privateKey := range privateKeys {
-		if bytes.Equal(privateKey.PubKey().ToBytes(), *pubKey) {
-			return privateKey
-		}
-	}
-	return nil
-}
-
-func findPrivateKeyByHash(privateKeys []*crypto.PrivateKey, pubKeyHash *[]byte) *crypto.PrivateKey {
-	for _, privateKey := range privateKeys {
-		keyHash := util.Hash160(privateKey.PubKey().ToBytes())
-		if bytes.Equal(keyHash, *pubKeyHash) {
-			return privateKey
-		}
-	}
-	return nil
 }
