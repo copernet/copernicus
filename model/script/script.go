@@ -685,25 +685,25 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 	return n
 }
 
-func (s *Script) GetP2SHSigOpCount() int {
-	// This is a pay-to-script-hash scriptPubKey;
-	// get the last item that the scriptSig
-	// pushes onto the stack:
-	if s.badOpCode {
-		return 0
-	}
-	for _, e := range s.ParsedOpCodes {
-		opcode := e.OpValue
-		if opcode > opcodes.OP_16 {
-			return 0
-		}
-	}
-	lastOps := s.ParsedOpCodes[len(s.ParsedOpCodes)-1]
-	tempScript := NewScriptRaw(lastOps.Data)
-	//return tempScript.GetSigOpCount(flags, true)
-	return tempScript.GetSigOpCount(true)
-
-}
+//func (s *Script) GetP2SHSigOpCount() int {
+//	// This is a pay-to-script-hash scriptPubKey;
+//	// get the last item that the scriptSig
+//	// pushes onto the stack:
+//	if s.badOpCode {
+//		return 0
+//	}
+//	for _, e := range s.ParsedOpCodes {
+//		opcode := e.OpValue
+//		if opcode > opcodes.OP_16 {
+//			return 0
+//		}
+//	}
+//	lastOps := s.ParsedOpCodes[len(s.ParsedOpCodes)-1]
+//	tempScript := NewScriptRaw(lastOps.Data)
+//	//return tempScript.GetSigOpCount(flags, true)
+//	return tempScript.GetSigOpCount(true)
+//
+//}
 
 func EncodeOPN(n int) (int, error) {
 	if n < 0 || n > 16 {

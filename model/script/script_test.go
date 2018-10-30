@@ -286,6 +286,36 @@ func TestScript_RemoveOpCodeByIndex(t *testing.T) {
 	}
 }
 
+func TestScript_IsCommitment(t *testing.T) {
+	scriptRaw := []byte{0x6a, 0x13, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
+	testScript := NewScriptRaw(scriptRaw)
+	result := testScript.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31})
+	assert.Equal(t, true, result)
+
+	scriptRaw1 := []byte{0x6b, 0x13, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
+	testScript1 := NewScriptRaw(scriptRaw1)
+	result1 := testScript1.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31})
+	assert.Equal(t, false, result1)
+
+	scriptRaw2 := []byte{0x6a, 0x13, 0xe2, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
+	testScript2 := NewScriptRaw(scriptRaw2)
+	result2 := testScript2.IsCommitment([]byte{0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31})
+	assert.Equal(t, false, result2)
+
+	scriptRaw3 := []byte{0x6a, 0x13, 0xe1, 0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31}
+	testScript3 := NewScriptRaw(scriptRaw3)
+	result3 := testScript3.IsCommitment([]byte{0x2a, 0x40, 0xd4, 0xa2, 0x21, 0x8d, 0x33, 0xf2,
+		0x08, 0xb9, 0xa0, 0x44, 0x78, 0x94, 0xdc, 0x9b, 0xea, 0x31})
+	assert.Equal(t, false, result3)
+}
+
 func TestBytesToBool(t *testing.T) {
 	tests := []struct {
 		in   []byte
@@ -309,13 +339,13 @@ func TestBytesToBool(t *testing.T) {
 func TestScript_IsStandardScriptPubKey_ScriptHash(t *testing.T) {
 	wantPubKeyType := ScriptHash
 	wantPubKeys := [][]byte{hexToBytes(
-		"23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1")}
+		"e2b7f7d12a70737429066a449615270b6851d164")}
 	wantIsStandard := true
 
 	testScript := NewEmptyScript()
 	testScript.PushOpCode(OP_HASH160)
 	testScript.PushData(hexToBytes("14"))
-	testScript.PushData(hexToBytes("23b0ad3477f2178bc0b3eed26e4e6316f4e83aa1"))
+	testScript.PushData(hexToBytes("e2b7f7d12a70737429066a449615270b6851d164"))
 	testScript.PushOpCode(OP_EQUAL)
 
 	pubKeyType, pubKeys, isStandart := testScript.IsStandardScriptPubKey()
@@ -323,6 +353,18 @@ func TestScript_IsStandardScriptPubKey_ScriptHash(t *testing.T) {
 	assert.Equal(t, wantPubKeyType, pubKeyType)
 	assert.Equal(t, wantPubKeys, pubKeys)
 	assert.Equal(t, wantIsStandard, isStandart)
+
+	var addresses []*Address
+	addr, err := AddressFromString("3NMo2DkQJsMhMzpVFawT3nTL1w3UXXumxu")
+	if err != nil {
+		t.Error(err)
+	}
+
+	sType, address, sigCountRequire, err := testScript.ExtractDestinations()
+	assert.Equal(t, wantPubKeyType, sType)
+	assert.Equal(t, append(addresses, addr), address)
+	assert.Equal(t, 1, sigCountRequire)
+	assert.NoError(t, err)
 }
 
 func TestScript_IsStandardScriptPubKey_NotStandard(t *testing.T) {
@@ -419,6 +461,17 @@ func TestScript_IsStandardScriptPubKey_OPCHECKSIG(t *testing.T) {
 	assert.Equal(t, wantPubKeyType, pubKeyType)
 	assert.Equal(t, wantPubKeys, pubKeys)
 	assert.Equal(t, wantIsStandard, isStandard)
+
+	addr, err := AddressFromString("1EHNa6Q4Jz2uvNExL497mE43ikXhwF6kZm")
+	if err != nil {
+		t.Error(err)
+	}
+
+	sType, address, sigCountRequire, err := testScript.ExtractDestinations()
+	assert.Equal(t, wantPubKeyType, sType)
+	assert.EqualValues(t, addr.String(), address[0].String())
+	assert.Equal(t, 1, sigCountRequire)
+	assert.NoError(t, err)
 }
 
 func TestScript_IsStandardScriptPubKey_OPCHECKSIGNotStandard(t *testing.T) {
@@ -457,6 +510,17 @@ func TestScript_IsStandardScriptPubKey_P2PKH(t *testing.T) {
 	assert.Equal(t, wantPubKeyType, pubKeyType)
 	assert.Equal(t, wantPubKeys, pubKeys)
 	assert.Equal(t, wantIsStandard, isStandard)
+
+	addr, err := AddressFromString("1Mfn6gFxky3KGq848VGrdA6PsQkkzEt7xo")
+	if err != nil {
+		t.Error(err)
+	}
+
+	sType, address, sigCountRequire, err := testScript.ExtractDestinations()
+	assert.Equal(t, wantPubKeyType, sType)
+	assert.EqualValues(t, addr.String(), address[0].String())
+	assert.Equal(t, 1, sigCountRequire)
+	assert.NoError(t, err)
 }
 
 func TestScript_IsStandardScriptPubKey_P2PKHNotStandard_WithoutPubKeyHash(t *testing.T) {
@@ -528,6 +592,17 @@ func TestScript_IsStandardScriptPubKey_MultiSig(t *testing.T) {
 	assert.Equal(t, wantPubKeyType, pubKeyType)
 	assert.Equal(t, wantPubKeys, pubKeys)
 	assert.Equal(t, wantIsStandard, isStandard)
+
+	addr, err := AddressFromString("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH")
+	if err != nil {
+		t.Error(err)
+	}
+
+	sType, address, sigCountRequire, err := testScript.ExtractDestinations()
+	assert.Equal(t, wantPubKeyType, sType)
+	assert.EqualValues(t, addr.String(), address[0].String())
+	assert.Equal(t, 2, sigCountRequire)
+	assert.NoError(t, err)
 }
 
 func TestScript_IsStandardScriptPubKey_MultiSig_PubKeyLengthError(t *testing.T) {
@@ -728,30 +803,9 @@ func TestScript_IsStandardScriptPubKey_ScriptPubkey(t *testing.T) {
 
 }
 
-//func TestScript_PushData(t *testing.T) {
-//	scripts := NewScriptRaw(make([]byte, 0))
+//func ()  {
 //
-//	err := scripts.PushOpCode(OP_HASH160)
-//	if err != nil {
-//		t.Error(err)
-//	}
-//
-//	data := [...]byte{
-//		0x89, 0xAB, 0xCD, 0xEF, 0xAB,
-//		0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
-//		0xAB, 0xBA, 0xAB, 0xBA, 0xAB,
-//		0xBA, 0xAB, 0xBA, 0xAB, 0xBA,
-//	}
-//	scripts.PushData(data[:])
-//	err = scripts.PushOpCode(OP_EQUAL)
-//	var buf bytes.Buffer
-//	scripts.Serialize(&buf)
-//	//assert.Equal(t, p2SHScript[:], buf.Bytes())
 //}
-
-func TestScript_PushOpCode(t *testing.T) {
-	//OP_EQUAL
-}
 
 func TestScript_PushInt64(t *testing.T) {
 	tests := []struct {
