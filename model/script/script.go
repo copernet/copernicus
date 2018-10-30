@@ -517,14 +517,21 @@ func BytesToBool(bytes []byte) bool {
 
 func (s *Script) IsStandardScriptPubKey() (pubKeyType int, pubKeys [][]byte, isStandard bool) {
 	//p2sh scriptPubKey
+
+	// Shortcut for pay-to-script-hash, which are more constrained than the
+	// other types:
+	// it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
 	if s.IsPayToScriptHash() {
 		return ScriptHash, [][]byte{s.ParsedOpCodes[1].Data}, true
 	}
+
 	// Provably prunable, data-carrying output
 	//
 	// So long as script passes the IsUnspendable() test and all but the first
 	// byte passes the IsPushOnly() test we don't care what exactly is in the
 	// script.
+
+	// OP_RETURN or OP_RETURN + DATA
 	opCodesLen := len(s.ParsedOpCodes)
 	if opCodesLen == 0 {
 		return ScriptNonStandard, nil, false
@@ -532,24 +539,16 @@ func (s *Script) IsStandardScriptPubKey() (pubKeyType int, pubKeys [][]byte, isS
 	parsedOpCode0 := s.ParsedOpCodes[0]
 	opValue0 := parsedOpCode0.OpValue
 
-	// OP_RETURN
-	if opCodesLen == 1 {
-		if parsedOpCode0.OpValue == opcodes.OP_RETURN {
+	if opCodesLen >= 1 && parsedOpCode0.OpValue == opcodes.OP_RETURN {
+		temp := NewScriptOps(s.ParsedOpCodes[1:])
+		if temp.IsPushOnly() {
 			return ScriptNullData, nil, true
 		}
 		return ScriptNonStandard, nil, false
 	}
 
-	// OP_RETURN and DATA
-	if parsedOpCode0.OpValue == opcodes.OP_RETURN {
-		tempScript := NewScriptOps(s.ParsedOpCodes[1:])
-		if tempScript.IsPushOnly() {
-			return ScriptNullData, nil, true
-		}
-		return ScriptNonStandard, nil, false
-	}
-
-	//PUBKEY OP_CHECKSIG
+	// Standard tx, sender provides pubkkey, receiver adds signature.
+	// PUBKEY << OP_CHECKSIG
 	if opCodesLen == 2 {
 		if opValue0 > opcodes.OP_PUSHDATA4 || parsedOpCode0.Length < 33 ||
 			parsedOpCode0.Length > 65 || s.ParsedOpCodes[1].OpValue != opcodes.OP_CHECKSIG {
@@ -563,7 +562,8 @@ func (s *Script) IsStandardScriptPubKey() (pubKeyType int, pubKeys [][]byte, isS
 		return
 	}
 
-	//OP_DUP OP_HASH160 PUBKEYHASH OP_EQUALVERIFY OP_CHECKSIG
+	// Bitcoin address tx, sender provides hash of pubkey, reciver provides signature and pubkey.
+	// OP_DUP << OP_HASH160 << PUBKEYHASH << OP_EQUALVERIFY << OP_CHECKSIG
 	if opValue0 == opcodes.OP_DUP {
 		if opCodesLen != 5 {
 			return ScriptNonStandard, nil, false
@@ -583,6 +583,7 @@ func (s *Script) IsStandardScriptPubKey() (pubKeyType int, pubKeys [][]byte, isS
 		return
 	}
 
+	// Sender provides N pubkeys, receivers provides M signaures.
 	//m pubkey1 pubkey2...pubkeyn n OP_CHECKMULTISIG
 	if opValue0 == opcodes.OP_0 || (opValue0 >= opcodes.OP_1 && opValue0 <= opcodes.OP_16) {
 		if opCodesLen < 4 {
@@ -669,10 +670,6 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 		opcode := e.OpValue
 		if opcode == opcodes.OP_CHECKSIG || opcode == opcodes.OP_CHECKSIGVERIFY {
 			n++
-			//} else if opcode == opcodes.OP_CHECKDATASIG || opcode == opcodes.OP_CHECKDATASIGVERIFY {
-			//	if flags&ScriptEnableCheckDataSig == ScriptEnableCheckDataSig {
-			//		n++
-			//	}
 		} else if opcode == opcodes.OP_CHECKMULTISIG || opcode == opcodes.OP_CHECKMULTISIGVERIFY {
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
 				n += DecodeOPN(lastOpcode)
@@ -685,25 +682,30 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 	return n
 }
 
-//func (s *Script) GetP2SHSigOpCount() int {
-//	// This is a pay-to-script-hash scriptPubKey;
-//	// get the last item that the scriptSig
-//	// pushes onto the stack:
-//	if s.badOpCode {
-//		return 0
-//	}
-//	for _, e := range s.ParsedOpCodes {
-//		opcode := e.OpValue
-//		if opcode > opcodes.OP_16 {
-//			return 0
-//		}
-//	}
-//	lastOps := s.ParsedOpCodes[len(s.ParsedOpCodes)-1]
-//	tempScript := NewScriptRaw(lastOps.Data)
-//	//return tempScript.GetSigOpCount(flags, true)
-//	return tempScript.GetSigOpCount(true)
-//
-//}
+func (s *Script) GetP2SHSigOpCount() int {
+	if s.badOpCode {
+		return 0
+	}
+
+	if !s.IsPayToScriptHash() {
+		return s.GetSigOpCount(true)
+	}
+
+	// This is a pay-to-script-hash scriptPubKey;
+	// get the last item that the scriptSig
+	// pushes onto the stack:
+	for _, e := range s.ParsedOpCodes {
+		opcode := e.OpValue
+		if opcode > opcodes.OP_16 {
+			return 0
+		}
+	}
+	lastOps := s.ParsedOpCodes[len(s.ParsedOpCodes)-1]
+	tempScript := NewScriptRaw(lastOps.Data)
+	//return tempScript.GetSigOpCount(flags, true)
+	return tempScript.GetSigOpCount(true)
+
+}
 
 func EncodeOPN(n int) (int, error) {
 	if n < 0 || n > 16 {
@@ -720,9 +722,6 @@ func EncodeOPN(n int) (int, error) {
 func DecodeOPN(opcode byte) int {
 	if opcode == opcodes.OP_0 {
 		return 0
-	}
-	if opcode < opcodes.OP_1 || opcode > opcodes.OP_16 {
-		panic("Decode Opcode err")
 	}
 	return int(opcode) - int(opcodes.OP_1-1)
 }
