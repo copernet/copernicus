@@ -760,3 +760,13 @@ func TestHandleAddPeerMsg(t *testing.T) {
 	s.AddPeer(sp)
 	s.handleAddPeerMsg(&ps, sp)
 }
+
+func TestParseListeners(t *testing.T) {
+	tests := [][]string{{"192.168.1.12:8080"}, {"192.168.100.32:18888"}, {"abc:80"}}
+	for i, test := range tests {
+		_, err := parseListeners(test)
+		if i == 2 && err == nil {
+			t.Errorf("parseListeners() should failed with error")
+		}
+	}
+}
