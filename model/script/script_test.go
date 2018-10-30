@@ -603,6 +603,12 @@ func TestScript_IsStandardScriptPubKey_MultiSig(t *testing.T) {
 	assert.EqualValues(t, addr.String(), address[0].String())
 	assert.Equal(t, 2, sigCountRequire)
 	assert.NoError(t, err)
+
+	notAccurateSigCount := testScript.GetSigOpCount(false)
+	assert.EqualValues(t, 20, notAccurateSigCount)
+
+	accurateSigCount := testScript.GetSigOpCount(true)
+	assert.EqualValues(t, 3, accurateSigCount)
 }
 
 func TestScript_IsStandardScriptPubKey_MultiSig_PubKeyLengthError(t *testing.T) {
