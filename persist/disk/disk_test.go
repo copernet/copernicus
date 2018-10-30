@@ -2,6 +2,7 @@ package disk
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math"
 	"os"
@@ -405,6 +406,74 @@ func TestAllocateFileRange(t *testing.T) {
 	}
 }
 
+func TestGetBlkFiles(t *testing.T) {
+	testDir, err := initTestEnv(t)
+	assert.Nil(t, err)
+
+	defer os.RemoveAll(testDir)
+
+	blkList := []string{
+		"blk00000.dat",
+		"blk00001.dat",
+	}
+
+	dirBlocks := filepath.Join(testDir, "blocks")
+	err = os.Mkdir(dirBlocks, 0777)
+	assert.Nil(t, err)
+
+	for _, filename := range blkList {
+		_, err = os.Create(filepath.Join(dirBlocks, filename))
+		assert.Nil(t, err)
+	}
+
+	blkfiles, err := GetBlkFiles()
+	assert.Nil(t, err)
+	for i, file := range blkfiles {
+		fileName := filepath.Base(file)
+		assert.Equal(t, blkList[i], fileName)
+	}
+}
+
 func TestCleanupBlockRevFiles(t *testing.T) {
+	testDir, err := initTestEnv(t)
+	assert.Nil(t, err)
+
+	defer os.RemoveAll(testDir)
+
+	dirBlocks := filepath.Join(testDir, "blocks")
+	err = os.Mkdir(dirBlocks, 0777)
+	assert.Nil(t, err)
+
+	// test delete blk file that index not continuous
+	blkList := []string{
+		"blk00000.dat",
+		"blk00001.dat",
+		"blk00003.dat",
+	}
+
+	for _, filename := range blkList {
+		_, err = os.Create(filepath.Join(dirBlocks, filename))
+		assert.Nil(t, err)
+	}
+
+	revList := []string{
+		"rev00000.dat",
+		"rev00001.dat",
+	}
+
+	for _, filename := range revList {
+		_, err = os.Create(filepath.Join(dirBlocks, filename))
+		assert.Nil(t, err)
+	}
+
 	CleanupBlockRevFiles()
+
+	files, err := ioutil.ReadDir(dirBlocks)
+	assert.Nil(t, err)
+
+	for _, file := range files {
+		is := isBlkFile(file.Name())
+		assert.True(t, is)
+	}
+
 }

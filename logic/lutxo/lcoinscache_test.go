@@ -52,4 +52,8 @@ func TestAccessByTxid(t *testing.T) {
 
 	unspendCoinFromDB := utxo.NewFreshCoin(txout1, 10000, false)
 	assert.Equal(t, unspendCoinFromDB.GetTxOut(), rCoin.GetTxOut())
+
+	hashUnKnown := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a0")
+	rCoin = AccessByTxid(utxo.GetUtxoCacheInstance(), hashUnKnown)
+	assert.Nil(t, rCoin)
 }
