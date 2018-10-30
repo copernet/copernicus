@@ -553,8 +553,11 @@ func TestOnHeaders(t *testing.T) {
 	sp.OnHeaders(in, msgHeaders)
 }
 
-/*
 func TestOnGetData(t *testing.T) {
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
+
 	hashStr := "3264bc2ac36a60840790ba1d475d01367e7c723da941069e9dc"
 	blockHash, err := util.GetHashFromStr(hashStr)
 	if err != nil {
@@ -579,15 +582,13 @@ func TestOnGetData(t *testing.T) {
 	in := peer.NewInboundPeer(&config)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
-	sp.OnGetData(in, m1)
-	sp.OnGetData(in, m2)
+	go func() {
+		sp.OnGetData(in, m1)
+		sp.OnGetData(in, m2)
+	}()
 }
-*/
 
 func TestTransferMsgToBusinessPro(t *testing.T) {
-	go func() {
-		http.ListenAndServe(":6060", nil)
-	}()
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config)
 	sp := newServerPeer(s, false)
@@ -609,4 +610,106 @@ func TestTransferMsgToBusinessPro(t *testing.T) {
 	for _, msg := range msgs {
 		sp.TransferMsgToBusinessPro(msg, done)
 	}
+}
+
+func TestOnGetBlocks(t *testing.T) {
+	// Block 99499 hash.
+	hashStr := "2710f40c87ec93d010a6fd95f42c59a2cbacc60b18cf6b7957535"
+	hashLocator, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	// Block 99500 hash.
+	hashStr = "2e7ad7b9eef9479e4aabc65cb831269cc20d2632c13684406dee0"
+	hashLocator2, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	// Block 100000 hash.
+	hashStr = "3ba27aa200b1cecaad478d2b00432346c3f1f3986da1afd33e506"
+	hashStop, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	msgGetBlocks := wire.NewMsgGetBlocks(hashStop)
+	msgGetBlocks.AddBlockLocatorHash(hashLocator2)
+	msgGetBlocks.AddBlockLocatorHash(hashLocator)
+	msgGetBlocks.ProtocolVersion = wire.BIP0035Version
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	sp.OnGetBlocks(in, msgGetBlocks)
+}
+
+func TestOnFilterAdd(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	data := []byte{0x01, 0x02}
+	msg := wire.NewMsgFilterAdd(data)
+	sp.OnFilterAdd(in, msg)
+}
+
+func TestOnFeeFilter(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	tests := []*wire.MsgFeeFilter{
+		wire.NewMsgFeeFilter(0),
+		wire.NewMsgFeeFilter(323),
+		wire.NewMsgFeeFilter(util.MaxSatoshi),
+	}
+	for _, test := range tests {
+		sp.OnFeeFilter(in, test)
+	}
+}
+
+func TestOnFilterClear(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	msg := wire.NewMsgFilterClear()
+	sp.OnFilterClear(in, msg)
+}
+
+func TestOnFilterLoad(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	data := []byte{0x01, 0x02}
+	msg := wire.NewMsgFilterLoad(data, 10, 0, 0)
+
+	sp.OnFilterLoad(in, msg)
+}
+
+func TestOnGetAddr(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	msg := wire.NewMsgGetAddr()
+	sp.OnGetAddr(in, msg)
+}
+
+func TestOnAddr(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	msg := wire.NewMsgAddr()
+	tcpAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8333}
+	na := wire.NewNetAddress(tcpAddr, wire.SFNodeNetwork)
+	err := msg.AddAddress(na)
+	if err != nil {
+		t.Errorf("AddAddress: %v", err)
+	}
+	sp.OnAddr(in, msg)
 }
