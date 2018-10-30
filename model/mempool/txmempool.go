@@ -352,7 +352,6 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		less, _ := m.txByAncestorFeeRateSort.Min()
 		removeIt := less.(*EntryAncestorFeeRateSort)
 
-		//rem := m.txByAncestorFeeRateSort.Delete(removeIt).(*EntryAncestorFeeRateSort)
 		rmless, _ := m.txByAncestorFeeRateSort.Delete(removeIt)
 		rem := rmless.(*EntryAncestorFeeRateSort)
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {

@@ -312,7 +312,7 @@ func TestTxMempool_GetCheckFrequency(t *testing.T) {
 	conf.Cfg = conf.InitConfig([]string{})
 
 	res := GetInstance().GetCheckFrequency()
-	assert.Equal(t, res, uint64(0))
+	assert.Equal(t, res, uint64(4294967296))
 }
 
 func TestTxMempool_PoolData(t *testing.T) {
