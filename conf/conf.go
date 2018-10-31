@@ -65,11 +65,12 @@ const (
 
 // Configuration defines all configurations for application
 type Configuration struct {
-	GoVersion string `validate:"require"` //description:"Display version information and exit"
-	Version   string `validate:"require"` //description:"Display version information of copernicus"
-	BuildDate string `validate:"require"` //description:"Display build date of copernicus"
-	DataDir   string `default:"data"`
-	Reindex   bool
+	GoVersion          string `validate:"require"` //description:"Display version information and exit"
+	Version            string `validate:"require"` //description:"Display version information of copernicus"
+	BuildDate          string `validate:"require"` //description:"Display build date of copernicus"
+	DataDir            string `default:"data"`
+	Reindex            bool
+	Excessiveblocksize uint64
 
 	// Service struct {
 	// 	Address string `default:"1.0.0.1:80"`
@@ -273,6 +274,7 @@ func InitConfig(args []string) *Configuration {
 	// set data dir
 	config.DataDir = DataDir
 	config.Reindex = opts.Reindex
+	config.Excessiveblocksize = opts.Excessiveblocksize
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")

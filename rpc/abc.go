@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"fmt"
+	"github.com/copernet/copernicus/conf"
 	"strconv"
 
 	"github.com/copernet/copernicus/model/consensus"
@@ -16,7 +17,7 @@ var abcHandlers = map[string]commandHandler{
 
 func handleGetExcessiveBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	return &btcjson.ExcessiveBlockSizeResult{
-		ExcessiveBlockSize: mining.GetBlockSize(),
+		ExcessiveBlockSize: conf.Cfg.Excessiveblocksize,
 	}, nil
 }
 

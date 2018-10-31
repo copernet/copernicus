@@ -18,7 +18,8 @@ type Opts struct {
 	UtxoHashStartHeigh int32 `long:"utxohashstartheight" default:"-1" description:"Which height begin logging out the utxos hash at"`
 	UtxoHashEndHeigh   int32 `long:"utxohashendheight" default:"-1" description:"Which height finish logging out the utxos hash at"`
 
-	Whitelists []string `long:"whitelist" description:"whitelist"`
+	Whitelists         []string `long:"whitelist" description:"whitelist"`
+	Excessiveblocksize uint64   `long:"excessiveblocksize" default:"32000000" description:"excessive block size"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
