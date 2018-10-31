@@ -14,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
@@ -47,7 +48,7 @@ var blockchainHandlers = map[string]commandHandler{
 	"preciousblock":         handlePreciousblock,   //complete
 
 	/*not shown in help*/
-	"invalidateblock":    handlInvalidateBlock,  //complete
+	"invalidateblock":    handleInvalidateBlock, //complete
 	"reconsiderblock":    handleReconsiderBlock, //complete
 	"waitfornewblock":    handleWaitForNewBlock,
 	"waitforblock":       handleWaitForBlock,
@@ -849,30 +850,33 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	return nil, nil
 }
 
-func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.InvalidateBlockCmd)
-	//hash, _ := util.GetHashFromStr(c.BlockHash)
-	/*	state := valistate.ValidationState{}
+func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.InvalidateBlockCmd)
+	hash, _ := util.GetHashFromStr(c.BlockHash)
 
-		if len(chain.MapBlockIndex.Data) == 0 {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidAddressOrKey,
-				Message: "Block not found",
-			}
+	persist.CsMain.Lock() //lock chain tip for CreateNewBlock
+	defer persist.CsMain.Unlock()
 
-			//blkIndex := chain.MapBlockIndex.Data[*hash]
-			//chain.InvalidateBlock()                  // todo
+	bi := chain.GetInstance().FindHashInActive(*hash)
+	if bi == nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Block not found")
+	}
+
+	for {
+		bi = chain.GetInstance().FindHashInActive(*hash)
+		if bi == nil {
+			break
 		}
-		if state.IsValid() {
-			//chain.ActivateBestChain()        // todo
-		}
 
-		if state.IsInvalid() {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDatabase,
-				Message: state.GetRejectReason(),
-			}
-		}*/ // todo open
+		if err := lchain.DisconnectTip(false); err != nil {
+			//TODO: handle disconnect failure
+			return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "disconnect failed")
+		}
+	}
+
+	if err := lchain.ActivateBestChain(nil); err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "ActivateBestChain failed")
+	}
 
 	return nil, nil
 }
