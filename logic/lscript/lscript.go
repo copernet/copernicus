@@ -76,6 +76,7 @@ func VerifyScript(transaction *tx.Tx, scriptSig *script.Script, scriptPubKey *sc
 			panic("flags err")
 		}
 		if stack.Size() != 1 {
+			log.Debug("ScriptErrCleanStack")
 			return errcode.New(errcode.ScriptErrCleanStack)
 		}
 	}

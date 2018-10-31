@@ -204,8 +204,8 @@ func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFrom
 	// Create and send the transaction
 	recipients := make([]*wallet.Recipient, 1)
 	recipients[0] = &wallet.Recipient{
-		ScriptPubKey:          scriptPubKey,
-		Value:                 value,
+		ScriptPubKey: scriptPubKey,
+		Value:        value,
 		SubtractFeeFromAmount: subtractFeeFromAmount,
 	}
 	changePosRet := -1

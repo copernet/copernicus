@@ -27,13 +27,14 @@ import (
 )
 
 type ScriptVerifyJob struct {
-	Tx            *tx.Tx
-	ScriptSig     *script.Script
-	ScriptPubKey  *script.Script
-	IputNum       int
-	Value         amount.Amount
-	Flags         uint32
-	ScriptChecker lscript.Checker
+	Tx                     *tx.Tx
+	ScriptSig              *script.Script
+	ScriptPubKey           *script.Script
+	IputNum                int
+	Value                  amount.Amount
+	Flags                  uint32
+	ScriptChecker          lscript.Checker
+	ScriptVerifyResultChan chan ScriptVerifyResult
 }
 
 type ScriptVerifyResult struct {
@@ -58,14 +59,15 @@ const (
 )
 
 var (
-	scriptVerifyJobChan    chan ScriptVerifyJob
-	scriptVerifyResultChan chan ScriptVerifyResult
+	scriptVerifyJobChan         chan ScriptVerifyJob
+	blockScriptVerifyResultChan chan ScriptVerifyResult
+	txScriptVerifyResultChan    chan ScriptVerifyResult
 )
 
 func ScriptVerifyInit() {
 	scriptVerifyJobChan = make(chan ScriptVerifyJob, MaxScriptVerifyJobNum)
-	scriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
-
+	blockScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
+	txScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
 	for i := 0; i < conf.Cfg.Script.Par; i++ {
 		go checkScript()
 	}
@@ -185,7 +187,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 
 	// Check against previous transactions. This is done last to help
 	// prevent CPU exhaustion denial-of-service attacks.
-	err = checkInputs(txn, inputCoins, scriptVerifyFlags)
+	err = checkInputs(txn, inputCoins, scriptVerifyFlags, txScriptVerifyResultChan)
 	if err != nil {
 		return nil, err
 	}
@@ -206,12 +208,12 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 	// invalid blocks (using TestBlockValidity), however allowing such
 	// transactions into the mempool can be exploited as a DoS attack.
 	var currentBlockScriptVerifyFlags = chain.GetInstance().GetBlockScriptFlags(tip)
-	err = checkInputs(txn, inputCoins, currentBlockScriptVerifyFlags)
+	err = checkInputs(txn, inputCoins, currentBlockScriptVerifyFlags, txScriptVerifyResultChan)
 	if err != nil {
 		if ((^scriptVerifyFlags) & currentBlockScriptVerifyFlags) == 0 {
 			return nil, errcode.New(errcode.ScriptCheckInputsBug)
 		}
-		err = checkInputs(txn, inputCoins, uint32(script.MandatoryScriptVerifyFlags)|extraFlags)
+		err = checkInputs(txn, inputCoins, uint32(script.MandatoryScriptVerifyFlags)|extraFlags, txScriptVerifyResultChan)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +364,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		fees += valueIn - transaction.GetValueOut()
 		if needCheckScript {
 			//check inputs
-			err := checkInputs(transaction, coinsMap, scriptCheckFlags)
+			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -576,7 +578,8 @@ func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 	return true
 }
 
-func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
+func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32,
+	scriptVerifyResultChan chan ScriptVerifyResult) error {
 	//check inputs money range
 	bestBlockHash, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
 	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
@@ -615,7 +618,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 			scriptPubKey := coin.GetScriptPubKey()
 			scriptSig := ins[index].GetScriptSig()
 			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey, index,
-				coin.GetAmount(), flags, lscript.NewScriptRealChecker()}
+				coin.GetAmount(), flags, lscript.NewScriptRealChecker(), scriptVerifyResultChan}
 		}
 
 		var err error
@@ -650,16 +653,16 @@ func checkScript() {
 				fallbackFlags := uint32(uint64(j.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags) | script.ScriptEnableMonolithOpcodes)
 				err2 := lscript.VerifyScript(j.Tx, j.ScriptSig, j.ScriptPubKey, j.IputNum, j.Value, fallbackFlags, j.ScriptChecker)
 				if err2 == nil {
-					scriptVerifyResultChan <- verifyResult(j, errorNonMandatoryPass(j, err1))
+					j.ScriptVerifyResultChan <- verifyResult(j, errorNonMandatoryPass(j, err1))
 					return
 				}
 			}
 
-			scriptVerifyResultChan <- verifyResult(j, errorMandatoryFailed(j, err1))
+			j.ScriptVerifyResultChan <- verifyResult(j, errorMandatoryFailed(j, err1))
 			return
 		}
 
-		scriptVerifyResultChan <- verifyResult(j, nil)
+		j.ScriptVerifyResultChan <- verifyResult(j, nil)
 	}
 }
 
