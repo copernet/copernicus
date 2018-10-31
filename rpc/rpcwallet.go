@@ -19,6 +19,7 @@ var walletHandlers = map[string]commandHandler{
 	"listunspent":   handleListUnspent,
 	"settxfee":      handleSetTxFee,
 	"sendtoaddress": handleSendToAddress,
+	"getbalance":    handleGetBalance,
 }
 
 var walletDisableRPCError = &btcjson.RPCError{
@@ -173,6 +174,16 @@ func handleSendToAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	}
 	txHash := txn.GetHash()
 	return txHash.String(), nil
+}
+
+func handleGetBalance(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	if !lwallet.IsWalletEnable() {
+		return nil, walletDisableRPCError
+	}
+	//TODO add Confirmation
+	balance := wallet.GetInstance().GetBalance()
+
+	return balance.ToBTC(), nil
 }
 
 func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFromAmount bool,

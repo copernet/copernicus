@@ -1669,4 +1669,14 @@ const (
 		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "donation" "seans outpost"` + "\n" +
 		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "" "" true` + "\n" +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "sendtoaddress", "params": ["1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd", 0.1, "donation", "seans outpost"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+	getbalanceDesc = "getbalance (\"account\" minconf=1)\n\nCalculates and returns the balance of one or all accounts.\n\nArguments:\n1. account (string, optional)" +
+		"             DEPRECATED -- The account name to query the balance for, or \"*\" to consider all accounts (default=\"*\")" +
+		"\n2. minconf (numeric, optional, default=1) Minimum number of block confirmations required before an unspent output's value is included in the balance\n\n" +
+		"Result " +
+		"(account != \"*\"):\nn.nnn (numeric) The balance of 'account' valued in bitcoin\n\n" +
+		"Result " +
+		"(account = \"*\"):\nn.nnn (numeric) The balance of all accounts valued in bitcoin\n" +
+		"\nExamples:\n" +
+		`> coperctl getbalance ` +
+		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getbalance", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
 )
