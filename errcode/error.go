@@ -22,7 +22,7 @@ type ProjectError struct {
 }
 
 func (e ProjectError) Error() string {
-	return fmt.Sprintf("module: %s, global errcode: %v,  desc: %s", e.Module, e.Code, e.Desc)
+	return fmt.Sprintf("module: %s, errcode: %v: %s", e.Module, e.Code, e.Desc)
 }
 
 func getCode(errCode fmt.Stringer) (int, string) {

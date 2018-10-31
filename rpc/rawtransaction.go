@@ -547,12 +547,8 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	if entry == nil && !inChain {
 		err = lmempool.AcceptTxToMemPool(&txn)
 		if err != nil {
-			e := err.Error()
-			if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
-				e = fmt.Sprintf("%d: %s", rejectCode, reason)
-			}
 			return nil, btcjson.NewRPCError(rpcErrorOfAcceptTx(err),
-				"mempool reject the transaction for: "+e)
+				"mempool reject the transaction for: "+err.Error())
 		}
 	} else if inChain {
 		return nil, btcjson.NewRPCError(btcjson.RPCTransactionAlreadyInChain,

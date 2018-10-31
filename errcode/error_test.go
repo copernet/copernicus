@@ -14,17 +14,17 @@ func TestIsErrorCode(t *testing.T) {
 		descriptor string
 	}{
 		{ErrorBlockHeaderNoValid, true,
-			"module: chain, global errcode: " + strconv.Itoa(int(ErrorBlockHeaderNoValid)) + ",  desc: The block header is not valid"},
+			"module: chain, errcode: " + strconv.Itoa(int(ErrorBlockHeaderNoValid)) + ": The block header is not valid"},
 		{ErrorOutOfDiskSpace, true,
-			"module: disk, global errcode: " + strconv.Itoa(int(ErrorOutOfDiskSpace)) + ",  desc: ErrorOutOfDiskSpace"},
+			"module: disk, errcode: " + strconv.Itoa(int(ErrorOutOfDiskSpace)) + ": ErrorOutOfDiskSpace"},
 		{MissParent, true,
-			"module: mempool, global errcode: " + strconv.Itoa(int(MissParent)) + ",  desc: Miss input transaction"},
+			"module: mempool, errcode: " + strconv.Itoa(int(MissParent)) + ": Miss input transaction"},
 		{ModelValid, true,
-			"module: rpc, global errcode: " + strconv.Itoa(int(ModelValid)) + ",  desc: Valid"},
+			"module: rpc, errcode: " + strconv.Itoa(int(ModelValid)) + ": Valid"},
 		{ScriptErrOK, true,
-			"module: script, global errcode: " + strconv.Itoa(int(ScriptErrOK)) + ",  desc: No error"},
+			"module: script, errcode: " + strconv.Itoa(int(ScriptErrOK)) + ": No error"},
 		{TxErrNoPreviousOut, true,
-			"module: transaction, global errcode: " + strconv.Itoa(int(TxErrNoPreviousOut)) + ",  desc: There is no previousout"},
+			"module: transaction, errcode: " + strconv.Itoa(int(TxErrNoPreviousOut)) + ": There is no previousout"},
 	}
 
 	t.Logf("Running %d tests", len(tests))
