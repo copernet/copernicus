@@ -12,7 +12,7 @@ script:
   - docker exec copernicus /bin/bash -c 'cd /go/src/github.com/copernet/copernicus && ./check.sh'
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec copernicus goveralls -coverprofile=/go/src/github.com/copernet/copernicus/coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN; fi'
   - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python test_runner.py'
-  - 'if [ "$?" = "1" ]; then docker exec copernicus /bin/bash /walle/log.sh /walle  ' '
+  - 'if [ "$?" = "1" ]; then docker exec copernicus /bin/bash /walle/log.sh /walle; fi'
 
 notifications:
   email:
