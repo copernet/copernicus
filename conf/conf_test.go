@@ -217,7 +217,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			LimitDescendantCount int    // Default for -limitdescendantcount, max number of in-mempool descendants
 			LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
 			MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
-			MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+			MaxPoolExpiry        int    `default:"336"`       // Default for -mempoolexpiry, expiration time for mempool transactions in hours
 			CheckFrequency       uint64 `default:"0"`
 		}{
 			MaxPoolSize:    300000000,
