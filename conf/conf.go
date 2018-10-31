@@ -297,7 +297,14 @@ func InitConfig(args []string) *Configuration {
 		config.Chain.UtxoHashStartHeight = opts.UtxoHashStartHeigh
 		config.Chain.UtxoHashEndHeight = opts.UtxoHashEndHeigh
 	}
-
+	if opts.Excessiveblocksize <= 1000000 {
+		println("Error: Excessive block size must be > 1,000,000 bytes (1MB)")
+		return nil
+	}
+	if opts.Excessiveblocksize < config.Mining.BlockMaxSize {
+		println("Error: Max generated block size (blockmaxsize) cannot exceed the excessive block size (excessiveblocksize)")
+		return nil
+	}
 	if len(opts.Whitelists) > 0 {
 		initWhitelists(config, opts)
 	}
