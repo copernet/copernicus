@@ -497,7 +497,7 @@ func GetSigOpCountWithP2SH(txn *tx.Tx, coinMap *utxo.CoinsMap) int {
 
 		scriptPubKey := coin.GetScriptPubKey()
 		if scriptPubKey.IsPayToScriptHash() {
-			sigsCount := scriptPubKey.GetSigOpCount(true)
+			sigsCount := scriptPubKey.GetP2SHSigOpCount(txin.GetScriptSig())
 			n += sigsCount
 		}
 	}
