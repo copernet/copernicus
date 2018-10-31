@@ -593,14 +593,19 @@ func TestScript_IsStandardScriptPubKey_MultiSig(t *testing.T) {
 	assert.Equal(t, wantPubKeys, pubKeys)
 	assert.Equal(t, wantIsStandard, isStandard)
 
-	addr, err := AddressFromString("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH")
-	if err != nil {
-		t.Error(err)
+	addresses := make([]*Address, 0, 3)
+	for _, v := range pubKeysData {
+
+		addr, err := AddressFromPublicKey(hexToBytes(v))
+		if err != nil {
+			continue
+		}
+		addresses = append(addresses, addr)
 	}
 
 	sType, address, sigCountRequire, err := testScript.ExtractDestinations()
 	assert.Equal(t, wantPubKeyType, sType)
-	assert.EqualValues(t, addr.String(), address[0].String())
+	assert.EqualValues(t, addresses, address)
 	assert.Equal(t, 2, sigCountRequire)
 	assert.NoError(t, err)
 

@@ -469,7 +469,7 @@ func (s *Script) ExtractDestinations() (sType int, addresses []*Address, sigCoun
 	if sType == ScriptMultiSig {
 		sigCountRequired = int(pubKeys[0][0])
 		addresses = make([]*Address, 0, len(pubKeys)-2)
-		for _, e := range pubKeys[1 : len(pubKeys)-2] {
+		for _, e := range pubKeys[1 : len(pubKeys)-1] {
 			address, err := AddressFromPublicKey(e)
 			if err != nil {
 				return sType, nil, 0, err
