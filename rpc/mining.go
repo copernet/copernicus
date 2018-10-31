@@ -472,11 +472,21 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	bk := &block.Block{}
 	err = bk.Unserialize(bytes.NewBuffer(serializedBlock))
 	if err != nil {
+		log.Error("Block decode failed: %s", err.Error())
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCDeserialization,
 			Message: "Block decode failed: " + err.Error(),
 		}
 	}
+
+	if len(bk.Txs) == 0 || !bk.Txs[0].IsCoinBase() {
+		log.Error("Block does not start with a coinbase, block hash: %s", bk.GetHash().String())
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCDeserialization,
+			Message: "Block does not start with a coinbase",
+		}
+	}
+
 	hash := bk.GetHash()
 	ch := chain.GetInstance()
 	blkIdx := ch.FindBlockIndex(hash)
