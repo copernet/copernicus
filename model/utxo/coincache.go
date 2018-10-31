@@ -27,10 +27,11 @@ func Close() {
 
 type CacheView interface {
 	GetCoin(outpoint *outpoint.OutPoint) *Coin
-	HaveCoin(point *outpoint.OutPoint) bool
+	HaveCoin(outpoint *outpoint.OutPoint) bool
 	GetBestBlock() (util.Hash, error)
 	UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error
 	DynamicMemoryUsage() int64
 	GetCacheSize() int
+	RemoveCoins(outpoint *outpoint.OutPoint) error
 	Flush() bool
 }
