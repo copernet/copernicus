@@ -164,6 +164,10 @@ type Configuration struct {
 	BlockIndex struct {
 		CheckBlockIndex bool
 	}
+	Wallet struct {
+		Enable    bool `default:"false"`
+		Broadcast bool `default:"false"`
+	}
 }
 
 var (

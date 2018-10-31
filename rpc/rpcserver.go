@@ -630,6 +630,8 @@ func NewServer(config *ServerConfig) (*Server, error) {
 
 func InitRPCServer() (*Server, error) {
 	if !conf.Cfg.P2PNet.DisableRPC {
+		registerAllRPCCommands()
+
 		// Setup listeners for the configured RPC listen addresses and
 		// TLS settings.
 		rpcListeners, err := SetupRPCListeners()

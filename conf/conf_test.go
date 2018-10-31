@@ -308,7 +308,13 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			SimNet       bool
 			ConnectPeers []string
 		}{SimNet: false},
-		BlockIndex: struct{ CheckBlockIndex bool }{CheckBlockIndex: regTestNet},
+		BlockIndex: struct {
+			CheckBlockIndex bool
+		}{CheckBlockIndex: regTestNet},
+		Wallet: struct {
+			Enable    bool `default:"false"`
+			Broadcast bool `default:"false"`
+		}{Enable: false, Broadcast: false},
 	}
 }
 

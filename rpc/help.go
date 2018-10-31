@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/rpc/btcjson"
 )
 
@@ -135,6 +136,9 @@ func (c *helpCacher) rpcUsage(includeWebsockets bool) (string, error) {
 	for method, info := range allMethodHelp {
 		// Debug command is not shown in help
 		if info.category == DebugCmd {
+			continue
+		}
+		if !conf.Cfg.Wallet.Enable && info.category == WalletCmd {
 			continue
 		}
 		if _, ok := usageTexts[info.category]; !ok {
