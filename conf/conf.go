@@ -172,6 +172,7 @@ type Configuration struct {
 
 var (
 	Cfg     *Configuration
+	Args    *Opts
 	DataDir string
 )
 
@@ -186,6 +187,9 @@ func InitConfig(args []string) *Configuration {
 		//fmt.Println("\033[0;31mparse cmd line fail: %v\033[0m\n")
 		return nil
 	}
+
+	Args = opts
+
 	if opts.RegTest && opts.TestNet {
 		panic("Both testnet and regtest are true")
 	}

@@ -366,7 +366,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			//check inputs
 			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs: "+err.Error())
 			}
 		}
 

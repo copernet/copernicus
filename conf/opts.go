@@ -20,6 +20,8 @@ type Opts struct {
 
 	Whitelists         []string `long:"whitelist" description:"whitelist"`
 	Excessiveblocksize uint64   `long:"excessiveblocksize" default:"32000000" description:"excessive block size"`
+
+	ReplayProtectionActivationTime string `long:"replayprotectionactivationtime"`
 }
 
 func InitArgs(args []string) (*Opts, error) {

@@ -623,24 +623,13 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// rejected as opposed to something actually going wrong, so log
 		// it as such.  Otherwise, something really did go wrong, so log
 		// it as an actual error.
-		// todo !!! and error code process. yyx
-		//if _, ok := err.(blockchain.RuleError); ok {
-		//	log.Info("Rejected block %v from %s: %v", blockHash,
-		//		peer, err)
-		//} else {
-		//	log.Error("Failed to process block %v: %v",
-		//		blockHash, err)
-		//}
-		//if dbErr, ok := err.(database.Error); ok && dbErr.ErrorCode ==
-		//	database.ErrCorruption {
-		//	panic(dbErr)
-		//}
+		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
+			peer.PushRejectMsg(wire.CmdBlock, rejectCode, reason, &blockHash, false)
+			log.Debug("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
+		} else {
+			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
+		}
 
-		// Convert the error into an appropriate reject message and
-		// send it.
-		// todo !!! need process. yyx
-		//code, reason := mpool.ErrToRejectErr(err)
-		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
 		if !sm.headersFirstMode {
 			log.Debug("len of Requested block:%d, sm.requestBlockInvCnt: %d", len(sm.requestedBlocks), sm.requestBlkInvCnt)
 			if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
@@ -660,7 +649,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 			}
 		}
 
-		log.Debug("ProcessBlockCallBack err:%v", err)
 		return
 	}
 

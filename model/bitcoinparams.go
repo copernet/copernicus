@@ -2,7 +2,9 @@ package model
 
 import (
 	"errors"
+	"github.com/copernet/copernicus/conf"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/copernet/copernicus/crypto"
@@ -444,7 +446,14 @@ func IsDAAEnabled(height int32) bool {
 }
 
 func IsReplayProtectionEnabled(medianTimePast int64) bool {
-	return medianTimePast >= ActiveNetParams.MagneticAnomalyActivationTime
+	rpActivationTime := ActiveNetParams.MagneticAnomalyActivationTime
+
+	arg, err := strconv.ParseUint(conf.Args.ReplayProtectionActivationTime, 10, 63)
+	if err == nil {
+		rpActivationTime = int64(arg)
+	}
+
+	return medianTimePast >= rpActivationTime
 }
 
 func SetTestNetParams() {
