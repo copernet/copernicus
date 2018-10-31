@@ -92,9 +92,11 @@ func main() {
 	debug.SetGCPercent(10)
 
 	// Up some limits.
-	if err := limits.SetLimits(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
-		os.Exit(1)
+	if runtime.GOOS != "plan9" && runtime.GOOS != "windows" {
+		if err := limits.SetLimits(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	args := os.Args
