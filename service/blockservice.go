@@ -33,27 +33,21 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	h := b.GetHash()
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
-	coinsTipHash, err := coinsTip.GetBestBlock()
-	if err != nil {
-		log.Error("get best block error:%s", err.Error())
-	}
+	coinsTipHash, _ := coinsTip.GetBestBlock()
 
 	log.Trace("Begin processing block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
 		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
 
 	isNewBlock := false
 
-	err = ProcessNewBlock(b, true, &isNewBlock)
+	err := ProcessNewBlock(b, true, &isNewBlock)
+
 	if err != nil {
 		log.Trace("processBlock failed ...")
 		return isNewBlock, err
 	}
 
-	coinsTipHash, err = coinsTip.GetBestBlock()
-	if err != nil {
-		log.Error("get best block again error:%s", err.Error())
-	}
-
+	coinsTipHash, _ = coinsTip.GetBestBlock()
 	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
 		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
 
