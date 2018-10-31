@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -179,6 +180,7 @@ type defaultArgs struct {
 	whiteList           []*net.IPNet
 	UtxoHashStartHeight int32
 	UtxoHashEndHeight   int32
+	Excessiveblocksize  uint64
 }
 
 func getDefaultConfiguration(args defaultArgs) *Configuration {
@@ -187,9 +189,11 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 	regTestNet := args.regTestNet
 	whiteList := args.whiteList
 	defaultDataDir := AppDataDir(defaultDataDirname, false)
+	defaultExcessiveblocksize := args.Excessiveblocksize
 
 	return &Configuration{
-		DataDir: dataDir,
+		Excessiveblocksize: defaultExcessiveblocksize,
+		DataDir:            dataDir,
 		RPC: struct {
 			RPCListeners         []string
 			RPCUser              string
@@ -368,6 +372,7 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           nil,
 				UtxoHashStartHeight: -1,
 				UtxoHashEndHeight:   -1,
+				Excessiveblocksize:  32000000,
 			})},
 		{[]string{"--datadir=/tmp/Coper", "--testnet"},
 			getDefaultConfiguration(defaultArgs{
@@ -377,6 +382,7 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           nil,
 				UtxoHashStartHeight: -1,
 				UtxoHashEndHeight:   -1,
+				Excessiveblocksize:  32000000,
 			})},
 		{[]string{"--datadir=/tmp/Coper", "--regtest"},
 			getDefaultConfiguration(defaultArgs{
@@ -386,6 +392,7 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           nil,
 				UtxoHashStartHeight: -1,
 				UtxoHashEndHeight:   -1,
+				Excessiveblocksize:  32000000,
 			})},
 		{[]string{"--datadir=/tmp/Coper", "--whitelist=127.0.0.1/24"},
 			getDefaultConfiguration(defaultArgs{
@@ -395,6 +402,7 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           createNet([]string{"127.0.0.1/24"}),
 				UtxoHashStartHeight: -1,
 				UtxoHashEndHeight:   -1,
+				Excessiveblocksize:  32000000,
 			})},
 		{[]string{"--datadir=/tmp/Coper", "--whitelist="},
 			getDefaultConfiguration(defaultArgs{
@@ -404,6 +412,7 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           createNet([]string{""}),
 				UtxoHashStartHeight: -1,
 				UtxoHashEndHeight:   -1,
+				Excessiveblocksize:  32000000,
 			})},
 		{[]string{"--datadir=/tmp/Coper", "--whitelist=127.0.0.1"},
 			getDefaultConfiguration(defaultArgs{
@@ -413,6 +422,7 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           createNet([]string{"127.0.0.1"}),
 				UtxoHashStartHeight: -1,
 				UtxoHashEndHeight:   -1,
+				Excessiveblocksize:  32000000,
 			})},
 		{[]string{"--datadir=/tmp/Coper", "--utxohashstartheight=0", "--utxohashendheight=1"},
 			getDefaultConfiguration(defaultArgs{
@@ -422,19 +432,21 @@ func TestInitConfig2(t *testing.T) {
 				whiteList:           nil,
 				UtxoHashStartHeight: 0,
 				UtxoHashEndHeight:   1,
+				Excessiveblocksize:  32000000,
 			})},
 	}
 	createTmpFile()
 	defer os.RemoveAll("/tmp/Coper")
 	defer revert()
 
-	for i, v := range tests {
+	for _, v := range tests {
 		value := v
 		result := InitConfig(value.in)
 
-		if !reflect.DeepEqual(result, value.want) {
-			t.Errorf(" %d it not expect", i)
-		}
+		assert.Equal(t, value.want, result)
+		//if !reflect.DeepEqual(result, value.want) {
+		//	t.Errorf(" %d it not expect", i)
+		//}
 	}
 }
 
