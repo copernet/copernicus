@@ -969,14 +969,17 @@ func TestInsertTxOut(t *testing.T) {
 	txn := NewTx(0, DefaultVersion)
 	txn.AddTxOut(txout.NewTxOut(0, scriptPubKey0))
 	txn.AddTxOut(txout.NewTxOut(0, scriptPubKey1))
+	assert.Equal(t, 2, txn.GetOutsCount())
 	assert.Equal(t, scriptPubKey0, txn.GetTxOut(0).GetScriptPubKey())
 	assert.Equal(t, scriptPubKey1, txn.GetTxOut(1).GetScriptPubKey())
 
 	txn.InsertTxOut(1, txout.NewTxOut(0, scriptPubKey2))
+	assert.Equal(t, 3, txn.GetOutsCount())
 	assert.Equal(t, scriptPubKey0, txn.GetTxOut(0).GetScriptPubKey())
 	assert.Equal(t, scriptPubKey2, txn.GetTxOut(1).GetScriptPubKey())
 	assert.Equal(t, scriptPubKey1, txn.GetTxOut(2).GetScriptPubKey())
 
 	txn.InsertTxOut(100, txout.NewTxOut(0, scriptPubKey3))
+	assert.Equal(t, 4, txn.GetOutsCount())
 	assert.Equal(t, scriptPubKey3, txn.GetTxOut(3).GetScriptPubKey())
 }

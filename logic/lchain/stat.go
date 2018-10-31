@@ -107,9 +107,9 @@ func GetUTXOStats(cdb utxo.CoinsDB) (*UTXOStat, error) {
 
 	var prevHash util.Hash
 	outputs := make(map[uint32]*utxo.Coin)
-	for ; iter.Valid(); iter.Next() {
+	for ; iter.Valid() && iter.GetKey()[0] == db.DbCoin; iter.Next() {
 		outPoint := &outpoint.OutPoint{}
-		if err = outPoint.Unserialize(bytes.NewBuffer(iter.GetKey())); err != nil {
+		if err = outPoint.Unserialize(bytes.NewBuffer(iter.GetKey()[1:])); err != nil {
 			return nil, err
 		}
 		coin := utxo.NewEmptyCoin()
