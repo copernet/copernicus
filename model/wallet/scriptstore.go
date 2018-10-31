@@ -8,29 +8,32 @@ import (
 )
 
 type ScriptStore struct {
-	lock    *sync.RWMutex
+	sync.RWMutex
 	scripts map[string]*script.Script
 }
 
 func NewScriptStore() *ScriptStore {
 	return &ScriptStore{
-		lock:    new(sync.RWMutex),
 		scripts: make(map[string]*script.Script),
 	}
+}
+
+func (ss *ScriptStore) Init() {
+	ss.scripts = make(map[string]*script.Script)
 }
 
 func (ss *ScriptStore) AddScript(s *script.Script) {
 	scriptHash := util.Hash160(s.Bytes())
 
-	ss.lock.Lock()
-	defer ss.lock.Unlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	ss.scripts[string(scriptHash)] = s
 }
 
 func (ss *ScriptStore) GetScript(scriptHash []byte) *script.Script {
-	ss.lock.RLock()
-	defer ss.lock.RUnlock()
+	ss.RLock()
+	defer ss.RUnlock()
 
 	if s, ok := ss.scripts[string(scriptHash)]; ok {
 		return s

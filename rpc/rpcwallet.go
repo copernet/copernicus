@@ -108,7 +108,7 @@ func handleListUnspent(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			Safe:          txnCoin.IsSafe,
 		}
 
-		if account := lwallet.GetAddressAccount(keyHash); account != "" {
+		if account := lwallet.GetAccountName(keyHash); account != "" {
 			unspentInfo.Account = account
 		}
 		if scriptType == script.ScriptHash {
@@ -199,9 +199,7 @@ func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFrom
 		return nil, btcjson.NewRPCError(btcjson.RPCWalletInsufficientFunds, "Insufficient funds")
 	}
 
-	/*
-		"Error: Peer-to-peer functionality missing or disabled");
-		}*/
+	// TODO: check Peer-to-peer connection
 
 	// Create and send the transaction
 	recipients := make([]*wallet.Recipient, 1)

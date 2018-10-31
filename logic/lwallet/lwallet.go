@@ -41,12 +41,12 @@ func IsWalletEnable() bool {
 	return wallet.GetInstance().IsEnable()
 }
 
-func DisableWallet() {
-	wallet.GetInstance().SetEnable(false)
-}
-
 func GetNewAddress(account string, isLegacyAddr bool) (string, error) {
-	pubKeyHash := wallet.GetInstance().GenerateNewKey().ToHash160()
+	pubKey, err := wallet.GetInstance().GenerateNewKey()
+	if err != nil {
+		return "", nil
+	}
+	pubKeyHash := pubKey.ToHash160()
 
 	var address string
 	if isLegacyAddr {
@@ -69,9 +69,12 @@ func GetNewAddress(account string, isLegacyAddr bool) (string, error) {
 }
 
 func GetMiningAddress() (string, error) {
-	pubKey := wallet.GetInstance().GetReservedKey()
-	pubKeyHash := pubKey.ToHash160()
+	pubKey, err := wallet.GetInstance().GetReservedKey()
+	if err != nil {
+		return "", nil
+	}
 
+	pubKeyHash := pubKey.ToHash160()
 	cashAddr, err := cashaddr.NewCashAddressPubKeyHash(pubKeyHash, chain.GetInstance().GetParams())
 	if err != nil {
 		return "", err
@@ -139,12 +142,8 @@ func AvailableCoins(onlySafe bool, includeZeroValue bool) []*TxnCoin {
 	return coins
 }
 
-func GetAddressAccount(pubKeyHash []byte) string {
-	addressBook := wallet.GetInstance().GetAddressBook(pubKeyHash)
-	if addressBook == nil {
-		return ""
-	}
-	return addressBook.Account
+func GetAccountName(keyHash []byte) string {
+	return wallet.GetInstance().GetAccountName(keyHash)
 }
 
 func GetScript(scriptHash []byte) *script.Script {
@@ -279,8 +278,8 @@ func CreateTransaction(recipients []*wallet.Recipient, changePosInOut *int, sign
 			// unknown transactions that were written with keys of ours
 			// to recover post-backup change.
 
-			reservedKey := wallet.GetInstance().GetReservedKey()
-			if reservedKey == nil {
+			reservedKey, err := wallet.GetInstance().GetReservedKey()
+			if err != nil || reservedKey == nil {
 				return nil, 0, errors.New("Keypool ran out, please call keypoolrefill first")
 			}
 			scriptChange := getP2PKHScript(reservedKey.ToHash160())

@@ -523,10 +523,7 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	c := cmd.(*btcjson.GenerateCmd)
 
 	if !lwallet.IsWalletEnable() {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.ErrRPCMethodNotFound.Code,
-			Message: "Method not found (wallet method is disabled because no wallet is loaded)",
-		}
+		return nil, walletDisableRPCError
 	}
 
 	// Respond with an error if the client is requesting 0 blocks to be generated.

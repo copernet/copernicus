@@ -29,6 +29,11 @@ const (
 	DbFlag        byte = 'F'
 	DbReindexFlag byte = 'R'
 	DbLastBlock   byte = 'l'
+
+	DbWalletKey      byte = 'W'
+	DbWalletScript   byte = 'S'
+	DbWalletAddrBook byte = 'A'
+	DbWalletTx       byte = 'X'
 )
 
 const (

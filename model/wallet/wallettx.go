@@ -1,6 +1,10 @@
 package wallet
 
 import (
+	"bytes"
+	"io"
+	"time"
+
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
@@ -8,8 +12,8 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"time"
 )
 
 type Recipient struct {
@@ -41,6 +45,10 @@ type WalletTx struct {
 	spentStatus []bool
 }
 
+func NewEmptyWalletTx() *WalletTx {
+	return &WalletTx{}
+}
+
 func NewWalletTx(txn *tx.Tx, extInfo map[string]string, isFromMe bool, account string) *WalletTx {
 	return &WalletTx{
 		Tx:              txn,
@@ -52,6 +60,76 @@ func NewWalletTx(txn *tx.Tx, extInfo map[string]string, isFromMe bool, account s
 		blockHeight:     0,
 		spentStatus:     make([]bool, txn.GetOutsCount()),
 	}
+}
+
+func (wtx *WalletTx) Serialize(writer io.Writer) error {
+	var err error
+
+	if err = wtx.Tx.Serialize(writer); err != nil {
+		return err
+	}
+
+	if err = util.WriteElements(writer, wtx.TimeReceived, wtx.IsFromMe, wtx.blockHeight); err != nil {
+		return err
+	}
+
+	if err = util.WriteVarString(writer, wtx.FromAccount); err != nil {
+		return err
+	}
+
+	if err = util.WriteVarInt(writer, uint64(len(wtx.ExtInfo))); err != nil {
+		return err
+	}
+	for key, value := range wtx.ExtInfo {
+		if err = util.WriteVarString(writer, key); err != nil {
+			return err
+		}
+		if err = util.WriteVarString(writer, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (wtx *WalletTx) Unserialize(reader io.Reader) error {
+	var err error
+
+	wtx.Tx = tx.NewEmptyTx()
+	if err = wtx.Tx.Unserialize(reader); err != nil {
+		return err
+	}
+
+	if err = util.ReadElements(reader, &wtx.TimeReceived, &wtx.IsFromMe, &wtx.blockHeight); err != nil {
+		return err
+	}
+
+	if wtx.FromAccount, err = util.ReadVarString(reader); err != nil {
+		return err
+	}
+
+	extInfoSize, err := util.ReadVarInt(reader)
+	if err != nil {
+		return err
+	}
+	wtx.ExtInfo = make(map[string]string)
+	for i := 0; i < int(extInfoSize); i++ {
+		key, err := util.ReadVarString(reader)
+		if err != nil {
+			return err
+		}
+		value, err := util.ReadVarString(reader)
+		if err != nil {
+			return err
+		}
+		wtx.ExtInfo[key] = value
+	}
+	return nil
+}
+
+func (wtx *WalletTx) SerializeSize() int {
+	buf := bytes.NewBuffer(nil)
+	wtx.Serialize(buf)
+	return buf.Len()
 }
 
 func (wtx *WalletTx) GetDepthInMainChain() int32 {

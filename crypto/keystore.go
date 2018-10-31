@@ -34,29 +34,32 @@ func (kd *KeyPair) GetPrivateKey() *PrivateKey {
 }
 
 type KeyStore struct {
-	lock *sync.RWMutex
+	sync.RWMutex
 	keys map[string]*KeyPair
 }
 
 func NewKeyStore() *KeyStore {
 	return &KeyStore{
-		lock: new(sync.RWMutex),
 		keys: make(map[string]*KeyPair),
 	}
+}
+
+func (ks *KeyStore) Init() {
+	ks.keys = make(map[string]*KeyPair)
 }
 
 func (ks *KeyStore) AddKey(privateKey *PrivateKey) {
 	keyPair := NewKeyPair(privateKey)
 
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
+	ks.Lock()
+	defer ks.Unlock()
 
 	ks.keys[keyPair.GetKeyID()] = keyPair
 }
 
 func (ks *KeyStore) GetKeyPair(pubKeyHash []byte) *KeyPair {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
+	ks.RLock()
+	defer ks.RUnlock()
 
 	if keyPair, ok := ks.keys[string(pubKeyHash)]; ok {
 		return keyPair
@@ -72,8 +75,8 @@ func (ks *KeyStore) GetKeyPairByPubKey(pubKey []byte) *KeyPair {
 func (ks *KeyStore) GetKeyPairs(pubKeyHashList [][]byte) []*KeyPair {
 	keys := make([]*KeyPair, 0, len(pubKeyHashList))
 
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
+	ks.RLock()
+	defer ks.RUnlock()
 
 	for _, pubKeyHash := range pubKeyHashList {
 		if keyPair, ok := ks.keys[string(pubKeyHash)]; ok {
@@ -84,8 +87,8 @@ func (ks *KeyStore) GetKeyPairs(pubKeyHashList [][]byte) []*KeyPair {
 }
 
 func (ks *KeyStore) AddKeyPairs(keys []*KeyPair) {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
+	ks.Lock()
+	defer ks.Unlock()
 
 	for _, keyPair := range keys {
 		ks.keys[keyPair.GetKeyID()] = keyPair

@@ -14,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/model/wallet"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
@@ -94,6 +95,8 @@ func appInitMain(args []string) {
 
 	mempool.InitMempool()
 	crypto.InitSecp256()
+
+	wallet.InitWallet()
 
 	ltx.ScriptVerifyInit()
 	if conf.Cfg.Reindex {
