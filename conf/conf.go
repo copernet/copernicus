@@ -234,6 +234,8 @@ func InitConfig(args []string) *Configuration {
 					panic(" from src/copernicus copy bitcoincash.yml failed.")
 				}
 			}
+		} else {
+			fmt.Println("get GOPATH failed, please check if gopath is configured.")
 		}
 	}
 
