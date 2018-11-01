@@ -3,7 +3,6 @@ package utxo
 import (
 	"unsafe"
 
-	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
@@ -71,16 +70,6 @@ func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
 	coin := coinsCache.GetCoin(point)
 	return coin != nil && !coin.IsSpent()
-}
-
-func (coinsCache *CoinsLruCache) RemoveCoins(point *outpoint.OutPoint) error {
-	coinsCache.cacheCoins.Remove(*point)
-	coin := coinsCache.GetCoin(point)
-	if coin != nil {
-		log.Error("the coin already remove coin is:%v", coin)
-		return errcode.NewError(errcode.RejectInvalid, "the coin already remove")
-	}
-	return nil
 }
 
 func (coinsCache *CoinsLruCache) GetBestBlock() (util.Hash, error) {

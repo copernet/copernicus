@@ -164,7 +164,6 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 		pool.CalculateDescendants(it, allRemoves)
 	}
 	pool.RemoveStaged(allRemoves, false, mempool.REORG)
-	pool.LimitMempoolSize(conf.Cfg.Mempool.MaxPoolSize, int64(conf.Cfg.Mempool.MaxPoolExpiry)*60*60)
 }
 
 func updateCoins(coinsMap *utxo.CoinsMap, trax *tx.Tx) {
