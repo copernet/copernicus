@@ -9,6 +9,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/util"
+	"runtime"
 )
 
 type CoinsMap struct {
@@ -137,7 +138,8 @@ func (cm *CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	}
 	coin = GetUtxoCacheInstance().GetCoin(out)
 	if coin == nil {
-		log.Error("not found coin by outpoint(%v)", out)
+		_, file, line, _ := runtime.Caller(1)
+		log.Error("not found coin by outpoint(%v) invoked by %s:%d", out, file, line)
 		return nil
 	}
 	newCoin := coin.DeepCopy()
