@@ -175,13 +175,13 @@ func (w *Wallet) SetAddressBook(keyHash []byte, account string, purpose string) 
 }
 
 func (w *Wallet) AddToWallet(txn *tx.Tx, extInfo map[string]string) error {
-	log.Error("rpc AddToWallet")
+	txHash := txn.GetHash()
+	log.Info("AddToWallet tx:%s", txHash.String())
 
 	if extInfo == nil {
 		extInfo = make(map[string]string)
 	}
 	walletTx := NewWalletTx(txn, extInfo, true, "")
-	txHash := txn.GetHash()
 
 	w.txnLock.Lock()
 	defer w.txnLock.Unlock()

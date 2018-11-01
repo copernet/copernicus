@@ -197,8 +197,7 @@ func TestAcceptBlock(t *testing.T) {
 	if err != nil || genesisBlkIdx.Height != 0 || genesisBlkIdx.Prev != nil || pos == nil {
 		t.Errorf("TestAcceptBlock test 1 check genesis block failed. error:%v", err)
 	}
-	genesisBlkIndex := blockindex.NewBlockIndex(&genesisBlk.Header)
-	chain.GetInstance().SetTip(genesisBlkIndex)
+	chain.GetInstance().SetTip(genesisBlkIdx)
 
 	blk1 := getBlock(blk1str)
 	blk1Idx, pos2, err := AcceptBlock(blk1, fRequested, pos, &fNewBlock)
