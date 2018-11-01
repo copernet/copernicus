@@ -1679,4 +1679,27 @@ const (
 		"\nExamples:\n" +
 		`> coperctl getbalance ` +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getbalance", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+	gettransactionDesc = "gettransaction \"txid\" (includewatchonly=false)\n\nReturns a JSON object with details regarding a transaction relevant to this wallet.\n\nArguments:\n" +
+		"1. txid             (string, required)                 Hash of the transaction to query\n" +
+		"2. includewatchonly (boolean, optional, default=false) Also consider transactions involving watched addresses\n\n" +
+		"Result:\n" +
+		"{\n \"amount\": n.nnn,                  (numeric)         The total amount this transaction credits to the wallet, valued in bitcoin\n " +
+		"\"fee\": n.nnn,                     (numeric)         The total input value minus the total output value, or 0 if 'txid' is not a sent transaction\n " +
+		"\"confirmations\": n,               (numeric)         The number of block confirmations of the transaction\n " +
+		"\"blockhash\": \"value\",             (string)          The hash of the block this transaction is mined in, or the empty string if unmined\n " +
+		"\"blockindex\": n,                  (numeric)         Unset\n " +
+		"\"blocktime\": n,                   (numeric)         The Unix time of the block header this transaction is mined in, or 0 if unmined\n " +
+		"\"txid\": \"value\",                  (string)          The transaction hash\n \"walletconflicts\": [\"value\",...], (array of string) Unset\n " +
+		"\"time\": n,                        (numeric)         The earliest Unix time this transaction was known to exist\n " +
+		"\"timereceived\": n,                (numeric)         The earliest Unix time this transaction was known to exist\n " +
+		"\"details\": " +
+		"[{                     (array of object) Additional details for each recorded wallet credit and debit\n  " +
+		"\"account\": \"value\",              (string)          DEPRECATED -- Unset\n  " +
+		"\"address\": \"value\",              (string)          The address an output was paid to, or the empty string if the output is nonstandard or this detail is regarding a transaction input\n  " +
+		"\"amount\": n.nnn,                 (numeric)         The amount of a received output\n  " +
+		"\"category\": \"value\",             (string)          The kind of detail: \"send\" for sent transactions, \"immature\" for immature coinbase outputs, \"generate\" for mature coinbase outputs, or \"recv\" for all other received outputs\n  " +
+		"\"involveswatchonly\": true|false, (boolean)         Unset\n  \"fee\": n.nnn,                    (numeric)         The included fee for a sent transaction\n  " +
+		"\"vout\": n,                       (numeric)         The transaction output index\n " +
+		"},...],                                             \n " +
+		"\"hex\": \"value\",                   (string)          The transaction encoded as a hexadecimal string\n}                                  \n"
 )
