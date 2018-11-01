@@ -400,12 +400,10 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		return
 	}
 
-	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
-		if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
-			sm.clearSyncPeerState(sm.syncPeer)
-			sm.syncPeer = nil
-			sm.startSync()
-		}
+	if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
+		sm.clearSyncPeerState(sm.syncPeer)
+		sm.syncPeer = nil
+		sm.startSync()
 	}
 }
 

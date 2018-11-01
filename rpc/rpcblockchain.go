@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -851,31 +852,34 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 }
 
 func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.InvalidateBlockCmd)
-	hash, _ := util.GetHashFromStr(c.BlockHash)
+	c, ok := cmd.(*btcjson.InvalidateBlockCmd)
+	bkHash, err := util.GetHashFromStr(c.BlockHash)
+	if !ok || err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, "malformed request")
+	}
 
-	persist.CsMain.Lock() //lock chain tip for CreateNewBlock
+	persist.CsMain.Lock()
 	defer persist.CsMain.Unlock()
 
-	bi := chain.GetInstance().FindHashInActive(*hash)
+	gchain := chain.GetInstance()
+	bi := gchain.FindBlockIndex(*bkHash)
 	if bi == nil {
 		return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Block not found")
 	}
 
-	for {
-		bi = chain.GetInstance().FindHashInActive(*hash)
-		if bi == nil {
-			break
-		}
+	for gchain.FindHashInActive(*bkHash) != nil {
+		lchain.InvalidBlockFound(gchain.Tip())
 
-		if err := lchain.DisconnectTip(false); err != nil {
-			//TODO: handle disconnect failure
+		if err = lchain.DisconnectTip(false); err != nil {
 			return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "disconnect failed")
 		}
 	}
 
-	if err := lchain.ActivateBestChain(nil); err != nil {
-		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "ActivateBestChain failed")
+	lchain.InvalidBlockFound(bi)
+
+	if err = lchain.ActivateBestChain(nil); err != nil {
+		log.Error("InvalidateBlock failed, current height: %d, block hash:%s", gchain.TipHeight(), bkHash)
+		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
 	}
 
 	return nil, nil
