@@ -15,11 +15,12 @@ import (
 )
 
 var walletHandlers = map[string]commandHandler{
-	"getnewaddress": handleGetNewAddress,
-	"listunspent":   handleListUnspent,
-	"settxfee":      handleSetTxFee,
-	"sendtoaddress": handleSendToAddress,
-	"getbalance":    handleGetBalance,
+	"getnewaddress":  handleGetNewAddress,
+	"listunspent":    handleListUnspent,
+	"settxfee":       handleSetTxFee,
+	"sendtoaddress":  handleSendToAddress,
+	"getbalance":     handleGetBalance,
+	"gettransaction": handleGetTransaction,
 }
 
 var walletDisableRPCError = &btcjson.RPCError{
@@ -185,6 +186,12 @@ func handleGetBalance(s *Server, cmd interface{}, closeChan <-chan struct{}) (in
 
 	return balance.ToBTC(), nil
 }
+func handleGetTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	if !lwallet.IsWalletEnable() {
+		return nil, walletDisableRPCError
+	}
+	return nil, nil
+}
 
 func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFromAmount bool,
 	extInfo map[string]string) (*tx.Tx, *btcjson.RPCError) {
@@ -204,8 +211,8 @@ func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFrom
 	// Create and send the transaction
 	recipients := make([]*wallet.Recipient, 1)
 	recipients[0] = &wallet.Recipient{
-		ScriptPubKey: scriptPubKey,
-		Value:        value,
+		ScriptPubKey:          scriptPubKey,
+		Value:                 value,
 		SubtractFeeFromAmount: subtractFeeFromAmount,
 	}
 	changePosRet := -1
