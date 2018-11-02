@@ -484,12 +484,4 @@ func TestMsgHandle(t *testing.T) {
 			assert.Equal(t, 1, execCount[test.listener])
 		}
 	}
-	for name, value := range execCount {
-		t.Logf("exe %s(%v) = %v", name, len(execCount), value)
-	}
-	for _, test := range tests {
-		if _, ok := execCount[test.listener]; !ok {
-			t.Logf("not exec %s", test.listener)
-		}
-	}
 }
