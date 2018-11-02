@@ -5,7 +5,6 @@ import (
 
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/util/base58"
 	"github.com/pkg/errors"
 )
 
@@ -43,7 +42,7 @@ func (addr *Address) String() string {
 		return addr.addressStr
 	}
 
-	return base58.CheckEncode(addr.publicKey, addr.version)
+	return util.Base58EncodeCheck(addr.publicKey, addr.version)
 }
 
 func (addr *Address) GetVersion() byte {
@@ -55,10 +54,9 @@ func InitAddressParam(addressParam *AddressParam) {
 }
 
 func AddressFromString(addressStr string) (btcAddress *Address, err error) {
-	decodes := base58.Decode(addressStr) // todo check whether is CheckDecode() or not
-	if decodes == nil {
-		err = errors.Errorf("can not  base58-decode string  %s", addressStr)
-		return
+	decodes, err := util.Base58Decode(addressStr)
+	if err == nil {
+		return nil, err
 	}
 	if len(decodes) != AddressBytesLength {
 		err = errors.Errorf("addressStr length is %d ,not %d", len(decodes), AddressBytesLength)
@@ -112,7 +110,7 @@ func Hash160ToAddressStr(hash160 []byte, version byte) (str string, err error) {
 	copy(result[1:21], hash160)
 	checkBytes := util.DoubleSha256Bytes(result[:21])
 	copy(result[21:25], checkBytes[:4])
-	str = base58.Encode(result)
+	str = util.Base58Encode(result)
 	return
 }
 

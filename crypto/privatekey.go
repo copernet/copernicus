@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/copernet/copernicus/util/base58"
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
 )
@@ -79,13 +79,13 @@ func (privateKey *PrivateKey) ToString() string {
 
 	privateKeyBytes := privateKey.Encode()
 
-	privateKeyString := base58.CheckEncode(privateKeyBytes, privateKey.version)
+	privateKeyString := util.Base58EncodeCheck(privateKeyBytes, privateKey.version)
 	return privateKeyString
 
 }
 
 func DecodePrivateKey(encoded string) (*PrivateKey, error) {
-	bytes, version, err := base58.CheckDecode(encoded)
+	bytes, version, err := util.Base58DecodeCheck(encoded)
 	if err != nil {
 		return nil, err
 	}

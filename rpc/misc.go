@@ -19,7 +19,6 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
-	"github.com/copernet/copernicus/util/base58"
 )
 
 // API version constants
@@ -154,7 +153,7 @@ func handleVerifyMessage(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 func handleSignMessageWithPrivkey(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.SignMessageWithPrivkeyCmd)
 
-	bs, _, err := base58.CheckDecode(c.Privkey)
+	bs, _, err := util.Base58DecodeCheck(c.Privkey)
 	if err != nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
