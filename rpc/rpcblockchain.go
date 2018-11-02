@@ -861,9 +861,12 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	persist.CsMain.Lock()
 	defer persist.CsMain.Unlock()
 
+	log.Debug("InvalidateBlock start: " + chainStatus(bkHash))
+
 	gchain := chain.GetInstance()
 	bi := gchain.FindBlockIndex(*bkHash)
 	if bi == nil {
+		log.Error("InvalidateBlock failed, target block not found. " + chainStatus(bkHash))
 		return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Block not found")
 	}
 
@@ -871,6 +874,7 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 		lchain.InvalidBlockParentFound(gchain.Tip())
 
 		if err = lchain.DisconnectTip(false); err != nil {
+			log.Error("InvalidateBlock failed during DisconnectTip, " + chainStatus(bkHash))
 			return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "disconnect failed")
 		}
 	}
@@ -878,10 +882,11 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	lchain.InvalidBlockFound(bi)
 
 	if err = lchain.ActivateBestChain(nil); err != nil {
-		log.Error("InvalidateBlock failed, current height: %d, block hash:%s", gchain.TipHeight(), bkHash)
+		log.Error("InvalidateBlock failed during ActivateBestChain, " + chainStatus(bkHash))
 		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
 	}
 
+	log.Debug("InvalidateBlock end: " + chainStatus(bkHash))
 	return nil, nil
 }
 
@@ -898,10 +903,12 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	gchain := chain.GetInstance()
 	targetBI := gchain.FindBlockIndex(*bkHash)
 	if targetBI == nil {
+		log.Error("ReconsiderBlock failed, target block not found. " + chainStatus(bkHash))
 		return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Block not found")
 	}
 
 	log.Debug("ReconsiderBlock start: " + chainStatus(bkHash))
+	targetBI.SubStatus(blockindex.BlockInvalidMask)
 	gchain.ResetBlockFailureFlags(targetBI)
 
 	if err = lchain.ActivateBestChain(nil); err != nil {

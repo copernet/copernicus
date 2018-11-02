@@ -154,11 +154,13 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	if errSig != nil {
 		return errSig
 	}
+
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps)
 	if err != nil {
 		return err
 	}
+
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
 	if !fJustCheck {
@@ -348,6 +350,12 @@ func DisconnectTip(fBare bool) error {
 		return err
 	}
 
+	if tip.IsReplayProtectionJustEnabled() {
+		mempool.InitMempool()
+	}
+
+	UpdateTip(tip.Prev)
+
 	if !fBare {
 		// Resurrect mempool transactions from the disconnected block.
 		for _, tx := range blk.Txs {
@@ -389,11 +397,6 @@ func DisconnectTip(fBare bool) error {
 	//}
 	// Update chainActive and related variables.
 
-	if tip.IsReplayProtectionJustEnabled() {
-		mempool.InitMempool()
-	}
-
-	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
 
