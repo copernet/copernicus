@@ -966,6 +966,25 @@ func NewGetTransactionCmd(txHash string, includeWatchOnly *bool) *GetTransaction
 	}
 }
 
+type SendManyCmd struct {
+	FromAccount     string                `json:"fromaccount"`
+	Amounts         map[string]AmountType `json:"amounts"`
+	MinConf         *int32                `json:"minconf" jsonrpcdefault:"1"`
+	Comment         *string               `json:"comment"`
+	SubTractFeeFrom *[]string             `json:"subtractfeefrom"`
+}
+
+func NewSendManyCmd(fromAccount string, comment *string, amounts map[string]AmountType, minConf *int32,
+	subTractFeeFrom *[]string) *SendManyCmd {
+	return &SendManyCmd{
+		FromAccount:     fromAccount,
+		Amounts:         amounts,
+		MinConf:         minConf,
+		Comment:         comment,
+		SubTractFeeFrom: subTractFeeFrom,
+	}
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -1044,4 +1063,5 @@ func init() {
 	MustRegisterCmd("sendtoaddress", (*SendToAddressCmd)(nil), flags)
 	MustRegisterCmd("getbalance", (*GetBalanceCmd)(nil), flags)
 	MustRegisterCmd("gettransaction", (*GetTransactionCmd)(nil), flags)
+	MustRegisterCmd("sendmany", (*SendManyCmd)(nil), flags)
 }

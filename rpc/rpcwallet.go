@@ -21,6 +21,7 @@ var walletHandlers = map[string]commandHandler{
 	"sendtoaddress":  handleSendToAddress,
 	"getbalance":     handleGetBalance,
 	"gettransaction": handleGetTransaction,
+	"sendmany":       handleSendMany,
 }
 
 var walletDisableRPCError = &btcjson.RPCError{
@@ -232,6 +233,99 @@ func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFrom
 		return nil, btcjson.NewRPCError(btcjson.RPCWalletError, errMsg)
 	}
 	return txn, nil
+}
+
+func handleSendMany(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	if !lwallet.IsWalletEnable() {
+		return nil, walletDisableRPCError
+	}
+
+	c := cmd.(*btcjson.SendManyCmd)
+
+	// TODO: check Peer-to-peer connection
+
+	strAccount := c.FromAccount
+	if strAccount == "*" {
+		return nil, btcjson.NewRPCError(btcjson.RPCWalletInvalidAccountName, "Invalid account anme")
+	}
+
+	sendTo := c.Amounts
+
+	if *c.MinConf < 0 {
+		*c.MinConf = 1
+	}
+
+	walletTx := wallet.NewEmptyWalletTx()
+	extInfo := make(map[string]string)
+	walletTx.ExtInfo = extInfo
+	walletTx.FromAccount = strAccount
+
+	if c.Comment != nil {
+		walletTx.ExtInfo["comment"] = *c.Comment
+	}
+
+	var recipients []*wallet.Recipient
+
+	var totalAmount amount.Amount
+	totalAmount = 0
+	for key, value := range sendTo {
+		address := key
+		money := value
+		// TODO: Destination check
+
+		scriptPubKey, err := getStandardScriptPubKey(address, nil)
+		if err != nil {
+			return nil, err
+		}
+		amount, rpcErr := amountFromValue(money)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
+		if amount < 0 {
+			return nil, btcjson.NewRPCError(btcjson.RPCTypeError, "Invalid amount for send")
+		}
+
+		totalAmount += amount
+
+		subTractFeeFromeAmount := false
+		if c.SubTractFeeFrom != nil {
+			for idx := 0; idx < len(*c.SubTractFeeFrom); idx++ {
+				addr := (*c.SubTractFeeFrom)[idx]
+				if addr == address {
+					subTractFeeFromeAmount = true
+				}
+			}
+		}
+
+		reciptient := &wallet.Recipient{
+			ScriptPubKey:          scriptPubKey,
+			Value:                 amount,
+			SubtractFeeFromAmount: subTractFeeFromeAmount,
+		}
+		recipients = append(recipients, reciptient)
+	}
+
+	// Check funds
+	// TODO: GetLeagacybalance
+	balance := wallet.GetInstance().GetBalance()
+	if totalAmount > balance {
+		return nil, btcjson.NewRPCError(btcjson.RPCWalletInsufficientFunds, "Account has insufficient funds")
+	}
+
+	changePosRet := -1
+	txn, feeRequired, err := lwallet.CreateTransaction(recipients, &changePosRet, true)
+	if err != nil || feeRequired+totalAmount > balance {
+		return nil, btcjson.NewRPCError(btcjson.RPCWalletInsufficientFunds, err.Error())
+	}
+
+	err = lwallet.CommitTransaction(txn, walletTx.ExtInfo)
+	if err != nil {
+		errMsg := "Error: The transaction was rejected! Reason given: " + err.Error()
+		return nil, btcjson.NewRPCError(btcjson.RPCWalletError, errMsg)
+	}
+
+	return txn.GetHash().String(), nil
 }
 
 func registerWalletRPCCommands() {

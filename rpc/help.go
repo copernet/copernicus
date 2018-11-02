@@ -103,6 +103,7 @@ var allMethodHelp = map[string]helpDescInfo{
 	"sendtoaddress":  {WalletCmd, sendtoaddressDesc},
 	"getbalance":     {WalletCmd, getbalanceDesc},
 	"gettransaction": {WalletCmd, gettransactionDesc},
+	"sendmany":       {WalletCmd, sendmany},
 }
 
 // rpcMethodHelp returns an RPC help string for the provided method.

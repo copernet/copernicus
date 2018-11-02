@@ -1702,4 +1702,46 @@ const (
 		"\"vout\": n,                       (numeric)         The transaction output index\n " +
 		"},...],                                             \n " +
 		"\"hex\": \"value\",                   (string)          The transaction encoded as a hexadecimal string\n}                                  \n"
+	sendmany = "sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] )\n" +
+		"\nSend multiple times. Amounts are double-precision floating point numbers." +
+		"\nArguments:\n" +
+		"1. \"fromaccount\"         (string, required) DEPRECATED. The account to send the funds from. " +
+		"Should be \"\" for the default account\n" +
+		"2. \"amounts\"             (string, required) A json object with addresses and amounts\n" +
+		"    {\n" +
+		"      \"address\":amount   (numeric or string) The bitcoin address is the key, " +
+		"the numeric amount (can be string) in " + util.CurrencyUnit + " is the value\n" +
+		"      ,...\n" +
+		"    }\n" +
+		"3. minconf                 (numeric, optional, " +
+		"default=1) Only use the balance confirmed at least this many times.\n" +
+		"4. \"comment\"             (string, optional) A comment\n" +
+		"5. subtractfeefrom         (array, optional) A json array with addresses.\n" +
+		"                           The fee will be equally deducted from " +
+		"the amount of each selected address.\n" +
+		"                           Those recipients will receive less " +
+		"bitcoins than you enter in their corresponding amount field.\n" +
+		"                           If no addresses are specified here, the sender pays the fee.\n" +
+		"    [\n" +
+		"      \"address\"          (string) Subtract fee from this address\n" +
+		"      ,...\n" +
+		"    ]\n" +
+		"\nResult:\n" +
+		"\"txid\"                   (string) The transaction id for the send. " +
+		"Only 1 transaction is created regardless of \n" +
+		"                                    the number of addresses.\n" +
+		"\nExamples:\n" +
+		"\nSend two amounts to two different addresses:\n" +
+		"> coperctl sendmany \"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"" +
+		"\nSend two amounts to two different addresses setting the confirmation and comment:\n" +
+		"> coperctl sendmany \"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 6 \"testing\"" +
+		"\nSend two amounts to two different addresses, subtract fee from amount:\n" +
+		"> coperctl sendmany\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\"," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"" +
+		"\nAs a json rpc call\n" +
+		"> coperctl sendmany\"\", \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\",6, \"testing\""
 )
