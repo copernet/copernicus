@@ -32,5 +32,6 @@ type CacheView interface {
 	UpdateCoins(tempCacheCoins *CoinsMap, hash *util.Hash) error
 	DynamicMemoryUsage() int64
 	GetCacheSize() int
+	RemoveCoins(outpoint *outpoint.OutPoint)
 	Flush() bool
 }
