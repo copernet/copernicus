@@ -514,21 +514,24 @@ func TestOnVersion(t *testing.T) {
 		t.Fatalf("RandomUint64: error generating nonce: %v", err)
 	}
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	out, _ := peer.NewOutboundPeer(&config, "seed.bitcoinabc.org:8333")
 	msg := wire.NewMsgVersion(me, you, nonce, lastBlock)
 
 	sp := newServerPeer(s, false)
-	sp.Peer = in
-	sp.OnVersion(in, msg)
+	sp.Peer = out
+	sp.OnVersion(out, msg)
 }
 
 func TestOnMemPool(t *testing.T) {
-	msg := wire.NewMsgMemPool()
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
+	msg := wire.NewMsgMemPool()
 	sp.OnMemPool(in, msg)
+	s.services = wire.SFNodeBloom
+	sp.OnMemPool(in, msg)
+	s.services = 0
 }
 
 func TestOnTx(t *testing.T) {
@@ -539,6 +542,9 @@ func TestOnTx(t *testing.T) {
 	sp.Peer = in
 	done := make(chan struct{})
 	sp.OnTx(in, msgTx, done)
+	conf.Cfg.P2PNet.BlocksOnly = true
+	sp.OnTx(in, msgTx, done)
+	conf.Cfg.P2PNet.BlocksOnly = false
 	<-done
 }
 
@@ -555,12 +561,32 @@ func TestOnBlock(t *testing.T) {
 }
 
 func TestOnInv(t *testing.T) {
+	hashStr := "3264bc2ac36a60840790ba1d475d01367e7c723da941069e9dc"
+	blockHash, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	hashStr = "d28a3dc7392bf00a9855ee93dd9a81eff82a2c4fe57fbd42cfe71b487accfaf0"
+	txHash, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	iv := wire.NewInvVect(wire.InvTypeBlock, blockHash)
+	iv2 := wire.NewInvVect(wire.InvTypeTx, txHash)
+
 	msgInv := wire.NewMsgInv()
+	msgInv.AddInvVect(iv)
+	msgInv.AddInvVect(iv2)
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnInv(in, msgInv)
+	conf.Cfg.P2PNet.BlocksOnly = true
+	sp.OnInv(in, msgInv)
+	conf.Cfg.P2PNet.BlocksOnly = false
 }
 
 func TestOnHeaders(t *testing.T) {
@@ -809,4 +835,12 @@ func TestAddrStringToNetAddr(t *testing.T) {
 			assert.NotEqual(t, err, nil)
 		}
 	}
+}
+
+func TestInitListeners(t *testing.T) {
+	_, _, err := initListeners(s.addrManager, conf.Cfg.P2PNet.ListenAddrs, defaultServices)
+	assert.Equal(t, err, nil)
+	conf.Cfg.P2PNet.ExternalIPs = []string{"seed.bitcoinabc.org:8333"}
+	_, _, err = initListeners(s.addrManager, conf.Cfg.P2PNet.ListenAddrs, defaultServices)
+	assert.Equal(t, err, nil)
 }
