@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -114,6 +116,20 @@ func appInitMain(args []string) {
 	crypto.InitSecp256()
 }
 
+type mockNat struct{}
+
+func (nat *mockNat) GetExternalAddress() (addr net.IP, err error) {
+	return net.ParseIP("127.0.0.1"), nil
+}
+
+func (nat *mockNat) AddPortMapping(protocol string, externalPort, internalPort int, description string, timeout int) (mappedExternalPort int, err error) {
+	return 18444, nil
+}
+
+func (nat *mockNat) DeletePortMapping(protocol string, externalPort, internalPort int) (err error) {
+	return nil
+}
+
 func makeTestServer() (*Server, string, chan struct{}, error) {
 	dir, err := ioutil.TempDir("", "server")
 	if err != nil {
@@ -122,10 +138,12 @@ func makeTestServer() (*Server, string, chan struct{}, error) {
 	appInitMain([]string{"--datadir", dir, "--regtest"})
 	c := make(chan struct{})
 	conf.Cfg.P2PNet.ListenAddrs = []string{"127.0.0.1:0"}
+	conf.Cfg.P2PNet.DisableBanning = false
 	s, err := NewServer(model.ActiveNetParams, c)
 	if err != nil {
 		return nil, "", nil, err
 	}
+	s.nat = &mockNat{}
 	return s, dir, c, nil
 }
 
@@ -767,6 +785,28 @@ func TestParseListeners(t *testing.T) {
 		_, err := parseListeners(test)
 		if i == 2 && err == nil {
 			t.Errorf("parseListeners() should failed with error")
+		}
+	}
+}
+
+func TestAddrStringToNetAddr(t *testing.T) {
+	tests := []string{
+		"192.168.1.12:8080",
+		"abc:xzy",
+		"seed.bitcoinabc.org:8333",
+		"3g2upl4pq6kufc4m.onion:8333",
+	}
+	for i, test := range tests {
+		_, err := addrStringToNetAddr(test)
+		switch i {
+		case 0:
+			assert.Equal(t, err, nil)
+		case 1:
+			assert.NotEqual(t, err, nil)
+		case 2:
+			assert.Equal(t, err, nil)
+		case 3:
+			assert.NotEqual(t, err, nil)
 		}
 	}
 }

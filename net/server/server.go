@@ -2101,7 +2101,6 @@ out:
 	} else {
 		log.Debug("successfully disestablished UPnP port mapping")
 	}
-
 	s.wg.Done()
 }
 
