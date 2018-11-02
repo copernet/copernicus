@@ -255,22 +255,6 @@ func TestBroadcastMessage(t *testing.T) {
 func TestConnectedCount(t *testing.T) {
 	c := s.ConnectedCount()
 	assert.Equal(t, int32(0), c)
-
-	r, w := io.Pipe()
-	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
-	sp := newServerPeer(s, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
-	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
-		s.syncManager.NewPeer(peer)
-	})
-	s.AddPeer(sp)
-
-	c = s.ConnectedCount()
-	assert.Equal(t, int32(1), c)
-
-	sp.Disconnect()
-	s.peerDoneHandler(sp)
 }
 
 func TestOutboundGroupCount(t *testing.T) {
