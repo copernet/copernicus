@@ -410,11 +410,7 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet mapcontainer.MapContainer
 		descendants := make(map[*mempool.TxEntry]struct{})
 		mpool.RLock()
 		mpool.CalculateDescendants(entry, descendants)
-		for ent := range mempoolDescendants {
-			newent := *ent
-			descendants[&newent] = struct{}{}
-		}
-		mpool.RUnlock()
+
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
@@ -425,9 +421,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet mapcontainer.MapContainer
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
-				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
-				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
+				item.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				item.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				item.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			case sortByFeeRate:
@@ -435,9 +431,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet mapcontainer.MapContainer
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
-				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
-				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
+				item.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				item.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				item.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			}
