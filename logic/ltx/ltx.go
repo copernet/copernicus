@@ -23,7 +23,6 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/pkg/errors"
 )
 
 type ScriptVerifyJob struct {
@@ -584,7 +583,8 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32,
 	bestBlockHash, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
 	spendHeight := chain.GetInstance().GetSpendHeight(&bestBlockHash)
 	if spendHeight == -1 {
-		return errors.New("indexMap can`t find block")
+		log.Debug("indexMap can`t find bestblock")
+		return errcode.New(errcode.RejectInvalid)
 	}
 
 	err := CheckInputsMoney(tx, tempCoinMap, spendHeight)
@@ -626,8 +626,13 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32,
 		//drain all result from channel
 		for k := 0; k < jobNum; k++ {
 			result := <-scriptVerifyResultChan
-			if result.Err != nil && err == nil {
-				err = result.Err
+			if result.Err != nil {
+				log.Debug("Read script verify err result: %v, tx hash: %s, index: %d, "+
+					"len of scriptVerifyResultChan: %d", result.Err, result.TxHash.String(),
+					result.InputNum, len(scriptVerifyResultChan))
+				if err == nil {
+					err = result.Err
+				}
 			}
 		}
 
@@ -654,12 +659,12 @@ func checkScript() {
 				err2 := lscript.VerifyScript(j.Tx, j.ScriptSig, j.ScriptPubKey, j.IputNum, j.Value, fallbackFlags, j.ScriptChecker)
 				if err2 == nil {
 					j.ScriptVerifyResultChan <- verifyResult(j, errorNonMandatoryPass(j, err1))
-					return
+					continue
 				}
 			}
 
 			j.ScriptVerifyResultChan <- verifyResult(j, errorMandatoryFailed(j, err1))
-			return
+			continue
 		}
 
 		j.ScriptVerifyResultChan <- verifyResult(j, nil)
