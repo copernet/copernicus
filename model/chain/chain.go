@@ -454,6 +454,26 @@ func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	})
 }
 
+func (c *Chain) ResetBlockFailureFlags(targetBI *blockindex.BlockIndex) {
+	height := targetBI.Height
+
+	for _, bi := range c.indexMap {
+		if bi.IsInvalid() && bi.GetAncestor(height) == targetBI {
+			c.MakeBlockValid(bi)
+		}
+	}
+}
+
+func (c *Chain) MakeBlockValid(bi *blockindex.BlockIndex) {
+	bi.SubStatus(blockindex.BlockInvalidMask)
+
+	if bi.IsValid(blockindex.BlockValidTransactions) && bi.ChainTxCount > 0 {
+		c.AddToBranch(bi)
+	}
+
+	persist.GetInstance().AddDirtyBlockIndex(bi)
+}
+
 func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 	if bis == nil {
 		return errors.New("nil blockIndex")

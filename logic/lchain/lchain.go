@@ -198,10 +198,14 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 //InvalidBlockFound the found block is invalid
 func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 	pindex.AddStatus(blockindex.BlockFailed)
-	gChain := chain.GetInstance()
-	gChain.RemoveFromBranch(pindex)
-	gPersist := persist.GetInstance()
-	gPersist.AddDirtyBlockIndex(pindex)
+	mchain.GetInstance().RemoveFromBranch(pindex)
+	persist.GetInstance().AddDirtyBlockIndex(pindex)
+}
+
+func InvalidBlockParentFound(pindex *blockindex.BlockIndex) {
+	pindex.AddStatus(blockindex.BlockFailedParent)
+	mchain.GetInstance().RemoveFromBranch(pindex)
+	persist.GetInstance().AddDirtyBlockIndex(pindex)
 }
 
 type connectTrace map[*blockindex.BlockIndex]*block.Block

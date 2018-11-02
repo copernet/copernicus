@@ -868,7 +868,7 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	}
 
 	for gchain.FindHashInActive(*bkHash) != nil {
-		lchain.InvalidBlockFound(gchain.Tip())
+		lchain.InvalidBlockParentFound(gchain.Tip())
 
 		if err = lchain.DisconnectTip(false); err != nil {
 			return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "disconnect failed")
@@ -886,28 +886,36 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 }
 
 func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	/*	c := cmd.(*btcjson.ReconsiderBlockCmd)
-		hash, _ := util.GetHashFromStr(c.BlockHash)
+	c, ok := cmd.(*btcjson.ReconsiderBlockCmd)
+	bkHash, err := util.GetHashFromStr(c.BlockHash)
+	if !ok || err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, "malformed request")
+	}
 
-		index := chain.GetInstance().FindBlockIndex(*hash)
-		if index == nil {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidAddressOrKey,
-				Message: "Block not found",
-			}
-		}
-		chain.ResetBlockFailureFlags(index)
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 
-		state := valistate.ValidationState{}
-		chain.ActivateBestChain(consensus.ActiveNetParams, &state, nil)
+	gchain := chain.GetInstance()
+	targetBI := gchain.FindBlockIndex(*bkHash)
+	if targetBI == nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Block not found")
+	}
 
-		if state.IsInvalid() {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDatabase,
-				Message: state.FormatStateMessage(),
-			}
-		}*/ // todo open
+	log.Debug("ReconsiderBlock start: " + chainStatus(bkHash))
+	gchain.ResetBlockFailureFlags(targetBI)
+
+	if err = lchain.ActivateBestChain(nil); err != nil {
+		log.Error("ReconsiderBlock failed, " + chainStatus(bkHash))
+		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
+	}
+
+	log.Debug("ReconsiderBlock end: " + chainStatus(bkHash))
 	return nil, nil
+}
+
+func chainStatus(targetHash *util.Hash) string {
+	gchain := chain.GetInstance()
+	return fmt.Sprintf("target hash: %s, current tip: %+v", targetHash, gchain.Tip())
 }
 
 func handleWaitForNewBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

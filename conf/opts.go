@@ -22,6 +22,8 @@ type Opts struct {
 	Excessiveblocksize uint64   `long:"excessiveblocksize" default:"32000000" description:"excessive block size"`
 
 	ReplayProtectionActivationTime string `long:"replayprotectionactivationtime"`
+
+	StopAtHeight int32 `long:"stopatheight" default:"-1"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
