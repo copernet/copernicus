@@ -245,9 +245,13 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		}
 		// add the ancestors of the current item to block
 		noLimit := uint64(math.MaxUint64)
-
 		pool.RLock()
-		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		mempoolAncestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		ancestors := make(map[*mempool.TxEntry]struct{})
+		for en := range mempoolAncestors {
+			newentry := *en
+			ancestors[&newentry] = struct{}{}
+		}
 		pool.RUnlock()
 
 		ancestors[&entry] = struct{}{} // add current item
