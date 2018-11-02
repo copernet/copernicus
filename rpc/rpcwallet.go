@@ -267,7 +267,6 @@ func handleSendMany(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	var recipients []*wallet.Recipient
 
 	var totalAmount amount.Amount
-	totalAmount = 0
 	for key, value := range sendTo {
 		address := key
 		money := value
