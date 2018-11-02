@@ -97,11 +97,12 @@ var allMethodHelp = map[string]helpDescInfo{
 	"waitforblockheight": {DebugCmd, waitforblockheightDesc},
 	"echo":               {DebugCmd, echoDesc},
 
-	"getnewaddress": {WalletCmd, getnewaddressDesc},
-	"listunspent":   {WalletCmd, listunspentDesc},
-	"settxfee":      {WalletCmd, settxfeeDesc},
-	"sendtoaddress": {WalletCmd, sendtoaddressDesc},
-	"getbalance":    {WalletCmd, getbalanceDesc},
+	"getnewaddress":  {WalletCmd, getnewaddressDesc},
+	"listunspent":    {WalletCmd, listunspentDesc},
+	"settxfee":       {WalletCmd, settxfeeDesc},
+	"sendtoaddress":  {WalletCmd, sendtoaddressDesc},
+	"getbalance":     {WalletCmd, getbalanceDesc},
+	"gettransaction": {WalletCmd, gettransactionDesc},
 }
 
 // rpcMethodHelp returns an RPC help string for the provided method.

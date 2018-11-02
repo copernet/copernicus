@@ -185,10 +185,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		*view = *coinsMap
 	}
 
-	//if (pindex.IsReplayProtectionEnabled(params) &&
-	//	!pindex.Prev.IsReplayProtectionEnabled(params)) {
-	//	lmempool.clear();
-	//}
+	// If we just activated the replay protection with that block, it means
+	// transaction in the mempool are now invalid. As a result, we need to clear the mempool.
+	if pindex.IsReplayProtectionJustEnabled() {
+		mempool.InitMempool()
+	}
 
 	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash)
 	return nil
@@ -383,6 +384,11 @@ func DisconnectTip(fBare bool) error {
 	//	}
 	//}
 	// Update chainActive and related variables.
+
+	if tip.IsReplayProtectionJustEnabled() {
+		mempool.InitMempool()
+	}
+
 	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:

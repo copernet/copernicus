@@ -94,6 +94,10 @@ func ActivateBestChain(pblock *block.Block) error {
 // sendNotifications When we reach this point, we switched to a new tip.
 // Notify external listeners about the new tip.
 func sendNotifications(pindexOldTip *blockindex.BlockIndex, pblock *block.Block) {
+	if pblock == nil {
+		return
+	}
+
 	gChain := chain.GetInstance()
 
 	gChain.SendNotification(chain.NTBlockConnected, pblock)

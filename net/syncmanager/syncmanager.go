@@ -400,12 +400,10 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		return
 	}
 
-	if model.ActiveNetParams.Name == model.RegressionNetParams.Name {
-		if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
-			sm.clearSyncPeerState(sm.syncPeer)
-			sm.syncPeer = nil
-			sm.startSync()
-		}
+	if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
+		sm.clearSyncPeerState(sm.syncPeer)
+		sm.syncPeer = nil
+		sm.startSync()
 	}
 }
 
@@ -623,24 +621,13 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// rejected as opposed to something actually going wrong, so log
 		// it as such.  Otherwise, something really did go wrong, so log
 		// it as an actual error.
-		// todo !!! and error code process. yyx
-		//if _, ok := err.(blockchain.RuleError); ok {
-		//	log.Info("Rejected block %v from %s: %v", blockHash,
-		//		peer, err)
-		//} else {
-		//	log.Error("Failed to process block %v: %v",
-		//		blockHash, err)
-		//}
-		//if dbErr, ok := err.(database.Error); ok && dbErr.ErrorCode ==
-		//	database.ErrCorruption {
-		//	panic(dbErr)
-		//}
+		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
+			peer.PushRejectMsg(wire.CmdBlock, rejectCode, reason, &blockHash, false)
+			log.Debug("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
+		} else {
+			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
+		}
 
-		// Convert the error into an appropriate reject message and
-		// send it.
-		// todo !!! need process. yyx
-		//code, reason := mpool.ErrToRejectErr(err)
-		//peer.PushRejectMsg(wire.CmdBlock, code, reason, blockHash, false)
 		if !sm.headersFirstMode {
 			log.Debug("len of Requested block:%d, sm.requestBlockInvCnt: %d", len(sm.requestedBlocks), sm.requestBlkInvCnt)
 			if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
@@ -660,7 +647,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 			}
 		}
 
-		log.Debug("ProcessBlockCallBack err:%v", err)
 		return
 	}
 
@@ -1466,14 +1452,6 @@ func (sm *SyncManager) SyncPeerID() int32 {
 	reply := make(chan int32)
 	sm.processBusinessChan <- getSyncPeerMsg{reply: reply}
 	return <-reply
-}
-
-// ProcessBlock makes use of ProcessBlock on an internal instance of a block chain.
-func (sm *SyncManager) ProcessBlock(block *block.Block, flags chain.BehaviorFlags) (bool, error) {
-	reply := make(chan processBlockResponse, 1)
-	sm.processBusinessChan <- processBlockMsg{block: block, flags: flags, reply: reply}
-	response := <-reply
-	return response.isOrphan, response.err
 }
 
 // IsCurrent returns whether or not the sync manager believes it is synced with

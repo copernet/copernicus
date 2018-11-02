@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -14,6 +15,7 @@ import (
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
@@ -47,7 +49,7 @@ var blockchainHandlers = map[string]commandHandler{
 	"preciousblock":         handlePreciousblock,   //complete
 
 	/*not shown in help*/
-	"invalidateblock":    handlInvalidateBlock,  //complete
+	"invalidateblock":    handleInvalidateBlock, //complete
 	"reconsiderblock":    handleReconsiderBlock, //complete
 	"waitfornewblock":    handleWaitForNewBlock,
 	"waitforblock":       handleWaitForBlock,
@@ -849,30 +851,36 @@ func handlePreciousblock(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 	return nil, nil
 }
 
-func handlInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	//c := cmd.(*btcjson.InvalidateBlockCmd)
-	//hash, _ := util.GetHashFromStr(c.BlockHash)
-	/*	state := valistate.ValidationState{}
+func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c, ok := cmd.(*btcjson.InvalidateBlockCmd)
+	bkHash, err := util.GetHashFromStr(c.BlockHash)
+	if !ok || err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, "malformed request")
+	}
 
-		if len(chain.MapBlockIndex.Data) == 0 {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCInvalidAddressOrKey,
-				Message: "Block not found",
-			}
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 
-			//blkIndex := chain.MapBlockIndex.Data[*hash]
-			//chain.InvalidateBlock()                  // todo
+	gchain := chain.GetInstance()
+	bi := gchain.FindBlockIndex(*bkHash)
+	if bi == nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidAddressOrKey, "Block not found")
+	}
+
+	for gchain.FindHashInActive(*bkHash) != nil {
+		lchain.InvalidBlockFound(gchain.Tip())
+
+		if err = lchain.DisconnectTip(false); err != nil {
+			return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "disconnect failed")
 		}
-		if state.IsValid() {
-			//chain.ActivateBestChain()        // todo
-		}
+	}
 
-		if state.IsInvalid() {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrRPCDatabase,
-				Message: state.GetRejectReason(),
-			}
-		}*/ // todo open
+	lchain.InvalidBlockFound(bi)
+
+	if err = lchain.ActivateBestChain(nil); err != nil {
+		log.Error("InvalidateBlock failed, current height: %d, block hash:%s", gchain.TipHeight(), bkHash)
+		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
+	}
 
 	return nil, nil
 }

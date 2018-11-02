@@ -3,8 +3,10 @@ package model
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 	"time"
 )
@@ -110,6 +112,11 @@ func TestIsDAAEnabled(t *testing.T) {
 
 	isEnable = IsDAAEnabled(MainNetParams.DAAHeight)
 	assert.True(t, isEnable)
+}
+
+func TestMain(m *testing.M) {
+	conf.Cfg = conf.InitConfig([]string{})
+	os.Exit(m.Run())
 }
 
 func TestIsReplayProtectionEnabled(t *testing.T) {

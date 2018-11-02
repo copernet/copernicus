@@ -948,6 +948,24 @@ func NewGetBalanceCmd(account *string, minConf *int) *GetBalanceCmd {
 	}
 }
 
+// GetTransactionCmd defines the gettransaction JSON-RPC command.
+type GetTransactionCmd struct {
+	Txid             string
+	IncludeWatchOnly *bool `jsonrpcdefault:"false"`
+}
+
+// NewGetTransactionCmd returns a new instance which can be used to issue a
+// gettransaction JSON-RPC command.
+//
+// The parameters which are pointers indicate they are optional.  Passing nil
+// for optional parameters will use the default value.
+func NewGetTransactionCmd(txHash string, includeWatchOnly *bool) *GetTransactionCmd {
+	return &GetTransactionCmd{
+		Txid:             txHash,
+		IncludeWatchOnly: includeWatchOnly,
+	}
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -1025,4 +1043,5 @@ func init() {
 	MustRegisterCmd("settxfee", (*SetTxFeeCmd)(nil), flags)
 	MustRegisterCmd("sendtoaddress", (*SendToAddressCmd)(nil), flags)
 	MustRegisterCmd("getbalance", (*GetBalanceCmd)(nil), flags)
+	MustRegisterCmd("gettransaction", (*GetTransactionCmd)(nil), flags)
 }
