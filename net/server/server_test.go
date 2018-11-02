@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -27,17 +25,20 @@ import (
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/connmgr"
+	"github.com/copernet/copernicus/net/upnp"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
+	"github.com/stretchr/testify/assert"
 )
 
 var s *Server
@@ -236,14 +237,40 @@ func TestAnnounceNewTransactions(t *testing.T) {
 }
 
 func TestBroadcastMessage(t *testing.T) {
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(s, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
+		s.syncManager.NewPeer(peer)
+	})
+	s.AddPeer(sp)
 	msg := wire.NewMsgPing(10)
 	s.BroadcastMessage(msg)
+	sp.Disconnect()
+	s.peerDoneHandler(sp)
 }
 
 func TestConnectedCount(t *testing.T) {
-	if c := s.ConnectedCount(); c != 0 {
-		t.Errorf("ConnectedCount should be 0")
-	}
+	c := s.ConnectedCount()
+	assert.Equal(t, int32(0), c)
+
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(s, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
+		s.syncManager.NewPeer(peer)
+	})
+	s.AddPeer(sp)
+
+	c = s.ConnectedCount()
+	assert.Equal(t, int32(1), c)
+
+	sp.Disconnect()
+	s.peerDoneHandler(sp)
 }
 
 func TestOutboundGroupCount(t *testing.T) {
@@ -806,41 +833,290 @@ func TestHandleAddPeerMsg(t *testing.T) {
 }
 
 func TestParseListeners(t *testing.T) {
-	tests := [][]string{{"192.168.1.12:8080"}, {"192.168.100.32:18888"}, {"abc:80"}}
-	for i, test := range tests {
-		_, err := parseListeners(test)
-		if i == 2 && err == nil {
-			t.Errorf("parseListeners() should failed with error")
+	tests := []struct {
+		addr    string
+		isValid bool
+	}{
+		{
+			"",
+			false,
+		},
+		{
+			"abc",
+			false,
+		},
+		{
+			":18833", // 0.0.0.0:18835 and [::]:18835
+			true,
+		},
+		{
+			"127.0.0.1:18833",
+			true,
+		},
+		{
+			"hello.world:18833",
+			false,
+		},
+	}
+	for _, test := range tests {
+		_, err := parseListeners([]string{test.addr})
+		if test.isValid {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
 		}
 	}
 }
 
 func TestAddrStringToNetAddr(t *testing.T) {
-	tests := []string{
-		"192.168.1.12:8080",
-		"abc:xzy",
-		"seed.bitcoinabc.org:8333",
-		"3g2upl4pq6kufc4m.onion:8333",
+	tests := []struct {
+		addr    string
+		isValid bool
+	}{
+		{
+			"192.168.1.12:8080",
+			true,
+		},
+		{
+			"",
+			false,
+		},
+		{
+			"abc",
+			false,
+		},
+		{
+			"abc:xzy",
+			false,
+		},
+		{
+			"seed.bitcoinabc.org:8333",
+			true,
+		},
+		{
+			"3g2upl4pq6kufc4m.onion:8333",
+			false,
+		},
 	}
-	for i, test := range tests {
-		_, err := addrStringToNetAddr(test)
-		switch i {
-		case 0:
-			assert.Equal(t, err, nil)
-		case 1:
-			assert.NotEqual(t, err, nil)
-		case 2:
-			assert.Equal(t, err, nil)
-		case 3:
-			assert.NotEqual(t, err, nil)
+	for _, test := range tests {
+		_, err := addrStringToNetAddr(test.addr)
+		if test.isValid {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
 		}
 	}
 }
 
 func TestInitListeners(t *testing.T) {
-	_, _, err := initListeners(s.addrManager, conf.Cfg.P2PNet.ListenAddrs, defaultServices)
-	assert.Equal(t, err, nil)
-	conf.Cfg.P2PNet.ExternalIPs = []string{"seed.bitcoinabc.org:8333"}
-	_, _, err = initListeners(s.addrManager, conf.Cfg.P2PNet.ListenAddrs, defaultServices)
-	assert.Equal(t, err, nil)
+	configUpnp := conf.Cfg.P2PNet.Upnp
+	configExternalIPs := conf.Cfg.P2PNet.ExternalIPs
+	configDefaultPort := model.ActiveNetParams.DefaultPort
+
+	// restore
+	defer func() {
+		conf.Cfg.P2PNet.Upnp = configUpnp
+		conf.Cfg.P2PNet.ExternalIPs = configExternalIPs
+		model.ActiveNetParams.DefaultPort = configDefaultPort
+	}()
+
+	var err error
+	var listeners []net.Listener
+	var nat upnp.NAT
+	services := defaultServices
+	listenAddrs := make([]string, 1)
+	conf.Cfg.P2PNet.ExternalIPs = make([]string, 0)
+	conf.Cfg.P2PNet.Upnp = false
+
+	// external IP list is empty
+	listenAddrs[0] = ""
+	listeners, _, err = initListeners(s.addrManager, listenAddrs, services)
+	assert.NotNil(t, err)
+	for _, listener := range listeners {
+		listener.Close()
+	}
+
+	listenAddrs[0] = "127.0.0.1:18833"
+	listeners, nat, err = initListeners(s.addrManager, listenAddrs, services)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(listeners))
+	assert.Nil(t, nat)
+
+	// port is occupied
+	listeners2, _, err := initListeners(s.addrManager, listenAddrs, services)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(listeners2))
+
+	for _, listener := range listeners {
+		listener.Close()
+	}
+
+	conf.Cfg.P2PNet.Upnp = true
+	listeners, _, err = initListeners(s.addrManager, listenAddrs, services)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(listeners))
+	// not sure nat is discovered. take 3s
+	for _, listener := range listeners {
+		listener.Close()
+	}
+
+	externalIPs := make([]string, 0)
+	externalIPs = append(externalIPs, "")
+	externalIPs = append(externalIPs, "abc")
+	externalIPs = append(externalIPs, ":123")
+	externalIPs = append(externalIPs, "127.0.0.1")
+	externalIPs = append(externalIPs, "127.0.0.1:abc")
+	externalIPs = append(externalIPs, "127.0.0.1:18834")
+	externalIPs = append(externalIPs, "seed.bitcoinabc.org:8333")
+	conf.Cfg.P2PNet.ExternalIPs = externalIPs
+
+	// external IP list is not empty
+	listeners, _, err = initListeners(s.addrManager, listenAddrs, services)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(listeners))
+	for _, listener := range listeners {
+		listener.Close()
+	}
+
+	// invalid port
+	model.ActiveNetParams.DefaultPort = "abc"
+	listeners, _, err = initListeners(s.addrManager, listenAddrs, services)
+	assert.NotNil(t, err)
+	for _, listener := range listeners {
+		listener.Close()
+	}
+}
+
+func getBlock(blockstr string) *block.Block {
+	blk := block.NewBlock()
+	blkBuf, _ := hex.DecodeString(blockstr)
+	err := blk.Unserialize(bytes.NewReader(blkBuf))
+	if err != nil {
+		return nil
+	}
+	return blk
+}
+
+func TestServer_RelayUpdatedTipBlocks(t *testing.T) {
+	blk1str := "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA330900000000" +
+		"BAC8B0FA927C0AC8234287E33C5F74D38D354820E24756AD709D7038FC5F31F020E7494DFFFF00" +
+		"1D03E4B67201010000000100000000000000000000000000000000000000000000000000000000" +
+		"00000000FFFFFFFF0E0420E7494D017F062F503253482FFFFFFFFF0100F2052A01000000232102" +
+		"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00000000"
+	blk2str := "0100000006128E87BE8B1B4DEA47A7247D5528D2702C96826C7A648497E773B800000000" +
+		"E241352E3BEC0A95A6217E10C3ABB54ADFA05ABB12C126695595580FB92E222032E7494DFFFF00" +
+		"1D00D2353401010000000100000000000000000000000000000000000000000000000000000000" +
+		"00000000FFFFFFFF0E0432E7494D010E062F503253482FFFFFFFFF0100F2052A01000000232103" +
+		"8A7F6EF1C8CA0C588AA53FA860128077C9E6C11E6830F4D7EE4E763A56B7718FAC00000000"
+	blk1 := getBlock(blk1str)
+	blk2 := getBlock(blk2str)
+
+	blk1Idx := blockindex.NewBlockIndex(&blk1.Header)
+	blk2Idx := blockindex.NewBlockIndex(&blk2.Header)
+	blk2Idx.Prev = blk1Idx
+
+	event := &chain.TipUpdatedEvent{
+		TipIndex:          blk2Idx,
+		ForkIndex:         blk1Idx,
+		IsInitialDownload: true,
+	}
+	s.RelayUpdatedTipBlocks(event)
+
+	event.IsInitialDownload = false
+	s.RelayUpdatedTipBlocks(event)
+}
+
+func TestServer_UpdatePeerHeights(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, chn)
+	assert.Nil(t, err)
+
+	peerCfg := &peer.Config{
+		Listeners:         peer.MessageListeners{},
+		UserAgentName:     "peer",
+		UserAgentVersion:  "1.0",
+		UserAgentComments: []string{"comment"},
+		ChainParams:       &model.MainNetParams,
+		Services:          wire.SFNodeBloom,
+	}
+	inPeer := peer.NewInboundPeer(peerCfg)
+
+	blk1str := "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA330900000000" +
+		"BAC8B0FA927C0AC8234287E33C5F74D38D354820E24756AD709D7038FC5F31F020E7494DFFFF00" +
+		"1D03E4B67201010000000100000000000000000000000000000000000000000000000000000000" +
+		"00000000FFFFFFFF0E0420E7494D017F062F503253482FFFFFFFFF0100F2052A01000000232102" +
+		"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00000000"
+	blk1 := getBlock(blk1str)
+	blk1Hash := blk1.GetHash()
+
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(svr, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
+		svr.syncManager.NewPeer(peer)
+	})
+	svr.Start()
+	svr.AddPeer(sp)
+	svr.UpdatePeerHeights(&blk1Hash, 1, inPeer)
+	svr.Stop()
+}
+
+func TestServer_Stop(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, chn)
+	assert.Nil(t, err)
+
+	go svr.Stop()
+
+	select {
+	case <-svr.quit:
+	case <-time.After(3 * time.Second):
+		t.Errorf("server stop timeout")
+	}
+}
+
+func TestServer_ScheduleShutdown(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, chn)
+	assert.Nil(t, err)
+
+	startTime := time.Now().Unix()
+	endTime := startTime
+	svr.ScheduleShutdown(2 * time.Second)
+
+	select {
+	case <-svr.quit:
+		endTime = time.Now().Unix()
+	case <-time.After(5 * time.Second):
+		t.Error("ScheduleShutdown time out")
+	}
+	if endTime == startTime {
+		t.Error("ScheduleShutdown too quick")
+	}
+}
+
+func TestServer_disconnectPeer(t *testing.T) {
+	var ret bool
+	peerList := make(map[int32]*serverPeer)
+	ret = disconnectPeer(peerList, nil, nil)
+	assert.False(t, ret)
+
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(s, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
+		s.syncManager.NewPeer(peer)
+	})
+	peerList[1] = sp
+
+	compareFunc := func(*serverPeer) bool { return true }
+	whenFound := func(*serverPeer) {}
+	ret = disconnectPeer(peerList, compareFunc, whenFound)
+	assert.True(t, ret)
+	assert.Equal(t, 0, len(peerList))
+	s.peerDoneHandler(sp)
 }
