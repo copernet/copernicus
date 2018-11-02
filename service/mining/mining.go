@@ -406,8 +406,15 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet mapcontainer.MapContainer
 	tmpStrategy := *getStrategy()
 
 	for _, entry := range alreadyAdded {
+		mempoolDescendants := make(map[*mempool.TxEntry]struct{})
 		descendants := make(map[*mempool.TxEntry]struct{})
+		mpool.RLock()
 		mpool.CalculateDescendants(entry, descendants)
+		for ent := range mempoolDescendants {
+			newent := *ent
+			descendants[&newent] = struct{}{}
+		}
+		mpool.RUnlock()
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
