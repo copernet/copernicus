@@ -4,6 +4,8 @@ package wallet
 
 import (
 	"crypto/rand"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"io"
@@ -72,6 +74,7 @@ func InitWallet() {
 	}
 
 	globalWallet = walletInstance
+	chain.GetInstance().Subscribe(globalWallet.handleBlockchainNotification)
 }
 
 func GetInstance() *Wallet {
@@ -442,4 +445,53 @@ func (w *Wallet) IsMine(out *txout.TxOut) uint8 {
 	}
 
 	return ISMINE_NO
+}
+func (w *Wallet) handleBlockchainNotification(notification *chain.Notification) {
+	switch notification.Type {
+
+	case chain.NTChainTipUpdated:
+
+	case chain.NTBlockAccepted:
+
+	case chain.NTBlockConnected:
+		block, ok := notification.Data.(*block.Block)
+		if !ok {
+			log.Warn("Chain connected notification is not a block.")
+			break
+		}
+
+		for _, tx := range block.Txs {
+			for _, in := range tx.GetIns() {
+				prev := in.PreviousOutPoint
+				prevTx := w.walletTxns[prev.Hash]
+				if prevTx != nil && IsUnlockable(prevTx.Tx.GetTxOut(int(prev.Index)).GetScriptPubKey()) {
+					w.AddToWallet(tx, nil)
+					continue
+				}
+			}
+			for _, out := range tx.GetOuts() {
+				if IsUnlockable(out.GetScriptPubKey()) {
+					w.AddToWallet(tx, nil)
+					continue
+				}
+			}
+		}
+
+	case chain.NTBlockDisconnected:
+		block, ok := notification.Data.(*block.Block)
+		if !ok {
+			log.Warn("Chain disconnected notification is not a block.")
+			break
+		}
+
+		for _, tx := range block.Txs {
+			for _, out := range tx.GetOuts() {
+				if IsUnlockable(out.GetScriptPubKey()) {
+					w.RemoveFromWallet(tx)
+					continue
+				}
+			}
+		}
+
+	}
 }
