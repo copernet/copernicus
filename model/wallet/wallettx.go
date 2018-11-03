@@ -41,6 +41,7 @@ type WalletTx struct {
 	availableCredit *amount.Amount
 
 	blockHeight int32
+	blockHash   util.Hash
 
 	spentStatus []bool
 
@@ -58,7 +59,7 @@ func NewEmptyWalletTx() *WalletTx {
 	return &WalletTx{}
 }
 
-func NewWalletTx(txn *tx.Tx, extInfo map[string]string, isFromMe bool, account string) *WalletTx {
+func NewWalletTx(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string, isFromMe bool, account string) *WalletTx {
 	return &WalletTx{
 		Tx:              txn,
 		ExtInfo:         extInfo,
@@ -67,6 +68,7 @@ func NewWalletTx(txn *tx.Tx, extInfo map[string]string, isFromMe bool, account s
 		FromAccount:     account,
 		availableCredit: nil,
 		blockHeight:     0,
+		blockHash:       blockhash,
 		spentStatus:     make([]bool, txn.GetOutsCount()),
 	}
 }
@@ -150,13 +152,22 @@ func (wtx *WalletTx) GetDepthInMainChain() int32 {
 	if mempool.GetInstance().HaveTransaction(wtx.Tx) {
 		return 0
 	}
+
+	blockIndex := chain.GetInstance().FindBlockIndex(wtx.blockHash)
+	if blockIndex != nil {
+		wtx.blockHeight = blockIndex.Height
+		return chain.GetInstance().Height() - wtx.blockHeight + 1
+	}
+
 	outPoint := outpoint.NewOutPoint(wtx.Tx.GetHash(), 0)
 	coin := utxo.GetUtxoCacheInstance().GetCoin(outPoint)
-	if coin == nil {
-		return 0
+	if coin != nil {
+		wtx.blockHeight = coin.GetHeight()
+		return chain.GetInstance().Height() - wtx.blockHeight + 1
 	}
-	wtx.blockHeight = coin.GetHeight()
-	return chain.GetInstance().Height() - wtx.blockHeight + 1
+
+	return 0
+
 }
 
 func (wtx *WalletTx) CheckFinalForForCurrentBlock() bool {

@@ -5,6 +5,7 @@ package wallet
 import (
 	"crypto/rand"
 	"github.com/copernet/copernicus/model/block"
+	blockindex2 "github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
@@ -179,14 +180,14 @@ func (w *Wallet) SetAddressBook(keyHash []byte, account string, purpose string) 
 	return nil
 }
 
-func (w *Wallet) AddToWallet(txn *tx.Tx, extInfo map[string]string) error {
+func (w *Wallet) AddToWallet(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string) error {
 	txHash := txn.GetHash()
 	log.Info("AddToWallet tx:%s", txHash.String())
 
 	if extInfo == nil {
 		extInfo = make(map[string]string)
 	}
-	walletTx := NewWalletTx(txn, extInfo, true, "")
+	walletTx := NewWalletTx(txn, blockhash, extInfo, true, "")
 
 	w.txnLock.Lock()
 	defer w.txnLock.Unlock()
@@ -459,19 +460,20 @@ func (w *Wallet) handleBlockchainNotification(notification *chain.Notification) 
 			log.Warn("Chain connected notification is not a block.")
 			break
 		}
+		blockhash := blockindex2.NewBlockIndex(&block.Header).GetBlockHash()
 
 		for _, tx := range block.Txs {
 			for _, in := range tx.GetIns() {
 				prev := in.PreviousOutPoint
 				prevTx := w.walletTxns[prev.Hash]
 				if prevTx != nil && IsUnlockable(prevTx.Tx.GetTxOut(int(prev.Index)).GetScriptPubKey()) {
-					w.AddToWallet(tx, nil)
+					w.AddToWallet(tx, *blockhash, nil)
 					continue
 				}
 			}
 			for _, out := range tx.GetOuts() {
 				if IsUnlockable(out.GetScriptPubKey()) {
-					w.AddToWallet(tx, nil)
+					w.AddToWallet(tx, *blockhash,nil)
 					continue
 				}
 			}

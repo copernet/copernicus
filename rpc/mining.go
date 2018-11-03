@@ -620,7 +620,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 
 		// TODO: simple implementation just for testing
 		if lwallet.IsWalletEnable() {
-			lwallet.AddToWallet(bt.Block.Txs[0], nil)
+			lwallet.AddToWallet(bt.Block.Txs[0], bt.Block.GetHash(), nil)
 		}
 	}
 

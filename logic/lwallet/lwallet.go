@@ -150,8 +150,8 @@ func GetScript(scriptHash []byte) *script.Script {
 	return wallet.GetInstance().GetScript(scriptHash)
 }
 
-func AddToWallet(txn *tx.Tx, extInfo map[string]string) {
-	wallet.GetInstance().AddToWallet(txn, extInfo)
+func AddToWallet(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string) {
+	wallet.GetInstance().AddToWallet(txn, blockhash, extInfo)
 }
 func RemoveFromWallet(txn *tx.Tx) {
 	wallet.GetInstance().RemoveFromWallet(txn)
@@ -556,7 +556,7 @@ func CommitTransaction(txNew *tx.Tx, extInfo map[string]string) error {
 
 	// Add tx to wallet, because if it has change it's also ours, otherwise just
 	// for transaction history.
-	AddToWallet(txNew, extInfo)
+	AddToWallet(txNew, util.HashZero, extInfo)
 
 	// Notify that old coins are spent.
 	for _, txIn := range txNew.GetIns() {
