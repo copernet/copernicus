@@ -198,6 +198,23 @@ func (w *Wallet) AddToWallet(txn *tx.Tx, extInfo map[string]string) error {
 	}
 	return nil
 }
+func (w *Wallet) RemoveFromWallet(txn *tx.Tx) error {
+	txHash := txn.GetHash()
+	log.Info("RemoveFromWallet tx:%s", txHash.String())
+
+	w.txnLock.Lock()
+	defer w.txnLock.Unlock()
+	if _, ok := w.walletTxns[txHash]; !ok {
+		w.walletTxns[txHash] = nil
+	}
+
+	err := w.removeWalletTx(&txHash)
+	if err != nil {
+		log.Error("AddToWallet remove from db fail. error:%s", err.Error())
+		return err
+	}
+	return nil
+}
 
 func (w *Wallet) GetWalletTxns() []*WalletTx {
 	walletTxns := make([]*WalletTx, 0, len(w.walletTxns))

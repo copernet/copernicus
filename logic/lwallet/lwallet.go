@@ -153,6 +153,9 @@ func GetScript(scriptHash []byte) *script.Script {
 func AddToWallet(txn *tx.Tx, extInfo map[string]string) {
 	wallet.GetInstance().AddToWallet(txn, extInfo)
 }
+func RemoveFromWallet(txn *tx.Tx) {
+	wallet.GetInstance().RemoveFromWallet(txn)
+}
 
 func SetFeeRate(feePaid int64, byteSize int64) {
 	wallet.GetInstance().SetFeeRate(feePaid, byteSize)

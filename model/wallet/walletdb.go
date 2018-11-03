@@ -119,16 +119,25 @@ func (wdb *WalletDB) saveAddressBook(keyHash []byte, data *AddressBookData) erro
 	return wdb.dbw.Write(key, w.Bytes(), true)
 }
 
-func (wdb *WalletDB) saveWalletTx(TxHash *util.Hash, wtx *WalletTx) error {
+func (wdb *WalletDB) saveWalletTx(txHash *util.Hash, wtx *WalletTx) error {
 	w := new(bytes.Buffer)
 	err := wtx.Serialize(w)
 	if err != nil {
 		return err
 	}
 
-	hashBytes := TxHash[:]
+	hashBytes := txHash[:]
 	key := make([]byte, 0, len(hashBytes)+1)
 	key = append(key, db.DbWalletTx)
 	key = append(key, hashBytes...)
 	return wdb.dbw.Write(key, w.Bytes(), true)
+}
+
+func (wdb *WalletDB) removeWalletTx(txHash *util.Hash) error {
+
+	hashBytes := txHash[:]
+	key := make([]byte, 0, len(hashBytes)+1)
+	key = append(key, db.DbWalletTx)
+	key = append(key, hashBytes...)
+	return wdb.dbw.Erase(key, true)
 }
