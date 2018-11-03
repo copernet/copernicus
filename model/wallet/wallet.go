@@ -191,9 +191,7 @@ func (w *Wallet) AddToWallet(txn *tx.Tx, blockhash util.Hash, extInfo map[string
 
 	w.txnLock.Lock()
 	defer w.txnLock.Unlock()
-	if _, ok := w.walletTxns[txHash]; !ok {
-		w.walletTxns[txHash] = walletTx
-	}
+	w.walletTxns[txHash] = walletTx
 
 	err := w.saveWalletTx(&txHash, walletTx)
 	if err != nil {
@@ -208,7 +206,7 @@ func (w *Wallet) RemoveFromWallet(txn *tx.Tx) error {
 
 	w.txnLock.Lock()
 	defer w.txnLock.Unlock()
-	if _, ok := w.walletTxns[txHash]; !ok {
+	if _, ok := w.walletTxns[txHash]; ok {
 		w.walletTxns[txHash] = nil
 	}
 
@@ -473,7 +471,7 @@ func (w *Wallet) handleBlockchainNotification(notification *chain.Notification) 
 			}
 			for _, out := range tx.GetOuts() {
 				if IsUnlockable(out.GetScriptPubKey()) {
-					w.AddToWallet(tx, *blockhash,nil)
+					w.AddToWallet(tx, *blockhash, nil)
 					continue
 				}
 			}
@@ -486,12 +484,12 @@ func (w *Wallet) handleBlockchainNotification(notification *chain.Notification) 
 			break
 		}
 
+		pwallet := GetInstance()
 		for _, tx := range block.Txs {
-			for _, out := range tx.GetOuts() {
-				if IsUnlockable(out.GetScriptPubKey()) {
-					w.RemoveFromWallet(tx)
-					continue
-				}
+			wtx := pwallet.walletTxns[tx.GetHash()]
+			if wtx != nil {
+				wtx.blockHeight = 0
+				wtx.blockHash = util.HashZero
 			}
 		}
 
