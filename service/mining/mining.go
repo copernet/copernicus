@@ -528,7 +528,7 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	indexDummy.Height = indexPrev.Height + 1
 
 	// NOTE: CheckBlockHeader is called by CheckBlock
-	if !lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()) {
+	if err := lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()); err != nil {
 		log.Error("TestBlockValidity():ContextualCheckBlockHeader failed, blkHeader:%v, indexPrev:%v.", blkHeader, indexPrev)
 		return false
 	}

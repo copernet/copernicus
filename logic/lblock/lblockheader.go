@@ -1,6 +1,7 @@
 package lblock
 
 import (
+	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
@@ -21,7 +22,7 @@ func CheckBlockHeader(bh *block.BlockHeader) error {
 	return nil
 }
 
-func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.BlockIndex, adjustTime int64) bool {
+func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.BlockIndex, adjustTime int64) error {
 	nHeight := int32(0)
 	if preIndex != nil {
 		nHeight = preIndex.Height + 1
@@ -32,21 +33,21 @@ func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.
 	p := new(pow.Pow)
 	if header.Bits != p.GetNextWorkRequired(preIndex, header, params) {
 		log.Error("ContextualCheckBlockHeader.GetNextWorkRequired err")
-		return false
+		return errcode.NewError(errcode.RejectInvalid, "bad-diffbits")
 	}
 	blocktime := int64(header.Time)
 	if blocktime <= preIndex.GetMedianTimePast() {
 		log.Error("ContextualCheckBlockHeader.GetMedianTimePast err")
-		return false
+		return errcode.NewError(errcode.RejectInvalid, "time-too-old")
 	}
 	if blocktime > adjustTime+2*60*60 {
 		log.Error("ContextualCheckBlockHeader > adjustTime err")
-		return false
+		return errcode.NewError(errcode.RejectInvalid, "time-too-new")
 	}
 	if (header.Version < 2 && nHeight >= params.BIP34Height) || (header.Version < 3 && nHeight >= params.BIP66Height) || (header.Version < 4 && nHeight >= params.BIP65Height) {
 		log.Error("block.version: %d, nheight :%d", header.Version, nHeight)
-		//TODO: reject outdated version blocks: REJECT_OBSOLETE
-		return false
+		return errcode.NewError(errcode.RejectObsolete, fmt.Sprintf("bad-version(0x%08x)", header.Version))
 	}
-	return true
+
+	return nil
 }

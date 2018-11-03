@@ -2,6 +2,7 @@ package lblock
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/copernet/copernicus/model/block"
@@ -113,29 +114,20 @@ func TestContextualCheckBlockHeader(t *testing.T) {
 	blk1Index := blockindex.NewBlockIndex(&blk1.Header)
 	testHeader := blk2.Header
 
-	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(blk2.Header.Time)); !ok {
-		t.Errorf("TestContextualCheckBlockHeader test 1 check valid header failed")
-	}
+	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(blk2.Header.Time)))
 
 	testHeader = blk2.Header
 	testHeader.Bits = 123456
-	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)); ok {
-		t.Errorf("TestContextualCheckBlockHeader test 2 check bits failed")
-	}
+
+	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
 
 	testHeader = blk2.Header
 	testHeader.Time = blk1.Header.Time - 1
-	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)); ok {
-		t.Errorf("TestContextualCheckBlockHeader test 3 check median time failed")
-	}
+	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
 
 	testHeader = blk2.Header
-	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time-7201)); ok {
-		t.Errorf("TestContextualCheckBlockHeader test 4 check adjust time failed")
-	}
+	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time-7201)))
 
 	blk1Index.Height = chain.GetInstance().GetParams().BIP66Height
-	if ok := ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)); ok {
-		t.Errorf("TestContextualCheckBlockHeader test 5 check version failed")
-	}
+	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
 }
