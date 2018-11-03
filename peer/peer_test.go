@@ -7,8 +7,10 @@ package peer_test
 import (
 	"context"
 	"errors"
+	"github.com/copernet/copernicus/conf"
 	"io"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -41,6 +43,11 @@ type conn struct {
 
 	// mocks socks proxy if true
 	proxy bool
+}
+
+func TestMain(m *testing.M) {
+	conf.Cfg = conf.InitConfig([]string{})
+	os.Exit(m.Run())
 }
 
 // LocalAddr returns the local address for the connection.

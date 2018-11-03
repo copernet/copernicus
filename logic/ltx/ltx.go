@@ -325,7 +325,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for i := range outs {
 				if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 					log.Debug("tried to overwrite transaction")
-					return nil, nil, errcode.New(errcode.RejectInvalid)
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
 				}
 			}
 		}
@@ -336,26 +336,26 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 				if coin == nil || coin.IsSpent() {
 					log.Debug("can't find coin or has been spent out before apply transaction")
-					return nil, nil, errcode.New(errcode.RejectInvalid)
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
 				}
 				valueIn += coin.GetAmount()
 			}
 			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.New(errcode.RejectNonstandard)
+				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
 			}
 		}
 		//check sigops
 		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
-			return nil, nil, errcode.New(errcode.RejectInvalid)
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 		}
 		sigOpsCount += uint64(sigsCount)
 		if sigOpsCount > blockMaxSigOpsCount {
 			log.Debug("block has too many sigops at %d transaction", i)
-			return nil, nil, errcode.New(errcode.RejectInvalid)
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
 		if transaction.IsCoinBase() {
 			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
@@ -380,7 +380,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	//check blockReward
 	if txs[0].GetValueOut() > fees+blockSubSidy {
 		log.Debug("coinbase pays too much")
-		return nil, nil, errcode.New(errcode.RejectInvalid)
+		return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
 	}
 	return coinsMap, bundo, nil
 }
