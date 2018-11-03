@@ -212,8 +212,8 @@ func (w *Wallet) GetWalletTxns() []*WalletTx {
 }
 func (w *Wallet) GetWalletTx(txhash util.Hash) *WalletTx {
 
-	w.txnLock.Lock()
-	defer w.txnLock.Unlock()
+	w.txnLock.RLock()
+	defer w.txnLock.RUnlock()
 	if tx, ok := w.walletTxns[txhash]; ok {
 		return tx
 	}
@@ -420,8 +420,7 @@ func (w *Wallet) GetCreditOut(out *txout.TxOut, filter uint8) amount.Amount {
 }
 func (w *Wallet) IsMine(out *txout.TxOut) uint8 {
 	//TODO wallet add ISMINE_WATCH_ONLY
-	pubkeyHash := out.GetScriptPubKey().GetData()
-	if w.addressBook[string(pubkeyHash)] != nil {
+	if IsUnlockable(out.GetScriptPubKey()) {
 		return ISMINE_SPENDABLE
 	}
 
