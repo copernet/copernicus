@@ -237,35 +237,56 @@ func TestAnnounceNewTransactions(t *testing.T) {
 }
 
 func TestBroadcastMessage(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, chn)
+	assert.Nil(t, err)
+
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
-	sp := newServerPeer(s, false)
+	sp := newServerPeer(svr, false)
 	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
-	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
-		s.syncManager.NewPeer(peer)
+	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
+		svr.syncManager.NewPeer(peer)
 	})
-	s.AddPeer(sp)
 
-	for i := 0; i < 5; i++ {
-		if sp.Connected() {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	assert.True(t, sp.Connected())
+	svr.Start()
+	defer svr.Stop()
 
+	svr.AddPeer(sp)
 	msg := wire.NewMsgPing(10)
-	s.BroadcastMessage(msg)
+	svr.BroadcastMessage(msg)
+	// can not check the channel in peer
 
-	// can not check the channel in peer, sleep instead
-	time.Sleep(100 * time.Millisecond)
+	ps := peerState{
+		inboundPeers:    make(map[int32]*serverPeer),
+		outboundPeers:   make(map[int32]*serverPeer),
+		persistentPeers: make(map[int32]*serverPeer),
+		banned:          make(map[string]time.Time),
+		outboundGroups:  make(map[string]int),
+	}
+	ret := svr.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
+
+	bmsg := &broadcastMsg{message: msg}
+	svr.handleBroadcastMsg(&ps, bmsg)
+
+	bmsg.excludePeers = []*serverPeer{sp}
+	svr.handleBroadcastMsg(&ps, bmsg)
+
 	sp.Disconnect()
-	s.peerDoneHandler(sp)
+	svr.handleBroadcastMsg(&ps, bmsg)
 }
 
 func TestConnectedCount(t *testing.T) {
-	c := s.ConnectedCount()
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, chn)
+	assert.Nil(t, err)
+
+	svr.Start()
+	defer svr.Stop()
+
+	c := svr.ConnectedCount()
 	assert.Equal(t, int32(0), c)
 
 	r, w := io.Pipe()
@@ -273,10 +294,10 @@ func TestConnectedCount(t *testing.T) {
 	sp := newServerPeer(s, false)
 	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
-	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
-		s.syncManager.NewPeer(peer)
+	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
+		svr.syncManager.NewPeer(peer)
 	})
-	s.AddPeer(sp)
+	svr.AddPeer(sp)
 
 	for i := 0; i < 5; i++ {
 		if sp.Connected() {
@@ -286,11 +307,11 @@ func TestConnectedCount(t *testing.T) {
 	}
 	assert.True(t, sp.Connected())
 
-	c = s.ConnectedCount()
+	c = svr.ConnectedCount()
 	assert.Equal(t, int32(1), c)
 
 	sp.Disconnect()
-	s.peerDoneHandler(sp)
+	svr.peerDoneHandler(sp)
 }
 
 func TestOutboundGroupCount(t *testing.T) {
@@ -848,8 +869,36 @@ func TestHandleAddPeerMsg(t *testing.T) {
 		banned:          make(map[string]time.Time),
 		outboundGroups:  make(map[string]int),
 	}
-	s.AddPeer(sp)
-	s.handleAddPeerMsg(&ps, sp)
+	ret := s.handleAddPeerMsg(&ps, nil)
+	assert.False(t, ret)
+
+	ret = s.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
+
+	sp.persistent = true
+	ret = s.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
+
+	// check full
+	for i := 0; i < conf.Cfg.P2PNet.MaxPeers; i++ {
+		ps.persistentPeers[int32(i)] = sp
+	}
+	ret = s.handleAddPeerMsg(&ps, sp)
+	assert.False(t, ret)
+	ps.persistentPeers = make(map[int32]*serverPeer)
+
+	// check ban peer
+	host, _, err := net.SplitHostPort(sp.Addr())
+	assert.Nil(t, err)
+	ps.banned[host] = time.Now().Add(60 * time.Second)
+
+	ret = s.handleAddPeerMsg(&ps, sp)
+	assert.False(t, ret)
+
+	ps.banned[host] = time.Now().Add(-60 * time.Second)
+	ret = s.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
+	assert.Equal(t, 0, len(ps.banned))
 }
 
 func TestParseListeners(t *testing.T) {
@@ -917,10 +966,6 @@ func TestAddrStringToNetAddr(t *testing.T) {
 			"seed.bitcoinabc.org:8333",
 			true,
 		},
-		{
-			"3g2upl4pq6kufc4m.onion:8333",
-			false,
-		},
 	}
 	for _, test := range tests {
 		_, err := addrStringToNetAddr(test.addr)
@@ -930,6 +975,20 @@ func TestAddrStringToNetAddr(t *testing.T) {
 			assert.NotNil(t, err)
 		}
 	}
+}
+
+func TestOnionAddr(t *testing.T) {
+	onionAddrStr := "3g2upl4pq6kufc4m.onion:8333"
+
+	conf.Cfg.P2PNet.NoOnion = false
+	onionAddr, err := addrStringToNetAddr(onionAddrStr)
+	assert.Nil(t, err)
+	assert.Equal(t, onionAddrStr, onionAddr.String())
+	assert.Equal(t, "onion", onionAddr.Network())
+
+	conf.Cfg.P2PNet.NoOnion = true
+	_, err = addrStringToNetAddr(onionAddrStr)
+	assert.NotNil(t, err)
 }
 
 func TestInitListeners(t *testing.T) {
@@ -1067,13 +1126,9 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	}
 	inPeer := peer.NewInboundPeer(peerCfg)
 
-	blk1str := "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA330900000000" +
-		"BAC8B0FA927C0AC8234287E33C5F74D38D354820E24756AD709D7038FC5F31F020E7494DFFFF00" +
-		"1D03E4B67201010000000100000000000000000000000000000000000000000000000000000000" +
-		"00000000FFFFFFFF0E0420E7494D017F062F503253482FFFFFFFFF0100F2052A01000000232102" +
-		"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00000000"
-	blk1 := getBlock(blk1str)
-	blk1Hash := blk1.GetHash()
+	hashStr := "3264bc2ac36a60840790ba1d475d01367e7c723da941069e9dc"
+	blockHash, err := util.GetHashFromStr(hashStr)
+	assert.Nil(t, err)
 
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
@@ -1083,23 +1138,53 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
-	sp.Peer.UpdateLastBlockHeight(1)
-	sp.Peer.UpdateLastAnnouncedBlock(&blk1Hash)
 
 	svr.Start()
-	time.Sleep(100 * time.Millisecond)
+	defer svr.Stop()
+
 	svr.AddPeer(sp)
+	svr.UpdatePeerHeights(blockHash, 1, inPeer)
+	assert.Nil(t, sp.LastAnnouncedBlock())
 
-	for i := 0; i < 5; i++ {
-		if sp.Connected() {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+	// check update peer height logic
+	ps := peerState{
+		inboundPeers:    make(map[int32]*serverPeer),
+		outboundPeers:   make(map[int32]*serverPeer),
+		persistentPeers: make(map[int32]*serverPeer),
+		banned:          make(map[string]time.Time),
+		outboundGroups:  make(map[string]int),
 	}
-	assert.True(t, sp.Connected())
+	ret := s.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
 
-	svr.UpdatePeerHeights(&blk1Hash, 1, inPeer)
-	svr.Stop()
+	updateMsg := updatePeerHeightsMsg{newHash: blockHash}
+
+	// not update for origin peer
+	updateMsg.newHeight = 2
+	updateMsg.originPeer = sp.Peer
+	sp.UpdateLastAnnouncedBlock(blockHash)
+	sp.UpdateLastBlockHeight(1)
+	s.handleUpdatePeerHeights(&ps, updateMsg)
+	assert.NotNil(t, sp.LastAnnouncedBlock())
+	assert.Equal(t, int32(1), sp.LastBlock())
+
+	// update for valid peer
+	updateMsg.newHeight = 4
+	updateMsg.originPeer = inPeer
+	sp.UpdateLastAnnouncedBlock(blockHash)
+	sp.UpdateLastBlockHeight(3)
+	s.handleUpdatePeerHeights(&ps, updateMsg)
+	assert.Nil(t, sp.LastAnnouncedBlock())
+	assert.Equal(t, int32(4), sp.LastBlock())
+
+	// not update for no last announced block
+	updateMsg.newHeight = 6
+	updateMsg.originPeer = inPeer
+	sp.UpdateLastAnnouncedBlock(nil)
+	sp.UpdateLastBlockHeight(5)
+	s.handleUpdatePeerHeights(&ps, updateMsg)
+	assert.Nil(t, sp.LastAnnouncedBlock())
+	assert.Equal(t, int32(5), sp.LastBlock())
 }
 
 func TestServer_Stop(t *testing.T) {
