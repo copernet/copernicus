@@ -60,7 +60,7 @@ const (
 
 // TxMempool is safe for concurrent write And read access.
 type TxMempool struct {
-	sync.RWMutex
+	lck sync.RWMutex
 	// current mempool best feerate for one transaction.
 	feeRate util.FeeRate
 	// poolData store the tx in the mempool
@@ -90,6 +90,19 @@ type TxMempool struct {
 	rollingMinimumFeeRate        int64
 	blockSinceLastRollingFeeBump bool
 	lastRollingFeeUpdate         int64
+}
+
+func (m *TxMempool) Lock() {
+	m.lck.Lock()
+}
+func (m *TxMempool) Unlock() {
+	m.lck.Unlock()
+}
+func (m *TxMempool) RLock() {
+	m.lck.RLock()
+}
+func (m *TxMempool) RUnlock() {
+	m.lck.RUnlock()
 }
 
 func (m *TxMempool) GetCheckFrequency() uint64 {
