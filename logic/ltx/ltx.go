@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -299,7 +300,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 		return err
 	}
 
-	for _, transaction := range txs[1:] {
+	for _, transaction := range txs {
 		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
 		if err != nil {
 			return err
@@ -367,7 +368,10 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			//check inputs
 			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
 			if err != nil {
-				return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
+				if strings.Contains(err.Error(), "script-verify") {
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
+				}
+				return nil, nil, err
 			}
 		}
 
@@ -412,7 +416,7 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !txn.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		log.Debug("txn is not final, hash: %s", txn.GetHash())
-		return errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonfinal")
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
 	}
 
 	//if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {

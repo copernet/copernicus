@@ -96,7 +96,7 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 		hashMerkleRoot2 := lmerkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
 		if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
 			log.Debug("ErrorBadTxMrklRoot")
-			return errcode.New(errcode.ErrorBadTxnMrklRoot)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txnmrklroot")
 		}
 	}
 
@@ -105,7 +105,7 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 	// root of a lblock, while still invalidating it.
 	if mutated {
 		log.Debug("ErrorbadTxnsDuplicate")
-		return errcode.New(errcode.ErrorbadTxnsDuplicate)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-duplicate")
 	}
 
 	// size limits

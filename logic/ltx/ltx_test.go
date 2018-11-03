@@ -1489,7 +1489,7 @@ func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
 
 	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
-	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
+	assertError(err, errcode.RejectInvalid, "bad-txns-nonfinal", t)
 }
 
 func txWithInvalidOutputValue(prevout util.Hash) *tx.Tx {

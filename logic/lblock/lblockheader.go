@@ -16,7 +16,7 @@ func CheckBlockHeader(bh *block.BlockHeader) error {
 	flag := new(pow.Pow).CheckProofOfWork(&hash, bh.Bits, params)
 	if !flag {
 		log.Error("CheckBlockHeader CheckProofOfWork err")
-		err := errcode.New(errcode.ErrorPowCheckErr)
+		err := errcode.NewError(errcode.RejectInvalid, "high-hash")
 		return err
 	}
 	return nil
