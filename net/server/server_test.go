@@ -246,8 +246,20 @@ func TestBroadcastMessage(t *testing.T) {
 		s.syncManager.NewPeer(peer)
 	})
 	s.AddPeer(sp)
+
+	for i := 0; i < 5; i++ {
+		if sp.Connected() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	assert.True(t, sp.Connected())
+
 	msg := wire.NewMsgPing(10)
 	s.BroadcastMessage(msg)
+
+	// can not check the channel in peer, sleep instead
+	time.Sleep(100 * time.Millisecond)
 	sp.Disconnect()
 	s.peerDoneHandler(sp)
 }
@@ -255,6 +267,30 @@ func TestBroadcastMessage(t *testing.T) {
 func TestConnectedCount(t *testing.T) {
 	c := s.ConnectedCount()
 	assert.Equal(t, int32(0), c)
+
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(s, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
+		s.syncManager.NewPeer(peer)
+	})
+	s.AddPeer(sp)
+
+	for i := 0; i < 5; i++ {
+		if sp.Connected() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	assert.True(t, sp.Connected())
+
+	c = s.ConnectedCount()
+	assert.Equal(t, int32(1), c)
+
+	sp.Disconnect()
+	s.peerDoneHandler(sp)
 }
 
 func TestOutboundGroupCount(t *testing.T) {
@@ -826,7 +862,7 @@ func TestParseListeners(t *testing.T) {
 			false,
 		},
 		{
-			"abc",
+			"127.0.0.1", // miss port
 			false,
 		},
 		{
@@ -834,11 +870,15 @@ func TestParseListeners(t *testing.T) {
 			true,
 		},
 		{
-			"127.0.0.1:18833",
+			"127.0.0.1:18833", // ipv4
 			true,
 		},
 		{
-			"hello.world:18833",
+			"[fe80::c24:f21a:77ed:c4e5%en0]:18833", // ipv6
+			true,
+		},
+		{
+			"hello.world:18833", // ip invalid
 			false,
 		},
 	}
@@ -913,6 +953,7 @@ func TestInitListeners(t *testing.T) {
 	conf.Cfg.P2PNet.Upnp = false
 
 	// external IP list is empty
+	// address is invalid
 	listenAddrs[0] = ""
 	listeners, _, err = initListeners(s.addrManager, listenAddrs, services)
 	assert.NotNil(t, err)
@@ -920,6 +961,7 @@ func TestInitListeners(t *testing.T) {
 		listener.Close()
 	}
 
+	// address is valid
 	listenAddrs[0] = "127.0.0.1:18833"
 	listeners, nat, err = initListeners(s.addrManager, listenAddrs, services)
 	assert.Nil(t, err)
@@ -1041,8 +1083,21 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
+	sp.Peer.UpdateLastBlockHeight(1)
+	sp.Peer.UpdateLastAnnouncedBlock(&blk1Hash)
+
 	svr.Start()
+	time.Sleep(100 * time.Millisecond)
 	svr.AddPeer(sp)
+
+	for i := 0; i < 5; i++ {
+		if sp.Connected() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	assert.True(t, sp.Connected())
+
 	svr.UpdatePeerHeights(&blk1Hash, 1, inPeer)
 	svr.Stop()
 }
