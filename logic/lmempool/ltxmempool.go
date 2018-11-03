@@ -96,7 +96,6 @@ func RemoveTxSelf(txs []*tx.Tx) {
 }
 
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
-	//gChain := chain.GetInstance()
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
@@ -107,12 +106,8 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	txToRemove := make(map[*mempool.TxEntry]struct{})
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
-		//lp := entry.GetLockPointFromTxEntry()
-		//validLP := entry.CheckLockPointValidity(gChain)
-		//state := NewValidationState()
-
-		tx := entry.Tx
-		allPreout := tx.GetAllPreviousOut()
+		tmpTx := entry.Tx
+		allPreout := tmpTx.GetAllPreviousOut()
 		coins := make([]*utxo.Coin, len(allPreout))
 		for i, preout := range allPreout {
 			if coin := view.GetCoin(&preout); coin != nil {
@@ -126,15 +121,15 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 				}
 			}
 		}
-		tlp := ltx.CalculateLockPoints(tx, uint32(flag))
+		tlp := ltx.CalculateLockPoints(tmpTx, uint32(flag))
 		if tlp == nil {
 			panic("nil lockpoint, the transaction has no preout")
 		}
-		if ltx.ContextualCheckTransactionForCurrentBlock(tx, flag) != nil ||
+		if ltx.ContextualCheckTransactionForCurrentBlock(tmpTx, flag) != nil ||
 			!ltx.CheckSequenceLocks(tlp.Height, tlp.Time) {
 			txToRemove[entry] = struct{}{}
 		} else if entry.GetSpendsCoinbase() {
-			for _, preout := range tx.GetAllPreviousOut() {
+			for _, preout := range tmpTx.GetAllPreviousOut() {
 				if _, ok := allEntry[preout.Hash]; ok {
 					continue
 				}
@@ -153,10 +148,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 				}
 			}
 		}
-
-		//if !validLP {
 		entry.SetLockPointFromTxEntry(*tlp)
-		//}
 	}
 
 	allRemoves := make(map[*mempool.TxEntry]struct{})

@@ -1121,3 +1121,31 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 
 	return ret, nil
 }
+
+func TestRemoveForReorg(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+
+	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	if err != nil {
+		t.Fatalf("unable to create test pool: %v", err)
+	}
+
+	// Create a chain of transactions rooted with the first spendable
+	// output provided by the harness.
+	const txChainLength = 1
+	chainedTxns, err := harness.CreateTxChain(outputs[0], txChainLength)
+	if err != nil {
+		t.Fatalf("unable to create transaction chain: %v", err)
+	}
+	generateTestBlocks(t)
+
+	for i, tmpTx := range chainedTxns {
+		err := lmempool.AcceptTxToMemPool(tmpTx)
+		if err != nil {
+			t.Fatalf("ProcessTransaction: failed to accept "+
+				"tx(%s): %v", tmpTx.GetHash(), err)
+		}
+		lmempool.RemoveForReorg(int32(i), 0)
+	}
+}
