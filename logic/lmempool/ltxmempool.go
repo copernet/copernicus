@@ -34,6 +34,8 @@ func addTxToMemPool(txe *mempool.TxEntry) error {
 	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
 	descendantSize := conf.Cfg.Mempool.LimitDescendantSize
 
+	pool.Lock()
+	defer pool.Unlock()
 	ancestors, err := pool.CalculateMemPoolAncestors(txe.Tx, uint64(ancestorNum), uint64(ancestorSize*1000),
 		uint64(descendantNum), uint64(descendantSize*1000), true)
 
@@ -193,8 +195,8 @@ func CheckMempool(bestHeight int32) {
 	spentHeight := bestHeight + 1
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
-	pool.Lock()
-	defer pool.Unlock()
+	pool.RLock()
+	defer pool.RUnlock()
 
 	if pool.GetCheckFrequency() == 0 {
 		return

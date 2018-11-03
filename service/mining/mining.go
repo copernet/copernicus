@@ -174,6 +174,8 @@ func sortTxsByAncestorCount(ancestors map[*mempool.TxEntry]struct{}) (result []*
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
 	pool := mempool.GetInstance() // todo use global variable
+	pool.RLock()
+	defer pool.RUnlock()
 	tmpStrategy := *getStrategy()
 
 	consecutiveFailed := 0
@@ -245,14 +247,13 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		}
 		// add the ancestors of the current item to block
 		noLimit := uint64(math.MaxUint64)
-		pool.RLock()
+
 		mempoolAncestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
 		ancestors := make(map[*mempool.TxEntry]struct{})
 		for en := range mempoolAncestors {
 			newentry := *en
 			ancestors[&newentry] = struct{}{}
 		}
-		pool.RUnlock()
 
 		ancestors[&entry] = struct{}{} // add current item
 		ancestorsList := sortTxsByAncestorCount(ancestors)

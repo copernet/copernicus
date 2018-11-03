@@ -93,6 +93,8 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 
 	// is mempool already have it? conflict tx with mempool
 	gPool := mempool.GetInstance()
+	gPool.RLock()
+	defer gPool.RUnlock()
 	if gPool.FindTx(txn.GetHash()) != nil {
 		log.Debug("tx already known in mempool, hash: %s", txn.GetHash())
 		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
