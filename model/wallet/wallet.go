@@ -4,6 +4,8 @@ package wallet
 
 import (
 	"crypto/rand"
+	"github.com/copernet/copernicus/model/txin"
+	"github.com/copernet/copernicus/model/txout"
 	"io"
 	"sync"
 
@@ -208,6 +210,16 @@ func (w *Wallet) GetWalletTxns() []*WalletTx {
 	}
 	return walletTxns
 }
+func (w *Wallet) GetWalletTx(txhash util.Hash) *WalletTx {
+
+	w.txnLock.Lock()
+	defer w.txnLock.Unlock()
+	if tx, ok := w.walletTxns[txhash]; ok {
+		return tx
+	}
+
+	return nil
+}
 
 func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
 	// Quick answer in most cases
@@ -355,4 +367,63 @@ func IsUnlockable(scriptPubKey *script.Script) bool {
 		return true
 	}
 	return false
+}
+
+func (w *Wallet) GetDebitTx(walletTx *WalletTx, filter uint8) amount.Amount {
+	var debit amount.Amount
+	for _, in := range walletTx.Tx.GetIns() {
+		debit += w.GetDebitIn(in, filter)
+		if !amount.MoneyRange(debit) {
+			panic("Wallet debit value out of range")
+		}
+	}
+
+	return debit
+}
+
+func (w *Wallet) GetCreditTx(walletTx *WalletTx, filter uint8) amount.Amount {
+	var credit amount.Amount
+	for _, out := range walletTx.Tx.GetOuts() {
+		credit += w.GetCreditOut(out, filter)
+		if !amount.MoneyRange(credit) {
+			panic("Wallet credit value out of range")
+		}
+	}
+
+	return credit
+}
+
+func (w *Wallet) GetDebitIn(in *txin.TxIn, filter uint8) amount.Amount {
+	w.txnLock.Lock()
+	defer w.txnLock.Unlock()
+
+	if prev := GetInstance().walletTxns[in.PreviousOutPoint.Hash]; prev != nil {
+		if int(in.PreviousOutPoint.Index) < len(prev.Tx.GetOuts()) {
+			if (w.IsMine(prev.Tx.GetTxOut(int(in.PreviousOutPoint.Index))) & filter) != 0 {
+				return prev.Tx.GetTxOut(int(in.PreviousOutPoint.Index)).GetValue()
+			}
+		}
+	}
+
+	return 0
+}
+
+func (w *Wallet) GetCreditOut(out *txout.TxOut, filter uint8) amount.Amount {
+	if !amount.MoneyRange(out.GetValue()) {
+		panic("Wallet getCreditOut value out of range")
+	}
+	var value amount.Amount
+	if (w.IsMine(out) & filter) != 0 {
+		value = out.GetValue()
+	}
+	return value
+}
+func (w *Wallet) IsMine(out *txout.TxOut) uint8 {
+	//TODO wallet add ISMINE_WATCH_ONLY
+	pubkeyHash := out.GetScriptPubKey().GetData()
+	if w.addressBook[string(pubkeyHash)] != nil {
+		return ISMINE_SPENDABLE
+	}
+
+	return ISMINE_NO
 }

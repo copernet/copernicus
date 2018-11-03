@@ -43,6 +43,15 @@ type WalletTx struct {
 	blockHeight int32
 
 	spentStatus []bool
+
+	fDebitCached       bool
+	fCreditCached      bool
+	fWatchDebitCached  bool
+	fWatchCreditCached bool
+	debitCached        amount.Amount
+	creditCached       amount.Amount
+	watchDebitCached   amount.Amount
+	watchCreditCached  amount.Amount
 }
 
 func NewEmptyWalletTx() *WalletTx {
@@ -210,4 +219,69 @@ func (wtx *WalletTx) GetUnspentCoin(index int) *utxo.Coin {
 		return coin
 	}
 	return nil
+}
+
+func (wtx *WalletTx) GetBlokHeight() int32 {
+	return wtx.blockHeight
+}
+
+func (wtx *WalletTx) GetDebit(filter uint8) amount.Amount {
+	if len(wtx.Tx.GetIns()) == 0 {
+		return 0
+	}
+	pwallet := GetInstance()
+	var debit amount.Amount
+	if (filter & ISMINE_SPENDABLE) != 0 {
+		if wtx.fDebitCached {
+			debit += wtx.debitCached
+		} else {
+			wtx.debitCached = pwallet.GetDebitTx(wtx, ISMINE_SPENDABLE)
+			wtx.fDebitCached = true
+			debit += wtx.debitCached
+		}
+	}
+
+	if (filter & ISMINE_WATCH_ONLY) != 0 {
+		if wtx.fWatchDebitCached {
+			debit += wtx.watchDebitCached
+		} else {
+			wtx.watchDebitCached = pwallet.GetDebitTx(wtx, ISMINE_WATCH_ONLY)
+			wtx.fWatchDebitCached = true
+			debit += wtx.watchDebitCached
+		}
+	}
+
+	return debit
+}
+
+func (wtx *WalletTx) GetCredit(filter uint8) amount.Amount {
+	// Must wait until coinbase is safely deep enough in the chain before
+	// valuing it.
+	if wtx.Tx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
+		return 0
+	}
+
+	pwallet := GetInstance()
+	var credit amount.Amount
+	if (filter & ISMINE_SPENDABLE) != 0 {
+		if wtx.fCreditCached {
+			credit += wtx.creditCached
+		} else {
+			wtx.creditCached = pwallet.GetCreditTx(wtx, ISMINE_SPENDABLE)
+			wtx.fCreditCached = true
+			credit += wtx.creditCached
+		}
+	}
+
+	if (filter & ISMINE_WATCH_ONLY) != 0 {
+		if wtx.fWatchCreditCached {
+			credit += wtx.watchCreditCached
+		} else {
+			wtx.watchCreditCached = pwallet.GetCreditTx(wtx, ISMINE_WATCH_ONLY)
+			wtx.fWatchCreditCached = true
+			credit += wtx.watchCreditCached
+		}
+	}
+
+	return credit
 }
