@@ -282,6 +282,11 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 	case *service.ClearBannedRequest:
 		return
 	case *wire.InvVect:
+		msg := &wire.MsgInv{}
+		if err := msg.AddInvVect(m); err != nil {
+			return nil, err
+		}
+		msgHandle.BroadcastMessage(msg)
 		return
 
 		//case *tx.Tx:
