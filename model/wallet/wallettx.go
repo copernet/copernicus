@@ -23,7 +23,7 @@ type Recipient struct {
 }
 
 type WalletTx struct {
-	Tx *tx.Tx
+	*tx.Tx
 
 	ExtInfo map[string]string
 
@@ -60,6 +60,9 @@ func NewEmptyWalletTx() *WalletTx {
 }
 
 func NewWalletTx(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string, isFromMe bool, account string) *WalletTx {
+	if extInfo == nil {
+		extInfo = make(map[string]string)
+	}
 	return &WalletTx{
 		Tx:              txn,
 		ExtInfo:         extInfo,
@@ -80,7 +83,7 @@ func (wtx *WalletTx) Serialize(writer io.Writer) error {
 		return err
 	}
 
-	if err = util.WriteElements(writer, wtx.TimeReceived, wtx.IsFromMe, wtx.blockHeight); err != nil {
+	if err = util.WriteElements(writer, wtx.TimeReceived, wtx.IsFromMe, &wtx.blockHash, wtx.blockHeight); err != nil {
 		return err
 	}
 
@@ -110,7 +113,7 @@ func (wtx *WalletTx) Unserialize(reader io.Reader) error {
 		return err
 	}
 
-	if err = util.ReadElements(reader, &wtx.TimeReceived, &wtx.IsFromMe, &wtx.blockHeight); err != nil {
+	if err = util.ReadElements(reader, &wtx.TimeReceived, &wtx.IsFromMe, &wtx.blockHash, &wtx.blockHeight); err != nil {
 		return err
 	}
 
@@ -144,7 +147,6 @@ func (wtx *WalletTx) SerializeSize() int {
 }
 
 func (wtx *WalletTx) GetDepthInMainChain() int32 {
-	// TODO: simple implementation just for testing
 	if wtx.blockHeight != 0 {
 		return chain.GetInstance().Height() - wtx.blockHeight + 1
 	}
@@ -159,7 +161,7 @@ func (wtx *WalletTx) GetDepthInMainChain() int32 {
 		return chain.GetInstance().Height() - wtx.blockHeight + 1
 	}
 
-	outPoint := outpoint.NewOutPoint(wtx.Tx.GetHash(), 0)
+	outPoint := outpoint.NewOutPoint(wtx.GetHash(), 0)
 	coin := utxo.GetUtxoCacheInstance().GetCoin(outPoint)
 	if coin != nil {
 		wtx.blockHeight = coin.GetHeight()
@@ -173,13 +175,13 @@ func (wtx *WalletTx) GetDepthInMainChain() int32 {
 func (wtx *WalletTx) CheckFinalForForCurrentBlock() bool {
 	lockTimeCutoff := chain.GetInstance().Tip().GetMedianTimePast()
 	height := chain.GetInstance().Height() + 1
-	return wtx.Tx.IsFinal(height, lockTimeCutoff)
+	return wtx.IsFinal(height, lockTimeCutoff)
 }
 
 func (wtx *WalletTx) GetAvailableCredit(useCache bool) amount.Amount {
 	// Must wait until coinbase is safely deep enough in the chain before
 	// valuing it.
-	if wtx.Tx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
+	if wtx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
 		return 0
 	}
 
@@ -188,7 +190,7 @@ func (wtx *WalletTx) GetAvailableCredit(useCache bool) amount.Amount {
 	}
 
 	credit := amount.Amount(0)
-	for index := 0; index < wtx.Tx.GetOutsCount(); index++ {
+	for index := 0; index < wtx.GetOutsCount(); index++ {
 		// check coin is unspent
 		coin := wtx.GetUnspentCoin(index)
 		if coin == nil {
@@ -210,13 +212,13 @@ func (wtx *WalletTx) MarkSpent(index int) {
 }
 
 func (wtx *WalletTx) GetUnspentCoin(index int) *utxo.Coin {
-	if index >= wtx.Tx.GetOutsCount() {
+	if index >= wtx.GetOutsCount() {
 		return nil
 	}
 	if wtx.spentStatus[index] {
 		return nil
 	}
-	outPoint := outpoint.NewOutPoint(wtx.Tx.GetHash(), uint32(index))
+	outPoint := outpoint.NewOutPoint(wtx.GetHash(), uint32(index))
 	if coin := mempool.GetInstance().GetCoin(outPoint); coin != nil {
 		if mempool.GetInstance().HasSpentOut(outPoint) {
 			return nil
@@ -237,7 +239,7 @@ func (wtx *WalletTx) GetBlokHeight() int32 {
 }
 
 func (wtx *WalletTx) GetDebit(filter uint8) amount.Amount {
-	if len(wtx.Tx.GetIns()) == 0 {
+	if len(wtx.GetIns()) == 0 {
 		return 0
 	}
 	pwallet := GetInstance()
@@ -268,7 +270,7 @@ func (wtx *WalletTx) GetDebit(filter uint8) amount.Amount {
 func (wtx *WalletTx) GetCredit(filter uint8) amount.Amount {
 	// Must wait until coinbase is safely deep enough in the chain before
 	// valuing it.
-	if wtx.Tx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
+	if wtx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
 		return 0
 	}
 

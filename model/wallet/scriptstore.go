@@ -18,10 +18,6 @@ func NewScriptStore() *ScriptStore {
 	}
 }
 
-func (ss *ScriptStore) Init() {
-	ss.scripts = make(map[string]*script.Script)
-}
-
 func (ss *ScriptStore) AddScript(s *script.Script) {
 	scriptHash := util.Hash160(s.Bytes())
 
