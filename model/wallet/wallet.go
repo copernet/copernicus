@@ -481,14 +481,14 @@ func (w *Wallet) getRelatedTxns(txns []*tx.Tx) []*tx.Tx {
 			prev := in.PreviousOutPoint
 			if prevTx, ok := w.walletTxns[prev.Hash]; ok {
 				if w.IsMine(prevTx.GetTxOut(int(prev.Index))) != ISMINE_NO {
-					relatedTxns = append(relatedTxns)
+					relatedTxns = append(relatedTxns, tx)
 					continue
 				}
 			}
 		}
 		for _, out := range tx.GetOuts() {
 			if w.IsMine(out) != ISMINE_NO {
-				relatedTxns = append(relatedTxns)
+				relatedTxns = append(relatedTxns, tx)
 				continue
 			}
 		}
