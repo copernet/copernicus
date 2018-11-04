@@ -1045,10 +1045,6 @@ func TestAddrStringToNetAddr(t *testing.T) {
 			true,
 		},
 		{
-			"[fe80::c24:f21a:77ed:c4e5%en0]:18833", // ipv6
-			true,
-		},
-		{
 			"127.0.0.1:abc", // invalid port
 			false,
 		},
@@ -1351,10 +1347,6 @@ func TestServer_addLocalAddress(t *testing.T) {
 		},
 		{
 			"127.0.0.1:18833", // ipv4
-			true,
-		},
-		{
-			"[fe80::c24:f21a:77ed:c4e5%en0]:18833", // ipv6
 			true,
 		},
 		{
