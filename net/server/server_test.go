@@ -291,23 +291,41 @@ func TestConnectedCount(t *testing.T) {
 
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
-	sp := newServerPeer(s, false)
+	sp := newServerPeer(svr, false)
 	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
-	svr.AddPeer(sp)
 
-	for i := 0; i < 5; i++ {
-		if sp.Connected() {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+	ps := peerState{
+		inboundPeers:    make(map[int32]*serverPeer),
+		outboundPeers:   make(map[int32]*serverPeer),
+		persistentPeers: make(map[int32]*serverPeer),
+		banned:          make(map[string]time.Time),
+		outboundGroups:  make(map[string]int),
 	}
-	assert.True(t, sp.Connected())
+	replyChan := make(chan int32)
+	getMsg := getConnCountMsg{reply: replyChan}
+	getReplyFunc := func(reply chan int32, quit chan struct{}, ret *int32) {
+		*ret = <-reply
+		close(quit)
+	}
 
-	c = svr.ConnectedCount()
+	finishChan := make(chan struct{})
+	go getReplyFunc(replyChan, finishChan, &c)
+	svr.handleQuery(&ps, getMsg)
+	<-finishChan
+	assert.Equal(t, int32(0), c)
+
+	ret := svr.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
+
+	finishChan = make(chan struct{})
+	go getReplyFunc(replyChan, finishChan, &c)
+	svr.handleQuery(&ps, getMsg)
+	<-finishChan
+	assert.True(t, sp.Connected())
 	assert.Equal(t, int32(1), c)
 
 	sp.Disconnect()
@@ -324,6 +342,40 @@ func TestRelayInventory(t *testing.T) {
 
 	iv := wire.NewInvVect(wire.InvTypeTx, &util.HashZero)
 	s.RelayInventory(iv, 1)
+
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(s, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
+		s.syncManager.NewPeer(peer)
+	})
+	ps := peerState{
+		inboundPeers:    make(map[int32]*serverPeer),
+		outboundPeers:   make(map[int32]*serverPeer),
+		persistentPeers: make(map[int32]*serverPeer),
+		banned:          make(map[string]time.Time),
+		outboundGroups:  make(map[string]int),
+	}
+	ret := s.handleAddPeerMsg(&ps, sp)
+	assert.True(t, ret)
+
+	txMsgInvalid := relayMsg{invVect: iv, data: 1}
+	s.handleRelayInvMsg(&ps, txMsgInvalid)
+
+	txn := tx.NewTx(0, 1)
+	txnSize := txn.SerializeSize()
+	txFee := int64(1)
+	txEntry := &mempool.TxEntry{Tx: txn, TxSize: int(txnSize), TxFee: txFee}
+	txMsg := relayMsg{invVect: iv, data: txEntry}
+	s.handleRelayInvMsg(&ps, txMsg)
+	// can not check the channel in peer
+
+	sp.setDisableRelayTx(true)
+	s.handleRelayInvMsg(&ps, txMsg)
+
+	sp.Disconnect()
 }
 
 func TestTransactionConfirmed(t *testing.T) {
@@ -537,17 +589,46 @@ func TestMergeCheckpoints(t *testing.T) {
 }
 
 func TestIsWhitelisted(t *testing.T) {
-	addr := &net.TCPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
-		Port: 18555,
+	configWhitelists := conf.Cfg.P2PNet.Whitelists
+	// restore
+	defer func() {
+		conf.Cfg.P2PNet.Whitelists = configWhitelists
+	}()
+
+	_, ipnet, err := net.ParseCIDR("127.0.0.1/8")
+	assert.Nil(t, err)
+
+	conf.Cfg.P2PNet.Whitelists = []*net.IPNet{}
+
+	tests := []struct {
+		addr    string
+		isWhite bool
+	}{
+		{
+			"127.0.0.20:18555",
+			true,
+		},
+		{
+			"128.0.0.1:18555",
+			false,
+		},
+		{
+			"127.0.0.1",
+			false,
+		},
+		{
+			":18555",
+			false,
+		},
 	}
-	if isWhitelisted(addr) {
-		t.Errorf("shoule not in whitelist")
-	}
-	_, ipnet, _ := net.ParseCIDR("127.0.0.1/8")
-	conf.Cfg.P2PNet.Whitelists = []*net.IPNet{ipnet}
-	if !isWhitelisted(addr) {
-		t.Errorf("shoule  in whitelist")
+
+	for _, test := range tests {
+		t.Logf("testing isWhitelisted:%s", test.addr)
+		addr := simpleAddr{"net", test.addr}
+		conf.Cfg.P2PNet.Whitelists = []*net.IPNet{}
+		assert.False(t, isWhitelisted(addr))
+		conf.Cfg.P2PNet.Whitelists = []*net.IPNet{ipnet}
+		assert.Equal(t, test.isWhite, isWhitelisted(addr))
 	}
 }
 
@@ -915,7 +996,7 @@ func TestParseListeners(t *testing.T) {
 			false,
 		},
 		{
-			":18833", // 0.0.0.0:18835 and [::]:18835
+			":18833", // 0.0.0.0:port and [::]:port
 			true,
 		},
 		{
@@ -927,11 +1008,12 @@ func TestParseListeners(t *testing.T) {
 			true,
 		},
 		{
-			"hello.world:18833", // ip invalid
+			"hello.world:18833", // invalid port
 			false,
 		},
 	}
 	for _, test := range tests {
+		t.Logf("testing parseListeners:%s", test.addr)
 		_, err := parseListeners([]string{test.addr})
 		if test.isValid {
 			assert.Nil(t, err)
@@ -947,27 +1029,32 @@ func TestAddrStringToNetAddr(t *testing.T) {
 		isValid bool
 	}{
 		{
-			"192.168.1.12:8080",
-			true,
-		},
-		{
 			"",
 			false,
 		},
 		{
-			"abc",
+			":18833",
 			false,
 		},
 		{
-			"abc:xzy",
+			"127.0.0.1", // miss port
 			false,
 		},
 		{
-			"seed.bitcoinabc.org:8333",
+			"127.0.0.1:18833", // ipv4
 			true,
+		},
+		{
+			"[fe80::c24:f21a:77ed:c4e5%en0]:18833", // ipv6
+			true,
+		},
+		{
+			"127.0.0.1:abc", // invalid port
+			false,
 		},
 	}
 	for _, test := range tests {
+		t.Logf("testing addrStringToNetAddr:%s", test.addr)
 		_, err := addrStringToNetAddr(test.addr)
 		if test.isValid {
 			assert.Nil(t, err)
@@ -1243,4 +1330,50 @@ func TestServer_disconnectPeer(t *testing.T) {
 	assert.True(t, ret)
 	assert.Equal(t, 0, len(peerList))
 	s.peerDoneHandler(sp)
+}
+
+func TestServer_addLocalAddress(t *testing.T) {
+	tests := []struct {
+		addr    string
+		isValid bool
+	}{
+		{
+			"",
+			false,
+		},
+		{
+			"127.0.0.1", // miss port
+			false,
+		},
+		{
+			"0.0.0.0:18833", // :port
+			true,
+		},
+		{
+			"127.0.0.1:18833", // ipv4
+			true,
+		},
+		{
+			"[fe80::c24:f21a:77ed:c4e5%en0]:18833", // ipv6
+			true,
+		},
+		{
+			"127.0.0.1:abc", // invalid port
+			false,
+		},
+		{
+			"XXXXXXXXXXXXXXXXYYYZZZ.onion:8333", // invalid address
+			false,
+		},
+	}
+	for _, test := range tests {
+		t.Logf("testing addLocalAddress:%s", test.addr)
+		err := addLocalAddress(s.addrManager, test.addr, wire.SFNodeNetwork)
+		if test.isValid {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
+		}
+	}
+
 }
