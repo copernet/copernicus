@@ -181,6 +181,7 @@ type defaultArgs struct {
 	UtxoHashStartHeight int32
 	UtxoHashEndHeight   int32
 	Excessiveblocksize  uint64
+	Limitancestorcount  int
 }
 
 func getDefaultConfiguration(args defaultArgs) *Configuration {
@@ -222,6 +223,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 		}{
 			MaxPoolSize:    300000000,
 			CheckFrequency: 4294967296,
+			LimitAncestorCount: 25,
 		},
 		P2PNet: struct {
 			ListenAddrs         []string `validate:"require" default:"1234"`
