@@ -319,7 +319,6 @@ func (m *TxMempool) LimitMempoolSize(sizeLimit, age int64) {
 	//for _, outPoint := range outPoints {
 	//	view.RemoveCoins(outPoint)
 	//}
-	return
 }
 
 func (m *TxMempool) trackPackageRemoved(rate util.FeeRate) {
