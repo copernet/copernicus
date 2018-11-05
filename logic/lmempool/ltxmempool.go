@@ -43,7 +43,11 @@ func addTxToMemPool(txe *mempool.TxEntry) error {
 		return err
 	}
 
-	pool.AddTx(txe, ancestors)
+	err = pool.AddTx(txe, ancestors)
+	if err != nil {
+		log.Error("add tx failed:%s", err.Error())
+		return err
+	}
 	return nil
 }
 
