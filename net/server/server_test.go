@@ -1239,7 +1239,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 		banned:          make(map[string]time.Time),
 		outboundGroups:  make(map[string]int),
 	}
-	ret := s.handleAddPeerMsg(&ps, sp)
+	ret := svr.handleAddPeerMsg(&ps, sp)
 	assert.True(t, ret)
 
 	updateMsg := updatePeerHeightsMsg{newHash: blockHash}
@@ -1249,7 +1249,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	updateMsg.originPeer = sp.Peer
 	sp.UpdateLastAnnouncedBlock(blockHash)
 	sp.UpdateLastBlockHeight(1)
-	s.handleUpdatePeerHeights(&ps, updateMsg)
+	svr.handleUpdatePeerHeights(&ps, updateMsg)
 	assert.NotNil(t, sp.LastAnnouncedBlock())
 	assert.Equal(t, int32(1), sp.LastBlock())
 
@@ -1258,7 +1258,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	updateMsg.originPeer = inPeer
 	sp.UpdateLastAnnouncedBlock(blockHash)
 	sp.UpdateLastBlockHeight(3)
-	s.handleUpdatePeerHeights(&ps, updateMsg)
+	svr.handleUpdatePeerHeights(&ps, updateMsg)
 	assert.Nil(t, sp.LastAnnouncedBlock())
 	assert.Equal(t, int32(4), sp.LastBlock())
 
@@ -1267,9 +1267,12 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	updateMsg.originPeer = inPeer
 	sp.UpdateLastAnnouncedBlock(nil)
 	sp.UpdateLastBlockHeight(5)
-	s.handleUpdatePeerHeights(&ps, updateMsg)
+	svr.handleUpdatePeerHeights(&ps, updateMsg)
 	assert.Nil(t, sp.LastAnnouncedBlock())
 	assert.Equal(t, int32(5), sp.LastBlock())
+
+	sp.Disconnect()
+	svr.handleDonePeerMsg(&ps, sp)
 }
 
 func TestServer_Stop(t *testing.T) {

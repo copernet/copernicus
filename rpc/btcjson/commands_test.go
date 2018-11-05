@@ -1448,6 +1448,40 @@ func TestChainSvrCmds(t *testing.T) {
 				IncludeWatchOnly: Bool(true),
 			},
 		},
+		{
+			name: "sendmany",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("sendmany", "abc", `{"456":0.0123}`)
+			},
+			staticCmd: func() interface{} {
+				amounts := map[string]AmountType{"456": .0123}
+				return NewSendManyCmd("abc", amounts, nil, nil, nil)
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"sendmany","params":["abc",{"456":0.0123}],"id":1}`,
+			unmarshalled: &SendManyCmd{
+				FromAccount: "abc",
+				Amounts:     map[string]AmountType{"456": .0123},
+				MinConf:     Int32(1),
+			},
+		},
+		{
+			name: "sendmany optional",
+			newCmd: func() (interface{}, error) {
+				return NewCmd("sendmany", "abc", `{"456":0.0123}`, 8, "xyz", []string{"test"})
+			},
+			staticCmd: func() interface{} {
+				amounts := map[string]AmountType{"456": .0123}
+				return NewSendManyCmd("abc", amounts, Int32(8), String("xyz"), &[]string{"test"})
+			},
+			marshalled: `{"jsonrpc":"1.0","method":"sendmany","params":["abc",{"456":0.0123},8,"xyz",["test"]],"id":1}`,
+			unmarshalled: &SendManyCmd{
+				FromAccount:     "abc",
+				Amounts:         map[string]AmountType{"456": .0123},
+				MinConf:         Int32(8),
+				Comment:         String("xyz"),
+				SubTractFeeFrom: &[]string{"test"},
+			},
+		},
 	}
 
 	t.Logf("Running %d tests", len(tests))

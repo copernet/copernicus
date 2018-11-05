@@ -974,8 +974,8 @@ type SendManyCmd struct {
 	SubTractFeeFrom *[]string             `json:"subtractfeefrom"`
 }
 
-func NewSendManyCmd(fromAccount string, comment *string, amounts map[string]AmountType, minConf *int32,
-	subTractFeeFrom *[]string) *SendManyCmd {
+func NewSendManyCmd(fromAccount string, amounts map[string]AmountType, minConf *int32,
+	comment *string, subTractFeeFrom *[]string) *SendManyCmd {
 	return &SendManyCmd{
 		FromAccount:     fromAccount,
 		Amounts:         amounts,
