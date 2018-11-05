@@ -310,15 +310,16 @@ func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 // set, the function will return these have removed transaction's txin from mempool which use
 // TrimToSize rule. Later, caller will remove these txin from uxto cache.
 func (m *TxMempool) LimitMempoolSize(sizeLimit, age int64) {
-	expired := m.expire(util.GetTime() - age)
-	if expired != 0 {
-		log.Debug("Expired %d transactions from the memory pool", expired)
-	}
-	outPoints := m.trimToSize(sizeLimit)
-	view := utxo.GetUtxoCacheInstance()
-	for _, outPoint := range outPoints {
-		view.RemoveCoins(outPoint)
-	}
+	//expired := m.expire(util.GetTime() - age)
+	//if expired != 0 {
+	//	log.Debug("Expired %d transactions from the memory pool", expired)
+	//}
+	//outPoints := m.trimToSize(sizeLimit)
+	//view := utxo.GetUtxoCacheInstance()
+	//for _, outPoint := range outPoints {
+	//	view.RemoveCoins(outPoint)
+	//}
+	return
 }
 
 func (m *TxMempool) trackPackageRemoved(rate util.FeeRate) {
