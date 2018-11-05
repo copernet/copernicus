@@ -908,7 +908,7 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 		buf:   make([]byte, 10),
 		peer:  inpeer,
 	}
-	sm.requestBlkInvCnt = 1
+	sm.allowdGetBlocksTimes = 1
 	sm.headersFirstMode = true
 	sm.handleBlockMsg(bmsg1)
 
