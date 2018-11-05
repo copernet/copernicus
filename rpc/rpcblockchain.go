@@ -602,9 +602,11 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		return des, nil
 	}
 
-	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose)
-	h := entry.Tx.GetHash()
-	infos[h.String()] = entryToJSON(entry)
+	infos := make(map[string]*btcjson.GetMempoolEntryRelativeInfoVerbose, len(descendants))
+	for item := range descendants {
+		h := item.Tx.GetHash()
+		infos[h.String()] = entryToJSON(item)
+	}
 	return infos, nil
 }
 
