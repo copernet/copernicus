@@ -25,6 +25,7 @@ type Opts struct {
 	MonolithActivationTime         int64  `long:"monolithactivationtime" default:"-1"`
 	StopAtHeight                   int32  `long:"stopatheight" default:"-1"`
 	PromiscuousMempoolFlags        string `long:"promiscuousmempoolflags"`
+	Limitancestorcount             int    `long:"limitancestorcount" default:"25"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
