@@ -310,7 +310,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 }
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
-	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64, lockTimeFlags uint32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
 	utxo := utxo.GetUtxoCacheInstance()
@@ -318,6 +318,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	var fees amount.Amount
 	bundo = undo.NewBlockUndo(0)
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+
 	//updateCoins
 	for i, transaction := range txs {
 		// check BIP30: do not allow overwriting unspent old transactions
@@ -330,6 +331,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 			}
 		}
+
 		var valueIn amount.Amount
 		if !transaction.IsCoinBase() {
 			ins := transaction.GetIns()
@@ -341,7 +343,8 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				}
 				valueIn += coin.GetAmount()
 			}
-			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
+
+			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
 				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")

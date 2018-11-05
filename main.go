@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -45,13 +46,14 @@ func bchMain(ctx context.Context, args []string) error {
 	}()
 	interrupt := interruptListener()
 
-	s, err := server.NewServer(model.ActiveNetParams, interrupt)
+	timeSource := bitcointime.NewMedianTime()
+	s, err := server.NewServer(model.ActiveNetParams, timeSource, interrupt)
 	if err != nil {
 		return err
 	}
 	var rpcServer *rpc.Server
 	if !conf.Cfg.P2PNet.DisableRPC {
-		rpcServer, err = rpc.InitRPCServer()
+		rpcServer, err = rpc.InitRPCServer(timeSource)
 		if err != nil {
 			return errors.New("failed to init rpc")
 		}

@@ -690,7 +690,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// Ignore getheaders requests if not in sync.
-	if !sp.server.syncManager.IsCurrent() {
+	if !sp.isWhitelisted && !sp.server.syncManager.IsCurrent() {
 		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
 		return
 	}
@@ -2104,7 +2104,7 @@ out:
 	s.wg.Done()
 }
 
-func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Server, error) {
+func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
 
@@ -2144,7 +2144,7 @@ func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Se
 		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
 		services:             services,
 		nat:                  nat,
-		timeSource:           bitcointime.NewMedianTime(),
+		timeSource:           ts,
 		MsgChan:              msgChan,
 	}
 

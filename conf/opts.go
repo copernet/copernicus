@@ -26,6 +26,7 @@ type Opts struct {
 	StopAtHeight                   int32  `long:"stopatheight" default:"-1"`
 	PromiscuousMempoolFlags        string `long:"promiscuousmempoolflags"`
 	Limitancestorcount             int    `long:"limitancestorcount" default:"50000"`
+	BlockVersion                   int32  `long:"blockversion" default:"-1" description:"regtest block version"`
 }
 
 func InitArgs(args []string) (*Opts, error) {

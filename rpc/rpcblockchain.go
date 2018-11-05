@@ -14,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -82,7 +83,44 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 	// signalling mechanism.
 
 	height := tip.Height
-	chainInfo.SoftForks = []*btcjson.SoftForkDescription{
+	chainInfo.SoftForks = version234Status(height, params)
+
+	// Finally, query the BIP0009 version bits state for all currently
+	// defined BIP0009 soft-fork deployments.
+	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
+		pos := consensus.DeploymentPos(i)
+		state := versionbits.VersionBitsState(tip, params, pos, versionbits.VBCache)
+		forkName := getVbName(pos)
+
+		// Attempt to convert the current deployment status into a
+		// human readable string. If the status is unrecognized, then a
+		// non-nil error is returned.
+		statusString, err := softForkStatus(state)
+		if err != nil {
+			return nil, &btcjson.RPCError{
+				Code: btcjson.ErrRPCInternal.Code,
+				Message: fmt.Sprintf("unknown deployment status: %v",
+					state),
+			}
+		}
+
+		// Finally, populate the soft-fork description with all the
+		// information gathered above.
+		deploymentDetails := &params.Deployments[pos]
+		chainInfo.Bip9SoftForks[forkName] = &btcjson.Bip9SoftForkDescription{
+			Status:    strings.ToLower(statusString),
+			Bit:       uint8(deploymentDetails.Bit),
+			StartTime: deploymentDetails.StartTime,
+			Timeout:   deploymentDetails.Timeout,
+			Since:     int32(versionbits.VersionBitsStateSinceHeight(tip, params, pos, versionbits.VBCache)),
+		}
+	}
+
+	return chainInfo, nil
+}
+
+func version234Status(height int32, params *model.BitcoinParams) []*btcjson.SoftForkDescription {
+	return []*btcjson.SoftForkDescription{
 		{
 			ID:      "bip34",
 			Version: 2,
@@ -111,38 +149,6 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 			},
 		},
 	}
-
-	// Finally, query the BIP0009 version bits state for all currently
-	// defined BIP0009 soft-fork deployments.
-	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
-		pos := consensus.DeploymentPos(i)
-		state := versionbits.VersionBitsState(indexPrev, params, pos, versionbits.VBCache)
-		forkName := getVbName(pos)
-
-		// Attempt to convert the current deployment status into a
-		// human readable string. If the status is unrecognized, then a
-		// non-nil error is returned.
-		statusString, err := softForkStatus(state)
-		if err != nil {
-			return nil, &btcjson.RPCError{
-				Code: btcjson.ErrRPCInternal.Code,
-				Message: fmt.Sprintf("unknown deployment status: %v",
-					state),
-			}
-		}
-
-		// Finally, populate the soft-fork description with all the
-		// information gathered above.
-		deploymentDetails := &params.Deployments[pos]
-		chainInfo.Bip9SoftForks[forkName] = &btcjson.Bip9SoftForkDescription{
-			Status:    strings.ToLower(statusString),
-			Bit:       uint8(deploymentDetails.Bit),
-			StartTime: deploymentDetails.StartTime,
-			Timeout:   deploymentDetails.Timeout,
-		}
-	}
-
-	return chainInfo, nil
 }
 
 // softForkStatus converts a ThresholdState state into a human readable string
@@ -154,7 +160,7 @@ func softForkStatus(state versionbits.ThresholdState) (string, error) {
 	case versionbits.ThresholdStarted:
 		return "started", nil
 	case versionbits.ThresholdLockedIn:
-		return "lockedin", nil
+		return "locked_in", nil
 	case versionbits.ThresholdActive:
 		return "active", nil
 	case versionbits.ThresholdFailed:

@@ -2,6 +2,7 @@ package lmempool_test
 
 import (
 	"encoding/hex"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"sync"
 	"time"
 
@@ -1074,7 +1075,8 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params)
+		ts := bitcointime.NewMedianTime()
+		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, btcjson.RPCError{

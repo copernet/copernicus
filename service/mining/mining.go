@@ -1,6 +1,7 @@
 package mining
 
 import (
+	"github.com/copernet/copernicus/model/bitcointime"
 	"math"
 	"sort"
 	"strconv"
@@ -80,15 +81,17 @@ type BlockAssembler struct {
 	height                int32
 	lockTimeCutoff        int64
 	chainParams           *model.BitcoinParams
+	timeSource            *bitcointime.MedianTime
 }
 
-func NewBlockAssembler(params *model.BitcoinParams) *BlockAssembler {
+func NewBlockAssembler(params *model.BitcoinParams, ts *bitcointime.MedianTime) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
 	v := conf.Cfg.Mining.BlockMinTxFee
 	ba.blockMinFeeRate = *util.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
+	ba.timeSource = ts
 	return ba
 }
 
@@ -312,11 +315,12 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
-		if conf.Cfg.Mining.BlockVersion != -1 {
-			ba.bt.Block.Header.Version = conf.Cfg.Mining.BlockVersion
+		if conf.Args.BlockVersion != -1 {
+			ba.bt.Block.Header.Version = conf.Args.BlockVersion
 		}
 	}
-	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
+	ba.bt.Block.Header.Time = uint32(ba.timeSource.AdjustedTime().Unix())
+	log.Error("vvv: blocktime: %d", ba.bt.Block.Header.Time)
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 

@@ -109,9 +109,6 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 
 	blkVersion := versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)
 	bk.Header.Version = int32(blkVersion)
-	if conf.Cfg.Mining.BlockVersion != -1 {
-		bk.Header.Version = conf.Cfg.Mining.BlockVersion
-	}
 
 	bk.Header.Time = uint32(util.GetAdjustedTime())
 

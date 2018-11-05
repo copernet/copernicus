@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"io"
 	"io/ioutil"
 	"net"
@@ -140,10 +141,11 @@ func makeTestServer() (*Server, string, chan struct{}, error) {
 	c := make(chan struct{})
 	conf.Cfg.P2PNet.ListenAddrs = []string{"127.0.0.1:0"}
 	conf.Cfg.P2PNet.DisableBanning = false
-	s, err := NewServer(model.ActiveNetParams, c)
+	s, err := NewServer(model.ActiveNetParams, nil, c)
 	if err != nil {
 		return nil, "", nil, err
 	}
+	s.timeSource = bitcointime.NewMedianTime()
 	s.nat = &mockNat{}
 	return s, dir, c, nil
 }
@@ -238,7 +240,7 @@ func TestAnnounceNewTransactions(t *testing.T) {
 
 func TestBroadcastMessage(t *testing.T) {
 	chn := make(chan struct{})
-	svr, err := NewServer(model.ActiveNetParams, chn)
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
 	assert.Nil(t, err)
 
 	r, w := io.Pipe()
@@ -280,7 +282,7 @@ func TestBroadcastMessage(t *testing.T) {
 
 func TestConnectedCount(t *testing.T) {
 	chn := make(chan struct{})
-	svr, err := NewServer(model.ActiveNetParams, chn)
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
 	assert.Nil(t, err)
 
 	svr.Start()
@@ -1196,7 +1198,7 @@ func TestServer_RelayUpdatedTipBlocks(t *testing.T) {
 
 func TestServer_UpdatePeerHeights(t *testing.T) {
 	chn := make(chan struct{})
-	svr, err := NewServer(model.ActiveNetParams, chn)
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
 	assert.Nil(t, err)
 
 	peerCfg := &peer.Config{
@@ -1272,7 +1274,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 
 func TestServer_Stop(t *testing.T) {
 	chn := make(chan struct{})
-	svr, err := NewServer(model.ActiveNetParams, chn)
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
 	assert.Nil(t, err)
 
 	go svr.Stop()
@@ -1286,7 +1288,7 @@ func TestServer_Stop(t *testing.T) {
 
 func TestServer_ScheduleShutdown(t *testing.T) {
 	chn := make(chan struct{})
-	svr, err := NewServer(model.ActiveNetParams, chn)
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
 	assert.Nil(t, err)
 
 	startTime := time.Now().Unix()

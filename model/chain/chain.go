@@ -180,9 +180,10 @@ func (c *Chain) IsCurrent() bool {
 	//}
 
 	// Not current if the latest best block has a timestamp before 24 hours ago.
-	minus24Hours := time.Now().Add(-24 * time.Hour).Unix()
+	minus24Hours := time.Unix(util.GetTime(), 0).Add(-24 * time.Hour).Unix()
 	tipTime := int64(c.Tip().GetBlockTime())
 
+	log.Error("vvv: tip: %d, minus24h: %d", tipTime, minus24Hours)
 	return tipTime >= minus24Hours
 }
 
@@ -255,7 +256,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
-	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
+	//if chainparams.IsMagneticAnw		omalyEnable(pindex.GetMedianTimePast()) {
 	//	flags |= script.ScriptEnableCheckDataSig
 	//	flags |= script.ScriptVerifySigPushOnly
 	//	flags |= script.ScriptVerifyCleanStack

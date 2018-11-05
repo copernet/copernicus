@@ -401,7 +401,6 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	}
 
 	if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
-		sm.clearSyncPeerState(sm.syncPeer)
 		sm.syncPeer = nil
 		sm.startSync()
 	}

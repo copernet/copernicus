@@ -3,6 +3,7 @@ package lchain
 import (
 	"bytes"
 	"fmt"
+	"github.com/copernet/copernicus/model/versionbits"
 	"strings"
 	"time"
 
@@ -143,6 +144,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	bip34Enable := pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&params.BIP34Hash)
 	bip30Enable = bip30Enable && !bip34Enable
 
+	lockTimeFlags := 0
+	if versionbits.VersionBitsState(pindex.Prev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+		lockTimeFlags |= consensus.LocktimeVerifySequence
+	}
+
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	blockSubSidy := model.GetBlockSubsidy(pindex.Height, params)
 	time2 := time.Now()
@@ -156,7 +162,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
-		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps)
+		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps, uint32(lockTimeFlags))
 	if err != nil {
 		return err
 	}

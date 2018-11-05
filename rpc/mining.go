@@ -10,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -129,7 +130,7 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 
 	switch mode {
 	case "template":
-		return handleGetBlockTemplateRequest(request, closeChan)
+		return handleGetBlockTemplateRequest(s, request, closeChan)
 	case "proposal":
 		return handleGetBlockTemplateProposal(request)
 	}
@@ -140,7 +141,7 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 }
 
-func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
+func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
 	maxVersionVb := int64(-1)
 	setClientRules := set.New()
 	//if len(request.Rules) > 0 { // todo check
@@ -185,7 +186,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		start = util.GetTime()
 
 		// Create new block
-		ba := mining.NewBlockAssembler(model.ActiveNetParams)
+		ba := mining.NewBlockAssembler(model.ActiveNetParams, s.timeSource)
 		scriptPubKey := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
 		blocktemplate = ba.CreateNewBlock(scriptPubKey, mining.BasicScriptSig())
 		if blocktemplate == nil {
@@ -518,7 +519,7 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 		return nil, rpcErr
 	}
 
-	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries, s.timeSource)
 }
 
 // handleGenerate handles generate commands.
@@ -551,12 +552,12 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries, s.timeSource)
 }
 
 const nInnerLoopCount = 0x100000
 
-func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) (interface{}, error) {
+func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64, ts *bitcointime.MedianTime) (interface{}, error) {
 	heightStart := chain.GetInstance().Height()
 	heightEnd := heightStart + int32(generate)
 	height := heightStart
@@ -565,7 +566,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	ret := make([]string, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params)
+		ba := mining.NewBlockAssembler(params, ts)
 
 		bt := createBlockForCPUMining(ba, scriptPubKey, extraNonce)
 		if bt == nil {
