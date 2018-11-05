@@ -547,8 +547,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	if entry == nil && !inChain {
 		err = lmempool.AcceptTxToMemPool(&txn)
 		if err != nil {
-			return nil, btcjson.NewRPCError(rpcErrorOfAcceptTx(err),
-				"mempool reject the transaction for: "+err.Error())
+			return nil, rpcErrorOfAcceptTx(err)
 		}
 	} else if inChain {
 		return nil, btcjson.NewRPCError(btcjson.RPCTransactionAlreadyInChain,
@@ -565,18 +564,19 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	return hash.String(), nil
 }
 
-func rpcErrorOfAcceptTx(err error) btcjson.RPCErrorCode {
+func rpcErrorOfAcceptTx(err error) *btcjson.RPCError {
 	missingInputs := errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut)
 	if missingInputs {
-		return btcjson.RPCTransactionError
+		return btcjson.NewRPCError(btcjson.RPCTransactionError, "Missing inputs")
 	}
 
 	_, _, isReject := errcode.IsRejectCode(err)
 	if isReject {
-		return btcjson.RPCTransactionRejected
+		return btcjson.NewRPCError(btcjson.RPCTransactionRejected, err.Error())
+
 	}
 
-	return btcjson.ErrUnDefined
+	return btcjson.NewRPCError(btcjson.ErrUnDefined, err.Error())
 }
 
 var mapSigHashValues = map[string]int{

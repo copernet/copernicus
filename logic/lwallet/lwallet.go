@@ -82,6 +82,10 @@ func GetMiningAddress() (string, error) {
 	return cashAddr.String(), nil
 }
 
+func GetKeyPair(pubKeyHash []byte) *crypto.KeyPair {
+	return wallet.GetInstance().GetKeyPair(pubKeyHash)
+}
+
 func GetKeyPairs(pubKeyHashList [][]byte) []*crypto.KeyPair {
 	return wallet.GetInstance().GetKeyPairs(pubKeyHashList)
 }
@@ -584,4 +588,8 @@ func CommitTransaction(txNew *tx.Tx, extInfo map[string]string) error {
 	}
 
 	return err
+}
+
+func IsMine(sc *script.Script) bool {
+	return wallet.IsUnlockable(sc)
 }

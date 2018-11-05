@@ -312,9 +312,9 @@ func handleSendMany(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		money := value
 		// TODO: Destination check
 
-		scriptPubKey, err := getStandardScriptPubKey(address, nil)
-		if err != nil {
-			return nil, err
+		scriptPubKey, rpcErr := getStandardScriptPubKey(address, nil)
+		if rpcErr != nil {
+			return nil, rpcErr
 		}
 		amount, rpcErr := amountFromValue(money)
 		if rpcErr != nil {

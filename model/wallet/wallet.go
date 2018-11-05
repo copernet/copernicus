@@ -256,7 +256,8 @@ func (w *Wallet) GetWalletTx(txhash util.Hash) *WalletTx {
 	return nil
 }
 
-func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
+// isTrusted is non-thread safe (without lock)
+func (w *Wallet) isTrustedTx(walletTx *WalletTx) bool {
 	// Quick answer in most cases
 	if !walletTx.CheckFinalForForCurrentBlock() {
 		return false
@@ -273,11 +274,8 @@ func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
 		return false
 	}
 
-	w.txnLock.RLock()
-	defer w.txnLock.RUnlock()
-
 	// Trusted if all inputs are from us and are in the mempool:
-	for _, txIn := range walletTx.Tx.GetIns() {
+	for _, txIn := range walletTx.GetIns() {
 		// Transactions not sent by us: not trusted
 		prevTxn, ok := w.walletTxns[txIn.PreviousOutPoint.Hash]
 		if !ok {
@@ -292,6 +290,13 @@ func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
 	return true
 }
 
+func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
+	w.txnLock.RLock()
+	defer w.txnLock.RUnlock()
+
+	return w.isTrustedTx(walletTx)
+}
+
 func (w *Wallet) GetBalance() amount.Amount {
 	balance := amount.Amount(0)
 
@@ -299,7 +304,7 @@ func (w *Wallet) GetBalance() amount.Amount {
 	defer w.txnLock.RUnlock()
 
 	for _, walletTx := range w.walletTxns {
-		if w.IsTrusted(walletTx) {
+		if w.isTrustedTx(walletTx) {
 			balance += walletTx.GetAvailableCredit(true)
 		}
 	}
