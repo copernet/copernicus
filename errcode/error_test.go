@@ -24,7 +24,7 @@ func TestIsErrorCode(t *testing.T) {
 		{ScriptErrOK, true,
 			"module: script, errcode: " + strconv.Itoa(int(ScriptErrOK)) + ": No error"},
 		{TxErrNoPreviousOut, true,
-			"module: transaction, errcode: " + strconv.Itoa(int(TxErrNoPreviousOut)) + ": There is no previousout"},
+			"module: transaction, errcode: " + strconv.Itoa(int(TxErrNoPreviousOut)) + ": Missing inputs"},
 	}
 
 	t.Logf("Running %d tests", len(tests))

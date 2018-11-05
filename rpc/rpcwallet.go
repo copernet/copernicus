@@ -16,13 +16,14 @@ import (
 )
 
 var walletHandlers = map[string]commandHandler{
-	"getnewaddress":  handleGetNewAddress,
-	"listunspent":    handleListUnspent,
-	"settxfee":       handleSetTxFee,
-	"sendtoaddress":  handleSendToAddress,
-	"getbalance":     handleGetBalance,
-	"gettransaction": handleGetTransaction,
-	"sendmany":       handleSendMany,
+	"getnewaddress":      handleGetNewAddress,
+	"listunspent":        handleListUnspent,
+	"settxfee":           handleSetTxFee,
+	"sendtoaddress":      handleSendToAddress,
+	"getbalance":         handleGetBalance,
+	"gettransaction":     handleGetTransaction,
+	"sendmany":           handleSendMany,
+	"addmultisigaddress": handleAddMultisigAddress,
 }
 
 var walletDisableRPCError = &btcjson.RPCError{
@@ -364,6 +365,14 @@ func handleSendMany(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	}
 
 	return txn.GetHash().String(), nil
+}
+
+func handleAddMultisigAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	if !lwallet.IsWalletEnable() {
+		return nil, walletDisableRPCError
+	}
+
+	return nil, nil
 }
 
 func registerWalletRPCCommands() {
