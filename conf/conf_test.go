@@ -221,9 +221,9 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
 			CheckFrequency       uint64 `default:"4294967296"`
 		}{
-			MaxPoolSize:    300000000,
-			CheckFrequency: 4294967296,
-			LimitAncestorCount: 25,
+			MaxPoolSize:        300000000,
+			CheckFrequency:     4294967296,
+			LimitAncestorCount: 50000,
 		},
 		P2PNet: struct {
 			ListenAddrs         []string `validate:"require" default:"1234"`
