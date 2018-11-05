@@ -4,15 +4,23 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
@@ -20,11 +28,6 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
-	"math"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var blockchainHandlers = map[string]commandHandler{
@@ -885,7 +888,7 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 		log.Error("InvalidateBlock failed during ActivateBestChain, " + chainStatus(bkHash))
 		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
 	}
-
+	lmempool.RemoveForReorg(chain.GetInstance().Tip().Height+1, int(tx.StandardLockTimeVerifyFlags))
 	log.Debug("InvalidateBlock end: " + chainStatus(bkHash))
 	return nil, nil
 }
