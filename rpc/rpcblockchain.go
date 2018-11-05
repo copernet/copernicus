@@ -362,9 +362,7 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 
 	setTips = gchain.GetChainTips()
 
-	ret := btcjson.GetChainTipsResult{
-		Tips: make([]btcjson.ChainTipsInfo, 0, setTips.Size()),
-	}
+	tips := make([]btcjson.ChainTipsInfo, 0, setTips.Size())
 
 	setTips.Each(func(item interface{}) bool {
 		bindex := item.(*blockindex.BlockIndex)
@@ -400,20 +398,20 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 		}
 		tipInfo.Status = status
 
-		ret.Tips = append(ret.Tips, tipInfo)
+		tips = append(tips, tipInfo)
 
 		return true
 	})
 
-	sort.Slice(ret.Tips, func(i, j int) bool {
-		if ret.Tips[i].Height != ret.Tips[j].Height {
-			return ret.Tips[i].Height > ret.Tips[j].Height
+	sort.Slice(tips, func(i, j int) bool {
+		if tips[i].Height != tips[j].Height {
+			return tips[i].Height > tips[j].Height
 		}
 
 		return i < j
 	})
 
-	return ret, nil
+	return tips, nil
 }
 
 func getDifficulty(bi *blockindex.BlockIndex) float64 {

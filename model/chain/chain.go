@@ -183,7 +183,6 @@ func (c *Chain) IsCurrent() bool {
 	minus24Hours := time.Unix(util.GetTime(), 0).Add(-24 * time.Hour).Unix()
 	tipTime := int64(c.Tip().GetBlockTime())
 
-	log.Error("vvv: tip: %d, minus24h: %d", tipTime, minus24Hours)
 	return tipTime >= minus24Hours
 }
 

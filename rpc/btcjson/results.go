@@ -579,9 +579,7 @@ type SignRawTransactionResult struct {
 	Errors   []*SignRawTransactionError `json:"errors,omitempty"`
 }
 
-type GetChainTipsResult struct {
-	Tips []ChainTipsInfo
-}
+type GetChainTipsResult []ChainTipsInfo
 
 type ChainTipsInfo struct {
 	Height    int32  `json:"height"`

@@ -320,7 +320,6 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 		}
 	}
 	ba.bt.Block.Header.Time = uint32(ba.timeSource.AdjustedTime().Unix())
-	log.Error("vvv: blocktime: %d", ba.bt.Block.Header.Time)
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
