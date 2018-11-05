@@ -25,6 +25,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
@@ -1340,11 +1341,9 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 				return
 			}
 
-			txD, ok := msg.data.(*mempool.TxEntry)
-			if !ok {
-				log.Warn("Underlying data for tx inv "+
-					"relay is not a *mempool.TxDesc: %T",
-					msg.data)
+			txD := lmempool.FindTxInMempool(msg.invVect.Hash)
+			if txD == nil {
+				log.Warn("not found TxEntry for tx(%v) while relaying", txD)
 				return
 			}
 
