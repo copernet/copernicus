@@ -72,6 +72,13 @@ func (coinsCache *CoinsLruCache) HaveCoin(point *outpoint.OutPoint) bool {
 	return coin != nil && !coin.IsSpent()
 }
 
+func (coinsCache *CoinsLruCache) RemoveCoins(point *outpoint.OutPoint) {
+	if point != nil && coinsCache.GetCoin(point) != nil {
+		coinsCache.cacheCoins.Remove(*point)
+		log.Debug("remove coin is:%v", coinsCache.GetCoin(point))
+	}
+}
+
 func (coinsCache *CoinsLruCache) GetBestBlock() (util.Hash, error) {
 	if coinsCache.hashBlock.IsNull() {
 		hashBlock, err := coinsCache.db.GetBestBlock()

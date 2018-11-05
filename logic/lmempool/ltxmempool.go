@@ -51,6 +51,10 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint b
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	pool := mempool.GetInstance()
 
+	if !pool.HaveTransaction(transaction) {
+		log.Error("the tx not exist mempool")
+		return nil, nil
+	}
 	// first collect this tx all outPoint.
 	for i := 0; i < transaction.GetOutsCount(); i++ {
 		o := outpoint.OutPoint{Hash: transaction.GetHash(), Index: uint32(i)}
