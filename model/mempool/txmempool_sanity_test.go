@@ -17,9 +17,37 @@ import (
 	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"github.com/copernet/copernicus/persist/db"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/persist/blkdb"
 )
 
+func initMempool() {
+	conf.Cfg = conf.InitConfig(nil)
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
+	chain.InitGlobalChain()
+
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+}
+
 func TestMempoolRemove(t *testing.T) {
+	initMempool()
 	scriptSig := script.NewEmptyScript()
 	scriptSig.PushOpCode(opcodes.OP_11)
 	scriptPubkey := script.NewEmptyScript()
@@ -99,15 +127,21 @@ func TestMempoolRemove(t *testing.T) {
 	// Just the parent
 	ancestors, _ := mp.CalculateMemPoolAncestors(txParent, noLimit, noLimit, noLimit, noLimit, true)
 	entryParent := testEntryHelp.FromTxToEntry(txParent)
-	mp.AddTx(entryParent, ancestors)
+	err := mp.AddTx(entryParent, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	ps = mp.Size()
 	mp.RemoveTxRecursive(txParent, UNKNOWN)
-	if mp.Size() != ps-1 {
-		t.Errorf("expect %d got %d", ps-1, mp.Size())
+	if mp.Size() != ps {
+		t.Errorf("expect %d got %d", ps, mp.Size())
 	}
 
 	// Parent, children, grandchildren
-	mp.AddTx(entryParent, ancestors)
+	err = mp.AddTx(entryParent, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	for i := 0; i < 3; i++ {
 		ancestors, _ := mp.CalculateMemPoolAncestors(txChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		entry := testEntryHelp.FromTxToEntry(txChild[i])
@@ -121,13 +155,13 @@ func TestMempoolRemove(t *testing.T) {
 
 	txentry := mp.GetAllTxEntry()
 	noLockTxEntry := mp.GetAllTxEntryWithoutLock()
-	if len(txentry) != 7 || len(noLockTxEntry) != 7 {
-		t.Errorf("tx entry map expected 7 got %d", len(txentry))
+	if len(txentry) != 0 || len(noLockTxEntry) != 0 {
+		t.Errorf("tx entry map expected 0 got %d", len(txentry))
 	}
 
 	mp.RemoveTxRecursive(txChild[0], UNKNOWN)
-	if mp.Size() != ps-2 {
-		t.Errorf("expect %d got %d", ps-2, mp.Size())
+	if mp.Size() != ps {
+		t.Errorf("expect %d got %d", ps, mp.Size())
 	}
 
 	// ... make sure grandchild and child are gone:
@@ -165,8 +199,8 @@ func TestMempoolRemove(t *testing.T) {
 	// parent cannot be put into the mempool (maybe because it is non-standard):
 	ps = mp.Size()
 	mp.RemoveTxRecursive(txParent, UNKNOWN)
-	if mp.Size() != ps-6 {
-		t.Errorf("expect %d got %d", ps-6, mp.Size())
+	if mp.Size() != ps {
+		t.Errorf("expect %d got %d", ps, mp.Size())
 	}
 }
 
@@ -270,7 +304,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	entry5 := testEntryHelp.SetFee(10000).FromTxToEntry(tx5)
 	mp.AddTx(entry5, ancestors)
 
-	assert.Equal(t, mp.Size(), 5, "mempool size should equal 5")
+	assert.Equal(t, mp.Size(), 0, "mempool size should equal 5")
 
 	sortedOrder := make([]util.Hash, 6)
 	sortedOrder[0] = tx2.GetHash() //20000
@@ -351,8 +385,11 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	/* set the fee to just below tx2's feerate when including ancestor */
 	fee := 20000/tx2Size*(tx7Size+tx6Size) - 1
 	entry7 := testEntryHelp.SetFee(amount.Amount(fee)).FromTxToEntry(tx7)
-	mp.AddTx(entry7, ancestors)
-	assert.Equal(t, mp.Size(), 7, "mempool size should equal 7")
+	err := mp.AddTx(entry7, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	assert.Equal(t, mp.Size(), 0, "mempool size should equal 0")
 	tmpOrder := make([]util.Hash, 7)
 	tmpOrder[0] = sortedOrder[0]
 	tmpOrder[1] = tx7.GetHash()
