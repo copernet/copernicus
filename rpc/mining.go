@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/lwallet"
@@ -367,6 +366,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	if len(hexData)%2 != 0 {
 		hexData = "0" + hexData
 	}
+
 	dataBytes, err := hex.DecodeString(hexData)
 	if err != nil {
 		return false, &btcjson.RPCError{
@@ -392,12 +392,14 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 				Message: "duplicate",
 			}
 		}
+
 		if bindex.IsInvalid() {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",
 			}
 		}
+
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrUnDefined,
 			Message: "duplicate-inconclusive",
@@ -407,13 +409,12 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	indexPrev := chain.GetInstance().Tip()
 	// TestBlockValidity only supports blocks built on the current Tip
 	if bk.Header.HashPrevBlock != *indexPrev.GetBlockHash() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrUnDefined,
-			Message: "inconclusive-not-best-prevblk",
-		}
+		return "inconclusive-not-best-prevblk", nil
 	}
 
-	err = lblock.CheckBlock(&bk, true, true)
+	err = mining.TestBlockValidity(&bk, indexPrev, false, true)
+	err = errcode.GetBip22Result(err)
+	//err = lblock.CheckBlock(&bk, true, true)
 	return BIP22ValidationResult(err)
 }
 
@@ -435,23 +436,15 @@ func BIP22ValidationResult(err error) (interface{}, error) {
 
 		if projectError.Code == int(errcode.ModelInvalid) {
 			if strRejectReason == "" {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrUnDefined,
-					Message: "rejected",
-				}
+				strRejectReason = "rejected"
 			}
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: strRejectReason,
-			}
+
+			return strRejectReason, nil
 		}
 	}
 
 	// Should be impossible
-	return nil, &btcjson.RPCError{
-		Code:    btcjson.ErrUnDefined,
-		Message: "valid?",
-	}
+	return "valid?", nil
 }
 
 // handleSubmitBlock implements the submitblock command.

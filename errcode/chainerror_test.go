@@ -21,6 +21,7 @@ func TestChainErr_String(t *testing.T) {
 		{ErrorBadBlkTxSize, "ErrorBadBlkTxSize"},
 		{ErrorBadBlkTx, "ErrorBadBlkTx"},
 		{ErrorBlockAlreadyExists, "block already exists"},
+		{ErrorBlockNotStartWithCoinBase, "block does not start with a coinbase"},
 		{ErrorNotExistsInChainMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInChainMap)) + ")"},
 	}
 

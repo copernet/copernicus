@@ -108,6 +108,11 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 		return errcode.NewError(errcode.RejectInvalid, "bad-txns-duplicate")
 	}
 
+	// First transaction must be coinbase
+	if len(pblock.Txs) == 0 {
+		return errcode.NewError(errcode.ErrorBadCoinBaseMissing, "bad-cb-missing")
+	}
+
 	// size limits
 	nMaxBlockSize := conf.Cfg.Excessiveblocksize
 	// Bail early if there is no way this lblock is of reasonable size.
@@ -127,6 +132,7 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 	if errSig != nil {
 		return errSig
 	}
+
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
 		log.Debug("ErrorBadBlkTx: %v", err)
@@ -298,7 +304,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 			log.Debug("AcceptBlockHeader Invalid Pre index")
 			return nil, errcode.ProjectError{Code: 3100}
 		}
-		if !lblockindex.CheckIndexAgainstCheckpoint(bIndex.Prev) {
+		if err := lblockindex.CheckIndexAgainstCheckpoint(bIndex.Prev); err != nil {
 			log.Debug("AcceptBlockHeader err:%d", 3100)
 			return nil, errcode.ProjectError{Code: 3100}
 		}

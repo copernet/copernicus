@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lblockindex"
@@ -358,7 +359,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	//check the validity of the block
-	if !TestBlockValidity(ba.bt.Block, indexPrev) {
+	if err := TestBlockValidity(ba.bt.Block, indexPrev, false, false); err != nil {
 		log.Error("CreateNewBlock: TestBlockValidity failed, block is:%v, indexPrev:%v", ba.bt.Block, indexPrev)
 		return nil
 	}
@@ -509,15 +510,15 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	return newTime - oldTime
 }
 
-func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
+func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex, checkHeader bool, checkMerlke bool) (err error) {
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
 		log.Error("TestBlockValidity(): indexPrev:%v, chain tip:%v.", indexPrev, chain.GetInstance().Tip())
-		return false
+		return errcode.NewError(errcode.RejectInvalid, "indexPrev is not the chain tip")
 	}
 
-	if !lblockindex.CheckIndexAgainstCheckpoint(indexPrev) {
+	if err = lblockindex.CheckIndexAgainstCheckpoint(indexPrev); err != nil {
 		log.Error("TestBlockValidity(): check index against check point failed, indexPrev:%v.", indexPrev)
-		return false
+		return err
 	}
 
 	coinMap := utxo.NewEmptyCoinsMap()
@@ -530,23 +531,23 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	// NOTE: CheckBlockHeader is called by CheckBlock
 	if err := lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()); err != nil {
 		log.Error("TestBlockValidity():ContextualCheckBlockHeader failed, blkHeader:%v, indexPrev:%v.", blkHeader, indexPrev)
-		return false
+		return err
 	}
 
-	if err := lblock.CheckBlock(block, false, false); err != nil {
+	if err := lblock.CheckBlock(block, checkHeader, checkMerlke); err != nil {
 		log.Error("TestBlockValidity(): check block:%v error: %v,", block, err)
-		return false
+		return err
 	}
 
 	if err := lblock.ContextualCheckBlock(block, indexPrev); err != nil {
 		log.Error("TestBlockValidity(): contextual check block:%v, indexPrev:%v error: %v", block, indexPrev, err)
-		return false
+		return err
 	}
 
 	if err := lchain.ConnectBlock(block, indexDummy, coinMap, true); err != nil {
 		log.Error("trying to connect to the block:%v, indexDummy:%v, coinMap:%v, error:%v", block, indexDummy, coinMap, err)
-		return false
+		return err
 	}
 
-	return true
+	return nil
 }

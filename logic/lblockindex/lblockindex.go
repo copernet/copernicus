@@ -1,6 +1,7 @@
 package lblockindex
 
 import (
+	"github.com/copernet/copernicus/errcode"
 	"math/big"
 	"sort"
 	"time"
@@ -154,11 +155,12 @@ func LoadBlockIndexDB() bool {
 
 	return true
 }
-func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex) bool {
+func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex) (err error) {
 	gChain := chain.GetInstance()
 	if preIndex.IsGenesis(gChain.GetParams()) {
-		return true
+		return nil
 	}
+
 	nHeight := preIndex.Height + 1
 	// Don't accept any forks from the main chain prior to last checkpoint
 	params := gChain.GetParams()
@@ -171,8 +173,10 @@ func CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex) bool {
 			break
 		}
 	}
+
 	if checkPoint != nil && nHeight < checkPoint.Height {
-		return false
+		return errcode.NewError(errcode.RejectCheckpoint, "bad-fork-prior-to-checkpoint")
 	}
-	return true
+
+	return nil
 }
