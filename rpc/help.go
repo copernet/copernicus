@@ -54,6 +54,8 @@ var allMethodHelp = map[string]helpDescInfo{
 	"pruneblockchain":       {BlockChainCmd, pruneblockchainDesc},
 	"verifychain":           {BlockChainCmd, verifychainDesc},
 	"preciousblock":         {BlockChainCmd, preciousblockDesc},
+	"gettxoutproof":         {BlockChainCmd, gettxoutproofDesc},
+	"verifytxoutproof":      {BlockChainCmd, verifytxoutproofDesc},
 
 	"getnetworkhashps": {MiningCmd, getnetworkhashpsDesc},
 	"getmininginfo":    {MiningCmd, getmininginfoDesc},
@@ -82,12 +84,11 @@ var allMethodHelp = map[string]helpDescInfo{
 	"decodescript":         {RawTransactionsCmd, decodescriptDesc},
 	"sendrawtransaction":   {RawTransactionsCmd, sendrawtransactionDesc},
 	"signrawtransaction":   {RawTransactionsCmd, signrawtransactionDesc},
-	"gettxoutproof":        {RawTransactionsCmd, gettxoutproofDesc},
-	"verifytxoutproof":     {RawTransactionsCmd, verifytxoutproofDesc},
 
 	"getinfo": {ControlCmd, getinfoDesc},
 	"help":    {ControlCmd, helpDesc},
 	"stop":    {ControlCmd, stopDesc},
+	"uptime":  {ControlCmd, uptimeDesc},
 
 	"validateaddress": {UtilCmd, validateaddressDesc},
 	"createmultisig":  {UtilCmd, createmultisigDesc},
@@ -103,7 +104,7 @@ var allMethodHelp = map[string]helpDescInfo{
 	"sendtoaddress":  {WalletCmd, sendtoaddressDesc},
 	"getbalance":     {WalletCmd, getbalanceDesc},
 	"gettransaction": {WalletCmd, gettransactionDesc},
-	"sendmany":       {WalletCmd, sendmany},
+	"sendmany":       {WalletCmd, sendmanyDesc},
 }
 
 // rpcMethodHelp returns an RPC help string for the provided method.
