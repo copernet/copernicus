@@ -204,13 +204,13 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(baseTx.GetHash(), 0), pubKey, math.MaxUint32-1))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(20*util.COIN), pubKey))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
-	txEntry1 := testEntryHelp.SetTime(1).SetFee(amount.Amount(15 * util.COIN)).FromTxToEntry(tx1)
+	txEntry1 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(15 * util.COIN)).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
 	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), pubKey, math.MaxUint32-1))
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
-	txEntry2 := testEntryHelp.SetTime(1).SetFee(amount.Amount(8 * util.COIN)).FromTxToEntry(tx2)
+	txEntry2 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(8 * util.COIN)).FromTxToEntry(tx2)
 	txEntry2.ParentTx[txEntry1] = struct{}{}
 
 	//  modify tx3's content to avoid to get the same hash with tx2
@@ -218,14 +218,14 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	// reference relation(tx3 -> tx1)
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), pubKey, math.MaxUint32-1))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	txEntry3 := testEntryHelp.SetTime(1).SetFee(amount.Amount(6 * util.COIN)).FromTxToEntry(tx3)
+	txEntry3 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(6 * util.COIN)).FromTxToEntry(tx3)
 	txEntry3.ParentTx[txEntry1] = struct{}{}
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
 	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.GetHash(), 0), pubKey, math.MaxUint32-1))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), pubKey))
-	txEntry4 := testEntryHelp.SetTime(1).SetFee(amount.Amount(3 * util.COIN)).FromTxToEntry(tx4)
+	txEntry4 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(3 * util.COIN)).FromTxToEntry(tx4)
 	txEntry4.ParentTx[txEntry1] = struct{}{}
 	txEntry4.ParentTx[txEntry3] = struct{}{}
 
