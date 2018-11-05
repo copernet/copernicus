@@ -6,19 +6,21 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
+	"strings"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/base58"
-	"strconv"
-	"strings"
+	"github.com/copernet/copernicus/util/cashaddr"
 )
 
 // API version constants
@@ -90,16 +92,34 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 func handleValidateAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.ValidateAddressCmd)
 
-	result := btcjson.ValidateAddressChainResult{}
-	dest, err := script.AddressFromString(c.Address)
-	if err != nil {
+	result := &btcjson.ValidateAddressChainResult{}
+
+	scriptPubKey, rpcErr := getStandardScriptPubKey(c.Address, nil)
+	if rpcErr != nil {
+		// If the address is invalid, isvalid is the only property returned.
 		result.IsValid = false
 		return result, nil
 	}
 
 	result.IsValid = true
 	result.Address = c.Address
-	result.ScriptPubKey = hex.EncodeToString(dest.EncodeToPubKeyHash())
+	result.ScriptPubKey = hex.EncodeToString(scriptPubKey.GetData())
+
+	if lwallet.IsWalletEnable() {
+		addrType, keyHash, _ := decodeAddress(c.Address)
+
+		result.IsMine = lwallet.IsMine(scriptPubKey)
+		result.IsWatchOnly = false // TODO:NOT support watch-only yet
+		result.Account = lwallet.GetAccountName(keyHash)
+		result.IsScript = addrType == cashaddr.P2SH
+		if result.IsMine && !result.IsScript {
+			keyPair := lwallet.GetKeyPair(keyHash)
+			if keyPair != nil {
+				result.PubKey = keyPair.GetPublicKey().ToHexString()
+				result.IsCompressed = keyPair.GetPublicKey().Compressed
+			}
+		}
+	}
 
 	return result, nil
 }

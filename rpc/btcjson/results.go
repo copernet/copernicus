@@ -539,9 +539,18 @@ type TxRawDecodeResult struct {
 // ValidateAddressChainResult models the data returned by the chain server
 // validateaddress command.
 type ValidateAddressChainResult struct {
-	IsValid      bool   `json:"isvalid"`
-	Address      string `json:"address,omitempty"`
-	ScriptPubKey string `json:"scriptPubKey,omitempty"`
+	IsValid       bool   `json:"isvalid"`
+	Address       string `json:"address,omitempty"`
+	ScriptPubKey  string `json:"scriptPubKey,omitempty"`
+	IsMine        bool   `json:"ismine,omitempty"`
+	IsWatchOnly   bool   `json:"iswatchonly,omitempty"`
+	IsScript      bool   `json:"isscript,omitempty"`
+	PubKey        string `json:"pubkey,omitempty"`
+	IsCompressed  bool   `json:"iscompressed,omitempty"`
+	Account       string `json:"account,omitempty"`
+	TimeStamp     uint32 `json:"timestamp,omitempty"`
+	HDKeyPath     string `json:"hdkeypath,omitempty"`
+	HDMasterKeyID string `json:"hdmasterkeyid,omitempty"`
 }
 
 type GetMempoolEntryRelativeInfoVerbose struct {
