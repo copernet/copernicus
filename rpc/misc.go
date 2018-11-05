@@ -6,9 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"strconv"
-	"strings"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/model"
@@ -20,6 +17,8 @@ import (
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/base58"
+	"strconv"
+	"strings"
 )
 
 // API version constants
@@ -41,6 +40,12 @@ var miscHandlers = map[string]commandHandler{
 	"help":                   handleHelp,
 	"stop":                   handleStop,
 	"version":                handleVersion,
+	"uptime":                 handleUptime,
+}
+
+// handleUptime implements the uptime command.
+func handleUptime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	return util.GetTime() - s.cfg.StartupTime, nil
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

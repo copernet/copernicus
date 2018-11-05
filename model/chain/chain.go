@@ -256,7 +256,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
-	//if chainparams.IsMagneticAnw		omalyEnable(pindex.GetMedianTimePast()) {
+	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
 	//	flags |= script.ScriptEnableCheckDataSig
 	//	flags |= script.ScriptVerifySigPushOnly
 	//	flags |= script.ScriptVerifyCleanStack

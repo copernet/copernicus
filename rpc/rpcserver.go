@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/copernet/copernicus/model/bitcointime"
+	"github.com/copernet/copernicus/util"
 	"io"
 	"io/ioutil"
 	"net"
@@ -646,8 +647,8 @@ func InitRPCServer(timeSource *bitcointime.MedianTime) (*Server, error) {
 		}
 
 		rpcServer, err := NewServer(&ServerConfig{
-			Listeners: rpcListeners,
-			//StartupTime: s.startupTime,
+			Listeners:   rpcListeners,
+			StartupTime: util.GetTime(),
 		}, timeSource)
 		if err != nil {
 			return nil, err
