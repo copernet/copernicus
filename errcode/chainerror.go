@@ -11,7 +11,6 @@ const (
 	ErrorPowCheckErr
 	ErrorBadTxnMrklRoot
 	ErrorbadTxnsDuplicate
-	ErrorBadCoinBaseMissing
 	ErrorBadBlkLength
 	ErrorBadBlkTxSize
 	ErrorBadBlkTx
@@ -27,7 +26,6 @@ var ChainErrString = map[ChainErr]string{
 	ErrorPowCheckErr:               "ErrorPowCheckErr",
 	ErrorBadTxnMrklRoot:            "ErrorBadTxnMrklRoot",
 	ErrorbadTxnsDuplicate:          "ErrorbadTxnsDuplicate",
-	ErrorBadCoinBaseMissing:        "ErrorBadCoinBaseMissing",
 	ErrorBadBlkLength:              "ErrorBadBlkLength",
 	ErrorBadBlkTxSize:              "ErrorBadBlkTxSize",
 	ErrorBadBlkTx:                  "ErrorBadBlkTx",

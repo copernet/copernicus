@@ -110,7 +110,7 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 
 	// First transaction must be coinbase
 	if len(pblock.Txs) == 0 {
-		return errcode.NewError(errcode.ErrorBadCoinBaseMissing, "bad-cb-missing")
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-missing")
 	}
 
 	// size limits

@@ -16,7 +16,6 @@ func TestChainErr_String(t *testing.T) {
 		{ErrorPowCheckErr, "ErrorPowCheckErr"},
 		{ErrorBadTxnMrklRoot, "ErrorBadTxnMrklRoot"},
 		{ErrorbadTxnsDuplicate, "ErrorbadTxnsDuplicate"},
-		{ErrorBadCoinBaseMissing, "ErrorBadCoinBaseMissing"},
 		{ErrorBadBlkLength, "ErrorBadBlkLength"},
 		{ErrorBadBlkTxSize, "ErrorBadBlkTxSize"},
 		{ErrorBadBlkTx, "ErrorBadBlkTx"},

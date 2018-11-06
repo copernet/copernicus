@@ -622,7 +622,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// it as an actual error.
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
 			peer.PushRejectMsg(wire.CmdBlock, rejectCode, reason, &blockHash, false)
-			log.Debug("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
+			log.Debug("ProcessBlockCallBack reject err:%v, hash: %s", err, blockHash)
 		} else {
 			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
 		}

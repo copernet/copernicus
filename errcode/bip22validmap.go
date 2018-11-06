@@ -21,8 +21,6 @@ func GetBip22Result(rerr error) (err error) {
 		err = NewError(ModelError, "Block does not start with a coinbase")
 
 	// model invalid
-	case int(ErrorBadCoinBaseMissing):
-		fallthrough
 	case int(ErrorbadTxnsDuplicate):
 		err = NewError(ModelInvalid, perr.Desc)
 
