@@ -821,6 +821,13 @@ func (p *Peer) WantsHeaders() bool {
 	return sendHeadersPreferred
 }
 
+// SetPreferHeaders set the flag that this peer prefer headers instead of inv
+func (p *Peer) SetPreferHeaders() {
+	p.flagsMtx.Lock()
+	p.sendHeadersPreferred = true
+	p.flagsMtx.Unlock()
+}
+
 // localVersionMsg creates a version message that can be used to send to the
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {

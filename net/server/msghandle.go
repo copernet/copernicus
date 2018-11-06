@@ -174,6 +174,7 @@ out:
 				}
 				msg.Done <- struct{}{}
 			case *wire.MsgSendHeaders:
+				peerFrom.SetPreferHeaders()
 				if peerFrom.Cfg.Listeners.OnSendHeaders != nil {
 					peerFrom.Cfg.Listeners.OnSendHeaders(peerFrom, data)
 				}
