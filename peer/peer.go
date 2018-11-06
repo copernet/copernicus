@@ -452,7 +452,6 @@ type Peer struct {
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
 	verAckReceived       bool
-	witnessEnabled       bool
 
 	wireEncoding wire.MessageEncoding
 
@@ -895,7 +894,6 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	//      actually supports
 	//    - Set the remote netaddress services to the what was advertised by
 	//      by the remote peer in its version message
-	msg.AddrYou.Services = wire.SFNodeNetwork
 
 	// Advertise the services flag
 	msg.Services = p.Cfg.Services
@@ -1126,19 +1124,8 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 
 	// Determine if the peer would like to receive witness data with
 	// transactions, or not.
-	if p.services&wire.SFNodeWitness == wire.SFNodeWitness {
-		p.witnessEnabled = true
-	}
-	p.flagsMtx.Unlock()
 
-	// Once the version message has been exchanged, we're able to determine
-	// if this peer knows how to encode witness data over the wire
-	// protocol. If so, then we'll switch to a decoding mode which is
-	// prepared for the new transaction format introduced as part of
-	// BIP0144.
-	if p.services&wire.SFNodeWitness == wire.SFNodeWitness {
-		p.wireEncoding = wire.WitnessEncoding
-	}
+	p.flagsMtx.Unlock()
 
 	return nil
 }
@@ -1199,7 +1186,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("read message: %v", newLogClosure(func() string {
+	log.Debug("read summary %v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1209,9 +1196,9 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 			msg.Command(), summary, p)
 	}))
 
-	// log.Trace("%v", newLogClosure(func() string {
-	// 	return spew.Sdump(buf)
-	// }))
+	log.Trace("read message from (%s):\n %v", p.Addr(), newLogClosure(func() string {
+		return spew.Sdump(msg)
+	}))
 
 	return msg, buf, nil
 }
@@ -1225,7 +1212,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("%v", newLogClosure(func() string {
+	log.Debug("write summary %v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1234,7 +1221,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
 			summary, p)
 	}))
-	log.Trace("write message to (%s) : %v", p.Addr(), newLogClosure(func() string {
+	log.Trace("write message to (%s):\n %v", p.Addr(), newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 	//log.Trace("%v", newLogClosure(func() string {
