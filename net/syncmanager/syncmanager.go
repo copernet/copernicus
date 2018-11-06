@@ -935,7 +935,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if blkIndex.HasData() {
 			return true, nil
 		}
-		return true, nil
+		return false, nil
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
