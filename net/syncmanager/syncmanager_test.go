@@ -717,6 +717,7 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	inpeer := peer.NewInboundPeer(peer1Cfg)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
+	sm.syncPeer = inpeer
 	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
