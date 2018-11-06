@@ -3,6 +3,7 @@ package rpc
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"gopkg.in/fatih/set.v0"
 	"math"
@@ -426,39 +427,60 @@ func decodeAddress(address string) (cashaddr.AddressType, []byte, *btcjson.RPCEr
 	return addrType, keyHash, nil
 }
 
-func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, *btcjson.RPCError) {
-	scriptPubKey := script.NewEmptyScript()
+func generateScript(data ...interface{}) (*script.Script, error) {
+	sc := script.NewEmptyScript()
+	for _, item := range data {
+		switch item.(type) {
+		case int:
+			if err := sc.PushOpCode(item.(int)); err != nil {
+				return nil, err
+			}
+		case []byte:
+			if err := sc.PushSingleData(item.([]byte)); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, errors.New("push unknown type")
+		}
+	}
+	return sc, nil
+}
 
+func getStandardScriptPubKey(address string, nullData []byte) (*script.Script, *btcjson.RPCError) {
 	if nullData != nil {
 		// NullData
-		scriptPubKey.PushOpCode(opcodes.OP_RETURN)
-		scriptPubKey.PushSingleData(nullData)
+		scriptPubKey, err := generateScript(opcodes.OP_RETURN, nullData)
+		if err != nil {
+			log.Error("generateScript error:%s", err.Error())
+			return nil, btcjson.ErrRPCInternal
+		}
 		return scriptPubKey, nil
 	}
 
-	addrType, addrData, rpcErr := decodeAddress(address)
+	addrType, keyHash, rpcErr := decodeAddress(address)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
 	if addrType == cashaddr.P2PKH {
-		scriptPubKey.PushOpCode(opcodes.OP_DUP)
-		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-		scriptPubKey.PushSingleData(addrData)
-		scriptPubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
-		scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
+		scriptPubKey, err := generateScript(opcodes.OP_DUP, opcodes.OP_HASH160, keyHash,
+			opcodes.OP_EQUALVERIFY, opcodes.OP_CHECKSIG)
+		if err != nil {
+			log.Error("generateScript error:%s", err.Error())
+			return nil, btcjson.ErrRPCInternal
+		}
+		return scriptPubKey, nil
 
 	} else if addrType == cashaddr.P2SH {
-		scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-		scriptPubKey.PushSingleData(addrData)
-		scriptPubKey.PushOpCode(opcodes.OP_EQUAL)
-
-	} else {
-		return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey,
-			"Invalid Bitcoin address: "+address)
+		scriptPubKey, err := generateScript(opcodes.OP_HASH160, keyHash, opcodes.OP_EQUAL)
+		if err != nil {
+			log.Error("generateScript error:%s", err.Error())
+			return nil, btcjson.ErrRPCInternal
+		}
+		return scriptPubKey, nil
 	}
 
-	return scriptPubKey, nil
+	return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey, "Invalid Bitcoin address: "+address)
 }
 
 func handleDecodeRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

@@ -482,14 +482,19 @@ func (w *Wallet) getRelatedTxns(txns []*tx.Tx) []*tx.Tx {
 	defer w.txnLock.RUnlock()
 
 	for _, tx := range txns {
+		hasAdded := false
 		for _, in := range tx.GetIns() {
 			prev := in.PreviousOutPoint
 			if prevTx, ok := w.walletTxns[prev.Hash]; ok {
 				if w.IsMine(prevTx.GetTxOut(int(prev.Index))) != ISMINE_NO {
 					relatedTxns = append(relatedTxns, tx)
+					hasAdded = true
 					continue
 				}
 			}
+		}
+		if hasAdded {
+			continue
 		}
 		for _, out := range tx.GetOuts() {
 			if w.IsMine(out) != ISMINE_NO {

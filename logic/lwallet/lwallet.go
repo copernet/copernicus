@@ -289,7 +289,10 @@ func CreateTransaction(recipients []*wallet.Recipient, changePosInOut *int, sign
 			if err != nil || reservedKey == nil {
 				return nil, 0, errors.New("Keypool ran out, please call keypoolrefill first")
 			}
-			scriptChange := getP2PKHScript(reservedKey.ToHash160())
+			scriptChange, err := getP2PKHScript(reservedKey.ToHash160())
+			if err != nil {
+				return nil, 0, err
+			}
 
 			newTxOut := txout.NewTxOut(change, scriptChange)
 
@@ -468,14 +471,32 @@ func selectCoins(coins []*TxnCoin, targetValue amount.Amount) ([]*TxnCoin, amoun
 	return nil, 0
 }
 
-func getP2PKHScript(pubkeyHash []byte) *script.Script {
-	scriptPubKey := script.NewEmptyScript()
-	scriptPubKey.PushOpCode(opcodes.OP_DUP)
-	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-	scriptPubKey.PushSingleData(pubkeyHash)
-	scriptPubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
-	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
-	return scriptPubKey
+func generateScript(data ...interface{}) (*script.Script, error) {
+	sc := script.NewEmptyScript()
+	for _, item := range data {
+		switch item.(type) {
+		case int:
+			if err := sc.PushOpCode(item.(int)); err != nil {
+				return nil, err
+			}
+		case []byte:
+			if err := sc.PushSingleData(item.([]byte)); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, errors.New("push unknown type")
+		}
+	}
+	return sc, nil
+}
+
+func getP2PKHScript(pubkeyHash []byte) (*script.Script, error) {
+	scriptPubKey, err := generateScript(opcodes.OP_DUP, opcodes.OP_HASH160, pubkeyHash,
+		opcodes.OP_EQUALVERIFY, opcodes.OP_CHECKSIG)
+	if err != nil {
+		return nil, err
+	}
+	return scriptPubKey, nil
 }
 
 func getPubKeyHash(scriptPubKey *script.Script) [][]byte {
