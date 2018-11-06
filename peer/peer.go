@@ -1990,10 +1990,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 	if !ok {
 		errStr := "A version message must precede all others"
 		log.Error(errStr)
-
-		rejectMsg := wire.NewMsgReject(msg.Command(), errcode.RejectMalformed,
-			errStr)
-		return p.writeMessage(rejectMsg, wire.LatestEncoding)
+		return errors.New(errStr)
 	}
 
 	if err := p.handleRemoteVersionMsg(remoteVerMsg); err != nil {
