@@ -104,7 +104,7 @@ func RemoveTxSelf(txs []*tx.Tx) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxSelf(txs)
 }
-func RemoveForReorg(nMemPoolHeight int32, flag int) {
+func RemoveForReorg2(nMemPoolHeight int32, flag int) {
 	newPool := mempool.NewTxMempool()
 	oldPool := mempool.GetInstance()
 
@@ -126,7 +126,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	CheckMempool(nMemPoolHeight - 1)
 }
 
-func RemoveForReorg2(nMemPoolHeight int32, flag int) {
+func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()
