@@ -985,6 +985,17 @@ func NewSendManyCmd(fromAccount string, amounts map[string]AmountType, minConf *
 	}
 }
 
+type FundRawTransactionCmd struct {
+	HexTx string `json:"hexstring"`
+}
+
+func NewFundRawTransactionCmd(hexTx string) *FundRawTransactionCmd {
+
+	return &FundRawTransactionCmd{
+		HexTx: hexTx,
+	}
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -1064,4 +1075,5 @@ func init() {
 	MustRegisterCmd("getbalance", (*GetBalanceCmd)(nil), flags)
 	MustRegisterCmd("gettransaction", (*GetTransactionCmd)(nil), flags)
 	MustRegisterCmd("sendmany", (*SendManyCmd)(nil), flags)
+	MustRegisterCmd("fundrawtransaction", (*FundRawTransactionCmd)(nil), flags)
 }

@@ -24,6 +24,7 @@ var walletHandlers = map[string]commandHandler{
 	"gettransaction":     handleGetTransaction,
 	"sendmany":           handleSendMany,
 	"addmultisigaddress": handleAddMultisigAddress,
+	"fundrawtransaction": handleFundRawTransaction,
 }
 
 var walletDisableRPCError = &btcjson.RPCError{
@@ -232,6 +233,9 @@ func handleGetTransaction(s *Server, cmd interface{}, closeChan <-chan struct{})
 	// Fill GetTransactionDetailsResult
 
 	return ret, nil
+}
+func handleFundRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	return nil, nil
 }
 
 func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFromAmount bool,
