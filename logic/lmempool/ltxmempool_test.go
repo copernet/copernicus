@@ -168,8 +168,16 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*t
 	// Create standard coinbase script.
 	extraNonce := int64(0)
 	coinbaseScript := script.NewEmptyScript()
-	coinbaseScript.PushInt64(int64(blockHeight))
-	coinbaseScript.PushInt64(extraNonce)
+	err := coinbaseScript.PushInt64(int64(blockHeight))
+	if err != nil {
+		log.Error("push int64 error:%v", err)
+		return nil, err
+	}
+	err = coinbaseScript.PushInt64(extraNonce)
+	if err != nil {
+		log.Error("push int64 error:%v", err)
+		return nil, err
+	}
 
 	tx := tx.NewTx(0, tx.TxVersion)
 	tx.AddTxIn(txin.NewTxIn(
@@ -1060,8 +1068,16 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 
 func generateTestBlocks(t *testing.T) []*block.Block {
 	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
-	blocks, _ := generateBlocks(t, pubKey, 200, 1000000)
+	err := pubKey.PushOpCode(opcodes.OP_TRUE)
+	if err != nil {
+		t.Errorf("push int64 error:%v", err)
+		return nil
+	}
+	blocks, err := generateBlocks(t, pubKey, 200, 1000000)
+	if err != nil {
+		t.Errorf("generate blocks failed:%v", err)
+		return nil
+	}
 	assert.Equal(t, 200, len(blocks))
 	return blocks
 }

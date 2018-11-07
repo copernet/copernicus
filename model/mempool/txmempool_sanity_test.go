@@ -240,10 +240,19 @@ func TestMempoolRemove(t *testing.T) {
 
 func TestMempoolOrphan(t *testing.T) {
 	scriptSig := script.NewEmptyScript()
-	scriptSig.PushOpCode(opcodes.OP_11)
+	err := scriptSig.PushOpCode(opcodes.OP_11)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
 	scriptPubkey := script.NewEmptyScript()
-	scriptPubkey.PushOpCode(opcodes.OP_11)
-	scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+	err = scriptPubkey.PushOpCode(opcodes.OP_11)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
+	err = scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
 
 	txParent := tx.NewTx(0, 0)
 	ti := txin.NewTxIn(
