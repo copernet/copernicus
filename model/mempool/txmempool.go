@@ -32,6 +32,10 @@ func GetInstance() *TxMempool {
 	return gpool
 }
 
+func SetInstance(p *TxMempool) {
+	gpool = p
+}
+
 // Close FIXME this is only for test. We must do it in a graceful way
 func Close() {
 	gpool = nil
@@ -156,6 +160,11 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 
 	_, ok := m.nextTx[*out]
 	return ok
+}
+
+func (m *TxMempool) CleanOrphan() {
+	m.OrphanTransactionsByPrev = make(map[outpoint.OutPoint]map[util.Hash]OrphanTx)
+	m.OrphanTransactions = make(map[util.Hash]OrphanTx)
 }
 
 func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {

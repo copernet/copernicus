@@ -104,8 +104,29 @@ func RemoveTxSelf(txs []*tx.Tx) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxSelf(txs)
 }
-
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
+	newPool := mempool.NewTxMempool()
+	oldPool := mempool.GetInstance()
+
+	mempool.SetInstance(newPool)
+	log.Error("RemoveForReorg comein %d", len(oldPool.GetAllTxEntry()))
+	for _, txentry := range oldPool.GetAllTxEntry() {
+		txn := txentry.Tx
+		err := AcceptTxToMemPool(txn)
+		log.Error("RemoveForReorg %v", err)
+		if err == nil {
+			TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
+		} else {
+			if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
+				newPool.AddOrphanTx(txn, 0)
+			}
+		}
+	}
+	oldPool.CleanOrphan()
+	CheckMempool(nMemPoolHeight - 1)
+}
+
+func RemoveForReorg2(nMemPoolHeight int32, flag int) {
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
 	pool.Lock()

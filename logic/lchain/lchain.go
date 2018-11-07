@@ -324,6 +324,7 @@ func DisconnectTip(fBare bool) error {
 	if tip == nil {
 		panic("the chain tip element should not equal nil")
 	}
+	log.Warn("DisconnectTip block(%s)", tip.GetBlockHash())
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
