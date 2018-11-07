@@ -435,18 +435,6 @@ func TestMsgHandle(t *testing.T) {
 			true,
 		},
 		{
-			"OnVersion",
-			wire.NewMsgVersion(ourNA, inPeer.NA(), 1, 1),
-			false, // not call the callback function in msghandle
-			true,
-		},
-		{
-			"OnVerAck",
-			wire.NewMsgVerAck(),
-			true,
-			true,
-		},
-		{
 			"OnReject",
 			wire.NewMsgReject("block", errcode.RejectDuplicate, "dupe block"),
 			true,
@@ -464,6 +452,19 @@ func TestMsgHandle(t *testing.T) {
 			false,
 			false,
 		},
+		{
+			"OnVersion",
+			wire.NewMsgVersion(ourNA, inPeer.NA(), 1, 1),
+			false, // not call the callback function in msghandle
+			true,
+		},
+		/*
+			{
+				"OnVerAck",
+				wire.NewMsgVerAck(),
+				true,
+				true,
+			},*/
 	}
 	t.Logf("Running %d tests", len(tests))
 
@@ -472,9 +473,19 @@ func TestMsgHandle(t *testing.T) {
 	ctx := context.TODO()
 	SetMsgHandle(ctx, s.MsgChan, s)
 
+	verMsg := wire.NewMsgVersion(ourNA, inPeer.NA(), 1, 1)
+	peerMsg := peer.NewPeerMessage(inPeer, verMsg, buf, done)
+	s.MsgChan <- peerMsg
+	<-done
+
+	verackMsg := wire.NewMsgVerAck()
+	peerMsg = peer.NewPeerMessage(inPeer, verackMsg, buf, done)
+	s.MsgChan <- peerMsg
+	<-done
+
 	for index, test := range tests {
 		t.Logf("testing %d handler:%s", index, test.listener)
-		peerMsg := peer.NewPeerMessage(inPeer, test.msg, buf, done)
+		peerMsg = peer.NewPeerMessage(inPeer, test.msg, buf, done)
 		s.MsgChan <- peerMsg
 		if test.sendDone {
 			<-done

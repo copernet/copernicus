@@ -45,11 +45,37 @@ out:
 		select {
 		case msg := <-mh.recvMsgFromPeers:
 			peerFrom := msg.Peerp
+			if !peerFrom.VersionKnown() {
+				// Must have a version message before anything else
+				if _, ok := msg.Msg.(*wire.MsgVersion); !ok {
+					log.Error("recv msg[%s] before version: missing-version", msg.Msg.Command())
+					// TODO: add ban score
+					msg.Done <- struct{}{}
+					continue
+				}
+			} else if !peerFrom.VerAckReceived() {
+				// Must have a verack message before anything else
+				if _, ok := msg.Msg.(*wire.MsgVerAck); !ok {
+					log.Error("recv msg[%s] before verack: missing-verack", msg.Msg.Command())
+					// TODO: add ban score
+					msg.Done <- struct{}{}
+					continue
+				}
+			}
+
 			switch data := msg.Msg.(type) {
 			case *wire.MsgVersion:
-				peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "duplicate version message",
-					nil, false)
-				peerFrom.Disconnect()
+				if peerFrom.VersionKnown() {
+					peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "Duplicate version message",
+						nil, false)
+					// TODO: add ban score
+					peerFrom.Disconnect()
+				} else {
+					peerFrom.HandleVersionMsg(data)
+					if peerFrom.Cfg.Listeners.OnVersion != nil {
+						peerFrom.Cfg.Listeners.OnVersion(peerFrom, data)
+					}
+				}
 				msg.Done <- struct{}{}
 			case *wire.MsgVerAck:
 				if peerFrom.VerAckReceived() {

@@ -1136,6 +1136,12 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	return nil
 }
 
+func (p *Peer) HandleVersionMsg(msg *wire.MsgVersion) {
+	if err := p.handleRemoteVersionMsg(msg); err != nil {
+		log.Error("handleRemoteVersionMsg error:%s", err.Error())
+	}
+}
+
 // HandlePingMsg is invoked when a peer receives a ping bitcoin message.  For
 // recent clients (protocol version > BIP0031Version), it replies with a pong
 // message.  For older clients, it does nothing and anything other than failure
@@ -1943,18 +1949,26 @@ func (p *Peer) start(phCh chan<- *PeerMessage, newPeerCallback func(*Peer)) erro
 		}
 	}()
 
+	needVerAck := true
 	// Negotiate the protocol within the specified negotiateTimeout.
 	select {
 	case err := <-negotiateErr:
 		if err != nil {
-			return err
+			if err.Error() == "missing-version" {
+				needVerAck = false
+			} else {
+				return err
+			}
 		}
 	case <-time.After(negotiateTimeout):
 		return errors.New("protocol negotiation timeout")
 	}
 	log.Debug("Connected to %s", p.Addr())
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
+
+	if needVerAck {
+		// Send our verack message now that the IO processing machinery has started.
+		p.QueueMessage(wire.NewMsgVerAck(), nil)
+	}
 
 	newPeerCallback(p)
 	// The protocol has been negotiated successfully so start processing input
@@ -1990,7 +2004,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 	if !ok {
 		errStr := "A version message must precede all others"
 		log.Error(errStr)
-		return errors.New(errStr)
+		return errors.New("missing-version")
 	}
 
 	if err := p.handleRemoteVersionMsg(remoteVerMsg); err != nil {
