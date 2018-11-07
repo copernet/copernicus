@@ -816,74 +816,68 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	// The remote peer is misbehaving if we didn't request headers.
 	msg := hmsg.headers
 	numHeaders := len(msg.Headers)
-	if !sm.headersFirstMode {
-		log.Warn("Got %d unrequested headers from %s -- "+
-			"disconnecting", numHeaders, peer.Addr())
-		peer.Disconnect()
-		return
-	}
 
 	// Nothing to do for an empty headers message.
 	if numHeaders == 0 {
 		return
 	}
 
+	isSyncPeer := peer == sm.syncPeer
+
+	gChain := chain.GetInstance()
+	blkIndex := gChain.FindBlockIndex(msg.Headers[0].HashPrevBlock))
+	if blkIndex == nil {
+		// blkIndex means headers in msg can not connect to my chain
+		// sm.headersFirstMode means initial downloading
+		// !isSyncPeer means msg not sent from the syncPeer
+		if sm.headersFirstMode && !isSyncPeer {
+			log.Warn("recv unrequested headers from %v", peer.Addr())
+			peer.Disconnect()
+			return
+		}
+
+		pindexStart := gChain.Tip()
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := activeChain.GetLocator(pindexStart)
+		peer.PushGetHeadersMsg(*locator, &zeroHash)
+
+		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. headersFirstMode:%t, isSyncPeer:%t",
+			pindexStart.Height, peer.Addr(), sm.headersFirstMode, isSyncPeer)
+		return
+	}
+
 	// Process all of the received headers ensuring each one connects to the
-	// previous and that checkpoints match.
-	receivedCheckpoint := false
-	var finalHash *util.Hash
+	// previous
+	var hashLastBlock util.Hash
 	for _, blockHeader := range msg.Headers {
-		blockHash := blockHeader.GetHash()
-		finalHash = &blockHash
-
-		// Ensure there is a previous header to compare against.
-		prevNodeEl := sm.headerList.Back()
-		if prevNodeEl == nil {
-			log.Warn("Header list does not contain a previous" +
-				"element as expected -- disconnecting peer")
+		if !hashLastBlock.IsNull() &&
+			!hashLastBlock.IsEqual(&blockHeader.HashPrevBlock) {
+			log.Warn("recv non-continuous headers from %v ",
+				peer.Addr())
 			peer.Disconnect()
 			return
 		}
+		hashLastBlock = blockHeader.GetHash()
+	}
 
-		// Ensure the header properly connects to the previous one and
-		// add it to the list of headers.
-		node := headerNode{hash: &blockHash}
-		prevNode := prevNodeEl.Value.(*headerNode)
-		if prevNode.hash.IsEqual(&blockHeader.HashPrevBlock) {
-			node.height = prevNode.height + 1
-			e := sm.headerList.PushBack(&node)
-			if sm.startHeader == nil {
-				sm.startHeader = e
-			}
-		} else {
-			log.Warn("Received block header that does not "+
-				"properly connect to the chain from peer %s "+
-				"-- disconnecting, expect hash : %s, actual hash : %s",
-				peer.Addr(), prevNode.hash, blockHash)
-			peer.Disconnect()
-			return
-		}
-
-		// Verify the header at the next checkpoint height matches.
-		if node.height == sm.nextCheckpoint.Height {
-			if node.hash.IsEqual(sm.nextCheckpoint.Hash) {
-				receivedCheckpoint = true
-				log.Info("Verified downloaded block "+
-					"header against checkpoint at height "+
-					"%d/hash %s", node.height, node.hash)
-			} else {
-				log.Warn("Block header at height %d/hash "+
-					"%s from peer %s does NOT match "+
-					"expected checkpoint hash of %s -- "+
-					"disconnecting", node.height,
-					node.hash, peer.Addr(),
-					sm.nextCheckpoint.Hash)
-				peer.Disconnect()
-				return
-			}
-			break
+	// If this msg isn't coming from our current sync peer or we're current,
+	// then update the last announced block for this peer.
+	// We'll use this information later to update the heights of peers
+	// based on blocks we've accepted that they previously announced.
+	if !isSyncPeer || sm.current() {
+		peer.UpdateLastAnnouncedBlock(&hashLastBlock)
+	}
+	// If our chain is current and a peer announces a block we already
+	// know of, then update their current block height.
+	if sm.current() {
+		blkIndex := gChain.FindHashInActive(hashLastBlock)
+		if blkIndex != nil {
+			peer.UpdateLastBlockHeight(blkIndex.Height)
 		}
 	}
+
 	log.Trace("begin to processblockheader ...")
 	var lastBlkIndex blockindex.BlockIndex
 	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil {
@@ -893,32 +887,33 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			"error news : %s.", beginHash, endHash, err.Error())
 	}
 
+	if numHeaders == wire.MaxBlockHeadersPerMsg {
+		// headers msg had its max size, the peer may have more headers
+		// so request the next batch of headers starting from
+		// the latest known header
+		blkIndex := gChain.FindBlockIndex(hashLastBlock)
+		locator := gChain.GetLocator(blkIndex)
+		err := peer.PushGetHeadersMsg(*locator, zeroHash)
+		if err != nil {
+			log.Warn("Failed to send getheaders message to "+
+				"peer %s: %v", peer.Addr(), err)
+		} else {
+			log.Info("send more getheaders (%d) to peer %s",
+				blkIndex.Height, peer.Addr())
+		}
+	}
+
 	// When this header is a checkpoint, switch to fetching the blocks for
 	// all of the headers since the last checkpoint.
-	if receivedCheckpoint {
-		// Since the first entry of the list is always the final block
-		// that is already in the database and is only used to ensure
-		// the next header links properly, it must be removed before
-		// fetching the blocks.
-		sm.headerList.Remove(sm.headerList.Front())
-		log.Info("Received %v block headers: Fetching blocks",
-			sm.headerList.Len())
-		sm.progressLogger.SetLastLogTime(time.Now())
-		sm.fetchHeaderBlocks()
-		return
-	}
-	activeChain := chain.GetInstance()
-	// This header is not a checkpoint, so request the next batch of
-	// headers starting from the latest known header and ending with the
-	// next checkpoint.
-	blkIndex := activeChain.FindBlockIndex(*finalHash)
-	locator := activeChain.GetLocator(blkIndex)
-	err := peer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
-	if err != nil {
-		log.Warn("Failed to send getheaders message to "+
-			"peer %s: %v", peer.Addr(), err)
-		return
-	}
+
+	// Since the first entry of the list is always the final block
+	// that is already in the database and is only used to ensure
+	// the next header links properly, it must be removed before
+	// fetching the blocks.
+	log.Info("Received %v block headers: Fetching blocks",
+		sm.headerList.Len())
+	sm.progressLogger.SetLastLogTime(time.Now())
+	sm.fetchHeaderBlocks()
 }
 
 // haveInventory returns whether or not the inventory represented by the passed
