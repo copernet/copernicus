@@ -338,7 +338,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for _, in := range ins {
 				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 				if coin == nil || coin.IsSpent() {
-					log.Debug("can't find coin or has been spent out before apply transaction")
+					log.Debug("can't find coin or has been spent out before apply transaction: %+v", in.PreviousOutPoint)
 					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
 				}
 				valueIn += coin.GetAmount()
