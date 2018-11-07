@@ -115,11 +115,9 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	oldPool := mempool.GetInstance()
 
 	mempool.SetInstance(newPool)
-	log.Error("RemoveForReorg comein %d", len(oldPool.GetAllTxEntry()))
 	for _, txentry := range oldPool.GetAllTxEntry() {
 		txn := txentry.Tx
 		err := AcceptTxToMemPool(txn)
-		log.Error("RemoveForReorg %v", err)
 		if err == nil {
 			TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
 		} else {
