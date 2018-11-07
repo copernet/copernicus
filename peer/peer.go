@@ -1035,6 +1035,12 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 	return nil
 }
 
+// PushSendHeadersMsg sends a sendheaders msg to indicate that i prefer headers instead of inv
+func (p *Peer) PushSendHeadersMsg() {
+	msg := wire.NewMsgSendHeaders()
+	p.QueueMessage(msg, nil)
+}
+
 // PushRejectMsg sends a reject message for the provided command, reject code,
 // reject reason, and hash.  The hash will only be used when the command is a tx
 // or block and should be nil in other cases.  The wait parameter will cause the
