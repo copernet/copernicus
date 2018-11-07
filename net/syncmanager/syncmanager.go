@@ -838,7 +838,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	isSyncPeer := peer == sm.syncPeer
 
 	gChain := chain.GetInstance()
-	blkIndex := gChain.FindBlockIndex(msg.Headers[0].HashPrevBlock))
+	blkIndex := gChain.FindBlockIndex(msg.Headers[0].HashPrevBlock)
 	if blkIndex == nil {
 		// blkIndex means headers in msg can not connect to my chain
 		// sm.headersFirstMode means initial downloading
@@ -853,7 +853,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		if pindexStart.Prev != nil {
 			pindexStart = pindexStart.Prev
 		}
-		locator := activeChain.GetLocator(pindexStart)
+		locator := gChain.GetLocator(pindexStart)
 		peer.PushGetHeadersMsg(*locator, &zeroHash)
 
 		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. headersFirstMode:%t, isSyncPeer:%t",
@@ -906,7 +906,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		// the latest known header
 		blkIndex := gChain.FindBlockIndex(hashLastBlock)
 		locator := gChain.GetLocator(blkIndex)
-		err := peer.PushGetHeadersMsg(*locator, zeroHash)
+		err := peer.PushGetHeadersMsg(*locator, &zeroHash)
 		if err != nil {
 			log.Warn("Failed to send getheaders message to "+
 				"peer %s: %v", peer.Addr(), err)
