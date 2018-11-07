@@ -1158,12 +1158,12 @@ func TestRemoveForReorg(t *testing.T) {
 	}
 	generateTestBlocks(t)
 
-	for i, tmpTx := range chainedTxns {
+	for _, tmpTx := range chainedTxns {
 		err := lmempool.AcceptTxToMemPool(tmpTx)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tmpTx.GetHash(), err)
 		}
-		lmempool.RemoveForReorg(int32(i), 0)
+		lmempool.RemoveForReorg(200, 0)
 	}
 }
