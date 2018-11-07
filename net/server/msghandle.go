@@ -14,7 +14,6 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/rpc/btcjson"
@@ -340,7 +339,7 @@ func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		Connections:      msgHandle.ConnectedCount(),
 		NetworkActive:    true, // NOT support RPC 'setnetworkactive'
 		Networks:         getNetworksInfo(),
-		RelayFee:         valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
+		RelayFee:         valueFromAmount(util.NewFeeRate(util.DefaultMinRelayTxFeePerK).GetFeePerK()),
 		ExcessUtxoCharge: 0,
 		LocalAddresses:   rpcLocalAddrList,
 		Warnings:         "", // TODO: network warnings
