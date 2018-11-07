@@ -303,42 +303,25 @@ func (sm *SyncManager) startSync() {
 		sm.requestedBlocks = make(map[util.Hash]struct{})
 
 		activeChain := chain.GetInstance()
-		locator := activeChain.GetLocator(nil)
+		pindexStart := activeChain.Tip()
+		/**
+		 * If possible, start at the block preceding the currently best
+		 * known header. This ensures that we always get a non-empty list of
+		 * headers back as long as the peer is up-to-date. With a non-empty
+		 * response, we can initialise the peer's known best block. This
+		 * wouldn't be possible if we requested starting at pindexBestHeader
+		 * and got back an empty response.
+		 */
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := activeChain.GetLocator(pindexStart)
 		log.Info("Syncing to block height %d from peer %v",
 			bestPeer.LastBlock(), bestPeer.Addr())
 
-		// When the current height is less than a known checkpoint we
-		// can use block headers to learn about which blocks comprise
-		// the chain up to the checkpoint and perform less validation
-		// for them.  This is possible since each header contains the
-		// hash of the previous header and a merkle root.  Therefore if
-		// we validate all of the received headers link together
-		// properly and the checkpoint hashes match, we can be sure the
-		// hashes for the blocks in between are accurate.  Further, once
-		// the full blocks are downloaded, the merkle root is computed
-		// and compared against the value in the header which proves the
-		// full block hasn't been tampered with.
-		//
-		// Once we have passed the final checkpoint, or checkpoints are
-		// disabled, use standard inv messages learn about the blocks
-		// and fully validate them.  Finally, regression test mode does
-		// not support the headers-first approach so do normal block
-		// downloads when in regression test mode.
-		if sm.nextCheckpoint != nil &&
-			best.Height < sm.nextCheckpoint.Height &&
-			sm.chainParams != &model.RegressionNetParams {
-			//	3. push peer
-			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
-			sm.headersFirstMode = true
-			log.Info("Downloading headers for blocks %d to "+
-				"%d from peer %s", best.Height+1,
-				sm.nextCheckpoint.Height, bestPeer.Addr())
-		} else {
-			log.Info("no checkpoint in syncmanager, so download block stophash is all zero...")
-			if bestPeer.LastBlock() > best.Height {
-				bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
-			}
-		}
+		bestPeer.PushGetHeadersMsg(*locator, &zeroHash)
+		sm.headersFirstMode = true
+
 		sm.syncPeer = bestPeer
 		sm.allowdGetBlocksTimes = 0
 		if sm.current() {
