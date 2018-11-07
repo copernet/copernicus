@@ -29,7 +29,6 @@ import (
 )
 
 // SpendZeroConfChange TODO: read from config
-var SpendZeroConfChange = true
 
 type TxnCoin struct {
 	OutPoint *outpoint.OutPoint
@@ -462,7 +461,7 @@ func selectCoins(coins []*TxnCoin, targetValue amount.Amount) ([]*TxnCoin, amoun
 	if selectedCoins != nil {
 		return selectedCoins, valueRet
 	}
-	if SpendZeroConfChange {
+	if conf.Cfg.Wallet.SpendZeroConfChange {
 		selectedCoins, valueRet = SelectCoinsMinConf(targetValue, 0, 1, 6, coins)
 		if selectedCoins != nil {
 			return selectedCoins, valueRet

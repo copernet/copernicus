@@ -313,9 +313,10 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			CheckBlockIndex bool
 		}{CheckBlockIndex: regTestNet},
 		Wallet: struct {
-			Enable    bool `default:"false"`
-			Broadcast bool `default:"false"`
-		}{Enable: false, Broadcast: false},
+			Enable              bool `default:"false"`
+			Broadcast           bool `default:"false"`
+			SpendZeroConfChange bool `default:"true"`
+		}{Enable: false, Broadcast: false, SpendZeroConfChange: true},
 	}
 }
 

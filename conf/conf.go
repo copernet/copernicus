@@ -164,8 +164,9 @@ type Configuration struct {
 		CheckBlockIndex bool
 	}
 	Wallet struct {
-		Enable    bool `default:"false"`
-		Broadcast bool `default:"false"`
+		Enable              bool `default:"false"`
+		Broadcast           bool `default:"false"`
+		SpendZeroConfChange bool `default:"true"`
 	}
 }
 
@@ -319,6 +320,9 @@ func InitConfig(args []string) *Configuration {
 	}
 	if len(opts.Whitelists) > 0 {
 		initWhitelists(config, opts)
+	}
+	if opts.SpendZeroConfChange == 0 {
+		config.Wallet.SpendZeroConfChange = false
 	}
 
 	return config
