@@ -286,6 +286,7 @@ func InitConfig(args []string) *Configuration {
 	config.Excessiveblocksize = opts.Excessiveblocksize
 	config.Mempool.LimitAncestorCount = opts.Limitancestorcount
 	config.Script.PromiscuousMempoolFlags = opts.PromiscuousMempoolFlags
+	config.Mempool.MaxPoolSize = opts.MaxMempool
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")

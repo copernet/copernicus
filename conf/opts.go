@@ -27,6 +27,7 @@ type Opts struct {
 	PromiscuousMempoolFlags        string `long:"promiscuousmempoolflags"`
 	Limitancestorcount             int    `long:"limitancestorcount" default:"50000"`
 	BlockVersion                   int32  `long:"blockversion" default:"-1" description:"regtest block version"`
+	MaxMempool                     int64  `long:"maxmempool" default:"300000000"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
