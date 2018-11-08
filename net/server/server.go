@@ -1112,6 +1112,10 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 			sp.QueueMessage(invMsg, doneChan)
 			sp.continueHash = nil
 		}
+	} else {
+		log.Error("data for block(%s) is not ready: send(%v) blkIndex(%v)", hash, send, blkIndex)
+		doneChan <- struct{}{}
+		return fmt.Errorf("data for block(%s) is not ready", hash)
 	}
 
 	return nil
