@@ -113,21 +113,23 @@ func RemoveTxSelf(txs []*tx.Tx) {
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	newPool := mempool.NewTxMempool()
 	oldPool := mempool.GetInstance()
-
+	log.Debug("RemoveForReorg start")
 	mempool.SetInstance(newPool)
 	for _, txentry := range oldPool.GetAllTxEntry() {
 		txn := txentry.Tx
 		err := AcceptTxToMemPool(txn)
 		if err == nil {
-			TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
+			accepttxn, _ := TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
+			log.Debug("RemoveForReorg move %v to mempool", append(accepttxn, txn))
 		} else {
 			if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 				newPool.AddOrphanTx(txn, 0)
 			}
 		}
 	}
-	oldPool.CleanOrphan()
+	newPool.CleanOrphan()
 	CheckMempool(nMemPoolHeight - 1)
+	log.Debug("RemoveForReorg end")
 }
 
 // func RemoveForReorg2(nMemPoolHeight int32, flag int) {

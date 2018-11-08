@@ -164,6 +164,7 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 func (m *TxMempool) CleanOrphan() {
 	m.OrphanTransactionsByPrev = make(map[outpoint.OutPoint]map[util.Hash]OrphanTx)
 	m.OrphanTransactions = make(map[util.Hash]OrphanTx)
+	log.Debug("mempool.CleanOrphan clean txn: %v", m.OrphanTransactions)
 }
 
 func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
