@@ -13,7 +13,6 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -894,9 +893,10 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 
 	// Ignore invs from peers that aren't the sync if we are not current.
 	// Helps prevent fetching a mass of orphans.
-	// if peer != sm.syncPeer && !sm.current() {
-	// 	return
-	// }
+	if peer != sm.syncPeer && !sm.current() {
+		log.Debug("recv inv msg from peer: %s", peer.Addr())
+		return
+	}
 
 	activeChain := chain.GetInstance()
 	// If our chain is current and a peer announces a block we already
@@ -909,12 +909,11 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	var invBlkCnt int
-	var isPushGetBlockMsg bool
 	// Request the advertised inventory if we don't already have it.  Also,
 	// request parent blocks of orphans if we receive one we already have.
 	// Finally, attempt to detect potential stalls due to long side chains
 	// we already have and request more blocks to prevent them.
-	for i, iv := range invVects {
+	for _, iv := range invVects {
 		// Ignore unsupported inventory types.
 		switch iv.Type {
 		case wire.InvTypeBlock:
@@ -952,38 +951,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 
 			// Add it to the request queue.
 			state.requestQueue = append(state.requestQueue, iv)
-			continue
 		}
-
-		if iv.Type == wire.InvTypeBlock {
-			// We already have the final block advertised by this
-			// inventory message, so force a request for more.  This
-			// should only happen if we're on a really long side
-			// chain.
-			if i == lastBlock {
-				// Request blocks after this one up to the
-				// final one the remote peer knows about (zero
-				// stop hash).
-				log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
-				activeChain := chain.GetInstance()
-				blkIndex := activeChain.FindHashInActive(iv.Hash)
-				locator := activeChain.GetLocator(blkIndex)
-				peer.PushGetBlocksMsg(*locator, &zeroHash)
-				isPushGetBlockMsg = true
-			}
-		}
-	}
-
-	if !isPushGetBlockMsg && invBlkCnt > 0 &&
-		len(invVects) == lchain.MaxBlocksResults && peer == sm.syncPeer {
-
-		sm.allowdGetBlocksTimes = 2
 	}
 
 	log.Debug(
-		"invBlkCnt=%d len(invVects)=%d sm.allowdGetBlocksTimes=%v  peer=%p(%s) sm.syncPeer=%p",
-		invBlkCnt, len(invVects), sm.allowdGetBlocksTimes,
-		peer, peer.Addr(), sm.syncPeer)
+		"invBlkCnt=%d len(invVects)=%d peer=%p(%s) sm.syncPeer=%p",
+		invBlkCnt, len(invVects), peer, peer.Addr(), sm.syncPeer)
 
 	// Request as much as possible at once.  Anything that won't fit into
 	// the request will be requested on the next inv message.
