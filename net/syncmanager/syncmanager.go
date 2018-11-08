@@ -573,34 +573,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
-	// When in headers-first mode, if the block matches the hash of the
-	// first header in the list of headers that are being fetched, it's
-	// eligible for less validation since the headers have already been
-	// verified to link together and are valid up to the next checkpoint.
-	// Also, remove the list entry for all blocks except the checkpoint
-	// since it is needed to verify the next round of headers links
-	// properly.
-	isCheckpointBlock := false
-	if sm.headersFirstMode {
-		firstNodeEl := sm.headerList.Front()
-		if firstNodeEl != nil {
-			firstNode := firstNodeEl.Value.(*headerNode)
-			if blockHash.IsEqual(firstNode.hash) {
-				if firstNode.hash.IsEqual(sm.nextCheckpoint.Hash) {
-					isCheckpointBlock = true
-				} else {
-					sm.headerList.Remove(firstNodeEl)
-				}
-			}
-		}
-	}
-
-	// Process all blocks from whitelisted peers, even if not requested,
-	// unless we're still syncing with the network. Such an unrequested
-	// block may still be processed, subject to the conditions in AcceptBlock().
-	fromWhitelist := peer.IsWhitelisted() && !lchain.IsInitialBlockDownload()
-	_, requested := sm.requestedBlocks[blockHash]
-
 	// Remove block from request maps. Either chain will know about it and
 	// so we shouldn't have any more instances of trying to fetch it, or we
 	// will fail the insert and thus we'll retry next time we get an inv.
@@ -621,33 +593,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		} else {
 			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
 		}
-
-		if !sm.headersFirstMode {
-			log.Debug("len of Requested block:%d, sm.allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
-			if peer == sm.syncPeer {
-				activeChain := chain.GetInstance()
-				tipHash := activeChain.Tip().Header.GetHash()
-				// add ban score when receiving an invalid new block (next of the tip) from sync peer
-				if bmsg.block.Header.HashPrevBlock.IsEqual(&tipHash) {
-					log.Error("handleBlockMsg receive an invalid block[%s] from sync peer[%s]", blockHash.String(), peer.Addr())
-					sm.misbehaving(peer.Addr(), 100, err.Error())
-					return
-				}
-				if sm.allowdGetBlocksTimes > 0 && len(state.requestedBlocks) == 0 {
-					sm.allowdGetBlocksTimes--
-					locator := activeChain.GetLocator(nil)
-					peer.PushGetBlocksMsg(*locator, &zeroHash)
-				}
-			}
-		} else {
-			if !isCheckpointBlock {
-				if sm.startHeader != nil &&
-					len(state.requestedBlocks) < minInFlightBlocks {
-					sm.fetchHeaderBlocks()
-				}
-			}
-		}
-
 		return
 	}
 
@@ -690,64 +635,9 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
-	// Nothing more to do if we aren't in headers-first mode.
-	if !sm.headersFirstMode {
-		log.Debug("len of Requested block:%d, allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
-		if peer == sm.syncPeer && sm.allowdGetBlocksTimes > 0 {
-			if len(state.requestedBlocks) == 0 {
-				sm.allowdGetBlocksTimes--
-				activeChain := chain.GetInstance()
-				locator := activeChain.GetLocator(nil)
-				peer.PushGetBlocksMsg(*locator, &zeroHash)
-			}
-		}
-		return
-	}
-
-	// This is headers-first mode, so if the block is not a checkpoint
-	// request more blocks using the header list when the request queue is
-	// getting short.
-	if !isCheckpointBlock {
-		if sm.startHeader != nil &&
-			len(state.requestedBlocks) < minInFlightBlocks {
-			sm.fetchHeaderBlocks()
-		}
-		return
-	}
-
-	// This is headers-first mode and the block is a checkpoint.  When
-	// there is a next checkpoint, get the next round of headers by asking
-	// for headers starting from the block after this one up to the next
-	// checkpoint.
-	prevHeight := sm.nextCheckpoint.Height
-	prevHash := sm.nextCheckpoint.Hash
-	sm.nextCheckpoint = sm.findNextHeaderCheckpoint(prevHeight)
-	if sm.nextCheckpoint != nil {
-		locator := chain.NewBlockLocator([]util.Hash{*prevHash})
-		err := peer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
-		if err != nil {
-			log.Warn("Failed to send getheaders message to "+
-				"peer %s: %v", peer.Addr(), err)
-			return
-		}
-		log.Info("Downloading headers for blocks %d to %d from "+
-			"peer %s", prevHeight+1, sm.nextCheckpoint.Height,
-			sm.syncPeer.Addr())
-		return
-	}
-
-	// This is headers-first mode, the block is a checkpoint, and there are
-	// no more checkpoints, so switch to normal mode by requesting blocks
-	// from the block after this one up to the end of the chain (zero hash).
-	sm.headersFirstMode = false
-	sm.headerList.Init()
-	log.Info("Reached the final checkpoint -- switching to normal mode")
-	locator := chain.NewBlockLocator([]util.Hash{blockHash})
-	err = peer.PushGetBlocksMsg(*locator, &zeroHash)
-	if err != nil {
-		log.Warn("Failed to send getblocks message to peer %s: %v",
-			peer.Addr(), err)
-		return
+	// not current means I'm still initial downloading blocks, trigger a next batch
+	if !sm.current() {
+		sm.fetchHeaderBlocks()
 	}
 }
 func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
