@@ -427,7 +427,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	err = msg.Decode(pr, pver, enc)
 	if err != nil {
 		log.Error("decode error: %v", err)
-		return totalBytes, nil, nil, err
+		return totalBytes, nil, nil, messageError("Decode msg", err.Error())
 	}
 
 	return totalBytes, msg, payload, nil
