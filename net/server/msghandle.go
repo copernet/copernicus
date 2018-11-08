@@ -69,6 +69,7 @@ out:
 					peerFrom.Disconnect()
 				}
 				peerFrom.SetAckReceived(true)
+				peerFrom.PushSendHeadersMsg()
 				if peerFrom.Cfg.Listeners.OnVerAck != nil {
 					peerFrom.Cfg.Listeners.OnVerAck(peerFrom, data)
 				}
