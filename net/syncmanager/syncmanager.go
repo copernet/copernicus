@@ -916,16 +916,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		}
 	}
 
-	// When this header is a checkpoint, switch to fetching the blocks for
-	// all of the headers since the last checkpoint.
-
-	// Since the first entry of the list is always the final block
-	// that is already in the database and is only used to ensure
-	// the next header links properly, it must be removed before
-	// fetching the blocks.
-	log.Info("Received %v block headers: Fetching blocks",
-		sm.headerList.Len())
-	sm.progressLogger.SetLastLogTime(time.Now())
+	log.Info("Received %d block headers from peer %s",
+		numHeaders, peer.Addr())
 	sm.fetchHeaderBlocks()
 }
 
