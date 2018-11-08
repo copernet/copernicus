@@ -2579,7 +2579,6 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 	s.syncManager, err = syncmanager.New(&syncmanager.Config{
 		PeerNotifier:       s,
 		ChainParams:        s.chainParams,
-		DisableCheckpoints: cfg.Protocol.DisableCheckpoints,
 		MaxPeers:           cfg.P2PNet.MaxPeers,
 	})
 	if err != nil {
