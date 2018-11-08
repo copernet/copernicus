@@ -10,7 +10,7 @@ RPC:
 
 Log:
   FileName: copernicus
-  Level: debug
+  Level: error
   Module: [mempool,utxo,bench,service]
 
 Mempool:
