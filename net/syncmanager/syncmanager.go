@@ -598,7 +598,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		sm.resetHeaderState()
 	} else {
 		// still initial downloading blocks, trigger a next batch
-		sm.fetchHeaderBlocks()
+		sm.fetchHeaderBlocks(sm.syncPeer)
 	}
 }
 func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
@@ -619,22 +619,25 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 
 // fetchHeaderBlocks creates and sends a request to the syncPeer for the next
 // list of blocks to be downloaded based on the current list of headers.
-func (sm *SyncManager) fetchHeaderBlocks() {
-	if sm.syncPeer == nil {
+func (sm *SyncManager) fetchHeaderBlocks(syncPeer *peer.Peer) {
+	if syncPeer == nil {
 		log.Error("fetchHeaderBlocks called with syncPeer nil")
 		return
 	}
 
-	syncPeerState, exists := sm.peerStates[sm.syncPeer]
+	syncPeerState, exists := sm.peerStates[syncPeer]
 	if !exists {
 		log.Error("fetchHeaderBlocks called with syncPeer state nil")
 		return
 	}
 
-	if len(syncPeerState.requestedBlocks) > minInFlightBlocks {
-		log.Debug("syncPeerState.requestedBlocks len:%d, forgive this fetch batch",
-			len(syncPeerState.requestedBlocks))
-		return
+	// only in initial download check inflight block number
+	if sm.headersFirstMode && !sm.current() {
+		if len(syncPeerState.requestedBlocks) > minInFlightBlocks {
+			log.Debug("syncPeerState.requestedBlocks len:%d, forgive this fetch batch",
+				len(syncPeerState.requestedBlocks))
+			return
+		}
 	}
 
 	// Nothing to do if there is no start header.
@@ -677,7 +680,7 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 
 	log.Trace("ready to send getdata request, inv Number : %d", len(gdmsg.InvList))
 	if len(gdmsg.InvList) > 0 {
-		sm.syncPeer.QueueMessage(gdmsg, nil)
+		syncPeer.QueueMessage(gdmsg, nil)
 	}
 	log.Trace("let getdata request to queue, ready to send to peer.")
 }
@@ -805,12 +808,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	log.Info("Received %d block headers from peer %s",
 		numHeaders, peer.Addr())
-	if sm.headersFirstMode {
-		// fetch a batch
-		sm.fetchHeaderBlocks()
-	} else {
-		// new block announcement, getdata right now
-	}
+	// fetch a batch
+	sm.fetchHeaderBlocks(peer)
 }
 
 // haveInventory returns whether or not the inventory represented by the passed
