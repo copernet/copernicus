@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/copernet/copernicus/log"
@@ -13,6 +14,7 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/pkg/errors"
+	"gopkg.in/fatih/set.v0"
 )
 
 var walletHandlers = map[string]commandHandler{
@@ -205,7 +207,7 @@ func handleGetTransaction(s *Server, cmd interface{}, closeChan <-chan struct{})
 		return nil, errors.New("Invalid or non-wallet transaction id")
 	}
 
-	ret := btcjson.GetTransactionResult{}
+	ret := &btcjson.GetTransactionResult{}
 	filter := wallet.ISMINE_SPENDABLE
 	credit := wtx.GetCredit(filter)
 	debit := wtx.GetDebit(filter)
@@ -235,7 +237,66 @@ func handleGetTransaction(s *Server, cmd interface{}, closeChan <-chan struct{})
 	return ret, nil
 }
 func handleFundRawTransaction(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	if !lwallet.IsWalletEnable() {
+		return nil, walletDisableRPCError
+	}
+	c := cmd.(*btcjson.FundRawTransactionCmd)
+	b, _ := hex.DecodeString(c.HexTx)
+	ubuf := bytes.NewBuffer(b)
+	txn := tx.Tx{}
+	if err := txn.Unserialize(ubuf); err != nil {
+		return nil, rpcDecodeHexError(c.HexTx)
+	}
+
+	if txn.GetOutsCount() == 0 {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, "TX must have at least one output")
+	}
+	setSubtractFeeFromOutputs := set.New()
+	if c.Options == nil {
+		c.Options = &btcjson.FundRawTxoptions{
+			IncludeWatching:  false,
+			LockUnspents:     false,
+			ReserveChangeKey: true,
+			ChangePosition:   0,
+		}
+	} else {
+		changePosition := c.Options.ChangePosition
+		if changePosition != -1 && (changePosition < 0 || changePosition > txn.GetOutsCount()) {
+			return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, "changePosition out of bounds")
+		}
+
+		subtractFeeFromOutputs := *c.Options.SubtractFeeFromOutputs
+		for _, pos := range subtractFeeFromOutputs {
+			if setSubtractFeeFromOutputs.Has(pos) {
+				return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter,
+					fmt.Sprintf("Invalid parameter, duplicated position: %d", pos))
+			}
+			if pos < 0 {
+				return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter,
+					fmt.Sprintf("Invalid parameter, duplicated position: %d", pos))
+			}
+			if pos >= txn.GetOutsCount() {
+				return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter,
+					fmt.Sprintf("Invalid parameter, position too large: %d", pos))
+			}
+			setSubtractFeeFromOutputs.Add(pos)
+		}
+	}
+	pos, feeOut, err := lwallet.FundTransaction(&txn, setSubtractFeeFromOutputs, c.Options)
+	if err != nil {
+		return nil, btcjson.NewRPCError(btcjson.ErrRPCWallet, err.Error())
+	}
+
+	sbuf := bytes.NewBuffer(nil)
+	if err := txn.Serialize(sbuf); err != nil {
+		log.Error("rawTransaction:serialize tx failed: %v", err)
+		return nil, btcjson.NewRPCError(btcjson.ErrRPCWallet, err.Error())
+	}
+	return &btcjson.FundRawTransactionResult{
+		Hex:       hex.EncodeToString(sbuf.Bytes()),
+		Changepos: pos,
+		Fee:       feeOut.ToBTC(),
+	}, nil
 }
 
 func sendMoney(scriptPubKey *script.Script, value amount.Amount, subtractFeeFromAmount bool,

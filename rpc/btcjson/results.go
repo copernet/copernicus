@@ -659,3 +659,9 @@ type GetTransactionResult struct {
 	Details         []GetTransactionDetailsResult `json:"details"`
 	Hex             string                        `json:"hex"`
 }
+
+type FundRawTransactionResult struct {
+	Hex       string  `json:"hex"`
+	Changepos int     `json:"changepos"`
+	Fee       float64 `json:"fee"`
+}
