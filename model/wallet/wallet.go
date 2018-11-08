@@ -506,6 +506,15 @@ func (w *Wallet) getRelatedTxns(txns []*tx.Tx) []*tx.Tx {
 	return relatedTxns
 }
 
+func (w *Wallet) HandleRelatedMempoolTx(txe *tx.Tx) {
+	// TODO: simple implementation just for testing, remove this after complete wallet
+	txes := []*tx.Tx{txe}
+	relatedTxns := w.getRelatedTxns(txes)
+	if len(relatedTxns) > 0 {
+		w.addTxnsToWallet(relatedTxns, util.HashZero)
+	}
+}
+
 func (w *Wallet) handleBlockChainNotification(notification *chain.Notification) {
 	switch notification.Type {
 
