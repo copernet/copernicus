@@ -659,6 +659,23 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 // fetchHeaderBlocks creates and sends a request to the syncPeer for the next
 // list of blocks to be downloaded based on the current list of headers.
 func (sm *SyncManager) fetchHeaderBlocks() {
+	if sm.syncPeer == nil {
+		log.Error("fetchHeaderBlocks called with syncPeer nil")
+		return
+	}
+
+	syncPeerState, exists := sm.peerStates[sm.syncPeer]
+	if !exists {
+		log.Error("fetchHeaderBlocks called with syncPeer state nil")
+		return
+	}
+
+	if len(syncPeerState.requestedBlocks) > minInFlightBlocks {
+		log.Debug("syncPeerState.requestedBlocks len:%d, forgive this fetch batch",
+			len(syncPeerState.requestedBlocks))
+		return
+	}
+
 	// Nothing to do if there is no start header.
 	if sm.startHeader == nil {
 		log.Warn("fetchHeaderBlocks called with no start header")
@@ -686,7 +703,6 @@ func (sm *SyncManager) fetchHeaderBlocks() {
 				"fetch: %v", err)
 		}
 		if !haveInv {
-			syncPeerState := sm.peerStates[sm.syncPeer]
 			sm.requestedBlocks[*node.hash] = struct{}{}
 			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
 			gdmsg.AddInvVect(iv)
