@@ -539,9 +539,18 @@ type TxRawDecodeResult struct {
 // ValidateAddressChainResult models the data returned by the chain server
 // validateaddress command.
 type ValidateAddressChainResult struct {
-	IsValid      bool   `json:"isvalid"`
-	Address      string `json:"address,omitempty"`
-	ScriptPubKey string `json:"scriptPubKey,omitempty"`
+	IsValid       bool   `json:"isvalid"`
+	Address       string `json:"address,omitempty"`
+	ScriptPubKey  string `json:"scriptPubKey,omitempty"`
+	IsMine        bool   `json:"ismine,omitempty"`
+	IsWatchOnly   bool   `json:"iswatchonly,omitempty"`
+	IsScript      bool   `json:"isscript,omitempty"`
+	PubKey        string `json:"pubkey,omitempty"`
+	IsCompressed  bool   `json:"iscompressed,omitempty"`
+	Account       string `json:"account,omitempty"`
+	TimeStamp     uint32 `json:"timestamp,omitempty"`
+	HDKeyPath     string `json:"hdkeypath,omitempty"`
+	HDMasterKeyID string `json:"hdmasterkeyid,omitempty"`
 }
 
 type GetMempoolEntryRelativeInfoVerbose struct {
@@ -579,9 +588,7 @@ type SignRawTransactionResult struct {
 	Errors   []*SignRawTransactionError `json:"errors,omitempty"`
 }
 
-type GetChainTipsResult struct {
-	Tips []ChainTipsInfo
-}
+type GetChainTipsResult []ChainTipsInfo
 
 type ChainTipsInfo struct {
 	Height    int32  `json:"height"`
@@ -643,13 +650,11 @@ type GetTransactionDetailsResult struct {
 type GetTransactionResult struct {
 	Amount          float64                       `json:"amount"`
 	Fee             float64                       `json:"fee,omitempty"`
-	Confirmations   int64                         `json:"confirmations"`
+	Confirmations   int32                         `json:"confirmations"`
 	BlockHash       string                        `json:"blockhash"`
-	BlockIndex      int64                         `json:"blockindex"`
-	BlockTime       int64                         `json:"blocktime"`
+	BlockTime       uint32                        `json:"blocktime"`
 	TxID            string                        `json:"txid"`
 	WalletConflicts []string                      `json:"walletconflicts"`
-	Time            int64                         `json:"time"`
 	TimeReceived    int64                         `json:"timereceived"`
 	Details         []GetTransactionDetailsResult `json:"details"`
 	Hex             string                        `json:"hex"`

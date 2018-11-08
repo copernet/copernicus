@@ -21,7 +21,14 @@ type Opts struct {
 	Whitelists         []string `long:"whitelist" description:"whitelist"`
 	Excessiveblocksize uint64   `long:"excessiveblocksize" default:"32000000" description:"excessive block size"`
 
-	ReplayProtectionActivationTime string `long:"replayprotectionactivationtime"`
+	ReplayProtectionActivationTime int64  `long:"replayprotectionactivationtime" default:"-1"`
+	MonolithActivationTime         int64  `long:"monolithactivationtime" default:"-1"`
+	StopAtHeight                   int32  `long:"stopatheight" default:"-1"`
+	PromiscuousMempoolFlags        string `long:"promiscuousmempoolflags"`
+	Limitancestorcount             int    `long:"limitancestorcount" default:"50000"`
+	BlockVersion                   int32  `long:"blockversion" default:"-1" description:"regtest block version"`
+	MaxMempool                     int64  `long:"maxmempool" default:"300000000"`
+	SpendZeroConfChange            uint8  `long:"spendzeroconfchange" default:"1"`
 }
 
 func InitArgs(args []string) (*Opts, error) {

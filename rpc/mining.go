@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -130,7 +130,7 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 
 	switch mode {
 	case "template":
-		return handleGetBlockTemplateRequest(request, closeChan)
+		return handleGetBlockTemplateRequest(s, request, closeChan)
 	case "proposal":
 		return handleGetBlockTemplateProposal(request)
 	}
@@ -141,7 +141,7 @@ func handleGetblocktemplate(s *Server, cmd interface{}, closeChan <-chan struct{
 	}
 }
 
-func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
+func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, closeChan <-chan struct{}) (interface{}, error) {
 	maxVersionVb := int64(-1)
 	setClientRules := set.New()
 	//if len(request.Rules) > 0 { // todo check
@@ -186,7 +186,7 @@ func handleGetBlockTemplateRequest(request *btcjson.TemplateRequest, closeChan <
 		start = util.GetTime()
 
 		// Create new block
-		ba := mining.NewBlockAssembler(model.ActiveNetParams)
+		ba := mining.NewBlockAssembler(model.ActiveNetParams, s.timeSource)
 		scriptPubKey := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
 		blocktemplate = ba.CreateNewBlock(scriptPubKey, mining.BasicScriptSig())
 		if blocktemplate == nil {
@@ -367,6 +367,7 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	if len(hexData)%2 != 0 {
 		hexData = "0" + hexData
 	}
+
 	dataBytes, err := hex.DecodeString(hexData)
 	if err != nil {
 		return false, &btcjson.RPCError{
@@ -392,12 +393,14 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 				Message: "duplicate",
 			}
 		}
+
 		if bindex.IsInvalid() {
 			return nil, &btcjson.RPCError{
 				Code:    btcjson.ErrUnDefined,
 				Message: "duplicate-invalid",
 			}
 		}
+
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrUnDefined,
 			Message: "duplicate-inconclusive",
@@ -407,13 +410,12 @@ func handleGetBlockTemplateProposal(request *btcjson.TemplateRequest) (interface
 	indexPrev := chain.GetInstance().Tip()
 	// TestBlockValidity only supports blocks built on the current Tip
 	if bk.Header.HashPrevBlock != *indexPrev.GetBlockHash() {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrUnDefined,
-			Message: "inconclusive-not-best-prevblk",
-		}
+		return "inconclusive-not-best-prevblk", nil
 	}
 
-	err = lblock.CheckBlock(&bk, true, true)
+	err = mining.TestBlockValidity(&bk, indexPrev, false, true)
+	err = errcode.GetBip22Result(err)
+	//err = lblock.CheckBlock(&bk, true, true)
 	return BIP22ValidationResult(err)
 }
 
@@ -435,23 +437,15 @@ func BIP22ValidationResult(err error) (interface{}, error) {
 
 		if projectError.Code == int(errcode.ModelInvalid) {
 			if strRejectReason == "" {
-				return nil, &btcjson.RPCError{
-					Code:    btcjson.ErrUnDefined,
-					Message: "rejected",
-				}
+				strRejectReason = "rejected"
 			}
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.ErrUnDefined,
-				Message: strRejectReason,
-			}
+
+			return strRejectReason, nil
 		}
 	}
 
 	// Should be impossible
-	return nil, &btcjson.RPCError{
-		Code:    btcjson.ErrUnDefined,
-		Message: "valid?",
-	}
+	return "valid?", nil
 }
 
 // handleSubmitBlock implements the submitblock command.
@@ -525,7 +519,7 @@ func handleGenerateToAddress(s *Server, cmd interface{}, closeChan <-chan struct
 		return nil, rpcErr
 	}
 
-	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries, s.timeSource)
 }
 
 // handleGenerate handles generate commands.
@@ -558,12 +552,12 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 		}
 	}
 
-	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries)
+	return generateBlocks(coinbaseScript, int(c.NumBlocks), *c.MaxTries, s.timeSource)
 }
 
 const nInnerLoopCount = 0x100000
 
-func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) (interface{}, error) {
+func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64, ts *bitcointime.MedianTime) (interface{}, error) {
 	heightStart := chain.GetInstance().Height()
 	heightEnd := heightStart + int32(generate)
 	height := heightStart
@@ -572,7 +566,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	ret := make([]string, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params)
+		ba := mining.NewBlockAssembler(params, ts)
 
 		bt := createBlockForCPUMining(ba, scriptPubKey, extraNonce)
 		if bt == nil {
@@ -620,7 +614,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 
 		// TODO: simple implementation just for testing
 		if lwallet.IsWalletEnable() {
-			lwallet.AddToWallet(bt.Block.Txs[0], nil)
+			lwallet.AddToWallet(bt.Block.Txs[0], bt.Block.GetHash(), nil)
 		}
 	}
 

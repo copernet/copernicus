@@ -29,7 +29,6 @@ import (
 )
 
 // SpendZeroConfChange TODO: read from config
-var SpendZeroConfChange = true
 
 type TxnCoin struct {
 	OutPoint *outpoint.OutPoint
@@ -80,6 +79,10 @@ func GetMiningAddress() (string, error) {
 		return "", err
 	}
 	return cashAddr.String(), nil
+}
+
+func GetKeyPair(pubKeyHash []byte) *crypto.KeyPair {
+	return wallet.GetInstance().GetKeyPair(pubKeyHash)
 }
 
 func GetKeyPairs(pubKeyHashList [][]byte) []*crypto.KeyPair {
@@ -150,8 +153,11 @@ func GetScript(scriptHash []byte) *script.Script {
 	return wallet.GetInstance().GetScript(scriptHash)
 }
 
-func AddToWallet(txn *tx.Tx, extInfo map[string]string) {
-	wallet.GetInstance().AddToWallet(txn, extInfo)
+func AddToWallet(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string) {
+	wallet.GetInstance().AddToWallet(txn, blockhash, extInfo)
+}
+func RemoveFromWallet(txn *tx.Tx) {
+	wallet.GetInstance().RemoveFromWallet(txn)
 }
 
 func SetFeeRate(feePaid int64, byteSize int64) {
@@ -282,7 +288,10 @@ func CreateTransaction(recipients []*wallet.Recipient, changePosInOut *int, sign
 			if err != nil || reservedKey == nil {
 				return nil, 0, errors.New("Keypool ran out, please call keypoolrefill first")
 			}
-			scriptChange := getP2PKHScript(reservedKey.ToHash160())
+			scriptChange, err := getP2PKHScript(reservedKey.ToHash160())
+			if err != nil {
+				return nil, 0, err
+			}
 
 			newTxOut := txout.NewTxOut(change, scriptChange)
 
@@ -452,7 +461,7 @@ func selectCoins(coins []*TxnCoin, targetValue amount.Amount) ([]*TxnCoin, amoun
 	if selectedCoins != nil {
 		return selectedCoins, valueRet
 	}
-	if SpendZeroConfChange {
+	if conf.Cfg.Wallet.SpendZeroConfChange {
 		selectedCoins, valueRet = SelectCoinsMinConf(targetValue, 0, 1, 6, coins)
 		if selectedCoins != nil {
 			return selectedCoins, valueRet
@@ -461,14 +470,32 @@ func selectCoins(coins []*TxnCoin, targetValue amount.Amount) ([]*TxnCoin, amoun
 	return nil, 0
 }
 
-func getP2PKHScript(pubkeyHash []byte) *script.Script {
-	scriptPubKey := script.NewEmptyScript()
-	scriptPubKey.PushOpCode(opcodes.OP_DUP)
-	scriptPubKey.PushOpCode(opcodes.OP_HASH160)
-	scriptPubKey.PushSingleData(pubkeyHash)
-	scriptPubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
-	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
-	return scriptPubKey
+func generateScript(data ...interface{}) (*script.Script, error) {
+	sc := script.NewEmptyScript()
+	for _, item := range data {
+		switch item.(type) {
+		case int:
+			if err := sc.PushOpCode(item.(int)); err != nil {
+				return nil, err
+			}
+		case []byte:
+			if err := sc.PushSingleData(item.([]byte)); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, errors.New("push unknown type")
+		}
+	}
+	return sc, nil
+}
+
+func getP2PKHScript(pubkeyHash []byte) (*script.Script, error) {
+	scriptPubKey, err := generateScript(opcodes.OP_DUP, opcodes.OP_HASH160, pubkeyHash,
+		opcodes.OP_EQUALVERIFY, opcodes.OP_CHECKSIG)
+	if err != nil {
+		return nil, err
+	}
+	return scriptPubKey, nil
 }
 
 func getPubKeyHash(scriptPubKey *script.Script) [][]byte {
@@ -553,7 +580,7 @@ func CommitTransaction(txNew *tx.Tx, extInfo map[string]string) error {
 
 	// Add tx to wallet, because if it has change it's also ours, otherwise just
 	// for transaction history.
-	AddToWallet(txNew, extInfo)
+	AddToWallet(txNew, util.HashZero, extInfo)
 
 	// Notify that old coins are spent.
 	for _, txIn := range txNew.GetIns() {
@@ -581,4 +608,8 @@ func CommitTransaction(txNew *tx.Tx, extInfo map[string]string) error {
 	}
 
 	return err
+}
+
+func IsMine(sc *script.Script) bool {
+	return wallet.IsUnlockable(sc)
 }

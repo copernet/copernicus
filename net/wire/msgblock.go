@@ -5,6 +5,7 @@
 package wire
 
 import (
+	"github.com/copernet/copernicus/conf"
 	"io"
 
 	"github.com/copernet/copernicus/model/block"
@@ -34,5 +35,5 @@ func (msg *MsgBlock) Command() string {
 }
 
 func (msg *MsgBlock) MaxPayloadLength(pver uint32) uint64 {
-	return MaxBlockPayload
+	return conf.Cfg.Excessiveblocksize
 }

@@ -64,8 +64,10 @@ func (abd *AddressBookData) Unserialize(reader io.Reader) error {
 	return nil
 }
 
-func (ab *AddressBook) Init() {
-	ab.addressBook = make(map[string]*AddressBookData)
+func NewAddressBook() *AddressBook {
+	return &AddressBook{
+		addressBook: make(map[string]*AddressBookData),
+	}
 }
 
 func (ab *AddressBook) SetAddressBook(keyHash []byte, addressBookData *AddressBookData) {

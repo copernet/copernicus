@@ -1541,6 +1541,15 @@ const (
 
 	echoDesc = "echo \"message\" ...\n" +
 		"\nSimply echo back the input arguments. This command is for testing."
+
+	uptimeDesc = "uptime\n" +
+		"\nReturns the total uptime of the server.\n" +
+		"\nResult:\n" +
+		"ttt        (numeric) The number of seconds " +
+		"that the server has been running\n" +
+		"\nExamples:\n" +
+		`> coperctl uptime` + "\n" +
+		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "uptime", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/`
 )
 
 // wallet
@@ -1669,37 +1678,241 @@ const (
 		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "donation" "seans outpost"` + "\n" +
 		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "" "" true` + "\n" +
 		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "sendtoaddress", "params": ["1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd", 0.1, "donation", "seans outpost"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
-	getbalanceDesc = "getbalance (\"account\" minconf=1)\n\nCalculates and returns the balance of one or all accounts.\n\nArguments:\n1. account (string, optional)" +
-		"             DEPRECATED -- The account name to query the balance for, or \"*\" to consider all accounts (default=\"*\")" +
-		"\n2. minconf (numeric, optional, default=1) Minimum number of block confirmations required before an unspent output's value is included in the balance\n\n" +
-		"Result " +
-		"(account != \"*\"):\nn.nnn (numeric) The balance of 'account' valued in bitcoin\n\n" +
-		"Result " +
-		"(account = \"*\"):\nn.nnn (numeric) The balance of all accounts valued in bitcoin\n" +
+
+	getbalanceDesc = "getbalance ( \"account\" minconf include_watchonly )\n" +
+		"\nIf account is not specified, returns the server's total " +
+		"available balance.\n" +
+		"If account is specified (DEPRECATED), returns the balance in the " +
+		"account.\n" +
+		"Note that the account \"\" is not the same as leaving the " +
+		"parameter out.\n" +
+		"The server total may be different to the balance in the default " +
+		"\"\" account.\n" +
+		"\nArguments:\n" +
+		"1. \"account\"         (string, optional) DEPRECATED. The account " +
+		"string may be given as a\n" +
+		"                     specific account name to find the balance " +
+		"associated with wallet keys in\n" +
+		"                     a named account, or as the empty string " +
+		"(\"\") to find the balance\n" +
+		"                     associated with wallet keys not in any named " +
+		"account, or as \"*\" to find\n" +
+		"                     the balance associated with all wallet keys " +
+		"regardless of account.\n" +
+		"                     When this option is specified, it calculates " +
+		"the balance in a different\n" +
+		"                     way than when it is not specified, and which " +
+		"can count spends twice when\n" +
+		"                     there are conflicting pending transactions " +
+		"temporarily resulting in low\n" +
+		"                     or even negative balances.\n" +
+		"                     In general, account balance calculation is " +
+		"not considered reliable and\n" +
+		"                     has resulted in confusing outcomes, so it is " +
+		"recommended to avoid passing\n" +
+		"                     this argument.\n" +
+		"2. minconf           (numeric, optional, default=1) Only include " +
+		"transactions confirmed at least this many times.\n" +
+		"3. include_watchonly (bool, optional, default=false) Also include " +
+		"balance in watch-only addresses (see 'importaddress')\n" +
+		"\nResult:\n" +
+		"amount              (numeric) The total amount in " +
+		util.CurrencyUnit + " received for this account.\n" +
 		"\nExamples:\n" +
-		`> coperctl getbalance ` +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getbalance", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
-	gettransactionDesc = "gettransaction \"txid\" (includewatchonly=false)\n\nReturns a JSON object with details regarding a transaction relevant to this wallet.\n\nArguments:\n" +
-		"1. txid             (string, required)                 Hash of the transaction to query\n" +
-		"2. includewatchonly (boolean, optional, default=false) Also consider transactions involving watched addresses\n\n" +
-		"Result:\n" +
-		"{\n \"amount\": n.nnn,                  (numeric)         The total amount this transaction credits to the wallet, valued in bitcoin\n " +
-		"\"fee\": n.nnn,                     (numeric)         The total input value minus the total output value, or 0 if 'txid' is not a sent transaction\n " +
-		"\"confirmations\": n,               (numeric)         The number of block confirmations of the transaction\n " +
-		"\"blockhash\": \"value\",             (string)          The hash of the block this transaction is mined in, or the empty string if unmined\n " +
-		"\"blockindex\": n,                  (numeric)         Unset\n " +
-		"\"blocktime\": n,                   (numeric)         The Unix time of the block header this transaction is mined in, or 0 if unmined\n " +
-		"\"txid\": \"value\",                  (string)          The transaction hash\n \"walletconflicts\": [\"value\",...], (array of string) Unset\n " +
-		"\"time\": n,                        (numeric)         The earliest Unix time this transaction was known to exist\n " +
-		"\"timereceived\": n,                (numeric)         The earliest Unix time this transaction was known to exist\n " +
-		"\"details\": " +
-		"[{                     (array of object) Additional details for each recorded wallet credit and debit\n  " +
-		"\"account\": \"value\",              (string)          DEPRECATED -- Unset\n  " +
-		"\"address\": \"value\",              (string)          The address an output was paid to, or the empty string if the output is nonstandard or this detail is regarding a transaction input\n  " +
-		"\"amount\": n.nnn,                 (numeric)         The amount of a received output\n  " +
-		"\"category\": \"value\",             (string)          The kind of detail: \"send\" for sent transactions, \"immature\" for immature coinbase outputs, \"generate\" for mature coinbase outputs, or \"recv\" for all other received outputs\n  " +
-		"\"involveswatchonly\": true|false, (boolean)         Unset\n  \"fee\": n.nnn,                    (numeric)         The included fee for a sent transaction\n  " +
-		"\"vout\": n,                       (numeric)         The transaction output index\n " +
-		"},...],                                             \n " +
-		"\"hex\": \"value\",                   (string)          The transaction encoded as a hexadecimal string\n}                                  \n"
+		"\nThe total amount in the wallet\n" +
+		"> coperctl getbalance\n\n" +
+		"\nThe total amount in the wallet at least 5 blocks confirmed\n" +
+		`> coperctl getbalance "*" 6` + "\n" +
+		"\nAs a json rpc call\n" +
+		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getbalance", "params": ["*", 6] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/`
+
+	gettransactionDesc = "gettransaction \"txid\" ( include_watchonly )\n" +
+		"\nGet detailed information about in-wallet transaction <txid>\n" +
+		"\nArguments:\n" +
+		"1. \"txid\"                  (string, required) The transaction " +
+		"id\n" +
+		"2. \"include_watchonly\"     (bool, optional, default=false) " +
+		"Whether to include watch-only addresses in balance calculation " +
+		"and details[]\n" +
+		"\nResult:\n" +
+		"{\n" +
+		"  \"amount\" : x.xxx,        (numeric) The transaction amount " +
+		"in " +
+		util.CurrencyUnit +
+		"\n" +
+		"  \"fee\": x.xxx,            (numeric) The amount of the fee in " +
+		util.CurrencyUnit +
+		". This is negative and only available for the \n" +
+		"                              'send' category of transactions.\n" +
+		"  \"confirmations\" : n,     (numeric) The number of " +
+		"confirmations\n" +
+		"  \"blockhash\" : \"hash\",  (string) The block hash\n" +
+		"  \"blockindex\" : xx,       (numeric) The index of the " +
+		"transaction in the block that includes it\n" +
+		"  \"blocktime\" : ttt,       (numeric) The time in seconds since " +
+		"epoch (1 Jan 1970 GMT)\n" +
+		"  \"txid\" : \"transactionid\",   (string) The transaction id.\n" +
+		"  \"time\" : ttt,            (numeric) The transaction time in " +
+		"seconds since epoch (1 Jan 1970 GMT)\n" +
+		"  \"timereceived\" : ttt,    (numeric) The time received in " +
+		"seconds since epoch (1 Jan 1970 GMT)\n" +
+		"  \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether " +
+		"this transaction could be replaced due to BIP125 " +
+		"(replace-by-fee);\n" +
+		"                                                   may be unknown " +
+		"for unconfirmed transactions not in the mempool\n" +
+		"  \"details\" : [\n" +
+		"    {\n" +
+		"      \"account\" : \"accountname\",      (string) DEPRECATED. " +
+		"The account name involved in the transaction, can be \"\" for the " +
+		"default account.\n" +
+		"      \"address\" : \"address\",          (string) The bitcoin " +
+		"address involved in the transaction\n" +
+		"      \"category\" : \"send|receive\",    (string) The category, " +
+		"either 'send' or 'receive'\n" +
+		"      \"amount\" : x.xxx,                 (numeric) The amount " +
+		"in " +
+		util.CurrencyUnit + "\n" +
+		"      \"label\" : \"label\",              " +
+		"(string) A comment for the address/transaction, " +
+		"if any\n" +
+		"      \"vout\" : n,                       " +
+		"(numeric) the vout value\n" +
+		"      \"fee\": x.xxx,                     " +
+		"(numeric) The amount of the fee in " +
+		util.CurrencyUnit +
+		". This is negative and only available for the \n" +
+		"                                           'send' category of " +
+		"transactions.\n" +
+		"      \"abandoned\": xxx                  (bool) 'true' if the " +
+		"transaction has been abandoned (inputs are respendable). Only " +
+		"available for the \n" +
+		"                                           'send' category of " +
+		"transactions.\n" +
+		"    }\n" +
+		"    ,...\n" +
+		"  ],\n" +
+		"  \"hex\" : \"data\"         (string) Raw data for transaction\n" +
+		"}\n" +
+		"\nExamples:\n" +
+		`> coperctl gettransaction "1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d"` + "\n" +
+		`> coperctl gettransaction "1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" true` + "\n" +
+		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "gettransaction", "params": ["1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d"] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/`
+
+	sendmanyDesc = "sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] )\n" +
+		"\nSend multiple times. Amounts are double-precision floating point numbers." +
+		"\nArguments:\n" +
+		"1. \"fromaccount\"         (string, required) DEPRECATED. The account to send the funds from. " +
+		"Should be \"\" for the default account\n" +
+		"2. \"amounts\"             (string, required) A json object with addresses and amounts\n" +
+		"    {\n" +
+		"      \"address\":amount   (numeric or string) The bitcoin address is the key, " +
+		"the numeric amount (can be string) in " + util.CurrencyUnit + " is the value\n" +
+		"      ,...\n" +
+		"    }\n" +
+		"3. minconf                 (numeric, optional, " +
+		"default=1) Only use the balance confirmed at least this many times.\n" +
+		"4. \"comment\"             (string, optional) A comment\n" +
+		"5. subtractfeefrom         (array, optional) A json array with addresses.\n" +
+		"                           The fee will be equally deducted from " +
+		"the amount of each selected address.\n" +
+		"                           Those recipients will receive less " +
+		"bitcoins than you enter in their corresponding amount field.\n" +
+		"                           If no addresses are specified here, the sender pays the fee.\n" +
+		"    [\n" +
+		"      \"address\"          (string) Subtract fee from this address\n" +
+		"      ,...\n" +
+		"    ]\n" +
+		"\nResult:\n" +
+		"\"txid\"                   (string) The transaction id for the send. " +
+		"Only 1 transaction is created regardless of \n" +
+		"                                    the number of addresses.\n" +
+		"\nExamples:\n" +
+		"\nSend two amounts to two different addresses:\n" +
+		"> coperctl sendmany \"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"" +
+		"\nSend two amounts to two different addresses setting the confirmation and comment:\n" +
+		"> coperctl sendmany \"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 6 \"testing\"" +
+		"\nSend two amounts to two different addresses, subtract fee from amount:\n" +
+		"> coperctl sendmany\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\"," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"" +
+		"\nAs a json rpc call\n" +
+		"> coperctl sendmany\"\", \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
+		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\",6, \"testing\""
+
+	fundrawtransactionDesc = "fundrawtransaction \"hexstring\" ( options )\n" +
+		"\nAdd inputs to a transaction until it has enough in value to " +
+		"meet its out value.\n" +
+		"This will not modify existing inputs, and will add at most one " +
+		"change output to the outputs.\n" +
+		"No existing outputs will be modified unless " +
+		"\"subtractFeeFromOutputs\" is specified.\n" +
+		"Note that inputs which were signed may need to be resigned after " +
+		"completion since in/outputs have been added.\n" +
+		"The inputs added will not be signed, use signrawtransaction for " +
+		"that.\n" +
+		"Note that all existing inputs must have their previous output " +
+		"transaction be in the wallet.\n" +
+		"Note that all inputs selected must be of standard form and P2SH " +
+		"scripts must be\n" +
+		"in the wallet using importaddress or addmultisigaddress (to " +
+		"calculate fees).\n" +
+		"You can see whether this is the case by checking the \"solvable\" " +
+		"field in the listunspent output.\n" +
+		"Only pay-to-pubkey, multisig, and P2SH versions thereof are " +
+		"currently supported for watch-only\n" +
+		"\nArguments:\n" +
+		"1. \"hexstring\"           (string, required) The hex string of " +
+		"the raw transaction\n" +
+		"2. options                 (object, optional)\n" +
+		"   {\n" +
+		"     \"changeAddress\"          (string, optional, default pool " +
+		"address) The bitcoin address to receive the change\n" +
+		"     \"changePosition\"         (numeric, optional, default " +
+		"random) The index of the change output\n" +
+		"     \"includeWatching\"        (boolean, optional, default " +
+		"false) Also select inputs which are watch only\n" +
+		"     \"lockUnspents\"           (boolean, optional, default " +
+		"false) Lock selected unspent outputs\n" +
+		"     \"reserveChangeKey\"       (boolean, optional, default true) " +
+		"Reserves the change output key from the keypool\n" +
+		"     \"feeRate\"                (numeric, optional, default not " +
+		"set: makes wallet determine the fee) Set a specific feerate (" +
+		util.CurrencyUnit +
+		" per KB)\n" +
+		"     \"subtractFeeFromOutputs\" (array, optional) A json array of " +
+		"integers.\n" +
+		"                              The fee will be equally deducted " +
+		"from the amount of each specified output.\n" +
+		"                              The outputs are specified by their " +
+		"zero-based index, before any change output is added.\n" +
+		"                              Those recipients will receive less " +
+		"bitcoins than you enter in their corresponding amount field.\n" +
+		"                              If no outputs are specified here, " +
+		"the sender pays the fee.\n" +
+		"                                  [vout_index,...]\n" +
+		"   }\n" +
+		"                         for backward compatibility: passing in a " +
+		"true instead of an object will result in " +
+		"{\"includeWatching\":true}\n" +
+		"\nResult:\n" +
+		"{\n" +
+		"  \"hex\":       \"value\", (string)  The resulting raw " +
+		"transaction (hex-encoded string)\n" +
+		"  \"fee\":       n,         (numeric) Fee in " +
+		util.CurrencyUnit + " the resulting transaction pays\n" +
+		"  \"changepos\": n          (numeric) The " +
+		"position of the added change output, or -1\n" +
+		"}\n" +
+		"\nExamples:\n" +
+		"\nCreate a transaction with no inputs\n" +
+		"> coperctl " + "createrawtransaction" + " " + "\"[]\" \"{\\\"myaddress\\\":0.01}\"" + "\n" +
+		"\nAdd sufficient unsigned inputs to meet the output value\n" +
+		"> coperctl " + "fundrawtransaction" + " " + "\"rawtransactionhex\"" + "\n" +
+		"\nSign the transaction\n" +
+		"> coperctl " + "signrawtransaction" + " " + "\"fundedtransactionhex\"" + "\n" +
+		"\nSend the transaction\n" +
+		"> coperctl " + "sendrawtransaction" + " " + "\"signedtransactionhex\"" + "\n"
 )

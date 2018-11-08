@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -93,6 +94,8 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 
 	// is mempool already have it? conflict tx with mempool
 	gPool := mempool.GetInstance()
+	gPool.RLock()
+	defer gPool.RUnlock()
 	if gPool.FindTx(txn.GetHash()) != nil {
 		log.Debug("tx already known in mempool, hash: %s", txn.GetHash())
 		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
@@ -297,7 +300,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 		return err
 	}
 
-	for _, transaction := range txs[1:] {
+	for _, transaction := range txs {
 		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
 		if err != nil {
 			return err
@@ -307,7 +310,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 }
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
-	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64, lockTimeFlags uint32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
 	utxo := utxo.GetUtxoCacheInstance()
@@ -315,6 +318,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	var fees amount.Amount
 	bundo = undo.NewBlockUndo(0)
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+
 	//updateCoins
 	for i, transaction := range txs {
 		// check BIP30: do not allow overwriting unspent old transactions
@@ -323,10 +327,11 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for i := range outs {
 				if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 					log.Debug("tried to overwrite transaction")
-					return nil, nil, errcode.New(errcode.RejectInvalid)
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
 				}
 			}
 		}
+
 		var valueIn amount.Amount
 		if !transaction.IsCoinBase() {
 			ins := transaction.GetIns()
@@ -334,26 +339,27 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 				if coin == nil || coin.IsSpent() {
 					log.Debug("can't find coin or has been spent out before apply transaction")
-					return nil, nil, errcode.New(errcode.RejectInvalid)
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
 				}
 				valueIn += coin.GetAmount()
 			}
-			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, scriptCheckFlags)
+
+			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
 			if !CheckSequenceLocks(coinHeight, coinTime) {
 				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.New(errcode.RejectNonstandard)
+				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
 			}
 		}
 		//check sigops
 		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
-			return nil, nil, errcode.New(errcode.RejectInvalid)
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 		}
 		sigOpsCount += uint64(sigsCount)
 		if sigOpsCount > blockMaxSigOpsCount {
 			log.Debug("block has too many sigops at %d transaction", i)
-			return nil, nil, errcode.New(errcode.RejectInvalid)
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
 		if transaction.IsCoinBase() {
 			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
@@ -365,7 +371,10 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			//check inputs
 			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
 			if err != nil {
-				return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs: "+err.Error())
+				if strings.Contains(err.Error(), "script-verify") {
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
+				}
+				return nil, nil, err
 			}
 		}
 
@@ -378,7 +387,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	//check blockReward
 	if txs[0].GetValueOut() > fees+blockSubSidy {
 		log.Debug("coinbase pays too much")
-		return nil, nil, errcode.New(errcode.RejectInvalid)
+		return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
 	}
 	return coinsMap, bundo, nil
 }
@@ -410,7 +419,7 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
 	if !txn.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		log.Debug("txn is not final, hash: %s", txn.GetHash())
-		return errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonfinal")
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
 	}
 
 	//if chainparams.IsUAHFEnabled(nBlockHeight) && nBlockHeight <= chainparams.ActiveNetParams.AntiReplayOpReturnSunsetHeight {

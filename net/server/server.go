@@ -25,6 +25,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
@@ -47,7 +48,7 @@ import (
 const (
 	// defaultServices describes the default services that are supported by
 	// the server.
-	defaultServices = wire.SFNodeNetwork // | wire.SFNodeBloom | wire.SFNodeWitness
+	defaultServices = wire.SFNodeNetwork | wire.SFNodeCash
 
 	// defaultRequiredServices describes the default services that are
 	// required to be supported by outbound peers.
@@ -690,7 +691,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// Ignore getheaders requests if not in sync.
-	if !sp.server.syncManager.IsCurrent() {
+	if !sp.isWhitelisted && !sp.server.syncManager.IsCurrent() {
 		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
 		return
 	}
@@ -1109,62 +1110,62 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 // the connected peer.  Since a merkle block requires the peer to have a filter
 // loaded, this call will simply be ignored if there is no filter loaded.  An
 // error is returned if the block hash is not known.
-func (s *Server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
-	doneChan chan<- struct{}, waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
+//func (s *Server) pushMerkleBlockMsg(sp *serverPeer, hash *util.Hash,
+//	doneChan chan<- struct{}, waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
-	// Do not send a response if the peer doesn't have a filter loaded.
-	//if !sp.filter.IsLoaded() {
-	if doneChan != nil {
-		doneChan <- struct{}{}
-	}
-	return nil
-	//}
+// Do not send a response if the peer doesn't have a filter loaded.
+//if !sp.filter.IsLoaded() {
+//if doneChan != nil {
+//	doneChan <- struct{}{}
+//}
+//return nil
+//}
 
-	// // Fetch the raw block bytes from the database.
-	// blk, err := lblock.GetBlock(hash)
-	// if err != nil {
-	// 	log.Trace("Unable to fetch requested block hash %v: %v",
-	// 		hash, err)
+// // Fetch the raw block bytes from the database.
+// blk, err := lblock.GetBlock(hash)
+// if err != nil {
+// 	log.Trace("Unable to fetch requested block hash %v: %v",
+// 		hash, err)
 
-	// 	if doneChan != nil {
-	// 		doneChan <- struct{}{}
-	// 	}
-	// 	return err
-	// }
+// 	if doneChan != nil {
+// 		doneChan <- struct{}{}
+// 	}
+// 	return err
+// }
 
-	// // Generate a merkle block by filtering the requested block according
-	// // to the filter for the peer.
-	// merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
+// // Generate a merkle block by filtering the requested block according
+// // to the filter for the peer.
+// merkle, matchedTxIndices := bloom.NewMerkleBlock(blk, sp.filter)
 
-	// // Once we have fetched data wait for any previous operation to finish.
-	// if waitChan != nil {
-	// 	<-waitChan
-	// }
+// // Once we have fetched data wait for any previous operation to finish.
+// if waitChan != nil {
+// 	<-waitChan
+// }
 
-	// // Send the merkleblock.  Only send the done channel with this message
-	// // if no transactions will be sent afterwards.
-	// var dc chan<- struct{}
-	// if len(matchedTxIndices) == 0 {
-	// 	dc = doneChan
-	// }
-	// sp.QueueMessage(merkle, dc)
+// // Send the merkleblock.  Only send the done channel with this message
+// // if no transactions will be sent afterwards.
+// var dc chan<- struct{}
+// if len(matchedTxIndices) == 0 {
+// 	dc = doneChan
+// }
+// sp.QueueMessage(merkle, dc)
 
-	// // Finally, send any matched transactions.
-	// blkTransactions := blk.Txs
-	// for i, txIndex := range matchedTxIndices {
-	// 	// Only send the done channel on the final transaction.
-	// 	var dc chan<- struct{}
-	// 	if i == len(matchedTxIndices)-1 {
-	// 		dc = doneChan
-	// 	}
-	// 	if txIndex < uint32(len(blkTransactions)) {
-	// 		sp.QueueMessageWithEncoding(blkTransactions[txIndex], dc,
-	// 			encoding)
-	// 	}
-	// }
+// // Finally, send any matched transactions.
+// blkTransactions := blk.Txs
+// for i, txIndex := range matchedTxIndices {
+// 	// Only send the done channel on the final transaction.
+// 	var dc chan<- struct{}
+// 	if i == len(matchedTxIndices)-1 {
+// 		dc = doneChan
+// 	}
+// 	if txIndex < uint32(len(blkTransactions)) {
+// 		sp.QueueMessageWithEncoding(blkTransactions[txIndex], dc,
+// 			encoding)
+// 	}
+// }
 
-	// return nil
-}
+// return nil
+//}
 
 // handleUpdatePeerHeight updates the heights of all peers who were known to
 // announce a block we recently accepted.
@@ -1340,11 +1341,9 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 				return
 			}
 
-			txD, ok := msg.data.(*mempool.TxEntry)
-			if !ok {
-				log.Warn("Underlying data for tx inv "+
-					"relay is not a *mempool.TxDesc: %T",
-					msg.data)
+			txD := lmempool.FindTxInMempool(msg.invVect.Hash)
+			if txD == nil {
+				log.Warn("not found TxEntry for tx(%v) while relaying", txD)
 				return
 			}
 
@@ -2101,11 +2100,10 @@ out:
 	} else {
 		log.Debug("successfully disestablished UPnP port mapping")
 	}
-
 	s.wg.Done()
 }
 
-func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Server, error) {
+func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
 
@@ -2145,7 +2143,7 @@ func NewServer(chainParams *model.BitcoinParams, interrupt <-chan struct{}) (*Se
 		peerHeightsUpdate:    make(chan updatePeerHeightsMsg),
 		services:             services,
 		nat:                  nat,
-		timeSource:           bitcointime.NewMedianTime(),
+		timeSource:           ts,
 		MsgChan:              msgChan,
 	}
 
@@ -2242,6 +2240,9 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 		if err != nil {
 			log.Error("Can not parse default port %s for active chain: %v",
 				model.ActiveNetParams.DefaultPort, err)
+			for _, listener := range listeners {
+				listener.Close()
+			}
 			return nil, nil, err
 		}
 

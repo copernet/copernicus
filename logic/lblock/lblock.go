@@ -2,6 +2,7 @@ package lblock
 
 import (
 	"errors"
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
@@ -95,7 +96,7 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 		hashMerkleRoot2 := lmerkleroot.BlockMerkleRoot(pblock.Txs, &mutated)
 		if !bh.MerkleRoot.IsEqual(&hashMerkleRoot2) {
 			log.Debug("ErrorBadTxMrklRoot")
-			return errcode.New(errcode.ErrorBadTxnMrklRoot)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txnmrklroot")
 		}
 	}
 
@@ -104,31 +105,38 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 	// root of a lblock, while still invalidating it.
 	if mutated {
 		log.Debug("ErrorbadTxnsDuplicate")
-		return errcode.New(errcode.ErrorbadTxnsDuplicate)
+		return errcode.NewError(errcode.RejectInvalid, "bad-txns-duplicate")
+	}
+
+	// First transaction must be coinbase
+	if len(pblock.Txs) == 0 {
+		return errcode.NewError(errcode.RejectInvalid, "bad-cb-missing")
 	}
 
 	// size limits
-	nMaxBlockSize := consensus.DefaultMaxBlockSize
+	nMaxBlockSize := conf.Cfg.Excessiveblocksize
 	// Bail early if there is no way this lblock is of reasonable size.
 	minTransactionSize := tx.NewEmptyTx().EncodeSize()
-	if len(pblock.Txs)*int(minTransactionSize) > nMaxBlockSize {
+	if uint64(len(pblock.Txs)*int(minTransactionSize)) > nMaxBlockSize {
 		log.Debug("ErrorBadBlkLength")
-		return errcode.New(errcode.ErrorBadBlkLength)
+		return errcode.NewError(errcode.RejectInvalid, "bad-blk-length")
 	}
+
 	currentBlockSize := pblock.EncodeSize()
-	if currentBlockSize > nMaxBlockSize {
+	if uint64(currentBlockSize) > nMaxBlockSize {
 		log.Debug("ErrorBadBlkTxSize")
-		return errcode.New(errcode.ErrorBadBlkTxSize)
+		return errcode.NewError(errcode.RejectInvalid, "bad-blk-length")
 	}
 
 	nMaxBlockSigOps, errSig := consensus.GetMaxBlockSigOpsCount(uint64(currentBlockSize))
 	if errSig != nil {
 		return errSig
 	}
+
 	err := ltx.CheckBlockTransactions(pblock.Txs, nMaxBlockSigOps)
 	if err != nil {
 		log.Debug("ErrorBadBlkTx: %v", err)
-		return errcode.New(errcode.ErrorBadBlkTx)
+		return err
 	}
 	pblock.Checked = true
 
@@ -136,16 +144,17 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 }
 
 func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
-
 	bMonolithEnable := false
 	if indexPrev != nil && model.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
 		bMonolithEnable = true
 	}
+
 	if !bMonolithEnable {
 		if b.EncodeSize() > 8*consensus.OneMegaByte {
-			return errcode.New(errcode.ErrorBlockSize)
+			return errcode.NewError(errcode.RejectInvalid, "bad-blk-length")
 		}
 	}
+
 	var height int32
 	if indexPrev != nil {
 		height = indexPrev.Height + 1
@@ -295,13 +304,13 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 			log.Debug("AcceptBlockHeader Invalid Pre index")
 			return nil, errcode.ProjectError{Code: 3100}
 		}
-		if !lblockindex.CheckIndexAgainstCheckpoint(bIndex.Prev) {
+		if err := lblockindex.CheckIndexAgainstCheckpoint(bIndex.Prev); err != nil {
 			log.Debug("AcceptBlockHeader err:%d", 3100)
 			return nil, errcode.ProjectError{Code: 3100}
 		}
-		if !ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()) {
+		if err = ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()); err != nil {
 			log.Debug("AcceptBlockHeader err:%d", 3101)
-			return nil, errcode.ProjectError{Code: 3101}
+			return nil, err
 		}
 	}
 

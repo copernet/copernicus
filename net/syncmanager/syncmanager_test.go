@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"io"
 	"io/ioutil"
 	"net"
@@ -716,6 +717,7 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	inpeer := peer.NewInboundPeer(peer1Cfg)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
+	sm.syncPeer = inpeer
 	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
@@ -907,7 +909,7 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 		buf:   make([]byte, 10),
 		peer:  inpeer,
 	}
-	sm.requestBlkInvCnt = 1
+	sm.allowdGetBlocksTimes = 1
 	sm.headersFirstMode = true
 	sm.handleBlockMsg(bmsg1)
 
@@ -1013,7 +1015,8 @@ func generateBlocks(t *testing.T, generate int, maxTries uint64, verify bool) ([
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params)
+		ts := bitcointime.NewMedianTime()
+		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, errors.New("Could not create new block")

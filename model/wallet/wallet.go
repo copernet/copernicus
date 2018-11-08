@@ -10,30 +10,32 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/txin"
+	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 )
 
 type Wallet struct {
-	enable      bool
-	broadcastTx bool
-
+	enable       bool
+	broadcastTx  bool
 	reservedKeys []*crypto.PublicKey
+	txnLock      *sync.RWMutex
+	walletTxns   map[util.Hash]*WalletTx
+	lockedCoins  map[outpoint.OutPoint]struct{}
+	payTxFee     *util.FeeRate
+	wdb          WalletDB
 
-	txnLock     *sync.RWMutex
-	walletTxns  map[util.Hash]*WalletTx
-	lockedCoins map[outpoint.OutPoint]struct{}
-	payTxFee    *util.FeeRate
-
-	crypto.KeyStore
-	ScriptStore
-	AddressBook
-	WalletDB
+	*crypto.KeyStore
+	*ScriptStore
+	*AddressBook
 }
 
 var globalWallet *Wallet
@@ -69,19 +71,24 @@ func InitWallet() {
 		return
 	}
 
+	chain.GetInstance().Subscribe(walletInstance.handleBlockChainNotification)
+
 	globalWallet = walletInstance
 }
 
 func GetInstance() *Wallet {
+	if globalWallet == nil {
+		globalWallet = &Wallet{enable: false}
+	}
 	return globalWallet
 }
 
 func (w *Wallet) Init() error {
-	w.KeyStore.Init()
-	w.ScriptStore.Init()
-	w.AddressBook.Init()
+	w.KeyStore = crypto.NewKeyStore()
+	w.ScriptStore = NewScriptStore()
+	w.AddressBook = NewAddressBook()
 
-	w.initDB()
+	w.wdb.initDB()
 	if err := w.loadFromDB(); err != nil {
 		log.Error("Load wallet fail. error:" + err.Error())
 		return err
@@ -94,13 +101,13 @@ func (w *Wallet) IsEnable() bool {
 }
 
 func (w *Wallet) loadFromDB() error {
-	secrets := w.loadSecrets()
+	secrets := w.wdb.loadSecrets()
 	for _, secret := range secrets {
 		privateKey := crypto.NewPrivateKeyFromBytes(secret, true)
 		w.KeyStore.AddKey(privateKey)
 	}
 
-	scripts, err := w.loadScripts()
+	scripts, err := w.wdb.loadScripts()
 	if err != nil {
 		return err
 	}
@@ -108,7 +115,7 @@ func (w *Wallet) loadFromDB() error {
 		w.ScriptStore.AddScript(sc)
 	}
 
-	addressBook, err := w.loadAddressBook()
+	addressBook, err := w.wdb.loadAddressBook()
 	if err != nil {
 		return err
 	}
@@ -117,7 +124,7 @@ func (w *Wallet) loadFromDB() error {
 		w.AddressBook.SetAddressBook([]byte(key), addressBookData)
 	}
 
-	transactions, err := w.loadTransactions()
+	transactions, err := w.wdb.loadTransactions()
 	if err != nil {
 		return err
 	}
@@ -134,7 +141,7 @@ func (w *Wallet) GenerateNewKey() (*crypto.PublicKey, error) {
 	io.ReadFull(rand.Reader, secret)
 	privateKey := crypto.NewPrivateKeyFromBytes(secret, true)
 	w.AddKey(privateKey)
-	err := w.saveSecret(secret)
+	err := w.wdb.saveSecret(secret)
 	if err != nil {
 		log.Error("GenerateNewKey save to db fail. error:%s", err.Error())
 		return nil, err
@@ -155,7 +162,7 @@ func (w *Wallet) GetReservedKey() (*crypto.PublicKey, error) {
 
 func (w *Wallet) AddScript(s *script.Script) error {
 	w.ScriptStore.AddScript(s)
-	err := w.saveScript(s)
+	err := w.wdb.saveScript(s)
 	if err != nil {
 		log.Error("AddScript save to db fail. error:%s", err.Error())
 		return err
@@ -166,7 +173,7 @@ func (w *Wallet) AddScript(s *script.Script) error {
 func (w *Wallet) SetAddressBook(keyHash []byte, account string, purpose string) error {
 	addressBookData := NewAddressBookData(account, purpose)
 	w.AddressBook.SetAddressBook(keyHash, addressBookData)
-	err := w.saveAddressBook(keyHash, addressBookData)
+	err := w.wdb.saveAddressBook(keyHash, addressBookData)
 	if err != nil {
 		log.Error("SetAddressBook save to db fail. error:%s", err.Error())
 		return err
@@ -174,24 +181,53 @@ func (w *Wallet) SetAddressBook(keyHash []byte, account string, purpose string) 
 	return nil
 }
 
-func (w *Wallet) AddToWallet(txn *tx.Tx, extInfo map[string]string) error {
+func (w *Wallet) AddToWallet(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string) error {
 	txHash := txn.GetHash()
 	log.Info("AddToWallet tx:%s", txHash.String())
 
-	if extInfo == nil {
-		extInfo = make(map[string]string)
-	}
-	walletTx := NewWalletTx(txn, extInfo, true, "")
+	walletTx := NewWalletTx(txn, blockhash, extInfo, true, "")
 
 	w.txnLock.Lock()
 	defer w.txnLock.Unlock()
-	if _, ok := w.walletTxns[txHash]; !ok {
-		w.walletTxns[txHash] = walletTx
-	}
+	w.walletTxns[txHash] = walletTx
 
-	err := w.saveWalletTx(&txHash, walletTx)
+	err := w.wdb.saveWalletTx(walletTx)
 	if err != nil {
 		log.Error("AddToWallet save to db fail. error:%s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (w *Wallet) addTxnsToWallet(txns []*tx.Tx, blockhash util.Hash) {
+	w.txnLock.Lock()
+	defer w.txnLock.Unlock()
+
+	for _, txn := range txns {
+		txHash := txn.GetHash()
+		log.Info("AddTxnsToWallet tx:%s, hash:%v", txHash.String(), blockhash.String())
+
+		walletTx := NewWalletTx(txn, blockhash, nil, true, "")
+		w.walletTxns[txHash] = walletTx
+		err := w.wdb.saveWalletTx(walletTx)
+		if err != nil {
+			log.Error("AddTxnsToWallet save to db fail. tx:%s, error:%s", txHash.String(), err.Error())
+			continue
+		}
+	}
+}
+
+func (w *Wallet) RemoveFromWallet(txn *tx.Tx) error {
+	txHash := txn.GetHash()
+	log.Info("RemoveFromWallet tx:%s", txHash.String())
+
+	w.txnLock.Lock()
+	defer w.txnLock.Unlock()
+	delete(w.walletTxns, txHash)
+
+	err := w.wdb.removeWalletTx(&txHash)
+	if err != nil {
+		log.Error("AddToWallet remove from db fail. error:%s", err.Error())
 		return err
 	}
 	return nil
@@ -209,7 +245,19 @@ func (w *Wallet) GetWalletTxns() []*WalletTx {
 	return walletTxns
 }
 
-func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
+func (w *Wallet) GetWalletTx(txhash util.Hash) *WalletTx {
+
+	w.txnLock.RLock()
+	defer w.txnLock.RUnlock()
+	if tx, ok := w.walletTxns[txhash]; ok {
+		return tx
+	}
+
+	return nil
+}
+
+// isTrusted is non-thread safe (without lock)
+func (w *Wallet) isTrustedTx(walletTx *WalletTx) bool {
 	// Quick answer in most cases
 	if !walletTx.CheckFinalForForCurrentBlock() {
 		return false
@@ -226,11 +274,8 @@ func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
 		return false
 	}
 
-	w.txnLock.RLock()
-	defer w.txnLock.RUnlock()
-
 	// Trusted if all inputs are from us and are in the mempool:
-	for _, txIn := range walletTx.Tx.GetIns() {
+	for _, txIn := range walletTx.GetIns() {
 		// Transactions not sent by us: not trusted
 		prevTxn, ok := w.walletTxns[txIn.PreviousOutPoint.Hash]
 		if !ok {
@@ -245,6 +290,13 @@ func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
 	return true
 }
 
+func (w *Wallet) IsTrusted(walletTx *WalletTx) bool {
+	w.txnLock.RLock()
+	defer w.txnLock.RUnlock()
+
+	return w.isTrustedTx(walletTx)
+}
+
 func (w *Wallet) GetBalance() amount.Amount {
 	balance := amount.Amount(0)
 
@@ -252,7 +304,7 @@ func (w *Wallet) GetBalance() amount.Amount {
 	defer w.txnLock.RUnlock()
 
 	for _, walletTx := range w.walletTxns {
-		if w.IsTrusted(walletTx) {
+		if w.isTrustedTx(walletTx) {
 			balance += walletTx.GetAvailableCredit(true)
 		}
 	}
@@ -355,4 +407,143 @@ func IsUnlockable(scriptPubKey *script.Script) bool {
 		return true
 	}
 	return false
+}
+
+func (w *Wallet) GetDebitTx(walletTx *WalletTx, filter uint8) amount.Amount {
+	var debit amount.Amount
+	for _, in := range walletTx.GetIns() {
+		debit += w.GetDebitIn(in, filter)
+		if !amount.MoneyRange(debit) {
+			log.Error("Wallet debit value out of range")
+			return 0
+		}
+	}
+
+	return debit
+}
+
+func (w *Wallet) GetCreditTx(walletTx *WalletTx, filter uint8) amount.Amount {
+	var credit amount.Amount
+	for _, out := range walletTx.GetOuts() {
+		credit += w.GetCreditOut(out, filter)
+		if !amount.MoneyRange(credit) {
+			log.Error("Wallet credit value out of range")
+			return 0
+		}
+	}
+
+	return credit
+}
+
+func (w *Wallet) GetDebitIn(in *txin.TxIn, filter uint8) amount.Amount {
+	w.txnLock.RLock()
+	defer w.txnLock.RUnlock()
+
+	prev, ok := w.walletTxns[in.PreviousOutPoint.Hash]
+	if !ok {
+		return 0
+	}
+
+	if int(in.PreviousOutPoint.Index) < prev.GetOutsCount() {
+		prevTxOut := prev.GetTxOut(int(in.PreviousOutPoint.Index))
+		if w.IsMine(prevTxOut)&filter != 0 {
+			return prevTxOut.GetValue()
+		}
+	}
+
+	return 0
+}
+
+func (w *Wallet) GetCreditOut(out *txout.TxOut, filter uint8) amount.Amount {
+	if !amount.MoneyRange(out.GetValue()) {
+		log.Error("Wallet getCreditOut value out of range")
+		return 0
+	}
+	var value amount.Amount
+	if (w.IsMine(out) & filter) != 0 {
+		value = out.GetValue()
+	}
+	return value
+}
+
+func (w *Wallet) IsMine(out *txout.TxOut) uint8 {
+	//TODO wallet add ISMINE_WATCH_ONLY
+	if IsUnlockable(out.GetScriptPubKey()) {
+		return ISMINE_SPENDABLE
+	}
+
+	return ISMINE_NO
+}
+
+func (w *Wallet) getRelatedTxns(txns []*tx.Tx) []*tx.Tx {
+	relatedTxns := make([]*tx.Tx, 0)
+
+	w.txnLock.RLock()
+	defer w.txnLock.RUnlock()
+
+	for _, tx := range txns {
+		hasAdded := false
+		for _, in := range tx.GetIns() {
+			prev := in.PreviousOutPoint
+			if prevTx, ok := w.walletTxns[prev.Hash]; ok {
+				if w.IsMine(prevTx.GetTxOut(int(prev.Index))) != ISMINE_NO {
+					relatedTxns = append(relatedTxns, tx)
+					hasAdded = true
+					continue
+				}
+			}
+		}
+		if hasAdded {
+			continue
+		}
+		for _, out := range tx.GetOuts() {
+			if w.IsMine(out) != ISMINE_NO {
+				relatedTxns = append(relatedTxns, tx)
+				continue
+			}
+		}
+	}
+	return relatedTxns
+}
+
+func (w *Wallet) handleBlockChainNotification(notification *chain.Notification) {
+	switch notification.Type {
+
+	case chain.NTChainTipUpdated:
+
+	case chain.NTBlockAccepted:
+
+	case chain.NTBlockConnected:
+		block, ok := notification.Data.(*block.Block)
+		if !ok {
+			log.Warn("Chain connected notification is not a block.")
+			break
+		}
+		blockHash := block.GetHash()
+		log.Info("wallet process block connect event. block:%s", blockHash.String())
+
+		relatedTxns := w.getRelatedTxns(block.Txs)
+		if len(relatedTxns) > 0 {
+			w.addTxnsToWallet(relatedTxns, blockHash)
+		}
+
+	case chain.NTBlockDisconnected:
+		block, ok := notification.Data.(*block.Block)
+		if !ok {
+			log.Warn("Chain disconnected notification is not a block.")
+			break
+		}
+		blockHash := block.GetHash()
+		log.Info("wallet process block disconnect event. block:%s", blockHash.String())
+
+		w.txnLock.RLock()
+		defer w.txnLock.RUnlock()
+		for _, tx := range block.Txs {
+			if wtx, ok := w.walletTxns[tx.GetHash()]; ok {
+				wtx.blockHeight = 0
+				wtx.blockHash = util.HashZero
+				w.wdb.saveWalletTx(wtx)
+			}
+		}
+	}
 }

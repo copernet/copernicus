@@ -452,7 +452,6 @@ type Peer struct {
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
 	verAckReceived       bool
-	witnessEnabled       bool
 
 	wireEncoding wire.MessageEncoding
 
@@ -821,6 +820,13 @@ func (p *Peer) WantsHeaders() bool {
 	return sendHeadersPreferred
 }
 
+// SetPreferHeaders set the flag that this peer prefer headers instead of inv
+func (p *Peer) SetPreferHeaders() {
+	p.flagsMtx.Lock()
+	p.sendHeadersPreferred = true
+	p.flagsMtx.Unlock()
+}
+
 // localVersionMsg creates a version message that can be used to send to the
 // remote peer.
 func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
@@ -888,7 +894,6 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 	//      actually supports
 	//    - Set the remote netaddress services to the what was advertised by
 	//      by the remote peer in its version message
-	msg.AddrYou.Services = wire.SFNodeNetwork
 
 	// Advertise the services flag
 	msg.Services = p.Cfg.Services
@@ -1030,6 +1035,12 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 	return nil
 }
 
+// PushSendHeadersMsg sends a sendheaders msg to indicate that i prefer headers instead of inv
+func (p *Peer) PushSendHeadersMsg() {
+	msg := wire.NewMsgSendHeaders()
+	p.QueueMessage(msg, nil)
+}
+
 // PushRejectMsg sends a reject message for the provided command, reject code,
 // reject reason, and hash.  The hash will only be used when the command is a tx
 // or block and should be nil in other cases.  The wait parameter will cause the
@@ -1119,19 +1130,8 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 
 	// Determine if the peer would like to receive witness data with
 	// transactions, or not.
-	if p.services&wire.SFNodeWitness == wire.SFNodeWitness {
-		p.witnessEnabled = true
-	}
-	p.flagsMtx.Unlock()
 
-	// Once the version message has been exchanged, we're able to determine
-	// if this peer knows how to encode witness data over the wire
-	// protocol. If so, then we'll switch to a decoding mode which is
-	// prepared for the new transaction format introduced as part of
-	// BIP0144.
-	if p.services&wire.SFNodeWitness == wire.SFNodeWitness {
-		p.wireEncoding = wire.WitnessEncoding
-	}
+	p.flagsMtx.Unlock()
 
 	return nil
 }
@@ -1192,7 +1192,7 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("read message: %v", newLogClosure(func() string {
+	log.Debug("read summary %v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1202,9 +1202,9 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 			msg.Command(), summary, p)
 	}))
 
-	// log.Trace("%v", newLogClosure(func() string {
-	// 	return spew.Sdump(buf)
-	// }))
+	log.Trace("read message from (%s):\n %v", p.Addr(), newLogClosure(func() string {
+		return spew.Sdump(msg)
+	}))
 
 	return msg, buf, nil
 }
@@ -1218,7 +1218,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("%v", newLogClosure(func() string {
+	log.Debug("write summary %v", newLogClosure(func() string {
 		// Debug summary of message.
 		summary := messageSummary(msg)
 		if len(summary) > 0 {
@@ -1227,7 +1227,7 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
 			summary, p)
 	}))
-	log.Trace("write message to (%s) : %v", p.Addr(), newLogClosure(func() string {
+	log.Trace("write message to (%s):\n %v", p.Addr(), newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
 	//log.Trace("%v", newLogClosure(func() string {
@@ -1320,9 +1320,9 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msg wire.
 		// Expects an inv message.
 		pendingResponses[wire.CmdInv] = deadline
 
-	case wire.CmdGetBlocks:
-		// Expects an inv message.
-		pendingResponses[wire.CmdInv] = deadline
+	// case wire.CmdGetBlocks:
+	// 	// Expects an inv message.
+	// 	pendingResponses[wire.CmdInv] = deadline
 
 	case wire.CmdGetData:
 		// Expects a block, merkleblock, tx, or notfound message.
@@ -1990,10 +1990,7 @@ func (p *Peer) readRemoteVersionMsg() error {
 	if !ok {
 		errStr := "A version message must precede all others"
 		log.Error(errStr)
-
-		rejectMsg := wire.NewMsgReject(msg.Command(), errcode.RejectMalformed,
-			errStr)
-		return p.writeMessage(rejectMsg, wire.LatestEncoding)
+		return errors.New(errStr)
 	}
 
 	if err := p.handleRemoteVersionMsg(remoteVerMsg); err != nil {

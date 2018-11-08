@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/copernet/copernicus/conf"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -41,6 +43,11 @@ func getBlockOne() {
 
 func init() {
 	getBlockOne()
+}
+
+func TestMain(m *testing.M) {
+	conf.Cfg = conf.InitConfig([]string{})
+	os.Exit(m.Run())
 }
 
 // TestMessage tests the Read/WriteMessage and Read/WriteMessageN API.

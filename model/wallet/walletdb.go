@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"bytes"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/persist/db"
@@ -10,7 +9,7 @@ import (
 )
 
 type WalletDB struct {
-	dbw *db.DBWrapper
+	*db.DBWrapper
 }
 
 func (wdb *WalletDB) initDB() {
@@ -21,13 +20,13 @@ func (wdb *WalletDB) initDB() {
 	}
 
 	var err error
-	if wdb.dbw, err = db.NewDBWrapper(walletDbCfg); err != nil {
+	if wdb.DBWrapper, err = db.NewDBWrapper(walletDbCfg); err != nil {
 		panic("init wallet DB failed..." + err.Error())
 	}
 }
 
 func (wdb *WalletDB) loadSecrets() [][]byte {
-	itr := wdb.dbw.Iterator(nil)
+	itr := wdb.Iterator(nil)
 	defer itr.Close()
 	itr.Seek([]byte{db.DbWalletKey})
 
@@ -39,7 +38,7 @@ func (wdb *WalletDB) loadSecrets() [][]byte {
 }
 
 func (wdb *WalletDB) loadScripts() ([]*script.Script, error) {
-	itr := wdb.dbw.Iterator(nil)
+	itr := wdb.Iterator(nil)
 	defer itr.Close()
 	itr.Seek([]byte{db.DbWalletScript})
 
@@ -55,7 +54,7 @@ func (wdb *WalletDB) loadScripts() ([]*script.Script, error) {
 }
 
 func (wdb *WalletDB) loadAddressBook() (map[string]*AddressBookData, error) {
-	itr := wdb.dbw.Iterator(nil)
+	itr := wdb.Iterator(nil)
 	defer itr.Close()
 	itr.Seek([]byte{db.DbWalletAddrBook})
 
@@ -71,7 +70,7 @@ func (wdb *WalletDB) loadAddressBook() (map[string]*AddressBookData, error) {
 }
 
 func (wdb *WalletDB) loadTransactions() ([]*WalletTx, error) {
-	itr := wdb.dbw.Iterator(nil)
+	itr := wdb.Iterator(nil)
 	defer itr.Close()
 	itr.Seek([]byte{db.DbWalletTx})
 
@@ -81,16 +80,15 @@ func (wdb *WalletDB) loadTransactions() ([]*WalletTx, error) {
 		if err := walletTx.Unserialize(bytes.NewBuffer(itr.GetVal())); err != nil {
 			return nil, err
 		}
+		walletTx.spentStatus = make([]bool, walletTx.GetOutsCount())
 		txns = append(txns, walletTx)
 	}
 	return txns, nil
 }
 
-func (wdb *WalletDB) saveSecret(secrets []byte) error {
-	key := make([]byte, 0, len(secrets)+1)
-	key = append(key, db.DbWalletKey)
-	key = append(key, secrets...)
-	return wdb.dbw.Write(key, []byte{}, true)
+func (wdb *WalletDB) saveSecret(secret []byte) error {
+	key := getDBKey(db.DbWalletKey, secret)
+	return wdb.Write(key, []byte{}, true)
 }
 
 func (wdb *WalletDB) saveScript(sc *script.Script) error {
@@ -100,10 +98,8 @@ func (wdb *WalletDB) saveScript(sc *script.Script) error {
 		return err
 	}
 
-	key := make([]byte, 0, sc.SerializeSize()+1)
-	key = append(key, db.DbWalletScript)
-	key = append(key, w.Bytes()...)
-	return wdb.dbw.Write(key, []byte{}, true)
+	key := getDBKey(db.DbWalletScript, w.Bytes())
+	return wdb.Write(key, []byte{}, true)
 }
 
 func (wdb *WalletDB) saveAddressBook(keyHash []byte, data *AddressBookData) error {
@@ -113,22 +109,30 @@ func (wdb *WalletDB) saveAddressBook(keyHash []byte, data *AddressBookData) erro
 		return err
 	}
 
-	key := make([]byte, 0, len(keyHash)+1)
-	key = append(key, db.DbWalletAddrBook)
-	key = append(key, keyHash...)
-	return wdb.dbw.Write(key, w.Bytes(), true)
+	key := getDBKey(db.DbWalletAddrBook, keyHash)
+	return wdb.Write(key, w.Bytes(), true)
 }
 
-func (wdb *WalletDB) saveWalletTx(TxHash *util.Hash, wtx *WalletTx) error {
+func (wdb *WalletDB) saveWalletTx(wtx *WalletTx) error {
 	w := new(bytes.Buffer)
 	err := wtx.Serialize(w)
 	if err != nil {
 		return err
 	}
 
-	hashBytes := TxHash[:]
-	key := make([]byte, 0, len(hashBytes)+1)
-	key = append(key, db.DbWalletTx)
-	key = append(key, hashBytes...)
-	return wdb.dbw.Write(key, w.Bytes(), true)
+	txHash := wtx.GetHash()
+	key := getDBKey(db.DbWalletTx, txHash[:])
+	return wdb.Write(key, w.Bytes(), true)
+}
+
+func (wdb *WalletDB) removeWalletTx(txHash *util.Hash) error {
+	key := getDBKey(db.DbWalletTx, txHash[:])
+	return wdb.Erase(key, true)
+}
+
+func getDBKey(dbID byte, orgKey []byte) []byte {
+	dbKey := make([]byte, 0, len(orgKey)+1)
+	dbKey = append(dbKey, dbID)
+	dbKey = append(dbKey, orgKey...)
+	return dbKey
 }

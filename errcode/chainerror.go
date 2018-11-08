@@ -11,26 +11,26 @@ const (
 	ErrorPowCheckErr
 	ErrorBadTxnMrklRoot
 	ErrorbadTxnsDuplicate
-	ErrorBadCoinBaseMissing
 	ErrorBadBlkLength
 	ErrorBadBlkTxSize
 	ErrorBadBlkTx
 	ErrorBlockAlreadyExists
+	ErrorBlockNotStartWithCoinBase
 	ErrorNotExistsInChainMap // errorTest
 )
 
 var ChainErrString = map[ChainErr]string{
-	ErrorBlockHeaderNoValid:  "The block header is not valid",
-	ErrorBlockHeaderNoParent: "Can not find this block header's father",
-	ErrorBlockSize:           "ErrorBlockSize",
-	ErrorPowCheckErr:         "ErrorPowCheckErr",
-	ErrorBadTxnMrklRoot:      "ErrorBadTxnMrklRoot",
-	ErrorbadTxnsDuplicate:    "ErrorbadTxnsDuplicate",
-	ErrorBadCoinBaseMissing:  "ErrorBadCoinBaseMissing",
-	ErrorBadBlkLength:        "ErrorBadBlkLength",
-	ErrorBadBlkTxSize:        "ErrorBadBlkTxSize",
-	ErrorBadBlkTx:            "ErrorBadBlkTx",
-	ErrorBlockAlreadyExists:  "block already exists",
+	ErrorBlockHeaderNoValid:        "The block header is not valid",
+	ErrorBlockHeaderNoParent:       "Can not find this block header's father",
+	ErrorBlockSize:                 "ErrorBlockSize",
+	ErrorPowCheckErr:               "ErrorPowCheckErr",
+	ErrorBadTxnMrklRoot:            "ErrorBadTxnMrklRoot",
+	ErrorbadTxnsDuplicate:          "ErrorbadTxnsDuplicate",
+	ErrorBadBlkLength:              "ErrorBadBlkLength",
+	ErrorBadBlkTxSize:              "ErrorBadBlkTxSize",
+	ErrorBadBlkTx:                  "ErrorBadBlkTx",
+	ErrorBlockAlreadyExists:        "block already exists",
+	ErrorBlockNotStartWithCoinBase: "block does not start with a coinbase",
 }
 
 func (chainerr ChainErr) String() string {

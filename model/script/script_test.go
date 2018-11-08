@@ -348,11 +348,11 @@ func TestScript_IsStandardScriptPubKey_ScriptHash(t *testing.T) {
 	testScript.PushData(hexToBytes("e2b7f7d12a70737429066a449615270b6851d164"))
 	testScript.PushOpCode(OP_EQUAL)
 
-	pubKeyType, pubKeys, isStandart := testScript.IsStandardScriptPubKey()
+	pubKeyType, pubKeys, isStandard := testScript.IsStandardScriptPubKey()
 
 	assert.Equal(t, wantPubKeyType, pubKeyType)
 	assert.Equal(t, wantPubKeys, pubKeys)
-	assert.Equal(t, wantIsStandard, isStandart)
+	assert.Equal(t, wantIsStandard, isStandard)
 
 	var addresses []*Address
 	addr, err := AddressFromString("3NMo2DkQJsMhMzpVFawT3nTL1w3UXXumxu")

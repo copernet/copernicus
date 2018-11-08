@@ -1,0 +1,10 @@
+package wallet
+
+const (
+	ISMINE_NO               uint8 = 0
+	ISMINE_WATCH_UNSOLVABLE uint8 = 1
+	ISMINE_WATCH_SOLVABLE   uint8 = 2
+	ISMINE_WATCH_ONLY       uint8 = ISMINE_WATCH_SOLVABLE | ISMINE_WATCH_UNSOLVABLE
+	ISMINE_SPENDABLE        uint8 = 4
+	ISMINE_ALL              uint8 = ISMINE_WATCH_ONLY | ISMINE_SPENDABLE
+)

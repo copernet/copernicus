@@ -16,7 +16,7 @@ const (
 
 var txErrorToString = map[TxErr]string{
 	TxErrRejectCheckPoint:   "TxErrRejectCheckPoint",
-	TxErrNoPreviousOut:      "There is no previousout",
+	TxErrNoPreviousOut:      "Missing inputs",
 	ScriptCheckInputsBug:    "ScriptCheckInputsBug",
 	TxErrSignRawTransaction: "TxErrSignRawTransaction",
 	TxErrInvalidIndexOfIn:   "TxErrInvalidIndexOfIn",

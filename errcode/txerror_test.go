@@ -10,7 +10,7 @@ func TestTxErr_String(t *testing.T) {
 		want string
 	}{
 		{TxErrRejectCheckPoint, "TxErrRejectCheckPoint"},
-		{TxErrNoPreviousOut, "There is no previousout"},
+		{TxErrNoPreviousOut, "Missing inputs"},
 		{ScriptCheckInputsBug, "ScriptCheckInputsBug"},
 		{TxErrSignRawTransaction, "TxErrSignRawTransaction"},
 		{TxErrInvalidIndexOfIn, "TxErrInvalidIndexOfIn"},

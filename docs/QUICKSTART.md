@@ -46,7 +46,7 @@ gometalinter --install
 
 ## link missing config file
 ```
-cp conf/conf.yml ~/Library/Application\ Support/Coper/conf.yml
+cp conf/bitcoincash.yml ~/Library/Application\ Support/Coper/bitcoincash.yml
 ```
 
 ## run copernicus

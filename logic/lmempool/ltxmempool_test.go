@@ -2,6 +2,7 @@ package lmempool_test
 
 import (
 	"encoding/hex"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"sync"
 	"time"
 
@@ -167,8 +168,16 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*t
 	// Create standard coinbase script.
 	extraNonce := int64(0)
 	coinbaseScript := script.NewEmptyScript()
-	coinbaseScript.PushInt64(int64(blockHeight))
-	coinbaseScript.PushInt64(extraNonce)
+	err := coinbaseScript.PushInt64(int64(blockHeight))
+	if err != nil {
+		log.Error("push int64 error:%v", err)
+		return nil, err
+	}
+	err = coinbaseScript.PushInt64(extraNonce)
+	if err != nil {
+		log.Error("push int64 error:%v", err)
+		return nil, err
+	}
 
 	tx := tx.NewTx(0, tx.TxVersion)
 	tx.AddTxIn(txin.NewTxIn(
@@ -1059,8 +1068,16 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 
 func generateTestBlocks(t *testing.T) []*block.Block {
 	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
-	blocks, _ := generateBlocks(t, pubKey, 200, 1000000)
+	err := pubKey.PushOpCode(opcodes.OP_TRUE)
+	if err != nil {
+		t.Errorf("push int64 error:%v", err)
+		return nil
+	}
+	blocks, err := generateBlocks(t, pubKey, 200, 1000000)
+	if err != nil {
+		t.Errorf("generate blocks failed:%v", err)
+		return nil
+	}
 	assert.Equal(t, 200, len(blocks))
 	return blocks
 }
@@ -1074,7 +1091,8 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params)
+		ts := bitcointime.NewMedianTime()
+		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, btcjson.RPCError{
@@ -1120,4 +1138,32 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	}
 
 	return ret, nil
+}
+
+func TestRemoveForReorg(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+
+	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	if err != nil {
+		t.Fatalf("unable to create test pool: %v", err)
+	}
+
+	// Create a chain of transactions rooted with the first spendable
+	// output provided by the harness.
+	const txChainLength = 1
+	chainedTxns, err := harness.CreateTxChain(outputs[0], txChainLength)
+	if err != nil {
+		t.Fatalf("unable to create transaction chain: %v", err)
+	}
+	generateTestBlocks(t)
+
+	for _, tmpTx := range chainedTxns {
+		err := lmempool.AcceptTxToMemPool(tmpTx)
+		if err != nil {
+			t.Fatalf("ProcessTransaction: failed to accept "+
+				"tx(%s): %v", tmpTx.GetHash(), err)
+		}
+		lmempool.RemoveForReorg(200, 0)
+	}
 }

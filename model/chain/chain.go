@@ -180,7 +180,7 @@ func (c *Chain) IsCurrent() bool {
 	//}
 
 	// Not current if the latest best block has a timestamp before 24 hours ago.
-	minus24Hours := time.Now().Add(-24 * time.Hour).Unix()
+	minus24Hours := time.Unix(util.GetTime(), 0).Add(-24 * time.Hour).Unix()
 	tipTime := int64(c.Tip().GetBlockTime())
 
 	return tipTime >= minus24Hours
@@ -452,6 +452,21 @@ func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 		jWork := c.branch[j].ChainWork
 		return c.branch[i].ChainWork.Cmp(&jWork) == -1
 	})
+}
+
+func (c *Chain) ResetBlockFailureFlags(targetBI *blockindex.BlockIndex) {
+	for _, bi := range c.indexMap {
+		if bi.IsInvalid() && bi.GetAncestor(targetBI.Height) == targetBI {
+			bi.SubStatus(blockindex.BlockFailedParent)
+			persist.GetInstance().AddDirtyBlockIndex(bi)
+
+			if bi.IsValid(blockindex.BlockValidTransactions) && bi.ChainTxCount > 0 {
+				if !c.InBranch(bi) {
+					c.insertToBranch(bi)
+				}
+			}
+		}
+	}
 }
 
 func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {

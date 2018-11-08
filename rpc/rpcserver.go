@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/model/bitcointime"
+	"github.com/copernet/copernicus/util"
 	"io"
 	"io/ioutil"
 	"net"
@@ -66,6 +68,7 @@ type Server struct {
 	helpCacher             *helpCacher
 	requestProcessShutdown chan struct{}
 	quit                   chan int
+	timeSource             *bitcointime.MedianTime
 }
 
 func (s *Server) httpStatusLine(req *http.Request, code int) string {
@@ -604,14 +607,15 @@ func (a simpleAddr) Network() string {
 // Ensure simpleAddr implements the net.Addr interface.
 var _ net.Addr = simpleAddr{}
 
-func NewServer(config *ServerConfig) (*Server, error) {
+func NewServer(config *ServerConfig, ts *bitcointime.MedianTime) (*Server, error) {
 	rpc := Server{
 		cfg:         *config,
 		statusLines: make(map[int]string),
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}, 1),
-		quit: make(chan int),
+		quit:                   make(chan int),
+		timeSource:             ts,
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass
@@ -628,7 +632,7 @@ func NewServer(config *ServerConfig) (*Server, error) {
 	return &rpc, nil
 }
 
-func InitRPCServer() (*Server, error) {
+func InitRPCServer(timeSource *bitcointime.MedianTime) (*Server, error) {
 	if !conf.Cfg.P2PNet.DisableRPC {
 		registerAllRPCCommands()
 
@@ -643,9 +647,9 @@ func InitRPCServer() (*Server, error) {
 		}
 
 		rpcServer, err := NewServer(&ServerConfig{
-			Listeners: rpcListeners,
-			//StartupTime: s.startupTime,
-		})
+			Listeners:   rpcListeners,
+			StartupTime: util.GetTime(),
+		}, timeSource)
 		if err != nil {
 			return nil, err
 		}

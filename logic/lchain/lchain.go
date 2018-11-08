@@ -3,6 +3,7 @@ package lchain
 import (
 	"bytes"
 	"fmt"
+	"github.com/copernet/copernicus/model/versionbits"
 	"strings"
 	"time"
 
@@ -143,6 +144,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	bip34Enable := pindexBIP34height != nil && pindexBIP34height.GetBlockHash().IsEqual(&params.BIP34Hash)
 	bip30Enable = bip30Enable && !bip34Enable
 
+	lockTimeFlags := 0
+	if versionbits.VersionBitsState(pindex.Prev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+		lockTimeFlags |= consensus.LocktimeVerifySequence
+	}
+
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
 	log.Debug("Connect Block: %s, height: %d, flags: %d", pindex.GetBlockHash().String(), pindex.Height, flags)
 	blockSubSidy := model.GetBlockSubsidy(pindex.Height, params)
@@ -155,11 +161,13 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	if errSig != nil {
 		return errSig
 	}
+
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
-		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps)
+		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps, uint32(lockTimeFlags))
 	if err != nil {
 		return err
 	}
+
 	// Write undo information to disk
 	UndoPos := pindex.GetUndoPos()
 	if !fJustCheck {
@@ -199,10 +207,14 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 //InvalidBlockFound the found block is invalid
 func InvalidBlockFound(pindex *blockindex.BlockIndex) {
 	pindex.AddStatus(blockindex.BlockFailed)
-	gChain := chain.GetInstance()
-	gChain.RemoveFromBranch(pindex)
-	gPersist := persist.GetInstance()
-	gPersist.AddDirtyBlockIndex(pindex)
+	mchain.GetInstance().RemoveFromBranch(pindex)
+	persist.GetInstance().AddDirtyBlockIndex(pindex)
+}
+
+func InvalidBlockParentFound(pindex *blockindex.BlockIndex) {
+	pindex.AddStatus(blockindex.BlockFailedParent)
+	mchain.GetInstance().RemoveFromBranch(pindex)
+	persist.GetInstance().AddDirtyBlockIndex(pindex)
 }
 
 type connectTrace map[*blockindex.BlockIndex]*block.Block
@@ -313,6 +325,7 @@ func DisconnectTip(fBare bool) error {
 	if tip == nil {
 		panic("the chain tip element should not equal nil")
 	}
+	log.Warn("DisconnectTip block(%s)", tip.GetBlockHash())
 	// Read block from disk.
 	blk, ret := disk.ReadBlockFromDisk(tip, gChain.GetParams())
 	if !ret {
@@ -344,6 +357,12 @@ func DisconnectTip(fBare bool) error {
 	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0); err != nil {
 		return err
 	}
+
+	if tip.IsReplayProtectionJustEnabled() {
+		mempool.InitMempool()
+	}
+
+	UpdateTip(tip.Prev)
 
 	if !fBare {
 		// Resurrect mempool transactions from the disconnected block.
@@ -386,11 +405,6 @@ func DisconnectTip(fBare bool) error {
 	//}
 	// Update chainActive and related variables.
 
-	if tip.IsReplayProtectionJustEnabled() {
-		mempool.InitMempool()
-	}
-
-	UpdateTip(tip.Prev)
 	// Let wallets know transactions went from 1-confirmed to
 	// 0-confirmed or conflicted:
 

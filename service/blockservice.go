@@ -47,7 +47,12 @@ func ProcessBlock(b *block.Block) (bool, error) {
 		return isNewBlock, err
 	}
 
-	coinsTipHash, _ = coinsTip.GetBestBlock()
+	coinsTipHash, err = coinsTip.GetBestBlock()
+	if err != nil {
+		log.Error("get best block again error:%s", err.Error())
+		return false, err
+	}
+
 	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
 		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
 

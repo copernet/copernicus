@@ -1,7 +1,14 @@
 package mempool
 
 import (
+	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"math"
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/copernet/copernicus/model/opcodes"
@@ -14,10 +21,65 @@ import (
 	"github.com/copernet/copernicus/util/amount"
 
 	"github.com/copernet/copernicus/conf"
-	"github.com/google/btree"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
 	"github.com/stretchr/testify/assert"
-	"reflect"
 )
+
+func init() {
+	crypto.InitSecp256()
+	cleanup := initTestEnv()
+	defer cleanup()
+}
+
+func initTestEnv() func() {
+	conf.Cfg = conf.InitConfig([]string{})
+
+	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
+	if err != nil {
+		panic("init test env failed:" + err.Error())
+	}
+
+	model.SetRegTestParams()
+
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
+	chain.InitGlobalChain()
+
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+
+	persist.InitPersistGlobal()
+	InitMempool()
+	crypto.InitSecp256()
+
+	//default testing parameters
+	model.ActiveNetParams.RequireStandard = false
+
+	cleanup := func() {
+		os.RemoveAll(unitTestDataDirPath)
+		log.Debug("cleanup test dir: %s", unitTestDataDirPath)
+		gChain := chain.GetInstance()
+		*gChain = *chain.NewChain()
+	}
+
+	return cleanup
+}
 
 func TestMempoolRemove(t *testing.T) {
 	scriptSig := script.NewEmptyScript()
@@ -99,7 +161,10 @@ func TestMempoolRemove(t *testing.T) {
 	// Just the parent
 	ancestors, _ := mp.CalculateMemPoolAncestors(txParent, noLimit, noLimit, noLimit, noLimit, true)
 	entryParent := testEntryHelp.FromTxToEntry(txParent)
-	mp.AddTx(entryParent, ancestors)
+	err := mp.AddTx(entryParent, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	ps = mp.Size()
 	mp.RemoveTxRecursive(txParent, UNKNOWN)
 	if mp.Size() != ps-1 {
@@ -107,7 +172,10 @@ func TestMempoolRemove(t *testing.T) {
 	}
 
 	// Parent, children, grandchildren
-	mp.AddTx(entryParent, ancestors)
+	err = mp.AddTx(entryParent, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	for i := 0; i < 3; i++ {
 		ancestors, _ := mp.CalculateMemPoolAncestors(txChild[i], noLimit, noLimit, noLimit, noLimit, true)
 		entry := testEntryHelp.FromTxToEntry(txChild[i])
@@ -121,8 +189,8 @@ func TestMempoolRemove(t *testing.T) {
 
 	txentry := mp.GetAllTxEntry()
 	noLockTxEntry := mp.GetAllTxEntryWithoutLock()
-	if len(txentry) != 7 || len(noLockTxEntry) != 7 {
-		t.Errorf("tx entry map expected 7 got %d", len(txentry))
+	if len(txentry) != len(noLockTxEntry) {
+		t.Errorf("txentry len is:%d, noLockTxEntry len is: %d", len(noLockTxEntry), len(txentry))
 	}
 
 	mp.RemoveTxRecursive(txChild[0], UNKNOWN)
@@ -172,10 +240,19 @@ func TestMempoolRemove(t *testing.T) {
 
 func TestMempoolOrphan(t *testing.T) {
 	scriptSig := script.NewEmptyScript()
-	scriptSig.PushOpCode(opcodes.OP_11)
+	err := scriptSig.PushOpCode(opcodes.OP_11)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
 	scriptPubkey := script.NewEmptyScript()
-	scriptPubkey.PushOpCode(opcodes.OP_11)
-	scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+	err = scriptPubkey.PushOpCode(opcodes.OP_11)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
+	err = scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
 
 	txParent := tx.NewTx(0, 0)
 	ti := txin.NewTxIn(
@@ -210,10 +287,19 @@ func TestMempoolOrphan(t *testing.T) {
 
 func TestMempoolAncestorIndexing(t *testing.T) {
 	scriptSig := script.NewEmptyScript()
-	scriptSig.PushOpCode(opcodes.OP_11)
+	err := scriptSig.PushOpCode(opcodes.OP_11)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	scriptPubkey := script.NewEmptyScript()
-	scriptPubkey.PushOpCode(opcodes.OP_11)
-	scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+	err = scriptPubkey.PushOpCode(opcodes.OP_11)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = scriptPubkey.PushOpCode(opcodes.OP_EQUAL)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	noLimit := uint64(math.MaxUint64)
 	testEntryHelp := NewTestMemPoolEntry()
@@ -225,9 +311,15 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		amount.Amount(10*util.COIN),
 		scriptPubkey,
 	))
-	ancestors, _ := mp.CalculateMemPoolAncestors(tx1, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err := mp.CalculateMemPoolAncestors(tx1, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	entry1 := testEntryHelp.SetFee(10000).FromTxToEntry(tx1)
-	mp.AddTx(entry1, ancestors)
+	err = mp.AddTx(entry1, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	/* highest fee */
 	tx2 := tx.NewTx(0, 0)
@@ -236,9 +328,15 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		scriptPubkey,
 	))
 	tx2Size := tx2.EncodeSize()
-	ancestors, _ = mp.CalculateMemPoolAncestors(tx2, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err = mp.CalculateMemPoolAncestors(tx2, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	entry2 := testEntryHelp.SetFee(20000).FromTxToEntry(tx2)
-	mp.AddTx(entry2, ancestors)
+	err = mp.AddTx(entry2, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	/* lowest fee */
 	tx3 := tx.NewTx(0, 0)
@@ -246,9 +344,15 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		amount.Amount(5*util.COIN),
 		scriptPubkey,
 	))
-	ancestors, _ = mp.CalculateMemPoolAncestors(tx3, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err = mp.CalculateMemPoolAncestors(tx3, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	entry3 := testEntryHelp.SetFee(0).FromTxToEntry(tx3)
-	mp.AddTx(entry3, ancestors)
+	err = mp.AddTx(entry3, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	/*  2nd highest fee */
 	tx4 := tx.NewTx(0, 0)
@@ -256,9 +360,15 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		amount.Amount(7*util.COIN),
 		scriptPubkey,
 	))
-	ancestors, _ = mp.CalculateMemPoolAncestors(tx4, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err = mp.CalculateMemPoolAncestors(tx4, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	entry4 := testEntryHelp.SetFee(15000).FromTxToEntry(tx4)
-	mp.AddTx(entry4, ancestors)
+	err = mp.AddTx(entry4, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	/* equal fee rate to tx1, but newer */
 	tx5 := tx.NewTx(0, 0)
@@ -266,9 +376,15 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		amount.Amount(11*util.COIN),
 		scriptPubkey,
 	))
-	ancestors, _ = mp.CalculateMemPoolAncestors(tx5, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err = mp.CalculateMemPoolAncestors(tx5, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	entry5 := testEntryHelp.SetFee(10000).FromTxToEntry(tx5)
-	mp.AddTx(entry5, ancestors)
+	err = mp.AddTx(entry5, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	assert.Equal(t, mp.Size(), 5, "mempool size should equal 5")
 
@@ -290,7 +406,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	sortedOrder[4] = tx3.GetHash() //0
 
 	index := 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -309,9 +425,15 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 		scriptPubkey,
 	))
 	tx6Size := tx6.EncodeSize()
-	ancestors, _ = mp.CalculateMemPoolAncestors(tx6, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err = mp.CalculateMemPoolAncestors(tx6, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	entry6 := testEntryHelp.SetFee(0).FromTxToEntry(tx6)
-	mp.AddTx(entry6, ancestors)
+	err = mp.AddTx(entry6, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	tx3hash := tx3.GetHash()
 	tx6hash := tx6.GetHash()
@@ -325,7 +447,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	}
 
 	index = 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -351,8 +473,11 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	/* set the fee to just below tx2's feerate when including ancestor */
 	fee := 20000/tx2Size*(tx7Size+tx6Size) - 1
 	entry7 := testEntryHelp.SetFee(amount.Amount(fee)).FromTxToEntry(tx7)
-	mp.AddTx(entry7, ancestors)
-	assert.Equal(t, mp.Size(), 7, "mempool size should equal 7")
+	err = mp.AddTx(entry7, ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	assert.Equal(t, mp.Size(), 7, "mempool size should equal 0")
 	tmpOrder := make([]util.Hash, 7)
 	tmpOrder[0] = sortedOrder[0]
 	tmpOrder[1] = tx7.GetHash()
@@ -360,7 +485,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	sortedOrder = tmpOrder
 
 	index = 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort by fee is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -384,7 +509,7 @@ func TestMempoolAncestorIndexing(t *testing.T) {
 	sortedOrder = append([]util.Hash{tx7.GetHash()}, sortedOrder...)
 
 	index = 0
-	mp.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	mp.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*EntryAncestorFeeRateSort)
 		h := entry.Tx.GetHash()
 		if entry.Tx.GetHash() != sortedOrder[index] {

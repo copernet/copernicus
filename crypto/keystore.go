@@ -44,10 +44,6 @@ func NewKeyStore() *KeyStore {
 	}
 }
 
-func (ks *KeyStore) Init() {
-	ks.keys = make(map[string]*KeyPair)
-}
-
 func (ks *KeyStore) AddKey(privateKey *PrivateKey) {
 	keyPair := NewKeyPair(privateKey)
 

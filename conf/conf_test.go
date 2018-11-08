@@ -181,6 +181,7 @@ type defaultArgs struct {
 	UtxoHashStartHeight int32
 	UtxoHashEndHeight   int32
 	Excessiveblocksize  uint64
+	Limitancestorcount  int
 }
 
 func getDefaultConfiguration(args defaultArgs) *Configuration {
@@ -217,11 +218,13 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			LimitDescendantCount int    // Default for -limitdescendantcount, max number of in-mempool descendants
 			LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
 			MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
-			MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
-			CheckFrequency       uint64 `default:"0"`
+			MaxPoolExpiry        int    `default:"336"`       // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+			CheckFrequency       uint64 `default:"4294967296"`
 		}{
-			MaxPoolSize:    300000000,
-			CheckFrequency: 0,
+			MaxPoolSize:        300000000,
+			CheckFrequency:     4294967296,
+			LimitAncestorCount: 50000,
+			MaxPoolExpiry:      336,
 		},
 		P2PNet: struct {
 			ListenAddrs         []string `validate:"require" default:"1234"`
@@ -277,7 +280,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxDatacarrierBytes:     223,
 			IsBareMultiSigStd:       true,
 			PromiscuousMempoolFlags: "",
-			Par: 32,
+			Par:                     32,
 		},
 		TxOut: struct {
 			DustRelayFee int64 `default:"83"`
@@ -294,11 +297,9 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 		Mining: struct {
 			BlockMinTxFee int64  // default DefaultBlockMinTxFee
 			BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
-			BlockVersion  int32  `default:"-1"`
 			Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
 		}{
-			BlockVersion: -1,
-			Strategy:     "ancestorfeerate",
+			Strategy: "ancestorfeerate",
 		},
 		PProf: struct {
 			IP   string `default:"localhost"`
@@ -312,9 +313,10 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			CheckBlockIndex bool
 		}{CheckBlockIndex: regTestNet},
 		Wallet: struct {
-			Enable    bool `default:"false"`
-			Broadcast bool `default:"false"`
-		}{Enable: false, Broadcast: false},
+			Enable              bool `default:"false"`
+			Broadcast           bool `default:"false"`
+			SpendZeroConfChange bool `default:"true"`
+		}{Enable: false, Broadcast: false, SpendZeroConfChange: true},
 	}
 }
 

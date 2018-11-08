@@ -23,7 +23,7 @@ type Recipient struct {
 }
 
 type WalletTx struct {
-	Tx *tx.Tx
+	*tx.Tx
 
 	ExtInfo map[string]string
 
@@ -41,15 +41,28 @@ type WalletTx struct {
 	availableCredit *amount.Amount
 
 	blockHeight int32
+	blockHash   util.Hash
 
 	spentStatus []bool
+
+	fDebitCached       bool
+	fCreditCached      bool
+	fWatchDebitCached  bool
+	fWatchCreditCached bool
+	debitCached        amount.Amount
+	creditCached       amount.Amount
+	watchDebitCached   amount.Amount
+	watchCreditCached  amount.Amount
 }
 
 func NewEmptyWalletTx() *WalletTx {
 	return &WalletTx{}
 }
 
-func NewWalletTx(txn *tx.Tx, extInfo map[string]string, isFromMe bool, account string) *WalletTx {
+func NewWalletTx(txn *tx.Tx, blockhash util.Hash, extInfo map[string]string, isFromMe bool, account string) *WalletTx {
+	if extInfo == nil {
+		extInfo = make(map[string]string)
+	}
 	return &WalletTx{
 		Tx:              txn,
 		ExtInfo:         extInfo,
@@ -58,6 +71,7 @@ func NewWalletTx(txn *tx.Tx, extInfo map[string]string, isFromMe bool, account s
 		FromAccount:     account,
 		availableCredit: nil,
 		blockHeight:     0,
+		blockHash:       blockhash,
 		spentStatus:     make([]bool, txn.GetOutsCount()),
 	}
 }
@@ -69,7 +83,7 @@ func (wtx *WalletTx) Serialize(writer io.Writer) error {
 		return err
 	}
 
-	if err = util.WriteElements(writer, wtx.TimeReceived, wtx.IsFromMe, wtx.blockHeight); err != nil {
+	if err = util.WriteElements(writer, wtx.TimeReceived, wtx.IsFromMe, &wtx.blockHash, wtx.blockHeight); err != nil {
 		return err
 	}
 
@@ -99,7 +113,7 @@ func (wtx *WalletTx) Unserialize(reader io.Reader) error {
 		return err
 	}
 
-	if err = util.ReadElements(reader, &wtx.TimeReceived, &wtx.IsFromMe, &wtx.blockHeight); err != nil {
+	if err = util.ReadElements(reader, &wtx.TimeReceived, &wtx.IsFromMe, &wtx.blockHash, &wtx.blockHeight); err != nil {
 		return err
 	}
 
@@ -133,7 +147,6 @@ func (wtx *WalletTx) SerializeSize() int {
 }
 
 func (wtx *WalletTx) GetDepthInMainChain() int32 {
-	// TODO: simple implementation just for testing
 	if wtx.blockHeight != 0 {
 		return chain.GetInstance().Height() - wtx.blockHeight + 1
 	}
@@ -141,25 +154,34 @@ func (wtx *WalletTx) GetDepthInMainChain() int32 {
 	if mempool.GetInstance().HaveTransaction(wtx.Tx) {
 		return 0
 	}
-	outPoint := outpoint.NewOutPoint(wtx.Tx.GetHash(), 0)
-	coin := utxo.GetUtxoCacheInstance().GetCoin(outPoint)
-	if coin == nil {
-		return 0
+
+	blockIndex := chain.GetInstance().FindBlockIndex(wtx.blockHash)
+	if blockIndex != nil {
+		wtx.blockHeight = blockIndex.Height
+		return chain.GetInstance().Height() - wtx.blockHeight + 1
 	}
-	wtx.blockHeight = coin.GetHeight()
-	return chain.GetInstance().Height() - wtx.blockHeight + 1
+
+	outPoint := outpoint.NewOutPoint(wtx.GetHash(), 0)
+	coin := utxo.GetUtxoCacheInstance().GetCoin(outPoint)
+	if coin != nil {
+		wtx.blockHeight = coin.GetHeight()
+		return chain.GetInstance().Height() - wtx.blockHeight + 1
+	}
+
+	return 0
+
 }
 
 func (wtx *WalletTx) CheckFinalForForCurrentBlock() bool {
 	lockTimeCutoff := chain.GetInstance().Tip().GetMedianTimePast()
 	height := chain.GetInstance().Height() + 1
-	return wtx.Tx.IsFinal(height, lockTimeCutoff)
+	return wtx.IsFinal(height, lockTimeCutoff)
 }
 
 func (wtx *WalletTx) GetAvailableCredit(useCache bool) amount.Amount {
 	// Must wait until coinbase is safely deep enough in the chain before
 	// valuing it.
-	if wtx.Tx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
+	if wtx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
 		return 0
 	}
 
@@ -168,7 +190,7 @@ func (wtx *WalletTx) GetAvailableCredit(useCache bool) amount.Amount {
 	}
 
 	credit := amount.Amount(0)
-	for index := 0; index < wtx.Tx.GetOutsCount(); index++ {
+	for index := 0; index < wtx.GetOutsCount(); index++ {
 		// check coin is unspent
 		coin := wtx.GetUnspentCoin(index)
 		if coin == nil {
@@ -190,13 +212,13 @@ func (wtx *WalletTx) MarkSpent(index int) {
 }
 
 func (wtx *WalletTx) GetUnspentCoin(index int) *utxo.Coin {
-	if index >= wtx.Tx.GetOutsCount() {
+	if index >= wtx.GetOutsCount() {
 		return nil
 	}
 	if wtx.spentStatus[index] {
 		return nil
 	}
-	outPoint := outpoint.NewOutPoint(wtx.Tx.GetHash(), uint32(index))
+	outPoint := outpoint.NewOutPoint(wtx.GetHash(), uint32(index))
 	if coin := mempool.GetInstance().GetCoin(outPoint); coin != nil {
 		if mempool.GetInstance().HasSpentOut(outPoint) {
 			return nil
@@ -210,4 +232,69 @@ func (wtx *WalletTx) GetUnspentCoin(index int) *utxo.Coin {
 		return coin
 	}
 	return nil
+}
+
+func (wtx *WalletTx) GetBlokHeight() int32 {
+	return wtx.blockHeight
+}
+
+func (wtx *WalletTx) GetDebit(filter uint8) amount.Amount {
+	if len(wtx.GetIns()) == 0 {
+		return 0
+	}
+	pwallet := GetInstance()
+	var debit amount.Amount
+	if (filter & ISMINE_SPENDABLE) != 0 {
+		if wtx.fDebitCached {
+			debit += wtx.debitCached
+		} else {
+			wtx.debitCached = pwallet.GetDebitTx(wtx, ISMINE_SPENDABLE)
+			wtx.fDebitCached = true
+			debit += wtx.debitCached
+		}
+	}
+
+	if (filter & ISMINE_WATCH_ONLY) != 0 {
+		if wtx.fWatchDebitCached {
+			debit += wtx.watchDebitCached
+		} else {
+			wtx.watchDebitCached = pwallet.GetDebitTx(wtx, ISMINE_WATCH_ONLY)
+			wtx.fWatchDebitCached = true
+			debit += wtx.watchDebitCached
+		}
+	}
+
+	return debit
+}
+
+func (wtx *WalletTx) GetCredit(filter uint8) amount.Amount {
+	// Must wait until coinbase is safely deep enough in the chain before
+	// valuing it.
+	if wtx.IsCoinBase() && wtx.GetDepthInMainChain() <= consensus.CoinbaseMaturity {
+		return 0
+	}
+
+	pwallet := GetInstance()
+	var credit amount.Amount
+	if (filter & ISMINE_SPENDABLE) != 0 {
+		if wtx.fCreditCached {
+			credit += wtx.creditCached
+		} else {
+			wtx.creditCached = pwallet.GetCreditTx(wtx, ISMINE_SPENDABLE)
+			wtx.fCreditCached = true
+			credit += wtx.creditCached
+		}
+	}
+
+	if (filter & ISMINE_WATCH_ONLY) != 0 {
+		if wtx.fWatchCreditCached {
+			credit += wtx.watchCreditCached
+		} else {
+			wtx.watchCreditCached = pwallet.GetCreditTx(wtx, ISMINE_WATCH_ONLY)
+			wtx.fWatchCreditCached = true
+			credit += wtx.watchCreditCached
+		}
+	}
+
+	return credit
 }

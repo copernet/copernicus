@@ -43,7 +43,7 @@ P2PNet:
   DisableTLS: false
   UserAgentComments:
 
-Protocal:
+Protocol:
   NoPeerBloomFilters: true
   DisableCheckpoints: true
 

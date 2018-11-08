@@ -202,7 +202,7 @@ type SyncManager struct {
 	ProcessBlockCallBack       func(*block.Block) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 
-	requestBlkInvCnt int
+	allowdGetBlocksTimes int
 
 	// An optional fee estimator.
 	//feeEstimator *mempool.FeeEstimator
@@ -334,7 +334,7 @@ func (sm *SyncManager) startSync() {
 			}
 		}
 		sm.syncPeer = bestPeer
-		sm.requestBlkInvCnt = 0
+		sm.allowdGetBlocksTimes = 0
 		if sm.current() {
 			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
@@ -401,7 +401,6 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	}
 
 	if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
-		sm.clearSyncPeerState(sm.syncPeer)
 		sm.syncPeer = nil
 		sm.startSync()
 	}
@@ -623,16 +622,16 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// it as an actual error.
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
 			peer.PushRejectMsg(wire.CmdBlock, rejectCode, reason, &blockHash, false)
-			log.Debug("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
+			log.Debug("ProcessBlockCallBack reject err:%v, hash: %s", err, blockHash)
 		} else {
 			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
 		}
 
 		if !sm.headersFirstMode {
-			log.Debug("len of Requested block:%d, sm.requestBlockInvCnt: %d", len(sm.requestedBlocks), sm.requestBlkInvCnt)
-			if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
+			log.Debug("len of Requested block:%d, sm.allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
+			if peer == sm.syncPeer && sm.allowdGetBlocksTimes > 0 {
 				if len(state.requestedBlocks) == 0 {
-					sm.requestBlkInvCnt--
+					sm.allowdGetBlocksTimes--
 					activeChain := chain.GetInstance()
 					locator := activeChain.GetLocator(nil)
 					peer.PushGetBlocksMsg(*locator, &zeroHash)
@@ -691,10 +690,10 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Nothing more to do if we aren't in headers-first mode.
 	if !sm.headersFirstMode {
-		log.Debug("len of Requested block:%d, requestBlkInvCnt: %d", len(sm.requestedBlocks), sm.requestBlkInvCnt)
-		if peer == sm.syncPeer && sm.requestBlkInvCnt > 0 {
+		log.Debug("len of Requested block:%d, allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
+		if peer == sm.syncPeer && sm.allowdGetBlocksTimes > 0 {
 			if len(state.requestedBlocks) == 0 {
-				sm.requestBlkInvCnt--
+				sm.allowdGetBlocksTimes--
 				activeChain := chain.GetInstance()
 				locator := activeChain.GetLocator(nil)
 				peer.PushGetBlocksMsg(*locator, &zeroHash)
@@ -936,7 +935,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if blkIndex.HasData() {
 			return true, nil
 		}
-		return true, nil
+		return false, nil
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
@@ -1086,16 +1085,15 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 	}
 
-	//if !isPushGetBlockMsg && invBlkCnt == len(invVects) &&
-	if !isPushGetBlockMsg &&
-		invBlkCnt >= lchain.MaxBlocksResults && peer == sm.syncPeer {
+	if !isPushGetBlockMsg && invBlkCnt > 0 &&
+		len(invVects) == lchain.MaxBlocksResults && peer == sm.syncPeer {
 
-		sm.requestBlkInvCnt = 1
+		sm.allowdGetBlocksTimes = 2
 	}
 
 	log.Debug(
-		"invBlkCnt=%d len(invVects)=%d sm.requestBlkInv=%v  peer=%p(%s) sm.syncPeer=%p",
-		invBlkCnt, len(invVects), sm.requestBlkInvCnt,
+		"invBlkCnt=%d len(invVects)=%d sm.allowdGetBlocksTimes=%v  peer=%p(%s) sm.syncPeer=%p",
+		invBlkCnt, len(invVects), sm.allowdGetBlocksTimes,
 		peer, peer.Addr(), sm.syncPeer)
 
 	// Request as much as possible at once.  Anything that won't fit into

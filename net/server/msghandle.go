@@ -14,7 +14,6 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/rpc/btcjson"
@@ -174,6 +173,7 @@ out:
 				}
 				msg.Done <- struct{}{}
 			case *wire.MsgSendHeaders:
+				peerFrom.SetPreferHeaders()
 				if peerFrom.Cfg.Listeners.OnSendHeaders != nil {
 					peerFrom.Cfg.Listeners.OnSendHeaders(peerFrom, data)
 				}
@@ -282,8 +282,8 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 	case *service.ClearBannedRequest:
 		return
 	case *wire.InvVect:
-		return
-
+		msgHandle.RelayInventory(m, nil)
+		return nil, nil
 		//case *tx.Tx:
 		//	msgHandle.recvChannel <- m
 		//	ret := <-msgHandle.resultChannel
@@ -339,7 +339,7 @@ func GetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		Connections:      msgHandle.ConnectedCount(),
 		NetworkActive:    true, // NOT support RPC 'setnetworkactive'
 		Networks:         getNetworksInfo(),
-		RelayFee:         valueFromAmount(mempool.GetInstance().GetMinFeeRate().SataoshisPerK),
+		RelayFee:         valueFromAmount(util.NewFeeRate(util.DefaultMinRelayTxFeePerK).GetFeePerK()),
 		ExcessUtxoCharge: 0,
 		LocalAddresses:   rpcLocalAddrList,
 		Warnings:         "", // TODO: network warnings

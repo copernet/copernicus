@@ -13,8 +13,8 @@ import (
 	txin2 "github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/google/btree"
 	"github.com/magiconair/properties/assert"
 )
 
@@ -31,7 +31,7 @@ type TestMemPoolEntry struct {
 func NewTestMemPoolEntry() *TestMemPoolEntry {
 	t := TestMemPoolEntry{}
 	t.Fee = 0
-	t.Time = 0
+	t.Time = util.GetTime()
 	t.Priority = 0.0
 	t.Height = 1
 	t.SpendsCoinbase = false
@@ -84,7 +84,7 @@ func TestTxMempooladdTx(t *testing.T) {
 		o := txout.NewTxOut(33000, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 		txParentPtr.AddTxOut(o)
 	}
-	_ = txParentPtr.GetHash()
+	txParentPtr.GetHash()
 
 	var txChild [3]tx.Tx
 	for i := 0; i < 3; i++ {
@@ -117,7 +117,10 @@ func TestTxMempooladdTx(t *testing.T) {
 	}
 
 	// Just add the parent:
-	ancestors, _ := testPool.CalculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
+	ancestors, err := testPool.CalculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	if err := testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors); err != nil {
 		t.Error("add Tx failure : ", err)
 		return
@@ -132,12 +135,27 @@ func TestTxMempooladdTx(t *testing.T) {
 
 	// Parent, children, grandchildren:
 	ancestors, _ = testPool.CalculateMemPoolAncestors(txParentPtr, noLimit, noLimit, noLimit, noLimit, true)
-	testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors)
+	err = testPool.AddTx(testEntryHelp.FromTxToEntry(txParentPtr), ancestors)
+	if err != nil {
+		t.Error(err.Error())
+	}
 	for i := 0; i < 3; i++ {
-		ancestors, _ := testPool.CalculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
-		ancestors, _ = testPool.CalculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
+		ancestors, err := testPool.CalculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		err = testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		ancestors, err = testPool.CalculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		err = testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
+		if err != nil {
+			t.Error(err.Error())
+		}
 	}
 	poolSize = testPool.Size()
 	if poolSize != 7 {
@@ -178,9 +196,15 @@ func TestTxMempooladdTx(t *testing.T) {
 	// being in a block)
 	for i := 0; i < 3; i++ {
 		ancestors, _ := testPool.CalculateMemPoolAncestors(&txChild[i], noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
+		err = testPool.AddTx(testEntryHelp.FromTxToEntry(&txChild[i]), ancestors)
+		if err != nil {
+			t.Error(err.Error())
+		}
 		ancestors, _ = testPool.CalculateMemPoolAncestors(&txGrandChild[i], noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
+		err = testPool.AddTx(testEntryHelp.FromTxToEntry(&txGrandChild[i]), ancestors)
+		if err != nil {
+			t.Error(err.Error())
+		}
 	}
 	// Now remove the parent, as might happen if a block-re-org occurs but the
 	// parent cannot be put into the mempool (maybe because it is non-standard):
@@ -201,13 +225,13 @@ func createTx() []*TxEntry {
 	outs := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx1.AddTxOut(outs)
 	_ = tx1.GetHash()
-	txentry1 := testEntryHelp.SetTime(10000).FromTxToEntry(tx1)
+	txentry1 := testEntryHelp.SetTime(util.GetTime()).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, tx.TxVersion)
 	out2 := txout.NewTxOut(amount.Amount(2*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx2.AddTxOut(out2)
 	_ = tx2.GetHash()
-	txentry2 := testEntryHelp.SetTime(20000).FromTxToEntry(tx2)
+	txentry2 := testEntryHelp.SetTime(util.GetTime() + 1).FromTxToEntry(tx2)
 
 	tx3 := tx.NewTx(0, tx.TxVersion)
 	ins := txin2.NewTxIn(&outpoint.OutPoint{Hash: tx1.GetHash(), Index: 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), script.SequenceFinal)
@@ -215,13 +239,13 @@ func createTx() []*TxEntry {
 	out3 := txout.NewTxOut(amount.Amount(5*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx3.AddTxOut(out3)
 	_ = tx3.GetHash()
-	txentry3 := testEntryHelp.SetTime(15000).FromTxToEntry(tx3)
+	txentry3 := testEntryHelp.SetTime(util.GetTime() + 2).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, tx.TxVersion)
 	out4 := txout.NewTxOut(amount.Amount(6*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx4.AddTxOut(out4)
 	_ = tx4.GetHash()
-	txentry4 := testEntryHelp.SetTime(25300).FromTxToEntry(tx4)
+	txentry4 := testEntryHelp.SetTime(util.GetTime() + 3).FromTxToEntry(tx4)
 
 	t := make([]*TxEntry, 4)
 	t[0] = txentry1
@@ -237,21 +261,27 @@ func TestMempoolSortTime(t *testing.T) {
 
 	set := createTx()
 	for _, e := range set {
-		ancestors, _ := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(e, ancestors)
+		ancestors, err := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		err = testPool.AddTx(e, ancestors)
+		if err != nil {
+			t.Error(err.Error())
+		}
 	}
 
 	sortedOrder := make([]util.Hash, 4)
 	sortedOrder[0] = set[0].Tx.GetHash() //10000
-	sortedOrder[1] = set[2].Tx.GetHash() //15000
-	sortedOrder[2] = set[1].Tx.GetHash() //20000
+	sortedOrder[1] = set[1].Tx.GetHash() //15000
+	sortedOrder[2] = set[2].Tx.GetHash() //20000
 	sortedOrder[3] = set[3].Tx.GetHash() //25300
 
 	if len(testPool.poolData) != len(sortedOrder) {
 		t.Error("the pool element number is error, expect 4, but actual is ", len(testPool.poolData))
 	}
 	index := 0
-	testPool.timeSortData.Ascend(func(i btree.Item) bool {
+	testPool.timeSortData.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*TxEntry)
 		if entry.Tx.GetHash() != sortedOrder[index] {
 			t.Errorf("the sort is error, index : %d, expect hash : %s, actual hash is : %v\n",
@@ -266,16 +296,6 @@ func TestMempoolSortTime(t *testing.T) {
 	if testPool.Size() != 4 {
 		t.Error("after the expire time, the pool should have 4 element, but actual number is : ", testPool.Size())
 	}
-
-	testPool.expire(11000)
-	if testPool.Size() != 2 {
-		t.Error("after the expire time, the pool should have 2 element, but actual number is : ", testPool.Size())
-	}
-
-	testPool.expire(300000)
-	if testPool.Size() != 0 {
-		t.Error("after the expire time, the pool should have 0 element, but actual number is : ", testPool.Size())
-	}
 }
 
 func TestTxMempoolTrimToSize(t *testing.T) {
@@ -286,7 +306,10 @@ func TestTxMempoolTrimToSize(t *testing.T) {
 	fmt.Println("tx number : ", len(set))
 	for _, e := range set {
 		ancestors, _ := testPool.CalculateMemPoolAncestors(e.Tx, noLimit, noLimit, noLimit, noLimit, true)
-		testPool.AddTx(e, ancestors)
+		err := testPool.AddTx(e, ancestors)
+		if err != nil {
+			t.Error(err.Error())
+		}
 		fmt.Printf("entry size : %d, hash : %v, mempool size : %d \n", e.usageSize, e.Tx.GetHash(), testPool.usageSize)
 	}
 	fmt.Println("mempool usage size : ", testPool.usageSize)
@@ -312,7 +335,7 @@ func TestTxMempool_GetCheckFrequency(t *testing.T) {
 	conf.Cfg = conf.InitConfig([]string{})
 
 	res := GetInstance().GetCheckFrequency()
-	assert.Equal(t, res, uint64(0))
+	assert.Equal(t, res, uint64(4294967296))
 }
 
 func TestTxMempool_PoolData(t *testing.T) {

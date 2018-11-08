@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/consensus"
 	"io/ioutil"
 	"math/rand"
@@ -1377,7 +1378,8 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params)
+		ts := bitcointime.NewMedianTime()
+		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, btcjson.RPCError{
@@ -1489,7 +1491,7 @@ func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
 
 	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
-	assertError(err, errcode.RejectNonstandard, "bad-txns-nonfinal", t)
+	assertError(err, errcode.RejectInvalid, "bad-txns-nonfinal", t)
 }
 
 func txWithInvalidOutputValue(prevout util.Hash) *tx.Tx {

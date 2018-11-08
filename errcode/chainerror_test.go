@@ -16,11 +16,11 @@ func TestChainErr_String(t *testing.T) {
 		{ErrorPowCheckErr, "ErrorPowCheckErr"},
 		{ErrorBadTxnMrklRoot, "ErrorBadTxnMrklRoot"},
 		{ErrorbadTxnsDuplicate, "ErrorbadTxnsDuplicate"},
-		{ErrorBadCoinBaseMissing, "ErrorBadCoinBaseMissing"},
 		{ErrorBadBlkLength, "ErrorBadBlkLength"},
 		{ErrorBadBlkTxSize, "ErrorBadBlkTxSize"},
 		{ErrorBadBlkTx, "ErrorBadBlkTx"},
 		{ErrorBlockAlreadyExists, "block already exists"},
+		{ErrorBlockNotStartWithCoinBase, "block does not start with a coinbase"},
 		{ErrorNotExistsInChainMap, "Unknown code (" + strconv.Itoa(int(ErrorNotExistsInChainMap)) + ")"},
 	}
 

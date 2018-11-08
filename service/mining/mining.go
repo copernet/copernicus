@@ -1,7 +1,13 @@
 package mining
 
 import (
+	"github.com/copernet/copernicus/model/bitcointime"
+	"math"
+	"sort"
+	"strconv"
+
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lblockindex"
@@ -22,11 +28,8 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/util"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
 	"github.com/copernet/copernicus/util/amount"
-	"github.com/google/btree"
-	"math"
-	"sort"
-	"strconv"
 )
 
 const (
@@ -78,15 +81,17 @@ type BlockAssembler struct {
 	height                int32
 	lockTimeCutoff        int64
 	chainParams           *model.BitcoinParams
+	timeSource            *bitcointime.MedianTime
 }
 
-func NewBlockAssembler(params *model.BitcoinParams) *BlockAssembler {
+func NewBlockAssembler(params *model.BitcoinParams, ts *bitcointime.MedianTime) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
 	v := conf.Cfg.Mining.BlockMinTxFee
 	ba.blockMinFeeRate = *util.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
+	ba.timeSource = ts
 	return ba
 }
 
@@ -173,11 +178,13 @@ func sortTxsByAncestorCount(ancestors map[*mempool.TxEntry]struct{}) (result []*
 func (ba *BlockAssembler) addPackageTxs() int {
 	descendantsUpdated := 0
 	pool := mempool.GetInstance() // todo use global variable
+	pool.RLock()
+	defer pool.RUnlock()
 	tmpStrategy := *getStrategy()
 
 	consecutiveFailed := 0
 
-	var txSet *btree.BTree
+	var txSet mapcontainer.MapContainer
 	switch tmpStrategy {
 	case sortByFee:
 		txSet = sortedByFeeWithAncestors()
@@ -193,10 +200,12 @@ func (ba *BlockAssembler) addPackageTxs() int {
 
 		switch tmpStrategy {
 		case sortByFee:
-			entry = mempool.TxEntry(txSet.Max().(EntryFeeSort))
+			less, _ := txSet.Max()
+			entry = mempool.TxEntry(less.(EntryFeeSort))
 			txSet.DeleteMax()
 		case sortByFeeRate:
-			entry = mempool.TxEntry(txSet.Max().(EntryAncestorFeeRateSort))
+			less, _ := txSet.Max()
+			entry = mempool.TxEntry(less.(EntryAncestorFeeRateSort))
 			txSet.DeleteMax()
 		}
 		// if inBlock has the item, continue next loop
@@ -243,9 +252,12 @@ func (ba *BlockAssembler) addPackageTxs() int {
 		// add the ancestors of the current item to block
 		noLimit := uint64(math.MaxUint64)
 
-		pool.RLock()
-		ancestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
-		pool.RUnlock()
+		mempoolAncestors, _ := pool.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
+		ancestors := make(map[*mempool.TxEntry]struct{})
+		for en := range mempoolAncestors {
+			newentry := *en
+			ancestors[&newentry] = struct{}{}
+		}
 
 		ancestors[&entry] = struct{}{} // add current item
 		ancestorsList := sortTxsByAncestorCount(ancestors)
@@ -303,11 +315,11 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {
-		if conf.Cfg.Mining.BlockVersion != -1 {
-			ba.bt.Block.Header.Version = conf.Cfg.Mining.BlockVersion
+		if conf.Args.BlockVersion != -1 {
+			ba.bt.Block.Header.Version = conf.Args.BlockVersion
 		}
 	}
-	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTime())
+	ba.bt.Block.Header.Time = uint32(ba.timeSource.AdjustedTime().Unix())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
@@ -350,7 +362,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
 
 	//check the validity of the block
-	if !TestBlockValidity(ba.bt.Block, indexPrev) {
+	if err := TestBlockValidity(ba.bt.Block, indexPrev, false, false); err != nil {
 		log.Error("CreateNewBlock: TestBlockValidity failed, block is:%v, indexPrev:%v", ba.bt.Block, indexPrev)
 		return nil
 	}
@@ -393,7 +405,7 @@ func (ba *BlockAssembler) testPackageTransactions(entrySet []*mempool.TxEntry) b
 	return true
 }
 
-func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdded []*mempool.TxEntry) int {
+func (ba *BlockAssembler) updatePackagesForAdded(txSet mapcontainer.MapContainer, alreadyAdded []*mempool.TxEntry) int {
 	descendantUpdate := 0
 	mpool := mempool.GetInstance()
 	tmpStrategy := *getStrategy()
@@ -401,6 +413,7 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 	for _, entry := range alreadyAdded {
 		descendants := make(map[*mempool.TxEntry]struct{})
 		mpool.CalculateDescendants(entry, descendants)
+
 		// Insert all descendants (not yet in block) into the modified set.
 		// use reflect function if there are so many strategies
 		for desc := range descendants {
@@ -411,9 +424,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
-				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
-				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
+				item.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				item.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				item.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			case sortByFeeRate:
@@ -421,9 +434,9 @@ func (ba *BlockAssembler) updatePackagesForAdded(txSet *btree.BTree, alreadyAdde
 				// remove the old one
 				txSet.Delete(item)
 				// update origin data
-				desc.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
-				desc.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
-				desc.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
+				item.SumTxSizeWitAncestors -= entry.SumTxSizeWitAncestors
+				item.SumTxFeeWithAncestors -= entry.SumTxFeeWithAncestors
+				item.SumTxSigOpCountWithAncestors -= entry.SumTxSigOpCountWithAncestors
 				// insert the modified one
 				txSet.ReplaceOrInsert(item)
 			}
@@ -500,15 +513,15 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	return newTime - oldTime
 }
 
-func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) bool {
+func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex, checkHeader bool, checkMerlke bool) (err error) {
 	if !(indexPrev != nil && indexPrev == chain.GetInstance().Tip()) {
 		log.Error("TestBlockValidity(): indexPrev:%v, chain tip:%v.", indexPrev, chain.GetInstance().Tip())
-		return false
+		return errcode.NewError(errcode.RejectInvalid, "indexPrev is not the chain tip")
 	}
 
-	if !lblockindex.CheckIndexAgainstCheckpoint(indexPrev) {
+	if err = lblockindex.CheckIndexAgainstCheckpoint(indexPrev); err != nil {
 		log.Error("TestBlockValidity(): check index against check point failed, indexPrev:%v.", indexPrev)
-		return false
+		return err
 	}
 
 	coinMap := utxo.NewEmptyCoinsMap()
@@ -519,25 +532,25 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex) boo
 	indexDummy.Height = indexPrev.Height + 1
 
 	// NOTE: CheckBlockHeader is called by CheckBlock
-	if !lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()) {
+	if err := lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()); err != nil {
 		log.Error("TestBlockValidity():ContextualCheckBlockHeader failed, blkHeader:%v, indexPrev:%v.", blkHeader, indexPrev)
-		return false
+		return err
 	}
 
-	if err := lblock.CheckBlock(block, false, false); err != nil {
+	if err := lblock.CheckBlock(block, checkHeader, checkMerlke); err != nil {
 		log.Error("TestBlockValidity(): check block:%v error: %v,", block, err)
-		return false
+		return err
 	}
 
 	if err := lblock.ContextualCheckBlock(block, indexPrev); err != nil {
 		log.Error("TestBlockValidity(): contextual check block:%v, indexPrev:%v error: %v", block, indexPrev, err)
-		return false
+		return err
 	}
 
 	if err := lchain.ConnectBlock(block, indexDummy, coinMap, true); err != nil {
 		log.Error("trying to connect to the block:%v, indexDummy:%v, coinMap:%v, error:%v", block, indexDummy, coinMap, err)
-		return false
+		return err
 	}
 
-	return true
+	return nil
 }

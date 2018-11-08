@@ -14,7 +14,8 @@ import (
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
-	"github.com/google/btree"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer"
+	"github.com/copernet/copernicus/util/algorithm/mapcontainer/skiplist"
 )
 
 const (
@@ -29,6 +30,10 @@ func GetInstance() *TxMempool {
 	}
 
 	return gpool
+}
+
+func SetInstance(p *TxMempool) {
+	gpool = p
 }
 
 // Close FIXME this is only for test. We must do it in a graceful way
@@ -59,7 +64,7 @@ const (
 
 // TxMempool is safe for concurrent write And read access.
 type TxMempool struct {
-	sync.RWMutex
+	lck sync.RWMutex
 	// current mempool best feerate for one transaction.
 	feeRate util.FeeRate
 	// poolData store the tx in the mempool
@@ -67,9 +72,12 @@ type TxMempool struct {
 	//NextTx key is txPrevout, value is tx.
 	nextTx map[outpoint.OutPoint]*TxEntry
 	//RootTx contain all root transaction in mempool.
-	rootTx                  map[util.Hash]*TxEntry
-	txByAncestorFeeRateSort btree.BTree
-	timeSortData            btree.BTree
+	rootTx map[util.Hash]*TxEntry
+	// txByAncestorFeeRateSort btree.BTree
+	// timeSortData            btree.BTree
+	txByAncestorFeeRateSort mapcontainer.MapContainer
+	timeSortData            mapcontainer.MapContainer
+
 	//
 	usageSize int64
 	// sum of all mempool tx's size.
@@ -86,6 +94,19 @@ type TxMempool struct {
 	rollingMinimumFeeRate        int64
 	blockSinceLastRollingFeeBump bool
 	lastRollingFeeUpdate         int64
+}
+
+func (m *TxMempool) Lock() {
+	m.lck.Lock()
+}
+func (m *TxMempool) Unlock() {
+	m.lck.Unlock()
+}
+func (m *TxMempool) RLock() {
+	m.lck.RLock()
+}
+func (m *TxMempool) RUnlock() {
+	m.lck.RUnlock()
 }
 
 func (m *TxMempool) GetCheckFrequency() uint64 {
@@ -128,6 +149,8 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	if txEntry.SumTxCountWithAncestors == 1 {
 		m.rootTx[txEntry.Tx.GetHash()] = txEntry
 	}
+	//spew.Dump(m.rootTx)
+	m.LimitMempoolSize(conf.Cfg.Mempool.MaxPoolSize, int64(conf.Cfg.Mempool.MaxPoolExpiry)*60*60)
 	return nil
 }
 
@@ -137,6 +160,11 @@ func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
 
 	_, ok := m.nextTx[*out]
 	return ok
+}
+
+func (m *TxMempool) CleanOrphan() {
+	m.OrphanTransactionsByPrev = make(map[outpoint.OutPoint]map[util.Hash]OrphanTx)
+	m.OrphanTransactions = make(map[util.Hash]OrphanTx)
 }
 
 func (m *TxMempool) HasSPentOutWithoutLock(out *outpoint.OutPoint) *TxEntry {
@@ -291,14 +319,16 @@ func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 // LimitMempoolSize limit mempool size with time And limit size. when the noSpendsRemaining
 // set, the function will return these have removed transaction's txin from mempool which use
 // TrimToSize rule. Later, caller will remove these txin from uxto cache.
-func (m *TxMempool) LimitMempoolSize() []*outpoint.OutPoint {
-	m.Lock()
-	defer m.Unlock()
-	//todo, parse expire time from config
-	m.expire(0)
-	//todo, parse limit mempoolsize from config
-	c := m.trimToSize(0)
-	return c
+func (m *TxMempool) LimitMempoolSize(sizeLimit, age int64) {
+	expired := m.expire(util.GetTime() - age)
+	if expired != 0 {
+		log.Debug("Expired %d transactions from the memory pool", expired)
+	}
+	outPoints := m.trimToSize(sizeLimit)
+	view := utxo.GetUtxoCacheInstance()
+	for _, outPoint := range outPoints {
+		view.RemoveCoins(outPoint)
+	}
 }
 
 func (m *TxMempool) trackPackageRemoved(rate util.FeeRate) {
@@ -345,8 +375,11 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 	maxFeeRateRemove := int64(0)
 
 	for len(m.poolData) > 0 && m.usageSize > sizeLimit {
-		removeIt := m.txByAncestorFeeRateSort.Min().(*EntryAncestorFeeRateSort)
-		rem := m.txByAncestorFeeRateSort.Delete(removeIt).(*EntryAncestorFeeRateSort)
+		less, _ := m.txByAncestorFeeRateSort.Min()
+		removeIt := less.(*EntryAncestorFeeRateSort)
+
+		rmless, _ := m.txByAncestorFeeRateSort.Delete(removeIt)
+		rem := rmless.(*EntryAncestorFeeRateSort)
 		if rem.Tx.GetHash() != removeIt.Tx.GetHash() {
 			panic("the two element should have the same Txhash")
 		}
@@ -389,7 +422,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 // than time. Return the number of removed transactions.
 func (m *TxMempool) expire(time int64) int {
 	toremove := make(map[*TxEntry]struct{}, 100)
-	m.timeSortData.Ascend(func(i btree.Item) bool {
+	m.timeSortData.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := i.(*TxEntry)
 		if entry.time < time {
 			toremove[entry] = struct{}{}
@@ -660,7 +693,7 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 
 	ret := make([]*TxMempoolInfo, len(m.poolData))
 	index := 0
-	m.txByAncestorFeeRateSort.Ascend(func(i btree.Item) bool {
+	m.txByAncestorFeeRateSort.Ascend(func(i mapcontainer.Lesser) bool {
 		entry := TxEntry(*i.(*EntryAncestorFeeRateSort))
 		ret[index] = entry.GetInfo()
 		index++
@@ -672,12 +705,14 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 
 func NewTxMempool() *TxMempool {
 	return &TxMempool{
-		feeRate:                 util.FeeRate{SataoshisPerK: 1},
-		poolData:                make(map[util.Hash]*TxEntry),
-		nextTx:                  make(map[outpoint.OutPoint]*TxEntry),
-		rootTx:                  make(map[util.Hash]*TxEntry),
-		txByAncestorFeeRateSort: *btree.New(32),
-		timeSortData:            *btree.New(32),
+		feeRate:  util.FeeRate{SataoshisPerK: 1},
+		poolData: make(map[util.Hash]*TxEntry),
+		nextTx:   make(map[outpoint.OutPoint]*TxEntry),
+		rootTx:   make(map[util.Hash]*TxEntry),
+		// txByAncestorFeeRateSort: *btree.New(32),
+		// timeSortData:            *btree.New(32),
+		txByAncestorFeeRateSort: skiplist.New(30000),
+		timeSortData:            skiplist.New(30000),
 		incrementalRelayFee:     *util.NewFeeRate(1),
 
 		OrphanTransactionsByPrev: make(map[outpoint.OutPoint]map[util.Hash]OrphanTx),

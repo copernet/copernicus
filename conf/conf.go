@@ -100,8 +100,8 @@ type Configuration struct {
 		LimitDescendantCount int    // Default for -limitdescendantcount, max number of in-mempool descendants
 		LimitDescendantSize  int    // Default for -limitdescendantsize, maximum kilobytes of in-mempool descendants
 		MaxPoolSize          int64  `default:"300000000"` // Default for MaxPoolSize, maximum megabytes of mempool memory usage
-		MaxPoolExpiry        int    // Default for -mempoolexpiry, expiration time for mempool transactions in hours
-		CheckFrequency       uint64 `default:"0"`
+		MaxPoolExpiry        int    `default:"336"`       // Default for -mempoolexpiry, expiration time for mempool transactions in hours
+		CheckFrequency       uint64 `default:"4294967296"`
 	}
 	P2PNet struct {
 		ListenAddrs         []string `validate:"require" default:"1234"`
@@ -154,7 +154,6 @@ type Configuration struct {
 	Mining struct {
 		BlockMinTxFee int64  // default DefaultBlockMinTxFee
 		BlockMaxSize  uint64 // default DefaultMaxGeneratedBlockSize
-		BlockVersion  int32  `default:"-1"`
 		Strategy      string `default:"ancestorfeerate"` // option:ancestorfee/ancestorfeerate
 	}
 	PProf struct {
@@ -165,8 +164,9 @@ type Configuration struct {
 		CheckBlockIndex bool
 	}
 	Wallet struct {
-		Enable    bool `default:"false"`
-		Broadcast bool `default:"false"`
+		Enable              bool `default:"false"`
+		Broadcast           bool `default:"false"`
+		SpendZeroConfChange bool `default:"true"`
 	}
 }
 
@@ -285,6 +285,9 @@ func InitConfig(args []string) *Configuration {
 	config.DataDir = DataDir
 	config.Reindex = opts.Reindex
 	config.Excessiveblocksize = opts.Excessiveblocksize
+	config.Mempool.LimitAncestorCount = opts.Limitancestorcount
+	config.Script.PromiscuousMempoolFlags = opts.PromiscuousMempoolFlags
+	config.Mempool.MaxPoolSize = opts.MaxMempool
 
 	config.RPC.RPCKey = filepath.Join(defaultDataDir, "rpc.key")
 	config.RPC.RPCCert = filepath.Join(defaultDataDir, "rpc.cert")
@@ -317,6 +320,9 @@ func InitConfig(args []string) *Configuration {
 	}
 	if len(opts.Whitelists) > 0 {
 		initWhitelists(config, opts)
+	}
+	if opts.SpendZeroConfChange == 0 {
+		config.Wallet.SpendZeroConfChange = false
 	}
 
 	return config

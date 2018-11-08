@@ -422,8 +422,8 @@ func TestCheckIndexAgainstCheckpoint_OnlyGenesis(t *testing.T) {
 		t.Errorf("genesis index find fail")
 	}
 
-	ret := CheckIndexAgainstCheckpoint(genesisIndex)
-	if !ret {
+	err := CheckIndexAgainstCheckpoint(genesisIndex)
+	if err != nil {
 		t.Errorf("genesis index should ret true")
 	}
 }
@@ -455,12 +455,13 @@ func TestCheckIndexAgainstCheckpoint_HaveCheckpoint(t *testing.T) {
 	params.Checkpoints = append(params.Checkpoints, &model.Checkpoint{Height: 3, Hash: blockIdx[3].GetBlockHash()})
 	params.Checkpoints = append(params.Checkpoints, &model.Checkpoint{Height: 6, Hash: blockIdx[6].GetBlockHash()})
 
-	ret := CheckIndexAgainstCheckpoint(blockIdx[4])
-	if ret {
-		t.Errorf("idx[4] should ret false")
+	err := CheckIndexAgainstCheckpoint(blockIdx[4])
+	if err == nil {
+		t.Errorf("idx[4] should ret error")
 	}
-	ret = CheckIndexAgainstCheckpoint(blockIdx[8])
-	if !ret {
-		t.Errorf("idx[8] should ret true")
+
+	err = CheckIndexAgainstCheckpoint(blockIdx[8])
+	if err != nil {
+		t.Errorf("idx[8] should pass")
 	}
 }
