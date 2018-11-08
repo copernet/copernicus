@@ -126,7 +126,7 @@ var MainNetParams = BitcoinParams{
 		// valid.
 		DefaultAssumeValid: *util.HashFromString("000000000000000000e45ad2fbcc5ff3e85f0868dd8f00ad4e92dffabe28f8d2"),
 
-		UAHFHeight: 478559,
+		UAHFHeight: 478558,
 
 		// November 13, 2017 hard fork
 		DAAHeight: 504031,

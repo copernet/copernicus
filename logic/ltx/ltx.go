@@ -617,6 +617,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32,
 			}
 			scriptPubKey := coin.GetScriptPubKey()
 			scriptSig := ins[index].GetScriptSig()
+			log.Debug("Push Script verify job txid: %s, inex: %d", tx.GetHash().String(), index)
 			scriptVerifyJobChan <- ScriptVerifyJob{tx, scriptSig, scriptPubKey, index,
 				coin.GetAmount(), flags, lscript.NewScriptRealChecker(), scriptVerifyResultChan}
 		}

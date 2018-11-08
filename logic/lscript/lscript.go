@@ -87,10 +87,11 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 	money amount.Amount, flags uint32, scriptChecker Checker) error {
 
 	if s.GetBadOpCode() {
-		log.Debug("ScriptErrBadOpCode")
+		log.Debug("ScriptErrBadOpCode, txid: %s, input: %d", transaction.GetHash().String(), nIn)
 		return errcode.New(errcode.ScriptErrBadOpCode)
 	}
 	if s.Size() > script.MaxScriptSize {
+		log.Debug("ScriptErrScriptSize, txid: %s, input: %d", transaction.GetHash().String(), nIn)
 		return errcode.New(errcode.ScriptErrScriptSize)
 	}
 

@@ -144,6 +144,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	bip30Enable = bip30Enable && !bip34Enable
 
 	flags := lblock.GetBlockScriptFlags(pindex.Prev)
+	log.Debug("Connect Block: %s, height: %d, flags: %d", pindex.GetBlockHash().String(), pindex.Height, flags)
 	blockSubSidy := model.GetBlockSubsidy(pindex.Height, params)
 	time2 := time.Now()
 	gPersist.GlobalTimeForks += time2.Sub(time1)

@@ -106,7 +106,7 @@ type Configuration struct {
 	P2PNet struct {
 		ListenAddrs         []string `validate:"require" default:"1234"`
 		MaxPeers            int      `default:"128"`
-		TargetOutbound      int      `default:"8"`
+		TargetOutbound      int      `default:"64"`
 		ConnectPeersOnStart []string
 		DisableBanning      bool `default:"true"`
 		BanThreshold        uint32

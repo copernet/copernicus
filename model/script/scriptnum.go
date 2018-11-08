@@ -111,6 +111,7 @@ func GetScriptNum(vch []byte, requireMinimal bool, maxNumSize int) (scriptNum *S
 	// two bytes should > 255 or < -255
 	if requireMinimal {
 		if !IsMinimallyEncoded(vch, int64(maxNumSize)) {
+			log.Debug("ScriptNumIsNotMinimallyEncodede")
 			return NewScriptNum(0), errcode.New(errcode.ScriptErrUnknownError)
 		}
 	}
