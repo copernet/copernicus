@@ -229,7 +229,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 		P2PNet: struct {
 			ListenAddrs         []string `validate:"require" default:"1234"`
 			MaxPeers            int      `default:"128"`
-			TargetOutbound      int      `default:"8"`
+			TargetOutbound      int      `default:"64"`
 			ConnectPeersOnStart []string
 			DisableBanning      bool `default:"true"`
 			BanThreshold        uint32
@@ -252,7 +252,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 		}{
 			ListenAddrs:    []string{"1234"},
 			MaxPeers:       128,
-			TargetOutbound: 8,
+			TargetOutbound: 64,
 			DisableBanning: true,
 			DisableListen:  true,
 			BlocksOnly:     false,
