@@ -64,7 +64,7 @@ const (
 
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
-	maxBlocksToAnnounce = 10
+	maxBlocksToAnnounce = 20
 )
 
 var (
@@ -1848,6 +1848,8 @@ func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
 	for i := len(blockIndexes) - 1; i >= 0; i-- {
 		index := blockIndexes[i]
 		iv := wire.NewInvVect(wire.InvTypeBlock, index.GetBlockHash())
+
+		//TODO: relay inventory through headers message
 		s.RelayInventory(iv, index.GetBlockHeader())
 	}
 }

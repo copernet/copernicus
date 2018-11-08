@@ -63,6 +63,10 @@ func ActivateBestChain(pblock *block.Block) error {
 			return nil
 		}
 
+		if pindexOldTip != nil && pindexMostWork.ChainWork.Cmp(&pindexOldTip.ChainWork) <= 0 {
+			return nil
+		}
+
 		fInvalidFound := false
 		var nullBlockPtr *block.Block
 		var tmpBlock *block.Block
