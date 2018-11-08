@@ -159,7 +159,6 @@ type pauseMsg struct {
 }
 
 // headerNode is used as a node in a list of headers that are linked together
-// between checkpoints.
 type headerNode struct {
 	height int32
 	hash   *util.Hash
@@ -200,7 +199,6 @@ type SyncManager struct {
 	headersFirstMode bool
 	headerList       *list.List
 	startHeader      *list.Element
-	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
 	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
@@ -216,50 +214,10 @@ type SyncManager struct {
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
 // syncing from a new peer.
-func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int32) {
+func (sm *SyncManager) resetHeaderState() {
 	sm.headersFirstMode = false
 	sm.headerList.Init()
 	sm.startHeader = nil
-
-	// When there is a next checkpoint, add an entry for the latest known
-	// block into the header pool.  This allows the next downloaded header
-	// to prove it links to the chain properly.
-	if sm.nextCheckpoint != nil {
-		node := headerNode{height: newestHeight, hash: newestHash}
-		sm.headerList.PushBack(&node)
-	}
-}
-
-// findNextHeaderCheckpoint returns the next checkpoint after the passed height.
-// It returns nil when there is not one either because the height is already
-// later than the final checkpoint or some other reason such as disabled
-// checkpoints.
-func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
-	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
-	checkpoints := model.ActiveNetParams.Checkpoints
-	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
-	if len(checkpoints) == 0 {
-		return nil
-	}
-
-	// There is no next checkpoint if the height is already after the final
-	// checkpoint.
-	finalCheckpoint := checkpoints[len(checkpoints)-1]
-	log.Trace("finalCheckpoint.Height : %d, current height : %d ", finalCheckpoint.Height, height)
-	if height >= finalCheckpoint.Height {
-		return nil
-	}
-
-	// Find the next checkpoint.
-	nextCheckpoint := finalCheckpoint
-	for i := len(checkpoints) - 2; i >= 0; i-- {
-		if height >= checkpoints[i].Height {
-			break
-		}
-		nextCheckpoint = checkpoints[i]
-	}
-	log.Trace("return checkpoint heigth : %d", nextCheckpoint.Height)
-	return nextCheckpoint
 }
 
 // startSync will choose the best peer among the available candidate peers to
@@ -320,10 +278,10 @@ func (sm *SyncManager) startSync() {
 			bestPeer.LastBlock(), bestPeer.Addr())
 
 		bestPeer.PushGetHeadersMsg(*locator, &zeroHash)
+		sm.resetHeaderState()
 		sm.headersFirstMode = true
 
 		sm.syncPeer = bestPeer
-		sm.allowdGetBlocksTimes = 0
 		if sm.current() {
 			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
@@ -435,8 +393,7 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 	if sm.syncPeer == peer {
 		sm.syncPeer = nil
 		if sm.headersFirstMode {
-			best := chain.GetInstance().Tip()
-			sm.resetHeaderState(best.GetBlockHash(), best.Height)
+			sm.resetHeaderState()
 		}
 		sm.startSync()
 	}
@@ -573,6 +530,18 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
+	if sm.headersFirstMode {
+		firstNodeEl := sm.headerList.Front()
+		if firstNodeEl != nil {
+			firstNode := firstNodeEl.Value.(*headerNode)
+			if blockHash.IsEqual(firstNode.hash) {
+				sm.headerList.Remove(firstNodeEl)
+			} else {
+				log.Warn("headerList.Front not equal with block")
+			}
+		}
+	}
+
 	// Remove block from request maps. Either chain will know about it and
 	// so we shouldn't have any more instances of trying to fetch it, or we
 	// will fail the insert and thus we'll retry next time we get an inv.
@@ -635,8 +604,11 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
-	// not current means I'm still initial downloading blocks, trigger a next batch
-	if !sm.current() {
+	if sm.current() {
+		// ready to handle header announcement
+		sm.resetHeaderState()
+	} else {
+		// still initial downloading blocks, trigger a next batch
 		sm.fetchHeaderBlocks()
 	}
 }
@@ -749,9 +721,9 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		// blkIndex means headers in msg can not connect to my chain
 		// sm.headersFirstMode means initial downloading
 		// !isSyncPeer means msg not sent from the syncPeer
+		// maybe header announcement, but now I don't need it
 		if sm.headersFirstMode && !isSyncPeer {
-			log.Warn("recv unrequested headers from %v", peer.Addr())
-			peer.Disconnect()
+			log.Info("recv unrequested headers from %v", peer.Addr())
 			return
 		}
 
@@ -769,6 +741,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	// Process all of the received headers ensuring each one connects to the
 	// previous
+	height := blkIndex.Height
 	var hashLastBlock util.Hash
 	for _, blockHeader := range msg.Headers {
 		if !hashLastBlock.IsNull() &&
@@ -779,6 +752,17 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			return
 		}
 		hashLastBlock = blockHeader.GetHash()
+
+		if !sm.headersFirstMode {
+			sm.resetHeaderState()
+		}
+
+		height++
+		node := headerNode{hash: &hashLastBlock, height: height}
+		e := sm.headerList.PushBack(&node)
+		if sm.startHeader == nil {
+			sm.startHeader = e
+		}
 	}
 
 	// If this msg isn't coming from our current sync peer or we're current,
@@ -824,7 +808,12 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	log.Info("Received %d block headers from peer %s",
 		numHeaders, peer.Addr())
-	sm.fetchHeaderBlocks()
+	if sm.headersFirstMode {
+		// fetch a batch
+		sm.fetchHeaderBlocks()
+	} else {
+		// new block announcement, getdata right now
+	}
 }
 
 // haveInventory returns whether or not the inventory represented by the passed
@@ -1404,16 +1393,6 @@ func New(config *Config) (*SyncManager, error) {
 	if best == nil {
 		panic("best is nil")
 	}
-	if !config.DisableCheckpoints {
-		// Initialize the next checkpoint based on the current height.
-		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(best.Height)
-		log.Trace("sm.nextCheckpoint : %p, best height : %d", sm.nextCheckpoint, best.Height)
-		if sm.nextCheckpoint != nil {
-			sm.resetHeaderState(best.GetBlockHash(), best.Height)
-		}
-	} else {
-		log.Info("Checkpoints are disabled")
-	}
 
 	chain.GetInstance().Subscribe(sm.handleBlockchainNotification)
 
@@ -1440,6 +1419,5 @@ type Config struct {
 	PeerNotifier PeerNotifier
 	ChainParams  *model.BitcoinParams
 
-	DisableCheckpoints bool
 	MaxPeers           int
 }
