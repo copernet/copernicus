@@ -262,17 +262,6 @@ func (sm *SyncManager) startSync() {
 
 		activeChain := chain.GetInstance()
 		pindexStart := activeChain.Tip()
-		/**
-		 * If possible, start at the block preceding the currently best
-		 * known header. This ensures that we always get a non-empty list of
-		 * headers back as long as the peer is up-to-date. With a non-empty
-		 * response, we can initialise the peer's known best block. This
-		 * wouldn't be possible if we requested starting at pindexBestHeader
-		 * and got back an empty response.
-		 */
-		if pindexStart.Prev != nil {
-			pindexStart = pindexStart.Prev
-		}
 		locator := activeChain.GetLocator(pindexStart)
 		log.Info("Syncing to block height %d from peer %v",
 			bestPeer.LastBlock(), bestPeer.Addr())
@@ -728,6 +717,14 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		}
 
 		pindexStart := gChain.Tip()
+		/**
+		 * If possible, start at the block preceding the currently best
+		 * known header. This ensures that we always get a non-empty list of
+		 * headers back as long as the peer is up-to-date. With a non-empty
+		 * response, we can initialise the peer's known best block. This
+		 * wouldn't be possible if we requested starting at pindexBestHeader
+		 * and got back an empty response.
+		 */
 		if pindexStart.Prev != nil {
 			pindexStart = pindexStart.Prev
 		}
