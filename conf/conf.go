@@ -108,8 +108,8 @@ type Configuration struct {
 		MaxPeers            int      `default:"128"`
 		TargetOutbound      int      `default:"64"`
 		ConnectPeersOnStart []string
-		DisableBanning      bool `default:"true"`
-		BanThreshold        uint32
+		DisableBanning      bool   `default:"true"`
+		BanThreshold        uint32 `default:"100"`
 		TestNet             bool
 		RegTest             bool `default:"false"`
 		SimNet              bool
@@ -323,6 +323,9 @@ func InitConfig(args []string) *Configuration {
 	}
 	if opts.SpendZeroConfChange == 0 {
 		config.Wallet.SpendZeroConfChange = false
+	}
+	if opts.BanScore > 0 {
+		config.P2PNet.BanThreshold = opts.BanScore
 	}
 
 	return config

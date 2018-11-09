@@ -44,11 +44,21 @@ out:
 		select {
 		case msg := <-mh.recvMsgFromPeers:
 			peerFrom := msg.Peerp
+			if err := mh.checkMsg(msg); err != nil {
+				log.Error("recv msg[%s] check error: %s", msg.Msg.Command(), err.Error())
+				msg.Done <- struct{}{}
+				continue
+			}
+
 			switch data := msg.Msg.(type) {
 			case *wire.MsgVersion:
-				peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "duplicate version message",
-					nil, false)
-				peerFrom.Disconnect()
+				if peerFrom.VersionKnown() {
+					peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "Duplicate version message",
+						nil, false)
+					mh.addBanScore(peerFrom.Addr(), 0, 1, "multiple-version")
+				} else {
+					peerFrom.HandleVersionMsg(data)
+				}
 				msg.Done <- struct{}{}
 			case *wire.MsgVerAck:
 				if peerFrom.VerAckReceived() {
@@ -181,6 +191,7 @@ out:
 			default:
 				log.Debug("Received unhandled message of type %v "+
 					"from %v", data, data.Command())
+				msg.Done <- struct{}{}
 			}
 		case <-ctx.Done():
 			log.Info("msgHandle service exit. function : startProcess")
@@ -188,6 +199,39 @@ out:
 		}
 	}
 
+}
+
+func (mh *MsgHandle) checkMsg(msg *peer.PeerMessage) error {
+	if _, ok := msg.Msg.(*wire.MsgReject); ok {
+		return nil
+	}
+
+	peerFrom := msg.Peerp
+	if !peerFrom.VersionKnown() {
+		// Must have a version message before anything else
+		if _, ok := msg.Msg.(*wire.MsgVersion); !ok {
+			mh.addBanScore(peerFrom.Addr(), 0, 1, "missing-version")
+			return errors.New("missing-version")
+		}
+	} else if !peerFrom.VerAckReceived() {
+		// Must have a verack message before anything else
+		if _, ok := msg.Msg.(*wire.MsgVerAck); !ok {
+			mh.addBanScore(peerFrom.Addr(), 0, 1, "missing-verack")
+			return errors.New("missing-verack")
+		}
+	}
+	return nil
+}
+
+func (mh *MsgHandle) addBanScore(peerAddr string, persistent uint32, transient uint32, reason string) {
+	bmsg := &banScoreMsg{
+		peerAddr:   peerAddr,
+		persistent: persistent,
+		transient:  transient,
+		reason:     reason,
+	}
+	log.Info("addBanScore peer:%s, reason:%s", peerAddr, reason)
+	mh.banScoreChn <- bmsg
 }
 
 // ProcessForRPC are RPC process things
