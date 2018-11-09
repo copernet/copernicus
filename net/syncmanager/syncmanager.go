@@ -775,9 +775,10 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			return
 		}
 		hashLastBlock = blockHeader.GetHash()
+		tmphash := hashLastBlock
 
 		height++
-		node := headerNode{hash: &hashLastBlock, height: height}
+		node := headerNode{hash: &tmphash, height: height}
 		e := sm.headerList.PushBack(&node)
 		if sm.startHeader == nil {
 			sm.startHeader = e
