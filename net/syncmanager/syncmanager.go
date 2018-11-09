@@ -13,6 +13,7 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -195,7 +196,6 @@ type SyncManager struct {
 	peerStates      map[*peer.Peer]*peerSyncState
 
 	// The following fields are used for headers-first mode.
-	headersFirstMode bool
 	headerList       *list.List
 	startHeader      *list.Element
 
@@ -212,7 +212,6 @@ type SyncManager struct {
 // resetHeaderState sets the headers-first mode state to values appropriate for
 // syncing from a new peer.
 func (sm *SyncManager) resetHeaderState() {
-	sm.headersFirstMode = false
 	sm.headerList.Init()
 	sm.startHeader = nil
 }
@@ -265,7 +264,6 @@ func (sm *SyncManager) startSync() {
 
 		bestPeer.PushGetHeadersMsg(*locator, &zeroHash)
 		sm.resetHeaderState()
-		sm.headersFirstMode = true
 
 		sm.syncPeer = bestPeer
 		if sm.current() {
@@ -378,7 +376,7 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 	// mode so
 	if sm.syncPeer == peer {
 		sm.syncPeer = nil
-		if sm.headersFirstMode {
+		if lchain.IsInitialBlockDownload() {
 			sm.resetHeaderState()
 		}
 		sm.startSync()
@@ -516,7 +514,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
-	if sm.headersFirstMode {
+	if lchain.IsInitialBlockDownload() {
 		firstNodeEl := sm.headerList.Front()
 		if firstNodeEl != nil {
 			firstNode := firstNodeEl.Value.(*headerNode)
@@ -597,6 +595,10 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		// still initial downloading blocks, trigger a next batch
 		sm.fetchHeaderBlocks(sm.syncPeer)
 	}
+	if lchain.IsInitialBlockDownload() {
+		// still initial downloading blocks, trigger a next batch
+		sm.fetchHeaderBlocks(sm.syncPeer)
+	}
 }
 func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 	var err error
@@ -629,7 +631,7 @@ func (sm *SyncManager) fetchHeaderBlocks(syncPeer *peer.Peer) {
 	}
 
 	// only in initial download check inflight block number
-	if sm.headersFirstMode && !sm.current() {
+	if lchain.IsInitialBlockDownload() {
 		if len(syncPeerState.requestedBlocks) > minInFlightBlocks {
 			log.Debug("syncPeerState.requestedBlocks len:%d, forgive this fetch batch",
 				len(syncPeerState.requestedBlocks))
@@ -707,11 +709,11 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	gChain := chain.GetInstance()
 	blkIndex := gChain.FindBlockIndex(msg.Headers[0].HashPrevBlock)
 	if blkIndex == nil {
-		// blkIndex means headers in msg can not connect to my chain
-		// sm.headersFirstMode means initial downloading
+		// headers in msg can not connect to my chain
+		// now in initial downloading
 		// !isSyncPeer means msg not sent from the syncPeer
 		// maybe header announcement, but now I don't need it
-		if sm.headersFirstMode && !isSyncPeer {
+		if lchain.IsInitialBlockDownload() && !isSyncPeer {
 			log.Info("recv unrequested headers from %v", peer.Addr())
 			return
 		}
@@ -731,9 +733,15 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		locator := gChain.GetLocator(pindexStart)
 		peer.PushGetHeadersMsg(*locator, &zeroHash)
 
-		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. headersFirstMode:%t, isSyncPeer:%t",
-			pindexStart.Height, peer.Addr(), sm.headersFirstMode, isSyncPeer)
+		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, isSyncPeer:%t",
+			pindexStart.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+			isSyncPeer)
 		return
+	}
+
+	// if not in initial block download state, headList only use once
+	if !lchain.IsInitialBlockDownload() {
+		sm.resetHeaderState()
 	}
 
 	// Process all of the received headers ensuring each one connects to the
@@ -749,10 +757,6 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			return
 		}
 		hashLastBlock = blockHeader.GetHash()
-
-		if !sm.headersFirstMode {
-			sm.resetHeaderState()
-		}
 
 		height++
 		node := headerNode{hash: &hashLastBlock, height: height}
@@ -867,7 +871,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		return
 	}
 
-	log.Trace("Received INV msg, And current headerfirstMode is %v", sm.headersFirstMode)
+	log.Trace("Received INV msg, And current IBD:%v", lchain.IsInitialBlockDownload())
 
 	// Attempt to find the final block in the inventory list.  There may
 	// not be one.
@@ -926,7 +930,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		peer.AddKnownInventory(iv)
 
 		// Ignore inventory when we're in headers-first mode.
-		if sm.headersFirstMode {
+		if lchain.IsInitialBlockDownload() {
 			continue
 		}
 
