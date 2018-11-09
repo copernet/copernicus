@@ -205,8 +205,6 @@ type SyncManager struct {
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 	AddBanScoreCallBack        func(string, uint32, uint32, string)
 
-	allowdGetBlocksTimes int
-
 	// An optional fee estimator.
 	//feeEstimator *mempool.FeeEstimator
 }
