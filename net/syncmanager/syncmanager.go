@@ -196,8 +196,8 @@ type SyncManager struct {
 	peerStates      map[*peer.Peer]*peerSyncState
 
 	// The following fields are used for headers-first mode.
-	headerList       *list.List
-	startHeader      *list.Element
+	headerList  *list.List
+	startHeader *list.Element
 
 	// callback for transaction And block process
 	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
@@ -546,6 +546,18 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		} else {
 			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
 		}
+
+		if len(state.requestedBlocks) == 0 {
+			// trigger a batch to the newest
+			activeChain := chain.GetInstance()
+			pindexStart := activeChain.Tip()
+			locator := activeChain.GetLocator(pindexStart)
+			log.Info("Syncing to block height %d from peer %v",
+				peer.LastBlock(), peer.Addr())
+
+			peer.PushGetHeadersMsg(*locator, &zeroHash)
+			sm.resetHeaderState()
+		}
 		return
 	}
 
@@ -588,16 +600,21 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
-	if sm.current() {
-		// ready to handle header announcement
-		sm.resetHeaderState()
-	} else {
-		// still initial downloading blocks, trigger a next batch
-		sm.fetchHeaderBlocks(sm.syncPeer)
-	}
 	if lchain.IsInitialBlockDownload() {
 		// still initial downloading blocks, trigger a next batch
 		sm.fetchHeaderBlocks(sm.syncPeer)
+	} else {
+		if len(state.requestedBlocks) == 0 {
+			// ready to handle header announcement, and trigger a batch to the newest
+			activeChain := chain.GetInstance()
+			pindexStart := activeChain.Tip()
+			locator := activeChain.GetLocator(pindexStart)
+			log.Info("Syncing to block height %d from peer %v",
+				peer.LastBlock(), peer.Addr())
+
+			peer.PushGetHeadersMsg(*locator, &zeroHash)
+			sm.resetHeaderState()
+		}
 	}
 }
 func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
@@ -714,7 +731,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		// !isSyncPeer means msg not sent from the syncPeer
 		// maybe header announcement, but now I don't need it
 		if lchain.IsInitialBlockDownload() && !isSyncPeer {
-			log.Info("recv unrequested headers from %v", peer.Addr())
+			log.Info("recv unrequested headers from %v, maybe new header announce",
+				peer.Addr())
 			return
 		}
 
@@ -1390,5 +1408,5 @@ type Config struct {
 	PeerNotifier PeerNotifier
 	ChainParams  *model.BitcoinParams
 
-	MaxPeers           int
+	MaxPeers int
 }
