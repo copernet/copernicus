@@ -455,6 +455,7 @@ type Peer struct {
 	advertisedProtoVer   uint32 // protocol version advertised by remote
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
+	revertToInv			 bool //whether to revert to inv mode for a prefer-header-node
 	verAckReceived       bool
 	isWhitelisted        bool
 
@@ -818,6 +819,21 @@ func (p *Peer) StartingHeight() int32 {
 	p.statsMtx.RUnlock()
 
 	return startingHeight
+}
+
+// RevertToInv returns whether to revert to inv mode for a prefer-header-node
+func (p *Peer) RevertToInv() bool {
+	p.flagsMtx.Lock()
+	revertToInv := p.revertToInv
+	p.flagsMtx.Unlock()
+
+	return revertToInv
+}
+
+func (p *Peer) SetRevertToInv(revertToInv bool) {
+	p.flagsMtx.Lock()
+	p.revertToInv = revertToInv
+	p.flagsMtx.Unlock()
 }
 
 // WantsHeaders returns if the peer wants header messages instead of
@@ -1651,20 +1667,25 @@ out:
 				continue
 			}
 
-			if p.WantsHeaders() &&
-				headerSendQueue.Len() <= maxBlocksToAnnounce {
-				msgHeaders := wire.NewMsgHeaders()
-				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
-					header := headerSendQueue.Remove(e).(*block.BlockHeader)
-					if err := msgHeaders.AddBlockHeader(header); err != nil {
-						log.Error("Failed to add block"+
-							" header: %v", err)
-						continue
+			if p.WantsHeaders() {
+				if headerSendQueue.Len() <= maxBlocksToAnnounce {
+					if !p.RevertToInv() {
+						msgHeaders := wire.NewMsgHeaders()
+						for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
+							header := headerSendQueue.Remove(e).(*block.BlockHeader)
+							if err := msgHeaders.AddBlockHeader(header); err != nil {
+								log.Error("Failed to add block"+
+									" header: %v", err)
+								continue
+							}
+						}
+						if len(msgHeaders.Headers) > 0 {
+							waiting = queuePacket(outMsg{msg: msgHeaders},
+								pendingMsgs, waiting)
+						}
 					}
-				}
-				if len(msgHeaders.Headers) > 0 {
-					waiting = queuePacket(outMsg{msg: msgHeaders},
-						pendingMsgs, waiting)
+				} else {
+					p.SetRevertToInv(true)
 				}
 			}
 
