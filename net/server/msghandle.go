@@ -135,11 +135,8 @@ out:
 				}
 				msg.Done <- struct{}{}
 			case *wire.MsgGetData:
-				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
-					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
-				} else if peerFrom.Cfg.Listeners.OnGetData != nil {
-					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data)
-					msg.Done <- struct{}{}
+				if peerFrom.Cfg.Listeners.OnGetData != nil {
+					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data, msg.Done)
 				}
 
 			case *wire.MsgGetBlocks:

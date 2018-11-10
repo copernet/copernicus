@@ -1078,10 +1078,8 @@ out:
 				msg.reply <- struct{}{}
 			case getdataMsg:
 				if msg.peer.Cfg.Listeners.OnGetData != nil {
-					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
+					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata, msg.reply)
 				}
-
-				msg.reply <- struct{}{}
 			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
