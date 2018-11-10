@@ -1192,19 +1192,12 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("read summary %v", newLogClosure(func() string {
-		// Debug summary of message.
-		summary := messageSummary(msg)
-		if len(summary) > 0 {
-			summary = " (" + summary + ")"
-		}
-		return fmt.Sprintf("Received %v%s from %s",
-			msg.Command(), summary, p)
-	}))
+	log.Debug("read summary %v (%s) from %s", msg.Command(), messageSummary(msg), p)
 
-	log.Trace("read message from (%s):\n %v", p.Addr(), newLogClosure(func() string {
-		return spew.Sdump(msg)
-	}))
+	log.Trace("read message from %s:\n %v", p, spew.Sdump(msg))
+	//newLogClosure(func() string {
+	//	return
+	//}))
 
 	return msg, buf, nil
 }
@@ -1218,18 +1211,20 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
-	log.Debug("write summary %v", newLogClosure(func() string {
-		// Debug summary of message.
-		summary := messageSummary(msg)
-		if len(summary) > 0 {
-			summary = " (" + summary + ")"
-		}
-		return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
-			summary, p)
-	}))
-	log.Trace("write message to (%s):\n %v", p.Addr(), newLogClosure(func() string {
-		return spew.Sdump(msg)
-	}))
+	log.Debug("write summary %v (%s) to %s", msg.Command(), messageSummary(msg), p)
+	//	log.Debug("write summary %v", newLogClosure(func() string {
+	//	// Debug summary of message.
+	//	summary := messageSummary(msg)
+	//	if len(summary) > 0 {
+	//		summary = " (" + summary + ")"
+	//	}
+	//	return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
+	//		summary, p)
+	//}))
+	log.Trace("write message to %s:\n %v", p, spew.Sdump(msg))
+	//log.Trace("write message to (%s):\n %v", p.Addr(), newLogClosure(func() string {
+	//	return spew.Sdump(msg)
+	//}))
 	//log.Trace("%v", newLogClosure(func() string {
 	//	var buf bytes.Buffer
 	//	_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
@@ -1519,6 +1514,7 @@ out:
 		rmsg, buf, err := p.readMessage(p.wireEncoding)
 		idleTimer.Stop()
 		if err != nil {
+			log.Debug("Read Message error from %s, %v", p, err)
 			// In order to allow regression tests with malformed messages, don't
 			// disconnect the peer when we're in regression test mode and the
 			// error is one of the allowed errors.
@@ -1549,7 +1545,7 @@ out:
 			}
 			break out
 		}
-		log.Info("Read message %T inHandle", rmsg)
+		log.Info("Read message %T inHandle from %s", rmsg, p)
 		atomic.StoreInt64(&p.lastRecv, time.Now().Unix())
 		p.stallControl <- stallControlMsg{sccReceiveMessage, rmsg}
 
