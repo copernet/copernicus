@@ -21,6 +21,7 @@ import (
 
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
@@ -69,6 +70,10 @@ const (
 	// trickleTimeout is the duration of the ticker which trickles down the
 	// inventory to a peer.
 	trickleTimeout = 10 * time.Second
+
+	// max blocks to announce during inventory relay
+	// increase the num in case cut out inv
+	maxBlocksToAnnounce = 8
 )
 
 var (
@@ -479,6 +484,7 @@ type Peer struct {
 	sendQueue         chan outMsg
 	sendDoneQueue     chan struct{}
 	outputInvChan     chan *wire.InvVect
+	outputHeaderChan     chan *block.BlockHeader
 	inQuit            chan struct{}
 	queueQuit         chan struct{}
 	outQuit           chan struct{}
@@ -1578,6 +1584,7 @@ out:
 func (p *Peer) queueHandler() {
 	pendingMsgs := list.New()
 	invSendQueue := list.New()
+	headerSendQueue := list.New()
 	trickleTicker := time.NewTicker(trickleTimeout)
 	defer trickleTicker.Stop()
 
@@ -1628,18 +1635,53 @@ out:
 				invSendQueue.PushBack(iv)
 			}
 
+		case iv := <-p.outputHeaderChan:
+			// No handshake?  They'll find out soon enough.
+			if p.VersionKnown() {
+				headerSendQueue.PushBack(iv)
+			}
+
 		case <-trickleTicker.C:
 			// Don't send anything if we're disconnecting or there
 			// is no queued inventory.
 			// version is known if send queue has any entries.
 			if atomic.LoadInt32(&p.disconnect) != 0 ||
-				invSendQueue.Len() == 0 {
+				(invSendQueue.Len() == 0 && headerSendQueue.Len() == 0){
 				continue
+			}
+
+			if p.WantsHeaders() &&
+				headerSendQueue.Len() <= maxBlocksToAnnounce {
+				msgHeaders := wire.NewMsgHeaders()
+				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
+					header := headerSendQueue.Remove(e).(*block.BlockHeader)
+					if err := msgHeaders.AddBlockHeader(header); err != nil {
+						log.Error("Failed to add block"+
+							" header: %v", err)
+						continue
+					}
+				}
+				if len(msgHeaders.Headers) > 0 {
+					waiting = queuePacket(outMsg{msg: msgHeaders},
+						pendingMsgs, waiting)
+				}
 			}
 
 			// Create and send as many inv messages as needed to
 			// drain the inventory send queue.
 			invMsg := wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
+
+			for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
+				header := headerSendQueue.Remove(e).(*block.BlockHeader)
+				iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()}
+
+				invMsg.AddInvVect(iv)
+				waiting = queuePacket(
+					outMsg{msg: invMsg},
+					pendingMsgs, waiting)
+				invMsg = wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
+			}
+
 			for e := invSendQueue.Front(); e != nil; e = invSendQueue.Front() {
 				iv := invSendQueue.Remove(e).(*wire.InvVect)
 
@@ -1661,11 +1703,11 @@ out:
 				// the known inventory for the peer.
 				p.AddKnownInventory(iv)
 			}
+
 			if len(invMsg.InvList) > 0 {
 				waiting = queuePacket(outMsg{msg: invMsg},
 					pendingMsgs, waiting)
 			}
-
 		case <-p.quit:
 			break out
 		}
@@ -1690,6 +1732,7 @@ cleanup:
 		case <-p.outputInvChan:
 			// Just drain channel
 			// sendDoneQueue is buffered so doesn't need draining.
+		case <-p.outputHeaderChan:
 		default:
 			break cleanup
 		}
@@ -1845,6 +1888,13 @@ func (p *Peer) QueueMessageWithEncoding(msg wire.Message, doneChan chan<- struct
 	p.outputQueue <- outMsg{msg: msg, encoding: encoding, doneChan: doneChan}
 }
 
+func (p *Peer) QueueHeaders(header *block.BlockHeader) {
+	if !p.Connected() {
+		return
+	}
+
+	p.outputHeaderChan <- header
+}
 // QueueInventory adds the passed inventory to the inventory send queue which
 // might not be sent right away, rather it is trickled to the peer in batches.
 // Inventory that the peer is already known to have is ignored.
@@ -2070,6 +2120,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 		sendQueue:       make(chan outMsg, 1),   // nonblocking sync
 		sendDoneQueue:   make(chan struct{}, 1), // nonblocking sync
 		outputInvChan:   make(chan *wire.InvVect, outputBufferSize),
+		outputHeaderChan:   make(chan *block.BlockHeader, outputBufferSize),
 		inQuit:          make(chan struct{}),
 		queueQuit:       make(chan struct{}),
 		outQuit:         make(chan struct{}),
