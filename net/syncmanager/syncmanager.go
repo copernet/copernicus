@@ -783,6 +783,9 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		if sm.startHeader == nil {
 			sm.startHeader = e
 		}
+
+		iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: tmphash}
+		peer.AddKnownInventory(iv)
 	}
 
 	// If this msg isn't coming from our current sync peer or we're current,
