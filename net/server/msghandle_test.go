@@ -245,7 +245,7 @@ func TestMsgHandle(t *testing.T) {
 			OnNotFound: func(p *peer.Peer, msg *wire.MsgNotFound) {
 				execCount["OnNotFound"]++
 			},
-			OnGetData: func(p *peer.Peer, msg *wire.MsgGetData) {
+			OnGetData: func(p *peer.Peer, msg *wire.MsgGetData, done chan<- struct{}) {
 				execCount["OnGetData"]++
 			},
 			OnGetBlocks: func(p *peer.Peer, msg *wire.MsgGetBlocks) {

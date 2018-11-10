@@ -1079,10 +1079,6 @@ out:
 					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
 				}
 				msg.reply <- struct{}{}
-			case getdataMsg:
-				if msg.peer.Cfg.Listeners.OnGetData != nil {
-					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata, msg.reply)
-				}
 			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)

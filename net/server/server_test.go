@@ -793,9 +793,11 @@ func TestOnGetData(t *testing.T) {
 	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
+	done1 := make(chan struct{}, 1)
+	done2 := make(chan struct{}, 1)
 	go func() {
-		sp.OnGetData(in, m1)
-		sp.OnGetData(in, m2)
+		sp.OnGetData(in, m1, done1)
+		sp.OnGetData(in, m2, done2)
 	}()
 }
 

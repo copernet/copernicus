@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/tx"
 	"io"
 	"net"
 	"os"
@@ -17,9 +19,7 @@ import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
@@ -435,7 +435,7 @@ func TestPeerListeners(t *testing.T) {
 			OnNotFound: func(p *peer.Peer, msg *wire.MsgNotFound) {
 				ok <- msg
 			},
-			OnGetData: func(p *peer.Peer, msg *wire.MsgGetData) {
+			OnGetData: func(p *peer.Peer, msg *wire.MsgGetData, done chan<- struct{}) {
 				ok <- msg
 			},
 			OnGetBlocks: func(p *peer.Peer, msg *wire.MsgGetBlocks) {
@@ -567,10 +567,6 @@ func TestPeerListeners(t *testing.T) {
 		{
 			"OnNotFound",
 			wire.NewMsgNotFound(),
-		},
-		{
-			"OnGetData",
-			wire.NewMsgGetData(),
 		},
 		{
 			"OnGetBlocks",
