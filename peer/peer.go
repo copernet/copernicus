@@ -157,7 +157,7 @@ type MessageListeners struct {
 	OnNotFound func(p *Peer, msg *wire.MsgNotFound)
 
 	// OnGetData is invoked when a peer receives a getdata bitcoin message.
-	OnGetData func(p *Peer, msg *wire.MsgGetData)
+	OnGetData func(p *Peer, msg *wire.MsgGetData, done chan<- struct{})
 
 	// OnGetBlocks is invoked when a peer receives a getblocks bitcoin
 	// message.

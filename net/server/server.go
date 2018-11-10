@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/persist"
 	"math"
 	"net"
 	"os"
@@ -540,11 +541,8 @@ func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<
 	switch dataType := msg.Msg.(type) {
 	case *wire.MsgMemPool:
 		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done)
-	case *wire.MsgGetData:
-		sp.server.syncManager.QueueGetData(dataType, msg.Peerp, done)
 	case *wire.MsgGetBlocks:
 		sp.server.syncManager.QueueGetBlocks(dataType, msg.Peerp, done)
-
 	}
 }
 
@@ -618,10 +616,13 @@ func (sp *serverPeer) OnHeaders(_ *peer.Peer, msg *wire.MsgHeaders) {
 
 // handleGetData is invoked when a peer receives a getdata bitcoin message and
 // is used to deliver block and transaction information.
-func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
+func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData, done chan<- struct{}) {
+	go sp.doGetData(msg, done)
+}
+
+func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 	numAdded := 0
 	notFound := wire.NewMsgNotFound()
-
 	length := len(msg.InvList)
 	// A decaying ban score increase is applied to prevent exhausting resources
 	// with unusually large inventory queries.
@@ -687,6 +688,7 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 	// timeout could fire when we were only half done sending the blocks.
 	if numAdded > 0 {
 		<-doneChan
+		done <- struct{}{}
 	}
 }
 
@@ -1089,26 +1091,7 @@ func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
-	activeChain := chain.GetInstance()
-	var blkIndex *blockindex.BlockIndex
-	send := false
-	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
-
-		// TODO: we may add it back when we support header-first mode
-		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
-		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
-		// }
-
-		// Check the block whether in main chain.
-		if activeChain.Contains(blkIndex) {
-			//nOneMonth := 30 * 24 * 60 * 60
-			//todo !!! add time process, exclude too older block.
-			if blkIndex.IsValid(blockindex.BlockValidScripts) {
-				send = true
-			}
-		}
-	}
-
+	blkIndex, send := findBlockIndex(hash)
 	if send && blkIndex.HasData() {
 		// Fetch the raw block bytes from the database.
 		bl, err := lblock.GetBlockByIndex(blkIndex, s.chainParams)
@@ -1156,6 +1139,30 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	}
 
 	return nil
+}
+
+func findBlockIndex(hash *util.Hash) (blkIndex *blockindex.BlockIndex, send bool) {
+	persist.CsMain.Lock()  //to protect chain.indexMap
+	defer persist.CsMain.Unlock()
+
+	activeChain := chain.GetInstance()
+	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
+
+		// TODO: we may add it back when we support header-first mode
+		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
+		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
+		// }
+
+		// Check the block whether in main chain.
+		if activeChain.Contains(blkIndex) {
+			//nOneMonth := 30 * 24 * 60 * 60
+			//todo !!! add time process, exclude too older block.
+			if blkIndex.IsValid(blockindex.BlockValidScripts) {
+				send = true
+			}
+		}
+	}
+	return
 }
 
 // pushMerkleBlockMsg sends a merkleblock message for the provided block hash to
