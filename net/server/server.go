@@ -545,11 +545,8 @@ func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<
 	switch dataType := msg.Msg.(type) {
 	case *wire.MsgMemPool:
 		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done)
-	case *wire.MsgGetData:
-		sp.server.syncManager.QueueGetData(dataType, msg.Peerp, done)
 	case *wire.MsgGetBlocks:
 		sp.server.syncManager.QueueGetBlocks(dataType, msg.Peerp, done)
-
 	}
 }
 
@@ -623,10 +620,13 @@ func (sp *serverPeer) OnHeaders(_ *peer.Peer, msg *wire.MsgHeaders) {
 
 // handleGetData is invoked when a peer receives a getdata bitcoin message and
 // is used to deliver block and transaction information.
-func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
+func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData, done chan<- struct{}) {
+	go sp.doGetData(msg, done)
+}
+
+func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 	numAdded := 0
 	notFound := wire.NewMsgNotFound()
-
 	length := len(msg.InvList)
 	// A decaying ban score increase is applied to prevent exhausting resources
 	// with unusually large inventory queries.
@@ -692,6 +692,7 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 	// timeout could fire when we were only half done sending the blocks.
 	if numAdded > 0 {
 		<-doneChan
+		done <- struct{}{}
 	}
 }
 
