@@ -64,7 +64,7 @@ const (
 
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
-	maxBlocksToAnnounce = 10
+	maxBlocksToAnnounce = 20
 )
 
 var (
@@ -169,6 +169,13 @@ type peerState struct {
 	outboundGroups  map[string]int
 }
 
+type banScoreMsg struct {
+	peerAddr   string
+	persistent uint32
+	transient  uint32
+	reason     string
+}
+
 // Count returns the count of all known peers.
 func (ps *peerState) Count() int {
 	return len(ps.inboundPeers) + len(ps.outboundPeers) +
@@ -223,6 +230,10 @@ type Server struct {
 	nat                  upnp.NAT
 	timeSource           *bitcointime.MedianTime
 	services             wire.ServiceFlag
+
+	connectPeerChn chan *serverPeer
+	banScoreChn    chan *banScoreMsg
+	connectedPeers map[string]*serverPeer
 
 	// The following fields are used for optional indexes.  They will be nil
 	// if the associated index is not enabled.  These fields are set during
@@ -362,7 +373,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 	if score > warnThreshold {
 		log.Warn("Misbehaving peer %s: %s -- ban score increased to %d",
 			sp, reason, score)
-		if score > conf.Cfg.P2PNet.BanThreshold {
+		if score >= conf.Cfg.P2PNet.BanThreshold {
 			log.Warn("Misbehaving peer %s -- banning and disconnecting",
 				sp)
 			sp.server.BanPeer(sp)
@@ -1535,6 +1546,16 @@ func (s *Server) handleQuery(state *peerState, querymsg interface{}) {
 	}
 }
 
+func (s *Server) handleConnectPeer(state *peerState, svrPeer *serverPeer) {
+	s.connectedPeers[svrPeer.Addr()] = svrPeer
+}
+
+func (s *Server) handleBanScore(state *peerState, bmsg *banScoreMsg) {
+	if sp, ok := s.connectedPeers[bmsg.peerAddr]; ok {
+		sp.addBanScore(bmsg.persistent, bmsg.transient, bmsg.reason)
+	}
+}
+
 // disconnectPeer attempts to drop the connection of a targeted peer in the
 // passed peer list. Targets are identified via usage of the passed
 // `compareFunc`, which should return `true` if the passed peer is the target
@@ -1613,6 +1634,17 @@ func (s *Server) inboundPeerConnected(conn net.Conn) {
 		s.syncManager.NewPeer(peer)
 	})
 	go s.peerDoneHandler(sp)
+
+	s.connectPeerChn <- sp
+	// if version msg is not received when connecting, add ban score
+	if !sp.VersionKnown() {
+		s.banScoreChn <- &banScoreMsg{
+			peerAddr:   sp.Addr(),
+			persistent: 0,
+			transient:  1,
+			reason:     "missing-version",
+		}
+	}
 }
 
 // outboundPeerConnected is invoked by the connection manager when a new
@@ -1645,6 +1677,17 @@ func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	})
 	go s.peerDoneHandler(sp)
 	s.addrManager.Attempt(sp.NA())
+
+	s.connectPeerChn <- sp
+	// if version msg is not received when connecting, add ban score
+	if !sp.VersionKnown() {
+		s.banScoreChn <- &banScoreMsg{
+			peerAddr:   sp.Addr(),
+			persistent: 0,
+			transient:  1,
+			reason:     "missing-version",
+		}
+	}
 }
 
 // peerDoneHandler handles peer disconnects by notifiying the server that it's
@@ -1732,6 +1775,12 @@ out:
 		case qmsg := <-s.query:
 			s.handleQuery(state, qmsg)
 
+		case cmsg := <-s.connectPeerChn:
+			s.handleConnectPeer(state, cmsg)
+
+		case bmsg := <-s.banScoreChn:
+			s.handleBanScore(state, bmsg)
+
 		case <-s.quit:
 			// Disconnect all peers on server shutdown.
 			state.forAllPeers(func(sp *serverPeer) {
@@ -1799,6 +1848,8 @@ func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
 	for i := len(blockIndexes) - 1; i >= 0; i-- {
 		index := blockIndexes[i]
 		iv := wire.NewInvVect(wire.InvTypeBlock, index.GetBlockHash())
+
+		//TODO: relay inventory through headers message
 		s.RelayInventory(iv, index.GetBlockHeader())
 	}
 }
@@ -2145,6 +2196,9 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		nat:                  nat,
 		timeSource:           ts,
 		MsgChan:              msgChan,
+		connectPeerChn:       make(chan *serverPeer),
+		banScoreChn:          make(chan *banScoreMsg),
+		connectedPeers:       make(map[string]*serverPeer),
 	}
 
 	if cfg.P2PNet.TargetOutbound < 0 {

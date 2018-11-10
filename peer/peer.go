@@ -487,6 +487,8 @@ type Peer struct {
 	requestingDataCnt uint64
 
 	reqMempoolOnce sync.Once
+
+	newPeerCallback func(*Peer)
 }
 
 func (p *Peer) RequestMemPool() {
@@ -1134,6 +1136,29 @@ func (p *Peer) handleRemoteVersionMsg(msg *wire.MsgVersion) error {
 	p.flagsMtx.Unlock()
 
 	return nil
+}
+
+func (p *Peer) HandleVersionMsg(msg *wire.MsgVersion) {
+	if err := p.handleRemoteVersionMsg(msg); err != nil {
+		log.Error("handleRemoteVersionMsg error:%s", err.Error())
+		return
+	}
+
+	if p.Cfg.Listeners.OnVersion != nil {
+		p.Cfg.Listeners.OnVersion(p, msg)
+	}
+
+	if p.Inbound() {
+		p.writeLocalVersionMsg()
+	}
+
+	// Send our verack message now that the IO processing machinery has started.
+	p.QueueMessage(wire.NewMsgVerAck(), nil)
+
+	// call the callback function after ver msg
+	if p.newPeerCallback != nil {
+		p.newPeerCallback(p)
+	}
 }
 
 // HandlePingMsg is invoked when a peer receives a ping bitcoin message.  For
@@ -1939,20 +1964,34 @@ func (p *Peer) start(phCh chan<- *PeerMessage, newPeerCallback func(*Peer)) erro
 		}
 	}()
 
+	missVersion := false
 	// Negotiate the protocol within the specified negotiateTimeout.
 	select {
 	case err := <-negotiateErr:
 		if err != nil {
-			return err
+			// if version msg is missing, keep the connection and add ban score later
+			if err.Error() == "missing-version" {
+				missVersion = true
+			} else {
+				return err
+			}
 		}
 	case <-time.After(negotiateTimeout):
 		return errors.New("protocol negotiation timeout")
 	}
 	log.Debug("Connected to %s", p.Addr())
-	// Send our verack message now that the IO processing machinery has started.
-	p.QueueMessage(wire.NewMsgVerAck(), nil)
 
-	newPeerCallback(p)
+	if !missVersion {
+		// Send our verack message now that the IO processing machinery has started.
+		p.QueueMessage(wire.NewMsgVerAck(), nil)
+
+		// call the callback function after ver msg
+		newPeerCallback(p)
+	} else {
+		// save the callback and call it later
+		p.newPeerCallback = newPeerCallback
+	}
+
 	// The protocol has been negotiated successfully so start processing input
 	// and output messages.
 	go p.stallHandler()
@@ -1984,9 +2023,8 @@ func (p *Peer) readRemoteVersionMsg() error {
 
 	remoteVerMsg, ok := msg.(*wire.MsgVersion)
 	if !ok {
-		errStr := "A version message must precede all others"
-		log.Error(errStr)
-		return errors.New(errStr)
+		log.Error("A version message must precede all others")
+		return errors.New("missing-version")
 	}
 
 	if err := p.handleRemoteVersionMsg(remoteVerMsg); err != nil {

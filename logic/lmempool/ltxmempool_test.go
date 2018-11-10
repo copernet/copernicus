@@ -232,7 +232,7 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 	for _, input := range inputs {
 		txn.AddTxIn(txin.NewTxIn(
 			&input.outPoint,
-			nil,
+			script.NewEmptyScript(),
 			math.MaxUint32))
 	}
 	for i := uint32(0); i < numOutputs; i++ {
@@ -276,7 +276,7 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 		txn := tx.NewTx(0, tx.TxVersion)
 		txn.AddTxIn(txin.NewTxIn(
 			prevOutPoint,
-			nil,
+			script.NewEmptyScript(),
 			math.MaxUint32,
 		))
 		txn.AddTxOut(txout.NewTxOut(

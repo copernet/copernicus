@@ -21,10 +21,12 @@ import (
 	"github.com/copernet/copernicus/model/wallet"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/net/wire"
+	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 	"github.com/copernet/copernicus/util/cashaddr"
 	"github.com/pkg/errors"
+	"gopkg.in/fatih/set.v0"
 	"math"
 )
 
@@ -163,7 +165,36 @@ func RemoveFromWallet(txn *tx.Tx) {
 func SetFeeRate(feePaid int64, byteSize int64) {
 	wallet.GetInstance().SetFeeRate(feePaid, byteSize)
 }
+func FundTransaction(fundTx *tx.Tx, setSubtractFeeFromOutputs *set.Set, options *btcjson.FundRawTxoptions) (
+	int, amount.Amount, error) {
 
+	var vecSend []*wallet.Recipient
+	for idx, out := range fundTx.GetOuts() {
+		recipient := wallet.Recipient{
+			ScriptPubKey:          out.GetScriptPubKey(),
+			Value:                 out.GetValue(),
+			SubtractFeeFromAmount: setSubtractFeeFromOutputs.Has(idx),
+		}
+		vecSend = append(vecSend, &recipient)
+	}
+	changePosInOut := options.ChangePosition
+	wtx, feeOut, err := CreateTransaction(vecSend, &changePosInOut, false)
+	if err != nil {
+		return 0, amount.Amount(0), err
+	}
+	if changePosInOut != -1 {
+		fundTx.InsertTxOut(changePosInOut, wtx.GetTxOut(changePosInOut))
+	}
+
+	// Copy output sizes from new transaction; they may have had the fee
+	// subtracted from them.
+	for idx, out := range fundTx.GetOuts() {
+		out.SetValue(wtx.GetTxOut(idx).GetValue())
+	}
+	//TODO add handle fundTxOptions
+
+	return changePosInOut, feeOut, nil
+}
 func CreateTransaction(recipients []*wallet.Recipient, changePosInOut *int, sign bool) (*tx.Tx,
 	amount.Amount, error) {
 	if len(recipients) == 0 {

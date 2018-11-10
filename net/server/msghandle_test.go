@@ -201,12 +201,8 @@ func TestMsgHandle(t *testing.T) {
 	execCount := make(map[string]int)
 	peerCfg := &peer.Config{
 		Listeners: peer.MessageListeners{
-			OnWrite: func(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {
-				execCount["OnWrite"]++
-			},
-			OnRead: func(p *peer.Peer, bytesRead int, msg wire.Message, err error) {
-				execCount["OnRead"]++
-			},
+			OnRead:  func(p *peer.Peer, bytesRead int, msg wire.Message, err error) {},
+			OnWrite: func(p *peer.Peer, bytesWritten int, msg wire.Message, err error) {},
 			OnGetAddr: func(p *peer.Peer, msg *wire.MsgGetAddr) {
 				execCount["OnGetAddr"]++
 			},
@@ -287,14 +283,14 @@ func TestMsgHandle(t *testing.T) {
 	}
 
 	r, w := io.Pipe()
-	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	outConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	inMsgChan := make(chan *peer.PeerMessage)
 	SetMsgHandle(context.TODO(), inMsgChan, nil)
-	inPeer := peer.NewInboundPeer(peerCfg)
-	inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
-	inPeer.SetAckReceived(true)
+	outPeer, err := peer.NewOutboundPeer(peerCfg, "127.0.0.1:18335")
+	assert.Nil(t, err)
+	outPeer.AssociateConnection(outConn, inMsgChan, func(*peer.Peer) {})
 
-	ret := inPeer.WantsHeaders()
+	ret := outPeer.WantsHeaders()
 	assert.Equal(t, ret, false)
 
 	ourNA := &wire.NetAddress{
@@ -315,153 +311,128 @@ func TestMsgHandle(t *testing.T) {
 	}
 
 	tests := []struct {
-		listener   string
-		msg        wire.Message
-		doCallBack bool
-		sendDone   bool
+		listener    string
+		msg         wire.Message
+		chkCallBack bool
 	}{
 		{
 			"OnGetAddr",
 			wire.NewMsgGetAddr(),
-			true,
 			true,
 		},
 		{
 			"OnAddr",
 			wire.NewMsgAddr(),
 			true,
-			true,
 		},
 		{
 			"OnPing",
 			wire.NewMsgPing(42),
-			true,
 			true,
 		},
 		{
 			"OnPong",
 			wire.NewMsgPong(42),
 			true,
-			true,
 		},
 		{
 			"OnAlert",
 			wire.NewMsgAlert([]byte("payload"), []byte("signature")),
-			true,
 			true,
 		},
 		{
 			"OnMemPool",
 			wire.NewMsgMemPool(),
 			true,
-			true,
 		},
 		{
 			"OnTx",
 			(*wire.MsgTx)(tx.NewTx(0, tx.TxVersion)),
-			true,
 			true,
 		},
 		{
 			"OnBlock",
 			(*wire.MsgBlock)(&block.Block{Header: bhdr}),
 			true,
-			true,
 		},
 		{
 			"OnInv",
 			wire.NewMsgInv(),
-			true,
 			true,
 		},
 		{
 			"OnHeaders",
 			wire.NewMsgHeaders(),
 			true,
-			true,
 		},
 		{
 			"OnNotFound",
 			wire.NewMsgNotFound(),
-			true,
 			true,
 		},
 		{
 			"OnGetData",
 			wire.NewMsgGetData(),
 			true,
-			true,
 		},
 		{
 			"OnGetBlocks",
 			wire.NewMsgGetBlocks(&util.Hash{}),
-			true,
 			true,
 		},
 		{
 			"OnGetHeaders",
 			wire.NewMsgGetHeaders(),
 			true,
-			true,
 		},
 		{
 			"OnFeeFilter",
 			wire.NewMsgFeeFilter(15000),
-			true,
 			true,
 		},
 		{
 			"OnFilterAdd",
 			wire.NewMsgFilterAdd([]byte{0x01}),
 			true,
-			true,
 		},
 		{
 			"OnFilterClear",
 			wire.NewMsgFilterClear(),
-			true,
 			true,
 		},
 		{
 			"OnFilterLoad",
 			wire.NewMsgFilterLoad([]byte{0x01}, 10, 0, wire.BloomUpdateNone),
 			true,
-			true,
 		},
 		{
 			"OnMerkleBlock",
 			wire.NewMsgMerkleBlock(&bhdr),
-			true,
-			true,
-		},
-		{
-			"OnVersion",
-			wire.NewMsgVersion(ourNA, inPeer.NA(), 1, 1),
-			false, // not call the callback function in msghandle
-			true,
-		},
-		{
-			"OnVerAck",
-			wire.NewMsgVerAck(),
-			true,
 			true,
 		},
 		{
 			"OnReject",
 			wire.NewMsgReject("block", errcode.RejectDuplicate, "dupe block"),
 			true,
-			true,
 		},
 		{
 			"OnSendHeaders",
 			wire.NewMsgSendHeaders(),
 			true,
+		},
+		{
+			"OnVersion",
+			wire.NewMsgVersion(ourNA, outPeer.NA(), 1, 1),
 			true,
+		},
+		{
+			"OnVerAck",
+			wire.NewMsgVerAck(),
+			false,
 		},
 		{
 			"Unknown",
 			&unknownType{},
-			false,
 			false,
 		},
 	}
@@ -472,14 +443,42 @@ func TestMsgHandle(t *testing.T) {
 	ctx := context.TODO()
 	SetMsgHandle(ctx, s.MsgChan, s)
 
+	// unexpect verack before version msg
+	assert.False(t, outPeer.VerAckReceived())
+	verackMsg := wire.NewMsgVerAck()
+	peerMsg := peer.NewPeerMessage(outPeer, verackMsg, buf, done)
+	s.MsgChan <- peerMsg
+	<-done
+	assert.False(t, outPeer.VerAckReceived())
+
+	// version msg
+	assert.False(t, outPeer.VersionKnown())
+	verMsg := wire.NewMsgVersion(ourNA, outPeer.NA(), 1, 1)
+	peerMsg = peer.NewPeerMessage(outPeer, verMsg, buf, done)
+	s.MsgChan <- peerMsg
+	<-done
+	assert.True(t, outPeer.VersionKnown())
+
+	// unexpect other msg before verack
+	pingMsg := wire.NewMsgPing(42)
+	peerMsg = peer.NewPeerMessage(outPeer, pingMsg, buf, done)
+	s.MsgChan <- peerMsg
+	<-done
+
+	// verack msg
+	assert.False(t, outPeer.VerAckReceived())
+	verackMsg = wire.NewMsgVerAck()
+	peerMsg = peer.NewPeerMessage(outPeer, verackMsg, buf, done)
+	s.MsgChan <- peerMsg
+	<-done
+	assert.True(t, outPeer.VerAckReceived())
+
 	for index, test := range tests {
 		t.Logf("testing %d handler:%s", index, test.listener)
-		peerMsg := peer.NewPeerMessage(inPeer, test.msg, buf, done)
+		peerMsg = peer.NewPeerMessage(outPeer, test.msg, buf, done)
 		s.MsgChan <- peerMsg
-		if test.sendDone {
-			<-done
-		}
-		if test.doCallBack {
+		<-done
+		if test.chkCallBack {
 			assert.NotNil(t, execCount[test.listener])
 			assert.Equal(t, 1, execCount[test.listener])
 		}

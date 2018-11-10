@@ -350,7 +350,7 @@ func createRawTxInput(input *btcjson.TransactionInput, lockTime uint32) (*txin.T
 		sequence = math.MaxUint32 - 1
 	}
 
-	txIn := txin.NewTxIn(outpoint.NewOutPoint(*hash, input.Vout), &script.Script{}, sequence)
+	txIn := txin.NewTxIn(outpoint.NewOutPoint(*hash, input.Vout), script.NewEmptyScript(), sequence)
 	return txIn, nil
 }
 

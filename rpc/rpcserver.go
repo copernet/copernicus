@@ -375,7 +375,9 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 			if parsedCmd.err != nil {
 				jsonErr = parsedCmd.err
 			} else {
+				log.Debug(">rpc:: %s, %+v", parsedCmd.method, parsedCmd.cmd)
 				result, jsonErr = s.standardCmdResult(parsedCmd, closeChan)
+				log.Debug("<rpc:: %s, %+v", parsedCmd.method, result)
 			}
 		}
 	}

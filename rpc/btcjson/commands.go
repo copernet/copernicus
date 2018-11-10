@@ -985,12 +985,21 @@ func NewSendManyCmd(fromAccount string, amounts map[string]AmountType, minConf *
 	}
 }
 
+type FundRawTxoptions struct {
+	ChangeAddress          string `json:"changeaddress"`
+	ChangePosition         int    `json:"changeposition"`
+	IncludeWatching        bool   `json:"includewatching" jsonrpcdefault:"false"`
+	LockUnspents           bool   `json:"lockunspents" jsonrpcdefault:"false"`
+	ReserveChangeKey       bool   `json:"reservechangekey" jsonrpcdefault:"true"`
+	FeeRate                int    `json:"feerate"`
+	SubtractFeeFromOutputs *[]int `json:"subtractfeefromoutputs"`
+}
 type FundRawTransactionCmd struct {
-	HexTx string `json:"hexstring"`
+	HexTx   string            `json:"hexstring"`
+	Options *FundRawTxoptions `json:"options"`
 }
 
 func NewFundRawTransactionCmd(hexTx string) *FundRawTransactionCmd {
-
 	return &FundRawTransactionCmd{
 		HexTx: hexTx,
 	}

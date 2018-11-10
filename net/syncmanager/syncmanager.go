@@ -1061,12 +1061,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 
 		if iv.Type == wire.InvTypeBlock {
-
-			if haveInv {
-				log.Debug("ignore known block inv msg, block: %s", iv.Hash)
-				continue
-			}
-
 			// We already have the final block advertised by this
 			// inventory message, so force a request for more.  This
 			// should only happen if we're on a really long side

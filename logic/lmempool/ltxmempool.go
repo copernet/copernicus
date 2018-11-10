@@ -3,6 +3,7 @@ package lmempool
 import (
 	"container/list"
 	"fmt"
+	"github.com/copernet/copernicus/model/wallet"
 	"math"
 
 	"github.com/copernet/copernicus/conf"
@@ -47,6 +48,11 @@ func addTxToMemPool(txe *mempool.TxEntry) error {
 	if err != nil {
 		log.Error("add tx failed:%s", err.Error())
 		return err
+	}
+
+	// TODO: simple implementation just for testing, remove this after complete wallet
+	if wallet.GetInstance().IsEnable() {
+		wallet.GetInstance().HandleRelatedMempoolTx(txe.Tx)
 	}
 	return nil
 }
