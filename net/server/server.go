@@ -692,8 +692,8 @@ func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 	// timeout could fire when we were only half done sending the blocks.
 	if numAdded > 0 {
 		<-doneChan
-		done <- struct{}{}
 	}
+	done <- struct{}{}
 }
 
 func hashpointer2hashinstance(phash []*util.Hash) []util.Hash {
