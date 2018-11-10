@@ -1575,20 +1575,30 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 		// If the inventory is a block and the peer prefers headers,
 		// generate and send a headers message instead of an inventory
 		// message.
-		if msg.invVect.Type == wire.InvTypeBlock && sp.WantsHeaders() {
-			blockHeader, ok := msg.data.(*block.BlockHeader)
-			if !ok {
-				log.Warn("Underlying data for headers" +
-					" is not a block header")
-				return
+		if msg.invVect.Type == wire.InvTypeBlock {
+			if sp.WantsHeaders() {
+				blockHeader, ok := msg.data.(*block.BlockHeader)
+				if !ok {
+					log.Warn("Underlying data for headers" +
+						" is not a block header")
+					return
+				}
+				msgHeaders := wire.NewMsgHeaders()
+				if err := msgHeaders.AddBlockHeader(blockHeader); err != nil {
+					log.Error("Failed to add block"+
+						" header: %v", err)
+					return
+				}
+				sp.QueueMessage(msgHeaders, nil)
+			} else {
+				if !sp.IsKnownInventory(msg.invVect) {
+					log.Debug("relay block via INV right now: %v", msg)
+					sp.AddKnownInventory(msg.invVect)
+					invMsg := wire.NewMsgInvSizeHint(1)
+					invMsg.AddInvVect(msg.invVect)
+					sp.QueueMessage(invMsg, nil)
+				}
 			}
-			msgHeaders := wire.NewMsgHeaders()
-			if err := msgHeaders.AddBlockHeader(blockHeader); err != nil {
-				log.Error("Failed to add block"+
-					" header: %v", err)
-				return
-			}
-			sp.QueueMessage(msgHeaders, nil)
 			return
 		}
 

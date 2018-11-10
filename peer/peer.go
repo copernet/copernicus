@@ -539,6 +539,10 @@ func (p *Peer) AddKnownInventory(invVect *wire.InvVect) {
 	p.knownInventory.Add(invVect)
 }
 
+func (p *Peer) IsKnownInventory(invVect *wire.InvVect) bool {
+	return p.knownInventory.Exists(invVect)
+}
+
 // StatsSnapshot returns a snapshot of the current peer flags and statistics.
 //
 // This function is safe for concurrent access.
