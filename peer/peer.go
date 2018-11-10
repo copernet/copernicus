@@ -69,7 +69,7 @@ const (
 
 	// trickleTimeout is the duration of the ticker which trickles down the
 	// inventory to a peer.
-	trickleTimeout = 10 * time.Second
+	trickleTimeout = time.Second
 
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
