@@ -67,7 +67,7 @@ const (
 
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
-	maxBlocksToAnnounce = 20
+	maxBlocksToAnnounce = 8
 
 	BanReasonNodeMisbehaving int = 1
 	BanReasonManuallyAdded   int = 2
@@ -1576,31 +1576,24 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 			return
 		}
 
-		// If the inventory is a block and the peer prefers headers,
-		// generate and send a headers message instead of an inventory
-		// message.
+		// If the inventory is a block and the peer don't prefers headers,
+		// generate and send an inventory message instantly
 		if msg.invVect.Type == wire.InvTypeBlock {
-			if sp.WantsHeaders() {
-				blockHeader, ok := msg.data.(*block.BlockHeader)
-				if !ok {
-					log.Warn("Underlying data for headers" +
-						" is not a block header")
-					return
-				}
-				msgHeaders := wire.NewMsgHeaders()
-				if err := msgHeaders.AddBlockHeader(blockHeader); err != nil {
-					log.Error("Failed to add block"+
-						" header: %v", err)
-					return
-				}
-				sp.QueueMessage(msgHeaders, nil)
-			} else {
-				if !sp.IsKnownInventory(msg.invVect) {
-					log.Debug("relay block via INV right now: %v", msg)
-					sp.AddKnownInventory(msg.invVect)
-					invMsg := wire.NewMsgInvSizeHint(1)
-					invMsg.AddInvVect(msg.invVect)
-					sp.QueueMessage(invMsg, nil)
+			if !sp.IsKnownInventory(msg.invVect) {
+				sp.AddKnownInventory(msg.invVect)
+				if sp.WantsHeaders() {
+					blockHeader, ok := msg.data.(*block.BlockHeader)
+					if !ok {
+						log.Warn("Underlying data for headers" +
+							" is not a block header")
+						return
+					}
+					sp.QueueHeaders(blockHeader)
+				} else {
+						log.Debug("relay block via INV right now: %v", msg)
+						invMsg := wire.NewMsgInvSizeHint(1)
+						invMsg.AddInvVect(msg.invVect)
+						sp.QueueMessage(invMsg, nil)
 				}
 			}
 			return
