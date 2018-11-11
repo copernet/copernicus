@@ -1689,11 +1689,10 @@ out:
 				}
 			}
 
-			// Create and send as many inv messages as needed to
-			// drain the inventory send queue.
-			invMsg := wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
-
-			for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
+			invMsg := wire.NewMsgInvSizeHint(1)
+			// RevertToInv occured, should send only last header via INV
+			// and just drop other headers, to wait peer request themselves
+			if e := headerSendQueue.Back(); e != nil {
 				header := headerSendQueue.Remove(e).(*block.BlockHeader)
 				iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()}
 
@@ -1701,8 +1700,13 @@ out:
 				waiting = queuePacket(
 					outMsg{msg: invMsg},
 					pendingMsgs, waiting)
-				invMsg = wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
+
+				headerSendQueue.Init()
 			}
+
+			// Create and send as many inv messages as needed to
+			// drain the inventory send queue.
+			invMsg = wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
 
 			for e := invSendQueue.Front(); e != nil; e = invSendQueue.Front() {
 				iv := invSendQueue.Remove(e).(*wire.InvVect)
