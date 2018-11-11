@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/net/socks"
+	"github.com/copernet/copernicus/persist"
 	"io"
 	"math/rand"
 	"net"
@@ -74,6 +75,9 @@ const (
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
 	maxBlocksToAnnounce = 8
+
+	// when peer is neer to tip, set its revertToInv to false back
+	REVERT_TO_INV_DIFF = 7
 )
 
 var (
@@ -1764,6 +1768,19 @@ cleanup:
 	}
 	close(p.queueQuit)
 	log.Trace("Peer queue handler done for %s", p)
+}
+
+func (p *Peer) CheckRevertToInv(hash *util.Hash) {
+	if p.RevertToInv() {
+		persist.CsMain.Lock()
+		defer persist.CsMain.Unlock()
+		gChain := chain.GetInstance()
+		tipheight := gChain.TipHeight()
+		locatorheight := gChain.GetSpendHeight(hash)
+		if tipheight < locatorheight + REVERT_TO_INV_DIFF {
+			p.SetRevertToInv(false)
+		}
+	}
 }
 
 // shouldLogWriteError returns whether or not the passed error, which is

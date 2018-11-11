@@ -906,6 +906,10 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 	}
 
+	if lastBlock != -1 {
+		peer.CheckRevertToInv(&invVects[lastBlock].Hash)
+	}
+
 	// If this inv contains a block announcement, and this isn't coming from
 	// our current sync peer or we're current, then update the last
 	// announced block for this peer. We'll use this information later to
