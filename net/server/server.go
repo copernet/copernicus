@@ -769,7 +769,7 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 		return
 	}
 	header0hash := headers[0].GetHash()
-	sp.checkRevertToInv(&header0hash)
+	sp.CheckRevertToInv(&header0hash)
 
 	// Send found headers to the requesting peer.
 	blockHeaders := make([]*block.BlockHeader, len(headers))
@@ -777,19 +777,6 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 		blockHeaders[i] = &headers[i]
 	}
 	sp.QueueMessage(&wire.MsgHeaders{Headers: blockHeaders}, nil)
-}
-
-func (sp *serverPeer) checkRevertToInv(hash *util.Hash) {
-	if sp.RevertToInv() {
-		persist.CsMain.Lock()
-		defer persist.CsMain.Unlock()
-		gChain := chain.GetInstance()
-		tipheight := gChain.TipHeight()
-		locatorheight := gChain.GetSpendHeight(hash)
-		if tipheight < locatorheight + REVERT_TO_INV_DIFF {
-			sp.SetRevertToInv(false)
-		}
-	}
 }
 
 // enforceNodeBloomFlag disconnects the peer if the server is not configured to
