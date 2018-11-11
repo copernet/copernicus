@@ -1001,11 +1001,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			// Request the block if there is not already a pending
 			// request.
 			if _, exists := sm.requestedBlocks[iv.Hash]; !exists {
-				sm.requestedBlocks[iv.Hash] = struct{}{}
-				sm.limitMap(sm.requestedBlocks, maxRequestedBlocks)
-				state.requestedBlocks[iv.Hash] = struct{}{}
-				gdmsg.AddInvVect(iv)
-				numRequested++
+				pindexStart := activeChain.Tip()
+				locator := activeChain.GetLocator(pindexStart)
+				log.Info("Syncing to block height %d from peer %v",
+					peer.LastBlock(), peer.Addr())
+
+				peer.PushGetHeadersMsg(*locator, &iv.Hash)
 			}
 
 		case wire.InvTypeTx:
