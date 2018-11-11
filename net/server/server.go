@@ -1594,12 +1594,12 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 			return
 		}
 
-		// If the inventory is a block and the peer don't prefers headers,
-		// generate and send an inventory message instantly
+		// If the inventory is a block and the peer prefers headers,
+		// use QueueHeaders logic to handle it
 		if msg.invVect.Type == wire.InvTypeBlock {
-			if !sp.IsKnownInventory(msg.invVect) {
-				sp.AddKnownInventory(msg.invVect)
-				if sp.WantsHeaders() {
+			if sp.WantsHeaders() {
+				if !sp.IsKnownInventory(msg.invVect) {
+					sp.AddKnownInventory(msg.invVect)
 					blockHeader, ok := msg.data.(*block.BlockHeader)
 					if !ok {
 						log.Warn("Underlying data for headers" +
@@ -1607,14 +1607,9 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 						return
 					}
 					sp.QueueHeaders(blockHeader)
-				} else {
-						log.Debug("relay block via INV right now: %v", msg)
-						invMsg := wire.NewMsgInvSizeHint(1)
-						invMsg.AddInvVect(msg.invVect)
-						sp.QueueMessage(invMsg, nil)
 				}
+				return
 			}
-			return
 		}
 
 		if msg.invVect.Type == wire.InvTypeTx {
