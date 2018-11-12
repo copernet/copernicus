@@ -24,7 +24,6 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
-	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -59,7 +58,7 @@ const (
 
 	// stallTickInterval is the interval of time between each check for
 	// stalled peers.
-	stallTickInterval = 15 * time.Second
+	stallTickInterval = 60 * time.Second
 
 	// stallResponseTimeout is the base maximum amount of time messages that
 	// expect a response will wait before disconnecting the peer for
@@ -1219,11 +1218,6 @@ func (p *Peer) readMessage(encoding wire.MessageEncoding) (wire.Message, []byte,
 	// the logging level requires it.
 	log.Debug("read summary %v (%s) from %s", msg.Command(), messageSummary(msg), p)
 
-	log.Trace("read message from %s:\n %v", p, spew.Sdump(msg))
-	//newLogClosure(func() string {
-	//	return
-	//}))
-
 	return msg, buf, nil
 }
 
@@ -1237,28 +1231,6 @@ func (p *Peer) writeMessage(msg wire.Message, enc wire.MessageEncoding) error {
 	// Use closures to log expensive operations so they are only run when
 	// the logging level requires it.
 	log.Debug("write summary %v (%s) to %s", msg.Command(), messageSummary(msg), p)
-	//	log.Debug("write summary %v", newLogClosure(func() string {
-	//	// Debug summary of message.
-	//	summary := messageSummary(msg)
-	//	if len(summary) > 0 {
-	//		summary = " (" + summary + ")"
-	//	}
-	//	return fmt.Sprintf("Sending %v%s to %s", msg.Command(),
-	//		summary, p)
-	//}))
-	log.Trace("write message to %s:\n %v", p, spew.Sdump(msg))
-	//log.Trace("write message to (%s):\n %v", p.Addr(), newLogClosure(func() string {
-	//	return spew.Sdump(msg)
-	//}))
-	//log.Trace("%v", newLogClosure(func() string {
-	//	var buf bytes.Buffer
-	//	_, err := wire.WriteMessageWithEncodingN(&buf, msg, p.ProtocolVersion(),
-	//		p.Cfg.ChainParams.BitcoinNet, enc)
-	//	if err != nil {
-	//		return err.Error()
-	//	}
-	//	return spew.Sdump(buf.Bytes())
-	//}))
 
 	// Write the message to the peer.
 	n, err := wire.WriteMessageWithEncodingN(p.conn, msg,
