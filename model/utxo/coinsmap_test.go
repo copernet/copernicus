@@ -95,7 +95,10 @@ func TestCoinsMap_GetValueIn(t *testing.T) {
 	necm := NewEmptyCoinsMap()
 
 	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
+	err := pubKey.PushOpCode(opcodes.OP_TRUE)
+	if err != nil {
+		t.Errorf("push opcode error:%v", err)
+	}
 
 	tpoint, tcoin := getTestCoin()
 	necm.AddCoin(tpoint, tcoin, true)

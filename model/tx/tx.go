@@ -673,13 +673,33 @@ func NewGenesisCoinbaseTx() *Tx {
 		"a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112" +
 		"de5c384df7ba0b8d578a4c702b6bf11d5f")
 	scriptPubKey := script.NewEmptyScript()
-	scriptPubKey.PushSingleData(scriptPubKeyBytes)
-	scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
+	err := scriptPubKey.PushSingleData(scriptPubKeyBytes)
+	if err != nil {
+		log.Error("push single data error:%v", err)
+		return nil
+	}
+	err = scriptPubKey.PushOpCode(opcodes.OP_CHECKSIG)
+	if err != nil {
+		log.Error("push single data error:%v", err)
+		return nil
+	}
 
 	scriptSig := script.NewEmptyScript()
-	scriptSig.PushInt64(486604799)
-	scriptSig.PushScriptNum(scriptSigNum)
-	scriptSig.PushSingleData([]byte(scriptSigString))
+	err = scriptSig.PushInt64(486604799)
+	if err != nil {
+		log.Error("push int64 error:%v", err)
+		return nil
+	}
+	err = scriptSig.PushScriptNum(scriptSigNum)
+	if err != nil {
+		log.Error("push script num error:%v", err)
+		return nil
+	}
+	err = scriptSig.PushSingleData([]byte(scriptSigString))
+	if err != nil {
+		log.Error("push single data error:%v", err)
+		return nil
+	}
 
 	txIn := txin.NewTxIn(nil, scriptSig, math.MaxUint32)
 	txOut := txout.NewTxOut(50*100000000, scriptPubKey)

@@ -3,6 +3,7 @@ package txout
 import (
 	"bytes"
 	"github.com/copernet/copernicus/crypto"
+	"github.com/copernet/copernicus/log"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -42,7 +43,11 @@ func (sb *ScriptBuilder) PushNumber(n int) *ScriptBuilder {
 }
 
 func (sb *ScriptBuilder) PushOPCode(n int) *ScriptBuilder {
-	sb.s.PushOpCode(n)
+	err := sb.s.PushOpCode(n)
+	if err != nil {
+		log.Error("push opcode error:%v", err)
+		return nil
+	}
 	return sb
 }
 
