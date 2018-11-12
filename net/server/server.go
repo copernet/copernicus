@@ -2683,8 +2683,8 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 	for _, addr := range netAddrs {
 		listener, err := net.Listen(addr.Network(), addr.String())
 		if err != nil {
-			log.Warn("Can't listen on %s: %v", addr, err)
-			continue
+			log.Error("Can't listen on %s: %v", addr, err)
+			return nil, nil, err
 		}
 		listeners = append(listeners, listener)
 	}
