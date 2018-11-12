@@ -49,8 +49,10 @@ func appInitMain(args []string) {
 
 	logConf := struct {
 		FileName string `json:"filename"`
+		Level    int    `json:"level"`
 	}{
 		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
 	}
 
 	configuration, err := json.Marshal(logConf)
