@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -105,6 +107,7 @@ func main() {
 	args := os.Args
 	// Work around defer not working after os.Exit()
 	if err := bchMain(context.Background(), args); err != nil {
-		os.Exit(1)
+		log.Error("bchMain failed with err %+v", err)
+		panic("bchMain failed with err: " + err.Error())
 	}
 }
