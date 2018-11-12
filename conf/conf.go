@@ -29,38 +29,9 @@ const (
 const (
 	tagName = "default"
 
-	defaultConfigFilename       = "bitcoincash.yml"
-	defaultDataDirname          = "bitcoincash"
-	defaultProjectDir           = "github.com/copernet/copernicus"
-	defaultMaxPeers             = 125
-	defaultBanDuration          = time.Hour * 24
-	defaultBanThreshold         = 100
-	defaultConnectTimeout       = time.Second * 30
-	defaultMaxRPCClients        = 10
-	defaultMaxRPCWebsockets     = 25
-	defaultMaxRPCConcurrentReqs = 20
-	defaultFreeTxRelayLimit     = 15.0
-	defaultBlockMinSize         = 0
-	defaultBlockMaxSize         = 750000
-	defaultBlockMinWeight       = 0
-	defaultBlockMaxWeight       = 3000000
-	blockMaxSizeMin             = 1000
-	blockMaxWeightMin           = 4000
-	// blockMaxSizeMax              = blockchain.MaxBlockBaseSize - 1000
-	// blockMaxWeightMax            = blockchain.MaxBlockWeight - 4000
-	defaultGenerate              = false
-	defaultMaxOrphanTransactions = 100
-	defaultMaxOrphanTxSize       = 100000
-	defaultSigCacheMaxSize       = 100000
-	sampleConfigFilename         = "sample-coper.conf"
-	defaultTxIndex               = false
-	defaultAddrIndex             = false
-	defaultDescendantLimit       = 25
-	defaultDescendantSizeLimit   = 101
-	defaultAncestorSizeLimit     = 101
-	defaultAncestorLimit         = 25
-	defaultMempoolExpiry         = 336
-	defaultMaxMempoolSize        = 300
+	defaultConfigFilename = "bitcoincash.yml"
+	defaultDataDirname    = "bitcoincash"
+	defaultProjectDir     = "github.com/copernet/copernicus"
 )
 
 // Configuration defines all configurations for application

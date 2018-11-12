@@ -149,7 +149,6 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	if txEntry.SumTxCountWithAncestors == 1 {
 		m.rootTx[txEntry.Tx.GetHash()] = txEntry
 	}
-	//spew.Dump(m.rootTx)
 	m.LimitMempoolSize(conf.Cfg.Mempool.MaxPoolSize, int64(conf.Cfg.Mempool.MaxPoolExpiry)*60*60)
 	return nil
 }
