@@ -83,7 +83,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 		return err
 	}
 
-	chain.GetInstance().SendNotification(chain.NTBlockAccepted, pblock)
+	//chain.GetInstance().SendNotification(chain.NTBlockAccepted, pblock)
 
 	if err := lchain.CheckBlockIndex(); err != nil {
 		log.Error("check block index failed, please check: %v", err)

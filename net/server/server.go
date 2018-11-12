@@ -552,6 +552,8 @@ func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<
 		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done)
 	case *wire.MsgGetBlocks:
 		sp.server.syncManager.QueueGetBlocks(dataType, msg.Peerp, done)
+	case *wire.MsgPing:
+		sp.server.syncManager.QueuePing(dataType, msg.Peerp, done)
 	}
 }
 
@@ -699,6 +701,10 @@ func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 		<-doneChan
 	}
 	done <- struct{}{}
+}
+
+func (sp *serverPeer) OnPing(p *peer.Peer, msg *wire.MsgPing) {
+	p.HandlePingMsg(msg)
 }
 
 func hashpointer2hashinstance(phash []*util.Hash) []util.Hash {
@@ -1911,6 +1917,7 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 			// not signed with its key.  We could verify against their key, but
 			// since the reference client is currently unwilling to support
 			// other implementations' alert messages, we will not relay theirs.
+			OnPing: sp.OnPing,
 			OnAlert: nil,
 		},
 		NewestBlock:       sp.newestBlock,

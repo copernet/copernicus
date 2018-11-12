@@ -106,6 +106,12 @@ type headersMsg struct {
 	peer    *peer.Peer
 }
 
+type pingMsg struct {
+	ping *wire.MsgPing
+	peer *peer.Peer
+	reply   chan<- struct{}
+}
+
 // donePeerMsg signifies a newly disconnected peer to the block handler.
 type donePeerMsg struct {
 	peer *peer.Peer
@@ -1089,6 +1095,11 @@ out:
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
 				}
 				msg.reply <- struct{}{}
+			case pingMsg:
+				if msg.peer.Cfg.Listeners.OnPing != nil {
+					msg.peer.Cfg.Listeners.OnPing(msg.peer, msg.ping)
+				}
+				msg.reply <- struct{}{}
 			case *donePeerMsg:
 				sm.handleDonePeerMsg(msg.peer)
 
@@ -1274,6 +1285,16 @@ func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.P
 	}
 
 	sm.processBusinessChan <- getBlocksMsg{getblocks, peer, done}
+}
+
+func (sm *SyncManager) QueuePing(ping *wire.MsgPing, peer *peer.Peer, done chan<- struct{}) {
+	// Don't accept more blocks if we're shutting down.
+	if atomic.LoadInt32(&sm.shutdown) != 0 {
+		done <- struct{}{}
+		return
+	}
+
+	sm.processBusinessChan <- pingMsg{ping, peer, done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.
