@@ -2156,6 +2156,8 @@ func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
 		blockIndexes = append(blockIndexes, tmp)
 
 		if len(blockIndexes) >= maxBlocksToAnnounce {
+			// large reorg happens, only relay highest one
+			blockIndexes = blockIndexes[0:1]
 			break
 		}
 	}

@@ -72,6 +72,9 @@ const (
 	// inventory to a peer.
 	trickleTimeout = 100 * time.Millisecond
 
+	// ticker duration to relay headers to a peer
+	headerTrickleTimeout = time.Second
+
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
 	maxBlocksToAnnounce = 8
@@ -1607,6 +1610,8 @@ func (p *Peer) queueHandler() {
 	headerSendQueue := list.New()
 	trickleTicker := time.NewTicker(trickleTimeout)
 	defer trickleTicker.Stop()
+	headerTrickleTicker := time.NewTicker(headerTrickleTimeout)
+	defer headerTrickleTicker.Stop()
 
 	// We keep the waiting flag so that we know if we have a message queued
 	// to the outHandler or not.  We could use the presence of a head of
@@ -1661,12 +1666,9 @@ out:
 				headerSendQueue.PushBack(iv)
 			}
 
-		case <-trickleTicker.C:
-			// Don't send anything if we're disconnecting or there
-			// is no queued inventory.
-			// version is known if send queue has any entries.
+		case <-headerTrickleTicker.C:
 			if atomic.LoadInt32(&p.disconnect) != 0 ||
-				(invSendQueue.Len() == 0 && headerSendQueue.Len() == 0){
+				headerSendQueue.Len() == 0{
 				continue
 			}
 
@@ -1707,16 +1709,32 @@ out:
 				headerSendQueue.Init()
 			}
 
+		case <-trickleTicker.C:
+			// Don't send anything if we're disconnecting or there
+			// is no queued inventory.
+			// version is known if send queue has any entries.
+			if atomic.LoadInt32(&p.disconnect) != 0 ||
+				invSendQueue.Len() == 0{
+				continue
+			}
+
 			// Create and send as many inv messages as needed to
 			// drain the inventory send queue.
-			invMsg = wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
+			invMsg := wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
 
+			var invlastblock *wire.InvVect
 			for e := invSendQueue.Front(); e != nil; e = invSendQueue.Front() {
 				iv := invSendQueue.Remove(e).(*wire.InvVect)
 
 				// Don't send inventory that became known after
 				// the initial check.
 				if p.knownInventory.Exists(iv) {
+					continue
+				}
+
+				if iv.Type == wire.InvTypeBlock {
+					invlastblock = iv
+					p.AddKnownInventory(iv)
 					continue
 				}
 
@@ -1733,7 +1751,10 @@ out:
 				p.AddKnownInventory(iv)
 			}
 
-			if len(invMsg.InvList) > 0 {
+			if invlastblock != nil {
+				invMsg.AddInvVect(invlastblock)
+			}
+			if len(invMsg.InvList) != 0 {
 				waiting = queuePacket(outMsg{msg: invMsg},
 					pendingMsgs, waiting)
 			}
