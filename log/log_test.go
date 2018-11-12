@@ -33,11 +33,9 @@ func TestLog(t *testing.T) {
 	logConf := struct {
 		FileName string `json:"filename"`
 		Level    int    `json:"level"`
-		Daily    bool   `json:"daily"`
 	}{
 		FileName: path + ".log",
 		Level:    GetLevel(conf.Cfg.Log.Level),
-		Daily:    false,
 	}
 
 	configuration, err := json.Marshal(logConf)
@@ -110,11 +108,9 @@ func TestLog(t *testing.T) {
 	logConf1 := struct {
 		FileName string `json:"filename"`
 		Level    int    `json:"level"`
-		Daily    bool   `json:"daily"`
 	}{
 		FileName: path1 + ".log",
 		Level:    GetLevel(conf.Cfg.Log.Level),
-		Daily:    false,
 	}
 
 	conf1, err := json.Marshal(logConf1)
@@ -166,11 +162,9 @@ func TestInit(t *testing.T) {
 	logConf := struct {
 		FileName string `json:"filename"`
 		Level    int    `json:"level"`
-		Daily    bool   `json:"daily"`
 	}{
 		FileName: path + ".log",
 		Level:    GetLevel(conf.Cfg.Log.Level),
-		Daily:    false,
 	}
 
 	configuration, err := json.Marshal(logConf)
