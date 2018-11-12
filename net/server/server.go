@@ -157,6 +157,11 @@ type relayMsg struct {
 	data    interface{}
 }
 
+type relayBlocksMsg struct {
+	invVects []*wire.InvVect
+	headers []*block.BlockHeader
+}
+
 type minedBlockMsg struct {
 	block *block.Block
 	done  chan error
@@ -264,6 +269,7 @@ type Server struct {
 	clearBanned          chan *clearBannedMsg
 	query                chan interface{}
 	relayInv             chan relayMsg
+	relayBlocks             chan relayBlocksMsg
 	minedBlock           chan minedBlockMsg
 	broadcast            chan broadcastMsg
 	peerHeightsUpdate    chan updatePeerHeightsMsg
@@ -1583,6 +1589,31 @@ func (s *Server) loadBannedInfo() error {
 	return nil
 }
 
+func (s *Server) handleRelayBlocks(state *peerState, msg relayBlocksMsg) {
+	state.forAllPeers(func(sp *serverPeer) {
+		if !sp.Connected() {
+			return
+		}
+
+		headers := make([]*block.BlockHeader, 0)
+		if sp.WantsHeaders() {
+			for index, invVect := range msg.invVects {
+				if !sp.IsKnownInventory(invVect) {
+					sp.AddKnownInventory(invVect)
+					headers = append(headers, msg.headers[index])
+				}
+			}
+			sp.QueueBatchHeaders(headers)
+			return
+		}
+
+		for _, invVect := range msg.invVects {
+			sp.QueueInventory(invVect)
+		}
+	})
+}
+
+
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
 // known to have it.  It is invoked from the peerHandler goroutine.
 func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
@@ -2053,6 +2084,9 @@ out:
 		case invMsg := <-s.relayInv:
 			s.handleRelayInvMsg(state, invMsg)
 
+		case blocksMsg := <-s.relayBlocks:
+			s.handleRelayBlocks(state, blocksMsg)
+
 		case minedBlockMsg := <-s.minedBlock:
 			s.handleMinedBlock(minedBlockMsg)
 			// Message to broadcast to all connected peers except those
@@ -2092,6 +2126,7 @@ cleanup:
 		case <-s.donePeers:
 		case <-s.peerHeightsUpdate:
 		case <-s.relayInv:
+		case <-s.relayBlocks:
 		case <-s.broadcast:
 		case <-s.query:
 		default:
@@ -2155,6 +2190,10 @@ func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 	s.relayInv <- relayMsg{invVect: invVect, data: data}
 }
 
+func (s *Server) RelayBlocks(invVects []*wire.InvVect, headers []*block.BlockHeader) {
+	s.relayBlocks <- relayBlocksMsg{invVects: invVects, headers: headers}
+}
+
 func (s *Server) HandleMinedBlock(pblock *block.Block, done chan error) {
 	s.minedBlock <- minedBlockMsg{pblock, done}
 }
@@ -2176,13 +2215,16 @@ func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
 		}
 	}
 
+	ivs := make([]*wire.InvVect, 0)
+	data := make([]*block.BlockHeader, 0)
 	for i := len(blockIndexes) - 1; i >= 0; i-- {
 		index := blockIndexes[i]
 		iv := wire.NewInvVect(wire.InvTypeBlock, index.GetBlockHash())
 
-		//TODO: relay inventory through headers message
-		s.RelayInventory(iv, index.GetBlockHeader())
+		ivs = append(ivs, iv)
+		data = append(data, index.GetBlockHeader())
 	}
+	s.RelayBlocks(ivs, data)
 }
 
 // BroadcastMessage sends msg to all peers currently connected to the server
@@ -2537,6 +2579,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		clearBanned:          make(chan *clearBannedMsg),
 		query:                make(chan interface{}),
 		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
+		relayBlocks:          make(chan relayBlocksMsg, cfg.P2PNet.MaxPeers),
 		minedBlock:           make(chan minedBlockMsg),
 		broadcast:            make(chan broadcastMsg, cfg.P2PNet.MaxPeers),
 		quit:                 make(chan struct{}),

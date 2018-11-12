@@ -493,6 +493,7 @@ type Peer struct {
 	sendDoneQueue     chan struct{}
 	outputInvChan     chan *wire.InvVect
 	outputHeaderChan     chan *block.BlockHeader
+	outputHeadersChan     chan []*block.BlockHeader
 	inQuit            chan struct{}
 	queueQuit         chan struct{}
 	outQuit           chan struct{}
@@ -1660,16 +1661,31 @@ out:
 				invSendQueue.PushBack(iv)
 			}
 
-		case iv := <-p.outputHeaderChan:
+		case header := <-p.outputHeaderChan:
 			// No handshake?  They'll find out soon enough.
 			if p.VersionKnown() {
-				headerSendQueue.PushBack(iv)
+				headerSendQueue.PushBack(header)
+			}
+
+
+		case headers := <-p.outputHeadersChan:
+			// No handshake?  They'll find out soon enough.
+			if p.VersionKnown() {
+				for _, header := range headers{
+					headerSendQueue.PushBack(header)
+				}
 			}
 
 		case <-headerTrickleTicker.C:
 			if atomic.LoadInt32(&p.disconnect) != 0 ||
 				headerSendQueue.Len() == 0{
 				continue
+			}
+
+			log.Debug("mylog,%t,%t", p.WantsHeaders(), p.RevertToInv())
+			for e := headerSendQueue.Front(); e != nil; e = e.Next() {
+				header := e.Value.(*block.BlockHeader)
+				log.Debug("mylog,%s,%v",p.Addr(),header.GetHash())
 			}
 
 			if p.WantsHeaders() {
@@ -1783,6 +1799,7 @@ cleanup:
 			// Just drain channel
 			// sendDoneQueue is buffered so doesn't need draining.
 		case <-p.outputHeaderChan:
+		case <-p.outputHeadersChan:
 		default:
 			break cleanup
 		}
@@ -1957,6 +1974,14 @@ func (p *Peer) QueueHeaders(header *block.BlockHeader) {
 	}
 
 	p.outputHeaderChan <- header
+}
+
+func (p *Peer) QueueBatchHeaders(headers []*block.BlockHeader) {
+	if !p.Connected() {
+		return
+	}
+
+	p.outputHeadersChan <- headers
 }
 // QueueInventory adds the passed inventory to the inventory send queue which
 // might not be sent right away, rather it is trickled to the peer in batches.
@@ -2184,6 +2209,7 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 		sendDoneQueue:   make(chan struct{}, 1), // nonblocking sync
 		outputInvChan:   make(chan *wire.InvVect, outputBufferSize),
 		outputHeaderChan:   make(chan *block.BlockHeader, outputBufferSize),
+		outputHeadersChan:   make(chan []*block.BlockHeader, outputBufferSize),
 		inQuit:          make(chan struct{}),
 		queueQuit:       make(chan struct{}),
 		outQuit:         make(chan struct{}),
