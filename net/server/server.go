@@ -753,6 +753,22 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 		return
 	}
 
+	// logic of Check to reset RevertToInv
+	gChain := chain.GetInstance()
+	for _, hash := range msg.BlockLocatorHashes{
+		bi := gChain.FindBlockIndex(*hash)
+		if bi != nil {
+			if gChain.Contains(bi) {
+				sp.CheckRevertToInv(hash)
+				break
+			}
+			if bi.GetAncestor(gChain.Height()) == gChain.Tip() {
+				sp.SetRevertToInv(false)
+				break
+			}
+		}
+	}
+
 	// Find the most recent known block in the best chain based on the block
 	// locator and fetch all of the headers after it until either
 	// wire.MaxBlockHeadersPerMsg have been fetched or the provided stop
@@ -768,8 +784,6 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 		// Nothing to send.
 		return
 	}
-	header0hash := headers[0].GetHash()
-	sp.CheckRevertToInv(&header0hash)
 
 	// Send found headers to the requesting peer.
 	blockHeaders := make([]*block.BlockHeader, len(headers))
@@ -2161,8 +2175,8 @@ func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
 
 		if len(blockIndexes) >= maxBlocksToAnnounce {
 			// large reorg happens, only relay highest one
-			blockIndexes = blockIndexes[0:1]
-			break
+			//blockIndexes = blockIndexes[0:1]
+			//break
 		}
 	}
 

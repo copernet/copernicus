@@ -80,7 +80,7 @@ const (
 	maxBlocksToAnnounce = 8
 
 	// when peer is neer to tip, set its revertToInv to false back
-	REVERT_TO_INV_DIFF = 7
+	REVERT_TO_INV_DIFF = 8
 )
 
 var (
