@@ -147,6 +147,11 @@ type relayMsg struct {
 	data    interface{}
 }
 
+type minedBlockMsg struct {
+	block *block.Block
+	done  chan error
+}
+
 // updatePeerHeightsMsg is a message sent from the blockmanager to the server
 // after a new block has been accepted. The purpose of the message is to update
 // the heights of peers that were known to announce the block before we
@@ -223,6 +228,7 @@ type Server struct {
 	banPeers             chan *serverPeer
 	query                chan interface{}
 	relayInv             chan relayMsg
+	minedBlock           chan minedBlockMsg
 	broadcast            chan broadcastMsg
 	peerHeightsUpdate    chan updatePeerHeightsMsg
 	wg                   sync.WaitGroup
@@ -1387,6 +1393,10 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 	})
 }
 
+func (s *Server) handleMinedBlock(mb minedBlockMsg) {
+	s.syncManager.QueueMinedBlock(mb.block, mb.done)
+}
+
 // handleBroadcastMsg deals with broadcasting messages to peers.  It is invoked
 // from the peerHandler goroutine.
 func (s *Server) handleBroadcastMsg(state *peerState, bmsg *broadcastMsg) {
@@ -1771,6 +1781,8 @@ out:
 		case invMsg := <-s.relayInv:
 			s.handleRelayInvMsg(state, invMsg)
 
+		case minedBlockMsg := <-s.minedBlock:
+			s.handleMinedBlock(minedBlockMsg)
 			// Message to broadcast to all connected peers except those
 			// which are excluded by the message.
 		case bmsg := <-s.broadcast:
@@ -1832,6 +1844,10 @@ func (s *Server) BanPeer(sp *serverPeer) {
 // that are not already known to have it.
 func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 	s.relayInv <- relayMsg{invVect: invVect, data: data}
+}
+
+func (s *Server) HandleMinedBlock(pblock *block.Block, done chan error) {
+	s.minedBlock <- minedBlockMsg{pblock, done}
 }
 
 // RelayUpdatedTipBlocks relays blocks leads to new main chain
@@ -2192,6 +2208,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		banPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
 		query:                make(chan interface{}),
 		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
+		minedBlock:           make(chan minedBlockMsg),
 		broadcast:            make(chan broadcastMsg, cfg.P2PNet.MaxPeers),
 		quit:                 make(chan struct{}),
 		modifyRebroadcastInv: make(chan interface{}),

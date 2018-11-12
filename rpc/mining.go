@@ -21,9 +21,9 @@ import (
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/rpc/btcjson"
-	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/fatih/set.v0"
@@ -482,27 +482,7 @@ func handleSubmitBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	}
 
 	hash := bk.GetHash()
-	ch := chain.GetInstance()
-	blkIdx := ch.FindBlockIndex(hash)
-	if blkIdx != nil {
-		if blkIdx.IsValid(blockindex.BlockValidScripts) {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.RPCTransactionAlreadyInChain,
-				Message: "duplicate",
-			}
-		}
-
-		if (blkIdx.Status & blockindex.BlockInvalidMask) < 0 {
-			return nil, &btcjson.RPCError{
-				Code:    btcjson.RPCTransactionError,
-				Message: "duplicate-invalid",
-			}
-		}
-	}
-
-	// Process this block using the same rules as blocks coming from other
-	// nodes.  This will in turn relay it to the network like normal.
-	_, err = service.ProcessBlock(bk)
+	_, err = server.ProcessForRPC(bk)
 	if err != nil {
 		log.Error("rejected: %s, blk=%+v txs=%+v", err.Error(), bk, bk.Txs)
 		return fmt.Sprintf("rejected: %s", err.Error()), nil
@@ -598,8 +578,8 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64, 
 			continue
 		}
 
-		fNewBlock := false
-		if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+		if _, err := server.ProcessForRPC(bt.Block); err != nil {
+			log.Error("generateBlocks: ProcessNewBlock got an error:", err)
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,
 				Message: "ProcessNewBlock, block not accepted",

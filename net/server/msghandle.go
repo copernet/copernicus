@@ -14,6 +14,7 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
 	"github.com/copernet/copernicus/rpc/btcjson"
@@ -328,6 +329,12 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 	case *wire.InvVect:
 		msgHandle.RelayInventory(m, nil)
 		return nil, nil
+
+	case *block.Block:
+		done := make(chan error)
+		msgHandle.HandleMinedBlock(m, done)
+		err := <-done
+		return nil, err
 		//case *tx.Tx:
 		//	msgHandle.recvChannel <- m
 		//	ret := <-msgHandle.resultChannel

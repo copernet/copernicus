@@ -66,6 +66,11 @@ type blockMsg struct {
 	reply chan<- struct{}
 }
 
+type minedBlockMsg struct {
+	block *block.Block
+	reply chan<- error
+}
+
 // poolMsg package a bitcoin mempool message and peer it come from together
 type poolMsg struct {
 	pool  *wire.MsgMemPool
@@ -748,6 +753,21 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		return
 	}
 }
+func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
+	var err error
+	defer func() {
+		if mbmsg.reply != nil {
+			mbmsg.reply <- err
+		}
+	}()
+	hash := mbmsg.block.GetHash()
+	_, err = sm.ProcessBlockCallBack(mbmsg.block)
+	if err != nil {
+		log.Error("process mined block(%v) err(%v)", &hash, err)
+		return
+	}
+	log.Debug("process mined block(%v) done via submitblock", &hash)
+}
 
 // fetchHeaderBlocks creates and sends a request to the syncPeer for the next
 // list of blocks to be downloaded based on the current list of headers.
@@ -1215,6 +1235,8 @@ out:
 				// Wait until the sender unpauses the manager.
 				<-msg.unpause
 
+			case *minedBlockMsg:
+				sm.handleMinedBlockMsg(msg)
 			default:
 				log.Warn("Invalid message type in block "+
 					"handler: %T, %#v", msg, msg)
@@ -1334,6 +1356,10 @@ func (sm *SyncManager) QueueTx(tx *tx.Tx, peer *peer.Peer, done chan<- struct{})
 	}
 
 	sm.processBusinessChan <- &txMsg{tx: tx, peer: peer, reply: done}
+}
+
+func (sm *SyncManager) QueueMinedBlock(block *block.Block, done chan error) {
+	sm.processBusinessChan <- &minedBlockMsg{block: block, reply: done}
 }
 
 // QueueBlock adds the passed block message and peer to the block handling
