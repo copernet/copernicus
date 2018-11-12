@@ -85,11 +85,8 @@ out:
 				}
 				msg.Done <- struct{}{}
 			case *wire.MsgPing:
-				peerFrom.HandlePingMsg(data)
-				if peerFrom.Cfg.Listeners.OnPing != nil {
-					peerFrom.Cfg.Listeners.OnPing(peerFrom, data)
-				}
-				msg.Done <- struct{}{}
+				peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+
 			case *wire.MsgPong:
 				peerFrom.HandlePongMsg(data)
 				if peerFrom.Cfg.Listeners.OnPong != nil {
