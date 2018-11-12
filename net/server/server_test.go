@@ -672,15 +672,31 @@ func TestOnVersion(t *testing.T) {
 }
 
 func TestOnMemPool(t *testing.T) {
-	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
-	sp := newServerPeer(s, false)
-	sp.Peer = in
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
+	assert.Nil(t, err)
+
+	svr.Start()
+	defer svr.Stop()
+
+	r, w := io.Pipe()
+	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
+	sp := newServerPeer(svr, false)
+	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
+		svr.syncManager.NewPeer(peer)
+	})
+	assert.True(t, sp.Connected())
+
+	svr.services = wire.SFNodeBloom
 	msg := wire.NewMsgMemPool()
-	sp.OnMemPool(in, msg)
-	s.services = wire.SFNodeBloom
-	sp.OnMemPool(in, msg)
-	s.services = 0
+	sp.OnMemPool(sp.Peer, msg)
+	assert.True(t, sp.Connected())
+
+	svr.services = wire.SFNodeNetwork
+	sp.OnMemPool(sp.Peer, msg)
+	assert.False(t, sp.Connected())
 }
 
 func TestOnTx(t *testing.T) {
