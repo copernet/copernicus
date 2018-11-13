@@ -253,20 +253,6 @@ func TestMessgePool(t *testing.T) {
 	sm.Stop()
 }
 
-func TestGetData(t *testing.T) {
-	gd := wire.NewMsgGetData()
-	sm, dir, err := makeSyncManager()
-	if err != nil {
-		t.Fatalf("construct syncmanager failed :%v\n", err)
-	}
-	defer os.RemoveAll(dir)
-	config := peer.Config{}
-	in := peer.NewInboundPeer(&config, false)
-	done := make(chan struct{})
-	sm.Start()
-	sm.QueueGetData(gd, in, done)
-}
-
 func TestGetBlocks(t *testing.T) {
 	blk := wire.NewMsgGetBlocks(&util.HashZero)
 	sm, dir, err := makeSyncManager()
