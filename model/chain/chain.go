@@ -619,3 +619,7 @@ func (c *Chain) BuildForwardTree() (forward map[*blockindex.BlockIndex][]*blocki
 	}
 	return
 }
+
+func (c *Chain) CanDirectFetch() bool {
+	return int64(c.Tip().GetBlockTime()) > util.GetAdjustedTime() * int64(c.params.TargetTimePerBlock)
+}
