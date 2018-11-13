@@ -85,8 +85,9 @@ out:
 					peerFrom.Cfg.Listeners.OnAddr(peerFrom, data)
 				}
 				msg.Done <- struct{}{}
+
 			case *wire.MsgPing:
-				peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
+				mh.pings <- &PingMsg{sp: msg.Peerp, ping: data, done: msg.Done}
 
 			case *wire.MsgPong:
 				peerFrom.HandlePongMsg(data)

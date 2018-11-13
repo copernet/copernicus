@@ -162,6 +162,12 @@ type relayBlocksMsg struct {
 	headers []*block.BlockHeader
 }
 
+type PingMsg struct {
+	sp *peer.Peer
+	ping *wire.MsgPing
+	done chan<- struct{}
+}
+
 type minedBlockMsg struct {
 	block *block.Block
 	done  chan error
@@ -269,7 +275,8 @@ type Server struct {
 	clearBanned          chan *clearBannedMsg
 	query                chan interface{}
 	relayInv             chan relayMsg
-	relayBlocks             chan relayBlocksMsg
+	relayBlocks          chan relayBlocksMsg
+	pings                chan *PingMsg
 	minedBlock           chan minedBlockMsg
 	broadcast            chan broadcastMsg
 	peerHeightsUpdate    chan updatePeerHeightsMsg
@@ -701,10 +708,6 @@ func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 		<-doneChan
 	}
 	done <- struct{}{}
-}
-
-func (sp *serverPeer) OnPing(p *peer.Peer, msg *wire.MsgPing) {
-	p.HandlePingMsg(msg)
 }
 
 func hashpointer2hashinstance(phash []*util.Hash) []util.Hash {
@@ -1606,23 +1609,21 @@ func (s *Server) handleRelayBlocks(state *peerState, msg relayBlocksMsg) {
 		}
 
 		headers := make([]*block.BlockHeader, 0)
-		if sp.WantsHeaders() {
-			for index, invVect := range msg.invVects {
-				if !sp.IsKnownInventory(invVect) {
-					sp.AddKnownInventory(invVect)
-					headers = append(headers, msg.headers[index])
-				}
+
+		for index, invVect := range msg.invVects {
+			if !sp.IsKnownInventory(invVect) {
+				sp.AddKnownInventory(invVect)
+				headers = append(headers, msg.headers[index])
 			}
-			sp.QueueBatchHeaders(headers)
-			return
 		}
 
-		for _, invVect := range msg.invVects {
-			sp.QueueInventory(invVect)
-		}
+		sp.QueueBatchHeaders(headers)
 	})
 }
 
+func (s *Server) handlePing(msg *PingMsg) {
+	msg.sp.HandlePingMsg(msg.ping.Nonce, msg.done)
+}
 
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
 // known to have it.  It is invoked from the peerHandler goroutine.
@@ -1922,7 +1923,6 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 			// not signed with its key.  We could verify against their key, but
 			// since the reference client is currently unwilling to support
 			// other implementations' alert messages, we will not relay theirs.
-			OnPing: sp.OnPing,
 			OnAlert: nil,
 		},
 		NewestBlock:       sp.newestBlock,
@@ -2099,6 +2099,9 @@ out:
 		case blocksMsg := <-s.relayBlocks:
 			s.handleRelayBlocks(state, blocksMsg)
 
+		case pingMsg := <-s.pings:
+			s.handlePing(pingMsg)
+
 		case minedBlockMsg := <-s.minedBlock:
 			s.handleMinedBlock(minedBlockMsg)
 			// Message to broadcast to all connected peers except those
@@ -2139,6 +2142,7 @@ cleanup:
 		case <-s.peerHeightsUpdate:
 		case <-s.relayInv:
 		case <-s.relayBlocks:
+		case <-s.pings:
 		case <-s.broadcast:
 		case <-s.query:
 		default:
@@ -2592,6 +2596,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		query:                make(chan interface{}),
 		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
 		relayBlocks:          make(chan relayBlocksMsg, cfg.P2PNet.MaxPeers),
+		pings:     		      make(chan *PingMsg, cfg.P2PNet.MaxPeers),
 		minedBlock:           make(chan minedBlockMsg),
 		broadcast:            make(chan broadcastMsg, cfg.P2PNet.MaxPeers),
 		quit:                 make(chan struct{}),

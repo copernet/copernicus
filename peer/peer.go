@@ -1198,11 +1198,11 @@ func (p *Peer) HandleVersionMsg(msg *wire.MsgVersion) {
 // recent clients (protocol version > BIP0031Version), it replies with a pong
 // message.  For older clients, it does nothing and anything other than failure
 // is considered a successful ping.
-func (p *Peer) HandlePingMsg(msg *wire.MsgPing) {
+func (p *Peer) HandlePingMsg(nonce uint64, done chan<- struct{}) {
 	// Only reply with pong if the message is from a new enough client.
 	if p.ProtocolVersion() > wire.BIP0031Version {
 		// Include nonce from ping so pong can be identified.
-		p.QueueMessage(wire.NewMsgPong(msg.Nonce), nil)
+		p.QueueMessage(wire.NewMsgPong(nonce), done)
 	}
 }
 
@@ -1608,11 +1608,9 @@ out:
 func (p *Peer) queueHandler() {
 	pendingMsgs := list.New()
 	invSendQueue := list.New()
-	headerSendQueue := list.New()
+
 	trickleTicker := time.NewTicker(trickleTimeout)
 	defer trickleTicker.Stop()
-	headerTrickleTicker := time.NewTicker(headerTrickleTimeout)
-	defer headerTrickleTicker.Stop()
 
 	// We keep the waiting flag so that we know if we have a message queued
 	// to the outHandler or not.  We could use the presence of a head of
@@ -1624,11 +1622,11 @@ func (p *Peer) queueHandler() {
 	waiting := false
 
 	// To avoid duplication below.
-	queuePacket := func(msg outMsg, list *list.List, waiting bool) bool {
+	queuePacket := func(msg outMsg, waiting bool) bool {
 		if !waiting {
 			p.sendQueue <- msg
 		} else {
-			list.PushBack(msg)
+			pendingMsgs.PushBack(msg)
 		}
 		// we are always waiting now.
 		return true
@@ -1637,7 +1635,7 @@ out:
 	for {
 		select {
 		case msg := <-p.outputQueue:
-			waiting = queuePacket(msg, pendingMsgs, waiting)
+			waiting = queuePacket(msg, waiting)
 
 			// This channel is notified when a message has been sent across
 			// the network socket.
@@ -1660,73 +1658,12 @@ out:
 				invSendQueue.PushBack(iv)
 			}
 
-		case header := <-p.outputHeaderChan:
-			if p.VersionKnown() {
-				headerSendQueue.PushBack(header)
-			}
-
-		case headers := <-p.outputHeadersChan:
-			if p.VersionKnown() {
-				for _, header := range headers{
-					headerSendQueue.PushBack(header)
-				}
-			}
-
-		case <-headerTrickleTicker.C:
-			if atomic.LoadInt32(&p.disconnect) != 0 ||
-				headerSendQueue.Len() == 0{
-				continue
-			}
-
-			log.Debug("mylog,%t,%t", p.WantsHeaders(), p.RevertToInv())
-			for e := headerSendQueue.Front(); e != nil; e = e.Next() {
-				header := e.Value.(*block.BlockHeader)
-				log.Debug("mylog,%s,%v",p.Addr(),header.GetHash())
-			}
-
-			if p.WantsHeaders() {
-				if headerSendQueue.Len() <= maxBlocksToAnnounce {
-					if !p.RevertToInv() {
-						msgHeaders := wire.NewMsgHeaders()
-						for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
-							header := headerSendQueue.Remove(e).(*block.BlockHeader)
-							if err := msgHeaders.AddBlockHeader(header); err != nil {
-								log.Error("Failed to add block"+
-									" header: %v", err)
-								continue
-							}
-						}
-						if len(msgHeaders.Headers) > 0 {
-							waiting = queuePacket(outMsg{msg: msgHeaders},
-								pendingMsgs, waiting)
-						}
-					}
-				} else {
-					p.SetRevertToInv(true)
-				}
-			}
-
-			invMsg := wire.NewMsgInvSizeHint(1)
-			// RevertToInv occured, should send only last header via INV
-			// and just drop other headers, to wait peer request themselves
-			if e := headerSendQueue.Back(); e != nil {
-				header := headerSendQueue.Remove(e).(*block.BlockHeader)
-				iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()}
-
-				invMsg.AddInvVect(iv)
-				waiting = queuePacket(
-					outMsg{msg: invMsg},
-					pendingMsgs, waiting)
-
-				headerSendQueue.Init()
-			}
-
 		case <-trickleTicker.C:
 			// Don't send anything if we're disconnecting or there
 			// is no queued inventory.
 			// version is known if send queue has any entries.
 			if atomic.LoadInt32(&p.disconnect) != 0 ||
-				invSendQueue.Len() == 0{
+				invSendQueue.Len() == 0 {
 				continue
 			}
 
@@ -1752,9 +1689,7 @@ out:
 
 				invMsg.AddInvVect(iv)
 				if len(invMsg.InvList) >= maxInvTrickleSize {
-					waiting = queuePacket(
-						outMsg{msg: invMsg},
-						pendingMsgs, waiting)
+					waiting = queuePacket(outMsg{msg: invMsg}, waiting)
 					invMsg = wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
 				}
 
@@ -1767,8 +1702,7 @@ out:
 				invMsg.AddInvVect(invlastblock)
 			}
 			if len(invMsg.InvList) != 0 {
-				waiting = queuePacket(outMsg{msg: invMsg},
-					pendingMsgs, waiting)
+				waiting = queuePacket(outMsg{msg: invMsg}, waiting)
 			}
 		case <-p.quit:
 			break out
@@ -1802,6 +1736,53 @@ cleanup:
 	}
 	close(p.queueQuit)
 	log.Trace("Peer queue handler done for %s", p)
+}
+
+func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader)  {
+	headerSendQueue := list.New()
+
+	for _, header := range headers{
+		headerSendQueue.PushBack(header)
+	}
+
+	log.Debug("mylog,%t,%t", p.WantsHeaders(), p.RevertToInv())
+	for e := headerSendQueue.Front(); e != nil; e = e.Next() {
+		header := e.Value.(*block.BlockHeader)
+		log.Debug("mylog,%s,%v", p.Addr(), header.GetHash())
+	}
+
+	if p.WantsHeaders() {
+		if headerSendQueue.Len() <= maxBlocksToAnnounce {
+			if !p.RevertToInv() {
+				msgHeaders := wire.NewMsgHeaders()
+				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
+					header := headerSendQueue.Remove(e).(*block.BlockHeader)
+					if err := msgHeaders.AddBlockHeader(header); err != nil {
+						log.Error("Failed to add block"+
+							" header: %v", err)
+						//continue
+					}
+				}
+				if len(msgHeaders.Headers) > 0 {
+					p.outputQueue <- outMsg{msg: msgHeaders}
+				}
+			}
+		} else {
+			p.SetRevertToInv(true)
+		}
+	}
+	invMsg := wire.NewMsgInvSizeHint(1)
+	// RevertToInv occured, should send only last header via INV
+	// and just drop other headers, to wait peer request themselves
+	if e := headerSendQueue.Back(); e != nil {
+		header := headerSendQueue.Remove(e).(*block.BlockHeader)
+		iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()}
+
+		invMsg.AddInvVect(iv)
+		p.outputQueue <- outMsg{msg: invMsg}
+
+		headerSendQueue.Init()
+	}
 }
 
 func (p *Peer) CheckRevertToInv(hash *util.Hash) {
@@ -1969,7 +1950,11 @@ func (p *Peer) QueueHeaders(header *block.BlockHeader) {
 		return
 	}
 
-	p.outputHeaderChan <- header
+	headers := make([]*block.BlockHeader, 0, 1)
+	headers = append(headers, header)
+	if p.VersionKnown() {
+		p.AddHeadersToSendQ(headers)
+	}
 }
 
 func (p *Peer) QueueBatchHeaders(headers []*block.BlockHeader) {
@@ -1977,8 +1962,11 @@ func (p *Peer) QueueBatchHeaders(headers []*block.BlockHeader) {
 		return
 	}
 
-	p.outputHeadersChan <- headers
+	if p.VersionKnown() {
+		p.AddHeadersToSendQ(headers)
+	}
 }
+
 // QueueInventory adds the passed inventory to the inventory send queue which
 // might not be sent right away, rather it is trickled to the peer in batches.
 // Inventory that the peer is already known to have is ignored.
