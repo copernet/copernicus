@@ -852,6 +852,10 @@ func (sp *serverPeer) OnFeeFilter(_ *peer.Peer, msg *wire.MsgFeeFilter) {
 	atomic.StoreInt64(&sp.feeFilter, msg.MinFee)
 }
 
+func (sp *serverPeer)OnReject(p *peer.Peer, msg *wire.MsgReject) {
+	log.Error("reject: %+v, from: %+v", msg, p)
+}
+
 // OnFilterAdd is invoked when a peer receives a filteradd bitcoin
 // message and is used by remote peers to add data to an already loaded bloom
 // filter.  The peer will be disconnected if a filter is not loaded when this
@@ -1904,6 +1908,7 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 			OnGetBlocks:  sp.OnGetBlocks,
 			OnGetHeaders: sp.OnGetHeaders,
 			OnFeeFilter:  sp.OnFeeFilter,
+			OnReject:     sp.OnReject,
 			//OnFilterAdd:   sp.OnFilterAdd,
 			//OnFilterClear: sp.OnFilterClear,
 			//OnFilterLoad:  sp.OnFilterLoad,
