@@ -1657,20 +1657,16 @@ out:
 			p.sendQueue <- val.(outMsg)
 
 		case iv := <-p.outputInvChan:
-			// No handshake?  They'll find out soon enough.
 			if p.VersionKnown() {
 				invSendQueue.PushBack(iv)
 			}
 
 		case header := <-p.outputHeaderChan:
-			// No handshake?  They'll find out soon enough.
 			if p.VersionKnown() {
 				headerSendQueue.PushBack(header)
 			}
 
-
 		case headers := <-p.outputHeadersChan:
-			// No handshake?  They'll find out soon enough.
 			if p.VersionKnown() {
 				for _, header := range headers{
 					headerSendQueue.PushBack(header)

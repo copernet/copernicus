@@ -1267,16 +1267,6 @@ func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, d
 	sm.processBusinessChan <- &poolMsg{pool, peer, done}
 }
 
-func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer *peer.Peer, done chan<- struct{}) {
-	// Don't accept more blocks if we're shutting down.
-	if atomic.LoadInt32(&sm.shutdown) != 0 {
-		done <- struct{}{}
-		return
-	}
-
-	sm.processBusinessChan <- getdataMsg{getdata, peer, done}
-}
-
 func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
