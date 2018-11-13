@@ -139,7 +139,7 @@ func (cm *CoinsMap) FetchCoin(out *outpoint.OutPoint) *Coin {
 	coin = GetUtxoCacheInstance().GetCoin(out)
 	if coin == nil {
 		_, file, line, _ := runtime.Caller(1)
-		log.Error("not found coin by outpoint(%v) invoked by %s:%d", out, file, line)
+		log.Warn("not found coin by outpoint(%v) invoked by %s:%d", out, file, line)
 		return nil
 	}
 	newCoin := coin.DeepCopy()
