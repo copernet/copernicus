@@ -47,8 +47,8 @@ func TestValueFromAmount(t *testing.T) {
 	assert.Equal(t, amounts, float64(0))
 }
 
-func TestGetNetworkInfo(t *testing.T) {
-	ret, err := GetNetworkInfo()
+func TestHandleGetNetworkInfo(t *testing.T) {
+	ret, err := handleGetNetworkInfo()
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -78,7 +78,7 @@ func TestProcessForRPC(t *testing.T) {
 	getNetworkInfoCmdReq := &btcjson.GetNetworkInfoCmd{}
 	getNetworkInfoCmdRsp, err := ProcessForRPC(getNetworkInfoCmdReq)
 	assert.Nil(t, err)
-	netWorkInfo, err := GetNetworkInfo()
+	netWorkInfo, err := handleGetNetworkInfo()
 	assert.Nil(t, err)
 	assert.Equal(t, netWorkInfo, getNetworkInfoCmdRsp)
 
@@ -88,11 +88,11 @@ func TestProcessForRPC(t *testing.T) {
 	assert.Nil(t, err)
 	setBanCmdReq := &btcjson.SetBanCmd{}
 	_, err = ProcessForRPC(setBanCmdReq)
-	assert.Nil(t, err)
-	listBannedReq := &service.ListBannedRequest{}
+	assert.NotNil(t, err)
+	listBannedReq := &btcjson.ListBannedCmd{}
 	_, err = ProcessForRPC(listBannedReq)
 	assert.Nil(t, err)
-	clearBannedReq := &service.ClearBannedRequest{}
+	clearBannedReq := &btcjson.ClearBannedCmd{}
 	_, err = ProcessForRPC(clearBannedReq)
 	assert.Nil(t, err)
 	invVectReq := &wire.InvVect{}
@@ -158,36 +158,44 @@ func TestProcessForRPC_Connection(t *testing.T) {
 
 func TestProcessForRPC_DisConnection(t *testing.T) {
 	tests := []struct {
-		name  string
-		req   *btcjson.DisconnectNodeCmd
-		isErr bool
+		name    string
+		address string
+		nodeID  int32
+		isErr   bool
 	}{
 		{
-			name: "test disconnect invalid address",
-			req: &btcjson.DisconnectNodeCmd{
-				Target: "test address",
-			},
-			isErr: true,
+			name:    "disconnect invalid address",
+			address: "test address",
+			isErr:   true,
 		},
 		{
-			name: "test disconnect valid address",
-			req: &btcjson.DisconnectNodeCmd{
-				Target: "127.0.0.1:18834",
-			},
-			isErr: false,
+			name:    "disconnect unconnected valid address",
+			address: "127.0.0.1:18834",
+			isErr:   true,
 		},
 		{
-			name: "test disconnect node id",
-			req: &btcjson.DisconnectNodeCmd{
-				Target: "0",
-			},
-			isErr: false,
+			name:   "disconnect unconnected node id",
+			nodeID: 1,
+			isErr:  true,
+		},
+		{
+			name:    "disconnect both address and node id",
+			address: "127.0.0.1:18834",
+			nodeID:  1,
+			isErr:   true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Logf("testing %s\n", test.name)
-		rsp, err := ProcessForRPC(test.req)
+		req := &btcjson.DisconnectNodeCmd{}
+		if test.address != "" {
+			req.Address = &test.address
+		}
+		if test.nodeID != 0 {
+			req.NodeID = &test.nodeID
+		}
+		rsp, err := ProcessForRPC(req)
 		assert.Nil(t, rsp)
 		if test.isErr {
 			assert.NotNil(t, err)

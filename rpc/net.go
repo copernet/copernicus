@@ -109,120 +109,39 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 }
 
 func handleAddNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.AddNodeCmd)
-	_, err := server.ProcessForRPC(c)
-	if err != nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidParameter,
-			Message: err.Error(),
-		}
-	}
-
-	return nil, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleDisconnectNode(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.DisconnectNodeCmd)
-
-	_, err := server.ProcessForRPC(c)
-	if err != nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidParameter,
-			Message: err.Error(),
-		}
-	}
-
-	return nil, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleGetAddedNodeInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.GetAddedNodeInfoCmd)
-
-	ret, err := server.ProcessForRPC(c)
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInternalError,
-			Message: "Can not acquire connection count",
-		}
-	}
-
-	return ret, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleGetNetTotals(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	ret, err := server.ProcessForRPC(&service.GetNetTotalsRequest{})
-	if err != nil {
-		return nil, &btcjson.RPCError{
-			Code:    btcjson.ErrRPCInvalidParameter,
-			Message: err.Error(),
-		}
-	}
-	return ret, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleGetnetWorkInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.GetNetworkInfoCmd)
-
-	ret, err := server.ProcessForRPC(c)
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInternalError,
-			Message: "Can not acquire connection count",
-		}
-	}
-
-	return ret, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleSetBan(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.SetBanCmd)
-
-	_, err := server.ProcessForRPC(c)
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInternalError,
-			Message: "Can not acquire connection count",
-		}
-	}
-
-	return nil, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleListBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	ret, err := server.ProcessForRPC(&service.ListBannedRequest{})
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInternalError,
-			Message: "Can not acquire connection count",
-		}
-	}
-	return ret, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleClearBanned(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	_, err := server.ProcessForRPC(&service.ClearBannedRequest{})
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInternalError,
-			Message: "Can not acquire connection count",
-		}
-	}
-
-	return nil, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func handleSetNetWorkActive(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	c := cmd.(*btcjson.SetNetWorkActiveCmd)
-
-	ret, err := server.ProcessForRPC(c)
-	if err != nil {
-		return nil, btcjson.RPCError{
-			Code:    btcjson.RPCInternalError,
-			Message: "Can not acquire connection count",
-		}
-	}
-
-	return ret, nil
+	return server.ProcessForRPC(cmd)
 }
 
 func registerNetRPCCommands() {

@@ -39,7 +39,8 @@ func NewAddNodeCmd(addr string, subCmd AddNodeSubCmd) *AddNodeCmd {
 }
 
 type DisconnectNodeCmd struct {
-	Target string `json:"target"`
+	Address *string `json:"address"`
+	NodeID  *int32  `json:"nodeid"`
 }
 
 // TransactionInput represents the inputs to a transaction.  Specifically a
@@ -831,7 +832,7 @@ type SetMocktimeCmd struct {
 type SetBanCmd struct {
 	SubNet   string
 	Command  string
-	BanTime  *int `jsonrpcdefault:"86400"`
+	BanTime  *int64 `jsonrpcdefault:"86400"`
 	Absolute *bool
 }
 

@@ -9,10 +9,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -65,6 +68,9 @@ const (
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
 	maxBlocksToAnnounce = 20
+
+	BanReasonNodeMisbehaving int = 1
+	BanReasonManuallyAdded   int = 2
 )
 
 var (
@@ -164,13 +170,21 @@ type updatePeerHeightsMsg struct {
 	originPeer *peer.Peer
 }
 
+type BannedInfo struct {
+	Address    string
+	BanUntil   int64
+	CreateTime int64
+	Reason     int
+}
+
 // peerState maintains state of inbound, persistent, outbound peers as well
 // as banned peers and outbound groups.
 type peerState struct {
 	inboundPeers    map[int32]*serverPeer
 	outboundPeers   map[int32]*serverPeer
 	persistentPeers map[int32]*serverPeer
-	banned          map[string]time.Time
+	bannedAddr      map[string]*BannedInfo
+	bannedIPNet     map[string]*BannedInfo
 	outboundGroups  map[string]int
 }
 
@@ -180,6 +194,20 @@ type banScoreMsg struct {
 	transient  uint32
 	reason     string
 }
+
+type banAddressMsg struct {
+	address      string
+	startTime    int64
+	endTime      int64
+	reason       int
+	hasBannedChn chan bool
+}
+
+type getBannedInfoMsg struct {
+	bannedInfoChn chan []*BannedInfo
+}
+
+type clearBannedMsg struct{}
 
 // Count returns the count of all known peers.
 func (ps *peerState) Count() int {
@@ -226,6 +254,10 @@ type Server struct {
 	newPeers             chan *serverPeer
 	donePeers            chan *serverPeer
 	banPeers             chan *serverPeer
+	banAddress           chan *banAddressMsg
+	unbanAddress         chan *banAddressMsg
+	getBannedInfo        chan *getBannedInfoMsg
+	clearBanned          chan *clearBannedMsg
 	query                chan interface{}
 	relayInv             chan relayMsg
 	minedBlock           chan minedBlockMsg
@@ -236,10 +268,10 @@ type Server struct {
 	nat                  upnp.NAT
 	timeSource           *bitcointime.MedianTime
 	services             wire.ServiceFlag
-
-	connectPeerChn chan *serverPeer
-	banScoreChn    chan *banScoreMsg
-	connectedPeers map[string]*serverPeer
+	connectPeerChn       chan *serverPeer
+	banScoreChn          chan *banScoreMsg
+	connectedPeers       map[string]*serverPeer
+	banPeerFile          string
 
 	// The following fields are used for optional indexes.  They will be nil
 	// if the associated index is not enabled.  These fields are set during
@@ -383,7 +415,6 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 			log.Warn("Misbehaving peer %s -- banning and disconnecting",
 				sp)
 			sp.server.BanPeer(sp)
-			sp.Disconnect()
 		}
 	}
 }
@@ -959,7 +990,7 @@ func randomUint16Number(max uint16) uint16 {
 	for {
 		binary.Read(rand.Reader, binary.LittleEndian, &randomNumber)
 		if randomNumber < limitRange {
-			return (randomNumber % max)
+			return randomNumber % max
 		}
 	}
 }
@@ -1231,22 +1262,42 @@ func (s *Server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	}
 
 	// Disconnect banned peers.
+	now := util.GetTime()
 	host, _, err := net.SplitHostPort(sp.Addr())
 	if err != nil {
 		log.Debug("can't split hostport %v", err)
 		sp.Disconnect()
 		return false
 	}
-	if banEnd, ok := state.banned[host]; ok {
-		if time.Now().Before(banEnd) {
+	if banEnd, ok := state.bannedAddr[host]; ok {
+		if now < banEnd.BanUntil {
 			log.Debug("Peer %s is banned for another %v - disconnecting",
-				host, time.Until(banEnd))
+				host, banEnd.BanUntil-now)
 			sp.Disconnect()
 			return false
 		}
 
 		log.Info("Peer %s is no longer banned", host)
-		delete(state.banned, host)
+		delete(state.bannedAddr, host)
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		for netCIDR, banEnd := range state.bannedIPNet {
+			_, ipNet, err := net.ParseCIDR(netCIDR)
+			if err != nil || !ipNet.Contains(ip) {
+				continue
+			}
+			if now < banEnd.BanUntil {
+				log.Debug("IP Net %s that contains host %s is banned for another %v - disconnecting",
+					ipNet.String(), host, banEnd.BanUntil-now)
+				sp.Disconnect()
+				return false
+			}
+
+			log.Info("ipNet %s is no longer banned", ipNet.String())
+			delete(state.bannedIPNet, netCIDR)
+			break
+		}
 	}
 
 	// TODO: Check for max peers from a single IP.
@@ -1322,9 +1373,192 @@ func (s *Server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 		log.Debug("can't split ban peer %s %v", sp.Addr(), err)
 		return
 	}
-	log.Info("Banned peer %s (inBlund:%v) for %v", host, sp.Inbound(),
+	log.Info("Banned peer %s (inBound:%v) for %v", host, sp.Inbound(),
 		conf.Cfg.P2PNet.BanDuration)
-	state.banned[host] = time.Now().Add(conf.Cfg.P2PNet.BanDuration)
+	now := util.GetTime()
+	state.bannedAddr[host] = &BannedInfo{
+		Address:    host,
+		BanUntil:   now + int64(conf.Cfg.P2PNet.BanDuration),
+		CreateTime: now,
+		Reason:     BanReasonNodeMisbehaving,
+	}
+
+	sp.Disconnect()
+	delete(s.connectedPeers, sp.Addr())
+	s.saveBannedInfo(state)
+}
+
+func (s *Server) handleBanAddressMsg(state *peerState, bmsg *banAddressMsg) {
+	if strings.Contains(bmsg.address, "/") {
+		_, ok := state.bannedIPNet[bmsg.address]
+		if ok {
+			bmsg.hasBannedChn <- true
+			return
+		}
+		bmsg.hasBannedChn <- false
+
+		_, bannedNet, err := net.ParseCIDR(bmsg.address)
+		if err != nil {
+			log.Debug("can't parse ban ip net %s. error:%s", bmsg.address, err.Error())
+			return
+		}
+		log.Info("Ban ip net %s until %d", bmsg.address, bmsg.endTime)
+		state.bannedIPNet[bmsg.address] = &BannedInfo{
+			Address:    bmsg.address,
+			BanUntil:   bmsg.endTime,
+			CreateTime: bmsg.startTime,
+			Reason:     bmsg.reason,
+		}
+
+		state.forAllPeers(func(sp *serverPeer) {
+			ip := net.ParseIP(sp.Addr())
+			if ip != nil && bannedNet.Contains(ip) {
+				log.Info("Ban peer %s (is inbound:%v) until %d", sp.Addr(), sp.Inbound(), bmsg.endTime)
+				sp.Disconnect()
+				delete(s.connectedPeers, sp.Addr())
+			}
+		})
+
+	} else {
+		_, ok := state.bannedAddr[bmsg.address]
+		if ok {
+			bmsg.hasBannedChn <- true
+			return
+		}
+		ip := net.ParseIP(bmsg.address)
+		if ip == nil {
+			log.Error("Ban address %s is invalid", bmsg.address)
+			return
+		}
+		for bannedCIDR := range state.bannedIPNet {
+			_, bannedNet, err := net.ParseCIDR(bannedCIDR)
+			if err != nil {
+				continue
+			}
+			if bannedNet.Contains(ip) {
+				bmsg.hasBannedChn <- true
+				return
+			}
+		}
+		bmsg.hasBannedChn <- false
+
+		log.Info("Ban peer %s until %d", bmsg.address, bmsg.endTime)
+		state.bannedAddr[bmsg.address] = &BannedInfo{
+			Address:    bmsg.address,
+			BanUntil:   bmsg.endTime,
+			CreateTime: bmsg.startTime,
+			Reason:     bmsg.reason,
+		}
+
+		state.forAllPeers(func(sp *serverPeer) {
+			host, _, err := net.SplitHostPort(sp.Addr())
+			if err == nil && host == bmsg.address {
+				log.Info("Ban peer %s (is inbound:%v) until %d", sp.Addr(), sp.Inbound(), bmsg.endTime)
+				sp.Disconnect()
+				delete(s.connectedPeers, sp.Addr())
+			}
+		})
+	}
+	s.saveBannedInfo(state)
+}
+
+func (s *Server) handleUnbanAddressMsg(state *peerState, bmsg *banAddressMsg) {
+	if strings.Contains(bmsg.address, "/") {
+		_, ok := state.bannedIPNet[bmsg.address]
+		if !ok {
+			bmsg.hasBannedChn <- false
+			return
+		}
+		bmsg.hasBannedChn <- true
+
+		log.Info("Unban ip net %s", bmsg.address)
+		delete(state.bannedIPNet, bmsg.address)
+
+	} else {
+		_, ok := state.bannedAddr[bmsg.address]
+		if !ok {
+			bmsg.hasBannedChn <- false
+			return
+		}
+		bmsg.hasBannedChn <- true
+
+		log.Info("Unban peer %s", bmsg.address)
+		delete(state.bannedAddr, bmsg.address)
+	}
+	s.saveBannedInfo(state)
+}
+func (s *Server) getBannedList(state *peerState) []*BannedInfo {
+	bannedInfoList := make([]*BannedInfo, 0)
+	now := util.GetTime()
+	for _, info := range state.bannedAddr {
+		if now < info.BanUntil {
+			bannedInfoList = append(bannedInfoList, info)
+		}
+	}
+	for _, info := range state.bannedIPNet {
+		if now < info.BanUntil {
+			bannedInfoList = append(bannedInfoList, info)
+		}
+	}
+	return bannedInfoList
+}
+
+func (s *Server) handleGetBannedInfoMsg(state *peerState, msg *getBannedInfoMsg) {
+	bannedList := s.getBannedList(state)
+	msg.bannedInfoChn <- bannedList
+}
+
+func (s *Server) handleClearBannedMsg(state *peerState) {
+	log.Info("clear all banned info")
+	state.bannedAddr = make(map[string]*BannedInfo)
+	state.bannedIPNet = make(map[string]*BannedInfo)
+	s.saveBannedInfo(state)
+}
+
+type testU struct {
+	Tes []BannedInfo
+}
+
+func (s *Server) saveBannedInfo(state *peerState) {
+	bannedList := s.getBannedList(state)
+
+	w, err := os.Create(s.banPeerFile)
+	if err != nil {
+		log.Error("Error opening file %s: %v", s.banPeerFile, err)
+		return
+	}
+
+	enc := json.NewEncoder(w)
+	defer w.Close()
+	if err := enc.Encode(&bannedList); err != nil {
+		log.Error("Failed to encode file %s: %v", s.banPeerFile, err)
+		return
+	}
+}
+
+func (s *Server) loadBannedInfo() error {
+	_, err := os.Stat(s.banPeerFile)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	r, err := os.Open(s.banPeerFile)
+	if err != nil {
+		return fmt.Errorf("%s error opening file: %v", s.banPeerFile, err)
+	}
+	defer r.Close()
+
+	var bannedList []*BannedInfo
+	dec := json.NewDecoder(r)
+	err = dec.Decode(&bannedList)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %v", s.banPeerFile, err)
+	}
+
+	for _, info := range bannedList {
+		s.BanAddr(info.Address, info.CreateTime, info.BanUntil, info.Reason)
+	}
+
+	return nil
 }
 
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
@@ -1480,11 +1714,16 @@ func (s *Server) handleQuery(state *peerState, querymsg interface{}) {
 		}
 		for _, peer := range state.persistentPeers {
 			if peer.Addr() == msg.addr {
-				if msg.permanent {
-					msg.reply <- errors.New("peer already connected")
-				} else {
-					msg.reply <- errors.New("peer exists as a permanent peer")
-				}
+				msg.reply <- errors.New("node already added")
+				return
+			}
+		}
+		// It is possible that we already have a connection to the IP/port
+		// pszDest resolved to. In that case, drop the connection that was
+		// just created, and return the existing CNode instead.
+		for _, peer := range state.outboundPeers {
+			if peer.Addr() == msg.addr && peer.Connected() {
+				msg.reply <- nil
 				return
 			}
 		}
@@ -1740,7 +1979,8 @@ func (s *Server) cycle() {
 		inboundPeers:    make(map[int32]*serverPeer),
 		persistentPeers: make(map[int32]*serverPeer),
 		outboundPeers:   make(map[int32]*serverPeer),
-		banned:          make(map[string]time.Time),
+		bannedAddr:      make(map[string]*BannedInfo),
+		bannedIPNet:     make(map[string]*BannedInfo),
 		outboundGroups:  make(map[string]int),
 	}
 
@@ -1776,6 +2016,18 @@ out:
 			// Peer to ban.
 		case p := <-s.banPeers:
 			s.handleBanPeerMsg(state, p)
+
+		case bmsg := <-s.banAddress:
+			s.handleBanAddressMsg(state, bmsg)
+
+		case bmsg := <-s.unbanAddress:
+			s.handleUnbanAddressMsg(state, bmsg)
+
+		case msg := <-s.getBannedInfo:
+			s.handleGetBannedInfoMsg(state, msg)
+
+		case <-s.clearBanned:
+			s.handleClearBannedMsg(state)
 
 			// New inventory to potentially be relayed to other peers.
 		case invMsg := <-s.relayInv:
@@ -1838,6 +2090,43 @@ func (s *Server) AddPeer(sp *serverPeer) {
 // BanPeer bans a peer that has already been connected to the server by ip.
 func (s *Server) BanPeer(sp *serverPeer) {
 	s.banPeers <- sp
+}
+
+func (s *Server) BanAddr(addr string, startTime int64, endTime int64, reason int) bool {
+	hasBannedChn := make(chan bool)
+	bmsg := &banAddressMsg{
+		address:      addr,
+		startTime:    startTime,
+		endTime:      endTime,
+		reason:       reason,
+		hasBannedChn: hasBannedChn,
+	}
+	s.banAddress <- bmsg
+	return <-hasBannedChn
+}
+
+func (s *Server) UnbanAddr(addr string) bool {
+	hasBannedChn := make(chan bool)
+	bmsg := &banAddressMsg{
+		address:      addr,
+		hasBannedChn: hasBannedChn,
+	}
+	s.unbanAddress <- bmsg
+	return <-hasBannedChn
+}
+
+func (s *Server) GetBannedInfo() []*BannedInfo {
+	bannedInfoChn := make(chan []*BannedInfo)
+	msg := &getBannedInfoMsg{
+		bannedInfoChn: bannedInfoChn,
+	}
+	s.getBannedInfo <- msg
+	return <-bannedInfoChn
+}
+
+func (s *Server) ClearBanned() {
+	msg := &clearBannedMsg{}
+	s.clearBanned <- msg
 }
 
 // RelayInventory relays the passed inventory vector to all connected peers
@@ -2012,6 +2301,9 @@ func (s *Server) Start() {
 		go s.upnpUpdateThread()
 	}
 
+	if err := s.loadBannedInfo(); err != nil {
+		log.Error("loadBannedInfo error:%s", err.Error())
+	}
 }
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
@@ -2217,6 +2509,10 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		newPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
 		donePeers:            make(chan *serverPeer, cfg.P2PNet.MaxPeers),
 		banPeers:             make(chan *serverPeer, cfg.P2PNet.MaxPeers),
+		banAddress:           make(chan *banAddressMsg),
+		unbanAddress:         make(chan *banAddressMsg),
+		getBannedInfo:        make(chan *getBannedInfoMsg),
+		clearBanned:          make(chan *clearBannedMsg),
 		query:                make(chan interface{}),
 		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
 		minedBlock:           make(chan minedBlockMsg),
@@ -2231,6 +2527,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		connectPeerChn:       make(chan *serverPeer),
 		banScoreChn:          make(chan *banScoreMsg),
 		connectedPeers:       make(map[string]*serverPeer),
+		banPeerFile:          filepath.Join(cfg.DataDir, "banpeers.json"),
 	}
 
 	if cfg.P2PNet.TargetOutbound < 0 {
