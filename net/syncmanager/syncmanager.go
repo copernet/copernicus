@@ -766,6 +766,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		if lchain.IsInitialBlockDownload() && !isSyncPeer {
 			log.Info("recv unrequested headers from %v, maybe new header announce",
 				peer.Addr())
+
+			sm.fetchHeaderBlocks(peer)
 			return
 		}
 
@@ -846,11 +848,19 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	log.Info("Received %d block headers from peer %s",
 		numHeaders, peer.Addr())
 
-	canDirectFetch := gChain.CanDirectFetch()
 	// If this set of headers is valid and ends in a block with at least
 	// as much work as our tip, download as much as possible.
-	if canDirectFetch && pindexLast.IsValid(blockindex.BlockValidTree) &&
-		gChain.Tip().ChainWork.Cmp(&pindexLast.ChainWork) < 1 {
+	if !pindexLast.IsValid(blockindex.BlockValidTree) {
+		log.Info("no need to fetch, pindexLast not ValidTree")
+		return
+	}
+	if gChain.Tip().ChainWork.Cmp(&pindexLast.ChainWork) == 1 {
+		log.Info("no need to fetch, TipChainWork>pindexLast")
+		return
+	}
+
+	canDirectFetch := gChain.CanDirectFetch()
+	if canDirectFetch {
 		vToFetch := list.New()
 		pindexWalk := &pindexLast
 		// Calculate all the blocks we'd need to switch to pindexLast,
@@ -901,6 +911,9 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 				peer.QueueMessage(gdmsg, nil)
 			}
 		}
+	} else if len(sm.peerStates) <= 2 {
+		// peer number too little, use this peer to fetch
+		sm.fetchHeaderBlocks(peer)
 	}
 }
 
