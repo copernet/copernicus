@@ -159,11 +159,11 @@ type relayMsg struct {
 
 type relayBlocksMsg struct {
 	invVects []*wire.InvVect
-	headers []*block.BlockHeader
+	headers  []*block.BlockHeader
 }
 
 type PingMsg struct {
-	sp *peer.Peer
+	sp   *peer.Peer
 	ping *wire.MsgPing
 	done chan<- struct{}
 }
@@ -766,7 +766,7 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 
 	// logic of Check to reset RevertToInv
 	gChain := chain.GetInstance()
-	for _, hash := range msg.BlockLocatorHashes{
+	for _, hash := range msg.BlockLocatorHashes {
 		bi := gChain.FindBlockIndex(*hash)
 		if bi != nil {
 			if gChain.Contains(bi) {
@@ -855,7 +855,7 @@ func (sp *serverPeer) OnFeeFilter(_ *peer.Peer, msg *wire.MsgFeeFilter) {
 	atomic.StoreInt64(&sp.feeFilter, msg.MinFee)
 }
 
-func (sp *serverPeer)OnReject(p *peer.Peer, msg *wire.MsgReject) {
+func (sp *serverPeer) OnReject(p *peer.Peer, msg *wire.MsgReject) {
 	log.Error("reject: %+v, from: %+v", msg, p)
 }
 
@@ -2596,7 +2596,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		query:                make(chan interface{}),
 		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
 		relayBlocks:          make(chan relayBlocksMsg, cfg.P2PNet.MaxPeers),
-		pings:     		      make(chan *PingMsg, cfg.P2PNet.MaxPeers),
+		pings:                make(chan *PingMsg, cfg.P2PNet.MaxPeers),
 		minedBlock:           make(chan minedBlockMsg),
 		broadcast:            make(chan broadcastMsg, cfg.P2PNet.MaxPeers),
 		quit:                 make(chan struct{}),
