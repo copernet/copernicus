@@ -2174,6 +2174,17 @@ out:
 	s.wg.Done()
 }
 
+func (s *Server) AddBanScore(peerAddr string, persistent uint32, transient uint32, reason string) {
+	bmsg := &banScoreMsg{
+		peerAddr:   peerAddr,
+		persistent: persistent,
+		transient:  transient,
+		reason:     reason,
+	}
+	log.Info("addBanScore peer:%s, reason:%s", peerAddr, reason)
+	s.banScoreChn <- bmsg
+}
+
 func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
@@ -2285,6 +2296,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 	s.syncManager.ProcessBlockCallBack = service.ProcessBlock
 	s.syncManager.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 	s.syncManager.ProcessTransactionCallBack = service.ProcessTransaction
+	s.syncManager.AddBanScoreCallBack = s.AddBanScore
 
 	return s, nil
 }

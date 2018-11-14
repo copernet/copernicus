@@ -56,7 +56,7 @@ out:
 				if peerFrom.VersionKnown() {
 					peerFrom.PushRejectMsg(data.Command(), errcode.RejectDuplicate, "Duplicate version message",
 						nil, false)
-					mh.addBanScore(peerFrom.Addr(), 0, 1, "multiple-version")
+					mh.AddBanScore(peerFrom.Addr(), 0, 1, "multiple-version")
 				} else {
 					peerFrom.HandleVersionMsg(data)
 				}
@@ -211,28 +211,17 @@ func (mh *MsgHandle) checkMsg(msg *peer.PeerMessage) error {
 	if !peerFrom.VersionKnown() {
 		// Must have a version message before anything else
 		if _, ok := msg.Msg.(*wire.MsgVersion); !ok {
-			mh.addBanScore(peerFrom.Addr(), 0, 1, "missing-version")
+			mh.AddBanScore(peerFrom.Addr(), 0, 1, "missing-version")
 			return errors.New("missing-version")
 		}
 	} else if !peerFrom.VerAckReceived() {
 		// Must have a verack message before anything else
 		if _, ok := msg.Msg.(*wire.MsgVerAck); !ok {
-			mh.addBanScore(peerFrom.Addr(), 0, 1, "missing-verack")
+			mh.AddBanScore(peerFrom.Addr(), 0, 1, "missing-verack")
 			return errors.New("missing-verack")
 		}
 	}
 	return nil
-}
-
-func (mh *MsgHandle) addBanScore(peerAddr string, persistent uint32, transient uint32, reason string) {
-	bmsg := &banScoreMsg{
-		peerAddr:   peerAddr,
-		persistent: persistent,
-		transient:  transient,
-		reason:     reason,
-	}
-	log.Info("addBanScore peer:%s, reason:%s", peerAddr, reason)
-	mh.banScoreChn <- bmsg
 }
 
 // ProcessForRPC are RPC process things
