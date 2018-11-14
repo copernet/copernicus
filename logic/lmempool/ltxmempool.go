@@ -117,8 +117,8 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 		if err == nil {
 			accepttxn, _ := TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
 			log.Debug("RemoveForReorg move %v to mempool", append(accepttxn, txn))
-			if !oldPool.HaveTransaction(txn) {
-				log.Error("the tx not exist mempool")
+			if !newPool.HaveTransaction(txn) {
+				log.Error("the tx:%s not exist mempool", txn.GetHash().String())
 				return
 			}
 		} else {

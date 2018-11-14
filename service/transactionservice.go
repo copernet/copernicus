@@ -31,7 +31,7 @@ func ProcessTransaction(txn *tx.Tx, recentRejects map[util.Hash]struct{}, nodeID
 		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn, chain.GetInstance().Height(), true)
 		pool := mempool.GetInstance()
 		if !pool.HaveTransaction(txn) {
-			log.Error("the tx not exist mempool")
+			log.Error("the tx:%s not exist mempool", txn.GetHash().String())
 			return nil, nil, nil, err
 		}
 
