@@ -44,9 +44,10 @@ const (
 
 	blockRequestTimeoutTime = 20 * time.Minute
 
-	//Number of blocks that can be requested at any given time from a single peer
+	//MAX_BLOCKS_IN_TRANSIT_PER_PEER is Number of blocks that can be requested at any given time from a single peer
 	MAX_BLOCKS_IN_TRANSIT_PER_PEER = 16
 
+	// BLOCK_DOWNLOAD_WINDOW see below
 	/**
 	 * Size of the "block download window": how far ahead of our current height do
 	 * we fetch ? Larger windows tolerate larger download speed differences between
@@ -54,7 +55,7 @@ const (
 	 * (which make reindexing and in the future perhaps pruning harder). We'll
 	 * probably want to make this a per-peer adaptive value at some point.
 	 */
-	BLOCK_DOWNLOAD_WINDOW = 1024;
+	BLOCK_DOWNLOAD_WINDOW = 1024
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -115,9 +116,9 @@ type headersMsg struct {
 }
 
 type pingMsg struct {
-	ping *wire.MsgPing
-	peer *peer.Peer
-	reply   chan<- struct{}
+	ping  *wire.MsgPing
+	peer  *peer.Peer
+	reply chan<- struct{}
 }
 
 // donePeerMsg signifies a newly disconnected peer to the block handler.
@@ -617,7 +618,7 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 
 	if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
 		log.Info("peer(%d) has full requestedBlocks, don't GetData any more",
-				peer.ID())
+			peer.ID())
 		return
 	}
 
@@ -631,16 +632,16 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 		// use info of syncPeer directly during IBD
 		pindexBestKnownHash = sm.syncPeer.LastAnnouncedBlock()
 		if pindexBestKnownHash == nil {
-			log.Info("IBD true, syncPeer(%d) best known block nil, " +
+			log.Info("IBD true, syncPeer(%d) best known block nil, "+
 				"maybe program started just now, forgive temporary",
-					sm.syncPeer.ID())
+				sm.syncPeer.ID())
 			return
 		}
 
 		pindexBestKnownBlock = gChain.FindBlockIndex(*pindexBestKnownHash)
 		if pindexBestKnownBlock == nil {
 			log.Error("blkIndex find fail of syncPeer(%d). blkhash:%s",
-					sm.syncPeer.ID(), pindexBestKnownHash.String())
+				sm.syncPeer.ID(), pindexBestKnownHash.String())
 			return
 		}
 
@@ -654,14 +655,14 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 		pindexBestKnownHash = peer.LastAnnouncedBlock()
 		if pindexBestKnownHash == nil {
 			log.Info("IBD false, peer(%d) best known block nil, forgive temporary",
-					peer.ID())
+				peer.ID())
 			return
 		}
 
 		pindexBestKnownBlock = gChain.FindBlockIndex(*pindexBestKnownHash)
 		if pindexBestKnownBlock == nil {
 			log.Error("blkIndex find fail of peer(%d). blkhash:%s",
-					peer.ID(), pindexBestKnownHash.String())
+				peer.ID(), pindexBestKnownHash.String())
 			return
 		}
 
@@ -669,7 +670,7 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 		if pindexBestKnownBlock.ChainWork.Cmp(&(gChain.Tip().ChainWork)) == -1 ||
 			pindexBestKnownBlock.ChainWork.Cmp(minWorkSum) == -1 {
 			log.Info("peer(%d) ChainWork less than us, hash nothing interesting",
-					peer.ID())
+				peer.ID())
 			return
 		}
 
@@ -682,7 +683,7 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 	// common with this peer. The +1 is so we can detect stalling, namely if we
 	// would be able to download that next block if the window were 1 larger.
 	nWindowEnd := pindexWalk.Height + BLOCK_DOWNLOAD_WINDOW
-	nMaxHeight := util.MinI32(pindexBestKnownBlock.Height, nWindowEnd + 1)
+	nMaxHeight := util.MinI32(pindexBestKnownBlock.Height, nWindowEnd+1)
 
 	gdmsg := wire.NewMsgGetData()
 out:
@@ -691,11 +692,11 @@ out:
 		// successors of pindexWalk (towards pindexBestKnownBlock) into
 		// vToFetch. We fetch 128, because CBlockIndex::GetAncestor may be as
 		// expensive as iterating over ~100 CBlockIndex* entries anyway.
-		nToFetch := util.MinI32(nMaxHeight - pindexWalk.Height, 128)
-		pindexWalk = pindexBestKnownBlock.GetAncestor(pindexWalk.Height+nToFetch)
+		nToFetch := util.MinI32(nMaxHeight-pindexWalk.Height, 128)
+		pindexWalk = pindexBestKnownBlock.GetAncestor(pindexWalk.Height + nToFetch)
 		vToFetch.PushFront(pindexWalk)
 		pindex := pindexWalk
-		for i := nToFetch-1; i>0; i-- {
+		for i := nToFetch - 1; i > 0; i-- {
 			vToFetch.PushFront(pindex.Prev)
 			pindex = pindex.Prev
 		}
@@ -882,8 +883,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		// instead.
 		if !gChain.Contains(pindexWalk) {
 			log.Info("Large reorg, won't direct fetch to %s (%d)",
-					pindexLast.GetBlockHash().String(),
-					pindexLast.Height)
+				pindexLast.GetBlockHash().String(),
+				pindexLast.Height)
 		} else {
 			// Download as much as possible, from earliest to latest.
 			gdmsg := wire.NewMsgGetData()
@@ -900,12 +901,12 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 				state.requestedBlocks[hash] = struct{}{}
 				gdmsg.AddInvVect(iv)
 				log.Info("Requesting block %s from  peer=%d",
-						hash.String(), peer.ID())
+					hash.String(), peer.ID())
 			}
 			if len(gdmsg.InvList) > 1 {
 				log.Info("Downloading blocks toward %s (%d) via headers direct fetch",
-						pindexLast.GetBlockHash().String(),
-						pindexLast.Height)
+					pindexLast.GetBlockHash().String(),
+					pindexLast.Height)
 			}
 			if len(gdmsg.InvList) > 0 {
 				peer.QueueMessage(gdmsg, nil)
