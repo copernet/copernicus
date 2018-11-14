@@ -2,12 +2,10 @@ package block
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
-	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/util"
 )
@@ -82,9 +80,9 @@ func (bl *Block) Unserialize(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if ntx > consensus.MaxTxCount {
-		return fmt.Errorf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount)
-	}
+	// if ntx > consensus.MaxTxCount {
+	// 	return fmt.Errorf("recv %d transactions, but allow max %d", ntx, consensus.MaxTxCount)
+	// }
 	bl.Txs = make([]*tx.Tx, ntx)
 	for i := 0; i < int(ntx); i++ {
 		tx := tx.NewTx(0, tx.DefaultVersion)

@@ -391,7 +391,7 @@ func (ba *BlockAssembler) onlyUnconfirmed(entryList []*mempool.TxEntry) []*mempo
 func (ba *BlockAssembler) testPackageTransactions(entrySet []*mempool.TxEntry) bool {
 	potentialBlockSize := ba.blockSize
 	for _, entry := range entrySet {
-		err := ltx.ContextualCheckTransaction(entry.Tx, ba.height, ba.lockTimeCutoff)
+		err := ltx.ContextualCheckTransaction(entry.Tx, ba.height, ba.lockTimeCutoff, ba.lockTimeCutoff)
 		if err != nil {
 			return false
 		}

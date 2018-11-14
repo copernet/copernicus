@@ -161,10 +161,14 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 	}
 
 	lockTimeCutoff := getLockTime(b, indexPrev)
-
+	var mediaTimePast int64
+	if indexPrev != nil {
+		mediaTimePast = indexPrev.GetMedianTimePast()
+	}
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized lblock height
-	err := ltx.ContextureCheckBlockTransactions(b.Txs, height, lockTimeCutoff)
+	err := ltx.ContextureCheckBlockTransactions(b.Txs, height, lockTimeCutoff,
+		mediaTimePast)
 	return err
 }
 

@@ -1815,7 +1815,7 @@ func Test_block_should_contains_at_least_one_tx(t *testing.T) {
 
 	height := model.ActiveNetParams.BIP34Height - 1
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.Equal(t, errcode.New(errcode.RejectInvalid), err)
 }
@@ -1826,7 +1826,7 @@ func Test_block_coinbase_tx___can_contains_empty_script_sig___before_BIP34_heigh
 
 	height := model.ActiveNetParams.BIP34Height - 1
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.NoError(t, err)
 }
@@ -1837,7 +1837,7 @@ func Test_block_coinbase_tx___can_NOT_contains_empty_script_sig___after_BIP34_he
 
 	height := model.ActiveNetParams.BIP34Height + 1
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
 }
@@ -1860,7 +1860,7 @@ func Test_block_coinbase_tx___should_contains_height_in_script_sig___after_BIP34
 	coinbaseTx := newCoinbaseOnHeight(height)
 	txns := []*tx.Tx{coinbaseTx}
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.NoError(t, err)
 }
@@ -1871,7 +1871,7 @@ func Test_block_coinbase_tx___should_contains_correct_height_in_script_sig___aft
 	coinbaseTx := newCoinbaseOnHeight(height)
 	txns := []*tx.Tx{coinbaseTx}
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height+100, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height+100, 0, 0)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
 }

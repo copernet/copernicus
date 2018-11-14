@@ -289,7 +289,7 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	return nil
 }
 
-func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
+func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime, mediaTimePast int64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		log.Debug("no transactions err")
@@ -301,7 +301,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	}
 
 	for _, transaction := range txs {
-		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
+		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime, mediaTimePast)
 		if err != nil {
 			return err
 		}
@@ -416,7 +416,7 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	return nil
 }
 
-func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
+func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff, mediaTimePast int64) error {
 	if !txn.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		log.Debug("txn is not final, hash: %s", txn.GetHash())
 		return errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
@@ -429,6 +429,14 @@ func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff 
 	//	}
 	//}
 
+	if model.IsMagneticAnomalyEnabled(mediaTimePast) {
+		txnsize := txn.SerializeSize()
+		if txnsize < consensus.MinTxSize {
+			return fmt.Errorf(
+				"bad-tnx-undersize: tx(%d) should be equal to or greater than %d",
+				txnsize, consensus.MinTxSize)
+		}
+	}
 	return nil
 }
 
@@ -542,7 +550,8 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 
 	nBlockHeight := activeChain.Height() + 1
 
-	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
+	return ContextualCheckTransaction(transaction, nBlockHeight,
+		nLockTimeCutoff, activeChain.Tip().GetMedianTimePast())
 }
 
 func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
