@@ -79,7 +79,7 @@ const (
 	// increase the num in case cut out inv
 	maxBlocksToAnnounce = 8
 
-	// when peer is neer to tip, set its revertToInv to false back
+	// REVERT_TO_INV_DIFF when peer is neer to tip, set its revertToInv to false back
 	REVERT_TO_INV_DIFF = 8
 )
 
@@ -462,7 +462,7 @@ type Peer struct {
 	advertisedProtoVer   uint32 // protocol version advertised by remote
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
-	revertToInv			 bool //whether to revert to inv mode for a prefer-header-node
+	revertToInv          bool   //whether to revert to inv mode for a prefer-header-node
 	verAckReceived       bool
 	isWhitelisted        bool
 
@@ -493,8 +493,8 @@ type Peer struct {
 	sendQueue         chan outMsg
 	sendDoneQueue     chan struct{}
 	outputInvChan     chan *wire.InvVect
-	outputHeaderChan     chan *block.BlockHeader
-	outputHeadersChan     chan []*block.BlockHeader
+	outputHeaderChan  chan *block.BlockHeader
+	outputHeadersChan chan []*block.BlockHeader
 	inQuit            chan struct{}
 	queueQuit         chan struct{}
 	outQuit           chan struct{}
@@ -1739,17 +1739,11 @@ cleanup:
 	log.Trace("Peer queue handler done for %s", p)
 }
 
-func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader)  {
+func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 	headerSendQueue := list.New()
 
-	for _, header := range headers{
+	for _, header := range headers {
 		headerSendQueue.PushBack(header)
-	}
-
-	log.Debug("mylog,%t,%t", p.WantsHeaders(), p.RevertToInv())
-	for e := headerSendQueue.Front(); e != nil; e = e.Next() {
-		header := e.Value.(*block.BlockHeader)
-		log.Debug("mylog,%s,%v", p.Addr(), header.GetHash())
 	}
 
 	if p.WantsHeaders() {
@@ -1773,7 +1767,7 @@ func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader)  {
 		}
 	}
 	invMsg := wire.NewMsgInvSizeHint(1)
-	// RevertToInv occured, should send only last header via INV
+	// RevertToInv occurred, should send only last header via INV
 	// and just drop other headers, to wait peer request themselves
 	if e := headerSendQueue.Back(); e != nil {
 		header := headerSendQueue.Remove(e).(*block.BlockHeader)
@@ -1793,7 +1787,7 @@ func (p *Peer) CheckRevertToInv(hash *util.Hash) {
 		gChain := chain.GetInstance()
 		tipheight := gChain.TipHeight()
 		locatorheight := gChain.GetSpendHeight(hash)
-		if tipheight < locatorheight + REVERT_TO_INV_DIFF {
+		if tipheight < locatorheight+REVERT_TO_INV_DIFF {
 			p.SetRevertToInv(false)
 		}
 	}
@@ -2189,24 +2183,24 @@ func newPeerBase(origCfg *Config, inbound bool, isWhitelisted bool) *Peer {
 	}
 
 	p := Peer{
-		inbound:         inbound,
-		wireEncoding:    wire.BaseEncoding,
-		knownInventory:  newMruInventoryMap(maxKnownInventory),
-		stallControl:    make(chan stallControlMsg, 1), // nonblocking sync
-		outputQueue:     make(chan outMsg, outputBufferSize),
-		sendQueue:       make(chan outMsg, 1),   // nonblocking sync
-		sendDoneQueue:   make(chan struct{}, 1), // nonblocking sync
-		outputInvChan:   make(chan *wire.InvVect, outputBufferSize),
-		outputHeaderChan:   make(chan *block.BlockHeader, outputBufferSize),
-		outputHeadersChan:   make(chan []*block.BlockHeader, outputBufferSize),
-		inQuit:          make(chan struct{}),
-		queueQuit:       make(chan struct{}),
-		outQuit:         make(chan struct{}),
-		quit:            make(chan struct{}),
-		Cfg:             cfg, // Copy so caller can't mutate.
-		services:        cfg.Services,
-		protocolVersion: cfg.ProtocolVersion,
-		isWhitelisted:   isWhitelisted,
+		inbound:           inbound,
+		wireEncoding:      wire.BaseEncoding,
+		knownInventory:    newMruInventoryMap(maxKnownInventory),
+		stallControl:      make(chan stallControlMsg, 1), // nonblocking sync
+		outputQueue:       make(chan outMsg, outputBufferSize),
+		sendQueue:         make(chan outMsg, 1),   // nonblocking sync
+		sendDoneQueue:     make(chan struct{}, 1), // nonblocking sync
+		outputInvChan:     make(chan *wire.InvVect, outputBufferSize),
+		outputHeaderChan:  make(chan *block.BlockHeader, outputBufferSize),
+		outputHeadersChan: make(chan []*block.BlockHeader, outputBufferSize),
+		inQuit:            make(chan struct{}),
+		queueQuit:         make(chan struct{}),
+		outQuit:           make(chan struct{}),
+		quit:              make(chan struct{}),
+		Cfg:               cfg, // Copy so caller can't mutate.
+		services:          cfg.Services,
+		protocolVersion:   cfg.ProtocolVersion,
+		isWhitelisted:     isWhitelisted,
 	}
 	return &p
 }
