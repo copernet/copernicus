@@ -1515,10 +1515,6 @@ func (s *Server) handleClearBannedMsg(state *peerState) {
 	s.saveBannedInfo(state)
 }
 
-type testU struct {
-	Tes []BannedInfo
-}
-
 func (s *Server) saveBannedInfo(state *peerState) {
 	bannedList := s.getBannedList(state)
 
