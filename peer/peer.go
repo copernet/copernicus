@@ -1031,24 +1031,24 @@ func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash)
 func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getheaders requests.
-	var beginHash *util.Hash
+	//var beginHash *util.Hash
 	blkHashs := locator.GetBlockHashList()
-	if len(blkHashs) > 0 {
-		beginHash = &blkHashs[0]
-	}
+	//if len(blkHashs) > 0 {
+	//	beginHash = &blkHashs[0]
+	//}
 
 	// Filter duplicate getheaders requests.
-	p.prevGetHdrsMtx.Lock()
-	isDuplicate := p.prevGetHdrsStop != nil && p.prevGetHdrsBegin != nil &&
-		beginHash != nil && stopHash.IsEqual(p.prevGetHdrsStop) &&
-		beginHash.IsEqual(p.prevGetHdrsBegin)
-	p.prevGetHdrsMtx.Unlock()
+	//p.prevGetHdrsMtx.Lock()
+	//isDuplicate := p.prevGetHdrsStop != nil && p.prevGetHdrsBegin != nil &&
+	//	beginHash != nil && stopHash.IsEqual(p.prevGetHdrsStop) &&
+	//	beginHash.IsEqual(p.prevGetHdrsBegin)
+	//p.prevGetHdrsMtx.Unlock()
 
-	if isDuplicate {
-		log.Trace("Filtering duplicate [getheaders] with begin hash %v",
-			beginHash)
-		return nil
-	}
+	//if isDuplicate {
+	//	log.Trace("Filtering duplicate [getheaders] with begin hash %v",
+	//		beginHash)
+	//	//return nil
+	//}
 
 	// Construct the getheaders request and queue it to be sent.
 	msg := wire.NewMsgGetHeaders()
@@ -1064,10 +1064,10 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 
 	// Update the previous getheaders request information for filtering
 	// duplicates.
-	p.prevGetHdrsMtx.Lock()
-	p.prevGetHdrsBegin = beginHash
-	p.prevGetHdrsStop = stopHash
-	p.prevGetHdrsMtx.Unlock()
+	//p.prevGetHdrsMtx.Lock()
+	//p.prevGetHdrsBegin = beginHash
+	//p.prevGetHdrsStop = stopHash
+	//p.prevGetHdrsMtx.Unlock()
 	return nil
 }
 
