@@ -449,6 +449,14 @@ func IsDAAEnabled(height int32) bool {
 	return height >= ActiveNetParams.DAAHeight
 }
 
+func IsMagneticAnomalyEnabled(mediaTimePast int64) bool {
+	activeTime := ActiveNetParams.MagneticAnomalyActivationTime
+	if conf.Args.MagneticAnomalyTime > 0 {
+		activeTime = conf.Args.MagneticAnomalyTime
+	}
+	return mediaTimePast >= activeTime
+}
+
 func IsReplayProtectionEnabled(medianTimePast int64) bool {
 	time := ActiveNetParams.MagneticAnomalyActivationTime
 	if conf.Args.ReplayProtectionActivationTime > 0 {
