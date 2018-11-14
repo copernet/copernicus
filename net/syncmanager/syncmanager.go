@@ -56,6 +56,9 @@ const (
 	 * probably want to make this a per-peer adaptive value at some point.
 	 */
 	BLOCK_DOWNLOAD_WINDOW = 1024
+
+	// MAX_UNCONNECTING_HEADERS Maximum number of unconnecting headers announcements before DoS score
+	MAX_UNCONNECTING_HEADERS = 10
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -186,6 +189,7 @@ type peerSyncState struct {
 	requestQueue    []*wire.InvVect
 	requestedTxns   map[util.Hash]struct{}
 	requestedBlocks map[util.Hash]struct{}
+	nUnconnectingHeaders int
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -772,6 +776,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			return
 		}
 
+		state.nUnconnectingHeaders++
+
 		pindexStart := gChain.Tip()
 		/**
 		 * If possible, start at the block preceding the currently best
@@ -787,9 +793,14 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		locator := gChain.GetLocator(pindexStart)
 		peer.PushGetHeadersMsg(*locator, &zeroHash)
 
-		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, isSyncPeer:%t",
+		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, isSyncPeer:%t, nUnconnectingHeaders:%d",
 			pindexStart.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
-			isSyncPeer)
+			isSyncPeer, state.nUnconnectingHeaders)
+
+		if state.nUnconnectingHeaders % MAX_UNCONNECTING_HEADERS == 0 {
+			// The peer is sending us many headers we can't connect.
+			sm.misbehaving(peer.Addr(), 20, "too-many-unconnected-headers")
+		}
 		return
 	}
 
@@ -828,6 +839,12 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		endHash := msg.Headers[len(msg.Headers)-1].GetHash()
 		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s,"+
 			"error news : %s.", beginHash, endHash, err.Error())
+	}
+
+	if state.nUnconnectingHeaders > 0 {
+		log.Info("peer=%d: resetting nUnconnectingHeaders (%d -> 0)",
+			peer.ID(), state.nUnconnectingHeaders)
+		state.nUnconnectingHeaders = 0
 	}
 
 	if numHeaders == wire.MaxBlockHeadersPerMsg {
