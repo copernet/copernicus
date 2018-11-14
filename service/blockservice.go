@@ -19,7 +19,7 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 		if err != nil {
 			return err
 		}
-		lastIndex = index
+		*lastIndex = *index
 	}
 	beginHash := headerList[0].GetHash()
 	endHash := headerList[len(headerList)-1].GetHash()
