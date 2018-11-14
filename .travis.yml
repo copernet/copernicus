@@ -11,8 +11,7 @@ before_install:
 script:
   - docker exec copernicus /bin/bash -c 'cd /go/src/github.com/copernet/copernicus && ./check.sh'
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec copernicus goveralls -coverprofile=/go/src/github.com/copernet/copernicus/coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN; fi'
-  - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python test_runner.py || /bin/bash /walle/log.sh 
-  $TRAVIS_JOB_ID'
+  - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python test_runner.py || /bin/bash /walle/log.sh $TRAVIS_JOB_ID'
 
 notifications:
   email:
