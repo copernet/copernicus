@@ -1,10 +1,16 @@
 package server
 
 import (
+	"net"
+	"sort"
+	"strings"
 	"sync/atomic"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/peer"
+	"github.com/copernet/copernicus/rpc/btcjson"
+	"github.com/copernet/copernicus/util"
 )
 
 // RPCServerPeer represents a peer for use with the RPC server.
@@ -227,4 +233,80 @@ func (cm *RPCConnManager) BroadcastMessage(msg wire.Message) {
 // rpcserverConnManager interface implementation.
 func (cm *RPCConnManager) AddRebroadcastInventory(iv *wire.InvVect, data interface{}) {
 	cm.server.AddRebroadcastInventory(iv, data)
+}
+
+func (cm *RPCConnManager) SetBan(c *btcjson.SetBanCmd) *btcjson.RPCError {
+	if strings.Contains(c.SubNet, "/") {
+		_, _, err := net.ParseCIDR(c.SubNet)
+		if err != nil {
+			return btcjson.NewRPCError(btcjson.RPCClientInvalidIPOrSubnet, "Error: Invalid IP/Subnet")
+		}
+	} else {
+		ip := net.ParseIP(c.SubNet)
+		if ip == nil {
+			return btcjson.NewRPCError(btcjson.RPCClientInvalidIPOrSubnet, "Error: Invalid IP/Subnet")
+		}
+	}
+
+	if c.Command == "add" {
+		now := util.GetTime()
+		var endTime int64
+		if c.BanTime != nil {
+			if c.Absolute != nil && *c.Absolute {
+				endTime = *c.BanTime
+			} else {
+				endTime = now + *c.BanTime
+			}
+		} else {
+			endTime = now + int64(conf.Cfg.P2PNet.BanDuration)
+		}
+		hasBanned := cm.server.BanAddr(c.SubNet, now, endTime, BanReasonManuallyAdded)
+		if hasBanned {
+			return btcjson.NewRPCError(btcjson.RPCClientNodeAlreadyAdded, "Error: IP/Subnet already banned")
+		}
+
+	} else if c.Command == "remove" {
+		hasBanned := cm.server.UnbanAddr(c.SubNet)
+		if !hasBanned {
+			return btcjson.NewRPCError(btcjson.RPCClientInvalidIPOrSubnet,
+				"Error: Unban failed. Requested address/subnet was not previously banned.")
+		}
+	}
+
+	return nil
+}
+
+func (cm *RPCConnManager) ListBanned() (*btcjson.ListBannedResult, *btcjson.RPCError) {
+	bannedInfoList := cm.server.GetBannedInfo()
+	retList := make([]btcjson.BannedInfo, 0, len(bannedInfoList))
+	for _, info := range bannedInfoList {
+		address := info.Address
+		if !strings.Contains(address, "/") {
+			address += "/32"
+		}
+		bannedInfo := btcjson.BannedInfo{
+			Address:     address,
+			BannedUntil: info.BanUntil,
+			BanCreated:  info.CreateTime,
+			BanReason:   banReasonToString(info.Reason),
+		}
+		retList = append(retList, bannedInfo)
+	}
+	result := btcjson.ListBannedResult(retList)
+	sort.Sort(result)
+	return &result, nil
+}
+
+func (cm *RPCConnManager) ClearBanned() {
+	cm.server.ClearBanned()
+}
+
+func banReasonToString(banReason int) string {
+	switch banReason {
+	case BanReasonNodeMisbehaving:
+		return "node misbehaving"
+	case BanReasonManuallyAdded:
+		return "manually added"
+	}
+	return "unknown"
 }
