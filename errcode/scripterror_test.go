@@ -1,212 +1,91 @@
 package errcode
 
-type ScriptErr int
+import "testing"
 
-const (
-	ScriptErrOK ScriptErr = ScriptErrorBase + iota
-	ScriptErrUnknownError
-	ScriptErrEvalFalse
-	ScriptErrOpReturn
-
-	/* Max sizes */
-
-	ScriptErrScriptSize
-	ScriptErrPushSize
-	ScriptErrOpCount
-	ScriptErrStackSize
-	ScriptErrSigCount
-	ScriptErrPubKeyCount
-
-	/*  Operands checks */
-
-	ScriptErrInvalidOperandSize
-	ScriptErrInvalidNumberRange
-	ScriptErrImpossibleEncoding
-	ScriptErrInvalidSplitRange
-
-	/*  Failed verify operations */
-
-	ScriptErrVerify
-	ScriptErrEqualVerify
-	ScriptErrCheckMultiSigVerify
-	ScriptErrCheckSigVerify
-	ScriptErrCheckDataSigVerify
-	ScriptErrNumEqualVerify
-
-	/* Logical/Format/Canonical errors */
-
-	ScriptErrBadOpCode
-	ScriptErrDisabledOpCode
-	ScriptErrInvalidStackOperation
-	ScriptErrInvalidAltStackOperation
-	ScriptErrUnbalancedConditional
-
-	/* Divisor errors */
-
-	ScriptErrDivByZero
-	ScriptErrModByZero
-
-	/* CheckLockTimeVerify and CheckSequenceVerify */
-
-	ScriptErrNegativeLockTime
-	ScriptErrUnsatisfiedLockTime
-
-	/* Malleability */
-
-	ScriptErrSigHashType
-	ScriptErrSigDer
-	ScriptErrMinimalData
-	ScriptErrSigPushOnly
-	ScriptErrSigHighs
-	ScriptErrSigNullDummy
-	ScriptErrPubKeyType
-	ScriptErrCleanStack
-	ScriptErrMinimalIf
-	ScriptErrSigNullFail
-
-	/* softFork safeness */
-
-	ScriptErrDiscourageUpgradableNops
-	ScriptErrDiscourageUpgradableWitnessProgram
-
-	// ScriptErrNonCompressedPubKey description script errors
-
-	ScriptErrNonCompressedPubKey
-
-	// ScriptErrIllegalForkID anti replay
-
-	ScriptErrIllegalForkID
-	ScriptErrMustUseForkID
-
-	ScriptErrErrorCount
-
-	// ScriptErrSize other errcode
-	ScriptErrSize
-	ScriptErrNonStandard
-	ScriptErrNullData
-	ScriptErrBareMultiSig
-	ScriptErrMultiOpReturn
-	ScriptErrInvalidSignatureEncoding
-
-	ScriptErrInvalidOpCode
-	ScriptErrInValidPubKeyOrSig
-	ScriptErrScriptSigNotPushOnly
-)
-
-/*
-var scriptErrorToString = map[ScriptErr]string{
-	ScriptErrOK: "No error",
-	ScriptErrEvalFalse: "Script evaluated without error but finished with a false/empty top stack element",
-	ScriptErrVerify: "Script failed an OP_VERIFY operation",
-	ScriptErrEqualVerify: "Script failed an OP_EQUALVERIFY operation",
-	ScriptErrCheckMultiSigVerify: "Script failed an OP_CHECKMULTISIGVERIFY operation",
-	ScriptErrCheckSigVerify: "Script failed an OP_CHECKSIGVERIFY operation",
-	ScriptErrNumEqualVerify: "Script failed an OP_NUMEQUALVERIFY operation",
-	ScriptErrScriptSize:
-	ScriptErrPushSize:
-	ScriptErrOpCount:
-	ScriptErrStackSize:
-	ScriptErrSigCount
-	ScriptErrPubKeyCount
-	ScriptErrBadOpCode
-	ScriptErrDisabledOpCode
-	ScriptErrInvalidStackOperation
-	ScriptErrOpReturn
-	ScriptErrUnbalancedConditional
-	ScriptErrNegativeLockTime
-	ScriptErrUnsatisfiedLockTime
-	ScriptErrSigHashType
-	ScriptErrSigDer
-	ScriptErrMinimalData
-	ScriptErrSigPushOnly
-	ScriptErrSigHighs
-	ScriptErrSigNullDummy
-	ScriptErrPubKeyType
-	ScriptErrMinimalIf
-	ScriptErrSigNullFail
-	ScriptErrDiscourageUpgradableNOPs
-	ScriptErrDiscourageUpgradableWitnessProgram
-}*/
-
-func scriptErrorString(scriptError ScriptErr) string {
-	switch scriptError {
-	case ScriptErrOK:
-		return "No error"
-	case ScriptErrEvalFalse:
-		return "Script evaluated without error but finished with a false/empty top stack element"
-	case ScriptErrVerify:
-		return "Script failed an OP_VERIFY operation"
-	case ScriptErrEqualVerify:
-		return "Script failed an OP_EQUALVERIFY operation"
-	case ScriptErrCheckMultiSigVerify:
-		return "Script failed an OP_CHECKMULTISIGVERIFY operation"
-	case ScriptErrCheckSigVerify:
-		return "Script failed an OP_CHECKSIGVERIFY operation"
-	case ScriptErrCheckDataSigVerify:
-		return "Script failed on OP_CHECKDATASIGVERIFY operation"
-	case ScriptErrNumEqualVerify:
-		return "Script failed an OP_NUMEQUALVERIFY operation"
-	case ScriptErrScriptSize:
-		return "Script is too big"
-	case ScriptErrPushSize:
-		return "Push value size limit exceeded"
-	case ScriptErrOpCount:
-		return "Operation limit exceeded"
-	case ScriptErrStackSize:
-		return "Stack size limit exceeded"
-	case ScriptErrSigCount:
-		return "Signature count negative or greater than pubKey count"
-	case ScriptErrPubKeyCount:
-		return "PubKey count negative or limit exceeded"
-	case ScriptErrBadOpCode:
-		return "OpCode missing or not understood"
-	case ScriptErrDisabledOpCode:
-		return "Attempted to use a disabled opCode"
-	case ScriptErrInvalidStackOperation:
-		return "Operation not valid with the current stack size"
-	case ScriptErrInvalidAltStackOperation:
-		return "Operation not valid with the current altStack size"
-	case ScriptErrOpReturn:
-		return "OP_RETURN was encountered"
-	case ScriptErrUnbalancedConditional:
-		return "Invalid OP_IF construction"
-	case ScriptErrNegativeLockTime:
-		return "Negative lockTime"
-	case ScriptErrUnsatisfiedLockTime:
-		return "LockTime requirement not satisfied"
-	case ScriptErrSigHashType:
-		return "Signature hash type missing or not understood"
-	case ScriptErrSigDer:
-		return "Non-canonical DER signature"
-	case ScriptErrMinimalData:
-		return "Data push larger than necessary"
-	case ScriptErrSigPushOnly:
-		return "Only non-push operators allowed in signatures"
-	case ScriptErrSigHighs:
-		return "Non-canonical signature: S value is unnecessarily high"
-	case ScriptErrSigNullDummy:
-		return "Dummy CheckMultiSig argument must be zero"
-	case ScriptErrPubKeyType:
-		return "Public key is neither compressed or uncompressed"
-	case ScriptErrCleanStack:
-		return "Script did not clean its stack"
-	case ScriptErrMinimalIf:
-		return "OP_IF/NOTIF argument must be minimal"
-	case ScriptErrSigNullFail:
-		return "Signature must be zero for failed CHECK(MULTI)SIG operation"
-	case ScriptErrIllegalForkID:
-		return "Illegal use of SIGHASH_FORKID"
-	case ScriptErrDiscourageUpgradableNops:
-		return "NOPx reserved for soft-fork upgrades"
-	case ScriptErrDiscourageUpgradableWitnessProgram:
-		return "Witness version reserved for soft-fork upgrades"
-	default:
-		break
+func TestScriptErr_String(t *testing.T) {
+	tests := []struct {
+		in   ScriptErr
+		want string
+	}{
+		{ScriptErrOK, "No error"},
+		{ScriptErrUnknownError, "unknown error"},
+		{ScriptErrEvalFalse, "Script evaluated without error but finished with a false/empty top stack element"},
+		{ScriptErrOpReturn, "OP_RETURN was encountered"},
+		/* Max sizes */
+		{ScriptErrScriptSize, "Script is too big"},
+		{ScriptErrPushSize, "Push value size limit exceeded"},
+		{ScriptErrOpCount, "Operation limit exceeded"},
+		{ScriptErrStackSize, "Stack size limit exceeded"},
+		{ScriptErrSigCount, "Signature count negative or greater than pubKey count"},
+		{ScriptErrPubKeyCount, "PubKey count negative or limit exceeded"},
+		/*  Operands checks */
+		{ScriptErrInvalidOperandSize, "unknown error"},
+		{ScriptErrInvalidNumberRange, "unknown error"},
+		{ScriptErrImpossibleEncoding, "unknown error"},
+		{ScriptErrInvalidSplitRange, "unknown error"},
+		/*  Failed verify operations */
+		{ScriptErrVerify, "Script failed an OP_VERIFY operation"},
+		{ScriptErrEqualVerify, "Script failed an OP_EQUALVERIFY operation"},
+		{ScriptErrCheckMultiSigVerify, "Script failed an OP_CHECKMULTISIGVERIFY operation"},
+		{ScriptErrCheckSigVerify, "Script failed an OP_CHECKSIGVERIFY operation"},
+		{ScriptErrCheckDataSigVerify, "Script failed on OP_CHECKDATASIGVERIFY operation"},
+		{ScriptErrNumEqualVerify, "Script failed an OP_NUMEQUALVERIFY operation"},
+		/* Logical/Format/Canonical errors */
+		{ScriptErrBadOpCode, "OpCode missing or not understood"},
+		{ScriptErrDisabledOpCode, "Attempted to use a disabled opCode"},
+		{ScriptErrInvalidStackOperation, "Operation not valid with the current stack size"},
+		{ScriptErrInvalidAltStackOperation, "Operation not valid with the current altStack size"},
+		{ScriptErrUnbalancedConditional, "Invalid OP_IF construction"},
+		/* Divisor errors */
+		{ScriptErrDivByZero, "unknown error"},
+		{ScriptErrModByZero, "unknown error"},
+		/* CheckLockTimeVerify and CheckSequenceVerify */
+		{ScriptErrNegativeLockTime, "Negative lockTime"},
+		{ScriptErrUnsatisfiedLockTime, "LockTime requirement not satisfied"},
+		/* Malleability */
+		{ScriptErrSigHashType, "Signature hash type missing or not understood"},
+		{ScriptErrSigDer, "Non-canonical DER signature"},
+		{ScriptErrMinimalData, "Data push larger than necessary"},
+		{ScriptErrSigPushOnly, "Only non-push operators allowed in signatures"},
+		{ScriptErrSigHighs, "Non-canonical signature: S value is unnecessarily high"},
+		{ScriptErrSigNullDummy, "Dummy CheckMultiSig argument must be zero"},
+		{ScriptErrPubKeyType, "Public key is neither compressed or uncompressed"},
+		{ScriptErrCleanStack, "Script did not clean its stack"},
+		{ScriptErrMinimalIf, "OP_IF/NOTIF argument must be minimal"},
+		{ScriptErrSigNullFail, "Signature must be zero for failed CHECK(MULTI)SIG operation"},
+		/* softFork safeness */
+		{ScriptErrDiscourageUpgradableNops, "NOPx reserved for soft-fork upgrades"},
+		{ScriptErrDiscourageUpgradableWitnessProgram, "Witness version reserved for soft-fork upgrades"},
+		// ScriptErrNonCompressedPubKey description script errors
+		{ScriptErrNonCompressedPubKey, "unknown error"},
+		// ScriptErrIllegalForkID anti replay
+		{ScriptErrIllegalForkID, "Illegal use of SIGHASH_FORKID"},
+		{ScriptErrMustUseForkID, "unknown error"},
+		{ScriptErrErrorCount, "unknown error"},
+		// ScriptErrSize other errcode
+		{ScriptErrSize, "unknown error"},
+		{ScriptErrNonStandard, "unknown error"},
+		{ScriptErrNullData, "unknown error"},
+		{ScriptErrBareMultiSig, "unknown error"},
+		{ScriptErrMultiOpReturn, "unknown error"},
+		{ScriptErrInvalidSignatureEncoding, "unknown error"},
+		{ScriptErrInvalidOpCode, "unknown error"},
+		{ScriptErrInValidPubKeyOrSig, "unknown error"},
+		{ScriptErrScriptSigNotPushOnly, "unknown error"},
 	}
-	return "unknown error"
 
-}
+	if len(tests)-1 != int(ScriptErrScriptSigNotPushOnly)-int(ScriptErrOK) {
+		t.Errorf("It appears an error code was added without adding an " +
+			"associated stringer test")
+	}
 
-func (se ScriptErr) String() string {
-	return scriptErrorString(se)
+	t.Logf("Running %d tests", len(tests))
+	for i, test := range tests {
+		result := test.in.String()
+		if result != test.want {
+			t.Errorf("String #%d\n got: %s want: %s", i, result,
+				test.want)
+			continue
+		}
+	}
 }
