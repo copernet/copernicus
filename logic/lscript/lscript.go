@@ -1195,6 +1195,64 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					}
 				}
 
+			case opcodes.OP_CHECKDATASIG:
+				fallthrough
+			case opcodes.OP_CHECKDATASIGVERIFY:
+				// Make sure thie remains an error before activation
+				if (flags & script.ScriptEnableCheckDataSig) == 0 {
+					log.Debug("ScriptErrorBadOpcode")
+					return errcode.New(errcode.ScriptErrBadOpCode)
+				}
+
+				// (sig message pubkey -- bool)
+				if stack.Size() < 3 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vchSig := stack.Top(-3)
+				vchMessage := stack.Top(-2)
+				vchPubKey := stack.Top(1)
+				if vchSig == nil || vchMessage == nil || vchPubKey == nil {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vchSigBytes := vchSig.([]byte)
+
+				if err := script.CheckSignatureEncoding(vchSigBytes, flags); err != nil {
+					log.Debug("Script check signature encoding error.")
+					return errcode.New(errcode.ScriptErrCheckSigVerify)
+				}
+
+				success := false
+				if len(vchSigBytes) > 0 {
+					vchHashs := util.Sha256Hash(vchMessage.([]byte))
+					success = tx.CheckSig(vchHashs, vchSigBytes, vchPubKey.([]byte))
+				}
+
+				if !success && ((flags & script.ScriptVerifyNullFail) == script.ScriptVerifyNullFail) && len(
+					vchSigBytes) > 0 {
+					return errcode.New(errcode.ScriptErrSigNullFail)
+				}
+
+				stack.Pop()
+				stack.Pop()
+				stack.Pop()
+				if success {
+					stack.Push(bnTrue.Serialize())
+				} else {
+					stack.Push(bnFalse.Serialize())
+				}
+
+				if e.OpValue == opcodes.OP_CHECKDATASIGVERIFY {
+					if success {
+						stack.Pop()
+					} else {
+						return errcode.New(errcode.ScriptErrCheckDataSigVerify)
+					}
+				}
+
 			case opcodes.OP_CHECKMULTISIG:
 				fallthrough
 			case opcodes.OP_CHECKMULTISIGVERIFY:
