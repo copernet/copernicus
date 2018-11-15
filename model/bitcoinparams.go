@@ -175,11 +175,18 @@ var MainNetParams = BitcoinParams{
 		{250000, util.HashFromString("000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214")},
 		{267300, util.HashFromString("000000000000000a83fbd660e918f218bf37edd92b748ad940483c7c116179ac")},
 		{279000, util.HashFromString("0000000000000001ae8c72a0b0c301f67e3afca10e819efa9041e458e9bd7e40")},
+		{295000, util.HashFromString("00000000000000004d9b4ef50f0f9d686fd69db2e03af35a100370c64632a983")},
 		{300255, util.HashFromString("0000000000000000162804527c6e9b9f0563a280525f9d08c12041def0a0f3b2")},
 		{319400, util.HashFromString("000000000000000021c6052e9becade189495d1c539aa37c58917305fd15f13b")},
 		{343185, util.HashFromString("0000000000000000072b8bf361d01a6ba7d445dd024203fafc78768ed4368554")},
 		{352940, util.HashFromString("000000000000000010755df42dba556bb72be6a32f3ce0b6941ce4430152c9ff")},
 		{382320, util.HashFromString("00000000000000000a8dc6ed5b133d0eb2fd6af56203e4159789b092defd8ab2")},
+		// UAHF fork block.
+		{478558, util.HashFromString("0000000000000000011865af4122fe3b144e2cbeea86142e8ff2fb4107352d43")},
+		// Nov, 13 DAA activation block.
+		{504031, util.HashFromString("0000000000000000011ebf65b60d0a3de80b8175be709d653b4c1a1beeb6ab9c")},
+		// Monolith activation.
+		{530359, util.HashFromString("0000000000000000011ada8bd08f46074f44a8f155396f43e38acf9501c49103")},
 	},
 	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has
@@ -270,9 +277,11 @@ var TestNetParams = BitcoinParams{
 	MinDiffReductionTime:     time.Minute * 20,
 	GenerateSupported:        false,
 	Checkpoints: []*Checkpoint{
-		//{546, util.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
-		//{1155876, util.HashFromString("00000000000e38fef93ed9582a7df43815d5c2ba9fd37ef70c9a0ea4a285b8f5")},
-		{1200000, util.HashFromString("00000000d91bdbb5394bcf457c0f0b7a7e43eb978e2d881b6c2a4c2756abc558")},
+		{546, util.HashFromString("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")},
+		// UAHF fork block.
+		{1155875, util.HashFromString("00000000f17c850672894b9a75b63a1e72830bbd5f4c8889b5c1a80e7faef138")},
+		// Nov, 13. DAA activation block.
+		{1188697, util.HashFromString("0000000000170ed0918077bde7b4d36cc4c91be69fa09211f748240dabe047fb")},
 	},
 	MineBlocksOnDemands: false,
 	// Enforce current block version once majority of the network has
