@@ -255,11 +255,13 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableMonolithOpcodes
 	}
-	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
-	//	flags |= script.ScriptEnableCheckDataSig
-	//	flags |= script.ScriptVerifySigPushOnly
-	//	flags |= script.ScriptVerifyCleanStack
-	//}
+
+	if model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast()) {
+		flags |= script.ScriptEnableCheckDataSig
+		flags |= script.ScriptVerifySigPushOnly
+		flags |= script.ScriptVerifyCleanStack
+	}
+
 	// We make sure this node will have replay protection during the next hard
 	// fork.
 	if model.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
