@@ -257,8 +257,7 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	if model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast()) {
-		// FIXME: the flag is occupied.
-		// flags |= script.ScriptEnableCheckDataSig
+		flags |= script.ScriptEnableCheckDataSig
 		flags |= script.ScriptVerifySigPushOnly
 		flags |= script.ScriptVerifyCleanStack
 	}
