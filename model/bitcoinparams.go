@@ -137,7 +137,7 @@ var MainNetParams = BitcoinParams{
 		MagneticAnomalyActivationTime: 1542300000,
 
 		// Wed, 15 May 2019 12:00:00 UTC hard fork
-		//GreatWallActivationTime: 1557921600,
+		GreatWallActivationTime: 1557921600,
 	},
 
 	Name:        "main",
@@ -244,7 +244,7 @@ var TestNetParams = BitcoinParams{
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
 		// Wed, 15 May 2019 12:00:00 UTC hard fork
-		//GreatWallActivationTime: 1557921600,
+		GreatWallActivationTime: 1557921600,
 		//CashHardForkActivationTime: 1510600000,
 		GenesisHash: &TestNetGenesisHash,
 		//CashaddrPrefix: "xbctest",
@@ -339,7 +339,8 @@ var RegressionNetParams = BitcoinParams{
 		// Nov 15, 2018 hard fork
 		MagneticAnomalyActivationTime: 1542300000,
 
-		//GreatWallActivationTime: 1557921600,
+		// Wed, 15 May 2019 12:00:00 UTC hard fork
+		GreatWallActivationTime: 1557921600,
 	},
 
 	Name:         "regtest",
@@ -458,7 +459,7 @@ func IsMagneticAnomalyEnabled(mediaTimePast int64) bool {
 }
 
 func IsReplayProtectionEnabled(medianTimePast int64) bool {
-	time := ActiveNetParams.MagneticAnomalyActivationTime
+	time := ActiveNetParams.GreatWallActivationTime
 	if conf.Args.ReplayProtectionActivationTime > 0 {
 		time = conf.Args.ReplayProtectionActivationTime
 	}
