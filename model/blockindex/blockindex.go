@@ -306,10 +306,3 @@ func (bIndex *BlockIndex) IsReplayProtectionJustEnabled() bool {
 	return !model.IsReplayProtectionEnabled(bIndex.Prev.GetMedianTimePast()) &&
 		model.IsReplayProtectionEnabled(bIndex.GetMedianTimePast())
 }
-
-func IsMagneticAnomalyEnabledIndex(indexPrev *BlockIndex) bool {
-	if indexPrev == nil {
-		return false
-	}
-	return model.IsMagneticAnomalyEnabled(indexPrev.GetMedianTimePast())
-}

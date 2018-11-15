@@ -159,6 +159,20 @@ func (a ByAncsCount) Less(i, j int) bool {
 	return a[i].SumTxCountWithAncestors < a[j].SumTxCountWithAncestors
 }
 
+type sortTxs []*util.Hash
+
+func (s sortTxs) Len() int {
+	return len(s)
+}
+func (s sortTxs) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s sortTxs) Less(i, j int) bool {
+	h1 := pow.HashToBig(s[i])
+	h2 := pow.HashToBig(s[j])
+	return h1.Cmp(h2) < 0
+}
+
 func sortTxsByAncestorCount(ancestors map[*mempool.TxEntry]struct{}) (result []*mempool.TxEntry) {
 
 	result = make([]*mempool.TxEntry, 0, len(ancestors))
@@ -324,6 +338,17 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 
 	descendantsUpdated := ba.addPackageTxs()
+
+	if model.IsMagneticAnomalyEnabled(indexPrev.GetMedianTimePast()) {
+		// If magnetic anomaly is enabled, we make sure transaction are
+		// canonically ordered.
+		tmpTxIDs := make([]*util.Hash, len(ba.inBlock)-1)
+		for hash := range ba.inBlock {
+			tmpTxIDs = append(tmpTxIDs, &hash)
+		}
+		tmpSortTxIDs := sortTxs(tmpTxIDs)
+		sort.Sort(tmpSortTxIDs[1:])
+	}
 	time1 := util.GetMockTimeInMicros()
 
 	// record last mining info for getmininginfo rpc using
