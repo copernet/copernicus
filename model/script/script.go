@@ -169,7 +169,7 @@ const (
 	ScriptEnableMonolithOpcodes = (1 << 18)
 	// Is OP_CHECKDATASIG and variant are enabled.
 	//
-	//ScriptEnableCheckDataSig = (1 << 18)
+	ScriptEnableCheckDataSig = (1 << 18)
 
 	ScriptMaxOpReturnRelay uint = 223
 )

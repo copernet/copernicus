@@ -126,7 +126,7 @@ func TestIsReplayProtectionEnabled(t *testing.T) {
 	assert.False(t, isEnable)
 
 	isEnable = IsReplayProtectionEnabled(MainNetParams.MagneticAnomalyActivationTime)
-	assert.True(t, isEnable)
+	assert.False(t, isEnable)
 }
 
 func TestGetBlockSubsidy(t *testing.T) {
