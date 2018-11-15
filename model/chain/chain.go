@@ -249,11 +249,11 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
 	}
-	//The monolith HF enable a set of opcodes.
-	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
-		flags |= script.ScriptEnableMonolithOpcodes
-	}
 
+	// When the magnetic anomaly fork is enabled, we start accepting
+	// transactions using the OP_CHECKDATASIG opcode and it's verify
+	// alternative. We also start enforcing push only signatures and
+	// clean stack.
 	if model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast()) {
 		flags |= script.ScriptEnableCheckDataSig
 		flags |= script.ScriptVerifySigPushOnly

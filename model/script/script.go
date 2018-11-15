@@ -935,41 +935,10 @@ func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
 
 func IsOpCodeDisabled(opCode byte, flags uint32) bool {
 	switch opCode {
-	case opcodes.OP_INVERT:
-		fallthrough
-	case opcodes.OP_2MUL:
-		fallthrough
-	case opcodes.OP_2DIV:
-		fallthrough
-	case opcodes.OP_MUL:
-		fallthrough
-	case opcodes.OP_LSHIFT:
-		fallthrough
-	case opcodes.OP_RSHIFT:
+	case opcodes.OP_INVERT, opcodes.OP_2MUL, opcodes.OP_2DIV,
+		opcodes.OP_MUL, opcodes.OP_LSHIFT, opcodes.OP_RSHIFT:
 		return true
-
-	case opcodes.OP_CAT:
-		fallthrough
-	case opcodes.OP_SPLIT:
-		fallthrough
-	case opcodes.OP_AND:
-		fallthrough
-	case opcodes.OP_OR:
-		fallthrough
-	case opcodes.OP_XOR:
-		fallthrough
-	case opcodes.OP_NUM2BIN:
-		fallthrough
-	case opcodes.OP_BIN2NUM:
-		fallthrough
-	case opcodes.OP_DIV:
-		fallthrough
-	case opcodes.OP_MOD:
-		// Opcodes that have been reenabled.
-		if (flags & ScriptEnableMonolithOpcodes) == 0 {
-			return true
-		}
 	default:
+		return false
 	}
-	return false
 }

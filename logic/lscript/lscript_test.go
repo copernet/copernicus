@@ -122,6 +122,7 @@ var scriptFlagMap = map[string]uint32{
 	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkID,
 	"REPLAY_PROTECTION":                     script.ScriptEnableReplayProtection,
 	"MONOLITH_OPCODES":                      script.ScriptEnableMonolithOpcodes,
+	"CHECKDATASIG":                          script.ScriptEnableCheckDataSig,
 }
 
 type scriptErrChecker struct {

@@ -94,14 +94,11 @@ func TestIsUAHFEnabled(t *testing.T) {
 	assert.True(t, isEnable)
 }
 
-func TestIsMonolithEnabled(t *testing.T) {
+func TestIsMagneticAnomalyEnabled(t *testing.T) {
 	ActiveNetParams = &MainNetParams
-
-	isEnable := IsMonolithEnabled(0)
-	assert.False(t, isEnable)
-
-	isEnable = IsMonolithEnabled(MainNetParams.MonolithActivationTime)
-	assert.True(t, isEnable)
+	assert.False(t, IsMagneticAnomalyEnabled(0))
+	assert.True(t, IsMagneticAnomalyEnabled(
+		ActiveNetParams.MagneticAnomalyActivationTime))
 }
 
 func TestIsDAAEnabled(t *testing.T) {

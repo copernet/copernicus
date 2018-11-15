@@ -144,17 +144,6 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 }
 
 func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
-	bMonolithEnable := false
-	if indexPrev != nil && model.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
-		bMonolithEnable = true
-	}
-
-	if !bMonolithEnable {
-		if b.EncodeSize() > 8*consensus.OneMegaByte {
-			return errcode.NewError(errcode.RejectInvalid, "bad-blk-length")
-		}
-	}
-
 	var height int32
 	if indexPrev != nil {
 		height = indexPrev.Height + 1
