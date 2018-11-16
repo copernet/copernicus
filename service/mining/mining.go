@@ -342,12 +342,12 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	if model.IsMagneticAnomalyEnabled(indexPrev.GetMedianTimePast()) {
 		// If magnetic anomaly is enabled, we make sure transaction are
 		// canonically ordered.
-		tmpTxIDs := make([]*util.Hash, len(ba.bt.Block.Txs)-1)
+		tmpTxIDs := make([]*util.Hash, len(ba.bt.Block.Txs))
 		for _, tmpTx := range ba.bt.Block.Txs {
 			hash := tmpTx.GetHash()
 			tmpTxIDs = append(tmpTxIDs, &hash)
 		}
-		tmpSortTxIDs := sortTxs(tmpTxIDs[1:])
+		tmpSortTxIDs := sortTxs(tmpTxIDs)
 		sort.Sort(tmpSortTxIDs)
 
 		for _, sortHash := range tmpTxIDs {
