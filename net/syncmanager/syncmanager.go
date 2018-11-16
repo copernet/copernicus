@@ -1483,7 +1483,7 @@ func (sm *SyncManager) Pause() chan<- struct{} {
 }
 
 func (sm *SyncManager) misbehaving(peerAddr string, banScore uint32, reason string) {
-	sm.AddBanScoreCallBack(peerAddr, 0, banScore, reason)
+	sm.AddBanScoreCallBack(peerAddr, banScore, 0, reason)
 }
 
 // New constructs a new SyncManager. Use Start to begin processing asynchronous
