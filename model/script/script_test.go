@@ -1054,37 +1054,3 @@ func TestCheckPubKeyEncoding(t *testing.T) {
 		"Without compress's pubKey with ScriptVerifyCompressedPubkeyType check encoding error.")
 
 }
-
-func TestIsOpCodeDisabled(t *testing.T) {
-	tests := []struct {
-		in      byte
-		flags   uint32
-		want    bool
-		message string
-	}{
-		{OP_INVERT, 0, true, "OP_INVERT"},
-		{OP_2MUL, 0, true, "OP_2MUL"},
-		{OP_2DIV, 0, true, "OP_2DIV"},
-		{OP_MUL, 0, true, "OP_MUL"},
-		{OP_LSHIFT, 0, true, "OP_LSHIFT"},
-		{OP_RSHIFT, 0, true, "OP_RSHIFT"},
-
-		{OP_CAT, ScriptEnableMonolithOpcodes, false, "OP_CAT"},
-		{OP_SPLIT, ScriptEnableMonolithOpcodes, false, "OP_SPLIT"},
-		{OP_AND, ScriptEnableMonolithOpcodes, false, "OP_AND"},
-		{OP_OR, ScriptEnableMonolithOpcodes, false, "OP_OR"},
-		{OP_XOR, ScriptEnableMonolithOpcodes, false, "OP_XOR"},
-		{OP_NUM2BIN, ScriptEnableMonolithOpcodes, false, "OP_NUM2BIN"},
-		{OP_BIN2NUM, ScriptEnableMonolithOpcodes, false, "OP_BIN2NUM"},
-		{OP_DIV, ScriptEnableMonolithOpcodes, false, "OP_DIV"},
-		{OP_MOD, 0, true, "OP_MOD, flag is 262144"},
-		{OP_MOD, ScriptEnableMonolithOpcodes, false, "OP_MOD, flag is 0"},
-		{OP_TRUE, 0, false, "OTHER MESSAGE"},
-	}
-
-	for _, v := range tests {
-		value := v
-		result := IsOpCodeDisabled(value.in, value.flags)
-		assert.Equal(t, result, value.want, value.message)
-	}
-}
