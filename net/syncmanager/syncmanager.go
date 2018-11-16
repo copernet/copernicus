@@ -185,10 +185,10 @@ type headerNode struct {
 // peerSyncState stores additional information that the SyncManager tracks
 // about a peer.
 type peerSyncState struct {
-	syncCandidate   bool
-	requestQueue    []*wire.InvVect
-	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}
+	syncCandidate        bool
+	requestQueue         []*wire.InvVect
+	requestedTxns        map[util.Hash]struct{}
+	requestedBlocks      map[util.Hash]struct{}
 	nUnconnectingHeaders int
 }
 
@@ -222,6 +222,38 @@ type SyncManager struct {
 
 	// An optional fee estimator.
 	//feeEstimator *mempool.FeeEstimator
+}
+
+// findNextHeaderCheckpoint returns the next checkpoint after the passed height.
+// It returns nil when there is not one either because the height is already
+// later than the final checkpoint or some other reason such as disabled
+// checkpoints.
+func (sm *SyncManager) findNextHeaderCheckpoint(height int32) *model.Checkpoint {
+	//todo !!! need to be modified to be flexible for checkpoint with chainpram.
+	checkpoints := model.ActiveNetParams.Checkpoints
+	log.Trace("come into findNextHeaderCheckpoint, numbers : %d ...", len(checkpoints))
+	if len(checkpoints) == 0 {
+		return nil
+	}
+
+	// There is no next checkpoint if the height is already after the final
+	// checkpoint.
+	finalCheckpoint := checkpoints[len(checkpoints)-1]
+	log.Trace("finalCheckpoint.Height : %d, current height : %d ", finalCheckpoint.Height, height)
+	if height >= finalCheckpoint.Height {
+		return nil
+	}
+
+	// Find the next checkpoint.
+	nextCheckpoint := finalCheckpoint
+	for i := len(checkpoints) - 2; i >= 0; i-- {
+		if height >= checkpoints[i].Height {
+			break
+		}
+		nextCheckpoint = checkpoints[i]
+	}
+	log.Trace("return checkpoint heigth : %d", nextCheckpoint.Height)
+	return nextCheckpoint
 }
 
 // startSync will choose the best peer among the available candidate peers to
@@ -793,7 +825,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			pindexStart.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
 			isSyncPeer, state.nUnconnectingHeaders)
 
-		if state.nUnconnectingHeaders % MAX_UNCONNECTING_HEADERS == 0 {
+		if state.nUnconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
 			// The peer is sending us many headers we can't connect.
 			sm.misbehaving(peer.Addr(), 20, "too-many-unconnected-headers")
 		}
