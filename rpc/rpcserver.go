@@ -375,9 +375,9 @@ func (s *Server) jsonRPCRead(w http.ResponseWriter, r *http.Request, isAdmin boo
 			if parsedCmd.err != nil {
 				jsonErr = parsedCmd.err
 			} else {
-				log.Trace(">rpc:: %s, %+v", parsedCmd.method, parsedCmd.cmd)
+				//log.Trace(">rpc:: %s, %+v", parsedCmd.method, parsedCmd.cmd)
+				log.Trace(">rpc:: %s", parsedCmd.method)
 				result, jsonErr = s.standardCmdResult(parsedCmd, closeChan)
-				log.Trace("<rpc:: %s", parsedCmd.method)
 			}
 		}
 	}
@@ -616,8 +616,8 @@ func NewServer(config *ServerConfig, ts *bitcointime.MedianTime) (*Server, error
 		//gbtWorkState:           newGbtWorkState(config.TimeSource), // todo open
 		helpCacher:             newHelpCacher(),
 		requestProcessShutdown: make(chan struct{}, 1),
-		quit:                   make(chan int),
-		timeSource:             ts,
+		quit:       make(chan int),
+		timeSource: ts,
 	}
 	if conf.Cfg.RPC.RPCUser != "" && conf.Cfg.RPC.RPCPass != "" {
 		login := conf.Cfg.RPC.RPCUser + ":" + conf.Cfg.RPC.RPCPass
