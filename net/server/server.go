@@ -1608,7 +1608,7 @@ func (s *Server) loadBannedInfo() error {
 
 func (s *Server) handleRelayBlocks(state *peerState, msg relayBlocksMsg) {
 	state.forAllPeers(func(sp *serverPeer) {
-		if !sp.Connected() {
+		if !sp.Connected() || !sp.VerAckReceived() {
 			return
 		}
 
@@ -1633,7 +1633,7 @@ func (s *Server) handlePing(msg *PingMsg) {
 // known to have it.  It is invoked from the peerHandler goroutine.
 func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 	state.forAllPeers(func(sp *serverPeer) {
-		if !sp.Connected() {
+		if !sp.Connected() || !sp.VerAckReceived() {
 			return
 		}
 
