@@ -11,10 +11,8 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 
-	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
@@ -225,13 +223,13 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// Start enforcing CSV (BIP68, BIP112 and BIP113) rule.
-	//if pindex.Height+1 >= param.CSVHeight {
-	//	flags |= script.ScriptVerifyCheckSequenceVerify
-	//}
-	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+	if pindex.Height+1 >= param.CSVHeight {
 		flags |= script.ScriptVerifyCheckSequenceVerify
 	}
+	//// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
+	//if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+	//	flags |= script.ScriptVerifyCheckSequenceVerify
+	//}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
 	if model.IsUAHFEnabled(pindex.Height) {
