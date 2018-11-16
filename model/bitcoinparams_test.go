@@ -125,7 +125,7 @@ func TestIsReplayProtectionEnabled(t *testing.T) {
 	isEnable := IsReplayProtectionEnabled(0)
 	assert.False(t, isEnable)
 
-	isEnable = IsReplayProtectionEnabled(MainNetParams.MagneticAnomalyActivationTime)
+	isEnable = IsReplayProtectionEnabled(MainNetParams.GreatWallActivationTime)
 	assert.True(t, isEnable)
 }
 
