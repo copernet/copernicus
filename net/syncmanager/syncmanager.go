@@ -609,10 +609,6 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 		log.Error("fetchHeaderBlocks called with peer nil")
 		return
 	}
-	if sm.syncPeer == nil {
-		log.Warn("syncPeer not exist now")
-		return
-	}
 
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
@@ -632,7 +628,7 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 	var pindexBestKnownBlock *blockindex.BlockIndex
 	var pindexWalk *blockindex.BlockIndex
 
-	if lchain.IsInitialBlockDownload() {
+	if sm.syncPeer != nil && lchain.IsInitialBlockDownload() {
 		// use info of syncPeer directly during IBD
 		pindexBestKnownHash = sm.syncPeer.LastAnnouncedBlock()
 		if pindexBestKnownHash == nil {
@@ -1019,13 +1015,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		peer.UpdateLastAnnouncedBlock(&invVects[lastBlock].Hash)
 	}
 
-	// Ignore invs from peers that aren't the sync if we are not current.
-	// Helps prevent fetching a mass of orphans.
-	if peer != sm.syncPeer && !sm.current() {
-		log.Debug("recv inv msg from peer: %s", peer.Addr())
-		return
-	}
-
 	activeChain := chain.GetInstance()
 	// If our chain is current and a peer announces a block we already
 	// know of, then update their current block height.
@@ -1054,11 +1043,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		// Add the inventory to the cache of known inventory
 		// for the peer.
 		peer.AddKnownInventory(iv)
-
-		// Ignore inventory when we're in headers-first mode.
-		if lchain.IsInitialBlockDownload() {
-			continue
-		}
 
 		// Request the inventory if we don't already have it.
 		haveInv, err := sm.haveInventory(iv)
