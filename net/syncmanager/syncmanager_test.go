@@ -125,10 +125,9 @@ func makeSyncManager() (*SyncManager, string, error) {
 	defer initLock.Unlock()
 	appInitMain([]string{"--datadir", dir, "--regtest"})
 	sm, err := New(&Config{
-		PeerNotifier:       &mp,
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mp,
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	if err != nil {
 		return nil, "", err
@@ -380,26 +379,6 @@ func TestSyncManager_limitMap(t *testing.T) {
 	assert.Equal(t, len(mp), 1)
 }
 
-func TestSyncManager_resetHeaderState(t *testing.T) {
-	sm, dir, err := makeSyncManager()
-	if err != nil {
-		t.Fatalf("construct syncmanager failed :%v\n", err)
-	}
-	defer os.RemoveAll(dir)
-	sm.Start()
-
-	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	checkPoint := &model.Checkpoint{
-		Height: 11,
-		Hash:   hash1,
-	}
-	sm.nextCheckpoint = checkPoint
-	sm.resetHeaderState(hash1, 10)
-	assert.Equal(t, sm.nextCheckpoint.Height, int32(11))
-	assert.Equal(t, sm.nextCheckpoint.Hash, hash1)
-	assert.Equal(t, sm.headersFirstMode, false)
-}
-
 func TestSyncManager_findNextHeaderCheckpoint(t *testing.T) {
 	sm, dir, err := makeSyncManager()
 	if err != nil {
@@ -582,19 +561,13 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 			return
 		}
 		sm.isSyncCandidate(inPeer)
-		hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 		syncState := getpeerState()
 		sm.peerStates[inPeer] = syncState
 		chain.GetInstance().Tip().Height = 10
 		sm.startSync()
 
 		//test two case
-		checkPoint1 := &model.Checkpoint{
-			Height: 11,
-			Hash:   hash1,
-		}
 		syncState.syncCandidate = true
-		sm.nextCheckpoint = checkPoint1
 		sm.startSync()
 
 		sm.chainParams = &model.RegressionNetParams
@@ -633,10 +606,9 @@ func TestSyncManager_handleInvMsg(t *testing.T) {
 
 	mp := mockPeerNotifier{}
 	sm, err := New(&Config{
-		PeerNotifier:       &mp,
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mp,
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -690,10 +662,9 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 
 	mp := mockPeerNotifier{}
 	sm, err := New(&Config{
-		PeerNotifier:       &mp,
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mp,
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -704,7 +675,6 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
 	bh := block.NewBlockHeader()
 	headerMsg := wire.NewMsgHeaders()
 	err = headerMsg.AddBlockHeader(bh)
@@ -720,22 +690,11 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	sm.handleHeadersMsg(hmsg)
 
 	//test second case
-	sm.headersFirstMode = true
 	sm.handleHeadersMsg(hmsg)
 
 	//test third case
-	node := headerNode{
-		height: 10,
-		hash:   hash1,
-	}
-	sm.headerList.PushBack(&node)
 	sm.handleHeadersMsg(hmsg)
 
-	node1 := headerNode{
-		height: 11,
-		hash:   hash2,
-	}
-	sm.headerList.PushBack(&node1)
 	bh2 := block.NewBlockHeader()
 	err = headerMsg.AddBlockHeader(bh2)
 	if err != nil {
@@ -749,12 +708,6 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(blks))
 	blk3Header := blks[0].Header
-	hash3 := blk3Header.GetHash()
-	node3 := headerNode{
-		height: 0,
-		hash:   &blk3Header.HashPrevBlock,
-	}
-	sm.headerList.PushBack(&node3)
 	headerMsg3 := wire.NewMsgHeaders()
 	err = headerMsg3.AddBlockHeader(&blk3Header)
 	assert.Nil(t, err)
@@ -762,31 +715,13 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 		headers: headerMsg3,
 		peer:    inpeer,
 	}
-	checkPointSelf := &model.Checkpoint{
-		Height: 1,
-		Hash:   &hash3,
-	}
-	sm.nextCheckpoint = checkPointSelf
 	sm.handleHeadersMsg(hmsg3)
 
-	checkPointOther := &model.Checkpoint{
-		Height: 11,
-		Hash:   hash1,
-	}
-	sm.nextCheckpoint = checkPointOther
-	sm.headerList.PushBack(&node1)
 	sm.handleHeadersMsg(hmsg3)
 
 	sm.ProcessBlockHeadCallBack = ProcessBlockHeaderReturnErr
-	sm.headerList.PushBack(&node3)
 	sm.handleHeadersMsg(hmsg3)
 
-	checkPointOther2 := &model.Checkpoint{
-		Height: 1,
-		Hash:   hash1,
-	}
-	sm.nextCheckpoint = checkPointOther2
-	sm.headerList.PushBack(&node3)
 	sm.handleHeadersMsg(hmsg3)
 }
 
@@ -796,15 +731,9 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
 	defer os.RemoveAll(dir)
-	sm.fetchHeaderBlocks()
+	sm.fetchHeaderBlocks(nil)
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	node := headerNode{
-		height: 10,
-		hash:   hash1,
-	}
-	e := sm.headerList.PushBack(&node)
-	sm.startHeader = e
 	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 
 	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
@@ -824,7 +753,7 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 	sm.peerStates[inpeer] = syncState
 	sm.requestedBlocks = make(map[util.Hash]struct{})
 	sm.syncPeer = inpeer
-	sm.fetchHeaderBlocks()
+	sm.fetchHeaderBlocks(inpeer)
 }
 
 func TestSyncManager_updateTxRequestState(t *testing.T) {
@@ -869,10 +798,9 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -892,8 +820,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 		buf:   make([]byte, 10),
 		peer:  inpeer,
 	}
-	sm.allowdGetBlocksTimes = 1
-	sm.headersFirstMode = true
 	sm.handleBlockMsg(bmsg1)
 
 	// blk2 is acceptable block
@@ -902,7 +828,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	assert.Equal(t, 1, len(blks))
 	blk2 := blks[0]
 	blk2Header := blk2.Header
-	blk2Hash := blk2Header.GetHash()
 
 	headerMsg := wire.NewMsgHeaders()
 	err = headerMsg.AddBlockHeader(&blk2Header)
@@ -911,16 +836,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 		headers: headerMsg,
 		peer:    inpeer,
 	}
-	node2 := headerNode{
-		height: 1,
-		hash:   &blk2Hash,
-	}
-	sm.headerList.PushBack(&node2)
-	checkPoint := &model.Checkpoint{
-		Height: 1,
-		Hash:   &blk2Hash,
-	}
-	sm.nextCheckpoint = checkPoint
 	sm.handleHeadersMsg(hmsg2)
 
 	bmsg2 := &blockMsg{
@@ -930,15 +845,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	}
 	sm.handleBlockMsg(bmsg2)
 
-	hashOther := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	checkPoint2 := &model.Checkpoint{
-		Height: 1,
-		Hash:   hashOther,
-	}
-	sm.nextCheckpoint = checkPoint2
-	sm.handleBlockMsg(bmsg2)
-
-	sm.headersFirstMode = false
 	sm.handleBlockMsg(bmsg2)
 }
 
@@ -1105,10 +1011,9 @@ func TestSyncManager_NewPeer(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -1178,10 +1083,9 @@ func TestSyncManager_Current(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: false,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -1200,10 +1104,9 @@ func TestSyncManager_DonePeer(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: false,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -1212,6 +1115,5 @@ func TestSyncManager_DonePeer(t *testing.T) {
 	sm.handleDonePeerMsg(inpeer)
 
 	sm.syncPeer = inpeer
-	sm.headersFirstMode = true
 	sm.handleDonePeerMsg(inpeer)
 }

@@ -72,7 +72,7 @@ const (
 	BanReasonNodeMisbehaving int = 1
 	BanReasonManuallyAdded   int = 2
 
-	// when peer is neer to tip, set its revertToInv to false back
+	// REVERT_TO_INV_DIFF when peer is neer to tip, set its revertToInv to false back
 	REVERT_TO_INV_DIFF = 7
 )
 
