@@ -5,8 +5,10 @@
 package pow
 
 import (
+	"github.com/copernet/copernicus/conf"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -21,6 +23,8 @@ var (
 	// oneLsh256 is 1 shifted left 256 bits.  It is defined here to avoid
 	// the overhead of creating it multiple times.
 	oneLsh256 = new(big.Int).Lsh(bigOne, 256)
+
+	miniChainWork big.Int
 )
 
 // HashToBig converts a chainHash.Hash into a big.Int that can be used to
@@ -188,4 +192,19 @@ func bits(w []big.Word) uint {
 		}
 	}
 	return 0
+}
+
+func MiniChainWork() big.Int {
+	return miniChainWork
+}
+
+func UpdateMinimumChainWork() {
+	miniChainWork = *HashToBig(&model.ActiveNetParams.MinimumChainWork)
+
+	mcw := strings.TrimPrefix(conf.Args.MinimumChainWork, "0x")
+
+	hash, err := util.GetHashFromStr(mcw)
+	if err == nil && !hash.IsNull() {
+		miniChainWork = *HashToBig(hash)
+	}
 }

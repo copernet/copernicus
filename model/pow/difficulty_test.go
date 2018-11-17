@@ -5,8 +5,11 @@
 package pow
 
 import (
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/util"
+	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 )
@@ -106,4 +109,53 @@ func TestGetBlockProofEquivalentTime(t *testing.T) {
 	if actual != exp {
 		t.Errorf("GetBlockProofEquivalentTime2 Error, exp = %d, actual = %d", exp, actual)
 	}
+}
+
+func Test_using_valid_miniChainWork_in_args(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{"--minimumchainwork=65"}) //0x65
+
+	UpdateMinimumChainWork()
+
+	mcw := MiniChainWork()
+	assert.Equal(t, *HashToBig(util.HashFromString("65")), mcw)
+	assert.Equal(t, *big.NewInt(0x65), mcw)
+}
+
+func Test_using_valid_hex_format_miniChainWork_in_args(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{"--minimumchainwork=0x65"}) //0x65
+
+	UpdateMinimumChainWork()
+
+	mcw := MiniChainWork()
+	assert.Equal(t, *HashToBig(util.HashFromString("65")), mcw)
+	assert.Equal(t, *big.NewInt(0x65), mcw)
+}
+
+func Test_using_default_minimum_chain_work_if_miniChainWork_in_args_is_empty(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{"--minimumchainwork=\"\""})
+
+	UpdateMinimumChainWork()
+
+	assert.Equal(t, *HashToBig(&model.ActiveNetParams.MinimumChainWork), MiniChainWork())
+}
+
+func Test_using_default_minimum_chain_work_if_miniChainWork_in_args_is_malformed(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{"--minimumchainwork=abc_invalid_minichainwork_value"}) //0x65
+
+	UpdateMinimumChainWork()
+
+	assert.Equal(t, *HashToBig(&model.ActiveNetParams.MinimumChainWork), MiniChainWork())
+}
+
+func Test_using_default_minimum_chain_work_in_regtest(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{"--minimumchainwork=abc_invalid_minichainwork_value"}) //0x65
+	model.SetRegTestParams()
+	UpdateMinimumChainWork()
+
+	defaultMCW := *HashToBig(&model.ActiveNetParams.MinimumChainWork)
+	assert.True(t, defaultMCW.Cmp(big.NewInt(-1)) == 1)
+	assert.True(t, defaultMCW.Cmp(big.NewInt(0)) == 0)
+	assert.True(t, defaultMCW.Cmp(big.NewInt(1)) == -1)
+
+	assert.Equal(t, defaultMCW, MiniChainWork())
 }

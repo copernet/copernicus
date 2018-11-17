@@ -13,6 +13,7 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/model/wallet"
 	"github.com/copernet/copernicus/persist"
@@ -35,6 +36,7 @@ func appInitMain(args []string) {
 	} else if conf.Cfg.P2PNet.RegTest {
 		model.SetRegTestParams()
 	}
+	pow.UpdateMinimumChainWork()
 
 	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
 
