@@ -18,6 +18,7 @@ import (
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
@@ -25,7 +26,6 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-	"math/big"
 )
 
 type ScriptVerifyJob struct {
@@ -303,17 +303,14 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	var prevTx *tx.Tx
 	for _, transaction := range txs {
 		if model.IsMagneticAnomalyEnabled(mediaTimePast) {
-			transactionInt := &big.Int{}
-			transactionHash := transaction.GetHash()
-			transactionInt.SetBytes(transactionHash[:])
-			prevTxInt := &big.Int{}
-			prevTxHash := prevTx.GetHash()
-			prevTxInt.SetBytes(prevTxHash[:])
-
-			if prevTx != nil && transactionInt.Cmp(prevTxInt) < 0 {
-				return fmt.Errorf(
-					"bad-ordering: transaction order is invalid(%s <%s) in block(height %d)",
-					transaction.GetHash().String(), prevTx.GetHash().String(), blockHeight)
+			if prevTx != nil {
+				transactionHash := transaction.GetHash()
+				prevTxHash := prevTx.GetHash()
+				if pow.HashToBig(&transactionHash).Cmp(pow.HashToBig(&prevTxHash)) < 0 {
+					return fmt.Errorf(
+						"bad-ordering: transaction order is invalid(%s <%s) in block(height %d)",
+						transaction.GetHash().String(), prevTx.GetHash().String(), blockHeight)
+				}
 			}
 			if prevTx != nil || !transaction.IsCoinBase() {
 				prevTx = transaction
