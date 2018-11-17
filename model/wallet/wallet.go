@@ -398,7 +398,10 @@ func IsUnlockable(scriptPubKey *script.Script) bool {
 		// (somebody else has a key that can spend them) enable
 		// spend-out-from-under-you attacks, especially in shared-wallet
 		// situations.
-		for _, pubKey := range pubKeys[1:] {
+		for _, pubKey := range pubKeys {
+			if len(pubKey) < 32 {
+				continue
+			}
 			pubKeyHash := util.Hash160(pubKey)
 			if globalWallet.GetKeyPair(pubKeyHash) == nil {
 				return false
