@@ -1142,7 +1142,7 @@ func TestInitListeners(t *testing.T) {
 
 	// port is occupied
 	listeners2, _, err := initListeners(s.addrManager, listenAddrs, services)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Equal(t, 0, len(listeners2))
 
 	for _, listener := range listeners {
