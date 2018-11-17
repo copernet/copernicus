@@ -164,9 +164,6 @@ const (
 	//
 	ScriptEnableReplayProtection = (1 << 17)
 
-	// Enable new opcodes.
-	//
-	ScriptEnableMonolithOpcodes = (1 << 18)
 	// Is OP_CHECKDATASIG and variant are enabled.
 	//
 	ScriptEnableCheckDataSig = (1 << 18)
