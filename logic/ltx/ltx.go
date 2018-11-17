@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/model/blockindex"
 	"strconv"
 	"strings"
 
@@ -327,8 +328,9 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	return nil
 }
 
-func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
-	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64, lockTimeFlags uint32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32,
+	needCheckScript bool, blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64,
+	lockTimeFlags uint32, pindex *blockindex.BlockIndex) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
 	utxo := utxo.GetUtxoCacheInstance()
@@ -337,6 +339,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	bundo = undo.NewBlockUndo(0)
 	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 
+	isMagneticAnomalyEnabled := model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast())
 	//updateCoins
 	for i, transaction := range txs {
 		// check BIP30: do not allow overwriting unspent old transactions
@@ -379,7 +382,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			log.Debug("block has too many sigops at %d transaction", i)
 			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
-		if transaction.IsCoinBase() {
+		if transaction.IsCoinBase() || isMagneticAnomalyEnabled {
 			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
@@ -398,7 +401,9 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
-		UpdateTxCoins(transaction, coinsMap, txundo, blockHeight)
+		if !isMagneticAnomalyEnabled {
+			UpdateTxCoins(transaction, coinsMap, txundo, blockHeight)
+		}
 		txUndoList = append(txUndoList, txundo)
 	}
 	bundo.SetTxUndo(txUndoList)
@@ -923,7 +928,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 	var signErrors []*SignError
 
 	mergedTx := transactions[0]
-	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
 
 	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)

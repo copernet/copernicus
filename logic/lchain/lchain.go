@@ -163,7 +163,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	}
 
 	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
-		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps, uint32(lockTimeFlags))
+		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps, uint32(lockTimeFlags), pindex)
 	if err != nil {
 		return err
 	}
