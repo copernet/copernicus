@@ -159,7 +159,7 @@ func (a ByAncsCount) Less(i, j int) bool {
 	return a[i].SumTxCountWithAncestors < a[j].SumTxCountWithAncestors
 }
 
-type sortTxs []*util.Hash
+type sortTxs []*tx.Tx
 
 func (s sortTxs) Len() int {
 	return len(s)
@@ -168,9 +168,9 @@ func (s sortTxs) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s sortTxs) Less(i, j int) bool {
-	h1 := pow.HashToBig(s[i])
-	h2 := pow.HashToBig(s[j])
-	return h1.Cmp(h2) < 0
+	h1 := s[i].GetHash()
+	h2 := s[j].GetHash()
+	return pow.HashToBig(&h1).Cmp(pow.HashToBig(&h2)) < 0
 }
 
 func sortTxsByAncestorCount(ancestors map[*mempool.TxEntry]struct{}) (result []*mempool.TxEntry) {
@@ -342,17 +342,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	if model.IsMagneticAnomalyEnabled(indexPrev.GetMedianTimePast()) {
 		// If magnetic anomaly is enabled, we make sure transaction are
 		// canonically ordered.
-		tmpTxIDs := make([]*util.Hash, len(ba.bt.Block.Txs))
-		for _, tmpTx := range ba.bt.Block.Txs {
-			hash := tmpTx.GetHash()
-			tmpTxIDs = append(tmpTxIDs, &hash)
-		}
-		tmpSortTxIDs := sortTxs(tmpTxIDs)
-		sort.Sort(tmpSortTxIDs)
-
-		for _, sortHash := range tmpTxIDs {
-			ba.inBlock[*sortHash] = struct{}{}
-		}
+		sort.Sort(sortTxs(ba.bt.Block.Txs))
 	}
 	time1 := util.GetMockTimeInMicros()
 
