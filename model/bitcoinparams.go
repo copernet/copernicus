@@ -26,6 +26,8 @@ var (
 	// 2^255 -1
 	regressingPowLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
 	testNetPowLimit    = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 224), bigOne)
+
+	miniChainWork big.Int
 )
 
 type ChainTxData struct {

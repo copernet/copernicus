@@ -80,8 +80,9 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		// selection of any particular chain but makes validating some faster by
 		// effectively caching the result of part of the verification.
 		if bi := gChain.FindBlockIndex(chain.HashAssumeValid); bi != nil {
+			minimumChainWork := pow.MiniChainWork()
 			if bi.GetAncestor(pindex.Height) == pindex && tip.GetAncestor(pindex.Height) == pindex &&
-				tip.ChainWork.Cmp(pow.HashToBig(&params.MinimumChainWork)) > 0 {
+				tip.ChainWork.Cmp(&minimumChainWork) > 0 {
 				// This block is a member of the assumed verified chain and an
 				// ancestor of the best header. The equivalent time check
 				// discourages hashpower from extorting the network via DOS
