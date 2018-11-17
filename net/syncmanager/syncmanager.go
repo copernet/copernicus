@@ -930,6 +930,9 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 			log.Info("Large reorg, won't direct fetch to %s (%d)",
 				pindexLast.GetBlockHash().String(),
 				pindexLast.Height)
+
+			sm.fetchHeaderBlocks(peer)
+			return
 		} else {
 			// Download as much as possible, from earliest to latest.
 			gdmsg := wire.NewMsgGetData()
