@@ -8,8 +8,11 @@ import (
 	"context"
 	"errors"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/persist"
 	"io"
 	"net"
 	"os"
@@ -228,8 +231,61 @@ func testPeer(t *testing.T, p *peer.Peer, s peerStats) {
 	}
 }
 
+func initEnv() {
+	chain.InitGlobalChain()
+	gChain := chain.GetInstance()
+	gChain.SetTip(nil)
+
+	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
+	branch := make([]*blockindex.BlockIndex, 0, 20)
+	gChain.InitLoad(GlobalBlockIndexMap, branch)
+
+	persist.InitPersistGlobal()
+
+	bl := gChain.GetParams().GenesisBlock
+	bIndex := blockindex.NewBlockIndex(&bl.Header)
+	bIndex.Height = 0
+	bIndex.TxCount = 1
+	bIndex.ChainTxCount = 1
+	bIndex.AddStatus(blockindex.BlockHaveData)
+	bIndex.RaiseValidity(blockindex.BlockValidTransactions)
+	err := gChain.AddToIndexMap(bIndex)
+	if err != nil {
+		panic("AddToIndexMap fail")
+	}
+
+	genesisIndex := gChain.FindBlockIndex(*gChain.GetParams().GenesisHash)
+	if genesisIndex == nil {
+		panic("genesis index find fail")
+	}
+	gChain.SetTip(genesisIndex)
+	if myserver == nil {
+		s, err := initServer()
+		if err != nil {
+			panic("server init fail")
+		}
+		if s == nil {
+			panic("server nil")
+		}
+		myserver = s
+		s.Start()
+	}
+}
+
+var myserver *server.Server
+
+func initServer() (*server.Server, error) {
+	timeSource := bitcointime.NewMedianTime()
+	s, err := server.NewServer(model.ActiveNetParams, timeSource, nil)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // TestPeerConnection tests connection between inbound and outbound peers.
 func TestPeerConnection(t *testing.T) {
+	initEnv()
 	verack := make(chan struct{})
 	peer1Cfg := &peer.Config{
 		Listeners: peer.MessageListeners{
@@ -247,7 +303,7 @@ func TestPeerConnection(t *testing.T) {
 		UserAgentVersion:  "1.0",
 		UserAgentComments: []string{"comment"},
 		ChainParams:       &model.MainNetParams,
-		ProtocolVersion:   wire.RejectVersion, // Configure with older version
+		ProtocolVersion:   wire.SendHeadersVersion, // Configure with new version
 		Services:          0,
 	}
 	peer2Cfg := &peer.Config{
@@ -256,38 +312,39 @@ func TestPeerConnection(t *testing.T) {
 		UserAgentVersion:  "1.0",
 		UserAgentComments: []string{"comment"},
 		ChainParams:       &model.MainNetParams,
+		ProtocolVersion:   wire.SendHeadersVersion, // Configure with new version
 		Services:          wire.SFNodeNetwork,
 	}
 
 	wantStats1 := peerStats{
 		wantUserAgent:       "/peer:1.0(EB32.0; comment)/",
 		wantServices:        0,
-		wantProtocolVersion: wire.RejectVersion,
+		wantProtocolVersion: wire.SendHeadersVersion,
 		wantConnected:       true,
 		wantVersionKnown:    true,
 		wantVerAckReceived:  true,
-		wantHeaders:         false,
+		wantHeaders:         true,
 		wantLastPingTime:    time.Time{},
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
 		wantTimeOffset:      int64(0),
-		wantBytesSent:       161, // 137 version + 24 verack
-		wantBytesReceived:   161,
+		wantBytesSent:       188, // 140 version + 24 verack + 24 sendheadersmsg
+		wantBytesReceived:   188,
 	}
 	wantStats2 := peerStats{
 		wantUserAgent:       "/peer:1.0(EB32.0; comment)/",
 		wantServices:        wire.SFNodeNetwork,
-		wantProtocolVersion: wire.RejectVersion,
+		wantProtocolVersion: wire.SendHeadersVersion,
 		wantConnected:       true,
 		wantVersionKnown:    true,
 		wantVerAckReceived:  true,
-		wantHeaders:         false,
+		wantHeaders:         true,
 		wantLastPingTime:    time.Time{},
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
 		wantTimeOffset:      int64(0),
-		wantBytesSent:       161, // 137 version + 24 verack
-		wantBytesReceived:   161,
+		wantBytesSent:       188, // 140 version + 24 verack + 24 sendheadersmsg
+		wantBytesReceived:   188,
 	}
 
 	tests := []struct {
@@ -302,7 +359,7 @@ func TestPeerConnection(t *testing.T) {
 					&conn{raddr: "10.0.0.2:8333", laddr: "10.0.0.2:18333"},
 				)
 				inMsgChan := make(chan *peer.PeerMessage)
-				server.SetMsgHandle(context.TODO(), inMsgChan, nil)
+				server.SetMsgHandle(context.TODO(), inMsgChan, myserver)
 				inPeer := peer.NewInboundPeer(peer1Cfg, false)
 				inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 				inNA := inPeer.NA()
@@ -318,7 +375,7 @@ func TestPeerConnection(t *testing.T) {
 					return nil, nil, err
 				}
 				outMsgChan := make(chan *peer.PeerMessage)
-				server.SetMsgHandle(context.TODO(), outMsgChan, nil)
+				server.SetMsgHandle(context.TODO(), outMsgChan, myserver)
 				outPeer.AssociateConnection(outConn, outMsgChan, func(*peer.Peer) {})
 
 				outNA := outPeer.NA()
@@ -348,7 +405,7 @@ func TestPeerConnection(t *testing.T) {
 					&conn{raddr: "10.0.0.2:8333"},
 				)
 				inMsgChan := make(chan *peer.PeerMessage)
-				server.SetMsgHandle(context.TODO(), inMsgChan, nil)
+				server.SetMsgHandle(context.TODO(), inMsgChan, myserver)
 				inPeer := peer.NewInboundPeer(peer1Cfg, false)
 				inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 
@@ -357,7 +414,7 @@ func TestPeerConnection(t *testing.T) {
 					return nil, nil, err
 				}
 				outMsgChan := make(chan *peer.PeerMessage)
-				server.SetMsgHandle(context.TODO(), outMsgChan, nil)
+				server.SetMsgHandle(context.TODO(), outMsgChan, myserver)
 				outPeer.AssociateConnection(outConn, outMsgChan, func(*peer.Peer) {})
 
 				for i := 0; i < 4; i++ {
@@ -378,6 +435,10 @@ func TestPeerConnection(t *testing.T) {
 			t.Errorf("TestPeerConnection setup #%d: unexpected err %v", i, err)
 			return
 		}
+		// Because SendHeadersMsg is sent via channel, here we should sleep to wait
+		// that msg handled and sent.
+		// Otherwise, the test of bytessent & bytesrecv may pass or fail not definitely
+		time.Sleep(time.Second)
 		testPeer(t, inPeer, wantStats2)
 		testPeer(t, outPeer, wantStats1)
 
@@ -390,6 +451,7 @@ func TestPeerConnection(t *testing.T) {
 
 // TestPeerListeners tests that the peer listeners are called as expected.
 func TestPeerListeners(t *testing.T) {
+	initEnv()
 	verack := make(chan struct{}, 1)
 	ok := make(chan wire.Message, 20)
 	peerCfg := &peer.Config{
@@ -483,7 +545,7 @@ func TestPeerListeners(t *testing.T) {
 		&conn{raddr: "10.0.0.2:8333"},
 	)
 	inMsgChan := make(chan *peer.PeerMessage)
-	server.SetMsgHandle(context.TODO(), inMsgChan, nil)
+	server.SetMsgHandle(context.TODO(), inMsgChan, myserver)
 	inPeer := peer.NewInboundPeer(peerCfg, false)
 	inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 
@@ -500,7 +562,7 @@ func TestPeerListeners(t *testing.T) {
 		return
 	}
 	outMsgChan := make(chan *peer.PeerMessage)
-	server.SetMsgHandle(context.TODO(), outMsgChan, nil)
+	server.SetMsgHandle(context.TODO(), outMsgChan, myserver)
 	outPeer.AssociateConnection(outConn, outMsgChan, func(*peer.Peer) {})
 
 	for i := 0; i < 2; i++ {
@@ -632,8 +694,9 @@ func TestPeerListeners(t *testing.T) {
 
 // TestOutboundPeer tests that the outbound peer works as expected.
 func TestOutboundPeer(t *testing.T) {
+	initEnv()
 	msgChan := make(chan *peer.PeerMessage)
-	server.SetMsgHandle(context.TODO(), msgChan, nil)
+	server.SetMsgHandle(context.TODO(), msgChan, myserver)
 
 	peerCfg := &peer.Config{
 		NewestBlock: func() (*util.Hash, int32, error) {
@@ -703,7 +766,7 @@ func TestOutboundPeer(t *testing.T) {
 	}
 
 	msgChan1 := make(chan *peer.PeerMessage)
-	server.SetMsgHandle(context.TODO(), msgChan1, nil)
+	server.SetMsgHandle(context.TODO(), msgChan1, myserver)
 
 	peerCfg.NewestBlock = newestBlock
 	r1, w1 := io.Pipe()
@@ -736,7 +799,7 @@ func TestOutboundPeer(t *testing.T) {
 	p1.Disconnect()
 
 	msgChan2 := make(chan *peer.PeerMessage)
-	server.SetMsgHandle(context.TODO(), msgChan2, nil)
+	server.SetMsgHandle(context.TODO(), msgChan2, myserver)
 	// Test regression
 	peerCfg.ChainParams = &model.RegressionNetParams
 	peerCfg.Services = wire.SFNodeBloom
@@ -787,8 +850,9 @@ func TestOutboundPeer(t *testing.T) {
 // Tests that the node disconnects from peers with an unsupported protocol
 // version.
 func TestUnsupportedVersionPeer(t *testing.T) {
+	initEnv()
 	msgChan := make(chan *peer.PeerMessage)
-	server.SetMsgHandle(context.TODO(), msgChan, nil)
+	server.SetMsgHandle(context.TODO(), msgChan, myserver)
 	peerCfg := &peer.Config{
 		UserAgentName:     "peer",
 		UserAgentVersion:  "1.0",
