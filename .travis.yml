@@ -12,8 +12,8 @@ script:
   - ls
   - docker exec copernicus /bin/bash -c 'cd /go/src/github.com/copernet/copernicus && ./check.sh'
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec copernicus goveralls -coverprofile=/go/src/github.com/copernet/copernicus/coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN; fi'
-  - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python test_runner.py || /bin/bash /walle/log.sh $TRAVIS_JOB_ID'
-  - 'if [ $? != 0 ]; then ./dockerpush.sh; fi'
+  - docker exec copernicus /bin/bash -c 'cd /walle && pipenv run python test_runner.py'
+  - 'if [ $? != 0 ]; then ./dockerpush.sh $TRAVIS_JOB_ID; fi'
 notifications:
   email:
     on_success: change
