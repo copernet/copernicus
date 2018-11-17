@@ -358,7 +358,7 @@ func DisconnectTip(fBare bool) error {
 		return err
 	}
 
-	if tip.IsReplayProtectionJustEnabled() {
+	if tip.IsReplayProtectionJustEnabled() || tip.IsMagneticAnomalyJustEnabled() {
 		mempool.InitMempool()
 	}
 
