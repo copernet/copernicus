@@ -467,6 +467,15 @@ func TestGetOpName(t *testing.T) {
 				t.Errorf("GetOpName return error opName of opCode: %d", opCode)
 			}
 
+		case OP_CHECKDATASIG:
+			if opName != "OP_CHECKDATASIG" {
+				t.Errorf("GetOpName return error opName of opCode: %d", opCode)
+			}
+		case OP_CHECKDATASIGVERIFY:
+			if opName != "OP_CHECKDATASIGVERIFY" {
+				t.Errorf("GetOpName return error opName of opCode: %d", opCode)
+			}
+
 		case OP_INVALIDOPCODE:
 			if opName != "OP_INVALIDOPCODE" {
 				t.Errorf("GetOpName return error opName of opCode: %d", opCode)

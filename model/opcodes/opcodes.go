@@ -394,6 +394,11 @@ func GetOpName(opcode int) string {
 	case OP_INVALIDOPCODE:
 		return "OP_INVALIDOPCODE"
 
+	case OP_CHECKDATASIG:
+		return "OP_CHECKDATASIG"
+	case OP_CHECKDATASIGVERIFY:
+		return "OP_CHECKDATASIGVERIFY"
+
 		// Note:
 		//  The template matching params OP_SMALLINTEGER/etc are defined in opcodetype enum
 		//  as kind of implementation hack, they are *NOT* real opcodes.  If found in real

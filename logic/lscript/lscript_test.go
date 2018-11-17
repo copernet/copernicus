@@ -121,7 +121,6 @@ var scriptFlagMap = map[string]uint32{
 	"COMPRESSED_PUBKEYTYPE":                 script.ScriptVerifyCompressedPubkeyType,
 	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkID,
 	"REPLAY_PROTECTION":                     script.ScriptEnableReplayProtection,
-	"MONOLITH_OPCODES":                      script.ScriptEnableMonolithOpcodes,
 	"CHECKDATASIG":                          script.ScriptEnableCheckDataSig,
 }
 

@@ -1212,7 +1212,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 
 				vchSig := stack.Top(-3)
 				vchMessage := stack.Top(-2)
-				vchPubKey := stack.Top(1)
+				vchPubKey := stack.Top(-1)
 				if vchSig == nil || vchMessage == nil || vchPubKey == nil {
 					log.Debug("ScriptErrInvalidStackOperation")
 					return errcode.New(errcode.ScriptErrInvalidStackOperation)

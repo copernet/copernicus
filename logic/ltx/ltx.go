@@ -689,10 +689,8 @@ func checkScript() {
 		if err1 != nil {
 
 			hasNonMandatoryFlags := (j.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) != 0
-			doesNotHaveMonolith := j.Flags&script.ScriptEnableMonolithOpcodes == 0
-			if hasNonMandatoryFlags || doesNotHaveMonolith {
-
-				fallbackFlags := uint32(uint64(j.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags) | script.ScriptEnableMonolithOpcodes)
+			if hasNonMandatoryFlags {
+				fallbackFlags := uint32(uint64(j.Flags) & uint64(^script.StandardNotMandatoryVerifyFlags))
 				err2 := lscript.VerifyScript(j.Tx, j.ScriptSig, j.ScriptPubKey, j.IputNum, j.Value, fallbackFlags, j.ScriptChecker)
 				if err2 == nil {
 					j.ScriptVerifyResultChan <- verifyResult(j, errorNonMandatoryPass(j, err1))
