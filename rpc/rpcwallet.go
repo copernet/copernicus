@@ -232,6 +232,17 @@ func handleGetTransaction(s *Server, cmd interface{}, closeChan <-chan struct{})
 	ret.WalletConflicts = nil
 	ret.TimeReceived = wtx.TimeReceived
 
+	txn, _, ok := GetTransaction(txHash, true)
+	if !ok {
+		return nil, btcjson.NewRPCError(btcjson.ErrRPCInvalidAddressOrKey, "No such mempool or blockchain transaction.")
+	}
+	buf := bytes.NewBuffer(nil)
+	if err := txn.Serialize(buf); err != nil {
+		return nil, rpcDecodeHexError(c.Txid)
+	}
+	strHex := hex.EncodeToString(buf.Bytes())
+	ret.Hex = strHex
+
 	// Fill GetTransactionDetailsResult
 
 	return ret, nil
