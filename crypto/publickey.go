@@ -67,6 +67,52 @@ func (publicKey *PublicKey) IsEqual(otherPublicKey *PublicKey) bool {
 	return reflect.DeepEqual(publicKeyBytes, otherBytes)
 }
 
+func (publicKey *PublicKey) Verify(hash *util.Hash, vchSig []byte) (bool, error) {
+	if !publicKey.isValid() {
+		return false, nil
+	}
+
+	_, pubKey, err := secp256k1.EcPubkeyParse(secp256k1Context, publicKey.ToBytes())
+	if err != nil {
+		return false, nil
+	}
+
+	if len(vchSig) == 0 {
+		return false, nil
+	}
+
+	_, ecdsaSignature, err := secp256k1.EcdsaSignatureParseDerLax(secp256k1Context, vchSig)
+	if err != nil {
+		return false, nil
+	}
+
+	secp256k1.EcdsaSignatureNormalize(secp256k1Context, ecdsaSignature, ecdsaSignature)
+
+	_, err = secp256k1.EcdsaVerify(secp256k1Context, ecdsaSignature, []byte{hash.GetCloneBytes()[0]}, pubKey)
+	if err != nil {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (publicKey *PublicKey) isValid() bool {
+	header := publicKey.ToBytes()[0]
+	return getLen(header) > 0
+}
+
+func getLen(header uint8) uint {
+	if header == 2 || header == 3 {
+		return 33
+	}
+
+	if header == 4 || header == 6 {
+		return 65
+	}
+
+	return 0
+}
+
 func IsCompressedOrUncompressedPubKey(bytes []byte) bool {
 	if len(bytes) < 33 {
 		return false

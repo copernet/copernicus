@@ -105,50 +105,79 @@ func IsValidSignatureEncoding(signs []byte) bool {
 	// * sigHash: 1-byte value indicating what data is hashed (not part of the DER
 	//   signature)
 	signsLen := len(signs)
-	if signsLen < 9 {
+	if signsLen < 8 {
 		return false
 	}
-	if signsLen > 73 {
+	if signsLen > 72 {
 		return false
 	}
 	if signs[0] != 0x30 {
 		return false
 	}
-	if int(signs[1]) != (signsLen - 3) {
-		return false
-	}
-	lenR := signs[3]
-	if int(5+lenR) >= signsLen {
-		return false
-	}
-	lenS := signs[5+lenR]
-	if int(lenR+lenS+7) != signsLen {
+	if int(signs[1]) != (signsLen - 2) {
 		return false
 	}
 	if signs[2] != 0x02 {
 		return false
 	}
+
+	lenR := signs[3]
+
 	if lenR == 0 {
 		return false
 	}
+
 	if (signs[4] & 0x80) != 0 {
 		return false
 	}
-	if lenR > 1 && (signs[4] == 0x00) && (signs[5]&0x80) == 0 {
+
+	if int(lenR) > signsLen-7 {
 		return false
 	}
-	if signs[lenR+4] != 0x02 {
+
+	if lenR > 1 && (signs[4] == 0x00) && (signs[5]&0x80) != 0 {
 		return false
 	}
+
+	startS := int(lenR) + 4
+
+	if signs[startS] != 0x02 {
+		return false
+	}
+
+	lenS := signs[5+lenR]
+
 	if lenS == 0 {
 		return false
 	}
-	if signs[lenR+6]&0x80 != 0 {
+
+	if signs[startS+2]&0x80 != 0 {
 		return false
 	}
-	if lenS > 1 && (signs[lenR+6] == 0x00) && (signs[lenR+7]&0x80) == 0 {
+
+	if startS+int(lenS)+2 != signsLen {
 		return false
 	}
+
+	if (lenS > 1) && (signs[startS+2] == 0x00) && (signs[startS+3]&0x80) != 0 {
+		return false
+	}
+	//
+	//if int(5+lenR) >= signsLen {
+	//	return false
+	//}
+	//if int(lenR+lenS+7) != signsLen {
+	//	return false
+	//}
+	//if signs[lenR+4] != 0x02 {
+	//	return false
+	//}
+	//if signs[lenR+6]&0x80 != 0 {
+	//	return false
+	//}
+	//if lenS > 1 && (signs[lenR+6] == 0x00) && (signs[lenR+7]&0x80) == 0 {
+	//	return false
+	//}
 	return true
 
 }

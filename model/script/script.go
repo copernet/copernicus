@@ -877,17 +877,10 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 	if vchSigLen == 0 {
 		return nil
 	}
-	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc)) != 0 &&
-		!crypto.IsValidSignatureEncoding(vchSig) {
-		log.Debug("ScriptErrInvalidSignatureEncoding")
-		return errcode.New(errcode.ScriptErrSigDer)
 
-	}
-	if (flags & ScriptVerifyLowS) != 0 {
-		ret, err := crypto.IsLowDERSignature(vchSig)
-		if err != nil || !ret {
-			return err
-		}
+	ok, err := checkRawSignatureEncoding(vchSig[:len(vchSig)-1], flags)
+	if !ok {
+		return err
 	}
 
 	if (flags & ScriptVerifyStrictEnc) != 0 {
@@ -913,6 +906,22 @@ func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
 	}
 
 	return nil
+}
+
+func checkRawSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
+	if ((flags & (ScriptVerifyDersig | ScriptVerifyLowS | ScriptVerifyStrictEnc)) != 0) && !crypto.
+		IsValidSignatureEncoding(vchSig) {
+		return false, errcode.New(errcode.ScriptErrSigDer)
+	}
+
+	if (flags & ScriptVerifyLowS) != 0 {
+		ok, err := crypto.IsLowDERSignature(vchSig)
+		if !ok {
+			return ok, err
+		}
+	}
+
+	return true, nil
 }
 
 func CheckPubKeyEncoding(vchPubKey []byte, flags uint32) error {
@@ -945,17 +954,5 @@ func CheckDataSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
 		return true, nil
 	}
 
-	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc) != 0) && !crypto.
-		IsValidSignatureEncoding(vchSig) {
-		return false, errcode.New(errcode.ScriptErrSigDer)
-	}
-
-	if flags&ScriptVerifyLowS != 0 {
-		isLow, err := crypto.IsLowDERSignature(vchSig)
-		if !isLow {
-			return false, err
-		}
-	}
-
-	return true, nil
+	return checkRawSignatureEncoding(vchSig, flags)
 }

@@ -2,7 +2,6 @@ package lscript
 
 import (
 	"bytes"
-	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -1231,24 +1230,18 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				//	return err
 				//}
 
-				vchPubKeyBytes := vchPubKey.([]byte)
-				if err := script.CheckPubKeyEncoding(vchPubKeyBytes, flags); err != nil {
+				if err := script.CheckPubKeyEncoding(vchPubKey.([]byte), flags); err != nil {
 					log.Debug("Script check signature encoding error:%v", err)
 					return err
 				}
 
-				ppubKey, _ := crypto.ParsePubKey(vchPubKeyBytes)
-
 				success := false
 				if len(vchSigBytes) > 0 {
 					vchHashs := util.Sha256Hash(vchMessage.([]byte))
-					success, err = scriptChecker.VerifySignature(vchSigBytes, ppubKey, &vchHashs)
-					if err != nil {
-						log.Debug("verify error")
-					}
+					success = tx.CheckSig(vchHashs, vchSigBytes, vchPubKey.([]byte))
 				}
 
-				if !success && ((flags & script.ScriptVerifyNullFail) != 0) && len(
+				if !success && ((flags & script.ScriptVerifyNullFail) == script.ScriptVerifyNullFail) && len(
 					vchSigBytes) > 0 {
 					return errcode.New(errcode.ScriptErrSigNullFail)
 				}
@@ -1509,7 +1502,8 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				vch2 := stack.Top(-1)
 				scriptNum, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					return err
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
 				}
 				size := scriptNum.Value
 				if size > script.MaxScriptElementSize || size < 0 {
