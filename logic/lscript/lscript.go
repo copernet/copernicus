@@ -1219,10 +1219,16 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 
 				vchSigBytes := vchSig.([]byte)
-				if err := script.CheckSignatureEncoding(vchSigBytes, flags); err != nil {
-					log.Debug("Script check signature encoding error:%v", err)
+
+				ok, err := script.CheckDataSignatureEncoding(vchSigBytes, flags)
+				if !ok {
 					return err
 				}
+				//
+				//if err := script.CheckSignatureEncoding(vchSigBytes, flags); err != nil {
+				//	log.Debug("Script check signature encoding error:%v", err)
+				//	return err
+				//}
 
 				if err := script.CheckPubKeyEncoding(vchPubKey.([]byte), flags); err != nil {
 					log.Debug("Script check signature encoding error:%v", err)
@@ -1496,8 +1502,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				vch2 := stack.Top(-1)
 				scriptNum, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					return err
 				}
 				size := scriptNum.Value
 				if size > script.MaxScriptElementSize || size < 0 {

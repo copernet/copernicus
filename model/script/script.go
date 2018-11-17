@@ -939,3 +939,23 @@ func IsOpCodeDisabled(opCode byte, flags uint32) bool {
 		return false
 	}
 }
+
+func CheckDataSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
+	if len(vchSig) == 0 {
+		return true, nil
+	}
+
+	if (flags&(ScriptVerifyDersig|ScriptVerifyLowS|ScriptVerifyStrictEnc) != 0) && !crypto.
+		IsValidSignatureEncoding(vchSig) {
+		return false, errcode.New(errcode.ScriptErrSigDer)
+	}
+
+	if flags&ScriptVerifyLowS != 0 {
+		isLow, err := crypto.IsLowDERSignature(vchSig)
+		if !isLow {
+			return false, err
+		}
+	}
+
+	return true, nil
+}
