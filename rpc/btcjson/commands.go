@@ -1006,6 +1006,18 @@ func NewFundRawTransactionCmd(hexTx string) *FundRawTransactionCmd {
 	}
 }
 
+type AddMultiSigAddressCmd struct {
+	RequiredNum int      `json:"requirednum"`
+	Keys        []string `json:"keys"`
+}
+
+func NewAddMultiSigAddressCmd(num int, s []string) *AddMultiSigAddressCmd {
+	return &AddMultiSigAddressCmd{
+		RequiredNum: num,
+		Keys:        s,
+	}
+}
+
 func init() {
 	// No special flags for commands in this file.
 	flags := UsageFlag(0)
@@ -1086,4 +1098,5 @@ func init() {
 	MustRegisterCmd("gettransaction", (*GetTransactionCmd)(nil), flags)
 	MustRegisterCmd("sendmany", (*SendManyCmd)(nil), flags)
 	MustRegisterCmd("fundrawtransaction", (*FundRawTransactionCmd)(nil), flags)
+	MustRegisterCmd("addmultisigaddress", (*AddMultiSigAddressCmd)(nil), flags)
 }

@@ -3,6 +3,7 @@
 package lwallet
 
 import (
+	"encoding/hex"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -643,4 +644,47 @@ func CommitTransaction(txNew *tx.Tx, extInfo map[string]string) error {
 
 func IsMine(sc *script.Script) bool {
 	return wallet.IsUnlockable(sc)
+}
+
+func CreateMultiSigRedeemScript(requiredNum int, keys []string) (res *script.Script, err error) {
+	pubKeys := make([]*crypto.PublicKey, 0)
+	for _, key := range keys {
+		// TODO Case 1: Bitcoin address and we have full public key:
+
+		// Case 2: hex public key
+		keyByte, err := hex.DecodeString(key)
+		if err != nil {
+			return nil, errors.Errorf(" Invalid public key: %s", err.Error())
+		}
+		vchPubKey, err := crypto.ParsePubKey(keyByte)
+		if err != nil {
+			return nil, errors.Errorf(" Invalid public key: %s", err.Error())
+		}
+		pubKeys = append(pubKeys, vchPubKey)
+	}
+
+	res = getScriptForMultisig(requiredNum, pubKeys)
+	if res.Size() > script.MaxScriptElementSize {
+		return nil, errors.Errorf(" redeemScript exceeds size limit: %d > %d",
+			res.Size(), script.MaxScriptElementSize)
+	}
+	return res, nil
+}
+
+func getScriptForMultisig(requineNum int, pubKeys []*crypto.PublicKey) *script.Script {
+
+	multiScript := script.NewEmptyScript()
+	multiScript.PushOpCode(opcodes.OP_1 + requineNum - 1)
+	var keyNum int
+	for _, pukKey := range pubKeys {
+		if pukKey == nil {
+			continue
+		}
+		multiScript.PushSingleData(pukKey.ToBytes())
+		keyNum++
+	}
+	multiScript.PushOpCode(opcodes.OP_1 + keyNum - 1)
+	multiScript.PushOpCode(opcodes.OP_CHECKMULTISIG)
+
+	return multiScript
 }

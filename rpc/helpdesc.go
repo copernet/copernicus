@@ -1915,4 +1915,36 @@ const (
 		"> coperctl " + "signrawtransaction" + " " + "\"fundedtransactionhex\"" + "\n" +
 		"\nSend the transaction\n" +
 		"> coperctl " + "sendrawtransaction" + " " + "\"signedtransactionhex\"" + "\n"
+
+	addmultisigaddressDesc = "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n" +
+		"\nAdd a nrequired-to-sign multisignature address to the wallet.\n" +
+		"Each key is a Bitcoin address or hex-encoded public key.\n" +
+		"If 'account' is specified (DEPRECATED), assign address to that " +
+		"account.\n" +
+		"\nArguments:\n" +
+		"1. nrequired        (numeric, required) The number of required " +
+		"signatures out of the n keys or addresses.\n" +
+		"2. \"keys\"         (string, required) A json array of bitcoin " +
+		"addresses or hex-encoded public keys\n" +
+		"     [\n" +
+		"       \"address\"  (string) bitcoin address or hex-encoded " +
+		"public key\n" +
+		"       ...,\n" +
+		"     ]\n" +
+		"3. \"account\"      (string, optional) DEPRECATED. An account to " +
+		"assign the addresses to.\n" +
+		"\nResult:\n" +
+		"\"address\"         (string) A bitcoin address associated with " +
+		"the keys.\n" +
+		"\nExamples:\n" +
+		"\nAdd a multisig address from 2 addresses\n" +
+		"> coperctl " + "addmultisigaddress" + " 2 " + "\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\"," +
+		"\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"" + "\n" +
+		"\nAs json rpc call\n" +
+		"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", " +
+		"\"id\":\"curltest\", " +
+		"\"method\": \"" +
+		"addmultisigaddress" + "\", \"params\": [" + "2, " + "\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\"," +
+		"\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"" +
+		"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/\n"
 )
