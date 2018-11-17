@@ -30,6 +30,7 @@ type Opts struct {
 	BlockVersion                   int32  `long:"blockversion" default:"-1" description:"regtest block version"`
 	MaxMempool                     int64  `long:"maxmempool" default:"300000000"`
 	SpendZeroConfChange            uint8  `long:"spendzeroconfchange" default:"1"`
+	MinimumChainWork               string `long:"minimumchainwork"`
 }
 
 func InitArgs(args []string) (*Opts, error) {

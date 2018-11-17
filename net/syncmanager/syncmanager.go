@@ -6,6 +6,7 @@ package syncmanager
 
 import (
 	"container/list"
+	"github.com/copernet/copernicus/model/pow"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -21,7 +22,6 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
@@ -698,15 +698,15 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 			return
 		}
 
-		minWorkSum := pow.HashToBig(&model.ActiveNetParams.MinimumChainWork)
-		if pindexBestKnownBlock.ChainWork.Cmp(&(gChain.Tip().ChainWork)) == -1 ||
-			pindexBestKnownBlock.ChainWork.Cmp(minWorkSum) == -1 {
-			log.Info("peer(%d) ChainWork less than us, hash nothing interesting",
-				peer.ID())
-			return
-		}
-
 		pindexWalk = gChain.FindFork(pindexBestKnownBlock)
+	}
+
+	minWorkSum := pow.MiniChainWork()
+	if pindexBestKnownBlock.ChainWork.Cmp(&(gChain.Tip().ChainWork)) == -1 ||
+		pindexBestKnownBlock.ChainWork.Cmp(&minWorkSum) == -1 {
+		log.Info("peer(%d) ChainWork less than us, hash nothing interesting",
+			peer.ID())
+		return
 	}
 
 	vToFetch := list.New()
