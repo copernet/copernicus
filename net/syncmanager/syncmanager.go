@@ -933,32 +933,31 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 			sm.fetchHeaderBlocks(peer)
 			return
-		} else {
-			// Download as much as possible, from earliest to latest.
-			gdmsg := wire.NewMsgGetData()
-			for e := vToFetch.Front(); e != nil; e = e.Next() {
-				if len(state.requestedBlocks) >= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
-					// Can't download any more from this peer
-					break
-				}
+		}
+		// Download as much as possible, from earliest to latest.
+		gdmsg := wire.NewMsgGetData()
+		for e := vToFetch.Front(); e != nil; e = e.Next() {
+			if len(state.requestedBlocks) >= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+				// Can't download any more from this peer
+				break
+			}
 
-				pindex := e.Value.(*blockindex.BlockIndex)
-				hash := *(pindex.GetBlockHash())
-				iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
-				sm.requestedBlocks[hash] = struct{}{}
-				state.requestedBlocks[hash] = struct{}{}
-				gdmsg.AddInvVect(iv)
-				log.Info("Requesting block %s from  peer=%d",
-					hash.String(), peer.ID())
-			}
-			if len(gdmsg.InvList) > 1 {
-				log.Info("Downloading blocks toward %s (%d) via headers direct fetch",
-					pindexLast.GetBlockHash().String(),
-					pindexLast.Height)
-			}
-			if len(gdmsg.InvList) > 0 {
-				peer.QueueMessage(gdmsg, nil)
-			}
+			pindex := e.Value.(*blockindex.BlockIndex)
+			hash := *(pindex.GetBlockHash())
+			iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
+			sm.requestedBlocks[hash] = struct{}{}
+			state.requestedBlocks[hash] = struct{}{}
+			gdmsg.AddInvVect(iv)
+			log.Info("Requesting block %s from  peer=%d",
+				hash.String(), peer.ID())
+		}
+		if len(gdmsg.InvList) > 1 {
+			log.Info("Downloading blocks toward %s (%d) via headers direct fetch",
+				pindexLast.GetBlockHash().String(),
+				pindexLast.Height)
+		}
+		if len(gdmsg.InvList) > 0 {
+			peer.QueueMessage(gdmsg, nil)
 		}
 	} else if len(sm.peerStates) <= 2 {
 		// peer number too little, use this peer to fetch
