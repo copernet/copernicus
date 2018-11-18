@@ -14,6 +14,8 @@ import (
 )
 
 func TestPowCalculateNextWorkRequired(t *testing.T) {
+	model.ActiveNetParams = &model.MainNetParams
+
 	lastRetargetTime := int64(1261130161) // Block #30240
 	var indexLast blockindex.BlockIndex
 	indexLast.Height = 32255
