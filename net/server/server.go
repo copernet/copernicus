@@ -755,6 +755,26 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	}
 }
 
+// checkResetRevert is logic of Check to reset RevertToInv
+func (sp *serverPeer) checkResetRevert(msg *wire.MsgGetHeaders) {
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+	gChain := chain.GetInstance()
+	for _, hash := range msg.BlockLocatorHashes {
+		bi := gChain.FindBlockIndex(*hash)
+		if bi != nil {
+			if gChain.Contains(bi) {
+				sp.CheckRevertToInv(hash, false)
+				break
+			}
+			if bi.GetAncestor(gChain.Height()) == gChain.Tip() {
+				sp.SetRevertToInv(false)
+				break
+			}
+		}
+	}
+}
+
 // OnGetHeaders is invoked when a peer receives a getheaders bitcoin
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
@@ -764,21 +784,7 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 		return
 	}
 
-	// logic of Check to reset RevertToInv
-	gChain := chain.GetInstance()
-	for _, hash := range msg.BlockLocatorHashes {
-		bi := gChain.FindBlockIndex(*hash)
-		if bi != nil {
-			if gChain.Contains(bi) {
-				sp.CheckRevertToInv(hash)
-				break
-			}
-			if bi.GetAncestor(gChain.Height()) == gChain.Tip() {
-				sp.SetRevertToInv(false)
-				break
-			}
-		}
-	}
+	sp.checkResetRevert(msg)
 
 	// Find the most recent known block in the best chain based on the block
 	// locator and fetch all of the headers after it until either
