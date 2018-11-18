@@ -759,22 +759,16 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	}
 }
 
-// OnGetHeaders is invoked when a peer receives a getheaders bitcoin
-// message.
-func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
-	// Ignore getheaders requests if not in sync.
-	if !sp.IsWhitelisted() && !sp.server.syncManager.IsCurrent() {
-		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
-		return
-	}
-
-	// logic of Check to reset RevertToInv
+// checkResetRevert is logic of Check to reset RevertToInv
+func (sp *serverPeer) checkResetRevert(msg *wire.MsgGetHeaders) {
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
 	gChain := chain.GetInstance()
 	for _, hash := range msg.BlockLocatorHashes {
 		bi := gChain.FindBlockIndex(*hash)
 		if bi != nil {
 			if gChain.Contains(bi) {
-				sp.CheckRevertToInv(hash)
+				sp.CheckRevertToInv(hash, false)
 				break
 			}
 			if bi.GetAncestor(gChain.Height()) == gChain.Tip() {
@@ -783,6 +777,18 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 			}
 		}
 	}
+}
+
+// OnGetHeaders is invoked when a peer receives a getheaders bitcoin
+// message.
+func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
+	// Ignore getheaders requests if not in sync.
+	if !sp.isWhitelisted && !sp.server.syncManager.IsCurrent() {
+		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
+		return
+	}
+
+	sp.checkResetRevert(msg)
 
 	// Find the most recent known block in the best chain based on the block
 	// locator and fetch all of the headers after it until either

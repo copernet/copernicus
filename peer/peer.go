@@ -1780,10 +1780,12 @@ func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 	}
 }
 
-func (p *Peer) CheckRevertToInv(hash *util.Hash) {
+func (p *Peer) CheckRevertToInv(hash *util.Hash, needLock bool) {
 	if p.RevertToInv() {
-		persist.CsMain.Lock()
-		defer persist.CsMain.Unlock()
+		if needLock {
+			persist.CsMain.Lock()
+			defer persist.CsMain.Unlock()
+		}
 		gChain := chain.GetInstance()
 		tipheight := gChain.TipHeight()
 		locatorheight := gChain.GetSpendHeight(hash)
