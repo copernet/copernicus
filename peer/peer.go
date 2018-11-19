@@ -1411,7 +1411,9 @@ out:
 				case wire.CmdMerkleBlock:
 					fallthrough
 				case wire.CmdTx:
-					p.requestingDataCnt--
+					if p.requestingDataCnt > 0 {
+						p.requestingDataCnt--
+					}
 					if p.requestingDataCnt > 0 {
 						deadline := time.Now().Add(stallResponseTimeout)
 						pendingResponses[wire.CmdBlock] = deadline
