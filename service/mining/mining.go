@@ -342,7 +342,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	if model.IsMagneticAnomalyEnabled(indexPrev.GetMedianTimePast()) {
 		// If magnetic anomaly is enabled, we make sure transaction are
 		// canonically ordered.
-		sort.Sort(sortTxs(ba.bt.Block.Txs))
+		sort.Sort(sortTxs(ba.bt.Block.Txs[1:]))
 	}
 	time1 := util.GetMockTimeInMicros()
 
