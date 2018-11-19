@@ -1146,7 +1146,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 
 				vchSigBytes := vchSig.([]byte)
-				err := script.CheckSignatureEncoding(vchSigBytes, flags)
+				err := script.CheckTransactionSignatureEncoding(vchSigBytes, flags)
 				if err != nil {
 					return err
 				}
@@ -1370,7 +1370,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					// pubkey/signature evaluation distinguishable by
 					// CHECKMULTISIG NOT if the STRICTENC flag is set.
 					// See the script_(in)valid tests for details.
-					err := script.CheckSignatureEncoding(vchSig.([]byte), flags)
+					err := script.CheckTransactionSignatureEncoding(vchSig.([]byte), flags)
 					if err != nil {
 						return err
 					}

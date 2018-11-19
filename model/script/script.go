@@ -870,7 +870,7 @@ func (s *Script) Bytes() []byte {
 	return s.data
 }
 
-func CheckSignatureEncoding(vchSig []byte, flags uint32) error {
+func CheckTransactionSignatureEncoding(vchSig []byte, flags uint32) error {
 	// Empty signature. Not strictly DER encoded, but allowed to provide a
 	// compact way to provide an invalid signature for use with CHECK(MULTI)SIG
 	vchSigLen := len(vchSig)

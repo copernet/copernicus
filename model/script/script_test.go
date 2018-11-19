@@ -1033,7 +1033,7 @@ func TestCheckSignatureEncoding(t *testing.T) {
 	for _, v := range tests {
 		value := v
 
-		err := CheckSignatureEncoding(value.vchSig, value.flags)
+		err := CheckTransactionSignatureEncoding(value.vchSig, value.flags)
 		assert.Equal(t, err, value.want, value.description)
 	}
 }
