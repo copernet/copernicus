@@ -1207,11 +1207,7 @@ out:
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
 				}
 				msg.reply <- struct{}{}
-			case pingMsg:
-				if msg.peer.Cfg.Listeners.OnPing != nil {
-					msg.peer.Cfg.Listeners.OnPing(msg.peer, msg.ping)
-				}
-				msg.reply <- struct{}{}
+
 			case *donePeerMsg:
 				sm.handleDonePeerMsg(msg.peer)
 

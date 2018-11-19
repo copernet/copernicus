@@ -471,9 +471,6 @@ func TestPeerListeners(t *testing.T) {
 			OnAddr: func(p *peer.Peer, msg *wire.MsgAddr) {
 				ok <- msg
 			},
-			OnPing: func(p *peer.Peer, msg *wire.MsgPing) {
-				ok <- msg
-			},
 			OnPong: func(p *peer.Peer, msg *wire.MsgPong) {
 				ok <- msg
 			},

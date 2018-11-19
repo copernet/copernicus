@@ -140,9 +140,6 @@ type MessageListeners struct {
 	// OnAddr is invoked when a peer receives an addr bitcoin message.
 	OnAddr func(p *Peer, msg *wire.MsgAddr)
 
-	// OnPing is invoked when a peer receives a ping bitcoin message.
-	OnPing func(p *Peer, msg *wire.MsgPing)
-
 	// OnPong is invoked when a peer receives a pong bitcoin message.
 	OnPong func(p *Peer, msg *wire.MsgPong)
 

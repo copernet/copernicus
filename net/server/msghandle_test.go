@@ -217,9 +217,6 @@ func TestMsgHandle(t *testing.T) {
 			OnAddr: func(p *peer.Peer, msg *wire.MsgAddr) {
 				execCount["OnAddr"]++
 			},
-			OnPing: func(p *peer.Peer, msg *wire.MsgPing) {
-				execCount["OnPing"]++
-			},
 			OnPong: func(p *peer.Peer, msg *wire.MsgPong) {
 				execCount["OnPong"]++
 			},
@@ -248,6 +245,7 @@ func TestMsgHandle(t *testing.T) {
 			},
 			OnGetData: func(p *peer.Peer, msg *wire.MsgGetData, done chan<- struct{}) {
 				execCount["OnGetData"]++
+				done <- struct{}{}
 			},
 			OnGetBlocks: func(p *peer.Peer, msg *wire.MsgGetBlocks) {
 				execCount["OnGetBlocks"]++
@@ -331,11 +329,6 @@ func TestMsgHandle(t *testing.T) {
 		{
 			"OnAddr",
 			wire.NewMsgAddr(),
-			true,
-		},
-		{
-			"OnPing",
-			wire.NewMsgPing(42),
 			true,
 		},
 		{
