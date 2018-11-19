@@ -453,7 +453,7 @@ func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff,
 		txnsize := txn.SerializeSize()
 		if txnsize < consensus.MinTxSize {
 			return fmt.Errorf(
-				"bad-tnx-undersize: tx(%d) should be equal to or greater than %d",
+				"bad-txn-undersize: tx(%d) should be equal to or greater than %d",
 				txnsize, consensus.MinTxSize)
 		}
 	}
