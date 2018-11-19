@@ -58,8 +58,7 @@ func IsLowDERSignature(vchSig []byte) (bool, error) {
 		return false, errcode.New(errcode.ScriptErrSigDer)
 	}
 	var vchCopy []byte
-	vchCopy = append(vchCopy, vchSig[:len(vchSig)-1]...)
-	ret := checkLowS(vchCopy)
+	ret := checkLowS(append(vchCopy, vchSig...))
 	if !ret {
 		return false, errcode.New(errcode.ScriptErrSigHighs)
 	}
@@ -135,7 +134,7 @@ func IsValidSignatureEncoding(signs []byte) bool {
 		return false
 	}
 
-	if lenR > 1 && (signs[4] == 0x00) && (signs[5]&0x80) != 0 {
+	if lenR > 1 && (signs[4] == 0x00) && (signs[5]&0x80) == 0 {
 		return false
 	}
 
@@ -145,7 +144,7 @@ func IsValidSignatureEncoding(signs []byte) bool {
 		return false
 	}
 
-	lenS := signs[5+lenR]
+	lenS := signs[startS+1]
 
 	if lenS == 0 {
 		return false
@@ -159,7 +158,7 @@ func IsValidSignatureEncoding(signs []byte) bool {
 		return false
 	}
 
-	if (lenS > 1) && (signs[startS+2] == 0x00) && (signs[startS+3]&0x80) != 0 {
+	if (lenS > 1) && (signs[startS+2] == 0x00) && (signs[startS+3]&0x80) == 0 {
 		return false
 	}
 	//
