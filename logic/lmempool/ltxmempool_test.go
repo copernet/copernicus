@@ -284,17 +284,23 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 			script.NewScriptRaw(p.payScript),
 		))
 
-		// Sign the new transaction.
-		// sigScript, err := txscript.SignatureScript(tx, 0, p.payScript,
-		// 	txscript.SigHashAll, p.signKey, true)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// tx.TxIn[0].SignatureScript = sigScript
+		sc := script.NewEmptyScript()
+		sc.PushOpCode(opcodes.OP_RETURN)
+		sc.PushSingleData(
+			[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
+
+		txn.AddTxOut(txout.NewTxOut(
+			0,
+			sc,
+		))
+
 		keyStore := getKeyStore(p.keys)
 		errs := ltx.SignRawTransaction([]*tx.Tx{txn}, nil, keyStore, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
 		if len(errs) > 0 {
 			log.Error("%#v, %#v", errs, p.chain.utxos)
+			for j, e := range errs {
+				log.Error("err %d %d: %v", i, j, e)
+			}
 			panic(errs)
 		}
 		txChain = append(txChain, txn)
