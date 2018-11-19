@@ -496,7 +496,6 @@ type Peer struct {
 	queueQuit         chan struct{}
 	outQuit           chan struct{}
 	quit              chan struct{}
-	requestingDataCnt uint64
 
 	reqMempoolOnce sync.Once
 
@@ -1350,18 +1349,10 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msg wire.
 
 	case wire.CmdGetData:
 		// Expects a block, merkleblock, tx, or notfound message.
-		p.requestingDataCnt += uint64(len(msg.(*wire.MsgGetData).InvList))
 		pendingResponses[wire.CmdBlock] = deadline
 		pendingResponses[wire.CmdMerkleBlock] = deadline
 		pendingResponses[wire.CmdTx] = deadline
 		pendingResponses[wire.CmdNotFound] = deadline
-
-	case wire.CmdGetHeaders:
-		// Expects a headers message.  Use a longer deadline since it
-		// can take a while for the remote peer to load all of the
-		// headers.
-		deadline = time.Now().Add(stallResponseTimeout * 3)
-		pendingResponses[wire.CmdHeaders] = deadline
 	}
 }
 
@@ -1412,22 +1403,8 @@ out:
 				case wire.CmdMerkleBlock:
 					fallthrough
 				case wire.CmdTx:
-					if p.requestingDataCnt > 0 {
-						p.requestingDataCnt--
-					}
-					if p.requestingDataCnt > 0 {
-						deadline := time.Now().Add(stallResponseTimeout)
-						pendingResponses[wire.CmdBlock] = deadline
-						pendingResponses[wire.CmdMerkleBlock] = deadline
-						pendingResponses[wire.CmdTx] = deadline
-						pendingResponses[wire.CmdNotFound] = deadline
-						continue
-					}
 					fallthrough
 				case wire.CmdNotFound:
-					if msgCmd == wire.CmdNotFound {
-						p.requestingDataCnt = 0
-					}
 					delete(pendingResponses, wire.CmdBlock)
 					delete(pendingResponses, wire.CmdMerkleBlock)
 					delete(pendingResponses, wire.CmdTx)
@@ -1486,9 +1463,7 @@ out:
 					continue
 				}
 
-				log.Debug("Peer %s appears to be stalled or "+
-					"misbehaving, %s timeout (%d outstanding response for block/merkleblock/tx) -- "+
-					"disconnecting", p, command, p.requestingDataCnt)
+				log.Debug("Peer %s appears to be stalled or misbehaving, %s timeout", p, command)
 				p.Disconnect()
 				break
 			}
