@@ -481,7 +481,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
 
-	generateTestBlocks(t)
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	recentRejects := make(map[util.Hash]struct{})
 	// Ensure the orphans are accepted (only up to the maximum allowed so
@@ -958,7 +958,7 @@ func TestCheckSpend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
-	generateTestBlocks(t)
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tx := range chainedTxns {
 		// _, err := harness.txPool.ProcessTransaction(tx, true,
@@ -1072,13 +1072,7 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 	conf.Cfg.TxOut.DustRelayFee = minRelayFee
 }
 
-func generateTestBlocks(t *testing.T) []*block.Block {
-	pubKey := script.NewEmptyScript()
-	err := pubKey.PushOpCode(opcodes.OP_TRUE)
-	if err != nil {
-		t.Errorf("push int64 error:%v", err)
-		return nil
-	}
+func generateTestBlocks(t *testing.T, pubKey *script.Script) []*block.Block {
 	blocks, err := generateBlocks(t, pubKey, 200, 1000000)
 	if err != nil {
 		t.Errorf("generate blocks failed:%v", err)
@@ -1162,7 +1156,7 @@ func TestRemoveForReorg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
-	generateTestBlocks(t)
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tmpTx := range chainedTxns {
 		err := lmempool.AcceptTxToMemPool(tmpTx)
