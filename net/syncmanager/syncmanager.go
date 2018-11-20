@@ -185,11 +185,11 @@ type headerNode struct {
 // peerSyncState stores additional information that the SyncManager tracks
 // about a peer.
 type peerSyncState struct {
-	syncCandidate        bool
-	requestQueue         []*wire.InvVect
-	requestedTxns        map[util.Hash]struct{}
-	requestedBlocks      map[util.Hash]struct{}
-	nUnconnectingHeaders int
+	syncCandidate       bool
+	requestQueue        []*wire.InvVect
+	requestedTxns       map[util.Hash]struct{}
+	requestedBlocks     map[util.Hash]struct{}
+	unconnectingHeaders int
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -767,6 +767,44 @@ out:
 	log.Trace("let getdata request to queue, ready to send to peer.")
 }
 
+func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncState) {
+	gChain := chain.GetInstance()
+
+	//peer from functional test may send version message with -1 height,
+	//and failed to be selected as syncPeer
+	if lchain.IsInitialBlockDownload() && sm.syncPeer == nil {
+		sm.syncPeer = peer
+	}
+
+	if lchain.IsInitialBlockDownload() && sm.syncPeer != peer {
+		log.Debug("IBD: unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
+		return
+	}
+
+	state.unconnectingHeaders++
+	/**
+	 * If possible, start at the block preceding the currently best
+	 * known header. This ensures that we always get a non-empty list of
+	 * headers back as long as the peer is up-to-date. With a non-empty
+	 * response, we can initialise the peer's known best block. This
+	 * wouldn't be possible if we requested starting at pindexBestHeader
+	 * and got back an empty response.
+	 */
+	start := gChain.Tip()
+	if start.Prev != nil {
+		start = start.Prev
+	}
+	peer.PushGetHeadersMsg(*gChain.GetLocator(start), &zeroHash)
+
+	log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, unconnectingHeaders:%d",
+		start.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+		state.unconnectingHeaders)
+
+	if state.unconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
+		sm.misbehaving(peer.Addr(), 20, "too-many-unconnected-headers")
+	}
+}
+
 // handleHeadersMsg handles block header messages from all peers.  Headers are
 // requested when performing a headers-first sync.
 func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
@@ -781,97 +819,46 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	}
 
 	if canNotConnect := gChain.FindBlockIndex(headers[0].HashPrevBlock) == nil; canNotConnect {
-		if sm.syncPeer == nil {
-			sm.syncPeer = peer
-		}
-
-		if lchain.IsInitialBlockDownload() && peer != sm.syncPeer {
-			log.Debug("recv unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
-			return
-		}
-
-		state.nUnconnectingHeaders++
-		/**
-		 * If possible, start at the block preceding the currently best
-		 * known header. This ensures that we always get a non-empty list of
-		 * headers back as long as the peer is up-to-date. With a non-empty
-		 * response, we can initialise the peer's known best block. This
-		 * wouldn't be possible if we requested starting at pindexBestHeader
-		 * and got back an empty response.
-		 */
-		start := gChain.Tip()
-		if start.Prev != nil {
-			start = start.Prev
-		}
-		peer.PushGetHeadersMsg(*gChain.GetLocator(start), &zeroHash)
-
-		log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, nUnconnectingHeaders:%d",
-			start.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
-			state.nUnconnectingHeaders)
-
-		if state.nUnconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
-			sm.misbehaving(peer.Addr(), 20, "too-many-unconnected-headers")
-		}
-
+		sm.fetchHeadersToConnect(peer, state)
 		return
 	}
 
-	// Process all of the received headers ensuring each one connects to the
-	// previous
-	var hashLastBlock util.Hash
-	for _, blockHeader := range headers {
-		if !hashLastBlock.IsNull() &&
-			!hashLastBlock.IsEqual(&blockHeader.HashPrevBlock) {
-			log.Warn("recv non-continuous headers from %v ",
-				peer.Addr())
-			peer.Disconnect()
-			return
-		}
-		hashLastBlock = blockHeader.GetHash()
-
-		iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: hashLastBlock}
-		peer.AddKnownInventory(iv)
+	if isContinuousHeaders := hmsg.headers.IsContinuousHeaders(); !isContinuousHeaders {
+		log.Warn("recv non-continuous headers from %v ", peer.Addr())
+		peer.Disconnect()
+		return
 	}
 
-	// update the last announced block for this peer.
-	peer.UpdateLastAnnouncedBlock(&hashLastBlock)
-	// If our chain is current and a peer announces a block we already
-	// know of, then update their current block height.
+	for _, header := range headers {
+		peer.AddKnownInventory(&wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()})
+	}
+	peerTip := headers[len(headers)-1].GetHash()
+	peer.UpdateLastAnnouncedBlock(&peerTip)
 	if sm.current() {
-		blkIndex := gChain.FindHashInActive(hashLastBlock)
-		if blkIndex != nil {
+		if blkIndex := gChain.FindHashInActive(peerTip); blkIndex != nil {
 			peer.UpdateLastBlockHeight(blkIndex.Height)
 		}
 	}
 
-	log.Trace("begin to processblockheader ...")
 	var pindexLast blockindex.BlockIndex
 	if err := sm.ProcessBlockHeadCallBack(headers, &pindexLast); err != nil {
 		beginHash := headers[0].GetHash()
-		endHash := headers[len(headers)-1].GetHash()
-		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s,"+
-			"error news : %s.", beginHash, endHash, err.Error())
+		log.Warn("processblockheader error, begin: %s, end: %s, err: %s.", beginHash, peerTip, err.Error())
 	}
 
-	if state.nUnconnectingHeaders > 0 {
-		log.Info("peer=%d: resetting nUnconnectingHeaders (%d -> 0)",
-			peer.ID(), state.nUnconnectingHeaders)
-		state.nUnconnectingHeaders = 0
+	if state.unconnectingHeaders > 0 {
+		log.Info("peer=%d: resetting unconnectingHeaders (%d -> 0)", peer.ID(), state.unconnectingHeaders)
+		state.unconnectingHeaders = 0
 	}
 
-	if len(headers) == wire.MaxBlockHeadersPerMsg {
-		// headers msg had its max size, the peer may have more headers
-		// so request the next batch of headers starting from
-		// the latest known header
-		blkIndex := gChain.FindBlockIndex(hashLastBlock)
-		locator := gChain.GetLocator(blkIndex)
-		err := peer.PushGetHeadersMsg(*locator, &zeroHash)
+	if hasMore := len(headers) == wire.MaxBlockHeadersPerMsg; hasMore {
+		blkIndex := gChain.FindBlockIndex(peerTip)
+		err := peer.PushGetHeadersMsg(*gChain.GetLocator(blkIndex), &zeroHash)
+
 		if err != nil {
-			log.Warn("Failed to send getheaders message to "+
-				"peer %s: %v", peer.Addr(), err)
+			log.Warn("Failed to send getheaders message to peer %s: %v", peer.Addr(), err)
 		} else {
-			log.Info("send more getheaders (%d) to peer %s",
-				blkIndex.Height, peer.Addr())
+			log.Info("send more getheaders (%d) to peer %s", blkIndex.Height, peer.Addr())
 		}
 	}
 
