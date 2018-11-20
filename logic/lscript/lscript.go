@@ -1225,12 +1225,6 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				if !ok {
 					return err
 				}
-				//
-				//if err := script.CheckSignatureEncoding(vchSigBytes, flags); err != nil {
-				//	log.Debug("Script check signature encoding error:%v", err)
-				//	return err
-				//}
-
 				vchPubKeyBytes := vchPubKey.([]byte)
 				if err := script.CheckPubKeyEncoding(vchPubKeyBytes, flags); err != nil {
 					log.Debug("Script check signature encoding error:%v", err)
