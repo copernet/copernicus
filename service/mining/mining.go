@@ -189,7 +189,7 @@ func sortTxsByAncestorCount(ancestors map[*mempool.TxEntry]struct{}) (result []*
 // transactions from the mempool as we select them for block inclusion, we need
 // an alternate method of updating the feerate of a transaction with its
 // not-yet-selected ancestors as we go.
-func (ba *BlockAssembler) addPackageTxs() int {
+func (ba *BlockAssembler) addPackageTxs(sortRecord map[util.Hash]int) int {
 	descendantsUpdated := 0
 	pool := mempool.GetInstance() // todo use global variable
 	pool.RLock()
@@ -287,6 +287,7 @@ func (ba *BlockAssembler) addPackageTxs() int {
 
 		for _, item := range ancestorsList {
 			ba.addToBlock(item)
+			sortRecord[item.Tx.GetHash()] = len(ba.bt.TxFees) - 1
 			addset[item.Tx.GetHash()] = *item
 		}
 
@@ -336,13 +337,25 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.bt.Block.Header.Time = uint32(ba.timeSource.AdjustedTime().Unix())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
-
-	descendantsUpdated := ba.addPackageTxs()
+	sortRecord := make(map[util.Hash]int)
+	descendantsUpdated := ba.addPackageTxs(sortRecord)
 
 	if model.IsMagneticAnomalyEnabled(indexPrev.GetMedianTimePast()) {
 		// If magnetic anomaly is enabled, we make sure transaction are
 		// canonically ordered.
 		sort.Sort(sortTxs(ba.bt.Block.Txs[1:]))
+		sortTxFees := make([]amount.Amount, len(ba.bt.TxFees))
+		sortTxFees[0] = ba.bt.TxFees[0]
+		sortTxSigOpCosts := make([]int, len(ba.bt.TxSigOpsCount))
+		sortTxSigOpCosts[0] = ba.bt.TxSigOpsCount[0]
+		for i, tmpTx := range ba.bt.Block.Txs[1:] {
+			offset := sortRecord[tmpTx.GetHash()]
+			sortTxFees[i+1] = ba.bt.TxFees[offset]
+			sortTxSigOpCosts[i+1] = ba.bt.TxSigOpsCount[offset]
+		}
+
+		ba.bt.TxFees = sortTxFees
+		ba.bt.TxSigOpsCount = sortTxSigOpCosts
 	}
 	time1 := util.GetMockTimeInMicros()
 

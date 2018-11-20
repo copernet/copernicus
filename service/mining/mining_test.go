@@ -2,6 +2,7 @@ package mining
 
 import (
 	"errors"
+	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/logic/lblockindex"
@@ -353,5 +354,71 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 
 	if ba.bt.Block.Txs[4].GetHash() != txSet[3].Tx.GetHash() {
 		t.Error("error sort by tx feerate")
+	}
+}
+
+func TestCreateNewBlockByCTOR(t *testing.T) {
+	tempDir, err := initTestEnv(t, true)
+	assert.Nil(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// clear mempool data
+	mempool.InitMempool()
+	pool := mempool.GetInstance()
+
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
+
+	_, err = generateBlocks(pubKey, 101, 1000000)
+	assert.Nil(t, err)
+
+	gChain := chain.GetInstance()
+	bl1Index := gChain.GetIndex(1)
+	assert.NotNil(t, bl1Index)
+
+	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
+	assert.True(t, ok)
+
+	txSet := createTx(t, block1.Txs[0], pubKey)
+
+	for _, entry := range txSet {
+		err := pool.AddTx(entry, entry.ParentTx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if pool.Size() != 4 {
+		t.Fatal("add txEntry to mempool error")
+	}
+
+	ts := bitcointime.NewMedianTime()
+	ba := NewBlockAssembler(model.ActiveNetParams, ts)
+	assert.NotNil(t, ba)
+
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFee
+	sc := script.NewEmptyScript()
+	ba.CreateNewBlock(sc, BasicScriptSig())
+
+	if len(ba.bt.Block.Txs) != 5 {
+		fmt.Println(len(ba.bt.Block.Txs))
+		t.Fatal("some transactions are inserted to block error")
+	}
+
+	hash1 := util.HashFromString("2069a4481f48dc5ec3e56c269c7832f36829e2f5331455afb77be4c347c7c09c")
+	hash2 := util.HashFromString("45a70c5e962f70f3b755cb8a9ab82f2c053dd0418df32100941a8758da50fe0c")
+	hash3 := util.HashFromString("bbc8b20fc63ed211aeaa2e3550ae57ecf7a00a62f8c9abb6babc3ec85b0933f0")
+	hash4 := util.HashFromString("c2eb4b4b1006f77f628ed5c166f6920af7e392b5d6294ceb54059f260806fb50")
+	if ba.bt.Block.Txs[1].GetHash() != *hash1 {
+		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[1].GetHash().String())
+	}
+	if ba.bt.Block.Txs[2].GetHash() != *hash2 {
+		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[2].GetHash().String())
+	}
+	if ba.bt.Block.Txs[3].GetHash() != *hash3 {
+		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[3].GetHash().String())
+	}
+	if ba.bt.Block.Txs[4].GetHash() != *hash4 {
+		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[4].GetHash().String())
 	}
 }
