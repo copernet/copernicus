@@ -406,7 +406,8 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	bundo.SetTxUndo(txUndoList)
 	//check blockReward
 	if txs[0].GetValueOut() > fees+blockSubSidy {
-		log.Debug("coinbase pays too much")
+		log.Debug("coinbase pays too much: coinbase out:%d fee:%d expected:%d txcnt(%d)",
+			txs[0].GetValueOut(), fees, fees+blockSubSidy, len(txs))
 		return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
 	}
 	return coinsMap, bundo, nil
