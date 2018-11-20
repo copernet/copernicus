@@ -194,6 +194,7 @@ func UnloadBlockIndex() {
 	globalChain := chain.GetInstance()
 	globalChain.InitLoad(indexMap, branch)
 	globalChain.ClearActive()
+	globalChain.SetIndexBestHeader(nil)
 
 	//TODO clear mempool
 }
