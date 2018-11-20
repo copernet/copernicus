@@ -770,43 +770,27 @@ out:
 // handleHeadersMsg handles block header messages from all peers.  Headers are
 // requested when performing a headers-first sync.
 func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
-	log.Trace("headers message come into syncmanager ...")
-	peer := hmsg.peer
-	state, exists := sm.peerStates[peer]
-	if !exists {
-		log.Warn("Received headers message from unknown peer %s", peer.Addr())
-		return
-	}
-
-	// The remote peer is misbehaving if we didn't request headers.
-	msg := hmsg.headers
-	numHeaders := len(msg.Headers)
-
-	// Nothing to do for an empty headers message.
-	if numHeaders == 0 {
-		return
-	}
-
-	isSyncPeer := peer == sm.syncPeer
-
 	gChain := chain.GetInstance()
-	blkIndex := gChain.FindBlockIndex(msg.Headers[0].HashPrevBlock)
-	if blkIndex == nil {
-		// headers in msg can not connect to my chain
-		// now in initial downloading
-		// !isSyncPeer means msg not sent from the syncPeer
-		// maybe header announcement, but now I don't need it
-		if lchain.IsInitialBlockDownload() && !isSyncPeer {
-			log.Info("recv unrequested headers from %v, maybe new header announce",
-				peer.Addr())
+	peer := hmsg.peer
+	headers := hmsg.headers.Headers
 
-			sm.fetchHeaderBlocks(peer)
+	state, exists := sm.peerStates[peer]
+	if !exists || len(headers) == 0 {
+		log.Warn("> headers from unknown peer %s, or zero len:%d", peer.Addr(), len(headers))
+		return
+	}
+
+	if canNotConnect := gChain.FindBlockIndex(headers[0].HashPrevBlock) == nil; canNotConnect {
+		if sm.syncPeer == nil {
+			sm.syncPeer = peer
+		}
+
+		if lchain.IsInitialBlockDownload() && peer != sm.syncPeer {
+			log.Debug("recv unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
 			return
 		}
 
 		state.nUnconnectingHeaders++
-
-		pindexStart := gChain.Tip()
 		/**
 		 * If possible, start at the block preceding the currently best
 		 * known header. This ensures that we always get a non-empty list of
@@ -815,27 +799,27 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		 * wouldn't be possible if we requested starting at pindexBestHeader
 		 * and got back an empty response.
 		 */
-		if pindexStart.Prev != nil {
-			pindexStart = pindexStart.Prev
+		start := gChain.Tip()
+		if start.Prev != nil {
+			start = start.Prev
 		}
-		locator := gChain.GetLocator(pindexStart)
-		peer.PushGetHeadersMsg(*locator, &zeroHash)
+		peer.PushGetHeadersMsg(*gChain.GetLocator(start), &zeroHash)
 
-		log.Info("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, isSyncPeer:%t, nUnconnectingHeaders:%d",
-			pindexStart.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
-			isSyncPeer, state.nUnconnectingHeaders)
+		log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, nUnconnectingHeaders:%d",
+			start.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+			state.nUnconnectingHeaders)
 
 		if state.nUnconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
-			// The peer is sending us many headers we can't connect.
 			sm.misbehaving(peer.Addr(), 20, "too-many-unconnected-headers")
 		}
+
 		return
 	}
 
 	// Process all of the received headers ensuring each one connects to the
 	// previous
 	var hashLastBlock util.Hash
-	for _, blockHeader := range msg.Headers {
+	for _, blockHeader := range headers {
 		if !hashLastBlock.IsNull() &&
 			!hashLastBlock.IsEqual(&blockHeader.HashPrevBlock) {
 			log.Warn("recv non-continuous headers from %v ",
@@ -862,9 +846,9 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	log.Trace("begin to processblockheader ...")
 	var pindexLast blockindex.BlockIndex
-	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &pindexLast); err != nil {
-		beginHash := msg.Headers[0].GetHash()
-		endHash := msg.Headers[len(msg.Headers)-1].GetHash()
+	if err := sm.ProcessBlockHeadCallBack(headers, &pindexLast); err != nil {
+		beginHash := headers[0].GetHash()
+		endHash := headers[len(headers)-1].GetHash()
 		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s,"+
 			"error news : %s.", beginHash, endHash, err.Error())
 	}
@@ -875,7 +859,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		state.nUnconnectingHeaders = 0
 	}
 
-	if numHeaders == wire.MaxBlockHeadersPerMsg {
+	if len(headers) == wire.MaxBlockHeadersPerMsg {
 		// headers msg had its max size, the peer may have more headers
 		// so request the next batch of headers starting from
 		// the latest known header
@@ -891,8 +875,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		}
 	}
 
-	log.Info("Received %d block headers from peer %s",
-		numHeaders, peer.Addr())
+	log.Info("Received %d block headers from peer %s", len(headers), peer.Addr())
 
 	// If this set of headers is valid and ends in a block with at least
 	// as much work as our tip, download as much as possible.
