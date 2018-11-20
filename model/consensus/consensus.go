@@ -25,7 +25,7 @@ const (
 	// blocks (network rule)
 	CoinbaseMaturity = 100
 
-	MinTxSize = 60
+	MinTxSize = 100
 )
 
 const (
