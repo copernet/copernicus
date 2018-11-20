@@ -379,7 +379,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			log.Debug("block has too many sigops at %d transaction", i)
 			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
-		if transaction.IsCoinBase() || isMagneticAnomalyEnabled {
+		if transaction.IsCoinBase() {
 			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
 			continue
 		}
