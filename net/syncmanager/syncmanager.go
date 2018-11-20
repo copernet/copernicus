@@ -292,7 +292,23 @@ func (sm *SyncManager) startSync() {
 	// Start syncing from the best peer if one was selected.
 	if bestPeer != nil {
 		activeChain := chain.GetInstance()
-		pindexStart := activeChain.Tip()
+		pindexBestHeader := activeChain.GetIndexBestHeader()
+		if pindexBestHeader == nil {
+			pindexBestHeader = activeChain.Tip()
+			activeChain.SetIndexBestHeader(pindexBestHeader)
+		}
+		pindexStart := pindexBestHeader
+		/**
+		 * If possible, start at the block preceding the currently best
+		 * known header. This ensures that we always get a non-empty list of
+		 * headers back as long as the peer is up-to-date. With a non-empty
+		 * response, we can initialise the peer's known best block. This
+		 * wouldn't be possible if we requested starting at pindexBestHeader
+		 * and got back an empty response.
+		 */
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
 		locator := activeChain.GetLocator(pindexStart)
 		log.Info("Syncing to block height %d from peer %v",
 			bestPeer.LastBlock(), bestPeer.Addr())
@@ -784,22 +800,11 @@ func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncSta
 	}
 
 	state.unconnectingHeaders++
-	/**
-	 * If possible, start at the block preceding the currently best
-	 * known header. This ensures that we always get a non-empty list of
-	 * headers back as long as the peer is up-to-date. With a non-empty
-	 * response, we can initialise the peer's known best block. This
-	 * wouldn't be possible if we requested starting at pindexBestHeader
-	 * and got back an empty response.
-	 */
-	start := gChain.Tip()
-	if start.Prev != nil {
-		start = start.Prev
-	}
-	peer.PushGetHeadersMsg(*gChain.GetLocator(start), &zeroHash)
+	pindexBestHeader := gChain.GetIndexBestHeader()
+	peer.PushGetHeadersMsg(*gChain.GetLocator(pindexBestHeader), &zeroHash)
 
 	log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, unconnectingHeaders:%d",
-		start.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+		pindexBestHeader.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
 		state.unconnectingHeaders)
 
 	if state.unconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
@@ -1088,8 +1093,8 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			// Request the block if there is not already a pending
 			// request.
 			if _, exists := sm.requestedBlocks[iv.Hash]; !exists {
-				pindexStart := activeChain.Tip()
-				locator := activeChain.GetLocator(pindexStart)
+				pindexBestHeader := activeChain.GetIndexBestHeader()
+				locator := activeChain.GetLocator(pindexBestHeader)
 				log.Info("Syncing to block height %d from peer %v",
 					peer.LastBlock(), peer.Addr())
 
