@@ -71,6 +71,14 @@ func LoadBlockIndexDB() bool {
 			index.ChainTxCount = index.TxCount
 			branch = append(branch, index)
 		}
+
+		if index.IsValid(blockindex.BlockValidTree) {
+			idxBestHeader := gChain.GetIndexBestHeader()
+			if idxBestHeader == nil ||
+				idxBestHeader.ChainWork.Cmp(&index.ChainWork) == -1 {
+				gChain.SetIndexBestHeader(index)
+			}
+		}
 	}
 	log.Debug("LoadBlockIndexDB, BlockIndexMap len:%d, Branch len:%d, Orphan len:%d",
 		len(GlobalBlockIndexMap), len(branch), gChain.ChainOrphanLen())
