@@ -732,7 +732,6 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
 	defer os.RemoveAll(dir)
-	sm.fetchHeaderBlocks(nil)
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 	inpeer := peer.NewInboundPeer(peer1Cfg)
