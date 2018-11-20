@@ -37,7 +37,7 @@ const (
 	// close to full; this is just a simple heuristic to finish quickly if the
 	// mempool has a lot of entries.
 	maxConsecutiveFailures = 1000
-	CoinbaseFlag           = "copernicus"
+	CoinbaseFlag           = "copernicus.............................."
 )
 
 // global value for getmininginfo rpc use
