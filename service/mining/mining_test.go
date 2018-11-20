@@ -405,20 +405,16 @@ func TestCreateNewBlockByCTOR(t *testing.T) {
 		t.Fatal("some transactions are inserted to block error")
 	}
 
-	hash1 := util.HashFromString("2069a4481f48dc5ec3e56c269c7832f36829e2f5331455afb77be4c347c7c09c")
-	hash2 := util.HashFromString("45a70c5e962f70f3b755cb8a9ab82f2c053dd0418df32100941a8758da50fe0c")
-	hash3 := util.HashFromString("bbc8b20fc63ed211aeaa2e3550ae57ecf7a00a62f8c9abb6babc3ec85b0933f0")
-	hash4 := util.HashFromString("c2eb4b4b1006f77f628ed5c166f6920af7e392b5d6294ceb54059f260806fb50")
-	if ba.bt.Block.Txs[1].GetHash() != *hash1 {
+	if ba.bt.Block.Txs[1].GetHash().String() > ba.bt.Block.Txs[2].GetHash().String() {
 		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[1].GetHash().String())
 	}
-	if ba.bt.Block.Txs[2].GetHash() != *hash2 {
+	if ba.bt.Block.Txs[2].GetHash().String() > ba.bt.Block.Txs[3].GetHash().String() {
 		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[2].GetHash().String())
 	}
-	if ba.bt.Block.Txs[3].GetHash() != *hash3 {
+	if ba.bt.Block.Txs[3].GetHash().String() > ba.bt.Block.Txs[4].GetHash().String() {
 		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[3].GetHash().String())
 	}
-	if ba.bt.Block.Txs[4].GetHash() != *hash4 {
+	if ba.bt.Block.Txs[4].GetHash().String() < ba.bt.Block.Txs[1].GetHash().String() {
 		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[4].GetHash().String())
 	}
 }
