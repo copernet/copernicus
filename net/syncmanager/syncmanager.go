@@ -778,6 +778,8 @@ func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncSta
 
 	if lchain.IsInitialBlockDownload() && sm.syncPeer != peer {
 		log.Debug("IBD: unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
+		//ignore headers from nonSyncPeer, but we can try to get blocks from the peer
+		sm.fetchHeaderBlocks(peer)
 		return
 	}
 
@@ -811,6 +813,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	gChain := chain.GetInstance()
 	peer := hmsg.peer
 	headers := hmsg.headers.Headers
+	log.Info("Received %d block headers from peer %s", len(headers), peer.Addr())
 
 	state, exists := sm.peerStates[peer]
 	if !exists || len(headers) == 0 {
@@ -853,16 +856,9 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	if hasMore := len(headers) == wire.MaxBlockHeadersPerMsg; hasMore {
 		blkIndex := gChain.FindBlockIndex(peerTip)
-		err := peer.PushGetHeadersMsg(*gChain.GetLocator(blkIndex), &zeroHash)
-
-		if err != nil {
-			log.Warn("Failed to send getheaders message to peer %s: %v", peer.Addr(), err)
-		} else {
-			log.Info("send more getheaders (%d) to peer %s", blkIndex.Height, peer.Addr())
-		}
+		peer.PushGetHeadersMsg(*gChain.GetLocator(blkIndex), &zeroHash)
+		log.Info("send more getheaders (%d) to peer %s", blkIndex.Height, peer.Addr())
 	}
-
-	log.Info("Received %d block headers from peer %s", len(headers), peer.Addr())
 
 	// If this set of headers is valid and ends in a block with at least
 	// as much work as our tip, download as much as possible.
@@ -877,62 +873,65 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	canDirectFetch := gChain.CanDirectFetch()
 	if canDirectFetch {
-		vToFetch := list.New()
-		pindexWalk := &pindexLast
-		// Calculate all the blocks we'd need to switch to pindexLast,
-		// up to a limit.
-		for pindexWalk != nil && !gChain.Contains(pindexWalk) &&
-			vToFetch.Len() <= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
-			if !pindexWalk.HasData() {
-				if _, exists := sm.requestedBlocks[*pindexWalk.GetBlockHash()]; !exists {
-					// We don't have this block, and it's not yet in flight.
-					vToFetch.PushFront(pindexWalk)
-				}
-			}
-			pindexWalk = pindexWalk.Prev
-		}
-		// If pindexWalk still isn't on our main chain, we're looking at
-		// a very large reorg at a time we think we're close to caught
-		// up to the main chain -- this shouldn't really happen. Bail
-		// out on the direct fetch and rely on parallel download
-		// instead.
-		if !gChain.Contains(pindexWalk) {
-			log.Info("Large reorg, won't direct fetch to %s (%d)",
-				pindexLast.GetBlockHash().String(),
-				pindexLast.Height)
-
+		vToFetch, isLargeReorg := sm.blocksToFetch(pindexLast)
+		if isLargeReorg {
+			log.Info("Large reorg, won't direct fetch to %s (%d)", *pindexLast.GetBlockHash(), pindexLast.Height)
 			sm.fetchHeaderBlocks(peer)
 			return
 		}
-		// Download as much as possible, from earliest to latest.
-		gdmsg := wire.NewMsgGetData()
-		for e := vToFetch.Front(); e != nil; e = e.Next() {
-			if len(state.requestedBlocks) >= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
-				// Can't download any more from this peer
-				break
-			}
 
-			pindex := e.Value.(*blockindex.BlockIndex)
-			hash := *(pindex.GetBlockHash())
-			iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
-			sm.requestedBlocks[hash] = struct{}{}
-			state.requestedBlocks[hash] = struct{}{}
-			gdmsg.AddInvVect(iv)
-			log.Info("Requesting block %s from  peer=%d",
-				hash.String(), peer.ID())
-		}
-		if len(gdmsg.InvList) > 1 {
-			log.Info("Downloading blocks toward %s (%d) via headers direct fetch",
-				pindexLast.GetBlockHash().String(),
-				pindexLast.Height)
-		}
-		if len(gdmsg.InvList) > 0 {
-			peer.QueueMessage(gdmsg, nil)
-		}
-	} else if len(sm.peerStates) <= 2 {
-		// peer number too little, use this peer to fetch
+		sm.fetchBlocks(vToFetch, state, peer)
+		return
+	}
+
+	//also parallel fetch blocks from syncPeer, when do not have many peers
+	if len(sm.peerStates) <= 2 {
 		sm.fetchHeaderBlocks(peer)
 	}
+}
+
+func (sm *SyncManager) fetchBlocks(vToFetch *list.List, state *peerSyncState, peer *peer.Peer) {
+	// Download as much as possible, from earliest to latest.
+	gdmsg := wire.NewMsgGetData()
+	for e := vToFetch.Front(); e != nil; e = e.Next() {
+		if len(state.requestedBlocks) >= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+			break
+		}
+
+		hash := *(e.Value.(*blockindex.BlockIndex).GetBlockHash())
+		iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
+		gdmsg.AddInvVect(iv)
+
+		sm.requestedBlocks[hash] = struct{}{}
+		state.requestedBlocks[hash] = struct{}{}
+		log.Debug("Requesting block %s from peer=%d", hash.String(), peer.ID())
+	}
+
+	if len(gdmsg.InvList) > 0 {
+		log.Debug("Downloading blocks toward %s via headers direct fetch", gdmsg.InvList[0].Hash)
+		peer.QueueMessage(gdmsg, nil)
+	}
+}
+
+func (sm *SyncManager) blocksToFetch(pindexLast blockindex.BlockIndex) (*list.List, bool) {
+	gChain := chain.GetInstance()
+	vToFetch := list.New()
+	pindexWalk := &pindexLast
+	// Calculate all the blocks we'd need to switch to pindexLast, up to a limit.
+	for pindexWalk != nil &&
+		!gChain.Contains(pindexWalk) &&
+		vToFetch.Len() <= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+
+		if !pindexWalk.HasData() {
+			if _, exists := sm.requestedBlocks[*pindexWalk.GetBlockHash()]; !exists {
+				vToFetch.PushFront(pindexWalk)
+			}
+		}
+		pindexWalk = pindexWalk.Prev
+	}
+
+	isLargeReorg := !gChain.Contains(pindexWalk)
+	return vToFetch, isLargeReorg
 }
 
 // haveInventory returns whether or not the inventory represented by the passed
