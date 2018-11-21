@@ -399,12 +399,11 @@ func IsUnlockable(scriptPubKey *script.Script) bool {
 		// spend-out-from-under-you attacks, especially in shared-wallet
 		// situations.
 		for _, pubKey := range pubKeys {
-			if len(pubKey) < 32 {
-				continue
-			}
-			pubKeyHash := util.Hash160(pubKey)
-			if globalWallet.GetKeyPair(pubKeyHash) == nil {
-				return false
+			if len(pubKey) >= 32 {
+				pubKeyHash := util.Hash160(pubKey)
+				if globalWallet.GetKeyPair(pubKeyHash) == nil {
+					return false
+				}
 			}
 		}
 		return true

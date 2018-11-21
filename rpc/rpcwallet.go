@@ -470,15 +470,16 @@ func handleAddMultiSigAddress(s *Server, cmd interface{}, closeChan <-chan struc
 	if err != nil {
 		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, err.Error())
 	}
-	pwallet := wallet.GetInstance()
-	pwallet.AddScript(inner)
 
-	keyHash := util.Hash160(inner.GetData())
-	pwallet.SetAddressBook(keyHash, "", "send")
-	addr, err := cashaddr.NewCashAddressScriptHashFromHash(keyHash, chain.GetInstance().GetParams())
+	innerHash := util.Hash160(inner.GetData())
+	addr, err := cashaddr.NewCashAddressScriptHashFromHash(innerHash, chain.GetInstance().GetParams())
 	if err != nil {
 		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, err.Error())
 	}
+
+	pwallet := wallet.GetInstance()
+	pwallet.AddScript(inner)
+	pwallet.SetAddressBook(innerHash, "", "send")
 	return addr.String(), nil
 
 }

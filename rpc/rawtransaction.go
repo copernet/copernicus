@@ -770,7 +770,9 @@ func getPubKeyHash(scriptPubKey *script.Script) [][]byte {
 
 	} else if pubKeyType == script.ScriptMultiSig {
 		for _, pubKey := range pubKeys[1:] {
-			pubKeyHash = append(pubKeyHash, util.Hash160(pubKey))
+			if len(pubKey) >= 32 {
+				pubKeyHash = append(pubKeyHash, util.Hash160(pubKey))
+			}
 		}
 	}
 	return pubKeyHash
