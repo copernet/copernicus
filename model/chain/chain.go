@@ -550,6 +550,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		bi.Height = pre.Height + 1
 	}
 	if pre != nil {
+		bi.BuildSkip()
 		if pre.TimeMax > bi.TimeMax {
 			bi.TimeMax = pre.TimeMax
 		}
