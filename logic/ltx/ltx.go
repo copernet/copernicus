@@ -1036,16 +1036,10 @@ func CombineSignature(transaction *tx.Tx, prevPubKey *script.Script, scriptSig *
 		return scriptResult, nil
 	}
 	if pubKeyType == script.ScriptHash {
-		if len(scriptSig.ParsedOpCodes) == 0 {
+		if scriptSig.Size() == 0 {
 			return txOldScriptSig, nil
 		}
-		if len(scriptSig.ParsedOpCodes[0].Data) == 0 {
-			return txOldScriptSig, nil
-		}
-		if len(txOldScriptSig.ParsedOpCodes) == 0 {
-			return scriptSig, nil
-		}
-		if len(txOldScriptSig.ParsedOpCodes[0].Data) == 0 {
+		if txOldScriptSig.Size() == 0 {
 			return scriptSig, nil
 		}
 		redeemScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
