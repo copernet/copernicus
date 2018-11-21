@@ -747,7 +747,7 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 			}
 			redeemScripts[*out] = script.NewScriptRaw(redeemScriptData)
 		} else {
-			if scriptPubKey != nil {
+			if scriptPubKey.Size() == 23 {
 				keyHash := scriptPubKey.GetData()[2:22]
 				if redeem := wallet.GetInstance().GetScript(keyHash); redeem != nil {
 					redeemScripts[*out] = redeem
