@@ -834,7 +834,8 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		state.unconnectingHeaders = 0
 	}
 
-	if hasMore := len(headers) == wire.MaxBlockHeadersPerMsg; hasMore {
+	hasMore := len(headers) == wire.MaxBlockHeadersPerMsg
+	if hasMore {
 		blkIndex := gChain.FindBlockIndex(peerTip)
 		peer.PushGetHeadersMsg(*gChain.GetLocator(blkIndex), &zeroHash)
 		log.Info("send more getheaders (%d) to peer %s", blkIndex.Height, peer.Addr())
@@ -868,6 +869,12 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	//also parallel fetch blocks from syncPeer, when do not have many peers
 	if len(sm.peerStates) <= 2 {
 		sm.fetchHeaderBlocks(peer)
+		return
+	}
+	// syncPeer has no more work to download headers, let it start download blocks
+	if !hasMore {
+		sm.fetchHeaderBlocks(peer)
+		return
 	}
 }
 
