@@ -41,7 +41,6 @@ func IsInitialBlockDownload() bool {
 
 func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := chain.GetInstance()
-	tip := gChain.Tip()
 	start := time.Now()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad lblock in
@@ -82,8 +81,10 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		// effectively caching the result of part of the verification.
 		if bi := gChain.FindBlockIndex(chain.HashAssumeValid); bi != nil {
 			minimumChainWork := pow.MiniChainWork()
-			if bi.GetAncestor(pindex.Height) == pindex && tip.GetAncestor(pindex.Height) == pindex &&
-				tip.ChainWork.Cmp(&minimumChainWork) > 0 {
+			pindexBestHeader := gChain.GetIndexBestHeader()
+			if bi.GetAncestor(pindex.Height) == pindex &&
+				pindexBestHeader.GetAncestor(pindex.Height) == pindex &&
+				pindexBestHeader.ChainWork.Cmp(&minimumChainWork) >= 0 {
 				// This block is a member of the assumed verified chain and an
 				// ancestor of the best header. The equivalent time check
 				// discourages hashpower from extorting the network via DOS
@@ -97,7 +98,8 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 				// further back. The test against nMinimumChainWork prevents the
 				// skipping when denied access to any chain at least as good as
 				// the expected chain.
-				fScriptChecks = (pow.GetBlockProofEquivalentTime(tip, pindex, tip, params)) <= 60*60*24*7*2
+				fScriptChecks = (pow.GetBlockProofEquivalentTime(
+					pindexBestHeader, pindex, pindexBestHeader, params)) <= 60*60*24*7*2
 			}
 		}
 	}
