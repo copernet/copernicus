@@ -121,11 +121,12 @@ var MainNetParams = BitcoinParams{
 		},
 
 		// The best chain should have at least this much work.
-		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000a0f3064330647e2f6c4828"),
+		MinimumChainWork: *util.HashFromString("000000000000000000000000000000000000000000d3376bca8890d888f00235"),
 
 		// By default assume that the signatures in ancestors of this block are
 		// valid.
-		DefaultAssumeValid: *util.HashFromString("000000000000000000e45ad2fbcc5ff3e85f0868dd8f00ad4e92dffabe28f8d2"),
+		// mainnet height 556767
+		DefaultAssumeValid: *util.HashFromString("0000000000000000004626ff6e3b936941d341c5932ece4357eeccac44e6d56c"),
 
 		UAHFHeight: 478558,
 
@@ -245,8 +246,9 @@ var TestNetParams = BitcoinParams{
 				Timeout:   1493596800,
 			},
 		},
-		MinimumChainWork:   *util.HashFromString("00000000000000000000000000000000000000000000002a650f6ff7649485da"),
-		DefaultAssumeValid: *util.HashFromString("0000000000327972b8470c11755adf8f4319796bafae01f5a6650490b98a17db"),
+		MinimumChainWork:   *util.HashFromString("00000000000000000000000000000000000000000000003e28ffb60a2b69f5f0"),
+		// testnet height 1266000
+		DefaultAssumeValid: *util.HashFromString("0000000000000102b62e613c19671226fc8e098d4f89cf8b8da3f73aca8590e1"),
 		UAHFHeight:         1155875,
 		DAAHeight:          1188697,
 		// May 15, 2018 hard fork
