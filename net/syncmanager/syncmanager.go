@@ -827,23 +827,6 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 
 	peerTip := sm.updatePeerState(headers, peer, gChain)
 
-	// check duplicate fetch from different peer
-	bilast := gChain.FindBlockIndex(headers[len(headers)-1].GetHash())
-	if bilast != nil {
-		// very near to top header
-		if len(headers) < 2 {
-			sm.fetchHeaderBlocks(peer)
-			return
-		}
-		// detect a next batch of header
-		pindexStart := gChain.GetIndexBestHeader()
-		if pindexStart.Prev != nil {
-			pindexStart = pindexStart.Prev
-		}
-		peer.PushGetHeadersMsg(*gChain.GetLocator(pindexStart), &zeroHash)
-		return
-	}
-
 	var pindexLast blockindex.BlockIndex
 	if err := sm.ProcessBlockHeadCallBack(headers, &pindexLast); err != nil {
 		beginHash := headers[0].GetHash()
@@ -857,7 +840,7 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	}
 
 	hasMore := len(headers) == wire.MaxBlockHeadersPerMsg
-	if hasMore {
+	if hasMore && peer == sm.syncPeer {
 		blkIndex := gChain.FindBlockIndex(peerTip)
 		peer.PushGetHeadersMsg(*gChain.GetLocator(blkIndex), &zeroHash)
 		log.Info("send more getheaders (%d) to peer %s", blkIndex.Height, peer.Addr())
@@ -888,6 +871,10 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		return
 	}
 
+	if len(sm.peerStates) <= 2 {
+		sm.fetchHeaderBlocks(peer)
+		return
+	}
 	// syncPeer has no more work to download headers, start download blocks
 	if !hasMore && lchain.IsInitialBlockDownload() {
 		for peer := range sm.peerStates {
