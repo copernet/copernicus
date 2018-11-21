@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/copernet/copernicus/model/versionbits"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"strings"
 	"time"
 
@@ -162,17 +163,17 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		return errSig
 	}
 
-	var coinsMap, blockUndo, err = ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
+	coinsMap, blockUndo, vpos, err := ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps, uint32(lockTimeFlags), pindex)
 	if err != nil {
 		return err
 	}
 
+	undoPos := pindex.GetUndoPos()
 	// Write undo information to disk
-	UndoPos := pindex.GetUndoPos()
 	if !fJustCheck {
-		if UndoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
-			if UndoPos.IsNull() {
+		if undoPos.IsNull() || !pindex.IsValid(blockindex.BlockValidScripts) {
+			if undoPos.IsNull() {
 				pos := block.NewDiskBlockPos(pindex.File, 0)
 				//blockUndo size + hash size + 4bytes len
 				if err := disk.FindUndoPos(pindex.File, pos, blockUndo.SerializeSize()+36); err != nil {
@@ -189,7 +190,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 			pindex.RaiseValidity(blockindex.BlockValidScripts)
 			gPersist.AddDirtyBlockIndex(pindex)
 		}
-
+		blkTree := blkdb.GetInstance()
+		if err := blkTree.WriteTxIndex(vpos); err != nil {
+			log.Error("Failed to write transaction index")
+			return err
+		}
 		// add this block to the view's block chain
 		*view = *coinsMap
 	}

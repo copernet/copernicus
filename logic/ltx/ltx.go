@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"strconv"
 	"strings"
@@ -327,90 +328,117 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32,
 	needCheckScript bool, blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64,
-	lockTimeFlags uint32, pindex *blockindex.BlockIndex) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+	lockTimeFlags uint32, pindex *blockindex.BlockIndex) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo,
+	vPos map[util.Hash]block.DiskTxPos, err error) {
+
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
-	utxo := utxo.GetUtxoCacheInstance()
-	sigOpsCount := uint64(0)
+	utxoCache := utxo.GetUtxoCacheInstance()
+	sigOpsCount := 0
 	var fees amount.Amount
 	bundo = undo.NewBlockUndo(0)
-	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+	blkPos := pindex.GetBlockPos()
 
-	isMagneticAnomalyEnabled := model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast())
-	//updateCoins
-	for i, transaction := range txs {
-		// check BIP30: do not allow overwriting unspent old transactions
-		if bip30Enable {
+	// check BIP30: do not allow overwriting unspent old transactions
+	if bip30Enable {
+		for _, transaction := range txs {
 			outs := transaction.GetOuts()
 			for i := range outs {
-				if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
+				if utxoCache.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 					log.Debug("tried to overwrite transaction")
-					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
+					return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
 				}
 			}
 		}
+	}
 
-		var valueIn amount.Amount
-		if !transaction.IsCoinBase() {
-			ins := transaction.GetIns()
-			for _, in := range ins {
-				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
-				if coin == nil || coin.IsSpent() {
-					log.Debug("can't find coin or has been spent out before apply transaction: %+v", in.PreviousOutPoint)
-					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
-				}
-				valueIn += coin.GetAmount()
-			}
+	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+	isMagneticAnomalyEnabled := model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast())
 
-			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
-			if !CheckSequenceLocks(coinHeight, coinTime) {
-				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
+	for _, ptx := range txs {
+		pos := block.DiskTxPos{
+			BlockIn:    &blkPos,
+			TxOffsetIn: util.VarIntSerializeSize(uint64(len(txs))),
+		}
+		vPos = make(map[util.Hash]block.DiskTxPos, 0)
+		pos = vPos[ptx.GetHash()]
+		pos.TxOffsetIn += ptx.EncodeSize()
+
+		if ptx.IsCoinBase() {
+			// We've already checked for sigops count before P2SH in CheckBlock.
+			sigOpsCount += ptx.GetSigOpCountWithoutP2SH()
+		}
+
+		if isMagneticAnomalyEnabled || ptx.IsCoinBase() {
+			UpdateTxCoins(ptx, coinsMap, nil, blockHeight)
+		}
+	}
+
+	for i, transaction := range txs {
+		if transaction.IsCoinBase() {
+			continue
+		}
+		ins := transaction.GetIns()
+		for _, in := range ins {
+			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
+			if coin == nil || coin.IsSpent() {
+				log.Debug("can't find coin or has been spent out before apply transaction: %+v", in.PreviousOutPoint)
+				return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
 			}
 		}
-		//check sigops
+
+		// Check that transaction is BIP68 final BIP68 lock checks (as
+		// opposed to nLockTime checks) must be in ConnectBlock because they
+		// require the UTXO set.
+		coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
+		if !CheckSequenceLocks(coinHeight, coinTime) {
+			log.Debug("block contains a non-bip68-final transaction")
+			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
+		}
+
+		// GetTransactionSigOpCount counts 2 types of sigops:
+		// * legacy (always)
+		// * p2sh (when P2SH enabled in flags and excludes coinbase)
 		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
-			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
+			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 		}
-		sigOpsCount += uint64(sigsCount)
-		if sigOpsCount > blockMaxSigOpsCount {
+		sigOpsCount += sigsCount
+		if sigOpsCount > int(blockMaxSigOpsCount) {
 			log.Debug("block has too many sigops at %d transaction", i)
-			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
-		}
-		if transaction.IsCoinBase() {
-			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
-			continue
+			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
 
-		fees += valueIn - transaction.GetValueOut()
+		fee := coinMap.GetValueIn(transaction) - transaction.GetValueOut()
+		fees += fee
+
 		if needCheckScript {
 			//check inputs
 			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
 			if err != nil {
 				if strings.Contains(err.Error(), "script-verify") {
-					return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
+					return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
 				}
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		}
 
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
+		txUndoList = append(txUndoList, txundo)
 		if !isMagneticAnomalyEnabled {
 			UpdateTxCoins(transaction, coinsMap, txundo, blockHeight)
 		}
-		txUndoList = append(txUndoList, txundo)
 	}
 	bundo.SetTxUndo(txUndoList)
 	//check blockReward
 	if txs[0].GetValueOut() > fees+blockSubSidy {
 		log.Debug("coinbase pays too much: coinbase out:%d fee:%d expected:%d txcnt(%d)",
 			txs[0].GetValueOut(), fees, fees+blockSubSidy, len(txs))
-		return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
+		return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
 	}
-	return coinsMap, bundo, nil
+	return coinsMap, bundo, vPos, nil
 }
 
 // check coinbase with height
@@ -926,7 +954,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 	var signErrors []*SignError
 
 	mergedTx := transactions[0]
-	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
 
 	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)

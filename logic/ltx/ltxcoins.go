@@ -17,7 +17,9 @@ func UpdateTxCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo, heigh
 			undoCoins[idx] = coin.DeepCopy()
 			coinMap.SpendCoin(txin.PreviousOutPoint)
 		}
-		txundo.SetUndoCoins(undoCoins)
+		if txundo != nil {
+			txundo.SetUndoCoins(undoCoins)
+		}
 	}
 
 	txAddCoins(tx, coinMap, height)
