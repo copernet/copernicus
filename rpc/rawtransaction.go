@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/model/wallet"
 	"gopkg.in/fatih/set.v0"
 	"math"
 	"strconv"
@@ -745,6 +746,13 @@ func getCoins(txIns []*txin.TxIn, prevTxs *[]btcjson.RawTxInput) (*utxo.CoinsMap
 				return nil, nil, rpcDecodeHexError(*prevTx.RedeemScript)
 			}
 			redeemScripts[*out] = script.NewScriptRaw(redeemScriptData)
+		} else {
+			if scriptPubKey != nil {
+				keyHash := scriptPubKey.GetData()[2:22]
+				if redeem := wallet.GetInstance().GetScript(keyHash); redeem != nil {
+					redeemScripts[*out] = redeem
+				}
+			}
 		}
 	}
 	return coinsMap, redeemScripts, nil
