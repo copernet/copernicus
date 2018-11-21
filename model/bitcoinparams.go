@@ -246,7 +246,7 @@ var TestNetParams = BitcoinParams{
 				Timeout:   1493596800,
 			},
 		},
-		MinimumChainWork:   *util.HashFromString("00000000000000000000000000000000000000000000003e28ffb60a2b69f5f0"),
+		MinimumChainWork: *util.HashFromString("00000000000000000000000000000000000000000000003e28ffb60a2b69f5f0"),
 		// testnet height 1266000
 		DefaultAssumeValid: *util.HashFromString("0000000000000102b62e613c19671226fc8e098d4f89cf8b8da3f73aca8590e1"),
 		UAHFHeight:         1155875,
