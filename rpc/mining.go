@@ -318,7 +318,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 	target := pow.CompactToBig(bt.Block.Header.Bits)
 	maxSigOps, _ := consensus.GetMaxBlockSigOpsCount(consensus.DefaultMaxBlockSize)
 	return &btcjson.GetBlockTemplateResult{
-		//Capabilities:  []string{"proposal"},
+		Capabilities:  []string{"proposal"},
 		Version:       bt.Block.Header.Version,
 		Rules:         rules,
 		VbAvailable:   vbAvailable,
