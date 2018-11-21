@@ -804,8 +804,13 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	log.Info("Received %d block headers from peer %s", len(headers), peer.Addr())
 
 	state, exists := sm.peerStates[peer]
-	if !exists || len(headers) == 0 {
-		log.Warn("> headers from unknown peer %s, or zero len:%d", peer.Addr(), len(headers))
+	if !exists {
+		log.Warn("recv headers from unknown peer %s", peer.Addr(), len(headers))
+		return
+	}
+	if len(headers) == 0 {
+		sm.fetchHeaderBlocks(peer)
+		log.Info("recv 0 headers from peer %s", peer.Addr())
 		return
 	}
 
@@ -821,6 +826,23 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 	}
 
 	peerTip := sm.updatePeerState(headers, peer, gChain)
+
+	// check duplicate fetch from different peer
+	bilast := gChain.FindBlockIndex(headers[len(headers)-1].GetHash())
+	if bilast != nil {
+		// very near to top header
+		if len(headers) < 2 {
+			sm.fetchHeaderBlocks(peer)
+			return
+		}
+		// detect a next batch of header
+		pindexStart := gChain.GetIndexBestHeader()
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		peer.PushGetHeadersMsg(*gChain.GetLocator(pindexStart), &zeroHash)
+		return
+	}
 
 	var pindexLast blockindex.BlockIndex
 	if err := sm.ProcessBlockHeadCallBack(headers, &pindexLast); err != nil {
