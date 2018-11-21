@@ -435,7 +435,6 @@ func GuessVerificationProgress(data *model.ChainTxData, index *blockindex.BlockI
 }
 
 func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap) undo.DisconnectResult {
-
 	hashA := pindex.GetBlockHash()
 	hashB, _ := utxo.GetUtxoCacheInstance().GetBestBlock()
 	if !bytes.Equal(hashA[:], hashB[:]) {
