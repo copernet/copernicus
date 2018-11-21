@@ -374,7 +374,7 @@ func handleGetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		Version:          verNum,
 		SubVersion:       "/Copernicus:" + conf.Cfg.Version + "/",
 		ProtocolVersion:  wire.ProtocolVersion,
-		LocalServices:    "0", // TODO:
+		LocalServices:    fmt.Sprintf("%016x", msgHandle.services),
 		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,
 		TimeOffset:       util.GetTimeOffset(),
 		Connections:      msgHandle.ConnectedCount(),
