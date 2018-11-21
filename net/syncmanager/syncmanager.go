@@ -888,15 +888,11 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		return
 	}
 
-	//also parallel fetch blocks from syncPeer, when do not have many peers
-	if len(sm.peerStates) <= 2 {
-		sm.fetchHeaderBlocks(peer)
-		return
-	}
-	// syncPeer has no more work to download headers, let it start download blocks
-	if !hasMore {
-		sm.fetchHeaderBlocks(peer)
-		return
+	// syncPeer has no more work to download headers, start download blocks
+	if !hasMore && lchain.IsInitialBlockDownload() {
+		for peer := range sm.peerStates {
+			sm.fetchHeaderBlocks(peer)
+		}
 	}
 }
 
