@@ -72,6 +72,10 @@ func LoadBlockIndexDB() bool {
 			branch = append(branch, index)
 		}
 
+		if index.Prev != nil {
+			index.BuildSkip()
+		}
+
 		if index.IsValid(blockindex.BlockValidTree) {
 			idxBestHeader := gChain.GetIndexBestHeader()
 			if idxBestHeader == nil ||
