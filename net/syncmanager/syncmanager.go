@@ -649,10 +649,42 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 	log.Debug("process mined block(%v) done via submitblock", &hash)
 }
 
+func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
+	pindexBestKnownHash := peer.LastAnnouncedBlock()
+	if pindexBestKnownHash == nil {
+		log.Info("peer(%d) best known block nil, forgive temporary", peer.ID())
+		return nil
+	}
+
+	pindexBestKnownBlock := chain.GetInstance().FindBlockIndex(*pindexBestKnownHash)
+	if pindexBestKnownBlock == nil {
+		log.Debug("blkIndex find fail of peer(%d). blkhash:%s", peer.ID(), *pindexBestKnownHash)
+		return nil
+	}
+
+	return pindexBestKnownBlock
+}
+
+func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownBlock *blockindex.BlockIndex) {
+	gChain := chain.GetInstance()
+	isIBDSyncing := sm.syncPeer != nil && lchain.IsInitialBlockDownload()
+
+	if isIBDSyncing {
+		return gChain.Tip(), lastAccouncedBlock(sm.syncPeer)
+	}
+
+	if pindexBestKnownBlock = lastAccouncedBlock(peer); pindexBestKnownBlock != nil {
+		return gChain.FindFork(pindexBestKnownBlock), pindexBestKnownBlock
+	}
+
+	return nil, nil
+}
+
 // fetchHeaderBlocks creates and sends a request to the peer for the next
 // list of blocks to be downloaded based on the current known headers.
 // Download blocks via several peers parallel
 func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
+	gChain := chain.GetInstance()
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
 		log.Error("fetchHeaderBlocks called with peer state nil")
@@ -660,29 +692,15 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 	}
 
 	if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
-		log.Info("peer(%d) has full requestedBlocks, don't GetData any more", peer.ID())
+		log.Debug("peer(%d) has full requestedBlocks, don't GetData any more", peer.ID())
 		return
 	}
 
-	headersPeer := peer
-	if sm.syncPeer != nil && lchain.IsInitialBlockDownload() {
-		headersPeer = sm.syncPeer
-	}
-
-	pindexBestKnownHash := headersPeer.LastAnnouncedBlock()
-	if pindexBestKnownHash == nil {
-		log.Info("IBD false, peer(%d) best known block nil, forgive temporary", headersPeer.ID())
+	pindexWalk, pindexBestKnownBlock := sm.syncPoints(peer)
+	if pindexWalk == nil || pindexBestKnownBlock == nil {
+		log.Debug("fetchHeaderBlocks can not find block hashes to fetch from peer(%d) ", peer.ID())
 		return
 	}
-
-	gChain := chain.GetInstance()
-	pindexBestKnownBlock := gChain.FindBlockIndex(*pindexBestKnownHash)
-	if pindexBestKnownBlock == nil {
-		log.Error("blkIndex find fail of peer(%d). blkhash:%s", headersPeer.ID(), *pindexBestKnownHash)
-		return
-	}
-
-	pindexWalk := gChain.FindFork(pindexBestKnownBlock)
 
 	minWorkSum := pow.MiniChainWork()
 	if pindexBestKnownBlock.ChainWork.Cmp(&(gChain.Tip().ChainWork)) == -1 ||
