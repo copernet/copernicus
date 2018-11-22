@@ -298,6 +298,9 @@ func InitConfig(args []string) *Configuration {
 	if opts.BanScore > 0 {
 		config.P2PNet.BanThreshold = opts.BanScore
 	}
+	if len(opts.AssumeValid) > 0 {
+		config.Chain.AssumeValid = opts.AssumeValid
+	}
 
 	return config
 }

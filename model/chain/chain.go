@@ -3,6 +3,7 @@ package chain
 import (
 	"github.com/copernet/copernicus/model"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,7 +59,8 @@ func InitGlobalChain() {
 		globalChain = NewChain()
 	}
 	if len(conf.Cfg.Chain.AssumeValid) > 0 {
-		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
+		assumeValid := strings.TrimPrefix(conf.Cfg.Chain.AssumeValid, "0x")
+		hash, err := util.GetHashFromStr(assumeValid)
 		if err != nil {
 			panic("AssumeValid config err")
 		}

@@ -31,6 +31,7 @@ type Opts struct {
 	MaxMempool                     int64  `long:"maxmempool" default:"300000000"`
 	SpendZeroConfChange            uint8  `long:"spendzeroconfchange" default:"1"`
 	MinimumChainWork               string `long:"minimumchainwork"`
+	AssumeValid                    string `long:"assumevalid"`
 }
 
 func InitArgs(args []string) (*Opts, error) {
