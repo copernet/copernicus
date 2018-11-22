@@ -22,13 +22,16 @@ import (
 )
 
 func UpdateUTXOSet(block *block.Block, bkundo *undo.BlockUndo, coinMap *utxo.CoinsMap, height int) {
-	ltx.UpdateTxCoins(block.Txs[0], coinMap, nil, int32(height))
-
-	for i := 1; i < len(block.Txs); i++ {
+	for i := 0; i < len(block.Txs); i++ {
 		txn := block.Txs[i]
+		if txn == block.Txs[0] {
+			ltx.TxAddCoins(txn, coinMap, int32(height))
+			continue
+		}
 
 		txundo := undo.NewTxUndo()
-		ltx.UpdateTxCoins(txn, coinMap, txundo, int32(height))
+		ltx.UpdateTxCoins(txn, coinMap, txundo)
+		ltx.TxAddCoins(txn, coinMap, int32(height))
 
 		bkundo.SetTxUndo(append(bkundo.GetTxundo(), txundo))
 	}
