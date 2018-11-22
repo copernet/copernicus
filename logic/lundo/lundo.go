@@ -29,7 +29,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsM
 			return undo.DisconnectFailed
 		}
 
-		for j := 0; i < insLen; j++ {
+		for j := 0; j < insLen; j++ {
 			res := undoCoinSpend(ptx, txundo, cm)
 			if res == undo.DisconnectFailed {
 				return undo.DisconnectFailed
