@@ -255,55 +255,6 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	return t
 }
 
-func TestCreateNewBlockByFee(t *testing.T) {
-	tempDir, err := initTestEnv(t, true)
-	assert.Nil(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// clear mempool data
-	mempool.InitMempool()
-	pool := mempool.GetInstance()
-
-	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
-
-	_, err = generateBlocks(pubKey, 101, 1000000)
-	assert.Nil(t, err)
-
-	gChain := chain.GetInstance()
-	bl1Index := gChain.GetIndex(1)
-	assert.NotNil(t, bl1Index)
-
-	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
-	assert.True(t, ok)
-
-	txSet := createTx(t, block1.Txs[0], pubKey)
-
-	for _, entry := range txSet {
-		err := pool.AddTx(entry, entry.ParentTx)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	if pool.Size() != 4 {
-		t.Fatal("add txEntry to mempool error")
-	}
-
-	ts := bitcointime.NewMedianTime()
-	ba := NewBlockAssembler(model.ActiveNetParams, ts)
-	assert.NotNil(t, ba)
-
-	tmpStrategy := getStrategy()
-	*tmpStrategy = sortByFee
-	sc := script.NewEmptyScript()
-	var extraNonce uint
-	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
-
-	if len(ba.bt.Block.Txs) != 5 {
-		t.Fatal("some transactions are inserted to block error")
-	}
-}
-
 func TestCreateNewBlockByFeeRate(t *testing.T) {
 	// clear chain data of last test case
 	gChain := chain.GetInstance()
@@ -352,7 +303,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 	}
 }
 
-func TestCreateNewBlockByCTOR(t *testing.T) {
+func TestCTORAndSortByFee(t *testing.T) {
 	tempDir, err := initTestEnv(t, true)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
@@ -390,6 +341,7 @@ func TestCreateNewBlockByCTOR(t *testing.T) {
 	ba := NewBlockAssembler(model.ActiveNetParams, ts)
 	assert.NotNil(t, ba)
 
+	//test sort by fee
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFee
 	sc := script.NewEmptyScript()
@@ -401,6 +353,7 @@ func TestCreateNewBlockByCTOR(t *testing.T) {
 		t.Fatal("some transactions are inserted to block error")
 	}
 
+	//test CTOR
 	if ba.bt.Block.Txs[1].GetHash().String() > ba.bt.Block.Txs[2].GetHash().String() {
 		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[1].GetHash().String())
 	}
