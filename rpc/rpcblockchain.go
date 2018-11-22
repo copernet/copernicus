@@ -369,6 +369,9 @@ func handleGetChainTips(s *Server, cmd interface{}, closeChan <-chan struct{}) (
 	setTips := set.New() // element type:
 	gchain := chain.GetInstance()
 
+	persist.CsMain.Lock() //to protect chain.indexMap
+	defer persist.CsMain.Unlock()
+
 	setTips = gchain.GetChainTips()
 
 	tips := make([]btcjson.ChainTipsInfo, 0, setTips.Size())
