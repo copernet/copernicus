@@ -95,7 +95,20 @@ func TestIsUAHFEnabled(t *testing.T) {
 }
 
 func TestIsMagneticAnomalyEnabled(t *testing.T) {
+	// test MainNetParams
 	ActiveNetParams = &MainNetParams
+	assert.False(t, IsMagneticAnomalyEnabled(0))
+	assert.True(t, IsMagneticAnomalyEnabled(
+		ActiveNetParams.MagneticAnomalyActivationTime))
+
+	// test TestNetParams
+	ActiveNetParams = &TestNetParams
+	assert.False(t, IsMagneticAnomalyEnabled(0))
+	assert.True(t, IsMagneticAnomalyEnabled(
+		ActiveNetParams.MagneticAnomalyActivationTime))
+
+	// test RegressionNetParams
+	ActiveNetParams = &RegressionNetParams
 	assert.False(t, IsMagneticAnomalyEnabled(0))
 	assert.True(t, IsMagneticAnomalyEnabled(
 		ActiveNetParams.MagneticAnomalyActivationTime))
