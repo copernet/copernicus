@@ -100,6 +100,7 @@ func TestProcessTransaction(t *testing.T) {
 }
 
 func TestProcessTransactionNormal(t *testing.T) {
+	var dataElement = []byte{203, 72, 18, 50, 41, 156, 213, 116, 49, 81, 172, 75, 45, 99, 174, 25, 142, 123, 176, 169}
 
 	// clear chain data of last test case
 	gChain := chain.GetInstance()
@@ -109,11 +110,16 @@ func TestProcessTransactionNormal(t *testing.T) {
 
 	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
 	assert.Nil(t, err)
-	//pubKey, err := getStandardScriptPubKey("mqS85dyRhDfiU1GUiqMpFDpzTRpknqnZEU", nil)
 	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
+	pubKey.PushOpCode(opcodes.OP_DUP)
+	pubKey.PushOpCode(opcodes.OP_HASH160)
+	pubKey.PushSingleData(dataElement)
+	pubKey.PushOpCode(opcodes.OP_EQUALVERIFY)
+	pubKey.PushOpCode(opcodes.OP_CHECKSIG)
 
-	_, err = generateBlocks(pubKey, 101, 1000000)
+	coinBaseScriptPubKey := script.NewEmptyScript()
+	coinBaseScriptPubKey.PushOpCode(opcodes.OP_TRUE)
+	_, err = generateBlocks(coinBaseScriptPubKey, 101, 1000000)
 	assert.Nil(t, err)
 
 	bl1Index := gChain.GetIndex(1)
@@ -130,6 +136,10 @@ func TestProcessTransactionNormal(t *testing.T) {
 	transaction.AddTxIn(txIn)
 
 	txOut := txout.NewTxOut(10, pubKey)
+	transaction.AddTxOut(txOut)
+	transaction.AddTxOut(txOut)
+	transaction.AddTxOut(txOut)
+	transaction.AddTxOut(txOut)
 	transaction.AddTxOut(txOut)
 
 	nodeID := int64(0)
@@ -149,6 +159,11 @@ func TestProcessTransactionNormal(t *testing.T) {
 
 	txOut = txout.NewTxOut(10, pubKey)
 	tscaOrphan.AddTxOut(txOut)
+	tscaOrphan.AddTxOut(txOut)
+	tscaOrphan.AddTxOut(txOut)
+	tscaOrphan.AddTxOut(txOut)
+	tscaOrphan.AddTxOut(txOut)
+
 	acceptedTxs, missTxHash, rejectTxHash, err = ProcessTransaction(tscaOrphan, recentRejects, nodeID)
 	assert.Equal(t, errcode.New(errcode.TxErrNoPreviousOut), err)
 	assert.Equal(t, 1, len(missTxHash))
