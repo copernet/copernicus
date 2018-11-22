@@ -915,9 +915,10 @@ func checkRawSignatureEncoding(vchSig []byte, flags uint32) (bool, error) {
 	}
 
 	if (flags & ScriptVerifyLowS) != 0 {
-		ok, err := crypto.IsLowDERSignature(vchSig)
+		var tmp []byte
+		ok := crypto.CheckLowS(append(tmp, vchSig...))
 		if !ok {
-			return ok, err
+			return ok, errcode.New(errcode.ScriptErrSigHighs)
 		}
 	}
 

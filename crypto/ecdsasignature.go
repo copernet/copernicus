@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"encoding/hex"
-	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
@@ -53,20 +52,7 @@ func ParseDERSignature(signature []byte) (*Signature, error) {
 	return (*Signature)(sig), nil
 }
 
-func IsLowDERSignature(vchSig []byte) (bool, error) {
-	if !IsValidSignatureEncoding(vchSig) {
-		return false, errcode.New(errcode.ScriptErrSigDer)
-	}
-	var vchCopy []byte
-	ret := checkLowS(append(vchCopy, vchSig...))
-	if !ret {
-		return false, errcode.New(errcode.ScriptErrSigHighs)
-	}
-	return true, nil
-
-}
-
-func checkLowS(vchSig []byte) bool {
+func CheckLowS(vchSig []byte) bool {
 	sig, err := ParseDERSignature(vchSig)
 	if err != nil {
 		log.Debug("ParseDERSignature failed, sig:%s", hex.EncodeToString(vchSig))
