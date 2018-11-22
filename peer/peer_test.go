@@ -50,6 +50,7 @@ type conn struct {
 
 func TestMain(m *testing.M) {
 	conf.Cfg = conf.InitConfig([]string{})
+	initEnv()
 	os.Exit(m.Run())
 }
 
@@ -285,7 +286,6 @@ func initServer() (*server.Server, error) {
 
 // TestPeerConnection tests connection between inbound and outbound peers.
 func TestPeerConnection(t *testing.T) {
-	initEnv()
 	verack := make(chan struct{})
 	peer1Cfg := &peer.Config{
 		Listeners: peer.MessageListeners{
@@ -451,7 +451,6 @@ func TestPeerConnection(t *testing.T) {
 
 // TestPeerListeners tests that the peer listeners are called as expected.
 func TestPeerListeners(t *testing.T) {
-	initEnv()
 	verack := make(chan struct{}, 1)
 	ok := make(chan wire.Message, 20)
 	peerCfg := &peer.Config{
@@ -691,7 +690,6 @@ func TestPeerListeners(t *testing.T) {
 
 // TestOutboundPeer tests that the outbound peer works as expected.
 func TestOutboundPeer(t *testing.T) {
-	initEnv()
 	msgChan := make(chan *peer.PeerMessage)
 	server.SetMsgHandle(context.TODO(), msgChan, myserver)
 
@@ -847,7 +845,6 @@ func TestOutboundPeer(t *testing.T) {
 // Tests that the node disconnects from peers with an unsupported protocol
 // version.
 func TestUnsupportedVersionPeer(t *testing.T) {
-	initEnv()
 	msgChan := make(chan *peer.PeerMessage)
 	server.SetMsgHandle(context.TODO(), msgChan, myserver)
 	peerCfg := &peer.Config{

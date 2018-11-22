@@ -61,7 +61,7 @@ const (
 	MAX_UNCONNECTING_HEADERS = 10
 
 	// fetchInterval is the interval to fetchHeaderBlocks for all peer
-	fetchInterval = 500 * time.Millisecond
+	fetchInterval = 1 * time.Second
 
 	// BLOCK_STALLING_TIMEOUT in microsecond during which a peer must stall block
 	// download progress before being disconnected
@@ -631,8 +631,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	if blkHashUpdate != nil && heightUpdate != 0 {
 		peer.UpdateLastBlockHeight(heightUpdate)
 		if sm.current() && peer == sm.syncPeer {
-			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate,
-				peer)
+			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate, peer)
 			log.Debug("request mempool in handleBlockMsg")
 			peer.RequestMemPool()
 		}
