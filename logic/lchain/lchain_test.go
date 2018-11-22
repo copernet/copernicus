@@ -38,6 +38,7 @@ import (
 )
 
 func coinbaseScriptSigWithHeight(extraNonce uint, height int32) *script.Script {
+	coinbaseFlag := "copernicus.............................."
 	scriptSig := script.NewEmptyScript()
 
 	heightNum := script.NewScriptNum(int64(height))
@@ -45,6 +46,8 @@ func coinbaseScriptSigWithHeight(extraNonce uint, height int32) *script.Script {
 
 	extraNonceNum := script.NewScriptNum(int64(extraNonce))
 	scriptSig.PushScriptNum(extraNonceNum)
+
+	scriptSig.PushData([]byte(coinbaseFlag))
 
 	return scriptSig
 }
@@ -214,7 +217,7 @@ func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath st
 
 	crypto.InitSecp256()
 
-	if initScriptVerify {
+	if !initScriptVerify {
 		ltx.ScriptVerifyInit()
 	}
 
@@ -249,15 +252,21 @@ func TestActivateBestChain(t *testing.T) {
 	newScript := script.NewEmptyScript()
 	txIn := txin.NewTxIn(preOut, newScript, math.MaxUint32-1)
 	transaction.AddTxIn(txIn)
-	txOut := txout.NewTxOut(10, pubKey)
-	transaction.AddTxOut(txOut)
+
+	for i := 0; i < 20; i++ {
+		txOut := txout.NewTxOut(1, pubKey)
+		transaction.AddTxOut(txOut)
+	}
 
 	txs = append(txs, transaction)
-	_, err = generateDummyBlocks(pubKey, 1, 1000000, 1, txs)
-	assert.Nil(t, err)
-	_, err = generateDummyBlocks(pubKey, 103, 1000000, 0, nil)
+	_, err = generateDummyBlocks(pubKey, 1, 1000000, 101, txs)
 	assert.Nil(t, err)
 	height := tChain.TipHeight()
+	assert.Equal(t, int32(102), height)
+
+	_, err = generateDummyBlocks(pubKey, 103, 1000000, 0, nil)
+	assert.Nil(t, err)
+	height = tChain.TipHeight()
 	assert.Equal(t, int32(103), height)
 }
 
