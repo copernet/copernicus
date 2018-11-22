@@ -502,21 +502,15 @@ type Peer struct {
 	newPeerCallback func(*Peer)
 
 	// since when we're stalling block download progress (in microseconds), or 0
-	stallingSinceLock sync.RWMutex
-	stallingSince     int64
+	stallingSince int64
 }
 
 func (p *Peer) GetStallingSince() int64 {
-	p.stallingSinceLock.RLock()
-	since := p.stallingSince
-	p.stallingSinceLock.RUnlock()
-	return since
+	return p.stallingSince
 }
 
 func (p *Peer) SetStallingSince(since int64) {
-	p.stallingSinceLock.Lock()
 	p.stallingSince = since
-	p.stallingSinceLock.Unlock()
 }
 
 func (p *Peer) RequestMemPool() {
@@ -1358,10 +1352,8 @@ out:
 		case msg := <-p.stallControl:
 			switch msg.command {
 			case sccSendMessage:
-				// Add a deadline for the expected response
-				// message if needed.
-				p.maybeAddDeadline(pendingResponses,
-					msg.message)
+				// Add a deadline for the expected response message if needed.
+				p.maybeAddDeadline(pendingResponses, msg.message)
 
 			case sccReceiveMessage:
 				// Remove received messages from the expected
@@ -1388,9 +1380,7 @@ out:
 			case sccHandlerStart:
 				// Warn on unbalanced callback signalling.
 				if handlerActive {
-					log.Warn("Received handler start " +
-						"control command while a " +
-						"handler is already active")
+					log.Warn("Received handler start control command while a handler is already active")
 					continue
 				}
 
@@ -1400,9 +1390,7 @@ out:
 			case sccHandlerDone:
 				// Warn on unbalanced callback signalling.
 				if !handlerActive {
-					log.Warn("Received handler done " +
-						"control command when a " +
-						"handler is not already active")
+					log.Warn("Received handler done control command when a handler is not already active")
 					continue
 				}
 
