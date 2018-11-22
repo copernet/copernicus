@@ -382,6 +382,21 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
+	if !lchain.IsInitialBlockDownload() {
+		gChain := chain.GetInstance()
+		pindexBestHeader := gChain.GetIndexBestHeader()
+		if pindexBestHeader == nil {
+			pindexBestHeader = gChain.Tip()
+			gChain.SetIndexBestHeader(pindexBestHeader)
+		}
+		pindexStart := pindexBestHeader
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := gChain.GetLocator(pindexStart)
+		peer.PushGetHeadersMsg(*locator, &zeroHash)
+	}
+
 	// Start syncing by choosing the best candidate if needed.
 	if isSyncCandidate && sm.syncPeer == nil {
 		sm.startSync()
