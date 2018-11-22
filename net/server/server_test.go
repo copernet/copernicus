@@ -798,9 +798,11 @@ func TestOnGetData(t *testing.T) {
 	in := peer.NewInboundPeer(&config)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
+	done1 := make(chan struct{}, 1)
+	done2 := make(chan struct{}, 1)
 	go func() {
-		sp.OnGetData(in, m1)
-		sp.OnGetData(in, m2)
+		sp.OnGetData(in, m1, done1)
+		sp.OnGetData(in, m2, done2)
 	}()
 }
 
@@ -1145,7 +1147,7 @@ func TestInitListeners(t *testing.T) {
 
 	// port is occupied
 	listeners2, _, err := initListeners(s.addrManager, listenAddrs, services)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Equal(t, 0, len(listeners2))
 
 	for _, listener := range listeners {

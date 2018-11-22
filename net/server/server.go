@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/persist"
 	"math"
 	"net"
 	"os"
@@ -67,10 +68,13 @@ const (
 
 	// max blocks to announce during inventory relay
 	// increase the num in case cut out inv
-	maxBlocksToAnnounce = 20
+	maxBlocksToAnnounce = 8
 
 	BanReasonNodeMisbehaving int = 1
 	BanReasonManuallyAdded   int = 2
+
+	// REVERT_TO_INV_DIFF when peer is neer to tip, set its revertToInv to false back
+	REVERT_TO_INV_DIFF = 7
 )
 
 var (
@@ -151,6 +155,17 @@ type broadcastInventoryDel *wire.InvVect
 type relayMsg struct {
 	invVect *wire.InvVect
 	data    interface{}
+}
+
+type relayBlocksMsg struct {
+	invVects []*wire.InvVect
+	headers  []*block.BlockHeader
+}
+
+type PingMsg struct {
+	sp   *peer.Peer
+	ping *wire.MsgPing
+	done chan<- struct{}
 }
 
 type minedBlockMsg struct {
@@ -260,6 +275,8 @@ type Server struct {
 	clearBanned          chan *clearBannedMsg
 	query                chan interface{}
 	relayInv             chan relayMsg
+	relayBlocks          chan relayBlocksMsg
+	pings                chan *PingMsg
 	minedBlock           chan minedBlockMsg
 	broadcast            chan broadcastMsg
 	peerHeightsUpdate    chan updatePeerHeightsMsg
@@ -540,11 +557,10 @@ func (sp *serverPeer) TransferMsgToBusinessPro(msg *peer.PeerMessage, done chan<
 	switch dataType := msg.Msg.(type) {
 	case *wire.MsgMemPool:
 		sp.server.syncManager.QueueMessgePool(dataType, msg.Peerp, done)
-	case *wire.MsgGetData:
-		sp.server.syncManager.QueueGetData(dataType, msg.Peerp, done)
 	case *wire.MsgGetBlocks:
 		sp.server.syncManager.QueueGetBlocks(dataType, msg.Peerp, done)
-
+	case *wire.MsgPing:
+		sp.server.syncManager.QueuePing(dataType, msg.Peerp, done)
 	}
 }
 
@@ -618,10 +634,13 @@ func (sp *serverPeer) OnHeaders(_ *peer.Peer, msg *wire.MsgHeaders) {
 
 // handleGetData is invoked when a peer receives a getdata bitcoin message and
 // is used to deliver block and transaction information.
-func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
+func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData, done chan<- struct{}) {
+	go sp.doGetData(msg, done)
+}
+
+func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 	numAdded := 0
 	notFound := wire.NewMsgNotFound()
-
 	length := len(msg.InvList)
 	// A decaying ban score increase is applied to prevent exhausting resources
 	// with unusually large inventory queries.
@@ -688,6 +707,7 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *wire.MsgGetData) {
 	if numAdded > 0 {
 		<-doneChan
 	}
+	done <- struct{}{}
 }
 
 func hashpointer2hashinstance(phash []*util.Hash) []util.Hash {
@@ -735,6 +755,26 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 	}
 }
 
+// checkResetRevert is logic of Check to reset RevertToInv
+func (sp *serverPeer) checkResetRevert(msg *wire.MsgGetHeaders) {
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+	gChain := chain.GetInstance()
+	for _, hash := range msg.BlockLocatorHashes {
+		bi := gChain.FindBlockIndex(*hash)
+		if bi != nil {
+			if gChain.Contains(bi) {
+				sp.CheckRevertToInv(hash, false)
+				break
+			}
+			if bi.GetAncestor(gChain.Height()) == gChain.Tip() {
+				sp.SetRevertToInv(false)
+				break
+			}
+		}
+	}
+}
+
 // OnGetHeaders is invoked when a peer receives a getheaders bitcoin
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
@@ -743,6 +783,8 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
 		return
 	}
+
+	sp.checkResetRevert(msg)
 
 	// Find the most recent known block in the best chain based on the block
 	// locator and fetch all of the headers after it until either
@@ -817,6 +859,10 @@ func (sp *serverPeer) OnFeeFilter(_ *peer.Peer, msg *wire.MsgFeeFilter) {
 	}
 
 	atomic.StoreInt64(&sp.feeFilter, msg.MinFee)
+}
+
+func (sp *serverPeer) OnReject(p *peer.Peer, msg *wire.MsgReject) {
+	log.Error("reject: %+v, from: %+v", msg, p)
 }
 
 // OnFilterAdd is invoked when a peer receives a filteradd bitcoin
@@ -1089,26 +1135,7 @@ func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
-	activeChain := chain.GetInstance()
-	var blkIndex *blockindex.BlockIndex
-	send := false
-	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
-
-		// TODO: we may add it back when we support header-first mode
-		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
-		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
-		// }
-
-		// Check the block whether in main chain.
-		if activeChain.Contains(blkIndex) {
-			//nOneMonth := 30 * 24 * 60 * 60
-			//todo !!! add time process, exclude too older block.
-			if blkIndex.IsValid(blockindex.BlockValidScripts) {
-				send = true
-			}
-		}
-	}
-
+	blkIndex, send := findBlockIndex(hash)
 	if send && blkIndex.HasData() {
 		// Fetch the raw block bytes from the database.
 		bl, err := lblock.GetBlockByIndex(blkIndex, s.chainParams)
@@ -1156,6 +1183,30 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	}
 
 	return nil
+}
+
+func findBlockIndex(hash *util.Hash) (blkIndex *blockindex.BlockIndex, send bool) {
+	persist.CsMain.Lock() //to protect chain.indexMap
+	defer persist.CsMain.Unlock()
+
+	activeChain := chain.GetInstance()
+	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
+
+		// TODO: we may add it back when we support header-first mode
+		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
+		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
+		// }
+
+		// Check the block whether in main chain.
+		if activeChain.Contains(blkIndex) {
+			//nOneMonth := 30 * 24 * 60 * 60
+			//todo !!! add time process, exclude too older block.
+			if blkIndex.IsValid(blockindex.BlockValidScripts) {
+				send = true
+			}
+		}
+	}
+	return
 }
 
 // pushMerkleBlockMsg sends a merkleblock message for the provided block hash to
@@ -1557,32 +1608,53 @@ func (s *Server) loadBannedInfo() error {
 	return nil
 }
 
+func (s *Server) handleRelayBlocks(state *peerState, msg relayBlocksMsg) {
+	state.forAllPeers(func(sp *serverPeer) {
+		if !sp.Connected() || !sp.VerAckReceived() {
+			return
+		}
+
+		headers := make([]*block.BlockHeader, 0)
+
+		for index, invVect := range msg.invVects {
+			if !sp.IsKnownInventory(invVect) {
+				sp.AddKnownInventory(invVect)
+				headers = append(headers, msg.headers[index])
+			}
+		}
+
+		sp.QueueBatchHeaders(headers)
+	})
+}
+
+func (s *Server) handlePing(msg *PingMsg) {
+	msg.sp.HandlePingMsg(msg.ping.Nonce, msg.done)
+}
+
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
 // known to have it.  It is invoked from the peerHandler goroutine.
 func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 	state.forAllPeers(func(sp *serverPeer) {
-		if !sp.Connected() {
+		if !sp.Connected() || !sp.VerAckReceived() {
 			return
 		}
 
 		// If the inventory is a block and the peer prefers headers,
-		// generate and send a headers message instead of an inventory
-		// message.
-		if msg.invVect.Type == wire.InvTypeBlock && sp.WantsHeaders() {
-			blockHeader, ok := msg.data.(*block.BlockHeader)
-			if !ok {
-				log.Warn("Underlying data for headers" +
-					" is not a block header")
+		// use QueueHeaders logic to handle it
+		if msg.invVect.Type == wire.InvTypeBlock {
+			if sp.WantsHeaders() {
+				if !sp.IsKnownInventory(msg.invVect) {
+					sp.AddKnownInventory(msg.invVect)
+					blockHeader, ok := msg.data.(*block.BlockHeader)
+					if !ok {
+						log.Warn("Underlying data for headers" +
+							" is not a block header")
+						return
+					}
+					sp.QueueHeaders(blockHeader)
+				}
 				return
 			}
-			msgHeaders := wire.NewMsgHeaders()
-			if err := msgHeaders.AddBlockHeader(blockHeader); err != nil {
-				log.Error("Failed to add block"+
-					" header: %v", err)
-				return
-			}
-			sp.QueueMessage(msgHeaders, nil)
-			return
 		}
 
 		if msg.invVect.Type == wire.InvTypeTx {
@@ -1843,6 +1915,7 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 			OnGetBlocks:  sp.OnGetBlocks,
 			OnGetHeaders: sp.OnGetHeaders,
 			OnFeeFilter:  sp.OnFeeFilter,
+			OnReject:     sp.OnReject,
 			//OnFilterAdd:   sp.OnFilterAdd,
 			//OnFilterClear: sp.OnFilterClear,
 			//OnFilterLoad:  sp.OnFilterLoad,
@@ -1982,7 +2055,6 @@ func (s *Server) cycle() {
 
 	if !conf.Cfg.P2PNet.DisableDNSSeed {
 		// Add peers discovered through DNS to the address manager.
-		//connmgr.SeedFromDNS(chainparams.ActiveNetParams, defaultRequiredServices,
 		connmgr.SeedFromDNS(s.chainParams, defaultRequiredServices,
 			net.LookupIP, func(addrs []*wire.NetAddress) {
 				// Bitcoind uses a lookup of the dns seeder here. This
@@ -2029,6 +2101,12 @@ out:
 		case invMsg := <-s.relayInv:
 			s.handleRelayInvMsg(state, invMsg)
 
+		case blocksMsg := <-s.relayBlocks:
+			s.handleRelayBlocks(state, blocksMsg)
+
+		case pingMsg := <-s.pings:
+			s.handlePing(pingMsg)
+
 		case minedBlockMsg := <-s.minedBlock:
 			s.handleMinedBlock(minedBlockMsg)
 			// Message to broadcast to all connected peers except those
@@ -2068,6 +2146,8 @@ cleanup:
 		case <-s.donePeers:
 		case <-s.peerHeightsUpdate:
 		case <-s.relayInv:
+		case <-s.relayBlocks:
+		case <-s.pings:
 		case <-s.broadcast:
 		case <-s.query:
 		default:
@@ -2131,6 +2211,10 @@ func (s *Server) RelayInventory(invVect *wire.InvVect, data interface{}) {
 	s.relayInv <- relayMsg{invVect: invVect, data: data}
 }
 
+func (s *Server) RelayBlocks(invVects []*wire.InvVect, headers []*block.BlockHeader) {
+	s.relayBlocks <- relayBlocksMsg{invVects: invVects, headers: headers}
+}
+
 func (s *Server) HandleMinedBlock(pblock *block.Block, done chan error) {
 	s.minedBlock <- minedBlockMsg{pblock, done}
 }
@@ -2146,17 +2230,22 @@ func (s *Server) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent) {
 		blockIndexes = append(blockIndexes, tmp)
 
 		if len(blockIndexes) >= maxBlocksToAnnounce {
-			break
+			// large reorg happens, only relay highest one
+			//blockIndexes = blockIndexes[0:1]
+			//break
 		}
 	}
 
+	ivs := make([]*wire.InvVect, 0)
+	data := make([]*block.BlockHeader, 0)
 	for i := len(blockIndexes) - 1; i >= 0; i-- {
 		index := blockIndexes[i]
 		iv := wire.NewInvVect(wire.InvTypeBlock, index.GetBlockHash())
 
-		//TODO: relay inventory through headers message
-		s.RelayInventory(iv, index.GetBlockHeader())
+		ivs = append(ivs, iv)
+		data = append(data, index.GetBlockHeader())
 	}
+	s.RelayBlocks(ivs, data)
 }
 
 // BroadcastMessage sends msg to all peers currently connected to the server
@@ -2511,6 +2600,8 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 		clearBanned:          make(chan *clearBannedMsg),
 		query:                make(chan interface{}),
 		relayInv:             make(chan relayMsg, cfg.P2PNet.MaxPeers),
+		relayBlocks:          make(chan relayBlocksMsg, cfg.P2PNet.MaxPeers),
+		pings:                make(chan *PingMsg, cfg.P2PNet.MaxPeers),
 		minedBlock:           make(chan minedBlockMsg),
 		broadcast:            make(chan broadcastMsg, cfg.P2PNet.MaxPeers),
 		quit:                 make(chan struct{}),
@@ -2577,10 +2668,9 @@ func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, int
 	s.connManager = cmgr
 
 	s.syncManager, err = syncmanager.New(&syncmanager.Config{
-		PeerNotifier:       s,
-		ChainParams:        s.chainParams,
-		DisableCheckpoints: cfg.Protocol.DisableCheckpoints,
-		MaxPeers:           cfg.P2PNet.MaxPeers,
+		PeerNotifier: s,
+		ChainParams:  s.chainParams,
+		MaxPeers:     cfg.P2PNet.MaxPeers,
 	})
 	if err != nil {
 		fmt.Println("new syncManager error ...")
@@ -2608,8 +2698,8 @@ func initListeners(amgr *addrmgr.AddrManager, listenAddrs []string, services wir
 	for _, addr := range netAddrs {
 		listener, err := net.Listen(addr.Network(), addr.String())
 		if err != nil {
-			log.Warn("Can't listen on %s: %v", addr, err)
-			continue
+			log.Error("Can't listen on %s: %v", addr, err)
+			return nil, nil, err
 		}
 		listeners = append(listeners, listener)
 	}

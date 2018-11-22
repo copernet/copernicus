@@ -23,19 +23,22 @@ import (
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
-	active      []*blockindex.BlockIndex
-	branch      []*blockindex.BlockIndex
-	waitForTx   map[util.Hash]*blockindex.BlockIndex
-	orphan      map[util.Hash][]*blockindex.BlockIndex // preHash : *index
-	indexMap    map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
-	newestBlock *blockindex.BlockIndex
-	receiveID   uint64
-	params      *model.BitcoinParams
+	active    []*blockindex.BlockIndex
+	branch    []*blockindex.BlockIndex
+	waitForTx map[util.Hash]*blockindex.BlockIndex
+	orphan    map[util.Hash][]*blockindex.BlockIndex // preHash : *index
+	indexMap  map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
+	receiveID uint64
+	params    *model.BitcoinParams
 
 	// The notifications field stores a slice of callbacks to be executed on
 	// certain blockchain events.
 	notificationsLock sync.RWMutex
 	notifications     []NotificationCallback
+
+	// the current most chainwork index of blockheader
+	pindexBestHeader     *blockindex.BlockIndex
+	pindexBestHeaderLock sync.RWMutex
 
 	*SyncingState
 }
@@ -547,6 +550,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		bi.Height = pre.Height + 1
 	}
 	if pre != nil {
+		bi.BuildSkip()
 		if pre.TimeMax > bi.TimeMax {
 			bi.TimeMax = pre.TimeMax
 		}
@@ -554,9 +558,20 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	}
 	log.Debug("AddToIndexMap:%s index height:%d", hash, bi.Height)
 	bi.RaiseValidity(blockindex.BlockValidTree)
+
+	c.tryUpdateIndexBestHeader(bi)
+
 	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)
 	return nil
+}
+
+func (c *Chain) tryUpdateIndexBestHeader(bi *blockindex.BlockIndex) {
+	idxBestHeader := c.GetIndexBestHeader()
+	if idxBestHeader == nil ||
+		idxBestHeader.ChainWork.Cmp(&bi.ChainWork) == -1 {
+		c.SetIndexBestHeader(bi)
+	}
 }
 
 func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
@@ -598,4 +613,21 @@ func (c *Chain) BuildForwardTree() (forward map[*blockindex.BlockIndex][]*blocki
 		}
 	}
 	return
+}
+
+func (c *Chain) CanDirectFetch() bool {
+	return int64(c.Tip().GetBlockTime()) > util.GetAdjustedTime()-int64(c.params.TargetTimePerBlock)*20
+}
+
+func (c *Chain) GetIndexBestHeader() *blockindex.BlockIndex {
+	c.pindexBestHeaderLock.RLock()
+	idx := c.pindexBestHeader
+	c.pindexBestHeaderLock.RUnlock()
+	return idx
+}
+
+func (c *Chain) SetIndexBestHeader(idx *blockindex.BlockIndex) {
+	c.pindexBestHeaderLock.Lock()
+	c.pindexBestHeader = idx
+	c.pindexBestHeaderLock.Unlock()
 }

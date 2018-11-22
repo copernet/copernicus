@@ -68,7 +68,7 @@ func handleGetBlockChainInfo(s *Server, cmd interface{}, closeChan <-chan struct
 	chainInfo := &btcjson.GetBlockChainInfoResult{
 		Chain:                params.Name,
 		Blocks:               gChain.Height(),
-		Headers:              gChain.Height(), // TODO: NOT support header-first yet
+		Headers:              gChain.GetIndexBestHeader().Height,
 		BestBlockHash:        tip.GetBlockHash().String(),
 		Difficulty:           getDifficulty(tip),
 		MedianTime:           tip.GetMedianTimePast(),

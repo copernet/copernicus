@@ -136,6 +136,18 @@ func (msg *MsgHeaders) MaxPayloadLength(pver uint32) uint64 {
 		MaxBlockHeadersPerMsg)
 }
 
+func (msg *MsgHeaders) IsContinuousHeaders() bool {
+	var prev util.Hash
+	for _, blockHeader := range msg.Headers {
+		if !prev.IsNull() && !prev.IsEqual(&blockHeader.HashPrevBlock) {
+			return false
+		}
+
+		prev = blockHeader.GetHash()
+	}
+	return true
+}
+
 // NewMsgHeaders returns a new bitcoin headers message that conforms to the
 // Message interface.  See MsgHeaders for details.
 func NewMsgHeaders() *MsgHeaders {

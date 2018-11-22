@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/net/socks"
+	"github.com/copernet/copernicus/persist"
 	"io"
 	"math/rand"
 	"net"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
@@ -68,7 +70,17 @@ const (
 
 	// trickleTimeout is the duration of the ticker which trickles down the
 	// inventory to a peer.
-	trickleTimeout = 10 * time.Second
+	trickleTimeout = 100 * time.Millisecond
+
+	// ticker duration to relay headers to a peer
+	headerTrickleTimeout = time.Second
+
+	// max blocks to announce during inventory relay
+	// increase the num in case cut out inv
+	maxBlocksToAnnounce = 8
+
+	// REVERT_TO_INV_DIFF when peer is neer to tip, set its revertToInv to false back
+	REVERT_TO_INV_DIFF = 8
 )
 
 var (
@@ -128,9 +140,6 @@ type MessageListeners struct {
 	// OnAddr is invoked when a peer receives an addr bitcoin message.
 	OnAddr func(p *Peer, msg *wire.MsgAddr)
 
-	// OnPing is invoked when a peer receives a ping bitcoin message.
-	OnPing func(p *Peer, msg *wire.MsgPing)
-
 	// OnPong is invoked when a peer receives a pong bitcoin message.
 	OnPong func(p *Peer, msg *wire.MsgPong)
 
@@ -157,7 +166,7 @@ type MessageListeners struct {
 	OnNotFound func(p *Peer, msg *wire.MsgNotFound)
 
 	// OnGetData is invoked when a peer receives a getdata bitcoin message.
-	OnGetData func(p *Peer, msg *wire.MsgGetData)
+	OnGetData func(p *Peer, msg *wire.MsgGetData, done chan<- struct{})
 
 	// OnGetBlocks is invoked when a peer receives a getblocks bitcoin
 	// message.
@@ -450,6 +459,7 @@ type Peer struct {
 	advertisedProtoVer   uint32 // protocol version advertised by remote
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
+	revertToInv          bool   //whether to revert to inv mode for a prefer-header-node
 	verAckReceived       bool
 
 	wireEncoding wire.MessageEncoding
@@ -479,11 +489,12 @@ type Peer struct {
 	sendQueue         chan outMsg
 	sendDoneQueue     chan struct{}
 	outputInvChan     chan *wire.InvVect
+	outputHeaderChan  chan *block.BlockHeader
+	outputHeadersChan chan []*block.BlockHeader
 	inQuit            chan struct{}
 	queueQuit         chan struct{}
 	outQuit           chan struct{}
 	quit              chan struct{}
-	requestingDataCnt uint64
 
 	reqMempoolOnce sync.Once
 
@@ -537,6 +548,10 @@ func (p *Peer) UpdateLastAnnouncedBlock(blkHash *util.Hash) {
 // This function is safe for concurrent access.
 func (p *Peer) AddKnownInventory(invVect *wire.InvVect) {
 	p.knownInventory.Add(invVect)
+}
+
+func (p *Peer) IsKnownInventory(invVect *wire.InvVect) bool {
+	return p.knownInventory.Exists(invVect)
 }
 
 // StatsSnapshot returns a snapshot of the current peer flags and statistics.
@@ -809,6 +824,21 @@ func (p *Peer) StartingHeight() int32 {
 	return startingHeight
 }
 
+// RevertToInv returns whether to revert to inv mode for a prefer-header-node
+func (p *Peer) RevertToInv() bool {
+	p.flagsMtx.Lock()
+	revertToInv := p.revertToInv
+	p.flagsMtx.Unlock()
+
+	return revertToInv
+}
+
+func (p *Peer) SetRevertToInv(revertToInv bool) {
+	p.flagsMtx.Lock()
+	p.revertToInv = revertToInv
+	p.flagsMtx.Unlock()
+}
+
 // WantsHeaders returns if the peer wants header messages instead of
 // inventory vectors for blocks.
 //
@@ -951,24 +981,7 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getblocks requests.
-	var beginHash *util.Hash
 	blkHashs := locator.GetBlockHashList()
-	if len(blkHashs) > 0 {
-		beginHash = &blkHashs[0]
-	}
-
-	// Filter duplicate getblocks requests.
-	// p.prevGetBlocksMtx.Lock()
-	// isDuplicate := p.prevGetBlocksStop != nil && p.prevGetBlocksBegin != nil &&
-	// 	beginHash != nil && stopHash.IsEqual(p.prevGetBlocksStop) &&
-	// 	beginHash.IsEqual(p.prevGetBlocksBegin)
-	// p.prevGetBlocksMtx.Unlock()
-
-	// if isDuplicate {
-	// 	log.Trace("Filtering duplicate [getblocks] with begin "+
-	// 		"hash %v, stop hash %v", beginHash, stopHash)
-	// 	return nil
-	// }
 
 	// Construct the getblocks request and queue it to be sent.
 	msg := wire.NewMsgGetBlocks(stopHash)
@@ -980,12 +993,6 @@ func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash)
 	}
 	p.QueueMessage(msg, nil)
 	log.Trace("send Blocks Msg, Request locator to stop hash for these blocks hash ...")
-	// Update the previous getblocks request information for filtering
-	// duplicates.
-	p.prevGetBlocksMtx.Lock()
-	p.prevGetBlocksBegin = beginHash
-	p.prevGetBlocksStop = stopHash
-	p.prevGetBlocksMtx.Unlock()
 	return nil
 }
 
@@ -996,24 +1003,7 @@ func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash)
 func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
 	// Extract the begin hash from the block locator, if one was specified,
 	// to use for filtering duplicate getheaders requests.
-	var beginHash *util.Hash
 	blkHashs := locator.GetBlockHashList()
-	if len(blkHashs) > 0 {
-		beginHash = &blkHashs[0]
-	}
-
-	// Filter duplicate getheaders requests.
-	p.prevGetHdrsMtx.Lock()
-	isDuplicate := p.prevGetHdrsStop != nil && p.prevGetHdrsBegin != nil &&
-		beginHash != nil && stopHash.IsEqual(p.prevGetHdrsStop) &&
-		beginHash.IsEqual(p.prevGetHdrsBegin)
-	p.prevGetHdrsMtx.Unlock()
-
-	if isDuplicate {
-		log.Trace("Filtering duplicate [getheaders] with begin hash %v",
-			beginHash)
-		return nil
-	}
 
 	// Construct the getheaders request and queue it to be sent.
 	msg := wire.NewMsgGetHeaders()
@@ -1027,12 +1017,6 @@ func (p *Peer) PushGetHeadersMsg(locator chain.BlockLocator, stopHash *util.Hash
 	}
 	p.QueueMessage(msg, nil)
 
-	// Update the previous getheaders request information for filtering
-	// duplicates.
-	p.prevGetHdrsMtx.Lock()
-	p.prevGetHdrsBegin = beginHash
-	p.prevGetHdrsStop = stopHash
-	p.prevGetHdrsMtx.Unlock()
 	return nil
 }
 
@@ -1164,11 +1148,11 @@ func (p *Peer) HandleVersionMsg(msg *wire.MsgVersion) {
 // recent clients (protocol version > BIP0031Version), it replies with a pong
 // message.  For older clients, it does nothing and anything other than failure
 // is considered a successful ping.
-func (p *Peer) HandlePingMsg(msg *wire.MsgPing) {
+func (p *Peer) HandlePingMsg(nonce uint64, done chan<- struct{}) {
 	// Only reply with pong if the message is from a new enough client.
 	if p.ProtocolVersion() > wire.BIP0031Version {
 		// Include nonce from ping so pong can be identified.
-		p.QueueMessage(wire.NewMsgPong(msg.Nonce), nil)
+		p.QueueMessage(wire.NewMsgPong(nonce), done)
 	}
 }
 
@@ -1318,18 +1302,10 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msg wire.
 
 	case wire.CmdGetData:
 		// Expects a block, merkleblock, tx, or notfound message.
-		p.requestingDataCnt += uint64(len(msg.(*wire.MsgGetData).InvList))
 		pendingResponses[wire.CmdBlock] = deadline
 		pendingResponses[wire.CmdMerkleBlock] = deadline
 		pendingResponses[wire.CmdTx] = deadline
 		pendingResponses[wire.CmdNotFound] = deadline
-
-	case wire.CmdGetHeaders:
-		// Expects a headers message.  Use a longer deadline since it
-		// can take a while for the remote peer to load all of the
-		// headers.
-		deadline = time.Now().Add(stallResponseTimeout * 3)
-		pendingResponses[wire.CmdHeaders] = deadline
 	}
 }
 
@@ -1380,20 +1356,8 @@ out:
 				case wire.CmdMerkleBlock:
 					fallthrough
 				case wire.CmdTx:
-					p.requestingDataCnt--
-					if p.requestingDataCnt > 0 {
-						deadline := time.Now().Add(stallResponseTimeout)
-						pendingResponses[wire.CmdBlock] = deadline
-						pendingResponses[wire.CmdMerkleBlock] = deadline
-						pendingResponses[wire.CmdTx] = deadline
-						pendingResponses[wire.CmdNotFound] = deadline
-						continue
-					}
 					fallthrough
 				case wire.CmdNotFound:
-					if msgCmd == wire.CmdNotFound {
-						p.requestingDataCnt = 0
-					}
 					delete(pendingResponses, wire.CmdBlock)
 					delete(pendingResponses, wire.CmdMerkleBlock)
 					delete(pendingResponses, wire.CmdTx)
@@ -1452,9 +1416,7 @@ out:
 					continue
 				}
 
-				log.Debug("Peer %s appears to be stalled or "+
-					"misbehaving, %s timeout (%d outstanding response for block/merkleblock/tx) -- "+
-					"disconnecting", p, command, p.requestingDataCnt)
+				log.Debug("Peer %s appears to be stalled or misbehaving, %s timeout", p, command)
 				p.Disconnect()
 				break
 			}
@@ -1574,6 +1536,7 @@ out:
 func (p *Peer) queueHandler() {
 	pendingMsgs := list.New()
 	invSendQueue := list.New()
+
 	trickleTicker := time.NewTicker(trickleTimeout)
 	defer trickleTicker.Stop()
 
@@ -1587,11 +1550,11 @@ func (p *Peer) queueHandler() {
 	waiting := false
 
 	// To avoid duplication below.
-	queuePacket := func(msg outMsg, list *list.List, waiting bool) bool {
+	queuePacket := func(msg outMsg, waiting bool) bool {
 		if !waiting {
 			p.sendQueue <- msg
 		} else {
-			list.PushBack(msg)
+			pendingMsgs.PushBack(msg)
 		}
 		// we are always waiting now.
 		return true
@@ -1600,7 +1563,7 @@ out:
 	for {
 		select {
 		case msg := <-p.outputQueue:
-			waiting = queuePacket(msg, pendingMsgs, waiting)
+			waiting = queuePacket(msg, waiting)
 
 			// This channel is notified when a message has been sent across
 			// the network socket.
@@ -1619,7 +1582,6 @@ out:
 			p.sendQueue <- val.(outMsg)
 
 		case iv := <-p.outputInvChan:
-			// No handshake?  They'll find out soon enough.
 			if p.VersionKnown() {
 				invSendQueue.PushBack(iv)
 			}
@@ -1636,6 +1598,8 @@ out:
 			// Create and send as many inv messages as needed to
 			// drain the inventory send queue.
 			invMsg := wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
+
+			var invlastblock *wire.InvVect
 			for e := invSendQueue.Front(); e != nil; e = invSendQueue.Front() {
 				iv := invSendQueue.Remove(e).(*wire.InvVect)
 
@@ -1645,11 +1609,15 @@ out:
 					continue
 				}
 
+				if iv.Type == wire.InvTypeBlock {
+					invlastblock = iv
+					p.AddKnownInventory(iv)
+					continue
+				}
+
 				invMsg.AddInvVect(iv)
 				if len(invMsg.InvList) >= maxInvTrickleSize {
-					waiting = queuePacket(
-						outMsg{msg: invMsg},
-						pendingMsgs, waiting)
+					waiting = queuePacket(outMsg{msg: invMsg}, waiting)
 					invMsg = wire.NewMsgInvSizeHint(uint(invSendQueue.Len()))
 				}
 
@@ -1657,11 +1625,13 @@ out:
 				// the known inventory for the peer.
 				p.AddKnownInventory(iv)
 			}
-			if len(invMsg.InvList) > 0 {
-				waiting = queuePacket(outMsg{msg: invMsg},
-					pendingMsgs, waiting)
-			}
 
+			if invlastblock != nil {
+				invMsg.AddInvVect(invlastblock)
+			}
+			if len(invMsg.InvList) != 0 {
+				waiting = queuePacket(outMsg{msg: invMsg}, waiting)
+			}
 		case <-p.quit:
 			break out
 		}
@@ -1686,12 +1656,70 @@ cleanup:
 		case <-p.outputInvChan:
 			// Just drain channel
 			// sendDoneQueue is buffered so doesn't need draining.
+		case <-p.outputHeaderChan:
+		case <-p.outputHeadersChan:
 		default:
 			break cleanup
 		}
 	}
 	close(p.queueQuit)
 	log.Trace("Peer queue handler done for %s", p)
+}
+
+func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
+	headerSendQueue := list.New()
+
+	for _, header := range headers {
+		headerSendQueue.PushBack(header)
+	}
+
+	if p.WantsHeaders() {
+		if headerSendQueue.Len() <= maxBlocksToAnnounce {
+			if !p.RevertToInv() {
+				msgHeaders := wire.NewMsgHeaders()
+				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
+					header := headerSendQueue.Remove(e).(*block.BlockHeader)
+					if err := msgHeaders.AddBlockHeader(header); err != nil {
+						log.Error("Failed to add block"+
+							" header: %v", err)
+						//continue
+					}
+				}
+				if len(msgHeaders.Headers) > 0 {
+					p.outputQueue <- outMsg{msg: msgHeaders}
+				}
+			}
+		} else {
+			p.SetRevertToInv(true)
+		}
+	}
+	invMsg := wire.NewMsgInvSizeHint(1)
+	// RevertToInv occurred, should send only last header via INV
+	// and just drop other headers, to wait peer request themselves
+	if e := headerSendQueue.Back(); e != nil {
+		header := headerSendQueue.Remove(e).(*block.BlockHeader)
+		iv := &wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()}
+
+		invMsg.AddInvVect(iv)
+		p.outputQueue <- outMsg{msg: invMsg}
+
+		headerSendQueue.Init()
+	}
+}
+
+func (p *Peer) CheckRevertToInv(hash *util.Hash, needLock bool) {
+	if p.RevertToInv() {
+		if needLock {
+			persist.CsMain.Lock()
+			defer persist.CsMain.Unlock()
+		}
+		gChain := chain.GetInstance()
+		tipheight := gChain.TipHeight()
+		locatorheight := gChain.GetSpendHeight(hash)
+		if tipheight < locatorheight+REVERT_TO_INV_DIFF {
+			p.SetRevertToInv(false)
+		}
+	}
 }
 
 // shouldLogWriteError returns whether or not the passed error, which is
@@ -1839,6 +1867,28 @@ func (p *Peer) QueueMessageWithEncoding(msg wire.Message, doneChan chan<- struct
 		return
 	}
 	p.outputQueue <- outMsg{msg: msg, encoding: encoding, doneChan: doneChan}
+}
+
+func (p *Peer) QueueHeaders(header *block.BlockHeader) {
+	if !p.Connected() {
+		return
+	}
+
+	headers := make([]*block.BlockHeader, 0, 1)
+	headers = append(headers, header)
+	if p.VersionKnown() {
+		p.AddHeadersToSendQ(headers)
+	}
+}
+
+func (p *Peer) QueueBatchHeaders(headers []*block.BlockHeader) {
+	if !p.Connected() {
+		return
+	}
+
+	if p.VersionKnown() {
+		p.AddHeadersToSendQ(headers)
+	}
 }
 
 // QueueInventory adds the passed inventory to the inventory send queue which
@@ -2058,21 +2108,23 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 	}
 
 	p := Peer{
-		inbound:         inbound,
-		wireEncoding:    wire.BaseEncoding,
-		knownInventory:  newMruInventoryMap(maxKnownInventory),
-		stallControl:    make(chan stallControlMsg, 1), // nonblocking sync
-		outputQueue:     make(chan outMsg, outputBufferSize),
-		sendQueue:       make(chan outMsg, 1),   // nonblocking sync
-		sendDoneQueue:   make(chan struct{}, 1), // nonblocking sync
-		outputInvChan:   make(chan *wire.InvVect, outputBufferSize),
-		inQuit:          make(chan struct{}),
-		queueQuit:       make(chan struct{}),
-		outQuit:         make(chan struct{}),
-		quit:            make(chan struct{}),
-		Cfg:             cfg, // Copy so caller can't mutate.
-		services:        cfg.Services,
-		protocolVersion: cfg.ProtocolVersion,
+		inbound:           inbound,
+		wireEncoding:      wire.BaseEncoding,
+		knownInventory:    newMruInventoryMap(maxKnownInventory),
+		stallControl:      make(chan stallControlMsg, 1), // nonblocking sync
+		outputQueue:       make(chan outMsg, outputBufferSize),
+		sendQueue:         make(chan outMsg, 1),   // nonblocking sync
+		sendDoneQueue:     make(chan struct{}, 1), // nonblocking sync
+		outputInvChan:     make(chan *wire.InvVect, outputBufferSize),
+		outputHeaderChan:  make(chan *block.BlockHeader, outputBufferSize),
+		outputHeadersChan: make(chan []*block.BlockHeader, outputBufferSize),
+		inQuit:            make(chan struct{}),
+		queueQuit:         make(chan struct{}),
+		outQuit:           make(chan struct{}),
+		quit:              make(chan struct{}),
+		Cfg:               cfg, // Copy so caller can't mutate.
+		services:          cfg.Services,
+		protocolVersion:   cfg.ProtocolVersion,
 	}
 	return &p
 }
