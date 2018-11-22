@@ -257,15 +257,6 @@ func (blockTreeDB *BlockTreeDB) LoadBlockIndexGuts(blkIdxMap map[util.Hash]*bloc
 			return false
 		}
 
-		if bi.TxCount == 0 {
-			err := blockTreeDB.dbw.Erase(k, true)
-			if err != nil {
-				log.Error("LoadBlockIndexGuts: BlockIndex erase err:%v", err)
-				return false
-			}
-			cursor.Next()
-			continue
-		}
 		newIndex := insertBlockIndex(*bi.GetBlockHash(), blkIdxMap)
 		if newIndex == nil {
 			cursor.Next()
