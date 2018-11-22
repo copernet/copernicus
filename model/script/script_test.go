@@ -609,12 +609,11 @@ func TestScript_IsStandardScriptPubKey_MultiSig(t *testing.T) {
 	assert.Equal(t, 2, sigCountRequire)
 	assert.NoError(t, err)
 
-	//FIXME:please hongmin help me
-	//notAccurateSigCount := testScript.GetSigOpCount(false)
-	//assert.EqualValues(t, 20, notAccurateSigCount)
+	notAccurateSigCount := testScript.GetSigOpCount(0, false)
+	assert.EqualValues(t, 20, notAccurateSigCount)
 
-	//accurateSigCount := testScript.GetSigOpCount(true)
-	//assert.EqualValues(t, 3, accurateSigCount)
+	accurateSigCount := testScript.GetSigOpCount(0, true)
+	assert.EqualValues(t, 3, accurateSigCount)
 }
 
 func TestScript_IsStandardScriptPubKey_MultiSig_PubKeyLengthError(t *testing.T) {

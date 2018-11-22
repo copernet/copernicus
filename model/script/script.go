@@ -673,14 +673,17 @@ func (s *Script) GetSigOpCount(flags uint32, accurate bool) int {
 
 		switch opcode {
 		case opcodes.OP_CHECKSIG:
+			fallthrough
 		case opcodes.OP_CHECKSIGVERIFY:
 			n++
 		case opcodes.OP_CHECKDATASIG:
+			fallthrough
 		case opcodes.OP_CHECKDATASIGVERIFY:
 			if flags&ScriptEnableCheckDataSig != 0 {
 				n++
 			}
 		case opcodes.OP_CHECKMULTISIG:
+			fallthrough
 		case opcodes.OP_CHECKMULTISIGVERIFY:
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
 				n += DecodeOPN(lastOpcode)
