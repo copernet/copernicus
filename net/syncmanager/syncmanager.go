@@ -712,9 +712,14 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 	}
 
 	minWorkSum := pow.MiniChainWork()
-	if pindexBestKnownBlock.ChainWork.Cmp(&(gChain.Tip().ChainWork)) == -1 ||
-		pindexBestKnownBlock.ChainWork.Cmp(&minWorkSum) == -1 {
-		log.Info("peer(%d) ChainWork less than us, hash nothing interesting", peer.ID())
+	if pindexBestKnownBlock.ChainWork.Cmp(&minWorkSum) == -1 {
+		log.Info("peer(%d) ChainWork less than minChainWork, wait header download", peer.ID())
+		return
+	}
+
+	tipWork := gChain.Tip().ChainWork
+	if pindexBestKnownBlock.ChainWork.Cmp(&tipWork) == -1 {
+		log.Info("peer(%d) ChainWork less than tipWork, has nothing interesting", peer.ID())
 		return
 	}
 
