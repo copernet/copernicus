@@ -80,7 +80,7 @@ func TestBlockUndo__single_tx_case(t *testing.T) {
 	assert.True(t, HasSpendableCoin(coinbaseTx.GetHash()))
 	assert.True(t, HasSpendableCoin(txn1.GetHash()))
 
-	ret := ApplyBlockUndo(undos, block, coinsMap)
+	ret := ApplyBlockUndo(undos, block, coinsMap, 100)
 	blockHash := block.GetHash()
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &blockHash)
 	utxo.GetUtxoCacheInstance().Flush()
@@ -99,7 +99,7 @@ func TestBlockUndo__should_fail__when_txundo_count_not_equal_to__txns_count_in_b
 
 	block.Txs = []*tx.Tx{makeCoinbaseTx(), makeNormalTx()}
 
-	ret := ApplyBlockUndo(undo.NewBlockUndo(0), block, coinsMap)
+	ret := ApplyBlockUndo(undo.NewBlockUndo(0), block, coinsMap, 100)
 
 	assert.Equal(t, undo.DisconnectFailed, ret)
 }
@@ -116,7 +116,7 @@ func TestBlockUndo__should_fail__when_coins_count_in_txundo___not_equal_to__txns
 	txundo.SetUndoCoins(make([]*utxo.Coin, 100))
 	blockUndo.AddTxUndo(txundo)
 
-	ret := ApplyBlockUndo(blockUndo, block, coinsMap)
+	ret := ApplyBlockUndo(blockUndo, block, coinsMap, 100)
 
 	assert.Equal(t, undo.DisconnectFailed, ret)
 }
@@ -144,7 +144,7 @@ func TestBlockUndo__2_normal_tx_and_1_unspendable_opreturn_tx(t *testing.T) {
 	assert.False(t, HasSpendableCoin(txn2.GetHash()))
 	assert.True(t, HasSpendableCoin(txn3.GetHash()))
 
-	ret := ApplyBlockUndo(undos, block, coinsMap)
+	ret := ApplyBlockUndo(undos, block, coinsMap, 100)
 	blockHash := block.GetHash()
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, &blockHash)
 	utxo.GetUtxoCacheInstance().Flush()

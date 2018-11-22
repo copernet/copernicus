@@ -187,7 +187,7 @@ const (
 	// but in the future other flags may be added, such as a soft-fork to enforce
 	// strict DER encoding.
 
-	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
+	// MandatoryScriptVerifyFlags failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
 	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc | ScriptEnableSigHashForkID |
 		ScriptVerifyLowS | ScriptVerifyNullFail
@@ -205,7 +205,7 @@ const (
 	//StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags.
 	StandardNotMandatoryVerifyFlags uint = StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
 
-	//Used as the flags parameters to check for sigops as if OP_CHECKDATASIG is
+	//StandardCheckDataSigVerifyFlags used as the flags parameters to check for sigops as if OP_CHECKDATASIG is
 	//enabled. Can be removed after OP_CHECKDATASIG is activated as the flag is
 	//made standard.
 	StandardCheckDataSigVerifyFlags = StandardScriptVerifyFlags | ScriptEnableCheckDataSig
@@ -675,13 +675,11 @@ func (s *Script) GetSigOpCount(flags uint32, accurate bool) int {
 		case opcodes.OP_CHECKSIG:
 		case opcodes.OP_CHECKSIGVERIFY:
 			n++
-			break
 		case opcodes.OP_CHECKDATASIG:
 		case opcodes.OP_CHECKDATASIGVERIFY:
 			if flags&ScriptEnableCheckDataSig != 0 {
 				n++
 			}
-			break
 		case opcodes.OP_CHECKMULTISIG:
 		case opcodes.OP_CHECKMULTISIGVERIFY:
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
