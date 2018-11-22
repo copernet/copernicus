@@ -278,13 +278,13 @@ func (tx *Tx) IsCoinBase() bool {
 	return tx.ins[0].PreviousOutPoint.IsNull()
 }
 
-func (tx *Tx) GetSigOpCountWithoutP2SH() int {
+func (tx *Tx) GetSigOpCountWithoutP2SH(flags uint32) int {
 	n := 0
 	for _, in := range tx.ins {
-		n += in.GetScriptSig().GetSigOpCount(false)
+		n += in.GetScriptSig().GetSigOpCount(flags, false)
 	}
 	for _, out := range tx.outs {
-		n += out.GetScriptPubKey().GetSigOpCount(false)
+		n += out.GetScriptPubKey().GetSigOpCount(flags, false)
 	}
 	return n
 }
@@ -369,7 +369,7 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	}
 
 	// check sigopcount
-	sigOpCount := tx.GetSigOpCountWithoutP2SH()
+	sigOpCount := tx.GetSigOpCountWithoutP2SH(script.ScriptEnableCheckDataSig)
 	if sigOpCount > MaxTxSigOpsCounts {
 		log.Debug("bad tx: %s bad-txn-sigops :%d", tx.hash, sigOpCount)
 		return errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")

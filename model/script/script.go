@@ -186,15 +186,15 @@ const (
 	// them to be valid. (but old blocks may not comply with) Currently just P2SH,
 	// but in the future other flags may be added, such as a soft-fork to enforce
 	// strict DER encoding.
-	//
+
 	// Failing one of these tests may trigger a DoS ban - see CheckInputs() for
 	// details.
-	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc | ScriptEnableSigHashForkID
+	MandatoryScriptVerifyFlags uint = ScriptVerifyP2SH | ScriptVerifyStrictEnc | ScriptEnableSigHashForkID |
+		ScriptVerifyLowS | ScriptVerifyNullFail
 
-	/*StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
-	 * with. However scripts violating these flags may still be present in valid
-	 * blocks and we must accept those blocks.
-	 */
+	//StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
+	// with. However scripts violating these flags may still be present in valid
+	// blocks and we must accept those blocks.
 	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
 		ScriptVerifyMinmalData | ScriptVerifyNullDummy |
 		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
@@ -202,8 +202,13 @@ const (
 		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
 		ScriptVerifyDiscourageUpgradableWitnessProgram
 
-	/*StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags. */
+	//StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags.
 	StandardNotMandatoryVerifyFlags uint = StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
+
+	//Used as the flags parameters to check for sigops as if OP_CHECKDATASIG is
+	//enabled. Can be removed after OP_CHECKDATASIG is activated as the flag is
+	//made standard.
+	StandardCheckDataSigVerifyFlags = StandardScriptVerifyFlags | ScriptEnableCheckDataSig
 )
 
 type Script struct {
@@ -660,14 +665,25 @@ func (s *Script) IsPushOnly() bool {
 
 }
 
-func (s *Script) GetSigOpCount(accurate bool) int {
+func (s *Script) GetSigOpCount(flags uint32, accurate bool) int {
 	n := 0
 	var lastOpcode byte
 	for _, e := range s.ParsedOpCodes {
 		opcode := e.OpValue
-		if opcode == opcodes.OP_CHECKSIG || opcode == opcodes.OP_CHECKSIGVERIFY {
+
+		switch opcode {
+		case opcodes.OP_CHECKSIG:
+		case opcodes.OP_CHECKSIGVERIFY:
 			n++
-		} else if opcode == opcodes.OP_CHECKMULTISIG || opcode == opcodes.OP_CHECKMULTISIGVERIFY {
+			break
+		case opcodes.OP_CHECKDATASIG:
+		case opcodes.OP_CHECKDATASIGVERIFY:
+			if flags&ScriptEnableCheckDataSig != 0 {
+				n++
+			}
+			break
+		case opcodes.OP_CHECKMULTISIG:
+		case opcodes.OP_CHECKMULTISIGVERIFY:
 			if accurate && lastOpcode >= opcodes.OP_1 && lastOpcode <= opcodes.OP_16 {
 				n += DecodeOPN(lastOpcode)
 			} else {
@@ -679,13 +695,13 @@ func (s *Script) GetSigOpCount(accurate bool) int {
 	return n
 }
 
-func (s *Script) GetP2SHSigOpCount(scriptSig *Script) int {
-	if s.badOpCode {
+func (s *Script) GetP2SHSigOpCount(flags uint32, scriptSig *Script) int {
+	if flags&ScriptVerifyP2SH == 0 || s.badOpCode {
 		return 0
 	}
 
 	if !s.IsPayToScriptHash() {
-		return s.GetSigOpCount(true)
+		return s.GetSigOpCount(flags, true)
 	}
 
 	// This is a pay-to-script-hash scriptPubKey;
@@ -699,7 +715,7 @@ func (s *Script) GetP2SHSigOpCount(scriptSig *Script) int {
 
 	lastOps := scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1]
 	tempScript := NewScriptRaw(lastOps.Data)
-	return tempScript.GetSigOpCount(true)
+	return tempScript.GetSigOpCount(flags, true)
 }
 
 func EncodeOPN(n int) (int, error) {

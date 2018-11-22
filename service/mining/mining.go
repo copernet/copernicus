@@ -392,7 +392,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
 
-	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH()
+	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 
 	//check the validity of the block
 	if err := TestBlockValidity(ba.bt.Block, indexPrev, false, false); err != nil {

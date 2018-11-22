@@ -267,10 +267,10 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	if err != nil {
 		return err
 	}
-	sigOps := txs[0].GetSigOpCountWithoutP2SH()
+	sigOps := txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 	outPointSet := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
-		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
+		sigOps += txs[i+1].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 		if uint64(sigOps) > maxBlockSigOps {
 			log.Debug("block has too many sigOps:%d", sigOps)
 			return errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
@@ -366,7 +366,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 
 		if ptx.IsCoinBase() {
 			// We've already checked for sigops count before P2SH in CheckBlock.
-			sigOpsCount += ptx.GetSigOpCountWithoutP2SH()
+			sigOpsCount += ptx.GetSigOpCountWithoutP2SH(scriptCheckFlags)
 		}
 
 		if isMagneticAnomalyEnabled || ptx.IsCoinBase() {
@@ -541,17 +541,17 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
 	var sigOpsCount int
 	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		sigOpsCount = GetSigOpCountWithP2SH(txn, coinMap)
+		sigOpsCount = GetSigOpCountWithP2SH(txn, flags, coinMap)
 	} else {
-		sigOpsCount = txn.GetSigOpCountWithoutP2SH()
+		sigOpsCount = txn.GetSigOpCountWithoutP2SH(flags)
 	}
 
 	return sigOpsCount
 }
 
 // GetSigOpCountWithP2SH starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(txn *tx.Tx, coinMap *utxo.CoinsMap) int {
-	n := txn.GetSigOpCountWithoutP2SH()
+func GetSigOpCountWithP2SH(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
+	n := txn.GetSigOpCountWithoutP2SH(flags)
 	if txn.IsCoinBase() {
 		return n
 	}
@@ -564,7 +564,7 @@ func GetSigOpCountWithP2SH(txn *tx.Tx, coinMap *utxo.CoinsMap) int {
 
 		scriptPubKey := coin.GetScriptPubKey()
 		if scriptPubKey.IsPayToScriptHash() {
-			sigsCount := scriptPubKey.GetP2SHSigOpCount(txin.GetScriptSig())
+			sigsCount := scriptPubKey.GetP2SHSigOpCount(flags, txin.GetScriptSig())
 			n += sigsCount
 		}
 	}
@@ -633,7 +633,7 @@ func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 			}
 
 			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
-			opCount := subScript.GetSigOpCount(true)
+			opCount := subScript.GetSigOpCount(uint32(script.StandardScriptVerifyFlags), true)
 			if uint(opCount) > tx.MaxP2SHSigOps {
 				log.Debug("transaction has too many sigops")
 				return false
@@ -954,7 +954,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 	var signErrors []*SignError
 
 	mergedTx := transactions[0]
-	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
 
 	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)
