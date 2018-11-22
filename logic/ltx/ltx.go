@@ -360,7 +360,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			BlockIn:    &blkPos,
 			TxOffsetIn: util.VarIntSerializeSize(uint64(len(txs))),
 		}
-		vPos = make(map[util.Hash]block.DiskTxPos, 0)
+		vPos = make(map[util.Hash]block.DiskTxPos)
 		pos = vPos[ptx.GetHash()]
 		pos.TxOffsetIn += ptx.EncodeSize()
 
@@ -410,7 +410,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
 
-		fee := coinMap.GetValueIn(transaction) - transaction.GetValueOut()
+		fee := coinsMap.GetValueIn(transaction) - transaction.GetValueOut()
 		fees += fee
 
 		if needCheckScript {
