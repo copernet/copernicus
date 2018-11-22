@@ -1112,13 +1112,13 @@ func TestOnionAddr(t *testing.T) {
 func TestInitListeners(t *testing.T) {
 	configUpnp := conf.Cfg.P2PNet.Upnp
 	configExternalIPs := conf.Cfg.P2PNet.ExternalIPs
-	configDefaultPort := model.ActiveNetParams.DefaultPort
+	//configDefaultPort := model.ActiveNetParams.DefaultPort
 
 	// restore
 	defer func() {
 		conf.Cfg.P2PNet.Upnp = configUpnp
 		conf.Cfg.P2PNet.ExternalIPs = configExternalIPs
-		model.ActiveNetParams.DefaultPort = configDefaultPort
+		//model.ActiveNetParams.DefaultPort = configDefaultPort
 	}()
 
 	var err error
@@ -1149,7 +1149,6 @@ func TestInitListeners(t *testing.T) {
 	listeners2, _, err := initListeners(s.addrManager, listenAddrs, services)
 	assert.NotNil(t, err)
 	assert.Equal(t, 0, len(listeners2))
-
 	for _, listener := range listeners {
 		listener.Close()
 	}
