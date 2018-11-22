@@ -750,7 +750,7 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 	}
 
 	sm.peerStates[inpeer] = syncState
-	sm.requestedBlocks = make(map[util.Hash]struct{})
+	sm.requestedBlocks = make(map[util.Hash]*peer.Peer)
 	sm.syncPeer = inpeer
 	sm.fetchHeaderBlocks(inpeer)
 }

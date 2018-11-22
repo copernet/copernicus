@@ -59,6 +59,13 @@ const (
 
 	// MAX_UNCONNECTING_HEADERS Maximum number of unconnecting headers announcements before DoS score
 	MAX_UNCONNECTING_HEADERS = 10
+
+	// fetchInterval is the interval to fetchHeaderBlocks for all peer
+	fetchInterval = 500 * time.Millisecond
+
+	// BLOCK_STALLING_TIMEOUT in microsecond during which a peer must stall block
+	// download progress before being disconnected
+	BLOCK_STALLING_TIMEOUT = 2 * 1000000
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -210,7 +217,7 @@ type SyncManager struct {
 	// These fields should only be accessed from the messagesHandler
 	rejectedTxns    map[util.Hash]struct{}
 	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}
+	requestedBlocks map[util.Hash]*peer.Peer
 	syncPeer        *peer.Peer
 	peerStates      map[*peer.Peer]*peerSyncState
 
@@ -569,6 +576,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// will fail the insert and thus we'll retry next time we get an inv.
 	delete(state.requestedBlocks, blockHash)
 	delete(sm.requestedBlocks, blockHash)
+	peer.SetStallingSince(0)
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
@@ -684,6 +692,7 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 // list of blocks to be downloaded based on the current known headers.
 // Download blocks via several peers parallel
 func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
+	log.Debug("now %d requestedBlocks", len(sm.requestedBlocks))
 	gChain := chain.GetInstance()
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
@@ -718,6 +727,10 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 	nMaxHeight := util.MinI32(pindexBestKnownBlock.Height, nWindowEnd+1)
 
 	gdmsg := wire.NewMsgGetData()
+
+	waitingfor := peer
+	waitingfor = nil
+
 out:
 	for pindexWalk.Height < nMaxHeight {
 		// Read up to 128 (or more, if more blocks than that are needed)
@@ -743,15 +756,30 @@ out:
 			if pindex.HasData() {
 				continue
 			}
-			if _, exists := sm.requestedBlocks[*pindex.GetBlockHash()]; exists {
+			if waitpeer, exists := sm.requestedBlocks[*pindex.GetBlockHash()]; exists {
 				// now in flight
+				if waitingfor == nil {
+					waitingfor = waitpeer
+				}
 				continue
 			}
 			if pindex.Height > nWindowEnd {
+				if len(gdmsg.InvList) == 0 && waitingfor != nil && waitingfor != peer {
+					log.Info("window stalled by peer(%d) %s",
+						waitingfor.ID(), waitingfor.Addr())
+					if len(peerState.requestedBlocks) == 0 {
+						stallsince := waitingfor.GetStallingSince()
+						if stallsince == 0 {
+							nNow := time.Now().UnixNano() / 1000
+							waitingfor.SetStallingSince(nNow)
+							log.Info("Stall started peer(%d)", waitingfor.ID())
+						}
+					}
+				}
 				break out
 			}
 			iv := wire.NewInvVect(wire.InvTypeBlock, pindex.GetBlockHash())
-			sm.requestedBlocks[*pindex.GetBlockHash()] = struct{}{}
+			sm.requestedBlocks[*pindex.GetBlockHash()] = peer
 			peerState.requestedBlocks[*pindex.GetBlockHash()] = struct{}{}
 			gdmsg.AddInvVect(iv)
 			if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
@@ -875,12 +903,6 @@ func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
 		sm.fetchHeaderBlocks(peer)
 		return
 	}
-	// syncPeer has no more work to download headers, start download blocks
-	if !hasMore && lchain.IsInitialBlockDownload() {
-		for peer := range sm.peerStates {
-			sm.fetchHeaderBlocks(peer)
-		}
-	}
 }
 
 func (sm *SyncManager) updatePeerState(headers []*block.BlockHeader, peer *peer.Peer, gChain *chain.Chain) util.Hash {
@@ -910,7 +932,7 @@ func (sm *SyncManager) fetchBlocks(vToFetch *list.List, state *peerSyncState, pe
 		iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
 		gdmsg.AddInvVect(iv)
 
-		sm.requestedBlocks[hash] = struct{}{}
+		sm.requestedBlocks[hash] = peer
 		state.requestedBlocks[hash] = struct{}{}
 		log.Debug("Requesting block %s from peer=%d", hash.String(), peer.ID())
 	}
@@ -1145,6 +1167,29 @@ func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 	}
 }
 
+func (sm *SyncManager) scanToFetchHeaderBlocks() {
+	for peer, state := range sm.peerStates {
+		// detect whether we're stalling the concurrent download window
+		now := time.Now().UnixNano() / 1000
+		stallsince := peer.GetStallingSince()
+		if stallsince != 0 && stallsince < now-BLOCK_STALLING_TIMEOUT {
+			// Stalling only triggers when the block download window cannot move.
+			// During normal steady state, the download window should be much larger
+			// than the to-be-downloaded set of blocks, so disconnection should only
+			// happen during initial block download.
+			log.Info("Peer(%d)%s is stalling block download, disconnecting",
+				peer.ID(), peer.Addr())
+			peer.Disconnect()
+			continue
+		}
+
+		// try fetch
+		if len(state.requestedBlocks) < MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+			sm.fetchHeaderBlocks(peer)
+		}
+	}
+}
+
 // messagesHandler is the main handler for the sync manager.  It must be run as a
 // goroutine.  It processes block and inv messages in a separate goroutine
 // from the peer handlers so the block (MsgBlock) messages are handled by a
@@ -1152,9 +1197,19 @@ func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 // important because the sync manager controls which blocks are needed and how
 // the fetching should proceed.
 func (sm *SyncManager) messagesHandler() {
+	fetchTicker := time.NewTicker(fetchInterval)
 out:
 	for {
 		select {
+		//for all peer to try fetchHeaderBlocks
+		case <-fetchTicker.C:
+			if !lchain.IsInitialBlockDownload() {
+				fetchTicker.Stop()
+				continue
+			}
+			sm.scanToFetchHeaderBlocks()
+
+		//business msg
 		case m := <-sm.processBusinessChan:
 			switch msg := m.(type) {
 			case *newPeerMsg:
@@ -1469,7 +1524,7 @@ func New(config *Config) (*SyncManager, error) {
 		chainParams:         config.ChainParams,
 		rejectedTxns:        make(map[util.Hash]struct{}),
 		requestedTxns:       make(map[util.Hash]struct{}),
-		requestedBlocks:     make(map[util.Hash]struct{}),
+		requestedBlocks:     make(map[util.Hash]*peer.Peer),
 		peerStates:          make(map[*peer.Peer]*peerSyncState),
 		progressLogger:      newBlockProgressLogger("Processed", log.GetLogger()),
 		processBusinessChan: make(chan interface{}, config.MaxPeers*3),

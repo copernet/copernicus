@@ -500,6 +500,23 @@ type Peer struct {
 	reqMempoolOnce sync.Once
 
 	newPeerCallback func(*Peer)
+
+	// since when we're stalling block download progress (in microseconds), or 0
+	stallingSinceLock sync.RWMutex
+	stallingSince     int64
+}
+
+func (p *Peer) GetStallingSince() int64 {
+	p.stallingSinceLock.RLock()
+	since := p.stallingSince
+	p.stallingSinceLock.RUnlock()
+	return since
+}
+
+func (p *Peer) SetStallingSince(since int64) {
+	p.stallingSinceLock.Lock()
+	p.stallingSince = since
+	p.stallingSinceLock.Unlock()
 }
 
 func (p *Peer) RequestMemPool() {
