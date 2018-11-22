@@ -13,8 +13,10 @@ import (
 	"github.com/copernet/copernicus/rpc/btcjson"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/util/cashaddr"
 	"github.com/pkg/errors"
 	"gopkg.in/fatih/set.v0"
+	"strconv"
 )
 
 var walletHandlers = map[string]commandHandler{
@@ -25,7 +27,7 @@ var walletHandlers = map[string]commandHandler{
 	"getbalance":         handleGetBalance,
 	"gettransaction":     handleGetTransaction,
 	"sendmany":           handleSendMany,
-	"addmultisigaddress": handleAddMultisigAddress,
+	"addmultisigaddress": handleAddMultiSigAddress,
 	"fundrawtransaction": handleFundRawTransaction,
 }
 
@@ -232,6 +234,13 @@ func handleGetTransaction(s *Server, cmd interface{}, closeChan <-chan struct{})
 	ret.WalletConflicts = nil
 	ret.TimeReceived = wtx.TimeReceived
 
+	buf := bytes.NewBuffer(nil)
+	if err := wtx.Tx.Serialize(buf); err != nil {
+		return nil, rpcDecodeHexError(c.Txid)
+	}
+	strHex := hex.EncodeToString(buf.Bytes())
+	ret.Hex = strHex
+
 	// Fill GetTransactionDetailsResult
 
 	return ret, nil
@@ -432,12 +441,43 @@ func handleSendMany(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	return txn.GetHash().String(), nil
 }
 
-func handleAddMultisigAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+func handleAddMultiSigAddress(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	if !lwallet.IsWalletEnable() {
 		return nil, walletDisableRPCError
 	}
+	c := cmd.(*btcjson.AddMultiSigAddressCmd)
+	num := c.RequiredNum
+	keys := c.Keys
+	// Gather public keys
+	if num < 1 {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter,
+			"a multisignature address must require at least one key to redeem")
+	}
+	if len(keys) < num {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter,
+			"not enough keys supplied (got "+strconv.Itoa(len(keys))+" keys, "+
+				"but need at least "+strconv.Itoa(num)+"to redeem")
+	}
+	if len(keys) > 16 {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter,
+			"Number of addresses involved in the multisignature address creation > 16\nReduce the number")
+	}
+	inner, err := lwallet.CreateMultiSigRedeemScript(num, keys)
+	if err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, err.Error())
+	}
 
-	return nil, nil
+	innerHash := util.Hash160(inner.GetData())
+	addr, err := cashaddr.NewCashAddressScriptHashFromHash(innerHash, chain.GetInstance().GetParams())
+	if err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, err.Error())
+	}
+
+	pwallet := wallet.GetInstance()
+	pwallet.AddScript(inner)
+	pwallet.SetAddressBook(innerHash, "", "send")
+	return addr.String(), nil
+
 }
 
 func registerWalletRPCCommands() {

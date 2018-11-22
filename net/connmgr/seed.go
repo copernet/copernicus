@@ -34,8 +34,6 @@ type LookupFunc func(string) ([]net.IP, error)
 func SeedFromDNS(chainParams *model.BitcoinParams, reqServices wire.ServiceFlag,
 	lookupFn LookupFunc, seedFn OnSeed) {
 
-	//var wgDNS sync.WaitGroup
-
 	for _, dnsseed := range chainParams.DNSSeeds {
 		var host string
 		if !dnsseed.HasFiltering || reqServices == wire.SFNodeNetwork {
@@ -43,9 +41,9 @@ func SeedFromDNS(chainParams *model.BitcoinParams, reqServices wire.ServiceFlag,
 		} else {
 			host = fmt.Sprintf("x%x.%s", uint64(reqServices), dnsseed.Host)
 		}
-		//wgDNS.Add(1)
+
 		go func(host string) {
-			//defer wgDNS.Done()
+
 			randSource := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 
 			seedpeers, err := lookupFn(host)
@@ -75,5 +73,5 @@ func SeedFromDNS(chainParams *model.BitcoinParams, reqServices wire.ServiceFlag,
 			seedFn(addresses)
 		}(host)
 	}
-	//wgDNS.Wait()
+
 }

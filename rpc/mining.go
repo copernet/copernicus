@@ -204,7 +204,9 @@ func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, 
 	bk.Header.Nonce = 0
 
 	res, err := blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
-	log.Debug("getblocktemplate response: %+v", res)
+	//log.Debug("getblocktemplate response: %+v", res)
+	log.Debug("getblocktemplate response bits: %d, height: %d, time: %d, expires: %d， prehash: %s, noncerange: %s",
+		res.Bits, res.Height, res.CurTime, res.Expires, res.PreviousHash, res.NonceRange)
 	return res, err
 }
 
@@ -316,7 +318,7 @@ func blockTemplateResult(bt *mining.BlockTemplate, s *set.Set, maxVersionVb uint
 	target := pow.CompactToBig(bt.Block.Header.Bits)
 	maxSigOps, _ := consensus.GetMaxBlockSigOpsCount(consensus.DefaultMaxBlockSize)
 	return &btcjson.GetBlockTemplateResult{
-		//Capabilities:  []string{"proposal"},
+		Capabilities:  []string{"proposal"},
 		Version:       bt.Block.Header.Version,
 		Rules:         rules,
 		VbAvailable:   vbAvailable,

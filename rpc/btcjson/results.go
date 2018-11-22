@@ -597,15 +597,25 @@ type ChainTipsInfo struct {
 	Status    string `json:"status"`
 }
 
-type ListBannedResult struct {
-	BannedINfo []BannedINfo
-}
+type ListBannedResult []BannedInfo
 
-type BannedINfo struct {
+type BannedInfo struct {
 	Address     string `json:"address"`
 	BannedUntil int64  `json:"banned_until"`
 	BanCreated  int64  `json:"ban_created"`
 	BanReason   string `json:"ban_reason"`
+}
+
+func (l ListBannedResult) Len() int {
+	return len(l)
+}
+
+func (l ListBannedResult) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l ListBannedResult) Less(i, j int) bool {
+	return l[i].BanCreated < l[j].BanCreated
 }
 
 // VersionResult models objects included in the version response.

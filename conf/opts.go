@@ -20,7 +20,7 @@ type Opts struct {
 
 	Whitelists         []string `long:"whitelist" description:"whitelist"`
 	Excessiveblocksize uint64   `long:"excessiveblocksize" default:"32000000" description:"excessive block size"`
-	BanScore           uint32   `long:"banscore" default:"100"`
+	BanScore           uint32   `long:"banscore" default:"100" description:"Threshold for disconnecting misbehaving peers"`
 
 	ReplayProtectionActivationTime int64  `long:"replayprotectionactivationtime" default:"-1"`
 	MonolithActivationTime         int64  `long:"monolithactivationtime" default:"-1"`

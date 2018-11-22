@@ -206,6 +206,7 @@ type SyncManager struct {
 	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
 	ProcessBlockCallBack       func(*block.Block) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
+	AddBanScoreCallBack        func(string, uint32, uint32, string)
 
 	allowdGetBlocksTimes int
 
@@ -1488,6 +1489,10 @@ func (sm *SyncManager) Pause() chan<- struct{} {
 	c := make(chan struct{})
 	sm.processBusinessChan <- pauseMsg{c}
 	return c
+}
+
+func (sm *SyncManager) misbehaving(peerAddr string, banScore uint32, reason string) {
+	sm.AddBanScoreCallBack(peerAddr, 0, banScore, reason)
 }
 
 // New constructs a new SyncManager. Use Start to begin processing asynchronous
