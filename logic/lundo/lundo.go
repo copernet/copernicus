@@ -9,7 +9,7 @@ import (
 	"github.com/copernet/copernicus/model/utxo"
 )
 
-func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsMap) undo.DisconnectResult {
+func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsMap, height int32) undo.DisconnectResult {
 	clean := true
 	txUndos := blockUndo.GetTxundo()
 	//check block undo
@@ -22,15 +22,14 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsM
 	for i := 1; i < len(blk.Txs); i++ {
 		ptx := blk.Txs[i]
 		txundo := txUndos[i-1]
-		insLen := len(blk.Txs[i].GetIns())
+		insLen := len(ptx.GetIns())
 
 		if len(txundo.GetUndoCoins()) != insLen {
 			log.Error("checkUndoData: tx(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
 			return undo.DisconnectFailed
 		}
 
-		lenTxIn := ptx.GetIns()
-		for j := 0; i < len(lenTxIn); j++ {
+		for j := 0; i < insLen; j++ {
 			res := undoCoinSpend(ptx, txundo, cm)
 			if res == undo.DisconnectFailed {
 				return undo.DisconnectFailed
@@ -52,14 +51,15 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsM
 			}
 			coin := cm.SpendGlobalCoin(outpoint.NewOutPoint(txID, uint32(j)))
 			coinOut := coin.GetTxOut()
-			if coin != nil || !ptx.GetTxOut(j).IsEqual(&coinOut) || isCoinBase != coin.IsCoinBase() {
+			if coin != nil || !ptx.GetTxOut(j).IsEqual(&coinOut) ||
+				isCoinBase != coin.IsCoinBase() || height != coin.GetHeight() {
 				// transaction output mismatch
 				clean = false
 			}
 		}
 	}
 
-	cm.Flush(blk.GetHash())
+	cm.Flush(blk.GetBlockHeader().HashPrevBlock)
 	if clean {
 		return undo.DisconnectOk
 	}

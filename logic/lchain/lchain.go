@@ -451,7 +451,7 @@ func DisconnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *u
 		return undo.DisconnectFailed
 	}
 
-	return lundo.ApplyBlockUndo(blockUndo, pblock, view)
+	return lundo.ApplyBlockUndo(blockUndo, pblock, view, pindex.Height)
 }
 
 func InitGenesisChain() error {
