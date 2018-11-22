@@ -251,6 +251,9 @@ func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 			pindexWalk = pindexWalk.Skip
 			heightWalk = heightSkip
 		} else {
+			if pindexWalk.Prev == nil {
+				return nil
+			}
 			pindexWalk = pindexWalk.Prev
 			heightWalk--
 		}
