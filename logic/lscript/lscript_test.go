@@ -269,12 +269,6 @@ func doScriptJSONTest(t *testing.T, itest []interface{}, sec scriptErrChecker) (
 	// fmt.Printf("sig(%s), pubkey(%s), flag(%s), err(%s)\n",
 	// 	scriptSigString, scriptPubKeyString, scriptFlagString, scriptErrorString)
 
-	if (scriptSigString == "0x09 0x300702010102020001 0") &&
-		(scriptPubKeyString == "0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 CHECKDATASIG") &&
-		(scriptFlagString == "P2SH,STRICTENC,NULLFAIL,CHECKDATASIG") {
-		fmt.Println("hello")
-	}
-
 	scriptSigBytes, err := parseScriptFrom(scriptSigString, opMap)
 	if err != nil {
 		t.Errorf("%v itest[] %v", err, itest)

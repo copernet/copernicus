@@ -88,7 +88,12 @@ func (publicKey *PublicKey) Verify(hash *util.Hash, vchSig []byte) (bool, error)
 
 	secp256k1.EcdsaSignatureNormalize(secp256k1Context, ecdsaSignature, ecdsaSignature)
 
-	_, err = secp256k1.EcdsaVerify(secp256k1Context, ecdsaSignature, hash.GetCloneBytes(), pubKey)
+	result, err := secp256k1.EcdsaVerify(secp256k1Context, ecdsaSignature, hash.GetCloneBytes(), pubKey)
+
+	if result == 0 {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, nil
 	}

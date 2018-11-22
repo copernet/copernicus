@@ -1199,7 +1199,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 			case opcodes.OP_CHECKDATASIG:
 				fallthrough
 			case opcodes.OP_CHECKDATASIGVERIFY:
-				// Make sure thie remains an error before activation
+				// Make sure this remains an error before activation
 				if (flags & script.ScriptEnableCheckDataSig) == 0 {
 					log.Debug("ScriptErrorBadOpcode")
 					return errcode.New(errcode.ScriptErrBadOpCode)
