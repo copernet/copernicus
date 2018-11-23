@@ -256,13 +256,10 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 }
 
 func TestCreateNewBlockByFeeRate(t *testing.T) {
-	// clear chain data of last test case
-	gChain := chain.GetInstance()
-	*gChain = *chain.NewChain()
-
 	tempDir, err := initTestEnv(t, false)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
+	gChain := chain.GetInstance()
 
 	// clear mempool data
 	mempool.InitMempool()
@@ -304,6 +301,10 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 }
 
 func TestCTORAndSortByFee(t *testing.T) {
+	// clear chain data of last test case
+	gChain := chain.GetInstance()
+	*gChain = *chain.NewChain()
+
 	tempDir, err := initTestEnv(t, true)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
@@ -317,8 +318,6 @@ func TestCTORAndSortByFee(t *testing.T) {
 
 	_, err = generateBlocks(pubKey, 101, 1000000)
 	assert.Nil(t, err)
-
-	gChain := chain.GetInstance()
 	bl1Index := gChain.GetIndex(1)
 	assert.NotNil(t, bl1Index)
 
