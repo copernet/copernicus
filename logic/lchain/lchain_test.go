@@ -65,6 +65,7 @@ func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uin
 		bk := block.NewBlock()
 		bk = createDummyBlock(scriptPubKey, coinbaseScriptSigWithHeight(extraNonce, height+1), bk, blkHash)
 		bk.Txs = append(bk.Txs, txs...)
+		bk.SerializeSize()
 		bk.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bk.Txs, nil)
 
 		powCheck := pow.Pow{}
@@ -135,8 +136,6 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 	p := pow.Pow{}
 	bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, model.ActiveNetParams)
 	bk.Header.Nonce = 0
-
-	bk.SerializeSize()
 	bk.Checked = true
 
 	return bk
