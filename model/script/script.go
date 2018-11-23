@@ -200,7 +200,7 @@ const (
 		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
 		ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
 		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
-		ScriptVerifyDiscourageUpgradableWitnessProgram
+		ScriptVerifyDiscourageUpgradableWitnessProgram | ScriptVerifySigPushOnly
 
 	//StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags.
 	StandardNotMandatoryVerifyFlags uint = StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
