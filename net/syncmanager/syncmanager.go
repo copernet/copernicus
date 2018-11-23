@@ -692,16 +692,7 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 	isIBDSyncing := sm.syncPeer != nil && lchain.IsInitialBlockDownload()
 
 	if isIBDSyncing {
-		idx := lastAccouncedBlock(sm.syncPeer)
-		if idx == nil {
-			pindexStart := gChain.GetIndexBestHeader()
-			if pindexStart.Prev != nil {
-				pindexStart = pindexStart.Prev
-			}
-			locator := gChain.GetLocator(pindexStart)
-			sm.syncPeer.PushGetHeadersMsg(*locator, &zeroHash)
-		}
-		return gChain.Tip(), idx
+		return gChain.Tip(), gChain.GetIndexBestHeader()
 	}
 
 	if pindexBestKnownBlock = lastAccouncedBlock(peer); pindexBestKnownBlock != nil {
