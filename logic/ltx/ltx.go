@@ -7,6 +7,7 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -66,13 +67,18 @@ var (
 	txScriptVerifyResultChan    chan ScriptVerifyResult
 )
 
+var once sync.Once
+
 func ScriptVerifyInit() {
-	scriptVerifyJobChan = make(chan ScriptVerifyJob, MaxScriptVerifyJobNum)
-	blockScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
-	txScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
-	for i := 0; i < conf.Cfg.Script.Par; i++ {
-		go checkScript()
-	}
+	once.Do(func() {
+		scriptVerifyJobChan = make(chan ScriptVerifyJob, MaxScriptVerifyJobNum)
+		blockScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
+		txScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
+
+		for i := 0; i < conf.Cfg.Script.Par; i++ {
+			go checkScript()
+		}
+	})
 }
 
 func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
