@@ -448,15 +448,6 @@ func IsUAHFEnabled(height int32) bool {
 	return height >= ActiveNetParams.UAHFHeight
 }
 
-func IsMonolithEnabled(medianTimePast int64) bool {
-	time := ActiveNetParams.MonolithActivationTime
-	if conf.Args.MonolithActivationTime > 0 {
-		time = conf.Args.MonolithActivationTime
-	}
-
-	return medianTimePast >= time
-}
-
 func IsDAAEnabled(height int32) bool {
 	return height >= ActiveNetParams.DAAHeight
 }

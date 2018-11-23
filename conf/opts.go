@@ -23,7 +23,6 @@ type Opts struct {
 	BanScore           uint32   `long:"banscore" default:"100" description:"Threshold for disconnecting misbehaving peers"`
 
 	ReplayProtectionActivationTime int64  `long:"replayprotectionactivationtime" default:"-1"`
-	MonolithActivationTime         int64  `long:"monolithactivationtime" default:"-1"`
 	MagneticAnomalyTime            int64  `long:"magneticanomalyactivationtime" default:"-1"`
 	StopAtHeight                   int32  `long:"stopatheight" default:"-1"`
 	PromiscuousMempoolFlags        string `long:"promiscuousmempoolflags"`
