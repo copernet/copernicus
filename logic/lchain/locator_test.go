@@ -17,7 +17,7 @@ func TestLocateBlocks(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
 	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
 
@@ -46,7 +46,7 @@ func TestLocateHeaders(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
 	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
 

@@ -142,7 +142,7 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 	return bk
 }
 
-func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath string, err error) {
+func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 	conf.Cfg = conf.InitConfig(args)
 
 	conf.Cfg.Chain.UtxoHashStartHeight = 0
@@ -217,9 +217,7 @@ func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath st
 
 	crypto.InitSecp256()
 
-	if !initScriptVerify {
-		ltx.ScriptVerifyInit()
-	}
+	ltx.ScriptVerifyInit()
 
 	return unitTestDataDirPath, nil
 }
@@ -228,7 +226,7 @@ func TestActivateBestChain(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
 	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
 
@@ -274,7 +272,7 @@ func TestGetUTXOStats(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
 	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
 
