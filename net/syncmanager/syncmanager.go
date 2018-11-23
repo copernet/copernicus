@@ -689,17 +689,27 @@ func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
 
 func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownBlock *blockindex.BlockIndex) {
 	gChain := chain.GetInstance()
-	isIBDSyncing := sm.syncPeer != nil && lchain.IsInitialBlockDownload()
-
-	if isIBDSyncing {
-		return gChain.Tip(), gChain.GetIndexBestHeader()
+	pindexBestKnownBlock = lastAccouncedBlock(peer)
+	if pindexBestKnownBlock == nil {
+		// update best block of this peer
+		pindexStart := gChain.GetIndexBestHeader()
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := gChain.GetLocator(pindexStart)
+		peer.PushGetHeadersMsg(*locator, &zeroHash)
+		return nil, nil
 	}
 
-	if pindexBestKnownBlock = lastAccouncedBlock(peer); pindexBestKnownBlock != nil {
-		return gChain.FindFork(pindexBestKnownBlock), pindexBestKnownBlock
+	if lchain.IsInitialBlockDownload() {
+		if gChain.Tip().Height > pindexBestKnownBlock.Height ||
+			gChain.Tip().ChainWork.Cmp(&pindexBestKnownBlock.ChainWork) == 1 {
+			return nil, nil
+		}
+		return gChain.Tip(), pindexBestKnownBlock
 	}
 
-	return nil, nil
+	return gChain.FindFork(pindexBestKnownBlock), pindexBestKnownBlock
 }
 
 // fetchHeaderBlocks creates and sends a request to the peer for the next
@@ -707,6 +717,11 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 // Download blocks via several peers parallel
 func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 	log.Debug("now %d requestedBlocks", len(sm.requestedBlocks))
+	if !sm.isSyncCandidate(peer) {
+		log.Info("peer(%d)%s not a sync candidate, forgive fetch", peer.ID(), peer.Addr())
+		return
+	}
+
 	gChain := chain.GetInstance()
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
@@ -719,15 +734,21 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 		return
 	}
 
+	minWorkSum := pow.MiniChainWork()
+	pindexBestHeader := gChain.GetIndexBestHeader()
+	if pindexBestHeader.ChainWork.Cmp(&minWorkSum) == -1 {
+		log.Info("pindexBestHeader.ChainWork less than minChainWork, wait header download", peer.ID())
+		return
+	}
+
 	pindexWalk, pindexBestKnownBlock := sm.syncPoints(peer)
 	if pindexWalk == nil || pindexBestKnownBlock == nil {
 		log.Debug("fetchHeaderBlocks can not find block hashes to fetch from peer(%d) ", peer.ID())
 		return
 	}
 
-	minWorkSum := pow.MiniChainWork()
 	if pindexBestKnownBlock.ChainWork.Cmp(&minWorkSum) == -1 {
-		log.Info("peer(%d) ChainWork less than minChainWork, wait header download", peer.ID())
+		log.Info("peer(%d) ChainWork less than minChainWork, do not use this peer", peer.ID())
 		return
 	}
 
