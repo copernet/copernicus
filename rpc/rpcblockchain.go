@@ -148,6 +148,15 @@ func version234Status(height int32, params *model.BitcoinParams) []*btcjson.Soft
 				Status: height >= params.BIP65Height,
 			},
 		},
+		{
+			ID:      "csv",
+			Version: 5,
+			Reject: struct {
+				Status bool `json:"status"`
+			}{
+				Status: height >= params.CSVHeight,
+			},
+		},
 	}
 }
 
