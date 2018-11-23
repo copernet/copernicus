@@ -477,9 +477,9 @@ func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff,
 	if model.IsMagneticAnomalyEnabled(mediaTimePast) {
 		txnsize := txn.SerializeSize()
 		if txnsize < consensus.MinTxSize {
-			return fmt.Errorf(
-				"bad-txn-undersize: tx(%d) should be equal to or greater than %d",
+			e := fmt.Sprintf("bad-txns-undersize: tx(%d) should be equal to or greater than %d",
 				txnsize, consensus.MinTxSize)
+			return errcode.NewError(errcode.RejectInvalid, e)
 		}
 	}
 	return nil

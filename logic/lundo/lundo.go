@@ -4,7 +4,6 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 )
@@ -30,7 +29,9 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsM
 		}
 
 		for j := 0; j < insLen; j++ {
-			res := undoCoinSpend(ptx, txundo, cm)
+			undoCoin := txundo.GetUndoCoins()[j]
+			out := ptx.GetTxIn(j).PreviousOutPoint
+			res := undoCoinSpend(out, undoCoin, cm)
 			if res == undo.DisconnectFailed {
 				return undo.DisconnectFailed
 			}
@@ -67,42 +68,39 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsM
 	return undo.DisconnectUnclean
 }
 
-func undoCoinSpend(tx *tx.Tx, txundo *undo.TxUndo, cm *utxo.CoinsMap) undo.DisconnectResult {
+func undoCoinSpend(out *outpoint.OutPoint, undoCoin *utxo.Coin, cm *utxo.CoinsMap) undo.DisconnectResult {
 	clean := true
-	ins := tx.GetIns()
-	for k := len(ins) - 1; k >= 0; k-- {
-		out := ins[k].PreviousOutPoint
-		if cm.FetchCoin(out) != nil {
-			// Overwriting transaction output.
-			clean = false
-		}
 
-		coin := txundo.GetUndoCoins()[k]
-		if coin.GetHeight() == 0 {
-			// Missing undo metadata (height and coinbase). Older versions included
-			// this information only in undo records for the last spend of a
-			// transactions' outputs. This implies that it must be present for some
-			// other output of the same tx.
-			alternate := cm.AccessCoin(out)
-			if alternate.IsSpent() {
-				// Adding output for transaction without known metadata
-				return undo.DisconnectFailed
-			}
-			// The potential_overwrite parameter to AddCoin is only allowed to be false
-			// if we know for sure that the coin did not already exist in the cache. As
-			// we have queried for that above using HaveCoin, we don't need to guess.
-			// When fClean is false, a coin already existed and it is an overwrite.
-			txOut := coin.GetTxOut()
-			coin = utxo.NewFreshCoin(&txOut, alternate.GetHeight(), alternate.IsCoinBase())
+	if cm.FetchCoin(out) != nil {
+		// Overwriting transaction output.
+		clean = false
+	}
+
+	if undoCoin.GetHeight() == 0 {
+		// Missing undo metadata (height and coinbase). Older versions included
+		// this information only in undo records for the last spend of a
+		// transactions' outputs. This implies that it must be present for some
+		// other output of the same tx.
+		alternate := cm.AccessCoin(out)
+		if alternate.IsSpent() {
+			// Adding output for transaction without known metadata
+			return undo.DisconnectFailed
 		}
 		// The potential_overwrite parameter to AddCoin is only allowed to be false
 		// if we know for sure that the coin did not already exist in the cache. As
 		// we have queried for that above using HaveCoin, we don't need to guess.
 		// When fClean is false, a coin already existed and it is an overwrite.
-		cm.AddCoin(out, coin, !clean)
+		txOut := undoCoin.GetTxOut()
+		undoCoin = utxo.NewFreshCoin(&txOut, alternate.GetHeight(), alternate.IsCoinBase())
 	}
+	// The potential_overwrite parameter to AddCoin is only allowed to be false
+	// if we know for sure that the coin did not already exist in the cache. As
+	// we have queried for that above using HaveCoin, we don't need to guess.
+	// When fClean is false, a coin already existed and it is an overwrite.
+	cm.AddCoin(out, undoCoin, !clean)
+
 	if clean {
 		return undo.DisconnectOk
 	}
-	return undo.DisconnectFailed
+	return undo.DisconnectUnclean
 }
