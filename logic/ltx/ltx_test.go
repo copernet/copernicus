@@ -1770,7 +1770,16 @@ func Test_block_txns__should_not_contains_too_much_script_ops__in_total(t *testi
 func Test_block_txns__should_not_contains_duplicate_prev_outpoints(t *testing.T) {
 	coinbaseTx := newCoinbaseTx()
 	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
-	txns := []*tx.Tx{coinbaseTx, txn1, txn1}
+
+	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + 1))
+	outPoint := outpoint.NewOutPoint(util.HashOne, 0)
+	txIn := txin.NewTxIn(outPoint, hugeScript, script.SequenceFinal)
+	txn2 := tx.NewTx(0, 1)
+	txn2.AddTxIn(txIn)
+	txn2.AddTxIn(txIn)
+	txOut := makeOuts()[0]
+	txn2.AddTxOut(txOut)
+	txns := []*tx.Tx{coinbaseTx, txn1, txn2}
 	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate"), err)
