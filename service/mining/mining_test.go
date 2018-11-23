@@ -81,9 +81,7 @@ func initTestEnv(t *testing.T, initScriptVerify bool) (dirpath string, err error
 
 	crypto.InitSecp256()
 
-	if initScriptVerify {
-		ltx.ScriptVerifyInit()
-	}
+	ltx.ScriptVerifyInit()
 
 	return unitTestDataDirPath, nil
 }
@@ -215,6 +213,10 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
 	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), pubKey, math.MaxUint32-1))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), pubKey, math.MaxUint32-1))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 2), pubKey, math.MaxUint32-1))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 3), pubKey, math.MaxUint32-1))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 4), pubKey, math.MaxUint32-1))
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
@@ -229,20 +231,20 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), pubKey, math.MaxUint32-1))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
+	// tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
+	// tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
+	// tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
 	txEntry3 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(6 * util.COIN)).FromTxToEntry(tx3)
 	txEntry3.ParentTx[txEntry1] = struct{}{}
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
 	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.GetHash(), 0), pubKey, math.MaxUint32-1))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(6*util.COIN), pubKey))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(2*util.COIN), pubKey))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(3*util.COIN), pubKey))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(2*util.COIN), pubKey))
 	txEntry4 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(3 * util.COIN)).FromTxToEntry(tx4)
 	txEntry4.ParentTx[txEntry1] = struct{}{}
 	txEntry4.ParentTx[txEntry3] = struct{}{}
@@ -292,8 +294,11 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFeeRate
 
-	sc := script.NewScriptRaw([]byte{opcodes.OP_2DIV})
+	//sc := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
+	sc := script.NewEmptyScript()
+	sc.PushOpCode(opcodes.OP_TRUE)
 	var extraNonce uint
+
 	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
 	if len(ba.bt.Block.Txs) != 5 {
 		t.Error("some transactions are inserted to block error")
