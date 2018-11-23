@@ -1,6 +1,7 @@
 package mining
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/copernet/copernicus/conf"
@@ -28,6 +29,7 @@ import (
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
+	"github.com/copernet/copernicus/util/cashaddr"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"os"
@@ -197,55 +199,142 @@ func (t *TestMemPoolEntry) FromTxToEntry(transaction *tx.Tx) *mempool.TxEntry {
 	return entry
 }
 
-func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.TxEntry {
+type SignBox struct {
+	signKey   crypto.PrivateKey
+	payAddr   cashaddr.Address
+	payScript []byte
+	keys      []*crypto.PrivateKey
+}
+
+func newSignBox(chainParams *model.BitcoinParams) (signBox *SignBox, err error) {
+	// Use a hard coded key pair for deterministic results.
+	keyBytes, err := hex.DecodeString("700868df1838811ffbdf918fb482c1f7e" +
+		"ad62db4b97bd7012c23e726485e577d")
+	if err != nil {
+		return nil, err
+	}
+	//signKey, signPub := btcec.PrivKeyFromBytes(btcec.S256(), keyBytes)
+	signKey, signPub := generateKeys(keyBytes)
+
+	// Generate associated pay-to-script-hash address and resulting payment
+	// script.
+	//pubKeyBytes := signPub.SerializeCompressed()
+	//payPubKeyAddr, err := btcutil.NewAddressPubKey(pubKeyBytes, chainParams)
+	var payAddr cashaddr.Address
+	payAddr, err = cashaddr.NewCashAddressPubKeyHash(signPub.ToHash160(), chainParams)
+	if err != nil {
+		return nil, err
+	}
+	// payAddr := payPubKeyAddr.AddressPubKeyHash()
+	// pkScript, err := txscript.PayToAddrScript(payAddr)
+	pkScript, err := cashaddr.CashPayToAddrScript(payAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	signBox = &SignBox{
+		signKey:   signKey,
+		payAddr:   payAddr,
+		payScript: pkScript,
+		keys:      []*crypto.PrivateKey{&signKey},
+	}
+
+	return signBox, nil
+}
+
+func getKeyStore(pkeys []*crypto.PrivateKey) *crypto.KeyStore {
+	keyStore := crypto.NewKeyStore()
+	for _, pkey := range pkeys {
+		keyStore.AddKey(pkey)
+	}
+	return keyStore
+}
+
+func generateKeys(keyBytes []byte) (crypto.PrivateKey, crypto.PublicKey) {
+	// var keyBytes []byte
+	// for i := 0; i < 32; i++ {
+	// 	keyBytes = append(keyBytes, byte(rand.Uint32()%256))
+	// }
+	privKey := *crypto.PrivateKeyFromBytes(keyBytes)
+	return privKey, *privKey.PubKey()
+}
+
+func createTx(tt *testing.T, baseTx *tx.Tx, signBox *SignBox) []*mempool.TxEntry {
+
+	keyStore := getKeyStore(signBox.keys)
+	coinsMap := utxo.NewEmptyCoinsMap()
+
+	outpointK := &outpoint.OutPoint{Hash: baseTx.GetHash(), Index: 0}
+	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(baseTx.GetTxOut(0), 0, true), false)
 
 	testEntryHelp := NewTestMemPoolEntry()
+
+	pubKey := script.NewScriptRaw(signBox.payScript)
 	tx1 := tx.NewTx(0, 0x02)
-	//tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(util.HashZero, math.MaxUint32), script.NewEmptyScript(), 0xffffffff))
 	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(baseTx.GetHash(), 0), pubKey, math.MaxUint32-1))
-	tx1.AddTxOut(txout.NewTxOut(amount.Amount(20*util.COIN), pubKey))
-	tx1.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
-	tx1.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
-	tx1.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
-	tx1.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
-	txEntry1 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(15 * util.COIN)).FromTxToEntry(tx1)
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(22*util.COIN), pubKey))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(22*util.COIN), pubKey))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+
+	outpointK = &outpoint.OutPoint{Hash: tx1.GetHash(), Index: 0}
+	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(0), 0, false), false)
+	outpointK = &outpoint.OutPoint{Hash: tx1.GetHash(), Index: 1}
+	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(1), 1, false), false)
+
+	ltx.SignRawTransaction([]*tx.Tx{tx1}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	txEntry1 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
 	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), pubKey, math.MaxUint32-1))
-	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), pubKey, math.MaxUint32-1))
-	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 2), pubKey, math.MaxUint32-1))
-	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 3), pubKey, math.MaxUint32-1))
-	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 4), pubKey, math.MaxUint32-1))
-	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
-	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
-	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
-	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
-	tx2.AddTxOut(txout.NewTxOut(amount.Amount(12*util.COIN), pubKey))
-	txEntry2 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(8 * util.COIN)).FromTxToEntry(tx2)
+
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(16*util.COIN), pubKey))
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+
+	outpointK = &outpoint.OutPoint{Hash: tx2.GetHash(), Index: 0}
+	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx2.GetTxOut(0), 0, false), false)
+	ltx.SignRawTransaction([]*tx.Tx{tx2}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	txEntry2 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx2)
 	txEntry2.ParentTx[txEntry1] = struct{}{}
 
 	//  modify tx3's content to avoid to get the same hash with tx2
 	tx3 := tx.NewTx(0, 0x02)
 	// reference relation(tx3 -> tx1)
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), pubKey, math.MaxUint32-1))
-	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	// tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	// tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	// tx3.AddTxOut(txout.NewTxOut(amount.Amount(9*util.COIN), pubKey))
-	txEntry3 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(6 * util.COIN)).FromTxToEntry(tx3)
+	tx3.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
+	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+
+	outpointK = &outpoint.OutPoint{Hash: tx3.GetHash(), Index: 0}
+	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx3.GetTxOut(0), 0, false), false)
+	ltx.SignRawTransaction([]*tx.Tx{tx3}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	txEntry3 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx3)
 	txEntry3.ParentTx[txEntry1] = struct{}{}
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
 	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.GetHash(), 0), pubKey, math.MaxUint32-1))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), pubKey))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(2*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(3*util.COIN), pubKey))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
-	tx4.AddTxOut(txout.NewTxOut(amount.Amount(2*util.COIN), pubKey))
-	txEntry4 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(3 * util.COIN)).FromTxToEntry(tx4)
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
+
+	outpointK = &outpoint.OutPoint{Hash: tx4.GetHash(), Index: 0}
+	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx4.GetTxOut(0), 0, false), false)
+	ltx.SignRawTransaction([]*tx.Tx{tx4}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	txEntry4 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx4)
+
 	txEntry4.ParentTx[txEntry1] = struct{}{}
 	txEntry4.ParentTx[txEntry3] = struct{}{}
 
@@ -257,59 +346,7 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	return t
 }
 
-func TestCreateNewBlockByFeeRate(t *testing.T) {
-	tempDir, err := initTestEnv(t, false)
-	assert.Nil(t, err)
-	defer os.RemoveAll(tempDir)
-	gChain := chain.GetInstance()
-
-	// clear mempool data
-	mempool.InitMempool()
-	pool := mempool.GetInstance()
-
-	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
-
-	_, err = generateBlocks(pubKey, 101, 1000000)
-	assert.Nil(t, err)
-
-	bl1Index := gChain.GetIndex(1)
-	assert.NotNil(t, bl1Index)
-
-	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
-	assert.True(t, ok)
-
-	txSet := createTx(t, block1.Txs[0], pubKey)
-
-	for _, entry := range txSet {
-		pool.AddTx(entry, entry.ParentTx)
-	}
-
-	if pool.Size() != 4 {
-		t.Error("add txEntry to mempool error")
-	}
-
-	ts := bitcointime.NewMedianTime()
-	ba := NewBlockAssembler(model.ActiveNetParams, ts)
-	tmpStrategy := getStrategy()
-	*tmpStrategy = sortByFeeRate
-
-	//sc := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
-	sc := script.NewEmptyScript()
-	sc.PushOpCode(opcodes.OP_TRUE)
-	var extraNonce uint
-
-	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
-	if len(ba.bt.Block.Txs) != 5 {
-		t.Error("some transactions are inserted to block error")
-	}
-}
-
 func TestCTORAndSortByFee(t *testing.T) {
-	// clear chain data of last test case
-	gChain := chain.GetInstance()
-	*gChain = *chain.NewChain()
-
 	tempDir, err := initTestEnv(t, true)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
@@ -318,18 +355,26 @@ func TestCTORAndSortByFee(t *testing.T) {
 	mempool.InitMempool()
 	pool := mempool.GetInstance()
 
-	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
+	chainParams := model.ActiveNetParams
+
+	signBox, err := newSignBox(chainParams)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pubKey := script.NewScriptRaw(signBox.payScript)
 
 	_, err = generateBlocks(pubKey, 101, 1000000)
 	assert.Nil(t, err)
+
+	gChain := chain.GetInstance()
 	bl1Index := gChain.GetIndex(1)
 	assert.NotNil(t, bl1Index)
 
 	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
 	assert.True(t, ok)
 
-	txSet := createTx(t, block1.Txs[0], pubKey)
+	txSet := createTx(t, block1.Txs[0], signBox)
 
 	for _, entry := range txSet {
 		err := pool.AddTx(entry, entry.ParentTx)
@@ -349,9 +394,10 @@ func TestCTORAndSortByFee(t *testing.T) {
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFee
 	sc := script.NewEmptyScript()
-	var extranonce uint
-	ba.CreateNewBlock(sc, CoinbaseScriptSig(extranonce))
+	sc.PushOpCode(opcodes.OP_TRUE)
+	var extraNonce uint
 
+	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
 	if len(ba.bt.Block.Txs) != 5 {
 		fmt.Println(len(ba.bt.Block.Txs))
 		t.Fatal("some transactions are inserted to block error")
@@ -369,5 +415,63 @@ func TestCTORAndSortByFee(t *testing.T) {
 	}
 	if ba.bt.Block.Txs[4].GetHash().String() < ba.bt.Block.Txs[1].GetHash().String() {
 		t.Errorf("the CTOR failed,hash is:%s", ba.bt.Block.Txs[4].GetHash().String())
+	}
+}
+
+func TestCreateNewBlockByFeeRate(t *testing.T) {
+	// clear chain data of last test case
+	gChain := chain.GetInstance()
+	*gChain = *chain.NewChain()
+
+	tempDir, err := initTestEnv(t, false)
+	assert.Nil(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// clear mempool data
+	mempool.InitMempool()
+	pool := mempool.GetInstance()
+
+	chainParams := model.ActiveNetParams
+
+	signBox, err := newSignBox(chainParams)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pubKey := script.NewScriptRaw(signBox.payScript)
+
+	//pubKey := script.NewEmptyScript()
+	//pubKey.PushOpCode(opcodes.OP_TRUE)
+
+	_, err = generateBlocks(pubKey, 101, 1000000)
+	assert.Nil(t, err)
+
+	bl1Index := gChain.GetIndex(1)
+	assert.NotNil(t, bl1Index)
+
+	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
+	assert.True(t, ok)
+
+	txSet := createTx(t, block1.Txs[0], signBox)
+
+	for _, entry := range txSet {
+		pool.AddTx(entry, entry.ParentTx)
+	}
+
+	if pool.Size() != 4 {
+		t.Error("add txEntry to mempool error")
+	}
+
+	ts := bitcointime.NewMedianTime()
+	ba := NewBlockAssembler(model.ActiveNetParams, ts)
+	tmpStrategy := getStrategy()
+	*tmpStrategy = sortByFeeRate
+
+	sc := script.NewEmptyScript()
+	sc.PushOpCode(opcodes.OP_TRUE)
+	var extraNonce uint
+	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
+	if len(ba.bt.Block.Txs) != 5 {
+		t.Error("some transactions are inserted to block error")
 	}
 }

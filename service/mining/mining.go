@@ -371,7 +371,8 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, scriptSig, 0xffffffff))
 	coinbaseSerializeSize := coinbaseTx.SerializeSize()
 	if coinbaseSerializeSize < consensus.MinTxSize {
-		scriptSig.PushData(make([]byte, consensus.MinTxSize-coinbaseSerializeSize-1))
+		byteLen := consensus.MinTxSize - coinbaseSerializeSize - 1
+		scriptSig.PushData(make([]byte, byteLen))
 	}
 
 	// value represents total reward(fee and block generate reward)
@@ -396,11 +397,11 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	ba.bt.Block.Header.Bits = p.GetNextWorkRequired(indexPrev, &ba.bt.Block.Header, ba.chainParams)
 	ba.bt.Block.Header.Nonce = 0
 
-	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardCheckDataSigVerifyFlags))
+	ba.bt.TxSigOpsCount[0] = ba.bt.Block.Txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 
 	//check the validity of the block
 	if err := TestBlockValidity(ba.bt.Block, indexPrev, false, false); err != nil {
-		log.Error("CreateNewBlock: TestBlockValidity failed, block is:%v, indexPrev:%v", ba.bt.Block, indexPrev)
+		log.Error("CreateNewBlock: TestBlockValidity failed, block is:%v, indexPrev:%v, err:%v", ba.bt.Block, indexPrev, err)
 		return nil
 	}
 
