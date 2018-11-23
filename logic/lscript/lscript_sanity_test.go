@@ -3,6 +3,7 @@ package lscript
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/detailyang/go-bcrypto"
 	"testing"
 
 	"github.com/copernet/copernicus/crypto"
@@ -15,8 +16,6 @@ import (
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
-
-	bcrypto "github.com/detailyang/go-bcrypto"
 )
 
 // ScripBuilder exposes friendly API to build the script code

@@ -273,7 +273,6 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		return err
 	}
 	sigOps := txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
-	outPointSet := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 		if uint64(sigOps) > maxBlockSigOps {
@@ -284,13 +283,6 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		if err != nil {
 			return err
 		}
-
-		// check dup input
-		err = transaction.CheckDuplicateIns(&outPointSet)
-		if err != nil {
-			return err
-		}
-
 	}
 	return nil
 }
@@ -544,22 +536,19 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 
 func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
 	var sigOpsCount int
-	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		sigOpsCount = GetSigOpCountWithP2SH(txn, flags, coinMap)
-	} else {
-		sigOpsCount = txn.GetSigOpCountWithoutP2SH(flags)
-	}
+	sigOpsCount = txn.GetSigOpCountWithoutP2SH(flags) + getP2SHSigOpCount(txn, flags, coinMap)
 
 	return sigOpsCount
 }
 
-// GetSigOpCountWithP2SH starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
-	n := txn.GetSigOpCountWithoutP2SH(flags)
-	if txn.IsCoinBase() {
-		return n
+// Get tx's P2SH SigOpCount
+func getP2SHSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
+
+	if (flags&script.ScriptVerifyP2SH) == 0 || txn.IsCoinBase() {
+		return 0
 	}
 
+	var n int
 	for _, txin := range txn.GetIns() {
 		coin := coinMap.GetCoin(txin.PreviousOutPoint)
 		if coin == nil {
@@ -568,7 +557,7 @@ func GetSigOpCountWithP2SH(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int
 
 		scriptPubKey := coin.GetScriptPubKey()
 		if scriptPubKey.IsPayToScriptHash() {
-			sigsCount := scriptPubKey.GetP2SHSigOpCount(flags, txin.GetScriptSig())
+			sigsCount := scriptPubKey.GetPubKeyP2SHSigOpCount(flags, txin.GetScriptSig())
 			n += sigsCount
 		}
 	}

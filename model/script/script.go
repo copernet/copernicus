@@ -36,14 +36,14 @@ const (
 	MaxScriptOpCodes     = 201
 	MaxOpsPerScript      = 201
 
-	// MaxStandardScriptSigSize is
+	// MaxTxInStandardScriptSigSize is
 	// Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
 	// keys (remember the 520 byte limit on redeemScript size). That works
 	// out to a (15*(33+1))+3=513 byte redeemScript, 513+1+15*(73+1)+3=1627
 	// bytes of scriptSig, which we round off to 1650 bytes for some minor
 	// future-proofing. That's also enough to spend a 20-of-20 CHECKMULTISIG
 	// scriptPubKey, though such a scriptPubKey is not considered standard.
-	MaxStandardScriptSigSize = 1650
+	MaxTxInStandardScriptSigSize = 1650
 )
 
 const (
@@ -139,10 +139,6 @@ const (
 	// See BIP112 for details
 	ScriptVerifyCheckSequenceVerify = (1 << 10)
 
-	// Making v1-v16 witness program non-standard
-	//
-	ScriptVerifyDiscourageUpgradableWitnessProgram = (1 << 12)
-
 	// Segwit script only: Require the argument of OP_IF/NOTIF to be exactly
 	// 0x01 or empty vector
 	//
@@ -195,12 +191,11 @@ const (
 	//StandardScriptVerifyFlags standard script verification flags that standard transactions will comply
 	// with. However scripts violating these flags may still be present in valid
 	// blocks and we must accept those blocks.
-	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig |
-		ScriptVerifyMinmalData | ScriptVerifyNullDummy |
-		ScriptVerifyDiscourageUpgradableNops | ScriptVerifyCleanStack |
-		ScriptVerifyNullFail | ScriptVerifyCheckLockTimeVerify |
-		ScriptVerifyCheckSequenceVerify | ScriptVerifyLowS |
-		ScriptVerifyDiscourageUpgradableWitnessProgram | ScriptVerifySigPushOnly
+	StandardScriptVerifyFlags uint = MandatoryScriptVerifyFlags | ScriptVerifyDersig | ScriptVerifyLowS |
+		ScriptVerifyNullDummy | ScriptVerifySigPushOnly |
+		ScriptVerifyMinmalData | ScriptVerifyDiscourageUpgradableNops |
+		ScriptVerifyCleanStack | ScriptVerifyCheckLockTimeVerify |
+		ScriptVerifyCheckSequenceVerify | ScriptVerifyNullFail
 
 	//StandardNotMandatoryVerifyFlags for convenience, standard but not mandatory verify flags.
 	StandardNotMandatoryVerifyFlags uint = StandardScriptVerifyFlags & (^MandatoryScriptVerifyFlags)
@@ -630,7 +625,7 @@ func (s *Script) IsStandardScriptPubKey() (pubKeyType int, pubKeys [][]byte, isS
 }
 
 func (s *Script) CheckScriptSigStandard() (bool, string) {
-	if s.Size() > MaxStandardScriptSigSize {
+	if s.Size() > MaxTxInStandardScriptSigSize {
 		return false, "scriptsig-size"
 	}
 	if !s.IsPushOnly() {
@@ -696,13 +691,13 @@ func (s *Script) GetSigOpCount(flags uint32, accurate bool) int {
 	return n
 }
 
-func (s *Script) GetP2SHSigOpCount(flags uint32, scriptSig *Script) int {
-	if flags&ScriptVerifyP2SH == 0 || s.badOpCode {
-		return 0
+func (s *Script) GetPubKeyP2SHSigOpCount(flags uint32, scriptSig *Script) int {
+	if flags&ScriptVerifyP2SH == 0 || !s.IsPayToScriptHash() {
+		return s.GetSigOpCount(flags, true)
 	}
 
-	if !s.IsPayToScriptHash() {
-		return s.GetSigOpCount(flags, true)
+	if scriptSig.badOpCode {
+		return 0
 	}
 
 	// This is a pay-to-script-hash scriptPubKey;

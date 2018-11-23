@@ -404,7 +404,7 @@ func Test_tx_with__non_pushonly_scriptsig___should_be_non_standard(t *testing.T)
 
 func Test_tx_with_too_large_scriptsig___should_be_non_standard(t *testing.T) {
 	tx := mainNetTx(t)
-	tx.ins[0].SetScriptSig(makeDummyScript(script.MaxStandardScriptSigSize + 1))
+	tx.ins[0].SetScriptSig(makeDummyScript(script.MaxTxInStandardScriptSigSize + 1))
 
 	isStandard, reason := tx.IsStandard()
 
@@ -415,7 +415,7 @@ func Test_tx_with_too_large_scriptsig___should_be_non_standard(t *testing.T) {
 func Test_tx_with_too_large_scriptsig_in_any_ins___should_be_non_standard(t *testing.T) {
 	txn := mainNetTx(t)
 	txn.ins = append(txn.ins, txn.ins[0])
-	txn.ins[1].SetScriptSig(makeDummyScript(script.MaxStandardScriptSigSize + 1))
+	txn.ins[1].SetScriptSig(makeDummyScript(script.MaxTxInStandardScriptSigSize + 1))
 
 	isStandard, reason := txn.IsStandard()
 
