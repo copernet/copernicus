@@ -451,6 +451,7 @@ type Peer struct {
 	protocolVersion      uint32 // negotiated protocol version
 	sendHeadersPreferred bool   // peer sent a sendheaders message
 	verAckReceived       bool
+	isWhitelisted        bool
 
 	wireEncoding wire.MessageEncoding
 
@@ -2041,10 +2042,14 @@ func (p *Peer) negotiateOutboundProtocol() error {
 	return p.readRemoteVersionMsg()
 }
 
+func (p *Peer) IsWhitelisted() bool {
+	return p.isWhitelisted
+}
+
 // newPeerBase returns a new base bitcoin peer based on the inbound flag.  This
 // is used by the NewInboundPeer and NewOutboundPeer functions to perform base
 // setup needed by both types of peers.
-func newPeerBase(origCfg *Config, inbound bool) *Peer {
+func newPeerBase(origCfg *Config, inbound bool, isWhitelisted bool) *Peer {
 	// Default to the max supported protocol version if not specified by the
 	// caller.
 	cfg := *origCfg // Copy to avoid mutating caller.
@@ -2073,19 +2078,20 @@ func newPeerBase(origCfg *Config, inbound bool) *Peer {
 		Cfg:             cfg, // Copy so caller can't mutate.
 		services:        cfg.Services,
 		protocolVersion: cfg.ProtocolVersion,
+		isWhitelisted:   isWhitelisted,
 	}
 	return &p
 }
 
 // NewInboundPeer returns a new inbound bitcoin peer. Use Start to begin
 // processing incoming and outgoing messages.
-func NewInboundPeer(cfg *Config) *Peer {
-	return newPeerBase(cfg, true)
+func NewInboundPeer(cfg *Config, isWhitelisted bool) *Peer {
+	return newPeerBase(cfg, true, isWhitelisted)
 }
 
 // NewOutboundPeer returns a new outbound bitcoin peer.
-func NewOutboundPeer(cfg *Config, addr string) (*Peer, error) {
-	p := newPeerBase(cfg, false)
+func NewOutboundPeer(cfg *Config, addr string, isWhitelisted bool) (*Peer, error) {
+	p := newPeerBase(cfg, false, isWhitelisted)
 	p.addr = addr
 
 	host, portStr, err := net.SplitHostPort(addr)

@@ -204,7 +204,7 @@ type SyncManager struct {
 
 	// callback for transaction And block process
 	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
-	ProcessBlockCallBack       func(*block.Block) (bool, error)
+	ProcessBlockCallBack       func(*block.Block, bool) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 	AddBanScoreCallBack        func(string, uint32, uint32, string)
 
@@ -612,6 +612,12 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
+	// Process all blocks from whitelisted peers, even if not requested,
+	// unless we're still syncing with the network. Such an unrequested
+	// block may still be processed, subject to the conditions in AcceptBlock().
+	fromWhitelist := peer.IsWhitelisted() && !lchain.IsInitialBlockDownload()
+	_, requested := sm.requestedBlocks[blockHash]
+
 	// Remove block from request maps. Either chain will know about it and
 	// so we shouldn't have any more instances of trying to fetch it, or we
 	// will fail the insert and thus we'll retry next time we get an inv.
@@ -620,7 +626,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	_, err := sm.ProcessBlockCallBack(bmsg.block)
+	_, err := sm.ProcessBlockCallBack(bmsg.block, requested || fromWhitelist)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
 		// rejected as opposed to something actually going wrong, so log
@@ -762,7 +768,7 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 		}
 	}()
 	hash := mbmsg.block.GetHash()
-	_, err = sm.ProcessBlockCallBack(mbmsg.block)
+	_, err = sm.ProcessBlockCallBack(mbmsg.block, true)
 	if err != nil {
 		log.Error("process mined block(%v) err(%v)", &hash, err)
 		return
