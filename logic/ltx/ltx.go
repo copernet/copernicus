@@ -952,7 +952,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 	var signErrors []*SignError
 
 	mergedTx := transactions[0]
-	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
 
 	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)

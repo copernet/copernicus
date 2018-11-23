@@ -371,8 +371,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	coinbaseTx.AddTxIn(txin.NewTxIn(&outPoint, scriptSig, 0xffffffff))
 	coinbaseSerializeSize := coinbaseTx.SerializeSize()
 	if coinbaseSerializeSize < consensus.MinTxSize {
-		scriptSig.PushData(make([]byte, consensus.MinTxSize-coinbaseSerializeSize-1,
-			consensus.MinTxSize-coinbaseSerializeSize-1))
+		scriptSig.PushData(make([]byte, consensus.MinTxSize-coinbaseSerializeSize-1))
 	}
 
 	// value represents total reward(fee and block generate reward)
