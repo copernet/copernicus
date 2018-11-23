@@ -64,7 +64,7 @@ func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsM
 		return undo.DisconnectOk
 	}
 	log.Debug("ApplyBlockUndo: success. block: %s", blk.GetHash())
-	return undo.DisconnectOk
+	return undo.DisconnectUnclean
 }
 
 func undoCoinSpend(tx *tx.Tx, txundo *undo.TxUndo, cm *utxo.CoinsMap) undo.DisconnectResult {
