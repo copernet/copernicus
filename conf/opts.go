@@ -24,7 +24,7 @@ type Opts struct {
 
 	ReplayProtectionActivationTime int64  `long:"replayprotectionactivationtime" default:"-1"`
 	MonolithActivationTime         int64  `long:"monolithactivationtime" default:"-1"`
-	MagneticAnomalyTime            int64  `long:"magneticanomalytime" default:"-1"`
+	MagneticAnomalyTime            int64  `long:"magneticanomalyactivationtime" default:"-1"`
 	StopAtHeight                   int32  `long:"stopatheight" default:"-1"`
 	PromiscuousMempoolFlags        string `long:"promiscuousmempoolflags"`
 	Limitancestorcount             int    `long:"limitancestorcount" default:"50000"`
