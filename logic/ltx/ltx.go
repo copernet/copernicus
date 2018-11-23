@@ -535,8 +535,7 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 }
 
 func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
-	var sigOpsCount int
-	sigOpsCount = txn.GetSigOpCountWithoutP2SH(flags) + getP2SHSigOpCount(txn, flags, coinMap)
+	sigOpsCount := txn.GetSigOpCountWithoutP2SH(flags) + getP2SHSigOpCount(txn, flags, coinMap)
 
 	return sigOpsCount
 }
