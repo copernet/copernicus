@@ -123,7 +123,6 @@ type peerStats struct {
 	wantTimeOffset      int64
 	wantBytesSent       uint64
 	wantBytesReceived   uint64
-	wantWitnessEnabled  bool
 }
 
 // testPeer tests the given peer's flags and stats
@@ -274,7 +273,6 @@ func TestPeerConnection(t *testing.T) {
 		wantTimeOffset:      int64(0),
 		wantBytesSent:       164, // 140 version + 24 verack
 		wantBytesReceived:   164,
-		wantWitnessEnabled:  false,
 	}
 	wantStats2 := peerStats{
 		wantUserAgent:       wire.DefaultUserAgent + "peer:1.0(comment)/",
@@ -290,7 +288,6 @@ func TestPeerConnection(t *testing.T) {
 		wantTimeOffset:      int64(0),
 		wantBytesSent:       164, // 140 version + 24 verack
 		wantBytesReceived:   164,
-		wantWitnessEnabled:  true,
 	}
 
 	tests := []struct {
