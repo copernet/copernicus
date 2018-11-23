@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/copernet/copernicus/model/versionbits"
-	"github.com/copernet/copernicus/persist/blkdb"
 	"strings"
 	"time"
 
@@ -163,7 +162,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		return errSig
 	}
 
-	coinsMap, blockUndo, vpos, err := ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
+	coinsMap, blockUndo, err := ltx.ApplyBlockTransactions(pblock.Txs, bip30Enable, flags,
 		fScriptChecks, blockSubSidy, pindex.Height, maxSigOps, uint32(lockTimeFlags), pindex)
 	if err != nil {
 		return err
@@ -189,11 +188,6 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 			}
 			pindex.RaiseValidity(blockindex.BlockValidScripts)
 			gPersist.AddDirtyBlockIndex(pindex)
-		}
-		blkTree := blkdb.GetInstance()
-		if err := blkTree.WriteTxIndex(vpos); err != nil {
-			log.Error("Failed to write transaction index")
-			return err
 		}
 		// add this block to the view's block chain
 		*view = *coinsMap

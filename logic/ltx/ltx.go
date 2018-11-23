@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"strconv"
 	"strings"
@@ -328,8 +327,7 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 
 func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32,
 	needCheckScript bool, blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64,
-	lockTimeFlags uint32, pindex *blockindex.BlockIndex) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo,
-	vPos map[util.Hash]block.DiskTxPos, err error) {
+	lockTimeFlags uint32, pindex *blockindex.BlockIndex) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
 
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
@@ -337,7 +335,6 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	sigOpsCount := 0
 	var fees amount.Amount
 	bundo = undo.NewBlockUndo(0)
-	blkPos := pindex.GetBlockPos()
 
 	// check BIP30: do not allow overwriting unspent old transactions
 	if bip30Enable {
@@ -346,7 +343,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			for i := range outs {
 				if utxoCache.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 					log.Debug("tried to overwrite transaction")
-					return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
 				}
 			}
 		}
@@ -356,13 +353,13 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	isMagneticAnomalyEnabled := model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast())
 
 	for _, ptx := range txs {
-		pos := block.DiskTxPos{
-			BlockIn:    &blkPos,
-			TxOffsetIn: util.VarIntSerializeSize(uint64(len(txs))),
-		}
-		vPos = make(map[util.Hash]block.DiskTxPos)
-		pos = vPos[ptx.GetHash()]
-		pos.TxOffsetIn += ptx.EncodeSize()
+		//pos := block.DiskTxPos{
+		//	BlockIn:    &blkPos,
+		//	TxOffsetIn: util.VarIntSerializeSize(uint64(len(txs))),
+		//}
+		//vPos = make(map[util.Hash]block.DiskTxPos)
+		//pos = vPos[ptx.GetHash()]
+		//pos.TxOffsetIn += ptx.EncodeSize()
 
 		if ptx.IsCoinBase() {
 			// We've already checked for sigops count before P2SH in CheckBlock.
@@ -383,7 +380,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
 			if coin == nil || coin.IsSpent() {
 				log.Debug("can't find coin or has been spent out before apply transaction: %+v", in.PreviousOutPoint)
-				return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
+				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
 			}
 		}
 
@@ -393,7 +390,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
 		if !CheckSequenceLocks(coinHeight, coinTime) {
 			log.Debug("block contains a non-bip68-final transaction")
-			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
 		}
 
 		// GetTransactionSigOpCount counts 2 types of sigops:
@@ -402,12 +399,12 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
-			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 		}
 		sigOpsCount += sigsCount
 		if sigOpsCount > int(blockMaxSigOpsCount) {
 			log.Debug("block has too many sigops at %d transaction", i)
-			return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
 
 		fee := coinsMap.GetValueIn(transaction) - transaction.GetValueOut()
@@ -418,9 +415,9 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
 			if err != nil {
 				if strings.Contains(err.Error(), "script-verify") {
-					return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
+					return nil, nil, errcode.NewError(errcode.RejectInvalid, "blk-bad-inputs")
 				}
-				return nil, nil, nil, err
+				return nil, nil, err
 			}
 		}
 
@@ -437,9 +434,9 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 	if txs[0].GetValueOut() > fees+blockSubSidy {
 		log.Debug("coinbase pays too much: coinbase out:%d fee:%d expected:%d txcnt(%d)",
 			txs[0].GetValueOut(), fees, fees+blockSubSidy, len(txs))
-		return nil, nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
+		return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
 	}
-	return coinsMap, bundo, vPos, nil
+	return coinsMap, bundo, nil
 }
 
 // check coinbase with height
@@ -955,7 +952,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 	var signErrors []*SignError
 
 	mergedTx := transactions[0]
-	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay|crypto.SigHashForkID) == crypto.SigHashSingle
+	hashSingle := int(hashType) & ^(crypto.SigHashAnyoneCanpay | crypto.SigHashForkID) == crypto.SigHashSingle
 
 	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)
