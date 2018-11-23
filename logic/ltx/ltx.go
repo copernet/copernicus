@@ -631,7 +631,7 @@ func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 			}
 
 			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
-			opCount := subScript.GetSigOpCount(uint32(script.StandardScriptVerifyFlags), true)
+			opCount := subScript.GetSigOpCount(uint32(script.StandardCheckDataSigVerifyFlags), true)
 			if uint(opCount) > tx.MaxP2SHSigOps {
 				log.Debug("transaction has too many sigops")
 				return false
