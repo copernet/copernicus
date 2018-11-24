@@ -30,7 +30,7 @@ const MaxMessagePayload = (1024 * 1024 * 32) // 32MB
 
 // MaxProtocolMessageLength length of incoming protocol messages (Currently 1MB).
 // NB: Messages propagating block content are not subject to this limit.
-const MaxProtocolMessageLength = 1 * 1024 * 1024
+const MaxProtocolMessageLength = 2 * 1024 * 1024
 
 // Commands used in bitcoin message headers which describe the type of message.
 const (
@@ -359,7 +359,6 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 			"but max message payload is %d bytes. max block msg len: %d",
 			hdr.length, MaxProtocolMessageLength, 2*conf.Cfg.Excessiveblocksize)
 		return totalBytes, nil, nil, messageError("ReadMessage", str)
-
 	}
 
 	// Check for messages from the wrong bitcoin network.
