@@ -6,28 +6,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"path/filepath"
-	"sort"
-	"sync/atomic"
-	"testing"
-	"time"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/connmgr"
@@ -39,10 +29,26 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"io/ioutil"
+	"math/big"
+	"math/rand"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"path/filepath"
+	"sort"
+	"sync/atomic"
+	"testing"
+	"time"
 )
 
 var s *Server
 var dir string
+
+var timePerBlock = int64(model.ActiveNetParams.TargetTimePerBlock)
+var initBits = uint32(0x207FFFFF)
 
 func appInitMain(args []string) {
 	conf.Cfg = conf.InitConfig(args)
@@ -155,6 +161,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	flag.Parse()
+	initBlkIdx()
 	s.Start()
 	exitCode := m.Run()
 	s.Stop()
@@ -747,12 +754,43 @@ func TestOnInv(t *testing.T) {
 	msgInv.AddInvVect(iv2)
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
+
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnInv(in, msgInv)
 	conf.Cfg.P2PNet.BlocksOnly = true
 	sp.OnInv(in, msgInv)
-	conf.Cfg.P2PNet.BlocksOnly = false
+}
+
+func TestOnInv_versionok(t *testing.T) {
+	hashStr := "3264bc2ac36a60840790ba1d475d01367e7c723da941069e9dc"
+	blockHash, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	hashStr = "d28a3dc7392bf00a9855ee93dd9a81eff82a2c4fe57fbd42cfe71b487accfaf0"
+	txHash, err := util.GetHashFromStr(hashStr)
+	if err != nil {
+		t.Errorf("GetHashFromStr: %v", err)
+	}
+
+	iv := wire.NewInvVect(wire.InvTypeBlock, blockHash)
+	iv2 := wire.NewInvVect(wire.InvTypeTx, txHash)
+
+	msgInv := wire.NewMsgInv()
+	msgInv.AddInvVect(iv)
+	msgInv.AddInvVect(iv2)
+	config := peer.Config{}
+	config.ProtocolVersion = wire.BIP0035Version
+	in := peer.NewInboundPeer(&config)
+
+>>>>>>> add some unit test of server
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	sp.OnInv(in, msgInv)
+	conf.Cfg.P2PNet.BlocksOnly = true
+	sp.OnInv(in, msgInv)
 }
 
 func TestOnHeaders(t *testing.T) {
@@ -826,30 +864,11 @@ func TestTransferMsgToBusinessPro(t *testing.T) {
 }
 
 func TestOnGetBlocks(t *testing.T) {
-	// Block 99499 hash.
-	hashStr := "2710f40c87ec93d010a6fd95f42c59a2cbacc60b18cf6b7957535"
-	hashLocator, err := util.GetHashFromStr(hashStr)
-	if err != nil {
-		t.Errorf("GetHashFromStr: %v", err)
-	}
-
-	// Block 99500 hash.
-	hashStr = "2e7ad7b9eef9479e4aabc65cb831269cc20d2632c13684406dee0"
-	hashLocator2, err := util.GetHashFromStr(hashStr)
-	if err != nil {
-		t.Errorf("GetHashFromStr: %v", err)
-	}
-
-	// Block 100000 hash.
-	hashStr = "3ba27aa200b1cecaad478d2b00432346c3f1f3986da1afd33e506"
-	hashStop, err := util.GetHashFromStr(hashStr)
-	if err != nil {
-		t.Errorf("GetHashFromStr: %v", err)
-	}
-
-	msgGetBlocks := wire.NewMsgGetBlocks(hashStop)
-	msgGetBlocks.AddBlockLocatorHash(hashLocator2)
-	msgGetBlocks.AddBlockLocatorHash(hashLocator)
+	gChain := chain.GetInstance()
+	pindexStart := gChain.GetIndexBestHeader()
+	gChain.SetTip(pindexStart)
+	msgGetBlocks := wire.NewMsgGetBlocks(pindexStart.GetBlockHash())
+	msgGetBlocks.AddBlockLocatorHash(pindexStart.Prev.Prev.GetBlockHash())
 	msgGetBlocks.ProtocolVersion = wire.BIP0035Version
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
@@ -866,6 +885,8 @@ func TestOnFilterAdd(t *testing.T) {
 	data := []byte{0x01, 0x02}
 	msg := wire.NewMsgFilterAdd(data)
 	sp.OnFilterAdd(in, msg)
+	sp.server.services |= wire.SFNodeBloom
+	sp.OnFilterAdd(in, msg)
 }
 
 func TestOnFeeFilter(t *testing.T) {
@@ -877,6 +898,7 @@ func TestOnFeeFilter(t *testing.T) {
 		wire.NewMsgFeeFilter(0),
 		wire.NewMsgFeeFilter(323),
 		wire.NewMsgFeeFilter(util.MaxSatoshi),
+		wire.NewMsgFeeFilter(-1),
 	}
 	for _, test := range tests {
 		sp.OnFeeFilter(in, test)
@@ -889,6 +911,7 @@ func TestOnFilterClear(t *testing.T) {
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgFilterClear()
+	sp.server.services |= wire.SFNodeBloom
 	sp.OnFilterClear(in, msg)
 }
 
@@ -899,7 +922,7 @@ func TestOnFilterLoad(t *testing.T) {
 	sp.Peer = in
 	data := []byte{0x01, 0x02}
 	msg := wire.NewMsgFilterLoad(data, 10, 0, 0)
-
+	sp.server.services |= wire.SFNodeBloom
 	sp.OnFilterLoad(in, msg)
 }
 
@@ -909,6 +932,27 @@ func TestOnGetAddr(t *testing.T) {
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgGetAddr()
+	conf.Cfg.P2PNet.SimNet = false
+	sp.OnGetAddr(in, msg)
+}
+
+func TestOnGetAddr_ignore(t *testing.T) {
+	config := peer.Config{}
+	in := peer.NewInboundPeer(&config)
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	msg := wire.NewMsgGetAddr()
+	conf.Cfg.P2PNet.SimNet = true
+	sp.OnGetAddr(in, msg)
+}
+
+func TestOnGetAddr_outbound(t *testing.T) {
+	config := peer.Config{}
+	in, _ := peer.NewOutboundPeer(&config, "127.0.0.1:34567")
+	sp := newServerPeer(s, false)
+	sp.Peer = in
+	msg := wire.NewMsgGetAddr()
+	conf.Cfg.P2PNet.SimNet = false
 	sp.OnGetAddr(in, msg)
 }
 
@@ -1401,4 +1445,195 @@ func TestServer_addLocalAddress(t *testing.T) {
 		}
 	}
 
+}
+
+func getBlockIndex(indexPrev *blockindex.BlockIndex, timeInterval int64, bits uint32) *blockindex.BlockIndex {
+	blockIdx := new(blockindex.BlockIndex)
+	blockIdx.Prev = indexPrev
+	blockIdx.Header.HashPrevBlock = indexPrev.Header.GetHash()
+	blockIdx.Height = indexPrev.Height + 1
+	blockIdx.File = blockIdx.Height / 3
+	blockIdx.Header.Time = indexPrev.Header.Time + uint32(timeInterval)
+	if blockIdx.Height%3 == 0 {
+		blockIdx.Header.Time = indexPrev.Header.Time - uint32(timeInterval)
+	}
+	blockIdx.Header.Bits = bits
+	blockIdx.ChainWork = *big.NewInt(0).Add(&indexPrev.ChainWork, pow.GetBlockProof(blockIdx))
+
+	powCheck := pow.Pow{}
+	params := model.ActiveNetParams
+	for {
+		blockIdx.Header.Nonce++
+		hash := blockIdx.Header.GetHash()
+		log.Debug("mining height %d, hash: %s", blockIdx.Height, hash)
+		if powCheck.CheckProofOfWork(&hash, bits, params) {
+			break
+		}
+		blockIdx.Header.Hash = util.HashZero
+	}
+
+	seed := rand.NewSource(time.Now().Unix())
+	random := rand.New(seed)
+	blockIdx.TxCount = int32(random.Intn(1000) + 1)
+	blockIdx.ChainTxCount = indexPrev.ChainTxCount + blockIdx.TxCount
+	if blockIdx.Height%4 == 0 {
+		blockIdx.ChainTxCount = 0
+	}
+	blockIdx.Header.Bits = bits
+	blockIdx.AddStatus(blockindex.BlockHaveData)
+	blockIdx.RaiseValidity(blockindex.BlockValidScripts)
+	return blockIdx
+}
+
+func initBlkIdx() {
+	gChain := chain.GetInstance()
+	genesisIndex := gChain.FindBlockIndex(*gChain.GetParams().GenesisHash)
+	if genesisIndex == nil {
+		panic("genesis index find fail")
+	}
+
+	blocknumber := 10
+
+	blockIdx := make([]*blockindex.BlockIndex, blocknumber*2-1)
+	blockIdx[0] = genesisIndex
+	for i := 1; i < blocknumber; i++ {
+		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock, initBits)
+		err := gChain.AddToIndexMap(blockIdx[i])
+		if err != nil {
+			panic("AddToIndexMap fail")
+		}
+	}
+}
+
+func TestServer_checkResetRevert(t *testing.T) {
+	gChain := chain.GetInstance()
+	p := &peer.Peer{}
+	sp := &serverPeer{}
+	sp.Peer = p
+	sp.SetRevertToInv(true)
+	pindexStart := gChain.GetIndexBestHeader().Prev
+	locator := gChain.GetLocator(pindexStart)
+	blkHashs := locator.GetBlockHashList()
+	var zeroHash util.Hash
+	msg := wire.NewMsgGetHeaders()
+	msg.HashStop = zeroHash
+	for i := 0; i < len(blkHashs); i++ {
+		hash := blkHashs[i]
+		err := msg.AddBlockLocatorHash(&hash)
+		if err != nil {
+			t.Errorf("AddBlockLocatorHash fail:%v", err)
+		}
+	}
+
+	sp.checkResetRevert(msg)
+
+	assert.False(t, sp.RevertToInv())
+}
+
+func TestServer_OnGetHeaders_ignore(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	sp.OnGetHeaders(nil, nil)
+}
+
+func TestServer_OnGetHeaders_noheader(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	sp.isWhitelisted = true
+	msg := wire.NewMsgGetHeaders()
+	msg.HashStop = zeroHash
+	sp.OnGetHeaders(nil, msg)
+}
+
+func TestServer_OnGetHeaders_hasheader(t *testing.T) {
+	gChain := chain.GetInstance()
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	sp.isWhitelisted = true
+	pindexStart := gChain.GetIndexBestHeader().Prev.Prev.Prev
+	locator := gChain.GetLocator(pindexStart)
+	blkHashs := locator.GetBlockHashList()
+	var zeroHash util.Hash
+	msg := wire.NewMsgGetHeaders()
+	msg.HashStop = zeroHash
+	for i := 0; i < len(blkHashs); i++ {
+		hash := blkHashs[i]
+		err := msg.AddBlockLocatorHash(&hash)
+		if err != nil {
+			t.Errorf("AddBlockLocatorHash fail:%v", err)
+		}
+	}
+
+	gChain.SetTip(pindexStart)
+	sp.OnGetHeaders(nil, msg)
+}
+
+func TestServer_addBanScore_ignore_whitelist(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	sp.isWhitelisted = true
+	sp.addBanScore(88, 88, "testban")
+
+	assert.Equal(t, uint32(0), sp.banScore.Int())
+}
+
+func TestServer_addBanScore_ignore_disable(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	conf.Cfg.P2PNet.DisableBanning = true
+	sp.addBanScore(88, 88, "testban")
+
+	assert.Equal(t, uint32(0), sp.banScore.Int())
+}
+
+func TestServer_addBanScore_zero(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	conf.Cfg.P2PNet.DisableBanning = false
+	sp.addBanScore(111, 111, "testban")
+	assert.Equal(t, uint32(222), sp.banScore.Int())
+	sp.addBanScore(0, 0, "testban")
+	assert.Equal(t, uint32(222), sp.banScore.Int())
+}
+
+func TestServer_transferPing(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	msg := wire.NewMsgPing(123)
+	m := &peer.PeerMessage{Msg: msg}
+	sp.TransferMsgToBusinessPro(m, nil)
+}
+
+func TestServer_enforceNodeBloomFlag(t *testing.T) {
+	sp := newServerPeer(s, false)
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	conf.Cfg.P2PNet.DisableBanning = true
+	sp.server.services = 0
+	ret := sp.enforceNodeBloomFlag("testcmd")
+	assert.False(t, ret)
+	sp.server.services = wire.SFNodeBloom
+	ret = sp.enforceNodeBloomFlag("testcmd")
+	assert.True(t, ret)
+}
+
+func TestServer_OnReject(t *testing.T) {
+	p := &peer.Peer{}
+	sp := newServerPeer(s, false)
+	sp.Peer = p
+	sp.OnReject(nil, nil)
+}
+
+func TestServer_findBlockIndex(t *testing.T) {
+	gChain := chain.GetInstance()
+	idxbest := gChain.GetIndexBestHeader()
+	gChain.SetTip(idxbest)
+	_, send := findBlockIndex(idxbest.Prev.GetBlockHash())
+	assert.True(t, send)
 }
