@@ -451,6 +451,7 @@ func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	sort.SliceStable(c.branch, func(i, j int) bool {
 		// First sort by most total work, ...
 		jWork := c.branch[j].ChainWork
+		//return c.branch[i].ChainWork.Cmp(&jWork) == -1
 		if c.branch[i].ChainWork.Cmp(&jWork) == 1 {
 			return false
 		}
@@ -459,12 +460,12 @@ func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 		}
 
 		// ... then by earliest time received, ...
-		if c.branch[i].SequenceID < c.branch[j].SequenceID {
-			return false
-		}
-		if c.branch[i].SequenceID > c.branch[j].SequenceID {
-			return true
-		}
+		//if c.branch[i].SequenceID < c.branch[j].SequenceID {
+		//	return false
+		//}
+		//if c.branch[i].SequenceID > c.branch[j].SequenceID {
+		//	return true
+		//}
 
 		return false
 	})
