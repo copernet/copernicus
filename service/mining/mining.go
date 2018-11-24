@@ -324,8 +324,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 		ba.height = indexPrev.Height + 1
 	}
 
-	blkVersion := versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)
-	ba.bt.Block.Header.Version = int32(blkVersion)
+	ba.bt.Block.Header.Version = versionbits.ComputeBlockVersion()
 	// -regtest only: allow overriding block.nVersion with
 	// -blockversion=N to test forking scenarios
 	if ba.chainParams.MineBlocksOnDemands {

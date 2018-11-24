@@ -1,7 +1,6 @@
 package versionbits
 
 import (
-	"math"
 	"sync"
 
 	"github.com/copernet/copernicus/model"
@@ -261,54 +260,8 @@ func GetStateSinceHeightFor(vc AbstractThresholdConditionChecker, indexPrev *blo
 	return int(indexPrev.Height) + 1
 }
 
-type WarningBitsConditionChecker struct {
-	bit int
-}
-
-func NewWarningBitsConChecker(bitIn int) *WarningBitsConditionChecker {
-	w := new(WarningBitsConditionChecker)
-	w.bit = bitIn
-	return w
-}
-
-func (w *WarningBitsConditionChecker) BeginTime(params *model.BitcoinParams) int64 {
-	return 0
-}
-
-func (w *WarningBitsConditionChecker) EndTime(params *model.BitcoinParams) int64 {
-	return math.MaxInt64
-}
-
-func (w *WarningBitsConditionChecker) Period(params *model.BitcoinParams) int {
-	return int(params.MinerConfirmationWindow)
-}
-
-func (w *WarningBitsConditionChecker) Threshold(params *model.BitcoinParams) int {
-	return int(params.RuleChangeActivationThreshold)
-}
-
-func (w *WarningBitsConditionChecker) Condition(index *blockindex.BlockIndex, params *model.BitcoinParams) bool {
-
-	return int64(index.Header.Version)&VersionBitsTopMask == VersionBitsTopBits &&
-		((index.Header.Version)>>uint(w.bit))&1 != 0 &&
-		(ComputeBlockVersion(index.Prev, params, VBCache)>>uint(w.bit))&1 == 0
-}
-
-func ComputeBlockVersion(indexPrev *blockindex.BlockIndex, params *model.BitcoinParams, t *VersionBitsCache) int {
-	version := VersionBitsTopBits
-
-	for i := 0; i < int(consensus.MaxVersionBitsDeployments); i++ {
-		state := func() ThresholdState {
-			v := VersionBitsState(indexPrev, params, consensus.DeploymentPos(i), t)
-			return v
-		}()
-
-		if state == ThresholdLockedIn || state == ThresholdStarted {
-			version |= int(VersionBitsMask(params, consensus.DeploymentPos(i)))
-		}
-	}
-
-	return version
+func ComputeBlockVersion() int32 {
+	return int32(VersionBitsTopBits)
 }
 
 func init() {

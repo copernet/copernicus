@@ -3,7 +3,6 @@ package lchain
 import (
 	"bytes"
 	"fmt"
-	"github.com/copernet/copernicus/model/versionbits"
 	"strings"
 	"time"
 
@@ -145,7 +144,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 	bip30Enable = bip30Enable && !bip34Enable
 
 	lockTimeFlags := 0
-	if versionbits.VersionBitsState(pindex.Prev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+	if pindex.Height >= gChain.GetParams().CSVHeight {
 		lockTimeFlags |= consensus.LocktimeVerifySequence
 	}
 

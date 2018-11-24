@@ -15,7 +15,6 @@ import (
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/tx"
-	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
@@ -55,26 +54,6 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block, inDbp *block.D
 		log.Debug("block(hash: %s) data is written to disk", bl.GetHash())
 	}
 	return pos, nil
-}
-
-func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
-	params := chain.GetInstance().GetParams()
-	lockTimeFlags := 0
-	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
-		lockTimeFlags |= consensus.LocktimeMedianTimePast
-	}
-
-	var medianTimePast int64
-	if indexPrev != nil {
-		medianTimePast = indexPrev.GetMedianTimePast()
-	}
-
-	lockTimeCutoff := int64(block.Header.Time)
-	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
-		lockTimeCutoff = medianTimePast
-	}
-
-	return lockTimeCutoff
 }
 
 func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {

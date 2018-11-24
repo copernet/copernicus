@@ -111,8 +111,7 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 
 	indexPrev := chain.GetInstance().FindBlockIndex(prehash)
 
-	blkVersion := versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)
-	bk.Header.Version = int32(blkVersion)
+	bk.Header.Version = versionbits.ComputeBlockVersion()
 
 	bk.Header.Time = uint32(util.GetAdjustedTime())
 
