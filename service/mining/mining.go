@@ -334,6 +334,13 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	}
 	ba.bt.Block.Header.Time = uint32(ba.timeSource.AdjustedTime().Unix())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
+	lockTimeCutoff := indexPrev.GetMedianTimePast()
+	if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
+		ba.lockTimeCutoff = lockTimeCutoff
+	} else {
+		ba.lockTimeCutoff = int64(ba.bt.Block.GetBlockHeader().Time)
+	}
+
 	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 	sortRecord := make(map[util.Hash]int)
 	descendantsUpdated := ba.addPackageTxs(sortRecord)
