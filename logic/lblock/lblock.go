@@ -13,6 +13,7 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
@@ -233,24 +234,26 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 	gChain := chain.GetInstance()
 	if !fRequested {
 		tip := gChain.Tip()
-		fHasMoreWork := false
-		if tip == nil {
-			fHasMoreWork = true
-		} else {
-			tipWork := tip.ChainWork
-			if bIndex.ChainWork.Cmp(&tipWork) == 1 {
-				fHasMoreWork = true
-			}
-		}
-		if !fHasMoreWork {
+
+		hasMoreWork := tip == nil || bIndex.ChainWork.Cmp(&tip.ChainWork) == 1
+		if !hasMoreWork {
 			log.Debug("AcceptBlockHeader err:%d", 3008)
 			err = errcode.ProjectError{Code: 3008}
 			return
 		}
+
 		fTooFarAhead := bIndex.Height > gChain.Height()+block.MinBlocksToKeep
 		if fTooFarAhead {
 			log.Debug("AcceptBlockHeader err:%d", 3007)
 			err = errcode.ProjectError{Code: 3007}
+			return
+		}
+
+		// Protect against DoS attacks from low-work chains.  If our tip is behind,
+		// a peer could try to send us low-work blocks on a fake chain that we would never
+		// request; don't process these.
+		mcw := pow.HashToBig(&model.ActiveNetParams.MinimumChainWork)
+		if bIndex.ChainWork.Cmp(mcw) == -1 {
 			return
 		}
 	}

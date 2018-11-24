@@ -29,7 +29,7 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 	return nil
 }
 
-func ProcessBlock(b *block.Block) (bool, error) {
+func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
 	h := b.GetHash()
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
@@ -40,7 +40,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 
 	isNewBlock := false
 
-	err := ProcessNewBlock(b, true, &isNewBlock)
+	err := ProcessNewBlock(b, forceProcessing, &isNewBlock)
 
 	if err != nil {
 		log.Trace("processBlock failed ...")
@@ -62,7 +62,7 @@ func ProcessBlock(b *block.Block) (bool, error) {
 	return isNewBlock, err
 }
 
-func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool) error {
+func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool) error {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
@@ -77,7 +77,7 @@ func ProcessNewBlock(pblock *block.Block, fForceProcessing bool, fNewBlock *bool
 	persist.CsMain.Lock()
 	defer persist.CsMain.Unlock()
 
-	if _, _, err := lblock.AcceptBlock(pblock, fForceProcessing, nil, fNewBlock); err != nil {
+	if _, _, err := lblock.AcceptBlock(pblock, forceProcessing, nil, fNewBlock); err != nil {
 		h := pblock.GetHash()
 		log.Error(" AcceptBlock FAILED: %s err:%v", h.String(), err)
 		return err

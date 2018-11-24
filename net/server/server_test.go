@@ -175,7 +175,7 @@ func TestAddPeer(t *testing.T) {
 
 	sp := newServerPeer(s, false)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp.Peer = in
 
 	s.AddPeer(sp)
@@ -185,7 +185,7 @@ func TestBanPeer(t *testing.T) {
 
 	sp := newServerPeer(s, false)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp.Peer = in
 
 	s.BanPeer(sp)
@@ -243,8 +243,7 @@ func TestBroadcastMessage(t *testing.T) {
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	sp := newServerPeer(svr, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted(inConn.RemoteAddr()))
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
@@ -292,8 +291,7 @@ func TestConnectedCount(t *testing.T) {
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	sp := newServerPeer(svr, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted(inConn.RemoteAddr()))
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
@@ -347,8 +345,7 @@ func TestRelayInventory(t *testing.T) {
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	sp := newServerPeer(s, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted(inConn.RemoteAddr()))
 	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
 		s.syncManager.NewPeer(peer)
 	})
@@ -545,7 +542,7 @@ func TestOutboundPeerConnected(t *testing.T) {
 func TestPushAddrMsg(t *testing.T) {
 	sp := newServerPeer(nil, true)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp.Peer = in
 
 	addrs := []*wire.NetAddress{
@@ -668,7 +665,7 @@ func TestOnVersion(t *testing.T) {
 		t.Fatalf("RandomUint64: error generating nonce: %v", err)
 	}
 	config := peer.Config{}
-	out, _ := peer.NewOutboundPeer(&config, "seed.bitcoinabc.org:8333")
+	out, _ := peer.NewOutboundPeer(&config, "seed.bitcoinabc.org:8333", false)
 	msg := wire.NewMsgVersion(me, you, nonce, lastBlock)
 
 	sp := newServerPeer(s, false)
@@ -687,8 +684,7 @@ func TestOnMemPool(t *testing.T) {
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	sp := newServerPeer(svr, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted(inConn.RemoteAddr()))
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
@@ -707,7 +703,7 @@ func TestOnMemPool(t *testing.T) {
 func TestOnTx(t *testing.T) {
 	msgTx := (*wire.MsgTx)(tx.NewTx(0, 1))
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	done := make(chan struct{})
@@ -721,7 +717,7 @@ func TestOnTx(t *testing.T) {
 func TestOnBlock(t *testing.T) {
 	msgBlock := (*wire.MsgBlock)(&block.Block{})
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	done := make(chan struct{})
@@ -750,7 +746,7 @@ func TestOnInv(t *testing.T) {
 	msgInv.AddInvVect(iv)
 	msgInv.AddInvVect(iv2)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnInv(in, msgInv)
@@ -762,7 +758,7 @@ func TestOnInv(t *testing.T) {
 func TestOnHeaders(t *testing.T) {
 	msgHeaders := wire.NewMsgHeaders()
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnHeaders(in, msgHeaders)
@@ -794,7 +790,7 @@ func TestOnGetData(t *testing.T) {
 	m2.AddInvVect(iv2)
 
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	go func() {
@@ -805,7 +801,7 @@ func TestOnGetData(t *testing.T) {
 
 func TestTransferMsgToBusinessPro(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	mempoolMsg := wire.NewMsgMemPool()
@@ -854,7 +850,7 @@ func TestOnGetBlocks(t *testing.T) {
 	msgGetBlocks.AddBlockLocatorHash(hashLocator)
 	msgGetBlocks.ProtocolVersion = wire.BIP0035Version
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnGetBlocks(in, msgGetBlocks)
@@ -862,7 +858,7 @@ func TestOnGetBlocks(t *testing.T) {
 
 func TestOnFilterAdd(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	data := []byte{0x01, 0x02}
@@ -872,7 +868,7 @@ func TestOnFilterAdd(t *testing.T) {
 
 func TestOnFeeFilter(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	tests := []*wire.MsgFeeFilter{
@@ -887,7 +883,7 @@ func TestOnFeeFilter(t *testing.T) {
 
 func TestOnFilterClear(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgFilterClear()
@@ -896,7 +892,7 @@ func TestOnFilterClear(t *testing.T) {
 
 func TestOnFilterLoad(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	data := []byte{0x01, 0x02}
@@ -907,7 +903,7 @@ func TestOnFilterLoad(t *testing.T) {
 
 func TestOnGetAddr(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgGetAddr()
@@ -916,7 +912,7 @@ func TestOnGetAddr(t *testing.T) {
 
 func TestOnAddr(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgAddr()
@@ -931,7 +927,7 @@ func TestOnAddr(t *testing.T) {
 
 func TestOnReadWrite(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	atomic.StoreUint64(&s.bytesReceived, 0)
@@ -961,7 +957,7 @@ func TestRandomUint16Number(t *testing.T) {
 
 func TestHandleAddPeerMsg(t *testing.T) {
 	config := peer.Config{}
-	out, _ := peer.NewOutboundPeer(&config, "192.168.1.32:8333")
+	out, _ := peer.NewOutboundPeer(&config, "192.168.1.32:8333", false)
 	sp := newServerPeer(s, false)
 	sp.Peer = out
 	ps := peerState{
@@ -1240,7 +1236,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 		ChainParams:       &model.MainNetParams,
 		Services:          wire.SFNodeBloom,
 	}
-	inPeer := peer.NewInboundPeer(peerCfg)
+	inPeer := peer.NewInboundPeer(peerCfg, false)
 
 	hashStr := "3264bc2ac36a60840790ba1d475d01367e7c723da941069e9dc"
 	blockHash, err := util.GetHashFromStr(hashStr)
@@ -1249,8 +1245,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	sp := newServerPeer(svr, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted(inConn.RemoteAddr()))
 	sp.AssociateConnection(inConn, svr.MsgChan, func(peer *peer.Peer) {
 		svr.syncManager.NewPeer(peer)
 	})
@@ -1350,8 +1345,7 @@ func TestServer_disconnectPeer(t *testing.T) {
 	r, w := io.Pipe()
 	inConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	sp := newServerPeer(s, false)
-	sp.isWhitelisted = isWhitelisted(inConn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted(inConn.RemoteAddr()))
 	sp.AssociateConnection(inConn, s.MsgChan, func(peer *peer.Peer) {
 		s.syncManager.NewPeer(peer)
 	})

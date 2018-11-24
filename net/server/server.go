@@ -295,7 +295,6 @@ type serverPeer struct {
 	relayMtx       sync.Mutex
 	disableRelayTx bool
 	sentAddrs      bool
-	isWhitelisted  bool
 	filter         *bloom.Filter
 	knownAddresses map[string]struct{}
 	banScore       connmgr.DynamicBanScore
@@ -317,6 +316,12 @@ func newServerPeer(s *Server, isPersistent bool) *serverPeer {
 		txProcessed:    make(chan struct{}, 1),
 		blockProcessed: make(chan struct{}, 1),
 	}
+}
+
+// newestBlock returns the current best block hash and height using the format
+// required by the configuration for the peer package.
+func (sp *serverPeer) IsWhitelisted() bool {
+	return sp.Peer != nil && sp.Peer.IsWhitelisted()
 }
 
 // newestBlock returns the current best block hash and height using the format
@@ -390,7 +395,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 	if conf.Cfg.P2PNet.DisableBanning {
 		return
 	}
-	if sp.isWhitelisted {
+	if sp.IsWhitelisted() {
 		log.Debug("Misbehaving whitelisted peer %s: %s", sp, reason)
 		return
 	}
@@ -468,7 +473,7 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// Only allow mempool requests if the server has bloom filtering
 	// enabled.
-	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom && !sp.isWhitelisted {
+	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom && !sp.IsWhitelisted() {
 		log.Debug("peer %v sent mempool request with bloom "+
 			"filtering disabled -- disconnecting", sp)
 		sp.Disconnect()
@@ -738,7 +743,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// Ignore getheaders requests if not in sync.
-	if !sp.isWhitelisted && !sp.server.syncManager.IsCurrent() {
+	if !sp.IsWhitelisted() && !sp.server.syncManager.IsCurrent() {
 		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
 		return
 	}
@@ -1876,8 +1881,8 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 // for disconnection.
 func (s *Server) inboundPeerConnected(conn net.Conn) {
 	sp := newServerPeer(s, false)
-	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	isWhitelisted := isWhitelisted(conn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted)
 	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
 		s.syncManager.NewPeer(peer)
 	})
@@ -1902,14 +1907,14 @@ func (s *Server) inboundPeerConnected(conn net.Conn) {
 // manager of the attempt.
 func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp := newServerPeer(s, c.Permanent)
-	p, err := peer.NewOutboundPeer(newPeerConfig(sp), c.Addr.String())
+	isWhitelisted := isWhitelisted(conn.RemoteAddr())
+	p, err := peer.NewOutboundPeer(newPeerConfig(sp), c.Addr.String(), isWhitelisted)
 	if err != nil {
 		log.Debug("Cannot create outbound peer %s: %v", c.Addr, err)
 		s.connManager.Disconnect(c.ID())
 	}
 	sp.Peer = p
 	sp.connReq = c
-	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
 	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
 		// Request known addresses if the server address manager needs
 		// more and the peer has a protocol version new enough to

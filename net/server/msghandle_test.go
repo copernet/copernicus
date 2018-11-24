@@ -294,7 +294,7 @@ func TestMsgHandle(t *testing.T) {
 	outConn := &conn{raddr: "127.0.0.1:18334", Writer: w, Reader: r}
 	inMsgChan := make(chan *peer.PeerMessage)
 	SetMsgHandle(context.TODO(), inMsgChan, nil)
-	outPeer, err := peer.NewOutboundPeer(peerCfg, "127.0.0.1:18335")
+	outPeer, err := peer.NewOutboundPeer(peerCfg, "127.0.0.1:18335", false)
 	assert.Nil(t, err)
 	outPeer.AssociateConnection(outConn, inMsgChan, func(*peer.Peer) {})
 

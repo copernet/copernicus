@@ -47,7 +47,7 @@ func TestRPCConnManager(t *testing.T) {
 
 func TestRpcPeer(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	rpcPeer := (*rpcPeer)(sp)
