@@ -449,8 +449,24 @@ func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
 func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	c.branch = append(c.branch, bis)
 	sort.SliceStable(c.branch, func(i, j int) bool {
+		// First sort by most total work, ...
 		jWork := c.branch[j].ChainWork
-		return c.branch[i].ChainWork.Cmp(&jWork) == -1
+		if c.branch[i].ChainWork.Cmp(&jWork) == 1 {
+			return false
+		}
+		if c.branch[i].ChainWork.Cmp(&jWork) == -1 {
+			return true
+		}
+
+		// ... then by earliest time received, ...
+		if c.branch[i].SequenceID < c.branch[j].SequenceID {
+			return false
+		}
+		if c.branch[i].SequenceID > c.branch[j].SequenceID {
+			return true
+		}
+
+		return false
 	})
 }
 
