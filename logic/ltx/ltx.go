@@ -422,7 +422,7 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
 		txUndoList = append(txUndoList, txundo)
-		UpdateTxCoins(transaction, coinsMap, txundo)
+		TxSpendCoins(transaction, coinsMap, txundo)
 		if !isMagneticAnomalyEnabled {
 			TxAddCoins(transaction, coinsMap, blockHeight)
 		}

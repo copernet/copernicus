@@ -30,7 +30,7 @@ func UpdateUTXOSet(block *block.Block, bkundo *undo.BlockUndo, coinMap *utxo.Coi
 		}
 
 		txundo := undo.NewTxUndo()
-		ltx.UpdateTxCoins(txn, coinMap, txundo)
+		ltx.TxSpendCoins(txn, coinMap, txundo)
 		ltx.TxAddCoins(txn, coinMap, int32(height))
 
 		bkundo.SetTxUndo(append(bkundo.GetTxundo(), txundo))

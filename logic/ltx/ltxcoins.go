@@ -8,7 +8,7 @@ import (
 )
 
 //UpdateTxCoins update coins about tx
-func UpdateTxCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo) {
+func TxSpendCoins(tx *tx.Tx, coinMap *utxo.CoinsMap, txundo *undo.TxUndo) {
 	if !tx.IsCoinBase() {
 		undoCoins := make([]*utxo.Coin, len(tx.GetIns()))
 		for idx, txin := range tx.GetIns() {
