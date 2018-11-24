@@ -340,8 +340,6 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	} else {
 		ba.lockTimeCutoff = int64(ba.bt.Block.GetBlockHeader().Time)
 	}
-
-	ba.lockTimeCutoff = indexPrev.GetMedianTimePast()
 	sortRecord := make(map[util.Hash]int)
 	descendantsUpdated := ba.addPackageTxs(sortRecord)
 
