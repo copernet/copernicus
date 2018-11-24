@@ -1056,6 +1056,7 @@ func TestSyncManager_NewPeer(t *testing.T) {
 		UserAgentVersion:  "1.0",
 		UserAgentComments: []string{"comment"},
 		ChainParams:       &model.MainNetParams,
+		ProtocolVersion:   wire.SendHeadersVersion,
 		Services:          wire.SFNodeNetwork,
 	}
 	inConn, outConn := pipe(
@@ -1074,6 +1075,7 @@ func TestSyncManager_NewPeer(t *testing.T) {
 
 	outMsgChan := make(chan *peer.PeerMessage)
 	outPeer.AssociateConnection(outConn, outMsgChan, func(*peer.Peer) {})
+	outPeer.SetAckReceived(true)
 
 	sm.syncPeer = inPeer
 	outPeer.UpdateLastBlockHeight(2)

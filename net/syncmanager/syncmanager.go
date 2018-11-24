@@ -291,6 +291,11 @@ func (sm *SyncManager) startSync() {
 			continue
 		}
 
+		// do not use the peer to sync data until VerAckReceived
+		if !peer.VerAckReceived() {
+			continue
+		}
+
 		// TODO(davec): Use a better algorithm to choose the best peer.
 		// For now, just pick the first available candidate.
 		bestPeer = peer
@@ -382,7 +387,7 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
-	if !lchain.IsInitialBlockDownload() {
+	if !lchain.IsInitialBlockDownload() && peer.VerAckReceived() {
 		gChain := chain.GetInstance()
 		pindexBestHeader := gChain.GetIndexBestHeader()
 		if pindexBestHeader == nil {
@@ -722,6 +727,10 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 		return
 	}
 
+	if !peer.VerAckReceived() {
+		log.Info("peer(%d)%s VerAck not recved, do not use it", peer.ID(), peer.Addr())
+		return
+	}
 	gChain := chain.GetInstance()
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
@@ -1238,15 +1247,12 @@ func (sm *SyncManager) scanToFetchHeaderBlocks() {
 // the fetching should proceed.
 func (sm *SyncManager) messagesHandler() {
 	fetchTicker := time.NewTicker(fetchInterval)
+	defer fetchTicker.Stop()
 out:
 	for {
 		select {
 		//for all peer to try fetchHeaderBlocks
 		case <-fetchTicker.C:
-			if !lchain.IsInitialBlockDownload() {
-				fetchTicker.Stop()
-				continue
-			}
 			sm.scanToFetchHeaderBlocks()
 
 		//business msg
