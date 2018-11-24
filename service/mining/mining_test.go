@@ -346,7 +346,6 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 }
 
 func TestCTORAndSortByFee(t *testing.T) {
-	t.SkipNow()
 	tempDir, err := initTestEnv(t, true)
 	assert.Nil(t, err)
 	defer os.RemoveAll(tempDir)
@@ -423,7 +422,6 @@ func TestCTORAndSortByFee(t *testing.T) {
 }
 
 func TestCreateNewBlockByFeeRate(t *testing.T) {
-	t.SkipNow()
 	// clear chain data of last test case
 	gChain := chain.GetInstance()
 	*gChain = *chain.NewChain()
