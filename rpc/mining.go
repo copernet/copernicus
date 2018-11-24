@@ -145,10 +145,21 @@ func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, 
 	setClientRules := set.New()
 	log.Debug("getblocktemplate %#v", request)
 
+	count, err := handleGetConnectionCount(s, request, closeChan)
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, &btcjson.RPCError{
+			Code:    btcjson.ErrRPCClientNotConnected,
+			Message: "BitcoinCash is not connected!",
+		}
+	}
+
 	if lchain.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCClientInInitialDownload,
-			Message: "Bitcoin is downloading blocks...",
+			Message: "BitcoinCash is downloading blocks...",
 		}
 	}
 
