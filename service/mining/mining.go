@@ -1,7 +1,6 @@
 package mining
 
 import (
-	"github.com/copernet/copernicus/model/bitcointime"
 	"math"
 	"sort"
 	"strconv"
@@ -81,10 +80,10 @@ type BlockAssembler struct {
 	height                int32
 	lockTimeCutoff        int64
 	chainParams           *model.BitcoinParams
-	timeSource            *bitcointime.MedianTime
+	timeSource            *util.MedianTime
 }
 
-func NewBlockAssembler(params *model.BitcoinParams, ts *bitcointime.MedianTime) *BlockAssembler {
+func NewBlockAssembler(params *model.BitcoinParams, ts *util.MedianTime) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params

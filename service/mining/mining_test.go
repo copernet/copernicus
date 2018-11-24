@@ -11,7 +11,6 @@ import (
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -99,7 +98,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	ret := make([]string, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := bitcointime.NewMedianTime()
+		ts := util.NewMedianTime()
 		ba := NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, CoinbaseScriptSig(extraNonce))
 		if bt == nil {
@@ -386,7 +385,7 @@ func TestCTORAndSortByFee(t *testing.T) {
 		t.Fatal("add txEntry to mempool error")
 	}
 
-	ts := bitcointime.NewMedianTime()
+	ts := util.NewMedianTime()
 	ba := NewBlockAssembler(model.ActiveNetParams, ts)
 	assert.NotNil(t, ba)
 
@@ -462,7 +461,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ts := bitcointime.NewMedianTime()
+	ts := util.NewMedianTime()
 	ba := NewBlockAssembler(model.ActiveNetParams, ts)
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFeeRate

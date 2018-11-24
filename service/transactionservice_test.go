@@ -6,7 +6,6 @@ import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -37,7 +36,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	ret := make([]string, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := bitcointime.NewMedianTime()
+		ts := util.NewMedianTime()
 		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
