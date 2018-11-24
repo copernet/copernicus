@@ -273,13 +273,16 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 		return err
 	}
 	sigOps := txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
+
+	TxsInputOutpoint := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
 		sigOps += txs[i+1].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 		if uint64(sigOps) > maxBlockSigOps {
 			log.Debug("block has too many sigOps:%d", sigOps)
 			return errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
-		err := transaction.CheckRegularTransaction()
+
+		err := transaction.CheckRegularTransactionWhenNewBlock(TxsInputOutpoint)
 		if err != nil {
 			return err
 		}

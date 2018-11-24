@@ -327,6 +327,35 @@ func (tx *Tx) CheckRegularTransaction() error {
 	return nil
 }
 
+func (tx *Tx) CheckRegularTransactionWhenNewBlock(outPoints map[outpoint.OutPoint]bool) error {
+	if tx.IsCoinBase() {
+		log.Debug("tx should not be coinbase, hash: %s", tx.hash)
+		return errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase")
+	}
+
+	err := tx.checkTransactionCommon()
+	if err != nil {
+		return err
+	}
+
+	for _, in := range tx.ins {
+		if in.PreviousOutPoint.IsNull() {
+			log.Debug("tx input prevout null")
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-prevout-null")
+		}
+
+		if _, exists := outPoints[*(in.PreviousOutPoint)]; !exists {
+			outPoints[*(in.PreviousOutPoint)] = true
+		} else {
+			log.Error("bad tx: %s, duplicate inputs:[%s:%d]",
+				tx.hash, in.PreviousOutPoint.Hash, in.PreviousOutPoint.Index)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate")
+		}
+	}
+
+	return nil
+}
+
 func (tx *Tx) CheckCoinbaseTransaction() error {
 	if !tx.IsCoinBase() {
 		log.Warn("CheckCoinBaseTransaction: TxErrNotCoinBase")
