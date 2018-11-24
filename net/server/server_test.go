@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"io"
 	"io/ioutil"
 	"net"
@@ -143,7 +142,7 @@ func makeTestServer() (*Server, string, chan struct{}, error) {
 	if err != nil {
 		return nil, "", nil, err
 	}
-	s.timeSource = bitcointime.NewMedianTime()
+	s.timeSource = util.GetTimeSource()
 	s.nat = &mockNat{}
 	return s, dir, c, nil
 }

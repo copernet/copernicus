@@ -4,7 +4,7 @@
 
 // transplanted from above
 
-package bitcointime
+package util
 
 import (
 	"strconv"

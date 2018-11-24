@@ -10,7 +10,6 @@ import (
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -473,7 +472,7 @@ func handleGenerate(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 
 const nInnerLoopCount = 0x100000
 
-func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64, ts *bitcointime.MedianTime) (interface{}, error) {
+func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64, ts *util.MedianTime) (interface{}, error) {
 	heightStart := chain.GetInstance().Height()
 	heightEnd := heightStart + int32(generate)
 	height := heightStart

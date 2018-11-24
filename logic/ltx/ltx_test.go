@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/copernet/copernicus/model/bitcointime"
-	"github.com/copernet/copernicus/model/consensus"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -30,6 +28,7 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -1377,7 +1376,7 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := bitcointime.NewMedianTime()
+		ts := util.GetTimeSource()
 		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {

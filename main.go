@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"github.com/copernet/copernicus/net/limits"
 	"github.com/copernet/copernicus/net/server"
 	"github.com/copernet/copernicus/rpc"
+	"github.com/copernet/copernicus/util"
 	"net"
 )
 
@@ -46,7 +46,7 @@ func bchMain(ctx context.Context, args []string) error {
 	}()
 	interrupt := interruptListener()
 
-	timeSource := bitcointime.NewMedianTime()
+	timeSource := util.GetTimeSource()
 	s, err := server.NewServer(model.ActiveNetParams, timeSource, interrupt)
 	if err != nil {
 		return err

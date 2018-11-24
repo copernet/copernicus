@@ -30,7 +30,6 @@ import (
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -266,7 +265,7 @@ type Server struct {
 	wg                   sync.WaitGroup
 	quit                 chan struct{}
 	nat                  upnp.NAT
-	timeSource           *bitcointime.MedianTime
+	timeSource           *util.MedianTime
 	services             wire.ServiceFlag
 	connectPeerChn       chan *serverPeer
 	banScoreChn          chan *banScoreMsg
@@ -2473,7 +2472,7 @@ func (s *Server) AddBanScore(peerAddr string, persistent uint32, transient uint3
 	s.banScoreChn <- bmsg
 }
 
-func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, interrupt <-chan struct{}) (*Server, error) {
+func NewServer(chainParams *model.BitcoinParams, ts *util.MedianTime, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
 

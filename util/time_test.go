@@ -41,11 +41,12 @@ func TestGetMockTimeInMicros(t *testing.T) {
 }
 
 func TestGetTimeOffset(t *testing.T) {
+	ts := GetTimeSource()
+
 	for i := 0; i <= 100000; i++ {
-		timeOffset = int64(i)
 		times := GetTimeOffset()
-		if times != int64(i) {
-			t.Errorf("the condition should is false, please check.")
+		if times != int64(ts.Offset()) {
+			t.Errorf("the condition should is false, please check. times:%v, offset:%v", times, ts.Offset())
 		}
 	}
 }
