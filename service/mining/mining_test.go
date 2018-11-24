@@ -258,19 +258,19 @@ func generateKeys(keyBytes []byte) (crypto.PrivateKey, crypto.PublicKey) {
 	return privKey, *privKey.PubKey()
 }
 
-func createTx(tt *testing.T, baseTx *tx.Tx, signBox *SignBox) []*mempool.TxEntry {
+func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.TxEntry {
 
-	keyStore := getKeyStore(signBox.keys)
-	coinsMap := utxo.NewEmptyCoinsMap()
+	//keyStore := getKeyStore(signBox.keys)
+	//coinsMap := utxo.NewEmptyCoinsMap()
 
-	outpointK := &outpoint.OutPoint{Hash: baseTx.GetHash(), Index: 0}
-	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(baseTx.GetTxOut(0), 0, true), false)
+	//outpointK := &outpoint.OutPoint{Hash: baseTx.GetHash(), Index: 0}
+	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(baseTx.GetTxOut(0), 0, true), false)
 
 	testEntryHelp := NewTestMemPoolEntry()
 
-	pubKey := script.NewScriptRaw(signBox.payScript)
+	//pubKey := script.NewScriptRaw(signBox.payScript)
 	tx1 := tx.NewTx(0, 0x02)
-	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(baseTx.GetHash(), 0), pubKey, math.MaxUint32-1))
+	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(baseTx.GetHash(), 0), script.NewEmptyScript(), math.MaxUint32-1))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(22*util.COIN), pubKey))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(22*util.COIN), pubKey))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
@@ -279,17 +279,17 @@ func createTx(tt *testing.T, baseTx *tx.Tx, signBox *SignBox) []*mempool.TxEntry
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx1.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 
-	outpointK = &outpoint.OutPoint{Hash: tx1.GetHash(), Index: 0}
-	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(0), 0, false), false)
-	outpointK = &outpoint.OutPoint{Hash: tx1.GetHash(), Index: 1}
-	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(1), 1, false), false)
+	//outpointK = &outpoint.OutPoint{Hash: tx1.GetHash(), Index: 0}
+	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(0), 0, false), false)
+	//outpointK = &outpoint.OutPoint{Hash: tx1.GetHash(), Index: 1}
+	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(1), 1, false), false)
 
-	ltx.SignRawTransaction([]*tx.Tx{tx1}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	//ltx.SignRawTransaction([]*tx.Tx{tx1}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
 	txEntry1 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
-	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), pubKey, math.MaxUint32-1))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), script.NewEmptyScript(), math.MaxUint32-1))
 
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(16*util.COIN), pubKey))
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
@@ -298,40 +298,40 @@ func createTx(tt *testing.T, baseTx *tx.Tx, signBox *SignBox) []*mempool.TxEntry
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx2.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 
-	outpointK = &outpoint.OutPoint{Hash: tx2.GetHash(), Index: 0}
-	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx2.GetTxOut(0), 0, false), false)
-	ltx.SignRawTransaction([]*tx.Tx{tx2}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	//outpointK = &outpoint.OutPoint{Hash: tx2.GetHash(), Index: 0}
+	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx2.GetTxOut(0), 0, false), false)
+	//ltx.SignRawTransaction([]*tx.Tx{tx2}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
 	txEntry2 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx2)
 	txEntry2.ParentTx[txEntry1] = struct{}{}
 
 	//  modify tx3's content to avoid to get the same hash with tx2
 	tx3 := tx.NewTx(0, 0x02)
 	// reference relation(tx3 -> tx1)
-	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), pubKey, math.MaxUint32-1))
+	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), script.NewEmptyScript(), math.MaxUint32-1))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(15*util.COIN), pubKey))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx3.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 
-	outpointK = &outpoint.OutPoint{Hash: tx3.GetHash(), Index: 0}
-	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx3.GetTxOut(0), 0, false), false)
-	ltx.SignRawTransaction([]*tx.Tx{tx3}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	//outpointK = &outpoint.OutPoint{Hash: tx3.GetHash(), Index: 0}
+	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx3.GetTxOut(0), 0, false), false)
+	//ltx.SignRawTransaction([]*tx.Tx{tx3}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
 	txEntry3 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx3)
 	txEntry3.ParentTx[txEntry1] = struct{}{}
 
 	tx4 := tx.NewTx(0, 0x02)
 	// reference relation(tx4 -> tx3 -> tx1)
-	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.GetHash(), 0), pubKey, math.MaxUint32-1))
+	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx3.GetHash(), 0), script.NewEmptyScript(), math.MaxUint32-1))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(10*util.COIN), pubKey))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 	tx4.AddTxOut(txout.NewTxOut(amount.Amount(1*util.COIN), pubKey))
 
-	outpointK = &outpoint.OutPoint{Hash: tx4.GetHash(), Index: 0}
-	coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx4.GetTxOut(0), 0, false), false)
-	ltx.SignRawTransaction([]*tx.Tx{tx4}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
+	//outpointK = &outpoint.OutPoint{Hash: tx4.GetHash(), Index: 0}
+	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx4.GetTxOut(0), 0, false), false)
+	//ltx.SignRawTransaction([]*tx.Tx{tx4}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
 	txEntry4 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx4)
 
 	txEntry4.ParentTx[txEntry1] = struct{}{}
@@ -354,14 +354,14 @@ func TestCTORAndSortByFee(t *testing.T) {
 	mempool.InitMempool()
 	pool := mempool.GetInstance()
 
-	chainParams := model.ActiveNetParams
+	//chainParams := model.ActiveNetParams
+	//signBox, err := newSignBox(chainParams)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
 
-	signBox, err := newSignBox(chainParams)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	pubKey := script.NewScriptRaw(signBox.payScript)
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
 
 	_, err = generateBlocks(pubKey, 101, 1000000)
 	assert.Nil(t, err)
@@ -373,7 +373,7 @@ func TestCTORAndSortByFee(t *testing.T) {
 	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
 	assert.True(t, ok)
 
-	txSet := createTx(t, block1.Txs[0], signBox)
+	txSet := createTx(t, block1.Txs[0], pubKey)
 
 	for _, entry := range txSet {
 		err := pool.AddTx(entry, entry.ParentTx)
@@ -434,17 +434,14 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 	mempool.InitMempool()
 	pool := mempool.GetInstance()
 
-	chainParams := model.ActiveNetParams
+	//chainParams := model.ActiveNetParams
+	//signBox, err := newSignBox(chainParams)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
 
-	signBox, err := newSignBox(chainParams)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	pubKey := script.NewScriptRaw(signBox.payScript)
-
-	//pubKey := script.NewEmptyScript()
-	//pubKey.PushOpCode(opcodes.OP_TRUE)
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
 
 	_, err = generateBlocks(pubKey, 101, 1000000)
 	assert.Nil(t, err)
@@ -455,7 +452,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 	block1, ok := disk.ReadBlockFromDisk(bl1Index, gChain.GetParams())
 	assert.True(t, ok)
 
-	txSet := createTx(t, block1.Txs[0], signBox)
+	txSet := createTx(t, block1.Txs[0], pubKey)
 
 	for _, entry := range txSet {
 		pool.AddTx(entry, entry.ParentTx)
