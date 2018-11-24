@@ -396,7 +396,11 @@ func TestCTORAndSortByFee(t *testing.T) {
 	sc.PushOpCode(opcodes.OP_TRUE)
 	var extraNonce uint
 
-	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
+	bt := ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
+	if bt == nil {
+		t.Fatal("create new block failed")
+	}
+
 	if len(ba.bt.Block.Txs) != 5 {
 		fmt.Println(len(ba.bt.Block.Txs))
 		t.Fatal("some transactions are inserted to block error")
@@ -469,7 +473,10 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 	sc := script.NewEmptyScript()
 	sc.PushOpCode(opcodes.OP_TRUE)
 	var extraNonce uint
-	ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
+	bt := ba.CreateNewBlock(sc, CoinbaseScriptSig(extraNonce))
+	if bt == nil {
+		t.Fatal("create new block failed")
+	}
 	if len(ba.bt.Block.Txs) != 5 {
 		t.Error("some transactions are inserted to block error")
 	}
