@@ -149,11 +149,22 @@ func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) erro
 		height = indexPrev.Height + 1
 	}
 
-	lockTimeCutoff := getLockTime(b, indexPrev)
+	// Start enforcing BIP113 (Median Time Past).
+	lockTimeFlags := 0
+	if height >= chain.GetInstance().GetParams().CSVHeight {
+		lockTimeFlags |= consensus.LocktimeMedianTimePast
+	}
+
 	var mediaTimePast int64
 	if indexPrev != nil {
 		mediaTimePast = indexPrev.GetMedianTimePast()
 	}
+
+	lockTimeCutoff := int64(b.Header.Time)
+	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
+		lockTimeCutoff = mediaTimePast
+	}
+
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized lblock height
 	err := ltx.ContextureCheckBlockTransactions(b.Txs, height, lockTimeCutoff,
