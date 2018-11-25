@@ -28,7 +28,7 @@ const CommandSize = 12
 // individual limits imposed by messages themselves.
 const MaxMessagePayload = (1024 * 1024 * 32) // 32MB
 
-// MaxProtocolMessageLength length of incoming protocol messages (Currently 1MB).
+// MaxProtocolMessageLength length of incoming protocol messages (Currently 2MB).
 // NB: Messages propagating block content are not subject to this limit.
 const MaxProtocolMessageLength = 2 * 1024 * 1024
 

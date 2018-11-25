@@ -1062,7 +1062,8 @@ func initTestEnv() func() {
 		*gChain = *chain.NewChain()
 	}
 
-	conf.Cfg = conf.InitConfig([]string{})
+	tmpCfg := conf.InitConfig([]string{})
+	conf.Cfg.DataDir = tmpCfg.DataDir
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 	fmt.Printf("test in temp dir: %s\n", unitTestDataDirPath)
