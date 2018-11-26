@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lchain"
@@ -56,9 +55,6 @@ func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
 
 	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s, process block time is:%s",
 		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, blockTime)
-
-	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s, currenttime:%v\n",
-		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, time.Now())
 
 	return isNewBlock, err
 }
