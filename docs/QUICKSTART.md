@@ -1,4 +1,4 @@
-## build secp256k1
+## build and install secp256k1 lib
 ```
 git clone https://github.com/copernet/secp256k1.git
 cd secp256k1
@@ -19,6 +19,11 @@ For Ubuntu:
  sudo add-apt-repository ppa:masterminds/glide
  sudo apt-get update
  sudo apt-get install glide
+```
+
+For Centos:
+```
+ sudo yum install glide
 ```
 
 Universal install script
