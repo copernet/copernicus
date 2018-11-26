@@ -13,7 +13,6 @@ RUN go get github.com/mattn/goveralls
 WORKDIR /go/src/github.com/copernet/
 RUN git clone https://github.com/copernet/copernicus.git
 WORKDIR /go/src/github.com/copernet/copernicus
-RUN git checkout magnetic
 RUN glide install
 RUN go get -u github.com/alecthomas/gometalinter
 RUN gometalinter --install
