@@ -23,7 +23,6 @@ WORKDIR /
 RUN git clone https://github.com/copernet/walle.git
 RUN cp $GOPATH/bin/copernicus /walle
 WORKDIR /walle
-RUN git checkout magnetic
 RUN mkdir .venv
 RUN pipenv --python 3.7
 RUN pipenv install
