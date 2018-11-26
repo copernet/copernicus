@@ -35,8 +35,8 @@ func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
 	coinsTip := utxo.GetUtxoCacheInstance()
 	coinsTipHash, _ := coinsTip.GetBestBlock()
 
-	log.Trace("Begin processing block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
-		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
+	log.Trace("Begin processing block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s, process block time is:%d",
+		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, b.Header.Time)
 
 	isNewBlock := false
 
@@ -53,11 +53,11 @@ func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
 		return false, err
 	}
 
-	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s",
-		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash)
+	log.Trace("After process block: %s, Global Chain height: %d, tipHash: %s, coinsTip hash: %s, process block time is:%d",
+		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, b.Header.Time)
 
-	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s currenttime:%v\n",
-		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, time.Now())
+	fmt.Printf("Processed block: %s, Chain height: %d, tipHash: %s, coinsTip hash: %s, currenttime:%v, process block time: %d\n",
+		h, gChain.Height(), gChain.Tip().GetBlockHash(), coinsTipHash, time.Now(), b.Header.Time)
 
 	return isNewBlock, err
 }
