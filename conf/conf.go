@@ -169,19 +169,21 @@ func InitConfig(args []string) *Configuration {
 		DataDir = opts.DataDir
 	}
 
+	destConfig := DataDir + "/" + defaultConfigFilename
 	if opts.TestNet {
 		DataDir = path.Join(DataDir, "testnet")
 	} else if opts.RegTest {
 		DataDir = path.Join(DataDir, "regtest")
 	}
 
-	destConfig := DataDir + "/" + defaultConfigFilename
-
-	if !FileExists(DataDir) || !FileExists(destConfig) {
+	if !FileExists(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
 			panic("datadir create failed: " + err.Error())
 		}
+	}
+
+	if !FileExists(destConfig) {
 
 		// get GOPATH environment and copy conf file to dst dir
 		gopath := os.Getenv("GOPATH")
@@ -247,7 +249,7 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	// parse config
-	file := must(os.Open(DataDir + "/bitcoincash.yml")).(*os.File)
+	file := must(os.Open(destConfig)).(*os.File)
 	defer file.Close()
 	must(nil, viper.ReadConfig(file))
 	must(nil, viper.Unmarshal(config))
