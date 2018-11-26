@@ -4,99 +4,103 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/outpoint"
-	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 )
 
-func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsMap) undo.DisconnectResult {
+func ApplyBlockUndo(blockUndo *undo.BlockUndo, blk *block.Block, cm *utxo.CoinsMap, height int32) undo.DisconnectResult {
 	clean := true
-
-	if !checkUndoData(blockUndo, blk) {
+	txUndos := blockUndo.GetTxundo()
+	//check block undo
+	if len(txUndos)+1 != len(blk.Txs) {
+		log.Error("checkUndoData: block(%d) and undo(%d) data inconsistent", len(blk.Txs), len(txUndos)+1)
 		return undo.DisconnectFailed
 	}
 
-	// Undo transactions in reverse order.
-	for i := len(blk.Txs) - 1; i >= 0; i-- {
-		tx := blk.Txs[i]
-
-		if !clearTxOuts(tx, cm) {
-			clean = false
-		}
-
-		if i < 1 {
-			continue // Skip the coinbase
-		}
-
-		if !restoreTxInputs(tx, blockUndo.GetTxundo()[i-1], cm) {
-			clean = false
-		}
-	}
-
-	if !clean {
-		log.Error("ApplyBlockUndo unclean, block: %s", blk.GetHash())
-		return undo.DisconnectUnclean
-	}
-
-	log.Debug("ApplyBlockUndo: success. block: %s", blk.GetHash())
-	return undo.DisconnectOk
-}
-
-func clearTxOuts(tx *tx.Tx, cm *utxo.CoinsMap) bool {
-	clean := true
-
-	for j := 0; j < tx.GetOutsCount(); j++ {
-		if !tx.GetTxOut(j).IsSpendable() {
-			continue
-		}
-
-		coin := cm.SpendGlobalCoin(outpoint.NewOutPoint(tx.GetHash(), uint32(j)))
-
-		if coin == nil {
-			clean = false
-		} else if coinOut := coin.GetTxOut(); !tx.GetTxOut(j).IsEqual(&coinOut) {
-			clean = false
-		}
-	}
-
-	return clean
-}
-
-func restoreTxInputs(tx *tx.Tx, txundo *undo.TxUndo, cm *utxo.CoinsMap) bool {
-	clean := true
-	ins := tx.GetIns()
-
-	for k := len(ins) - 1; k >= 0; k-- {
-		coin := txundo.GetUndoCoins()[k]
-		out := ins[k].PreviousOutPoint
-
-		if cm.FetchCoin(out) != nil {
-			clean = false // Overwriting transaction output.
-		}
-
-		cm.AddCoin(out, coin, coin.IsCoinBase())
-	}
-
-	return clean
-}
-
-func checkUndoData(blockUndo *undo.BlockUndo, blk *block.Block) bool {
-	txUndos := blockUndo.GetTxundo()
-
-	if len(txUndos)+1 != len(blk.Txs) {
-		log.Error("checkUndoData: block(%d) and undo(%d) data inconsistent", len(blk.Txs), len(txUndos)+1)
-		return false
-	}
-
+	// First, restore inputs.
 	for i := 1; i < len(blk.Txs); i++ {
+		ptx := blk.Txs[i]
 		txundo := txUndos[i-1]
-		insLen := len(blk.Txs[i].GetIns())
+		insLen := len(ptx.GetIns())
 
 		if len(txundo.GetUndoCoins()) != insLen {
 			log.Error("checkUndoData: tx(%d) and undo data(%d) inconsistent", len(txundo.GetUndoCoins()), insLen)
-			return false
+			return undo.DisconnectFailed
+		}
+
+		for j := 0; j < insLen; j++ {
+			undoCoin := txundo.GetUndoCoins()[j]
+			out := ptx.GetTxIn(j).PreviousOutPoint
+			res := undoCoinSpend(out, undoCoin, cm)
+			if res == undo.DisconnectFailed {
+				return undo.DisconnectFailed
+			}
+			clean = clean && res != undo.DisconnectUnclean
 		}
 	}
 
-	return true
+	// Second, revert created outputs.
+	for _, ptx := range blk.Txs {
+		txID := ptx.GetHash()
+		isCoinBase := ptx.IsCoinBase()
+
+		// Check that all outputs are available and match the outputs in the
+		// block itself exactly.
+		for j := 0; j < ptx.GetOutsCount(); j++ {
+			if !ptx.GetTxOut(j).IsSpendable() {
+				continue
+			}
+			coin := cm.SpendGlobalCoin(outpoint.NewOutPoint(txID, uint32(j)))
+			coinOut := coin.GetTxOut()
+			if coin == nil || !ptx.GetTxOut(j).IsEqual(&coinOut) ||
+				isCoinBase != coin.IsCoinBase() || height != coin.GetHeight() {
+				// transaction output mismatch
+				clean = false
+			}
+		}
+	}
+
+	cm.Flush(blk.GetBlockHeader().HashPrevBlock)
+	if clean {
+		return undo.DisconnectOk
+	}
+	log.Debug("ApplyBlockUndo: success. block: %s", blk.GetHash())
+	return undo.DisconnectUnclean
+}
+
+func undoCoinSpend(out *outpoint.OutPoint, undoCoin *utxo.Coin, cm *utxo.CoinsMap) undo.DisconnectResult {
+	clean := true
+
+	if cm.FetchCoin(out) != nil {
+		// Overwriting transaction output.
+		clean = false
+	}
+
+	if undoCoin.GetHeight() == 0 {
+		// Missing undo metadata (height and coinbase). Older versions included
+		// this information only in undo records for the last spend of a
+		// transactions' outputs. This implies that it must be present for some
+		// other output of the same tx.
+		alternate := cm.AccessCoin(out)
+		if alternate.IsSpent() {
+			// Adding output for transaction without known metadata
+			return undo.DisconnectFailed
+		}
+		// The potential_overwrite parameter to AddCoin is only allowed to be false
+		// if we know for sure that the coin did not already exist in the cache. As
+		// we have queried for that above using HaveCoin, we don't need to guess.
+		// When fClean is false, a coin already existed and it is an overwrite.
+		txOut := undoCoin.GetTxOut()
+		undoCoin = utxo.NewFreshCoin(&txOut, alternate.GetHeight(), alternate.IsCoinBase())
+	}
+	// The potential_overwrite parameter to AddCoin is only allowed to be false
+	// if we know for sure that the coin did not already exist in the cache. As
+	// we have queried for that above using HaveCoin, we don't need to guess.
+	// When fClean is false, a coin already existed and it is an overwrite.
+	cm.AddCoin(out, undoCoin, !clean)
+
+	if clean {
+		return undo.DisconnectOk
+	}
+	return undo.DisconnectUnclean
 }

@@ -2,7 +2,6 @@ package lmempool_test
 
 import (
 	"encoding/hex"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"sync"
 	"time"
 
@@ -284,17 +283,23 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 			script.NewScriptRaw(p.payScript),
 		))
 
-		// Sign the new transaction.
-		// sigScript, err := txscript.SignatureScript(tx, 0, p.payScript,
-		// 	txscript.SigHashAll, p.signKey, true)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// tx.TxIn[0].SignatureScript = sigScript
+		sc := script.NewEmptyScript()
+		sc.PushOpCode(opcodes.OP_RETURN)
+		sc.PushSingleData(
+			[]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
+
+		txn.AddTxOut(txout.NewTxOut(
+			0,
+			sc,
+		))
+
 		keyStore := getKeyStore(p.keys)
 		errs := ltx.SignRawTransaction([]*tx.Tx{txn}, nil, keyStore, p.chain.utxos, crypto.SigHashAll|crypto.SigHashForkID)
 		if len(errs) > 0 {
 			log.Error("%#v, %#v", errs, p.chain.utxos)
+			for j, e := range errs {
+				log.Error("err %d %d: %v", i, j, e)
+			}
 			panic(errs)
 		}
 		txChain = append(txChain, txn)
@@ -475,7 +480,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
 
-	generateTestBlocks(t)
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	recentRejects := make(map[util.Hash]struct{})
 	// Ensure the orphans are accepted (only up to the maximum allowed so
@@ -952,7 +957,7 @@ func TestCheckSpend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
-	generateTestBlocks(t)
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tx := range chainedTxns {
 		// _, err := harness.txPool.ProcessTransaction(tx, true,
@@ -1066,13 +1071,7 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 	conf.Cfg.TxOut.DustRelayFee = minRelayFee
 }
 
-func generateTestBlocks(t *testing.T) []*block.Block {
-	pubKey := script.NewEmptyScript()
-	err := pubKey.PushOpCode(opcodes.OP_TRUE)
-	if err != nil {
-		t.Errorf("push int64 error:%v", err)
-		return nil
-	}
+func generateTestBlocks(t *testing.T, pubKey *script.Script) []*block.Block {
 	blocks, err := generateBlocks(t, pubKey, 200, 1000000)
 	if err != nil {
 		t.Errorf("generate blocks failed:%v", err)
@@ -1091,7 +1090,7 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := bitcointime.NewMedianTime()
+		ts := util.GetTimeSource()
 		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
@@ -1156,7 +1155,7 @@ func TestRemoveForReorg(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
-	generateTestBlocks(t)
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tmpTx := range chainedTxns {
 		err := lmempool.AcceptTxToMemPool(tmpTx)

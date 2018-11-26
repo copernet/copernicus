@@ -11,10 +11,8 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 
-	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
-	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
 	"gopkg.in/eapache/queue.v1"
@@ -225,13 +223,13 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 	}
 
 	// Start enforcing CSV (BIP68, BIP112 and BIP113) rule.
-	//if pindex.Height+1 >= param.CSVHeight {
-	//	flags |= script.ScriptVerifyCheckSequenceVerify
-	//}
-	// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-	if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+	if pindex.Height+1 >= param.CSVHeight {
 		flags |= script.ScriptVerifyCheckSequenceVerify
 	}
+	//// Start enforcing BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
+	//if versionbits.VersionBitsState(pindex, param, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
+	//	flags |= script.ScriptVerifyCheckSequenceVerify
+	//}
 
 	// If the UAHF is enabled, we start accepting replay protected txns
 	if model.IsUAHFEnabled(pindex.Height) {
@@ -251,15 +249,17 @@ func (c *Chain) GetBlockScriptFlags(pindex *blockindex.BlockIndex) uint32 {
 		flags |= script.ScriptVerifyLowS
 		flags |= script.ScriptVerifyNullFail
 	}
-	//The monolith HF enable a set of opcodes.
-	if model.IsMonolithEnabled(pindex.GetMedianTimePast()) {
-		flags |= script.ScriptEnableMonolithOpcodes
+
+	// When the magnetic anomaly fork is enabled, we start accepting
+	// transactions using the OP_CHECKDATASIG opcode and it's verify
+	// alternative. We also start enforcing push only signatures and
+	// clean stack.
+	if model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast()) {
+		flags |= script.ScriptEnableCheckDataSig
+		flags |= script.ScriptVerifySigPushOnly
+		flags |= script.ScriptVerifyCleanStack
 	}
-	//if chainparams.IsMagneticAnomalyEnable(pindex.GetMedianTimePast()) {
-	//	flags |= script.ScriptEnableCheckDataSig
-	//	flags |= script.ScriptVerifySigPushOnly
-	//	flags |= script.ScriptVerifyCleanStack
-	//}
+
 	// We make sure this node will have replay protection during the next hard
 	// fork.
 	if model.IsReplayProtectionEnabled(pindex.GetMedianTimePast()) {
@@ -449,8 +449,25 @@ func (c *Chain) InBranch(pindex *blockindex.BlockIndex) bool {
 func (c *Chain) insertToBranch(bis *blockindex.BlockIndex) {
 	c.branch = append(c.branch, bis)
 	sort.SliceStable(c.branch, func(i, j int) bool {
+		// First sort by most total work, ...
 		jWork := c.branch[j].ChainWork
-		return c.branch[i].ChainWork.Cmp(&jWork) == -1
+		//return c.branch[i].ChainWork.Cmp(&jWork) == -1
+		if c.branch[i].ChainWork.Cmp(&jWork) == 1 {
+			return false
+		}
+		if c.branch[i].ChainWork.Cmp(&jWork) == -1 {
+			return true
+		}
+
+		// ... then by earliest time received, ...
+		//if c.branch[i].SequenceID < c.branch[j].SequenceID {
+		//	return false
+		//}
+		//if c.branch[i].SequenceID > c.branch[j].SequenceID {
+		//	return true
+		//}
+
+		return false
 	})
 }
 

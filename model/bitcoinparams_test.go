@@ -94,14 +94,24 @@ func TestIsUAHFEnabled(t *testing.T) {
 	assert.True(t, isEnable)
 }
 
-func TestIsMonolithEnabled(t *testing.T) {
+func TestIsMagneticAnomalyEnabled(t *testing.T) {
+	// test MainNetParams
 	ActiveNetParams = &MainNetParams
+	assert.False(t, IsMagneticAnomalyEnabled(0))
+	assert.True(t, IsMagneticAnomalyEnabled(
+		ActiveNetParams.MagneticAnomalyActivationTime))
 
-	isEnable := IsMonolithEnabled(0)
-	assert.False(t, isEnable)
+	// test TestNetParams
+	ActiveNetParams = &TestNetParams
+	assert.False(t, IsMagneticAnomalyEnabled(0))
+	assert.True(t, IsMagneticAnomalyEnabled(
+		ActiveNetParams.MagneticAnomalyActivationTime))
 
-	isEnable = IsMonolithEnabled(MainNetParams.MonolithActivationTime)
-	assert.True(t, isEnable)
+	// test RegressionNetParams
+	ActiveNetParams = &RegressionNetParams
+	assert.False(t, IsMagneticAnomalyEnabled(0))
+	assert.True(t, IsMagneticAnomalyEnabled(
+		ActiveNetParams.MagneticAnomalyActivationTime))
 }
 
 func TestIsDAAEnabled(t *testing.T) {
@@ -125,8 +135,8 @@ func TestIsReplayProtectionEnabled(t *testing.T) {
 	isEnable := IsReplayProtectionEnabled(0)
 	assert.False(t, isEnable)
 
-	isEnable = IsReplayProtectionEnabled(MainNetParams.GreatWallActivationTime)
-	assert.True(t, isEnable)
+	isEnable = IsReplayProtectionEnabled(MainNetParams.MagneticAnomalyActivationTime)
+	assert.False(t, isEnable)
 }
 
 func TestGetBlockSubsidy(t *testing.T) {

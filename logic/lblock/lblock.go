@@ -13,8 +13,8 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/tx"
-	"github.com/copernet/copernicus/model/versionbits"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
@@ -54,26 +54,6 @@ func WriteBlockToDisk(bi *blockindex.BlockIndex, bl *block.Block, inDbp *block.D
 		log.Debug("block(hash: %s) data is written to disk", bl.GetHash())
 	}
 	return pos, nil
-}
-
-func getLockTime(block *block.Block, indexPrev *blockindex.BlockIndex) int64 {
-	params := chain.GetInstance().GetParams()
-	lockTimeFlags := 0
-	if versionbits.VersionBitsState(indexPrev, params, consensus.DeploymentCSV, versionbits.VBCache) == versionbits.ThresholdActive {
-		lockTimeFlags |= consensus.LocktimeMedianTimePast
-	}
-
-	var medianTimePast int64
-	if indexPrev != nil {
-		medianTimePast = indexPrev.GetMedianTimePast()
-	}
-
-	lockTimeCutoff := int64(block.Header.Time)
-	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
-		lockTimeCutoff = medianTimePast
-	}
-
-	return lockTimeCutoff
 }
 
 func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
@@ -144,27 +124,31 @@ func CheckBlock(pblock *block.Block, checkHeader, checkMerlke bool) error {
 }
 
 func ContextualCheckBlock(b *block.Block, indexPrev *blockindex.BlockIndex) error {
-	bMonolithEnable := false
-	if indexPrev != nil && model.IsMonolithEnabled(indexPrev.GetMedianTimePast()) {
-		bMonolithEnable = true
-	}
-
-	if !bMonolithEnable {
-		if b.EncodeSize() > 8*consensus.OneMegaByte {
-			return errcode.NewError(errcode.RejectInvalid, "bad-blk-length")
-		}
-	}
-
 	var height int32
 	if indexPrev != nil {
 		height = indexPrev.Height + 1
 	}
 
-	lockTimeCutoff := getLockTime(b, indexPrev)
+	// Start enforcing BIP113 (Median Time Past).
+	lockTimeFlags := 0
+	if height >= chain.GetInstance().GetParams().CSVHeight {
+		lockTimeFlags |= consensus.LocktimeMedianTimePast
+	}
+
+	var mediaTimePast int64
+	if indexPrev != nil {
+		mediaTimePast = indexPrev.GetMedianTimePast()
+	}
+
+	lockTimeCutoff := int64(b.Header.Time)
+	if lockTimeFlags&consensus.LocktimeMedianTimePast != 0 {
+		lockTimeCutoff = mediaTimePast
+	}
 
 	// Check that all transactions are finalized
 	// Enforce rule that the coinBase starts with serialized lblock height
-	err := ltx.ContextureCheckBlockTransactions(b.Txs, height, lockTimeCutoff)
+	err := ltx.ContextureCheckBlockTransactions(b.Txs, height, lockTimeCutoff,
+		mediaTimePast)
 	return err
 }
 
@@ -229,24 +213,26 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 	gChain := chain.GetInstance()
 	if !fRequested {
 		tip := gChain.Tip()
-		fHasMoreWork := false
-		if tip == nil {
-			fHasMoreWork = true
-		} else {
-			tipWork := tip.ChainWork
-			if bIndex.ChainWork.Cmp(&tipWork) == 1 {
-				fHasMoreWork = true
-			}
-		}
-		if !fHasMoreWork {
+
+		hasMoreWork := tip == nil || bIndex.ChainWork.Cmp(&tip.ChainWork) == 1
+		if !hasMoreWork {
 			log.Debug("AcceptBlockHeader err:%d", 3008)
 			err = errcode.ProjectError{Code: 3008}
 			return
 		}
+
 		fTooFarAhead := bIndex.Height > gChain.Height()+block.MinBlocksToKeep
 		if fTooFarAhead {
 			log.Debug("AcceptBlockHeader err:%d", 3007)
 			err = errcode.ProjectError{Code: 3007}
+			return
+		}
+
+		// Protect against DoS attacks from low-work chains.  If our tip is behind,
+		// a peer could try to send us low-work blocks on a fake chain that we would never
+		// request; don't process these.
+		mcw := pow.HashToBig(&model.ActiveNetParams.MinimumChainWork)
+		if bIndex.ChainWork.Cmp(mcw) == -1 {
 			return
 		}
 	}

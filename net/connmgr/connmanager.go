@@ -262,7 +262,9 @@ out:
 			case handleFailed:
 				connReq := msg.c
 				connReq.updateState(ConnFailed)
-				log.Debug("Failed to connect to %#v: %v", connReq, msg.err)
+				if connReq.Addr != nil {
+					log.Debug("Failed to connect to %#v: %v", connReq, msg.err)
+				}
 				cm.handleFailedConn(connReq)
 			}
 

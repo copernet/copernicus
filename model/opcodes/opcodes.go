@@ -134,9 +134,11 @@ const (
 	OP_NOP8                = 0xb7
 	OP_NOP9                = 0xb8
 	OP_NOP10               = 0xb9
-	// More crypto
-	//OP_CHECKDATASIG       = 0xba
-	//OP_CHECKDATASIGVERIFY = 0xbb
+
+	//More crypto
+	OP_CHECKDATASIG       = 0xba
+	OP_CHECKDATASIGVERIFY = 0xbb
+
 	// The first op_code value after all defined opcodes
 	FIRST_UNDEFINED_OP_VALUE
 
@@ -391,6 +393,11 @@ func GetOpName(opcode int) string {
 
 	case OP_INVALIDOPCODE:
 		return "OP_INVALIDOPCODE"
+
+	case OP_CHECKDATASIG:
+		return "OP_CHECKDATASIG"
+	case OP_CHECKDATASIGVERIFY:
+		return "OP_CHECKDATASIGVERIFY"
 
 		// Note:
 		//  The template matching params OP_SMALLINTEGER/etc are defined in opcodetype enum

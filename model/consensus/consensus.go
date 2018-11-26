@@ -14,8 +14,6 @@ const (
 
 	//DefaultMaxBlockSize  Default setting for maximum allowed size for a block, in bytes
 	DefaultMaxBlockSize = 32 * OneMegaByte
-	MinTxSize           = 62
-	MaxTxCount          = DefaultMaxBlockSize / MinTxSize
 	/*MaxBlockSigopsPerMb  The maximum allowed number of signature check operations per MB in a block
 	* (network rule) */
 	MaxBlockSigopsPerMb = 20000
@@ -26,6 +24,8 @@ const (
 	// CoinbaseMaturity means Coinbase transaction outputs can only be spent after this number of new
 	// blocks (network rule)
 	CoinbaseMaturity = 100
+
+	MinTxSize = 100
 )
 
 const (

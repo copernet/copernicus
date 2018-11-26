@@ -28,6 +28,7 @@ func TestScriptErr_String(t *testing.T) {
 		{ScriptErrEqualVerify, "Script failed an OP_EQUALVERIFY operation"},
 		{ScriptErrCheckMultiSigVerify, "Script failed an OP_CHECKMULTISIGVERIFY operation"},
 		{ScriptErrCheckSigVerify, "Script failed an OP_CHECKSIGVERIFY operation"},
+		{ScriptErrCheckDataSigVerify, "Script failed on OP_CHECKDATASIGVERIFY operation"},
 		{ScriptErrNumEqualVerify, "Script failed an OP_NUMEQUALVERIFY operation"},
 		/* Logical/Format/Canonical errors */
 		{ScriptErrBadOpCode, "OpCode missing or not understood"},

@@ -63,7 +63,7 @@ func ActivateBestChain(pblock *block.Block) error {
 			return nil
 		}
 
-		if pindexOldTip != nil && pindexMostWork.ChainWork.Cmp(&pindexOldTip.ChainWork) <= 0 {
+		if pindexOldTip != nil && pindexMostWork.ChainWork.Cmp(&pindexOldTip.ChainWork) < 0 {
 			return nil
 		}
 
@@ -310,7 +310,7 @@ func CheckBlockIndex() error {
 		if !pruneState.HavePruned {
 			// If we've never pruned, then HAVE_DATA should be equivalent to nTx
 			// > 0
-			if !pindex.HasData() != (pindex.TxCount == 0) {
+			if pindex.HasData() != (pindex.TxCount > 0) {
 				err := fmt.Errorf("TxCount=%d, conflict with HasData()", pindex.TxCount)
 				return err
 			}

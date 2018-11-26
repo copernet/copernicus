@@ -38,6 +38,7 @@ import (
 )
 
 func coinbaseScriptSigWithHeight(extraNonce uint, height int32) *script.Script {
+	coinbaseFlag := "copernicus.............................."
 	scriptSig := script.NewEmptyScript()
 
 	heightNum := script.NewScriptNum(int64(height))
@@ -45,6 +46,8 @@ func coinbaseScriptSigWithHeight(extraNonce uint, height int32) *script.Script {
 
 	extraNonceNum := script.NewScriptNum(int64(extraNonce))
 	scriptSig.PushScriptNum(extraNonceNum)
+
+	scriptSig.PushData([]byte(coinbaseFlag))
 
 	return scriptSig
 }
@@ -62,6 +65,7 @@ func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uin
 		bk := block.NewBlock()
 		bk = createDummyBlock(scriptPubKey, coinbaseScriptSigWithHeight(extraNonce, height+1), bk, blkHash)
 		bk.Txs = append(bk.Txs, txs...)
+		bk.SerializeSize()
 		bk.Header.MerkleRoot = lmerkleroot.BlockMerkleRoot(bk.Txs, nil)
 
 		powCheck := pow.Pow{}
@@ -107,8 +111,7 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 
 	indexPrev := chain.GetInstance().FindBlockIndex(prehash)
 
-	blkVersion := versionbits.ComputeBlockVersion(indexPrev, model.ActiveNetParams, versionbits.VBCache)
-	bk.Header.Version = int32(blkVersion)
+	bk.Header.Version = versionbits.ComputeBlockVersion()
 
 	bk.Header.Time = uint32(util.GetAdjustedTime())
 
@@ -132,14 +135,12 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 	p := pow.Pow{}
 	bk.Header.Bits = p.GetNextWorkRequired(indexPrev, &bk.Header, model.ActiveNetParams)
 	bk.Header.Nonce = 0
-
-	bk.SerializeSize()
 	bk.Checked = true
 
 	return bk
 }
 
-func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath string, err error) {
+func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 	conf.Cfg = conf.InitConfig(args)
 
 	conf.Cfg.Chain.UtxoHashStartHeight = 0
@@ -214,9 +215,7 @@ func initTestEnv(t *testing.T, args []string, initScriptVerify bool) (dirpath st
 
 	crypto.InitSecp256()
 
-	if initScriptVerify {
-		ltx.ScriptVerifyInit()
-	}
+	ltx.ScriptVerifyInit()
 
 	return unitTestDataDirPath, nil
 }
@@ -225,7 +224,7 @@ func TestActivateBestChain(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
 	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
 
@@ -249,15 +248,21 @@ func TestActivateBestChain(t *testing.T) {
 	newScript := script.NewEmptyScript()
 	txIn := txin.NewTxIn(preOut, newScript, math.MaxUint32-1)
 	transaction.AddTxIn(txIn)
-	txOut := txout.NewTxOut(10, pubKey)
-	transaction.AddTxOut(txOut)
+
+	for i := 0; i < 20; i++ {
+		txOut := txout.NewTxOut(1, pubKey)
+		transaction.AddTxOut(txOut)
+	}
 
 	txs = append(txs, transaction)
-	_, err = generateDummyBlocks(pubKey, 1, 1000000, 1, txs)
-	assert.Nil(t, err)
-	_, err = generateDummyBlocks(pubKey, 103, 1000000, 0, nil)
+	_, err = generateDummyBlocks(pubKey, 1, 1000000, 101, txs)
 	assert.Nil(t, err)
 	height := tChain.TipHeight()
+	assert.Equal(t, int32(102), height)
+
+	_, err = generateDummyBlocks(pubKey, 103, 1000000, 0, nil)
+	assert.Nil(t, err)
+	height = tChain.TipHeight()
 	assert.Equal(t, int32(103), height)
 }
 
@@ -265,7 +270,7 @@ func TestGetUTXOStats(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
 	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"}, false)
+	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
 

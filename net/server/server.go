@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/copernet/copernicus/persist"
 	"math"
 	"net"
 	"os"
@@ -30,7 +31,6 @@ import (
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -266,7 +266,7 @@ type Server struct {
 	wg                   sync.WaitGroup
 	quit                 chan struct{}
 	nat                  upnp.NAT
-	timeSource           *bitcointime.MedianTime
+	timeSource           *util.MedianTime
 	services             wire.ServiceFlag
 	connectPeerChn       chan *serverPeer
 	banScoreChn          chan *banScoreMsg
@@ -296,7 +296,6 @@ type serverPeer struct {
 	relayMtx       sync.Mutex
 	disableRelayTx bool
 	sentAddrs      bool
-	isWhitelisted  bool
 	filter         *bloom.Filter
 	knownAddresses map[string]struct{}
 	banScore       connmgr.DynamicBanScore
@@ -318,6 +317,12 @@ func newServerPeer(s *Server, isPersistent bool) *serverPeer {
 		txProcessed:    make(chan struct{}, 1),
 		blockProcessed: make(chan struct{}, 1),
 	}
+}
+
+// newestBlock returns the current best block hash and height using the format
+// required by the configuration for the peer package.
+func (sp *serverPeer) IsWhitelisted() bool {
+	return sp.Peer != nil && sp.Peer.IsWhitelisted()
 }
 
 // newestBlock returns the current best block hash and height using the format
@@ -391,7 +396,7 @@ func (sp *serverPeer) addBanScore(persistent, transient uint32, reason string) {
 	if conf.Cfg.P2PNet.DisableBanning {
 		return
 	}
-	if sp.isWhitelisted {
+	if sp.IsWhitelisted() {
 		log.Debug("Misbehaving whitelisted peer %s: %s", sp, reason)
 		return
 	}
@@ -469,7 +474,7 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 func (sp *serverPeer) OnMemPool(_ *peer.Peer, msg *wire.MsgMemPool) {
 	// Only allow mempool requests if the server has bloom filtering
 	// enabled.
-	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom && !sp.isWhitelisted {
+	if sp.server.services&wire.SFNodeBloom != wire.SFNodeBloom && !sp.IsWhitelisted() {
 		log.Debug("peer %v sent mempool request with bloom "+
 			"filtering disabled -- disconnecting", sp)
 		sp.Disconnect()
@@ -739,7 +744,7 @@ func (sp *serverPeer) OnGetBlocks(_ *peer.Peer, msg *wire.MsgGetBlocks) {
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// Ignore getheaders requests if not in sync.
-	if !sp.isWhitelisted && !sp.server.syncManager.IsCurrent() {
+	if !sp.IsWhitelisted() && !sp.server.syncManager.IsCurrent() {
 		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
 		return
 	}
@@ -1089,26 +1094,7 @@ func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
-	activeChain := chain.GetInstance()
-	var blkIndex *blockindex.BlockIndex
-	send := false
-	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
-
-		// TODO: we may add it back when we support header-first mode
-		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
-		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
-		// }
-
-		// Check the block whether in main chain.
-		if activeChain.Contains(blkIndex) {
-			//nOneMonth := 30 * 24 * 60 * 60
-			//todo !!! add time process, exclude too older block.
-			if blkIndex.IsValid(blockindex.BlockValidScripts) {
-				send = true
-			}
-		}
-	}
-
+	blkIndex, send := findBlockIndex(hash)
 	if send && blkIndex.HasData() {
 		// Fetch the raw block bytes from the database.
 		bl, err := lblock.GetBlockByIndex(blkIndex, s.chainParams)
@@ -1156,6 +1142,30 @@ func (s *Server) pushBlockMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- s
 	}
 
 	return nil
+}
+
+func findBlockIndex(hash *util.Hash) (blkIndex *blockindex.BlockIndex, send bool) {
+	persist.CsMain.Lock() //to protect chain.indexMap
+	defer persist.CsMain.Unlock()
+
+	activeChain := chain.GetInstance()
+	if blkIndex = activeChain.FindBlockIndex(*hash); blkIndex != nil {
+
+		// TODO: we may add it back when we support header-first mode
+		// if blkIndex.ChainTxCount > 0 && !blkIndex.IsValid(blockindex.BlockValidScripts) &&
+		// 	blkIndex.IsValid(blockindex.BlockValidTree) {
+		// }
+
+		// Check the block whether in main chain.
+		if activeChain.Contains(blkIndex) {
+			//nOneMonth := 30 * 24 * 60 * 60
+			//todo !!! add time process, exclude too older block.
+			if blkIndex.IsValid(blockindex.BlockValidScripts) {
+				send = true
+			}
+		}
+	}
+	return
 }
 
 // pushMerkleBlockMsg sends a merkleblock message for the provided block hash to
@@ -1877,8 +1887,8 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 // for disconnection.
 func (s *Server) inboundPeerConnected(conn net.Conn) {
 	sp := newServerPeer(s, false)
-	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	isWhitelisted := isWhitelisted(conn.RemoteAddr())
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted)
 	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
 		s.syncManager.NewPeer(peer)
 	})
@@ -1903,14 +1913,14 @@ func (s *Server) inboundPeerConnected(conn net.Conn) {
 // manager of the attempt.
 func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 	sp := newServerPeer(s, c.Permanent)
-	p, err := peer.NewOutboundPeer(newPeerConfig(sp), c.Addr.String())
+	isWhitelisted := isWhitelisted(conn.RemoteAddr())
+	p, err := peer.NewOutboundPeer(newPeerConfig(sp), c.Addr.String(), isWhitelisted)
 	if err != nil {
 		log.Debug("Cannot create outbound peer %s: %v", c.Addr, err)
 		s.connManager.Disconnect(c.ID())
 	}
 	sp.Peer = p
 	sp.connReq = c
-	sp.isWhitelisted = isWhitelisted(conn.RemoteAddr())
 	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
 		// Request known addresses if the server address manager needs
 		// more and the peer has a protocol version new enough to
@@ -2473,7 +2483,7 @@ func (s *Server) AddBanScore(peerAddr string, persistent uint32, transient uint3
 	s.banScoreChn <- bmsg
 }
 
-func NewServer(chainParams *model.BitcoinParams, ts *bitcointime.MedianTime, interrupt <-chan struct{}) (*Server, error) {
+func NewServer(chainParams *model.BitcoinParams, ts *util.MedianTime, interrupt <-chan struct{}) (*Server, error) {
 
 	cfg := conf.Cfg
 

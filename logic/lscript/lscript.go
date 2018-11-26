@@ -2,6 +2,7 @@ package lscript
 
 import (
 	"bytes"
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/opcodes"
@@ -1145,7 +1146,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				}
 
 				vchSigBytes := vchSig.([]byte)
-				err := script.CheckSignatureEncoding(vchSigBytes, flags)
+				err := script.CheckTransactionSignatureEncoding(vchSigBytes, flags)
 				if err != nil {
 					return err
 				}
@@ -1192,6 +1193,74 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					} else {
 						log.Debug("ScriptErrCheckSigVerify")
 						return errcode.New(errcode.ScriptErrCheckSigVerify)
+					}
+				}
+
+			case opcodes.OP_CHECKDATASIG:
+				fallthrough
+			case opcodes.OP_CHECKDATASIGVERIFY:
+				// Make sure this remains an error before activation
+				if (flags & script.ScriptEnableCheckDataSig) == 0 {
+					log.Debug("ScriptErrorBadOpcode")
+					return errcode.New(errcode.ScriptErrBadOpCode)
+				}
+
+				// (sig message pubkey -- bool)
+				if stack.Size() < 3 {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vchSig := stack.Top(-3)
+				vchMessage := stack.Top(-2)
+				vchPubKey := stack.Top(-1)
+				if vchSig == nil || vchMessage == nil || vchPubKey == nil {
+					log.Debug("ScriptErrInvalidStackOperation")
+					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+				}
+
+				vchSigBytes := vchSig.([]byte)
+
+				ok, err := script.CheckDataSignatureEncoding(vchSigBytes, flags)
+				if !ok {
+					return err
+				}
+				vchPubKeyBytes := vchPubKey.([]byte)
+				if err := script.CheckPubKeyEncoding(vchPubKeyBytes, flags); err != nil {
+					log.Debug("Script check signature encoding error:%v", err)
+					return err
+				}
+
+				ppubKey, _ := crypto.ParsePubKey(vchPubKeyBytes)
+
+				success := false
+				if len(vchSigBytes) > 0 {
+					vchHashs := util.Sha256Hash(vchMessage.([]byte))
+					success, err = scriptChecker.VerifySignature(vchSigBytes, ppubKey, &vchHashs)
+					if err != nil {
+						log.Debug("verify error")
+					}
+				}
+
+				if !success && ((flags & script.ScriptVerifyNullFail) != 0) && len(
+					vchSigBytes) > 0 {
+					return errcode.New(errcode.ScriptErrSigNullFail)
+				}
+
+				stack.Pop()
+				stack.Pop()
+				stack.Pop()
+				if success {
+					stack.Push(bnTrue.Serialize())
+				} else {
+					stack.Push(bnFalse.Serialize())
+				}
+
+				if e.OpValue == opcodes.OP_CHECKDATASIGVERIFY {
+					if success {
+						stack.Pop()
+					} else {
+						return errcode.New(errcode.ScriptErrCheckDataSigVerify)
 					}
 				}
 
@@ -1295,7 +1364,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 					// pubkey/signature evaluation distinguishable by
 					// CHECKMULTISIG NOT if the STRICTENC flag is set.
 					// See the script_(in)valid tests for details.
-					err := script.CheckSignatureEncoding(vchSig.([]byte), flags)
+					err := script.CheckTransactionSignatureEncoding(vchSig.([]byte), flags)
 					if err != nil {
 						return err
 					}
@@ -1434,8 +1503,7 @@ func EvalScript(stack *util.Stack, s *script.Script, transaction *tx.Tx, nIn int
 				vch2 := stack.Top(-1)
 				scriptNum, err := script.GetScriptNum(vch2.([]byte), fRequireMinimal, script.DefaultMaxNumSize)
 				if err != nil {
-					log.Debug("ScriptErrInvalidStackOperation")
-					return errcode.New(errcode.ScriptErrInvalidStackOperation)
+					return err
 				}
 				size := scriptNum.Value
 				if size > script.MaxScriptElementSize || size < 0 {

@@ -28,9 +28,9 @@ const CommandSize = 12
 // individual limits imposed by messages themselves.
 const MaxMessagePayload = (1024 * 1024 * 32) // 32MB
 
-// MaxProtocolMessageLength length of incoming protocol messages (Currently 1MB).
+// MaxProtocolMessageLength length of incoming protocol messages (Currently 2MB).
 // NB: Messages propagating block content are not subject to this limit.
-const MaxProtocolMessageLength = 1 * 1024 * 1024
+const MaxProtocolMessageLength = 2 * 1024 * 1024
 
 // Commands used in bitcoin message headers which describe the type of message.
 const (
@@ -70,11 +70,6 @@ const (
 	// BaseEncoding encodes all messages in the default format specified
 	// for the Bitcoin wire protocol.
 	BaseEncoding MessageEncoding = 1 << iota
-
-	// WitnessEncoding encodes all messages other than transaction messages
-	// using the default Bitcoin wire protocol specification. For transaction
-	// messages, the new encoding format detailed in BIP0144 will be used.
-	WitnessEncoding
 )
 
 // LatestEncoding is the most recently specified encoding for the Bitcoin wire
@@ -364,7 +359,6 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 			"but max message payload is %d bytes. max block msg len: %d",
 			hdr.length, MaxProtocolMessageLength, 2*conf.Cfg.Excessiveblocksize)
 		return totalBytes, nil, nil, messageError("ReadMessage", str)
-
 	}
 
 	// Check for messages from the wrong bitcoin network.

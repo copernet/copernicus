@@ -183,10 +183,10 @@ type GetBlockTemplateResult struct {
 	Capabilities []string `json:"capabilities,omitempty"`
 	RejectReason string   `json:"reject-reason,omitempty"`
 
-	// BCH
-	Rules       []string       `json:"rules"`
-	VbAvailable map[string]int `json:"vbavailable"`
-	VbRequired  int            `json:"vbrequired"`
+	// at abc 0.18.4 version cancel the following fields
+	//Rules       []string       `json:"rules"`
+	//VbAvailable map[string]int `json:"vbavailable"`
+	//VbRequired  int            `json:"vbrequired"`
 }
 
 // GetMempoolEntryResult models the data returned from the getmempoolentry

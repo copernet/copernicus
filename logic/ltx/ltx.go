@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/copernet/copernicus/model/blockindex"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -17,6 +19,7 @@ import (
 	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
+	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/model/txin"
@@ -64,13 +67,18 @@ var (
 	txScriptVerifyResultChan    chan ScriptVerifyResult
 )
 
+var once sync.Once
+
 func ScriptVerifyInit() {
-	scriptVerifyJobChan = make(chan ScriptVerifyJob, MaxScriptVerifyJobNum)
-	blockScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
-	txScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
-	for i := 0; i < conf.Cfg.Script.Par; i++ {
-		go checkScript()
-	}
+	once.Do(func() {
+		scriptVerifyJobChan = make(chan ScriptVerifyJob, MaxScriptVerifyJobNum)
+		blockScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
+		txScriptVerifyResultChan = make(chan ScriptVerifyResult, MaxScriptVerifyJobNum)
+
+		for i := 0; i < conf.Cfg.Script.Par; i++ {
+			go checkScript()
+		}
+	})
 }
 
 func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
@@ -169,15 +177,13 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 
 	var extraFlags uint32 = script.ScriptVerifyNone
 	tip := chain.GetInstance().Tip()
-	//if chainparams.IsMagneticAnomalyEnable(tip.GetMedianTimePast()) {
-	//	extraFlags |= script.ScriptEnableCheckDataSig
-	//}
-	if model.IsMonolithEnabled(tip.GetMedianTimePast()) {
-		extraFlags |= script.ScriptEnableMonolithOpcodes
-	}
 
 	if model.IsReplayProtectionEnabled(tip.GetMedianTimePast()) {
 		extraFlags |= script.ScriptEnableReplayProtection
+	}
+
+	if model.IsMagneticAnomalyEnabled(tip.GetMedianTimePast()) {
+		extraFlags |= script.ScriptEnableCheckDataSig
 	}
 
 	//check inputs
@@ -266,30 +272,25 @@ func CheckBlockTransactions(txs []*tx.Tx, maxBlockSigOps uint64) error {
 	if err != nil {
 		return err
 	}
-	sigOps := txs[0].GetSigOpCountWithoutP2SH()
-	outPointSet := make(map[outpoint.OutPoint]bool)
+	sigOps := txs[0].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
+
+	TxsInputOutpoint := make(map[outpoint.OutPoint]bool)
 	for i, transaction := range txs[1:] {
-		sigOps += txs[i+1].GetSigOpCountWithoutP2SH()
+		sigOps += txs[i+1].GetSigOpCountWithoutP2SH(uint32(script.StandardScriptVerifyFlags))
 		if uint64(sigOps) > maxBlockSigOps {
 			log.Debug("block has too many sigOps:%d", sigOps)
 			return errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
-		err := transaction.CheckRegularTransaction()
+
+		err := transaction.CheckRegularTransactionWhenNewBlock(TxsInputOutpoint)
 		if err != nil {
 			return err
 		}
-
-		// check dup input
-		err = transaction.CheckDuplicateIns(&outPointSet)
-		if err != nil {
-			return err
-		}
-
 	}
 	return nil
 }
 
-func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime int64) error {
+func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLockTime, mediaTimePast int64) error {
 	txsLen := len(txs)
 	if txsLen == 0 {
 		log.Debug("no transactions err")
@@ -300,8 +301,24 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 		return err
 	}
 
+	var prevTx *tx.Tx
 	for _, transaction := range txs {
-		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime)
+		if model.IsMagneticAnomalyEnabled(mediaTimePast) {
+			if prevTx != nil {
+				transactionHash := transaction.GetHash()
+				prevTxHash := prevTx.GetHash()
+				if pow.HashToBig(&transactionHash).Cmp(pow.HashToBig(&prevTxHash)) < 0 {
+					return fmt.Errorf(
+						"bad-ordering: transaction order is invalid(%s <%s) in block(height %d)",
+						transaction.GetHash().String(), prevTx.GetHash().String(), blockHeight)
+				}
+			}
+			if prevTx != nil || !transaction.IsCoinBase() {
+				prevTx = transaction
+			}
+		}
+
+		err = ContextualCheckTransaction(transaction, blockHeight, blockLockTime, mediaTimePast)
 		if err != nil {
 			return err
 		}
@@ -309,64 +326,91 @@ func ContextureCheckBlockTransactions(txs []*tx.Tx, blockHeight int32, blockLock
 	return nil
 }
 
-func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32, needCheckScript bool,
-	blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64, lockTimeFlags uint32) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uint32,
+	needCheckScript bool, blockSubSidy amount.Amount, blockHeight int32, blockMaxSigOpsCount uint64,
+	lockTimeFlags uint32, pindex *blockindex.BlockIndex) (coinMap *utxo.CoinsMap, bundo *undo.BlockUndo, err error) {
+
 	// make view
 	coinsMap := utxo.NewEmptyCoinsMap()
-	utxo := utxo.GetUtxoCacheInstance()
-	sigOpsCount := uint64(0)
+	utxoCache := utxo.GetUtxoCacheInstance()
+	sigOpsCount := 0
 	var fees amount.Amount
 	bundo = undo.NewBlockUndo(0)
-	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
 
-	//updateCoins
-	for i, transaction := range txs {
-		// check BIP30: do not allow overwriting unspent old transactions
-		if bip30Enable {
+	// check BIP30: do not allow overwriting unspent old transactions
+	if bip30Enable {
+		for _, transaction := range txs {
 			outs := transaction.GetOuts()
 			for i := range outs {
-				if utxo.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
+				if utxoCache.HaveCoin(outpoint.NewOutPoint(transaction.GetHash(), uint32(i))) {
 					log.Debug("tried to overwrite transaction")
 					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-BIP30")
 				}
 			}
 		}
+	}
 
-		var valueIn amount.Amount
-		if !transaction.IsCoinBase() {
-			ins := transaction.GetIns()
-			for _, in := range ins {
-				coin := coinsMap.FetchCoin(in.PreviousOutPoint)
-				if coin == nil || coin.IsSpent() {
-					log.Debug("can't find coin or has been spent out before apply transaction: %+v", in.PreviousOutPoint)
-					return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
-				}
-				valueIn += coin.GetAmount()
-			}
+	txUndoList := make([]*undo.TxUndo, 0, len(txs)-1)
+	isMagneticAnomalyEnabled := model.IsMagneticAnomalyEnabled(pindex.GetMedianTimePast())
 
-			coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
-			if !CheckSequenceLocks(coinHeight, coinTime) {
-				log.Debug("block contains a non-bip68-final transaction")
-				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
+	for _, ptx := range txs {
+		//pos := block.DiskTxPos{
+		//	BlockIn:    &blkPos,
+		//	TxOffsetIn: util.VarIntSerializeSize(uint64(len(txs))),
+		//}
+		//vPos = make(map[util.Hash]block.DiskTxPos)
+		//pos = vPos[ptx.GetHash()]
+		//pos.TxOffsetIn += ptx.EncodeSize()
+
+		if ptx.IsCoinBase() {
+			// We've already checked for sigops count before P2SH in CheckBlock.
+			sigOpsCount += ptx.GetSigOpCountWithoutP2SH(scriptCheckFlags)
+		}
+
+		if isMagneticAnomalyEnabled || ptx.IsCoinBase() {
+			TxAddCoins(ptx, coinsMap, blockHeight)
+		}
+	}
+
+	for i, transaction := range txs {
+		if transaction.IsCoinBase() {
+			continue
+		}
+		ins := transaction.GetIns()
+		for _, in := range ins {
+			coin := coinsMap.FetchCoin(in.PreviousOutPoint)
+			if coin == nil || coin.IsSpent() {
+				log.Debug("can't find coin or has been spent out before apply transaction: %+v", in.PreviousOutPoint)
+				return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-missingorspent")
 			}
 		}
-		//check sigops
+
+		// Check that transaction is BIP68 final BIP68 lock checks (as
+		// opposed to nLockTime checks) must be in ConnectBlock because they
+		// require the UTXO set.
+		coinHeight, coinTime := CalculateSequenceLocks(transaction, coinsMap, lockTimeFlags)
+		if !CheckSequenceLocks(coinHeight, coinTime) {
+			log.Debug("block contains a non-bip68-final transaction")
+			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
+		}
+
+		// GetTransactionSigOpCount counts 2 types of sigops:
+		// * legacy (always)
+		// * p2sh (when P2SH enabled in flags and excludes coinbase)
 		sigsCount := GetTransactionSigOpCount(transaction, scriptCheckFlags, coinsMap)
 		if sigsCount > tx.MaxTxSigOpsCounts {
 			log.Debug("transaction has too many sigops")
 			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 		}
-		sigOpsCount += uint64(sigsCount)
-		if sigOpsCount > blockMaxSigOpsCount {
+		sigOpsCount += sigsCount
+		if sigOpsCount > int(blockMaxSigOpsCount) {
 			log.Debug("block has too many sigops at %d transaction", i)
 			return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-blk-sigops")
 		}
-		if transaction.IsCoinBase() {
-			UpdateTxCoins(transaction, coinsMap, nil, blockHeight)
-			continue
-		}
 
-		fees += valueIn - transaction.GetValueOut()
+		fee := coinsMap.GetValueIn(transaction) - transaction.GetValueOut()
+		fees += fee
+
 		if needCheckScript {
 			//check inputs
 			err := checkInputs(transaction, coinsMap, scriptCheckFlags, blockScriptVerifyResultChan)
@@ -380,13 +424,17 @@ func ApplyBlockTransactions(txs []*tx.Tx, bip30Enable bool, scriptCheckFlags uin
 
 		//update temp coinsMap
 		txundo := undo.NewTxUndo()
-		UpdateTxCoins(transaction, coinsMap, txundo, blockHeight)
 		txUndoList = append(txUndoList, txundo)
+		TxSpendCoins(transaction, coinsMap, txundo)
+		if !isMagneticAnomalyEnabled {
+			TxAddCoins(transaction, coinsMap, blockHeight)
+		}
 	}
 	bundo.SetTxUndo(txUndoList)
 	//check blockReward
 	if txs[0].GetValueOut() > fees+blockSubSidy {
-		log.Debug("coinbase pays too much")
+		log.Debug("coinbase pays too much: coinbase out:%d fee:%d expected:%d txcnt(%d)",
+			txs[0].GetValueOut(), fees, fees+blockSubSidy, len(txs))
 		return nil, nil, errcode.NewError(errcode.RejectInvalid, "bad-cb-amount")
 	}
 	return coinsMap, bundo, nil
@@ -416,7 +464,7 @@ func contextureCheckBlockCoinBaseTransaction(tx *tx.Tx, blockHeight int32) error
 	return nil
 }
 
-func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff int64) error {
+func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff, mediaTimePast int64) error {
 	if !txn.IsFinal(nBlockHeight, nLockTimeCutoff) {
 		log.Debug("txn is not final, hash: %s", txn.GetHash())
 		return errcode.NewError(errcode.RejectInvalid, "bad-txns-nonfinal")
@@ -429,6 +477,14 @@ func ContextualCheckTransaction(txn *tx.Tx, nBlockHeight int32, nLockTimeCutoff 
 	//	}
 	//}
 
+	if model.IsMagneticAnomalyEnabled(mediaTimePast) {
+		txnsize := txn.SerializeSize()
+		if txnsize < consensus.MinTxSize {
+			e := fmt.Sprintf("bad-txns-undersize: tx(%d) should be equal to or greater than %d",
+				txnsize, consensus.MinTxSize)
+			return errcode.NewError(errcode.RejectInvalid, e)
+		}
+	}
 	return nil
 }
 
@@ -482,23 +538,19 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 }
 
 func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
-	var sigOpsCount int
-	if flags&script.ScriptVerifyP2SH == script.ScriptVerifyP2SH {
-		sigOpsCount = GetSigOpCountWithP2SH(txn, coinMap)
-	} else {
-		sigOpsCount = txn.GetSigOpCountWithoutP2SH()
-	}
+	sigOpsCount := txn.GetSigOpCountWithoutP2SH(flags) + getP2SHSigOpCount(txn, flags, coinMap)
 
 	return sigOpsCount
 }
 
-// GetSigOpCountWithP2SH starting BIP16(Apr 1 2012), we should check p2sh
-func GetSigOpCountWithP2SH(txn *tx.Tx, coinMap *utxo.CoinsMap) int {
-	n := txn.GetSigOpCountWithoutP2SH()
-	if txn.IsCoinBase() {
-		return n
+// Get tx's P2SH SigOpCount
+func getP2SHSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
+
+	if (flags&script.ScriptVerifyP2SH) == 0 || txn.IsCoinBase() {
+		return 0
 	}
 
+	var n int
 	for _, txin := range txn.GetIns() {
 		coin := coinMap.GetCoin(txin.PreviousOutPoint)
 		if coin == nil {
@@ -507,7 +559,7 @@ func GetSigOpCountWithP2SH(txn *tx.Tx, coinMap *utxo.CoinsMap) int {
 
 		scriptPubKey := coin.GetScriptPubKey()
 		if scriptPubKey.IsPayToScriptHash() {
-			sigsCount := scriptPubKey.GetP2SHSigOpCount(txin.GetScriptSig())
+			sigsCount := scriptPubKey.GetPubKeyP2SHSigOpCount(flags, txin.GetScriptSig())
 			n += sigsCount
 		}
 	}
@@ -542,7 +594,8 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 
 	nBlockHeight := activeChain.Height() + 1
 
-	return ContextualCheckTransaction(transaction, nBlockHeight, nLockTimeCutoff)
+	return ContextualCheckTransaction(transaction, nBlockHeight,
+		nLockTimeCutoff, activeChain.Tip().GetMedianTimePast())
 }
 
 func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
@@ -575,7 +628,7 @@ func AreInputsStandard(transaction *tx.Tx, coinsMap *utxo.CoinsMap) bool {
 			}
 
 			subScript := script.NewScriptRaw(scriptSig.ParsedOpCodes[len(scriptSig.ParsedOpCodes)-1].Data)
-			opCount := subScript.GetSigOpCount(true)
+			opCount := subScript.GetSigOpCount(uint32(script.StandardCheckDataSigVerifyFlags), true)
 			if uint(opCount) > tx.MaxP2SHSigOps {
 				log.Debug("transaction has too many sigops")
 				return false
@@ -662,10 +715,8 @@ func checkScript() {
 		if err1 != nil {
 
 			hasNonMandatoryFlags := (j.Flags & uint32(script.StandardNotMandatoryVerifyFlags)) != 0
-			doesNotHaveMonolith := j.Flags&script.ScriptEnableMonolithOpcodes == 0
-			if hasNonMandatoryFlags || doesNotHaveMonolith {
-
-				fallbackFlags := uint32(uint64(j.Flags)&uint64(^script.StandardNotMandatoryVerifyFlags) | script.ScriptEnableMonolithOpcodes)
+			if hasNonMandatoryFlags {
+				fallbackFlags := uint32(uint64(j.Flags) & uint64(^script.StandardNotMandatoryVerifyFlags))
 				err2 := lscript.VerifyScript(j.Tx, j.ScriptSig, j.ScriptPubKey, j.IputNum, j.Value, fallbackFlags, j.ScriptChecker)
 				if err2 == nil {
 					j.ScriptVerifyResultChan <- verifyResult(j, errorNonMandatoryPass(j, err1))

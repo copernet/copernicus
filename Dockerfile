@@ -16,6 +16,7 @@ RUN go get github.com/mattn/goveralls
 WORKDIR /go/src/github.com/copernet/
 RUN git clone https://github.com/copernet/copernicus.git
 WORKDIR /go/src/github.com/copernet/copernicus
+RUN git checkout magnetic
 RUN glide install
 RUN go get -u github.com/alecthomas/gometalinter
 RUN gometalinter --install
@@ -26,6 +27,7 @@ WORKDIR /
 RUN git clone https://github.com/copernet/walle.git
 RUN cp $GOPATH/bin/copernicus /walle
 WORKDIR /walle
+RUN git checkout magnetic
 RUN mkdir .venv
 RUN pipenv --python 3.7
 RUN pipenv install

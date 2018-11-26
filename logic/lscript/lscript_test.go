@@ -103,25 +103,24 @@ func appendData(res, w []byte) []byte {
 }
 
 var scriptFlagMap = map[string]uint32{
-	"NONE":                                  script.ScriptVerifyNone,
-	"P2SH":                                  script.ScriptVerifyP2SH,
-	"STRICTENC":                             script.ScriptVerifyStrictEnc,
-	"DERSIG":                                script.ScriptVerifyDersig,
-	"LOW_S":                                 script.ScriptVerifyLowS,
-	"SIGPUSHONLY":                           script.ScriptVerifySigPushOnly,
-	"MINIMALDATA":                           script.ScriptVerifyMinmalData,
-	"NULLDUMMY":                             script.ScriptVerifyNullDummy,
-	"DISCOURAGE_UPGRADABLE_NOPS":            script.ScriptVerifyDiscourageUpgradableNops,
-	"CLEANSTACK":                            script.ScriptVerifyCleanStack,
-	"MINIMALIF":                             script.ScriptVerifyMinimalIf,
-	"NULLFAIL":                              script.ScriptVerifyNullFail,
-	"CHECKLOCKTIMEVERIFY":                   script.ScriptVerifyCheckLockTimeVerify,
-	"CHECKSEQUENCEVERIFY":                   script.ScriptVerifyCheckSequenceVerify,
-	"DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM": script.ScriptVerifyDiscourageUpgradableWitnessProgram,
-	"COMPRESSED_PUBKEYTYPE":                 script.ScriptVerifyCompressedPubkeyType,
-	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkID,
-	"REPLAY_PROTECTION":                     script.ScriptEnableReplayProtection,
-	"MONOLITH_OPCODES":                      script.ScriptEnableMonolithOpcodes,
+	"NONE":                       script.ScriptVerifyNone,
+	"P2SH":                       script.ScriptVerifyP2SH,
+	"STRICTENC":                  script.ScriptVerifyStrictEnc,
+	"DERSIG":                     script.ScriptVerifyDersig,
+	"LOW_S":                      script.ScriptVerifyLowS,
+	"SIGPUSHONLY":                script.ScriptVerifySigPushOnly,
+	"MINIMALDATA":                script.ScriptVerifyMinmalData,
+	"NULLDUMMY":                  script.ScriptVerifyNullDummy,
+	"DISCOURAGE_UPGRADABLE_NOPS": script.ScriptVerifyDiscourageUpgradableNops,
+	"CLEANSTACK":                 script.ScriptVerifyCleanStack,
+	"MINIMALIF":                  script.ScriptVerifyMinimalIf,
+	"NULLFAIL":                   script.ScriptVerifyNullFail,
+	"CHECKLOCKTIMEVERIFY":        script.ScriptVerifyCheckLockTimeVerify,
+	"CHECKSEQUENCEVERIFY":        script.ScriptVerifyCheckSequenceVerify,
+	"COMPRESSED_PUBKEYTYPE":      script.ScriptVerifyCompressedPubkeyType,
+	"SIGHASH_FORKID":             script.ScriptEnableSigHashForkID,
+	"REPLAY_PROTECTION":          script.ScriptEnableReplayProtection,
+	"CHECKDATASIG":               script.ScriptEnableCheckDataSig,
 }
 
 type scriptErrChecker struct {
@@ -316,6 +315,9 @@ func doScriptJSONTest(t *testing.T, itest []interface{}, sec scriptErrChecker) (
 	err = VerifyScript(trax, scriptSig, scriptPubKey, 0, amount.Amount(nValue), flags, NewScriptRealChecker())
 
 	if err = sec.check(err, scriptErrorString); err != nil {
+		for _, v := range test {
+			fmt.Println(v)
+		}
 		t.Error(err)
 		return err
 	}

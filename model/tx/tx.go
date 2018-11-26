@@ -278,13 +278,13 @@ func (tx *Tx) IsCoinBase() bool {
 	return tx.ins[0].PreviousOutPoint.IsNull()
 }
 
-func (tx *Tx) GetSigOpCountWithoutP2SH() int {
+func (tx *Tx) GetSigOpCountWithoutP2SH(flags uint32) int {
 	n := 0
 	for _, in := range tx.ins {
-		n += in.GetScriptSig().GetSigOpCount(false)
+		n += in.GetScriptSig().GetSigOpCount(flags, false)
 	}
 	for _, out := range tx.outs {
-		n += out.GetScriptPubKey().GetSigOpCount(false)
+		n += out.GetScriptPubKey().GetSigOpCount(flags, false)
 	}
 	return n
 }
@@ -303,7 +303,37 @@ func (tx *Tx) CheckRegularTransaction() error {
 		return errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase")
 	}
 
-	err := tx.checkTransactionCommon(true)
+	err := tx.checkTransactionCommon()
+	if err != nil {
+		return err
+	}
+
+	outPoints := make(map[outpoint.OutPoint]bool)
+	for _, in := range tx.ins {
+		if in.PreviousOutPoint.IsNull() {
+			log.Debug("tx input prevout null")
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-prevout-null")
+		}
+
+		if _, exists := outPoints[*(in.PreviousOutPoint)]; !exists {
+			outPoints[*(in.PreviousOutPoint)] = true
+		} else {
+			log.Error("bad tx: %s, duplicate inputs:[%s:%d]",
+				tx.hash, in.PreviousOutPoint.Hash, in.PreviousOutPoint.Index)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate")
+		}
+	}
+
+	return nil
+}
+
+func (tx *Tx) CheckRegularTransactionWhenNewBlock(outPoints map[outpoint.OutPoint]bool) error {
+	if tx.IsCoinBase() {
+		log.Debug("tx should not be coinbase, hash: %s", tx.hash)
+		return errcode.NewError(errcode.RejectInvalid, "bad-tx-coinbase")
+	}
+
+	err := tx.checkTransactionCommon()
 	if err != nil {
 		return err
 	}
@@ -312,6 +342,14 @@ func (tx *Tx) CheckRegularTransaction() error {
 		if in.PreviousOutPoint.IsNull() {
 			log.Debug("tx input prevout null")
 			return errcode.NewError(errcode.RejectInvalid, "bad-txns-prevout-null")
+		}
+
+		if _, exists := outPoints[*(in.PreviousOutPoint)]; !exists {
+			outPoints[*(in.PreviousOutPoint)] = true
+		} else {
+			log.Error("bad tx: %s, duplicate inputs:[%s:%d]",
+				tx.hash, in.PreviousOutPoint.Hash, in.PreviousOutPoint.Index)
+			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate")
 		}
 	}
 
@@ -323,7 +361,7 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 		log.Warn("CheckCoinBaseTransaction: TxErrNotCoinBase")
 		return errcode.NewError(errcode.RejectInvalid, "bad-cb-missing")
 	}
-	err := tx.checkTransactionCommon(false)
+	err := tx.checkTransactionCommon()
 	if err != nil {
 		return err
 	}
@@ -337,7 +375,7 @@ func (tx *Tx) CheckCoinbaseTransaction() error {
 	return nil
 }
 
-func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
+func (tx *Tx) checkTransactionCommon() error {
 	//check inputs and outputs
 	if len(tx.ins) == 0 {
 		log.Warn("bad tx: %s, empty ins", tx.hash)
@@ -369,33 +407,12 @@ func (tx *Tx) checkTransactionCommon(checkDupInput bool) error {
 	}
 
 	// check sigopcount
-	sigOpCount := tx.GetSigOpCountWithoutP2SH()
+	sigOpCount := tx.GetSigOpCountWithoutP2SH(script.ScriptEnableCheckDataSig)
 	if sigOpCount > MaxTxSigOpsCounts {
 		log.Debug("bad tx: %s bad-txn-sigops :%d", tx.hash, sigOpCount)
 		return errcode.NewError(errcode.RejectInvalid, "bad-txn-sigops")
 	}
 
-	// check dup input
-	if checkDupInput {
-		outPointSet := make(map[outpoint.OutPoint]bool)
-		err := tx.CheckDuplicateIns(&outPointSet)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-func (tx *Tx) CheckDuplicateIns(outpoints *map[outpoint.OutPoint]bool) error {
-	for _, in := range tx.ins {
-		if _, exists := (*outpoints)[*(in.PreviousOutPoint)]; !exists {
-			(*outpoints)[*(in.PreviousOutPoint)] = true
-		} else {
-			log.Error("bad tx: %s, duplicate inputs:[%s:%d]",
-				tx.hash, in.PreviousOutPoint.Hash, in.PreviousOutPoint.Index)
-			return errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate")
-		}
-	}
 	return nil
 }
 

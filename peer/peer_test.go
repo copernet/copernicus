@@ -123,7 +123,6 @@ type peerStats struct {
 	wantTimeOffset      int64
 	wantBytesSent       uint64
 	wantBytesReceived   uint64
-	wantWitnessEnabled  bool
 }
 
 // testPeer tests the given peer's flags and stats
@@ -274,7 +273,6 @@ func TestPeerConnection(t *testing.T) {
 		wantTimeOffset:      int64(0),
 		wantBytesSent:       164, // 140 version + 24 verack
 		wantBytesReceived:   164,
-		wantWitnessEnabled:  false,
 	}
 	wantStats2 := peerStats{
 		wantUserAgent:       wire.DefaultUserAgent + "peer:1.0(comment)/",
@@ -290,7 +288,6 @@ func TestPeerConnection(t *testing.T) {
 		wantTimeOffset:      int64(0),
 		wantBytesSent:       164, // 140 version + 24 verack
 		wantBytesReceived:   164,
-		wantWitnessEnabled:  true,
 	}
 
 	tests := []struct {
@@ -306,7 +303,7 @@ func TestPeerConnection(t *testing.T) {
 				)
 				inMsgChan := make(chan *peer.PeerMessage)
 				server.SetMsgHandle(context.TODO(), inMsgChan, nil)
-				inPeer := peer.NewInboundPeer(peer1Cfg)
+				inPeer := peer.NewInboundPeer(peer1Cfg, false)
 				inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 				inNA := inPeer.NA()
 				assert.Equal(t, inNA.IP.String(), "10.0.0.1")
@@ -316,7 +313,7 @@ func TestPeerConnection(t *testing.T) {
 				laddr := inPeer.LocalAddr().String()
 				assert.Equal(t, laddr, "10.0.0.1:18333")
 
-				outPeer, err := peer.NewOutboundPeer(peer2Cfg, "10.0.0.2:8333")
+				outPeer, err := peer.NewOutboundPeer(peer2Cfg, "10.0.0.2:8333", false)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -352,10 +349,10 @@ func TestPeerConnection(t *testing.T) {
 				)
 				inMsgChan := make(chan *peer.PeerMessage)
 				server.SetMsgHandle(context.TODO(), inMsgChan, nil)
-				inPeer := peer.NewInboundPeer(peer1Cfg)
+				inPeer := peer.NewInboundPeer(peer1Cfg, false)
 				inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 
-				outPeer, err := peer.NewOutboundPeer(peer2Cfg, "10.0.0.2:8333")
+				outPeer, err := peer.NewOutboundPeer(peer2Cfg, "10.0.0.2:8333", false)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -487,7 +484,7 @@ func TestPeerListeners(t *testing.T) {
 	)
 	inMsgChan := make(chan *peer.PeerMessage)
 	server.SetMsgHandle(context.TODO(), inMsgChan, nil)
-	inPeer := peer.NewInboundPeer(peerCfg)
+	inPeer := peer.NewInboundPeer(peerCfg, false)
 	inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 
 	ret := inPeer.WantsHeaders()
@@ -497,7 +494,7 @@ func TestPeerListeners(t *testing.T) {
 			verack <- struct{}{}
 		},
 	}
-	outPeer, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333")
+	outPeer, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333", false)
 	if err != nil {
 		t.Errorf("NewOutboundPeer: unexpected err %v\n", err)
 		return
@@ -656,7 +653,7 @@ func TestOutboundPeer(t *testing.T) {
 	r, w := io.Pipe()
 	c := &conn{raddr: "10.0.0.1:8333", Writer: w, Reader: r}
 
-	p, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333")
+	p, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333", false)
 	if err != nil {
 		t.Errorf("NewOutboundPeer: unexpected err - %v\n", err)
 		return
@@ -715,7 +712,7 @@ func TestOutboundPeer(t *testing.T) {
 	peerCfg.NewestBlock = newestBlock
 	r1, w1 := io.Pipe()
 	c1 := &conn{raddr: "10.0.0.1:8333", Writer: w1, Reader: r1}
-	p1, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333")
+	p1, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333", false)
 	if err != nil {
 		t.Errorf("NewOutboundPeer: unexpected err - %v\n", err)
 		return
@@ -749,7 +746,7 @@ func TestOutboundPeer(t *testing.T) {
 	peerCfg.Services = wire.SFNodeBloom
 	r2, w2 := io.Pipe()
 	c2 := &conn{raddr: "10.0.0.1:8333", Writer: w2, Reader: r2}
-	p2, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333")
+	p2, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333", false)
 	if err != nil {
 		t.Errorf("NewOutboundPeer: unexpected err - %s\n", err.Error())
 		return
@@ -819,7 +816,7 @@ func TestUnsupportedVersionPeer(t *testing.T) {
 		&conn{laddr: "10.0.0.2:8333", raddr: "10.0.0.1:8333"},
 	)
 
-	p, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333")
+	p, err := peer.NewOutboundPeer(peerCfg, "10.0.0.1:8333", false)
 	if err != nil {
 		t.Fatalf("NewOutboundPeer: unexpected err - %v\n", err)
 	}

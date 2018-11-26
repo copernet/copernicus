@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/copernet/copernicus/model/bitcointime"
-	"github.com/copernet/copernicus/model/consensus"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -30,6 +28,7 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
@@ -73,25 +72,24 @@ func testVecF64ToUint32(f float64) uint32 {
 }
 
 var scriptFlagMap = map[string]uint32{
-	"NONE":                                  script.ScriptVerifyNone,
-	"P2SH":                                  script.ScriptVerifyP2SH,
-	"STRICTENC":                             script.ScriptVerifyStrictEnc,
-	"DERSIG":                                script.ScriptVerifyDersig,
-	"LOW_S":                                 script.ScriptVerifyLowS,
-	"SIGPUSHONLY":                           script.ScriptVerifySigPushOnly,
-	"MINIMALDATA":                           script.ScriptVerifyMinmalData,
-	"NULLDUMMY":                             script.ScriptVerifyNullDummy,
-	"DISCOURAGE_UPGRADABLE_NOPS":            script.ScriptVerifyDiscourageUpgradableNops,
-	"CLEANSTACK":                            script.ScriptVerifyCleanStack,
-	"MINIMALIF":                             script.ScriptVerifyMinimalIf,
-	"NULLFAIL":                              script.ScriptVerifyNullFail,
-	"CHECKLOCKTIMEVERIFY":                   script.ScriptVerifyCheckLockTimeVerify,
-	"CHECKSEQUENCEVERIFY":                   script.ScriptVerifyCheckSequenceVerify,
-	"DISCOURAGE_UPGRADABLE_WITNESS_PROGRAM": script.ScriptVerifyDiscourageUpgradableWitnessProgram,
-	"COMPRESSED_PUBKEYTYPE":                 script.ScriptVerifyCompressedPubkeyType,
-	"SIGHASH_FORKID":                        script.ScriptEnableSigHashForkID,
-	"REPLAY_PROTECTION":                     script.ScriptEnableReplayProtection,
-	"MONOLITH_OPCODES":                      script.ScriptEnableMonolithOpcodes,
+	"NONE":                       script.ScriptVerifyNone,
+	"P2SH":                       script.ScriptVerifyP2SH,
+	"STRICTENC":                  script.ScriptVerifyStrictEnc,
+	"DERSIG":                     script.ScriptVerifyDersig,
+	"LOW_S":                      script.ScriptVerifyLowS,
+	"SIGPUSHONLY":                script.ScriptVerifySigPushOnly,
+	"MINIMALDATA":                script.ScriptVerifyMinmalData,
+	"NULLDUMMY":                  script.ScriptVerifyNullDummy,
+	"DISCOURAGE_UPGRADABLE_NOPS": script.ScriptVerifyDiscourageUpgradableNops,
+	"CLEANSTACK":                 script.ScriptVerifyCleanStack,
+	"MINIMALIF":                  script.ScriptVerifyMinimalIf,
+	"NULLFAIL":                   script.ScriptVerifyNullFail,
+	"CHECKLOCKTIMEVERIFY":        script.ScriptVerifyCheckLockTimeVerify,
+	"CHECKSEQUENCEVERIFY":        script.ScriptVerifyCheckSequenceVerify,
+	"COMPRESSED_PUBKEYTYPE":      script.ScriptVerifyCompressedPubkeyType,
+	"SIGHASH_FORKID":             script.ScriptEnableSigHashForkID,
+	"REPLAY_PROTECTION":          script.ScriptEnableReplayProtection,
+	"CHECKDATASIG":               script.ScriptEnableCheckDataSig,
 }
 
 func parseScriptFlag(s string) (uint32, error) {
@@ -1378,7 +1376,7 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := bitcointime.NewMedianTime()
+		ts := util.GetTimeSource()
 		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
@@ -1771,7 +1769,16 @@ func Test_block_txns__should_not_contains_too_much_script_ops__in_total(t *testi
 func Test_block_txns__should_not_contains_duplicate_prev_outpoints(t *testing.T) {
 	coinbaseTx := newCoinbaseTx()
 	txn1 := txWithTooManyScriptOps(util.HashOne, 1)
-	txns := []*tx.Tx{coinbaseTx, txn1, txn1}
+
+	hugeScript := makeDummyScript(int(tx.MaxStandardTxSigOps + 1))
+	outPoint := outpoint.NewOutPoint(util.HashOne, 0)
+	txIn := txin.NewTxIn(outPoint, hugeScript, script.SequenceFinal)
+	txn2 := tx.NewTx(0, 1)
+	txn2.AddTxIn(txIn)
+	txn2.AddTxIn(txIn)
+	txOut := makeOuts()[0]
+	txn2.AddTxOut(txOut)
+	txns := []*tx.Tx{coinbaseTx, txn1, txn2}
 	err := ltx.CheckBlockTransactions(txns, consensus.MaxBlockSigopsPerMb)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-inputs-duplicate"), err)
@@ -1815,7 +1822,7 @@ func Test_block_should_contains_at_least_one_tx(t *testing.T) {
 
 	height := model.ActiveNetParams.BIP34Height - 1
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.Equal(t, errcode.New(errcode.RejectInvalid), err)
 }
@@ -1826,7 +1833,7 @@ func Test_block_coinbase_tx___can_contains_empty_script_sig___before_BIP34_heigh
 
 	height := model.ActiveNetParams.BIP34Height - 1
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.NoError(t, err)
 }
@@ -1837,7 +1844,7 @@ func Test_block_coinbase_tx___can_NOT_contains_empty_script_sig___after_BIP34_he
 
 	height := model.ActiveNetParams.BIP34Height + 1
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
 }
@@ -1860,7 +1867,7 @@ func Test_block_coinbase_tx___should_contains_height_in_script_sig___after_BIP34
 	coinbaseTx := newCoinbaseOnHeight(height)
 	txns := []*tx.Tx{coinbaseTx}
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height, 0, 0)
 
 	assert.NoError(t, err)
 }
@@ -1871,7 +1878,7 @@ func Test_block_coinbase_tx___should_contains_correct_height_in_script_sig___aft
 	coinbaseTx := newCoinbaseOnHeight(height)
 	txns := []*tx.Tx{coinbaseTx}
 
-	err := ltx.ContextureCheckBlockTransactions(txns, height+100, 0)
+	err := ltx.ContextureCheckBlockTransactions(txns, height+100, 0, 0)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-cb-height"), err)
 }

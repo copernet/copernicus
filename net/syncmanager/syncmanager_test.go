@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"io"
 	"io/ioutil"
 	"net"
@@ -149,7 +148,7 @@ func TestSyncManager(t *testing.T) {
 
 func TestSyncPeerID(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sm, dir, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
@@ -186,7 +185,7 @@ func TestQueueInv(t *testing.T) {
 	sm.Start()
 	inv := wire.NewMsgInv()
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sm.QueueInv(inv, in)
 	sm.Stop()
 }
@@ -216,7 +215,7 @@ func TestQueueTx(t *testing.T) {
 		t.Fatalf("Unserialize failed:%v\n", err)
 	}
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
 	sm.Start()
 	sm.QueueTx(&tx, in, done)
@@ -232,7 +231,7 @@ func TestQueueBlock(t *testing.T) {
 	defer os.RemoveAll(dir)
 	bl := block.Block{}
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
 	sm.Start()
 	sm.QueueBlock(&bl, make([]byte, 10), in, done)
@@ -246,7 +245,7 @@ func TestMessgePool(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
 	sm.Start()
 	sm.QueueMessgePool(mp, in, done)
@@ -262,7 +261,7 @@ func TestGetData(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
 	sm.Start()
 	sm.QueueGetData(gd, in, done)
@@ -276,7 +275,7 @@ func TestGetBlocks(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
 	sm.Start()
 	sm.QueueGetBlocks(blk, in, done)
@@ -290,7 +289,7 @@ func TestQueueHeaders(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sm.Start()
 	sm.QueueHeaders(hdr, in)
 }
@@ -583,7 +582,7 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 					&conn{raddr: "10.0.0.1:8333", laddr: "10.0.0.1:18333"},
 					&conn{raddr: "10.0.0.2:8333", laddr: "10.0.0.2:18333"},
 				)
-				inPeer := peer.NewInboundPeer(peer1Cfg)
+				inPeer := peer.NewInboundPeer(peer1Cfg, false)
 
 				return inPeer, nil, nil
 			},
@@ -655,7 +654,7 @@ func TestSyncManager_handleInvMsg(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
 
@@ -712,7 +711,7 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
 	sm.syncPeer = inpeer
@@ -820,7 +819,7 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 	}
 	e := sm.headerList.PushBack(&node)
 	sm.startHeader = e
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 
 	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
 	msgInv := wire.NewMsgInv()
@@ -849,7 +848,7 @@ func TestSyncManager_updateTxRequestState(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
@@ -871,7 +870,7 @@ func TestSyncManager_fetchMissingTx(t *testing.T) {
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	missTxs := make([]util.Hash, 10)
 	missTxs = append(missTxs, *hash1)
 	missTxs = append(missTxs, *hash2)
@@ -891,7 +890,7 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
 	sm.syncPeer = inpeer
@@ -977,7 +976,7 @@ func TestSyncManager_handleTxMsg(t *testing.T) {
 	sm.ProcessTransactionCallBack = service.ProcessTransaction
 
 	tmpTX := tx.NewTx(0x01, 0x02)
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	syncState := getpeerState()
 	sm.peerStates[inpeer] = syncState
 
@@ -1013,7 +1012,7 @@ func generateBlocks(t *testing.T, generate int, maxTries uint64, verify bool) ([
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := bitcointime.NewMedianTime()
+		ts := util.GetTimeSource()
 		ba := mining.NewBlockAssembler(params, ts)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
@@ -1063,7 +1062,8 @@ func initTestEnv() func() {
 		*gChain = *chain.NewChain()
 	}
 
-	conf.Cfg = conf.InitConfig([]string{})
+	tmpCfg := conf.InitConfig([]string{})
+	conf.Cfg.DataDir = tmpCfg.DataDir
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 	fmt.Printf("test in temp dir: %s\n", unitTestDataDirPath)
@@ -1162,13 +1162,13 @@ func TestSyncManager_NewPeer(t *testing.T) {
 		&conn{raddr: "127.0.0.1:6666", laddr: "127.0.0.1:16666"},
 	)
 	inMsgChan := make(chan *peer.PeerMessage)
-	inPeer := peer.NewInboundPeer(peer1Cfg)
+	inPeer := peer.NewInboundPeer(peer1Cfg, false)
 	inPeer.AssociateConnection(inConn, inMsgChan, func(*peer.Peer) {})
 
 	sm.handleNewPeerMsg(inPeer)
 	assert.Nil(t, sm.syncPeer)
 
-	outPeer, err := peer.NewOutboundPeer(peer2Cfg, "127.0.0.1:6666")
+	outPeer, err := peer.NewOutboundPeer(peer2Cfg, "127.0.0.1:6666", false)
 	assert.Nil(t, err)
 
 	outMsgChan := make(chan *peer.PeerMessage)
@@ -1222,7 +1222,7 @@ func TestSyncManager_DonePeer(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	sm.syncPeer = inpeer
 	sm.handleDonePeerMsg(inpeer)
 

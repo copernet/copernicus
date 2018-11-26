@@ -178,11 +178,11 @@ func TestProcessBlock(t *testing.T) {
 	blocks = blocks[1:]
 
 	for _, bl := range blocks {
-		_, err = ProcessBlock(&bl)
+		_, err = ProcessBlock(&bl, true)
 		assert.Nil(t, err)
 	}
 
 	newBlock := block.NewBlock()
-	_, err = ProcessBlock(newBlock)
+	_, err = ProcessBlock(newBlock, true)
 	assert.NotNil(t, err)
 }

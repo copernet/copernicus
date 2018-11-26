@@ -187,7 +187,7 @@ func ScriptToAsmStr(s *script.Script, attemptSighashDecode bool) string {
 						// TODO: Remove after the Hard Fork.
 						flags |= script.ScriptEnableSigHashForkID
 					}
-					err := script.CheckSignatureEncoding(vch, uint32(flags))
+					err := script.CheckTransactionSignatureEncoding(vch, uint32(flags))
 					if err == nil {
 						sigHashType := int(vch[len(vch)-1])
 						for desc, hashType := range mapSigHashValues {

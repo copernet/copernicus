@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"encoding/hex"
-	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/secp256k1-go/secp256k1"
 	"github.com/pkg/errors"
@@ -53,21 +52,7 @@ func ParseDERSignature(signature []byte) (*Signature, error) {
 	return (*Signature)(sig), nil
 }
 
-func IsLowDERSignature(vchSig []byte) (bool, error) {
-	if !IsValidSignatureEncoding(vchSig) {
-		return false, errcode.New(errcode.ScriptErrSigDer)
-	}
-	var vchCopy []byte
-	vchCopy = append(vchCopy, vchSig[:len(vchSig)-1]...)
-	ret := checkLowS(vchCopy)
-	if !ret {
-		return false, errcode.New(errcode.ScriptErrSigHighs)
-	}
-	return true, nil
-
-}
-
-func checkLowS(vchSig []byte) bool {
+func CheckLowS(vchSig []byte) bool {
 	sig, err := ParseDERSignature(vchSig)
 	if err != nil {
 		log.Debug("ParseDERSignature failed, sig:%s", hex.EncodeToString(vchSig))
@@ -105,50 +90,79 @@ func IsValidSignatureEncoding(signs []byte) bool {
 	// * sigHash: 1-byte value indicating what data is hashed (not part of the DER
 	//   signature)
 	signsLen := len(signs)
-	if signsLen < 9 {
+	if signsLen < 8 {
 		return false
 	}
-	if signsLen > 73 {
+	if signsLen > 72 {
 		return false
 	}
 	if signs[0] != 0x30 {
 		return false
 	}
-	if int(signs[1]) != (signsLen - 3) {
-		return false
-	}
-	lenR := signs[3]
-	if int(5+lenR) >= signsLen {
-		return false
-	}
-	lenS := signs[5+lenR]
-	if int(lenR+lenS+7) != signsLen {
+	if int(signs[1]) != (signsLen - 2) {
 		return false
 	}
 	if signs[2] != 0x02 {
 		return false
 	}
+
+	lenR := signs[3]
+
 	if lenR == 0 {
 		return false
 	}
+
 	if (signs[4] & 0x80) != 0 {
 		return false
 	}
+
+	if int(lenR) > signsLen-7 {
+		return false
+	}
+
 	if lenR > 1 && (signs[4] == 0x00) && (signs[5]&0x80) == 0 {
 		return false
 	}
-	if signs[lenR+4] != 0x02 {
+
+	startS := int(lenR) + 4
+
+	if signs[startS] != 0x02 {
 		return false
 	}
+
+	lenS := signs[startS+1]
+
 	if lenS == 0 {
 		return false
 	}
-	if signs[lenR+6]&0x80 != 0 {
+
+	if signs[startS+2]&0x80 != 0 {
 		return false
 	}
-	if lenS > 1 && (signs[lenR+6] == 0x00) && (signs[lenR+7]&0x80) == 0 {
+
+	if startS+int(lenS)+2 != signsLen {
 		return false
 	}
+
+	if (lenS > 1) && (signs[startS+2] == 0x00) && (signs[startS+3]&0x80) == 0 {
+		return false
+	}
+	//
+	//if int(5+lenR) >= signsLen {
+	//	return false
+	//}
+	//if int(lenR+lenS+7) != signsLen {
+	//	return false
+	//}
+	//if signs[lenR+4] != 0x02 {
+	//	return false
+	//}
+	//if signs[lenR+6]&0x80 != 0 {
+	//	return false
+	//}
+	//if lenS > 1 && (signs[lenR+6] == 0x00) && (signs[lenR+7]&0x80) == 0 {
+	//	return false
+	//}
 	return true
 
 }

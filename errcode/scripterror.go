@@ -30,6 +30,7 @@ const (
 	ScriptErrEqualVerify
 	ScriptErrCheckMultiSigVerify
 	ScriptErrCheckSigVerify
+	ScriptErrCheckDataSigVerify
 	ScriptErrNumEqualVerify
 
 	/* Logical/Format/Canonical errors */
@@ -141,6 +142,8 @@ func scriptErrorString(scriptError ScriptErr) string {
 		return "Script failed an OP_CHECKMULTISIGVERIFY operation"
 	case ScriptErrCheckSigVerify:
 		return "Script failed an OP_CHECKSIGVERIFY operation"
+	case ScriptErrCheckDataSigVerify:
+		return "Script failed on OP_CHECKDATASIGVERIFY operation"
 	case ScriptErrNumEqualVerify:
 		return "Script failed an OP_NUMEQUALVERIFY operation"
 	case ScriptErrScriptSize:

@@ -2,9 +2,11 @@ package lscript
 
 import (
 	"encoding/hex"
+	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
 )
 
@@ -100,6 +102,10 @@ func (src *RealChecker) CheckSequence(sequence int64, txToSequence int64, txVers
 		return false
 	}
 	return true
+}
+
+func (src *RealChecker) VerifySignature(vchSig []byte, pubKey *crypto.PublicKey, sigHash *util.Hash) (bool, error) {
+	return pubKey.Verify(sigHash, vchSig)
 }
 
 func NewScriptRealChecker() *RealChecker {
