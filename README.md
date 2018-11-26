@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/copernet/copernicus.svg?branch=master)](https://travis-ci.org/copernet/copernicus) [![Go Report Card](https://goreportcard.com/badge/github.com/copernet/copernicus)](https://goreportcard.com/report/github.com/copernet/copernicus) [![Coverage Status](https://coveralls.io/repos/github/copernet/copernicus/badge.svg)](https://coveralls.io/github/copernet/copernicus)
 
-Copernicus is an alternative implementation of the Bitcoin protocol, written in Golang .
+Copernicus is an alternative implementation of the Bitcoin Cash protocol, written in Golang .
 
 Why Go? Go has the following advantages:
 
