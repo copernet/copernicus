@@ -10,36 +10,36 @@ cd secp256k1
 
 #### Install glide
 For Mac OSX:
- ```
- brew install glide
- ```
+```
+brew install glide
+```
 
 For Ubuntu:
 ```
- sudo add-apt-repository ppa:masterminds/glide
- sudo apt-get update
- sudo apt-get install glide
+sudo add-apt-repository ppa:masterminds/glide
+sudo apt-get update
+sudo apt-get install glide
 ```
 
 For Centos:
 ```
- sudo yum install glide
+sudo yum install glide
 ```
 
 Universal install script
- ```
- curl https://glide.sh/get | sh
- ```
+```
+curl https://glide.sh/get | sh
+```
 
 #### Install go dependency
- ```
- glide install
- ```
+```
+glide install
+```
  
- if you have encountered glide errors, try the following commands:
+if you have encountered glide errors, try the following commands:
 ``` rm -rf vendor
- glide cc; rm -rf ~/.glide; rm -rf vendor; rm glide.lock
- glide install --force --strip-vendor
+glide cc; rm -rf ~/.glide; rm -rf vendor; rm glide.lock
+glide install --force --strip-vendor
 ```
 
 ## run copernicus
