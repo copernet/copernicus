@@ -6,7 +6,7 @@ imports:
   subpackages:
   - logs
 - name: github.com/copernet/secp256k1
-  version: 5ace5d10cf35281acba5dd8b7a5da934167db9c4
+  version: 1c6bd679e8fd4e8710589da3350c600250594ccb
 - name: github.com/copernet/secp256k1-go
   version: 9754f07cc8d310fddc59f4fd7f3000220752edbf
   subpackages:

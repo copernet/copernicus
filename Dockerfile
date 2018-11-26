@@ -3,11 +3,8 @@ FROM copernet/copernicus:basic
 WORKDIR /
 RUN git clone https://github.com/copernet/secp256k1.git
 WORKDIR /secp256k1
-RUN ./autogen.sh
-RUN ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
-RUN make -j16
-RUN make install
-RUN cp /usr/local/lib/libsecp256k1.so.0 /usr/lib/
+RUN ./autoinstall.sh
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/secp256k1.conf && ldconfig
 
 RUN curl https://glide.sh/get | sh
 RUN go get golang.org/x/tools/cmd/cover
