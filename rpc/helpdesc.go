@@ -2,15 +2,38 @@ package rpc
 
 import "github.com/copernet/copernicus/util"
 
+func HelpExampleCli(methodname string, args ...string) string {
+	help := "> coperctl " + methodname
+	for _, arg := range args {
+		help += " " + arg
+	}
+	help += "\n"
+	return help
+}
+
+func HelpExampleRPC(methodname string, args ...string) string {
+	help := "> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", " +
+		"\"id\":\"curltest\", \"method\": \"" + methodname + "\", \"params\": ["
+	for index, arg := range args {
+		if index == len(args)-1 {
+			help += arg
+		} else {
+			help += arg + ", "
+		}
+	}
+	help += "] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/\n"
+	return help
+}
+
 // abc
-const (
+var (
 	getexcessiveblockDesc = "getexcessiveblock\n" +
 		"\nReturn the excessive block size." +
 		"\nResult\n" +
 		"  excessiveBlockSize (integer) block size in bytes\n" +
 		"\nExamples:\n" +
-		"> coperctl getexcessiveblock\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getexcessiveblock", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getexcessiveblock") +
+		HelpExampleRPC("getexcessiveblock")
 
 	setexcessiveblockDesc = "setexcessiveblock blockSize\n" +
 		"\nSet the excessive block size. Excessive blocks will not be used " +
@@ -19,12 +42,12 @@ const (
 		"\nResult\n" +
 		"  blockSize (integer) excessive block size in bytes\n" +
 		"\nExamples:\n" +
-		"> coperctl setexcessiveblock\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "setexcessiveblock", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("setexcessiveblock") +
+		HelpExampleRPC("setexcessiveblock")
 )
 
 //blockchain
-const (
+var (
 	getblockchaininfoDesc = "getblockchaininfo\n" +
 		"Returns an object containing various state info regarding " +
 		"blockchain processing.\n" +
@@ -80,8 +103,8 @@ const (
 		"  }\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getblockchaininfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockchaininfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getblockchaininfo") +
+		HelpExampleRPC("getblockchaininfo")
 
 	getbestblockhashDesc = "getbestblockhash\n" +
 		"\nReturns the hash of the best (tip) block in the " +
@@ -89,16 +112,16 @@ const (
 		"\nResult:\n" +
 		"\"hex\"      (string) the block hash hex encoded\n" +
 		"\nExamples:\n" +
-		"> coperctl getbestblockhash\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getbestblockhash", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getbestblockhash") +
+		HelpExampleRPC("getbestblockhash")
 
 	getblockcountDesc = "getblockcount\n" +
 		"\nReturns the number of blocks in the longest blockchain.\n" +
 		"\nResult:\n" +
 		"n    (numeric) The current block count\n" +
 		"\nExamples:\n" +
-		"> coperctl getblockcount\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockcount", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getblockcount") +
+		HelpExampleRPC("getblockcount")
 
 	getblockDesc = "getblock \"blockhash\" ( verbose )\n" +
 		"\nIf verbose is false, returns a string that is serialized, " +
@@ -143,8 +166,8 @@ const (
 		"\"data\"             (string) A string that is serialized, " +
 		"hex-encoded data for block 'hash'.\n" +
 		"\nExamples:\n" +
-		`> coperctl getblock "00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblock", "params": ["00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getblock", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"") +
+		HelpExampleRPC("getblock", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
 
 	getblockhashDesc = "getblockhash height\n" +
 		"\nReturns hash of block in best-block-chain at height provided.\n" +
@@ -153,8 +176,8 @@ const (
 		"\nResult:\n" +
 		"\"hash\"         (string) The block hash\n" +
 		"\nExamples:\n" +
-		"> coperctl getblockhash 1000\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockhash", "params": [1000] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getblockhash", "1000") +
+		HelpExampleRPC("getblockhash", "1000")
 
 	getblockheader = "getblockheader \"hash\" ( verbose )\n" +
 		"\nIf verbose is false, returns a string that is serialized, " +
@@ -194,8 +217,8 @@ const (
 		"\"data\"             (string) A string that is serialized, " +
 		"hex-encoded data for block 'hash'.\n" +
 		"\nExamples:\n" +
-		`> coperctl getblockheader "00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblockheader", "params": ["00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getblockheader", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"") +
+		HelpExampleRPC("getblockheader", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
 
 	getchaintipsDesc = "getchaintips\n" +
 		"Return information about all known tips in the block tree," +
@@ -229,7 +252,9 @@ const (
 		"active chain, but is fully validated\n" +
 		"5.  \"active\"                This is the tip of the active main " +
 		"chain, which is certainly valid\n" +
-		"\nExamples:\n" // todo
+		"\nExamples:\n" +
+		HelpExampleCli("getchaintips") +
+		HelpExampleRPC("getchaintips")
 
 	getchaintxstatsDesc = "getchaintxstats ( nblocks blockhash )\n" +
 		"\nCompute statistics about the total number and rate of " +
@@ -258,8 +283,8 @@ const (
 		"\"window_interval\" is > 0.\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getchaintxstats\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getchaintxstats", "params": [2016] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getchaintxstats") +
+		HelpExampleRPC("getchaintxstats")
 
 	getdifficultyDesc = "getdifficulty\n" +
 		"\nReturns the proof-of-work difficulty as a " +
@@ -269,8 +294,8 @@ const (
 		"difficulty as a multiple of the minimum " +
 		"difficulty.\n" +
 		"\nExamples:\n" +
-		"> coperctl getdifficulty\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getdifficulty", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getdifficulty") +
+		HelpExampleRPC("getdifficulty")
 
 	getmempoolancestorsDesc = "getmempoolancestors txid (verbose)\n" +
 		"\nIf txid is in the mempool, returns all in-mempool ancestors.\n" +
@@ -320,8 +345,8 @@ const (
 		"  }, ...\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl getmempoolancestors "mytxid"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getmempoolancestors", "params": ["mytxid"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getmempoolancestors", "\"mytxid\"") +
+		HelpExampleRPC("getmempoolancestors", "\"mytxid\"")
 
 	getmempooldescendantsDesc = "getmempooldescendants txid (verbose)\n" +
 		"\nIf txid is in the mempool, returns all in-mempool descendants.\n" +
@@ -371,8 +396,8 @@ const (
 		"  }, ...\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl getmempooldescendants "mytxid"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getmempooldescendants", "params": ["mytxid"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getmempooldescendants", "\"mytxid\"") +
+		HelpExampleRPC("getmempooldescendants", "\"mytxid\"")
 
 	getmempoolentryDesc = "getmempoolentry txid\n" +
 		"\nReturns mempool data for given transaction\n" +
@@ -412,8 +437,8 @@ const (
 		"       ... ]\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl getmempoolentry "mytxid"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getmempoolentry", "params": ["mytxid"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getmempoolentry", "\"mytxid\"") +
+		HelpExampleRPC("getmempoolentry", "\"mytxid\"")
 
 	getmempoolinfoDesc = "getmempoolinfo\n" +
 		"\nReturns details on the active state of the TX memory pool.\n" +
@@ -429,8 +454,8 @@ const (
 		"be accepted\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getmempoolinfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getmempoolinfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getmempoolinfo") +
+		HelpExampleRPC("getmempoolinfo")
 
 	getrawmempoolDesc = "getrawmempool ( verbose )\n" +
 		"\nReturns all transaction ids in memory pool as a json array of " +
@@ -478,8 +503,8 @@ const (
 		"  }, ...\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getrawmempool true\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getrawmempool", "params": [true] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getrawmempool") +
+		HelpExampleRPC("getrawmempool")
 
 	gettxoutDesc = "gettxout \"txid\" n ( include_mempool )\n" +
 		"\nReturns details about an unspent transaction output.\n" +
@@ -513,11 +538,11 @@ const (
 		"}\n" +
 		"\nExamples:\n" +
 		"\nGet unspent transactions\n" +
-		"> coperctl listunspent\n" +
+		HelpExampleCli("listunspent") +
 		"\nView the details\n" +
-		`> coperctl gettxout "txid" 1` +
+		HelpExampleCli("gettxout", "\"txid\"", "1") +
 		"\nAs a json rpc call\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "gettxout", "params": ["txid", 1] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleRPC("gettxout", "\"txid\"", "1")
 
 	gettxoutsetinfoDesc = "gettxoutsetinfo\n" +
 		"\nReturns statistics about the unspent transaction output set.\n" +
@@ -537,8 +562,8 @@ const (
 		"  \"total_amount\": x.xxx          (numeric) The total amount\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl gettxoutsetinfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "gettxoutsetinfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("gettxoutsetinfo") +
+		HelpExampleRPC("gettxoutsetinfo")
 
 	pruneblockchainDesc = "pruneblockchain\n" +
 		"\nArguments:\n" +
@@ -549,8 +574,8 @@ const (
 		"\nResult:\n" +
 		"n    (numeric) Height of the last block pruned.\n" +
 		"\nExamples:\n" +
-		"> coperctl pruneblockchain 1000\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "pruneblockchain", "params": [1000] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("pruneblockchain", "1000") +
+		HelpExampleRPC("pruneblockchain", "1000")
 
 	verifychainDesc = "verifychain ( checklevel nblocks )\n" +
 		"\nVerifies blockchain database.\n" +
@@ -562,8 +587,8 @@ const (
 		"\nResult:\n" +
 		"true|false       (boolean) Verified or not\n" +
 		"\nExamples:\n" +
-		"> coperctl verifychain\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "verifychain", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("verifychain") +
+		HelpExampleRPC("verifychain")
 
 	preciousblockDesc = "preciousblock \"blockhash\"\n" +
 		"\nTreats a block as if it were received before others with the " +
@@ -576,8 +601,8 @@ const (
 		"mark as precious\n" +
 		"\nResult:\n" +
 		"\nExamples:\n" +
-		`> coperctl preciousblock "blockhash"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "preciousblock", "params": ["blockhash"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("preciousblock", "\"blockhash\"") +
+		HelpExampleRPC("preciousblock", "\"blockhash\"")
 
 	waitforblockheightDesc = "waitforblockheight \"height\" (timeout)\n" +
 		"\nWaits for (at least) block height and returns the height and " +
@@ -594,12 +619,12 @@ const (
 		"  \"height\" : {     (int) Block height\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl waitforblockheight "height"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "waitforblockheight", "params": ["height"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("waitforblockheight", "\"height\"") +
+		HelpExampleRPC("waitforblockheight", "\"height\"")
 )
 
 //mining
-const (
+var (
 	getnetworkhashpsDesc = "getnetworkhashps ( nblocks height )\n" +
 		"\nReturns the estimated network hashes per second based on the " +
 		"last n blocks.\n" +
@@ -615,8 +640,8 @@ const (
 		"\nResult:\n" +
 		"x             (numeric) Hashes per second estimated\n" +
 		"\nExamples:\n" +
-		"> coperctl getnetworkhashps\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getnetworkhashps", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getnetworkhashps") +
+		HelpExampleRPC("getnetworkhashps")
 
 	getmininginfoDesc = "getmininginfo\n" +
 		"\nReturns a json object containing mining-related information." +
@@ -635,10 +660,31 @@ const (
 		"defined in BIP70 (main, test, regtest)\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getmininginfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getmininginfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getmininginfo") +
+		HelpExampleRPC("getmininginfo")
 
-	prioritisetransactionDesc = ""
+	prioritisetransactionDesc = "prioritisetransaction <txid> <priority delta> <fee delta>\n" +
+		"Accepts the transaction into mined blocks at a higher (or lower) " +
+		"priority\n" +
+		"\nArguments:\n" +
+		"1. \"txid\"       (string, required) The transaction id.\n" +
+		"2. priority_delta (numeric, required) The priority to add or " +
+		"subtract.\n" +
+		"                  The transaction selection algorithm considers " +
+		"the tx as it would have a higher priority.\n" +
+		"                  (priority of a transaction is calculated: " +
+		"coinage * value_in_satoshis / txsize) \n" +
+		"3. fee_delta      (numeric, required) The fee value (in satoshis) " +
+		"to add (or subtract, if negative).\n" +
+		"                  The fee is not actually paid, only the " +
+		"algorithm for selecting transactions into a block\n" +
+		"                  considers the transaction as it would have paid " +
+		"a higher (or lower) fee.\n" +
+		"\nResult:\n" +
+		"true              (boolean) Returns true\n" +
+		"\nExamples:\n" +
+		HelpExampleCli("prioritisetransaction", "\"txid\"", "0.0", "10000") +
+		HelpExampleRPC("prioritisetransaction", "\"txid\"", "0.0", "10000")
 
 	getblocktemplateDesc = "getblocktemplate ( TemplateRequest )\n" +
 		"\nIf the request parameters include a 'mode' key, that is used to " +
@@ -676,7 +722,6 @@ const (
 		"       ]\n" +
 		"     }\n" +
 		"\n" +
-
 		"\nResult:\n" +
 		"{\n" +
 		"  \"version\" : n,                    (numeric) The preferred " +
@@ -761,8 +806,8 @@ const (
 		"next block\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getblocktemplate\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getblocktemplate", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getblocktemplate") +
+		HelpExampleRPC("getblocktemplate")
 
 	submitblockDesc = "submitblock \"hexdata\" ( \"jsonparametersobject\" )\n" +
 		"\nAttempts to submit new block to network.\n" +
@@ -779,8 +824,8 @@ const (
 		"    }\n" +
 		"\nResult:\n" +
 		"\nExamples:\n" +
-		`> coperctl submitblock "mydata"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "submitblock", "params": ["mydata"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("submitblock", "\"mydata\"") +
+		HelpExampleRPC("submitblock", "\"mydata\"")
 
 	generateDesc = "generate nblocks ( maxtries )\n" +
 		"\nMine up to nblocks blocks immediately (before the RPC call " +
@@ -794,7 +839,8 @@ const (
 		"[ blockhashes ]     (array) hashes of blocks generated\n" +
 		"\nExamples:\n" +
 		"\nGenerate 11 blocks\n" +
-		"> coperctl generate 11\n"
+		HelpExampleCli("generate", "11") +
+		HelpExampleRPC("generate", "11")
 
 	generatetoaddressDesc = "generatetoaddress nblocks address (maxtries)\n" +
 		"\nMine blocks immediately to a specified address (before the RPC " +
@@ -809,19 +855,19 @@ const (
 		"\nResult:\n" +
 		"[ blockhashes ]     (array) hashes of blocks generated\n" +
 		"\nExamples:\n" +
-		"\nGenerate 11 blocks to myaddress\n" +
-		`> coperctl generatetoaddress 11 "myaddress"`
+		HelpExampleCli("generatetoaddress", "11", "\"myaddress\"") +
+		HelpExampleRPC("generatetoaddress", "11", "\"myaddress\"")
 )
 
 // net
-const (
+var (
 	getconnectioncountDesc = "getconnectioncount\n" +
 		"\nReturns the number of connections to other nodes.\n" +
 		"\nResult:\n" +
 		"n          (numeric) The connection count\n" +
 		"\nExamples:\n" +
-		"> coperctl getconnectioncount\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getconnectioncount", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getconnectioncount") +
+		HelpExampleRPC("getconnectioncount")
 
 	pingDesc = "ping\n" +
 		"\nRequests that a ping be sent to all other nodes, to measure " +
@@ -831,8 +877,8 @@ const (
 		"Ping command is handled in queue with all other commands, so it " +
 		"measures processing backlog, not just network ping.\n" +
 		"\nExamples:\n" +
-		"> coperctl ping\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "ping", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("ping") +
+		HelpExampleRPC("ping")
 
 	getpeerinfoDesc = "getpeerinfo\n" +
 		"\nReturns data about each connected network node as a json array " +
@@ -901,8 +947,8 @@ const (
 		"  ,...\n" +
 		"]\n" +
 		"\nExamples:\n" +
-		"> coperctl getpeerinfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getpeerinfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getpeerinfo") +
+		HelpExampleRPC("getpeerinfo")
 
 	addnodeDesc = "addnode \"node\" \"add|remove|onetry\"\n" +
 		"\nAttempts add or remove a node from the addnode list.\n" +
@@ -914,8 +960,8 @@ const (
 		"list, 'remove' to remove a node from the list, 'onetry' to try a " +
 		"connection to the node once\n" +
 		"\nExamples:\n" +
-		`> coperctl addnode "192.168.0.6:8333" "onetry"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "addnode", "params": ["192.168.0.6:8333", "onetry"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("addnode", "\"192.168.0.6:8333\"", "\"onetry\"") +
+		HelpExampleRPC("addnode", "\"192.168.0.6:8333\"", "\"onetry\"")
 
 	disconnectnodeDesc = "disconnectnode \"[address]\" [nodeid]\n" +
 		"\nImmediately disconnects from the specified peer node.\n" +
@@ -929,10 +975,10 @@ const (
 		"2. \"nodeid\"      (number, optional) The node ID (see " +
 		"getpeerinfo for node IDs)\n" +
 		"\nExamples:\n" +
-		`> coperctl disconnectnode "192.168.0.6:8333"` + "\n" +
-		`> coperctl disconnectnode "" 1` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "disconnectnode", "params": ["192.168.0.6:8333"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "disconnectnode", "params": ["", 1] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("disconnectnode", "\"192.168.0.6:8333\"") +
+		HelpExampleCli("disconnectnode", "\"\"", "1") +
+		HelpExampleRPC("disconnectnode", "\"192.168.0.6:8333\"") +
+		HelpExampleRPC("disconnectnode", "\"\"", "1")
 
 	getaddednodeinfoDesc = "getaddednodeinfo ( \"node\" )\n" +
 		"\nReturns information about the given added node, or all added " +
@@ -960,9 +1006,8 @@ const (
 		"  ,...\n" +
 		"]\n" +
 		"\nExamples:\n" +
-		"> coperctl getaddednodeinfo true\n" +
-		`> coperctl getaddednodeinfo true "192.168.0.201"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getaddednodeinfo", "params": [true, "192.168.0.201"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getaddednodeinfo", "\"192.168.0.201\"") +
+		HelpExampleRPC("getaddednodeinfo", "\"192.168.0.201\"")
 
 	getnettotalsDesc = "getnettotals\n" +
 		"\nReturns information about network traffic, including bytes in, " +
@@ -991,8 +1036,8 @@ const (
 		"  }\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getnettotals\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getnettotals", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getnettotals") +
+		HelpExampleRPC("getnettotals")
 
 	getnetworkinfoDesc = "getnetworkinfo\n" +
 		"Returns an object containing various state info regarding P2P " +
@@ -1053,8 +1098,8 @@ const (
 		"(string) any network warnings\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getnetworkinfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getnetworkinfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getnetworkinfo") +
+		HelpExampleRPC("getnetworkinfo")
 
 	setbanDesc = "setban \"subnet\" \"add|remove\" (bantime) (absolute)\n" +
 		"\nAttempts add or remove a IP/Subnet from the banned list.\n" +
@@ -1071,21 +1116,21 @@ const (
 		"4. \"absolute\"     (boolean, optional) If set, the bantime must " +
 		"be a absolute timestamp in seconds since epoch (Jan 1 1970 GMT)\n" +
 		"\nExamples:\n" +
-		`> coperctl setban "192.168.0.6" "add" 86400` + "\n" +
-		`> coperctl setban "192.168.0.0/24" "add"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "setban", "params": ["192.168.0.6", "add", 86400] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("setban", "\"192.168.0.6\"", "\"add\"", "86400") +
+		HelpExampleCli("setban", "\"192.168.0.0/24\"", "\"add\"") +
+		HelpExampleRPC("setban", "\"192.168.0.6\"", "\"add\"", "86400")
 
 	listbannedDesc = "listbanned\n" +
 		"\nList all banned IPs/Subnets.\n" +
 		"\nExamples:\n" +
-		`> coperctl listbanned` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "listbanned", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("listbanned") +
+		HelpExampleRPC("listbanned")
 
 	clearbannedDesc = "clearbanned\n" +
 		"\nClear all banned IPs.\n" +
 		"\nExamples:\n" +
-		`> coperctl listbanned` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "clearbanned", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("clearbanned") +
+		HelpExampleRPC("clearbanned")
 
 	setnetworkactiveDesc = "setnetworkactive true|false\n" +
 		"\nDisable/enable all p2p network activity.\n" +
@@ -1095,7 +1140,7 @@ const (
 )
 
 // rawtransaction
-const (
+var (
 	getrawtransactionDesc = "getrawtransaction \"txid\" ( verbose )\n" +
 		"\nNOTE: By default this function only works for mempool " +
 		"transactions. If the -txindex option is\n" +
@@ -1164,9 +1209,9 @@ const (
 		"since epoch (Jan 1 1970 GMT)\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl getrawtransaction "mytxid"` + "\n" +
-		`> coperctl getrawtransaction "mytxid" true` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getrawtransaction", "params": ["mytxid", true] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getrawtransaction", "\"mytxid\"") +
+		HelpExampleCli("getrawtransaction", "\"mytxid\"", "true") +
+		HelpExampleRPC("getrawtransaction", "\"mytxid\"", "true")
 
 	createrawtransactionDesc = "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] " +
 		"{\"address\":amount,\"data\":\"hex\",...} ( locktime )\n" +
@@ -1207,13 +1252,10 @@ const (
 		"\"transaction\"              (string) hex string of the " +
 		"transaction\n" +
 		"\nExamples:\n" +
-		`> coperctl createrawtransaction "[{\"txid\":\"myid\",\"vout\":0}]" "{\"address\":0.01}"` +
-		"\n" +
-		`> coperctl createrawtransaction "[{\"txid\":\"myid\",\"vout\":0}]" "{\"data\":\"00010203\"}"` +
-		"\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "createrawtransaction", "params": ["[{\"txid\":\"myid\",\"vout\":0}]", "{\"address\":0.01}"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/` +
-		"\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "createrawtransaction", "params": ["[{\"txid\":\"myid\",\"vout\":0}]", "{\"data\":\"00010203\"}"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("createrawtransaction", `"[{\"txid\":\"myid\",\"vout\":0}]"`, `"{\"address\":0.01}"`) +
+		HelpExampleCli("createrawtransaction", `"[{\"txid\":\"myid\",\"vout\":0}]"`, `"{\"data\":\"00010203\"}"`) +
+		HelpExampleRPC("createrawtransaction", `"[{\"txid\":\"myid\",\"vout\":0}]"`, `"{\"address\":0.01}"`) +
+		HelpExampleRPC("createrawtransaction", `"[{\"txid\":\"myid\",\"vout\":0}]"`, `"{\"data\":\"00010203\"}"`)
 
 	decoderawtransactionDesc = "decoderawtransaction \"hexstring\"\n" +
 		"\nReturn a JSON object representing the serialized, hex-encoded " +
@@ -1262,9 +1304,8 @@ const (
 		"  ],\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl decoderawtransaction "hexstring"` +
-		"\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "decoderawtransaction", "params": ["hexstring"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("decoderawtransaction", "\"hexstring\"") +
+		HelpExampleRPC("decoderawtransaction", "\"hexstring\"")
 
 	decodescriptDesc = "decodescript \"hexstring\"\n" +
 		"\nDecode a hex-encoded script.\n" +
@@ -1285,9 +1326,8 @@ const (
 		"P2SH).\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl decodescript "hexstring"` +
-		"\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "decodescript", "params": ["hexstring"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("decodescript", "\"hexstring\"") +
+		HelpExampleRPC("decodescript", "\"hexstring\"")
 
 	sendrawtransactionDesc = "sendrawtransaction \"hexstring\" ( allowhighfees )\n" +
 		"\nSubmits raw transaction (serialized, hex-encoded) to local node " +
@@ -1302,14 +1342,16 @@ const (
 		"\"hex\"             (string) The transaction hash in hex\n" +
 		"\nExamples:\n" +
 		"\nCreate a transaction\n" +
-		`> coperctl createrawtransaction "[{\"txid\" : \"mytxid\",\"vout\":0}]" "{\"myaddress\":0.01}"` +
-		"\n" +
+		HelpExampleCli("createrawtransaction",
+			"\"[{\\\"txid\\\" : "+
+				"\\\"mytxid\\\",\\\"vout\\\":0}]\" "+
+				"\"{\\\"myaddress\\\":0.01}\"") +
 		"Sign the transaction, and get back the hex\n" +
-		`> coperctl signrawtransaction "myhex"` + "\n\n" +
-		"Send the transaction (signed hex)\n" +
-		`> coperctl sendrawtransaction "signedhex"` + "\n\n" +
-		"As a json rpc call\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "sendrawtransaction", "params": ["signedhex"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("signrawtransaction", "\"myhex\"") +
+		"\nSend the transaction (signed hex)\n" +
+		HelpExampleCli("sendrawtransaction", "\"signedhex\"") +
+		"\nAs a json rpc call\n" +
+		HelpExampleRPC("sendrawtransaction", "\"signedhex\"")
 
 	signrawtransactionDesc = "signrawtransaction \"hexstring\" ( " +
 		"[{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\"," +
@@ -1390,8 +1432,8 @@ const (
 		"  ]\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl signrawtransaction "myhex"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "signrawtransaction", "params": ["myhex"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("signrawtransaction", "\"myhex\"") +
+		HelpExampleRPC("signrawtransaction", "\"myhex\"")
 
 	gettxoutproofDesc = "gettxoutproof [\"txid\",...] ( blockhash )\n" +
 		"\nReturns a hex-encoded proof that \"txid\" was included in a " +
@@ -1429,7 +1471,7 @@ const (
 )
 
 // misc
-const (
+var (
 	getinfoDesc = "getinfo\n" +
 		"\nDEPRECATED. Returns an object containing various state info.\n" +
 		"\nResult:\n" +
@@ -1462,8 +1504,8 @@ const (
 		"  \"errors\": \"...\"           (string) any error messages\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		"> coperctl getinfo\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getinfo", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getinfo") +
+		HelpExampleRPC("getinfo")
 
 	helpDesc = "help ( \"command\" )\n" +
 		"\nList all commands, or get help for a specified command.\n" +
@@ -1509,8 +1551,8 @@ const (
 		"Hash160 of the HD master pubkey\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl validateaddress "1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "validateaddress", "params": ["1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"") +
+		HelpExampleRPC("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
 
 	createmultisigDesc = "createmultisig nrequired [\"key\",...]\n" +
 		"\nCreates a multi-signature address with n signature of m keys " +
@@ -1535,9 +1577,11 @@ const (
 		"}\n" +
 		"\nExamples:\n" +
 		"\nCreate a multisig address from 2 addresses\n" +
-		`> coperctl createmultisig 2 "[\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\",\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\"]"` +
+		HelpExampleCli("createmultisig", "2",
+			"\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
 		"\nAs a json rpc call\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "createmultisig", "params": [2, "[\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\",\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\"]"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleRPC("createmultisig", "2",
+			"\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
 
 	echoDesc = "echo \"message\" ...\n" +
 		"\nSimply echo back the input arguments. This command is for testing."
@@ -1548,12 +1592,12 @@ const (
 		"ttt        (numeric) The number of seconds " +
 		"that the server has been running\n" +
 		"\nExamples:\n" +
-		`> coperctl uptime` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "uptime", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/`
+		HelpExampleCli("uptime") +
+		HelpExampleRPC("uptime")
 )
 
 // wallet
-const (
+var (
 	getnewaddressDesc = "getnewaddress ( \"account\" )\n" +
 		"\nReturns a new Bitcoin address for receiving payments.\n" +
 		"If 'account' is specified (DEPRECATED), it is added to the " +
@@ -1570,8 +1614,8 @@ const (
 		"\nResult:\n" +
 		"\"address\"    (string) The new bitcoin address\n" +
 		"\nExamples:\n" +
-		`> coperctl getnewaddress` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getnewaddress", "params": [] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("getnewaddress") +
+		HelpExampleRPC("getnewaddress")
 
 	listunspentDesc = "listunspent ( minconf maxconf  [\"addresses\",...] " +
 		"[include_unsafe] )\n" +
@@ -1628,10 +1672,15 @@ const (
 		"  ,...\n" +
 		"]\n" +
 		"\nExamples\n" +
-		`> coperctl listunspent` + "\n" +
-		`> coperctl listunspent 6 9999999 "[\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\",\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\"]"` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "listunspent", "params": [6, 9999999, "[\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\",` +
-		`\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\"]"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("listunspent") +
+		HelpExampleCli("listunspent", "6", "9999999",
+			"\"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"") +
+		HelpExampleRPC("listunspent", "6", "9999999",
+			"\"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"") +
+		HelpExampleCli("listunspent", "6", "9999999",
+			"'[]'", "true", "'{ \"minimumAmount\": 0.005 }'") +
+		HelpExampleRPC("listunspent", "6", "9999999",
+			"[]", "true", "'{ \"minimumAmount\": 0.005 }'")
 
 	settxfeeDesc = "settxfee amount\n" +
 		"\nSet the transaction fee per kB. Overwrites the paytxfee " +
@@ -1644,8 +1693,8 @@ const (
 		"\nResult\n" +
 		"true|false        (boolean) Returns true if successful\n" +
 		"\nExamples:\n" +
-		`> coperctl settxfee 0.00001` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "settxfee", "params": [0.00001] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("settxfee", "0.00001") +
+		HelpExampleRPC("settxfee", "0.00001")
 
 	sendtoaddressDesc = "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" " +
 		"subtractfeefromamount )\n" +
@@ -1674,10 +1723,13 @@ const (
 		"\nResult:\n" +
 		"\"txid\"                  (string) The transaction id.\n" +
 		"\nExamples:\n" +
-		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1` + "\n" +
-		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "donation" "seans outpost"` + "\n" +
-		`> coperctl sendtoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "" "" true` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "sendtoaddress", "params": ["1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd", 0.1, "donation", "seans outpost"] }' -H 'content-type: text/plain;' http://127.0.0.1:18834/`
+		HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"", "0.1") +
+		HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"", "0.1",
+			"\"donation\"", "\"seans outpost\"") +
+		HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"", "0.1",
+			"\"\"", "\"\"", "true") +
+		HelpExampleRPC("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"", "0.1",
+			"\"donation\"", "\"seans outpost\"")
 
 	getbalanceDesc = "getbalance ( \"account\" minconf include_watchonly )\n" +
 		"\nIf account is not specified, returns the server's total " +
@@ -1720,11 +1772,11 @@ const (
 		util.CurrencyUnit + " received for this account.\n" +
 		"\nExamples:\n" +
 		"\nThe total amount in the wallet\n" +
-		"> coperctl getbalance\n\n" +
+		HelpExampleCli("getbalance") +
 		"\nThe total amount in the wallet at least 5 blocks confirmed\n" +
-		`> coperctl getbalance "*" 6` + "\n" +
+		HelpExampleCli("getbalance", "\"*\"", "6") +
 		"\nAs a json rpc call\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "getbalance", "params": ["*", 6] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/`
+		HelpExampleRPC("getbalance", "\"*\"", "6")
 
 	gettransactionDesc = "gettransaction \"txid\" ( include_watchonly )\n" +
 		"\nGet detailed information about in-wallet transaction <txid>\n" +
@@ -1795,9 +1847,9 @@ const (
 		"  \"hex\" : \"data\"         (string) Raw data for transaction\n" +
 		"}\n" +
 		"\nExamples:\n" +
-		`> coperctl gettransaction "1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d"` + "\n" +
-		`> coperctl gettransaction "1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" true` + "\n" +
-		`> curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "gettransaction", "params": ["1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d"] }' -H 'content-type: text/plain;' http://127.0.0.1:18334/`
+		HelpExampleCli("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"") +
+		HelpExampleCli("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"", "true") +
+		HelpExampleRPC("gettransaction", "\"1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d\"")
 
 	sendmanyDesc = "sendmany \"fromaccount\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] )\n" +
 		"\nSend multiple times. Amounts are double-precision floating point numbers." +
@@ -1829,18 +1881,23 @@ const (
 		"                                    the number of addresses.\n" +
 		"\nExamples:\n" +
 		"\nSend two amounts to two different addresses:\n" +
-		"> coperctl sendmany \"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
-		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"" +
-		"\nSend two amounts to two different addresses setting the confirmation and comment:\n" +
-		"> coperctl sendmany \"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
-		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 6 \"testing\"" +
-		"\nSend two amounts to two different addresses, subtract fee from amount:\n" +
-		"> coperctl sendmany\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
-		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\"," +
-		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"" +
+		HelpExampleCli("sendmany", "\"\"",
+			"\"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"") +
+		"\nSend two amounts to two different addresses setting the " +
+		"confirmation and comment:\n" +
+		HelpExampleCli("sendmany", "\"\"",
+			"\"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"",
+			"6", "\"testing\"") +
+		"\nSend two amounts to two different addresses, subtract fee from " +
+		"amount:\n" +
+		HelpExampleCli("sendmany", "\"\"",
+			"\"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"",
+			"1", "\"\"",
+			"\"[\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\",\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"") +
 		"\nAs a json rpc call\n" +
-		"> coperctl sendmany\"\", \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01," +
-		"\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\",6, \"testing\""
+		HelpExampleRPC("sendmany", "\"\"",
+			"\"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"",
+			"6", "\"testing\"")
 
 	fundrawtransactionDesc = "fundrawtransaction \"hexstring\" ( options )\n" +
 		"\nAdd inputs to a transaction until it has enough in value to " +
@@ -1908,13 +1965,13 @@ const (
 		"}\n" +
 		"\nExamples:\n" +
 		"\nCreate a transaction with no inputs\n" +
-		"> coperctl " + "createrawtransaction" + " " + "\"[]\" \"{\\\"myaddress\\\":0.01}\"" + "\n" +
+		HelpExampleCli("createrawtransaction", "\"[]\"", "\"{\\\"myaddress\\\":0.01}\"") +
 		"\nAdd sufficient unsigned inputs to meet the output value\n" +
-		"> coperctl " + "fundrawtransaction" + " " + "\"rawtransactionhex\"" + "\n" +
+		HelpExampleCli("fundrawtransaction", "\"rawtransactionhex\"") +
 		"\nSign the transaction\n" +
-		"> coperctl " + "signrawtransaction" + " " + "\"fundedtransactionhex\"" + "\n" +
+		HelpExampleCli("signrawtransaction", "\"fundedtransactionhex\"") +
 		"\nSend the transaction\n" +
-		"> coperctl " + "sendrawtransaction" + " " + "\"signedtransactionhex\"" + "\n"
+		HelpExampleCli("sendrawtransaction", "\"signedtransactionhex\"")
 
 	addmultisigaddressDesc = "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n" +
 		"\nAdd a nrequired-to-sign multisignature address to the wallet.\n" +
@@ -1938,13 +1995,9 @@ const (
 		"the keys.\n" +
 		"\nExamples:\n" +
 		"\nAdd a multisig address from 2 addresses\n" +
-		"> coperctl " + "addmultisigaddress" + " 2 " + "\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\"," +
-		"\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"" + "\n" +
+		HelpExampleCli("addmultisigaddress", "2",
+			"\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
 		"\nAs json rpc call\n" +
-		"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", " +
-		"\"id\":\"curltest\", " +
-		"\"method\": \"" +
-		"addmultisigaddress" + "\", \"params\": [" + "2, " + "\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\"," +
-		"\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"" +
-		"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/\n"
+		HelpExampleRPC("addmultisigaddress", "2",
+			"\"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
 )
