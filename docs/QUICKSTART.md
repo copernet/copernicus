@@ -2,10 +2,7 @@
 ```
 git clone https://github.com/copernet/secp256k1.git
 cd secp256k1
-./autogen.sh
-./configure --enable-experimental --enable-module-ecdh --enable-module-recovery
-make -j4
-make install
+./autoinstall.sh
 ```
 
 ## glide Package Management
