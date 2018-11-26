@@ -49,6 +49,7 @@ func bchMain(ctx context.Context, args []string) error {
 	timeSource := util.GetTimeSource()
 	s, err := server.NewServer(model.ActiveNetParams, timeSource, interrupt)
 	if err != nil {
+		fmt.Printf("Init server error: %s \n", err.Error())
 		return err
 	}
 	var rpcServer *rpc.Server
