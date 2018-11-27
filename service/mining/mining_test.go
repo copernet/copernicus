@@ -98,8 +98,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 	ret := make([]string, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := util.NewMedianTime()
-		ba := NewBlockAssembler(params, ts)
+		ba := NewBlockAssembler(params)
 		bt := ba.CreateNewBlock(scriptPubKey, CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, errors.New("create block error")
@@ -285,7 +284,7 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx1.GetTxOut(1), 1, false), false)
 
 	//ltx.SignRawTransaction([]*tx.Tx{tx1}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
-	txEntry1 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx1)
+	txEntry1 := testEntryHelp.SetTime(util.GetTimeSec()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, 0x02)
 	// reference relation(tx2 -> tx1)
@@ -301,7 +300,7 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	//outpointK = &outpoint.OutPoint{Hash: tx2.GetHash(), Index: 0}
 	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx2.GetTxOut(0), 0, false), false)
 	//ltx.SignRawTransaction([]*tx.Tx{tx2}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
-	txEntry2 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx2)
+	txEntry2 := testEntryHelp.SetTime(util.GetTimeSec()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx2)
 	txEntry2.ParentTx[txEntry1] = struct{}{}
 
 	//  modify tx3's content to avoid to get the same hash with tx2
@@ -317,7 +316,7 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	//outpointK = &outpoint.OutPoint{Hash: tx3.GetHash(), Index: 0}
 	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx3.GetTxOut(0), 0, false), false)
 	//ltx.SignRawTransaction([]*tx.Tx{tx3}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
-	txEntry3 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx3)
+	txEntry3 := testEntryHelp.SetTime(util.GetTimeSec()).SetFee(amount.Amount(2 * util.COIN)).FromTxToEntry(tx3)
 	txEntry3.ParentTx[txEntry1] = struct{}{}
 
 	tx4 := tx.NewTx(0, 0x02)
@@ -332,7 +331,7 @@ func createTx(tt *testing.T, baseTx *tx.Tx, pubKey *script.Script) []*mempool.Tx
 	//outpointK = &outpoint.OutPoint{Hash: tx4.GetHash(), Index: 0}
 	//coinsMap.AddCoin(outpointK, utxo.NewFreshCoin(tx4.GetTxOut(0), 0, false), false)
 	//ltx.SignRawTransaction([]*tx.Tx{tx4}, nil, keyStore, coinsMap, crypto.SigHashAll|crypto.SigHashForkID)
-	txEntry4 := testEntryHelp.SetTime(util.GetTime()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx4)
+	txEntry4 := testEntryHelp.SetTime(util.GetTimeSec()).SetFee(amount.Amount(1 * util.COIN)).FromTxToEntry(tx4)
 
 	txEntry4.ParentTx[txEntry1] = struct{}{}
 	txEntry4.ParentTx[txEntry3] = struct{}{}
@@ -385,8 +384,7 @@ func TestCTORAndSortByFee(t *testing.T) {
 		t.Fatal("add txEntry to mempool error")
 	}
 
-	ts := util.NewMedianTime()
-	ba := NewBlockAssembler(model.ActiveNetParams, ts)
+	ba := NewBlockAssembler(model.ActiveNetParams)
 	assert.NotNil(t, ba)
 
 	//test sort by fee
@@ -462,8 +460,7 @@ func TestCreateNewBlockByFeeRate(t *testing.T) {
 		t.Error("add txEntry to mempool error")
 	}
 
-	ts := util.NewMedianTime()
-	ba := NewBlockAssembler(model.ActiveNetParams, ts)
+	ba := NewBlockAssembler(model.ActiveNetParams)
 	tmpStrategy := getStrategy()
 	*tmpStrategy = sortByFeeRate
 

@@ -47,7 +47,7 @@ var miscHandlers = map[string]commandHandler{
 
 // handleUptime implements the uptime command.
 func handleUptime(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return util.GetTime() - s.cfg.StartupTime, nil
+	return util.GetTimeSec() - s.cfg.StartupTime, nil
 }
 
 func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
@@ -77,7 +77,7 @@ func handleGetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (inter
 		Version:         1000000*conf.AppMajor + 10000*conf.AppMinor + 100*conf.AppPatch,
 		ProtocolVersion: int32(wire.ProtocolVersion),
 		Blocks:          height,
-		TimeOffset:      util.GetTimeOffset(),
+		TimeOffset:      util.GetTimeOffsetSec(),
 		Connections:     int32(count.Count),
 		Proxy:           conf.Cfg.P2PNet.Proxy,
 		Difficulty:      getDifficulty(chain.GetInstance().Tip()),
@@ -223,7 +223,7 @@ func handleSetMocktime(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 	// this could have an effect on mempool time-based eviction, as well as
 	// IsCurrentForFeeEstimation() and IsInitialBlockDownload().
 	// figure out the right way to synchronize around mocktime, and
-	// ensure all callsites of GetTime() are accessing this safely.
+	// ensure all callsites of GetTimeSec() are accessing this safely.
 	util.SetMockTime(c.Timestamp)
 
 	return nil, nil

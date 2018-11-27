@@ -96,6 +96,7 @@ type Configuration struct {
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+		MaxTimeAdjustment   uint64   `default:"4200"`
 		//AddCheckpoints      []model.Checkpoint
 	}
 	AddrMgr struct {
@@ -300,6 +301,9 @@ func InitConfig(args []string) *Configuration {
 	}
 	if opts.BanScore > 0 {
 		config.P2PNet.BanThreshold = opts.BanScore
+	}
+	if opts.MaxTimeAdjustment > 0 {
+		config.P2PNet.MaxTimeAdjustment = opts.MaxTimeAdjustment
 	}
 
 	return config

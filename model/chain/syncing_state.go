@@ -23,7 +23,7 @@ func (ds *SyncingState) UpdateSyncingState() {
 }
 
 func isRecentTip(tip *blockindex.BlockIndex) bool {
-	return int64(tip.GetBlockTime()) > util.GetTime()-defaultMaxTipAge
+	return int64(tip.GetBlockTime()) > util.GetTimeSec()-defaultMaxTipAge
 }
 
 func hasEnoughWork(tip *blockindex.BlockIndex) bool {

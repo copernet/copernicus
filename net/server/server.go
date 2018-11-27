@@ -1272,7 +1272,7 @@ func (s *Server) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 	}
 
 	// Disconnect banned peers.
-	now := util.GetTime()
+	now := util.GetTimeSec()
 	host, _, err := net.SplitHostPort(sp.Addr())
 	if err != nil {
 		log.Debug("can't split hostport %v", err)
@@ -1385,7 +1385,7 @@ func (s *Server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 	}
 	log.Info("Banned peer %s (inBound:%v) for %v", host, sp.Inbound(),
 		conf.Cfg.P2PNet.BanDuration)
-	now := util.GetTime()
+	now := util.GetTimeSec()
 	state.bannedAddr[host] = &BannedInfo{
 		Address:    host,
 		BanUntil:   now + int64(conf.Cfg.P2PNet.BanDuration),
@@ -1499,7 +1499,7 @@ func (s *Server) handleUnbanAddressMsg(state *peerState, bmsg *banAddressMsg) {
 }
 func (s *Server) getBannedList(state *peerState) []*BannedInfo {
 	bannedInfoList := make([]*BannedInfo, 0)
-	now := util.GetTime()
+	now := util.GetTimeSec()
 	for _, info := range state.bannedAddr {
 		if now < info.BanUntil {
 			bannedInfoList = append(bannedInfoList, info)

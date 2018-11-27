@@ -142,7 +142,7 @@ func makeTestServer() (*Server, string, chan struct{}, error) {
 	if err != nil {
 		return nil, "", nil, err
 	}
-	s.timeSource = util.GetTimeSource()
+	s.timeSource = util.GetGlobalMedianTime()
 	s.nat = &mockNat{}
 	return s, dir, c, nil
 }
@@ -991,8 +991,8 @@ func TestHandleAddPeerMsg(t *testing.T) {
 	assert.Nil(t, err)
 	ps.bannedAddr[host] = &BannedInfo{
 		Address:    host,
-		BanUntil:   util.GetTime() + 60,
-		CreateTime: util.GetTime(),
+		BanUntil:   util.GetTimeSec() + 60,
+		CreateTime: util.GetTimeSec(),
 		Reason:     BanReasonManuallyAdded,
 	}
 
@@ -1001,8 +1001,8 @@ func TestHandleAddPeerMsg(t *testing.T) {
 
 	ps.bannedAddr[host] = &BannedInfo{
 		Address:    host,
-		BanUntil:   util.GetTime() - 60,
-		CreateTime: util.GetTime() - 120,
+		BanUntil:   util.GetTimeSec() - 60,
+		CreateTime: util.GetTimeSec() - 120,
 		Reason:     BanReasonManuallyAdded,
 	}
 	ret = s.handleAddPeerMsg(&ps, sp)

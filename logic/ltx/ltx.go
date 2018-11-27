@@ -230,7 +230,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 			"this may break mining or otherwise cause instability!\n")
 	}
 
-	txEntry := mempool.NewTxentry(txn, txFee, util.GetTime(),
+	txEntry := mempool.NewTxentry(txn, txFee, util.GetTimeSec(),
 		chain.GetInstance().Height(), *lp, sigOpsCount, spendCoinbase)
 
 	return txEntry, nil
@@ -589,7 +589,7 @@ func ContextualCheckTransactionForCurrentBlock(transaction *tx.Tx, flags int) er
 	if flags&consensus.LocktimeMedianTimePast == consensus.LocktimeMedianTimePast {
 		nLockTimeCutoff = activeChain.Tip().GetMedianTimePast()
 	} else {
-		nLockTimeCutoff = util.GetAdjustedTime()
+		nLockTimeCutoff = util.GetAdjustedTimeSec()
 	}
 
 	nBlockHeight := activeChain.Height() + 1

@@ -376,7 +376,7 @@ func handleGetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		ProtocolVersion:  wire.ProtocolVersion,
 		LocalServices:    fmt.Sprintf("%016x", msgHandle.services),
 		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,
-		TimeOffset:       util.GetTimeOffset(),
+		TimeOffset:       util.GetTimeOffsetSec(),
 		Connections:      msgHandle.ConnectedCount(),
 		NetworkActive:    true, // NOT support RPC 'setnetworkactive'
 		Networks:         getNetworks(),

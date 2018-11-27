@@ -1376,8 +1376,7 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := util.GetTimeSource()
-		ba := mining.NewBlockAssembler(params, ts)
+		ba := mining.NewBlockAssembler(params)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, btcjson.RPCError{

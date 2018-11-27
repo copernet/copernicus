@@ -113,7 +113,7 @@ func createDummyBlock(scriptPubKey, scriptSig *script.Script, bk *block.Block, p
 
 	bk.Header.Version = versionbits.ComputeBlockVersion()
 
-	bk.Header.Time = uint32(util.GetAdjustedTime())
+	bk.Header.Time = uint32(util.GetAdjustedTimeSec())
 
 	// Create coinbase transaction
 	coinbaseTx := tx.NewTx(0, tx.DefaultVersion)
