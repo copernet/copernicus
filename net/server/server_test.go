@@ -12,7 +12,6 @@ import (
 	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -783,9 +782,8 @@ func TestOnInv_versionok(t *testing.T) {
 	msgInv.AddInvVect(iv2)
 	config := peer.Config{}
 	config.ProtocolVersion = wire.BIP0035Version
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 
->>>>>>> add some unit test of server
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	sp.OnInv(in, msgInv)
@@ -938,7 +936,7 @@ func TestOnGetAddr(t *testing.T) {
 
 func TestOnGetAddr_ignore(t *testing.T) {
 	config := peer.Config{}
-	in := peer.NewInboundPeer(&config)
+	in := peer.NewInboundPeer(&config, false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgGetAddr()
@@ -948,7 +946,7 @@ func TestOnGetAddr_ignore(t *testing.T) {
 
 func TestOnGetAddr_outbound(t *testing.T) {
 	config := peer.Config{}
-	in, _ := peer.NewOutboundPeer(&config, "127.0.0.1:34567")
+	in, _ := peer.NewOutboundPeer(&config, "127.0.0.1:34567", false)
 	sp := newServerPeer(s, false)
 	sp.Peer = in
 	msg := wire.NewMsgGetAddr()
@@ -1538,10 +1536,8 @@ func TestServer_OnGetHeaders_ignore(t *testing.T) {
 }
 
 func TestServer_OnGetHeaders_noheader(t *testing.T) {
-	p := &peer.Peer{}
 	sp := newServerPeer(s, false)
-	sp.Peer = p
-	sp.isWhitelisted = true
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), true)
 	msg := wire.NewMsgGetHeaders()
 	msg.HashStop = zeroHash
 	sp.OnGetHeaders(nil, msg)
@@ -1549,10 +1545,8 @@ func TestServer_OnGetHeaders_noheader(t *testing.T) {
 
 func TestServer_OnGetHeaders_hasheader(t *testing.T) {
 	gChain := chain.GetInstance()
-	p := &peer.Peer{}
 	sp := newServerPeer(s, false)
-	sp.Peer = p
-	sp.isWhitelisted = true
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), true)
 	pindexStart := gChain.GetIndexBestHeader().Prev.Prev.Prev
 	locator := gChain.GetLocator(pindexStart)
 	blkHashs := locator.GetBlockHashList()
@@ -1572,10 +1566,8 @@ func TestServer_OnGetHeaders_hasheader(t *testing.T) {
 }
 
 func TestServer_addBanScore_ignore_whitelist(t *testing.T) {
-	p := &peer.Peer{}
 	sp := newServerPeer(s, false)
-	sp.Peer = p
-	sp.isWhitelisted = true
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), true)
 	sp.addBanScore(88, 88, "testban")
 
 	assert.Equal(t, uint32(0), sp.banScore.Int())
@@ -1613,7 +1605,7 @@ func TestServer_transferPing(t *testing.T) {
 
 func TestServer_enforceNodeBloomFlag(t *testing.T) {
 	sp := newServerPeer(s, false)
-	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp))
+	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), false)
 	conf.Cfg.P2PNet.DisableBanning = true
 	sp.server.services = 0
 	ret := sp.enforceNodeBloomFlag("testcmd")

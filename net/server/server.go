@@ -783,7 +783,7 @@ func (sp *serverPeer) checkResetRevert(msg *wire.MsgGetHeaders) {
 // message.
 func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	// Ignore getheaders requests if not in sync.
-	if !sp.isWhitelisted && !sp.server.syncManager.IsCurrent() {
+	if !sp.IsWhitelisted() && !sp.server.syncManager.IsCurrent() {
 		log.Debug("syncmanager: chain is not update-to-date, ignore msgGetHeaders")
 		return
 	}
