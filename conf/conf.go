@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"path"
 )
 
 const (
@@ -170,11 +169,6 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	destConfig := DataDir + "/" + defaultConfigFilename
-	if opts.TestNet {
-		DataDir = path.Join(DataDir, "testnet")
-	} else if opts.RegTest {
-		DataDir = path.Join(DataDir, "regtest")
-	}
 
 	if !FileExists(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
