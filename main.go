@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"net/http"
 	_ "net/http/pprof"
 	"os"

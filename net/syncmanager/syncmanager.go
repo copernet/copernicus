@@ -591,6 +591,12 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
+	// Process all blocks from whitelisted peers, even if not requested,
+	// unless we're still syncing with the network. Such an unrequested
+	// block may still be processed, subject to the conditions in AcceptBlock().
+	fromWhitelist := peer.IsWhitelisted() && !lchain.IsInitialBlockDownload()
+	_, requested := sm.requestedBlocks[blockHash]
+
 	// Remove block from request maps. Either chain will know about it and
 	// so we shouldn't have any more instances of trying to fetch it, or we
 	// will fail the insert and thus we'll retry next time we get an inv.

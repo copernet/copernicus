@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/tx"
@@ -276,7 +275,7 @@ func initEnv() {
 var myserver *server.Server
 
 func initServer() (*server.Server, error) {
-	timeSource := bitcointime.NewMedianTime()
+	timeSource := util.GetTimeSource()
 	s, err := server.NewServer(model.ActiveNetParams, timeSource, nil)
 	if err != nil {
 		return nil, err

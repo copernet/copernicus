@@ -13,7 +13,6 @@ import (
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/bitcointime"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -755,7 +754,6 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 	p.SetAckReceived(true)
 
 	sm.fetchHeaderBlocks(p)
->>>>>>> add some unit test of syncmanager, now coverage is at 80%;
 
 	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
 	msgInv := wire.NewMsgInv()
@@ -1182,7 +1180,7 @@ func TestSyncManager_startsync_alreadysync(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	inpeer := peer.NewInboundPeer(peer1Cfg)
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	sm.syncPeer = inpeer
 	sm.startSync()
 
@@ -1209,7 +1207,7 @@ func TestSyncManager_isSyncCandidate_regress(t *testing.T) {
 	defer os.RemoveAll(dir)
 	sm.chainParams = &model.RegressionNetParams
 
-	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123")
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
 
 	ret := sm.isSyncCandidate(p)
 	sm.Stop()
@@ -1310,7 +1308,7 @@ func TestSyncManager_lastAccouncedBlock(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123")
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
 	idx := lastAccouncedBlock(p)
 	assert.Nil(t, idx)
 
@@ -1364,7 +1362,7 @@ func TestSyncManager_fetchBlocks(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	p, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:123")
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:123", false)
 
 	requestedTxns := make(map[util.Hash]struct{})
 	requestedBlocks := make(map[util.Hash]struct{})
@@ -1404,7 +1402,7 @@ func TestSyncManager_fetchBlocks(t *testing.T) {
 
 	sm.clearSyncPeerState(p)
 
-	p2, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:1234")
+	p2, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:1234", false)
 	sm.fetchHeadersToConnect(p, syncState)
 	sm.fetchHeadersToConnect(p2, syncState)
 	headerMsg := wire.NewMsgHeaders()
