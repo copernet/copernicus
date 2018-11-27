@@ -295,6 +295,8 @@ type Server struct {
 	// do not need to be protected for concurrent access.
 
 	MsgChan chan *peer.PeerMessage
+
+	txRelayer *TxRelayer
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
@@ -1073,7 +1075,7 @@ func (s *Server) relayTransactions(txns []*mempool.TxEntry) {
 	for _, txD := range txns {
 		hash := txD.Tx.GetHash()
 		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
-		s.RelayInventory(iv, txD)
+		s.RelayInventory(iv, txD.Tx)
 	}
 }
 
@@ -1107,19 +1109,15 @@ func (s *Server) TransactionConfirmed(tx *tx.Tx) {
 func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding wire.MessageEncoding) error {
 
-	// Attempt to fetch the requested transaction from the pool.  A
-	// call could be made to check for existence first, but simply trying
-	// to fetch a missing transaction results in the same behavior.
-	pool := mempool.GetInstance()
-	txe := pool.FindTx(*hash)
-	if txe == nil {
-		log.Trace("Unable to fetch tx %v from transaction pool ", hash)
+	txn := s.txRelayer.TxToRelay(hash)
+	if txn == nil {
+		log.Trace("Unable to fetch tx %s from relay cache or transaction pool ", hash)
 
 		if doneChan != nil {
 			doneChan <- struct{}{}
 		}
 
-		return errors.New("Don't find the tx")
+		return errors.New("tx not found")
 	}
 
 	// Once we have fetched data wait for any previous operation to finish.
@@ -1128,7 +1126,7 @@ func (s *Server) pushTxMsg(sp *serverPeer, hash *util.Hash, doneChan chan<- stru
 	}
 
 	//sp.QueueMessageWithEncoding(tx.MsgTx(), doneChan, encoding)
-	msgtx := (*wire.MsgTx)(txe.Tx)
+	msgtx := (*wire.MsgTx)(txn)
 	sp.QueueMessageWithEncoding(msgtx, doneChan, encoding)
 
 	return nil
@@ -1638,6 +1636,11 @@ func (s *Server) handlePing(msg *PingMsg) {
 // handleRelayInvMsg deals with relaying inventory to peers that are not already
 // known to have it.  It is invoked from the peerHandler goroutine.
 func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
+	if msg.invVect.Type == wire.InvTypeTx {
+		tx, _ := msg.data.(*tx.Tx)
+		s.txRelayer.Cache(&msg.invVect.Hash, tx)
+	}
+
 	state.forAllPeers(func(sp *serverPeer) {
 		if !sp.Connected() || !sp.VerAckReceived() {
 			return
@@ -2619,6 +2622,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *util.MedianTime, interrupt 
 		banScoreChn:          make(chan *banScoreMsg),
 		connectedPeers:       make(map[string]*serverPeer),
 		banPeerFile:          filepath.Join(cfg.DataDir, "banpeers.json"),
+		txRelayer:			  NewTxRelayer(),
 	}
 
 	if cfg.P2PNet.TargetOutbound < 0 {
