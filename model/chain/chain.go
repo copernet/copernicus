@@ -180,7 +180,7 @@ func (c *Chain) IsCurrent() bool {
 	//}
 
 	// Not current if the latest best block has a timestamp before 24 hours ago.
-	minus24Hours := time.Unix(util.GetTime(), 0).Add(-24 * time.Hour).Unix()
+	minus24Hours := time.Unix(util.GetTimeSec(), 0).Add(-24 * time.Hour).Unix()
 	tipTime := int64(c.Tip().GetBlockTime())
 
 	return tipTime >= minus24Hours

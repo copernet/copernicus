@@ -649,7 +649,7 @@ func InitRPCServer(timeSource *util.MedianTime) (*Server, error) {
 
 		rpcServer, err := NewServer(&ServerConfig{
 			Listeners:   rpcListeners,
-			StartupTime: util.GetTime(),
+			StartupTime: util.GetTimeSec(),
 		}, timeSource)
 		if err != nil {
 			return nil, err

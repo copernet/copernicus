@@ -249,7 +249,7 @@ func (cm *RPCConnManager) SetBan(c *btcjson.SetBanCmd) *btcjson.RPCError {
 	}
 
 	if c.Command == "add" {
-		now := util.GetTime()
+		now := util.GetTimeSec()
 		var endTime int64
 		if c.BanTime != nil {
 			if c.Absolute != nil && *c.Absolute {

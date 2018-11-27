@@ -1012,8 +1012,7 @@ func generateBlocks(t *testing.T, generate int, maxTries uint64, verify bool) ([
 	ret := make([]*block.Block, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ts := util.GetTimeSource()
-		ba := mining.NewBlockAssembler(params, ts)
+		ba := mining.NewBlockAssembler(params)
 		bt := ba.CreateNewBlock(scriptPubKey, mining.CoinbaseScriptSig(extraNonce))
 		if bt == nil {
 			return nil, errors.New("Could not create new block")

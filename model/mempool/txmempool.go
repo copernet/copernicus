@@ -286,7 +286,7 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 		}
 		m.removeConflicts(tx)
 	}
-	m.lastRollingFeeUpdate = util.GetTime()
+	m.lastRollingFeeUpdate = util.GetTimeSec()
 	m.blockSinceLastRollingFeeBump = true
 }
 
@@ -320,7 +320,7 @@ func (m *TxMempool) GetCoin(outpoint *outpoint.OutPoint) *utxo.Coin {
 // set, the function will return these have removed transaction's txin from mempool which use
 // TrimToSize rule. Later, caller will remove these txin from uxto cache.
 func (m *TxMempool) LimitMempoolSize(sizeLimit, age int64) {
-	expired := m.expire(util.GetTime() - age)
+	expired := m.expire(util.GetTimeSec() - age)
 	if expired != 0 {
 		log.Debug("Expired %d transactions from the memory pool", expired)
 	}
@@ -343,7 +343,7 @@ func (m *TxMempool) GetMinFee(sizeLimit int64) util.FeeRate {
 		return *util.NewFeeRate(m.rollingMinimumFeeRate)
 	}
 
-	timeTmp := util.GetTime()
+	timeTmp := util.GetTimeSec()
 	if timeTmp > m.lastRollingFeeUpdate+10 {
 		halfLife := RollingFeeHalfLife
 		if m.usageSize < sizeLimit/4 {
