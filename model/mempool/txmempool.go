@@ -211,7 +211,7 @@ func (m *TxMempool) CalculateMemPoolAncestorsWithLock(txhash *util.Hash) map[*Tx
 		return nil
 	}
 	noLimit := uint64(math.MaxUint64)
-	ancestors, _ := m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+	ancestors, _ := m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
 	return ancestors
 }
 
@@ -493,7 +493,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 	}
 
 	for removeIt := range entriesToRemove {
-		ancestors, err := m.CalculateMemPoolAncestors(removeIt.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
+		ancestors, err := m.CalculateMemPoolAncestors(removeIt.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
 		if err != nil {
 			return
 		}
