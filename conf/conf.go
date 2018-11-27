@@ -302,6 +302,9 @@ func InitConfig(args []string) *Configuration {
 	if opts.MaxTimeAdjustment > 0 {
 		config.P2PNet.MaxTimeAdjustment = opts.MaxTimeAdjustment
 	}
+	if len(opts.AssumeValid) > 0 {
+		config.Chain.AssumeValid = opts.AssumeValid
+	}
 
 	return config
 }
