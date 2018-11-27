@@ -148,16 +148,18 @@ func (c *Chain) GetChainTips() *set.Set {
 
 // Tip Returns the blIndex entry for the tip of this chain, or nullptr if none.
 func (c *Chain) Tip() *blockindex.BlockIndex {
-	if len(c.active) > 0 {
-		return c.active[len(c.active)-1]
+	active := c.active
+	if len(active) > 0 {
+		return active[len(active)-1]
 	}
 
 	return nil
 }
 
 func (c *Chain) TipHeight() int32 {
-	if len(c.active) > 0 {
-		return c.active[len(c.active)-1].Height
+	active := c.active
+	if len(active) > 0 {
+		return active[len(active)-1].Height
 	}
 
 	return 0
