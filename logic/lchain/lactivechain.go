@@ -63,7 +63,7 @@ func ActivateBestChain(pblock *block.Block) error {
 			return nil
 		}
 
-		if pindexOldTip != nil && pindexMostWork.ChainWork.Cmp(&pindexOldTip.ChainWork) < 0 {
+		if pindexOldTip != nil && pindexMostWork.ChainWork.Cmp(&pindexOldTip.ChainWork) <= 0 {
 			return nil
 		}
 
