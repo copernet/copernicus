@@ -325,11 +325,12 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 
 	tmp := make([]*blockindex.BlockIndex, index.Height+1)
 	copy(tmp, c.active)
-	c.active = tmp
-	for index != nil && c.active[index.Height] != index {
-		c.active[index.Height] = index
+	for index != nil && tmp[index.Height] != index {
+		tmp[index.Height] = index
 		index = index.Prev
 	}
+
+	c.active = tmp
 
 	c.UpdateSyncingState()
 }
