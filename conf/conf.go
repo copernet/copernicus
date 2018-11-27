@@ -380,7 +380,8 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 		return "", errors.New("test data directory create failed: " + err.Error())
 	}
 
-	_, err = CopyFile(filepath.Join(DataDir, defaultConfigFilename), filepath.Join(testDataDir, defaultConfigFilename))
+	defaultDataDir := AppDataDir(defaultDataDirname, false)
+	_, err = CopyFile(filepath.Join(defaultDataDir, defaultConfigFilename), filepath.Join(testDataDir, defaultConfigFilename))
 	if err != nil {
 		return "", err
 	}
