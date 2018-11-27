@@ -41,5 +41,5 @@ func GetAdjustedTime() int64 {
 }
 
 func GetTimeOffset() int64 {
-	return int64(GetTimeSource().Offset())
+	return int64(GetTimeSource().Offset().Seconds())
 }

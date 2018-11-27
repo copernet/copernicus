@@ -43,7 +43,7 @@ func ContextualCheckBlockHeader(header *block.BlockHeader, preIndex *blockindex.
 	}
 
 	if blocktime > adjustTime+2*60*60 {
-		log.Error("ContextualCheckBlockHeader: block's timestamp far in the future")
+		log.Error("ContextualCheckBlockHeader: block's timestamp far in the future. block time:%d, adjust time:%d", blocktime, adjustTime)
 		return errcode.NewError(errcode.RejectInvalid, "time-too-new")
 	}
 
