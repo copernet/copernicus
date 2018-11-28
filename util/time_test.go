@@ -3,11 +3,16 @@ package util
 import (
 	"github.com/copernet/copernicus/conf"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
 
+var testMtx sync.Mutex
+
 func TestGetTime(t *testing.T) {
+	testMtx.Lock()
+	defer testMtx.Unlock()
 	mockTime = 0
 	nowTime := time.Now().Unix()
 	actualTime := GetTimeSec()
@@ -22,6 +27,8 @@ func TestGetTime(t *testing.T) {
 	if nowTime == actualTime {
 		t.Errorf("the nowTime:%d should not equal actualTime:%d", nowTime, actualTime)
 	}
+
+	mockTime = 0
 }
 
 func TestGetAdjustedTimeSec(t *testing.T) {
@@ -29,6 +36,8 @@ func TestGetAdjustedTimeSec(t *testing.T) {
 }
 
 func TestGetTimeMicroSec(t *testing.T) {
+	testMtx.Lock()
+	defer testMtx.Unlock()
 	mockTime = 100
 	actualTime := GetTimeMicroSec()
 	if actualTime != mockTime*1000*1000 {
@@ -60,6 +69,9 @@ func TestSetMockTime(t *testing.T) {
 
 // TestMedianTime tests the medianTime implementation.
 func TestMedianTime(t *testing.T) {
+	testMtx.Lock()
+	defer testMtx.Unlock()
+	SetMockTime(0)
 	conf.Cfg = conf.InitConfig([]string{})
 	tests := []struct {
 		in         []int64
@@ -140,8 +152,8 @@ func TestMedianTime(t *testing.T) {
 		// second, allow a fudge factor to compensate.
 		adjustedTime := GetAdjustedTimeSec()
 		now := time.Now().Unix()
-		wantTime := now + filter.getOffsetSec()
-		wantTime2 := now + filter.getOffsetSec() - 1
+		wantTime := now + GetGlobalMedianTime().getOffsetSec()
+		wantTime2 := now + GetGlobalMedianTime().getOffsetSec() - 1
 		if adjustedTime != wantTime && adjustedTime != wantTime2 {
 			t.Errorf("AdjustedTime #%d: unexpected result -- got %v, want %v or %v",
 				i, adjustedTime, wantTime, wantTime2)
