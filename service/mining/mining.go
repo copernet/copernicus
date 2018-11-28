@@ -3,7 +3,6 @@ package mining
 import (
 	"math"
 	"sort"
-	"strconv"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
@@ -499,33 +498,8 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 	return scriptSig
 }
 
-// This function convert MaxBlockSize from byte to
-// MB with a decimal precision one digit rounded down
-// E.g.
-// 1660000 -> 1.6
-// 2010000 -> 2.0
-// 1000000 -> 1.0
-// 230000  -> 0.2
-// 50000   -> 0.0
-// NB behavior for EB<1MB not standardized yet still
-// the function applies the same algo used for
-// EB greater or equal to 1MB
-func getSubVersionEB(maxBlockSize uint64) string {
-	// Prepare EB string we are going to add to SubVer:
-	// 1) translate from byte to MB and convert to string
-	// 2) limit the EB string to the first decimal digit (floored)
-	v := int(maxBlockSize / (consensus.OneMegaByte))
-	toStr := strconv.Itoa(v)
-	ret := v / 10
-	if ret <= 0 {
-		return "0." + toStr
-	}
-	length := len(toStr)
-	return toStr[:length-1] + "." + toStr[length-1:]
-}
-
 func getExcessiveBlockSizeSig() []byte {
-	cbmsg := "/EB" + getSubVersionEB(consensus.DefaultMaxBlockSize) + "/"
+	cbmsg := "/" + conf.GetSubVersionEB() + "/"
 	return []byte(cbmsg)
 }
 

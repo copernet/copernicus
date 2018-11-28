@@ -254,7 +254,7 @@ func validateUserAgent(userAgent string) error {
 // message.  The version string is not defined to any strict format, although
 // it is recommended to use the form "major.minor.revision" e.g. "2.6.41".
 func (msg *MsgVersion) SetUserAgent(name string, version string, comments ...string) error {
-	newUserAgent := conf.GetUserAgent(name, version, comments...)
+	newUserAgent := conf.GetUserAgent(name, version, comments)
 	err := validateUserAgent(newUserAgent)
 	if err != nil {
 		return err

@@ -350,7 +350,7 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 
 func handleGetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 	verNum := conf.AppMajor*1000000 + conf.AppMinor*1000 + conf.AppPatch
-	userAgent := conf.GetUserAgent(userAgentName, userAgentVersion, conf.Cfg.P2PNet.UserAgentComments...)
+	userAgent := conf.GetUserAgent(userAgentName, userAgentVersion, conf.Cfg.P2PNet.UserAgentComments)
 
 	localAddrInfo := msgHandle.addrManager.GetAllLocalAddress()
 	rpcLocalAddrList := make([]btcjson.LocalAddressesResult, 0, len(localAddrInfo))

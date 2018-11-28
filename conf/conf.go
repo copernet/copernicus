@@ -33,6 +33,8 @@ const (
 	defaultConfigFilename = "bitcoincash.yml"
 	defaultDataDirname    = "bitcoincash"
 	defaultProjectDir     = "github.com/copernet/copernicus"
+
+	OneMegaByte = 1000000
 )
 
 // Configuration defines all configurations for application
@@ -385,13 +387,32 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 	return testDataDir, nil
 }
 
-func GetUserAgent(name string, version string, comments ...string) string {
-	userAgent := fmt.Sprintf("/%s:%s", name, version)
-	if len(comments) != 0 {
-		userAgent = fmt.Sprintf("%s(%s)", userAgent,
-			strings.Join(comments, "; "))
-	}
-	userAgent += "/"
+// GetSubVersionEB converts MaxBlockSize from byte to
+// MB with a decimal precision one digit rounded down
+// E.g.
+// 1660000 -> 1.6
+// 2010000 -> 2.0
+// 1000000 -> 1.0
+// 230000  -> 0.2
+// 50000   -> 0.0
+// NB behavior for EB<1MB not standardized yet still
+// the function applies the same algo used for
+// EB greater or equal to 1MB
+func GetSubVersionEB() string {
+	// Prepare EB string we are going to add to SubVer:
+	// 1) translate from byte to MB and convert to string
+	// 2) limit the EB string to the first decimal digit (floored)
+	ebMBs := Cfg.Excessiveblocksize / (OneMegaByte / 10)
+	return "EB" + fmt.Sprintf("%.1f", float64(ebMBs)/10.0)
+}
+
+func GetUserAgent(name string, version string, comments []string) string {
+	agentComments := make([]string, 0, 1+len(comments))
+	// format excessive blocksize value
+	ebMsg := GetSubVersionEB()
+	agentComments = append(agentComments, ebMsg)
+	agentComments = append(agentComments, comments...)
+	userAgent := fmt.Sprintf("/%s:%s(%s)/", name, version, strings.Join(agentComments, "; "))
 	return userAgent
 }
 

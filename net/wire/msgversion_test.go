@@ -64,14 +64,14 @@ func TestVersion(t *testing.T) {
 	}
 
 	msg.SetUserAgent("myclient", "1.2.3", "optional", "comments")
-	customUserAgent := "/myclient:1.2.3(optional; comments)/"
+	customUserAgent := "/myclient:1.2.3(EB32.0; optional; comments)/"
 	if msg.UserAgent != customUserAgent {
 		t.Errorf("SetUserAgent: wrong user agent - got %s, want %s",
 			msg.UserAgent, customUserAgent)
 	}
 
 	msg.SetUserAgent("mygui", "3.4.5")
-	customUserAgent = "/mygui:3.4.5/"
+	customUserAgent = "/mygui:3.4.5(EB32.0)/"
 	if msg.UserAgent != customUserAgent {
 		t.Errorf("SetUserAgent: wrong user agent - got %s, want %s",
 			msg.UserAgent, customUserAgent)
