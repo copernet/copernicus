@@ -29,7 +29,7 @@ var (
 	coperHomeDir          = conf.AppDataDir("bitcoincash", false)
 	coperctlHomeDir       = conf.AppDataDir("coperctl", false)
 	coperwalletHomeDir    = conf.AppDataDir("coperwallet", false)
-	defaultConfigFile     = filepath.Join(coperctlHomeDir, "coperctl.conf")
+	defaultConfigFile     = filepath.Join(coperHomeDir, "bitcoincash.conf")
 	defaultRPCServer      = "localhost"
 	defaultRPCCertFile    = filepath.Join(coperHomeDir, "rpc.cert")
 	defaultWalletCertFile = filepath.Join(coperwalletHomeDir, "rpc.cert")
@@ -171,17 +171,17 @@ func cleanAndExpandPath(path string) string {
 // while still allowing the user to override settings with config files and
 // command line options.  Command line options always take precedence.
 func loadConfig() (*config, []string, error) {
-	if !conf.FileExists(coperctlHomeDir) {
-		err := os.MkdirAll(coperctlHomeDir, os.ModePerm)
-		if err != nil {
-			panic(coperctlHomeDir + " create failed: " + err.Error())
-		}
+	if !conf.FileExists(coperHomeDir) {
+		fmt.Printf("Server not init. Please init server firstly.")
+		os.Exit(1)
 	}
+
+	conf := readConfigFromFile()
 
 	// Default config.
 	cfg := config{
 		ConfigFile: defaultConfigFile,
-		RPCServer:  defaultRPCServer,
+		RPCServer:  conf.RPC.RPCListeners[0],
 		RPCCert:    defaultRPCCertFile,
 	}
 
@@ -343,4 +343,8 @@ func createDefaultConfigFile(destinationPath, serverConfigPath string) error {
 	dest.WriteString(destString)
 
 	return nil
+}
+
+func readConfigFromFile() *conf.Configuration {
+	return conf.InitConfig([]string{})
 }
