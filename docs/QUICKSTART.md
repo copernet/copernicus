@@ -65,5 +65,12 @@ If you want build with dockerfile, you can follow this step:
 docker build -t copernet/copernicus:local -f Dockerfile.run .
 docker run copernet/copernicus:local
 ```
+
+You also can use coperctl follow this step:
+
+```
+docker ps   # get container id
+docker exec -it [containerid] coperctl [RPC Command]
+```
 ### Note
 When node is syncing data, docker default storage may not satisfy with it, you need to add option `-v` when you executing docker command, such as:  `docker run -v /local/disk:/root/.bitcoincash copernet/copernicus:tag`. If you use coperctl, you should add option `-p`.
