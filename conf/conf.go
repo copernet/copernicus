@@ -187,31 +187,19 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	if !FileExists(destConfig) {
+		srcCfgDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+		if err = tryCopyDefaultCfg(srcCfgDir, destConfig); err != nil {
 
-		// get GOPATH environment and copy conf file to dst dir
-		gopath := os.Getenv("GOPATH")
-		if gopath != "" {
-			// first try
-			projectPath := gopath + "/src/" + defaultProjectDir
-			srcConfig := projectPath + "/conf/" + defaultConfigFilename
+			if gopath := os.Getenv("GOPATH"); gopath != "" {
+				srcCfgDir = gopath + "/src/" + defaultProjectDir
 
-			if FileExists(srcConfig) {
-				_, err := CopyFile(srcConfig, destConfig)
-
+				err = tryCopyDefaultCfg(srcCfgDir, destConfig)
 				if err != nil {
-					panic("from src/defaultProjectDir copy bitcoincash.yml failed.")
+					panic("copy default config failed, " + err.Error())
 				}
 			} else {
-				// second try
-				projectPath = gopath + "/src/copernicus"
-				srcConfig = projectPath + "/conf/" + defaultConfigFilename
-				_, err := CopyFile(srcConfig, destConfig)
-				if err != nil {
-					panic(" from src/copernicus copy bitcoincash.yml failed.")
-				}
+				panic("can not find config from gopath or ./conf")
 			}
-		} else {
-			fmt.Println("get GOPATH failed, please check if gopath is configured.")
 		}
 	}
 
@@ -405,4 +393,14 @@ func GetUserAgent(name string, version string, comments ...string) string {
 	}
 	userAgent += "/"
 	return userAgent
+}
+
+func tryCopyDefaultCfg(dir string, destConfig string) error {
+	srcConfig := dir + "/conf/" + defaultConfigFilename
+	if !FileExists(srcConfig) {
+		return errors.New("try copy, default config not in:" + srcConfig)
+	}
+
+	_, err := CopyFile(srcConfig, destConfig)
+	return err
 }
