@@ -39,7 +39,7 @@ func TestGetTimeMicroSec(t *testing.T) {
 }
 
 func TestGetTimeOffset(t *testing.T) {
-	ts := GetGlobalMedianTime()
+	ts := GetMedianTimeSource()
 
 	for i := 0; i <= 100000; i++ {
 		times := GetTimeOffsetSec()
@@ -142,8 +142,8 @@ func TestMedianTime(t *testing.T) {
 		// second, allow a fudge factor to compensate.
 		adjustedTime := GetAdjustedTimeSec()
 		now := time.Now().Unix()
-		wantTime := now + GetGlobalMedianTime().getOffsetSec()
-		wantTime2 := now + GetGlobalMedianTime().getOffsetSec() - 1
+		wantTime := now + GetMedianTimeSource().getOffsetSec()
+		wantTime2 := now + GetMedianTimeSource().getOffsetSec() - 1
 		if adjustedTime != wantTime && adjustedTime != wantTime2 {
 			t.Errorf("AdjustedTime #%d: unexpected result -- got %v, want %v or %v",
 				i, adjustedTime, wantTime, wantTime2)

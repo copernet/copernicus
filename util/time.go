@@ -3,6 +3,7 @@ package util
 import (
 	"math"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,10 +15,9 @@ const similarTimeSecs = 5 * 60
 
 var maxMedianTimeRetries = 200
 
-var (
-	mockTime         int64
-	globalMedianTime *MedianTime
-)
+var mockTime int64
+
+var globalMedianTimeSource *MedianTime
 
 // int64Sorter implements sort.Interface to allow a slice of 64-bit integers to
 // be sorted.
@@ -43,6 +43,7 @@ func (s int64Sorter) Less(i, j int) bool {
 }
 
 type MedianTime struct {
+	mtx                sync.Mutex
 	knowIDs            map[string]struct{}
 	offsets            []int64
 	offsetSec          int64
@@ -50,6 +51,8 @@ type MedianTime struct {
 }
 
 func (medianTime *MedianTime) AddTimeSample(sourceID string, timeVal time.Time) {
+	medianTime.mtx.Lock()
+	defer medianTime.mtx.Unlock()
 	if _, exists := medianTime.knowIDs[sourceID]; exists {
 		return
 	}
@@ -124,11 +127,11 @@ func newMedianTime() *MedianTime {
 	}
 }
 
-func GetGlobalMedianTime() *MedianTime {
-	if globalMedianTime == nil {
-		globalMedianTime = newMedianTime()
+func GetMedianTimeSource() *MedianTime {
+	if globalMedianTimeSource == nil {
+		globalMedianTimeSource = newMedianTime()
 	}
-	return globalMedianTime
+	return globalMedianTimeSource
 }
 
 func GetTimeSec() int64 {
@@ -154,5 +157,5 @@ func GetAdjustedTimeSec() int64 {
 }
 
 func GetTimeOffsetSec() int64 {
-	return GetGlobalMedianTime().getOffsetSec()
+	return GetMedianTimeSource().getOffsetSec()
 }

@@ -142,7 +142,7 @@ func makeTestServer() (*Server, string, chan struct{}, error) {
 	if err != nil {
 		return nil, "", nil, err
 	}
-	s.timeSource = util.GetGlobalMedianTime()
+	s.timeSource = util.GetMedianTimeSource()
 	s.nat = &mockNat{}
 	return s, dir, c, nil
 }
