@@ -3,17 +3,13 @@ package util
 import (
 	"github.com/copernet/copernicus/conf"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 )
 
-var testMtx sync.Mutex
-
 func TestGetTime(t *testing.T) {
-	testMtx.Lock()
-	defer testMtx.Unlock()
-	mockTime = 0
+	SetMockTime(0)
+	defer SetMockTime(0)
 	nowTime := time.Now().Unix()
 	actualTime := GetTimeSec()
 	if nowTime != actualTime {
@@ -21,14 +17,12 @@ func TestGetTime(t *testing.T) {
 	}
 
 	//reset value
-	mockTime = 1539746375
+	SetMockTime(1539746375)
 	actualTime = GetTimeSec()
 	nowTime = time.Now().Unix()
 	if nowTime == actualTime {
 		t.Errorf("the nowTime:%d should not equal actualTime:%d", nowTime, actualTime)
 	}
-
-	mockTime = 0
 }
 
 func TestGetAdjustedTimeSec(t *testing.T) {
@@ -36,15 +30,12 @@ func TestGetAdjustedTimeSec(t *testing.T) {
 }
 
 func TestGetTimeMicroSec(t *testing.T) {
-	testMtx.Lock()
-	defer testMtx.Unlock()
-	mockTime = 100
+	SetMockTime(100)
+	defer SetMockTime(0)
 	actualTime := GetTimeMicroSec()
 	if actualTime != mockTime*1000*1000 {
 		t.Errorf("the condition the condition should is false, actualTime is:%d", actualTime)
 	}
-	mockTime = 0
-	GetTimeMicroSec()
 }
 
 func TestGetTimeOffset(t *testing.T) {
@@ -61,6 +52,7 @@ func TestGetTimeOffset(t *testing.T) {
 func TestSetMockTime(t *testing.T) {
 	tmpMockTime := int64(1539746375)
 	SetMockTime(tmpMockTime)
+	defer SetMockTime(0)
 	actualMockTime := GetTimeSec()
 	if tmpMockTime != actualMockTime {
 		t.Errorf("tmpMockTime:%d should equal actualMockTime:%d", tmpMockTime, actualMockTime)
@@ -69,8 +61,6 @@ func TestSetMockTime(t *testing.T) {
 
 // TestMedianTime tests the medianTime implementation.
 func TestMedianTime(t *testing.T) {
-	testMtx.Lock()
-	defer testMtx.Unlock()
 	SetMockTime(0)
 	conf.Cfg = conf.InitConfig([]string{})
 	tests := []struct {
