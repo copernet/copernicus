@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -394,4 +395,14 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 	config.DataDir = testDataDir
 
 	return testDataDir, nil
+}
+
+func GetUserAgent(name string, version string, comments ...string) string {
+	userAgent := fmt.Sprintf("/%s:%s", name, version)
+	if len(comments) != 0 {
+		userAgent = fmt.Sprintf("%s(%s)", userAgent,
+			strings.Join(comments, "; "))
+	}
+	userAgent += "/"
+	return userAgent
 }

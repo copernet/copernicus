@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
@@ -350,14 +349,8 @@ func ProcessForRPC(message interface{}) (rsp interface{}, err error) {
 }
 
 func handleGetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
-	verNum := 0
-	vers := strings.Split(conf.Cfg.Version, ".")
-	for _, ver := range vers {
-		subVer, err := strconv.Atoi(ver)
-		if err == nil {
-			verNum = verNum*1000 + subVer
-		}
-	}
+	verNum := conf.AppMajor*1000000 + conf.AppMinor*1000 + conf.AppPatch
+	userAgent := conf.GetUserAgent(userAgentName, userAgentVersion, conf.Cfg.P2PNet.UserAgentComments...)
 
 	localAddrInfo := msgHandle.addrManager.GetAllLocalAddress()
 	rpcLocalAddrList := make([]btcjson.LocalAddressesResult, 0, len(localAddrInfo))
@@ -371,8 +364,8 @@ func handleGetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 	}
 
 	chainInfo := &btcjson.GetNetworkInfoResult{
-		Version:          verNum,
-		SubVersion:       "/Copernicus:" + conf.Cfg.Version + "/",
+		Version:          int(verNum),
+		SubVersion:       userAgent,
 		ProtocolVersion:  wire.ProtocolVersion,
 		LocalServices:    fmt.Sprintf("%016x", msgHandle.services),
 		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,

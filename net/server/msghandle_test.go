@@ -53,7 +53,6 @@ func TestHandleGetNetworkInfo(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	assert.Equal(t, ret.Version, 1000000)
 	assert.Equal(t, ret.ProtocolVersion, uint32(70013))
 	assert.Equal(t, ret.LocalRelay, true)
 	assert.Equal(t, ret.NetworkActive, true)
