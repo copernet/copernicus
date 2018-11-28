@@ -1,77 +1,77 @@
 package server
 
 import (
-    "github.com/copernet/copernicus/logic/lmempool"
-    "github.com/copernet/copernicus/model/mempool"
-    "github.com/copernet/copernicus/model/tx"
-    "github.com/copernet/copernicus/util"
-    "sync"
-    "time"
+	"github.com/copernet/copernicus/logic/lmempool"
+	"github.com/copernet/copernicus/model/mempool"
+	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/util"
+	"sync"
+	"time"
 )
 
 type txCacheItem struct {
-    txn *tx.Tx
-    cacheTime time.Time
+	txn       *tx.Tx
+	cacheTime time.Time
 }
 
 type TxRelayer struct {
-    lck sync.RWMutex
+	lck sync.RWMutex
 
-    cache map[util.Hash]*txCacheItem
+	cache map[util.Hash]*txCacheItem
 
-    lastCompactTime time.Time
+	lastCompactTime time.Time
 }
 
-func (txr *TxRelayer) Cache(txId *util.Hash, txn *tx.Tx) {
-    txr.lck.Lock()
-    defer txr.lck.Unlock()
+func (txr *TxRelayer) Cache(txID *util.Hash, txn *tx.Tx) {
+	txr.lck.Lock()
+	defer txr.lck.Unlock()
 
-    if txn == nil {
-        txe := lmempool.FindTxInMempool(*txId)
-        if txe == nil {
-            return
-        }
-        txn = txe.Tx
-    }
+	if txn == nil {
+		txe := lmempool.FindTxInMempool(*txID)
+		if txe == nil {
+			return
+		}
+		txn = txe.Tx
+	}
 
-    txr.cache[*txId] = &txCacheItem{txn: txn, cacheTime: time.Now()}
+	txr.cache[*txID] = &txCacheItem{txn: txn, cacheTime: time.Now()}
 
-    txr.limitCache()
+	txr.limitCache()
 }
 
-func (txr *TxRelayer) TxToRelay(txId *util.Hash) *tx.Tx {
-    txr.lck.RLock()
-    defer txr.lck.RUnlock()
+func (txr *TxRelayer) TxToRelay(txID *util.Hash) *tx.Tx {
+	txr.lck.RLock()
+	defer txr.lck.RUnlock()
 
-    if v, exists := txr.cache[*txId]; exists {
-        return v.txn
-    }
+	if v, exists := txr.cache[*txID]; exists {
+		return v.txn
+	}
 
-    if txe := mempool.GetInstance().FindTx(*txId); txe != nil {
-        return txe.Tx
-    }
+	if txe := mempool.GetInstance().FindTx(*txID); txe != nil {
+		return txe.Tx
+	}
 
-    return nil
+	return nil
 }
 
 func (txr *TxRelayer) limitCache() {
-    if time.Now().Before(txr.lastCompactTime.Add(time.Minute * 15)) {
-        return
-    }
+	if time.Now().Before(txr.lastCompactTime.Add(time.Minute * 15)) {
+		return
+	}
 
-    _15minsAgo := time.Now().Add(time.Minute * -15)
-    for k, v := range txr.cache {
-        if  v.cacheTime.Before(_15minsAgo) {
-            delete(txr.cache, k)
-        }
-    }
+	_15minsAgo := time.Now().Add(time.Minute * -15)
+	for k, v := range txr.cache {
+		if v.cacheTime.Before(_15minsAgo) {
+			delete(txr.cache, k)
+		}
+	}
 
-    txr.lastCompactTime = time.Now()
+	txr.lastCompactTime = time.Now()
 }
 
 func NewTxRelayer() *TxRelayer {
-    return &TxRelayer{
-        cache: make(map[util.Hash]*txCacheItem),
-        lastCompactTime: time.Now(),
-    }
+	return &TxRelayer{
+		cache:           make(map[util.Hash]*txCacheItem),
+		lastCompactTime: time.Now(),
+	}
 }

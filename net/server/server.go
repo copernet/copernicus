@@ -2622,7 +2622,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *util.MedianTime, interrupt 
 		banScoreChn:          make(chan *banScoreMsg),
 		connectedPeers:       make(map[string]*serverPeer),
 		banPeerFile:          filepath.Join(cfg.DataDir, "banpeers.json"),
-		txRelayer:			  NewTxRelayer(),
+		txRelayer:            NewTxRelayer(),
 	}
 
 	if cfg.P2PNet.TargetOutbound < 0 {
