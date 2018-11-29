@@ -42,7 +42,10 @@ curl https://glide.sh/get | sh
 
 ```
 glide install
-go build && ./copernicus
+./install.sh
+
+copernicus # Run Copernicus
+coperctl getblockchaininfo # Run rpc client
 ```
 
 if you have encountered glide errors, try the following commands:
