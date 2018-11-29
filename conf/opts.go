@@ -7,6 +7,8 @@ import (
 )
 
 type Opts struct {
+	ShowVersion bool `short:"V" long:"version" description:"Display version information and exit"`
+
 	DataDir string `long:"datadir" description:"specified program data dir"`
 	Reindex bool   `long:"reindex" description:"reindex"`
 

@@ -25,6 +25,7 @@ const (
 	// AppPreRelease MUST only contain characters from semanticAlphabet
 	// per the semantic versioning spec.
 	AppPreRelease = "beta"
+	AppName       = "Copernicus"
 )
 
 const (
@@ -164,6 +165,11 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	Args = opts
+
+	if opts.ShowVersion {
+		fmt.Println(AppName, "version", version())
+		os.Exit(0)
+	}
 
 	if opts.RegTest && opts.TestNet {
 		panic("Both testnet and regtest are true")
@@ -424,4 +430,8 @@ func tryCopyDefaultCfg(dir string, destConfig string) error {
 
 	_, err := CopyFile(srcConfig, destConfig)
 	return err
+}
+
+func version() string {
+	return ""
 }

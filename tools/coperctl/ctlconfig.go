@@ -205,8 +205,7 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	// Show the version and exit if the version flag was specified.
-	appName := filepath.Base(os.Args[0])
-	appName = strings.TrimSuffix(appName, filepath.Ext(appName))
+	appName := "Copernicus"
 	usageMessage := fmt.Sprintf("Use %s -h to show options", appName)
 	if preCfg.ShowVersion {
 		fmt.Println(appName, "version", version())
