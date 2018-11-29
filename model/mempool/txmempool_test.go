@@ -31,7 +31,7 @@ type TestMemPoolEntry struct {
 func NewTestMemPoolEntry() *TestMemPoolEntry {
 	t := TestMemPoolEntry{}
 	t.Fee = 0
-	t.Time = util.GetTime()
+	t.Time = util.GetTimeSec()
 	t.Priority = 0.0
 	t.Height = 1
 	t.SpendsCoinbase = false
@@ -225,13 +225,13 @@ func createTx() []*TxEntry {
 	outs := txout.NewTxOut(amount.Amount(10*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx1.AddTxOut(outs)
 	_ = tx1.GetHash()
-	txentry1 := testEntryHelp.SetTime(util.GetTime()).FromTxToEntry(tx1)
+	txentry1 := testEntryHelp.SetTime(util.GetTimeSec()).FromTxToEntry(tx1)
 
 	tx2 := tx.NewTx(0, tx.TxVersion)
 	out2 := txout.NewTxOut(amount.Amount(2*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx2.AddTxOut(out2)
 	_ = tx2.GetHash()
-	txentry2 := testEntryHelp.SetTime(util.GetTime() + 1).FromTxToEntry(tx2)
+	txentry2 := testEntryHelp.SetTime(util.GetTimeSec() + 1).FromTxToEntry(tx2)
 
 	tx3 := tx.NewTx(0, tx.TxVersion)
 	ins := txin2.NewTxIn(&outpoint.OutPoint{Hash: tx1.GetHash(), Index: 0}, script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}), script.SequenceFinal)
@@ -239,13 +239,13 @@ func createTx() []*TxEntry {
 	out3 := txout.NewTxOut(amount.Amount(5*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx3.AddTxOut(out3)
 	_ = tx3.GetHash()
-	txentry3 := testEntryHelp.SetTime(util.GetTime() + 2).FromTxToEntry(tx3)
+	txentry3 := testEntryHelp.SetTime(util.GetTimeSec() + 2).FromTxToEntry(tx3)
 
 	tx4 := tx.NewTx(0, tx.TxVersion)
 	out4 := txout.NewTxOut(amount.Amount(6*util.COIN), script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL}))
 	tx4.AddTxOut(out4)
 	_ = tx4.GetHash()
-	txentry4 := testEntryHelp.SetTime(util.GetTime() + 3).FromTxToEntry(tx4)
+	txentry4 := testEntryHelp.SetTime(util.GetTimeSec() + 3).FromTxToEntry(tx4)
 
 	t := make([]*TxEntry, 4)
 	t[0] = txentry1

@@ -294,7 +294,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 			log.Debug("AcceptBlockHeader err:%d", 3100)
 			return nil, errcode.ProjectError{Code: 3100}
 		}
-		if err = ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTime()); err != nil {
+		if err = ContextualCheckBlockHeader(bh, bIndex.Prev, util.GetAdjustedTimeSec()); err != nil {
 			log.Debug("AcceptBlockHeader err:%d", 3101)
 			return nil, err
 		}

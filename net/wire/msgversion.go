@@ -8,9 +8,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
+	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/util"
 )
 
@@ -250,18 +250,11 @@ func validateUserAgent(userAgent string) error {
 	return nil
 }
 
-// AddUserAgent adds a user agent to the user agent string for the version
+// SetUserAgent sets a user agent to the user agent string for the version
 // message.  The version string is not defined to any strict format, although
 // it is recommended to use the form "major.minor.revision" e.g. "2.6.41".
-func (msg *MsgVersion) AddUserAgent(name string, version string,
-	comments ...string) error {
-
-	newUserAgent := fmt.Sprintf("%s:%s", name, version)
-	if len(comments) != 0 {
-		newUserAgent = fmt.Sprintf("%s(%s)", newUserAgent,
-			strings.Join(comments, "; "))
-	}
-	newUserAgent = fmt.Sprintf("%s%s/", msg.UserAgent, newUserAgent)
+func (msg *MsgVersion) SetUserAgent(name string, version string, comments ...string) error {
+	newUserAgent := conf.GetUserAgent(name, version, comments)
 	err := validateUserAgent(newUserAgent)
 	if err != nil {
 		return err

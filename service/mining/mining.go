@@ -3,7 +3,6 @@ package mining
 import (
 	"math"
 	"sort"
-	"strconv"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
@@ -80,17 +79,15 @@ type BlockAssembler struct {
 	height                int32
 	lockTimeCutoff        int64
 	chainParams           *model.BitcoinParams
-	timeSource            *util.MedianTime
 }
 
-func NewBlockAssembler(params *model.BitcoinParams, ts *util.MedianTime) *BlockAssembler {
+func NewBlockAssembler(params *model.BitcoinParams) *BlockAssembler {
 	ba := new(BlockAssembler)
 	ba.bt = newBlockTemplate()
 	ba.chainParams = params
 	v := conf.Cfg.Mining.BlockMinTxFee
 	ba.blockMinFeeRate = *util.NewFeeRate(v) // todo confirm
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
-	ba.timeSource = ts
 	return ba
 }
 
@@ -303,7 +300,7 @@ func BasicScriptSig() *script.Script {
 }
 
 func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script) *BlockTemplate {
-	timeStart := util.GetMockTimeInMicros()
+	timeStart := util.GetTimeMicroSec()
 
 	ba.resetBlockAssembler()
 
@@ -332,7 +329,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 			ba.bt.Block.Header.Version = conf.Args.BlockVersion
 		}
 	}
-	ba.bt.Block.Header.Time = uint32(ba.timeSource.AdjustedTime().Unix())
+	ba.bt.Block.Header.Time = uint32(util.GetAdjustedTimeSec())
 	ba.maxGeneratedBlockSize = computeMaxGeneratedBlockSize()
 	lockTimeCutoff := indexPrev.GetMedianTimePast()
 	if tx.StandardLockTimeVerifyFlags&consensus.LocktimeMedianTimePast != 0 {
@@ -360,7 +357,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 		ba.bt.TxFees = sortTxFees
 		ba.bt.TxSigOpsCount = sortTxSigOpCosts
 	}
-	time1 := util.GetMockTimeInMicros()
+	time1 := util.GetTimeMicroSec()
 
 	// record last mining info for getmininginfo rpc using
 	lastBlockTx = ba.blockTx
@@ -408,7 +405,7 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 		return nil
 	}
 
-	time2 := util.GetMockTimeInMicros()
+	time2 := util.GetTimeMicroSec()
 	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+
 		"updated descendants), validity: %.2fms (total %.2fms)\n", 0.001*float64(time1-timeStart),
 		ba.blockTx, descendantsUpdated, 0.001*float64(time2-time1), 0.001*float64(time2-timeStart))
@@ -501,33 +498,8 @@ func CoinbaseScriptSig(extraNonce uint) *script.Script {
 	return scriptSig
 }
 
-// This function convert MaxBlockSize from byte to
-// MB with a decimal precision one digit rounded down
-// E.g.
-// 1660000 -> 1.6
-// 2010000 -> 2.0
-// 1000000 -> 1.0
-// 230000  -> 0.2
-// 50000   -> 0.0
-// NB behavior for EB<1MB not standardized yet still
-// the function applies the same algo used for
-// EB greater or equal to 1MB
-func getSubVersionEB(maxBlockSize uint64) string {
-	// Prepare EB string we are going to add to SubVer:
-	// 1) translate from byte to MB and convert to string
-	// 2) limit the EB string to the first decimal digit (floored)
-	v := int(maxBlockSize / (consensus.OneMegaByte))
-	toStr := strconv.Itoa(v)
-	ret := v / 10
-	if ret <= 0 {
-		return "0." + toStr
-	}
-	length := len(toStr)
-	return toStr[:length-1] + "." + toStr[length-1:]
-}
-
 func getExcessiveBlockSizeSig() []byte {
-	cbmsg := "/EB" + getSubVersionEB(consensus.DefaultMaxBlockSize) + "/"
+	cbmsg := "/" + conf.GetSubVersionEB() + "/"
 	return []byte(cbmsg)
 }
 
@@ -535,7 +507,7 @@ func UpdateTime(bk *block.Block, indexPrev *blockindex.BlockIndex) int64 {
 	oldTime := int64(bk.Header.Time)
 	var newTime int64
 	mt := indexPrev.GetMedianTimePast() + 1
-	at := util.GetAdjustedTime()
+	at := util.GetAdjustedTimeSec()
 	if mt > at {
 		newTime = mt
 	} else {
@@ -573,7 +545,7 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex, che
 	indexDummy.Height = indexPrev.Height + 1
 
 	// NOTE: CheckBlockHeader is called by CheckBlock
-	if err := lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTime()); err != nil {
+	if err := lblock.ContextualCheckBlockHeader(&blkHeader, indexPrev, util.GetAdjustedTimeSec()); err != nil {
 		log.Error("TestBlockValidity():ContextualCheckBlockHeader failed, blkHeader:%v, indexPrev:%v.", blkHeader, indexPrev)
 		return err
 	}

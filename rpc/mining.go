@@ -177,7 +177,7 @@ func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, 
 
 	if indexPrev != chain.GetInstance().Tip() ||
 		mempool.GetInstance().TransactionsUpdated != transactionsUpdatedLast &&
-			util.GetTime()-start > 5 {
+			util.GetTimeSec()-start > 5 {
 
 		// Clear pindexPrev so future calls make a new block, despite any
 		// failures from here on
@@ -185,10 +185,10 @@ func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, 
 		// Store the pindexBest used before CreateNewBlock, to avoid races
 		transactionsUpdatedLast = mempool.GetInstance().TransactionsUpdated
 		indexPrevNew := chain.GetInstance().Tip()
-		start = util.GetTime()
+		start = util.GetTimeSec()
 
 		// Create new block
-		ba := mining.NewBlockAssembler(model.ActiveNetParams, s.timeSource)
+		ba := mining.NewBlockAssembler(model.ActiveNetParams)
 		scriptPubKey := script.NewScriptRaw([]byte{opcodes.OP_TRUE})
 		blocktemplate = ba.CreateNewBlock(scriptPubKey, mining.BasicScriptSig())
 		if blocktemplate == nil {
@@ -492,7 +492,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64, 
 	ret := make([]string, 0)
 	var extraNonce uint
 	for height < heightEnd {
-		ba := mining.NewBlockAssembler(params, ts)
+		ba := mining.NewBlockAssembler(params)
 
 		bt := createBlockForCPUMining(ba, scriptPubKey, extraNonce)
 		if bt == nil {

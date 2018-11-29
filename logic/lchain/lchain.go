@@ -259,7 +259,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Error("ConnectTip(): ConnectBlock %s failed, err:%v", indexHash, err)
 		return err
 	}
-	nTime3 := util.GetMicrosTime()
+	nTime3 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
 	log.Debug("Connect total: %.2fms [%.2fs]\n",
 		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
@@ -269,7 +269,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	if err != nil {
 		panic("here should be true when view flush state")
 	}
-	nTime4 := util.GetMicrosTime()
+	nTime4 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeFlush += nTime4 - nTime3
 	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
 		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
@@ -294,7 +294,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		taskControl.StartUtxoTask()
 		taskControl.PushUtxoTask(utxoTaskArg{iter, &stat})
 	}
-	nTime5 := util.GetMicrosTime()
+	nTime5 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
 		float64(nTime5-nTime4)*0.001, float64(gPersist.GlobalTimeChainState)*0.000001)
@@ -303,7 +303,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	mempool.GetInstance().RemoveTxSelf(blockConnecting.Txs)
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
-	nTime6 := util.GetMicrosTime()
+	nTime6 := util.GetTimeMicroSec()
 	gPersist.GlobalTimePostConnect += nTime6 - nTime5
 	gPersist.GlobalTimeTotal += nTime6 - nTime1
 	log.Print("bench", "debug", " - Connect postprocess: %.2fms [%.2fs]\n",

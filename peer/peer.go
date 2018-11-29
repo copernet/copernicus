@@ -877,7 +877,7 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 
 	// Version message.
 	msg := wire.NewMsgVersion(ourNA, theirNA, nonce, blockNum)
-	msg.AddUserAgent(p.Cfg.UserAgentName, p.Cfg.UserAgentVersion,
+	msg.SetUserAgent(p.Cfg.UserAgentName, p.Cfg.UserAgentVersion,
 		p.Cfg.UserAgentComments...)
 
 	// XXX: bitcoind appears to always enable the full node services flag

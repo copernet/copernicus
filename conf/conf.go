@@ -8,8 +8,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -18,7 +20,7 @@ import (
 const (
 	AppMajor uint = 0
 	AppMinor uint = 0
-	AppPatch uint = 1
+	AppPatch uint = 6
 
 	// AppPreRelease MUST only contain characters from semanticAlphabet
 	// per the semantic versioning spec.
@@ -31,6 +33,8 @@ const (
 	defaultConfigFilename = "bitcoincash.yml"
 	defaultDataDirname    = "bitcoincash"
 	defaultProjectDir     = "github.com/copernet/copernicus"
+
+	OneMegaByte = 1000000
 )
 
 // Configuration defines all configurations for application
@@ -95,6 +99,7 @@ type Configuration struct {
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 		ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+		MaxTimeAdjustment   uint64   `default:"4200"`
 		//AddCheckpoints      []model.Checkpoint
 	}
 	AddrMgr struct {
@@ -170,6 +175,12 @@ func InitConfig(args []string) *Configuration {
 
 	destConfig := DataDir + "/" + defaultConfigFilename
 
+	if opts.TestNet {
+		DataDir = path.Join(DataDir, "testnet")
+	} else if opts.RegTest {
+		DataDir = path.Join(DataDir, "regtest")
+	}
+
 	if !FileExists(DataDir) {
 		err := os.MkdirAll(DataDir, os.ModePerm)
 		if err != nil {
@@ -178,31 +189,19 @@ func InitConfig(args []string) *Configuration {
 	}
 
 	if !FileExists(destConfig) {
+		srcCfgDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+		if err = tryCopyDefaultCfg(srcCfgDir, destConfig); err != nil {
 
-		// get GOPATH environment and copy conf file to dst dir
-		gopath := os.Getenv("GOPATH")
-		if gopath != "" {
-			// first try
-			projectPath := gopath + "/src/" + defaultProjectDir
-			srcConfig := projectPath + "/conf/" + defaultConfigFilename
+			if gopath := os.Getenv("GOPATH"); gopath != "" {
+				srcCfgDir = gopath + "/src/" + defaultProjectDir
 
-			if FileExists(srcConfig) {
-				_, err := CopyFile(srcConfig, destConfig)
-
+				err = tryCopyDefaultCfg(srcCfgDir, destConfig)
 				if err != nil {
-					panic("from src/defaultProjectDir copy bitcoincash.yml failed.")
+					panic("copy default config failed, " + err.Error())
 				}
 			} else {
-				// second try
-				projectPath = gopath + "/src/copernicus"
-				srcConfig = projectPath + "/conf/" + defaultConfigFilename
-				_, err := CopyFile(srcConfig, destConfig)
-				if err != nil {
-					panic(" from src/copernicus copy bitcoincash.yml failed.")
-				}
+				panic("can not find config from gopath or ./conf")
 			}
-		} else {
-			fmt.Println("get GOPATH failed, please check if gopath is configured.")
 		}
 	}
 
@@ -294,6 +293,9 @@ func InitConfig(args []string) *Configuration {
 	if opts.BanScore > 0 {
 		config.P2PNet.BanThreshold = opts.BanScore
 	}
+	if opts.MaxTimeAdjustment > 0 {
+		config.P2PNet.MaxTimeAdjustment = opts.MaxTimeAdjustment
+	}
 
 	return config
 }
@@ -373,7 +375,8 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 		return "", errors.New("test data directory create failed: " + err.Error())
 	}
 
-	_, err = CopyFile(filepath.Join(DataDir, defaultConfigFilename), filepath.Join(testDataDir, defaultConfigFilename))
+	defaultDataDir := AppDataDir(defaultDataDirname, false)
+	_, err = CopyFile(filepath.Join(defaultDataDir, defaultConfigFilename), filepath.Join(testDataDir, defaultConfigFilename))
 	if err != nil {
 		return "", err
 	}
@@ -382,4 +385,43 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 	config.DataDir = testDataDir
 
 	return testDataDir, nil
+}
+
+// GetSubVersionEB converts MaxBlockSize from byte to
+// MB with a decimal precision one digit rounded down
+// E.g.
+// 1660000 -> 1.6
+// 2010000 -> 2.0
+// 1000000 -> 1.0
+// 230000  -> 0.2
+// 50000   -> 0.0
+// NB behavior for EB<1MB not standardized yet still
+// the function applies the same algo used for
+// EB greater or equal to 1MB
+func GetSubVersionEB() string {
+	// Prepare EB string we are going to add to SubVer:
+	// 1) translate from byte to MB and convert to string
+	// 2) limit the EB string to the first decimal digit (floored)
+	ebMBs := Cfg.Excessiveblocksize / (OneMegaByte / 10)
+	return "EB" + fmt.Sprintf("%.1f", float64(ebMBs)/10.0)
+}
+
+func GetUserAgent(name string, version string, comments []string) string {
+	agentComments := make([]string, 0, 1+len(comments))
+	// format excessive blocksize value
+	ebMsg := GetSubVersionEB()
+	agentComments = append(agentComments, ebMsg)
+	agentComments = append(agentComments, comments...)
+	userAgent := fmt.Sprintf("/%s:%s(%s)/", name, version, strings.Join(agentComments, "; "))
+	return userAgent
+}
+
+func tryCopyDefaultCfg(dir string, destConfig string) error {
+	srcConfig := dir + "/conf/" + defaultConfigFilename
+	if !FileExists(srcConfig) {
+		return errors.New("try copy, default config not in:" + srcConfig)
+	}
+
+	_, err := CopyFile(srcConfig, destConfig)
+	return err
 }

@@ -248,22 +248,24 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 			Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT
 			ExternalIPs         []string // Add an ip to the list of local addresses we claim to listen on to peers
+			MaxTimeAdjustment   uint64   `default:"4200"`
 			//AddCheckpoints      []model.Checkpoint
 		}{
-			ListenAddrs:    []string{"1234"},
-			MaxPeers:       128,
-			TargetOutbound: 64,
-			DisableBanning: true,
-			BanThreshold:   100,
-			DisableListen:  true,
-			BlocksOnly:     false,
-			DisableRPC:     false,
-			Upnp:           false,
-			DisableTLS:     false,
-			NoOnion:        true,
-			TestNet:        testNet,
-			RegTest:        regTestNet,
-			Whitelists:     whiteList,
+			ListenAddrs:       []string{"1234"},
+			MaxPeers:          128,
+			TargetOutbound:    64,
+			DisableBanning:    true,
+			BanThreshold:      100,
+			DisableListen:     true,
+			BlocksOnly:        false,
+			DisableRPC:        false,
+			Upnp:              false,
+			DisableTLS:        false,
+			NoOnion:           true,
+			TestNet:           testNet,
+			RegTest:           regTestNet,
+			Whitelists:        whiteList,
+			MaxTimeAdjustment: 4200,
 		},
 		Protocol: struct {
 			NoPeerBloomFilters bool `default:"true"`

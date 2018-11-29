@@ -63,27 +63,25 @@ func TestVersion(t *testing.T) {
 			"default - got %v, want %v", msg.DisableRelayTx, false)
 	}
 
-	msg.AddUserAgent("myclient", "1.2.3", "optional", "comments")
-	customUserAgent := DefaultUserAgent + "myclient:1.2.3(optional; comments)/"
+	msg.SetUserAgent("myclient", "1.2.3", "optional", "comments")
+	customUserAgent := "/myclient:1.2.3(EB32.0; optional; comments)/"
 	if msg.UserAgent != customUserAgent {
-		t.Errorf("AddUserAgent: wrong user agent - got %s, want %s",
+		t.Errorf("SetUserAgent: wrong user agent - got %s, want %s",
 			msg.UserAgent, customUserAgent)
 	}
 
-	msg.AddUserAgent("mygui", "3.4.5")
-	customUserAgent += "mygui:3.4.5/"
+	msg.SetUserAgent("mygui", "3.4.5")
+	customUserAgent = "/mygui:3.4.5(EB32.0)/"
 	if msg.UserAgent != customUserAgent {
-		t.Errorf("AddUserAgent: wrong user agent - got %s, want %s",
+		t.Errorf("SetUserAgent: wrong user agent - got %s, want %s",
 			msg.UserAgent, customUserAgent)
 	}
 
 	// accounting for ":", "/"
-	err = msg.AddUserAgent(strings.Repeat("t",
-		MaxUserAgentLen-len(customUserAgent)-2+1), "")
+	err = msg.SetUserAgent(strings.Repeat("t", MaxUserAgentLen+1), "")
 	if _, ok := err.(*MessageError); !ok {
-		t.Errorf("AddUserAgent: expected error not received "+
+		t.Errorf("SetUserAgent: expected error not received "+
 			"- got %v, want %T", err, MessageError{})
-
 	}
 
 	// Version message should not have any services set by default.
