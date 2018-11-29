@@ -296,16 +296,25 @@ func CheckMempool(bestHeight int32) {
 			nFeesCheck += ancestorIt.TxFee
 		}
 		if entry.SumTxCountWithAncestors != nCountCheck {
-			panic("the txentry's ancestors number is incorrect .")
+			log.Error(
+				"the txentry's ancestors number is incorrect: entry.SumTxCountWithAncestors(%d) nCountCheck(%d)",
+				entry.SumTxCountWithAncestors, nCountCheck)
+			entry.SumTxCountWithAncestors = nCountCheck
 		}
 		if entry.SumTxSizeWitAncestors != nSizeCheck {
-			panic("the txentry's ancestors size is incorrect .")
+			log.Error("the txentry's ancestors size is incorrect: entry.SumTxSizeWitAncestors(%d) nSizeCheck(%d)",
+				entry.SumTxSizeWitAncestors, nSizeCheck)
+			entry.SumTxSizeWitAncestors = nSizeCheck
 		}
 		if entry.SumTxSigOpCountWithAncestors != nSigOpCheck {
-			panic("the txentry's ancestors sigopcount is incorrect .")
+			log.Error("the txentry's ancestors sigopcount is incorrect: entry.SumTxSigOpCountWithAncestors(%d), nSigOpCheck(%d)",
+				entry.SumTxSigOpCountWithAncestors, nSigOpCheck)
+			entry.SumTxSigOpCountWithAncestors = nSigOpCheck
 		}
 		if entry.SumTxFeeWithAncestors != nFeesCheck {
-			panic("the txentry's ancestors fee is incorrect .")
+			log.Error("the txentry's ancestors feew is incorrect: entry.SumTxFeeWithAncestors(%d), nFeesCheck(%d)",
+				entry.SumTxFeeWithAncestors, nFeesCheck)
+			entry.SumTxFeeWithAncestors = nFeesCheck
 		}
 
 		setChildrenCheck := make(map[*mempool.TxEntry]struct{})
