@@ -189,8 +189,8 @@ func (pow *Pow) computeTarget(indexFirst, indexLast *blockindex.BlockIndex, para
 	 */
 	work := new(big.Int).Sub(&indexLast.ChainWork, &indexFirst.ChainWork)
 	work.Mul(work, big.NewInt(int64(params.TargetTimePerBlock)))
-	log.Trace("bbeginBlockHeight : %d, chainwork : %d; endBlockHeight : %d, chainwork : %s",
-		indexFirst.Height, indexFirst.ChainWork.Int64(), indexLast.Height, indexLast.ChainWork.String())
+	log.Trace("beginBlockHeight : %d, chainwork : %s; endBlockHeight : %d, chainwork : %s",
+		indexFirst.Height, indexFirst.ChainWork.String(), indexLast.Height, indexLast.ChainWork.String())
 	// In order to avoid difficulty cliffs, we bound the amplitude of the
 	// adjustement we are going to do.
 	if indexLast.Header.Time <= indexFirst.Header.Time {
