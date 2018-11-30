@@ -184,16 +184,13 @@ func (m *TxMempool) GetPoolUsage() int64 {
 }
 
 func (m *TxMempool) CalculateDescendantsWithLock(txHash *util.Hash) map[*TxEntry]struct{} {
-	descendants := make(map[*TxEntry]struct{})
 	m.RLock()
 	defer m.RUnlock()
 	entry, ok := m.poolData[*txHash]
 	if !ok {
 		return nil
 	}
-	m.CalculateDescendants(entry, descendants)
-
-	return descendants
+	return m.CalculateDescendants(entry)
 }
 
 func (m *TxMempool) CalculateMemPoolAncestorsWithLock(txhash *util.Hash) map[*TxEntry]struct{} {
@@ -262,13 +259,6 @@ func (m *TxMempool) GetAllSpentOutWithoutLock() map[outpoint.OutPoint]*TxEntry {
 func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 	m.Lock()
 	defer m.Unlock()
-
-	// entries := make([]*TxEntry, 0, len(txs))
-	// for _, tx := range txs {
-	// 	if entry, ok := m.poolData[tx.GetHash()]; ok {
-	// 		entries = append(entries, entry)
-	// 	}
-	// }
 
 	// todo base on entries to set the new feerate for mempool.
 	for _, tx := range txs {
@@ -380,8 +370,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 		removed.SataoshisPerK += m.incrementalRelayFee.SataoshisPerK
 
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumTxFeeWithDescendants, removeIt.SumTxSizeWithDescendants).SataoshisPerK
-		stage := make(map[*TxEntry]struct{})
-		m.CalculateDescendants((*TxEntry)(removeIt), stage)
+		stage := m.CalculateDescendants((*TxEntry)(removeIt))
 		nTxnRemoved += len(stage)
 		txn := make([]*tx.Tx, 0, len(stage))
 		for iter := range stage {
@@ -424,12 +413,14 @@ func (m *TxMempool) expire(time int64) int {
 		return false
 	})
 
-	stage := make(map[*TxEntry]struct{}, len(toremove)*3)
-	for removeIt := range toremove {
-		m.CalculateDescendants(removeIt, stage)
+	var expireCnt int
+	for entry := range toremove {
+		stage := m.CalculateDescendants(entry)
+		expireCnt += len(stage)
+		m.RemoveStaged(stage, false, EXPIRY)
 	}
-	m.RemoveStaged(stage, false, EXPIRY)
-	return len(stage)
+
+	return expireCnt
 }
 
 func (m *TxMempool) RemoveStaged(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool, reason PoolRemovalReason) {
@@ -454,19 +445,17 @@ func (m *TxMempool) removeConflicts(tx *tx.Tx) {
 	}
 }
 
-func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool) {
+func (m *TxMempool) updateForRemoveFromMempool1(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool) {
 	nNoLimit := uint64(math.MaxUint64)
 
 	if updateDescendants {
 		for removeIt := range entriesToRemove {
-			setDescendants := make(map[*TxEntry]struct{})
-			m.CalculateDescendants(removeIt, setDescendants)
-			delete(setDescendants, removeIt)
+			descendants := m.CalculateDescendants(removeIt)
 			modifySize := -removeIt.TxSize
 			modifyFee := -removeIt.TxFee
 			modifySigOps := -removeIt.SigOpCount
 
-			for dit := range setDescendants {
+			for dit := range descendants {
 				// Google's btree library use binary search and Less() to find item.However we want to do
 				// set[key] = value to update exited item. The dit will change SumTxSizeWitAncestors and
 				// its key also change which looks like dead lock:(.So temporarily use delete and insert to instead.
@@ -519,11 +508,9 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 		}
 	}
 
-	allRemoves := make(map[*TxEntry]struct{})
-	for it := range txToRemove {
-		m.CalculateDescendants(it, allRemoves)
+	for entry := range txToRemove {
+		m.RemoveStaged(m.CalculateDescendants(entry), false, reason)
 	}
-	m.RemoveStaged(allRemoves, false, reason)
 }
 
 // CalculateDescendants Calculates descendants of entry that are not already in setDescendants, and
@@ -532,7 +519,9 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 // if an entry is in setDescendants already, then all in-mempool descendants of
 // it are already in setDescendants as well, so that we can save time by not
 // iterating over those entries.
-func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntry]struct{}) {
+func (m *TxMempool) CalculateDescendants(entry *TxEntry) map[*TxEntry]struct{} {
+	descendants := make(map[*TxEntry]struct{})
+
 	stage := make([]*TxEntry, 0)
 	if _, ok := descendants[entry]; !ok {
 		stage = append(stage, entry)
@@ -552,17 +541,26 @@ func (m *TxMempool) CalculateDescendants(entry *TxEntry, descendants map[*TxEntr
 			}
 		}
 	}
+
+	delete(descendants, entry)
+	return descendants
 }
 
-func (m *TxMempool) updateNextTx(txEntry *TxEntry) (parentSet map[util.Hash]struct{}) {
-	parentSet = make(map[util.Hash]struct{})
-	ins := txEntry.Tx.GetIns()
-	for _, in := range ins {
+func (m *TxMempool) updateNextTx(txEntry *TxEntry) {
+	for _, in := range txEntry.Tx.GetIns() {
 		m.nextTx[*in.PreviousOutPoint] = txEntry
-		parentSet[in.PreviousOutPoint.Hash] = struct{}{}
 	}
-
 	return
+}
+
+func (m *TxMempool) getParents(txEntry *TxEntry) map[util.Hash]*TxEntry {
+	parents := make(map[util.Hash]*TxEntry)
+	for _, in := range txEntry.Tx.GetIns() {
+		if txn, ok := m.poolData[in.PreviousOutPoint.Hash]; ok {
+			parents[in.PreviousOutPoint.Hash] = txn
+		}
+	}
+	return parents
 }
 
 // updateAncestorsOf update each of ancestors transaction state; add or remove this
