@@ -641,10 +641,17 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 		if !sm.headersFirstMode {
 			log.Debug("len of Requested block:%d, sm.allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
-			if peer == sm.syncPeer && sm.allowdGetBlocksTimes > 0 {
-				if len(state.requestedBlocks) == 0 {
+			if peer == sm.syncPeer {
+				activeChain := chain.GetInstance()
+				tipHash := activeChain.Tip().Header.GetHash()
+				// add ban score when receiving an invalid new block (next of the tip) from sync peer
+				if bmsg.block.Header.HashPrevBlock.IsEqual(&tipHash) {
+					log.Error("handleBlockMsg receive an invalid block[%s] from sync peer[%s]", blockHash.String(), peer.Addr())
+					sm.misbehaving(peer.Addr(), 100, err.Error())
+					return
+				}
+				if sm.allowdGetBlocksTimes > 0 && len(state.requestedBlocks) == 0 {
 					sm.allowdGetBlocksTimes--
-					activeChain := chain.GetInstance()
 					locator := activeChain.GetLocator(nil)
 					peer.PushGetBlocksMsg(*locator, &zeroHash)
 				}

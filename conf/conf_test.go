@@ -231,7 +231,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			MaxPeers            int      `default:"128"`
 			TargetOutbound      int      `default:"64"`
 			ConnectPeersOnStart []string
-			DisableBanning      bool   `default:"true"`
+			DisableBanning      bool   `default:"false"`
 			BanThreshold        uint32 `default:"100"`
 			TestNet             bool
 			RegTest             bool `default:"false"`
@@ -254,7 +254,7 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 			ListenAddrs:       []string{"1234"},
 			MaxPeers:          128,
 			TargetOutbound:    64,
-			DisableBanning:    true,
+			DisableBanning:    false,
 			BanThreshold:      100,
 			DisableListen:     true,
 			BlocksOnly:        false,
