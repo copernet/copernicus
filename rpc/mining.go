@@ -206,8 +206,8 @@ func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, 
 	bk.Header.Nonce = 0
 
 	res, err := blockTemplateResult(blocktemplate, setClientRules, uint32(maxVersionVb), transactionsUpdatedLast)
-	log.Debug("getblocktemplate response bits: %s, height: %d, time: %d, expires: %d， prehash: %s, noncerange: %s",
-		res.Bits, res.Height, res.CurTime, res.Expires, res.PreviousHash, res.NonceRange)
+	log.Debug("getblocktemplate response bits: %s, height: %d, time: %d, expires: %d， prehash: %s, noncerange: %s, txs number: %d",
+		res.Bits, res.Height, res.CurTime, res.Expires, res.PreviousHash, res.NonceRange, len(bk.Txs))
 	return res, err
 }
 
