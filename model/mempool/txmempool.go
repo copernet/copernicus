@@ -130,19 +130,12 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	m.usageSize += int64(txEntry.usageSize)
 
 	// Update ancestors with information about this tx
-	parentSet := m.updateNextTx(txEntry)
+	m.updateNextTx(txEntry)
+	parents := m.getParents(txEntry)
 
-	// Update txEntry's parents
-	for hash := range parentSet {
-		if parent, ok := m.poolData[hash]; ok {
-			txEntry.UpdateParent(parent, true)
-		}
-	}
+	txEntry.associateRelationship(parents)
+	txEntry.statisticIncrease(ancestors)
 
-	// Update txEntry's parents' child
-	txEntry.UpdateChildOfParents(true)
-	m.updateAncestors(true, txEntry, ancestors)
-	m.updateEntryForAncestors(txEntry, ancestors)
 	m.totalTxSize += uint64(txEntry.TxSize)
 	m.TransactionsUpdated++
 	m.txByAncestorFeeRateSort.ReplaceOrInsert((*EntryAncestorFeeRateSort)(txEntry))
