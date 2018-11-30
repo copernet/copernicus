@@ -433,5 +433,15 @@ func tryCopyDefaultCfg(dir string, destConfig string) error {
 }
 
 func version() string {
-	return ""
+	version := fmt.Sprintf("%d.%d.%d", AppMajor, AppMinor, AppPatch)
+
+	// Append pre-release version if there is one.  The hyphen called for
+	// by the semantic versioning spec is automatically appended and should
+	// not be contained in the pre-release string.  The pre-release version
+	// is not appended if it contains invalid characters.
+	if AppPreRelease != "" {
+		version += "-" + AppPreRelease
+	}
+
+	return version
 }

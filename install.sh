@@ -4,3 +4,4 @@ go build .
 go build ./tools/coperctl
 
 go install
+go install ./tools/coperctl
