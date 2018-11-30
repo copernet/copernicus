@@ -406,9 +406,9 @@ func (ba *BlockAssembler) CreateNewBlock(scriptPubKey, scriptSig *script.Script)
 	}
 
 	time2 := util.GetTimeMicroSec()
-	log.Print("bench", "debug", "CreateNewBlock() packages: %.2fms (%d packages, %d "+
-		"updated descendants), validity: %.2fms (total %.2fms), txs number: %d\n", 0.001*float64(time1-timeStart),
-		ba.blockTx, descendantsUpdated, 0.001*float64(time2-time1), 0.001*float64(time2-timeStart), len(ba.bt.Block.Txs))
+	log.Debug("CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: "+
+		"%.2fms (total %.2fms), txs number: %d\n", 0.001*float64(time1-timeStart), ba.blockTx, descendantsUpdated,
+		0.001*float64(time2-time1), 0.001*float64(time2-timeStart), len(ba.bt.Block.Txs))
 
 	return ba.bt
 }
