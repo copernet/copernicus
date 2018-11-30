@@ -232,7 +232,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		panic("error: try to connect to inactive chain!!!")
 	}
 	// Read block from disk.
-	nTime1 := time.Now().UnixNano()
+	nTime1 := util.GetTimeMicroSec()
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
@@ -247,10 +247,10 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	blockConnecting := block
 	indexHash := blockConnecting.GetHash()
 	// Apply the block atomically to the chain state.
-	nTime2 := time.Now().UnixNano()
+	nTime2 := util.GetTimeMicroSec()
 	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
-	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
+	log.Info("Load block from disk: %d us total: [%.6f s]\n", nTime2-nTime1, float64(gPersist.GlobalTimeReadFromDisk)*0.000001)
 
 	view := utxo.NewEmptyCoinsMap()
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
@@ -261,8 +261,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	}
 	nTime3 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
-	log.Debug("Connect total: %.2fms [%.2fs]\n",
-		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
+	log.Debug("Connect total: %d us [%.2fs]\n", nTime3-nTime2, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
 
 	//flushed := view.Flush(indexHash)
 	err = utxo.GetUtxoCacheInstance().UpdateCoins(view, &indexHash)
@@ -271,8 +270,8 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	}
 	nTime4 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeFlush += nTime4 - nTime3
-	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
-		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
+	log.Print("bench", "debug", " - Flush: %d us [%.2fs]\n",
+		nTime4-nTime3, float64(gPersist.GlobalTimeFlush)*0.000001)
 
 	// Write the chain state to disk, if necessary.
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
