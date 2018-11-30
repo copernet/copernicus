@@ -47,6 +47,39 @@ type StatisInformation struct {
 	SumTxSigOpCountWithAncestors int64
 	SumTxFeeWithAncestors        int64
 }
+// statisticAddEntry
+func (t *TxEntry) statisticIncrease(ancestors map[*TxEntry]struct{}) {
+	t.UpdateAncestorState(statisticSum(ancestors))
+	statisticIncrementalUpdateDescendant(ancestors, 1, t.TxSize, t.TxFee)
+}
+// statisticDelEntry
+func (t *TxEntry) statisticDecrease(ancestors map[*TxEntry]struct{}, descendants map[*TxEntry]struct{}) {
+	for antor := range ancestors {
+		antor.UpdateDescendantState(-1, -t.TxSize, -t.TxFee)
+	}
+
+	for desdand := range descendants {
+		desdand.UpdateAncestorState(-1, -t.TxSize, -t.SigOpCount, -t.TxFee)
+	}
+}
+
+func statisticIncrementalUpdateDescendant(entries map[*TxEntry]struct{}, deltaCount, deltaSize int, deltaFee int64) {
+	for e := range entries {
+		e.UpdateDescendantState(deltaCount, deltaSize, deltaFee)
+	}
+}
+
+func statisticSum(entries map[*TxEntry]struct{}) (int, int, int, int64) {
+	cnt := len(entries)
+	var size, sigOpCnt int
+	var fee int64
+	for e := range entries {
+		fee += e.TxFee
+		sigOpCnt += e.SigOpCount
+		size += e.TxSize
+	}
+	return cnt, size, sigOpCnt, fee
+}
 
 func (t *TxEntry) GetSigOpCountWithAncestors() int64 {
 	return t.SumTxSigOpCountWithAncestors
