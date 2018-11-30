@@ -282,7 +282,7 @@ func CheckMempool(bestHeight int32) {
 
 		// Verify ancestor state is correct.
 		nNoLimit := uint64(math.MaxUint64)
-		setAncestors, err := pool.CalculateMemPoolAncestors(entry.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
+		setAncestors, err := pool.CalculateMemPoolAncestors(entry.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, false)
 		if err != nil {
 			return
 		}
