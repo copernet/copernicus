@@ -105,14 +105,46 @@ func (t *TxEntry) GetTime() int64 {
 	return t.time
 }
 
-// UpdateParent update the tx's parent transaction.
-func (t *TxEntry) UpdateParent(parent *TxEntry, add bool) {
-	if add {
-		t.ParentTx[parent] = struct{}{}
-		return
-	}
+
+func (t *TxEntry) addParent(parent *TxEntry) {
+	t.ParentTx[parent] = struct{}{}
+}
+
+func (t *TxEntry) delParent(parent *TxEntry) {
 	delete(t.ParentTx, parent)
 }
+
+func (t *TxEntry) addChild(child *TxEntry) {
+	t.ChildTx[child] = struct{}{}
+}
+
+func (t *TxEntry) delChild(child *TxEntry) {
+	delete(t.ChildTx, child)
+}
+
+func (t *TxEntry) associateRelationship(parents map[util.Hash]*TxEntry) {
+	for _, parentTxEntry := range parents {
+		// Update txEntry's parents
+		t.addParent(parentTxEntry)
+
+		// Update txEntry's parents' child
+		parentTxEntry.addChild(t)
+	}
+}
+
+func (t *TxEntry) unassociateRelationship() {
+	for parent := range t.ParentTx {
+		parent.delChild(t)
+	}
+	t.ParentTx = nil
+
+	for child := range t.ChildTx {
+		child.delParent(t)
+	}
+	t.ChildTx = nil
+}
+
+
 
 func (t *TxEntry) UpdateChild(child *TxEntry, add bool) {
 	if add {
