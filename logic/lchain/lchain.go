@@ -198,7 +198,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		mempool.InitMempool()
 	}
 
-	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash)
+	log.Debug("Connect block heigh:%d, hash:%s, txs: %d", pindex.Height, blockHash, len(pblock.Txs))
 	return nil
 }
 
