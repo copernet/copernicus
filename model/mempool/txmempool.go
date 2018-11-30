@@ -445,42 +445,44 @@ func (m *TxMempool) removeConflicts(tx *tx.Tx) {
 	}
 }
 
-func (m *TxMempool) updateForRemoveFromMempool1(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool) {
-	nNoLimit := uint64(math.MaxUint64)
 
-	if updateDescendants {
-		for removeIt := range entriesToRemove {
-			descendants := m.CalculateDescendants(removeIt)
-			modifySize := -removeIt.TxSize
-			modifyFee := -removeIt.TxFee
-			modifySigOps := -removeIt.SigOpCount
-
-			for dit := range descendants {
-				// Google's btree library use binary search and Less() to find item.However we want to do
-				// set[key] = value to update exited item. The dit will change SumTxSizeWitAncestors and
-				// its key also change which looks like dead lock:(.So temporarily use delete and insert to instead.
-				m.timeSortData.Delete(dit)
-				m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(dit))
-				dit.UpdateAncestorState(-1, modifySize, modifySigOps, modifyFee)
-				m.timeSortData.ReplaceOrInsert(dit)
-				m.txByAncestorFeeRateSort.ReplaceOrInsert((*EntryAncestorFeeRateSort)(dit))
-			}
-		}
+func (m *TxMempool) addToSortedContainer(entries map[*TxEntry]struct{}) {
+	for entry := range entries {
+		m.timeSortData.ReplaceOrInsert(entry)
+		m.txByAncestorFeeRateSort.ReplaceOrInsert((*EntryAncestorFeeRateSort)(entry))
 	}
+}
 
-	for removeIt := range entriesToRemove {
-		for updateIt := range removeIt.ChildTx {
-			updateIt.UpdateParent(removeIt, false)
-		}
+func (m *TxMempool) delFromSortedContainer(entries map[*TxEntry]struct{}) {
+	for entry := range entries {
+		m.timeSortData.Delete(entry)
+		m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(entry))
 	}
+}
 
-	for removeIt := range entriesToRemove {
-		ancestors, err := m.CalculateMemPoolAncestors(removeIt.Tx, nNoLimit, nNoLimit, nNoLimit, nNoLimit, true)
-		if err != nil {
-			return
+func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]struct{}, updateDescendants bool) {
+	noLimit := uint64(math.MaxUint64)
+
+	for entry := range entriesToRemove {
+		ancestors, _ := m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
+		var descendants  map[*TxEntry]struct{}
+		if updateDescendants {
+			descendants = m.CalculateDescendants(entry)
 		}
-		removeIt.UpdateChildOfParents(false)
-		m.updateAncestors(false, removeIt, ancestors)
+		entry.unassociateRelationship()
+
+		for anstor := range ancestors {
+			m.timeSortData.Delete(anstor)
+			m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(anstor))
+		}
+
+		m.delFromSortedContainer(ancestors)
+		m.delFromSortedContainer(descendants)
+
+		entry.statisticDecrease(ancestors, descendants)
+
+		m.addToSortedContainer(ancestors)
+		m.addToSortedContainer(descendants)
 	}
 }
 
