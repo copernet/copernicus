@@ -81,7 +81,7 @@ func ScriptVerifyInit() {
 	})
 }
 
-func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
+func CheckTxBeforeAcceptToMemPool(txn *tx.Tx, pool *mempool.TxMempool) (*mempool.TxEntry, error) {
 	if err := txn.CheckRegularTransaction(); err != nil {
 		return nil, err
 	}
@@ -101,16 +101,15 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx) (*mempool.TxEntry, error) {
 	}
 
 	// is mempool already have it? conflict tx with mempool
-	gPool := mempool.GetInstance()
-	gPool.RLock()
-	defer gPool.RUnlock()
-	if gPool.FindTx(txn.GetHash()) != nil {
+	pool.RLock()
+	defer pool.RUnlock()
+	if pool.FindTx(txn.GetHash()) != nil {
 		log.Debug("tx already known in mempool, hash: %s", txn.GetHash())
 		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
 	}
 
 	for _, e := range txn.GetIns() {
-		if gPool.HasSpentOut(e.PreviousOutPoint) {
+		if pool.HasSpentOut(e.PreviousOutPoint) {
 			log.Debug("tx ins alread spent out in mempool")
 			return nil, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict")
 		}

@@ -19,7 +19,8 @@ import (
 )
 
 func AcceptTxToMemPool(txn *tx.Tx) error {
-	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	pool := mempool.GetInstance()
+	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		return err
 	}
