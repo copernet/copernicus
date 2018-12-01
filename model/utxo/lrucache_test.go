@@ -223,3 +223,46 @@ func TestCoinsLruCache_GetCoinsDB(t *testing.T) {
 	cdb := GetUtxoCacheInstance().(*CoinsLruCache).GetCoinsDB()
 	assert.NotNil(t, cdb)
 }
+
+func TestAccessByTxid(t *testing.T) {
+	conf.Cfg = conf.InitConfig([]string{})
+	testDataDir, err := conf.SetUnitTestDataDir(conf.Cfg)
+	if err != nil {
+		fmt.Print("init test directory failed")
+		os.Exit(1)
+	}
+	defer os.RemoveAll(testDataDir)
+	uc := &UtxoConfig{Do: &db.DBOption{
+		FilePath:  conf.Cfg.DataDir,
+		CacheSize: 1 << 20,
+	}}
+	InitUtxoLruTip(uc)
+
+	necm := NewEmptyCoinsMap()
+	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
+	outpoint1 := outpoint.OutPoint{Hash: *hash1, Index: 0}
+	outpoint2 := outpoint.OutPoint{Hash: *hash1, Index: 1}
+
+	script1 := script.NewScriptRaw([]byte{opcodes.OP_11, opcodes.OP_EQUAL})
+	txout1 := txout.NewTxOut(3, script1)
+
+	coin1 := NewFreshCoin(txout1, 10000, false)
+
+	necm.AddCoin(&outpoint1, coin1, true)
+	necm.AddCoin(&outpoint2, coin1, true)
+
+	err = GetUtxoCacheInstance().UpdateCoins(necm, hash1)
+	assert.Nil(t, err, "update coins failed")
+
+	b := GetUtxoCacheInstance().Flush()
+	assert.True(t, b, "flush error, the coin not flush to db..")
+
+	rCoin := GetUtxoCacheInstance().AccessByTxID(hash1)
+
+	unspendCoinFromDB := NewFreshCoin(txout1, 10000, false)
+	assert.Equal(t, unspendCoinFromDB.GetTxOut(), rCoin.GetTxOut())
+
+	hashUnKnown := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a0")
+	rCoin = GetUtxoCacheInstance().AccessByTxID(hashUnKnown)
+	assert.Nil(t, rCoin)
+}
