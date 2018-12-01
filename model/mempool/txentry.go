@@ -136,12 +136,12 @@ func (t *TxEntry) unassociateRelationship() {
 	for parent := range t.ParentTx {
 		parent.delChild(t)
 	}
-	t.ParentTx = nil
+	t.ParentTx = make(map[*TxEntry]struct{})
 
 	for child := range t.ChildTx {
 		child.delParent(t)
 	}
-	t.ChildTx = nil
+	t.ChildTx = make(map[*TxEntry]struct{})
 }
 
 

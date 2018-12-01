@@ -134,7 +134,10 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	parents := m.getParents(txEntry)
 
 	txEntry.associateRelationship(parents)
+
+	m.delFromSortedContainer(ancestors)
 	txEntry.statisticIncrease(ancestors)
+	m.addToSortedContainer(ancestors)
 
 	m.totalTxSize += uint64(txEntry.TxSize)
 	m.TransactionsUpdated++
@@ -371,6 +374,7 @@ func (m *TxMempool) trimToSize(sizeLimit int64) []*outpoint.OutPoint {
 
 		maxFeeRateRemove = util.NewFeeRateWithSize(removeIt.SumTxFeeWithDescendants, removeIt.SumTxSizeWithDescendants).SataoshisPerK
 		stage := m.CalculateDescendants((*TxEntry)(removeIt))
+		stage[(*TxEntry)(removeIt)] = struct{}{}
 		nTxnRemoved += len(stage)
 		txn := make([]*tx.Tx, 0, len(stage))
 		for iter := range stage {
@@ -445,7 +449,6 @@ func (m *TxMempool) removeConflicts(tx *tx.Tx) {
 	}
 }
 
-
 func (m *TxMempool) addToSortedContainer(entries map[*TxEntry]struct{}) {
 	for entry := range entries {
 		m.timeSortData.ReplaceOrInsert(entry)
@@ -470,11 +473,6 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 			descendants = m.CalculateDescendants(entry)
 		}
 		entry.unassociateRelationship()
-
-		for anstor := range ancestors {
-			m.timeSortData.Delete(anstor)
-			m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(anstor))
-		}
 
 		m.delFromSortedContainer(ancestors)
 		m.delFromSortedContainer(descendants)
@@ -510,8 +508,10 @@ func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 		}
 	}
 
-	for entry := range txToRemove {
-		m.RemoveStaged(m.CalculateDescendants(entry), false, reason)
+	for e := range txToRemove {
+		stage := m.CalculateDescendants(e)
+		stage[e] = struct{}{}
+		m.RemoveStaged(stage, false, reason)
 	}
 }
 
