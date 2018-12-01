@@ -340,25 +340,46 @@ func TestTxMempool_GetCheckFrequency(t *testing.T) {
 
 func TestTxMempool_PoolData(t *testing.T) {
 	set := createTx()
-	hash1 := set[0].Tx.GetHash()
+	hash0 := set[0].Tx.GetHash()
+	hash1 := set[1].Tx.GetHash()
 	hash2 := set[2].Tx.GetHash()
-	hash3 := set[1].Tx.GetHash()
-	hash4 := set[3].Tx.GetHash()
+	hash3 := set[3].Tx.GetHash()
 
+	nolimit := uint64(math.MaxUint64)
 	mp := NewTxMempool()
-	mp.poolData[hash1] = set[0]
-	mp.poolData[hash2] = set[1]
-	mp.poolData[hash3] = set[2]
-	mp.poolData[hash4] = set[3]
+	// mp.poolData[hash1] = set[0]
+	// mp.poolData[hash2] = set[1]
+	// mp.poolData[hash3] = set[2]
+	// mp.poolData[hash4] = set[3]
+	ancestors, _ := mp.CalculateMemPoolAncestors(set[0].Tx, nolimit, nolimit,
+		nolimit, nolimit, true)
+	mp.AddTx(set[0], ancestors)
 
+	ancestors, _ = mp.CalculateMemPoolAncestors(set[1].Tx, nolimit, nolimit,
+		nolimit, nolimit, true)
+	mp.AddTx(set[1], ancestors)
+
+	ancestors, _ = mp.CalculateMemPoolAncestors(set[2].Tx, nolimit, nolimit,
+		nolimit, nolimit, true)
+	mp.AddTx(set[2], ancestors)
+
+	ancestors, _ = mp.CalculateMemPoolAncestors(set[3].Tx, nolimit, nolimit,
+		nolimit, nolimit, true)
+	mp.AddTx(set[3], ancestors)
+
+	txentry0 := mp.FindTx(hash0)
+	assert.Equal(t, txentry0, set[0])
+	
 	txentry1 := mp.FindTx(hash1)
-	assert.Equal(t, txentry1, set[0])
+
+	assert.Equal(t, txentry1, set[1])
+
 	txentry2 := mp.FindTx(hash2)
-	assert.Equal(t, txentry2, set[1])
+	assert.Equal(t, txentry2, set[2])
+
 	txentry3 := mp.FindTx(hash3)
-	assert.Equal(t, txentry3, set[2])
-	txentry4 := mp.FindTx(hash4)
-	assert.Equal(t, txentry4, set[3])
+	assert.Equal(t, txentry3, set[3])
+
 
 	res := mp.GetAllTxEntryWithoutLock()
 	assert.Equal(t, res, mp.poolData)
@@ -368,11 +389,13 @@ func TestTxMempool_PoolData(t *testing.T) {
 
 	res2 := mp.CalculateMemPoolAncestorsWithLock(&hash2)
 	tmpRes2 := make(map[*TxEntry]struct{})
-	assert.Equal(t, res2, tmpRes2)
 
+	assert.Equal(t, res2, tmpRes2)
+	return 
 	res3 := mp.CalculateDescendantsWithLock(&hash2)
 	tmpRes3 := make(map[*TxEntry]struct{})
 	tmpRes3[set[1]] = struct{}{}
+	fmt.Printf("res3=%v, tmpRes3=%v\n", res3, tmpRes3)
 	assert.Equal(t, res3, tmpRes3)
 }
 
