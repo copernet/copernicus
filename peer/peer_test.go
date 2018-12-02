@@ -275,7 +275,7 @@ func initEnv() {
 var myserver *server.Server
 
 func initServer() (*server.Server, error) {
-	timeSource := util.GetGlobalMedianTime()
+	timeSource := util.GetMedianTimeSource()
 	s, err := server.NewServer(model.ActiveNetParams, timeSource, nil)
 	if err != nil {
 		return nil, err
@@ -327,8 +327,8 @@ func TestPeerConnection(t *testing.T) {
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
 		wantTimeOffset:      int64(0),
-		wantBytesSent:       188, // 140 version + 24 verack + 24 sendheadersmsg
-		wantBytesReceived:   188,
+		wantBytesSent:       185, // 137 version + 24 verack + 24 sendheadersmsg
+		wantBytesReceived:   185,
 	}
 	wantStats2 := peerStats{
 		wantUserAgent:       "/peer:1.0(EB32.0; comment)/",
@@ -342,8 +342,8 @@ func TestPeerConnection(t *testing.T) {
 		wantLastPingNonce:   uint64(0),
 		wantLastPingMicros:  int64(0),
 		wantTimeOffset:      int64(0),
-		wantBytesSent:       188, // 140 version + 24 verack + 24 sendheadersmsg
-		wantBytesReceived:   188,
+		wantBytesSent:       185, // 137 version + 24 verack + 24 sendheadersmsg
+		wantBytesReceived:   185,
 	}
 
 	tests := []struct {
