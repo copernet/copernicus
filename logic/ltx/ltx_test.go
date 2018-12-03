@@ -1282,7 +1282,7 @@ func givenDustRelayFeeLimits(minRelayFee int64) {
 func Test_coinbase_tx_should_not_be_accepted_into_mempool(t *testing.T) {
 	txn := tx.NewGenesisCoinbaseTx()
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 
 	assertError(err, errcode.RejectInvalid, "bad-tx-coinbase", t)
 }
@@ -1291,7 +1291,7 @@ func Test_non_standard_tx_should_not_be_accepted_into_mempool(t *testing.T) {
 	model.ActiveNetParams.RequireStandard = true
 	txnWithInvalidVersion := mainNetTx(0)
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txnWithInvalidVersion)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txnWithInvalidVersion, mempool.GetInstance())
 	assertError(err, errcode.RejectNonstandard, "version", t)
 }
 
@@ -1300,7 +1300,7 @@ func Test_dust_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 
 	givenDustRelayFeeLimits(int64(txn.GetValueOut() - 1))
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	assertError(err, errcode.RejectNonstandard, "dust", t)
 }
 
@@ -1477,7 +1477,7 @@ func Test_tx_with_too_much_opreturn_data_should_NOT_be_accepted_into_mempool(t *
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
 	txn.GetOuts()[0].SetScriptPubKey(scriptPK)
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "scriptpubkey"), err)
 }
 
@@ -1487,7 +1487,7 @@ func Test_not_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	blocks := generateTestBlocks(t)
 	txn := makeNotFinalTx(blocks[0].Txs[0].GetHash())
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	assertError(err, errcode.RejectInvalid, "bad-txns-nonfinal", t)
 }
 
@@ -1509,7 +1509,7 @@ func Test_tx_with_total_too_large_output_should_NOT_be_accepted_into_mempool(t *
 	blocks := generateTestBlocks(t)
 	txn := txWithInvalidOutputValue(blocks[0].Txs[0].GetHash())
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-txouttotal-toolarge"), err)
 }
 
@@ -1540,7 +1540,7 @@ func Test_normal_tx_should_be_accepted_into_mempool_____without_influence_of_pre
 	blocks := generateTestBlocks(t)
 
 	txn := makeTxWith2ErrorIns(blocks, script.NewEmptyScript())
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	expectedErr := errcode.NewError(errcode.RejectNonstandard, "non-mandatory-script-verify-flag (Script did not clean its stack)")
 	assert.Equal(t, expectedErr, err)
 
@@ -1549,7 +1549,7 @@ func Test_normal_tx_should_be_accepted_into_mempool_____without_influence_of_pre
 
 func assert_normal_tx_should_be_accepted_into_mempool(blocks []*block.Block, t *testing.T) {
 	okTx := makeNormalTx(blocks[0].Txs[0].GetHash())
-	_, err2 := ltx.CheckTxBeforeAcceptToMemPool(okTx)
+	_, err2 := ltx.CheckTxBeforeAcceptToMemPool(okTx, mempool.GetInstance())
 	assert.NoError(t, err2)
 }
 
@@ -1561,7 +1561,7 @@ func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 	err := lmempool.AcceptTxToMemPool(txn)
 	assert.NoError(t, err)
 
-	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	assert.Equal(t, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool"), err)
 }
 
@@ -1574,7 +1574,7 @@ func Test_tx_with_already_spent_prev_outpoint_should_NOT_be_accepted_into_mempoo
 	assert.NoError(t, err)
 
 	newTx := makeUniqueNormalTx(blocks[0].Txs[0].GetHash(), 1)
-	_, err = ltx.CheckTxBeforeAcceptToMemPool(newTx)
+	_, err = ltx.CheckTxBeforeAcceptToMemPool(newTx, mempool.GetInstance())
 	assert.Equal(t, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict"), err)
 }
 
@@ -1699,7 +1699,7 @@ func Test_tx_spend_premature_coinbase_should_NOT_be_accepted_into_mempool(t *tes
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[len(blocks)-1].Txs[0].GetHash())
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 	assert.Equal(t, errcode.NewError(errcode.RejectInvalid, "bad-txns-premature-spend-of-coinbase"), err)
 }
 
@@ -1794,7 +1794,7 @@ func Test_tx_script_with_non_clean_stack_after_eval__should_not_be_accepted_into
 	blocks := generateTestBlocksWithPK(t, scriptPK)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
 
-	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn)
+	_, err := ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
 
 	expectedErr := errcode.NewError(errcode.RejectNonstandard,
 		"non-mandatory-script-verify-flag (Script did not clean its stack)")
