@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
 
-go build .
-go build ./tools/coperctl
-
-go install
-go install ./tools/coperctl
+go install -i -gcflags='all=-N -l' .
+go install -i -gcflags='all=-N -l' ./tools/coperctl
