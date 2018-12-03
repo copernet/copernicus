@@ -355,9 +355,9 @@ func TestSyncManager_handleBlockchainNotification(t *testing.T) {
 	}
 	sm.handleBlockchainNotification(notification)
 
-	//test NTBlockAccepted, NTBlockConnected, NTBlockDisconnected
+	//test NTNewPoWValidBlock, NTBlockConnected, NTBlockDisconnected
 	blk := getBlock(blk1str)
-	notificationTypes := []chain.NotificationType{chain.NTBlockAccepted, chain.NTBlockDisconnected, chain.NTBlockConnected}
+	notificationTypes := []chain.NotificationType{chain.NTNewPoWValidBlock, chain.NTBlockDisconnected, chain.NTBlockConnected}
 
 	for _, notificationType := range notificationTypes {
 		notification = &chain.Notification{
