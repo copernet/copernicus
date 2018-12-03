@@ -468,7 +468,7 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 
 	for entry := range entriesToRemove {
 		ancestors, _ := m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, false)
-		var descendants  map[*TxEntry]struct{}
+		var descendants map[*TxEntry]struct{}
 		if updateDescendants {
 			descendants = m.CalculateDescendants(entry)
 		}
@@ -552,7 +552,6 @@ func (m *TxMempool) updateNextTx(txEntry *TxEntry) {
 	for _, in := range txEntry.Tx.GetIns() {
 		m.nextTx[*in.PreviousOutPoint] = txEntry
 	}
-	return
 }
 
 func (m *TxMempool) getParents(txEntry *TxEntry) map[util.Hash]*TxEntry {
@@ -666,7 +665,10 @@ func (m *TxMempool) delTxentry(removeEntry *TxEntry, reason PoolRemovalReason) {
 	// todo add signal for any subscriber
 
 	for _, preout := range removeEntry.Tx.GetAllPreviousOut() {
-		delete(m.nextTx, preout)
+		if txe, ok := m.nextTx[preout]; ok && txe.Tx.GetHash() == removeEntry.Tx.GetHash() {
+			delete(m.nextTx, preout)
+		}
+
 	}
 
 	if _, ok := m.rootTx[removeEntry.Tx.GetHash()]; ok {

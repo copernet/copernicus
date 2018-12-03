@@ -47,11 +47,13 @@ type StatisInformation struct {
 	SumTxSigOpCountWithAncestors int64
 	SumTxFeeWithAncestors        int64
 }
+
 // statisticAddEntry
 func (t *TxEntry) statisticIncrease(ancestors map[*TxEntry]struct{}) {
 	t.UpdateAncestorState(statisticSum(ancestors))
 	statisticIncrementalUpdateDescendant(ancestors, 1, t.TxSize, t.TxFee)
 }
+
 // statisticDelEntry
 func (t *TxEntry) statisticDecrease(ancestors map[*TxEntry]struct{}, descendants map[*TxEntry]struct{}) {
 	for antor := range ancestors {
@@ -105,7 +107,6 @@ func (t *TxEntry) GetTime() int64 {
 	return t.time
 }
 
-
 func (t *TxEntry) addParent(parent *TxEntry) {
 	t.ParentTx[parent] = struct{}{}
 }
@@ -143,8 +144,6 @@ func (t *TxEntry) unassociateRelationship() {
 	}
 	t.ChildTx = make(map[*TxEntry]struct{})
 }
-
-
 
 func (t *TxEntry) UpdateChild(child *TxEntry, add bool) {
 	if add {

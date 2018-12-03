@@ -377,7 +377,6 @@ func TestTxMempool_PoolData(t *testing.T) {
 	txentry3 := mp.FindTx(hash3)
 	assert.Equal(t, txentry3, set[3])
 
-
 	res := mp.GetAllTxEntryWithoutLock()
 	assert.Equal(t, res, mp.poolData)
 
