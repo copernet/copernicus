@@ -10,7 +10,7 @@ import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/ltx"
-	//"github.com/copernet/copernicus/model/consensus"
+	"github.com/copernet/copernicus/model/consensus"
 	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/tx"
@@ -20,14 +20,13 @@ import (
 
 func AcceptTxToMemPool(txn *tx.Tx) error {
 	pool := mempool.GetInstance()
-	pool.Lock()
-	defer pool.Unlock()
 
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		return err
 	}
-
+	pool.Lock()
+	defer pool.Unlock()
 	return addTxToMemPool(pool, txEntry)
 }
 
@@ -106,94 +105,79 @@ func RemoveTxSelf(txs []*tx.Tx) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxSelf(txs)
 }
+
+// func RemoveForReorg(nMemPoolHeight int32, flag int) {
+// 	newPool := mempool.NewTxMempool()
+// 	oldPool := mempool.GetInstance()
+// 	log.Debug("RemoveForReorg start")
+// 	mempool.SetInstance(newPool)
+// 	for _, txentry := range oldPool.GetAllTxEntry() {
+// 		txn := txentry.Tx
+// 		err := AcceptTxToMemPool(txn)
+// 		if err == nil {
+// 			accepttxn, _ := TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
+// 			log.Debug("RemoveForReorg move %v to mempool", append(accepttxn, txn))
+// 			if !newPool.HaveTransaction(txn) {
+// 				log.Error("the tx:%s not exist mempool", txn.GetHash().String())
+// 				return
+// 			}
+// 		} else {
+// 			if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
+// 				newPool.AddOrphanTx(txn, 0)
+// 			}
+// 		}
+// 	}
+// 	newPool.CleanOrphan()
+// 	CheckMempool(nMemPoolHeight - 1)
+// 	log.Debug("RemoveForReorg end")
+// }
+
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
-	newPool := mempool.NewTxMempool()
-	oldPool := mempool.GetInstance()
-	log.Debug("RemoveForReorg start")
-	mempool.SetInstance(newPool)
-	for _, txentry := range oldPool.GetAllTxEntry() {
-		txn := txentry.Tx
-		err := AcceptTxToMemPool(txn)
-		if err == nil {
-			accepttxn, _ := TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
-			log.Debug("RemoveForReorg move %v to mempool", append(accepttxn, txn))
-			if !newPool.HaveTransaction(txn) {
-				log.Error("the tx:%s not exist mempool", txn.GetHash().String())
-				return
-			}
-		} else {
-			if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
-				newPool.AddOrphanTx(txn, 0)
+	view := utxo.GetUtxoCacheInstance()
+	pool := mempool.GetInstance()
+	pool.Lock()
+	defer pool.Unlock()
+
+	// Remove transactions spending a coinbase which are now immature and
+	// no-longer-final transactions
+	txToRemove := make(map[*mempool.TxEntry]struct{})
+	allEntry := pool.GetAllTxEntryWithoutLock()
+	for _, entry := range allEntry {
+		tmpTx := entry.Tx
+
+		lp := entry.GetLockPointFromTxEntry()
+		if ltx.ContextualCheckTransactionForCurrentBlock(tmpTx, flag) != nil ||
+			!ltx.CheckSequenceLocks(lp.Height, lp.Time) {
+			txToRemove[entry] = struct{}{}
+		} else if entry.GetSpendsCoinbase() {
+			for _, preout := range tmpTx.GetAllPreviousOut() {
+				if _, ok := allEntry[preout.Hash]; ok {
+					continue
+				}
+
+				coin := view.GetCoin(&preout)
+				if pool.GetCheckFrequency() != 0 {
+					if coin.IsSpent() {
+						panic("the coin must be unspent")
+					}
+				}
+
+				if coin.IsSpent() || (coin.IsCoinBase() &&
+					nMemPoolHeight-coin.GetHeight() < consensus.CoinbaseMaturity) {
+					txToRemove[entry] = struct{}{}
+					break
+				}
 			}
 		}
+		entry.SetLockPointFromTxEntry(lp)
 	}
-	newPool.CleanOrphan()
-	CheckMempool(nMemPoolHeight - 1)
-	log.Debug("RemoveForReorg end")
+
+	for it := range txToRemove {
+		staged := pool.CalculateDescendants(it)
+		staged[it] = struct{}{}
+		pool.RemoveStaged(staged, false, mempool.REORG)
+	}
 }
-
-// func RemoveForReorg2(nMemPoolHeight int32, flag int) {
-// 	view := utxo.GetUtxoCacheInstance()
-// 	pool := mempool.GetInstance()
-// 	pool.Lock()
-// 	defer pool.Unlock()
-
-// 	// Remove transactions spending a coinbase which are now immature and
-// 	// no-longer-final transactions
-// 	txToRemove := make(map[*mempool.TxEntry]struct{})
-// 	allEntry := pool.GetAllTxEntryWithoutLock()
-// 	for _, entry := range allEntry {
-// 		tmpTx := entry.Tx
-// 		allPreout := tmpTx.GetAllPreviousOut()
-// 		coins := make([]*utxo.Coin, len(allPreout))
-// 		for i, preout := range allPreout {
-// 			if coin := view.GetCoin(&preout); coin != nil {
-// 				coins[i] = coin
-// 			} else {
-// 				if coin := pool.GetCoin(&preout); coin != nil {
-// 					coins[i] = coin
-// 				} else {
-// 					panic("the transaction in mempool, not found its parent " +
-// 						"transaction in local node and utxo")
-// 				}
-// 			}
-// 		}
-// 		tlp := ltx.CalculateLockPoints(tmpTx, uint32(flag))
-// 		if tlp == nil {
-// 			panic("nil lockpoint, the transaction has no preout")
-// 		}
-// 		if ltx.ContextualCheckTransactionForCurrentBlock(tmpTx, flag) != nil ||
-// 			!ltx.CheckSequenceLocks(tlp.Height, tlp.Time) {
-// 			txToRemove[entry] = struct{}{}
-// 		} else if entry.GetSpendsCoinbase() {
-// 			for _, preout := range tmpTx.GetAllPreviousOut() {
-// 				if _, ok := allEntry[preout.Hash]; ok {
-// 					continue
-// 				}
-
-// 				coin := view.GetCoin(&preout)
-// 				if pool.GetCheckFrequency() != 0 {
-// 					if coin.IsSpent() {
-// 						panic("the coin must be unspent")
-// 					}
-// 				}
-
-// 				if coin.IsSpent() || (coin.IsCoinBase() &&
-// 					nMemPoolHeight-coin.GetHeight() < consensus.CoinbaseMaturity) {
-// 					txToRemove[entry] = struct{}{}
-// 					break
-// 				}
-// 			}
-// 		}
-// 		entry.SetLockPointFromTxEntry(*tlp)
-// 	}
-
-// 	allRemoves := make(map[*mempool.TxEntry]struct{})
-// 	for it := range txToRemove {
-// 		pool.CalculateDescendants(it, allRemoves)
-// 	}
-// 	pool.RemoveStaged(allRemoves, false, mempool.REORG)
-// }
 
 func updateCoins(coinsMap *utxo.CoinsMap, trax *tx.Tx) {
 	isCoinBase := trax.IsCoinBase()
