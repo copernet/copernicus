@@ -20,24 +20,23 @@ import (
 
 func AcceptTxToMemPool(txn *tx.Tx) error {
 	pool := mempool.GetInstance()
+	pool.Lock()
+	defer pool.Unlock()
+
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		return err
 	}
 
-	return addTxToMemPool(txEntry)
+	return addTxToMemPool(pool, txEntry)
 }
 
-func addTxToMemPool(txe *mempool.TxEntry) error {
-	pool := mempool.GetInstance()
-
+func addTxToMemPool(pool *mempool.TxMempool, txe *mempool.TxEntry) error {
 	ancestorNum := conf.Cfg.Mempool.LimitAncestorCount
 	ancestorSize := conf.Cfg.Mempool.LimitAncestorSize
 	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
 	descendantSize := conf.Cfg.Mempool.LimitDescendantSize
 
-	pool.Lock()
-	defer pool.Unlock()
 	ancestors, err := pool.CalculateMemPoolAncestors(txe.Tx, uint64(ancestorNum), uint64(ancestorSize*1000),
 		uint64(descendantNum), uint64(descendantSize*1000), true)
 
