@@ -721,7 +721,7 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 // list of blocks to be downloaded based on the current known headers.
 // Download blocks via several peers parallel
 func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
-	log.Debug("now %d requestedBlocks", len(sm.requestedBlocks))
+	//log.Debug("now %d requestedBlocks", len(sm.requestedBlocks))
 	if !sm.isSyncCandidate(peer) {
 		log.Info("peer(%d)%s not a sync candidate, forgive fetch", peer.ID(), peer.Addr())
 		return
