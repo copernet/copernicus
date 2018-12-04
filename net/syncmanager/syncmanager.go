@@ -1224,6 +1224,10 @@ func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 
 func (sm *SyncManager) scanToFetchHeaderBlocks() {
 	for peer, state := range sm.peerStates {
+		if !state.syncCandidate {
+			continue
+		}
+
 		// detect whether we're stalling the concurrent download window
 		now := time.Now().UnixNano() / 1000
 		stallsince := peer.GetStallingSince()
