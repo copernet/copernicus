@@ -400,8 +400,11 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 		} else {
 			index = index.GetAncestor(height)
 		}
-		log.Trace("GetLocator contain hash : %s, height : %d .",
-			index.GetBlockHash(), index.Height)
+
+		if len(blockHashList) < 2 {
+			log.Trace("GetLocator from hash : %s, height : %d .",
+				index.GetBlockHash(), index.Height)
+		}
 		if len(blockHashList) > 10 {
 			step *= 2
 		}
