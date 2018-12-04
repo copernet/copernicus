@@ -96,6 +96,7 @@ var allMethodHelp = map[string]helpDescInfo{
 	"getexcessiveblock":  {DebugCmd, getexcessiveblockDesc},
 	"setexcessiveblock":  {DebugCmd, setexcessiveblockDesc},
 	"waitforblockheight": {DebugCmd, waitforblockheightDesc},
+	"waitforblock":       {DebugCmd, waitforblockDesc},
 	"echo":               {DebugCmd, echoDesc},
 
 	"getnewaddress":      {WalletCmd, getnewaddressDesc},

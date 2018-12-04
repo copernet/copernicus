@@ -951,7 +951,39 @@ func handleWaitForNewBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 }
 
 func handleWaitForBlock(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
-	return nil, nil
+	c, ok := cmd.(*btcjson.WaitForBlockCmd)
+	bkHash, err := util.GetHashFromStr(*c.BlockHash)
+	if !ok || err != nil {
+		return nil, btcjson.NewRPCError(btcjson.RPCInvalidParameter, "malformed request")
+	}
+
+	timeout := *c.Timeout
+	if timeout == 0 {
+		//0 indicates no timeout.
+		timeout = math.MaxInt32
+	}
+
+	timeEnd := time.Now().Add(time.Duration(timeout) * time.Second)
+	gchain := chain.GetInstance()
+	ret := &btcjson.WaitForBlockHeightResult{}
+
+	for {
+		if time.Now().After(timeEnd) {
+			ret.Hash = gchain.Tip().GetBlockHash().String()
+			ret.Height = gchain.TipHeight()
+			return ret, nil
+		}
+
+		chainTip := gchain.Tip()
+		tipHash := chainTip.GetBlockHash()
+		if tipHash == bkHash {
+			ret.Hash = *c.BlockHash
+			ret.Height = chainTip.Height
+			return ret, nil
+		}
+
+		time.Sleep(time.Nanosecond)
+	}
 }
 
 func handleWaitForBlockHeight(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {

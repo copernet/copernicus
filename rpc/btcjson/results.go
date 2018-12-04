@@ -633,6 +633,11 @@ type WaitForBlockHeightResult struct {
 	Height int32  `json:"height"`
 }
 
+type WaitForBlockResult struct {
+	Hash   string `json:"hash"`
+	Height int32  `json:"height"`
+}
+
 type ListUnspentResult struct {
 	TxID          string  `json:"txid"`
 	Vout          uint32  `json:"vout"`

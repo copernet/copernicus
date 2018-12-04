@@ -621,6 +621,23 @@ var (
 		"\nExamples:\n" +
 		HelpExampleCli("waitforblockheight", "\"height\"") +
 		HelpExampleRPC("waitforblockheight", "\"height\"")
+
+	waitforblockDesc = "waitforblock <blockhash> (timeout)\n" +
+		"\nWaits for a specific new block and returns useful info about " +
+		"it.\n" +
+		"\nReturns the current block on timeout or exit.\n" +
+		"\nArguments:\n" +
+		"1. \"blockhash\" (required, string) Block hash to wait for.\n" +
+		"2. timeout       (int, optional, default=0) Time in milliseconds " +
+		"to wait for a response. 0 indicates no timeout.\n" +
+		"\nResult:\n" +
+		"{                           (json object)\n" +
+		"  \"hash\" : {       (string) The blockhash\n" +
+		"  \"height\" : {     (int) Block height\n" +
+		"}\n" +
+		"\nExamples:\n" +
+		HelpExampleCli("waitforblock", "\"blockhash\"") +
+		HelpExampleRPC("waitforblock", "\"blockhash\"")
 )
 
 //mining

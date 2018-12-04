@@ -68,6 +68,11 @@ func InitGlobalChain() {
 	}
 }
 
+// Close FIXME: this is only for test. We must do it in a graceful way
+func Close() {
+	globalChain = nil
+}
+
 func NewChain() *Chain {
 	c := &Chain{}
 	c.params = model.ActiveNetParams

@@ -864,6 +864,18 @@ func NewWaitForBlockHeightCmd(height int32, timeout *int) *WaitForBlockHeightCmd
 	}
 }
 
+type WaitForBlockCmd struct {
+	BlockHash *string `json:"height"`
+	Timeout   *int    `json:"timeout" jsonrpcdefault:"0"`
+}
+
+func NewWaitForBlockCmd(blockhash *string, timeout *int) *WaitForBlockCmd {
+	return &WaitForBlockCmd{
+		BlockHash: blockhash,
+		Timeout:   timeout,
+	}
+}
+
 // GetNewAddressCmd defines the getnewaddress JSON-RPC command.
 type GetNewAddressCmd struct {
 	Account *string `json:"account" jsonrpcdefault:"\"\""`
@@ -1088,6 +1100,7 @@ func init() {
 	MustRegisterCmd("estimatefee", (*EstimateFeeCmd)(nil), flags)
 
 	MustRegisterCmd("waitforblockheight", (*WaitForBlockHeightCmd)(nil), flags)
+	MustRegisterCmd("waitforblock", (*WaitForBlockCmd)(nil), flags)
 	MustRegisterCmd("echo", (*EchoCmd)(nil), flags)
 
 	MustRegisterCmd("getnewaddress", (*GetNewAddressCmd)(nil), flags)
