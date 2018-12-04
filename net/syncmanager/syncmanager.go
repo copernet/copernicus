@@ -287,7 +287,6 @@ func (sm *SyncManager) startSync() {
 		// have one soon so it is a reasonable choice.  It also allows
 		// the case where both are at 0 such as during regression test.
 		if peer.LastBlock() < best.Height {
-			state.syncCandidate = false
 			continue
 		}
 
