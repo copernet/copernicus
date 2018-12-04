@@ -42,7 +42,6 @@ func newCoinsLruCache(db CoinsDB) CacheView {
 func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	c, ok := coinsCache.cacheCoins.Get(*outpoint)
 	if ok {
-		log.Info("getCoin from cache")
 		return c.(*Coin)
 	}
 	db := coinsCache.db
