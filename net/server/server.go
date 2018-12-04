@@ -661,7 +661,9 @@ func (sp *serverPeer) doGetData(msg *wire.MsgGetData, done chan<- struct{}) {
 	// bursts of small requests are not penalized as that would potentially ban
 	// peers performing IBD.
 	// This incremental score decays each minute to half of its value.
-	sp.addBanScore(0, uint32(length)*99/wire.MaxInvPerMsg, "getdata")
+	if score := uint32(length) * 99 / wire.MaxInvPerMsg; score != 0 {
+		sp.addBanScore(0, score, "getdata")
+	}
 
 	// We wait on this wait channel periodically to prevent queuing
 	// far more data than we can send in a reasonable time, wasting memory.

@@ -1586,32 +1586,25 @@ func TestServer_OnGetHeaders_hasheader(t *testing.T) {
 	sp.OnGetHeaders(nil, msg)
 }
 
-func TestServer_addBanScore_ignore_whitelist(t *testing.T) {
+func TestServer_addBanScore(t *testing.T) {
+	//test whitelist
 	sp := newServerPeer(s, false)
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), true)
 	sp.addBanScore(88, 88, "testban")
-
 	assert.Equal(t, uint32(0), sp.banScore.Int())
-}
 
-func TestServer_addBanScore_ignore_disable(t *testing.T) {
+	//test zero
 	p := &peer.Peer{}
-	sp := newServerPeer(s, false)
+	sp = newServerPeer(s, false)
 	sp.Peer = p
-	conf.Cfg.P2PNet.DisableBanning = true
-	sp.addBanScore(88, 88, "testban")
-
-	assert.Equal(t, uint32(0), sp.banScore.Int())
-}
-
-func TestServer_addBanScore_zero(t *testing.T) {
-	p := &peer.Peer{}
-	sp := newServerPeer(s, false)
-	sp.Peer = p
-	conf.Cfg.P2PNet.DisableBanning = false
 	sp.addBanScore(111, 111, "testban")
 	assert.Equal(t, uint32(222), sp.banScore.Int())
 	sp.addBanScore(0, 0, "testban")
+	assert.Equal(t, uint32(222), sp.banScore.Int())
+
+	//test ignore disable
+	conf.Cfg.P2PNet.DisableBanning = true
+	sp.addBanScore(88, 88, "testban")
 	assert.Equal(t, uint32(222), sp.banScore.Int())
 }
 
