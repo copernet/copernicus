@@ -10,6 +10,7 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
@@ -204,7 +205,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 		currentTip := gChain.Tip()
 		lmempool.RemoveForReorg(currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
 	}
-	lmempool.CheckMempool(chain.GetInstance().Height())
+	lmempool.CheckMempool(mempool.GetInstance(), chain.GetInstance().Height())
 	return nil
 }
 

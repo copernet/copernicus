@@ -499,7 +499,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 		// Ensure the transaction is in the orphan pool, is not in the
 		// transaction pool, and is reported as available.
 		testPoolMembership(tc, tx, true, false)
-		lmempool.CheckMempool(harness.chain.BestHeight())
+		lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
 	}
 
 	// Add the transaction which completes the orphan chain and ensure they
@@ -514,14 +514,14 @@ func TestSimpleOrphanChain(t *testing.T) {
 		t.Fatalf("ProcessTransaction: failed to accept valid "+
 			"orphan %v", err)
 	}
-	lmempool.CheckMempool(harness.chain.BestHeight())
+	lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
 	acceptedTxns, _ := lmempool.TryAcceptOrphansTxs(chainedTxns[0], harness.chain.BestHeight(), false)
 	if len(acceptedTxns) != len(chainedTxns)-1 {
 		t.Fatalf("ProcessTransaction: reported accepted transactions "+
 			"length does not match expected -- got %d, want %d",
 			len(acceptedTxns), len(chainedTxns))
 	}
-	lmempool.CheckMempool(harness.chain.BestHeight())
+	lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
 	for _, tx := range acceptedTxns {
 		// Ensure the transaction is no longer in the orphan pool, is
 		// now in the transaction pool, and is reported as available.
@@ -969,7 +969,7 @@ func TestCheckSpend(t *testing.T) {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tx.GetHash(), err)
 		}
-		lmempool.CheckMempool(harness.chain.BestHeight())
+		lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
 	}
 
 	// The first tx in the chain should be the spend of the spendable
@@ -1004,7 +1004,7 @@ func TestCheckSpend(t *testing.T) {
 	if spend != nil {
 		t.Fatalf("Unexpeced spend found in pool: %v", spend)
 	}
-	lmempool.CheckMempool(harness.chain.BestHeight())
+	lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
 	// utxo.Close()
 	// mmempool.Close()
 	// os.RemoveAll("/tmp/dbtest")

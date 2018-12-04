@@ -210,10 +210,9 @@ func haveInputs(coinsMap *utxo.CoinsMap, trax *tx.Tx) bool {
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
 // nothing.
-func CheckMempool(bestHeight int32) {
-	spentHeight := bestHeight + 1
+func CheckMempool(pool *mempool.TxMempool, bestChainHeight int32) {
+	spentHeight := bestChainHeight + 1
 	view := utxo.GetUtxoCacheInstance()
-	pool := mempool.GetInstance()
 	pool.RLock()
 	defer pool.RUnlock()
 

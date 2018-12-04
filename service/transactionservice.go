@@ -27,7 +27,7 @@ func HandleRejectedTx(txn *tx.Tx, err error, nodeID int64, recentRejects map[uti
 func ProcessTransaction(txn *tx.Tx, recentRejects map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
 	err := lmempool.AcceptTxToMemPool(txn)
 	if err == nil {
-		lmempool.CheckMempool(chain.GetInstance().Height())
+		lmempool.CheckMempool(mempool.GetInstance(), chain.GetInstance().Height())
 		acceptedOrphans, rejectTxs := lmempool.TryAcceptOrphansTxs(txn, chain.GetInstance().Height(), true)
 		pool := mempool.GetInstance()
 		if !pool.HaveTransaction(txn) {
