@@ -485,6 +485,12 @@ func (sp *serverPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) {
 	sp.server.AddPeer(sp)
 }
 
+// OnVerAck is invoked when a peer recv VerAck msg,
+// After then, add the peer to syncManager.
+func (sp *serverPeer) OnVerAck(p *peer.Peer, msg *wire.MsgVerAck) {
+	sp.server.syncManager.NewPeer(p)
+}
+
 // OnMemPool is invoked when a peer receives a mempool bitcoin message.
 // It creates and sends an inventory message with the contents of the memory
 // pool up to the maximum inventory allowed per message.  When the peer has a
@@ -1913,6 +1919,7 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 	return &peer.Config{
 		Listeners: peer.MessageListeners{
 			OnVersion:    sp.OnVersion,
+			OnVerAck:     sp.OnVerAck,
 			OnMemPool:    sp.OnMemPool,
 			OnTx:         sp.OnTx,
 			OnBlock:      sp.OnBlock,
@@ -1960,7 +1967,6 @@ func (s *Server) inboundPeerConnected(conn net.Conn) {
 	isWhitelisted := isWhitelisted(conn.RemoteAddr())
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), isWhitelisted)
 	sp.AssociateConnection(conn, s.MsgChan, func(peer *peer.Peer) {
-		s.syncManager.NewPeer(peer)
 	})
 	go s.peerDoneHandler(sp)
 
@@ -2001,8 +2007,6 @@ func (s *Server) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) {
 		if addrManager.NeedMoreAddresses() && hasTimestamp {
 			sp.QueueMessage(wire.NewMsgGetAddr(), nil)
 		}
-
-		s.syncManager.NewPeer(peer)
 	})
 	go s.peerDoneHandler(sp)
 	s.addrManager.Attempt(sp.NA())

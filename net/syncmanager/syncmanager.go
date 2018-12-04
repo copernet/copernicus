@@ -291,11 +291,6 @@ func (sm *SyncManager) startSync() {
 			continue
 		}
 
-		// do not use the peer to sync data until VerAckReceived
-		if !peer.VerAckReceived() {
-			continue
-		}
-
 		// TODO(davec): Use a better algorithm to choose the best peer.
 		// For now, just pick the first available candidate.
 		bestPeer = peer
