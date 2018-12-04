@@ -876,9 +876,16 @@ func TestOnGetBlocks(t *testing.T) {
 }
 
 func TestOnFilterAdd(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
+	assert.Nil(t, err)
+
+	svr.Start()
+	defer svr.Stop()
+
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
-	sp := newServerPeer(s, false)
+	sp := newServerPeer(svr, false)
 	sp.Peer = in
 	data := []byte{0x01, 0x02}
 	msg := wire.NewMsgFilterAdd(data)
@@ -904,9 +911,16 @@ func TestOnFeeFilter(t *testing.T) {
 }
 
 func TestOnFilterClear(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
+	assert.Nil(t, err)
+
+	svr.Start()
+	defer svr.Stop()
+
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
-	sp := newServerPeer(s, false)
+	sp := newServerPeer(svr, false)
 	sp.Peer = in
 	msg := wire.NewMsgFilterClear()
 	sp.server.services |= wire.SFNodeBloom
@@ -914,9 +928,16 @@ func TestOnFilterClear(t *testing.T) {
 }
 
 func TestOnFilterLoad(t *testing.T) {
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
+	assert.Nil(t, err)
+
+	svr.Start()
+	defer svr.Stop()
+
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
-	sp := newServerPeer(s, false)
+	sp := newServerPeer(svr, false)
 	sp.Peer = in
 	data := []byte{0x01, 0x02}
 	msg := wire.NewMsgFilterLoad(data, 10, 0, 0)
@@ -1604,7 +1625,14 @@ func TestServer_transferPing(t *testing.T) {
 }
 
 func TestServer_enforceNodeBloomFlag(t *testing.T) {
-	sp := newServerPeer(s, false)
+	chn := make(chan struct{})
+	svr, err := NewServer(model.ActiveNetParams, nil, chn)
+	assert.Nil(t, err)
+
+	svr.Start()
+	defer svr.Stop()
+
+	sp := newServerPeer(svr, false)
 	sp.Peer = peer.NewInboundPeer(newPeerConfig(sp), false)
 	conf.Cfg.P2PNet.DisableBanning = true
 	sp.server.services = 0
