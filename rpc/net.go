@@ -74,7 +74,7 @@ func handleGetPeerInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (i
 			ID:              statsSnap.ID,
 			Addr:            statsSnap.Addr,
 			AddrLocal:       item.ToPeer().LocalAddr().String(),
-			Services:        fmt.Sprintf("%016x", statsSnap.Services),
+			Services:        fmt.Sprintf("%016x", uint64(statsSnap.Services)),
 			RelayTxes:       !item.IsTxRelayDisabled(),
 			LastSend:        statsSnap.LastSend.Unix(),
 			LastRecv:        statsSnap.LastRecv.Unix(),
