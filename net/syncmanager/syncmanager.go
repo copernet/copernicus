@@ -676,7 +676,7 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 	log.Debug("process mined block(%v) done via submitblock", &hash)
 }
 
-func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
+func lastAnnouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
 	pindexBestKnownHash := peer.LastAnnouncedBlock()
 	if pindexBestKnownHash == nil {
 		log.Info("peer(%d) best known block nil, forgive temporary", peer.ID())
@@ -694,7 +694,7 @@ func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
 
 func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownBlock *blockindex.BlockIndex) {
 	gChain := chain.GetInstance()
-	pindexBestKnownBlock = lastAccouncedBlock(peer)
+	pindexBestKnownBlock = lastAnnouncedBlock(peer)
 	if pindexBestKnownBlock == nil {
 		// update best block of this peer
 		pindexStart := gChain.GetIndexBestHeader()

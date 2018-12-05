@@ -816,11 +816,7 @@ func TestOutboundPeer(t *testing.T) {
 		t.Errorf("PushAddrMsg: unexpected err %v\n", err)
 		return
 	}
-	if err := p2.PushGetBlocksMsg(*chain.NewBlockLocator(nil),
-		&util.Hash{}); err != nil {
-		t.Errorf("PushGetBlocksMsg: unexpected err %v\n", err)
-		return
-	}
+
 	if err := p2.PushGetHeadersMsg(
 		*chain.NewBlockLocator(nil), &util.Hash{}); err != nil {
 		t.Errorf("PushGetHeadersMsg: unexpected err %v\n", err)
