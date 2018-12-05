@@ -12,6 +12,7 @@ RUN go get github.com/mattn/goveralls
 
 WORKDIR /go/src/github.com/copernet/
 COPY . ./
+WORKDIR /go/src/github.com/copernet/copernicus
 RUN glide install
 RUN go get -u github.com/alecthomas/gometalinter
 RUN gometalinter --install
