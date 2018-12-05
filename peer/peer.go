@@ -986,28 +986,6 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 	return msg.AddrList, nil
 }
 
-// PushGetBlocksMsg sends a getblocks message for the provided block locator
-// and stop hash.  It will ignore back-to-back duplicate requests.
-//
-// This function is safe for concurrent access.
-func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
-	// Extract the begin hash from the block locator, if one was specified,
-	// to use for filtering duplicate getblocks requests.
-	blkHashs := locator.GetBlockHashList()
-
-	// Construct the getblocks request and queue it to be sent.
-	msg := wire.NewMsgGetBlocks(stopHash)
-	for i := 0; i < len(blkHashs); i++ {
-		err := msg.AddBlockLocatorHash(&blkHashs[i])
-		if err != nil {
-			return err
-		}
-	}
-	p.QueueMessage(msg, nil)
-	log.Trace("send Blocks Msg, Request locator to stop hash for these blocks hash ...")
-	return nil
-}
-
 // PushGetHeadersMsg sends a getblocks message for the provided block locator
 // and stop hash.  It will ignore back-to-back duplicate requests.
 //

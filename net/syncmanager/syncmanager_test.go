@@ -1309,7 +1309,7 @@ func TestSyncManager_lastAccouncedBlock(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
-	idx := lastAccouncedBlock(p)
+	idx := lastAnnouncedBlock(p)
 	assert.Nil(t, idx)
 
 	x, y := sm.syncPoints(p)
@@ -1318,14 +1318,14 @@ func TestSyncManager_lastAccouncedBlock(t *testing.T) {
 
 	var zeroHash util.Hash
 	p.UpdateLastAnnouncedBlock(&zeroHash)
-	idx = lastAccouncedBlock(p)
+	idx = lastAnnouncedBlock(p)
 	assert.Nil(t, idx)
 
 	initBlkIdx()
 	gChain := chain.GetInstance()
 	best := gChain.GetIndexBestHeader()
 	p.UpdateLastAnnouncedBlock(best.Prev.GetBlockHash())
-	idx = lastAccouncedBlock(p)
+	idx = lastAnnouncedBlock(p)
 	assert.NotNil(t, idx)
 
 	gChain.SetTip(best)
