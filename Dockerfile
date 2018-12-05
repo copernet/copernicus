@@ -11,8 +11,7 @@ RUN go get golang.org/x/tools/cmd/cover
 RUN go get github.com/mattn/goveralls
 
 WORKDIR /go/src/github.com/copernet/
-RUN git clone https://github.com/copernet/copernicus.git
-WORKDIR /go/src/github.com/copernet/copernicus
+COPY . ./
 RUN glide install
 RUN go get -u github.com/alecthomas/gometalinter
 RUN gometalinter --install
