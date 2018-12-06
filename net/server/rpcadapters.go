@@ -258,7 +258,7 @@ func (cm *RPCConnManager) SetBan(c *btcjson.SetBanCmd) *btcjson.RPCError {
 				endTime = now + *c.BanTime
 			}
 		} else {
-			endTime = now + int64(conf.Cfg.P2PNet.BanDuration)
+			endTime = now + conf.Cfg.P2PNet.BanDuration
 		}
 		hasBanned := cm.server.BanAddr(c.SubNet, now, endTime, BanReasonManuallyAdded)
 		if hasBanned {

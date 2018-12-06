@@ -3,6 +3,7 @@ package conf
 import (
 	"errors"
 	"fmt"
+	"github.com/spf13/viper"
 	"gopkg.in/go-playground/validator.v8"
 	"io"
 	"io/ioutil"
@@ -12,9 +13,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -88,14 +86,14 @@ type Configuration struct {
 		TestNet             bool
 		RegTest             bool `default:"false"`
 		SimNet              bool
-		DisableListen       bool          `default:"true"`
-		BlocksOnly          bool          `default:"false"` //Do not accept transactions from remote peers.
-		BanDuration         time.Duration // How long to ban misbehaving peers
-		Proxy               string        // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
-		UserAgentComments   []string      // Comment to add to the user agent -- See BIP 14 for more information.
-		DisableDNSSeed      bool          //Disable DNS seeding for peers
-		DisableRPC          bool          `default:"false"`
-		DisableTLS          bool          `default:"false"`
+		DisableListen       bool     `default:"true"`
+		BlocksOnly          bool     `default:"false"` //Do not accept transactions from remote peers.
+		BanDuration         int64    `default:"86400"` // How long to ban misbehaving peers
+		Proxy               string   // Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)
+		UserAgentComments   []string // Comment to add to the user agent -- See BIP 14 for more information.
+		DisableDNSSeed      bool     //Disable DNS seeding for peers
+		DisableRPC          bool     `default:"false"`
+		DisableTLS          bool     `default:"false"`
 		Whitelists          []*net.IPNet
 		NoOnion             bool     `default:"true"`  // Disable connecting to tor hidden services
 		Upnp                bool     `default:"false"` // Use UPnP to map our listening port outside of NAT

@@ -1439,7 +1439,7 @@ func (s *Server) handleBanPeerMsg(state *peerState, sp *serverPeer) {
 	now := util.GetTimeSec()
 	state.bannedAddr[host] = &BannedInfo{
 		Address:    host,
-		BanUntil:   now + int64(conf.Cfg.P2PNet.BanDuration),
+		BanUntil:   now + conf.Cfg.P2PNet.BanDuration,
 		CreateTime: now,
 		Reason:     BanReasonNodeMisbehaving,
 	}
