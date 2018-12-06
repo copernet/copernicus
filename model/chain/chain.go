@@ -530,8 +530,11 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 		childList, ok := c.orphan[*preHash]
 		if ok {
 			for _, child := range childList {
-				q.Add(child)
+				if child.HasData() {
+					q.Add(child)
+				}
 			}
+
 			delete(c.orphan, *preHash)
 		}
 	}
