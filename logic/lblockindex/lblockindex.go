@@ -59,7 +59,7 @@ func LoadBlockIndexDB() bool {
 			panic("index's Txcount is < 0 ")
 		}
 		if index.Prev != nil {
-			if index.Prev.ChainTxCount != 0 {
+			if index.Prev.ChainTxCount != 0 && index.TxCount != 0 {
 				index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
 				branch = append(branch, index)
 			} else {
