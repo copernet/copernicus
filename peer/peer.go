@@ -1663,11 +1663,7 @@ func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 				msgHeaders := wire.NewMsgHeaders()
 				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
 					header := headerSendQueue.Remove(e).(*block.BlockHeader)
-					if err := msgHeaders.AddBlockHeader(header); err != nil {
-						log.Error("Failed to add block"+
-							" header: %v", err)
-						//continue
-					}
+					msgHeaders.AddBlockHeader(header)
 				}
 				if len(msgHeaders.Headers) > 0 {
 					p.outputQueue <- outMsg{msg: msgHeaders}
