@@ -276,6 +276,7 @@ var myserver *server.Server
 
 func initServer() (*server.Server, error) {
 	timeSource := util.GetMedianTimeSource()
+	conf.Cfg.P2PNet.ListenAddrs = make([]string, 0) //avoid port conflict with local running instance
 	s, err := server.NewServer(model.ActiveNetParams, timeSource, nil)
 	if err != nil {
 		return nil, err
