@@ -383,7 +383,7 @@ func TestSyncManager_limitMap(t *testing.T) {
 	mp[*hash1] = struct{}{}
 	mp[*hash2] = struct{}{}
 	assert.Equal(t, len(mp), 2)
-	sm.limitMap(mp, 2)
+	limitMap(mp, 2)
 	assert.Equal(t, len(mp), 1)
 	sm.Stop()
 }
@@ -811,11 +811,19 @@ func TestSyncManager_updateTxRequestState(t *testing.T) {
 
 	sm.rejectedTxns[*hash1] = struct{}{}
 
-	rejectedTxns := make([]util.Hash, 10)
+	rejectedTxns := make([]util.Hash, 0)
 	rejectedTxns = append(rejectedTxns, *hash1)
 
 	sm.updateTxRequestState(syncState, *hash1, rejectedTxns)
 	sm.Stop()
+}
+
+type MockPeer struct {
+	MsgsToSend []wire.Message
+}
+
+func (peer *MockPeer) QueueMessage(msg wire.Message, doneChan chan<- struct{}) {
+	peer.MsgsToSend = append(peer.MsgsToSend, msg)
 }
 
 func TestSyncManager_fetchMissingTx(t *testing.T) {
@@ -825,14 +833,24 @@ func TestSyncManager_fetchMissingTx(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
-	inpeer := peer.NewInboundPeer(peer1Cfg, false)
-	missTxs := make([]util.Hash, 10)
-	missTxs = append(missTxs, *hash1)
-	missTxs = append(missTxs, *hash2)
+	inpeer := &MockPeer{MsgsToSend: make([]wire.Message, 0)}
 
-	fetchMissingTx(missTxs, inpeer)
+	missTxs := []util.Hash{
+		*util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238"),
+		*util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239"),
+	}
+
+	sm.fetchMissingTx(missTxs, inpeer)
+
+	//assert there is a getdata message to fetch the missing txns
+	assert.Equal(t, 1, len(inpeer.MsgsToSend))
+	getData, ok := inpeer.MsgsToSend[0].(*wire.MsgGetData)
+	assert.True(t, ok)
+
+	assert.Equal(t, 2, len(getData.InvList))
+	assert.Equal(t, missTxs[0], getData.InvList[0].Hash)
+	assert.Equal(t, missTxs[1], getData.InvList[1].Hash)
+
 	sm.Stop()
 }
 

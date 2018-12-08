@@ -489,7 +489,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	sm.updateTxRequestState(state, txHash, rejectTxs)
 
-	fetchMissingTx(missTxs, peer)
+	sm.fetchMissingTx(missTxs, peer)
 
 	if err != nil {
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
@@ -525,17 +525,20 @@ func (sm *SyncManager) updateTxRequestState(state *peerSyncState, txHash util.Ha
 	for _, rejectTx := range rejectTxs {
 		sm.rejectedTxns[rejectTx] = struct{}{}
 	}
-	sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
+	limitMap(sm.rejectedTxns, maxRejectedTxns)
 }
 
-func fetchMissingTx(missTxs []util.Hash, peer *peer.Peer) {
-	invMsg := wire.NewMsgInvSizeHint(uint(len(missTxs)))
+func (sm *SyncManager) fetchMissingTx(missTxs []util.Hash, peer peer.MsgSender) {
+	getData := wire.NewMsgGetDataSizeHint(uint(len(missTxs)))
+
 	for _, hash := range missTxs {
-		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
-		invMsg.AddInvVect(iv)
+		if !sm.alreadyHave(&hash) {
+			getData.AddInvVect(wire.NewInvVect(wire.InvTypeTx, &hash))
+		}
 	}
-	if len(missTxs) > 0 {
-		peer.QueueMessage(invMsg, nil)
+
+	if len(getData.InvList) > 0 {
+		peer.QueueMessage(getData, nil)
 	}
 }
 
@@ -1182,9 +1185,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			// Request the transaction if there is not already a
 			// pending request.
 			if _, exists := sm.requestedTxns[iv.Hash]; !exists {
+				limitMap(sm.requestedTxns, maxRequestedTxns)
 				sm.requestedTxns[iv.Hash] = struct{}{}
-				sm.limitMap(sm.requestedTxns, maxRequestedTxns)
+
+				limitMap(state.requestedTxns, maxRequestedTxns)
 				state.requestedTxns[iv.Hash] = struct{}{}
+
 				gdmsg.AddInvVect(iv)
 				numRequested++
 			}
@@ -1204,7 +1210,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 // limitMap is a helper function for maps that require a maximum limit by
 // evicting a random transaction if adding a new value would cause it to
 // overflow the maximum allowed.
-func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
+func limitMap(m map[util.Hash]struct{}, limit int) {
 	if len(m)+1 > limit {
 		// Remove a random entry from the map.  For most compilers, Go's
 		// range statement iterates starting at a random item although
