@@ -407,6 +407,10 @@ type AddrFunc func(remoteAddr *wire.NetAddress) *wire.NetAddress
 type HostToNetAddrFunc func(host string, port uint16,
 	services wire.ServiceFlag) (*wire.NetAddress, error)
 
+type MsgSender interface {
+	QueueMessage(msg wire.Message, doneChan chan<- struct{})
+}
+
 // NOTE: The overall data flow of a peer is split into 3 goroutines.  Inbound
 // messages are read via the inHandler goroutine and generally dispatched to
 // their own handler.  For inbound data-related messages such as blocks,
