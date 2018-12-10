@@ -1030,13 +1030,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) bool {
 		// Ask chain if the block is known to it in any form (main
 		// chain, side chain, or orphan).
 		blkIndex := activeChain.FindBlockIndex(invVect.Hash)
-		if blkIndex == nil {
-			return false
-		}
-		if blkIndex.HasData() {
-			return true
-		}
-		return false
+		return blkIndex != nil && blkIndex.HasData()
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
@@ -1055,10 +1049,8 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) bool {
 		if pcoins.GetCoin(&out) != nil {
 			return true
 		}
-		if lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
-			return true
-		}
-		return false
+
+		return lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
@@ -1130,20 +1122,19 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		// Add the inventory to the cache of known inventory for the peer.
 		peer.AddKnownInventory(iv)
 
-		// Request the inventory if we don't already have it.
-		if haveInv := sm.haveInventory(iv); !haveInv {
-			if iv.Type == wire.InvTypeTx {
-				if lchain.IsInitialBlockDownload() {
-					continue
-				}
-
-				// Skip the transaction if it has already been rejected.
-				if _, exists := sm.rejectedTxns[iv.Hash]; exists {
-					continue
-				}
+		if iv.Type == wire.InvTypeTx {
+			if lchain.IsInitialBlockDownload()  {
+				continue
 			}
 
-			// Add it to the request queue.
+			// Skip the transaction if it has already been rejected.
+			if _, exists := sm.rejectedTxns[iv.Hash]; exists {
+				continue
+			}
+		}
+
+		// Request the inventory if we don't already have it.
+		if haveInv := sm.haveInventory(iv); !haveInv {
 			state.requestQueue = append(state.requestQueue, iv)
 		}
 	}
