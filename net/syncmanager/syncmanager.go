@@ -463,8 +463,7 @@ func (sm *SyncManager) alreadyHave(txHash *util.Hash) bool {
 		return true
 	}
 
-	have, err := sm.haveInventory(wire.NewInvVect(wire.InvTypeTx, txHash))
-	return err == nil && have
+	return sm.haveInventory(wire.NewInvVect(wire.InvTypeTx, txHash))
 }
 
 // handleTxMsg handles transaction messages from all peers.
@@ -1024,7 +1023,7 @@ func (sm *SyncManager) blocksToFetch(pindexLast blockindex.BlockIndex) (*list.Li
 // inventory can be when it is in different states such as blocks that are part
 // of the main chain, on a side chain, in the orphan pool, and transactions that
 // are in the memory pool (either the main pool or orphan pool).
-func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
+func (sm *SyncManager) haveInventory(invVect *wire.InvVect) bool {
 	activeChain := chain.GetInstance()
 	switch invVect.Type {
 	case wire.InvTypeBlock:
@@ -1032,39 +1031,39 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		// chain, side chain, or orphan).
 		blkIndex := activeChain.FindBlockIndex(invVect.Hash)
 		if blkIndex == nil {
-			return false, nil
+			return false
 		}
 		if blkIndex.HasData() {
-			return true, nil
+			return true
 		}
-		return false, nil
+		return false
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
 		// to it in any form (main pool or orphan).
 		if lmempool.FindTxInMempool(invVect.Hash) != nil {
-			return true, nil
+			return true
 		}
 		// Check if the transaction exists from the point of view of the
 		// end of the main chain.
 		pcoins := utxo.GetUtxoCacheInstance()
 		out := outpoint.OutPoint{Hash: invVect.Hash, Index: 0}
 		if pcoins.GetCoin(&out) != nil {
-			return true, nil
+			return true
 		}
 		out.Index = 1
 		if pcoins.GetCoin(&out) != nil {
-			return true, nil
+			return true
 		}
 		if lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
-			return true, nil
+			return true
 		}
-		return false, nil
+		return false
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
 	// it is known to avoid requesting it.
-	return true, nil
+	return true
 }
 
 // handleInvMsg handles inv messages from all peers.
@@ -1128,22 +1127,17 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			continue
 		}
 
-		// Add the inventory to the cache of known inventory
-		// for the peer.
+		// Add the inventory to the cache of known inventory for the peer.
 		peer.AddKnownInventory(iv)
 
 		// Request the inventory if we don't already have it.
-		haveInv, err := sm.haveInventory(iv)
-		if err != nil {
-			log.Warn("Unexpected failure when checking for "+
-				"existing inventory during inv message "+
-				"processing: %v", err)
-			continue
-		}
-		if !haveInv {
+		if haveInv := sm.haveInventory(iv); !haveInv {
 			if iv.Type == wire.InvTypeTx {
-				// Skip the transaction if it has already been
-				// rejected.
+				if lchain.IsInitialBlockDownload() {
+					continue
+				}
+
+				// Skip the transaction if it has already been rejected.
 				if _, exists := sm.rejectedTxns[iv.Hash]; exists {
 					continue
 				}
