@@ -482,15 +482,14 @@ func TestSimpleOrphanChain(t *testing.T) {
 
 	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
-	recentRejects := make(map[util.Hash]struct{})
 	// Ensure the orphans are accepted (only up to the maximum allowed so
 	// none are evicted).
 	for _, tx := range chainedTxns[1 : maxOrphans+1] {
 		// acceptedTxns, err := harness.txPool.ProcessTransaction(tx, true,
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx)
-		service.HandleRejectedTx(tx, err, 0, recentRejects)
+
+		_, _, _, err := lmempool.AcceptTxFromNetwork(tx, harness.chain.BestHeight(), 0)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: failed to accept valid "+
 				"orphan %v", err)
@@ -576,14 +575,13 @@ func TestOrphanReject(t *testing.T) {
 		t.Fatalf("unable to create transaction chain: %v", err)
 	}
 
-	recentRejects := make(map[util.Hash]struct{})
 	// Ensure orphans are rejected when the allow orphans flag is not set.
 	for _, tx := range chainedTxns[1:] {
 		// acceptedTxns, err := harness.txPool.ProcessTransaction(tx, false,
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx)
-		service.HandleRejectedTx(tx, err, 0, recentRejects)
+
+		_, _, _, err := lmempool.AcceptTxFromNetwork(tx, harness.chain.BestHeight(), 0)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: did not fail on orphan "+
 				"%v when allow orphans flag is false", tx.GetHash())
