@@ -1165,3 +1165,161 @@ func TestRemoveForReorg(t *testing.T) {
 		lmempool.RemoveForReorg(200, 0)
 	}
 }
+
+func TestIsTTORSorted(t *testing.T) {
+	basetx := &tx.Tx{}
+	basetx.AddTxIn(txin.NewTxIn(nil, script.NewEmptyScript(), 0))
+	basetx.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx1 := &tx.Tx{}
+	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx2 := &tx.Tx{}
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx3 := &tx.Tx{}
+	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx2.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx3.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	assert.True(t, lmempool.IsTTORSorted([]*tx.Tx{tx1, tx2, tx3}))
+	assert.True(t, lmempool.IsTTORSorted([]*tx.Tx{tx3, tx1}))
+	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{tx2, tx1}))
+	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{tx3, tx2}))
+	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{tx3, tx2, tx1}))
+}
+
+func TestTTorSort_oneparent(t *testing.T) {
+	basetx := &tx.Tx{}
+	basetx.AddTxIn(txin.NewTxIn(nil, script.NewEmptyScript(), 0))
+	basetx.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx1 := &tx.Tx{}
+	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx2 := &tx.Tx{}
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx3 := &tx.Tx{}
+	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx2.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx3.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	basetx2 := &tx.Tx{}
+	basetx2.AddTxIn(txin.NewTxIn(nil, script.NewEmptyScript(), 0))
+	basetx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx4 := &tx.Tx{}
+	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx2.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx4.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	trans := []*tx.Tx{tx1, tx2, tx3}
+	assert.True(t, lmempool.IsTTORSorted(trans))
+
+	trans, err := lmempool.TTORSort(trans)
+	assert.Nil(t, err)
+	assert.True(t, lmempool.IsTTORSorted(trans))
+
+	trans = []*tx.Tx{tx2, tx3, tx1}
+	assert.False(t, lmempool.IsTTORSorted(trans))
+	trans, err = lmempool.TTORSort(trans)
+	assert.Nil(t, err)
+	assert.True(t, lmempool.IsTTORSorted(trans))
+
+	trans = []*tx.Tx{tx3, tx2, tx1}
+	assert.False(t, lmempool.IsTTORSorted(trans))
+	trans, err = lmempool.TTORSort(trans)
+	assert.Nil(t, err)
+	assert.True(t, lmempool.IsTTORSorted(trans))
+
+	perm([]*tx.Tx{tx1, tx2, tx3, tx4}, func(trans []*tx.Tx) {
+		trans, err := lmempool.TTORSort(trans)
+		assert.Nil(t, err)
+		assert.True(t, lmempool.IsTTORSorted(trans))
+	}, 0)
+}
+
+func TestTTorSort_multipleparent(t *testing.T) {
+	basetx := &tx.Tx{}
+	basetx.AddTxIn(txin.NewTxIn(nil, script.NewEmptyScript(), 0))
+	basetx.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	basetx.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	basetx.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx1 := &tx.Tx{}
+	tx1.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx1.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx2 := &tx.Tx{}
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx.GetHash(), 1), script.NewEmptyScript(), 0))
+	tx2.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 1), script.NewEmptyScript(), 0))
+	tx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx3 := &tx.Tx{}
+	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx2.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx.GetHash(), 2), script.NewEmptyScript(), 0))
+	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 2), script.NewEmptyScript(), 0))
+	tx3.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	basetx2 := &tx.Tx{}
+	basetx2.AddTxIn(txin.NewTxIn(nil, script.NewEmptyScript(), 0))
+	basetx2.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx4 := &tx.Tx{}
+	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx2.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx4.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx4.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx4.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx5 := &tx.Tx{}
+	tx5.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx4.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx5.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx1.GetHash(), 3), script.NewEmptyScript(), 0))
+	tx5.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx5.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+	tx5.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	tx6 := &tx.Tx{}
+	tx6.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx5.GetHash(), 0), script.NewEmptyScript(), 0))
+	tx6.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
+
+	perm([]*tx.Tx{tx1, tx2, tx3, tx4, tx5, tx6}, func(trans []*tx.Tx) {
+		trans, err := lmempool.TTORSort(trans)
+		assert.Nil(t, err)
+		assert.True(t, lmempool.IsTTORSorted(trans))
+	}, 0)
+
+	perm([]*tx.Tx{tx1, tx2, tx3, tx5, tx6}, func(trans []*tx.Tx) {
+		trans, err := lmempool.TTORSort(trans)
+		assert.Nil(t, err)
+		assert.True(t, lmempool.IsTTORSorted(trans))
+	}, 0)
+
+	perm([]*tx.Tx{tx1, tx3, tx5, tx6}, func(trans []*tx.Tx) {
+		trans, err := lmempool.TTORSort(trans)
+		assert.Nil(t, err)
+		assert.True(t, lmempool.IsTTORSorted(trans))
+	}, 0)
+}
+
+func perm(a []*tx.Tx, f func([]*tx.Tx), i int) {
+	if i >= len(a) {
+		f(a)
+		return
+	}
+	perm(a, f, i+1)
+	for j := i + 1; j < len(a); j++ {
+		a[i], a[j] = a[j], a[i]
+		perm(a, f, i+1)
+		a[i], a[j] = a[j], a[i]
+	}
+}
