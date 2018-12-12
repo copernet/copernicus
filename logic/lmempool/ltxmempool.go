@@ -406,3 +406,85 @@ func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 
 	return nil
 }
+
+// TTORSort sort transactions by TTOR order. return txs from parent to child
+func TTORSort(trans []*tx.Tx) ([]*tx.Tx, error) {
+	inputTxCnt := len(trans)
+	if trans == nil || inputTxCnt < 2 {
+		return trans, nil
+	}
+
+	outpointMap := make(map[outpoint.OutPoint]*tx.Tx)
+	for _, txn := range trans {
+		if txn.IsCoinBase() {
+			return nil, fmt.Errorf("sorted txs should not contain a coinbase tx")
+		}
+		for _, prevHash := range txn.GetAllPreviousOut() {
+			outpointMap[prevHash] = txn
+		}
+	}
+
+	parentCntMap := make(map[*tx.Tx]uint32)
+	for _, txn := range trans {
+		if txn == nil {
+			return nil, fmt.Errorf("TTORSort: nil tx found")
+		}
+		curoutpoint := outpoint.OutPoint{Hash: txn.GetHash()}
+		for curoutpoint.Index = 0; curoutpoint.Index < uint32(txn.GetOutsCount()); curoutpoint.Index++ {
+			if child, ok := outpointMap[curoutpoint]; ok {
+				parentCntMap[child]++
+			}
+		}
+	}
+
+	var noparentTxs []*tx.Tx
+	for _, txn := range trans {
+		if _, ok := parentCntMap[txn]; !ok {
+			noparentTxs = append(noparentTxs, txn)
+		}
+	}
+	if len(noparentTxs) == 0 {
+		return nil, fmt.Errorf("TTORSort: cycle found from transactions")
+	}
+
+	sortedTx := make([]*tx.Tx, 0, inputTxCnt)
+	for len(noparentTxs) > 0 {
+		var curtx *tx.Tx
+		curtx, noparentTxs = noparentTxs[0], noparentTxs[1:]
+		sortedTx = append(sortedTx, curtx)
+
+		curoutpoint := outpoint.OutPoint{Hash: curtx.GetHash()}
+		for curoutpoint.Index = 0; curoutpoint.Index < uint32(curtx.GetOutsCount()); curoutpoint.Index++ {
+			if child, ok := outpointMap[curoutpoint]; ok {
+				if cnt, ok := parentCntMap[child]; ok && cnt == 1 {
+					delete(parentCntMap, child)
+					noparentTxs = append(noparentTxs, child)
+				} else {
+					parentCntMap[child]--
+				}
+			}
+		}
+	}
+	if inputTxCnt != len(sortedTx) {
+		return nil, fmt.Errorf("TTORSort: input tx count(%d) not equal to output count(%d)",
+			inputTxCnt, len(sortedTx))
+	}
+
+	return sortedTx, nil
+}
+
+func IsTTORSorted(txs []*tx.Tx) bool {
+	txpos := make(map[util.Hash]int)
+	for i, txn := range txs {
+		txpos[txn.GetHash()] = i
+	}
+
+	for i, txn := range txs {
+		for _, prevout := range txn.GetAllPreviousOut() {
+			if parentTxIdx, ok := txpos[prevout.Hash]; ok && parentTxIdx > i {
+				return false
+			}
+		}
+	}
+	return true
+}
