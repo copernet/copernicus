@@ -190,12 +190,12 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		}
 		// add this block to the view's block chain
 		*view = *coinsMap
-	}
 
-	// If we just activated the replay protection with that block, it means
-	// transaction in the mempool are now invalid. As a result, we need to clear the mempool.
-	if pindex.IsReplayProtectionJustEnabled() {
-		mempool.InitMempool()
+		// If we just activated the replay protection with that block, it means
+		// transaction in the mempool are now invalid. As a result, we need to clear the mempool.
+		if pindex.IsReplayProtectionJustEnabled() {
+			mempool.InitMempool()
+		}
 	}
 
 	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash)
