@@ -87,6 +87,8 @@ type TxMempool struct {
 	OrphanTransactionsByPrev map[outpoint.OutPoint]map[util.Hash]OrphanTx
 	OrphanTransactions       map[util.Hash]OrphanTx
 
+	RejectedTxs map[util.Hash]struct{}
+
 	nextSweep int
 
 	//MaxMemPoolSize               int64
@@ -131,13 +133,9 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 
 	// Update ancestors with information about this tx
 	m.updateNextTx(txEntry)
-	parents := m.getParents(txEntry)
 
-	txEntry.associateRelationship(parents)
-
-	m.delFromSortedContainer(ancestors)
-	txEntry.statisticIncrease(ancestors)
-	m.addToSortedContainer(ancestors)
+	txEntry.AssociateRelationship(m)
+	m.StatisticIncrease(txEntry, ancestors, nil)
 
 	m.totalTxSize += uint64(txEntry.TxSize)
 	m.TransactionsUpdated++
@@ -449,16 +447,14 @@ func (m *TxMempool) removeConflicts(tx *tx.Tx) {
 	}
 }
 
-func (m *TxMempool) addToSortedContainer(entries map[*TxEntry]struct{}) {
+func (m *TxMempool) addToFeeRateContainer(entries map[*TxEntry]struct{}) {
 	for entry := range entries {
-		m.timeSortData.ReplaceOrInsert(entry)
 		m.txByAncestorFeeRateSort.ReplaceOrInsert((*EntryAncestorFeeRateSort)(entry))
 	}
 }
 
-func (m *TxMempool) delFromSortedContainer(entries map[*TxEntry]struct{}) {
+func (m *TxMempool) delFromFeeRateContainer(entries map[*TxEntry]struct{}) {
 	for entry := range entries {
-		m.timeSortData.Delete(entry)
 		m.txByAncestorFeeRateSort.Delete((*EntryAncestorFeeRateSort)(entry))
 	}
 }
@@ -472,16 +468,44 @@ func (m *TxMempool) updateForRemoveFromMempool(entriesToRemove map[*TxEntry]stru
 		if updateDescendants {
 			descendants = m.CalculateDescendants(entry)
 		}
-		entry.unassociateRelationship()
+		entry.UnassociateRelationship()
 
-		m.delFromSortedContainer(ancestors)
-		m.delFromSortedContainer(descendants)
-
-		entry.statisticDecrease(ancestors, descendants)
-
-		m.addToSortedContainer(ancestors)
-		m.addToSortedContainer(descendants)
+		m.StatisticDescrease(entry, ancestors, descendants)
 	}
+}
+
+// StatisticIncrease is used to update txEntry, ancestors and descendants's property SumTx<property>With<Ancestor/Descendant>. And also update entry's position in @txByAncestorFeeRateSort.
+// NOTE: It only update ancestors and descendants's position in @txByAncestorFeeRateSort.
+// It will not deal with txEntry's.
+func (m *TxMempool) StatisticIncrease(txEntry *TxEntry,
+	ancestors, descendants map[*TxEntry]struct{}) {
+
+	// Update txEntry's 'descendant' and 'ancestor' related properties.
+	txEntry.UpdateAncestorState(statisticSum(ancestors))
+	txEntry.UpdateDescendantState(statisticSum(descendants))
+
+	// Update @ancestors's 'descendant' related properites.
+	statisticIncrementalUpdateDescendant(ancestors, 1,
+		txEntry.TxSize, txEntry.SigOpCount, txEntry.TxFee)
+
+	// Update @descendants's 'ancestor' related properties.
+	m.delFromFeeRateContainer(descendants)
+	statisticIncrementalUpdateAncestors(descendants, 1,
+		txEntry.TxSize, txEntry.SigOpCount, txEntry.TxFee)
+	m.addToFeeRateContainer(descendants)
+}
+
+// StatisticDescrease work as opposite to StatisticIncrease
+func (m *TxMempool) StatisticDescrease(txEntry *TxEntry, ancestors, descendants map[*TxEntry]struct{}) {
+	// Since txEntry will be removed, there is no need to update @txEntrys' properties.
+
+	// Update @ancestors's 'descendant' related properites.
+	statisticIncrementalUpdateDescendant(ancestors, -1, -txEntry.TxSize, -txEntry.SigOpCount, -txEntry.TxFee)
+
+	// Update @descendants's 'ancestor' related properties.
+	m.delFromFeeRateContainer(descendants)
+	statisticIncrementalUpdateAncestors(descendants, -1, -txEntry.TxSize, -txEntry.SigOpCount, -txEntry.TxFee)
+	m.addToFeeRateContainer(descendants)
 }
 
 // removeTxRecursive remove this transaction And its all descent transaction from mempool.
@@ -564,33 +588,15 @@ func (m *TxMempool) getParents(txEntry *TxEntry) map[util.Hash]*TxEntry {
 	return parents
 }
 
-// updateAncestorsOf update each of ancestors transaction state; add or remove this
-// txentry txfee, txsize, txcount.
-func (m *TxMempool) updateAncestors(add bool, txEntry *TxEntry, ancestors map[*TxEntry]struct{}) {
-	updateCount := -1
-	if add {
-		updateCount = 1
+func (m *TxMempool) getChildren(txEntry *TxEntry) map[util.Hash]*TxEntry {
+	children := make(map[util.Hash]*TxEntry)
+	op := outpoint.OutPoint{Hash: txEntry.Tx.GetHash()}
+	for op.Index = 0; op.Index < uint32(txEntry.Tx.GetOutsCount()); op.Index++ {
+		if child, ok := m.nextTx[op]; ok {
+			children[child.Tx.GetHash()] = child
+		}
 	}
-	updateSize := updateCount * txEntry.TxSize
-	updateFee := int64(updateCount) * txEntry.TxFee
-	// update each of ancestors transaction state;
-	for ancestorit := range ancestors {
-		ancestorit.UpdateDescendantState(updateCount, updateSize, updateFee)
-	}
-}
-
-func (m *TxMempool) updateEntryForAncestors(entry *TxEntry, setAncestors map[*TxEntry]struct{}) {
-	updateCount := len(setAncestors)
-	updateSize := 0
-	updateFee := int64(0)
-	updateSigOpsCount := 0
-
-	for ancestorIt := range setAncestors {
-		updateFee += ancestorIt.TxFee
-		updateSigOpsCount += ancestorIt.SigOpCount
-		updateSize += ancestorIt.TxSize
-	}
-	entry.UpdateAncestorState(updateCount, updateSize, updateSigOpsCount, updateFee)
+	return children
 }
 
 // CalculateMemPoolAncestors get tx all ancestors transaction in mempool.
@@ -700,18 +706,17 @@ func (m *TxMempool) TxInfoAll() []*TxMempoolInfo {
 
 func NewTxMempool() *TxMempool {
 	return &TxMempool{
-		feeRate:  util.FeeRate{SataoshisPerK: 1},
-		poolData: make(map[util.Hash]*TxEntry),
-		nextTx:   make(map[outpoint.OutPoint]*TxEntry),
-		rootTx:   make(map[util.Hash]*TxEntry),
-		// txByAncestorFeeRateSort: *btree.New(32),
-		// timeSortData:            *btree.New(32),
+		feeRate:                 util.FeeRate{SataoshisPerK: 1},
+		poolData:                make(map[util.Hash]*TxEntry),
+		nextTx:                  make(map[outpoint.OutPoint]*TxEntry),
+		rootTx:                  make(map[util.Hash]*TxEntry),
 		txByAncestorFeeRateSort: skiplist.New(30000),
 		timeSortData:            skiplist.New(30000),
 		incrementalRelayFee:     *util.NewFeeRate(1),
 
 		OrphanTransactionsByPrev: make(map[outpoint.OutPoint]map[util.Hash]OrphanTx),
 		OrphanTransactions:       make(map[util.Hash]OrphanTx),
+		RejectedTxs:              make(map[util.Hash]struct{}),
 	}
 }
 

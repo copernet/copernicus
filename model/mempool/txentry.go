@@ -48,26 +48,15 @@ type StatisInformation struct {
 	SumTxFeeWithAncestors        int64
 }
 
-// statisticAddEntry
-func (t *TxEntry) statisticIncrease(ancestors map[*TxEntry]struct{}) {
-	t.UpdateAncestorState(statisticSum(ancestors))
-	statisticIncrementalUpdateDescendant(ancestors, 1, t.TxSize, t.TxFee)
-}
-
-// statisticDelEntry
-func (t *TxEntry) statisticDecrease(ancestors map[*TxEntry]struct{}, descendants map[*TxEntry]struct{}) {
-	for antor := range ancestors {
-		antor.UpdateDescendantState(-1, -t.TxSize, -t.TxFee)
-	}
-
-	for desdand := range descendants {
-		desdand.UpdateAncestorState(-1, -t.TxSize, -t.SigOpCount, -t.TxFee)
-	}
-}
-
-func statisticIncrementalUpdateDescendant(entries map[*TxEntry]struct{}, deltaCount, deltaSize int, deltaFee int64) {
+func statisticIncrementalUpdateDescendant(entries map[*TxEntry]struct{}, deltaCount, deltaSize, deltaSigOp int, deltaFee int64) {
 	for e := range entries {
-		e.UpdateDescendantState(deltaCount, deltaSize, deltaFee)
+		e.UpdateDescendantState(deltaCount, deltaSize, deltaSigOp, deltaFee)
+	}
+}
+
+func statisticIncrementalUpdateAncestors(entries map[*TxEntry]struct{}, deltaCount, deltaSize, deltaSigOp int, deltaFee int64) {
+	for e := range entries {
+		e.UpdateAncestorState(deltaCount, deltaSize, deltaSigOp, deltaFee)
 	}
 }
 
@@ -123,17 +112,22 @@ func (t *TxEntry) delChild(child *TxEntry) {
 	delete(t.ChildTx, child)
 }
 
-func (t *TxEntry) associateRelationship(parents map[util.Hash]*TxEntry) {
-	for _, parentTxEntry := range parents {
+func (t *TxEntry) AssociateRelationship(pool *TxMempool) {
+	for _, parentTxEntry := range pool.getParents(t) {
 		// Update txEntry's parents
 		t.addParent(parentTxEntry)
 
 		// Update txEntry's parents' child
 		parentTxEntry.addChild(t)
 	}
+
+	for _, childTxEntry := range pool.getChildren(t) {
+		t.addChild(childTxEntry)
+		childTxEntry.addParent(t)
+	}
 }
 
-func (t *TxEntry) unassociateRelationship() {
+func (t *TxEntry) UnassociateRelationship() {
 	for parent := range t.ParentTx {
 		parent.delChild(t)
 	}
@@ -145,26 +139,7 @@ func (t *TxEntry) unassociateRelationship() {
 	t.ChildTx = make(map[*TxEntry]struct{})
 }
 
-func (t *TxEntry) UpdateChild(child *TxEntry, add bool) {
-	if add {
-		t.ChildTx[child] = struct{}{}
-		return
-	}
-	delete(t.ChildTx, child)
-}
-
-func (t *TxEntry) UpdateChildOfParents(add bool) {
-	// update the parent's child transaction set;
-	for piter := range t.ParentTx {
-		if add {
-			piter.UpdateChild(t, true)
-		} else {
-			piter.UpdateChild(t, false)
-		}
-	}
-}
-
-func (t *TxEntry) UpdateDescendantState(updateCount, updateSize int, updateFee int64) {
+func (t *TxEntry) UpdateDescendantState(updateCount, updateSize, updateSigOps int, updateFee int64) {
 	t.SumTxCountWithDescendants += int64(updateCount)
 	t.SumTxSizeWithDescendants += int64(updateSize)
 	t.SumTxFeeWithDescendants += updateFee
