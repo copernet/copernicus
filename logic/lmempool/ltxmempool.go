@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/model/wallet"
 	"math"
+	"runtime"
+	"time"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
@@ -28,6 +30,41 @@ func AcceptTxToMemPool(txn *tx.Tx) error {
 	pool.Lock()
 	defer pool.Unlock()
 	return addTxToMemPool(pool, txEntry)
+}
+
+// AcceptTxFromNetwork only accept tx from network
+func AcceptTxFromNetwork(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accepted []*tx.Tx, missed []util.Hash, rejected []util.Hash, err error) {
+	pool := mempool.GetInstance()
+	defer func() {
+		CheckMempool(pool, bestChainHeight)
+	}()
+
+	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
+	if err != nil {
+		if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) && !txn.AnyInputTxIn(pool.RejectedTxs) {
+			pool.AddOrphanTx(txn, nodeID)
+		} else {
+			pool.RejectedTxs[txn.GetHash()] = struct{}{}
+		}
+		return nil, nil, []util.Hash{txn.GetHash()}, err
+	}
+	err = addTxToMemPool(pool, txEntry)
+	if err == nil {
+		accepted, rejected = TryAcceptOrphansTxs(txn, bestChainHeight, true)
+		if !pool.HaveTransaction(txn) {
+			log.Error("the tx(%s) not exist in mempool", txn.GetHash())
+			return nil, nil, []util.Hash{txn.GetHash()}, fmt.Errorf("not found tx(%s) after insertion", txn.GetHash())
+		}
+		_, file, line, _ := runtime.Caller(1)
+		accepted = append([]*tx.Tx{txn}, accepted...)
+		for _, t := range accepted {
+			log.Debug("AcceptTxFromNetWork: tx(%s) parent(%v) child(%v)  %s:%d", t.GetHash(),
+				txEntry.ParentTx, txEntry.ChildTx, file, line)
+		}
+		return accepted, nil, rejected, err
+	}
+
+	return nil, nil, nil, err
 }
 
 func addTxToMemPool(pool *mempool.TxMempool, txe *mempool.TxEntry) error {
