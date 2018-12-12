@@ -6,7 +6,6 @@ import (
 	"github.com/copernet/copernicus/model/wallet"
 	"math"
 	"runtime"
-	"time"
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
@@ -220,8 +219,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
 		tmpTx := entry.Tx
-
-		lp := entry.GetLockPointFromTxEntry()
+		lp := ltx.CalculateLockPoints(tmpTx, uint32(tx.StandardLockTimeVerifyFlags))
 		if ltx.ContextualCheckTransactionForCurrentBlock(tmpTx, flag) != nil ||
 			!ltx.CheckSequenceLocks(lp.Height, lp.Time) {
 			txToRemove[entry] = struct{}{}
@@ -245,7 +243,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 				}
 			}
 		}
-		entry.SetLockPointFromTxEntry(lp)
+		entry.SetLockPointFromTxEntry(*lp)
 	}
 
 	for it := range txToRemove {
@@ -253,6 +251,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 		staged[it] = struct{}{}
 		pool.RemoveStaged(staged, false, mempool.REORG)
 	}
+	CheckMempool(pool, nMemPoolHeight-1)
 }
 
 func updateCoins(coinsMap *utxo.CoinsMap, trax *tx.Tx) {
