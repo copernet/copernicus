@@ -300,7 +300,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		float64(nTime5-nTime4)*0.001, float64(gPersist.GlobalTimeChainState)*0.000001)
 
 	// Remove conflicting transactions from the mempool.;
-	mempool.GetInstance().RemoveTxSelf(blockConnecting.Txs)
+	lmempool.RemoveTxInBlock(mempool.GetInstance(), blockConnecting.Txs)
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
 	nTime6 := util.GetTimeMicroSec()
