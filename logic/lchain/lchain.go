@@ -371,18 +371,10 @@ func DisconnectTip(fBare bool) error {
 	UpdateTip(tip.Prev)
 
 	if !fBare {
+		pool := mempool.GetInstance()
 		// Resurrect mempool transactions from the disconnected block.
-		for _, tx := range blk.Txs {
-			// ignore validation errors in resurrected transactions
-			if tx.IsCoinBase() {
-				mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
-			} else {
-				e := lmempool.AcceptTxToMemPool(tx)
-				if e != nil {
-					mempool.GetInstance().RemoveTxRecursive(tx, mempool.REORG)
-				}
-			}
-		}
+		pool.RemoveTxRecursive(blk.Txs[0], mempool.REORG)
+		lmempool.AddTxFromUndoBlock(pool, blk.Txs[1:])
 	}
 	gChain.SendNotification(chain.NTBlockDisconnected, blk)
 	return nil

@@ -93,6 +93,15 @@ func addTxToMemPool(pool *mempool.TxMempool, txe *mempool.TxEntry) error {
 	return nil
 }
 
+func updateMempoolForReorgAddTx(pool *mempool.TxMempool, txEntry *mempool.TxEntry) {
+	// Since ancestors's property of txent has been updated, there is no need to
+	// update once more. However, descendants's property has not been updated yet.
+	txEntry.AssociateRelationship(pool)
+	descendants := pool.CalculateDescendants(txEntry)
+
+	pool.StatisticIncrease(txEntry, nil, descendants)
+}
+
 func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 	pool := mempool.GetInstance()
@@ -141,6 +150,37 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint b
 func RemoveTxSelf(txs []*tx.Tx) {
 	pool := mempool.GetInstance()
 	pool.RemoveTxSelf(txs)
+}
+
+func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
+	txs, _ = TTORSort(txs)
+	acceptedTx := make([]*mempool.TxEntry, 0, len(txs))
+
+	for _, txn := range txs {
+		if txn.IsCoinBase() {
+			continue
+		}
+		txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
+		if err != nil {
+			// error by tx from unblock is acceptable.
+			log.Info("AddUndoBlockTx: CheckTxBeforeAcceptToMemPool tx(%s) from undoblock err:%v",
+				txn.GetHash(), err)
+			continue
+		}
+		// tx will never orphan here.
+		err = addTxToMemPool(pool, txEntry)
+		if err != nil {
+			log.Info("AddUndoBlockTx: addTxToMemPool tx(%s) from undoblock err:%v",
+				txn.GetHash(), err)
+			continue
+		}
+
+		acceptedTx = append(acceptedTx, txEntry)
+	}
+
+	for _, txent := range acceptedTx {
+		updateMempoolForReorgAddTx(pool, txent)
+	}
 }
 
 // func RemoveForReorg(nMemPoolHeight int32, flag int) {
