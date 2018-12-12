@@ -112,16 +112,15 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint b
 		vWorkQueue = append(vWorkQueue, o)
 	}
 
-	setMisbehaving := make(map[int64]struct{})
 	for len(vWorkQueue) > 0 {
 		prevOut := vWorkQueue[0]
 		vWorkQueue = vWorkQueue[1:]
 		if orphans, ok := pool.OrphanTransactionsByPrev[prevOut]; ok {
 			for _, iOrphanTx := range orphans {
-				fromPeer := iOrphanTx.NodeID
-				if _, ok := setMisbehaving[fromPeer]; ok {
-					continue
-				}
+				// fromPeer := iOrphanTx.NodeID
+				// if _, ok := setMisbehaving[fromPeer]; ok {
+				// 	continue
+				// }
 
 				err := AcceptTxToMemPool(iOrphanTx.Tx)
 				if err == nil {
