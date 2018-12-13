@@ -152,7 +152,6 @@ func RemoveTxSelf(txs []*tx.Tx) {
 }
 
 func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
-	txs, _ = TTORSort(txs)
 	acceptedTx := make([]*mempool.TxEntry, 0, len(txs))
 
 	for _, txn := range txs {
@@ -283,12 +282,7 @@ func haveInputs(coinsMap *utxo.CoinsMap, trax *tx.Tx) bool {
 }
 
 func RemoveTxInBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
-	// TODO: DO NOT sort if no needed
-	txs, err := TTORSort(txs)
-	if err != nil {
-		log.Error("RemoveTxInBlock: TTORSort err:", err)
-	}
-	// from parent to child
+	// from parent tx to child
 	pool.RemoveTxSelf(txs)
 }
 

@@ -299,8 +299,17 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
 		float64(nTime5-nTime4)*0.001, float64(gPersist.GlobalTimeChainState)*0.000001)
 
+	txs := blockConnecting.Txs
+	if model.IsMagneticAnomalyEnabled(pIndexNew.GetMedianTimePast()) {
+		newtxs, err := lmempool.TTORSort(txs)
+		if err != nil {
+			log.Error(err)
+		} else {
+			txs = newtxs
+		}
+	}
 	// Remove conflicting transactions from the mempool.;
-	lmempool.RemoveTxInBlock(mempool.GetInstance(), blockConnecting.Txs)
+	lmempool.RemoveTxInBlock(mempool.GetInstance(), txs)
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
 	nTime6 := util.GetTimeMicroSec()
@@ -374,7 +383,17 @@ func DisconnectTip(fBare bool) error {
 		pool := mempool.GetInstance()
 		// Resurrect mempool transactions from the disconnected block.
 		pool.RemoveTxRecursive(blk.Txs[0], mempool.REORG)
-		lmempool.AddTxFromUndoBlock(pool, blk.Txs[1:])
+
+		txs := blk.Txs
+		if model.IsMagneticAnomalyEnabled(tip.GetMedianTimePast()) {
+			newtxs, err := lmempool.TTORSort(txs)
+			if err != nil {
+				log.Error(err)
+			} else {
+				txs = newtxs
+			}
+		}
+		lmempool.AddTxFromUndoBlock(pool, txs[1:])
 	}
 	gChain.SendNotification(chain.NTBlockDisconnected, blk)
 	return nil
