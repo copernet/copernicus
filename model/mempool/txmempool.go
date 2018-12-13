@@ -484,7 +484,7 @@ func (m *TxMempool) StatisticIncrease(txEntry *TxEntry,
 	txEntry.UpdateAncestorState(statisticSum(ancestors))
 	txEntry.UpdateDescendantState(statisticSum(descendants))
 
-	// Update @ancestors's 'descendant' related properites.
+	// Update @ancestors's 'descendant' related properties.
 	statisticIncrementalUpdateDescendant(ancestors, 1,
 		txEntry.TxSize, txEntry.SigOpCount, txEntry.TxFee)
 
@@ -499,7 +499,7 @@ func (m *TxMempool) StatisticIncrease(txEntry *TxEntry,
 func (m *TxMempool) StatisticDescrease(txEntry *TxEntry, ancestors, descendants map[*TxEntry]struct{}) {
 	// Since txEntry will be removed, there is no need to update @txEntrys' properties.
 
-	// Update @ancestors's 'descendant' related properites.
+	// Update @ancestors's 'descendant' related properties.
 	statisticIncrementalUpdateDescendant(ancestors, -1, -txEntry.TxSize, -txEntry.SigOpCount, -txEntry.TxFee)
 
 	// Update @descendants's 'ancestor' related properties.
