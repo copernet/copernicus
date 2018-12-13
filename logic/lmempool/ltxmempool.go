@@ -494,6 +494,7 @@ func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
 }
 
 // TTORSort sort transactions by TTOR order. return txs from parent to child
+// first tx of @trans should be coinbase which will not be considered to be sorted.
 func TTORSort(trans []*tx.Tx) ([]*tx.Tx, error) {
 	inputTxCnt := len(trans)
 	if trans == nil || inputTxCnt < 2 {
@@ -501,17 +502,14 @@ func TTORSort(trans []*tx.Tx) ([]*tx.Tx, error) {
 	}
 
 	outpointMap := make(map[outpoint.OutPoint]*tx.Tx)
-	for _, txn := range trans {
-		if txn.IsCoinBase() {
-			return nil, fmt.Errorf("sorted txs should not contain a coinbase tx")
-		}
+	for _, txn := range trans[1:] {
 		for _, prevHash := range txn.GetAllPreviousOut() {
 			outpointMap[prevHash] = txn
 		}
 	}
 
 	parentCntMap := make(map[*tx.Tx]uint32)
-	for _, txn := range trans {
+	for _, txn := range trans[1:] {
 		if txn == nil {
 			return nil, fmt.Errorf("TTORSort: nil tx found")
 		}
@@ -524,7 +522,7 @@ func TTORSort(trans []*tx.Tx) ([]*tx.Tx, error) {
 	}
 
 	var noparentTxs []*tx.Tx
-	for _, txn := range trans {
+	for _, txn := range trans[1:] {
 		if _, ok := parentCntMap[txn]; !ok {
 			noparentTxs = append(noparentTxs, txn)
 		}
@@ -534,6 +532,7 @@ func TTORSort(trans []*tx.Tx) ([]*tx.Tx, error) {
 	}
 
 	sortedTx := make([]*tx.Tx, 0, inputTxCnt)
+	sortedTx = append(sortedTx, trans[0])
 	for len(noparentTxs) > 0 {
 		var curtx *tx.Tx
 		curtx, noparentTxs = noparentTxs[0], noparentTxs[1:]
@@ -561,6 +560,7 @@ func TTORSort(trans []*tx.Tx) ([]*tx.Tx, error) {
 
 func IsTTORSorted(txs []*tx.Tx) bool {
 	txpos := make(map[util.Hash]int)
+	txs = txs[1:]
 	for i, txn := range txs {
 		txpos[txn.GetHash()] = i
 	}

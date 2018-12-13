@@ -1181,11 +1181,11 @@ func TestIsTTORSorted(t *testing.T) {
 	tx3.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(tx2.GetHash(), 0), script.NewEmptyScript(), 0))
 	tx3.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
 
-	assert.True(t, lmempool.IsTTORSorted([]*tx.Tx{tx1, tx2, tx3}))
-	assert.True(t, lmempool.IsTTORSorted([]*tx.Tx{tx3, tx1}))
-	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{tx2, tx1}))
-	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{tx3, tx2}))
-	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{tx3, tx2, tx1}))
+	assert.True(t, lmempool.IsTTORSorted([]*tx.Tx{basetx, tx1, tx2, tx3}))
+	assert.True(t, lmempool.IsTTORSorted([]*tx.Tx{basetx, tx3, tx1}))
+	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{basetx, tx2, tx1}))
+	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{basetx, tx3, tx2}))
+	assert.False(t, lmempool.IsTTORSorted([]*tx.Tx{basetx, tx3, tx2, tx1}))
 }
 
 func TestTTorSort_oneparent(t *testing.T) {
@@ -1213,29 +1213,31 @@ func TestTTorSort_oneparent(t *testing.T) {
 	tx4.AddTxIn(txin.NewTxIn(outpoint.NewOutPoint(basetx2.GetHash(), 0), script.NewEmptyScript(), 0))
 	tx4.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
 
-	trans := []*tx.Tx{tx1, tx2, tx3}
+	trans := []*tx.Tx{basetx, tx1, tx2, tx3}
 	assert.True(t, lmempool.IsTTORSorted(trans))
 
 	trans, err := lmempool.TTORSort(trans)
 	assert.Nil(t, err)
 	assert.True(t, lmempool.IsTTORSorted(trans))
 
-	trans = []*tx.Tx{tx2, tx3, tx1}
+	trans = []*tx.Tx{basetx, tx2, tx3, tx1}
 	assert.False(t, lmempool.IsTTORSorted(trans))
 	trans, err = lmempool.TTORSort(trans)
 	assert.Nil(t, err)
 	assert.True(t, lmempool.IsTTORSorted(trans))
 
-	trans = []*tx.Tx{tx3, tx2, tx1}
+	trans = []*tx.Tx{basetx, tx3, tx2, tx1}
 	assert.False(t, lmempool.IsTTORSorted(trans))
 	trans, err = lmempool.TTORSort(trans)
 	assert.Nil(t, err)
 	assert.True(t, lmempool.IsTTORSorted(trans))
 
 	perm([]*tx.Tx{tx1, tx2, tx3, tx4}, func(trans []*tx.Tx) {
-		trans, err := lmempool.TTORSort(trans)
+		newtrans := []*tx.Tx{basetx}
+		newtrans = append(newtrans, trans...)
+		newtrans, err := lmempool.TTORSort(newtrans)
 		assert.Nil(t, err)
-		assert.True(t, lmempool.IsTTORSorted(trans))
+		assert.True(t, lmempool.IsTTORSorted(newtrans))
 	}, 0)
 }
 
@@ -1291,21 +1293,27 @@ func TestTTorSort_multipleparent(t *testing.T) {
 	tx6.AddTxOut(txout.NewTxOut(0, script.NewEmptyScript()))
 
 	perm([]*tx.Tx{tx1, tx2, tx3, tx4, tx5, tx6}, func(trans []*tx.Tx) {
-		trans, err := lmempool.TTORSort(trans)
+		newtrans := []*tx.Tx{basetx}
+		newtrans = append(newtrans, trans...)
+		newtrans, err := lmempool.TTORSort(newtrans)
 		assert.Nil(t, err)
-		assert.True(t, lmempool.IsTTORSorted(trans))
+		assert.True(t, lmempool.IsTTORSorted(newtrans))
 	}, 0)
 
 	perm([]*tx.Tx{tx1, tx2, tx3, tx5, tx6}, func(trans []*tx.Tx) {
-		trans, err := lmempool.TTORSort(trans)
+		newtrans := []*tx.Tx{basetx}
+		newtrans = append(newtrans, trans...)
+		newtrans, err := lmempool.TTORSort(newtrans)
 		assert.Nil(t, err)
-		assert.True(t, lmempool.IsTTORSorted(trans))
+		assert.True(t, lmempool.IsTTORSorted(newtrans))
 	}, 0)
 
 	perm([]*tx.Tx{tx1, tx3, tx5, tx6}, func(trans []*tx.Tx) {
-		trans, err := lmempool.TTORSort(trans)
+		newtrans := []*tx.Tx{basetx}
+		newtrans = append(newtrans, trans...)
+		newtrans, err := lmempool.TTORSort(newtrans)
 		assert.Nil(t, err)
-		assert.True(t, lmempool.IsTTORSorted(trans))
+		assert.True(t, lmempool.IsTTORSorted(newtrans))
 	}, 0)
 }
 
