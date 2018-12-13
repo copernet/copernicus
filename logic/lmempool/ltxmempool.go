@@ -42,9 +42,10 @@ func AcceptTxFromNetwork(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accep
 	if err != nil {
 		if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) && !txn.AnyInputTxIn(pool.RejectedTxs) {
 			pool.AddOrphanTx(txn, nodeID)
-		} else {
-			pool.RejectedTxs[txn.GetHash()] = struct{}{}
+			return nil, ltx.FindLostPreviousTx(txn), nil, err
 		}
+
+		pool.RejectedTxs[txn.GetHash()] = struct{}{}
 		return nil, nil, []util.Hash{txn.GetHash()}, err
 	}
 	err = addTxToMemPool(pool, txEntry)
