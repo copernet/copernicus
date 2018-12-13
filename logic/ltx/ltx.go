@@ -536,6 +536,27 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 	return coinMap, false, spendCoinbase
 }
 
+func FindLostPreviousTx(txn *tx.Tx) []util.Hash {
+	lostPrev := make(map[util.Hash]struct{})
+	for _, txin := range txn.GetIns() {
+		prevout := txin.PreviousOutPoint
+		coin := utxo.GetUtxoCacheInstance().GetCoin(prevout)
+		if coin == nil {
+			coin = mempool.GetInstance().GetCoin(prevout)
+		}
+		if coin == nil {
+			lostPrev[prevout.Hash] = struct{}{}
+		} else if coin.IsSpent() {
+			return nil
+		}
+	}
+	lost := make([]util.Hash, 0, len(lostPrev))
+	for txhash := range lostPrev {
+		lost = append(lost, txhash)
+	}
+	return lost
+}
+
 func GetTransactionSigOpCount(txn *tx.Tx, flags uint32, coinMap *utxo.CoinsMap) int {
 	sigOpsCount := txn.GetSigOpCountWithoutP2SH(flags) + getP2SHSigOpCount(txn, flags, coinMap)
 

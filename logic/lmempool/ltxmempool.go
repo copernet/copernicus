@@ -211,6 +211,7 @@ func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
 func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	view := utxo.GetUtxoCacheInstance()
 	pool := mempool.GetInstance()
+	defer CheckMempool(pool, nMemPoolHeight-1)
 	pool.Lock()
 	defer pool.Unlock()
 
@@ -252,7 +253,6 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 		staged[it] = struct{}{}
 		pool.RemoveStaged(staged, false, mempool.REORG)
 	}
-	CheckMempool(pool, nMemPoolHeight-1)
 }
 
 func updateCoins(coinsMap *utxo.CoinsMap, trax *tx.Tx) {
