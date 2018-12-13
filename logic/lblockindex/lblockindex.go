@@ -88,40 +88,7 @@ func LoadBlockIndexDB() bool {
 		len(GlobalBlockIndexMap), len(branch), gChain.ChainOrphanLen())
 
 	// Load block file info
-	btd := blkdb.GetInstance()
-	var err error
-	var bfi *block.BlockFileInfo
-
-	globalLastBlockFile, err := btd.ReadLastBlockFile()
-	globalBlockFileInfo := make([]*block.BlockFileInfo, 0, gPersist.GlobalLastBlockFile+1)
-	if err != nil {
-		log.Debug("ReadLastBlockFile() from DB err:%#v", err)
-	} else {
-		var nFile int32
-		for ; nFile <= globalLastBlockFile; nFile++ {
-			bfi, err = btd.ReadBlockFileInfo(nFile)
-			if err != nil || bfi == nil {
-				log.Error("ReadBlockFileInfo(%d) from DB err:%#v", nFile, err)
-				panic("ReadBlockFileInfo err")
-			}
-			globalBlockFileInfo = append(globalBlockFileInfo, bfi)
-		}
-		for nFile = globalLastBlockFile + 1; true; nFile++ {
-			bfi, err = btd.ReadBlockFileInfo(nFile)
-			if bfi != nil && err == nil {
-				log.Debug("LoadBlockIndexDB: the last block file info: %d is less than real block file info: %d",
-					globalLastBlockFile, nFile)
-				globalBlockFileInfo = append(globalBlockFileInfo, bfi)
-				globalLastBlockFile = nFile
-			} else {
-				break
-			}
-		}
-	}
-	gPersist.GlobalBlockFileInfo = globalBlockFileInfo
-	gPersist.GlobalLastBlockFile = globalLastBlockFile
-	log.Debug("LoadBlockIndexDB: Read last block file info: %d, block file info len:%d",
-		globalLastBlockFile, len(globalBlockFileInfo))
+	gPersist.LoadGlobalBlockFileInfo()
 
 	// Check presence of block index files
 	setBlkDataFiles := set.New()
