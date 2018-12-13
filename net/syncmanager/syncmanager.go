@@ -6,6 +6,7 @@ package syncmanager
 
 import (
 	"container/list"
+	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/model/pow"
 	"net"
 	"sync"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -381,7 +381,7 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
-	if !lchain.IsInitialBlockDownload() && peer.VerAckReceived() {
+	if !lblock.IsInitialBlockDownload() && peer.VerAckReceived() {
 		gChain := chain.GetInstance()
 		pindexBestHeader := gChain.GetIndexBestHeader()
 		if pindexBestHeader == nil {
@@ -590,7 +590,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// Process all blocks from whitelisted peers, even if not requested,
 	// unless we're still syncing with the network. Such an unrequested
 	// block may still be processed, subject to the conditions in AcceptBlock().
-	fromWhitelist := peer.IsWhitelisted() && !lchain.IsInitialBlockDownload()
+	fromWhitelist := peer.IsWhitelisted() && !lblock.IsInitialBlockDownload()
 	_, requested := sm.requestedBlocks[blockHash]
 
 	// Remove block from request maps. Either chain will know about it and
@@ -708,7 +708,7 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 		return nil, nil
 	}
 
-	if lchain.IsInitialBlockDownload() {
+	if lblock.IsInitialBlockDownload() {
 		if gChain.Tip().Height > pindexBestKnownBlock.Height ||
 			gChain.Tip().ChainWork.Cmp(&pindexBestKnownBlock.ChainWork) == 1 {
 			return nil, nil
@@ -853,11 +853,11 @@ func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncSta
 
 	//peer from functional test may send version message with -1 height,
 	//and failed to be selected as syncPeer
-	if lchain.IsInitialBlockDownload() && sm.syncPeer == nil {
+	if lblock.IsInitialBlockDownload() && sm.syncPeer == nil {
 		sm.syncPeer = peer
 	}
 
-	if lchain.IsInitialBlockDownload() && sm.syncPeer != peer {
+	if lblock.IsInitialBlockDownload() && sm.syncPeer != peer {
 		log.Debug("IBD: unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
 		//ignore headers from nonSyncPeer, but we can try to get blocks from the peer
 		sm.fetchHeaderBlocks(peer)
@@ -869,7 +869,7 @@ func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncSta
 	peer.PushGetHeadersMsg(*gChain.GetLocator(pindexBestHeader), &zeroHash)
 
 	log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, unconnectingHeaders:%d",
-		pindexBestHeader.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+		pindexBestHeader.Height, peer.Addr(), lblock.IsInitialBlockDownload(),
 		state.unconnectingHeaders)
 
 	if state.unconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
@@ -1068,7 +1068,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		return
 	}
 
-	log.Trace("Received INV msg, And current IBD:%v", lchain.IsInitialBlockDownload())
+	log.Trace("Received INV msg, And current IBD:%v", lblock.IsInitialBlockDownload())
 
 	// Attempt to find the final block in the inventory list.  There may
 	// not be one.
@@ -1123,7 +1123,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		peer.AddKnownInventory(iv)
 
 		if iv.Type == wire.InvTypeTx {
-			if lchain.IsInitialBlockDownload()  {
+			if lblock.IsInitialBlockDownload() {
 				continue
 			}
 

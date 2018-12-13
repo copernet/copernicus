@@ -85,7 +85,7 @@ func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool)
 	}
 
 	gChain := chain.GetInstance()
-	if !lchain.IsInitialBlockDownload() && *gChain.Tip().GetBlockHash() == pblock.Header.HashPrevBlock {
+	if !lblock.IsInitialBlockDownload() && *gChain.Tip().GetBlockHash() == pblock.Header.HashPrevBlock {
 		gChain.SendNotification(chain.NTNewPoWValidBlock, pblock)
 	}
 
