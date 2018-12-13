@@ -309,7 +309,8 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		}
 	}
 	// Remove conflicting transactions from the mempool.;
-	lmempool.RemoveTxInBlock(mempool.GetInstance(), txs)
+	// remove from parent tx to child
+	mempool.GetInstance().RemoveTxSelf(txs)
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
 	nTime6 := util.GetTimeMicroSec()

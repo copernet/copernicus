@@ -281,11 +281,6 @@ func haveInputs(coinsMap *utxo.CoinsMap, trax *tx.Tx) bool {
 	return true
 }
 
-func RemoveTxInBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
-	// from parent tx to child
-	pool.RemoveTxSelf(txs)
-}
-
 // CheckMempool check If sanity-checking is turned on, check makes sure the pool is consistent
 // (does not contain two transactions that spend the same inputs, all inputs
 // are in the mapNextTx array). If sanity-checking is turned off, check does
