@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lchain"
+	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model"
@@ -156,7 +156,7 @@ func handleGetBlockTemplateRequest(s *Server, request *btcjson.TemplateRequest, 
 		}
 	}
 
-	if lchain.IsInitialBlockDownload() {
+	if lblock.IsInitialBlockDownload() {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCClientInInitialDownload,
 			Message: "BitcoinCash is downloading blocks...",

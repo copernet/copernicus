@@ -32,12 +32,6 @@ import (
 	"github.com/copernet/copernicus/persist/db"
 )
 
-// IsInitialBlockDownload Check whether we are doing an initial block download
-// (synchronizing from disk or network)
-func IsInitialBlockDownload() bool {
-	return persist.Reindex || !chain.GetInstance().IsAlmostSynced()
-}
-
 func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := chain.GetInstance()
 	start := time.Now()

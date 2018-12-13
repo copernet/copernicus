@@ -312,3 +312,9 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 
 	return bIndex, nil
 }
+
+// IsInitialBlockDownload Check whether we are doing an initial block download
+// (synchronizing from disk or network)
+func IsInitialBlockDownload() bool {
+	return persist.Reindex || !chain.GetInstance().IsAlmostSynced()
+}
