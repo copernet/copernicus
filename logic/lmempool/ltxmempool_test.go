@@ -489,7 +489,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
 
-		_, _, _, err := lmempool.AcceptTxFromNetwork(tx, harness.chain.BestHeight(), 0)
+		_, _, _, err := lmempool.AcceptNewTxToMempool(tx, harness.chain.BestHeight(), 0)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: failed to accept valid "+
 				"orphan %v", err)
@@ -581,7 +581,7 @@ func TestOrphanReject(t *testing.T) {
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
 
-		_, _, _, err := lmempool.AcceptTxFromNetwork(tx, harness.chain.BestHeight(), 0)
+		_, _, _, err := lmempool.AcceptNewTxToMempool(tx, harness.chain.BestHeight(), 0)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: did not fail on orphan "+
 				"%v when allow orphans flag is false", tx.GetHash())

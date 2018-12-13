@@ -8,5 +8,5 @@ import (
 )
 
 func ProcessTransaction(txn *tx.Tx, recentRejects map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
-	return lmempool.AcceptTxFromNetwork(txn, chain.GetInstance().Height(), nodeID)
+	return lmempool.AcceptNewTxToMempool(txn, chain.GetInstance().Height(), nodeID)
 }

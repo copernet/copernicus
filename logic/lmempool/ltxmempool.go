@@ -28,15 +28,13 @@ func AcceptTxToMemPool(txn *tx.Tx) error {
 	}
 	pool.Lock()
 	defer pool.Unlock()
-	return addTxToMemPool(pool, txEntry)
+	return addTxToMemPoolUnchecked(pool, txEntry)
 }
 
-// AcceptTxFromNetwork only accept tx from network
-func AcceptTxFromNetwork(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accepted []*tx.Tx, missed []util.Hash, rejected []util.Hash, err error) {
+// AcceptNewTxToMempool only accept tx from network
+func AcceptNewTxToMempool(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accepted []*tx.Tx, missed []util.Hash, rejected []util.Hash, err error) {
 	pool := mempool.GetInstance()
-	defer func() {
-		CheckMempool(pool, bestChainHeight)
-	}()
+	defer CheckMempool(pool, bestChainHeight)
 
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
@@ -48,7 +46,7 @@ func AcceptTxFromNetwork(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accep
 		pool.RejectedTxs[txn.GetHash()] = struct{}{}
 		return nil, nil, []util.Hash{txn.GetHash()}, err
 	}
-	err = addTxToMemPool(pool, txEntry)
+	err = addTxToMemPoolUnchecked(pool, txEntry)
 	if err == nil {
 		accepted, rejected = TryAcceptOrphansTxs(txn, bestChainHeight, true)
 		if !pool.HaveTransaction(txn) {
@@ -67,7 +65,7 @@ func AcceptTxFromNetwork(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accep
 	return nil, nil, nil, err
 }
 
-func addTxToMemPool(pool *mempool.TxMempool, txe *mempool.TxEntry) error {
+func addTxToMemPoolUnchecked(pool *mempool.TxMempool, txe *mempool.TxEntry) error {
 	ancestorNum := conf.Cfg.Mempool.LimitAncestorCount
 	ancestorSize := conf.Cfg.Mempool.LimitAncestorSize
 	descendantNum := conf.Cfg.Mempool.LimitDescendantCount
@@ -166,7 +164,7 @@ func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
 			continue
 		}
 		// tx will never orphan here.
-		err = addTxToMemPool(pool, txEntry)
+		err = addTxToMemPoolUnchecked(pool, txEntry)
 		if err != nil {
 			log.Info("AddUndoBlockTx: addTxToMemPool tx(%s) from undoblock err:%v",
 				txn.GetHash(), err)

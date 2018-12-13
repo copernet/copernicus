@@ -568,7 +568,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 	entry := mempool.GetInstance().FindTx(hash)
 
 	if entry == nil && !inChain {
-		err = lmempool.AcceptTxToMemPool(&txn)
+		_, _, _, err = lmempool.AcceptNewTxToMempool(&txn, chain.GetInstance().TipHeight(), -1)
 		if err != nil {
 			return nil, rpcErrorOfAcceptTx(err)
 		}
