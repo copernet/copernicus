@@ -50,13 +50,13 @@ type StatisInformation struct {
 
 func statisticIncrementalUpdateDescendant(entries map[*TxEntry]struct{}, deltaCount, deltaSize, deltaSigOp int, deltaFee int64) {
 	for e := range entries {
-		e.UpdateDescendantState(deltaCount, deltaSize, deltaSigOp, deltaFee)
+		e.updateDescendantState(deltaCount, deltaSize, deltaSigOp, deltaFee)
 	}
 }
 
 func statisticIncrementalUpdateAncestors(entries map[*TxEntry]struct{}, deltaCount, deltaSize, deltaSigOp int, deltaFee int64) {
 	for e := range entries {
-		e.UpdateAncestorState(deltaCount, deltaSize, deltaSigOp, deltaFee)
+		e.updateAncestorState(deltaCount, deltaSize, deltaSigOp, deltaFee)
 	}
 }
 
@@ -139,13 +139,13 @@ func (t *TxEntry) UnassociateRelationship() {
 	t.ChildTx = make(map[*TxEntry]struct{})
 }
 
-func (t *TxEntry) UpdateDescendantState(updateCount, updateSize, updateSigOps int, updateFee int64) {
+func (t *TxEntry) updateDescendantState(updateCount, updateSize, updateSigOps int, updateFee int64) {
 	t.SumTxCountWithDescendants += int64(updateCount)
 	t.SumTxSizeWithDescendants += int64(updateSize)
 	t.SumTxFeeWithDescendants += updateFee
 }
 
-func (t *TxEntry) UpdateAncestorState(updateCount, updateSize, updateSigOps int, updateFee int64) {
+func (t *TxEntry) updateAncestorState(updateCount, updateSize, updateSigOps int, updateFee int64) {
 	t.SumTxSizeWitAncestors += int64(updateSize)
 	t.SumTxCountWithAncestors += int64(updateCount)
 	t.SumTxSigOpCountWithAncestors += int64(updateSigOps)

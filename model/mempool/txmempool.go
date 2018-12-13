@@ -481,8 +481,8 @@ func (m *TxMempool) StatisticIncrease(txEntry *TxEntry,
 	ancestors, descendants map[*TxEntry]struct{}) {
 
 	// Update txEntry's 'descendant' and 'ancestor' related properties.
-	txEntry.UpdateAncestorState(statisticSum(ancestors))
-	txEntry.UpdateDescendantState(statisticSum(descendants))
+	txEntry.updateAncestorState(statisticSum(ancestors))
+	txEntry.updateDescendantState(statisticSum(descendants))
 
 	// Update @ancestors's 'descendant' related properties.
 	statisticIncrementalUpdateDescendant(ancestors, 1,
