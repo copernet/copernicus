@@ -58,7 +58,7 @@ func AcceptTxFromNetwork(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accep
 		_, file, line, _ := runtime.Caller(1)
 		accepted = append([]*tx.Tx{txn}, accepted...)
 		for _, t := range accepted {
-			log.Debug("AcceptTxFromNetWork: tx(%s) parent(%v) child(%v)  %s:%d", t.GetHash(),
+			log.Debug("AcceptTxFromNetWork: accept orhpan tx(%s) parent(%v) child(%v)  %s:%d", t.GetHash(),
 				txEntry.ParentTx, txEntry.ChildTx, file, line)
 		}
 		return accepted, nil, rejected, err
