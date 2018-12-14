@@ -17,7 +17,6 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
@@ -40,7 +39,7 @@ func initTestEnv(t *testing.T) (dirpath string, err error) {
 	if err != nil {
 		return "", err
 	}
-	persist.InitPersistGlobal()
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	return unitTestDataDirPath, nil
 }
@@ -298,14 +297,13 @@ func initUtxoDB() {
 }
 
 func TestFlushStateToDisk(t *testing.T) {
+	initBlockDB()
+	initUtxoDB()
 	testDirPath, err := initTestEnv(t)
 	if err != nil {
 		t.Fatalf("init test environment failed: %s", err)
 	}
 	defer os.RemoveAll(testDirPath)
-	initBlockDB()
-	initUtxoDB()
-	chain.InitGlobalChain()
 
 	necm := utxo.NewEmptyCoinsMap()
 	hash1 := util.HashFromString("000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6")
@@ -354,8 +352,11 @@ func TestFlushStateToDisk(t *testing.T) {
 
 	gPersist.GlobalLastBlockFile = 1
 
+	mempoolUsage := int64(0)
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+
 	for _, mode := range []FlushStateMode{FlushStateNone, FlushStateIfNeeded, FlushStatePeriodic, FlushStateAlways} {
-		err := FlushStateToDisk(mode, 100)
+		err := FlushStateToDisk(mode, 100, mempoolUsage, mempoolSizeMax)
 		if err != nil {
 			t.Errorf("flush state mode to disk failed:%v", err)
 		}
