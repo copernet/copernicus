@@ -755,7 +755,11 @@ func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}
 	defer persist.CsMain.Unlock()
 
 	// Write the chain state to disk, if necessary.
-	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
+
+	mem := mempool.GetInstance()
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0, mempoolUsage, mempoolSizeMax); err != nil {
 		return nil, err
 	}
 

@@ -271,7 +271,11 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		nTime4-nTime3, float64(gPersist.GlobalTimeFlush)*0.000001)
 
 	// Write the chain state to disk, if necessary.
-	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
+
+	mem := mempool.GetInstance()
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0, mempoolUsage, mempoolSizeMax); err != nil {
 		return err
 	}
 	if pIndexNew.Height >= conf.Cfg.Chain.UtxoHashStartHeight && pIndexNew.Height < conf.Cfg.Chain.UtxoHashEndHeight {
@@ -296,7 +300,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		float64(nTime5-nTime4)*0.001, float64(gPersist.GlobalTimeChainState)*0.000001)
 
 	// Remove conflicting transactions from the mempool.;
-	mempool.GetInstance().RemoveTxSelf(blockConnecting.Txs)
+	mem.RemoveTxSelf(blockConnecting.Txs)
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
 	nTime6 := util.GetTimeMicroSec()
@@ -348,7 +352,11 @@ func DisconnectTip(fBare bool) error {
 		float64(time.Now().UnixNano()-nStart)*0.001)
 
 	// Write the chain state to disk, if necessary.
-	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0); err != nil {
+
+	mem := mempool.GetInstance()
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+	if err := disk.FlushStateToDisk(disk.FlushStateIfNeeded, 0, mempoolUsage, mempoolSizeMax); err != nil {
 		return err
 	}
 
@@ -479,7 +487,10 @@ func InitGenesisChain() error {
 	bestHash := bIndex.GetBlockHash()
 	utxo.GetUtxoCacheInstance().UpdateCoins(coinsMap, bestHash)
 
-	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0)
+	mem := mempool.GetInstance()
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+	err = disk.FlushStateToDisk(disk.FlushStateAlways, 0, mempoolUsage, mempoolSizeMax)
 
 	return err
 }

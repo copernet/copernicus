@@ -2594,7 +2594,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *util.MedianTime, interrupt 
 		services &^= wire.SFNodeBloom
 	}
 
-	amgr := addrmgr.New(cfg.DataDir, net.LookupIP)
+	amgr := addrmgr.New(conf.DataDir, net.LookupIP)
 
 	var listeners []net.Listener
 	var nat upnp.NAT
@@ -2635,7 +2635,7 @@ func NewServer(chainParams *model.BitcoinParams, ts *util.MedianTime, interrupt 
 		connectPeerChn:       make(chan *serverPeer),
 		banScoreChn:          make(chan *banScoreMsg),
 		connectedPeers:       make(map[string]*serverPeer),
-		banPeerFile:          filepath.Join(cfg.DataDir, "banpeers.json"),
+		banPeerFile:          filepath.Join(conf.DataDir, "banpeers.json"),
 		txRelayer:            NewTxRelayer(),
 	}
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -85,11 +84,10 @@ func initTestEnv() (string, error) {
 	}
 
 	model.SetTestNetParams()
-	persist.InitPersistGlobal()
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		FilePath:  conf.DataDir + "/chainstate",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
@@ -98,15 +96,16 @@ func initTestEnv() (string, error) {
 
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		FilePath:  conf.DataDir + "/blocks/index",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	chain.InitGlobalChain()
-	lblockindex.LoadBlockIndexDB()
+	chain.InitGlobalChain(blkdb.GetInstance())
+	persist.InitPersistGlobal(blkdb.GetInstance())
+
 	mempool.InitMempool()
 	crypto.InitSecp256()
 

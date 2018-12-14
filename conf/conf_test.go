@@ -183,7 +183,7 @@ type defaultArgs struct {
 }
 
 func getDefaultConfiguration(args defaultArgs) *Configuration {
-	dataDir := args.dataDir
+	DataDir = args.dataDir
 	testNet := args.testNet
 	regTestNet := args.regTestNet
 	whiteList := args.whiteList
@@ -192,7 +192,6 @@ func getDefaultConfiguration(args defaultArgs) *Configuration {
 
 	return &Configuration{
 		Excessiveblocksize: defaultExcessiveblocksize,
-		DataDir:            dataDir,
 		RPC: struct {
 			RPCListeners         []string
 			RPCUser              string

@@ -11,6 +11,7 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/disk"
@@ -101,7 +102,10 @@ func ActivateBestChain(pblock *block.Block) error {
 		}
 	}
 	// Write changes periodically to disk, after relay.
-	err := disk.FlushStateToDisk(disk.FlushStatePeriodic, 0)
+	mem := mempool.GetInstance()
+	mempoolUsage := mem.GetPoolUsage()
+	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+	err := disk.FlushStateToDisk(disk.FlushStatePeriodic, 0, mempoolUsage, mempoolSizeMax)
 	stopAtHeightIfNeed(chain.GetInstance().Tip().Height)
 	return err
 }

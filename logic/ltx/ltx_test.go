@@ -19,7 +19,6 @@ import (
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
@@ -1322,28 +1321,24 @@ func initTestEnv() func() {
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		FilePath:  conf.DataDir + "/chainstate",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
 	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
 	utxo.InitUtxoLruTip(&utxoConfig)
 
-	chain.InitGlobalChain()
-
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		FilePath:  conf.DataDir + "/blocks/index",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	persist.InitPersistGlobal()
-
-	// Load blockindex DB
-	lblockindex.LoadBlockIndexDB()
+	chain.InitGlobalChain(blkdb.GetInstance())
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	lchain.InitGenesisChain()
 

@@ -6,7 +6,6 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lreindex"
 	"github.com/copernet/copernicus/logic/ltx"
@@ -65,28 +64,31 @@ func appInitMain(args []string) {
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		FilePath:  conf.DataDir + "/chainstate",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
 	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
 	utxo.InitUtxoLruTip(&utxoConfig)
 
-	chain.InitGlobalChain()
-
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		FilePath:  conf.DataDir + "/blocks/index",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	persist.InitPersistGlobal()
+	btd := blkdb.GetInstance()
+	persist.InitPersistGlobal(btd)
+
+	if !chain.InitGlobalChain(btd) {
+		return
+	}
 
 	// Load blockindex DB
-	lblockindex.LoadBlockIndexDB()
+	//lblockindex.LoadBlockIndexDB()
 
 	// when reindexing, we reuse the genesis block already on the disk
 	if !conf.Cfg.Reindex {

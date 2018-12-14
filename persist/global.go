@@ -47,13 +47,6 @@ type PersistGlobal struct {
 	GlobalMapBlocksUnlinked                              map[*blockindex.BlockIndex][]*blockindex.BlockIndex
 }
 
-type PruneState struct {
-	PruneMode       bool
-	HavePruned      bool
-	PruneTarget     uint64
-	CheckForPruning bool
-}
-
 func (pg *PersistGlobal) AddDirtyBlockIndex(pindex *blockindex.BlockIndex) {
 	pg.GlobalDirtyBlockIndex[*pindex.GetBlockHash()] = pindex
 }
@@ -62,22 +55,13 @@ func (pg *PersistGlobal) AddBlockSequenceID() {
 	pg.GlobalBlockSequenceID++
 }
 
-func InitPersistGlobal() {
+func InitPersistGlobal(btd *blkdb.BlockTreeDB) {
 	persistGlobal = new(PersistGlobal)
 	persistGlobal.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)
 	persistGlobal.GlobalDirtyFileInfo = make(map[int32]bool)
 	persistGlobal.GlobalDirtyBlockIndex = make(map[util.Hash]*blockindex.BlockIndex)
 	persistGlobal.GlobalMapBlocksUnlinked = make(map[*blockindex.BlockIndex][]*blockindex.BlockIndex)
-}
-
-func InitPruneState() *PruneState {
-	ps := &PruneState{
-		PruneMode:       false,
-		HavePruned:      false,
-		CheckForPruning: false,
-		PruneTarget:     0,
-	}
-	return ps
+	persistGlobal.LoadBlockFileInfo(btd)
 }
 
 func GetInstance() *PersistGlobal {
@@ -87,9 +71,7 @@ func GetInstance() *PersistGlobal {
 	return persistGlobal
 }
 
-func (pg *PersistGlobal) LoadGlobalBlockFileInfo() {
-
-	btd := blkdb.GetInstance()
+func (pg *PersistGlobal) LoadBlockFileInfo(btd *blkdb.BlockTreeDB) {
 	var err error
 	var bfi *block.BlockFileInfo
 
@@ -124,4 +106,21 @@ func (pg *PersistGlobal) LoadGlobalBlockFileInfo() {
 	log.Debug("LoadBlockIndexDB: Read last block file info: %d, block file info len:%d",
 		globalLastBlockFile, len(globalBlockFileInfo))
 
+}
+
+type PruneState struct {
+	PruneMode       bool
+	HavePruned      bool
+	PruneTarget     uint64
+	CheckForPruning bool
+}
+
+func InitPruneState() *PruneState {
+	ps := &PruneState{
+		PruneMode:       false,
+		HavePruned:      false,
+		CheckForPruning: false,
+		PruneTarget:     0,
+	}
+	return ps
 }
