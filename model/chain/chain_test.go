@@ -25,6 +25,7 @@ func TestMain(m *testing.M) {
 func getBlockIndex(indexPrev *blockindex.BlockIndex, timeInterval int64, bits uint32) *blockindex.BlockIndex {
 	blockIdx := new(blockindex.BlockIndex)
 	blockIdx.Prev = indexPrev
+	blockIdx.BuildSkip()
 	blockIdx.Height = indexPrev.Height + 1
 	blockIdx.Header.Time = indexPrev.Header.Time + uint32(timeInterval)
 	blockIdx.Header.Bits = bits

@@ -42,7 +42,6 @@ func newCoinsLruCache(db CoinsDB) CacheView {
 func (coinsCache *CoinsLruCache) GetCoin(outpoint *outpoint.OutPoint) *Coin {
 	c, ok := coinsCache.cacheCoins.Get(*outpoint)
 	if ok {
-		log.Info("getCoin from cache")
 		return c.(*Coin)
 	}
 	db := coinsCache.db
@@ -162,6 +161,18 @@ func (coinsCache *CoinsLruCache) Flush() bool {
 		}
 	}
 	return true
+}
+
+func (coinsCache *CoinsLruCache) AccessByTxID(hash *util.Hash) *Coin {
+	out := outpoint.OutPoint{Hash: *hash, Index: 0}
+	for int(out.Index) < 11000 { // todo modify to be precise
+		alternate := coinsCache.GetCoin(&out)
+		if alternate != nil && !alternate.IsSpent() {
+			return alternate
+		}
+		out.Index++
+	}
+	return nil
 }
 
 func (coinsCache *CoinsLruCache) GetCacheSize() int {

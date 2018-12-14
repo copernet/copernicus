@@ -40,7 +40,6 @@ func IsInitialBlockDownload() bool {
 
 func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo.CoinsMap, fJustCheck bool) error {
 	gChain := chain.GetInstance()
-	tip := gChain.Tip()
 	start := time.Now()
 	params := gChain.GetParams()
 	// Check it again in case a previous version let a bad lblock in
@@ -80,8 +79,11 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		// selection of any particular chain but makes validating some faster by
 		// effectively caching the result of part of the verification.
 		if bi := gChain.FindBlockIndex(chain.HashAssumeValid); bi != nil {
-			if bi.GetAncestor(pindex.Height) == pindex && tip.GetAncestor(pindex.Height) == pindex &&
-				tip.ChainWork.Cmp(pow.HashToBig(&params.MinimumChainWork)) > 0 {
+			minimumChainWork := pow.MiniChainWork()
+			pindexBestHeader := gChain.GetIndexBestHeader()
+			if bi.GetAncestor(pindex.Height) == pindex &&
+				pindexBestHeader.GetAncestor(pindex.Height) == pindex &&
+				pindexBestHeader.ChainWork.Cmp(&minimumChainWork) >= 0 {
 				// This block is a member of the assumed verified chain and an
 				// ancestor of the best header. The equivalent time check
 				// discourages hashpower from extorting the network via DOS
@@ -95,7 +97,8 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 				// further back. The test against nMinimumChainWork prevents the
 				// skipping when denied access to any chain at least as good as
 				// the expected chain.
-				fScriptChecks = (pow.GetBlockProofEquivalentTime(tip, pindex, tip, params)) <= 60*60*24*7*2
+				fScriptChecks = (pow.GetBlockProofEquivalentTime(
+					pindexBestHeader, pindex, pindexBestHeader, params)) <= 60*60*24*7*2
 			}
 		}
 	}
@@ -198,7 +201,7 @@ func ConnectBlock(pblock *block.Block, pindex *blockindex.BlockIndex, view *utxo
 		}
 	}
 
-	log.Debug("Connect block heigh:%d, hash:%s", pindex.Height, blockHash)
+	log.Debug("Connect block heigh:%d, hash:%s, txs: %d", pindex.Height, blockHash, len(pblock.Txs))
 	return nil
 }
 
@@ -232,7 +235,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		panic("error: try to connect to inactive chain!!!")
 	}
 	// Read block from disk.
-	nTime1 := time.Now().UnixNano()
+	nTime1 := util.GetTimeMicroSec()
 	if block == nil {
 		blockNew, err := disk.ReadBlockFromDisk(pIndexNew, gChain.GetParams())
 		if !err || blockNew == nil {
@@ -247,10 +250,10 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	blockConnecting := block
 	indexHash := blockConnecting.GetHash()
 	// Apply the block atomically to the chain state.
-	nTime2 := time.Now().UnixNano()
+	nTime2 := util.GetTimeMicroSec()
 	gPersist := persist.GetInstance()
 	gPersist.GlobalTimeReadFromDisk += nTime2 - nTime1
-	log.Info("Load block from disk: %#v ms total: [%#v s]\n", (nTime2-nTime1)/1000, gPersist.GlobalTimeReadFromDisk/1000000)
+	log.Info("Load block from disk: %d us total: [%.6f s]\n", nTime2-nTime1, float64(gPersist.GlobalTimeReadFromDisk)*0.000001)
 
 	view := utxo.NewEmptyCoinsMap()
 	err := ConnectBlock(blockConnecting, pIndexNew, view, false)
@@ -261,8 +264,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	}
 	nTime3 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeConnectTotal += nTime3 - nTime2
-	log.Debug("Connect total: %.2fms [%.2fs]\n",
-		float64(nTime3-nTime2)*0.001, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
+	log.Debug("Connect total: %d us [%.2fs]\n", nTime3-nTime2, float64(gPersist.GlobalTimeConnectTotal)*0.000001)
 
 	//flushed := view.Flush(indexHash)
 	err = utxo.GetUtxoCacheInstance().UpdateCoins(view, &indexHash)
@@ -271,8 +273,8 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	}
 	nTime4 := util.GetTimeMicroSec()
 	gPersist.GlobalTimeFlush += nTime4 - nTime3
-	log.Print("bench", "debug", " - Flush: %.2fms [%.2fs]\n",
-		float64(nTime4-nTime3)*0.001, float64(gPersist.GlobalTimeFlush)*0.000001)
+	log.Print("bench", "debug", " - Flush: %d us [%.2fs]\n",
+		nTime4-nTime3, float64(gPersist.GlobalTimeFlush)*0.000001)
 
 	// Write the chain state to disk, if necessary.
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {

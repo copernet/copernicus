@@ -24,7 +24,6 @@ func (coinsViewDB *CoinsDB) GetCoin(outpoint *outpoint.OutPoint) (*Coin, error) 
 		log.Emergency("db.GetCoin err:%#v", err)
 		panic("get coin is failed!")
 	}
-	log.Debug("outpoint==========", outpoint)
 	coinBuff, err := coinsViewDB.dbw.Read(buf.Bytes())
 	if err != nil {
 

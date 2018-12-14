@@ -83,7 +83,7 @@ type Configuration struct {
 		MaxPeers            int      `default:"128"`
 		TargetOutbound      int      `default:"64"`
 		ConnectPeersOnStart []string
-		DisableBanning      bool   `default:"true"`
+		DisableBanning      bool   `default:"false"`
 		BanThreshold        uint32 `default:"100"`
 		TestNet             bool
 		RegTest             bool `default:"false"`
@@ -301,6 +301,9 @@ func InitConfig(args []string) *Configuration {
 	}
 	if opts.MaxTimeAdjustment > 0 {
 		config.P2PNet.MaxTimeAdjustment = opts.MaxTimeAdjustment
+	}
+	if len(opts.AssumeValid) > 0 {
+		config.Chain.AssumeValid = opts.AssumeValid
 	}
 
 	return config

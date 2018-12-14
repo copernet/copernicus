@@ -16,7 +16,6 @@ import (
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/logic/lmerkleblock"
 	"github.com/copernet/copernicus/logic/ltx"
-	"github.com/copernet/copernicus/logic/lutxo"
 	"github.com/copernet/copernicus/logic/lwallet"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
@@ -276,7 +275,7 @@ func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) 
 
 	// use coin database to locate block that contains transaction, and scan it
 	var indexSlow *blockindex.BlockIndex
-	coin := lutxo.AccessByTxid(utxo.GetUtxoCacheInstance(), hash)
+	coin := utxo.GetUtxoCacheInstance().AccessByTxID(hash)
 	if coin == nil || coin.IsSpent() {
 		return nil, nil, false
 	}
@@ -852,7 +851,7 @@ func handleGetTxoutProof(s *Server, cmd interface{}, closeChan <-chan struct{}) 
 		}
 	} else {
 		view := utxo.GetUtxoCacheInstance()
-		coin := lutxo.AccessByTxid(view, &oneTxID)
+		coin := view.AccessByTxID(&oneTxID)
 		if coin != nil && !coin.IsSpent() && coin.GetHeight() > 0 &&
 			coin.GetHeight() <= chain.GetInstance().Height() {
 			bindex = chain.GetInstance().GetIndex(coin.GetHeight())

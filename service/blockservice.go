@@ -14,17 +14,21 @@ import (
 
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
 	log.Debug("ProcessBlockHeader begin, header number : %d", len(headerList))
+	lastheight := int32(-1)
 	for _, header := range headerList {
 		index, err := lblock.AcceptBlockHeader(header)
 		if err != nil {
 			return err
 		}
-		lastIndex = index
+		if lastIndex != nil {
+			*lastIndex = *index
+		}
+		lastheight = index.Height
 	}
 	beginHash := headerList[0].GetHash()
 	endHash := headerList[len(headerList)-1].GetHash()
 	log.Trace("processBlockHeader success, blockNumber : %d, lastBlockHeight : %d, beginBlockHash : %s, "+
-		"endBlockHash : %s. ", len(headerList), lastIndex.Height, beginHash, endHash)
+		"endBlockHash : %s. ", len(headerList), lastheight, beginHash, endHash)
 	return nil
 }
 
@@ -80,7 +84,10 @@ func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool)
 		return err
 	}
 
-	chain.GetInstance().SendNotification(chain.NTBlockAccepted, pblock)
+	gChain := chain.GetInstance()
+	if !lchain.IsInitialBlockDownload() && *gChain.Tip().GetBlockHash() == pblock.Header.HashPrevBlock {
+		gChain.SendNotification(chain.NTNewPoWValidBlock, pblock)
+	}
 
 	if err := lchain.CheckBlockIndex(); err != nil {
 		log.Error("check block index failed, please check: %v", err)

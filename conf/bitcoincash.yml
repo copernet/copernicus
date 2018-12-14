@@ -33,7 +33,7 @@ P2PNet:
   MaxPeers:
   TargetOutbound:
   ConnectPeersOnStart:
-  DisableBanning: true
+  DisableBanning: false
   SimNet: false
   DisableListen: false
   BlocksOnly: false

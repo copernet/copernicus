@@ -6,6 +6,7 @@ package syncmanager
 
 import (
 	"container/list"
+	"github.com/copernet/copernicus/model/pow"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -29,11 +30,6 @@ import (
 )
 
 const (
-	// minInFlightBlocks is the minimum number of blocks that should be
-	// in the request queue for headers-first mode before requesting
-	// more.
-	minInFlightBlocks = 10
-
 	// maxRejectedTxns is the maximum number of rejected transactions
 	// hashes to store in memory.
 	maxRejectedTxns = 1000
@@ -47,6 +43,29 @@ const (
 	maxRequestedTxns = wire.MaxInvPerMsg
 
 	blockRequestTimeoutTime = 20 * time.Minute
+
+	//MAX_BLOCKS_IN_TRANSIT_PER_PEER is Number of blocks that can be requested at any given time from a single peer
+	MAX_BLOCKS_IN_TRANSIT_PER_PEER = 16
+
+	// BLOCK_DOWNLOAD_WINDOW see below
+	/**
+	 * Size of the "block download window": how far ahead of our current height do
+	 * we fetch ? Larger windows tolerate larger download speed differences between
+	 * peer, but increase the potential degree of disordering of blocks on disk
+	 * (which make reindexing and in the future perhaps pruning harder). We'll
+	 * probably want to make this a per-peer adaptive value at some point.
+	 */
+	BLOCK_DOWNLOAD_WINDOW = 1024
+
+	// MAX_UNCONNECTING_HEADERS Maximum number of unconnecting headers announcements before DoS score
+	MAX_UNCONNECTING_HEADERS = 10
+
+	// fetchInterval is the interval to fetchHeaderBlocks for all peer
+	fetchInterval = 1 * time.Second
+
+	// BLOCK_STALLING_TIMEOUT in microsecond during which a peer must stall block
+	// download progress before being disconnected
+	BLOCK_STALLING_TIMEOUT = 2 * 1000000
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -106,6 +125,12 @@ type headersMsg struct {
 	peer    *peer.Peer
 }
 
+type pingMsg struct {
+	ping  *wire.MsgPing
+	peer  *peer.Peer
+	reply chan<- struct{}
+}
+
 // donePeerMsg signifies a newly disconnected peer to the block handler.
 type donePeerMsg struct {
 	peer *peer.Peer
@@ -159,7 +184,6 @@ type pauseMsg struct {
 }
 
 // headerNode is used as a node in a list of headers that are linked together
-// between checkpoints.
 type headerNode struct {
 	height int32
 	hash   *util.Hash
@@ -168,10 +192,11 @@ type headerNode struct {
 // peerSyncState stores additional information that the SyncManager tracks
 // about a peer.
 type peerSyncState struct {
-	syncCandidate   bool
-	requestQueue    []*wire.InvVect
-	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}
+	syncCandidate       bool
+	requestQueue        []*wire.InvVect
+	requestedTxns       map[util.Hash]struct{}
+	requestedBlocks     map[util.Hash]struct{}
+	unconnectingHeaders int
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -192,15 +217,9 @@ type SyncManager struct {
 	// These fields should only be accessed from the messagesHandler
 	rejectedTxns    map[util.Hash]struct{}
 	requestedTxns   map[util.Hash]struct{}
-	requestedBlocks map[util.Hash]struct{}
+	requestedBlocks map[util.Hash]*peer.Peer
 	syncPeer        *peer.Peer
 	peerStates      map[*peer.Peer]*peerSyncState
-
-	// The following fields are used for headers-first mode.
-	headersFirstMode bool
-	headerList       *list.List
-	startHeader      *list.Element
-	nextCheckpoint   *model.Checkpoint
 
 	// callback for transaction And block process
 	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
@@ -208,26 +227,8 @@ type SyncManager struct {
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 	AddBanScoreCallBack        func(string, uint32, uint32, string)
 
-	allowdGetBlocksTimes int
-
 	// An optional fee estimator.
 	//feeEstimator *mempool.FeeEstimator
-}
-
-// resetHeaderState sets the headers-first mode state to values appropriate for
-// syncing from a new peer.
-func (sm *SyncManager) resetHeaderState(newestHash *util.Hash, newestHeight int32) {
-	sm.headersFirstMode = false
-	sm.headerList.Init()
-	sm.startHeader = nil
-
-	// When there is a next checkpoint, add an entry for the latest known
-	// block into the header pool.  This allows the next downloaded header
-	// to prove it links to the chain properly.
-	if sm.nextCheckpoint != nil {
-		node := headerNode{height: newestHeight, hash: newestHash}
-		sm.headerList.PushBack(&node)
-	}
 }
 
 // findNextHeaderCheckpoint returns the next checkpoint after the passed height.
@@ -286,7 +287,6 @@ func (sm *SyncManager) startSync() {
 		// have one soon so it is a reasonable choice.  It also allows
 		// the case where both are at 0 such as during regression test.
 		if peer.LastBlock() < best.Height {
-			state.syncCandidate = false
 			continue
 		}
 
@@ -297,50 +297,31 @@ func (sm *SyncManager) startSync() {
 
 	// Start syncing from the best peer if one was selected.
 	if bestPeer != nil {
-		// Clear the requestedBlocks if the sync peer changes, otherwise
-		// we may ignore blocks we need that the last sync peer failed
-		// to send.
-		sm.requestedBlocks = make(map[util.Hash]struct{})
-
 		activeChain := chain.GetInstance()
-		locator := activeChain.GetLocator(nil)
+		pindexBestHeader := activeChain.GetIndexBestHeader()
+		if pindexBestHeader == nil {
+			pindexBestHeader = activeChain.Tip()
+			activeChain.SetIndexBestHeader(pindexBestHeader)
+		}
+		pindexStart := pindexBestHeader
+		/**
+		 * If possible, start at the block preceding the currently best
+		 * known header. This ensures that we always get a non-empty list of
+		 * headers back as long as the peer is up-to-date. With a non-empty
+		 * response, we can initialise the peer's known best block. This
+		 * wouldn't be possible if we requested starting at pindexBestHeader
+		 * and got back an empty response.
+		 */
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := activeChain.GetLocator(pindexStart)
 		log.Info("Syncing to block height %d from peer %v",
 			bestPeer.LastBlock(), bestPeer.Addr())
 
-		// When the current height is less than a known checkpoint we
-		// can use block headers to learn about which blocks comprise
-		// the chain up to the checkpoint and perform less validation
-		// for them.  This is possible since each header contains the
-		// hash of the previous header and a merkle root.  Therefore if
-		// we validate all of the received headers link together
-		// properly and the checkpoint hashes match, we can be sure the
-		// hashes for the blocks in between are accurate.  Further, once
-		// the full blocks are downloaded, the merkle root is computed
-		// and compared against the value in the header which proves the
-		// full block hasn't been tampered with.
-		//
-		// Once we have passed the final checkpoint, or checkpoints are
-		// disabled, use standard inv messages learn about the blocks
-		// and fully validate them.  Finally, regression test mode does
-		// not support the headers-first approach so do normal block
-		// downloads when in regression test mode.
-		if sm.nextCheckpoint != nil &&
-			best.Height < sm.nextCheckpoint.Height &&
-			sm.chainParams != &model.RegressionNetParams {
-			//	3. push peer
-			bestPeer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
-			sm.headersFirstMode = true
-			log.Info("Downloading headers for blocks %d to "+
-				"%d from peer %s", best.Height+1,
-				sm.nextCheckpoint.Height, bestPeer.Addr())
-		} else {
-			log.Info("no checkpoint in syncmanager, so download block stophash is all zero...")
-			if bestPeer.LastBlock() > best.Height {
-				bestPeer.PushGetBlocksMsg(*locator, &zeroHash)
-			}
-		}
+		bestPeer.PushGetHeadersMsg(*locator, &zeroHash)
+
 		sm.syncPeer = bestPeer
-		sm.allowdGetBlocksTimes = 0
 		if sm.current() {
 			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
@@ -400,6 +381,21 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
+	if !lchain.IsInitialBlockDownload() && peer.VerAckReceived() {
+		gChain := chain.GetInstance()
+		pindexBestHeader := gChain.GetIndexBestHeader()
+		if pindexBestHeader == nil {
+			pindexBestHeader = gChain.Tip()
+			gChain.SetIndexBestHeader(pindexBestHeader)
+		}
+		pindexStart := pindexBestHeader
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := gChain.GetLocator(pindexStart)
+		peer.PushGetHeadersMsg(*locator, &zeroHash)
+	}
+
 	// Start syncing by choosing the best candidate if needed.
 	if isSyncCandidate && sm.syncPeer == nil {
 		sm.startSync()
@@ -409,7 +405,10 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 	if isSyncCandidate && sm.current() && peer.LastBlock() > sm.syncPeer.LastBlock() {
 		sm.syncPeer = nil
 		sm.startSync()
+		return
 	}
+
+	sm.fetchHeaderBlocks(peer)
 }
 
 func (sm *SyncManager) clearSyncPeerState(peer *peer.Peer) {
@@ -451,10 +450,6 @@ func (sm *SyncManager) handleDonePeerMsg(peer *peer.Peer) {
 	// mode so
 	if sm.syncPeer == peer {
 		sm.syncPeer = nil
-		if sm.headersFirstMode {
-			best := chain.GetInstance().Tip()
-			sm.resetHeaderState(best.GetBlockHash(), best.Height)
-		}
 		sm.startSync()
 	}
 }
@@ -590,28 +585,6 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 		}
 	}
 
-	// When in headers-first mode, if the block matches the hash of the
-	// first header in the list of headers that are being fetched, it's
-	// eligible for less validation since the headers have already been
-	// verified to link together and are valid up to the next checkpoint.
-	// Also, remove the list entry for all blocks except the checkpoint
-	// since it is needed to verify the next round of headers links
-	// properly.
-	isCheckpointBlock := false
-	if sm.headersFirstMode {
-		firstNodeEl := sm.headerList.Front()
-		if firstNodeEl != nil {
-			firstNode := firstNodeEl.Value.(*headerNode)
-			if blockHash.IsEqual(firstNode.hash) {
-				if firstNode.hash.IsEqual(sm.nextCheckpoint.Hash) {
-					isCheckpointBlock = true
-				} else {
-					sm.headerList.Remove(firstNodeEl)
-				}
-			}
-		}
-	}
-
 	// Process all blocks from whitelisted peers, even if not requested,
 	// unless we're still syncing with the network. Such an unrequested
 	// block may still be processed, subject to the conditions in AcceptBlock().
@@ -623,6 +596,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// will fail the insert and thus we'll retry next time we get an inv.
 	delete(state.requestedBlocks, blockHash)
 	delete(sm.requestedBlocks, blockHash)
+	peer.SetStallingSince(0)
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
@@ -639,25 +613,9 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 			log.Error("ProcessBlockCallBack err:%v, hash: %s", err, blockHash)
 		}
 
-		if !sm.headersFirstMode {
-			log.Debug("len of Requested block:%d, sm.allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
-			if peer == sm.syncPeer && sm.allowdGetBlocksTimes > 0 {
-				if len(state.requestedBlocks) == 0 {
-					sm.allowdGetBlocksTimes--
-					activeChain := chain.GetInstance()
-					locator := activeChain.GetLocator(nil)
-					peer.PushGetBlocksMsg(*locator, &zeroHash)
-				}
-			}
-		} else {
-			if !isCheckpointBlock {
-				if sm.startHeader != nil &&
-					len(state.requestedBlocks) < minInFlightBlocks {
-					sm.fetchHeaderBlocks()
-				}
-			}
+		if len(state.requestedBlocks) == 0 {
+			sm.fetchHeaderBlocks(peer)
 		}
-
 		return
 	}
 
@@ -693,73 +651,15 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	if blkHashUpdate != nil && heightUpdate != 0 {
 		peer.UpdateLastBlockHeight(heightUpdate)
 		if sm.current() && peer == sm.syncPeer {
-			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate,
-				peer)
+			go sm.peerNotifier.UpdatePeerHeights(blkHashUpdate, heightUpdate, peer)
 			log.Debug("request mempool in handleBlockMsg")
 			peer.RequestMemPool()
 		}
 	}
 
-	// Nothing more to do if we aren't in headers-first mode.
-	if !sm.headersFirstMode {
-		log.Debug("len of Requested block:%d, allowdGetBlocksTimes: %d", len(sm.requestedBlocks), sm.allowdGetBlocksTimes)
-		if peer == sm.syncPeer && sm.allowdGetBlocksTimes > 0 {
-			if len(state.requestedBlocks) == 0 {
-				sm.allowdGetBlocksTimes--
-				activeChain := chain.GetInstance()
-				locator := activeChain.GetLocator(nil)
-				peer.PushGetBlocksMsg(*locator, &zeroHash)
-			}
-		}
-		return
-	}
-
-	// This is headers-first mode, so if the block is not a checkpoint
-	// request more blocks using the header list when the request queue is
-	// getting short.
-	if !isCheckpointBlock {
-		if sm.startHeader != nil &&
-			len(state.requestedBlocks) < minInFlightBlocks {
-			sm.fetchHeaderBlocks()
-		}
-		return
-	}
-
-	// This is headers-first mode and the block is a checkpoint.  When
-	// there is a next checkpoint, get the next round of headers by asking
-	// for headers starting from the block after this one up to the next
-	// checkpoint.
-	prevHeight := sm.nextCheckpoint.Height
-	prevHash := sm.nextCheckpoint.Hash
-	sm.nextCheckpoint = sm.findNextHeaderCheckpoint(prevHeight)
-	if sm.nextCheckpoint != nil {
-		locator := chain.NewBlockLocator([]util.Hash{*prevHash})
-		err := peer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
-		if err != nil {
-			log.Warn("Failed to send getheaders message to "+
-				"peer %s: %v", peer.Addr(), err)
-			return
-		}
-		log.Info("Downloading headers for blocks %d to %d from "+
-			"peer %s", prevHeight+1, sm.nextCheckpoint.Height,
-			sm.syncPeer.Addr())
-		return
-	}
-
-	// This is headers-first mode, the block is a checkpoint, and there are
-	// no more checkpoints, so switch to normal mode by requesting blocks
-	// from the block after this one up to the end of the chain (zero hash).
-	sm.headersFirstMode = false
-	sm.headerList.Init()
-	log.Info("Reached the final checkpoint -- switching to normal mode")
-	locator := chain.NewBlockLocator([]util.Hash{blockHash})
-	err = peer.PushGetBlocksMsg(*locator, &zeroHash)
-	if err != nil {
-		log.Warn("Failed to send getblocks message to peer %s: %v",
-			peer.Addr(), err)
-		return
-	}
+	sm.fetchHeaderBlocks(peer)
 }
+
 func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 	var err error
 	defer func() {
@@ -776,172 +676,344 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 	log.Debug("process mined block(%v) done via submitblock", &hash)
 }
 
-// fetchHeaderBlocks creates and sends a request to the syncPeer for the next
-// list of blocks to be downloaded based on the current list of headers.
-func (sm *SyncManager) fetchHeaderBlocks() {
-	// Nothing to do if there is no start header.
-	if sm.startHeader == nil {
-		log.Warn("fetchHeaderBlocks called with no start header")
+func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
+	pindexBestKnownHash := peer.LastAnnouncedBlock()
+	if pindexBestKnownHash == nil {
+		log.Info("peer(%d) best known block nil, forgive temporary", peer.ID())
+		return nil
+	}
+
+	pindexBestKnownBlock := chain.GetInstance().FindBlockIndex(*pindexBestKnownHash)
+	if pindexBestKnownBlock == nil {
+		log.Debug("blkIndex find fail of peer(%d). blkhash:%s", peer.ID(), *pindexBestKnownHash)
+		return nil
+	}
+
+	return pindexBestKnownBlock
+}
+
+func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownBlock *blockindex.BlockIndex) {
+	gChain := chain.GetInstance()
+	pindexBestKnownBlock = lastAccouncedBlock(peer)
+	if pindexBestKnownBlock == nil {
+		// update best block of this peer
+		pindexStart := gChain.GetIndexBestHeader()
+		if pindexStart.Prev != nil {
+			pindexStart = pindexStart.Prev
+		}
+		locator := gChain.GetLocator(pindexStart)
+		peer.PushGetHeadersMsg(*locator, &zeroHash)
+		return nil, nil
+	}
+
+	if lchain.IsInitialBlockDownload() {
+		if gChain.Tip().Height > pindexBestKnownBlock.Height ||
+			gChain.Tip().ChainWork.Cmp(&pindexBestKnownBlock.ChainWork) == 1 {
+			return nil, nil
+		}
+		return gChain.Tip(), pindexBestKnownBlock
+	}
+
+	return gChain.FindFork(pindexBestKnownBlock), pindexBestKnownBlock
+}
+
+// fetchHeaderBlocks creates and sends a request to the peer for the next
+// list of blocks to be downloaded based on the current known headers.
+// Download blocks via several peers parallel
+func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
+	reqNum := len(sm.requestedBlocks)
+	if 0 != reqNum {
+		log.Debug("now %d requestedBlocks", reqNum)
+	}
+	if !sm.isSyncCandidate(peer) {
+		log.Info("peer(%d)%s not a sync candidate, forgive fetch", peer.ID(), peer.Addr())
 		return
 	}
 
-	// Build up a getdata request for the list of blocks the headers
-	// describe.  The size hint will be limited to wire.MaxInvPerMsg by
-	// the function, so no need to double check it here.
-	gdmsg := wire.NewMsgGetDataSizeHint(uint(sm.headerList.Len()))
-	numRequested := 0
+	if !peer.VerAckReceived() {
+		log.Info("peer(%d)%s VerAck not recved, do not use it", peer.ID(), peer.Addr())
+		return
+	}
+	gChain := chain.GetInstance()
+	peerState, exists := sm.peerStates[peer]
+	if !exists {
+		log.Error("fetchHeaderBlocks called with peer state nil")
+		return
+	}
 
-	for e := sm.startHeader; e != nil; e = e.Next() {
-		node, ok := e.Value.(*headerNode)
-		if !ok {
-			log.Warn("Header list node type is not a headerNode")
-			continue
-		}
+	if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+		log.Debug("peer(%d) has full requestedBlocks, don't GetData any more", peer.ID())
+		return
+	}
 
-		iv := wire.NewInvVect(wire.InvTypeBlock, node.hash)
-		haveInv, err := sm.haveInventory(iv)
-		if err != nil {
-			log.Warn("Unexpected failure when checking for "+
-				"existing inventory during header block "+
-				"fetch: %v", err)
+	minWorkSum := pow.MiniChainWork()
+	pindexBestHeader := gChain.GetIndexBestHeader()
+	if pindexBestHeader.ChainWork.Cmp(&minWorkSum) == -1 {
+		log.Info("pindexBestHeader.ChainWork less than minChainWork, wait header download", peer.ID())
+		return
+	}
+
+	pindexWalk, pindexBestKnownBlock := sm.syncPoints(peer)
+	if pindexWalk == nil || pindexBestKnownBlock == nil {
+		log.Debug("fetchHeaderBlocks can not find block hashes to fetch from peer(%d) ", peer.ID())
+		return
+	}
+
+	if pindexBestKnownBlock.ChainWork.Cmp(&minWorkSum) == -1 {
+		log.Info("peer(%d) ChainWork less than minChainWork, do not use this peer", peer.ID())
+		return
+	}
+
+	tipWork := gChain.Tip().ChainWork
+	if pindexBestKnownBlock.ChainWork.Cmp(&tipWork) == -1 {
+		log.Info("peer(%d) ChainWork less than tipWork, has nothing interesting", peer.ID())
+		return
+	}
+
+	vToFetch := list.New()
+	// Never fetch further than the best block we know the peer has, or more
+	// than BLOCK_DOWNLOAD_WINDOW + 1 beyond the last linked block we have in
+	// common with this peer. The +1 is so we can detect stalling, namely if we
+	// would be able to download that next block if the window were 1 larger.
+	nWindowEnd := pindexWalk.Height + BLOCK_DOWNLOAD_WINDOW
+	nMaxHeight := util.MinI32(pindexBestKnownBlock.Height, nWindowEnd+1)
+
+	gdmsg := wire.NewMsgGetData()
+
+	waitingfor := peer
+	waitingfor = nil
+
+out:
+	for pindexWalk.Height < nMaxHeight {
+		// Read up to 128 (or more, if more blocks than that are needed)
+		// successors of pindexWalk (towards pindexBestKnownBlock) into
+		// vToFetch. We fetch 128, because CBlockIndex::GetAncestor may be as
+		// expensive as iterating over ~100 CBlockIndex* entries anyway.
+		nToFetch := util.MinI32(nMaxHeight-pindexWalk.Height, 128)
+		pindexWalk = pindexBestKnownBlock.GetAncestor(pindexWalk.Height + nToFetch)
+		vToFetch.PushFront(pindexWalk)
+		pindex := pindexWalk
+		for i := nToFetch - 1; i > 0; i-- {
+			vToFetch.PushFront(pindex.Prev)
+			pindex = pindex.Prev
 		}
-		if !haveInv {
-			syncPeerState := sm.peerStates[sm.syncPeer]
-			sm.requestedBlocks[*node.hash] = struct{}{}
-			syncPeerState.requestedBlocks[*node.hash] = struct{}{}
+		// Iterate over those blocks in vToFetch (in forward direction), adding
+		// the ones that are not yet downloaded and not in flight to msg.
+		for e := vToFetch.Front(); e != nil; e = e.Next() {
+			pindex := e.Value.(*blockindex.BlockIndex)
+			if !pindex.IsValid(blockindex.BlockValidTree) {
+				// We consider the chain that this peer is on invalid.
+				break out
+			}
+			if pindex.HasData() {
+				continue
+			}
+			if waitpeer, exists := sm.requestedBlocks[*pindex.GetBlockHash()]; exists {
+				// now in flight
+				if waitingfor == nil {
+					waitingfor = waitpeer
+				}
+				continue
+			}
+			if pindex.Height > nWindowEnd {
+				if len(gdmsg.InvList) == 0 && waitingfor != nil && waitingfor != peer {
+					log.Info("window stalled by peer(%d) %s",
+						waitingfor.ID(), waitingfor.Addr())
+					if len(peerState.requestedBlocks) == 0 {
+						stallsince := waitingfor.GetStallingSince()
+						if stallsince == 0 {
+							nNow := time.Now().UnixNano() / 1000
+							waitingfor.SetStallingSince(nNow)
+							log.Info("Stall started peer(%d)", waitingfor.ID())
+						}
+					}
+				}
+				break out
+			}
+			iv := wire.NewInvVect(wire.InvTypeBlock, pindex.GetBlockHash())
+			sm.requestedBlocks[*pindex.GetBlockHash()] = peer
+			peerState.requestedBlocks[*pindex.GetBlockHash()] = struct{}{}
 			gdmsg.AddInvVect(iv)
-			numRequested++
-		}
-		sm.startHeader = e.Next()
-		if numRequested >= wire.MaxInvPerMsg {
-			break
+			if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+				break out
+			}
 		}
 	}
 
-	log.Trace("ready to send getdata request, inv Number : %d", len(gdmsg.InvList))
 	if len(gdmsg.InvList) > 0 {
-		sm.syncPeer.QueueMessage(gdmsg, nil)
+		log.Trace("ready to send getdata request, inv Number : %d", len(gdmsg.InvList))
+		peer.QueueMessage(gdmsg, nil)
 	}
-	log.Trace("let getdata request to queue, ready to send to peer.")
+}
+
+func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncState) {
+	gChain := chain.GetInstance()
+
+	//peer from functional test may send version message with -1 height,
+	//and failed to be selected as syncPeer
+	if lchain.IsInitialBlockDownload() && sm.syncPeer == nil {
+		sm.syncPeer = peer
+	}
+
+	if lchain.IsInitialBlockDownload() && sm.syncPeer != peer {
+		log.Debug("IBD: unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
+		//ignore headers from nonSyncPeer, but we can try to get blocks from the peer
+		sm.fetchHeaderBlocks(peer)
+		return
+	}
+
+	state.unconnectingHeaders++
+	pindexBestHeader := gChain.GetIndexBestHeader()
+	peer.PushGetHeadersMsg(*gChain.GetLocator(pindexBestHeader), &zeroHash)
+
+	log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, unconnectingHeaders:%d",
+		pindexBestHeader.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+		state.unconnectingHeaders)
+
+	if state.unconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
+		sm.misbehaving(peer.Addr(), 20, "too-many-unconnected-headers")
+	}
 }
 
 // handleHeadersMsg handles block header messages from all peers.  Headers are
 // requested when performing a headers-first sync.
 func (sm *SyncManager) handleHeadersMsg(hmsg *headersMsg) {
-	log.Trace("headers message come into syncmanager ...")
+	gChain := chain.GetInstance()
 	peer := hmsg.peer
-	_, exists := sm.peerStates[peer]
+	headers := hmsg.headers.Headers
+	log.Info("Received %d block headers from peer %s", len(headers), peer.Addr())
+
+	state, exists := sm.peerStates[peer]
 	if !exists {
-		log.Warn("Received headers message from unknown peer %s", peer.Addr())
+		log.Warn("recv headers from unknown peer %s", peer.Addr(), len(headers))
+		return
+	}
+	if len(headers) == 0 {
+		sm.fetchHeaderBlocks(peer)
+		log.Info("recv 0 headers from peer %s", peer.Addr())
 		return
 	}
 
-	// The remote peer is misbehaving if we didn't request headers.
-	msg := hmsg.headers
-	numHeaders := len(msg.Headers)
-	if !sm.headersFirstMode {
-		log.Warn("Got %d unrequested headers from %s -- "+
-			"disconnecting", numHeaders, peer.Addr())
+	if canNotConnect := gChain.FindBlockIndex(headers[0].HashPrevBlock) == nil; canNotConnect {
+		sm.fetchHeadersToConnect(peer, state)
+		return
+	}
+
+	if isContinuousHeaders := hmsg.headers.IsContinuousHeaders(); !isContinuousHeaders {
+		log.Warn("recv non-continuous headers from %v ", peer.Addr())
 		peer.Disconnect()
 		return
 	}
 
-	// Nothing to do for an empty headers message.
-	if numHeaders == 0 {
+	peerTip := sm.updatePeerState(headers, peer, gChain)
+
+	var pindexLast blockindex.BlockIndex
+	if err := sm.ProcessBlockHeadCallBack(headers, &pindexLast); err != nil {
+		beginHash := headers[0].GetHash()
+		log.Warn("processblockheader error, begin: %s, end: %s, err: %s.", beginHash, peerTip, err.Error())
 		return
 	}
 
-	// Process all of the received headers ensuring each one connects to the
-	// previous and that checkpoints match.
-	receivedCheckpoint := false
-	var finalHash *util.Hash
-	for _, blockHeader := range msg.Headers {
-		blockHash := blockHeader.GetHash()
-		finalHash = &blockHash
+	if state.unconnectingHeaders > 0 {
+		log.Info("peer=%d: resetting unconnectingHeaders (%d -> 0)", peer.ID(), state.unconnectingHeaders)
+		state.unconnectingHeaders = 0
+	}
 
-		// Ensure there is a previous header to compare against.
-		prevNodeEl := sm.headerList.Back()
-		if prevNodeEl == nil {
-			log.Warn("Header list does not contain a previous" +
-				"element as expected -- disconnecting peer")
-			peer.Disconnect()
+	hasMore := len(headers) == wire.MaxBlockHeadersPerMsg
+	if hasMore && peer == sm.syncPeer {
+		blkIndex := gChain.FindBlockIndex(peerTip)
+		peer.PushGetHeadersMsg(*gChain.GetLocator(blkIndex), &zeroHash)
+		log.Info("send more getheaders (%d) to peer %s", blkIndex.Height, peer.Addr())
+	}
+
+	// If this set of headers is valid and ends in a block with at least
+	// as much work as our tip, download as much as possible.
+	if !pindexLast.IsValid(blockindex.BlockValidTree) {
+		log.Info("no need to fetch, pindexLast not ValidTree")
+		return
+	}
+
+	if gChain.Tip().ChainWork.Cmp(&pindexLast.ChainWork) == 1 {
+		log.Info("no need to fetch, TipChainWork>pindexLast")
+		return
+	}
+
+	canDirectFetch := gChain.CanDirectFetch()
+	if canDirectFetch {
+		vToFetch, isLargeReorg := sm.blocksToFetch(pindexLast)
+		if isLargeReorg {
+			log.Info("Large reorg, won't direct fetch to %s (%d)", *pindexLast.GetBlockHash(), pindexLast.Height)
+			sm.fetchHeaderBlocks(peer)
 			return
 		}
 
-		// Ensure the header properly connects to the previous one and
-		// add it to the list of headers.
-		node := headerNode{hash: &blockHash}
-		prevNode := prevNodeEl.Value.(*headerNode)
-		if prevNode.hash.IsEqual(&blockHeader.HashPrevBlock) {
-			node.height = prevNode.height + 1
-			e := sm.headerList.PushBack(&node)
-			if sm.startHeader == nil {
-				sm.startHeader = e
-			}
-		} else {
-			log.Warn("Received block header that does not "+
-				"properly connect to the chain from peer %s "+
-				"-- disconnecting, expect hash : %s, actual hash : %s",
-				peer.Addr(), prevNode.hash, blockHash)
-			peer.Disconnect()
-			return
-		}
+		sm.fetchBlocks(vToFetch, state, peer)
+		return
+	}
 
-		// Verify the header at the next checkpoint height matches.
-		if node.height == sm.nextCheckpoint.Height {
-			if node.hash.IsEqual(sm.nextCheckpoint.Hash) {
-				receivedCheckpoint = true
-				log.Info("Verified downloaded block "+
-					"header against checkpoint at height "+
-					"%d/hash %s", node.height, node.hash)
-			} else {
-				log.Warn("Block header at height %d/hash "+
-					"%s from peer %s does NOT match "+
-					"expected checkpoint hash of %s -- "+
-					"disconnecting", node.height,
-					node.hash, peer.Addr(),
-					sm.nextCheckpoint.Hash)
-				peer.Disconnect()
-				return
-			}
+	if len(sm.peerStates) <= 2 {
+		sm.fetchHeaderBlocks(peer)
+		return
+	}
+}
+
+func (sm *SyncManager) updatePeerState(headers []*block.BlockHeader, peer *peer.Peer, gChain *chain.Chain) util.Hash {
+	for _, header := range headers {
+		peer.AddKnownInventory(&wire.InvVect{Type: wire.InvTypeBlock, Hash: header.GetHash()})
+	}
+
+	peerTip := headers[len(headers)-1].GetHash()
+	peer.UpdateLastAnnouncedBlock(&peerTip)
+	if sm.current() {
+		if blkIndex := gChain.FindHashInActive(peerTip); blkIndex != nil {
+			peer.UpdateLastBlockHeight(blkIndex.Height)
+		}
+	}
+	return peerTip
+}
+
+func (sm *SyncManager) fetchBlocks(vToFetch *list.List, state *peerSyncState, peer *peer.Peer) {
+	// Download as much as possible, from earliest to latest.
+	gdmsg := wire.NewMsgGetData()
+	for e := vToFetch.Front(); e != nil; e = e.Next() {
+		if len(state.requestedBlocks) >= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
 			break
 		}
-	}
-	log.Trace("begin to processblockheader ...")
-	var lastBlkIndex blockindex.BlockIndex
-	if err := sm.ProcessBlockHeadCallBack(msg.Headers, &lastBlkIndex); err != nil {
-		beginHash := msg.Headers[0].GetHash()
-		endHash := msg.Headers[len(msg.Headers)-1].GetHash()
-		log.Warn("processblockheader error, beginHeader hash : %s, endHeader hash : %s,"+
-			"error news : %s.", beginHash, endHash, err.Error())
+
+		hash := *(e.Value.(*blockindex.BlockIndex).GetBlockHash())
+		iv := wire.NewInvVect(wire.InvTypeBlock, &hash)
+		gdmsg.AddInvVect(iv)
+
+		sm.requestedBlocks[hash] = peer
+		state.requestedBlocks[hash] = struct{}{}
+		log.Debug("Requesting block %s from peer=%d", hash.String(), peer.ID())
 	}
 
-	// When this header is a checkpoint, switch to fetching the blocks for
-	// all of the headers since the last checkpoint.
-	if receivedCheckpoint {
-		// Since the first entry of the list is always the final block
-		// that is already in the database and is only used to ensure
-		// the next header links properly, it must be removed before
-		// fetching the blocks.
-		sm.headerList.Remove(sm.headerList.Front())
-		log.Info("Received %v block headers: Fetching blocks",
-			sm.headerList.Len())
-		sm.progressLogger.SetLastLogTime(time.Now())
-		sm.fetchHeaderBlocks()
-		return
+	if len(gdmsg.InvList) > 0 {
+		log.Debug("Downloading blocks toward %s via headers direct fetch", gdmsg.InvList[0].Hash)
+		peer.QueueMessage(gdmsg, nil)
 	}
-	activeChain := chain.GetInstance()
-	// This header is not a checkpoint, so request the next batch of
-	// headers starting from the latest known header and ending with the
-	// next checkpoint.
-	blkIndex := activeChain.FindBlockIndex(*finalHash)
-	locator := activeChain.GetLocator(blkIndex)
-	err := peer.PushGetHeadersMsg(*locator, sm.nextCheckpoint.Hash)
-	if err != nil {
-		log.Warn("Failed to send getheaders message to "+
-			"peer %s: %v", peer.Addr(), err)
-		return
+}
+
+func (sm *SyncManager) blocksToFetch(pindexLast blockindex.BlockIndex) (*list.List, bool) {
+	gChain := chain.GetInstance()
+	vToFetch := list.New()
+	pindexWalk := &pindexLast
+	// Calculate all the blocks we'd need to switch to pindexLast, up to a limit.
+	for pindexWalk != nil &&
+		!gChain.Contains(pindexWalk) &&
+		vToFetch.Len() <= MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+
+		if !pindexWalk.HasData() {
+			if _, exists := sm.requestedBlocks[*pindexWalk.GetBlockHash()]; !exists {
+				vToFetch.PushFront(pindexWalk)
+			}
+		}
+		pindexWalk = pindexWalk.Prev
 	}
+
+	isLargeReorg := !gChain.Contains(pindexWalk)
+	return vToFetch, isLargeReorg
 }
 
 // haveInventory returns whether or not the inventory represented by the passed
@@ -1002,7 +1074,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		return
 	}
 
-	log.Trace("Received INV msg, And current headerfirstMode is %v", sm.headersFirstMode)
+	log.Trace("Received INV msg, And current IBD:%v", lchain.IsInitialBlockDownload())
 
 	// Attempt to find the final block in the inventory list.  There may
 	// not be one.
@@ -1015,6 +1087,10 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		}
 	}
 
+	if lastBlock != -1 {
+		peer.CheckRevertToInv(&invVects[lastBlock].Hash, true)
+	}
+
 	// If this inv contains a block announcement, and this isn't coming from
 	// our current sync peer or we're current, then update the last
 	// announced block for this peer. We'll use this information later to
@@ -1023,12 +1099,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	if lastBlock != -1 && (peer != sm.syncPeer || sm.current()) {
 		peer.UpdateLastAnnouncedBlock(&invVects[lastBlock].Hash)
 	}
-
-	// Ignore invs from peers that aren't the sync if we are not current.
-	// Helps prevent fetching a mass of orphans.
-	// if peer != sm.syncPeer && !sm.current() {
-	// 	return
-	// }
 
 	activeChain := chain.GetInstance()
 	// If our chain is current and a peer announces a block we already
@@ -1041,12 +1111,11 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 	}
 
 	var invBlkCnt int
-	var isPushGetBlockMsg bool
 	// Request the advertised inventory if we don't already have it.  Also,
 	// request parent blocks of orphans if we receive one we already have.
 	// Finally, attempt to detect potential stalls due to long side chains
 	// we already have and request more blocks to prevent them.
-	for i, iv := range invVects {
+	for _, iv := range invVects {
 		// Ignore unsupported inventory types.
 		switch iv.Type {
 		case wire.InvTypeBlock:
@@ -1059,11 +1128,6 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		// Add the inventory to the cache of known inventory
 		// for the peer.
 		peer.AddKnownInventory(iv)
-
-		// Ignore inventory when we're in headers-first mode.
-		if sm.headersFirstMode {
-			continue
-		}
 
 		// Request the inventory if we don't already have it.
 		haveInv, err := sm.haveInventory(iv)
@@ -1084,38 +1148,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 
 			// Add it to the request queue.
 			state.requestQueue = append(state.requestQueue, iv)
-			continue
 		}
-
-		if iv.Type == wire.InvTypeBlock {
-			// We already have the final block advertised by this
-			// inventory message, so force a request for more.  This
-			// should only happen if we're on a really long side
-			// chain.
-			if i == lastBlock {
-				// Request blocks after this one up to the
-				// final one the remote peer knows about (zero
-				// stop hash).
-				log.Debug("len of Requested block:%d", len(sm.requestedBlocks))
-				activeChain := chain.GetInstance()
-				blkIndex := activeChain.FindHashInActive(iv.Hash)
-				locator := activeChain.GetLocator(blkIndex)
-				peer.PushGetBlocksMsg(*locator, &zeroHash)
-				isPushGetBlockMsg = true
-			}
-		}
-	}
-
-	if !isPushGetBlockMsg && invBlkCnt > 0 &&
-		len(invVects) == lchain.MaxBlocksResults && peer == sm.syncPeer {
-
-		sm.allowdGetBlocksTimes = 2
 	}
 
 	log.Debug(
-		"invBlkCnt=%d len(invVects)=%d sm.allowdGetBlocksTimes=%v  peer=%p(%s) sm.syncPeer=%p",
-		invBlkCnt, len(invVects), sm.allowdGetBlocksTimes,
-		peer, peer.Addr(), sm.syncPeer)
+		"invBlkCnt=%d len(invVects)=%d peer=%p(%s) sm.syncPeer=%p",
+		invBlkCnt, len(invVects), peer, peer.Addr(), sm.syncPeer)
 
 	// Request as much as possible at once.  Anything that won't fit into
 	// the request will be requested on the next inv message.
@@ -1132,11 +1170,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			// Request the block if there is not already a pending
 			// request.
 			if _, exists := sm.requestedBlocks[iv.Hash]; !exists {
-				sm.requestedBlocks[iv.Hash] = struct{}{}
-				sm.limitMap(sm.requestedBlocks, maxRequestedBlocks)
-				state.requestedBlocks[iv.Hash] = struct{}{}
-				gdmsg.AddInvVect(iv)
-				numRequested++
+				pindexBestHeader := activeChain.GetIndexBestHeader()
+				locator := activeChain.GetLocator(pindexBestHeader)
+				log.Info("Syncing to block height %d from peer %v",
+					peer.LastBlock(), peer.Addr())
+
+				peer.PushGetHeadersMsg(*locator, &iv.Hash)
 			}
 
 		case wire.InvTypeTx:
@@ -1180,6 +1219,33 @@ func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 	}
 }
 
+func (sm *SyncManager) scanToFetchHeaderBlocks() {
+	for peer, state := range sm.peerStates {
+		if !state.syncCandidate {
+			continue
+		}
+
+		// detect whether we're stalling the concurrent download window
+		now := time.Now().UnixNano() / 1000
+		stallsince := peer.GetStallingSince()
+		if stallsince != 0 && stallsince < now-BLOCK_STALLING_TIMEOUT {
+			// Stalling only triggers when the block download window cannot move.
+			// During normal steady state, the download window should be much larger
+			// than the to-be-downloaded set of blocks, so disconnection should only
+			// happen during initial block download.
+			log.Info("Peer(%d)%s is stalling block download, disconnecting",
+				peer.ID(), peer.Addr())
+			peer.Disconnect()
+			continue
+		}
+
+		// try fetch
+		if len(state.requestedBlocks) < MAX_BLOCKS_IN_TRANSIT_PER_PEER {
+			sm.fetchHeaderBlocks(peer)
+		}
+	}
+}
+
 // messagesHandler is the main handler for the sync manager.  It must be run as a
 // goroutine.  It processes block and inv messages in a separate goroutine
 // from the peer handlers so the block (MsgBlock) messages are handled by a
@@ -1187,9 +1253,16 @@ func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
 // important because the sync manager controls which blocks are needed and how
 // the fetching should proceed.
 func (sm *SyncManager) messagesHandler() {
+	fetchTicker := time.NewTicker(fetchInterval)
+	defer fetchTicker.Stop()
 out:
 	for {
 		select {
+		//for all peer to try fetchHeaderBlocks
+		case <-fetchTicker.C:
+			sm.scanToFetchHeaderBlocks()
+
+		//business msg
 		case m := <-sm.processBusinessChan:
 			switch msg := m.(type) {
 			case *newPeerMsg:
@@ -1214,17 +1287,12 @@ out:
 					msg.peer.Cfg.Listeners.OnMemPool(msg.peer, msg.pool)
 				}
 				msg.reply <- struct{}{}
-			case getdataMsg:
-				if msg.peer.Cfg.Listeners.OnGetData != nil {
-					msg.peer.Cfg.Listeners.OnGetData(msg.peer, msg.getdata)
-				}
-
-				msg.reply <- struct{}{}
 			case getBlocksMsg:
 				if msg.peer.Cfg.Listeners.OnGetBlocks != nil {
 					msg.peer.Cfg.Listeners.OnGetBlocks(msg.peer, msg.getblocks)
 				}
 				msg.reply <- struct{}{}
+
 			case *donePeerMsg:
 				sm.handleDonePeerMsg(msg.peer)
 
@@ -1273,13 +1341,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		sm.peerNotifier.RelayUpdatedTipBlocks(event)
 
 	// A block has been accepted into the block chain.  Relay it to other peers.
-	case chain.NTBlockAccepted:
-		// Don't relay if we are not current. Other peers that are
-		// current should already know about it.
-		if !sm.current() {
-			return
-		}
-
+	case chain.NTNewPoWValidBlock:
 		block, ok := notification.Data.(*block.Block)
 		if !ok {
 			log.Warn("Chain accepted notification is not a block.")
@@ -1392,16 +1454,6 @@ func (sm *SyncManager) QueueMessgePool(pool *wire.MsgMemPool, peer *peer.Peer, d
 	sm.processBusinessChan <- &poolMsg{pool, peer, done}
 }
 
-func (sm *SyncManager) QueueGetData(getdata *wire.MsgGetData, peer *peer.Peer, done chan<- struct{}) {
-	// Don't accept more blocks if we're shutting down.
-	if atomic.LoadInt32(&sm.shutdown) != 0 {
-		done <- struct{}{}
-		return
-	}
-
-	sm.processBusinessChan <- getdataMsg{getdata, peer, done}
-}
-
 func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.Peer, done chan<- struct{}) {
 	// Don't accept more blocks if we're shutting down.
 	if atomic.LoadInt32(&sm.shutdown) != 0 {
@@ -1410,6 +1462,16 @@ func (sm *SyncManager) QueueGetBlocks(getblocks *wire.MsgGetBlocks, peer *peer.P
 	}
 
 	sm.processBusinessChan <- getBlocksMsg{getblocks, peer, done}
+}
+
+func (sm *SyncManager) QueuePing(ping *wire.MsgPing, peer *peer.Peer, done chan<- struct{}) {
+	// Don't accept more blocks if we're shutting down.
+	if atomic.LoadInt32(&sm.shutdown) != 0 {
+		done <- struct{}{}
+		return
+	}
+
+	sm.processBusinessChan <- pingMsg{ping, peer, done}
 }
 
 // QueueInv adds the passed inv message and peer to the block handling queue.
@@ -1498,7 +1560,7 @@ func (sm *SyncManager) Pause() chan<- struct{} {
 }
 
 func (sm *SyncManager) misbehaving(peerAddr string, banScore uint32, reason string) {
-	sm.AddBanScoreCallBack(peerAddr, 0, banScore, reason)
+	sm.AddBanScoreCallBack(peerAddr, banScore, 0, reason)
 }
 
 // New constructs a new SyncManager. Use Start to begin processing asynchronous
@@ -1509,27 +1571,16 @@ func New(config *Config) (*SyncManager, error) {
 		chainParams:         config.ChainParams,
 		rejectedTxns:        make(map[util.Hash]struct{}),
 		requestedTxns:       make(map[util.Hash]struct{}),
-		requestedBlocks:     make(map[util.Hash]struct{}),
+		requestedBlocks:     make(map[util.Hash]*peer.Peer),
 		peerStates:          make(map[*peer.Peer]*peerSyncState),
 		progressLogger:      newBlockProgressLogger("Processed", log.GetLogger()),
 		processBusinessChan: make(chan interface{}, config.MaxPeers*3),
-		headerList:          list.New(),
 		quit:                make(chan struct{}),
 	}
 	//chain.InitGlobalChain(nil)
 	best := chain.GetInstance().Tip()
 	if best == nil {
 		panic("best is nil")
-	}
-	if !config.DisableCheckpoints {
-		// Initialize the next checkpoint based on the current height.
-		sm.nextCheckpoint = sm.findNextHeaderCheckpoint(best.Height)
-		log.Trace("sm.nextCheckpoint : %p, best height : %d", sm.nextCheckpoint, best.Height)
-		if sm.nextCheckpoint != nil {
-			sm.resetHeaderState(best.GetBlockHash(), best.Height)
-		}
-	} else {
-		log.Info("Checkpoints are disabled")
 	}
 
 	chain.GetInstance().Subscribe(sm.handleBlockchainNotification)
@@ -1557,6 +1608,5 @@ type Config struct {
 	PeerNotifier PeerNotifier
 	ChainParams  *model.BitcoinParams
 
-	DisableCheckpoints bool
-	MaxPeers           int
+	MaxPeers int
 }

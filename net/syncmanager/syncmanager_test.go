@@ -6,15 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -40,7 +31,21 @@ import (
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
 	"github.com/stretchr/testify/assert"
+	"io"
+	"io/ioutil"
+	"math/big"
+	"math/rand"
+	"net"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
 )
+
+var timePerBlock = int64(model.ActiveNetParams.TargetTimePerBlock)
+var initBits = uint32(0x207FFFFF)
 
 type mockPeerNotifier struct{}
 
@@ -125,10 +130,9 @@ func makeSyncManager() (*SyncManager, string, error) {
 	defer initLock.Unlock()
 	appInitMain([]string{"--datadir", dir, "--regtest"})
 	sm, err := New(&Config{
-		PeerNotifier:       &mp,
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mp,
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	if err != nil {
 		return nil, "", err
@@ -253,20 +257,6 @@ func TestMessgePool(t *testing.T) {
 	sm.Stop()
 }
 
-func TestGetData(t *testing.T) {
-	gd := wire.NewMsgGetData()
-	sm, dir, err := makeSyncManager()
-	if err != nil {
-		t.Fatalf("construct syncmanager failed :%v\n", err)
-	}
-	defer os.RemoveAll(dir)
-	config := peer.Config{}
-	in := peer.NewInboundPeer(&config, false)
-	done := make(chan struct{})
-	sm.Start()
-	sm.QueueGetData(gd, in, done)
-}
-
 func TestGetBlocks(t *testing.T) {
 	blk := wire.NewMsgGetBlocks(&util.HashZero)
 	sm, dir, err := makeSyncManager()
@@ -292,6 +282,7 @@ func TestQueueHeaders(t *testing.T) {
 	in := peer.NewInboundPeer(&config, false)
 	sm.Start()
 	sm.QueueHeaders(hdr, in)
+	sm.Stop()
 }
 
 func TestPause(t *testing.T) {
@@ -302,6 +293,7 @@ func TestPause(t *testing.T) {
 	defer os.RemoveAll(dir)
 	sm.Start()
 	sm.Pause() <- struct{}{}
+	sm.Stop()
 }
 
 func createBlkIdx() *blockindex.BlockIndex {
@@ -363,9 +355,9 @@ func TestSyncManager_handleBlockchainNotification(t *testing.T) {
 	}
 	sm.handleBlockchainNotification(notification)
 
-	//test NTBlockAccepted, NTBlockConnected, NTBlockDisconnected
+	//test NTNewPoWValidBlock, NTBlockConnected, NTBlockDisconnected
 	blk := getBlock(blk1str)
-	notificationTypes := []chain.NotificationType{chain.NTBlockAccepted, chain.NTBlockDisconnected, chain.NTBlockConnected}
+	notificationTypes := []chain.NotificationType{chain.NTNewPoWValidBlock, chain.NTBlockDisconnected, chain.NTBlockConnected}
 
 	for _, notificationType := range notificationTypes {
 		notification = &chain.Notification{
@@ -374,6 +366,7 @@ func TestSyncManager_handleBlockchainNotification(t *testing.T) {
 		}
 		sm.handleBlockchainNotification(notification)
 	}
+	sm.Stop()
 }
 
 func TestSyncManager_limitMap(t *testing.T) {
@@ -392,26 +385,7 @@ func TestSyncManager_limitMap(t *testing.T) {
 	assert.Equal(t, len(mp), 2)
 	sm.limitMap(mp, 2)
 	assert.Equal(t, len(mp), 1)
-}
-
-func TestSyncManager_resetHeaderState(t *testing.T) {
-	sm, dir, err := makeSyncManager()
-	if err != nil {
-		t.Fatalf("construct syncmanager failed :%v\n", err)
-	}
-	defer os.RemoveAll(dir)
-	sm.Start()
-
-	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	checkPoint := &model.Checkpoint{
-		Height: 11,
-		Hash:   hash1,
-	}
-	sm.nextCheckpoint = checkPoint
-	sm.resetHeaderState(hash1, 10)
-	assert.Equal(t, sm.nextCheckpoint.Height, int32(11))
-	assert.Equal(t, sm.nextCheckpoint.Hash, hash1)
-	assert.Equal(t, sm.headersFirstMode, false)
+	sm.Stop()
 }
 
 func TestSyncManager_findNextHeaderCheckpoint(t *testing.T) {
@@ -455,6 +429,7 @@ func TestSyncManager_findNextHeaderCheckpoint(t *testing.T) {
 	if ckPoint1 != nil {
 		t.Errorf("find next header checkPoint failed, ckPoint1:%v", ckPoint1)
 	}
+	sm.Stop()
 }
 
 type conn struct {
@@ -596,19 +571,13 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 			return
 		}
 		sm.isSyncCandidate(inPeer)
-		hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 		syncState := getpeerState()
 		sm.peerStates[inPeer] = syncState
 		chain.GetInstance().Tip().Height = 10
 		sm.startSync()
 
 		//test two case
-		checkPoint1 := &model.Checkpoint{
-			Height: 11,
-			Hash:   hash1,
-		}
 		syncState.syncCandidate = true
-		sm.nextCheckpoint = checkPoint1
 		sm.startSync()
 
 		sm.chainParams = &model.RegressionNetParams
@@ -621,6 +590,7 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 		//close connection
 		inPeer.Disconnect()
 	}
+	sm.Stop()
 }
 
 func TestSyncManager_alreadyHave(t *testing.T) {
@@ -639,6 +609,7 @@ func TestSyncManager_alreadyHave(t *testing.T) {
 	sm.rejectedTxns = rejectedTxns
 	ret = sm.alreadyHave(hash1)
 	assert.Equal(t, ret, true)
+	sm.Stop()
 }
 
 func TestSyncManager_handleInvMsg(t *testing.T) {
@@ -647,10 +618,9 @@ func TestSyncManager_handleInvMsg(t *testing.T) {
 
 	mp := mockPeerNotifier{}
 	sm, err := New(&Config{
-		PeerNotifier:       &mp,
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mp,
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -692,6 +662,7 @@ func TestSyncManager_handleInvMsg(t *testing.T) {
 	}
 
 	sm.handleInvMsg(invMsg2)
+	sm.Stop()
 }
 
 func ProcessBlockHeaderReturnErr(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
@@ -704,10 +675,9 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 
 	mp := mockPeerNotifier{}
 	sm, err := New(&Config{
-		PeerNotifier:       &mp,
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mp,
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -718,7 +688,6 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	hash2 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7239")
 	bh := block.NewBlockHeader()
 	headerMsg := wire.NewMsgHeaders()
 	err = headerMsg.AddBlockHeader(bh)
@@ -734,22 +703,11 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	sm.handleHeadersMsg(hmsg)
 
 	//test second case
-	sm.headersFirstMode = true
 	sm.handleHeadersMsg(hmsg)
 
 	//test third case
-	node := headerNode{
-		height: 10,
-		hash:   hash1,
-	}
-	sm.headerList.PushBack(&node)
 	sm.handleHeadersMsg(hmsg)
 
-	node1 := headerNode{
-		height: 11,
-		hash:   hash2,
-	}
-	sm.headerList.PushBack(&node1)
 	bh2 := block.NewBlockHeader()
 	err = headerMsg.AddBlockHeader(bh2)
 	if err != nil {
@@ -763,12 +721,6 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(blks))
 	blk3Header := blks[0].Header
-	hash3 := blk3Header.GetHash()
-	node3 := headerNode{
-		height: 0,
-		hash:   &blk3Header.HashPrevBlock,
-	}
-	sm.headerList.PushBack(&node3)
 	headerMsg3 := wire.NewMsgHeaders()
 	err = headerMsg3.AddBlockHeader(&blk3Header)
 	assert.Nil(t, err)
@@ -776,32 +728,15 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 		headers: headerMsg3,
 		peer:    inpeer,
 	}
-	checkPointSelf := &model.Checkpoint{
-		Height: 1,
-		Hash:   &hash3,
-	}
-	sm.nextCheckpoint = checkPointSelf
 	sm.handleHeadersMsg(hmsg3)
 
-	checkPointOther := &model.Checkpoint{
-		Height: 11,
-		Hash:   hash1,
-	}
-	sm.nextCheckpoint = checkPointOther
-	sm.headerList.PushBack(&node1)
 	sm.handleHeadersMsg(hmsg3)
 
 	sm.ProcessBlockHeadCallBack = ProcessBlockHeaderReturnErr
-	sm.headerList.PushBack(&node3)
 	sm.handleHeadersMsg(hmsg3)
 
-	checkPointOther2 := &model.Checkpoint{
-		Height: 1,
-		Hash:   hash1,
-	}
-	sm.nextCheckpoint = checkPointOther2
-	sm.headerList.PushBack(&node3)
 	sm.handleHeadersMsg(hmsg3)
+	sm.Stop()
 }
 
 func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
@@ -810,16 +745,15 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
 	defer os.RemoveAll(dir)
-	sm.fetchHeaderBlocks()
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	node := headerNode{
-		height: 10,
-		hash:   hash1,
-	}
-	e := sm.headerList.PushBack(&node)
-	sm.startHeader = e
-	inpeer := peer.NewInboundPeer(peer1Cfg, false)
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:123", false)
+	sm.fetchHeaderBlocks(p)
+	sm.chainParams = &model.RegressionNetParams
+	sm.fetchHeaderBlocks(p)
+	p.SetAckReceived(true)
+
+	sm.fetchHeaderBlocks(p)
 
 	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
 	msgInv := wire.NewMsgInv()
@@ -827,6 +761,9 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 
 	requestedTxns := make(map[util.Hash]struct{})
 	requestedBlocks := make(map[util.Hash]struct{})
+	for i := 0; i < MAX_BLOCKS_IN_TRANSIT_PER_PEER; i++ {
+		requestedBlocks[*util.HashFromString(strconv.Itoa(i))] = struct{}{}
+	}
 
 	syncState := &peerSyncState{
 		syncCandidate:   true,
@@ -835,10 +772,29 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 		requestedBlocks: requestedBlocks,
 	}
 
-	sm.peerStates[inpeer] = syncState
-	sm.requestedBlocks = make(map[util.Hash]struct{})
-	sm.syncPeer = inpeer
-	sm.fetchHeaderBlocks()
+	sm.peerStates[p] = syncState
+	sm.requestedBlocks = make(map[util.Hash]*peer.Peer)
+	sm.syncPeer = p
+	sm.fetchHeaderBlocks(p)
+
+	sm.peerStates[p].requestedBlocks = make(map[util.Hash]struct{})
+	sm.fetchHeaderBlocks(p)
+
+	initBlkIdx()
+
+	gChain := chain.GetInstance()
+	best := gChain.GetIndexBestHeader()
+	gChain.SetTip(best.Prev.Prev)
+	sm.fetchHeaderBlocks(p)
+
+	p.UpdateLastAnnouncedBlock(best.Prev.Prev.Prev.Prev.GetBlockHash())
+	sm.peerStates[p].requestedBlocks[*best.Prev.GetBlockHash()] = struct{}{}
+	sm.peerStates[p].requestedBlocks[*best.Prev.Prev.GetBlockHash()] = struct{}{}
+	sm.fetchHeaderBlocks(p)
+
+	p.UpdateLastAnnouncedBlock(best.GetBlockHash())
+	sm.fetchHeaderBlocks(p)
+	sm.Stop()
 }
 
 func TestSyncManager_updateTxRequestState(t *testing.T) {
@@ -859,10 +815,11 @@ func TestSyncManager_updateTxRequestState(t *testing.T) {
 	rejectedTxns = append(rejectedTxns, *hash1)
 
 	sm.updateTxRequestState(syncState, *hash1, rejectedTxns)
+	sm.Stop()
 }
 
 func TestSyncManager_fetchMissingTx(t *testing.T) {
-	_, dir, err := makeSyncManager()
+	sm, dir, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
@@ -876,6 +833,7 @@ func TestSyncManager_fetchMissingTx(t *testing.T) {
 	missTxs = append(missTxs, *hash2)
 
 	fetchMissingTx(missTxs, inpeer)
+	sm.Stop()
 }
 
 func TestSyncManager_handleBlockMsg(t *testing.T) {
@@ -883,10 +841,9 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -906,8 +863,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 		buf:   make([]byte, 10),
 		peer:  inpeer,
 	}
-	sm.allowdGetBlocksTimes = 1
-	sm.headersFirstMode = true
 	sm.handleBlockMsg(bmsg1)
 
 	// blk2 is acceptable block
@@ -916,7 +871,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	assert.Equal(t, 1, len(blks))
 	blk2 := blks[0]
 	blk2Header := blk2.Header
-	blk2Hash := blk2Header.GetHash()
 
 	headerMsg := wire.NewMsgHeaders()
 	err = headerMsg.AddBlockHeader(&blk2Header)
@@ -925,16 +879,6 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 		headers: headerMsg,
 		peer:    inpeer,
 	}
-	node2 := headerNode{
-		height: 1,
-		hash:   &blk2Hash,
-	}
-	sm.headerList.PushBack(&node2)
-	checkPoint := &model.Checkpoint{
-		Height: 1,
-		Hash:   &blk2Hash,
-	}
-	sm.nextCheckpoint = checkPoint
 	sm.handleHeadersMsg(hmsg2)
 
 	bmsg2 := &blockMsg{
@@ -944,16 +888,12 @@ func TestSyncManager_handleBlockMsg(t *testing.T) {
 	}
 	sm.handleBlockMsg(bmsg2)
 
-	hashOther := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
-	checkPoint2 := &model.Checkpoint{
-		Height: 1,
-		Hash:   hashOther,
-	}
-	sm.nextCheckpoint = checkPoint2
+	sm.peerStates[inpeer].requestedBlocks = make(map[util.Hash]struct{})
+	bak := sm.chainParams
+	sm.chainParams = &model.MainNetParams
 	sm.handleBlockMsg(bmsg2)
-
-	sm.headersFirstMode = false
-	sm.handleBlockMsg(bmsg2)
+	sm.chainParams = bak
+	sm.Stop()
 }
 
 func ProcessTxAcceptAll(txn *tx.Tx, recentRejects map[util.Hash]struct{}, nodeID int64) ([]*tx.Tx, []util.Hash, []util.Hash, error) {
@@ -997,6 +937,7 @@ func TestSyncManager_handleTxMsg(t *testing.T) {
 	mempool.GetInstance().RemoveOrphansByTag(int64(inpeer.ID()))
 	sm.ProcessTransactionCallBack = service.ProcessTransaction
 	assert.NotPanics(t, func() { sm.handleTxMsg(tmsg) })
+	sm.Stop()
 }
 
 func generateBlocks(t *testing.T, generate int, maxTries uint64, verify bool) ([]*block.Block, error) {
@@ -1107,8 +1048,6 @@ func initTestEnv() func() {
 	cleanup := func() {
 		os.RemoveAll(unitTestDataDirPath)
 		log.Debug("cleanup test dir: %s", unitTestDataDirPath)
-		gChain := chain.GetInstance()
-		*gChain = *chain.NewChain()
 	}
 
 	return cleanup
@@ -1119,10 +1058,9 @@ func TestSyncManager_NewPeer(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: true,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -1154,6 +1092,7 @@ func TestSyncManager_NewPeer(t *testing.T) {
 		UserAgentVersion:  "1.0",
 		UserAgentComments: []string{"comment"},
 		ChainParams:       &model.MainNetParams,
+		ProtocolVersion:   wire.SendHeadersVersion,
 		Services:          wire.SFNodeNetwork,
 	}
 	inConn, outConn := pipe(
@@ -1172,6 +1111,7 @@ func TestSyncManager_NewPeer(t *testing.T) {
 
 	outMsgChan := make(chan *peer.PeerMessage)
 	outPeer.AssociateConnection(outConn, outMsgChan, func(*peer.Peer) {})
+	outPeer.SetAckReceived(true)
 
 	sm.syncPeer = inPeer
 	outPeer.UpdateLastBlockHeight(2)
@@ -1185,6 +1125,7 @@ func TestSyncManager_NewPeer(t *testing.T) {
 	// old sync(2) < self(1), is not current
 	// syncPeer not change
 	assert.Equal(t, outPeer, sm.syncPeer)
+	sm.Stop()
 }
 
 func TestSyncManager_Current(t *testing.T) {
@@ -1192,10 +1133,9 @@ func TestSyncManager_Current(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: false,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -1207,6 +1147,7 @@ func TestSyncManager_Current(t *testing.T) {
 
 	// time of tip is now
 	assert.True(t, sm.current())
+	sm.Stop()
 }
 
 func TestSyncManager_DonePeer(t *testing.T) {
@@ -1214,10 +1155,9 @@ func TestSyncManager_DonePeer(t *testing.T) {
 	defer cleanup()
 
 	sm, err := New(&Config{
-		PeerNotifier:       &mockPeerNotifier{},
-		ChainParams:        model.ActiveNetParams,
-		DisableCheckpoints: false,
-		MaxPeers:           8,
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
 	})
 	assert.Nil(t, err)
 
@@ -1226,6 +1166,255 @@ func TestSyncManager_DonePeer(t *testing.T) {
 	sm.handleDonePeerMsg(inpeer)
 
 	sm.syncPeer = inpeer
-	sm.headersFirstMode = true
 	sm.handleDonePeerMsg(inpeer)
+	sm.Stop()
+}
+
+func TestSyncManager_startsync_alreadysync(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+	sm, err := New(&Config{
+		PeerNotifier: &mockPeerNotifier{},
+		ChainParams:  model.ActiveNetParams,
+		MaxPeers:     8,
+	})
+	assert.Nil(t, err)
+
+	inpeer := peer.NewInboundPeer(peer1Cfg, false)
+	sm.syncPeer = inpeer
+	sm.startSync()
+
+	sm.syncPeer = nil
+	syncState := &peerSyncState{
+		syncCandidate: true,
+	}
+	sm.peerStates[inpeer] = syncState
+	inpeer.UpdateLastBlockHeight(1024)
+	inpeer.SetAckReceived(true)
+	gChain := chain.GetInstance()
+	bak := gChain.GetIndexBestHeader()
+	gChain.SetIndexBestHeader(nil)
+	sm.startSync()
+	gChain.SetIndexBestHeader(bak)
+	sm.Stop()
+}
+
+func TestSyncManager_isSyncCandidate_regress(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	sm.chainParams = &model.RegressionNetParams
+
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
+
+	ret := sm.isSyncCandidate(p)
+	sm.Stop()
+	assert.False(t, ret)
+}
+
+func getBlockIndex(indexPrev *blockindex.BlockIndex, timeInterval int64, bits uint32) *blockindex.BlockIndex {
+	blockIdx := new(blockindex.BlockIndex)
+	blockIdx.Prev = indexPrev
+	blockIdx.Header.HashPrevBlock = indexPrev.Header.GetHash()
+	blockIdx.Height = indexPrev.Height + 1
+	blockIdx.File = blockIdx.Height / 3
+	blockIdx.Header.Time = indexPrev.Header.Time + uint32(timeInterval)
+	if blockIdx.Height%3 == 0 {
+		blockIdx.Header.Time = indexPrev.Header.Time - uint32(timeInterval)
+	}
+	blockIdx.Header.Bits = bits
+	blockIdx.ChainWork = *big.NewInt(0).Add(&indexPrev.ChainWork, pow.GetBlockProof(blockIdx))
+
+	powCheck := pow.Pow{}
+	params := model.ActiveNetParams
+	for {
+		blockIdx.Header.Nonce++
+		hash := blockIdx.Header.GetHash()
+		log.Debug("mining height %d, hash: %s", blockIdx.Height, hash)
+		if powCheck.CheckProofOfWork(&hash, bits, params) {
+			break
+		}
+		blockIdx.Header.Hash = util.HashZero
+	}
+
+	seed := rand.NewSource(time.Now().Unix())
+	random := rand.New(seed)
+	blockIdx.TxCount = int32(random.Intn(1000) + 1)
+	blockIdx.ChainTxCount = indexPrev.ChainTxCount + blockIdx.TxCount
+	if blockIdx.Height%4 == 0 {
+		blockIdx.ChainTxCount = 0
+	}
+	blockIdx.Header.Bits = bits
+	indexcount++
+	if indexcount%2 == 0 {
+		blockIdx.AddStatus(blockindex.BlockHaveData)
+	}
+	blockIdx.RaiseValidity(blockindex.BlockValidScripts)
+	return blockIdx
+}
+
+var indexcount int
+
+func initGenesis() {
+	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
+	branch := make([]*blockindex.BlockIndex, 0, 20)
+	gChain := chain.GetInstance()
+	gChain.InitLoad(GlobalBlockIndexMap, branch)
+
+	bl := gChain.GetParams().GenesisBlock
+	bIndex := blockindex.NewBlockIndex(&bl.Header)
+	bIndex.Height = 0
+	bIndex.TxCount = 1
+	bIndex.ChainTxCount = 1
+	bIndex.File = 0
+	bIndex.AddStatus(blockindex.BlockHaveData)
+	bIndex.RaiseValidity(blockindex.BlockValidTransactions)
+	err := gChain.AddToIndexMap(bIndex)
+	if err != nil {
+		panic("AddToIndexMap fail")
+	}
+}
+
+func initBlkIdx() {
+	gChain := chain.GetInstance()
+	initGenesis()
+	genesisIndex := gChain.FindBlockIndex(*gChain.GetParams().GenesisHash)
+	//genesisIndex := gChain.FindBlockIndex(*model.ActiveNetParams.GenesisHash)
+	if genesisIndex == nil {
+		panic("genesis index find fail")
+	}
+
+	blocknumber := 10
+
+	blockIdx := make([]*blockindex.BlockIndex, blocknumber*2-1)
+	blockIdx[0] = genesisIndex
+	for i := 1; i < blocknumber; i++ {
+		blockIdx[i] = getBlockIndex(blockIdx[i-1], timePerBlock, initBits)
+		err := gChain.AddToIndexMap(blockIdx[i])
+		if err != nil {
+			panic("AddToIndexMap fail")
+		}
+	}
+}
+
+func TestSyncManager_lastAccouncedBlock(t *testing.T) {
+	//	cleanup := initTestEnv()
+	//	defer cleanup()
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
+	idx := lastAccouncedBlock(p)
+	assert.Nil(t, idx)
+
+	x, y := sm.syncPoints(p)
+	assert.Nil(t, x)
+	assert.Nil(t, y)
+
+	var zeroHash util.Hash
+	p.UpdateLastAnnouncedBlock(&zeroHash)
+	idx = lastAccouncedBlock(p)
+	assert.Nil(t, idx)
+
+	initBlkIdx()
+	gChain := chain.GetInstance()
+	best := gChain.GetIndexBestHeader()
+	p.UpdateLastAnnouncedBlock(best.Prev.GetBlockHash())
+	idx = lastAccouncedBlock(p)
+	assert.NotNil(t, idx)
+
+	gChain.SetTip(best)
+	x, y = sm.syncPoints(p)
+	assert.Nil(t, x)
+	assert.Nil(t, y)
+
+	p.UpdateLastAnnouncedBlock(best.GetBlockHash())
+	x, y = sm.syncPoints(p)
+	assert.NotNil(t, x)
+	assert.NotNil(t, y)
+
+	sm.Stop()
+}
+
+func TestSyncManager_handleMinedBlockMsg(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+	bl := &block.Block{}
+	msg := &minedBlockMsg{block: bl, reply: nil}
+	sm.ProcessBlockCallBack = service.ProcessBlock
+	sm.handleMinedBlockMsg(msg)
+	sm.Stop()
+}
+
+func TestSyncManager_fetchBlocks(t *testing.T) {
+	sm, dir, err := makeSyncManager()
+	if err != nil {
+		t.Fatalf("construct syncmanager failed :%v\n", err)
+	}
+	defer os.RemoveAll(dir)
+
+	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
+	p, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:123", false)
+
+	requestedTxns := make(map[util.Hash]struct{})
+	requestedBlocks := make(map[util.Hash]struct{})
+	for i := 2; i < MAX_BLOCKS_IN_TRANSIT_PER_PEER; i++ {
+		requestedBlocks[*util.HashFromString(strconv.Itoa(i))] = struct{}{}
+	}
+	requestedTxns[*util.HashFromString(strconv.Itoa(0))] = struct{}{}
+
+	invVect1 := wire.NewInvVect(wire.InvTypeTx, hash1)
+	msgInv := wire.NewMsgInv()
+	msgInv.AddInvVect(invVect1)
+
+	syncState := &peerSyncState{
+		syncCandidate:   true,
+		requestQueue:    msgInv.InvList,
+		requestedTxns:   requestedTxns,
+		requestedBlocks: requestedBlocks,
+	}
+
+	sm.peerStates[p] = syncState
+	initBlkIdx()
+
+	gChain := chain.GetInstance()
+	best := gChain.GetIndexBestHeader()
+
+	tofetch, _ := sm.blocksToFetch(*best)
+	sm.fetchBlocks(tofetch, syncState, p)
+
+	sm.scanToFetchHeaderBlocks()
+	now := time.Now().UnixNano() / 1000
+	p.SetStallingSince(now)
+	sm.scanToFetchHeaderBlocks()
+
+	msg := wire.NewMsgPing(123)
+	done := make(chan struct{})
+	sm.QueuePing(msg, p, done)
+
+	sm.clearSyncPeerState(p)
+
+	p2, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:1234", false)
+	sm.fetchHeadersToConnect(p, syncState)
+	sm.fetchHeadersToConnect(p2, syncState)
+	headerMsg := wire.NewMsgHeaders()
+	hmsg := &headersMsg{
+		headers: headerMsg,
+		peer:    p2,
+	}
+	sm.handleHeadersMsg(hmsg)
+	hmsg.peer = p
+	sm.handleHeadersMsg(hmsg)
+	headerMsg.AddBlockHeader(best.GetBlockHeader())
+	headerMsg.AddBlockHeader(best.Prev.Prev.GetBlockHeader())
+	sm.handleHeadersMsg(hmsg)
+	sm.Stop()
 }

@@ -54,9 +54,9 @@ func LoadBlockIndexDB() bool {
 		index.TimeMax = timeMax
 		// We can link the chain of blocks for which we've received transactions
 		// at some point. Pruned nodes may have deleted the block.
-		if index.TxCount <= 0 {
-			log.Error("index's Txcount is 0 ")
-			panic("index's Txcount is 0 ")
+		if index.TxCount < 0 {
+			log.Error("index's Txcount is < 0 ")
+			panic("index's Txcount is < 0 ")
 		}
 		if index.Prev != nil {
 			if index.Prev.ChainTxCount != 0 {
@@ -70,6 +70,18 @@ func LoadBlockIndexDB() bool {
 			// genesis block
 			index.ChainTxCount = index.TxCount
 			branch = append(branch, index)
+		}
+
+		if index.Prev != nil {
+			index.BuildSkip()
+		}
+
+		if index.IsValid(blockindex.BlockValidTree) {
+			idxBestHeader := gChain.GetIndexBestHeader()
+			if idxBestHeader == nil ||
+				idxBestHeader.ChainWork.Cmp(&index.ChainWork) == -1 {
+				gChain.SetIndexBestHeader(index)
+			}
 		}
 	}
 	log.Debug("LoadBlockIndexDB, BlockIndexMap len:%d, Branch len:%d, Orphan len:%d",

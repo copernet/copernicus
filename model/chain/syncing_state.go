@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/util"
@@ -27,8 +26,8 @@ func isRecentTip(tip *blockindex.BlockIndex) bool {
 }
 
 func hasEnoughWork(tip *blockindex.BlockIndex) bool {
-	minWorkSum := pow.HashToBig(&model.ActiveNetParams.MinimumChainWork)
-	return tip.ChainWork.Cmp(minWorkSum) > 0
+	minWorkSum := pow.MiniChainWork()
+	return tip.ChainWork.Cmp(&minWorkSum) > 0
 }
 
 func (ds *SyncingState) IsAlmostSynced() bool {

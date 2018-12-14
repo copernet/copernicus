@@ -522,7 +522,7 @@ func (w *Wallet) handleBlockChainNotification(notification *chain.Notification) 
 
 	case chain.NTChainTipUpdated:
 
-	case chain.NTBlockAccepted:
+	case chain.NTNewPoWValidBlock:
 
 	case chain.NTBlockConnected:
 		block, ok := notification.Data.(*block.Block)

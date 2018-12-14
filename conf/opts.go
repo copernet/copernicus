@@ -33,6 +33,8 @@ type Opts struct {
 	MaxMempool                     int64  `long:"maxmempool" default:"300000000"`
 	SpendZeroConfChange            uint8  `long:"spendzeroconfchange" default:"1"`
 	MaxTimeAdjustment              uint64 `long:"maxtimeadjustment" default:"4200" description:"Maximum allowed median peer time offset adjustment. Local perspective of time may be influenced by peers forward or backward by this amount."`
+	MinimumChainWork               string `long:"minimumchainwork"`
+	AssumeValid                    string `long:"assumevalid"`
 }
 
 func InitArgs(args []string) (*Opts, error) {

@@ -15,3 +15,4 @@ rpc.key
 Support
 coverage.out
 copernicus__*
+tools/coperctl/coperctl

@@ -69,6 +69,7 @@ out:
 					peerFrom.Disconnect()
 				}
 				peerFrom.SetAckReceived(true)
+				peerFrom.PushSendHeadersMsg()
 				if peerFrom.Cfg.Listeners.OnVerAck != nil {
 					peerFrom.Cfg.Listeners.OnVerAck(peerFrom, data)
 				}
@@ -83,12 +84,10 @@ out:
 					peerFrom.Cfg.Listeners.OnAddr(peerFrom, data)
 				}
 				msg.Done <- struct{}{}
+
 			case *wire.MsgPing:
-				peerFrom.HandlePingMsg(data)
-				if peerFrom.Cfg.Listeners.OnPing != nil {
-					peerFrom.Cfg.Listeners.OnPing(peerFrom, data)
-				}
-				msg.Done <- struct{}{}
+				mh.pings <- &PingMsg{sp: msg.Peerp, ping: data, done: msg.Done}
+
 			case *wire.MsgPong:
 				peerFrom.HandlePongMsg(data)
 				if peerFrom.Cfg.Listeners.OnPong != nil {
@@ -134,11 +133,8 @@ out:
 				}
 				msg.Done <- struct{}{}
 			case *wire.MsgGetData:
-				if peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro != nil {
-					peerFrom.Cfg.Listeners.OnTransferMsgToBusinessPro(msg, msg.Done)
-				} else if peerFrom.Cfg.Listeners.OnGetData != nil {
-					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data)
-					msg.Done <- struct{}{}
+				if peerFrom.Cfg.Listeners.OnGetData != nil {
+					peerFrom.Cfg.Listeners.OnGetData(peerFrom, data, msg.Done)
 				}
 
 			case *wire.MsgGetBlocks:

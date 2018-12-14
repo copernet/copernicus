@@ -3,6 +3,7 @@ package chain
 import (
 	"github.com/copernet/copernicus/model"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,19 +22,22 @@ import (
 
 // Chain An in-memory blIndexed chain of blocks.
 type Chain struct {
-	active      []*blockindex.BlockIndex
-	branch      []*blockindex.BlockIndex
-	waitForTx   map[util.Hash]*blockindex.BlockIndex
-	orphan      map[util.Hash][]*blockindex.BlockIndex // preHash : *index
-	indexMap    map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
-	newestBlock *blockindex.BlockIndex
-	receiveID   uint64
-	params      *model.BitcoinParams
+	active    []*blockindex.BlockIndex
+	branch    []*blockindex.BlockIndex
+	waitForTx map[util.Hash]*blockindex.BlockIndex
+	orphan    map[util.Hash][]*blockindex.BlockIndex // preHash : *index
+	indexMap  map[util.Hash]*blockindex.BlockIndex   // selfHash :*index
+	receiveID uint64
+	params    *model.BitcoinParams
 
 	// The notifications field stores a slice of callbacks to be executed on
 	// certain blockchain events.
 	notificationsLock sync.RWMutex
 	notifications     []NotificationCallback
+
+	// the current most chainwork index of blockheader
+	pindexBestHeader     *blockindex.BlockIndex
+	pindexBestHeaderLock sync.RWMutex
 
 	*SyncingState
 }
@@ -53,7 +57,8 @@ func InitGlobalChain() {
 		globalChain = NewChain()
 	}
 	if len(conf.Cfg.Chain.AssumeValid) > 0 {
-		hash, err := util.GetHashFromStr(conf.Cfg.Chain.AssumeValid)
+		assumeValid := strings.TrimPrefix(conf.Cfg.Chain.AssumeValid, "0x")
+		hash, err := util.GetHashFromStr(assumeValid)
 		if err != nil {
 			panic("AssumeValid config err")
 		}
@@ -61,6 +66,11 @@ func InitGlobalChain() {
 	} else {
 		HashAssumeValid = model.ActiveNetParams.DefaultAssumeValid
 	}
+}
+
+// Close FIXME: this is only for test. We must do it in a graceful way
+func Close() {
+	globalChain = nil
 }
 
 func NewChain() *Chain {
@@ -395,8 +405,11 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 		} else {
 			index = index.GetAncestor(height)
 		}
-		log.Trace("GetLocator contain hash : %s, height : %d .",
-			index.GetBlockHash(), index.Height)
+
+		if len(blockHashList) < 2 {
+			log.Trace("GetLocator from hash : %s, height : %d .",
+				index.GetBlockHash(), index.Height)
+		}
 		if len(blockHashList) > 10 {
 			step *= 2
 		}
@@ -567,6 +580,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		bi.Height = pre.Height + 1
 	}
 	if pre != nil {
+		bi.BuildSkip()
 		if pre.TimeMax > bi.TimeMax {
 			bi.TimeMax = pre.TimeMax
 		}
@@ -574,9 +588,20 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 	}
 	log.Debug("AddToIndexMap:%s index height:%d", hash, bi.Height)
 	bi.RaiseValidity(blockindex.BlockValidTree)
+
+	c.tryUpdateIndexBestHeader(bi)
+
 	gPersist := persist.GetInstance()
 	gPersist.AddDirtyBlockIndex(bi)
 	return nil
+}
+
+func (c *Chain) tryUpdateIndexBestHeader(bi *blockindex.BlockIndex) {
+	idxBestHeader := c.GetIndexBestHeader()
+	if idxBestHeader == nil ||
+		idxBestHeader.ChainWork.Cmp(&bi.ChainWork) == -1 {
+		c.SetIndexBestHeader(bi)
+	}
 }
 
 func (c *Chain) AddToOrphan(bi *blockindex.BlockIndex) error {
@@ -618,4 +643,21 @@ func (c *Chain) BuildForwardTree() (forward map[*blockindex.BlockIndex][]*blocki
 		}
 	}
 	return
+}
+
+func (c *Chain) CanDirectFetch() bool {
+	return int64(c.Tip().GetBlockTime()) > util.GetAdjustedTimeSec()-int64(c.params.TargetTimePerBlock)*20
+}
+
+func (c *Chain) GetIndexBestHeader() *blockindex.BlockIndex {
+	c.pindexBestHeaderLock.RLock()
+	idx := c.pindexBestHeader
+	c.pindexBestHeaderLock.RUnlock()
+	return idx
+}
+
+func (c *Chain) SetIndexBestHeader(idx *blockindex.BlockIndex) {
+	c.pindexBestHeaderLock.Lock()
+	c.pindexBestHeader = idx
+	c.pindexBestHeaderLock.Unlock()
 }

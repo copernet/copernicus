@@ -33,5 +33,6 @@ type CacheView interface {
 	DynamicMemoryUsage() int64
 	GetCacheSize() int
 	RemoveCoins(outpoint *outpoint.OutPoint)
+	AccessByTxID(hash *util.Hash) *Coin
 	Flush() bool
 }

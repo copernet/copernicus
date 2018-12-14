@@ -39,7 +39,7 @@ type BlockIndex struct {
 	Prev *BlockIndex
 
 	// pointer to the index of some further predecessor of this block
-	//Skip *BlockIndex
+	Skip *BlockIndex
 
 	// height of the entry in the chain. The genesis block has height 0；
 	Height int32
@@ -78,7 +78,7 @@ func (bIndex *BlockIndex) SetNull() {
 	bIndex.Header.SetNull()
 	bIndex.blockHash = util.Hash{}
 	bIndex.Prev = nil
-	//bIndex.Skip = nil
+	bIndex.Skip = nil
 
 	bIndex.Height = 0
 	bIndex.File = -1
@@ -238,15 +238,27 @@ func (bIndex *BlockIndex) GetAncestor(height int32) *BlockIndex {
 	if height == bIndex.Height {
 		return bIndex
 	}
-	indexWalk := bIndex
-	for indexWalk.Prev != nil {
-		if indexWalk.Prev.Height == height {
-			return indexWalk.Prev
+	pindexWalk := bIndex
+	heightWalk := bIndex.Height
+	for heightWalk > height {
+		heightSkip := getSkipHeight(heightWalk)
+		heightSkipPrev := getSkipHeight(heightWalk - 1)
+		if pindexWalk.Skip != nil &&
+			(heightSkip == height || (heightSkip > height &&
+				!(heightSkipPrev < heightSkip-2 &&
+					heightSkipPrev >= height))) {
+			// Only follow pskip if pprev->pskip isn't better than pskip->pprev.
+			pindexWalk = pindexWalk.Skip
+			heightWalk = heightSkip
+		} else {
+			if pindexWalk.Prev == nil {
+				return nil
+			}
+			pindexWalk = pindexWalk.Prev
+			heightWalk--
 		}
-		indexWalk = indexWalk.Prev
 	}
-
-	return indexWalk
+	return pindexWalk
 }
 
 func (bIndex *BlockIndex) String() string {
@@ -314,4 +326,30 @@ func (bIndex *BlockIndex) IsMagneticAnomalyJustEnabled() bool {
 
 	return !model.IsMagneticAnomalyEnabled(bIndex.Prev.GetMedianTimePast()) &&
 		model.IsMagneticAnomalyEnabled(bIndex.GetMedianTimePast())
+}
+
+// invertLowestOne Turn the lowest '1' bit in the binary representation of a number into a '0'.
+func invertLowestOne(n int32) int32 {
+	return n & (n - 1)
+}
+
+// getSkipHeight Compute what height to jump back to with the CBlockIndex::pskip pointer/
+func getSkipHeight(height int32) int32 {
+	if height < 2 {
+		return 0
+	}
+
+	// Determine which height to jump back to. Any number strictly lower than
+	// height is acceptable, but the following expression seems to perform well
+	// in simulations (max 110 steps to go back up to 2**18 blocks).
+	if height&1 != 0 {
+		return invertLowestOne(invertLowestOne(height-1)) + 1
+	}
+	return invertLowestOne(height)
+}
+
+func (bIndex *BlockIndex) BuildSkip() {
+	if bIndex.Prev != nil {
+		bIndex.Skip = bIndex.Prev.GetAncestor(getSkipHeight(bIndex.Height))
+	}
 }
