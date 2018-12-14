@@ -417,7 +417,7 @@ func ReadMessageWithEncodingN(r io.Reader, pver uint32, btcnet BitcoinNet,
 	// Unmarshal message.  NOTE: This must be a *bytes.Buffer since the
 	// MsgVersion Decode function requires it.
 	pr := bytes.NewBuffer(payload)
-	log.Trace("begin Decode msg ....")
+
 	err = msg.Decode(pr, pver, enc)
 	if err != nil {
 		log.Error("decode error: %v", err)

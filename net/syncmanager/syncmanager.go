@@ -61,7 +61,7 @@ const (
 	MAX_UNCONNECTING_HEADERS = 10
 
 	// fetchInterval is the interval to fetchHeaderBlocks for all peer
-	fetchInterval = 1 * time.Second
+	fetchInterval = 20 * time.Second
 
 	// BLOCK_STALLING_TIMEOUT in microsecond during which a peer must stall block
 	// download progress before being disconnected
@@ -726,7 +726,6 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 func lastAnnouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
 	pindexBestKnownHash := peer.LastAnnouncedBlock()
 	if pindexBestKnownHash == nil {
-		log.Info("peer(%d) best known block nil, forgive temporary", peer.ID())
 		return nil
 	}
 
@@ -768,41 +767,31 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 // list of blocks to be downloaded based on the current known headers.
 // Download blocks via several peers parallel
 func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
-	reqNum := len(sm.requestedBlocks)
-	if 0 != reqNum {
-		log.Debug("now %d requestedBlocks", reqNum)
-	}
 	if !sm.isSyncCandidate(peer) {
-		log.Info("peer(%d)%s not a sync candidate, forgive fetch", peer.ID(), peer.Addr())
 		return
 	}
 
 	if !peer.VerAckReceived() {
-		log.Info("peer(%d)%s VerAck not recved, do not use it", peer.ID(), peer.Addr())
 		return
 	}
 	gChain := chain.GetInstance()
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
-		log.Error("fetchHeaderBlocks called with peer state nil")
 		return
 	}
 
 	if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
-		log.Debug("peer(%d) has full requestedBlocks, don't GetData any more", peer.ID())
 		return
 	}
 
 	minWorkSum := pow.MiniChainWork()
 	pindexBestHeader := gChain.GetIndexBestHeader()
 	if pindexBestHeader.ChainWork.Cmp(&minWorkSum) == -1 {
-		log.Info("pindexBestHeader.ChainWork less than minChainWork, wait header download", peer.ID())
 		return
 	}
 
 	pindexWalk, pindexBestKnownBlock := sm.syncPoints(peer)
 	if pindexWalk == nil || pindexBestKnownBlock == nil {
-		log.Debug("fetchHeaderBlocks can not find block hashes to fetch from peer(%d) ", peer.ID())
 		return
 	}
 
@@ -813,7 +802,6 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 
 	tipWork := gChain.Tip().ChainWork
 	if pindexBestKnownBlock.ChainWork.Cmp(&tipWork) == -1 {
-		log.Info("peer(%d) ChainWork less than tipWork, has nothing interesting", peer.ID())
 		return
 	}
 
