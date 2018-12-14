@@ -27,7 +27,7 @@ func (txr *TxRelayer) Cache(txID *util.Hash, txn *tx.Tx) {
 	defer txr.lck.Unlock()
 
 	if txn == nil {
-		txe := lmempool.FindTxInMempool(*txID)
+		txe := lmempool.FindTxInMempool(mempool.GetInstance(), *txID)
 		if txe == nil {
 			return
 		}

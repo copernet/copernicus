@@ -1679,7 +1679,7 @@ func (s *Server) handleRelayInvMsg(state *peerState, msg relayMsg) {
 				return
 			}
 
-			txD := lmempool.FindTxInMempool(msg.invVect.Hash)
+			txD := lmempool.FindTxInMempool(mempool.GetInstance(), msg.invVect.Hash)
 			if txD == nil {
 				log.Warn("not found TxEntry for tx(%v) while relaying", txD)
 				return

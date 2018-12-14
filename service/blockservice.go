@@ -7,6 +7,7 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist"
 	"time"
@@ -32,7 +33,7 @@ func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.B
 	return nil
 }
 
-func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
+func ProcessBlock(b *block.Block, forceProcessing bool, pool *mempool.TxMempool) (bool, error) {
 	h := b.GetHash()
 	gChain := chain.GetInstance()
 	coinsTip := utxo.GetUtxoCacheInstance()
@@ -44,7 +45,7 @@ func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
 
 	isNewBlock := false
 
-	err := ProcessNewBlock(b, forceProcessing, &isNewBlock)
+	err := ProcessNewBlock(b, forceProcessing, &isNewBlock, pool)
 
 	if err != nil {
 		log.Trace("processBlock failed ...")
@@ -63,7 +64,7 @@ func ProcessBlock(b *block.Block, forceProcessing bool) (bool, error) {
 	return isNewBlock, err
 }
 
-func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool) error {
+func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool, pool *mempool.TxMempool) error {
 
 	if fNewBlock != nil {
 		*fNewBlock = false
@@ -95,7 +96,7 @@ func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool)
 	}
 
 	// Only used to report errors, not invalidity - ignore it
-	if err := lchain.ActivateBestChain(pblock); err != nil {
+	if err := lchain.ActivateBestChain(pblock, pool); err != nil {
 		log.Error(" ActivateBestChain failed :%v", err)
 		return err
 	}

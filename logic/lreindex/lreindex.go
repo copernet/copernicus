@@ -2,6 +2,10 @@ package lreindex
 
 import (
 	"container/list"
+	"io"
+	"os"
+	"time"
+
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
@@ -10,13 +14,11 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/disk"
 	"github.com/copernet/copernicus/util"
-	"io"
-	"os"
-	"time"
 )
 
 func Reindex() (err error) {
@@ -40,7 +42,7 @@ func Reindex() (err error) {
 		}
 	}
 
-	err = lchain.ActivateBestChain(nil)
+	err = lchain.ActivateBestChain(nil, mempool.GetInstance())
 	if err != nil {
 		log.Error("ActivateBestChain failed after reindex")
 		return err
@@ -120,7 +122,7 @@ func loadExternalBlockFile(filePath string, dbp *block.DiskBlockPos) (nLoaded in
 
 		// Activate the genesis block so normal node progress can continue
 		if blkHash == *params.GenesisHash {
-			err = lchain.ActivateBestChain(blk)
+			err = lchain.ActivateBestChain(blk, mempool.GetInstance())
 			if err != nil {
 				log.Error("Activate the genesis block failed")
 				break

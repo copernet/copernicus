@@ -894,7 +894,7 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	for gchain.FindHashInActive(*bkHash) != nil {
 		lchain.InvalidBlockParentFound(gchain.Tip())
 
-		if err = lchain.DisconnectTip(false); err != nil {
+		if err = lchain.DisconnectTip(false, mempool.GetInstance()); err != nil {
 			log.Error("InvalidateBlock failed during DisconnectTip, " + chainStatus(bkHash))
 			return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "disconnect failed")
 		}
@@ -902,11 +902,11 @@ func handleInvalidateBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 
 	lchain.InvalidBlockFound(bi)
 
-	if err = lchain.ActivateBestChain(nil); err != nil {
+	if err = lchain.ActivateBestChain(nil, mempool.GetInstance()); err != nil {
 		log.Error("InvalidateBlock failed during ActivateBestChain, " + chainStatus(bkHash))
 		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
 	}
-	lmempool.RemoveForReorg(chain.GetInstance().Tip().Height+1, int(tx.StandardLockTimeVerifyFlags))
+	lmempool.RemoveForReorg(mempool.GetInstance(), chain.GetInstance().Tip().Height+1, int(tx.StandardLockTimeVerifyFlags))
 	log.Debug("InvalidateBlock end: " + chainStatus(bkHash))
 	return nil, nil
 }
@@ -932,7 +932,7 @@ func handleReconsiderBlock(s *Server, cmd interface{}, closeChan <-chan struct{}
 	targetBI.SubStatus(blockindex.BlockInvalidMask)
 	gchain.ResetBlockFailureFlags(targetBI)
 
-	if err = lchain.ActivateBestChain(nil); err != nil {
+	if err = lchain.ActivateBestChain(nil, mempool.GetInstance()); err != nil {
 		log.Error("ReconsiderBlock failed, " + chainStatus(bkHash))
 		return nil, btcjson.NewRPCError(btcjson.RPCDatabaseError, "failed with err:"+err.Error())
 	}

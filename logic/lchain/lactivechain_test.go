@@ -6,6 +6,7 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/util"
@@ -185,6 +186,6 @@ func TestActivateBestChainStep_Invalid(t *testing.T) {
 	connTrace := make(connectTrace)
 	invalid := false
 	err := ActivateBestChainStep(blockindex.NewBlockIndex(block.NewBlockHeader()),
-		block.NewBlock(), &invalid, connTrace)
+		block.NewBlock(), &invalid, connTrace, mempool.GetInstance())
 	assert.NotNil(t, err)
 }

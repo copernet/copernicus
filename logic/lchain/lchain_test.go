@@ -89,7 +89,7 @@ func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uin
 		}
 
 		fNewBlock := false
-		if service.ProcessNewBlock(bk, true, &fNewBlock) != nil {
+		if service.ProcessNewBlock(bk, true, &fNewBlock, mempool.GetInstance()) != nil {
 			return nil, errors.New("ProcessNewBlock, block not accepted")
 		}
 

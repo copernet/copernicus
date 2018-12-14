@@ -983,7 +983,7 @@ func generateBlocks(t *testing.T, generate int, maxTries uint64, verify bool) ([
 
 		if verify {
 			fNewBlock := false
-			if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+			if service.ProcessNewBlock(bt.Block, true, &fNewBlock, mempool.GetInstance()) != nil {
 				return nil, errors.New("ProcessNewBlock, block not accepted")
 			}
 		}

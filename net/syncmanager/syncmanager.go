@@ -223,7 +223,7 @@ type SyncManager struct {
 
 	// callback for transaction And block process
 	ProcessTransactionCallBack func(*tx.Tx, map[util.Hash]struct{}, int64) ([]*tx.Tx, []util.Hash, []util.Hash, error)
-	ProcessBlockCallBack       func(*block.Block, bool) (bool, error)
+	ProcessBlockCallBack       func(*block.Block, bool, *mempool.TxMempool) (bool, error)
 	ProcessBlockHeadCallBack   func([]*block.BlockHeader, *blockindex.BlockIndex) error
 	AddBanScoreCallBack        func(string, uint32, uint32, string)
 
@@ -504,7 +504,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	txentrys := make([]*mempool.TxEntry, 0, len(acceptTxs))
 	for _, tx := range acceptTxs {
-		if entry := lmempool.FindTxInMempool(tx.GetHash()); entry != nil {
+		if entry := lmempool.FindTxInMempool(mempool.GetInstance(), tx.GetHash()); entry != nil {
 			txentrys = append(txentrys, entry)
 		} else {
 			panic("the transaction must be in mempool")
@@ -600,7 +600,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	_, err := sm.ProcessBlockCallBack(bmsg.block, requested || fromWhitelist)
+	_, err := sm.ProcessBlockCallBack(bmsg.block, requested || fromWhitelist, mempool.GetInstance())
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
 		// rejected as opposed to something actually going wrong, so log
@@ -668,7 +668,7 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 		}
 	}()
 	hash := mbmsg.block.GetHash()
-	_, err = sm.ProcessBlockCallBack(mbmsg.block, true)
+	_, err = sm.ProcessBlockCallBack(mbmsg.block, true, mempool.GetInstance())
 	if err != nil {
 		log.Error("process mined block(%v) err(%v)", &hash, err)
 		return
@@ -1039,7 +1039,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
 		// to it in any form (main pool or orphan).
-		if lmempool.FindTxInMempool(invVect.Hash) != nil {
+		if lmempool.FindTxInMempool(mempool.GetInstance(), invVect.Hash) != nil {
 			return true, nil
 		}
 		// Check if the transaction exists from the point of view of the
@@ -1053,7 +1053,7 @@ func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		if pcoins.GetCoin(&out) != nil {
 			return true, nil
 		}
-		if lmempool.FindOrphanTxInMemPool(invVect.Hash) != nil {
+		if lmempool.FindOrphanTxInMemPool(mempool.GetInstance(), invVect.Hash) != nil {
 			return true, nil
 		}
 		return false, nil
@@ -1367,12 +1367,12 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// no longer an orphan. Transactions which depend on a confirmed
 		// transaction are NOT removed recursively because they are still
 		// valid.
-		lmempool.RemoveTxSelf(block.Txs[1:])
+		lmempool.RemoveTxSelf(mempool.GetInstance(), block.Txs[1:])
 		for _, tx := range block.Txs[1:] {
 			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
 			// sm.peerNotifier.TransactionConfirmed(tx)
 
-			lmempool.TryAcceptOrphansTxs(tx, chain.GetInstance().Height(), true)
+			lmempool.TryAcceptOrphansTxs(mempool.GetInstance(), tx, chain.GetInstance().Height(), true)
 		}
 
 		// Register block with the fee estimator, if it exists.

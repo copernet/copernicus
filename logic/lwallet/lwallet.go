@@ -623,7 +623,7 @@ func CommitTransaction(txNew *tx.Tx, extInfo map[string]string) error {
 	//mapRequestCount[wtxNew.GetId()] = 0;
 
 	// Broadcast
-	if err = lmempool.AcceptTxToMemPool(txNew); err != nil {
+	if err = lmempool.AcceptTxToMemPool(mempool.GetInstance(), txNew); err != nil {
 		log.Error("CommitTransaction AcceptTxToMemPool fail. txid:%s, error:%s",
 			txHash.String(), err.Error())
 		// TODO: if we expect the failure to be long term or permanent,

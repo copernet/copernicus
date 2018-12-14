@@ -25,7 +25,7 @@ var shutdownScheduled bool
 // or an activated best chain. pblock is either nullptr or a pointer to a block
 // that is already loaded (to avoid loading it again from disk).
 // Find the best known block, and make it the tip of the block chain
-func ActivateBestChain(pblock *block.Block) error {
+func ActivateBestChain(pblock *block.Block, pool *mempool.TxMempool) error {
 	// Note that while we're often called here from ProcessNewBlock, this is
 	// far from a guarantee. Things in the P2P/RPC will often end up calling
 	// us in the middle of ProcessNewBlock - do not assume pblock is set
@@ -82,7 +82,7 @@ func ActivateBestChain(pblock *block.Block) error {
 			tmpBlock = nullBlockPtr
 		}
 
-		if err := ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace); err != nil {
+		if err := ActivateBestChainStep(pindexMostWork, tmpBlock, &fInvalidFound, connTrace, pool); err != nil {
 			return err
 		}
 
@@ -138,7 +138,8 @@ func sendNotifications(pindexOldTip *blockindex.BlockIndex, pblock *block.Block)
 // the active block. pblock is either nullptr or a pointer to a CBlock corresponding to
 // pindexMostWork.
 func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
-	pblock *block.Block, fInvalidFound *bool, connTrace connectTrace) error {
+	pblock *block.Block, fInvalidFound *bool, connTrace connectTrace,
+	pool *mempool.TxMempool) error {
 
 	// has held cs_main lock
 	gChain := chain.GetInstance()
@@ -148,7 +149,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 	// Disconnect active blocks which are no longer in the best chain.
 	fBlocksDisconnected := false
 	for gChain.Tip() != nil && gChain.Tip() != pindexFork {
-		if err := DisconnectTip(false); err != nil {
+		if err := DisconnectTip(false, pool); err != nil {
 			return err
 		}
 		fBlocksDisconnected = true
@@ -183,7 +184,7 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 			if pindexConnect != pindexMostWork {
 				tmpBlock = nil
 			}
-			err := ConnectTip(pindexConnect, tmpBlock, connTrace)
+			err := ConnectTip(pindexConnect, tmpBlock, connTrace, pool)
 			if err != nil {
 				*fInvalidFound = true
 				fContinue = false
@@ -203,9 +204,8 @@ func ActivateBestChainStep(pindexMostWork *blockindex.BlockIndex,
 
 	if fBlocksDisconnected {
 		currentTip := gChain.Tip()
-		lmempool.RemoveForReorg(currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
+		lmempool.RemoveForReorg(pool, currentTip.Height+1, int(tx.StandardLockTimeVerifyFlags))
 	}
-	lmempool.CheckMempool(mempool.GetInstance(), chain.GetInstance().Height())
 	return nil
 }
 

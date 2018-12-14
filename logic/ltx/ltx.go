@@ -122,7 +122,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx, pool *mempool.TxMempool) (*mempool
 	}
 
 	// are inputs are exists and available?
-	inputCoins, missingInput, spendCoinbase := inputCoinsOf(txn)
+	inputCoins, missingInput, spendCoinbase := inputCoinsOf(pool, txn)
 	if missingInput {
 		return nil, errcode.New(errcode.TxErrNoPreviousOut)
 	}
@@ -133,7 +133,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx, pool *mempool.TxMempool) (*mempool
 	// transactions that can't be mined yet. Must keep pool.cs for this
 	// unless we change CheckSequenceLocks to take a CoinsViewCache
 	// instead of create its own.
-	lp := CalculateLockPoints(txn, uint32(tx.StandardLockTimeVerifyFlags))
+	lp := CalculateLockPoints(pool, txn, uint32(tx.StandardLockTimeVerifyFlags))
 	if lp == nil {
 		log.Debug("cann't calculate out lockpoints")
 		return nil, errcode.New(errcode.RejectNonstandard)
@@ -165,7 +165,7 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx, pool *mempool.TxMempool) (*mempool
 		return nil, errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops")
 	}
 
-	txFee, err := checkFee(txn, inputCoins)
+	txFee, err := checkFee(txn, inputCoins, pool.GetMinFee(conf.Cfg.Mempool.MaxPoolSize))
 	if err != nil {
 		return nil, err
 	}
@@ -235,12 +235,11 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx, pool *mempool.TxMempool) (*mempool
 	return txEntry, nil
 }
 
-func checkFee(txn *tx.Tx, inputCoins *utxo.CoinsMap) (int64, error) {
+func checkFee(txn *tx.Tx, inputCoins *utxo.CoinsMap, minfeeRate util.FeeRate) (int64, error) {
 	inputValue := inputCoins.GetValueIn(txn)
 	txFee := inputValue - txn.GetValueOut()
 
 	txsize := int64(txn.EncodeSize())
-	minfeeRate := mempool.GetInstance().GetMinFee(conf.Cfg.Mempool.MaxPoolSize)
 	rejectFee := minfeeRate.GetFee(int(txsize))
 
 	if int64(txFee) < rejectFee {
@@ -511,7 +510,7 @@ func areOutputsAlreadExist(transaction *tx.Tx) (exist bool) {
 	return false
 }
 
-func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendCoinbase bool) {
+func inputCoinsOf(pool *mempool.TxMempool, txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendCoinbase bool) {
 	coinMap = utxo.NewEmptyCoinsMap()
 
 	for _, txin := range txn.GetIns() {
@@ -519,7 +518,7 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 
 		coin := utxo.GetUtxoCacheInstance().GetCoin(prevout)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(prevout)
+			coin = pool.GetCoin(prevout)
 		}
 
 		if coin == nil || coin.IsSpent() {
@@ -536,13 +535,13 @@ func inputCoinsOf(txn *tx.Tx) (coinMap *utxo.CoinsMap, missingInput bool, spendC
 	return coinMap, false, spendCoinbase
 }
 
-func FindLostPreviousTx(txn *tx.Tx) []util.Hash {
+func FindLostPreviousTx(pool *mempool.TxMempool, txn *tx.Tx) []util.Hash {
 	lostPrev := make(map[util.Hash]struct{})
 	for _, txin := range txn.GetIns() {
 		prevout := txin.PreviousOutPoint
 		coin := utxo.GetUtxoCacheInstance().GetCoin(prevout)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(prevout)
+			coin = pool.GetCoin(prevout)
 		}
 		if coin == nil {
 			lostPrev[prevout.Hash] = struct{}{}
@@ -770,7 +769,7 @@ func errorNonMandatoryPass(j ScriptVerifyJob, innerErr error) error {
 }
 
 //CalculateLockPoints calculate lockpoint(all ins' max time or height at which it can be spent) of transaction
-func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
+func CalculateLockPoints(pool *mempool.TxMempool, transaction *tx.Tx, flags uint32) (lp *mempool.LockPoints) {
 	activeChain := chain.GetInstance()
 	tipHeight := activeChain.Height()
 	utxo := utxo.GetUtxoCacheInstance()
@@ -782,7 +781,7 @@ func CalculateLockPoints(transaction *tx.Tx, flags uint32) (lp *mempool.LockPoin
 	for _, e := range ins {
 		coin := utxo.GetCoin(e.PreviousOutPoint)
 		if coin == nil {
-			coin = mempool.GetInstance().GetCoin(e.PreviousOutPoint)
+			coin = pool.GetCoin(e.PreviousOutPoint)
 		}
 		if coin == nil {
 			return nil
@@ -953,12 +952,12 @@ func CheckInputsMoney(transaction *tx.Tx, coinsMap *utxo.CoinsMap, spendHeight i
 	return nil
 }
 
-func isCoinValid(coin *utxo.Coin, out *outpoint.OutPoint) bool {
+func isCoinValid(pool *mempool.TxMempool, coin *utxo.Coin, out *outpoint.OutPoint) bool {
 	if coin == nil {
 		return false
 	}
 	if coin.IsMempoolCoin() {
-		return !mempool.GetInstance().HasSpentOut(out)
+		return !pool.HasSpentOut(out)
 	}
 	return !coin.IsSpent()
 }
@@ -973,7 +972,7 @@ func SignRawTransaction(transactions []*tx.Tx, redeemScripts map[outpoint.OutPoi
 
 	for index, in := range mergedTx.GetIns() {
 		coin := coinsMap.GetCoin(in.PreviousOutPoint)
-		if !isCoinValid(coin, in.PreviousOutPoint) {
+		if !isCoinValid(mempool.GetInstance(), coin, in.PreviousOutPoint) {
 			signErrors = append(signErrors, &SignError{
 				TxIn:   in,
 				ErrMsg: "Input not found or already spent",

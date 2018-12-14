@@ -19,9 +19,7 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func AcceptTxToMemPool(txn *tx.Tx) error {
-	pool := mempool.GetInstance()
-
+func AcceptTxToMemPool(pool *mempool.TxMempool, txn *tx.Tx) error {
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		return err
@@ -32,20 +30,24 @@ func AcceptTxToMemPool(txn *tx.Tx) error {
 }
 
 // AcceptNewTxToMempool only accept tx from network
-func AcceptNewTxToMempool(txn *tx.Tx, bestChainHeight int32, nodeID int64) (accepted []*tx.Tx, missed []util.Hash, rejected []util.Hash, err error) {
-	pool := mempool.GetInstance()
+func AcceptNewTxToMempool(pool *mempool.TxMempool, txn *tx.Tx,
+	bestChainHeight int32, nodeID int64) (accepted []*tx.Tx, missed []util.Hash, rejected []util.Hash, err error) {
+
 	defer CheckMempool(pool, bestChainHeight)
 
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) && !txn.AnyInputTxIn(pool.RejectedTxs) {
 			pool.AddOrphanTx(txn, nodeID)
-			return nil, ltx.FindLostPreviousTx(txn), nil, err
+			return nil, ltx.FindLostPreviousTx(pool, txn), nil, err
 		}
 
 		pool.RejectedTxs[txn.GetHash()] = struct{}{}
 		return nil, nil, []util.Hash{txn.GetHash()}, err
 	}
+	// FIXME: use only do lock once in current function
+	pool.Lock()
+	defer pool.Unlock()
 	err = addTxToMemPoolUnchecked(pool, txEntry)
 	if err == nil {
 		if !pool.HaveTransaction(txn) {
@@ -53,13 +55,13 @@ func AcceptNewTxToMempool(txn *tx.Tx, bestChainHeight int32, nodeID int64) (acce
 				txn.GetHash())
 			return nil, nil, nil, nil
 		}
-		accepted, rejected = TryAcceptOrphansTxs(txn, bestChainHeight, true)
+		accepted, rejected = TryAcceptOrphansTxs(pool, txn, bestChainHeight, true)
 
 		_, file, line, _ := runtime.Caller(1)
 		accepted = append([]*tx.Tx{txn}, accepted...)
 		for _, t := range accepted {
-			log.Debug("AcceptTxFromNetWork: accept orhpan tx(%s) parent(%v) child(%v)  %s:%d", t.GetHash(),
-				txEntry.ParentTx, txEntry.ChildTx, file, line)
+			log.Debug("AcceptTxFromNetWork: accept orhpan tx(%s)  %s:%d",
+				t.GetHash(), file, line)
 		}
 		return accepted, nil, rejected, err
 	}
@@ -102,9 +104,8 @@ func updateMempoolForReorgAddTx(pool *mempool.TxMempool, txEntry *mempool.TxEntr
 	pool.StatisticIncrease(txEntry, nil, descendants)
 }
 
-func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
+func TryAcceptOrphansTxs(pool *mempool.TxMempool, transaction *tx.Tx, chainHeight int32, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
-	pool := mempool.GetInstance()
 
 	// first collect this tx all outPoint.
 	for i := 0; i < transaction.GetOutsCount(); i++ {
@@ -122,7 +123,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint b
 				// 	continue
 				// }
 
-				err := AcceptTxToMemPool(iOrphanTx.Tx)
+				err := AcceptTxToMemPool(pool, iOrphanTx.Tx)
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -146,8 +147,7 @@ func TryAcceptOrphansTxs(transaction *tx.Tx, chainHeight int32, checkLockPoint b
 	return
 }
 
-func RemoveTxSelf(txs []*tx.Tx) {
-	pool := mempool.GetInstance()
+func RemoveTxSelf(pool *mempool.TxMempool, txs []*tx.Tx) {
 	pool.RemoveTxSelf(txs)
 }
 
@@ -207,9 +207,9 @@ func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
 // 	log.Debug("RemoveForReorg end")
 // }
 
-func RemoveForReorg(nMemPoolHeight int32, flag int) {
+func RemoveForReorg(pool *mempool.TxMempool, nMemPoolHeight int32, flag int) {
 	view := utxo.GetUtxoCacheInstance()
-	pool := mempool.GetInstance()
+
 	defer CheckMempool(pool, nMemPoolHeight-1)
 	pool.Lock()
 	defer pool.Unlock()
@@ -220,7 +220,7 @@ func RemoveForReorg(nMemPoolHeight int32, flag int) {
 	allEntry := pool.GetAllTxEntryWithoutLock()
 	for _, entry := range allEntry {
 		tmpTx := entry.Tx
-		lp := ltx.CalculateLockPoints(tmpTx, uint32(tx.StandardLockTimeVerifyFlags))
+		lp := ltx.CalculateLockPoints(pool, tmpTx, uint32(tx.StandardLockTimeVerifyFlags))
 		if ltx.ContextualCheckTransactionForCurrentBlock(tmpTx, flag) != nil ||
 			!ltx.CheckSequenceLocks(lp.Height, lp.Time) {
 			txToRemove[entry] = struct{}{}
@@ -466,13 +466,11 @@ func CheckMempool(pool *mempool.TxMempool, bestChainHeight int32) {
 	}
 }
 
-func FindTxInMempool(hash util.Hash) *mempool.TxEntry {
-	pool := mempool.GetInstance()
+func FindTxInMempool(pool *mempool.TxMempool, hash util.Hash) *mempool.TxEntry {
 	return pool.FindTx(hash)
 }
 
-func FindOrphanTxInMemPool(hash util.Hash) *tx.Tx {
-	pool := mempool.GetInstance()
+func FindOrphanTxInMemPool(pool *mempool.TxMempool, hash util.Hash) *tx.Tx {
 	pool.RLock()
 	defer pool.RUnlock()
 	if orphan, ok := pool.OrphanTransactions[hash]; ok {

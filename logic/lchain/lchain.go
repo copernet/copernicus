@@ -226,7 +226,9 @@ type connectTrace map[*blockindex.BlockIndex]*block.Block
 // by copying block) - if that is not intended, care must be taken to remove
 // the last entry in blocksConnected in case of failure.
 func ConnectTip(pIndexNew *blockindex.BlockIndex,
-	block *block.Block, connTrace connectTrace) error {
+	block *block.Block, connTrace connectTrace,
+	pool *mempool.TxMempool) error {
+
 	gChain := chain.GetInstance()
 	tip := gChain.Tip()
 
@@ -312,7 +314,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 	}
 	// Remove conflicting transactions from the mempool.;
 	// remove from parent tx to child
-	mempool.GetInstance().RemoveTxSelf(txs)
+	pool.RemoveTxSelf(txs)
 	// Update chainActive & related variables.
 	UpdateTip(pIndexNew)
 	nTime6 := util.GetTimeMicroSec()
@@ -329,7 +331,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 // DisconnectTip Disconnect chainActive's tip. You probably want to call
 // mempool.removeForReorg and manually re-limit mempool size after this, with
 // cs_main held.
-func DisconnectTip(fBare bool) error {
+func DisconnectTip(fBare bool, pool *mempool.TxMempool) error {
 	gChain := chain.GetInstance()
 	tip := gChain.Tip()
 	if tip == nil {
@@ -383,7 +385,6 @@ func DisconnectTip(fBare bool) error {
 	UpdateTip(tip.Prev)
 
 	if !fBare {
-		pool := mempool.GetInstance()
 		// Resurrect mempool transactions from the disconnected block.
 		pool.RemoveTxRecursive(blk.Txs[0], mempool.REORG)
 

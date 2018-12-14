@@ -8,6 +8,7 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
@@ -65,7 +66,7 @@ func generateBlocks(scriptPubKey *script.Script, generate int, maxTries uint64) 
 		}
 
 		fNewBlock := false
-		if ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+		if ProcessNewBlock(bt.Block, true, &fNewBlock, mempool.GetInstance()) != nil {
 			return nil, errors.New("ProcessNewBlock, block not accepted")
 		}
 

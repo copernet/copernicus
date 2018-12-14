@@ -18,7 +18,6 @@ import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/mempool"
-	mmempool "github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/opcodes"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/pow"
@@ -153,7 +152,7 @@ type poolHarness struct {
 	chainParams *model.BitcoinParams
 
 	chain  *fakeChain
-	txPool *mmempool.TxMempool
+	txPool *mempool.TxMempool
 
 	keys []*crypto.PrivateKey
 }
@@ -371,7 +370,7 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 		chainParams: chainParams,
 
 		chain:  chain,
-		txPool: mmempool.GetInstance(),
+		txPool: mempool.NewTxMempool(),
 		keys:   nil,
 	}
 
@@ -421,7 +420,7 @@ type testContext struct {
 // the two flags and tests that condition as well.
 func testPoolMembership(tc *testContext, tx *tx.Tx, inOrphanPool, inTxPool bool) {
 	//gotOrphanPool := tc.harness.txPool.IsOrphanInPool(tx)
-	gotOrphanPool := lmempool.FindOrphanTxInMemPool(tx.GetHash()) != nil
+	gotOrphanPool := lmempool.FindOrphanTxInMemPool(tc.harness.txPool, tx.GetHash()) != nil
 	if inOrphanPool != gotOrphanPool {
 		_, file, line, _ := runtime.Caller(1)
 		tc.t.Fatalf("%s:%d -- IsOrphanInPool: want %v, got %v", file,
@@ -429,7 +428,7 @@ func testPoolMembership(tc *testContext, tx *tx.Tx, inOrphanPool, inTxPool bool)
 	}
 
 	//gotTxPool := tc.harness.txPool.IsTransactionInPool(tx)
-	gotTxPool := lmempool.FindTxInMempool(tx.GetHash()) != nil
+	gotTxPool := lmempool.FindTxInMempool(tc.harness.txPool, tx.GetHash()) != nil
 	if inTxPool != gotTxPool {
 		_, file, line, _ := runtime.Caller(1)
 		tc.t.Fatalf("%s:%d -- IsTransactionInPool: want %v, got %v",
@@ -474,7 +473,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 	// Create a chain of transactions rooted with the first spendable output
 	// provided by the harness.
 	//maxOrphans := uint32(harness.txPool.cfg.Policy.MaxOrphanTxs)
-	maxOrphans := uint32(mmempool.DefaultMaxOrphanTransaction)
+	maxOrphans := uint32(mempool.DefaultMaxOrphanTransaction)
 	chainedTxns, err := harness.CreateTxChain(spendableOuts[0], maxOrphans+1)
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
@@ -489,7 +488,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
 
-		_, _, _, err := lmempool.AcceptNewTxToMempool(tx, harness.chain.BestHeight(), 0)
+		_, _, _, err := lmempool.AcceptNewTxToMempool(harness.txPool, tx, harness.chain.BestHeight(), 0)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: failed to accept valid "+
 				"orphan %v", err)
@@ -508,13 +507,13 @@ func TestSimpleOrphanChain(t *testing.T) {
 	// acceptedTxns, err := harness.txPool.ProcessTransaction(chainedTxns[0],
 	// 	false, false, 0)
 	// acceptedTxns, _, err := service.ProcessTransaction(chainedTxns[0], 0)
-	err = lmempool.AcceptTxToMemPool(chainedTxns[0])
+	err = lmempool.AcceptTxToMemPool(harness.txPool, chainedTxns[0])
 	if err != nil {
 		t.Fatalf("ProcessTransaction: failed to accept valid "+
 			"orphan %v", err)
 	}
 	lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
-	acceptedTxns, _ := lmempool.TryAcceptOrphansTxs(chainedTxns[0], harness.chain.BestHeight(), false)
+	acceptedTxns, _ := lmempool.TryAcceptOrphansTxs(harness.txPool, chainedTxns[0], harness.chain.BestHeight(), false)
 	if len(acceptedTxns) != len(chainedTxns)-1 {
 		t.Fatalf("ProcessTransaction: reported accepted transactions "+
 			"length does not match expected -- got %d, want %d",
@@ -531,14 +530,13 @@ func TestSimpleOrphanChain(t *testing.T) {
 	}
 	// lmempool.RemoveTxRecursive(chainedTxns[5], 0)
 	harness.txPool.RemoveTxRecursive(chainedTxns[5], 0)
-	lmempool.RemoveTxSelf(chainedTxns[0:5])
+	lmempool.RemoveTxSelf(harness.txPool, chainedTxns[0:5])
 	if harness.txPool.Size() != 0 {
 		t.Fatalf("tx pool's size shoud be 0 (%v)",
 			harness.txPool.Size())
 	}
 
 	utxo.Close()
-	mmempool.Close()
 	os.RemoveAll("/tmp/dbtest")
 }
 
@@ -569,7 +567,7 @@ func TestOrphanReject(t *testing.T) {
 	// Create a chain of transactions rooted with the first spendable output
 	// provided by the harness.
 	//maxOrphans := uint32(harness.txPool.cfg.Policy.MaxOrphanTxs)
-	maxOrphans := uint32(mmempool.DefaultMaxOrphanTransaction)
+	maxOrphans := uint32(mempool.DefaultMaxOrphanTransaction)
 	chainedTxns, err := harness.CreateTxChain(outputs[0], maxOrphans+1)
 	if err != nil {
 		t.Fatalf("unable to create transaction chain: %v", err)
@@ -581,7 +579,7 @@ func TestOrphanReject(t *testing.T) {
 		// 	false, 0)
 		//acceptedTxns, _, err := service.ProcessTransaction(tx, 0)
 
-		_, _, _, err := lmempool.AcceptNewTxToMempool(tx, harness.chain.BestHeight(), 0)
+		_, _, _, err := lmempool.AcceptNewTxToMempool(harness.txPool, tx, harness.chain.BestHeight(), 0)
 		if err == nil || !errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
 			t.Fatalf("ProcessTransaction: did not fail on orphan "+
 				"%v when allow orphans flag is false", tx.GetHash())
@@ -612,7 +610,6 @@ func TestOrphanReject(t *testing.T) {
 		testPoolMembership(tc, tx, true, false)
 	}
 	utxo.Close()
-	mmempool.Close()
 	os.RemoveAll("/tmp/dbtest")
 }
 
@@ -962,7 +959,7 @@ func TestCheckSpend(t *testing.T) {
 		// 	false, 0)
 		//fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
 		//_, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(tx)
+		err := lmempool.AcceptTxToMemPool(harness.txPool, tx)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tx.GetHash(), err)
@@ -1045,7 +1042,6 @@ func initTestEnv() func() {
 
 	lchain.InitGenesisChain()
 
-	mempool.InitMempool()
 	crypto.InitSecp256()
 
 	//default testing parameters
@@ -1120,7 +1116,7 @@ func generateBlocks(t *testing.T, scriptPubKey *script.Script, generate int, max
 		}
 
 		fNewBlock := false
-		if service.ProcessNewBlock(bt.Block, true, &fNewBlock) != nil {
+		if service.ProcessNewBlock(bt.Block, true, &fNewBlock, mempool.GetInstance()) != nil {
 			return nil, btcjson.RPCError{
 				Code:    btcjson.RPCInternalError,
 				Message: "ProcessNewBlock, block not accepted",
@@ -1155,12 +1151,12 @@ func TestRemoveForReorg(t *testing.T) {
 	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tmpTx := range chainedTxns {
-		err := lmempool.AcceptTxToMemPool(tmpTx)
+		err := lmempool.AcceptTxToMemPool(harness.txPool, tmpTx)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tmpTx.GetHash(), err)
 		}
-		lmempool.RemoveForReorg(200, 0)
+		lmempool.RemoveForReorg(harness.txPool, 200, 0)
 	}
 }
 
