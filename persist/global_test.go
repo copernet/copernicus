@@ -3,6 +3,7 @@ package persist
 import (
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/util"
 	"reflect"
 	"testing"
@@ -24,7 +25,7 @@ func createBlkIdx() *blockindex.BlockIndex {
 }
 
 func TestGetInstance(t *testing.T) {
-	InitPersistGlobal()
+	InitPersistGlobal(blkdb.GetInstance())
 	GetInstance()
 	prstGloal := new(PersistGlobal)
 	prstGloal.GlobalBlockFileInfo = make([]*block.BlockFileInfo, 0, 1000)

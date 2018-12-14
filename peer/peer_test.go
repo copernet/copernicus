@@ -12,6 +12,7 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/tx"
 	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"io"
 	"net"
 	"os"
@@ -232,15 +233,15 @@ func testPeer(t *testing.T, p *peer.Peer, s peerStats) {
 }
 
 func initEnv() {
-	chain.InitGlobalChain()
+	chain.InitGlobalChain(blkdb.GetInstance())
+	persist.InitPersistGlobal(blkdb.GetInstance())
+
 	gChain := chain.GetInstance()
 	gChain.SetTip(nil)
 
 	GlobalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
 	branch := make([]*blockindex.BlockIndex, 0, 20)
 	gChain.InitLoad(GlobalBlockIndexMap, branch)
-
-	persist.InitPersistGlobal()
 
 	bl := gChain.GetParams().GenesisBlock
 	bIndex := blockindex.NewBlockIndex(&bl.Header)

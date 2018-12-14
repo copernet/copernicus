@@ -1016,8 +1016,7 @@ func initTestEnv() func() {
 		*gChain = *chain.NewChain()
 	}
 
-	tmpCfg := conf.InitConfig([]string{})
-	conf.DataDir = tmpCfg.DataDir
+	conf.InitConfig([]string{})
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 	fmt.Printf("test in temp dir: %s\n", unitTestDataDirPath)
@@ -1036,8 +1035,6 @@ func initTestEnv() func() {
 	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
 	utxo.InitUtxoLruTip(&utxoConfig)
 
-	chain.InitGlobalChain()
-
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
 		FilePath:  conf.DataDir + "/blocks/index",
@@ -1047,10 +1044,8 @@ func initTestEnv() func() {
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	persist.InitPersistGlobal()
-
-	// Load blockindex DB
-	lblockindex.LoadBlockIndexDB()
+	chain.InitGlobalChain(blkdb.GetInstance())
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	lchain.InitGenesisChain()
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
@@ -51,8 +50,6 @@ func initTestEnv(t *testing.T, initScriptVerify bool) (dirpath string, err error
 		model.SetRegTestParams()
 	}
 
-	persist.InitPersistGlobal()
-
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
 		FilePath:  conf.DataDir + "/chainstate",
@@ -71,10 +68,9 @@ func initTestEnv(t *testing.T, initScriptVerify bool) (dirpath string, err error
 	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	chain.InitGlobalChain()
+	chain.InitGlobalChain(blkdb.GetInstance())
 
-	// Load blockindex DB
-	lblockindex.LoadBlockIndexDB()
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	lchain.InitGenesisChain()
 
