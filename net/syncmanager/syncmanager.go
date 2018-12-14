@@ -202,9 +202,6 @@ type peerSyncState struct {
 
 func (pss *peerSyncState) onStartSync(syncPeer *peer.Peer) {
 	bestHeader := chain.GetInstance().GetIndexBestHeader()
-	if bestHeader == nil {
-		bestHeader = chain.GetInstance().Tip()
-	}
 
 	timeToCatchUp := util.GetAdjustedTimeSec() - int64(bestHeader.GetBlockTime())
 	headersToSync := timeToCatchUp / int64(model.ActiveNetParams.TargetTimePerBlock)
@@ -230,9 +227,6 @@ func (sm *SyncManager) checkIBDHeadersSync() {
 	state := sm.peerStates[sm.syncPeer]
 
 	bestHeader := chain.GetInstance().GetIndexBestHeader()
-	if bestHeader == nil {
-		bestHeader = chain.GetInstance().Tip()
-	}
 
 	if int64(bestHeader.GetBlockTime()) > (util.GetAdjustedTimeSec() - 24 * 60 * 60) {
 		log.Info("headers synced from peer:%s", sm.syncPeer.Addr())
@@ -356,12 +350,7 @@ func (sm *SyncManager) startSync() {
 	// Start syncing from the best peer if one was selected.
 	if bestPeer != nil {
 		activeChain := chain.GetInstance()
-		pindexBestHeader := activeChain.GetIndexBestHeader()
-		if pindexBestHeader == nil {
-			pindexBestHeader = activeChain.Tip()
-			activeChain.SetIndexBestHeader(pindexBestHeader)
-		}
-		pindexStart := pindexBestHeader
+		pindexStart := activeChain.GetIndexBestHeader()
 		/**
 		 * If possible, start at the block preceding the currently best
 		 * known header. This ensures that we always get a non-empty list of
@@ -444,12 +433,7 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 
 	if !lblock.IsInitialBlockDownload() && peer.VerAckReceived() {
 		gChain := chain.GetInstance()
-		pindexBestHeader := gChain.GetIndexBestHeader()
-		if pindexBestHeader == nil {
-			pindexBestHeader = gChain.Tip()
-			gChain.SetIndexBestHeader(pindexBestHeader)
-		}
-		pindexStart := pindexBestHeader
+		pindexStart := gChain.GetIndexBestHeader()
 		if pindexStart.Prev != nil {
 			pindexStart = pindexStart.Prev
 		}
