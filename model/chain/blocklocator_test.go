@@ -3,12 +3,14 @@ package chain
 import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/util"
 	"testing"
 )
 
 func TestChain_GetLocator(t *testing.T) {
-	InitGlobalChain()
+	makeTestBlockTreeDB()
+	InitGlobalChain(blkdb.GetInstance())
 	tChain := GetInstance()
 
 	tChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)

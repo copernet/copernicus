@@ -5,7 +5,6 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
@@ -294,7 +293,7 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 			log.Debug("AcceptBlockHeader Invalid Pre index")
 			return nil, errcode.ProjectError{Code: 3100}
 		}
-		if err := lblockindex.CheckIndexAgainstCheckpoint(bIndex.Prev); err != nil {
+		if err := gChain.CheckIndexAgainstCheckpoint(bIndex.Prev); err != nil {
 			log.Debug("AcceptBlockHeader err:%d", 3100)
 			return nil, errcode.ProjectError{Code: 3100}
 		}

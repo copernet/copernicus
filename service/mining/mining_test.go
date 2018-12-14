@@ -55,7 +55,7 @@ func initTestEnv(t *testing.T, initScriptVerify bool) (dirpath string, err error
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		FilePath:  conf.DataDir + "/chainstate",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
@@ -64,7 +64,7 @@ func initTestEnv(t *testing.T, initScriptVerify bool) (dirpath string, err error
 
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		FilePath:  conf.DataDir + "/blocks/index",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}

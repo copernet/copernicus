@@ -3,13 +3,20 @@ package chain
 import (
 	"errors"
 	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
+	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/disk"
+	"math/big"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -52,7 +59,7 @@ func GetInstance() *Chain {
 	return globalChain
 }
 
-func InitGlobalChain() {
+func InitGlobalChain(btd *blkdb.BlockTreeDB) bool {
 	if globalChain == nil {
 		globalChain = NewChain()
 	}
@@ -66,6 +73,120 @@ func InitGlobalChain() {
 	} else {
 		HashAssumeValid = model.ActiveNetParams.DefaultAssumeValid
 	}
+	if !globalChain.loadBlockIndex(btd) {
+		return false
+	}
+
+	return true
+}
+
+func (c *Chain) loadBlockIndex(btd *blkdb.BlockTreeDB) bool {
+	globalBlockIndexMap := make(map[util.Hash]*blockindex.BlockIndex)
+	branch := make([]*blockindex.BlockIndex, 0, 20)
+
+	// Load blockindex from DB
+	if !btd.LoadBlockIndexGuts(globalBlockIndexMap, c.GetParams()) {
+		return false
+	}
+	sortedByHeight := make([]*blockindex.BlockIndex, 0, len(globalBlockIndexMap))
+	for _, index := range globalBlockIndexMap {
+		sortedByHeight = append(sortedByHeight, index)
+	}
+	//sort by decrease
+	sort.SliceStable(sortedByHeight, func(i, j int) bool {
+		return sortedByHeight[i].Height < sortedByHeight[j].Height
+	})
+	for _, index := range sortedByHeight {
+		timeMax := index.Header.Time
+		if index.Prev != nil {
+			sum := big.NewInt(0)
+			sum.Add(&index.Prev.ChainWork, pow.GetBlockProof(index))
+			index.ChainWork = *sum
+			if index.Header.Time < index.Prev.Header.Time {
+				timeMax = index.Prev.Header.Time
+			}
+		} else {
+			index.ChainWork = *pow.GetBlockProof(index)
+		}
+		index.TimeMax = timeMax
+		// We can link the chain of blocks for which we've received transactions
+		// at some point. Pruned nodes may have deleted the block.
+		if index.TxCount < 0 {
+			log.Error("index's Txcount is < 0 ")
+			panic("index's Txcount is < 0 ")
+		}
+		if index.Prev != nil {
+			if index.Prev.ChainTxCount != 0 && index.TxCount != 0 {
+				index.ChainTxCount = index.Prev.ChainTxCount + index.TxCount
+				branch = append(branch, index)
+			} else {
+				index.ChainTxCount = 0
+				c.AddToOrphan(index)
+			}
+		} else {
+			// genesis block
+			index.ChainTxCount = index.TxCount
+			branch = append(branch, index)
+		}
+
+		if index.Prev != nil {
+			index.BuildSkip()
+		}
+
+		if index.IsValid(blockindex.BlockValidTree) {
+			idxBestHeader := c.GetIndexBestHeader()
+			if idxBestHeader == nil ||
+				idxBestHeader.ChainWork.Cmp(&index.ChainWork) == -1 {
+				c.SetIndexBestHeader(index)
+			}
+		}
+	}
+	log.Debug("LoadBlockIndexDB, BlockIndexMap len:%d, Branch len:%d, Orphan len:%d",
+		len(globalBlockIndexMap), len(branch), c.ChainOrphanLen())
+
+	// Check presence of block index files
+	setBlkDataFiles := set.New()
+	log.Debug("Checking all blk files are present...")
+	for _, item := range globalBlockIndexMap {
+		index := item
+		if index.HasData() {
+			setBlkDataFiles.Add(index.File)
+		}
+	}
+	l := setBlkDataFiles.List()
+	for _, item := range l {
+		pos := &block.DiskBlockPos{
+			File: item.(int32),
+			Pos:  0,
+		}
+		file := disk.OpenBlockFile(pos, true)
+		if file == nil {
+			log.Debug("Check block file: %d error, please delete blocks and chainstate and run again", pos.File)
+			panic("LoadBlockIndexDB: check block file err")
+		}
+		file.Close()
+	}
+
+	// Build chain's active
+	c.InitLoad(globalBlockIndexMap, branch)
+	bestHash, err := utxo.GetUtxoCacheInstance().GetBestBlock()
+	log.Debug("find bestblock hash:%s and err:%v from utxo", bestHash, err)
+	if err == nil {
+		tip, ok := globalBlockIndexMap[bestHash]
+		if !ok {
+			//shoud reindex from db
+			log.Debug("can't find beskblock from blockindex db, please delete blocks and chainstate and run again")
+			panic("can't find tip from blockindex db")
+		}
+		// init active chain by tip[load from db]
+		c.SetTip(tip)
+		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s, tiphash:%s\n",
+			c.Tip().GetBlockHash(), c.Height(),
+			time.Unix(int64(c.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
+			c.Tip().GetBlockHash())
+	}
+
+	return true
 }
 
 // Close FIXME: this is only for test. We must do it in a graceful way
@@ -644,4 +765,29 @@ func (c *Chain) SetIndexBestHeader(idx *blockindex.BlockIndex) {
 	c.pindexBestHeaderLock.Lock()
 	c.pindexBestHeader = idx
 	c.pindexBestHeaderLock.Unlock()
+}
+
+func (c *Chain) CheckIndexAgainstCheckpoint(preIndex *blockindex.BlockIndex) (err error) {
+	if preIndex.IsGenesis(c.GetParams()) {
+		return nil
+	}
+
+	nHeight := preIndex.Height + 1
+	// Don't accept any forks from the main chain prior to last checkpoint
+	params := c.GetParams()
+	checkPoints := params.Checkpoints
+	var checkPoint *model.Checkpoint
+	for i := len(checkPoints) - 1; i >= 0; i-- {
+		checkPointIndex := c.FindBlockIndex(*checkPoints[i].Hash)
+		if checkPointIndex != nil {
+			checkPoint = checkPoints[i]
+			break
+		}
+	}
+
+	if checkPoint != nil && nHeight < checkPoint.Height {
+		return errcode.NewError(errcode.RejectCheckpoint, "bad-fork-prior-to-checkpoint")
+	}
+
+	return nil
 }

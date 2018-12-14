@@ -23,7 +23,7 @@ func TestGetBestBlock(t *testing.T) {
 	}
 	defer os.RemoveAll(testDataDir)
 	uc := &UtxoConfig{Do: &db.DBOption{
-		FilePath:  conf.Cfg.DataDir,
+		FilePath:  conf.DataDir,
 		CacheSize: 1 << 20,
 	}}
 	InitUtxoLruTip(uc)
@@ -71,7 +71,7 @@ func TestLRUCache(t *testing.T) {
 	}
 	defer os.RemoveAll(testDataDir)
 	uc := &UtxoConfig{Do: &db.DBOption{
-		FilePath:  conf.Cfg.DataDir,
+		FilePath:  conf.DataDir,
 		CacheSize: 1 << 20,
 	}}
 	InitUtxoLruTip(uc)
@@ -121,7 +121,7 @@ func TestUpdateCoins(t *testing.T) {
 	}
 	defer os.RemoveAll(testDataDir)
 	uc := &UtxoConfig{Do: &db.DBOption{
-		FilePath:  conf.Cfg.DataDir,
+		FilePath:  conf.DataDir,
 		CacheSize: 1 << 20,
 	}}
 	InitUtxoLruTip(uc)
@@ -186,7 +186,7 @@ func TestUpdateCoins2(t *testing.T) {
 	}
 	defer os.RemoveAll(testDataDir)
 	uc := &UtxoConfig{Do: &db.DBOption{
-		FilePath:  conf.Cfg.DataDir,
+		FilePath:  conf.DataDir,
 		CacheSize: 1 << 20,
 	}}
 	InitUtxoLruTip(uc)
@@ -233,7 +233,7 @@ func TestAccessByTxid(t *testing.T) {
 	}
 	defer os.RemoveAll(testDataDir)
 	uc := &UtxoConfig{Do: &db.DBOption{
-		FilePath:  conf.Cfg.DataDir,
+		FilePath:  conf.DataDir,
 		CacheSize: 1 << 20,
 	}}
 	InitUtxoLruTip(uc)

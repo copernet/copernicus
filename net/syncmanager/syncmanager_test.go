@@ -9,7 +9,6 @@ import (
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmerkleroot"
 	"github.com/copernet/copernicus/model"
@@ -97,19 +96,16 @@ func appInitMain(args []string) {
 	})
 
 	// Init UTXO DB
-	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
+	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
 	utxo.InitUtxoLruTip(&utxoConfig)
 
-	chain.InitGlobalChain()
-
 	// Init blocktree DB
-	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.Cfg.DataDir + "/blocks/index", CacheSize: (1 << 20) * 8}}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.DataDir + "/blocks/index", CacheSize: (1 << 20) * 8}}
 	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-	persist.InitPersistGlobal()
+	chain.InitGlobalChain(blkdb.GetInstance())
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
-	// Load blockindex DB
-	lblockindex.LoadBlockIndexDB()
 	lchain.InitGenesisChain()
 
 	mempool.InitMempool()
@@ -1021,7 +1017,7 @@ func initTestEnv() func() {
 	}
 
 	tmpCfg := conf.InitConfig([]string{})
-	conf.Cfg.DataDir = tmpCfg.DataDir
+	conf.DataDir = tmpCfg.DataDir
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 	fmt.Printf("test in temp dir: %s\n", unitTestDataDirPath)
@@ -1033,7 +1029,7 @@ func initTestEnv() func() {
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/chainstate",
+		FilePath:  conf.DataDir + "/chainstate",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}
@@ -1044,7 +1040,7 @@ func initTestEnv() func() {
 
 	// Init blocktree DB
 	blkDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/blocks/index",
+		FilePath:  conf.DataDir + "/blocks/index",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      conf.Cfg.Reindex,
 	}

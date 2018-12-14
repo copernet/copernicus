@@ -190,7 +190,7 @@ func TestCheckDiskSpace(t *testing.T) {
 		t.Fatalf("init test environment failed: %s", err)
 	}
 	defer os.RemoveAll(testDirPath)
-	ds := DiskUsage(conf.Cfg.DataDir)
+	ds := DiskUsage(conf.DataDir)
 	ok := CheckDiskSpace(math.MaxUint32)
 	if !ok {
 		t.Error("the disk space not enough use.")

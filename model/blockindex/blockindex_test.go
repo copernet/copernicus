@@ -2,7 +2,16 @@ package blockindex
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/copernet/copernicus/conf"
+	"github.com/copernet/copernicus/model/chain"
+	"github.com/copernet/copernicus/model/utxo"
+	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
+	"io/ioutil"
 	"math/rand"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -287,3 +296,83 @@ func TestRaiseValidity(t *testing.T) {
 		t.Error("bIndex.RaiseValidity failed")
 	}
 }
+
+var pathblockdb string
+var pathutxodb string
+
+func initBlockDB() {
+	var err error
+	pathblockdb, err = ioutil.TempDir("/tmp", "blockindextest")
+	if err != nil {
+		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
+	}
+	bc := &blkdb.BlockTreeDBConfig{
+		Do: &db.DBOption{
+			FilePath:  pathblockdb,
+			CacheSize: 1 << 20,
+		},
+	}
+
+	blkdb.InitBlockTreeDB(bc)
+}
+
+func initUtxoDB() {
+	var err error
+	pathutxodb, err = ioutil.TempDir("/tmp", "utxotest")
+	if err != nil {
+		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
+	}
+
+	dbo := db.DBOption{
+		FilePath:       pathutxodb,
+		CacheSize:      1 << 20,
+		Wipe:           false,
+		DontObfuscate:  false,
+		ForceCompactdb: false,
+	}
+
+	uc := &utxo.UtxoConfig{
+		Do: &dbo,
+	}
+	utxo.InitUtxoLruTip(uc)
+}
+
+func initGenesis() {
+	GlobalBlockIndexMap := make(map[util.Hash]*BlockIndex)
+	branch := make([]*BlockIndex, 0, 20)
+	gChain := chain.GetInstance()
+	gChain.InitLoad(GlobalBlockIndexMap, branch)
+
+	bl := gChain.GetParams().GenesisBlock
+	bIndex := NewBlockIndex(&bl.Header)
+	bIndex.Height = 0
+	bIndex.TxCount = 1
+	bIndex.ChainTxCount = 1
+	bIndex.File = 0
+	bIndex.AddStatus(BlockHaveData)
+	bIndex.RaiseValidity(BlockValidTransactions)
+	err := gChain.AddToIndexMap(bIndex)
+	if err != nil {
+		panic("AddToIndexMap fail")
+	}
+}
+
+func initEnv() {
+	model.SetRegTestParams()
+	conf.Cfg = &conf.Configuration{}
+	conf.DataDir = "/tmp"
+	chain.InitGlobalChain(blkdb.GetInstance())
+	//gChain := chain.GetInstance()
+	//gChain.SetTip(nil)
+	initBlockDB()
+	initUtxoDB()
+	persist.InitPersistGlobal(blkdb.GetInstance())
+}
+
+func cleanEnv() {
+	os.RemoveAll(pathblockdb)
+	os.RemoveAll(pathutxodb)
+}
+
+var timePerBlock = int64(model.ActiveNetParams.TargetTimePerBlock)
+var initBits = uint32(0x207FFFFF)

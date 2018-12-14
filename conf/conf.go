@@ -41,7 +41,6 @@ type Configuration struct {
 	GoVersion          string `validate:"require"` //description:"Display version information and exit"
 	Version            string `validate:"require"` //description:"Display version information of copernicus"
 	BuildDate          string `validate:"require"` //description:"Display build date of copernicus"
-	DataDir            string `default:"data"`
 	Reindex            bool
 	Excessiveblocksize uint64
 
@@ -252,7 +251,6 @@ func InitConfig(args []string) *Configuration {
 	must(nil, viper.Unmarshal(config))
 
 	// set data dir
-	config.DataDir = DataDir
 	config.Reindex = opts.Reindex
 	config.Excessiveblocksize = opts.Excessiveblocksize
 	config.Mempool.LimitAncestorCount = opts.Limitancestorcount
@@ -389,7 +387,6 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 	}
 
 	DataDir = testDataDir
-	config.DataDir = testDataDir
 
 	return testDataDir, nil
 }

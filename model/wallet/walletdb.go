@@ -14,7 +14,7 @@ type WalletDB struct {
 
 func (wdb *WalletDB) initDB() {
 	walletDbCfg := &db.DBOption{
-		FilePath:  conf.Cfg.DataDir + "/wallet",
+		FilePath:  conf.DataDir + "/wallet",
 		CacheSize: (1 << 20) * 8,
 		Wipe:      false,
 	}

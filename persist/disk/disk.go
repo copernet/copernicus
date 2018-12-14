@@ -24,8 +24,6 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/model"
-	"github.com/copernet/copernicus/model/chain"
-	"github.com/copernet/copernicus/model/mempool"
 	"github.com/copernet/copernicus/model/undo"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/net/wire"
@@ -96,7 +94,7 @@ func GetBlockPosFilename(pos block.DiskBlockPos, prefix string) string {
 }
 
 func GetBlockPosParentFilename() string {
-	return conf.Cfg.DataDir + "/blocks/"
+	return conf.DataDir + "/blocks/"
 }
 
 func AllocateFileRange(file *os.File, offset uint32, length uint32) {
@@ -305,9 +303,9 @@ func WriteBlockToDisk(block *block.Block, pos *block.DiskBlockPos) bool {
 	return true
 }
 
-func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
+func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int, mempoolUsage int64, mempoolSizeMax int64) error {
 	var (
-		params          = model.ActiveNetParams
+		//params          = model.ActiveNetParams
 		setFilesToPrune = set.New()
 	)
 
@@ -317,7 +315,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	coinsTip := utxo.GetUtxoCacheInstance()
 	blockTree := blkdb.GetInstance()
 	gPersist := persist.GetInstance()
-	mem := mempool.GetInstance()
+	//mem := mempool.GetInstance()
 	flushForPrune := false
 	dbPeakUsageFactor := int64(2)
 	maxBlockCoinsDBUsage := float64(dbPeakUsageFactor * 200)
@@ -326,12 +324,12 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 	dataBaseFlushInterval := 24 * 60 * 60
 	minBlockCoinsDBUsage := 50 * dbPeakUsageFactor
 
-	if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !persist.Reindex {
-		FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
-	} else {
-		FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
-		gps.CheckForPruning = false
-	}
+	//if gps.PruneMode && (gps.CheckForPruning || nManualPruneHeight > 0) && !persist.Reindex {
+	//	FindFilesToPruneManual(setFilesToPrune, nManualPruneHeight)
+	//} else {
+	//	FindFilesToPrune(setFilesToPrune, uint64(params.PruneAfterHeight))
+	//	gps.CheckForPruning = false
+	//}
 	if !setFilesToPrune.IsEmpty() {
 		flushForPrune = true
 		if !gps.HavePruned {
@@ -356,8 +354,8 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 		gPersist.GlobalLastSetChain = int(nNow)
 	}
 
-	mempoolUsage := mem.GetPoolUsage()
-	mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
+	//mempoolUsage := mem.GetPoolUsage()
+	//mempoolSizeMax := int64(persist.DefaultMaxMemPoolSize) * 1000000
 	cacheSize := coinsTip.DynamicMemoryUsage() * dbPeakUsageFactor
 	totalSpace := float64(coinCacheUsage) + math.Max(float64(mempoolSizeMax-mempoolUsage), 0)
 	// The cache is large and we're within 10% and 200 MiB or 50% and 50MiB
@@ -442,7 +440,7 @@ func FlushStateToDisk(mode FlushStateMode, nManualPruneHeight int) error {
 }
 
 func CheckDiskSpace(nAdditionalBytes uint32) bool {
-	path := conf.Cfg.DataDir
+	path := conf.DataDir
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {
@@ -608,77 +606,77 @@ func CalculateCurrentUsage() uint64 {
 }
 
 // FindFilesToPrune calculate the block/rev files that should be deleted to remain under target
-func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
-	gPersist := persist.GetInstance()
-	gChainActive := chain.GetInstance()
-	if gChainActive.Tip() == nil || gps.PruneTarget == 0 {
-		return
-	}
-	if uint64(gChainActive.Tip().Height) <= nPruneAfterHeight {
-		return
-	}
-	nLastBlockWeCanPrune := gChainActive.Tip().Height - block.MinBlocksToKeep
-	nCurrentUsage := CalculateCurrentUsage()
-	// We don't check to prune until after we've allocated new space for files,
-	// so we should leave a buffer under our target to account for another
-	// allocation before the next pruning.
-	nBuffer := uint64(persist.BlockFileChunkSize + persist.UndoFileChunkSize)
-	count := 0
-	if nCurrentUsage+nBuffer >= gps.PruneTarget {
-		for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
-			nBytesToPrune := uint64(gPersist.GlobalBlockFileInfo[fileNumber].Size + gPersist.GlobalBlockFileInfo[fileNumber].UndoSize)
-			if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 {
-				continue
-			}
-			// are we below our target?
-			if nCurrentUsage+nBuffer < gps.PruneTarget {
-				break
-			}
-			// don't prune files that could have a block within
-			// MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
-			if gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > nLastBlockWeCanPrune {
-				continue
-			}
-
-			PruneOneBlockFile(int32(fileNumber))
-			// Queue up the files for removal
-			setFilesToPrune.Add(fileNumber)
-			nCurrentUsage -= nBytesToPrune
-			count++
-		}
-	}
-
-	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
-		gps.PruneTarget/1024/1024, nCurrentUsage/1024/1024, (gps.PruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
-}
-
-func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
-	gPersist := persist.GetInstance()
-	gChainActive := chain.GetInstance()
-	if gps.PruneMode && manualPruneHeight <= 0 {
-		panic("the PruneMode is false and manualPruneHeight equal zero")
-	}
-
-	persist.CsLastBlockFile.Lock()
-	defer persist.CsLastBlockFile.Unlock()
-
-	if gChainActive.Tip() == nil {
-		return
-	}
-
-	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
-	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(gChainActive.Tip().Height-block.MinBlocksToKeep))
-	count := 0
-	for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
-		if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 || gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > gPersist.GlobalLastBlockFile {
-			continue
-		}
-		PruneOneBlockFile(int32(fileNumber))
-		setFilesToPrune.Add(fileNumber)
-		count++
-	}
-	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
-}
+//func FindFilesToPrune(setFilesToPrune *set.Set, nPruneAfterHeight uint64) {
+//	gPersist := persist.GetInstance()
+//	gChainActive := chain.GetInstance()
+//	if gChainActive.Tip() == nil || gps.PruneTarget == 0 {
+//		return
+//	}
+//	if uint64(gChainActive.Tip().Height) <= nPruneAfterHeight {
+//		return
+//	}
+//	nLastBlockWeCanPrune := gChainActive.Tip().Height - block.MinBlocksToKeep
+//	nCurrentUsage := CalculateCurrentUsage()
+//	// We don't check to prune until after we've allocated new space for files,
+//	// so we should leave a buffer under our target to account for another
+//	// allocation before the next pruning.
+//	nBuffer := uint64(persist.BlockFileChunkSize + persist.UndoFileChunkSize)
+//	count := 0
+//	if nCurrentUsage+nBuffer >= gps.PruneTarget {
+//		for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
+//			nBytesToPrune := uint64(gPersist.GlobalBlockFileInfo[fileNumber].Size + gPersist.GlobalBlockFileInfo[fileNumber].UndoSize)
+//			if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 {
+//				continue
+//			}
+//			// are we below our target?
+//			if nCurrentUsage+nBuffer < gps.PruneTarget {
+//				break
+//			}
+//			// don't prune files that could have a block within
+//			// MIN_BLOCKS_TO_KEEP of the main chain's tip but keep scanning
+//			if gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > nLastBlockWeCanPrune {
+//				continue
+//			}
+//
+//			PruneOneBlockFile(int32(fileNumber))
+//			// Queue up the files for removal
+//			setFilesToPrune.Add(fileNumber)
+//			nCurrentUsage -= nBytesToPrune
+//			count++
+//		}
+//	}
+//
+//	log.Info("prune", "Prune: target=%dMiB actual=%dMiB diff=%dMiB max_prune_height=%d removed %d blk/rev pairs\n",
+//		gps.PruneTarget/1024/1024, nCurrentUsage/1024/1024, (gps.PruneTarget-nCurrentUsage)/1024/1024, nLastBlockWeCanPrune, count)
+//}
+//
+//func FindFilesToPruneManual(setFilesToPrune *set.Set, manualPruneHeight int) {
+//	gPersist := persist.GetInstance()
+//	gChainActive := chain.GetInstance()
+//	if gps.PruneMode && manualPruneHeight <= 0 {
+//		panic("the PruneMode is false and manualPruneHeight equal zero")
+//	}
+//
+//	persist.CsLastBlockFile.Lock()
+//	defer persist.CsLastBlockFile.Unlock()
+//
+//	if gChainActive.Tip() == nil {
+//		return
+//	}
+//
+//	// last block to prune is the lesser of (user-specified height, MIN_BLOCKS_TO_KEEP from the tip)
+//	lastBlockWeCanPrune := math.Min(float64(manualPruneHeight), float64(gChainActive.Tip().Height-block.MinBlocksToKeep))
+//	count := 0
+//	for fileNumber := 0; int32(fileNumber) < gPersist.GlobalLastBlockFile; fileNumber++ {
+//		if gPersist.GlobalBlockFileInfo[fileNumber].Size == 0 || gPersist.GlobalBlockFileInfo[fileNumber].HeightLast > gPersist.GlobalLastBlockFile {
+//			continue
+//		}
+//		PruneOneBlockFile(int32(fileNumber))
+//		setFilesToPrune.Add(fileNumber)
+//		count++
+//	}
+//	log.Info("Prune (Manual): prune_height=%d removed %d blk/rev pairs\n", lastBlockWeCanPrune, count)
+//}
 
 // PruneOneBlockFile prune a block file (modify associated database entries)
 func PruneOneBlockFile(fileNumber int32) {

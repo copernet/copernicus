@@ -8,7 +8,6 @@ import (
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/logic/lblock"
-	"github.com/copernet/copernicus/logic/lblockindex"
 	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/ltx"
 	"github.com/copernet/copernicus/model"
@@ -532,7 +531,7 @@ func TestBlockValidity(block *block.Block, indexPrev *blockindex.BlockIndex, che
 		return errcode.NewError(errcode.RejectInvalid, "indexPrev is not the chain tip")
 	}
 
-	if err = lblockindex.CheckIndexAgainstCheckpoint(indexPrev); err != nil {
+	if err = chain.GetInstance().CheckIndexAgainstCheckpoint(indexPrev); err != nil {
 		log.Error("TestBlockValidity(): check index against check point failed, indexPrev:%v.", indexPrev)
 		return err
 	}

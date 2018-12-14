@@ -11,6 +11,7 @@ import (
 	"github.com/copernet/copernicus/model/txin"
 	"github.com/copernet/copernicus/model/txout"
 	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/util"
 	"github.com/magiconair/properties/assert"
 	"gopkg.in/fatih/set.v0"
@@ -20,7 +21,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	persist.InitPersistGlobal()
+	persist.InitPersistGlobal(blkdb.GetInstance())
 	conf.Cfg = conf.InitConfig([]string{})
 	os.Exit(m.Run())
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/persist"
+	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/util"
 	"github.com/stretchr/testify/assert"
 	"math/big"
@@ -48,7 +49,6 @@ func initEnv() {
 	conf.Cfg = &conf.Configuration{}
 	conf.Cfg.BlockIndex.CheckBlockIndex = true
 
-	chain.InitGlobalChain()
 	gChain := chain.GetInstance()
 	gChain.SetTip(nil)
 
@@ -56,7 +56,8 @@ func initEnv() {
 	branch := make([]*blockindex.BlockIndex, 0, 20)
 	gChain.InitLoad(GlobalBlockIndexMap, branch)
 
-	persist.InitPersistGlobal()
+	chain.InitGlobalChain(blkdb.GetInstance())
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	bl := gChain.GetParams().GenesisBlock
 	bIndex := blockindex.NewBlockIndex(&bl.Header)
@@ -151,7 +152,7 @@ func TestCheckBlockIndex_Invalid(t *testing.T) {
 	conf.Cfg = &conf.Configuration{}
 	conf.Cfg.BlockIndex.CheckBlockIndex = true
 
-	chain.InitGlobalChain()
+	chain.InitGlobalChain(blkdb.GetInstance())
 	gChain := chain.GetInstance()
 	gChain.SetTip(nil)
 
@@ -159,7 +160,7 @@ func TestCheckBlockIndex_Invalid(t *testing.T) {
 	branch := make([]*blockindex.BlockIndex, 0, 20)
 	gChain.InitLoad(GlobalBlockIndexMap, branch)
 
-	persist.InitPersistGlobal()
+	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	err := CheckBlockIndex()
 	assert.NotNil(t, err)
