@@ -213,8 +213,8 @@ func (pss *peerSyncState) onStartSync(syncPeer *peer.Peer) {
 
 	pss.headersSyncTimeout =
 		util.GetTimeMicroSec() +
-		timeoutBase +
-		timeoutPerHeader * headersToSync
+			timeoutBase +
+			timeoutPerHeader*headersToSync
 
 	log.Info("start to sync %d headers from peer(%s),", headersToSync, syncPeer.Addr())
 }
@@ -228,7 +228,7 @@ func (sm *SyncManager) checkIBDHeadersSync() {
 
 	bestHeader := chain.GetInstance().GetIndexBestHeader()
 
-	if int64(bestHeader.GetBlockTime()) > (util.GetAdjustedTimeSec() - 24 * 60 * 60) {
+	if int64(bestHeader.GetBlockTime()) > (util.GetAdjustedTimeSec() - 24*60*60) {
 		log.Info("headers synced from peer:%s", sm.syncPeer.Addr())
 		//reset the timeout so we can't trigger disconnect later.
 		state.headersSyncTimeout = 0
@@ -589,7 +589,7 @@ func (sm *SyncManager) fetchMissingTx(missTxs []util.Hash, peer peer.MsgSender) 
 // current returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
 func (sm *SyncManager) current() bool {
-	if !chain.GetInstance().IsCurrent() {
+	if lblock.IsInitialBlockDownload() {
 		return false
 	}
 
