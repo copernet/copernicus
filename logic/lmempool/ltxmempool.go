@@ -48,11 +48,13 @@ func AcceptNewTxToMempool(txn *tx.Tx, bestChainHeight int32, nodeID int64) (acce
 	}
 	err = addTxToMemPoolUnchecked(pool, txEntry)
 	if err == nil {
-		accepted, rejected = TryAcceptOrphansTxs(txn, bestChainHeight, true)
 		if !pool.HaveTransaction(txn) {
-			log.Error("the tx(%s) not exist in mempool", txn.GetHash())
-			return nil, nil, []util.Hash{txn.GetHash()}, fmt.Errorf("not found tx(%s) after insertion", txn.GetHash())
+			log.Warn("not found txn(%s) after insertion which may be evicted",
+				txn.GetHash())
+			return nil, nil, nil, nil
 		}
+		accepted, rejected = TryAcceptOrphansTxs(txn, bestChainHeight, true)
+
 		_, file, line, _ := runtime.Caller(1)
 		accepted = append([]*tx.Tx{txn}, accepted...)
 		for _, t := range accepted {
