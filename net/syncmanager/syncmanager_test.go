@@ -1209,11 +1209,7 @@ func TestSyncManager_startsync_alreadysync(t *testing.T) {
 	sm.peerStates[inpeer] = syncState
 	inpeer.UpdateLastBlockHeight(1024)
 	inpeer.SetAckReceived(true)
-	gChain := chain.GetInstance()
-	bak := gChain.GetIndexBestHeader()
-	gChain.SetIndexBestHeader(nil)
 	sm.startSync()
-	gChain.SetIndexBestHeader(bak)
 	sm.Stop()
 }
 
