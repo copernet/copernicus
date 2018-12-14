@@ -197,6 +197,64 @@ type peerSyncState struct {
 	requestedTxns       map[util.Hash]struct{}
 	requestedBlocks     map[util.Hash]struct{}
 	unconnectingHeaders int
+	headersSyncTimeout  int64
+}
+
+func (pss *peerSyncState) onStartSync(syncPeer *peer.Peer) {
+	bestHeader := chain.GetInstance().GetIndexBestHeader()
+	if bestHeader == nil {
+		bestHeader = chain.GetInstance().Tip()
+	}
+
+	timeToCatchUp := util.GetAdjustedTimeSec() - int64(bestHeader.GetBlockTime())
+	headersToSync := timeToCatchUp / int64(model.ActiveNetParams.TargetTimePerBlock)
+
+	// Headers download timeout expressed in microseconds.
+	// Timeout = base + per_header * (expected number of headers)
+	const timeoutBase = 15 * 60 * 1000000 // 15 minutes
+	const timeoutPerHeader = 1000         // 1ms/header
+
+	pss.headersSyncTimeout =
+		util.GetTimeMicroSec() +
+		timeoutBase +
+		timeoutPerHeader * headersToSync
+
+	log.Info("start to sync %d headers from peer(%s),", headersToSync, syncPeer.Addr())
+}
+
+func (sm *SyncManager) checkIBDHeadersSync() {
+	if sm.current() || sm.syncPeer == nil {
+		return
+	}
+
+	state := sm.peerStates[sm.syncPeer]
+
+	bestHeader := chain.GetInstance().GetIndexBestHeader()
+	if bestHeader == nil {
+		bestHeader = chain.GetInstance().Tip()
+	}
+
+	if int64(bestHeader.GetBlockTime()) > (util.GetAdjustedTimeSec() - 24 * 60 * 60) {
+		log.Info("headers synced from peer:%s", sm.syncPeer.Addr())
+		//reset the timeout so we can't trigger disconnect later.
+		state.headersSyncTimeout = 0
+		return
+	}
+
+	if state.headersSyncTimeout > 0 &&
+		util.GetTimeMicroSec() > state.headersSyncTimeout {
+
+		//TODO: nPreferredDownload - state.fPreferredDownload >= 1
+		if !sm.syncPeer.IsWhitelisted() {
+			sm.syncPeer.Disconnect()
+			log.Warn("disconnect timeout sync peer:%s", sm.syncPeer.Addr())
+		}
+
+		state.headersSyncTimeout = 0
+		sm.syncPeer = nil
+		sm.startSync()
+		log.Warn("sync headers from peer timeout, restart sync")
+	}
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -322,6 +380,9 @@ func (sm *SyncManager) startSync() {
 		bestPeer.PushGetHeadersMsg(*locator, &zeroHash)
 
 		sm.syncPeer = bestPeer
+		state := sm.peerStates[sm.syncPeer]
+		state.onStartSync(sm.syncPeer)
+
 		if sm.current() {
 			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
@@ -1251,6 +1312,7 @@ out:
 		select {
 		//for all peer to try fetchHeaderBlocks
 		case <-fetchTicker.C:
+			sm.checkIBDHeadersSync()
 			sm.scanToFetchHeaderBlocks()
 
 		//business msg
