@@ -811,10 +811,6 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	//
 	// This mirrors the behavior in the reference implementation.
 	headers := lchain.LocateHeaders(chain.NewBlockLocator(hashpointer2hashinstance(msg.BlockLocatorHashes)), &msg.HashStop)
-	if len(headers) == 0 {
-		// Nothing to send.
-		return
-	}
 
 	// Send found headers to the requesting peer.
 	blockHeaders := make([]*block.BlockHeader, len(headers))
