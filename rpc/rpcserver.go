@@ -634,28 +634,26 @@ func NewServer(config *ServerConfig, ts *util.MedianTime) (*Server, error) {
 }
 
 func InitRPCServer(timeSource *util.MedianTime) (*Server, error) {
-	if !conf.Cfg.P2PNet.DisableRPC {
-		registerAllRPCCommands()
+	registerAllRPCCommands()
 
-		// Setup listeners for the configured RPC listen addresses and
-		// TLS settings.
-		rpcListeners, err := SetupRPCListeners()
-		if err != nil {
-			return nil, err
-		}
-		if len(rpcListeners) == 0 {
-			return nil, errors.New("RPCS: No valid listen address")
-		}
-
-		rpcServer, err := NewServer(&ServerConfig{
-			Listeners:   rpcListeners,
-			StartupTime: util.GetTimeSec(),
-		}, timeSource)
-		if err != nil {
-			return nil, err
-		}
-
-		return rpcServer, nil
+	// Setup listeners for the configured RPC listen addresses and
+	// TLS settings.
+	rpcListeners, err := SetupRPCListeners()
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+
+	if len(rpcListeners) == 0 {
+		return nil, errors.New("RPCS: No valid listen address")
+	}
+
+	rpcServer, err := NewServer(&ServerConfig{
+		Listeners:   rpcListeners,
+		StartupTime: util.GetTimeSec(),
+	}, timeSource)
+	if err != nil {
+		return nil, err
+	}
+
+	return rpcServer, nil
 }
