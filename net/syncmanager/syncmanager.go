@@ -199,6 +199,9 @@ type peerSyncState struct {
 	requestedBlocks     map[util.Hash]struct{}
 	unconnectingHeaders int
 	headersSyncTimeout  int64
+	// syncStarted indicate whether we have send a GetHeaders msg from the peer
+	// when the pindexBestHeader is 24h near to now, to fetch all possible header
+	syncStarted bool
 }
 
 func (pss *peerSyncState) onStartSync(syncPeer *peer.Peer) {
@@ -1238,11 +1241,38 @@ func limitMap(m map[util.Hash]struct{}, limit int) {
 	}
 }
 
+func (sm *SyncManager) checkSyncHeaderOnce(p *peer.Peer, state *peerSyncState) {
+	if p == nil || state == nil {
+		return
+	}
+
+	if state.syncStarted {
+		return
+	}
+
+	gChain := chain.GetInstance()
+	bestHeader := gChain.GetIndexBestHeader()
+
+	if int64(bestHeader.GetBlockTime()) <= util.GetAdjustedTimeSec()-24*60*60 {
+		return
+	}
+
+	state.syncStarted = true
+
+	if bestHeader.Prev != nil {
+		bestHeader = bestHeader.Prev
+	}
+	locator := gChain.GetLocator(bestHeader)
+	p.PushGetHeadersMsg(*locator, &zeroHash)
+}
+
 func (sm *SyncManager) scanToFetchHeaderBlocks() {
 	for peer, state := range sm.peerStates {
 		if !state.syncCandidate {
 			continue
 		}
+
+		sm.checkSyncHeaderOnce(peer, state)
 
 		// detect whether we're stalling the concurrent download window
 		now := time.Now().UnixNano() / 1000
