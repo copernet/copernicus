@@ -1670,6 +1670,32 @@ cleanup:
 	log.Trace("Peer queue handler done for %s", p)
 }
 
+func (p *Peer) PeerHasHeader(idx *blockindex.BlockIndex) bool {
+	gChain := chain.GetInstance()
+	hash := p.LastAnnouncedBlock()
+	if hash == nil {
+		genesishash := gChain.GetParams().GenesisBlock.GetHash()
+		hash = &genesishash
+		p.UpdateLastAnnouncedBlock(hash)
+	}
+	pindex := gChain.FindBlockIndex(*hash)
+	if pindex == nil {
+		return false
+	}
+	if idx == pindex.GetAncestor(idx.Height) {
+		return true
+	}
+
+	idxBestSent := p.IndexBestHeaderSent()
+	if idxBestSent == nil {
+		return false
+	}
+	if idx == idxBestSent.GetAncestor(idx.Height) {
+		return true
+	}
+	return false
+}
+
 func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 	headerSendQueue := list.New()
 
@@ -1681,9 +1707,43 @@ func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 		if headerSendQueue.Len() <= maxBlocksToAnnounce {
 			if !p.RevertToInv() {
 				msgHeaders := wire.NewMsgHeaders()
+				var preidx *blockindex.BlockIndex
 				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
-					header := headerSendQueue.Remove(e).(*block.BlockHeader)
+					header := e.Value.(*block.BlockHeader)
+
+					gChain := chain.GetInstance()
+					pindex := gChain.FindBlockIndex(header.GetHash())
+					//after CMPCTBLOCK function implemented, we can open the comment
+					//idx := gChain.GetAncestor(pindex.Height)
+					//if idx != pindex {
+					//	// Bail out if we reorged away from this block
+					//		msgHeaders = wire.NewMsgHeaders()
+					//		break
+					//}
+
+					if preidx != nil && pindex.Prev != preidx {
+						// This means that the list of blocks to announce don't
+						// connect to each other. This shouldn't really be possible
+						// to hit during regular operation (because reorgs should
+						// take us to a chain that has some block not on the prior
+						// chain, which should be caught by the prior check), but
+						// one way this could happen is by using invalidateblock /
+						// reconsiderblock repeatedly on the tip, causing it to be
+						// added multiple times to vBlockHashesToAnnounce. Robustly
+						// deal with this rare situation by reverting to an inv.
+						msgHeaders = wire.NewMsgHeaders()
+						break
+					}
+					if preidx == nil && !p.PeerHasHeader(pindex.Prev) {
+						// Peer doesn't have this header or the prior one --
+						// nothing will connect, so bail out.
+						msgHeaders = wire.NewMsgHeaders()
+						break
+					}
+					preidx = pindex
+
 					msgHeaders.AddBlockHeader(header)
+					headerSendQueue.Remove(e)
 				}
 				if len(msgHeaders.Headers) > 0 {
 					p.outputQueue <- outMsg{msg: msgHeaders}
