@@ -23,6 +23,7 @@ import (
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
+	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/net/wire"
 	"github.com/copernet/copernicus/util"
@@ -479,15 +480,16 @@ type Peer struct {
 
 	// These fields keep track of statistics for the peer and are protected
 	// by the statsMtx mutex.
-	statsMtx           sync.RWMutex
-	timeOffset         int64
-	timeConnected      time.Time
-	startingHeight     int32
-	lastBlock          int32
-	lastAnnouncedBlock *util.Hash
-	lastPingNonce      uint64    // Set to nonce if we have a pending ping.
-	lastPingTime       time.Time // Time we sent last ping.
-	lastPingMicros     int64     // Time for last ping to return.
+	statsMtx             sync.RWMutex
+	timeOffset           int64
+	timeConnected        time.Time
+	startingHeight       int32
+	lastBlock            int32
+	lastAnnouncedBlock   *util.Hash
+	pindexBestHeaderSent *blockindex.BlockIndex
+	lastPingNonce        uint64    // Set to nonce if we have a pending ping.
+	lastPingTime         time.Time // Time we sent last ping.
+	lastPingMicros       int64     // Time for last ping to return.
 
 	stallControl      chan stallControlMsg
 	outputQueue       chan outMsg
@@ -678,6 +680,20 @@ func (p *Peer) LastAnnouncedBlock() *util.Hash {
 	p.statsMtx.RUnlock()
 
 	return lastAnnouncedBlock
+}
+
+func (p *Peer) UpdateIndexBestHeaderSent(idx *blockindex.BlockIndex) {
+	p.statsMtx.Lock()
+	p.pindexBestHeaderSent = idx
+	p.statsMtx.Unlock()
+}
+
+func (p *Peer) IndexBestHeaderSent() *blockindex.BlockIndex {
+	p.statsMtx.RLock()
+	pindexBestHeaderSent := p.pindexBestHeaderSent
+	p.statsMtx.RUnlock()
+
+	return pindexBestHeaderSent
 }
 
 // LastPingNonce returns the last ping nonce of the remote peer.
@@ -1671,6 +1687,7 @@ func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 				}
 				if len(msgHeaders.Headers) > 0 {
 					p.outputQueue <- outMsg{msg: msgHeaders}
+					p.UpdateIndexBestHeaderSent(preidx)
 				}
 			}
 		} else {

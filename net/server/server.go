@@ -817,6 +817,16 @@ func (sp *serverPeer) OnGetHeaders(_ *peer.Peer, msg *wire.MsgGetHeaders) {
 	for i := range headers {
 		blockHeaders[i] = &headers[i]
 	}
+	var idx *blockindex.BlockIndex
+	gChain := chain.GetInstance()
+	if len(headers) != 0 {
+		hash := headers[len(headers)-1].GetHash()
+		idx = gChain.FindBlockIndex(hash)
+	}
+	if idx == nil {
+		idx = gChain.Tip()
+	}
+	sp.UpdateIndexBestHeaderSent(idx)
 	sp.QueueMessage(&wire.MsgHeaders{Headers: blockHeaders}, nil)
 }
 
