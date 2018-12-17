@@ -1351,7 +1351,7 @@ func TestServer_UpdatePeerHeights(t *testing.T) {
 	sp.UpdateLastAnnouncedBlock(blockHash)
 	sp.UpdateLastBlockHeight(3)
 	svr.handleUpdatePeerHeights(&ps, updateMsg)
-	assert.Nil(t, sp.LastAnnouncedBlock())
+	assert.NotNil(t, sp.LastAnnouncedBlock())
 	assert.Equal(t, int32(4), sp.LastBlock())
 
 	// not update for no last announced block
