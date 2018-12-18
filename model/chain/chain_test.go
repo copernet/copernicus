@@ -50,13 +50,13 @@ func TestChain_Simple(t *testing.T) {
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
 	tChain.AddToBranch(bIndex[0])
 	tChain.AddToIndexMap(bIndex[0])
-	tChain.active = append(tChain.active, bIndex[0])
+	tChain.SetTip(bIndex[0])
 
 	for height = 1; height < 11; height++ {
 		bIndex[height] = getBlockIndex(bIndex[height-1], timePerBlock, initBits)
 		tChain.AddToBranch(bIndex[height])
 		tChain.AddToIndexMap(bIndex[height])
-		tChain.active = append(tChain.active, bIndex[height])
+		tChain.SetTip(bIndex[height])
 	}
 	for height = 11; height < 16; height++ {
 		bIndex[height] = getBlockIndex(bIndex[height-1], timePerBlock, initBits)
@@ -82,9 +82,7 @@ func TestChain_Simple(t *testing.T) {
 	if tChain.TipHeight() != 10 {
 		t.Errorf("TipHeight Error")
 	}
-	if tChain.IsCurrent() {
-		t.Errorf("IsCurrent Error")
-	}
+
 	if tChain.GetSpendHeight(bIndex[15].GetBlockHash()) != 16 {
 		t.Errorf("GetSpendHeight Error")
 	}
@@ -127,7 +125,6 @@ func TestChain_Simple(t *testing.T) {
 	if tChain.ClearActive(); tChain.Tip() != nil {
 		t.Errorf("ClearActive Error")
 	}
-
 }
 
 func TestChain_Fork(t *testing.T) {
@@ -146,19 +143,18 @@ func TestChain_Fork(t *testing.T) {
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
 	tChain.AddToIndexMap(bIndex[0])
 	tChain.AddToBranch(bIndex[0])
-	tChain.active = append(tChain.active, bIndex[0])
+	tChain.SetTip(bIndex[0])
 
 	for height = 1; height < 11; height++ {
 		bIndex[height] = getBlockIndex(bIndex[height-1], timePerBlock, initBits)
 		tChain.AddToBranch(bIndex[height])
 		tChain.AddToIndexMap(bIndex[height])
-		tChain.active = append(tChain.active, bIndex[height])
+		tChain.SetTip(bIndex[height])
 	}
 	for height = 5; height < 15; height++ {
 		bIndex[height] = getBlockIndex(bIndex[height-1], timePerBlock-1, initBits)
 		tChain.AddToBranch(bIndex[height])
 		tChain.AddToIndexMap(bIndex[height])
-		tChain.active = append(tChain.active, bIndex[height])
 	}
 
 	if tChain.FindFork(bIndex[9]) != bIndex[4] {
@@ -167,6 +163,7 @@ func TestChain_Fork(t *testing.T) {
 
 	setTips := set.New()
 	setTips.Add(tChain.Tip())
+	setTips.Add(bIndex[14])
 
 	if !tChain.GetChainTips().IsEqual(setTips) {
 		t.Errorf("GetChainTips Error")
@@ -177,6 +174,7 @@ func TestChain_Fork(t *testing.T) {
 func TestChain_InitLoad(t *testing.T) {
 	InitGlobalChain()
 	tChain := GetInstance()
+	tChain.ClearActive()
 
 	tChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
 	bIndex := make([]*blockindex.BlockIndex, 50)
@@ -237,13 +235,13 @@ func TestChain_InitLoad(t *testing.T) {
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
 	tChain.AddToBranch(bIndex[0])
 	tChain.AddToIndexMap(bIndex[0])
-	tChain.active = append(tChain.active, bIndex[0])
+	tChain.SetTip(bIndex[0])
 
 	for height = 1; height < 11; height++ {
 		bIndex[height] = getBlockIndex(bIndex[height-1], timePerBlock, initBits)
 		tChain.AddToBranch(bIndex[height])
 		tChain.AddToIndexMap(bIndex[height])
-		tChain.active = append(tChain.active, bIndex[height])
+		tChain.SetTip(bIndex[height])
 	}
 	if tChain.SetTip(nil); tChain.Tip() != nil {
 		t.Errorf("SetTip Error")
