@@ -3,7 +3,6 @@ package chain
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/script"
@@ -60,7 +59,7 @@ func TestChain_Simple(t *testing.T) {
 
 	//Pile up some blocks
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
-	fmt.Printf("bIndex[0]'s hash: %s", bIndex[0].GetBlockHash())
+	//fmt.Printf("bIndex[0]'s hash: %s", bIndex[0].GetBlockHash())
 	tChain.AddToBranch(bIndex[0])
 	tChain.AddToIndexMap(bIndex[0])
 	tChain.SetTip(bIndex[0])
@@ -83,12 +82,12 @@ func TestChain_Simple(t *testing.T) {
 	if tChain.Genesis() != bIndex[0] {
 		t.Errorf("Genesis expect: %s, actual: %s", bIndex[0].GetBlockHash(), tChain.Genesis().GetBlockHash())
 	}
-	if tChain.FindHashInActive(model.GenesisBlockHash) != bIndex[0] {
+	if tChain.FindHashInActive(model.ActiveNetParams.GenesisBlock.GetHash()) != bIndex[0] {
 		t.Errorf("FindHashInActive Error, testDir: %s, model.GenesisBlockHash: %s, bIndex: %v, bIndex[0]: %v,"+
 			" bIndex[0]'s hash: %s", testDir, model.GenesisBlockHash.String(), bIndex, bIndex[0],
 			bIndex[0].GetBlockHash().String())
 	}
-	if tChain.FindBlockIndex(model.GenesisBlockHash) != bIndex[0] {
+	if tChain.FindBlockIndex(model.ActiveNetParams.GenesisBlock.GetHash()) != bIndex[0] {
 		t.Errorf("FindHashInActive Error")
 	}
 	if tChain.Tip() != bIndex[10] {
@@ -281,7 +280,7 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	//makeTestBlockTreeDB()
 	//InitGlobalChain(blkdb.GetInstance())
 	//testDir, err := initTestEnv(t, []string{"--regtest"})
-	testDir, err := initTestEnv(t, []string{"--regtest"})
+	testDir, err := initTestEnv(t, []string{""})
 	if err != nil {
 		t.Errorf("initTestEnv Error")
 	}
