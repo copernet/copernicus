@@ -301,8 +301,11 @@ func (c *Chain) Next(index *blockindex.BlockIndex) *blockindex.BlockIndex {
 // Height Return the maximal height in the chain. Is equal to chain.Tip() ?
 // chain.Tip()->nHeight : -1.
 func (c *Chain) Height() int32 {
-	chainLen := int32(len(c.active))
-	return chainLen - 1
+	if t := c.Tip(); t != nil {
+		return t.Height
+	}
+
+	return -1
 }
 
 // SetTip Set/initialize a chain with a given tip.
